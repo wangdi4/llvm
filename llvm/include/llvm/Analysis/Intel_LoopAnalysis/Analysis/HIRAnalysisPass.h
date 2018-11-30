@@ -154,7 +154,8 @@ template <typename... AnalysisTys> class HIRAnalysisProviderBase;
 template <> class HIRAnalysisProviderBase<> {
 public:
   template <typename T> T *get() {
-    llvm_unreachable("Requested analysis is not registered in the provider");
+    static_assert(!std::is_same<T, T>::value,
+                  "Requested analysis is not registered in the provider");
     return nullptr;
   }
 

@@ -96,11 +96,10 @@ VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
           LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
                      dbgs() << " from " << Cost << " to " << VLSCost << '\n');
           return VLSCost;
-        }
-        else
+        } else
           LLVM_DEBUG(dbgs() << "Cost for "; VPInst->print(dbgs());
-                     dbgs() << " was not reduced from " << Cost << " to " << VLSCost
-                            << '\n');
+                     dbgs() << " was not reduced from " << Cost << " to "
+                            << VLSCost << '\n');
       }
   return Cost;
 }

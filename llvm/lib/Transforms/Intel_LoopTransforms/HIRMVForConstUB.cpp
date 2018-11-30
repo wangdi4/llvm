@@ -173,11 +173,11 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
     if (!LastIf) {
       HLNodeUtils::insertAfter(Loop, If);
     } else {
-      HLNodeUtils::insertAsFirstChild(LastIf, If, false);
+      HLNodeUtils::insertAsFirstElseChild(LastIf, If);
     }
 
     HLLoop *NewLoop = Loop->clone();
-    HLNodeUtils::insertAsFirstChild(If, NewLoop, true);
+    HLNodeUtils::insertAsFirstThenChild(If, NewLoop);
     NewLoop->setMaxTripCountEstimate(0);
 
     RegDDRef *UpperRef = NewLoop->getUpperDDRef();
@@ -188,7 +188,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
     LastIf = If;
   }
 
-  HLNodeUtils::moveAsFirstChild(LastIf, Loop, false);
+  HLNodeUtils::moveAsFirstElseChild(LastIf, Loop);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(LastIf);
   LoopsMultiversioned++;
 }
@@ -203,8 +203,8 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
   HLIf *If = Loop->getHLNodeUtils().createHLIf(PredicateTy::ICMP_EQ, LHS, RHS);
 
   HLNodeUtils::insertAfter(Loop, If);
-  HLNodeUtils::insertAsFirstChild(If, Loop->clone(), false);
-  HLNodeUtils::moveAsFirstChild(If, Loop, true);
+  HLNodeUtils::insertAsFirstElseChild(If, Loop->clone());
+  HLNodeUtils::moveAsFirstThenChild(If, Loop);
 
   SmallVector<const RegDDRef *, 1> Aux = {Loop->getUpperDDRef()};
   LHS->makeConsistent(&Aux, Level - 1);

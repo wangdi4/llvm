@@ -337,7 +337,7 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
           // If the loop is marked with vector always pragma, mark that we
           // should ignore vectorization profitability in vectorizer cost
           // model.
-          W->setIgnoreProfitability(L->hasVectorizeAlwaysPragma());
+          W->setHasVectorAlways(L->hasVectorizeAlwaysPragma());
         }
       }
     }

@@ -1,4 +1,5 @@
 ; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes %s | FileCheck %s
 
 ; This case differs from resolve-types04.ll in that the %struct.middle*
 ; member of %struct.outer is accessed. In this case, remapping %struct.outer

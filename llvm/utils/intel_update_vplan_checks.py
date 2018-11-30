@@ -8,7 +8,7 @@ This script is an utility to update VPlan opt test cases with new FileCheck
 patterns.
 
 Example usage:
-$ intel_update_vplan_test_checks.py --opt=../bin/opt test/foo.ll
+$ intel_update_vplan_checks.py --opt=../bin/opt test/foo.ll
 
 Workflow:
 1. Make a compiler patch that requires updating some number of FileCheck lines

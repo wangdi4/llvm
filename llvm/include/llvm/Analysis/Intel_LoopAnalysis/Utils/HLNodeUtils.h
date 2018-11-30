@@ -296,6 +296,40 @@ private:
                                 HLContainerTy::iterator Last, unsigned CaseNum,
                                 bool isFirstChild);
 
+  /// Inserts an unlinked Node as first child of this If. The flag IsThenChild
+  /// indicates whether this is to be inserted as then or else child.
+  static void insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild);
+  static void insertAsFirstChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                    bool IsThenChild);
+  /// Inserts an unlinked Node as last child of this If. The flag IsThenChild
+  /// indicates whether this is to be inserted as then or else child.
+  static void insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild);
+  static void insertAsLastChildren(HLIf *If, HLContainerTy *NodeContainer,
+                                   bool IsThenChild);
+
+  /// Unlinks Node from its current position and inserts as first childa of this
+  /// If. The flag IsThenChild indicates whether this is to be moved as then or
+  /// else child.
+  static void moveAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild);
+  /// Unlinks Node from its current position and inserts as last child of this
+  /// If. The flag IsThenChild indicates whether this is to be moved as then or
+  /// else child.
+  static void moveAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild);
+
+  /// Unlinks [First, Last) from their current position and inserts them at the
+  /// begining of this If. The flag IsThenChild indicates whether they are to be
+  /// moved as then or else children.
+  static void moveAsFirstChildren(HLIf *If, HLContainerTy::iterator First,
+                                  HLContainerTy::iterator Last,
+                                  bool IsThenChild);
+  /// Unlinks [First, Last) from their current position and inserts them at the
+  /// end of this If. The flag IsThenChild indicates whether they are to be
+  /// moved as then or else children.
+  static void moveAsLastChildren(HLIf *If, HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last,
+                                 bool IsThenChild);
+
+  /// Inserts an unlinked Node as first default case child of switch.
   /// Returns true if nodes are valid types as preheader/postexit nodes.
   static bool validPreheaderPostexitNodes(HLContainerTy::iterator First,
                                           HLContainerTy::iterator Last);
@@ -927,16 +961,45 @@ public:
   /// The contents of NodeContainer will be empty after insertion.
   static void insertAsLastChildren(HLLoop *Loop, HLContainerTy *NodeContainer);
 
-  /// Inserts an unlinked Node as first child of this If. The flag IsThenChild
-  /// indicates whether this is to be inserted as then or else child.
-  static void insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild);
-  static void insertAsFirstChildren(HLIf *If, HLContainerTy *NodeContainer,
-                                    bool IsThenChild);
-  /// Inserts an unlinked Node as last child of this If. The flag IsThenChild
-  /// indicates whether this is to be inserted as then or else child.
-  static void insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild);
-  static void insertAsLastChildren(HLIf *If, HLContainerTy *NodeContainer,
-                                   bool IsThenChild);
+  /// Inserts unlinked \p Node as first then child of \p If.
+  static void insertAsFirstThenChild(HLIf *If, HLNode *Node) {
+    insertAsFirstChild(If, Node, true);
+  }
+
+  /// Inserts nodes in \p NodeContainer as first then children of \p If.
+  static void insertAsFirstThenChildren(HLIf *If, HLContainerTy *NodeContainer) {
+    insertAsFirstChildren(If, NodeContainer, true);
+  }
+
+  /// Inserts unlinked \p Node as last then child of \p If.
+  static void insertAsLastThenChild(HLIf *If, HLNode *Node) {
+    insertAsLastChild(If, Node, true);
+  }
+
+  /// Inserts nodes in \p NodeContainer as last then children of \p If.
+  static void insertAsLastThenChildren(HLIf *If, HLContainerTy *NodeContainer) {
+    insertAsLastChildren(If, NodeContainer, true);
+  }
+
+  /// Inserts unlinked \p Node as first else child of \p If.
+  static void insertAsFirstElseChild(HLIf *If, HLNode *Node) {
+    insertAsFirstChild(If, Node, false);
+  }
+
+  /// Inserts nodes in \p NodeContainer as first else children of \p If.
+  static void insertAsFirstElseChildren(HLIf *If, HLContainerTy *NodeContainer) {
+    insertAsFirstChildren(If, NodeContainer, false);
+  }
+
+  /// Inserts unlinked \p Node as last else child of \p If.
+  static void insertAsLastElseChild(HLIf *If, HLNode *Node) {
+    insertAsLastChild(If, Node, false);
+  }
+
+  /// Inserts nodes in \p NodeContainer as last else children of \p If.
+  static void insertAsLastElseChildren(HLIf *If, HLContainerTy *NodeContainer) {
+    insertAsLastChildren(If, NodeContainer, false);
+  }
 
   /// Inserts an unlinked Node as first default case child of switch.
   static void insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node);
@@ -991,14 +1054,25 @@ public:
   /// loop.
   static void moveAsLastChild(HLLoop *Loop, HLNode *Node);
 
-  /// Unlinks Node from its current position and inserts as first childa of this
-  /// If. The flag IsThenChild indicates whether this is to be moved as then or
-  /// else child.
-  static void moveAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild = true);
-  /// Unlinks Node from its current position and inserts as last child of this
-  /// If. The flag IsThenChild indicates whether this is to be moved as then or
-  /// else child.
-  static void moveAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild = true);
+  /// Unlinks \p Node from its current position and inserts as first then child of \p If.
+  static void moveAsFirstThenChild(HLIf *If, HLNode *Node) {
+    moveAsFirstChild(If, Node, true);
+  }
+
+  /// Unlinks \p Node from its current position and inserts as last then child of \p If.
+  static void moveAsLastThenChild(HLIf *If, HLNode *Node) {
+    moveAsLastChild(If, Node, true);
+  }
+
+  /// Unlinks \p Node from its current position and inserts as first else child of \p If.
+  static void moveAsFirstElseChild(HLIf *If, HLNode *Node) {
+    moveAsFirstChild(If, Node, false);
+  }
+
+  /// Unlinks \p Node from its current position and inserts as last else child of \p If.
+  static void moveAsLastElseChild(HLIf *If, HLNode *Node) {
+    moveAsLastChild(If, Node, false);
+  }
 
   /// Unlinks Node from its current position and inserts as first default case
   /// child of switch.
@@ -1058,18 +1132,29 @@ public:
   static void moveAsLastChildren(HLLoop *Loop, HLContainerTy::iterator First,
                                  HLContainerTy::iterator Last);
 
-  /// Unlinks [First, Last) from their current position and inserts them at the
-  /// begining of this If. The flag IsThenChild indicates whether they are to be
-  /// moved as then or else children.
-  static void moveAsFirstChildren(HLIf *If, HLContainerTy::iterator First,
-                                  HLContainerTy::iterator Last,
-                                  bool IsThenChild = true);
-  /// Unlinks [First, Last) from their current position and inserts them at the
-  /// end of this If. The flag IsThenChild indicates whether they are to be
-  /// moved as then or else children.
-  static void moveAsLastChildren(HLIf *If, HLContainerTy::iterator First,
-                                 HLContainerTy::iterator Last,
-                                 bool IsThenChild = true);
+  /// Unlinks [First, Last) from their current position and inserts them as first then children of \p If. 
+  static void moveAsFirstThenChildren(HLIf *If, HLContainerTy::iterator First,
+                                  HLContainerTy::iterator Last) {
+    moveAsFirstChildren(If, First, Last, true);
+  }
+
+  /// Unlinks [First, Last) from their current position and inserts them as last then children of \p If.
+  static void moveAsLastThenChildren(HLIf *If, HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last) {
+    moveAsLastChildren(If, First, Last, true);
+  }
+
+  /// Unlinks [First, Last) from their current position and inserts them as first else children of \p If. 
+  static void moveAsFirstElseChildren(HLIf *If, HLContainerTy::iterator First,
+                                  HLContainerTy::iterator Last) {
+    moveAsFirstChildren(If, First, Last, false);
+  }
+
+  /// Unlinks [First, Last) from their current position and inserts them as last else children of \p If.
+  static void moveAsLastElseChildren(HLIf *If, HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last) {
+    moveAsLastChildren(If, First, Last, false);
+  }
 
   /// Unlinks [First, Last) from their current position and inserts them at the
   /// beginning of default case child of switch.

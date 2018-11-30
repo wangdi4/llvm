@@ -13,28 +13,56 @@
 ;   return 0;
 ; }
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
-;
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s
+
 ; Generated HIR for the code above is following:
 ;
-; <0>       BEGIN REGION { }
-; <46>            + DO i1 = 0, 40, 1   <DO_LOOP>
-; <2>             |   %2 = (%ar)[0][0];
-; <4>             |   (%ar)[0][0] = %2 + 1;
-; <47>            |     
-; <47>            |   + DO i2 = 0, i1 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 40> 
-; <16>            |   |   if (i2 + 1 >u 1) 
-; <16>            |   |   { 
-; <24>            |   |      (%ar)[0][i1 + 1] = (%yarrrr)[0][i2 + -1];
-; <16>            |   |   } 
-; <47>            |   + END LOOP
-; <46>            + END LOOP
-; <0>       END REGION
+;<0>       BEGIN REGION { modified }
+;<46>            + DO i1 = 0, 40, 1   <DO_LOOP>
+;<2>             |   %2 = (%ar)[0][0];
+;<4>             |   (%ar)[0][0] = %2 + 1;
+;<6>             |   if (i1 + 1 >u 1)
+;<6>             |   {
+;<52>            |      %tgu = (i1)/u4;
+;<54>            |      if (0 <u 4 * %tgu)
+;<54>            |      {
+;<53>            |         + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 10> <nounroll>
+;<56>            |         |   %wide.cmp. = i2 + <i32 0, i32 1, i32 2, i32 3> + 1 >u 1;
+;<57>            |         |   %IfFPred = %wide.cmp.  ^  -1;
+;<58>            |         |   %.vec = (<4 x i32>*)(%yarrrr)[0][i2 + <i32 0, i32 1, i32 2, i32 3> + -1]; Mask = @{%wide.cmp.}
+;<59>            |         |   (<4 x i32>*)(%ar)[0][i1 + 1] = %.vec; Mask = @{%wide.cmp.}
+;<53>            |         + END LOOP
+;<54>            |      }
+;<47>            |      
+;<47>            |      + DO i2 = 4 * %tgu, i1 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <novectorize>
+;<16>            |      |   if (i2 + 1 >u 1)
+;<16>            |      |   {
+;<23>            |      |      %4 = (%yarrrr)[0][i2 + -1];
+;<24>            |      |      (%ar)[0][i1 + 1] = %4;
+;<16>            |      |   }
+;<47>            |      + END LOOP
+;<6>             |   }
+;<46>            + END LOOP
+;<0>       END REGION
 ;
-; Current code generation cannot properly support uniform stores, so check
-; that innermost loop was not vectorized.
-;
-; CHECK-NOT: DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>
+; Current code generation does not generate efficient code for masked uniform
+; stores. The loop is vectorized, but the inefficient scatter instruction is
+; generated. This test checks for the corresponding HIR and LLVM-IR generated.
+
+; Check HIR
+; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4   <DO_LOOP>
+; CHECK-NEXT: [[Mask:%.*]] = i2 + <i32 0, i32 1, i32 2, i32 3> + 1 >u 1;
+; CHECK-NEXT: [[IfFPred:%.*]] = [[Mask]] ^ -1;
+; CHECK-NEXT: [[Load:%.*]] = (<4 x i32>*)({{%.*}})[0][i2 + <i32 0, i32 1, i32 2, i32 3> + -1]; Mask = @{[[Mask]]}
+; CHECK-NEXT: (<4 x i32>*)({{%.*}})[0][i1 + 1] = [[Load]]; Mask = @{[[Mask]]}
+; CHECK-NEXT: END LOOP
+
+; Check LLVM-IR
+; CHECK: [[CmpInst:%.*]] = icmp ugt <4 x i32> {{%.*}}, <i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT: store <4 x i1> [[CmpInst]], <4 x i1>* [[Mask:%.*]]
+; CHECK-DAG: call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> {{%.*}}, <4 x i32*> {{%.*}}, i32 4, <4 x i1> [[MaskLoad:%.*]])
+; CHECK-DAG: [[MaskLoad]] = load <4 x i1>, <4 x i1>* [[Mask]]
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

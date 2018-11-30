@@ -364,7 +364,11 @@ DINode *SPIRVToLLVMDbgTran::transTypeFunction(const SPIRVExtInst *DebugInst) {
                    : transDebugInst(BM->get<SPIRVExtInst>(Ops[ReturnTypeIdx]));
   SmallVector<llvm::Metadata *, 16> Elements{RT};
   for (size_t i = FirstParameterIdx, e = Ops.size(); i < e; ++i) {
-    MDNode *Param = transDebugInst(BM->get<SPIRVExtInst>(Ops[i]));
+    SPIRVEntry* P = BM->getEntry(Ops[i]);
+    MDNode *Param = isa<OpTypeVoid>(P)
+                  ? nullptr
+                  : transDebugInst(BM->get<SPIRVExtInst>(Ops[i]));
+
     Elements.push_back(Param);
   }
   DITypeRefArray ArgTypes = Builder.getOrCreateTypeArray(Elements);
@@ -523,14 +527,28 @@ DINode *SPIRVToLLVMDbgTran::transFunctionDecl(const SPIRVExtInst *DebugInst) {
   if (SPIRVDebugFlags & SPIRVDebug::FlagIsPrivate)
     Flags |= llvm::DINode::FlagPrivate;
 
+  // Here we create fake array of template parameters. If it was plain nullptr,
+  // the template parameter operand would be removed in DISubprogram::getImpl.
+  // But we want it to be there, because if there is DebugTemplate instruction
+  // refering to this function, TransTemplate method must be able to replace the
+  // template parameter operand, thus it must be in the operands list.
+  SmallVector<llvm::Metadata *, 8> Elts;
+  DINodeArray TParams = Builder.getOrCreateArray(Elts);
+  llvm::DITemplateParameterArray TParamsArray = TParams.get();
+
   DISubprogram *DIS = nullptr;
-  if (isa<DICompositeType>(Scope) || isa<DINamespace>(Scope))
+  if (isa<DICompositeType>(Scope) || isa<DINamespace>(Scope)) {
     DIS = Builder.createMethod(Scope, Name, LinkageName, File, LineNo, Ty,
                                isLocal, isDefinition, 0, 0, 0, nullptr, Flags,
-                               isOptimized);
-  else
-    DIS = Builder.createFunction(Scope, Name, LinkageName, File, LineNo, Ty,
-                                 isLocal, isDefinition, 0, Flags, isOptimized);
+                               isOptimized, TParamsArray);
+  } else {
+    DIS = Builder.createTempFunctionFwdDecl(Scope, Name, LinkageName,
+                                            File, LineNo, Ty, isLocal,
+                                            isDefinition, 0, Flags,
+                                            isOptimized, TParamsArray);
+    llvm::TempMDNode FwdDecl(cast<llvm::MDNode>(DIS));
+    DIS = Builder.replaceTemporary(std::move(FwdDecl), DIS);
+  }
   DebugInstCache[DebugInst] = DIS;
 
   return DIS;

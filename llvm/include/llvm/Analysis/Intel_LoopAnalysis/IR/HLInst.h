@@ -239,10 +239,14 @@ public:
   bool isCopyInst() const;
 
   /// Returns true if this is a call instruction.
-  bool isCallInst() const { return isa<CallInst>(Inst); }
+  bool isCallInst() const {
+    return isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst);
+  }
 
   /// Returns CallInst pointer if this is a call instruction.
-  const CallInst *getCallInst() const { return dyn_cast<CallInst>(Inst); }
+  const CallInst *getCallInst() const {
+    return isCallInst() ? cast<CallInst>(Inst) : nullptr;
+  }
 
   /// Returns true if \p Call only accesses inaccessible or arg memory.
   static bool onlyAccessesInaccessibleOrArgMemory(const CallInst *Call) {

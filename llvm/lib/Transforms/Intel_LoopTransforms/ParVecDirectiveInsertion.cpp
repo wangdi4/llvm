@@ -36,20 +36,20 @@ bool ParVecDirectiveInsertion::runOnFunction(Function &Func) {
     return false;
 
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  auto PVA = &getAnalysis<HIRParVecAnalysis>();
+  auto HPVA = &getAnalysis<HIRParVecAnalysisWrapperPass>().getHPVA();
 
   // Analyze for all regions. Due to the on-demand nature of ParVecAnalysis,
   // this explicit call should not be necessary, but it's easier for
   // debugging. Keep this here until we confirm that on-demand functionality
   // is rock solid.
-  PVA->analyze(Mode);
+  HPVA->analyze(Mode);
   LLVM_DEBUG(dbgs() << "Analysis results for all regions\n");
-  LLVM_DEBUG(PVA->print(dbgs()));
+  LLVM_DEBUG(HPVA->printAnalysis(dbgs()));
 
   // Insert Directives where VecOkay/ParOkay are seen. Recompute
   // ParVecAnalysis result if stored info doesn't match the analysis
   // mode required.
-  Visitor PVV(Func, HIRF, PVA, Mode);
+  Visitor PVV(Func, HIRF, HPVA, Mode);
   HIRF->getHLNodeUtils().visitAll(PVV);
   return PVV.getInserted();
 }

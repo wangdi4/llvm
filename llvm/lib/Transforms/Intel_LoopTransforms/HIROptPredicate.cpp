@@ -977,8 +977,8 @@ void HIROptPredicate::transformCandidate(
 
     if (C.PUC.IsUpdatedInThenBranch) {
       // Place original HLIf block
-      HLNodeUtils::insertAsFirstChildren(If, &ThenContainer, true);
-      HLNodeUtils::insertAsFirstChildren(If, &ElseContainer, false);
+      HLNodeUtils::insertAsFirstThenChildren(If, &ThenContainer);
+      HLNodeUtils::insertAsFirstElseChildren(If, &ElseContainer);
     } else {
       // Place *then* branch unconditionally.
       if (!ThenContainer.empty()) {
@@ -1031,8 +1031,8 @@ void HIROptPredicate::transformCandidate(
     HLIf *ClonedIf = CloneMapper.getMapped(If);
     if (C.PUC.IsUpdatedInElseBranch) {
       // Place original HLIf block
-      HLNodeUtils::insertAsFirstChildren(ClonedIf, &ThenContainer, true);
-      HLNodeUtils::insertAsFirstChildren(ClonedIf, &ElseContainer, false);
+      HLNodeUtils::insertAsFirstThenChildren(ClonedIf, &ThenContainer);
+      HLNodeUtils::insertAsFirstElseChildren(ClonedIf, &ElseContainer);
     } else {
       // Place *else* branch unconditionally.
       if (!ElseContainer.empty()) {
@@ -1059,8 +1059,8 @@ void HIROptPredicate::transformCandidate(
   assert(PivotIf && "should be defined");
 
   // Place TargetLoop and NewElseLoop under PivotIf.
-  HLNodeUtils::moveAsFirstChild(PivotIf, TargetLoop, true);
-  HLNodeUtils::moveAsFirstChild(PivotIf, NewElseLoop, false);
+  HLNodeUtils::moveAsFirstThenChild(PivotIf, TargetLoop);
+  HLNodeUtils::moveAsFirstElseChild(PivotIf, NewElseLoop);
 
   Candidates.erase(EquivCandidatesI, Candidates.end());
 

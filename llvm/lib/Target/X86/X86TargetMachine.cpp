@@ -299,12 +299,6 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
       RequiredVectorWidth = Width;
     }
   }
-#if INTEL_CUSTOMIZATION
-  // If the legal vector width is overridden use it.
-  if (MaxLegalVectorWidth.getNumOccurrences()) {
-    RequiredVectorWidth = MaxLegalVectorWidth;
-  }
-#endif
 
   // Extracted here so that we make sure there is backing for the StringRef. If
   // we assigned earlier, its possible the SmallString reallocated leaving a

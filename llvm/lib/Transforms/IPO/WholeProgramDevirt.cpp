@@ -1111,8 +1111,11 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
 
     // Replace the called function with the direct call
     CallSite NewCS = CallSite(CloneCS);
-    NewCS.setCalledFunction(ConstantExpr::getBitCast(
-        Target.Fn, VCallSite.CS.getCalledValue()->getType()));
+    if (Target.Fn->getFunctionType() != VCallSite.CS.getFunctionType())
+      NewCS.setCalledFunction(ConstantExpr::getBitCast(
+          Target.Fn, VCallSite.CS.getCalledValue()->getType()));
+    else
+      NewCS.setCalledFunction(Target.Fn);
 
     // Save the new instruction for PHINode
     NewTarget->CallInstruction = NewCS.getInstruction();
@@ -2096,6 +2099,11 @@ void DevirtModule::scanTypeTestUsers(Function *TypeTestFunc,
       }
     }
 
+#if INTEL_CUSTOMIZATION
+    Value *PtrCast = CI->getArgOperand(0);
+    BitCastInst *PtrInst = dyn_cast<BitCastInst>(PtrCast);
+#endif
+
     // We no longer need the assumes or the type test.
     for (auto Assume : Assumes)
       Assume->eraseFromParent();
@@ -2103,6 +2111,13 @@ void DevirtModule::scanTypeTestUsers(Function *TypeTestFunc,
     // may use the vtable argument later.
     if (CI->use_empty())
       CI->eraseFromParent();
+
+#if INTEL_CUSTOMIZATION
+    // Delete the bitcast for the vtable if there is no use of it.
+    if (IsWholeProgramSafe && PtrInst && PtrInst->use_empty())
+      PtrInst->eraseFromParent();
+#endif
+
   }
 }
 

@@ -28,30 +28,25 @@
 ; }
 
 ; Input HIR
-;           BEGIN REGION { }
-; <32>            + DO i1 = 0, 999, 1   <DO_LOOP>
-; <2>             |   if (%x < 11)
-; <2>             |   {
-; <16>            |      (@a)[0][i1] = 1;
-; <17>            |      if (%y < %x)
-; <17>            |      {
-; <22>            |         (%p)[i1] = 0;
-; <23>            |         %arrayidx9.pre-phi = &((%p)[i1]);
-; <17>            |      }
-; <17>            |      else
-; <17>            |      {
-; <19>            |         goto for.inc;
-; <17>            |      }
-; <2>             |   }
-; <2>             |   else
-; <2>             |   {
-; <7>             |      (%q)[i1] = 1;
-; <9>             |      %arrayidx9.pre-phi = &((%p)[i1]);
-; <2>             |   }
-; <12>            |   (%arrayidx9.pre-phi)[0] = 1;
-; <25>            |   for.inc:
-; <32>            + END LOOP
-;           END REGION
+; + DO i1 = 0, 999, 1   <DO_LOOP>
+; |   if (%x < 11)
+; |   {
+; |      (@a)[0][i1] = 1;
+; |      if (%y >= %x)
+; |      {
+; |         goto for.inc;
+; |      }
+; |      (%p)[i1] = 0;
+; |      %arrayidx9.pre-phi = &((%p)[i1]);
+; |   }
+; |   else
+; |   {
+; |      (%q)[i1] = 1;
+; |      %arrayidx9.pre-phi = &((%p)[i1]);
+; |   }
+; |   (%arrayidx9.pre-phi)[0] = 1;
+; |   for.inc:
+; + END LOOP
 
 ; REQUIRES: asserts
 
@@ -61,13 +56,13 @@
 ; Capture second iteration
 ; CHECK: Unswitching
 ; CHECK: H:
-; CHECK-SAME: if (%y < %x)
+; CHECK-SAME: if (%y >= %x)
 
 ; CHECK: BEGIN REGION
-; CHECK: goto for.inc.[[NUM:[0-9]+]];
+; CHECK: goto for.inc;
 ; CHECK-NOT: DO
 ; CHECK-NOT: END LOOP 
-; CHECK: for.inc.[[NUM]]:
+; CHECK: for.inc:
 
 ; Verify that the region is modified
 ; CHECK: BEGIN REGION { modified }

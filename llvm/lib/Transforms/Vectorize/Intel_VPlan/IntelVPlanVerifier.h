@@ -75,6 +75,10 @@ private:
   /// Verify that each user of \p Def has \p Def as an operand.
   static void verifyUsers(const VPValue *Def);
 
+#if INTEL_CUSTOMIZATION
+  /// Verify the context information stored in \p Plan.
+  static void verifyHCFGContext(const VPlan *Plan);
+#endif
 public:
   VPlanVerifier(const Loop *Lp, const LoopInfo *LInfo)
       : TheLoop(Lp), LInfo(LInfo) {}
@@ -115,7 +119,8 @@ public:
   ///   - All predecessors/successors are inside the region.
   ///   - Blocks have no duplicated successor/predecessor (TODO: switch)
   ///
-  void verifyHierarchicalCFG(const VPRegionBlock *TopRegion) const;
+  void verifyHierarchicalCFG(const VPlan *Plan,
+                             const VPRegionBlock *TopRegion) const;
 };
 } // namespace vpo
 } // namespace llvm

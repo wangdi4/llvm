@@ -1,4 +1,5 @@
 ; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes %s | FileCheck %s
 
 ; This test verifies that the dtrans::ResolveTypes does not combine types when
 ; a type that points to one of a pair of mutually referencing types that could

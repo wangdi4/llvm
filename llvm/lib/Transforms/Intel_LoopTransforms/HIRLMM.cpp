@@ -998,7 +998,7 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
         }
 
         HLIf *IVCheckIf = getIVComparisonIf(Lp, Goto);
-        HLNodeUtils::insertAsFirstChild(IVCheckIf, StoreInst, true);
+        HLNodeUtils::insertAsFirstThenChild(IVCheckIf, StoreInst);
       }
     }
   }

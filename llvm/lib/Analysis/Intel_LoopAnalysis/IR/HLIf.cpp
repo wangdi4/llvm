@@ -85,14 +85,14 @@ HLIf *HLIf::cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
        ThenIter != ThenIterEnd; ++ThenIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ThenIter, GotoList, LabelMap, NodeMapper);
-    HLNodeUtils::insertAsLastChild(NewHLIf, NewHLNode, true);
+    HLNodeUtils::insertAsLastThenChild(NewHLIf, NewHLNode);
   }
 
   for (auto ElseIter = this->else_begin(), ElseIterEnd = this->else_end();
        ElseIter != ElseIterEnd; ++ElseIter) {
     HLNode *NewHLNode =
         cloneBaseImpl(&*ElseIter, GotoList, LabelMap, NodeMapper);
-    HLNodeUtils::insertAsLastChild(NewHLIf, NewHLNode, false);
+    HLNodeUtils::insertAsLastElseChild(NewHLIf, NewHLNode);
   }
 
   return NewHLIf;

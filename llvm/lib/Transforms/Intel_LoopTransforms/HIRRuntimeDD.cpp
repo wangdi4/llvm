@@ -854,8 +854,8 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
 
   HLNodeUtils::insertBefore(Context.Loop, MemcheckIf);
 
-  HLNodeUtils::moveAsFirstChild(MemcheckIf, ModifiedLoop, true);
-  HLNodeUtils::insertAsFirstChild(MemcheckIf, OrigLoop, false);
+  HLNodeUtils::moveAsFirstThenChild(MemcheckIf, ModifiedLoop);
+  HLNodeUtils::insertAsFirstElseChild(MemcheckIf, OrigLoop);
 
   // Implementation Note: The transformation adds NoAlias/Scope metadata to the
   // original loop and creates a clone for the unmodified loop.

@@ -293,8 +293,18 @@ void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
   assert(NumBlocks == Region->getSize() && "Region has a wrong size");
 }
 
+#if INTEL_CUSTOMIZATION
+void VPlanVerifier::verifyHCFGContext(const VPlan *Plan) {
+  Plan->verifyVPExternalDefs();
+  Plan->verifyVPExternalDefsHIR();
+}
+#endif
+
 // Public interface to verify the hierarchical CFG.
 void VPlanVerifier::verifyHierarchicalCFG(
+#if INTEL_CUSTOMIZATION
+    const VPlan *Plan,
+#endif
     const VPRegionBlock *TopRegion) const {
 
   if (DisableHCFGVerification)
@@ -302,6 +312,9 @@ void VPlanVerifier::verifyHierarchicalCFG(
 
   LLVM_DEBUG(dbgs() << "Verifying Hierarchical CFG.\n");
 
+#if INTEL_CUSTOMIZATION
+  verifyHCFGContext(Plan);
+#endif
   if (VPLInfo)
     verifyLoops(TopRegion);
 

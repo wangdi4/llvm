@@ -48,22 +48,10 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check decomposed VPInstructions
-; CHECK: i32 [[PHI1:%vp.*]] = semi-phi i32 [[IFT:%vp.*]] i32 [[IFF:%vp.*]]
-; CHECK-NEXT: store i32 [[PHI1]] i32 {{.*}}
-; CHECK-NEXT: i32 [[PHI2:%vp.*]] = semi-phi i32 [[IFT]] i32 [[IFF]]
-; CHECK-NEXT: i32 [[MUL1:%vp.*]] = mul i32 {{.*}} i32 2
-; CHECK-NEXT: i32 [[ADD1:%vp.*]] = add i32 [[PHI2]] i32 [[MUL1]]
-; CHECK-NEXT: store i32 [[ADD1]] i32 {{.*}}
-; CHECK-NEXT: i32 [[D_I1:%vp.*]] = load i32 {{.*}}
-; CHECK-NEXT: i32 [[PHI3:%vp.*]] = semi-phi i32 [[IFT]] i32 [[IFF]]
-; CHECK-NEXT: i32 [[MUL2:%vp.*]] = mul i32 {{.*}} i32 2
-; CHECK-NEXT: i32 [[ADD2:%vp.*]] = add i32 [[PHI3]] i32 [[MUL2]]
-; CHECK-NEXT: i32 [[ADD3:%vp.*]] = add i32 [[ADD2]] i32 [[D_I1]]
-; CHECK-NEXT: i32 [[SEXT:%vp.*]] = sext i32 [[ADD3]]
-; CHECK-NEXT: i32 [[PHI4:%vp.*]] = semi-phi i32 [[IFT]] i32 [[IFF]]
-; CHECK-NEXT: i1 [[CMP:%vp.*]] = icmp i64 [[IV:%vp.*]] i32 [[SEXT]]
-; CHECK-NEXT: i32 [[SEL:%vp.*]] = select i1 [[CMP]] i32 [[PHI4]] i32 [[D_I1]]
-; CHECK-NEXT: store i32 [[SEL]] i32 {{.*}}
+; CHECK-LABEL: BB6 (BP: NULL)
+; CHECK: i1 [[CMP:%vp.*]] = icmp i64 {{.*}} i64 {{.*}}
+; CHECK-NEXT: i32 [[SEL:%vp.*]] = select i1 [[CMP]] i32 {{.*}} i32 {{.*}}
+; CHECK: store i32 [[SEL]] i32* {{.*}}
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

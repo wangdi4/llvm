@@ -195,7 +195,8 @@ private:
   void addInstructionCombiningPass(legacy::PassManagerBase &MPM) const;
 
 #if INTEL_COLLAB
-  void addVPOPasses(legacy::PassManagerBase &PM, bool RunVec) const;
+  void addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
+                    bool Simplify = false) const;
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION // HIR passes
   bool isLoopOptEnabled() const;

@@ -136,9 +136,11 @@ private:
   /// \brief Deconstructs phi by inserting copies.
   void deconstructPhi(PHINode *Phi);
 
-  /// Replaces the entry block of \p FirstReg if it is the same as the function
-  /// entry block by splitting it.
-  void replaceFunctionEntryBlock(IRRegion &FirstReg, Function &Func);
+  /// Splits the entry block of regions in the following cases-
+  /// 1) It is same as the function entry block.
+  /// 2) It is same as the previous region's exit block.
+  /// Both cases occur in the presence of region entry/exit intrinsics.
+  void splitProblematicRegionEntryBlock(IRRegion &Reg, BasicBlock *FuncEntryBB);
 
   /// \brief Performs SSA deconstruction on the regions.
   void deconstructSSAForRegions(Function &Func);
@@ -500,7 +502,7 @@ bool HIRSSADeconstruction::hasNonSCEVableUses(Instruction **Inst,
   // Note that we are only checking for commonly occuring non-scevable
   // instructions.
   if (!SE->isSCEVable(CurInst->getType()) || isa<LoadInst>(CurInst) ||
-      isa<CallInst>(CurInst)) {
+      (isa<CallInst>(CurInst) && !isa<SubscriptInst>(CurInst))) {
     return true;
   }
 
@@ -901,9 +903,42 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
   }
 }
 
-void HIRSSADeconstruction::replaceFunctionEntryBlock(IRRegion &FirstReg,
-                                                     Function &Func) {
-  if (FirstReg.isFunctionLevel()) {
+static Instruction *findRegionEntryOrExitIntrinsic(BasicBlock *BB,
+                                                   bool IsEntry) {
+  Instruction *RegIntrin = nullptr;
+
+  for (auto &Inst : *BB) {
+    auto *Intrin = dyn_cast<IntrinsicInst>(&Inst);
+
+    if (!Intrin) {
+      continue;
+    }
+
+    auto Id = Intrin->getIntrinsicID();
+
+    if (IsEntry) {
+      if ((Id != Intrinsic::directive_region_entry) &&
+          (Id != Intrinsic::intel_directive)) {
+        continue;
+      }
+    } else if (Id != Intrinsic::directive_region_exit) {
+      // We don't expect to support old style intel directives incoming to HIR
+      // so it is okay not to look for them. The check in if-case above is for
+      // handling existing lit tests which still need to be converted to region
+      // entry/exit intrinsics.
+      continue;
+    }
+
+    RegIntrin = Intrin;
+    break;
+  }
+
+  return RegIntrin;
+}
+
+void HIRSSADeconstruction::splitProblematicRegionEntryBlock(
+    IRRegion &Reg, BasicBlock *FuncEntryBB) {
+  if (Reg.isFunctionLevel()) {
     // Function level region is a special case where we don't need to do
     // anything as the region technically starts from the branch condition of
     // the entry block. This might be an issue if someone uses function level
@@ -912,60 +947,63 @@ void HIRSSADeconstruction::replaceFunctionEntryBlock(IRRegion &FirstReg,
     return;
   }
 
-  auto *FuncEntry = &Func.getEntryBlock();
+  auto *RegionEntryBB = Reg.getEntryBBlock();
+  Instruction *RegionEntryIntrin = nullptr;
+  Instruction *RegionExitIntrin = nullptr;
 
-  if (FirstReg.getEntryBBlock() != FuncEntry) {
+  if (RegionEntryBB == FuncEntryBB) {
+    // Now we look for region entry intrinsic or intel directive intrinsic as
+    // that is the only case we expect the function entry block to be part of
+    // the region. This instruction will be the bblock splitting point.
+    RegionEntryIntrin = findRegionEntryOrExitIntrinsic(RegionEntryBB, true);
+
+    assert(RegionEntryIntrin &&
+           "Region entry intrinsic expected in region entry block!");
+
+  } else if ((RegionExitIntrin =
+                  findRegionEntryOrExitIntrinsic(RegionEntryBB, false))) {
+    // If the entry bblock has region exit intrinsic which doesn't correspond to
+    // the region entriy intrinsic in the entry block, it belongs to the
+    // previous sibling loop. In such a case we might be sharing the same bblock
+    // between two HIR regions. To fix this we split the entry block at the
+    // region entry intrinsic.
+    RegionEntryIntrin = findRegionEntryOrExitIntrinsic(RegionEntryBB, true);
+
+    assert(RegionEntryIntrin &&
+           "Region entry intrinsic expected in region entry block!");
+    assert(RegionEntryIntrin->hasOneUse() &&
+           "Region entry intrinsic does not have single use!");
+
+    if (*RegionEntryIntrin->user_begin() == RegionExitIntrin) {
+      return;
+    }
+
+    (void)RegionExitIntrin;
+    assert(DT->dominates(RegionExitIntrin, RegionEntryIntrin) &&
+           "Unexpected order of region entry/exit intrinsics in region entry "
+           "block!");
+
+  } else {
+    // Entry block is okay.
     return;
   }
 
-  // Now we look for region entry intrinsic or intel directive intrinsic as that
-  // is the only case we expect the function entry block to be part of the
-  // region. This instruction will be the bblock splitting point.
-  Instruction *RegionEntryIntrin = nullptr;
+  auto *NewEntryBB = SplitBlock(RegionEntryBB, RegionEntryIntrin, DT, LI);
 
-  for (auto &Inst : *FuncEntry) {
-    auto *Intrin = dyn_cast<IntrinsicInst>(&Inst);
-
-    if (!Intrin) {
-      continue;
-    }
-
-    auto Id = Intrin->getIntrinsicID();
-    if ((Id != Intrinsic::directive_region_entry) &&
-        (Id != Intrinsic::intel_directive)) {
-      continue;
-    }
-
-    RegionEntryIntrin = Intrin;
-    break;
-  }
-
-  assert(RegionEntryIntrin &&
-         "Region entry intrinsic expected in function entry!");
-
-  auto *NewEntryBB = SplitBlock(FuncEntry, RegionEntryIntrin, DT, LI);
-
-  FirstReg.replaceEntryBBlock(NewEntryBB);
+  Reg.replaceEntryBBlock(NewEntryBB);
 }
 
 void HIRSSADeconstruction::deconstructSSAForRegions(Function &Func) {
 
-  auto FirstRegIt = RI->begin();
-  auto EndRegIt = RI->end();
-
-  if (FirstRegIt == EndRegIt) {
-    return;
-  }
-
-  // Only the first region's entry block can be the function entry block as
-  // regions are formed in lexical order.
-  replaceFunctionEntryBlock(*FirstRegIt, Func);
+  auto *FuncEntryBB = &Func.getEntryBlock();
 
   // Traverse regions.
-  for (auto RegIt = FirstRegIt; RegIt != EndRegIt; ++RegIt) {
+  for (auto RegIt = RI->begin(), EndIt = RI->end(); RegIt != EndIt; ++RegIt) {
 
     // Set current region
     CurRegIt = RegIt;
+
+    splitProblematicRegionEntryBlock(*CurRegIt, FuncEntryBB);
 
     // Traverse region basic blocks.
     for (auto BBIt = RegIt->bb_begin(), EndBBIt = RegIt->bb_end();

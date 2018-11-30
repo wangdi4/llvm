@@ -814,8 +814,9 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_COLLAB
   // Process OpenMP directives at -O1 and above
-  if (RunVPOOpt == InvokeParoptAfterInliner)
-    addVPOPasses(MPM, false);
+  if (RunVPOOpt == InvokeParoptAfterInliner) {
+    addVPOPasses(MPM, false, /* Simplify= */ true);
+  }
 #endif // INTEL_COLLAB
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
   if (OptLevel > 2)
@@ -1361,9 +1362,20 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 }
 
 #if INTEL_COLLAB
-void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
-                                      bool RunVec) const {
+void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
+                                      bool Simplify) const {
   if (RunVPOParopt) {
+    if (Simplify) {
+      // Inlining may introduce BasicBlocks without predecessors into an OpenMP
+      // region. This breaks CodeExtractor when outlining the region because it
+      // expects a single-entry-single-exit region. Calling CFG simplification
+      // to remove unreachable BasicBlocks fixes this problem.
+#if INTEL_CUSTOMIZATION
+      // The inlining issue is documented in CMPLRLLVM-7516. It affects these
+      // tests: ompo_kernelsCpp/aobenchan*,ribbon*,terrain*
+#endif // INTEL_CUSTOMIZATION
+      PM.add(createCFGSimplificationPass());
+    }
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt, OptLevel));
   }
@@ -1373,6 +1385,16 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());
   }
+
+  // If vectorizer was required to run then cleanup any remaining directives
+  // that were not removed by vectorizer. This applies to all optimization
+  // levels since this function is called with RunVec=true in both pass
+  // pipelines i.e. -O0 and optlevel >= 1
+  //
+  // TODO: Issue a warning for any unprocessed directives. Change to
+  // assetion failure as the feature matures.
+  if (RunVPOParopt && RunVec)
+    PM.add(createVPODirectiveCleanupPass());
   #endif // INTEL_CUSTOMIZATION
 }
 #endif // INTEL_COLLAB
@@ -1543,14 +1565,6 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
   // false in the future when loopopt is fully implemented.
   if (RunVPOOpt)
     addVPOPasses(PM, true);
-
-  // VPO directives are no longer useful after this point. Clean up so that
-  // code gen process won't be confused.
-  //
-  // TODO: Issue a warning for any unprocessed directives. Change to
-  // assetion failure as the feature matures.
-  if (RunVPOOpt)
-    PM.add(createVPODirectiveCleanupPass());
 
   if (IntelOptReportEmitter == OptReportOptions::IR)
     PM.add(createLoopOptReportEmitterLegacyPass());

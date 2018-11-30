@@ -29,6 +29,7 @@ cl::opt<uint64_t>
 void LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG) {
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   VPlan *Plan = getVPlanForVF(BestVF);
+  assert(Plan && "VPlan not found!");
 
   // Collect OVLS memrefs and groups for the VF chosen by cost modeling.
   VPlanVLSAnalysis *VLSA = CG->getVLS();

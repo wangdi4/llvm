@@ -6,44 +6,36 @@
 ;*** IR Dump Before HIR Last Value Computation ***
 ;Function: foo
 ;
-;<0>       BEGIN REGION { }
-;<23>            + DO i1 = 0, 39, 1   <DO_MULTI_EXIT_LOOP>
-;<2>             |   %indvars.iv.out = i1;
-;<6>             |   if ((@A)[0][i1] > 0)
-;<6>             |   {
-;<7>             |      goto for.end;
-;<6>             |   }
-;<6>             |   else
-;<6>             |   {
-;<13>            |      if ((@B)[0][i1] < 40)
-;<13>            |      {
-;<14>            |         goto for.end;
-;<13>            |      }
-;<6>             |   }
-;<23>            + END LOOP
-;<0>       END REGION
+; + DO i1 = 0, 39, 1   <DO_MULTI_EXIT_LOOP>
+; |   %indvars.iv.out = i1;
+; |   if ((@A)[0][i1] > 0)
+; |   {
+; |      goto for.end;
+; |   }
+; |   if ((@B)[0][i1] < 40)
+; |   {
+; |      goto for.end;
+; |   }
+; + END LOOP
 ;
 ;*** IR Dump After HIR Last Value Computation ***
 ;Function: foo
 ;
-; CHECK:     BEGIN REGION { }
-; CHECK:        + DO i1 = 0, 39, 1   <DO_MULTI_EXIT_LOOP>
-; CHECK:        |   if ((@A)[0][i1] > 0)
-; CHECK:        |   {
-; CHECK:        |      %indvars.iv.out = i1;
-; CHECK:        |      goto for.end;
-; CHECK:        |   }
-; CHECK:        |   else
-; CHECK:        |   {
-; CHECK:        |      if ((@B)[0][i1] < 40)
-; CHECK:        |      {
-; CHECK:        |         %indvars.iv.out = i1;
-; CHECK:        |         goto for.end;
-; CHECK:        |      }
-; CHECK:        |   }
-; CHECK:        + END LOOP
-; CHECK:           %indvars.iv.out = 39;
-; CHECK:     END REGION
+; CHECK:  BEGIN REGION { }
+; CHECK: + DO i1 = 0, 39, 1   <DO_MULTI_EXIT_LOOP>
+; CHECK: |   if ((@A)[0][i1] > 0)
+; CHECK: |   {
+; CHECK: |      %indvars.iv.out = i1;
+; CHECK: |      goto for.end;
+; CHECK: |   }
+; CHECK: |   if ((@B)[0][i1] < 40)
+; CHECK: |   {
+; CHECK: |      %indvars.iv.out = i1;
+; CHECK: |      goto for.end;
+; CHECK: |   }
+; CHECK: + END LOOP
+; CHECK:    %indvars.iv.out = 39;
+; CHECK:  END REGION
 ;
 ;Module Before HIR; ModuleID = 't.c'
 source_filename = "t.c"

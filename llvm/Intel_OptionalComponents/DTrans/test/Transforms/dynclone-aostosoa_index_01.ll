@@ -13,9 +13,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; 2nd and 3rd fields of original struct will be converted to i16.
 ; They will become 4th and 5th fields after field reorder.
-; CHECK: %__DYN_struct.test.01 = type <{ i64*, i32, i32, i32, i16, i16, i16 }>
+; CHECK: %__DYN_struct.test.01 = type <{ i64*, i64, i32, i16, i16, i16, i16 }>
 
-; 1 and 6 fields are shrunk to i32. 2nd and 3rd fields are
+; 1st field is shrunk to i16. 2nd and 3rd fields are
 ; marked with aostosoa index fields. Both will be reduced
 ; to 2 bytes when DynClone is triggered.
 %struct.test.01 = type { i32, i64, i32, i32, i16, i64*, i64 }

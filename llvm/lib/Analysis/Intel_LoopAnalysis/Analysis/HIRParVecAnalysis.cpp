@@ -55,7 +55,7 @@ private:
   /// Mode - curent analysis mode running, auto-par or auto-vec.
   ParVecInfo::AnalysisMode Mode;
   /// InfoMap - Map associating HLLoops with corresponding par vec info.
-  DenseMap<HLLoop *, ParVecInfo *> &InfoMap;
+  HIRParVecInfoMapType &InfoMap;
   /// TLI - Target library info analysis.
   TargetLibraryInfo *TLI;
   /// DDA - Data dependency analysis handle.
@@ -66,7 +66,7 @@ private:
 public:
   ParVecVisitor(ParVecInfo::AnalysisMode Mode, TargetLibraryInfo *TLI,
                 HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA,
-                DenseMap<HLLoop *, ParVecInfo *> &InfoMap)
+                HIRParVecInfoMapType &InfoMap)
       : Mode(Mode), InfoMap(InfoMap), TLI(TLI), DDA(DDA), SRA(SRA) {}
   /// \brief Determine parallelizability/vectorizability of the loop
   void postVisit(HLLoop *Loop);
@@ -133,39 +133,19 @@ public:
   void postVisit(HLNode *Node) {}
 };
 
-/// \brief Visitor class to invalidate the cached ParVec analysis results.
-class ParVecForgetVisitor final : public HLNodeVisitorBase {
-  DenseMap<HLLoop *, ParVecInfo *> &InfoMap;
-
-public:
-  ParVecForgetVisitor(DenseMap<HLLoop *, ParVecInfo *> &theMap)
-      : InfoMap(theMap) {}
-  /// \brief Invalidate the cached result.
-  void visit(HLLoop *Loop) {
-    delete InfoMap[Loop];
-    InfoMap[Loop] = nullptr;
-  }
-
-  /// \brief catch-all visit().
-  void visit(HLNode *Node) {}
-  /// \brief catch-all postVisit().
-  void postVisit(HLNode *Node) {}
-};
-
 /// \brief Visitor class to print the cached ParVec analysis results.
 class ParVecPrintVisitor final : public HLNodeVisitorBase {
-  const DenseMap<HLLoop *, ParVecInfo *> &InfoMap;
+  const HIRParVecInfoMapType &InfoMap;
   raw_ostream &OS;
 
 public:
-  ParVecPrintVisitor(const DenseMap<HLLoop *, ParVecInfo *> &theMap,
-                     raw_ostream &theOS)
+  ParVecPrintVisitor(const HIRParVecInfoMapType &theMap, raw_ostream &theOS)
       : InfoMap(theMap), OS(theOS) {}
   /// \brief Print for one loop.
   void visit(HLLoop *Loop) {
-    auto Info = InfoMap.lookup(Loop);
-    if (Info)
-      Info->print(OS);
+    auto Info = InfoMap.find(Loop);
+    if (Info != InfoMap.end())
+      Info->second->print(OS);
   }
 
   /// \brief catch-all visit().
@@ -175,19 +155,6 @@ public:
 };
 
 } // unnamed namespace
-
-FunctionPass *llvm::createHIRParVecAnalysisPass() {
-  return new HIRParVecAnalysis();
-}
-char HIRParVecAnalysis::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRParVecAnalysis, "hir-parvec-analysis",
-                      "HIR Parallel/Vector Candidate Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_END(HIRParVecAnalysis, "hir-parvec-analysis",
-                    "HIR Parallel/Vector Candidate Analysis", false, true)
 
 void ParVecVisitor::postVisit(HLLoop *Loop) {
   // Analyze parallelizability/vectorizability if not cached.
@@ -221,7 +188,20 @@ void ParVecVisitor::visit(HLInst *Node) {
   }
 }
 
-void HIRParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
+FunctionPass *llvm::createHIRParVecAnalysisPass() {
+  return new HIRParVecAnalysisWrapperPass();
+}
+char HIRParVecAnalysisWrapperPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRParVecAnalysisWrapperPass, "hir-parvec-analysis",
+                      "HIR Parallel/Vector Candidate Analysis", false, true)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
+INITIALIZE_PASS_END(HIRParVecAnalysisWrapperPass, "hir-parvec-analysis",
+                    "HIR Parallel/Vector Candidate Analysis", false, true)
+
+void HIRParVecAnalysisWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
@@ -229,26 +209,44 @@ void HIRParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
 }
 
-bool HIRParVecAnalysis::runOnFunction(Function &F) {
-  if (isSIMDEnabledFunction(F)) {
+bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
+  if (HIRParVecAnalysis::isSIMDEnabledFunction(F)) {
+    HPVA.reset(
+        new HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr));
     return false;
   }
 
-  Enabled = true;
-  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-  HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
+  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+  auto DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
+  auto SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
 
   // ParVecAnalysis runs in on-demand mode. runOnFunction is almost no-op.
   // In the debug mode, run actual analysis in ParallelVector mode, print
   // the result, and releas memory as if nothing happened. "opt -analyze"
   // doesn't print anything.
-  LLVM_DEBUG(analyze(ParVecInfo::ParallelVector));
-  LLVM_DEBUG(print(dbgs()));
-  LLVM_DEBUG(releaseMemory());
+  LLVM_DEBUG(HPVA.reset(new HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA)));
+  LLVM_DEBUG(HPVA->analyze(ParVecInfo::ParallelVector));
+  LLVM_DEBUG(HPVA->printAnalysis(dbgs()));
+
+  HPVA.reset(new HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA));
 
   return false;
+}
+
+AnalysisKey HIRParVecAnalysisPass::Key;
+
+HIRParVecAnalysis HIRParVecAnalysisPass::run(Function &F,
+                                             FunctionAnalysisManager &AM) {
+  if (HIRParVecAnalysis::isSIMDEnabledFunction(F))
+    return HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr);
+
+  auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
+  auto HIRF = &AM.getResult<HIRFrameworkAnalysis>(F);
+  auto DDA = &AM.getResult<HIRDDAnalysisPass>(F);
+  auto SRA = &AM.getResult<HIRSafeReductionAnalysisPass>(F);
+
+  return HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA);
 }
 
 const ParVecInfo *HIRParVecAnalysis::getInfo(ParVecInfo::AnalysisMode Mode,
@@ -265,7 +263,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode) {
     return;
   }
   ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
-  HIRF->getHLNodeUtils().visitAllInnerToOuter(Vis);
+  HIRF.getHLNodeUtils().visitAllInnerToOuter(Vis);
 }
 
 void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
@@ -274,7 +272,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
     return;
   }
   ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
-  HIRF->getHLNodeUtils().visitInnerToOuter(Vis, Region);
+  HIRF.getHLNodeUtils().visitInnerToOuter(Vis, Region);
 }
 
 void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
@@ -282,35 +280,12 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
     return;
   }
   ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
-  HIRF->getHLNodeUtils().visitInnerToOuter(Vis, Loop);
+  HIRF.getHLNodeUtils().visitInnerToOuter(Vis, Loop);
 }
 
-void HIRParVecAnalysis::releaseMemory() {
-  for (auto Iter = InfoMap.begin(), End = InfoMap.end(); Iter != End; Iter++) {
-    delete Iter->second;
-    Iter->second = nullptr;
-  }
-  InfoMap.clear();
-}
-
-void HIRParVecAnalysis::forget(HLRegion *Region) {
-  ParVecForgetVisitor Vis(InfoMap);
-  HIRF->getHLNodeUtils().visit(Vis, Region);
-}
-
-void HIRParVecAnalysis::forget(HLLoop *Loop, bool Nest) {
-  if (!Nest) {
-    delete InfoMap[Loop];
-    InfoMap[Loop] = nullptr;
-    return;
-  }
-  ParVecForgetVisitor Vis(InfoMap);
-  HIRF->getHLNodeUtils().visit(Vis, Loop);
-}
-
-void HIRParVecAnalysis::print(raw_ostream &OS, const Module *M) const {
+void HIRParVecAnalysis::printAnalysis(raw_ostream &OS) const {
   ParVecPrintVisitor Vis(InfoMap, OS);
-  HIRF->getHLNodeUtils().visitAll(Vis);
+  HIRF.getHLNodeUtils().visitAll(Vis);
 }
 
 bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {

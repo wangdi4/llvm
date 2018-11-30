@@ -52,10 +52,15 @@ define void @proc1(%struct.test.01* %tp2) {
 }
 
 ; field_7 = unknown value;
+; A dependancy for candidate fields:
+; field_7 = field_6;
 define void @proc2(%struct.test.01* %tp3) {
   %g1 = select i1 undef, i64 700, i64 3000
   %F7 = getelementptr %struct.test.01, %struct.test.01* %tp3, i32 0, i32 7
   store i64 %g1, i64* %F7, align 8
+  %F6 = getelementptr %struct.test.01, %struct.test.01* %tp3, i32 0, i32 6
+  %L = load i64, i64* %F6
+  store i64 %L, i64* %F7
   ret void
 }
 

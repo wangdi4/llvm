@@ -5,37 +5,38 @@
 
 ;Inside the conditional for b == 47 we have a goto alter bblock
 ;          BEGIN REGION { }
-;<33>         + DO i1 = 0, 63, 1   <DO_LOOP>
-;<2>          |   %b.addr.015.out = %b.addr.015;
-;<3>          |   %out.016 = %out.016  +  1;
-;<6>          |   if (%b.addr.015.out == i1)
-;<6>          |   {
-;<10>         |      %b.addr.015 = %b.addr.015  +  -1;
-;<6>          |   }
-;<6>          |   else
-;<6>          |   {
-;<24>         |      %b.addr.015 = 47;
-;<25>         |      if (%b.addr.015.out == 47)
-;<25>         |      {
-;<26>         |         goto alter;
-;<25>         |      }
-;<25>         |      else
-;<25>         |      {
-;<30>         |         %1 = (%a)[i1];
-;<31>         |         %out.016 = %1;
-;<25>         |      }
-;<6>          |   }
-;<13>         |   %out.016 = %out.016  +  1;
-;<15>         |   alter:
-;<16>         |   %out.016 = %out.016  +  -1;
-;<33>         + END LOOP
+; + DO i1 = 0, 63, 1   <DO_LOOP>
+; |   if (%b.addr.015 == i1)
+; |   {
+; |      %b.addr.1 = %b.addr.015 + -1;
+; |      %out.1 = %out.016 + 1;
+; |   }
+; |   else
+; |   {
+; |      %b.addr.2 = 47;
+; |      %out.2 = %out.016 + 1;
+; |      if (%b.addr.015 == 47)
+; |      {
+; |         goto alter;
+; |      }
+; |      %1 = (%a)[i1];
+; |      %b.addr.1 = %b.addr.015;
+; |      %out.1 = %1;
+; |   }
+; |   %b.addr.2 = %b.addr.1;
+; |   %out.2 = %out.1 + 1;
+; |   alter:
+; |   %dec = %out.2  +  -1;
+; |   %out.016 = %out.2 + -1;
+; |   %b.addr.015 = %b.addr.2;
+; + END LOOP
 ;          END REGION
 
 ;CHECK: region.0:
 ;Look for <25>, comparision against 47
 ;CHECK: icmp eq i32 {{.*}} 47
 ;Goto is in true block
-;CHECK-NEXT: br i1 %hir.cmp{{.*}}, label %[[T_BLOCK:then.[0-9]+]], label %else
+;CHECK-NEXT: br i1 %hir.cmp{{.*}}, label %[[T_BLOCK:then.[0-9]+]], label 
 
 ;Block contains only a jump to hir version of alter bblock
 ;CHECK: [[T_BLOCK]]:

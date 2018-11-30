@@ -47,13 +47,13 @@ static cl::opt<bool>
     DisableStressTest("disable-vplan-stress-test", cl::init(false), cl::Hidden,
                       cl::desc("Disable VPO Vectorizer Stress Testing"));
 
-static cl::opt<bool>
-    EnableNestedBlobVec("enable-nested-blob-vec", cl::init(true), cl::Hidden,
-                        cl::desc("Enable vectorization of loops with nested blobs"));
+static cl::opt<bool> EnableNestedBlobVec(
+    "enable-nested-blob-vec", cl::init(true), cl::Hidden,
+    cl::desc("Enable vectorization of loops with nested blobs"));
 
-static cl::opt<bool>
-    EnableBlobCoeffVec("enable-blob-coeff-vec", cl::init(true), cl::Hidden,
-                       cl::desc("Enable vectorization of loops with blob IV coefficients"));
+static cl::opt<bool> EnableBlobCoeffVec(
+    "enable-blob-coeff-vec", cl::init(true), cl::Hidden,
+    cl::desc("Enable vectorization of loops with blob IV coefficients"));
 
 static cl::opt<bool> EnableVPlanVLSCG("enable-vplan-vls-cg", cl::init(true),
                                       cl::Hidden,
@@ -74,9 +74,9 @@ static cl::opt<int>
                               "specified number of vectorized loops"));
 
 static cl::opt<bool> EnableFirstIterPeelMEVec(
-      "enable-first-it-peel-me-vec", cl::init(true), cl::Hidden,
-          cl::desc(
-                    "Enable first iteration peel loop for vectorized multi-exit loops."));
+    "enable-first-it-peel-me-vec", cl::init(true), cl::Hidden,
+    cl::desc(
+        "Enable first iteration peel loop for vectorized multi-exit loops."));
 
 extern cl::opt<bool> AllowMemorySpeculation;
 
@@ -148,7 +148,8 @@ private:
       Inst->setMaskDDRef(MaskDDRef->clone());
     auto InsertRegion = dyn_cast<HLIf>(ACG->getInsertRegion());
     assert(InsertRegion && "HLIf is expected as insert region.");
-    HLNodeUtils::insertAsLastChild(InsertRegion, Inst, IsThenChild);
+    IsThenChild ? HLNodeUtils::insertAsLastThenChild(InsertRegion, Inst)
+                : HLNodeUtils::insertAsLastElseChild(InsertRegion, Inst);
   }
 
   RegDDRef *codegenStandAloneBlob(const SCEV *SC);
@@ -160,8 +161,8 @@ private:
                               Type *DestType);
 
 public:
-  NestedBlobCG(const RegDDRef *R, HLNodeUtils &H, DDRefUtils &D, VPOCodeGenHIR *C,
-               RegDDRef *M)
+  NestedBlobCG(const RegDDRef *R, HLNodeUtils &H, DDRefUtils &D,
+               VPOCodeGenHIR *C, RegDDRef *M)
       : RDDR(R), HNU(H), DDRU(D), ACG(C), MaskDDRef(M) {}
 
   RegDDRef *visit(const SCEV *SC) {
@@ -469,14 +470,6 @@ void HandledCheck::visit(HLDDNode *Node) {
       return;
     }
 
-    // FIXME: With proper support from CG this bail-out is not needed.
-    if (TLval && TLval->isMemRef() && isUniform(TLval)) {
-      LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Uniform store is not handled\n");
-      IsHandled = false;
-      return;
-    }
-
     if (const CallInst *Call = Inst->getCallInst()) {
       Function *Fn = Call->getCalledFunction();
       if (!Fn) {
@@ -523,9 +516,10 @@ void HandledCheck::visit(HLDDNode *Node) {
         return;
       }
 
-      // These intrinsics need the second argument to remain scalar(consequently loop
-      // invariant). Support to be added later.
-      if (ID == Intrinsic::ctlz || ID == Intrinsic::cttz || ID == Intrinsic::powi) {
+      // These intrinsics need the second argument to remain scalar(consequently
+      // loop invariant). Support to be added later.
+      if (ID == Intrinsic::ctlz || ID == Intrinsic::cttz ||
+          ID == Intrinsic::powi) {
         LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - "
                              "ctlz/cttz/powi intrinsic\n");
         IsHandled = false;
@@ -778,7 +772,8 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
     if (Function *PMFunction =
             HNU.getModule().getFunction("__Intel_PaddedMallocInterface")) {
       SmallVector<RegDDRef *, 0> Args;
-      HLInst *PaddingIsValid = HNU.createCall(PMFunction, Args, "padding.is.valid");
+      HLInst *PaddingIsValid =
+          HNU.createCall(PMFunction, Args, "padding.is.valid");
       HLNodeUtils::insertBefore(OrigLoop, PaddingIsValid);
       LLVMContext &Context = HNU.getContext();
       Type *BoolTy = IntegerType::get(Context, 1);
@@ -1272,18 +1267,22 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
       auto CV = ConstantVector::get(AR);
 
       if (BlobCoeff != InvalidBlobIndex) {
-        // Compute Addend = WidenedBlob * CV and add Addend to the canon expression
+        // Compute Addend = WidenedBlob * CV and add Addend to the canon
+        // expression
         NestedBlobCG CGBlob(Ref, MainLoop->getHLNodeUtils(),
                             WideRef->getDDRefUtils(), this, nullptr);
 
         auto NewRef = CGBlob.visit(WideRef->getBlobUtils().getBlob(BlobCoeff));
-        auto CRef  = Ref->getDDRefUtils().createConstDDRef(CV);
+        auto CRef = Ref->getDDRefUtils().createConstDDRef(CV);
 
-        auto TWideInst = MainLoop->getHLNodeUtils().createBinaryHLInst(Instruction::Mul, 
-                                                                       NewRef->clone(), CRef, ".BlobMul");
+        auto TWideInst = MainLoop->getHLNodeUtils().createBinaryHLInst(
+            Instruction::Mul, NewRef->clone(), CRef, ".BlobMul");
         addInst(TWideInst, nullptr);
         AuxRefs.push_back(TWideInst->getLvalDDRef());
-        CE->addBlob(TWideInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(), 1);
+        CE->addBlob(TWideInst->getLvalDDRef()
+                        ->getSingleCanonExpr()
+                        ->getSingleBlobIndex(),
+                    1);
       } else {
         unsigned Idx = 0;
         CE->getBlobUtils().createBlob(CV, true, &Idx);
@@ -1315,8 +1314,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
 
       auto OldSymbase = CE->getBlobUtils().getTempBlobSymbase(BI);
 
-      // A temp blob not widened before is a loop invariant - it will be broadcast
-      // in HIRCG when needed.
+      // A temp blob not widened before is a loop invariant - it will be
+      // broadcast in HIRCG when needed.
       if (WidenMap.find(OldSymbase) != WidenMap.end()) {
         auto WInst1 = WidenMap[OldSymbase];
         auto WRef = WInst1->getLvalDDRef();
@@ -1391,8 +1390,8 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
         Constant *UndefVal = UndefValue::get(Type::getInt32Ty(Context));
         ShuffleMask.push_back(UndefVal);
       } else {
-        Constant *Mask = ConstantInt::get(Type::getInt32Ty(Context),
-                                          MaskElemVal);
+        Constant *Mask =
+            ConstantInt::get(Type::getInt32Ty(Context), MaskElemVal);
         ShuffleMask.push_back(Mask);
         MaskElemVal++;
       }
@@ -1988,6 +1987,51 @@ void VPOCodeGenHIR::handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto) {
   }
 }
 
+HLInst *VPOCodeGenHIR::widenNonMaskedUniformStore(const HLInst *INode) {
+  auto CurInst = INode->getLLVMInstruction();
+  const RegDDRef *Lval = INode->getLvalDDRef();
+  const RegDDRef *Rval = INode->getRvalDDRef();
+
+  assert(Lval && Rval && "Operand of store is null.");
+
+  LLVM_DEBUG(dbgs() << "VPCodegen: Lval : "; Lval->dump(); dbgs() << "\n");
+  LLVM_DEBUG(dbgs() << "VPCodegen: Rval : "; Rval->dump(); dbgs() << "\n");
+
+  // If Rval is not loop invariant, then we widen it and generate an
+  // extractelement instruction
+  // TODO: extractelement may not be efficient if the Rval is not a memory
+  // reference. For example:
+  //    DO i1 = 0, N, 1 <DO_LOOP>
+  //      (%array)[0] = i1;
+  //    END LOOP
+  //
+  // can be directly changed to
+  //    DO i1 = 0, N, VF <DO_LOOP>
+  //      (%array)[0] = i1 + VF -1;
+  //    END LOOP
+  //
+  unsigned NestingLevel = OrigLoop->getNestingLevel();
+  if (!Rval->isStructurallyInvariantAtLevel(NestingLevel)) {
+    RegDDRef *WideRef = widenRef(Rval, getVF());
+    // create an extractelement instruction to get last element of vector
+    auto Extract = INode->getHLNodeUtils().createExtractElementInst(
+        WideRef, VF - 1, "last");
+    addInst(Extract, nullptr);
+    // overwrite Rval for store with Lval of extractelement instruction
+    Rval = Extract->getLvalDDRef();
+    LLVM_DEBUG(dbgs() << "VPCodegen: widened Rval : "; Rval->dump();
+               dbgs() << "\n");
+  }
+
+  HLInst *WideInst = INode->getHLNodeUtils().createStore(
+      Rval->clone(), CurInst->getName() + ".uniform.store", Lval->clone());
+  LLVM_DEBUG(dbgs() << "VPCodegen: WideInst : "; WideInst->dump();
+             dbgs() << "\n");
+  addInst(WideInst, nullptr);
+
+  return WideInst;
+}
+
 HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
                                  const OVLSGroup *Grp, int64_t InterleaveFactor,
                                  int64_t InterleaveIndex,
@@ -1996,8 +2040,13 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
 
+  if (!Mask)
+    Mask = CurMaskValue;
+
   // Check if we want to widen the current Inst as an interleaved memory access.
-  if (Grp) {
+  // TODO: Mask for the interleaved accesse must be shuffled as well. Currently
+  // it's not done, thus disable CG for it.
+  if (Grp && !Mask) {
     bool InterleaveAccess = EnableVPlanVLSCG;
     const RegDDRef *MemRef;
 
@@ -2033,9 +2082,6 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
   // We clear the map at the start of widening of each HLInst.
   SCEVWideRefMap.clear();
 
-  if (!Mask)
-    Mask = CurMaskValue;
-
   HLInst *WideInst = nullptr;
 
   LLVM_DEBUG(INode->dump(true));
@@ -2047,6 +2093,17 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
       INode->getLvalDDRef()->isLiveOutOfParentLoop() && INode->hasRval() &&
       !INode->getRvalDDRef()->isNonLinear()) {
     return handleLiveOutLinearInEarlyExit(INode->clone(), Mask);
+  }
+
+  // Check for non-masked uniform stores and handle codegen for them
+  // separately
+  if (isa<StoreInst>(CurInst) && !Mask) {
+    // NOTE: isUniform is private to HandledCheck, so we have to use
+    // isStructurallyInvariantAtLevel here in VPOCodeGenHIR
+    auto TLval = INode->getLvalDDRef();
+    unsigned NestingLevel = OrigLoop->getNestingLevel();
+    if (TLval->isStructurallyInvariantAtLevel(NestingLevel))
+      return widenNonMaskedUniformStore(INode);
   }
 
   // Widen instruction operands
@@ -2083,7 +2140,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
     WideInst = Node->getHLNodeUtils().createCmp(
         INode->getPredicate(), WideOps[1], WideOps[2],
         CurInst->getName() + ".vec", WideOps[0]);
-  } else if (isa<GetElementPtrInst>(CurInst)) {
+  } else if (isa<GEPOrSubsOperator>(CurInst)) {
     // Gep Instructions in LLVM may have any number of operands but the HIR
     // representation for them is always a single rhs ddref - copy rval to
     // lval.

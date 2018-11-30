@@ -80,7 +80,7 @@ public:
 char HIRVecDirInsert::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRVecDirInsert, "hir-vec-dir-insert",
                       "HIR Vec Directive Insertion Pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRParVecAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRParVecAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRVecDirInsert, "hir-vec-dir-insert",
                     "HIR Vec Directive Insertion Pass", false, false)
 

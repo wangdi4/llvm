@@ -1,4 +1,5 @@
 ; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes %s | FileCheck %s
 
 ; This test is here to verify that compatible but not equivalent types are
 ; handled correctly. When that transformation is fully implemented this

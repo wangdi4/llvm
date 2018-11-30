@@ -177,16 +177,14 @@ public:
   /// exit of the loop we are vectorizing. \p Goto's parent must be an HLIf.
   void handleNonLinearEarlyExitLiveOuts(const HLGoto *Goto);
 
-  HLInst *createBitCast(Type *Ty, RegDDRef *Ref,
-                        const Twine &Name = "cast") {
+  HLInst *createBitCast(Type *Ty, RegDDRef *Ref, const Twine &Name = "cast") {
     HLInst *BitCastInst =
         MainLoop->getHLNodeUtils().createBitCast(Ty, Ref->clone(), Name);
     addInstUnmasked(BitCastInst);
     return BitCastInst;
   }
 
-  HLInst *createZExt(Type *Ty, RegDDRef *Ref,
-                     const Twine &Name = "cast") {
+  HLInst *createZExt(Type *Ty, RegDDRef *Ref, const Twine &Name = "cast") {
     HLInst *ZExtInst =
         MainLoop->getHLNodeUtils().createZExt(Ty, Ref->clone(), Name);
     addInstUnmasked(ZExtInst);
@@ -201,6 +199,11 @@ public:
   // overrides the current mask value if non-null. The last HLInst
   // generated for this HLIf node is returned.
   HLInst *widenIfNode(const HLIf *HIf, RegDDRef *Mask = nullptr);
+
+  // Handle vector code generation when given Inst is a non-masked uniform
+  // store. If the Rval of Inst is invariant then only a scalar store is
+  // generated, else an extractelement operation is performed before the store
+  HLInst *widenNonMaskedUniformStore(const HLInst *Inst);
 
   // Add WideVal as the widened vector value corresponding  to VPVal
   void addVPValueWideRefMapping(VPValue *VPVal, RegDDRef *WideVal) {
@@ -234,9 +237,7 @@ public:
 
   // Add the given instruction at the end of the main loop unmasked.
   // Currently used for predicate computation.
-  void addInstUnmasked(HLInst *Inst) {
-    addInst(Inst, nullptr);
-  }
+  void addInstUnmasked(HLInst *Inst) { addInst(Inst, nullptr); }
 
   void addInstUnmasked(HLInst *Inst, const bool IsThenChild) {
     addInst(Inst, nullptr, IsThenChild);
@@ -269,7 +270,8 @@ public:
     }
     auto InsertRegion = dyn_cast<HLIf>(getInsertRegion());
     assert(InsertRegion && "HLIf is expected as insert region.");
-    HLNodeUtils::insertAsLastChild(InsertRegion, Node, IsThenChild);
+    IsThenChild ? HLNodeUtils::insertAsLastThenChild(InsertRegion, Node)
+                : HLNodeUtils::insertAsLastElseChild(InsertRegion, Node);
   }
 
   void setCurMaskValue(RegDDRef *V) { CurMaskValue = V; }

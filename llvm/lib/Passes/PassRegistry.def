@@ -55,6 +55,7 @@ MODULE_PASS("deadargelim", DeadArgumentEliminationPass())
 MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass())           // INTEL
 MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass())     // INTEL
 MODULE_PASS("dtrans-reorderfields", dtrans::ReorderFieldsPass()) // INTEL
+MODULE_PASS("dtrans-resolvetypes", dtrans::ResolveTypesPass())   // INTEL
 MODULE_PASS("dtrans-dynclone", dtrans::DynClonePass())           // INTEL
 MODULE_PASS("dtrans-soatoaos", dtrans::SOAToAOSPass())           // INTEL
 MODULE_PASS("dtrans-weakalign", dtrans::WeakAlignPass())         // INTEL
@@ -182,6 +183,7 @@ FUNCTION_ANALYSIS("hir-locality-analysis", loopopt::HIRLoopLocalityAnalysis())
 FUNCTION_ANALYSIS("hir-dd-analysis", loopopt::HIRDDAnalysisPass())
 FUNCTION_ANALYSIS("hir-safe-reduction-analysis", loopopt::HIRSafeReductionAnalysisPass())
 FUNCTION_ANALYSIS("hir-sparse-array-reduction-analysis", loopopt::HIRSparseArrayReductionAnalysisPass())
+FUNCTION_ANALYSIS("hir-parvec-analysis", loopopt::HIRParVecAnalysisPass())
 FUNCTION_ANALYSIS("vpo-wrncollection", WRegionCollectionAnalysis())
 FUNCTION_ANALYSIS("vpo-wrninfo", WRegionInfoAnalysis())
 #endif // INTEL_CUSTOMIZATION

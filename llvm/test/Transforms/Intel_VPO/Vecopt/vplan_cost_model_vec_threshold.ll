@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -S -VPlanDriver  -mtriple=x86_64-unknown-unknown -mattr=+avx2 -debug \
-; RUN:     -vec-threshold=50 \
+; RUN:     -vec-threshold=50 -vplan-build-vect-candidates=1\
 ; RUN:     2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
@@ -10,7 +10,7 @@
 
 ; REQUIRES: asserts
 ; RUN: opt < %s -S -VPlanDriver  -mtriple=x86_64-unknown-unknown -mattr=+avx2 -debug \
-; RUN:     -vec-threshold=0 \
+; RUN:     -vec-threshold=0 -vplan-build-vect-candidates=1 \
 ; RUN:     2>&1 | FileCheck %s --check-prefix=VEC-ALWAYS
 
 ; REQUIRES: asserts
@@ -32,9 +32,9 @@
 
 define void @test_vectorize() local_unnamed_addr #0 {
 ; CHECK: Applying threshold
-; VEC-ALWAYS: vector always is used for the given loop
+; VEC-ALWAYS: '#pragma vector always'/ '#pragma omp simd' is used for the given loop
+
 entry:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:
@@ -56,14 +56,5 @@ for.body:
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
   ret void
 }
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-attributes #1 = { nounwind }

@@ -39,6 +39,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 // TODO audit includes
@@ -846,30 +847,93 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
-  SmallVector<Value *, 4> IndexV;
   bool AnyVector = false;
-  bool NeedGEP = true;
   unsigned DimNum = Ref->getNumDimensions();
+
+  auto BitCastDestTy = Ref->getBitCastDestType();
+
+  for (auto CEI = Ref->canon_begin(), CEE = Ref->canon_end(); CEI != CEE;
+       ++CEI) {
+    if ((*CEI)->getDestType()->isVectorTy()) {
+      AnyVector = true;
+      break;
+    }
+  }
+
+  // A GEP instruction is allowed to have a mix of scalar and vector operands.
+  // However, not all optimizations(especially LLVM loop unroller) are handling
+  // such cases. To workaround, the base pointer value needs to be broadcast.
+  // If Ref's dest type is a vector, we need to do a broadcast.
+  if (!BaseV->getType()->isVectorTy()) {
+    if (AnyVector || (BitCastDestTy && BitCastDestTy->isVectorTy())) {
+      auto VL = Ref->getDestType()->getVectorNumElements();
+      BaseV = Builder.CreateVectorSplat(VL, BaseV);
+    }
+  }
+
+  std::function<Value *(Value *, ArrayRef<Value *>)> CreateGEPInBoundsHelper =
+      [this](Value *BasePtr, ArrayRef<Value *> IndexV) {
+        return Builder.CreateInBoundsGEP(BasePtr, IndexV, "arrayIdx");
+      };
+
+  std::function<Value *(Value *, ArrayRef<Value *>)> CreateGEPHelper =
+      [this](Value *BasePtr, ArrayRef<Value *> IndexV) {
+        return Builder.CreateGEP(BasePtr, IndexV, "arrayIdx");
+      };
+
+  auto CreateGEP =
+      Ref->isInBounds() ? CreateGEPInBoundsHelper : CreateGEPHelper;
+
+  auto &DL = HIRF.getDataLayout();
+  Value *GEPVal = BaseV;
 
   // Ref either looks like t[0] or &t[0]. In such cases we don't need a GEP, we
   // can simply use the base value. Also, for opaque (forward declared) struct
   // types, LLVM doesn't allow any indices even if it is just a zero.
   if ((DimNum == 1) && !Ref->hasTrailingStructOffsets() &&
       (*Ref->canon_begin())->isZero()) {
-    NeedGEP = false;
+    // GEP is not needed.
   } else {
+    assert(DimNum && "No dimensions");
+    SmallVector<Value *, 4> IndexV;
 
     // stored as A[canon3][canon2][canon1], but gep requires them in reverse
     // order
-    for (auto CEIt = Ref->canon_rbegin(), E = Ref->canon_rend(); CEIt != E;
-         ++CEIt, --DimNum) {
-      auto IndexVal = visitCanonExpr(*CEIt);
+    for (; DimNum > 0; --DimNum) {
+      auto *IndexVal = visitCanonExpr(Ref->getDimensionIndex(DimNum));
+      auto *LowerVal = visitCanonExpr(Ref->getDimensionLower(DimNum));
+      auto *StrideVal = visitCanonExpr(Ref->getDimensionStride(DimNum));
 
-      if (IndexVal->getType()->isVectorTy()) {
-        AnyVector = true;
+      Type *GEPElementTy = Ref->getDimensionElementType(DimNum);
+
+      // Create a GEP offset that corresponds to the current dimension.
+      Value *OffsetVal = emitBaseOffset(&Builder, DL, GEPElementTy, GEPVal,
+                                        LowerVal, IndexVal, StrideVal);
+
+      // Adding an index to the GEP will change the result type to the element
+      // of an aggregate:
+      //   getelementptr [10 x float]*, 0    -> [10 x float]
+      //   getelementptr [10 x float]*, 0, 0 -> float
+      //
+      // For non-array dimensions instead of adding offset as a new index,
+      // another GEP should be created:
+      //
+      //   %p[0][i][j][k]
+      //        /   |   \
+      //      %vs1 %vs2 [10 x float];    %vs1, %vs2 - variable strides
+      //
+      //   %0 = getelementptr [10 x float]* %p, 0
+      //   %1 = getelementptr [10 x float]* %0, %offset1
+      //   %2 = getelementptr [10 x float]* %1, %offset2, %k
+      //
+      // The following check emits the indices for the previous dimension if the
+      // current dimension is not an array type.
+      if (!Ref->isDimensionLLVMArray(DimNum) && !IndexV.empty()) {
+        GEPVal = CreateGEP(GEPVal, IndexV);
+        IndexV.clear();
       }
 
-      IndexV.push_back(IndexVal);
+      IndexV.push_back(OffsetVal);
 
       // Push back indices for dimensions's trailing offsets.
       auto Offsets = Ref->getTrailingStructOffsets(DimNum);
@@ -883,30 +947,10 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
           IndexV.push_back(OffsetIndex);
         }
       }
+
     }
-  }
 
-  auto BitCastDestTy = Ref->getBitCastDestType();
-
-  // A GEP instruction is allowed to have a mix of scalar and vector operands.
-  // However, not all optimizations(especially LLVM loop unroller) are handling
-  // such cases. To workaround, the base pointer value needs to be broadcast.
-  // If Ref's dest type is a vector, we need to do a broadcast.
-  if (!BaseV->getType()->isVectorTy()) {
-    if (AnyVector || (BitCastDestTy && BitCastDestTy->isVectorTy())) {
-      auto VL = Ref->getDestType()->getVectorNumElements();
-      BaseV = Builder.CreateVectorSplat(VL, BaseV);
-    }
-  }
-
-  Value *GEPVal;
-
-  if (!NeedGEP) {
-    GEPVal = BaseV;
-  } else if (Ref->isInBounds()) {
-    GEPVal = Builder.CreateInBoundsGEP(BaseV, IndexV, "arrayIdx");
-  } else {
-    GEPVal = Builder.CreateGEP(BaseV, IndexV, "arrayIdx");
+    GEPVal = CreateGEP(GEPVal, IndexV);
   }
 
   if (GEPVal->getType()->isVectorTy() && isa<PointerType>(BitCastDestTy)) {
@@ -1131,7 +1175,7 @@ void CGVisitor::replaceOldRegion(BasicBlock *RegionEntry) {
   BranchInst *RegionBranch = BranchInst::Create(
       RegionEntry, EntrySecondHalf,
       ConstantInt::get(IntegerType::get(F.getContext(), 1), 1));
-  ReplaceInstWithInst(Term->getParent()->getInstList(), It, RegionBranch);
+  ReplaceInstWithInst(EntryFirstHalf->getInstList(), It, RegionBranch);
 }
 
 Value *CGVisitor::visitRegion(HLRegion *Reg) {
@@ -1140,12 +1184,15 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
 
   preprocess(Reg);
 
+  auto *RegionSuccessor = CurRegion->getSuccBBlock();
+
   // push back one null so iv for level 1 is at array position 1
   // in other words, make this vector 1 indexed
   CurIVValues.push_back(nullptr);
   // create new bblock for region entry
   BasicBlock *RegionEntry = BasicBlock::Create(
-      F.getContext(), "region." + std::to_string(Reg->getNumber()), &F);
+      F.getContext(), "region." + std::to_string(Reg->getNumber()), &F,
+      RegionSuccessor);
   Builder.SetInsertPoint(RegionEntry);
 
   initializeLiveins();
@@ -1191,8 +1238,6 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
   for (auto It = Reg->child_begin(), E = Reg->child_end(); It != E; ++It) {
     visit(*It);
   }
-
-  BasicBlock *RegionSuccessor = Reg->getSuccBBlock();
 
   // current insertion point is at end of region, add jump to successor
   // and we are done
@@ -1296,9 +1341,13 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
 
   Builder.CreateCondBr(CondV, ThenBB, ElseBB);
 
+  auto *RegionSuccessor = CurRegion->getSuccBBlock();
+  auto BBInsertionPos = RegionSuccessor ? RegionSuccessor->getIterator()
+                                        : F.getBasicBlockList().end();
+
   if (HasThenChildren) {
     // generate then block
-    F.getBasicBlockList().push_back(ThenBB);
+    F.getBasicBlockList().insert(BBInsertionPos, ThenBB);
     Builder.SetInsertPoint(ThenBB);
 
     if (IVAdd) {
@@ -1324,8 +1373,9 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
     assert(!IVAdd && "Bottom test cannot have else case!");
 
     // generate else block
-    F.getBasicBlockList().push_back(ElseBB);
+    F.getBasicBlockList().insert(BBInsertionPos, ElseBB);
     Builder.SetInsertPoint(ElseBB);
+
     for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
       visit(*It);
     }
@@ -1334,7 +1384,7 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
   }
 
   // CG resumes at merge block
-  F.getBasicBlockList().push_back(MergeBB);
+  F.getBasicBlockList().insert(BBInsertionPos, MergeBB);
   Builder.SetInsertPoint(MergeBB);
 
   return nullptr;
@@ -1406,7 +1456,8 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     assert(Upper->getType() == Lp->getIVType() &&
            "IVtype does not match upper type");
 
-    LoopBB = BasicBlock::Create(F.getContext(), LName, &F);
+    LoopBB = BasicBlock::Create(F.getContext(), LName, &F,
+                                CurRegion->getSuccBBlock());
 
     // explicit fallthru to loop, terminates current bblock
     Builder.CreateBr(LoopBB);
@@ -1473,8 +1524,8 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
         Builder.CreateICmp(IsNSW ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
                            NextVar, Upper, "cond" + LName);
 
-    BasicBlock *AfterBB =
-        BasicBlock::Create(F.getContext(), "after" + LName, &F);
+    BasicBlock *AfterBB = BasicBlock::Create(F.getContext(), "after" + LName,
+                                             &F, CurRegion->getSuccBBlock());
 
     ScopeDbgLoc DbgLocBranch(*this, Lp->getBranchDebugLoc());
 
@@ -1503,8 +1554,8 @@ BasicBlock *CGVisitor::getBBlockForLabel(HLLabel *L) {
   if (InternalLabels.count(L))
     return InternalLabels[L];
 
-  BasicBlock *LabelBB =
-      BasicBlock::Create(F.getContext(), "hir." + L->getName(), &F);
+  BasicBlock *LabelBB = BasicBlock::Create(
+      F.getContext(), "hir." + L->getName(), &F, CurRegion->getSuccBBlock());
   InternalLabels[L] = LabelBB;
   return LabelBB;
 }
@@ -1546,8 +1597,9 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
   Value *CondV = visitRegDDRef(S->getConditionDDRef());
   SmallString<10> SwitchName("hir.sw." + std::to_string(S->getNumber()));
 
-  BasicBlock *DefaultBlock =
-      BasicBlock::Create(F.getContext(), SwitchName + ".default");
+  auto *RegionSuccessor = CurRegion->getSuccBBlock();
+  BasicBlock *DefaultBlock = BasicBlock::Create(
+      F.getContext(), SwitchName + ".default", &F, RegionSuccessor);
   BasicBlock *EndBlock =
       BasicBlock::Create(F.getContext(), SwitchName + ".end");
 
@@ -1555,7 +1607,6 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
       Builder.CreateSwitch(CondV, DefaultBlock, S->getNumCases());
 
   // generate default block
-  F.getBasicBlockList().push_back(DefaultBlock);
   Builder.SetInsertPoint(DefaultBlock);
   for (auto I = S->default_case_child_begin(), E = S->default_case_child_end();
        I != E; ++I) {
@@ -1571,8 +1622,8 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
     ConstantInt *CaseInt = cast<ConstantInt>(CaseV);
 
     BasicBlock *CaseBlock = BasicBlock::Create(
-        F.getContext(), SwitchName + ".case." + std::to_string(I - 1));
-    F.getBasicBlockList().push_back(CaseBlock);
+        F.getContext(), SwitchName + ".case." + std::to_string(I - 1), &F,
+        RegionSuccessor);
     Builder.SetInsertPoint(CaseBlock);
 
     for (auto HNode = S->case_child_begin(I), E = S->case_child_end(I);
@@ -1584,7 +1635,9 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
     LLVMSwitch->addCase(CaseInt, CaseBlock);
   }
 
-  F.getBasicBlockList().push_back(EndBlock);
+  auto BBInsertionPos = RegionSuccessor ? RegionSuccessor->getIterator()
+                                        : F.getBasicBlockList().end();
+  F.getBasicBlockList().insert(BBInsertionPos, EndBlock);
   Builder.SetInsertPoint(EndBlock);
   return nullptr;
 }
@@ -1836,7 +1889,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     StoreVal = createCmpInst(HInst->getPredicate(), Ops[1], Ops[2],
                              "hir.cmp." + std::to_string(HInst->getNumber()));
 
-  } else if (isa<GetElementPtrInst>(Inst)) {
+  } else if (isa<GEPOrSubsOperator>(Inst)) {
     // Gep Instructions in LLVM may have any number of operands but the HIR
     // representation for them is always a single rhs ddref
     assert(Ops.size() == 2 && "Gep Inst have single rhs of form &val");

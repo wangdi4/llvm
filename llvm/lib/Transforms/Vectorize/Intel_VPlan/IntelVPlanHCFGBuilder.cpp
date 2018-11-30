@@ -18,10 +18,10 @@
 
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelLoopCFU.h"
-#include "IntelVPlanBranchDependenceAnalysis.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanSyncDependenceAnalysis.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -466,7 +466,7 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
     // LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
     // VPDomTree.print(dbgs()));
     mergeLoopExits(TopLoop);
-    LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
+    LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
     // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
     // VPDomTree.print(dbgs()));
   }
@@ -686,7 +686,11 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   Plan->setEntry(TopRegion);
   LLVM_DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
 
+#if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
+#else
   LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
+#endif
 
   // Compute dom tree for the plain CFG for VPLInfo. We don't need post-dom tree
   // at this point.
@@ -758,7 +762,11 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   LLVM_DEBUG(dbgs() << "VPLoop Info After simplifyPlainCFG:\n";
              VPLInfo->print(dbgs()));
 
+#if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
+#else
   LLVM_DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
+#endif
 
   // Build hierarchical CFG in two step: buildLoopRegions and
   // buildNonLoopRegions. There are two important things to notice:
@@ -781,10 +789,13 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     errs() << "Print after building H-CFG:\n";
     Plan->dump(errs());
   }
-#endif
 
   LLVM_DEBUG(Verifier->setVPLoopInfo(VPLInfo);
+             Verifier->verifyHierarchicalCFG(Plan, TopRegion));
+#else
+  LLVM_DEBUG(Verifier->setVPLoopInfo(VPLInfo);
              Verifier->verifyHierarchicalCFG(TopRegion));
+#endif
 }
 
 // Return true if a non-loop region can be formed from \p Entry. If so, \p Exit
@@ -1072,10 +1083,9 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
 
   // A and B: Create VPValue and add it to the pool of external definitions and
   // to the Value->VPValue map.
-  VPValue *NewVPVal = new VPValue(IROp->getType(), IROp);
-  Plan->addExternalDef(NewVPVal);
-  IRDef2VPValue[IROp] = NewVPVal;
-  return NewVPVal;
+  VPExternalDef *ExtDef = Plan->getVPExternalDef(IROp);
+  IRDef2VPValue[IROp] = ExtDef;
+  return ExtDef;
 }
 
 // Create new VPInstructions in a VPBasicBlock, given its BasicBlock

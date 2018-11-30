@@ -1352,6 +1352,7 @@ void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
   DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
   DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
   BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
+  assert(NextBB && "Null Next BB.");
   if (NextBB->getUniquePredecessor())
     DT->changeImmediateDominator(NextBB, InsertPt->getParent());
 }

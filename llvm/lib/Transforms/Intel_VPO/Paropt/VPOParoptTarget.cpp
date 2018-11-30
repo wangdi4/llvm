@@ -239,6 +239,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     // if.end:
     //   ...
     //
+    Builder.SetInsertPoint(NewCall);
     Value *Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
     Instruction *ThenTerm, *ElseTerm;
     buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt);
@@ -315,9 +316,13 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
 }
 
 // Returns the corresponding flag for a given map clause modifier.
-unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool IsFirstExprFlag,
+uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
+                                            bool AddrIsTargetParamFlag,
                                             bool IsFirstComponentFlag) {
-  unsigned Res = 0u;
+  uint64_t Res = 0u;
+
+  if (!AddrIsTargetParamFlag && IsFirstComponentFlag)
+    return TGT_MAP_TARGET_PARAM;
 
   if (MapI->getIsMapTofrom())
     Res = TGT_MAP_TO | TGT_MAP_FROM;
@@ -333,10 +338,16 @@ unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool IsFirstExprFlag,
   if (MapI->getIsMapAlways())
     Res |= TGT_MAP_ALWAYS;
 
-  if (IsFirstExprFlag)
-    Res |= TGT_MAP_IS_PTR;
-  if (IsFirstComponentFlag)
-    Res |= TGT_MAP_FIRST_REF;
+  // Memberof is given by the 16 MSB of the flag, so rotate by 48 bits.
+  // It is workaroud. Need more work.
+  auto getMemberOfFlag = [&]() {
+    return (uint64_t)1 << 48;
+  };
+
+  if (AddrPtrFlag)
+    Res |= TGT_MAP_PTR_AND_OBJ | getMemberOfFlag();
+  else if (AddrIsTargetParamFlag)
+    Res |= TGT_MAP_TARGET_PARAM;
 
   return Res;
 }
@@ -346,10 +357,10 @@ unsigned VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool IsFirstExprFlag,
 void VPOParoptTransform::GenTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
-    bool &hasRuntimeEvaluationCaptureSize) {
+    bool &hasRuntimeEvaluationCaptureSize,
+    bool &IsFirstExprFlag) {
   const DataLayout DL = F->getParent()->getDataLayout();
 
-  bool IsFirstExprFlag = true;
 
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
@@ -369,12 +380,14 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
         } else
           ConstSizes.push_back(ConstValue);
         MapTypes.push_back(
-            getMapTypeFlag(MapI, !IsFirstExprFlag, I == 0 ? true : false));
+            getMapTypeFlag(MapI, !IsFirstExprFlag, false,
+                           I == 0 ? true : false));
+        IsFirstExprFlag = false;
       }
     } else {
       ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
                                             DL.getTypeAllocSize(T)));
-      MapTypes.push_back(getMapTypeFlag(MapI, !IsFirstExprFlag, true));
+      MapTypes.push_back(getMapTypeFlag(MapI, !IsFirstExprFlag, true, true));
     }
 
     IsFirstExprFlag = false;
@@ -390,7 +403,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
       Type *T = FprivI->getOrig()->getType()->getPointerElementType();
       ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
                                             DL.getTypeAllocSize(T)));
-      MapTypes.push_back(TGT_MAP_TO | TGT_MAP_FIRST_REF);
+      MapTypes.push_back(TGT_MAP_TO | TGT_MAP_TARGET_PARAM);
     }
   }
 
@@ -401,14 +414,14 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
         continue;
       Type *T = IntelGeneralUtils::getSizeTTy(F);
       ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
-      MapTypes.push_back(TGT_MAP_PRIVATE_VAL | TGT_MAP_FIRST_REF);
+      MapTypes.push_back(TGT_MAP_PRIVATE | TGT_MAP_TARGET_PARAM);
     }
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {
     Type *T = W->getParLoopNdInfoAlloca()->getType()->getPointerElementType();
     ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
                                           DL.getTypeAllocSize(T)));
-    MapTypes.push_back(TGT_MAPTYPE_ND_DESC);
+    MapTypes.push_back(TGT_MAP_ND_DESC);
   }
 }
 
@@ -528,19 +541,23 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
     SmallVector<Constant *, 16> ConstSizes;
     SmallVector<uint64_t, 16> MapTypes;
+    bool IsFirstExprFlag = true;
 
     if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
       GenTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
-                               hasRuntimeEvaluationCaptureSize);
+                               hasRuntimeEvaluationCaptureSize,
+                               IsFirstExprFlag);
     else {
       for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
         GenTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes,
-                                 hasRuntimeEvaluationCaptureSize);
+                                 hasRuntimeEvaluationCaptureSize,
+                                 IsFirstExprFlag);
       }
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
         GenTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
-                                 MapTypes, hasRuntimeEvaluationCaptureSize);
+                                 MapTypes, hasRuntimeEvaluationCaptureSize,
+                                 IsFirstExprFlag);
     }
 
     Info.NumberOfPtrs = MapTypes.size();
@@ -593,7 +610,7 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   if (hasOffloadCompilation())
     return Call;
 
-  CallInst *TgtCall;
+  CallInst *TgtCall = nullptr;
   if (isa<WRNTargetNode>(W)) {
     auto *IT = W->wrn_child_begin();
     if (IT != W->wrn_child_end() && isa<WRNTeamsNode>(*IT)) {
@@ -776,55 +793,91 @@ void VPOParoptTransform::genOffloadArraysArgument(
   }
 }
 
-// The utility to generate the stack variable to pass the value of
-// global variable.
+// Given a global variable reference in a OMP target construct, the
+// corresponding target outline function needs to pass the address of
+// global variable as one of its arguments. The utility CodeExtractor which
+// is used by the paropt cannot generate such argument since the global
+// variable is live in the module. In order to help the CodeExtractor to
+// achieve this, the following utilty is used to generate place holder for
+// global variable. The later outline function can have corresponding
+// argument for this global variable.
+//
+// %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+//      "QUAL.OMP.FIRSTPRIVATE"(i32* @pvtPtr) ]
+// ===>
+// entry:
+//   %0 = call i8* @llvm.launder.invariant.group.p0i8
+//                  (i8* bitcast (i32* @pvtPtr to i8*))
+//   %1 = bitcast i8* %0 to i32*
+//   br label %entry.split
+// ...
+// %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+//      "QUAL.OMP.FIRSTPRIVATE"(i32* %1) ]
 Value *VPOParoptTransform::genGlobalPrivatizationImpl(WRegionNode *W,
                                                       GlobalVariable *G,
                                                       BasicBlock *EntryBB,
                                                       BasicBlock *NextExitBB,
                                                       Item *IT) {
   G->setTargetDeclare(true);
-  Instruction *InsertPt = EntryBB->getFirstNonPHI();
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-  auto NewPrivInst = genPrivatizationAlloca(G, InsertPt, ".priv.mp");
+  IRBuilder<> Builder(EntryBB->getFirstNonPHI());
+  Value *NewPrivInst = Builder.CreateLaunderInvariantGroup(G);
   genPrivatizationReplacement(W, G, NewPrivInst, IT);
-
-  if (!VPOUtils::canBeRegisterized(NewPrivInst->getAllocatedType(), DL)) {
-    VPOUtils::genMemcpy(NewPrivInst, G, DL, NewPrivInst->getAlignment(),
-                        InsertPt->getParent());
-    VPOUtils::genMemcpy(G, NewPrivInst, DL, NewPrivInst->getAlignment(),
-                        NextExitBB);
-  } else {
-    LoadInst *Load = new LoadInst(G);
-    Load->insertAfter(cast<Instruction>(NewPrivInst));
-    StoreInst *Store = new StoreInst(Load, NewPrivInst);
-    Store->insertAfter(Load);
-    IRBuilder<> Builder(NextExitBB->getTerminator());
-    Builder.CreateStore(Builder.CreateLoad(NewPrivInst), G);
-  }
   return NewPrivInst;
 }
 
 // Replace the new generated local variables with global variables
 // in the target initialization code.
 bool VPOParoptTransform::finalizeGlobalPrivatizationCode(WRegionNode *W) {
-  MapClause const &MpClause = W->getMap();
 
+  // Clean up the fence call and replace the use of its return value
+  // with call's operand.
+  auto propagateGlobals = [&](Value *Orig) {
+    if (!Orig)
+      return;
+    BitCastInst *BI = dyn_cast<BitCastInst>(Orig);
+    if (!BI)
+      return;
+    Value *V = BI->getOperand(0);
+    CallInst *CI = dyn_cast<CallInst>(V);
+    if (CI && isFenceCall(CI)) {
+      CI->replaceAllUsesWith(CI->getOperand(0));
+      CI->eraseFromParent();
+    }
+  };
+
+  MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
     Value *Orig = MapI->getOrig();
-    if (!Orig)
-      continue;
-    GlobalVariable *G = dyn_cast<GlobalVariable>(Orig);
-    if (!G) {
-      LoadInst *LI = dyn_cast<LoadInst>(Orig);
-      if (LI)
-        G = dyn_cast<GlobalVariable>(LI->getPointerOperand());
-    }
-    if (G) {
-      MapI->getNew()->replaceAllUsesWith(G);
+    propagateGlobals(Orig);
+  }
+
+  if (W->canHaveFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      Value *Orig = FprivI->getOrig();
+      propagateGlobals(Orig);
     }
   }
   return false;
+}
+
+// Return original global variable if the value Orig is the return value
+// of a fence call.
+Value *VPOParoptTransform::getRootValueFromFenceCall(Value *Orig) {
+  BitCastInst *BI = dyn_cast<BitCastInst>(Orig);
+  if (!BI)
+    return Orig;
+  Value *V = BI->getOperand(0);
+  CallInst *CI = dyn_cast<CallInst>(V);
+  if (CI && isFenceCall(CI)) {
+    Value *CallOperand = CI->getOperand(0);
+    ConstantExpr *Expr = dyn_cast_or_null<ConstantExpr>(CallOperand);
+    assert(Expr && "getRootValue: expect non empty constant expression");
+    if (Expr->isCast())
+      return Expr->getOperand(0);
+    return CallOperand;
+  }
+  return Orig;
 }
 
 // If the incoming data is global variable, Create the stack variable and
@@ -832,21 +885,20 @@ bool VPOParoptTransform::finalizeGlobalPrivatizationCode(WRegionNode *W) {
 bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
   MapClause const &MpClause = W->getMap();
   BasicBlock *EntryBB = &(F->getEntryBlock());
+  BasicBlock *NewEntryBB =
+      SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+  if (W->getEntryBBlock() == EntryBB)
+    W->setEntryBBlock(NewEntryBB);
   BasicBlock *ExitBB = W->getExitBBlock();
   BasicBlock *NextExitBB = SplitBlock(ExitBB, ExitBB->getTerminator(), DT, LI);
   bool Changed = false;
-
 
   for (MapItem *MapI : MpClause.items()) {
     Value *Orig = MapI->getOrig();
     if (!Orig)
       continue;
     GlobalVariable *G = dyn_cast<GlobalVariable>(Orig);
-    if (!G) {
-      LoadInst *LI = dyn_cast<LoadInst>(Orig);
-      if (LI)
-        G = dyn_cast<GlobalVariable>(LI->getPointerOperand());
-    }
+
     if (G) {
       if (!Changed)
         W->populateBBSet();
@@ -879,10 +931,6 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
             genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
 
         FprivI->setNew(NewPrivInst);
-        // The Orig of the firstprivate is set to the new private alloca
-        // instruction so that the corresponding firstprivate item will
-        // not be processed later.
-        FprivI->setOrig(NewPrivInst);
         Changed = true;
       } else
         FprivI->setNew(Orig);

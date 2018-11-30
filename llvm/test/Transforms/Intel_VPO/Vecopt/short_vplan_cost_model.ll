@@ -1,3 +1,6 @@
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -S -VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-HIR
+
 ; RUN: opt < %s -S -VPlanDriver -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-LLVM
 
@@ -20,7 +23,6 @@ define void @test_do_not_vectorize() local_unnamed_addr #0 {
 ; CHECK-HIR-NOT: load <{{.*}} x i32>
 ; CHECK-HIR-NOT: store <{{.*}} x i32>
 entry:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:
@@ -47,7 +49,6 @@ for.body:
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
   ret void
 }
 

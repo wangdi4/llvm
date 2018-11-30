@@ -72,11 +72,11 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
       If->setDebugLoc(BI->getDebugLoc());
 
       HLGoto *ThenGoto = HNU.createHLGoto(BB, BI->getSuccessor(0));
-      HLNodeUtils::insertAsFirstChild(If, ThenGoto, true);
+      HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
       Gotos.push_back(ThenGoto);
 
       HLGoto *ElseGoto = HNU.createHLGoto(BB, BI->getSuccessor(1));
-      HLNodeUtils::insertAsFirstChild(If, ElseGoto, false);
+      HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
       Gotos.push_back(ElseGoto);
 
       TermNode = If;

@@ -26,7 +26,9 @@ bool VPOAnalysisUtils::isCallOfName(Instruction *I, StringRef Name) {
   CallInst *Call = dyn_cast<CallInst>(I);
   if (Call) {
     Function *Func = Call->getCalledFunction();
-    assert(Func && "Null called function.");
+    if (!Func)
+      return false; // Indirect function call.
+
     StringRef FuncName = Func->getName();
     if (FuncName.equals(Name))
       return true;

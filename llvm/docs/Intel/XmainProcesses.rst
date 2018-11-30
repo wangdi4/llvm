@@ -84,6 +84,24 @@ resolve them and upload a new change set for further review. The amount of
 testing of the new change set is at your discretion but requires agreement
 from the gatekeeper.
 
+For branch promotions, gatekeeping is done primarily via
+`Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ and `repo upload`,
+using the following process:
+
+- Multiple-repository promotions must be tested locally using alloy,
+  whereas single-repository promotions may still use alloy testing
+  integrated to `Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_.
+
+- The promoter may set the code review +1 or ask one or more team members
+  to inspect the promotion changes and set code review +1.
+
+- The actual push of the promotion changes must be done using `ics merge -push`,
+  because `Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ does not
+  support submitting promotion changes.
+
+- The created `Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ review
+  must be abandoned after `ics merge -push` is done.
+
 ..
     The following paragraph provides a link that automatically opens up an email
     with the xmain checkin request form. It is not very human-readable, because
@@ -91,7 +109,10 @@ from the gatekeeper.
     %20. We should change this if there is a more human-readable form that
     achieves the same functionality.
 
-For branch promotions, gatekeeping is done via email. When a developer is ready
+Whenever possible, perform branch promotions using
+`Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ to notify
+``xmain gatekeeper``.  If for some reason it is not possible, then
+gatekeeping must be done via email. When a developer is ready
 to commit a change, the `xmain checkin request form
 <mailto:icl.xmain.gatekeeper@intel.com?
 subject=xmain%20checkin%20request%20(Edit%20this%20description%20and%20date%20
@@ -551,11 +572,11 @@ we have the following code in `llvm/CMakeLists.txt`:
 .. code-block:: cmake
 
   foreach(f ${LLVM_INTEL_FEATURES})
-    string(CONCAT FOPT "-DINTEL_FEATURE_" ${f} "=1")
+    string(CONCAT FOPT "-DINTEL_FEATURE" "_" ${f} "=1")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FOPT}")
   endforeach(f)
 
-This code populates C++ compilation flags with options like '-DINTEL_FEATURE_XXX=1'
+This code populates C++ compilation flags with options like '-DINTEL_FEATURE\_XXX=1'
 based on the list of features provided in 'LLVM_INTEL_FEATURES' list.
 
 .. note:: We do not currently update CMAKE_C_FLAGS, so pure C files are compiled
@@ -567,13 +588,13 @@ To guard Intel secret features in C/C++ files use feature checks in addition to
 .. code-block:: c++
 
   #if INTEL_CUSTOMIZATION
-  #if INTEL_FEATURE_AVX3_2
-  // AVX3_2 specific code.
-  #endif // INTEL_FEATURE_AVX3_2
+  #if INTEL_FEATURE\_XXX
+  // XXX specific code.
+  #endif // INTEL_FEATURE\_XXX
   #endif // INTEL_CUSTOMIZATION
 
-.. note:: The compiler must build with and without any of INTEL_FEATURE_XXX
-          defined.  If an INTEL_FEATURE_XXX is not defined, the compiler
+.. note:: The compiler must build with and without any of INTEL_FEATURE\_XXX
+          defined.  If an INTEL_FEATURE\_XXX is not defined, the compiler
           must be fully functional, except for the disabled feature's support.
 
 To completely exclude a C/C++ file from compilation, when some feature is not
@@ -673,9 +694,9 @@ but we have agreed on the following direction:
 
 .. code-block:: c++
 
-  // INTEL_FEATURE_AVX3_2
+  // INTEL_FEATURE\_AVX3_2
   // AVX3_2 specific code.
-  // end INTEL_FEATURE_AVX3_2
+  // end INTEL_FEATURE\_AVX3_2
 
 - A special Intel tool will be called from `llvm/cmake/modules/TableGen.cmake`
   (and, maybe, other cmake scripts) to preprocess a .td file into a temporary
@@ -722,7 +743,7 @@ build in `llvm/CMakeLists.txt`:
 
 This code allows using flat C/C++ include paths for header files located
 in `llvm/Intel_OptionalComponents/AVX3_2/include`.  Such include directives
-obviously need to be guarded with the corresponding INTEL_FEATURE_AVX3_2
+obviously need to be guarded with the corresponding INTEL_FEATURE\_AVX3_2
 macro check.
 
 The same way, C/C++ source files may be conditionally added to the compiler

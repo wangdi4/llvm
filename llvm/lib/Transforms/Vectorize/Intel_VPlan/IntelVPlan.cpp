@@ -234,8 +234,10 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
         if (PredVPBB->getSuccessors()[0] == this) {
           FirstSuccBB = NewBB;
           SecondSuccBB = PredBB->getSingleSuccessor();
+          assert(SecondSuccBB && "Expected single successor!");
         } else {
           FirstSuccBB = PredBB->getSingleSuccessor();
+          assert(FirstSuccBB && "Expected single successor!");
           SecondSuccBB = NewBB;
         }
 
@@ -743,15 +745,15 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
           bool TypesMatch = true;
           for (int64_t Index = 0; Index < Group->size(); ++Index) {
             auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
-            auto *VPInst = Memref->getInstruction();
             const HLInst *HInst;
             const RegDDRef *MemrefDD;
-            assert(VPInst->HIR.isValid() && VPInst->HIR.isMaster() &&
-                   "Expected valid master HIR instruction to start group");
-            HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
-            assert(HInst && "Expected non-null group start instruction");
 
+            // Members of the group can be memrefs which are not master
+            // VPInstructions (due to HIR Temp cleanup). Assertions for validity
+            // and to check if underlying HLInst is master VPI is not needed
+            // anymore. We directly obtain the HInst from memref's RegDDRef.
             MemrefDD = Memref->getRegDDRef();
+            HInst = cast<HLInst>(MemrefDD->getHLDDNode());
             if (Index == 0) {
               auto DL = MemrefDD->getDDRefUtils().getDataLayout();
 
@@ -1083,6 +1085,50 @@ void VPlan::executeHIR(VPOCodeGenHIR *CG) {
   assert(isa<VPRegionBlock>(Entry) && Entry->getNumPredecessors() == 0 &&
          Entry->getNumSuccessors() == 0 && "Invalid VPlan entry");
   Entry->executeHIR(CG);
+}
+
+void VPlan::verifyVPExternalDefs() const {
+  SmallPtrSet<const Value *, 16> ValueSet;
+  for (const auto &Pair : VPExternalDefs) {
+    const Value *KeyVal = Pair.first;
+    assert(KeyVal == Pair.second->getUnderlyingValue() &&
+           "Value key and VPExternalDef's underlying Value must be the same!");
+    // Checking that an element is repeated in a map is unnecessary but it
+    // will catch bugs if the data structure is changed in the future.
+    assert(!ValueSet.count(KeyVal) && "Repeated VPExternalDef!");
+    ValueSet.insert(KeyVal);
+  }
+}
+
+void VPlan::verifyVPExternalDefsHIR() const {
+  SmallSet<unsigned, 16> SymbaseSet;
+  SmallSet<unsigned, 16> IVLevelSet;
+  SmallPtrSet<const MetadataAsValue *, 16> MDSet;
+  for (const auto &Pair : VPExternalDefsHIR) {
+    const UnitaryBlobOrIV &KeyHIROp = Pair.first;
+    assert(KeyHIROp.isStructurallyEqual(Pair.second->getUnitaryBlobOrIV()) &&
+           "UnitaryBlobOrIV key and VPExternalDef's UnitaryBlobOrIV must be "
+           "the same!");
+
+    // Deeper verification depending on the kind of the underlying HIR operand.
+    if (KeyHIROp.isNonMDBlob()) {
+      // For blobs we check that the symbases are unique.
+      unsigned Symbase = KeyHIROp.getBlob()->getSymbase();
+      assert(!SymbaseSet.count(Symbase) && "Repeated blob VPExternalDef!");
+      SymbaseSet.insert(Symbase);
+    } else if (KeyHIROp.isIV()) {
+      // For IVs we check that the IV levels are unique.
+      unsigned IVLevel = KeyHIROp.getIVLevel();
+      assert(!IVLevelSet.count(IVLevel) && "Repeated IV VPExternalDef!");
+      IVLevelSet.insert(IVLevel);
+    } else {
+      assert(KeyHIROp.isMDBlob() && "Expected metadata VPExternalDef!");
+      // For metadata we check that the underlying metadata is unique.
+      const MetadataAsValue *MD = KeyHIROp.getMetadata();
+      assert(!MDSet.count(MD) && "Repeated Metadata VPExternalDef!");
+      MDSet.insert(MD);
+    }
+  }
 }
 #endif
 

@@ -228,8 +228,7 @@ Indexes: the CanonExprs member
    - A DDRef has at least one dimension. 
    - Each subscript (index to a dimension) is represented by a CanonExpr (CE).
    - **CanonExprs** is a vector/iterator of the CE's (indexes) of the dimensions of the RegDDRef.
-   - In a multi-dimensional memref the size of each dimension in number of bytes, aka stride, is obtained using the 
-     member getDimensionConstStride(). (Used to be contained in a ‘Strides’ vector in GEPInfo structure; Now it is computed dynamically from the type of the memref ()).
+   - In a multi-dimensional memref the size of each dimension in number of bytes, aka stride, is obtained using the members getDimensionStride()/getDimensionConstStride().
    - Example: For the LLVMIR reference (GEP A, 0, i), refering to source code array 'int A[10]' the respective HIR RegDDRef is A[0][i], such that:
 
      - **CanonExprs** is [i, 0]

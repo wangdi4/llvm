@@ -178,7 +178,7 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
   } else if (isa<SelectInst>(Inst)) {
     OS << "(";
   } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst) &&
-             !isa<GetElementPtrInst>(Inst) && !isa<CmpInst>(Inst)) {
+             !isa<GEPOrSubsOperator>(Inst) && !isa<CmpInst>(Inst)) {
     OS << Inst->getOpcodeName() << " ";
   }
 #endif // !INTEL_PRODUCT_RELEASE
@@ -369,7 +369,7 @@ RegDDRef *HLInst::removeRvalDDRef() {
 unsigned HLInst::getNumOperandsInternal() const {
   unsigned NumOp = 0;
 
-  if (isa<GetElementPtrInst>(Inst)) {
+  if (isa<GEPOrSubsOperator>(Inst)) {
     // GEP is represented as an assignment of address: %t = &A[i];
     NumOp = 1;
   } else if (auto CInst = dyn_cast<CallInst>(Inst)) {
@@ -411,10 +411,12 @@ HLDDNode::ddref_iterator HLInst::bundle_op_ddref_begin(unsigned BundleNum) {
 bool HLInst::isInPreheaderPostexitImpl(bool Preheader, HLLoop *ParLoop) const {
 
   if (!ParLoop) {
-    ParLoop = getParentLoop();
-  }
+    // Parent of preheader/postexit instructions has to be a loop.
+    ParLoop = dyn_cast<HLLoop>(getParent());
 
-  assert(ParLoop == getParentLoop() && "Invalid parent loop!");
+  } else {
+    assert(ParLoop == getParentLoop() && "Invalid parent loop!");
+  }
 
   if (!ParLoop) {
     return false;

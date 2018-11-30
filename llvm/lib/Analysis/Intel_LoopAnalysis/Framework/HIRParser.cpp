@@ -30,6 +30,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 
@@ -1111,7 +1112,7 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
     // Looks like ScalarEvolution can parse CmpInsts, if necessary to compute
     // backedge taken count of loops, so including it in the list as well.
     if (!isa<BinaryOperator>(OpInst) && !isa<CastInst>(OpInst) &&
-        !isa<GetElementPtrInst>(OpInst) && !isa<PHINode>(OpInst) &&
+        !isa<GEPOrSubsOperator>(OpInst) && !isa<PHINode>(OpInst) &&
         !isa<SelectInst>(OpInst) && !isa<CmpInst>(OpInst)) {
       continue;
     }
@@ -1513,7 +1514,8 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
 
   // TODO: Add exception handling and other miscellaneous instruction types
   // later.
-  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) || isa<CallInst>(Inst)) {
+  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) ||
+      (isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst))) {
     Ret = true;
   } else if (isRegionLiveOut(Inst)) {
     Ret = true;
@@ -2635,12 +2637,58 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
 void HIRParser::postParse(HLIf *If) {
 
   auto PredIter = If->pred_begin();
+  unsigned NumPreds = If->getNumPredicates();
 
   // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
-  if (!If->hasThenChildren() && (If->getNumPredicates() == 1)) {
+  if ((NumPreds == 1) && !If->hasThenChildren()) {
     If->invertPredicate(PredIter);
-    HLNodeUtils::moveAsFirstChildren(If, If->else_begin(), If->else_end(),
-                                     true);
+    HLNodeUtils::moveAsFirstThenChildren(If, If->else_begin(), If->else_end());
+    return;
+  }
+
+  // Converts-
+  //
+  // if () {
+  //   goto bb;
+  // } else {
+  //   A[i] = t;
+  // }
+  //
+  // To-
+  //
+  // if () {
+  //   goto bb;
+  // }
+  // A[i] = t;
+  if (auto Goto = dyn_cast_or_null<HLGoto>(If->getLastThenChild())) {
+    (void)Goto;
+    HLNodeUtils::moveAfter(If, If->else_begin(), If->else_end());
+    return;
+  }
+
+  // Converts-
+  //
+  // if (Cond) {
+  //   A[i] = t;
+  // } else {
+  //   goto bb;
+  // }
+  //
+  // To-
+  //
+  // if (!Cond) {
+  //   goto bb;
+  // }
+  // A[i] = t;
+  if (auto Goto = dyn_cast_or_null<HLGoto>(If->getLastElseChild())) {
+    (void)Goto;
+    if (NumPreds == 1) {
+      If->invertPredicate(PredIter);
+
+      HLNodeUtils::moveAfter(If, If->then_begin(), If->then_end());
+      HLNodeUtils::moveAsFirstThenChildren(If, If->else_begin(),
+                                           If->else_end());
+    }
   }
 }
 
@@ -2711,7 +2759,7 @@ static bool hasNonGEPAccess(const Instruction *AddRecPhi,
 
   // Trace pointers starting from PhiUpdateInst until we reach AddRecPhi.
   while (Inst != AddRecPhi) {
-    if (auto GEPInst = dyn_cast<GetElementPtrInst>(Inst)) {
+    if (auto GEPInst = dyn_cast<GEPOrSubsOperator>(Inst)) {
       Inst = cast<Instruction>(GEPInst->getPointerOperand());
     } else {
       // Some other kind of instruction is involved, probably a bitcast
@@ -2788,7 +2836,7 @@ void HIRParser::mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2) {
   IndexCE1->getCanonExprUtils().add(IndexCE1, IndexCE2);
 }
 
-void HIRParser::populateOffsets(const GEPOperator *GEPOp,
+void HIRParser::populateOffsets(const GEPOrSubsOperator *GEPOp,
                                 SmallVectorImpl<int64_t> &Offsets) {
 
   Offsets.clear();
@@ -2796,12 +2844,13 @@ void HIRParser::populateOffsets(const GEPOperator *GEPOp,
   // First index can never be a structure field offset.
   Offsets.push_back(-1);
 
-  unsigned NumOp = GEPOp->getNumOperands();
+  unsigned NumOp = GEPOp->getNumIndices();
   auto CurTy = cast<PointerType>(GEPOp->getPointerOperand()->getType())
                    ->getElementType();
 
-  // Ignore pointer operand and first index.
-  for (unsigned I = 2; I < NumOp; ++I) {
+  // Ignore first index.
+  for (unsigned I = 1; I < NumOp; ++I) {
+    assert(isa<GEPOperator>(GEPOp) && "Only GEP operators expected here");
 
     if (auto SeqTy = dyn_cast<SequentialType>(CurTy)) {
       CurTy = SeqTy->getElementType();
@@ -2810,11 +2859,12 @@ void HIRParser::populateOffsets(const GEPOperator *GEPOp,
     } else {
       assert(isa<StructType>(CurTy) && "Unexpected type encountered!");
       auto StrucTy = cast<StructType>(CurTy);
-      auto Operand = GEPOp->getOperand(I);
 
-      assert(isa<ConstantInt>(Operand) &&
+      auto IndexOperand = GEPOp->getIndex(I);
+
+      assert(isa<ConstantInt>(IndexOperand) &&
              "Structure offset is not a constant!");
-      auto OffsetVal = cast<ConstantInt>(Operand)->getZExtValue();
+      auto OffsetVal = cast<ConstantInt>(IndexOperand)->getZExtValue();
 
       CurTy = StrucTy->getElementType(OffsetVal);
       Offsets.push_back(OffsetVal);
@@ -2822,16 +2872,21 @@ void HIRParser::populateOffsets(const GEPOperator *GEPOp,
   }
 }
 
-bool HIRParser::representsStructOffset(const GEPOperator *GEPOp) {
+bool HIRParser::representsStructOffset(const GEPOrSubsOperator *GEPOp) {
+  if (!isa<GEPOperator>(GEPOp)) {
+    // Struct offsets may not be represented by Subscript intrinsics.
+    return false;
+  }
+
   SmallVector<int64_t, 8> Offsets;
   populateOffsets(GEPOp, Offsets);
 
   return (Offsets[GEPOp->getNumOperands() - 2] != -1);
 }
 
-bool HIRParser::isValidGEPOp(const GEPOperator *GEPOp) const {
+bool HIRParser::isValidGEPOp(const GEPOrSubsOperator *GEPOp) const {
 
-  auto GEPInst = dyn_cast<GetElementPtrInst>(GEPOp);
+  auto GEPInst = dyn_cast<Instruction>(GEPOp);
 
   if (GEPInst &&
       SE.getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) {
@@ -2844,14 +2899,52 @@ bool HIRParser::isValidGEPOp(const GEPOperator *GEPOp) const {
           !HIRRegionIdentification::containsUnsupportedTy(GEPOp));
 }
 
-const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
+static unsigned getTypeRank(Type *Ty) {
+  unsigned Rank = 0;
 
-  while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
-    if (!isValidGEPOp(TempGEPOp)) {
+  while (Ty->isArrayTy()) {
+    ++Rank;
+    Ty = Ty->getArrayElementType();
+  }
+
+  return Rank;
+}
+
+const GEPOrSubsOperator *
+HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
+
+  while (auto NextGEPOp =
+             dyn_cast<GEPOrSubsOperator>(GEPOp->getPointerOperand())) {
+    if (!isValidGEPOp(NextGEPOp)) {
       break;
     }
 
-    // If TempGEPOp's last index is an offset and GEPOp's first index is not
+    auto *NextSubs = dyn_cast<SubscriptInst>(NextGEPOp);
+    auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
+    if (NextSubs || Subs) {
+      unsigned NextRank =
+          NextSubs ? NextSubs->getTypeRank()
+                   : getTypeRank(
+                         cast<GEPOperator>(NextGEPOp)->getResultElementType());
+
+      unsigned Rank =
+          Subs ? Subs->getTypeRank()
+               : getTypeRank(cast<GEPOperator>(GEPOp)->getSourceElementType());
+
+      // TODO: if (NextRank != (Rank + 1) && NextRank != Rank) {
+      if (NextRank != (Rank + 1)) {
+        break;
+      }
+
+      // GEP operators may be merged, but only if the lower bounds and strides
+      // match.
+      if (NextRank == Rank) {
+        // TODO: handle splitting when strides or LBs do not match for the same
+        // rank.
+      }
+    }
+
+    // If NextGEPOp's last index is an offset and GEPOp's first index is not
     // zero then we have an unconventional structure access and the GEPs cannot
     // be merged. For example-
     //
@@ -2864,10 +2957,8 @@ const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
     // In the above example the first GEP references a float field in the
     // structure but the second GEP treats it as a floating point array whose
     // %j'th element is being accessed.
-    if (representsStructOffset(TempGEPOp)) {
-      auto PrevOp1 = GEPOp->getOperand(1);
-      auto ConstOp = dyn_cast<ConstantInt>(PrevOp1);
-
+    if (representsStructOffset(NextGEPOp)) {
+      auto ConstOp = dyn_cast<ConstantInt>(GEPOp->getIndex(0));
       if (!ConstOp || !ConstOp->isZero()) {
         break;
       }
@@ -2877,7 +2968,7 @@ const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
     // This is a profitability check to form more linear indices.
     // If we trace back, we may have to add offsets to casted IV which will make
     // the index non-linear.
-    auto *HighestIndex = getSCEV(const_cast<Value *>(GEPOp->getOperand(1)));
+    auto *HighestIndex = getSCEV(const_cast<Value *>(GEPOp->getIndex(0)));
 
     if (auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex)) {
       if (isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
@@ -2885,7 +2976,7 @@ const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
       }
     }
 
-    GEPOp = TempGEPOp;
+    GEPOp = NextGEPOp;
   }
 
   return GEPOp;
@@ -2908,12 +2999,12 @@ const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
 // 3) In the end, create additional dimension for the remaining '0' operand.
 //
 // The parsed DDRef looks like this- (@B][0][%i][%j]
-void HIRParser::populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
+void HIRParser::populateRefDimensions(RegDDRef *Ref,
+                                      const GEPOrSubsOperator *GEPOp,
                                       unsigned Level,
                                       bool RequiresIndexMerging) {
 
-  const GEPOperator *BaseGEPOp = getBaseGEPOp(GEPOp);
-  const GEPOperator *TempGEPOp = GEPOp;
+  const GEPOrSubsOperator *BaseGEPOp = getBaseGEPOp(GEPOp);
   CanonExpr *PrevGEPFirstIndexCE = nullptr;
   SmallVector<int64_t, 8> Offsets;
   SmallVector<unsigned, 4> CurDimOffsets;
@@ -2923,16 +3014,29 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
   bool MergeInHighestDimension = (Ref->getNumDimensions() != 0);
   bool IsBaseGEPOp = false;
   auto *OffsetTy = Type::getIntNTy(
-      getContext(), getDataLayout().getTypeSizeInBits(TempGEPOp->getType()));
+      getContext(), getDataLayout().getTypeSizeInBits(GEPOp->getType()));
+
+  // Type to track current indexed dimension type.
+  Type *IndexedType = nullptr;
 
   do {
+    auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
+
+    SmallVector<Type *, 8> GepIndexedTypes;
+    if (!Subs) {
+      for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E;
+           ++I) {
+        GepIndexedTypes.push_back(I.getIndexedType());
+      }
+    }
+
     // Ignore base pointer operand.
-    unsigned GEPNumOp = TempGEPOp->getNumOperands() - 1;
-    IsBaseGEPOp = (TempGEPOp == BaseGEPOp);
+    unsigned LastIndex = GEPOp->getNumIndices() - 1;
+    IsBaseGEPOp = (GEPOp == BaseGEPOp);
 
-    populateOffsets(TempGEPOp, Offsets);
+    populateOffsets(GEPOp, Offsets);
 
-    if (Offsets[GEPNumOp - 1] != -1) {
+    if (Offsets[LastIndex] != -1) {
       // If last index of this GEP represents a field offset, we ignore the
       // previous GEP's first index as it is redundant.
       if (PrevGEPFirstIndexCE) {
@@ -2940,18 +3044,47 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
                "PrevGEPFirstIndexCE expected to be zero!");
         getCanonExprUtils().destroy(PrevGEPFirstIndexCE);
         PrevGEPFirstIndexCE = nullptr;
+        IndexedType = nullptr;
       }
       MergeInHighestDimension = false;
     }
 
     // Process GEP operands in reverse order (from lowest to highest dimension).
-    for (auto I = GEPNumOp; I > 0; --I) {
-
+    for (int I = LastIndex; I >= 0; --I) {
       // This operand is a structure field offset. It will be added as a
       // trailing offset for the next dimension.
-      if (Offsets[I - 1] != -1) {
-        CurDimOffsets.insert(CurDimOffsets.begin(), Offsets[I - 1]);
+      if (Offsets[I] != -1) {
+        CurDimOffsets.insert(CurDimOffsets.begin(), Offsets[I]);
+        IndexedType = nullptr;
         continue;
+      }
+
+      if (I != 0) {
+        IndexedType = RegDDRef::getMorePreciseDimensionType(
+            IndexedType, GepIndexedTypes[I - 1]);
+      } else {
+        IndexedType = GEPOp->getPointerOperandType();
+      }
+
+      bool CanMergeIndex = !IsBaseGEPOp && (I == 0);
+      if (CanMergeIndex) {
+        auto *NextGEPOp = cast<GEPOrSubsOperator>(GEPOp->getPointerOperand());
+        auto *NextSubs = dyn_cast<SubscriptInst>(NextGEPOp);
+
+        if (NextSubs || Subs) {
+          unsigned NextRank =
+              NextSubs
+                  ? NextSubs->getTypeRank()
+                  : getTypeRank(
+                        cast<GEPOperator>(NextGEPOp)->getResultElementType());
+
+          unsigned Rank =
+              Subs ? Subs->getTypeRank()
+                   : getTypeRank(
+                         cast<GEPOperator>(GEPOp)->getSourceElementType());
+
+          CanMergeIndex = (NextRank == Rank);
+        }
       }
 
       // Disable IsTop operations such as cast hiding and denominator parsing
@@ -2959,14 +3092,13 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
       // indices in multiple gep case.
       bool IsTop = (!MergeInHighestDimension &&
                     (!PrevGEPFirstIndexCE || PrevGEPFirstIndexCE->isZero()) &&
-                    ((I != 1) || (IsBaseGEPOp && !RequiresIndexMerging)));
+                    ((I != 0) || (IsBaseGEPOp && !RequiresIndexMerging)));
 
-      CanonExpr *IndexCE =
-          parse(TempGEPOp->getOperand(I), Level, IsTop, OffsetTy);
+      CanonExpr *IndexCE = parse(GEPOp->getIndex(I), Level, IsTop, OffsetTy);
 
       // Store the first GEP index in PrevGEPFirstIndexCE. It will be merged
       // into the last index of next GEP.
-      if ((I == 1) && !IsBaseGEPOp) {
+      if (CanMergeIndex) {
         if (PrevGEPFirstIndexCE) {
           mergeIndexCE(PrevGEPFirstIndexCE, IndexCE);
         } else {
@@ -2986,21 +3118,38 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
             Ref->getDimensionIndex(Ref->getNumDimensions());
         mergeIndexCE(HighestIndexCE, IndexCE);
         getCanonExprUtils().destroy(IndexCE);
+
+        Ref->setDimensionType(Ref->getNumDimensions(), IndexedType);
+        IndexedType = nullptr;
+
         MergeInHighestDimension = false;
         continue;
       }
 
-      Ref->addDimension(IndexCE, CurDimOffsets);
+      CanonExpr *LB = Subs ? parse(Subs->getLowerBound(), Level, true, OffsetTy)
+                           : getCanonExprUtils().createCanonExpr(OffsetTy);
+
+      CanonExpr *Stride =
+          Subs
+              ? parse(Subs->getStride(), Level, true, OffsetTy)
+              : getCanonExprUtils().createCanonExpr(
+                    OffsetTy, 0,
+                    getCanonExprUtils().getTypeSizeInBytes(GepIndexedTypes[I]));
+
+      Ref->addDimensionHighest(IndexCE, CurDimOffsets, LB, Stride, IndexedType);
+
+      IndexedType = nullptr;
       CurDimOffsets.clear();
     }
 
   } while (!IsBaseGEPOp &&
-           (TempGEPOp = dyn_cast<GEPOperator>(TempGEPOp->getPointerOperand())));
+           (GEPOp = cast<GEPOrSubsOperator>(GEPOp->getPointerOperand())));
 }
 
-void HIRParser::addPhiBaseGEPDimensions(const GEPOperator *GEPOp,
-                                        const GEPOperator *InitGEPOp,
+void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
+                                        const GEPOrSubsOperator *InitGEPOp,
                                         RegDDRef *Ref, CanonExpr *IndexCE,
+                                        CanonExpr *StrideCE, Type *DimType,
                                         unsigned Level) {
   // First populate the dimensions using the GEPOperator that we started
   // parsing from and then merge IndexCE into resulting Ref's highest dimension.
@@ -3013,7 +3162,7 @@ void HIRParser::addPhiBaseGEPDimensions(const GEPOperator *GEPOp,
     mergeIndexCE(HighestDimCE, IndexCE);
     getCanonExprUtils().destroy(IndexCE);
   } else {
-    Ref->addDimension(IndexCE);
+    Ref->addDimensionHighest(IndexCE, {}, nullptr, StrideCE, DimType);
   }
 
   // Extra dimensions are involved when the initial value of BasePhi is computed
@@ -3027,11 +3176,11 @@ void HIRParser::addPhiBaseGEPDimensions(const GEPOperator *GEPOp,
 
 const Value *
 HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
-                              const GEPOperator **InitGEPOp) const {
+                              const GEPOrSubsOperator **InitGEPOp) const {
 
   *InitGEPOp = nullptr;
 
-  auto GEPOp = dyn_cast<GEPOperator>(PhiInitVal);
+  auto GEPOp = dyn_cast<GEPOrSubsOperator>(PhiInitVal);
 
   if (!GEPOp) {
     return PhiInitVal;
@@ -3041,7 +3190,7 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
   // represents an unconventional access.
   if (representsStructOffset(GEPOp) || !isValidGEPOp(GEPOp)) {
     // If this is an instruction, we can use it as the base.
-    if (isa<GetElementPtrInst>(PhiInitVal)) {
+    if (isa<Instruction>(PhiInitVal)) {
       return PhiInitVal;
     }
 
@@ -3055,7 +3204,7 @@ HIRParser::getValidPhiBaseVal(const Value *PhiInitVal,
 }
 
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
-                                           const GEPOperator *GEPOp,
+                                           const GEPOrSubsOperator *GEPOp,
                                            unsigned Level) {
   const PHINode *CurBasePhi = BasePhi;
   const Value *BaseVal = nullptr;
@@ -3093,11 +3242,13 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   // is then translated into a normalized index of i. The final mapped expr
   // looks like this: (%p)[i]
 
+  auto OffsetTy = Type::getIntNTy(
+      getContext(), getDataLayout().getTypeSizeInBits(CurBasePhi->getType()));
+
   // A phi can be initialized using another phi so we should trace back.
   do {
-    const GEPOperator *InitGEPOp = nullptr;
+    const GEPOrSubsOperator *InitGEPOp = nullptr;
     CanonExpr *IndexCE = nullptr;
-
     auto SC = getSCEV(const_cast<PHINode *>(CurBasePhi));
 
     if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
@@ -3112,16 +3263,18 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     // Non-linear base is parsed as base + zero offset: (%p)[0].
     if (!IndexCE) {
       BaseVal = CurBasePhi;
-
-      auto OffsetType = Type::getIntNTy(
-          getContext(),
-          getDataLayout().getTypeSizeInBits(CurBasePhi->getType()));
-      IndexCE = getCanonExprUtils().createCanonExpr(OffsetType);
+      IndexCE = getCanonExprUtils().createCanonExpr(OffsetTy);
     }
 
-    addPhiBaseGEPDimensions(GEPOp, InitGEPOp, Ref, IndexCE, Level);
-    GEPOp = nullptr;
+    Type *CurBasePhiTy = CurBasePhi->getType();
 
+    CanonExpr *StrideCE = getCanonExprUtils().createCanonExpr(
+        OffsetTy, 0, getElementSize(CurBasePhiTy));
+
+    addPhiBaseGEPDimensions(GEPOp, InitGEPOp, Ref, IndexCE, StrideCE,
+                            CurBasePhiTy, Level);
+
+    GEPOp = nullptr;
   } while ((CurBasePhi != BaseVal) &&
            (CurBasePhi = dyn_cast<PHINode>(BaseVal)) &&
            CurRegion->containsBBlock(CurBasePhi->getParent()));
@@ -3134,11 +3287,11 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   return Ref;
 }
 
-RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
+RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOrSubsOperator *GEPOp,
                                            unsigned Level) {
   auto Ref = getDDRefUtils().createRegDDRef(0);
 
-  const GEPOperator *BaseGEPOp = getBaseGEPOp(GEPOp);
+  const GEPOrSubsOperator *BaseGEPOp = getBaseGEPOp(GEPOp);
   auto BaseVal = BaseGEPOp->getPointerOperand();
 
   // TODO: This can be improved by first checking if the original SCEV can be
@@ -3252,13 +3405,13 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   }
 
   auto GEPInst = dyn_cast<Instruction>(GEPVal);
-  const GEPOperator *GEPOp = nullptr;
+  const GEPOrSubsOperator *GEPOp = nullptr;
 
   // Try to get to the phi associated with this GEP.
   // Do not cross the live range indicator for GEP uses (load/store/bitcast).
   if ((!IsUse || !GEPInst ||
        !SE.getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) &&
-      (GEPOp = dyn_cast<GEPOperator>(GEPVal))) {
+      (GEPOp = dyn_cast<GEPOrSubsOperator>(GEPVal))) {
 
     BasePhi = dyn_cast<PHINode>(getBaseGEPOp(GEPOp)->getPointerOperand());
 
@@ -3413,7 +3566,7 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
 
     parseMetadata(LInst, Ref);
 
-  } else if (isa<GetElementPtrInst>(Inst)) {
+  } else if (isa<GEPOrSubsOperator>(Inst)) {
     Ref = createGEPDDRef(Inst, Level, false);
     Ref->setAddressOf(true);
 
@@ -3464,7 +3617,7 @@ bool HIRParser::isLiveoutCopy(const HLInst *HInst) {
 unsigned HIRParser::getNumRvalOperands(const Instruction *Inst) {
   unsigned NumOp;
 
-  if (isa<GetElementPtrInst>(Inst)) {
+  if (isa<GEPOrSubsOperator>(Inst)) {
     // GEP is represented as an assignment of address: %t = &A[i];
     NumOp = 1;
   } else if (auto CInst = dyn_cast<CallInst>(Inst)) {
@@ -3781,14 +3934,16 @@ void HIRParser::parseMetadata(const Instruction *Inst, RegDDRef *Ref) {
     Inst->getAllMetadataOtherThanDebugLoc(Ref->getGEPInfo()->MDNodes);
     Ref->setMemDebugLoc(Inst->getDebugLoc());
 
-    const GetElementPtrInst *GepInst = dyn_cast<GetElementPtrInst>(
-        Store ? Store->getPointerOperand() : Load->getPointerOperand());
+    const Value *Ptr =
+        Store ? Store->getPointerOperand() : Load->getPointerOperand();
 
-    if (GepInst) {
+    if (auto *GepInst = dyn_cast<GetElementPtrInst>(Ptr)) {
       Ref->setGepDebugLoc(GepInst->getDebugLoc());
+    } else if (auto *SubsInst = dyn_cast<SubscriptInst>(Ptr)) {
+      Ref->setGepDebugLoc(SubsInst->getDebugLoc());
     }
 
-  } else if (isa<GetElementPtrInst>(Inst)) {
+  } else if (isa<GEPOrSubsOperator>(Inst)) {
     Ref->setGepDebugLoc(Inst->getDebugLoc());
   } else {
     llvm_unreachable("Unexpected instruction type.");

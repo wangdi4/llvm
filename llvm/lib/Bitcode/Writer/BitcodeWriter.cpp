@@ -1236,7 +1236,12 @@ void ModuleBitcodeWriter::writeModuleInfo() {
     // GLOBALVAR: [strtab offset, strtab size, type, isconst, initid,
     //             linkage, alignment, section, visibility, threadlocal,
     //             unnamed_addr, externally_initialized, dllstorageclass,
+#if INTEL_COLLAB
+    //             comdat, attributes, DSO_Local, thread_private,
+    //             target_declare]
+#else
     //             comdat, attributes, DSO_Local]
+#endif // INTEL_COLLAB
     Vals.push_back(addToStrtab(GV.getName()));
     Vals.push_back(GV.getName().size());
     Vals.push_back(VE.getTypeID(GV.getValueType()));
@@ -1253,6 +1258,10 @@ void ModuleBitcodeWriter::writeModuleInfo() {
         GV.getDLLStorageClass() != GlobalValue::DefaultStorageClass ||
         GV.hasComdat() ||
         GV.hasAttributes() ||
+#if INTEL_COLLAB
+        GV.isThreadPrivate() ||
+        GV.isTargetDeclare() ||
+#endif // INTEL_COLLAB
         GV.isDSOLocal()) {
       Vals.push_back(getEncodedVisibility(GV));
       Vals.push_back(getEncodedThreadLocalMode(GV));
@@ -1265,6 +1274,10 @@ void ModuleBitcodeWriter::writeModuleInfo() {
       Vals.push_back(VE.getAttributeListID(AL));
 
       Vals.push_back(GV.isDSOLocal());
+#if INTEL_COLLAB
+      Vals.push_back(GV.isThreadPrivate());
+      Vals.push_back(GV.isTargetDeclare());
+#endif // INTEL_COLLAB
     } else {
       AbbrevToUse = SimpleGVarAbbrev;
     }

@@ -1096,9 +1096,15 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTarget:
         debugPrintHeader(W, IsPrepare);
-        if (Mode & ParPrepare)
+        if (Mode & ParPrepare) {
+          // Override function linkage for the target compilation to prevent
+          // functions with target regions from being deleted by LTO.
+          if (hasOffloadCompilation())
+            F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           genCodemotionFenceforAggrData(W);
-        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          // The purpose is to generate place holder for global variable.
+          Changed |= genGlobalPrivatizationCode(W);
+        } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
           Changed |= genPrivatizationCode(W);
@@ -1121,9 +1127,11 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetData:
       case WRegionNode::WRNTargetUpdate:
         debugPrintHeader(W, IsPrepare);
-        if (Mode & ParPrepare)
+        if (Mode & ParPrepare) {
           genCodemotionFenceforAggrData(W);
-        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          // The purpose is to generate place holder for global variable.
+          Changed |= genGlobalPrivatizationCode(W);
+        } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
           Changed |= genGlobalPrivatizationCode(W);
@@ -1647,6 +1655,11 @@ void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
   AllocaInst *NewAI = cast<AllocaInst>(RedI->getNew());
 
   IRBuilder<> Builder(InsertPt);
+  // For by-refs, do a pointer dereference to reach the actual operand.
+  if (RedI->getIsByRef()) {
+    OldV = Builder.CreateLoad(OldV);
+  }
+
   if (RedI->getIsArraySection() ||
       NewAI->getAllocatedType()->isArrayTy())
     genRedAggregateInitOrFini(RedI, NewAI, OldV, InsertPt, false, DT);
@@ -2017,7 +2030,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       NewRedInst = genPrivatizationAlloca(RedI, InsertPt, ".red");
       RedI->setNew(NewRedInst);
 
-      Value *ReplacementVal = getReductionItemReplacementValue(*RedI, InsertPt);
+      Value *ReplacementVal = getClauseItemReplacementValue(RedI, InsertPt);
       genPrivatizationReplacement(W, Orig, ReplacementVal, RedI);
 
       createEmptyPrvInitBB(W, RedInitEntryBB);
@@ -2122,7 +2135,7 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
   //
   //   %_yarrptr.load.cast.plus.offset is the final DestArrayBegin.
 
-  DestArrayBegin = RedI.getOrig();
+  DestArrayBegin = OldV;
   bool ArraySectionBaseIsPtr = ArrSecInfo.getBaseIsPointer();
   if (ArraySectionBaseIsPtr)
     DestArrayBegin = Builder.CreateLoad(
@@ -2150,6 +2163,10 @@ void VPOParoptTransform::computeArraySecReductionTypeOffsetSize(
   Value *Orig = RI.getOrig();
   Type *RITy = Orig->getType();
   Type *ElemTy = cast<PointerType>(RITy)->getElementType();
+
+  if (RI.getIsByRef())
+    // Strip away one pointer for by-refs.
+    ElemTy = cast<PointerType>(ElemTy)->getElementType();
 
   bool BaseIsPointer = false;
   if (isa<PointerType>(ElemTy)) {
@@ -2230,7 +2247,7 @@ void VPOParoptTransform::computeArraySecReductionTypeOffsetSize(
 
     if (I == 0 && BaseIsPointer)
       continue; // If `BaseIsPointer`, getElmentType() has already been called
-                // onece, so we skip it in the last iteration.
+                // once, so we skip it in the last iteration.
 
     ArraySizeTillDim *= ArrayDims.pop_back_val();
     ElemTy = cast<ArrayType>(ElemTy)->getElementType();
@@ -2251,13 +2268,40 @@ void VPOParoptTransform::computeArraySecReductionTypeOffsetSize(
 }
 
 Value *
-VPOParoptTransform::getReductionItemReplacementValue(ReductionItem const &RedI,
-                                                     Instruction *InsertPt) {
+VPOParoptTransform::getClauseItemReplacementValue(Item *ClauseI,
+                                                  Instruction *InsertPt) {
 
-  Value *NewRedInst = RedI.getNew();
-  if (!RedI.getIsArraySection())
-    return NewRedInst;
+  assert(ClauseI && "Null clause item.");
 
+  Value *ReplacementVal = nullptr;
+  bool IsByref = ClauseI->getIsByRef();
+  bool IsArraySection = isa<ReductionItem>(ClauseI) &&
+                        cast<ReductionItem>(ClauseI)->getIsArraySection();
+
+  if (IsArraySection)
+    ReplacementVal = VPOParoptTransform::getArrSecReductionItemReplacementValue(
+        *(cast<ReductionItem>(ClauseI)), InsertPt);
+  else
+    ReplacementVal = ClauseI->getNew();
+
+  // For a by-ref, we need to add an extra address-of before replacing the
+  // original value with the local value.
+  if (IsByref) {
+    IRBuilder<> Builder(InsertPt);
+    AllocaInst *ByRefAddr = Builder.CreateAlloca(
+        ReplacementVal->getType(), nullptr, ReplacementVal->getName() + ".ref");
+    Builder.CreateStore(ReplacementVal, ByRefAddr);
+    ReplacementVal = ByRefAddr;
+  }
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacement Value for '";
+             ClauseI->getOrig()->printAsOperand(dbgs()); dbgs() << "':: ";
+             ReplacementVal->printAsOperand(dbgs()); dbgs() << "\n");
+  return ReplacementVal;
+}
+
+Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
+    ReductionItem const &RedI, Instruction *InsertPt) {
   // For array section reduction, such as:
   //
   //   int y[10];
@@ -2269,6 +2313,7 @@ VPOParoptTransform::getReductionItemReplacementValue(ReductionItem const &RedI,
   //   %y.new.minus.offset = getelementptr %y.new, -offset              ; (1)
 
   IRBuilder<> Builder(InsertPt);
+  Value *NewRedInst = RedI.getNew();
   const ArraySectionInfo &ArrSecInfo = RedI.getArraySectionInfo();
   Value *Offset = ArrSecInfo.getOffset();
   Value *NegOffset = Builder.CreateNeg(Offset, "neg.offset");
@@ -2363,8 +2408,14 @@ AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
   Value *NumElements = nullptr;
 
   getItemInfoFromValue(OrigValue, ElementType, NumElements);
-  return genPrivatizationAlloca(ElementType, NumElements, InsertPt,
-                                OrigValue->getName() + NameSuffix);
+  AllocaInst *NewVal = genPrivatizationAlloca(
+      ElementType, NumElements, InsertPt, OrigValue->getName() + NameSuffix);
+  assert(NewVal && "Failed to create local copy.");
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";
+             OrigValue->printAsOperand(dbgs()); dbgs() << "':: ";
+             NewVal->printAsOperand(dbgs()); dbgs() << "\n");
+  return NewVal;
 }
 
 // Generate an AllocaInst for the local copy of ClauseItem I for various
@@ -2377,16 +2428,42 @@ VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
 
-  if (ReductionItem *RedI = dyn_cast<ReductionItem>(I)) {
-    if (RedI->getIsArraySection()) {
-      const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
-      return genPrivatizationAlloca(ArrSecInfo.getElementType(),
-                                    ArrSecInfo.getSize(), InsertPt,
-                                    Orig->getName() + NameSuffix);
+  Type *ElementType = nullptr;
+  Value *NumElements = nullptr;
+
+  auto getItemInfoIfArraySection = [I, &ElementType, &NumElements]() -> bool {
+    if (ReductionItem *RedI = dyn_cast<ReductionItem>(I))
+      if (RedI->getIsArraySection()) {
+        const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+        ElementType = ArrSecInfo.getElementType();
+        NumElements = ArrSecInfo.getSize();
+        return true;
+      }
+    return false;
+  };
+
+  if (!getItemInfoIfArraySection()) {
+    getItemInfoFromValue(Orig, ElementType, NumElements);
+    assert(ElementType && "Failed to find element type for reduction operand.");
+
+    if (I->getIsByRef()) {
+      assert(isa<PointerType>(ElementType) &&
+             "Expected a pointer type for byref operand.");
+      assert(!NumElements &&
+             "Unexpected number of elements for byref pointer.");
+
+      ElementType = cast<PointerType>(ElementType)->getPointerElementType();
     }
   }
 
-  return genPrivatizationAlloca(Orig, InsertPt, NameSuffix);
+  AllocaInst *NewVal = genPrivatizationAlloca(
+      ElementType, NumElements, InsertPt, Orig->getName() + NameSuffix);
+  assert(NewVal && "Failed to create local copy.");
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";
+             Orig->printAsOperand(dbgs()); dbgs() << "':: ";
+             NewVal->printAsOperand(dbgs()); dbgs() << "\n");
+  return NewVal;
 }
 
 // Replace the variable with the privatized variable
@@ -2624,15 +2701,20 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Value *Orig = FprivI->getOrig();
-      //
+
       // assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
       //      "genFirstPrivatizationCode: Unexpected firstprivate variable");
       //
       LastprivateItem *LprivI = FprivI->getInLastprivate();
 
       if (!LprivI) {
-        NewPrivInst =
-            genPrivatizationAlloca(FprivI, EntryBB->getFirstNonPHI(), ".fpriv");
+        if (W->getIsTarget())
+          NewPrivInst =
+              genPrivatizationAlloca(getRootValueFromFenceCall(Orig),
+                                     EntryBB->getFirstNonPHI(), ".fpriv");
+        else
+          NewPrivInst = genPrivatizationAlloca(
+              FprivI, EntryBB->getFirstNonPHI(), ".fpriv");
 
         // By this it can uniformly handle the global/local firstprivate.
         // For the case of local firstprivate, the New is the same as the Orig.

@@ -68,6 +68,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -137,8 +138,8 @@ class HIRUnrollAndJam {
 public:
   HIRUnrollAndJam(HIRFramework &HIRF, HIRLoopStatistics &HLS,
                   HIRLoopResource &HLR, HIRLoopLocality &HLA,
-                  HIRDDAnalysis &DDA)
-      : HIRF(HIRF), HLS(HLS), HLR(HLR), HLA(HLA), DDA(DDA),
+                  HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA)
+      : HIRF(HIRF), HLS(HLS), HLR(HLR), HLA(HLA), DDA(DDA), HSRA(HSRA),
         HaveUnrollCandidates(false) {}
 
   bool run();
@@ -163,6 +164,7 @@ private:
   HIRLoopResource &HLR;
   HIRLoopLocality &HLA;
   HIRDDAnalysis &DDA;
+  HIRSafeReductionAnalysis &HSRA;
 
   LoopNestUnrollJamInfoTy LoopNestUnrollJamInfo;
   bool HaveUnrollCandidates;
@@ -272,6 +274,7 @@ public:
 // Checks the legality of unroll & jam for a loop.
 class LegalityChecker final : public HLNodeVisitorBase {
   DDGraph DDG;
+  HIRSafeReductionAnalysis &HSRA;
   const HLLoop *CandidateLoop;
   unsigned LoopLevel;
   bool IsLegal;
@@ -282,9 +285,13 @@ class LegalityChecker final : public HLNodeVisitorBase {
   bool isLegalToPermute(const DirectionVector &DV,
                         bool IsInnermostLoopDV) const;
 
+  /// Returns true if Ref can be ignored for legality purposes.
+  bool canIgnoreRef(const RegDDRef *Ref, const HLLoop *ParentLoop) const;
+
 public:
-  LegalityChecker(HIRDDAnalysis &DDA, const HLLoop *Loop)
-      : DDG(DDA.getGraph(Loop)), CandidateLoop(Loop),
+  LegalityChecker(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA,
+                  const HLLoop *Loop)
+      : DDG(DDA.getGraph(Loop)), HSRA(HSRA), CandidateLoop(Loop),
         LoopLevel(Loop->getNestingLevel()), IsLegal(true) {}
 
   /// Iterates though DDRefs and checks legality of edge DVs.
@@ -390,30 +397,70 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
   return true;
 }
 
+bool LegalityChecker::canIgnoreRef(const RegDDRef *Ref,
+                                   const HLLoop *ParentLoop) const {
+
+  if (!Ref->isTerminalRef()) {
+    return false;
+  }
+
+  if (!CandidateLoop->isLiveIn(Ref->getSymbase())) {
+    return true;
+  }
+
+  // The only livein temp allowed is the loopnest reduction temp-
+  // DO i1
+  //   DO i2
+  //     t1 = t1 + A[i2]
+  //   END DO
+  // END DO
+  if (!ParentLoop->isInnermost()) {
+    return false;
+  }
+
+  unsigned OpCode;
+  if (!HSRA.isReductionRef(Ref, OpCode)) {
+    return false;
+  }
+
+  // Checking edges of lval reduction temp is enough.
+  if (Ref->isRval()) {
+    return true;
+  }
+
+  // If there are any outgoing (flow/output) edges for the lval reduction temp
+  // it means it isn't a loopnest level reduction.
+  for (auto *Edge : DDG.outgoing(Ref)) {
+    if (Edge->getSink()->getLexicalParentLoop() == ParentLoop) {
+      continue;
+    }
+
+    return false;
+  }
+
+  return true;
+}
+
 void LegalityChecker::visit(const HLDDNode *Node) {
 
-  bool IsInnermostLoop = Node->getLexicalParentLoop()->isInnermost();
+  auto *ParentLoop = Node->getLexicalParentLoop();
+  bool IsInnermostLoop = ParentLoop->isInnermost();
 
   for (auto RefIt = Node->ddref_begin(), E = Node->ddref_end(); RefIt != E;
        ++RefIt) {
 
-    if ((*RefIt)->isTerminalRef()) {
-      // Ignore edges for temps which are not livein to candidate loop.
-      if (!CandidateLoop->isLiveIn((*RefIt)->getSymbase())) {
-        continue;
-      }
+    auto *Ref = (*RefIt);
+
+    if (canIgnoreRef(Ref, ParentLoop)) {
+      continue;
     }
 
-    for (auto EdgeIt = DDG.outgoing_edges_begin(*RefIt),
-              EE = DDG.outgoing_edges_end(*RefIt);
-         EdgeIt != EE; ++EdgeIt) {
-      const DDEdge *Edge = *EdgeIt;
-
-      auto SinkNode = Edge->getSink()->getHLDDNode();
+    for (auto *Edge : DDG.outgoing(Ref)) {
 
       if (!isLegalToPermute(
               Edge->getDV(),
-              (IsInnermostLoop || SinkNode->getParentLoop()->isInnermost()))) {
+              (IsInnermostLoop ||
+               Edge->getSink()->getLexicalParentLoop()->isInnermost()))) {
         IsLegal = false;
         return;
       }
@@ -673,6 +720,23 @@ bool HIRUnrollAndJam::hasNonInnermostChildrenLoop(HLLoop *Lp) const {
   return false;
 }
 
+// Returns true if all loops in the loopnest have trip count less than equal
+// to 16.
+static bool isCompleteUnrollCandidate(HLLoop *OuterLp) {
+  SmallVector<HLLoop *, 8> Loops;
+
+  OuterLp->getHLNodeUtils().gatherAllLoops(OuterLp, Loops);
+
+  uint64_t TC;
+  for (auto Lp : Loops) {
+    if (!Lp->isConstTripLoop(&TC) || (TC > 16)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
     HLLoop *Lp, bool HasEnablingPragma) const {
 
@@ -709,6 +773,13 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam of small trip count loop!\n");
       return 1;
     }
+  }
+
+  if (!HasEnablingPragma && IsConstTC && isCompleteUnrollCandidate(Lp)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "Skipping unroll & jam of possible complete unroll candidate!\n");
+    return 1;
   }
 
   unsigned LoopCost = HUAJ.HLR.getSelfLoopResource(Lp).getTotalCost();
@@ -750,7 +821,7 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
 
 bool HIRUnrollAndJam::Analyzer::canLegallyUnrollAndJam(HLLoop *Lp) const {
   // TODO: use a smaller unroll factor if allowed by the distance vector.
-  LegalityChecker LC(HUAJ.DDA, Lp);
+  LegalityChecker LC(HUAJ.DDA, HUAJ.HSRA, Lp);
 
   return LC.isLegal();
 }
@@ -838,7 +909,20 @@ void HIRUnrollAndJam::Analyzer::refineUnrollFactorUsingParentLoop(
 
 void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
 
-  if (Lp->isInnermost() || HUAJ.isThrottled(Lp) || HUAJ.isAnalyzed(Lp)) {
+  if (Lp->isInnermost()) {
+    // Need safe reduction info of innermost loops for handling loopnest
+    // reductions. For example, we can unroll jam i1 loop even though t1 is
+    // livein to the loop-
+    // DO i1
+    //   DO i2
+    //     t1 = t1 + A[i1][i2];
+    //   END DO
+    // END DO
+    HUAJ.HSRA.computeSafeReductionChains(Lp);
+    return;
+  }
+
+  if (HUAJ.isThrottled(Lp) || HUAJ.isAnalyzed(Lp)) {
     return;
   }
 
@@ -986,13 +1070,14 @@ typedef SmallVector<TempBlobIndexMap, 6> TempRenamingMapTy;
 class UnrollHelper {
   class CanonExprUpdater;
 
+  HLLoop *OrigTopLevelLoop;
+  HLLoop *CurOrigLoop;
+  LoopMapTy *LoopMap;
+  HLLabel *UnknownLoopExitLabel;
+
   unsigned UnrollLevel;
   unsigned UnrollFactor;
   unsigned UnrollIteration;
-
-  LoopMapTy *LoopMap;
-  HLLabel *UnknownLoopExitLabel;
-  HLLoop *CurOrigLoop;
 
   bool NeedRemainderLoop;
 
@@ -1009,11 +1094,13 @@ class UnrollHelper {
   void renameTemps(RegDDRef *Ref);
 
 public:
-  UnrollHelper(unsigned UnrollLevel, unsigned UnrollFactor, LoopMapTy *LoopMap,
-               HLLabel *UnknownLoopExitLabel, bool NeedRemainderLoop)
-      : UnrollLevel(UnrollLevel), UnrollFactor(UnrollFactor),
-        UnrollIteration(-1), LoopMap(LoopMap),
-        UnknownLoopExitLabel(UnknownLoopExitLabel), CurOrigLoop(nullptr),
+  UnrollHelper(HLLoop *OrigTopLevelLoop, unsigned UnrollFactor,
+               LoopMapTy *LoopMap, HLLabel *UnknownLoopExitLabel,
+               bool NeedRemainderLoop)
+      : OrigTopLevelLoop(OrigTopLevelLoop), CurOrigLoop(nullptr),
+        LoopMap(LoopMap), UnknownLoopExitLabel(UnknownLoopExitLabel),
+        UnrollLevel(OrigTopLevelLoop->getNestingLevel()),
+        UnrollFactor(UnrollFactor), UnrollIteration(-1),
         NeedRemainderLoop(NeedRemainderLoop) {}
 
   void setUnrollIteration(unsigned Count) { UnrollIteration = Count; }
@@ -1091,6 +1178,12 @@ bool UnrollHelper::shouldCreateNewLvalTemp(unsigned LvalSymbase) const {
   }
 
   if (isLastUnrollIteration()) {
+    return false;
+  }
+
+  // Do not rename temps in loopnest reductions.
+  // These are the only allowed livein temps for unroll & jam.
+  if (OrigTopLevelLoop->isLiveIn(LvalSymbase)) {
     return false;
   }
 
@@ -1389,8 +1482,8 @@ static void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop,
     HLNodeUtils::insertAfter(MainLoop, UnknownLoopExitLabel);
   }
 
-  UnrollHelper UHelper(OrigLoop->getNestingLevel(), UnrollFactor, LoopMap,
-                       UnknownLoopExitLabel, NeedRemainderLoop);
+  UnrollHelper UHelper(OrigLoop, UnrollFactor, LoopMap, UnknownLoopExitLabel,
+                       NeedRemainderLoop);
 
   HLNode *MarkerNode = HNU.getOrCreateMarkerNode();
 
@@ -1435,13 +1528,16 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
         LoopMap ? OptimizationType::UnrollAndJam : OptimizationType::Unroll);
   }
 
-  unrollMainLoop(Loop, MainLoop, UnrollFactor, NeedRemainderLoop, LoopMap);
-
-  // If a remainder loop is not needed get rid of the OrigLoop at this point.
   if (!NeedRemainderLoop && !IsUnknownLoop) {
     // Invalidate analysis for original loopnest if remainder loop is not needed
     // since we reuse the instructions inside them.
     HIRInvalidationUtils::invalidateLoopNestBody(Loop);
+  }
+
+  unrollMainLoop(Loop, MainLoop, UnrollFactor, NeedRemainderLoop, LoopMap);
+
+  // If a remainder loop is not needed get rid of the OrigLoop at this point.
+  if (!NeedRemainderLoop && !IsUnknownLoop) {
 
     HLNodeUtils::remove(Loop);
   }
@@ -1461,7 +1557,8 @@ PreservedAnalyses HIRUnrollAndJamPass::run(llvm::Function &F,
                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<HIRLoopResourceAnalysis>(F),
                   AM.getResult<HIRLoopLocalityAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F))
+                  AM.getResult<HIRDDAnalysisPass>(F),
+                  AM.getResult<HIRSafeReductionAnalysisPass>(F))
       .run();
 
   return PreservedAnalyses::all();
@@ -1482,6 +1579,7 @@ public:
     AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
     AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   }
 
   bool runOnFunction(Function &F) {
@@ -1489,11 +1587,13 @@ public:
       return false;
     }
 
-    return HIRUnrollAndJam(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                           getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-                           getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
-                           getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
-                           getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
+    return HIRUnrollAndJam(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+               getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
+               getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR())
         .run();
   }
 };
@@ -1506,6 +1606,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRUnrollAndJamLegacyPass, "hir-unroll-and-jam",
                     "HIR Unroll & Jam", false, false)
 

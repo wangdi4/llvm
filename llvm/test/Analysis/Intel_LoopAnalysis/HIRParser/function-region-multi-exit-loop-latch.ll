@@ -14,16 +14,12 @@
 ; CHECK: |   {
 ; CHECK: |      goto while.end;
 ; CHECK: |   }
-; CHECK: |   else
-; CHECK: |   {
 ; CHECK: |
-; CHECK: |      + DO i2 = 0, 99, 1   <DO_LOOP>
-; CHECK: |      |   %2 = (%b)[i2];
-; CHECK: |      |   %conv13 = fptosi.float.i32(%2);
-; CHECK: |      |   (%a)[i2] = %conv13;
-; CHECK: |      + END LOOP
-; CHECK: |
-; CHECK: |   }
+; CHECK: |   + DO i2 = 0, 99, 1   <DO_LOOP>
+; CHECK: |   |   %2 = (%b)[i2];
+; CHECK: |   |   %conv13 = fptosi.float.i32(%2);
+; CHECK: |   |   (%a)[i2] = %conv13;
+; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
 ; CHECK: while.end:

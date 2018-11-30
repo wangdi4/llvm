@@ -16,8 +16,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck -check-prefix=CHECK-CG %s
 
 
-; CHECK-CG: %t.1.ph = phi i32 [ %0, %for.cond ], [ %0, %for.body.split ], [ [[LIVEOUTLOAD1:.*]], %[[NORMALEXIT:.*]] ], [ [[LIVEOUTLOAD2:.*]], %[[EARLYEXIT:.*]] ]
-
 ; CHECK-CG: region.0
 
 ; Loop header BB should jump to early exit if compare evalutates to true.
@@ -25,10 +23,12 @@
 ; CHECK-CG: br i1 {{.*}}, label %[[EARLYEXIT:.*]], label {{.*}}
 
 ; CHECK-CG: [[EARLYEXIT]]:
-; CHECK-CG: [[LIVEOUTLOAD2]] = load i32, i32* [[LIVEOUTVAL:.*]]
+; CHECK-CG: [[LIVEOUTLOAD2:%.*]] = load i32, i32* [[LIVEOUTVAL:.*]]
 
-; CHECK-CG: [[NORMALEXIT]]:
-; CHECK-CG: [[LIVEOUTLOAD1]] = load i32, i32* [[LIVEOUTVAL]]
+; CHECK-CG: [[NORMALEXIT:afterloop.*]]:
+; CHECK-CG: [[LIVEOUTLOAD1:%.*]] = load i32, i32* [[LIVEOUTVAL]]
+
+; CHECK-CG: %t.1.ph = phi i32 [ %0, %for.cond ], [ %0, %for.body.split ], [ [[LIVEOUTLOAD1]], %[[NORMALEXIT]] ], [ [[LIVEOUTLOAD2]], %[[EARLYEXIT]] ]
 
 
 ; ModuleID = 'multi-exit3_1.ll'

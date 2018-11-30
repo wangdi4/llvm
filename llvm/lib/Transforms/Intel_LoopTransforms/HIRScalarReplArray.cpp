@@ -691,8 +691,8 @@ void MemRefGroup::generateTempRotation(HLLoop *Lp) {
                                           LvalRef->clone());
 
     if (!InsertAfterNode) {
-      HLNodeUtils::insertAsFirstChild(cast<HLIf>(Lp->getLastChild()), CopyInst,
-                                      true);
+      HLNodeUtils::insertAsFirstThenChild(cast<HLIf>(Lp->getLastChild()),
+                                          CopyInst);
     } else {
       HLNodeUtils::insertAfter(InsertAfterNode, CopyInst);
     }

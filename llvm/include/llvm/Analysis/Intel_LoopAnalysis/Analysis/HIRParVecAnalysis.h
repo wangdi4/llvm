@@ -24,6 +24,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Pass.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 
 namespace llvm {
@@ -37,6 +39,10 @@ class HIRSafeReductionAnalysis;
 class DDEdge;
 class HLRegion;
 class HLSwitch;
+
+class ParVecInfo;
+using HIRParVecInfoMapType =
+    DenseMap<const HLLoop *, std::unique_ptr<ParVecInfo>>;
 
 /// \brief Main data structure describing parallelizability/vectorizability
 /// of a given loop. If not parallelizable/vectorizable, reason and source
@@ -187,33 +193,32 @@ public:
   void print(raw_ostream &OS, bool WithLoop = true) const;
 
   /// \brief Main accessor for the ParVecInfo.
-  static ParVecInfo *get(AnalysisMode Mode,
-                         DenseMap<HLLoop *, ParVecInfo *> &InfoMap,
+  static ParVecInfo *get(AnalysisMode Mode, HIRParVecInfoMapType &InfoMap,
                          TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
                          HIRSafeReductionAnalysis *SRA, HLLoop *Loop) {
 
-    auto Info = InfoMap[Loop];
+    auto &Info = InfoMap[Loop];
 
     if (!Info)
-      InfoMap[Loop] = Info = new ParVecInfo(Mode, Loop);
+      Info.reset(new ParVecInfo(Mode, Loop));
     // TODO: Query Mode and cached Mode may be different. Add code
     //       to deal with such situation.
 
     if (!Info->isDone())
       Info->analyze(Loop, TLI, DDA, SRA);
 
-    return Info;
+    return Info.get();
   }
 
   // TODO: This function doesn't handle vectorizable but not parallelizable.
-  static void set(AnalysisMode Mode, DenseMap<HLLoop *, ParVecInfo *> &InfoMap,
+  static void set(AnalysisMode Mode, HIRParVecInfoMapType &InfoMap,
                   HLLoop *Loop, AnalysisMode InfoMode, LoopType T,
                   DebugLoc Loc) {
 
-    auto Info = InfoMap[Loop];
+    auto &Info = InfoMap[Loop];
 
     if (!Info)
-      InfoMap[Loop] = Info = new ParVecInfo(Mode, Loop);
+      Info.reset(new ParVecInfo(Mode, Loop));
 
     if (isParallelMode(InfoMode)) {
       Info->setParLoc(Loc);
@@ -227,29 +232,17 @@ public:
   }
 };
 
-class HIRParVecAnalysis : public FunctionPass {
-
-private:
+class HIRParVecAnalysis : public HIRAnalysis {
   bool Enabled;
   TargetLibraryInfo *TLI;
-  HIRFramework *HIRF;
   HIRDDAnalysis *DDA;
   HIRSafeReductionAnalysis *SRA;
-  DenseMap<HLLoop *, ParVecInfo *> InfoMap;
+  HIRParVecInfoMapType InfoMap;
 
 public:
-  HIRParVecAnalysis()
-      : FunctionPass(ID), Enabled(false), TLI(nullptr), HIRF(nullptr),
-        DDA(nullptr), SRA(nullptr) {
-    initializeHIRParVecAnalysisPass(*PassRegistry::getPassRegistry());
-    InfoMap.clear();
-  }
-
-  static char ID;
-  bool runOnFunction(Function &F) override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void releaseMemory() override;
+  HIRParVecAnalysis(bool Enabled, TargetLibraryInfo *TLI, HIRFramework *HIRF,
+                    HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA)
+      : HIRAnalysis(*HIRF), Enabled(Enabled), TLI(TLI), DDA(DDA), SRA(SRA) {}
 
   /// \brief Analyze (if invalid) the loop and return the info.
   const ParVecInfo *getInfo(ParVecInfo::AnalysisMode Mode, HLLoop *Loop);
@@ -265,14 +258,43 @@ public:
   /// info. For analyzing just this loop, use getInfo() instead.
   void analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop);
 
-  /// \brief Invalidate the cached result for the loop or the loop nest.
-  void forget(HLLoop *Loop, bool Nest = false);
+  void markLoopBodyModified(const HLLoop *L) override { InfoMap.erase(L); }
 
-  /// \brief Invalidate the cached result for the region.
-  void forget(HLRegion *Region);
+  void printAnalysis(raw_ostream &OS) const override;
 
   /// \brief Helper for skipping ParVec analysis on SIMD enabled functions.
   static bool isSIMDEnabledFunction(Function &F);
+};
+
+class HIRParVecAnalysisWrapperPass : public FunctionPass {
+  std::unique_ptr<HIRParVecAnalysis> HPVA;
+
+public:
+  static char ID;
+  HIRParVecAnalysisWrapperPass() : FunctionPass(ID) {
+    initializeHIRParVecAnalysisWrapperPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  bool runOnFunction(Function &F) override;
+  void releaseMemory() override { HPVA.reset(); }
+
+  void print(raw_ostream &OS, const Module * = nullptr) const override {
+    getHPVA().printAnalysis(OS);
+  }
+
+  HIRParVecAnalysis &getHPVA() { return *HPVA; }
+  const HIRParVecAnalysis &getHPVA() const { return *HPVA; }
+};
+
+class HIRParVecAnalysisPass : public AnalysisInfoMixin<HIRParVecAnalysisPass> {
+  friend struct AnalysisInfoMixin<HIRParVecAnalysisPass>;
+  static AnalysisKey Key;
+
+public:
+  using Result = HIRParVecAnalysis;
+  HIRParVecAnalysis run(Function &F, FunctionAnalysisManager &AM);
 };
 
 } // namespace loopopt

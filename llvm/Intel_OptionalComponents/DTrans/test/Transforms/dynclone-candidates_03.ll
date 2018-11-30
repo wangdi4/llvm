@@ -54,7 +54,7 @@ define void @proc1(%struct.test.01* %tp2) {
 
 ; field_1 = 99999;
 ; field_1 = field_6;
-; field_1 = field_1;
+; field_1 = field_7;
 define void @proc2(%struct.test.01* %tp3) {
   %F1 = getelementptr %struct.test.01, %struct.test.01* %tp3, i32 0, i32 1
   %ld3 = load i64, i64* %F1
@@ -62,7 +62,9 @@ define void @proc2(%struct.test.01* %tp3) {
   %F6 = getelementptr %struct.test.01, %struct.test.01* %tp3, i32 0, i32 6
   %ld2 = load i64, i64* %F6
   store i64 %ld2, i64* %F1, align 8
-  store i64 %ld3, i64* %F1, align 8
+  %F7 = getelementptr %struct.test.01, %struct.test.01* %tp3, i32 0, i32 7
+  %ld4 = load i64, i64* %F7
+  store i64 %ld4, i64* %F1, align 8
   ret void
 }
 

@@ -2137,6 +2137,12 @@ bool llvm::runIPSCCP(
       StoreInst *SI = cast<StoreInst>(GV->user_back());
       SI->eraseFromParent();
     }
+#if INTEL_COLLAB
+    if (GV->isTargetDeclare())
+      LLVM_DEBUG(dbgs() << "Constant GV '" << GV->getName()
+                        << "' is target-declare and not removed\n");
+    else
+#endif // INTEL_COLLAB
     M.getGlobalList().erase(GV);
     ++IPNumGlobalConst;
   }

@@ -895,6 +895,7 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
     RI->setIsUnsigned(IsUnsigned);
     RI->setIsInReduction(IsInReduction);
+    RI->setIsByRef(ClauseInfo.getIsByRef());
 
     ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
 

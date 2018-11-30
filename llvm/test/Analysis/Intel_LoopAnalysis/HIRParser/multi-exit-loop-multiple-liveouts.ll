@@ -9,29 +9,23 @@
 ; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   %t.021.out = %t.021;
 ; CHECK: |   %1 = (%B)[i1];
-; CHECK: |   if (%1 > 0)
-; CHECK: |   {
-; CHECK: |      %2 = (%A)[i1];
-; CHECK: |      %t.0.be = %2;
-; CHECK: |      if (%2 <= 0)
-; CHECK: |      {
-; CHECK: |         %3 = (%A)[i1 + 1];
-; CHECK: |         %t.0.be = %3;
-; CHECK: |      }
-; CHECK: |   }
-; CHECK: |   else
+; CHECK: |   if (%1 <= 0)
 ; CHECK: |   {
 ; CHECK: |      goto for.end.loopexit;
+; CHECK: |   }
+; CHECK: |   %2 = (%A)[i1];
+; CHECK: |   %t.0.be = %2;
+; CHECK: |   if (%2 <= 0)
+; CHECK: |   {
+; CHECK: |      %3 = (%A)[i1 + 1];
+; CHECK: |      %t.0.be = %3;
 ; CHECK: |   }
 ; CHECK: |   %t.021 = %t.0.be;
 ; CHECK: + END LOOP
 
-
 ; Check CG for liveout values.
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck -check-prefix=CHECK-CG %s
 
-
-; CHECK-CG: %t.0.lcssa.ph = phi i32 [ %t.0.be, %for.cond.backedge ], [ %t.021.out, %for.body.split ], [ [[LIVEOUT1LOAD:.*]], %[[NORMALEXIT:.*]] ], [ [[LIVEOUT2LOAD:.*]], %[[EARLYEXIT:.*]] ]
 
 ; CHECK-CG: region.0
 
@@ -39,19 +33,22 @@
 ; CHECK-CG: {{loop.*:}}
 ; CHECK-CG: store i32 {{.*}}, i32* [[EARLY_LIVEOUT_VAL:.*]]
 
-; Loop header BB should jump to early exit if compare evalutates to false.
-; CHECK-CG: br i1 {{.*}}, label {{.*}}, label %[[EARLYEXIT]]
+; Loop header BB should jump to early exit if compare evalutates to true.
+; CHECK-CG: br i1 {{.*}}, label %[[EARLYEXIT:.*]], label {{.*}}
 
 ; CHECK-CG: [[EARLYEXIT]]:
-; CHECK-CG: [[LIVEOUT2LOAD]] = load i32, i32* [[EARLY_LIVEOUT_VAL]]
+; CHECK-CG: [[LIVEOUT2LOAD:%.*]] = load i32, i32* [[EARLY_LIVEOUT_VAL]]
 
 ; Verify that %t.0.be, which is used in the last statement of the loop, is live out of the normal exit.
 ; CHECK-CG: {{ifmerge.*:}}
+; CHECK-CG: {{ifmerge.*:}}
 ; CHECK-CG: {{%t.*}} = load i32, i32* [[NORMAL_LIVEOUT_VAL:.*]]
 
-; CHECK-CG: [[NORMALEXIT]]:
-; CHECK-CG: [[LIVEOUT1LOAD]] = load i32, i32* [[NORMAL_LIVEOUT_VAL]]
+; CHECK-CG: [[NORMALEXIT:afterloop.*]]:
+; CHECK-CG: [[LIVEOUT1LOAD:%.*]] = load i32, i32* [[NORMAL_LIVEOUT_VAL]]
 
+
+; CHECK-CG: %t.0.lcssa.ph = phi i32 [ %t.0.be, %for.cond.backedge ], [ %t.021.out, %for.body.split ], [ [[LIVEOUT1LOAD]], %[[NORMALEXIT]] ], [ [[LIVEOUT2LOAD]], %[[EARLYEXIT]] ]
 
 
 define i32 @foo(i32* nocapture readonly %A, i32* nocapture readonly %B, i32 %n) {

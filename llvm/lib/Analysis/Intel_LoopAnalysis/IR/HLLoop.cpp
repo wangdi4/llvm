@@ -932,7 +932,7 @@ HLIf *HLLoop::extractZtt(unsigned NewLevel) {
   HLIf *Ztt = removeZtt();
 
   HLNodeUtils::insertBefore(this, Ztt);
-  HLNodeUtils::moveAsFirstChild(Ztt, this, true);
+  HLNodeUtils::moveAsFirstThenChild(Ztt, this);
 
   if (NewLevel == NonLinearLevel) {
     NewLevel = getNestingLevel() - 1;
