@@ -680,6 +680,31 @@ if(INTEL_CUSTOMIZATION)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=0")
   endif()
 
+  # Make sure LLVM_INTEL_FEATURES is in CMake cache, and its default value
+  # is "no-features".  Every ICS configuration must explicitly set
+  # LLVM_INTEL_FEATURES.  Having LLVM_INTEL_FEATURES is CMake cache
+  # also helps to understand with which features the compiler binary
+  # was built.  In addition, it allows using CMake's -C option
+  # to specify a cache file with default value of LLVM_INTEL_FEATURES,
+  # so we may have such a cache file for each ICS configuration instead
+  # of explicitly listing features in VRD fils using -intel-features option.
+  set(LLVM_INTEL_FEATURES ""
+      CACHE STRING "Semicolon-separated list of Intel features to enable.")
+
+  # TODO (vzakhari 11/29/2018): we should probably populate LLVM_INTEL_FEATURES
+  #       with all public features from Intel_SupportedFeatures.txt file,
+  #       so that people that do not use ICS tools get them enabled by default.
+  #       This can be done by using the following (in a loop):
+  #         set(LLVM_INTEL_FEATURES
+  #             "${LLVM_INTEL_FEATURES};PUBLIC_FEATURE1"
+  #             CACHE STRING
+  #             "Semicolon-separated list of Intel features to enable."
+  #             FORCE)
+  #       We have to be careful though, because some of the always public
+  #       features may not be enabled for some ICS buildtypes (e.g.
+  #       INTEL_INTERNAL_BUILD feature).  We probably need some markup
+  #       in Intel_SupportedFeatures.txt to manage this.
+
   # If any Intel features are specified for the build, we have to check
   # them against the list of features located in Intel_SupportedFeatures.txt
   list(LENGTH LLVM_INTEL_FEATURES n)
@@ -700,14 +725,23 @@ if(INTEL_CUSTOMIZATION)
     # We also need to add semicolons around the list itself, so that
     # the first starts with semicolon, and the last line ends with a semicolon.
     foreach(f ${LLVM_INTEL_FEATURES})
-      string(REGEX MATCH ";${f};" m ";${sf};")
+      # Temporary workaround for the current feature filtering tool,
+      # which does not allow arbitrary usage of INTEL_FEATURE\_ prefix.
+      # Thus, we cannot declare features with this prefix in
+      # Intel_SupportedFeatures.txt.  At the same time, the feature names
+      # in LLVM_INTEL_FEATURES are prefixed.  Here, we strip the prefix
+      # from the feature name before looking for it in the file.
+      string(CONCAT prefix "INTEL_FEATURE" "_")
+      string(REPLACE ${prefix} "" fname "${f}")
+      string(REGEX MATCH ";${fname};" m ";${sf};")
       # If the enabled feature is not present in the features file, then
       # we must report an error to the user.  The result of the regex match
       # is in 'm' - it is an empty string, if there is no match.
       if ("${m}" STREQUAL "")
         message(FATAL_ERROR
             "Intel feature '${f}' is not supported.  "
-            "Please add it to ${LLVM_INTEL_SUPPORTED_FEATURES_FILE}")
+            "Please add it to ${LLVM_INTEL_SUPPORTED_FEATURES_FILE} "
+            "(without ${prefix} prefix).")
       endif()
     endforeach(f)
 
@@ -719,6 +753,12 @@ if(INTEL_CUSTOMIZATION)
     # by llvm-build).
     configure_file(${LLVM_INTEL_SUPPORTED_FEATURES_FILE}
                    ${CMAKE_CURRENT_BINARY_DIR}/DummyConfigureOutput)
+
+    # Define feature specific macros.
+    foreach(f ${LLVM_INTEL_FEATURES})
+      string(CONCAT FOPT "-D" ${f} "=1")
+      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FOPT}")
+    endforeach(f)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
