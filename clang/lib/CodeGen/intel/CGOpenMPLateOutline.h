@@ -1,26 +1,26 @@
-//===--- CGIntelStmtOpenMP.h - Emit Intel Code from OpenMP Directives   ---===//
+#if INTEL_COLLAB                                           // -*- C++ -*-
+//===--- CGOpenMPLateOutline.h - OpenMP Late-Outlining --------*- C++ -*---===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+//                     The LLVM Compiler Infrastructure
 //
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains code to emit OpenMP nodes as LLVM code.
+// This provides classes for OpenMP late-outlining code generation.
 //
 //===----------------------------------------------------------------------===//
 
-#include "../CGCXXABI.h"
-#include "../CodeGenFunction.h"
-#include "../CodeGenModule.h"
-#include "clang/AST/Stmt.h"
+#ifndef LLVM_CLANG_LIB_CODEGEN_CGOPENMPLATEOUTLINE_H
+#define LLVM_CLANG_LIB_CODEGEN_CGOPENMPLATEOUTLINE_H
+
+#include "CodeGenFunction.h"
+#include "CGCXXABI.h"
 #include "clang/AST/StmtOpenMP.h"
-#include "llvm/ADT/DenseSet.h"
-using namespace clang;
-using namespace CodeGen;
+
+namespace clang {
+namespace CodeGen {
 
 class OMPLateOutlineLexicalScope : public CodeGenFunction::LexicalScope {
   CodeGenFunction::OMPPrivateScope Remaps;
@@ -59,8 +59,6 @@ public:
 
 };
 
-namespace CGIntelOpenMP {
-
 enum OMPAtomicClause {
   OMP_read,
   OMP_write,
@@ -71,15 +69,15 @@ enum OMPAtomicClause {
   OMP_update_seq_cst,
   OMP_capture_seq_cst,
 };
-/// Class used for emission of Intel-specific intrinsics for OpenMP code.
-class OpenMPCodeOutliner {
+
+class OpenMPLateOutliner {
   struct ArraySectionDataTy final {
     llvm::Value *LowerBound = nullptr;
     llvm::Value *Length = nullptr;
     llvm::Value *Stride = nullptr;
     llvm::Value *VLASize = nullptr;
   };
-  typedef llvm::SmallVector<ArraySectionDataTy, 4> ArraySectionTy;
+  using ArraySectionTy = llvm::SmallVector<ArraySectionDataTy, 4>;
 
   // Used temporarily to build a bundle.
   OpenMPClauseKind CurrentClauseKind;
@@ -90,12 +88,11 @@ class OpenMPCodeOutliner {
   struct DirectiveIntrinsicSet final {
     OpenMPDirectiveKind DKind;
     SmallVector<llvm::OperandBundleDef, 8> OpBundles;
-    SmallVector<llvm::Intrinsic::ID, 8> Intrins;
     StringRef End;
-    llvm::CallInst *CallEntry;
+    llvm::CallInst *CallEntry = nullptr;
     DirectiveIntrinsicSet(StringRef E, OpenMPDirectiveKind K)
-          : DKind(K), End(E), CallEntry(nullptr) {}
-    void clear() { OpBundles.clear(); Intrins.clear(); }
+          : DKind(K), End(E) {}
+    void clear() { OpBundles.clear(); }
   };
   SmallVector<DirectiveIntrinsicSet, 4> Directives;
   CodeGenFunction &CGF;
@@ -115,7 +112,7 @@ class OpenMPCodeOutliner {
   /// object is used in ClauseEmissionHelper to ensure the string is alive
   /// until the end of the emission.  Use it in all cases where a constant
   /// string cannot be used for the BundleString part of the clause.
-  class ClauseStringBuilder {
+  class ClauseStringBuilder final {
     SmallString<128> Str;
     StringRef Separator = ":";
 
@@ -175,19 +172,22 @@ class OpenMPCodeOutliner {
 
   class ClauseEmissionHelper final {
     llvm::IRBuilderBase::InsertPoint SavedIP;
-    OpenMPCodeOutliner &O;
+    OpenMPLateOutliner &O;
     ClauseStringBuilder CSB;
     bool EmitClause;
 
   public:
-    ClauseEmissionHelper(OpenMPCodeOutliner &O, StringRef InitStr = "",
+    ClauseEmissionHelper(OpenMPLateOutliner &O, StringRef InitStr = "",
                          bool EmitClause = true)
         : O(O), CSB(InitStr), EmitClause(EmitClause) {
-      SavedIP = O.CGF.Builder.saveIP();
-      O.setInsertPoint();
+      if (O.insertPointChangeNeeded()) {
+        SavedIP = O.CGF.Builder.saveIP();
+        O.setInsertPoint();
+      }
     }
     ~ClauseEmissionHelper() {
-      O.CGF.Builder.restoreIP(SavedIP);
+      if (O.insertPointChangeNeeded())
+        O.CGF.Builder.restoreIP(SavedIP);
       if (EmitClause)
         O.emitClause();
     }
@@ -203,7 +203,7 @@ class OpenMPCodeOutliner {
 
   void addArg(llvm::Value *Val);
   void addArg(StringRef Str);
-  void addArg(const Expr *E);
+  void addArg(const Expr *E, bool IsRef = false);
 
   void addFenceCalls(bool IsBegin);
   void getApplicableDirectives(SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
@@ -268,13 +268,11 @@ class OpenMPCodeOutliner {
   void
   emitOMPAtomicDefaultMemOrderClause(const OMPAtomicDefaultMemOrderClause *);
 
-  llvm::Value *emitIntelOpenMPDefaultConstructor(const Expr *IPriv);
-  llvm::Value *emitIntelOpenMPDestructor(QualType Ty);
-  llvm::Value *emitIntelOpenMPCopyConstructor(const Expr *IPriv);
-  llvm::Value *emitIntelOpenMPCopyAssign(QualType Ty,
-                                         const Expr *SrcExpr,
-                                         const Expr *DstExpr,
-                                         const Expr *AssignOp);
+  llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv);
+  llvm::Value *emitOpenMPDestructor(QualType Ty);
+  llvm::Value *emitOpenMPCopyConstructor(const Expr *IPriv);
+  llvm::Value *emitOpenMPCopyAssign(QualType Ty, const Expr *SrcExpr,
+                                    const Expr *DstExpr, const Expr *AssignOp);
 
   bool isUnspecifiedImplicit(const VarDecl *);
   bool isImplicit(const VarDecl *);
@@ -301,9 +299,9 @@ class OpenMPCodeOutliner {
   llvm::Value *ThisPointerValue = nullptr;
 
 public:
-  OpenMPCodeOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D,
+  OpenMPLateOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D,
                      OpenMPDirectiveKind Kind);
-  ~OpenMPCodeOutliner();
+  ~OpenMPLateOutliner();
   void emitOMPParallelDirective();
   void emitOMPParallelForDirective();
   void emitOMPSIMDDirective();
@@ -339,7 +337,7 @@ public:
   void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
 
-  OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
+  OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
@@ -350,15 +348,24 @@ public:
   llvm::Value *getThisPointerValue() { return ThisPointerValue; }
   OpenMPDirectiveKind getCurrentDirectiveKind() { return CurrentDirectiveKind; }
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
-  void setInsertPoint() { CGF.Builder.SetInsertPoint(MarkerInstruction); }
+  bool insertPointChangeNeeded() { return MarkerInstruction != nullptr; }
+  void setInsertPoint() {
+    assert(MarkerInstruction);
+    CGF.Builder.SetInsertPoint(MarkerInstruction);
+  }
+  void insertMarker() {
+    // Create a marker call at the start of the region.  The values generated
+    // from clauses must be inserted before this point.
+    MarkerInstruction = CGF.Builder.CreateCall(RegionEntryDirective, {});
+  }
 };
 
-/// Base class for handling code generation inside OpenMP regions.
-class CGOpenMPRegionInfo : public CodeGenFunction::CGCapturedStmtInfo {
+class CGLateOutlineOpenMPRegionInfo
+    : public CodeGenFunction::CGCapturedStmtInfo {
 public:
-  CGOpenMPRegionInfo(CodeGenFunction::CGCapturedStmtInfo *OldCSI,
-                     OpenMPCodeOutliner &O,
-                     const OMPExecutableDirective &D)
+  CGLateOutlineOpenMPRegionInfo(CodeGenFunction::CGCapturedStmtInfo *OldCSI,
+                                OpenMPLateOutliner &O,
+                                const OMPExecutableDirective &D)
       : CGCapturedStmtInfo(*cast<CapturedStmt>(D.getAssociatedStmt()),
                            CR_OpenMP),
         OldCSI(OldCSI), Outliner(O), D(D) {}
@@ -386,39 +393,46 @@ public:
   void recordThisPointerReference(llvm::Value *ThisValue) {
     Outliner.setThisPointerValue(ThisValue);
   }
+#if INTEL_CUSTOMIZATION
   bool isLateOutlinedRegion() { return true; }
+#endif // INTEL_CUSTOMIZATION
 
 private:
   /// CodeGen info about outer OpenMP region.
   CodeGenFunction::CGCapturedStmtInfo *OldCSI;
-  OpenMPCodeOutliner &Outliner;
+  OpenMPLateOutliner &Outliner;
   const OMPExecutableDirective &D;
 };
 
 /// RAII for emitting code of OpenMP constructs.
-class InlinedOpenMPRegionRAII {
+class LateOutlineOpenMPRegionRAII {
   CodeGenFunction &CGF;
-  OpenMPCodeOutliner &Outliner;
+  OpenMPLateOutliner &Outliner;
   const OMPExecutableDirective &Dir;
 public:
   /// Constructs region for combined constructs.
   /// \param CodeGen Code generation sequence for combined directives. Includes
   /// a list of functions used for code generation of implicitly inlined
   /// regions.
-  InlinedOpenMPRegionRAII(CodeGenFunction &CGF, OpenMPCodeOutliner &O,
-                          const OMPExecutableDirective &D)
+  LateOutlineOpenMPRegionRAII(CodeGenFunction &CGF, OpenMPLateOutliner &O,
+                              const OMPExecutableDirective &D)
       : CGF(CGF), Outliner(O), Dir(D) {
     // Start emission for the construct.
-    CGF.CapturedStmtInfo = new CGOpenMPRegionInfo(CGF.CapturedStmtInfo,
-                                                  Outliner, D);
+    CGF.CapturedStmtInfo =
+        new CGLateOutlineOpenMPRegionInfo(CGF.CapturedStmtInfo, Outliner, D);
   }
-  ~InlinedOpenMPRegionRAII() {
+  ~LateOutlineOpenMPRegionRAII() {
     // Restore original CapturedStmtInfo only if we're done with code emission.
     auto *OldCSI =
-        static_cast<CGOpenMPRegionInfo *>(CGF.CapturedStmtInfo)->getOldCSI();
+        static_cast<CGLateOutlineOpenMPRegionInfo *>(CGF.CapturedStmtInfo)
+            ->getOldCSI();
     delete CGF.CapturedStmtInfo;
     CGF.CapturedStmtInfo = OldCSI;
   }
 };
 
-} // namespace
+} // namespace CodeGen
+} // namespace clang
+
+#endif  // LLVM_CLANG_LIB_CODEGEN_CGOPENMPLATEOUTLINE_H
+#endif // INTEL_COLLAB

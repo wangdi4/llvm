@@ -1,4 +1,6 @@
-//RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s
+// INTEL_COLLAB
+//RUN: %clang_cc1 -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline \
+//RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 static int y_Array[3][4][5];
 
@@ -60,9 +62,8 @@ void arrsecred_ptr() {
 //CHECK-LABEL: arrsecred_arrayref
 void arrsecred_arrayref(int (&y_Arr_ref)[3][4][5]) {
 //CHECK: [[YARRREF:%y_Arr_ref.*]] = alloca [3 x [4 x [5 x i32]]]*, align
-//CHECK: [[L0:%[0-9]+]] = load {{.*}}[[YARRREF]], align
 //CHECK: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT"
-//CHECK-SAME: ([3 x [4 x [5 x i32]]]* [[L0]], i64 3,
+//CHECK-SAME: ([3 x [4 x [5 x i32]]]** [[YARRREF]], i64 3,
 //CHECK-SAME: i64 1, i64 1, i64 1,
 //CHECK-SAME: i64 2, i64 1, i64 1,
 //CHECK-SAME: i64 0, i64 5, i64 1)
@@ -103,3 +104,4 @@ void arrsecred_arraytwosubscript() {
     y_TwoSub[2][4] += 1;
   }
 }
+// end INTEL_COLLAB

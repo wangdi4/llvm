@@ -1870,13 +1870,12 @@ void ASTStmtReader::VisitOMPLoopDirective(OMPLoopDirective *D) {
   D->setCalcLastIteration(Record.readSubExpr());
   D->setPreCond(Record.readSubExpr());
   D->setCond(Record.readSubExpr());
+#if INTEL_COLLAB
+  D->setLateOutlineCond(Record.readSubExpr());
+#endif // INTEL_COLLAB
   D->setInit(Record.readSubExpr());
   D->setInc(Record.readSubExpr());
   D->setPreInits(Record.readSubStmt());
-#if INTEL_CUSTOMIZATION
-  D->setLateOutlineCond(Record.readSubExpr());
-  D->setLateOutlineUpperBoundVariable(Record.readSubExpr());
-#endif // INTEL_CUSTOMIZATION
   if (isOpenMPWorksharingDirective(D->getDirectiveKind()) ||
       isOpenMPTaskLoopDirective(D->getDirectiveKind()) ||
       isOpenMPDistributeDirective(D->getDirectiveKind())) {

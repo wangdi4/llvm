@@ -150,6 +150,12 @@ void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
                                                    Builder.getInt32(1))));
   }
 
+  if (const auto *SLA = FD->getAttr<StallLatencyAttr>()) {
+    Fn->setMetadata("stall_latency",
+                    llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
+                                 Builder.getInt32(SLA->isEnabled()))));
+  }
+
   if (const auto *A = FD->getAttr<SchedulerPipeliningEffortPctAttr>()) {
     llvm::APSInt SPEPInt =
         A->getSchedulerPipeliningEffortPct()->EvaluateKnownConstInt(

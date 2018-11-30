@@ -4072,14 +4072,11 @@ QualType Sema::adjustCCAndNoReturn(QualType ArgFunctionType,
 /// specialization based on its signature, per [temp.deduct.decl].
 ///
 /// \returns the result of template argument deduction.
-Sema::TemplateDeductionResult
-Sema::DeduceTemplateArguments(FunctionTemplateDecl *FunctionTemplate,
-                              TemplateArgumentListInfo *ExplicitTemplateArgs,
-                              QualType ArgFunctionType,
-                              FunctionDecl *&Specialization,
-                              TemplateDeductionInfo &Info,
-                              bool IsAddressOfFunction, // INTEL
-                              bool IgnoreExceptionSpecDifferences) { //INTEL
+Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
+    FunctionTemplateDecl *FunctionTemplate,
+    TemplateArgumentListInfo *ExplicitTemplateArgs, QualType ArgFunctionType,
+    FunctionDecl *&Specialization, TemplateDeductionInfo &Info,
+    bool IsAddressOfFunction) {
   if (FunctionTemplate->isInvalidDecl())
     return TDK_Invalid;
 
@@ -4158,7 +4155,6 @@ Sema::DeduceTemplateArguments(FunctionTemplateDecl *FunctionTemplate,
   auto *SpecializationFPT =
       Specialization->getType()->castAs<FunctionProtoType>();
   if (getLangOpts().CPlusPlus17 &&
-      !IgnoreExceptionSpecDifferences &&  // INTEL
       isUnresolvedExceptionSpec(SpecializationFPT->getExceptionSpecType()) &&
       !ResolveExceptionSpec(Info.getLocation(), SpecializationFPT))
     return TDK_MiscellaneousDeductionFailure;

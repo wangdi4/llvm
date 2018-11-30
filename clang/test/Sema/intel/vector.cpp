@@ -18,6 +18,9 @@ void foo(int i, int *x, int *y) {
   for (i = 0; i < 10; ++i) {  // this is OK
     x[i] = y[i];
   }
+  // expected-error@+2 {{expected a for, while, or do-while loop to follow '#pragma vector'}}
+  #pragma vector
+  i = 7;
 }
 
 void bar(int i, int *x, int *y) {

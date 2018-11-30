@@ -19,6 +19,9 @@
 #include "CGCleanup.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#if INTEL_COLLAB
+#include "intel/CGOpenMPLateOutline.h"
+#endif // INTEL_COLLAB
 #include "TargetInfo.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
@@ -42,7 +45,6 @@
 // CQ381541: IMF attributes support
 #include "clang/Basic/LangOptions.h"
 #include "llvm/ADT/StringSet.h"
-#include "intel/CGIntelStmtOpenMP.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
@@ -4436,11 +4438,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // If the call doesn't return, finish the basic block and clear the
   // insertion point; this allows the rest of IRGen to discard
   // unreachable code.
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   if (CS.doesNotReturn() &&
             (!CapturedStmtInfo ||
-             !dyn_cast<CGIntelOpenMP::CGOpenMPRegionInfo>(CapturedStmtInfo))) {
-#endif // INTEL_CUSTOMIZATION
+             !dyn_cast<CGLateOutlineOpenMPRegionInfo>(CapturedStmtInfo))) {
+#else
+  if (CS.doesNotReturn()) {
+#endif // INTEL_COLLAB
     if (UnusedReturnSizePtr)
       PopCleanupBlock();
 

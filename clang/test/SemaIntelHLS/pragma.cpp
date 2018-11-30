@@ -243,6 +243,15 @@ void foo_speculated_iterations()
   #pragma speculated_iterations // expected-warning {{expected value}}
   for (int i=0;i<32;++i) {}
 
+  #pragma speculated_iterations 0
+  for (int i=0;i<32;++i) {}
+
+  #pragma speculated_iterations -1 // expected-error {{must be non-negative}}
+  for (int i=0;i<32;++i) {}
+
+  #pragma speculated_iterations 2147483648 // expected-error {{is too large}}
+  for (int i=0;i<32;++i) {}
+
   #pragma speculated_iterations 4
   #pragma speculated_iterations 8 // expected-error {{duplicate directives}}
   for (int i=0;i<32;++i) {}
@@ -407,7 +416,23 @@ void nontypeargument()
   for (int i=0;i<32;++i) {}
 }
 
+template <int size>
+void nontypeargument1()
+{
+  #pragma speculated_iterations  size //expected-error {{must be non-negative}}
+  for (int i=0;i<32;++i) {}
+}
+
+template <int size>
+void nontypeargument2()
+{
+  #pragma speculated_iterations size
+  for (int i=0;i<32;++i) {}
+}
+
 int main()
 {
   nontypeargument<100>();
+  nontypeargument2<0>();
+  nontypeargument1<-1>(); //expected-note {{requested here}}
 }

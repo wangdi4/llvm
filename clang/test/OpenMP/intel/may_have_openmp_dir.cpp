@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
 
 void bar();
 // foo1,foo2,foo3 should have the same attributes

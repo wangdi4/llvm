@@ -2484,8 +2484,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       }
     }
   }
-  Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp_region);
-  Opts.IntelOpenMPOffload = !Args.hasArg(OPT_fno_intel_openmp_offload);
   Opts.OpenMPThreadPrivateLegacy =
       Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =
@@ -2966,13 +2964,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   // Check if -fopenmp is specified.
   Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 1 : 0;
-
 #if INTEL_CUSTOMIZATION
   Opts.OpenMPSimdOnly = false;
   Opts.OpenMPSimdDisabled = false;
   Opts.OpenMPTBBOnly = false;
   Opts.OpenMPTBBDisabled = false;
-  if (Opts.IntelOpenMP) {
+  if (Opts.IntelCompat) {
     if (Opts.OpenMP) {
       // OpenMP is enabled but we want to disable OpenMP subset
       Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fno_openmp_simd);
@@ -2985,6 +2982,17 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 #endif //INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  Opts.OpenMPLateOutline =
+      Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_late_outline);
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  // Allow this spelling until removed from icx driver.
+  if (!Opts.OpenMPLateOutline)
+    Opts.OpenMPLateOutline =
+        Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
+  Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
+#endif // INTEL_CUSTOMIZATION
 
   // Check if -fopenmp-simd is specified.
   bool IsSimdSpecified =

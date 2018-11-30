@@ -1217,6 +1217,8 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
         PragmaNameInfo->getName() == "min_ii_at_target_fmax";
   bool PragmaDisableLoopPipelining =
           PragmaNameInfo->getName() == "disable_loop_pipelining";
+  bool PragmaSpeculatedIterations=
+          PragmaNameInfo->getName() == "speculated_iterations";
   bool PragmaForceHyperopt =
           PragmaNameInfo->getName() == "force_hyperopt";
   bool PragmaForceNoHyperopt =
@@ -1350,7 +1352,9 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
         Actions.CheckLoopHintExpr(R.get(), Toks[0].getLocation(),
                                   /*IsCheckRange=*/
                                   !getLangOpts().IntelCompat ||
-                                  !(PragmaUnroll || PragmaUnrollAndJam)))
+                                  !(PragmaUnroll || PragmaUnrollAndJam),
+                                  /* AllowNonNegativeValue */
+                                  PragmaSpeculatedIterations))
 #endif // INTEL_CUSTOMIZATION
       return false;
 

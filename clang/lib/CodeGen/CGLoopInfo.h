@@ -79,7 +79,7 @@ struct LoopAttributes {
   unsigned IIAtLeast;
 
   /// Value for llvm.loop.intel.speculated.iterations.count metadata.
-  unsigned SpeculatedIterations;
+  int SpeculatedIterations;
 
   /// Value for llvm.loop.intel.min.ii.at.target.fmax metadata.
   bool MinIIAtTargetFmaxEnable;

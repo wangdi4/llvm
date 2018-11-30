@@ -203,6 +203,8 @@ def err_va_pack_not_variadic : Error<"__builtin_va_arg_pack can only be used "
                                      "as a parameter to a variadic argument">;
 
 // Intel HLS extensions
+def err_component_func_attr :
+  Error<"attribute %0 can only be applied to a component function">;
 def err_attribute_interface_invalid_type : Error<
   "string passed to %0 attribute is not a valid interface type. Valid component invocation interface types are: %1">;
 def err_attribute_argument_not_power_of_two : Error<
@@ -326,4 +328,6 @@ def err_ap_int_bad_size : Error <
   "%select{signed|unsigned|}0 __ap_int must have a size of at least %select{2|1|1}0">;
 def err_fpga_reg_limitations : Error <
   "non-POD and array types cannot be passed to __builtin_fpga_reg">;
+def err_pragma_loop_invalid_negative_value : Error<
+  "invalid value '%0'; must be non-negative">;
 } // end of sema component.

@@ -4274,7 +4274,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_fno_elide_type);
 #if INTEL_COLLAB
   if (Args.hasArg(options::OPT_fiopenmp)) {
-    CmdArgs.push_back("-fintel-openmp-region");
+    CmdArgs.push_back("-fopenmp-late-outline");
     CmdArgs.push_back("-fopenmp-threadprivate-legacy");
   }
 #endif // INTEL_COLLAB

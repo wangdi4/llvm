@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s -std=c11 -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c11 -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu | FileCheck %s
 
 void foo()
 {

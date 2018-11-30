@@ -35,7 +35,7 @@ using namespace CodeGen;
 #if INTEL_CUSTOMIZATION
 static bool useFrontEndOutlining(CodeGenModule &CGM, const Stmt *S) {
   if (S->getStmtClass() == Stmt::OMPTargetDirectiveClass)
-    return !CGM.getLangOpts().IntelOpenMPOffload;
+    return !CGM.getLangOpts().OpenMPLateOutlineTarget;
 
   if (S->getStmtClass() != Stmt::OMPAtomicDirectiveClass)
     return false;
@@ -97,9 +97,12 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   // Generate a stoppoint if we are emitting debug info.
   EmitStopPoint(S);
 
+#if INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelCompat && !useFrontEndOutlining(CGM, S) &&
-      CGM.getLangOpts().IntelOpenMP) {
+  if (CGM.getLangOpts().OpenMPLateOutline && !useFrontEndOutlining(CGM, S)) {
+#else
+  if (CGM.getLangOpts().OpenMPLateOutline) {
+#endif // INTEL_CUSTOMIZATION
     // Combined target directives
     if (S->getStmtClass() == Stmt::OMPTargetParallelDirectiveClass ||
         S->getStmtClass() == Stmt::OMPTargetParallelForDirectiveClass ||
@@ -131,7 +134,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       return EmitLateOutlineOMPDirective(*Dir);
   }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   // Ignore all OpenMP directives except for simd if OpenMP with Simd is
   // enabled.

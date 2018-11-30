@@ -38,6 +38,9 @@ namespace clang {
 class Expr;
 class GlobalDecl;
 class OMPDependClause;
+#if INTEL_COLLAB
+class OMPMapClause;
+#endif // INTEL_COLLAB
 class OMPExecutableDirective;
 class OMPLoopDirective;
 class VarDecl;
@@ -500,10 +503,12 @@ private:
     void initializeTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
                                          StringRef ParentName, unsigned LineNum,
                                          unsigned Order);
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
     /// Register target region entry. Return the entry's order in the table.
     int registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
-#endif // INTEL_CUSTOMIZATION
+#else
+    void registerTargetRegionEntryInfo(unsigned DeviceID, unsigned FileID,
+#endif // INTEL_COLLAB
                                        StringRef ParentName, unsigned LineNum,
                                        llvm::Constant *Addr, llvm::Constant *ID,
                                        OMPTargetRegionEntryKind Flags);
@@ -635,11 +640,13 @@ private:
   /// found along the way.
   /// \param S Starting statement.
   /// \param ParentName Name of the function declaration that is being scanned.
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   /// \return True if scan has found target regions in the statement and false
   /// otherwise.
   bool scanForTargetRegionsFunctions(const Stmt *S, StringRef ParentName);
-#endif // INTEL_CUSTOMIZATION
+#else
+  void scanForTargetRegionsFunctions(const Stmt *S, StringRef ParentName);
+#endif // INTEL_COLLAB
 
   /// Build type kmp_routine_entry_t (if not built yet).
   void emitKmpRoutineEntryT(QualType KmpInt32Ty);
@@ -748,6 +755,17 @@ public:
   virtual ~CGOpenMPRuntime() {}
   virtual void clear();
 
+#if INTEL_COLLAB
+  struct MapInfo {
+    llvm::Value *Base;
+    llvm::Value *Pointer;
+    llvm::Value *Size;
+  };
+
+  static void getLOMapInfo(const OMPExecutableDirective &Dir,
+                           CodeGenFunction &CGF, const OMPMapClause *C,
+                           const Expr *E, SmallVector<MapInfo, 4> &Info);
+#endif // INTEL_COLLAB
   /// Get the platform-specific name separator.
   std::string getName(ArrayRef<StringRef> Parts) const;
 
@@ -1338,11 +1356,11 @@ public:
                               OpenMPDirectiveKind CancelRegion);
 
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   /// Register target region in the offload entry manager. Return entry's index.
   virtual int registerTargetRegion(const OMPExecutableDirective &D,
                                    StringRef ParentName);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   /// Emit outilined function for 'target' directive.
   /// \param D Directive to emit.

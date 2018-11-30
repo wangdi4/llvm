@@ -30,7 +30,7 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
       Attrs.LoopCoalesceCount == 0 && Attrs.IICount == 0 &&
       Attrs.MaxConcurrencyCount == 0 && Attrs.IVDepCount == 0 &&
       Attrs.IIAtMost == 0 && Attrs.IIAtLeast == 0 &&
-      Attrs.SpeculatedIterations == 0 &&
+      Attrs.SpeculatedIterations == -1 &&
       !Attrs.MinIIAtTargetFmaxEnable && !Attrs.DisableLoopPipeliningEnable &&
       Attrs.ForceHyperoptEnable == LoopAttributes::Unspecified &&
       !Attrs.IVDepEnable && !Attrs.IVDepHLSEnable &&
@@ -113,7 +113,7 @@ static MDNode *createMetadata(LLVMContext &Ctx, const LoopAttributes &Attrs,
                             Type::getInt32Ty(Ctx), Attrs.IIAtLeast))};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
-  if (Attrs.SpeculatedIterations > 0) {
+  if (Attrs.SpeculatedIterations >= 0) {
     Metadata *Vals[] = {
         MDString::get(Ctx, "llvm.loop.intel.speculated.iterations.count"),
         ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(Ctx),
@@ -282,7 +282,7 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       LoopCoalesceEnable(false), LoopCoalesceCount(0), IICount(0),
       MaxConcurrencyCount(0), IVDepEnable(false), IVDepHLSEnable(false),
       IVDepHLSIntelEnable(false), IVDepCount(0),
-      IIAtMost(0), IIAtLeast(0), SpeculatedIterations(0),
+      IIAtMost(0), IIAtLeast(0), SpeculatedIterations(-1),
       MinIIAtTargetFmaxEnable(false), DisableLoopPipeliningEnable(false),
       ForceHyperoptEnable(LoopAttributes::Unspecified),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
@@ -300,6 +300,11 @@ void LoopAttributes::clear() {
   LoopCoalesceEnable = false;
   LoopCoalesceCount = 0;
   IICount = 0;
+  IIAtMost = 0;
+  IIAtLeast = 0;
+  SpeculatedIterations = -1;
+  MinIIAtTargetFmaxEnable = false;
+  DisableLoopPipeliningEnable = false;
   MaxConcurrencyCount = 0;
   IVDepEnable = false;
   IVDepHLSEnable = false;

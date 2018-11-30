@@ -1,14 +1,14 @@
 // RUN: %clang_cc1 -emit-llvm -o - -DONE -fopenmp-tbb -Werror \
-// RUN:  -Wsource-uses-openmp -fintel-compatibility -fintel-openmp-region \
+// RUN:  -Wsource-uses-openmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s -check-prefix=CHECK-ONE
 
 // RUN: %clang_cc1 -emit-llvm -o - -DTWO -fopenmp-tbb -Wsource-uses-openmp \
-// RUN:  -fintel-compatibility -fintel-openmp-region \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu -verify %s
 
 // RUN: %clang_cc1 -emit-llvm -o - -DTHREE -fopenmp -fnoopenmp-tbb \
-// RUN:  -Wsource-uses-openmp -fintel-compatibility -fintel-openmp-region \
+// RUN:  -Wsource-uses-openmp -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu -verify %s \
 // RUN:  | FileCheck %s -check-prefix=CHECK-THREE
 

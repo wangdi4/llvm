@@ -1246,22 +1246,25 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
     // Generate error if there is a problem with the value.
 #if INTEL_CUSTOMIZATION
   if (TransformedExpr &&
-      getSema().CheckLoopHintExpr(TransformedExpr, LH->getLocation(),
-                                  !getSema().getLangOpts().IntelCompat ||
-                                  !((LH->getSemanticSpelling() ==
-                                      LoopHintAttr::Pragma_unroll) ||
-                                    (LH->getSemanticSpelling() ==
-                                      LoopHintAttr::Pragma_unroll_and_jam))))
+      getSema().CheckLoopHintExpr(
+          TransformedExpr, LH->getLocation(),
+          !getSema().getLangOpts().IntelCompat ||
+              !((LH->getSemanticSpelling() == LoopHintAttr::Pragma_unroll) ||
+                (LH->getSemanticSpelling() ==
+                 LoopHintAttr::Pragma_unroll_and_jam)),
+          LH->getSemanticSpelling() ==
+              LoopHintAttr::Pragma_speculated_iterations))
 #endif // INTEL_CUSTOMIZATION
     return LH;
 
 #if INTEL_CUSTOMIZATION
-  if (getSema().getLangOpts().IntelCompat && 
+  if (getSema().getLangOpts().IntelCompat &&
       LH->getSemanticSpelling() == LoopHintAttr::Pragma_unroll &&
       LH->getOption() == LoopHintAttr::UnrollCount &&
       LH->getState() == LoopHintAttr::Numeric) {
     llvm::APSInt ValueAPS;
-    ExprResult R = getSema().VerifyIntegerConstantExpression(TransformedExpr, &ValueAPS);
+    ExprResult R =
+        getSema().VerifyIntegerConstantExpression(TransformedExpr, &ValueAPS);
 
     if (!R.isInvalid() &&
         (!ValueAPS.isStrictlyPositive() || ValueAPS.getActiveBits() > 31)) {
