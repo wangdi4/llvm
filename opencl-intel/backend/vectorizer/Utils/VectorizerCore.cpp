@@ -60,7 +60,7 @@ extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string du
 
 
 static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
-  if (CpuId.HasAVX512())
+  if (CpuId.HasAVX512Core())
     return createAVX512ResolverPass();
   return createX86ResolverPass(CpuId.GetCPU());
 }
