@@ -183,9 +183,14 @@ if config.enable_backtrace:
 
 # INTEL_CUSTOMIZATION
 # Add 'intel_opencl' feature based on ICS_WSVARIANT value.
+# TODO (vzakhari 11/30/2018): we probably want to make intel_opencl
+#       feature handling the same as other Intel features, i.e.
+#       pass it from xmainocl VRD files using LLVM_INTEL_FEATURES.
 ics_wsvariant = os.environ.get("ICS_WSVARIANT")
 if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
     config.available_features.add("intel_opencl")
+
+llvm_config.add_intel_features()
 # end INTEL_CUSTOMIZATION
 
 # Check if we should allow outputs to console.
