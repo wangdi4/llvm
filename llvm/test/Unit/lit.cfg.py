@@ -7,6 +7,10 @@ import subprocess
 
 import lit.formats
 
+# INTEL_CUSTOMIZATION
+from lit.llvm import llvm_config
+# end INTEL_CUSTOMIZATION
+
 # name: The name of this test suite.
 config.name = 'LLVM-Unit'
 
@@ -44,3 +48,7 @@ if sys.platform in ['win32', 'cygwin'] and os.path.isdir(config.shlibdir):
 # Win32 may use %SYSTEMDRIVE% during file system shell operations, so propogate.
 if sys.platform == 'win32' and 'SYSTEMDRIVE' in os.environ:
     config.environment['SYSTEMDRIVE'] = os.environ['SYSTEMDRIVE']
+
+# INTEL_CUSTOMIZATION
+llvm_config.add_intel_features()
+# end INTEL_CUSTOMIZATION

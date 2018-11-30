@@ -221,6 +221,11 @@ Options:\n\
 Typical components:\n\
   all               All LLVM libraries (default).\n\
   engine            Either a native JIT or a bitcode interpreter.\n";
+#if INTEL_CUSTOMIZATION
+  errs() << "\
+Intel-specific options:\n\
+  --intel-features  List of all Intel features currently enabled.\n";
+#endif  // INTEL_CUSTOMIZATION
   exit(1);
 }
 
@@ -539,6 +544,10 @@ int main(int argc, char **argv) {
         OS << '\n';
       } else if (Arg == "--targets-built") {
         OS << LLVM_TARGETS_BUILT << '\n';
+#if INTEL_CUSTOMIZATION
+      } else if (Arg == "--intel-features") {
+        OS << LLVM_INTEL_FEATURES << '\n';
+#endif  // INTEL_CUSTOMIZATION
       } else if (Arg == "--host-target") {
         OS << Triple::normalize(LLVM_DEFAULT_TARGET_TRIPLE) << '\n';
       } else if (Arg == "--build-mode") {

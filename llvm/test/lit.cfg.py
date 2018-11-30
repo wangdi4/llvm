@@ -200,6 +200,10 @@ if loadable_module:
 if not config.build_shared_libs and not config.link_llvm_dylib:
     config.available_features.add('static-libs')
 
+# INTEL_CUSTOMIZATION
+llvm_config.add_intel_features()
+# end INTEL_CUSTOMIZATION
+
 def have_cxx_shared_library():
     readobj_exe = lit.util.which('llvm-readobj', config.llvm_tools_dir)
     if not readobj_exe:

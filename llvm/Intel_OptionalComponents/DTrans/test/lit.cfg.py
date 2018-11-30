@@ -60,6 +60,9 @@ llvm_config.use_default_substitutions()
 # Ask llvm-config about asserts.
 llvm_config.feature_config([('--assertion-mode', {'ON': 'asserts'})])
 
+# Add Intel features.
+llvm_config.add_intel_features()
+
 # For each occurrence of a clang tool name, replace it with the full path to
 # the build directory holding that tool.  We explicitly specify the directories
 # to search to ensure that we get the tools just built and not some random

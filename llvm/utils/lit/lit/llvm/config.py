@@ -181,6 +181,27 @@ class LLVMConfig(object):
                     if re.search(re_pattern, feature_line):
                         self.config.available_features.add(feature)
 
+    # INTEL_CUSTOMIZATION
+    # Add Intel specific features into the config for LIT tests.
+    # Each feature enabled for the compiler build via LLVM_INTEL_FEATURES
+    # enables the corresponding intel_feature_xxx feature for the LIT tests.
+    def add_intel_features(self):
+        config_path = os.path.join(self.config.llvm_tools_dir, 'llvm-config')
+
+        output, _ = self.get_process_output([config_path] +
+                                            ["--intel-features"])
+        features = output.split(' ')
+
+        for feat in features:
+            # Drop trailing new line from the last feature.
+            name = feat.rstrip()
+            if name:
+                # Lowercase the feature name to make the current feature
+                # filtering tool happy.  We may remove call to lower(),
+                # when we have more sophisticated feature filtering tool.
+                self.config.available_features.add(name.lower());
+    # end INTEL_CUSTOMIZATION
+
     # Note that when substituting %clang_cc1 also fill in the include directory of
     # the builtin headers. Those are part of even a freestanding environment, but
     # Clang relies on the driver to locate them.

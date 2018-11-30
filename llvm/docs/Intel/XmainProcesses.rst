@@ -743,14 +743,14 @@ preprocessing macro and include your new files in the compiler build.
 
 .. parsed-literal::
 
-  \-extraopts="-DLLVM_INTEL_FEATURES=INTEL_FEATURE\_ISA_AVX512VL"
+  \-intel-features=\"INTEL_FEATURE\_ISA_AVX512VL;INTEL_FEATURE\_ISA_AVX512F\"
 
 ..
 
-.. note:: **TBD** -extraopts allows enabling only one feature, so we need
-          a new option that will accept more than one feature, e.g.
-          \-intel-features="INTEL_FEATURE\_ISA_AVX512VL;
-          INTEL_FEATURE\_ISA_AVX512F".
+.. note:: `LLVM_INTEL_FEATURES` is used for building `llvm-config` utility,
+          so it is always possible to get the list of features enabled
+          for a particular compiler build by running
+          `llvm-config --intel-features`
 
 ..
 
@@ -896,23 +896,23 @@ based on the `LLVM_INTEL_FEATURES` CMake variable value.  For example,
 see how `DTrans` tests are added in
 `llvm/Intel_OptionalComponents/DTrans/test/CMakeLists.txt`.
 
-**TBD** For convenience, it is allowed to add new tests into the existing test
+For convenience, it is allowed to add new tests into the existing test
 suites.  As usual, the test files must be properly
 :ref:`guarded <whole-file-guards>`.  You may use the
 `REQUIRES\: \<feature\>` and `UNSUPPORTED\: \<feature\>` directives,
 supported by `llvm-lit`, to identify whether a LIT test
-must run with the current compiler build.
+must run with the current compiler build.  `\<feature\>` is a lower-case
+version of the corresponding feature from `LLVM_INTEL_FEATURES`, e.g.
+`INTEL_FEATURE\_ISA_AVX512VL` compiler feature enables
+`intel_feature_isa_avx512vl` LIT feature.
 
-We will have all `lit.site.cfg.py.in`
-and `lit.cfg.py` modified to define `llvm-lit` features based on
-`LLVM_INTEL_FEATURES` variable value for the particular compiler build.
 Every feature specific LIT test must use the corresponding `REQUIRES`
 directive.  For example, a C++ LIT test will look like this:
 
 .. parsed-literal::
 
   // INTEL_FEATURE\_ISA_AVX512VL
-  // REQUIRES: ISA_AVX512VL
+  // REQUIRES: intel_feature_isa_avx512vl
   void foo() {} // sanity test
   // end INTEL_FEATURE\_ISA_AVX512VL
 
@@ -925,7 +925,7 @@ build, e.g.:
 .. parsed-literal::
 
   // INTEL_FEATURE\_ISA_AVX512VL
-  // UNSUPPORTED: ISA_AVX512VL
+  // UNSUPPORTED: intel_feature_isa_avx512vl
   // end INTEL_FEATURE\_ISA_AVX512VL
   void foo() {} // sanity test
 
