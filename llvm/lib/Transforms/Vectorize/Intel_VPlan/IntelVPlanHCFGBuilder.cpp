@@ -1135,7 +1135,7 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createPhiInstruction(Inst));
 #else
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
-          Inst->getOpcode(), Inst->getType(), {} /*No operands*/, Inst));
+          Inst->getOpcode(), {} /*No operands*/, Inst));
 #endif // INTEL_CUSTOMIZATION
       PhisToFix.push_back(Phi);
     } else {
