@@ -103,6 +103,9 @@ bool HIRParser::validBlobSymbasePair(BlobTy Blob, unsigned Symbase) const {
     assert(!foundInBlobTable(Symbase) &&
            "Symbase is already present in blob table!");
   }
+  else if (isa<SCEVConstant>(Blob)) {
+    assert(Symbase == ConstantSymbase && "Constant must have correct symbase.");
+  }
 
   return true;
 }
@@ -131,7 +134,7 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
       // Replace blob in BlobTable.
       BlobTable[BlobIndex - 1].first = NewBlob;
 
-      return BlobIndex;
+      return ReturnSymbase ? getTempBlobSymbase(BlobIndex) : BlobIndex;
     }
 
     return ReturnSymbase ? getTempBlobSymbase(It->second) : It->second;
@@ -155,7 +158,7 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
       (void)Ret;
     }
 
-    return Index;
+    return ReturnSymbase ? Symbase : Index;
   }
 
   return ReturnSymbase ? InvalidSymbase : InvalidBlobIndex;
@@ -197,8 +200,8 @@ unsigned HIRParser::findOrInsertBlob(BlobTy Blob, unsigned Symbase) {
   return findOrInsertBlobImpl(Blob, Symbase, true, false);
 }
 
-unsigned HIRParser::updateBlob(BlobTy OldBlob, BlobTy NewBlob,
-                               unsigned Symbase) {
+unsigned HIRParser::updateTempBlob(BlobTy OldBlob, BlobTy NewBlob,
+                                   unsigned Symbase) {
   return findOrInsertBlobImpl(OldBlob, Symbase, false, false, NewBlob);
 }
 
@@ -211,7 +214,7 @@ unsigned HIRParser::getTempBlobSymbase(unsigned Index) const {
   assert(isBlobIndexValid(Index) && "Index is out of bounds!");
   auto Symbase = BlobTable[Index - 1].second;
 
-  assert(Symbase != InvalidSymbase && "Blob is not a temp!");
+  assert(Symbase > ConstantSymbase && "Blob is not a temp!");
   return Symbase;
 }
 
@@ -248,6 +251,7 @@ bool HIRParser::isTempBlob(BlobTy Blob) {
 void HIRParser::insertBlobHelper(BlobTy Blob, unsigned Symbase, bool Insert,
                                  unsigned *NewBlobIndex) {
   if (Insert) {
+    Symbase = isa<SCEVConstant>(Blob) ? ConstantSymbase : Symbase;
     unsigned BlobIndex = findOrInsertBlob(Blob, Symbase);
 
     if (NewBlobIndex) {
@@ -273,7 +277,7 @@ BlobTy HIRParser::createBlob(int64_t Val, Type *Ty, bool Insert,
   assert(Ty && "Type cannot be null!");
   auto Blob = SE.getConstant(Ty, Val, false);
 
-  insertBlobHelper(Blob, InvalidSymbase, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, ConstantSymbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -1609,7 +1613,7 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
   auto OldTempBlob = SE.getUnknown(const_cast<Value *>(OldTemp));
   auto BaseTemp = ScalarSA.getBaseScalar(Symbase);
   auto NewTempBlob = SE.getUnknown(const_cast<Value *>(BaseTemp));
-  auto Index = updateBlob(OldTempBlob, NewTempBlob, Symbase);
+  auto Index = updateTempBlob(OldTempBlob, NewTempBlob, Symbase);
 
   if (BlobIndex) {
     *BlobIndex = Index;

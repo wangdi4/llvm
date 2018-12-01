@@ -495,7 +495,7 @@ class HIRParser {
                         unsigned *NewBlobIndex);
 
   /// Updates OldBlob by NewBlob in the blob table and returns the blob index.
-  unsigned updateBlob(BlobTy OldBlob, BlobTy NewBlob, unsigned Symbase);
+  unsigned updateTempBlob(BlobTy OldBlob, BlobTy NewBlob, unsigned Symbase);
 
   // Adds an lval or rval fake ref to \p HInst formed by cloning \p AddressRef.
   void addFakeRef(HLInst *HInst, const RegDDRef *AddressRef, bool IsRval);

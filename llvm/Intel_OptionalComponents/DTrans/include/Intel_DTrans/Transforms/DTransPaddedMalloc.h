@@ -159,6 +159,8 @@ private:
 
 ModulePass *createDTransPaddedMallocWrapperPass();
 
+unsigned getPaddedMallocLimit();
+
 } // namespace llvm
 
 #endif // INTEL_DTRANS_TRANSFORMS_PADDEDMALLOC_H

@@ -1,4 +1,4 @@
-//===------- DTransDtransPaddedMalloc.cpp - DTrans Padded Malloc -*------===//
+//===------- DtransPaddedMalloc.cpp - DTrans Padded Malloc -*------===//
 //
 // Copyright (C) 2018 Intel Corporation. All rights reserved.
 //
@@ -499,7 +499,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
     Builder.SetInsertPoint(mallocCallMod);
 
     // Insert the conditional for the multiversioning
-    Value *PMLimitVal = Builder.getInt32(DTransPaddedMallocLimit);
+    Value *PMLimitVal = Builder.getInt32(getPaddedMallocLimit());
     LoadInst *LoadGlobal = Builder.CreateLoad(GlobalCounter);
     if (UseOpenMP) {
       LoadGlobal->setAtomic(AtomicOrdering::SequentiallyConsistent);
@@ -617,6 +617,10 @@ INITIALIZE_PASS_END(DTransPaddedMallocWrapper, "dtrans-paddedmalloc",
 
 ModulePass *llvm::createDTransPaddedMallocWrapperPass() {
   return new DTransPaddedMallocWrapper();
+}
+
+unsigned llvm::getPaddedMallocLimit() {
+  return DTransPaddedMallocLimit;
 }
 
 // Actual implementation of padded malloc
@@ -806,7 +810,7 @@ void dtrans::PaddedMallocGlobals::buildInterfaceFunction(Module &M) {
   Builder.SetInsertPoint(entry);
 
   // Insert the conditional for testing
-  Value *PMLimitVal = Builder.getInt32(DTransPaddedMallocLimit);
+  Value *PMLimitVal = Builder.getInt32(getPaddedMallocLimit());
   LoadInst *load = Builder.CreateLoad(GlobalCounter);
   Value *Cmp = Builder.CreateICmpULT(load, PMLimitVal);
 
@@ -889,7 +893,7 @@ bool dtrans::PaddedMallocGlobals::buildFuncBadCastValidation(
   Builder.SetInsertPoint(SetBB);
   auto *CounterPtr = getPaddedMallocVariable(*Func->getParent());
   assert(CounterPtr && "No global counter is present in module");
-  Value *PMLimitVal = Builder.getInt32(DTransPaddedMallocLimit + 1);
+  Value *PMLimitVal = Builder.getInt32(getPaddedMallocLimit() + 1);
   Builder.CreateStore(PMLimitVal, CounterPtr);
   Builder.CreateBr(EntryBB);
 
