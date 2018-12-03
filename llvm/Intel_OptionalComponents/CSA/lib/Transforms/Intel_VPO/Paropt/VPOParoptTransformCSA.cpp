@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 
 using namespace llvm;
@@ -76,10 +77,11 @@ protected:
   // Work region which is being transformed.
   WRegionNode *W = nullptr;
 
-  // Shortcuts to VPOParoptTransform's DT, LI and SE members.
+  // Shortcuts to VPOParoptTransform's DT, LI, SE and AC members.
   DominatorTree *DT = nullptr;
   LoopInfo *LI = nullptr;
   ScalarEvolution *SE = nullptr;
+  AssumptionCache *AC = nullptr;
 
   // Init, fini and last iteration basic blocks. Alloca instructions for all
   // private flavors as well as the intialization for for first private and
@@ -185,7 +187,8 @@ protected:
 
 public:
   CSAPrivatizer(VPOParoptTransform &PT, WRegionNode *W, bool DoReds = true)
-    : PT(PT), W(W), DT(PT.DT), LI(PT.LI), SE(PT.SE), DoReds(DoReds) {}
+    : PT(PT), W(W), DT(PT.DT), LI(PT.LI), SE(PT.SE), AC(PT.AC), DoReds(DoReds)
+  {}
 
   virtual bool run() {
     bool Changed = false;
@@ -195,29 +198,49 @@ public:
 
     W->populateBBSet();
 
+    // Keep track of alloca instruction that were created for private variables.
+    // We will try to registerize these allocas.
+    SmallSetVector<AllocaInst*, 16u> Allocas;
+    auto && addAlloca = [&Allocas](Value *V) {
+      if (auto *AI = dyn_cast<AllocaInst>(V))
+        if (isAllocaPromotable(AI))
+          Allocas.insert(AI);
+    };
+
     // Generate privatization code for all flavors of private variables.
     if (W->canHavePrivate() && !W->getPriv().empty()) {
-      for (auto *I : W->getPriv().items())
+      for (auto *I : W->getPriv().items()) {
         genPrivVar(I, W);
+        addAlloca(I->getNew());
+      }
       Changed = true;
     }
     if (W->canHaveFirstprivate() && !W->getFpriv().empty()) {
-      for (auto *I : W->getFpriv().items())
+      for (auto *I : W->getFpriv().items()) {
         genFPrivVar(I, W);
+        addAlloca(I->getNew());
+      }
       Changed = true;
     }
     if (W->canHaveLastprivate() && !W->getLpriv().empty()) {
       for (auto *I : W->getLpriv().items()) {
         genLPrivVar(I, W);
         genLPrivVarCopyout(I);
+        addAlloca(I->getNew());
       }
       Changed = true;
     }
     if (DoReds && W->canHaveReduction() && !W->getRed().empty()) {
-      for (auto *I : W->getRed().items())
+      for (auto *I : W->getRed().items()) {
         genRedVar(I, W);
+        addAlloca(I->getNew());
+      }
       Changed = true;
     }
+
+    // Promote private variables to registers.
+    if (!Allocas.empty())
+      PromoteMemToReg(Allocas.getArrayRef(), *DT, AC);
 
     // Invalidate BBSet after transformation
     W->resetBBSet();
@@ -426,6 +449,15 @@ public:
 
     W->populateBBSet();
 
+    // Keep track of alloca instruction that were created for private variables.
+    // We will try to registerize these allocas.
+    SmallSetVector<AllocaInst*, 16u> Allocas;
+    auto && addAlloca = [&Allocas](Value *V) {
+      if (auto *AI = dyn_cast<AllocaInst>(V))
+        if (isAllocaPromotable(AI))
+          Allocas.insert(AI);
+    };
+
     // For sections construct we need to privatizations for each section.
     for (auto SecW : reverse(W->getChildren())) {
       assert(SecW->isBBSetEmpty() &&
@@ -433,23 +465,31 @@ public:
       SecW->populateBBSet();
       cleanupPrivateItems(W);
       if (!W->getPriv().empty()) {
-        for (auto *I : W->getPriv().items())
+        for (auto *I : W->getPriv().items()) {
           genPrivVar(I, SecW);
+          addAlloca(I->getNew());
+        }
         Changed = true;
       }
       if (!W->getFpriv().empty()) {
-        for (auto *I : W->getFpriv().items())
+        for (auto *I : W->getFpriv().items()) {
           genFPrivVar(I, SecW);
+          addAlloca(I->getNew());
+        }
         Changed = true;
       }
       if (!W->getLpriv().empty()) {
-        for (auto *I : W->getLpriv().items())
+        for (auto *I : W->getLpriv().items()) {
           genLPrivVar(I, SecW);
+          addAlloca(I->getNew());
+        }
         Changed = true;
       }
       if (!W->getRed().empty()) {
-        for (auto *I : W->getRed().items())
+        for (auto *I : W->getRed().items()) {
           genRedVar(I, SecW);
+          addAlloca(I->getNew());
+        }
         Changed = true;
       }
       SecW->resetBBSet();
@@ -459,6 +499,10 @@ public:
     if (!W->getLpriv().empty())
       for (auto *I : W->getLpriv().items())
         genLPrivVarCopyout(I);
+
+    // Promote private variables to registers.
+    if (!Allocas.empty())
+      PromoteMemToReg(Allocas.getArrayRef(), *DT, AC);
 
     // Invalidate BBSet after transformations
     W->resetBBSet();
@@ -981,6 +1025,24 @@ public:
     // Create workers.
     cloneWorkers(W);
 
+    // Fixup workers.
+    auto Mode = getSPMDMode(W);
+    for (auto &WI : Workers) {
+      switch (Mode) {
+        case 0:
+          WI.makeBlocked();
+          break;
+        case 1:
+          WI.makeCyclic();
+          break;
+        default:
+          WI.makeHybrid(Mode);
+      }
+    }
+
+    // Rebuild dominator tree.
+    PT.DT->recalculate(*W->getEntryBBlock()->getParent());
+
     // Helper lamdas for the privatizer.
     BasicBlock *InitBB = nullptr;
     auto && getInitBB = [&]() {
@@ -1003,20 +1065,7 @@ public:
       return FiniBB;
     };
 
-    // Fixup workers.
-    auto Mode = getSPMDMode(W);
     for (auto &WI : Workers) {
-      switch (Mode) {
-        case 0:
-          WI.makeBlocked();
-          break;
-        case 1:
-          WI.makeCyclic();
-          break;
-        default:
-          WI.makeHybrid(Mode);
-      }
-
       // Generate privatization code.
       WorkerPrivatizer(PT, WI, getInitBB, getFiniBB).run();
 
@@ -1034,9 +1083,6 @@ public:
                            WI.Head->getFirstNonPHI(),
                            WI.Tail->getTerminator());
     }
-
-    // Rebuild dominator tree.
-    PT.DT->recalculate(*W->getEntryBBlock()->getParent());
     return true;
   }
 };

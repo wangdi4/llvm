@@ -1,3 +1,4 @@
+; INTEL_FEATURE_CSA
 ; RUN: opt < %s -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -S | FileCheck --check-prefixes=CHECK-COMMON,CHECK-DEFAULT %s
 ; RUN: opt < %s -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -csa-omp-loop-workers-default=2 -S | FileCheck --check-prefixes=CHECK-COMMON,CHECK-WORKERS %s
 ; RUN: opt < %s -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -csa-omp-loop-workers-default=3 -csa-omp-loop-spmd-mode-default=4 -S | FileCheck --check-prefixes=CHECK-COMMON,CHECK-MODE %s
@@ -177,3 +178,4 @@ DIR.OMP.END.PARALLEL.LOOP.4:
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
+; end INTEL_FEATURE_CSA

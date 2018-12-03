@@ -1,3 +1,4 @@
+; INTEL_FEATURE_CSA
 ; RUN: opt < %s -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -S 2>&1 | FileCheck %s
 ; REQUIRES: csa-registered-target
 ;
@@ -170,3 +171,4 @@ DIR.OMP.END.PARALLEL.LOOP.310:
 DIR.OMP.END.PARALLEL.LOOP.4:
   ret void
 }
+; end INTEL_FEATURE_CSA

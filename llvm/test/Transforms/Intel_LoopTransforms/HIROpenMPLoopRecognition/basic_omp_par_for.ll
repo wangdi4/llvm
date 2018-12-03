@@ -12,6 +12,7 @@
 ;   -fintel-compatibility -fopenmp -fopenmp-targets=x86_64 -target-cpu x86-64 \
 ;   -O2 -fno-intel-openmp-offload -mllvm -paropt=31 -fintel-openmp-region \
 ;   -o src.bc src.cpp
+; INTEL_FEATURE_CSA
 ; --- Device compilation:
 ; clang -cc1 -triple csa -S -fintel-compatibility -fopenmp \
 ;   -fopenmp-targets=x86_64 -fopenmp-is-device \
@@ -19,6 +20,7 @@
 ;   -mllvm -paropt=31 -mllvm -disable-hir-vec-dir-insert \
 ;   -mllvm -disable-hir-general-unroll -fintel-openmp-region \
 ;   -mllvm -hir-rec-omp-loop src.cpp
+; end INTEL_FEATURE_CSA
 ;
 ; void loop1(int *ip, int n) {
 ;     #pragma omp target map(from : ip[n])

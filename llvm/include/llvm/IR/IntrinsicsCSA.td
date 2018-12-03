@@ -1,3 +1,4 @@
+// INTEL_FEATURE_CSA//===-----------------------------------*- tablegen -*-===//
 //===- IntrinsicsCSA.td - Defines csa intrinsics -----------*- tablegen -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
@@ -130,6 +131,4 @@ def int_csa_fmsaf32x2 : GCCBuiltin<"__builtin_csa_fmsaf32x2">,
       llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
 
 }
-
-
-
+// end INTEL_FEATURE_CSA

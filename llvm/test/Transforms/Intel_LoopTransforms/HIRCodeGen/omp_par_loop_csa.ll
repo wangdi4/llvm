@@ -1,3 +1,4 @@
+; INTEL_FEATURE_CSA
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-rec-omp-loop -hir-cg -S | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-rec-omp-loop,hir-cg" -S < %s | FileCheck %s
 ;
@@ -63,3 +64,4 @@ omp.precond.end:
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
+; end INTEL_FEATURE_CSA

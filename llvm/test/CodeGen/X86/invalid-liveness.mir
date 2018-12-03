@@ -1,11 +1,13 @@
 # RUN: not llc -mtriple=i686-- -run-pass liveintervals -o - %s 2>&1 | FileCheck %s
 # REQUIRES: asserts
 
-# INTEL_CUSTOMIZATION -- Adding XFAIL.
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_CSA
 # CSA specific change, see edits under #if INTEL_CUSTOMIZATION in
 # llvm::LiveRangeCalc::findReachingDefs (lib/CodeGen/LiveRangeCalc.cpp)
 # for detailed description.
-# XFAIL: *
+# UNSUPPORTED: csa-registered-target
+# end INTEL_FEATURE_CSA
 # End INTEL_CUSTOMIZATION
 
 --- |

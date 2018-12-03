@@ -15,6 +15,9 @@ if (INTEL_INCLUDE_DTRANS)
   add_subdirectory(DTrans)
 endif()
 
-if(";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
+# INTEL_FEATURE_CSA
+is_intel_feature_enabled(p CSA)
+if(p)
   add_subdirectory(CSA)
 endif()
+# end INTEL_FEATURE_CSA

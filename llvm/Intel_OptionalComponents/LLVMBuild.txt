@@ -20,7 +20,9 @@
 [common]
 subdirectories =
  DTrans
+; INTEL_FEATURE_CSA
  CSA
+; end INTEL_FEATURE_CSA
 
 [component_0]
 type = Group
