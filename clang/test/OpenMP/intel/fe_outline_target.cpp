@@ -1,3 +1,9 @@
+// INTEL_FEATURE_CSA
+// TODO (vzakhari 11/14/2018): this is actually a hack that we do not use
+//       #if guard above.  We have to live with this until driver defines
+//       proper INTEL_FEATURE macros.
+
+//REQUIRES: csa-registered-target
 //RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility \
 //RUN:   -fintel-openmp-region -triple csa %s \
 //RUN:   | FileCheck %s
@@ -49,3 +55,4 @@ void bar() {
   //CHECK-FEOUTLINE: call void @llvm.directive.region.exit(token [[T0]])
   //CHECK-FEOUTLINE-SAME: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
 }
+// end INTEL_FEATURE_CSA

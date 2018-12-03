@@ -1,4 +1,4 @@
-//===--- CSA.cpp - CSA ToolChain Implementations ----*- C++ -*-===//
+#if INTEL_FEATURE_CSA//===- CSA.cpp - CSA ToolChain Implementations -------===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
@@ -121,4 +121,4 @@ void CSA::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 Tool *CSAToolChain::buildLinker() const {
   return new tools::CSA::Linker(*this);
 }
-
+#endif  // INTEL_FEATURE_CSA

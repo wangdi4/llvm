@@ -1,13 +1,16 @@
-//===--- BuiltinsCSA.def - XCore Builtin function database ----*- C++ -*-===//
+#if INTEL_FEATURE_CSA//===---------------------------------------*- C++ -*-===//
+//===--- BuiltinsCSA.def - CSA Builtin function database --------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the XCore-specific builtin function database.  Users of
+// This file defines the CSA-specific builtin function database.  Users of
 // this file must define the BUILTIN macro to make use of this information.
 //
 //===----------------------------------------------------------------------===//
@@ -42,3 +45,4 @@ BUILTIN(__builtin_csa_fmasf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmsaf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 
 #undef BUILTIN
+#endif // INTEL_FEATURE_CSA

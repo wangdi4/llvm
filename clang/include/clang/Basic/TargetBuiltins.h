@@ -84,6 +84,7 @@ namespace clang {
   }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   /// \brief CSA builtins
   namespace CSA {
   enum {
@@ -93,7 +94,8 @@ namespace clang {
     LastTSBuiltin
   };
   }
-#endif
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   /// X86 builtins
   namespace X86 {

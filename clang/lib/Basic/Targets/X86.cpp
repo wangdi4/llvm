@@ -1196,48 +1196,54 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__INVPCID__");
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
   // Disable setting of __SSE2_MATH__  as it enables guarded x86 inline asm in
   // bits/mathinline.hfor CSA and compiler errors on encountering the inline asm
-  // Future we may was to disable only for CSA and disable other macro 
-  // defines not needed for csa
+  // Future we may was to disable only for CSA and disable other macro
+  // defines not needed for CSA
+  // TODO (vzakhari 11/14/2018): I do not understand why we call X86 target
+  //       configuration on CSA.  This needs to be debugged.
   if (!Opts.OpenMPIsDevice) {
+#endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-     // Each case falls through to the previous one here.
-     switch (SSELevel) {
-     case AVX512F:
-       Builder.defineMacro("__AVX512F__");
-       LLVM_FALLTHROUGH;
-     case AVX2:
-       Builder.defineMacro("__AVX2__");
-       LLVM_FALLTHROUGH;
-     case AVX:
-       Builder.defineMacro("__AVX__");
-       LLVM_FALLTHROUGH;
-     case SSE42:
-       Builder.defineMacro("__SSE4_2__");
-       LLVM_FALLTHROUGH;
-     case SSE41:
-       Builder.defineMacro("__SSE4_1__");
-       LLVM_FALLTHROUGH;
-     case SSSE3:
-       Builder.defineMacro("__SSSE3__");
-       LLVM_FALLTHROUGH;
-     case SSE3:
-       Builder.defineMacro("__SSE3__");
-       LLVM_FALLTHROUGH;
-     case SSE2:
-       Builder.defineMacro("__SSE2__");
-       Builder.defineMacro("__SSE2_MATH__"); // -mfp-math=sse always implied.
-       LLVM_FALLTHROUGH;
-     case SSE1:
-       Builder.defineMacro("__SSE__");
-       Builder.defineMacro("__SSE_MATH__"); // -mfp-math=sse always implied.
-       LLVM_FALLTHROUGH;
-     case NoSSE:
-       break;
-     }
-#if INTEL_CUSTOMIZATION
+  // Each case falls through to the previous one here.
+  switch (SSELevel) {
+  case AVX512F:
+    Builder.defineMacro("__AVX512F__");
+    LLVM_FALLTHROUGH;
+  case AVX2:
+    Builder.defineMacro("__AVX2__");
+    LLVM_FALLTHROUGH;
+  case AVX:
+    Builder.defineMacro("__AVX__");
+    LLVM_FALLTHROUGH;
+  case SSE42:
+    Builder.defineMacro("__SSE4_2__");
+    LLVM_FALLTHROUGH;
+  case SSE41:
+    Builder.defineMacro("__SSE4_1__");
+    LLVM_FALLTHROUGH;
+  case SSSE3:
+    Builder.defineMacro("__SSSE3__");
+    LLVM_FALLTHROUGH;
+  case SSE3:
+    Builder.defineMacro("__SSE3__");
+    LLVM_FALLTHROUGH;
+  case SSE2:
+    Builder.defineMacro("__SSE2__");
+    Builder.defineMacro("__SSE2_MATH__"); // -mfp-math=sse always implied.
+    LLVM_FALLTHROUGH;
+  case SSE1:
+    Builder.defineMacro("__SSE__");
+    Builder.defineMacro("__SSE_MATH__"); // -mfp-math=sse always implied.
+    LLVM_FALLTHROUGH;
+  case NoSSE:
+    break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  }
+#endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
   if (Opts.MicrosoftExt && getTriple().getArch() == llvm::Triple::x86) {
