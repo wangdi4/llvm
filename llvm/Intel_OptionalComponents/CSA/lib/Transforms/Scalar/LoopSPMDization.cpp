@@ -41,6 +41,46 @@ using namespace llvm;
 #define SPMD_BLOCKING 2
 #define SPMD_HYBRID 3
 
+// -mllvm -zero-trip-checks=nested|flat option is used to generation either
+// nested zero checks (better for performance when trip counts are zeros but
+// generate more integer operations) or flat checks that generates less integer
+// operations
+
+// Nested Example:
+// if(n>0)
+//   for(i=0; i<n; i+=k)
+//     sum1++
+//   if(n>1)
+//     for(i=1; i<n; i+=k)
+//       sum2++
+//     if(n>2)
+//       for(i=2; i<n; i+=k)
+//         sum3++
+// sum = sum1+sum2+sum3;
+
+// Flat Example:
+// if(n>0)
+//   for(i=0; i<n; i+=k)
+//     sum1++;
+// if(n>1)
+//   for(i=1; i<n; i+=k)
+//     sum2++;
+// if(n>2)
+//   for(i=2; i<n; i+=k)
+//     sum3++;
+// Sum = sum1+sum2+sum3
+enum ZTCMode { Nested = 0, Flat = 1 };
+static cl::opt<ZTCMode> ZTCType(
+    "spmd-zero-trip-checks", cl::Hidden,
+    cl::desc("CSA Specific: Type of zero trip checks. 0 == Nested, 1 == Flat"),
+    cl::values(
+        clEnumValN(Nested, "nested",
+                   "nested ifs for the zero trip checks for each spmd worker"),
+        clEnumValN(Flat, "flat",
+                   "flat ifs for the zero trip checks for each spmd worker "
+                   "(default)")),
+    cl::init(ZTCMode::Flat));
+
 namespace {
 class LoopSPMDization : public LoopPass {
   LLVMContext Context;
@@ -62,11 +102,16 @@ private:
   Value *UpperBound;
   Value *LowerBound;
   Value *TripCountV;
-  bool FixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E,
+  bool fixReductionsIfAny(Loop *L, Loop *OrigL, BasicBlock *E,
                           BasicBlock *AfterLoop, int PE, int NPEs,
                           std::vector<Value *> &ReduceVarExitOrig,
                           std::vector<Instruction *> &ReduceVarOrig,
                           std::vector<Instruction *> &OldInst);
+  bool fixReductionsFlatIfAny(Loop *L, Loop *OrigL, BasicBlock *E,
+                              BasicBlock *AfterLoop, int PE, int NPEs,
+                              std::vector<Value *> &ReduceVarExitOrig,
+                              std::vector<Instruction *> &ReduceVarOrig,
+                              std::vector<Instruction *> &OldInst);
   void setLoopAlreadySPMDized(Loop *L);
   void AddUnrollDisableMetadata(Loop *L);
   bool FindReductionVariables(Loop *L, std::vector<Value *> &ReduceVarExitOrig,
@@ -156,12 +201,11 @@ private:
       return false;
     }
     if (!L->getExitBlock()) {
-      /*ORE.emit(
-        OptimizationRemarkMissed(DEBUG_TYPE, "Unstructured Code",
-        L->getStartLoc(), L->getHeader())
-        << "Unable to perform loop SPMDization as directed by the pragma"
-        "because loop body has unstructured code.");
-      */
+      //   ORE.emit(
+      //   OptimizationRemarkMissed(DEBUG_TYPE, "Unstructured Code",
+      //   L->getStartLoc(), L->getHeader())
+      //   << "Unable to perform loop SPMDization as directed by the pragma"
+      //   "because loop body has unstructured code.");
       errs() << "\n";
       errs().changeColor(raw_ostream::BLUE, true);
       errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
@@ -303,6 +347,18 @@ try a different SPMDization strategy instead.
 
       if (min_iterations < PE) {
         AddZeroTripCountCheck(NewLoop, SE, PE, NPEs, AfterLoop, DT, LI);
+        // flat vs. nested: The main difference between flat and nested here is
+        // that the loop preheader (the zero trip check block) should branch to
+        // the loop exit block (flat) rather than afterloop (nested)
+        if (ZTCType == ZTCMode::Flat) {
+          BasicBlock *ZTTBlock = L->getExitBlock()->getSingleSuccessor();
+          assert(ZTTBlock && "ZTTBlock, the zero trip check BB is unique.");
+          BranchInst *ZTTBR = cast<BranchInst>(ZTTBlock->getTerminator());
+          if (ZTTBR->getSuccessor(0) == AfterLoop)
+            ZTTBR->setSuccessor(0, NewLoop->getExitBlock());
+          else
+            ZTTBR->setSuccessor(1, NewLoop->getExitBlock());
+        }
       } else {
         ORE.emit(
             OptimizationRemark(DEBUG_TYPE, "", L->getStartLoc(), L->getHeader())
@@ -312,10 +368,21 @@ try a different SPMDization strategy instead.
                    "  ,as directed by the builtin_assume or the constant value "
                    "of the upper bound of the loop.");
       }
-      // This assumes -ffp-contract=fast is set
-      bool success_p =
-          FixReductionsIfAny(NewLoop, OrigL, E, AfterLoop, PE, NPEs,
-                             ReduceVarExitOrig, ReduceVarOrig, OldInsts);
+      // This assumes menable-unsafe-fp-math is set
+      // flat vs. nested: there are multiple small differences on how to handle
+      // reductions so instead of having multiple cases in just one function, I
+      // created two different functions that have some code duplications but
+      // avoid confusion and bugs. Moreover, I suspect in the future, nested
+      // generation will be gone, so i will just delete the other function
+      bool success_p;
+      if (ZTCType == ZTCMode::Nested)
+        success_p =
+            fixReductionsIfAny(NewLoop, OrigL, E, AfterLoop, PE, NPEs,
+                               ReduceVarExitOrig, ReduceVarOrig, OldInsts);
+      else //(ZTCType == ZTCMode::Flat)
+        success_p =
+            fixReductionsFlatIfAny(NewLoop, OrigL, E, AfterLoop, PE, NPEs,
+                                   ReduceVarExitOrig, ReduceVarOrig, OldInsts);
       if (!success_p)
         return false;
       L = NewLoop;
@@ -324,23 +391,26 @@ try a different SPMDization strategy instead.
       // for the original loop and it will be copied to each new loop
       // automatically, by cloneLoopWithPreheader().
     }
-    // Fix missed Phi operands in AfterLoop
-    BasicBlock::iterator bi, bie;
-    for (bi = AfterLoop->begin(), bie = AfterLoop->end(); (bi != bie); ++bi) {
-      PHINode *RedPhi = dyn_cast<PHINode>(&*bi);
-      if (!RedPhi)
-        continue;
-      Value *RedV;
-      if (RedPhi->getBasicBlockIndex(L->getExitBlock()) == -1)
-        // Afterloop did not have a phi node
-        RedPhi->setIncomingBlock(0, L->getExitBlock());
 
-      RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock());
-      for (auto it = pred_begin(AfterLoop), et = pred_end(AfterLoop); it != et;
-           ++it) {
-        BasicBlock *predecessor = *it;
-        if (RedPhi->getBasicBlockIndex(predecessor) == -1) {
-          RedPhi->addIncoming(RedV, predecessor);
+    if (ZTCType == ZTCMode::Nested) {
+      // Fix missed Phi operands in AfterLoop
+      BasicBlock::iterator bi, bie;
+      for (bi = AfterLoop->begin(), bie = AfterLoop->end(); (bi != bie); ++bi) {
+        PHINode *RedPhi = dyn_cast<PHINode>(&*bi);
+        if (!RedPhi)
+          continue;
+        Value *RedV;
+        if (RedPhi->getBasicBlockIndex(L->getExitBlock()) == -1)
+          // Afterloop did not have a phi node
+          RedPhi->setIncomingBlock(0, L->getExitBlock());
+
+        RedV = RedPhi->getIncomingValueForBlock(L->getExitBlock());
+        for (auto it = pred_begin(AfterLoop), et = pred_end(AfterLoop);
+             it != et; ++it) {
+          BasicBlock *predecessor = *it;
+          if (RedPhi->getBasicBlockIndex(predecessor) == -1) {
+            RedPhi->addIncoming(RedV, predecessor);
+          }
         }
       }
     }
@@ -533,32 +603,32 @@ Value *findReductionIdentity(PHINode *Phi, Instruction *Op) {
   return Ident;
 }
 
-// Handling of reductions
-bool LoopSPMDization::FixReductionsIfAny(
+// Handling of reductions in the case of flat Zero trip checks
+bool LoopSPMDization::fixReductionsFlatIfAny(
     Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE,
     int NPEs, std::vector<Value *> &ReduceVarExitOrig,
     std::vector<Instruction *> &ReduceVarOrig,
     std::vector<Instruction *> &OldInsts) {
-  BasicBlock *pred_AfterLoop;
-  pred_AfterLoop = L->getExitBlock();
+  BasicBlock *PredAfterLoop;
+  PredAfterLoop = L->getExitBlock();
   // This can be used in the future when preheader of the inner created loop is
   // properly propagated after cloning which is not the case: clone loop
   // function is buggy, preheader of inner loop is not found properly
-  /*Loop *ReductionLoop;
-    if (spmd_approach == SPMD_HYBRID) {
-    Header = Header->getSingleSuccessor();
-    Preheader = Preheader->getSingleSuccessor();
-    for (Loop *SL : L->getSubLoops()) {
-      ReductionLoop = SL;
-      Header = ReductionLoop->getHeader();
-      //This generate null currently because clone loop function did not
-  properly keep the preheader info for the inner loop
-      //Preheader = ReductionLoop->getLoopPreheader();
-    }
-  }
-  else
-    ReductionLoop = L; // then use reduction loop instead of L
-  */
+  // Loop *ReductionLoop;
+  //   if (spmd_approach == SPMD_HYBRID) {
+  //   Header = Header->getSingleSuccessor();
+  //   Preheader = Preheader->getSingleSuccessor();
+  //   for (Loop *SL : L->getSubLoops()) {
+  //     ReductionLoop = SL;
+  //     Header = ReductionLoop->getHeader();
+  //     //This generate null currently because clone loop function did not
+  // properly keep the preheader info for the inner loop
+  //     //Preheader = ReductionLoop->getLoopPreheader();
+  //   }
+  // }
+  // else
+  //   ReductionLoop = L; // then use reduction loop instead of L
+
   unsigned r = 0;
   for (Instruction &I : *L->getHeader()) {
     PHINode *Phi = dyn_cast<PHINode>(&I);
@@ -568,26 +638,191 @@ bool LoopSPMDization::FixReductionsIfAny(
     // we would test the reduction in the inner loop (reductionloop) but since
     // clone loop function is buggy, preheader of inner loop is not found
     // properly. That's why I added a hack using the r reductions found
-    // previously in find reduction function RecurrenceDescriptor RedDes; if
-    // (RecurrenceDescriptor::isReductionPHI(Phi, ReductionLoop, RedDes)) {
+    // previously in find reduction function
+    // RecurrenceDescriptor RedDes;
+    //  if(RecurrenceDescriptor::isReductionPHI(Phi, ReductionLoop, RedDes)) {
+
     if (ReduceVarOrig[r]) {
       Instruction *ReduceVar;
       if (Phi->getIncomingBlock(0) == L->getLoopPreheader()) {
-        ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(1));
+        ReduceVar = cast<Instruction>(Phi->getIncomingValue(1));
         // initialize the reduction on PE!=0 to identity
         Value *Ident = findReductionIdentity(Phi, ReduceVarOrig[r]);
-        if (Ident)
-          Phi->setIncomingValue(0, Ident);
-        else
+        if (!Ident)
           return false;
+        Phi->setIncomingValue(0, Ident);
       } else {
-        ReduceVar = dyn_cast<Instruction>(Phi->getIncomingValue(0));
+        ReduceVar = cast<Instruction>(Phi->getIncomingValue(0));
         // initialize the reduction on PE!=0 to identity
         Value *Ident = findReductionIdentity(Phi, ReduceVarOrig[r]);
-        if (Ident)
-          Phi->setIncomingValue(1, Ident);
-        else
+        if (!Ident)
           return false;
+        Phi->setIncomingValue(1, Ident);
+      }
+      // Flat: Update the exitblock with different reduced values (identity or
+      // the result)
+      BasicBlock *BBExit = L->getExitBlock();
+      IRBuilder<> BExit(BBExit->getFirstNonPHI());
+      PHINode *IfRedPhi =
+          BExit.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "New");
+      IfRedPhi->addIncoming(ReduceVar, L->getLoopLatch());
+      for (auto IT = pred_begin(BBExit), ET = pred_end(BBExit); IT != ET;
+           ++IT) {
+        BasicBlock *Predecessor = *IT;
+        // this is the predecessor coming from the zero trip count gard
+        // block
+        if (IfRedPhi->getBasicBlockIndex(Predecessor) == -1) {
+          Value *Ident = findReductionIdentity(IfRedPhi, ReduceVarOrig[r]);
+          if (!Ident)
+            return false;
+          IfRedPhi->addIncoming(Ident, Predecessor);
+        }
+      }
+      // Flat: update the afterloop basic block with the the new reduced value
+      // (IfRedPhi) created in the exit block
+      BasicBlock::iterator I, IE;
+      for (I = AfterLoop->begin(), IE = AfterLoop->end(); I != IE; ++I) {
+        PHINode *PhiExit = dyn_cast<PHINode>(&*I);
+        Instruction *NewInstPhi;
+        PHINode *NewPhi;
+        Instruction *ReduceVarExit;
+        IRBuilder<> B(AfterLoop->getFirstNonPHI());
+        bool FoundP = false;
+        // look for use of the reduced value
+        if (!PhiExit) {
+          for (unsigned M = 0; M < I->getNumOperands(); M++) {
+            if (I->getOperand(M) == ReduceVarExitOrig[r]) {
+              ReduceVarExit = dyn_cast<Instruction>(I->getOperand(M));
+              if (PE == 1) {
+                PhiExit = B.CreatePHI(ReduceVar->getType(), 1,
+                                      Phi->getName() + "orig");
+                PhiExit->addIncoming(ReduceVarExitOrig[r], PredAfterLoop);
+                I->setOperand(M, PhiExit);
+              }
+              NewPhi =
+                  B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "red");
+              NewPhi->addIncoming(IfRedPhi, PredAfterLoop);
+              NewInstPhi = dyn_cast<Instruction>(NewPhi);
+              FoundP = true;
+            }
+          }
+
+        } else { // There is an actual Phi node for the reduction var
+          if (PhiExit->getNumIncomingValues() >= 2)
+            ReduceVarExit = dyn_cast<Instruction>(PhiExit->getIncomingValue(1));
+          else
+            ReduceVarExit = dyn_cast<Instruction>(PhiExit->getIncomingValue(0));
+          if (ReduceVarExit) {
+            if (dyn_cast<Value>(ReduceVarExit) == ReduceVarExitOrig[r]) {
+              NewInstPhi = PhiExit->clone();
+              NewPhi = cast<PHINode>(NewInstPhi);
+
+              if (PhiExit->getNumIncomingValues() >= 2) {
+                NewPhi->setIncomingValue(1, IfRedPhi);
+                NewPhi->setIncomingBlock(1, L->getExitBlock());
+              } else {
+                NewPhi->setIncomingValue(0, IfRedPhi);
+                NewPhi->setIncomingBlock(0, L->getExitBlock());
+              }
+              AfterLoop->getInstList().insert(B.GetInsertPoint(), NewInstPhi);
+              FoundP = true;
+            }
+          }
+        }
+        // AfterLoop does not contain a use or a phi of use
+        BasicBlock::iterator II = I;
+        if (!FoundP && II == (--(AfterLoop->end()))) {
+          if (PE == 1) {
+            PhiExit =
+                B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "orig");
+            PhiExit->addIncoming(ReduceVarExitOrig[r], OrigL->getExitBlock());
+          }
+          NewPhi = B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "red");
+          NewPhi->addIncoming(IfRedPhi, PredAfterLoop);
+          NewInstPhi = cast<Instruction>(NewPhi);
+          FoundP = true;
+        }
+        if (FoundP) {
+          // Phi corresponding to first cloned loop is already there
+          if (PE == 1) {
+            OldInsts[r] = PhiExit;
+            B.SetInsertPoint(AfterLoop->getFirstNonPHI());
+          } else
+            B.SetInsertPoint(OldInsts[r]->getNextNode());
+          Instruction *NewInst = ReduceVarOrig[r]->clone();
+          OldInsts[r]->replaceAllUsesWith(NewInst);
+          ReduceVarExitOrig[r]->replaceUsesOutsideBlock(NewInst, AfterLoop);
+
+          NewInst->setOperand(1, cast<Value>(OldInsts[r]));
+          NewInst->setOperand(0, cast<Value>(NewInstPhi));
+          AfterLoop->getInstList().insert(B.GetInsertPoint(), NewInst);
+          OldInsts[r] = NewInst;
+          break;
+        }
+      }
+      // r++;
+    } // end for r
+    // Because we counted also non reduction phis for the hybrid approach
+    r++;
+  }
+  return true;
+}
+
+// Handling of reductions in the case of nested zero trip checks where more
+// integer operations are generated
+bool LoopSPMDization::fixReductionsIfAny(
+    Loop *L, Loop *OrigL, BasicBlock *E, BasicBlock *AfterLoop, int PE,
+    int NPEs, std::vector<Value *> &ReduceVarExitOrig,
+    std::vector<Instruction *> &ReduceVarOrig,
+    std::vector<Instruction *> &OldInsts) {
+  BasicBlock *PredAfterLoop;
+  PredAfterLoop = L->getExitBlock();
+  // This can be used in the future when preheader of the inner created loop is
+  // properly propagated after cloning which is not the case: clone loop
+  // function is buggy, preheader of inner loop is not found properly
+  //    Loop *ReductionLoop;
+  //   if (spmd_approach == SPMD_HYBRID) {
+  //   Header = Header->getSingleSuccessor();
+  //   Preheader = Preheader->getSingleSuccessor();
+  //   for (Loop *SL : L->getSubLoops()) {
+  //     ReductionLoop = SL;
+  //     Header = ReductionLoop->getHeader();
+  //     //This generate null currently because clone loop function did not
+  // properly keep the preheader info for the inner loop
+  //     //Preheader = ReductionLoop->getLoopPreheader();
+  //   }
+  // }
+  // else
+  //   ReductionLoop = L; // then use reduction loop instead of L
+  //
+  unsigned r = 0;
+  for (Instruction &I : *L->getHeader()) {
+    PHINode *Phi = dyn_cast<PHINode>(&I);
+    if (!Phi)
+      continue;
+    // This (isReductionPHI) does not work with  the hybrid approach. Normally,
+    // we would test the reduction in the inner loop (reductionloop) but since
+    // clone loop function is buggy, preheader of inner loop is not found
+    // properly. That's why I added a hack using the r reductions found
+    // previously in find reduction function
+    // RecurrenceDescriptor RedDes;
+    // if (RecurrenceDescriptor::isReductionPHI(Phi, ReductionLoop, RedDes)) {
+    if (ReduceVarOrig[r]) {
+      Instruction *ReduceVar;
+      if (Phi->getIncomingBlock(0) == L->getLoopPreheader()) {
+        ReduceVar = cast<Instruction>(Phi->getIncomingValue(1));
+        // initialize the reduction on PE!=0 to identity
+        Value *Ident = findReductionIdentity(Phi, ReduceVarOrig[r]);
+        if (!Ident)
+          return false;
+        Phi->setIncomingValue(0, Ident);
+      } else {
+        ReduceVar = cast<Instruction>(Phi->getIncomingValue(0));
+        // initialize the reduction on PE!=0 to identity
+        Value *Ident = findReductionIdentity(Phi, ReduceVarOrig[r]);
+        if (!Ident)
+          return false;
+        Phi->setIncomingValue(1, Ident);
       }
       BasicBlock::iterator i, ie;
       for (i = AfterLoop->begin(), ie = AfterLoop->end(); (i != ie); ++i) {
@@ -596,7 +831,7 @@ bool LoopSPMDization::FixReductionsIfAny(
         PHINode *NewPhi;
         Instruction *ReduceVarExit;
         IRBuilder<> B(AfterLoop->getFirstNonPHI());
-        bool found_p = false;
+        bool FoundP = false;
         // look for use of the reduced value
         if (!PhiExit) {
           for (unsigned m = 0; m < i->getNumOperands(); m++) {
@@ -605,14 +840,14 @@ bool LoopSPMDization::FixReductionsIfAny(
               if (PE == 1) {
                 PhiExit = B.CreatePHI(ReduceVar->getType(), 1,
                                       Phi->getName() + "orig");
-                PhiExit->addIncoming(ReduceVarExitOrig[r], pred_AfterLoop);
+                PhiExit->addIncoming(ReduceVarExitOrig[r], PredAfterLoop);
                 i->setOperand(m, PhiExit);
               }
               NewPhi =
                   B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "red");
-              NewPhi->addIncoming(ReduceVar, pred_AfterLoop);
+              NewPhi->addIncoming(ReduceVar, PredAfterLoop);
               NewInstPhi = dyn_cast<Instruction>(NewPhi);
-              found_p = true;
+              FoundP = true;
             }
           }
 
@@ -632,24 +867,24 @@ bool LoopSPMDization::FixReductionsIfAny(
                 NewPhi->setIncomingValue(0, ReduceVar);
 
               AfterLoop->getInstList().insert(B.GetInsertPoint(), NewInstPhi);
-              found_p = true;
+              FoundP = true;
             }
           }
         }
         // AfterLoop does not contain a use or a phi of use
         BasicBlock::iterator II = i;
-        if (!found_p && II == (--(AfterLoop->end()))) {
+        if (!FoundP && II == (--(AfterLoop->end()))) {
           if (PE == 1) {
             PhiExit =
                 B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "orig");
-            PhiExit->addIncoming(ReduceVarExitOrig[r], pred_AfterLoop);
+            PhiExit->addIncoming(ReduceVarExitOrig[r], PredAfterLoop);
           }
           NewPhi = B.CreatePHI(ReduceVar->getType(), 1, Phi->getName() + "red");
-          NewPhi->addIncoming(ReduceVar, pred_AfterLoop);
+          NewPhi->addIncoming(ReduceVar, PredAfterLoop);
           NewInstPhi = dyn_cast<Instruction>(NewPhi);
-          found_p = true;
+          FoundP = true;
         }
-        if (found_p) {
+        if (FoundP) {
           // Handling of the new branches related to the zero trip count
           BasicBlock *BB = AfterLoop;
           for (auto it = pred_begin(BB), et = pred_end(BB); it != et; ++it) {
@@ -657,7 +892,7 @@ bool LoopSPMDization::FixReductionsIfAny(
             { // this is the predecessor coming from the zero trip count gard
               // block
               if (NewPhi->getBasicBlockIndex(predecessor) == -1 &&
-                  predecessor != pred_AfterLoop) {
+                  predecessor != PredAfterLoop) {
                 Value *Ident = findReductionIdentity(NewPhi, ReduceVarOrig[r]);
                 if (Ident)
                   NewPhi->addIncoming(Ident, predecessor);
@@ -691,8 +926,8 @@ bool LoopSPMDization::FixReductionsIfAny(
   return true;
 }
 
-/* This routine should made generic and be declared somewhere as public to be
- * used here and in csa backend (Target/CSA/CSALoopIntrinsicExpander.cpp)*/
+// This routine should made generic and be declared somewhere as public to be
+// used here and in csa backend (Target/CSA/CSALoopIntrinsicExpander.cpp)
 IntrinsicInst *LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI,
                                                     DominatorTree *DT,
                                                     PostDominatorTree *PDT,
@@ -760,9 +995,9 @@ IntrinsicInst *LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI,
   return nullptr;
 }
 
-/* This routine has been copied from LoopInterchange.cpp. It has then been
- * modified to accomodate the type of induction variables we are insterested in
- * handling for SPMDization  */
+// This routine has been copied from LoopInterchange.cpp. It has then been
+// modified to accomodate the type of induction variables we are insterested in
+// handling for SPMDization
 PHINode *LoopSPMDization::getInductionVariable(Loop *L, ScalarEvolution *SE) {
   PHINode *InnerIndexVar = L->getCanonicalInductionVariable();
   if (InnerIndexVar)
@@ -849,8 +1084,8 @@ void LoopSPMDization::AddHybridLoopLevel(Loop *L, int Chunk_Size,
     CondBlock = Latch;
   else
     CondBlock = NewHeader;
-  /* Split the latch into two blocks: new header and LLatch that is the old loop
-   * latch */
+  // Split the latch into two blocks: new header and LLatch that is the old loop
+  // latch
   BasicBlock *LLatch = SplitBlock(
       CondBlock, dyn_cast<Instruction>(CondBlock->getTerminator()), DT, LI);
   LLatch->setName(CondBlock->getName() + ".hybrid.latch");
@@ -889,14 +1124,14 @@ void LoopSPMDization::AddHybridLoopLevel(Loop *L, int Chunk_Size,
   IRBuilder<> Bheader(Header->getTerminator());
 
   CondBlock->getInstList().insert(Bcondblock.GetInsertPoint(), ClonedOldInc);
-  /* calculate BlockUpper = min(OldInc+chunk_size*step, N)*/
+  // calculate BlockUpper = min(OldInc+chunk_size*step, N)
   Value *steptimeschunk =
       Bheader.CreateMul(OldInc->getOperand(1),
                         ConstantInt::get(InductionPHI->getType(), Chunk_Size),
                         InductionPHI->getName() + ".steptimeschunk");
   Value *BlockUpper = Bheader.CreateAdd(
       InductionPHI, steptimeschunk, InductionPHI->getName() + ".pluschunksize");
-  /* Use signed to take into account signed values of iterators*/
+  // Use signed to take into account signed values of iterators
   auto *min = Bheader.CreateICmpSLT(BlockUpper, CondI->getOperand(1));
   BlockUpper = Bheader.CreateSelect(min, BlockUpper, CondI->getOperand(1));
 
@@ -1152,13 +1387,13 @@ Failed to find the loop induction variable.
     Cond = (cast<BranchInst>(Header->getTerminator()))->getCondition();
   /*Value **/ // Cond = LatchBR->getCondition();
   Instruction *CondI = cast<Instruction>(Cond);
-  bool cond_found_p = false;
+  bool CondFoundP = false;
   if (CondI->getOperand(0) == dyn_cast<Value>(OldInc) ||
       CondI->getOperand(1) == dyn_cast<Value>(OldInc))
-    cond_found_p = true;
+    CondFoundP = true;
   else if (CondI->getOperand(0) == dyn_cast<Value>(InductionPHI) ||
            CondI->getOperand(1) == dyn_cast<Value>(InductionPHI)) {
-    cond_found_p = true;
+    CondFoundP = true;
     OldInc = dyn_cast<Instruction>(InductionPHI);
     NewInc = dyn_cast<Value>(InductionPHI);
   } else {
@@ -1168,7 +1403,7 @@ Failed to find the loop induction variable.
       Instruction *User_OldInc = cast<Instruction>(*UA++);
       if (CondI->getOperand(0) == dyn_cast<Value>(User_OldInc) ||
           CondI->getOperand(1) == dyn_cast<Value>(User_OldInc)) {
-        cond_found_p = true;
+        CondFoundP = true;
         for (unsigned m = 0; m < User_OldInc->getNumOperands(); m++)
           if (User_OldInc->getOperand(m) == dyn_cast<Value>(OldInc)) {
             User_OldInc->setOperand(m, NewInc);
@@ -1179,7 +1414,7 @@ Failed to find the loop induction variable.
       }
     }
   }
-  if (!cond_found_p) {
+  if (!CondFoundP) {
     errs() << "\n";
     errs().changeColor(raw_ostream::BLUE, true);
     errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
@@ -1222,33 +1457,31 @@ Failed to find the loop latch condition.
   return true;
 }
 
-/* This routine returns the minimum iterations the user assumes the loop L will
-be executing in order to help removing the zero trip case when replicating loops
-among workers. This routines implements the following cases:
+// This routine returns the minimum iterations the user assumes the loop L will
+// be executing in order to help removing the zero trip case when replicating
+// loops among workers. This routines implements the following cases:
 
-case 1 lower bound is a constant and upper bound is a constant
-  This does not need builtin_assume insertion from the user
-  __builtin_csa_spmdization(3,"cyclic");
-  for (int64_t i = 2; i < 1024; i+=1)
+// case 1 lower bound is a constant and upper bound is a constant
+//   This does not need builtin_assume insertion from the user
+//   __builtin_csa_spmdization(3,"cyclic");
+//   for (int64_t i = 2; i < 1024; i+=1)
 
+// case 2: lower bound of loop is constant
+//   builtin_assume(hi>3); // or (hi-2>1)
+//   __builtin_csa_spmdization(3,"cyclic");
+//   for (int64_t i = 2; i < hi; i+=1)
 
-case 2: lower bound of loop is constant
-  builtin_assume(hi>3); // or (hi-2>1)
-  __builtin_csa_spmdization(3,"cyclic");
-  for (int64_t i = 2; i < hi; i+=1)
+// Case 3: lower bound of loop is not a constant
+//  builtin_assume(hi>lo);
+//  __builtin_csa_spmdization(3,"cyclic");
+//  for (int64_t i = lo; i < hi; i+=1)
 
-Case 3: lower bound of loop is not a constant
- builtin_assume(hi>lo);
- __builtin_csa_spmdization(3,"cyclic");
- for (int64_t i = lo; i < hi; i+=1)
+// Case 4: lower bound of loop is not a constant
+//  builtin_assume(hi-lo>2);
+//  __builtin_csa_spmdization(3,"cyclic");
+//  for (int64_t i = lo; i < hi; i+=1)
 
-Case 4: lower bound of loop is not a constant
- builtin_assume(hi-lo>2);
- __builtin_csa_spmdization(3,"cyclic");
- for (int64_t i = lo; i < hi; i+=1)
-
-Other cases will be implemented based on test cases
-*/
+// Other cases will be implemented based on test cases
 int LoopSPMDization::GetMinLoopIterations(Loop *L, ScalarEvolution *SE) {
   Function *F = L->getHeader()->getParent();
   PHINode *InductionPHI = getInductionVariable(L, SE);
@@ -1358,17 +1591,17 @@ int LoopSPMDization::GetMinLoopIterations(Loop *L, ScalarEvolution *SE) {
                   int min_iterations = CRHS->getSExtValue();
                   return min_iterations;
                 }
-                /*if ((Predicate == ICmpInst::ICMP_EQ))
-                //TODO
-                else if (Predicate == ICmpInst::ICMP_ULT ||
-                Predicate == ICmpInst::ICMP_SLT)
-                //TODO
-                else if (Predicate == ICmpInst::ICMP_ULE ||
-                Predicate == ICmpInst::ICMP_SLE)
-                //TODO
-                else if (Predicate == ICmpInst::ICMP_UGE ||
-                Predicate == ICmpInst::ICMP_SGE)
-                //TODO*/
+                // if ((Predicate == ICmpInst::ICMP_EQ))
+                // //TODO
+                // else if (Predicate == ICmpInst::ICMP_ULT ||
+                // Predicate == ICmpInst::ICMP_SLT)
+                // //TODO
+                // else if (Predicate == ICmpInst::ICMP_ULE ||
+                // Predicate == ICmpInst::ICMP_SLE)
+                // //TODO
+                // else if (Predicate == ICmpInst::ICMP_UGE ||
+                // Predicate == ICmpInst::ICMP_SGE)
+                // TODO
               }
             }
           }
@@ -1450,18 +1683,19 @@ void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE,
   PreHeaderBR->eraseFromParent();
 
   BasicBlock *NewPH = InsertPreheaderForLoop(L, DT, LI, true);
-  // Move section entry from .e block to the  new preheader to avoid bad section
-  // placement
-  IRBuilder<> BPH(NewPH->getFirstNonPHI());
+  if (ZTCType == ZTCMode::Nested) {
+    // Move section entry from .e block to the  new preheader to avoid bad
+    // section placement
+    IRBuilder<> BPH(NewPH->getFirstNonPHI());
 
-  for (Instruction &inst : *NewPH->getSinglePredecessor())
-    if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
-      if (intr_inst->getIntrinsicID() ==
-          Intrinsic::csa_parallel_section_entry) {
-        (&inst)->moveBefore(NewPH->getFirstNonPHI());
-        break;
-      }
-
+    for (Instruction &inst : *NewPH->getSinglePredecessor())
+      if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
+        if (intr_inst->getIntrinsicID() ==
+            Intrinsic::csa_parallel_section_entry) {
+          (&inst)->moveBefore(NewPH->getFirstNonPHI());
+          break;
+        }
+  }
   return;
 }
 
