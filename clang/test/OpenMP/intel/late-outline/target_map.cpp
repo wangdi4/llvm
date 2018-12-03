@@ -30,17 +30,17 @@ void foo(S1 *ps1)
   }
 
   // CHECK: [[L1:%[0-9]+]] = load %struct.S1*, %struct.S1** [[PS1_ADDR]],
-  // CHECK: [[L2:%[0-9]+]] = load %struct.S1*, %struct.S1** [[PS1_ADDR]],
-  // CHECK: [[P1:%.+]] = getelementptr inbounds %struct.S1, %struct.S1* [[L2]], i32 0, i32 0
+  // CHECK: [[P1:%.+]] = getelementptr inbounds %struct.S1, %struct.S1* [[L1]], i32 0, i32 0
   // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: MAP.TOFROM:AGGRHEAD{{.*}}(%struct.S1* [[L1]], i32* [[P1]], i64 4)
+  // CHECK-SAME: MAP.TOFROM:AGGRHEAD{{.*}}(%struct.S1** [[PS1_ADDR]], %struct.S1** [[PS1_ADDR]], i64 8)
+  // CHECK-SAME: MAP.TOFROM:AGGR{{.*}}(%struct.S1** [[PS1_ADDR]],
+  // CHECK-SAME: i32* [[P1]], i64 4)
   // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(ps1->y)
   {
     ps1->y = 3;
   }
 
-  // CHECK: [[L5:%[0-9]+]] = load %struct.S1*, %struct.S1** [[PS1_ADDR]],
   // CHECK: [[L6:%[0-9]+]] = load %struct.S1*, %struct.S1** [[PS1_ADDR]],
   // CHECK: [[N1:%.+]] = getelementptr inbounds %struct.S1, %struct.S1* [[L6]], i32 0, i32 2
   // CHECK: [[L7:%[0-9]+]] = load %struct.S1*, %struct.S1** [[PS1_ADDR]],
@@ -48,14 +48,14 @@ void foo(S1 *ps1)
   // CHECK: [[L8:%[0-9]+]] = load %struct.S1*, %struct.S1** [[N2]],
   // CHECK: [[Y3:%.+]] = getelementptr inbounds %struct.S1, %struct.S1* [[L8]], i32 0, i32 0
   // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: MAP.TOFROM:AGGRHEAD{{.*}}(%struct.S1** [[N1]], i32* [[Y3]], i64 4)
+  // CHECK-SAME: MAP.TOFROM:AGGRHEAD{{.*}}(%struct.S1** [[PS1_ADDR]], %struct.S1** [[PS1_ADDR]], i64 8)
+  // CHECK-SAME: MAP.TOFROM:AGGR{{.*}}(%struct.S1** [[N1]], i32* [[Y3]], i64 4)
   // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(ps1->next->y)
   {
     ps1->next->y = 4;
   }
 
-  // CHECK: [[L12:%[0-9]+]] = load %struct.S1*, %struct.S1** [[PS1_ADDR]],
   // CHECK: [[L13:%[0-9]+]] = load %struct.S1*, %struct.S1** [[PS1_ADDR]],
   // CHECK: [[N6:%.+]] = getelementptr inbounds %struct.S1, %struct.S1* [[L13]], i32 0, i32 2
   // CHECK: [[L14:%[0-9]+]] = load %struct.S1*, %struct.S1** [[PS1_ADDR]],
@@ -64,7 +64,8 @@ void foo(S1 *ps1)
   // CHECK: [[D0:%.+]] = getelementptr inbounds %struct.S1, %struct.S1* [[L15]], i32 0, i32 1
   // CHECK: [[AI:%.+]] = getelementptr inbounds [50 x double], [50 x double]* [[D0]], i64 0, i64 17
   // CHECK: [[TV4:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: MAP.TOFROM:AGGRHEAD{{.*}}(%struct.S1** [[N6]], double* [[AI]], i64 200)
+  // CHECK-SAME: MAP.TOFROM:AGGRHEAD{{.*}}(%struct.S1** [[PS1_ADDR]], %struct.S1** [[PS1_ADDR]], i64 8)
+  // CHECK-SAME: MAP.TOFROM:AGGR{{.*}}(%struct.S1** [[N6]], double* [[AI]], i64 200)
   // CHECK: region.exit(token [[TV4]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(ps1->next->d[17:25])
   {
