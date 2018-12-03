@@ -350,6 +350,14 @@ void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
     OS << " <max_trip_count = " << Count << ">";
   }
 
+  if (hasFusionEnablingPragma()) {
+    OS << " <force fusion>";
+  }
+
+  if (hasFusionDisablingPragma()) {
+    OS << " <no fusion>";
+  }
+
   SmallVector<unsigned, 4> TripCounts;
 
   if (getPragmaBasedLikelyTripCounts(TripCounts)) {
@@ -1561,6 +1569,16 @@ bool HLLoop::hasVectorizeDisablingPragma() const {
   MD = getLoopStringMetadata("llvm.loop.vectorize.enable");
 
   return MD && mdconst::extract<ConstantInt>(MD->getOperand(1))->isZero();
+}
+
+bool HLLoop::hasFusionEnablingPragma() const {
+  return !hasFusionDisablingPragma() &&
+         (getLoopStringMetadata("llvm.loop.fusion.enable") ||
+          getLoopStringMetadata("llvm.loop.fusion.full"));
+}
+
+bool HLLoop::hasFusionDisablingPragma() const {
+  return getLoopStringMetadata("llvm.loop.fusion.disable");
 }
 
 struct EarlyExitCollector final : public HLNodeVisitorBase {

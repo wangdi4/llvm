@@ -36,7 +36,8 @@ typedef DDRefGatherer<RegDDRef, AllRefs ^ (BlobRefs | ConstantRefs |
 bool fusion::isGoodLoop(const HLLoop *Loop) {
   return Loop->isDo() && Loop->isNormalized() &&
          !(Loop->isDistributedForMemRec() || Loop->hasUnrollEnablingPragma() ||
-           Loop->hasVectorizeEnablingPragma());
+           Loop->hasVectorizeEnablingPragma() ||
+           Loop->hasFusionDisablingPragma());
 }
 
 class fusion::FuseEdgeHeap {

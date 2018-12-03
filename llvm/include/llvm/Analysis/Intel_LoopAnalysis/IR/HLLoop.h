@@ -971,6 +971,12 @@ public:
     return true;
   }
 
+  /// Returns true if loop has pragma to enable fusion.
+  bool hasFusionEnablingPragma() const;
+
+  /// Returns true if loop has pragma to disable fusion.
+  bool hasFusionDisablingPragma() const;
+
   // 0 means no estimate.
   uint64_t getMaxTripCountEstimate() const { return MaxTripCountEstimate; }
 
