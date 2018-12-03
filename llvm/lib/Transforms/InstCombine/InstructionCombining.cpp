@@ -2310,9 +2310,16 @@ static bool isAllocSiteRemovable(Instruction *AI,
 }
 
 Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
-  // If we have a malloc call which is only used in any amount of comparisons
-  // to null and free calls, delete the calls and replace the comparisons with
-  // true or false as appropriate.
+  // If we have a malloc call which is only used in any amount of comparisons to
+  // null and free calls, delete the calls and replace the comparisons with true
+  // or false as appropriate.
+
+  // This is based on the principle that we can substitute our own allocation
+  // function (which will never return null) rather than knowledge of the
+  // specific function being called. In some sense this can change the permitted
+  // outputs of a program (when we convert a malloc to an alloca, the fact that
+  // the allocation is now on the stack is potentially visible, for example),
+  // but we believe in a permissible manner.
   SmallVector<WeakTrackingVH, 64> Users;
 
   // If we are removing an alloca with a dbg.declare, insert dbg.value calls
@@ -2576,9 +2583,11 @@ Instruction *InstCombiner::visitSwitchInst(SwitchInst &SI) {
   unsigned NewWidth = Known.getBitWidth() - std::max(LeadingKnownZeros, LeadingKnownOnes);
 
   // Shrink the condition operand if the new type is smaller than the old type.
-  // This may produce a non-standard type for the switch, but that's ok because
-  // the backend should extend back to a legal type for the target.
-  if (NewWidth > 0 && NewWidth < Known.getBitWidth()) {
+  // But do not shrink to a non-standard type, because backend can't generate 
+  // good code for that yet.
+  // TODO: We can make it aggressive again after fixing PR39569.
+  if (NewWidth > 0 && NewWidth < Known.getBitWidth() &&
+      shouldChangeType(Known.getBitWidth(), NewWidth)) {
     IntegerType *Ty = IntegerType::get(SI.getContext(), NewWidth);
     Builder.SetInsertPoint(&SI);
     Value *NewCond = Builder.CreateTrunc(Cond, Ty, "trunc");

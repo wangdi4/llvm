@@ -78,8 +78,8 @@ private:
 
   SymbolAssignment *readSymbolAssignment(StringRef Name);
   ByteCommand *readByteCommand(StringRef Tok);
-  uint32_t readFill();
-  uint32_t parseFill(StringRef Tok);
+  std::array<uint8_t, 4> readFill();
+  std::array<uint8_t, 4> parseFill(StringRef Tok);
   bool readSectionDirective(OutputSection *Cmd, StringRef Tok1, StringRef Tok2);
   void readSectionAddressType(OutputSection *Cmd);
   OutputSection *readOverlaySectionDescription();
@@ -271,6 +271,8 @@ void ScriptParser::readLinkerScript() {
 }
 
 void ScriptParser::readDefsym(StringRef Name) {
+  if (errorCount())
+    return;
   Expr E = readExpr();
   if (!atEOF())
     setError("EOF expected, but got " + next());
@@ -727,9 +729,9 @@ Expr ScriptParser::readAssert() {
 // alias for =fillexp section attribute, which is different from
 // what GNU linkers do.
 // https://sourceware.org/binutils/docs/ld/Output-Section-Data.html
-uint32_t ScriptParser::readFill() {
+std::array<uint8_t, 4> ScriptParser::readFill() {
   expect("(");
-  uint32_t V = parseFill(next());
+  std::array<uint8_t, 4> V = parseFill(next());
   expect(")");
   return V;
 }
@@ -879,13 +881,13 @@ OutputSection *ScriptParser::readOutputSectionDescription(StringRef OutSec) {
 // When reading a hexstring, ld.bfd handles it as a blob of arbitrary
 // size, while ld.gold always handles it as a 32-bit big-endian number.
 // We are compatible with ld.gold because it's easier to implement.
-uint32_t ScriptParser::parseFill(StringRef Tok) {
+std::array<uint8_t, 4> ScriptParser::parseFill(StringRef Tok) {
   uint32_t V = 0;
   if (!to_integer(Tok, V))
     setError("invalid filler expression: " + Tok);
 
-  uint32_t Buf;
-  write32be(&Buf, V);
+  std::array<uint8_t, 4> Buf;
+  write32be(Buf.data(), V);
   return Buf;
 }
 

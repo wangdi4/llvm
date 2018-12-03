@@ -48,10 +48,6 @@ public:
     /// with symbols' paths to get absolute paths. This must be an absolute
     /// path.
     std::string FallbackDir;
-    /// Specifies URI schemes that can be used to generate URIs for file paths
-    /// in symbols. The list of schemes will be tried in order until a working
-    /// scheme is found. If no scheme works, symbol location will be dropped.
-    std::vector<std::string> URISchemes = {"file"};
     bool CollectIncludePath = false;
     /// If set, this is used to map symbol #include path to a potentially
     /// different #include path.
@@ -60,6 +56,9 @@ public:
     bool CountReferences = false;
     /// The symbol ref kinds that will be collected.
     /// If not set, SymbolCollector will not collect refs.
+    /// Note that references of namespace decls are not collected, as they
+    /// contribute large part of the index, and they are less useful compared
+    /// with other decls.
     RefKind RefFilter = RefKind::Unknown;
     /// If set to true, SymbolCollector will collect all refs (from main file
     /// and included headers); otherwise, only refs from main file will be

@@ -9,15 +9,11 @@
 
 #include "lldb/Host/Symbols.h"
 
-// C Includes
 #include <dirent.h>
 #include <pwd.h>
 
-// C++ Includes
-// Other libraries and framework includes
 #include <CoreFoundation/CoreFoundation.h>
 
-// Project includes
 #include "Host/macosx/cfcpp/CFCBundle.h"
 #include "Host/macosx/cfcpp/CFCData.h"
 #include "Host/macosx/cfcpp/CFCReleaser.h"
@@ -109,7 +105,7 @@ int LocateMacOSXFilesUsingDebugSymbols(const ModuleSpec &module_spec,
             if (path[0] == '~')
               FileSystem::Instance().Resolve(dsym_filespec);
 
-            if (llvm::sys::fs::is_directory(dsym_filespec.GetPath())) {
+            if (FileSystem::Instance().IsDirectory(dsym_filespec)) {
               dsym_filespec =
                   Symbols::FindSymbolFileInBundle(dsym_filespec, uuid, arch);
               ++items_found;

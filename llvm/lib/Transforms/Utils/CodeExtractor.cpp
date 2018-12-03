@@ -1381,6 +1381,13 @@ Function *CodeExtractor::extractCodeRegion() {
       DVI->eraseFromParent();
   }
 
+  // Mark the new function `noreturn` if applicable.
+  bool doesNotReturn = none_of(*newFunction, [](const BasicBlock &BB) {
+    return isa<ReturnInst>(BB.getTerminator());
+  });
+  if (doesNotReturn)
+    newFunction->setDoesNotReturn();
+
 #if INTEL_COLLAB
   hoistAlloca(*newFunction);
 #endif // INTEL_COLLAB

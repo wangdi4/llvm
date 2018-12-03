@@ -138,15 +138,29 @@ uint64_t Symbol::getGotPltOffset() const {
   return (PltIndex + Target->GotPltHeaderEntriesNum) * Target->GotPltEntrySize;
 }
 
+uint64_t Symbol::getPPC64LongBranchOffset() const {
+  assert(PPC64BranchltIndex != 0xffff);
+  return PPC64BranchltIndex * Target->GotPltEntrySize;
+}
+
 uint64_t Symbol::getPltVA() const {
-  if (this->IsInIplt)
+  if (this->IsInIplt) {
+    if (Config->ZRetpolineplt)
+      return In.Iplt->getVA() + Target->getPltEntryOffset(PltIndex);
     return In.Iplt->getVA() + PltIndex * Target->PltEntrySize;
+  }
   return In.Plt->getVA() + Target->getPltEntryOffset(PltIndex);
 }
 
 uint64_t Symbol::getPltOffset() const {
   assert(!this->IsInIplt);
   return Target->getPltEntryOffset(PltIndex);
+}
+
+uint64_t Symbol::getPPC64LongBranchTableVA() const {
+  assert(PPC64BranchltIndex != 0xffff);
+  return In.PPC64LongBranchTarget->getVA() +
+         PPC64BranchltIndex * Target->GotPltEntrySize;
 }
 
 uint64_t Symbol::getSize() const {

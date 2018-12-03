@@ -787,6 +787,24 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   unsigned NumParams = FTy.getNumParams();
 
   switch (F) {
+  case LibFunc_execl:
+  case LibFunc_execlp:
+  case LibFunc_execle:
+    return (NumParams >= 2 && FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getReturnType()->isIntegerTy(32));
+  case LibFunc_execv:
+  case LibFunc_execvp:
+    return (NumParams == 2 && FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getReturnType()->isIntegerTy(32));
+  case LibFunc_execvP:
+  case LibFunc_execvpe:
+  case LibFunc_execve:
+    return (NumParams == 3 && FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getReturnType()->isIntegerTy(32));
   case LibFunc_strlen:
     return (NumParams == 1 && FTy.getParamType(0)->isPointerTy() &&
             FTy.getReturnType()->isIntegerTy());
@@ -1037,6 +1055,8 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
+  case LibFunc_fork:
+    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy(32));
   case LibFunc_fdopen:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
@@ -2414,21 +2434,6 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isIntegerTy() &&
             FTy.getParamType(2)->isPointerTy());
 
-  case LibFunc_execl:
-    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
-            FTy.getParamType(0)->isPointerTy() &&
-            FTy.getParamType(1)->isPointerTy());
-
-  case LibFunc_execv:
-    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
-            FTy.getParamType(0)->isPointerTy() &&
-            FTy.getParamType(1)->isPointerTy());
-
-  case LibFunc_execvp:
-    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
-            FTy.getParamType(0)->isPointerTy() &&
-            FTy.getParamType(1)->isPointerTy());
-
   case LibFunc_fcntl:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
@@ -2439,9 +2444,6 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
-
-  case LibFunc_fork:
-    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
 
   case LibFunc_freopen64:
     return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&

@@ -1686,7 +1686,7 @@ SDValue SelectionDAG::getVectorShuffle(EVT VT, const SDLoc &dl, SDValue N1,
   // SDNode doesn't have access to it.  This memory will be "leaked" when
   // the node is deallocated, but recovered when the NodeAllocator is released.
   int *MaskAlloc = OperandAllocator.Allocate<int>(NElts);
-  std::copy(MaskVec.begin(), MaskVec.end(), MaskAlloc);
+  llvm::copy(MaskVec, MaskAlloc);
 
   auto *N = newSDNode<ShuffleVectorSDNode>(VT, dl.getIROrder(),
                                            dl.getDebugLoc(), MaskAlloc);
@@ -2196,6 +2196,9 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
 
   KnownBits Known2;
   unsigned NumElts = DemandedElts.getBitWidth();
+  assert((!Op.getValueType().isVector() ||
+          NumElts == Op.getValueType().getVectorNumElements()) &&
+         "Unexpected vector size");
 
   if (!DemandedElts)
     return Known;  // No demanded elts, better to assume we don't know anything.
@@ -2204,8 +2207,6 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
   switch (Opcode) {
   case ISD::BUILD_VECTOR:
     // Collect the known bits that are shared by every demanded vector element.
-    assert(NumElts == Op.getValueType().getVectorNumElements() &&
-           "Unexpected vector size");
     Known.Zero.setAllBits(); Known.One.setAllBits();
     for (unsigned i = 0, e = Op.getNumOperands(); i != e; ++i) {
       if (!DemandedElts[i])
@@ -2343,6 +2344,19 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
     } else {
       Known = computeKnownBits(Src, Depth + 1);
     }
+    break;
+  }
+  case ISD::SCALAR_TO_VECTOR: {
+    // We know about scalar_to_vector as much as we know about it source,
+    // which becomes the first element of otherwise unknown vector.
+    if (DemandedElts != 1)
+      break;
+
+    SDValue N0 = Op.getOperand(0);
+    Known = computeKnownBits(N0, DemandedElts, Depth + 1);
+    if (N0.getValueSizeInBits() != BitWidth)
+      Known = Known.trunc(BitWidth);
+
     break;
   }
   case ISD::BITCAST: {
@@ -4168,9 +4182,8 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
   case ISD::ZERO_EXTEND_VECTOR_INREG:
   case ISD::SIGN_EXTEND_VECTOR_INREG:
     assert(VT.isVector() && "This DAG node is restricted to vector types.");
-    assert(VT.getSizeInBits() == Operand.getValueSizeInBits() &&
-           "The sizes of the input and result must match in order to perform the "
-           "extend in-register.");
+    assert(Operand.getValueType().bitsLE(VT) &&
+           "The input must be the same size or smaller than the result.");
     assert(VT.getVectorNumElements() <
              Operand.getValueType().getVectorNumElements() &&
            "The destination vector type must have fewer lanes than the input.");
@@ -4636,6 +4649,9 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
   case ISD::SHL:
   case ISD::SRA:
   case ISD::SRL:
+    if (SDValue V = simplifyShift(N1, N2))
+      return V;
+    LLVM_FALLTHROUGH;
   case ISD::ROTL:
   case ISD::ROTR:
     assert(VT == N1.getValueType() &&
@@ -4644,7 +4660,7 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
            "Shifts only work on integers");
     assert((!VT.isVector() || VT == N2.getValueType()) &&
            "Vector shift amounts must be in the same as their first arg");
-    // Verify that the shift amount VT is bit enough to hold valid shift
+    // Verify that the shift amount VT is big enough to hold valid shift
     // amounts.  This catches things like trying to shift an i1024 value by an
     // i8, which is easy to fall into in generic code that uses
     // TLI.getShiftAmount().
@@ -4956,9 +4972,6 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
       case ISD::SDIV:
       case ISD::UREM:
       case ISD::SREM:
-      case ISD::SRA:
-      case ISD::SRL:
-      case ISD::SHL:
         return getConstant(0, DL, VT);    // fold op(undef, arg2) -> 0
       }
     }
@@ -4981,9 +4994,6 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     case ISD::SDIV:
     case ISD::UREM:
     case ISD::SREM:
-    case ISD::SRA:
-    case ISD::SRL:
-    case ISD::SHL:
       return getUNDEF(VT);       // fold op(arg1, undef) -> undef
     case ISD::MUL:
     case ISD::AND:
@@ -5079,13 +5089,9 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     break;
   }
   case ISD::SELECT:
-    if (ConstantSDNode *N1C = dyn_cast<ConstantSDNode>(N1)) {
-     if (N1C->getZExtValue())
-       return N2;             // select true, X, Y -> X
-     return N3;             // select false, X, Y -> Y
-    }
-
-    if (N2 == N3) return N2;   // select C, X, X -> X
+  case ISD::VSELECT:
+    if (SDValue V = simplifySelect(N1, N2, N3))
+      return V;
     break;
   case ISD::VECTOR_SHUFFLE:
     llvm_unreachable("should use getVectorShuffle constructor!");
@@ -6809,6 +6815,60 @@ SDValue SelectionDAG::getMaskedScatter(SDVTList VTs, EVT VT, const SDLoc &dl,
   return V;
 }
 
+SDValue SelectionDAG::simplifySelect(SDValue Cond, SDValue T, SDValue F) {
+  // select undef, T, F --> T (if T is a constant), otherwise F
+  // select, ?, undef, F --> F
+  // select, ?, T, undef --> T
+  if (Cond.isUndef())
+    return isConstantValueOfAnyType(T) ? T : F;
+  if (T.isUndef())
+    return F;
+  if (F.isUndef())
+    return T;
+
+  // select true, T, F --> T
+  // select false, T, F --> F
+  if (auto *CondC = dyn_cast<ConstantSDNode>(Cond))
+    return CondC->isNullValue() ? F : T;
+
+  // TODO: This should simplify VSELECT with constant condition using something
+  // like this (but check boolean contents to be complete?):
+  //  if (ISD::isBuildVectorAllOnes(Cond.getNode()))
+  //    return T;
+  //  if (ISD::isBuildVectorAllZeros(Cond.getNode()))
+  //    return F;
+
+  // select ?, T, T --> T
+  if (T == F)
+    return T;
+
+  return SDValue();
+}
+
+SDValue SelectionDAG::simplifyShift(SDValue X, SDValue Y) {
+  // shift undef, Y --> 0 (can always assume that the undef value is 0)
+  if (X.isUndef())
+    return getConstant(0, SDLoc(X.getNode()), X.getValueType());
+  // shift X, undef --> undef (because it may shift by the bitwidth)
+  if (Y.isUndef())
+    return getUNDEF(X.getValueType());
+
+  // shift 0, Y --> 0
+  // shift X, 0 --> X
+  if (isNullOrNullSplat(X) || isNullOrNullSplat(Y))
+    return X;
+
+  // shift X, C >= bitwidth(X) --> undef
+  // All vector elements must be too big to avoid partial undefs.
+  auto isShiftTooBig = [X](ConstantSDNode *Val) {
+    return Val->getAPIntValue().uge(X.getScalarValueSizeInBits());
+  };
+  if (ISD::matchUnaryPredicate(Y, isShiftTooBig))
+    return getUNDEF(X.getValueType());
+
+  return SDValue();
+}
+
 SDValue SelectionDAG::getVAArg(EVT VT, const SDLoc &dl, SDValue Chain,
                                SDValue Ptr, SDValue SV, unsigned Align) {
   SDValue Ops[] = { Chain, Ptr, SV, getTargetConstant(Align, dl, MVT::i32) };
@@ -7064,7 +7124,7 @@ SDVTList SelectionDAG::getVTList(ArrayRef<EVT> VTs) {
   SDVTListNode *Result = VTListMap.FindNodeOrInsertPos(ID, IP);
   if (!Result) {
     EVT *Array = Allocator.Allocate<EVT>(NumVTs);
-    std::copy(VTs.begin(), VTs.end(), Array);
+    llvm::copy(VTs, Array);
     Result = new (Allocator) SDVTListNode(ID.Intern(Allocator), Array, NumVTs);
     VTListMap.InsertNode(Result, IP);
   }
@@ -7210,7 +7270,7 @@ void SelectionDAG::setNodeMemRefs(MachineSDNode *N,
 
   MachineMemOperand **MemRefsBuffer =
       Allocator.template Allocate<MachineMemOperand *>(NewMemRefs.size());
-  std::copy(NewMemRefs.begin(), NewMemRefs.end(), MemRefsBuffer);
+  llvm::copy(NewMemRefs, MemRefsBuffer);
   N->MemRefs = MemRefsBuffer;
   N->NumMemRefs = static_cast<int>(NewMemRefs.size());
 }
@@ -8342,6 +8402,26 @@ ConstantFPSDNode *llvm::isConstOrConstSplatFP(SDValue N, bool AllowUndefs) {
   }
 
   return nullptr;
+}
+
+bool llvm::isNullOrNullSplat(SDValue N) {
+  // TODO: may want to use peekThroughBitcast() here.
+  ConstantSDNode *C = isConstOrConstSplat(N);
+  return C && C->isNullValue();
+}
+
+bool llvm::isOneOrOneSplat(SDValue N) {
+  // TODO: may want to use peekThroughBitcast() here.
+  unsigned BitWidth = N.getScalarValueSizeInBits();
+  ConstantSDNode *C = isConstOrConstSplat(N);
+  return C && C->isOne() && C->getValueSizeInBits(0) == BitWidth;
+}
+
+bool llvm::isAllOnesOrAllOnesSplat(SDValue N) {
+  N = peekThroughBitcasts(N);
+  unsigned BitWidth = N.getScalarValueSizeInBits();
+  ConstantSDNode *C = isConstOrConstSplat(N);
+  return C && C->isAllOnesValue() && C->getValueSizeInBits(0) == BitWidth;
 }
 
 HandleSDNode::~HandleSDNode() {

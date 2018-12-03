@@ -8,39 +8,39 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Core/ModuleList.h"
-#include "lldb/Core/FileSpecList.h" // for FileSpecList
+#include "lldb/Core/FileSpecList.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Symbols.h"
-#include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Interpreter/OptionValueFileSpec.h"
+#include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Interpreter/Property.h"
 #include "lldb/Symbol/ObjectFile.h"
-#include "lldb/Symbol/SymbolContext.h" // for SymbolContextList, SymbolCon...
+#include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Symbol/VariableList.h"
-#include "lldb/Utility/ArchSpec.h"    // for ArchSpec
-#include "lldb/Utility/ConstString.h" // for ConstString
+#include "lldb/Utility/ArchSpec.h"
+#include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/Log.h"
-#include "lldb/Utility/Logging.h" // for GetLogIfAnyCategoriesSet
-#include "lldb/Utility/UUID.h"    // for UUID, operator!=, operator==
-#include "lldb/lldb-defines.h"    // for LLDB_INVALID_INDEX32
+#include "lldb/Utility/Logging.h"
+#include "lldb/Utility/UUID.h"
+#include "lldb/lldb-defines.h"
 
 #if defined(_WIN32)
-#include "lldb/Host/windows/PosixApi.h" // for PATH_MAX
+#include "lldb/Host/windows/PosixApi.h"
 #endif
 
-#include "llvm/ADT/StringRef.h" // for StringRef
+#include "clang/Driver/Driver.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Threading.h"
-#include "llvm/Support/raw_ostream.h" // for fs
-#include "clang/Driver/Driver.h"
+#include "llvm/Support/raw_ostream.h"
 
-#include <chrono> // for operator!=, time_point
-#include <memory> // for shared_ptr
+#include <chrono>
+#include <memory>
 #include <mutex>
-#include <string>  // for string
-#include <utility> // for distance
+#include <string>
+#include <utility>
 
 namespace lldb_private {
 class Function;
@@ -859,7 +859,7 @@ Status ModuleList::GetSharedModule(const ModuleSpec &module_spec,
       auto search_path_spec = module_search_paths_ptr->GetFileSpecAtIndex(idx);
       FileSystem::Instance().Resolve(search_path_spec);
       namespace fs = llvm::sys::fs;
-      if (!fs::is_directory(search_path_spec.GetPath()))
+      if (!FileSystem::Instance().IsDirectory(search_path_spec))
         continue;
       search_path_spec.AppendPathComponent(
           module_spec.GetFileSpec().GetFilename().AsCString());

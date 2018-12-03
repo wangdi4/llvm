@@ -3175,6 +3175,20 @@ let isPseudo = 1 in {
   def SEH_EpilogEnd : Pseudo<(outs), (ins), []>, Sched<[]>;
 }
 
+// Pseudo instructions for Windows EH
+//===----------------------------------------------------------------------===//
+let isTerminator = 1, hasSideEffects = 1, isBarrier = 1, hasCtrlDep = 1,
+    isCodeGenOnly = 1, isReturn = 1, isEHScopeReturn = 1, isPseudo = 1 in {
+   def CLEANUPRET : Pseudo<(outs), (ins), [(cleanupret)]>, Sched<[]>;
+   let usesCustomInserter = 1 in
+     def CATCHRET : Pseudo<(outs), (ins am_brcond:$dst, am_brcond:$src), [(catchret bb:$dst, bb:$src)]>,
+                    Sched<[]>;
+}
+
+let hasSideEffects = 1, hasCtrlDep = 1, isCodeGenOnly = 1,
+    usesCustomInserter = 1 in
+def CATCHPAD : Pseudo<(outs), (ins), [(catchpad)]>, Sched<[]>;
+
 //===----------------------------------------------------------------------===//
 // Floating point immediate move.
 //===----------------------------------------------------------------------===//
@@ -4334,6 +4348,12 @@ def DUPv4i16lane : SIMDDup16FromElement<0, ".4h", v4i16, V64>;
 def DUPv8i16lane : SIMDDup16FromElement<1, ".8h", v8i16, V128>;
 def DUPv8i8lane  : SIMDDup8FromElement <0, ".8b", v8i8, V64>;
 def DUPv16i8lane : SIMDDup8FromElement <1, ".16b", v16i8, V128>;
+
+// DUP from a 64-bit register to a 64-bit register is just a copy
+def : Pat<(v1i64 (AArch64dup (i64 GPR64:$Rn))),
+          (COPY_TO_REGCLASS GPR64:$Rn, FPR64)>;
+def : Pat<(v1f64 (AArch64dup (f64 FPR64:$Rn))),
+          (COPY_TO_REGCLASS FPR64:$Rn, FPR64)>;
 
 def : Pat<(v2f32 (AArch64dup (f32 FPR32:$Rn))),
           (v2f32 (DUPv2i32lane

@@ -468,14 +468,14 @@ DINode *SPIRVToLLVMDbgTran::transFunction(const SPIRVExtInst *DebugInst) {
   llvm::DITemplateParameterArray TParamsArray = TParams.get();
 
   DISubprogram *DIS = nullptr;
+  DISubprogram::DISPFlags SPFlags =
+      DISubprogram::toSPFlags(isLocal, isDefinition, isOptimized);
   if ((isa<DICompositeType>(Scope) || isa<DINamespace>(Scope)) && !isDefinition)
-    DIS = Builder.createMethod(Scope, Name, LinkageName, File, LineNo, Ty,
-                               isLocal, isDefinition, 0, 0, 0, nullptr, Flags,
-                               isOptimized, TParamsArray);
+    DIS = Builder.createMethod(Scope, Name, LinkageName, File, LineNo, Ty, 0, 0,
+                               nullptr, Flags, SPFlags, TParamsArray);
   else
     DIS = Builder.createFunction(Scope, Name, LinkageName, File, LineNo, Ty,
-                                 isLocal, isDefinition, ScopeLine, Flags,
-                                 isOptimized, TParamsArray, FD);
+                                 ScopeLine, Flags, SPFlags, TParamsArray, FD);
   DebugInstCache[DebugInst] = DIS;
   SPIRVId RealFuncId = Ops[FunctionIdIdx];
   FuncMap[RealFuncId] = DIS;
@@ -537,15 +537,15 @@ DINode *SPIRVToLLVMDbgTran::transFunctionDecl(const SPIRVExtInst *DebugInst) {
   llvm::DITemplateParameterArray TParamsArray = TParams.get();
 
   DISubprogram *DIS = nullptr;
-  if (isa<DICompositeType>(Scope) || isa<DINamespace>(Scope)) {
-    DIS = Builder.createMethod(Scope, Name, LinkageName, File, LineNo, Ty,
-                               isLocal, isDefinition, 0, 0, 0, nullptr, Flags,
-                               isOptimized, TParamsArray);
-  } else {
-    DIS = Builder.createTempFunctionFwdDecl(Scope, Name, LinkageName,
-                                            File, LineNo, Ty, isLocal,
-                                            isDefinition, 0, Flags,
-                                            isOptimized, TParamsArray);
+  DISubprogram::DISPFlags SPFlags =
+      DISubprogram::toSPFlags(isLocal, isDefinition, isOptimized);
+  if (isa<DICompositeType>(Scope) || isa<DINamespace>(Scope))
+    DIS = Builder.createMethod(Scope, Name, LinkageName, File, LineNo, Ty, 0, 0,
+                               nullptr, Flags, SPFlags, TParamsArray);
+  else {
+    DIS = Builder.createTempFunctionFwdDecl(Scope, Name, LinkageName, File,
+                                            LineNo, Ty, 0, Flags, SPFlags,
+                                            TParamsArray);
     llvm::TempMDNode FwdDecl(cast<llvm::MDNode>(DIS));
     DIS = Builder.replaceTemporary(std::move(FwdDecl), DIS);
   }

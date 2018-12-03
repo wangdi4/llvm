@@ -420,7 +420,7 @@ void RuntimePointerChecking::groupChecks(
 
     // We've computed the grouped checks for this partition.
     // Save the results and continue with the next one.
-    std::copy(Groups.begin(), Groups.end(), std::back_inserter(CheckingGroups));
+    llvm::copy(Groups, std::back_inserter(CheckingGroups));
   }
 }
 
@@ -1889,7 +1889,7 @@ void LoopAccessInfo::analyzeLoop(AliasAnalysis *AA, LoopInfo *LI,
     Value *Ptr = ST->getPointerOperand();
 
     if (isUniform(Ptr))
-      HasMultipleStoresToLoopInvariantAddress |=
+      HasDependenceInvolvingLoopInvariantAddress |=
           !UniformStores.insert(Ptr).second;
 
     // If we did *not* see this pointer before, insert it to  the read-write
@@ -1931,6 +1931,14 @@ void LoopAccessInfo::analyzeLoop(AliasAnalysis *AA, LoopInfo *LI,
         !getPtrStride(*PSE, Ptr, TheLoop, SymbolicStrides)) {
       ++NumReads;
       IsReadOnlyPtr = true;
+    }
+
+    // See if there is an unsafe dependency between a load to a uniform address and
+    // store to the same uniform address.
+    if (UniformStores.count(Ptr)) {
+      LLVM_DEBUG(dbgs() << "LAA: Found an unsafe dependency between a uniform "
+                           "load and uniform store to the same address!\n");
+      HasDependenceInvolvingLoopInvariantAddress = true;
     }
 
     MemoryLocation Loc = MemoryLocation::get(LD);
@@ -2300,7 +2308,7 @@ LoopAccessInfo::LoopAccessInfo(Loop *L, ScalarEvolution *SE,
       PtrRtChecking(llvm::make_unique<RuntimePointerChecking>(SE)),
       DepChecker(llvm::make_unique<MemoryDepChecker>(*PSE, L)), TheLoop(L),
       NumLoads(0), NumStores(0), MaxSafeDepDistBytes(-1), CanVecMem(false),
-      HasMultipleStoresToLoopInvariantAddress(false) {
+      HasDependenceInvolvingLoopInvariantAddress(false) {
   if (canAnalyzeLoop())
     analyzeLoop(AA, LI, TLI, DT);
 }
@@ -2332,8 +2340,8 @@ void LoopAccessInfo::print(raw_ostream &OS, unsigned Depth) const {
   PtrRtChecking->print(OS, Depth);
   OS << "\n";
 
-  OS.indent(Depth) << "Multiple stores to invariant address were "
-                   << (HasMultipleStoresToLoopInvariantAddress ? "" : "not ")
+  OS.indent(Depth) << "Non vectorizable stores to invariant address were "
+                   << (HasDependenceInvolvingLoopInvariantAddress ? "" : "not ")
                    << "found in loop.\n";
 
   OS.indent(Depth) << "SCEV assumptions:\n";

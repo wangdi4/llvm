@@ -127,7 +127,6 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   SmallSet<AssertingVH<const BasicBlock>, 16> CountableLoopHeaders; // INTEL
   SmallSet<AssertingVH<const BasicBlock>, 16> CountableLoopLatches; // INTEL
 #endif
-  DenseSet<std::pair<Value *, BasicBlock *>> RecursionSet;
 
   unsigned BBDupThreshold;
 
@@ -147,18 +146,6 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   DenseMap<BasicBlock*, int> BlockThreadCount;
   static const int MaxThreadsPerBlock = 10;
 #endif // INTEL_CUSTOMIZATION
-
-  // RAII helper for updating the recursion stack.
-  struct RecursionSetRemover {
-    DenseSet<std::pair<Value *, BasicBlock *>> &TheSet;
-    std::pair<Value *, BasicBlock *> ThePair;
-
-    RecursionSetRemover(DenseSet<std::pair<Value *, BasicBlock *>> &S,
-                        std::pair<Value *, BasicBlock *> P)
-        : TheSet(S), ThePair(P) {}
-
-    ~RecursionSetRemover() { TheSet.erase(ThePair); }
-  };
 
 public:
   JumpThreadingPass(int T = -1, bool AllowCFGSimps = true); // INTEL
@@ -184,12 +171,23 @@ public:
   bool DuplicateCondBranchOnPHIIntoPred(
       BasicBlock *BB, const SmallVectorImpl<BasicBlock *> &PredBBs);
 
+  bool ComputeValueKnownInPredecessorsImpl(
+      Value *V, BasicBlock *BB, jumpthreading::PredValueInfo &Result,
+      jumpthreading::ThreadRegionInfo &RegionInfo, // INTEL
+      jumpthreading::ConstantPreference Preference,
+      DenseSet<std::pair<Value *, BasicBlock *>> &RecursionSet,
+      Instruction *CxtI = nullptr);
   bool
   ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB,
                                   jumpthreading::PredValueInfo &Result,
-                           jumpthreading::ThreadRegionInfo &RegionInfo, // INTEL
+                                  jumpthreading::ThreadRegionInfo &RegionInfo, // INTEL
                                   jumpthreading::ConstantPreference Preference,
-                                  Instruction *CxtI = nullptr);
+                                  Instruction *CxtI = nullptr) {
+    DenseSet<std::pair<Value *, BasicBlock *>> RecursionSet;
+    return ComputeValueKnownInPredecessorsImpl(V, BB, Result, RegionInfo,       // INTEL
+                                               Preference, RecursionSet, CxtI); // INTEL
+  }
+
   bool ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
                               jumpthreading::ConstantPreference Preference,
                               Instruction *CxtI = nullptr);

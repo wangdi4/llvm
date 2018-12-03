@@ -83,6 +83,11 @@ option(LIBCXX_INCLUDE_TESTS "Build the libc++ tests." ${LLVM_INCLUDE_TESTS})
 
 # Benchmark options -----------------------------------------------------------
 option(LIBCXX_INCLUDE_BENCHMARKS "Build the libc++ benchmarks and their dependencies" ON)
+
+set(LIBCXX_BENCHMARK_TEST_ARGS_DEFAULT --benchmark_min_time=0.01)
+set(LIBCXX_BENCHMARK_TEST_ARGS "${LIBCXX_BENCHMARK_TEST_ARGS_DEFAULT}" CACHE STRING
+    "Arguments to pass when running the benchmarks using check-cxx-benchmarks")
+
 set(LIBCXX_BENCHMARK_NATIVE_STDLIB "" CACHE STRING
         "Build the benchmarks against the specified native STL.
          The value must be one of libc++/libstdc++")
@@ -643,38 +648,48 @@ endif()
 
 # Sanitizer flags =============================================================
 
+function(get_sanitizer_flags OUT_VAR  USE_SANITIZER)
+  set(SANITIZER_FLAGS)
+  set(USE_SANITIZER "${USE_SANITIZER}")
+  # NOTE: LLVM_USE_SANITIZER checks for a UNIX like system instead of MSVC.
+  # But we don't have LLVM_ON_UNIX so checking for MSVC is the best we can do.
+  if (USE_SANITIZER AND NOT MSVC)
+    append_flags_if_supported(SANITIZER_FLAGS "-fno-omit-frame-pointer")
+    append_flags_if_supported(SANITIZER_FLAGS "-gline-tables-only")
+
+    if (NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" AND
+            NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "RELWITHDEBINFO")
+      append_flags_if_supported(SANITIZER_FLAGS "-gline-tables-only")
+    endif()
+    if (USE_SANITIZER STREQUAL "Address")
+      append_flags(SANITIZER_FLAGS "-fsanitize=address")
+    elseif (USE_SANITIZER MATCHES "Memory(WithOrigins)?")
+      append_flags(SANITIZER_FLAGS -fsanitize=memory)
+      if (USE_SANITIZER STREQUAL "MemoryWithOrigins")
+        append_flags(SANITIZER_FLAGS "-fsanitize-memory-track-origins")
+      endif()
+    elseif (USE_SANITIZER STREQUAL "Undefined")
+      append_flags(SANITIZER_FLAGS "-fsanitize=undefined -fno-sanitize=vptr,function -fno-sanitize-recover=all")
+    elseif (USE_SANITIZER STREQUAL "Thread")
+      append_flags(SANITIZER_FLAGS -fsanitize=thread)
+    else()
+      message(WARNING "Unsupported value of LLVM_USE_SANITIZER: ${USE_SANITIZER}")
+    endif()
+  elseif(USE_SANITIZER AND MSVC)
+    message(WARNING "LLVM_USE_SANITIZER is not supported on this platform.")
+  endif()
+  set(${OUT_VAR} "${SANITIZER_FLAGS}" PARENT_SCOPE)
+endfunction()
+
 # Configure for sanitizers. If LIBCXX_STANDALONE_BUILD then we have to do
 # the flag translation ourselves. Othewise LLVM's CMakeList.txt will handle it.
 if (LIBCXX_STANDALONE_BUILD)
   set(LLVM_USE_SANITIZER "" CACHE STRING
       "Define the sanitizer used to build the library and tests")
-  # NOTE: LLVM_USE_SANITIZER checks for a UNIX like system instead of MSVC.
-  # But we don't have LLVM_ON_UNIX so checking for MSVC is the best we can do.
-  if (LLVM_USE_SANITIZER AND NOT MSVC)
-    add_flags_if_supported("-fno-omit-frame-pointer")
-    add_flags_if_supported("-gline-tables-only")
-
-    if (NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" AND
-        NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "RELWITHDEBINFO")
-        add_flags_if_supported("-gline-tables-only")
-    endif()
-    if (LLVM_USE_SANITIZER STREQUAL "Address")
-      add_flags("-fsanitize=address")
-    elseif (LLVM_USE_SANITIZER MATCHES "Memory(WithOrigins)?")
-      add_flags(-fsanitize=memory)
-      if (LLVM_USE_SANITIZER STREQUAL "MemoryWithOrigins")
-        add_flags("-fsanitize-memory-track-origins")
-      endif()
-    elseif (LLVM_USE_SANITIZER STREQUAL "Undefined")
-      add_flags("-fsanitize=undefined -fno-sanitize=vptr,function -fno-sanitize-recover=all")
-    elseif (LLVM_USE_SANITIZER STREQUAL "Thread")
-      add_flags(-fsanitize=thread)
-    else()
-      message(WARNING "Unsupported value of LLVM_USE_SANITIZER: ${LLVM_USE_SANITIZER}")
-    endif()
-  elseif(LLVM_USE_SANITIZER AND MSVC)
-    message(WARNING "LLVM_USE_SANITIZER is not supported on this platform.")
-  endif()
+endif()
+get_sanitizer_flags(SANITIZER_FLAGS "${LLVM_USE_SANITIZER}")
+if (LIBCXX_STANDALONE_BUILD AND SANITIZER_FLAGS)
+  add_flags(${SANITIZER_FLAGS})
 endif()
 
 # Configuration file flags =====================================================
@@ -756,6 +771,18 @@ include_directories(include)
 add_subdirectory(include)
 add_subdirectory(lib)
 
+set(LIBCXX_TEST_DEPS "")
+
+if (LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY)
+  list(APPEND LIBCXX_TEST_DEPS cxx_experimental)
+endif()
+if (LIBCXX_ENABLE_FILESYSTEM)
+  list(APPEND LIBCXX_TEST_DEPS cxx_filesystem)
+endif()
+
+if (LIBCXX_BUILD_EXTERNAL_THREAD_LIBRARY)
+  list(APPEND LIBCXX_TEST_DEPS cxx_external_threads)
+endif()
 
 if (LIBCXX_INCLUDE_BENCHMARKS)
   add_subdirectory(benchmarks)

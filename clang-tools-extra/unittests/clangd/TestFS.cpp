@@ -8,11 +8,9 @@
 //===----------------------------------------------------------------------===//
 #include "TestFS.h"
 #include "URI.h"
-#include "clang/AST/DeclCXX.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"
-#include "gtest/gtest.h"
 
 namespace clang {
 namespace clangd {
@@ -41,7 +39,8 @@ MockCompilationDatabase::MockCompilationDatabase(StringRef Directory,
 }
 
 Optional<tooling::CompileCommand>
-MockCompilationDatabase::getCompileCommand(PathRef File) const {
+MockCompilationDatabase::getCompileCommand(PathRef File,
+                                           ProjectInfo *Project) const {
   if (ExtraClangFlags.empty())
     return None;
 
@@ -60,6 +59,8 @@ MockCompilationDatabase::getCompileCommand(PathRef File) const {
     CommandLine.push_back(RelativeFilePath.str());
   }
 
+  if (Project)
+    Project->SourceRoot = Directory;
   return {tooling::CompileCommand(
       Directory != StringRef() ? Directory : sys::path::parent_path(File),
       FileName, std::move(CommandLine), "")};

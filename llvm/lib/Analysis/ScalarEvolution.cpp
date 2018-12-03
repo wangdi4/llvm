@@ -112,6 +112,7 @@
 #include "llvm/IR/Use.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
@@ -161,6 +162,11 @@ static cl::opt<bool>
     VerifySCEVMap("verify-scev-maps", cl::Hidden,
                   cl::desc("Verify no dangling value in ScalarEvolution's "
                            "ExprValueMap (slow)"));
+
+static cl::opt<bool> VerifyIR(
+    "scev-verify-ir", cl::Hidden,
+    cl::desc("Verify IR correctness when making sensitive SCEV queries (slow)"),
+    cl::init(false));
 
 static cl::opt<unsigned> MulOpsInlineThreshold(
     "scev-mulops-inline-threshold", cl::Hidden,
@@ -9810,6 +9816,11 @@ ScalarEvolution::isLoopBackedgeGuardedByCond(const Loop *L,
   // (interprocedural conditions notwithstanding).
   if (!L) return true;
 
+  if (VerifyIR)
+    assert(!verifyFunction(*L->getHeader()->getParent(), &dbgs()) &&
+           "This cannot be done on broken IR!");
+
+
   if (isKnownViaNonRecursiveReasoning(Pred, LHS, RHS))
     return true;
 
@@ -9914,6 +9925,10 @@ ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
   // Interpret a null as meaning no loop, where there is obviously no guard
   // (interprocedural conditions notwithstanding).
   if (!L) return false;
+
+  if (VerifyIR)
+    assert(!verifyFunction(*L->getHeader()->getParent(), &dbgs()) &&
+           "This cannot be done on broken IR!");
 
   // Both LHS and RHS must be available at loop entry.
   assert(isAvailableAtLoopEntry(LHS, L) &&

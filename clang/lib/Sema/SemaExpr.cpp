@@ -1559,6 +1559,32 @@ Sema::ActOnStringLiteral(ArrayRef<Token> StringToks, Scope *UDLScope) {
     CharTy = Context.UnsignedCharTy;
   }
 
+  // Warn on initializing an array of char from a u8 string literal; this
+  // becomes ill-formed in C++2a.
+  if (getLangOpts().CPlusPlus && !getLangOpts().CPlusPlus2a &&
+      !getLangOpts().Char8 && Kind == StringLiteral::UTF8) {
+    Diag(StringTokLocs.front(), diag::warn_cxx2a_compat_utf8_string);
+
+    // Create removals for all 'u8' prefixes in the string literal(s). This
+    // ensures C++2a compatibility (but may change the program behavior when
+    // built by non-Clang compilers for which the execution character set is
+    // not always UTF-8).
+    auto RemovalDiag = PDiag(diag::note_cxx2a_compat_utf8_string_remove_u8);
+    SourceLocation RemovalDiagLoc;
+    for (const Token &Tok : StringToks) {
+      if (Tok.getKind() == tok::utf8_string_literal) {
+        if (RemovalDiagLoc.isInvalid())
+          RemovalDiagLoc = Tok.getLocation();
+        RemovalDiag << FixItHint::CreateRemoval(CharSourceRange::getCharRange(
+            Tok.getLocation(),
+            Lexer::AdvanceToTokenCharacter(Tok.getLocation(), 2,
+                                           getSourceManager(), getLangOpts())));
+      }
+    }
+    Diag(RemovalDiagLoc, RemovalDiag);
+  }
+
+
   QualType CharTyConst = CharTy;
   // A C++ string literal has a const-qualified element type (C++ 2.13.4p1).
   if (getLangOpts().CPlusPlus || getLangOpts().ConstStrings)
@@ -5066,6 +5092,9 @@ static bool isPlaceholderToRemoveAsArg(QualType type) {
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
   case BuiltinType::Id:
 #include "clang/Basic/OpenCLImageTypes.def"
+#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+  case BuiltinType::Id:
+#include "clang/Basic/OpenCLExtensionTypes.def"
 #define PLACEHOLDER_TYPE(ID, SINGLETON_ID)
 #define BUILTIN_TYPE(ID, SINGLETON_ID) case BuiltinType::ID:
 #include "clang/AST/BuiltinTypes.def"
@@ -5518,12 +5547,17 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
   // We special-case function promotion here because we only allow promoting
   // builtin functions to function pointers in the callee of a call.
   ExprResult Result;
+  QualType ReturnTy;
   if (BuiltinID &&
       Fn->getType()->isSpecificBuiltinType(BuiltinType::BuiltinFn)) {
-    Result = ImpCastExprToType(Fn, Context.getPointerType(FDecl->getType()),
-                               CK_BuiltinFnToFnPtr).get();
+    // Extract the return type from the (builtin) function pointer type.
+    auto FnPtrTy = Context.getPointerType(FDecl->getType());
+    Result = ImpCastExprToType(Fn, FnPtrTy, CK_BuiltinFnToFnPtr).get();
+    auto FnTy = FnPtrTy->getPointeeType()->castAs<FunctionType>();
+    ReturnTy = FnTy->getReturnType();
   } else {
     Result = CallExprUnaryConversions(Fn);
+    ReturnTy = Context.BoolTy;
   }
   if (Result.isInvalid())
     return ExprError();
@@ -5533,13 +5567,12 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
   // of arguments and function on error.
   CallExpr *TheCall;
   if (Config)
-    TheCall = new (Context) CUDAKernelCallExpr(Context, Fn,
-                                               cast<CallExpr>(Config), Args,
-                                               Context.BoolTy, VK_RValue,
-                                               RParenLoc);
+    TheCall =
+        new (Context) CUDAKernelCallExpr(Context, Fn, cast<CallExpr>(Config),
+                                         Args, ReturnTy, VK_RValue, RParenLoc);
   else
-    TheCall = new (Context) CallExpr(Context, Fn, Args, Context.BoolTy,
-                                     VK_RValue, RParenLoc);
+    TheCall = new (Context)
+        CallExpr(Context, Fn, Args, ReturnTy, VK_RValue, RParenLoc);
 
   if (!getLangOpts().CPlusPlus) {
     // C cannot always handle TypoExpr nodes in builtin calls and direct
@@ -5742,21 +5775,6 @@ Sema::BuildCompoundLiteralExpr(SourceLocation LParenLoc, TypeSourceInfo *TInfo,
   LiteralExpr = Result.get();
 
   bool isFileScope = !CurContext->isFunctionOrMethod();
-  if (isFileScope) {
-    if (!LiteralExpr->isTypeDependent() &&
-        !LiteralExpr->isValueDependent() &&
-        !literalType->isDependentType()) // C99 6.5.2.5p3
-      if (CheckForConstantInitializer(LiteralExpr, literalType))
-        return ExprError();
-  } else if (literalType.getAddressSpace() != LangAS::opencl_private &&
-             literalType.getAddressSpace() != LangAS::Default) {
-    // Embedded-C extensions to C99 6.5.2.5:
-    //   "If the compound literal occurs inside the body of a function, the
-    //   type name shall not be qualified by an address-space qualifier."
-    Diag(LParenLoc, diag::err_compound_literal_with_address_space)
-      << SourceRange(LParenLoc, LiteralExpr->getSourceRange().getEnd());
-    return ExprError();
-  }
 
   // In C, compound literals are l-values for some reason.
   // For GCC compatibility, in C++, file-scope array compound literals with
@@ -5781,9 +5799,26 @@ Sema::BuildCompoundLiteralExpr(SourceLocation LParenLoc, TypeSourceInfo *TInfo,
           ? VK_RValue
           : VK_LValue;
 
-  return MaybeBindToTemporary(
-      new (Context) CompoundLiteralExpr(LParenLoc, TInfo, literalType,
-                                        VK, LiteralExpr, isFileScope));
+  Expr *E = new (Context) CompoundLiteralExpr(LParenLoc, TInfo, literalType,
+                                              VK, LiteralExpr, isFileScope);
+  if (isFileScope) {
+    if (!LiteralExpr->isTypeDependent() &&
+        !LiteralExpr->isValueDependent() &&
+        !literalType->isDependentType()) // C99 6.5.2.5p3
+      if (CheckForConstantInitializer(LiteralExpr, literalType))
+        return ExprError();
+    E = new (Context) ConstantExpr(E);
+  } else if (literalType.getAddressSpace() != LangAS::opencl_private &&
+             literalType.getAddressSpace() != LangAS::Default) {
+    // Embedded-C extensions to C99 6.5.2.5:
+    //   "If the compound literal occurs inside the body of a function, the
+    //   type name shall not be qualified by an address-space qualifier."
+    Diag(LParenLoc, diag::err_compound_literal_with_address_space)
+      << SourceRange(LParenLoc, LiteralExpr->getSourceRange().getEnd());
+    return ExprError();
+  }
+
+  return MaybeBindToTemporary(E);
 }
 
 ExprResult
@@ -6379,8 +6414,7 @@ Sema::MaybeConvertParenListExprToParenExpr(Scope *S, Expr *OrigExpr) {
 ExprResult Sema::ActOnParenListExpr(SourceLocation L,
                                     SourceLocation R,
                                     MultiExprArg Val) {
-  Expr *expr = new (Context) ParenListExpr(Context, L, Val, R);
-  return expr;
+  return ParenListExpr::Create(Context, L, Val, R);
 }
 
 /// Emit a specialized diagnostic when one expression is a null pointer
@@ -14141,7 +14175,7 @@ Sema::VerifyIntegerConstantExpression(Expr *E, llvm::APSInt *Result,
   if (!getLangOpts().CPlusPlus11 && E->isIntegerConstantExpr(Context)) {
     if (Result)
       *Result = E->EvaluateKnownConstIntCheckOverflow(Context);
-    return E;
+    return new (Context) ConstantExpr(E);
   }
 
   Expr::EvalResult EvalResult;
@@ -14159,7 +14193,7 @@ Sema::VerifyIntegerConstantExpression(Expr *E, llvm::APSInt *Result,
   if (Folded && getLangOpts().CPlusPlus11 && Notes.empty()) {
     if (Result)
       *Result = EvalResult.Val.getInt();
-    return E;
+    return new (Context) ConstantExpr(E);
   }
 
   // If our only note is the usual "invalid subexpression" note, just point
@@ -14187,7 +14221,7 @@ Sema::VerifyIntegerConstantExpression(Expr *E, llvm::APSInt *Result,
 
   if (Result)
     *Result = EvalResult.Val.getInt();
-  return E;
+  return new (Context) ConstantExpr(E);
 }
 
 namespace {
@@ -14936,6 +14970,21 @@ static void addAsFieldToClosureType(Sema &S, LambdaScopeInfo *LSI,
     = FieldDecl::Create(S.Context, Lambda, Loc, Loc, nullptr, FieldType,
                         S.Context.getTrivialTypeSourceInfo(FieldType, Loc),
                         nullptr, false, ICIS_NoInit);
+  // If the variable being captured has an invalid type, mark the lambda class
+  // as invalid as well.
+  if (!FieldType->isDependentType()) {
+    if (S.RequireCompleteType(Loc, FieldType, diag::err_field_incomplete)) {
+      Lambda->setInvalidDecl();
+      Field->setInvalidDecl();
+    } else {
+      NamedDecl *Def;
+      FieldType->isIncompleteType(&Def);
+      if (Def && Def->isInvalidDecl()) {
+        Lambda->setInvalidDecl();
+        Field->setInvalidDecl();
+      }
+    }
+  }
   Field->setImplicit(true);
   Field->setAccess(AS_private);
   Lambda->addDecl(Field);
@@ -16566,6 +16615,9 @@ ExprResult Sema::CheckPlaceholderExpr(Expr *E) {
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
   case BuiltinType::Id:
 #include "clang/Basic/OpenCLImageTypes.def"
+#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+  case BuiltinType::Id:
+#include "clang/Basic/OpenCLExtensionTypes.def"
 #define BUILTIN_TYPE(Id, SingletonId) case BuiltinType::Id:
 #define PLACEHOLDER_TYPE(Id, SingletonId)
 #include "clang/AST/BuiltinTypes.def"

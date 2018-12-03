@@ -57,7 +57,7 @@ static cl::opt<bool> EnableMachineCombinerPass("x86-machine-combiner",
 static cl::opt<bool> EnableCondBrFoldingPass("x86-condbr-folding",
                                cl::desc("Enable the conditional branch "
                                         "folding pass"),
-                               cl::init(true), cl::Hidden);
+                               cl::init(false), cl::Hidden);
 
 #if INTEL_CUSTOMIZATION
 // Temporary to enable testing of zmm=low support in xmain.
@@ -509,6 +509,8 @@ void X86PassConfig::addPreEmitPass() {
     addPass(createX86FixupLEAs());
     addPass(createX86EvexToVexInsts());
   }
+  addPass(createX86DiscriminateMemOpsPass());
+  addPass(createX86InsertPrefetchPass());
 }
 
 void X86PassConfig::addPreEmitPass2() {

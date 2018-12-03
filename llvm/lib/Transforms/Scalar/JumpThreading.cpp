@@ -697,20 +697,18 @@ static bool matchingRegionInfo(const ThreadRegionInfo &RegionInfo1,
 /// BB in the result vector.
 ///
 /// This returns true if there were any known values.
-bool JumpThreadingPass::ComputeValueKnownInPredecessors(
+bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
     Value *V, BasicBlock *BB, PredValueInfo &Result,
     ThreadRegionInfo &RegionInfo,       // INTEL
-    ConstantPreference Preference, Instruction *CxtI) {
+    ConstantPreference Preference,
+    DenseSet<std::pair<Value *, BasicBlock *>> &RecursionSet,
+    Instruction *CxtI) {
   // This method walks up use-def chains recursively.  Because of this, we could
   // get into an infinite loop going around loops in the use-def chain.  To
   // prevent this, keep track of what (value, block) pairs we've already visited
   // and terminate the search if we loop back to them
   if (!RecursionSet.insert(std::make_pair(V, BB)).second)
     return false;
-
-  // An RAII help to remove this pair from the recursion set once the recursion
-  // stack pops back out again.
-  RecursionSetRemover remover(RecursionSet, std::make_pair(V, BB));
 
   // If V is a constant, then it is known in all predecessors.
   if (Constant *KC = getKnownConstant(V, Preference)) {
@@ -827,8 +825,8 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
     Value *Source = CI->getOperand(0);
     if (!isa<PHINode>(Source) && !isa<CmpInst>(Source))
       return false;
-    ComputeValueKnownInPredecessors(Source, BB, Result, RegionInfo,     // INTEL
-                                    Preference, CxtI);                  // INTEL
+    ComputeValueKnownInPredecessorsImpl(Source, BB, Result, RegionInfo, // INTEL
+                                        Preference, RecursionSet, CxtI);// INTEL
     if (Result.empty())
       return false;
 
@@ -849,12 +847,12 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
       PredValueInfoTy LHSVals, RHSVals;
       ThreadRegionInfoTy RegionInfoOp0, RegionInfoOp1;                  // INTEL
 
-      ComputeValueKnownInPredecessors(I->getOperand(0), BB, LHSVals,
-                                      RegionInfoOp0,                    // INTEL
-                                      WantInteger, CxtI);
-      ComputeValueKnownInPredecessors(I->getOperand(1), BB, RHSVals,
-                                      RegionInfoOp1,                    // INTEL
-                                      WantInteger, CxtI);
+      ComputeValueKnownInPredecessorsImpl(I->getOperand(0), BB, LHSVals,
+                                          RegionInfoOp0,                    // INTEL
+                                      WantInteger, RecursionSet, CxtI);
+      ComputeValueKnownInPredecessorsImpl(I->getOperand(1), BB, RHSVals,
+                                          RegionInfoOp1,                    // INTEL
+                                          WantInteger, RecursionSet, CxtI);
 
       if (LHSVals.empty() && RHSVals.empty())
         return false;
@@ -907,9 +905,9 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
     if (I->getOpcode() == Instruction::Xor &&
         isa<ConstantInt>(I->getOperand(1)) &&
         cast<ConstantInt>(I->getOperand(1))->isOne()) {
-      ComputeValueKnownInPredecessors(I->getOperand(0), BB, Result,
-                                      RegionInfo,                       // INTEL
-                                      WantInteger, CxtI);
+      ComputeValueKnownInPredecessorsImpl(I->getOperand(0), BB, Result,
+                                          RegionInfo,                       // INTEL
+                                          WantInteger, RecursionSet, CxtI);
       if (Result.empty())
         return false;
 
@@ -928,9 +926,9 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
     ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
     if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1))) {
       PredValueInfoTy LHSVals;
-      ComputeValueKnownInPredecessors(BO->getOperand(0), BB, LHSVals,
-                                      RegionInfoOp0,                    // INTEL
-                                      WantInteger, CxtI);
+      ComputeValueKnownInPredecessorsImpl(BO->getOperand(0), BB, LHSVals,
+                                          RegionInfoOp0,                    // INTEL
+                                          WantInteger, RecursionSet, CxtI);
 
       // Try to use constant folding to simplify the binary operator.
       for (const auto &LHSVal : LHSVals) {
@@ -1112,10 +1110,10 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
       // Try to find a constant value for the LHS of a comparison,
       // and evaluate it statically if we can.
       PredValueInfoTy LHSVals;
-      ThreadRegionInfoTy RegionInfoOp0;                                 // INTEL
-      ComputeValueKnownInPredecessors(I->getOperand(0), BB, LHSVals,
-                                      RegionInfoOp0,                    // INTEL
-                                      WantInteger, CxtI);
+      ThreadRegionInfoTy RegionInfoOp0;                                     // INTEL
+      ComputeValueKnownInPredecessorsImpl(I->getOperand(0), BB, LHSVals,
+                                          RegionInfoOp0,                    // INTEL
+                                          WantInteger, RecursionSet, CxtI);
 
       for (const auto &LHSVal : LHSVals) {
         Constant *V = LHSVal.first;
@@ -1140,9 +1138,9 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
     PredValueInfoTy Conds;
     ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
     if ((TrueVal || FalseVal) &&
-        ComputeValueKnownInPredecessors(SI->getCondition(), BB, Conds,
-                                        RegionInfoOp0,                  // INTEL
-                                        WantInteger, CxtI)) {
+        ComputeValueKnownInPredecessorsImpl(SI->getCondition(), BB, Conds,
+                                            RegionInfoOp0,                  // INTEL
+                                            WantInteger, RecursionSet, CxtI)) {
       for (auto &C : Conds) {
         Constant *Cond = C.first;
 
@@ -3408,28 +3406,16 @@ bool JumpThreadingPass::ThreadGuard(BasicBlock *BB, IntrinsicInst *Guard,
   // Duplicate all instructions before the guard and the guard itself to the
   // branch where implication is not proved.
   BasicBlock *GuardedBlock = DuplicateInstructionsInSplitBetween(
-      BB, PredGuardedBlock, AfterGuard, GuardedMapping);
+      BB, PredGuardedBlock, AfterGuard, GuardedMapping, *DTU);
   assert(GuardedBlock && "Could not create the guarded block?");
   // Duplicate all instructions before the guard in the unguarded branch.
   // Since we have successfully duplicated the guarded block and this block
   // has fewer instructions, we expect it to succeed.
   BasicBlock *UnguardedBlock = DuplicateInstructionsInSplitBetween(
-      BB, PredUnguardedBlock, Guard, UnguardedMapping);
+      BB, PredUnguardedBlock, Guard, UnguardedMapping, *DTU);
   assert(UnguardedBlock && "Could not create the unguarded block?");
   LLVM_DEBUG(dbgs() << "Moved guard " << *Guard << " to block "
                     << GuardedBlock->getName() << "\n");
-  // DuplicateInstructionsInSplitBetween inserts a new block "BB.split" between
-  // PredBB and BB. We need to perform two inserts and one delete for each of
-  // the above calls to update Dominators.
-  DTU->applyUpdates(
-      {// Guarded block split.
-       {DominatorTree::Delete, PredGuardedBlock, BB},
-       {DominatorTree::Insert, PredGuardedBlock, GuardedBlock},
-       {DominatorTree::Insert, GuardedBlock, BB},
-       // Unguarded block split.
-       {DominatorTree::Delete, PredUnguardedBlock, BB},
-       {DominatorTree::Insert, PredUnguardedBlock, UnguardedBlock},
-       {DominatorTree::Insert, UnguardedBlock, BB}});
   // Some instructions before the guard may still have uses. For them, we need
   // to create Phi nodes merging their copies in both guarded and unguarded
   // branches. Those instructions that have no uses can be just removed.

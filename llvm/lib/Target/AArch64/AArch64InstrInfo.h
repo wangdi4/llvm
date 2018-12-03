@@ -62,14 +62,6 @@ public:
   unsigned isStoreToStackSlot(const MachineInstr &MI,
                               int &FrameIndex) const override;
 
-  /// Returns true if there is a shiftable register and that the shift value
-  /// is non-zero.
-  static bool hasShiftedReg(const MachineInstr &MI);
-
-  /// Returns true if there is an extendable register and that the extending
-  /// value is non-zero.
-  static bool hasExtendedReg(const MachineInstr &MI);
-
   /// Does this instruction set its full destination register to zero?
   static bool isGPRZero(const MachineInstr &MI);
 
@@ -78,11 +70,6 @@ public:
 
   /// Does this instruction rename an FPR without modifying bits?
   static bool isFPRCopy(const MachineInstr &MI);
-
-  /// Return true if this is load/store scales or extends its register offset.
-  /// This refers to scaling a dynamic index as opposed to scaled immediates.
-  /// MI should be a memory op that allows scaled addressing.
-  static bool isScaledAddr(const MachineInstr &MI);
 
   /// Return true if pairing the given load or store is hinted to be
   /// unprofitable.
@@ -246,7 +233,8 @@ public:
       std::vector<outliner::Candidate> &RepeatedSequenceLocs) const override;
   outliner::InstrType
   getOutliningType(MachineBasicBlock::iterator &MIT, unsigned Flags) const override;
-  unsigned getMachineOutlinerMBBFlags(MachineBasicBlock &MBB) const override;
+  bool isMBBSafeToOutlineFrom(MachineBasicBlock &MBB,
+                              unsigned &Flags) const override;
   void buildOutlinedFrame(MachineBasicBlock &MBB, MachineFunction &MF,
                           const outliner::OutlinedFunction &OF) const override;
   MachineBasicBlock::iterator
@@ -256,19 +244,22 @@ public:
   bool shouldOutlineFromFunctionByDefault(MachineFunction &MF) const override;
   /// Returns true if the instruction sets a constant value that can be
   /// executed more efficiently.
-  bool isExynosResetFast(const MachineInstr &MI) const;
+  static bool isExynosResetFast(const MachineInstr &MI);
   /// Returns true if the load or store has an extension that can be executed
   /// more efficiently.
-  bool isExynosLdStExtFast(const MachineInstr &MI) const;
+  static bool isExynosLdStExtFast(const MachineInstr &MI);
   /// Returns true if the instruction has a constant shift left or extension
   /// that can be executed more efficiently.
-  bool isExynosShiftExtFast(const MachineInstr &MI) const;
+  static bool isExynosShiftExtFast(const MachineInstr &MI);
   /// Returns true if the instruction has a shift by immediate that can be
   /// executed in one cycle less.
-  bool isFalkorShiftExtFast(const MachineInstr &MI) const;
+  static bool isFalkorShiftExtFast(const MachineInstr &MI);
   /// Return true if the instructions is a SEH instruciton used for unwinding
   /// on Windows.
   static bool isSEHInstruction(const MachineInstr &MI);
+
+#define GET_INSTRINFO_HELPER_DECLS
+#include "AArch64GenInstrInfo.inc"
 
 private:
   /// Sets the offsets on outlined instructions in \p MBB which use SP

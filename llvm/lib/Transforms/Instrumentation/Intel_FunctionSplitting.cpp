@@ -958,7 +958,7 @@ public:
 
 bool FunctionSplittingWrapper::runOnModule(Module &M) {
   ProfileSummaryInfo *PSI =
-      getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
+      &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
 
   std::function<BlockFrequencyInfo &(Function &)> GetBFI =
       [this](Function &F) -> BlockFrequencyInfo & {

@@ -278,6 +278,7 @@ enum Kind {
   kw_umin,
 
   // Instruction Opcodes (Opcode in UIntVal).
+  kw_fneg,
   kw_add,
   kw_fadd,
   kw_sub,
@@ -425,6 +426,7 @@ enum Kind {
   kw_info,
   kw_byte,
   kw_bit,
+  kw_varFlags,
 
   // Unsigned Valued tokens (UIntVal).
   GlobalID,   // @42

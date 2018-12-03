@@ -339,6 +339,9 @@ const char *Instruction::getOpcodeName(unsigned OpCode) {
   case CatchPad: return "catchpad";
   case CatchSwitch: return "catchswitch";
 
+  // Standard unary operators...
+  case FNeg: return "fneg";
+
   // Standard binary operators...
   case Add: return "add";
   case FAdd: return "fadd";
@@ -633,6 +636,13 @@ bool Instruction::isSafeToRemove() const {
 
 const Instruction *Instruction::getNextNonDebugInstruction() const {
   for (const Instruction *I = getNextNode(); I; I = I->getNextNode())
+    if (!isa<DbgInfoIntrinsic>(I))
+      return I;
+  return nullptr;
+}
+
+const Instruction *Instruction::getPrevNonDebugInstruction() const {
+  for (const Instruction *I = getPrevNode(); I; I = I->getPrevNode())
     if (!isa<DbgInfoIntrinsic>(I))
       return I;
   return nullptr;
