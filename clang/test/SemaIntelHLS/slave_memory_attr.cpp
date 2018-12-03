@@ -33,6 +33,7 @@ void foo2(slave_arg __attribute__((numbanks(4))) int *i_par1)
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: NumBanks{{.*}}
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 // CHECK: ComponentAttr
 
@@ -44,6 +45,7 @@ void foo3(slave_arg __attribute__((bankwidth(4))) int *i_par1)
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: BankWidthAttr
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 // CHECK: ComponentAttr
 
@@ -76,8 +78,10 @@ void foo6(slave_arg __attribute__((numports_readonly_writeonly(4,4)))
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: NumReadPortsAttr
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 // CHECK-NEXT: NumWritePortsAttr
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 // CHECK: ComponentAttr
 
@@ -89,8 +93,11 @@ void foo7(slave_arg __attribute__((bank_bits(1,2,3))) int *i_par1)
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: BankBitsAttr
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
 // CHECK: ComponentAttr
 
@@ -102,6 +109,7 @@ void foo8(slave_arg __attribute__((numreadports(2))) int *i_par1)
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: NumReadPortsAttr
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 // CHECK: ComponentAttr
 
@@ -113,6 +121,7 @@ void foo9(slave_arg __attribute__((numwriteports(4))) int *i_par1)
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: NumWritePortsAttr
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 // CHECK: ComponentAttr
 
@@ -125,6 +134,7 @@ void foo10(slave_arg __attribute__((internal_max_block_ram_depth(32)))
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
 // CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: InternalMaxBlockRamDepthAttr
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}32{{$}}
 // CHECK: ComponentAttr
 

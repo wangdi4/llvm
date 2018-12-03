@@ -324,99 +324,100 @@ struct PragmaAttributeHandler : public PragmaHandler {
 }  // end namespace
 
 void Parser::initializePragmaHandlers() {
-  AlignHandler.reset(new PragmaAlignHandler());
+  AlignHandler = llvm::make_unique<PragmaAlignHandler>();
   PP.AddPragmaHandler(AlignHandler.get());
 
-  GCCVisibilityHandler.reset(new PragmaGCCVisibilityHandler());
+  GCCVisibilityHandler = llvm::make_unique<PragmaGCCVisibilityHandler>();
   PP.AddPragmaHandler("GCC", GCCVisibilityHandler.get());
 
-  OptionsHandler.reset(new PragmaOptionsHandler());
+  OptionsHandler = llvm::make_unique<PragmaOptionsHandler>();
   PP.AddPragmaHandler(OptionsHandler.get());
 
-  PackHandler.reset(new PragmaPackHandler());
+  PackHandler = llvm::make_unique<PragmaPackHandler>();
   PP.AddPragmaHandler(PackHandler.get());
 
-  MSStructHandler.reset(new PragmaMSStructHandler());
+  MSStructHandler = llvm::make_unique<PragmaMSStructHandler>();
   PP.AddPragmaHandler(MSStructHandler.get());
 
-  UnusedHandler.reset(new PragmaUnusedHandler());
+  UnusedHandler = llvm::make_unique<PragmaUnusedHandler>();
   PP.AddPragmaHandler(UnusedHandler.get());
 
-  WeakHandler.reset(new PragmaWeakHandler());
+  WeakHandler = llvm::make_unique<PragmaWeakHandler>();
   PP.AddPragmaHandler(WeakHandler.get());
 
-  RedefineExtnameHandler.reset(new PragmaRedefineExtnameHandler());
+  RedefineExtnameHandler = llvm::make_unique<PragmaRedefineExtnameHandler>();
   PP.AddPragmaHandler(RedefineExtnameHandler.get());
 
-  FPContractHandler.reset(new PragmaFPContractHandler());
+  FPContractHandler = llvm::make_unique<PragmaFPContractHandler>();
   PP.AddPragmaHandler("STDC", FPContractHandler.get());
 
-  STDCFENVHandler.reset(new PragmaSTDC_FENV_ACCESSHandler());
+  STDCFENVHandler = llvm::make_unique<PragmaSTDC_FENV_ACCESSHandler>();
   PP.AddPragmaHandler("STDC", STDCFENVHandler.get());
 
-  STDCCXLIMITHandler.reset(new PragmaSTDC_CX_LIMITED_RANGEHandler());
+  STDCCXLIMITHandler = llvm::make_unique<PragmaSTDC_CX_LIMITED_RANGEHandler>();
   PP.AddPragmaHandler("STDC", STDCCXLIMITHandler.get());
 
-  STDCUnknownHandler.reset(new PragmaSTDC_UnknownHandler());
+  STDCUnknownHandler = llvm::make_unique<PragmaSTDC_UnknownHandler>();
   PP.AddPragmaHandler("STDC", STDCUnknownHandler.get());
 
-  PCSectionHandler.reset(new PragmaClangSectionHandler(Actions));
+  PCSectionHandler = llvm::make_unique<PragmaClangSectionHandler>(Actions);
   PP.AddPragmaHandler("clang", PCSectionHandler.get());
 
   if (getLangOpts().OpenCL) {
-    OpenCLExtensionHandler.reset(new PragmaOpenCLExtensionHandler());
+    OpenCLExtensionHandler = llvm::make_unique<PragmaOpenCLExtensionHandler>();
     PP.AddPragmaHandler("OPENCL", OpenCLExtensionHandler.get());
 
     PP.AddPragmaHandler("OPENCL", FPContractHandler.get());
   }
   if (getLangOpts().OpenMP)
-    OpenMPHandler.reset(new PragmaOpenMPHandler());
+    OpenMPHandler = llvm::make_unique<PragmaOpenMPHandler>();
   else
-    OpenMPHandler.reset(new PragmaNoOpenMPHandler());
+    OpenMPHandler = llvm::make_unique<PragmaNoOpenMPHandler>();
   PP.AddPragmaHandler(OpenMPHandler.get());
 
   if (getLangOpts().MicrosoftExt ||
       getTargetInfo().getTriple().isOSBinFormatELF()) {
-    MSCommentHandler.reset(new PragmaCommentHandler(Actions));
+    MSCommentHandler = llvm::make_unique<PragmaCommentHandler>(Actions);
     PP.AddPragmaHandler(MSCommentHandler.get());
   }
 
   if (getLangOpts().MicrosoftExt) {
-    MSDetectMismatchHandler.reset(new PragmaDetectMismatchHandler(Actions));
+    MSDetectMismatchHandler =
+        llvm::make_unique<PragmaDetectMismatchHandler>(Actions);
     PP.AddPragmaHandler(MSDetectMismatchHandler.get());
-    MSPointersToMembers.reset(new PragmaMSPointersToMembers());
+    MSPointersToMembers = llvm::make_unique<PragmaMSPointersToMembers>();
     PP.AddPragmaHandler(MSPointersToMembers.get());
-    MSVtorDisp.reset(new PragmaMSVtorDisp());
+    MSVtorDisp = llvm::make_unique<PragmaMSVtorDisp>();
     PP.AddPragmaHandler(MSVtorDisp.get());
-    MSInitSeg.reset(new PragmaMSPragma("init_seg"));
+    MSInitSeg = llvm::make_unique<PragmaMSPragma>("init_seg");
     PP.AddPragmaHandler(MSInitSeg.get());
-    MSDataSeg.reset(new PragmaMSPragma("data_seg"));
+    MSDataSeg = llvm::make_unique<PragmaMSPragma>("data_seg");
     PP.AddPragmaHandler(MSDataSeg.get());
-    MSBSSSeg.reset(new PragmaMSPragma("bss_seg"));
+    MSBSSSeg = llvm::make_unique<PragmaMSPragma>("bss_seg");
     PP.AddPragmaHandler(MSBSSSeg.get());
-    MSConstSeg.reset(new PragmaMSPragma("const_seg"));
+    MSConstSeg = llvm::make_unique<PragmaMSPragma>("const_seg");
     PP.AddPragmaHandler(MSConstSeg.get());
-    MSCodeSeg.reset(new PragmaMSPragma("code_seg"));
+    MSCodeSeg = llvm::make_unique<PragmaMSPragma>("code_seg");
     PP.AddPragmaHandler(MSCodeSeg.get());
-    MSSection.reset(new PragmaMSPragma("section"));
+    MSSection = llvm::make_unique<PragmaMSPragma>("section");
     PP.AddPragmaHandler(MSSection.get());
-    MSRuntimeChecks.reset(new PragmaMSRuntimeChecksHandler());
+    MSRuntimeChecks = llvm::make_unique<PragmaMSRuntimeChecksHandler>();
     PP.AddPragmaHandler(MSRuntimeChecks.get());
-    MSIntrinsic.reset(new PragmaMSIntrinsicHandler());
+    MSIntrinsic = llvm::make_unique<PragmaMSIntrinsicHandler>();
     PP.AddPragmaHandler(MSIntrinsic.get());
-    MSOptimize.reset(new PragmaMSOptimizeHandler());
+    MSOptimize = llvm::make_unique<PragmaMSOptimizeHandler>();
     PP.AddPragmaHandler(MSOptimize.get());
   }
 
   if (getLangOpts().CUDA) {
-    CUDAForceHostDeviceHandler.reset(
-        new PragmaForceCUDAHostDeviceHandler(Actions));
+    CUDAForceHostDeviceHandler =
+        llvm::make_unique<PragmaForceCUDAHostDeviceHandler>(Actions);
     PP.AddPragmaHandler("clang", CUDAForceHostDeviceHandler.get());
   }
-  OptimizeHandler.reset(new PragmaOptimizeHandler(Actions));
+  OptimizeHandler = llvm::make_unique<PragmaOptimizeHandler>(Actions);
   PP.AddPragmaHandler("clang", OptimizeHandler.get());
 
-  LoopHintHandler.reset(new PragmaLoopHintHandler());
+  LoopHintHandler = llvm::make_unique<PragmaLoopHintHandler>();
   PP.AddPragmaHandler("clang", LoopHintHandler.get());
 
 #if INTEL_CUSTOMIZATION
@@ -425,77 +426,81 @@ void Parser::initializePragmaHandlers() {
                    (getLangOpts().OpenCL &&
                     getTargetInfo().getTriple().isINTELFPGAEnvironment());
   if (HLSCompat) {
-    LoopCoalesceHandler.reset(new PragmaLoopCoalesceHandler("loop_coalesce"));
+    LoopCoalesceHandler =
+        llvm::make_unique<PragmaLoopCoalesceHandler>("loop_coalesce");
     PP.AddPragmaHandler(LoopCoalesceHandler.get());
-    IIHandler.reset(new PragmaIIHandler("ii"));
+    IIHandler = llvm::make_unique<PragmaIIHandler>("ii");
     PP.AddPragmaHandler(IIHandler.get());
-    MaxConcurrencyHandler.reset(
-        new PragmaMaxConcurrencyHandler("max_concurrency"));
+    MaxConcurrencyHandler =
+        llvm::make_unique<PragmaMaxConcurrencyHandler>("max_concurrency");
     PP.AddPragmaHandler(MaxConcurrencyHandler.get());
-    IIAtMostHandler.reset(new PragmaHLSConstArgHandler("ii_at_most"));
+    IIAtMostHandler = llvm::make_unique<PragmaHLSConstArgHandler>("ii_at_most");
     PP.AddPragmaHandler(IIAtMostHandler.get());
-    IIAtLeastHandler.reset(new PragmaHLSConstArgHandler("ii_at_least"));
+    IIAtLeastHandler =
+        llvm::make_unique<PragmaHLSConstArgHandler>("ii_at_least");
     PP.AddPragmaHandler(IIAtLeastHandler.get());
-    MinIIAtTargetFmaxHandler.reset(
-             new PragmaHLSNoArgHandler("min_ii_at_target_fmax"));
+    MinIIAtTargetFmaxHandler =
+        llvm::make_unique<PragmaHLSNoArgHandler>("min_ii_at_target_fmax");
     PP.AddPragmaHandler(MinIIAtTargetFmaxHandler.get());
-    SpeculatedIterationsHandler.reset(
-                new PragmaHLSConstArgHandler("speculated_iterations"));
+    SpeculatedIterationsHandler =
+        llvm::make_unique<PragmaHLSConstArgHandler>("speculated_iterations");
     PP.AddPragmaHandler(SpeculatedIterationsHandler.get());
-    DisableLoopPipeliningHandler.reset(
-                new PragmaHLSNoArgHandler("disable_loop_pipelining"));
+    DisableLoopPipeliningHandler =
+        llvm::make_unique<PragmaHLSNoArgHandler>("disable_loop_pipelining");
     PP.AddPragmaHandler(DisableLoopPipeliningHandler.get());
-    ForceHyperoptHandler.reset(
-                new PragmaHLSNoArgHandler("force_hyperopt"));
+    ForceHyperoptHandler =
+        llvm::make_unique<PragmaHLSNoArgHandler>("force_hyperopt");
     PP.AddPragmaHandler(ForceHyperoptHandler.get());
-    ForceNoHyperoptHandler.reset(
-                new PragmaHLSNoArgHandler("force_no_hyperopt"));
+    ForceNoHyperoptHandler =
+        llvm::make_unique<PragmaHLSNoArgHandler>("force_no_hyperopt");
     PP.AddPragmaHandler(ForceNoHyperoptHandler.get());
   }
   bool IntelCompat = getLangOpts().IntelCompat;
   if (IntelCompat) {
-    DistributePointHandler.reset(
-        new PragmaDistributePointHandler("distribute_point"));
+    DistributePointHandler =
+        llvm::make_unique<PragmaDistributePointHandler>("distribute_point");
     PP.AddPragmaHandler(DistributePointHandler.get());
-    NoFusionHandler.reset(new PragmaNoFusionHandler("nofusion"));
+    NoFusionHandler = llvm::make_unique<PragmaNoFusionHandler>("nofusion");
     PP.AddPragmaHandler(NoFusionHandler.get());
-    FusionHandler.reset(new PragmaFusionHandler("fusion"));
+    FusionHandler = llvm::make_unique<PragmaFusionHandler>("fusion");
     PP.AddPragmaHandler(FusionHandler.get());
   }
   if (getLangOpts().isIntelCompat(LangOptions::PragmaNoVector)) {
-    NoVectorHandler.reset(new PragmaNoVectorHandler("novector"));
+    NoVectorHandler = llvm::make_unique<PragmaNoVectorHandler>("novector");
     PP.AddPragmaHandler(NoVectorHandler.get());
   }
   if (HLSCompat || IntelCompat) {
-    IVDepHandler.reset(new PragmaIVDepHandler("ivdep"));
+    IVDepHandler = llvm::make_unique<PragmaIVDepHandler>("ivdep");
     PP.AddPragmaHandler(IVDepHandler.get());
   }
   if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
-    VectorHandler.reset(new PragmaVectorHandler("vector"));
+    VectorHandler = llvm::make_unique<PragmaVectorHandler>("vector");
     PP.AddPragmaHandler(VectorHandler.get());
   }
   if (getLangOpts().isIntelCompat(LangOptions::PragmaLoopCount)) {
-    LoopCountHandler.reset(new PragmaLoopCountHandler("loop_count"));
+    LoopCountHandler = llvm::make_unique<PragmaLoopCountHandler>("loop_count");
     PP.AddPragmaHandler(LoopCountHandler.get());
   }
 #endif // INTEL_CUSTOMIZATION
-  UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
+  UnrollHintHandler = llvm::make_unique<PragmaUnrollHintHandler>("unroll");
   PP.AddPragmaHandler(UnrollHintHandler.get());
 
-  NoUnrollHintHandler.reset(new PragmaUnrollHintHandler("nounroll"));
+  NoUnrollHintHandler = llvm::make_unique<PragmaUnrollHintHandler>("nounroll");
   PP.AddPragmaHandler(NoUnrollHintHandler.get());
 
-  UnrollAndJamHintHandler.reset(new PragmaUnrollHintHandler("unroll_and_jam"));
+  UnrollAndJamHintHandler =
+      llvm::make_unique<PragmaUnrollHintHandler>("unroll_and_jam");
   PP.AddPragmaHandler(UnrollAndJamHintHandler.get());
 
-  NoUnrollAndJamHintHandler.reset(
-      new PragmaUnrollHintHandler("nounroll_and_jam"));
+  NoUnrollAndJamHintHandler =
+      llvm::make_unique<PragmaUnrollHintHandler>("nounroll_and_jam");
   PP.AddPragmaHandler(NoUnrollAndJamHintHandler.get());
 
-  FPHandler.reset(new PragmaFPHandler());
+  FPHandler = llvm::make_unique<PragmaFPHandler>();
   PP.AddPragmaHandler("clang", FPHandler.get());
 
-  AttributePragmaHandler.reset(new PragmaAttributeHandler(AttrFactory));
+  AttributePragmaHandler =
+      llvm::make_unique<PragmaAttributeHandler>(AttrFactory);
   PP.AddPragmaHandler("clang", AttributePragmaHandler.get());
 }
 

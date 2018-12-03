@@ -2869,6 +2869,10 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
     return "reserve_id_t";
   case OMPArraySection:
     return "<OpenMP array section type>";
+#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+  case Id: \
+    return #ExtType;
+#include "clang/Basic/OpenCLExtensionTypes.def"
 #if INTEL_CUSTOMIZATION
   case VAArgPack:
     return "<Variadic Pack Expansion>";
@@ -2907,6 +2911,7 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_X86RegCall : return "regcall";
   case CC_AAPCS: return "aapcs";
   case CC_AAPCS_VFP: return "aapcs-vfp";
+  case CC_AArch64VectorCall: return "aarch64_vector_pcs";
   case CC_IntelOclBicc: return "intel_ocl_bicc";
   case CC_SpirFunction: return "spir_function";
   case CC_OpenCLKernel: return "opencl_kernel";
@@ -3317,6 +3322,7 @@ bool AttributedType::isCallingConv() const {
   case attr::RegCall:
   case attr::SwiftCall:
   case attr::VectorCall:
+  case attr::AArch64VectorPcs:
   case attr::Pascal:
   case attr::MSABI:
   case attr::SysVABI:
@@ -3863,6 +3869,9 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     case BuiltinType::Id:
 #include "clang/Basic/OpenCLImageTypes.def"
+#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+    case BuiltinType::Id:
+#include "clang/Basic/OpenCLExtensionTypes.def"
     case BuiltinType::OCLSampler:
     case BuiltinType::OCLEvent:
     case BuiltinType::OCLClkEvent:

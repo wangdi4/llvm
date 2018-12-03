@@ -82,25 +82,26 @@ static std::string fileNameToURI(StringRef Filename) {
     Ret += Twine("/" + Root).str();
   }
 
-  // Add the rest of the path components, encoding any reserved characters.
-  std::for_each(std::next(sys::path::begin(Filename)), sys::path::end(Filename),
-                [&Ret](StringRef Component) {
-                  // For reasons unknown to me, we may get a backslash with
-                  // Windows native paths for the initial backslash following
-                  // the drive component, which we need to ignore as a URI path
-                  // part.
-                  if (Component == "\\")
-                    return;
+  auto Iter = sys::path::begin(Filename), End = sys::path::end(Filename);
+  assert(Iter != End && "Expected there to be a non-root path component.");
+  // Add the rest of the path components, encoding any reserved characters;
+  // we skip past the first path component, as it was handled it above.
+  std::for_each(++Iter, End, [&Ret](StringRef Component) {
+    // For reasons unknown to me, we may get a backslash with Windows native
+    // paths for the initial backslash following the drive component, which
+    // we need to ignore as a URI path part.
+    if (Component == "\\")
+      return;
 
-                  // Add the separator between the previous path part and the
-                  // one being currently processed.
-                  Ret += "/";
+    // Add the separator between the previous path part and the one being
+    // currently processed.
+    Ret += "/";
 
-                  // URI encode the part.
-                  for (char C : Component) {
-                    Ret += percentEncodeURICharacter(C);
-                  }
-                });
+    // URI encode the part.
+    for (char C : Component) {
+      Ret += percentEncodeURICharacter(C);
+    }
+  });
 
   return Ret.str().str();
 }
@@ -235,7 +236,7 @@ static json::Object createResult(const PathDiagnostic &Diag,
 static StringRef getRuleDescription(StringRef CheckName) {
   return llvm::StringSwitch<StringRef>(CheckName)
 #define GET_CHECKERS
-#define CHECKER(FULLNAME, CLASS, CXXFILE, HELPTEXT, GROUPINDEX, HIDDEN)        \
+#define CHECKER(FULLNAME, CLASS, HELPTEXT)                                     \
   .Case(FULLNAME, HELPTEXT)
 #include "clang/StaticAnalyzer/Checkers/Checkers.inc"
 #undef CHECKER

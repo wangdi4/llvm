@@ -138,9 +138,11 @@ OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
   // routine we need to create a FunctionDecl to act as the DeclContext.
 
   IdentifierInfo *II = &CGM.getContext().Idents.get(OutName);
+  FunctionProtoType::ExtProtoInfo EPI;
+  QualType FunctionTy = C.getFunctionType(C.VoidTy, llvm::None, EPI);
   FunctionDecl *FD = FunctionDecl::Create(
       C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
-      C.VoidTy, /*TInfo=*/nullptr, SC_Static);
+      FunctionTy, C.getTrivialTypeSourceInfo(FunctionTy), SC_Static);
 
   QualType ObjPtrTy = C.getPointerType(Ty);
 
@@ -221,9 +223,11 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
     return F;
 
   IdentifierInfo *II = &CGM.getContext().Idents.get(OutName);
+  FunctionProtoType::ExtProtoInfo EPI;
+  QualType FunctionTy = C.getFunctionType(C.VoidTy, llvm::None, EPI);
   FunctionDecl *FD = FunctionDecl::Create(
       C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
-      C.VoidTy, /*TInfo=*/nullptr, SC_Static);
+      FunctionTy, C.getTrivialTypeSourceInfo(FunctionTy), SC_Static);
 
   QualType ObjPtrTy = C.getPointerType(Ty);
 

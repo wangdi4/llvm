@@ -718,7 +718,8 @@ int SystemZTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
           (Opcode == Instruction::FPToSI || Opcode == Instruction::FPToUI))
         NeedsExtracts = false;
 
-      TotCost += getScalarizationOverhead(Dst, NeedsInserts, NeedsExtracts);
+      TotCost += getScalarizationOverhead(Src, false, NeedsExtracts);
+      TotCost += getScalarizationOverhead(Dst, NeedsInserts, false);
 
       // FIXME: VF 2 for float<->i32 is currently just as expensive as for VF 4.
       if (VF == 2 && SrcScalarBits == 32 && DstScalarBits == 32)
@@ -1045,4 +1046,30 @@ int SystemZTTIImpl::getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy,
 
   // Cost of load/store operations and the permutations needed.
   return NumVectorMemOps + NumPermutes;
+}
+
+static int getVectorIntrinsicInstrCost(Intrinsic::ID ID, Type *RetTy) {
+  if (RetTy->isVectorTy() && ID == Intrinsic::bswap)
+    return getNumVectorRegs(RetTy); // VPERM
+  return -1;
+}
+
+int SystemZTTIImpl::getIntrinsicInstrCost(Intrinsic::ID ID, Type *RetTy,
+                                          ArrayRef<Value *> Args,
+                                          FastMathFlags FMF, unsigned VF) {
+  int Cost = getVectorIntrinsicInstrCost(ID, RetTy);
+  if (Cost != -1)
+    return Cost;
+  return BaseT::getIntrinsicInstrCost(ID, RetTy, Args, FMF, VF);
+}
+
+int SystemZTTIImpl::getIntrinsicInstrCost(Intrinsic::ID ID, Type *RetTy,
+                                          ArrayRef<Type *> Tys,
+                                          FastMathFlags FMF,
+                                          unsigned ScalarizationCostPassed) {
+  int Cost = getVectorIntrinsicInstrCost(ID, RetTy);
+  if (Cost != -1)
+    return Cost;
+  return BaseT::getIntrinsicInstrCost(ID, RetTy, Tys,
+                                      FMF, ScalarizationCostPassed);
 }

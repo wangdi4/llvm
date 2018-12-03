@@ -813,7 +813,12 @@ bool tools::areOptimizationsEnabled(const ArgList &Args) {
   return false;
 }
 
-const char *tools::SplitDebugName(const ArgList &Args, const InputInfo &Input) {
+const char *tools::SplitDebugName(const ArgList &Args, const InputInfo &Input,
+                                  const InputInfo &Output) {
+  if (Arg *A = Args.getLastArg(options::OPT_gsplit_dwarf_EQ))
+    if (StringRef(A->getValue()) == "single")
+      return Args.MakeArgString(Output.getFilename());
+
   Arg *FinalOutput = Args.getLastArg(options::OPT_o);
   if (FinalOutput && Args.hasArg(options::OPT_c)) {
     SmallString<128> T(FinalOutput->getValue());
@@ -1440,6 +1445,10 @@ void tools::AddHIPLinkerScript(const ToolChain &TC, Compilation &C,
   LksStream << "  {\n";
   LksStream << "    PROVIDE_HIDDEN(__hip_fatbin = .);\n";
   LksStream << "    " << BundleFileName << "\n";
+  LksStream << "  }\n";
+  LksStream << "  /DISCARD/ :\n";
+  LksStream << "  {\n";
+  LksStream << "    * ( __CLANG_OFFLOAD_BUNDLE__* )\n";
   LksStream << "  }\n";
   LksStream << "}\n";
   LksStream << "INSERT BEFORE .data\n";

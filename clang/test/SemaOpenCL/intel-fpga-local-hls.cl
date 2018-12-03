@@ -29,6 +29,7 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_five
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   __attribute__((__bankwidth__(4)))
   unsigned int v_five[64];
@@ -36,6 +37,7 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_six
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: NumBanksAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   __attribute__((__numbanks__(8)))
   unsigned int v_six[64];
@@ -57,8 +59,10 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_nine
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: NumReadPortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //CHECK: NumWritePortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   __attribute__((__numports_readonly_writeonly__(4,16)))
   unsigned int v_nine[64];
@@ -80,9 +84,13 @@ void foo1()
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}5{{$}}
   __attribute__((__bank_bits__(2,3,4,5)))
   unsigned int v_twelve[64];
@@ -90,11 +98,14 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_thirteen
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //CHECK: BankBitsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
   __attribute__((__bank_bits__(2,3), __bankwidth__(16)))
   unsigned int v_thirteen[64];
@@ -228,8 +239,10 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}bw_two
   //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{attribute 'bankwidth' is already applied}}
   __attribute__((__bankwidth__(8)))
@@ -266,8 +279,10 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}nb_two
   //CHECK: NumBanksAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: NumBanksAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{attribute 'numbanks' is already applied}}
   __attribute__((__numbanks__(8)))
@@ -357,12 +372,16 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}nprowo_seven
   //CHECK: NumReadPortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}9{{$}}
   //CHECK-NEXT: NumWritePortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //CHECK: NumReadPortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //CHECK-NEXT: NumWritePortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //expected-warning@+3{{'numreadports' is already applied}}
   //expected-warning@+2{{'numwriteports' is already applied}}
@@ -411,10 +430,14 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}bb_two
   //CHECK: BankBitsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}42{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}43{{$}}
   //CHECK: BankBitsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //expected-warning@+2{{attribute 'bank_bits' is already applied}}
   __attribute__((__bank_bits__(42,43)))

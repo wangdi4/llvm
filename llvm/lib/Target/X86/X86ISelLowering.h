@@ -295,11 +295,6 @@ namespace llvm {
       // Vector move to low scalar and zero higher vector elements.
       VZEXT_MOVL,
 
-      // Vector integer zero-extend.
-      VZEXT,
-      // Vector integer signed-extend.
-      VSEXT,
-
       // Vector integer truncate.
       VTRUNC,
       // Vector integer truncate with unsigned/signed saturation.
@@ -1045,6 +1040,8 @@ namespace llvm {
     /// to just the constant itself.
     bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
                                            Type *Ty) const override;
+
+    bool reduceSelectOfFPConstantLoads(bool IsFPSetCC) const override;
 
     bool convertSelectOfConstantsToMath(EVT VT) const override;
 

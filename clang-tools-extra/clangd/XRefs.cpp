@@ -605,6 +605,7 @@ public:
   // Handle auto return types:
   //- auto foo() {}
   //- auto& foo() {}
+  //- auto foo() -> int {}
   //- auto foo() -> decltype(1+1) {}
   //- operator auto() const { return 10; }
   bool VisitFunctionDecl(FunctionDecl *D) {
@@ -624,12 +625,13 @@ public:
     const AutoType *AT = D->getReturnType()->getContainedAutoType();
     if (AT && !AT->getDeducedType().isNull()) {
       DeducedType = AT->getDeducedType();
-    } else {
+    } else if (auto DT = dyn_cast<DecltypeType>(D->getReturnType())) {
       // auto in a trailing return type just points to a DecltypeType and
       // getContainedAutoType does not unwrap it.
-      const DecltypeType *DT = dyn_cast<DecltypeType>(D->getReturnType());
       if (!DT->getUnderlyingType().isNull())
         DeducedType = DT->getUnderlyingType();
+    } else if (!D->getReturnType().isNull()) {
+      DeducedType = D->getReturnType();
     }
     return true;
   }
@@ -672,8 +674,7 @@ Optional<QualType> getDeducedType(ParsedAST &AST,
     return {};
 
   DeducedTypeVisitor V(SourceLocationBeg);
-  for (Decl *D : AST.getLocalTopLevelDecls())
-    V.TraverseDecl(D);
+  V.TraverseAST(AST.getASTContext());
   return V.getDeducedType();
 }
 
@@ -746,6 +747,49 @@ std::vector<Location> findReferences(ParsedAST &AST, Position Pos,
     if (LSPLoc && LSPLoc->uri.file() != *MainFilePath)
       Results.push_back(std::move(*LSPLoc));
   });
+  return Results;
+}
+
+std::vector<SymbolDetails> getSymbolInfo(ParsedAST &AST, Position Pos) {
+  const SourceManager &SM = AST.getASTContext().getSourceManager();
+
+  auto Loc = getBeginningOfIdentifier(AST, Pos, SM.getMainFileID());
+  auto Symbols = getSymbolAtPosition(AST, Loc);
+
+  std::vector<SymbolDetails> Results;
+
+  for (const auto &Sym : Symbols.Decls) {
+    SymbolDetails NewSymbol;
+    if (const NamedDecl *ND = dyn_cast<NamedDecl>(Sym.D)) {
+      std::string QName = printQualifiedName(*ND);
+      std::tie(NewSymbol.containerName, NewSymbol.name) =
+          splitQualifiedName(QName);
+
+      if (NewSymbol.containerName.empty()) {
+        if (const auto *ParentND =
+                dyn_cast_or_null<NamedDecl>(ND->getDeclContext()))
+          NewSymbol.containerName = printQualifiedName(*ParentND);
+      }
+    }
+    llvm::SmallString<32> USR;
+    if (!index::generateUSRForDecl(Sym.D, USR)) {
+      NewSymbol.USR = USR.str();
+      NewSymbol.ID = SymbolID(NewSymbol.USR);
+    }
+    Results.push_back(std::move(NewSymbol));
+  }
+
+  for (const auto &Macro : Symbols.Macros) {
+    SymbolDetails NewMacro;
+    NewMacro.name = Macro.Name;
+    llvm::SmallString<32> USR;
+    if (!index::generateUSRForMacro(NewMacro.name, Loc, SM, USR)) {
+      NewMacro.USR = USR.str();
+      NewMacro.ID = SymbolID(NewMacro.USR);
+    }
+    Results.push_back(std::move(NewMacro));
+  }
+
   return Results;
 }
 

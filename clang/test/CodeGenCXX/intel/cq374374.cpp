@@ -4,6 +4,6 @@
 int main()
 {
   char c[2] = ""A;
-  // CHECK: @_ZZ4mainE1c = {{.*}} [2 x i8] c"a\00"
+  // CHECK: @__const.main.c = {{.*}} [2 x i8] c"a\00"
   return 0;
 }
