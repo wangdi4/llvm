@@ -48,6 +48,8 @@ set(TARGET_INCLUDE_FILES
   LoopHandler/KernelAnalysis.h
   LoopHandler/LoopStridedCodeMotion.h
   LoopHandler/LoopWIAnalysis.h
+  OCLVecClone/OCLPrepareKernelForVecClone.h
+  OCLVecClone/OCLVecClone.h
   Packetizer/Packetizer.h
   PostDominanceFrontier/PostDominanceFrontier.h
   Predication/Linearizer.h
@@ -82,6 +84,8 @@ set(TARGET_SOURCE_FILES
   LoopHandler/KernelAnalysis.cpp
   LoopHandler/LoopStridedCodeMotion.cpp
   LoopHandler/LoopWIAnalysis.cpp
+  OCLVecClone/OCLPrepareKernelForVecClone.cpp
+  OCLVecClone/OCLVecClone.cpp
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
   PostDominanceFrontier/PostDominanceFrontier.cpp

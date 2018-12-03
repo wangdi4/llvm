@@ -22,19 +22,22 @@
 
 using namespace std;
 
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
 
-#if defined(_WIN32)
 // Compatibility of OclCpuDebugging library with older revisions of OCL CPU RT libraries
 // could be broken at some point, e.g. due to LLVM upgrade. To overcome this issue it was
 // decided to versionize the debugging library and once its version is changed notify
 // SDK about the OCL RT version it is compatible with.
 // Actually it is unknown why the debugging library isn't delivered with the GEN driver.
 // This would solve the problem described above. For the reference see task CORC-1070.
-const char* DEBUGGER_DLL_NAME = "OclCpuDebugging5.dll";
-#else
-const char* DEBUGGER_DLL_NAME = "libOclCpuDebugging.so";
-#endif
 
+#define DEBUGGER_DLL_EXT ".dll"
+#define DEBUGGER_DLL_NAME_MACRO STR(DEBUGGING_DLL_NAME) STR(DEBUGGING_DLL_VERSION) DEBUGGER_DLL_EXT
+const char* DEBUGGER_DLL_NAME = DEBUGGER_DLL_NAME_MACRO;
+
+#undef STR
+#undef STR_HELPER
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -64,9 +67,6 @@ cl_dev_err_code DebuggingServiceWrapper::Init()
         debugging_enabled = true;
         port_number = pipeWrapper.getDebuggingPort();
     }
-#else
-    const char* env_val = getenv("CL_CONFIG_DBG_ENABLE");
-    debugging_enabled = (env_val && string(env_val) == "1");
 #endif
     if (debugging_enabled) {
         cl_dev_err_code rc = LoadDll();
