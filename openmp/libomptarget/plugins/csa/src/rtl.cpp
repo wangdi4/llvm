@@ -85,11 +85,6 @@ static bool Verbosity;
 #define ENV_DUMP_STATS "CSA_DUMP_STATS"
 static bool DumpStats;
 
-// If defined all stats for a thread are run in a single CSA instance and
-// dumped in a single .stat file (if CSA_DUMP_STATS is defined)
-#define ENV_MERGE_STATS "CSA_MERGE_STATS"
-static bool MergeStats;
-
 // If defined, leave the temporary files on disk in the user's directory
 #define ENV_SAVE_TEMPS "CSA_SAVE_TEMPS"
 static bool SaveTemps;
@@ -99,6 +94,9 @@ static bool SaveTemps;
 // not defined
 #define ENV_TEMP_PREFIX "CSA_TEMP_PREFIX"
 static std::string TempPrefix;
+
+// Run function counter.
+static std::atomic<unsigned> RunCount;
 
 // Create temporary file. Returns file name if successfull or empty string
 // otherwise.
@@ -239,51 +237,6 @@ static const char* getUmrErrorStr(CsaUmrErrors E) {
   return "unknown UMR error";
 }
 #endif // OMPTARGET_DEBUG
-
-// Error checking wrapper for the CsaUmrCreateContext API. In case of error,
-// prints debugging message and returns nullptr. Otherwise returns created
-// context.
-static CsaUmrContext* createContext(const CsaUmrContextAttributes *Attrs,
-                                    CsaUmrHandler *Handler) {
-  CsaUmrContext *Ctxt = nullptr;
-  auto E = CsaUmrCreateContext(Attrs, Handler, &Ctxt);
-  if (E) {
-    DP(1, "Error creating UMR context - %s\n", getUmrErrorStr(E));
-    return nullptr;
-  }
-  return Ctxt;
-}
-
-// Error checking wrapper for the CsaUmrBindGraphFromFile API. In case of error
-// prints debugging message and returns nullptr. Otherwise returns binded graph.
-static CsaUmrBoundGraph* bindGraph(CsaUmrContext *Ctxt, const char *Path) {
-  CsaUmrBoundGraph *Graph = nullptr;
-  auto E = CsaUmrBindGraphFromFile(Ctxt, Path, &Graph);
-  if (E) {
-    DP(1, "Failed to bind CSA graph - %s\n", getUmrErrorStr(E));
-    return nullptr;
-  }
-  return Graph;
-}
-
-// Error checking wrapper for the CsaUmrCall API. In case of error prints
-// debugging message and returns false. Otherwise returns true.
-static bool callGraph(CsaUmrBoundGraph *Graph, const char *Entry,
-                      const std::vector<void*> &Args) {
-  CsaUmrCallInfo CI = { 0 };
-  CI.flags = kCsaUmrCallEntryByName;
-  CI.graph = Graph;
-  CI.entry_name = Entry;
-  CI.num_inputs = Args.size();
-  CI.inputs = reinterpret_cast<const CsaArchValue64*>(Args.data());
-
-  auto E = CsaUmrCall(&CI, 0);
-  if (E) {
-    DP(1, "Error calling CSA graph - %s\n", getUmrErrorStr(E));
-    return false;
-  }
-  return true;
-}
 
 namespace {
 
@@ -505,118 +458,146 @@ public:
       MemoryMap.free(Ptr);
     }
 
-  public:
-    // Data associated with each offload entry - UMR context and a graph.
-    using CSAEntry = std::pair<CsaUmrContext*, CsaUmrBoundGraph*>;
-
-    // Maps offload entry to a CSA entry for a thread. No synchronization is
+  private:
+    // Object that contains data associated with each host thread which performs
+    // offloading. It includes thread's CSA UMR context (which is created on the
+    // first offload) and a map holding bound UMR graphs. No synchronization is
     // necessary for this object because it is accessed and/or modified by one
     // thread only.
-    class CSAEntryMap : public std::unordered_map<const EntryAddr*, CSAEntry> {
+    class ThreadContext {
+      // Thread's UMR context.
       CsaUmrContext *Context = nullptr;
 
+      // Graphs that have already been bound.
+      std::unordered_map<const EntryAddr*, CsaUmrBoundGraph*> Graphs;
+
     public:
+      ThreadContext() {}
+      ThreadContext(const ThreadContext&) = delete;
+      ThreadContext(ThreadContext &&Other) {
+        swap(Other);
+      }
+
+      ~ThreadContext() {
+        if (Context) {
+          CsaUmrDeleteContext(Context);
+          Context = nullptr;
+        }
+      }
+
+      ThreadContext& operator=(const ThreadContext&) = delete;
+      ThreadContext& operator=(ThreadContext &&Other) {
+        swap(Other);
+        return *this;
+      }
+
+      void swap(ThreadContext &Other) {
+        std::swap(Context, Other.Context);
+        std::swap(Graphs, Other.Graphs);
+      }
+
       CsaUmrContext* getContext() const {
         return Context;
       }
 
-    private:
-      // Creates CSA UMR context. The way how we do it depends on the MergeStats
-      // setting. If MergeStats is on then we are using single context for all
-      // entries. Otherwise each entry gets its own context.
-      CsaUmrContext* getOrCreateContext() {
-        if (!MergeStats)
-          return createContext(nullptr, nullptr);
+      bool offloadEntry(const EntryAddr *Addr, const std::vector<void*> &Args) {
+        auto *Graph = bindGraph(Addr);
+        if (!Graph)
+          return false;
 
-        // When MergeStats is on thread is supposed to run all entries in
-        // a single context.
-        if (!Context)
-          Context = createContext(nullptr, nullptr);
-        return Context;
+        auto *Name = Addr->first;
+
+        DP(2, "Running function %s with %lu argument(s)\n", Name, Args.size());
+        for (size_t I = 0u; I < Args.size(); ++I)
+          DP(2, "\tArg[%lu] = %p\n", I, Args[I]);
+
+        unsigned RunNumber;
+        int64_t StartCycles;
+        if (Verbosity) {
+          RunNumber = RunCount++;
+          StartCycles = CsaUmrSimulatorGetCycles(Context);
+
+          fprintf(stderr, "\nRun %u: Running %s on the CSA ..\n",
+                  RunNumber, Name);
+        }
+
+        CsaUmrCallInfo CI = { 0 };
+        CI.flags = kCsaUmrCallEntryByName;
+        CI.graph = Graph;
+        CI.entry_name = Name;
+        CI.num_inputs = Args.size();
+        CI.inputs = reinterpret_cast<const CsaArchValue64*>(Args.data());
+
+        auto E = CsaUmrCall(&CI, 0);
+        if (E) {
+          DP(1, "Error calling CSA graph - %s\n", getUmrErrorStr(E));
+          return false;
+        }
+
+        if (Verbosity) {
+          auto Cycles = CsaUmrSimulatorGetCycles(Context) - StartCycles;
+          fprintf(stderr,
+                  "\nRun %u: %s ran on the CSA in %ld cycles\n\n",
+                  RunNumber, Name, Cycles);
+        }
+        return true;
       }
 
-    public:
-      CSAEntry* getEntry(const EntryAddr *Addr) {
-        auto It = find(Addr);
-        if (It != end())
-          return &It->second;
+    private:
+      CsaUmrBoundGraph* bindGraph(const EntryAddr *Addr) {
+        auto It = Graphs.find(Addr);
+        if (It != Graphs.end())
+          return It->second;
 
-        auto *Ctxt = getOrCreateContext();
-        if (!Ctxt)
-          return nullptr;
+        if (!Context) {
+          auto E = CsaUmrCreateContext(nullptr, nullptr, &Context);
+          if (E) {
+            DP(1, "Error creating UMR context - %s\n", getUmrErrorStr(E));
+            return nullptr;
+          }
+        }
 
         DP(5, "Using assembly from \"%s\" for entry \"%s\"\n",
            Addr->second, Addr->first);
 
-        auto *Graph = bindGraph(Ctxt, Addr->second);
-        if (!Graph)
+        CsaUmrBoundGraph *Graph = nullptr;
+        auto E = CsaUmrBindGraphFromFile(Context, Addr->second, &Graph);
+        if (E) {
+          DP(1, "Failed to bind CSA graph - %s\n", getUmrErrorStr(E));
           return nullptr;
+        }
 
-        auto Res = this->emplace(Addr, std::make_pair(Ctxt, Graph));
-        assert(Res.second && "entry is already in the map");
-        return &Res.first->second;
+        Graphs[Addr] = Graph;
+        return Graph;
       }
     };
 
-    // Per thread map of CSA entries.
-    class ThreadEntryMap :
-        public std::unordered_map<std::thread::id, CSAEntryMap> {
+    // Container for thread contexts that attempted to do an offload at least
+    // once. Each host thread gets its own context.
+    class ThreadContextsMap :
+        public std::unordered_map<std::thread::id, ThreadContext> {
       std::mutex Mutex;
 
     public:
-      CSAEntryMap& getEntries() {
+      ThreadContext& getThreadContext() {
         std::lock_guard<std::mutex> Lock(Mutex);
         return (*this)[std::this_thread::get_id()];
       }
     };
 
-  private:
-    ThreadEntryMap ThreadEntries;
+    ThreadContextsMap ThreadContexts;
+
+    // Making it a friend so it can access thread contexts for dumping simulator
+    // statistics. TODO: this can be removed once we switch to a real hardware
+    // because there would be no simulator statistics anymore.
+    friend RTLDeviceInfoTy;
 
   public:
-    ThreadEntryMap& getThreadEntries() {
-      return ThreadEntries;
-    }
-
-    bool runFunction(void *Ptr, std::vector<void*> &Args) {
+    bool runFunction(void *Ptr, const std::vector<void*> &Args) {
       auto *Addr = static_cast<EntryAddr*>(Ptr);
-      auto *Info = ThreadEntries.getEntries().getEntry(Addr);
-      if (!Info) {
-        DP(1, "Error while creating CSA entry\n");
-        return false;
-      }
 
-      auto *Name = Addr->first;
-      auto *Ctxt = Info->first;
-      auto *Graph = Info->second;
-
-      DP(2, "Running function %s with %lu argument(s)\n", Name, Args.size());
-      for (size_t I = 0u; I < Args.size(); ++I)
-        DP(2, "\tArg[%lu] = %p\n", I, Args[I]);
-
-      unsigned RunNumber;
-      int64_t StartCycles;
-      if (Verbosity) {
-        // Run function counter.
-        static std::atomic<unsigned> RunCount;
-
-        RunNumber = RunCount++;
-        StartCycles = CsaUmrSimulatorGetCycles(Ctxt);
-
-        fprintf(stderr, "\nRun %u: Running %s on the CSA ..\n",
-                RunNumber, Name);
-      }
-
-      if (!callGraph(Graph, Name, Args))
-        return false;
-
-      if (Verbosity) {
-        auto Cycles = CsaUmrSimulatorGetCycles(Ctxt) - StartCycles;
-        fprintf(stderr,
-                "\nRun %u: %s ran on the CSA in %ld cycles\n\n",
-                RunNumber, Name, Cycles);
-      }
-      return true;
+      // Do offload in the context of the calling thread.
+      return ThreadContexts.getThreadContext().offloadEntry(Addr, Args);
     }
   };
 
@@ -646,46 +627,35 @@ public:
   }
 
   ~RTLDeviceInfoTy() {
-    std::unordered_map<std::thread::id, int> TID2Num;
-    std::string ProcessName;
-    int Width = 0;
-
     if (DumpStats) {
+      std::unordered_map<std::thread::id, int> TID2Num;
+
       // Build a map of thread IDs to simple numbers
       int ThreadNum = 0;
       for (int I = 0; I < getNumDevices(); ++I)
-        for (const auto &Thr : getDevice(I).getThreadEntries())
+        for (const auto &Thr : getDevice(I).ThreadContexts)
           if (TID2Num.find(Thr.first) == TID2Num.end())
             TID2Num[Thr.first] = ThreadNum++;
-      Width = ceil(log10(ThreadNum));
-      ProcessName = get_process_name();
+      int Width = ceil(log10(ThreadNum));
+      auto ProcessName = get_process_name();
 
       // Append MPI rank to the name if the process is running under MPI.
       if (const auto *Rank = getenv("PMI_RANK"))
         ProcessName = ProcessName + "-mpi" + Rank;
-    }
 
-    // Finish up - Dump the stats, release the CSA instances
-    for (int I = 0; I < getNumDevices(); ++I)
-      for (auto &Thr : getDevice(I).getThreadEntries()) {
-        auto cleanup = [&](CsaUmrContext *C, const std::string &Entry) {
-          if (DumpStats) {
+      // Finish up - Dump the stats, release the CSA instances
+      for (int I = 0; I < getNumDevices(); ++I)
+        for (const auto &Thr : getDevice(I).ThreadContexts)
+          if (auto *C = Thr.second.getContext()) {
             // Compose a file name using the following template
-            // <exe name>-<entry name>-dev<device num>-thr<thread num>
+            // <exe name>-dev<device num>-thr<thread num>
             std::stringstream SS;
-            SS << ProcessName << "-" << Entry << "-dev" << I << "-thd"
+            SS << ProcessName << "-dev" << I << "-thd"
                << std::setfill('0') << std::setw(Width) << TID2Num[Thr.first];
             CsaUmrSimulatorDumpStatistics(C, SS.str().c_str());
           }
-          CsaUmrDeleteContext(C);
-        };
-
-        if (auto *C = Thr.second.getContext())
-          cleanup(C, "*");
-        else
-          for (auto &Entry : Thr.second)
-            cleanup(std::get<0>(Entry.second), Entry.first->first);
-      }
+    }
+    Devices = nullptr;
   }
 };
 
@@ -703,7 +673,6 @@ static RTLDeviceInfoTy& getDeviceInfo() {
 #endif // OMPTARGET_DEBUG
     Verbosity = getenv(ENV_VERBOSE);
     DumpStats = getenv(ENV_DUMP_STATS);
-    MergeStats = getenv(ENV_MERGE_STATS);
     SaveTemps = getenv(ENV_SAVE_TEMPS);
     if (SaveTemps) {
       // Temp prefix is in effect only if save temps is set.
