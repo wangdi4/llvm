@@ -186,6 +186,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callsite preferred for SOA-to-AOS"},
     // NinlrStackComputations
     {InlPrtSimple, "Callsite has key stack computations"},
+    // NinlrSwitchComputations
+    {InlPrtSimple, "Callsite has key switch computations"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 
