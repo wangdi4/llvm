@@ -64,8 +64,9 @@ static cl::opt<bool> DisableVPlanVec("disable-vplan-vectorizer",
 
 // This flag enables VPlan for OpenCL.
 static cl::opt<bool>
-    EnableVPlanVecForOpenCL("enable-vpo-vectorizer", cl::init(false),
-                            cl::Hidden, cl::desc("Enable VPlan Vectorizer"));
+    EnableVPlanVecForOpenCL("enable-vplan-kernel-vectorizer", cl::init(false),
+                            cl::Hidden,
+                            cl::desc("Enable VPlan Kernel Vectorizer"));
 // INTEL VPO END
 
 extern "C"{
