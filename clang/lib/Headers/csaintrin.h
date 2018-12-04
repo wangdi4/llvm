@@ -26,7 +26,7 @@
 #define __CSAINTRIN_H
 
 /* Define the types for vector types on CSA */
-typedef float __f32x2 __attribute__((__vector_size__(8)));
+typedef float __m64f __attribute__((__vector_size__(8)));
 
 /* Disable and swizzle enums */
 typedef enum {
@@ -47,63 +47,63 @@ typedef enum {
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
 
 /* Functions for building and unpacking vectors */
-static __inline__ __f32x2 __DEFAULT_FN_ATTRS _mm_packf32x2(float v0, float v1)
+static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_pack_ps(float v0, float v1)
 {
-  return (__f32x2){v0, v1};
+  return (__m64f){v0, v1};
 }
 
-static __inline__ __f32x2 __DEFAULT_FN_ATTRS _mm_setzerof32x2(void)
+static __inline__ __m64f __DEFAULT_FN_ATTRS _mm64_setzero_ps(void)
 {
-  return (__f32x2){ 0.0f, 0.0f };
+  return (__m64f){ 0.0f, 0.0f };
 }
 
-static __inline__ float __DEFAULT_FN_ATTRS _mm_extractf32x2(__f32x2 a, int i)
+static __inline__ float __DEFAULT_FN_ATTRS _mm64_extract_ps(__m64f a, int i)
 {
   return a[i];
 }
 
-#define _mm_addf32x2(A, B, D, M, N) \
-  (__f32x2)(__builtin_csa_addf32x2((__f32x2)(A), (__f32x2)(B), \
+#define _mm64_add_ps(A, B, D, M, N) \
+  (__m64f)(__builtin_csa_addf32x2((__m64f)(A), (__m64f)(B), \
                                    (D), (M), (N)))
 
-#define _mm_subf32x2(A, B, D, M, N) \
-  (__f32x2)(__builtin_csa_subf32x2((__f32x2)(A), (__f32x2)(B), \
+#define _mm64_sub_ps(A, B, D, M, N) \
+  (__m64f)(__builtin_csa_subf32x2((__m64f)(A), (__m64f)(B), \
                                    (D), (M), (N)))
 
-#define _mm_addsubf32x2(A, B, D, M, N) \
-  (__f32x2)(__builtin_csa_addsubf32x2((__f32x2)(A), (__f32x2)(B), \
+#define _mm64_addsub_ps(A, B, D, M, N) \
+  (__m64f)(__builtin_csa_addsubf32x2((__m64f)(A), (__m64f)(B), \
                                       (D), (M), (N)))
 
-#define _mm_subaddf32x2(A, B, D, M, N) \
-  (__f32x2)(__builtin_csa_subaddf32x2((__f32x2)(A), (__f32x2)(B), \
+#define _mm64_subadd_ps(A, B, D, M, N) \
+  (__m64f)(__builtin_csa_subaddf32x2((__m64f)(A), (__m64f)(B), \
                                       (D), (M), (N)))
 
-#define _mm_mulf32x2(A, B, D, M, N) \
-  (__f32x2)(__builtin_csa_mulf32x2((__f32x2)(A), (__f32x2)(B), \
+#define _mm64_mul_ps(A, B, D, M, N) \
+  (__m64f)(__builtin_csa_mulf32x2((__m64f)(A), (__m64f)(B), \
                                    (D), (M), (N)))
 
-#define _mm_fmaf32x2(A, B, C, D, M, N) \
-  (__f32x2)(__builtin_csa_fmaf32x2((__f32x2)(A), (__f32x2)(B), (__f32x2)(C), \
+#define _mm64_fma_ps(A, B, C, D, M, N) \
+  (__m64f)(__builtin_csa_fmaf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
                                    (D), (M), (N)))
 
-#define _mm_fmsf32x2(A, B, C, D, M, N) \
-  (__f32x2)(__builtin_csa_fmsf32x2((__f32x2)(A), (__f32x2)(B), (__f32x2)(C), \
+#define _mm64_fms_ps(A, B, C, D, M, N) \
+  (__m64f)(__builtin_csa_fmsf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
                                    (D), (M), (N)))
 
-#define _mm_fmrsf32x2(A, B, C, D, M, N) \
-  (__f32x2)(__builtin_csa_fmrsf32x2((__f32x2)(A), (__f32x2)(B), (__f32x2)(C), \
+#define _mm64_fmrs_ps(A, B, C, D, M, N) \
+  (__m64f)(__builtin_csa_fmrsf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
                                     (D), (M), (N)))
 
-#define _mm_fmasf32x2(A, B, C, D, M, N) \
-  (__f32x2)(__builtin_csa_fmasf32x2((__f32x2)(A), (__f32x2)(B), (__f32x2)(C), \
+#define _mm64_fmas_ps(A, B, C, D, M, N) \
+  (__m64f)(__builtin_csa_fmasf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
                                     (D), (M), (N)))
 
-#define _mm_fmsaf32x2(A, B, C, D, M, N) \
-  (__f32x2)(__builtin_csa_fmsaf32x2((__f32x2)(A), (__f32x2)(B), (__f32x2)(C), \
+#define _mm64_fmsa_ps(A, B, C, D, M, N) \
+  (__m64f)(__builtin_csa_fmsaf32x2((__m64f)(A), (__m64f)(B), (__m64f)(C), \
                                     (D), (M), (N)))
 
-#define _mm_shuff32x2(A, B, M, N) \
-  (__f32x2)(__builtin_shufflevector((A), (B), (M), (N)))
+#define _mm64_shuf_ps(A, B, M, N) \
+  (__m64f)(__builtin_shufflevector((__m64f)(A), (__m64f)(B), (M), (N)))
 
 #undef __DEFAULT_FN_ATTRS
 
