@@ -41,6 +41,7 @@ class CallGraph;
 class DebugInfoFinder;
 class DominatorTree;
 class Function;
+class InlineReport; // INTEL
 class Instruction;
 class InvokeInst;
 class Loop;
@@ -193,11 +194,6 @@ public:
   /// the caller.
   SmallVector<AllocaInst *, 4> StaticAllocas;
 
-  /// INTEL OriginalCalls - InlineFunction fills this in with callsites that
-  /// INTEL were cloned from the callee.  This is only filled in if CG is
-  /// INTEL non-null.
-  SmallVector<const Value*, 8> OriginalCalls; // INTEL
-
   /// InlineFunction fills this in with callsites that were inlined from the
   /// callee. This is only filled in if CG is non-null.
   SmallVector<WeakTrackingVH, 8> InlinedCalls;
@@ -211,7 +207,6 @@ public:
 
   void reset() {
     StaticAllocas.clear();
-    OriginalCalls.clear(); // INTEL
     InlinedCalls.clear();
     InlinedCallSites.clear();
   }
@@ -252,14 +247,17 @@ InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 /// reason the function was or was not inlined.
 ///
 InlineResult InlineFunction(CallInst *C, InlineFunctionInfo &IFI,
+                            InlineReport *IR,
                             InlineReportTypes::InlineReason* Reason,
                             AAResults *CalleeAAR = nullptr,
                             bool InsertLifetime = true);
 InlineResult InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
+                            InlineReport *IR,
                             InlineReportTypes::InlineReason* Reason,
                             AAResults *CalleeAAR = nullptr,
                             bool InsertLifetime = true);
 InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+                            InlineReport *IR,
                             InlineReportTypes::InlineReason* Reason,
                             AAResults *CalleeAAR = nullptr,
                             bool InsertLifetime = true,

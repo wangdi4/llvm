@@ -38,7 +38,7 @@ private:
   void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const override;
 
 public:
-  VPlanVerifierHIR(const loopopt::HLLoop *HLLp) : VPlanVerifier(), TheLoop(HLLp) {}
+  VPlanVerifierHIR(const loopopt::HLLoop *HLLp);
 };
 
 } // namespace vpo

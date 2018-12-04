@@ -283,6 +283,12 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
   HIRF.getHLNodeUtils().visitInnerToOuter(Vis, Loop);
 }
 
+void HIRParVecAnalysis::markLoopBodyModified(const HLLoop *Lp) {
+  assert(Lp && " Loop parameter is null.");
+  for (; Lp; Lp = Lp->getParentLoop())
+    InfoMap.erase(Lp);
+}
+
 void HIRParVecAnalysis::printAnalysis(raw_ostream &OS) const {
   ParVecPrintVisitor Vis(InfoMap, OS);
   HIRF.getHLNodeUtils().visitAll(Vis);

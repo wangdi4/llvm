@@ -447,6 +447,18 @@ VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
   return TopRegion;
 }
 
+VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
+                                         VPlan *Plan,
+                                         VPOVectorizationLegality *Legal,
+                                         const DDGraph &DDG)
+    : VPlanHCFGBuilder(nullptr, nullptr, nullptr,
+                       Lp->getHLNodeUtils().getDataLayout(), WRL, Plan, Legal),
+      TheLoop(Lp), DDG(DDG) {
+  Verifier = new VPlanVerifierHIR(Lp);
+  assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
+         "Inconsistent Loop information");
+}
+
 VPRegionBlock *VPlanHCFGBuilderHIR::buildPlainCFG() {
   PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, Plan, Header2HLLoop);
   VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();

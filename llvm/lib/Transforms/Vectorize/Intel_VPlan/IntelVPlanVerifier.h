@@ -19,6 +19,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVERIFIER_H
 
 #include "IntelVPlan.h"
+#include "llvm/IR/InstrTypes.h"
 
 namespace llvm {
 namespace vpo {
@@ -31,16 +32,38 @@ private:
   // VPlan-incoming LoopInfo analysis.
   const LoopInfo *LInfo;
 
+  // DataLayout of verifying size-related properties.
+  const DataLayout &DL;
+
   // VPLoopInfo analysis information.
   const VPLoopInfo *VPLInfo = nullptr;
 
   // Verify VPPHINode instruction.
-  void verifyPHINode(const VPPHINode *Phi, const VPBasicBlock *Block) const;
+  void verifyPHINode(const VPPHINode *Phi) const;
 
   // Main functions driving the verification of instructions, blocks,
   // loops and regions.
 
+  /// Verify Specific VPInstructions.
+  void verifySpecificInstruction(const VPInstruction *Inst) const;
+
   /// Verify VPInstructions.
+  void verifyICmpInst(const VPInstruction *I) const;
+  void verifyFCmpInst(const VPInstruction *I) const;
+  void verifyZExtInst(const VPInstruction *I) const;
+  void verifySExtInst(const VPInstruction *I) const;
+  void verifyFPExtInst(const VPInstruction *I) const;
+  void verifyTruncInst(const VPInstruction *I) const;
+  void verifyFPTruncInst(const VPInstruction *I) const;
+  void verifyFPToUIInst(const VPInstruction *I) const;
+  void verifyFPToSIInst(const VPInstruction *I) const;
+  void verifyUIToFPInst(const VPInstruction *I) const;
+  void verifySIToFPInst(const VPInstruction *I) const;
+  void verifyIntToPtrInst(const VPInstruction *I) const;
+  void verifyPtrToIntInst(const VPInstruction *I) const;
+  void verifyBitCastInst(const VPInstruction *I) const;
+  void verifyBinaryOperator(const VPInstruction *BI) const;
+
   void verifyInstruction(const VPInstruction *Inst,
                          const VPBasicBlock *Block) const;
 
@@ -80,10 +103,10 @@ private:
   static void verifyHCFGContext(const VPlan *Plan);
 #endif
 public:
-  VPlanVerifier(const Loop *Lp, const LoopInfo *LInfo)
-      : TheLoop(Lp), LInfo(LInfo) {}
+  VPlanVerifier(const Loop *Lp, const LoopInfo *LInfo, const DataLayout &DLObj)
+      : TheLoop(Lp), LInfo(LInfo), DL(DLObj) {}
 
-  VPlanVerifier() : TheLoop(nullptr), LInfo(nullptr) {}
+  VPlanVerifier(const DataLayout &DLObj) : TheLoop(nullptr), LInfo(nullptr), DL(DLObj) {}
 
   /// Set VPLoopInfo analysis. This information will be used in some
   /// verification steps, if available.

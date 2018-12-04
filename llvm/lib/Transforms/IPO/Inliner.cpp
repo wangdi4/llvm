@@ -303,7 +303,7 @@ static void mergeInlinedArrayAllocas(
 /// inline this call site we attempt to reuse already available allocas or add
 /// any new allocas to the set if not possible.
 static InlineResult InlineCallIfPossible(
-    CallSite CS, InlineFunctionInfo &IFI,
+    CallSite CS, InlineFunctionInfo &IFI, InlineReport *IRep,    // INTEL
     InlinedArrayAllocasTy &InlinedArrayAllocas, int InlineHistory,
     bool InsertLifetime, function_ref<AAResults &(Function &)> &AARGetter,
     ImportedFunctionsInliningStatistics &ImportedFunctionsStats, // INTEL
@@ -315,7 +315,8 @@ static InlineResult InlineCallIfPossible(
 
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
-  InlineResult IR = InlineFunction(CS, IFI, IIR, &AAR, InsertLifetime); // INTEL
+  InlineResult IR = InlineFunction(CS, IFI, IRep, IIR, &AAR, // INTEL
+                                   InsertLifetime);          // INTEL
   if (!IR)
     return IR;
 
@@ -807,7 +808,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
             CS.hasFnAttr(Attribute::AlwaysInlineRecursive);
         bool IsInlineHintRecursive =
             CS.hasFnAttr(Attribute::InlineHintRecursive);
-        InlineResult LIR = InlineCallIfPossible(CS, InlineInfo,
+        InlineResult LIR = InlineCallIfPossible(CS, InlineInfo, &IR,
                                                InlinedArrayAllocas,
                                                InlineHistoryID, InsertLifetime,
                                                AARGetter,
@@ -835,7 +836,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
         emit_inlined_into(ORE, DLoc, Block, *Callee, *Caller, *OIC);
 
-        IR.inlineCallSite(InlineInfo); // INTEL
+        IR.inlineCallSite();           // INTEL
         IR.endUpdate();                // INTEL
         // If inlining this function gave us any new call sites, throw them
         // onto our worklist to process.  They are useful inline candidates.
@@ -1275,7 +1276,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       Report.beginUpdate(CS);  // INTEL
       InlineReason Reason = NinlrNoReason; // INTEL
-      InlineResult LIR = InlineFunction(CS, IFI, &Reason); // INTEL
+      InlineResult LIR = InlineFunction(CS, IFI, &Report, &Reason); // INTEL
       if (!LIR) { // INTEL
         setInlineRemark(CS, std::string(LIR) + "; " // INTEL
             + inlineCostStr(*OIC));                 // INTEL
@@ -1298,7 +1299,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       emit_inlined_into(ORE, DLoc, Block, Callee, F, *OIC);
 
-      Report.inlineCallSite(IFI); // INTEL
+      Report.inlineCallSite();           // INTEL
       Report.endUpdate();                // INTEL
       // Add any new callsites to defined functions to the worklist.
       if (!IFI.InlinedCallSites.empty()) {

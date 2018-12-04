@@ -67,6 +67,7 @@ class OptReportDiag;
 } // namespace loopopt
 
 namespace vpo {
+class SyncDependenceAnalysis;
 class VPValue;
 class VPlan;
 class VPBlockBase;
@@ -587,6 +588,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPlanIdioms;
   friend class VPlanVLSAnalysis;
   friend class VPlanVLSAnalysisHIR;
+  friend class VPlanVerifier;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {

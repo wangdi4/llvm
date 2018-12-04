@@ -66,6 +66,18 @@ static cl::opt<bool>
                    cl::desc("Print plain dump after build VPlan H-CFG."));
 #endif
 
+VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
+                                   const DataLayout &DL,
+                                   const WRNVecLoopNode *WRL, VPlan *Plan,
+                                   VPOVectorizationLegality *Legal)
+    : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), Plan(Plan), Legal(Legal) {
+  // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
+  // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
+  Verifier = new VPlanVerifier(Lp, LI, DL);
+  assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
+         "Inconsistent Loop information");
+}
+
 // Split loops' preheader block that are not in canonical form
 void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
 
@@ -737,8 +749,9 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     // TODO: Determine if we want to have a separate DA instance for each VF.
     // Currently, there is only one instance and no distinction between VFs.
     // i.e., values are either uniform or divergent for all VFs.
+    VPLoop *CandidateLoop = *VPLInfo->begin();
     auto *VPDA = new VPlanDivergenceAnalysis();
-    VPDA->compute(*(VPLInfo->begin()), VPLInfo, &VPDomTree, &VPPostDomTree);
+    VPDA->compute(CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
     Plan->setVPlanDA(VPDA);
   }
 #endif /* INTEL_CUSTOMIZATION */

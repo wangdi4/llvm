@@ -608,11 +608,17 @@ private:
   ///                 size cannot be determined at compile time.
   /// \param [in,out] IsFirstExprFlag flag to indicate whether it is the
   ///                 first pointer.
-  void GenTgtInformationForPtrs(WRegionNode *W, Value *V,
+  void genTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 SmallVectorImpl<uint64_t> &MapTypes,
                                 bool &hasRuntimeEvaluationCaptureSize,
                                 bool &IsFirstExprFlag);
+
+  /// Return the map modifiers for the firstprivate.
+  uint64_t getMapModifiersForFirstPrivate();
+
+  /// Return the defaut map information.
+  uint64_t generateDefaultMap();
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);

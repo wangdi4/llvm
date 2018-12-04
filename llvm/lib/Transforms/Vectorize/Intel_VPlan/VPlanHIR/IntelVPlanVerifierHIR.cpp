@@ -25,6 +25,9 @@ using namespace llvm;
 using namespace vpo;
 using namespace loopopt;
 
+VPlanVerifierHIR::VPlanVerifierHIR(const loopopt::HLLoop *HLLp)
+    : VPlanVerifier(HLLp->getHLNodeUtils().getDataLayout()), TheLoop(HLLp) {}
+
 unsigned VPlanVerifierHIR::countLoopsInUnderlyingIR() const {
   assert(TheLoop && "TheLoop can't be null.");
   SmallVector<const HLLoop *, 8> Loops;

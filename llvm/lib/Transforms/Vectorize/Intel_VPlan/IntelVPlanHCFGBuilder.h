@@ -107,15 +107,8 @@ protected:
 
 public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
-                   const WRNVecLoopNode *WRL, VPlan *Plan,
-                   VPOVectorizationLegality *Legal)
-      : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), Plan(Plan), Legal(Legal) {
-    // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
-    // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
-    Verifier = new VPlanVerifier(Lp, LI);
-    assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
-           "Inconsistent Loop information");
-  }
+                   const DataLayout &DL, const WRNVecLoopNode *WRL, VPlan *Plan,
+                   VPOVectorizationLegality *Legal);
 
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
   void buildHierarchicalCFG();

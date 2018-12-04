@@ -1342,17 +1342,10 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
                             ArrayRef<unsigned> TrailingOffsets,
                             CanonExpr *LowerBoundCE, CanonExpr *StrideCE,
                             Type *DimTy) {
-  //TODO: do not modify CanonExprs before we get all the dimension info.
+  assert(IndexCE && "IndexCE is null!");
 
   // addDimension() assumes that the ref IS or WILL become a GEP reference.
   createGEP();
-
-  assert(IndexCE && "IndexCE is null!");
-  CanonExprs.insert(CanonExprs.begin(), IndexCE);
-
-  GepInfo->DimensionOffsets.insert(
-      GepInfo->DimensionOffsets.begin(),
-      OffsetsTy(TrailingOffsets.begin(), TrailingOffsets.end()));
 
   if (!LowerBoundCE) {
     LowerBoundCE =
@@ -1366,7 +1359,7 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
 
     unsigned DimNum = getNumDimensions();
     Type *ElemTy;
-    if (DimNum == 1) {
+    if (DimNum == 0) {
       DimTy = getBaseCE()->getSrcType();
       ElemTy = DimTy->getPointerElementType();
     } else {
@@ -1387,11 +1380,22 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
         ElemTy->isSized() ? getCanonExprUtils().getTypeSizeInBytes(ElemTy) : 0);
   }
 
+  // Add Index CE
+  CanonExprs.insert(CanonExprs.begin(), IndexCE);
+
+  // Add Struct offset
+  GepInfo->DimensionOffsets.insert(
+      GepInfo->DimensionOffsets.begin(),
+      OffsetsTy(TrailingOffsets.begin(), TrailingOffsets.end()));
+
+  // Add Lower bound
   GepInfo->LowerBounds.insert(GepInfo->LowerBounds.begin(), LowerBoundCE);
 
+  // Add Stride
   assert(StrideCE && "Stride may not be unknown");
   GepInfo->Strides.insert(GepInfo->Strides.begin(), StrideCE);
 
+  // Add Dimension type
   assert(DimTy && "DimTy may not be unknown");
   assert((DimTy->isArrayTy() || DimTy->isPointerTy()) &&
       "Dimension type should be either array or pointer");
@@ -1424,10 +1428,6 @@ RegDDRef::getTrailingStructOffsets(unsigned DimensionNum) const {
   assert(hasGEPInfo() && " Offsets are not meaningful for non-GEP DDRefs!");
 
   if (getGEPInfo()->DimensionOffsets.size() < DimensionNum) {
-    return {};
-  }
-
-  if (getGEPInfo()->DimensionOffsets[DimensionNum - 1].empty()) {
     return {};
   }
 
