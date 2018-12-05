@@ -943,6 +943,39 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
+/// After sucessfully parsing a supported OpenMP directive that requires a
+/// statement, this code looks for and removes unsupported OpenMP
+/// directives so the eventual statement will associate with the initial
+/// supported directive.
+void Parser::skipUnsupportedTargetDirectives() {
+  assert(Tok.is(tok::annot_pragma_openmp_end));
+  if (!getLangOpts().OpenMPIsDevice || getLangOpts().OMPTargetTriples.empty())
+    return;
+
+  llvm::Triple T = getTargetInfo().getTriple();
+  if (T.getArch() != llvm::Triple::spir64 && T.getArch() != llvm::Triple::spir)
+    return;
+
+  while (getPreprocessor().LookAhead(0).is(tok::annot_pragma_openmp)) {
+    TentativeParsingAction TPA(*this);
+    ConsumeAnnotationToken();
+    ConsumeAnnotationToken();
+    OpenMPDirectiveKind NewDKind = parseOpenMPDirectiveKind(*this);
+    if (!isAllowedInSPIRSubset(NewDKind)) {
+      Diag(getCurToken().getLocation(),
+         diag::warn_pragma_omp_ignored_for_target)
+          << getOpenMPDirectiveName(NewDKind) << T.getArchName();
+      SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch);
+      TPA.Commit();
+    } else {
+      TPA.Revert();
+      return;
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Parsing of declarative or executable OpenMP directives.
 ///
 ///       threadprivate-directive:
@@ -1021,6 +1054,18 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     }
     SkipUntil(tok::annot_pragma_openmp_end);
     return Directive;
+  }
+  if (getLangOpts().OpenMPIsDevice && !getLangOpts().OMPTargetTriples.empty()) {
+    llvm::Triple T = getTargetInfo().getTriple();
+    if (T.getArch() == llvm::Triple::spir64 ||
+        T.getArch() == llvm::Triple::spir) {
+      if (!isAllowedInSPIRSubset(DKind)) {
+        Diag(Tok, diag::warn_pragma_omp_ignored_for_target)
+            << getOpenMPDirectiveName(DKind) << T.getArchName();
+        SkipUntil(tok::annot_pragma_openmp_end);
+        return Directive;
+      }
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1177,6 +1222,10 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     }
     // End location of the directive.
     EndLoc = Tok.getLocation();
+#if INTEL_CUSTOMIZATION
+    if (HasAssociatedStatement)
+      skipUnsupportedTargetDirectives();
+#endif // INTEL_CUSTOMIZATION
     // Consume final annot_pragma_openmp_end.
     ConsumeAnnotationToken();
 

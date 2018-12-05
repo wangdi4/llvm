@@ -690,6 +690,9 @@ private:
   StmtResult HandlePragmaCaptured();
 
 #if INTEL_CUSTOMIZATION
+  /// Skip OpenMP directives not supported on target.
+  void skipUnsupportedTargetDirectives();
+
   /// Initialize all Intel-specifc pragma handlers.
   void initializeIntelPragmaHandlers();
 

@@ -7050,7 +7050,12 @@ public:
       // reference. References are ignored for mapping purposes.
       QualType Ty =
           I->getAssociatedDeclaration()->getType().getNonReferenceType();
+#if INTEL_COLLAB
+      if (!CGF.CGM.getLangOpts().OpenMPLateOutline &&
+          Ty->isAnyPointerType() && std::next(I) != CE) {
+#else
       if (Ty->isAnyPointerType() && std::next(I) != CE) {
+#endif // INTEL_COLLAB
         BP = CGF.EmitLoadOfPointer(BP, Ty->castAs<PointerType>());
 
         // We do not need to generate individual map information for the

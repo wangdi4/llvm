@@ -51,6 +51,11 @@ def warn_pragma_loop_count_invalid_option
     : Warning<"invalid loop count '#pragma loop_count' - ignored">,
       InGroup<IgnoredPragmas>;
 
+// OpenMP
+def warn_pragma_omp_ignored_for_target : Warning<
+  "OpenMP directive '%0' ignored for target '%1'">,
+  InGroup<SourceUsesOpenMP>, DefaultIgnore;
+
 // CQ#364426
 def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
