@@ -840,6 +840,30 @@ void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
     GlobalsForRemoval.push_back(GV);
   }
 
+  // Create and initialize new aliases for all the aliases that have their type
+  // changed. The original alias will be removed after all the functions
+  // have been processed. The aliases need to be processed before the global
+  // variable initializers are remapped in case a variable makes use of an
+  // alias instead of the original variable or function.
+  for (auto &Alias : M.getAliasList()) {
+    Constant *Aliasee = Alias.getAliasee();
+    // If the Aliasee is being mapped to something other than itself,
+    // then this GlobalAlias needs to be updated.
+    auto VMapIt = VMap.find(Aliasee);
+    if (VMapIt != VMap.end() && VMapIt->second != Aliasee) {
+      Type *RemapTy = VMapIt->second->getType();
+      auto *NewAlias = GlobalAlias::create(
+          RemapTy->getPointerElementType(), Alias.getType()->getAddressSpace(),
+          Alias.getLinkage(), "", Mapper.mapConstant(*Aliasee), &M);
+      NewAlias->takeName(&Alias);
+      VMap[&Alias] = NewAlias;
+      GlobalsForRemoval.push_back(&Alias);
+
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Global alias replacement:\n  Orig: "
+                        << Alias << "  New : " << *NewAlias << "\n");
+    }
+  }
+
   // Create or update the initializers for all the global variables. This
   // handles newly created variables that had their types changed, and
   // existing variables that may have been initialized with the address of a
@@ -867,30 +891,6 @@ void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
 
       LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Global Var replacement:\n  Orig: "
                         << *OrigGV << "\n  New : " << *VarToRemap << "\n");
-    }
-  }
-
-  // Create and initialize new aliases for all the aliases that have their type
-  // changed. The original alias will be removed after all the functions
-  // have been processed.
-  // TODO: Will the transformations need to post process the aliases, like it
-  // does for global variables?
-  for (auto &Alias : M.getAliasList()) {
-    Constant *Aliasee = Alias.getAliasee();
-    // If the Aliasee is being mapped to something other than itself,
-    // then this GlobalAlias needs to be updated.
-    auto VMapIt = VMap.find(Aliasee);
-    if (VMapIt != VMap.end() && VMapIt->second != Aliasee) {
-      Type *RemapTy = VMapIt->second->getType();
-      auto *NewAlias = GlobalAlias::create(
-          RemapTy->getPointerElementType(), Alias.getType()->getAddressSpace(),
-          Alias.getLinkage(), "", Mapper.mapConstant(*Aliasee), &M);
-      NewAlias->takeName(&Alias);
-      VMap[&Alias] = NewAlias;
-      GlobalsForRemoval.push_back(&Alias);
-
-      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Global alias replacement:\n  Orig: "
-                        << Alias << "\n  New : " << *NewAlias << "\n");
     }
   }
 }

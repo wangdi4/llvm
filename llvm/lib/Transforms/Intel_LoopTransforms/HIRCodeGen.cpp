@@ -1175,7 +1175,7 @@ void CGVisitor::replaceOldRegion(BasicBlock *RegionEntry) {
   BranchInst *RegionBranch = BranchInst::Create(
       RegionEntry, EntrySecondHalf,
       ConstantInt::get(IntegerType::get(F.getContext(), 1), 1));
-  ReplaceInstWithInst(EntryFirstHalf->getInstList(), It, RegionBranch);
+  ReplaceInstWithInst(Term->getParent()->getInstList(), It, RegionBranch);
 }
 
 Value *CGVisitor::visitRegion(HLRegion *Reg) {
@@ -1184,15 +1184,12 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
 
   preprocess(Reg);
 
-  auto *RegionSuccessor = CurRegion->getSuccBBlock();
-
   // push back one null so iv for level 1 is at array position 1
   // in other words, make this vector 1 indexed
   CurIVValues.push_back(nullptr);
   // create new bblock for region entry
   BasicBlock *RegionEntry = BasicBlock::Create(
-      F.getContext(), "region." + std::to_string(Reg->getNumber()), &F,
-      RegionSuccessor);
+      F.getContext(), "region." + std::to_string(Reg->getNumber()), &F);
   Builder.SetInsertPoint(RegionEntry);
 
   initializeLiveins();
@@ -1238,6 +1235,8 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
   for (auto It = Reg->child_begin(), E = Reg->child_end(); It != E; ++It) {
     visit(*It);
   }
+
+  BasicBlock *RegionSuccessor = Reg->getSuccBBlock();
 
   // current insertion point is at end of region, add jump to successor
   // and we are done
@@ -1341,13 +1340,9 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
 
   Builder.CreateCondBr(CondV, ThenBB, ElseBB);
 
-  auto *RegionSuccessor = CurRegion->getSuccBBlock();
-  auto BBInsertionPos = RegionSuccessor ? RegionSuccessor->getIterator()
-                                        : F.getBasicBlockList().end();
-
   if (HasThenChildren) {
     // generate then block
-    F.getBasicBlockList().insert(BBInsertionPos, ThenBB);
+    F.getBasicBlockList().push_back(ThenBB);
     Builder.SetInsertPoint(ThenBB);
 
     if (IVAdd) {
@@ -1373,9 +1368,8 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
     assert(!IVAdd && "Bottom test cannot have else case!");
 
     // generate else block
-    F.getBasicBlockList().insert(BBInsertionPos, ElseBB);
+    F.getBasicBlockList().push_back(ElseBB);
     Builder.SetInsertPoint(ElseBB);
-
     for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
       visit(*It);
     }
@@ -1384,7 +1378,7 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
   }
 
   // CG resumes at merge block
-  F.getBasicBlockList().insert(BBInsertionPos, MergeBB);
+  F.getBasicBlockList().push_back(MergeBB);
   Builder.SetInsertPoint(MergeBB);
 
   return nullptr;
@@ -1431,8 +1425,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     assert(Upper->getType() == Lp->getIVType() &&
            "IVtype does not match upper type");
 
-    LoopBB = BasicBlock::Create(F.getContext(), LName, &F,
-                                CurRegion->getSuccBBlock());
+    LoopBB = BasicBlock::Create(F.getContext(), LName, &F);
 
     // explicit fallthru to loop, terminates current bblock
     Builder.CreateBr(LoopBB);
@@ -1488,8 +1481,8 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
         Builder.CreateICmp(IsNSW ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
                            NextVar, Upper, "cond" + LName);
 
-    BasicBlock *AfterBB = BasicBlock::Create(F.getContext(), "after" + LName,
-                                             &F, CurRegion->getSuccBBlock());
+    BasicBlock *AfterBB =
+        BasicBlock::Create(F.getContext(), "after" + LName, &F);
 
     ScopeDbgLoc DbgLocBranch(*this, Lp->getBranchDebugLoc());
 
@@ -1513,8 +1506,8 @@ BasicBlock *CGVisitor::getBBlockForLabel(HLLabel *L) {
   if (InternalLabels.count(L))
     return InternalLabels[L];
 
-  BasicBlock *LabelBB = BasicBlock::Create(
-      F.getContext(), "hir." + L->getName(), &F, CurRegion->getSuccBBlock());
+  BasicBlock *LabelBB =
+      BasicBlock::Create(F.getContext(), "hir." + L->getName(), &F);
   InternalLabels[L] = LabelBB;
   return LabelBB;
 }
@@ -1556,9 +1549,8 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
   Value *CondV = visitRegDDRef(S->getConditionDDRef());
   SmallString<10> SwitchName("hir.sw." + std::to_string(S->getNumber()));
 
-  auto *RegionSuccessor = CurRegion->getSuccBBlock();
-  BasicBlock *DefaultBlock = BasicBlock::Create(
-      F.getContext(), SwitchName + ".default", &F, RegionSuccessor);
+  BasicBlock *DefaultBlock =
+      BasicBlock::Create(F.getContext(), SwitchName + ".default");
   BasicBlock *EndBlock =
       BasicBlock::Create(F.getContext(), SwitchName + ".end");
 
@@ -1566,6 +1558,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
       Builder.CreateSwitch(CondV, DefaultBlock, S->getNumCases());
 
   // generate default block
+  F.getBasicBlockList().push_back(DefaultBlock);
   Builder.SetInsertPoint(DefaultBlock);
   for (auto I = S->default_case_child_begin(), E = S->default_case_child_end();
        I != E; ++I) {
@@ -1581,8 +1574,8 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
     ConstantInt *CaseInt = cast<ConstantInt>(CaseV);
 
     BasicBlock *CaseBlock = BasicBlock::Create(
-        F.getContext(), SwitchName + ".case." + std::to_string(I - 1), &F,
-        RegionSuccessor);
+        F.getContext(), SwitchName + ".case." + std::to_string(I - 1));
+    F.getBasicBlockList().push_back(CaseBlock);
     Builder.SetInsertPoint(CaseBlock);
 
     for (auto HNode = S->case_child_begin(I), E = S->case_child_end(I);
@@ -1594,9 +1587,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
     LLVMSwitch->addCase(CaseInt, CaseBlock);
   }
 
-  auto BBInsertionPos = RegionSuccessor ? RegionSuccessor->getIterator()
-                                        : F.getBasicBlockList().end();
-  F.getBasicBlockList().insert(BBInsertionPos, EndBlock);
+  F.getBasicBlockList().push_back(EndBlock);
   Builder.SetInsertPoint(EndBlock);
   return nullptr;
 }

@@ -22,6 +22,7 @@
 
 ; CHECK: @g_noconvert_test00a = internal global %struct.noconvert_test00a zeroinitializer
 ; CHECK: @g_test09b = internal constant %struct.test09b { i32 9, void (i8*)* bitcast (void (%__DTT_struct.test09a*)* @test09a_func1.4 to void (i8*)*) }
+; CHECK: @g_test09c = private constant i8* bitcast (void (%__DTT_struct.test09a*)* @test09a_alias to i8*)
 
 ; Test with just converting a type without other types referencing it
 ; that does not have initializers to verify that type gets converted,
@@ -123,6 +124,9 @@ define void @test09a_func1(%struct.test09a* %in) {
 @test09a_alias = internal alias void (%struct.test09a*), void (%struct.test09a*)* @test09a_func1
 ; CHECK: @test09a_alias = internal alias void (%__DTT_struct.test09a*), void (%__DTT_struct.test09a*)* @test09a_func1.4
 
+; Test to verify that a global with an initializer that uses an alias gets
+; converted.
+@g_test09c = private constant i8* bitcast (void (%struct.test09a*)* @test09a_alias to i8*)
 
 ; Verify that the types of the variables were converted within the function bodies.
 ; CHECK: define internal void @test07a_func()
@@ -131,5 +135,3 @@ define void @test09a_func1(%struct.test09a* %in) {
 ; CHECK: define internal void @test08a_func.3(%__DTT_struct.test08a* %in)
 ; CHECK:  %in_c_addr = getelementptr inbounds %__DTT_struct.test08a, %__DTT_struct.test08a* %in, i32 0, i32 2
 ; CHECK:  %c_addr = getelementptr inbounds %__DTT_struct.test08a, %__DTT_struct.test08a* @g_test08a, i32 0, i32 2
-
-

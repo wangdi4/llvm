@@ -2,18 +2,21 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
 
+; original bblocks will precede new ones from ir, so liveout replacement checks
+; are before live in initializations
+
+; Check the added incoming value for the liveout use of %output.1
+; CHECK: for.end.loopexit:
+; CHECK-NEXT: %output.1.lcssa = phi i32 [ %output.1, %if.end ], [ [[LIVEOUT:.*]], %[[REGIONEXIT:.*]] ]
+
 ; Live in value is %a, it should be immediately stored in symbase memory slot
 ; CHECK: region.0:
 ; CHECK: store i32 %a, i32* %t
 ; CHECK: br label %loop
 
 ; CG creates a load for %output.1 in region exit bblock
-; CHECK: [[REGIONEXIT:afterloop.*]]:
-; CHECK-NEXT: [[LIVEOUT:%.*]] = load i32, i32* %t
-
-; Check the added incoming value for the liveout use of %output.1
-; CHECK: for.end.loopexit:
-; CHECK-NEXT: %output.1.lcssa = phi i32 [ %output.1, %if.end ], [ [[LIVEOUT]], %[[REGIONEXIT]] ]
+; CHECK: [[REGIONEXIT]]:
+; CHECK-NEXT: [[LIVEOUT]] = load i32, i32* %t
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

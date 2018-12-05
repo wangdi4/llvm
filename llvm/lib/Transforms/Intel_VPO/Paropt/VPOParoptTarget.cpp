@@ -352,9 +352,20 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
   return Res;
 }
 
+// Return the map modifiers for the firstprivate.
+uint64_t VPOParoptTransform::getMapModifiersForFirstPrivate() {
+  return TGT_MAP_PRIVATE | TGT_MAP_TO;
+}
+
+// Return the defaut map information.
+uint64_t VPOParoptTransform::generateDefaultMap() {
+  return getMapModifiersForFirstPrivate() | TGT_MAP_TARGET_PARAM |
+         TGT_MAP_IMPLICIT;
+}
+
 // Generate the sizes and map type flags for the given map type, map
 // modifier and the expression V.
-void VPOParoptTransform::GenTgtInformationForPtrs(
+void VPOParoptTransform::genTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
     bool &hasRuntimeEvaluationCaptureSize,
@@ -403,7 +414,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
       Type *T = FprivI->getOrig()->getType()->getPointerElementType();
       ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
                                             DL.getTypeAllocSize(T)));
-      MapTypes.push_back(TGT_MAP_TO | TGT_MAP_TARGET_PARAM);
+      MapTypes.push_back(generateDefaultMap());
     }
   }
 
@@ -414,7 +425,7 @@ void VPOParoptTransform::GenTgtInformationForPtrs(
         continue;
       Type *T = IntelGeneralUtils::getSizeTTy(F);
       ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
-      MapTypes.push_back(TGT_MAP_PRIVATE | TGT_MAP_TARGET_PARAM);
+      MapTypes.push_back(TGT_MAP_LITERAL | TGT_MAP_TARGET_PARAM | TGT_MAP_IMPLICIT);
     }
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {
@@ -544,18 +555,18 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     bool IsFirstExprFlag = true;
 
     if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
-      GenTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
+      genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
                                hasRuntimeEvaluationCaptureSize,
                                IsFirstExprFlag);
     else {
       for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
-        GenTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes,
+        genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes,
                                  hasRuntimeEvaluationCaptureSize,
                                  IsFirstExprFlag);
       }
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
-        GenTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
+        genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
                                  MapTypes, hasRuntimeEvaluationCaptureSize,
                                  IsFirstExprFlag);
     }

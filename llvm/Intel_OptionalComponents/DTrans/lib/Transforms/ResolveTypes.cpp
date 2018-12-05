@@ -66,6 +66,7 @@ using namespace llvm;
 #define DTRT_COMPAT_VERBOSE "dtrans-resolvetypes-compat-verbose"
 
 namespace {
+class CompatibleTypeAnalyzer;
 
 // Check to see if the specified name ends with a suffix consisting of a '.'
 // and one or more digits. If it does, return the name without the suffix.
@@ -106,6 +107,70 @@ bool typesHaveSameBaseName(StructType *StTyA, StructType *StTyB) {
     return false;
   return getTypeBaseName(StTyA->getName())
       .equals(getTypeBaseName(StTyB->getName()));
+}
+
+// If \p Ty refers to a structure type (potentially with some level of
+// indirection or array usage), return the StructureType, otherwise nullptr.
+llvm::StructType *getContainedStructTy(llvm::Type *Ty) {
+  auto *BaseTy = Ty;
+  while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy()) {
+    if (BaseTy->isPointerTy())
+      BaseTy = BaseTy->getPointerElementType();
+    else
+      BaseTy = BaseTy->getSequentialElementType();
+  }
+  return dyn_cast<StructType>(BaseTy);
+}
+
+// Collect all the named structure types that are reachable in the IR into \p
+// SeenTypes
+//
+// The method Module::getIdentifiedStructTypes() may not return some
+// structures that are nested inside of other types. This function will
+// include those.
+//
+// TODO: This function should be moved to be a utility within DTransOptBase
+// to allow the base class to gather all the structure types without depending
+// on the DTransAnalysis class to visit all the IR.
+void collectAllStructTypes(Module &M,
+                           SetVector<llvm::StructType *> &SeenTypes) {
+  std::function<void(StructType *)> findMissedNestedTypes =
+      [&](StructType *Ty) {
+        for (Type *ElemTy : Ty->elements()) {
+          // Look past pointer, array, and vector wrappers.
+          // If the element is a structure, add it to the SeenTypes set.
+          // If it wasn't already there, check for nested types.
+          if (StructType *ElemStTy = getContainedStructTy(ElemTy))
+            if (SeenTypes.insert(ElemStTy))
+              findMissedNestedTypes(ElemStTy);
+        }
+        if (!Ty->hasName())
+          return;
+        StringRef TyName = Ty->getName();
+        StringRef BaseName = getTypeBaseName(TyName);
+        // If the type name didn't have a suffix, TyName and BaseName will be
+        // the same. Checking the size is sufficient.
+        if (TyName.size() == BaseName.size())
+          return;
+        // Add the base type now. This might be the only way it is found.
+        StructType *BaseTy = M.getTypeByName(BaseName);
+        if (!BaseTy || !SeenTypes.insert(BaseTy))
+          return;
+        findMissedNestedTypes(BaseTy);
+      };
+
+  // Sometimes previous optimizations will have left types that are not
+  // used in a way that allows Module::getIndentifiedStructTypes() to find
+  // them. This can confuse our mapping algorithm, so here we check for
+  // missing types and add them to the set we're looking at. In order to
+  // consistently choose the same target type for equivalent types and
+  // compatible types, a SetVector is used for collecting the available types.
+  for (StructType *Ty : M.getIdentifiedStructTypes()) {
+    // If we've seen this type already, skip it.
+    if (!SeenTypes.insert(Ty))
+      continue;
+    findMissedNestedTypes(Ty);
+  }
 }
 
 class DTransResolveTypesWrapper : public ModulePass {
@@ -159,6 +224,13 @@ private:
   // remapped because we are merging them with another type.
   DenseMap<StructType *, StructType *> IdentityDestMapping;
 
+  // This map contains a mapping for all the types that are going to be remapped
+  // via the OrigToNewTypeMapping map. However, this mapping is from the
+  // original type to the resolved type for the structure. Each type that is
+  // going to be remapped will resolve to either itself, an equivalent type, or
+  // a compatible type.
+  DenseMap<StructType *, StructType *> OrigTypeToResolvedType;
+
   enum CompareResult {
     Equivalent, // The types have equivalent members in every field
     Compatible, // The types are equivalent except for pointer types of members
@@ -176,6 +248,56 @@ private:
       DenseSet<std::pair<StructType *, StructType *>> &DependentMappings);
   void addTypeMapping(StructType *SrcTy, StructType *DestTy);
   bool hasBeenRemapped(StructType *Ty);
+
+  // Collect all the structure types that are passed to an external function
+  // into the container \p ExternTypes.
+  void collectExternalStructTypes(Module &M,
+                                  SmallPtrSetImpl<StructType *> &ExternTypes);
+
+  // Walk the set of \p SeenTypes to identify sets of structures that may be
+  // related to one another based on a common base name with a numeric suffix
+  // appended. These may be candidates for the transformation. Any type within
+  // the \p ExternTypes container will be excluded from consideration.
+  //
+  // Store the candidates into the container \p CandidateTypeSets, where the key
+  // will be a structure type with no suffix, and the value will be the set of
+  // types that share the common base name.
+  void identifyCandidateSets(
+      Module &M, SetVector<StructType *> &SeenTypes,
+      SmallPtrSetImpl<StructType *> &ExternTypes,
+      DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets);
+
+  // Examine the \p CandidateTypeSets to determine which types are equivalent
+  // and which types are compatible. Refer to the description of compareTypes
+  // for the distinction between "equivalent" and "compatible". For equivalent
+  // types, this routine will add them to the TypeRemapper to define the mapping
+  // that will occur for them. For compatible types, the \p CompatibleTypes
+  // container will be populated with them.
+  //
+  // Returns 'true' if equivalent types are added to the TypeRemapper to
+  // indicate IR changes will take place. Just finding compatible types does not
+  // cause it to return 'true' because it is still unknown whether any IR
+  // changes will take place, that will be determined in the
+  // remapCompatibleTypes
+  // routine.
+  bool identifyEquivalentAndCompatibleTypes(
+      DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
+      SmallPtrSetImpl<StructType *> &ExternTypes,
+      EquivalenceClasses<StructType *> &CompatibleTypes);
+
+  bool remapCompatibleTypes(CompatibleTypeAnalyzer &CTA,
+                            EquivalenceClasses<StructType *> &CompatibleTypes);
+
+  bool resolveNestedTypes(StructType *Ty, StructType *RemapTy,
+                          EquivalenceClasses<StructType *> &CompatibleTypes,
+                          CompatibleTypeAnalyzer &CTA,
+                          DenseMap<StructType *, StructType *> &PendingRemaps);
+
+  bool
+  canResolveTypeToType(StructType *Ty, StructType *RemapTy,
+                       EquivalenceClasses<StructType *> &CompatibleTypes,
+                       CompatibleTypeAnalyzer &CTA,
+                       DenseMap<StructType *, StructType *> &PendingRemaps);
 };
 
 // This class analyzes all globals and functions in the module to see if any
@@ -235,7 +357,6 @@ public:
   // cast to C. In those cases we will continue to follow the bitcast chain
   // as long as the conditions above are met.
   StructType *getRemapCandidate(StructType *Ty) {
-    unsigned NumElements = Ty->getNumElements();
     const TypeUseInfo &CurUseInfo = TypeUseInfoMap[Ty];
     SmallPtrSet<StructType *, 4> VisitedTypes;
 
@@ -265,43 +386,85 @@ public:
       }
 
       if (!CompatibleTypes.isEquivalent(Ty, MaybeTy)) {
-          DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
-                          dbgs() << "DTRT-compat: Rejecting mapping ("
-                          << Ty->getName() << " -> " << MaybeTy->getName()
-                          << " because the types are not compatible.\n");
-          break;
-      }
-
-      const TypeUseInfo &MaybeUseInfo = TypeUseInfoMap[MaybeTy];
-
-      assert((NumElements == MaybeTy->getNumElements()) &&
-             "Compatible types found with mismatch element count!");
-      SmallBitVector ConflictingFields(NumElements);
-      // TODO: We should be checking for remapped equivalent types here.
-      for (unsigned Idx = 0; Idx < NumElements; ++Idx)
-        if (MaybeTy->getElementType(Idx) != Ty->getElementType(Idx))
-          ConflictingFields.set(Idx);
-
-      // If any of the previous types in the chain were used to access any
-      // of the fields that are in conflict, we can't use this mapping.
-      if (FieldsUsed.anyCommon(ConflictingFields)) {
         DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
                         dbgs() << "DTRT-compat: Rejecting mapping ("
                                << Ty->getName() << " -> " << MaybeTy->getName()
-                               << " because of conflicting field access.\n");
+                               << ") because the types are not compatible.\n");
         break;
       }
 
-      // If the type is accessed by a non-constant GEP, don't remap past it.
-      if (MaybeUseInfo.HasNonConstantIndexAccess)
+      if (hasUseInfoConflicts(Ty, MaybeTy, FieldsUsed)) {
+        DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
+                        dbgs() << "DTRT-compat: Rejecting mapping ("
+                               << Ty->getName() << " -> " << MaybeTy->getName()
+                               << ") because of conflicting field access.\n");
         break;
+      }
 
       MapToTy = MaybeTy;
+
+      // Accumulate the field usage from this bitcast type because if any of the
+      // fields are used to access any of the conflict types along the
+      // chain of bitcasts, we can't use this mapping.
+      const TypeUseInfo &MaybeUseInfo = TypeUseInfoMap[MaybeTy];
       FieldsUsed |= MaybeUseInfo.NonScalarFieldsUsed;
       FnBitcastToSet = &(TypeUseInfoMap[MapToTy].FnBitcastToSet);
     }
 
     return MapToTy;
+  }
+
+  // Check the information that was collected in the TypeUseInfoMap to determine
+  // whether \p Ty cannot be replaced with \p MaybeTy.
+  //
+  // If a field within \p MaybeTy is marked as used, and does not have same
+  // data type as the field within \p Ty, then if the field is also used by \p
+  // Ty, a remapping cannot occur.
+  //
+  // This version of the function takes a list of fields that are to be checked
+  // in \p FieldsUsed, which must be a superset of the fields used by \p Ty.
+  // This is to facilitate using this function when there are cascading bitcast
+  // types that affect the set of fields that need to be checked, and the used
+  // fields for each of the bitcast types needs to be evaluated.
+  //
+  // Return 'true' if \p Ty cannot be remapped to \p MaybeTy.
+  bool hasUseInfoConflicts(StructType *Ty, StructType *MaybeTy,
+                           const SmallBitVector &FieldsUsed) {
+    const TypeUseInfo &MaybeUseInfo = TypeUseInfoMap[MaybeTy];
+
+    unsigned NumElements = Ty->getNumElements();
+    assert((NumElements == MaybeTy->getNumElements()) &&
+           "Compatible types found with mismatch element count!");
+    SmallBitVector ConflictingFields(NumElements);
+    // TODO: We should be checking for remapped equivalent types here.
+    for (unsigned Idx = 0; Idx < NumElements; ++Idx)
+      if (MaybeTy->getElementType(Idx) != Ty->getElementType(Idx))
+        ConflictingFields.set(Idx);
+
+    // If any of the field accesses are in conflict, we can't use this mapping.
+    if (FieldsUsed.anyCommon(ConflictingFields))
+      return true;
+
+    // If the type is accessed by a non-constant GEP, don't remap past it.
+    if (MaybeUseInfo.HasNonConstantIndexAccess)
+      return true;
+
+    return false;
+  }
+
+  // Check the information that was collected in the TypeUseInfoMap to determine
+  // whether \p Ty cannot be replaced with \p MaybeTy.
+  //
+  // This version of the function directly uses the field usage of \p Ty, rather
+  // than working with a list of fields built up from cascading bitcasts.
+  //
+  // Return 'true' if \p Ty cannot be remapped to \p MaybeTy.
+  bool hasUseInfoConflicts(StructType *Ty, StructType *MaybeTy) {
+    assert(CompatibleTypes.isEquivalent(Ty, MaybeTy) &&
+           "Only compatible types can be checked for conflicts");
+
+    const TypeUseInfo &CurUseInfo = TypeUseInfoMap[Ty];
+    return hasUseInfoConflicts(Ty, MaybeTy, CurUseInfo.NonScalarFieldsUsed);
   }
 
   // Here we look at the global variables and aliases in the module to
@@ -426,16 +589,16 @@ private:
     // tracked by this TypeUseInfo object.
     //
     // i.e. We saw a bitcast from the TypeUseInfoType *to* the set entry type.
-    SmallPtrSet<Type *, 4> BitcastToSet;
-    SmallPtrSet<Type *, 4> FnBitcastToSet;
+    SetVector<Type *> BitcastToSet;
+    SetVector<Type *> FnBitcastToSet;
 
     // Each type in this set is a type that was seen as the source of
     // a bitcast (or implicit conversion in a bitcast call) to the type
     // tracked by this TypeUseInfo object.
     //
     // i.e. We saw a bitcast *from* the set entry type to the TypeUseInfo type.
-    SmallPtrSet<Type *, 4> BitcastFromSet;
-    SmallPtrSet<Type *, 4> FnBitcastFromSet;
+    SetVector<Type *> BitcastFromSet;
+    SetVector<Type *> FnBitcastFromSet;
 
     // This value indicates whether or not we saw a GEP access to the type
     // using a non-constant index.
@@ -454,22 +617,47 @@ private:
   // testing.
   LLVM_DUMP_METHOD
   void dumpCollectedData() {
+    auto CompareStructName = [](StructType *ElemA, StructType *ElemB) {
+      return ElemA->getName() < ElemB->getName();
+    };
+
     dbgs() << "\n========================\n";
     dbgs() << " DTRT-compat: Type data\n";
     dbgs() << "========================\n\n";
-    // Iterate over all of the equivalence sets.
-    for (EquivalenceClasses<StructType *>::iterator I = CompatibleTypes.begin(),
-                                                    E = CompatibleTypes.end();
-         I != E; ++I) {
+
+    // Iterate over all of the equivalence sets finding the starting element for
+    // each group, known as a "Leader" in the EquivalenceClasses class
+    // terminology.
+    SmallVector<StructType *, 16> SetLeaders;
+    for (auto I = CompatibleTypes.begin(), E = CompatibleTypes.end(); I != E;
+         ++I) {
       // A "Leader" in an EquivalenceClasses set is just the first entry
       // in a group of entries that have been marked as belonging together.
       // It serves as the head of a linked list.
       if (!I->isLeader())
         continue; // Skip over non-leader sets.
-      dbgs() << "    ===== Group =====\n\n";
+      SetLeaders.emplace_back(I->getData());
+    }
+
+    // Sort the leaders based on the structure's name. Only named structures
+    // are maintained in the CompatibleTypes set.
+    std::sort(SetLeaders.begin(), SetLeaders.end(), CompareStructName);
+
+    // Output each group.
+    for (auto *LeaderTy : SetLeaders) {
+
+      // Get all the members of the group, and sort those by name to prepare
+      // for outputting them.
+      auto I = CompatibleTypes.findValue(LeaderTy);
+
       auto MI = CompatibleTypes.member_begin(I);
       auto ME = CompatibleTypes.member_end();
-      StructType *LeaderTy = *MI;
+      SmallVector<StructType *, 8> SetMembers;
+      for (; MI != ME; ++MI)
+        SetMembers.emplace_back(*MI);
+      std::sort(SetMembers.begin(), SetMembers.end(), CompareStructName);
+
+      dbgs() << "    ===== Group =====\n\n";
       unsigned NumElements = LeaderTy->getNumElements();
       dbgs() << "\n" << LeaderTy->getName() << "\n";
       dbgs() << *LeaderTy << "\n";
@@ -486,8 +674,7 @@ private:
 
       // Loop over members in this set.
       SmallBitVector ConflictingFields;
-      while (MI != ME) {
-        StructType *Ty = *MI;
+      for (auto *Ty : SetMembers) {
         dbgs() << Ty->getName() << "\n";
 
         TypeUseInfo &UseInfo = TypeUseInfoMap[Ty];
@@ -527,7 +714,7 @@ private:
         }
 
         dbgs() << "  Bitcast to:";
-        SmallPtrSetImpl<Type *> &CastTo = UseInfo.BitcastToSet;
+        auto &CastTo = UseInfo.BitcastToSet;
         if (CastTo.empty()) {
           dbgs() << " None\n";
         } else {
@@ -542,7 +729,7 @@ private:
         }
 
         dbgs() << "  Bitcast from:";
-        SmallPtrSetImpl<Type *> &CastFrom = UseInfo.BitcastFromSet;
+        auto &CastFrom = UseInfo.BitcastFromSet;
         if (CastFrom.empty()) {
           dbgs() << " None\n";
         } else {
@@ -557,7 +744,7 @@ private:
         }
 
         dbgs() << "  Fn Bitcast to:";
-        SmallPtrSetImpl<Type *> &FnCastTo = UseInfo.FnBitcastToSet;
+        auto &FnCastTo = UseInfo.FnBitcastToSet;
         if (FnCastTo.empty()) {
           dbgs() << " None\n";
         } else {
@@ -572,7 +759,7 @@ private:
         }
 
         dbgs() << "  Fn Bitcast from:";
-        SmallPtrSetImpl<Type *> &FnCastFrom = UseInfo.FnBitcastFromSet;
+        auto &FnCastFrom = UseInfo.FnBitcastFromSet;
         if (FnCastFrom.empty()) {
           dbgs() << " None\n";
         } else {
@@ -594,7 +781,6 @@ private:
                  << "\n";
 
         dbgs() << "\n";
-        ++MI;
       }
       dbgs() << "\n    =================\n\n";
     }
@@ -816,25 +1002,42 @@ ModulePass *llvm::createDTransResolveTypesWrapperPass() {
 // we will only create opaque replacement types for the types to be remapped.
 // The types will be populated when the base class calls populateTypes.
 bool ResolveTypesImpl::prepareTypes(Module &M) {
-
-  auto getContainedStructTy = [](Type *Ty) {
-    auto *BaseTy = Ty;
-    while (BaseTy->isPointerTy() || BaseTy->isArrayTy() ||
-           BaseTy->isVectorTy()) {
-      if (BaseTy->isPointerTy())
-        BaseTy = BaseTy->getPointerElementType();
-      else
-        BaseTy = BaseTy->getSequentialElementType();
-    }
-    return dyn_cast<StructType>(BaseTy);
-  };
-
   SmallPtrSet<StructType *, 32> ExternTypes;
+  collectExternalStructTypes(M, ExternTypes);
 
+  SetVector<StructType *> SeenTypes;
+  collectAllStructTypes(M, SeenTypes);
+
+  DenseMap<StructType *, SetVector<StructType *>> CandidateTypeSets;
+  identifyCandidateSets(M, SeenTypes, ExternTypes, CandidateTypeSets);
+  if (CandidateTypeSets.empty())
+    return false;
+
+  bool TypesRemapped = false;
+  EquivalenceClasses<StructType *> CompatibleTypes;
+  TypesRemapped = identifyEquivalentAndCompatibleTypes(
+      CandidateTypeSets, ExternTypes, CompatibleTypes);
+
+  if (CompatibleTypes.getNumClasses()) {
+    CompatibleTypeAnalyzer CTA(M, CompatibleTypes);
+    CTA.run();
+    TypesRemapped |= remapCompatibleTypes(CTA, CompatibleTypes);
+    // TODO: Use the CompatibleTypeAnalyzer data to select types to map.
+  }
+
+  return TypesRemapped;
+}
+
+void ResolveTypesImpl::collectExternalStructTypes(
+    Module &M, SmallPtrSetImpl<StructType *> &ExternTypes) {
   std::function<void(StructType *)> addExternalType = [&](StructType *Ty) {
     // If this type was already in the set, don't bother with its dependencies.
     if (!ExternTypes.insert(Ty).second)
       return;
+
+    DEBUG_WITH_TYPE(DTRT_VERBOSE,
+                    dbgs() << "Identified external type: " << *Ty << "\n");
+
     // Add any structure types this type contains.
     for (auto *MemberType : Ty->elements())
       if (auto *ElemStTy = getContainedStructTy(MemberType))
@@ -857,45 +1060,16 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
           addExternalType(ParamST);
     }
   }
+}
 
-  // Sometimes previous optimizations will have left types that are not
-  // used in a way that allows Module::getIndentifiedStructTypes() to find
-  // them. This can confuse our mapping algorithm, so here we check for
-  // missing types and add them to the set we're looking at.
-  std::vector<StructType *> StTypes = M.getIdentifiedStructTypes();
-  SmallPtrSet<StructType *, 32> SeenTypes;
-  std::function<void(StructType *)> findMissedNestedTypes =
-      [&](StructType *Ty) {
-        for (Type *ElemTy : Ty->elements()) {
-          // Look past pointer, array, and vector wrappers.
-          // If the element is a structure, add it to the SeenTypes set.
-          // If it wasn't already there, check for nested types.
-          if (StructType *ElemStTy = getContainedStructTy(ElemTy))
-            if (SeenTypes.insert(ElemStTy).second)
-              findMissedNestedTypes(ElemStTy);
-        }
-        if (!Ty->hasName())
-          return;
-        StringRef TyName = Ty->getName();
-        StringRef BaseName = getTypeBaseName(TyName);
-        // If the type name didn't have a suffix, TyName and BaseName will be
-        // the same. Checking the size is sufficient.
-        if (TyName.size() == BaseName.size())
-          return;
-        // Add the base type now. This might be the only way it is found.
-        StructType *BaseTy = M.getTypeByName(BaseName);
-        if (!BaseTy || !SeenTypes.insert(BaseTy).second)
-          return;
-        findMissedNestedTypes(BaseTy);
-      };
-  for (StructType *Ty : M.getIdentifiedStructTypes()) {
-    // If we've seen this type already, skip it.
-    if (!SeenTypes.insert(Ty).second)
-      continue;
-    findMissedNestedTypes(Ty);
-  }
+void ResolveTypesImpl::identifyCandidateSets(
+    Module &M, SetVector<StructType *> &SeenTypes,
+    SmallPtrSetImpl<StructType *> &ExternTypes,
+    DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets) {
 
-  DenseMap<StructType *, SetVector<StructType *>> CandidateTypeSets;
+  // Based on the names of the structures, identify a set of structures
+  // that may be related to one another as either being identical copies
+  // or as being type compatible.
   for (StructType *Ty : SeenTypes) {
     // Ignore unnamed types.
     if (!Ty->hasName())
@@ -920,7 +1094,8 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
       continue;
     }
 
-    // Don't try to remap types with external uses.
+    // Do not treat type with external uses as candidates because these cannot
+    // be remapped to a new name.
     if (ExternTypes.count(Ty))
       continue;
 
@@ -929,40 +1104,41 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
                            << TyName << " -> " << BaseName << "\n");
     CandidateTypeSets[BaseTy].insert(Ty);
   }
+}
 
-  if (CandidateTypeSets.empty())
-    return false;
-
-  // For groups of functions with the same name, try to remap equivalent
-  // types to one another. The tryToMapTypes function will perform the
-  // remapping if possible. If the types are compatible but not equivalent
-  // tryToMapTypes will add them to the CompatibleTypes data structure.
-  //
-  // EquivalenceClasses is an LLVM-defined data structure that is a hybrid of
-  // a set and a linked list. Each element in the set is an ECValue object
-  // that contains the actual data (StructType*, in our case) and pointers
-  // to previous and next ECValues in the set that have been determined to
-  // be "equivalent" by the terms of the EquivalenceClasses user (which in our
-  // case actually means the types are compatible, not equivalent).
-  //
-  // The CompatibleTypes data structure thus provides an efficient way for us
-  // to group together structure types that we will later compare against
-  // one another to see if they should be remapped.
-  //
-  // CandidateTypeSets is a collection of structure types grouped into sets
-  // where each member has the same base name as the other types in the set,
-  // distinguished by a numeric suffix. CandidateTypeSets is implemented as
-  // a map, where the key is the structure type with the base name and the
-  // value is the set of types with similar names.
-  //
-  // For each type in a candidate set, if the type is equivalent to the base
-  // type, we will remap to the base type. If not, we will compare it to
-  // any other type from the original candidate set that also did not match
-  // the base type or any other type from the set we have previously considered.
-  // If it is not equivalent to any of these, it will be added to the set of
-  // alternatives.
+// For groups of functions with the same name, try to remap equivalent
+// types to one another. The tryToMapTypes function will perform the
+// remapping if possible. If the types are compatible but not equivalent
+// tryToMapTypes will add them to the CompatibleTypes data structure.
+//
+// EquivalenceClasses is an LLVM-defined data structure that is a hybrid of
+// a set and a linked list. Each element in the set is an ECValue object
+// that contains the actual data (StructType*, in our case) and pointers
+// to previous and next ECValues in the set that have been determined to
+// be "equivalent" by the terms of the EquivalenceClasses user (which in our
+// case actually means the types are compatible, not equivalent).
+//
+// The CompatibleTypes data structure thus provides an efficient way for us
+// to group together structure types that we will later compare against
+// one another to see if they should be remapped.
+//
+// CandidateTypeSets is a collection of structure types grouped into sets
+// where each member has the same base name as the other types in the set,
+// distinguished by a numeric suffix. CandidateTypeSets is implemented as
+// a map, where the key is the structure type with the base name and the
+// value is the set of types with similar names.
+//
+// For each type in a candidate set, if the type is equivalent to the base
+// type, we will remap to the base type. If not, we will compare it to
+// any other type from the original candidate set that also did not match
+// the base type or any other type from the set we have previously considered.
+// If it is not equivalent to any of these, it will be added to the set of
+// alternatives.
+bool ResolveTypesImpl::identifyEquivalentAndCompatibleTypes(
+    DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
+    SmallPtrSetImpl<StructType *> &ExternTypes,
+    EquivalenceClasses<StructType *> &CompatibleTypes) {
   bool TypesRemapped = false;
-  EquivalenceClasses<StructType *> CompatibleTypes;
   for (auto Entry : CandidateTypeSets) {
     StructType *BaseTy = Entry.first;
 
@@ -1007,66 +1183,251 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
     }
   }
 
-  if (CompatibleTypes.getNumClasses()) {
-    CompatibleTypeAnalyzer CTA(M, CompatibleTypes);
-    CTA.run();
+  return TypesRemapped;
+}
 
-    for (EquivalenceClasses<StructType *>::iterator I = CompatibleTypes.begin(),
-                                                    E = CompatibleTypes.end();
-         I != E; ++I) {
-      if (!I->isLeader())
-        continue; // Skip over non-leader sets.
-      for (auto MI = CompatibleTypes.member_begin(I),
-                ME = CompatibleTypes.member_end();
-           MI != ME; ++MI) {
-        auto *Ty = *MI;
+// Analyze the elements of the \p CompatibleTypes container, and add types
+// that are to be remapped to the TypeRemapper.
+// Returns 'true' if types are added to the TypeRemapper.
+bool ResolveTypesImpl::remapCompatibleTypes(
+    CompatibleTypeAnalyzer &CTA,
+    EquivalenceClasses<StructType *> &CompatibleTypes) {
+  bool TypesRemapped = false;
+  DenseMap<StructType *, StructType *> PendingRemaps;
 
-        // If we've already mapped this type, don't try to map it to something
-        // different.
-        if (OrigToNewTypeMapping.count(Ty)) {
-          DEBUG_WITH_TYPE(DTRT_COMPAT, {
-            auto *RemapTy = CTA.getRemapCandidate(Ty);
-            if (Ty != RemapTy)
-              dbgs() << "Not remapping " << Ty->getName() << " -> "
-                     << RemapTy->getName()
-                     << " because the source was previously remapped to:\n"
-                     << "   " << OrigToNewTypeMapping[Ty]->getName() << "\n";
-          });
-          continue;
-        }
+  // Get a list of the leader types, sorted by name, so that analyzing and
+  // remapping of compatible types will be in a deterministic order. This is
+  // necessary because nested types will be evaluated when they are first
+  // encountered and an attempt will be made to map them to a desired type at
+  // that time.
+  SmallVector<StructType *, 16> SetLeaders;
+  for (auto I = CompatibleTypes.begin(), E = CompatibleTypes.end(); I != E;
+       ++I) {
+    if (!I->isLeader())
+      continue; // Skip over non-leader sets.
+    SetLeaders.emplace_back(I->getData());
+  }
+  std::sort(SetLeaders.begin(), SetLeaders.end(),
+            [](const StructType *ElemA, const StructType *ElemB) {
+              return ElemA->getName() < ElemB->getName();
+            });
 
-        // Try a heuristic to see if we think this type should be remapped.
-        auto *RemapTy = CTA.getRemapCandidate(Ty);
-        if (Ty == RemapTy)
-          continue;
+  for (auto *LeaderTy : SetLeaders) {
+    auto I = CompatibleTypes.findValue(LeaderTy);
+    for (auto MI = CompatibleTypes.member_begin(I),
+              ME = CompatibleTypes.member_end();
+         MI != ME; ++MI) {
+      auto *Ty = *MI;
 
-        // In order to remap these types, we need to perform the same
-        // direction remapping of all nested types. Make sure that's possible
-        // before we start.
+      // If we've already mapped this type, don't try to map it to something
+      // different.
+      if (OrigToNewTypeMapping.count(Ty)) {
+        DEBUG_WITH_TYPE(DTRT_COMPAT, {
+          auto *RemapTy = CTA.getRemapCandidate(Ty);
+          if (Ty != RemapTy)
+            dbgs() << "Not remapping " << Ty->getName() << " -> "
+                   << RemapTy->getName()
+                   << " because the source was previously remapped to:\n"
+                   << "   " << OrigToNewTypeMapping[Ty]->getName() << "\n";
+        });
+        continue;
+      }
 
-        // If the candidate type has been remapped, don't use it because the
-        // heuristic only verifies this one type.
-        if (hasBeenRemapped(RemapTy)) {
-          DEBUG_WITH_TYPE(DTRT_COMPAT,
-                          dbgs() << "Not remapping " << Ty->getName() << " -> "
-                                 << RemapTy->getName() << " because the "
-                                 << "destination was previously remapped.\n");
-          continue;
-        }
+      // Try a heuristic to see if we think this type should be remapped.
+      auto *RemapTy = CTA.getRemapCandidate(Ty);
+      if (Ty == RemapTy)
+        continue;
 
-        // If the source type has been mapped, don't map it again.
-        if (OrigToNewTypeMapping.count(Ty))
-          continue;
+      // If the candidate type has been remapped, don't use it because the
+      // heuristic only verifies this one type.
+      if (hasBeenRemapped(RemapTy)) {
+        DEBUG_WITH_TYPE(DTRT_COMPAT,
+                        dbgs() << "Not remapping " << Ty->getName() << " -> "
+                               << RemapTy->getName() << " because the "
+                               << "destination was previously remapped.\n");
+        continue;
+      }
 
-        // Otherwise, try to apply the mapping.
-        addTypeMapping(Ty, RemapTy);
+      // In order to remap these types, we need to perform the same
+      // direction remapping of all nested types. Make sure that's possible
+      // before we start, and collect any additional mappings that need to be
+      // performed into PendingRemaps.
+      PendingRemaps.clear();
+      PendingRemaps.insert({Ty, RemapTy});
+      if (resolveNestedTypes(Ty, RemapTy, CompatibleTypes, CTA,
+                             PendingRemaps)) {
         TypesRemapped = true;
+        for (auto &TyPair : PendingRemaps)
+          addTypeMapping(TyPair.first, TyPair.second);
       }
     }
-    // TODO: Use the CompatibleTypeAnalyzer data to select types to map.
   }
 
   return TypesRemapped;
+}
+
+// Analyze any nested structure elements of \p Ty and \p RemapTy to check
+// whether all of nested types within \p Ty can be remapped to the nested type
+// contained within \p RemapTy. If it is possible to perform the
+// remapping, return 'true', and update \p PendingRemaps with the set of
+// additional remappings which have not been performed yet for nested types
+// that must be done. Also, returns 'true' if there are no nested structures.
+bool ResolveTypesImpl::resolveNestedTypes(
+    StructType *Ty, StructType *RemapTy,
+    EquivalenceClasses<StructType *> &CompatibleTypes,
+    CompatibleTypeAnalyzer &CTA,
+    DenseMap<StructType *, StructType *> &PendingRemaps) {
+
+  // Strip any array/vector wrappers from the type, but do not walk pointer
+  // indirections.
+  auto GetUnderlyingStructTy = [](llvm::Type *Ty) {
+    auto *BaseTy = Ty;
+    while (BaseTy->isArrayTy() || BaseTy->isVectorTy()) {
+      BaseTy = BaseTy->getSequentialElementType();
+    }
+    return dyn_cast<StructType>(BaseTy);
+  };
+
+  // At this stage, a type remapping may have been committed to already or
+  // there could be a speculative type being planned based on the analysis of
+  // the nested types. In these cases, return the type that is/will be
+  // the resolved type for \p Ty. Otherwise, nullptr.
+  auto &OrigTypeToResolvedType = this->OrigTypeToResolvedType;
+  auto GetPlannedRemapType = [&OrigTypeToResolvedType,
+                              &PendingRemaps](StructType *Ty) -> StructType * {
+    // Check if a decision has already been committed for the type
+    auto Iter = OrigTypeToResolvedType.find(Ty);
+    if (Iter != OrigTypeToResolvedType.end())
+      return Iter->second;
+
+    // Check if a type mapping is pending
+    auto PendIter = PendingRemaps.find(Ty);
+    if (PendIter != PendingRemaps.end())
+      return PendIter->second;
+
+    return nullptr;
+  };
+
+  // Check any nested structure members that may get remapped to a compatible
+  // type to verify it's possible perform the same direction remapping of all
+  // nested types.
+  unsigned NumElements = Ty->getNumElements();
+  for (unsigned Idx = 0; Idx < NumElements; ++Idx) {
+    Type *FieldTy = Ty->getElementType(Idx);
+    Type *RemapFieldTy = RemapTy->getElementType(Idx);
+    if (FieldTy == RemapFieldTy)
+      continue;
+
+    // Only need to analyze nested structures.
+    StructType *FieldStTy = GetUnderlyingStructTy(Ty->getElementType(Idx));
+    if (!FieldStTy)
+      continue;
+
+    // If the nested structure is not potentially going to be remapped to a
+    // compatible type, nothing is needed to be checked. We can get here because
+    // it's possible that the types were not identical because they are
+    // equivalent types, which are already marked to be merged.
+    if (CompatibleTypes.findValue(FieldStTy) == CompatibleTypes.end())
+      continue;
+
+    StructType *RemapFieldStTy = GetUnderlyingStructTy(RemapFieldTy);
+    assert(RemapFieldStTy && "Type expected to be a structure type");
+
+    // If the field is already marked to go to the type contained in the
+    // target type, nothing further to analyze for this field. However,
+    // if the field is resolved to use some other type, we cannot continue
+    // with the proposed Ty to RemapTy mapping.
+    Type *PlannedRemap = GetPlannedRemapType(FieldStTy);
+    if (PlannedRemap) {
+      if (PlannedRemap == RemapFieldStTy) {
+        continue;
+      } else {
+        DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
+                        dbgs() << "DTRT-compat: Rejecting mapping ("
+                               << Ty->getName() << " -> " << RemapTy->getName()
+                               << ") because type nested field already "
+                                  "remapped to a different type.\n");
+        return false;
+      }
+    }
+
+    // There is no remapping planned yet for the nested field. Check whether
+    // the field type can be remapped to the type contained within the RemapTy
+    // structure. If not, then we cannot remap Ty to RemapTy because this can
+    // create problems later. For example:
+    //     %struct.A = type { %struct.B }
+    //     %struct.A.1 = type { %struct.B.1 }
+    //
+    // If %struct.A is mapped to %struct.A.1, but %struct.B is not mapped to
+    // %struct.B.1, we would have:
+    //     %struct.A.1 = type { %struct.B.1 }
+    //
+    // However, %struct.B may still be remain in the IR, if it is referenced
+    // from other types, but %struct.B may not be seen as a nested type any
+    // longer. This can cause problems because struct.B could be eligible for
+    // field deletion, which would make it no longer a compatible type of
+    // %struct.B.1.
+    DEBUG_WITH_TYPE(
+        DTRT_COMPAT_VERBOSE,
+        dbgs() << "DTRT-compat: Evaluating nested structure within: "
+               << Ty->getName() << "\n  : " << FieldStTy->getName() << "\n");
+
+    // This check will update PendingRemaps, with this field and any fields
+    // nested within it.
+    if (!canResolveTypeToType(FieldStTy, RemapFieldStTy, CompatibleTypes, CTA,
+                              PendingRemaps)) {
+      DEBUG_WITH_TYPE(
+          DTRT_COMPAT_VERBOSE,
+          dbgs() << "DTRT-compat: Rejecting mapping (" << Ty->getName()
+                 << " -> " << RemapTy->getName()
+                 << ") because nested field type could not be remapped.\n");
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Analyze whether \p Ty can be resolved to \p RemapTy. If so, return 'true',
+// and update \p PendingRemaps with the set of additional remappings which
+// have not been performed yet for nested types that must be done.
+bool ResolveTypesImpl::canResolveTypeToType(
+    StructType *Ty, StructType *RemapTy,
+    EquivalenceClasses<StructType *> &CompatibleTypes,
+    CompatibleTypeAnalyzer &CTA,
+    DenseMap<StructType *, StructType *> &PendingRemaps) {
+
+  if (!CompatibleTypes.isEquivalent(Ty, RemapTy)) {
+    DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
+                    dbgs() << "DTRT-compat: Rejecting mapping ("
+                           << Ty->getName() << " -> " << RemapTy->getName()
+                           << " ) because the types are not compatible.\n  "
+                           << Ty->getName() << " -> " << RemapTy->getName()
+                           << "\n");
+    return false;
+  }
+
+  if (CTA.hasUseInfoConflicts(Ty, RemapTy)) {
+    DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
+                    dbgs() << "DTRT-compat: Rejecting mapping ("
+                           << Ty->getName() << " -> " << RemapTy->getName()
+                           << ") because nested field types do not resolve to "
+                              "candidate's nested field types.\n  "
+                           << Ty->getName() << " -> " << RemapTy->getName()
+                           << "\n");
+    return false;
+  }
+
+  // Record the field type as needing to be remapped, if the remapping of
+  // Ty to RemapTy is going to occur.
+  PendingRemaps.insert({Ty, RemapTy});
+
+  // Verify that any nested types remap in the same direction as this candidate
+  // mapping.
+  if (!resolveNestedTypes(Ty, RemapTy, CompatibleTypes, CTA, PendingRemaps))
+    return false;
+
+  return true;
 }
 
 // This function walks the members of two types that we would like to remap
@@ -1208,6 +1569,14 @@ void ResolveTypesImpl::addTypeMapping(StructType *SrcTy, StructType *DestTy) {
   assert(!OrigToNewTypeMapping.count(SrcTy) &&
          "Type mapping unexpectedly replaced!");
   OrigToNewTypeMapping[SrcTy] = ActualDestTy;
+
+  // We want to remember what type each type was resolved to using
+  // the original IR types to help lookup whether two types resolve to the same
+  // type when processing nested fields. We note the mapping for both the
+  // source type and dest type as being the dest type because they will both
+  // be using the replacement type of DestTy.
+  OrigTypeToResolvedType[SrcTy] = DestTy;
+  OrigTypeToResolvedType[DestTy] = DestTy;
 }
 
 // Given two structure types that we think might be equivalent, this function
