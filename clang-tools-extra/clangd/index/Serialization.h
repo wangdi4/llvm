@@ -37,8 +37,11 @@ enum class IndexFileFormat {
 
 // Holds the contents of an index file that was read.
 struct IndexFileIn {
+  using FileDigest = std::array<uint8_t, 20>;
   llvm::Optional<SymbolSlab> Symbols;
   llvm::Optional<RefSlab> Refs;
+  // Digest of the source file that generated the contents.
+  llvm::Optional<FileDigest> Digest;
 };
 // Parse an index file. The input must be a RIFF or YAML file.
 llvm::Expected<IndexFileIn> readIndexFile(llvm::StringRef);
@@ -47,6 +50,8 @@ llvm::Expected<IndexFileIn> readIndexFile(llvm::StringRef);
 struct IndexFileOut {
   const SymbolSlab *Symbols = nullptr;
   const RefSlab *Refs = nullptr;
+  // Digest of the source file that generated the contents.
+  const IndexFileIn::FileDigest *Digest = nullptr;
   // TODO: Support serializing Dex posting lists.
   IndexFileFormat Format = IndexFileFormat::RIFF;
 
@@ -65,7 +70,6 @@ std::string toYAML(const std::pair<SymbolID, ArrayRef<Ref>> &);
 // Build an in-memory static index from an index file.
 // The size should be relatively small, so data can be managed in memory.
 std::unique_ptr<SymbolIndex> loadIndex(llvm::StringRef Filename,
-                                       llvm::ArrayRef<std::string> URISchemes,
                                        bool UseDex = true);
 
 } // namespace clangd

@@ -19,8 +19,8 @@
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringSet.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/ValueHandle.h"
 
@@ -282,12 +282,21 @@ protected:
                               bool AtCurrentPoint = false);
   void clearLocThreadIdInsertPt(CodeGenFunction &CGF);
 
+  /// Check if the default location must be constant.
+  /// Default is false to support OMPT/OMPD.
+  virtual bool isDefaultLocationConstant() const { return false; }
+
+  /// Returns additional flags that can be stored in reserved_2 field of the
+  /// default location.
+  virtual unsigned getDefaultLocationReserved2Flags() const { return 0; }
+
 private:
   /// Default const ident_t object used for initialization of all other
   /// ident_t objects.
   llvm::Constant *DefaultOpenMPPSource = nullptr;
+  using FlagsTy = std::pair<unsigned, unsigned>;
   /// Map of flags and corresponding default locations.
-  typedef llvm::DenseMap<unsigned, llvm::Value *> OpenMPDefaultLocMapTy;
+  using OpenMPDefaultLocMapTy = llvm::DenseMap<FlagsTy, llvm::Value *>;
   OpenMPDefaultLocMapTy OpenMPDefaultLocMap;
   Address getOrCreateDefaultLocation(unsigned Flags);
 
@@ -602,7 +611,11 @@ private:
   OffloadEntriesInfoManagerTy OffloadEntriesInfoManager;
 
   bool ShouldMarkAsGlobal = true;
-  llvm::SmallDenseSet<const Decl *> AlreadyEmittedTargetFunctions;
+  /// List of the emitted functions.
+  llvm::StringSet<> AlreadyEmittedTargetFunctions;
+  /// List of the global variables with their addresses that should not be
+  /// emitted for the target.
+  llvm::StringMap<llvm::WeakTrackingVH> EmittedNonTargetVariables;
 
   /// List of variables that can become declare target implicitly and, thus,
   /// must be emitted.
@@ -679,10 +692,10 @@ private:
                                               const llvm::Twine &Name);
 
   /// Set of threadprivate variables with the generated initializer.
-  llvm::SmallPtrSet<const VarDecl *, 4> ThreadPrivateWithDefinition;
+  llvm::StringSet<> ThreadPrivateWithDefinition;
 
   /// Set of declare target variables with the generated initializer.
-  llvm::SmallPtrSet<const VarDecl *, 4> DeclareTargetWithDefinition;
+  llvm::StringSet<> DeclareTargetWithDefinition;
 
   /// Emits initialization code for the threadprivate variables.
   /// \param VDAddr Address of the global variable \a VD.
@@ -1549,6 +1562,11 @@ public:
   virtual void
   adjustTargetSpecificDataForLambdas(CodeGenFunction &CGF,
                                      const OMPExecutableDirective &D) const;
+
+  /// Perform check on requires decl to ensure that target architecture
+  /// supports unified addressing
+  virtual void checkArchForUnifiedAddressing(CodeGenModule &CGM,
+                                             const OMPRequiresDecl *D) const {}
 };
 
 /// Class supports emissionof SIMD-only code.

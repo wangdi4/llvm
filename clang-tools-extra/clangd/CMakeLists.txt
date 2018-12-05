@@ -19,6 +19,7 @@ add_clang_library(clangDaemon
   Context.cpp
   Diagnostics.cpp
   DraftStore.cpp
+  ExpectedTypes.cpp
   FindSymbols.cpp
   FileDistance.cpp
   FS.cpp
@@ -38,6 +39,7 @@ add_clang_library(clangDaemon
   XRefs.cpp
 
   index/Background.cpp
+  index/BackgroundIndexStorage.cpp
   index/CanonicalIncludes.cpp
   index/FileIndex.cpp
   index/Index.cpp
@@ -64,6 +66,24 @@ add_clang_library(clangDaemon
   clangLex
   clangSema
   clangSerialization
+  clangTidy
+  clangTidyAndroidModule
+  clangTidyAbseilModule
+  clangTidyBoostModule
+  clangTidyBugproneModule
+  clangTidyCERTModule
+  clangTidyCppCoreGuidelinesModule
+  clangTidyFuchsiaModule
+  clangTidyGoogleModule
+  clangTidyHICPPModule
+  clangTidyLLVMModule
+  clangTidyMiscModule
+  clangTidyModernizeModule
+  clangTidyObjCModule
+  clangTidyPerformanceModule
+  clangTidyPortabilityModule
+  clangTidyReadabilityModule
+  clangTidyZirconModule
   clangTooling
   clangToolingCore
   clangToolingInclusions

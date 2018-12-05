@@ -132,14 +132,20 @@ struct WebAssemblyOperand : public MCParsedAsmOperand {
 class WebAssemblyAsmParser final : public MCTargetAsmParser {
   MCAsmParser &Parser;
   MCAsmLexer &Lexer;
-  MCSymbolWasm *LastSymbol;
+
+  // Much like WebAssemblyAsmPrinter in the backend, we have to own these.
+  std::vector<std::unique_ptr<wasm::WasmSignature>> Signatures;
 
 public:
   WebAssemblyAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
                        const MCInstrInfo &MII, const MCTargetOptions &Options)
       : MCTargetAsmParser(Options, STI, MII), Parser(Parser),
-        Lexer(Parser.getLexer()), LastSymbol(nullptr) {
+        Lexer(Parser.getLexer()) {
     setAvailableFeatures(ComputeAvailableFeatures(STI.getFeatureBits()));
+  }
+
+  void addSignature(std::unique_ptr<wasm::WasmSignature> &&Sig) {
+    Signatures.push_back(std::move(Sig));
   }
 
 #define GET_ASSEMBLER_HEADER
@@ -169,26 +175,40 @@ public:
     return false;
   }
 
+  StringRef ExpectIdent() {
+    if (!Lexer.is(AsmToken::Identifier)) {
+      Error("Expected identifier, got: ", Lexer.getTok());
+      return StringRef();
+    }
+    auto Name = Lexer.getTok().getString();
+    Parser.Lex();
+    return Name;
+  }
 
-  std::pair<MVT::SimpleValueType, unsigned>
-  ParseRegType(const StringRef &RegType) {
-    // Derive type from .param .local decls, or the instruction itself.
-    return StringSwitch<std::pair<MVT::SimpleValueType, unsigned>>(RegType)
-        .Case("i32", {MVT::i32, wasm::WASM_TYPE_I32})
-        .Case("i64", {MVT::i64, wasm::WASM_TYPE_I64})
-        .Case("f32", {MVT::f32, wasm::WASM_TYPE_F32})
-        .Case("f64", {MVT::f64, wasm::WASM_TYPE_F64})
-        .Case("i8x16", {MVT::v16i8, wasm::WASM_TYPE_V128})
-        .Case("i16x8", {MVT::v8i16, wasm::WASM_TYPE_V128})
-        .Case("i32x4", {MVT::v4i32, wasm::WASM_TYPE_V128})
-        .Case("i64x2", {MVT::v2i64, wasm::WASM_TYPE_V128})
-        .Case("f32x4", {MVT::v4f32, wasm::WASM_TYPE_V128})
-        .Case("f64x2", {MVT::v2f64, wasm::WASM_TYPE_V128})
-        // arbitrarily chosen vector type to associate with "v128"
-        // FIXME: should these be EVTs to avoid this arbitrary hack? Do we want
-        // to accept more specific SIMD register types?
-        .Case("v128", {MVT::v16i8, wasm::WASM_TYPE_V128})
-        .Default({MVT::INVALID_SIMPLE_VALUE_TYPE, wasm::WASM_TYPE_NORESULT});
+  Optional<wasm::ValType> ParseType(const StringRef &Type) {
+    // FIXME: can't use StringSwitch because wasm::ValType doesn't have a
+    // "invalid" value.
+    if (Type == "i32") return wasm::ValType::I32;
+    if (Type == "i64") return wasm::ValType::I64;
+    if (Type == "f32") return wasm::ValType::F32;
+    if (Type == "f64") return wasm::ValType::F64;
+    if (Type == "v128" || Type == "i8x16" || Type == "i16x8" ||
+        Type == "i32x4" || Type == "i64x2" || Type == "f32x4" ||
+        Type == "f64x2") return wasm::ValType::V128;
+    return Optional<wasm::ValType>();
+  }
+
+  bool ParseRegTypeList(SmallVectorImpl<wasm::ValType> &Types) {
+    while (Lexer.is(AsmToken::Identifier)) {
+      auto Type = ParseType(Lexer.getTok().getString());
+      if (!Type)
+        return true;
+      Types.push_back(Type.getValue());
+      Parser.Lex();
+      if (!IsNext(AsmToken::Comma))
+        break;
+    }
+    return false;
   }
 
   void ParseSingleInteger(bool IsNegative, OperandVector &Operands) {
@@ -314,10 +334,9 @@ public:
     return false;
   }
 
-  void onLabelParsed(MCSymbol *Symbol) override {
-    LastSymbol = cast<MCSymbolWasm>(Symbol);
-  }
-
+  // This function processes wasm-specific directives streamed to
+  // WebAssemblyTargetStreamer, all others go to the generic parser
+  // (see WasmAsmParser).
   bool ParseDirective(AsmToken DirectiveID) override {
     // This function has a really weird return value behavior that is different
     // from all the other parsing functions:
@@ -331,101 +350,50 @@ public:
         reinterpret_cast<WebAssemblyTargetStreamer &>(*Out.getTargetStreamer());
     // TODO: any time we return an error, at least one token must have been
     // consumed, otherwise this will not signal an error to the caller.
-    if (DirectiveID.getString() == ".type") {
-      // This could be the start of a function, check if followed by
-      // "label,@function"
-      if (!Lexer.is(AsmToken::Identifier))
-        return Error("Expected label after .type directive, got: ",
-                     Lexer.getTok());
-      auto WasmSym = cast<MCSymbolWasm>(
-                       TOut.getStreamer().getContext().getOrCreateSymbol(
-                         Lexer.getTok().getString()));
-      Parser.Lex();
-      if (!(IsNext(AsmToken::Comma) && IsNext(AsmToken::At) &&
-            Lexer.is(AsmToken::Identifier)))
-        return Error("Expected label,@type declaration, got: ", Lexer.getTok());
-      auto TypeName = Lexer.getTok().getString();
-      if (TypeName == "function")
-        WasmSym->setType(wasm::WASM_SYMBOL_TYPE_FUNCTION);
-      else if (TypeName == "global")
-        WasmSym->setType(wasm::WASM_SYMBOL_TYPE_GLOBAL);
-      else
-        return Error("Unknown WASM symbol type: ", Lexer.getTok());
-      Parser.Lex();
-      return Expect(AsmToken::EndOfStatement, "EOL");
-    } else if (DirectiveID.getString() == ".size") {
-      if (!Lexer.is(AsmToken::Identifier))
-        return Error("Expected label after .size directive, got: ",
-                     Lexer.getTok());
-      auto WasmSym = cast<MCSymbolWasm>(
-                       TOut.getStreamer().getContext().getOrCreateSymbol(
-                         Lexer.getTok().getString()));
-      Parser.Lex();
-      if (!IsNext(AsmToken::Comma))
-        return Error("Expected `,`, got: ", Lexer.getTok());
-      const MCExpr *Exp;
-      if (Parser.parseExpression(Exp))
-        return Error("Cannot parse .size expression: ", Lexer.getTok());
-      WasmSym->setSize(Exp);
-      return Expect(AsmToken::EndOfStatement, "EOL");
-    } else if (DirectiveID.getString() == ".globaltype") {
-      if (!Lexer.is(AsmToken::Identifier))
-        return Error("Expected symbol name after .globaltype directive, got: ",
-                     Lexer.getTok());
-      auto Name = Lexer.getTok().getString();
-      Parser.Lex();
-      if (!IsNext(AsmToken::Comma))
-        return Error("Expected `,`, got: ", Lexer.getTok());
-      if (!Lexer.is(AsmToken::Identifier))
-        return Error("Expected type in .globaltype directive, got: ",
-                     Lexer.getTok());
-      auto Type = ParseRegType(Lexer.getTok().getString()).second;
-      if (Type == wasm::WASM_TYPE_NORESULT)
-        return Error("Unknown type in .globaltype directive: ",
-                     Lexer.getTok());
-      Parser.Lex();
+    if (DirectiveID.getString() == ".globaltype") {
+      auto SymName = ExpectIdent();
+      if (SymName.empty()) return true;
+      if (Expect(AsmToken::Comma, ",")) return true;
+      auto TypeTok = Lexer.getTok();
+      auto TypeName = ExpectIdent();
+      if (TypeName.empty()) return true;
+      auto Type = ParseType(TypeName);
+      if (!Type)
+        return Error("Unknown type in .globaltype directive: ", TypeTok);
       // Now set this symbol with the correct type.
       auto WasmSym = cast<MCSymbolWasm>(
-                       TOut.getStreamer().getContext().getOrCreateSymbol(Name));
+                    TOut.getStreamer().getContext().getOrCreateSymbol(SymName));
       WasmSym->setType(wasm::WASM_SYMBOL_TYPE_GLOBAL);
-      WasmSym->setGlobalType(wasm::WasmGlobalType{uint8_t(Type), true});
+      WasmSym->setGlobalType(
+            wasm::WasmGlobalType{uint8_t(Type.getValue()), true});
       // And emit the directive again.
       TOut.emitGlobalType(WasmSym);
       return Expect(AsmToken::EndOfStatement, "EOL");
-    } else if (DirectiveID.getString() == ".param" ||
-               DirectiveID.getString() == ".local") {
-      // Track the number of locals, needed for correct virtual register
-      // assignment elsewhere.
-      // Also output a directive to the streamer.
-      std::vector<MVT> Params;
-      std::vector<MVT> Locals;
-      while (Lexer.is(AsmToken::Identifier)) {
-        auto RegType = ParseRegType(Lexer.getTok().getString()).first;
-        if (RegType == MVT::INVALID_SIMPLE_VALUE_TYPE)
-          return true;
-        if (DirectiveID.getString() == ".param") {
-          Params.push_back(RegType);
-        } else {
-          Locals.push_back(RegType);
-        }
-        Parser.Lex();
-        if (!IsNext(AsmToken::Comma))
-          break;
-      }
-      assert(LastSymbol);
-      // TODO: LastSymbol isn't even used by emitParam, so could be removed.
-      TOut.emitParam(LastSymbol, Params);
+    } else if (DirectiveID.getString() == ".functype") {
+      auto SymName = ExpectIdent();
+      if (SymName.empty()) return true;
+      auto WasmSym = cast<MCSymbolWasm>(
+                    TOut.getStreamer().getContext().getOrCreateSymbol(SymName));
+      auto Signature = make_unique<wasm::WasmSignature>();
+      if (Expect(AsmToken::LParen, "(")) return true;
+      if (ParseRegTypeList(Signature->Params)) return true;
+      if (Expect(AsmToken::RParen, ")")) return true;
+      if (Expect(AsmToken::MinusGreater, "->")) return true;
+      if (Expect(AsmToken::LParen, "(")) return true;
+      if (ParseRegTypeList(Signature->Returns)) return true;
+      if (Expect(AsmToken::RParen, ")")) return true;
+      WasmSym->setSignature(Signature.get());
+      addSignature(std::move(Signature));
+      WasmSym->setType(wasm::WASM_SYMBOL_TYPE_FUNCTION);
+      TOut.emitFunctionType(WasmSym);
+      return Expect(AsmToken::EndOfStatement, "EOL");
+    } else if (DirectiveID.getString() == ".local") {
+      SmallVector<wasm::ValType, 4> Locals;
+      if (ParseRegTypeList(Locals)) return true;
       TOut.emitLocal(Locals);
       return Expect(AsmToken::EndOfStatement, "EOL");
-    } else {
-      // TODO: remove.
-      while (Lexer.isNot(AsmToken::EndOfStatement))
-        Parser.Lex();
-      return Expect(AsmToken::EndOfStatement, "EOL");
     }
-    // TODO: current ELF directive parsing is broken, fix this is a followup.
-    //return true;  // We didn't process this directive.
-    return false;
+    return true;  // We didn't process this directive.
   }
 
   bool MatchAndEmitInstruction(SMLoc IDLoc, unsigned & /*Opcode*/,

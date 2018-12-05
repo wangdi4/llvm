@@ -579,6 +579,7 @@ namespace clang {
     ExpectedStmt VisitCompoundLiteralExpr(CompoundLiteralExpr *E);
     ExpectedStmt VisitAtomicExpr(AtomicExpr *E);
     ExpectedStmt VisitAddrLabelExpr(AddrLabelExpr *E);
+    ExpectedStmt VisitConstantExpr(ConstantExpr *E);
     ExpectedStmt VisitParenExpr(ParenExpr *E);
     ExpectedStmt VisitParenListExpr(ParenListExpr *E);
     ExpectedStmt VisitStmtExpr(StmtExpr *E);
@@ -988,6 +989,10 @@ ExpectedType ASTNodeImporter::VisitBuiltinType(const BuiltinType *T) {
   case BuiltinType::Id: \
     return Importer.getToContext().SingletonId;
 #include "clang/Basic/OpenCLImageTypes.def"
+#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+  case BuiltinType::Id: \
+    return Importer.getToContext().Id##Ty;
+#include "clang/Basic/OpenCLExtensionTypes.def"
 #define SHARED_SINGLETON_TYPE(Expansion)
 #define BUILTIN_TYPE(Id, SingletonId) \
   case BuiltinType::Id: return Importer.getToContext().SingletonId;
@@ -1735,8 +1740,9 @@ Error ASTNodeImporter::ImportDefinition(
     return Err;
 
   // Add base classes.
-  if (auto *ToCXX = dyn_cast<CXXRecordDecl>(To)) {
-    auto *FromCXX = cast<CXXRecordDecl>(From);
+  auto *ToCXX = dyn_cast<CXXRecordDecl>(To);
+  auto *FromCXX = dyn_cast<CXXRecordDecl>(From);
+  if (ToCXX && FromCXX && ToCXX->dataPtr() && FromCXX->dataPtr()) {
 
     struct CXXRecordDecl::DefinitionData &ToData = ToCXX->data();
     struct CXXRecordDecl::DefinitionData &FromData = FromCXX->data();
@@ -3139,19 +3145,6 @@ ExpectedDecl ASTNodeImporter::VisitFunctionDecl(FunctionDecl *D) {
         FromConstructor->isExplicit(),
         D->isInlineSpecified(), D->isImplicit(), D->isConstexpr()))
       return ToFunction;
-    if (unsigned NumInitializers = FromConstructor->getNumCtorInitializers()) {
-      SmallVector<CXXCtorInitializer *, 4> CtorInitializers(NumInitializers);
-      // Import first, then allocate memory and copy if there was no error.
-      if (Error Err = ImportContainerChecked(
-          FromConstructor->inits(), CtorInitializers))
-        return std::move(Err);
-      auto **Memory =
-          new (Importer.getToContext()) CXXCtorInitializer *[NumInitializers];
-      std::copy(CtorInitializers.begin(), CtorInitializers.end(), Memory);
-      auto *ToCtor = cast<CXXConstructorDecl>(ToFunction);
-      ToCtor->setCtorInitializers(Memory);
-      ToCtor->setNumCtorInitializers(NumInitializers);
-    }
   } else if (isa<CXXDestructorDecl>(D)) {
     if (GetImportedOrCreateDecl<CXXDestructorDecl>(
         ToFunction, D, Importer.getToContext(), cast<CXXRecordDecl>(DC),
@@ -3179,6 +3172,30 @@ ExpectedDecl ASTNodeImporter::VisitFunctionDecl(FunctionDecl *D) {
       return ToFunction;
   }
 
+  // Connect the redecl chain.
+  if (FoundByLookup) {
+    auto *Recent = const_cast<FunctionDecl *>(
+          FoundByLookup->getMostRecentDecl());
+    ToFunction->setPreviousDecl(Recent);
+  }
+
+  // Import Ctor initializers.
+  if (auto *FromConstructor = dyn_cast<CXXConstructorDecl>(D)) {
+    if (unsigned NumInitializers = FromConstructor->getNumCtorInitializers()) {
+      SmallVector<CXXCtorInitializer *, 4> CtorInitializers(NumInitializers);
+      // Import first, then allocate memory and copy if there was no error.
+      if (Error Err = ImportContainerChecked(
+          FromConstructor->inits(), CtorInitializers))
+        return std::move(Err);
+      auto **Memory =
+          new (Importer.getToContext()) CXXCtorInitializer *[NumInitializers];
+      std::copy(CtorInitializers.begin(), CtorInitializers.end(), Memory);
+      auto *ToCtor = cast<CXXConstructorDecl>(ToFunction);
+      ToCtor->setCtorInitializers(Memory);
+      ToCtor->setNumCtorInitializers(NumInitializers);
+    }
+  }
+
   ToFunction->setQualifierInfo(ToQualifierLoc);
   ToFunction->setAccess(D->getAccess());
   ToFunction->setLexicalDeclContext(LexicalDC);
@@ -3193,12 +3210,6 @@ ExpectedDecl ASTNodeImporter::VisitFunctionDecl(FunctionDecl *D) {
     ToFunction->addDeclInternal(Param);
   }
   ToFunction->setParams(Parameters);
-
-  if (FoundByLookup) {
-    auto *Recent = const_cast<FunctionDecl *>(
-          FoundByLookup->getMostRecentDecl());
-    ToFunction->setPreviousDecl(Recent);
-  }
 
   // We need to complete creation of FunctionProtoTypeLoc manually with setting
   // params it refers to.
@@ -6362,6 +6373,17 @@ ExpectedStmt ASTNodeImporter::VisitAddrLabelExpr(AddrLabelExpr *E) {
       ToAmpAmpLoc, ToLabelLoc, ToLabel, ToType);
 }
 
+ExpectedStmt ASTNodeImporter::VisitConstantExpr(ConstantExpr *E) {
+  auto Imp = importSeq(E->getSubExpr());
+  if (!Imp)
+    return Imp.takeError();
+
+  Expr *ToSubExpr;
+  std::tie(ToSubExpr) = *Imp;
+
+  return ConstantExpr::Create(Importer.getToContext(), ToSubExpr);
+}
+
 ExpectedStmt ASTNodeImporter::VisitParenExpr(ParenExpr *E) {
   auto Imp = importSeq(E->getLParen(), E->getRParen(), E->getSubExpr());
   if (!Imp)
@@ -6388,8 +6410,8 @@ ExpectedStmt ASTNodeImporter::VisitParenListExpr(ParenListExpr *E) {
   if (!ToRParenLocOrErr)
     return ToRParenLocOrErr.takeError();
 
-  return new (Importer.getToContext()) ParenListExpr(
-      Importer.getToContext(), *ToLParenLocOrErr, ToExprs, *ToRParenLocOrErr);
+  return ParenListExpr::Create(Importer.getToContext(), *ToLParenLocOrErr,
+                               ToExprs, *ToRParenLocOrErr);
 }
 
 ExpectedStmt ASTNodeImporter::VisitStmtExpr(StmtExpr *E) {

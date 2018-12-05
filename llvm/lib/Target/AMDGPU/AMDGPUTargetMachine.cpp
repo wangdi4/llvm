@@ -161,6 +161,7 @@ extern "C" void LLVMInitializeAMDGPUTarget() {
   initializeSILowerI1CopiesPass(*PR);
   initializeSIFixSGPRCopiesPass(*PR);
   initializeSIFixVGPRCopiesPass(*PR);
+  initializeSIFixupVectorISelPass(*PR);
   initializeSIFoldOperandsPass(*PR);
   initializeSIPeepholeSDWAPass(*PR);
   initializeSIShrinkInstructionsPass(*PR);
@@ -192,6 +193,7 @@ extern "C" void LLVMInitializeAMDGPUTarget() {
   initializeSIFormMemoryClausesPass(*PR);
   initializeAMDGPUUnifyDivergentExitNodesPass(*PR);
   initializeAMDGPUAAWrapperPassPass(*PR);
+  initializeAMDGPUExternalAAWrapperPass(*PR);
   initializeAMDGPUUseNativeCallsPass(*PR);
   initializeAMDGPUSimplifyLibCallsPass(*PR);
   initializeAMDGPUInlinerPass(*PR);
@@ -338,13 +340,6 @@ StringRef AMDGPUTargetMachine::getFeatureString(const Function &F) const {
   return FSAttr.hasAttribute(Attribute::None) ?
     getTargetFeatureString() :
     FSAttr.getValueAsString();
-}
-
-static ImmutablePass *createAMDGPUExternalAAWrapperPass() {
-  return createExternalAAWrapperPass([](Pass &P, Function &, AAResults &AAR) {
-      if (auto *WrapperPass = P.getAnalysisIfAvailable<AMDGPUAAWrapperPass>())
-        AAR.addAAResult(WrapperPass->getResult());
-      });
 }
 
 /// Predicate for Internalize pass.
@@ -819,6 +814,7 @@ bool GCNPassConfig::addInstSelector() {
   AMDGPUPassConfig::addInstSelector();
   addPass(&SIFixSGPRCopiesID);
   addPass(createSILowerI1CopiesPass());
+  addPass(createSIFixupVectorISelPass());
   return false;
 }
 
@@ -884,7 +880,8 @@ void GCNPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
 
 void GCNPassConfig::addPostRegAlloc() {
   addPass(&SIFixVGPRCopiesID);
-  addPass(&SIOptimizeExecMaskingID);
+  if (getOptLevel() > CodeGenOpt::None)
+    addPass(&SIOptimizeExecMaskingID);
   TargetPassConfig::addPostRegAlloc();
 }
 

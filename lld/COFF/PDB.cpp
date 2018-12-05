@@ -154,9 +154,27 @@ public:
   std::pair<CVIndexMap &, bool /*already there*/>
   registerPrecompiledHeaders(uint32_t Signature);
 
+  void mergeSymbolRecords(ObjFile *File, const CVIndexMap &IndexMap,
+                          std::vector<ulittle32_t *> &StringTableRefs,
+                          BinaryStreamRef SymData);
+
   /// Add the section map and section contributions to the PDB.
   void addSections(ArrayRef<OutputSection *> OutputSections,
                    ArrayRef<uint8_t> SectionTable);
+
+  /// Get the type table or the global type table if /DEBUG:GHASH is enabled.
+  TypeCollection &getTypeTable() {
+    if (Config->DebugGHashes)
+      return GlobalTypeTable;
+    return TypeTable;
+  }
+
+  /// Get the ID table or the global ID table if /DEBUG:GHASH is enabled.
+  TypeCollection &getIDTable() {
+    if (Config->DebugGHashes)
+      return GlobalIDTable;
+    return IDTable;
+  }
 
   /// Write the PDB to disk and store the Guid generated for it in *Guid.
   void commit(codeview::GUID *Guid);
@@ -645,7 +663,7 @@ PDBLinker::mergeInPrecompHeaderObj(ObjFile *File, const CVType &FirstType,
 
   auto E = aquirePrecompObj(File, Precomp);
   if (!E)
-    return createFileError(Precomp.getPrecompFilePath().str(), E.takeError());
+    return E.takeError();
 
   const CVIndexMap &PrecompIndexMap = *E;
   assert(PrecompIndexMap.IsPrecompiledTypeMap);
@@ -670,28 +688,18 @@ static bool equals_path(StringRef path1, StringRef path2) {
 #endif
 }
 
-// Find an OBJ provided on the command line, either by name or full path
-static Optional<std::pair<ObjFile *, std::string>>
-findObjByName(StringRef NameOrPath) {
+// Find by name an OBJ provided on the command line
+static ObjFile *findObjByName(StringRef FileNameOnly) {
   SmallString<128> CurrentPath;
 
-  StringRef FileNameOnly = sys::path::filename(NameOrPath);
-
   for (ObjFile *F : ObjFile::Instances) {
-    CurrentPath = F->getName();
-    sys::fs::make_absolute(CurrentPath);
+    StringRef CurrentFileName = sys::path::filename(F->getName());
 
-    // First compare with the full path name
-    if (equals_path(CurrentPath, NameOrPath))
-      return std::make_pair(F, CurrentPath.str().str());
-
-    StringRef CurrentFileName = sys::path::filename(CurrentPath);
-
-    // Otherwise compare based solely on the file name (link.exe behavior)
+    // Compare based solely on the file name (link.exe behavior)
     if (equals_path(CurrentFileName, FileNameOnly))
-      return std::make_pair(F, CurrentPath.str().str());
+      return F;
   }
-  return {};
+  return nullptr;
 }
 
 std::pair<CVIndexMap &, bool /*already there*/>
@@ -715,29 +723,29 @@ PDBLinker::aquirePrecompObj(ObjFile *File, PrecompRecord Precomp) {
 
   CVIndexMap &IndexMap = R.first;
 
-  SmallString<128> PrecompPath = Precomp.getPrecompFilePath();
-  sys::fs::make_absolute(PrecompPath);
-
   // Cross-compile warning: given that Clang doesn't generate LF_PRECOMP
   // records, we assume the OBJ comes from a Windows build of cl.exe. Thusly,
   // the paths embedded in the OBJs are in the Windows format.
-  sys::path::native(PrecompPath, sys::path::Style::windows);
+  SmallString<128> PrecompFileName = sys::path::filename(
+      Precomp.getPrecompFilePath(), sys::path::Style::windows);
 
   // link.exe requires that a precompiled headers object must always be provided
   // on the command-line, even if that's not necessary.
-  auto PrecompFilePath = findObjByName(PrecompPath);
-  if (!PrecompFilePath)
-    return errorCodeToError(std::error_code(ENOENT, std::generic_category()));
+  auto PrecompFile = findObjByName(PrecompFileName);
+  if (!PrecompFile)
+    return createFileError(
+        PrecompFileName.str(),
+        make_error<pdb::PDBError>(pdb::pdb_error_code::external_cmdline_ref));
 
-  ObjFile *CurrentFile = PrecompFilePath->first;
+  addObjFile(PrecompFile, &IndexMap);
 
-  addObjFile(CurrentFile, &IndexMap);
+  if (!PrecompFile->EndPrecomp)
+    fatal(PrecompFile->getName() + " is not a precompiled headers object");
 
-  if (!CurrentFile->EndPrecomp)
-    fatal(PrecompFilePath->second + " is not a precompiled headers object");
-
-  if (Precomp.getSignature() != CurrentFile->EndPrecomp->getSignature())
-    return make_error<pdb::PDBError>(pdb::pdb_error_code::signature_out_of_date);
+  if (Precomp.getSignature() != PrecompFile->EndPrecomp->getSignature())
+    return createFileError(
+        Precomp.getPrecompFilePath().str(),
+        make_error<pdb::PDBError>(pdb::pdb_error_code::signature_out_of_date));
 
   return IndexMap;
 }
@@ -1024,20 +1032,15 @@ static void addGlobalSymbol(pdb::GSIStreamBuilder &Builder, ObjFile &File,
   }
 }
 
-static void mergeSymbolRecords(BumpPtrAllocator &Alloc, ObjFile *File,
-                               pdb::GSIStreamBuilder &GsiBuilder,
-                               const CVIndexMap &IndexMap,
-                               TypeCollection &IDTable,
-                               std::vector<ulittle32_t *> &StringTableRefs,
-                               BinaryStreamRef SymData) {
-  // FIXME: Improve error recovery by warning and skipping records when
-  // possible.
+void PDBLinker::mergeSymbolRecords(ObjFile *File, const CVIndexMap &IndexMap,
+                                   std::vector<ulittle32_t *> &StringTableRefs,
+                                   BinaryStreamRef SymData) {
   ArrayRef<uint8_t> SymsBuffer;
   cantFail(SymData.readBytes(0, SymData.getLength(), SymsBuffer));
   SmallVector<SymbolScope, 4> Scopes;
 
   auto EC = forEachCodeViewRecord<CVSymbol>(
-      SymsBuffer, [&](const CVSymbol &Sym) -> llvm::Error {
+      SymsBuffer, [&](CVSymbol Sym) -> llvm::Error {
         // Discover type index references in the record. Skip it if we don't
         // know where they are.
         SmallVector<TiReference, 32> TypeRefs;
@@ -1047,8 +1050,10 @@ static void mergeSymbolRecords(BumpPtrAllocator &Alloc, ObjFile *File,
           return Error::success();
         }
 
-        // Copy the symbol record so we can mutate it.
+        // Copy the symbol and fix the symbol record alignment. The symbol
+        // record in the object file may not be aligned.
         MutableArrayRef<uint8_t> NewData = copySymbolForPdb(Sym, Alloc);
+        Sym = CVSymbol(Sym.kind(), NewData);
 
         // Re-map all the type index references.
         MutableArrayRef<uint8_t> Contents =
@@ -1058,32 +1063,29 @@ static void mergeSymbolRecords(BumpPtrAllocator &Alloc, ObjFile *File,
 
         // An object file may have S_xxx_ID symbols, but these get converted to
         // "real" symbols in a PDB.
-        translateIdSymbols(NewData, IDTable);
+        translateIdSymbols(NewData, getIDTable());
+        Sym = CVSymbol(symbolKind(NewData), NewData);
 
         // If this record refers to an offset in the object file's string table,
         // add that item to the global PDB string table and re-write the index.
         recordStringTableReferences(Sym.kind(), Contents, StringTableRefs);
 
-        SymbolKind NewKind = symbolKind(NewData);
-
         // Fill in "Parent" and "End" fields by maintaining a stack of scopes.
-        CVSymbol NewSym(NewKind, NewData);
-        if (symbolOpensScope(NewKind))
-          scopeStackOpen(Scopes, File->ModuleDBI->getNextSymbolOffset(),
-                         NewSym);
-        else if (symbolEndsScope(NewKind))
+        if (symbolOpensScope(Sym.kind()))
+          scopeStackOpen(Scopes, File->ModuleDBI->getNextSymbolOffset(), Sym);
+        else if (symbolEndsScope(Sym.kind()))
           scopeStackClose(Scopes, File->ModuleDBI->getNextSymbolOffset(), File);
 
         // Add the symbol to the globals stream if necessary.  Do this before
         // adding the symbol to the module since we may need to get the next
         // symbol offset, and writing to the module's symbol stream will update
         // that offset.
-        if (symbolGoesInGlobalsStream(NewSym))
-          addGlobalSymbol(GsiBuilder, *File, NewSym);
+        if (symbolGoesInGlobalsStream(Sym))
+          addGlobalSymbol(Builder.getGsiBuilder(), *File, Sym);
 
         // Add the symbol to the module.
-        if (symbolGoesInModuleStream(NewSym))
-          File->ModuleDBI->addSymbol(NewSym);
+        if (symbolGoesInModuleStream(Sym))
+          File->ModuleDBI->addSymbol(Sym);
         return Error::success();
       });
   cantFail(std::move(EC));
@@ -1176,17 +1178,11 @@ void DebugSHandler::handleDebugS(lld::coff::SectionChunk &DebugS) {
       NewFpoFrames.push_back(std::move(FDS));
       break;
     }
-    case DebugSubsectionKind::Symbols:
-      if (Config->DebugGHashes) {
-        mergeSymbolRecords(Linker.Alloc, &File, Linker.Builder.getGsiBuilder(),
-                           IndexMap, Linker.GlobalIDTable,
-                           StringTableReferences, SS.getRecordData());
-      } else {
-        mergeSymbolRecords(Linker.Alloc, &File, Linker.Builder.getGsiBuilder(),
-                           IndexMap, Linker.IDTable, StringTableReferences,
-                           SS.getRecordData());
-      }
+    case DebugSubsectionKind::Symbols: {
+      Linker.mergeSymbolRecords(&File, IndexMap, StringTableReferences,
+                                SS.getRecordData());
       break;
+    }
     default:
       // FIXME: Process the rest of the subsections.
       break;
@@ -1214,7 +1210,7 @@ void DebugSHandler::finish() {
   // Rewrite string table indices in the Fpo Data and symbol records to refer to
   // the global PDB string table instead of the object file string table.
   for (DebugFrameDataSubsectionRef &FDS : NewFpoFrames) {
-    const uint32_t *Reloc = FDS.getRelocPtr();
+    const ulittle32_t *Reloc = FDS.getRelocPtr();
     for (codeview::FrameData FD : FDS) {
       FD.RvaStart += *Reloc;
       FD.FrameFunc =
@@ -1349,13 +1345,8 @@ void PDBLinker::addObjectsToPDB() {
 
   // Construct TPI and IPI stream contents.
   ScopedTimer T2(TpiStreamLayoutTimer);
-  if (Config->DebugGHashes) {
-    addTypeInfo(Builder.getTpiBuilder(), GlobalTypeTable);
-    addTypeInfo(Builder.getIpiBuilder(), GlobalIDTable);
-  } else {
-    addTypeInfo(Builder.getTpiBuilder(), TypeTable);
-    addTypeInfo(Builder.getIpiBuilder(), IDTable);
-  }
+  addTypeInfo(Builder.getTpiBuilder(), getTypeTable());
+  addTypeInfo(Builder.getIpiBuilder(), getIDTable());
   T2.stop();
 
   ScopedTimer T3(GlobalsLayoutTimer);

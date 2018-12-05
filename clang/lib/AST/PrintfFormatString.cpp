@@ -362,6 +362,12 @@ static PrintfSpecifierResult ParsePrintfSpecifier(FormatStringHandler &H,
     case 'Z':
       if (Target.getTriple().isOSMSVCRT())
         k = ConversionSpecifier::ZArg;
+      break;
+    // OpenCL specific.
+    case 'v':
+      if (LO.OpenCL)
+        k = ConversionSpecifier::VArg;
+      break;
   }
 
   // Check to see if we used the Objective-C modifier flags with
@@ -723,6 +729,9 @@ bool PrintfSpecifier::fixType(QualType QT, const LangOptions &LangOpt,
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
   case BuiltinType::Id:
 #include "clang/Basic/OpenCLImageTypes.def"
+#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+  case BuiltinType::Id:
+#include "clang/Basic/OpenCLExtensionTypes.def"
 #define SIGNED_TYPE(Id, SingletonId)
 #define UNSIGNED_TYPE(Id, SingletonId)
 #define FLOATING_TYPE(Id, SingletonId)
@@ -1023,6 +1032,7 @@ bool PrintfSpecifier::hasValidPrecision() const {
   case ConversionSpecifier::FreeBSDrArg:
   case ConversionSpecifier::FreeBSDyArg:
   case ConversionSpecifier::PArg:
+  case ConversionSpecifier::VArg:
     return true;
 
   default:

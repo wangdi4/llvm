@@ -13,10 +13,6 @@
 #if defined(__APPLE__) // This Plugin uses the Mac-specific
                        // source/Host/macosx/cfcpp utilities
 
-// C Includes
-// C++ Includes
-// Other libraries and framework includes
-// Project includes
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
@@ -379,7 +375,7 @@ void PlatformDarwinKernel::CollectKextAndKernelDirectories() {
   // Add simple directory /Applications/Xcode.app/Contents/Developer/../Symbols
   FileSpec possible_dir(developer_dir + "/../Symbols");
   FileSystem::Instance().Resolve(possible_dir);
-  if (llvm::sys::fs::is_directory(possible_dir.GetPath()))
+  if (FileSystem::Instance().IsDirectory(possible_dir))
     m_search_directories.push_back(possible_dir);
 
   // Add simple directory of the current working directory
@@ -396,7 +392,7 @@ void PlatformDarwinKernel::GetUserSpecifiedDirectoriesToSearch() {
   for (uint32_t i = 0; i < user_dirs_count; i++) {
     FileSpec dir = user_dirs.GetFileSpecAtIndex(i);
     FileSystem::Instance().Resolve(dir);
-    if (llvm::sys::fs::is_directory(dir.GetPath())) {
+    if (FileSystem::Instance().IsDirectory(dir)) {
       m_search_directories.push_back(dir);
     }
   }
@@ -413,7 +409,7 @@ void PlatformDarwinKernel::AddRootSubdirsToSearchPaths(
   for (int i = 0; subdirs[i] != nullptr; i++) {
     FileSpec testdir(dir + subdirs[i]);
     FileSystem::Instance().Resolve(testdir);
-    if (llvm::sys::fs::is_directory(testdir.GetPath()))
+    if (FileSystem::Instance().IsDirectory(testdir))
       thisp->m_search_directories.push_back(testdir);
   }
 
@@ -542,11 +538,11 @@ PlatformDarwinKernel::GetKernelsAndKextsInDirectoryHelper(
     // Look to see if there is a PlugIns subdir with more kexts
     FileSpec contents_plugins(file_spec.GetPath() + "/Contents/PlugIns");
     std::string search_here_too;
-    if (llvm::sys::fs::is_directory(contents_plugins.GetPath())) {
+    if (FileSystem::Instance().IsDirectory(contents_plugins)) {
       search_here_too = contents_plugins.GetPath();
     } else {
       FileSpec plugins(file_spec.GetPath() + "/PlugIns");
-      if (llvm::sys::fs::is_directory(plugins.GetPath())) {
+      if (FileSystem::Instance().IsDirectory(plugins)) {
         search_here_too = plugins.GetPath();
       }
     }
@@ -618,7 +614,7 @@ bool PlatformDarwinKernel::KextHasdSYMSibling(
   std::string filename = dsym_fspec.GetFilename().AsCString();
   filename += ".dSYM";
   dsym_fspec.GetFilename() = ConstString(filename);
-  if (llvm::sys::fs::is_directory(dsym_fspec.GetPath())) {
+  if (FileSystem::Instance().IsDirectory(dsym_fspec)) {
     return true;
   }
   // Should probably get the CFBundleExecutable here or call
@@ -633,7 +629,7 @@ bool PlatformDarwinKernel::KextHasdSYMSibling(
   deep_bundle_str += ".dSYM";
   dsym_fspec.SetFile(deep_bundle_str, FileSpec::Style::native);
   FileSystem::Instance().Resolve(dsym_fspec);
-  if (llvm::sys::fs::is_directory(dsym_fspec.GetPath())) {
+  if (FileSystem::Instance().IsDirectory(dsym_fspec)) {
     return true;
   }
 
@@ -644,7 +640,7 @@ bool PlatformDarwinKernel::KextHasdSYMSibling(
   shallow_bundle_str += ".dSYM";
   dsym_fspec.SetFile(shallow_bundle_str, FileSpec::Style::native);
   FileSystem::Instance().Resolve(dsym_fspec);
-  if (llvm::sys::fs::is_directory(dsym_fspec.GetPath())) {
+  if (FileSystem::Instance().IsDirectory(dsym_fspec)) {
     return true;
   }
   return false;
@@ -658,7 +654,7 @@ bool PlatformDarwinKernel::KernelHasdSYMSibling(const FileSpec &kernel_binary) {
   std::string filename = kernel_binary.GetFilename().AsCString();
   filename += ".dSYM";
   kernel_dsym.GetFilename() = ConstString(filename);
-  if (llvm::sys::fs::is_directory(kernel_dsym.GetPath())) {
+  if (FileSystem::Instance().IsDirectory(kernel_dsym)) {
     return true;
   }
   return false;

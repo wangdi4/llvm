@@ -711,6 +711,9 @@ void USRGenerator::VisitType(QualType T) {
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
         case BuiltinType::Id:
 #include "clang/Basic/OpenCLImageTypes.def"
+#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+        case BuiltinType::Id:
+#include "clang/Basic/OpenCLExtensionTypes.def"
         case BuiltinType::OCLEvent:
         case BuiltinType::OCLClkEvent:
         case BuiltinType::OCLQueue:
@@ -1100,6 +1103,17 @@ bool clang::index::generateUSRForMacro(StringRef MacroName, SourceLocation Loc,
   Out << "@macro@";
   Out << MacroName;
   return false;
+}
+
+bool clang::index::generateUSRForType(QualType T, ASTContext &Ctx,
+                                      SmallVectorImpl<char> &Buf) {
+  if (T.isNull())
+    return true;
+  T = T.getCanonicalType();
+
+  USRGenerator UG(&Ctx, Buf);
+  UG.VisitType(T);
+  return UG.ignoreResults();
 }
 
 bool clang::index::generateFullUSRForModule(const Module *Mod,

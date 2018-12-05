@@ -10,6 +10,7 @@
 #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_INDEX_INDEX_H
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_INDEX_INDEX_H
 
+#include "ExpectedTypes.h"
 #include "clang/Index/IndexSymbol.h"
 #include "clang/Lex/Lexer.h"
 #include "llvm/ADT/DenseMap.h"
@@ -56,14 +57,19 @@ struct SymbolLocation {
     uint32_t Column : 12; // 0-based
   };
 
-  // The URI of the source file where a symbol occurs.
-  llvm::StringRef FileURI;
-
   /// The symbol range, using half-open range [Start, End).
   Position Start;
   Position End;
 
-  explicit operator bool() const { return !FileURI.empty(); }
+  explicit operator bool() const { return !StringRef(FileURI).empty(); }
+
+  // The URI of the source file where a symbol occurs.
+  // The string must be null-terminated.
+  //
+  // We avoid using llvm::StringRef here to save memory.
+  // WARNING: unless you know what you are doing, it is recommended to use it
+  // via llvm::StringRef.
+  const char *FileURI = "";
 };
 inline bool operator==(const SymbolLocation::Position &L,
                        const SymbolLocation::Position &R) {
@@ -76,12 +82,16 @@ inline bool operator<(const SymbolLocation::Position &L,
          std::make_tuple(R.line(), R.column());
 }
 inline bool operator==(const SymbolLocation &L, const SymbolLocation &R) {
-  return std::tie(L.FileURI, L.Start, L.End) ==
-         std::tie(R.FileURI, R.Start, R.End);
+  assert(L.FileURI && R.FileURI);
+  return !std::strcmp(L.FileURI, R.FileURI) &&
+         std::tie(L.Start, L.End) == std::tie(R.Start, R.End);
 }
 inline bool operator<(const SymbolLocation &L, const SymbolLocation &R) {
-  return std::tie(L.FileURI, L.Start, L.End) <
-         std::tie(R.FileURI, R.Start, R.End);
+  assert(L.FileURI && R.FileURI);
+  int Cmp = std::strcmp(L.FileURI, R.FileURI);
+  if (Cmp != 0)
+    return Cmp < 0;
+  return std::tie(L.Start, L.End) < std::tie(R.Start, R.End);
 }
 llvm::raw_ostream &operator<<(llvm::raw_ostream &, const SymbolLocation &);
 
@@ -107,8 +117,7 @@ public:
 
   // The stored hash is truncated to RawSize bytes.
   // This trades off memory against the number of symbols we can handle.
-  // FIXME: can we reduce this further to 8 bytes?
-  constexpr static size_t RawSize = 16;
+  constexpr static size_t RawSize = 8;
   llvm::StringRef raw() const {
     return StringRef(reinterpret_cast<const char *>(HashValue.data()), RawSize);
   }
@@ -234,6 +243,10 @@ struct Symbol {
   /// e.g. return type of a function, or type of a variable.
   llvm::StringRef ReturnType;
 
+  /// Raw representation of the OpaqueType of the symbol, used for scoring
+  /// purposes.
+  llvm::StringRef Type;
+
   struct IncludeHeaderWithReferences {
     IncludeHeaderWithReferences() = default;
 
@@ -288,12 +301,20 @@ raw_ostream &operator<<(raw_ostream &, Symbol::SymbolFlag);
 template <typename Callback> void visitStrings(Symbol &S, const Callback &CB) {
   CB(S.Name);
   CB(S.Scope);
-  CB(S.CanonicalDeclaration.FileURI);
-  CB(S.Definition.FileURI);
   CB(S.Signature);
   CB(S.CompletionSnippetSuffix);
   CB(S.Documentation);
   CB(S.ReturnType);
+  CB(S.Type);
+  auto RawCharPointerCB = [&CB](const char *&P) {
+    llvm::StringRef S(P);
+    CB(S);
+    assert(!S.data()[S.size()] && "Visited StringRef must be null-terminated");
+    P = S.data();
+  };
+  RawCharPointerCB(S.CanonicalDeclaration.FileURI);
+  RawCharPointerCB(S.Definition.FileURI);
+
   for (auto &Include : S.IncludeHeaders)
     CB(Include.IncludeHeader);
 }
@@ -472,6 +493,8 @@ struct FuzzyFindRequest {
   /// Contextually relevant files (e.g. the file we're code-completing in).
   /// Paths should be absolute.
   std::vector<std::string> ProximityPaths;
+
+  // FIXME(ibiryukov): add expected type to the request.
 
   bool operator==(const FuzzyFindRequest &Req) const {
     return std::tie(Query, Scopes, Limit, RestrictForCodeCompletion,

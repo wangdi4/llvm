@@ -1513,10 +1513,11 @@ bool CodeGenFunction::ConstantFoldsToSimpleInteger(const Expr *Cond,
                                                    bool AllowLabels) {
   // FIXME: Rename and handle conversion of other evaluatable things
   // to bool.
-  llvm::APSInt Int;
-  if (!Cond->EvaluateAsInt(Int, getContext()))
+  Expr::EvalResult Result;
+  if (!Cond->EvaluateAsInt(Result, getContext()))
     return false;  // Not foldable, not integer or not fully evaluatable.
 
+  llvm::APSInt Int = Result.Val.getInt();
   if (!AllowLabels && CodeGenFunction::ContainsLabel(Cond))
     return false;  // Contains a label.
 
@@ -2291,7 +2292,7 @@ static bool hasRequiredFeatures(const SmallVectorImpl<StringRef> &ReqFeatures,
   // Now build up the set of caller features and verify that all the required
   // features are there.
   llvm::StringMap<bool> CallerFeatureMap;
-  CGM.getFunctionFeatureMap(CallerFeatureMap, FD);
+  CGM.getFunctionFeatureMap(CallerFeatureMap, GlobalDecl().getWithDecl(FD));
 
   // If we have at least one of the features in the feature list return
   // true, otherwise return false.

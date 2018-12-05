@@ -20,7 +20,6 @@
 #include <limits>
 #include <memory>
 #include <pthread.h>
-#include <sys/syscall.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
@@ -47,6 +46,7 @@ static atomic_sint32_t LoggingStatus = {
     XRayLogInitStatus::XRAY_LOG_UNINITIALIZED};
 
 namespace {
+
 // Group together thread-local-data in a struct, then hide it behind a function
 // call so that it can be initialized on first use instead of as a global. We
 // force the alignment to 64-bytes for x86 cache line alignment, as this
@@ -143,26 +143,31 @@ static XRayFileHeader &fdrCommonHeaderInfo() {
   static pthread_once_t OnceInit = PTHREAD_ONCE_INIT;
   static bool TSCSupported = true;
   static uint64_t CycleFrequency = NanosecondsPerSecond;
-  pthread_once(&OnceInit, +[] {
-    XRayFileHeader &H = reinterpret_cast<XRayFileHeader &>(HStorage);
-    // Version 2 of the log writes the extents of the buffer, instead of
-    // relying on an end-of-buffer record.
-    // Version 3 includes PID metadata record
-    // Version 4 includes CPU data in the custom event records
-    H.Version = 4;
-    H.Type = FileTypes::FDR_LOG;
+  pthread_once(
+      &OnceInit, +[] {
+        XRayFileHeader &H = reinterpret_cast<XRayFileHeader &>(HStorage);
+        // Version 2 of the log writes the extents of the buffer, instead of
+        // relying on an end-of-buffer record.
+        // Version 3 includes PID metadata record.
+        // Version 4 includes CPU data in the custom event records.
+        // Version 5 uses relative deltas for custom and typed event records,
+        // and removes the CPU data in custom event records (similar to how
+        // function records use deltas instead of full TSCs and rely on other
+        // metadata records for TSC wraparound and CPU migration).
+        H.Version = 5;
+        H.Type = FileTypes::FDR_LOG;
 
-    // Test for required CPU features and cache the cycle frequency
-    TSCSupported = probeRequiredCPUFeatures();
-    if (TSCSupported)
-      CycleFrequency = getTSCFrequency();
-    H.CycleFrequency = CycleFrequency;
+        // Test for required CPU features and cache the cycle frequency
+        TSCSupported = probeRequiredCPUFeatures();
+        if (TSCSupported)
+          CycleFrequency = getTSCFrequency();
+        H.CycleFrequency = CycleFrequency;
 
-    // FIXME: Actually check whether we have 'constant_tsc' and
-    // 'nonstop_tsc' before setting the values in the header.
-    H.ConstantTSC = 1;
-    H.NonstopTSC = 1;
-  });
+        // FIXME: Actually check whether we have 'constant_tsc' and
+        // 'nonstop_tsc' before setting the values in the header.
+        H.ConstantTSC = 1;
+        H.NonstopTSC = 1;
+      });
   return reinterpret_cast<XRayFileHeader &>(HStorage);
 }
 
@@ -200,9 +205,11 @@ XRayBuffer fdrIterator(const XRayBuffer B) {
   // buffers to expect).
   static std::aligned_storage<sizeof(XRayFileHeader)>::type HeaderStorage;
   static pthread_once_t HeaderOnce = PTHREAD_ONCE_INIT;
-  pthread_once(&HeaderOnce, +[] {
-    reinterpret_cast<XRayFileHeader &>(HeaderStorage) = fdrCommonHeaderInfo();
-  });
+  pthread_once(
+      &HeaderOnce, +[] {
+        reinterpret_cast<XRayFileHeader &>(HeaderStorage) =
+            fdrCommonHeaderInfo();
+      });
 
   // We use a convenience alias for code referring to Header from here on out.
   auto &Header = reinterpret_cast<XRayFileHeader &>(HeaderStorage);
@@ -235,7 +242,14 @@ XRayBuffer fdrIterator(const XRayBuffer B) {
   // out to disk. The difference here would be that we still write "empty"
   // buffers, or at least go through the iterators faithfully to let the
   // handlers see the empty buffers in the queue.
-  auto BufferSize = atomic_load(&It->Extents, memory_order_acquire);
+  //
+  // We need this atomic fence here to ensure that writes happening to the
+  // buffer have been committed before we load the extents atomically. Because
+  // the buffer is not explicitly synchronised across threads, we rely on the
+  // fence ordering to ensure that writes we expect to have been completed
+  // before the fence are fully committed before we read the extents.
+  atomic_thread_fence(memory_order_acquire);
+  auto BufferSize = atomic_load(It->Extents, memory_order_acquire);
   SerializedBufferSize = BufferSize + sizeof(MetadataRecord);
   CurrentBuffer = allocateBuffer(SerializedBufferSize);
   if (CurrentBuffer == nullptr)
@@ -349,7 +363,7 @@ XRayLogFlushStatus fdrLoggingFlush() XRAY_NEVER_INSTRUMENT {
     // still use a Metadata record, but fill in the extents instead for the
     // data.
     MetadataRecord ExtentsRecord;
-    auto BufferExtents = atomic_load(&B.Extents, memory_order_acquire);
+    auto BufferExtents = atomic_load(B.Extents, memory_order_acquire);
     DCHECK(BufferExtents <= B.Size);
     ExtentsRecord.Type = uint8_t(RecordType::Metadata);
     ExtentsRecord.RecordKind =
@@ -407,7 +421,8 @@ static TSCAndCPU getTimestamp() XRAY_NEVER_INSTRUMENT {
   // Test once for required CPU features
   static pthread_once_t OnceProbe = PTHREAD_ONCE_INIT;
   static bool TSCSupported = true;
-  pthread_once(&OnceProbe, +[] { TSCSupported = probeRequiredCPUFeatures(); });
+  pthread_once(
+      &OnceProbe, +[] { TSCSupported = probeRequiredCPUFeatures(); });
 
   if (TSCSupported) {
     Result.TSC = __xray::readTSC(Result.CPU);
@@ -550,10 +565,11 @@ void fdrLoggingHandleCustomEvent(void *Event,
   if (EventSize >
       static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
     static pthread_once_t Once = PTHREAD_ONCE_INIT;
-    pthread_once(&Once, +[] {
-      Report("Custom event size too large; truncating to %d.\n",
-             std::numeric_limits<int32_t>::max());
-    });
+    pthread_once(
+        &Once, +[] {
+          Report("Custom event size too large; truncating to %d.\n",
+                 std::numeric_limits<int32_t>::max());
+        });
   }
 
   auto &TLD = getThreadLocalData();
@@ -579,10 +595,11 @@ void fdrLoggingHandleTypedEvent(
   if (EventSize >
       static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
     static pthread_once_t Once = PTHREAD_ONCE_INIT;
-    pthread_once(&Once, +[] {
-      Report("Typed event size too large; truncating to %d.\n",
-             std::numeric_limits<int32_t>::max());
-    });
+    pthread_once(
+        &Once, +[] {
+          Report("Typed event size too large; truncating to %d.\n",
+                 std::numeric_limits<int32_t>::max());
+        });
   }
 
   auto &TLD = getThreadLocalData();
@@ -660,25 +677,28 @@ XRayLogInitStatus fdrLoggingInit(size_t, size_t, void *Options,
   }
 
   static pthread_once_t OnceInit = PTHREAD_ONCE_INIT;
-  pthread_once(&OnceInit, +[] {
-    atomic_store(&TicksPerSec,
-                 probeRequiredCPUFeatures() ? getTSCFrequency()
-                                            : __xray::NanosecondsPerSecond,
-                 memory_order_release);
-    pthread_key_create(&Key, +[](void *TLDPtr) {
-      if (TLDPtr == nullptr)
-        return;
-      auto &TLD = *reinterpret_cast<ThreadLocalData *>(TLDPtr);
-      if (TLD.BQ == nullptr)
-        return;
-      if (TLD.Buffer.Data == nullptr)
-        return;
-      auto EC = TLD.BQ->releaseBuffer(TLD.Buffer);
-      if (EC != BufferQueue::ErrorCode::Ok)
-        Report("At thread exit, failed to release buffer at %p; error=%s\n",
-               TLD.Buffer.Data, BufferQueue::getErrorString(EC));
-    });
-  });
+  pthread_once(
+      &OnceInit, +[] {
+        atomic_store(&TicksPerSec,
+                     probeRequiredCPUFeatures() ? getTSCFrequency()
+                                                : __xray::NanosecondsPerSecond,
+                     memory_order_release);
+        pthread_key_create(
+            &Key, +[](void *TLDPtr) {
+              if (TLDPtr == nullptr)
+                return;
+              auto &TLD = *reinterpret_cast<ThreadLocalData *>(TLDPtr);
+              if (TLD.BQ == nullptr)
+                return;
+              if (TLD.Buffer.Data == nullptr)
+                return;
+              auto EC = TLD.BQ->releaseBuffer(TLD.Buffer);
+              if (EC != BufferQueue::ErrorCode::Ok)
+                Report("At thread exit, failed to release buffer at %p; "
+                       "error=%s\n",
+                       TLD.Buffer.Data, BufferQueue::getErrorString(EC));
+            });
+      });
 
   atomic_store(&ThresholdTicks,
                atomic_load_relaxed(&TicksPerSec) *
