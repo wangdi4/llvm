@@ -7,18 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-// C Includes
-// C++ Includes
 #include <algorithm>
 #include <csignal>
 #include <fstream>
 #include <vector>
 
-// Other libraries and framework includes
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
-// Project includes
 #include "lldb/Breakpoint/BreakpointIDList.h"
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Debugger.h"
@@ -1280,8 +1276,9 @@ Status Platform::PutFile(const FileSpec &source, const FileSpec &destination,
   if (fs::is_symlink_file(source.GetPath()))
     source_open_options |= File::eOpenOptionDontFollowSymlinks;
 
-  File source_file(source, source_open_options, lldb::eFilePermissionsUserRW);
-  Status error;
+  File source_file;
+  Status error = FileSystem::Instance().Open(
+      source_file, source, source_open_options, lldb::eFilePermissionsUserRW);
   uint32_t permissions = source_file.GetPermissions(error);
   if (permissions == 0)
     permissions = lldb::eFilePermissionsFileDefault;

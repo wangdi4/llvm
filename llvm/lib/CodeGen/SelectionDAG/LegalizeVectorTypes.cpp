@@ -166,6 +166,10 @@ void DAGTypeLegalizer::ScalarizeVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::STRICT_FNEARBYINT:
   case ISD::STRICT_FMAXNUM:
   case ISD::STRICT_FMINNUM:
+  case ISD::STRICT_FCEIL:
+  case ISD::STRICT_FFLOOR:
+  case ISD::STRICT_FROUND:
+  case ISD::STRICT_FTRUNC:
     R = ScalarizeVecRes_StrictFPOp(N);
     break;
   }
@@ -838,6 +842,10 @@ void DAGTypeLegalizer::SplitVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::STRICT_FNEARBYINT:
   case ISD::STRICT_FMAXNUM:
   case ISD::STRICT_FMINNUM:
+  case ISD::STRICT_FCEIL:
+  case ISD::STRICT_FFLOOR:
+  case ISD::STRICT_FROUND:
+  case ISD::STRICT_FTRUNC:
     SplitVecRes_StrictFPOp(N, Lo, Hi);
     break;
   }
@@ -1686,13 +1694,6 @@ bool DAGTypeLegalizer::SplitVectorOperand(SDNode *N, unsigned OpNo) {
     case ISD::VSELECT:
       Res = SplitVecOp_VSELECT(N, OpNo);
       break;
-    case ISD::FP_TO_SINT:
-    case ISD::FP_TO_UINT:
-      if (N->getValueType(0).bitsLT(N->getOperand(0).getValueType()))
-        Res = SplitVecOp_TruncateHelper(N);
-      else
-        Res = SplitVecOp_UnaryOp(N);
-      break;
     case ISD::SINT_TO_FP:
     case ISD::UINT_TO_FP:
       if (N->getValueType(0).bitsLT(N->getOperand(0).getValueType()))
@@ -1700,6 +1701,8 @@ bool DAGTypeLegalizer::SplitVectorOperand(SDNode *N, unsigned OpNo) {
       else
         Res = SplitVecOp_UnaryOp(N);
       break;
+    case ISD::FP_TO_SINT:
+    case ISD::FP_TO_UINT:
     case ISD::CTTZ:
     case ISD::CTLZ:
     case ISD::CTPOP:
@@ -1926,6 +1929,15 @@ SDValue DAGTypeLegalizer::SplitVecOp_EXTRACT_VECTOR_ELT(SDNode *N) {
 
   // Load back the required element.
   StackPtr = TLI.getVectorElementPointer(DAG, StackPtr, VecVT, Idx);
+
+  // FIXME: This is to handle i1 vectors with elements promoted to i8.
+  // i1 vector handling needs general improvement.
+  if (N->getValueType(0).bitsLT(EltVT)) {
+    SDValue Load = DAG.getLoad(EltVT, dl, Store, StackPtr,
+      MachinePointerInfo::getUnknownStack(DAG.getMachineFunction()));
+    return DAG.getZExtOrTrunc(Load, dl, N->getValueType(0));
+  }
+
   return DAG.getExtLoad(
       ISD::EXTLOAD, dl, N->getValueType(0), Store, StackPtr,
       MachinePointerInfo::getUnknownStack(DAG.getMachineFunction()), EltVT);
@@ -2230,16 +2242,31 @@ SDValue DAGTypeLegalizer::SplitVecOp_TruncateHelper(SDNode *N) {
   unsigned InElementSize = InVT.getScalarSizeInBits();
   unsigned OutElementSize = OutVT.getScalarSizeInBits();
 
+  // Determine the split output VT. If its legal we can just split dirctly.
+  EVT LoOutVT, HiOutVT;
+  std::tie(LoOutVT, HiOutVT) = DAG.GetSplitDestVTs(OutVT);
+  assert(LoOutVT == HiOutVT && "Unequal split?");
+
   // If the input elements are only 1/2 the width of the result elements,
   // just use the normal splitting. Our trick only work if there's room
   // to split more than once.
-  if (InElementSize <= OutElementSize * 2)
+  if (isTypeLegal(LoOutVT) ||
+      InElementSize <= OutElementSize * 2)
     return SplitVecOp_UnaryOp(N);
   SDLoc DL(N);
+
+  // Don't touch if this will be scalarized.
+  EVT FinalVT = InVT;
+  while (getTypeAction(FinalVT) == TargetLowering::TypeSplitVector)
+    FinalVT = FinalVT.getHalfNumVectorElementsVT(*DAG.getContext());
+
+  if (getTypeAction(FinalVT) == TargetLowering::TypeScalarizeVector)
+    return SplitVecOp_UnaryOp(N);
 
   // Get the split input vector.
   SDValue InLoVec, InHiVec;
   GetSplitVector(InVec, InLoVec, InHiVec);
+
   // Truncate them to 1/2 the element size.
   EVT HalfElementVT = IsFloat ?
     EVT::getFloatingPointVT(InElementSize/2) :
@@ -2406,6 +2433,10 @@ void DAGTypeLegalizer::WidenVectorResult(SDNode *N, unsigned ResNo) {
   case ISD::STRICT_FNEARBYINT:
   case ISD::STRICT_FMAXNUM:
   case ISD::STRICT_FMINNUM:
+  case ISD::STRICT_FCEIL:
+  case ISD::STRICT_FFLOOR:
+  case ISD::STRICT_FROUND:
+  case ISD::STRICT_FTRUNC:
     Res = WidenVecRes_StrictFP(N);
     break;
 
@@ -2702,7 +2733,7 @@ SDValue DAGTypeLegalizer::WidenVecRes_StrictFP(SDNode *N) {
   // The Chain is the first operand.
   InOps.push_back(N->getOperand(0));
 
-  // Now process the remaining operands. 
+  // Now process the remaining operands.
   for (unsigned i = 1; i < NumOpers; ++i) {
     SDValue Oper = N->getOperand(i);
 
@@ -2810,10 +2841,12 @@ SDValue DAGTypeLegalizer::WidenVecRes_Convert(SDNode *N) {
       // If both input and result vector types are of same width, extend
       // operations should be done with SIGN/ZERO_EXTEND_VECTOR_INREG, which
       // accepts fewer elements in the result than in the input.
+      if (Opcode == ISD::ANY_EXTEND)
+        return DAG.getNode(ISD::ANY_EXTEND_VECTOR_INREG, DL, WidenVT, InOp);
       if (Opcode == ISD::SIGN_EXTEND)
-        return DAG.getSignExtendVectorInReg(InOp, DL, WidenVT);
+        return DAG.getNode(ISD::SIGN_EXTEND_VECTOR_INREG, DL, WidenVT, InOp);
       if (Opcode == ISD::ZERO_EXTEND)
-        return DAG.getZeroExtendVectorInReg(InOp, DL, WidenVT);
+        return DAG.getNode(ISD::ZERO_EXTEND_VECTOR_INREG, DL, WidenVT, InOp);
     }
   }
 
@@ -2883,11 +2916,9 @@ SDValue DAGTypeLegalizer::WidenVecRes_EXTEND_VECTOR_INREG(SDNode *N) {
     if (InVT.getSizeInBits() == WidenVT.getSizeInBits()) {
       switch (Opcode) {
       case ISD::ANY_EXTEND_VECTOR_INREG:
-        return DAG.getAnyExtendVectorInReg(InOp, DL, WidenVT);
       case ISD::SIGN_EXTEND_VECTOR_INREG:
-        return DAG.getSignExtendVectorInReg(InOp, DL, WidenVT);
       case ISD::ZERO_EXTEND_VECTOR_INREG:
-        return DAG.getZeroExtendVectorInReg(InOp, DL, WidenVT);
+        return DAG.getNode(Opcode, DL, WidenVT, InOp);
       }
     }
   }
@@ -3722,11 +3753,11 @@ SDValue DAGTypeLegalizer::WidenVecOp_EXTEND(SDNode *N) {
   default:
     llvm_unreachable("Extend legalization on extend operation!");
   case ISD::ANY_EXTEND:
-    return DAG.getAnyExtendVectorInReg(InOp, DL, VT);
+    return DAG.getNode(ISD::ANY_EXTEND_VECTOR_INREG, DL, VT, InOp);
   case ISD::SIGN_EXTEND:
-    return DAG.getSignExtendVectorInReg(InOp, DL, VT);
+    return DAG.getNode(ISD::SIGN_EXTEND_VECTOR_INREG, DL, VT, InOp);
   case ISD::ZERO_EXTEND:
-    return DAG.getZeroExtendVectorInReg(InOp, DL, VT);
+    return DAG.getNode(ISD::ZERO_EXTEND_VECTOR_INREG, DL, VT, InOp);
   }
 }
 

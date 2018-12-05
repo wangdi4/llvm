@@ -2,9 +2,9 @@
 // REQUIRES: lld
 
 // Test that we can display tag types.
-// RUN: clang-cl /Z7 /GS- /GR- /c -Xclang -fkeep-static-consts /Fo%t.obj -- %s
+// RUN: %clang_cl /Z7 /GS- /GR- /c -Xclang -fkeep-static-consts /Fo%t.obj -- %s
 // RUN: lld-link /DEBUG /nodefaultlib /entry:main /OUT:%t.exe /PDB:%t.pdb -- %t.obj
-// RUN: env LLDB_USE_NATIVE_PDB_READER=1 lldb -f %t.exe -s \
+// RUN: env LLDB_USE_NATIVE_PDB_READER=1 %lldb -f %t.exe -s \
 // RUN:     %p/Inputs/globals-classes.lldbinit | FileCheck %s
 
 enum class EnumType : unsigned {
@@ -269,6 +269,94 @@ constexpr References ReferencesInstance;
 // CHECK-NEXT:   (unsigned long long &) l = {{.*}}
 // CHECK-NEXT:   (long long &) m = {{.*}}
 // CHECK-NEXT: }
+
+// CHECK: Dumping clang ast for 1 modules.
+// CHECK: TranslationUnitDecl {{.*}}
+// CHECK: |-CXXRecordDecl {{.*}} class ClassWithPadding definition
+// CHECK: | |-FieldDecl {{.*}} a 'char'
+// CHECK: | |-FieldDecl {{.*}} b 'short'
+// CHECK: | |-FieldDecl {{.*}} c 'char [2]'
+// CHECK: | |-FieldDecl {{.*}} d 'int'
+// CHECK: | |-FieldDecl {{.*}} e 'char'
+// CHECK: | |-FieldDecl {{.*}} f 'int'
+// CHECK: | |-FieldDecl {{.*}} g 'long long'
+// CHECK: | |-FieldDecl {{.*}} h 'char [3]'
+// CHECK: | |-FieldDecl {{.*}} i 'long long'
+// CHECK: | |-FieldDecl {{.*}} j 'char [2]'
+// CHECK: | |-FieldDecl {{.*}} k 'long long'
+// CHECK: | |-FieldDecl {{.*}} l 'char'
+// CHECK: | `-FieldDecl {{.*}} m 'long long'
+// CHECK: |-CXXRecordDecl {{.*}} class ClassNoPadding definition
+// CHECK: | |-FieldDecl {{.*}} a 'unsigned char'
+// CHECK: | |-FieldDecl {{.*}} b 'char'
+// CHECK: | |-FieldDecl {{.*}} c 'bool'
+// CHECK: | |-FieldDecl {{.*}} d 'bool'
+// CHECK: | |-FieldDecl {{.*}} e 'short'
+// CHECK: | |-FieldDecl {{.*}} f 'unsigned short'
+// CHECK: | |-FieldDecl {{.*}} g 'unsigned int'
+// CHECK: | |-FieldDecl {{.*}} h 'int'
+// CHECK: | |-FieldDecl {{.*}} i 'unsigned long'
+// CHECK: | |-FieldDecl {{.*}} j 'long'
+// CHECK: | |-FieldDecl {{.*}} k 'float'
+// CHECK: | |-FieldDecl {{.*}} l 'EnumType'
+// CHECK: | |-FieldDecl {{.*}} m 'double'
+// CHECK: | |-FieldDecl {{.*}} n 'unsigned long long'
+// CHECK: | |-FieldDecl {{.*}} o 'long long'
+// CHECK: | `-FieldDecl {{.*}} p 'int [5]'
+// CHECK: |-EnumDecl {{.*}} EnumType
+// CHECK: | |-EnumConstantDecl {{.*}} A 'EnumType'
+// CHECK: | `-EnumConstantDecl {{.*}} B 'EnumType'
+// CHECK: |-CXXRecordDecl {{.*}} struct DerivedClass definition
+// CHECK: | |-public 'BaseClass<int>'
+// CHECK: | `-FieldDecl {{.*}} DerivedMember 'int'
+// CHECK: |-CXXRecordDecl {{.*}} struct BaseClass<int> definition
+// CHECK: | `-FieldDecl {{.*}} BaseMember 'int'
+// CHECK: |-CXXRecordDecl {{.*}} struct EBO definition
+// CHECK: | |-public 'EmptyBase'
+// CHECK: | `-FieldDecl {{.*}} Member 'int'
+// CHECK: |-CXXRecordDecl {{.*}} struct EmptyBase definition
+// CHECK: |-CXXRecordDecl {{.*}} struct PaddedBases definition
+// CHECK: | |-public 'BaseClass<char>'
+// CHECK: | |-public 'BaseClass<short>'
+// CHECK: | |-public 'BaseClass<int>'
+// CHECK: | `-FieldDecl {{.*}} DerivedMember 'long long'
+// CHECK: |-CXXRecordDecl {{.*}} struct BaseClass<char> definition
+// CHECK: | `-FieldDecl {{.*}} BaseMember 'int'
+// CHECK: |-CXXRecordDecl {{.*}} struct BaseClass<short> definition
+// CHECK: | `-FieldDecl {{.*}} BaseMember 'int'
+// CHECK: |-CXXRecordDecl {{.*}} struct <unnamed-type-UnnamedClassInstance> definition
+// CHECK: | |-FieldDecl {{.*}} x 'int'
+// CHECK: | `-FieldDecl {{.*}} EBOC 'EBO'
+// CHECK: |-CXXRecordDecl {{.*}} struct Pointers definition
+// CHECK: | |-FieldDecl {{.*}} a 'void *'
+// CHECK: | |-FieldDecl {{.*}} b 'char *'
+// CHECK: | |-FieldDecl {{.*}} c 'bool *'
+// CHECK: | |-FieldDecl {{.*}} e 'short *'
+// CHECK: | |-FieldDecl {{.*}} f 'unsigned short *'
+// CHECK: | |-FieldDecl {{.*}} g 'unsigned int *'
+// CHECK: | |-FieldDecl {{.*}} h 'int *'
+// CHECK: | |-FieldDecl {{.*}} i 'unsigned long *'
+// CHECK: | |-FieldDecl {{.*}} j 'long *'
+// CHECK: | |-FieldDecl {{.*}} k 'float *'
+// CHECK: | |-FieldDecl {{.*}} l 'EnumType *'
+// CHECK: | |-FieldDecl {{.*}} m 'double *'
+// CHECK: | |-FieldDecl {{.*}} n 'unsigned long long *'
+// CHECK: | `-FieldDecl {{.*}} o 'long long *'
+// CHECK: |-CXXRecordDecl {{.*}} struct References definition
+// CHECK: | |-FieldDecl {{.*}} a 'char &'
+// CHECK: | |-FieldDecl {{.*}} b 'bool &'
+// CHECK: | |-FieldDecl {{.*}} c 'short &'
+// CHECK: | |-FieldDecl {{.*}} d 'unsigned short &'
+// CHECK: | |-FieldDecl {{.*}} e 'unsigned int &'
+// CHECK: | |-FieldDecl {{.*}} f 'int &'
+// CHECK: | |-FieldDecl {{.*}} g 'unsigned long &'
+// CHECK: | |-FieldDecl {{.*}} h 'long &'
+// CHECK: | |-FieldDecl {{.*}} i 'float &'
+// CHECK: | |-FieldDecl {{.*}} j 'EnumType &'
+// CHECK: | |-FieldDecl {{.*}} k 'double &'
+// CHECK: | |-FieldDecl {{.*}} l 'unsigned long long &'
+// CHECK: | `-FieldDecl {{.*}} m 'long long &'
+// CHECK: `-<undeserialized declarations>
 
 int main(int argc, char **argv) {
   return 0;

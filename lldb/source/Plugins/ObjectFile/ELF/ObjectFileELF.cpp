@@ -1897,9 +1897,9 @@ void ObjectFileELF::CreateSections(SectionList &unified_section_list) {
       else if (name == g_sect_name_dwarf_debug_str_offsets)
         sect_type = eSectionTypeDWARFDebugStrOffsets;
       else if (name == g_sect_name_dwarf_debug_abbrev_dwo)
-        sect_type = eSectionTypeDWARFDebugAbbrev;
+        sect_type = eSectionTypeDWARFDebugAbbrevDwo;
       else if (name == g_sect_name_dwarf_debug_info_dwo)
-        sect_type = eSectionTypeDWARFDebugInfo;
+        sect_type = eSectionTypeDWARFDebugInfoDwo;
       else if (name == g_sect_name_dwarf_debug_line_dwo)
         sect_type = eSectionTypeDWARFDebugLine;
       else if (name == g_sect_name_dwarf_debug_line_str_dwo)
@@ -1911,9 +1911,9 @@ void ObjectFileELF::CreateSections(SectionList &unified_section_list) {
       else if (name == g_sect_name_dwarf_debug_loclists_dwo)
         sect_type = eSectionTypeDWARFDebugLocLists;
       else if (name == g_sect_name_dwarf_debug_str_dwo)
-        sect_type = eSectionTypeDWARFDebugStr;
+        sect_type = eSectionTypeDWARFDebugStrDwo;
       else if (name == g_sect_name_dwarf_debug_str_offsets_dwo)
-        sect_type = eSectionTypeDWARFDebugStrOffsets;
+        sect_type = eSectionTypeDWARFDebugStrOffsetsDwo;
       else if (name == g_sect_name_eh_frame)
         sect_type = eSectionTypeEHFrame;
       else if (name == g_sect_name_arm_exidx)
@@ -2703,6 +2703,7 @@ unsigned ObjectFileELF::ApplyRelocations(
       }
     } else {
       switch (reloc_type(rel)) {
+      case R_AARCH64_ABS64:
       case R_X86_64_64: {
         symbol = symtab->FindSymbolByID(reloc_symbol(rel));
         if (symbol) {
@@ -2711,7 +2712,8 @@ unsigned ObjectFileELF::ApplyRelocations(
           uint64_t *dst = reinterpret_cast<uint64_t *>(
               data_buffer_sp->GetBytes() + rel_section->GetFileOffset() +
               ELFRelocation::RelocOffset64(rel));
-          *dst = value + ELFRelocation::RelocAddend64(rel);
+          uint64_t val_offset = value + ELFRelocation::RelocAddend64(rel);
+          memcpy(dst, &val_offset, sizeof(uint64_t));
         }
         break;
       }
@@ -2722,20 +2724,22 @@ unsigned ObjectFileELF::ApplyRelocations(
         if (symbol) {
           addr_t value = symbol->GetAddressRef().GetFileAddress();
           value += ELFRelocation::RelocAddend32(rel);
-          if ((reloc_type(rel) == R_X86_64_32 && (value <= UINT32_MAX)) ||
+          if ((reloc_type(rel) == R_X86_64_32 && (value > UINT32_MAX)) ||
               (reloc_type(rel) == R_X86_64_32S &&
-               ((int64_t)value <= INT32_MAX && (int64_t)value >= INT32_MIN)) ||
-              (reloc_type(rel) == R_AARCH64_ABS32 && (value <= UINT32_MAX))) {
+               ((int64_t)value > INT32_MAX && (int64_t)value < INT32_MIN)) ||
+              (reloc_type(rel) == R_AARCH64_ABS32 &&
+               ((int64_t)value > INT32_MAX && (int64_t)value < INT32_MIN))) {
             Log *log =
                 lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_MODULES);
             log->Printf("Failed to apply debug info relocations");
+            break;
           }
           uint32_t truncated_addr = (value & 0xFFFFFFFF);
           DataBufferSP &data_buffer_sp = debug_data.GetSharedDataBuffer();
           uint32_t *dst = reinterpret_cast<uint32_t *>(
               data_buffer_sp->GetBytes() + rel_section->GetFileOffset() +
               ELFRelocation::RelocOffset32(rel));
-          *dst = truncated_addr;
+          memcpy(dst, &truncated_addr, sizeof(uint32_t));
         }
         break;
       }
@@ -2876,6 +2880,8 @@ Symtab *ObjectFileELF::GetSymtab() {
     // do the section lookup next time.
     if (m_symtab_ap == nullptr)
       m_symtab_ap.reset(new Symtab(this));
+
+    m_symtab_ap->CalculateSymbolSizes();
   }
 
   return m_symtab_ap.get();

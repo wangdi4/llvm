@@ -7,10 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// C Includes
-// C++ Includes
-// Other libraries and framework includes
-// Project includes
 #include "SymbolFileDWARFDebugMap.h"
 
 #include "DWARFDebugAranges.h"
@@ -90,8 +86,7 @@ SymbolFileDWARFDebugMap::CompileUnitInfo::GetFileRangeMap(
       const uint32_t oso_end_idx = comp_unit_info->last_symbol_index + 1;
       for (uint32_t idx = comp_unit_info->first_symbol_index +
                           2; // Skip the N_SO and N_OSO
-           idx < oso_end_idx;
-           ++idx) {
+           idx < oso_end_idx; ++idx) {
         Symbol *exe_symbol = exe_symtab->SymbolAtIndex(idx);
         if (exe_symbol) {
           if (exe_symbol->IsDebug() == false)
@@ -424,7 +419,10 @@ Module *SymbolFileDWARFDebugMap::GetModuleByCompUnitInfo(
       FileSpec oso_file(oso_path);
       ConstString oso_object;
       if (FileSystem::Instance().Exists(oso_file)) {
-        auto oso_mod_time = FileSystem::Instance().GetModificationTime(oso_file);
+        // The modification time returned by the FS can have a higher precision
+        // than the one from the CU.
+        auto oso_mod_time = std::chrono::time_point_cast<std::chrono::seconds>(
+            FileSystem::Instance().GetModificationTime(oso_file));
         if (oso_mod_time != comp_unit_info->oso_mod_time) {
           obj_file->GetModule()->ReportError(
               "debug map object file '%s' has changed (actual time is "
@@ -518,7 +516,8 @@ uint32_t SymbolFileDWARFDebugMap::GetCompUnitInfoIndex(
 
 SymbolFileDWARF *
 SymbolFileDWARFDebugMap::GetSymbolFileByOSOIndex(uint32_t oso_idx) {
-  if (oso_idx < m_compile_unit_infos.size())
+  unsigned size = m_compile_unit_infos.size();
+  if (oso_idx < size)
     return GetSymbolFileByCompUnitInfo(&m_compile_unit_infos[oso_idx]);
   return NULL;
 }
@@ -702,6 +701,16 @@ Type *SymbolFileDWARFDebugMap::ResolveTypeUID(lldb::user_id_t type_uid) {
   return NULL;
 }
 
+llvm::Optional<SymbolFile::ArrayInfo>
+SymbolFileDWARFDebugMap::GetDynamicArrayInfoForUID(
+    lldb::user_id_t type_uid, const lldb_private::ExecutionContext *exe_ctx) {
+  const uint64_t oso_idx = GetOSOIndexFromUserID(type_uid);
+  SymbolFileDWARF *oso_dwarf = GetSymbolFileByOSOIndex(oso_idx);
+  if (oso_dwarf)
+    return oso_dwarf->GetDynamicArrayInfoForUID(type_uid, exe_ctx);
+  return llvm::None;
+}
+
 bool SymbolFileDWARFDebugMap::CompleteType(CompilerType &compiler_type) {
   bool success = false;
   if (compiler_type) {
@@ -794,8 +803,7 @@ uint32_t SymbolFileDWARFDebugMap::PrivateFindGlobalVariables(
     const ConstString &name, const CompilerDeclContext *parent_decl_ctx,
     const std::vector<uint32_t>
         &indexes, // Indexes into the symbol table that match "name"
-    uint32_t max_matches,
-    VariableList &variables) {
+    uint32_t max_matches, VariableList &variables) {
   const uint32_t original_size = variables.GetSize();
   const size_t match_count = indexes.size();
   for (size_t i = 0; i < match_count; ++i) {
@@ -1225,6 +1233,13 @@ CompilerDeclContext SymbolFileDWARFDebugMap::FindNamespace(
   }
 
   return matching_namespace;
+}
+
+void SymbolFileDWARFDebugMap::DumpClangAST(Stream &s) {
+  ForEachSymbolFile([&s](SymbolFileDWARF *oso_dwarf) -> bool {
+    oso_dwarf->DumpClangAST(s);
+    return true;
+  });
 }
 
 //------------------------------------------------------------------

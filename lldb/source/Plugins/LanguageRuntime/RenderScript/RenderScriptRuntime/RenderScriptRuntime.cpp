@@ -7,12 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// C Includes
-// C++ Includes
-// Other libraries and framework includes
 #include "llvm/ADT/StringSwitch.h"
 
-// Project includes
 #include "RenderScriptRuntime.h"
 #include "RenderScriptScriptGroup.h"
 
@@ -40,7 +36,6 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Utility/Args.h"
 #include "lldb/Utility/ConstString.h"
-#include "lldb/Utility/DataBufferLLVM.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/RegisterValue.h"
 #include "lldb/Utility/RegularExpression.h"
@@ -2544,7 +2539,7 @@ bool RenderScriptRuntime::LoadAllocation(Stream &strm, const uint32_t alloc_id,
   }
 
   // Read file into data buffer
-  auto data_sp = DataBufferLLVM::CreateFromPath(file.GetPath());
+  auto data_sp = FileSystem::Instance().CreateDataBuffer(file.GetPath());
 
   // Cast start of buffer to FileHeader and use pointer to read metadata
   void *file_buf = data_sp->GetBytes();
@@ -2756,8 +2751,12 @@ bool RenderScriptRuntime::SaveAllocation(Stream &strm, const uint32_t alloc_id,
   // Check we can create writable file
   FileSpec file_spec(path);
   FileSystem::Instance().Resolve(file_spec);
-  File file(file_spec, File::eOpenOptionWrite | File::eOpenOptionCanCreate |
-                           File::eOpenOptionTruncate);
+  File file;
+  FileSystem::Instance().Open(file, file_spec,
+                              File::eOpenOptionWrite |
+                                  File::eOpenOptionCanCreate |
+                                  File::eOpenOptionTruncate);
+
   if (!file) {
     strm.Printf("Error: Failed to open '%s' for writing", path);
     strm.EOL();
@@ -3081,7 +3080,8 @@ bool RSModuleDescriptor::ParseRSInfo() {
   const addr_t size = info_sym->GetByteSize();
   const FileSpec fs = m_module->GetFileSpec();
 
-  auto buffer = DataBufferLLVM::CreateSliceFromPath(fs.GetPath(), size, addr);
+  auto buffer =
+      FileSystem::Instance().CreateDataBuffer(fs.GetPath(), size, addr);
   if (!buffer)
     return false;
 
@@ -4710,16 +4710,17 @@ public:
         m_options.m_outfile; // Dump allocation to file instead
     if (outfile_spec) {
       // Open output file
-      char path[256];
-      outfile_spec.GetPath(path, sizeof(path));
-      if (outfile_stream.GetFile()
-              .Open(path, File::eOpenOptionWrite | File::eOpenOptionCanCreate)
-              .Success()) {
+      std::string path = outfile_spec.GetPath();
+      auto error = FileSystem::Instance().Open(
+          outfile_stream.GetFile(), outfile_spec,
+          File::eOpenOptionWrite | File::eOpenOptionCanCreate);
+      if (error.Success()) {
         output_strm = &outfile_stream;
-        result.GetOutputStream().Printf("Results written to '%s'", path);
+        result.GetOutputStream().Printf("Results written to '%s'",
+                                        path.c_str());
         result.GetOutputStream().EOL();
       } else {
-        result.AppendErrorWithFormat("Couldn't open file '%s'", path);
+        result.AppendErrorWithFormat("Couldn't open file '%s'", path.c_str());
         result.SetStatus(eReturnStatusFailed);
         return false;
       }

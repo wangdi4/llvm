@@ -54,6 +54,8 @@ extern "C" {
  * @{
  */
 
+/// External users depend on the following values being stable. It is not safe
+/// to reorder them.
 typedef enum {
   /* Terminator Instructions */
   LLVMRet            = 1,
@@ -63,6 +65,9 @@ typedef enum {
   LLVMInvoke         = 5,
   /* removed 6 due to API changes */
   LLVMUnreachable    = 7,
+
+  /* Standard Unary Operators */
+  LLVMFNeg           = 66,
 
   /* Standard Binary Operators */
   LLVMAdd            = 8,
@@ -2380,6 +2385,54 @@ void LLVMSetPersonalityFn(LLVMValueRef Fn, LLVMValueRef PersonalityFn);
  * @see llvm::Function::getIntrinsicID()
  */
 unsigned LLVMGetIntrinsicID(LLVMValueRef Fn);
+
+/**
+ * Create or insert the declaration of an intrinsic.  For overloaded intrinsics,
+ * parameter types must be provided to uniquely identify an overload.
+ *
+ * @see llvm::Intrinsic::getDeclaration()
+ */
+LLVMValueRef LLVMGetIntrinsicDeclaration(LLVMModuleRef Mod,
+                                         unsigned ID,
+                                         LLVMTypeRef *ParamTypes,
+                                         size_t ParamCount);
+
+/**
+ * Retrieves the type of an intrinsic.  For overloaded intrinsics, parameter
+ * types must be provided to uniquely identify an overload.
+ *
+ * @see llvm::Intrinsic::getType()
+ */
+LLVMTypeRef LLVMIntrinsicGetType(LLVMContextRef Ctx, unsigned ID,
+                                 LLVMTypeRef *ParamTypes, size_t ParamCount);
+
+/**
+ * Retrieves the name of an intrinsic.
+ *
+ * @see llvm::Intrinsic::getName()
+ */
+const char *LLVMIntrinsicGetName(unsigned ID, size_t *NameLength);
+
+/**
+ * Copies the name of an overloaded intrinsic identified by a given list of
+ * parameter types.
+ *
+ * Unlike LLVMIntrinsicGetName, the caller is responsible for freeing the
+ * returned string.
+ *
+ * @see llvm::Intrinsic::getName()
+ */
+const char *LLVMIntrinsicCopyOverloadedName(unsigned ID,
+                                            LLVMTypeRef *ParamTypes,
+                                            size_t ParamCount,
+                                            size_t *NameLength);
+
+/**
+ * Obtain if the intrinsic identified by the given ID is overloaded.
+ *
+ * @see llvm::Intrinsic::isOverloaded()
+ */
+LLVMBool LLVMIntrinsicIsOverloaded(unsigned ID);
 
 /**
  * Obtain the calling function of a function.

@@ -16,7 +16,6 @@
 #include "InstPrinter/NVPTXInstPrinter.h"
 #include "MCTargetDesc/NVPTXBaseInfo.h"
 #include "MCTargetDesc/NVPTXMCAsmInfo.h"
-#include "MCTargetDesc/NVPTXTargetStreamer.h"
 #include "NVPTX.h"
 #include "NVPTXMCExpr.h"
 #include "NVPTXMachineFunctionInfo.h"
@@ -200,7 +199,7 @@ bool NVPTXAsmPrinter::lowerImageHandleOperand(const MachineInstr *MI,
 
 void NVPTXAsmPrinter::lowerImageHandleSymbol(unsigned Index, MCOperand &MCOp) {
   // Ewwww
-  TargetMachine &TM = const_cast<TargetMachine&>(MF->getTarget());
+  LLVMTargetMachine &TM = const_cast<LLVMTargetMachine&>(MF->getTarget());
   NVPTXTargetMachine &nvTM = static_cast<NVPTXTargetMachine&>(TM);
   const NVPTXMachineFunctionInfo *MFI = MF->getInfo<NVPTXMachineFunctionInfo>();
   const char *Sym = MFI->getImageHandleSymbol(Index);
@@ -881,22 +880,8 @@ void NVPTXAsmPrinter::emitHeader(Module &M, raw_ostream &O,
   if (NTM.getDrvInterface() == NVPTX::NVCL)
     O << ", texmode_independent";
 
-  bool HasFullDebugInfo = false;
-  for (DICompileUnit *CU : M.debug_compile_units()) {
-    switch(CU->getEmissionKind()) {
-    case DICompileUnit::NoDebug:
-    case DICompileUnit::DebugDirectivesOnly:
-      break;
-    case DICompileUnit::LineTablesOnly:
-    case DICompileUnit::FullDebug:
-      HasFullDebugInfo = true;
-      break;
-    }
-    if (HasFullDebugInfo)
-      break;
-  }
   // FIXME: remove comment once debug info is properly supported.
-  if (MMI && MMI->hasDebugInfo() && HasFullDebugInfo)
+  if (MMI && MMI->hasDebugInfo())
     O << "//, debug";
 
   O << "\n";
@@ -952,10 +937,6 @@ bool NVPTXAsmPrinter::doFinalization(Module &M) {
   // Close the last emitted section
   if (HasDebugInfo)
     OutStreamer->EmitRawText("//\t}");
-
-  // Output last DWARF .file directives, if any.
-  static_cast<NVPTXTargetStreamer *>(OutStreamer->getTargetStreamer())
-      ->outputDwarfFileDirectives();
 
   return ret;
 

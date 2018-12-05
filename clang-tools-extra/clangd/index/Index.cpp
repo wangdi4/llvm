@@ -12,7 +12,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/SHA1.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -41,34 +40,6 @@ raw_ostream &operator<<(raw_ostream &OS, const SymbolLocation &L) {
     return OS << "(none)";
   return OS << L.FileURI << "[" << L.Start.line() << ":" << L.Start.column()
             << "-" << L.End.line() << ":" << L.End.column() << ")";
-}
-
-SymbolID::SymbolID(StringRef USR) {
-  auto Hash = SHA1::hash(arrayRefFromStringRef(USR));
-  static_assert(sizeof(Hash) >= RawSize, "RawSize larger than SHA1");
-  memcpy(HashValue.data(), Hash.data(), RawSize);
-}
-
-raw_ostream &operator<<(raw_ostream &OS, const SymbolID &ID) {
-  return OS << toHex(ID.raw());
-}
-
-SymbolID SymbolID::fromRaw(StringRef Raw) {
-  SymbolID ID;
-  assert(Raw.size() == RawSize);
-  memcpy(ID.HashValue.data(), Raw.data(), RawSize);
-  return ID;
-}
-
-std::string SymbolID::str() const { return toHex(raw()); }
-
-Expected<SymbolID> SymbolID::fromStr(StringRef Str) {
-  if (Str.size() != RawSize * 2)
-    return createStringError(inconvertibleErrorCode(), "Bad ID length");
-  for (char C : Str)
-    if (!isHexDigit(C))
-      return createStringError(inconvertibleErrorCode(), "Bad hex ID");
-  return fromRaw(fromHex(Str));
 }
 
 raw_ostream &operator<<(raw_ostream &OS, SymbolOrigin O) {
@@ -165,7 +136,8 @@ raw_ostream &operator<<(raw_ostream &OS, const Ref &R) {
 void RefSlab::Builder::insert(const SymbolID &ID, const Ref &S) {
   auto &M = Refs[ID];
   M.push_back(S);
-  M.back().Location.FileURI = UniqueStrings.save(M.back().Location.FileURI);
+  M.back().Location.FileURI =
+      UniqueStrings.save(M.back().Location.FileURI).data();
 }
 
 RefSlab RefSlab::Builder::build() && {
@@ -207,7 +179,7 @@ bool fromJSON(const json::Value &Parameters, FuzzyFindRequest &Request) {
   int64_t Limit;
   bool OK =
       O && O.map("Query", Request.Query) && O.map("Scopes", Request.Scopes) &&
-      O.map("Limit", Limit) &&
+      O.map("AnyScope", Request.AnyScope) && O.map("Limit", Limit) &&
       O.map("RestrictForCodeCompletion", Request.RestrictForCodeCompletion) &&
       O.map("ProximityPaths", Request.ProximityPaths);
   if (OK && Limit <= std::numeric_limits<uint32_t>::max())
@@ -219,6 +191,7 @@ json::Value toJSON(const FuzzyFindRequest &Request) {
   return json::Object{
       {"Query", Request.Query},
       {"Scopes", json::Array{Request.Scopes}},
+      {"AnyScope", Request.AnyScope},
       {"Limit", Request.Limit},
       {"RestrictForCodeCompletion", Request.RestrictForCodeCompletion},
       {"ProximityPaths", json::Array{Request.ProximityPaths}},

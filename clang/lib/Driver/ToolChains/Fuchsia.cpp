@@ -109,8 +109,8 @@ void fuchsia::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                   D.getLTOMode() == LTOK_Thin);
   }
 
-  addSanitizerRuntimes(ToolChain, Args, CmdArgs);
-
+  bool NeedsSanitizerDeps = addSanitizerRuntimes(ToolChain, Args, CmdArgs);
+  bool NeedsXRayDeps = addXRayRuntime(ToolChain, Args, CmdArgs);
   AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
   ToolChain.addProfileRTLibs(Args, CmdArgs);
 
@@ -122,14 +122,23 @@ void fuchsia::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (ToolChain.ShouldLinkCXXStdlib(Args)) {
         bool OnlyLibstdcxxStatic = Args.hasArg(options::OPT_static_libstdcxx) &&
                                    !Args.hasArg(options::OPT_static);
+        CmdArgs.push_back("--push-state");
+        CmdArgs.push_back("--as-needed");
         if (OnlyLibstdcxxStatic)
           CmdArgs.push_back("-Bstatic");
         ToolChain.AddCXXStdlibLibArgs(Args, CmdArgs);
         if (OnlyLibstdcxxStatic)
           CmdArgs.push_back("-Bdynamic");
+        CmdArgs.push_back("-lm");
+        CmdArgs.push_back("--pop-state");
       }
-      CmdArgs.push_back("-lm");
     }
+
+    if (NeedsSanitizerDeps)
+      linkSanitizerRuntimeDeps(ToolChain, CmdArgs);
+
+    if (NeedsXRayDeps)
+      linkXRayRuntimeDeps(ToolChain, CmdArgs);
 
     AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
 

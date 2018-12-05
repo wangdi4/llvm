@@ -85,6 +85,9 @@ public:
   ParseVariablesForContext(const lldb_private::SymbolContext &sc) override;
 
   lldb_private::Type *ResolveTypeUID(lldb::user_id_t type_uid) override;
+  llvm::Optional<ArrayInfo> GetDynamicArrayInfoForUID(
+      lldb::user_id_t type_uid,
+      const lldb_private::ExecutionContext *exe_ctx) override;
 
   bool CompleteType(lldb_private::CompilerType &compiler_type) override;
 
@@ -133,8 +136,6 @@ public:
       const std::string &scope_qualified_name,
       std::vector<lldb_private::ConstString> &mangled_names) override;
 
-  void AddSymbols(lldb_private::Symtab &symtab) override;
-
   uint32_t
   FindTypes(const lldb_private::SymbolContext &sc,
             const lldb_private::ConstString &name,
@@ -171,6 +172,8 @@ public:
 
   const llvm::pdb::IPDBSession &GetPDBSession() const;
 
+  void DumpClangAST(lldb_private::Stream &s) override;
+
 private:
   struct SecContribInfo {
     uint32_t Offset;
@@ -189,7 +192,7 @@ private:
       const llvm::pdb::PDBSymbolCompiland &pdb_compiland,
       llvm::DenseMap<uint32_t, uint32_t> &index_map) const;
 
-  void FindTypesByName(const std::string &name,
+  void FindTypesByName(llvm::StringRef name,
                        const lldb_private::CompilerDeclContext *parent_decl_ctx,
                        uint32_t max_matches, lldb_private::TypeMap &types);
 

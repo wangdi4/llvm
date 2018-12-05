@@ -116,6 +116,9 @@ def SDTIntBinOp : SDTypeProfile<1, 2, [     // add, and, or, xor, udiv, etc.
 def SDTIntShiftOp : SDTypeProfile<1, 2, [   // shl, sra, srl
   SDTCisSameAs<0, 1>, SDTCisInt<0>, SDTCisInt<2>
 ]>;
+def SDTIntShiftDOp: SDTypeProfile<1, 3, [   // fshl, fshr
+  SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>, SDTCisInt<0>, SDTCisInt<3>
+]>;
 def SDTIntSatNoShOp : SDTypeProfile<1, 2, [   // ssat with no shift
   SDTCisSameAs<0, 1>, SDTCisInt<2>
 ]>;
@@ -162,7 +165,7 @@ def SDTExtInreg : SDTypeProfile<1, 2, [     // sext_inreg
 ]>;
 def SDTExtInvec : SDTypeProfile<1, 1, [     // sext_invec
   SDTCisInt<0>, SDTCisVec<0>, SDTCisInt<1>, SDTCisVec<1>,
-  SDTCisOpSmallerThanOp<1, 0>, SDTCisSameSizeAs<0,1>
+  SDTCisOpSmallerThanOp<1, 0>
 ]>;
 
 def SDTSetCC : SDTypeProfile<1, 3, [        // setcc

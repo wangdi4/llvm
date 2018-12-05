@@ -177,7 +177,8 @@ static const bool ViewDAGCombine1 = false,
 /// RegisterScheduler class - Track the registration of instruction schedulers.
 ///
 //===---------------------------------------------------------------------===//
-MachinePassRegistry RegisterScheduler::Registry;
+MachinePassRegistry<RegisterScheduler::FunctionPassCtor>
+    RegisterScheduler::Registry;
 
 //===---------------------------------------------------------------------===//
 ///
@@ -696,10 +697,10 @@ void SelectionDAGISel::ComputeLiveOutVRegInfo() {
     if (!TargetRegisterInfo::isVirtualRegister(DestReg))
       continue;
 
-    // Ignore non-scalar or non-integer values.
+    // Ignore non-integer values.
     SDValue Src = N->getOperand(2);
     EVT SrcVT = Src.getValueType();
-    if (!SrcVT.isInteger() || SrcVT.isVector())
+    if (!SrcVT.isInteger())
       continue;
 
     unsigned NumSignBits = CurDAG->ComputeNumSignBits(Src);

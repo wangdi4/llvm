@@ -10,8 +10,6 @@
 #ifndef SymbolFileDWARF_SymbolFileDWARF_h_
 #define SymbolFileDWARF_SymbolFileDWARF_h_
 
-// C Includes
-// C++ Includes
 #include <list>
 #include <map>
 #include <mutex>
@@ -19,7 +17,6 @@
 #include <unordered_map>
 #include <vector>
 
-// Other libraries and framework includes
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Threading.h"
 
@@ -35,7 +32,6 @@
 #include "lldb/Utility/ConstString.h"
 #include "lldb/lldb-private.h"
 
-// Project includes
 #include "DWARFDataExtractor.h"
 #include "DWARFDefines.h"
 #include "DWARFIndex.h"
@@ -73,9 +69,6 @@ public:
   friend class DWARFUnit;
   friend class DWARFDIE;
   friend class DWARFASTParserClang;
-  friend class DWARFASTParserGo;
-  friend class DWARFASTParserJava;
-  friend class DWARFASTParserOCaml;
 
   //------------------------------------------------------------------
   // Static Functions
@@ -144,6 +137,9 @@ public:
   ParseVariablesForContext(const lldb_private::SymbolContext &sc) override;
 
   lldb_private::Type *ResolveTypeUID(lldb::user_id_t type_uid) override;
+  llvm::Optional<ArrayInfo> GetDynamicArrayInfoForUID(
+      lldb::user_id_t type_uid,
+      const lldb_private::ExecutionContext *exe_ctx) override;
 
   bool CompleteType(lldb_private::CompilerType &compiler_type) override;
 
@@ -237,11 +233,11 @@ public:
 
   uint32_t GetPluginVersion() override;
 
-  const lldb_private::DWARFDataExtractor &get_debug_abbrev_data();
-  const lldb_private::DWARFDataExtractor &get_debug_addr_data();
+  virtual const lldb_private::DWARFDataExtractor &get_debug_abbrev_data();
+  virtual const lldb_private::DWARFDataExtractor &get_debug_addr_data();
   const lldb_private::DWARFDataExtractor &get_debug_aranges_data();
   const lldb_private::DWARFDataExtractor &get_debug_frame_data();
-  const lldb_private::DWARFDataExtractor &get_debug_info_data();
+  virtual const lldb_private::DWARFDataExtractor &get_debug_info_data();
   const lldb_private::DWARFDataExtractor &get_debug_line_data();
   const lldb_private::DWARFDataExtractor &get_debug_line_str_data();
   const lldb_private::DWARFDataExtractor &get_debug_macro_data();
@@ -249,8 +245,8 @@ public:
   const lldb_private::DWARFDataExtractor &get_debug_loclists_data();
   const lldb_private::DWARFDataExtractor &get_debug_ranges_data();
   const lldb_private::DWARFDataExtractor &get_debug_rnglists_data();
-  const lldb_private::DWARFDataExtractor &get_debug_str_data();
-  const lldb_private::DWARFDataExtractor &get_debug_str_offsets_data();
+  virtual const lldb_private::DWARFDataExtractor &get_debug_str_data();
+  virtual const lldb_private::DWARFDataExtractor &get_debug_str_offsets_data();
   const lldb_private::DWARFDataExtractor &get_debug_types_data();
   const lldb_private::DWARFDataExtractor &get_apple_names_data();
   const lldb_private::DWARFDataExtractor &get_apple_types_data();
@@ -328,6 +324,8 @@ public:
   ParseCallEdgesInFunction(UserID func_id) override;
 
   void Dump(lldb_private::Stream &s) override;
+
+  void DumpClangAST(lldb_private::Stream &s) override;
 
 protected:
   typedef llvm::DenseMap<const DWARFDebugInfoEntry *, lldb_private::Type *>

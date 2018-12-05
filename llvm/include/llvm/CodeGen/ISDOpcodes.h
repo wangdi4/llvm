@@ -289,6 +289,7 @@ namespace ISD {
     STRICT_FSQRT, STRICT_FPOW, STRICT_FPOWI, STRICT_FSIN, STRICT_FCOS,
     STRICT_FEXP, STRICT_FEXP2, STRICT_FLOG, STRICT_FLOG10, STRICT_FLOG2,
     STRICT_FRINT, STRICT_FNEARBYINT, STRICT_FMAXNUM, STRICT_FMINNUM,
+    STRICT_FCEIL, STRICT_FFLOOR, STRICT_FROUND, STRICT_FTRUNC,
 
     /// FMA - Perform a * b + c with no intermediate rounding step.
     FMA,
@@ -477,31 +478,33 @@ namespace ISD {
     /// in-register any-extension of the low lanes of an integer vector. The
     /// result type must have fewer elements than the operand type, and those
     /// elements must be larger integer types such that the total size of the
-    /// operand type and the result type match. Each of the low operand
-    /// elements is any-extended into the corresponding, wider result
-    /// elements with the high bits becoming undef.
+    /// operand type is less than or equal to the size of the result type. Each
+    /// of the low operand elements is any-extended into the corresponding,
+    /// wider result elements with the high bits becoming undef.
+    /// NOTE: The type legalizer prefers to make the operand and result size
+    /// the same to allow expansion to shuffle vector during op legalization.
     ANY_EXTEND_VECTOR_INREG,
 
     /// SIGN_EXTEND_VECTOR_INREG(Vector) - This operator represents an
     /// in-register sign-extension of the low lanes of an integer vector. The
     /// result type must have fewer elements than the operand type, and those
     /// elements must be larger integer types such that the total size of the
-    /// operand type and the result type match. Each of the low operand
-    /// elements is sign-extended into the corresponding, wider result
-    /// elements.
-    // FIXME: The SIGN_EXTEND_INREG node isn't specifically limited to
-    // scalars, but it also doesn't handle vectors well. Either it should be
-    // restricted to scalars or this node (and its handling) should be merged
-    // into it.
+    /// operand type is less than or equal to the size of the result type. Each
+    /// of the low operand elements is sign-extended into the corresponding,
+    /// wider result elements.
+    /// NOTE: The type legalizer prefers to make the operand and result size
+    /// the same to allow expansion to shuffle vector during op legalization.
     SIGN_EXTEND_VECTOR_INREG,
 
     /// ZERO_EXTEND_VECTOR_INREG(Vector) - This operator represents an
     /// in-register zero-extension of the low lanes of an integer vector. The
     /// result type must have fewer elements than the operand type, and those
     /// elements must be larger integer types such that the total size of the
-    /// operand type and the result type match. Each of the low operand
-    /// elements is zero-extended into the corresponding, wider result
-    /// elements.
+    /// operand type is less than or equal to the size of the result type. Each
+    /// of the low operand elements is zero-extended into the corresponding,
+    /// wider result elements.
+    /// NOTE: The type legalizer prefers to make the operand and result size
+    /// the same to allow expansion to shuffle vector during op legalization.
     ZERO_EXTEND_VECTOR_INREG,
 
     /// FP_TO_[US]INT - Convert a floating point value to a signed or unsigned

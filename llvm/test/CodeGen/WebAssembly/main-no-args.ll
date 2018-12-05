@@ -1,4 +1,4 @@
-; RUN: llc < %s -asm-verbose=false | FileCheck %s
+; RUN: llc < %s -asm-verbose=false -wasm-temporary-workarounds=false | FileCheck %s
 
 ; Test main functions with alternate signatures.
 
@@ -10,9 +10,9 @@ define void @main() {
 }
 
 ; CHECK-LABEL: .L__original_main:
+; CHECK-NEXT: .functype .L__original_main () -> ()
 ; CHECK-NEXT: end_function
 
 ; CHECK-LABEL: main:
-; CHECK-NEXT: .param i32, i32
-; CHECK-NEXT: .result i32
+; CHECK-NEXT: .functype main (i32, i32) -> (i32)
 ; CHECK:      call .L__original_main@FUNCTION

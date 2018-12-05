@@ -7,10 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// C Includes
-// C++ Includes
-// Other libraries and framework includes
-// Project includes
 #include "lldb/Expression/REPL.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/PluginManager.h"
@@ -416,11 +412,12 @@ void REPL::IOHandlerInputComplete(IOHandler &io_handler, std::string &code) {
 
           // Update our code on disk
           if (!m_repl_source_path.empty()) {
-            lldb_private::File file(m_repl_source_path.c_str(),
-                                    File::eOpenOptionWrite |
-                                        File::eOpenOptionTruncate |
-                                        File::eOpenOptionCanCreate,
-                                    lldb::eFilePermissionsFileDefault);
+            lldb_private::File file;
+            FileSystem::Instance().Open(file, FileSpec(m_repl_source_path),
+                                        File::eOpenOptionWrite |
+                                            File::eOpenOptionTruncate |
+                                            File::eOpenOptionCanCreate,
+                                        lldb::eFilePermissionsFileDefault);
             std::string code(m_code.CopyList());
             code.append(1, '\n');
             size_t bytes_written = code.size();

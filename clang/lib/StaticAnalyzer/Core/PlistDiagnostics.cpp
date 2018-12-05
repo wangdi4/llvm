@@ -16,6 +16,7 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/TokenConcatenation.h"
 #include "clang/Rewrite/Core/HTMLRewrite.h"
 #include "clang/StaticAnalyzer/Core/AnalyzerOptions.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/PathDiagnostic.h"
@@ -400,12 +401,6 @@ void PlistPrinter::ReportNote(raw_ostream &o, const PathDiagnosticNotePiece& P,
 // Static function definitions.
 //===----------------------------------------------------------------------===//
 
-static ExpansionInfo getExpandedMacro(SourceLocation MacroLoc,
-                                      const Preprocessor &PP) {
-  // TODO: Implement macro expansion.
-  return { "", "" };
-}
-
 /// Print coverage information to output stream {@code o}.
 /// May modify the used list of files {@code Fids} by inserting new ones.
 static void printCoverage(const PathDiagnostic *D,
@@ -720,4 +715,373 @@ void PlistDiagnostics::FlushDiagnosticsImpl(
 
   // Finish.
   o << "</dict>\n</plist>";
+}
+
+//===----------------------------------------------------------------------===//
+// Declarations of helper functions and data structures for expanding macros.
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+using ExpArgTokens = llvm::SmallVector<Token, 2>;
+
+/// Maps unexpanded macro arguments to expanded arguments. A macro argument may
+/// need to expanded further when it is nested inside another macro.
+class MacroArgMap : public std::map<const IdentifierInfo *, ExpArgTokens> {
+public:
+  void expandFromPrevMacro(const MacroArgMap &Super);
+};
+
+struct MacroNameAndArgs {
+  std::string Name;
+  const MacroInfo *MI = nullptr;
+  MacroArgMap Args;
+
+  MacroNameAndArgs(std::string N, const MacroInfo *MI, MacroArgMap M)
+    : Name(std::move(N)), MI(MI), Args(std::move(M)) {}
+};
+
+class TokenPrinter {
+  llvm::raw_ostream &OS;
+  const Preprocessor &PP;
+
+  Token PrevTok, PrevPrevTok;
+  TokenConcatenation ConcatInfo;
+
+public:
+  TokenPrinter(llvm::raw_ostream &OS, const Preprocessor &PP)
+    : OS(OS), PP(PP), ConcatInfo(PP) {
+    PrevTok.setKind(tok::unknown);
+    PrevPrevTok.setKind(tok::unknown);
+  }
+
+  void printToken(const Token &Tok);
+};
+
+} // end of anonymous namespace
+
+/// The implementation method of getMacroExpansion: It prints the expansion of
+/// a macro to \p Printer, and returns with the name of the macro.
+///
+/// Since macros can be nested in one another, this function may call itself
+/// recursively.
+///
+/// Unfortunately, macro arguments have to expanded manually. To understand why,
+/// observe the following example:
+///
+///   #define PRINT(x) print(x)
+///   #define DO_SOMETHING(str) PRINT(str)
+///
+///   DO_SOMETHING("Cute panda cubs.");
+///
+/// As we expand the last line, we'll immediately replace PRINT(str) with
+/// print(x). The information that both 'str' and 'x' refers to the same string
+/// is an information we have to forward, hence the argument \p PrevArgs.
+static std::string getMacroNameAndPrintExpansion(TokenPrinter &Printer,
+                                                 SourceLocation MacroLoc,
+                                                 const Preprocessor &PP,
+                                                 const MacroArgMap &PrevArgs);
+
+/// Retrieves the name of the macro and what it's arguments expand into
+/// at \p ExpanLoc.
+///
+/// For example, for the following macro expansion:
+///
+///   #define SET_TO_NULL(x) x = 0
+///   #define NOT_SUSPICIOUS(a) \
+///     {                       \
+///       int b = 0;            \
+///     }                       \
+///     SET_TO_NULL(a)
+///
+///   int *ptr = new int(4);
+///   NOT_SUSPICIOUS(&ptr);
+///   *ptr = 5;
+///
+/// When \p ExpanLoc references the last line, the macro name "NOT_SUSPICIOUS"
+/// and the MacroArgMap map { (a, &ptr) } will be returned.
+///
+/// When \p ExpanLoc references "SET_TO_NULL(a)" within the definition of
+/// "NOT_SUSPICOUS", the macro name "SET_TO_NULL" and the MacroArgMap map
+/// { (x, a) } will be returned.
+static MacroNameAndArgs getMacroNameAndArgs(SourceLocation ExpanLoc,
+                                            const Preprocessor &PP);
+
+/// Retrieves the ')' token that matches '(' \p It points to.
+static MacroInfo::tokens_iterator getMatchingRParen(
+    MacroInfo::tokens_iterator It,
+    MacroInfo::tokens_iterator End);
+
+/// Retrieves the macro info for \p II refers to at \p Loc. This is important
+/// because macros can be redefined or undefined.
+static const MacroInfo *getMacroInfoForLocation(const Preprocessor &PP,
+                                                const SourceManager &SM,
+                                                const IdentifierInfo *II,
+                                                SourceLocation Loc);
+
+//===----------------------------------------------------------------------===//
+// Definitions of helper functions and methods for expanding macros.
+//===----------------------------------------------------------------------===//
+
+static ExpansionInfo getExpandedMacro(SourceLocation MacroLoc,
+                                      const Preprocessor &PP) {
+
+  llvm::SmallString<200> ExpansionBuf;
+  llvm::raw_svector_ostream OS(ExpansionBuf);
+  TokenPrinter Printer(OS, PP);
+  std::string MacroName =
+            getMacroNameAndPrintExpansion(Printer, MacroLoc, PP, MacroArgMap{});
+  return { MacroName, OS.str() };
+}
+
+static std::string getMacroNameAndPrintExpansion(TokenPrinter &Printer,
+                                                 SourceLocation MacroLoc,
+                                                 const Preprocessor &PP,
+                                                 const MacroArgMap &PrevArgs) {
+
+  const SourceManager &SM = PP.getSourceManager();
+
+  MacroNameAndArgs Info = getMacroNameAndArgs(SM.getExpansionLoc(MacroLoc), PP);
+
+  // Manually expand its arguments from the previous macro.
+  Info.Args.expandFromPrevMacro(PrevArgs);
+
+  // Iterate over the macro's tokens and stringify them.
+  for (auto It = Info.MI->tokens_begin(), E = Info.MI->tokens_end(); It != E;
+       ++It) {
+    Token T = *It;
+
+    // If this token is not an identifier, we only need to print it.
+    if (T.isNot(tok::identifier)) {
+      Printer.printToken(T);
+      continue;
+    }
+
+    const auto *II = T.getIdentifierInfo();
+    assert(II &&
+          "This token is an identifier but has no IdentifierInfo!");
+
+    // If this token is a macro that should be expanded inside the currect
+    // macro.
+    if (const MacroInfo *MI =
+                         getMacroInfoForLocation(PP, SM, II, T.getLocation())) {
+      getMacroNameAndPrintExpansion(Printer, T.getLocation(), PP, Info.Args);
+
+      // If this is a function-like macro, skip its arguments, as
+      // getExpandedMacro() already printed them. If this is the case, let's
+      // first jumo to the '(' token.
+      if (MI->getNumParams() != 0)
+        It = getMatchingRParen(++It, E);
+      continue;
+    }
+
+    // If this token is the current macro's argument, we should expand it.
+    auto ArgMapIt = Info.Args.find(II);
+    if (ArgMapIt != Info.Args.end()) {
+      for (MacroInfo::tokens_iterator ArgIt = ArgMapIt->second.begin(),
+                                      ArgEnd = ArgMapIt->second.end();
+           ArgIt != ArgEnd; ++ArgIt) {
+
+        // These tokens may still be macros, if that is the case, handle it the
+        // same way we did above.
+        const auto *ArgII = ArgIt->getIdentifierInfo();
+        if (!ArgII) {
+          Printer.printToken(*ArgIt);
+          continue;
+        }
+
+        const auto *MI = PP.getMacroInfo(ArgII);
+        if (!MI) {
+          Printer.printToken(*ArgIt);
+          continue;
+        }
+
+        getMacroNameAndPrintExpansion(Printer, ArgIt->getLocation(), PP,
+                                      Info.Args);
+        if (MI->getNumParams() != 0)
+          ArgIt = getMatchingRParen(++ArgIt, ArgEnd);
+      }
+      continue;
+    }
+
+    // TODO: Handle tok::hash and tok::hashhash.
+
+    // If control reached here, then this token isn't a macro identifier, nor an
+    // unexpanded macro argument that we need to handle, print it.
+    Printer.printToken(T);
+  }
+
+  return Info.Name;
+}
+
+static MacroNameAndArgs getMacroNameAndArgs(SourceLocation ExpanLoc,
+                                            const Preprocessor &PP) {
+
+  const SourceManager &SM = PP.getSourceManager();
+  const LangOptions &LangOpts = PP.getLangOpts();
+
+  // First, we create a Lexer to lex *at the expansion location* the tokens
+  // referring to the macro's name and its arguments.
+  std::pair<FileID, unsigned> LocInfo = SM.getDecomposedLoc(ExpanLoc);
+  const llvm::MemoryBuffer *MB = SM.getBuffer(LocInfo.first);
+  const char *MacroNameTokenPos = MB->getBufferStart() + LocInfo.second;
+
+  Lexer RawLexer(SM.getLocForStartOfFile(LocInfo.first), LangOpts,
+                 MB->getBufferStart(), MacroNameTokenPos, MB->getBufferEnd());
+
+  // Acquire the macro's name.
+  Token TheTok;
+  RawLexer.LexFromRawLexer(TheTok);
+
+  std::string MacroName = PP.getSpelling(TheTok);
+
+  const auto *II = PP.getIdentifierInfo(MacroName);
+  assert(II && "Failed to acquire the IndetifierInfo for the macro!");
+
+  const MacroInfo *MI = getMacroInfoForLocation(PP, SM, II, ExpanLoc);
+  assert(MI && "The macro must've been defined at it's expansion location!");
+
+  // Acquire the macro's arguments.
+  //
+  // The rough idea here is to lex from the first left parentheses to the last
+  // right parentheses, and map the macro's unexpanded arguments to what they
+  // will be expanded to. An expanded macro argument may contain several tokens
+  // (like '3 + 4'), so we'll lex until we find a tok::comma or tok::r_paren, at
+  // which point we start lexing the next argument or finish.
+  ArrayRef<const IdentifierInfo *> MacroArgs = MI->params();
+  if (MacroArgs.empty())
+    return { MacroName, MI, {} };
+
+  RawLexer.LexFromRawLexer(TheTok);
+  assert(TheTok.is(tok::l_paren) &&
+         "The token after the macro's identifier token should be '('!");
+
+  MacroArgMap Args;
+
+  // When the macro's argument is a function call, like
+  //   CALL_FN(someFunctionName(param1, param2))
+  // we will find tok::l_paren, tok::r_paren, and tok::comma that do not divide
+  // actual macro arguments, or do not represent the macro argument's closing
+  // parentheses, so we'll count how many parentheses aren't closed yet.
+  int ParenthesesDepth = 1;
+
+  for (const IdentifierInfo *UnexpArgII : MacroArgs) {
+    MacroArgMap::mapped_type ExpandedArgTokens;
+
+    // Lex the first token of the next macro parameter.
+    RawLexer.LexFromRawLexer(TheTok);
+
+    while (TheTok.isNot(tok::comma) || ParenthesesDepth != 1) {
+      assert(TheTok.isNot(tok::eof) &&
+             "EOF encountered while looking for expanded macro args!");
+
+      if (TheTok.is(tok::l_paren))
+        ++ParenthesesDepth;
+
+      if (TheTok.is(tok::r_paren))
+        --ParenthesesDepth;
+
+      if (ParenthesesDepth == 0)
+        break;
+
+      if (TheTok.is(tok::raw_identifier))
+        PP.LookUpIdentifierInfo(TheTok);
+
+      ExpandedArgTokens.push_back(TheTok);
+      RawLexer.LexFromRawLexer(TheTok);
+    }
+
+    Args.emplace(UnexpArgII, std::move(ExpandedArgTokens));
+  }
+
+  // TODO: The condition really should be TheTok.is(tok::r_paren), but variadic
+  // macro arguments are not handled yet.
+  assert(TheTok.isOneOf(tok::r_paren, tok::comma) &&
+         "Expanded macro argument acquisition failed! After the end of the loop"
+         " this token should be ')'!");
+
+  return { MacroName, MI, Args };
+}
+
+static MacroInfo::tokens_iterator getMatchingRParen(
+    MacroInfo::tokens_iterator It,
+    MacroInfo::tokens_iterator End) {
+
+  assert(It->is(tok::l_paren) && "This token should be '('!");
+
+  // Skip until we find the closing ')'.
+  int ParenthesesDepth = 1;
+  while (ParenthesesDepth != 0) {
+    ++It;
+
+    assert(It->isNot(tok::eof) &&
+           "Encountered EOF while attempting to skip macro arguments!");
+    assert(It != End &&
+           "End of the macro definition reached before finding ')'!");
+
+    if (It->is(tok::l_paren))
+      ++ParenthesesDepth;
+
+    if (It->is(tok::r_paren))
+      --ParenthesesDepth;
+  }
+  return It;
+}
+
+static const MacroInfo *getMacroInfoForLocation(const Preprocessor &PP,
+                                                const SourceManager &SM,
+                                                const IdentifierInfo *II,
+                                                SourceLocation Loc) {
+
+  const MacroDirective *MD = PP.getLocalMacroDirectiveHistory(II);
+  if (!MD)
+    return nullptr;
+
+  return MD->findDirectiveAtLoc(Loc, SM).getMacroInfo();
+}
+
+void MacroArgMap::expandFromPrevMacro(const MacroArgMap &Super) {
+
+  for (value_type &Pair : *this) {
+    ExpArgTokens &CurrExpArgTokens = Pair.second;
+
+    // For each token in the expanded macro argument.
+    auto It = CurrExpArgTokens.begin();
+    while (It != CurrExpArgTokens.end()) {
+      if (It->isNot(tok::identifier)) {
+        ++It;
+        continue;
+      }
+
+      const auto *II = It->getIdentifierInfo();
+      assert(II);
+
+      // Is this an argument that "Super" expands further?
+      if (!Super.count(II)) {
+        ++It;
+        continue;
+      }
+
+      const ExpArgTokens &SuperExpArgTokens = Super.at(II);
+
+      It = CurrExpArgTokens.insert(
+          It, SuperExpArgTokens.begin(), SuperExpArgTokens.end());
+      std::advance(It, SuperExpArgTokens.size());
+      It = CurrExpArgTokens.erase(It);
+    }
+  }
+}
+
+void TokenPrinter::printToken(const Token &Tok) {
+  // If the tokens were already space separated, or if they must be to avoid
+  // them being implicitly pasted, add a space between them.
+  // If this is the first token to be printed, don't print space.
+  if (PrevTok.isNot(tok::unknown) && (Tok.hasLeadingSpace() ||
+      ConcatInfo.AvoidConcat(PrevPrevTok, PrevTok, Tok)))
+    OS << ' ';
+
+  OS << PP.getSpelling(Tok);
+
+  PrevPrevTok = PrevTok;
+  PrevTok = Tok;
 }

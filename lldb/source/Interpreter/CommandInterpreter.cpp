@@ -31,6 +31,7 @@
 #include "Commands/CommandObjectProcess.h"
 #include "Commands/CommandObjectQuit.h"
 #include "Commands/CommandObjectRegister.h"
+#include "Commands/CommandObjectReproducer.h"
 #include "Commands/CommandObjectSettings.h"
 #include "Commands/CommandObjectSource.h"
 #include "Commands/CommandObjectStats.h"
@@ -430,7 +431,6 @@ void CommandInterpreter::Initialize() {
     AddAlias("var", cmd_obj_sp);
     AddAlias("vo", cmd_obj_sp, "--object-description");
   }
-  
 }
 
 void CommandInterpreter::Clear() {
@@ -484,6 +484,8 @@ void CommandInterpreter::LoadCommandDictionary() {
   m_command_dict["quit"] = CommandObjectSP(new CommandObjectQuit(*this));
   m_command_dict["register"] =
       CommandObjectSP(new CommandObjectRegister(*this));
+  m_command_dict["reproducer"] =
+      CommandObjectSP(new CommandObjectReproducer(*this));
   m_command_dict["script"] =
       CommandObjectSP(new CommandObjectScript(*this, script_language));
   m_command_dict["settings"] =
@@ -2357,9 +2359,8 @@ void CommandInterpreter::HandleCommandsFromFile(
     StreamFileSP input_file_sp(new StreamFile());
 
     std::string cmd_file_path = cmd_file.GetPath();
-    Status error = input_file_sp->GetFile().Open(cmd_file_path.c_str(),
-                                                 File::eOpenOptionRead);
-
+    Status error = FileSystem::Instance().Open(input_file_sp->GetFile(),
+                                               cmd_file, File::eOpenOptionRead);
     if (error.Success()) {
       Debugger &debugger = GetDebugger();
 
@@ -2389,7 +2390,7 @@ void CommandInterpreter::HandleCommandsFromFile(
         flags |= eHandleCommandFlagStopOnError;
       }
 
-      // stop-on-crash can only be set, if it is present in all levels of 
+      // stop-on-crash can only be set, if it is present in all levels of
       // pushed flag sets.
       if (options.GetStopOnCrash()) {
         if (m_command_source_flags.empty()) {

@@ -1273,6 +1273,20 @@ AArch64TargetLowering::EmitF128CSEL(MachineInstr &MI,
   return EndBB;
 }
 
+MachineBasicBlock *AArch64TargetLowering::EmitLoweredCatchRet(
+       MachineInstr &MI, MachineBasicBlock *BB) const {
+  assert(!isAsynchronousEHPersonality(classifyEHPersonality(
+             BB->getParent()->getFunction().getPersonalityFn())) &&
+         "SEH does not use catchret!");
+  return BB;
+}
+
+MachineBasicBlock *AArch64TargetLowering::EmitLoweredCatchPad(
+     MachineInstr &MI, MachineBasicBlock *BB) const {
+  MI.eraseFromParent();
+  return BB;
+}
+
 MachineBasicBlock *AArch64TargetLowering::EmitInstrWithCustomInserter(
     MachineInstr &MI, MachineBasicBlock *BB) const {
   switch (MI.getOpcode()) {
@@ -1288,6 +1302,11 @@ MachineBasicBlock *AArch64TargetLowering::EmitInstrWithCustomInserter(
   case TargetOpcode::STACKMAP:
   case TargetOpcode::PATCHPOINT:
     return emitPatchPoint(MI, BB);
+
+  case AArch64::CATCHRET:
+    return EmitLoweredCatchRet(MI, BB);
+  case AArch64::CATCHPAD:
+    return EmitLoweredCatchPad(MI, BB);
   }
 }
 
@@ -1521,7 +1540,7 @@ static SDValue emitComparison(SDValue LHS, SDValue RHS, ISD::CondCode CC,
 /// The CCMP/CCMN/FCCMP/FCCMPE instructions allow the conditional execution of
 /// a comparison. They set the NZCV flags to a predefined value if their
 /// predicate is false. This allows to express arbitrary conjunctions, for
-/// example "cmp 0 (and (setCA (cmp A)) (setCB (cmp B))))"
+/// example "cmp 0 (and (setCA (cmp A)) (setCB (cmp B)))"
 /// expressed as:
 ///   cmp A
 ///   ccmp B, inv(CB), CA
@@ -1591,14 +1610,12 @@ static SDValue emitConditionalComparison(SDValue LHS, SDValue RHS,
   return DAG.getNode(Opcode, DL, MVT_CC, LHS, RHS, NZCVOp, Condition, CCOp);
 }
 
-/// Returns true if @p Val is a tree of AND/OR/SETCC operations.
-/// CanPushNegate is set to true if we can push a negate operation through
-/// the tree in a was that we are left with AND operations and negate operations
-/// at the leafs only. i.e. "not (or (or x y) z)" can be changed to
-/// "and (and (not x) (not y)) (not z)"; "not (or (and x y) z)" cannot be
-/// brought into such a form.
-static bool isConjunctionDisjunctionTree(const SDValue Val, bool &CanNegate,
-                                         unsigned Depth = 0) {
+/// Returns true if @p Val is a tree of AND/OR/SETCC operations that can be
+/// expressed as a conjunction. See \ref AArch64CCMP.
+/// \param CanNegate        Set to true if we can also emit the negation of the
+///                         tree as a conjunction.
+static bool canEmitConjunction(const SDValue Val, bool &CanNegate,
+                               unsigned Depth = 0) {
   if (!Val.hasOneUse())
     return false;
   unsigned Opcode = Val->getOpcode();
@@ -1615,10 +1632,10 @@ static bool isConjunctionDisjunctionTree(const SDValue Val, bool &CanNegate,
     SDValue O0 = Val->getOperand(0);
     SDValue O1 = Val->getOperand(1);
     bool CanNegateL;
-    if (!isConjunctionDisjunctionTree(O0, CanNegateL, Depth+1))
+    if (!canEmitConjunction(O0, CanNegateL, Depth+1))
       return false;
     bool CanNegateR;
-    if (!isConjunctionDisjunctionTree(O1, CanNegateR, Depth+1))
+    if (!canEmitConjunction(O1, CanNegateR, Depth+1))
       return false;
 
     if (Opcode == ISD::OR) {
@@ -1626,8 +1643,11 @@ static bool isConjunctionDisjunctionTree(const SDValue Val, bool &CanNegate,
       // we cannot do the transformation at all.
       if (!CanNegateL && !CanNegateR)
         return false;
-      // We can however change a (not (or x y)) to (and (not x) (not y)) if we
-      // can negate the x and y subtrees.
+      // However if we can negate x and y, then we can change
+      // (not (or x y))
+      // into
+      // (and (not x) (not y))
+      // to eliminate the outer negation.
       CanNegate = CanNegateL && CanNegateR;
     } else {
       // If the operands are OR expressions then we finally need to negate their
@@ -1637,7 +1657,7 @@ static bool isConjunctionDisjunctionTree(const SDValue Val, bool &CanNegate,
       bool NeedsNegOutR = O1->getOpcode() == ISD::OR;
       if (NeedsNegOutL && NeedsNegOutR)
         return false;
-      // We cannot negate an AND operation (it would become an OR),
+      // We cannot negate an AND operation.
       CanNegate = false;
     }
     return true;
@@ -1655,7 +1675,7 @@ static bool isConjunctionDisjunctionTree(const SDValue Val, bool &CanNegate,
 /// effects pushed to the tree leafs; @p Predicate is an NZCV flag predicate
 /// for the comparisons in the current subtree; @p Depth limits the search
 /// depth to avoid stack overflow.
-static SDValue emitConjunctionDisjunctionTreeRec(SelectionDAG &DAG, SDValue Val,
+static SDValue emitConjunctionRec(SelectionDAG &DAG, SDValue Val,
     AArch64CC::CondCode &OutCC, bool Negate, SDValue CCOp,
     AArch64CC::CondCode Predicate) {
   // We're at a tree leaf, produce a conditional comparison operation.
@@ -1712,13 +1732,13 @@ static SDValue emitConjunctionDisjunctionTreeRec(SelectionDAG &DAG, SDValue Val,
   if (NegateOpsAndResult) {
     // See which side we can negate.
     bool CanNegateL;
-    bool isValidL = isConjunctionDisjunctionTree(LHS, CanNegateL);
+    bool isValidL = canEmitConjunction(LHS, CanNegateL);
     assert(isValidL && "Valid conjunction/disjunction tree");
     (void)isValidL;
 
 #ifndef NDEBUG
     bool CanNegateR;
-    bool isValidR = isConjunctionDisjunctionTree(RHS, CanNegateR);
+    bool isValidR = canEmitConjunction(RHS, CanNegateR);
     assert(isValidR && "Valid conjunction/disjunction tree");
     assert((CanNegateL || CanNegateR) && "Valid conjunction/disjunction tree");
 #endif
@@ -1740,12 +1760,12 @@ static SDValue emitConjunctionDisjunctionTreeRec(SelectionDAG &DAG, SDValue Val,
   // through if we are already in a PushNegate case, otherwise we can negate
   // the "flags to test" afterwards.
   AArch64CC::CondCode RHSCC;
-  SDValue CmpR = emitConjunctionDisjunctionTreeRec(DAG, RHS, RHSCC, Negate,
+  SDValue CmpR = emitConjunctionRec(DAG, RHS, RHSCC, Negate,
                                                    CCOp, Predicate);
   if (NegateOpsAndResult && !Negate)
     RHSCC = AArch64CC::getInvertedCondCode(RHSCC);
   // Emit LHS. We may need to negate it.
-  SDValue CmpL = emitConjunctionDisjunctionTreeRec(DAG, LHS, OutCC,
+  SDValue CmpL = emitConjunctionRec(DAG, LHS, OutCC,
                                                    NegateOpsAndResult, CmpR,
                                                    RHSCC);
   // If we transformed an OR to and AND then we have to negate the result
@@ -1755,17 +1775,17 @@ static SDValue emitConjunctionDisjunctionTreeRec(SelectionDAG &DAG, SDValue Val,
   return CmpL;
 }
 
-/// Emit conjunction or disjunction tree with the CMP/FCMP followed by a chain
-/// of CCMP/CFCMP ops. See @ref AArch64CCMP.
-/// \see emitConjunctionDisjunctionTreeRec().
-static SDValue emitConjunctionDisjunctionTree(SelectionDAG &DAG, SDValue Val,
-                                              AArch64CC::CondCode &OutCC) {
-  bool CanNegate;
-  if (!isConjunctionDisjunctionTree(Val, CanNegate))
+/// Emit expression as a conjunction (a series of CCMP/CFCMP ops).
+/// In some cases this is even possible with OR operations in the expression.
+/// See \ref AArch64CCMP.
+/// \see emitConjunctionRec().
+static SDValue emitConjunction(SelectionDAG &DAG, SDValue Val,
+                               AArch64CC::CondCode &OutCC) {
+  bool DummyCanNegate;
+  if (!canEmitConjunction(Val, DummyCanNegate))
     return SDValue();
 
-  return emitConjunctionDisjunctionTreeRec(DAG, Val, OutCC, false, SDValue(),
-                                           AArch64CC::AL);
+  return emitConjunctionRec(DAG, Val, OutCC, false, SDValue(), AArch64CC::AL);
 }
 
 /// @}
@@ -1922,7 +1942,7 @@ static SDValue getAArch64Cmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
     }
 
     if (!Cmp && (RHSC->isNullValue() || RHSC->isOne())) {
-      if ((Cmp = emitConjunctionDisjunctionTree(DAG, LHS, AArch64CC))) {
+      if ((Cmp = emitConjunction(DAG, LHS, AArch64CC))) {
         if ((CC == ISD::SETNE) ^ RHSC->isNullValue())
           AArch64CC = AArch64CC::getInvertedCondCode(AArch64CC);
       }
@@ -7240,7 +7260,10 @@ SDValue AArch64TargetLowering::LowerBUILD_VECTOR(SDValue Op,
     return DAG.getUNDEF(VT);
   }
 
-  if (isOnlyLowElement) {
+  // Convert BUILD_VECTOR where all elements but the lowest are undef into
+  // SCALAR_TO_VECTOR, except for when we have a single-element constant vector
+  // as SimplifyDemandedBits will just turn that back into BUILD_VECTOR.
+  if (isOnlyLowElement && !(NumElts == 1 && isa<ConstantSDNode>(Value))) {
     LLVM_DEBUG(dbgs() << "LowerBUILD_VECTOR: only low element used, creating 1 "
                          "SCALAR_TO_VECTOR node\n");
     return DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, VT, Value);
@@ -7822,7 +7845,7 @@ SDValue AArch64TargetLowering::LowerVSETCC(SDValue Op,
   Cmp = DAG.getSExtOrTrunc(Cmp, dl, Op.getValueType());
 
   if (ShouldInvert)
-    return Cmp = DAG.getNOT(dl, Cmp, Cmp.getValueType());
+    Cmp = DAG.getNOT(dl, Cmp, Cmp.getValueType());
 
   return Cmp;
 }
@@ -8083,6 +8106,10 @@ bool AArch64TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
 bool AArch64TargetLowering::shouldReduceLoadWidth(SDNode *Load,
                                                   ISD::LoadExtType ExtTy,
                                                   EVT NewVT) const {
+  // TODO: This may be worth removing. Check regression tests for diffs.
+  if (!TargetLoweringBase::shouldReduceLoadWidth(Load, ExtTy, NewVT))
+    return false;
+
   // If we're reducing the load width in order to avoid having to use an extra
   // instruction to do extension then it's probably a good idea.
   if (ExtTy != ISD::NON_EXTLOAD)
@@ -11506,12 +11533,11 @@ unsigned AArch64TargetLowering::combineRepeatedFPDivisors() const {
 }
 
 TargetLoweringBase::LegalizeTypeAction
-AArch64TargetLowering::getPreferredVectorAction(EVT VT) const {
-  MVT SVT = VT.getSimpleVT();
+AArch64TargetLowering::getPreferredVectorAction(MVT VT) const {
   // During type legalization, we prefer to widen v1i8, v1i16, v1i32  to v8i8,
   // v4i16, v2i32 instead of to promote.
-  if (SVT == MVT::v1i8 || SVT == MVT::v1i16 || SVT == MVT::v1i32
-      || SVT == MVT::v1f32)
+  if (VT == MVT::v1i8 || VT == MVT::v1i16 || VT == MVT::v1i32 ||
+      VT == MVT::v1f32)
     return TypeWidenVector;
 
   return TargetLoweringBase::getPreferredVectorAction(VT);
@@ -11668,6 +11694,39 @@ Value *AArch64TargetLowering::getIRStackGuard(IRBuilder<> &IRB) const {
   return TargetLowering::getIRStackGuard(IRB);
 }
 
+void AArch64TargetLowering::insertSSPDeclarations(Module &M) const {
+  // MSVC CRT provides functionalities for stack protection.
+  if (Subtarget->getTargetTriple().isWindowsMSVCEnvironment()) {
+    // MSVC CRT has a global variable holding security cookie.
+    M.getOrInsertGlobal("__security_cookie",
+                        Type::getInt8PtrTy(M.getContext()));
+
+    // MSVC CRT has a function to validate security cookie.
+    auto *SecurityCheckCookie = cast<Function>(
+        M.getOrInsertFunction("__security_check_cookie",
+                              Type::getVoidTy(M.getContext()),
+                              Type::getInt8PtrTy(M.getContext())));
+    SecurityCheckCookie->setCallingConv(CallingConv::Win64);
+    SecurityCheckCookie->addAttribute(1, Attribute::AttrKind::InReg);
+    return;
+  }
+  TargetLowering::insertSSPDeclarations(M);
+}
+
+Value *AArch64TargetLowering::getSDagStackGuard(const Module &M) const {
+  // MSVC CRT has a global variable holding security cookie.
+  if (Subtarget->getTargetTriple().isWindowsMSVCEnvironment())
+    return M.getGlobalVariable("__security_cookie");
+  return TargetLowering::getSDagStackGuard(M);
+}
+
+Value *AArch64TargetLowering::getSSPStackGuardCheck(const Module &M) const {
+  // MSVC CRT has a function to validate security cookie.
+  if (Subtarget->getTargetTriple().isWindowsMSVCEnvironment())
+    return M.getFunction("__security_check_cookie");
+  return TargetLowering::getSSPStackGuardCheck(M);
+}
+
 Value *AArch64TargetLowering::getSafeStackPointerLocation(IRBuilder<> &IRB) const {
   // Android provides a fixed TLS slot for the SafeStack pointer. See the
   // definition of TLS_SLOT_SAFESTACK in
@@ -11771,4 +11830,9 @@ AArch64TargetLowering::getVaListSizeInBits(const DataLayout &DL) const {
 void AArch64TargetLowering::finalizeLowering(MachineFunction &MF) const {
   MF.getFrameInfo().computeMaxCallFrameSize(MF);
   TargetLoweringBase::finalizeLowering(MF);
+}
+
+// Unlike X86, we let frame lowering assign offsets to all catch objects.
+bool AArch64TargetLowering::needsFixedCatchObjects() const {
+  return false;
 }

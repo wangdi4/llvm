@@ -1910,6 +1910,7 @@ static void writeDICompileUnit(raw_ostream &Out, const DICompileUnit *N,
   Printer.printBool("debugInfoForProfiling", N->getDebugInfoForProfiling(),
                     false);
   Printer.printNameTableKind("nameTableKind", N->getNameTableKind());
+  Printer.printBool("rangesBaseAddress", N->getRangesBaseAddress(), false);
   Out << ")";
 }
 
@@ -2820,7 +2821,7 @@ void AssemblyWriter::printAliasSummary(const AliasSummary *AS) {
 }
 
 void AssemblyWriter::printGlobalVarSummary(const GlobalVarSummary *GS) {
-  // Nothing for now
+  Out << ", varFlags: (readonly: " << GS->VarFlags.ReadOnly << ")";
 }
 
 static std::string getLinkageName(GlobalValue::LinkageTypes LT) {
@@ -2871,6 +2872,7 @@ void AssemblyWriter::printFunctionSummary(const FunctionSummary *FS) {
     Out << ", readOnly: " << FFlags.ReadOnly;
     Out << ", noRecurse: " << FFlags.NoRecurse;
     Out << ", returnDoesNotAlias: " << FFlags.ReturnDoesNotAlias;
+    Out << ", noInline: " << FFlags.NoInline;
     Out << ")";
   }
   if (!FS->calls().empty()) {
@@ -3013,6 +3015,8 @@ void AssemblyWriter::printSummary(const GlobalValueSummary &Summary) {
     FieldSeparator FS;
     for (auto &Ref : RefList) {
       Out << FS;
+      if (Ref.isReadOnly())
+        Out << "readonly ";
       Out << "^" << Machine.getGUIDSlot(Ref.getGUID());
     }
     Out << ")";

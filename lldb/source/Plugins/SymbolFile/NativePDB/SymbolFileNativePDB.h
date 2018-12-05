@@ -113,6 +113,10 @@ public:
     return 0;
   }
   Type *ResolveTypeUID(lldb::user_id_t type_uid) override;
+  llvm::Optional<ArrayInfo> GetDynamicArrayInfoForUID(
+      lldb::user_id_t type_uid,
+      const lldb_private::ExecutionContext *exe_ctx) override;
+
   bool CompleteType(CompilerType &compiler_type) override;
   uint32_t ResolveSymbolContext(const Address &so_addr,
                                 lldb::SymbolContextItem resolve_scope,
@@ -155,42 +159,53 @@ public:
   ClangASTContext &GetASTContext() { return *m_clang; }
   ClangASTImporter &GetASTImporter() { return *m_importer; }
 
+  void DumpClangAST(Stream &s) override;
+
 private:
+  std::pair<clang::DeclContext *, std::string>
+  CreateDeclInfoForType(const llvm::codeview::TagRecord &record,
+                        llvm::codeview::TypeIndex ti);
+
+  void PreprocessTpiStream();
   size_t FindTypesByName(llvm::StringRef name, uint32_t max_matches,
                          TypeMap &types);
 
-  lldb::TypeSP CreateModifierType(PdbSymUid type_uid,
+  lldb::TypeSP CreateModifierType(PdbTypeSymId type_id,
                                   const llvm::codeview::ModifierRecord &mr);
-  lldb::TypeSP CreatePointerType(PdbSymUid type_uid,
+  lldb::TypeSP CreatePointerType(PdbTypeSymId type_id,
                                  const llvm::codeview::PointerRecord &pr);
   lldb::TypeSP CreateSimpleType(llvm::codeview::TypeIndex ti);
-  lldb::TypeSP CreateTagType(PdbSymUid type_uid,
+  lldb::TypeSP CreateTagType(PdbTypeSymId type_id,
                              const llvm::codeview::ClassRecord &cr);
-  lldb::TypeSP CreateTagType(PdbSymUid type_uid,
+  lldb::TypeSP CreateTagType(PdbTypeSymId type_id,
                              const llvm::codeview::EnumRecord &er);
-  lldb::TypeSP CreateTagType(PdbSymUid type_uid,
+  lldb::TypeSP CreateTagType(PdbTypeSymId type_id,
                              const llvm::codeview::UnionRecord &ur);
-  lldb::TypeSP CreateArrayType(PdbSymUid type_uid,
+  lldb::TypeSP CreateArrayType(PdbTypeSymId type_id,
                                const llvm::codeview::ArrayRecord &ar);
-  lldb::TypeSP CreateProcedureType(PdbSymUid type_uid,
+  lldb::TypeSP CreateProcedureType(PdbTypeSymId type_id,
                                    const llvm::codeview::ProcedureRecord &pr);
   lldb::TypeSP
-  CreateClassStructUnion(PdbSymUid type_uid, llvm::StringRef name, size_t size,
+  CreateClassStructUnion(PdbTypeSymId type_id,
+                         const llvm::codeview::TagRecord &record, size_t size,
                          clang::TagTypeKind ttk,
                          clang::MSInheritanceAttr::Spelling inheritance);
 
-  lldb::FunctionSP GetOrCreateFunction(PdbSymUid func_uid,
+  lldb::FunctionSP GetOrCreateFunction(PdbCompilandSymId func_id,
                                        const SymbolContext &sc);
   lldb::CompUnitSP GetOrCreateCompileUnit(const CompilandIndexItem &cci);
-  lldb::TypeSP GetOrCreateType(PdbSymUid type_uid);
+  lldb::TypeSP GetOrCreateType(PdbTypeSymId type_id);
   lldb::TypeSP GetOrCreateType(llvm::codeview::TypeIndex ti);
-  lldb::VariableSP GetOrCreateGlobalVariable(PdbSymUid var_uid);
+  lldb::VariableSP GetOrCreateGlobalVariable(PdbGlobalSymId var_id);
 
-  lldb::FunctionSP CreateFunction(PdbSymUid func_uid, const SymbolContext &sc);
+  lldb::FunctionSP CreateFunction(PdbCompilandSymId func_id,
+                                  const SymbolContext &sc);
   lldb::CompUnitSP CreateCompileUnit(const CompilandIndexItem &cci);
-  lldb::TypeSP CreateType(PdbSymUid type_uid);
-  lldb::TypeSP CreateAndCacheType(PdbSymUid type_uid);
-  lldb::VariableSP CreateGlobalVariable(PdbSymUid var_uid);
+  lldb::TypeSP CreateType(PdbTypeSymId type_id);
+  lldb::TypeSP CreateAndCacheType(PdbTypeSymId type_id);
+  lldb::VariableSP CreateGlobalVariable(PdbGlobalSymId var_id);
+  lldb::VariableSP CreateConstantSymbol(PdbGlobalSymId var_id,
+                                        const llvm::codeview::CVSymbol &cvs);
 
   llvm::BumpPtrAllocator m_allocator;
 
@@ -203,6 +218,8 @@ private:
   llvm::DenseMap<clang::TagDecl *, DeclStatus> m_decl_to_status;
 
   llvm::DenseMap<lldb::user_id_t, clang::TagDecl *> m_uid_to_decl;
+  llvm::DenseMap<llvm::codeview::TypeIndex, llvm::codeview::TypeIndex>
+      m_parent_types;
 
   llvm::DenseMap<lldb::user_id_t, lldb::VariableSP> m_global_vars;
   llvm::DenseMap<lldb::user_id_t, lldb::FunctionSP> m_functions;

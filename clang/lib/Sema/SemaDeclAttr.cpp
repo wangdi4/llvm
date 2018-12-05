@@ -2410,6 +2410,15 @@ static void handleAvailabilityAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (const auto *SE = dyn_cast_or_null<StringLiteral>(AL.getReplacementExpr()))
     Replacement = SE->getString();
 
+  if (II->isStr("swift")) {
+    if (Introduced.isValid() || Obsoleted.isValid() ||
+        (!IsUnavailable && !Deprecated.isValid())) {
+      S.Diag(AL.getLoc(),
+             diag::warn_availability_swift_unavailable_deprecated_only);
+      return;
+    }
+  }
+
   AvailabilityAttr *NewAttr = S.mergeAvailabilityAttr(ND, AL.getRange(), II,
                                                       false/*Implicit*/,
                                                       Introduced.Version,
@@ -4282,6 +4291,11 @@ static void handleCallConvAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
                        AL.getAttributeSpellingListIndex()));
     return;
   }
+  case ParsedAttr::AT_AArch64VectorPcs:
+    D->addAttr(::new(S.Context)
+               AArch64VectorPcsAttr(AL.getRange(), S.Context,
+                                    AL.getAttributeSpellingListIndex()));
+    return;
   case ParsedAttr::AT_IntelOclBicc:
     D->addAttr(::new (S.Context)
                IntelOclBiccAttr(AL.getRange(), S.Context,
@@ -4358,6 +4372,9 @@ bool Sema::CheckCallingConvAttr(const ParsedAttr &Attrs, CallingConv &CC,
     break;
   case ParsedAttr::AT_VectorCall:
     CC = CC_X86VectorCall;
+    break;
+  case ParsedAttr::AT_AArch64VectorPcs:
+    CC = CC_AArch64VectorCall;
     break;
   case ParsedAttr::AT_RegCall:
     CC = CC_X86RegCall;
@@ -6356,6 +6373,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Section:
     handleSectionAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_SpeculativeLoadHardening:
+    handleSimpleAttribute<SpeculativeLoadHardeningAttr>(S, D, AL);
+    break;
   case ParsedAttr::AT_CodeSeg:
     handleCodeSegAttr(S, D, AL);
     break;
@@ -6484,6 +6504,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_IntelOclBicc:
   case ParsedAttr::AT_PreserveMost:
   case ParsedAttr::AT_PreserveAll:
+  case ParsedAttr::AT_AArch64VectorPcs:
     handleCallConvAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Suppress:

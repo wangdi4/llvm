@@ -10,10 +10,8 @@
 #ifndef liblldb_ClangASTContext_h_
 #define liblldb_ClangASTContext_h_
 
-// C Includes
 #include <stdint.h>
 
-// C++ Includes
 #include <functional>
 #include <initializer_list>
 #include <map>
@@ -23,13 +21,11 @@
 #include <utility>
 #include <vector>
 
-// Other libraries and framework includes
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ExternalASTMerger.h"
 #include "clang/AST/TemplateBase.h"
 #include "llvm/ADT/SmallVector.h"
 
-// Project includes
 #include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
 #include "lldb/Core/ClangForward.h"
 #include "lldb/Symbol/CompilerType.h"
@@ -744,7 +740,8 @@ public:
   size_t GetTypeBitAlign(lldb::opaque_compiler_type_t type) override;
 
   uint32_t GetNumChildren(lldb::opaque_compiler_type_t type,
-                          bool omit_empty_base_classes) override;
+                          bool omit_empty_base_classes,
+                          const ExecutionContext *exe_ctx) override;
 
   CompilerType GetBuiltinTypeByName(const ConstString &name) override;
 
@@ -902,9 +899,8 @@ public:
   // Modifying Enumeration types
   //----------------------------------------------------------------------
   clang::EnumConstantDecl *AddEnumerationValueToEnumerationType(
-      lldb::opaque_compiler_type_t type,
-      const CompilerType &enumerator_qual_type, const Declaration &decl,
-      const char *name, int64_t enum_value, uint32_t enum_value_bit_size);
+      const CompilerType &enum_type, const Declaration &decl, const char *name,
+      int64_t enum_value, uint32_t enum_value_bit_size);
 
   CompilerType GetEnumerationIntegerType(lldb::opaque_compiler_type_t type);
 
@@ -926,6 +922,8 @@ public:
   //----------------------------------------------------------------------
   // Dumping types
   //----------------------------------------------------------------------
+  void Dump(Stream &s);
+
   void DumpValue(lldb::opaque_compiler_type_t type, ExecutionContext *exe_ctx,
                  Stream *s, lldb::Format format, const DataExtractor &data,
                  lldb::offset_t data_offset, size_t data_byte_size,

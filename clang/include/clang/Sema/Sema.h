@@ -9631,6 +9631,10 @@ public:
                                        AssignmentAction Action,
                                        CheckedConversionKind CCK);
 
+  ExprResult PerformQualificationConversion(
+      Expr *E, QualType Ty, ExprValueKind VK = VK_RValue,
+      CheckedConversionKind CCK = CCK_ImplicitConversion);
+
   /// the following "Check" methods will return a valid/converted QualType
   /// or a null QualType (indicating an error diagnostic was issued).
 
@@ -10588,7 +10592,8 @@ private:
   /// Check if there is a field shadowing.
   void CheckShadowInheritedFields(const SourceLocation &Loc,
                                   DeclarationName FieldName,
-                                  const CXXRecordDecl *RD);
+                                  const CXXRecordDecl *RD,
+                                  bool DeclIsField = true);
 
   /// Check if the given expression contains 'break' or 'continue'
   /// statement that produces control flow different from GCC.

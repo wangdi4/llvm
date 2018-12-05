@@ -22,12 +22,10 @@ define i16 @test_call(i8 zeroext %arg) {
   ret i16 %conv
 }
 
-; Test that the transformation bails when it finds that i16 is larger than i8.
-; TODO: We should be able to remove the uxtb in these cases.
 ; CHECK-LABEL: promote_i8_sink_i16_1
 ; CHECK: bl dummy_i8
 ; CHECK: add{{.*}} r0, #1
-; CHECK: uxtb r0, r0
+; CHECK-NOT: uxt
 ; CHECK: cmp r0
 define i16 @promote_i8_sink_i16_1(i8 zeroext %arg0, i16 zeroext %arg1, i16 zeroext %arg2) {
   %call = tail call zeroext i8 @dummy_i8(i8 %arg0)
@@ -144,10 +142,9 @@ if.then:                                          ; preds = %for.cond
   br label %for.cond.backedge
 }
 
-; Transform will bail because of the zext
 ; Check that d.sroa.0.0.be is promoted passed directly into the tail call.
 ; CHECK-LABEL: check_zext_phi_call_arg
-; CHECK: uxt
+; CHECK-NOT: uxt
 define i32 @check_zext_phi_call_arg() {
 entry:
   br label %for.cond
@@ -167,16 +164,67 @@ if.then:                                          ; preds = %for.cond
   br label %for.cond.backedge
 }
 
+%struct.atomic_flag = type { i8 }
+
+; CHECK-LABEL: atomic_flag_test_and_set
+; CHECK-NOT: uxt
+define zeroext i1 @atomic_flag_test_and_set(%struct.atomic_flag* %object) {
+entry:
+  %_Value = getelementptr inbounds %struct.atomic_flag, %struct.atomic_flag* %object, i32 0, i32 0
+  %call = tail call arm_aapcscc zeroext i8 @__atomic_exchange_1(i8* %_Value, i8 zeroext 1, i32 5) #1
+  %0 = and i8 %call, 1
+  %tobool = icmp ne i8 %0, 0
+  ret i1 %tobool
+}
+
+; CHECK-LABEL: i1_zeroext_call
+; CHECK: uxt
+define i1 @i1_zeroext_call(i16* %ts, i32 %a, i16* %b, i8* %c) {
+entry:
+  %0 = load i16, i16* %ts, align 2
+  %conv.i860 = trunc i32 %a to i16
+  store i16 %conv.i860, i16* %b, align 2
+  %call.i848 = call zeroext i1 @i1_zeroext(i8* %c, i32 64, i16 zeroext %conv.i860)
+  br i1 %call.i848, label %if.then223, label %if.else227
+
+if.then223:
+  %cmp235 = icmp eq i16 %0, %conv.i860
+  br label %exit
+
+if.else227:
+  %cmp236 = icmp ult i16 %0, %conv.i860
+  br label %exit
+
+exit:
+  %retval = phi i1 [ %cmp235, %if.then223 ], [ %cmp236, %if.else227 ]
+  ret i1 %retval
+}
+
+; CHECK-LABEL: promote_arg_pass_to_call
+; CHECK-NOT: uxt
+define i16 @promote_arg_pass_to_call(i16 zeroext %arg1, i16 zeroext %arg2) {
+  %conv = add nuw i16 %arg1, 15
+  %mul = mul nuw nsw i16 %conv, 3
+  %cmp = icmp ult i16 %mul, %arg2
+  %trunc = trunc i16 %arg1 to i8
+  %res = call zeroext i16 @dummy4(i1 %cmp, i8 %trunc, i16 %arg1)
+  ret i16 %res
+}
+
+
 declare i32 @assert(...)
 declare i8 @dummy_i8(i8)
 declare i8 @dummy2(i8*, i8, i8)
 declare i16 @dummy3(i16)
+declare i16 @dummy4(i1, i8, i16)
 
 declare dso_local i32 @e(...) local_unnamed_addr #1
 declare dso_local zeroext i16 @f(...) local_unnamed_addr #1
+declare dso_local arm_aapcscc i8 @__atomic_exchange_1(i8*, i8, i32) local_unnamed_addr
 
 declare noalias i16** @func_62(i8 zeroext %p_63, i32 %p_64, i16 signext %p_65, i32* nocapture readnone %p_66)
 declare fastcc signext i16 @safe_sub_func_int16_t_s_s(i16 signext %si2)
 declare dso_local fastcc i64 @safe_sub_func_int64_t_s_s(i64, i64)
 declare dso_local fastcc zeroext i8 @safe_lshift_func(i8 zeroext, i32)
 declare dso_local fastcc zeroext i8 @safe_mul_func_uint8_t_u_u(i8 returned zeroext)
+declare i1 @i1_zeroext(i8*, i32, i16 zeroext)

@@ -1834,12 +1834,12 @@ bool HexagonTargetLowering::isShuffleMaskLegal(ArrayRef<int> Mask,
 }
 
 TargetLoweringBase::LegalizeTypeAction
-HexagonTargetLowering::getPreferredVectorAction(EVT VT) const {
+HexagonTargetLowering::getPreferredVectorAction(MVT VT) const {
   if (VT.getVectorNumElements() == 1)
     return TargetLoweringBase::TypeScalarizeVector;
 
   // Always widen vectors of i1.
-  MVT ElemTy = VT.getSimpleVT().getVectorElementType();
+  MVT ElemTy = VT.getVectorElementType();
   if (ElemTy == MVT::i1)
     return TargetLoweringBase::TypeWidenVector;
 
@@ -3082,6 +3082,10 @@ HexagonTargetLowering::findRepresentativeClass(const TargetRegisterInfo *TRI,
 
 bool HexagonTargetLowering::shouldReduceLoadWidth(SDNode *Load,
       ISD::LoadExtType ExtTy, EVT NewVT) const {
+  // TODO: This may be worth removing. Check regression tests for diffs.
+  if (!TargetLoweringBase::shouldReduceLoadWidth(Load, ExtTy, NewVT))
+    return false;
+
   auto *L = cast<LoadSDNode>(Load);
   std::pair<SDValue,int> BO = getBaseAndOffset(L->getBasePtr());
   // Small-data object, do not shrink.
