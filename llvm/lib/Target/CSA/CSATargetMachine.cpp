@@ -20,6 +20,7 @@
 #include "CSAIntrinsicCleaner.h"
 #include "CSALoopIntrinsicExpander.h"
 #include "CSALowerLoopIdioms.h"
+#include "CSAReassocReduc.h"
 #include "CSATargetTransformInfo.h"
 #include "CSAUtils.h"
 #include "llvm/Analysis/Passes.h"
@@ -92,6 +93,7 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSANameLICsPassPass(PR);
   initializeCSANormalizeDebugPass(PR);
   initializeCSAOptDFPassPass(PR);
+  initializeCSAReassocReducPass(PR);
   initializeCSARedundantMovElimPass(PR);
   initializeCSASeqotToSeqOptimizationPass(PR);
   initializeCSAStreamingMemoryConversionPassPass(PR);

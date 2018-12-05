@@ -14,9 +14,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CSAReassocReduc.h"
 #include "CSA.h"
 #include "CSAInstrInfo.h"
-#include "CSATargetMachine.h"
+#include "CSAMachineFunctionInfo.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
@@ -29,8 +30,14 @@ using namespace llvm;
 
 static cl::opt<bool> EnableReassocReduc{
   "csa-enable-reassoc-reduc", cl::Hidden,
-  cl::desc("CSA Specific: Enables expansion of reductions into fully pipelined "
-           "\"software\" implementations."),
+  cl::desc("CSA Specific: Explicitly enables expansion of reductions into "
+           "fully pipelined \"software\" implementations."),
+  cl::init(false)};
+
+static cl::opt<bool> DisableReassocReduc{
+  "csa-disable-reassoc-reduc", cl::Hidden,
+  cl::desc("CSA Specific: Explicitly disables expansion of reductions into "
+           "fully pipelined \"software\" implementations."),
   cl::init(false)};
 
 static cl::opt<int> PartRedCount{
@@ -53,6 +60,7 @@ static cl::opt<MultiplexType> Multiplex{
   cl::init(deterministic)};
 
 #define DEBUG_TYPE "csa-reassoc-reduc"
+#define PASS_NAME "CSA: Pipelined Reassociating Reduction Expansion"
 
 STATISTIC(ReducsExpanded, "Number of reduction instructions pipelined");
 
@@ -106,10 +114,23 @@ private:
 
 } // namespace
 
+bool llvm::willRunCSAReassocReduc(const MachineFunction &MF) {
+
+  // If either option was passed, honor that.
+  if (DisableReassocReduc)
+    return false;
+  if (EnableReassocReduc)
+    return true;
+
+  // Otherwise, decide based on the unsafe-fp-math flag.
+  return MF.getFunction().getFnAttribute("unsafe-fp-math").getValueAsString() ==
+         "true";
+}
+
 char CSAReassocReduc::ID = 0;
 
-static RegisterPass<CSAReassocReduc> CSAReassocReducRegistration{
-  "csa-reassoc-reduc", "CSA Reassociating Reduction Expansion", false, false};
+INITIALIZE_PASS_BEGIN(CSAReassocReduc, DEBUG_TYPE, PASS_NAME, false, false)
+INITIALIZE_PASS_END(CSAReassocReduc, DEBUG_TYPE, PASS_NAME, false, false)
 
 MachineFunctionPass *llvm::createCSAReassocReducPass() {
   return new CSAReassocReduc{};
@@ -124,8 +145,8 @@ bool CSAReassocReduc::runOnMachineFunction(MachineFunction &MF) {
   MRI  = &MF.getRegInfo();
   MCP  = MF.getConstantPool();
 
-  // Don't do anything if the flag isn't set.
-  if (not EnableReassocReduc)
+  // Skip if willRunCSAReassocReduc determines that the pass shouldn't be run.
+  if (not willRunCSAReassocReduc(MF))
     return false;
 
   // Otherwise, expand any reductions that should be expanded.

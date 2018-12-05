@@ -9,6 +9,7 @@
 //
 #include "CSASeqOpt.h"
 #include "CSAInstrInfo.h"
+#include "CSAReassocReduc.h"
 #include "CSASequenceOpt.h"
 #include "CSATargetMachine.h"
 #include "MachineCDG.h"
@@ -16,9 +17,9 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/Support/Debug.h"
 namespace {
   //128 is what simulator uses now.
   //32 is the experimental number
@@ -35,6 +36,12 @@ static cl::opt<bool> DisableMultiSeq(
 static cl::opt<bool> EnableBuffer(
   "csa-enable-buffer", cl::Hidden, cl::init(false),
   cl::desc("CSA Specific: Add buffering to loop LICs"));
+
+static cl::opt<bool>
+  UseDeprecatedReducInsts("csa-use-deprecated-reduc-insts", cl::Hidden,
+                          cl::init(false),
+                          cl::desc("CSA Specific: Re-enable the generation of "
+                                   "deprecated reduction instructions"));
 
 CSASeqOpt::CSASeqOpt(MachineFunction *F, MachineOptimizationRemarkEmitter &ORE,
                      const char *PassName) :
@@ -440,6 +447,19 @@ void CSASeqOpt::SequenceApp(CSASSANode *switchNode, CSASSANode *addNode,
 
 void CSASeqOpt::SequenceReduction(CSASSANode *switchNode, CSASSANode *addNode,
                                   CSASSANode *lhdrPickNode) {
+
+  // If -csa-use-deprecated-reduc-insts isn't passed, reduction instructions
+  // shouldn't be generated except where needed for CSAReassocReduc. Make sure
+  // that pass is enabled and that the reduction is one of the floating point
+  // ones that it can handle.
+  if (!UseDeprecatedReducInsts) {
+    if (!willRunCSAReassocReduc(*thisMF))
+      return;
+    if (TII->getOpcodeClass(addNode->minstr->getOpcode()) !=
+        CSA::OpcodeClass::VARIANT_FLOAT)
+      return;
+  }
+
   // switchNode has inputs addNode, and switch's control is SeqOT
   MachineInstr *seqOT = getSeqOTDef(switchNode->minstr->getOperand(2));
   bool isIDVCycle =
