@@ -586,6 +586,134 @@ Value *findReductionIdentity(PHINode *Phi, Instruction *Op) {
     Ident = Constant::getAllOnesValue(Ty);
     break;
   }
+  case Instruction::Select: {
+    CmpInst *CmpInstruction;
+    CmpInstruction = dyn_cast<CmpInst>(Op->getOperand(0));
+    if (!CmpInstruction) {
+
+      errs().changeColor(raw_ostream::GREEN, true);
+      errs() << "!! ERROR: INCORRECT REDUCTION IDENTIFIED  !!\n";
+      errs().resetColor();
+      errs() << R"help(
+                  Failed to get cmp instruction for min/max reduction.
+                  )help";
+      break;
+    }
+
+    unsigned int BitSize;
+    BitSize = Ty->getPrimitiveSizeInBits();
+
+    switch (CmpInstruction->getPredicate()) {
+    case ICmpInst::ICMP_SGE:
+    case ICmpInst::ICMP_SGT: {
+      // Signed Int Max Reduction
+      if (BitSize == 32) {
+        Ident = ConstantInt::get(Ty, std::numeric_limits<int32_t>::min(), 1);
+      } else if (BitSize == 16) { // Signed Short Int
+        Ident = ConstantInt::get(Ty, std::numeric_limits<int16_t>::min(), 1);
+      } else if (BitSize == 64) { // Signed Long Long Int
+        Ident = ConstantInt::get(Ty, std::numeric_limits<int64_t>::min(), 1);
+      }
+
+      break;
+    }
+
+    case ICmpInst::ICMP_SLE:
+    case ICmpInst::ICMP_SLT: {
+      // Signed Int Min Reduction
+
+      if (BitSize == 32) {
+        Ident = ConstantInt::get(Ty, std::numeric_limits<int32_t>::max(), 1);
+      } else if (BitSize == 16) { // Signed Short Int
+        Ident = ConstantInt::get(Ty, std::numeric_limits<int16_t>::max(), 1);
+      } else if (BitSize == 64) { // Signed Long Long Int
+        Ident = ConstantInt::get(Ty, std::numeric_limits<int64_t>::max(), 1);
+      }
+
+      break;
+    }
+
+    case ICmpInst::ICMP_UGE:
+    case ICmpInst::ICMP_UGT: {
+      // Unsigned Int Max Reduction
+      Ident = ConstantInt::get(Ty, 0, 0);
+      break;
+    }
+
+    case ICmpInst::ICMP_ULE:
+    case ICmpInst::ICMP_ULT: {
+      // Unsigned Int Min Reduction
+      if (BitSize == 32) {
+        Ident = ConstantInt::get(Ty, std::numeric_limits<uint32_t>::max(), 0);
+      } else if (BitSize == 16) { // Unsigned Short Int
+        Ident = ConstantInt::get(Ty, std::numeric_limits<uint16_t>::max(), 0);
+      } else if (BitSize == 64) { // Unsigned Long Long Int
+        Ident = ConstantInt::get(Ty, std::numeric_limits<uint64_t>::max(), 0);
+      }
+
+      break;
+    }
+
+    case FCmpInst::FCMP_UGE:
+    case FCmpInst::FCMP_UGT:
+    case FCmpInst::FCMP_OGE:
+    case FCmpInst::FCMP_OGT: {
+      // Ordered or Unordered Float Max reduction
+      if (Ty->isFloatTy()) {
+        Ident = ConstantFP::get(Ty, (std::numeric_limits<float>::lowest()));
+      } else if (Ty->isDoubleTy()) {
+        // Double Max Reduction
+        Ident = ConstantFP::get(Ty, (std::numeric_limits<double>::lowest()));
+      } else {
+        errs() << "\n";
+        errs().changeColor(raw_ostream::BLUE, true);
+        errs() << "!! ERROR: COULD NOT PERFORM SPMDization !!\n";
+        errs().resetColor();
+        errs() << R"help(
+                     Failed to find correct floating point type for the reduction.
+                     )help";
+        Ident = nullptr;
+      }
+      break;
+    }
+
+    case FCmpInst::FCMP_ULE:
+    case FCmpInst::FCMP_ULT:
+    case FCmpInst::FCMP_OLE:
+    case FCmpInst::FCMP_OLT: {
+      // Ordered or Unordered Float Min reduction
+      if (Ty->isFloatTy()) {
+        Ident = ConstantFP::get(Ty, std::numeric_limits<float>::max());
+      } else if (Ty->isDoubleTy()) {
+        // Double Min Reduction
+        Ident = ConstantFP::get(Ty, std::numeric_limits<double>::max());
+      } else {
+        errs() << "\n";
+        errs().changeColor(raw_ostream::BLUE, true);
+        errs() << "!! ERROR: COULD NOT PERFORM SPMDization !!\n";
+        errs().resetColor();
+        errs() << R"help(
+                     Failed to find correct floating point type for the reduction.
+                     )help";
+        Ident = nullptr;
+      }
+      break;
+    }
+
+    default: {
+      // Unknown predicate for Min/Max reduction
+      errs().changeColor(raw_ostream::GREEN, true);
+      errs() << "!! ERROR: COULD NOT PERFORM SPMDization  !!\n";
+      errs().resetColor();
+      errs() << R"help(
+                  Failed to get predicate of comparision for min/max reduction.
+                  )help";
+      break;
+    }
+    }
+
+    break;
+  }
   default: {
     // Doesn't have an identity.
     errs() << "\n";
@@ -749,12 +877,45 @@ bool LoopSPMDization::fixReductionsFlatIfAny(
             B.SetInsertPoint(AfterLoop->getFirstNonPHI());
           } else
             B.SetInsertPoint(OldInsts[r]->getNextNode());
-          Instruction *NewInst = ReduceVarOrig[r]->clone();
-          OldInsts[r]->replaceAllUsesWith(NewInst);
-          ReduceVarExitOrig[r]->replaceUsesOutsideBlock(NewInst, AfterLoop);
 
-          NewInst->setOperand(1, cast<Value>(OldInsts[r]));
-          NewInst->setOperand(0, cast<Value>(NewInstPhi));
+          Instruction *NewInst;
+          Instruction *NewCmpInst;
+          if (ReduceVarOrig[r]->getOpcode() == Instruction::Select) {
+            // For Min-Max reduction new cmp instruction should also be added
+            CmpInst *RedCmpInst;
+            RedCmpInst = dyn_cast<CmpInst>(ReduceVarOrig[r]->getOperand(0));
+            if (!RedCmpInst) {
+              errs() << "\n";
+              errs().changeColor(raw_ostream::BLUE, true);
+              errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
+              errs().resetColor();
+              errs() << R"help(
+                         Failed to get compare insstruction for min/max reduction to insert at the end
+                       )help";
+              return false;
+            }
+            NewCmpInst = RedCmpInst->clone();
+            AfterLoop->getInstList().insert(B.GetInsertPoint(), NewCmpInst);
+
+            // Add select instruction after the cmp instruction
+            NewInst = ReduceVarOrig[r]->clone();
+            OldInsts[r]->replaceAllUsesWith(NewInst);
+            ReduceVarExitOrig[r]->replaceUsesOutsideBlock(NewInst, AfterLoop);
+
+            NewCmpInst->setOperand(1, OldInsts[r]);
+            NewCmpInst->setOperand(0, NewInstPhi);
+            NewInst->setOperand(0, NewCmpInst);
+            NewInst->setOperand(2, OldInsts[r]);
+            NewInst->setOperand(1, NewInstPhi);
+
+          } else {
+            // Other Reductions
+            NewInst = ReduceVarOrig[r]->clone();
+            OldInsts[r]->replaceAllUsesWith(NewInst);
+            ReduceVarExitOrig[r]->replaceUsesOutsideBlock(NewInst, AfterLoop);
+            NewInst->setOperand(1, OldInsts[r]);
+            NewInst->setOperand(0, NewInstPhi);
+          }
           AfterLoop->getInstList().insert(B.GetInsertPoint(), NewInst);
           OldInsts[r] = NewInst;
           break;
@@ -907,12 +1068,46 @@ bool LoopSPMDization::fixReductionsIfAny(
             B.SetInsertPoint(AfterLoop->getFirstNonPHI());
           } else
             B.SetInsertPoint(OldInsts[r]->getNextNode());
-          Instruction *NewInst = ReduceVarOrig[r]->clone();
-          OldInsts[r]->replaceAllUsesWith(NewInst);
-          ReduceVarExitOrig[r]->replaceUsesOutsideBlock(NewInst, AfterLoop);
 
-          NewInst->setOperand(1, dyn_cast<Value>(OldInsts[r]));
-          NewInst->setOperand(0, dyn_cast<Value>(NewInstPhi));
+          Instruction *NewInst;
+          Instruction *NewCmpInst;
+          if (ReduceVarOrig[r]->getOpcode() == Instruction::Select) {
+            // For Min-Max reduction new cmp instruction should also be added
+            CmpInst *RedCmpInst;
+            RedCmpInst = dyn_cast<CmpInst>(ReduceVarOrig[r]->getOperand(0));
+            if (!RedCmpInst) {
+              errs() << "\n";
+              errs().changeColor(raw_ostream::BLUE, true);
+              errs() << "!! WARNING: COULD NOT PERFORM SPMDization !!\n";
+              errs().resetColor();
+              errs() << R"help(
+                         Failed to get compare instruction for min/max reduction to insert at the end
+                       )help";
+              return false;
+            }
+            NewCmpInst = RedCmpInst->clone();
+            AfterLoop->getInstList().insert(B.GetInsertPoint(), NewCmpInst);
+
+            // Add select instruction after the compare instruction
+            NewInst = ReduceVarOrig[r]->clone();
+            OldInsts[r]->replaceAllUsesWith(NewInst);
+            ReduceVarExitOrig[r]->replaceUsesOutsideBlock(NewInst, AfterLoop);
+
+            NewCmpInst->setOperand(1, OldInsts[r]);
+            NewCmpInst->setOperand(0, NewInstPhi);
+            NewInst->setOperand(0, NewCmpInst);
+            NewInst->setOperand(2, OldInsts[r]);
+            NewInst->setOperand(1, NewInstPhi);
+
+          } else {
+            // Other Reductions
+            NewInst = ReduceVarOrig[r]->clone();
+            OldInsts[r]->replaceAllUsesWith(NewInst);
+            ReduceVarExitOrig[r]->replaceUsesOutsideBlock(NewInst, AfterLoop);
+            NewInst->setOperand(1, OldInsts[r]);
+            NewInst->setOperand(0, NewInstPhi);
+          }
+
           AfterLoop->getInstList().insert(B.GetInsertPoint(), NewInst);
           OldInsts[r] = NewInst;
           break;
