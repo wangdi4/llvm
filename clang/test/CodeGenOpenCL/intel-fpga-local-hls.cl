@@ -6,6 +6,7 @@
 //CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{register:1}
 //CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}
 //CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{bankwidth:4}
+//CHECK: [[ANN6A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{max_concurrency:4}
 //CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}
 //CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:2}
 //CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:foo:depth}
@@ -45,6 +46,10 @@ void foo_two() {
   //CHECK: %[[VAR_NINE1:var_nine[0-9]+]] = bitcast{{.*}}var_nine
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_NINE1]],{{.*}}[[ANN6]]
   int __attribute__((__bankwidth__(4))) var_nine;
+  //CHECK: %[[VAR_NINE_TWO:[0-9]+]] = bitcast{{.*}}var_nine_two
+  //CHECK: %[[VAR_NINE_TWO1:var_nine_two[0-9]+]] = bitcast{{.*}}var_nine_two
+  //CHECK: llvm.var.annotation{{.*}}%[[VAR_NINE_TWO1]],{{.*}}[[ANN6A]]
+  int __attribute__((__max_concurrency__(4))) var_nine_two;
   //CHECK: %[[VAR_TEN:[0-9]+]] = bitcast{{.*}}var_ten
   //CHECK: %[[VAR_TEN1:var_ten[0-9]+]] = bitcast{{.*}}var_ten
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_TEN1]],{{.*}}[[ANN7]]

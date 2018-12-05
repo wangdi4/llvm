@@ -9,13 +9,14 @@
 //CHECK: [[ANN5A:@.str[\.]*[0-9]*]] = {{.*}}{memory:MLAB}
 //CHECK: [[ANN5B:@.str[\.]*[0-9]*]] = {{.*}}{memory:BLOCK_RAM}
 //CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{bankwidth:4}
+//CHECK: [[ANN6A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{max_concurrency:4}
 //CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}
 //CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:2}
 //CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:foo:depth}
 //CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
 //CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_fmax:1}
 //CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_ram_usage:1}
-//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}{bankwidth:4}{numbanks:8}{numreadports:2}{numwriteports:3}{bank_bits:2,3,4}{merge:merge_foo_one:depth}
+//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}{bankwidth:4}{max_concurrency:4}{numbanks:8}{numreadports:2}{numwriteports:3}{bank_bits:2,3,4}{merge:merge_foo_one:depth}
 //CHECK: [[ANN1A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:8}{bank_bits:4,3,2}
 
 __attribute__((ihc_component))
@@ -42,6 +43,8 @@ void foo_two() {
   int __attribute__((__memory__("BLOCK_RAM"))) var_eightB;
   //CHECK: llvm.var.annotation{{.*}}var_nine{{.*}}[[ANN6]]
   int __attribute__((__bankwidth__(4))) var_nine;
+  //CHECK: llvm.var.annotation{{.*}}var_nine_two{{.*}}[[ANN6A]]
+  int __attribute__((__max_concurrency__(4))) var_nine_two;
   //CHECK: llvm.var.annotation{{.*}}var_ten{{.*}}[[ANN7]]
   int __attribute__((singlepump)) var_ten;
   //CHECK: llvm.var.annotation{{.*}}var_eleven{{.*}}[[ANN8]]
@@ -57,14 +60,15 @@ void foo_two() {
 }
 
 template <int bankwidth, int numbanks, int readports, int writeports,
-          int bit1, int bit2, int bit3>
+          int bit1, int bit2, int bit3, int max_concurrency>
 __attribute__((ihc_component))
 void foo_one()
 {
   __attribute__((bankwidth(bankwidth),numbanks(numbanks),
                  numports_readonly_writeonly(readports,writeports),
                  merge("merge_foo_one","depth"), memory, singlepump,
-                 __bank_bits__(bit1,bit2,bit3)))
+                 __bank_bits__(bit1,bit2,bit3),
+                 max_concurrency(max_concurrency)))
   int var_one;
 }
 
@@ -84,6 +88,6 @@ void foo_two()
 
 void call()
 {
-  foo_one<4,8,2,3,2,3,4>();
+  foo_one<4,8,2,3,2,3,4,4>();
   foo_two<8,3>();
 }

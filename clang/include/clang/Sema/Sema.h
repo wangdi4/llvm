@@ -8622,8 +8622,6 @@ public:
                                            Expr *E, unsigned SpellingListIndex);
   void AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D, Expr *E,
                                        unsigned SpellingListIndex);
-  void AddMaxConcurrencyAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                             unsigned SpellingListIndex);
   template <typename AttrType>
   bool checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
                                    ExprResult &Result);

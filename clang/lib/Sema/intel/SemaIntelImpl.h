@@ -41,7 +41,8 @@ void Sema::AddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
   }
 
   if (NumReadPortsAttr::classof(&TmpAttr) ||
-      NumWritePortsAttr::classof(&TmpAttr)) {
+      NumWritePortsAttr::classof(&TmpAttr) ||
+      (MaxConcurrencyAttr::classof(&TmpAttr) && isa<VarDecl>(D))) {
     if (!D->hasAttr<MemoryAttr>())
       D->addAttr(MemoryAttr::CreateImplicit(Context, MemoryAttr::Default));
   }

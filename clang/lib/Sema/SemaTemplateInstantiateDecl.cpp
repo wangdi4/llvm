@@ -185,18 +185,6 @@ static void instantiateDependentAlignValueAttr(
                         Aligned->getSpellingListIndex());
 }
 #if INTEL_CUSTOMIZATION
-static void instantiateDependentMaxConcurrencyAttr(
-    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const MaxConcurrencyAttr *Max, Decl *New) {
-  // The max_concurrency expression is a constant expression.
-  EnterExpressionEvaluationContext Unevaluated(
-      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-  ExprResult Result = S.SubstExpr(Max->getMax(), TemplateArgs);
-  if (!Result.isInvalid())
-    S.AddMaxConcurrencyAttr(Max->getLocation(), New, Result.getAs<Expr>(),
-                            Max->getSpellingListIndex());
-}
-
 static void instantiateDependentInternalMaxBlockRamDepthAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
     const InternalMaxBlockRamDepthAttr *Max, Decl *New) {
@@ -489,7 +477,8 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
 #if INTEL_CUSTOMIZATION
     const MaxConcurrencyAttr *MCA = dyn_cast<MaxConcurrencyAttr>(TmplAttr);
     if (MCA) {
-      instantiateDependentMaxConcurrencyAttr(*this, TemplateArgs, MCA, New);
+      instantiateDependentOneConstantValueAttr<MaxConcurrencyAttr>(
+          *this, TemplateArgs, MCA, New);
       continue;
     }
     const SchedulerPipeliningEffortPctAttr *SPEPA =

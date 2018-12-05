@@ -1650,6 +1650,7 @@ IR:
   !2 = !{i32 1}
   }];
 }
+
 def StallLatencyDocs : Documentation {
   let Category = DocCatIntelHLS;
   let BugTracker = "CMPLRLLVM-7128";
@@ -1748,6 +1749,93 @@ OpenCL IR:
   define spir_kernel void @foo2() local_unnamed_addr #0 !stall_latency !6
   !5 = !{i32 1}
   !6 = !{i32 0}
+  }];
+}
+
+def AttributeMaxConcurrencyDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-7539";
+  let RegressionTest = "SemaIntelHLS/local.cpp, CodeGenIntelHLS/local.cpp, SemaOpenCL/intel-fpga-local-hls.cl, CodeGenOpenCL/intel-fpga-local-hls.cl";
+  let Owner = "mprice1";
+  let Content = [{
+This attribute provides the user of the PSG HLD compiler explicit control over
+an optimization applied to arrays declared in a loop body. On the FPGA, arrays
+and other large local variables are physically implemented in FPGA RAM. To
+support pipeline-parallel execution of loop iterations, the HLD compiler must
+create multiple physical copies of the array variable on the FPGA, so that
+each simultaneously executing loop iteration operates on an independent copy
+of the array. The user can apply `__attribute__((max_concurrency(n)))` to
+such an array to limit parallelism in the region of the pipeline containing
+array accesses to at most n, thus limiting the number of copies created by the
+compiler.
+
+This attribute can be applied to functions and non-const local variables.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((max_concurrency(n)))
+
+  where n is a non-negative integer constant.
+
+Example:
+
+.. code-block:: c++
+
+  __attribute__((max_concurrency(2048))) void foo() { }
+
+  int bar() {
+    __attribute__((max_concurrency(128))) int arr[16];
+    return arr[0];
+  }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp # HLS
+  $ clang -cc1 -triple spir-unknown-unknown-intelfpga -ast-dump t.cl # OpenCL
+
+.. code-block:: text
+
+  FunctionDecl 0xdab9d08 <t.cpp:1:1, col:67> col:59 foo 'void ()'
+  |-CompoundStmt 0xdab9e60 <col:65, col:67>
+  `-MaxConcurrencyAttr 0xdab9e08 <col:30, col:50>
+    `-ConstantExpr 0xdab9df0 <col:46> 'int'
+      `-IntegerLiteral 0xdab9c98 <col:46> 'int' 2048
+
+  DeclStmt 0xdaba130 <line:4:3, col:52>
+  `-VarDecl 0xdaba060 <col:3, col:51> col:45 used arr 'int [16]'
+    |-MemoryAttr 0xdaba0d8 <<invalid sloc>> Implicit Default
+    `-MaxConcurrencyAttr 0xdaba118 <col:18, col:37>
+      `-ConstantExpr 0xdaba0c0 <col:34> 'int'
+        `-IntegerLiteral 0xdab9fa8 <col:34> 'int' 128
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp # HLS
+  $ clang -cc1 -triple spir-unknown-unknown-intelfpga -emit-llvm -o - t.cl  # OpenCL
+
+.. code-block:: llvm
+
+  define void @_Z3foov() #0 !max_concurrency !6 {
+  entry:
+    ret void
+  }
+  !6 = !{i32 2048}
+
+  @.str = private unnamed_addr constant [38 x i8] c"{memory:DEFAULT}{max_concurrency:128}\00", section "llvm.metadata"
+  @.str.1 = private unnamed_addr constant [6 x i8] c"t.cpp\00", section "llvm.metadata"
+
+  define i32 @_Z3barv() #0 !ihc_component {
+  entry:
+    %arr = alloca [16 x i32], align 16
+    %arr1 = bitcast [16 x i32]* %arr to i8*
+    call void @llvm.var.annotation(i8* %arr1, i8* getelementptr inbounds ([38 x i8], [38 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 4)
+  }
   }];
 }
 

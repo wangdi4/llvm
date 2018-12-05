@@ -51,6 +51,14 @@ void foo1()
   __attribute__((__bankwidth__(4)))
   unsigned int v_five[64];
 
+  //CHECK: VarDecl{{.*}}v_five_two
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: MaxConcurrencyAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  __attribute__((max_concurrency(4)))
+  unsigned int v_five_two[64];
+
   //CHECK: VarDecl{{.*}}v_six
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: NumBanksAttr
@@ -313,6 +321,12 @@ void foo1()
 
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
+  __attribute__((__max_concurrency__(16)))
+  //expected-note@-2 {{conflicting attribute is here}}
+  unsigned int reg_six_two[64];
+
+  //expected-error@+2{{attributes are not compatible}}
+  __attribute__((__register__))
   __attribute__((__numbanks__(8)))
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_seven[64];
@@ -425,6 +439,40 @@ void foo1()
   //expected-error@+1{{requires integer constant between 1 and 1048576}}
   __attribute__((__bankwidth__(0)))
   unsigned int bw_seven[64];
+
+  // max_concurrency
+  //expected-error@+2{{attributes are not compatible}}
+  __attribute__((__max_concurrency__(16)))
+  __attribute__((__register__))
+  //expected-note@-2 {{conflicting attribute is here}}
+  unsigned int mc_one[64];
+
+  //CHECK: VarDecl{{.*}}mc_two
+  //CHECK: MaxConcurrencyAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
+  //CHECK: MaxConcurrencyAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //expected-warning@+2{{is already applied}}
+  __attribute__((__max_concurrency__(8)))
+  __attribute__((__max_concurrency__(16)))
+  unsigned int mc_two[64];
+
+  //expected-error@+1{{requires integer constant between 0 and 1048576}}
+  __attribute__((__max_concurrency__(-4)))
+  unsigned int mc_four[64];
+
+  int i_max_concurrency = 32;
+  //expected-error@+3{{is not an integral constant expression}}
+  //expected-note@+2{{not allowed in a constant expression}}
+  //expected-note@-3{{declared here}}
+  __attribute__((__max_concurrency__(i_max_concurrency)))
+  unsigned int mc_five[64];
+
+  //expected-error@+1{{'__max_concurrency__' attribute takes one argument}}
+  __attribute__((__max_concurrency__(4,8)))
+  unsigned int mc_six[64];
 
   // numbanks
   //expected-error@+2{{attributes are not compatible}}
@@ -694,10 +742,12 @@ void foo1()
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-template <unsigned bankwidth, unsigned numbanks, int numreadports,
-          unsigned numwriteports, int bit1, int bit2, int bit3>
+template <int max_concurrency, unsigned bankwidth, unsigned numbanks,
+          int numreadports, unsigned numwriteports, int bit1, int bit2,
+          int bit3>
 void tattr() {
 
+  __attribute__((max_concurrency(max_concurrency)))
   __attribute__((bankwidth(bankwidth)))
   __attribute__((numbanks(numbanks)))
   __attribute__((numports_readonly_writeonly(numreadports, numwriteports)))
@@ -707,21 +757,31 @@ void tattr() {
 
 void foo2()
 {
-  tattr</*bankwidth=*/4, /*numbanks=*/8, /*numreadports=*/2,
-        /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
+  tattr</*max_concurrency=*/8, /*bankwidth=*/4, /*numbanks=*/8,
+        /*numreadports=*/2, /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3,
+        /*bit3=*/4>();
 
-  //expected-error@-12{{must be a constant power of two greater than zero}}
+  //expected-error@-13{{must be a constant power of two greater than zero}}
   //expected-note@+1{{in instantiation of function template specialization}}
-  tattr</*bankwidth=*/3, /*numbanks=*/8, /*numreadports=*/2,
-        /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
+  tattr</*max_concurrency=*/8, /*bankwidth=*/3, /*numbanks=*/8,
+        /*numreadports=*/2, /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3,
+        /*bit3=*/4>();
 
-  //expected-error@-15{{requires integer constant between 1 and 1048576}}
+  //expected-error@-17{{requires integer constant between 1 and 1048576}}
   //expected-note@+1{{in instantiation of function template specialization}}
-  tattr</*bankwidth=*/4, /*numbanks=*/8, /*numreadports=*/-1,
-        /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
+  tattr</*max_concurrency=*/8, /*bankwidth=*/4, /*numbanks=*/8,
+        /*numreadports=*/-1, /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3,
+        /*bit3=*/4>();
 
-  tattr</*bankwidth=*/4, /*numbanks=*/8, /*numreadports=*/2,
-        /*numwriteports=*/8, /*bit1=*/4, /*bit2=*/3, /*bit3=*/2>();
+  tattr</*max_concurrency=*/8, /*bankwidth=*/4, /*numbanks=*/8,
+        /*numreadports=*/2, /*numwriteports=*/8, /*bit1=*/4, /*bit2=*/3,
+        /*bit3=*/2>();
+
+  //expected-error@-30{{requires integer constant between 0 and 1048576}}
+  //expected-note@+1{{in instantiation of function template specialization}}
+  tattr</*max_concurrency=*/-1, /*bankwidth=*/4, /*numbanks=*/8,
+        /*numreadports=*/2, /*numwriteports=*/8, /*bit1=*/2, /*bit2=*/3,
+        /*bit3=*/4>();
 }
 
 template <typename T>
@@ -750,3 +810,23 @@ void other()
 
 //expected-error@+1{{attribute only applies to local or static variables}}
 __attribute__((__doublepump__)) unsigned int ext_one[64];
+
+//expected-error@+1{{only applies to functions and local non-const variables}}
+__attribute__((__max_concurrency__(8))) unsigned int ext_two[64];
+
+//expected-error@+1{{only applies to functions and local non-const variables}}
+__attribute__((__max_concurrency__(8))) static unsigned int ext_three[64];
+
+void other2()
+{
+  ext_three[0] = 1;
+  //expected-error@+1{{only applies to functions and local non-const variables}}
+  __attribute__((__max_concurrency__(8))) static unsigned int ext_four[64];
+  ext_four[0] = 1;
+
+  //expected-error@+1{{only applies to functions and local non-const variables}}
+  __attribute__((__max_concurrency__(8))) const int ext_fix[64] = { 0 };
+}
+
+//expected-error@+1{{only applies to functions and local non-const variables}}
+void other3(__attribute__((__max_concurrency__(8))) int pfoo) {}

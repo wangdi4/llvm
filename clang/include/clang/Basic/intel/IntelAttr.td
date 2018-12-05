@@ -260,11 +260,19 @@ def StallEnable : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLocalNonConstVar : SubsetSubject<Var,
+                              [{S->hasLocalStorage() &&
+                                S->getKind() != Decl::ImplicitParam &&
+                                S->getKind() != Decl::ParmVar &&
+                                S->getKind() != Decl::NonTypeTemplateParm &&
+                                !S->getType().isConstQualified()}],
+                              "local non-const variables">;
+
 def MaxConcurrency : InheritableAttr {
   let Spellings = [GNU<"max_concurrency">];
-  let Args = [ExprArgument<"Max">];
+  let Args = [ExprArgument<"Value">];
   let LangOpts = [OpenCL, HLS];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Subjects = SubjectList<[Function, HLSLocalNonConstVar], ErrorDiag>;
   let Documentation = [Undocumented];
   let PragmaAttributeSupport = 0;
   let AdditionalMembers = [{
@@ -346,7 +354,6 @@ def SlaveMemoryArgument : Attr {
 }
 
 // HLS local or static variable attributes
-
 def HLSLocalOrStaticVar : SubsetSubject<Var,
                               [{S->getKind() != Decl::ImplicitParam &&
                                 S->getKind() != Decl::ParmVar &&

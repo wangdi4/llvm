@@ -3426,7 +3426,7 @@ static void handleOptimizeRamUsageAttr(Sema &S, Decl *D,
   handleSimpleAttribute<OptimizeRamUsageAttr>(S, D, Attr);
 }
 
-/// \brief Handle the __doublepump__ and __singlepump__ attributes.
+/// Handle the __doublepump__ and __singlepump__ attributes.
 /// One but not both can be specified, and __register__ is incompatible.
 template <typename AttrType, typename IncompatAttrType>
 static void handlePumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
@@ -3451,7 +3451,7 @@ static void handlePumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   handleSimpleAttribute<AttrType>(S, D, Attr);
 }
 
-/// \brief Handle the __memory__ attribute.
+/// Handle the __memory__ attribute.
 /// This is incompatible with the __register__ attribute.
 static void handleMemoryAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
@@ -3489,7 +3489,7 @@ static void handleMemoryAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
       Attr.getRange(), S.Context, Kind, Attr.getAttributeSpellingListIndex()));
 }
 
-/// \brief Check for and diagnose attributes incompatible with register.
+/// Check for and diagnose attributes incompatible with register.
 /// return true if any incompatible attributes exist.
 static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
                                            const ParsedAttr &Attr) {
@@ -3506,6 +3506,8 @@ static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<BankBitsAttr>(S, D, Attr))
     InCompat = true;
   if (checkAttrMutualExclusion<BankWidthAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<MaxConcurrencyAttr>(S, D, Attr))
     InCompat = true;
   if (auto *NBA = D->getAttr<NumBanksAttr>())
     if (!NBA->isImplicit() &&
@@ -3529,7 +3531,7 @@ static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
   return InCompat;
 }
 
-/// \brief Handle the __register__ attribute.
+/// Handle the __register__ attribute.
 /// This is incompatible with most of the other memory attributes.
 static void handleRegisterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
 
@@ -3540,9 +3542,10 @@ static void handleRegisterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   handleSimpleAttribute<RegisterAttr>(S, D, Attr);
 }
 
-/// \brief Handle the numreadports, numwriteports, and static_array_reset
-/// attributes.  These require a single constant value.
+/// Handle the numreadports, numwriteports, max_concurrency, and
+/// static_array_reset attributes.  These require a single constant value.
 /// numreadports,numwriteports: must be greater than zero.
+/// max_concurrency: must be greater than or equal to zero.
 /// static_array_reset: must be 0 or 1.
 /// These are incompatible with the register attribute.
 template <typename AttrType>
@@ -3556,7 +3559,7 @@ static void handleOneConstantValueAttr(Sema &S, Decl *D,
                                       Attr.getAttributeSpellingListIndex());
 }
 
-/// \brief Handle the bankwidth and numbanks attributes.
+/// Handle the bankwidth and numbanks attributes.
 /// These require a single constant power of two greater than zero.
 /// These are incompatible with the register attribute.
 /// The numbanks and bank_bits attributes are related.  If bank_bits exists
@@ -3573,7 +3576,7 @@ static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
       Attr.getAttributeSpellingListIndex());
 }
 
-/// \brief Handle the numports_readonly_writeonly attribute.
+/// Handle the numports_readonly_writeonly attribute.
 /// This requires two constant values greater than zero.
 /// This is incompatible with the register attribute.
 /// This generates a NumReadPortsAttr and a NumWritePortsAttr instead of
@@ -3591,7 +3594,7 @@ static void handleNumPortsReadOnlyWriteOnlyAttr(Sema &S, Decl *D,
                                                Attr.getArgAsExpr(1), 0);
 }
 
-/// \brief Handle the merge attribute.
+/// Handle the merge attribute.
 /// This requires two string arguments.  The first argument is a name, the
 /// second is a direction.  The direction must be "depth" or "width".
 /// This is incompatible with the register attribute.
@@ -3623,7 +3626,7 @@ static void handleMergeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
                            Attr.getAttributeSpellingListIndex()));
 }
 
-/// \brief Handle the bank_bits attribute.
+/// Handle the bank_bits attribute.
 /// This attribute accepts a list of values greater than zero.
 /// This is incompatible with the register attribute.
 /// The numbanks and bank_bits attributes are related.  If numbanks exists
@@ -3779,24 +3782,20 @@ static void handleComponentInterfaceAttr(Sema &S, Decl *D,
   setComponentDefaults(S, D);
 }
 
-static void handleMaxConcurrencyAttr(Sema &S, Decl *D,
-                                     const ParsedAttr &Attr) {
-  S.AddMaxConcurrencyAttr(Attr.getRange(), D, Attr.getArgAsExpr(0),
-                          Attr.getAttributeSpellingListIndex());
-}
-
-void Sema::AddMaxConcurrencyAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                                 unsigned SpellingListIndex) {
-  MaxConcurrencyAttr TmpAttr(AttrRange, Context, E, SpellingListIndex);
-
-  if (!E->isValueDependent()) {
-    ExprResult ICE;
-    if (checkRangedIntegralArgument<MaxConcurrencyAttr>(E, &TmpAttr, ICE))
-      return;
-    E = ICE.get();
+static void handleMaxConcurrencyAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.getLangOpts().HLS &&
+      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
+    return;
   }
-  D->addAttr(::new (Context)
-                 MaxConcurrencyAttr(AttrRange, Context, E, SpellingListIndex));
+
+  checkForDuplicateAttribute<MaxConcurrencyAttr>(S, D, Attr);
+  if (isa<VarDecl>(D) && checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+    return;
+
+  S.AddOneConstantValueAttr<MaxConcurrencyAttr>(
+      Attr.getRange(), D, Attr.getArgAsExpr(0),
+      Attr.getAttributeSpellingListIndex());
 }
 
 static void handleArgumentInterfaceAttr(Sema & S, Decl * D,

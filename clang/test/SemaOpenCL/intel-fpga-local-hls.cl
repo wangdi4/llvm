@@ -34,6 +34,14 @@ void foo1()
   __attribute__((__bankwidth__(4)))
   unsigned int v_five[64];
 
+  //CHECK: VarDecl{{.*}}v_five_two
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: MaxConcurrencyAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  __attribute__((max_concurrency(4)))
+  unsigned int v_five_two[64];
+
   //CHECK: VarDecl{{.*}}v_six
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: NumBanksAttr
@@ -191,6 +199,12 @@ void foo1()
 
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
+  __attribute__((__max_concurrency__(16)))
+  //expected-note@-2 {{conflicting attribute is here}}
+  unsigned int reg_six_two[64];
+
+  //expected-error@+2{{attributes are not compatible}}
+  __attribute__((__register__))
   __attribute__((__numbanks__(8)))
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_seven[64];
@@ -269,6 +283,38 @@ void foo1()
   //expected-error@+1{{requires integer constant between 1 and 1048576}}
   __attribute__((__bankwidth__(0)))
   unsigned int bw_seven[64];
+
+  // max_concurrency
+  //expected-error@+2{{attributes are not compatible}}
+  __attribute__((__max_concurrency__(16)))
+  __attribute__((__register__))
+  //expected-note@-2 {{conflicting attribute is here}}
+  unsigned int mc_one[64];
+
+  //CHECK: VarDecl{{.*}}mc_two
+  //CHECK: MaxConcurrencyAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
+  //CHECK: MaxConcurrencyAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //expected-warning@+2{{is already applied}}
+  __attribute__((__max_concurrency__(8)))
+  __attribute__((__max_concurrency__(16)))
+  unsigned int mc_two[64];
+
+  //expected-error@+1{{requires integer constant between 0 and 1048576}}
+  __attribute__((__max_concurrency__(-4)))
+  unsigned int mc_four[64];
+
+  int i_max_concurrency = 32;
+  //expected-error@+1{{expression is not an integer constant expression}}
+  __attribute__((__max_concurrency__(i_max_concurrency)))
+  unsigned int mc_five[64];
+
+  //expected-error@+1{{'__max_concurrency__' attribute takes one argument}}
+  __attribute__((__max_concurrency__(4,8)))
+  unsigned int mc_six[64];
 
   // numbanks
   //expected-error@+2{{attributes are not compatible}}
@@ -485,4 +531,21 @@ kernel void foo2(
   //expected-error-re@+1{{local or static variables{{$}}}}
   __local __attribute__((doublepump)) int *a1)
 {
+  //expected-error@+1{{applies to functions and local non-const variables}}
+  __attribute__((__max_concurrency__(8)))
+  __constant unsigned int loc_one[64] = { 1, 2, 3 };
+
 }
+
+//expected-error@+1{{applies to functions and local non-const variables}}
+__attribute__((__max_concurrency__(8)))
+__constant unsigned int ext_two[64] = { 1, 2, 3 };
+
+void other2()
+{
+  //expected-error@+1{{applies to functions and local non-const variables}}
+  __attribute__((__max_concurrency__(8))) const int ext_six[64];
+}
+
+//expected-error@+1{{applies to functions and local non-const variables}}
+void other3(__attribute__((__max_concurrency__(8))) int pfoo) {}
