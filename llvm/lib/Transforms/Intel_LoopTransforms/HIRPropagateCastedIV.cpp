@@ -235,7 +235,9 @@ bool HIRPropagateCastedIV::propagateCastedIV(HLLoop *Lp) {
   const SmallVector<const RegDDRef *, 1> Aux = {CandidateRef};
 
   for (auto UseRef : MemRefs) {
-    ArrayRef<unsigned> Offsets = UseRef->getTrailingStructOffsets(1);
+    ArrayRef<unsigned> OffsetsRef = UseRef->getTrailingStructOffsets(1);
+    SmallVector<unsigned, 8> Offsets(OffsetsRef.begin(), OffsetsRef.end());
+
     HLDDNode *UseNode = UseRef->getHLDDNode();
     unsigned OpNum = UseNode->getOperandNum(UseRef);
     UseNode->removeOperandDDRef(OpNum);
