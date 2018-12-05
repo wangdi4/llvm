@@ -10,13 +10,7 @@ define i32 @gtFF(float %a, float %b) #0 {
 ; CSA_CHECK: cmpgtf32
 
 entry:
-  %a.addr = alloca float, align 4
-  %b.addr = alloca float, align 4
-  store float %a, float* %a.addr, align 4
-  store float %b, float* %b.addr, align 4
-  %0 = load float, float* %a.addr, align 4
-  %1 = load float, float* %b.addr, align 4
-  %cmp = fcmp ogt float %0, %1
+  %cmp = fcmp ogt float %a, %b
   %conv = zext i1 %cmp to i32
   ret i32 %conv
 }

@@ -10,13 +10,7 @@ define float @addFF(float %a, float %b) #0 {
 ; CSA_CHECK: addf32
 
 entry:
-  %a.addr = alloca float, align 4
-  %b.addr = alloca float, align 4
-  store float %a, float* %a.addr, align 4
-  store float %b, float* %b.addr, align 4
-  %0 = load float, float* %a.addr, align 4
-  %1 = load float, float* %b.addr, align 4
-  %add = fadd float %0, %1
+  %add = fadd float %a, %b
   ret float %add
 }
 

@@ -10,21 +10,9 @@ define float @fmapFF(float %a, float %b, float %c, float %d) #0 {
 ; CSA_CHECK: fmaf32
 
 entry:
-  %a.addr = alloca float, align 4
-  %b.addr = alloca float, align 4
-  %c.addr = alloca float, align 4
-  %d.addr = alloca float, align 4
-  store float %a, float* %a.addr, align 4
-  store float %b, float* %b.addr, align 4
-  store float %c, float* %c.addr, align 4
-  store float %d, float* %d.addr, align 4
-  %0 = load float, float* %a.addr, align 4
-  %1 = load float, float* %b.addr, align 4
-  %mul = fmul float %0, %1
-  %2 = load float, float* %c.addr, align 4
-  %add = fadd float %mul, %2
-  %3 = load float, float* %d.addr, align 4
-  %add1 = fadd float %add, %3
+  %mul = fmul float %a, %b
+  %add = fadd float %mul, %c
+  %add1 = fadd float %add, %d
   ret float %add1
 }
 

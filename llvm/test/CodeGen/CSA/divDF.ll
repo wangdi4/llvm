@@ -10,13 +10,7 @@ define double @divDF(double %a, double %b) #0 {
 ; CSA_CHECK: divf64
 
 entry:
-  %a.addr = alloca double, align 8
-  %b.addr = alloca double, align 8
-  store double %a, double* %a.addr, align 8
-  store double %b, double* %b.addr, align 8
-  %0 = load double, double* %a.addr, align 8
-  %1 = load double, double* %b.addr, align 8
-  %div = fdiv double %0, %1
+  %div = fdiv double %a, %b
   ret double %div
 }
 

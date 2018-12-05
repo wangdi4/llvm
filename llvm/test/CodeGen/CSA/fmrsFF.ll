@@ -10,17 +10,8 @@ define float @fmrsFF(float %a, float %b, float %c) #0 {
 ; CSA_CHECK: fmrsf32
 
 entry:
-  %a.addr = alloca float, align 4
-  %b.addr = alloca float, align 4
-  %c.addr = alloca float, align 4
-  store float %a, float* %a.addr, align 4
-  store float %b, float* %b.addr, align 4
-  store float %c, float* %c.addr, align 4
-  %0 = load float, float* %c.addr, align 4
-  %1 = load float, float* %a.addr, align 4
-  %2 = load float, float* %b.addr, align 4
-  %mul = fmul float %1, %2
-  %sub = fsub float %0, %mul
+  %mul = fmul float %a, %b
+  %sub = fsub float %c, %mul
   ret float %sub
 }
 

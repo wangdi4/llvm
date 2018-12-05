@@ -10,13 +10,7 @@ define i32 @geUI(i32 %a, i32 %b) #0 {
 ; CSA_CHECK: cmpgeu32
 
 entry:
-  %a.addr = alloca i32, align 4
-  %b.addr = alloca i32, align 4
-  store i32 %a, i32* %a.addr, align 4
-  store i32 %b, i32* %b.addr, align 4
-  %0 = load i32, i32* %a.addr, align 4
-  %1 = load i32, i32* %b.addr, align 4
-  %cmp = icmp uge i32 %0, %1
+  %cmp = icmp uge i32 %a, %b
   %conv = zext i1 %cmp to i32
   ret i32 %conv
 }

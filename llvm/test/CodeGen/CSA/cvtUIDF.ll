@@ -10,10 +10,7 @@ define i32 @cvtUIDF(double %d) #0 {
 ; CSA_CHECK: cvtu32f64
 
 entry:
-  %d.addr = alloca double, align 8
-  store double %d, double* %d.addr, align 8
-  %0 = load double, double* %d.addr, align 8
-  %conv = fptoui double %0 to i32
+  %conv = fptoui double %d to i32
   ret i32 %conv
 }
 

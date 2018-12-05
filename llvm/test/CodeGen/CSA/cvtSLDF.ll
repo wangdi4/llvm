@@ -10,10 +10,7 @@ define i64 @cvtSLDF(double %d) #0 {
 ; CSA_CHECK: cvts64f64
 
 entry:
-  %d.addr = alloca double, align 8
-  store double %d, double* %d.addr, align 8
-  %0 = load double, double* %d.addr, align 8
-  %conv = fptosi double %0 to i64
+  %conv = fptosi double %d to i64
   ret i64 %conv
 }
 

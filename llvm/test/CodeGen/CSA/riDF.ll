@@ -10,11 +10,8 @@ define double @riDF(double* %p) #0 {
 ; CSA_CHECK-NOT: sext32
 
 entry:
-  %p.addr = alloca double*, align 8
-  store double* %p, double** %p.addr, align 8
-  %0 = load double*, double** %p.addr, align 8
-  %1 = load double, double* %0, align 8
-  ret double %1
+  %0 = load double, double* %p, align 8
+  ret double %0
 }
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }

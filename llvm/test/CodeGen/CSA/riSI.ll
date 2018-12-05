@@ -10,11 +10,8 @@ define i32 @riSI(i32* %p) #0 {
 ; CSA_CHECK-NOT: sext32
 
 entry:
-  %p.addr = alloca i32*, align 8
-  store i32* %p, i32** %p.addr, align 8
-  %0 = load i32*, i32** %p.addr, align 8
-  %1 = load i32, i32* %0, align 4
-  ret i32 %1
+  %0 = load i32, i32* %p, align 4
+  ret i32 %0
 }
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }

@@ -10,13 +10,7 @@ define i32 @leUC(i8 zeroext %a, i8 zeroext %b) #0 {
 ; CSA_CHECK: cmples8
 
 entry:
-  %a.addr = alloca i8, align 1
-  %b.addr = alloca i8, align 1
-  store i8 %a, i8* %a.addr, align 1
-  store i8 %b, i8* %b.addr, align 1
-  %0 = load i8, i8* %a.addr, align 1
-  %1 = load i8, i8* %b.addr, align 1
-  %cmp = icmp sle i8 %0, %1
+  %cmp = icmp sle i8 %a, %b
   %conv2 = zext i1 %cmp to i32
   ret i32 %conv2
 }

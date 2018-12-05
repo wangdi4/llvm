@@ -11,11 +11,8 @@ define i32 @rinSI(i32* %p) #0 {
 ; CSA_CHECK-NOT: sext32
 
 entry:
-  %p.addr = alloca i32*, align 8
-  store i32* %p, i32** %p.addr, align 8
-  %0 = load i32*, i32** %p.addr, align 8
-  %1 = load i32, i32* %0, align 4
-  %sub = sub nsw i32 0, %1
+  %0 = load i32, i32* %p, align 4
+  %sub = sub nsw i32 0, %0
   ret i32 %sub
 }
 

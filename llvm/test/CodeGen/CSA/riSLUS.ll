@@ -10,11 +10,8 @@ define i64 @riSLUS(i16* %p) #0 {
 ; CSA_CHECK-NOT: sext64
 
 entry:
-  %p.addr = alloca i16*, align 8
-  store i16* %p, i16** %p.addr, align 8
-  %0 = load i16*, i16** %p.addr, align 8
-  %1 = load i16, i16* %0, align 2
-  %conv = zext i16 %1 to i64
+  %0 = load i16, i16* %p, align 2
+  %conv = zext i16 %0 to i64
   ret i64 %conv
 }
 

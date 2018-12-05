@@ -11,21 +11,9 @@ define double @fmapDF(double %a, double %b, double %c, double %d) #0 {
 ; CSA_CHECK: addf64
 
 entry:
-  %a.addr = alloca double, align 8
-  %b.addr = alloca double, align 8
-  %c.addr = alloca double, align 8
-  %d.addr = alloca double, align 8
-  store double %a, double* %a.addr, align 8
-  store double %b, double* %b.addr, align 8
-  store double %c, double* %c.addr, align 8
-  store double %d, double* %d.addr, align 8
-  %0 = load double, double* %a.addr, align 8
-  %1 = load double, double* %b.addr, align 8
-  %mul = fmul double %0, %1
-  %2 = load double, double* %c.addr, align 8
-  %add = fadd double %mul, %2
-  %3 = load double, double* %d.addr, align 8
-  %add1 = fadd double %add, %3
+  %mul = fmul double %a, %b
+  %add = fadd double %mul, %c
+  %add1 = fadd double %add, %d
   ret double %add1
 }
 

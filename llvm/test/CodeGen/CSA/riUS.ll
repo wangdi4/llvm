@@ -10,11 +10,8 @@ define zeroext i16 @riUS(i16* %p) #0 {
 ; CSA_CHECK-NOT: sext32
 
 entry:
-  %p.addr = alloca i16*, align 8
-  store i16* %p, i16** %p.addr, align 8
-  %0 = load i16*, i16** %p.addr, align 8
-  %1 = load i16, i16* %0, align 2
-  ret i16 %1
+  %0 = load i16, i16* %p, align 2
+  ret i16 %0
 }
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }

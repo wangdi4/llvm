@@ -10,13 +10,7 @@ define double @subDF(double %a, double %b) #0 {
 ; CSA_CHECK: subf64
 
 entry:
-  %a.addr = alloca double, align 8
-  %b.addr = alloca double, align 8
-  store double %a, double* %a.addr, align 8
-  store double %b, double* %b.addr, align 8
-  %0 = load double, double* %a.addr, align 8
-  %1 = load double, double* %b.addr, align 8
-  %sub = fsub double %0, %1
+  %sub = fsub double %a, %b
   ret double %sub
 }
 

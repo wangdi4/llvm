@@ -10,13 +10,7 @@ define double @addDF(double %a, double %b) #0 {
 ; CSA_CHECK: addf64
 
 entry:
-  %a.addr = alloca double, align 8
-  %b.addr = alloca double, align 8
-  store double %a, double* %a.addr, align 8
-  store double %b, double* %b.addr, align 8
-  %0 = load double, double* %a.addr, align 8
-  %1 = load double, double* %b.addr, align 8
-  %add = fadd double %0, %1
+  %add = fadd double %a, %b
   ret double %add
 }
 

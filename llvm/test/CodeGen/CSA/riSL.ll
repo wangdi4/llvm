@@ -10,11 +10,8 @@ define i64 @riSL(i64* %p) #0 {
 ; CSA_CHECK-NOT: sext32
 
 entry:
-  %p.addr = alloca i64*, align 8
-  store i64* %p, i64** %p.addr, align 8
-  %0 = load i64*, i64** %p.addr, align 8
-  %1 = load i64, i64* %0, align 8
-  ret i64 %1
+  %0 = load i64, i64* %p, align 8
+  ret i64 %0
 }
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }

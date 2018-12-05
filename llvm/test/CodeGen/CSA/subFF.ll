@@ -10,13 +10,7 @@ define float @subFF(float %a, float %b) #0 {
 ; CSA_CHECK: subf32
 
 entry:
-  %a.addr = alloca float, align 4
-  %b.addr = alloca float, align 4
-  store float %a, float* %a.addr, align 4
-  store float %b, float* %b.addr, align 4
-  %0 = load float, float* %a.addr, align 4
-  %1 = load float, float* %b.addr, align 4
-  %sub = fsub float %0, %1
+  %sub = fsub float %a, %b
   ret float %sub
 }
 

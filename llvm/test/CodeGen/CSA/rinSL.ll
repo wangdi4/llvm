@@ -11,11 +11,8 @@ define i64 @rinSL(i64* %p) #0 {
 ; CSA_CHECK-NOT: sext32
 
 entry:
-  %p.addr = alloca i64*, align 8
-  store i64* %p, i64** %p.addr, align 8
-  %0 = load i64*, i64** %p.addr, align 8
-  %1 = load i64, i64* %0, align 8
-  %sub = sub nsw i64 0, %1
+  %0 = load i64, i64* %p, align 8
+  %sub = sub nsw i64 0, %0
   ret i64 %sub
 }
 

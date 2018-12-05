@@ -10,17 +10,8 @@ define double @fmsDF(double %a, double %b, double %c) #0 {
 ; CSA_CHECK: fmsf64
 
 entry:
-  %a.addr = alloca double, align 8
-  %b.addr = alloca double, align 8
-  %c.addr = alloca double, align 8
-  store double %a, double* %a.addr, align 8
-  store double %b, double* %b.addr, align 8
-  store double %c, double* %c.addr, align 8
-  %0 = load double, double* %a.addr, align 8
-  %1 = load double, double* %b.addr, align 8
-  %mul = fmul double %0, %1
-  %2 = load double, double* %c.addr, align 8
-  %sub = fsub double %mul, %2
+  %mul = fmul double %a, %b
+  %sub = fsub double %mul, %c
   ret double %sub
 }
 

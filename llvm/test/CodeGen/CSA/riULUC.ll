@@ -10,11 +10,8 @@ define i64 @riULUC(i8* %p) #0 {
 ; CSA_CHECK-NOT: sext64
 
 entry:
-  %p.addr = alloca i8*, align 8
-  store i8* %p, i8** %p.addr, align 8
-  %0 = load i8*, i8** %p.addr, align 8
-  %1 = load i8, i8* %0, align 1
-  %conv = zext i8 %1 to i64
+  %0 = load i8, i8* %p, align 1
+  %conv = zext i8 %0 to i64
   ret i64 %conv
 }
 

@@ -10,13 +10,7 @@ define i32 @eqSC(i8 signext %a, i8 signext %b) #0 {
 ; CSA_CHECK: cmpeq8
 
 entry:
-  %a.addr = alloca i8, align 1
-  %b.addr = alloca i8, align 1
-  store i8 %a, i8* %a.addr, align 1
-  store i8 %b, i8* %b.addr, align 1
-  %0 = load i8, i8* %a.addr, align 1
-  %1 = load i8, i8* %b.addr, align 1
-  %cmp = icmp eq i8 %0, %1
+  %cmp = icmp eq i8 %a, %b
   %conv2 = zext i1 %cmp to i32
   ret i32 %conv2
 }

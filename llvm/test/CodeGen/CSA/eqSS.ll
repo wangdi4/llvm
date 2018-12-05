@@ -10,13 +10,7 @@ define i32 @eqSS(i16 signext %a, i16 signext %b) #0 {
 ; CSA_CHECK: cmpeq16
 
 entry:
-  %a.addr = alloca i16, align 2
-  %b.addr = alloca i16, align 2
-  store i16 %a, i16* %a.addr, align 2
-  store i16 %b, i16* %b.addr, align 2
-  %0 = load i16, i16* %a.addr, align 2
-  %1 = load i16, i16* %b.addr, align 2
-  %cmp = icmp eq i16 %0, %1
+  %cmp = icmp eq i16 %a, %b
   %conv2 = zext i1 %cmp to i32
   ret i32 %conv2
 }

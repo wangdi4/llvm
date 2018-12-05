@@ -10,13 +10,7 @@ define i32 @leSL(i64 %a, i64 %b) #0 {
 ; CSA_CHECK: cmples64
 
 entry:
-  %a.addr = alloca i64, align 8
-  %b.addr = alloca i64, align 8
-  store i64 %a, i64* %a.addr, align 8
-  store i64 %b, i64* %b.addr, align 8
-  %0 = load i64, i64* %a.addr, align 8
-  %1 = load i64, i64* %b.addr, align 8
-  %cmp = icmp sle i64 %0, %1
+  %cmp = icmp sle i64 %a, %b
   %conv = zext i1 %cmp to i32
   ret i32 %conv
 }
