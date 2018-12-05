@@ -1200,13 +1200,22 @@ if (LLVM_INCLUDE_BENCHMARKS)
 endif()
 
 if (INTEL_CUSTOMIZATION)
+  # This command is used for creating a fake dependency in order to force
+  # another command(s) to execute.
+  # Its output is never produced as a result thus each other
+  # command that depends on it will always be executed.
+  # We use this to force running deploy installation regardless of
+  # manifest files state.
+  add_custom_command(OUTPUT __force_it
+                     COMMAND "${CMAKE_COMMAND}" -E echo)
+
   if(DEFINED INTEL_DEPLOY_COMPONENTS)
 
     set(manifest_list)
 
     foreach( comp ${INTEL_DEPLOY_COMPONENTS} )
 
-  # Filter out xdev components
+      # Filter out xdev components
       if ( NOT "${comp}"  MATCHES "^xdev-.*")
         message( STATUS "Adding component ${comp} to deploy")
 
@@ -1214,37 +1223,39 @@ if (INTEL_CUSTOMIZATION)
         add_custom_command(OUTPUT ${manifest}
                            COMMAND "${CMAKE_COMMAND}"
                                    "-DCMAKE_INSTALL_COMPONENT=${comp}"
-                                  -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                                   -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                           DEPENDS  __force_it
                            COMMENT "Deploying component ${comp}"
                            USES_TERMINAL)
         list(APPEND manifest_list ${manifest})
       endif()
     endforeach( comp )
 
-  # cmake does not allow to specify dependencies on cmakes' built-in targets such as all, clean, install etc.
-  # There is feature request which filed ~9 years ago but it is still not implemented:
-  # https://gitlab.kitware.com/cmake/cmake/issues/8438
-  # We could work around the issue via adding custom do_build target equivalent to "make all"
-  # but here another problem arises: there is no portable cmake solution to enforce parallel build.
-  # Instead of specifying something like --parallel cmake option we have to explicitly pass
-  # build system dependant options enforcing parallel build. Otherwise we have good chance for too slow build.
-  # Thus although adding dependency on "all" is nice to have unless we have a good solution we simply allow
-  # deploy target to fail if the project was not built before.
-  # Leave code below just in case we change opinion.
-  #
-  #  add_custom_target(do_build
-  #                    COMMAND "${CMAKE_COMMAND}" --build . --target all )
-  #  add_custom_target(deploy DEPENDS do_build ${manifest_list})
+    # cmake does not allow to specify dependencies on cmakes' built-in targets such as all, clean, install etc.
+    # There is feature request which filed ~9 years ago but it is still not implemented:
+    # https://gitlab.kitware.com/cmake/cmake/issues/8438
+    # We could work around the issue via adding custom do_build target equivalent to "make all"
+    # but here another problem arises: there is no portable cmake solution to enforce parallel build.
+    # Instead of specifying something like --parallel cmake option we have to explicitly pass
+    # build system dependant options enforcing parallel build. Otherwise we have good chance for too slow build.
+    # Thus although adding dependency on "all" is nice to have unless we have a good solution we simply allow
+    # deploy target to fail if the project was not built before.
+    # Leave code below just in case we change opinion.
+    #
+    # add_custom_target(do_build
+    #                   COMMAND "${CMAKE_COMMAND}" --build . --target all )
+    # add_custom_target(deploy DEPENDS do_build ${manifest_list})
 
     add_custom_target(deploy DEPENDS ${manifest_list})
   else()
-  # no specific components was given so do full installation
-      set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
-      add_custom_command(OUTPUT ${manifest}
-                         COMMAND "${CMAKE_COMMAND}"
-                                -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-                         COMMENT "Performing deploy operation..."
-                         USES_TERMINAL)
+    # no specific components was given so do full installation
+    set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
+    add_custom_command(OUTPUT ${manifest}
+                       COMMAND "${CMAKE_COMMAND}"
+                               -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                       DEPENDS  __force_it
+                       COMMENT "Performing deploy operation..."
+                       USES_TERMINAL)
     add_custom_target(deploy DEPENDS ${manifest})
   endif()
 endif (INTEL_CUSTOMIZATION)
