@@ -81,11 +81,6 @@ The following sets of environment variables affect the emulator's execution:
       emulator devices, which are provided by the Intel(R) FPGA Emulation
       Platform for OpenCL(TM) software.
 
-    * VOLCANO_CLANG_OPTIONS: This internal environment variable allows you to
-      force specific options to the OpenCL(TM) compiler:
-
-      + -ffast-math: Forces fast math built-ins.
-
   - The following are OpenCL(TM) related environment variables (see the Intel(R)
     SDK for OpenCL(TM) - CPU only runtime package documentation for more
     details):

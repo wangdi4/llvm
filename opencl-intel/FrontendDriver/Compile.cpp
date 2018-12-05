@@ -113,10 +113,6 @@ const char *GetOpenCLVersionStr(OPENCL_VERSION ver) {
   }
 }
 
-static bool shouldIgnoreOptionForDebug(llvm::StringRef opt) {
-  return opt.contains("openmp") || opt == "-fintel-compatibility";
-}
-
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   bool bProfiling   = false,
        bDebug       = false,
@@ -224,43 +220,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   // Pass '-disable-0O-optnone' to disable the implicit 'optnone'
   if (bNoOpts) {
     optionsEx << " -disable-O0-optnone";
-  }
-
-  if (m_pProgDesc->bFpgaEmulator) {
-    std::string optionsClang;
-
-// INTEL VPO BEGIN
-    // FIXME: OpenMP is not enabled by default, because it requires
-    // -fintel-compatibility flag, which affect on clang behavior beyond OpenMP.
-    // Should be enabled back when this issue gets resolved.
-    //
-    // optionsClang = "-fopenmp -fintel-openmp-region -fopenmp-tbb
-    //                 -fintel-compatibility";
-// INTEL VPO END
-
-    std::string envVolcanoClangOptions;
-    cl_err_code err = GetEnvVar(envVolcanoClangOptions,
-        "VOLCANO_CLANG_OPTIONS");
-    if (!CL_FAILED(err)) {
-#ifdef NDEBUG
-      // Append user options to default options.
-      optionsClang += envVolcanoClangOptions;
-#else
-      // Allow default OpenMP flags to be overridden for debug purposes.
-      optionsClang = envVolcanoClangOptions;
-#endif
-    }
-
-    if (!optionsClang.empty()) {
-      std::stringstream optionsSS(optionsClang);
-      std::string buf;
-      while (getline(optionsSS, buf,' ')) {
-        if (bDebug && shouldIgnoreOptionForDebug(buf)) {
-          continue;
-        }
-        optionsEx << " " << buf;
-      }
-    }
   }
 
 #ifndef INTEL_PRODUCT_RELEASE

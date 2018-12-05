@@ -244,6 +244,16 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     }
 #endif
 
+    // Loops #pragma unroll are unrolled up to -pragma-unroll-threshold, which
+    // is set by default to a huge value, and it basically allows to fully
+    // unroll any loop. Needless to say, this can by suboptimal for x86 when
+    // applied to big loops. FPGA device, in opposite, benefits from fully
+    // unrolled loops, so most of FPGA workloads unroll every single loop.
+    if (FPGA_EMU_DEVICE == config.TargetDevice())
+    {
+        args.push_back("-pragma-unroll-threshold=2048");
+    }
+
     if( config.EnableTiming() && false == config.InfoOutputFile().empty())
     {
         std::stringstream ss;
