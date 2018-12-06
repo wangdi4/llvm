@@ -1,6 +1,6 @@
 //===--- DiagnosticIntelParseKinds.td - Intel libparse diagnostics --------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -16,6 +16,13 @@
 let Component = "Parse" in {
 
 let CategoryName = "Parse Issue" in {
+
+// Warn if '#pragma ivdep' is used for FPGA emulator
+def warn_pragma_ivdep_is_used_for_emulator : Warning<
+  "'#pragma ivdep' is used in FPGA emulator environment\n"
+  "NOTE: incorrect use of the ivdep pragma can result in "
+  "functional issues that will not be replicated in the emulator flow">,
+  InGroup<IvdepFPGAUsage>;
 
 def warn_pragma_expected_value : Warning<
   "expected value with '#pragma %0' - ignored">,

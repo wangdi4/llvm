@@ -3414,6 +3414,12 @@ void PragmaMaxConcurrencyHandler::HandlePragma(Preprocessor &PP,
 void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
                                       PragmaIntroducerKind Introducer,
                                       Token &Tok) {
+  // In the hardware flow, incorrect use of the ivdep pragma can result in
+  // functional issues that will not be replicated in the emulator flow. So
+  // here we warn if '#pragma ivdep' is used for FPGA emulator.
+  if (PP.getTargetInfo().getTriple().isINTELFPGAEnvironment())
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_ivdep_is_used_for_emulator);
+
   SmallVector<Token, 4> ArrayValueList;
   bool HasSafelen = false;
   bool HasArray = false;
