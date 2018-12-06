@@ -1124,32 +1124,10 @@ void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
 bool CSATargetLowering::isLegalAddressingMode(const DataLayout &DL,
                                               const AddrMode &AM, Type *Ty,
                                               unsigned AddrSpace, Instruction *i) const {
-  /**/
-  // X86 supports extremely general addressing modes.
-  //  CodeModel::Model M = getTargetMachine().getCodeModel();
-  //  Reloc::Model R = getTargetMachine().getRelocationModel();
 
-  switch (AM.Scale) {
-  case 0:
-  case 1:
-  case 2:
-  case 4:
-  case 8:
-    // These scales always work.
-    break;
-  case 3:
-  case 5:
-  case 9:
-    // These scales are formed with basereg+scalereg.  Only accept if there is
-    // no basereg yet.
-    if (AM.HasBaseReg)
-      return false;
-    break;
-  default: // Other stuff never works.
-    return false;
-  }
-
-  return true;
+  // For v1, displacement/index loads/stores don't have special hardware support
+  // and so it doesn't make sense to generate them here.
+  return not AM.BaseOffs and not AM.Scale and (not AM.BaseGV or not AM.HasBaseReg);
 }
 
   //===----------------------------------------------------------------------===//

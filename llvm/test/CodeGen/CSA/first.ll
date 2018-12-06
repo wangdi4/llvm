@@ -7,7 +7,8 @@ target triple = "csa"
 ; Function Attrs: nounwind
 define i32 @first(i32 %a, i32 %b, i16* %c, i32* %ip) #0 {
 ; CSA_CHECK-LABEL: first
-; CSA_CHECK: ld32x
+; CSA_CHECK: add64
+; CSA_CHECK: ld32
 
 entry:
   %mul = mul nsw i32 %a, %b

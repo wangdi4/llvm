@@ -660,7 +660,7 @@ multiclass LdOp<string opStr, CSAOpInfo t,
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_RX:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "x\t$dst, $addr, $issued, $ready, $lvl"),
-      [(set t.VT:$dst, (load ADDR_RX:$addr))]>;
+      []>;
   }
 
   let Predicates = [HasDispl], Itinerary = itin in {
@@ -668,7 +668,7 @@ multiclass LdOp<string opStr, CSAOpInfo t,
       (outs t.RC:$dst, MemOrdDef:$issued),
       (ins ADDR_RI:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
       !strconcat(opStr, "d\t$dst, $addr, $issued, $ready, $lvl"),
-      [(set t.VT:$dst, (load ADDR_RI:$addr))]>;
+      []>;
   }
 
   let Itinerary = itin in {
@@ -696,7 +696,7 @@ multiclass StOp<string opStr, CSAOpInfo t,
         (outs MemOrdDef:$issued),
         (ins ADDR_RX:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
         !strconcat(opStr, "x\t$addr, $data, $issued, $ready, $lvl"),
-        [(store (t.VT t.RCL:$data), ADDR_RX:$addr)]>;
+        []>;
     }
 
     let Predicates = [HasDispl] in {
@@ -704,7 +704,7 @@ multiclass StOp<string opStr, CSAOpInfo t,
         (outs MemOrdDef:$issued),
         (ins ADDR_RI:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
         !strconcat(opStr, "d\t$addr, $data, $issued, $ready, $lvl"),
-        [(store (t.VT t.RCL:$data), ADDR_RI:$addr)]>;
+        []>;
     }
 
     def "" : FMTGEN<ST, t,
