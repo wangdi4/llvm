@@ -185,7 +185,7 @@ public:
                             WRStack<WRegionNode *> &S, LoopInfo *LI,
                             DominatorTree *DT,
 #if INTEL_CUSTOMIZATION
-                            BasicBlock *BB, HLNode *H = nullptr);
+                            BasicBlock *BB, loopopt::HLNode *H = nullptr);
 #else
                             BasicBlock *BB);
 #endif // INTEL_CUSTOMIZATION

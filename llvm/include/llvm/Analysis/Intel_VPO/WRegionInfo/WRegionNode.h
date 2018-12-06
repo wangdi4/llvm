@@ -45,11 +45,6 @@ namespace llvm {
 
 namespace vpo {
 
-#if INTEL_CUSTOMIZATION
-using namespace loopopt;
-// Needed for HLNode and HLLoop
-#endif //INTEL_CUSTOMIZATION
-
 extern std::unordered_map<int, StringRef> WRNName;
 
 typedef VPOSmallVectorBB WRegionBBSetTy;
@@ -385,17 +380,19 @@ public:
   virtual unsigned getTaskFlag()          const {WRNERROR("TASK FLAG");       }
 
 #if INTEL_CUSTOMIZATION
-  // These methods are only available in WRNs constructed from HIR
+  // Vectorization attributes not to be exposed externally
   virtual void setIsAutoVec(bool)               {WRNERROR("IsAutoVec");       }
   virtual bool getIsAutoVec() const             {WRNERROR("IsAutoVec");       }
   virtual void setHasVectorAlways(bool)         {WRNERROR("HasVectorAlways"); }
   virtual bool getHasVectorAlways() const       {WRNERROR("HasVectorAlways"); }
-  virtual void setEntryHLNode(HLNode *)         {WRNERROR("EntryHLNode");     }
-  virtual HLNode *getEntryHLNode() const        {WRNERROR("EntryHLNode");     }
-  virtual void setExitHLNode(HLNode *)          {WRNERROR("ExitHLNode");      }
-  virtual HLNode *getExitHLNode() const         {WRNERROR("ExitHLNode");      }
-  virtual void setHLLoop(HLLoop *)              {WRNERROR("HLLoop");          }
-  virtual HLLoop *getHLLoop() const             {WRNERROR("HLLoop");          }
+
+  // These methods are only available in WRNs constructed from HIR
+  virtual void setEntryHLNode(loopopt::HLNode *)  {WRNERROR("EntryHLNode");   }
+  virtual loopopt::HLNode *getEntryHLNode() const {WRNERROR("EntryHLNode");   }
+  virtual void setExitHLNode(loopopt::HLNode *)   {WRNERROR("ExitHLNode");    }
+  virtual loopopt::HLNode *getExitHLNode() const  {WRNERROR("ExitHLNode");    }
+  virtual void setHLLoop(loopopt::HLLoop *)       {WRNERROR("HLLoop");        }
+  virtual loopopt::HLLoop *getHLLoop() const      {WRNERROR("HLLoop");        }
 #endif //INTEL_CUSTOMIZATION
 
   /// Only these classes are allowed to create/modify/delete WRegionNode.
@@ -457,9 +454,9 @@ public:
                         unsigned Verbosity=1) const;
 
 #if INTEL_CUSTOMIZATION
-  /// \brief When IsFromHIR==true, prints EntryHLNode, ExitHLNode, and HLLoop
-  /// This is virtual here; the derived WRNs supporting HIR have to provide the
-  /// actual routine. Currently only WRNVecLoopNode uses HIR.
+  /// When IsFromHIR==true, prints EntryHLNode, ExitHLNode, and HLLoop.
+  /// This is virtual here; the derived WRNs supporting HIR have to provide
+  /// the actual routine.
   virtual void printHIR(formatted_raw_ostream &OS, unsigned Depth,
                         unsigned Verbosity=1) const {}
 #endif // INTEL_CUSTOMIZATION

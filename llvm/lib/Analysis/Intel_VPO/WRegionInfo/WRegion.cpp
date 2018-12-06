@@ -25,6 +25,33 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-wregion"
 
+#if INTEL_CUSTOMIZATION
+// Local routine to print HLNodes for WRNs built from HIR
+void printHIREntryExitLoop(formatted_raw_ostream &OS,
+                           loopopt::HLNode *EntryHLNode,
+                           loopopt::HLNode *ExitHLNode, loopopt::HLLoop *HLp,
+                           unsigned Depth, unsigned Verbosity) {
+
+  assert (EntryHLNode && "Missing Entry HLNode in WRN from HIR");
+  assert (ExitHLNode  && "Missing Exit HLNode in WRN from HIR");
+
+  OS.indent(2*Depth) << "EntryHLNode:\n";
+  EntryHLNode->print(OS, 1);
+  if (Verbosity > 0) {
+    OS << "\n";
+    OS.indent(2*Depth) << "HLLoop: ";
+    if (HLp) {
+      OS << "\n";
+      HLp->print(OS, 1);
+    } else
+      OS << "none. Loop optimized away?\n";
+  }
+  OS << "\n";
+  OS.indent(2*Depth) << "ExitHLNode:\n";
+  ExitHLNode->print(OS, 1);
+}
+#endif // INTEL_CUSTOMIZATION
+
 //
 // Methods for WRNLoopInfo
 //
@@ -101,6 +128,39 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   LLVM_DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber()
                     << ">\n");
 }
+
+#if INTEL_CUSTOMIZATION
+// constructor for HIR representation
+WRNParallelLoopNode::WRNParallelLoopNode(loopopt::HLNode *EntryHLN)
+    : WRegionNode(WRegionNode::WRNParallelLoop), WRNLI(nullptr),
+      EntryHLNode(EntryHLN) {
+  setIsPar();
+  setIsOmpLoop();
+  setIf(nullptr);
+  setNumThreads(nullptr);
+  setDefault(WRNDefaultAbsent);
+  setProcBind(WRNProcBindAbsent);
+  setCollapse(0);
+  setOrdered(-1);
+
+  setExitHLNode(nullptr);
+  setHLLoop(nullptr);
+
+  LLVM_DEBUG(dbgs() << "\nCreated HIR-WRNParallelLoopNode<" << getNumber()
+                    << ">\n");
+}
+
+// printer for HIR form
+void WRNParallelLoopNode::printHIR(formatted_raw_ostream &OS, unsigned Depth,
+                                   unsigned Verbosity) const {
+  if (!getIsFromHIR()) // using LLVM-IR representation; no HIR to print
+    return;
+
+  printHIREntryExitLoop(OS, getEntryHLNode(), getExitHLNode(), getHLLoop(),
+                        Depth, Verbosity);
+}
+#endif // INTEL_CUSTOMIZATION
+
 
 // printer
 void WRNParallelLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -385,11 +445,12 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
 // Methods for WRNVecLoopNode
 //
 
-// constructor for LLVM IR representation
 #if INTEL_CUSTOMIZATION
+// constructor for LLVM IR representation
 WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li,
                                const bool isAutoVec)
 #else
+// constructor
 WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
 #endif // INTEL_CUSTOMIZATION
     : WRegionNode(WRegionNode::WRNVecLoop, BB), WRNLI(Li) {
@@ -408,8 +469,8 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
 #if INTEL_CUSTOMIZATION
 // constructor for HIR representation
 WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN, const bool isAutoVec)
-                                      : WRegionNode(WRegionNode::WRNVecLoop),
-                                        WRNLI(nullptr), EntryHLNode(EntryHLN) {
+    : WRegionNode(WRegionNode::WRNVecLoop), WRNLI(nullptr),
+      EntryHLNode(EntryHLN) {
   setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
@@ -422,7 +483,16 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN, const bool isAutoVec)
 
   LLVM_DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() << ">\n");
 }
-#endif // INTEL_CUSTOMIZATION
+
+// printer for HIR form
+void WRNVecLoopNode::printHIR(formatted_raw_ostream &OS, unsigned Depth,
+                              unsigned Verbosity) const {
+  if (!getIsFromHIR()) // using LLVM-IR representation; no HIR to print
+    return;
+
+  printHIREntryExitLoop(OS, getEntryHLNode(), getExitHLNode(), getHLLoop(),
+                        Depth, Verbosity);
+}
 
 // Specify namespace for the template instantiation or the build will fail
 namespace llvm {
@@ -430,14 +500,13 @@ namespace vpo {
 template <> Loop *WRNVecLoopNode::getTheLoop<Loop>() const {
   return getWRNLoopInfo().getLoop();
 }
-#if INTEL_CUSTOMIZATION
 template <>
 loopopt::HLLoop *WRNVecLoopNode::getTheLoop<loopopt::HLLoop>() const {
   return getHLLoop();
 }
-#endif // INTEL_CUSTOMIZATION
 } // vpo
 } // llvm
+#endif // INTEL_CUSTOMIZATION
 
 // printer
 void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -447,25 +516,6 @@ void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printInt("SAFELEN", getSafelen(), OS, Indent, Verbosity);
   vpo::printInt("COLLAPSE", getCollapse(), OS, Indent, Verbosity);
 }
-
-#if INTEL_CUSTOMIZATION
-void WRNVecLoopNode::printHIR(formatted_raw_ostream &OS, unsigned Depth,
-                              unsigned Verbosity) const {
-  if (!getIsFromHIR()) // using LLVM-IR representation; no HIR to print
-    return;
-
-  OS.indent(2*Depth) << "EntryHLNode:\n";
-  getEntryHLNode()->print(OS, 1);
-  if (Verbosity > 0) {
-    OS << "\n";
-    OS.indent(2*Depth) << "HLLoop:\n";
-    getHLLoop()->print(OS, 1);
-  }
-  OS << "\n";
-  OS.indent(2*Depth) << "ExitHLNode:\n";
-  getExitHLNode()->print(OS, 1);
-}
-#endif // INTEL_CUSTOMIZATION
 
 //
 // Methods for WRNWksLoopNode

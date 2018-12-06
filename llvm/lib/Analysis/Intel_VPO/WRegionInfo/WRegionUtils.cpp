@@ -27,7 +27,7 @@ using namespace vpo;
 using namespace loopopt;
 #endif // INTEL_CUSTOMIZATION
 
-/// \brief Update WRGraph from processing HIR representation
+/// Update the graph of WRegionNodes
 void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
                                  WRStack<WRegionNode *> &S, LoopInfo *LI,
 #if INTEL_CUSTOMIZATION
@@ -275,6 +275,9 @@ WRegionNode *WRegionUtils::createWRegionHIR(int DirID,
   WRegionNode *W = nullptr;
 
   switch(DirID) {
+    case DIR_OMP_PARALLEL_LOOP:
+      W = new WRNParallelLoopNode(EntryHLNode);
+      break;
     // TODO: complete the list for all WRegionNodeKinds needed
     //       to support vectorizer
     case DIR_OMP_SIMD:
