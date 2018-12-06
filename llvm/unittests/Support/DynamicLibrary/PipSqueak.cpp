@@ -10,14 +10,16 @@
 #include "PipSqueak.h"
 
 struct Global {
-  std::string *Str;
-  std::vector<std::string> *Vec;
+#if INTEL_CUSTOMIZATION
+  int *Str;
+  std::vector<int> *Vec;
+#endif // INTEL_CUSTOMIZATION
   Global() : Str(nullptr), Vec(nullptr) {}
   ~Global() {
     if (Str) {
       if (Vec)
         Vec->push_back(*Str);
-      *Str = "Global::~Global";
+      *Str = State::GLOBAL_DESTRUCTOR_CALL; // INTEL
     }
   }
 };
@@ -25,23 +27,26 @@ struct Global {
 static Global Glb;
 
 struct Local {
-  std::string &Str;
-  Local(std::string &S) : Str(S) {
-    Str = "Local::Local";
-    if (Glb.Str && !Glb.Str->empty())
-      Str += std::string("(") + *Glb.Str + std::string(")");
+#if INTEL_CUSTOMIZATION
+  int &Str;
+  Local(int &S) : Str(S) {
+    Str = State::LOCAL_CONSTRUCTOR_CALL;
   }
-  ~Local() { Str = "Local::~Local"; }
+  ~Local() { Str = State::LOCAL_DESTRUCTOR_CALL; }
+#endif // INTEL_CUSTOMIZATION
 };
 
-
-extern "C" PIPSQUEAK_EXPORT void SetStrings(std::string &GStr,
-                                            std::string &LStr) {
+#if INTEL_CUSTOMIZATION
+extern "C" PIPSQUEAK_EXPORT void SetStrings(int &GStr,
+                                            int &LStr) {
+#endif // INTEL_CUSTOMIZATION
   Glb.Str = &GStr;
   static Local Lcl(LStr);
 }
 
-extern "C" PIPSQUEAK_EXPORT void TestOrder(std::vector<std::string> &V) {
+#if INTEL_CUSTOMIZATION
+extern "C" PIPSQUEAK_EXPORT void TestOrder(std::vector<int> &V) {
+#endif // INTEL_CUSTOMIZATION
   Glb.Vec = &V;
 }
 
