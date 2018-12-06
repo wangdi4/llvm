@@ -12,20 +12,20 @@ void test1()
 // CHECK: [[P_ONE:%p_one.*]] = alloca i32,
    int s_outer = 2;
 // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[S_OTHER_INNER]]
-// CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[S_OUTER]]
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[S_INNER]]
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[P_ONE]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[S_OTHER_INNER]]
+// CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[S_OUTER]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[S_INNER]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[P_ONE]]
    #pragma omp parallel
    {
      int s_inner = 3;
      int s_other_inner = 4;
 
 // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[S_OTHER_INNER]]
-// CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[S_OUTER]]
-// CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[S_INNER]]
-// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[P_ONE]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[S_OTHER_INNER]]
+// CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[S_OUTER]]
+// CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[S_INNER]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[P_ONE]]
      #pragma omp parallel private(s_other_inner)
      {
        int p_one = 1;
@@ -45,25 +45,25 @@ void test2()
   int t_outer = 2;
   int t_outer2 = 2;
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  //CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[T_OUTER2]])
-  //CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[T_OUTER]])
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[T_ONE]])
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[T_INNER]])
+  //CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[T_OUTER2]])
+  //CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[T_OUTER]])
+  //CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_ONE]])
+  //CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_INNER]])
   #pragma omp parallel
   {
     //CHECK: region.entry() [ "DIR.OMP.TASK"()
-    // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[T_OUTER2]])
-    // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[T_OUTER]])
-    // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[T_ONE]])
-    // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[T_INNER]])
+    // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_OUTER2]])
+    // CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[T_OUTER]])
+    // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_ONE]])
+    // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_INNER]])
     #pragma omp task private(t_outer2)
     {
       int t_inner = 4;
       //CHECK: region.entry() [ "DIR.OMP.TASK"()
-      // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[T_OUTER]])
-      // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[T_ONE]])
-      // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[T_INNER]])
-      // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[T_OUTER2]])
+      // CHECK-SAME-DAG: "QUAL.OMP.SHARED"(i32* [[T_OUTER]])
+      // CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"(i32* [[T_ONE]])
+      // CHECK-SAME-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32* [[T_INNER]])
+      // CHECK-SAME-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32* [[T_OUTER2]])
       #pragma omp task
       {
         int t_one = 1;
@@ -146,5 +146,24 @@ void A::test4_1(int iparm)
 // CHECK: region.exit{{.*}}"DIR.OMP.END.TASK"
   }
 // CHECK: region.exit{{.*}}"DIR.OMP.END.PARALLEL"
+}
+
+int *get();
+void target_test()
+{
+// CHECK: [[DATAPTR:%dataPtr.*]] = alloca i32*,
+// CHECK: [[OTHER:%other.*]] = alloca i32,
+// CHECK: [[X:%x.*]] = alloca i32,
+  int *dataPtr = get();
+  int data_size = 10;
+  int other = 20;
+// CHECK: region.entry{{.*}}"DIR.OMP.TARGET"
+// CHECK-SAME-DAG: "QUAL.OMP.MAP"{{.*}}[[DATAPTR]]
+// CHECK-SAME-DAG: "QUAL.OMP.FIRSTPRIVATE"{{.*}}[[OTHER]]
+// CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"{{.*}}[[X]]
+    #pragma omp target map(to: dataPtr[0:data_size])
+    {
+       int x = other + dataPtr[5];
+    }
 }
 // end INTEL_COLLAB

@@ -386,6 +386,7 @@ public:
 
   void recordVariableDefinition(const VarDecl *VD) {
     Outliner.addVariableDef(VD);
+    Outliner.addVariableRef(VD);
   }
   void recordVariableReference(const VarDecl *VD) {
     Outliner.addVariableRef(VD);

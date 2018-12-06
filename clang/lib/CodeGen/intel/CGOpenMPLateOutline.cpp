@@ -620,7 +620,9 @@ const VarDecl *OpenMPLateOutliner::getExplicitVarDecl(const Expr *E) {
       E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
     ExplicitVarExpr = getArraySectionBase(E, /*AS=*/nullptr);
   }
-  return cast<VarDecl>(cast<DeclRefExpr>(ExplicitVarExpr)->getDecl());
+  if (auto *DRE = dyn_cast<DeclRefExpr>(ExplicitVarExpr))
+    return cast<VarDecl>(DRE->getDecl());
+  return nullptr;
 }
 
 void OpenMPLateOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
@@ -635,7 +637,9 @@ void OpenMPLateOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
       if (DRE->refersToEnclosingVariableOrCapture())
         continue;
     }
-    addExplicit(getExplicitVarDecl(E));
+    const VarDecl *PVD = getExplicitVarDecl(E);
+    assert(PVD && "expected VarDecl in shared clause");
+    addExplicit(PVD);
     ClauseEmissionHelper CEH(*this);
     addArg("QUAL.OMP.SHARED");
     addArg(E);
@@ -646,6 +650,7 @@ void OpenMPLateOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
   auto IPriv = Cl->private_copies().begin();
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
+    assert(PVD && "expected VarDecl in private clause");
     addExplicit(PVD);
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
@@ -674,6 +679,7 @@ void OpenMPLateOutliner::emitOMPLastprivateClause(
   auto IAssignOp = Cl->assignment_ops().begin();
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
+    assert(PVD && "expected VarDecl in lastprivate clause");
     addExplicit(PVD);
     bool IsPODType = E->getType().isPODType(CGF.getContext());
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
@@ -719,6 +725,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
   auto I = Cl->reduction_ops().begin();
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
+    assert(PVD && "expected VarDecl in reduction clause");
     addExplicit(PVD);
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
@@ -916,6 +923,7 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
     ClauseEmissionHelper CEH(*this, "QUAL.OMP.FIRSTPRIVATE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
     const VarDecl *PVD = getExplicitVarDecl(E);
+    assert(PVD && "expected VarDecl in firstprivate clause");
     addExplicit(PVD);
     bool IsPODType = E->getType().isPODType(CGF.getContext());
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
@@ -940,7 +948,9 @@ void OpenMPLateOutliner::emitOMPCopyinClause(const OMPCopyinClause *Cl) {
   for (auto *E : Cl->varlists()) {
     if (!E->getType().isPODType(CGF.getContext()))
       CGF.CGM.ErrorUnsupported(E, "non-POD copyin variable");
-    addExplicit(getExplicitVarDecl(E));
+    const VarDecl *PVD = getExplicitVarDecl(E);
+    assert(PVD && "expected VarDecl in copyin clause");
+    addExplicit(PVD);
     addArg(E);
   }
 }
@@ -1103,7 +1113,9 @@ void OpenMPLateOutliner::emitOMPIsDevicePtrClause(
   ClauseEmissionHelper CEH(*this);
   addArg("QUAL.OMP.IS_DEVICE_PTR");
   for (auto *E : Cl->varlists()) {
-    addExplicit(getExplicitVarDecl(E));
+    const VarDecl *PVD = getExplicitVarDecl(E);
+    assert(PVD && "expected VarDecl in is_device_ptr clause");
+    addExplicit(PVD);
     addArg(E);
   }
 }
@@ -1189,7 +1201,9 @@ void OpenMPLateOutliner::emitOMPCopyprivateClause(
     ClauseEmissionHelper CEH(*this, "QUAL.OMP.COPYPRIVATE");
     ClauseStringBuilder &CSB = CEH.getBuilder();
     bool IsPODType = E->getType().isPODType(CGF.getContext());
-    addExplicit(getExplicitVarDecl(E));
+    const VarDecl *PVD = getExplicitVarDecl(E);
+    assert(PVD && "expected VarDecl in copyprivate clause");
+    addExplicit(PVD);
     if (!IsPODType)
       CSB.setNonPod();
     addArg(CSB.getString());
@@ -1259,8 +1273,8 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
       ClauseEmissionHelper CEH(*this, /*InitStr=*/"", /*EmitClause=*/false);
       CGOpenMPRuntime::getLOMapInfo(Directive, CGF, C, E, Info);
     }
-    if (const auto *DRE = dyn_cast<DeclRefExpr>(E))
-      addExplicit(cast<VarDecl>(DRE->getDecl()));
+    if (const VarDecl *PVD = getExplicitVarDecl(E))
+      addExplicit(PVD);
     if (Info.size() == 1 && Info[0].Base == Info[0].Pointer) {
       // This is the simple non-aggregate case.
       ClauseEmissionHelper CEH(*this);
