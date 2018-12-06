@@ -13,18 +13,37 @@
 # build system, i.e. you may pass these features via LLVM_INTEL_FEATURES cmake
 # variable.  Read more details in 'Xmain Development Processes' document.
 #
-# Each feature name must be on a new line and must not contain any blank
-# symbols.
+# Each feature specification is of the following form:
+#     ^@<feature name>:{SHARED|SECRET}@
 #
-# TODO (vzakhari 11/1/2018): we may come up with some markup in this file
-#                            that would make some of the features, declared
-#                            here, "public", meaning that their implementation
-#                            can be merged from the "safe" repo to "shared"
-#                            repo.  This will require changing the processing
-#                            of this file in llvm/CMakeLists.txt.  The tools
-#                            making merges from "safe" to "shared" repo, then
-#                            will be able to use this file for classifying
-#                            the merged code.
+# Legend:
+#   * Feature name must be a valid C identifier.  In general, it should
+#     use all capital letters, numbers and '_', and should not start
+#     with '_'.
+#   * SECRET features are only for xmain repositories.
+#   * SHARED features will appear in the collaborative repositories.
+#   * Note that SHARED does not mean "public", i.e. features shared
+#     via collaborative repositories may not be made public by Intel
+#     yet.  In general, codes for public features must be upstreamed,
+#     which implies removing the feature guards and, thus, removing
+#     these features' declarations from this file.
+#
+# Extra text (e.g. comments) are allowed after the terminating '@'.
+# By convention this file uses '#' as a comment symbol.  At the same time,
+# any line not satisfying "^@.*$" regular expression is just ignored.
+#
+# In general, every new feature must start with INTEL_FEATURE prefix
+# followed by '_' and an optional additional prefix corresponding to the feature
+# class (see below).  Currently the feature filtering tool will report
+# an error, if you use INTEL_FEATURE prefix in this file.  We temporarily
+# allow declaring the features without the prefix in this file, but
+# the actual feature name passed via LLVM_INTEL_FEATURES must use
+# the prefix.  For example, you may declare ISA_VNNI feature here,
+# but you have to use concat("INTEL_FEATURE", "_ISA_VNNI") name
+# in LLVM_INTEL_FEATURES and in the source files.
+#
+# There is a set of legacy software features that do not use
+# the prefix.
 
 # New ISA features usually use ISA_ prefix, e.g. ISA_VNNI.
 # === New ISA features section begin ===
@@ -39,3 +58,11 @@
 # e.g. SW_G2S.
 # === New SW features section begin ===
 # === New SW features section end ===
+
+# Special software features section currently consist of
+# INTEL_INTERNAL_BUILD feature only.  We may actually represent
+# the current INTEL_CUSTOMIZATION, INTEL_SPECIFIC_OPENMP,
+# INTEL_SPECIFIC_CILKPLUS and INTEL_INCLUDE_DTRANS as features
+# by adding them here.  INTEL_COLLAB cannot use this scheme,
+# because we do not provide this file to the community.
+@INTEL_INTERNAL_BUILD:SHARED@

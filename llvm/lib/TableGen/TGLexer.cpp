@@ -36,6 +36,17 @@ struct {
   tgtok::TokKind Kind;
   const char *Word;
 } PreprocessorDirs[] = {
+#if INTEL_CUSTOMIZATION
+  // For ICL internal processes we always use #if instead of #ifdef
+  // in the source files.
+  // True support for #if requires that a macro has an integral value.
+  // This functionality may be added, but it is not strictly required
+  // at this point, so we just treat #if as #ifdef.
+  // Please note that there is no way for passing -DMACRO=0 to llvm-tblgen,
+  // and passing -DMACRO implies that both "#if MACRO" and "#ifdef MACRO"
+  // will evaluate to true.
+  { tgtok::If, "if" },
+#endif  // INTEL_CUSTOMIZATION
   { tgtok::Ifdef, "ifdef" },
   { tgtok::Else, "else" },
   { tgtok::Endif, "endif" },
@@ -674,7 +685,8 @@ tgtok::TokKind TGLexer::lexPreprocessor(
     PrintFatalError("lexPreprocessor() called for unknown "
                     "preprocessor directive");
 
-  if (Kind == tgtok::Ifdef) {
+  if (Kind == tgtok::Ifdef ||   // INTEL
+      Kind == tgtok::If) {      // INTEL
     StringRef MacroName = prepLexMacroName();
     if (MacroName.empty())
       return ReturnError(TokStart, "Expected macro name after #ifdef");
@@ -716,7 +728,8 @@ tgtok::TokKind TGLexer::lexPreprocessor(
 
     PreprocessorControlDesc IfdefEntry = PrepIncludeStack.back()->back();
 
-    if (IfdefEntry.Kind != tgtok::Ifdef) {
+    if (IfdefEntry.Kind != tgtok::Ifdef && // INTEL
+        IfdefEntry.Kind != tgtok::If) {    // INTEL
       PrintError(TokStart, "double #else");
       return ReturnError(IfdefEntry.SrcPos, "Previous #else is here");
     }
@@ -750,6 +763,7 @@ tgtok::TokKind TGLexer::lexPreprocessor(
     auto &IfdefOrElseEntry = PrepIncludeStack.back()->back();
 
     if (IfdefOrElseEntry.Kind != tgtok::Ifdef &&
+        IfdefOrElseEntry.Kind != tgtok::If && // INTEL
         IfdefOrElseEntry.Kind != tgtok::Else) {
       PrintFatalError("Invalid preprocessor control on the stack");
       return tgtok::Error;
