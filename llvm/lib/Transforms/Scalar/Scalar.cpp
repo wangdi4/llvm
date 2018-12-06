@@ -120,6 +120,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopOptReportEmitterLegacyPassPass(Registry);
   initializeRemoveRegionDirectivesLegacyPassPass(Registry);
   initializeAddSubReassociateLegacyPassPass(Registry);
+  initializeLoopCarriedCSELegacyPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);

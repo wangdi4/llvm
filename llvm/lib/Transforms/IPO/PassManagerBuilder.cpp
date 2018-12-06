@@ -1420,6 +1420,7 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   // GVN can perform alloca store forwarding thereby removing alloca loads. This
   // can expose dead alloca stores which can be cleaned up by SROA.
   PM.add(createSROAPass());
+  PM.add(createLoopCarriedCSEPass());
   addInstructionCombiningPass(PM);
   PM.add(createDeadStoreEliminationPass());
 

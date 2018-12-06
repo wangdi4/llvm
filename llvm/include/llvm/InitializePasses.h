@@ -469,6 +469,8 @@ void initializeOptReportOptionsPassPass(PassRegistry &);
 // Pass for removing region directives.
 void initializeRemoveRegionDirectivesLegacyPassPass(PassRegistry &);
 void initializeLoopOptReportEmitterLegacyPassPass(PassRegistry&);
+// Pass for loop carried CSE
+void initializeLoopCarriedCSELegacyPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);

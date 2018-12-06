@@ -291,6 +291,11 @@ FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false,
 FunctionPass *createLoopOptMarkerLegacyPass();
 
 FunctionPass *createAggInlAALegacyPass();
+
+// LoopCarriedCSE - This pass groups two Phi Nodes in a binary operation by a
+// new Phi Node if their latch values have the same binary operation.
+FunctionPass *createLoopCarriedCSEPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
