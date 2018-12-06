@@ -102,7 +102,16 @@ void CSANameLICsPass::nameLIC(MachineInstr &MI) {
   MI.setFlag(MachineInstr::NonSequential);
   auto name = MI.getDebugVariable()->getName();
   unsigned reg = MI.getOperand(0).getReg();
-  if (TargetRegisterInfo::isPhysicalRegister(reg))
+  // CMPLRLLVM-7598: some optimizations (e.g. dead instructions elimination)
+  //                 invalidate DBG_VALUE instructions by making their zero
+  //                 operand $noreg.  Such DBG_VALUE instructions are supposed
+  //                 to be fixed by LiveDebugVariables analysis after
+  //                 the register allocation.  Some issue is causing most
+  //                 DBG_VALUE instructions to have $noreg "definition"
+  //                 after register allocation for CSA, so we cannot easily
+  //                 move CSANameLICsPass after the register allocation.
+  //                 The temporary workaround is to just check for $noreg.
+  if (TargetRegisterInfo::isPhysicalRegister(reg) || reg == 0)
     return;
   LMFI->setLICName(reg, name);
 }
