@@ -160,20 +160,28 @@ inline CallInst *extractCallocCall(Value *I, const TargetLibraryInfo *TLI) {
 //  free Call Utility Functions.
 //
 
-/// isFreeCall - Returns non-null if the value is a call to the builtin free()
-const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI);
+#if INTEL_CUSTOMIZATION
+/// isFreeCall - Returns non-null if the value is a call to the free(). Skip
+/// IsNoBuiltinCall check if \pCheckNoBuiltin is false (dtrans).
+const CallInst *isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
+                           bool CheckNoBuiltin = true);
 
-inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI) {
-  return const_cast<CallInst*>(isFreeCall((const Value*)I, TLI));
+inline CallInst *isFreeCall(Value *I, const TargetLibraryInfo *TLI,
+                            bool CheckNoBuiltin = true) {
+  return const_cast<CallInst *>(
+      isFreeCall((const Value *)I, TLI, CheckNoBuiltin));
 }
 
-#if INTEL_CUSTOMIZATION
-/// isDeleteCall - Returns non-null if the value is a call to the builtin
-/// delete/delete[] function.
-const CallInst *isDeleteCall(const Value *V, const TargetLibraryInfo *TLI);
+/// isDeleteCall - Returns non-null if the value is a call to the
+/// delete/delete[] function. Skip IsNoBuiltinCall check if \pCheckNoBuiltin is
+/// false (dtrans).
+const CallInst *isDeleteCall(const Value *V, const TargetLibraryInfo *TLI,
+                             bool CheckNoBuiltin = true);
 
-inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI) {
-  return const_cast<CallInst *>(isDeleteCall((const Value *)I, TLI));
+inline CallInst *isDeleteCall(Value *I, const TargetLibraryInfo *TLI,
+                              bool CheckNoBuiltin = true) {
+  return const_cast<CallInst *>(
+      isDeleteCall((const Value *)I, TLI, CheckNoBuiltin));
 }
 #endif // INTEL_CUSTOMIZATION
 

@@ -254,6 +254,14 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
       }
     }
 
+    bool isDummyAlloc = dtrans::isDummyAllocWithUnreachable(ImmutableCallSite(I));
+    bool isDummyDealloc = dtrans::isDummyDeallocWithUnreachable(ImmutableCallSite(I));
+    if (isDummyAlloc) {
+      collectSpecialAllocArgs(AK_UserMalloc, ImmutableCallSite(I), Args, TLI);
+    } else if (isDummyDealloc) {
+      collectSpecialFreeArgs(FK_UserFree, ImmutableCallSite(I), Args, TLI);
+    }
+
     Dep::Container Special;
     Dep::Container Remaining;
     for (auto &Op : I->operands()) {
@@ -275,6 +283,12 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
                                Dep::mkArgList(DM, Remaining))
                 : Dep::mkFree(DM, Dep::mkNonEmptyArgList(DM, Special),
                               Dep::mkArgList(DM, Remaining));
+    else if (isDummyAlloc)
+      Rep = Dep::mkAlloc(DM, Dep::mkNonEmptyArgList(DM, Special),
+                         Dep::mkArgList(DM, Remaining));
+    else if (isDummyDealloc)
+      Rep = Dep::mkFree(DM, Dep::mkNonEmptyArgList(DM, Special),
+                        Dep::mkArgList(DM, Remaining));
     else
       Rep = Dep::mkCall(DM, Dep::mkArgList(DM, Remaining),
                         F && getStructTypeOfMethod(*F) == ClassType);

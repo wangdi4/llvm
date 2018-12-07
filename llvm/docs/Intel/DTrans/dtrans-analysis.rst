@@ -476,8 +476,9 @@ Some user functions are also handled.  Right now, we distinguish two types:
     or if some call to malloc returns a nullptr.)
 
   AK_UserMalloc:
-    Same as AK_UserMalloc0, but there must be only 1 argument
-    (the "size" argument).
+    Same as AK_UserMalloc0, but there must be either only 1 argument
+    (the "size" argument) or two arguments (the "this" ptr argument
+     and the "size" argument).
 
 At some point this mechanism will be extended to handle additional user
 functions, including those that call calloc and realloc.

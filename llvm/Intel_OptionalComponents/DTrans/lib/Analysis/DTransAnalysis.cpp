@@ -1242,7 +1242,7 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
   if (isVisitedBlock(BB))
     return false;
   VisitedBlocks.insert(BB);
-  if (auto CS = CallSite(RV)) {
+  if (auto CS = ImmutableCallSite(RV)) {
     auto Kind = dtrans::getAllocFnKind(CS, TLI);
     return Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New;
   }
@@ -1289,9 +1289,26 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
   // after visitNullPtrBlocks() is run.
   VisitedBlocks.clear();
   SkipTestBlocks.clear();
-  if (F->arg_size() != 1 || !F->arg_begin()->getType()->isIntegerTy()) {
-    return false;
-  }
+  // Allow user-defined allocation function with 'this' pointer as a first
+  // argument.
+  auto IsThisPtrAndSizeArgs = [&](Function *F) {
+    if (F->arg_size() != 2)
+      return false;
+    if (F->arg_begin()->getNumUses() != 0)
+      return false;
+    auto PtrType = dyn_cast<PointerType>(F->arg_begin()->getType());
+    if (!PtrType || !PtrType->getElementType()->isAggregateType())
+      return false;
+    Argument *Arg1 = F->arg_begin() + 1;
+    if (!Arg1->getType()->isIntegerTy())
+      return false;
+    return true;
+  };
+
+  if (F->arg_size() != 1 || !F->arg_begin()->getType()->isIntegerTy())
+    if (!IsThisPtrAndSizeArgs(F))
+      return false;
+
   visitNullPtrBlocks(F);
   VisitedBlocks.clear();
   bool rv = false;

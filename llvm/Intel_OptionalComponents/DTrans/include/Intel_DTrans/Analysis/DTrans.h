@@ -1007,6 +1007,15 @@ StringRef getStructName(llvm::Type *Ty);
 /// type is zero-size array itself.
 bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
 
+/// Check if the called function has only one basic block that ends with
+/// 'unreachable' instruction.
+bool isDummyFuncWithUnreachable(ImmutableCallSite CS);
+/// Check if the called function has two arguments ('this' pointer and an
+/// integer size) and is dummy.
+bool isDummyAllocWithUnreachable(ImmutableCallSite CS);
+/// Check if the called function has two arguments ('this' pointer and a
+/// pointer) and is dummy.
+bool isDummyDeallocWithUnreachable(ImmutableCallSite CS);
 } // namespace dtrans
 
 } // namespace llvm
