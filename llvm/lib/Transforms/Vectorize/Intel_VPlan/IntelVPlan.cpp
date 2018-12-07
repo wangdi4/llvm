@@ -715,10 +715,6 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
 
   HLInst *WInst;
 
-  // TBD - see if anything special is needed for semiphis.
-  if (Opcode == SemiPhi)
-    return;
-
   if (HIR.isDecomposed() && HIR.isValid()) {
     // Skip decomposed VPInstruction with valid HIR. They will be codegen'ed by
     // its master VPInstruction.
@@ -926,9 +922,6 @@ void VPInstruction::print(raw_ostream &O) const {
     break;
   case VPInstruction::Pred:
     O << "block-predicate";
-    break;
-  case VPInstruction::SemiPhi:
-    O << "semi-phi";
     break;
   case VPInstruction::SMax:
     O << "smax";

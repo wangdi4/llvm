@@ -28,17 +28,9 @@ using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
 
-static Type *getBaseTypeForSemiPhiOp(ArrayRef<VPValue *> Operands) {
-  assert(Operands.size() >= 1 &&
-         "Expecting atleast one operand expected for Semi-Phi Op");
-  return Operands[0]->getBaseType();
-}
-
 // Splice the instruction list of the VPBB where \p Phi belongs, by moving the
 // VPPhi instruction to the front of the list
-static void moveSemiPhiToFront(VPInstruction *Phi) {
-  assert(Phi->getOpcode() == VPInstruction::SemiPhi &&
-         "move operation called on a non-semiphi instruction!");
+static void movePhiToFront(VPPHINode *Phi) {
   VPBasicBlock *BB = Phi->getParent();
   BB->getInstList().splice((BB->front()).getIterator(), BB->getInstList(),
                            Phi->getIterator());
@@ -198,9 +190,9 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
     DecompIV = combineDecompDefs(DecompIVCoeff, DecompIV, Ty, Instruction::Mul);
   }
 
-  VPValue *VPIndVar = HLLp2IVSemiPhi[getHLLoopForLevel(RDDR, IVLevel)];
+  VPValue *VPIndVar = HLLp2IVPhi[getHLLoopForLevel(RDDR, IVLevel)];
   if (!VPIndVar)
-    // If there is no semi-phi in the map, it means that the IV is an external
+    // If there is no PHI in the map, it means that the IV is an external
     // definition.
     // TODO: We could be creating redundant external definitions here because
     // this external definition cannot be mapped to an HLInst. Add check at the
@@ -770,7 +762,7 @@ void VPDecomposerHIR::createOrGetVPDefsForUse(
     auto VPValIt = HLDef2VPValue.find(DefNode);
     if (VPValIt == HLDef2VPValue.end()) {
       // Changing hard-assert.  This is because in 'decomposeStandAloneBlob' we
-      // create a SemiPhiOp without any operands. We might not have all the
+      // create a VPPHINode without any operands. We might not have all the
       // operands, but we have at least one operand at that time. We are peeking
       // into the operand list and just getting the BaseTy of that operand.
       // Deleting the hard-assert allows that.
@@ -803,14 +795,14 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   // level. HLp is set as underlying HIR of the induction phi.
   VPBuilder::InsertPointGuard Guard(Builder);
   Builder.setInsertPoint(LpH, LpH->begin());
-  SmallVector<VPValue *, 4> PhiArgs;
-  PhiArgs.push_back(IVStart);
-  Type *BaseTy = getBaseTypeForSemiPhiOp(PhiArgs);
-  VPInstruction *IndSemiPhi =
-      cast<VPInstruction>(Builder.createSemiPhiOp(BaseTy, PhiArgs, HLp));
-  assert(!HLLp2IVSemiPhi.count(HLp) && "HLLoop has multiple IVs?");
-  HLLp2IVSemiPhi[HLp] = IndSemiPhi;
-  IndSemiPhi->HIR.setValid();
+  // Base type for the VPPHINode is obtained from IVStart
+  Type *BaseTy = IVStart->getBaseType();
+  VPPHINode *IndVPPhi =
+      cast<VPPHINode>(Builder.createPhiInstruction(BaseTy, HLp));
+  IndVPPhi->addIncoming(IVStart, LpPH);
+  assert(!HLLp2IVPhi.count(HLp) && "HLLoop has multiple IVs?");
+  HLLp2IVPhi[HLp] = IndVPPhi;
+  IndVPPhi->HIR.setValid();
 }
 
 VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
@@ -830,16 +822,15 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   //   SUCCESSORS(1):BB4
   //
   //   BB4: // Loop H and Latch
-  //    %vp40944 = semi-phi i64 0 %vp43488
+  //    %vp40944 = phi [ i64 0, BB3 ], [ i64 %vp43488, BB4]
   //    ...
   //    %vp43488 = add %vp40944 i64 1 // IVNext (master VPI)
   //    %vp44352 = icmp %vp43488 %vp44016 // BottomTest (master VPI)
   //   SUCCESSORS(2):BB4(%vp44352), BB5(!%vp44352)
 
-  // Retrieve the inductive semi-phi (IV) generated for this HLLoop.
-  assert(HLLp2IVSemiPhi.count(HLp) &&
-         "Expected semi-phi VPInstruction for HLLoop.");
-  VPInstruction *IndSemiPhi = HLLp2IVSemiPhi[HLp];
+  // Retrieve the inductive PHI (IV) generated for this HLLoop.
+  assert(HLLp2IVPhi.count(HLp) && "Expected VPPHINode for HLLoop.");
+  VPPHINode *IndVPPhi = HLLp2IVPhi[HLp];
 
   // Create add VPInstruction for IV next. HLp is set as underlying HIR of the
   // created VPInstruction. Only normalized loops are expected so we use step 1.
@@ -847,11 +838,11 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
          "Expected positive unit-stride HLLoop.");
   Builder.setInsertPoint(LpLatch);
   auto *IVNext = cast<VPInstruction>(Builder.createAdd(
-      IndSemiPhi,
+      IndVPPhi,
       Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1)), HLp));
 
-  // Add IVNext to induction semi-phi.
-  IndSemiPhi->addOperand(IVNext);
+  // Add IVNext to induction PHI.
+  IndVPPhi->addIncoming(IVNext, LpLatch);
 
   // Create VPValue for bottom test condition. If decomposition is needed:
   //   1) decompose UB operand. Decomposed VPInstructions are inserted into the
@@ -893,37 +884,259 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
 
   // Set the underlying HIR of the new VPInstructions (and its potential
   // decomposed VPInstructions) to valid.
-  IndSemiPhi->HIR.setValid();
+  IndVPPhi->HIR.setValid();
   IVNext->HIR.setValid();
   BottomTest->HIR.setValid();
   return BottomTest;
 }
 
-// Add operands to VPInstructions representing phi nodes from the input IR.
-// PhisToFix contains a pair with VPPhi and its associated sink DDRef. We get
-// the source of each incoming edge of DDRef and set the VPValue associated to
-// that source as operand of the VPPhi.
-// TODO: Above documentation is incorrect. Update after new algorithm.
+// Add operands to VPInstructions representing PHI nodes inserted by HIR
+// decomposer. PhisToFix represents a map of empty PHI nodes which need to be
+// fixed. We implement a dataflow analysis algorithm which tracks the VPValue of
+// ambiguous Symbases (corresponding to sink DDRefs) inside each VPBasicBlock of
+// the HCFG. The dataflow analysis is described in detail in the function
+// fixPhiNodePass.
+
 void VPDecomposerHIR::fixPhiNodes() {
-  for (auto &VPPhiMapPair : PhisToFix) {
-    VPInstruction *VPPhi = VPPhiMapPair.second.first;
-    // Move the VPPhi node to the top of its VPBB
-    moveSemiPhiToFront(VPPhi);
-    DDRef *UseDDR = VPPhiMapPair.second.second;
-    assert(VPPhi->getNumOperands() == 0 &&
-           "Expected VPInstruction with no operands.");
+  LLVM_DEBUG(dbgs() << "New PHI node fix algorithm in progress...\n");
 
-    SmallVector<VPValue *, 4> VPOperands;
-    createOrGetVPDefsForUse(UseDDR, VPOperands);
-    assert(VPOperands.size() > 1 && "Expected multiple definitions for VPPhi!");
-    for (auto *VPOp : VPOperands)
-      VPPhi->addOperand(VPOp);
+  // If there are no PHIs to fix, bypass the fixPhiNodePass
+  if (PhisToFix.empty())
+    return;
 
-    // Set the master VPInstruction of this VPPhi as valid after the fix.
-    VPPhi->HIR.getMaster()->HIR.setValid();
+  // Preparations for fixPhiNodePass
+
+  // 1. Make sure that all new PHI nodes added by decomposition are moved to the
+  // top of the VPBB
+  for (auto PHIMapIt : PhiToSymbaseMap)
+    movePhiToFront(PHIMapIt.first);
+
+  // 2. Set the incoming values of all tracked Symbases to their ExternalDef
+  // values or nullptr before HCFG entry
+  PhiNodePassData::VPValMap VPValues;
+  for (auto Sym : TrackedSymbases) {
+    LLVM_DEBUG(dbgs() << "Sym: " << Sym << "\n");
+
+    VPValue *ExtDef = Plan->getVPExternalDefForSymbase(Sym);
+    if (ExtDef) {
+      LLVM_DEBUG(dbgs() << "ExtDef: "; ExtDef->dump(); dbgs() << "\n");
+    } else {
+      assert(!OutermostHLp->isLiveIn(Sym) &&
+             "External def not found for a live-in symbase.");
+      LLVM_DEBUG(dbgs() << "ExtDef: nullptr\n");
+    }
+
+    VPValues[Sym] = ExtDef;
   }
+
+  VPBasicBlock *CurrentVPBB = Builder.getInsertBlock();
+  assert(CurrentVPBB && "Current insertion VPBB for builder cannot be null.");
+  VPBasicBlock *HCFGEntry =
+      cast<VPBasicBlock>(CurrentVPBB->getParent()->getEntry());
+  assert(HCFGEntry && "Entry VPBB for HCFG cannot be null.");
+  LLVM_DEBUG(dbgs() << "HCFGEntry: "; HCFGEntry->dump(); dbgs() << "\n");
+
+  // Walk all VPBasicBlocks in the HCFG of current VPlan and perform the PHI
+  // node fixing algorithm, updating the incoming values based on underlying HIR
+  SmallVector<PhiNodePassData, 32> PhiNodePassWorkList;
+  PhiNodePassWorkList.emplace_back(HCFGEntry, nullptr /* No pred to entry*/,
+                                   VPValues);
+
+  LLVM_DEBUG(dbgs() << "Starting fixPhiNodePass algorithm\n");
+
+  do {
+    PhiNodePassData PNPD = std::move(PhiNodePassWorkList.back());
+    PhiNodePassWorkList.pop_back();
+
+    fixPhiNodePass(PNPD.VPBB, PNPD.VPBBPred, PNPD.VPValues,
+                   PhiNodePassWorkList);
+  } while (!PhiNodePassWorkList.empty());
+
+  // TODO: validate correctness of the PHI nodes after fixing, also set their
+  // master VPI's HIR to valid (VPPhi->HIR.getMaster()->HIR.setValid())
 }
 
+// Empty PHI nodes are populated with appropriate incoming VPValues using a
+// dataflow analysis algorithm borrowed from LLVM's mem2reg pass. More details
+// about this algorithm in mem2reg can be found in the function
+// PromoteMem2Reg::RenamePass().
+//
+//
+// Consider the trivial scenario of if-else branching in HCFG:
+//
+//
+//                      +-----------------+
+//                      |             BB0 |
+//                      |                 |
+//                      |  %t = 0 (%vp1)  |
+//            +---------+                 +----------+
+//            |         +-----------------+          |
+//            |                                      |
+//            |                                      |
+//            |                                      |
+//   +--------v--------+                   +---------v-------+
+//   |             BB1 |                   |             BB2 |
+//   |                 |                   |                 |
+//   |  %t = 2 (%vp2)  |                   |        ...      |
+//   |                 |                   |                 |
+//   +--------+--------+                   +---------+-------+
+//            |                                      |
+//            |                                      |
+//            |                                      |
+//            |         +-----------------+          |
+//            |         |             BB3 |          |
+//            +-------->+                 +<---------+
+//                      |   %t.phi = phi  |
+//                      |                 |
+//                      +-----------------+
+//
+//
+// In this example, HIR decomposer decides to add an empty PHI node in
+// VPBasicBlock BB3 to resolve ambiguous reaching definitions of the DDRef %t in
+// BB3. We use a modified DFS algorithm to traverse the HCFG which allows us to
+// visit VPBasicBlocks multiple times in order to update incoming VPValues of
+// the empty PHI nodes.
+//
+// Upon visiting a VPBB we first check if it has any PHI nodes that need to be
+// fixed and appropriately update its incoming VPValue. Next we walk over the
+// HIR instructions (through master VPInstructions) that are represented within
+// that VPBB and check if they update any of the Symbases being tracked which is
+// then recorded in the map IncomingVPVals. Finally we recurse the algorithm for
+// the first successor of VPBB and add the remaining successors to a worklist.
+//
+//
+// Tracing the algorithm for above example -
+// 1. Visit BB0
+//    VPBB = BB0, Pred = null, IncomingVPVals = { %t : null }
+//
+// 2. Visit BB1
+//    VPBB = BB1, Pred = BB0, IncomingVPVals = { %t : %vp1 }
+//
+// 3. Visit BB3
+//    VPBB = BB3, Pred = BB1, IncomingVPVals = { %t : %vp2 }
+//    Update %t.phi = phi [ %vp2, BB1]
+//
+// 4. Visit BB2
+//    VPBB = BB2, Pred = BB0, IncomingVPVals = { %t : %vp1 }
+//
+// 5. Visit BB3 (again, but only to update PHI node)
+//    VPBB = BB3, Pred = BB2, IncomingVPVals = { %t : %vp1 }
+//    Update %t.phi = phi [ %vp2, BB1 ], [ %vp1, BB2 ]
+//
+//
+void VPDecomposerHIR::fixPhiNodePass(
+    VPBasicBlock *VPBB, VPBasicBlock *Pred,
+    PhiNodePassData::VPValMap &IncomingVPVals,
+    SmallVectorImpl<PhiNodePassData> &Worklist) {
+  LLVM_DEBUG(dbgs() << "\nEntering VPBB: " << VPBB->getName() << " from Pred: "
+                    << (Pred ? Pred->getName() : "nullptr") << "\n");
+  // First step is updating any PHI nodes in this VPBB, if it's incomplete
+  for (auto &VPN : VPBB->getVPPhis()) {
+    VPPHINode *FPN = cast<VPPHINode>(&VPN);
+    if (PhiToSymbaseMap.count(FPN)) {
+      assert(Pred && "VPBB has null predecessor.");
+
+      // Number of incoming edges from Pred to VPBB
+      unsigned NumEdges =
+          std::count(Pred->succ_begin(), Pred->succ_end(), VPBB);
+      assert(NumEdges && "Atleast one edge must exist from Pred to VPBB.");
+
+      // Find Symbase that this PHI node corresponds to in TrackedSymbases
+      unsigned Symbase = PhiToSymbaseMap[FPN];
+      assert(TrackedSymbases.count(Symbase) &&
+             "Empty PHI corresponds to a Symbase which is not being tracked.");
+
+      // A single VPBB can have multiple incoming edges from a predecessor VPBB
+      // (typically from switch statements). LLVM-IR handles this scenario by
+      // introducing redundant PHI node entries like -
+      // %phi = phi [%val1, BB0], [%val1, BB0], [%val2, BB1]
+      // Hence we add the incoming value for this PHI node from Pred for all
+      // edges.
+      // TODO: Investigate if this is going to be needed from VPlan/HCFG
+      // perspective.
+      for (unsigned I = 0; I != NumEdges; ++I) {
+        if (!IncomingVPVals[Symbase]) {
+          // No incoming value was found for the Symbase along the edge from
+          // Pred to current VPBB. This is potentially an incorrect placement of
+          // empty PHI node due to inaccuracies in DDG. We dump more details of
+          // such DDG here and ignore this edge to continue the analysis.
+          // Example -
+          // DO_LOOP i = 0, %n , 1
+          //   %t = i + 1    <1>
+          //   %x = %t + i   <2>
+          // END LOOP
+          //
+          // For above loop, no PHI node is needed for %t, but DDG can
+          // potentially state that there are 2 incoming edges to node <2>
+          // (assume a more complex loop with large DDG). So the PHI node
+          // inserted for %t has only one incoming value, the other would be
+          // nullptr and should be ignored.
+          LLVM_DEBUG(dbgs() << "Temporary fix to handle problems with DDG!\n");
+          LLVM_DEBUG(dbgs() << "Symbase: " << Symbase << "\n");
+          loopopt::DDRef *DDR = PhisToFix[std::make_pair(VPBB, Symbase)].second;
+          LLVM_DEBUG(dbgs() << "DDRef:"; DDR->dump());
+          LLVM_DEBUG(dbgs() << "\nHLNode: \n"; DDR->getHLDDNode()->dump());
+          LLVM_DEBUG(dbgs()
+                     << "Function name: "
+                     << DDR->getDDRefUtils().getFunction().getName() << "\n");
+          LLVM_DEBUG(dbgs() << "HLLoop:\n"; OutermostHLp->dump());
+          LLVM_DEBUG(dbgs() << "DDG:\n"; DDG.dump());
+          (void)DDR;
+        } else {
+          FPN->addIncoming(IncomingVPVals[Symbase], Pred);
+          // Current value for the Symbase is now the result of PHI for control
+          // flowing through this VPBB
+          IncomingVPVals[Symbase] = FPN;
+        }
+      }
+    }
+  }
+
+  // If VPBB has already been visited, then return immediately
+  if (!PhiNodePassVisited.insert(VPBB).second)
+    return;
+
+  // Iterate over instructions of VPBB and update the incoming value of Symbases
+  // being tracked if any instruction in the VPBB writes into it
+  for (auto &Recipe : VPBB->getInstList()) {
+    if (VPInstruction *VPI = dyn_cast<VPInstruction>(&Recipe)) {
+      LLVM_DEBUG(dbgs() << "fixPhiNodePass: VPI: "; VPI->dump());
+
+      if (VPI->HIR.isMaster()) {
+        if (auto *HInst =
+                dyn_cast<loopopt::HLInst>(VPI->HIR.getUnderlyingNode())) {
+          // If HLInst has no Lval then ignore the instruction and move to next
+          // master VPI
+          if (!HInst->hasLval())
+            continue;
+          unsigned Sym = HInst->getLvalDDRef()->getSymbase();
+          LLVM_DEBUG(dbgs() << "fixPhiNodePass: HIR: "; HInst->dump());
+          LLVM_DEBUG(dbgs() << "fixPhiNodePass: Sym: " << Sym << "\n");
+
+          // If the Lval DDRef's Symbase is being tracked, then update the
+          // IncomingVPVals map to use the corresponding VPI
+          if (TrackedSymbases.count(Sym))
+            IncomingVPVals[Sym] = VPI;
+        }
+      }
+    } else
+      llvm_unreachable("Non VPInstruction recipe in the VPBB.");
+  }
+
+  // Recurse the traversal into successors of VPBB in reverse iterator order by
+  // adding them to the worklist. The reverse order is done to maintain
+  // consistency with the mem2reg version of this traversal algorithm.
+  SmallPtrSet<VPBasicBlock *, 8> VisitedSuccs;
+
+  for (VPBlockBase::succ_reverse_iterator RI = VPBB->succ_rbegin(),
+                                          RE = VPBB->succ_rend();
+       RI != RE; ++RI) {
+    // Keep track of successors so that same successor is not added to worklist
+    // twice
+    if (VisitedSuccs.insert(cast<VPBasicBlock>(*RI)).second)
+      Worklist.emplace_back(cast<VPBasicBlock>(*RI), VPBB, IncomingVPVals);
+  }
+}
 
 VPInstruction *
 VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
@@ -1005,8 +1218,8 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
 
   // Blob has reaching definitions. We need to retrieve (or create) the VPValues
   // associated to the sources DDRefs (definitions). If there are multiple
-  // definitions, in addition, we introduce a semi-phi operation that "blends"
-  // all the VPValue definitions.
+  // definitions, in addition, we introduce a VPPHINode that "blends" all the
+  // VPValue definitions.
   SmallVector<VPValue *, 2> VPDefs;
   if (BlobNumReachDefs == 1) {
     // Single definition.
@@ -1014,18 +1227,18 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     assert(VPDefs.size() == 1 && "Expected single definition.");
     return VPDefs.front();
   } else {
-    // The operands of the semi-phi are not set right now since some of them
+    // The operands of the PHI are not set right now since some of them
     // might not have been created yet. They will be set by fixPhiNodes.
-    // Map the corresponding Instruction to <DDRef's Symbase, VPBlockID> in
+    // Map the corresponding Instruction to <VPBasicBlock, Symbase> in
     // PhisToFix if not found.
     Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
     Type *BaseTy = VPDefs.front()->getBaseType();
 
-    // Build the key pair to look-up PhiToFix map
-    PhiFixMapKey SymVPBBPair = std::make_pair(
-        DDR->getSymbase(), Decomposer.Builder.getInsertBlock()->getVPBlockID());
+    // Build the key pair to look-up PhisToFix map
+    PhiFixMapKey VPBBSymPair =
+        std::make_pair(Decomposer.Builder.getInsertBlock(), DDR->getSymbase());
 
-    auto VPPhiMapIt = Decomposer.PhisToFix.find(SymVPBBPair);
+    auto VPPhiMapIt = Decomposer.PhisToFix.find(VPBBSymPair);
     // If a VPPhi node was already created for this sink DDRef's Symbase in
     // current VPBB, then reuse that.
     if (VPPhiMapIt != Decomposer.PhisToFix.end())
@@ -1033,12 +1246,25 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
 
     // If no entry is found in PhisToFix then create a new VPPhi node and add it
     // to the map
-    auto *SemiPhi = cast<VPInstruction>(Decomposer.Builder.createSemiPhiOp(
-        BaseTy, {} /*No operands*/, nullptr));
-    LLVM_DEBUG(dbgs() << "VPDecomp: Empty SemiPhi "; SemiPhi->dump();
-               dbgs() << "\n");
-    Decomposer.PhisToFix[SymVPBBPair] = std::make_pair(SemiPhi, DDR);
-    return SemiPhi;
+    auto *VPPhi =
+        cast<VPPHINode>(Decomposer.Builder.createPhiInstruction(BaseTy));
+    Decomposer.PhisToFix[VPBBSymPair] = std::make_pair(VPPhi, DDR);
+
+    LLVM_DEBUG(dbgs() << "Adding a new empty PHI node for:\n");
+    LLVM_DEBUG(dbgs() << "Symbase: " << DDR->getSymbase() << "\n");
+    LLVM_DEBUG(dbgs() << "DDR: "; DDR->dump(); dbgs() << "\n");
+
+    // Add the Symbase of sink DDRef to be tracked for fixing PHI nodes
+    Decomposer.TrackedSymbases.insert(DDR->getSymbase());
+
+    // Add entry to map the PHI node to the sink DDRef Symbase it was generated
+    // for
+    assert(Decomposer.PhiToSymbaseMap.find(VPPhi) ==
+               Decomposer.PhiToSymbaseMap.end() &&
+           "The PHI node is already mapped to a Symbase?");
+    Decomposer.PhiToSymbaseMap[VPPhi] = DDR->getSymbase();
+
+    return VPPhi;
   }
 }
 

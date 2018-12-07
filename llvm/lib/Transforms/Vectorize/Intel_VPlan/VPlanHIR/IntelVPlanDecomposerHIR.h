@@ -48,8 +48,8 @@ private:
   /// VPInstruction builder for HIR.
   VPBuilderHIR Builder;
 
-  /// Map HLLoop to the semi-phi instruction representing its IV in VPlan.
-  SmallDenseMap<loopopt::HLLoop *, VPInstruction *> HLLp2IVSemiPhi;
+  /// Map HLLoop to the VPPHI instruction representing its IV in VPlan.
+  SmallDenseMap<loopopt::HLLoop *, VPPHINode *> HLLp2IVPhi;
 
   // A map to track empty VPPhi nodes that are added during decomposition. We
   // know that there can be only one unique PHI node per VPBasicBlock for a
@@ -59,12 +59,46 @@ private:
   // nodes is implemented.
   // TODO: Remove DDRef after implementing new VPPhi node fixing algorithm
 
-  // Key for the PhisToFix map is <Symbase, VPBlockID>
-  using PhiFixMapKey = std::pair<unsigned, unsigned>;
-  // The value mapped to the key is the semi-phi instruction and the ambiguous
-  // sink DDRef
-  using PhiFixMapValue = std::pair<VPInstruction *, loopopt::DDRef *>;
+  // Key for the PhisToFix map is <VPBasicBlock, Symbase>
+  using PhiFixMapKey = std::pair<VPBasicBlock *, unsigned>;
+  // The value mapped to the key is the VPPHINode and the ambiguous sink DDRef
+  using PhiFixMapValue = std::pair<VPPHINode *, loopopt::DDRef *>;
   DenseMap<PhiFixMapKey, PhiFixMapValue> PhisToFix;
+
+  //////////////// Data structures for fixPhiNodePass //////////////////
+
+  // a. Set of unique Symbases for which empty PHI nodes were added
+  DenseSet<unsigned> TrackedSymbases;
+  // b. Preserve a map to track which VPPhiNode corresponds to which Symbase
+  // This is needed for quick lookup, instead of iterating over PhisToFix map
+  DenseMap<VPPHINode *, unsigned> PhiToSymbaseMap;
+  // c. Set of visited VPBBs for the traversal
+  SmallPtrSet<VPBasicBlock *, 16> PhiNodePassVisited;
+
+  /// Data package used by fixPhiNodePass
+  struct PhiNodePassData {
+    // Map to track the incoming VPValue of a Symbase when traversing from
+    // predecessor block (VPBBPred) to current block (VPBB). Symbase is the key
+    // and its corresponding VPValue is the value.
+    using VPValMap = std::map<unsigned, VPValue *>;
+
+    PhiNodePassData(VPBasicBlock *B, VPBasicBlock *P, VPValMap V)
+        : VPBB(B), VPBBPred(P), VPValues(V) {}
+
+    VPBasicBlock *VPBB;
+    VPBasicBlock *VPBBPred;
+    VPValMap VPValues;
+  };
+
+  //////////////////////////////////////////////////////////////////////
+
+  // Execute the PHI node fixing algorithm by visiting the VPBasicBlock \p VPBB
+  // from its predecessor \p Pred, with the current state of VPValues for the
+  // tracked Symbases stored in \p IncomingVPVals. \p Worklist is used to add
+  // new VPBBs that need to be processed after VPBB.
+  void fixPhiNodePass(VPBasicBlock *VPBB, VPBasicBlock *Pred,
+                      PhiNodePassData::VPValMap &IncomingVPVals,
+                      SmallVectorImpl<PhiNodePassData> &Worklist);
 
   // Methods to create VPInstructions out of an HLNode.
   bool isExternalDef(loopopt::DDRef *UseDDR);
@@ -147,8 +181,8 @@ public:
   VPInstruction *createVPInstructionsForNode(loopopt::HLNode *Node,
                                              VPBasicBlock *InsPointVPBB);
 
-  /// Create a semi-phi VPInstruction representing the \p HLp IV and a VPValue
-  /// for the IV Start. The semi-phi is inserted in the loop header VPBasicBlock
+  /// Create a VPPHINode representing the \p HLp IV and a VPValue
+  /// for the IV Start. The PHI is inserted in the loop header VPBasicBlock
   /// (successor of \p LpPH).
   // TODO: The IV Start will be inserted in the loop pre-header (\p LpPH). We
   // only support constant IV Starts that do not require to be inserted in any
@@ -163,8 +197,7 @@ public:
                                          VPBasicBlock *LpPH,
                                          VPBasicBlock *LpLatch);
 
-  /// Add operands to VPInstructions representing semi-phi operation resulting
-  /// from decomposition.
+  /// Add operands to empty VPPHINodes added during decomposition.
   void fixPhiNodes();
 };
 

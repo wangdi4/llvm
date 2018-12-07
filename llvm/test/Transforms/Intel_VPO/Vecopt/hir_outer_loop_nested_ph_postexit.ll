@@ -36,7 +36,7 @@
 ;  SUCCESSORS(1):BB6
 ;
 ;  BB6 (BP: NULL) :
-;   i64 %vp53280 = semi-phi i64 0 i64 %vp47136
+;   i64 %vp53280 = phi  [ i64 0, BB5 ],  [ i64 %vp8832, BB11 ]
 ;   float* %vp51760 = getelementptr [101 x float]* %a i64 %vp53952 i64 %vp53280
 ;   store float %vp61456 float* %vp51760
 ;   i64 %vp54704 = mul i64 3 i64 %vp53280
@@ -66,6 +66,7 @@
 
 ; Loop PE:
 ; CHECK:  [[PE]] (BP: NULL) :
+; CHECK-NEXT: i64 %vp{{[0-9]+}} = phi  [ i64 %vp{{[0-9]+}}, BB11 ]
 ; CHECK-NEXT: i64 %vp{{[0-9]+}} = bitcast i64 %vp{{[0-9]+}}
 
 

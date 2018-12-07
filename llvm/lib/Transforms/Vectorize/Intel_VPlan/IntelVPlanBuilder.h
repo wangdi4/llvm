@@ -222,13 +222,13 @@ public:
     assert(Inst != nullptr && "Instruction cannot be a nullptr");
     VPInstruction *NewVPInst = createPhiInstruction(Inst->getType());
     NewVPInst->setUnderlyingValue(Inst);
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
   VPInstruction *createPhiInstruction(Type *BaseTy) {
     VPInstruction *NewVPInst = new VPPHINode(BaseTy);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 

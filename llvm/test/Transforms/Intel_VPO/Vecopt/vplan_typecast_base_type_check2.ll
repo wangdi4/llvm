@@ -31,7 +31,7 @@
 ;  SUCCESSORS(1):BB4
 ;
 ;  BB4 (BP: NULL) :
-;   i64 %vp40448 = semi-phi i64 0 i64 %vp48432
+;   i64 %vp40448 = phi [ i64 0, BB3 ], [ i64 %vp48432, BB10 ]
 ;   i64 %vp40672 = load i64 %vp40608
 ;   i64 %vp41872 = bitcast i64 %vp40672
 ;   i32 %vp42128 = trunc i64 %vp40448

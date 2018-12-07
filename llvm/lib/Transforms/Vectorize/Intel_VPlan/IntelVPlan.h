@@ -766,16 +766,10 @@ class VPInstruction : public VPUser, public VPRecipeBase {
 public:
 #if INTEL_CUSTOMIZATION
   /// VPlan opcodes, extending LLVM IR with idiomatics instructions.
-  // SemiPhi is an experimental mechanism to deal with multiple definitions
-  // coming from HIR, but in a more "relaxed way" (to be defined) than using
-  // proper Phi nodes. At this point, we can find semi-phis at any point of the
-  // VPBasicBlock and even redundant semi-phis blending exactly the same
-  // definitions.
   enum {
       Not = Instruction::OtherOpsEnd + 1,
       AllZeroCheck,
       Pred,
-      SemiPhi,
       SMax,
       UMax,
       InductionInit,
@@ -2001,8 +1995,8 @@ public:
   // consideration.
   bool isLegalToHoistInto() { return true; }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS, bool PrintType) const {
     formatted_raw_ostream FOS(OS);
     print(FOS, 0);
@@ -2021,8 +2015,28 @@ public:
   virtual void dump() const = 0;
 
   virtual void dump(raw_ostream &OS, unsigned Indent = 0) const = 0;
-#endif
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Iterators and types to access Successors of a VPBlockBase
+  using SuccType = SmallVector<VPBlockBase *, 2>;
+  using succ_iterator = SuccType::iterator;
+  using succ_const_iterator = SuccType::const_iterator;
+  using succ_reverse_iterator = SuccType::reverse_iterator;
+  using succ_const_reverse_iterator = SuccType::const_reverse_iterator;
+
+  inline succ_iterator succ_begin() { return Successors.begin(); }
+  inline succ_iterator succ_end() { return Successors.end(); }
+  inline succ_const_iterator succ_begin() const { return Successors.begin(); }
+  inline succ_const_iterator succ_end() const { return Successors.end(); }
+  inline succ_reverse_iterator succ_rbegin() { return Successors.rbegin(); }
+  inline succ_reverse_iterator succ_rend() { return Successors.rend(); }
+  inline succ_const_reverse_iterator succ_rbegin() const {
+    return Successors.rbegin();
+  }
+  inline succ_const_reverse_iterator succ_rend() const {
+    return Successors.rend();
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 #if INTEL_CUSTOMIZATION
@@ -2631,6 +2645,12 @@ public:
     return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
   }
 
+  /// Retrieve the VPExternalDef for given HIR symbase \p Symbase. If no
+  /// external definition exists then a nullptr is returned.
+  VPExternalDef *getVPExternalDefForSymbase(unsigned Symbase) {
+    return getExternalItemForSymbase(VPExternalDefsHIR, Symbase);
+  }
+
   /// Create or retrieve a VPExternalDef for an HIR IV identified by its \p
   /// IVLevel.
   VPExternalDef *getVPExternalDefForIV(unsigned IVLevel, Type *BaseTy) {
@@ -2715,6 +2735,20 @@ private:
       // Def is a new external item to be inserted in the map.
       UPtr.reset(new Def(ExtVal));
     return UPtr.get();
+  }
+
+  // Retrieve an external item from \p Table for given HIR symbase \p Symbase.
+  // If no external item is found, then a nullptr is returned
+  template <typename Def>
+  Def *getExternalItemForSymbase(FoldingSet<Def> &Table, unsigned Symbase) {
+    FoldingSetNodeID ID;
+    ID.AddInteger(Symbase);
+    ID.AddInteger(0 /*IVLevel*/);
+    void *IP = nullptr;
+    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+    // No Def found in table
+    return nullptr;
   }
 
   // Create or retrieve an external item from \p Table for given HIR unitary

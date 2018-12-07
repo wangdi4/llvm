@@ -1,6 +1,6 @@
-; Verify that decomposer generates non-empty semi-phis i.e either valid
-; induction phi or empty semi-phis later fixed by fixPhiNode.
-; This test checks validity of semi-phis for non-reduction code.
+; Verify that decomposer generates non-empty VPPHINodes i.e either valid
+; induction phi or empty phis later fixed by fixPhiNode.
+; This test checks validity of phis for non-reduction code.
 
 ; int  foo(int *a, int *b, int N)
 ; {
@@ -23,10 +23,11 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
-; CHECK: i64 [[IVPhi:%.*]] = semi-phi i64 0 i64 {{%.*}}
-; CHECK: [[SemiPhi:%.*]] = semi-phi i32 [[IfT1:%.*]] i32 [[ElseT1:%.*]]
-; CHECK: store i32 [[SemiPhi]] i32* {{%.*}}
-; CHECK-NOT: {{%.*}} = semi-phi
+; CHECK: i64 [[IVPhi:%.*]] = phi  [ i64 0, {{BB.*}} ],  [ i64 {{%.*}}, {{BB.*}} ]
+; CHECK: i32 [[Phi:%.*]] = phi  [ i32 [[IfT1:%.*]], [[ThenBB:BB.*]] ],  [ i32 [[ElseT1:%.*]], [[ElseBB:BB.*]] ]
+; CHECK-NEXT: i32* [[GEP:%vp.*]] = getelementptr inbounds i32* %b i64 [[IVPhi]]
+; CHECK-NEXT: store i32 [[Phi]] i32* [[GEP]]
+; CHECK-NOT: {{%.*}} = phi
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

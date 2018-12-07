@@ -44,7 +44,7 @@
 ;  SUCCESSORS(1):BB4
 ;
 ;  BB4 (BP: NULL) :
-;   i64 %vp64720 = semi-phi i64 0 i64 %vp1344
+;   i64 %vp64720 = phi [ i64 0, BB3 ], [ i64 %vp1344, BB7 ]
 ;   i32 %vp64944 = load i32 %vp64880
 ;   i32 %vp672 = load i32 %vp608
 ;   i32 %vp928 = add i32 %vp64944 i32 %vp672
@@ -74,7 +74,7 @@
 ; CHECK-NEXT: [[Add:%.*]] = add i64 [[Zext]] i64 -1
 ; CHECK-NEXT: SUCCESSORS(1):[[H:BB.*]]
 ; CHECK: [[H]] {{.*}}:
-; CHECK-NEXT: [[IVPhi:%.*]] = semi-phi
+; CHECK-NEXT: [[IVPhi:%.*]] = phi
 
 target triple = "x86_64-unknown-linux-gnu"
 
