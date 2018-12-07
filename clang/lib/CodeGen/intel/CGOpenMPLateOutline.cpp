@@ -374,8 +374,10 @@ Address OpenMPLateOutliner::emitOMPArraySectionExpr(const Expr *E,
   return BaseAddr;
 }
 
-void OpenMPLateOutliner::addArg(llvm::Value *Val) {
-  BundleValues.push_back(Val);
+void OpenMPLateOutliner::addArg(llvm::Value *V, bool Handled) {
+  BundleValues.push_back(V);
+  if (Handled)
+    HandledValues.insert(V);
 }
 
 void OpenMPLateOutliner::addArg(StringRef Str) { BundleString = Str; }
@@ -391,7 +393,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
       assert(LI && "expected load instruction for reference type");
       V = LI->getPointerOperand();
     }
-    addArg(V);
+    addArg(V, /*Handled=*/true);
     addArg(llvm::ConstantInt::get(CGF.SizeTy, AS.size()));
     for (auto &V : AS) {
       assert(V.LowerBound);
@@ -409,7 +411,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
       assert(LI && "expected load instruction for reference type");
       V = LI->getPointerOperand();
     }
-    addArg(V);
+    addArg(V, /*Handled=*/true);
   }
 }
 
@@ -534,39 +536,16 @@ bool OpenMPLateOutliner::isExplicit(const VarDecl *V) {
   return ExplicitRefs.find(V) != ExplicitRefs.end();
 }
 
+bool OpenMPLateOutliner::alreadyHandled(llvm::Value *V) {
+  return HandledValues.find(V) != HandledValues.end();
+}
+
 void OpenMPLateOutliner::addImplicitClauses() {
   if (!isOpenMPLoopDirective(CurrentDirectiveKind) &&
       !isOpenMPParallelDirective(CurrentDirectiveKind) &&
       CurrentDirectiveKind != OMPD_task &&
       CurrentDirectiveKind != OMPD_target && CurrentDirectiveKind != OMPD_teams)
     return;
-
-  // Add clause for implicit use of the 'this' pointer.
-  if (Directive.hasAssociatedStmt() &&
-      isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared)) {
-    // Catch the use of the this pointer for a captured lambda field.
-    if (llvm::Value *TPV = getThisPointerValue()) {
-      CurrentClauseKind = OMPC_shared;
-      ClauseEmissionHelper CEH(*this);
-      addArg("QUAL.OMP.SHARED");
-      addArg(TPV);
-      CurrentClauseKind = OMPC_unknown;
-    }
-    if (const Stmt *AS = Directive.getAssociatedStmt()) {
-      auto CS = cast<CapturedStmt>(AS);
-      for (auto &C : CS->captures()) {
-        if (!C.capturesThis())
-          continue;
-
-        CurrentClauseKind = OMPC_shared;
-        ClauseEmissionHelper CEH(*this);
-        addArg("QUAL.OMP.SHARED");
-        addArg(CGF.LoadCXXThis());
-        CurrentClauseKind = OMPC_unknown;
-        break;
-      }
-    }
-  }
 
   for (const auto *VD : VarRefs) {
     if (isExplicit(VD))
@@ -594,6 +573,53 @@ void OpenMPLateOutliner::addImplicitClauses() {
       emitImplicit(VD, ICK_shared);
     }
   }
+  // Definitions of temps or uses of other values without representation in
+  // the AST must be added.  We try to save these while generating code but
+  // must use a ValueHandle since some Values are created but are not in the
+  // final IR.  This is this is temporary until the back end can handle local
+  // allocas correctly.
+  for (llvm::WeakTrackingVH &VH : ReferencedValues) {
+    if (!VH.pointsToAliveValue())
+      continue;
+    llvm::Value *V = VH;
+    if (V->getName().find(".omp.iv") != StringRef::npos ||
+        V->getName().find(".omp.ub") != StringRef::npos)
+      continue;
+    bool ValueFound = false;
+    for (llvm::WeakTrackingVH &VH : DefinedValues) {
+      if (VH.pointsToAliveValue() && VH == V) {
+        ValueFound = true;
+        break;
+      }
+    }
+    if (ValueFound) {
+      // Defined in the region: private
+      if (!alreadyHandled(V)) {
+        CurrentClauseKind = OMPC_private;
+        ClauseEmissionHelper CEH(*this);
+        addArg("QUAL.OMP.PRIVATE");
+        addArg(V);
+        CurrentClauseKind = OMPC_unknown;
+      }
+    } else if (CurrentDirectiveKind == OMPD_target) {
+      if (!alreadyHandled(V)) {
+        CurrentClauseKind = OMPC_firstprivate;
+        ClauseEmissionHelper CEH(*this);
+        addArg("QUAL.OMP.FIRSTPRIVATE");
+        addArg(V);
+        CurrentClauseKind = OMPC_unknown;
+      }
+    } else if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared)) {
+      // Referenced but not defined in the region: shared
+      if (!alreadyHandled(V)) {
+        CurrentClauseKind = OMPC_shared;
+        ClauseEmissionHelper CEH(*this);
+        addArg("QUAL.OMP.SHARED");
+        addArg(V);
+        CurrentClauseKind = OMPC_unknown;
+      }
+    }
+  }
 }
 
 void OpenMPLateOutliner::addRefsToOuter() {
@@ -610,6 +636,14 @@ void OpenMPLateOutliner::addRefsToOuter() {
     }
     for (const auto *VD : ExplicitRefs) {
       CGF.CapturedStmtInfo->recordVariableReference(VD);
+    }
+    for (llvm::WeakTrackingVH &VH : DefinedValues) {
+      if (VH.pointsToAliveValue())
+        CGF.CapturedStmtInfo->recordValueDefinition(VH);
+    }
+    for (llvm::WeakTrackingVH &VH : ReferencedValues) {
+      if (VH.pointsToAliveValue())
+        CGF.CapturedStmtInfo->recordValueReference(VH);
     }
   }
 }

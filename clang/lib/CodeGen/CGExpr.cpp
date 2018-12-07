@@ -83,6 +83,10 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
   if (AllocaAddr)
     *AllocaAddr = Alloca;
   llvm::Value *V = Alloca.getPointer();
+#if INTEL_COLLAB
+  if (CapturedStmtInfo)
+    CapturedStmtInfo->recordValueDefinition(V);
+#endif // INTEL_COLLAB
   // Alloca always returns a pointer in alloca address space, which may
   // be different from the type defined by the language. For example,
   // in C++ the auto variables are in the default address space. Therefore
@@ -2537,7 +2541,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
         VD = VD->getCanonicalDecl();
         if (auto *FD = LambdaCaptureFields.lookup(VD)) {
           if (CapturedStmtInfo)
-            CapturedStmtInfo->recordThisPointerReference(CXXABIThisValue);
+            CapturedStmtInfo->recordValueReference(CXXABIThisValue);
           return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);
         }
       }

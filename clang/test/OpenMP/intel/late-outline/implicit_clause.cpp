@@ -166,4 +166,64 @@ void target_test()
        int x = other + dataPtr[5];
     }
 }
+
+struct MyClass {
+  int h;
+  void execute();
+};
+
+void MyClass::execute() {
+// CHECK: region.entry{{.*}}"DIR.OMP.TARGET"
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"{{.*}}this
+// CHECK: region.entry{{.*}}"DIR.OMP.PARALLEL"
+// CHECK-SAME: "QUAL.OMP.SHARED"{{.*}}this
+  #pragma omp target
+  #pragma omp parallel
+  {
+    int yend =  h;
+  }
+}
+
+#pragma omp declare target
+struct vec2 {
+    float x, y;
+    inline vec2() { }
+    inline vec2(float a)
+        :x(a), y(a){}
+    inline vec2(float a_x, float a_y)
+        :x(a_x), y(a_y){}
+    inline friend vec2 operator*(const vec2& v1, const vec2& v2) {
+        return vec2(v1.x * v2.x, v1.y * v2.y );
+    }
+};
+
+#pragma omp end declare target
+
+class MyClass2 {
+  int sz;
+  int *dst;
+  void execute_offload ();
+};
+
+void MyClass2::execute_offload() {
+  //CHECK-DAG: [[REF_TMP:%ref.tmp.*]] = alloca %struct.vec2, align 4
+  //CHECK-DAG: [[RESOLUTION:%resolution.*]] = alloca %struct.vec2, align 4
+  int *_dst_ = dst;
+
+  //CHECK: region.entry{{.*}}"DIR.OMP.TARGET"
+  //CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"{{.*}}[[REF_TMP]]
+  //CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"{{.*}}[[RESOLUTION]]
+  //CHECK: region.entry{{.*}}"DIR.OMP.PARALLEL.LOOP"
+  //CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"{{.*}}[[REF_TMP]]
+  //CHECK-SAME-DAG: "QUAL.OMP.PRIVATE"{{.*}}[[RESOLUTION]]
+  #pragma omp target map(from: _dst_[0:sz])
+  #pragma omp parallel for
+  for (int y = 0 ; y < 10 ; y++) {
+    //CHECK: call {{.*}}(%struct.vec2* [[RESOLUTION]], float 2.000000e+00)
+    //CHECK: call {{.*}}(%struct.vec2* [[REF_TMP]], float 1.000000e+00)
+    vec2 resolution(2.0f);
+    vec2 vPos (1.0f * resolution);
+    _dst_[ 5 ] = 1234;
+  }
+}
 // end INTEL_COLLAB

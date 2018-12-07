@@ -393,7 +393,9 @@ public:
 #if INTEL_COLLAB
     virtual void recordVariableDefinition(const VarDecl *VD) {}
     virtual void recordVariableReference(const VarDecl *VD) {}
-    virtual void recordThisPointerReference(llvm::Value *) {}
+    virtual void recordValueDefinition(llvm::Value *) {}
+    virtual void recordValueReference(llvm::Value *) {}
+    virtual void recordValueSuppression(llvm::Value *) {}
 #endif // INTEL_COLLAB
   private:
     /// The kind of captured statement being generated.
@@ -2556,6 +2558,10 @@ public:
   /// generating code for an C++ member function.
   llvm::Value *LoadCXXThis() {
     assert(CXXThisValue && "no 'this' value for this function");
+#if INTEL_COLLAB
+    if (CapturedStmtInfo)
+      CapturedStmtInfo->recordValueReference(CXXThisValue);
+#endif  // INTEL_COLLAB
     return CXXThisValue;
   }
   Address LoadCXXThisAddress();
