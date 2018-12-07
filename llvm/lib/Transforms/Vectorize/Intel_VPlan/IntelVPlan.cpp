@@ -1176,22 +1176,19 @@ void VPlan::verifyVPExternalDefs() const {
 void VPlan::verifyVPExternalDefsHIR() const {
   SmallSet<unsigned, 16> SymbaseSet;
   SmallSet<unsigned, 16> IVLevelSet;
-  for (const auto &Pair : VPExternalDefsHIR) {
-    const UnitaryBlobOrIV &KeyHIROp = Pair.first;
-    assert(KeyHIROp.isStructurallyEqual(Pair.second->getUnitaryBlobOrIV()) &&
-           "UnitaryBlobOrIV key and VPExternalDef's UnitaryBlobOrIV must be "
-           "the same!");
+  for (const auto &ExtDef : VPExternalDefsHIR) {
+    const VPOperandHIR *HIROperand = ExtDef.getOperandHIR();
 
     // Deeper verification depending on the kind of the underlying HIR operand.
-    if (KeyHIROp.isBlob()) {
+    if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
       // For blobs we check that the symbases are unique.
-      unsigned Symbase = KeyHIROp.getBlob()->getSymbase();
+      unsigned Symbase = Blob->getBlob()->getSymbase();
       assert(!SymbaseSet.count(Symbase) && "Repeated blob VPExternalDef!");
       SymbaseSet.insert(Symbase);
     } else {
       // For IVs we check that the IV levels are unique.
-      assert(KeyHIROp.isIV() && "Expected IV VPExternalDef!");
-      unsigned IVLevel = KeyHIROp.getIVLevel();
+      const auto *IV = cast<VPIndVar>(HIROperand);
+      unsigned IVLevel = IV->getIVLevel();
       assert(!IVLevelSet.count(IVLevel) && "Repeated IV VPExternalDef!");
       IVLevelSet.insert(IVLevel);
     }
@@ -1288,7 +1285,7 @@ void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
     OS << "External defs:\n";
     for (auto DI = VPExternalDefsHIR.begin(); DI != VPExternalDefsHIR.end();
          DI++)
-      OS << *(DI->second) << "\n";
+      OS << *DI << "\n";
   }
   if (!VPExternalUses.empty()) {
     OS << "Used externally:\n";
@@ -1305,10 +1302,10 @@ void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
     OS << "Used externally:\n";
     for (auto UI = VPExternalUsesHIR.begin(); UI != VPExternalUsesHIR.end();
          UI++) {
-      const VPValue *Op = UI->second->getOperand(0);
+      const VPValue *Op = UI->getOperand(0);
       Op->printAsOperand(OS);
-      if (DumpVPlanLiveness > 1 && UI->second->getUnderlyingValue())
-        OS << " (used by " << *(UI->second->getUnderlyingValue()) << ")\n";
+      if (DumpVPlanLiveness > 1 && UI->getUnderlyingValue())
+        OS << " (used by " << *(UI->getUnderlyingValue()) << ")\n";
       else
         OS << "\n";
     }

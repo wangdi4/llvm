@@ -366,14 +366,13 @@ public:
 /// shared by structural equivalence (e.g. i32 %param0 == i32 %param0). They
 /// must be created through the VPlan::getVPExternalDef interface, to guarantee
 /// that only once instance of each external definition is created.
-class VPExternalDef : public VPValue {
+class VPExternalDef : public VPValue, public FoldingSetNode {
   // VPlan is currently the context where the pool of VPExternalDefs is held.
   friend class VPlan;
 
 private:
-  // Hold the HIR information related to this external definition operand (DDRef
-  // or IV).
-  UnitaryBlobOrIV HIROperand;
+  // Hold the DDRef or IV information related to this external definition.
+  std::unique_ptr<VPOperandHIR> HIROperand;
 
   // Construct a VPExternalDef given a Value \p ExtVal.
   VPExternalDef(Value *ExtVal)
@@ -383,20 +382,21 @@ private:
 
   // Construct a VPExternalDef given an underlying DDRef \p DDR.
   VPExternalDef(loopopt::DDRef *DDR)
-      : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()), HIROperand(DDR) {
-  }
+      : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
+        HIROperand(new VPBlob(DDR)) {}
 
   // Construct a VPExternalDef given an underlying IV level \p IVLevel.
   VPExternalDef(unsigned IVLevel, Type *BaseTy)
-      : VPValue(VPValue::VPExternalDefSC, BaseTy), HIROperand(IVLevel) {}
+      : VPValue(VPValue::VPExternalDefSC, BaseTy),
+        HIROperand(new VPIndVar(IVLevel)) {}
 
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as
   // independent as possible of the underlying IR. We grant access to the
   // underlying IR using friendship.
 
-  /// Return the underlying HIR information for this VPExternalDef.
-  const UnitaryBlobOrIV &getUnitaryBlobOrIV() { return HIROperand; };
+  /// Return the HIR operand for this VPExternalDef.
+  const VPOperandHIR *getOperandHIR() const { return HIROperand.get(); };
 
 public:
   VPExternalDef() = delete;
@@ -409,7 +409,7 @@ public:
     else {
       getBaseType()->print(OS);
       OS << " ";
-      HIROperand.print(OS);
+      HIROperand->print(OS);
     }
   }
 
@@ -417,6 +417,54 @@ public:
   static inline bool classof(const VPValue *V) {
     return V->getVPValueID() == VPExternalDefSC;
   }
+
+  /// Method to support FoldingSet's hashing.
+  void Profile(FoldingSetNodeID &ID) const { HIROperand->Profile(ID); }
+};
+
+/// Concrete class for an external use.
+class VPExternalUse : public VPUser, public FoldingSetNode {
+private:
+  friend class VPlan;
+
+  // Hold the DDRef or IV information related to this external use.
+  std::unique_ptr<VPOperandHIR> HIROperand;
+
+  // Construct a VPExternalUse given a Value \p ExtVal.
+  VPExternalUse(Value *ExtVal)
+      : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()) {
+    setUnderlyingValue(ExtVal);
+  }
+  // Construct a VPExternalUse given an underlying DDRef \p DDR.
+  VPExternalUse(loopopt::DDRef *DDR)
+      : VPUser(VPValue::VPExternalUseSC, DDR->getDestType()),
+        HIROperand(new VPBlob(DDR)) {}
+  // Construct a VPExternalUse given an underlying IV level \p IVLevel.
+  VPExternalUse(unsigned IVLevel, Type *BaseTy)
+      : VPUser(VPValue::VPExternalUseSC, BaseTy),
+        HIROperand(new VPIndVar(IVLevel)) {}
+
+  // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
+  // the front-end and back-end of VPlan so that the middle-end is as
+  // independent as possible of the underlying IR. We grant access to the
+  // underlying IR using friendship.
+
+  /// Return the HIR operand for this VPExternalDef.
+  const VPOperandHIR *getOperandHIR() const { return HIROperand.get(); };
+
+public:
+  VPExternalUse() = delete;
+  VPExternalUse(const VPExternalUse &) = delete;
+  VPExternalUse &operator=(const VPExternalUse &) = delete;
+
+  /// \brief Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPExternalUseSC;
+  }
+
+  /// Method to support FoldingSet's hashing.
+  void Profile(FoldingSetNodeID &ID) const { HIROperand->Profile(ID); }
 };
 
 /// This class augments VPValue with Metadata that is used as operand of another
@@ -464,47 +512,6 @@ public:
     return V->getVPValueID() == VPMetadataAsValueSC;
   }
 };
-/// Concrete class for an external use.
-class VPExternalUse : public VPUser {
-private:
-  friend class VPlan;
-
-  // Hold the HIR information related to this external definition operand (DDRef
-  // or IV).
-  UnitaryBlobOrIV HIROperand;
-
-  // Construct a VPExternalUse given a Value \p ExtVal.
-  VPExternalUse(Value *ExtVal)
-      : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()) {
-    setUnderlyingValue(ExtVal);
-  }
-  // Construct a VPExternalUse given an underlying DDRef \p DDR.
-  VPExternalUse(loopopt::DDRef *DDR)
-      : VPUser(VPValue::VPExternalUseSC, DDR->getDestType()), HIROperand(DDR) {}
-  // Construct a VPExternalUse given an underlying IV level \p IVLevel.
-  VPExternalUse(unsigned IVLevel, Type *BaseTy)
-      : VPUser(VPValue::VPExternalUseSC, BaseTy), HIROperand(IVLevel) {}
-
-  // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
-  // the front-end and back-end of VPlan so that the middle-end is as
-  // independent as possible of the underlying IR. We grant access to the
-  // underlying IR using friendship.
-
-  /// Return the underlying HIR information for this VPExternalDef.
-  const UnitaryBlobOrIV &getUnitaryBlobOrIV() { return HIROperand; };
-
-public:
-  VPExternalUse() = delete;
-  VPExternalUse(const VPExternalUse &) = delete;
-  VPExternalUse &operator=(const VPExternalUse &) = delete;
-
-  /// \brief Methods for supporting type inquiry through isa, cast, and
-  /// dyn_cast:
-  static bool classof(const VPValue *V) {
-    return V->getVPValueID() == VPExternalUseSC;
-  }
-};
-
 } // namespace vpo
 #endif // INTEL_CUSTOMIZATION
 } // namespace llvm

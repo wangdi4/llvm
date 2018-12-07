@@ -2204,16 +2204,10 @@ protected:
   /// each external definition.
   DenseMap<Value *, std::unique_ptr<VPExternalDef>> VPExternalDefs;
 
-  /// Holds all the VPMetadataAsValues created for this VPlan.
-  DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>
-      VPMetadataAsValues;
-
   /// Holds all the external definitions representing an HIR underlying entity
-  /// in this VPlan. The key is the underlying HIR information that uniquely
-  /// identifies each external definition.
-  DenseMap<UnitaryBlobOrIV, std::unique_ptr<VPExternalDef>,
-           SymbaseIVLevelMapInfo>
-      VPExternalDefsHIR;
+  /// in this VPlan. The hash is based on the underlying HIR information that
+  /// uniquely identifies each external definition.
+  FoldingSet<VPExternalDef> VPExternalDefsHIR;
 
   /// Holds all the external uses in this VPlan representing an underlying
   /// Value. The key is the underlying Value that uniquely identifies each
@@ -2223,9 +2217,11 @@ protected:
   /// Holds all the external uses representing an HIR underlying entity
   /// in this VPlan. The key is the underlying HIR information that uniquely
   /// identifies each external use.
-  DenseMap<UnitaryBlobOrIV, std::unique_ptr<VPExternalUse>,
-           SymbaseIVLevelMapInfo>
-      VPExternalUsesHIR;
+  FoldingSet<VPExternalUse> VPExternalUsesHIR;
+
+  /// Holds all the VPMetadataAsValues created for this VPlan.
+  DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>
+      VPMetadataAsValues;
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
@@ -2432,30 +2428,33 @@ private:
 
   // Create or retrieve an external item from \p Table for given HIR unitary
   // DDRef \p DDR.
-  template <typename T>
-  typename T::mapped_type::element_type *
-  getExternalItemForDDRef(T &Table, loopopt::DDRef *DDR) {
-    using Def = typename T::mapped_type::element_type;
-    UnitaryBlobOrIV ExtDef(DDR);
-    typename T::mapped_type &UPtr = Table[ExtDef];
-    if (!UPtr)
-      // Def is a new external item to be inserted in the map.
-      UPtr.reset(new Def(DDR));
-    return UPtr.get();
+  template <typename Def>
+  Def *getExternalItemForDDRef(FoldingSet<Def> &Table, loopopt::DDRef *DDR) {
+    FoldingSetNodeID ID;
+    ID.AddInteger(DDR->getSymbase());
+    ID.AddInteger(0 /*IVLevel*/);
+    void *IP = nullptr;
+    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+    Def *ExtDef = new Def(DDR);
+    Table.InsertNode(ExtDef, IP);
+    return ExtDef;
   }
 
   // Create or retrieve an external item from \p Table for an HIR IV identified
   // by its \p IVLevel.
-  template <typename T>
-  typename T::mapped_type::element_type *
-  getExternalItemForIV(T &Table, unsigned IVLevel, Type *BaseTy) {
-    using Def = typename T::mapped_type::element_type;
-    UnitaryBlobOrIV ExtDef(IVLevel);
-    typename T::mapped_type &UPtr = Table[ExtDef];
-    if (!UPtr)
-      // Def is a new external item to be inserted in the map.
-      UPtr.reset(new Def(IVLevel, BaseTy));
-    return UPtr.get();
+  template <typename Def>
+  Def *getExternalItemForIV(FoldingSet<Def> &Table, unsigned IVLevel,
+                            Type *BaseTy) {
+    FoldingSetNodeID ID;
+    ID.AddInteger(0 /*Symbase*/);
+    ID.AddInteger(IVLevel);
+    void *IP = nullptr;
+    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+    Def *ExtDef = new Def(IVLevel, BaseTy);
+    Table.InsertNode(ExtDef, IP);
+    return ExtDef;
   }
 };
 
