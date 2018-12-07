@@ -1,4 +1,4 @@
-//===- CSAMemopOrdering.cpp - CSA Memory Operation Ordering -----*- C++ -*-===//
+//===-- CSAMemopOrdering.cpp - Standard memop ordering pass -----*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
@@ -7,57 +7,31 @@
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
 //
-//===----------------------------------------------------------------------===//
-//
-// This file implements a machine function pass for the CSA target that
-// ensures that memory operations occur in the correct order.
-//
-//===----------------------------------------------------------------------===//
+///===---------------------------------------------------------------------===//
+/// \file
+///
+/// This file implements the standard CSA memop ordering pass.
+///
+///===---------------------------------------------------------------------===//
 
-#include "CSA.h"
+#include "CSAMemopOrdering.h"
 #include "CSATargetMachine.h"
-#include "CSAUtils.h"
 #include "Intel_CSA/Transforms/Scalar/CSALowerParallelIntrinsics.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/GraphWriter.h"
-#include "llvm/Support/raw_ostream.h"
 
-#include <algorithm>
-#include <iterator>
+#include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/CFG.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/GraphWriter.h"
+
+#include <functional>
 #include <map>
 #include <queue>
-#include <set>
-#include <stack>
-#include <vector>
 
 using namespace llvm;
-
-static cl::opt<int> OrderMemops{
-  "csa-order-memops", cl::Hidden, cl::ZeroOrMore,
-  cl::desc(
-    "CSA Specific: Disable ordering of memory operations (by setting to 0)"),
-  cl::init(1)};
-
-static cl::opt<bool> LinearOrdering{
-  "csa-memop-ordering-linear", cl::Hidden,
-  cl::desc("CSA-specific: Ignore any possible parallelism between memops "
-           "during memop ordering. Really bad for performance, but helpful for "
-           "tracking down bugs."),
-  cl::init(false)};
-
-static cl::opt<bool> RaceModeOrdering{
-  "csa-memop-ordering-race-mode", cl::Hidden,
-  cl::desc("CSA-specific: Ignore all ordering except for ordering with "
-           "function call boundaries. Essentially the opposite of linear mode, "
-           "and will cause race conditions in any code with real "
-           "intra-function dependencies."),
-  cl::init(false)};
 
 static cl::opt<bool> RacyLoops{
   "csa-memop-ordering-racy-loops", cl::Hidden,
@@ -113,23 +87,17 @@ static cl::opt<bool> DumpMemopCFG{"csa-dump-memop-cfg", cl::Hidden,
                                   cl::desc("CSA-specific: dump memop CFG"),
                                   cl::init(false)};
 
-static cl::opt<bool> DumpOrderingChains{
-  "csa-dump-ordering-chains", cl::Hidden,
-  cl::desc("CSA-specific: dump memory ordering chains"), cl::init(false)};
-
-// This value is not for tuning: it is the arity of the merge instruction which
-// is used for generating merge trees. Since the instruction used for merges is
-// currently the quaternary all0, this must be 4.
-constexpr int MERGE_ARITY = 4;
-
-// These values are used for tuning LLVM datastructures; correctness is not at
-// stake if they are off.
-
 // A guess at the number of predecessors per basic block.
 constexpr unsigned PRED_COUNT = 2;
 
 // A guess at the number of successors per basic block.
 constexpr unsigned SUCC_COUNT = 2;
+
+// A guess at the number of inputs per merge.
+constexpr unsigned INPUTS_PER_MERGE = 4;
+
+// A guess at the typical number of live dependencies.
+constexpr unsigned LIVE_DEP_COUNT = 8;
 
 // A guess at the number of orderable memory operations per basic block.
 constexpr unsigned MEMOP_COUNT = 4;
@@ -167,24 +135,13 @@ constexpr unsigned IMP_DEPS_PER_MEMOP = 4;
 // A guess at the number of phibits per MemopCFG node.
 constexpr unsigned PHIBITS_PER_NODE = 8;
 
-// A guess at the typical number of live dependencies.
-constexpr unsigned LIVE_DEP_COUNT = 8;
-
 #define DEBUG_TYPE "csa-memop-ordering"
-#define PASS_NAME "CSA: Memory Operation Ordering"
+constexpr auto PASS_DESC = "CSA: Memory operation ordering";
 
 // Memory ordering statistics.
-STATISTIC(MemopCount, "Number of memory operations ordered");
-STATISTIC(MergeCount, "Number of merges inserted");
-STATISTIC(PHICount, "Number of phi nodes inserted");
 STATISTIC(AliasQueryCount, "Number of queries made to alias analysis");
 
 namespace {
-
-// The register class we are going to use for all the memory-op
-// dependencies.  Technically they could be I0, but I don't know how
-// happy LLVM will be with that.
-const TargetRegisterClass *MemopRC = nullptr;
 
 // A type which represents a copy of the CFG with non-memory/non-intrinsic
 // operations stripped and with extra bookkeeping fields in each node to
@@ -193,11 +150,6 @@ struct MemopCFG {
 
   struct Node;
   struct Loop;
-
-  const MachineLoopInfo *MLI;
-
-  /// \brief Optimization remark emitter for memory ordering pass.
-  MachineOptimizationRemarkEmitter *ORE;
 
   // A type to represent dependencies, in the form of direct memops, phibits, or
   // eventually other marker elements.
@@ -250,17 +202,6 @@ struct MemopCFG {
 
     // An explicit bool conversion for testing if this token is not <none>.
     explicit operator bool() const { return type; }
-
-    // Retrieves the virtual register number for this token after those have
-    // been assigned. This should never be called on <none>.
-    unsigned reg_no() const;
-
-    // Dumps the ordering chain for this token. Output is produced at indent
-    // level indent and duplicate output is omitted using the seen map. The
-    // total number of instructions printed (/elided) under this one is
-    // returned.
-    int dump_ordering_chain(raw_ostream &, std::map<OrdToken, int> &seen,
-                            int indent = 0) const;
   };
 
   // A fragment of a phi node representing an dependency from only one
@@ -291,15 +232,15 @@ struct MemopCFG {
     // of the predecessor list in the phi node's memop CFG node.
     SmallVector<OrdToken, PRED_COUNT> inputs;
 
-    // This phi's virtual register.
-    unsigned reg_no;
+    // The IR phi node created for this phi node.
+    PHINode *I = nullptr;
   };
 
   // An n-ary merge of memory ordering tokens.
   struct Merge {
 
     // The inputs to this merge, in sorted order.
-    SmallVector<OrdToken, MERGE_ARITY> inputs;
+    SmallVector<OrdToken, INPUTS_PER_MERGE> inputs;
 
     // Must-merge and may-merge sets for determining which merges this one can
     // be combined with without introducing any extra memory ordering
@@ -311,22 +252,8 @@ struct MemopCFG {
     // this will be the number of memops in the node.
     int memop_idx;
 
-    // This merge's virtual register.
-    unsigned reg_no;
-
-    // If this is nonzero, the merge should not be emitted directly and should
-    // be delayed until just before the merge at delayed_emit_idx is emitted.
-    // Merges must be topologically sorted when they are emitted in order to
-    // make sure that there are no uses before defs; in most instances this is
-    // already the case since the original merges produced by the ordering
-    // algorithm can't depend on each other and the ones produced during merge
-    // tree expansion cannot depend on later merges by construction. However,
-    // the original merges are updated in-place during merge tree expansion to
-    // depend on later ones, so this member is used to make sure that those
-    // don't get emitted until the rest of their tree is. This value
-    // monotonically increases within a node, so a normal (non-priority) queue
-    // can be used when delaying these merges.
-    int delayed_emit_idx = 0;
+    // The IR all0 intrinsic created for this merge.
+    Value *All0 = nullptr;
   };
 
   // A parallel region/section intrinsic.
@@ -343,8 +270,8 @@ struct MemopCFG {
     // The type of this intrinsic.
     enum Type { region_entry, region_exit, section_entry, section_exit } type;
 
-    // A constructor from a machine instruction.
-    RegSecIntrinsic(int memop_idx, const MachineInstr &MI,
+    // A constructor from a intrinsic instruction.
+    RegSecIntrinsic(int memop_idx, const IntrinsicInst *II,
                     std::map<int, int> &normalized_regions);
   };
 
@@ -355,65 +282,45 @@ struct MemopCFG {
     Node *parent = nullptr;
 
     // The original instruction.
-    MachineInstr *MI = nullptr;
-
-    // Information about where to emit a fence-like sxu mov if MI is nullptr. If
-    // is_start is set, this sxu mov produces an ordering token and should be
-    // placed at the beginning of the basic block or after a call. Otherwise, it
-    // consumes a token and should be placed at the end of the basic block or
-    // before the call. call_mi indicates the call that this sxu mov should be
-    // placed relative to, or is nullptr if there isn't one.
-    bool is_start;
-    MachineInstr *call_mi = nullptr;
+    Instruction *I = nullptr;
 
     // The token for the ready signal for this memory operation, or <none> if
     // the ordering chain for it hasn't been built yet.
     OrdToken ready;
 
-    // This memop's virtual register for the issued signal.
-    unsigned reg_no;
+    // This memop's outord value.
+    Value *outord = nullptr;
 
     // This memop's explicit and implicit dependencies.
     DepVec exp_deps, imp_deps;
 
-    // How to query the MachineMemOperand for this memory operation. Returns
-    // false if it's fence-like.
-    const MachineMemOperand *mem_operand() const;
+    // This memop's AtomicOrdering and volatility, pre-calculated as the memop
+    // is loaded.
+    AtomicOrdering AOrdering;
+    bool Volatile;
 
-    // Constructs a default fence-like memory operation which needs to be
-    // ordered relative to everything. These will have nullptr as their MI and
-    // produce nullptr as the result of mem_operand().
-    Memop(Node *parent);
-
-    // Construction from an original machine instruction. This machine
-    // instruction ought to have a single memory operand.
-    Memop(Node *parent, MachineInstr *);
-
-    // Determines whether a given machine instruction should be assigned
-    // ordering (loaded into the memop CFG as a Memop). This is the case if it
-    // has a memory operand and if its last use and last def are both %ign.
-    static bool should_assign_ordering(const MachineInstr &MI);
+    // Construction from an original IR instruction.
+    Memop(Node *parent, Instruction *);
   };
 
-  // A functor type for computing the path-independent component of the
-  // "requires ordering with" relation.
+  // A functor type for computing the non-parallel region/section component of
+  // the "requires ordering with" relation.
   class RequireOrdering {
 
     AAResults *AA;
-    const MachineFrameInfo *MFI;
 
   public:
     RequireOrdering() {}
 
-    // The constructor. The functor needs access to the alias information and
-    // MachineFrameInfo for the function, so that's supplied here.
-    RequireOrdering(AAResults *, const MachineFrameInfo *);
+    // The constructor. The functor needs access to the alias information, so
+    // that's supplied here.
+    RequireOrdering(AAResults *);
 
-    // Determines whether two memops require ordering. In general, this is the
-    // case if they alias and at least one modifies memory. The looped parameter
-    // indicates whether a special arbitrary size query should be done to
-    // account for the crossing of a loop backedge.
-    bool operator()(const Memop &, const Memop &, bool looped) const;
+    // Determines whether A needs to be ordered before B. In general,
+    // this is the case if they alias and at least one modifies memory. The
+    // Looped parameter indicates whether a special arbitrary size query should
+    // be done to account for the crossing of a loop backedge.
+    bool operator()(const Memop &A, const Memop &B, bool Looped) const;
   };
 
   // A collection of parallel section states.
@@ -456,7 +363,7 @@ struct MemopCFG {
   struct Node {
 
     // The original basic block.
-    MachineBasicBlock *BB;
+    BasicBlock *BB;
 
     // Predecessors to this node.
     SmallVector<Node *, PRED_COUNT> preds;
@@ -536,10 +443,6 @@ struct MemopCFG {
     // this node.
     const RequireOrdering &require_ordering;
 
-    // The virtual register that this node should use to populate <none> phi
-    // arguments. 0 indicates that it has not been calculated yet.
-    unsigned none_init_mov = 0;
-
     // A topological ordering for Node*s.
     struct topo_order {
       bool operator()(const Node *a, const Node *b) {
@@ -555,7 +458,8 @@ struct MemopCFG {
     // normalized_regions is a map from original region ids to normalized ones
     // that is filled out and used as regions are encountered from parallel
     // sections intrinsics.
-    Node(MachineBasicBlock *, const RequireOrdering &,
+    Node(BasicBlock *, int topo_num, const RequireOrdering &,
+         const std::function<bool(Instruction &)> &needs_ordering_edges,
          bool use_parallel_sections, std::map<int, int> &normalized_regions);
 
     // Whether this node is strictly dominated by another node.
@@ -625,27 +529,13 @@ struct MemopCFG {
     // merged in if it helps with CSE.
     OrdToken insert_merges_and_phis(DepVec &must, const DepVec &may,
                                     int memop_idx);
-
-    // Expands each merge into a tree of MERGE_ARITY-ary merges.
-    void expand_merge_trees();
-
-    // Locates the virtual register output of the mov instruction that should
-    // be used as the input to phi nodes that depend on this node but have no
-    // real value coming from it.
-    unsigned get_none_init_mov_virtreg();
-
-    // Adds phi nodes to the original machine basic block.
-    void emit_phis();
-
-    // Adds merges to the original machine basic block.
-    void emit_merges();
-
-    // Wires up the original memory operations and emits fence-like movs.
-    void emit_memops();
   };
 
   // A MemopCFG Loop and all related information.
   struct Loop {
+
+    // The original IR Loop.
+    const llvm::Loop *IRL;
 
     // The set of nodes in this loop, in topological order.
     SmallVector<Node *, NODES_PER_LOOP> nodes;
@@ -654,7 +544,7 @@ struct MemopCFG {
     int depth;
 
     // The loop is marked Parallel by CSALowerParallelIntrinsics.
-    bool IsParallel {false};
+    bool IsParallel{false};
 
     // Whether this loop contains a given node.
     bool contains(const Node *) const;
@@ -670,8 +560,8 @@ struct MemopCFG {
                                std::map<Node *, DepVec> &reach_cache) const;
   };
 
-  // The collection of nodes in this MemopCFG. In general, these will be
-  // topologically sorted.
+  // The collection of nodes in this MemopCFG. These will be topologically
+  // (reverse post order) sorted.
   SmallVector<std::unique_ptr<Node>, NODES_PER_FUNCTION> nodes;
 
   // The set of loops in this MemopCFG, with subloops preceding their containing
@@ -685,18 +575,19 @@ struct MemopCFG {
   // The RequireOrdering functor for computing "requires ordering with".
   RequireOrdering require_ordering;
 
-  // A mapping from MachineBasicBlock pointers to Node pointers to make it
-  // easier to find nodes given original basic blocks.
-  std::map<const MachineBasicBlock *, Node *> nodes_for_bbs;
+  // A mapping from BasicBlock pointers to Node pointers to make it easier to
+  // find nodes given original basic blocks.
+  std::map<const BasicBlock *, Node *> nodes_for_bbs;
 
   // Loads the MemopCFG with memops from a given machine function using the
   // given analysis results. The graph should be empty when this is called, so
   // make sure clear gets called before this is called again to load a different
   // function. If use_parallel_sections is set, parallel section intrinsics will
   // be copied over into the MemopCFG; otherwise, they will be ignored.
-  void load(MachineFunction &, AAResults *, const MachineDominatorTree *,
-            const MachineLoopInfo *, MachineOptimizationRemarkEmitter *ORE,
-            bool use_parallel_sections);
+  void load(Function &, AAResults *, const DominatorTree &, const LoopInfo &,
+            ReversePostOrderTraversal<Function *> &,
+            const std::function<bool(Instruction &)> &needs_ordering_edges,
+            bool can_speculate, bool use_parallel_sections);
 
   // Unloads/erases the currently-loaded graph.
   void clear();
@@ -706,26 +597,16 @@ struct MemopCFG {
   // be re-loaded without parallel section intrinsics and tried again.
   bool construct_chains();
 
-  // Expands merge trees and emits the actual ordering chain instructions to the
-  // original function.
-  void emit_chains();
-
-  // Dumps the memory ordering chains for each memop.
-  void dump_ordering_chains(raw_ostream &);
-
   /// \brief Emit optimization remarks regarding pipelined/non-pipelined loops.
-  void emit_opt_report();
+  void emit_opt_report(OptimizationRemarkEmitter &);
 
 private:
-  // Performs a topological sort of the nodes. This is called inside of load.
-  void topological_sort();
-
   // Recursively collects loop information to build the loops array. This is
-  // also called inside of load.
-  void collect_loops(const MachineLoop *);
+  // called inside of load.
+  void collect_loops(const llvm::Loop *);
 
   // Determines implicit dependencies. Also called inside of load.
-  void calculate_imp_deps();
+  void calculate_imp_deps(bool can_speculate);
 
   // Calculates self dependencies, appending any that it finds to memops'
   // imp_deps field. Called as part of calculate_imp_deps.
@@ -734,52 +615,39 @@ private:
   // Calculates data dependencies, appending any that it finds to memops'
   // imp_deps field. Also called as part of calculate_imp_deps.
   void calculate_data_deps();
-
-  // Gates inputs on the incoming ordering edge. This is run at the end of
-  // emit_chains if parameter gating is enabled, and requires that the MI field
-  // of the initial fence-like mov is set.
-  void gate_parameters();
 };
 
-// A pass for filling out memory ordering operands on memory operations. Full
-// documentation pending future updates.
-class CSAMemopOrdering : public MachineFunctionPass {
-  bool runOnMachineFunction(MachineFunction &MF) override;
+} // namespace
 
+namespace llvm {
+
+/// The standard memop ordering pass for CSA.
+class CSAMemopOrdering : public CSAMemopOrderingBase {
 public:
   static char ID;
-  CSAMemopOrdering() : MachineFunctionPass(ID) {
-    initializeCSAMemopOrderingPass(*PassRegistry::getPassRegistry());
-  }
-  StringRef getPassName() const override {
-    return PASS_NAME;
-  }
+  CSAMemopOrdering(const CSATargetMachine *TMIn = nullptr)
+      : CSAMemopOrderingBase{ID}, TM{TMIn} {}
+  StringRef getPassName() const override;
+  void getAnalysisUsage(AnalysisUsage &) const override;
 
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AAResultsWrapperPass>();
-    AU.addRequired<MachineDominatorTree>();
-    AU.addRequired<MachineLoopInfo>();
-    AU.addRequired<MachineOptimizationRemarkEmitterPass>();
-    AU.setPreservesCFG();
-    MachineFunctionPass::getAnalysisUsage(AU);
-  }
+protected:
+  void order(Function &) override;
 
 private:
-  AAResults *AA;
-  MachineRegisterInfo *MRI;
-  const MachineDominatorTree *DT;
-  const MachineLoopInfo *MLI;
+  const CSATargetMachine *TM;
 
-  /// \brief Optimization remark emitter for memory ordering pass.
-  MachineOptimizationRemarkEmitter *ORE;
-  MemopCFG mopcfg;
+  /// Retrieves the outord value corresponding to a given OrdToken. PHIs and
+  /// dominating memops should already be created/ordered when this is called;
+  /// merges are created on demand.
+  Value *getOutord(const MemopCFG::OrdToken &);
 
-  // Adds ordering constraints to relevant memops in the given function.
-  void addMemoryOrderingConstraints(MachineFunction &);
-
-  // Wipes out all of the intrinsics.
-  void eraseParallelIntrinsics(MachineFunction *MF);
+  /// Emits the memop ordering code in a MemopCFG to this function.
+  void emit(MemopCFG &);
 };
+
+} // namespace llvm
+
+namespace {
 
 // Operator<s that provide unique orderings for dependencies and dependency
 // token values.
@@ -876,12 +744,29 @@ raw_ostream &operator<<(raw_ostream &out, const MemopCFG::OrdToken &val) {
 }
 
 raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Memop &memop) {
-  if (not memop.MI)
-    out << "mov0";
-  else {
-    const TargetInstrInfo *const TII =
-      memop.MI->getParent()->getParent()->getSubtarget().getInstrInfo();
-    out << TII->getName(memop.MI->getOpcode());
+  assert(memop.I);
+  out << memop.I->getOpcodeName();
+  if (memop.AOrdering != AtomicOrdering::NotAtomic)
+    out << " atomic";
+  if (memop.Volatile)
+    out << " volatile";
+  if (const auto LdI = dyn_cast<LoadInst>(memop.I)) {
+    out << " ";
+    LdI->getPointerOperand()->printAsOperand(out);
+  } else if (const auto StI = dyn_cast<StoreInst>(memop.I)) {
+    out << " ";
+    StI->getPointerOperand()->printAsOperand(out);
+  } else if (const auto XI = dyn_cast<AtomicCmpXchgInst>(memop.I)) {
+    out << " ";
+    XI->getPointerOperand()->printAsOperand(out);
+  } else if (const auto RI = dyn_cast<AtomicRMWInst>(memop.I)) {
+    out << " ";
+    RI->getPointerOperand()->printAsOperand(out);
+  } else if (const auto CallI = dyn_cast<CallInst>(memop.I)) {
+    out << " @" << CallI->getCalledFunction()->getName();
+  }
+  if (memop.AOrdering != AtomicOrdering::NotAtomic) {
+    out << " " << toIRString(memop.AOrdering);
   }
   if (memop.exp_deps.empty())
     out << " " << memop.ready;
@@ -931,8 +816,6 @@ raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Merge &merge) {
     }
     out << ")";
   }
-  if (merge.delayed_emit_idx)
-    out << " [" << merge.delayed_emit_idx << "]";
   return out;
 }
 
@@ -1000,11 +883,7 @@ void print_body(raw_ostream &out, const MemopCFG::Node &node,
 
 raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Node &node) {
   using Node = MemopCFG::Node;
-  out << node.topo_num << " (" << node.BB->getNumber();
-  if (node.BB->getBasicBlock()) {
-    out << " " << node.BB->getBasicBlock()->getName();
-  }
-  out << "):\npreds:";
+  out << node.topo_num << " (" << node.BB->getName() << "):\npreds:";
   for (const Node *const pred : node.preds)
     out << " " << pred->topo_num;
   out << "\n";
@@ -1104,11 +983,7 @@ template <> struct DOTGraphTraits<const MemopCFG> : DefaultDOTGraphTraits {
   static std::string getNodeLabel(const MemopCFG::Node *node,
                                   const MemopCFG &mopcfg) {
     using namespace std;
-    return to_string(node->topo_num) + " (" + to_string(node->BB->getNumber()) +
-           (node->BB->getBasicBlock()
-              ? string{" "} + node->BB->getBasicBlock()->getName().str()
-              : string{""}) +
-           ")";
+    return to_string(node->topo_num) + " (" + node->BB->getName().str() + ")";
   }
 
   // The description for each node with the code inside of it.
@@ -1162,90 +1037,10 @@ template <> struct DOTGraphTraits<MemopCFG> : DOTGraphTraits<const MemopCFG> {
 
 } // namespace llvm
 
-char CSAMemopOrdering::ID = 0;
-
-INITIALIZE_PASS_BEGIN(CSAMemopOrdering, DEBUG_TYPE, PASS_NAME, false, false)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
-INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
-INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
-INITIALIZE_PASS_END(CSAMemopOrdering, DEBUG_TYPE, PASS_NAME, false, false)
-
-MachineFunctionPass *llvm::createCSAMemopOrderingPass() {
-  return new CSAMemopOrdering{};
-}
-
-bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
-  if (!shouldRunDataflowPass(MF))
-    return false;
-
-  // Query the command line to check if this should be set.
-  MemopRC = csa_utils::isAlwaysDataFlowLinkageSet() ? &CSA::CI0RegClass :
-    &CSA::I0RegClass;
-  MRI = &MF.getRegInfo();
-  AA  = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  DT  = &getAnalysis<MachineDominatorTree>();
-  MLI = &getAnalysis<MachineLoopInfo>();
-  ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
-
-  if (OrderMemops)
-    addMemoryOrderingConstraints(MF);
-
-  eraseParallelIntrinsics(&MF);
-
-  return true;
-}
-
-void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction &MF) {
-
-  // Try to generate chains with parallel sections if the user has not disabled
-  // them. If something goes wrong, print an obnoxious warning message and try
-  // again without them.
-  mopcfg.load(MF, AA, DT, MLI, ORE, not IgnoreAnnotations);
-  LLVM_DEBUG(dbgs() << "pre ordering:\n\n" << mopcfg);
-  if (ViewPreOrderingMemopCFG)
-    ViewGraph(mopcfg, MF.getName());
-  if (not mopcfg.construct_chains()) {
-    mopcfg.clear();
-    errs() << "\n";
-    errs().changeColor(raw_ostream::BLUE, true);
-    errs() << "!! WARNING: BAD PARALLEL SECTION INTRINSICS !!";
-    errs().resetColor();
-    errs() << R"warn(
-An inconsistency was discovered when processing parallel section intrinsics for
-)warn";
-    errs() << MF.getName();
-    errs() << R"warn(.
-
-Because of this, parallel regions and sections will be ignored for this
-function. Please re-examine the parallel section intrinsics in the function to
-make sure that they dominate/post-dominate the memory operations in their
-sections correctly.
-
-)warn";
-    mopcfg.load(MF, AA, DT, MLI, ORE, false);
-    bool made_chains = mopcfg.construct_chains();
-    assert(made_chains);
-    (void) made_chains;
-  }
-
-  if (DumpMemopCFG)
-    errs() << mopcfg;
-  if (DumpOrderingChains)
-    mopcfg.dump_ordering_chains(errs());
-  if (ViewMemopCFG)
-    ViewGraph(mopcfg, MF.getName());
-
-  mopcfg.emit_opt_report();
-  mopcfg.emit_chains();
-
-  mopcfg.clear();
-}
-
 bool MemopCFG::Dep::implies(const Dep &that) const {
 
-  // Do a fast check to see if this and that are the same. If they are, they're
-  // certainly the same.
+  // Do a fast check to see if this and that are the same. If they are, this
+  // does imply that.
   if (*this == that)
     return true;
 
@@ -1291,136 +1086,47 @@ bool MemopCFG::Dep::strictly_implies(const Dep &that) const {
   return *this != that and implies(that);
 }
 
-unsigned MemopCFG::OrdToken::reg_no() const {
-  assert(type);
-  switch (type) {
-  case Type::phi:
-    return node->phis[idx].reg_no;
-  case Type::memop:
-    return node->memops[idx].reg_no;
-  case Type::merge:
-    return node->merges[idx].reg_no;
-  default:
-    break;
-  }
-  llvm_unreachable("Unexpected OrdToken type value");
-}
-
-int MemopCFG::OrdToken::dump_ordering_chain(raw_ostream &out,
-                                            std::map<OrdToken, int> &seen,
-                                            int indent) const {
-  using namespace std;
-  assert(type);
-  int under = 0;
-  out << format("%*d", indent + 1, indent) << " " << *this << " = ";
-  switch (type) {
-  case Type::phi: {
-    const PHI &phi = node->phis[idx];
-    out << phi;
-    const auto found = seen.find(*this);
-    if (found != end(seen))
-      out << " +" << found->second << "\n";
-    else {
-      out << "\n";
-      for (const OrdToken &phid : phi.inputs) {
-        if (phid.type == OrdToken::phi or phid.type == OrdToken::merge) {
-          ++under;
-          under += phid.dump_ordering_chain(out, seen, indent + 1);
-        }
-      }
-      seen.emplace(*this, under);
-    }
-  } break;
-  case Type::memop: {
-    out << node->memops[idx] << "\n";
-    const OrdToken &ready = node->memops[idx].ready;
-    if (ready.type == Type::phi or ready.type == Type::merge) {
-      ++under;
-      under += ready.dump_ordering_chain(out, seen, indent + 1);
-    }
-  } break;
-  case Type::merge: {
-    const Merge &merge = node->merges[idx];
-    out << merge;
-    const auto found = seen.find(*this);
-    if (found != end(seen))
-      out << " +" << found->second << "\n";
-    else {
-      out << "\n";
-      for (const OrdToken &merged : merge.inputs) {
-        if (merged.type == Type::phi or merged.type == Type::merge) {
-          ++under;
-          under += merged.dump_ordering_chain(out, seen, indent + 1);
-        }
-      }
-      seen.emplace(*this, under);
-    }
-  } break;
-  default:
-    break;
-  }
-  return under;
-}
-
 MemopCFG::Dep MemopCFG::PHIBit::orig_dep() const {
   return dep.type == Dep::phibit ? dep.node->phibits[dep.idx].orig_dep() : dep;
 }
 
-// Recursively searches for a virtual register def through phi nodes given a
-// virtual register number and a set of phi nodes that shouldn't be visited
-// again in order to avoid infinite recursion.
-static const MachineInstr *
-find_non_phi_def(unsigned vreg, std::set<const MachineInstr *> &visited_phis,
-                 const MachineRegisterInfo &MRI) {
+// Recursively searches for an intrinsic def for V through phi nodes. PHI nodes
+// in visited_phis are ignored to avoid infinite recursion.
+static const IntrinsicInst *
+find_intr_def(const Value *V, std::set<const PHINode *> &visited_phis) {
 
-  // Look up the def of the virtual register.
-  const MachineInstr *const def = MRI.getUniqueVRegDef(vreg);
-  assert(def && "Unexpected non-SSA-form virtual register");
+  // If the value is from an intrinsic, return it.
+  if (const auto II = dyn_cast<IntrinsicInst>(V))
+    return II;
 
-  // If this is an implicit def, ignore it.
-  if (def->isImplicitDef())
-    return nullptr;
+  // If the value is from a phi node, try searching back through it.
+  if (const auto PI = dyn_cast<PHINode>(V)) {
+    if (visited_phis.count(PI))
+      return nullptr;
+    visited_phis.insert(PI);
 
-  // If it's not a phi node, we're done.
-  if (not def->isPHI())
-    return def;
-
-  // If it's a phi node that's already been visited, it doesn't need to be
-  // visited again. Otherwise, it should be added to the list so that it isn't
-  // visited again later.
-  if (visited_phis.count(def))
-    return nullptr;
-  visited_phis.insert(def);
-
-  // Explore each of the phi's value operands to look for non-phi defs for them.
-  for (unsigned i = 1; i < def->getNumOperands(); i += 2) {
-    const MachineOperand &phi_operand = def->getOperand(i);
-    if (phi_operand.isReg()) {
-      const MachineInstr *const found_def =
-        find_non_phi_def(phi_operand.getReg(), visited_phis, MRI);
-      if (found_def)
-        return found_def;
+    for (const Value *PV : PI->incoming_values()) {
+      const IntrinsicInst *const PVI = find_intr_def(PV, visited_phis);
+      if (PVI)
+        return PVI;
     }
   }
 
-  // If this is reached, this register doesn't seem to have a non-phi def for
-  // some reason. It probably means that there is some weird constant
-  // propagation thing going on.
+  // Otherwise, return nullptr. Hopefully there's an intrinsic along a
+  // different path.
   return nullptr;
 }
 
 // Determines the normalized region id for a given parallel region/section
 // intrinsic.
-static int find_normalized_region(const MachineInstr &MI,
+static int find_normalized_region(const IntrinsicInst *II,
                                   std::map<int, int> &normalized_regions) {
-
-  switch (MI.getOpcode()) {
-
-  // If this is is a region entry, the unnormalized region id is just an
-  // operand. Look it up in the p and add a new entry if needed.
-  case CSA::CSA_PARALLEL_REGION_ENTRY: {
-    assert(MI.getOperand(1).isImm());
-    const int unnormalized_id = MI.getOperand(1).getImm();
+  switch (II->getIntrinsicID()) {
+  case Intrinsic::csa_parallel_region_entry: {
+    if (not isa<ConstantInt>(II->getArgOperand(0)))
+      report_fatal_error("Parallel intrinsic with non-constant region id");
+    const int unnormalized_id =
+      cast<ConstantInt>(II->getArgOperand(0))->getLimitedValue();
 
     const auto found = normalized_regions.lower_bound(unnormalized_id);
     if (found != normalized_regions.end() and found->first == unnormalized_id)
@@ -1430,158 +1136,177 @@ static int find_normalized_region(const MachineInstr &MI,
     return new_id;
   }
 
-  // Otherwise, follow its operand to find the region entry.
-  case CSA::CSA_PARALLEL_SECTION_ENTRY:
-  case CSA::CSA_PARALLEL_REGION_EXIT:
-  case CSA::CSA_PARALLEL_SECTION_EXIT: {
-    std::set<const MachineInstr *> visited_phis;
-    const MachineRegisterInfo &MRI = MI.getParent()->getParent()->getRegInfo();
-    assert(MI.getOperand(MI.getNumOperands() - 1).isReg());
-    const MachineInstr *const non_phi_def = find_non_phi_def(
-      MI.getOperand(MI.getNumOperands() - 1).getReg(), visited_phis, MRI);
-    assert(non_phi_def);
-    return find_normalized_region(*non_phi_def, normalized_regions);
+  case Intrinsic::csa_parallel_region_exit:
+  case Intrinsic::csa_parallel_section_entry:
+  case Intrinsic::csa_parallel_section_exit: {
+    std::set<const PHINode *> visited_phis;
+    const IntrinsicInst *const intr_def =
+      find_intr_def(II->getArgOperand(0), visited_phis);
+    if (not intr_def)
+      report_fatal_error("Parallel intrinsic not connected to entry?");
+    return find_normalized_region(intr_def, normalized_regions);
   }
 
   // No other kinds of intrinsics should be showing up here.
   default:
-    LLVM_DEBUG(dbgs() << "Bad instruction is:" << MI << "\n");
+    LLVM_DEBUG(dbgs() << "Bad instruction is:" << *II << "\n");
     llvm_unreachable("Bad region/section markings");
   }
 }
 
-// Maps opcodes to RegSecIntrinsic types.
-static MemopCFG::RegSecIntrinsic::Type get_regsec_type(unsigned opcode) {
+// Maps intrinsic ids to RegSecIntrinsic types.
+static MemopCFG::RegSecIntrinsic::Type get_regsec_type(Intrinsic::ID id) {
   using RSI = MemopCFG::RegSecIntrinsic;
-  switch (opcode) {
-  case CSA::CSA_PARALLEL_REGION_ENTRY:
+  switch (id) {
+  case Intrinsic::csa_parallel_region_entry:
     return RSI::region_entry;
-  case CSA::CSA_PARALLEL_REGION_EXIT:
+  case Intrinsic::csa_parallel_region_exit:
     return RSI::region_exit;
-  case CSA::CSA_PARALLEL_SECTION_ENTRY:
+  case Intrinsic::csa_parallel_section_entry:
     return RSI::section_entry;
-  case CSA::CSA_PARALLEL_SECTION_EXIT:
+  case Intrinsic::csa_parallel_section_exit:
     return RSI::section_exit;
   default:
-    llvm_unreachable("Bad region/section intrinsic type");
+    break;
   }
+  llvm_unreachable("Bad region/section intrinsic type");
 }
 
 MemopCFG::RegSecIntrinsic::RegSecIntrinsic(
-  int memop_idx_in, const MachineInstr &MI,
+  int memop_idx_in, const IntrinsicInst *II,
   std::map<int, int> &normalized_regions)
     : memop_idx{memop_idx_in}, region{find_normalized_region(
-                                 MI, normalized_regions)},
-      type{get_regsec_type(MI.getOpcode())} {}
+                                 II, normalized_regions)},
+      type{get_regsec_type(II->getIntrinsicID())} {}
 
-const MachineMemOperand *MemopCFG::Memop::mem_operand() const {
-  return MI ? *MI->memoperands_begin() : nullptr;
+// Retrieves the atomic ordering of a given instruction, or NotAtomic if the
+// instruction isn't atomic. This just uses the success ordering for cmpxchg
+// because it is at least as strict as the failure ordering.
+static AtomicOrdering getAtomicOrdering(const Instruction *I) {
+  if (const auto LI = dyn_cast<LoadInst>(I))
+    return LI->getOrdering();
+  if (const auto SI = dyn_cast<StoreInst>(I))
+    return SI->getOrdering();
+  if (const auto CI = dyn_cast<AtomicCmpXchgInst>(I))
+    return CI->getSuccessOrdering();
+  if (const auto FI = dyn_cast<FenceInst>(I))
+    return FI->getOrdering();
+  if (const auto RI = dyn_cast<AtomicRMWInst>(I))
+    return RI->getOrdering();
+
+  // Function calls might also involve atomic operations; LLVM doesn't have any
+  // special markings for this but it does avoid adding other markings that
+  // could be used to optimize the calls. That's enough for calls to have the
+  // right ordering (at least locally), so they don't need to be identified
+  // here.
+
+  return AtomicOrdering::NotAtomic;
 }
 
-MemopCFG::Memop::Memop(Node *parent_in) : parent{parent_in} { assert(parent); }
+// Determines whether the given instruction is volatile.
+static bool isVolatile(const Instruction *I) {
+  if (const auto LI = dyn_cast<LoadInst>(I))
+    return LI->isVolatile();
+  if (const auto SI = dyn_cast<StoreInst>(I))
+    return SI->isVolatile();
+  if (const auto CI = dyn_cast<AtomicCmpXchgInst>(I))
+    return CI->isVolatile();
+  if (const auto RI = dyn_cast<AtomicRMWInst>(I))
+    return RI->isVolatile();
 
-MemopCFG::Memop::Memop(Node *parent, MachineInstr *MI_in) : Memop{parent} {
-  MI = MI_in;
-  assert(MI and MI->hasOneMemOperand());
+  // Calls can also involve volatile operations, but don't need special
+  // treatment here for similar reasons to atomics.
+
+  return false;
 }
 
-bool MemopCFG::Memop::should_assign_ordering(const MachineInstr &MI) {
-  using namespace std;
-  return not MI.memoperands_empty() and begin(MI.defs()) != end(MI.defs()) and
-         begin(MI.uses()) != end(MI.uses()) and
-         prev(end(MI.defs()))->isReg() and
-         prev(end(MI.defs()))->getReg() == CSA::IGN and
-         prev(end(MI.uses()))->isReg() and
-         prev(end(MI.uses()))->getReg() == CSA::IGN;
+MemopCFG::Memop::Memop(Node *parent_in, Instruction *I_in)
+    : parent{parent_in}, I{I_in}, AOrdering{getAtomicOrdering(I)},
+      Volatile{isVolatile(I)} {
+  assert(parent);
+  assert(I);
 }
 
-MemopCFG::RequireOrdering::RequireOrdering(AAResults *AA_in,
-                                           const MachineFrameInfo *MFI_in)
-    : AA{AA_in}, MFI{MFI_in} {}
+MemopCFG::RequireOrdering::RequireOrdering(AAResults *AA_in) : AA{AA_in} {}
 
-bool MemopCFG::RequireOrdering::
-operator()(const Memop &a_memop, const Memop &b_memop, bool looped) const {
+bool MemopCFG::RequireOrdering::operator()(const Memop &A, const Memop &B,
+                                           bool Looped) const {
 
-  // Grab the memory operands of both inputs and use those.
-  const MachineMemOperand *const a = a_memop.mem_operand();
-  const MachineMemOperand *const b = b_memop.mem_operand();
+  const IntrinsicInst *const AII = dyn_cast<IntrinsicInst>(A.I);
+  const IntrinsicInst *const BII = dyn_cast<IntrinsicInst>(B.I);
 
-  // If either is nullptr, they need to be ordered.
-  if (not a or not b)
+  // Check for invalid queries. Mementries don't have an input edge and returns
+  // don't have an output edge.
+  assert(not(BII and BII->getIntrinsicID() == Intrinsic::csa_mementry) &&
+         "Invalid query on mementry");
+  assert(not isa<ReturnInst>(A.I) && "Invalid query on return");
+
+  // Every operation has to be ordered after the function's mementry.
+  if (AII and AII->getIntrinsicID() == Intrinsic::csa_mementry)
     return true;
 
-  // Nothing else should be ordered in race mode.
-  if (RaceModeOrdering)
+  // Nothing should wait for prefetches.
+  if (AII and AII->getIntrinsicID() == Intrinsic::prefetch)
     return false;
 
-  // Make sure volatile accesses are ordered with everything.
-  if (a->isVolatile() or b->isVolatile())
+  // Return instructions must be ordered after everything (except prefetches).
+  if (isa<ReturnInst>(B.I))
     return true;
 
-  // Make sure that > Monotonic atomics are also ordered with everything.
-  // TODO: This is too strict: we're allowed to let loads/stores happen
-  // before/after atomics in certain cases but more work is needed to ensure
-  // that the lack of symmetry in these cases is handled correctly.
-  if (isStrongerThanMonotonic(a->getOrdering()) or
-      isStrongerThanMonotonic(a->getFailureOrdering()) or
-      isStrongerThanMonotonic(b->getOrdering()) or
-      isStrongerThanMonotonic(b->getFailureOrdering()))
+  // Order calls strictly with respect to everything else.
+  // TODO: This is a stopgap to avoid triggering CMPLRLLVM-7634. Remove this
+  // when we have a fix for that.
+  if ((not AII and isa<CallInst>(A.I)) or (not BII and isa<CallInst>(B.I)))
     return true;
 
-  // If neither can store, they don't need ordering. However, if either is a
-  // prefetch this check should be ignored.
-  const bool neither_is_prefetch = a_memop.MI->getOpcode() != CSA::PREFETCH and
-                                   a_memop.MI->getOpcode() != CSA::PREFETCHW and
-                                   b_memop.MI->getOpcode() != CSA::PREFETCH and
-                                   b_memop.MI->getOpcode() != CSA::PREFETCHW;
-  if (neither_is_prefetch and not a->isStore() and not b->isStore())
+  // At this point, if either memop is marked as not touching memory (because it
+  // is a call to a function which doesn't use non-local memory) it doesn't need
+  // any further ordering.
+  if (not A.I->mayReadOrWriteMemory() or not B.I->mayReadOrWriteMemory())
     return false;
 
-  // Otherwise, they only need ordering if they could alias each other. If
-  // IgnoreAliasInfo is set, assume that they do.
-  if (IgnoreAliasInfo)
+  // All memops ahead of a release operation need to be ordered ahead of it.
+  // TODO: These edges really need global ordering.
+  if (isReleaseOrStronger(B.AOrdering))
     return true;
 
-  // An instruction (/operand) can always alias itself.
-  if (a == b)
+  // All memops following an acquire operation need to be ordered after it.
+  // TODO: These edges really need global ordering.
+  if (isAcquireOrStronger(A.AOrdering))
     return true;
 
-  // Check for IR Values and PseudoSourceValues.
-  const PseudoSourceValue *const a_pseudo = a->getPseudoValue();
-  const PseudoSourceValue *const b_pseudo = b->getPseudoValue();
-  const Value *const a_value = a->getValue(), *const b_value = b->getValue();
-
-  // Give up if there's no information about either operand.
-  if (not a_pseudo and not a_value)
-    return true;
-  if (not b_pseudo and not b_value)
+  // If both operations are volatile, they need ordering. Non-volatile
+  // operations don't generally need extra ordering with volatile ones though.
+  // These edges do _not_ need to be global.
+  if (A.Volatile and B.Volatile)
     return true;
 
-  // If neither is a pseudo value (the most common case, hopefully), query alias
-  // analysis.
-  if (a_value and b_value) {
-    ++AliasQueryCount;
-    return not AA->isNoAlias(
-      MemoryLocation{a_value,
-                     looped ? MemoryLocation::UnknownSize : a->getSize(),
-                     a->getAAInfo()},
-      MemoryLocation{b_value,
-                     looped ? MemoryLocation::UnknownSize : b->getSize(),
-                     b->getAAInfo()});
-  }
+  // If neither operation can write, they don't need ordering. However,
+  // prefetches should be ordered with loads and so are treated like stores.
+  if (not A.I->mayWriteToMemory() and not B.I->mayWriteToMemory() and
+      not(BII and BII->getIntrinsicID() == Intrinsic::prefetch))
+    return false;
 
-  // If they're both pseudo values, guess about whether they could alias based
-  // on pseudo value kind.
-  // TODO: Can we do better than this?
-  if (a_pseudo and b_pseudo)
-    return a_pseudo->kind() == b_pseudo->kind();
+  // Figure out the memory locations for both instructions.
+  Optional<MemoryLocation> AOML = MemoryLocation::getOrNone(A.I);
+  Optional<MemoryLocation> BOML = MemoryLocation::getOrNone(B.I);
 
-  // Otherwise, one is an IR value and the other is a pseudo value. Determine
-  // whether the pseudo value could alias _any_ IR value and give that as the
-  // answer.
-  if (a_pseudo)
-    return a_pseudo->isAliased(MFI);
-  return b_pseudo->isAliased(MFI);
+  // If either don't have one (as is the case with calls), assume strict
+  // ordering. Otherwise, both are valid.
+  if (not AOML or not BOML)
+    return true;
+  MemoryLocation &AML = AOML.getValue();
+  MemoryLocation &BML = BOML.getValue();
+
+  // If operating in Looped mode, use arbitrary-size queries.
+  // TODO: This is still a hack and might not be correct with fancier alias
+  // analysis. Replace this with better loop analysis.
+  if (Looped)
+    AML.Size = BML.Size = MemoryLocation::UnknownSize;
+
+  // These two instructions need ordering if they are not NoAlias.
+  ++AliasQueryCount;
+  return not AA->isNoAlias(AML, BML);
 }
 
 bool MemopCFG::SectionStates::should_ignore_memops() const {
@@ -1712,49 +1437,42 @@ void MemopCFG::Node::DepSetEntry::clear() {
        SectionStates::State::no_intrinsics_encountered);
 }
 
-MemopCFG::Node::Node(MachineBasicBlock *BB_in,
-                     const RequireOrdering &require_ordering_in,
-                     bool use_parallel_sections,
-                     std::map<int, int> &normalized_regions)
-    : BB{BB_in}, require_ordering(require_ordering_in) {
+MemopCFG::Node::Node(
+  BasicBlock *BB_in, int topo_num_in,
+  const RequireOrdering &require_ordering_in,
+  const std::function<bool(Instruction &)> &needs_ordering_edges,
+  bool use_parallel_sections, std::map<int, int> &normalized_regions)
+    : BB{BB_in}, topo_num{topo_num_in}, require_ordering(require_ordering_in) {
 
   // The corresponding nodes for the other basic blocks won't be known yet until
   // they're all constructed, but at least we know how many there will be now.
-  preds.reserve(BB->pred_size());
-  succs.reserve(BB->succ_size());
+  preds.reserve(pred_size(BB));
+  succs.reserve(succ_size(BB));
 
-  // If there are no predecessors, add in a fence-like memop for the initial
-  // mov0.
-  if (BB->pred_empty()) {
-    memops.emplace_back(this);
-    memops.back().is_start = true;
-  }
+  // Go through all of the instructions and find the ones that need to be added
+  // to the MemopCFG.
+  for (Instruction &I : *BB) {
+    if (needs_ordering_edges(I)) {
+      memops.emplace_back(this, &I);
+    } else if (const auto II = dyn_cast<IntrinsicInst>(&I)) {
 
-  // Go through all of the instructions and find the ones that need ordering.
-  // Also take care of locating and adding parallel section intrinsics here.
-  for (MachineInstr &MI : BB->instrs()) {
-    if (Memop::should_assign_ordering(MI))
-      memops.emplace_back(this, &MI);
-    else if (use_parallel_sections and
-             (MI.getOpcode() == CSA::CSA_PARALLEL_REGION_ENTRY or
-              MI.getOpcode() == CSA::CSA_PARALLEL_REGION_EXIT or
-              MI.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY or
-              MI.getOpcode() == CSA::CSA_PARALLEL_SECTION_EXIT))
-      regsec_intrinsics.emplace_back(memops.size(), MI, normalized_regions);
-    else if (MI.getOpcode() == CSA::JSR or MI.getOpcode() == CSA::JSRi) {
-      memops.emplace_back(this);
-      memops.back().call_mi  = &MI;
-      memops.back().is_start = false;
-      memops.emplace_back(this);
-      memops.back().call_mi  = &MI;
-      memops.back().is_start = true;
+      // Mementry intrinsics should also be added as memops. They are their own
+      // outord edges.
+      if (II->getIntrinsicID() == Intrinsic::csa_mementry) {
+        memops.emplace_back(this, II);
+        memops.back().outord = II;
+      }
+
+      // If use_parallel_sections is set, add parallel region/section intrinsics
+      // too.
+      else if (use_parallel_sections and
+               (II->getIntrinsicID() == Intrinsic::csa_parallel_region_entry or
+                II->getIntrinsicID() == Intrinsic::csa_parallel_region_exit or
+                II->getIntrinsicID() == Intrinsic::csa_parallel_section_entry or
+                II->getIntrinsicID() == Intrinsic::csa_parallel_section_exit)) {
+        regsec_intrinsics.emplace_back(memops.size(), II, normalized_regions);
+      }
     }
-  }
-
-  // If there are no successors, add in a fence-like memop for the final mov0.
-  if (BB->succ_empty()) {
-    memops.emplace_back(this);
-    memops.back().is_start = false;
   }
 }
 
@@ -2040,17 +1758,6 @@ bool MemopCFG::Node::calculate_deps(const Loop *loop) {
   for (int memop_idx = 0; memop_idx != int(memops.size()); ++memop_idx) {
     Memop &memop = memops[memop_idx];
 
-    // If linear ordering is requested, just hook up all of the chaintips
-    // directly and move on to the next memop.
-    if (LinearOrdering) {
-      memop.exp_deps.append(begin(tips), end(tips));
-      std::sort(begin(memop.exp_deps), end(memop.exp_deps));
-      memop.exp_deps.erase(unique(begin(memop.exp_deps), end(memop.exp_deps)),
-                           end(memop.exp_deps));
-      tips.assign(1, {this, Dep::memop, memop_idx});
-      continue;
-    }
-
     // A queue for nodes to be processed in the backwards traversal.
     priority_queue<NodeLoop, vector<NodeLoop>, node_loop_topo_order> node_queue;
 
@@ -2214,7 +1921,7 @@ bool MemopCFG::Node::step_backwards(const Memop &cur_memop, const Loop *loop,
       // loop.
       not previously_ordered
 
-      // We reached the second memop from the first memop via a back edge
+      // We reached the earlier memop from the later memop via a back edge
       // of a loop marked Parallel by CSALowerParallelIntrinsics or any loop
       // if -csa-memop-ordering-racy-loops is used.
       and not IgnoreParallelDep
@@ -2223,7 +1930,7 @@ bool MemopCFG::Node::step_backwards(const Memop &cur_memop, const Loop *loop,
       and not sec_states.should_ignore_memops()
 
       // require_ordering indicates that no ordering is needed.
-      and require_ordering(cur_memop, dis_memop, back_loop)
+      and require_ordering(dis_memop, cur_memop, back_loop)
 
     ) {
 
@@ -2485,244 +2192,6 @@ MemopCFG::OrdToken MemopCFG::Node::insert_merges_and_phis(DepVec &must,
   return get_merge(move(merge));
 }
 
-void MemopCFG::Node::expand_merge_trees() {
-  using namespace std;
-
-  // Go through each of the existing merges.
-  SmallVector<OrdToken, MERGE_ARITY> new_inputs;
-  const int orig_merge_count = merges.size();
-  for (int merge_idx = 0; merge_idx != orig_merge_count; ++merge_idx) {
-
-    // Clear the merge's must and may merge sets.
-    merges[merge_idx].must_merge.clear(), merges[merge_idx].may_merge.clear();
-
-    // If a merge is already small enough, there's no reason to expand it to a
-    // tree.
-    const int input_count = merges[merge_idx].inputs.size();
-    if (input_count <= MERGE_ARITY)
-      continue;
-
-    // In order to keep maximum latencies down, the tree should be as balanced
-    // as possible. This means that each level of the tree except for possibly
-    // the leaf level must be completely full, so the total capacity of the leaf
-    // level is the smallest power of MERGE_ARITY that can accomodate all of the
-    // inputs.
-    int total_leaf_capacity = MERGE_ARITY;
-    while (total_leaf_capacity < input_count)
-      total_leaf_capacity *= MERGE_ARITY;
-
-    // There may be empty slots in the leaf level. If we pair MERGE_ARITY-1
-    // empty slots with any input, we can move it down a level closer to the
-    // root. Figure out how many times this can be done.
-    const int empty_slot_count = total_leaf_capacity - input_count;
-    const int under_leaf_count = empty_slot_count / (MERGE_ARITY - 1);
-
-    // Combine the remaining inputs to form the merges that are actually present
-    // at the leaf level of the tree.
-    for (int comb_start = 0; comb_start < input_count - under_leaf_count;
-         comb_start += MERGE_ARITY) {
-      Merge new_merge;
-      new_merge.memop_idx = merges[merge_idx].memop_idx;
-      const int to_comb =
-        min(MERGE_ARITY, input_count - under_leaf_count - comb_start);
-      const auto cur_start = begin(merges[merge_idx].inputs) + comb_start;
-      new_merge.inputs.assign(cur_start, cur_start + to_comb);
-      new_inputs.push_back(get_merge(move(new_merge)));
-    }
-
-    // Then add the inputs that are getting moved down a level and swap them
-    // into the merge.
-    {
-      const auto orig_end = end(merges[merge_idx].inputs);
-      new_inputs.append(orig_end - under_leaf_count, orig_end);
-      swap(merges[merge_idx].inputs, new_inputs);
-      new_inputs.clear();
-    }
-
-    // Now the merge inputs should be a power of MERGE_ARITY. Keep combining
-    // them until the merge size has reached MERGE_ARITY.
-    while (int(merges[merge_idx].inputs.size()) > MERGE_ARITY) {
-      const int cur_input_count = int(merges[merge_idx].inputs.size());
-      assert(cur_input_count % MERGE_ARITY == 0 &&
-             "Not a power of MERGE_ARITY?");
-      for (int comb_start = 0; comb_start < cur_input_count;
-           comb_start += MERGE_ARITY) {
-        Merge new_merge;
-        new_merge.memop_idx  = merges[merge_idx].memop_idx;
-        const auto cur_start = begin(merges[merge_idx].inputs) + comb_start;
-        new_merge.inputs.assign(cur_start, cur_start + MERGE_ARITY);
-        new_inputs.push_back(get_merge(move(new_merge)));
-      }
-      swap(merges[merge_idx].inputs, new_inputs);
-      new_inputs.clear();
-    }
-
-    // Make sure that the original merge gets delayed until after the merges
-    // that make up the tree are emitted so that its uses don't come before
-    // their defs.
-    merges[merge_idx].delayed_emit_idx = merges.size();
-  }
-}
-
-unsigned MemopCFG::Node::get_none_init_mov_virtreg() {
-
-  // No new instruction is needed if one is already present or if there is a
-  // dominator that should handle that instead.
-  if (none_init_mov)
-    return none_init_mov;
-  if (dominator)
-    return none_init_mov = dominator->get_none_init_mov_virtreg();
-
-  const CSAInstrInfo *TII = static_cast<const CSAInstrInfo *>(
-    BB->getParent()->getSubtarget().getInstrInfo());
-//RAVI   MachineRegisterInfo &MRI = BB->getParent()->getRegInfo();
-  CSAMachineFunctionInfo *LMFI = BB->getParent()->getInfo<CSAMachineFunctionInfo>();
-
-  // Otherwise, a new mov will need to be added.
-  none_init_mov = LMFI->allocateLIC(MemopRC, "memop.none");
-  BuildMI(*BB, BB->getFirstNonPHI(), DebugLoc{}, TII->get(CSA::MOV0),
-          none_init_mov)
-    .addImm(0);
-  return none_init_mov;
-}
-
-void MemopCFG::Node::emit_phis() {
-  const CSAInstrInfo *TII = static_cast<const CSAInstrInfo *>(
-    BB->getParent()->getSubtarget().getInstrInfo());
-  for (const PHI &phi : phis) {
-    MachineInstrBuilder phi_instr = BuildMI(
-      *BB, BB->getFirstNonPHI(), DebugLoc{}, TII->get(CSA::PHI), phi.reg_no);
-    for (int pred_idx = 0; pred_idx < int(preds.size()); ++pred_idx) {
-      const OrdToken &phid = phi.inputs[pred_idx];
-      if (phid)
-        phi_instr.addUse(phid.reg_no());
-      else {
-
-        // Machine phi nodes can't just have immediate inputs, so find a <none>
-        // init mov instead.
-        phi_instr.addUse(preds[pred_idx]->get_none_init_mov_virtreg());
-      }
-      phi_instr.addMBB(preds[pred_idx]->BB);
-    }
-    ++PHICount;
-  }
-}
-
-void MemopCFG::Node::emit_merges() {
-  using namespace std;
-  const CSAInstrInfo *TII = static_cast<const CSAInstrInfo *>(
-    BB->getParent()->getSubtarget().getInstrInfo());
-
-  // Go through each of the memory operation indeces that merges could be put in
-  // front of.
-  for (int memop_idx = 0; memop_idx <= int(memops.size()); ++memop_idx) {
-
-    // Figure out where to insert new merges. This will be in front of the
-    // current instruction if there is one; otherwise, this will be nullptr
-    // which indicates that it should be put at the end. If the instruction is
-    // an initial mov0, there should never be any merges in front of it.
-    MachineInstr *insert_pt =
-      memop_idx != int(memops.size()) ? memops[memop_idx].MI : nullptr;
-
-    // The logic for emitting a merge. Each of the inputs that is set is filled
-    // out first and the rest are padded with %ign.
-    const auto emit_merge = [this, TII, insert_pt](const Merge &merge) {
-      MachineInstrBuilder merge_instr =
-        insert_pt ? BuildMI(*BB, insert_pt, DebugLoc{}, TII->get(CSA::ALL0),
-                            merge.reg_no)
-                  : BuildMI(*BB, BB->getFirstTerminator(), DebugLoc{},
-                            TII->get(CSA::ALL0), merge.reg_no);
-      for (const OrdToken &merged : merge.inputs) {
-        merge_instr.addUse(merged.reg_no());
-      }
-      while (merge_instr->getNumOperands() < 1 + MERGE_ARITY) {
-        merge_instr.addUse(CSA::IGN);
-      }
-      ++MergeCount;
-    };
-
-    // Go through all of the merges and emit the ones that need to go here.
-    // Throw any that need to be delayed onto the queue until they can also be
-    // emitted.
-    queue<int> delayed_emit_queue;
-    for (int merge_idx = 0; merge_idx < int(merges.size()); ++merge_idx) {
-      if (merges[merge_idx].memop_idx != memop_idx)
-        continue;
-      while (not delayed_emit_queue.empty() and
-             merges[delayed_emit_queue.front()].delayed_emit_idx < merge_idx) {
-        emit_merge(merges[delayed_emit_queue.front()]);
-        delayed_emit_queue.pop();
-      }
-      if (merges[merge_idx].delayed_emit_idx) {
-        delayed_emit_queue.push(merge_idx);
-      } else
-        emit_merge(merges[merge_idx]);
-    }
-    while (not delayed_emit_queue.empty()) {
-      emit_merge(merges[delayed_emit_queue.front()]);
-      delayed_emit_queue.pop();
-    }
-  }
-}
-
-void MemopCFG::Node::emit_memops() {
-  using namespace std;
-  const CSAInstrInfo *TII = static_cast<const CSAInstrInfo *>(
-    BB->getParent()->getSubtarget().getInstrInfo());
-  const unsigned mov_opcode = TII->getMemTokenMOVOpcode();
-  for (Memop &memop : memops) {
-
-    // If this memop has a corresponding instruction, that instruction should
-    // be updated.
-    if (memop.MI) {
-      prev(end(memop.MI->defs()))->ChangeToRegister(memop.reg_no, true);
-      if (memop.ready) {
-        prev(end(memop.MI->uses()))
-          ->ChangeToRegister(memop.ready.reg_no(), false);
-      }
-      ++MemopCount;
-    }
-
-    // Otherwise, a new sxu mov0 should be emitted. Update the MI field to point
-    // at the new instruction.
-    else {
-
-      // If is_start is set, it goes at the beginning of the block or after the
-      // call. RA is used as an input to make sure that it doesn't get hoisted.
-      if (memop.is_start) {
-        const MachineBasicBlock::iterator where =
-          memop.call_mi
-            ? (memop.call_mi->getNextNode() ? memop.call_mi->getNextNode()
-                                            : BB->getFirstTerminator())
-            : BB->getFirstNonPHI();
-        memop.MI =
-          BuildMI(*BB, where, DebugLoc{}, TII->get(mov_opcode), memop.reg_no)
-            .addUse(CSA::RA)
-            .getInstr();
-      }
-
-      // Otherwise, if it's a call, it goes before the call.
-      else if (!csa_utils::isAlwaysDataFlowLinkageSet() || memop.call_mi) {
-        const MachineBasicBlock::iterator where = memop.call_mi ?
-          memop.call_mi : BB->getFirstTerminator();
-        memop.MI =
-          BuildMI(*BB, where, DebugLoc{}, TII->get(mov_opcode), memop.reg_no)
-            .addUse(memop.ready ? memop.ready.reg_no() : unsigned(CSA::IGN))
-            .getInstr();
-      }
-
-      // Otherwise, replace the CSA_RETURN memory operand with the result.
-      else {
-        MachineInstr *term = &*BB->getFirstTerminator();
-        assert(term->getOpcode() == CSA::CSA_RETURN &&
-            "Should be a CSA_RETURN instruction");
-        term->getOperand(0).setReg(
-            memop.ready ? memop.ready.reg_no() : unsigned(CSA::IGN));
-      }
-    }
-  }
-}
-
 bool MemopCFG::Loop::contains(const Node *node) const {
   using namespace std;
   return binary_search(begin(nodes), end(nodes), node, Node::topo_order{});
@@ -2781,26 +2250,25 @@ MemopCFG::DepVec MemopCFG::Loop::reachable_self_deps(
   return self_deps;
 }
 
-void MemopCFG::load(MachineFunction &MF, AAResults *AA,
-                    const MachineDominatorTree *DT, const MachineLoopInfo *MLI,
-                    MachineOptimizationRemarkEmitter *ORE,
-                    bool use_parallel_sections) {
+void MemopCFG::load(
+  Function &F, AAResults *AA, const DominatorTree &DT, const LoopInfo &LI,
+  ReversePostOrderTraversal<Function *> &RPOT,
+  const std::function<bool(Instruction &)> &needs_ordering_edges,
+  bool can_speculate, bool use_parallel_sections) {
   using namespace std;
   using namespace std::placeholders;
 
-  this->MLI = MLI;
-  this->ORE = ORE;
-
   // Update require_ordering.
-  require_ordering = RequireOrdering{AA, &MF.getFrameInfo()};
+  require_ordering = RequireOrdering{AA};
 
   // Create all of the nodes from the basic blocks.
   {
     map<int, int> normalized_regions;
-    for (MachineBasicBlock &BB : MF) {
-      nodes.push_back(unique_ptr<Node>{new Node{
-        &BB, require_ordering, use_parallel_sections, normalized_regions}});
-      nodes_for_bbs.emplace(&BB, nodes.back().get());
+    for (BasicBlock *const BB : RPOT) {
+      nodes.push_back(unique_ptr<Node>{
+        new Node{BB, int(nodes.size()), require_ordering, needs_ordering_edges,
+                 use_parallel_sections, normalized_regions}});
+      nodes_for_bbs.emplace(BB, nodes.back().get());
     }
 
     // The number of regions can now be determined from normalized_regions.
@@ -2809,23 +2277,20 @@ void MemopCFG::load(MachineFunction &MF, AAResults *AA,
 
   // Go through and wire up all of the predecessors, successors and dominators.
   for (const unique_ptr<Node> &pred : nodes) {
-    for (const MachineBasicBlock *const succ_bb : pred->BB->successors()) {
+    for (const BasicBlock *const succ_bb : successors(pred->BB)) {
       Node *const succ = nodes_for_bbs[succ_bb];
       pred->succs.push_back(succ);
       succ->preds.push_back(pred.get());
     }
-    if (const MachineDomTreeNode *const dom_node =
-          DT->getNode(pred->BB)->getIDom())
+    if (const DomTreeNode *const dom_node = DT.getNode(pred->BB)->getIDom())
       pred->dominator = nodes_for_bbs[dom_node->getBlock()];
     else
       pred->dominator = nullptr;
   }
 
-  topological_sort();
-
   // Collect all of the loops and set loop information for the nodes
   // appropriately.
-  for (const MachineLoop *const L : *MLI)
+  for (const llvm::Loop *const L : LI)
     collect_loops(L);
   for (const Loop &loop : loops)
     for (Node *const node : loop.nodes) {
@@ -2843,84 +2308,28 @@ void MemopCFG::load(MachineFunction &MF, AAResults *AA,
     }
   }
 
-  calculate_imp_deps();
+  calculate_imp_deps(can_speculate);
 }
 
-void MemopCFG::topological_sort() {
-  using namespace std;
-
-  // Determine how many non-backedge predecessors each node has that need to be
-  // processed before it is.
-  map<Node *, int> preds_left;
-  for (const unique_ptr<Node> &node : nodes) {
-    preds_left.emplace(
-      node.get(),
-      count_if(begin(node->preds), end(node->preds), [&node](const Node *pred) {
-        return not pred->nonstrictly_dominated_by(node.get());
-      }));
-  }
-
-  // Start with nodes that have no predecessors.
-  stack<Node *> ready;
-  for (const auto &pl : preds_left)
-    if (pl.second == 0)
-      ready.push(pl.first);
-
-  // Assign ordering to nodes on the ready stack until there are none left.
-  int topo_num = 0;
-  while (not ready.empty()) {
-    Node *const node = ready.top();
-    ready.pop();
-    node->topo_num = topo_num++;
-
-    // Update the predecessor count for non-backedge successors.
-    for (Node *const succ : node->succs) {
-      if (node->nonstrictly_dominated_by(succ))
-        continue;
-      int &succ_pl = preds_left[succ];
-      assert(succ_pl > 0);
-      --succ_pl;
-
-      // If this was the last required predecessor, this successor is ready to
-      // be ordered.
-      if (succ_pl == 0)
-        ready.push(succ);
-    }
-  }
-
-  // If any nodes have predecessors remaining, that's a problem. It probably
-  // means that the CFG wasn't really that irreducible.
-  for (const auto &pl : preds_left) {
-    assert(pl.second == 0);
-    (void) pl;
-  }
-
-
-  // Reorder the nodes array so that the indices correspond to topo_num.
-  for (int i = 0; i != int(nodes.size()); ++i) {
-    while (nodes[i]->topo_num != i)
-      swap(nodes[i], nodes[nodes[i]->topo_num]);
-  }
-}
-
-void MemopCFG::collect_loops(const MachineLoop *L) {
+void MemopCFG::collect_loops(const llvm::Loop *L) {
   using namespace std;
 
   // Do a post-order traversal so that loops are listed in the right order.
-  for (const MachineLoop *const subloop : L->getSubLoops()) {
+  for (const llvm::Loop *const subloop : L->getSubLoops()) {
     collect_loops(subloop);
   }
 
   // Create a new Loop and transfer the set of basic blocks.
   Loop new_loop;
+  new_loop.IRL   = L;
   new_loop.depth = L->getLoopDepth();
 
   //
   // Check if this loop was transformed by CSALowerParallelIntrinsics pass.
   //
   if (auto *LoopID = L->getLoopID()) {
-    LLVM_DEBUG(dbgs() << "Loop with metadata: "
-               << L->getHeader()->getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Loop with metadata: " << L->getHeader()->getName()
+                      << "\n");
     for (unsigned Indx = 1; Indx < LoopID->getNumOperands(); ++Indx) {
       if (auto *T = dyn_cast<MDTuple>(LoopID->getOperand(Indx)))
         if (T->getNumOperands() != 0)
@@ -2932,15 +2341,15 @@ void MemopCFG::collect_loops(const MachineLoop *L) {
     }
   }
 
-  for (const MachineBasicBlock *const BB : L->getBlocks()) {
+  for (const BasicBlock *const BB : L->getBlocks()) {
     new_loop.nodes.push_back(nodes_for_bbs[BB]);
   }
   std::sort(begin(new_loop.nodes), end(new_loop.nodes),
-       [](Node *a, Node *b) { return a->topo_num < b->topo_num; });
+            [](Node *a, Node *b) { return a->topo_num < b->topo_num; });
   loops.push_back(move(new_loop));
 }
 
-void MemopCFG::calculate_imp_deps() {
+void MemopCFG::calculate_imp_deps(bool can_speculate) {
   using llvm::sort;
   using std::begin;
   using std::end;
@@ -2952,10 +2361,7 @@ void MemopCFG::calculate_imp_deps() {
     calculate_self_deps();
 
   // If we're using data dependencies, mark those too.
-  const MachineFunction *const MF = nodes.front()->BB->getParent();
-  const CSASubtarget &ST =
-    static_cast<const CSASubtarget &>(MF->getSubtarget());
-  if (not ST.canSpeculate() and not IgnoreDataDeps)
+  if (not can_speculate and not IgnoreDataDeps)
     calculate_data_deps();
 
   // Clean up each memop's imp_deps. Sort + unique and then remove redundant
@@ -2983,6 +2389,11 @@ void MemopCFG::calculate_self_deps() {
     for (Node *const node : loop.nodes) {
       for (int memop_idx = 0; memop_idx != int(node->memops.size());
            ++memop_idx) {
+
+        // Calls aren't self-ordered.
+        if (isa<CallInst>(node->memops[memop_idx].I))
+          continue;
+
         loop.collect_self_deps({node, Dep::memop, memop_idx});
       }
     }
@@ -2998,77 +2409,43 @@ void MemopCFG::calculate_data_deps() {
   using std::unique_ptr;
   using std::upper_bound;
 
-  const MachineFunction *const MF = nodes.front()->BB->getParent();
-  const CSASubtarget &ST =
-    static_cast<const CSASubtarget &>(MF->getSubtarget());
-  const TargetRegisterInfo *const TRI = ST.getRegisterInfo();
-  const CSAInstrInfo *const TII =
-    static_cast<const CSAInstrInfo *>(ST.getInstrInfo());
-  const MachineRegisterInfo &MRI = MF->getRegInfo();
-
-  // Keep track of which machine instructions have corresponding memops.
-  DenseMap<const MachineInstr *, Dep> memops_for_insts;
-  for (const unique_ptr<Node>& node : nodes) {
+  // Keep track of which instructions have corresponding memops.
+  DenseMap<const Instruction *, Dep> memops_for_insts;
+  for (const unique_ptr<Node> &node : nodes) {
     for (int idx = 0; idx != int(node->memops.size()); ++idx) {
-      if (node->memops[idx].MI) {
+      if (node->memops[idx].I) {
         memops_for_insts.insert(
-          {node->memops[idx].MI, {node.get(), Dep::memop, idx}});
+          {node->memops[idx].I, {node.get(), Dep::memop, idx}});
       }
     }
   }
 
-  // And keep track of which memops each machine instruction depends on. The
-  // DepVec values here are maintained in sorted order.
-  DenseMap<const MachineInstr *, DepVec> memop_deps;
-
-  // If parameters are gated, mark their dependence on the function entry here
-  // so that it can get propagated.
-  if (GateParams) {
-
-    // Find the fence-like mov representing the function entry, 0o0.
-    assert(not nodes.front()->memops.empty());
-    assert(not nodes.front()->memops.front().MI);
-    const DepVec entry_depvec{Dep{nodes.front().get(), Dep::memop, 0}};
-
-    // The function parameters are represented as live-ins at the
-    // MachineFunction level: iterate the virtual registers corresponding to
-    // them and mark their uses to depend on the entry mov.
-    for (const auto &livein : MRI.liveins())
-      for (const MachineInstr &use : MRI.use_nodbg_instructions(livein.second))
-        memop_deps[&use] = entry_depvec;
-  }
+  // And keep track of which memops each instruction depends on. The DepVec
+  // values here are maintained in sorted order.
+  DenseMap<const Instruction *, DepVec> memop_deps;
 
   // Adds dependencies to memop_deps for machine instructions in a given
   // node's basic block.
-  const auto collect_deps = [this, &memops_for_insts, &memop_deps, TRI, TII,
-                             &MRI](Node *node) {
-    const MachineBasicBlock*const BB = node->BB;
-    for (const MachineInstr& MI : *BB) {
+  const auto collect_deps = [this, &memops_for_insts, &memop_deps](Node *node) {
+    const BasicBlock *const BB = node->BB;
+    for (const Instruction &I : *BB) {
 
       // For phi nodes, look for phibit dependencies from predecessors.
-      if (MI.isPHI()) {
-        for (unsigned i = 1; i < MI.getNumOperands(); i += 2) {
-          assert(i+1 < MI.getNumOperands());
-          assert(MI.getOperand(i+1).isMBB());
-          Node*const pred = nodes_for_bbs[MI.getOperand(i+1).getMBB()];
-          assert(pred);
-          const MachineOperand& op = MI.getOperand(i);
+      if (const auto PI = dyn_cast<PHINode>(&I)) {
+        for (const BasicBlock *const PVB : PI->blocks()) {
+          const Instruction *const PVI =
+            dyn_cast<Instruction>(PI->getIncomingValueForBlock(PVB));
 
-          // Only target uses of virtual registers that have a single
-          // non-multitriggered def.
-          if (
-            not op.isReg() or not op.isUse()
-            or not TRI->isVirtualRegister(op.getReg())
-          ) continue;
-          const MachineInstr*const def = MRI.getUniqueVRegDef(op.getReg());
-          if (not def or TII->isMultiTriggered(def))
+          // Ignore incoming values that aren't instructions or that are calls.
+          if (not PVI or isa<CallInst>(PVI))
             continue;
 
-          // If that def is a memop, add it directly. If not, add its memop
-          // dependencies. Drop deps that are crossing their second loop
+          // If the incoming value is a memop, add it directly. If not, add its
+          // memop dependencies. Drop deps that are crossing their second loop
           // backedge.
-          const auto found_memop = memops_for_insts.find(def);
-          DepVec &deps           = memop_deps[&MI];
+          const auto found_memop = memops_for_insts.find(PVI);
+          DepVec &deps           = memop_deps[&I];
+          Node *const pred       = nodes_for_bbs[PVB];
           if (found_memop != end(memops_for_insts)) {
             Dep new_dep = node->get_phibit(pred, found_memop->second);
             deps.insert(upper_bound(begin(deps), end(deps), new_dep), new_dep);
@@ -3078,7 +2455,7 @@ void MemopCFG::calculate_data_deps() {
             // if def does not have incoming memory depencies, there is
             // no sense in sorting and uniquing of the unchanged 'deps'
             // vector.
-            auto DefDepsIt = memop_deps.find(def);
+            auto DefDepsIt = memop_deps.find(PVI);
             if (DefDepsIt != end(memop_deps)) {
               const DepVec &def_deps = DefDepsIt->second;
               for (const Dep &dep : def_deps) {
@@ -3095,19 +2472,16 @@ void MemopCFG::calculate_data_deps() {
         }
       }
 
-      // For other non-multitriggered instructions, look for normal
-      // dominating dependencies.
-      else if (not TII->isMultiTriggered(&MI)) {
-        for (const MachineOperand& op : MI.operands()) {
-          if (
-            not op.isReg() or not op.isUse()
-            or not TRI->isVirtualRegister(op.getReg())
-          ) continue;
-          const MachineInstr*const def = MRI.getUniqueVRegDef(op.getReg());
-          if (not def)
+      // For other non-call/return instructions, look for normal dominating
+      // dependencies.
+      else if (not isa<CallInst>(I) and not isa<ReturnInst>(I)) {
+        for (const Value *const V : I.operand_values()) {
+          const Instruction *const VI = dyn_cast<Instruction>(V);
+          if (not VI or isa<CallInst>(VI))
             continue;
-          const auto found_memop = memops_for_insts.find(def);
-          DepVec &deps           = memop_deps[&MI];
+
+          const auto found_memop = memops_for_insts.find(VI);
+          DepVec &deps           = memop_deps[&I];
           if (found_memop != end(memops_for_insts)) {
             Dep &new_dep = found_memop->second;
             deps.insert(upper_bound(begin(deps), end(deps), new_dep), new_dep);
@@ -3116,7 +2490,7 @@ void MemopCFG::calculate_data_deps() {
             // because this may invalidate 'deps' reference.  Moreover,
             // if def does not have incoming memory depencies, there is
             // no sense in creating the union the way we do it below.
-            auto DefDepsIt = memop_deps.find(def);
+            auto DefDepsIt = memop_deps.find(VI);
             if (DefDepsIt != end(memop_deps)) {
               const DepVec &def_deps = DefDepsIt->second;
               const DepVec old_deps  = deps;
@@ -3131,21 +2505,20 @@ void MemopCFG::calculate_data_deps() {
   };
 
   // Look for data dependencies in loops first.
-  for (Loop& loop : loops)
-    for (Node*const node : loop.nodes)
+  for (Loop &loop : loops)
+    for (Node *const node : loop.nodes)
       collect_deps(node);
 
   // Then, go through the entire function.
-  for (const unique_ptr<Node>& node : nodes)
+  for (const unique_ptr<Node> &node : nodes)
     collect_deps(node.get());
 
-  // Add to the imp_deps fields on every memop that has a MachineInstr.
+  // Add to each memop's imp_deps.
   for (const unique_ptr<Node> &node : nodes) {
-    for (Memop &memop : node->memops)
-      if (memop.MI) {
-        const DepVec &deps = memop_deps[memop.MI];
-        memop.imp_deps.append(begin(deps), end(deps));
-      }
+    for (Memop &memop : node->memops) {
+      const DepVec &deps = memop_deps[memop.I];
+      memop.imp_deps.append(begin(deps), end(deps));
+    }
   }
 }
 
@@ -3185,178 +2558,189 @@ bool MemopCFG::construct_chains() {
   return true;
 }
 
-void MemopCFG::emit_opt_report() {
+void MemopCFG::emit_opt_report(OptimizationRemarkEmitter &ORE) {
 
   for (const auto &Loop : loops) {
     // Find MachineLoop corresponding to this loop.
     auto *FrontNode = Loop.nodes.front();
     assert(FrontNode && "Empty Loop in CSA memory operation ordering.");
-    auto *MBB = FrontNode->BB;
-    assert(MBB && "Node does not correspond to any MachineBasicBlock.");
+    auto *BB = FrontNode->BB;
 
     // Use unknown debug location, if we cannot get it from the loop.
-    auto *CurrentLoop = MLI->getLoopFor(MBB);
-    auto LoopLoc = CurrentLoop ? CurrentLoop->getStartLoc() : DebugLoc();
+    auto *CurrentLoop = Loop.IRL;
+    auto LoopLoc      = CurrentLoop ? CurrentLoop->getStartLoc() : DebugLoc();
 
     if (FrontNode->phis.empty()) {
       // The PHI nodes are always inserted into the header.
       // As long as the loop nodes are sorted topologically,
       // the header corresponds to the first node in Loop.nodes.
-      MachineOptimizationRemark Remark(DEBUG_TYPE, "CSAPipelining: ",
-                                       LoopLoc, MBB);
-      ORE->emit(Remark << " loop does not have loop-carried "
-                "memory dependencies");
+      OptimizationRemark Remark(DEBUG_TYPE, "CSAPipelining: ", LoopLoc, BB);
+      ORE.emit(Remark << " loop does not have loop-carried "
+                         "memory dependencies");
     } else {
       // TODO (vzakhari 5/17/2018): the presence of the PHI node
       //       does not necessarily mean there is a loop carried
       //       memory dependence.  To make this right, we need
       //       to traverse the loop and check if there are uses
       //       of the PHI nodes.
-      MachineOptimizationRemarkMissed Remark(DEBUG_TYPE,
-                                             "CSAPipeliningMissed: ",
-                                             LoopLoc, MBB);
-      ORE->emit(Remark << " loop with loop-carried memory dependencies "
-                "cannot be pipelined");
+      OptimizationRemarkMissed Remark(DEBUG_TYPE,
+                                      "CSAPipeliningMissed: ", LoopLoc, BB);
+      ORE.emit(Remark << " loop with loop-carried memory dependencies "
+                         "cannot be pipelined");
     }
   }
 }
 
-void MemopCFG::emit_chains() {
-
-  // Expand all of the merge trees.
-  for (const std::unique_ptr<Node> &node : nodes) {
-    node->expand_merge_trees();
-  }
-
-  LLVM_DEBUG(dbgs() << "after merge expansion:\n\n" << *this);
-
-  // All of the extra ordering instructions should be ready now. Assign virtual
-  // registers to everything.
-  MachineFunction *MF = nodes.front()->BB->getParent();
-//RAVI  MachineRegisterInfo *MRI = &MF->getRegInfo();
-  CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
-  for (const std::unique_ptr<Node> &node : nodes) {
-    uint32_t index = 0;
-    for (PHI &phi : node->phis) {
-      phi.reg_no = LMFI->allocateLIC(MemopRC, Twine("memop.") + Twine(node->topo_num) + "p" + Twine(index++));
-    }
-    index = 0;
-    for (Memop &memop : node->memops) {
-
-      // Terminating mov0 memops need registers with a special class in order
-      // to make sure they're on the SXU.
-      if (not memop.MI and not memop.call_mi) {
-        memop.reg_no = memop.is_start ? LMFI->getInMemoryLic() : LMFI->getOutMemoryLic();
-      } else if (not memop.MI and not memop.is_start) {
-        memop.reg_no = LMFI->allocateLIC(&CSA::RI1RegClass, Twine("memop.") + Twine(node->topo_num) + "o" + Twine(index++));
-      } else
-        memop.reg_no = LMFI->allocateLIC(MemopRC, Twine("memop.") + Twine(node->topo_num) + "o" + Twine(index++));
-    }
-    index = 0;
-    for (Merge &merge : node->merges) {
-      merge.reg_no = LMFI->allocateLIC(MemopRC, Twine("memop.") + Twine(node->topo_num) + "m" + Twine(index++));
-    }
-  }
-
-  // Emit all of the phi nodes, memops, and merges.
-  for (const std::unique_ptr<Node> &node : nodes) {
-    node->emit_phis();
-    node->emit_merges();
-    node->emit_memops();
-  }
-
-  // Also gate parameters if parameter gating is requested.
-  if (GateParams)
-    gate_parameters();
+Pass *llvm::createStandardCSAMemopOrderingPass(const CSATargetMachine *TM) {
+  return new CSAMemopOrdering{TM};
 }
 
-void MemopCFG::gate_parameters() {
-  using std::next;
+INITIALIZE_PASS_BEGIN(CSAMemopOrdering, DEBUG_TYPE, PASS_DESC, false, false)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_END(CSAMemopOrdering, DEBUG_TYPE, PASS_DESC, false, false)
 
-  MachineFunction *const MF = nodes.front()->BB->getParent();
-  const CSASubtarget &ST =
-    static_cast<const CSASubtarget &>(MF->getSubtarget());
-  const CSAInstrInfo *const TII =
-    static_cast<const CSAInstrInfo *>(ST.getInstrInfo());
-  CSAMachineFunctionInfo *const LMFI = MF->getInfo<CSAMachineFunctionInfo>();
-  MachineRegisterInfo &MRI           = MF->getRegInfo();
+char CSAMemopOrdering::ID = 0;
 
-  // Grab the function-initial fence-like mov for both the lic to use in the
-  // gates and the place to put the gates.
-  assert(not nodes.front()->memops.empty());
-  const Memop &EntryMemop = nodes.front()->memops.front();
-  assert(EntryMemop.MI);
-  const unsigned EntryLIC     = EntryMemop.reg_no;
-  MachineBasicBlock *const BB = EntryMemop.MI->getParent();
-  const auto Where            = next(EntryMemop.MI->getIterator());
+StringRef CSAMemopOrdering::getPassName() const { return PASS_DESC; }
 
-  // Add a gate for each function parameter, replacing all uses of that
-  // parameter with the gated value.
-  for (const auto &LI : MRI.liveins()) {
-    const unsigned Param      = LI.second;
-    const StringRef ParamName = LMFI->getLICName(LI.second);
-    const unsigned Gated =
-      LMFI->allocateLIC(MRI.getRegClass(Param),
-                        ParamName.empty() ? Twine("") : ParamName + ".gate");
-    for (auto UI = MRI.use_begin(Param); UI != MRI.use_end();) {
-      MachineOperand &User = *UI++;
-      User.setReg(Gated);
-    }
-    BuildMI(
-      *BB, Where, DebugLoc{},
-      TII->get(TII->makeOpcode(CSA::Generic::GATE, LMFI->getLICSize(Param))),
-      Gated)
-      .addUse(EntryLIC)
-      .addUse(Param);
-  }
+void CSAMemopOrdering::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<DominatorTreeWrapperPass>();
+  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
+  AU.setPreservesCFG();
+  return CSAMemopOrderingBase::getAnalysisUsage(AU);
 }
 
-void MemopCFG::dump_ordering_chains(raw_ostream &out) {
+void CSAMemopOrdering::order(Function &F) {
   using namespace std;
-  map<OrdToken, int> seen;
-  for (const unique_ptr<Node> &node : nodes) {
-    for (int memop_idx = 0; memop_idx != int(node->memops.size());
-         ++memop_idx) {
-      OrdToken{node.get(), OrdToken::memop, memop_idx}.dump_ordering_chain(
-        out, seen);
-    }
+  using namespace std::placeholders;
+
+  DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  LoopInfo &LI      = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  OptimizationRemarkEmitter &ORE =
+    getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
+  ReversePostOrderTraversal<Function *> RPOT{&F};
+  bool can_speculate = TM ? TM->getSubtargetImpl(F)->canSpeculate() : false;
+  if (not TM) {
+    LLVM_DEBUG(
+      dbgs() << "No target machine specified; assuming no speculation\n");
   }
+
+  // This memory ordering pass can't handle irreducible loops.
+  if (containsIrreducibleCFG<BasicBlock *>(RPOT, LI))
+    report_fatal_error("Irreducible CFG located");
+
+  // Try to generate chains with parallel sections if the user has not disabled
+  // them. If something goes wrong, print an obnoxious warning message and try
+  // again without them.
+  MemopCFG mopcfg;
+  const function<bool(Instruction &)> needs_ordering_edges =
+    bind(&CSAMemopOrdering::needsOrderingEdges, this, _1);
+  mopcfg.load(F, AA, DT, LI, RPOT, needs_ordering_edges, can_speculate,
+              not IgnoreAnnotations);
+  LLVM_DEBUG(dbgs() << "pre ordering:\n\n" << mopcfg);
+  if (ViewPreOrderingMemopCFG)
+    ViewGraph(mopcfg, F.getName());
+  if (not mopcfg.construct_chains()) {
+    mopcfg.clear();
+    errs() << "\n";
+    errs().changeColor(raw_ostream::BLUE, true);
+    errs() << "!! WARNING: BAD PARALLEL SECTION INTRINSICS !!";
+    errs().resetColor();
+    errs() << R"warn(
+An inconsistency was discovered when processing parallel section intrinsics for
+)warn";
+    errs() << F.getName();
+    errs() << R"warn(.
+
+Because of this, parallel regions and sections will be ignored for this
+function. Please re-examine the parallel section intrinsics in the function to
+make sure that they dominate/post-dominate the memory operations in their
+sections correctly.
+
+)warn";
+    mopcfg.load(F, AA, DT, LI, RPOT, needs_ordering_edges, can_speculate,
+                false);
+    bool made_chains = mopcfg.construct_chains();
+    assert(made_chains);
+    (void)made_chains;
+  }
+
+  if (DumpMemopCFG)
+    errs() << mopcfg;
+  if (ViewMemopCFG)
+    ViewGraph(mopcfg, F.getName());
+
+  mopcfg.emit_opt_report(ORE);
+  emit(mopcfg);
 }
 
-void CSAMemopOrdering::eraseParallelIntrinsics(MachineFunction *MF) {
-  bool needDeadPHIRemoval = false;
-  std::set<MachineInstr *> toErase;
-  for (MachineBasicBlock &mbb : *MF)
-    for (MachineInstr &mi : mbb)
-      if (mi.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY ||
-          mi.getOpcode() == CSA::CSA_PARALLEL_SECTION_EXIT ||
-          mi.getOpcode() == CSA::CSA_PARALLEL_REGION_ENTRY ||
-          mi.getOpcode() == CSA::CSA_PARALLEL_REGION_EXIT) {
-        toErase.insert(&mi);
-        // Any token users should also go away.
-        for (MachineInstr &tokenUser :
-             MRI->use_nodbg_instructions(mi.getOperand(0).getReg()))
-          toErase.insert(&tokenUser);
-      }
+Value *CSAMemopOrdering::getOutord(const MemopCFG::OrdToken &OT) {
+  using std::back_inserter;
+  using std::bind;
+  using std::placeholders::_1;
+  using OTType = MemopCFG::OrdToken::Type;
+  switch (OT.type) {
+  case OTType::none:
+    return NoneVal;
+  case OTType::phi:
+    assert(OT.node->phis[OT.idx].I);
+    return OT.node->phis[OT.idx].I;
+  case OTType::memop:
+    assert(OT.node->memops[OT.idx].outord);
+    return OT.node->memops[OT.idx].outord;
+  case OTType::merge: {
+    MemopCFG::Merge &merge = OT.node->merges[OT.idx];
+    if (merge.All0)
+      return merge.All0;
+    SmallVector<Value *, INPUTS_PER_MERGE> Ins;
+    Ins.reserve(merge.inputs.size());
+    transform(merge.inputs, back_inserter(Ins),
+              bind(&CSAMemopOrdering::getOutord, this, _1));
+    Instruction *Where = (merge.memop_idx < int(OT.node->memops.size()))
+                           ? OT.node->memops[merge.memop_idx].I
+                           : OT.node->BB->getTerminator();
+    return merge.All0 = createAll0(Ins, Where,
+                                   "memop." + Twine{OT.node->topo_num} + "m" +
+                                     Twine{OT.idx});
+  }
+  }
+  report_fatal_error("Unexpected OrdToken type value");
+}
 
-  for (MachineInstr *mi : toErase) {
-    mi->eraseFromParentAndMarkDBGValuesForRemoval();
-    needDeadPHIRemoval = true;
+void CSAMemopOrdering::emit(MemopCFG &mopcfg) {
+
+  // Create all of the phi nodes first; their inputs will be connected later.
+  for (const auto &node : mopcfg.nodes) {
+    int phi_idx = 0;
+    for (MemopCFG::PHI &phi : node->phis) {
+      phi.I = createPHI(node->BB, "memop." + Twine{node->topo_num} + "p" +
+                                    Twine{phi_idx++});
+    }
   }
 
-  // We've removed all of the intrinsics, but their tokens may have been
-  // flowing through PHI nodes. Look for dead PHI nodes and remove them.
-  while (needDeadPHIRemoval) {
-    needDeadPHIRemoval = false;
-    toErase.clear();
-    for (MachineBasicBlock &mbb : *MF)
-      for (MachineInstr &mi : mbb)
-        if (mi.isPHI() && mi.getOperand(0).isReg() &&
-            MRI->use_nodbg_empty(mi.getOperand(0).getReg()))
-          toErase.insert(&mi);
-    for (MachineInstr *mi : toErase) {
-      mi->eraseFromParentAndMarkDBGValuesForRemoval();
-      needDeadPHIRemoval = true;
+  // Connect all of the memops.
+  for (const auto &node : mopcfg.nodes) {
+    int memop_idx = 0;
+    for (MemopCFG::Memop &memop : node->memops) {
+      if (not memop.outord)
+        memop.outord = createOrderingEdges(memop.I, getOutord(memop.ready),
+                                           "memop." + Twine{node->topo_num} +
+                                             "o" + Twine{memop_idx});
+      ++memop_idx;
+    }
+  }
+
+  // Connect all of the phis.
+  for (const auto &node : mopcfg.nodes) {
+    for (const MemopCFG::PHI &phi : node->phis) {
+      for (int pred_idx = 0; pred_idx < int(node->preds.size()); ++pred_idx) {
+        phi.I->addIncoming(getOutord(phi.inputs[pred_idx]),
+                           node->preds[pred_idx]->BB);
+      }
     }
   }
 }

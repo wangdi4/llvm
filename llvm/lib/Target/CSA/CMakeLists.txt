@@ -56,6 +56,7 @@ add_llvm_target(CSACodeGen
   CSARASReplayableLoads.cpp
   CSASeqotToSeqOptimization.cpp
   MemopOrdering/CSALinearMemopOrdering.cpp
+  MemopOrdering/CSAMemopOrdering.cpp
   MemopOrdering/CSAMemopOrderingBase.cpp
   MemopOrdering/CSAMemopOrderingPassScheduling.cpp
   MemopOrdering/CSARaceModeMemopOrdering.cpp

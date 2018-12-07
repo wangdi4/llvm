@@ -51,7 +51,7 @@ MachineFunctionPass *createCSADataflowVerifier();
 // FunctionPass *createCSALowerStructArgsPass();
 Pass *createCSAInnerLoopPrepPass();
 Pass *createCSAReplaceAllocaWithMallocPass(CSATargetMachine &TM);
-Pass *createCSAMemopOrderingPass();
+Pass *createCSAMemopOrderingPass(const CSATargetMachine &TM);
 Pass *createCSAStreamingMemoryPrepPass();
 
 void initializeCSAMemopOrderingPasses(PassRegistry &);

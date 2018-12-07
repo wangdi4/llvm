@@ -202,7 +202,7 @@ public:
   bool addInstSelector() override {
 
     // Add ordering edges to memops.
-    addPass(createCSAMemopOrderingPass());
+    addPass(createCSAMemopOrderingPass(getCSATargetMachine()));
 
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
