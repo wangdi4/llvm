@@ -101,6 +101,8 @@ public:
   SDValue LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerADDSUB_Carry(SDValue Op, SelectionDAG &DAG, bool isAdd) const;
   SDValue LowerExtractElement(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerMemop(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const;
 
   bool isTruncateFree(EVT VT1, EVT VT2) const override;
   bool isTruncateFree(Type *Ty1, Type *Ty2) const override;

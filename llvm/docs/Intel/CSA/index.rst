@@ -13,6 +13,7 @@ CSA
    CSALowerLoopIdioms
    DataflowConversion
    DataflowMIR
+   MemoryOrdering
    PathfindingBuiltins
 
 Introduction
@@ -38,10 +39,10 @@ general compilation flow:
   CSAStreamingMemoryPrep, :ref:`CSAIntrinsicCleaner`,
   :doc:`CSALowerLoopIdioms`) - These perform extra
   CSA-advantaged optimizations and prepare the code for instruction selection.
+- :doc:`CSA Memory Operation Ordering (CSAMemopOrdering) <MemoryOrdering>` -
+  Inserts ordering edges between memory operations as needed to enforce memory
+  ordering constraints in the original program.
 - Instruction Selection + CSAExpandInlineAsm
-- CSA Memory Operation Ordering (CSAMemopOrdering) - Inserts ordering edges
-  between memory operations as needed to enforce memory ordering constraints in
-  the original program.
 - :doc:`CSA Dataflow Conversion (CSACvtCFDFPass) <DataflowConversion>` -
   Converts the code from SSA form into dataflow by converting branches/phis
   into picks and switches.
@@ -70,10 +71,11 @@ general compilation flow:
 
 Passes before instruction selection operate on standard LLVM IR and many of the
 CSA-specific ones exist mostly to manipulate intrinsics used by backend passes
-later on. Memory ordering operates on "standard" SSA Machine IR but passes
-starting with dataflow conversion operate on Machine IR interpreted as dataflow
-code. See :doc:`CSA Dataflow Machine Code Representation <DataflowMIR>` for more
-information on this format and how to use it.
+later on. Memory ordering runs at the very end of the IR phase and produces
+memory ordering intrinsics meant to be directly consumed by instruction
+selection. Passes starting with dataflow conversion operate on Machine IR
+interpreted as dataflow code. See :doc:`CSA Dataflow Machine Code Representation
+<DataflowMIR>` for more information on this format and how to use it.
 
 Usage Models
 ============
@@ -116,6 +118,8 @@ The following is a full list of CSA compilation topics documented here:
   The dataflow conversion pass of CSA.
 :doc:`Dataflow Machine Code Representation <DataflowMIR>`
   Structure and rules of CSA dataflow machine code.
+:doc:`Memory Operation Ordering <MemoryOrdering>`
+  The CSAMemopOrdering pass and other information related to memory ordering.
 :doc:`Pathfinding Builtins <PathfindingBuiltins>`
   The set of intrinsics added to annotate code in the pathfinding compiler and
   related passes.

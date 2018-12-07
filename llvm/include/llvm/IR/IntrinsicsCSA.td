@@ -130,5 +130,20 @@ def int_csa_fmsaf32x2 : GCCBuiltin<"__builtin_csa_fmsaf32x2">,
     Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
       llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
 
+// Intrinsics for specifying ordering edges attached to memory references.
+def int_csa_inord  : Intrinsic<[], [llvm_i1_ty], [] /* , "llvm.csa.inord"  */>;
+def int_csa_outord : Intrinsic<[llvm_i1_ty], [], [] /* , "llvm.csa.outord" */>;
+
+// An intrinsic for representing a function entry. Function exits are
+// represented by inord intrinsics on return instructions.
+def int_csa_mementry :
+    Intrinsic<[llvm_i1_ty], [], [] /* , "llvm.csa.mementry" */>;
+
+// An intrinsic for representing an n-ary all0 operation, used for ordering
+// token merges in memory ordering.
+def int_csa_all0 :
+    Intrinsic<[llvm_i1_ty], [llvm_vararg_ty],
+              [IntrNoMem] /* , "llvm.csa.all0" */>;
+
 }
 // end INTEL_FEATURE_CSA

@@ -96,15 +96,30 @@ unsigned csa_utils::createUseTree(MachineBasicBlock *mbb, MachineBasicBlock::ite
   unsigned n = vals.size();
   assert(n && "Can't combine 0 values");
   MCInstrDesc id = TII->get(opcode);
+  assert(id.getNumDefs() == 1 &&
+         "Must have exactly one output to use createUseTree");
+
+  const TargetRegisterClass *outTRC =
+      LMFI->licRCFromGenRC(TII->getRegClass(id, 0, TRI, *mbb->getParent()));
+
+  // If the instruction is variadic, we don't really need to make a tree.
+  if (id.isVariadic()) {
+    unsigned Out = LMFI->allocateLIC(outTRC);
+    MachineInstrBuilder MIB = BuildMI(
+        *mbb, before, before == mbb->end() ? DebugLoc() : before->getDebugLoc(),
+        TII->get(opcode), Out);
+    MIB.setMIFlag(MachineInstr::NonSequential);
+    for (unsigned j = 0; j < n; ++j)
+      MIB.addUse(vals[j]);
+    return Out;
+  }
+
   // Ensure that this is an op that we can build some kind of 1-to-N tree out
   // of.
-  assert(id.getNumDefs() == 1 && id.getNumOperands() > 2 &&
+  assert(id.getNumOperands() > 2 &&
          "Don't know how to build a tree out of this opcode");
   unsigned radix                    = id.getNumOperands() - id.getNumDefs();
   if (opcode == CSA::ANY0) radix = radix - 1;
-  
-  const TargetRegisterClass *outTRC = LMFI->licRCFromGenRC(
-    TII->getRegClass(id, 0, TRI, *mbb->getParent()));
 
   // If one left, we're done.
   if (n == 1)

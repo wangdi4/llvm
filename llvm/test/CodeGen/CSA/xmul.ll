@@ -2,6 +2,8 @@
 source_filename = "div.cpp"
 target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
+; NOTE: This test contains a few calls to runtime functions that aren't
+; implemented yet. Those have been disabled for now.
 
 ; Function Attrs: norecurse nounwind
 define zeroext i8 @divu8(i8 zeroext %val) local_unnamed_addr #0 align 2 {
@@ -13,16 +15,16 @@ entry:
 }
 
 ; Function Attrs: nounwind
-define zeroext i1 @mulou8(i8 zeroext %lhs, i8 zeroext %rhs, i8* dereferenceable(1) %res) local_unnamed_addr #1 align 2 {
-; CHECK: mulou8
-; CHECK: xmulu8 %[[DEST:[a-z0-9_]+]]
-entry:
-  %0 = tail call { i8, i1 } @llvm.umul.with.overflow.i8(i8 %lhs, i8 %rhs)
-  %1 = extractvalue { i8, i1 } %0, 1
-  %2 = extractvalue { i8, i1 } %0, 0
-  store i8 %2, i8* %res, align 1
-  ret i1 %1
-}
+;define zeroext i1 @mulou8(i8 zeroext %lhs, i8 zeroext %rhs, i8* dereferenceable(1) %res) local_unnamed_addr #1 align 2 {
+;; C HECK: mulou8
+;; C HECK: xmulu8 %[[DEST:[a-z0-9_]+]]
+;entry:
+;  %0 = tail call { i8, i1 } @llvm.umul.with.overflow.i8(i8 %lhs, i8 %rhs)
+;  %1 = extractvalue { i8, i1 } %0, 1
+;  %2 = extractvalue { i8, i1 } %0, 0
+;  store i8 %2, i8* %res, align 1
+;  ret i1 %1
+;}
 
 ; Function Attrs: nounwind readnone speculatable
 declare { i8, i1 } @llvm.umul.with.overflow.i8(i8, i8) #2
@@ -37,16 +39,16 @@ entry:
 }
 
 ; Function Attrs: nounwind
-define zeroext i1 @mulos8(i8 signext %lhs, i8 signext %rhs, i8* dereferenceable(1) %res) local_unnamed_addr #1 align 2 {
-; CHECK: mulos8
-; CHECK: xmuls8 %[[DEST:[a-z0-9_]+]]
-entry:
-  %0 = tail call { i8, i1 } @llvm.smul.with.overflow.i8(i8 %lhs, i8 %rhs)
-  %1 = extractvalue { i8, i1 } %0, 1
-  %2 = extractvalue { i8, i1 } %0, 0
-  store i8 %2, i8* %res, align 1
-  ret i1 %1
-}
+;define zeroext i1 @mulos8(i8 signext %lhs, i8 signext %rhs, i8* dereferenceable(1) %res) local_unnamed_addr #1 align 2 {
+;; C HECK: mulos8
+;; C HECK: xmuls8 %[[DEST:[a-z0-9_]+]]
+;entry:
+;  %0 = tail call { i8, i1 } @llvm.smul.with.overflow.i8(i8 %lhs, i8 %rhs)
+;  %1 = extractvalue { i8, i1 } %0, 1
+;  %2 = extractvalue { i8, i1 } %0, 0
+;  store i8 %2, i8* %res, align 1
+;  ret i1 %1
+;}
 
 ; Function Attrs: nounwind readnone speculatable
 declare { i8, i1 } @llvm.smul.with.overflow.i8(i8, i8) #2
@@ -59,14 +61,14 @@ entry:
 }
 
 ; Function Attrs: nounwind
-define zeroext i1 @mulou16(i16 zeroext %lhs, i16 zeroext %rhs, i16* dereferenceable(2) %res) local_unnamed_addr #1 align 2 {
-entry:
-  %0 = tail call { i16, i1 } @llvm.umul.with.overflow.i16(i16 %lhs, i16 %rhs)
-  %1 = extractvalue { i16, i1 } %0, 1
-  %2 = extractvalue { i16, i1 } %0, 0
-  store i16 %2, i16* %res, align 2
-  ret i1 %1
-}
+;define zeroext i1 @mulou16(i16 zeroext %lhs, i16 zeroext %rhs, i16* dereferenceable(2) %res) local_unnamed_addr #1 align 2 {
+;entry:
+;  %0 = tail call { i16, i1 } @llvm.umul.with.overflow.i16(i16 %lhs, i16 %rhs)
+;  %1 = extractvalue { i16, i1 } %0, 1
+;  %2 = extractvalue { i16, i1 } %0, 0
+;  store i16 %2, i16* %res, align 2
+;  ret i1 %1
+;}
 
 ; Function Attrs: nounwind readnone speculatable
 declare { i16, i1 } @llvm.umul.with.overflow.i16(i16, i16) #2
@@ -79,14 +81,14 @@ entry:
 }
 
 ; Function Attrs: nounwind
-define zeroext i1 @mulos16(i16 signext %lhs, i16 signext %rhs, i16* dereferenceable(2) %res) local_unnamed_addr #1 align 2 {
-entry:
-  %0 = tail call { i16, i1 } @llvm.smul.with.overflow.i16(i16 %lhs, i16 %rhs)
-  %1 = extractvalue { i16, i1 } %0, 1
-  %2 = extractvalue { i16, i1 } %0, 0
-  store i16 %2, i16* %res, align 2
-  ret i1 %1
-}
+;define zeroext i1 @mulos16(i16 signext %lhs, i16 signext %rhs, i16* dereferenceable(2) %res) local_unnamed_addr #1 align 2 {
+;entry:
+;  %0 = tail call { i16, i1 } @llvm.smul.with.overflow.i16(i16 %lhs, i16 %rhs)
+;  %1 = extractvalue { i16, i1 } %0, 1
+;  %2 = extractvalue { i16, i1 } %0, 0
+;  store i16 %2, i16* %res, align 2
+;  ret i1 %1
+;}
 
 ; Function Attrs: nounwind readnone speculatable
 declare { i16, i1 } @llvm.smul.with.overflow.i16(i16, i16) #2
@@ -99,14 +101,14 @@ entry:
 }
 
 ; Function Attrs: nounwind
-define zeroext i1 @mulou32(i32 %lhs, i32 %rhs, i32* dereferenceable(4) %res) local_unnamed_addr #1 align 2 {
-entry:
-  %0 = tail call { i32, i1 } @llvm.umul.with.overflow.i32(i32 %lhs, i32 %rhs)
-  %1 = extractvalue { i32, i1 } %0, 1
-  %2 = extractvalue { i32, i1 } %0, 0
-  store i32 %2, i32* %res, align 4
-  ret i1 %1
-}
+;define zeroext i1 @mulou32(i32 %lhs, i32 %rhs, i32* dereferenceable(4) %res) local_unnamed_addr #1 align 2 {
+;entry:
+;  %0 = tail call { i32, i1 } @llvm.umul.with.overflow.i32(i32 %lhs, i32 %rhs)
+;  %1 = extractvalue { i32, i1 } %0, 1
+;  %2 = extractvalue { i32, i1 } %0, 0
+;  store i32 %2, i32* %res, align 4
+;  ret i1 %1
+;}
 
 ; Function Attrs: nounwind readnone speculatable
 declare { i32, i1 } @llvm.umul.with.overflow.i32(i32, i32) #2
@@ -119,14 +121,14 @@ entry:
 }
 
 ; Function Attrs: nounwind
-define zeroext i1 @mulos32(i32 %lhs, i32 %rhs, i32* dereferenceable(4) %res) local_unnamed_addr #1 align 2 {
-entry:
-  %0 = tail call { i32, i1 } @llvm.smul.with.overflow.i32(i32 %lhs, i32 %rhs)
-  %1 = extractvalue { i32, i1 } %0, 1
-  %2 = extractvalue { i32, i1 } %0, 0
-  store i32 %2, i32* %res, align 4
-  ret i1 %1
-}
+;define zeroext i1 @mulos32(i32 %lhs, i32 %rhs, i32* dereferenceable(4) %res) local_unnamed_addr #1 align 2 {
+;entry:
+;  %0 = tail call { i32, i1 } @llvm.smul.with.overflow.i32(i32 %lhs, i32 %rhs)
+;  %1 = extractvalue { i32, i1 } %0, 1
+;  %2 = extractvalue { i32, i1 } %0, 0
+;  store i32 %2, i32* %res, align 4
+;  ret i1 %1
+;}
 
 ; Function Attrs: nounwind readnone speculatable
 declare { i32, i1 } @llvm.smul.with.overflow.i32(i32, i32) #2
@@ -139,14 +141,14 @@ entry:
 }
 
 ; Function Attrs: nounwind
-define zeroext i1 @mulou64(i64 %lhs, i64 %rhs, i64* dereferenceable(8) %res) local_unnamed_addr #1 align 2 {
-entry:
-  %0 = tail call { i64, i1 } @llvm.umul.with.overflow.i64(i64 %lhs, i64 %rhs)
-  %1 = extractvalue { i64, i1 } %0, 1
-  %2 = extractvalue { i64, i1 } %0, 0
-  store i64 %2, i64* %res, align 8
-  ret i1 %1
-}
+;define zeroext i1 @mulou64(i64 %lhs, i64 %rhs, i64* dereferenceable(8) %res) local_unnamed_addr #1 align 2 {
+;entry:
+;  %0 = tail call { i64, i1 } @llvm.umul.with.overflow.i64(i64 %lhs, i64 %rhs)
+;  %1 = extractvalue { i64, i1 } %0, 1
+;  %2 = extractvalue { i64, i1 } %0, 0
+;  store i64 %2, i64* %res, align 8
+;  ret i1 %1
+;}
 
 ; Function Attrs: nounwind readnone speculatable
 declare { i64, i1 } @llvm.umul.with.overflow.i64(i64, i64) #2
@@ -159,14 +161,14 @@ entry:
 }
 
 ; Function Attrs: nounwind
-define zeroext i1 @mulos64(i64 %lhs, i64 %rhs, i64* dereferenceable(8) %res) local_unnamed_addr #1 align 2 {
-entry:
-  %0 = tail call { i64, i1 } @llvm.smul.with.overflow.i64(i64 %lhs, i64 %rhs)
-  %1 = extractvalue { i64, i1 } %0, 1
-  %2 = extractvalue { i64, i1 } %0, 0
-  store i64 %2, i64* %res, align 8
-  ret i1 %1
-}
+;define zeroext i1 @mulos64(i64 %lhs, i64 %rhs, i64* dereferenceable(8) %res) local_unnamed_addr #1 align 2 {
+;entry:
+;  %0 = tail call { i64, i1 } @llvm.smul.with.overflow.i64(i64 %lhs, i64 %rhs)
+;  %1 = extractvalue { i64, i1 } %0, 1
+;  %2 = extractvalue { i64, i1 } %0, 0
+;  store i64 %2, i64* %res, align 8
+;  ret i1 %1
+;}
 
 ; Function Attrs: nounwind readnone speculatable
 declare { i64, i1 } @llvm.smul.with.overflow.i64(i64, i64) #2

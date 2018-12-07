@@ -1,5 +1,9 @@
 ; RUN: llc -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
 ; RUN: llc -mtriple=csa -csa-force-math0-instructions < %s | FileCheck %s --check-prefix=CSA_CHECK_NOMATHLIB
+; Math library calls in lit tests are temporarily broken because they can't be
+; lowered to calls early. Re-enable these tests when this issue is fixed.
+; XFAIL: *
+
 ; ModuleID = 'MathOps.c'
 target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"

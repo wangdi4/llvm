@@ -130,6 +130,7 @@ class CSAAsmPrinter : public AsmPrinter {
   void setLICNames();
   void EmitCallInstruction(const MachineInstr *);
   void EmitContinueInstruction(const MachineInstr *);
+  void EmitAll0(const MachineInstr *);
   void EmitEntryInstruction();
   void EmitSimpleEntryInstruction();
   void EmitParamsResultsDecl();
@@ -784,6 +785,36 @@ void CSAAsmPrinter::EmitContinueInstruction(const MachineInstr *MI) {
   OutStreamer->EmitRawText(O.str());
 }
 
+void CSAAsmPrinter::EmitAll0(const MachineInstr *MI) {
+  const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
+  SmallString<128> Str;
+  raw_svector_ostream O(Str);
+  O << "\tall0\t";
+  const int OpndCount = MI->getNumOperands();
+  bool first = true;
+  for (int i=0; i<OpndCount; ++i) {
+
+    // Non-register all0 inputs are no-ops, so don't bother emitting them.
+    if (not MI->getOperand(i).isReg()) continue;
+
+    if (not first) O << ", ";
+    first = false;
+
+    unsigned reg = MI->getOperand(i).getReg();
+    StringRef name = "";
+    if (reg != CSA::IGN && reg != CSA::NA) {
+      if (TargetRegisterInfo::isVirtualRegister(reg))
+        name = LMFI->getLICName(reg);
+      else
+        name = CSAInstPrinter::getRegisterName(reg);
+    } else
+      name = CSAInstPrinter::getRegisterName(reg);
+    O << "%" << name;
+  }
+  O << "\n";
+  OutStreamer->EmitRawText(O.str());
+}
+
 void CSAAsmPrinter::EmitTrampolineMarkers(const MachineInstr *MI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
@@ -800,6 +831,7 @@ void CSAAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   if (MI->getOpcode() == CSA::CSA_RETURN) return;
   if (MI->getOpcode() == CSA::CSA_CALL) { EmitCallInstruction(MI); return; }
   if (MI->getOpcode() == CSA::CSA_CONTINUE) { EmitContinueInstruction(MI); return; }
+  if (MI->getOpcode() == CSA::ALL0) { EmitAll0(MI); return; }
   if (MI->getOpcode() == CSA::TRAMPOLINE_START || MI->getOpcode() == CSA::TRAMPOLINE_END) { EmitTrampolineMarkers(MI); return; }
   if (MI->getFlag(MachineInstr::RasReplayable)) {
       OutStreamer->EmitRawText("\t.attrib ras_replayable=true\n");

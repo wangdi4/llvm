@@ -75,9 +75,6 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
   /// Register number of the input memory ordering edge.
   unsigned InMemoryLic;
 
-  /// Register number of the output memory ordering edge.
-  unsigned OutMemoryLic;
-
 public:
   explicit CSAMachineFunctionInfo(MachineFunction &MF);
   ~CSAMachineFunctionInfo();
@@ -184,7 +181,7 @@ public:
   unsigned getInMemoryLic() const { return InMemoryLic; }
 
   /// Return the register that has the output memory edge.
-  unsigned getOutMemoryLic() const { return OutMemoryLic; }
+  unsigned getOutMemoryLic() const;
 };
 
 } // namespace llvm

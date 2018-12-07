@@ -34,7 +34,6 @@ add_llvm_target(CSACodeGen
   CSALowerLoopIdioms.cpp
   CSAMCInstLower.cpp
   CSAMachineFunctionInfo.cpp
-  CSAMemopOrdering.cpp
   CSAMultiSeqPass.cpp
   CSANameLICs.cpp
   CSANormalizeDebugPass.cpp
@@ -56,6 +55,10 @@ add_llvm_target(CSACodeGen
   CSAProcedureCalls.cpp
   CSARASReplayableLoads.cpp
   CSASeqotToSeqOptimization.cpp
+  MemopOrdering/CSALinearMemopOrdering.cpp
+  MemopOrdering/CSAMemopOrderingBase.cpp
+  MemopOrdering/CSAMemopOrderingPassScheduling.cpp
+  MemopOrdering/CSARaceModeMemopOrdering.cpp
   )
 
 add_subdirectory(AsmParser)

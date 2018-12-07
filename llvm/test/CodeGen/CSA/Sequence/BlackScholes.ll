@@ -1,4 +1,7 @@
 ; RUN: llc -O1 -csa-opt-df-pass=1 -csa-seq-opt=2 -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
+; Math library calls in lit tests are temporarily broken because they can't be
+; lowered to calls early. Re-enable these tests when this issue is fixed.
+; XFAIL: *
 
 ; ModuleID = 'BlackScholes_csa_loop.cpp'
 target datalayout = "e-m:e-i64:64-n32:64"

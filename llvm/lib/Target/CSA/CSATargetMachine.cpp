@@ -89,7 +89,7 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSAFortranIntrinsicsPass(PR);
   initializeCSAInnerLoopPrepPass(PR);
   initializeCSALowerLoopIdiomsPass(PR);
-  initializeCSAMemopOrderingPass(PR);
+  initializeCSAMemopOrderingPasses(PR);
   initializeCSANameLICsPassPass(PR);
   initializeCSANormalizeDebugPass(PR);
   initializeCSAOptDFPassPass(PR);
@@ -201,6 +201,9 @@ public:
 
   bool addInstSelector() override {
 
+    // Add ordering edges to memops.
+    addPass(createCSAMemopOrderingPass());
+
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
 
@@ -227,9 +230,6 @@ public:
     // Remove any remaining intrinsics which should not go through instruction
     // selection
     addPass(createCSAIntrinsicCleanerPass());
-    // Add pass to replace alloca instructions
-    addPass(createCSAReplaceAllocaWithMallocPass(getCSATargetMachine()));
-    addPass(createGlobalDCEPass());
 
     // Add the pass to lower memset/memmove/memcpy
     addPass(createLowerLoopIdioms());
@@ -238,6 +238,10 @@ public:
     // expansion.
     addPass(createInstructionCombiningPass());
     addPass(createCFGSimplificationPass());
+
+    // Add pass to replace alloca instructions
+    addPass(createCSAReplaceAllocaWithMallocPass(getCSATargetMachine()));
+    addPass(createGlobalDCEPass());
 
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...
@@ -248,17 +252,6 @@ public:
 
   void addPreRegAlloc() override {
     addPass(createControlDepenceGraph(), false);
-
-    if (getOptLevel() != CodeGenOpt::None) {
-      //
-      // TODO (vzakhari 3/1/2018): decide what to do at O0.
-      //       Currently, RegAllocFast used at O0 does not work properly
-      //       for CI register classes.  This workaround mimics
-      //       the pathfinding compiler behavior and disables cv-to-df
-      //       conversion (which would introduce CI).
-      //
-      addPass(createCSAMemopOrderingPass());
-    }
 
     addPass(createCSARASReplayableLoadsDetectionPass(), false);
     addPass(createCSANameLICsPass(), false);

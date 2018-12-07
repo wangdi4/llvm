@@ -38,6 +38,10 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <algorithm>
+#include <iterator>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "csa-lower"
@@ -155,18 +159,21 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
 
     // Atomic operations
     if (isTypeSupported && ST.hasRMWAtomic()) {
-      setOperationAction(ISD::ATOMIC_LOAD_AND, VT, Legal);
-      setOperationAction(ISD::ATOMIC_LOAD_ADD, VT, Legal);
-      setOperationAction(ISD::ATOMIC_LOAD_MIN, VT, Legal);
-      setOperationAction(ISD::ATOMIC_LOAD_MAX, VT, Legal);
-      setOperationAction(ISD::ATOMIC_LOAD_OR,  VT, Legal);
-      setOperationAction(ISD::ATOMIC_SWAP, VT, Legal);
-      setOperationAction(ISD::ATOMIC_LOAD_XOR, VT, Legal);
+      setOperationAction(ISD::ATOMIC_LOAD_AND, VT, Custom);
+      setOperationAction(ISD::ATOMIC_LOAD_ADD, VT, Custom);
+      setOperationAction(ISD::ATOMIC_LOAD_MIN, VT, Custom);
+      setOperationAction(ISD::ATOMIC_LOAD_MAX, VT, Custom);
+      setOperationAction(ISD::ATOMIC_LOAD_OR, VT, Custom);
+      setOperationAction(ISD::ATOMIC_LOAD_XOR, VT, Custom);
+      setOperationAction(ISD::ATOMIC_SWAP, VT, Custom);
     }
-    setOperationAction(ISD::ATOMIC_CMP_SWAP, VT, Legal);
+    setOperationAction(ISD::ATOMIC_CMP_SWAP, VT, Custom);
 
     setOperationAction(ISD::ATOMIC_LOAD, VT, Custom);
     setOperationAction(ISD::ATOMIC_STORE, VT, Custom);
+
+    setOperationAction(ISD::LOAD, VT, Custom);
+    setOperationAction(ISD::STORE, VT, Custom);
 
     setOperationAction(ISD::DYNAMIC_STACKALLOC, VT, Expand);
   }
@@ -215,6 +222,13 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
 
   setTruncStoreAction(MVT::f64, MVT::f32, Expand);
+
+  // Vector loads and stores should be handled in custom expansion.
+  setOperationAction(ISD::LOAD, MVT::v2f32, Custom);
+  setOperationAction(ISD::STORE, MVT::v2f32, Custom);
+  setOperationAction(ISD::ATOMIC_LOAD, MVT::v2f32, Custom);
+  setOperationAction(ISD::ATOMIC_STORE, MVT::v2f32, Custom);
+  setOperationAction(ISD::ATOMIC_CMP_SWAP, MVT::v2f32, Custom);
 
   // SETOEQ and SETUNE require checking two conditions.
   /*
@@ -368,7 +382,12 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
 
   // setOperationAction(ISD::READCYCLECOUNTER,   MVT::i64,   Legal);
 
-  setOperationAction(ISD::PREFETCH, MVT::Other, Legal);
+  setOperationAction(ISD::PREFETCH, MVT::Other, Custom);
+  setOperationAction(ISD::ATOMIC_FENCE, MVT::Other, Custom);
+
+  setOperationAction(ISD::INTRINSIC_VOID, MVT::Other, Custom);
+  setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::Other, Custom);
+  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::Other, Custom);
 
   setTargetDAGCombine(ISD::SELECT);
   setTargetDAGCombine(ISD::SMIN);
@@ -420,6 +439,23 @@ SDValue CSATargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
     return LowerADDSUB_Carry(Op, DAG, false);
   case ISD::EXTRACT_VECTOR_ELT:
     return LowerExtractElement(Op, DAG);
+  case ISD::LOAD:
+  case ISD::STORE:
+  case ISD::ATOMIC_CMP_SWAP:
+  case ISD::PREFETCH:
+  case ISD::ATOMIC_FENCE:
+  case ISD::ATOMIC_LOAD_AND:
+  case ISD::ATOMIC_LOAD_ADD:
+  case ISD::ATOMIC_LOAD_MIN:
+  case ISD::ATOMIC_LOAD_MAX:
+  case ISD::ATOMIC_LOAD_OR:
+  case ISD::ATOMIC_LOAD_XOR:
+  case ISD::ATOMIC_SWAP:
+    return LowerMemop(Op, DAG);
+  case ISD::INTRINSIC_W_CHAIN:
+  case ISD::INTRINSIC_VOID:
+  case ISD::INTRINSIC_WO_CHAIN:
+    return LowerIntrinsic(Op, DAG);
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -626,6 +662,389 @@ SDValue CSATargetLowering::LowerExtractElement(SDValue Op,
     Res = DAG.getBitcast(VT, Res);
 
   return Res;
+}
+
+static SDNode *getSingleUseOfValue(SDValue V) {
+  if (not V.hasOneUse())
+    return nullptr;
+  for (auto UseIt = V->use_begin(), UseEnd = V->use_end(); UseIt != UseEnd;
+       ++UseIt) {
+    if (UseIt.getUse().getResNo() == V.getResNo())
+      return *UseIt;
+  }
+  llvm_unreachable("SDValue::hasOneUse lied to us!");
+}
+
+// If Chain is an inord node, the input to the node is returned and Chain is
+// updated to the node's chain input (making it convenient to remove the inord
+// node from the chain and let it get DCE'd). Otherwise, a null SDValue is
+// returned and Chain is left as-is.
+static SDValue GetInord(SDValue &Chain) {
+  SDValue Inord;
+  const SDNode *const ChainNode = Chain.getNode();
+  if (ChainNode->getOpcode() == ISD::INTRINSIC_VOID and
+      cast<ConstantSDNode>(ChainNode->getOperand(1))->getLimitedValue() ==
+        Intrinsic::csa_inord) {
+    Inord = ChainNode->getOperand(2);
+    Chain = ChainNode->getOperand(0);
+  }
+  return Inord;
+}
+
+SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
+  using namespace std;
+
+  // An enum denoting where to get a particular use/def for the MachineInstr
+  // representation of a memop. Values are:
+  //
+  // * OPND: copy from/to operand/output at index idx of the input SDNode
+  // * ORD: copy from/to the input/output ordering edge
+  // * LEVEL: choose a memlvl value based on the MachineMemOperand
+  enum OpndSourceType { OPND, ORD, LEVEL };
+
+  // A record denoting how to translate a particular use/def operand for the
+  // MachineInstr representation of a memop. See OpndSourceType above for
+  // details.
+  struct OpndSource {
+    OpndSourceType type;
+    int idx;
+    OpndSource(OpndSourceType Type, int Idx = 0) : type{Type}, idx{Idx} {}
+    bool operator==(const OpndSource &other) const {
+      return type == other.type and (type != OPND or idx == other.idx);
+    }
+  };
+
+  // A record of how to translate a MemSDNode to a MachineSDNode for a
+  // particular memop.
+  struct MemopRec {
+
+    // The SDNode opcode for the memop.
+    unsigned SDOpcode;
+
+    // The generic CSA opcode for the memop.
+    CSA::Generic genericOpcode;
+
+    // The def/use index to use for the size of the opcode. Values
+    // < defs.size() refer to defs, values >= defs.size() refer to uses.
+    int sizeIdx;
+
+    // How to map to the def operands of the MachineInstr.
+    SmallVector<OpndSource, 4> defs;
+
+    // How to map to the use operands of the MachineInstr.
+    SmallVector<OpndSource, 4> uses;
+  };
+
+  // The table of memory instructions and how their operands are mapped.
+  static const MemopRec MemopTable[] = {
+    {
+      ISD::LOAD, CSA::Generic::LD, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 1}, LEVEL, ORD}
+    },
+    {
+      ISD::STORE, CSA::Generic::ST, 2,
+      {ORD},
+      {{OPND, 2}, {OPND, 1}, LEVEL, ORD}
+    },
+    {
+      ISD::ATOMIC_CMP_SWAP, CSA::Generic::ATMCMPXCHG, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 1}, {OPND, 2}, {OPND, 3}, LEVEL, ORD}
+    },
+    {
+      ISD::PREFETCH, CSA::Generic::LD, -1,
+      {ORD},
+      {{OPND, 1}, {OPND, 3}, ORD}
+    },
+    {
+      ISD::ATOMIC_FENCE, CSA::Generic::LD, -1,
+      {ORD},
+      {ORD}
+    },
+    {
+      ISD::ATOMIC_LOAD_AND, CSA::Generic::ATMAND, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
+    },
+    {
+      ISD::ATOMIC_LOAD_ADD, CSA::Generic::ATMADD, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
+    },
+    {
+      ISD::ATOMIC_LOAD_MIN, CSA::Generic::ATMMIN, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
+    },
+    {
+      ISD::ATOMIC_LOAD_MAX, CSA::Generic::ATMMAX, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
+    },
+    {
+      ISD::ATOMIC_LOAD_OR, CSA::Generic::ATMOR, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
+    },
+    {
+      ISD::ATOMIC_LOAD_XOR, CSA::Generic::ATMXOR, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
+    },
+    {
+      ISD::ATOMIC_SWAP, CSA::Generic::ATMXCHG, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
+    },
+  };
+
+  SDNode *const MemopNode       = Op.getNode();
+  MachineMemOperand *MemOperand = nullptr;
+  if (const MemSDNode *const MemNode = dyn_cast<MemSDNode>(MemopNode)) {
+    MemOperand = MemNode->getMemOperand();
+  }
+  const SDLoc DL{Op};
+
+  // There should be an input ordering node for all memops except loads of
+  // constant memory. For such unordered loads, the input edge should be set to
+  // %ign. %ign is also used for constant input ordering edges.
+  SDValue Chain               = MemopNode->getOperand(0);
+  SDValue Inord               = GetInord(Chain);
+  const bool HasOrderingEdges = static_cast<bool>(Inord);
+  if (not HasOrderingEdges) {
+    if (MemopNode->getOpcode() != ISD::LOAD)
+      report_fatal_error("Only constant loads should be unordered");
+    Inord = DAG.getRegister(CSA::IGN, MVT::i1);
+  } else if (isa<ConstantSDNode>(Inord.getNode())) {
+    Inord = DAG.getRegister(CSA::IGN, MVT::i1);
+  }
+
+  // Figure out which memop table entry to use.
+  const unsigned SDOpcode = MemopNode->getOpcode();
+  const auto FoundMemop   = find_if(MemopTable, [SDOpcode](const MemopRec &R) {
+    return R.SDOpcode == SDOpcode;
+  });
+  assert(FoundMemop != end(MemopTable));
+  const MemopRec &CurRec = *FoundMemop;
+
+  // Figure out the operands for the MachineSDNode.
+  SmallVector<SDValue, 4> Opnds;
+  for (const OpndSource &S : CurRec.uses) {
+    switch (S.type) {
+    case OPND:
+      Opnds.push_back(MemopNode->getOperand(S.idx));
+      break;
+    case ORD:
+      Opnds.push_back(Inord);
+      break;
+    case LEVEL:
+      assert(MemOperand);
+      Opnds.push_back(DAG.getTargetConstant(
+        MemOperand->isNonTemporal() ? CSA::MEMLEVEL_NTA : CSA::MEMLEVEL_T0, DL,
+        MVT::i64));
+      break;
+    default:
+      llvm_unreachable("bad OpndSourceType for a use");
+    }
+  }
+
+  // Figure out what the opcode is going to be.
+  unsigned Opcode;
+  if (SDOpcode == ISD::PREFETCH) {
+    const bool Write =
+      cast<ConstantSDNode>(MemopNode->getOperand(2))->getLimitedValue();
+    Opcode = Write ? CSA::PREFETCHW : CSA::PREFETCH;
+  } else if (SDOpcode == ISD::ATOMIC_FENCE) {
+    Opcode = CSA::FENCE;
+  } else {
+    const CSAInstrInfo *const TII = Subtarget.getInstrInfo();
+    const EVT VT =
+      (CurRec.sizeIdx < int(CurRec.defs.size()))
+        ? MemopNode->getValueType(CurRec.defs[CurRec.sizeIdx].idx)
+        : Opnds[CurRec.sizeIdx - CurRec.defs.size()].getValueType();
+    const unsigned Bits = VT.getSizeInBits();
+    Opcode              = TII->makeOpcode(CurRec.genericOpcode, Bits);
+  }
+
+  // Figure out the output types for the MachineSDNode.
+  SmallVector<EVT, 4> OutTypes;
+  for (const OpndSource &S : CurRec.defs) {
+    switch (S.type) {
+    case OPND:
+      OutTypes.push_back(MemopNode->getValueType(S.idx));
+      break;
+    case ORD:
+      OutTypes.push_back(MVT::i1);
+      break;
+    default:
+      llvm_unreachable("bad OpndSourceType for a def");
+    }
+  }
+
+  // Create the node for the new machine instruction and also propagate the
+  // MachineMemOperand if there is one.
+  MachineSDNode *const MemopInst =
+    DAG.getMachineNode(Opcode, DL, OutTypes, Opnds);
+  if (MemOperand) {
+    MachineMemOperand *Memopnds[] = {MemOperand};
+    DAG.setNodeMemRefs(MemopInst, Memopnds);
+  }
+
+  // Replace uses of the output ordering intrinsic if there is one.
+  if (HasOrderingEdges) {
+    SDNode *const OutordNode =
+      getSingleUseOfValue(SDValue{MemopNode, MemopNode->getNumValues() - 1});
+    if (not OutordNode or OutordNode->getOpcode() != ISD::INTRINSIC_W_CHAIN or
+        cast<ConstantSDNode>(OutordNode->getOperand(1))->getLimitedValue() !=
+            Intrinsic::csa_outord)
+      report_fatal_error("Outord node missing");
+    const auto FoundOutOrd = find(CurRec.defs, ORD);
+    assert(FoundOutOrd != end(CurRec.defs));
+    const unsigned InstOrdIdx = distance(begin(CurRec.defs), FoundOutOrd);
+    const SDValue Outord{MemopInst, InstOrdIdx};
+    DAG.ReplaceAllUsesOfValueWith(SDValue{OutordNode, 0}, Outord);
+
+    // If there aren't any uses, add a copy to %ign to avoid DCE issues with
+    // prefetches and other instructions with no output edges.
+    // TODO: Look into whether this can be done by adding chain operands to
+    // machine nodes somehow.
+    if (Outord.use_empty()) {
+      Chain = DAG.getCopyToReg(Chain, DL, CSA::IGN, Outord);
+    }
+
+    DAG.ReplaceAllUsesOfValueWith(SDValue{OutordNode, 1}, Chain);
+  }
+
+  // Figure out what values to replace the original memop node with.
+  SmallVector<SDValue, 4> Outs;
+  for (int Idx = 0; Idx < int(MemopNode->getNumValues()); ++Idx) {
+    if (MemopNode->getValueType(Idx) == MVT::Other) {
+      Outs.push_back(Chain);
+    } else {
+      const auto FoundOutOp = find(CurRec.defs, OpndSource{OPND, Idx});
+      assert(FoundOutOp != end(CurRec.defs));
+      const unsigned InstIdx = distance(begin(CurRec.defs), FoundOutOp);
+      Outs.push_back(SDValue{MemopInst, InstIdx});
+    }
+  }
+
+  // Replace the original memop node too.
+  if (Outs.size() == 1)
+    return Outs.front();
+  return DAG.getMergeValues(Outs, DL);
+}
+
+static bool isCallOrGluedToCall(SDValue Op) {
+  if (Op->getOpcode() == CSAISD::Call)
+    return true;
+  if (Op->getOpcode() == ISD::CopyFromReg and Op->getNumOperands() == 3)
+    return isCallOrGluedToCall(Op->getOperand(2));
+  if (Op->getOpcode() == ISD::CALLSEQ_END)
+    return isCallOrGluedToCall(Op->getOperand(3));
+  return false;
+}
+
+SDValue CSATargetLowering::LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const {
+  const unsigned IdOpnd = (Op->getOpcode() == ISD::INTRINSIC_WO_CHAIN) ? 0 : 1;
+  const unsigned IntrId =
+    cast<ConstantSDNode>(Op->getOperand(IdOpnd))->getLimitedValue();
+  const SDLoc DL{Op};
+  switch (IntrId) {
+  case Intrinsic::csa_mementry: {
+    assert(Op->getOpcode() == ISD::INTRINSIC_W_CHAIN);
+    const SDValue Chain = Op->getOperand(0);
+    SDValue Copy        = DAG.getCopyFromReg(Chain, DL, CSA::RA, MVT::i1);
+    SDValue Outs[]      = {Copy, Copy.getValue(1)};
+    return DAG.getMergeValues(Outs, DL);
+  }
+  case Intrinsic::csa_outord: {
+    assert(Op->getOpcode() == ISD::INTRINSIC_W_CHAIN);
+    const SDValue Chain = Op->getOperand(0);
+    if (isCallOrGluedToCall(Chain)) {
+      SDValue Copy   = DAG.getCopyFromReg(Chain, DL, CSA::RA, MVT::i1);
+      SDValue Outs[] = {Copy, Copy.getValue(1)};
+      return DAG.getMergeValues(Outs, DL);
+    }
+    break;
+  }
+  case Intrinsic::csa_all0: {
+    assert(Op->getOpcode() == ISD::INTRINSIC_WO_CHAIN);
+
+    // TODO: Remove the code in the #if 1 for generating all0 trees when
+    // CBSDK-222 is implemented to add support for N-ary all0s in the late
+    // tools.
+#if 1
+    using std::back_inserter;
+    using std::begin;
+    using std::copy_n;
+    using std::min;
+    using std::swap;
+    const MCInstrDesc All0Desc = Subtarget.getInstrInfo()->get(CSA::ALL0);
+    const int Arity = All0Desc.getNumOperands() - All0Desc.getNumDefs();
+    const int TotalNumInputs = Op->getNumOperands() - 1;
+
+    // If the number of inputs is 0 or 1, just emit a %ign or use the value
+    // directly.
+    if (TotalNumInputs == 0)
+      return DAG.getRegister(CSA::IGN, MVT::i1);
+    if (TotalNumInputs == 1)
+      return Op->getOperand(1);
+
+    // To build a balanced tree, start by calculating the total number of slots
+    // available at the leaf level.
+    int TotalLeafCapacity = Arity;
+    while (TotalLeafCapacity < TotalNumInputs)
+      TotalLeafCapacity *= Arity;
+
+    // If there are empty slots at the leaf level, they should be organized into
+    // groups of Arity-1 to drop inputs down to the pre-leaf level.
+    const int EmptySlotCount = TotalLeafCapacity - TotalNumInputs;
+    const int UnderLeafCount = EmptySlotCount / (Arity - 1);
+
+    // Combine inputs that will be at the leaf level.
+    SmallVector<SDValue, 4> InputsLeft;
+    InputsLeft.reserve(TotalLeafCapacity / Arity);
+    for (int CombStart = 0; CombStart < TotalNumInputs - UnderLeafCount;
+         CombStart += Arity) {
+      const int ToComb =
+          min(Arity, TotalNumInputs - UnderLeafCount - CombStart);
+      SmallVector<SDValue, 4> Inputs(Arity, DAG.getRegister(CSA::IGN, MVT::i1));
+      copy_n(Op->op_begin() + 1 + CombStart, ToComb, begin(Inputs));
+      InputsLeft.emplace_back(
+          DAG.getMachineNode(CSA::ALL0, DL, MVT::i1, Inputs), 0);
+    }
+
+    // Add the rest that weren't combined.
+    copy(Op->op_end() - UnderLeafCount, Op->op_end(),
+         back_inserter(InputsLeft));
+
+    // Keep combining things until only one input remains in InputsLeft.
+    while (InputsLeft.size() > 1u) {
+      const int CurNumInputs = InputsLeft.size();
+      const ArrayRef<SDValue> InputsLeftRef = InputsLeft;
+      assert(CurNumInputs % Arity == 0 &&
+             "InputsLeft.size() should be a power of Arity at this point");
+      SmallVector<SDValue, 4> NewInputsLeft;
+      NewInputsLeft.reserve(CurNumInputs / Arity);
+      for (int CombStart = 0; CombStart < CurNumInputs; CombStart += Arity) {
+        NewInputsLeft.emplace_back(DAG.getMachineNode(
+            CSA::ALL0, DL, MVT::i1, InputsLeftRef.slice(CombStart, Arity)), 0);
+      }
+      swap(NewInputsLeft, InputsLeft);
+    }
+
+    // That last value is the final merged result.
+    return InputsLeft.front();
+#else
+    SmallVector<SDValue, 4> Inputs{Op->op_begin() + 1, Op->op_end()};
+    return SDValue{DAG.getMachineNode(CSA::ALL0, DL, MVT::i1, Inputs), 0};
+#endif
+  }
+  default:
+    break;
+  }
+  return SDValue{};
 }
 
 SDValue CSATargetLowering::PerformDAGCombine(SDNode *N,
@@ -1227,8 +1646,19 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   if (isTailCall)
     ++NumTailCalls;
 
+  // Grab the input ordering edge. If it is constant, it can be replaced with
+  // %ign.
+  SDValue Inord = GetInord(Chain);
+  if (not Inord)
+    report_fatal_error("Function call found without input ordering edge");
+  if (isa<ConstantSDNode>(Inord.getNode()))
+    Inord = DAG.getRegister(CSA::IGN, MVT::i1);
+
   if (!csa_utils::isAlwaysDataFlowLinkageSet() && !isTailCall)
     Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, dl);
+
+  // Add a copy to preserve the input memory ordering edge.
+  Chain = DAG.getCopyToReg(Chain, dl, CSA::R59, Inord);
 
   SDValue StackPtr =
     DAG.getCopyFromReg(Chain, dl, CSA::SP, getPointerTy(DAG.getDataLayout()));
@@ -1328,6 +1758,7 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   std::vector<SDValue> Ops;
   Ops.push_back(Chain);
   Ops.push_back(Callee);
+  Ops.push_back(DAG.getRegister(CSA::R59, MVT::i1));
 
   // Add argument registers to the end of the list so that they are known live
   // into the call.
@@ -1514,13 +1945,19 @@ CSATargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // -csa-df-calls=0 gate here.
   if (!MF.getSubtarget<CSASubtarget>().isSequential() &&
       csa_utils::isAlwaysDataFlowLinkageSet()) {
-    CSAMachineFunctionInfo *LMFI = MF.getInfo<CSAMachineFunctionInfo>();
-    unsigned outputMemoryLic = LMFI->getOutMemoryLic();
-    SmallVector<SDValue, 4> RetOps(1, Chain);
-    RetOps.push_back(DAG.getCopyFromReg(Chain, dl, outputMemoryLic, MVT::i1));
+    SDValue Inord = GetInord(Chain);
+    if (not Inord)
+      report_fatal_error(
+          "Return instruction found without input ordering edge");
+    if (isa<ConstantSDNode>(Inord.getNode()))
+      Inord = DAG.getRegister(CSA::IGN, MVT::i1);
+    SmallVector<SDValue, 4> RetOps{Chain, Inord};
     RetOps.append(OutVals.begin(), OutVals.end());
     return DAG.getNode(CSAISD::Ret, dl, MVT::Other, RetOps);
   }
+
+  // Also remove the inord node when generating sequential code.
+  GetInord(Chain);
 
   // CCValAssign - represent the assignment of the return value to a location
   SmallVector<CCValAssign, 16> RVLocs;
@@ -1532,7 +1969,7 @@ CSATargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // Analize return values.
   CCInfo.AnalyzeReturn(Outs, RetCC_Reg_CSA);
   SDValue Flag;
-  SmallVector<SDValue, 4> RetOps(1, Chain);
+  SmallVector<SDValue, 4> RetOps{Chain, DAG.getRegister(CSA::R59, MVT::i1)};
 
   // Copy the result values into the output registers.
   for (unsigned i = 0; i != RVLocs.size(); ++i) {

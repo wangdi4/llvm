@@ -16,9 +16,6 @@
 include "CSAInstrFormats.td"
 
 // Possible TODO:
-// - Get rid of separate ordered loads/stores by having default operands?
-//   (Also, should %ign be zero_reg defined in Target.td, and use that
-//   as default for order operands for stores/loads?)
 // - Possible to merge BinOp and CmpOp (something that can take both a PatFrag
 //   and an SDNode?)
 // - Use "foreach" or some other mechanism to deal with 8/16/32/64 redundancy
@@ -152,10 +149,11 @@ def OptionalRegAsmOperand : AsmOperandClass {
   let Name = "OptionalReg";
   let IsOptional = 1;
 }
-def MemOrdDef : OptionalDefOperand<i1, (ops I0), (ops (i1 IGN))> {
+def MemOrdDef : Operand<i1> {
+  let MIOperandInfo = (ops I0);
   let ParserMatchClass = OptionalRegAsmOperand;
 }
-def MemOrdUse : OperandWithDefaultOps<i1, (ops (i1 IGN))> {
+def MemOrdUse : Operand<i1> {
   let MIOperandInfo = (ops I0);
   let ParserMatchClass = OptionalRegAsmOperand;
 }
@@ -655,29 +653,30 @@ def LDD : GenericOp<"ldd">;
 def LD  : GenericOp<"ld">;
 multiclass LdOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IILD> {
-  let Predicates = [HasIndex], Itinerary = itin in {
-    def X : FMTGEN<LDX, t, // indexed reg+reg
-      (outs t.RC:$dst, MemOrdDef:$issued),
-      (ins ADDR_RX:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "x\t$dst, $addr, $issued, $ready, $lvl"),
-      []>;
-  }
 
-  let Predicates = [HasDispl], Itinerary = itin in {
-    def D : FMTGEN<LDD, t, // normal literal displacement form (val+k)
-      (outs t.RC:$dst, MemOrdDef:$issued),
-      (ins ADDR_RI:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "d\t$dst, $addr, $issued, $ready, $lvl"),
-      []>;
-  }
-
-  let Itinerary = itin in {
-    def "" : FMTGEN<LD, t, // normal basereg form
-      (outs t.RC:$dst, MemOrdDef:$issued),
-      (ins ADDR_R:$addr, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "\t$dst, $addr, $issued, $ready, $lvl"),
-      [(set t.VT:$dst, (load ADDR_R:$addr))]>;
+  let mayLoad = 1, Itinerary = itin in {
+    let Predicates = [HasIndex] in {
+      def X : FMTGEN<LDX, t, // indexed reg+reg
+        (outs t.RC:$res, MemOrdDef:$outord),
+        (ins ADDR_RX:$addr, MEMLVL:$memlvl, MemOrdUse:$inord),
+        !strconcat(opStr, "x\t$res, $addr, $outord, $inord, $memlvl"),
+        []>;
     }
+
+    let Predicates = [HasDispl] in {
+      def D : FMTGEN<LDD, t, // normal literal displacement form (val+k)
+        (outs t.RC:$res, MemOrdDef:$outord),
+        (ins ADDR_RI:$addr, MEMLVL:$memlvl, MemOrdUse:$inord),
+        !strconcat(opStr, "d\t$res, $addr, $outord, $inord, $memlvl"),
+        []>;
+    }
+
+    def "" : FMTGEN<LD, t, // normal addrreg form
+      (outs t.RC:$res, MemOrdDef:$outord),
+      (ins ADDR_R:$addr, MEMLVL:$memlvl, MemOrdDef:$inord),
+      !strconcat(opStr, "\t$res, $addr, $outord, $inord, $memlvl"),
+      []>;
+  }
 }
 
 // Ugly combinatorial issue between literal store data and addressing modes
@@ -687,31 +686,28 @@ def ST  : GenericOp<"st">;
 multiclass StOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IIST> {
 
-  // This uses hasPostISelHook in order to correct an issue with LLVM
-  // that causes it to be generated with missing (and mismatched) operands
-  // See CSATargetLowering::AdjustInstrPostInstrSelection for more details
-  let mayStore = 1, Itinerary = itin, hasPostISelHook = 1 in {
+  let mayStore = 1, Itinerary = itin in {
     let Predicates = [HasIndex] in {
       def X : FMTGEN<STX, t,
-        (outs MemOrdDef:$issued),
-        (ins ADDR_RX:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
-        !strconcat(opStr, "x\t$addr, $data, $issued, $ready, $lvl"),
+        (outs MemOrdDef:$outord),
+        (ins ADDR_RX:$addr, t.RCL:$val, MEMLVL:$memlvl, MemOrdUse:$inord),
+        !strconcat(opStr, "x\t$addr, $val, $outord, $inord, $memlvl"),
         []>;
     }
 
     let Predicates = [HasDispl] in {
       def D : FMTGEN<STD, t,
-        (outs MemOrdDef:$issued),
-        (ins ADDR_RI:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
-        !strconcat(opStr, "d\t$addr, $data, $issued, $ready, $lvl"),
+        (outs MemOrdDef:$outord),
+        (ins ADDR_RI:$addr, t.RCL:$val, MEMLVL:$memlvl, MemOrdUse:$inord),
+        !strconcat(opStr, "d\t$addr, $val, $outord, $inord, $memlvl"),
         []>;
     }
 
     def "" : FMTGEN<ST, t,
-      (outs MemOrdDef:$issued),
-      (ins ADDR_R:$addr, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "\t$addr, $data, $issued, $ready, $lvl"),
-      [(store (t.VT t.RCL:$data), ADDR_R:$addr)]>;
+      (outs MemOrdDef:$outord),
+      (ins ADDR_R:$addr, t.RCL:$val, MEMLVL:$memlvl, MemOrdDef:$inord),
+      !strconcat(opStr, "\t$addr, $val, $outord, $inord, $memlvl"),
+      []>;
   }
 }
 
@@ -721,21 +717,21 @@ def SLDX8 : GenericOp<"sldx8">;
 multiclass StreamLdOp<string opStr, CSAOpInfo t, InstrItinClass itin = IILD> {
   let mayLoad = 1, Itinerary = itin, isMultiTriggered = 1 in {
     def "" : FMTGEN<SLD, t,
-      (outs t.RC:$dst, MemOrdDef:$issued),
-      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "\t$dst, $addr, $len, $stride, $issued, $ready, $lvl"),
+      (outs t.RC:$dst, MemOrdDef:$outord),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$memlvl, MemOrdUse:$inord),
+      !strconcat(opStr, "\t$dst, $addr, $len, $stride, $outord, $inord, $memlvl"),
       []>;
     def X2 : FMTGEN<SLDX2, t,
-      (outs t.RC:$dst0, t.RC:$dst1, MemOrdDef:$issued),
-      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "x2 \t$dst0, $dst1, $addr, $len, $stride, $issued, $ready, $lvl"),
+      (outs t.RC:$dst0, t.RC:$dst1, MemOrdDef:$outord),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$memlvl, MemOrdUse:$inord),
+      !strconcat(opStr, "x2 \t$dst0, $dst1, $addr, $len, $stride, $outord, $inord, $memlvl"),
       []>;
     def X8 : FMTGEN<SLDX8, t,
       (outs t.RC:$dst0, t.RC:$dst1, t.RC:$dst2, t.RC:$dst3,
             t.RC:$dst4, t.RC:$dst5, t.RC:$dst6, t.RC:$dst7,
-            MemOrdDef:$issued),
-      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "x8 \t$dst0, $dst1, $dst2, $dst3, $dst4, $dst5, $dst6, $dst7, $addr, $len, $stride, $issued, $ready, $lvl"),
+            MemOrdDef:$outord),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, MEMLVL:$memlvl, MemOrdUse:$inord),
+      !strconcat(opStr, "x8 \t$dst0, $dst1, $dst2, $dst3, $dst4, $dst5, $dst6, $dst7, $addr, $len, $stride, $outord, $inord, $memlvl"),
       []>;
   }
 }
@@ -745,17 +741,17 @@ def SSTX8 : GenericOp<"sstx8">;
 multiclass StreamStOp<string opStr, CSAOpInfo t, InstrItinClass itin = IIST> {
   let mayStore = 1, Itinerary = itin, isMultiTriggered = 1 in {
     def "" : FMTGEN<SST, t,
-      (outs MemOrdDef:$issued),
-      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, t.RCL:$data, MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "\t$addr, $len, $stride, $data, $issued, $ready, $lvl"),
+      (outs MemOrdDef:$outord),
+      (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride, t.RCL:$data, MEMLVL:$memlvl, MemOrdUse:$inord),
+      !strconcat(opStr, "\t$addr, $len, $stride, $data, $outord, $inord, $memlvl"),
       []>;
     def X8 : FMTGEN<SSTX8, t,
-      (outs MemOrdDef:$issued),
+      (outs MemOrdDef:$outord),
       (ins ADDR_R:$addr, RCLi64:$len, RCLi64:$stride,
            t.RCL:$data0, t.RCL:$data1, t.RCL:$data2, t.RCL:$data3,
            t.RCL:$data4, t.RCL:$data5, t.RCL:$data6, t.RCL:$data7,
-           MEMLVL:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "x8 \t$addr, $len, $stride, $data0, $data1, $data2, $data3, $data4, $data5, $data6, $data7, $issued, $ready, $lvl"),
+           MEMLVL:$memlvl, MemOrdUse:$inord),
+      !strconcat(opStr, "x8 \t$addr, $len, $stride, $data0, $data1, $data2, $data3, $data4, $data5, $data6, $data7, $outord, $inord, $memlvl"),
       []>;
   }
 }
@@ -784,40 +780,40 @@ class FModOp<GenericOp gen, CSAOpInfo oi,
 class AtomicOp<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
                InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <gen, oi,
-    (outs oi.RC:$dst, MemOrdDef:$issued),
-    (ins ADDR_R:$addr, oi.RCL:$op3, MEMLVL:$lvl, MemOrdUse:$ready),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$issued, $dst, $addr, $op3, $ready, $lvl"),
-    [(set oi.VT:$dst, (opNode ADDR_R:$addr, (oi.VT oi.RCL:$op3)))],
+    (outs oi.RC:$dst, MemOrdDef:$outord),
+    (ins ADDR_R:$addr, oi.RCL:$val, MEMLVL:$memlvl, MemOrdUse:$inord),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$outord, $dst, $addr, $val, $inord, $memlvl"),
+    [],
     !listconcat(preds,gen.Preds,oi.Preds), itin>
     { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
 
 class AtomicOpR<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
                InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <gen, oi,
-    (outs oi.RC:$dst, MemOrdDef:$issued),
-    (ins ADDR_R:$addr, oi.RCL:$op3, RMODE:$rm, MEMLVL:$lvl, MemOrdUse:$ready),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$issued, $dst, $addr, $op3, $ready, $rm, $lvl"),
-    [(set oi.VT:$dst, (opNode ADDR_R:$addr, (oi.VT oi.RCL:$op3)))],
+    (outs oi.RC:$dst, MemOrdDef:$outord),
+    (ins ADDR_R:$addr, oi.RCL:$val, RMODE:$rm, MEMLVL:$memlvl, MemOrdUse:$inord),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$outord, $dst, $addr, $val, $inord, $rm, $memlvl"),
+    [],
     !listconcat(preds,gen.Preds,oi.Preds), itin>
     { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
 
 class AtomicOp2<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
                 InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <gen, oi,
-    (outs oi.RC:$dst, MemOrdDef:$issued),
-    (ins ADDR_R:$addr, oi.RCL:$op3, oi.RCL:$op4, MEMLVL:$lvl, MemOrdUse:$ready),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$issued, $dst, $addr, $op3, $op4, $ready, $lvl"),
-    [(set oi.RC:$dst, (opNode ADDR_R:$addr, oi.RCL:$op3, oi.RCL:$op4))],
+    (outs oi.RC:$res, MemOrdDef:$outord),
+    (ins ADDR_R:$addr, oi.RCL:$cmp, oi.RCL:$repl, MEMLVL:$memlvl, MemOrdUse:$ready),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$outord, $res, $addr, $cmp, $repl, $ready, $memlvl"),
+    [],
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 1; let mayStore = 1; let hasSideEffects = 1; }
 
 multiclass PrefetchOp<string opStr, int rw, InstrItinClass itin = IILD> {
-  let Itinerary = itin, hasPostISelHook = 1 in {
+  let mayLoad = 1, mayStore = 1, Itinerary = itin in {
     def "" : FMTGEN <?, ?,
-      (outs MemOrdDef:$issued),
-      (ins ADDR_R:$addr, MEMLVLExplicit:$lvl, MemOrdUse:$ready),
-      !strconcat(opStr, "\t$addr, $issued, $ready, $lvl"),
-      [(prefetch ADDR_R:$addr, (i32 rw), imm:$lvl, (i32 1))]>;
+      (outs MemOrdDef:$ctlout),
+      (ins ADDR_R:$addr, MEMLVLExplicit:$memlvl, MemOrdUse:$ctlin),
+      !strconcat(opStr, "\t$addr, $ctlout, $ctlin, $memlvl"),
+      []>;
   }
 }
 
@@ -1395,11 +1391,18 @@ def ANY0 : FMTGEN<ANY, Ti0,
   "any0\t$dst, $op1, $op2, $op3, $op4, $ord",
   [], [], IIVir> { let isMultiTriggered = 1; }
 
+// TODO: all0 is supposed to support an arbitrary number of inputs, but the late
+// tools currently only recognize 4. When CBSDK-222 is implemented to fix that,
+// switch to a variadic instruction.
 def ALL : GenericOp<"all">;
 def ALL0 : FMTGEN<ALL, Ti0,
-  (outs I0:$dst),
-  (ins RCLi0:$op1, RCLi0:$op2, RCLi0:$op3, RCLi0:$op4),
-  "all0\t$dst, $op1, $op2, $op3, $op4",
+  (outs I0:$o),
+  (ins
+    RCLi0:$i0, RCLi0:$i1, RCLi0:$i2, RCLi0:$i3
+    //variable_ops
+  ),
+  "all0\t$o, $i0, $i1, $i2, $i3",
+  //"all0",
   [], [], IIVir>;
 
 def ONCOUNT : GenericOp<"oncount">;
@@ -1758,6 +1761,13 @@ def ATMMAXF64 : AtomicOp<ATMMAX,  null_frag, Tf64, IIATM, [HasRMWAtomic]>;
 defm PREFETCH  : PrefetchOp<"prefetch",  0>;
 defm PREFETCHW : PrefetchOp<"prefetchw", 1>;
 
+// The fence operation
+def FENCE : FMTGEN<?, ?,
+  (outs MemOrdDef:$outord),
+  (ins MemOrdUse:$inord),
+  "fence\t$outord, $inord",
+  [], [], IIATM>;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Math lib helper functions (these have no patterns to match.                //
 ////////////////////////////////////////////////////////////////////////////////
@@ -1928,48 +1938,6 @@ def CSA_PIPELINEABLE_LOOP : PseudoInstCSA<
     (ins I64:$md),
     "# .csa_pipelineable_loop_marker\t$md",
     [ (int_csa_pipelineable_loop_marker (i64 imm:$md)) ]>;
-
-// These four intrinsics are the ones that mark parallel loops/regions and the
-// parallel sections within.
-def CSA_PARALLEL_REGION_ENTRY : PseudoInstCSA<
-    (outs I32:$ltok),
-    (ins  I32:$lid),
-    "# $ltok <- .csa_parallel_region_entry\t$lid",
-    [(set i32:$ltok, (int_csa_parallel_region_entry (i32 imm:$lid)))]>;
-
-def CSA_PARALLEL_REGION_EXIT : PseudoInstCSA<
-    (outs),
-    (ins I32:$ltok),
-    "# .csa_parallel_region_exit\t$ltok",
-    [ (int_csa_parallel_region_exit i32:$ltok) ]>;
-
-def CSA_PARALLEL_SECTION_ENTRY : PseudoInstCSA<
-    (outs I32:$stok),
-    (ins  I32:$ltok),
-    "# $stok <- .csa_parallel_section_entry\t$ltok",
-    [(set i32:$stok, (int_csa_parallel_section_entry i32:$ltok))]>;
-
-def CSA_PARALLEL_SECTION_EXIT : PseudoInstCSA<
-    (outs),
-    (ins I32:$stok),
-    "# .csa_parallel_section_exit\t$stok",
-    [ (int_csa_parallel_section_exit i32:$stok) ]>;
-
-// This pseudo-op is appears the start of a loop loop that starts with a
-// parallel directive (__builtin_csa_parallel_loop() or #pragma omp parallel
-// for).
-def CSA_PARALLEL_LOOP : PseudoInstCSA<
-    (outs),
-    (ins),
-    "# .csa_parallel_loop",
-    [ (int_csa_parallel_loop) ]>;
-
-// Memory dependency sink at the end of each basic block.
-def CSA_PARALLEL_MEMDEP :  PseudoInstCSA<
-    (outs I0:$out),
-    (ins  I0:$in),
-    "mov0\t$out, $in  # .csa_parallel_memdep\t$out, $in",
-    []>;
 
 // Arbitrary immediate support
 def : Pat<(i1 imm:$imm),    (MOV1 imm:$imm)>;

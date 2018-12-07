@@ -27,8 +27,6 @@ CSAMachineFunctionInfo::CSAMachineFunctionInfo(MachineFunction &MF)
       nameCounter(0),
       FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {
   InMemoryLic = allocateLIC(&CSA::CI0RegClass, "in_ctl");
-  OutMemoryLic = allocateLIC(csa_utils::isAlwaysDataFlowLinkageSet() ?
-      &CSA::CI0RegClass : &CSA::RI1RegClass, "out_ctl");
 }
 
 CSAMachineFunctionInfo::~CSAMachineFunctionInfo() {}
@@ -178,4 +176,12 @@ StringRef CSAMachineFunctionInfo::getLICAttribute(unsigned reg, StringRef key) c
     return getLICInfo(reg).attribs[key];
 
   return "";
+}
+
+unsigned CSAMachineFunctionInfo::getOutMemoryLic() const {
+  const MachineInstr *const Return = getReturnMI();
+  assert(Return && "Cannot find out ordering lic - no return instruction set");
+  const MachineOperand &OrdOp = Return->getOperand(0);
+  assert(OrdOp.isUse() && "Output ordering edge isn't a register?");
+  return OrdOp.getReg();
 }

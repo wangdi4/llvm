@@ -427,10 +427,11 @@ static MachineInstr *getFirstMI(MachineFunction *MF) {
 // vreg0 is the input parameter
 MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
   MachineInstr *copyMI;
-  unsigned reg1 = LMFI->allocateLIC(&CSA::CI0RegClass, Twine("callee_in_caller_mem_ord"));
   MachineInstr *firstMI = getFirstMI(thisMF);
-  MachineInstrBuilder MIB = BuildMI(*(firstMI->getParent()), firstMI, firstMI->getDebugLoc(), TII->get(CSA::CSA_ENTRY))
-                                    .addReg(reg1,RegState::Define);
+  MachineInstrBuilder MIB =
+    BuildMI(*(firstMI->getParent()), firstMI, firstMI->getDebugLoc(),
+            TII->get(CSA::CSA_ENTRY))
+      .addReg(LMFI->getInMemoryLic(), RegState::Define);
   // Add entry parameters. If there are some dead parameters, add dummy vars instead
   int dummyid = 0;
   const Function *F = &thisMF->getFunction();
@@ -465,9 +466,10 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
       StringRef name(str);
       unsigned vReg = LMFI->allocateLIC(&CSA::CI64RegClass, Twine(name), Twine(""), true);
       MIB.addReg(vReg,RegState::Define);
-      BuildMI(*(firstMI->getParent()), firstMI, firstMI->getDebugLoc(), TII->get(CSA::MOV0), CSA::IGN)
-      .addReg(vReg)
-      .setMIFlag(MachineInstr::NonSequential);
+      BuildMI(*(MIB->getParent()), ++MIB->getIterator(), MIB->getDebugLoc(),
+              TII->get(CSA::MOV0), CSA::IGN)
+        .addReg(vReg)
+        .setMIFlag(MachineInstr::NonSequential);
     }
   }
   MachineInstr *MI = &*MIB;
@@ -484,11 +486,24 @@ MachineInstr* CSAProcCallsPass::addEntryInstruction(void) {
       copyMI = &*I1;
       nextI1 = I1;
       ++nextI1;
-      if (copyMI->getOpcode() != CSA::MOV0) continue;
+      if (copyMI->getOpcode() != CSA::MOV64)
+        continue;
       if (copyMI->getOperand(1).isReg() && (copyMI->getOperand(1).getReg() == CSA::RA)) {
-        MRI->replaceRegWith(copyMI->getOperand(0).getReg(),MI->getOperand(0).getReg());
-        LLVM_DEBUG(errs() << "copy operation to be deleted = " << *copyMI << "\n");
-        copyMI->eraseFromParent();
+
+        // If the output of the initial mov is R59, there are no memory accesses
+        // in this part of the function. Instead of deleting this mov, replace
+        // the input with the input ordering edge so that other functions can
+        // handle it normally.
+        if (copyMI->getOperand(0).getReg() == CSA::R59) {
+          copyMI->getOperand(1).setReg(LMFI->getInMemoryLic());
+        } else {
+          MRI->replaceRegWith(copyMI->getOperand(0).getReg(),
+                              LMFI->getInMemoryLic());
+          LLVM_DEBUG(errs()
+                     << "copy operation to be deleted = " << *copyMI << "\n");
+          copyMI->eraseFromParent();
+        }
+
         outerloop = false;
         break;
       }
@@ -589,6 +604,8 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
                                         .addReg(reg1);
       for (unsigned int i = 1; i < MI->getNumExplicitOperands(); ++i) {
         unsigned preg = MI->getOperand(i).getReg();
+        if (preg == CSA::R59)
+          continue;
         MachineBasicBlock *MBB = MI->getParent();
         MachineBasicBlock::reverse_iterator RI_BEGIN(I);
         MachineBasicBlock::reverse_iterator nextI1 = RI_BEGIN;
@@ -599,8 +616,9 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
           if (!isMovOpcode(copyMI->getOpcode())) continue;
           if (copyMI->getOperand(0).isReg()) {
             if (copyMI->getOperand(0).getReg() == preg) {
-              unsigned paramReg = getParamReg(name, "param_", CallSiteIndex, i,
-                                            &CSA::CI64RegClass, isDeclared, true);
+              unsigned paramReg =
+                getParamReg(name, "param_", CallSiteIndex, i - 1,
+                            &CSA::CI64RegClass, isDeclared, true);
               Call_MIB.addReg(paramReg);
               copyMI->getOperand(0).setReg(paramReg);
               copyMI->setFlag(MachineInstr::NonSequential);
@@ -645,29 +663,49 @@ void CSAProcCallsPass::addCallAndContinueInstructions(void) {
 
       // Deal with input memory ordering edge into call
       MachineBasicBlock::reverse_iterator RI_BEGIN(MI);
+      bool foundInputEdge = false;
       for (MachineBasicBlock::reverse_iterator I1 = RI_BEGIN; I1 != MI->getParent()->rend(); ++I1) {
         copyMI = &*I1;
-        if (copyMI->getOpcode() != CSA::MOV0) continue;
+        if (copyMI->getOpcode() != CSA::MOV64)
+          continue;
         if (!copyMI->getOperand(0).isReg()) continue;
-        if (copyMI->getOperand(0).getReg() != CSA::R0) continue;
+        if (copyMI->getOperand(0).getReg() != CSA::R59)
+          continue;
         copyMI->getOperand(0).setReg(newCI->getOperand(2).getReg());
         copyMI->setFlag(MachineInstr::NonSequential);
         LLVM_DEBUG(errs() << "new mem op input instruction = " << *copyMI << "\n");
+        foundInputEdge = true;
         break;
       }
-      
+      if (!foundInputEdge) {
+        BuildMI(*newCI->getParent(), newCI, newCI->getDebugLoc(),
+                TII->get(CSA::MOV0), newCI->getOperand(2).getReg())
+          .addUse(CSA::IGN)
+          ->setFlag(MachineInstr::NonSequential);
+      }
+
       // Deal with output mem ord edge from continue
       MachineBasicBlock::iterator I_BEGIN(MI);
+      bool foundOutputEdge = false;
       for (MachineBasicBlock::iterator I1 = I_BEGIN; I1 != MI->getParent()->end(); ++I1) {
         copyMI = &*I1;
-        if (copyMI->getOpcode() != CSA::MOV0) continue;
+        if (copyMI->getOpcode() != CSA::MOV64)
+          continue;
         if (copyMI->getOperand(1).isReg() && (copyMI->getOperand(1).getReg() == CSA::RA)) {
           copyMI->getOperand(1).setReg(newCoI->getOperand(0).getReg());
           copyMI->setFlag(MachineInstr::NonSequential);
           LLVM_DEBUG(errs() << "new mem op output instruction = " << *copyMI << "\n");
+          foundOutputEdge = true;
           break;
         }
       }
+      if (!foundOutputEdge) {
+        BuildMI(*newCoI->getParent(), ++newCoI->getIterator(),
+                newCoI->getDebugLoc(), TII->get(CSA::MOV0), CSA::IGN)
+          .addUse(newCoI->getOperand(0).getReg())
+          ->setFlag(MachineInstr::NonSequential);
+      }
+
       MI->eraseFromParent(); 
     }
   }

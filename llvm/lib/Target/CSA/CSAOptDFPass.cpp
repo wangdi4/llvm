@@ -1224,25 +1224,6 @@ CSAOptDFPass::seq_classify_memdep_graph(CSASeqCandidate &x) {
     unsigned source_reg = bottom_op->getReg();
     unsigned sink_reg   = top_op->getReg();
 
-    // If the input operand to x.switchInst is generated from a .memdep_sink,
-    // then treat this memory dependency as removable.  TBD: Eventually, also
-    // remove the .memdep_sink instruction.
-    MachineOperand &switchInput = x.switchInst->getOperand(3);
-    if (switchInput.isReg()) {
-      unsigned switchReg    = switchInput.getReg();
-      MachineInstr *srcInst = getSingleDef(switchReg, MRI);
-      if (srcInst && CSA::CSA_PARALLEL_MEMDEP == srcInst->getOpcode()) {
-        assert(0 && "CSA::CSA_PARALLEL_MEMDEP is no longer in use");
-        // TBD: Delete .memdep_sink here
-        LLVM_DEBUG(errs() << "Remove back edge from memdep_sink\n");
-        x.stype         = CSASeqCandidate::SeqType::PARLOOP_MEM_DEP;
-        x.transformInst = NULL;
-        x.top           = sink_reg;
-        x.bottom        = source_reg;
-        return x.stype;
-      }
-    }
-
     // If the knob setting is 2, just ASSUME we have identified a memory
     // dependency here, instead of trying to walk the graph to verify
     // we have one.  What could possibly go wrong here?
