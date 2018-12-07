@@ -107,11 +107,10 @@ namespace {
     KEYRESTRICT = 0x2000000,
     KEYMSASM    = 0x4000000,
     KEYBASES    = 0x8000000,
-    KEYNOINT128 = 0x10000000,
-    KEYDECIMAL  = 0x20000000,
-    KEYMSCOMPAT = 0x40000000,
-    KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM |KEYBASES | KEYNOINT128 |
-                  KEYDECIMAL | KEYMSCOMPAT,
+    KEYDECIMAL  = 0x10000000,
+    KEYMSCOMPAT = 0x20000000,
+    KEYINTELALL = KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES | KEYDECIMAL |
+                  KEYMSCOMPAT,
     KEYNOINTELALL = KEYALL & ~KEYINTELALL,
 #endif // INTEL_CUSTOMIZATION
   };
@@ -153,8 +152,6 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
     // IntelCompat and C++11 modes only.
     if (LangOpts.CPlusPlus11 && (Flags & KEYBASES))
       return KS_Extension;
-    if (!LangOpts.NoInt128 && (Flags & KEYNOINT128))
-      return KS_Enabled;
     // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
     if (LangOpts.GNUMode && (Flags & KEYDECIMAL))
       return KS_Enabled;

@@ -3628,12 +3628,6 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
                   Res.getPreprocessorOpts(), Diags);
     if (Res.getFrontendOpts().ProgramAction == frontend::RewriteObjC)
       LangOpts.ObjCExceptions = 1;
-#if INTEL_CUSTOMIZATION
-    // Disable __int128 keyword recognition in x86 mode.
-    if (Res.getLangOpts()->IntelCompat &&
-        llvm::Triple(Res.getTargetOpts().Triple).getArch() == llvm::Triple::x86)
-      Res.getLangOpts()->NoInt128 = 1;
-#endif
     if (T.isOSDarwin() && DashX.isPreprocessed()) {
       // Supress the darwin-specific 'stdlibcxx-not-found' diagnostic for
       // preprocessed input as we don't expect it to be used with -std=libc++
