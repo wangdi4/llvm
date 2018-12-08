@@ -132,10 +132,23 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   if (hasOffloadCompilation() && (Mode & ParTrans)) {
     removeTargetUndeclaredGlobals();
     if (VPOAnalysisUtils::isTargetSPIRV(&M)) {
-      // Add the metadata to indicate that the module is OpenCL C version.
+      // Add the metadata to indicate that the module is OpenCL C++ version.
+      // enum SourceLanguage {
+      //    SourceLanguageUnknown = 0,
+      //    SourceLanguageESSL = 1,
+      //    SourceLanguageGLSL = 2,
+      //    SourceLanguageOpenCL_C = 3,
+      //    SourceLanguageOpenCL_CPP = 4,
+      //    SourceLanguageHLSL = 5,
+      //    SourceLanguageMax = 0x7fffffff,
+      // };
+      // The compiler has to set the source type as SourceLanguageOpenCL_CPP.
+      // Otherwise the spirv code generation will convert mangled
+      // function name into OCL builtin function.
+
       if (!M.getNamedMetadata("spirv.Source")) {
         SmallVector<Metadata *, 8> opSource = {
-            ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 3)),
+            ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), 4)),
             ConstantAsMetadata::get(
                 ConstantInt::get(Type::getInt32Ty(C), 200000))};
         MDNode *srcMD = MDNode::get(C, opSource);
