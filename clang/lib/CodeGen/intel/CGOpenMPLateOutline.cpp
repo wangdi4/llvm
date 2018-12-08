@@ -708,13 +708,23 @@ void OpenMPLateOutliner::emitOMPLastprivateClause(
     ++IAssignOp;
   }
 }
+
 void OpenMPLateOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
-  ClauseEmissionHelper CEH(*this);
-  addArg("QUAL.OMP.LINEAR");
-  for (auto *E : Cl->varlists())
-    addArg(E);
-  addArg(Cl->getStep() ? CGF.EmitScalarExpr(Cl->getStep())
-                       : CGF.Builder.getInt32(1));
+  for (auto *E : Cl->varlists()) {
+    const VarDecl *PVD = getExplicitVarDecl(E);
+    assert(PVD && "expected VarDecl in linear clause");
+    addExplicit(PVD);
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
+    bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
+    ClauseEmissionHelper CEH(*this, "QUAL.OMP.LINEAR");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (IsRef)
+      CSB.setByRef();
+    addArg(CSB.getString());
+    addArg(E, IsRef);
+    addArg(Cl->getStep() ? CGF.EmitScalarExpr(Cl->getStep())
+                         : CGF.Builder.getInt32(1));
+  }
 }
 
 template <typename RedClause>
