@@ -2261,8 +2261,8 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
     return;
   }
 
-  assert((isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue)) &&
-         "unsupported input Value");
+  assert((isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue) ||
+          isa<LoadInst>(OrigValue)) && "unsupported input Value");
 
   ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
 }
