@@ -248,6 +248,12 @@ void CSACvtCFDFPass::findLICGroups(bool preDFConversion) {
   });
 }
 
+static void addLoop(MachineLoop *L, SmallVectorImpl<MachineLoop *> &Loops) {
+  Loops.push_back(L);
+  for (auto SubLoop : *L)
+    addLoop(SubLoop, Loops);
+}
+
 void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
   LLVM_DEBUG(dbgs() <<
              "Propagating block frequency information to LIC groups.\n");
@@ -263,7 +269,7 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
 
   // Lambda for assigning the frequency to a LIC equivalence class. Note that it
   // will assert if you try to set an inconsistent frequency (this would
-  // probably indicative of a bug in dataflow conversion somewhere).
+  // probably be indicative of a bug in dataflow conversion somewhere).
   auto setFrequency = [&](unsigned licClass, BlockFrequency freq) {
     auto licGroup = std::make_shared<CSALicGroup>();
     licGroup->executionFrequency = Scaled64(freq.getFrequency(), 0) / entryFreq;
@@ -272,13 +278,31 @@ void CSACvtCFDFPass::assignLicFrequencies(MachineBlockFrequencyInfo &MBFI) {
     groups[licClass] = std::move(licGroup);
   };
 
+  // Get a list of loops in preorder traversal. This helps with mapping to loop
+  // ID in lic groups.
+  SmallVector<MachineLoop *, 8> Loops;
+  for (auto L : *MLI)
+    addLoop(L, Loops);
+
   for (auto &BB: *thisMF) {
     auto index = BB.getNumber();
     auto nominalVreg = basicBlockRegs[index];
     auto blockFreq = MBFI.getBlockFreq(&BB);
     // If there is a class for the basic block, propagate block frequency.
     if (nominalVreg != ~0U) {
-      setFrequency(licGrouping[nominalVreg], blockFreq);
+      auto groupId = licGrouping[nominalVreg];
+      setFrequency(groupId, blockFreq);
+      auto &licGroup = groups[groupId];
+
+      // Propagate loop information too. There's no assertion here that the
+      // information is consistent, unlike frequency, since the frequency being
+      // wrong should catch it.
+      MachineLoop *L = MLI->getLoopFor(&BB);
+      if (L) {
+        licGroup->LoopDepth = L->getLoopDepth();
+        licGroup->LoopId = std::find(Loops.begin(), Loops.end(), L) -
+          Loops.begin() + 1;
+      }
     }
 
     // Propagate the branch probability to LICs on the edges.

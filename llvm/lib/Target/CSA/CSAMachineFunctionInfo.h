@@ -28,6 +28,10 @@ namespace llvm {
 class CSAInstrInfo;
 struct CSALicGroup {
   ScaledNumber<uint64_t> executionFrequency;
+  unsigned LoopId = 0;
+  unsigned LoopDepth = 0;
+
+  CSALicGroup() = default;
 };
 
 /// CSAMachineFunctionInfo - This class is derived from MachineFunction and

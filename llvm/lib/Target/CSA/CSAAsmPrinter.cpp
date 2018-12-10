@@ -77,9 +77,9 @@ static cl::opt<bool>
                cl::init(false));
 
 static cl::opt<bool>
-  EmitLicFreq("csa-print-lic-frequency", cl::Hidden,
-              cl::desc("CSA Specific: Print LIC frequency attributes"),
-              cl::init(false));
+  EmitExperimental("csa-experimental-annotations", cl::Hidden,
+      cl::desc("CSA Specific: Print experimental late tools annotations"),
+      cl::init(false));
 
 namespace {
 class LineReader {
@@ -140,6 +140,8 @@ class CSAAsmPrinter : public AsmPrinter {
 
   unsigned resultReg;
   void writeSmallFountain(const MachineInstr *MI);
+
+  void EmitLicGroup(CSALicGroup &group);
 
 public:
   CSAAsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
@@ -554,6 +556,28 @@ void CSAAsmPrinter::setLICNames(void) {
   }
 }
 
+void CSAAsmPrinter::EmitLicGroup(CSALicGroup &licGroup) {
+  // All lic group annotations are still experimental.
+  if (!EmitExperimental)
+    return;
+
+  SmallString<128> Str;
+  raw_svector_ostream O(Str);
+  O << "\t.attrib ";
+  const char *Comma = "";
+  auto freq = licGroup.executionFrequency;
+  if (!freq.isZero()) {
+    O << Comma << "csasim_frequency=";
+    freq.print(O);
+    Comma = ", ";
+  }
+  if (licGroup.LoopId) {
+    O << Comma << "csasim_loop_id=" << licGroup.LoopId;
+    Comma = ", ";
+  }
+  OutStreamer->EmitRawText(O.str());
+}
+
 void CSAAsmPrinter::EmitFunctionBodyStart() {
   MRI  = &MF->getRegInfo();
   LMFI = MF->getInfo<CSAMachineFunctionInfo>();
@@ -586,16 +610,8 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       SmallString<128> Str;
       raw_svector_ostream O(Str);
 
-      if (EmitLicFreq) {
-        if (auto group = LMFI->getLICGroup(reg)) {
-          auto freq = group->executionFrequency;
-          if (!freq.isZero()) {
-            O << "\t.attrib lic_freq=";
-            freq.print(O);
-            O << "\n";
-          }
-        }
-      }
+      if (auto group = LMFI->getLICGroup(reg))
+        EmitLicGroup(*group);
 
       O << "\t.lic";
       if (TargetRegisterInfo::isVirtualRegister(reg)) {
