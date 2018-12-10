@@ -98,7 +98,7 @@ if(INTEL_INCLUDE_DTRANS)
   target_link_libraries(LLVMScalarOpts PRIVATE LLVMIntel_DTransAnalysis)
 endif(INTEL_INCLUDE_DTRANS)
 # INTEL_FEATURE_CSA
-is_intel_feature_enabled(p CSA)
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
 if(p)
   target_link_libraries(LLVMScalarOpts PRIVATE LLVMIntel_CSAScalarOpt)
 endif()

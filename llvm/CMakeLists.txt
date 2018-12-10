@@ -655,6 +655,14 @@ SET(INTEL_CUSTOMIZATION ON)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=1")
+# INTEL_CUSTOMIZATION
+# LLVM_INTELFEATURE_PREFIX is a temporary workaround for specifying
+# Intel features names as arguments to is_intel_feature_enabled()
+# and intel_add_file(), and keeping the feature filtering tool
+# from detecting this as illegal usage.  Just prepend the feature
+# name with ${LLVM_INTELFEATURE_PREFIX}_, when needed.
+SET(LLVM_INTELFEATURE_PREFIX "INTEL_FEATURE")
+# end INTEL_CUSTOMIZATION
 
 if(INTEL_CUSTOMIZATION)
   option(INTEL_INCLUDE_DTRANS "Include DTrans optimizations in builds." ON)
@@ -678,8 +686,11 @@ if(INTEL_CUSTOMIZATION)
 
 # INTEL_FEATURE_CSA
   if (";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
-    if (NOT ";${LLVM_INTEL_FEATURES};" MATCHES ";CSA;")
-      list(APPEND LLVM_INTEL_FEATURES "CSA")
+    if (NOT ";${LLVM_INTEL_FEATURES};" MATCHES
+        ";${LLVM_INTELFEATURE_PREFIX}_CSA;")
+      # This is a temporary workaround.  We have to pass CSA feature
+      # explicitly from CSA VRD file.
+      list(APPEND LLVM_INTEL_FEATURES "${LLVM_INTELFEATURE_PREFIX}_CSA")
     endif()
 
     set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
@@ -693,10 +704,7 @@ if(INTEL_CUSTOMIZATION)
 # end INTEL_FEATURE_CSA
 
   foreach(f ${LLVM_INTEL_FEATURES})
-    # Keep xmain->shared filtering tool happy by using
-    # "-DINTEL_" and "FEATURE_" separately below.
-    string(CONCAT FOPT "-DINTEL_" "FEATURE_" ${f} "=1")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FOPT}")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D${f}=1")
   endforeach(f)
 
   # If any Intel features are specified for the build, we have to check
@@ -719,14 +727,23 @@ if(INTEL_CUSTOMIZATION)
     # We also need to add semicolons around the list itself, so that
     # the first starts with semicolon, and the last line ends with a semicolon.
     foreach(f ${LLVM_INTEL_FEATURES})
-      string(REGEX MATCH ";${f};" m ";${sf};")
+      # Temporary workaround for the current feature filtering tool,
+      # which does not allow arbitrary usage of INTEL_FEATURE\_ prefix.
+      # Thus, we cannot declare features with this prefix in
+      # Intel_SupportedFeatures.txt.  At the same time, the feature names
+      # in LLVM_INTEL_FEATURES are prefixed.  Here, we strip the prefix
+      # from the feature name before looking for it in the file.
+      string(CONCAT prefix "INTEL_FEATURE" "_")
+      string(REPLACE ${prefix} "" fname "${f}")
+      string(REGEX MATCH ";${fname};" m ";${sf};")
       # If the enabled feature is not present in the features file, then
       # we must report an error to the user.  The result of the regex match
       # is in 'm' - it is an empty string, if there is no match.
       if ("${m}" STREQUAL "")
         message(FATAL_ERROR
             "Intel feature '${f}' is not supported.  "
-            "Please add it to ${LLVM_INTEL_SUPPORTED_FEATURES_FILE}")
+            "Please add it to ${LLVM_INTEL_SUPPORTED_FEATURES_FILE} "
+            "(without ${prefix} prefix).")
       endif()
     endforeach(f)
 
@@ -781,6 +798,13 @@ set(LLVM_ENUM_ASM_PARSERS "")
 set(LLVM_ENUM_DISASSEMBLERS "")
 foreach(t ${LLVM_TARGETS_TO_BUILD})
   set( td ${LLVM_MAIN_SRC_DIR}/lib/Target/${t} )
+  if(INTEL_CUSTOMIZATION)
+# INTEL_FEATURE_CSA
+    if("${t}" STREQUAL "CSA")
+      set(td ${LLVM_MAIN_SRC_DIR}/lib/Target/Intel_${t})
+    endif()
+# end INTEL_FEATURE_CSA
+  endif(INTEL_CUSTOMIZATION)
 
   list(FIND LLVM_ALL_TARGETS ${t} idx)
   list(FIND LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ${t} idy)

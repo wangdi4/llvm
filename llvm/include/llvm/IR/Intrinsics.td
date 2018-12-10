@@ -1151,7 +1151,7 @@ include "llvm/IR/IntrinsicsWebAssembly.td"
 // INTEL_FEATURE_CSA
 // TODO (vzakhari 8/27/2018): we need to replace this with a real preprocessing
 //       directive, when we add preprocessing support to TableGen.
-include "llvm/IR/IntrinsicsCSA.td"
+include "llvm/IR/Intel_IntrinsicsCSA.td"
 // end INTEL_FEATURE_CSA
 // end INTEL_CUSTOMIZATON
 include "llvm/IR/IntrinsicsRISCV.td"

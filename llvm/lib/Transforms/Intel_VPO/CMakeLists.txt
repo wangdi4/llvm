@@ -23,7 +23,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 #    via TTI, allowing each target to implement their own
 #    specific way of handling VPO constructs.
 intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
-  FEATURE CSA
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
   ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/CSA/lib/Transforms/Intel_VPO/Paropt/VPOParoptTransformCSA.cpp
   )
 # end INTEL_FEATURE_CSA

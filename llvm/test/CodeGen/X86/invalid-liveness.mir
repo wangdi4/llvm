@@ -8,7 +8,7 @@
 # for detailed description.
 # UNSUPPORTED: csa-registered-target
 # end INTEL_FEATURE_CSA
-# End INTEL_CUSTOMIZATION
+# end INTEL_CUSTOMIZATION
 
 --- |
   define void @func() { ret void }
