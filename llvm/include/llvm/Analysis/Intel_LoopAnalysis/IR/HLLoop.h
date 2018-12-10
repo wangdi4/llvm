@@ -916,6 +916,11 @@ public:
   /// Sets the pragma based minimum trip count of the loop to \p MinTripCount.
   void setPragmaBasedMinimumTripCount(unsigned MinTripCount);
 
+  /// Removes pragma based minimum trip count of the loop.
+  void removePragmaBasedMinimumTripCount() {
+    removeLoopMetadata("llvm.loop.intel.loopcount_minimum");
+  }
+
   /// Returns true if maximum trip count of loop is specified using pragma and
   /// returns the value in \p MaxTripCount.
   bool getPragmaBasedMaximumTripCount(unsigned &MaxTripCount) const {
@@ -933,6 +938,11 @@ public:
   /// Sets the pragma based maximum trip count of the loop to \p MaxTripCount.
   void setPragmaBasedMaximumTripCount(unsigned MaxTripCount);
 
+  /// Removes pragma based minimum trip count of the loop.
+  void removePragmaBasedMaximumTripCount() {
+    removeLoopMetadata("llvm.loop.intel.loopcount_maximum");
+  }
+
   /// Returns true if average trip count of loop is specified using pragma and
   /// returns the value in \p AvgTripCount.
   bool getPragmaBasedAverageTripCount(unsigned &AvgTripCount) const {
@@ -949,6 +959,11 @@ public:
 
   /// Sets the pragma based average trip count of the loop to \p AvgTripCount.
   void setPragmaBasedAverageTripCount(unsigned AvgTripCount);
+
+  /// Removes pragma based minimum trip count of the loop.
+  void removePragmaBasedAverageTripCount() {
+    removeLoopMetadata("llvm.loop.intel.loopcount_average");
+  }
 
   /// Divides any existing pragma based min/max/avg trip count by \p Factor.
   void dividePragmaBasedTripCount(unsigned Factor);

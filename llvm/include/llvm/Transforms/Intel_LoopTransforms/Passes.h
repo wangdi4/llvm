@@ -137,6 +137,9 @@ FunctionPass *createHIRLastValueComputationPass();
 
 /// Create pass that propagate casted IV for memory references.
 FunctionPass *createHIRPropagateCastedIVPass();
+
+/// Create pass that rerolls multi-exit loops.
+FunctionPass *createHIRMultiExitLoopRerollPass();
 } // namespace llvm
 
 #endif

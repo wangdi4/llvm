@@ -232,6 +232,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSymbolicTripCountCompleteUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputation.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIV.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopReroll.h"
 
 // Intel VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"

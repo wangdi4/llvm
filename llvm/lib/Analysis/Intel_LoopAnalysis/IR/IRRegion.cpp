@@ -189,6 +189,20 @@ void IRRegion::addLiveOutTemp(unsigned Symbase, const Instruction *Temp) {
   }
 }
 
+void IRRegion::removeLiveOutTemp(unsigned Symbase) {
+  auto It = LiveOutMap.find(Symbase);
+  assert((It != LiveOutMap.end()) && "Symbase is not liveout!");
+
+  // Copy vector of temps as we are going to erase the iterator.
+  auto TempVec = It->second;
+
+  LiveOutMap.erase(It);
+
+  for (auto *Temp : TempVec) {
+    ReverseLiveOutMap.erase(Temp);
+  }
+}
+
 void IRRegion::replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
   auto It = LiveOutMap.find(OldSymbase);
   assert((It != LiveOutMap.end()) && "Old liveout temp not found!");

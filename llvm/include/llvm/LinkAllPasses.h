@@ -327,6 +327,7 @@ namespace {
       (void) llvm::createHIRDeadStoreEliminationPass();
       (void) llvm::createHIRLastValueComputationPass();
       (void) llvm::createHIRPropagateCastedIVPass();
+      (void) llvm::createHIRMultiExitLoopRerollPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

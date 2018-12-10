@@ -137,6 +137,11 @@ public:
     IRReg.addLiveOutTemp(Symbase, Temp);
   }
 
+  /// Removes \p Symbase from region live out set.
+  void removeLiveOutTemp(unsigned Symbase) {
+    IRReg.removeLiveOutTemp(Symbase);
+  }
+
   /// Replaces \p OldSymbase by \p NewSymbase as the new liveout temp.
   void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase) {
     IRReg.replaceLiveOutTemp(OldSymbase, NewSymbase);

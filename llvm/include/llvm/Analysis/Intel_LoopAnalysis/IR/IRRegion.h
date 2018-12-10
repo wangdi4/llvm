@@ -138,6 +138,9 @@ public:
   /// \brief Adds a live-out temp (represented using Symbase) to the region.
   void addLiveOutTemp(unsigned Symbase, const Instruction *Temp);
 
+  /// Removes \p Symbase from the liveout temp set.
+  void removeLiveOutTemp(unsigned Symbase);
+
   void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase);
 
   /// \brief Returns true if this symbase is live in to this region.
