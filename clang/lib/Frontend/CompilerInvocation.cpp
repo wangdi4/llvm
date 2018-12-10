@@ -189,6 +189,11 @@ static void addDiagnosticArgs(ArgList &Args, OptSpecifier Group,
   }
 }
 
+// Parse the Static Analyzer configuration. If \p Diags is set to nullptr,
+// it won't verify the input.
+static void parseAnalyzerConfigs(AnalyzerOptions &AnOpts,
+                                 DiagnosticsEngine *Diags);
+
 static void getAllNoBuiltinFuncValues(ArgList &Args,
                                       std::vector<std::string> &Funcs) {
   SmallVector<const char *, 8> Values;
@@ -289,6 +294,12 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
   Opts.ShowCheckerHelp = Args.hasArg(OPT_analyzer_checker_help);
   Opts.ShowConfigOptionsList = Args.hasArg(OPT_analyzer_config_help);
   Opts.ShowEnabledCheckerList = Args.hasArg(OPT_analyzer_list_enabled_checkers);
+  Opts.ShouldEmitErrorsOnInvalidConfigValue =
+      /* negated */!llvm::StringSwitch<bool>(
+                   Args.getLastArgValue(OPT_analyzer_config_compatibility_mode))
+        .Case("true", true)
+        .Case("false", false)
+        .Default(false);
   Opts.DisableAllChecks = Args.hasArg(OPT_analyzer_disable_all_checks);
 
   Opts.visualizeExplodedGraphWithGraphViz =
@@ -325,7 +336,7 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
 
   // Go through the analyzer configuration options.
   for (const auto *A : Args.filtered(OPT_analyzer_config)) {
-    A->claim();
+
     // We can have a list of comma separated config names, e.g:
     // '-analyzer-config key1=val1,key2=val2'
     StringRef configList = A->getValue();
@@ -347,9 +358,24 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
         Success = false;
         break;
       }
+
+      // TODO: Check checker options too, possibly in CheckerRegistry.
+      // Leave unknown non-checker configs unclaimed.
+      if (!key.contains(":") && Opts.isUnknownAnalyzerConfig(key)) {
+        if (Opts.ShouldEmitErrorsOnInvalidConfigValue)
+          Diags.Report(diag::err_analyzer_config_unknown) << key;
+        continue;
+      }
+
+      A->claim();
       Opts.Config[key] = val;
     }
   }
+
+  if (Opts.ShouldEmitErrorsOnInvalidConfigValue)
+    parseAnalyzerConfigs(Opts, &Diags);
+  else
+    parseAnalyzerConfigs(Opts, nullptr);
 
   llvm::raw_string_ostream os(Opts.FullCompilerInvocation);
   for (unsigned i = 0; i < Args.getNumInputArgStrings(); ++i) {
@@ -360,6 +386,91 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
   os.flush();
 
   return Success;
+}
+
+static StringRef getStringOption(AnalyzerOptions::ConfigTable &Config,
+                                 StringRef OptionName, StringRef DefaultVal) {
+  return Config.insert({OptionName, DefaultVal}).first->second;
+}
+
+static void initOption(AnalyzerOptions::ConfigTable &Config,
+                       DiagnosticsEngine *Diags,
+                       StringRef &OptionField, StringRef Name,
+                       StringRef DefaultVal) {
+  // String options may be known to invalid (e.g. if the expected string is a
+  // file name, but the file does not exist), those will have to be checked in
+  // parseConfigs.
+  OptionField = getStringOption(Config, Name, DefaultVal);
+}
+
+static void initOption(AnalyzerOptions::ConfigTable &Config,
+                       DiagnosticsEngine *Diags,
+                       bool &OptionField, StringRef Name, bool DefaultVal) {
+  auto PossiblyInvalidVal = llvm::StringSwitch<Optional<bool>>(
+                 getStringOption(Config, Name, (DefaultVal ? "true" : "false")))
+      .Case("true", true)
+      .Case("false", false)
+      .Default(None);
+
+  if (!PossiblyInvalidVal) {
+    if (Diags)
+      Diags->Report(diag::err_analyzer_config_invalid_input)
+        << Name << "a boolean";
+    else
+      OptionField = DefaultVal;
+  } else
+    OptionField = PossiblyInvalidVal.getValue();
+}
+
+static void initOption(AnalyzerOptions::ConfigTable &Config,
+                       DiagnosticsEngine *Diags,
+                       unsigned &OptionField, StringRef Name,
+                       unsigned DefaultVal) {
+
+  OptionField = DefaultVal;
+  bool HasFailed = getStringOption(Config, Name, std::to_string(DefaultVal))
+                     .getAsInteger(10, OptionField);
+  if (Diags && HasFailed)
+    Diags->Report(diag::err_analyzer_config_invalid_input)
+      << Name << "an unsigned";
+}
+
+static void parseAnalyzerConfigs(AnalyzerOptions &AnOpts,
+                                 DiagnosticsEngine *Diags) {
+  // TODO: There's no need to store the entire configtable, it'd be plenty
+  // enough tostore checker options.
+
+#define ANALYZER_OPTION(TYPE, NAME, CMDFLAG, DESC, DEFAULT_VAL)                \
+  initOption(AnOpts.Config, Diags, AnOpts.NAME, CMDFLAG, DEFAULT_VAL);
+
+#define ANALYZER_OPTION_DEPENDS_ON_USER_MODE(TYPE, NAME, CMDFLAG, DESC,        \
+                                           SHALLOW_VAL, DEEP_VAL)              \
+  switch (AnOpts.getUserMode()) {                                              \
+  case UMK_Shallow:                                                            \
+    initOption(AnOpts.Config, Diags, AnOpts.NAME, CMDFLAG, SHALLOW_VAL);       \
+    break;                                                                     \
+  case UMK_Deep:                                                               \
+    initOption(AnOpts.Config, Diags, AnOpts.NAME, CMDFLAG, DEEP_VAL);          \
+    break;                                                                     \
+  }                                                                            \
+
+#include "clang/StaticAnalyzer/Core/AnalyzerOptions.def"
+#undef ANALYZER_OPTION
+#undef ANALYZER_OPTION_DEPENDS_ON_USER_MODE
+
+  // At this point, AnalyzerOptions is configured. Let's validate some options.
+
+  if (!Diags)
+    return;
+
+  if (!AnOpts.CTUDir.empty() && !llvm::sys::fs::is_directory(AnOpts.CTUDir))
+    Diags->Report(diag::err_analyzer_config_invalid_input) << "ctu-dir"
+                                                           << "a filename";
+
+  if (!AnOpts.ModelPath.empty() &&
+      !llvm::sys::fs::is_directory(AnOpts.ModelPath))
+    Diags->Report(diag::err_analyzer_config_invalid_input) << "model-path"
+                                                           << "a filename";
 }
 
 static bool ParseMigratorArgs(MigratorOptions &Opts, ArgList &Args) {
@@ -1022,6 +1133,11 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   }
   Opts.SanitizeAddressGlobalsDeadStripping =
       Args.hasArg(OPT_fsanitize_address_globals_dead_stripping);
+  if (Arg *A = Args.getLastArg(OPT_fsanitize_address_use_odr_indicator,
+                               OPT_fno_sanitize_address_use_odr_indicator)) {
+    Opts.SanitizeAddressUseOdrIndicator =
+        A->getOption().getID() == OPT_fsanitize_address_use_odr_indicator;
+  }
   Opts.SSPBufferSize =
       getLastArgIntValue(Args, OPT_stack_protector_buffer_size, 8, Diags);
   Opts.StackRealignment = Args.hasArg(OPT_mstackrealign);
@@ -1056,6 +1172,10 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
         static_cast<CodeGenOptions::ObjCDispatchMethodKind>(Method));
     }
   }
+
+
+  if (Args.hasArg(OPT_fno_objc_convert_messages_to_runtime_calls))
+    Opts.ObjCConvertMessagesToRuntimeCalls = 0;
 
   if (Args.getLastArg(OPT_femulated_tls) ||
       Args.getLastArg(OPT_fno_emulated_tls)) {
@@ -1561,8 +1681,6 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       Opts.ProgramAction = frontend::GenerateHeaderModule; break;
     case OPT_emit_pch:
       Opts.ProgramAction = frontend::GeneratePCH; break;
-    case OPT_emit_pth:
-      Opts.ProgramAction = frontend::GeneratePTH; break;
     case OPT_init_only:
       Opts.ProgramAction = frontend::InitOnly; break;
     case OPT_fsyntax_only:
@@ -2691,6 +2809,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (Args.hasArg(OPT_fvisibility_inlines_hidden))
     Opts.InlineVisibilityHidden = 1;
 
+  if (Args.hasArg(OPT_fvisibility_global_new_delete_hidden))
+    Opts.GlobalAllocationFunctionVisibilityHidden = 1;
+
   if (Args.hasArg(OPT_ftrapv)) {
     Opts.setSignedOverflowBehavior(LangOptions::SOB_Trapping);
     // Set the handler, if one is specified.
@@ -3263,7 +3384,6 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
   case frontend::GenerateModuleInterface:
   case frontend::GenerateHeaderModule:
   case frontend::GeneratePCH:
-  case frontend::GeneratePTH:
   case frontend::ParseSyntaxOnly:
   case frontend::ModuleFileInfo:
   case frontend::VerifyPCH:
@@ -3298,15 +3418,10 @@ static void ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
 #endif // INTEL_CUSTOMIZATION
 
   Opts.ImplicitPCHInclude = Args.getLastArgValue(OPT_include_pch);
-  Opts.ImplicitPTHInclude = Args.getLastArgValue(OPT_include_pth);
   Opts.PCHWithHdrStop = Args.hasArg(OPT_pch_through_hdrstop_create) ||
                         Args.hasArg(OPT_pch_through_hdrstop_use);
   Opts.PCHWithHdrStopCreate = Args.hasArg(OPT_pch_through_hdrstop_create);
   Opts.PCHThroughHeader = Args.getLastArgValue(OPT_pch_through_header_EQ);
-  if (const Arg *A = Args.getLastArg(OPT_token_cache))
-      Opts.TokenCache = A->getValue();
-  else
-    Opts.TokenCache = Opts.ImplicitPTHInclude;
   Opts.UsePredefines = !Args.hasArg(OPT_undef);
   Opts.DetailedRecord = Args.hasArg(OPT_detailed_preprocessing_record);
   Opts.DisablePCHValidation = Args.hasArg(OPT_fno_validate_pch);
@@ -3492,6 +3607,7 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
                               Res.getTargetOpts(), Res.getFrontendOpts());
   ParseHeaderSearchArgs(Res.getHeaderSearchOpts(), Args,
                         Res.getFileSystemOpts().WorkingDir);
+  llvm::Triple T(Res.getTargetOpts().Triple);
   if (DashX.getFormat() == InputKind::Precompiled ||
       DashX.getLanguage() == InputKind::LLVM_IR) {
     // ObjCAAutoRefCount and Sanitize LangOpts are used to setup the
@@ -3518,6 +3634,12 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
         llvm::Triple(Res.getTargetOpts().Triple).getArch() == llvm::Triple::x86)
       Res.getLangOpts()->NoInt128 = 1;
 #endif
+    if (T.isOSDarwin() && DashX.isPreprocessed()) {
+      // Supress the darwin-specific 'stdlibcxx-not-found' diagnostic for
+      // preprocessed input as we don't expect it to be used with -std=libc++
+      // anyway.
+      Res.getDiagnosticOpts().Warnings.push_back("no-stdlibcxx-not-found");
+    }
   }
 
   LangOpts.FunctionAlignment =
@@ -3549,7 +3671,6 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
                               Res.getFrontendOpts().ProgramAction);
 
   // Turn on -Wspir-compat for SPIR target.
-  llvm::Triple T(Res.getTargetOpts().Triple);
   auto Arch = T.getArch();
   if (Arch == llvm::Triple::spir || Arch == llvm::Triple::spir64) {
     Res.getDiagnosticOpts().Warnings.push_back("spir-compat");
@@ -3632,6 +3753,12 @@ std::string CompilerInvocation::getModuleHash() const {
   for (const auto &ext : frontendOpts.ModuleFileExtensions) {
     code = ext->hashExtension(code);
   }
+
+  // When compiling with -gmodules, also hash -fdebug-prefix-map as it
+  // affects the debug info in the PCM.
+  if (getCodeGenOpts().DebugTypeExtRefs)
+    for (const auto &KeyValue : getCodeGenOpts().DebugPrefixMap)
+      code = hash_combine(code, KeyValue.first, KeyValue.second);
 
   // Extend the signature with the enabled sanitizers, if at least one is
   // enabled. Sanitizers which cannot affect AST generation aren't hashed.

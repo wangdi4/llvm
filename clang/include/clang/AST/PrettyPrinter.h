@@ -38,22 +38,21 @@ public:
 struct PrintingPolicy {
   /// Create a default printing policy for the specified language.
   PrintingPolicy(const LangOptions &LO)
-    : Indentation(2), SuppressSpecifiers(false),
-      SuppressTagKeyword(LO.CPlusPlus),
-      IncludeTagDefinition(false), SuppressScope(false),
-      SuppressUnwrittenScope(false), SuppressInitializers(false),
-      ConstantArraySizeAsWritten(false), AnonymousTagLocations(true),
-      SuppressStrongLifetime(false), SuppressLifetimeQualifiers(false),
-      SuppressTemplateArgsInCXXConstructors(false),
-      Bool(LO.Bool), Restrict(LO.C99),
-      Alignof(LO.CPlusPlus11), UnderscoreAlignof(LO.C11),
-      UseVoidForZeroParams(!LO.CPlusPlus),
-      TerseOutput(false), PolishForDeclaration(false),
-      Half(LO.Half), MSWChar(LO.MicrosoftExt && !LO.WChar),
-      IncludeNewlines(true), MSVCFormatting(false),
-      ConstantsAsWritten(false), SuppressImplicitBase(false),
-      IntelCompat(LO.IntelCompat), // INTEL
-      FullyQualifiedName(false) { }
+      : Indentation(2), SuppressSpecifiers(false),
+        IntelCompat(LO.IntelCompat), // INTEL
+        SuppressTagKeyword(LO.CPlusPlus), IncludeTagDefinition(false),
+        SuppressScope(false), SuppressUnwrittenScope(false),
+        SuppressInitializers(false), ConstantArraySizeAsWritten(false),
+        AnonymousTagLocations(true), SuppressStrongLifetime(false),
+        SuppressLifetimeQualifiers(false),
+        SuppressTemplateArgsInCXXConstructors(false), Bool(LO.Bool),
+        Restrict(LO.C99), Alignof(LO.CPlusPlus11), UnderscoreAlignof(LO.C11),
+        UseVoidForZeroParams(!LO.CPlusPlus), TerseOutput(false),
+        PolishForDeclaration(false), Half(LO.Half),
+        MSWChar(LO.MicrosoftExt && !LO.WChar), IncludeNewlines(true),
+        MSVCFormatting(false), ConstantsAsWritten(false),
+        SuppressImplicitBase(false), FullyQualifiedName(false),
+        RemapFilePaths(false) {}
 
   /// Adjust this printing policy for cases where it's known that we're
   /// printing C++ code (for instance, if AST dumping reaches a C++-only
@@ -83,6 +82,11 @@ struct PrintingPolicy {
   /// \c true when we print "y", so that we suppress printing the
   /// "const int" type specifier and instead only print the "*y".
   unsigned SuppressSpecifiers : 1;
+
+#if INTEL_CUSTOMIZATION
+  /// Whether to use Intel Compatability printing options
+  unsigned IntelCompat : 1;
+#endif // INTEL_CUSTOMIZATION
 
   /// Whether type printing should skip printing the tag keyword.
   ///
@@ -223,14 +227,15 @@ struct PrintingPolicy {
   /// When true, don't print the implicit 'self' or 'this' expressions.
   unsigned SuppressImplicitBase : 1;
 
-#if INTEL_CUSTOMIZATION
-  /// Whether to use Intel Compatability printing options
-  unsigned IntelCompat : 1;
-#endif // INTEL_CUSTOMIZATION
-
   /// When true, print the fully qualified name of function declarations.
   /// This is the opposite of SuppressScope and thus overrules it.
   unsigned FullyQualifiedName : 1;
+
+  /// Whether to apply -fdebug-prefix-map to any file paths.
+  unsigned RemapFilePaths : 1;
+
+  /// When RemapFilePaths is true, this function performs the action.
+  std::function<std::string(StringRef)> remapPath;
 };
 
 } // end namespace clang

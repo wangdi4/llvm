@@ -93,9 +93,6 @@ enum ActionKind {
   /// Generate pre-compiled header.
   GeneratePCH,
 
-  /// Generate pre-tokenized header.
-  GeneratePTH,
-
   /// Only execute frontend initialization.
   InitOnly,
 

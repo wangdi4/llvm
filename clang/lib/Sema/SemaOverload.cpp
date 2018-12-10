@@ -5618,7 +5618,7 @@ static ExprResult CheckConvertedConstantExpression(Sema &S, Expr *From,
 
     if (Notes.empty()) {
       // It's a constant expression.
-      return new (S.Context) ConstantExpr(Result.get());
+      return ConstantExpr::Create(S.Context, Result.get());
     }
   }
 
@@ -6608,7 +6608,12 @@ void Sema::AddFunctionCandidates(const UnresolvedSetImpl &Fns,
         if (Expr *E = Args[0]) {
           // Use the explicit base to restrict the lookup:
           ObjectType = E->getType();
-          ObjectClassification = E->Classify(Context);
+          // Pointers in the object arguments are implicitly dereferenced, so we
+          // always classify them as l-values.
+          if (!ObjectType.isNull() && ObjectType->isPointerType())
+            ObjectClassification = Expr::Classification::makeSimpleLValue();
+          else
+            ObjectClassification = E->Classify(Context);
         } // .. else there is an implicit base.
         FunctionArgs = Args.slice(1);
       }
@@ -13123,7 +13128,8 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
 
     CXXMemberCallExpr *call
       = new (Context) CXXMemberCallExpr(Context, MemExprE, Args,
-                                        resultType, valueKind, RParenLoc);
+                                        resultType, valueKind, RParenLoc,
+                                        proto->getNumParams());
 
     if (CheckCallReturnType(proto->getReturnType(), op->getRHS()->getBeginLoc(),
                             call, nullptr))
@@ -13273,9 +13279,11 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
   ResultType = ResultType.getNonLValueExprType(Context);
 
   assert(Method && "Member call to something that isn't a method?");
+  const auto *Proto = Method->getType()->getAs<FunctionProtoType>();
   CXXMemberCallExpr *TheCall =
     new (Context) CXXMemberCallExpr(Context, MemExprE, Args,
-                                    ResultType, VK, RParenLoc);
+                                    ResultType, VK, RParenLoc,
+                                    Proto->getNumParams());
 
   // Check for a valid return type.
   if (CheckCallReturnType(Method->getReturnType(), MemExpr->getMemberLoc(),
@@ -13295,8 +13303,6 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
   }
 
   // Convert the rest of the arguments
-  const FunctionProtoType *Proto =
-    Method->getType()->getAs<FunctionProtoType>();
   if (ConvertArgumentsForCall(TheCall, MemExpr, Method, Proto, Args,
                               RParenLoc))
     return ExprError();
@@ -13544,29 +13550,14 @@ Sema::BuildCallToObjectOfClassType(Scope *S, Expr *Obj,
   if (NewFn.isInvalid())
     return true;
 
+  // The number of argument slots to allocate in the call. If we have default
+  // arguments we need to allocate space for them as well. We additionally
+  // need one more slot for the object parameter.
+  unsigned NumArgsSlots = 1 + std::max<unsigned>(Args.size(), NumParams);
+
   // Build the full argument list for the method call (the implicit object
   // parameter is placed at the beginning of the list).
-  SmallVector<Expr *, 8> MethodArgs(Args.size() + 1);
-  MethodArgs[0] = Object.get();
-  std::copy(Args.begin(), Args.end(), MethodArgs.begin() + 1);
-
-  // Once we've built TheCall, all of the expressions are properly
-  // owned.
-  QualType ResultTy = Method->getReturnType();
-  ExprValueKind VK = Expr::getValueKindForType(ResultTy);
-  ResultTy = ResultTy.getNonLValueExprType(Context);
-
-  CXXOperatorCallExpr *TheCall = new (Context)
-      CXXOperatorCallExpr(Context, OO_Call, NewFn.get(), MethodArgs, ResultTy,
-                          VK, RParenLoc, FPOptions());
-
-  if (CheckCallReturnType(Method->getReturnType(), LParenLoc, TheCall, Method))
-    return true;
-
-  // We may have default arguments. If so, we need to allocate more
-  // slots in the call for them.
-  if (Args.size() < NumParams)
-    TheCall->setNumArgs(Context, NumParams + 1);
+  SmallVector<Expr *, 8> MethodArgs(NumArgsSlots);
 
   bool IsError = false;
 
@@ -13578,7 +13569,7 @@ Sema::BuildCallToObjectOfClassType(Scope *S, Expr *Obj,
     IsError = true;
   else
     Object = ObjRes;
-  TheCall->setArg(0, Object.get());
+  MethodArgs[0] = Object.get();
 
   // Check the argument types.
   for (unsigned i = 0; i != NumParams; i++) {
@@ -13607,7 +13598,7 @@ Sema::BuildCallToObjectOfClassType(Scope *S, Expr *Obj,
       Arg = DefArg.getAs<Expr>();
     }
 
-    TheCall->setArg(i + 1, Arg);
+    MethodArgs[i + 1] = Arg;
   }
 
   // If this is a variadic call, handle args passed through "...".
@@ -13617,13 +13608,26 @@ Sema::BuildCallToObjectOfClassType(Scope *S, Expr *Obj,
       ExprResult Arg = DefaultVariadicArgumentPromotion(Args[i], VariadicMethod,
                                                         nullptr);
       IsError |= Arg.isInvalid();
-      TheCall->setArg(i + 1, Arg.get());
+      MethodArgs[i + 1] = Arg.get();
     }
   }
 
-  if (IsError) return true;
+  if (IsError)
+    return true;
 
   DiagnoseSentinelCalls(Method, LParenLoc, Args);
+
+  // Once we've built TheCall, all of the expressions are properly owned.
+  QualType ResultTy = Method->getReturnType();
+  ExprValueKind VK = Expr::getValueKindForType(ResultTy);
+  ResultTy = ResultTy.getNonLValueExprType(Context);
+
+  CXXOperatorCallExpr *TheCall = new (Context)
+      CXXOperatorCallExpr(Context, OO_Call, NewFn.get(), MethodArgs, ResultTy,
+                          VK, RParenLoc, FPOptions());
+
+  if (CheckCallReturnType(Method->getReturnType(), LParenLoc, TheCall, Method))
+    return true;
 
   if (CheckFunctionCall(Method, TheCall, Proto))
     return true;

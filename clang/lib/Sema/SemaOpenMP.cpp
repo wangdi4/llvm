@@ -5048,15 +5048,16 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   unsigned NestedLoopCount = 1;
   if (CollapseLoopCountExpr) {
     // Found 'collapse' clause - calculate collapse number.
-    llvm::APSInt Result;
+    Expr::EvalResult Result;
     if (CollapseLoopCountExpr->EvaluateAsInt(Result, SemaRef.getASTContext()))
-      NestedLoopCount = Result.getLimitedValue();
+      NestedLoopCount = Result.Val.getInt().getLimitedValue();
   }
   unsigned OrderedLoopCount = 1;
   if (OrderedLoopCountExpr) {
     // Found 'ordered' clause - calculate collapse number.
-    llvm::APSInt Result;
-    if (OrderedLoopCountExpr->EvaluateAsInt(Result, SemaRef.getASTContext())) {
+    Expr::EvalResult EVResult;
+    if (OrderedLoopCountExpr->EvaluateAsInt(EVResult, SemaRef.getASTContext())) {
+      llvm::APSInt Result = EVResult.Val.getInt();
       if (Result.getLimitedValue() < NestedLoopCount) {
         SemaRef.Diag(OrderedLoopCountExpr->getExprLoc(),
                      diag::err_omp_wrong_ordered_loop_count)
@@ -5668,7 +5669,6 @@ static bool checkSimdlenSafelenSpecified(Sema &S,
   }
 
   if (Simdlen && Safelen) {
-    llvm::APSInt SimdlenRes, SafelenRes;
     const Expr *SimdlenLength = Simdlen->getSimdlen();
     const Expr *SafelenLength = Safelen->getSafelen();
     if (SimdlenLength->isValueDependent() || SimdlenLength->isTypeDependent() ||
@@ -5679,8 +5679,11 @@ static bool checkSimdlenSafelenSpecified(Sema &S,
         SafelenLength->isInstantiationDependent() ||
         SafelenLength->containsUnexpandedParameterPack())
       return false;
-    SimdlenLength->EvaluateAsInt(SimdlenRes, S.Context);
-    SafelenLength->EvaluateAsInt(SafelenRes, S.Context);
+    Expr::EvalResult SimdlenResult, SafelenResult;
+    SimdlenLength->EvaluateAsInt(SimdlenResult, S.Context);
+    SafelenLength->EvaluateAsInt(SafelenResult, S.Context);
+    llvm::APSInt SimdlenRes = SimdlenResult.Val.getInt();
+    llvm::APSInt SafelenRes = SafelenResult.Val.getInt();
     // OpenMP 4.5 [2.8.1, simd Construct, Restrictions]
     // If both simdlen and safelen clauses are specified, the value of the
     // simdlen parameter must be less than or equal to the value of the safelen
@@ -10709,10 +10712,11 @@ static bool checkOMPArraySectionConstantForReduction(
     SingleElement = true;
     ArraySizes.push_back(llvm::APSInt::get(1));
   } else {
-    llvm::APSInt ConstantLengthValue;
-    if (!Length->EvaluateAsInt(ConstantLengthValue, Context))
+    Expr::EvalResult Result;
+    if (!Length->EvaluateAsInt(Result, Context))
       return false;
 
+    llvm::APSInt ConstantLengthValue = Result.Val.getInt();
     SingleElement = (ConstantLengthValue.getSExtValue() == 1);
     ArraySizes.push_back(ConstantLengthValue);
   }
@@ -10733,9 +10737,12 @@ static bool checkOMPArraySectionConstantForReduction(
       // This is an array subscript which has implicit length 1!
       ArraySizes.push_back(llvm::APSInt::get(1));
     } else {
-      llvm::APSInt ConstantLengthValue;
-      if (!Length->EvaluateAsInt(ConstantLengthValue, Context) ||
-          ConstantLengthValue.getSExtValue() != 1)
+      Expr::EvalResult Result;
+      if (!Length->EvaluateAsInt(Result, Context))
+        return false;
+
+      llvm::APSInt ConstantLengthValue = Result.Val.getInt();
+      if (ConstantLengthValue.getSExtValue() != 1)
         return false;
 
       ArraySizes.push_back(ConstantLengthValue);
@@ -12262,9 +12269,11 @@ static bool checkArrayExpressionDoesNotReferToWholeSize(Sema &SemaRef,
   // If there is a lower bound that does not evaluates to zero, we are not
   // covering the whole dimension.
   if (LowerBound) {
-    llvm::APSInt ConstLowerBound;
-    if (!LowerBound->EvaluateAsInt(ConstLowerBound, SemaRef.getASTContext()))
+    Expr::EvalResult Result;
+    if (!LowerBound->EvaluateAsInt(Result, SemaRef.getASTContext()))
       return false; // Can't get the integer value as a constant.
+
+    llvm::APSInt ConstLowerBound = Result.Val.getInt();
     if (ConstLowerBound.getSExtValue())
       return true;
   }
@@ -12284,10 +12293,11 @@ static bool checkArrayExpressionDoesNotReferToWholeSize(Sema &SemaRef,
   if (!CATy)
     return false;
 
-  llvm::APSInt ConstLength;
-  if (!Length->EvaluateAsInt(ConstLength, SemaRef.getASTContext()))
+  Expr::EvalResult Result;
+  if (!Length->EvaluateAsInt(Result, SemaRef.getASTContext()))
     return false; // Can't get the integer value as a constant.
 
+  llvm::APSInt ConstLength = Result.Val.getInt();
   return CATy->getSize().getSExtValue() != ConstLength.getSExtValue();
 }
 
@@ -12318,10 +12328,11 @@ static bool checkArrayExpressionDoesNotReferToUnitySize(Sema &SemaRef,
   }
 
   // Check if the length evaluates to 1.
-  llvm::APSInt ConstLength;
-  if (!Length->EvaluateAsInt(ConstLength, SemaRef.getASTContext()))
+  Expr::EvalResult Result;
+  if (!Length->EvaluateAsInt(Result, SemaRef.getASTContext()))
     return false; // Can't get the integer value as a constant.
 
+  llvm::APSInt ConstLength = Result.Val.getInt();
   return ConstLength.getSExtValue() != 1;
 }
 

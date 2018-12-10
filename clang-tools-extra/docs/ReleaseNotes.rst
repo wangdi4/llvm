@@ -67,6 +67,12 @@ The improvements are...
 Improvements to clang-tidy
 --------------------------
 
+- New :doc:`abseil-duration-comparison
+  <clang-tidy/checks/abseil-duration-comparison>` check.
+
+  Checks for comparisons which should be done in the ``absl::Duration`` domain
+  instead of the float of integer domains.
+
 - New :doc:`abseil-duration-division
   <clang-tidy/checks/abseil-duration-division>` check.
 
@@ -115,6 +121,13 @@ Improvements to clang-tidy
 
   Flags uses of ``absl::StrCat()`` to append to a ``std::string``. Suggests
   ``absl::StrAppend()`` should be used instead.
+
+- New :doc:`abseil-upgrade-duration-conversions
+  <clang-tidy/checks/abseil-upgrade-duration-conversions>` check.
+
+  Finds calls to ``absl::Duration`` arithmetic operators and factories whose
+  argument needs an explicit cast to continue compiling after upcoming API
+  changes.
 
 - New :doc:`bugprone-too-small-loop-variable
   <clang-tidy/checks/bugprone-too-small-loop-variable>` check.
@@ -224,6 +237,10 @@ Improvements to clang-tidy
   - integer - floating point narrowing conversions,
   - floating point - integer narrowing conversions,
   - constants with narrowing conversions (even in ternary operator).
+
+- The :doc:`objc-property-declaration
+  <clang-tidy/checks/objc-property-declaration>` check now ignores the
+  `Acronyms` and `IncludeDefaultAcronyms` options.
 
 Improvements to include-fixer
 -----------------------------

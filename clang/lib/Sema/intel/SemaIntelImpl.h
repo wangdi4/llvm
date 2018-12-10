@@ -61,8 +61,9 @@ void Sema::AddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
     ExprResult ICE;
     if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
       return;
-    llvm::APSInt Value;
-    E->EvaluateAsInt(Value, Context);
+    Expr::EvalResult Result;
+    E->EvaluateAsInt(Result, Context);
+    llvm::APSInt Value = Result.Val.getInt();
     if (!Value.isPowerOf2()) {
       Diag(AttrRange.getBegin(), diag::err_attribute_argument_not_power_of_two)
           << &TmpAttr;

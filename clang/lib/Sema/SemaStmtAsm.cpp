@@ -403,11 +403,12 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
           !InputExpr->getType()->isIntegerType())
 #endif //INTEL_CUSTOMIZATION
       if (!InputExpr->isValueDependent()) {
-        llvm::APSInt Result;
-        if (!InputExpr->EvaluateAsInt(Result, Context))
+        Expr::EvalResult EVResult;
+        if (!InputExpr->EvaluateAsInt(EVResult, Context))
           return StmtError(
               Diag(InputExpr->getBeginLoc(), diag::err_asm_immediate_expected)
               << Info.getConstraintStr() << InputExpr->getSourceRange());
+        llvm::APSInt Result = EVResult.Val.getInt();
          if (!Info.isValidAsmImmediate(Result))
            return StmtError(Diag(InputExpr->getBeginLoc(),
                                  diag::err_invalid_asm_value_for_constraint)

@@ -61,7 +61,7 @@ EXTERN void __kmpc_barrier(kmp_Ident *loc_ref, int32_t tid) {
 
         PRINT(LD_SYNC,
               "call kmpc_barrier with %d omp threads, sync parameter %d\n",
-              numberOfActiveOMPThreads, threads);
+              (int)numberOfActiveOMPThreads, (int)threads);
         // Barrier #1 is for synchronization among active threads.
         named_sync(L1_BARRIER, threads);
       }
@@ -89,7 +89,7 @@ EXTERN void __kmpc_barrier_simple_generic(kmp_Ident *loc_ref, int32_t tid) {
   PRINT(LD_SYNC,
         "call kmpc_barrier_simple_generic with %d omp threads, sync parameter "
         "%d\n",
-        numberOfActiveOMPThreads, threads);
+        (int)numberOfActiveOMPThreads, (int)threads);
   // Barrier #1 is for synchronization among active threads.
   named_sync(L1_BARRIER, threads);
   PRINT0(LD_SYNC, "completed kmpc_barrier_simple_generic\n");
@@ -99,21 +99,14 @@ EXTERN void __kmpc_barrier_simple_generic(kmp_Ident *loc_ref, int32_t tid) {
 // KMP MASTER
 ////////////////////////////////////////////////////////////////////////////////
 
-INLINE int32_t IsMaster() {
-  // only the team master updates the state
-  int tid = GetLogicalThreadIdInBlock();
-  int ompThreadId = GetOmpThreadId(tid, isSPMDMode(), isRuntimeUninitialized());
-  return IsTeamMaster(ompThreadId);
-}
-
 EXTERN int32_t __kmpc_master(kmp_Ident *loc, int32_t global_tid) {
   PRINT0(LD_IO, "call kmpc_master\n");
-  return IsMaster();
+  return IsTeamMaster(global_tid);
 }
 
 EXTERN void __kmpc_end_master(kmp_Ident *loc, int32_t global_tid) {
   PRINT0(LD_IO, "call kmpc_end_master\n");
-  ASSERT0(LT_FUSSY, IsMaster(), "expected only master here");
+  ASSERT0(LT_FUSSY, IsTeamMaster(global_tid), "expected only master here");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -123,13 +116,13 @@ EXTERN void __kmpc_end_master(kmp_Ident *loc, int32_t global_tid) {
 EXTERN int32_t __kmpc_single(kmp_Ident *loc, int32_t global_tid) {
   PRINT0(LD_IO, "call kmpc_single\n");
   // decide to implement single with master; master get the single
-  return IsMaster();
+  return IsTeamMaster(global_tid);
 }
 
 EXTERN void __kmpc_end_single(kmp_Ident *loc, int32_t global_tid) {
   PRINT0(LD_IO, "call kmpc_end_single\n");
   // decide to implement single with master: master get the single
-  ASSERT0(LT_FUSSY, IsMaster(), "expected only master here");
+  ASSERT0(LT_FUSSY, IsTeamMaster(global_tid), "expected only master here");
   // sync barrier is explicitely called... so that is not a problem
 }
 
@@ -139,7 +132,7 @@ EXTERN void __kmpc_end_single(kmp_Ident *loc, int32_t global_tid) {
 
 EXTERN void __kmpc_flush(kmp_Ident *loc) {
   PRINT0(LD_IO, "call kmpc_flush\n");
-  __threadfence_block();
+  __threadfence_system();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

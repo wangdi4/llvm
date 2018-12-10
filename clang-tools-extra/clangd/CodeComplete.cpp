@@ -37,7 +37,6 @@
 #include "index/Index.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
-#include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Format/Format.h"
@@ -656,6 +655,13 @@ bool contextAllowsIndex(enum CodeCompletionContext::Kind K) {
   llvm_unreachable("unknown code completion context");
 }
 
+static bool isInjectedClass(const NamedDecl &D) {
+  if (auto *R = dyn_cast_or_null<RecordDecl>(&D))
+    if (R->isInjectedClassName())
+      return true;
+  return false;
+}
+
 // Some member calls are blacklisted because they're so rarely useful.
 static bool isBlacklistedMember(const NamedDecl &D) {
   // Destructor completion is rarely useful, and works inconsistently.
@@ -663,9 +669,8 @@ static bool isBlacklistedMember(const NamedDecl &D) {
   if (D.getKind() == Decl::CXXDestructor)
     return true;
   // Injected name may be useful for A::foo(), but who writes A::A::foo()?
-  if (auto *R = dyn_cast_or_null<RecordDecl>(&D))
-    if (R->isInjectedClassName())
-      return true;
+  if (isInjectedClass(D))
+    return true;
   // Explicit calls to operators are also rare.
   auto NameKind = D.getDeclName().getNameKind();
   if (NameKind == DeclarationName::CXXOperatorName ||
@@ -743,6 +748,11 @@ struct CompletionRecorder : public CodeCompleteConsumer {
       if (Result.Declaration &&
           !Context.getBaseType().isNull() // is this a member-access context?
           && isBlacklistedMember(*Result.Declaration))
+        continue;
+      // Skip injected class name when no class scope is not explicitly set.
+      // E.g. show injected A::A in `using A::A^` but not in "A^".
+      if (Result.Declaration && !Context.getCXXScopeSpecifier().hasValue() &&
+          isInjectedClass(*Result.Declaration))
         continue;
       // We choose to never append '::' to completion results in clangd.
       Result.StartsNestedNameSpecifier = false;
@@ -1634,14 +1644,24 @@ SignatureHelp signatureHelp(PathRef FileName,
 }
 
 bool isIndexedForCodeCompletion(const NamedDecl &ND, ASTContext &ASTCtx) {
-  using namespace clang::ast_matchers;
-  auto InTopLevelScope = hasDeclContext(
-      anyOf(namespaceDecl(), translationUnitDecl(), linkageSpecDecl()));
-  return !match(decl(anyOf(InTopLevelScope,
-                           hasDeclContext(
-                               enumDecl(InTopLevelScope, unless(isScoped()))))),
-                ND, ASTCtx)
-              .empty();
+  auto InTopLevelScope = [](const NamedDecl &ND) {
+    switch (ND.getDeclContext()->getDeclKind()) {
+    case Decl::TranslationUnit:
+    case Decl::Namespace:
+    case Decl::LinkageSpec:
+      return true;
+    default:
+      break;
+    };
+    return false;
+  };
+  if (InTopLevelScope(ND))
+    return true;
+
+  if (const auto *EnumDecl = dyn_cast<clang::EnumDecl>(ND.getDeclContext()))
+    return InTopLevelScope(*EnumDecl) && !EnumDecl->isScoped();
+
+  return false;
 }
 
 CompletionItem CodeCompletion::render(const CodeCompleteOptions &Opts) const {
