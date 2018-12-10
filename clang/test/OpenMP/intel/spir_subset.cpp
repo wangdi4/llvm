@@ -51,6 +51,17 @@ void foo1()
   //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   //ALL-SAME:"DIR.OMP.TARGET"
   //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.PARALLEL.LOOP"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+  #pragma omp target
+  #pragma omp parallel for
+  for(int i=0;i<10;++i) {
+  }
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   //ALL-SAME:"DIR.OMP.TEAMS"
   //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
   //ALL-SAME:"DIR.OMP.DISTRIBUTE"
