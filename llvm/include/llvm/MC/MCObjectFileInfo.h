@@ -212,6 +212,7 @@ protected:
 #if INTEL_CUSTOMIZATION
   MCSection *OptReportSection = nullptr;
 #endif  // INTEL_CUSTOMIZATION
+
 public:
   void InitMCObjectFileInfo(const Triple &TT, bool PIC, MCContext &ctx,
                             bool LargeCodeModel = false);

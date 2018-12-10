@@ -43,6 +43,7 @@ subdirectories =
 #endif // INTEL_CUSTOMIZATION
  Support
  TableGen
+ TextAPI
  Target
  Testing
  ToolDrivers

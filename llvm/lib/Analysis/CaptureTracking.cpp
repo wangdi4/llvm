@@ -173,10 +173,10 @@ namespace {
 /// counts as capturing it or not.  The boolean StoreCaptures specified whether
 /// storing the value (or part of it) into memory anywhere automatically
 /// counts as capturing it or not.
-bool llvm::PointerMayBeCaptured(
-    const Value *V, bool ReturnCaptures, bool StoreCaptures,
-    bool IgnoreStoreCapturesByNoAliasArgument // INTEL
-    ) {
+bool llvm::PointerMayBeCaptured(const Value *V,
+                                bool ReturnCaptures, bool StoreCaptures,
+                                bool IgnoreStoreCapturesByNoAliasArgument,//INTEL
+                                unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
@@ -206,7 +206,8 @@ bool llvm::PointerMayBeCaptured(
 bool llvm::PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
                                       bool StoreCaptures, const Instruction *I,
                                       const DominatorTree *DT, bool IncludeI,
-                                      OrderedBasicBlock *OBB) {
+                                      OrderedBasicBlock *OBB,
+                                      unsigned MaxUsesToExplore) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
   bool UseNewOBB = OBB == nullptr;
@@ -227,22 +228,18 @@ bool llvm::PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
   return CB.Captured;
 }
 
-/// TODO: Write a new FunctionPass AliasAnalysis so that it can keep
-/// a cache. Then we can move the code from BasicAliasAnalysis into
-/// that path, and remove this threshold.
-static int const Threshold = 20;
-
-void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker) {
+void llvm::PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
+                                unsigned MaxUsesToExplore) {
   assert(V->getType()->isPointerTy() && "Capture is for pointers only!");
-  SmallVector<const Use *, Threshold> Worklist;
-  SmallSet<const Use *, Threshold> Visited;
+  SmallVector<const Use *, DefaultMaxUsesToExplore> Worklist;
+  SmallSet<const Use *, DefaultMaxUsesToExplore> Visited;
 
   auto AddUses = [&](const Value *V) {
-    int Count = 0;
+    unsigned Count = 0;
     for (const Use &U : V->uses()) {
       // If there are lots of uses, conservatively say that the value
       // is captured to avoid taking too much compile time.
-      if (Count++ >= Threshold)
+      if (Count++ >= MaxUsesToExplore)
         return Tracker->tooManyUses();
       if (!Visited.insert(&U).second)
         continue;

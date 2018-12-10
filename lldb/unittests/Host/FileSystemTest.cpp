@@ -225,18 +225,14 @@ TEST(FileSystemTest, MakeAbsolute) {
     SmallString<16> foo(foo_relative);
     auto EC = fs.MakeAbsolute(foo);
     EXPECT_FALSE(EC);
-#ifdef _WIN32
-    EXPECT_TRUE(foo.equals("\\\\foo"));
-#else
     EXPECT_TRUE(foo.equals("/foo"));
-#endif
   }
 
   {
     FileSpec file_spec("foo");
     auto EC = fs.MakeAbsolute(file_spec);
     EXPECT_FALSE(EC);
-    EXPECT_EQ("/foo", file_spec.GetPath());
+    EXPECT_EQ(FileSpec("/foo"), file_spec);
   }
 }
 
@@ -247,17 +243,13 @@ TEST(FileSystemTest, Resolve) {
     StringRef foo_relative = "foo";
     SmallString<16> foo(foo_relative);
     fs.Resolve(foo);
-#ifdef _WIN32
-    EXPECT_TRUE(foo.equals("\\\\foo"));
-#else
     EXPECT_TRUE(foo.equals("/foo"));
-#endif
   }
 
   {
     FileSpec file_spec("foo");
     fs.Resolve(file_spec);
-    EXPECT_EQ("/foo", file_spec.GetPath());
+    EXPECT_EQ(FileSpec("/foo"), file_spec);
   }
 
   {
@@ -270,7 +262,7 @@ TEST(FileSystemTest, Resolve) {
   {
     FileSpec file_spec("bogus");
     fs.Resolve(file_spec);
-    EXPECT_EQ("bogus", file_spec.GetPath());
+    EXPECT_EQ(FileSpec("bogus"), file_spec);
   }
 }
 

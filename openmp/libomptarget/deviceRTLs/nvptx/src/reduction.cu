@@ -76,12 +76,7 @@ EXTERN int32_t __kmpc_shuffle_int32(int32_t val, int16_t delta, int16_t size) {
 }
 
 EXTERN int64_t __kmpc_shuffle_int64(int64_t val, int16_t delta, int16_t size) {
-  int lo, hi;
-  asm volatile("mov.b64 {%0,%1}, %2;" : "=r"(lo), "=r"(hi) : "l"(val));
-  hi = __SHFL_DOWN_SYNC(0xFFFFFFFF, hi, delta, size);
-  lo = __SHFL_DOWN_SYNC(0xFFFFFFFF, lo, delta, size);
-  asm volatile("mov.b64 %0, {%1,%2};" : "=l"(val) : "r"(lo), "r"(hi));
-  return val;
+  return __SHFL_DOWN_SYNC(0xFFFFFFFFFFFFFFFFL, val, delta, size);
 }
 
 static INLINE void gpu_regular_warp_reduce(void *reduce_data,
@@ -232,8 +227,7 @@ int32_t nvptx_parallel_reduce_nowait(int32_t global_tid, int32_t num_vars,
 
   // Get the OMP thread Id. This is different from BlockThreadId in the case of
   // an L2 parallel region.
-  return GetOmpThreadId(BlockThreadId, isSPMDExecutionMode,
-                        isRuntimeUninitialized) == 0;
+  return global_tid == 0;
 #endif // __CUDA_ARCH__ >= 700
 }
 
@@ -445,6 +439,7 @@ EXTERN int32_t __kmpc_nvptx_teams_reduce_nowait_simple(kmp_Ident *loc,
 EXTERN void
 __kmpc_nvptx_teams_end_reduce_nowait_simple(kmp_Ident *loc, int32_t global_tid,
                                             kmp_CriticalName *crit) {
+  __threadfence_system();
   (void)atomicExch((uint32_t *)crit, 0);
 }
 

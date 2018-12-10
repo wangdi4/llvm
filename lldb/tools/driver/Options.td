@@ -170,9 +170,10 @@ def: Flag<["-"], "h">,
   Alias<help>,
   HelpText<"Alias for --help">;
 
-def core: F<"core">,
-  HelpText<"Tells the debugger to use the full path to <core> as the core file.">;
-def: Flag<["-"], "c">,
+def core: Separate<["--", "-"], "core">,
+  MetaVarName<"<filename>">,
+  HelpText<"Tells the debugger to use the full path to <filename> as the core file.">;
+def: Separate<["-"], "c">,
   Alias<core>,
   HelpText<"Alias for --core">;
 
@@ -208,11 +209,11 @@ def: Flag<["-"], "d">,
   Alias<debug>,
   HelpText<"Alias for --debug">;
 
-def reproducer: Separate<["--", "-"], "reproducer">,
+def capture: Separate<["--", "-"], "capture">,
   MetaVarName<"<filename>">,
-  HelpText<"Tells the debugger to use the fullpath to <filename> as a reproducer.">;
-def: Separate<["-"], "z">,
-  Alias<file>,
-  HelpText<"Alias for --reproducer">;
+  HelpText<"Tells the debugger to capture a reproducer to <filename>.">;
+def replay: Separate<["--", "-"], "replay">,
+  MetaVarName<"<filename>">,
+  HelpText<"Tells the debugger to replay a reproducer from <filename>.">;
 
 def REM : R<["--"], "">;
