@@ -187,7 +187,7 @@ namespace intel {
     // createBarrierLatch - Return the innermost nested BB (where all the action happens)
     BasicBlock *createBarrierLatch(BasicBlock *pPreSyncBB, BasicBlock *pSyncBB,
                                    BarrierBBIdList &BBId, Value *UniqueID,
-                                   bool needsFence, const DebugLoc &DL);
+                                   const DebugLoc &DL);
     // Below are generators which are used for accessing and setting the function's
     // various values. Most rely on that m_currBarrierKeyValues is set for the
     // function being processed.
