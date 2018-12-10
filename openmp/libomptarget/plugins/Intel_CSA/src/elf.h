@@ -1,4 +1,4 @@
-//=======- plugins/csa/src/elf.h - Target RTLs implementation -*- C++ -*-=====//
+//===- plugins/Intel_CSA/src/elf.h - Target RTLs implementation -*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef _RTLS_CSA_ELF_H_
-#define _RTLS_CSA_ELF_H_
+#ifndef _RTLS_INTEL_CSA_ELF_H_
+#define _RTLS_INTEL_CSA_ELF_H_
 
 #include <algorithm>
 #include <cassert>
@@ -770,4 +770,4 @@ private:
 
 } // anonymous namespace
 
-#endif // _RTLS_CSA_ELF_H_
+#endif // _RTLS_INTEL_CSA_ELF_H_

@@ -1,4 +1,4 @@
-//===------ plugins/csa/src/rtl.cpp - CSA RTLs Implementation - C++ -*-----===//
+//===--- plugins/Intel_CSA/src/rtl.cpp - CSA RTLs Implementation - C++ -*--===//
 //
 //                     The LLVM Compiler Infrastructure
 //
