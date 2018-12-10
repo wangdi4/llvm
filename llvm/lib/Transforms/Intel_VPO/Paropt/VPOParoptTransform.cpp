@@ -1038,7 +1038,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
           Changed |= genPrivatizationCode(W);
-          Changed |= genGlobalPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
@@ -1064,7 +1063,6 @@ bool VPOParoptTransform::paroptTransforms() {
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
-          Changed |= genGlobalPrivatizationCode(W);
           Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
           Changed |= finalizeGlobalPrivatizationCode(W);
@@ -2291,6 +2289,7 @@ AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
     Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix) {
 
   assert(OrigValue && "genPrivatizationAlloca: Null input value.");
+  OrigValue = getRootValueFromFenceCall(OrigValue);
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
@@ -2315,6 +2314,7 @@ VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
+  Orig = getRootValueFromFenceCall(Orig);
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
@@ -2596,19 +2596,18 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       LastprivateItem *LprivI = FprivI->getInLastprivate();
 
       if (!LprivI) {
-        if (W->getIsTarget())
-          NewPrivInst =
-              genPrivatizationAlloca(getRootValueFromFenceCall(Orig),
-                                     EntryBB->getFirstNonPHI(), ".fpriv");
-        else
-          NewPrivInst = genPrivatizationAlloca(
-              FprivI, EntryBB->getFirstNonPHI(), ".fpriv");
+        Value *ValueToReplace = Orig;
 
-        // By this it can uniformly handle the global/local firstprivate.
-        // For the case of local firstprivate, the New is the same as the Orig.
-        Value *ValueToReplace = W->getIsTarget() ? FprivI->getNew() : Orig;
+        if (W->getIsTarget()) {
+          MapItem *MapI = FprivI->getInMap();
+          if (MapI)
+            ValueToReplace = MapI->getNew();
+        }
+        NewPrivInst = genPrivatizationAlloca(
+              FprivI,
+              EntryBB->getFirstNonPHI(), ".fpriv");
+
         genPrivatizationReplacement(W, ValueToReplace, NewPrivInst, FprivI);
-
         // For a given firstprivate variable, if it also occurs in a map
         // clause with "from" attribute, the compiler needs to generate
         // the code to copy the value back to the target memory.

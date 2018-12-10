@@ -376,7 +376,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
     if (!isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W) &&
-        (MapI->getNew() != V || !MapI->getOrig()))
+        (MapI->getOrig() != V || !MapI->getOrig()))
       continue;
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
@@ -421,7 +421,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
   if (W->canHaveIsDevicePtr()) {
     IsDevicePtrClause &IDevicePtrClause = W->getIsDevicePtr();
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
-      if (IsDevicePtrI->getNew() != V)
+      if (IsDevicePtrI->getOrig() != V)
         continue;
       Type *T = IntelGeneralUtils::getSizeTTy(F);
       ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
@@ -713,7 +713,7 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
     if (!isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W) &&
-        (MapI->getNew() != BPVal || !MapI->getOrig()))
+        (MapI->getOrig() != BPVal || !MapI->getOrig()))
       continue;
     if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
       BPVal = MapI->getOrig();
@@ -913,16 +913,9 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
     if (G) {
       if (!Changed)
         W->populateBBSet();
-      Value *NewPrivInst =
-          genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, MapI);
-
-      MapI->setNew(NewPrivInst);
+      genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, MapI);
       Changed = true;
-    } else
-      // The New is set to be the same as Orig for local firstprivate so that
-      // global/local firstprivate can be processed in a unified way in the
-      // later OMP code generation.
-      MapI->setNew(Orig);
+    }
   }
 
   if (W->canHaveFirstprivate()) {
@@ -930,21 +923,17 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Value *Orig = FprivI->getOrig();
       MapItem *MapI = FprivI->getInMap();
-      if (MapI) {
-        FprivI->setNew(MapI->getNew());
+      if (MapI)
         continue;
-      }
+
       if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
         if (!Changed)
           W->populateBBSet();
 
-        Value *NewPrivInst =
-            genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
+        genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
 
-        FprivI->setNew(NewPrivInst);
         Changed = true;
-      } else
-        FprivI->setNew(Orig);
+      }
     }
   }
 

@@ -856,7 +856,7 @@ private:
 
   /// \brief If \p I is a call to @llvm.invariant.group.barrier, then return
   /// the CallInst*. Otherwise, return nullptr.
-  CallInst* isFenceCall(Instruction *I);
+  static CallInst* isFenceCall(Instruction *I);
 
   /// \brief Collect the live-in value for the phis at the loop header.
   void wrnUpdateSSAPreprocess(
@@ -1182,7 +1182,7 @@ private:
 
   /// Return original global variable if the value Orig is the return value
   /// of a fence call.
-  Value *getRootValueFromFenceCall(Value *Orig);
+  static Value *getRootValueFromFenceCall(Value *Orig);
 };
 } /// namespace vpo
 } /// namespace llvm
