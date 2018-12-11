@@ -593,7 +593,7 @@ void VPlanVerifier::verifyBitCastInst(const VPInstruction *I) const {
         "Source and Dstination bit widths should be identical.");
 
   if (SrcPtrTy)
-    assert(SrcPtrTy->getAddressSpace() != DstPtrTy->getAddressSpace() &&
+    assert(SrcPtrTy->getAddressSpace() == DstPtrTy->getAddressSpace() &&
            "Bitcast: pointer address spaces must match");
 
   // A vector of pointers must have the same number of elements.
