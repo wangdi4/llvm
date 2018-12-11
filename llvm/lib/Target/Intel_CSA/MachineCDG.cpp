@@ -516,7 +516,7 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, bool ignCtrl) {
           continue;
         if (TII->isPick(minstr) && i == 1)
           continue;
-        if (TII->isPick(minstr) && i > 1) {
+        if (TII->isPick(minstr) && i > 1 && minstr->getOperand(1).isReg()) {
           unsigned pickCtrl = minstr->getOperand(1).getReg();
           if (!MRI->hasOneDef(pickCtrl)) {
             MachineInstr *lpInit = nullptr;
