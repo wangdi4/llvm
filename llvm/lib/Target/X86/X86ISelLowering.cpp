@@ -39420,6 +39420,72 @@ static SDValue combineFMADDSUB(SDNode *N, SelectionDAG &DAG,
                      NegVal);
 }
 
+#if INTEL_CUSTOMIZATION
+// We're looking for a zero_extend from v8i8 to v8i32 of a concat_vector
+// from two v4i8 extract_subvectors from two v8i8 loads. We'll move the
+// zero extend to the extract inputs and emit a v8i32 shuffle which should
+// become a vperm2i128.
+static SDValue combineZExt8i32Concat8i8(SDNode *N, SelectionDAG &DAG,
+                                         const X86Subtarget &Subtarget) {
+  // We don't need to do this if v8i8 is legalized via widening.
+  if (ExperimentalVectorWideningLegalization)
+    return SDValue();
+
+  if (!Subtarget.hasAVX2())
+    return SDValue();
+
+  // We can also get here for any_extend.
+  if (N->getOpcode() != ISD::ZERO_EXTEND)
+    return SDValue();
+
+  EVT VT = N->getValueType(0);
+  SDValue In = N->getOperand(0);
+
+  // Should be zero extending from v8i8 to v8i32.
+  if (VT != MVT::v8i32 || In.getValueType() != MVT::v8i8)
+    return SDValue();
+
+  // Make sure this is a two operand concat vectors.
+  if (In.getOpcode() != ISD::CONCAT_VECTORS || !In.hasOneUse() ||
+      In.getNumOperands() != 2)
+    return SDValue();
+
+  SDValue SubVec0 = In.getOperand(0);
+  SDValue SubVec1 = In.getOperand(1);
+
+  assert(SubVec0.getValueType() == MVT::v4i8 && "Unexpected VT!");
+
+  // Make sure we are concatenating two extract_subvectors from v8i8.
+  if (SubVec0.getOpcode() != ISD::EXTRACT_SUBVECTOR ||
+      SubVec1.getOpcode() != ISD::EXTRACT_SUBVECTOR ||
+      !SubVec0.hasOneUse() || !SubVec1.hasOneUse() ||
+      SubVec0.getOperand(0).getValueType() != MVT::v8i8 ||
+      SubVec1.getOperand(0).getValueType() != MVT::v8i8 ||
+      SubVec0.getOperand(0) == SubVec1.getOperand(0))
+    return SDValue();
+
+  SDLoc dl(N);
+
+  // Ok we passed all the checks.
+  SDValue Ext0 = DAG.getNode(ISD::ZERO_EXTEND, dl, VT, SubVec0.getOperand(0));
+  SDValue Ext1 = DAG.getNode(ISD::ZERO_EXTEND, dl, VT, SubVec1.getOperand(0));
+
+  unsigned Index0 = SubVec0.getConstantOperandVal(1);
+  unsigned Index1 = SubVec1.getConstantOperandVal(1);
+
+  // Generate a shuffle that merges the pieces from the two input vectors.
+  // This should become a VPERM2I128.
+  int ShufMask[8];
+  for (unsigned i = 0; i != 4; ++i)
+    ShufMask[i] = Index0 + i;
+  for (unsigned i = 0; i != 4; ++i)
+    ShufMask[i+4] = Index1 + i + 8;
+
+  return DAG.getVectorShuffle(VT, dl, Ext0, Ext1, ShufMask);
+}
+
+#endif
+
 static SDValue combineZext(SDNode *N, SelectionDAG &DAG,
                            TargetLowering::DAGCombinerInfo &DCI,
                            const X86Subtarget &Subtarget) {
@@ -39456,6 +39522,11 @@ static SDValue combineZext(SDNode *N, SelectionDAG &DAG,
                          DAG.getConstant(1, dl, VT));
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (SDValue V = combineZExt8i32Concat8i8(N, DAG, Subtarget))
+    return V;
+#endif
 
   if (SDValue NewCMov = combineToExtendCMOV(N, DAG))
     return NewCMov;
