@@ -136,12 +136,7 @@ threadid_t clMyParentThreadId()
 #include <unistd.h>
 #include <sys/syscall.h>
 
-#ifndef DISABLE_NUMA_SUPPORT
-#define DISABLE_NUMA_SUPPORT
-#endif
-
-#ifndef DISABLE_NUMA_SUPPORT
-
+#ifdef USE_NUMA
     #include <numa.h>
     bool clIsNumaAvailable()
     {    
@@ -168,7 +163,7 @@ threadid_t clMyParentThreadId()
     {
     }
     
-#endif //DISABLE_NUMA_SUPPORT
+#endif // USE_NUMA
 
 void clSleep(int milliseconds)
 {
