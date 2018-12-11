@@ -39,7 +39,7 @@
 #include "Targets/XCore.h"
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-#include "Targets/CSA.h"
+#include "Targets/Intel_CSA.h"
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 #include "clang/Basic/Diagnostic.h"

@@ -1,5 +1,5 @@
 #if INTEL_FEATURE_CSA//===---------------------------------------*- C++ -*-===//
-//===-- CSA.h - Declare CSA target feature support --------------*- C++ -*-===//
+//===-- Intel_CSA.h - Declare CSA target feature support --------*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_LIB_BASIC_TARGETS_CSA_H
-#define LLVM_CLANG_LIB_BASIC_TARGETS_CSA_H
+#ifndef LLVM_CLANG_LIB_BASIC_TARGETS_INTEL_CSA_H
+#define LLVM_CLANG_LIB_BASIC_TARGETS_INTEL_CSA_H
 
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/TargetOptions.h"
@@ -72,7 +72,7 @@ public:
     // CSA supports atomics up to 8 bytes.
     MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 64;
 
-    // Match lib/Target/CSA/CSASubtarget.cpp
+    // Match lib/Target/Intel_CSA/CSASubtarget.cpp
     // Issue - does it need to match x86-64?
     resetDataLayout("e-m:e-i64:64-n32:64");
   }
@@ -143,9 +143,9 @@ const Builtin::Info CSATargetInfo::BuiltinInfo[] = {
   { #ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr },
 #define LIBBUILTIN(ID, TYPE, ATTRS, HEADER) \
   { #ID, TYPE, ATTRS, HEADER, ALL_LANGUAGES, nullptr },
-#include "clang/Basic/BuiltinsCSA.def"
+#include "clang/Basic/Intel_BuiltinsCSA.def"
 };
 } // namespace clang
 
-#endif // LLVM_CLANG_LIB_BASIC_TARGETS_CSA_H
+#endif // LLVM_CLANG_LIB_BASIC_TARGETS_INTEL_CSA_H
 #endif // INTEL_FEATURE_CSA

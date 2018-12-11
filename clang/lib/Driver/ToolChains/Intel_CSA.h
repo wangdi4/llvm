@@ -1,5 +1,5 @@
 #if INTEL_FEATURE_CSA//===-----------------------------------*- C++ -*-===//
-//===--- CSA.h - CSA ToolChain Implementations --------------*- C++ -*-===//
+//===--- Intel_CSA.h - CSA ToolChain Implementations --------*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_CSA_H
-#define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_CSA_H
+#ifndef LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_INTEL_CSA_H
+#define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_INTEL_CSA_H
 
 #include "Linux.h"
 #include "clang/Driver/ToolChain.h"
@@ -64,5 +64,5 @@ protected:
 } // end namespace driver
 } // end namespace clang
 
-#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_CSA_H
+#endif // LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_INTEL_CSA_H
 #endif // INTEL_FEATURE_CSA

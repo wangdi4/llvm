@@ -1,4 +1,4 @@
-#if INTEL_FEATURE_CSA//===- CSA.cpp - CSA ToolChain Implementations -------===//
+#if INTEL_FEATURE_CSA//===- Intel_CSA.cpp - CSA ToolChain Implementations -===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CSA.h"
+#include "Intel_CSA.h"
 #include "CommonArgs.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
@@ -55,14 +55,6 @@ void CSAToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
   // offloaded statement.
   Arg *targets = DriverArgs.getLastArg(options::OPT_fopenmp_targets_EQ);
   if (nullptr == targets) {
-
-    // Include some inlined libm implementations. (This may be temporary until a
-    // real math library is in place.) Note that we only want to incur this
-    // header once, so it doesn't get run again for the -fopenmp-targets=csa
-    // invocation of cc1.
-    CC1Args.push_back("-include");
-    CC1Args.push_back("__clang_csa_math.h");
-
     return;
   }
 

@@ -1,5 +1,5 @@
 #if INTEL_FEATURE_CSA//===---------------------------------------*- C++ -*-===//
-//===--- BuiltinsCSA.def - CSA Builtin function database --------*- C++ -*-===//
+//===--- Intel_BuiltinsCSA.def - CSA Builtin function database --*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //

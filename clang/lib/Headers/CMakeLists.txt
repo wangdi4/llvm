@@ -7,8 +7,7 @@ intel_add_file(INTEL_HEADERS
 
 # INTEL_FEATURE_CSA
 intel_add_file(INTEL_HEADERS
-  FEATURE CSA
-  __clang_csa_math.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
   csaintrin.h
   CSAx86intrin.h
   )

@@ -19,7 +19,7 @@
 #include "ToolChains/CrossWindows.h"
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-#include "ToolChains/CSA.h"
+#include "ToolChains/Intel_CSA.h"
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 #include "ToolChains/Cuda.h"
