@@ -79,6 +79,4 @@ add_library(${TARGET_NAME} STATIC
 
 target_link_libraries(${TARGET_NAME} name_mangle LLVMSupport)
 
-add_dependencies(${TARGET_NAME} metadataapi)
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
