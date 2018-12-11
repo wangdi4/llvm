@@ -2690,7 +2690,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
                                              NewPrivInst, NewPrivInst);
         genLprivFini(LprivI, IfLastIterBB->getTerminator());
       } else
-        genLprivFiniForTaskLoop(LprivI->getParm(), LprivI->getNew(),
+        genLprivFiniForTaskLoop(LprivI->getOrigGEP(), LprivI->getNew(),
                                 IfLastIterBB->getTerminator());
     }
     Changed = true;
