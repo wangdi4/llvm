@@ -74,7 +74,11 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
 
     //Checking maximum supported instruction
     CLElfLib::E_EH_FLAGS maxSupportedVectorISA = CLElfLib::EH_FLAG_SSE4;
-    if (m_compiler.GetCpuId().HasAVX2())
+    if (m_compiler.GetCpuId().HasAVX512ICL())
+        maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX512_ICL;
+    else if (m_compiler.GetCpuId().HasAVX512SKX())
+        maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX512_SKX;
+    else if (m_compiler.GetCpuId().HasAVX2())
         maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX2;
     else if (m_compiler.GetCpuId().HasAVX1())
         maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX1;

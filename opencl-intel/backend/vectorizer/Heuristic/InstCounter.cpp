@@ -145,7 +145,7 @@ bool WeightedInstCounter::is64BitArch() const {
 }
 
 bool WeightedInstCounter::hasAVX512() const {
-  return m_cpuid.HasAVX512();
+  return m_cpuid.HasAVX512Core();
 }
 
 bool WeightedInstCounter::hasAVX() const {
