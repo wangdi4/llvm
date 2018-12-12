@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/WeakAlign.h"
+#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
@@ -69,6 +70,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
+    AU.addPreserved<DTransAnalysisWrapper>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -82,6 +84,7 @@ PreservedAnalyses dtrans::WeakAlignPass::run(Module &M,
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
+  PA.preserve<DTransAnalysis>();
   PA.preserve<WholeProgramAnalysis>();
   return PA;
 }
