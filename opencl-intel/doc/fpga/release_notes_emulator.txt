@@ -232,9 +232,6 @@ KNOWN ISSUES
 3. The max_work_group_size attribute requires three arguments to be specified
    (one for each dimension in the NDRange) instead of only one argument.
 
-4. The unsupported features are:
-   - Compiler diagnostics for channels
-
 ================================================================================
 TROUBLESHOOTING
 ================================================================================
@@ -263,6 +260,18 @@ https://software.intel.com/en-us/forums/opencl
 ================================================================================
 CHANGELOG
 ================================================================================
+Changes from the Intel(R) FPGA SDK for OpenCL(TM) software technology 19.1
+release:
+
+  - New diagnostics for incorrect usage of channels and autorun kernels.
+
+  - Value of INTELFPGA_CL macro was set to "191".
+
+  - cl_khr_3d_image_writes is no longer supported.
+
+  - General stability improvements.
+
+
 Changes from the Intel(R) FPGA SDK for OpenCL(TM) software technology 18.0
 release:
 
@@ -370,7 +379,7 @@ REFERENCES
 1. Link to Intel(R) FPGA SDK for OpenCL(TM) software technology Programming
    Guide:
    https://www.altera.com/products/design-software/embedded-software-developers/opencl/documentation.html
-2. Intel(R) SDK for OpenCL(TM) – CPU only runtime package documentation:
+2. Intel(R) SDK for OpenCL(TM) - CPU only runtime package documentation:
     https://software.intel.com/en-us/iocl_tec_opg
 3. The OpenCL(TM) Specification Version 1.2
     https://www.khronos.org/registry/OpenCL/specs/opencl-1.2.pdf
