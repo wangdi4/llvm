@@ -93,7 +93,7 @@ attributes #2 = { argmemonly nounwind }
 !7 = !{!"double", !4, i64 0}
 !8 = !{!9, !9, i64 0}
 !9 = !{!"pointer@_ZTSPi", !4, i64 0}
-!10 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 31, i32 0}
+!10 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 31, i32 0, i32 0}
 
 ; CHECK: [[DEVICE1:%[0-9]+]] = load i32*, i32** @a
 ; CHECK: [[DEVICE2:%[0-9]+]] = bitcast i32* [[DEVICE1]] to i8*

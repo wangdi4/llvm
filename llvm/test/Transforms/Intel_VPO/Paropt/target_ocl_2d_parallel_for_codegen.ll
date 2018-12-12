@@ -275,7 +275,7 @@ attributes #5 = { inaccessiblememonly nounwind speculatable }
 !6 = !{!7, !3, i64 0}
 !7 = !{!"array@_ZTSA100_A100_i", !8, i64 0}
 !8 = !{!"array@_ZTSA100_i", !3, i64 0}
-!9 = !{i32 0, i32 54, i32 -698850821, !"Compute", i32 50, i32 0}
+!9 = !{i32 0, i32 54, i32 -698850821, !"Compute", i32 50, i32 0, i32 0}
 
 ; CHECK: [[LEVEL:%[0-9]+]] = getelementptr inbounds { i64, i64, i64, i64, i64, i64, i64 }, { i64, i64, i64, i64, i64, i64, i64 }* %loop.parameter.rec, i32 0, i32 0
 ; CHECK: store i64 2, i64* [[LEVEL]]

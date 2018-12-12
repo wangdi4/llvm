@@ -614,14 +614,28 @@ void VPOParoptModuleTransform::loadOffloadMetadata() {
         auto Parent = getMDString(3u);
         auto Line = getMDInt(4u);
         auto Idx = getMDInt(5u);
+        auto Flags = getMDInt(6u);
 
-        // Compose name.
-        SmallString<64u> Name;
-        llvm::raw_svector_ostream(Name) << "__omp_offloading"
-          << llvm::format("_%x", Device) << llvm::format("_%x_", File)
-          << Parent << "_l" << Line;
-
-        addEntry(new RegionEntry(Name, RegionEntry::Region), Idx);
+        switch (Flags) {
+          case RegionEntry::Region: {
+            // Compose name.
+            SmallString<64u> Name;
+            llvm::raw_svector_ostream(Name) << "__omp_offloading"
+              << llvm::format("_%x", Device) << llvm::format("_%x_", File)
+              << Parent << "_l" << Line;
+            addEntry(new RegionEntry(Name, Flags), Idx);
+            break;
+          }
+          case RegionEntry::Ctor:
+          case RegionEntry::Dtor: {
+            auto *GV = M.getNamedValue(Parent);
+            assert(GV && "no value for ctor/dtor offload entry");
+            addEntry(new RegionEntry(GV, Flags), Idx);
+            break;
+          }
+          default:
+            llvm_unreachable("unexpected entry kind");
+        }
         break;
       }
       case OffloadEntry::EntryKind::VarKind: {

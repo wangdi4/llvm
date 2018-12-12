@@ -67,6 +67,6 @@ attributes #2 = { nounwind }
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C++ TBAA"}
-!6 = !{i32 0, i32 54, i32 -698850821, !"_Z3fooi", i32 33, i32 0}
+!6 = !{i32 0, i32 54, i32 -698850821, !"_Z3fooi", i32 33, i32 0, i32 0}
 
 ; CHECK:  call i32 @__tgt_target_teams({{.*}})

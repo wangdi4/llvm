@@ -47,8 +47,8 @@ declare void @llvm.directive.region.exit(token)
 
 !omp_offload.info = !{!0, !1}
 
-!0 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 32, i32 0}
-!1 = !{i32 0, i32 54, i32 -698850821, !"bar", i32 40, i32 1}
+!0 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 32, i32 0, i32 0}
+!1 = !{i32 0, i32 54, i32 -698850821, !"bar", i32 40, i32 1, i32 0}
 
 ; Check presence of outlined target regions from foo and bar.
 ; CHECK: define internal void [[OUTLINEDTARGET1:@.+]]()
