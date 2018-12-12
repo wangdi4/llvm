@@ -17,7 +17,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanHCFGBuilder.h"
-#include "IntelLoopCFU.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"
@@ -41,10 +40,6 @@ static cl::opt<bool> LoopMassagingEnabled(
     cl::init(false), // TODO: vplan-disable-loop-massaging
     cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
-
-static cl::opt<bool> VPlanLoopCFU(
-    "vplan-loop-cfu", cl::init(false), cl::Hidden,
-    cl::desc("Perform inner loop control flow uniformity transformation"));
 
 static cl::opt<bool> DisableUniformRegions(
     "disable-uniform-regions", cl::init(false), cl::Hidden,
@@ -481,16 +476,6 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
     LLVM_DEBUG(Verifier->verifyHierarchicalCFG(Plan, TopRegion));
     // LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
     // VPDomTree.print(dbgs()));
-  }
-
-  if (VPlanLoopCFU) {
-    // TODO: Move VPLoopCFU to this file (like mergeLoopExits)?
-    // TODO: SE and LI shouldn't be necessary at this point. We have to find a
-    // way to implement it without LLVM-IR specific analyses. Temporarily
-    // commenting this code to make progress.
-    // VPLoopCFU LCFU(Plan, PlanUtils, SE, LI, VPLInfo, VPDomTree,
-    // VPPostDomTree);
-    // LCFU.makeInnerLoopControlFlowUniform();
   }
 
   splitLoopsExit(TopLoop);

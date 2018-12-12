@@ -1956,10 +1956,7 @@ public:
 #endif
 
   /// Remove the recipe from VPBasicBlock's recipes.
-  // TODO: Please, note that this is actually destroying Recipe object. We
-  // should replace 'erase' by 'remove' and revisit algorithms using
-  // 'removeRecipe'.
-  void removeRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
+  void removeRecipe(VPRecipeBase *Recipe) { Recipes.remove(Recipe); }
 
   /// Remove the recipe from VPBasicBlock's recipes and destroy Recipe object.
   void eraseRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
@@ -2272,6 +2269,8 @@ public:
   void setVPlanDA(VPlanDivergenceAnalysis *VPDA) { VPlanDA = VPDA; }
 
   LLVMContext *getLLVMContext(void) const { return Context; }
+
+  VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA; }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }

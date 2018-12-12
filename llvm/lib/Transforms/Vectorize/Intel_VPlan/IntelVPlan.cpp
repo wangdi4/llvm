@@ -574,14 +574,14 @@ void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
 }
 
 void VPRegionBlock::computeDT(void) {
-  assert(!RegionDT && "Null expected");
-  RegionDT = new VPDominatorTree();
+  if (!RegionDT)
+    RegionDT = new VPDominatorTree();
   RegionDT->recalculate(*this);
 }
 
 void VPRegionBlock::computePDT(void) {
-  assert(!RegionPDT && "Null expected");
-  RegionPDT = new VPPostDominatorTree();
+  if (!RegionPDT)
+    RegionPDT = new VPPostDominatorTree();
   RegionPDT->recalculate(*this);
 }
 
@@ -651,6 +651,13 @@ void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
 
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
+
+  // Just remove when code gen supports loop mask for inner loop control flow
+  // uniformity.
+  if (isa<VPPHINode>(this) && !getInstruction())
+    llvm_unreachable(
+        "loop body mask instruction not yet supported in code gen\n");
+
 #if INTEL_CUSTOMIZATION
   assert(getInstruction() && "There is no underlying Instruction.");
   State.ILV->vectorizeInstruction(getInstruction());
