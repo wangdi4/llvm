@@ -22,6 +22,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
@@ -843,10 +844,13 @@ public:
 #endif
     Int8PtrTy = Type::getInt8PtrTy(M.getContext(), 0 /*AS*/);
   }
-  bool isMallocPostDom(CallSite CS);
-  bool isFreePostDom(CallSite CS);
+  bool isMallocPostDom(ImmutableCallSite CS);
+  bool isFreePostDom(ImmutableCallSite CS);
   void populateAllocDeallocTable(const Module &M);
-
+  bool isMallocWithStoredMMPtr(const Function *F);
+  bool isFreeWithStoredMMPtr(const Function *F);
+  bool isUserOrDummyAlloc(ImmutableCallSite CS);
+  bool isUserOrDummyFree(ImmutableCallSite CS);
 private:
   typedef PointerIntPair<StructType *, 1, bool> PtrBoolPair;
   // An enum recording the status of a function. The status is
@@ -888,7 +892,7 @@ private:
   bool isPostDominatedByFreeCall(BasicBlock *BB, bool &IsFreeSeen);
   bool analyzeForFreeStatus(Function *F);
 
-  bool analyzeForIndirectStatus(CallSite CS, bool Alloc);
+  bool analyzeForIndirectStatus(ImmutableCallSite CS, bool Alloc);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void parseListOptions(const Module &M);
 #endif
@@ -915,12 +919,13 @@ bool DTransAllocAnalyzer::isVisitedBlock(BasicBlock *BB) const {
 // that do not include skip blocks.
 // Trivial wrappers are important special cases.
 //
-bool DTransAllocAnalyzer::isMallocPostDom(CallSite CS) {
+bool DTransAllocAnalyzer::isMallocPostDom(ImmutableCallSite CS) {
   // If the Function wasn't found, then there is a possibility
   // that it is inside a BitCast. In this case we need
   // to strip the pointer casting from the Value and then
   // access the Function.
-  Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+  const Function *F =
+      dyn_cast<const Function>(CS.getCalledValue()->stripPointerCasts());
 
   if (!F)
     // Check for allocation routine.
@@ -944,12 +949,13 @@ bool DTransAllocAnalyzer::isMallocPostDom(CallSite CS) {
 // do not include skip blocks.
 // Trivial wrappers are important special cases.
 //
-bool DTransAllocAnalyzer::isFreePostDom(CallSite CS) {
+bool DTransAllocAnalyzer::isFreePostDom(ImmutableCallSite CS) {
   // If the Function wasn't found, then there is a possibility
   // that it is inside a BitCast. In this case we need
   // to strip the pointer casting from the Value and then
   // access the Function.
-  Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+  const Function *F
+      = dyn_cast<const Function>(CS.getCalledValue()->stripPointerCasts());
 
   if (!F)
     // Check for deallocation routine.
@@ -1354,7 +1360,8 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
 //          void (<type name>*, i8*)** %vtable1, i64 <offset>
 //      %5 = load void (<type name>*, i8*)*, void (<type name>*, i8*)** %vfn2
 //      call void %5(<type name>* %m, i8* %3)
-bool DTransAllocAnalyzer::analyzeForIndirectStatus(CallSite CS, bool Malloc) {
+bool DTransAllocAnalyzer::analyzeForIndirectStatus(ImmutableCallSite CS,
+                                                   bool Malloc) {
 
   if (CS.getNumArgOperands() < 2)
     return false;
@@ -1477,6 +1484,34 @@ void DTransAllocAnalyzer::populateAllocDeallocTable(const Module &M) {
       continue;
     }
   }
+
+  // Now check if among user-defined malloc/free callers we have a special kind
+  // of alloc/free functions.
+  std::map<const Function *, AllocStatus> TempLocalMap;
+  for (auto &IT : LocalMap) {
+    if (IT.second == AKS_Malloc) {
+      TempLocalMap[IT.first] = AKS_Malloc;
+      // Check all functions, calling user malloc/new function.
+      for (auto &U : IT.first->uses()) {
+        if (auto *I = dyn_cast<Instruction>(U.getUser())) {
+          auto *SpecialMallocCand = I->getParent()->getParent();
+          if (isMallocWithStoredMMPtr(SpecialMallocCand))
+            TempLocalMap[SpecialMallocCand] = AKS_Malloc;
+        }
+      }
+    } else if (IT.second == AKS_Free) {
+      TempLocalMap[IT.first] = AKS_Free;
+      // Check all functions, calling user free function.
+      for (auto &U : IT.first->uses()) {
+        if (auto *I = dyn_cast<Instruction>(U.getUser())) {
+          auto *SpecialFreeCand = I->getParent()->getParent();
+          if (isFreeWithStoredMMPtr(SpecialFreeCand))
+            TempLocalMap[SpecialFreeCand] = AKS_Free;
+        }
+      }
+    }
+  }
+  std::swap(TempLocalMap, LocalMap);
 }
 
 //
@@ -1544,6 +1579,388 @@ bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
     LLVM_DEBUG(dbgs() << "Not FreePostDom " << F->getName()
                       << " No return post-dominated by free\n");
   return rv;
+}
+
+// Check that function is a special kind of user-defined malloc which stores
+// memory manager pointer.
+// Ex.:
+// define internal nonnull i8* @candidateFunc(i64, %class.MemoryManager*) {
+//  %3 = add i64 %0, 8
+//  %4 = bitcast %class.MemoryManager* %1 to
+//       i8* (%class.MemoryManager*, i64)***
+//  %5 = load i8* (%class.MemoryManager*, i64)**,
+//            i8* (%class.MemoryManager*, i64)*** %4, align 8
+//  %6 = getelementptr inbounds i8* (%class.MemoryManager*, i64)*,
+//                              i8* (%class.MemoryManager*, i64)** %5, i64 2
+//  %7 = load i8* (%class.MemoryManager*, i64)*,
+//            i8* (%"class.MemoryManager*, i64)** %6, align 8
+//  %8 = bitcast i8* (%class.MemoryManager*, i64)* %7 to i8*
+//  %9 = bitcast i8* (%class.1*, i64)* @userAlloc to i8*
+//  %10 = icmp eq i8* %8, %9
+//  br i1 %10, label %11, label %13
+//
+//; <label>:11:                                     ; preds = %2
+//  %12 = tail call i8* bitcast (i8* (%class.1*, i64)* @userAlloc to
+//                               i8* (%class.MemoryManager*, i64)*)
+//                      (%class.MemoryManager* nonnull %1, i64 %3)
+//  br label %15
+//
+//; <label>:13:                                     ; preds = %2
+//  %14 = tail call i8* bitcast (i8* (%class.2*, i64)* @dummyAlloc to
+//                               i8* (%class.MemoryManager*, i64)*)
+//                      (%class.MemoryManager* nonnull %1, i64 %3)
+//  br label %15
+//
+//; <label>:15:                                     ; preds = %13, %11
+//  %16 = phi i8* [ %12, %11 ], [ %14, %13 ]
+//  br label %17
+//
+//; <label>:17:                                     ; preds = %15
+//  %18 = bitcast i8* %16 to %class.MemoryManager**
+//  store %class.MemoryManager* %1, %class.MemoryManager** %18, align 8
+//  %19 = getelementptr inbounds i8, i8* %16, i64 8
+//  ret i8* %19
+//}
+bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
+
+  // Return 'true' if 'V' is a malloc-like call within the 'Callee'.
+  auto IsMallocCall = [this](const Function *Callee, Value *V) -> bool {
+    // Check if V represents an ImmutableCallSite with the right number
+    // of arguments.
+    ImmutableCallSite CS(V);
+    if (!CS)
+      return false;
+    if (CS.arg_size() != 2)
+      return false;
+    // Check that the arguments of the ImmutableCallSite come from
+    // the appropriate Callee arguments. We expect the size argument to
+    // be adjusted by 8.
+    auto MMArg = dyn_cast<Argument>(CS.getArgument(0));
+    if (!MMArg)
+      return false;
+    if (MMArg != (Callee->arg_begin() + 1))
+      return false;
+    auto BIA = dyn_cast<BinaryOperator>(CS.getArgument(1));
+    if (!BIA || BIA->getOpcode() != Instruction::Add)
+      return false;
+    Value *W = nullptr;
+    ConstantInt *CI = nullptr;
+    int64_t Offset = 0;
+    if ((CI = dyn_cast<ConstantInt>(BIA->getOperand(0)))) {
+      W = BIA->getOperand(1);
+      Offset = CI->getSExtValue();
+    } else if ((CI = dyn_cast<ConstantInt>(BIA->getOperand(1)))) {
+      W = BIA->getOperand(0);
+      Offset = CI->getSExtValue();
+    } else
+      return false;
+    if (Offset != 8)
+      return false;
+    Argument *Arg0 = dyn_cast<Argument>(W);
+    if (!Arg0)
+      return false;
+    if (Callee->arg_begin() != Arg0)
+      return false;
+    // Check that Function being called is a malloc function.
+    return isUserOrDummyAlloc(CS);
+  };
+
+  // Check the expected types of the Callee's arguments.
+  const Function *Callee = F;
+  LLVM_DEBUG(dbgs() << "Analyzing for MallocWithStoredMMPtr " << F->getName()
+                    << "\n");
+  // Save some time only looking at Callees with a small number of
+  // basic blocks.
+  if (Callee->size() > 5)
+    return false;
+  if (Callee->arg_size() != 2)
+    return false;
+  // Check that we have the right number of Callee arguments and that
+  // those arguments are of the right basic types.
+  const Argument *Arg0 = &*(Callee->arg_begin());
+  if (!Arg0->getType()->isIntegerTy())
+    return false;
+  const Argument *Arg1 = &*(Callee->arg_begin() + 1);
+  if (!Arg1->getType()->isPointerTy() ||
+      !Arg1->getType()->getPointerElementType()->isStructTy())
+    return false;
+  // Look for a unique ReturnInst with a return value.
+  const ReturnInst *RI = nullptr;
+  for (auto &BB : *Callee) {
+    auto TI = BB.getTerminator();
+    auto RII = dyn_cast<const ReturnInst>(TI);
+    if (RII) {
+      if (RI)
+        return false;
+      if (!RII->getReturnValue())
+        return false;
+      RI = RII;
+    }
+  }
+  if (!RI)
+    return false;
+  // Look for an adjustment by 8 bytes of the return value. This
+  // moves the pointer past the place where the memory manager
+  // address is stored.
+  auto GEPAdj = dyn_cast<GetElementPtrInst>(RI->getReturnValue());
+  if (!GEPAdj)
+    return false;
+  if (GEPAdj->getNumIndices() != 1)
+    return false;
+  if (GEPAdj->getPointerOperandType() != Int8PtrTy)
+    return false;
+  auto ConstInt = dyn_cast<ConstantInt>(GEPAdj->getOperand(1));
+  if (!ConstInt)
+    return false;
+  if (ConstInt->getSExtValue() != 8)
+    return false;
+  auto GEPP = getPointerOperand(GEPAdj);
+  auto PHI = dyn_cast<PHINode>(GEPP);
+  unsigned MallocCallCount = 0;
+  if (PHI) {
+    for (unsigned I = 0; I < PHI->getNumIncomingValues(); ++I) {
+      Value *V = PHI->getIncomingValue(I);
+      if (!IsMallocCall(Callee, V))
+        return false;
+      MallocCallCount++;
+    }
+  } else if (IsMallocCall(Callee, GEPP))
+    MallocCallCount++;
+  else
+    return false;
+  // Check that there are no side effects, except for those produced
+  // by the store of the memory manager address to the first 8 bytes
+  // of the allocated memory.
+  unsigned CallCount = 0;
+  unsigned StoreCount = 0;
+  for (auto &I : instructions(Callee)) {
+    if (isa<CallInst>(&I) || isa<InvokeInst>(&I)) {
+      if (++CallCount > MallocCallCount)
+        return false;
+    } else {
+      auto SI = dyn_cast<StoreInst>(&I);
+      if (SI) {
+        if (StoreCount)
+          return false;
+        auto Arg1 = dyn_cast<Argument>(SI->getValueOperand());
+        if (!Arg1)
+          return false;
+        if (Callee->arg_begin() + 1 != Arg1)
+          return false;
+        auto PO = SI->getPointerOperand();
+        auto BCI = dyn_cast<BitCastInst>(PO);
+        if (BCI)
+          PO = BCI->getOperand(0);
+        if (PO != GEPP)
+          return false;
+        StoreCount++;
+      }
+    }
+  }
+
+  bool RV = CallCount && StoreCount;
+  if (RV)
+    LLVM_DEBUG(dbgs() << "Is MallocWithStoredMMPtr " << F->getName() << "\n");
+  else
+    LLVM_DEBUG(dbgs() << "Not MallocWithStoredMMPtr " << F->getName() << "\n");
+  return RV;
+}
+
+// Check that function is a special kind of user-defined free with stored
+// memory manager pointer.
+// Ex.:
+// define internal void @candidateFunc(i8*) {
+//  %2 = icmp eq i8* %0, null
+//  br i1 %2, label %18, label %3
+//
+//; <label>:3:                                      ; preds = %1
+//  %4 = getelementptr inbounds i8, i8* %0, i64 -8
+//  %5 = bitcast i8* %4 to %class.MemoryManager**
+//  %6 = load %class.MemoryManager*, %class.MemoryManager** %5, align 8
+//  %7 = bitcast %class.MemoryManager* %6 to
+//               void (%class.MemoryManager*, i8*)***
+//  %8 = load void (%class.MemoryManager*, i8*)**,
+//            void (%class.MemoryManager*, i8*)*** %7, align 8
+//  %9 = getelementptr inbounds void (%class.MemoryManager*, i8*)*,
+//                void (%class.MemoryManager*, i8*)** %8, i64 3
+//  %10 = load void (%class.MemoryManager*, i8*)*,
+//             void (%class.MemoryManager*, i8*)** %9, align 8
+//  %11 = bitcast void (%class.MemoryManager*, i8*)* %10 to i8*
+//  %12 = bitcast void (%class.1*, i8*)* @userFree to i8*
+//  %13 = icmp eq i8* %11, %12
+//  br i1 %13, label %14, label %15
+//
+//; <label>:14:                                     ; preds = %3
+//  tail call void bitcast (void (%class.1*, i8*)* @userFree to
+//                          void (%class.MemoryManager*, i8*)*)
+//                 (%class.MemoryManager* %6, i8* nonnull %4)
+//  br label %16
+//
+//; <label>:15:                                     ; preds = %3
+//  tail call void bitcast (void (%class.2*, i8*)* @dummyFree to
+//                          void (%class.MemoryManager*, i8*)*)
+//                 (%class.MemoryManager* %6, i8* nonnull %4)
+//  br label %16
+//
+//; <label>:16:                                     ; preds = %15, %14
+//  br label %17
+//
+//; <label>:17:                                     ; preds = %16
+//  br label %18
+//
+//; <label>:18:                                     ; preds = %17, %1
+//  ret void
+//}
+bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
+  // Return 'true' if 'BB' consists of a test to see if argument 0
+  // is equal to nullptr.
+  auto IsFreeSkipTestBlock = [](const BasicBlock *BB) -> bool {
+    if (BB->size() != 2)
+      return false;
+    auto ICI = dyn_cast<ICmpInst>(BB->begin());
+    if (!ICI || !ICI->isEquality())
+      return false;
+    Value *V = nullptr;
+    if (isa<ConstantPointerNull>(ICI->getOperand(0)))
+      V = ICI->getOperand(1);
+    else if (isa<ConstantPointerNull>(ICI->getOperand(1)))
+      V = ICI->getOperand(0);
+    if (!V)
+      return false;
+    auto Arg0 = dyn_cast<Argument>(V);
+    if (!Arg0 || Arg0->getArgNo() != 0)
+      return false;
+    return true;
+  };
+
+  // Return either 'BB' or a unique predecessor at the end of a chain
+  // of BasicBlocks with nothing except an unconditional branch to one
+  // another.
+  auto RootBlock = [](const BasicBlock *BB) -> const BasicBlock * {
+    auto ResultBB = BB;
+    while (BB->size() == 1) {
+      auto BI = dyn_cast<BranchInst>(BB->getTerminator());
+      if (!BI || !BI->isUnconditional())
+        return ResultBB;
+      BB = BB->getSinglePredecessor();
+      if (!BB)
+        return ResultBB;
+      ResultBB = BB;
+    }
+    return ResultBB;
+  };
+
+  // Return 'true' if 'V' is a free-like call within the 'Callee'.
+  auto IsFreeCall = [this](const Function *Callee,
+                           const Instruction *I) -> bool {
+    // Check if I represents an ImmutableCallSite with the right number
+    // of arguments.
+    ImmutableCallSite CS(I);
+    if (!CS)
+      return false;
+    if (CS.arg_size() != 2)
+      return false;
+    // The zeroth argument should load an I8* value.
+    auto LI = dyn_cast<LoadInst>(CS.getArgument(0));
+    if (!LI)
+      return false;
+    if (!LI->getPointerOperandType()->getPointerElementType()->isPointerTy())
+      return false;
+    auto BCI = dyn_cast<BitCastInst>(LI->getPointerOperand());
+    if (!BCI)
+      return false;
+    if (BCI->getSrcTy() != Int8PtrTy)
+      return false;
+    Value *W = BCI->getOperand(0);
+    if (CS.getArgument(1) != W)
+      return false;
+    auto GEPI = dyn_cast<GetElementPtrInst>(W);
+    if (!GEPI)
+      return false;
+    if (GEPI->getPointerOperand() != Callee->arg_begin())
+      return false;
+    if (GEPI->getNumIndices() != 1)
+      return false;
+    if (GEPI->getPointerOperandType() != Int8PtrTy)
+      return false;
+    // The value of the pointer to be freed is 8 bytes before the passed
+    // in pointer value.
+    auto ConstInt = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!ConstInt)
+      return false;
+    if (ConstInt->getSExtValue() != -8)
+      return false;
+    return isUserOrDummyFree(CS);
+  };
+
+  // Check the expected types of the Callee's arguments.
+  const Function *Callee = F;
+  LLVM_DEBUG(dbgs() << "Analyzing for FreeWithStoredMMPtr " << F->getName()
+                    << "\n");
+  // Save some time only looking at Callees with a small number of
+  // basic blocks.
+  if (Callee->size() > 7)
+    return false;
+  unsigned ArgSize = Callee->arg_size();
+  if (ArgSize != 1 && ArgSize != 2)
+    return false;
+  // Check that we have the right number of Callee arguments and that
+  // those arguments are of the right basic types.
+  const Argument *Arg0 = &*(Callee->arg_begin());
+  if (Arg0->getType() != Int8PtrTy)
+    return false;
+  if (ArgSize == 2) {
+    const Argument *Arg1 = &*(Callee->arg_begin() + 1);
+    if (!Arg1->getType()->isPointerTy() ||
+        !Arg1->getType()->getPointerElementType()->isStructTy())
+      return false;
+  }
+  // Look for a unique ReturnInst without a return value.
+  const ReturnInst *RI = nullptr;
+  for (auto &BB : *Callee) {
+    auto TI = BB.getTerminator();
+    auto RII = dyn_cast<const ReturnInst>(TI);
+    if (RII) {
+      if (RI)
+        return false;
+      if (RII->getReturnValue())
+        return false;
+      RI = RII;
+    }
+  }
+  if (!RI)
+    return false;
+  // Each predecessor BasicBlock of the return is either a skip test block
+  // or leads to a series of calls to free-like Functions.
+  for (const BasicBlock *PB : predecessors(RI->getParent())) {
+    if (IsFreeSkipTestBlock(PB))
+      continue;
+    auto PBN = RootBlock(PB);
+    for (const BasicBlock *PPB : predecessors(PBN)) {
+      if (PPB->size() != 2)
+        return false;
+      auto BI = dyn_cast<BranchInst>(PPB->getTerminator());
+      if (!BI || !BI->isUnconditional())
+        return false;
+      if (!IsFreeCall(Callee, &PPB->front()))
+        return false;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "Is FreeWithStoredMMPtr " << F->getName() << "\n");
+  return true;
+}
+
+// Returns true if the called function is user-defined malloc or dummy alloc
+// function.
+bool DTransAllocAnalyzer::isUserOrDummyAlloc(ImmutableCallSite CS) {
+  return (dtrans::isDummyAllocWithUnreachable(CS) || isMallocPostDom(CS));
+}
+
+// Returns true if the called function is user-defined free or dummy free
+// function.
+bool DTransAllocAnalyzer::isUserOrDummyFree(ImmutableCallSite CS) {
+  return (dtrans::isDummyDeallocWithUnreachable(CS) || isFreePostDom(CS));
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
