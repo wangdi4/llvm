@@ -81,8 +81,10 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callee has single callsite and local linkage"},
     // InlrSingleBasicBlock,
     {InlPrtCost, "Callee is single basic block"},
-    // InlrAlmostSingleBasicBlock,
+    // InlrSingleBasicBlockWithTest,
     {InlPrtCost, "Callee is single basic block with test"},
+    // InlrSingleBasicBlockWithStructTest,
+    {InlPrtCost, "Callee is single basic block with structure test"},
     // InlrEmptyFunction,
     {InlPrtCost, "Callee is empty"},
     // InlrDoubleLocalCall,
@@ -186,6 +188,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callsite has key stack computations"},
     // NinlrSwitchComputations
     {InlPrtSimple, "Callsite has key switch computations"},
+    // NinlrDelayInlineDecision
+    {InlPrtSimple, "Inline decision is delayed until link time"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

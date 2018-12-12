@@ -2974,6 +2974,7 @@ void CallAnalyzer::findDeadBlocks(BasicBlock *CurrBB, BasicBlock *NextBB) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
 //
 // Starts with Value *V and traces back through a series of at least
 // 'MinBOpCount' but no more than 'MaxBOpCount' BinaryOperators which must
@@ -3437,6 +3438,115 @@ static bool preferNotToInlineForSwitchComputations(CallSite CS,
   return true;
 }
 
+//
+// Return 'true' if the CallSites of 'Caller' should not be inlined because
+// we are in the 'PrepareForLTO' compile phase and delaying the inlining
+// decision until the link phase will let us more easily decide whether to
+// inline the caller. NOTE: This function 'preferToDelayInlineDecision' can
+// also be called in the link phase.  If it is, we determine whether the
+// caller should be inlined, and if so, add it on the 'QueuedCallers' set.
+//
+static bool preferToDelayInlineDecision(Function *Caller,
+                                        bool PrepareForLTO,
+                                        SmallPtrSetImpl<Function *>
+                                            &QueuedCallers) {
+
+  // Try to return a pointer to a GEP instruction which tests if a structure
+  // field value is greater than 0 at the end of the Caller's entry
+  // BasicBlock. If there is no such pointer, return nullptr.
+  auto TestedGEP = [](Function *Caller) -> GetElementPtrInst * {
+    auto EntryBlock = &(Caller->getEntryBlock());
+    if (EntryBlock->size() > 5)
+      return nullptr;
+    auto BI = dyn_cast<BranchInst>(EntryBlock->getTerminator());
+    if (!BI || BI->isUnconditional())
+      return nullptr;
+    auto ICI = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!ICI || ICI->getPredicate() != ICmpInst::ICMP_SGT)
+      return nullptr;
+    auto Zero = dyn_cast<ConstantInt>(ICI->getOperand(1));
+    if (!Zero || !Zero->isZero())
+      return nullptr;
+    auto LI = dyn_cast<LoadInst>(ICI->getOperand(0));
+    if (!LI)
+      return nullptr;
+    auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+    if (!GEP)
+      return nullptr;
+    if (!isa<Argument>(GEP->getPointerOperand()))
+      return nullptr;
+    return GEP;
+  };
+
+  // In the 'PrepareForLTO' phase, return 'true' if the 'Caller' should not
+  // have any of its callsites inlined until the link phase, because inlining
+  // them will make it more difficult to determine whether that Caller should
+  // be inlined during the link phase.  Then, in the link phase, return 'true'
+  // if the 'Caller' should be inlined.
+  auto IsDelayInlineCaller = [&TestedGEP](Function *Caller,
+                                          bool PrepareForLTO) -> bool {
+    if (Caller->size() > (PrepareForLTO ? 5 : 3))
+      return false;
+    if (!TestedGEP(Caller))
+      return false;
+    auto EntryBlock = &(Caller->getEntryBlock());
+    for (auto &BB : *Caller) {
+      if (&BB == EntryBlock)
+        continue;
+      auto TI = BB.getTerminator();
+      auto RI = dyn_cast<ReturnInst>(TI);
+      if (RI) {
+        if (!RI->getReturnValue())
+          return false;
+        if (BB.size() > 2)
+          return false;
+        continue;
+      }
+      auto BI = dyn_cast<BranchInst>(TI);
+      if (!BI)
+        return false;
+      if (BI->isUnconditional())
+        continue;
+      if (!PrepareForLTO)
+        return false;
+      auto II = dyn_cast<IntrinsicInst>(BI->getCondition());
+      if (!II)
+        return false;
+      if (II->getIntrinsicID() != Intrinsic::intel_wholeprogramsafe)
+        return false;
+    }
+    return true;
+  };
+
+  if (!DTransInlineHeuristics)
+    return false;
+  if (IsDelayInlineCaller(Caller, PrepareForLTO)) {
+    if (!PrepareForLTO)
+      QueuedCallers.insert(Caller);
+    return true;
+  }
+  return false;
+}
+
+//
+// Return 'true' if a CallSite with this 'Callee' should be inlined because
+// it is on the 'QueuedCallers' set. NOTE: We determine whether the 'Callee'
+// should be inlined before the inlining of its CallSites, because
+// performing the inlining of the CallSites first makes it harder to tell
+// if the caller should be inlined.
+//
+static bool worthInliningSingleBasicBlockWithStructTest(Function *Callee,
+                                                        bool PrepareForLTO,
+                                                        SmallPtrSetImpl
+                                                            <Function *>
+                                                            &QueuedCallers) {
+  if (PrepareForLTO || !DTransInlineHeuristics)
+    return false;
+  return QueuedCallers.count(Callee);
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 /// Analyze a call site for potential inlining.
 ///
 /// Returns true if inlining this call is viable, and false if it is not
@@ -3458,6 +3568,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
   TempReason = NinlrNoReason; // INTEL
   EarlyExitCost = INT_MAX; // INTEL
   EarlyExitThreshold = INT_MAX; // INTEL
+  static SmallPtrSet<Function *, 10> QueuedCallers; // INTEL
 
   // Perform some tweaks to the cost and threshold based on the direct
   // callsite information.
@@ -3511,6 +3622,12 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
   if (InlineForXmain &&
       preferNotToInlineForSwitchComputations(CS, *ILIC)) {
     *ReasonAddr = NinlrSwitchComputations;
+    return false;
+  }
+  if (InlineForXmain &&
+      preferToDelayInlineDecision(CS.getCaller(), PrepareForLTO,
+      QueuedCallers)) {
+    *ReasonAddr = NinlrDelayInlineDecision;
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -3568,6 +3685,11 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
       if (worthInliningForStackComputations(&F, TLI, PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrStackComputations);
+      }
+      if (worthInliningSingleBasicBlockWithStructTest(&F, PrepareForLTO,
+          QueuedCallers)) {
+        Cost -= InlineConstants::InliningHeuristicBonus;
+        YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
       }
     }
   }
@@ -3781,7 +3903,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
   if (SingleBB)
     YesReasonVector.push_back(InlrSingleBasicBlock);
   else if (FoundForgivable)
-    YesReasonVector.push_back(InlrAlmostSingleBasicBlock);
+    YesReasonVector.push_back(InlrSingleBasicBlockWithTest);
 #endif // INTEL_CUSTOMIZATION
 
   bool OnlyOneCallAndLocalLinkage =
