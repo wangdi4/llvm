@@ -418,19 +418,6 @@ llvm::StringRef Debugger::GetReproducerPath() const {
   return r.GetReproducerPath().GetCString();
 }
 
-void Debugger::SetReproducerPath(llvm::StringRef p) {
-  auto &r = repro::Reproducer::Instance();
-  if (auto e = r.SetReproducerPath(FileSpec(p)))
-    llvm::consumeError(std::move(e));
-}
-
-llvm::Error Debugger::SetReproducerCapture(bool b) {
-  auto &r = repro::Reproducer::Instance();
-  if (auto e = r.SetGenerateReproducer(b))
-    return e;
-  return llvm::Error::success();
-}
-
 const FormatEntity::Entry *Debugger::GetThreadFormat() const {
   const uint32_t idx = ePropertyThreadFormat;
   return m_collection_sp->GetPropertyAtIndexAsFormatEntity(nullptr, idx);

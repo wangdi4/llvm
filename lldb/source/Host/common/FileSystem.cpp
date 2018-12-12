@@ -63,23 +63,35 @@ Optional<FileSystem> &FileSystem::InstanceImpl() {
   return g_fs;
 }
 
-sys::TimePoint<>
-FileSystem::GetModificationTime(const FileSpec &file_spec,
-                                bool nanosecond_precision) const {
-  return GetModificationTime(file_spec.GetPath(), nanosecond_precision);
+vfs::directory_iterator FileSystem::DirBegin(const FileSpec &file_spec,
+                                             std::error_code &ec) {
+  return DirBegin(file_spec.GetPath(), ec);
+}
+
+vfs::directory_iterator FileSystem::DirBegin(const Twine &dir,
+                                             std::error_code &ec) {
+  return m_fs->dir_begin(dir, ec);
+}
+
+llvm::ErrorOr<vfs::Status>
+FileSystem::GetStatus(const FileSpec &file_spec) const {
+  return GetStatus(file_spec.GetPath());
+}
+
+llvm::ErrorOr<vfs::Status> FileSystem::GetStatus(const Twine &path) const {
+  return m_fs->status(path);
 }
 
 sys::TimePoint<>
-FileSystem::GetModificationTime(const Twine &path,
-                                bool nanosecond_precision) const {
+FileSystem::GetModificationTime(const FileSpec &file_spec) const {
+  return GetModificationTime(file_spec.GetPath());
+}
+
+sys::TimePoint<> FileSystem::GetModificationTime(const Twine &path) const {
   ErrorOr<vfs::Status> status = m_fs->status(path);
   if (!status)
     return sys::TimePoint<>();
-  if (nanosecond_precision)
-    return status->getLastModificationTime();
-  else
-    return std::chrono::time_point_cast<std::chrono::seconds>(
-        status->getLastModificationTime());
+  return status->getLastModificationTime();
 }
 
 uint64_t FileSystem::GetByteSize(const FileSpec &file_spec) const {
