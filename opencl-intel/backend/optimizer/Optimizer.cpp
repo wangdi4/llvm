@@ -479,6 +479,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
 
         // Call VPlan
         PM.add(llvm::createPromoteMemoryToRegisterPass());
+        PM.add(createLowerSwitchPass());
         PM.add(createLoopSimplifyPass());
         PM.add(createLCSSAPass());
         PM.add(createVPOCFGRestructuringPass());
