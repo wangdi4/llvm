@@ -347,6 +347,8 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeAutorunReplicatorPass(Registry);
     intel::initializeImplicitGlobalIdPassPass(Registry);
     intel::initializeStripIntelIPPass(Registry);
+    intel::initializeOCLVecClonePass(Registry);
+    intel::initializeOCLPostVectPass(Registry);
 }
 
 static void addMustHaveOCLPasses(llvm::LLVMContext& context,

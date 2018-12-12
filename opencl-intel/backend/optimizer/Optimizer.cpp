@@ -58,9 +58,10 @@ llvm::FunctionPass* createFMASplitterPass();
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
-static cl::opt<bool> DisableVPlanVec("disable-vplan-vectorizer",
+// This flag enables VPlan for loop vectorization.
+static cl::opt<bool> DisableVPlanVec("disable-vplan-loop-vectorizer",
                                      cl::init(false), cl::Hidden,
-                                     cl::desc("Disable VPlan Vectorizer"));
+                                     cl::desc("Disable VPlan Loop Vectorizer"));
 
 // This flag enables VPlan for OpenCL.
 static cl::opt<bool>
@@ -78,6 +79,7 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig,
                                   bool EnableVPlanVecForOpenCL);
+llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType);
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
@@ -484,6 +486,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
         PM.add(createLCSSAPass());
         PM.add(createVPOCFGRestructuringPass());
         PM.add(createVPlanDriverPass());
+        PM.add(createOCLPostVectPass());
 
         // Final cleaning up
         PM.add(createVPODirectiveCleanupPass());
