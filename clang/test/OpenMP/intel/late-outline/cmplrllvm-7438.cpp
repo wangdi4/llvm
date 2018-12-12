@@ -1,3 +1,4 @@
+// INTEL_COLLAB
 // Check target code generation. Need to create host IR.
 // RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu -fopenmp -fintel-compatibility -fintel-openmp-region -fopenmp-targets=x86_64-pc-linux-gnu -emit-llvm-bc %s -o %t-host.bc
 // RUN: %clang_cc1 -verify -triple x86_64-pc-linux-gnu -fopenmp -fintel-compatibility -fintel-openmp-region -fopenmp-targets=x86_64-pc-linux-gnu -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | FileCheck %s
@@ -35,6 +36,6 @@ void S::func() {
 
 // Check that metadata is generated.
 // CHECK: !omp_offload.info = !{!{{[0-9]+}}, !{{[0-9]+}}}
-// CHECK-DAG: !{{[0-9]+}} = !{i32 0, i32 {{-?[0-9]+}}, i32 {{-?[0-9]+}}, !"_Z3foov", i32 13, i32 [[IDX0]]}
-// CHECK-DAG: !{{[0-9]+}} = !{i32 0, i32 {{-?[0-9]+}}, i32 {{-?[0-9]+}}, !"_Z3barv", i32 23, i32 [[IDX1]]}
-
+// CHECK-DAG: !{{[0-9]+}} = !{i32 0, i32 {{-?[0-9]+}}, i32 {{-?[0-9]+}}, !"_Z3foov", i32 {{[0-9]+}}, i32 [[IDX0]], i32 0}
+// CHECK-DAG: !{{[0-9]+}} = !{i32 0, i32 {{-?[0-9]+}}, i32 {{-?[0-9]+}}, !"_Z3barv", i32 {{[0-9]+}}, i32 [[IDX1]], i32 0}
+// end INTEL_COLLAB

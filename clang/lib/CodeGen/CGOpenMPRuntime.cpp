@@ -2714,6 +2714,9 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
           llvm::GlobalValue::PrivateLinkage,
           llvm::Constant::getNullValue(CGM.Int8Ty), Twine(Buffer, "_ctor"));
       ID = Ctor;
+#if INTEL_COLLAB
+      CGM.addUsedGlobal(cast<llvm::GlobalValue>(Ctor));
+#endif // INTEL_COLLAB
     }
 
     // Register the information for the entry associated with the constructor.
@@ -2753,6 +2756,9 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
           llvm::GlobalValue::PrivateLinkage,
           llvm::Constant::getNullValue(CGM.Int8Ty), Twine(Buffer, "_dtor"));
       ID = Dtor;
+#if INTEL_COLLAB
+      CGM.addUsedGlobal(cast<llvm::GlobalValue>(Dtor));
+#endif // INTEL_COLLAB
     }
     // Register the information for the entry associated with the destructor.
     Out.clear();
@@ -3972,7 +3978,12 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
   // Create function that emits metadata for each target region entry;
   auto &&TargetRegionMetadataEmitter =
+#if INTEL_COLLAB
+      [this, &C, MD, &OrderedEntries, &ParentFunctions, &GetMDInt,
+       &GetMDString](
+#else // INTEL_COLLAB
       [&C, MD, &OrderedEntries, &ParentFunctions, &GetMDInt, &GetMDString](
+#endif // INTEL_COLLAB
           unsigned DeviceID, unsigned FileID, StringRef ParentName,
           unsigned Line,
           const OffloadEntriesInfoManagerTy::OffloadEntryInfoTargetRegion &E) {
@@ -3985,10 +3996,23 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
         // identified.
         // - Entry 4 -> Line in the file where the entry was identified.
         // - Entry 5 -> Order the entry was created.
+#if INTEL_COLLAB
+        // - Entry 6 -> Entry kind.
+#endif // INTEL_COLLAB
         // The first element of the metadata node is the kind.
+#if INTEL_COLLAB
+        llvm::SmallVector<llvm::Metadata*, 7u> Ops =
+                                {GetMDInt(E.getKind()), GetMDInt(DeviceID),
+#else
         llvm::Metadata *Ops[] = {GetMDInt(E.getKind()), GetMDInt(DeviceID),
+#endif // INTEL_COLLAB
                                  GetMDInt(FileID),      GetMDString(ParentName),
                                  GetMDInt(Line),        GetMDInt(E.getOrder())};
+
+#if INTEL_COLLAB
+        if (CGM.getLangOpts().OpenMPLateOutline)
+          Ops.push_back(GetMDInt(E.getFlags()));
+#endif // INTEL_COLLAB
 
         // Save this entry in the right position of the ordered entries array.
         OrderedEntries[E.getOrder()] = &E;
