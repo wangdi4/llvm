@@ -8035,6 +8035,33 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
 
   const DataLayout &DL = getDataLayout();
 
+#if INTEL_CUSTOMIZATION
+  // Look for (icmp ult (shl_recurrence), (1 << C)), if we can prove the
+  // the MSB of the starting value we can determine the loop count.
+  if (Pred == ICmpInst::ICMP_ULT && OpCode == Instruction::Shl &&
+      RHS->getValue().isPowerOf2()) {
+    Value *FirstValue = PN->getIncomingValueForBlock(Predecessor);
+    KnownBits Known = computeKnownBits(FirstValue, DL, 0, nullptr,
+                                       Predecessor->getTerminator(), &DT);
+    // We need to know the exact most significant set bit of the starting value.
+    // The value must not be zero. It also needs to be less than limit value.
+    unsigned PossibleZeros = Known.countMinLeadingZeros();
+    unsigned DefiniteZeros = Known.countMaxLeadingZeros();
+    if (PossibleZeros == DefiniteZeros && DefiniteZeros < Known.getBitWidth()) {
+      unsigned Log2Limit = RHS->getValue().logBase2();
+      unsigned InMSB = Known.getBitWidth() - DefiniteZeros - 1;
+      if (Log2Limit > InMSB) {
+        // Need a minus one here since the compare is at the end of the
+        // loop and we would have shifted left by 1 before the compare.
+        unsigned Count = RHS->getValue().logBase2() - InMSB - 1;
+        const SCEV *BECount =
+            getConstant(getEffectiveSCEVType(RHS->getType()), Count);
+        return ExitLimit(BECount, BECount, false);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // The key rationale for this optimization is that for some kinds of shift
   // recurrences, the value of the recurrence "stabilizes" to either 0 or -1
   // within a finite number of iterations.  If the condition guarding the

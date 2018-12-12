@@ -247,6 +247,10 @@ struct HIRCompleteUnroll::CanonExprUpdater final : public HLNodeVisitorBase {
       : TopLoopLevel(TopLoopLevel), IVValues(IVValues),
         IsPragmaEnabledUnrolling(IsPragma) {}
 
+  // Computes the new definition level of a blob based on where it would exist
+  // in the unrolled loopnest.
+  unsigned getNewBlobDefLevel(unsigned OldLevel) const;
+
   void processRegDDRef(RegDDRef *RegDD);
   void processCanonExpr(CanonExpr *CExpr);
 
@@ -662,6 +666,23 @@ void HIRCompleteUnroll::CanonExprUpdater::visit(HLDDNode *Node) {
   }
 }
 
+unsigned HIRCompleteUnroll::CanonExprUpdater::getNewBlobDefLevel(
+    unsigned OldLevel) const {
+
+  unsigned BlobLoopnestDepth = OldLevel - TopLoopLevel + 1;
+  unsigned NewLevel = OldLevel;
+
+  // Blob definition level reduces by each parent loop which is completely
+  // unrolled.
+  for (unsigned I = 0; BlobLoopnestDepth > 0; --BlobLoopnestDepth, ++I) {
+    if (IVValues[I] != -1) {
+      --NewLevel;
+    }
+  }
+
+  return NewLevel;
+}
+
 void HIRCompleteUnroll::CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
 
   // Process CanonExprs inside the RegDDRefs
@@ -673,15 +694,42 @@ void HIRCompleteUnroll::CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
   if (!IsPragmaEnabledUnrolling) {
     RegDD->makeConsistent(nullptr, TopLoopLevel - 1);
   } else {
+
     // Need to account for non-unrollable loops which can be encountered when
-    // doing pragma based unrolling. For example-
+    // doing pragma based unrolling.
+    //
+    // Temp blobs defined inside the loopnest will also change their nesting
+    // levels.
+    //
+    // For example-
     // #pragma unroll full
     // DO i1 = 0, 4
+    //    t = A[i1] // Final def level of blob is 0.
     //  DO i2 = 0, N
     //    // Final level of nodes here wil be 1.
     //  END DO
     // END DO
     //
+    if (RegDD->isSelfBlob()) {
+      auto *CE = RegDD->getSingleCanonExpr();
+      unsigned DefLevel = CE->getDefinedAtLevel();
+
+      if (DefLevel != NonLinearLevel && DefLevel >= TopLoopLevel) {
+        CE->setDefinedAtLevel(getNewBlobDefLevel(DefLevel));
+      }
+    } else {
+      for (auto BlobIt = RegDD->blob_begin(), E = RegDD->blob_end();
+           BlobIt != E; ++BlobIt) {
+        auto *BlobRef = *BlobIt;
+
+        unsigned DefLevel = BlobRef->getDefinedAtLevel();
+
+        if (DefLevel != NonLinearLevel && DefLevel >= TopLoopLevel) {
+          BlobRef->setDefinedAtLevel(getNewBlobDefLevel(DefLevel));
+        }
+      }
+    }
+
     unsigned NonUnrollableLevels = 0;
 
     for (auto IVVal : IVValues) {

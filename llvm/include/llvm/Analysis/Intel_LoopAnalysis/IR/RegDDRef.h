@@ -170,12 +170,6 @@ private:
   /// Sets the HLDDNode of this RegDDRef
   void setHLDDNode(HLDDNode *HNode) override { Node = HNode; }
 
-  /// Non-const BlobDDRef iterator methods
-  blob_iterator blob_begin() { return BlobDDRefs.begin(); }
-  blob_iterator blob_end() { return BlobDDRefs.end(); }
-  reverse_blob_iterator blob_rbegin() { return BlobDDRefs.rbegin(); }
-  reverse_blob_iterator blob_rend() { return BlobDDRefs.rend(); }
-
   /// Creates GEPInfo object for the DDRef.
   void createGEP() {
     if (!hasGEPInfo()) {
@@ -598,10 +592,14 @@ public:
   const_reverse_canon_iterator canon_rend() const { return CanonExprs.rend(); }
 
   /// BlobDDRef iterator methods
-  /// c-version allows use of "auto" keyword and doesn't conflict with protected
-  /// non-const begin() / end().
+  blob_iterator blob_begin() { return BlobDDRefs.begin(); }
+  blob_iterator blob_end() { return BlobDDRefs.end(); }
+
   const_blob_iterator blob_cbegin() const { return BlobDDRefs.begin(); }
   const_blob_iterator blob_cend() const { return BlobDDRefs.end(); }
+
+  reverse_blob_iterator blob_rbegin() { return BlobDDRefs.rbegin(); }
+  reverse_blob_iterator blob_rend() { return BlobDDRefs.rend(); }
 
   const_reverse_blob_iterator blob_crbegin() const {
     return BlobDDRefs.rbegin();
