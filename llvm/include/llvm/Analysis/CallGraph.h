@@ -46,7 +46,7 @@
 #ifndef LLVM_ANALYSIS_CALLGRAPH_H
 #define LLVM_ANALYSIS_CALLGRAPH_H
 
-#include "llvm/Analysis/CallGraphReport.h" // INTEL
+#include "llvm/Analysis/Intel_CallGraphReport.h" // INTEL
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/CallSite.h"
@@ -162,7 +162,7 @@ public:
   /// \c F if one does not already exist.
   CallGraphNode *getOrInsertFunction(const Function *F);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 
   /// \brief Add 'Report' to the list of reports which describe how the
   /// call graph is being transformed.  These reports will need to be

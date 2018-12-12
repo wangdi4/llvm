@@ -45,7 +45,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
-#include "llvm/Analysis/CallGraphReport.h"  // INTEL
+#include "llvm/Analysis/Intel_CallGraphReport.h"  // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -1101,7 +1101,7 @@ public:
 
   ///@}
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// \brief Returns the module the call graph corresponds to.
   Module &getModule() const { return M; }
 

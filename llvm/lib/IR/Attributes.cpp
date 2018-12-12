@@ -1581,7 +1581,7 @@ bool AttrBuilder::operator==(const AttrBuilder &B) {
 AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
   AttrBuilder Incompatible;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // We want to be able to zero/sign extend vector parameters/return for
   // vector functions.
   if (!Ty->isIntOrIntVectorTy())
@@ -1590,7 +1590,7 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
     Incompatible.addAttribute(Attribute::SExt)
       .addAttribute(Attribute::ZExt);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // We want to be able to apply the same pointer attributes for vectors of
   // pointers for vector functions.
   if (!Ty->isPtrOrPtrVectorTy())

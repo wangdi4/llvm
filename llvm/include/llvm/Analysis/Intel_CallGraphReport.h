@@ -1,4 +1,4 @@
-//===- CallGraphReport.h Implement call graph report ---------*- C++ -*-===//
+//===- Intel_CallGraphReport.h - Implement call graph report ----*- C++ -*-===//
 //
 // Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
@@ -15,10 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef INTEL_CUSTOMIZATION
-
-#ifndef LLVM_ANALYSIS_CALLGRAPHREPORT_H
-#define LLVM_ANALYSIS_CALLGRAPHREPORT_H
+#ifndef LLVM_ANALYSIS_INTEL_CALLGRAPHREPORT_H
+#define LLVM_ANALYSIS_INTEL_CALLGRAPHREPORT_H
 
 namespace llvm {
 
@@ -36,5 +34,3 @@ public:
 } // namespace llvm
 
 #endif
-
-#endif // INTEL_CUSTOMIZATION

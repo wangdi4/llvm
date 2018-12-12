@@ -148,9 +148,9 @@ tools.extend([
     'llvm-objcopy', 'llvm-objdump', 'llvm-pdbutil', 'llvm-profdata',
     'llvm-ranlib', 'llvm-readobj', 'llvm-rtdyld', 'llvm-size', 'llvm-split',
     'llvm-strings', 'llvm-strip', 'llvm-tblgen', 'llvm-undname', 'llvm-c-test',
-    #ifdef INTEL_CUSTOMIZATION
+    # INTEL_CUSTOMIZATION
     'llvm-spirv',
-    #endif // INTEL_CUSTOMIZATION
+    # end INTEL_CUSTOMIZATION
     'llvm-cxxfilt', 'llvm-xray', 'yaml2obj', 'obj2yaml', 'yaml-bench',
     'verify-uselistorder', 'bugpoint', 'llc', 'llvm-symbolizer', 'opt',
     'sancov', 'sanstats'])

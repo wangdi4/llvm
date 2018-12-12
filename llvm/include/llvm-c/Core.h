@@ -1494,7 +1494,7 @@ LLVMTypeRef LLVMX86MMXType(void);
  * @{
  */
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #define intel_macro_call(macro, inst) macro(inst)
 #else
 #define intel_macro_call(macro, inst) /**/

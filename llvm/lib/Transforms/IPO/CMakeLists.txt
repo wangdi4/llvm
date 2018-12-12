@@ -19,7 +19,7 @@ add_llvm_library(LLVMipo
   IPConstantPropagation.cpp
   IPO.cpp
   InferFunctionAttrs.cpp
-  InlineReport.cpp   # INTEL
+  Intel_InlineReport.cpp   # INTEL
   InlineSimple.cpp
   Inliner.cpp
   Intel_CallTreeCloning.cpp # INTEL

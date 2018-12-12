@@ -1,4 +1,4 @@
-//===- InlineReport.cpp - Inline report ------------ ---------------------===//
+//===- Intel_InlineReport.cpp - Inline report ------- ---------------------===//
 //
 // Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
@@ -12,9 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_CUSTOMIZATION
-
-#include "llvm/Transforms/IPO/InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
@@ -311,7 +309,8 @@ void InlineReportCallSite::printOuterCostAndThreshold(void) {
 ///
 /// \brief Print the linkage info for a function 'F' as a single letter,
 /// if the 'Level' specifies InlineReportOptions::Linkage.
-/// For an explanation of the meaning of these letters, see InlineReport.h.
+/// For an explanation of the meaning of these letters,
+/// see Intel_InlineReport.h.
 ///
 static void printFunctionLinkage(unsigned Level, InlineReportFunction *IRF) {
   if (!(Level & InlineReportOptions::Linkage))
@@ -889,5 +888,3 @@ InlineReport::~InlineReport(void) {
   for (FI = IRFunctionMap.begin(), FE = IRFunctionMap.end(); FI != FE; ++FI)
     delete FI->second;
 }
-
-#endif // INTEL_CUSTOMIZATION

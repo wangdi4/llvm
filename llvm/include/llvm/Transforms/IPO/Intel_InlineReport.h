@@ -1,4 +1,4 @@
-//===- InlineReport.h Implement inlining report ---------*- C++ -*-===//
+//===- Intel_InlineReport.h - Implement inlining report ---------*- C++ -*-===//
 //
 // Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
 //
@@ -12,13 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_CUSTOMIZATION
-
-#ifndef LLVM_TRANSFORMS_IPO_INLINEREPORT_H
-#define LLVM_TRANSFORMS_IPO_INLINEREPORT_H
+#ifndef LLVM_TRANSFORMS_IPO_INTEL_INLINEREPORT_H
+#define LLVM_TRANSFORMS_IPO_INTEL_INLINEREPORT_H
 
 #include "llvm/ADT/MapVector.h"
-#include "llvm/Analysis/CallGraphReport.h"
+#include "llvm/Analysis/Intel_CallGraphReport.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
@@ -467,5 +465,3 @@ private:
 } // namespace llvm
 
 #endif
-
-#endif // INTEL_CUSTOMIZATION

@@ -24,7 +24,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Inliner.h"
-#include "llvm/Transforms/IPO/InlineReport.h"          // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"          // INTEL
 
 using namespace llvm;
 

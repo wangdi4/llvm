@@ -1016,7 +1016,7 @@ int64_t llvm::getPtrStride(PredicatedScalarEvolution &PSE, Value *Ptr,
 
   // The accesss function must stride over the innermost loop.
   if (Lp != AR->getLoop()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     PtrScev = PSE.getSE()->getSCEVAtScope(Ptr, Lp);
     AR = dyn_cast<SCEVAddRecExpr>(PtrScev);
     if (!AR) {

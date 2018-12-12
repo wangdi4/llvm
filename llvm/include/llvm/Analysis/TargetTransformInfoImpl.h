@@ -150,7 +150,7 @@ public:
       // FIXME: This is wrong for libc intrinsics.
       return TTI::TCC_Basic;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case Intrinsic::intel_pragma:
 #endif // INTEL_CUSTOMIZATION
     case Intrinsic::annotation:
