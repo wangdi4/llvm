@@ -3214,13 +3214,7 @@ void CGOpenMPRuntime::emitOrderedRegion(CodeGenFunction &CGF,
   emitInlinedDirective(CGF, OMPD_ordered, OrderedOpGen);
 }
 
-void CGOpenMPRuntime::emitBarrierCall(CodeGenFunction &CGF, SourceLocation Loc,
-                                      OpenMPDirectiveKind Kind, bool EmitChecks,
-                                      bool ForceSimpleCall) {
-  if (!CGF.HaveInsertPoint())
-    return;
-  // Build call __kmpc_cancel_barrier(loc, thread_id);
-  // Build call __kmpc_barrier(loc, thread_id);
+unsigned CGOpenMPRuntime::getDefaultFlagsForBarriers(OpenMPDirectiveKind Kind) {
   unsigned Flags;
   if (Kind == OMPD_for)
     Flags = OMP_IDENT_BARRIER_IMPL_FOR;
@@ -3232,6 +3226,17 @@ void CGOpenMPRuntime::emitBarrierCall(CodeGenFunction &CGF, SourceLocation Loc,
     Flags = OMP_IDENT_BARRIER_EXPL;
   else
     Flags = OMP_IDENT_BARRIER_IMPL;
+  return Flags;
+}
+
+void CGOpenMPRuntime::emitBarrierCall(CodeGenFunction &CGF, SourceLocation Loc,
+                                      OpenMPDirectiveKind Kind, bool EmitChecks,
+                                      bool ForceSimpleCall) {
+  if (!CGF.HaveInsertPoint())
+    return;
+  // Build call __kmpc_cancel_barrier(loc, thread_id);
+  // Build call __kmpc_barrier(loc, thread_id);
+  unsigned Flags = getDefaultFlagsForBarriers(Kind);
   // Build call __kmpc_cancel_barrier(loc, thread_id) or __kmpc_barrier(loc,
   // thread_id);
   llvm::Value *Args[] = {emitUpdateLocation(CGF, Loc, Flags),
@@ -6797,10 +6802,11 @@ private:
     }
 
     // Check if the length evaluates to 1.
-    llvm::APSInt ConstLength;
-    if (!Length->EvaluateAsInt(ConstLength, CGF.getContext()))
+    Expr::EvalResult Result;
+    if (!Length->EvaluateAsInt(Result, CGF.getContext()))
       return true; // Can have more that size 1.
 
+    llvm::APSInt ConstLength = Result.Val.getInt();
     return ConstLength.getSExtValue() != 1;
   }
 
@@ -9164,8 +9170,8 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
         ParamAttrTy &ParamAttr = ParamAttrs[Pos];
         ParamAttr.Kind = Linear;
         if (*SI) {
-          if (!(*SI)->EvaluateAsInt(ParamAttr.StrideOrArg, C,
-                                    Expr::SE_AllowSideEffects)) {
+          Expr::EvalResult Result;
+          if (!(*SI)->EvaluateAsInt(Result, C, Expr::SE_AllowSideEffects)) {
             if (const auto *DRE =
                     cast<DeclRefExpr>((*SI)->IgnoreParenImpCasts())) {
               if (const auto *StridePVD = cast<ParmVarDecl>(DRE->getDecl())) {
@@ -9174,6 +9180,8 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
                     ParamPositions[StridePVD->getCanonicalDecl()]);
               }
             }
+          } else {
+            ParamAttr.StrideOrArg = Result.Val.getInt();
           }
         }
         ++SI;

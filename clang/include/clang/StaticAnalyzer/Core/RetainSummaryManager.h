@@ -369,7 +369,11 @@ public:
   ///  This is only meaningful if the summary applies to an ObjCMessageExpr*.
   ArgEffect getReceiverEffect() const { return Receiver; }
 
+  /// \return the effect on the "this" receiver of the method call.
   ArgEffect getThisEffect() const { return This; }
+
+  /// Set the effect of the method on "this".
+  void setThisEffect(ArgEffect e) { This = e; }
 
   bool isNoop() const {
     return Ret == RetEffect::MakeNoRet() && Receiver == DoNothing
@@ -530,6 +534,8 @@ class RetainSummaryManager {
   /// Decrement the reference count on OS object.
   const RetainSummary *getOSSummaryReleaseRule(const FunctionDecl *FD);
 
+  /// Free the OS object.
+  const RetainSummary *getOSSummaryFreeRule(const FunctionDecl *FD);
 
   enum UnaryFuncKind { cfretain, cfrelease, cfautorelease, cfmakecollectable };
 

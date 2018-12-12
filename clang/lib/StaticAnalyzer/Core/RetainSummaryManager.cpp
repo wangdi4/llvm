@@ -124,10 +124,8 @@ RetainSummaryManager::generateSummary(const FunctionDecl *FD,
   }
 
   const IdentifierInfo *II = FD->getIdentifier();
-  if (!II)
-    return getDefaultSummary();
 
-  StringRef FName = II->getName();
+  StringRef FName = II ? II->getName() : "";
 
   // Strip away preceding '_'.  Doing this here will effect all the checks
   // down below.
@@ -241,7 +239,9 @@ RetainSummaryManager::generateSummary(const FunctionDecl *FD,
 
         // All objects returned with functions *not* starting with
         // get, or iterators, are returned at +1.
-        if (!II->getName().startswith("get") || isOSIteratorSubclass(PD)) {
+        if ((!II->getName().startswith("get") &&
+             !II->getName().startswith("Get")) ||
+            isOSIteratorSubclass(PD)) {
           return getOSSummaryCreateRule(FD);
         } else {
           return getOSSummaryGetRule(FD);
@@ -302,6 +302,12 @@ RetainSummaryManager::generateSummary(const FunctionDecl *FD,
 
       if (FName == "retain")
         return getOSSummaryRetainRule(FD);
+
+      if (FName == "free")
+        return getOSSummaryFreeRule(FD);
+
+      if (MD->getOverloadedOperator() == OO_New)
+        return getOSSummaryCreateRule(MD);
     }
   }
 
@@ -478,20 +484,14 @@ RetainSummaryManager::getSummary(const CallEvent &Call,
   const RetainSummary *Summ;
   switch (Call.getKind()) {
   case CE_Function:
-    Summ = getFunctionSummary(cast<SimpleFunctionCall>(Call).getDecl());
-    break;
   case CE_CXXMember:
-    Summ = getFunctionSummary(cast<CXXMemberCall>(Call).getDecl());
-    break;
   case CE_CXXMemberOperator:
-    Summ = getFunctionSummary(cast<CXXMemberOperatorCall>(Call).getDecl());
-    break;
   case CE_CXXConstructor:
-    Summ = getFunctionSummary(cast<CXXConstructorCall>(Call).getDecl());
+  case CE_CXXAllocator:
+    Summ = getFunctionSummary(cast_or_null<FunctionDecl>(Call.getDecl()));
     break;
   case CE_Block:
   case CE_CXXDestructor:
-  case CE_CXXAllocator:
     // FIXME: These calls are currently unsupported.
     return getPersistentStopSummary();
   case CE_ObjCMessage: {
@@ -617,6 +617,14 @@ RetainSummaryManager::getOSSummaryReleaseRule(const FunctionDecl *FD) {
 }
 
 const RetainSummary *
+RetainSummaryManager::getOSSummaryFreeRule(const FunctionDecl *FD) {
+  return getPersistentSummary(RetEffect::MakeNoRet(),
+                              /*ReceiverEff=*/DoNothing,
+                              /*DefaultEff=*/DoNothing,
+                              /*ThisEff=*/Dealloc);
+}
+
+const RetainSummary *
 RetainSummaryManager::getOSSummaryCreateRule(const FunctionDecl *FD) {
   return getPersistentSummary(RetEffect::MakeOwned(RetEffect::OS));
 }
@@ -662,17 +670,73 @@ RetainSummaryManager::getRetEffectFromAnnotations(QualType RetTy,
     return None;
   }
 
-  if (D->hasAttr<CFReturnsRetainedAttr>())
+  if (D->hasAttr<CFReturnsRetainedAttr>()) {
     return RetEffect::MakeOwned(RetEffect::CF);
-  else if (hasRCAnnotation(D, "rc_ownership_returns_retained"))
+  } else if (D->hasAttr<OSReturnsRetainedAttr>()) {
+    return RetEffect::MakeOwned(RetEffect::OS);
+  } else if (hasRCAnnotation(D, "rc_ownership_returns_retained")) {
     return RetEffect::MakeOwned(RetEffect::Generalized);
+  }
 
-  if (D->hasAttr<CFReturnsNotRetainedAttr>())
+  if (D->hasAttr<CFReturnsNotRetainedAttr>()) {
     return RetEffect::MakeNotOwned(RetEffect::CF);
-  else if (hasRCAnnotation(D, "rc_ownership_returns_not_retained"))
+  } else if (D->hasAttr<OSReturnsNotRetainedAttr>()) {
+    return RetEffect::MakeNotOwned(RetEffect::OS);
+  } else if (hasRCAnnotation(D, "rc_ownership_returns_not_retained")) {
     return RetEffect::MakeNotOwned(RetEffect::Generalized);
+  }
+
+  if (const auto *MD = dyn_cast<CXXMethodDecl>(D))
+    for (const auto *PD : MD->overridden_methods())
+      if (auto RE = getRetEffectFromAnnotations(RetTy, PD))
+        return RE;
 
   return None;
+}
+
+/// Apply the annotation of {@code pd} in function {@code FD}
+/// to the resulting summary stored in out-parameter {@code Template}.
+/// Return whether an annotation was applied.
+bool applyFunctionParamAnnotationEffect(const ParmVarDecl *pd,
+                                        unsigned parm_idx,
+                                        const FunctionDecl *FD,
+                                        ArgEffects::Factory &AF,
+                                        RetainSummaryTemplate &Template) {
+  if (pd->hasAttr<NSConsumedAttr>()) {
+    Template->addArg(AF, parm_idx, DecRefMsg);
+    return true;
+  } else if (pd->hasAttr<CFConsumedAttr>() || pd->hasAttr<OSConsumedAttr>() ||
+             hasRCAnnotation(pd, "rc_ownership_consumed")) {
+    Template->addArg(AF, parm_idx, DecRef);
+    return true;
+  } else if (pd->hasAttr<CFReturnsRetainedAttr>() ||
+             hasRCAnnotation(pd, "rc_ownership_returns_retained")) {
+    QualType PointeeTy = pd->getType()->getPointeeType();
+    if (!PointeeTy.isNull()) {
+      if (coreFoundation::isCFObjectRef(PointeeTy)) {
+        Template->addArg(AF, parm_idx, RetainedOutParameter);
+        return true;
+      }
+    }
+  } else if (pd->hasAttr<CFReturnsNotRetainedAttr>()) {
+    QualType PointeeTy = pd->getType()->getPointeeType();
+    if (!PointeeTy.isNull()) {
+      if (coreFoundation::isCFObjectRef(PointeeTy)) {
+        Template->addArg(AF, parm_idx, UnretainedOutParameter);
+        return true;
+      }
+    }
+  } else {
+    if (const auto *MD = dyn_cast<CXXMethodDecl>(FD)) {
+      for (const auto *OD : MD->overridden_methods()) {
+        const ParmVarDecl *OP = OD->parameters()[parm_idx];
+        if (applyFunctionParamAnnotationEffect(OP, parm_idx, OD, AF, Template))
+          return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 void
@@ -686,31 +750,18 @@ RetainSummaryManager::updateSummaryFromAnnotations(const RetainSummary *&Summ,
 
   // Effects on the parameters.
   unsigned parm_idx = 0;
-  for (FunctionDecl::param_const_iterator pi = FD->param_begin(),
+  for (auto pi = FD->param_begin(),
          pe = FD->param_end(); pi != pe; ++pi, ++parm_idx) {
     const ParmVarDecl *pd = *pi;
-    if (pd->hasAttr<NSConsumedAttr>())
-      Template->addArg(AF, parm_idx, DecRefMsg);
-    else if (pd->hasAttr<CFConsumedAttr>() ||
-             hasRCAnnotation(pd, "rc_ownership_consumed"))
-      Template->addArg(AF, parm_idx, DecRef);
-    else if (pd->hasAttr<CFReturnsRetainedAttr>() ||
-             hasRCAnnotation(pd, "rc_ownership_returns_retained")) {
-      QualType PointeeTy = pd->getType()->getPointeeType();
-      if (!PointeeTy.isNull())
-        if (coreFoundation::isCFObjectRef(PointeeTy))
-          Template->addArg(AF, parm_idx, RetainedOutParameter);
-    } else if (pd->hasAttr<CFReturnsNotRetainedAttr>()) {
-      QualType PointeeTy = pd->getType()->getPointeeType();
-      if (!PointeeTy.isNull())
-        if (coreFoundation::isCFObjectRef(PointeeTy))
-          Template->addArg(AF, parm_idx, UnretainedOutParameter);
-    }
+    applyFunctionParamAnnotationEffect(pd, parm_idx, FD, AF, Template);
   }
 
   QualType RetTy = FD->getReturnType();
   if (Optional<RetEffect> RetE = getRetEffectFromAnnotations(RetTy, FD))
     Template->setRetEffect(*RetE);
+
+  if (FD->hasAttr<OSConsumesThisAttr>())
+    Template->setThisEffect(DecRef);
 }
 
 void
@@ -732,9 +783,9 @@ RetainSummaryManager::updateSummaryFromAnnotations(const RetainSummary *&Summ,
          pi=MD->param_begin(), pe=MD->param_end();
        pi != pe; ++pi, ++parm_idx) {
     const ParmVarDecl *pd = *pi;
-    if (pd->hasAttr<NSConsumedAttr>())
+    if (pd->hasAttr<NSConsumedAttr>()) {
       Template->addArg(AF, parm_idx, DecRefMsg);
-    else if (pd->hasAttr<CFConsumedAttr>()) {
+    } else if (pd->hasAttr<CFConsumedAttr>() || pd->hasAttr<OSConsumedAttr>()) {
       Template->addArg(AF, parm_idx, DecRef);
     } else if (pd->hasAttr<CFReturnsRetainedAttr>()) {
       QualType PointeeTy = pd->getType()->getPointeeType();
