@@ -628,7 +628,7 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   Term->divide(CE1->getDenominator());
 
   // CE1 = C1*C2 * B1*B2 + C3*i2 + ...
-  if (!add(CE1, Term.get(), RelaxedMode)) {
+  if (!add(CE1, Term.get(), /*RelaxedMode*/ true)) {
     return false;
   }
 

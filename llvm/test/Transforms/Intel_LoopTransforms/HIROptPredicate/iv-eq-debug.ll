@@ -24,10 +24,6 @@
 ;OPTREPORT: LOOP BEGIN at t1.c (3, 3)
 ;OPTREPORT: <Predicate Optimized v2>
 ;OPTREPORT: LOOP END
-;
-;OPTREPORT: LOOP BEGIN at t1.c (3, 3)
-;OPTREPORT: <Predicate Optimized v3>
-;OPTREPORT: LOOP END
 
 
 ;Module Before HIR; ModuleID = 't1.c'

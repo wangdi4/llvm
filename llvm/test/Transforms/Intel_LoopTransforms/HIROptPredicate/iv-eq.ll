@@ -38,9 +38,9 @@
 ; CHECK:          |   (%q)[i1] = i1;
 ; CHECK:          + END LOOP
 ;
-; CHECK:          + DO i1 = 0, (-1 + (-1 * smax((-1 + (-1 * %d)), (-1 * %n)))) + -1 * smax(0, %d), 1   <DO_LOOP>
-; CHECK:          |   (%p)[%d] = i1 + smax(0, %d);
-; CHECK:          + END LOOP
+; CHECK:          if (smax(0, %d) < (-1 + (-1 * smax((-1 + (-1 * %d)), (-1 * %n)))) + 1)
+; CHECK:              (%p)[%d] = smax(0, %d);
+; CHECK:          }
 ;
 ; CHECK:          + DO i1 = 0, %n + -1 * smax(0, (1 + %d)) + -1, 1   <DO_LOOP>
 ; CHECK:          |   (%q)[i1 + smax(0, (1 + %d))] = i1 + smax(0, (1 + %d));
@@ -59,10 +59,6 @@
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Predicate Optimized v2>
-;OPTREPORT: LOOP END
-;
-;OPTREPORT: LOOP BEGIN
-;OPTREPORT: <Predicate Optimized v3>
 ;OPTREPORT: LOOP END
 
 ;Module Before HIR; ModuleID = 'iv-eq.c'

@@ -598,7 +598,9 @@ void HIROptVarPredicate::splitLoop(
 
   // Special case ==, != predicates..
   HLLoop *ThirdLoop = nullptr;
-  if (Pred == PredicateTy::ICMP_EQ || Pred == PredicateTy::ICMP_NE) {
+  bool IsEqualCase =
+      (Pred == PredicateTy::ICMP_EQ || Pred == PredicateTy::ICMP_NE);
+  if (IsEqualCase) {
     ThirdLoop = Loop->clone();
 
     updateLoopUpperBound(SecondLoop, UpperBlob, SplitPointBlob, IsSigned);
@@ -645,9 +647,15 @@ void HIROptVarPredicate::splitLoop(
   if (!isLoopRedundant(SecondLoop)) {
     SecondLoop->getLowerDDRef()->makeConsistent(&Aux, Level);
     SecondLoop->createZtt(false, true);
-    SecondLoop->normalize();
-    SecondLoopNeeded = true;
 
+    if (IsEqualCase) {
+      SecondLoop->replaceByFirstIteration();
+      SecondLoop = nullptr;
+    } else {
+      SecondLoop->normalize();
+    }
+
+    SecondLoopNeeded = true;
   } else {
     HLNodeUtils::remove(SecondLoop);
   }
@@ -656,7 +664,7 @@ void HIROptVarPredicate::splitLoop(
     HIRTransformUtils::addCloningInducedLiveouts(Loop);
   }
 
-  if (SecondLoopNeeded && ThirdLoopNeeded) {
+  if (SecondLoop && ThirdLoopNeeded) {
     HIRTransformUtils::addCloningInducedLiveouts(SecondLoop);
   }
 
@@ -671,7 +679,7 @@ void HIROptVarPredicate::splitLoop(
     LORBuilder(*Loop).addOrigin("Predicate Optimized v%d", VNum++);
   }
 
-  if (SecondLoopNeeded) {
+  if (SecondLoopNeeded && SecondLoop) {
     if (!OptReportLoop) {
       OptReportLoop = SecondLoop;
     }
