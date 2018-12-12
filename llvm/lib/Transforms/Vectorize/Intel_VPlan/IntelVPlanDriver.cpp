@@ -573,7 +573,15 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   VPlanVLSAnalysis VLSA(Lp->getHeader()->getContext());
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
+#if INTEL_CUSTOMIZATION
+  if (!LVP.buildInitialVPlans()) {
+    LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
+    return false;
+  }
+#else
   LVP.buildInitialVPlans();
+#endif
+
   printCostModelAnalysisIfRequested(LVP, TTI, DL, &VLSA);
 
   // VPlan Predicator
@@ -780,7 +788,10 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, nullptr /*Legal*/,
                                   DDA, &VLSA);
 
-  LVP.buildInitialVPlans();
+  if (!LVP.buildInitialVPlans()) {
+    LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
+    return false;
+  }
 
   printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(LVP, TTI, DL,
                                                                &VLSA);

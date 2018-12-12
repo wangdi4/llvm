@@ -1,4 +1,4 @@
-; RUN: opt -hir-framework -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-hcfg -disable-output -vplan-force-vf=1 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-framework -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-hcfg -disable-output -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
 
 ; Verify that VPlan H-CFG builder is able to build the H-CFG for a simple HIR
 ; multi-exit loop.

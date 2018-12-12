@@ -60,6 +60,12 @@ static unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
   return WRLp && WRLp->getSimdlen() ? WRLp->getSimdlen() : 0;
 }
 
+#if INTEL_CUSTOMIZATION
+static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
+  return WRLp && WRLp->getSafelen() ? WRLp->getSafelen() : UINT_MAX;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Return trip count for a given VPlan for a first loop during DFS.
 // Assume, that VPlan has only 1 loop without peel and/or remainder(s).
 // FIXME: This function is incorrect if peel, main and remainder loop will be
@@ -90,7 +96,33 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans() {
 
   unsigned MinVF, MaxVF;
   unsigned ForcedVF = getForcedVF(WRLp);
+
+#if INTEL_CUSTOMIZATION
+  unsigned Safelen = getSafelen(WRLp);
+
+  LLVM_DEBUG(dbgs() << "LVP: ForcedVF: " << ForcedVF << "\n");
+  LLVM_DEBUG(dbgs() << "LVP: Safelen: " << Safelen << "\n");
+
+  // Early return from vectorizer if forced VF or safelen is 1
+  // TODO: This should not be done if VPlanConstrStressTest is enabled
+  if (ForcedVF == 1 || Safelen == 1) {
+    LLVM_DEBUG(dbgs() << "LVP: The forced VF or safelen specified by user is "
+                         "1, VPlans need not be constructed.\n");
+    return 0;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (ForcedVF) {
+#if INTEL_CUSTOMIZATION
+    if (ForcedVF > Safelen) {
+      // We are bailing out of vectorization if ForcedVF > safelen
+      assert(WRLp && WRLp->isOmpSIMDLoop() &&
+             "safelen is set on a non-OMP SIMD loop.");
+      LLVM_DEBUG(dbgs() << "VPlan: The forced VF is greater than safelen set "
+                           "via `#pragma omp simd`\n");
+      return 0;
+    }
+#endif // INTEL_CUSTOMIZATION
     MinVF = ForcedVF;
     MaxVF = ForcedVF;
   } else {
@@ -105,10 +137,30 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans() {
     // FIXME: Currently limits MaxVF by 32.
     MaxVF = std::min(MaxVectorWidth / MinWidthInBits, 32u);
     MinVF = std::max(MinVectorWidth / MaxWidthInBits, 1u);
+#if INTEL_CUSTOMIZATION
+    LLVM_DEBUG(dbgs() << "LVP: Orig MinVF: " << MinVF
+                      << " Orig MaxVF: " << MaxVF << "\n");
+    // Maximum allowed VF specified by user is Safelen
+    MaxVF = std::min(MaxVF, Safelen);
+
+    // If the minimum VF in the search space is greater than Safelen specified
+    // by user, then we reduce the minimum VF to nearest power of 2 less than
+    // or equal to Safelen
+    MinVF = std::min(MinVF, (unsigned)PowerOf2Floor(Safelen));
+
+    // FIXME: Potentially MinVF can be greater than MaxVF if TTI will start to
+    // return 512, 1024 or higher values.
+    assert(MinVF <= MaxVF && "Invalid range of VFs");
+#else
     // FIXME: Potentially MinVF can be greater than MaxVF if TTI will start to
     // return 512, 1024 or higher values.
     assert(MinVF < MaxVF && "Invalid range of VFs");
+#endif // INTEL_CUSTOMIZATION
   }
+
+#if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(dbgs() << "LVP: MinVF: " << MinVF << " MaxVF: " << MaxVF << "\n");
+#endif // INTEL_CUSTOMIZATION
 
   unsigned StartRangeVF = MinVF;
   unsigned EndRangeVF = MaxVF + 1;
