@@ -220,6 +220,10 @@ def err_bankbits_non_consecutive : Error<
 def err_memory_attribute_invalid : Error<
   "%0 attribute only applies to local or static variables"
   "%select{| or slave memory arguments}1">;
+def err_hls_force_loop_pipelining_invalid : Error<
+  "%0 attribute argument must be 'on' or 'off'">;
+def err_hls_force_loop_pipelining_conflict : Error<
+  "%0 and 'hls_force_loop_pipelining(off)' attributes are not compatible">;
 
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
