@@ -50,7 +50,12 @@ enum {
 
   // Wrapper - A wrapper node for TargetConstantPool, TargetExternalSymbol,
   // and TargetGlobalAddress
-  Wrapper
+  Wrapper,
+  // Early call lowering helper nodes
+  GetVal,
+  EntryPseudo,
+  ContinuePseudo,
+  CallDF
 };
 }
 

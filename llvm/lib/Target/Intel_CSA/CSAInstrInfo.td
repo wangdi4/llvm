@@ -250,11 +250,15 @@ def XPHI : Instruction {
 }
 
 // These are target-independent nodes, but have target-specific formats.
-def SDT_CSACall         : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
+def SDT_CSACall         : SDTypeProfile<0, -1, [SDTCisVT<0, iPTR>]>;
+def SDT_CSACallDF       : SDTypeProfile<0, -1, [SDTCisVT<0, iPTR>]>;
 def SDT_CSAReturn       : SDTypeProfile<0, -1, []>;
 def SDT_CSACallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 def SDT_CSACallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 
+def SDT_CSAEntryPseudo  : SDTypeProfile<1, 0, []>;
+def SDT_CSAContinuePseudo : SDTypeProfile<1, 0, []>;
+def SDT_CSAGetVal       : SDTypeProfile<1, 1, []>;
 def SDT_CSAWrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0,1>,
                                                SDTCisPtrTy<0>]>;
 
@@ -264,6 +268,22 @@ def SDT_CSAMinMax       : SDTypeProfile<
 def SDT_CSASwizzle      : SDTypeProfile<
   1, 2, [SDTCisSameAs<0, 1>, SDTCisVT<2, i8>]>;
 
+// Function entry points will be lowered to this SD node
+// followed by a list of CSAGetVal Nodes.
+// Output of this node is input to each of the CSAGetVal nodes
+def CSAEntryPseudo : SDNode<"CSAISD::EntryPseudo", SDT_CSAEntryPseudo,
+    [SDNPHasChain, SDNPSideEffect]>;
+
+// Function call sites will be lowered to CSACallDF node followed by this SD node
+// which is in turn followed by a list of CSAGetVal Nodes.
+// Output of this node is input to each of the CSAGetVal nodes
+def CSAContinuePseudo : SDNode<"CSAISD::ContinuePseudo", SDT_CSAContinuePseudo,
+    [SDNPHasChain, SDNPSideEffect]>;
+
+// This node is used as a way to hold multiple outputs
+// for the CSA_ENTRY and CSA_CONTINUE instructions at the ISel Lowering stage
+def CSAGetVal : SDNode<"CSAISD::GetVal", SDT_CSAGetVal,
+    [SDNPHasChain, SDNPSideEffect]>;
 
 def CSARet : SDNode<"CSAISD::Ret", SDT_CSAReturn,
     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
@@ -272,6 +292,9 @@ def CSARet : SDNode<"CSAISD::Ret", SDT_CSAReturn,
 def CSACall : SDNode<"CSAISD::Call", SDT_CSACall,
                       [SDNPHasChain, SDNPOutGlue, SDNPOptInGlue,
                       SDNPVariadic]>;
+
+def CSACallDF : SDNode<"CSAISD::CallDF", SDT_CSACallDF,
+                      [SDNPHasChain, SDNPVariadic, SDNPSideEffect]>;
 
 def CSATailCall : SDNode<"CSAISD::TailCall", SDT_CSACall,
                       [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
@@ -321,18 +344,62 @@ def CSA_ENTRY : PseudoInstCSA<
     (ins),
     "csa_entry",
     []>;
-    
+
+def CSA_ENTRYPSEUDO : PseudoInstCSA<
+    (outs CI0:$link),
+    (ins),
+    "csa_entry_pseudo",
+    [(set CI0:$link, (CSAEntryPseudo))],
+    [IsDataflow]> {
+      let hasSideEffects = 1;
+    }
+
+class CSAGetValOp<GenericOp gen, CSAOpInfo oi,
+            InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs oi.RC:$val),
+    (ins CI0:$link),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $link"),
+    [(set oi.VT:$val, (CSAGetVal CI0:$link))],
+    !listconcat(preds,oi.Preds), itin> {
+      let OpInfo = oi; let hasSideEffects = 1;
+    }
+
+def CSA_GETVAL         : GenericOp<"get_val">;
+def CSA_GETVAL1        : CSAGetValOp<CSA_GETVAL, Ti1,  IIALU>;
+def CSA_GETVAL8        : CSAGetValOp<CSA_GETVAL, Ti8,  IIALU>;
+def CSA_GETVAL16       : CSAGetValOp<CSA_GETVAL, Ti16,  IIALU>;
+def CSA_GETVAL32       : CSAGetValOp<CSA_GETVAL, Ti32,  IIALU>;
+def CSA_GETVAL64       : CSAGetValOp<CSA_GETVAL, Ti64,  IIALU>;
+
+def : Pat<(f32 (CSAGetVal CI0:$link)), (CSA_GETVAL32 $link)>;
+def : Pat<(f64 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
+def : Pat<(v2f32 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
+
+
 def CSA_CALL : PseudoInstCSA<
     (outs),
-    (ins calltarget:$callee_func, I64:$call_site_index, I64:$context, MemOrdUse:$mem_ord, variable_ops),
+    (ins calltarget:$callee_func, CI0:$mem_ord, variable_ops),
     "csa_call",
-    []>;
-    
+    []> {
+      let hasSideEffects = 1;
+    }
+def : Pat<(CSACallDF tglobaladdr:$dst, CI0:$mem_ord),      (CSA_CALL tglobaladdr:$dst, CI0:$mem_ord)>;
+def : Pat<(CSACallDF texternalsym:$dst, CI0:$mem_ord),     (CSA_CALL texternalsym:$dst,CI0:$mem_ord)>;
+
 def CSA_CONTINUE : PseudoInstCSA<
     (outs I64:$context, MemOrdDef:$mem_ord, variable_ops),
     (ins I64:$call_site_index),
     "csa_continue",
     []>;
+def CSA_CONTINUEPSEUDO : PseudoInstCSA<
+    (outs CI0:$link),
+    (ins),
+    "csa_continue_pseudo",
+    [(set CI0:$link, (CSAContinuePseudo))],
+    [IsDataflow]> {
+      let hasSideEffects = 1;
+    }
 
 let isReturn=1, isTerminator=1, isBarrier=1, Itinerary=IICtl in
 def CSA_RETURN : PseudoInstCSA<
@@ -340,7 +407,7 @@ def CSA_RETURN : PseudoInstCSA<
     (ins CI0:$mem_ord, variable_ops),
     "csa_return",
     [(CSARet CI0:$mem_ord)], [IsDataflow]>;
-    
+
 class MovOp<GenericOp gen, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<gen, oi,

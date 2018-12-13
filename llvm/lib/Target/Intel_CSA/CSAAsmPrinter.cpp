@@ -780,8 +780,6 @@ void CSAAsmPrinter::EmitCallInstruction(const MachineInstr *MI) {
   } else if (MO.isSymbol())
     O << MI->getOperand(0).getSymbolName();
   O << ", ";
-  unsigned call_site_index = MI->getOperand(1).getImm();
-  O << MF->getFunction().getName() << "_cont_point_" << call_site_index << ", ";
   EmitCSAOperands(MI,O,2,MI->getNumOperands());
   O << "\n";
   OutStreamer->EmitRawText(O.str());
@@ -791,10 +789,7 @@ void CSAAsmPrinter::EmitContinueInstruction(const MachineInstr *MI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
   O << "\t#.continue\t";
-  unsigned call_site_index = MI->getOperand(MI->getNumOperands()-1).getImm();
-  O << MF->getFunction().getName() << "_cont_point_" << call_site_index << ", ";
-  
-  EmitCSAOperands(MI,O,0,MI->getNumOperands()-1);
+  EmitCSAOperands(MI,O,0,MI->getNumOperands());
   O << "\n";
   OutStreamer->EmitRawText(O.str());
 }

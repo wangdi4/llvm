@@ -146,6 +146,10 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   // which need to be flowed in.
   createFIEntryDefs();
 
+  if (csa_utils::isAlwaysDataFlowLinkageSet()) {
+    generateEntryInstr();
+    generateContinueInstrs();
+  }
   generateSingleReturn();
   replaceUndefWithIgn();
   handleAllConstantInputs();
@@ -228,6 +232,76 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   return true;
 }
 
+static MachineInstr *getEntryPseudoMI(MachineFunction *MF) {
+  for (MachineFunction::iterator MBB = MF->begin(); MBB != MF->end(); MBB++) {
+    for (MachineBasicBlock::iterator I = MBB->begin(); I != MBB->end(); I++) {
+      MachineInstr *MI = &*I;
+      if (MI->getOpcode() == CSA::CSA_ENTRYPSEUDO)
+        return MI;
+    }
+  }
+  assert(false && "Pseudo entry instruction not found!!");
+  return nullptr;
+}
+
+// During ISelLowering, Function entry points are lowered to CSA_ENTRYPSEUDO
+// followed by a list of CSA_GETVAL* instructions, one for each input argument
+// This function merges these PSEUDO instruction to generate a single CSA_ENTRY instruction
+void CSACvtCFDFPass::generateEntryInstr() {
+  MachineInstr *EntryPseudoMI = getEntryPseudoMI(thisMF);
+  MachineInstrBuilder MIB =
+    BuildMI(*(EntryPseudoMI->getParent()), EntryPseudoMI, EntryPseudoMI->getDebugLoc(),
+            TII->get(CSA::CSA_ENTRY));
+  // Parsing through instructions to find the related GETVALs
+  unsigned reg = EntryPseudoMI->getOperand(0).getReg();
+  auto nextUI = MRI->use_begin(reg);
+  for (auto UI = MRI->use_begin(reg), UE = MRI->use_end(); UI != UE; UI = nextUI) {
+    MachineInstr *MI = UI->getParent();
+    assert(TII->getGenericOpcode(MI->getOpcode()) == CSA::Generic::CSA_GETVAL);
+    ++UI;
+    nextUI = UI;
+    MIB.addDef(MI->getOperand(0).getReg());
+    MI->eraseFromParent();
+  }
+  MIB.setMIFlag(MachineInstr::NonSequential);
+  LMFI->setEntryMI(&*MIB);
+  EntryPseudoMI->eraseFromParent();
+}
+
+// During ISelLowering, call-sites are lowered to CSA_CALL and CSA_CONTINUEPSEUDO
+// followed by a list of CSA_GETVAL* instructions, one for each returned value
+// This function merges these PSEUDO instruction to generate a single CSA_CONTINUE instruction
+void CSACvtCFDFPass::generateContinueInstrs() {
+  // Loop through all instructions and find sites to include CSA_CONTINUE
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end();
+       BB != E; ++BB) {
+    for (MachineBasicBlock::iterator I = BB->begin(), EI = BB->end(); I != EI;) {
+      MachineInstr *ContinuePseudoMI = &*I;
+      if (ContinuePseudoMI->getOpcode() == CSA::CSA_CONTINUEPSEUDO) {
+        MachineInstrBuilder MIB =
+          BuildMI(*(ContinuePseudoMI->getParent()), ContinuePseudoMI, ContinuePseudoMI->getDebugLoc(),
+              TII->get(CSA::CSA_CONTINUE));
+        // Parsing through instructions to find the related GETVALs
+        unsigned reg = ContinuePseudoMI->getOperand(0).getReg();
+        auto nextUI = MRI->use_begin(reg);
+        for (auto UI = MRI->use_begin(reg), UE = MRI->use_end(); UI != UE; UI = nextUI) {
+          MachineInstr *MI = UI->getParent();
+          ++UI;
+          nextUI = UI;
+          if (TII->getGenericOpcode(MI->getOpcode()) != CSA::Generic::CSA_GETVAL) continue;
+          MIB.addDef(MI->getOperand(0).getReg());
+          MI->eraseFromParent();
+        }
+        // End of parsing through instructions to find the related GETVALs
+        MIB.setMIFlag(MachineInstr::NonSequential);
+        ContinuePseudoMI->eraseFromParent();
+        MachineBasicBlock::iterator nextI(&*MIB);
+        I = nextI;
+      } else
+        ++I;
+    }
+  }
+}
 
 void CSACvtCFDFPass::generateSingleReturn() {
   // Gather all return instructions in the function. Note that a block

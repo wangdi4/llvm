@@ -395,5 +395,9 @@ private:
   /// buildBBMapping is true, attempt to propagate information about basic
   /// block mapping as well.
   void findLICGroups(bool buildBBMapping);
+
+  /// generate entry inst from entrypseudo and getval insts
+  void  generateEntryInstr(void);
+  void  generateContinueInstrs(void);
 };
 } // namespace llvm

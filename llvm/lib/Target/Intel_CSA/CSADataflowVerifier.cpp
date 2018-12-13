@@ -99,20 +99,10 @@ bool CSADataflowVerifier::runOnMachineFunction(MachineFunction &MF) {
 
     // If there are no non-init defs, that's a problem.
     if (NumNonInitDefs == 0) {
-
-      // Unless the lic is LMFI's InMemoryLic, in which case it will be
-      // connected to the entry instruction later by the procedure calls pass.
-      //
-      // TODO: When early entry lowering is available, remove this terrible
-      // hack.
-      if (VReg == LMFI->getInMemoryLic())
-        goto nothingToSeeHere;
-
       errs() << "LIC with no defs found: " << printReg(VReg, TRI, 0, MRI)
              << "\n";
       dumpDefsAndUses(VReg);
       llvm_unreachable("Dataflow machine code verification failed!");
-    nothingToSeeHere:;
     }
 
     // If there are multiple non-init defs, that's also a problem.
@@ -125,23 +115,10 @@ bool CSADataflowVerifier::runOnMachineFunction(MachineFunction &MF) {
 
     // There should also be uses.
     if (MRI->use_empty(VReg)) {
-
-      // Unless the lic's def is a mov from RA, in which case it might pick up
-      // uses during the procedure calls pass' merging with LMFI's InMemoryLic.
-      //
-      // TODO: When early entry lowering is available, remove this terrible hack
-      // also.
-      if (MachineInstr *const MI = MRI->getUniqueVRegDef(VReg)) {
-        if (MI->getOpcode() == CSA::MOV64 and MI->getOperand(1).isReg() and
-            MI->getOperand(1).getReg() == CSA::RA)
-          goto notTheLicsYouAreLookingFor;
-      }
-
       errs() << "LIC with no uses found: " << printReg(VReg, TRI, 0, MRI)
              << "\n";
       dumpDefsAndUses(VReg);
       llvm_unreachable("Dataflow machine code verification failed!");
-    notTheLicsYouAreLookingFor:;
     }
 
     // The lic should be deep enough to hold all of its initial values. This can
