@@ -11,6 +11,7 @@ endif()
 
 set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
+set(CCLANG_LIBRARY_VERSION "${LLVM_VERSION_MAJOR}.0")
 
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
@@ -51,7 +52,8 @@ set( INCLUDE_DIRS
 if (WIN32)
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)
 else (WIN32)
-    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
+    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so.${CCLANG_LIBRARY_VERSION})
+    set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
 endif (WIN32)
 
 set(TARGET_SOURCES
@@ -120,7 +122,7 @@ set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} 
 if (WIN32)
     set (COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/common_clang${BUILD_PLATFORM}.dll)
 else (WIN32)
-    set (COMMON_CLANG_FILES ${COMMON_CLANG_LIB})
+    set (COMMON_CLANG_FILES ${COMMON_CLANG_LIB} ${COMMON_CLANG_SYMLINK})
 endif (WIN32)
 if (WIN32)
     if (INSTALL_PDBS)
@@ -130,5 +132,6 @@ if (WIN32)
 endif (WIN32)
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )
+
 copy_to (${COMMON_CLANG_FILES} DESTINATION lib)
 install_to (${COMMON_CLANG_FILES} DESTINATION lib COMPONENT ocl-common_clang)
