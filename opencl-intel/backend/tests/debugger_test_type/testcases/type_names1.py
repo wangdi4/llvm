@@ -22,10 +22,16 @@ class TypeNames(DebuggerTestCase):
         self._assert_typename('bb', 'bool')
         self._assert_typename('ss', 'short')
         self._assert_typename('ii', 'int')
-        self._assert_typename('ll', 'long')
+        if self.use_gdb:
+            self._assert_typename('ll', 'long')
+        else:
+            self._assert_typename('ll', 'long int')
         self._assert_typename('uss', 'unsigned short')
         self._assert_typename('uii', 'unsigned int')
-        self._assert_typename('ull', 'unsigned long')
+        if self.use_gdb:
+            self._assert_typename('ull', 'unsigned long')
+        else:
+            self._assert_typename('ull', 'unsigned long int')
 
         self._assert_typename('gid', 'size_t')
 
