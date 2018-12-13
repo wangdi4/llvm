@@ -73,7 +73,11 @@ add_opencl_library (${TARGET_NAME} SHARED
     SPIRVMaterializer.cpp
     SPIRVMaterializer.h
 
-    INCLUDE_DIRS ${INCLUDE_DIRS}
+    INCLUDE_DIRS
+      ${INCLUDE_DIRS}
+
+    COMPONENTS
+      cl_logger${OPENCL_BINARIES_POSTFIX}
 
     LINK_LIBS
       ${COMMON_CLANG_LIB}
@@ -82,7 +86,6 @@ add_opencl_library (${TARGET_NAME} SHARED
       CLElfLib
       name_mangle
       dynamic_load
-      cl_logger${OPENCL_BINARIES_POSTFIX}
       cl_sys_utils
       # LLVM LIBS
       # Doing so must be done with caution as cclang export all the symbols
