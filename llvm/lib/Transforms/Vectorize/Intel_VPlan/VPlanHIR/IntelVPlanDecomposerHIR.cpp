@@ -816,6 +816,10 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   //      that UB group of decomposed VPInstructions.
   assert(HLp->getUpperDDRef() && "Expected a valid upper DDRef for HLLoop.");
   SmallVector<VPValue *, 2> VPOperands;
+
+  // Keep last instruction before decomposition. We will need it to set the
+  // master VPInstruction of all the created decomposed VPInstructions.
+  VPInstruction *LastVPIBeforeDec = getLastVPI(LpPH);
   VPValue *DecompUB;
   VPOperands.push_back(IVNext);
   { // #1. This scope is for Guard (RAII).
@@ -837,8 +841,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
 
     // Set DecompUBVPI as master VPInstruction of any other decomposed
     // VPInstruction of UB.
-    setMasterForDecomposedVPIs(DecompUBVPI, nullptr /*First VPI before decomp*/,
-                               LpPH);
+    setMasterForDecomposedVPIs(DecompUBVPI, LastVPIBeforeDec, LpPH);
     DecompUBVPI->HIR.setValid();
   }
 
