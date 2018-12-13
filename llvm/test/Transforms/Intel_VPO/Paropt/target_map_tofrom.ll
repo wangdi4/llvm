@@ -1,19 +1,19 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
 ; This file tests the implementation of omp target with map clause for
 ; two different target devices. Please note that the device information is
 ; represented as module level attribute in the form of
 ; target device_triples = "x86_64-mic,i386-pc-linux-gnu"
 ;
-;  int x;
+;  int x = 1, y;
 ;  int foo()
 ;  {
 ;    int i;
 ;    for (i=0;i<1000;i++)
-;    #pragma omp target map(tofrom:x)
-;    x = x + 1; // The copy of x on the device has a value of 2.
-;    printf("After the target region is executed, x = %d\n", x);
+;    #pragma omp target map(to:x) map(from:y)
+;    y = x + 1; // The copy of y on the device has a value of 2.
+;    printf("After the target region is executed, y = %d\n", y);
 ;    return 0;
 ;  }
 
@@ -22,6 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64-mic,i386-pc-linux-gnu"
 
 @x = common global i32 0, align 4
+@y = common global i32 0, align 4
 @.str = private unnamed_addr constant [45 x i8] c"After the target region is executed, x = %d\0A\00", align 1
 
 ; Function Attrs: nounwind uwtable
@@ -39,10 +40,10 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TOFROM"(i32* @x), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TO"(i32* @x), "QUAL.OMP.MAP.FROM"(i32* @y),"QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   %3 = load i32, i32* @x, align 4, !tbaa !1
   %add = add nsw i32 %3, 1
-  store i32 %add, i32* @x, align 4, !tbaa !1
+  store i32 %add, i32* @y, align 4, !tbaa !1
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
   br label %for.inc
 
@@ -53,7 +54,7 @@ for.inc:                                          ; preds = %for.body
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  %5 = load i32, i32* @x, align 4, !tbaa !1
+  %5 = load i32, i32* @y, align 4, !tbaa !1
   %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([45 x i8], [45 x i8]* @.str, i32 0, i32 0), i32 %5)
   %6 = bitcast i32* %i to i8*
   call void @llvm.lifetime.end.p0i8(i64 4, i8* %6) #2
@@ -89,6 +90,7 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !4 = !{!"Simple C/C++ TBAA"}
 !5 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 42, i32 0, i32 0}
 
+; CHECK:  @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 33, i64 34]
 ; CHECK:  @.omp_offloading.img_start.x86_64-mic
 ; CHECK:  @.omp_offloading.img_end.x86_64-mic
 ; CHECK:  @.omp_offloading.img_start.i386-pc-linux-gnu

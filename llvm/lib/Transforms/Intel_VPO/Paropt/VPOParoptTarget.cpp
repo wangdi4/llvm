@@ -344,10 +344,13 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
     return (uint64_t)1 << 48;
   };
 
-  if (AddrPtrFlag)
-    Res |= TGT_MAP_PTR_AND_OBJ | getMemberOfFlag();
-  else if (AddrIsTargetParamFlag)
+  // The flag AddrIsTargetParamFlag indicates that the map clause is
+  // not in a chain. If it is head of the chain, according to the logic at
+  // the entry of function getMapTypeFlag, it returns TGT_MAP_TARGET_PARAM.
+  if (AddrIsTargetParamFlag)
     Res |= TGT_MAP_TARGET_PARAM;
+  else if (AddrPtrFlag)
+    Res |= TGT_MAP_PTR_AND_OBJ | getMemberOfFlag();
 
   return Res;
 }
