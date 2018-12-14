@@ -943,6 +943,18 @@ public:
         {Constant::getNullValue(getPtrSizedIntType()), FieldNumVal}, "",
         InsertBefore);
     LoadInst *SOAAddr = new LoadInst(PeelBase);
+
+    // Mark the load of the structure of arrays field member as being invariant.
+    // When the memory allocation for the object was done, the address of each
+    // array was stored within the members of the structure of arrays, and will
+    // never be changed. Marking these are invariant allows other
+    // optimizations to hoist these accesses to prevent repetitive accesses. We
+    // could also add struct-path TBAA annotations to these loads, however
+    // results of experiments for adding TBAA annotations showed a small
+    // reduction in the number of times the field was loaded in the binary, but
+    // it did not show any performance gain.
+    SOAAddr->setMetadata(LLVMContext::MD_invariant_load,
+                         MDNode::get(InsertBefore->getContext(), {}));
     SOAAddr->insertBefore(InsertBefore);
     return SOAAddr;
   }
