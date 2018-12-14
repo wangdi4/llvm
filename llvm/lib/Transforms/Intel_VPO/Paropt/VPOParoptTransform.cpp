@@ -934,7 +934,6 @@ bool VPOParoptTransform::paroptTransforms() {
                     WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
               WT->setParLoopNdInfoAlloca(genTgtLoopParameter(WT, W));
           }
-
           AllocaInst *IsLastVal = nullptr;
           BasicBlock *IfLastIterBB = nullptr;
           // The compiler does not need to generate the outlined function
@@ -2618,7 +2617,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         if (W->getIsTarget()) {
           MapItem *MapI = FprivI->getInMap();
           if (MapI)
-            ValueToReplace = MapI->getNew();
+            ValueToReplace = MapI->getOrig();
         }
 
         Instruction *InsertPt = EntryBB->getFirstNonPHI();
@@ -2634,11 +2633,12 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         if (ForTask || (W->getIsTarget() && FprivI->getInMap() &&
                         FprivI->getInMap()->getIsMapFrom())) {
           IRBuilder<> Builder(EntryBB->getTerminator());
-          Builder.CreateStore(Builder.CreateLoad(FprivI->getNew()),
+          Builder.CreateStore(Builder.CreateLoad(ForTask ? FprivI->getNew()
+                                                         : FprivI->getOrig()),
                               NewPrivInst);
           Builder.SetInsertPoint(ExitBB->getTerminator());
           Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
-                              FprivI->getNew());
+                              ForTask ? FprivI->getNew() : FprivI->getOrig());
         }
 
         FprivI->setNew(NewPrivInst);

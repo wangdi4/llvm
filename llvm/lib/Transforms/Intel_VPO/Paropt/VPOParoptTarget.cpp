@@ -60,16 +60,26 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   if (MpClause.empty())
     return;
 
+  IRBuilder<> Builder(W->getEntryBBlock()->getFirstNonPHI());
+
   for (auto *Item : MpClause.items()) {
     if (Item->getOrig())
       resetValueInIntelClauseGeneric(W, Item->getOrig());
     if (!Item->getIsMapChain())
       continue;
     MapChainTy const &MapChain = Item->getMapChain();
-    for (unsigned I = 0; I < MapChain.size(); ++I) {
+    for (int I = MapChain.size() - 1; I >= 0; --I) {
       MapAggrTy *Aggr = MapChain[I];
+      Value *BasePtr = Aggr->getBasePtr();
+      if (I != 0)
+        resetValueInIntelClauseGeneric(W, BasePtr);
       Value *SectionPtr = Aggr->getSectionPtr();
       resetValueInIntelClauseGeneric(W, SectionPtr);
+
+      if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
+          I != 0)
+        Builder.CreateStore(SectionPtr, BasePtr);
+
       Value *Size = Aggr->getSize();
       if (!dyn_cast<ConstantInt>(Size))
         resetValueInIntelClauseGeneric(W, Size);
@@ -320,7 +330,6 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
                                             bool AddrIsTargetParamFlag,
                                             bool IsFirstComponentFlag) {
   uint64_t Res = 0u;
-
   if (!AddrIsTargetParamFlag && IsFirstComponentFlag)
     return TGT_MAP_TARGET_PARAM;
 
@@ -357,7 +366,7 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
 
 // Return the map modifiers for the firstprivate.
 uint64_t VPOParoptTransform::getMapModifiersForFirstPrivate() {
-  return TGT_MAP_PRIVATE | TGT_MAP_TO;
+  return TGT_MAP_TO;
 }
 
 // Return the defaut map information.
@@ -377,10 +386,12 @@ void VPOParoptTransform::genTgtInformationForPtrs(
 
 
   MapClause const &MpClause = W->getMap();
+  bool Match = false;
   for (MapItem *MapI : MpClause.items()) {
     if (!isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W) &&
         (MapI->getOrig() != V || !MapI->getOrig()))
       continue;
+    Match = true;
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
       MapChainTy const &MapChain = MapI->getMapChain();
@@ -394,17 +405,46 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         } else
           ConstSizes.push_back(ConstValue);
         MapTypes.push_back(
-            getMapTypeFlag(MapI, !IsFirstExprFlag, false,
-                           I == 0 ? true : false));
+            getMapTypeFlag(MapI, !IsFirstExprFlag,
+                MapChain.size() > 1 ? false : true,
+                I == 0 ? true : false));
         IsFirstExprFlag = false;
+        if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
+            I == 0)
+          break;
       }
     } else {
       ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
                                             DL.getTypeAllocSize(T)));
       MapTypes.push_back(getMapTypeFlag(MapI, !IsFirstExprFlag, true, true));
     }
-
     IsFirstExprFlag = false;
+  }
+  if (deviceTriplesHasSPIRV() && Match == false &&
+      !isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W)) {
+    for (MapItem *MapI : MpClause.items()) {
+      if (MapI->getIsMapChain()) {
+        MapChainTy const &MapChain = MapI->getMapChain();
+        for (unsigned I = 1; I < MapChain.size(); ++I) {
+          MapAggrTy *Aggr = MapChain[I];
+          if (Aggr->getSectionPtr() != V)
+            continue;
+          auto ConstValue = dyn_cast<ConstantInt>(Aggr->getSize());
+          if (!ConstValue) {
+            hasRuntimeEvaluationCaptureSize = true;
+            Type *T = MapI->getOrig()->getType()->getPointerElementType();
+            ConstSizes.push_back(ConstantInt::get(
+              IntelGeneralUtils::getSizeTTy(F), DL.getTypeAllocSize(T)));
+          } else
+            ConstSizes.push_back(ConstValue);
+          MapTypes.push_back(
+            getMapTypeFlag(MapI, !IsFirstExprFlag,
+            true,
+            I == 0 ? true : false));
+          IsFirstExprFlag = false;
+        }
+      }
+    }
   }
 
   if (W->canHaveFirstprivate()) {
@@ -728,10 +768,34 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
         genOffloadArraysInitUtil(
             Builder, Aggr->getBasePtr(), Aggr->getSectionPtr(), Aggr->getSize(),
             Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
+        if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
+            I == 0)
+          break;
       }
     } else
       genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
                                Cnt, hasRuntimeEvaluationCaptureSize);
+  }
+
+  if (deviceTriplesHasSPIRV() && Match == false &&
+      !isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W)) {
+    for (MapItem *MapI : MpClause.items()) {
+      if (MapI->getIsMapChain()) {
+        MapChainTy const &MapChain = MapI->getMapChain();
+        for (unsigned I = 1; I < MapChain.size(); ++I) {
+          MapAggrTy *Aggr = MapChain[I];
+          if (Aggr->getSectionPtr() != BPVal)
+            continue;
+          genOffloadArraysInitUtil(
+            Builder, Aggr->getSectionPtr(), Aggr->getSectionPtr(), Aggr->getSize(),
+            Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
+          Match = true;
+          break;
+        }
+      }
+      if (Match)
+        break;
+    }
   }
 }
 

@@ -649,7 +649,12 @@ SPIRV::SPIRVInstruction *LLVMToSPIRV::transUnaryInst(UnaryInstruction *U,
     } else {
       assert(Cast->getDestTy()->getPointerAddressSpace() != SPIRAS_Constant &&
              "Casts from generic address space to constant are illegal");
+#if INTEL_COLLAB
+// This is a workaround to fix the compilation issue introduced by
+// AddrSpaceCast instruction. I will find better solution later.
+#else
       assert(Cast->getSrcTy()->getPointerAddressSpace() == SPIRAS_Generic);
+#endif // INTEL_COLLAB
       BOC = OpGenericCastToPtr;
     }
   } else {
