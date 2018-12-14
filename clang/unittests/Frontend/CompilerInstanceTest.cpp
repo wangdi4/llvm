@@ -78,6 +78,7 @@ TEST(CompilerInstance, DefaultVFSOverlayFromInvocation) {
 }
 
 #if INTEL_CUSTOMIZATION
+#if !WINDOWS_ONECORE
 static std::string LibPath(const std::string Name = "VfsTestLib") {
   const std::vector<testing::internal::string> &Argvs =
       testing::internal::GetArgvs();
@@ -110,6 +111,7 @@ TEST(CompilerInstance, VFSOverlayLibrary) {
   // CompilerInstance.
   ASSERT_TRUE(Instance.getFileManager().getFile("virtual.file"));
 }
+#endif // !WINDOWS_ONECORE
 #endif // INTEL_CUSTOMIZATION
 
 } // anonymous namespace
