@@ -1,3 +1,35 @@
+# INTEL_CUSTOMIZATION
+# INTEL_HEADERS is a list of Intel-added header files located
+# in llvm/tools/clang/lib/Headers/Intel_Headers.
+# We handle these files in a special way:
+#   - During the build, these files are copied to the headers destination
+#     directory in the build structure without creation of Intel_Headers
+#     directory in the build structure.
+#     For example, Intel_Headers/core/newcorefunc.h will be
+#     copied into <build-headers>/core/newcorefunc.h
+#   - They are installed for clang-headers component without
+#     creation of Intel_Headers directory.
+#   - They are installed for icx-headers component without
+#     creation of Intel_Headers directory.
+# Such a handling allows having Intel-added header files in the repository
+# with "Intel_" name in their path, as required by Xmain development process,
+# and having the same files with their natural naming for compiler packages
+# in the build and deploy structures
+#
+# For example, we add Intel_Headers/newisaintrin.h into the repository
+# and add "#include <newisaintrin.h>" in immintrin.h - this will work
+# due to the copying hapenning during build/install.
+#
+# If you have <pwd>/Intel_Headers/newheader.h, you must add it into
+# INTEL_HEADERS as Intel_Headers/newheader.h
+# If you have <pwd>/Intel_newheader.h, you may put it into the 'files'
+# list below, or into INTEL_HEADERS as Intel_newheader.h, but in this case
+# it will be copied without special handling for Intel_Headers directory.
+#
+# For more examples, please, read Intel_Headers/README.txt.
+set(INTEL_HEADERS)
+# end INTEL_CUSTOMIZATION
+
 set(files
   adxintrin.h
   altivec.h
@@ -153,6 +185,33 @@ foreach( f ${files} ${cuda_wrapper_files} )
     COMMENT "Copying clang's ${f}...")
   list(APPEND out_files ${dst})
 endforeach( f )
+
+if(INTEL_CUSTOMIZATION)
+  # Create build commands for Intel-added header files.
+  # The commands implement copying by throwing away "Intel_Headers/" prefix.
+  foreach( f ${INTEL_HEADERS} )
+    string(REGEX REPLACE "^Intel_Headers/" "" fname "${f}")
+    set( src ${CMAKE_CURRENT_SOURCE_DIR}/${f} )
+    set( dst ${output_dir}/${fname} )
+    add_custom_command(OUTPUT ${dst}
+      DEPENDS ${src}
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${src} ${dst}
+      COMMENT "Copying clang's ${f}...")
+    install(
+      FILES ${f}
+      RENAME ${fname}
+      COMPONENT clang-headers
+      PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+      DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
+    install(
+      FILES ${f}
+      RENAME ${fname}
+      COMPONENT icx-headers
+      PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+      DESTINATION compiler/include/icx)
+    list(APPEND out_files ${dst})
+  endforeach( f )
+endif(INTEL_CUSTOMIZATION)
 
 add_custom_command(OUTPUT ${output_dir}/arm_neon.h
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/arm_neon.h
