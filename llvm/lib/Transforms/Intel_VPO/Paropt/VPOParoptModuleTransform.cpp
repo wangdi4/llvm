@@ -40,6 +40,48 @@ static cl::opt<bool> UseOffloadMetadata(
   "vpo-paropt-use-offload-metadata", cl::Hidden, cl::init(true),
   cl::desc("Use offload metadata created by clang in paropt lowering."));
 
+// This table is used to change math function names (left column) to the
+// OCL builtin format (right column).
+std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
+    // float:
+    {"sinf",   "_Z3sinf"},
+    {"cosf",   "_Z3cosf"},
+    {"tanf",   "_Z3tanf"},
+    {"expf",   "_Z3expf"},
+    {"logf",   "_Z3logf"},
+    {"log2f",  "_Z4log2f"},
+    {"powf",   "_Z3powff"},
+    {"sqrtf",  "_Z4sqrtf"},
+    {"fabsf",  "_Z4fabsf"},
+    {"ceilf",  "_Z4ceilf"},
+    {"floorf", "_Z5floorf"},
+    // double:
+    {"sin",    "_Z3sind"},
+    {"cos",    "_Z3cosd"},
+    {"tan",    "_Z3tand"},
+    {"exp",    "_Z3expd"},
+    {"log",    "_Z3logd"},
+    {"log2",   "_Z4log2d"},
+    {"pow",    "_Z3powdd"},
+    {"sqrt",   "_Z4sqrtd"},
+    {"fabs",   "_Z4fabsd"},
+    {"ceil",   "_Z4ceild"},
+    {"floor",  "_Z5floord"}};
+
+// To support the SPIRV target compilation stage of the OpenMP compilation
+// offloading to GPUs, we must translate the name of math functions (left
+// column in OCLBuiltin) to their OCL builtin counterparts.
+static void replaceMathFnWithOCLBuiltin(Function &F) {
+  StringRef OldName = F.getName();
+  auto Map = OCLBuiltin.find(OldName);
+  if (Map != OCLBuiltin.end()) {
+    StringRef NewName = Map->second;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing " << OldName << " with "
+                      << NewName << '\n');
+    F.setName(NewName);
+  }
+}
+
 // Perform paropt transformations for the module. Each module's function is
 // transformed by a separate VPOParoptTransform instance which performs
 // paropt transformations on a function level. Then, after tranforming all
@@ -50,6 +92,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter) {
 
   bool Changed = false;
+  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
 
   processDeviceTriples();
   loadOffloadMetadata();
@@ -60,8 +103,11 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 
   for (auto F = M.begin(), E = M.end(); F != E; ++F) {
     // TODO: need Front-End to set F->hasOpenMPDirective()
-    if (F->isDeclaration()) // if(!F->hasOpenMPDirective()))
+    if (F->isDeclaration()) { // if(!F->hasOpenMPDirective()))
+      if (IsTargetSPIRV)
+        replaceMathFnWithOCLBuiltin(*F);
       continue;
+    }
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName()
                       << " {\n");
     FnList.push_back(&*F);
@@ -121,7 +167,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   if ((Mode & OmpPar) && (Mode & ParTrans))
     fixTidAndBidGlobals();
 
-  if (!VPOAnalysisUtils::isTargetSPIRV(&M))
+  if (!IsTargetSPIRV)
     // Generate offload initialization code.
     genOffloadingBinaryDescriptorRegistration();
 
@@ -130,7 +176,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 
   if (hasOffloadCompilation() && (Mode & ParTrans)) {
     removeTargetUndeclaredGlobals();
-    if (VPOAnalysisUtils::isTargetSPIRV(&M)) {
+    if (IsTargetSPIRV) {
       // Add the metadata to indicate that the module is OpenCL C++ version.
       // enum SourceLanguage {
       //    SourceLanguageUnknown = 0,

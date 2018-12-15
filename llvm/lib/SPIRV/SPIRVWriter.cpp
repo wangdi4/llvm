@@ -929,6 +929,12 @@ SPIRVValue *LLVMToSPIRV::transValueWithoutDecoration(Value *V,
   if (CallInst *CI = dyn_cast<CallInst>(V))
     return mapValue(V, transCallInst(CI, BB));
 
+#if INTEL_COLLAB
+  if (isa<InvokeInst>(V) || isa<LandingPadInst>(V)) {
+    // GPU compilation does not support EH
+    return nullptr;
+  }
+#endif // INTEL_COLLAB
   llvm_unreachable("Not implemented");
   return nullptr;
 }
