@@ -1969,7 +1969,7 @@ CSATargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // Analize return values.
   CCInfo.AnalyzeReturn(Outs, RetCC_Reg_CSA);
   SDValue Flag;
-  SmallVector<SDValue, 4> RetOps{Chain, DAG.getRegister(CSA::R59, MVT::i1)};
+  SmallVector<SDValue, 4> RetOps(1, Chain);
 
   // Copy the result values into the output registers.
   for (unsigned i = 0; i != RVLocs.size(); ++i) {
