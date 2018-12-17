@@ -39,7 +39,15 @@ struct RTLInfoTy {
                                       int32_t, int32_t, int32_t, uint64_t);
 #if INTEL_COLLAB
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
-                                      int32_t, int32_t, int32_t, void *);
+                                         int32_t, int32_t, int32_t, void *);
+  typedef int32_t(run_team_nd_region_nowait_ty)(int32_t, void *, void **,
+                                                ptrdiff_t *, int32_t, int32_t,
+                                                int32_t, void *, void *);
+  typedef int32_t(run_region_nowait_ty)(int32_t, void *, void **, ptrdiff_t *,
+                                        int32_t, void *);
+  typedef int32_t(run_team_region_nowait_ty)(int32_t, void *, void **,
+                                             ptrdiff_t *, int32_t, int32_t,
+                                             int32_t, uint64_t, void *);
 #endif // INTEL_COLLAB
 
   int32_t Idx;                     // RTL index, index is the number of devices
@@ -67,6 +75,9 @@ struct RTLInfoTy {
   run_team_region_ty *run_team_region;
 #if INTEL_COLLAB
   run_team_nd_region_ty *run_team_nd_region;
+  run_team_nd_region_nowait_ty *run_team_nd_region_nowait;
+  run_region_nowait_ty *run_region_nowait;
+  run_team_region_nowait_ty *run_team_region_nowait;
 #endif // INTEL_COLLAB
 
   // Are there images associated with this RTL.
@@ -86,7 +97,13 @@ struct RTLInfoTy {
 #endif
         is_valid_binary(0), number_of_devices(0), init_device(0),
         load_binary(0), data_alloc(0), data_submit(0), data_retrieve(0),
+#if INTEL_COLLAB
+        data_delete(0), run_region(0), run_team_region(0),
+        run_team_nd_region(0), run_team_nd_region_nowait(0),
+        run_region_nowait(0), run_team_region_nowait(0), isUsed(false),
+#else
         data_delete(0), run_region(0), run_team_region(0), isUsed(false),
+#endif // INTEL_COLLAB
         Mtx() {}
 
   RTLInfoTy(const RTLInfoTy &r) : Mtx() {
@@ -106,6 +123,12 @@ struct RTLInfoTy {
     data_delete = r.data_delete;
     run_region = r.run_region;
     run_team_region = r.run_team_region;
+#if INTEL_COLLAB
+    run_team_nd_region = r.run_team_nd_region;
+    run_team_nd_region_nowait = r.run_team_nd_region_nowait;
+    run_region_nowait = r.run_region_nowait;
+    run_team_region_nowait = r.run_team_region_nowait;
+#endif // INTEL_COLLAB
     isUsed = r.isUsed;
   }
 };

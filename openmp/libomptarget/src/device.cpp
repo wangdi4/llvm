@@ -334,10 +334,48 @@ int32_t DeviceTy::run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
 }
 #if INTEL_COLLAB
 int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
-    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
-    int32_t ThreadLimit, void *TgtNDLoopDesc) {
-  return RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-      TgtVarsSize, NumTeams, ThreadLimit, TgtNDLoopDesc);
+                                     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                     int32_t NumTeams, int32_t ThreadLimit,
+                                     void *TgtNDLoopDesc) {
+  if (!RTL->run_team_nd_region)
+    return OFFLOAD_FAIL;
+  return RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
+                                 TgtNDLoopDesc);
+}
+
+int32_t
+DeviceTy::run_team_nd_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                                    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                    int32_t NumTeams, int32_t ThreadLimit,
+                                    void *TgtNDLoopDesc, void *AsyncData) {
+  if (!RTL->run_team_nd_region_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->run_team_nd_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                        TgtOffsets, TgtVarsSize, NumTeams,
+                                        ThreadLimit, TgtNDLoopDesc, AsyncData);
+}
+
+int32_t DeviceTy::run_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                                    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                    void *AsyncData) {
+  if (!RTL->run_region_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->run_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                TgtOffsets, TgtVarsSize, AsyncData);
+}
+
+int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                                         ptrdiff_t *TgtOffsets,
+                                         int32_t TgtVarsSize, int32_t NumTeams,
+                                         int32_t ThreadLimit,
+                                         uint64_t LoopTripCount,
+                                         void *AsyncData) {
+  if (!RTL->run_team_region_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->run_team_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                     TgtOffsets, TgtVarsSize, NumTeams,
+                                     ThreadLimit, LoopTripCount, AsyncData);
 }
 #endif // INTEL_COLLAB
 /// Check whether a device has an associated RTL and initialize it if it's not
