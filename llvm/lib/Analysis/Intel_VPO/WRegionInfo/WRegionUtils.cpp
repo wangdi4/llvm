@@ -291,7 +291,7 @@ WRegionNode *WRegionUtils::createWRegionHIR(int DirID,
     W->setLevel(NestingLevel);
     W->setDirID(DirID);
     if (IsRegionIntrinsic) {
-      W->getClausesFromOperandBundles(Call);
+      W->getClausesFromOperandBundles(Call, cast<HLInst>(EntryHLNode));
     }
   }
   return W;
@@ -346,6 +346,22 @@ WRContainerImpl *WRegionUtils::buildWRGraphFromHIR(HIRFramework &HIRF)
 
   HIRF.getHLNodeUtils().visitAll(Visitor);
   return Visitor.getWRGraph();
+}
+
+bool WRegionUtils::supportsRegDDRefs(int ClauseID) {
+
+  if (VPOAnalysisUtils::isReductionClause(ClauseID))
+    return true;
+
+  switch (ClauseID) {
+  case QUAL_OMP_FIRSTPRIVATE:
+  case QUAL_OMP_LASTPRIVATE:
+  case QUAL_OMP_LINEAR:
+  case QUAL_OMP_PRIVATE:
+    return true;
+  default:
+    return false;
+  }
 }
 #endif // INTEL_CUSTOMIZATION
 

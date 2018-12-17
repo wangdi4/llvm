@@ -205,6 +205,10 @@ public:
 
   /// \brief Driver routine to build WRGraph based on HIR representation
   static WRContainerImpl *buildWRGraphFromHIR(loopopt::HIRFramework &HIRF);
+
+  /// Does the WRegion infrastructure support having RegDDRefs as operands
+  /// for the clause with ID \p ClauseID.
+  static bool supportsRegDDRefs(int ClauseID);
 #endif // INTEL_CUSTOMIZATION
 
   /// New OpenMP directives under development can be added to this routine
@@ -231,54 +235,8 @@ public:
   /// Return nullptr if W has no parent of the specified kind.
   static WRegionNode *getParentRegion(WRegionNode *W, unsigned WRegionKind);
 
-  ///\name Clause related Utilities
-  /// @{
-
-  /// \brief get the Clause Id for the WRNAtomicKind \p kind.
+  /// Get the Clause Id for the WRNAtomicKind \p kind.
   static int getClauseIdFromAtomicKind(WRNAtomicKind Kind);
-
-  /// \brief Extract the operands for a list-type clause.
-  /// This is called by WRegionNode::handleQualOpndList()
-  template <typename ClauseTy>
-  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
-                                  int ClauseID, ClauseTy &C);
-  // The following interface uses ClausInfo instead of ClauseID to support
-  // the "ByRef" attribute.
-  template <typename ClauseTy>
-  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
-                                  const ClauseSpecifier &ClauseInfo,
-                                  ClauseTy &C);
-  template <typename ClauseItemTy>
-  static void extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
-                                        const ClauseSpecifier &ClauseInfo,
-                                        Clause<ClauseItemTy> &C);
-
-  /// \brief Extract operands from a map clause
-  static void extractMapOpndList(const Use *Args, unsigned NumArgs,
-                                 const ClauseSpecifier &ClauseInfo,
-                                 MapClause &C, unsigned MapKind);
-
-  /// \brief Extract operands from a depend clause
-  static void extractDependOpndList(const Use *Args, unsigned NumArgs,
-                                    const ClauseSpecifier &ClauseInfo,
-                                    DependClause &C, bool IsIn);
-
-  /// \brief Extract operands from a linear clause
-  static void extractLinearOpndList(const Use *Args, unsigned NumArgs,
-                                    const ClauseSpecifier &ClauseInfo,
-                                    LinearClause &C);
-
-  /// \brief Extract operands from a reduction clause
-  static void extractReductionOpndList(const Use *Args, unsigned NumArgs,
-                                      const ClauseSpecifier &ClauseInfo,
-                                      ReductionClause &C, int ReductionKind,
-                                      bool IsInreduction);
-  /// \brief Extract operands from a schedule clause
-  static void extractScheduleOpndList(ScheduleClause & Sched,
-                                      const Use *Args,
-                                      const ClauseSpecifier &ClauseInfo,
-                                      WRNScheduleKind Kind);
-  /// @}
 
   /// \brief Get the induction variable of the OMP loop.
   static PHINode *getOmpCanonicalInductionVariable(Loop *L);

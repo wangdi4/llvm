@@ -32,9 +32,6 @@
 #include "llvm/IR/BasicBlock.h"
 
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
-#endif //INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionClause.h"
 
@@ -42,6 +39,14 @@
 #include <unordered_map>
 
 namespace llvm {
+#if INTEL_CUSTOMIZATION
+
+namespace loopopt {
+class HLNode;
+class HLInst;
+class HLLoop;
+}
+#endif //INTEL_CUSTOMIZATION
 
 namespace vpo {
 
@@ -120,6 +125,10 @@ private:
 
   /// \brief Sets the flag to indicate if WRN came from HIR
   void setIsFromHIR(bool flag) { IsFromHIR = flag; }
+
+  /// Used only while parsing clauses. Contains the list of RegDDRefs for the
+  /// operand bundle being currently parsed.
+  SmallVector<loopopt::RegDDRef*, 4> CurrentBundleDDRefs;
 #endif // INTEL_CUSTOMIZATION
 
   /// \brief Destroys all objects of this class. Should only be
@@ -184,7 +193,12 @@ protected:
   /// \brief Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
   void getClausesFromOperandBundles();
+#if INTEL_CUSTOMIZATION
+  void getClausesFromOperandBundles(IntrinsicInst *Call,
+                                    loopopt::HLInst *H = nullptr);
+#else
   void getClausesFromOperandBundles(IntrinsicInst *Call);
+#endif // INTEL_CUSTOMIZATION
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
@@ -651,6 +665,78 @@ public:
     WRNIsTask       = 0x00000020,
     WRNIsTeams      = 0x00000040
   };
+
+private:
+  /// \name Clause qualifier parsing related Utilities
+  /// @{
+
+  /// Extract the operands for a list-type clause.
+  /// This is called by WRegionNode::handleQualOpndList()
+  template <typename ClauseTy>
+#if INTEL_CUSTOMIZATION
+  // Functions like this are not static with INTEL_CUSTOMIZATION as they
+  // need to access the CurrentBundleDDRefs SmallVector while parsing clauses.
+         void extractQualOpndList(const Use *Args, unsigned NumArgs,
+#else
+  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
+#endif // INTEL_CUSTOMIZATION
+                                  int ClauseID, ClauseTy &C);
+
+  // The following interface uses ClauseInfo instead of ClauseID to support
+  // the "ByRef" attribute.
+  template <typename ClauseTy>
+#if INTEL_CUSTOMIZATION
+         void extractQualOpndList(const Use *Args, unsigned NumArgs,
+#else
+  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
+#endif // INTEL_CUSTOMIZATION
+                                  const ClauseSpecifier &ClauseInfo,
+                                  ClauseTy &C);
+
+  template <typename ClauseItemTy>
+#if INTEL_CUSTOMIZATION
+         void extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
+#else
+  static void extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
+#endif // INTEL_CUSTOMIZATION
+                                        const ClauseSpecifier &ClauseInfo,
+                                        Clause<ClauseItemTy> &C);
+
+  /// Extract operands from a map clause
+  static void extractMapOpndList(const Use *Args, unsigned NumArgs,
+                                 const ClauseSpecifier &ClauseInfo,
+                                 MapClause &C, unsigned MapKind);
+
+  /// Extract operands from a depend clause
+  static void extractDependOpndList(const Use *Args, unsigned NumArgs,
+                                    const ClauseSpecifier &ClauseInfo,
+                                    DependClause &C, bool IsIn);
+
+  /// Extract operands from a linear clause
+#if INTEL_CUSTOMIZATION
+         void extractLinearOpndList(const Use *Args, unsigned NumArgs,
+#else
+  static void extractLinearOpndList(const Use *Args, unsigned NumArgs,
+#endif // INTEL_CUSTOMIZATION
+                                    const ClauseSpecifier &ClauseInfo,
+                                    LinearClause &C);
+
+  /// Extract operands from a reduction clause
+#if INTEL_CUSTOMIZATION
+         void extractReductionOpndList(const Use *Args, unsigned NumArgs,
+#else
+  static void extractReductionOpndList(const Use *Args, unsigned NumArgs,
+#endif // INTEL_CUSTOMIZATION
+                                       const ClauseSpecifier &ClauseInfo,
+                                       ReductionClause &C, int ReductionKind,
+                                       bool IsInreduction);
+
+  /// \brief Extract operands from a schedule clause
+  static void extractScheduleOpndList(ScheduleClause &Sched, const Use *Args,
+                                      const ClauseSpecifier &ClauseInfo,
+                                      WRNScheduleKind Kind);
+  /// @}
+
 }; // class WRegionNode
 
 // Printing routines to help dump WRN content
