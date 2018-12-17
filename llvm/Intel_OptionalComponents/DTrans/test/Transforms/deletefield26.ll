@@ -1,5 +1,5 @@
-; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; This test verifies that the dtrans delete field pass correctly transforms
 ; structures with global arrays of instances with non-default initializers.
@@ -45,7 +45,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; FUTURE-CHECK-SAME: %__DFT_struct.test { i32 300, i32 30000 },
 ; FUTURE-CHECK-SAME: %__DFT_struct.test { i32 400, i32 40000 }]
 
-; FUTURE-CHECK-LABEL: define void @f() {
+; FUTURE-CHECK-LABEL: define internal void @f() {
 ; FUTURE-CHECK: %p = getelementptr [4 x %__DFT_struct.test],
 ; FUTURE-CHECK-SAME:           [4 x %__DFT_struct.test]* @g_test, i64 0, i32 2
 ; FUTURE-CHECK: %pA = getelementptr %__DFT_struct.test, %__DFT_struct.test* %p,
