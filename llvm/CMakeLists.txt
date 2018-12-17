@@ -659,6 +659,14 @@ SET(INTEL_CUSTOMIZATION ON)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=1")
+# INTEL_CUSTOMIZATION
+# LLVM_INTELFEATURE_PREFIX is a temporary workaround for specifying
+# Intel features names as arguments to is_intel_feature_enabled()
+# and intel_add_file(), and keeping the feature filtering tool
+# from detecting this as illegal usage.  Just prepend the feature
+# name with ${LLVM_INTELFEATURE_PREFIX}_, when needed.
+SET(LLVM_INTELFEATURE_PREFIX "INTEL_FEATURE")
+# end INTEL_CUSTOMIZATION
 
 if(INTEL_CUSTOMIZATION)
   # Set flags for TableGen invocations.  LLVM_INTEL_TABLEGEN_FLAGS
@@ -756,8 +764,25 @@ if(INTEL_CUSTOMIZATION)
     )
 
   # Force adding features enabled by default to CMake cache.
+  # features_enabled_by_default list now contains all features
+  # from the original LLVM_INTEL_FEATURES and also the features
+  # added explicitly above.
   if (features_enabled_by_default)
     list(REMOVE_DUPLICATES features_enabled_by_default)
+
+    if (";${features_enabled_by_default};" MATCHES
+        ";${LLVM_INTELFEATURE_PREFIX}_XISA;")
+      # Expand XISA into a list of new non-public ISA features, and also
+      # delete XISA from the list.  Note that XISA is a "macro" feature
+      # and it must never be used to guard any code.
+      list(REMOVE_ITEM features_enabled_by_default
+           "${LLVM_INTELFEATURE_PREFIX}_XISA")
+# INTEL_FEATURE_ISA_BF16
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16)
+# end INTEL_FEATURE_ISA_BF16
+    endif()
+
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
         CACHE STRING
         "Semicolon-separated list of Intel features to enable."
