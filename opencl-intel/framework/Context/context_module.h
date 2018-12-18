@@ -20,15 +20,6 @@
 #include "Context.h"
 #include "GenericMemObj.h"
 #include <Logger.h>
-#if defined (DX_MEDIA_SHARING)
-#include <d3d9.h>
-#include <basetsd.h>
-#include "CL\cl_dx9_media_sharing.h"
-#include "CL/cl_ext.h"
-#if defined (DX_MEDIA_SHARING)
-#include "d3d9_definitions.h"
-#endif
-#endif
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -41,7 +32,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class Kernel;
     class IOclCommandQueueBase;
     class OclCommandQueue;
-    template<typename T> struct D3DResourceInfo;
 
     /**********************************************************************************************
     * Class name:    ContextModule
@@ -194,24 +184,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_int ReleaseSampler(cl_sampler clSampler);
         virtual cl_int GetSamplerInfo(cl_sampler clSampler, cl_sampler_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
 
-        ///////////////////////////////////////////////////////////////////////////////////////////
-        // IContextGL methods
-        ///////////////////////////////////////////////////////////////////////////////////////////
-        virtual cl_mem CreateFromGLBuffer(cl_context clContext, cl_mem_flags clMemFlags, GLuint glBufObj, int * pErrcodeRet);
-        virtual cl_mem CreateFromGLTexture(cl_context clContext, cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_int * pErrcodeRet);
-        virtual cl_mem CreateFromGLRenderbuffer(cl_context clContext, cl_mem_flags clMemFlags, GLuint glRenderBuffer, cl_int * pErrcodeRet);
-        virtual cl_int GetGLObjectInfo(cl_mem clMemObj, cl_gl_object_type * pglObjectType, GLuint * pglObjectName);
-        virtual cl_int GetGLTextureInfo(cl_mem clMemObj, cl_gl_texture_info clglPramName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
-
-        // Direct3D 9 Sharing methods
-#if defined (DX_MEDIA_SHARING)
-        virtual cl_mem CreateFromD3D9Surface(cl_context context, cl_mem_flags flags,
-            cl_dx9_media_adapter_type_khr adapterType, cl_dx9_surface_info_khr* pSurfaceInfo, UINT plane, cl_int *errcode_ret, const ID3DSharingDefinitions& d3d9Definitions);
-        virtual cl_mem CreateFromD3D11Buffer(cl_context context, cl_mem_flags flags, ID3D11Buffer* pResource, cl_int* pErrcodeRet);
-        virtual cl_mem CreateFromD3D11Texture2D(cl_context context, cl_mem_flags flags, ID3D11Texture2D* pResource, UINT uiSubresource, cl_int* pErrcodeRet);
-        virtual cl_mem CreateFromD3D11Texture3D(cl_context context, cl_mem_flags flags, ID3D11Texture3D* pResource, UINT uiSubresource, cl_int* pErrcodeRet);
-#endif
-
         /////////////////////////////////////////////////////////////////////
         // OpenCL 1.2 functions
         /////////////////////////////////////////////////////////////////////
@@ -274,7 +246,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void UnRegisterMappedMemoryObject( MemoryObject* pMemObj );
 
     private:
-        
+
         ContextModule(const ContextModule&);
         ContextModule& operator=(const ContextModule&);
 
@@ -327,12 +299,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         bool Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemObject>& pBuffer, const cl_image_desc& desc, const cl_image_format& format) const;
 
-#if defined (DX_MEDIA_SHARING)
-        template<typename RESOURCE_TYPE, typename DEV_TYPE>
-        cl_mem CreateFromD3DResource(cl_context clContext, cl_mem_flags flags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, cl_int *pErrcodeRet,
-            cl_mem_object_type clObjType, cl_uint uiDimCnt, UINT plane = MAXUINT);
-#endif
-
         PlatformModule *                        m_pPlatformModule; // handle to the platform module
 
         OCLObjectsMap<_cl_context_int>          m_mapContexts;     // map list of contexts
@@ -348,21 +314,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ocl_entry_points *                      m_pOclEntryPoints;
 
         ocl_gpa_data *                          m_pGPAData;
-        bool                                    m_bIsTerminating;        
+        bool                                    m_bIsTerminating;
 
         DECLARE_LOGGER_CLIENT;
     };
 
     template<size_t DIM, cl_mem_object_type OBJ_TYPE>
-    cl_mem ContextModule::CreateScalarImage(cl_context clContext, 
-        cl_mem_flags clFlags, 
-        const cl_image_format * clImageFormat, 
-        size_t szImageWidth, 
-        size_t szImageHeight, 
-        size_t szImageDepth, 
-        size_t szImageRowPitch, 
-        size_t szImageSlicePitch, 
-        void * pHostPtr, 
+    cl_mem ContextModule::CreateScalarImage(cl_context clContext,
+        cl_mem_flags clFlags,
+        const cl_image_format * clImageFormat,
+        size_t szImageWidth,
+        size_t szImageHeight,
+        size_t szImageDepth,
+        size_t szImageRowPitch,
+        size_t szImageSlicePitch,
+        void * pHostPtr,
         cl_int * pErrcodeRet,
         bool bIsImageBuffer)
     {
@@ -435,122 +401,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         return pImage->GetHandle();
     }
 
-#if defined (DX_MEDIA_SHARING)
-
-template<typename RESOURCE_TYPE, typename DEV_TYPE>
-cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags clMemFlags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, cl_int *pErrcodeRet,
-                                             cl_mem_object_type clObjType, cl_uint uiDimCnt, UINT plane)
-{
-    SharedPtr<Context> pContext = NULL;
-    SharedPtr<MemoryObject> pMemObj = NULL;
-
-    pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
-    
-    if (NULL == pContext)
-    {
-        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = %d"), clContext, pContext);
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_CONTEXT;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, 0, 0, 0, 0, 0, 0, 0, NULL, pContext);
-    if (CL_FAILED(clErr))
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    
-    SharedPtr<D3DContext<RESOURCE_TYPE, DEV_TYPE>> pD3DContext = pContext.DynamicCast<D3DContext<RESOURCE_TYPE, DEV_TYPE>>();
-    if (NULL == pD3DContext)
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_CONTEXT;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    if (NULL == pResourceInfo->m_pResource)
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = pD3DContext->GetD3dDefinitions().GetInvalidResource();
-        }
-        return CL_INVALID_HANDLE;
-    }
-    /* check if context was created against the same Direct3D 9 device from which resource was
-        created */
-    DEV_TYPE* const pResourceDevice = pD3DContext->GetDevice(pResourceInfo->m_pResource);
-    if (NULL == pResourceDevice)
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    pResourceDevice->Release(); // we don't need the device, just its address
-    // Matt is aware that there is a hole in the spec regarding checking this device type
-    const ID3DSharingDefinitions& d3dSharingDefs = pD3DContext->GetD3dDefinitions();
-    const ID3D9Definitions* const d3d9Defs = dynamic_cast<const ID3D9Definitions*>(&d3dSharingDefs);
-    if (NULL != d3d9Defs && d3d9Defs->GetContextAdapterDxva() != pD3DContext->m_iDeviceType &&
-        pResourceDevice != pD3DContext->GetD3DDevice())
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = pD3DContext->GetD3dDefinitions().GetInvalidResource();
-        }
-        return CL_INVALID_HANDLE;
-    }
-    // check if just one of the allowed flags is set
-    if ((clMemFlags & CL_MEM_READ_ONLY) && (clMemFlags & ~CL_MEM_READ_ONLY) ||
-        (clMemFlags & CL_MEM_WRITE_ONLY) && (clMemFlags & ~CL_MEM_WRITE_ONLY) ||
-        (clMemFlags & CL_MEM_READ_WRITE) && (clMemFlags & ~CL_MEM_READ_WRITE) ||
-        (clMemFlags & ~(CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE)))
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    clErr = pD3DContext->CreateD3DResource(clMemFlags, pResourceInfo, &pMemObj, clObjType, uiDimCnt, plane);
-    if (CL_FAILED(clErr))
-    {
-        LOG_ERROR(TEXT("pD3DContext->CreateD3DResource(%d, %d, %d, %d) = %s"), clMemFlags, pResourceInfo, &pMemObj, ClErrTxt(clErr));
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_ERR_OUT(clErr);
-        }
-        return CL_INVALID_HANDLE;
-    }
-    clErr = m_mapMemObjects.AddObject(pMemObj, false);
-    if (CL_FAILED(clErr))
-    {
-        LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr));
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_ERR_OUT(clErr);
-        }
-        return CL_INVALID_HANDLE;
-    }
-    if (NULL != pErrcodeRet)
-    {
-        *pErrcodeRet = CL_SUCCESS;
-    }
-    return pMemObj->GetHandle();
-}
-
-#endif
-
 template<size_t DIM, cl_mem_object_type OBJ_TYPE>
 cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags, const cl_image_format* clImageFormat, const cl_image_desc& desc, cl_mem buffer, cl_int* pErrcodeRet)
 {
-    cl_err_code clErr = CL_SUCCESS;    
+    cl_err_code clErr = CL_SUCCESS;
 
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
 

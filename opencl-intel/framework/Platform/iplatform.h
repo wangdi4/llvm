@@ -175,40 +175,5 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/
 		virtual cl_int UnloadCompiler( void ) = 0;
 
-
-		/******************************************************************************************
-		* Function: 	GetGLContextInfo    
-		* Description:	OpenCL API extension function - gets specific information about an OpenCL
-		*				devices supporting GL sharing.
-		* Arguments:	clDevice [in]				points to an attribute list whose format and valid contents
-		*											are identical to the properties argument of clCreateContext.
-		*				clParamName [in]			is an enum that identifies the GL context 
-		*											information being queried
-		*				pParamValue [out]			is a pointer to memory location where 
-		*											appropriate values for a given param_name will 
-		*											be returned. If param_value is NULL, it is 
-		*											ignored
-		*				szParamValueSize [in]		specifies the size in bytes of memory pointed 
-		*											to by param_value. This size in bytes must 
-		*											be >= size of return type
-		*				pszParamValueSizeRet [out]	returns the actual size in bytes of data being 
-		*											queried by param_value. If param_value_size_ret 
-		*											is NULL, it is ignored
-		* Return value:	CL_SUCCESS				the function is executed successfully
-		*				CL_INVALID_DEVICE		device is not valid
-		*				CL_INVALID_VALUE		param_name is not one of the supported values or if
-		*										size in bytes specified by param_value_size is < 
-		*										size of return type and param_value is not a NULL 
-		*										value
-		* Author:		Uri Levy
-		* Date:			December 2008
-		******************************************************************************************/
-		virtual cl_int GetGLContextInfo(const cl_context_properties * properties,
-			cl_gl_context_info            param_name,
-			size_t                        param_value_size,
-			void *                        param_value,
-			size_t *                      param_value_size_ret) = 0;
-
-	};
-
+    };
 }}}
