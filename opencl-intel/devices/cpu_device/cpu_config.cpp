@@ -87,16 +87,6 @@ bool CPUDeviceConfig::IsSpirSupported() const
     return true;
 }
 
-bool CPUDeviceConfig::IsGLDirectXSupported() const
-{
-    // enabled only in Windows, also may be changed via configuration
-#if WIN32
-    return m_pConfigFile->Read<bool>(CL_CONFIG_GL_DIRECTX_INTEROP, true);
-#else
-    return false;
-#endif
-}
-
 bool CPUDeviceConfig::IsDoubleSupported() const
 {
 #if WIN32
@@ -171,15 +161,6 @@ const char* CPUDeviceConfig::GetExtensions() const
         if (IsSpirSupported())
         {
             m_extensions += OCL_EXT_KHR_SPIR " ";
-        }
-
-        // media sharing extensions
-        if (IsGLDirectXSupported())
-        {
-            m_extensions += OCL_EXT_KHR_DX9_MEDIA_SHARING " ";
-            m_extensions += OCL_EXT_INTEL_DX9_MEDIA_SHARING " ";
-            m_extensions += OCL_EXT_KHR_D3D11_SHARING " ";
-            m_extensions += OCL_EXT_KHR_GL_SHARING " ";
         }
 
         // double floating point extension

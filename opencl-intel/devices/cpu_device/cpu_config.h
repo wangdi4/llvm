@@ -55,7 +55,6 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         int             GetRTLoopUnrollFactor() const { return m_pConfigFile->Read<int>(CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR, 1); }
         bool            IsSpirSupported() const;
 
-        bool            IsGLDirectXSupported() const;
         bool            IsDoubleSupported() const;
         const char*     GetExtensions() const;
 

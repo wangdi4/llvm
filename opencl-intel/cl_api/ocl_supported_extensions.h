@@ -26,11 +26,6 @@
 
 #define OCL_EXT_KHR_FP64                        "cl_khr_fp64"
 
-#define OCL_EXT_KHR_DX9_MEDIA_SHARING           "cl_khr_dx9_media_sharing"
-#define OCL_EXT_INTEL_DX9_MEDIA_SHARING         "cl_intel_dx9_media_sharing"
-#define OCL_EXT_KHR_D3D11_SHARING               "cl_khr_d3d11_sharing"
-#define OCL_EXT_KHR_GL_SHARING                  "cl_khr_gl_sharing"
-
 #define OCL_EXT_KHR_DEPTH_IMAGES                "cl_khr_depth_images"
 #define OCL_EXT_KHR_3D_IMAGE_WRITES             "cl_khr_3d_image_writes"
 #define OCL_EXT_INTEL_EXEC_BY_LOCAL_THREAD      "cl_intel_exec_by_local_thread"
