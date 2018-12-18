@@ -1,0 +1,94 @@
+; RUN: opt < %s -vpo-paropt-prepare -early-cse -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-paropt-prepare,early-cse)' -S | FileCheck %s
+
+; Below is the original C source.
+;
+; Problem: %arrayidx and %arrayidx1 are GEP for local[0] outside and inside of
+;          the TARGET region, respectively. Because they are the same expr,
+;          early-cse optimizes away %arrayidx1, replacing it with %arrayidx.
+;          This makes %arrayidx an unexpected live-in to the TARGET region.
+;
+; Solution: VPO Prepare uses the @llvm.launder.invariant.group* intrinsic
+;          to temporarily rename the GEP's opnd, making the two GEPs unequal,
+;          and thus preventing the optimization. The intrinsic is later removed
+;          in VPO Transform, restoring to the original form.
+;
+; int main() {
+;   int local[1];
+;   local[0] = 123;
+;   #pragma omp target  map(tofrom: local)
+;   {
+;      local[0] = 800;
+;   }
+; }
+
+source_filename = "target_map_gep_fence.cpp"
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+target device_triples = "spir64"
+
+; Function Attrs: norecurse nounwind uwtable
+define dso_local i32 @main() #0 {
+entry:
+  %local = alloca [1 x i32], align 4
+  %0 = bitcast [1 x i32]* %local to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #2
+  %arrayidx = getelementptr inbounds [1 x i32], [1 x i32]* %local, i64 0, i64 0, !intel-tbaa !3
+  store i32 123, i32* %arrayidx, align 4, !tbaa !3
+  br label %DIR.OMP.TARGET.1
+
+DIR.OMP.TARGET.1:                                 ; preds = %entry
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"([1 x i32]* %local) ]
+  br label %DIR.OMP.TARGET.2
+
+; Verify that the intrinsic for renaming is emitted
+; CHECK: %{{.*}} = call i8* @llvm.launder.invariant.group.
+
+DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
+
+; Verify that %arrayidx1 is still being defined and used.
+; CHECK: %arrayidx1 = getelementptr inbounds
+; CHECK-NEXT: store i32 800, i32* %arrayidx1
+
+  %arrayidx1 = getelementptr inbounds [1 x i32], [1 x i32]* %local, i64 0, i64 0, !intel-tbaa !3
+  store i32 800, i32* %arrayidx1, align 4, !tbaa !3
+  br label %DIR.OMP.END.TARGET.3
+
+DIR.OMP.END.TARGET.3:                             ; preds = %DIR.OMP.TARGET.2
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
+  br label %DIR.OMP.END.TARGET.4
+
+DIR.OMP.END.TARGET.4:                             ; preds = %DIR.OMP.END.TARGET.3
+  %2 = bitcast [1 x i32]* %local to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %2) #2
+  ret i32 0
+}
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #2
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #2
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+
+attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { argmemonly nounwind }
+attributes #2 = { nounwind }
+
+!omp_offload.info = !{!0}
+!llvm.module.flags = !{!1}
+!llvm.ident = !{!2}
+
+!0 = !{i32 0, i32 64770, i32 1081364312, !"main", i32 6, i32 0, i32 0}
+!1 = !{i32 1, !"wchar_size", i32 4}
+!2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 94cf1187207b474fb38049b467acb1d22cb75b39) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm a2481e423de5a371ce5d12cf6c4d1ec818c6ea5e)"}
+!3 = !{!4, !5, i64 0}
+!4 = !{!"array@_ZTSA1_i", !5, i64 0}
+!5 = !{!"int", !6, i64 0}
+!6 = !{!"omnipotent char", !7, i64 0}
+!7 = !{!"Simple C++ TBAA"}

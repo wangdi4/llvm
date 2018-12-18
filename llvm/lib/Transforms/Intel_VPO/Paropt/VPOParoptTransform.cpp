@@ -3201,6 +3201,21 @@ void VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
     for (LastprivateItem *LprivI : LprivClause.items())
       genFenceIntrinsic(W, LprivI->getOrig());
   }
+
+  if (W->canHaveMap()) {
+    MapClause const &MpClause = W->getMap();
+    for (MapItem *MapI : MpClause.items()) {
+      genFenceIntrinsic(W, MapI->getOrig());
+      if (!MapI->getIsMapChain())
+        continue;
+      MapChainTy const &MapChain = MapI->getMapChain();
+      for (unsigned I = 0; I < MapChain.size(); ++I) {
+        MapAggrTy *Aggr = MapChain[I];
+        genFenceIntrinsic(W, Aggr->getBasePtr());
+        genFenceIntrinsic(W, Aggr->getSectionPtr());
+      }
+    }
+  }
 }
 
 bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
