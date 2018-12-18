@@ -581,7 +581,7 @@ bool MapIntrinToIml::isLessThanFullVector(Type *ValType, Type *LegalType) {
 
 void MapIntrinToIml::generateNewArgsFromPartialVectors(
     CallInst *CI, FunctionType *FT, unsigned TargetVL,
-    SmallVectorImpl<Value *> &NewArgs, Instruction **InsertPt) {
+    SmallVectorImpl<Value *> &NewArgs, Instruction *InsertPt) {
 
   // This function builds a new argument list for the svml function call by
   // finding any arguments that are less than full vector and duplicating the
@@ -628,8 +628,7 @@ void MapIntrinToIml::generateNewArgsFromPartialVectors(
       Value *Mask = ConstantVector::get(Splat);
       ShuffleVectorInst *ShuffleInst = new ShuffleVectorInst(
           CI->getArgOperand(I), Undef, Mask, "shuffle.dup");
-      ShuffleInst->insertBefore(*InsertPt);
-      *InsertPt = ShuffleInst;
+      ShuffleInst->insertBefore(InsertPt);
       NewArg = ShuffleInst;
     }
 
@@ -1055,11 +1054,11 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
         // store <2 x float> %part, <2 x float>* %3, align 4
         SmallVector<Value *, 8> NewArgs;
         generateNewArgsFromPartialVectors(CI, FT, TargetVL, NewArgs,
-                                          &InsertPt);
+                                          InsertPt);
 
         CallInst *NewCI = CallInst::Create(FCache, NewArgs, "vcall");
         Instruction *CallResult = NewCI;
-        NewCI->insertAfter(InsertPt);
+        NewCI->insertBefore(InsertPt);
 
         if (!isSinCosCall(FuncName)) {
           bool LessThanFullVector = isLessThanFullVector(
@@ -1075,7 +1074,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
             // return type will indicate the size of the vector extracted from.
             // Start extracting from position 0.
             CallResult = extractElemsFromVector(NewCI, 0, LogicalVL);
-            CallResult->insertAfter(NewCI);
+            CallResult->insertBefore(InsertPt);
           }
 
           CI->replaceAllUsesWith(CallResult);

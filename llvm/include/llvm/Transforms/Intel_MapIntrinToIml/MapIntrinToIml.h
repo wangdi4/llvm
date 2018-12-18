@@ -116,7 +116,7 @@ private:
   void generateNewArgsFromPartialVectors(CallInst *CI, FunctionType *FT,
                                          unsigned TargetVL,
                                          SmallVectorImpl<Value *> &NewArgs,
-                                         Instruction **InsertPt);
+                                         Instruction *InsertPt);
 
   /// \brief Extracts \p NumElems from vector register \p Vector and returns an 
   /// extract instruction.
