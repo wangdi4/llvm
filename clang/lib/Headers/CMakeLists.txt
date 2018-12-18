@@ -28,6 +28,13 @@
 #
 # For more examples, please, read Intel_Headers/README.txt.
 set(INTEL_HEADERS)
+# INTEL_FEATURE_ISA_BF16
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16
+  intel_avx512bf16intrin.h
+  intel_avx512vlbf16intrin.h
+  )
+# end INTEL_FEATURE_ISA_BF16
 # end INTEL_CUSTOMIZATION
 
 set(files
