@@ -50,11 +50,8 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
                                                  const unsigned VF) const {
   unsigned Opcode = Inst->getOpcode();
 
-  const HLNode *Node = Inst->HIR.isMaster()
-                           ? Inst->HIR.getUnderlyingNode()
-                           : Inst->HIR.getMaster()->HIR.getUnderlyingNode();
-
-  const HLDDNode *DDNode = cast<HLDDNode>(Node);
+  const HLNode *Node = Inst->HIR.getUnderlyingNode();
+  const HLDDNode *DDNode = cast_or_null<HLDDNode>(Node);
   assert(DDNode && "HLDDNode is expected.");
 
   // Restrict creation of VLSMemrefs to load/store instructions only

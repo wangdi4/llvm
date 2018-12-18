@@ -33,11 +33,8 @@ VPlanVLSAnalysis::getInstructionAccessType(const VPInstruction *Inst,
   if (Opcode != Instruction::Load && Opcode != Instruction::Store)
     return MemAccessTy::Unknown;
 
-  const HLNode *Node = Inst->HIR.isMaster()
-                           ? Inst->HIR.getUnderlyingNode()
-                           : Inst->HIR.getMaster()->HIR.getUnderlyingNode();
-
-  if (auto *I = dyn_cast<HLInst>(Node)) {
+  const HLNode *Node = Inst->HIR.getUnderlyingNode();
+  if (auto *I = dyn_cast_or_null<HLInst>(Node)) {
     // FIXME: It's not correct to getParentLoop() for outerloop
     // vectorization.
     int64_t Stride;
@@ -85,10 +82,7 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
             if (!Inst)
               continue;
             unsigned Level = -1;
-            const HLNode *Node =
-                Inst->HIR.isMaster()
-                    ? Inst->HIR.getUnderlyingNode()
-                    : Inst->HIR.getMaster()->HIR.getUnderlyingNode();
+            const HLNode *Node = Inst->HIR.getUnderlyingNode();
             if (Node)
               Level = Node->getParentLoop()
                           ? Node->getParentLoop()->getNestingLevel()

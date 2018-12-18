@@ -615,10 +615,15 @@ class VPInstruction : public VPUser, public VPRecipeBase {
     PointerUnion3<MasterVPInstData *, VPInstruction *, void *> MasterData =
         (int *)nullptr;
 
-    // Wrapper that returns the VPInstruction data of a master VPInstruction.
+    // Return the VPInstruction data of this VPInstruction if it's a master or
+    // decomposed. Return nullptr otherwise.
     MasterVPInstData *getVPInstData() {
-      assert(isMaster() && "Only master VPInstructions have HIR Data!");
-      return MasterData.get<MasterVPInstData *>();
+      if (isMaster())
+        return MasterData.get<MasterVPInstData *>();
+      if (isDecomposed())
+        return getMaster()->HIR.getVPInstData();
+      // New VPInstructions don't have VPInstruction data.
+      return nullptr;
     }
     const MasterVPInstData *getVPInstData() const {
       return const_cast<HIRSpecifics *>(this)->getVPInstData();
@@ -655,11 +660,13 @@ class VPInstruction : public VPUser, public VPRecipeBase {
       return !MasterData.is<void *>();
     }
 
-    /// Return the underlying HIR attached to this master VPInstruction.
+    /// Return the underlying HIR attached to this master VPInstruction. Return
+    /// nullptr if the VPInstruction doesn't have underlying HIR.
     loopopt::HLNode *getUnderlyingNode() {
-      loopopt::HLNode *Node = getVPInstData()->getNode();
-      assert(Node && "Underlying HIR cannot be null!");
-      return Node;
+      MasterVPInstData *MastData = getVPInstData();
+      if (!MastData)
+        return nullptr;
+      return MastData->getNode();
     }
     const loopopt::HLNode *getUnderlyingNode() const {
       return const_cast<HIRSpecifics *>(this)->getUnderlyingNode();
@@ -695,10 +702,9 @@ class VPInstruction : public VPUser, public VPRecipeBase {
     /// Return true if the underlying HIR data is valid. If it's a decomposed
     /// VPInstruction, the HIR of the attached master VPInstruction is checked.
     bool isValid() const {
-      if (isMaster())
+      if (isMaster() || isDecomposed())
         return getVPInstData()->isValid();
-      if (isDecomposed())
-        return getMaster()->HIR.getVPInstData()->isValid();
+
       // For other VPInstructions without underlying HIR.
       assert(!isSet() && "HIR data must be unset!");
       return false;
@@ -713,10 +719,8 @@ class VPInstruction : public VPUser, public VPRecipeBase {
     /// Invalidate underlying HIR deta. If decomposed VPInstruction, the HIR of
     /// its master VPInstruction is invalidated.
     void invalidate() {
-      if (isMaster())
+      if (isMaster() || isDecomposed())
         getVPInstData()->setInvalid();
-      else if (isDecomposed())
-        getMaster()->HIR.getVPInstData()->setInvalid();
     }
 
     /// Print HIR-specific flags. It's mainly for debugging purposes.
