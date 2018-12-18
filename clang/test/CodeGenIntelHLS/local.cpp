@@ -16,6 +16,9 @@
 //CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
 //CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_fmax:1}
 //CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_ram_usage:1}
+//CHECK: @[[Struct1:.*]] = internal global %struct.foo_three zeroinitializer, align 4
+//CHECK: [[ANN13:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{internal_max_block_ram_depth:32}
+//CHECK: [[ANN14:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:1}
 //CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}{bankwidth:4}{max_concurrency:4}{numbanks:8}{numreadports:2}{numwriteports:3}{bank_bits:2,3,4}{merge:merge_foo_one:depth}
 //CHECK: [[ANN1A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:8}{bank_bits:4,3,2}
 
@@ -90,4 +93,60 @@ void call()
 {
   foo_one<4,8,2,3,2,3,4,4>();
   foo_two<8,3>();
+}
+
+struct foo_three {
+  int __attribute__((register)) f1;
+  int __attribute__((singlepump)) f2;
+  int __attribute__((doublepump)) f3;
+  int __attribute__((__memory__)) f4;
+  int __attribute__((__memory__("MLAB"))) f5;
+  int __attribute__((__memory__("BLOCK_RAM"))) f6;
+  int __attribute__((bank_bits(4, 5))) f7;
+  int __attribute__((numbanks(4), bank_bits(4, 5))) f8;
+  int __attribute__((numports_readonly_writeonly(2, 3))) f9;
+  int __attribute__((numreadports(2), numwriteports(3))) f10;
+  int __attribute__((internal_max_block_ram_depth(32))) f11;
+  int __attribute__((__bankwidth__(4))) f12;
+  int __attribute__((merge("foo", "depth"))) f13;
+  int __attribute__((optimize_fmax)) f14;
+  int __attribute__((optimize_ram_usage)) f15;
+  int __attribute__((static_array_reset(1))) f16;
+};
+
+static foo_three s1;
+
+void bar1() {
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN4]]
+  s1.f1 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN7]]
+  s1.f2 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN8]]
+  s1.f3 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN5]]
+  s1.f4 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN5A]]
+  s1.f5 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN5B]]
+  s1.f6 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN2]]
+  s1.f7 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN2]]
+  s1.f8 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN3]]
+  s1.f9 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN3]]
+  s1.f10 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN13]]
+  s1.f11 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN6]]
+  s1.f12 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN9]]
+  s1.f13 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN11]]
+  s1.f14 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN12]]
+  s1.f15 = 0;
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8(i8* bitcast{{.*}}@[[Struct1]]{{.*}}getelementptr{{.*}}[[ANN14]]
+  s1.f16 = 0;
 }

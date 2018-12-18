@@ -4164,6 +4164,18 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   if (field->hasAttr<AnnotateAttr>())
     addr = EmitFieldAnnotations(field, addr);
 
+#if INTEL_CUSTOMIZATION
+  // Emit HLS attribute annotation for a field.
+  if (getLangOpts().HLS ||
+      (getLangOpts().OpenCL &&
+       getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+    SmallString<256> AnnotStr;
+    CGM.generateHLSAnnotation(field, AnnotStr);
+    if (!AnnotStr.empty())
+      addr = EmitHLSFieldAnnotations(field, addr, AnnotStr);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   LValue LV = MakeAddrLValue(addr, FieldType, FieldBaseInfo, FieldTBAAInfo);
   LV.getQuals().addCVRQualifiers(RecordCVR);
 

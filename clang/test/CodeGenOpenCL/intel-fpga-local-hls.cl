@@ -11,6 +11,9 @@
 //CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:2}
 //CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:foo:depth}
 //CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
+//CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{internal_max_block_ram_depth:32}
+//CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_fmax:1}
+//CHECK: [[ANN13:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_ram_usage:1}
 
 //__attribute__((ihc_component))
 void foo_two() {
@@ -66,5 +69,73 @@ void foo_two() {
   //CHECK: %[[VAR_THIRTEEN1:var_thirteen[0-9]+]] = bitcast{{.*}}var_thirteen
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_THIRTEEN1]],{{.*}}[[ANN10]]
   int __attribute__((merge("bar","width"))) var_thirteen;
+}
+
+struct foo_three{
+  int __attribute__((bank_bits(4,5))) f1;
+  int __attribute__((numbanks(4),bank_bits(4,5))) f2;
+  int __attribute__((numports_readonly_writeonly(2,3))) f3;
+  int __attribute__((numreadports(2),numwriteports(3))) f4;
+  int __attribute__((register)) f5;
+  int __attribute__((__memory__)) f6;
+  int __attribute__((__bankwidth__(4))) f7;
+  int __attribute__((singlepump)) f8;
+  int __attribute__((doublepump)) f9;
+  int __attribute__((merge("foo","depth"))) f10;
+  int __attribute__((internal_max_block_ram_depth(32))) f11;
+  int __attribute__((optimize_fmax)) f12;
+  int __attribute__((optimize_ram_usage)) f13;
+};
+
+void bar() {
+  struct foo_three s1;
+  //CHECK: %[[FIELD1:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD1]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN2]]
+  s1.f1 = 0;
+  //CHECK: %[[FIELD2:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD2]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN2]]
+  s1.f2 = 0;
+  //CHECK: %[[FIELD3:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD3]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN3]]
+  s1.f3 = 0;
+  //CHECK: %[[FIELD4:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD4]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN3]]
+  s1.f4 = 0;
+  //CHECK: %[[FIELD5:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD5]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN4]]
+  s1.f5 = 0;
+  //CHECK: %[[FIELD6:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD6]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN5]]
+  s1.f6 = 0;
+  //CHECK: %[[FIELD7:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD7]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN6]]
+  s1.f7 = 0;
+  //CHECK: %[[FIELD8:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD8]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN7]]
+  s1.f8 = 0;
+  //CHECK: %[[FIELD9:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD9]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN8]]
+  s1.f9 = 0;
+  //CHECK: %[[FIELD11:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD11]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN11]]
+  s1.f11 = 0;
+  //CHECK: %[[FIELD12:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD12]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN12]]
+  s1.f12 = 0;
+  //CHECK: %[[FIELD13:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD13]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN13]]
+  s1.f13 = 0;
 }
 

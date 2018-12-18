@@ -4146,6 +4146,12 @@ public:
   /// annotation result.
   Address EmitFieldAnnotations(const FieldDecl *D, Address V);
 
+#if INTEL_CUSTOMIZATION
+  /// Emit HLS field annotations for the given field and value. Returns the
+  /// annotation result.
+  Address EmitHLSFieldAnnotations(const FieldDecl *D, Address V,
+                                  StringRef AnnotStr);
+#endif // INTEL_CUSTOMIZATION
   //===--------------------------------------------------------------------===//
   //                             Internal Helpers
   //===--------------------------------------------------------------------===//

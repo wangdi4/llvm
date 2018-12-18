@@ -525,16 +525,14 @@ void foo1()
 
 //CHECK: FunctionDecl{{.*}}foo2
 kernel void foo2(
-  //expected-error-re@+2{{local or static variables{{$}}}}
-  __local __attribute__((local_mem_size(1024)))
-          __attribute__((singlepump)) int *a0,
-  //expected-error-re@+1{{local or static variables{{$}}}}
-  __local __attribute__((doublepump)) int *a1)
-{
+    //expected-error@+2{{local variables and static variables}}
+    __local __attribute__((local_mem_size(1024)))
+    __attribute__((singlepump)) int *a0,
+    //expected-error@+1{{local variables and static variables}}
+    __local __attribute__((doublepump)) int *a1) {
   //expected-error@+1{{applies to functions and local non-const variables}}
   __attribute__((__max_concurrency__(8)))
   __constant unsigned int loc_one[64] = { 1, 2, 3 };
-
 }
 
 //expected-error@+1{{applies to functions and local non-const variables}}
@@ -549,3 +547,128 @@ void other2()
 
 //expected-error@+1{{applies to functions and local non-const variables}}
 void other3(__attribute__((__max_concurrency__(8))) int pfoo) {}
+
+struct foo {
+  //CHECK: FieldDecl{{.*}}v_one
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: DoublePumpAttr
+  __attribute__((__doublepump__)) unsigned int v_one[64];
+
+  //CHECK: FieldDecl{{.*}}v_two
+  //CHECK: MemoryAttr
+  __attribute__((__memory__)) unsigned int v_two[64];
+
+  //CHECK: FieldDecl{{.*}}v_two_A
+  //CHECK: MemoryAttr{{.*}}MLAB{{$}}
+  __attribute__((__memory__("MLAB"))) unsigned int v_two_A[64];
+
+  //CHECK: FieldDecl{{.*}}v_two_B
+  //CHECK: MemoryAttr{{.*}}BlockRAM{{$}}
+  __attribute__((__memory__("BLOCK_RAM"))) unsigned int v_two_B[64];
+
+  //CHECK: FieldDecl{{.*}}v_two_C
+  //CHECK: MemoryAttr{{.*}}BlockRAM{{$}}
+  //CHECK: DoublePumpAttr
+  __attribute__((__memory__("BLOCK_RAM")))
+  __attribute__((doublepump)) unsigned int v_two_C[64];
+
+  //CHECK: FieldDecl{{.*}}v_three
+  //CHECK: RegisterAttr
+  __attribute__((__register__)) unsigned int v_three[64];
+
+  //CHECK: FieldDecl{{.*}}v_four
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: SinglePumpAttr
+  __attribute__((__singlepump__)) unsigned int v_four[64];
+
+  //CHECK: FieldDecl{{.*}}v_five
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  __attribute__((__bankwidth__(4))) unsigned int v_five[64];
+
+  //CHECK: FieldDecl{{.*}}v_six
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: NumBanksAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
+  __attribute__((__numbanks__(8))) unsigned int v_six[64];
+
+  //CHECK: FieldDecl{{.*}}v_seven
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: NumReadPortsAttr
+  //CHECK: IntegerLiteral{{.*}}2{{$}}
+  __attribute__((__numreadports__(2))) unsigned int v_seven[64];
+
+  //CHECK: FieldDecl{{.*}}v_eight
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: NumWritePortsAttr
+  //CHECK: IntegerLiteral{{.*}}4{{$}}
+  __attribute__((__numwriteports__(4))) unsigned int v_eight[64];
+
+  //CHECK: FieldDecl{{.*}}v_nine
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: NumReadPortsAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  //CHECK: NumWritePortsAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  __attribute__((__numports_readonly_writeonly__(4, 16))) unsigned int v_nine[64];
+
+  //CHECK: FieldDecl{{.*}}v_ten
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: MergeAttr{{.*}}"mrg1" "depth"{{$}}
+  __attribute__((__merge__("mrg1", "depth"))) unsigned int v_ten[64];
+
+  //CHECK: FieldDecl{{.*}}v_eleven
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: MergeAttr{{.*}}"mrg2" "width"{{$}}
+  __attribute__((__merge__("mrg2", "width"))) unsigned int v_eleven[64];
+
+  //CHECK: FieldDecl{{.*}}v_twelve
+  //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: BankBitsAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}5{{$}}
+  __attribute__((__bank_bits__(2, 3, 4, 5))) unsigned int v_twelve[64];
+
+  //CHECK: FieldDecl{{.*}}v_thirteen
+  //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: BankBitsAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
+  //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  __attribute__((__bank_bits__(2, 3), __bankwidth__(16))) unsigned int v_thirteen[64];
+
+  //CHECK: FieldDecl{{.*}}G0
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: InternalMaxBlockRamDepthAttr
+  //CHECK: IntegerLiteral{{.*}}32{{$}}
+  int __attribute__((internal_max_block_ram_depth(32))) G0;
+
+  //CHECK: FieldDecl{{.*}}G1
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: OptimizeFMaxAttr
+  int __attribute__((optimize_fmax)) G1;
+
+  //CHECK: FieldDecl{{.*}}G2
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: OptimizeRamUsageAttr
+  int __attribute__((optimize_ram_usage)) G2;
+};

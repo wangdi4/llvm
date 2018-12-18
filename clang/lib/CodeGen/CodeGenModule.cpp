@@ -3622,12 +3622,12 @@ static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
     GV->setMetadata("io", ChannelIOMD);
 }
 
-void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
+void CodeGenModule::generateHLSAnnotation(const Decl *D,
                                           llvm::SmallString<256> &AnnotStr) {
   llvm::raw_svector_ostream Out(AnnotStr);
-  if (VD->hasAttr<RegisterAttr>())
+  if (D->hasAttr<RegisterAttr>())
     Out << "{register:1}";
-  if (auto const *MA = VD->getAttr<MemoryAttr>()) {
+  if (auto const *MA = D->getAttr<MemoryAttr>()) {
     MemoryAttr::MemoryKind Kind = MA->getKind();
     Out << "{memory:";
     switch (Kind) {
@@ -3641,43 +3641,43 @@ void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
     }
     Out << '}';
   }
-  if (VD->hasAttr<SinglePumpAttr>())
+  if (D->hasAttr<SinglePumpAttr>())
     Out << "{pump:1}";
-  if (VD->hasAttr<DoublePumpAttr>())
+  if (D->hasAttr<DoublePumpAttr>())
     Out << "{pump:2}";
-  if (const auto *BWA = VD->getAttr<BankWidthAttr>()) {
+  if (const auto *BWA = D->getAttr<BankWidthAttr>()) {
     llvm::APSInt BWAInt = BWA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << BWA->getSpelling() << ':' << BWAInt << '}';
   }
-  if (const auto *MCA = VD->getAttr<MaxConcurrencyAttr>()) {
+  if (const auto *MCA = D->getAttr<MaxConcurrencyAttr>()) {
     llvm::APSInt MCAInt = MCA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << MCA->getSpelling() << ':' << MCAInt << '}';
   }
-  if (const auto *NBA = VD->getAttr<NumBanksAttr>()) {
+  if (const auto *NBA = D->getAttr<NumBanksAttr>()) {
     llvm::APSInt BWAInt = NBA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NBA->getSpelling() << ':' << BWAInt << '}';
   }
-  if (const auto *NRPA = VD->getAttr<NumReadPortsAttr>()) {
+  if (const auto *NRPA = D->getAttr<NumReadPortsAttr>()) {
     llvm::APSInt NRPAInt =
         NRPA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NRPA->getSpelling() << ':' << NRPAInt << '}';
   }
-  if (const auto *NWPA = VD->getAttr<NumWritePortsAttr>()) {
+  if (const auto *NWPA = D->getAttr<NumWritePortsAttr>()) {
     llvm::APSInt NWPAInt =
         NWPA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NWPA->getSpelling() << ':' << NWPAInt << '}';
   }
-  if (const auto *IMDA = VD->getAttr<InternalMaxBlockRamDepthAttr>()) {
+  if (const auto *IMDA = D->getAttr<InternalMaxBlockRamDepthAttr>()) {
     llvm::APSInt IMDAInt =
         IMDA->getInternalMaxBlockRamDepth()->EvaluateKnownConstInt(
             getContext());
     Out << '{' << IMDA->getSpelling() << ':' << IMDAInt << '}';
   }
-  if (VD->hasAttr<OptimizeFMaxAttr>())
+  if (D->hasAttr<OptimizeFMaxAttr>())
     Out << "{optimize_fmax:1}";
-  if (VD->hasAttr<OptimizeRamUsageAttr>())
+  if (D->hasAttr<OptimizeRamUsageAttr>())
     Out << "{optimize_ram_usage:1}";
-  if (const auto *BBA = VD->getAttr<BankBitsAttr>()) {
+  if (const auto *BBA = D->getAttr<BankBitsAttr>()) {
     Out << '{' << BBA->getSpelling() << ':';
     for (BankBitsAttr::args_iterator I = BBA->args_begin(), E = BBA->args_end();
          I != E; ++I) {
@@ -3688,15 +3688,21 @@ void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
     }
     Out << '}';
   }
-  if (const auto *MA = VD->getAttr<MergeAttr>()) {
+  if (const auto *MA = D->getAttr<MergeAttr>()) {
     Out << '{' << MA->getSpelling() << ':' << MA->getName() << ':'
         << MA->getDirection() << '}';
   }
-  if (VD->getStorageClass() == SC_Static) {
-    llvm::APSInt SARAInt = llvm::APSInt::get(2); // The default.
-    if (const auto *SARA = VD->getAttr<StaticArrayResetAttr>())
-      SARAInt = SARA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << "{staticreset:" << SARAInt << '}';
+  if (const auto *VD = dyn_cast<VarDecl>(D)) {
+    if (VD->getStorageClass() == SC_Static) {
+      llvm::APSInt SARAInt = llvm::APSInt::get(2); // The default.
+      if (const auto *SARA = D->getAttr<StaticArrayResetAttr>())
+        SARAInt = SARA->getValue()->EvaluateKnownConstInt(getContext());
+      Out << "{staticreset:" << SARAInt << '}';
+    }
+  } else if (const auto *FD = dyn_cast<FieldDecl>(D)) {
+    if (const auto *SARA = FD->getAttr<StaticArrayResetAttr>())
+      Out << "{staticreset:"
+          << SARA->getValue()->EvaluateKnownConstInt(getContext()) << '}';
   }
 }
 
