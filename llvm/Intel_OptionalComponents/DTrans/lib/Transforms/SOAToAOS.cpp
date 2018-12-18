@@ -592,14 +592,16 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
       continue;
     }
 
-    bool SafetyViolation = false;
-    for (auto *Fld : Info->fields()) {
-      auto *FTI = DTInfo.getTypeInfo(Fld);
-      if (!FTI || DTInfo.testSafetyData(FTI, dtrans::DT_SOAToAOS)) {
-        SafetyViolation = true;
-        break;
+    // Test safety violations on both structure and array types.
+    bool SafetyViolation = DTInfo.testSafetyData(TI, dtrans::DT_SOAToAOS);
+    if (!SafetyViolation)
+      for (auto *Fld : Info->fields()) {
+        auto *FTI = DTInfo.getTypeInfo(Fld);
+        if (!FTI || DTInfo.testSafetyData(FTI, dtrans::DT_SOAToAOS)) {
+          SafetyViolation = true;
+          break;
+        }
       }
-    }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (!DTransSOAToAOSType.empty() &&

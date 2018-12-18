@@ -1252,18 +1252,18 @@ public:
         }
       } else if (auto CS = CallSite(NewI)) {
         auto *Info = DTInfo.getCallInfo(NewI);
-        bool isDummyMalloc =
-            dtrans::isDummyAllocWithUnreachable(ImmutableCallSite(NewI));
+        bool isDummyFunc =
+            dtrans::isDummyFuncWithThisAndIntArgs(ImmutableCallSite(NewI), TLI);
         assert(
             ((Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) ||
-             isDummyMalloc) &&
+             isDummyFunc) &&
             "Incorrect analysis");
 
         assert(IsCombined && "Incorrect analysis");
         unsigned S1 = -1U;
         unsigned S2 = -1U;
         auto AllocKind =
-            isDummyMalloc ? AK_UserMalloc : cast<AllocCallInfo>(Info)->getAllocKind();
+            isDummyFunc ? AK_UserMalloc : cast<AllocCallInfo>(Info)->getAllocKind();
         getAllocSizeArgs(AllocKind, CS, S1, S2, TLI);
         assert((S1 == -1U) != (S2 == -1U) && "Unexpected allocation routine");
         auto *OldSize = S1 == -1U ? CS.getArgument(S2) : CS.getArgument(S1);

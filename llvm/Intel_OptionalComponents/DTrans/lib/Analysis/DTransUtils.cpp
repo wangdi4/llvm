@@ -963,20 +963,56 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
   return false;
 }
 
-bool dtrans::isDummyFuncWithUnreachable(ImmutableCallSite CS) {
+// Check that function only throws an exception.
+// TODO: Add more checks on instructions.
+bool dtrans::isDummyFuncWithUnreachable(ImmutableCallSite CS,
+                                        const TargetLibraryInfo &TLI) {
   auto *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
   if (!F)
     return false;
   if (F->size() != 1)
     return false;
   auto &BB = F->getEntryBlock();
-  if (isa<UnreachableInst>(BB.getTerminator()))
-    return true;
-  return false;
+  if (!isa<UnreachableInst>(BB.getTerminator()))
+    return false;
+  if (BB.size() != 6)
+    return false;
+  auto *CurrInst = dyn_cast<Instruction>(&BB.front());
+  if (!isa<CallInst>(CurrInst))
+    return false;
+  auto *CallExAlloc = dyn_cast<CallInst>(CurrInst);
+  auto *ExAlloc =
+      dyn_cast<Function>(CallExAlloc->getCalledValue()->stripPointerCasts());
+  LibFunc Func;
+  if (!TLI.getLibFunc(*ExAlloc, Func))
+    return false;
+  if (!TLI.has(Func) || Func != LibFunc_cxa_allocate_exception)
+    return false;
+  CurrInst = CurrInst->getNextNode();
+  if (!isa<BitCastInst>(CurrInst))
+    return false;
+  CurrInst = CurrInst->getNextNode();
+  if (!isa<GetElementPtrInst>(CurrInst))
+    return false;
+  CurrInst = CurrInst->getNextNode();
+  if (!isa<StoreInst>(CurrInst))
+    return false;
+  CurrInst = CurrInst->getNextNode();
+  if (!isa<CallInst>(CurrInst))
+    return false;
+  auto *CallExThrow = dyn_cast<CallInst>(CurrInst);
+  auto *ExThrow =
+      dyn_cast<Function>(CallExThrow->getCalledValue()->stripPointerCasts());
+  if (!TLI.getLibFunc(*ExThrow, Func))
+    return false;
+  if (!TLI.has(Func) || Func != LibFunc_cxa_throw)
+    return false;
+  return true;
 }
 
-bool dtrans::isDummyAllocWithUnreachable(ImmutableCallSite CS) {
-  if (!isDummyFuncWithUnreachable(CS))
+bool dtrans::isDummyFuncWithThisAndIntArgs(ImmutableCallSite CS,
+                                           const TargetLibraryInfo &TLI) {
+  if (!isDummyFuncWithUnreachable(CS, TLI))
     return false;
 
   if (CS.arg_size() != 2)
@@ -989,8 +1025,9 @@ bool dtrans::isDummyAllocWithUnreachable(ImmutableCallSite CS) {
           FirstArgType->isIntegerTy());
 }
 
-bool dtrans::isDummyDeallocWithUnreachable(ImmutableCallSite CS) {
-  if (!isDummyFuncWithUnreachable(CS))
+bool dtrans::isDummyFuncWithThisAndPtrArgs(ImmutableCallSite CS,
+                                           const TargetLibraryInfo &TLI) {
+  if (!isDummyFuncWithUnreachable(CS, TLI))
     return false;
   if (CS.arg_size() != 2)
     return false;

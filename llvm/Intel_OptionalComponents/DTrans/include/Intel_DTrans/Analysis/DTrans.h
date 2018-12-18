@@ -1009,13 +1009,16 @@ bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
 
 /// Check if the called function has only one basic block that ends with
 /// 'unreachable' instruction.
-bool isDummyFuncWithUnreachable(ImmutableCallSite CS);
+bool isDummyFuncWithUnreachable(ImmutableCallSite CS,
+                                const TargetLibraryInfo &TLI);
 /// Check if the called function has two arguments ('this' pointer and an
 /// integer size) and is dummy.
-bool isDummyAllocWithUnreachable(ImmutableCallSite CS);
+bool isDummyFuncWithThisAndIntArgs(ImmutableCallSite CS,
+                                   const TargetLibraryInfo &TLI);
 /// Check if the called function has two arguments ('this' pointer and a
 /// pointer) and is dummy.
-bool isDummyDeallocWithUnreachable(ImmutableCallSite CS);
+bool isDummyFuncWithThisAndPtrArgs(ImmutableCallSite CS,
+                                   const TargetLibraryInfo &TLI);
 } // namespace dtrans
 
 } // namespace llvm

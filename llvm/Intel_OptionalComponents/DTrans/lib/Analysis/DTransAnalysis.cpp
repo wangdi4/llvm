@@ -849,8 +849,9 @@ public:
   void populateAllocDeallocTable(const Module &M);
   bool isMallocWithStoredMMPtr(const Function *F);
   bool isFreeWithStoredMMPtr(const Function *F);
-  bool isUserOrDummyAlloc(ImmutableCallSite CS);
-  bool isUserOrDummyFree(ImmutableCallSite CS);
+  bool isUserAllocOrDummyFunc(ImmutableCallSite CS);
+  bool isUserFreeOrDummyFunc(ImmutableCallSite CS);
+
 private:
   typedef PointerIntPair<StructType *, 1, bool> PtrBoolPair;
   // An enum recording the status of a function. The status is
@@ -1661,8 +1662,9 @@ bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
       return false;
     if (Callee->arg_begin() != Arg0)
       return false;
-    // Check that Function being called is a malloc function.
-    return isUserOrDummyAlloc(CS);
+    // Check that Function being called is a malloc function or dummy function
+    // with unreachable.
+    return isUserAllocOrDummyFunc(CS);
   };
 
   // Check the expected types of the Callee's arguments.
@@ -1735,6 +1737,9 @@ bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
   unsigned StoreCount = 0;
   for (auto &I : instructions(Callee)) {
     if (isa<CallInst>(&I) || isa<InvokeInst>(&I)) {
+      // Skip debug intrinsics
+      if (isa<DbgInfoIntrinsic>(&I))
+          continue;
       if (++CallCount > MallocCallCount)
         return false;
     } else {
@@ -1890,7 +1895,7 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
       return false;
     if (ConstInt->getSExtValue() != -8)
       return false;
-    return isUserOrDummyFree(CS);
+    return isUserFreeOrDummyFunc(CS);
   };
 
   // Check the expected types of the Callee's arguments.
@@ -1951,16 +1956,17 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
   return true;
 }
 
-// Returns true if the called function is user-defined malloc or dummy alloc
+// Returns true if the called function is user-defined malloc or dummy
 // function.
-bool DTransAllocAnalyzer::isUserOrDummyAlloc(ImmutableCallSite CS) {
-  return (dtrans::isDummyAllocWithUnreachable(CS) || isMallocPostDom(CS));
+bool DTransAllocAnalyzer::isUserAllocOrDummyFunc(ImmutableCallSite CS) {
+  return (dtrans::isDummyFuncWithThisAndIntArgs(CS, TLI) ||
+          isMallocPostDom(CS));
 }
 
-// Returns true if the called function is user-defined free or dummy free
+// Returns true if the called function is user-defined free or dummy
 // function.
-bool DTransAllocAnalyzer::isUserOrDummyFree(ImmutableCallSite CS) {
-  return (dtrans::isDummyDeallocWithUnreachable(CS) || isFreePostDom(CS));
+bool DTransAllocAnalyzer::isUserFreeOrDummyFunc(ImmutableCallSite CS) {
+  return (dtrans::isDummyFuncWithThisAndPtrArgs(CS, TLI) || isFreePostDom(CS));
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -7308,6 +7314,11 @@ private:
       // to a memory buffer that can be used in any way.
       if (isa<ConstantPointerNull>(ValIn))
         continue;
+      // If the incoming value is a result of a non-returning function,
+      // then skip it.
+      if (auto CS = ImmutableCallSite(ValIn))
+        if (dtrans::isDummyFuncWithUnreachable(CS, TLI))
+          continue;
       LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValIn);
       if (!ValLPI.canPointToType(DomTy->getPointerElementType())) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer merge -- "
