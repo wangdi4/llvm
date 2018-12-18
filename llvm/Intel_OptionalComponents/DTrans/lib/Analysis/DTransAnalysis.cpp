@@ -4977,6 +4977,8 @@ public:
     Type *FormalType = nullptr;
 
     if (FormalVal) {
+      if (FormalVal->user_empty())
+        return;
       FormalType = FormalVal->getType();
       // Type match
       if (FormalType == ActualType || checkUsersType(FormalVal, ActualType))
@@ -5075,6 +5077,8 @@ public:
       // get the expected alias types from the local pointer analyzer.
       auto Param = F->arg_begin();
       std::advance(Param, ArgNo);
+      if (Param->user_empty())
+        return;
       LocalPointerInfo &ParamLPI = LPA.getLocalPointerInfo(Param);
 
       if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet(),
@@ -9340,7 +9344,6 @@ bool DTransAnalysisInfo::analyzeModule(
 
   if (!shouldComputeDTransAnalysis())
     return false;
-
   DTransAllocAnalyzer DTAA(TLI, M);
   DTransBadCastingAnalyzer DTBCA(*this, DTAA, TLI, M);
   DTAA.populateAllocDeallocTable(M);
