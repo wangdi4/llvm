@@ -44,13 +44,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
     **********************************************************************************************/
     class PlatformModule : public OCLObjectBase, public IPlatform
     {
-    
+
     public:
 
         /******************************************************************************************
         * Function:     PlatformModule
         * Description:    The Platform Module class constructor
-        * Arguments:        
+        * Arguments:
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
@@ -59,27 +59,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
         /******************************************************************************************
         * Function:     ~PlatformModule
         * Description:    The Platform Module class destructor
-        * Arguments:        
+        * Arguments:
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
         virtual ~PlatformModule();
 
         /******************************************************************************************
-        * Function:     Initialize    
+        * Function:     Initialize
         * Description:    Initialize the platform module object: set platform's information
         *                and load devices
-        * Arguments:        
+        * Arguments:
         * Return value:    CL_SUCCESS - The initialization operation succeeded
         * Author:        Uri Levy
         * Date:            December 2008
-        ******************************************************************************************/        
+        ******************************************************************************************/
         cl_err_code        Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pConfig, ocl_gpa_data * pGPAData);
 
         /******************************************************************************************
-        * Function:     Release    
+        * Function:     Release
         * Description:    Release the platform module's resources
-        * Arguments:        
+        * Arguments:
         * Return value:    CL_SUCCESS - The release operation succeeded
         * Author:        Uri Levy
         * Date:            December 2008
@@ -87,7 +87,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code        Release(bool bTerminate);
 
         /******************************************************************************************
-        * Function:     GetRootDevice    
+        * Function:     GetRootDevice
         * Description:    Get the root device object that assigned to the device id
         * Arguments:    clDeviceId [in] -    device id
         *                ppDevice [out] -    pointer to the device
@@ -98,7 +98,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code        GetRootDevice(cl_device_id IN  clDeviceId, SharedPtr<Device>* OUT ppDevice);
 
         /******************************************************************************************
-        * Function:     GetDevice    
+        * Function:     GetDevice
         * Description:    Get the device object that assigned to the device id
         * Arguments:    clDeviceId [in] -    device id
         * Return value:    a SharedPtr<FissionableDevice> pointing to the device object or NULL if it
@@ -119,7 +119,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         DeviceMode GetDeviceMode() const { return m_deviceMode; }
 
         /******************************************************************************************
-        * Function:     GetGPAData    
+        * Function:     GetGPAData
         * Description:    Returns a pointer to the GPA data object.
         * Arguments:    None
         * Return value:    ocl_gpa_data
@@ -184,7 +184,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code AddDevices(SharedPtr<FissionableDevice>* ppDevices, unsigned int count);
 
         _cl_platform_id_int    m_clPlatformId;
-        
+
         // map list of all devices
         OCLObjectsMap<_cl_device_id_int, _cl_platform_id_int> m_mapDevices;
 

@@ -174,7 +174,7 @@ static void* GetExtensionFunctionAddress(const char *funcname)
 }
 
 void * CL_API_CALL clGetExtensionFunctionAddress(const char *funcname)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetExtensionFunctionAddress);
@@ -240,7 +240,7 @@ public:
  * @param ELEM_TYPE type of elements in the list
  * @param SIZE_TYPE type of the list's size
  */
-template<typename ELEM_TYPE, typename SIZE_TYPE, class VALUE_PRINTER = SimpleValuePrinter<ELEM_TYPE> > 
+template<typename ELEM_TYPE, typename SIZE_TYPE, class VALUE_PRINTER = SimpleValuePrinter<ELEM_TYPE> >
 class OutputListPrinter : public OutputParamsValueProvider::SpecialOutputParamPrinter
 {
 public:
@@ -250,7 +250,7 @@ public:
      * @param listName          the list's name
      * @param pList             a pointer to the 1st element in the list
      * @param pListSize         a pointer to the size of the list
-     * @param defaultListSize   optional default sze of the list in case pListSize is NULL 
+     * @param defaultListSize   optional default sze of the list in case pListSize is NULL
      */
     OutputListPrinter(const std::string& listName, const ELEM_TYPE* pList, const SIZE_TYPE* pListSize, SIZE_TYPE defaultListSize = 0) :
         m_listName(listName), m_pList(pList), m_pListSize(pListSize), m_defaultListSize(defaultListSize) { }
@@ -287,14 +287,14 @@ private:
 
 };
 
-cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms) 
-{    
+cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms)
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         ApiLogger apiLogger("clGetPlatformIDs");
-        apiLogger << "cl_uint num_entries" << num_entries << "cl_platform_id * platforms" << platforms << "cl_uint * num_platforms" << num_platforms;    
+        apiLogger << "cl_uint num_entries" << num_entries << "cl_platform_id * platforms" << platforms << "cl_uint * num_platforms" << num_platforms;
         OutputListPrinter<cl_platform_id, cl_uint> listPrinter("platforms", platforms, num_platforms, num_entries);
-        OutputParamsValueProvider provider(apiLogger, &listPrinter);  
+        OutputParamsValueProvider provider(apiLogger, &listPrinter);
         CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE,  cl_int, GetPlatformIDs(num_entries, platforms, num_platforms));
     }
     else
@@ -306,9 +306,9 @@ SET_ALIAS(clGetPlatformIDs);
 REGISTER_EXTENSION_FUNCTION(clIcdGetPlatformIDsKHR, clGetPlatformIDs);
 
 cl_int CL_API_CALL clGetPlatformInfo(cl_platform_id platform,
-						 cl_platform_info param_name, 
-						 size_t param_value_size, 
-						 void* param_value, 
+						 cl_platform_info param_name,
+						 size_t param_value_size,
+						 void* param_value,
 						 size_t* param_value_size_ret)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -386,17 +386,17 @@ SET_ALIAS(clGetDeviceAndHostTimer);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 cl_int CL_API_CALL clGetDeviceIDs(cl_platform_id platform,
-					  cl_device_type device_type, 
-					  cl_uint num_entries, 
-					  cl_device_id* devices, 
+					  cl_device_type device_type,
+					  cl_uint num_entries,
+					  cl_device_id* devices,
 			          cl_uint* num_devices)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetDeviceIDs);
         apiLogger << "cl_platform_id platform" << platform << "cl_device_type device_type" << device_type << "cl_uint num_entries" << num_entries << "cl_device_id* devices" << devices << "cl_uint* num_devices" << num_devices;
         OutputListPrinter<cl_device_id, cl_uint> printer("devices", devices, num_devices, num_entries);
-        OutputParamsValueProvider provider(apiLogger, &printer);    
+        OutputParamsValueProvider provider(apiLogger, &printer);
         CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceIDs(platform, device_type, num_entries, devices, num_devices));
     }
     else
@@ -407,8 +407,8 @@ cl_int CL_API_CALL clGetDeviceIDs(cl_platform_id platform,
 SET_ALIAS(clGetDeviceIDs);
 
 cl_int CL_API_CALL clGetDeviceInfo(cl_device_id device,
-					   cl_device_info param_name, 
-					   size_t param_value_size, 
+					   cl_device_info param_name,
+					   size_t param_value_size,
 					   void* param_value,
 					   size_t* param_value_size_ret)
 {
@@ -527,9 +527,9 @@ SET_ALIAS(clGetContextInfo);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Command Queue APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  context, 
-									  cl_device_id                device, 
-									  cl_command_queue_properties properties, 
+cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  context,
+									  cl_device_id                device,
+									  cl_command_queue_properties properties,
 									  cl_int *                    errcode_ret)
 {
     const cl_command_queue_properties propertiesArr[] = { CL_QUEUE_PROPERTIES, properties, 0 };
@@ -575,10 +575,10 @@ cl_int CL_API_CALL clReleaseCommandQueue(cl_command_queue command_queue)
     }
 }
 SET_ALIAS(clReleaseCommandQueue);
-cl_int CL_API_CALL clGetCommandQueueInfo(cl_command_queue      command_queue, 
-							 cl_command_queue_info param_name, 
-							 size_t                param_value_size, 
-							 void *                param_value, 
+cl_int CL_API_CALL clGetCommandQueueInfo(cl_command_queue      command_queue,
+							 cl_command_queue_info param_name,
+							 size_t                param_value_size,
+							 void *                param_value,
 							 size_t *              param_value_size_ret)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -614,10 +614,10 @@ cl_int CL_API_CALL clSetCommandQueueProperty(cl_command_queue              comma
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Memory Object APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_mem CL_API_CALL clCreateBuffer(cl_context   context, 
-					  cl_mem_flags flags, 
-					  size_t       size, 
-					  void *       host_ptr, 
+cl_mem CL_API_CALL clCreateBuffer(cl_context   context,
+					  cl_mem_flags flags,
+					  size_t       size,
+					  void *       host_ptr,
 					  cl_int *     errcode_ret)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -720,7 +720,7 @@ cl_mem CL_API_CALL clCreateImage2D(cl_context              context,
     }
 }
 SET_ALIAS(clCreateImage2D);
-                        
+
 cl_mem CL_API_CALL clCreateImage3D(cl_context              context,
 					   cl_mem_flags            flags,
 					   const cl_image_format * image_format,
@@ -746,7 +746,7 @@ cl_mem CL_API_CALL clCreateImage3D(cl_context              context,
     }
 }
 SET_ALIAS(clCreateImage3D);
-                       
+
 cl_int CL_API_CALL clRetainMemObject(cl_mem memobj)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -783,7 +783,7 @@ public:
 
     std::string Print(const cl_image_format& imageFormat) const
     {
-        std::stringstream stream;        
+        std::stringstream stream;
         stream << "(0x" << std::hex << imageFormat.image_channel_order << ",0x" << imageFormat.image_channel_data_type << ")";
         return stream.str();
     }
@@ -795,7 +795,7 @@ cl_int CL_API_CALL clGetSupportedImageFormats(cl_context           context,
 								  cl_uint              num_entries,
 								  cl_image_format *    image_formats,
 								  cl_uint *            num_image_formats)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetSupportedImageFormats);
@@ -810,9 +810,9 @@ cl_int CL_API_CALL clGetSupportedImageFormats(cl_context           context,
     }
 }
 SET_ALIAS(clGetSupportedImageFormats);
-                                    
+
 cl_int CL_API_CALL clGetMemObjectInfo(cl_mem           memobj,
-						  cl_mem_info      param_name, 
+						  cl_mem_info      param_name,
 						  size_t           param_value_size,
 						  void *           param_value,
 						  size_t *         param_value_size_ret)
@@ -833,7 +833,7 @@ cl_int CL_API_CALL clGetMemObjectInfo(cl_mem           memobj,
 SET_ALIAS(clGetMemObjectInfo);
 
 cl_int CL_API_CALL clGetImageInfo(cl_mem           image,
-					  cl_image_info    param_name, 
+					  cl_image_info    param_name,
 					  size_t           param_value_size,
 					  void *           param_value,
 					  size_t *         param_value_size_ret)
@@ -945,7 +945,7 @@ cl_int CL_API_CALL clGetSamplerInfo(cl_sampler		sampler,
     }
 }
 SET_ALIAS(clGetSamplerInfo);
-                            
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program Object APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -977,7 +977,7 @@ cl_program CL_API_CALL clCreateProgramWithBinary(cl_context           context,
 									 const unsigned char **	binaries,
 									 cl_int *				binary_status,
 									 cl_int *				errcode_ret)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateProgramWithBinary);
@@ -1049,7 +1049,7 @@ SET_ALIAS(clReleaseProgram);
 cl_int CL_API_CALL clBuildProgram(cl_program           program,
 					  cl_uint              num_devices,
 					  const cl_device_id * device_list,
-					  const char *         options, 
+					  const char *         options,
 					  void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data),
 					  void *               user_data)
 {
@@ -1137,7 +1137,7 @@ cl_int CL_API_CALL clGetProgramBuildInfo(cl_program            program,
     }
 }
 SET_ALIAS(clGetProgramBuildInfo);
-                           
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel Object APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1165,7 +1165,7 @@ cl_int CL_API_CALL clCreateKernelsInProgram(cl_program  program,
 								cl_uint     num_kernels,
 								cl_kernel * kernels,
 								cl_uint *   num_kernels_ret)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateKernelsInProgram);
@@ -1363,7 +1363,7 @@ cl_int CL_API_CALL clGetEventProfilingInfo(cl_event				event,
 SET_ALIAS(clGetEventProfilingInfo);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Flush and Finish APIs
-///////////////////////////////////////////////////////////////////////////////////////////////////                              
+///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_int CL_API_CALL clFlush(cl_command_queue command_queue)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -1395,7 +1395,7 @@ SET_ALIAS(clFinish);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Enqueued Commands APIs
-///////////////////////////////////////////////////////////////////////////////////////////////////                              
+///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_int CL_API_CALL clEnqueueReadBuffer(cl_command_queue	command_queue,
 						   cl_mem			buffer,
 						   cl_bool			blocking_read,
@@ -1426,7 +1426,7 @@ cl_int CL_API_CALL clEnqueueReadBufferRect(
                         cl_mem              buffer,
                         cl_bool             blocking_read,
                         const size_t        buffer_origin[MAX_WORK_DIM],
-                        const size_t        host_origin[MAX_WORK_DIM], 
+                        const size_t        host_origin[MAX_WORK_DIM],
                         const size_t        region[MAX_WORK_DIM],
                         size_t              buffer_row_pitch,
                         size_t              buffer_slice_pitch,
@@ -1486,7 +1486,7 @@ cl_int CL_API_CALL  clEnqueueWriteBufferRect(
                          cl_mem              buffer,
                          cl_bool             blocking_read,
                          const size_t        buffer_origin[MAX_WORK_DIM],
-                         const size_t        host_origin[MAX_WORK_DIM], 
+                         const size_t        host_origin[MAX_WORK_DIM],
                          const size_t        region[MAX_WORK_DIM],
                          size_t              buffer_row_pitch,
                          size_t              buffer_slice_pitch,
@@ -1543,12 +1543,12 @@ cl_int CL_API_CALL clEnqueueCopyBuffer(cl_command_queue	command_queue,
 }
 SET_ALIAS(clEnqueueCopyBuffer);
 
-cl_int CL_API_CALL clEnqueueCopyBufferRect(cl_command_queue    command_queue, 
+cl_int CL_API_CALL clEnqueueCopyBufferRect(cl_command_queue    command_queue,
 							cl_mem              src_buffer,
-							cl_mem              dst_buffer, 
+							cl_mem              dst_buffer,
 							const size_t        src_origin[MAX_WORK_DIM],
 							const size_t        dst_origin[MAX_WORK_DIM],
-							const size_t        region[MAX_WORK_DIM], 
+							const size_t        region[MAX_WORK_DIM],
 							size_t              src_row_pitch,
 							size_t              src_slice_pitch,
 							size_t              dst_row_pitch,
@@ -1604,11 +1604,11 @@ SET_ALIAS(clEnqueueFillBuffer);
 
 cl_int CL_API_CALL clEnqueueReadImage(cl_command_queue command_queue,
 						  cl_mem			image,
-						  cl_bool			blocking_read, 
+						  cl_bool			blocking_read,
 						  const size_t	    origin[MAX_WORK_DIM],
 						  const size_t	    region[MAX_WORK_DIM],
 						  size_t			row_pitch,
-						  size_t			slice_pitch, 
+						  size_t			slice_pitch,
 						  void *			ptr,
 						  cl_uint			num_events_in_wait_list,
 						  const cl_event *	event_wait_list,
@@ -1635,11 +1635,11 @@ SET_ALIAS(clEnqueueReadImage);
 
 cl_int CL_API_CALL clEnqueueWriteImage(cl_command_queue command_queue,
 						   cl_mem			image,
-						   cl_bool			blocking_write, 
+						   cl_bool			blocking_write,
 						   const size_t	    origin[MAX_WORK_DIM],
 						   const size_t	    region[MAX_WORK_DIM],
 						   size_t			input_row_pitch,
-						   size_t			input_slice_pitch, 
+						   size_t			input_slice_pitch,
 						   const void *		ptr,
 						   cl_uint			num_events_in_wait_list,
 						   const cl_event *	event_wait_list,
@@ -1666,10 +1666,10 @@ SET_ALIAS(clEnqueueWriteImage);
 
 cl_int CL_API_CALL clEnqueueCopyImage(cl_command_queue	command_queue,
 						  cl_mem			src_image,
-						  cl_mem			dst_image, 
+						  cl_mem			dst_image,
 						  const size_t  	src_origin[MAX_WORK_DIM],
 						  const size_t  	dst_origin[MAX_WORK_DIM],
-						  const size_t  	region[MAX_WORK_DIM], 
+						  const size_t  	region[MAX_WORK_DIM],
 						  cl_uint			num_events_in_wait_list,
 						  const cl_event *	event_wait_list,
 						  cl_event *		event)
@@ -1750,7 +1750,7 @@ cl_int CL_API_CALL clEnqueueCopyBufferToImage(cl_command_queue	command_queue,
 								  cl_mem			dst_image,
 								  size_t			src_offset,
 								  const size_t  	dst_origin[MAX_WORK_DIM],
-								  const size_t  	region[MAX_WORK_DIM], 
+								  const size_t  	region[MAX_WORK_DIM],
 								  cl_uint			num_events_in_wait_list,
 								  const cl_event *	event_wait_list,
 								  cl_event *		event)
@@ -1899,9 +1899,9 @@ cl_int CL_API_CALL clEnqueueTask(cl_command_queue	command_queue,
 SET_ALIAS(clEnqueueTask);
 
 cl_int CL_API_CALL clEnqueueNativeKernel(cl_command_queue	command_queue,
-							 void (CL_CALLBACK *user_func)(void *), 
+							 void (CL_CALLBACK *user_func)(void *),
 							 void *				args,
-							 size_t				cb_args, 
+							 size_t				cb_args,
 							 cl_uint			num_mem_objects,
 							 const cl_mem *		mem_list,
 							 const void **		args_mem_loc,
@@ -1975,7 +1975,7 @@ SET_ALIAS(clEnqueueBarrier);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // New OpenCL 1.1 functions
-///////////////////////////////////////////////////////////////////////////////////////////////////                              
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 cl_event CL_API_CALL
 clCreateUserEvent(cl_context    context,
@@ -2091,7 +2091,7 @@ cl_int CL_API_CALL clCreateSubDevices(cl_device_id device,
 									  cl_uint num_entries,
 									  cl_device_id* out_devices,
 									  cl_uint* num_devices)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateSubDevices);
@@ -2172,8 +2172,6 @@ cl_int CL_API_CALL clEnqueueBarrierWithWaitList(cl_command_queue command_queue,
 }
 SET_ALIAS(clEnqueueBarrierWithWaitList);
 
-
-
 cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
                                               cl_uint num_mem_objects,
                                               const cl_mem *mem_objects,
@@ -2250,12 +2248,12 @@ cl_int CL_API_CALL clCompileProgram(cl_program program,
         START_LOG_API(clCompileProgram);
         apiLogger << "cl_program program" << program << "cl_uint num_devices" << num_devices << "const cl_device_id *device_list" << device_list << "const char *options";
         apiLogger.PrintCStringVal(options) << "cl_uint num_input_headers" << num_input_headers << "const cl_program *input_headers" << input_headers << "const char **header_include_names" << header_include_names << "void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data)" << pfn_notify << "void *user_data" << user_data;
-        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options, 
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options,
             num_input_headers, input_headers, header_include_names, pfn_notify, user_data));
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options, 
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options,
             num_input_headers, input_headers, header_include_names, pfn_notify, user_data));
     }
 }
@@ -2278,12 +2276,12 @@ cl_program CL_API_CALL clLinkProgram(cl_context context,
         apiLogger.PrintCStringVal(options) << "cl_uint num_input_programs" << num_input_programs << "const cl_program *input_programs" << input_programs << "void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data)" << pfn_notify << "void *user_data" << user_data << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options, 
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options,
             num_input_programs, input_programs, pfn_notify, user_data, errcode_ret));
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options, 
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options,
             num_input_programs, input_programs, pfn_notify, user_data, errcode_ret));
     }
 }
@@ -2296,7 +2294,7 @@ void* CL_API_CALL clSVMAlloc(cl_context context,
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
-        START_LOG_API(clSVMAlloc);    
+        START_LOG_API(clSVMAlloc);
         apiLogger << "cl_context context" << context << "cl_svm_mem_flags flags" << flags << "size_t size" << size << "unsigned int alignment" << alignment;
 	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, SVMAlloc(context, flags, size, alignment));
     }
@@ -2483,7 +2481,7 @@ cl_int CL_API_CALL clSetKernelExecInfo(cl_kernel kernel,
 SET_ALIAS(clSetKernelExecInfo);
 
 cl_mem CL_API_CALL clCreatePipe(cl_context context,
-								cl_mem_flags flags, 
+								cl_mem_flags flags,
 								cl_uint pipe_packet_size,
 								cl_uint pipe_max_packets,
 								const cl_pipe_properties *properties,
@@ -2557,7 +2555,7 @@ static vector<cl_command_queue_properties> GetCommandQueueProps(cl_context conte
 {
 	  vector<cl_command_queue_properties> propVec;
 	  if (nullptr != properties)
-	  {		
+	  {
 		    const cl_queue_properties* pCurrProp = properties;
 		    while (*pCurrProp != 0)
 		    {
@@ -2579,10 +2577,10 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
     std::vector<cl_command_queue_properties> propVec = GetCommandQueueProps(context, device_id, properties);
     const cl_command_queue_properties* pCmdQueueProps = propVec.empty() ? nullptr : &propVec[0];
     if (g_pUserLogger->IsApiLoggingEnabled())
-    {		    
+    {
         START_LOG_API(clCreateCommandQueueWithProperties);
         apiLogger << "cl_context context" << context << "cl_device_id device_id" << device_id << "const cl_queue_properties* properties" << properties << "cl_int* errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);    
+        OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, errcode_ret));
     }
@@ -2592,7 +2590,6 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
     }
 }
 SET_ALIAS(clCreateCommandQueueWithProperties);
-
 
 cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
                                              const void* il,

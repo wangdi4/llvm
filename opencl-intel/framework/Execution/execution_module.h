@@ -60,7 +60,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Initialization is done right after the construction in order to capture errors on initialization.
         cl_err_code Initialize(ocl_entry_points * pOclEntryPoints, OCLConfig * pOclConfig, ocl_gpa_data * pGPAData);
 
-        
+
         // Command Queues functions
         cl_command_queue    CreateCommandQueue      ( cl_context clContext, cl_device_id clDevice, const cl_command_queue_properties* clQueueProperties, cl_int* pErrRet );
         cl_err_code         RetainCommandQueue      ( cl_command_queue clCommandQueue);
@@ -143,7 +143,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		ocl_gpa_data *      GetGPAData() const { return m_pGPAData; }
     private:
-	    // Private functions        
+	    // Private functions
 
 		bool				IsValidQueueHandle(cl_command_queue clCommandQueue);
 
@@ -161,7 +161,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ContextModule*      m_pContextModule;                                                   // Pointer to the context operation. This is the internal interface of the module.
         OCLObjectsMap<_cl_command_queue_int, _cl_context_int>*      m_pOclCommandQueueMap;      // Holds the set of active queues.
         EventsManager*      m_pEventsManager;                                                   // Placeholder for all active events.
-        
+
         ocl_entry_points *	m_pOclEntryPoints;
 
         ocl_gpa_data *      m_pGPAData;

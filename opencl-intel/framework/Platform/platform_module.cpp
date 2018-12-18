@@ -50,7 +50,7 @@ PlatformModule::PlatformModule() : OCLObjectBase("PlatformModule")
     m_uiRootDevicesCount   = 0;
     m_pOclEntryPoints      = nullptr;
     m_oclVersion           = OPENCL_VERSION_UNKNOWN;
-    
+
     memset(&m_clPlatformId, 0, sizeof(m_clPlatformId));
     // initialize logger
     INIT_LOGGER_CLIENT("PlatformModule", LL_DEBUG);
@@ -68,7 +68,7 @@ PlatformModule::~PlatformModule()
 cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const string& defaultDevice)
 {
     unsigned int supported_devices_type_count = (unsigned int)devices.size();
-    
+
     if (0 == supported_devices_type_count)
     {
         return CL_INVALID_DEVICE;
@@ -116,7 +116,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
         m_ppRootDevices[ui] = devicesList[ui];
         // assign device in the objects map
         m_mapDevices.AddObject(devicesList[ui]);
-        
+
         if ((0 == m_pDefaultDevice) && (defaultDevice != "") && (defaultDevice == devices[ui]))
         {
             m_pDefaultDevice = devicesList[ui];
@@ -136,7 +136,7 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
     m_pOclEntryPoints = pOclEntryPoints;
 
     m_clPlatformId.object = &m_clPlatformId;
-    *((ocl_entry_points*)(&m_clPlatformId)) = *m_pOclEntryPoints;    
+    *((ocl_entry_points*)(&m_clPlatformId)) = *m_pOclEntryPoints;
 
     // initialize devices
     m_pDefaultDevice = nullptr;
@@ -616,7 +616,7 @@ SharedPtr<FissionableDevice> PlatformModule::GetDevice(cl_device_id clDeviceId)
 // PlatformModule::UnloadCompiler
 //////////////////////////////////////////////////////////////////////////
 cl_int PlatformModule::UnloadCompiler(void)
-{    
+{
     for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
     {
         SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
@@ -653,7 +653,7 @@ public:
 
 private:
     bool                         m_bNeedToCreateDevice;
-    SharedPtr<FissionableDevice> m_pParentDevice;    
+    SharedPtr<FissionableDevice> m_pParentDevice;
 };
 
 bool operator==( void* p, const ParentDeviceWrapper& me )
@@ -697,11 +697,11 @@ cl_err_code PlatformModule::GetDeviceAndHostTimer(cl_device_id device, cl_ulong*
 
 cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_device_partition_property *properties, cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices)
 {
-    OclAutoMutex CS(&m_deviceFissionMutex);    
+    OclAutoMutex CS(&m_deviceFissionMutex);
     cl_uint numOutputDevices, numSubdevicesToCreate, tNumDevices;
     tNumDevices = 0;
     SharedPtr<OCLObject<_cl_device_id_int, _cl_platform_id_int> > pParent_obj = m_mapDevices.GetOCLObject((_cl_device_id_int*)device);
-    
+
     if (0 == pParent_obj)
     {
         return CL_INVALID_DEVICE;
@@ -721,7 +721,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     }
 
     ParentDeviceWrapper pParentDevice( pParent_obj.StaticCast<FissionableDevice>() );
-    
+
     cl_err_code ret = pParentDevice.CreateRootDevice();
     if (CL_SUCCESS != ret)
     {
@@ -745,7 +745,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         *num_devices = numOutputDevices;
         return CL_SUCCESS;
     }
-    
+
     //Else, if the user only needs some of the sub-devices we'll provide, adjust the number of output device to equal the number of entries in the device id list
     if (numOutputDevices > num_entries)
     {
@@ -830,7 +830,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     {
         *num_devices = tNumDevices;
     }
-    
+
     return CL_SUCCESS;
 }
 
@@ -893,12 +893,12 @@ cl_err_code PlatformModule::AddDevices(SharedPtr<FissionableDevice>* ppDevices, 
 
 #if defined (DX_MEDIA_SHARING)
 cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
-                                            cl_uint uiNumMediaAdapters, 
-                                            int *pMediaAdaptersType, 
-                                            void** ppMediaAdapters, 
-                                            int clD3dDeviceSet, 
-                                            cl_uint uiNumEntries, 
-                                            cl_device_id *pclDevices, 
+                                            cl_uint uiNumMediaAdapters,
+                                            int *pMediaAdaptersType,
+                                            void** ppMediaAdapters,
+                                            int clD3dDeviceSet,
+                                            cl_uint uiNumEntries,
+                                            cl_device_id *pclDevices,
                                             cl_uint *puiNumDevices,
                                             const ID3DSharingDefinitions& d3dDefinitions)
 {
@@ -972,7 +972,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
     {
         // find all devices that report supporting Direct3D Sharing
         for (unsigned int i = 0; i < m_uiRootDevicesCount; i++)
-        {        
+        {
             size_t szParamValSize;
 
             cl_err_code err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, 0, nullptr, &szParamValSize);
@@ -985,7 +985,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
             if (CL_FAILED(err))
             {
                 return err;
-            }        
+            }
             if (std::string((char*)sDevEx).find(d3dDefinitions.GetExtensionName()) != std::string::npos)
             {
                 szFoundDevices++;
@@ -996,7 +996,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
                 if (nullptr != puiNumDevices)
                 {
                     (*puiNumDevices)++;
-                }        
+                }
             }
         }
     }
