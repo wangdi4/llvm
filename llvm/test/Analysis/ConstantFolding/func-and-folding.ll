@@ -1,3 +1,7 @@
+; INTEL_CUSTOMIZATION
+; Test marked as failure due to reverting D55115 (CMPLRLLVM-7809).
+; XFAIL: *
+; end INTEL_CUSTOMIZATION
 ; RUN: opt < %s -constprop -S -o - | FileCheck %s
 
 ; Function Attrs: minsize norecurse nounwind optsize readnone
