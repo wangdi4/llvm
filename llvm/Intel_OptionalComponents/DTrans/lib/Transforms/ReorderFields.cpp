@@ -79,17 +79,21 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-    DTransAnalysisInfo &DTInfo =
-        getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-    return Impl.runImpl(M, DTInfo,
+    DTransAnalysisWrapper &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
+    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
+    bool Changed = Impl.runImpl(M, DTInfo,
                         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
                         getAnalysis<WholeProgramWrapperPass>().getResult());
+    if (Changed)
+      DTAnalysisWrapper.setInvalidated();
+    return Changed;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
+    AU.addPreserved<DTransAnalysisWrapper>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };

@@ -44,13 +44,17 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-    DTransAnalysisInfo &DTInfo =
-        getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+    DTransAnalysisWrapper &DTAnalysisWrapper =
+        getAnalysis<DTransAnalysisWrapper>();
+    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
     const TargetLibraryInfo &TLI =
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
     WholeProgramInfo &WPInfo =
         getAnalysis<WholeProgramWrapperPass>().getResult();
-    return Impl.runImpl(M, DTInfo, TLI, WPInfo);
+    bool Changed = Impl.runImpl(M, DTInfo, TLI, WPInfo);
+    if (Changed)
+      DTAnalysisWrapper.setInvalidated();
+    return Changed;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -58,6 +62,7 @@ public:
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
+    AU.addPreserved<DTransAnalysisWrapper>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };

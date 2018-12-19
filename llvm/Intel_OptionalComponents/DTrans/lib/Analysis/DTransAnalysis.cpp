@@ -9073,14 +9073,53 @@ ModulePass *llvm::createDTransAnalysisWrapperPass() {
   return new DTransAnalysisWrapper();
 }
 
-DTransAnalysisWrapper::DTransAnalysisWrapper() : ModulePass(ID) {
+DTransAnalysisWrapper::DTransAnalysisWrapper() : ModulePass(ID), Invalidated(true) {
   initializeDTransAnalysisWrapperPass(*PassRegistry::getPassRegistry());
 }
 
 bool DTransAnalysisWrapper::doFinalization(Module &M) {
   Result.reset();
+  Invalidated = true;
   return false;
 }
+
+DTransAnalysisInfo &DTransAnalysisWrapper::getDTransInfo(Module &M) {
+  // Rerun the analysis, if the prior transformation has marked it as
+  // invalidated.
+  if (Invalidated) {
+    Result.reset();
+    runOnModule(M);
+  } else {
+    // Check that the previous transforms did not change types and forget
+    // to call setInvalidated.
+    assert(verifyValid(M) &&
+           "Types changed, but DTrans analysis not marked as invalidated");
+  }
+
+  return Result;
+}
+
+#if !defined(NDEBUG)
+// This is for verifying that a transformation did not forget to call
+// setInvalidated after making types changes. Because we require the
+// transformation to replace types with new types, this checks to make sure that
+// there aren't any new top-level structure types that the analysis does not
+// know about. This should also prevent the getDTransInfo from being called
+// with a different Module than the one that was collected for. Returns 'true',
+// if everything appears valid.
+bool DTransAnalysisWrapper::verifyValid(Module &M) {
+  if (!Result.useDTransAnalysis())
+    return true;
+
+  for (auto *Ty : M.getIdentifiedStructTypes())
+    if (!Result.getTypeInfo(Ty)) {
+      dbgs() << "No DTrans TypeInfo for struct type:" << *Ty << "\n";
+      return false;
+    }
+
+  return true;
+}
+#endif // !defined(NDEBUG)
 
 bool DTransAnalysisWrapper::runOnModule(Module &M) {
 
@@ -9088,6 +9127,7 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
     return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
   };
 
+  Invalidated = false;
   return Result.analyzeModule(
       M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
       getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI);
@@ -9344,7 +9384,7 @@ bool DTransAnalysisInfo::requiresBadCastValidation(
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
-
+  LLVM_DEBUG(dbgs() << "Running DTransAnalysisInfo::analyzeModule\n");
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << "dtrans: Whole Program not safe ... "
                       << "DTransAnalysis didn't run\n");

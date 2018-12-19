@@ -372,11 +372,37 @@ public:
 
   DTransAnalysisWrapper();
 
-  DTransAnalysisInfo &getDTransInfo() { return Result; }
+  DTransAnalysisInfo &getDTransInfo(Module &M);
+
+  // This is used to indicate that the DTransAnalysisInfo Result information is
+  // stale due to a data transformations having made changes to the structure
+  // types. This method must be called by the transformation when its
+  // runOnModule returns false if the transformation is marked as preserving
+  // DTransAnalysisWrapper analysis. This allows the DTransAnalysis to be reused
+  // by the next DTrans transformation, if no changes were made to the IR,
+  // without the pass manager destroying and recomputing the analysis. This is
+  // necessary because the legacy pass manager marks any analysis that is not
+  // preserved as needing to be recomputed regardless of whether the runOnModule
+  // routine returned 'true' or 'false'
+  void setInvalidated() { Invalidated = true; }
 
   bool runOnModule(Module &M) override;
   bool doFinalization(Module &M) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+private:
+  // When set, this indicates that module has not been analyzed yet, or a
+  // DTrans pass has made changes since the last run of the runOnModule
+  // method. Calling getDTransInfo will trigger an rerun of the runOnModule
+  // method to recollect all the type information.
+  bool Invalidated;
+
+#if !defined(NDEBUG)
+  // Checks that no new structure types were created since DTransAnalysisInfo
+  // collected the types.
+  bool verifyValid(Module &M);
+#endif // !defined(NDEBUG)
+
 };
 
 ModulePass *createDTransAnalysisWrapperPass();

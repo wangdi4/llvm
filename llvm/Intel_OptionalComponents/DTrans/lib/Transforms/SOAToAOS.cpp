@@ -747,13 +747,17 @@ public:
     if (!WP.isWholeProgramSafe())
       return false;
 
-    auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+    auto &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
+    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
     if (!DTInfo.useDTransAnalysis())
       return false;
 
     auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
-    return Impl.runImpl(M, DTInfo, TLI);
+    bool Changed = Impl.runImpl(M, DTInfo, TLI);
+    if (Changed)
+      DTAnalysisWrapper.setInvalidated();
+    return Changed;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -761,6 +765,7 @@ public:
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
     // TODO: Mark the actual preserved analyses.
+    AU.addPreserved<DTransAnalysisWrapper>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };

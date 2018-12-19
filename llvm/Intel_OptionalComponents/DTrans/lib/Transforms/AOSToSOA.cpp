@@ -2506,7 +2506,8 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-    auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+    auto &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
+    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
     auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
     auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
     // This lambda function is to allow getting the DominatorTree analysis for a
@@ -2517,7 +2518,10 @@ public:
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
 
-    return Impl.runImpl(M, DTInfo, TLI, WPInfo, GetDT);
+    bool Changed = Impl.runImpl(M, DTInfo, TLI, WPInfo, GetDT);
+    if (Changed)
+      DTAnalysisWrapper.setInvalidated();
+    return Changed;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -2526,6 +2530,7 @@ public:
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
+    AU.addPreserved<DTransAnalysisWrapper>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };

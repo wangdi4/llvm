@@ -50,7 +50,7 @@ public:
   }
 
   bool runOnModule(Module &M) override {
-    auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+    auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M);
     auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
     return Impl.runImpl(M, DTInfo, TLI);
   }
