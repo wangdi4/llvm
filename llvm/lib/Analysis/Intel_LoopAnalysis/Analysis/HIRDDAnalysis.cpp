@@ -186,7 +186,9 @@ void HIRDDAnalysis::markNonLoopRegionModified(const HLRegion *Region) {
   ValidationMap[Region] = GraphState::Invalid;
 }
 
-DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node) {
+DDGraph HIRDDAnalysis::getGraphImpl(const HLRegion *Region,
+                                    const HLNode *Node) {
+  DDGraphTy &DDG = RegionDDGraph[Region];
   auto State = ValidationMap[Node];
 
   if (ForceDDA || State == GraphState::Invalid ||
@@ -194,17 +196,19 @@ DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node) {
       // should rebuild DD from scratch as some nodes could have been moved from
       // an old loop to this loop.
       (isa<HLLoop>(Node) && (State == GraphState::NoData) &&
-       (ValidationMap[Node->getParentRegion()] == GraphState::Invalid))) {
+       (ValidationMap[Region] == GraphState::Invalid))) {
 
     // Clean whole graph if a graph is requested for invalid Node.
-    FunctionDDGraph.clear();
-    ValidationMap.clear();
+    DDG.clear();
+    GraphStateUpdater GSU(ValidationMap, GraphState::NoData);
+    HLNodeUtils::visit(GSU, Region);
 
-    buildGraph(Node);
+    buildGraph(DDG, Node);
   } else if (State != GraphState::Valid) {
-    buildGraph(Node);
+    buildGraph(DDG, Node);
   }
-  return DDGraph(Node, &FunctionDDGraph);
+
+  return DDGraph(Node, &DDG);
 }
 
 // Returns true if we must do dd testing between ref1 and ref2. We generally
@@ -425,7 +429,7 @@ bool HIRDDAnalysis::isEdgeValid(const DDRef *Ref1, const DDRef *Ref2) {
   return ValidationMap[TopLoop->getParentRegion()] == GraphState::Valid;
 }
 
-void HIRDDAnalysis::buildGraph(const HLNode *Node) {
+void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
   assert((isa<HLRegion>(Node) || isa<HLLoop>(Node)) &&
          "Node should be HLLoop or HLRegion");
 
@@ -506,7 +510,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node) {
                                  OutputDistVForward, IsLoopIndepDepTemp);
             // LLVM_DEBUG(dbgs() << "Got edge of :");
             // LLVM_DEBUG(Edge.dump());
-            FunctionDDGraph.addEdge(std::move(Edge));
+            DDG.addEdge(std::move(Edge));
           }
 
           if (OutputDVBackward[0] != DVKind::NONE &&
@@ -515,15 +519,15 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node) {
                 DDEdge(Ref2, Ref1, OutputDVBackward, OutputDistVBackward);
             // LLVM_DEBUG(dbgs() << "Got back edge of :");
             // LLVM_DEBUG(Edge.dump());
-            FunctionDDGraph.addEdge(std::move(Edge));
+            DDG.addEdge(std::move(Edge));
           }
         }
       }
     }
   }
 
-  GraphStateUpdater Visitor(ValidationMap, GraphState::Valid);
-  Node->getHLNodeUtils().visit(Visitor, Node);
+  GraphStateUpdater GSU(ValidationMap, GraphState::Valid);
+  HLNodeUtils::visit(GSU, Node);
 }
 
 bool HIRDDAnalysis::isRefinableDepAtLevel(const DDEdge *Edge,
@@ -605,7 +609,11 @@ void HIRDDAnalysis::printAnalysis(raw_ostream &OS) const {
   if (DumpGraphForNodeNumbers.empty()) {
     NonConstDDA->forceBuild();
     OS << "DD graph for function " << HIRF.getFunction().getName() << ":\n";
-    FunctionDDGraph.print(OS);
+    for (auto &Pair : RegionDDGraph) {
+      OS << "Region " << Pair.first->getNumber() << ":\n";
+      Pair.second.print(OS);
+      OS << "\n";
+    }
   } else {
     // Dump graph for each node specified by the cl opts.
     for (int NodeNumber : DumpGraphForNodeNumbers) {

@@ -976,7 +976,7 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   const unsigned OutermostLevel;
   const unsigned InnermostLevel;
   HIRDDAnalysis &DDA;
-  DDGraph &DDG;
+  DDGraph DDG;
   HIRSafeReductionAnalysis &SRA;
   const SpecialSymbasesTy *SpecialSymbases;
   bool IgnoreSpecialSymbases;
@@ -987,9 +987,8 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   // Outputs of this visitor
   SmallVectorImpl<DirectionVector> &DVs;
 
-  CollectDDInfoForPermute(const HLLoop *CandidateLoop, unsigned OutermostLevel,
-                          unsigned InnermostLevel, HIRDDAnalysis &DDA,
-                          DDGraph &DDG, HIRSafeReductionAnalysis &SRA,
+  CollectDDInfoForPermute(const HLLoop *CandidateLoop, unsigned InnermostLevel,
+                          HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
                           const SpecialSymbasesTy *SpecialSBs,
                           bool IgnoreSpecialSymbases, bool RefineDV,
                           SmallVectorImpl<DirectionVector> &DVs);
@@ -1003,15 +1002,16 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
 } // namespace
 
 CollectDDInfoForPermute::CollectDDInfoForPermute(
-    const HLLoop *CandidateLoop, unsigned OutermostLevel,
-    unsigned InnermostLevel, HIRDDAnalysis &DDA, DDGraph &DDG,
+    const HLLoop *CandidateLoop, unsigned InnermostLevel, HIRDDAnalysis &DDA,
     HIRSafeReductionAnalysis &SRA, const SpecialSymbasesTy *SpecialSBs,
     bool IgnoreSpecialSymbases, bool RefineDV,
     SmallVectorImpl<DirectionVector> &DVs)
-    : CandidateLoop(CandidateLoop), OutermostLevel(OutermostLevel),
-      InnermostLevel(InnermostLevel), DDA(DDA), DDG(DDG), SRA(SRA),
-      SpecialSymbases(SpecialSBs), IgnoreSpecialSymbases(IgnoreSpecialSymbases),
-      RefineDV(RefineDV), DVs(DVs) {
+    : CandidateLoop(CandidateLoop),
+      OutermostLevel(CandidateLoop->getNestingLevel()),
+      InnermostLevel(InnermostLevel), DDA(DDA),
+      DDG(DDA.getGraph(CandidateLoop)), SRA(SRA), SpecialSymbases(SpecialSBs),
+      IgnoreSpecialSymbases(IgnoreSpecialSymbases), RefineDV(RefineDV),
+      DVs(DVs) {
   DVs.clear();
 }
 
@@ -1113,10 +1113,8 @@ void DDUtils::computeDVsForPermute(SmallVectorImpl<DirectionVector> &DVs,
                                    HIRSafeReductionAnalysis &SRA,
                                    bool RefineDV) {
 
-  DDGraph DDG = DDA.getGraph(OutermostLoop);
-  CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
-                              InnermostNestingLevel, DDA, DDG, SRA, nullptr,
-                              true, RefineDV, DVs);
+  CollectDDInfoForPermute CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA,
+                              nullptr, true, RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
@@ -1129,10 +1127,8 @@ void DDUtils::computeDVsForPermuteWithSBs(SmallVectorImpl<DirectionVector> &DVs,
                                           bool RefineDV,
                                           const SpecialSymbasesTy *SpecialSBs) {
 
-  DDGraph DDG = DDA.getGraph(OutermostLoop);
-  CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
-                              InnermostNestingLevel, DDA, DDG, SRA, SpecialSBs,
-                              false, RefineDV, DVs);
+  CollectDDInfoForPermute CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA,
+                              SpecialSBs, false, RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
@@ -1143,10 +1139,8 @@ void DDUtils::computeDVsForPermuteIgnoringSBs(
     HIRSafeReductionAnalysis &SRA, bool RefineDV,
     const SpecialSymbasesTy *SpecialSBs) {
 
-  DDGraph DDG = DDA.getGraph(OutermostLoop);
-  CollectDDInfoForPermute CDD(OutermostLoop, OutermostLoop->getNestingLevel(),
-                              InnermostNestingLevel, DDA, DDG, SRA, SpecialSBs,
-                              true, RefineDV, DVs);
+  CollectDDInfoForPermute CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA,
+                              SpecialSBs, true, RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }

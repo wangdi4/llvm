@@ -123,15 +123,23 @@ class HIRDDAnalysis : public HIRAnalysis {
   class GraphStateUpdater final : public HLNodeVisitorBase {
     ValidationMapTy &ValidityMapRef;
     GraphState State;
+    const HLLoop *SkipLoop;
 
   public:
     GraphStateUpdater(HIRDDAnalysis::ValidationMapTy &ValidityMapRef,
                       HIRDDAnalysis::GraphState State)
-        : ValidityMapRef(ValidityMapRef), State(State) {}
+        : ValidityMapRef(ValidityMapRef), State(State), SkipLoop(nullptr) {}
 
-    void visit(const HLLoop *Loop) { ValidityMapRef[Loop] = State; }
+    void visit(const HLLoop *Loop) {
+      ValidityMapRef[Loop] = State;
+      if (Loop->isInnermost()) {
+        SkipLoop = Loop;
+      }
+    }
 
     void visit(const HLRegion *Region) { ValidityMapRef[Region] = State; }
+
+    bool skipRecursion(const HLNode *Node) const { return SkipLoop == Node; }
 
     void visit(const HLNode *Node) {}
     void postVisit(const HLNode *Node) {}
@@ -161,7 +169,7 @@ public:
   HIRDDAnalysis(HIRDDAnalysis &&Arg)
       : HIRAnalysis(Arg.HIRF), AAR(std::move(Arg.AAR)),
         ValidationMap(std::move(Arg.ValidationMap)),
-        FunctionDDGraph(std::move(Arg.FunctionDDGraph)) {}
+        RegionDDGraph(std::move(Arg.RegionDDGraph)) {}
   HIRDDAnalysis(const HIRDDAnalysis &) = delete;
 
   void printAnalysis(raw_ostream &OS) const override;
@@ -219,11 +227,11 @@ public:
   // Note, atm the graph does not filter edges to ensure src/sink are in Node.
   // some edges may be pointing to a node that is not of interest
   DDGraph getGraph(const HLRegion *Region) {
-    return getGraphImpl(static_cast<const HLNode *>(Region));
+    return getGraphImpl(Region, Region);
   }
 
   DDGraph getGraph(const HLLoop *Loop) {
-    return getGraphImpl(static_cast<const HLNode *>(Loop));
+    return getGraphImpl(Loop->getParentRegion(), Loop);
   }
 
   /// \brief Caller has DDG and the level it needs to refine. Should check
@@ -261,9 +269,8 @@ private:
 
   ValidationMapTy ValidationMap;
 
-  // TODO: consider per-region graph instead of per-function graph.
-  // full dd graph
-  DDGraphTy FunctionDDGraph;
+  // Region Data Dependency Graph
+  std::unordered_map<const HLRegion *, DDGraphTy> RegionDDGraph;
 
   /// Returns tuple where the first value is a parent Loop or Region for \p Ref
   /// and the second is true or false whether the parent node is HLLoop.
@@ -278,9 +285,9 @@ private:
   /// as invalid.
   void invalidateGraph(const HLLoop *Loop, bool InvalidateInnerLoops);
 
-  DDGraph getGraphImpl(const HLNode *Node);
+  DDGraph getGraphImpl(const HLRegion *Region, const HLNode *Node);
 
-  void buildGraph(const HLNode *Node);
+  void buildGraph(DDGraphTy &DDG, const HLNode *Node);
 
   void setInputDV(DirectionVector &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
 };
