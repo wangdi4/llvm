@@ -160,6 +160,7 @@ constexpr mirmatch::OpcodeGroupMatcher<X86::MULSDrm, X86::MULSDrr,
 constexpr mirmatch::OpcodeGroupMatcher<X86::ADDSDrm, X86::ADDSDrr,
                                        X86::ADDSSrm, X86::ADDSSrr>  ADDS{};
 
+MIRMATCHER_REGS(REG_X, REG_Y, REG_AX, REG_AXPY);
 } // Close anonymous namespace
 
 // This tests a simple pattern match, whereby the results of a multiply
@@ -268,8 +269,6 @@ TEST(Intel_MIRMatcher, FMAPattern) {
   /////////// Find the match the easy way: with MIRMatcher ///////////////
   using namespace mirmatch;
   mirmatch::MatchResult result;
-
-  MIRMATCHER_REGS(REG_X, REG_Y, REG_AX, REG_AXPY);
 
   // Match pattern 'y = a*x + y'
   // Note that the output of the multiply (REG_AX) is used as input to the add.
