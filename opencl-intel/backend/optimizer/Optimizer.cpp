@@ -58,14 +58,16 @@ llvm::FunctionPass* createFMASplitterPass();
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
-static cl::opt<bool> DisableVPlanVec("disable-vplan-vectorizer",
+// This flag enables VPlan for loop vectorization.
+static cl::opt<bool> DisableVPlanVec("disable-vplan-loop-vectorizer",
                                      cl::init(false), cl::Hidden,
-                                     cl::desc("Disable VPlan Vectorizer"));
+                                     cl::desc("Disable VPlan Loop Vectorizer"));
 
 // This flag enables VPlan for OpenCL.
 static cl::opt<bool>
-    EnableVPlanVecForOpenCL("enable-vpo-vectorizer", cl::init(false),
-                            cl::Hidden, cl::desc("Enable VPlan Vectorizer"));
+    EnableVPlanVecForOpenCL("enable-vplan-kernel-vectorizer", cl::init(false),
+                            cl::Hidden,
+                            cl::desc("Enable VPlan Kernel Vectorizer"));
 // INTEL VPO END
 
 extern "C"{
@@ -77,6 +79,7 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig,
                                   bool EnableVPlanVecForOpenCL);
+llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType);
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
@@ -135,6 +138,7 @@ llvm::ModulePass *createDetectRecursionPass();
 llvm::ModulePass *createPreLegalizeBoolsPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
+llvm::ModulePass *createChannelsUsageAnalysisPass();
 }
 
 using namespace intel;
@@ -339,6 +343,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
       PM.add(createPipeIOTransformationPass());
       PM.add(createPipeOrderingPass());
       PM.add(createAutorunReplicatorPass());
+      PM.add(createChannelsUsageAnalysisPass());
   }
 
   // Adding module passes.
@@ -377,71 +382,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   int rtLoopUnrollFactor = pConfig->GetRTLoopUnrollFactor();
 
   unsigned RunVPOParopt = 0;
-
-  if (isFpgaEmulator) {
-// INTEL VPO BEGIN
-    // TODO: This approach has the following issues:
-    //     1. We shouldn't be processing Clang's flags in LLVM.
-    //     2. If -fintel-openmp-region is passed by other means than the VOLCANO
-    //        env var (OpenCL source code, for example), this is not going to
-    //        work.
-    //     3. Default value of optionsClang has to be aligned with
-    //        the clang_driver.
-    //
-    // The right implementation should process intel flags in Clang and then,
-    // Clang should pass the right LLVM flags to LLVM.
-    std::string optionsClang;
-
-    // FIXME: OpenMP is not enabled by default, because it requires
-    // -fintel-compatibility flag, which affects on clang behavior beyond
-    // OpenMP. Should be enabled back when this issue gets resolved.
-    //
-    // std::string optionsClang = "-fopenmp -fintel-openmp-region -fopenmp-tbb
-    //                             -fintel-compatibility";
-
-    if (const char* opts = getenv("VOLCANO_CLANG_OPTIONS")) {
-#ifdef NDEBUG
-      // Append user options to default options.
-      optionsClang += opts;
-#else
-      // Allow default to be overridden for debug purposes.
-
-      // FIXME: This is primarily needed to disable VPO, but overriding options
-      // in debug build is not obvious. There are better ways to do it:
-      //
-      //    1. Pass -fno-openmp and -fno-intel-openmp-region flags through
-      //    VOLCANO_CLANG_OPTIONS.
-      //
-      //    2. Pass -disable-vplan-vectorizer through
-      //    VOLCANO_LLVM_OPTIONS. Tricky part here is whether the IR produced by
-      //    the clang with -fopenmp and -fintel-openmp-region is compatible with
-      //    our backend without VPO.
-      optionsClang = opts;
-#endif
-    }
-    if (!optionsClang.empty()) {
-      std::stringstream optionsSS(optionsClang);
-      std::string buf;
-      while (getline(optionsSS, buf,' ')) {
-        if (buf.compare("-fintel-openmp-region") == 0) {
-          RunVPOParopt |= VPOParoptMode::ParPrepare;
-          RunVPOParopt |= VPOParoptMode::ParTrans;
-          RunVPOParopt |= VPOParoptMode::OmpPar;
-          RunVPOParopt |= VPOParoptMode::OmpVec;
-          RunVPOParopt |= VPOParoptMode::OmpTpv;
-        }
-        else if (buf.compare("-fopenmp-simd") == 0) {
-          RunVPOParopt |= VPOParoptMode::ParPrepare;
-          RunVPOParopt |= VPOParoptMode::ParTrans;
-          RunVPOParopt |= VPOParoptMode::OmpVec;
-        }
-        else if (buf.compare("-fopenmp-tbb") == 0) {
-          RunVPOParopt |= VPOParoptMode::OmpTbb;
-        }
-      }
-    }
-// INTEL VPO END
-  }
 
   bool allowAllocaModificationOpt = !HasGatherScatterPrefetch;
 
@@ -543,10 +483,12 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
 
         // Call VPlan
         PM.add(llvm::createPromoteMemoryToRegisterPass());
+        PM.add(createLowerSwitchPass());
         PM.add(createLoopSimplifyPass());
         PM.add(createLCSSAPass());
         PM.add(createVPOCFGRestructuringPass());
         PM.add(createVPlanDriverPass());
+        PM.add(createOCLPostVectPass());
 
         // Final cleaning up
         PM.add(createVPODirectiveCleanupPass());

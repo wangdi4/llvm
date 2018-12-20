@@ -559,9 +559,10 @@ namespace intel {
     }
     return LoopEnd;
   }
-  BasicBlock* Barrier::createBarrierLatch(BasicBlock *pPreSyncBB, BasicBlock *pSyncBB,
-                                   BarrierBBIdList &BBId, Value *UniqueID,
-                                   bool NeedsFence, const DebugLoc &DL) {
+  BasicBlock *Barrier::createBarrierLatch(BasicBlock *pPreSyncBB,
+                                          BasicBlock *pSyncBB,
+                                          BarrierBBIdList &BBId,
+                                          Value *UniqueID, const DebugLoc &DL) {
     Function *F = pPreSyncBB->getParent();
     unsigned NumDims = getNumDims();
     // A. change the preSync basic block as follow
@@ -617,8 +618,6 @@ namespace intel {
       if (UniqueID) {
         createSetCurrBarrierId(UniqueID, B);
       }
-      if (NeedsFence)
-        m_util.createMemFence(B);
       B.CreateBr(pSyncBB);
     }
     // Only if we are debugging, copy data into the stack from work item
@@ -756,19 +755,7 @@ namespace intel {
               std::make_pair(ConstantInt::get(*m_pContext, APInt(32, predId)),
                              pSyncInst->getParent()));
         }
-        // Is a mem fence required?
-        bool NeedsFence = false;
-        CallInst *pBarrier = cast<CallInst>(pInst);
-        Value *pArg1 = pBarrier->getOperand(0);
-        assert( pArg1 && "Barrier instruction has no first argument!" );
-        assert(isa<ConstantInt>(pArg1) &&
-               "Barrier first argument (memory fence) must be const!");
-        ConstantInt *pMemFence = cast<ConstantInt>(pArg1);
-        if ( pMemFence->getZExtValue() & (CLK_GLOBAL_MEM_FENCE | CLK_CHANNEL_MEM_FENCE) ) {
-          //barrier(global): add mem_fence instruction!
-          NeedsFence = true;
-        }
-        createBarrierLatch(pPreSyncBB, pSyncBB, BBId, UniqueID, NeedsFence, DL);
+        createBarrierLatch(pPreSyncBB, pSyncBB, BBId, UniqueID, DL);
     }
 
   }
@@ -1042,11 +1029,9 @@ namespace intel {
           BarrierBBIdList BBId(
               1, std::make_pair(ConstantInt::get(*m_pContext, APInt(32, 0)),
                                 LoopBB));
-          bool NeedsFence = false;
           DebugLoc DL = pRetInst->getDebugLoc();
           Value* UniqueID = 0;
-          createBarrierLatch(
-              LoopBB, RetBB, BBId, UniqueID, NeedsFence, DL);
+          createBarrierLatch(LoopBB, RetBB, BBId, UniqueID, DL);
 
           pNextInst = LoopBB->getFirstNonPHI();
         }

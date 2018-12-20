@@ -310,19 +310,12 @@ protected:
       SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "ignore-depth");
       break;
     }
-    if (vpo) {
-      SETENV("VOLCANO_CLANG_OPTIONS",
-             "-fopenmp -fintel-openmp-region -fopenmp-tbb -fintel-compatibility");
-    }
     parent_t::SetUp();
   }
 
   void TearDown() override {
     parent_t::TearDown();
     UNSETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE");
-    if (vpo) {
-      UNSETENV("VOLCANO_CLANG_OPTIONS");
-    }
   }
 };
 

@@ -332,15 +332,6 @@ namespace intel {
     return m_barriers.count(pCallInstr);
   }
 
-  Instruction* BarrierUtils::createMemFence(IRBuilder<> &B) {
-    /*Type *pResult = Type::getVoidTy(m_pModule->getContext());
-    std::vector<Type*> funcTyArgs;
-    FunctionType *pFuncTy = FunctionType::get(pResult, funcTyArgs, false);
-    Constant *pNewFunc = m_pModule->getOrInsertFunction("llvm.x86.sse2.mfence", pFuncTy);
-    return CallInst::Create(pNewFunc, "", pAtEnd);*/
-    return nullptr;
-  }
-
   Instruction* BarrierUtils::createGetSpecialBuffer(Instruction *pInsertBefore){
     if ( !m_getSpecialBufferFunc ) {
       //get_special_buffer() function is not initialized yet

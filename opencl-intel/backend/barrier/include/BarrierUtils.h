@@ -177,11 +177,6 @@ namespace intel {
     /// @returns true if this is dummyBarrier() call and false otherwise
     bool isDummyBarrierCall(CallInst *pCallInstr);
 
-    /// @brief Create new call instruction to __mm_mfence()
-    /// @param pAtEnd basic block to insert new call at its end
-    /// @returns new created call instruction
-    Instruction* createMemFence(IRBuilder<>& B);
-
     /// @brief Create new call instruction to get_special_buffer()
     /// @param pInsertBefore instruction to insert new call instruction before
     /// @returns new created call instruction

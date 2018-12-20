@@ -25,28 +25,12 @@ include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}/export
         ${CL_API_HEADERS}
         ${CMAKE_CURRENT_SOURCE_DIR}/icd
-        ${CMAKE_CURRENT_SOURCE_DIR}/gl_sharing
         ${CMAKE_CURRENT_SOURCE_DIR}/Platform
         ${CMAKE_CURRENT_SOURCE_DIR}/Context
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution
         ${CMAKE_CURRENT_SOURCE_DIR}/MemoryAllocator
         ${OCL_BINARY_DIR}
     )
-
-if (WIN32 AND (DEFINED ENV{DXSDK_DIR}) )
-	include_directories (BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/d3d9_sharing)
-
-	if (${BUILD_X64} STREQUAL "ON")
-		link_directories($ENV{DXSDK_DIR}/Lib/x64)
-	else (${BUILD_X64} STREQUAL "ON")
-		link_directories($ENV{DXSDK_DIR}/Lib/x86)
-	endif(${BUILD_X64} STREQUAL "ON")
-
-	if (WIN32 AND DEFINED ENV{DXSDK_DIR} )
-		add_definitions (-DDX_MEDIA_SHARING)
-		add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)
-	endif ()
-endif ()
 
 # For debug only
 if (USE_ITT_INTERNAL)
@@ -60,17 +44,6 @@ add_subdirectory( Platform )
 add_subdirectory( Context )
 add_subdirectory( Execution )
 add_subdirectory( MemoryAllocator )
-
-if (WIN32)
-    add_subdirectory( gl_sharing )
-    list( APPEND LINK_LIBS gl_sharing )
-	if ( DEFINED ENV{DXSDK_DIR} )
-		add_subdirectory( d3d9_sharing )
-		list( APPEND LINK_LIBS d3d9_sharing )
-		endif ( DEFINED ENV{DXSDK_DIR} )
-else()
-    message( WARNING " Warning: OpenGL Sharing is not ported to Linux!")
-endif(WIN32)
 
 # set that name of the main output file as a target name
 if (NOT WIN32 OR BUILD_FPGA_EMULATOR)

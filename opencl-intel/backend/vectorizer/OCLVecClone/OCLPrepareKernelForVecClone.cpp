@@ -59,7 +59,7 @@ void OCLPrepareKernelForVecClone::createEncodingForVectorVariants(
 
   // Finds the biggest vector type supported by the target and encodes.
   char ISAEncoding = 0;
-  if (Config->GetCpuId().HasAVX512())
+  if (Config->GetCpuId().HasAVX512Core())
     ISAEncoding = 'e';
   else if (Config->GetCpuId().HasAVX2())
     ISAEncoding = 'd';

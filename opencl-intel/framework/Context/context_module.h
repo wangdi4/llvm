@@ -20,15 +20,6 @@
 #include "Context.h"
 #include "GenericMemObj.h"
 #include <Logger.h>
-#if defined (DX_MEDIA_SHARING)
-#include <d3d9.h>
-#include <basetsd.h>
-#include "CL\cl_dx9_media_sharing.h"
-#include "CL/cl_ext.h"
-#if defined (DX_MEDIA_SHARING)
-#include "d3d9_definitions.h"
-#endif
-#endif
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
@@ -41,7 +32,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class Kernel;
     class IOclCommandQueueBase;
     class OclCommandQueue;
-    template<typename T> struct D3DResourceInfo;
 
     /**********************************************************************************************
     * Class name:    ContextModule
@@ -52,13 +42,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
     **********************************************************************************************/
     class ContextModule
     {
-    
+
     public:
 
         /******************************************************************************************
         * Function:     ContextModule
         * Description:    The Context Module class constructor
-        * Arguments:    pPlatformModule [in] -    pointer to the platform module    
+        * Arguments:    pPlatformModule [in] -    pointer to the platform module
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
@@ -67,27 +57,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
         /******************************************************************************************
         * Function:     ~ContextModule
         * Description:    The Context Module class destructor
-        * Arguments:        
+        * Arguments:
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
         virtual ~ContextModule();
 
         /******************************************************************************************
-        * Function:     Initialize    
+        * Function:     Initialize
         * Description:    Initialize the context module object
         *                and load devices
-        * Arguments:        
+        * Arguments:
         * Return value:    CL_SUCCESS - The initializtion operation succeded
         * Author:        Uri Levy
         * Date:            December 2008
-        ******************************************************************************************/        
+        ******************************************************************************************/
         cl_err_code        Initialize(ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData);
 
         /******************************************************************************************
-        * Function:     Release    
+        * Function:     Release
         * Description:    Release the context module's resources
-        * Arguments:        
+        * Arguments:
         * Return value:    CL_SUCCESS - The release operation succeded
         * Author:        Uri Levy
         * Date:            December 2008
@@ -95,9 +85,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code        Release(  bool bTerminate );
 
         /******************************************************************************************
-        * Function:     GetContext    
+        * Function:     GetContext
         * Description:    Gets a pointer to a context accourding to its cl_context value
-        * Arguments:    clContext [in] - a valid context handle                   
+        * Arguments:    clContext [in] - a valid context handle
         * Return value:    Returns the context object if valid, else returns NULL.
         ******************************************************************************************/
         SharedPtr<Context>        GetContext( cl_context clContext );
@@ -111,33 +101,33 @@ namespace Intel { namespace OpenCL { namespace Framework {
         SharedPtr<Kernel>         GetKernel( cl_kernel clKernel );
 
         /******************************************************************************************
-        * Function:     GetMemoryObject    
+        * Function:     GetMemoryObject
         * Description:    Gets a pointer to a memory object according to its cl_mem value
-        * Arguments:    clMemObjId [in] - a valid memory object handle                   
+        * Arguments:    clMemObjId [in] - a valid memory object handle
         * Return value:    Returns the memory object if valid, else returns NULL.
         ******************************************************************************************/
         SharedPtr<MemoryObject> GetMemoryObject(const cl_mem clMemObjId);
 
         /******************************************************************************************
-        * Function:     GetGPAData    
+        * Function:     GetGPAData
         * Description:    Returns a pointer to the GPA data object.
-        * Arguments:    None                   
+        * Arguments:    None
         * Return value:    Returns a pointer to the GPA data object.
         ******************************************************************************************/
         ocl_gpa_data * GetGPAData() const { return m_pGPAData; }
 
         /******************************************************************************************
-        * Function:     IsTerminating    
+        * Function:     IsTerminating
         * Description:    Returns whether this ContextModule is in the process of terminating
-        * Arguments:    None                   
+        * Arguments:    None
         * Return value:    Returns whether this ContextModule is in the process of terminating
         ******************************************************************************************/
         bool IsTerminating() const { return m_bIsTerminating; }
 
         /******************************************************************************************
-        * Function:     ShutDown    
+        * Function:     ShutDown
         * Description:    ShutDown everything
-        * Arguments:    bool to skip waiting for queues                   
+        * Arguments:    bool to skip waiting for queues
         * Return value:    none
         ******************************************************************************************/
         void ShutDown( bool wait_for_finish );
@@ -156,7 +146,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_program CreateProgramWithBinary(cl_context clContext, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const size_t * pszLengths, const unsigned char ** ppBinaries, cl_int * piBinaryStatus, cl_int * pErrRet);
         virtual cl_program CreateProgramWithBuiltInKernels(cl_context clContext, cl_uint uiNumDevices, const cl_device_id *  pclDeviceList, const char *szKernelNames, cl_int *pErrcodeRet);
 
-        virtual cl_err_code    RetainProgram(cl_program clProgram);
+        virtual cl_err_code RetainProgram(cl_program clProgram);
         virtual cl_err_code ReleaseProgram(cl_program clProgram);
         virtual cl_int CompileProgram(cl_program clProgram, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const char * pcOptions, cl_uint num_input_headers, const cl_program* pclInputHeaders, const char **header_include_names, void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data), void * pUserData);
         virtual cl_program LinkProgram(cl_context clContext, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const char * pcOptions, cl_uint uiNumInputPrograms, const cl_program* pclInputPrograms, void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data), void * pUserData, cl_int *pErrcodeRet);
@@ -172,13 +162,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_int SetKernelArg(cl_kernel clKernel, cl_uint    uiArgIndex, size_t szArgSize, const void * pszArgValue);
         virtual cl_int GetKernelInfo(cl_kernel clKernel, cl_kernel_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
         virtual cl_int GetKernelWorkGroupInfo(cl_kernel clKernel, cl_device_id pDevice, cl_kernel_work_group_info clParamName, size_t szParamValueSize, void *    pParamValue, size_t * pszParamValueSizeRet);
-        
+
         // memory object methods
         virtual cl_mem CreateBuffer(cl_context clContext, cl_mem_flags clFlags, size_t szSize, void * pHostPtr, cl_int * pErrcodeRet);
         virtual cl_mem CreateSubBuffer(cl_mem buffer, cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type, const void * buffer_create_info, cl_int * pErrcodeRet);
         virtual cl_mem CreateImage2D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageRowPitch, void * pHostPtr, cl_int * pErrcodeRet);
         virtual cl_mem CreateImage3D(cl_context clContext, cl_mem_flags clFlags, const cl_image_format * clImageFormat, size_t szImageWidth, size_t szImageHeight, size_t szImageDepth, size_t szImageRowPitch, size_t szImageSlicePitch, void * pHostPtr, cl_int * pErrcodeRet);
-        virtual cl_mem CreateImage(cl_context context, cl_mem_flags flags, const cl_image_format *image_format, const cl_image_desc *image_desc, void *host_ptr, cl_int *errcode_ret);        
+        virtual cl_mem CreateImage(cl_context context, cl_mem_flags flags, const cl_image_format *image_format, const cl_image_desc *image_desc, void *host_ptr, cl_int *errcode_ret);
         virtual cl_mem Create2DImageFromImage(cl_context context, cl_mem_flags flags, const cl_image_format* pImageFormat, const cl_image_desc* pImageDesc, cl_mem otherImgHandle, cl_int* iErrcodeRet);
         virtual cl_mem CreateImageArray(cl_context clContext, cl_mem_flags clFlags, const cl_image_format* clImageFormat, const cl_image_desc* pClImageDesc, void* pHostPtr, cl_int* pErrcodeRet);
         virtual cl_int RetainMemObject(cl_mem clMemObj);
@@ -193,24 +183,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_int RetainSampler(cl_sampler clSampler);
         virtual cl_int ReleaseSampler(cl_sampler clSampler);
         virtual cl_int GetSamplerInfo(cl_sampler clSampler, cl_sampler_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-        // IContextGL methods
-        ///////////////////////////////////////////////////////////////////////////////////////////
-        virtual cl_mem CreateFromGLBuffer(cl_context clContext, cl_mem_flags clMemFlags, GLuint glBufObj, int * pErrcodeRet);
-        virtual cl_mem CreateFromGLTexture(cl_context clContext, cl_mem_flags clMemFlags, GLenum glTextureTarget, GLint glMipLevel, GLuint glTexture, cl_int * pErrcodeRet);
-        virtual cl_mem CreateFromGLRenderbuffer(cl_context clContext, cl_mem_flags clMemFlags, GLuint glRenderBuffer, cl_int * pErrcodeRet);
-        virtual cl_int GetGLObjectInfo(cl_mem clMemObj, cl_gl_object_type * pglObjectType, GLuint * pglObjectName);
-        virtual cl_int GetGLTextureInfo(cl_mem clMemObj, cl_gl_texture_info clglPramName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
-
-        // Direct3D 9 Sharing methods
-#if defined (DX_MEDIA_SHARING)
-        virtual cl_mem CreateFromD3D9Surface(cl_context context, cl_mem_flags flags,
-            cl_dx9_media_adapter_type_khr adapterType, cl_dx9_surface_info_khr* pSurfaceInfo, UINT plane, cl_int *errcode_ret, const ID3DSharingDefinitions& d3d9Definitions);
-        virtual cl_mem CreateFromD3D11Buffer(cl_context context, cl_mem_flags flags, ID3D11Buffer* pResource, cl_int* pErrcodeRet);
-        virtual cl_mem CreateFromD3D11Texture2D(cl_context context, cl_mem_flags flags, ID3D11Texture2D* pResource, UINT uiSubresource, cl_int* pErrcodeRet);
-        virtual cl_mem CreateFromD3D11Texture3D(cl_context context, cl_mem_flags flags, ID3D11Texture3D* pResource, UINT uiSubresource, cl_int* pErrcodeRet);
-#endif
 
         /////////////////////////////////////////////////////////////////////
         // OpenCL 1.2 functions
@@ -230,7 +202,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // SVM
 
         void* SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t size, unsigned int uiAlignment);
-        void SVMFree(cl_context context, void* pSvmPtr);        
+        void SVMFree(cl_context context, void* pSvmPtr);
         cl_int SetKernelArgSVMPointer(cl_kernel clKernel, cl_uint uiArgIndex, const void* pArgValue);
         cl_int SetKernelExecInfo(cl_kernel clKernel, cl_kernel_exec_info paramName, size_t szParamValueSize, const void* pParamValue);
 
@@ -274,7 +246,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void UnRegisterMappedMemoryObject( MemoryObject* pMemObj );
 
     private:
-        
+
         ContextModule(const ContextModule&);
         ContextModule& operator=(const ContextModule&);
 
@@ -327,12 +299,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         bool Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemObject>& pBuffer, const cl_image_desc& desc, const cl_image_format& format) const;
 
-#if defined (DX_MEDIA_SHARING)
-        template<typename RESOURCE_TYPE, typename DEV_TYPE>
-        cl_mem CreateFromD3DResource(cl_context clContext, cl_mem_flags flags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, cl_int *pErrcodeRet,
-            cl_mem_object_type clObjType, cl_uint uiDimCnt, UINT plane = MAXUINT);
-#endif
-
         PlatformModule *                        m_pPlatformModule; // handle to the platform module
 
         OCLObjectsMap<_cl_context_int>          m_mapContexts;     // map list of contexts
@@ -342,32 +308,32 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OCLObjectsMap<_cl_sampler_int>          m_mapSamplers;     // map list of all memory objects
         std::map<void*, SharedPtr<Context> >    m_mapSVMBuffers;   // map list of all svm objects
 
-        Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue> m_setQueues;    // set of all queues including invisible to user
+        Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue> m_setQueues; // set of all queues including invisible to user
         Intel::OpenCL::Utils::LifetimeObjectContainer<MemoryObject>    m_setMappedMemObjects; // set of all memory objects that were mapped at least once in a history
 
         ocl_entry_points *                      m_pOclEntryPoints;
 
         ocl_gpa_data *                          m_pGPAData;
-        bool                                    m_bIsTerminating;        
+        bool                                    m_bIsTerminating;
 
         DECLARE_LOGGER_CLIENT;
     };
 
     template<size_t DIM, cl_mem_object_type OBJ_TYPE>
-    cl_mem ContextModule::CreateScalarImage(cl_context clContext, 
-        cl_mem_flags clFlags, 
-        const cl_image_format * clImageFormat, 
-        size_t szImageWidth, 
-        size_t szImageHeight, 
-        size_t szImageDepth, 
-        size_t szImageRowPitch, 
-        size_t szImageSlicePitch, 
-        void * pHostPtr, 
+    cl_mem ContextModule::CreateScalarImage(cl_context clContext,
+        cl_mem_flags clFlags,
+        const cl_image_format * clImageFormat,
+        size_t szImageWidth,
+        size_t szImageHeight,
+        size_t szImageDepth,
+        size_t szImageRowPitch,
+        size_t szImageSlicePitch,
+        void * pHostPtr,
         cl_int * pErrcodeRet,
         bool bIsImageBuffer)
     {
         assert(DIM >= 1 && DIM <= 3);
-        LOG_INFO(TEXT("Enter CreateScalarImage (clContext=%p, clFlags=0x%X, cl_data_type=0x%x, cl_channel_order=0x%x, szImageWidth=%d, szImageHeight=%d, szImageDepth=%d, szImageRowPitch=%d, szImageSlicePitch=%d, pHostPtr=%p, pErrcodeRet=%x)"), 
+        LOG_INFO(TEXT("Enter CreateScalarImage (clContext=%p, clFlags=0x%X, cl_data_type=0x%x, cl_channel_order=0x%x, szImageWidth=%d, szImageHeight=%d, szImageDepth=%d, szImageRowPitch=%d, szImageSlicePitch=%d, pHostPtr=%p, pErrcodeRet=%x)"),
             (void*)clContext, clFlags, clImageFormat->image_channel_data_type, clImageFormat->image_channel_order, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, pHostPtr, pErrcodeRet);
 
         SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
@@ -435,122 +401,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         return pImage->GetHandle();
     }
 
-#if defined (DX_MEDIA_SHARING)
-
-template<typename RESOURCE_TYPE, typename DEV_TYPE>
-cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags clMemFlags, D3DResourceInfo<RESOURCE_TYPE>* const pResourceInfo, cl_int *pErrcodeRet,
-                                             cl_mem_object_type clObjType, cl_uint uiDimCnt, UINT plane)
-{
-    SharedPtr<Context> pContext = NULL;
-    SharedPtr<MemoryObject> pMemObj = NULL;
-
-    pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
-    
-    if (NULL == pContext)
-    {
-        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = %d"), clContext, pContext);
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_CONTEXT;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, 0, 0, 0, 0, 0, 0, 0, NULL, pContext);
-    if (CL_FAILED(clErr))
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    
-    SharedPtr<D3DContext<RESOURCE_TYPE, DEV_TYPE>> pD3DContext = pContext.DynamicCast<D3DContext<RESOURCE_TYPE, DEV_TYPE>>();
-    if (NULL == pD3DContext)
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_CONTEXT;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    if (NULL == pResourceInfo->m_pResource)
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = pD3DContext->GetD3dDefinitions().GetInvalidResource();
-        }
-        return CL_INVALID_HANDLE;
-    }
-    /* check if context was created against the same Direct3D 9 device from which resource was
-        created */
-    DEV_TYPE* const pResourceDevice = pD3DContext->GetDevice(pResourceInfo->m_pResource);
-    if (NULL == pResourceDevice)
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    pResourceDevice->Release(); // we don't need the device, just its address
-    // Matt is aware that there is a hole in the spec regarding checking this device type
-    const ID3DSharingDefinitions& d3dSharingDefs = pD3DContext->GetD3dDefinitions();
-    const ID3D9Definitions* const d3d9Defs = dynamic_cast<const ID3D9Definitions*>(&d3dSharingDefs);
-    if (NULL != d3d9Defs && d3d9Defs->GetContextAdapterDxva() != pD3DContext->m_iDeviceType &&
-        pResourceDevice != pD3DContext->GetD3DDevice())
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = pD3DContext->GetD3dDefinitions().GetInvalidResource();
-        }
-        return CL_INVALID_HANDLE;
-    }
-    // check if just one of the allowed flags is set
-    if ((clMemFlags & CL_MEM_READ_ONLY) && (clMemFlags & ~CL_MEM_READ_ONLY) ||
-        (clMemFlags & CL_MEM_WRITE_ONLY) && (clMemFlags & ~CL_MEM_WRITE_ONLY) ||
-        (clMemFlags & CL_MEM_READ_WRITE) && (clMemFlags & ~CL_MEM_READ_WRITE) ||
-        (clMemFlags & ~(CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE)))
-    {
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    clErr = pD3DContext->CreateD3DResource(clMemFlags, pResourceInfo, &pMemObj, clObjType, uiDimCnt, plane);
-    if (CL_FAILED(clErr))
-    {
-        LOG_ERROR(TEXT("pD3DContext->CreateD3DResource(%d, %d, %d, %d) = %s"), clMemFlags, pResourceInfo, &pMemObj, ClErrTxt(clErr));
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_ERR_OUT(clErr);
-        }
-        return CL_INVALID_HANDLE;
-    }
-    clErr = m_mapMemObjects.AddObject(pMemObj, false);
-    if (CL_FAILED(clErr))
-    {
-        LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr));
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_ERR_OUT(clErr);
-        }
-        return CL_INVALID_HANDLE;
-    }
-    if (NULL != pErrcodeRet)
-    {
-        *pErrcodeRet = CL_SUCCESS;
-    }
-    return pMemObj->GetHandle();
-}
-
-#endif
-
 template<size_t DIM, cl_mem_object_type OBJ_TYPE>
 cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags, const cl_image_format* clImageFormat, const cl_image_desc& desc, cl_mem buffer, cl_int* pErrcodeRet)
 {
-    cl_err_code clErr = CL_SUCCESS;    
+    cl_err_code clErr = CL_SUCCESS;
 
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
 
@@ -603,7 +457,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
     }
 
     size_t szDims[] = { desc.image_width, desc.image_height, desc.image_depth},
-        szPitches[] = { desc.image_row_pitch, desc.image_slice_pitch };    
+        szPitches[] = { desc.image_row_pitch, desc.image_slice_pitch };
     if (GenericMemObjectBackingStore::calculate_size(clGetPixelBytesCount(clImageFormat), DIM, szDims, szPitches) > pBuffer->GetSize())
     {
         LOG_ERROR(TEXT("Size of image must be <= size of buffer object data store"), "");
@@ -612,7 +466,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
             *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
         }
         return CL_INVALID_HANDLE;
-    }    
+    }
 
     if (OBJ_TYPE == CL_MEM_OBJECT_IMAGE2D && !Check2DImageFromBufferPitch(pBuffer, desc, *clImageFormat))
     {

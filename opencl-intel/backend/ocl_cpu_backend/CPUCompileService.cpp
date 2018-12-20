@@ -94,7 +94,11 @@ CPUCompileService::CheckProgramBinary(const void *pBinary,
     // check maximum supported instruction
     // get maximum supported instruction from ELF header
     CLElfLib::E_EH_FLAGS headerFlag = static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
-    if (cpuId.HasAVX2())
+    if (cpuId.HasAVX512ICL())
+        valid &= (headerFlag == CLElfLib::EH_FLAG_AVX512_ICL);
+    else if (cpuId.HasAVX512SKX())
+        valid &= (headerFlag == CLElfLib::EH_FLAG_AVX512_SKX);
+    else if (cpuId.HasAVX2())
         valid &= (headerFlag == CLElfLib::EH_FLAG_AVX2);
     else if (cpuId.HasAVX1())
         valid &= (headerFlag == CLElfLib::EH_FLAG_AVX1);

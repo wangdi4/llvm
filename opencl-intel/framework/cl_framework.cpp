@@ -174,7 +174,7 @@ static void* GetExtensionFunctionAddress(const char *funcname)
 }
 
 void * CL_API_CALL clGetExtensionFunctionAddress(const char *funcname)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetExtensionFunctionAddress);
@@ -240,7 +240,7 @@ public:
  * @param ELEM_TYPE type of elements in the list
  * @param SIZE_TYPE type of the list's size
  */
-template<typename ELEM_TYPE, typename SIZE_TYPE, class VALUE_PRINTER = SimpleValuePrinter<ELEM_TYPE> > 
+template<typename ELEM_TYPE, typename SIZE_TYPE, class VALUE_PRINTER = SimpleValuePrinter<ELEM_TYPE> >
 class OutputListPrinter : public OutputParamsValueProvider::SpecialOutputParamPrinter
 {
 public:
@@ -250,7 +250,7 @@ public:
      * @param listName          the list's name
      * @param pList             a pointer to the 1st element in the list
      * @param pListSize         a pointer to the size of the list
-     * @param defaultListSize   optional default sze of the list in case pListSize is NULL 
+     * @param defaultListSize   optional default sze of the list in case pListSize is NULL
      */
     OutputListPrinter(const std::string& listName, const ELEM_TYPE* pList, const SIZE_TYPE* pListSize, SIZE_TYPE defaultListSize = 0) :
         m_listName(listName), m_pList(pList), m_pListSize(pListSize), m_defaultListSize(defaultListSize) { }
@@ -287,14 +287,14 @@ private:
 
 };
 
-cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms) 
-{    
+cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms)
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         ApiLogger apiLogger("clGetPlatformIDs");
-        apiLogger << "cl_uint num_entries" << num_entries << "cl_platform_id * platforms" << platforms << "cl_uint * num_platforms" << num_platforms;    
+        apiLogger << "cl_uint num_entries" << num_entries << "cl_platform_id * platforms" << platforms << "cl_uint * num_platforms" << num_platforms;
         OutputListPrinter<cl_platform_id, cl_uint> listPrinter("platforms", platforms, num_platforms, num_entries);
-        OutputParamsValueProvider provider(apiLogger, &listPrinter);  
+        OutputParamsValueProvider provider(apiLogger, &listPrinter);
         CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE,  cl_int, GetPlatformIDs(num_entries, platforms, num_platforms));
     }
     else
@@ -306,9 +306,9 @@ SET_ALIAS(clGetPlatformIDs);
 REGISTER_EXTENSION_FUNCTION(clIcdGetPlatformIDsKHR, clGetPlatformIDs);
 
 cl_int CL_API_CALL clGetPlatformInfo(cl_platform_id platform,
-						 cl_platform_info param_name, 
-						 size_t param_value_size, 
-						 void* param_value, 
+						 cl_platform_info param_name,
+						 size_t param_value_size,
+						 void* param_value,
 						 size_t* param_value_size_ret)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -386,17 +386,17 @@ SET_ALIAS(clGetDeviceAndHostTimer);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 cl_int CL_API_CALL clGetDeviceIDs(cl_platform_id platform,
-					  cl_device_type device_type, 
-					  cl_uint num_entries, 
-					  cl_device_id* devices, 
+					  cl_device_type device_type,
+					  cl_uint num_entries,
+					  cl_device_id* devices,
 			          cl_uint* num_devices)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetDeviceIDs);
         apiLogger << "cl_platform_id platform" << platform << "cl_device_type device_type" << device_type << "cl_uint num_entries" << num_entries << "cl_device_id* devices" << devices << "cl_uint* num_devices" << num_devices;
         OutputListPrinter<cl_device_id, cl_uint> printer("devices", devices, num_devices, num_entries);
-        OutputParamsValueProvider provider(apiLogger, &printer);    
+        OutputParamsValueProvider provider(apiLogger, &printer);
         CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceIDs(platform, device_type, num_entries, devices, num_devices));
     }
     else
@@ -407,8 +407,8 @@ cl_int CL_API_CALL clGetDeviceIDs(cl_platform_id platform,
 SET_ALIAS(clGetDeviceIDs);
 
 cl_int CL_API_CALL clGetDeviceInfo(cl_device_id device,
-					   cl_device_info param_name, 
-					   size_t param_value_size, 
+					   cl_device_info param_name,
+					   size_t param_value_size,
 					   void* param_value,
 					   size_t* param_value_size_ret)
 {
@@ -527,9 +527,9 @@ SET_ALIAS(clGetContextInfo);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Command Queue APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  context, 
-									  cl_device_id                device, 
-									  cl_command_queue_properties properties, 
+cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  context,
+									  cl_device_id                device,
+									  cl_command_queue_properties properties,
 									  cl_int *                    errcode_ret)
 {
     const cl_command_queue_properties propertiesArr[] = { CL_QUEUE_PROPERTIES, properties, 0 };
@@ -575,10 +575,10 @@ cl_int CL_API_CALL clReleaseCommandQueue(cl_command_queue command_queue)
     }
 }
 SET_ALIAS(clReleaseCommandQueue);
-cl_int CL_API_CALL clGetCommandQueueInfo(cl_command_queue      command_queue, 
-							 cl_command_queue_info param_name, 
-							 size_t                param_value_size, 
-							 void *                param_value, 
+cl_int CL_API_CALL clGetCommandQueueInfo(cl_command_queue      command_queue,
+							 cl_command_queue_info param_name,
+							 size_t                param_value_size,
+							 void *                param_value,
 							 size_t *              param_value_size_ret)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -614,10 +614,10 @@ cl_int CL_API_CALL clSetCommandQueueProperty(cl_command_queue              comma
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Memory Object APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_mem CL_API_CALL clCreateBuffer(cl_context   context, 
-					  cl_mem_flags flags, 
-					  size_t       size, 
-					  void *       host_ptr, 
+cl_mem CL_API_CALL clCreateBuffer(cl_context   context,
+					  cl_mem_flags flags,
+					  size_t       size,
+					  void *       host_ptr,
 					  cl_int *     errcode_ret)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -720,7 +720,7 @@ cl_mem CL_API_CALL clCreateImage2D(cl_context              context,
     }
 }
 SET_ALIAS(clCreateImage2D);
-                        
+
 cl_mem CL_API_CALL clCreateImage3D(cl_context              context,
 					   cl_mem_flags            flags,
 					   const cl_image_format * image_format,
@@ -746,7 +746,7 @@ cl_mem CL_API_CALL clCreateImage3D(cl_context              context,
     }
 }
 SET_ALIAS(clCreateImage3D);
-                       
+
 cl_int CL_API_CALL clRetainMemObject(cl_mem memobj)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -783,7 +783,7 @@ public:
 
     std::string Print(const cl_image_format& imageFormat) const
     {
-        std::stringstream stream;        
+        std::stringstream stream;
         stream << "(0x" << std::hex << imageFormat.image_channel_order << ",0x" << imageFormat.image_channel_data_type << ")";
         return stream.str();
     }
@@ -795,7 +795,7 @@ cl_int CL_API_CALL clGetSupportedImageFormats(cl_context           context,
 								  cl_uint              num_entries,
 								  cl_image_format *    image_formats,
 								  cl_uint *            num_image_formats)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clGetSupportedImageFormats);
@@ -810,9 +810,9 @@ cl_int CL_API_CALL clGetSupportedImageFormats(cl_context           context,
     }
 }
 SET_ALIAS(clGetSupportedImageFormats);
-                                    
+
 cl_int CL_API_CALL clGetMemObjectInfo(cl_mem           memobj,
-						  cl_mem_info      param_name, 
+						  cl_mem_info      param_name,
 						  size_t           param_value_size,
 						  void *           param_value,
 						  size_t *         param_value_size_ret)
@@ -833,7 +833,7 @@ cl_int CL_API_CALL clGetMemObjectInfo(cl_mem           memobj,
 SET_ALIAS(clGetMemObjectInfo);
 
 cl_int CL_API_CALL clGetImageInfo(cl_mem           image,
-					  cl_image_info    param_name, 
+					  cl_image_info    param_name,
 					  size_t           param_value_size,
 					  void *           param_value,
 					  size_t *         param_value_size_ret)
@@ -945,7 +945,7 @@ cl_int CL_API_CALL clGetSamplerInfo(cl_sampler		sampler,
     }
 }
 SET_ALIAS(clGetSamplerInfo);
-                            
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Program Object APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -977,7 +977,7 @@ cl_program CL_API_CALL clCreateProgramWithBinary(cl_context           context,
 									 const unsigned char **	binaries,
 									 cl_int *				binary_status,
 									 cl_int *				errcode_ret)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateProgramWithBinary);
@@ -1049,7 +1049,7 @@ SET_ALIAS(clReleaseProgram);
 cl_int CL_API_CALL clBuildProgram(cl_program           program,
 					  cl_uint              num_devices,
 					  const cl_device_id * device_list,
-					  const char *         options, 
+					  const char *         options,
 					  void (CL_CALLBACK *pfn_notify)(cl_program program, void * user_data),
 					  void *               user_data)
 {
@@ -1137,7 +1137,7 @@ cl_int CL_API_CALL clGetProgramBuildInfo(cl_program            program,
     }
 }
 SET_ALIAS(clGetProgramBuildInfo);
-                           
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel Object APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1165,7 +1165,7 @@ cl_int CL_API_CALL clCreateKernelsInProgram(cl_program  program,
 								cl_uint     num_kernels,
 								cl_kernel * kernels,
 								cl_uint *   num_kernels_ret)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateKernelsInProgram);
@@ -1363,7 +1363,7 @@ cl_int CL_API_CALL clGetEventProfilingInfo(cl_event				event,
 SET_ALIAS(clGetEventProfilingInfo);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Flush and Finish APIs
-///////////////////////////////////////////////////////////////////////////////////////////////////                              
+///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_int CL_API_CALL clFlush(cl_command_queue command_queue)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
@@ -1395,7 +1395,7 @@ SET_ALIAS(clFinish);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Enqueued Commands APIs
-///////////////////////////////////////////////////////////////////////////////////////////////////                              
+///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_int CL_API_CALL clEnqueueReadBuffer(cl_command_queue	command_queue,
 						   cl_mem			buffer,
 						   cl_bool			blocking_read,
@@ -1426,7 +1426,7 @@ cl_int CL_API_CALL clEnqueueReadBufferRect(
                         cl_mem              buffer,
                         cl_bool             blocking_read,
                         const size_t        buffer_origin[MAX_WORK_DIM],
-                        const size_t        host_origin[MAX_WORK_DIM], 
+                        const size_t        host_origin[MAX_WORK_DIM],
                         const size_t        region[MAX_WORK_DIM],
                         size_t              buffer_row_pitch,
                         size_t              buffer_slice_pitch,
@@ -1486,7 +1486,7 @@ cl_int CL_API_CALL  clEnqueueWriteBufferRect(
                          cl_mem              buffer,
                          cl_bool             blocking_read,
                          const size_t        buffer_origin[MAX_WORK_DIM],
-                         const size_t        host_origin[MAX_WORK_DIM], 
+                         const size_t        host_origin[MAX_WORK_DIM],
                          const size_t        region[MAX_WORK_DIM],
                          size_t              buffer_row_pitch,
                          size_t              buffer_slice_pitch,
@@ -1543,12 +1543,12 @@ cl_int CL_API_CALL clEnqueueCopyBuffer(cl_command_queue	command_queue,
 }
 SET_ALIAS(clEnqueueCopyBuffer);
 
-cl_int CL_API_CALL clEnqueueCopyBufferRect(cl_command_queue    command_queue, 
+cl_int CL_API_CALL clEnqueueCopyBufferRect(cl_command_queue    command_queue,
 							cl_mem              src_buffer,
-							cl_mem              dst_buffer, 
+							cl_mem              dst_buffer,
 							const size_t        src_origin[MAX_WORK_DIM],
 							const size_t        dst_origin[MAX_WORK_DIM],
-							const size_t        region[MAX_WORK_DIM], 
+							const size_t        region[MAX_WORK_DIM],
 							size_t              src_row_pitch,
 							size_t              src_slice_pitch,
 							size_t              dst_row_pitch,
@@ -1604,11 +1604,11 @@ SET_ALIAS(clEnqueueFillBuffer);
 
 cl_int CL_API_CALL clEnqueueReadImage(cl_command_queue command_queue,
 						  cl_mem			image,
-						  cl_bool			blocking_read, 
+						  cl_bool			blocking_read,
 						  const size_t	    origin[MAX_WORK_DIM],
 						  const size_t	    region[MAX_WORK_DIM],
 						  size_t			row_pitch,
-						  size_t			slice_pitch, 
+						  size_t			slice_pitch,
 						  void *			ptr,
 						  cl_uint			num_events_in_wait_list,
 						  const cl_event *	event_wait_list,
@@ -1635,11 +1635,11 @@ SET_ALIAS(clEnqueueReadImage);
 
 cl_int CL_API_CALL clEnqueueWriteImage(cl_command_queue command_queue,
 						   cl_mem			image,
-						   cl_bool			blocking_write, 
+						   cl_bool			blocking_write,
 						   const size_t	    origin[MAX_WORK_DIM],
 						   const size_t	    region[MAX_WORK_DIM],
 						   size_t			input_row_pitch,
-						   size_t			input_slice_pitch, 
+						   size_t			input_slice_pitch,
 						   const void *		ptr,
 						   cl_uint			num_events_in_wait_list,
 						   const cl_event *	event_wait_list,
@@ -1666,10 +1666,10 @@ SET_ALIAS(clEnqueueWriteImage);
 
 cl_int CL_API_CALL clEnqueueCopyImage(cl_command_queue	command_queue,
 						  cl_mem			src_image,
-						  cl_mem			dst_image, 
+						  cl_mem			dst_image,
 						  const size_t  	src_origin[MAX_WORK_DIM],
 						  const size_t  	dst_origin[MAX_WORK_DIM],
-						  const size_t  	region[MAX_WORK_DIM], 
+						  const size_t  	region[MAX_WORK_DIM],
 						  cl_uint			num_events_in_wait_list,
 						  const cl_event *	event_wait_list,
 						  cl_event *		event)
@@ -1750,7 +1750,7 @@ cl_int CL_API_CALL clEnqueueCopyBufferToImage(cl_command_queue	command_queue,
 								  cl_mem			dst_image,
 								  size_t			src_offset,
 								  const size_t  	dst_origin[MAX_WORK_DIM],
-								  const size_t  	region[MAX_WORK_DIM], 
+								  const size_t  	region[MAX_WORK_DIM],
 								  cl_uint			num_events_in_wait_list,
 								  const cl_event *	event_wait_list,
 								  cl_event *		event)
@@ -1899,9 +1899,9 @@ cl_int CL_API_CALL clEnqueueTask(cl_command_queue	command_queue,
 SET_ALIAS(clEnqueueTask);
 
 cl_int CL_API_CALL clEnqueueNativeKernel(cl_command_queue	command_queue,
-							 void (CL_CALLBACK *user_func)(void *), 
+							 void (CL_CALLBACK *user_func)(void *),
 							 void *				args,
-							 size_t				cb_args, 
+							 size_t				cb_args,
 							 cl_uint			num_mem_objects,
 							 const cl_mem *		mem_list,
 							 const void **		args_mem_loc,
@@ -1974,238 +1974,8 @@ cl_int CL_API_CALL clEnqueueBarrier(cl_command_queue command_queue)
 SET_ALIAS(clEnqueueBarrier);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Sharing Memory Objects with OpenGL / OpenGL ES Buffer, Texture and Renderbuffer Objects
-///////////////////////////////////////////////////////////////////////////////////////////////////                              
-#if defined (WIN32)
-
-SET_ALIAS(clCreateFromGLBuffer);
-REGISTER_EXTENSION_FUNCTION(clCreateFromGLBuffer, clCreateFromGLBuffer);
-cl_mem CL_API_CALL clCreateFromGLBuffer(cl_context   context,
-							cl_mem_flags flags,
-							GLuint       bufobj,
-							int *        errcode_ret)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clCreateFromGLBuffer);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "GLuint bufobj" << bufobj << "int * errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateFromGLBuffer(context, flags, bufobj, errcode_ret));
-    }
-    else
-    {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLBuffer(context, flags, bufobj, errcode_ret));
-    }
-}
-
-SET_ALIAS(clCreateFromGLTexture);
-REGISTER_EXTENSION_FUNCTION(clCreateFromGLTexture, clCreateFromGLTexture);
-cl_mem CL_API_CALL clCreateFromGLTexture(cl_context   context,
-							   cl_mem_flags flags,
-							   GLenum       target,
-							   GLint        miplevel,
-							   GLuint       texture,
-							   cl_int *     errcode_ret)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clCreateFromGLTexture);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "GLenum target" << target << "GLint miplevel" << miplevel << "GLuint texture" << texture << "cl_int * errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateFromGLTexture(context, flags, target, miplevel, texture, errcode_ret));
-    }
-    else
-    {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLTexture(context, flags, target, miplevel, texture, errcode_ret));
-    }
-}
-
-// Old 1.1 functions
-SET_ALIAS(clCreateFromGLTexture2D);
-REGISTER_EXTENSION_FUNCTION(clCreateFromGLTexture2D, clCreateFromGLTexture2D);
-cl_mem CL_API_CALL clCreateFromGLTexture2D(cl_context   context,
-							   cl_mem_flags flags,
-							   GLenum       target,
-							   GLint        miplevel,
-							   GLuint       texture,
-							   cl_int *     errcode_ret)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clCreateFromGLTexture2D);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "GLenum target" << target << "GLint miplevel" << miplevel << "GLuint texture" << texture << "cl_int * errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateFromGLTexture(context, flags, target, miplevel, texture, errcode_ret));
-    }
-    else
-    {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLTexture(context, flags, target, miplevel, texture, errcode_ret));
-    }
-}
-
-SET_ALIAS(clCreateFromGLTexture3D);
-REGISTER_EXTENSION_FUNCTION(clCreateFromGLTexture3D, clCreateFromGLTexture3D);
-cl_mem CL_API_CALL clCreateFromGLTexture3D(cl_context   context,
-							   cl_mem_flags flags,
-							   GLenum       target,
-							   GLint        miplevel,
-							   GLuint       texture,
-							   cl_int *     errcode_ret)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clCreateFromGLTexture3D);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "GLenum target" << target << "GLint miplevel" << miplevel << "GLuint texture" << texture << "cl_int * errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateFromGLTexture(context, flags, target, miplevel, texture, errcode_ret));
-    }
-    else
-    {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLTexture(context, flags, target, miplevel, texture, errcode_ret));
-    }
-}
-
-SET_ALIAS(clCreateFromGLRenderbuffer);
-REGISTER_EXTENSION_FUNCTION(clCreateFromGLRenderbuffer, clCreateFromGLRenderbuffer);
-cl_mem CL_API_CALL clCreateFromGLRenderbuffer(cl_context   context,
-								  cl_mem_flags flags,
-								  GLuint       renderbuffer,
-								  cl_int *     errcode_ret)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clCreateFromGLRenderbuffer);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "GLuint renderbuffer" << renderbuffer << "cl_int * errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateFromGLRenderbuffer(context, flags, renderbuffer, errcode_ret));
-    }
-    else
-    {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateFromGLRenderbuffer(context, flags, renderbuffer, errcode_ret));
-    }
-}
-
-SET_ALIAS(clGetGLObjectInfo);
-REGISTER_EXTENSION_FUNCTION(clGetGLObjectInfo, clGetGLObjectInfo);
-cl_int CL_API_CALL clGetGLObjectInfo(cl_mem              memobj,
-						 cl_gl_object_type * gl_object_type,
-						 GLuint *            gl_object_name)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clGetGLObjectInfo);
-        apiLogger << "cl_mem memobj" << memobj << "cl_gl_object_type * gl_object_type" << gl_object_type << "GLuint * gl_object_name" << gl_object_name;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("gl_object_type", gl_object_type, false, true);
-        provider.AddParam("gl_object_name", gl_object_name, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetGLObjectInfo(memobj, gl_object_type, gl_object_name));
-    }
-    else
-    {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetGLObjectInfo(memobj, gl_object_type, gl_object_name));
-    }
-}
-
-SET_ALIAS(clGetGLTextureInfo);
-REGISTER_EXTENSION_FUNCTION(clGetGLTextureInfo, clGetGLTextureInfo);
-cl_int CL_API_CALL clGetGLTextureInfo(cl_mem             memobj,
-						  cl_gl_texture_info param_name,
-						  size_t             param_value_size,
-						  void *             param_value,
-						  size_t *           param_value_size_ret)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clGetGLTextureInfo);
-        apiLogger << "cl_mem memobj" << memobj << "cl_gl_texture_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetGLTextureInfo(memobj, param_name, param_value_size, param_value, param_value_size_ret));
-    }
-    else
-    {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetGLTextureInfo(memobj, param_name, param_value_size, param_value, param_value_size_ret));
-    }
-}
-
-SET_ALIAS(clEnqueueAcquireGLObjects);
-REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireGLObjects, clEnqueueAcquireGLObjects);
-cl_int CL_API_CALL clEnqueueAcquireGLObjects(cl_command_queue command_queue,
-								 cl_uint          num_objects,
-								 const cl_mem *   mem_objects,
-								 cl_uint          num_events_in_wait_list,
-								 const cl_event * event_wait_list,
-								 cl_event *       event)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clEnqueueAcquireGLObjects);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_objects" << num_objects << "const cl_mem * mem_objects" << mem_objects << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSyncGLObjects(command_queue, CL_COMMAND_ACQUIRE_GL_OBJECTS, num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, &apiLogger));
-    }
-    else
-    {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSyncGLObjects(command_queue, CL_COMMAND_ACQUIRE_GL_OBJECTS, num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, nullptr));
-    }
-}
-
-SET_ALIAS(clEnqueueReleaseGLObjects);
-REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseGLObjects, clEnqueueReleaseGLObjects);
-cl_int CL_API_CALL clEnqueueReleaseGLObjects(cl_command_queue command_queue,
-								 cl_uint          num_objects,
-								 const cl_mem *   mem_objects,
-								 cl_uint          num_events_in_wait_list,
-								 const cl_event * event_wait_list,
-								 cl_event *       event)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clEnqueueReleaseGLObjects);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_objects" << num_objects << "const cl_mem * mem_objects" << mem_objects << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("event", event, true);
-	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSyncGLObjects(command_queue, CL_COMMAND_RELEASE_GL_OBJECTS, num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, &apiLogger));
-    }
-    else
-    {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSyncGLObjects(command_queue, CL_COMMAND_RELEASE_GL_OBJECTS, num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, nullptr));
-    }
-}
-
-SET_ALIAS(clGetGLContextInfoKHR);
-REGISTER_EXTENSION_FUNCTION(clGetGLContextInfoKHR, clGetGLContextInfoKHR);
-cl_int CL_API_CALL clGetGLContextInfoKHR(const cl_context_properties * properties,
-					  cl_gl_context_info            param_name,
-					  size_t                        param_value_size,
-					  void *                        param_value,
-					  size_t *                      param_value_size_ret)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clGetGLContextInfoKHR);
-        apiLogger << "const cl_context_properties * properties" << properties << "cl_gl_context_info param_name" << param_name << "size_t param_value_size" << param_value_size << "void * param_value" << param_value << "size_t * param_value_size_ret" << param_value_size_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
-	      CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetGLContextInfo(properties, param_name, param_value_size, param_value, param_value_size_ret));
-    }
-    else
-    {
-        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, GetGLContextInfo(properties, param_name, param_value_size, param_value, param_value_size_ret));
-    }
-}
-
-#endif // end of GL extension functions
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
 // New OpenCL 1.1 functions
-///////////////////////////////////////////////////////////////////////////////////////////////////                              
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 cl_event CL_API_CALL
 clCreateUserEvent(cl_context    context,
@@ -2321,7 +2091,7 @@ cl_int CL_API_CALL clCreateSubDevices(cl_device_id device,
 									  cl_uint num_entries,
 									  cl_device_id* out_devices,
 									  cl_uint* num_devices)
-{    
+{
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateSubDevices);
@@ -2336,392 +2106,6 @@ cl_int CL_API_CALL clCreateSubDevices(cl_device_id device,
     }
 }
 SET_ALIAS(clCreateSubDevices);
-
-
-#if defined (DX_MEDIA_SHARING)
-
-cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceKHR(cl_context context, 
-                                                  cl_mem_flags flags, 
-                                                  cl_dx9_media_adapter_type_khr adapter_type, 
-                                                  void *surface_info, 
-                                                  cl_uint plane, 
-                                                  cl_int *errcode_ret)
-{    
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clCreateFromDX9MediaSurfaceKHR);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "cl_dx9_media_adapter_type_khr adapter_type" << adapter_type << "void *surface_info" << surface_info << "cl_uint plane" << plane << "cl_int *errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("errcode_ret", errcode_ret, false, false);
-        const cl_mem ret = CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, adapter_type, (cl_dx9_surface_info_khr*)surface_info, plane, errcode_ret, KhrD3D9Definitions());
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, adapter_type, (cl_dx9_surface_info_khr*)surface_info, plane, errcode_ret, KhrD3D9Definitions());
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clCreateFromDX9MediaSurfaceKHR, clCreateFromDX9MediaSurfaceKHR);
-SET_ALIAS(clCreateFromDX9MediaSurfaceKHR);
-
-cl_mem CL_API_CALL clCreateFromDX9MediaSurfaceINTEL(cl_context context,
-                                                cl_mem_flags flags,
-                                                IDirect3DSurface9 *resource,
-                                                HANDLE sharehandle,
-                                                UINT plane,
-                                                cl_int *errcode_ret)
-{
-    cl_dx9_surface_info_khr dx9SurfaceInfo;
-    dx9SurfaceInfo.resource = resource;
-    dx9SurfaceInfo.shared_handle = sharehandle;
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clCreateFromDX9MediaSurfaceINTEL);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "IDirect3DSurface9 *resource" << resource << "HANDLE sharehandle" << sharehandle << "UINT plane" << plane << "cl_int *errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("errcode_ret", errcode_ret, false, false);        
-        const cl_mem ret = CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, 0, &dx9SurfaceInfo, plane, errcode_ret, IntelD3D9Definitions());
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return CONTEXT_MODULE->CreateFromD3D9Surface(context, flags, 0, &dx9SurfaceInfo, plane, errcode_ret, IntelD3D9Definitions());
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clCreateFromDX9MediaSurfaceINTEL, clCreateFromDX9MediaSurfaceINTEL);
-
-cl_int CL_API_CALL clEnqueueAcquireDX9MediaSurfacesKHR(cl_command_queue command_queue, 
-                                                       cl_uint num_objects, 
-                                                       const cl_mem *mem_objects, 
-                                                       cl_uint num_events_in_wait_list, 
-                                                       const cl_event *event_wait_list, 
-                                                       cl_event *event)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clEnqueueAcquireDX9MediaSurfacesKHR);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_objects" << num_objects << "const cl_mem *mem_objects" << mem_objects << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("event", event, true);
-        const cl_int ret = EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_ACQUIRE_DX9_MEDIA_SURFACES_KHR, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, &apiLogger);
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_ACQUIRE_DX9_MEDIA_SURFACES_KHR, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, nullptr);
-    }
-}
-SET_ALIAS(clEnqueueAcquireDX9MediaSurfacesKHR);
-REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireDX9MediaSurfacesKHR, clEnqueueAcquireDX9MediaSurfacesKHR);
-
-cl_int CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL(cl_command_queue command_queue,
-                                                 cl_uint num_objects,
-                                                 const cl_mem *mem_objects,
-                                                 cl_uint num_events_in_wait_list,
-                                                 const cl_event *event_wait_list,
-                                                 cl_event *event)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clEnqueueAcquireDX9ObjectsINTEL);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_objects" << num_objects << "const cl_mem *mem_objects" << mem_objects << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("event", event, true);
-        const cl_int ret = EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, &apiLogger);
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, nullptr);
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireDX9ObjectsINTEL, clEnqueueAcquireDX9ObjectsINTEL);
-
-cl_int CL_API_CALL clEnqueueReleaseDX9MediaSurfacesKHR(cl_command_queue command_queue, 
-                                                       cl_uint num_objects, 
-                                                       const cl_mem *mem_objects, 
-                                                       cl_uint num_events_in_wait_list, 
-                                                       const cl_event *event_wait_list, 
-                                                       cl_event *event)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clEnqueueReleaseDX9MediaSurfacesKHR);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_objects" << num_objects << "const cl_mem *mem_objects" << mem_objects << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("event", event, true);
-        const cl_int ret = EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_RELEASE_DX9_MEDIA_SURFACES_KHR, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, &apiLogger);
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_RELEASE_DX9_MEDIA_SURFACES_KHR, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, nullptr);
-    }
-}
-SET_ALIAS(clEnqueueReleaseDX9MediaSurfacesKHR);
-REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseDX9MediaSurfacesKHR, clEnqueueReleaseDX9MediaSurfacesKHR);
-
-cl_int CL_API_CALL clEnqueueReleaseDX9ObjectsINTEL(cl_command_queue command_queue,
-                                                 cl_uint num_objects,
-                                                 cl_mem *mem_objects,
-                                                 cl_uint num_events_in_wait_list,
-                                                 const cl_event *event_wait_list,
-                                                 cl_event *event)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clEnqueueReleaseDX9ObjectsINTEL);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_objects" << num_objects << "cl_mem *mem_objects" << mem_objects << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("event", event, true);
-        const cl_int ret = EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, &apiLogger);
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, nullptr);
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseDX9ObjectsINTEL, clEnqueueReleaseDX9ObjectsINTEL);
-
-cl_int CL_API_CALL clGetDeviceIDsFromDX9MediaAdapterKHR(cl_platform_id platform,
-                                                        cl_uint num_media_adapters,
-                                                        cl_dx9_media_adapter_type_khr* media_adapters_type,
-                                                        void* media_adapters[],
-                                                        cl_dx9_media_adapter_set_khr media_adapter_set,
-                                                        cl_uint num_entries,
-                                                        cl_device_id* devices,
-                                                        cl_uint* num_devices)
-{    
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clGetDeviceIDsFromDX9MediaAdapterKHR);
-        apiLogger << "cl_platform_id platform" << platform << "cl_uint num_media_adapters" << num_media_adapters
-            << "cl_dx9_media_adapter_type_khr* media_adapters_type" << media_adapters_type << "void* media_adapters[]" << media_adapters << "cl_dx9_media_adapter_set_khr media_adapter_set" << media_adapter_set << "cl_uint num_entries" << num_entries << "cl_device_id* devices" << devices << "cl_uint* num_devices" << num_devices;
-        OutputListPrinter<cl_device_id, cl_uint> printer("devices", devices, num_devices, num_entries);
-        OutputParamsValueProvider provider(apiLogger, &printer);
-        const cl_int ret = PLATFORM_MODULE->GetDeviceIDsFromD3D(platform, num_media_adapters, (int*)media_adapters_type,
-            media_adapters, media_adapter_set, num_entries, devices, num_devices, KhrD3D9Definitions());
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return PLATFORM_MODULE->GetDeviceIDsFromD3D(platform, num_media_adapters, (int*)media_adapters_type,
-            media_adapters, media_adapter_set, num_entries, devices, num_devices, KhrD3D9Definitions());
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clGetDeviceIDsFromDX9MediaAdapterKHR, clGetDeviceIDsFromDX9MediaAdapterKHR);
-SET_ALIAS(clGetDeviceIDsFromDX9MediaAdapterKHR);
-
-cl_int CL_API_CALL clGetDeviceIDsFromDX9INTEL(cl_platform_id platform,
-                                              cl_dx9_device_source_intel d3d_device_source,
-                                              void *d3d_object,
-                                              cl_dx9_device_set_intel d3d_device_set,
-                                              cl_uint num_entries, 
-                                              cl_device_id *devices, 
-                                              cl_uint *num_devices)
-{    
-    int media_adapters_type[1] = { d3d_device_source };
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clGetDeviceIDsFromDX9INTEL);
-        apiLogger << "cl_platform_id platform" << platform << "cl_dx9_device_source_intel d3d_device_source" << d3d_device_source << "void *d3d_object" << d3d_object << "cl_dx9_device_set_intel d3d_device_set" << d3d_device_set << "cl_uint num_entries" << num_entries << "cl_device_id *devices" << devices << "cl_uint *num_devices" << num_devices;
-        OutputListPrinter<cl_device_id, cl_uint> printer("devices", devices, num_devices, num_entries);
-        OutputParamsValueProvider provider(apiLogger, &printer);        
-        // see comment inside GetDeviceIDsFromD3D about the cast to void**
-        const cl_int ret = PLATFORM_MODULE->GetDeviceIDsFromD3D(platform, 1, media_adapters_type,
-            (void**)d3d_object, d3d_device_set, num_entries, devices, num_devices, IntelD3D9Definitions());
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return PLATFORM_MODULE->GetDeviceIDsFromD3D(platform, 1, media_adapters_type,
-            (void**)d3d_object, d3d_device_set, num_entries, devices, num_devices, IntelD3D9Definitions());
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clGetDeviceIDsFromDX9INTEL, clGetDeviceIDsFromDX9INTEL);
-
-// Direct3D 11 Sharing
-
-cl_int CL_API_CALL clGetDeviceIDsFromD3D11KHR(cl_platform_id platform, 
-                                              cl_d3d11_device_source_khr d3d_device_source, 
-                                              void *d3d_object, 
-                                              cl_d3d11_device_set_khr d3d_device_set, 
-                                              cl_uint num_entries, 
-                                              cl_device_id *devices, 
-                                              cl_uint *num_devices)
-{    
-    int media_adapter_type[1] = { d3d_device_source };
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clGetDeviceIDsFromD3D11KHR);
-        apiLogger << "cl_platform_id platform" << platform << "cl_d3d11_device_source_khr d3d_device_source" << d3d_device_source << "void *d3d_object" << d3d_object << "cl_d3d11_device_set_khr d3d_device_set" << d3d_device_set << "cl_uint num_entries" << num_entries << "cl_device_id *devices" << devices << "cl_uint *num_devices" << num_devices;
-        OutputListPrinter<cl_device_id, cl_uint> printer("devices", devices, num_devices, num_entries);
-        OutputParamsValueProvider provider(apiLogger, &printer);        
-        const cl_int ret = PLATFORM_MODULE->GetDeviceIDsFromD3D(platform, 1, media_adapter_type, (void**)d3d_object, d3d_device_set, num_entries, devices, num_devices, D3D11Definitions());
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return PLATFORM_MODULE->GetDeviceIDsFromD3D(platform, 1, media_adapter_type, (void**)d3d_object, d3d_device_set, num_entries, devices, num_devices, D3D11Definitions());
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clGetDeviceIDsFromD3D11KHR, clGetDeviceIDsFromD3D11KHR);
-
-cl_mem CL_API_CALL clCreateFromD3D11BufferKHR(cl_context context, 
-                                              cl_mem_flags flags, 
-                                              ID3D11Buffer *resource, 
-                                              cl_int *errcode_ret) 
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clCreateFromD3D11BufferKHR);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "ID3D11Buffer *resource" << resource << "cl_int *errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("errcode_ret", errcode_ret, false, false);
-        const cl_mem ret = CONTEXT_MODULE->CreateFromD3D11Buffer(context, flags, resource, errcode_ret);
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return CONTEXT_MODULE->CreateFromD3D11Buffer(context, flags, resource, errcode_ret);
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clCreateFromD3D11BufferKHR, clCreateFromD3D11BufferKHR);
-
-cl_mem CL_API_CALL clCreateFromD3D11Texture2DKHR(cl_context context, 
-                                                 cl_mem_flags flags, 
-                                                 ID3D11Texture2D *resource, 
-                                                 UINT subresource, 
-                                                 cl_int *errcode_ret) 
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clCreateFromD3D11Texture2DKHR);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "ID3D11Texture2D *resource" << resource << "UINT subresource" << subresource << "cl_int *errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("errcode_ret", errcode_ret, false, false);
-        const cl_mem ret = CONTEXT_MODULE->CreateFromD3D11Texture2D(context, flags, resource, subresource, errcode_ret);
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return CONTEXT_MODULE->CreateFromD3D11Texture2D(context, flags, resource, subresource, errcode_ret);
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clCreateFromD3D11Texture2DKHR, clCreateFromD3D11Texture2DKHR);
-
-cl_mem CL_API_CALL clCreateFromD3D11Texture3DKHR(cl_context context, 
-                                                 cl_mem_flags flags, 
-                                                 ID3D11Texture3D *resource, 
-                                                 UINT subresource, 
-                                                 cl_int *errcode_ret) 
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clCreateFromD3D11Texture3DKHR);
-        apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "ID3D11Texture3D *resource" << resource << "UINT subresource" << subresource << "cl_int *errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("errcode_ret", errcode_ret, false, false);
-        const cl_mem ret = CONTEXT_MODULE->CreateFromD3D11Texture3D(context, flags, resource, subresource, errcode_ret);
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return CONTEXT_MODULE->CreateFromD3D11Texture3D(context, flags, resource, subresource, errcode_ret);
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clCreateFromD3D11Texture3DKHR, clCreateFromD3D11Texture3DKHR);
-
-cl_int CL_API_CALL clEnqueueAcquireD3D11ObjectsKHR(cl_command_queue command_queue, 
-                                                   cl_uint num_objects, 
-                                                   const cl_mem *mem_objects, 
-                                                   cl_uint num_events_in_wait_list, 
-                                                   const cl_event *event_wait_list, 
-                                                   cl_event *event) 
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clEnqueueAcquireD3D11ObjectsKHR);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_objects" << num_objects << "const cl_mem *mem_objects" << mem_objects << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("event", event, true);
-        const cl_int ret = EXECUTION_MODULE->EnqueueSyncD3DObjects<ID3D11Resource, ID3D11Device>(command_queue, CL_COMMAND_ACQUIRE_D3D11_OBJECTS_KHR,
-            num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, &apiLogger);
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return EXECUTION_MODULE->EnqueueSyncD3DObjects<ID3D11Resource, ID3D11Device>(command_queue, CL_COMMAND_ACQUIRE_D3D11_OBJECTS_KHR,
-            num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, nullptr);
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireD3D11ObjectsKHR, clEnqueueAcquireD3D11ObjectsKHR);
-
-cl_int CL_API_CALL clEnqueueReleaseD3D11ObjectsKHR(cl_command_queue command_queue, 
-                                                   cl_uint num_objects, 
-                                                   const cl_mem *mem_objects, 
-                                                   cl_uint num_events_in_wait_list, 
-                                                   const cl_event *event_wait_list, 
-                                                   cl_event *event)
-{
-    if (g_pUserLogger->IsApiLoggingEnabled())
-    {
-        START_LOG_API(clEnqueueReleaseD3D11ObjectsKHR);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_uint num_objects" << num_objects << "const cl_mem *mem_objects" << mem_objects << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event *event_wait_list" << event_wait_list << "cl_event *event" << event;
-        OutputParamsValueProvider provider(apiLogger);
-        provider.AddParam("event", event, true);
-        const cl_int ret = EXECUTION_MODULE->EnqueueSyncD3DObjects<ID3D11Resource, ID3D11Device>(command_queue, CL_COMMAND_RELEASE_D3D11_OBJECTS_KHR,
-            num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, &apiLogger);
-        apiLogger.EndApiFunc(ret);
-        return ret;
-    }
-    else
-    {
-        return EXECUTION_MODULE->EnqueueSyncD3DObjects<ID3D11Resource, ID3D11Device>(command_queue, CL_COMMAND_RELEASE_D3D11_OBJECTS_KHR,
-            num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, nullptr);
-    }
-}
-REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseD3D11ObjectsKHR, clEnqueueReleaseD3D11ObjectsKHR);
-
-#else
-// dummy definitions
-void CL_API_CALL clCreateFromDX9MediaSurfaceINTEL() { }
-void CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL() { }
-void CL_API_CALL clEnqueueReleaseDX9ObjectsINTEL() { }
-void CL_API_CALL clGetDeviceIDsFromDX9INTEL() { }
-void CL_API_CALL clGetDeviceIDsFromD3D11KHR() { }
-void CL_API_CALL clCreateFromD3D11BufferKHR() { }
-void CL_API_CALL clCreateFromD3D11Texture2DKHR() { }
-void CL_API_CALL clCreateFromD3D11Texture3DKHR() { }
-void CL_API_CALL clEnqueueAcquireD3D11ObjectsKHR() { }
-void CL_API_CALL clEnqueueReleaseD3D11ObjectsKHR() { }
-void CL_API_CALL clCreateFromDX9MediaSurfaceKHR() { }
-void CL_API_CALL clGetDeviceIDsFromDX9MediaAdapterKHR() { }
-void CL_API_CALL clEnqueueAcquireDX9MediaSurfacesKHR() { }
-void CL_API_CALL clEnqueueReleaseDX9MediaSurfacesKHR() { }
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // OpenCL 1.2 functions
@@ -2787,8 +2171,6 @@ cl_int CL_API_CALL clEnqueueBarrierWithWaitList(cl_command_queue command_queue,
     }
 }
 SET_ALIAS(clEnqueueBarrierWithWaitList);
-
-
 
 cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
                                               cl_uint num_mem_objects,
@@ -2866,12 +2248,12 @@ cl_int CL_API_CALL clCompileProgram(cl_program program,
         START_LOG_API(clCompileProgram);
         apiLogger << "cl_program program" << program << "cl_uint num_devices" << num_devices << "const cl_device_id *device_list" << device_list << "const char *options";
         apiLogger.PrintCStringVal(options) << "cl_uint num_input_headers" << num_input_headers << "const cl_program *input_headers" << input_headers << "const char **header_include_names" << header_include_names << "void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data)" << pfn_notify << "void *user_data" << user_data;
-        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options, 
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options,
             num_input_headers, input_headers, header_include_names, pfn_notify, user_data));
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options, 
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, CompileProgram(program, num_devices, device_list, options,
             num_input_headers, input_headers, header_include_names, pfn_notify, user_data));
     }
 }
@@ -2894,12 +2276,12 @@ cl_program CL_API_CALL clLinkProgram(cl_context context,
         apiLogger.PrintCStringVal(options) << "cl_uint num_input_programs" << num_input_programs << "const cl_program *input_programs" << input_programs << "void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data)" << pfn_notify << "void *user_data" << user_data << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options, 
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options,
             num_input_programs, input_programs, pfn_notify, user_data, errcode_ret));
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options, 
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, LinkProgram(context, num_devices, device_list, options,
             num_input_programs, input_programs, pfn_notify, user_data, errcode_ret));
     }
 }
@@ -2912,7 +2294,7 @@ void* CL_API_CALL clSVMAlloc(cl_context context,
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
-        START_LOG_API(clSVMAlloc);    
+        START_LOG_API(clSVMAlloc);
         apiLogger << "cl_context context" << context << "cl_svm_mem_flags flags" << flags << "size_t size" << size << "unsigned int alignment" << alignment;
 	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, void*, SVMAlloc(context, flags, size, alignment));
     }
@@ -3099,7 +2481,7 @@ cl_int CL_API_CALL clSetKernelExecInfo(cl_kernel kernel,
 SET_ALIAS(clSetKernelExecInfo);
 
 cl_mem CL_API_CALL clCreatePipe(cl_context context,
-								cl_mem_flags flags, 
+								cl_mem_flags flags,
 								cl_uint pipe_packet_size,
 								cl_uint pipe_max_packets,
 								const cl_pipe_properties *properties,
@@ -3173,7 +2555,7 @@ static vector<cl_command_queue_properties> GetCommandQueueProps(cl_context conte
 {
 	  vector<cl_command_queue_properties> propVec;
 	  if (nullptr != properties)
-	  {		
+	  {
 		    const cl_queue_properties* pCurrProp = properties;
 		    while (*pCurrProp != 0)
 		    {
@@ -3195,10 +2577,10 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
     std::vector<cl_command_queue_properties> propVec = GetCommandQueueProps(context, device_id, properties);
     const cl_command_queue_properties* pCmdQueueProps = propVec.empty() ? nullptr : &propVec[0];
     if (g_pUserLogger->IsApiLoggingEnabled())
-    {		    
+    {
         START_LOG_API(clCreateCommandQueueWithProperties);
         apiLogger << "cl_context context" << context << "cl_device_id device_id" << device_id << "const cl_queue_properties* properties" << properties << "cl_int* errcode_ret" << errcode_ret;
-        OutputParamsValueProvider provider(apiLogger);    
+        OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, errcode_ret));
     }
@@ -3208,7 +2590,6 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
     }
 }
 SET_ALIAS(clCreateCommandQueueWithProperties);
-
 
 cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
                                              const void* il,

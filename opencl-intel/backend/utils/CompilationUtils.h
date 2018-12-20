@@ -615,7 +615,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                                                Utils::OCLAddressSpace::Global)
                             : nullptr) {}
 
-    PipeTypesHelper(Module &M)
+    PipeTypesHelper(const Module &M)
         : PipeTypesHelper(M.getTypeByName("opencl.pipe_rw_t"),
                           M.getTypeByName("opencl.pipe_ro_t"),
                           M.getTypeByName("opencl.pipe_wo_t")) {}
@@ -636,6 +636,26 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     bool isPipeType(Type *Ty) const {
       return isLocalPipeType(Ty) || isGlobalPipeType(Ty);
+    }
+
+    bool isPipeArrayType(Type *Ty) const {
+      return isa<ArrayType>(Ty) &&
+             isPipeType(
+                 CompilationUtils::getArrayElementType(cast<ArrayType>(Ty)));
+    }
+
+    bool isPipe(const Value *V) const {
+      Type *Ty = V->getType();
+      if (isa<GlobalVariable>(V))
+        Ty = cast<PointerType>(Ty)->getElementType();
+      return isPipeType(Ty);
+    }
+
+    bool isPipeArray(const Value *V) const {
+      Type *Ty = V->getType();
+      if (isa<GlobalVariable>(V))
+        Ty = cast<PointerType>(Ty)->getElementType();
+      return isPipeArrayType(Ty);
     }
   };
 

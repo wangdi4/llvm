@@ -264,8 +264,16 @@ public:
     bool HasSSE42() const {
         return IsFeatureOn(CFS_SSE42);
     }
-    bool HasAVX512() const {
+    bool HasAVX512Core() const {
       return IsFeatureOn(CFS_AVX512F);
+    }
+    bool HasAVX512SKX() const {
+      return IsFeatureOn(CFS_AVX512BW) && IsFeatureOn(CFS_AVX512DQ) &&
+             IsFeatureOn(CFS_AVX512VL);
+    }
+    bool HasAVX512ICL() const {
+      return IsFeatureOn(CFS_AVX512BITALG) && IsFeatureOn(CFS_AVX512VBMI2) &&
+             IsFeatureOn(CFS_AVX512POPCNTDQ);
     }
     bool Is64BitOS() const {
         return m_is64BitOS > 0;

@@ -7,10 +7,6 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME cl_sys_utils )
 
-if( DISABLE_NUMA_SUPPORT )
-    add_definitions( -DDISABLE_NUMA_SUPPORT )
-endif( DISABLE_NUMA_SUPPORT )
-
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
@@ -39,11 +35,16 @@ add_opencl_library (${TARGET_NAME} STATIC
     ${OCL_SOURCE_DIR}/tools/OCLProfiler/Inc
     )
 
+if ( USE_NUMA AND NOT WIN32 )
+    add_definitions( -DUSE_NUMA=1 )
+    target_link_libraries( ${TARGET_NAME} numa )
+endif( USE_NUMA AND NOT WIN32 )
+
 # add Version.lib in Windows for GetModuleProductVersion()
 if( WIN32 )
     target_link_libraries( ${TARGET_NAME} Version.lib cl_hw_utils )
 else( WIN32 )
-    target_link_libraries( ${TARGET_NAME} cl_hw_utils numa rt )
+    target_link_libraries( ${TARGET_NAME} cl_hw_utils rt )
 endif( WIN32 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )

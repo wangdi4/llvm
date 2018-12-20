@@ -11,6 +11,7 @@ set(OCL_BE_PASSES
     BuiltinCallToInst
     BuiltinLibInfo
     ChannelPipeTransformation
+    ChannelsUsageAnalysis
     CleanupWrappedKernels
     DebugInfoPass
     DetectRecursion
