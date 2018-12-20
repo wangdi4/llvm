@@ -8635,7 +8635,7 @@ public:
   void AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
                       unsigned SpellingListIndex, bool IsPackExpansion);
 
-  void AddSchedulerPipeliningEffortPctAttr(SourceRange AttrRange, Decl *D,
+  void AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D,
                                            Expr *E, unsigned SpellingListIndex);
   void AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D, Expr *E,
                                        unsigned SpellingListIndex);

@@ -54,7 +54,7 @@ int foo3() { return 0; }
 template <int N>
 __attribute__((ihc_component))
 __attribute__((max_concurrency(N)))
-__attribute__((scheduler_pipelining_effort_pct(N)))
+__attribute__((scheduler_target_fmax_mhz(N)))
 __attribute__((component_interface("always_run")))
 int tfoo3() {
     int stuff[100] __attribute__((__internal_max_block_ram_depth__(N)));
@@ -65,7 +65,7 @@ int tfoo3() {
 //CHECK-SAME: !component_interface [[ALWAYS_R]]
 //CHECK-SAME: !stall_free_return [[FALSE]] !use_single_clock [[FALSE]]
 //CHECK-SAME: !max_concurrency [[MCTFOO3:![0-9]+]]
-//CHECK-SAME: !scheduler_pipelining_effort_pct [[MCTFOO3:![0-9]+]]
+//CHECK-SAME: !scheduler_target_fmax_mhz [[MCTFOO3:![0-9]+]]
 void call_it()
 {
   tfoo3<512>();
@@ -95,9 +95,9 @@ void foo6() {}
 // CHECK: define void @_Z4foo6v{{.*}} !stall_free ![[SFTRUE:[0-9]+]]
 
 __attribute__((ihc_component))
-__attribute__((scheduler_pipelining_effort_pct(12)))
+__attribute__((scheduler_target_fmax_mhz(12)))
 void foo7() {}
-// CHECK: define void @_Z4foo7v{{.*}} !scheduler_pipelining_effort_pct ![[SPEP:[0-9]+]]
+// CHECK: define void @_Z4foo7v{{.*}} !scheduler_target_fmax_mhz ![[SPEP:[0-9]+]]
 
 void foo8() {
 // CHECK: define void @_Z4foo8v{{[^{]+}}
