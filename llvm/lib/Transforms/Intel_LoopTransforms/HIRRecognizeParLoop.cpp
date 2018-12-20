@@ -178,6 +178,7 @@ static HLLoopParallelTraits* parseOmpRegion(const HLInst *Entry) {
     case QUAL_OMP_SHARED:
     case QUAL_OMP_NORMALIZED_IV:
     case QUAL_OMP_NORMALIZED_UB:
+    case QUAL_OMP_COLLAPSE:
 #ifndef NDEBUG
       // TODO represent these clauses in HIR
       llvm::dbgs() << "HIR ignored OpenMP clause: " <<
