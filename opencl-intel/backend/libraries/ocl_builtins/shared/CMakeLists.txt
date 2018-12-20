@@ -41,4 +41,6 @@ add_custom_target (${TARGET_NAME_SHARED} ALL
 
 set_target_properties (${TARGET_NAME_SHARED} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
 
-install_to (${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE} DESTINATION lib)
+install_to (${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE}
+            DESTINATION lib
+            COMPONENT ocl-builtins-shared)

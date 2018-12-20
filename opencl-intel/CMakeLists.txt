@@ -222,14 +222,14 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${OCL_BINARY_DIR}/
 
 if(WIN32)
     file(WRITE ${OCL_BINARY_DIR}/version.ini "[Version]\nPackVer=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_WC_REVISION}\n")
-    install_to(${OCL_BINARY_DIR}/version.ini DESTINATION ./)
+    install_to(${OCL_BINARY_DIR}/version.ini DESTINATION ./ COMPONENT ocl-version)
 endif()
 file(WRITE ${OCL_BINARY_DIR}/version.txt "Version=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\nInternalVersion=${GIT_REVISION}\n")
 file(WRITE ${OCL_BINARY_DIR}/revision.txt "BUILD=${GIT_VERSION}\nREVISION=${GIT_REVISION}\nLLVM_REVISION_FE=${LLVM_REVISION_FE}\nLLVM_REVISION_BE=${LLVM_REVISION_BE}\nLLVM_PATH_BE=${LLVM_PATH_BE}\nLLVM_PATH_FE=${LLVM_PATH_FE}\n")
-install_to(${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
+install_to(${OCL_BINARY_DIR}/revision.txt DESTINATION ./  COMPONENT ocl-version)
 
 #copy the version file to install folder
-install_to(${OCL_BINARY_DIR}/version.txt DESTINATION ./)
+install_to(${OCL_BINARY_DIR}/version.txt DESTINATION ./  COMPONENT ocl-version)
 
 if (WIN32 AND ((${CMAKE_CFG_INTDIR} STREQUAL $(OutDir)) OR (${CMAKE_CFG_INTDIR} STREQUAL $(Configuration))))
     set( INSTALL_SUBDIR ${CMAKE_CFG_INTDIR} )

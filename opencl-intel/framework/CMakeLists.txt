@@ -94,6 +94,7 @@ add_opencl_library (${TARGET_NAME} SHARED
     RC_TEMPLATE DEFAULT)
 
 copy_to (${CONFIG_FILES} DESTINATION lib)
+install_to (${CONFIG_FILES} DESTINATION lib  COMPONENT ocl-config)
 
 if (WIN32)
     get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)

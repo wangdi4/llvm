@@ -1,9 +1,13 @@
 # Workadound to support both old and new files / directories location
 # This is needed to avoid dependancy on tools team
-# TODO: remove DRY_RUN variable when build script will be aligned with new
-# files location
 
-set (DRY_RUN ON)
+
+# SUBSTITUTE_LAYOUT used to simplify deployment process that is done
+# with external tool.
+# TODO: get rid of SUBSTITUTE_LAYOUT when it no longer needed.
+if(NOT DEFINED SUBSTITUTE_LAYOUT)
+  set (SUBSTITUTE_LAYOUT ON)
+endif(NOT DEFINED SUBSTITUTE_LAYOUT)
 
 # Define build and install directories
 set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
@@ -95,14 +99,20 @@ function(add_opencl_library name)
             LINK_FLAGS_RELEASE "/PDBSTRIPPED:${PDB_NAME} /DEBUG"
             LINK_FLAGS_DEBUG "/PDBSTRIPPED:${PDB_NAME}")
 
-        install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}_stripped.pdb DESTINATION lib)
+        install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}_stripped.pdb
+                    DESTINATION lib
+                    COMPONENT ocl-${name})
 
         if (INSTALL_PDBS)
-            install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}.pdb DESTINATION lib)
+            install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}.pdb
+                        DESTINATION lib
+                        COMPONENT ocl-${name})
         endif (INSTALL_PDBS)
     endif (WIN32 AND ARG_SHARED)
 
-    install_to (${name} DESTINATION lib)
+    install_to (${name}
+                DESTINATION lib
+                COMPONENT ocl-${name})
 
 endfunction(add_opencl_library name)
 
@@ -137,7 +147,9 @@ function(add_opencl_executable name)
 
     target_link_libraries(${name} ${ARG_LINK_LIBS})
 
-    install_to (${name} DESTINATION bin)
+    install_to (${name}
+                DESTINATION bin
+                COMPONENT ocl-${name})
 
 endfunction(add_opencl_executable name)
 
@@ -159,46 +171,68 @@ function (copy_to)
     endif ()
 
     file(COPY ${files_to_copy} DESTINATION ${output})
-    install_to (${files_to_copy} DESTINATION ${ARG_DESTINATION})
 
 endfunction (copy_to)
 
-# install_to (<files, directories, targets...> DESTINATION <dir>) -
+# install_to (<files, directories, targets...> [COMPONENT <name>] DESTINATION <dir>) -
 #       simple utility to install files, directoies or targets
 #
+#       COMPONENT - name of a CMake install component
 #       DESTINATION - relative path from a root of build directory
 #       NOTE: Targets should be specified by target name,
 #       files and directories with full paths
 
 function (install_to)
-    cmake_parse_arguments(ARG "" "DESTINATION" "" ${ARGN})
-    set(files_to_install ${ARG_UNPARSED_ARGUMENTS})
+    cmake_parse_arguments(ARG "" "COMPONENT;DESTINATION" "" ${ARGN})
+    set(install_namelist ${ARG_UNPARSED_ARGUMENTS})
 
-    if (NOT DRY_RUN AND (${CMAKE_INSTALL_PREFIX} STREQUAL ${OCL_BINARY_DIR}))
+    if (NOT SUBSTITUTE_LAYOUT AND
+        (${CMAKE_INSTALL_PREFIX} STREQUAL ${OCL_BINARY_DIR}))
         return ()
     endif ()
 
-    # In DRY_RUN mode 'install' copies all output to 'bin/' dir
-    # TODO: remove this condition when DRY_RUN will be no longer needed
-    if (DRY_RUN AND (${ARG_DESTINATION} STREQUAL "lib" OR ${ARG_DESTINATION} STREQUAL "bin"))
+    if (NOT ARG_DESTINATION)
+       message( FATAL_ERROR "Missed destination location argument for install_to function.")
+    endif()
 
-        # TODO: remove next line and uncomment next to it when
-        # DRY_RUN will be no longer needed
-        set (output ${CMAKE_INSTALL_PREFIX}/bin)
-        # set (output ${CMAKE_INSTALL_PREFIX}/${destination})
-
-        foreach (file ${files_to_install})
-            if (TARGET ${file})
-                install (TARGETS ${file}
-                    RUNTIME DESTINATION ${output}
-                    LIBRARY DESTINATION ${output}
-                    ARCHIVE DESTINATION ${output})
-            elseif (IS_DIRECTORY ${file})
-                install (DIRECTORY ${file} DESTINATION ${output})
-            else ()
-                install (FILES ${file} DESTINATION ${output})
-            endif ()
-        endforeach (file)
-
+    # In SUBSTITUTE_LAYOUT mode install redirects 'lib'
+    # to 'bin' directory
+    if (SUBSTITUTE_LAYOUT AND ${ARG_DESTINATION} STREQUAL "lib")
+        set (output bin)
+    else ()
+        set (output ${ARG_DESTINATION})
     endif ()
+
+    foreach (name ${install_namelist})
+        if (TARGET ${name})
+            if (ARG_COMPONENT)
+                set(component "${ARG_COMPONENT}")
+            else()
+                set(component "ocl-${name}")
+            endif(ARG_COMPONENT)
+
+            install (TARGETS ${name}
+                     RUNTIME DESTINATION ${output} COMPONENT ${component}
+                     LIBRARY DESTINATION ${output} COMPONENT ${component}
+                     ARCHIVE DESTINATION ${output} COMPONENT ${component})
+        else ()
+            # name is a directory or a file
+
+            if (ARG_COMPONENT)
+                set(component "${ARG_COMPONENT}")
+            else ()
+                set(component "ocl-Unspecified")
+            endif ()
+
+            if (IS_DIRECTORY ${name})
+                install (DIRECTORY ${name}
+                         DESTINATION ${output}
+                         COMPONENT ${component})
+            else ()
+                install (FILES ${name}
+                         DESTINATION ${output}
+                         COMPONENT ${component})
+            endif ()
+        endif()
+    endforeach (name)
 endfunction (install_to)
