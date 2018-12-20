@@ -10,12 +10,9 @@
 #include "PlatformMacOSX.h"
 #include "lldb/Host/Config.h"
 
-// C++ Includes
 
 #include <sstream>
 
-// Other libraries and framework includes
-// Project includes
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
@@ -93,7 +90,7 @@ PlatformSP PlatformMacOSX::CreateInstance(bool force, const ArchSpec *arch) {
 #if defined(__APPLE__)
     // Only accept "unknown" for vendor if the host is Apple and it "unknown"
     // wasn't specified (it was just returned because it was NOT specified)
-    case llvm::Triple::UnknownArch:
+    case llvm::Triple::UnknownVendor:
       create = !arch->TripleVendorWasSpecified();
       break;
 #endif

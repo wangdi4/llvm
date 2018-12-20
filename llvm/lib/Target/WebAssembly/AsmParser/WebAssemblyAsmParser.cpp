@@ -25,6 +25,7 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/MC/MCSymbolWasm.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/TargetRegistry.h"
 
@@ -131,14 +132,38 @@ struct WebAssemblyOperand : public MCParsedAsmOperand {
 class WebAssemblyAsmParser final : public MCTargetAsmParser {
   MCAsmParser &Parser;
   MCAsmLexer &Lexer;
-  MCSymbol *LastLabel;
+
+  // Much like WebAssemblyAsmPrinter in the backend, we have to own these.
+  std::vector<std::unique_ptr<wasm::WasmSignature>> Signatures;
+
+  // Order of labels, directives and instructions in a .s file have no
+  // syntactical enforcement. This class is a callback from the actual parser,
+  // and yet we have to be feeding data to the streamer in a very particular
+  // order to ensure a correct binary encoding that matches the regular backend
+  // (the streamer does not enforce this). This "state machine" enum helps
+  // guarantee that correct order.
+  enum ParserState {
+    FileStart,
+    Label,
+    FunctionStart,
+    FunctionLocals,
+    Instructions,
+  } CurrentState = FileStart;
+
+  // We track this to see if a .functype following a label is the same,
+  // as this is how we recognize the start of a function.
+  MCSymbol *LastLabel = nullptr;
 
 public:
-  WebAssemblyAsmParser(const MCSubtargetInfo &sti, MCAsmParser &Parser,
-                       const MCInstrInfo &mii, const MCTargetOptions &Options)
-      : MCTargetAsmParser(Options, sti, mii), Parser(Parser),
-        Lexer(Parser.getLexer()), LastLabel(nullptr) {
-    setAvailableFeatures(ComputeAvailableFeatures(sti.getFeatureBits()));
+  WebAssemblyAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
+                       const MCInstrInfo &MII, const MCTargetOptions &Options)
+      : MCTargetAsmParser(Options, STI, MII), Parser(Parser),
+        Lexer(Parser.getLexer()) {
+    setAvailableFeatures(ComputeAvailableFeatures(STI.getFeatureBits()));
+  }
+
+  void addSignature(std::unique_ptr<wasm::WasmSignature> &&Sig) {
+    Signatures.push_back(std::move(Sig));
   }
 
 #define GET_ASSEMBLER_HEADER
@@ -168,24 +193,40 @@ public:
     return false;
   }
 
-  MVT::SimpleValueType ParseRegType(const StringRef &RegType) {
-    // Derive type from .param .local decls, or the instruction itself.
-    return StringSwitch<MVT::SimpleValueType>(RegType)
-        .Case("i32", MVT::i32)
-        .Case("i64", MVT::i64)
-        .Case("f32", MVT::f32)
-        .Case("f64", MVT::f64)
-        .Case("i8x16", MVT::v16i8)
-        .Case("i16x8", MVT::v8i16)
-        .Case("i32x4", MVT::v4i32)
-        .Case("i64x2", MVT::v2i64)
-        .Case("f32x4", MVT::v4f32)
-        .Case("f64x2", MVT::v2f64)
-        // arbitrarily chosen vector type to associate with "v128"
-        // FIXME: should these be EVTs to avoid this arbitrary hack? Do we want
-        // to accept more specific SIMD register types?
-        .Case("v128", MVT::v16i8)
-        .Default(MVT::INVALID_SIMPLE_VALUE_TYPE);
+  StringRef ExpectIdent() {
+    if (!Lexer.is(AsmToken::Identifier)) {
+      Error("Expected identifier, got: ", Lexer.getTok());
+      return StringRef();
+    }
+    auto Name = Lexer.getTok().getString();
+    Parser.Lex();
+    return Name;
+  }
+
+  Optional<wasm::ValType> ParseType(const StringRef &Type) {
+    // FIXME: can't use StringSwitch because wasm::ValType doesn't have a
+    // "invalid" value.
+    if (Type == "i32") return wasm::ValType::I32;
+    if (Type == "i64") return wasm::ValType::I64;
+    if (Type == "f32") return wasm::ValType::F32;
+    if (Type == "f64") return wasm::ValType::F64;
+    if (Type == "v128" || Type == "i8x16" || Type == "i16x8" ||
+        Type == "i32x4" || Type == "i64x2" || Type == "f32x4" ||
+        Type == "f64x2") return wasm::ValType::V128;
+    return Optional<wasm::ValType>();
+  }
+
+  bool ParseRegTypeList(SmallVectorImpl<wasm::ValType> &Types) {
+    while (Lexer.is(AsmToken::Identifier)) {
+      auto Type = ParseType(Lexer.getTok().getString());
+      if (!Type)
+        return true;
+      Types.push_back(Type.getValue());
+      Parser.Lex();
+      if (!IsNext(AsmToken::Comma))
+        break;
+    }
+    return false;
   }
 
   void ParseSingleInteger(bool IsNegative, OperandVector &Operands) {
@@ -311,53 +352,85 @@ public:
     return false;
   }
 
-  void onLabelParsed(MCSymbol *Symbol) override { LastLabel = Symbol; }
+  void onLabelParsed(MCSymbol *Symbol) override {
+    LastLabel = Symbol;
+    CurrentState = Label;
+  }
 
+  // This function processes wasm-specific directives streamed to
+  // WebAssemblyTargetStreamer, all others go to the generic parser
+  // (see WasmAsmParser).
   bool ParseDirective(AsmToken DirectiveID) override {
+    // This function has a really weird return value behavior that is different
+    // from all the other parsing functions:
+    // - return true && no tokens consumed -> don't know this directive / let
+    //   the generic parser handle it.
+    // - return true && tokens consumed -> a parsing error occurred.
+    // - return false -> processed this directive successfully.
     assert(DirectiveID.getKind() == AsmToken::Identifier);
     auto &Out = getStreamer();
     auto &TOut =
         reinterpret_cast<WebAssemblyTargetStreamer &>(*Out.getTargetStreamer());
-    // TODO: we're just parsing the subset of directives we're interested in,
-    // and ignoring ones we don't recognise. We should ideally verify
-    // all directives here.
-    if (DirectiveID.getString() == ".type") {
-      // This could be the start of a function, check if followed by
-      // "label,@function"
-      if (!(IsNext(AsmToken::Identifier) && IsNext(AsmToken::Comma) &&
-            IsNext(AsmToken::At) && Lexer.is(AsmToken::Identifier)))
-        return Error("Expected label,@type declaration, got: ", Lexer.getTok());
-      Parser.Lex();
-      // Out.EmitSymbolAttribute(??, MCSA_ELF_TypeFunction);
-    } else if (DirectiveID.getString() == ".param" ||
-               DirectiveID.getString() == ".local") {
-      // Track the number of locals, needed for correct virtual register
-      // assignment elsewhere.
-      // Also output a directive to the streamer.
-      std::vector<MVT> Params;
-      std::vector<MVT> Locals;
-      while (Lexer.is(AsmToken::Identifier)) {
-        auto RegType = ParseRegType(Lexer.getTok().getString());
-        if (RegType == MVT::INVALID_SIMPLE_VALUE_TYPE)
-          return true;
-        if (DirectiveID.getString() == ".param") {
-          Params.push_back(RegType);
-        } else {
-          Locals.push_back(RegType);
-        }
-        Parser.Lex();
-        if (!IsNext(AsmToken::Comma))
-          break;
+    // TODO: any time we return an error, at least one token must have been
+    // consumed, otherwise this will not signal an error to the caller.
+    if (DirectiveID.getString() == ".globaltype") {
+      auto SymName = ExpectIdent();
+      if (SymName.empty()) return true;
+      if (Expect(AsmToken::Comma, ",")) return true;
+      auto TypeTok = Lexer.getTok();
+      auto TypeName = ExpectIdent();
+      if (TypeName.empty()) return true;
+      auto Type = ParseType(TypeName);
+      if (!Type)
+        return Error("Unknown type in .globaltype directive: ", TypeTok);
+      // Now set this symbol with the correct type.
+      auto WasmSym = cast<MCSymbolWasm>(
+                    TOut.getStreamer().getContext().getOrCreateSymbol(SymName));
+      WasmSym->setType(wasm::WASM_SYMBOL_TYPE_GLOBAL);
+      WasmSym->setGlobalType(
+            wasm::WasmGlobalType{uint8_t(Type.getValue()), true});
+      // And emit the directive again.
+      TOut.emitGlobalType(WasmSym);
+      return Expect(AsmToken::EndOfStatement, "EOL");
+    } else if (DirectiveID.getString() == ".functype") {
+      // This code has to send things to the streamer similar to
+      // WebAssemblyAsmPrinter::EmitFunctionBodyStart.
+      // TODO: would be good to factor this into a common function, but the
+      // assembler and backend really don't share any common code, and this code
+      // parses the locals seperately.
+      auto SymName = ExpectIdent();
+      if (SymName.empty()) return true;
+      auto WasmSym = cast<MCSymbolWasm>(
+                    TOut.getStreamer().getContext().getOrCreateSymbol(SymName));
+      if (CurrentState == Label && WasmSym == LastLabel) {
+        // This .functype indicates a start of a function.
+        CurrentState = FunctionStart;
       }
-      assert(LastLabel);
-      TOut.emitParam(LastLabel, Params);
+      auto Signature = make_unique<wasm::WasmSignature>();
+      if (Expect(AsmToken::LParen, "(")) return true;
+      if (ParseRegTypeList(Signature->Params)) return true;
+      if (Expect(AsmToken::RParen, ")")) return true;
+      if (Expect(AsmToken::MinusGreater, "->")) return true;
+      if (Expect(AsmToken::LParen, "(")) return true;
+      if (ParseRegTypeList(Signature->Returns)) return true;
+      if (Expect(AsmToken::RParen, ")")) return true;
+      WasmSym->setSignature(Signature.get());
+      addSignature(std::move(Signature));
+      WasmSym->setType(wasm::WASM_SYMBOL_TYPE_FUNCTION);
+      TOut.emitFunctionType(WasmSym);
+      // TODO: backend also calls TOut.emitIndIdx, but that is not implemented.
+      return Expect(AsmToken::EndOfStatement, "EOL");
+    } else if (DirectiveID.getString() == ".local") {
+      if (CurrentState != FunctionStart)
+        return Error(".local directive should follow the start of a function",
+                     Lexer.getTok());
+      SmallVector<wasm::ValType, 4> Locals;
+      if (ParseRegTypeList(Locals)) return true;
       TOut.emitLocal(Locals);
-    } else {
-      // For now, ignore anydirective we don't recognize:
-      while (Lexer.isNot(AsmToken::EndOfStatement))
-        Parser.Lex();
+      CurrentState = FunctionLocals;
+      return Expect(AsmToken::EndOfStatement, "EOL");
     }
-    return Expect(AsmToken::EndOfStatement, "EOL");
+    return true;  // We didn't process this directive.
   }
 
   bool MatchAndEmitInstruction(SMLoc IDLoc, unsigned & /*Opcode*/,
@@ -369,6 +442,16 @@ public:
         MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm);
     switch (MatchResult) {
     case Match_Success: {
+      if (CurrentState == FunctionStart) {
+        // This is the first instruction in a function, but we haven't seen
+        // a .local directive yet. The streamer requires locals to be encoded
+        // as a prelude to the instructions, so emit an empty list of locals
+        // here.
+        auto &TOut = reinterpret_cast<WebAssemblyTargetStreamer &>(
+            *Out.getTargetStreamer());
+        TOut.emitLocal(SmallVector<wasm::ValType, 0>());
+      }
+      CurrentState = Instructions;
       Out.EmitInstruction(Inst, getSTI());
       return false;
     }

@@ -467,9 +467,6 @@ int SystemZTTIImpl::getArithmeticInstrCost(
     if (Opcode == Instruction::FRem)
       return LIBCALL_COST;
 
-    if (Opcode == Instruction::LShr || Opcode == Instruction::AShr)
-      return (ScalarBits >= 32 ? 1 : 2 /*ext*/);
-
     // Or requires one instruction, although it has custom handling for i64.
     if (Opcode == Instruction::Or)
       return 1;
@@ -484,12 +481,8 @@ int SystemZTTIImpl::getArithmeticInstrCost(
       return (SignedDivRem ? SDivPow2Cost : 1);
     if (DivRemConst)
       return DivMulSeqCost;
-    if (SignedDivRem)
-      // sext of op(s) for narrow types
-      return DivInstrCost + (ScalarBits < 32 ? 3 : (ScalarBits == 32 ? 1 : 0));
-    if (UnsignedDivRem)
-      // Clearing of low 64 bit reg + sext of op(s) for narrow types + dl[g]r
-      return DivInstrCost + (ScalarBits < 32 ? 3 : 1);
+    if (SignedDivRem || UnsignedDivRem)
+      return DivInstrCost;
   }
 
   // Fallback to the default implementation.
@@ -718,7 +711,8 @@ int SystemZTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
           (Opcode == Instruction::FPToSI || Opcode == Instruction::FPToUI))
         NeedsExtracts = false;
 
-      TotCost += getScalarizationOverhead(Dst, NeedsInserts, NeedsExtracts);
+      TotCost += getScalarizationOverhead(Src, false, NeedsExtracts);
+      TotCost += getScalarizationOverhead(Dst, NeedsInserts, false);
 
       // FIXME: VF 2 for float<->i32 is currently just as expensive as for VF 4.
       if (VF == 2 && SrcScalarBits == 32 && DstScalarBits == 32)
@@ -748,10 +742,12 @@ int SystemZTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
   else { // Scalar
     assert (!Dst->isVectorTy());
 
-    if (Opcode == Instruction::SIToFP || Opcode == Instruction::UIToFP)
-      return (SrcScalarBits >= 32
-                ? 1
-                : SrcScalarBits > 1 ? 2 /*i8/i16 extend*/ : 5 /*branch seq.*/);
+    if (Opcode == Instruction::SIToFP || Opcode == Instruction::UIToFP) {
+      if (SrcScalarBits >= 32 ||
+          (I != nullptr && isa<LoadInst>(I->getOperand(0))))
+        return 1;
+      return SrcScalarBits > 1 ? 2 /*i8/i16 extend*/ : 5 /*branch seq.*/;
+    }
 
     if ((Opcode == Instruction::ZExt || Opcode == Instruction::SExt) &&
         Src->isIntegerTy(1)) {
@@ -774,6 +770,18 @@ int SystemZTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
   }
 
   return BaseT::getCastInstrCost(Opcode, Dst, Src, I);
+}
+
+// Scalar i8 / i16 operations will typically be made after first extending
+// the operands to i32.
+static unsigned getOperandsExtensionCost(const Instruction *I) {
+  unsigned ExtCost = 0;
+  for (Value *Op : I->operands())
+    // A load of i8 or i16 sign/zero extends to i32.
+    if (!isa<LoadInst>(Op) && !isa<ConstantInt>(Op))
+      ExtCost++;
+
+  return ExtCost;
 }
 
 int SystemZTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
@@ -831,9 +839,19 @@ int SystemZTTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
   else { // Scalar
     switch (Opcode) {
     case Instruction::ICmp: {
+      // A loaded value compared with 0 with multiple users becomes Load and
+      // Test. The load is then not foldable, so return 0 cost for the ICmp.
+      unsigned ScalarBits = ValTy->getScalarSizeInBits();
+      if (I != nullptr && ScalarBits >= 32)
+        if (LoadInst *Ld = dyn_cast<LoadInst>(I->getOperand(0)))
+          if (const ConstantInt *C = dyn_cast<ConstantInt>(I->getOperand(1)))
+            if (!Ld->hasOneUse() && Ld->getParent() == I->getParent() &&
+                C->getZExtValue() == 0)
+              return 0;
+
       unsigned Cost = 1;
       if (ValTy->isIntegerTy() && ValTy->getScalarSizeInBits() <= 16)
-        Cost += 2; // extend both operands
+        Cost += (I != nullptr ? getOperandsExtensionCost(I) : 2);
       return Cost;
     }
     case Instruction::Select:
@@ -896,17 +914,26 @@ isFoldableLoad(const LoadInst *Ld, const Instruction *&FoldedValue) {
        UserI->getOpcode() == Instruction::UDiv) &&
       UserI->getOperand(1) != FoldedValue)
     return false; // Not commutative, only RHS foldable.
+  // LoadOrTruncBits holds the number of effectively loaded bits, but 0 if an
+  // extension was made of the load.
+  unsigned LoadOrTruncBits =
+      ((SExtBits || ZExtBits) ? 0 : (TruncBits ? TruncBits : LoadedBits));
   switch (UserI->getOpcode()) {
   case Instruction::Add: // SE: 16->32, 16/32->64, z14:16->64. ZE: 32->64
   case Instruction::Sub:
+  case Instruction::ICmp:
     if (LoadedBits == 32 && ZExtBits == 64)
       return true;
     LLVM_FALLTHROUGH;
   case Instruction::Mul: // SE: 16->32, 32->64, z14:16->64
-    if (LoadedBits == 16 &&
-        (SExtBits == 32 ||
-         (SExtBits == 64 && ST->hasMiscellaneousExtensions2())))
-      return true;
+    if (UserI->getOpcode() != Instruction::ICmp) {
+      if (LoadedBits == 16 &&
+          (SExtBits == 32 ||
+           (SExtBits == 64 && ST->hasMiscellaneousExtensions2())))
+        return true;
+      if (LoadOrTruncBits == 16)
+        return true;
+    }
     LLVM_FALLTHROUGH;
   case Instruction::SDiv:// SE: 32->64
     if (LoadedBits == 32 && SExtBits == 64)
@@ -916,7 +943,6 @@ isFoldableLoad(const LoadInst *Ld, const Instruction *&FoldedValue) {
   case Instruction::And:
   case Instruction::Or:
   case Instruction::Xor:
-  case Instruction::ICmp:
     // This also makes sense for float operations, but disabled for now due
     // to regressions.
     // case Instruction::FCmp:
@@ -926,13 +952,24 @@ isFoldableLoad(const LoadInst *Ld, const Instruction *&FoldedValue) {
     // case Instruction::FDiv:
 
     // All possible extensions of memory checked above.
-    if (SExtBits || ZExtBits)
-      return false;
 
-    unsigned LoadOrTruncBits = (TruncBits ? TruncBits : LoadedBits);
+    // Comparison between memory and immediate.
+    if (UserI->getOpcode() == Instruction::ICmp)
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(UserI->getOperand(1)))
+        if (isUInt<16>(CI->getZExtValue()))
+          return true;
     return (LoadOrTruncBits == 32 || LoadOrTruncBits == 64);
     break;
   }
+  return false;
+}
+
+static bool isBswapIntrinsicCall(const Value *V) {
+  if (const Instruction *I = dyn_cast<Instruction>(V))
+    if (auto *CI = dyn_cast<CallInst>(I))
+      if (auto *F = CI->getCalledFunction())
+        if (F->getIntrinsicID() == Intrinsic::bswap)
+          return true;
   return false;
 }
 
@@ -972,6 +1009,22 @@ int SystemZTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
   unsigned NumOps =
     (Src->isVectorTy() ? getNumVectorRegs(Src) : getNumberOfParts(Src));
 
+  // Store/Load reversed saves one instruction.
+  if (!Src->isVectorTy() && NumOps == 1 && I != nullptr) {
+    if (Opcode == Instruction::Load && I->hasOneUse()) {
+      const Instruction *LdUser = cast<Instruction>(*I->user_begin());
+      // In case of load -> bswap -> store, return normal cost for the load.
+      if (isBswapIntrinsicCall(LdUser) &&
+          (!LdUser->hasOneUse() || !isa<StoreInst>(*LdUser->user_begin())))
+        return 0;
+    }
+    else if (const StoreInst *SI = dyn_cast<StoreInst>(I)) {
+      const Value *StoredVal = SI->getValueOperand();
+      if (StoredVal->hasOneUse() && isBswapIntrinsicCall(StoredVal))
+        return 0;
+    }
+  }
+
   if (Src->getScalarSizeInBits() == 128)
     // 128 bit scalars are held in a pair of two 64 bit registers.
     NumOps *= 2;
@@ -979,6 +1032,11 @@ int SystemZTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
   return  NumOps;
 }
 
+// The generic implementation of getInterleavedMemoryOpCost() is based on
+// adding costs of the memory operations plus all the extracts and inserts
+// needed for using / defining the vector operands. The SystemZ version does
+// roughly the same but bases the computations on vector permutations
+// instead.
 int SystemZTTIImpl::getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy,
                                                unsigned Factor,
                                                ArrayRef<unsigned> Indices,
@@ -993,22 +1051,75 @@ int SystemZTTIImpl::getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy,
   assert(isa<VectorType>(VecTy) &&
          "Expect a vector type for interleaved memory op");
 
-  int NumWideParts = getNumVectorRegs(VecTy);
+  // Return the ceiling of dividing A by B.
+  auto ceil = [](unsigned A, unsigned B) { return (A + B - 1) / B; };
 
-  // How many source vectors are handled to produce a vectorized operand?
-  int NumElsPerVector = (VecTy->getVectorNumElements() / NumWideParts);
-  int NumSrcParts =
-    ((NumWideParts > NumElsPerVector) ? NumElsPerVector : NumWideParts);
+  unsigned NumElts = VecTy->getVectorNumElements();
+  assert(Factor > 1 && NumElts % Factor == 0 && "Invalid interleave factor");
+  unsigned VF = NumElts / Factor;
+  unsigned NumEltsPerVecReg = (128U / getScalarSizeInBits(VecTy));
+  unsigned NumVectorMemOps = getNumVectorRegs(VecTy);
+  unsigned NumPermutes = 0;
 
-  // A Load group may have gaps.
-  unsigned NumOperands =
-    ((Opcode == Instruction::Load) ? Indices.size() : Factor);
+  if (Opcode == Instruction::Load) {
+    // Loading interleave groups may have gaps, which may mean fewer
+    // loads. Find out how many vectors will be loaded in total, and in how
+    // many of them each value will be in.
+    BitVector UsedInsts(NumVectorMemOps, false);
+    std::vector<BitVector> ValueVecs(Factor, BitVector(NumVectorMemOps, false));
+    for (unsigned Index : Indices)
+      for (unsigned Elt = 0; Elt < VF; ++Elt) {
+        unsigned Vec = (Index + Elt * Factor) / NumEltsPerVecReg;
+        UsedInsts.set(Vec);
+        ValueVecs[Index].set(Vec);
+      }
+    NumVectorMemOps = UsedInsts.count();
 
-  // Each needed permute takes two vectors as input.
-  if (NumSrcParts > 1)
-    NumSrcParts--;
-  int NumPermutes = NumSrcParts * NumOperands;
+    for (unsigned Index : Indices) {
+      // Estimate that each loaded source vector containing this Index
+      // requires one operation, except that vperm can handle two input
+      // registers first time for each dst vector.
+      unsigned NumSrcVecs = ValueVecs[Index].count();
+      unsigned NumDstVecs = ceil(VF * getScalarSizeInBits(VecTy), 128U);
+      assert (NumSrcVecs >= NumDstVecs && "Expected at least as many sources");
+      NumPermutes += std::max(1U, NumSrcVecs - NumDstVecs);
+    }
+  } else {
+    // Estimate the permutes for each stored vector as the smaller of the
+    // number of elements and the number of source vectors. Subtract one per
+    // dst vector for vperm (S.A.).
+    unsigned NumSrcVecs = std::min(NumEltsPerVecReg, Factor);
+    unsigned NumDstVecs = NumVectorMemOps;
+    assert (NumSrcVecs > 1 && "Expected at least two source vectors.");
+    NumPermutes += (NumDstVecs * NumSrcVecs) - NumDstVecs;
+  }
 
   // Cost of load/store operations and the permutations needed.
-  return NumWideParts + NumPermutes;
+  return NumVectorMemOps + NumPermutes;
+}
+
+static int getVectorIntrinsicInstrCost(Intrinsic::ID ID, Type *RetTy) {
+  if (RetTy->isVectorTy() && ID == Intrinsic::bswap)
+    return getNumVectorRegs(RetTy); // VPERM
+  return -1;
+}
+
+int SystemZTTIImpl::getIntrinsicInstrCost(Intrinsic::ID ID, Type *RetTy,
+                                          ArrayRef<Value *> Args,
+                                          FastMathFlags FMF, unsigned VF) {
+  int Cost = getVectorIntrinsicInstrCost(ID, RetTy);
+  if (Cost != -1)
+    return Cost;
+  return BaseT::getIntrinsicInstrCost(ID, RetTy, Args, FMF, VF);
+}
+
+int SystemZTTIImpl::getIntrinsicInstrCost(Intrinsic::ID ID, Type *RetTy,
+                                          ArrayRef<Type *> Tys,
+                                          FastMathFlags FMF,
+                                          unsigned ScalarizationCostPassed) {
+  int Cost = getVectorIntrinsicInstrCost(ID, RetTy);
+  if (Cost != -1)
+    return Cost;
+  return BaseT::getIntrinsicInstrCost(ID, RetTy, Tys,
+                                      FMF, ScalarizationCostPassed);
 }

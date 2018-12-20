@@ -152,12 +152,15 @@ void streamIsaVersion(const MCSubtargetInfo *STI, raw_ostream &Stream) {
 
   if (hasXNACK(*STI))
     Stream << "+xnack";
+  if (hasSRAMECC(*STI))
+    Stream << "+sram-ecc";
 
   Stream.flush();
 }
 
 bool hasCodeObjectV3(const MCSubtargetInfo *STI) {
-  return STI->getFeatureBits().test(FeatureCodeObjectV3);
+  return STI->getTargetTriple().getOS() == Triple::AMDHSA &&
+             STI->getFeatureBits().test(FeatureCodeObjectV3);
 }
 
 unsigned getWavefrontSize(const MCSubtargetInfo *STI) {
@@ -519,6 +522,14 @@ void decodeWaitcnt(const IsaVersion &Version, unsigned Waitcnt,
   Lgkmcnt = decodeLgkmcnt(Version, Waitcnt);
 }
 
+Waitcnt decodeWaitcnt(const IsaVersion &Version, unsigned Encoded) {
+  Waitcnt Decoded;
+  Decoded.VmCnt = decodeVmcnt(Version, Encoded);
+  Decoded.ExpCnt = decodeExpcnt(Version, Encoded);
+  Decoded.LgkmCnt = decodeLgkmcnt(Version, Encoded);
+  return Decoded;
+}
+
 unsigned encodeVmcnt(const IsaVersion &Version, unsigned Waitcnt,
                      unsigned Vmcnt) {
   Waitcnt =
@@ -547,6 +558,10 @@ unsigned encodeWaitcnt(const IsaVersion &Version,
   Waitcnt = encodeExpcnt(Version, Waitcnt, Expcnt);
   Waitcnt = encodeLgkmcnt(Version, Waitcnt, Lgkmcnt);
   return Waitcnt;
+}
+
+unsigned encodeWaitcnt(const IsaVersion &Version, const Waitcnt &Decoded) {
+  return encodeWaitcnt(Version, Decoded.VmCnt, Decoded.ExpCnt, Decoded.LgkmCnt);
 }
 
 unsigned getInitialPSInputAddr(const Function &F) {
@@ -591,6 +606,10 @@ bool isEntryFunctionCC(CallingConv::ID CC) {
 
 bool hasXNACK(const MCSubtargetInfo &STI) {
   return STI.getFeatureBits()[AMDGPU::FeatureXNACK];
+}
+
+bool hasSRAMECC(const MCSubtargetInfo &STI) {
+  return STI.getFeatureBits()[AMDGPU::FeatureSRAMECC];
 }
 
 bool hasMIMG_R128(const MCSubtargetInfo &STI) {
@@ -748,6 +767,7 @@ unsigned getRegBitWidth(unsigned RCID) {
   case AMDGPU::VS_64RegClassID:
   case AMDGPU::SReg_64RegClassID:
   case AMDGPU::VReg_64RegClassID:
+  case AMDGPU::SReg_64_XEXECRegClassID:
     return 64;
   case AMDGPU::VReg_96RegClassID:
     return 96;

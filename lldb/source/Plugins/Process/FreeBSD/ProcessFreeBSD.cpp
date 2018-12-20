@@ -8,7 +8,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// C Includes
 #include <errno.h>
 #include <pthread.h>
 #include <pthread_np.h>
@@ -18,11 +17,9 @@
 #include <sys/user.h>
 #include <machine/elf.h>
 
-// C++ Includes
 #include <mutex>
 #include <unordered_map>
 
-// Other libraries and framework includes
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
@@ -39,7 +36,6 @@
 #include "ProcessFreeBSD.h"
 #include "ProcessMonitor.h"
 
-// Other libraries and framework includes
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Breakpoint/Watchpoint.h"
 #include "lldb/Core/Module.h"
@@ -374,12 +370,13 @@ Status ProcessFreeBSD::DoLaunch(Module *module,
   assert(m_monitor == NULL);
 
   FileSpec working_dir = launch_info.GetWorkingDirectory();
-  namespace fs = llvm::sys::fs;
-  if (working_dir && (!working_dir.ResolvePath() ||
-                      !fs::is_directory(working_dir.GetPath()))) {
-    error.SetErrorStringWithFormat("No such file or directory: %s",
+  if (working_dir) {
+    FileSystem::Instance().Resolve(working_dir);
+    if (!FileSystem::Instance().IsDirectory(working_dir.GetPath())) {
+      error.SetErrorStringWithFormat("No such file or directory: %s",
                                    working_dir.GetCString());
-    return error;
+      return error;
+    }
   }
 
   SetPrivateState(eStateLaunching);

@@ -215,7 +215,7 @@ ArrayRef<unsigned> IRTranslator::getOrCreateVRegs(const Value &Val) {
     unsigned Idx = 0;
     while (auto Elt = C.getAggregateElement(Idx++)) {
       auto EltRegs = getOrCreateVRegs(*Elt);
-      std::copy(EltRegs.begin(), EltRegs.end(), std::back_inserter(*VRegs));
+      llvm::copy(EltRegs, std::back_inserter(*VRegs));
     }
   } else {
     assert(SplitTys.size() == 1 && "unexpectedly split LLT");
@@ -328,6 +328,13 @@ bool IRTranslator::translateFSub(const User &U, MachineIRBuilder &MIRBuilder) {
     return true;
   }
   return translateBinaryOp(TargetOpcode::G_FSUB, U, MIRBuilder);
+}
+
+bool IRTranslator::translateFNeg(const User &U, MachineIRBuilder &MIRBuilder) {
+  MIRBuilder.buildInstr(TargetOpcode::G_FNEG)
+      .addDef(getOrCreateVReg(U))
+      .addUse(getOrCreateVReg(*U.getOperand(1)));
+  return true;
 }
 
 bool IRTranslator::translateCompare(const User &U,
@@ -947,6 +954,11 @@ bool IRTranslator::translateKnownIntrinsic(const CallInst &CI, Intrinsic::ID ID,
     MIRBuilder.buildConstant(getOrCreateVReg(CI), Min->isZero() ? -1ULL : 0);
     return true;
   }
+  case Intrinsic::is_constant:
+    // If this wasn't constant-folded away by now, then it's not a
+    // constant.
+    MIRBuilder.buildConstant(getOrCreateVReg(CI), 0);
+    return true;
   case Intrinsic::stackguard:
     getStackGuard(getOrCreateVReg(CI), MIRBuilder);
     return true;

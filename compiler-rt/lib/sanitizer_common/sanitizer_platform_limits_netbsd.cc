@@ -253,6 +253,10 @@ unsigned struct_rlimit_sz = sizeof(struct rlimit);
 unsigned struct_timespec_sz = sizeof(struct timespec);
 unsigned struct_sembuf_sz = sizeof(struct sembuf);
 unsigned struct_kevent_sz = sizeof(struct kevent);
+unsigned struct_FTS_sz = sizeof(FTS);
+unsigned struct_FTSENT_sz = sizeof(FTSENT);
+unsigned struct_regex_sz = sizeof(regex_t);
+unsigned struct_regmatch_sz = sizeof(regmatch_t);
 unsigned struct_utimbuf_sz = sizeof(struct utimbuf);
 unsigned struct_itimerspec_sz = sizeof(struct itimerspec);
 unsigned struct_timex_sz = sizeof(struct timex);
@@ -265,6 +269,8 @@ const uptr sig_ign = (uptr)SIG_IGN;
 const uptr sig_dfl = (uptr)SIG_DFL;
 const uptr sig_err = (uptr)SIG_ERR;
 const uptr sa_siginfo = (uptr)SA_SIGINFO;
+
+const unsigned long __sanitizer_bufsiz = BUFSIZ;
 
 int ptrace_pt_io = PT_IO;
 int ptrace_pt_lwpinfo = PT_LWPINFO;
@@ -2090,6 +2096,11 @@ unsigned IOCTL_SNDCTL_DSP_SILENCE = SNDCTL_DSP_SILENCE;
 
 const int si_SEGV_MAPERR = SEGV_MAPERR;
 const int si_SEGV_ACCERR = SEGV_ACCERR;
+
+const int modctl_load = MODCTL_LOAD;
+const int modctl_unload = MODCTL_UNLOAD;
+const int modctl_stat = MODCTL_STAT;
+const int modctl_exists = MODCTL_EXISTS;
 }  // namespace __sanitizer
 
 using namespace __sanitizer;
@@ -2250,5 +2261,11 @@ CHECK_SIZE_AND_OFFSET(group, gr_name);
 CHECK_SIZE_AND_OFFSET(group, gr_passwd);
 CHECK_SIZE_AND_OFFSET(group, gr_gid);
 CHECK_SIZE_AND_OFFSET(group, gr_mem);
+
+CHECK_TYPE_SIZE(modctl_load_t);
+CHECK_SIZE_AND_OFFSET(modctl_load_t, ml_filename);
+CHECK_SIZE_AND_OFFSET(modctl_load_t, ml_flags);
+CHECK_SIZE_AND_OFFSET(modctl_load_t, ml_props);
+CHECK_SIZE_AND_OFFSET(modctl_load_t, ml_propslen);
 
 #endif  // SANITIZER_NETBSD

@@ -9,10 +9,6 @@
 
 #include "lldb/Symbol/SymbolVendor.h"
 
-// C Includes
-// C++ Includes
-// Other libraries and framework includes
-// Project includes
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Symbol/CompileUnit.h"
@@ -453,9 +449,6 @@ Symtab *SymbolVendor::GetSymtab() {
   m_symtab = objfile->GetSymtab();
   if (m_symtab && m_sym_file_ap)
     m_sym_file_ap->AddSymbols(*m_symtab);
-
-  m_symtab->CalculateSymbolSizes();
-  m_symtab->Finalize();
 
   return m_symtab;
 }

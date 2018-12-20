@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "SyncAPI.h"
+#include "index/Index.h"
 
 using namespace llvm;
 namespace clang {
@@ -119,9 +120,9 @@ runWorkspaceSymbols(ClangdServer &Server, StringRef Query, int Limit) {
   return std::move(*Result);
 }
 
-Expected<std::vector<SymbolInformation>>
-runDocumentSymbols(ClangdServer &Server, PathRef File) {
-  Optional<Expected<std::vector<SymbolInformation>>> Result;
+Expected<std::vector<DocumentSymbol>> runDocumentSymbols(ClangdServer &Server,
+                                                         PathRef File) {
+  Optional<Expected<std::vector<DocumentSymbol>>> Result;
   Server.documentSymbols(File, capture(Result));
   return std::move(*Result);
 }
@@ -129,6 +130,7 @@ runDocumentSymbols(ClangdServer &Server, PathRef File) {
 SymbolSlab runFuzzyFind(const SymbolIndex &Index, StringRef Query) {
   FuzzyFindRequest Req;
   Req.Query = Query;
+  Req.AnyScope = true;
   return runFuzzyFind(Index, Req);
 }
 
@@ -137,6 +139,15 @@ SymbolSlab runFuzzyFind(const SymbolIndex &Index, const FuzzyFindRequest &Req) {
   Index.fuzzyFind(Req, [&](const Symbol &Sym) { Builder.insert(Sym); });
   return std::move(Builder).build();
 }
+
+RefSlab getRefs(const SymbolIndex &Index, SymbolID ID) {
+  RefsRequest Req;
+  Req.IDs = {ID};
+  RefSlab::Builder Slab;
+  Index.refs(Req, [&](const Ref &S) { Slab.insert(ID, S); });
+  return std::move(Slab).build();
+}
+
 
 } // namespace clangd
 } // namespace clang

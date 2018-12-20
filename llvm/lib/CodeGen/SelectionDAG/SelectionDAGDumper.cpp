@@ -193,13 +193,17 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::STRICT_FCOS:                return "strict_fcos";
   case ISD::FSINCOS:                    return "fsincos";
   case ISD::FTRUNC:                     return "ftrunc";
+  case ISD::STRICT_FTRUNC:              return "strict_ftrunc";
   case ISD::FFLOOR:                     return "ffloor";
+  case ISD::STRICT_FFLOOR:              return "strict_ffloor";
   case ISD::FCEIL:                      return "fceil";
+  case ISD::STRICT_FCEIL:               return "strict_fceil";
   case ISD::FRINT:                      return "frint";
   case ISD::STRICT_FRINT:               return "strict_frint";
   case ISD::FNEARBYINT:                 return "fnearbyint";
   case ISD::STRICT_FNEARBYINT:          return "strict_fnearbyint";
   case ISD::FROUND:                     return "fround";
+  case ISD::STRICT_FROUND:              return "strict_fround";
   case ISD::FEXP:                       return "fexp";
   case ISD::STRICT_FEXP:                return "strict_fexp";
   case ISD::FEXP2:                      return "fexp2";
@@ -233,6 +237,8 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::SRL:                        return "srl";
   case ISD::ROTL:                       return "rotl";
   case ISD::ROTR:                       return "rotr";
+  case ISD::FSHL:                       return "fshl";
+  case ISD::FSHR:                       return "fshr";
   case ISD::FADD:                       return "fadd";
   case ISD::STRICT_FADD:                return "strict_fadd";
   case ISD::FSUB:                       return "fsub";

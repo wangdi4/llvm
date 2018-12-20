@@ -9,6 +9,9 @@
 
 #include "SymbolFilePDB.h"
 
+#include "PDBASTParser.h"
+#include "PDBLocationToDWARFExpression.h"
+
 #include "clang/Lex/Lexer.h"
 
 #include "lldb/Core/Module.h"
@@ -45,10 +48,9 @@
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeTypedef.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeUDT.h"
 
-#include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h" // For IsCPPMangledName
+#include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
+#include "Plugins/Language/CPlusPlus/MSVCUndecoratedNameParser.h"
 #include "Plugins/SymbolFile/NativePDB/SymbolFileNativePDB.h"
-#include "Plugins/SymbolFile/PDB/PDBASTParser.h"
-#include "Plugins/SymbolFile/PDB/PDBLocationToDWARFExpression.h"
 
 #include <regex>
 
@@ -283,6 +285,10 @@ SymbolFilePDB::ParseCompileUnitLanguage(const lldb_private::SymbolContext &sc) {
 lldb_private::Function *SymbolFilePDB::ParseCompileUnitFunctionForPDBFunc(
     const PDBSymbolFunc &pdb_func, const lldb_private::SymbolContext &sc) {
   lldbassert(sc.comp_unit && sc.module_sp.get());
+
+  if (FunctionSP result =
+          sc.comp_unit->FindFunctionByUID(pdb_func.getSymIndexId()))
+    return result.get();
 
   auto file_vm_addr = pdb_func.getVirtualAddress();
   if (file_vm_addr == LLDB_INVALID_ADDRESS || file_vm_addr == 0)
@@ -585,6 +591,11 @@ lldb_private::Type *SymbolFilePDB::ResolveTypeUID(lldb::user_id_t type_uid) {
       type_list->Insert(result);
   }
   return result.get();
+}
+
+llvm::Optional<SymbolFile::ArrayInfo> SymbolFilePDB::GetDynamicArrayInfoForUID(
+    lldb::user_id_t type_uid, const lldb_private::ExecutionContext *exe_ctx) {
+  return llvm::None;
 }
 
 bool SymbolFilePDB::CompleteType(lldb_private::CompilerType &compiler_type) {
@@ -1040,8 +1051,6 @@ uint32_t SymbolFilePDB::FindGlobalVariables(
     const lldb_private::ConstString &name,
     const lldb_private::CompilerDeclContext *parent_decl_ctx,
     uint32_t max_matches, lldb_private::VariableList &variables) {
-  if (!parent_decl_ctx)
-    parent_decl_ctx = m_tu_decl_ctx_up.get();
   if (!DeclContextMatchesThisSymbolFile(parent_decl_ctx))
     return 0;
   if (name.IsEmpty())
@@ -1063,7 +1072,7 @@ uint32_t SymbolFilePDB::FindGlobalVariables(
     lldbassert(sc.module_sp.get());
 
     if (!name.GetStringRef().equals(
-            PDBASTParser::PDBNameDropScope(pdb_data->getName())))
+            MSVCUndecoratedNameParser::DropScope(pdb_data->getName())))
       continue;
 
     sc.comp_unit = ParseCompileUnitForUID(GetCompilandId(*pdb_data)).get();
@@ -1071,9 +1080,8 @@ uint32_t SymbolFilePDB::FindGlobalVariables(
     if (sc.comp_unit == nullptr)
       continue;
 
-    auto actual_parent_decl_ctx =
-        GetDeclContextContainingUID(result->getSymIndexId());
-    if (actual_parent_decl_ctx != *parent_decl_ctx)
+    if (parent_decl_ctx && GetDeclContextContainingUID(
+                               result->getSymIndexId()) != *parent_decl_ctx)
       continue;
 
     ParseVariables(sc, *pdb_data, &variables);
@@ -1170,22 +1178,11 @@ void SymbolFilePDB::CacheFunctionNames() {
         // Class. We won't bother to check if the parent is UDT or Enum here.
         m_func_method_names.Append(ConstString(name), uid);
 
-        ConstString cstr_name(name);
-
         // To search a method name, like NS::Class:MemberFunc, LLDB searches
         // its base name, i.e. MemberFunc by default. Since PDBSymbolFunc does
         // not have inforamtion of this, we extract base names and cache them
         // by our own effort.
-        llvm::StringRef basename;
-        CPlusPlusLanguage::MethodName cpp_method(cstr_name);
-        if (cpp_method.IsValid()) {
-          llvm::StringRef context;
-          basename = cpp_method.GetBasename();
-          if (basename.empty())
-            CPlusPlusLanguage::ExtractContextAndIdentifier(name.c_str(),
-                                                           context, basename);
-        }
-
+        llvm::StringRef basename = MSVCUndecoratedNameParser::DropScope(name);
         if (!basename.empty())
           m_func_base_names.Append(ConstString(basename), uid);
         else {
@@ -1198,11 +1195,12 @@ void SymbolFilePDB::CacheFunctionNames() {
       } else {
         // Handle not-method symbols.
 
-        // The function name might contain namespace, or its lexical scope. It
-        // is not safe to get its base name by applying same scheme as we deal
-        // with the method names.
-        // FIXME: Remove namespace if function is static in a scope.
-        m_func_base_names.Append(ConstString(name), uid);
+        // The function name might contain namespace, or its lexical scope.
+        llvm::StringRef basename = MSVCUndecoratedNameParser::DropScope(name);
+        if (!basename.empty())
+          m_func_base_names.Append(ConstString(basename), uid);
+        else
+          m_func_base_names.Append(ConstString(name), uid);
 
         if (name == "main") {
           m_func_full_names.Append(ConstString(name), uid);
@@ -1272,20 +1270,28 @@ uint32_t SymbolFilePDB::FindFunctions(
     CacheFunctionNames();
 
     std::set<uint32_t> resolved_ids;
-    auto ResolveFn = [include_inlines, &name, &sc_list, &resolved_ids,
-                      this](UniqueCStringMap<uint32_t> &Names) {
+    auto ResolveFn = [this, &name, parent_decl_ctx, include_inlines, &sc_list,
+                      &resolved_ids](UniqueCStringMap<uint32_t> &Names) {
       std::vector<uint32_t> ids;
-      if (Names.GetValues(name, ids)) {
-        for (auto id : ids) {
-          if (resolved_ids.find(id) == resolved_ids.end()) {
-            if (ResolveFunction(id, include_inlines, sc_list))
-              resolved_ids.insert(id);
-          }
-        }
+      if (!Names.GetValues(name, ids))
+        return;
+
+      for (uint32_t id : ids) {
+        if (resolved_ids.find(id) != resolved_ids.end())
+          continue;
+
+        if (parent_decl_ctx &&
+            GetDeclContextContainingUID(id) != *parent_decl_ctx)
+          continue;
+
+        if (ResolveFunction(id, include_inlines, sc_list))
+          resolved_ids.insert(id);
       }
     };
     if (name_type_mask & eFunctionNameTypeFull) {
       ResolveFn(m_func_full_names);
+      ResolveFn(m_func_base_names);
+      ResolveFn(m_func_method_names);
     }
     if (name_type_mask & eFunctionNameTypeBase) {
       ResolveFn(m_func_base_names);
@@ -1378,6 +1384,9 @@ void SymbolFilePDB::AddSymbols(lldb_private::Symtab &symtab) {
                0          // flags
                ));
   }
+
+  symtab.CalculateSymbolSizes();
+  symtab.Finalize();
 }
 
 uint32_t SymbolFilePDB::FindTypes(
@@ -1397,12 +1406,18 @@ uint32_t SymbolFilePDB::FindTypes(
   searched_symbol_files.clear();
   searched_symbol_files.insert(this);
 
-  std::string name_str = name.AsCString();
-
   // There is an assumption 'name' is not a regex
-  FindTypesByName(name_str, parent_decl_ctx, max_matches, types);
+  FindTypesByName(name.GetStringRef(), parent_decl_ctx, max_matches, types);
 
   return types.GetSize();
+}
+
+void SymbolFilePDB::DumpClangAST(Stream &s) {
+  auto type_system = GetTypeSystemForLanguage(lldb::eLanguageTypeC_plus_plus);
+  auto clang = llvm::dyn_cast_or_null<ClangASTContext>(type_system);
+  if (!clang)
+    return;
+  clang->Dump(s);
 }
 
 void SymbolFilePDB::FindTypesByRegex(
@@ -1461,11 +1476,9 @@ void SymbolFilePDB::FindTypesByRegex(
 }
 
 void SymbolFilePDB::FindTypesByName(
-    const std::string &name,
+    llvm::StringRef name,
     const lldb_private::CompilerDeclContext *parent_decl_ctx,
     uint32_t max_matches, lldb_private::TypeMap &types) {
-  if (!parent_decl_ctx)
-    parent_decl_ctx = m_tu_decl_ctx_up.get();
   std::unique_ptr<IPDBEnumSymbols> results;
   if (name.empty())
     return;
@@ -1479,8 +1492,8 @@ void SymbolFilePDB::FindTypesByName(
     if (max_matches > 0 && matches >= max_matches)
       break;
 
-    if (PDBASTParser::PDBNameDropScope(result->getRawSymbol().getName()) !=
-        name)
+    if (MSVCUndecoratedNameParser::DropScope(
+            result->getRawSymbol().getName()) != name)
       continue;
 
     switch (result->getSymTag()) {
@@ -1499,9 +1512,8 @@ void SymbolFilePDB::FindTypesByName(
     if (!ResolveTypeUID(result->getSymIndexId()))
       continue;
 
-    auto actual_parent_decl_ctx =
-        GetDeclContextContainingUID(result->getSymIndexId());
-    if (actual_parent_decl_ctx != *parent_decl_ctx)
+    if (parent_decl_ctx && GetDeclContextContainingUID(
+                               result->getSymIndexId()) != *parent_decl_ctx)
       continue;
 
     auto iter = m_types.find(result->getSymIndexId());

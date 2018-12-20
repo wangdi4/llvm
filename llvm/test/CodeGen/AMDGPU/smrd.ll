@@ -333,7 +333,7 @@ main_body:
 
 ; GCN-LABEL: {{^}}smrd_imm_merge_m0:
 ;
-; SICIVI: s_buffer_load_dwordx2
+; GCN: s_buffer_load_dwordx2
 ; SICIVI: s_mov_b32 m0
 ; SICIVI_DAG: v_interp_p1_f32
 ; SICIVI_DAG: v_interp_p1_f32
@@ -341,13 +341,15 @@ main_body:
 ; SICIVI_DAG: v_interp_p2_f32
 ; SICIVI_DAG: v_interp_p2_f32
 ; SICIVI_DAG: v_interp_p2_f32
-; SICIVI: s_mov_b32 m0
-; SICIVI: v_movrels_b32_e32
+;
+; extractelement does not result in movrels anymore for vectors gitting 8 dwords
+; SICIVI-NOT: s_mov_b32 m0
+; SICIVI-NOT: v_movrels_b32_e32
+; v_cndmask_b32_e32
+; v_cndmask_b32_e32
 ;
 ; Merging is still thwarted on GFX9 due to s_set_gpr_idx
 ;
-; GFX9: s_buffer_load_dword
-; GFX9: s_buffer_load_dword
 define amdgpu_ps float @smrd_imm_merge_m0(<4 x i32> inreg %desc, i32 inreg %prim, float %u, float %v) #0 {
 main_body:
   %idx1.f = call float @llvm.SI.load.const.v4i32(<4 x i32> %desc, i32 0)
@@ -594,10 +596,9 @@ exit:
 ; (this test differs from smrd_uniform_loop by the more complex structure of phis,
 ; which used to confuse the DivergenceAnalysis after structurization)
 ;
-; TODO: we should keep the loop counter in an SGPR
+; TODO: we should keep the loop counter in an SGPR and use an S_BUFFER_LOAD
 ;
-; GCN: v_readfirstlane_b32
-; GCN: s_buffer_load_dword
+; GCN: buffer_load_dword
 define amdgpu_ps float @smrd_uniform_loop2(<4 x i32> inreg %desc, i32 %bound, i32 %bound.a) #0 {
 main_body:
   br label %loop
@@ -622,6 +623,30 @@ loop.b:
 
 exit:
   ret float %sum.next
+}
+
+
+; This test checks that the load after some control flow with an offset based
+; on a divergent shader input is correctly recognized as divergent. This was
+; reduced from an actual regression. Yes, the %unused argument matters, as
+; well as the fact that %arg4 is a vector.
+;
+; GCN-LABEL: {{^}}arg_divergence:
+; GCN: buffer_load_dword v0, v0,
+; GCN-NEXT: s_waitcnt
+; GCN-NEXT: ; return to shader part epilog
+define amdgpu_cs float @arg_divergence(i32 inreg %unused, <3 x i32> %arg4) #0 {
+main_body:
+  br i1 undef, label %if1, label %endif1
+
+if1:                                              ; preds = %main_body
+  store i32 0, i32 addrspace(3)* undef, align 4
+  br label %endif1
+
+endif1:                                           ; preds = %if1, %main_body
+  %tmp13 = extractelement <3 x i32> %arg4, i32 0
+  %tmp97 = call float @llvm.SI.load.const.v4i32(<4 x i32> undef, i32 %tmp13)
+  ret float %tmp97
 }
 
 

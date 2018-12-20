@@ -17,7 +17,6 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Threading.h"
 
-// Project includes
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostInfo.h"
 #if !defined(_WIN32)
@@ -43,7 +42,7 @@ static bool DefaultComputeClangDirectory(FileSpec &file_spec) {
 #if defined(__APPLE__)
 
 static bool VerifyClangPath(const llvm::Twine &clang_path) {
-  if (llvm::sys::fs::is_directory(clang_path))
+  if (FileSystem::Instance().IsDirectory(clang_path))
     return true;
   Log *log = lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_HOST);
   if (log)

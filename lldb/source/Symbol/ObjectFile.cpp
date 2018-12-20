@@ -19,7 +19,6 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/DataBuffer.h"
 #include "lldb/Utility/DataBufferHeap.h"
-#include "lldb/Utility/DataBufferLLVM.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/Timer.h"
@@ -75,8 +74,8 @@ ObjectFile::FindPlugin(const lldb::ModuleSP &module_sp, const FileSpec *file,
         // container plug-ins can use these bytes to see if they can parse this
         // file.
         if (file_size > 0) {
-          data_sp =
-              DataBufferLLVM::CreateSliceFromPath(file->GetPath(), 512, file_offset);
+          data_sp = FileSystem::Instance().CreateDataBuffer(file->GetPath(),
+                                                            512, file_offset);
           data_offset = 0;
         }
       }
@@ -120,8 +119,8 @@ ObjectFile::FindPlugin(const lldb::ModuleSP &module_sp, const FileSpec *file,
             }
             // We failed to find any cached object files in the container plug-
             // ins, so lets read the first 512 bytes and try again below...
-            data_sp = DataBufferLLVM::CreateSliceFromPath(archive_file.GetPath(),
-                                                     512, file_offset);
+            data_sp = FileSystem::Instance().CreateDataBuffer(
+                archive_file.GetPath(), 512, file_offset);
           }
         }
       }
@@ -209,7 +208,8 @@ size_t ObjectFile::GetModuleSpecifications(const FileSpec &file,
                                            lldb::offset_t file_offset,
                                            lldb::offset_t file_size,
                                            ModuleSpecList &specs) {
-  DataBufferSP data_sp = DataBufferLLVM::CreateSliceFromPath(file.GetPath(), 512, file_offset);
+  DataBufferSP data_sp =
+      FileSystem::Instance().CreateDataBuffer(file.GetPath(), 512, file_offset);
   if (data_sp) {
     if (file_size == 0) {
       const lldb::offset_t actual_file_size =
@@ -345,11 +345,13 @@ AddressClass ObjectFile::GetAddressClass(addr_t file_addr) {
             return AddressClass::eData;
           case eSectionTypeDebug:
           case eSectionTypeDWARFDebugAbbrev:
+          case eSectionTypeDWARFDebugAbbrevDwo:
           case eSectionTypeDWARFDebugAddr:
           case eSectionTypeDWARFDebugAranges:
           case eSectionTypeDWARFDebugCuIndex:
           case eSectionTypeDWARFDebugFrame:
           case eSectionTypeDWARFDebugInfo:
+          case eSectionTypeDWARFDebugInfoDwo:
           case eSectionTypeDWARFDebugLine:
           case eSectionTypeDWARFDebugLineStr:
           case eSectionTypeDWARFDebugLoc:
@@ -362,7 +364,9 @@ AddressClass ObjectFile::GetAddressClass(addr_t file_addr) {
           case eSectionTypeDWARFDebugRanges:
           case eSectionTypeDWARFDebugRngLists:
           case eSectionTypeDWARFDebugStr:
+          case eSectionTypeDWARFDebugStrDwo:
           case eSectionTypeDWARFDebugStrOffsets:
+          case eSectionTypeDWARFDebugStrOffsetsDwo:
           case eSectionTypeDWARFDebugTypes:
           case eSectionTypeDWARFAppleNames:
           case eSectionTypeDWARFAppleTypes:
@@ -682,5 +686,65 @@ void ObjectFile::RelocateSection(lldb_private::Section *section)
 
 DataBufferSP ObjectFile::MapFileData(const FileSpec &file, uint64_t Size,
                                      uint64_t Offset) {
-  return DataBufferLLVM::CreateSliceFromPath(file.GetPath(), Size, Offset);
+  return FileSystem::Instance().CreateDataBuffer(file.GetPath(), Size, Offset);
+}
+
+void llvm::format_provider<ObjectFile::Type>::format(
+    const ObjectFile::Type &type, raw_ostream &OS, StringRef Style) {
+  switch (type) {
+  case ObjectFile::eTypeInvalid:
+    OS << "invalid";
+    break;
+  case ObjectFile::eTypeCoreFile:
+    OS << "core file";
+    break;
+  case ObjectFile::eTypeExecutable:
+    OS << "executable";
+    break;
+  case ObjectFile::eTypeDebugInfo:
+    OS << "debug info";
+    break;
+  case ObjectFile::eTypeDynamicLinker:
+    OS << "dynamic linker";
+    break;
+  case ObjectFile::eTypeObjectFile:
+    OS << "object file";
+    break;
+  case ObjectFile::eTypeSharedLibrary:
+    OS << "shared library";
+    break;
+  case ObjectFile::eTypeStubLibrary:
+    OS << "stub library";
+    break;
+  case ObjectFile::eTypeJIT:
+    OS << "jit";
+    break;
+  case ObjectFile::eTypeUnknown:
+    OS << "unknown";
+    break;
+  }
+}
+
+void llvm::format_provider<ObjectFile::Strata>::format(
+    const ObjectFile::Strata &strata, raw_ostream &OS, StringRef Style) {
+  switch (strata) {
+  case ObjectFile::eStrataInvalid:
+    OS << "invalid";
+    break;
+  case ObjectFile::eStrataUnknown:
+    OS << "unknown";
+    break;
+  case ObjectFile::eStrataUser:
+    OS << "user";
+    break;
+  case ObjectFile::eStrataKernel:
+    OS << "kernel";
+    break;
+  case ObjectFile::eStrataRawImage:
+    OS << "raw image";
+    break;
+  case ObjectFile::eStrataJIT:
+    OS << "jit";
+    break;
+  }
 }

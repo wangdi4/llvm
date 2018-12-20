@@ -10,10 +10,6 @@
 #ifndef liblldb_StackFrameRecognizer_h_
 #define liblldb_StackFrameRecognizer_h_
 
-// C Includes
-// C++ Includes
-// Other libraries and framework includes
-// Project includes
 #include "lldb/Core/ValueObjectList.h"
 #include "lldb/Symbol/VariableList.h"
 #include "lldb/Utility/StructuredData.h"
@@ -33,6 +29,9 @@ class RecognizedStackFrame
 public:
   virtual lldb::ValueObjectListSP GetRecognizedArguments() {
     return m_arguments;
+  }
+  virtual lldb::ValueObjectSP GetExceptionObject() {
+    return lldb::ValueObjectSP();
   }
   virtual ~RecognizedStackFrame(){};
 
@@ -101,7 +100,8 @@ private:
 class StackFrameRecognizerManager {
 public:
   static void AddRecognizer(lldb::StackFrameRecognizerSP recognizer,
-                            ConstString &module, ConstString &symbol,
+                            const ConstString &module,
+                            const ConstString &symbol,
                             bool first_instruction_only = true);
 
   static void AddRecognizer(lldb::StackFrameRecognizerSP recognizer,

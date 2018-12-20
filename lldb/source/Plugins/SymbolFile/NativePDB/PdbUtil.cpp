@@ -8,9 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "PdbUtil.h"
+#include "PdbSymUid.h"
 
 #include "llvm/DebugInfo/CodeView/SymbolDeserializer.h"
 #include "llvm/DebugInfo/CodeView/TypeDeserializer.h"
+#include "llvm/DebugInfo/PDB/Native/TpiStream.h"
 
 #include "lldb/Utility/LLDBAssert.h"
 
@@ -20,6 +22,38 @@ using namespace lldb_private;
 using namespace lldb_private::npdb;
 using namespace llvm::codeview;
 using namespace llvm::pdb;
+
+CVTagRecord CVTagRecord::create(CVType type) {
+  assert(IsTagRecord(type) && "type is not a tag record!");
+  switch (type.kind()) {
+  case LF_CLASS:
+  case LF_STRUCTURE:
+  case LF_INTERFACE: {
+    ClassRecord cr;
+    llvm::cantFail(TypeDeserializer::deserializeAs<ClassRecord>(type, cr));
+    return CVTagRecord(std::move(cr));
+  }
+  case LF_UNION: {
+    UnionRecord ur;
+    llvm::cantFail(TypeDeserializer::deserializeAs<UnionRecord>(type, ur));
+    return CVTagRecord(std::move(ur));
+  }
+  case LF_ENUM: {
+    EnumRecord er;
+    llvm::cantFail(TypeDeserializer::deserializeAs<EnumRecord>(type, er));
+    return CVTagRecord(std::move(er));
+  }
+  default:
+    llvm_unreachable("Unreachable!");
+  }
+}
+
+CVTagRecord::CVTagRecord(ClassRecord &&c)
+    : cvclass(std::move(c)),
+      m_kind(cvclass.Kind == TypeRecordKind::Struct ? Struct : Class) {}
+CVTagRecord::CVTagRecord(UnionRecord &&u)
+    : cvunion(std::move(u)), m_kind(Union) {}
+CVTagRecord::CVTagRecord(EnumRecord &&e) : cvenum(std::move(e)), m_kind(Enum) {}
 
 PDB_SymType lldb_private::npdb::CVSymToPDBSym(SymbolKind kind) {
   switch (kind) {
@@ -94,6 +128,8 @@ PDB_SymType lldb_private::npdb::CVTypeToPDBType(TypeLeafKind kind) {
     return PDB_SymType::Enum;
   case LF_PROCEDURE:
     return PDB_SymType::FunctionSig;
+  case LF_BITFIELD:
+    return PDB_SymType::BuiltinType;
   default:
     lldbassert(false && "Invalid type record kind!");
   }
@@ -306,6 +342,31 @@ bool lldb_private::npdb::IsForwardRefUdt(CVType cvt) {
   }
 }
 
+bool lldb_private::npdb::IsTagRecord(llvm::codeview::CVType cvt) {
+  switch (cvt.kind()) {
+  case LF_CLASS:
+  case LF_STRUCTURE:
+  case LF_UNION:
+  case LF_ENUM:
+    return true;
+  default:
+    return false;
+  }
+}
+
+bool lldb_private::npdb::IsForwardRefUdt(const PdbTypeSymId &id,
+                                         TpiStream &tpi) {
+  if (id.is_ipi || id.index.isSimple())
+    return false;
+  return IsForwardRefUdt(tpi.getType(id.index));
+}
+
+bool lldb_private::npdb::IsTagRecord(const PdbTypeSymId &id, TpiStream &tpi) {
+  if (id.is_ipi || id.index.isSimple())
+    return false;
+  return IsTagRecord(tpi.getType(id.index));
+}
+
 lldb::AccessType
 lldb_private::npdb::TranslateMemberAccess(MemberAccess access) {
   switch (access) {
@@ -363,4 +424,124 @@ llvm::StringRef lldb_private::npdb::DropNameScope(llvm::StringRef name) {
   assert(offset + 2 <= name.size());
 
   return name.substr(offset + 2);
+}
+
+lldb::BasicType
+lldb_private::npdb::GetCompilerTypeForSimpleKind(SimpleTypeKind kind) {
+  switch (kind) {
+  case SimpleTypeKind::Boolean128:
+  case SimpleTypeKind::Boolean16:
+  case SimpleTypeKind::Boolean32:
+  case SimpleTypeKind::Boolean64:
+  case SimpleTypeKind::Boolean8:
+    return lldb::eBasicTypeBool;
+  case SimpleTypeKind::Byte:
+  case SimpleTypeKind::UnsignedCharacter:
+    return lldb::eBasicTypeUnsignedChar;
+  case SimpleTypeKind::NarrowCharacter:
+    return lldb::eBasicTypeChar;
+  case SimpleTypeKind::SignedCharacter:
+  case SimpleTypeKind::SByte:
+    return lldb::eBasicTypeSignedChar;
+  case SimpleTypeKind::Character16:
+    return lldb::eBasicTypeChar16;
+  case SimpleTypeKind::Character32:
+    return lldb::eBasicTypeChar32;
+  case SimpleTypeKind::Complex80:
+    return lldb::eBasicTypeLongDoubleComplex;
+  case SimpleTypeKind::Complex64:
+    return lldb::eBasicTypeDoubleComplex;
+  case SimpleTypeKind::Complex32:
+    return lldb::eBasicTypeFloatComplex;
+  case SimpleTypeKind::Float128:
+  case SimpleTypeKind::Float80:
+    return lldb::eBasicTypeLongDouble;
+  case SimpleTypeKind::Float64:
+    return lldb::eBasicTypeDouble;
+  case SimpleTypeKind::Float32:
+    return lldb::eBasicTypeFloat;
+  case SimpleTypeKind::Float16:
+    return lldb::eBasicTypeHalf;
+  case SimpleTypeKind::Int128:
+    return lldb::eBasicTypeInt128;
+  case SimpleTypeKind::Int64:
+  case SimpleTypeKind::Int64Quad:
+    return lldb::eBasicTypeLongLong;
+  case SimpleTypeKind::Int32:
+    return lldb::eBasicTypeInt;
+  case SimpleTypeKind::Int16:
+  case SimpleTypeKind::Int16Short:
+    return lldb::eBasicTypeShort;
+  case SimpleTypeKind::UInt128:
+    return lldb::eBasicTypeUnsignedInt128;
+  case SimpleTypeKind::UInt64:
+  case SimpleTypeKind::UInt64Quad:
+    return lldb::eBasicTypeUnsignedLongLong;
+  case SimpleTypeKind::HResult:
+  case SimpleTypeKind::UInt32:
+    return lldb::eBasicTypeUnsignedInt;
+  case SimpleTypeKind::UInt16:
+  case SimpleTypeKind::UInt16Short:
+    return lldb::eBasicTypeUnsignedShort;
+  case SimpleTypeKind::Int32Long:
+    return lldb::eBasicTypeLong;
+  case SimpleTypeKind::UInt32Long:
+    return lldb::eBasicTypeUnsignedLong;
+  case SimpleTypeKind::Void:
+    return lldb::eBasicTypeVoid;
+  case SimpleTypeKind::WideCharacter:
+    return lldb::eBasicTypeWChar;
+  default:
+    return lldb::eBasicTypeInvalid;
+  }
+}
+
+size_t lldb_private::npdb::GetTypeSizeForSimpleKind(SimpleTypeKind kind) {
+  switch (kind) {
+  case SimpleTypeKind::Boolean128:
+  case SimpleTypeKind::Int128:
+  case SimpleTypeKind::UInt128:
+  case SimpleTypeKind::Float128:
+    return 16;
+  case SimpleTypeKind::Complex80:
+  case SimpleTypeKind::Float80:
+    return 10;
+  case SimpleTypeKind::Boolean64:
+  case SimpleTypeKind::Complex64:
+  case SimpleTypeKind::UInt64:
+  case SimpleTypeKind::UInt64Quad:
+  case SimpleTypeKind::Float64:
+  case SimpleTypeKind::Int64:
+  case SimpleTypeKind::Int64Quad:
+    return 8;
+  case SimpleTypeKind::Boolean32:
+  case SimpleTypeKind::Character32:
+  case SimpleTypeKind::Complex32:
+  case SimpleTypeKind::Float32:
+  case SimpleTypeKind::Int32:
+  case SimpleTypeKind::Int32Long:
+  case SimpleTypeKind::UInt32Long:
+  case SimpleTypeKind::HResult:
+  case SimpleTypeKind::UInt32:
+    return 4;
+  case SimpleTypeKind::Boolean16:
+  case SimpleTypeKind::Character16:
+  case SimpleTypeKind::Float16:
+  case SimpleTypeKind::Int16:
+  case SimpleTypeKind::Int16Short:
+  case SimpleTypeKind::UInt16:
+  case SimpleTypeKind::UInt16Short:
+  case SimpleTypeKind::WideCharacter:
+    return 2;
+  case SimpleTypeKind::Boolean8:
+  case SimpleTypeKind::Byte:
+  case SimpleTypeKind::UnsignedCharacter:
+  case SimpleTypeKind::NarrowCharacter:
+  case SimpleTypeKind::SignedCharacter:
+  case SimpleTypeKind::SByte:
+    return 1;
+  case SimpleTypeKind::Void:
+  default:
+    return 0;
+  }
 }

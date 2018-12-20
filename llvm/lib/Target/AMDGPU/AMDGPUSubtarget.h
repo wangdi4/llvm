@@ -353,7 +353,7 @@ protected:
   bool HasDPP;
   bool HasR128A16;
   bool HasDLInsts;
-  bool D16PreservesUnusedBits;
+  bool EnableSRAMECC;
   bool FlatAddressSpace;
   bool FlatInstOffsets;
   bool FlatGlobalInsts;
@@ -581,7 +581,8 @@ public:
   }
 
   bool hasCodeObjectV3() const {
-    return CodeObjectV3;
+    // FIXME: Need to add code object v3 support for mesa and pal.
+    return isAmdHsaOS() ? CodeObjectV3 : false;
   }
 
   bool hasUnalignedBufferAccess() const {
@@ -679,8 +680,8 @@ public:
     return HasDLInsts;
   }
 
-  bool d16PreservesUnusedBits() const {
-    return D16PreservesUnusedBits;
+  bool isSRAMECCEnabled() const {
+    return EnableSRAMECC;
   }
 
   // Scratch is allocated in 256 dword per wave blocks for the entire

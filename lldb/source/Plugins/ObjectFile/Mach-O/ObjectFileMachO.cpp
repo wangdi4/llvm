@@ -7,12 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// C Includes
-// C++ Includes
-// Other libraries and framework includes
 #include "llvm/ADT/StringRef.h"
 
-// Project includes
 #include "Plugins/Process/Utility/RegisterContextDarwin_arm.h"
 #include "Plugins/Process/Utility/RegisterContextDarwin_arm64.h"
 #include "Plugins/Process/Utility/RegisterContextDarwin_i386.h"
@@ -1191,11 +1187,13 @@ AddressClass ObjectFileMachO::GetAddressClass(lldb::addr_t file_addr) {
 
           case eSectionTypeDebug:
           case eSectionTypeDWARFDebugAbbrev:
+          case eSectionTypeDWARFDebugAbbrevDwo:
           case eSectionTypeDWARFDebugAddr:
           case eSectionTypeDWARFDebugAranges:
           case eSectionTypeDWARFDebugCuIndex:
           case eSectionTypeDWARFDebugFrame:
           case eSectionTypeDWARFDebugInfo:
+          case eSectionTypeDWARFDebugInfoDwo:
           case eSectionTypeDWARFDebugLine:
           case eSectionTypeDWARFDebugLineStr:
           case eSectionTypeDWARFDebugLoc:
@@ -1208,7 +1206,9 @@ AddressClass ObjectFileMachO::GetAddressClass(lldb::addr_t file_addr) {
           case eSectionTypeDWARFDebugRanges:
           case eSectionTypeDWARFDebugRngLists:
           case eSectionTypeDWARFDebugStr:
+          case eSectionTypeDWARFDebugStrDwo:
           case eSectionTypeDWARFDebugStrOffsets:
+          case eSectionTypeDWARFDebugStrOffsetsDwo:
           case eSectionTypeDWARFDebugTypes:
           case eSectionTypeDWARFAppleNames:
           case eSectionTypeDWARFAppleTypes:
@@ -1315,6 +1315,7 @@ Symtab *ObjectFileMachO::GetSymtab() {
       std::lock_guard<std::recursive_mutex> symtab_guard(
           m_symtab_ap->GetMutex());
       ParseSymtab();
+      m_symtab_ap->Finalize();
     }
   }
   return m_symtab_ap.get();
@@ -4806,6 +4807,16 @@ size_t ObjectFileMachO::ParseSymtab() {
       }
     }
 
+    //        StreamFile s(stdout, false);
+    //        s.Printf ("Symbol table before CalculateSymbolSizes():\n");
+    //        symtab->Dump(&s, NULL, eSortOrderNone);
+    // Set symbol byte sizes correctly since mach-o nlist entries don't have
+    // sizes
+    symtab->CalculateSymbolSizes();
+
+    //        s.Printf ("Symbol table after CalculateSymbolSizes():\n");
+    //        symtab->Dump(&s, NULL, eSortOrderNone);
+
     return symtab->GetNumSymbols();
   }
   return 0;
@@ -5020,24 +5031,28 @@ bool ObjectFileMachO::GetArchitecture(const llvm::MachO::mach_header &header,
         const lldb::offset_t cmd_offset = offset;
         if (data.GetU32(&offset, &load_cmd, 2) == NULL)
           break;
-
-        if (load_cmd.cmd == llvm::MachO::LC_BUILD_VERSION) {
-          struct build_version_command build_version;
-          if (load_cmd.cmdsize != sizeof(build_version))
+        do {
+          if (load_cmd.cmd == llvm::MachO::LC_BUILD_VERSION) {
+            struct build_version_command build_version;
+            if (load_cmd.cmdsize < sizeof(build_version)) {
+              // Malformed load command.
+              break;
+            }
             if (data.ExtractBytes(cmd_offset, sizeof(build_version),
                                   data.GetByteOrder(), &build_version) == 0)
-              continue;
-          MinOS min_os(build_version.minos);
-          OSEnv os_env(build_version.platform);
-          if (os_env.os_type.empty())
-            continue;
-          os << os_env.os_type << min_os.major_version << '.'
-             << min_os.minor_version << '.' << min_os.patch_version;
-          triple.setOSName(os.str());
-          if (!os_env.environment.empty())
-            triple.setEnvironmentName(os_env.environment);
-          return true;
-        }
+              break;
+            MinOS min_os(build_version.minos);
+            OSEnv os_env(build_version.platform);
+            if (os_env.os_type.empty())
+              break;
+            os << os_env.os_type << min_os.major_version << '.'
+               << min_os.minor_version << '.' << min_os.patch_version;
+            triple.setOSName(os.str());
+            if (!os_env.environment.empty())
+              triple.setEnvironmentName(os_env.environment);
+            return true;
+          }
+        } while (0);
         offset = cmd_offset + load_cmd.cmdsize;
       }
 
@@ -6313,10 +6328,10 @@ bool ObjectFileMachO::SaveCore(const lldb::ProcessSP &process_sp,
 
           File core_file;
           std::string core_file_path(outfile.GetPath());
-          error = core_file.Open(core_file_path.c_str(),
-                                 File::eOpenOptionWrite |
-                                     File::eOpenOptionTruncate |
-                                     File::eOpenOptionCanCreate);
+          error = FileSystem::Instance().Open(core_file, outfile,
+                                              File::eOpenOptionWrite |
+                                                  File::eOpenOptionTruncate |
+                                                  File::eOpenOptionCanCreate);
           if (error.Success()) {
             // Read 1 page at a time
             uint8_t bytes[0x1000];

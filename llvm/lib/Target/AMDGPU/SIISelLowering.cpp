@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__MINGW32__)
 // Provide M_PI.
 #define _USE_MATH_DEFINES
 #endif
@@ -679,6 +679,7 @@ SITargetLowering::SITargetLowering(const TargetMachine &TM,
   setTargetDAGCombine(ISD::SCALAR_TO_VECTOR);
   setTargetDAGCombine(ISD::ZERO_EXTEND);
   setTargetDAGCombine(ISD::EXTRACT_VECTOR_ELT);
+  setTargetDAGCombine(ISD::INSERT_VECTOR_ELT);
 
   // All memory operations. Some folding on the pointer operand is done to help
   // matching the constant offsets in the addressing modes.
@@ -1185,7 +1186,7 @@ bool SITargetLowering::isMemOpUniform(const SDNode *N) const {
 }
 
 TargetLoweringBase::LegalizeTypeAction
-SITargetLowering::getPreferredVectorAction(EVT VT) const {
+SITargetLowering::getPreferredVectorAction(MVT VT) const {
   if (VT.getVectorNumElements() != 1 && VT.getScalarType().bitsLE(MVT::i16))
     return TypeSplitVector;
 
@@ -8066,7 +8067,7 @@ SDValue SITargetLowering::performExtractVectorEltCombine(
 
     switch(Opc) {
     default:
-      return SDValue();
+      break;
       // TODO: Support other binary operations.
     case ISD::FADD:
     case ISD::FSUB:
@@ -8092,11 +8093,33 @@ SDValue SITargetLowering::performExtractVectorEltCombine(
     }
   }
 
-  if (!DCI.isBeforeLegalize())
-    return SDValue();
-
   unsigned VecSize = VecVT.getSizeInBits();
   unsigned EltSize = EltVT.getSizeInBits();
+
+  // EXTRACT_VECTOR_ELT (<n x e>, var-idx) => n x select (e, const-idx)
+  // This elminates non-constant index and subsequent movrel or scratch access.
+  // Sub-dword vectors of size 2 dword or less have better implementation.
+  // Vectors of size bigger than 8 dwords would yield too many v_cndmask_b32
+  // instructions.
+  if (VecSize <= 256 && (VecSize > 64 || EltSize >= 32) &&
+      !isa<ConstantSDNode>(N->getOperand(1))) {
+    SDLoc SL(N);
+    SDValue Idx = N->getOperand(1);
+    EVT IdxVT = Idx.getValueType();
+    SDValue V;
+    for (unsigned I = 0, E = VecVT.getVectorNumElements(); I < E; ++I) {
+      SDValue IC = DAG.getConstant(I, SL, IdxVT);
+      SDValue Elt = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, SL, EltVT, Vec, IC);
+      if (I == 0)
+        V = Elt;
+      else
+        V = DAG.getSelectCC(SL, Idx, IC, Elt, V, ISD::SETEQ);
+    }
+    return V;
+  }
+
+  if (!DCI.isBeforeLegalize())
+    return SDValue();
 
   // Try to turn sub-dword accesses of vectors into accesses of the same 32-bit
   // elements. This exposes more load reduction opportunities by replacing
@@ -8131,6 +8154,42 @@ SDValue SITargetLowering::performExtractVectorEltCombine(
   }
 
   return SDValue();
+}
+
+SDValue
+SITargetLowering::performInsertVectorEltCombine(SDNode *N,
+                                                DAGCombinerInfo &DCI) const {
+  SDValue Vec = N->getOperand(0);
+  SDValue Idx = N->getOperand(2);
+  EVT VecVT = Vec.getValueType();
+  EVT EltVT = VecVT.getVectorElementType();
+  unsigned VecSize = VecVT.getSizeInBits();
+  unsigned EltSize = EltVT.getSizeInBits();
+
+  // INSERT_VECTOR_ELT (<n x e>, var-idx)
+  // => BUILD_VECTOR n x select (e, const-idx)
+  // This elminates non-constant index and subsequent movrel or scratch access.
+  // Sub-dword vectors of size 2 dword or less have better implementation.
+  // Vectors of size bigger than 8 dwords would yield too many v_cndmask_b32
+  // instructions.
+  if (isa<ConstantSDNode>(Idx) ||
+      VecSize > 256 || (VecSize <= 64 && EltSize < 32))
+    return SDValue();
+
+  SelectionDAG &DAG = DCI.DAG;
+  SDLoc SL(N);
+  SDValue Ins = N->getOperand(1);
+  EVT IdxVT = Idx.getValueType();
+
+  SmallVector<SDValue, 16> Ops;
+  for (unsigned I = 0, E = VecVT.getVectorNumElements(); I < E; ++I) {
+    SDValue IC = DAG.getConstant(I, SL, IdxVT);
+    SDValue Elt = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, SL, EltVT, Vec, IC);
+    SDValue V = DAG.getSelectCC(SL, Idx, IC, Ins, Elt, ISD::SETEQ);
+    Ops.push_back(V);
+  }
+
+  return DAG.getBuildVector(VecVT, SL, Ops);
 }
 
 unsigned SITargetLowering::getFusedOpcode(const SelectionDAG &DAG,
@@ -8619,6 +8678,9 @@ SDValue SITargetLowering::performClampCombine(SDNode *N,
 
 SDValue SITargetLowering::PerformDAGCombine(SDNode *N,
                                             DAGCombinerInfo &DCI) const {
+  if (getTargetMachine().getOptLevel() == CodeGenOpt::None)
+    return SDValue();
+
   switch (N->getOpcode()) {
   default:
     return AMDGPUTargetLowering::PerformDAGCombine(N, DCI);
@@ -8644,12 +8706,8 @@ SDValue SITargetLowering::PerformDAGCombine(SDNode *N,
   case ISD::UMAX:
   case ISD::UMIN:
   case AMDGPUISD::FMIN_LEGACY:
-  case AMDGPUISD::FMAX_LEGACY: {
-    if (//DCI.getDAGCombineLevel() >= AfterLegalizeDAG &&
-        getTargetMachine().getOptLevel() > CodeGenOpt::None)
-      return performMinMaxCombine(N, DCI);
-    break;
-  }
+  case AMDGPUISD::FMAX_LEGACY:
+    return performMinMaxCombine(N, DCI);
   case ISD::FMA:
     return performFMACombine(N, DCI);
   case ISD::LOAD: {
@@ -8741,6 +8799,8 @@ SDValue SITargetLowering::PerformDAGCombine(SDNode *N,
   }
   case ISD::EXTRACT_VECTOR_ELT:
     return performExtractVectorEltCombine(N, DCI);
+  case ISD::INSERT_VECTOR_ELT:
+    return performInsertVectorEltCombine(N, DCI);
   }
   return AMDGPUTargetLowering::PerformDAGCombine(N, DCI);
 }
@@ -9284,42 +9344,49 @@ void SITargetLowering::computeKnownBitsForFrameIndex(const SDValue Op,
   Known.Zero.setHighBits(AssumeFrameIndexHighZeroBits);
 }
 
+LLVM_ATTRIBUTE_UNUSED
+static bool isCopyFromRegOfInlineAsm(const SDNode *N) {
+  assert(N->getOpcode() == ISD::CopyFromReg);
+  do {
+    // Follow the chain until we find an INLINEASM node.
+    N = N->getOperand(0).getNode();
+    if (N->getOpcode() == ISD::INLINEASM)
+      return true;
+  } while (N->getOpcode() == ISD::CopyFromReg);
+  return false;
+}
+
 bool SITargetLowering::isSDNodeSourceOfDivergence(const SDNode * N,
   FunctionLoweringInfo * FLI, LegacyDivergenceAnalysis * KDA) const
 {
   switch (N->getOpcode()) {
-    case ISD::Register:
     case ISD::CopyFromReg:
     {
-      const RegisterSDNode *R = nullptr;
-      if (N->getOpcode() == ISD::Register) {
-        R = dyn_cast<RegisterSDNode>(N);
-      }
-      else {
-        R = dyn_cast<RegisterSDNode>(N->getOperand(1));
-      }
-      if (R)
-      {
-        const MachineFunction * MF = FLI->MF;
-        const GCNSubtarget &ST = MF->getSubtarget<GCNSubtarget>();
-        const MachineRegisterInfo &MRI = MF->getRegInfo();
-        const SIRegisterInfo &TRI = ST.getInstrInfo()->getRegisterInfo();
-        unsigned Reg = R->getReg();
-        if (TRI.isPhysicalRegister(Reg))
-          return TRI.isVGPR(MRI, Reg);
+      const RegisterSDNode *R = cast<RegisterSDNode>(N->getOperand(1));
+      const MachineFunction * MF = FLI->MF;
+      const GCNSubtarget &ST = MF->getSubtarget<GCNSubtarget>();
+      const MachineRegisterInfo &MRI = MF->getRegInfo();
+      const SIRegisterInfo &TRI = ST.getInstrInfo()->getRegisterInfo();
+      unsigned Reg = R->getReg();
+      if (TRI.isPhysicalRegister(Reg))
+        return !TRI.isSGPRReg(MRI, Reg);
 
-        if (MRI.isLiveIn(Reg)) {
-          // workitem.id.x workitem.id.y workitem.id.z
-          // Any VGPR formal argument is also considered divergent
-          if (TRI.isVGPR(MRI, Reg))
-              return true;
-          // Formal arguments of non-entry functions
-          // are conservatively considered divergent
-          else if (!AMDGPU::isEntryFunctionCC(FLI->Fn->getCallingConv()))
-            return true;
-        }
-        return !KDA || KDA->isDivergent(FLI->getValueFromVirtualReg(Reg));
+      if (MRI.isLiveIn(Reg)) {
+        // workitem.id.x workitem.id.y workitem.id.z
+        // Any VGPR formal argument is also considered divergent
+        if (!TRI.isSGPRReg(MRI, Reg))
+          return true;
+        // Formal arguments of non-entry functions
+        // are conservatively considered divergent
+        else if (!AMDGPU::isEntryFunctionCC(FLI->Fn->getCallingConv()))
+          return true;
+        return false;
       }
+      const Value *V = FLI->getValueFromVirtualReg(Reg);
+      if (V)
+        return KDA->isDivergent(V);
+      assert(Reg == FLI->DemoteRegister || isCopyFromRegOfInlineAsm(N));
+      return !TRI.isSGPRReg(MRI, Reg);
     }
     break;
     case ISD::LOAD: {

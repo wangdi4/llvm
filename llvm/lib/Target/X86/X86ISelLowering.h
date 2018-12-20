@@ -295,11 +295,6 @@ namespace llvm {
       // Vector move to low scalar and zero higher vector elements.
       VZEXT_MOVL,
 
-      // Vector integer zero-extend.
-      VZEXT,
-      // Vector integer signed-extend.
-      VSEXT,
-
       // Vector integer truncate.
       VTRUNC,
       // Vector integer truncate with unsigned/signed saturation.
@@ -882,9 +877,6 @@ namespace llvm {
 
     SDValue unwrapAddress(SDValue N) const override;
 
-    bool isGAPlusOffset(SDNode *N, const GlobalValue* &GA,
-                        int64_t &Offset) const override;
-
     SDValue getReturnAddressFrameIndex(SelectionDAG &DAG) const;
 
     bool ExpandInlineAsm(CallInst *CI) const override;
@@ -1046,9 +1038,14 @@ namespace llvm {
     bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
                                            Type *Ty) const override;
 
+    bool reduceSelectOfFPConstantLoads(bool IsFPSetCC) const override;
+
     bool convertSelectOfConstantsToMath(EVT VT) const override;
 
     bool decomposeMulByConstant(EVT VT, SDValue C) const override;
+
+    bool shouldUseStrictFP_TO_INT(EVT FpVT, EVT IntVT,
+                                  bool IsSigned) const override;
 
     /// Return true if EXTRACT_SUBVECTOR is cheap for this result type
     /// with this index.
@@ -1113,7 +1110,7 @@ namespace llvm {
     bool isNoopAddrSpaceCast(unsigned SrcAS, unsigned DestAS) const override;
 
     /// Customize the preferred legalization strategy for certain types.
-    LegalizeTypeAction getPreferredVectorAction(EVT VT) const override;
+    LegalizeTypeAction getPreferredVectorAction(MVT VT) const override;
 
     MVT getRegisterTypeForCallingConv(LLVMContext &Context, CallingConv::ID CC,
                                       EVT VT) const override;

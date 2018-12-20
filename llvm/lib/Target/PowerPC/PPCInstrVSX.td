@@ -1066,10 +1066,6 @@ let Predicates = [HasVSX, HasOnlySwappingMemOps] in {
   // Stores.
   def : Pat<(int_ppc_vsx_stxvd2x v2f64:$rS, xoaddr:$dst),
             (STXVD2X $rS, xoaddr:$dst)>;
-  def : Pat<(int_ppc_vsx_stxvd2x_be v2f64:$rS, xoaddr:$dst),
-            (STXVD2X $rS, xoaddr:$dst)>;
-  def : Pat<(int_ppc_vsx_stxvw4x_be v4i32:$rS, xoaddr:$dst),
-            (STXVW4X $rS, xoaddr:$dst)>;
   def : Pat<(PPCstxvd2x v2f64:$rS, xoaddr:$dst), (STXVD2X $rS, xoaddr:$dst)>;
 }
 let Predicates = [IsBigEndian, HasVSX, HasOnlySwappingMemOps] in {
@@ -1155,6 +1151,26 @@ def : Pat<(int_ppc_vsx_xvrsqrtesp v4f32:$A),
           (XVRSQRTESP $A)>;
 def : Pat<(int_ppc_vsx_xvrsqrtedp v2f64:$A),
           (XVRSQRTEDP $A)>;
+
+// Vector selection
+def : Pat<(v16i8 (vselect v16i8:$vA, v16i8:$vB, v16i8:$vC)),
+          (COPY_TO_REGCLASS 
+                 (XXSEL (COPY_TO_REGCLASS $vC, VSRC),
+                        (COPY_TO_REGCLASS $vB, VSRC), 
+                        (COPY_TO_REGCLASS $vA, VSRC)), VRRC)>;
+def : Pat<(v8i16 (vselect v8i16:$vA, v8i16:$vB, v8i16:$vC)),
+          (COPY_TO_REGCLASS 
+                 (XXSEL (COPY_TO_REGCLASS $vC, VSRC),
+                        (COPY_TO_REGCLASS $vB, VSRC), 
+                        (COPY_TO_REGCLASS $vA, VSRC)), VRRC)>;
+def : Pat<(vselect v4i32:$vA, v4i32:$vB, v4i32:$vC),
+          (XXSEL $vC, $vB, $vA)>;
+def : Pat<(vselect v2i64:$vA, v2i64:$vB, v2i64:$vC),
+          (XXSEL $vC, $vB, $vA)>;
+def : Pat<(vselect v4i32:$vA, v4f32:$vB, v4f32:$vC),
+          (XXSEL $vC, $vB, $vA)>;
+def : Pat<(vselect v2i64:$vA, v2f64:$vB, v2f64:$vC),
+          (XXSEL $vC, $vB, $vA)>;
 
 let Predicates = [IsLittleEndian] in {
 def : Pat<(f64 (PPCfcfid (PPCmtvsra (i64 (vector_extract v2i64:$S, 0))))),
@@ -1990,6 +2006,10 @@ let Predicates = [IsLittleEndian, HasVSX] in
   def : Pat<(f64 (vector_extract v2f64:$S, i64:$Idx)),
             (f64 VectorExtractions.LE_VARIABLE_DOUBLE)>;
 
+def : Pat<(int_ppc_vsx_stxvd2x_be v2f64:$rS, xoaddr:$dst),
+            (STXVD2X $rS, xoaddr:$dst)>;
+def : Pat<(int_ppc_vsx_stxvw4x_be v4i32:$rS, xoaddr:$dst),
+            (STXVW4X $rS, xoaddr:$dst)>;
 def : Pat<(v4i32 (int_ppc_vsx_lxvw4x_be xoaddr:$src)), (LXVW4X xoaddr:$src)>;
 def : Pat<(v2f64 (int_ppc_vsx_lxvd2x_be xoaddr:$src)), (LXVD2X xoaddr:$src)>;
 

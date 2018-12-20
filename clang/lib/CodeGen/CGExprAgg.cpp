@@ -125,6 +125,10 @@ public:
     return Visit(E->getReplacement());
   }
 
+  void VisitConstantExpr(ConstantExpr *E) {
+    return Visit(E->getSubExpr());
+  }
+
   // l-values.
   void VisitDeclRefExpr(DeclRefExpr *E) { EmitAggLoadOfLValue(E); }
   void VisitMemberExpr(MemberExpr *ME) { EmitAggLoadOfLValue(ME); }
@@ -1300,8 +1304,7 @@ static bool isSimpleZero(const Expr *E, CodeGenFunction &CGF) {
   // (int*)0 - Null pointer expressions.
   if (const CastExpr *ICE = dyn_cast<CastExpr>(E))
     return ICE->getCastKind() == CK_NullToPointer &&
-           CGF.getTypes().isPointerZeroInitializable(E->getType()) &&
-           !E->HasSideEffects(CGF.getContext());
+        CGF.getTypes().isPointerZeroInitializable(E->getType());
   // '\0'
   if (const CharacterLiteral *CL = dyn_cast<CharacterLiteral>(E))
     return CL->getValue() == 0;

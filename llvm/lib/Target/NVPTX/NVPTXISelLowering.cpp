@@ -180,6 +180,18 @@ static void ComputePTXValueVTs(const TargetLowering &TLI, const DataLayout &DL,
     return;
   }
 
+  // Given a struct type, recursively traverse the elements with custom ComputePTXValueVTs.
+  if (StructType *STy = dyn_cast<StructType>(Ty)) {
+    auto const *SL = DL.getStructLayout(STy);
+    auto ElementNum = 0;
+    for(auto *EI : STy->elements()) {
+      ComputePTXValueVTs(TLI, DL, EI, ValueVTs, Offsets,
+                         StartingOffset + SL->getElementOffset(ElementNum));
+      ++ElementNum;
+    }
+    return;
+  }
+
   ComputeValueVTs(TLI, DL, Ty, TempVTs, &TempOffsets, StartingOffset);
   for (unsigned i = 0, e = TempVTs.size(); i != e; ++i) {
     EVT VT = TempVTs[i];
@@ -1170,7 +1182,7 @@ const char *NVPTXTargetLowering::getTargetNodeName(unsigned Opcode) const {
 }
 
 TargetLoweringBase::LegalizeTypeAction
-NVPTXTargetLowering::getPreferredVectorAction(EVT VT) const {
+NVPTXTargetLowering::getPreferredVectorAction(MVT VT) const {
   if (VT.getVectorNumElements() != 1 && VT.getScalarType() == MVT::i1)
     return TypeSplitVector;
   if (VT == MVT::v2f16)

@@ -379,6 +379,7 @@ void ExprEngine::VisitCast(const CastExpr *CastE, const Expr *Ex,
       case CK_BitCast:
       case CK_AddressSpaceConversion:
       case CK_BooleanToSignedIntegral:
+      case CK_NullToPointer:
       case CK_IntegralToPointer:
       case CK_PointerToIntegral: {
         SVal V = state->getSVal(Ex, LCtx);
@@ -498,12 +499,6 @@ void ExprEngine::VisitCast(const CastExpr *CastE, const Expr *Ex,
                                          currBldrCtx->blockCount());
         }
         state = state->BindExpr(CastE, LCtx, val);
-        Bldr.generateNode(CastE, Pred, state);
-        continue;
-      }
-      case CK_NullToPointer: {
-        SVal V = svalBuilder.makeNull();
-        state = state->BindExpr(CastE, LCtx, V);
         Bldr.generateNode(CastE, Pred, state);
         continue;
       }
@@ -815,8 +810,9 @@ void ExprEngine::
 VisitOffsetOfExpr(const OffsetOfExpr *OOE,
                   ExplodedNode *Pred, ExplodedNodeSet &Dst) {
   StmtNodeBuilder B(Pred, Dst, *currBldrCtx);
-  APSInt IV;
-  if (OOE->EvaluateAsInt(IV, getContext())) {
+  Expr::EvalResult Result;
+  if (OOE->EvaluateAsInt(Result, getContext())) {
+    APSInt IV = Result.Val.getInt();
     assert(IV.getBitWidth() == getContext().getTypeSize(OOE->getType()));
     assert(OOE->getType()->isBuiltinType());
     assert(OOE->getType()->getAs<BuiltinType>()->isInteger());
