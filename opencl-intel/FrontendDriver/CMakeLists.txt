@@ -114,3 +114,4 @@ endif (WIN32)
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )
 copy_to (${COMMON_CLANG_FILES} DESTINATION lib)
+install_to (${COMMON_CLANG_FILES} DESTINATION lib COMPONENT ocl-common_clang)
