@@ -170,12 +170,6 @@ private:
   /// Sets the HLDDNode of this RegDDRef
   void setHLDDNode(HLDDNode *HNode) override { Node = HNode; }
 
-  /// Non-const BlobDDRef iterator methods
-  blob_iterator blob_begin() { return BlobDDRefs.begin(); }
-  blob_iterator blob_end() { return BlobDDRefs.end(); }
-  reverse_blob_iterator blob_rbegin() { return BlobDDRefs.rbegin(); }
-  reverse_blob_iterator blob_rend() { return BlobDDRefs.rend(); }
-
   /// Creates GEPInfo object for the DDRef.
   void createGEP() {
     if (!hasGEPInfo()) {
@@ -251,7 +245,12 @@ private:
   /// Clarifies the result type associated with \p DimensionNum.
   /// Pointer Ty* may be substituted to Ty* or to an array [ x Ty].
   /// Arrays may be substituted to the same arrays only.
-  void setDimensionType(unsigned DimensionNum, Type *Ty);
+  void setDimensionType(unsigned DimensionNum, Type *Ty) {
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+    assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
+
+    GepInfo->DimTypes[DimensionNum - 1] = Ty;
+  }
 
   static Type *getMorePreciseDimensionType(Type *T1, Type *T2);
 
@@ -593,10 +592,14 @@ public:
   const_reverse_canon_iterator canon_rend() const { return CanonExprs.rend(); }
 
   /// BlobDDRef iterator methods
-  /// c-version allows use of "auto" keyword and doesn't conflict with protected
-  /// non-const begin() / end().
+  blob_iterator blob_begin() { return BlobDDRefs.begin(); }
+  blob_iterator blob_end() { return BlobDDRefs.end(); }
+
   const_blob_iterator blob_cbegin() const { return BlobDDRefs.begin(); }
   const_blob_iterator blob_cend() const { return BlobDDRefs.end(); }
+
+  reverse_blob_iterator blob_rbegin() { return BlobDDRefs.rbegin(); }
+  reverse_blob_iterator blob_rend() { return BlobDDRefs.rend(); }
 
   const_reverse_blob_iterator blob_crbegin() const {
     return BlobDDRefs.rbegin();
@@ -712,8 +715,8 @@ public:
   void setTrailingStructOffsets(unsigned DimensionNum,
                                 ArrayRef<unsigned> Offsets);
 
-  /// Returns trailing offsets for \p DimensionNum. Returns null if there are no
-  /// offsets.
+  /// Returns trailing offsets for \p DimensionNum. The array would be empty if
+  /// there are no offsets.
   ArrayRef<unsigned> getTrailingStructOffsets(unsigned DimensionNum) const;
 
   /// Removes trailing offsets for \p DimensionNum.

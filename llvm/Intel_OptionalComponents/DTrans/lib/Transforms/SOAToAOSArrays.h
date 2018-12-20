@@ -1252,14 +1252,19 @@ public:
         }
       } else if (auto CS = CallSite(NewI)) {
         auto *Info = DTInfo.getCallInfo(NewI);
-        assert(Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc &&
-               "Incorrect analysis");
+        bool isDummyMalloc =
+            dtrans::isDummyAllocWithUnreachable(ImmutableCallSite(NewI));
+        assert(
+            ((Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) ||
+             isDummyMalloc) &&
+            "Incorrect analysis");
 
         assert(IsCombined && "Incorrect analysis");
         unsigned S1 = -1U;
         unsigned S2 = -1U;
-        getAllocSizeArgs(cast<AllocCallInfo>(Info)->getAllocKind(), CS, S1, S2,
-                         TLI);
+        auto AllocKind =
+            isDummyMalloc ? AK_UserMalloc : cast<AllocCallInfo>(Info)->getAllocKind();
+        getAllocSizeArgs(AllocKind, CS, S1, S2, TLI);
         assert((S1 == -1U) != (S2 == -1U) && "Unexpected allocation routine");
         auto *OldSize = S1 == -1U ? CS.getArgument(S2) : CS.getArgument(S1);
         Builder.SetInsertPoint(NewI);

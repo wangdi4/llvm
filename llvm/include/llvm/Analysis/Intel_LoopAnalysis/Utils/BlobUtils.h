@@ -21,6 +21,7 @@
 
 namespace llvm {
 class raw_ostream;
+class GlobalVariable;
 class Value;
 class Type;
 class SCEV;
@@ -169,9 +170,15 @@ public:
   /// If blob is sext, sets the return value in Val.
   static bool isSignExtendBlob(BlobTy Blob, BlobTy *Val = nullptr);
 
-  /// Returns a new blob created from passed in Val.
-  BlobTy createBlob(Value *Val, bool Insert = true,
-                    unsigned *NewBlobIndex = nullptr);
+  /// Returns a new blob created from passed constant.
+  BlobTy createConstantBlob(Constant *Const, bool Insert = true,
+                            unsigned *NewBlobIndex = nullptr);
+
+  /// Returns a new blob created from passed global variable.
+  /// This function is needed just for vectorizer in order to generate
+  /// a blob for PaddedCounter and it must not be used as generic utility.
+  BlobTy createGlobalVarBlob(GlobalVariable *Global, bool Insert = true,
+                             unsigned *NewBlobIndex = nullptr);
 
   /// Returns a new blob created from a constant value.
   BlobTy createBlob(int64_t Val, Type *Ty, bool Insert = true,

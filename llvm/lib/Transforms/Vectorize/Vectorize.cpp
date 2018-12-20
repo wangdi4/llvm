@@ -27,7 +27,7 @@ using namespace llvm;
 void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeLoopVectorizePass(Registry);
   initializeSLPVectorizerPass(Registry);
-  initializeLoadStoreVectorizerPass(Registry);
+  initializeLoadStoreVectorizerLegacyPassPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeLoadCoalescingLegacyPassPass(Registry);
   initializeVPlanDriverPass(Registry);

@@ -117,7 +117,7 @@ AliasResult AAResults::alias(const MemoryLocation &LocA,
   return MayAlias;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Chaining methods to detect whether a value is escaped from the current
 // routine.
 bool AAResults::escapes(const Value *V) {
@@ -726,28 +726,6 @@ AnalysisKey AAManager::Key;
 
 namespace {
 
-/// A wrapper pass for external alias analyses. This just squirrels away the
-/// callback used to run any analyses and register their results.
-struct ExternalAAWrapperPass : ImmutablePass {
-  using CallbackT = std::function<void(Pass &, Function &, AAResults &)>;
-
-  CallbackT CB;
-
-  static char ID;
-
-  ExternalAAWrapperPass() : ImmutablePass(ID) {
-    initializeExternalAAWrapperPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  explicit ExternalAAWrapperPass(CallbackT CB)
-      : ImmutablePass(ID), CB(std::move(CB)) {
-    initializeExternalAAWrapperPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-};
 
 } // end anonymous namespace
 
@@ -832,7 +810,7 @@ bool AAResultsWrapperPass::runOnFunction(Function &F) {
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<CFLSteensAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (auto *WrapperPass = getAnalysisIfAvailable<AndersensAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
 #endif     // INTEL_CUSTOMIZATION
@@ -894,7 +872,7 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
     AAR.addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = P.getAnalysisIfAvailable<CFLSteensAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (auto *WrapperPass = P.getAnalysisIfAvailable<AndersensAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
 #endif     // INTEL_CUSTOMIZATION

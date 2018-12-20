@@ -203,7 +203,7 @@ namespace {
 
     bool hasBranchDivergence;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Helper for generating optimization reports.
     LoopOptReportBuilder LORBuilder;
 #endif // INTEL CUSTOMIZATION
@@ -543,7 +543,7 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPM_Ref) {
   currentLoop = L;
   Function *F = currentLoop->getHeader()->getParent();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   LORBuilder.setup(F->getContext(),
                    getAnalysis<OptReportOptionsPass>().getVerbosity());
 #endif

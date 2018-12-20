@@ -7,6 +7,10 @@ if(POLICY CMP0068)
   set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 endif()
 
+if(POLICY CMP0075)
+  cmake_policy(SET CMP0075 NEW)
+endif()
+
 if(NOT DEFINED LLVM_VERSION_MAJOR)
   set(LLVM_VERSION_MAJOR 8)
 endif()
@@ -182,6 +186,11 @@ option(LLVM_INSTALL_BINUTILS_SYMLINKS
 option(LLVM_INSTALL_UTILS "Include utility binaries in the 'install' target." OFF)
 
 option(LLVM_INSTALL_TOOLCHAIN_ONLY "Only include toolchain files in the 'install' target." OFF)
+
+# Unfortunatly Clang is too eager to search directories for module maps, which can cause the
+# installed version of the maps to be found when building LLVM from source. Therefore we turn off
+# the installation by default. See llvm.org/PR31905.
+option(LLVM_INSTALL_MODULEMAPS "Install the modulemap files in the 'install' target." OFF)
 
 option(LLVM_USE_FOLDERS "Enable solution folders in Visual Studio. Disable for Express versions." ON)
 if ( LLVM_USE_FOLDERS )
@@ -404,8 +413,8 @@ option(LLVM_USE_OPROFILE
 option(LLVM_EXTERNALIZE_DEBUGINFO
   "Generate dSYM files and strip executables and libraries (Darwin Only)" OFF)
 
-option(LLVM_CODESIGNING_IDENTITY
-  "Sign executables and dylibs with the given identity (Darwin Only)" OFF)
+set(LLVM_CODESIGNING_IDENTITY "" CACHE STRING
+  "Sign executables and dylibs with the given identity or skip if empty (Darwin Only)")
 
 # If enabled, verify we are on a platform that supports oprofile.
 if( LLVM_USE_OPROFILE )
@@ -665,6 +674,15 @@ SET(LLVM_INTELFEATURE_PREFIX "INTEL_FEATURE")
 # end INTEL_CUSTOMIZATION
 
 if(INTEL_CUSTOMIZATION)
+  # Set flags for TableGen invocations.  LLVM_INTEL_TABLEGEN_FLAGS
+  # must be a list of options, not a string, because of the way
+  # tablegen()->add_custom_command() process them.  If the options
+  # are space separated, the final build command will escape the
+  # spaces.  This is not a problem, but it looks awkward.
+  set(LLVM_INTEL_TABLEGEN_FLAGS
+    -DINTEL_CUSTOMIZATION
+    )
+
   option(INTEL_INCLUDE_DTRANS "Include DTrans optimizations in builds." ON)
   if(INTEL_INCLUDE_DTRANS)
     # When there are multiple optional components, each of them should
@@ -686,13 +704,6 @@ if(INTEL_CUSTOMIZATION)
 
 # INTEL_FEATURE_CSA
   if (";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
-    if (NOT ";${LLVM_INTEL_FEATURES};" MATCHES
-        ";${LLVM_INTELFEATURE_PREFIX}_CSA;")
-      # This is a temporary workaround.  We have to pass CSA feature
-      # explicitly from CSA VRD file.
-      list(APPEND LLVM_INTEL_FEATURES "${LLVM_INTELFEATURE_PREFIX}_CSA")
-    endif()
-
     set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
     set(INTEL_CSA_INCLUDE_DIR
         ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/CSA/include)
@@ -703,26 +714,104 @@ if(INTEL_CUSTOMIZATION)
   endif()
 # end INTEL_FEATURE_CSA
 
-  foreach(f ${LLVM_INTEL_FEATURES})
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D${f}=1")
-  endforeach(f)
+  # Make sure LLVM_INTEL_FEATURES is in CMake cache, and its default value
+  # is "no-features".  Every ICS configuration must explicitly set
+  # LLVM_INTEL_FEATURES.  Having LLVM_INTEL_FEATURES in CMake cache
+  # also helps to understand with which features the compiler binary
+  # was built.  In addition, it allows using CMake's -C option
+  # to specify a cache file with default value of LLVM_INTEL_FEATURES,
+  # so we may have such a cache file for each ICS configuration instead
+  # of explicitly listing features in VRD fils using -intel-features option.
+  set(LLVM_INTEL_FEATURES ""
+      CACHE STRING "Semicolon-separated list of Intel features to enable.")
+
+  # Read Intel_SupportedFeatures.txt and verify that each feature
+  # is declared properly.
+  set(supported_features "")
+  string(CONCAT LLVM_INTEL_SUPPORTED_FEATURES_FILE
+         "${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/"
+         "Intel_SupportedFeatures.txt")
+  if (EXISTS ${LLVM_INTEL_SUPPORTED_FEATURES_FILE})
+    file(STRINGS ${LLVM_INTEL_SUPPORTED_FEATURES_FILE} sf)
+    foreach(line ${sf})
+      # Each feature specification start with "^@".
+      string(REGEX MATCH "^@(.*)$" _dummy "${line}")
+      if (${CMAKE_MATCH_COUNT} EQUAL 0)
+        continue()
+      endif()
+      # Each feature specification is of the following form:
+      #     @<feature name>:<ip classification>@
+      # We do ignore any extra text after the terminating '@'.
+      string(REGEX MATCH "([^:]+):([^:]+)@" _dummy "${CMAKE_MATCH_1}")
+      if (${CMAKE_MATCH_COUNT} EQUAL 0)
+        # Unfortunately, we cannot identify the line number.
+        message(FATAL_ERROR "Invalid feature specification in "
+                            "${LLVM_INTEL_SUPPORTED_FEATURES_FILE}: ${line}")
+      endif()
+
+      set(feat ${CMAKE_MATCH_1})
+      set(ipclass ${CMAKE_MATCH_2})
+
+      if ((NOT "${ipclass}" STREQUAL "SHARED") AND
+          (NOT "${ipclass}" STREQUAL "SECRET"))
+        message(FATAL_ERROR "Invalid feature IP class ${ipclass} in:\n${line}\n"
+                            "Please use either SHARED or SECRET.")
+      endif()
+      list(FIND supported_features ${feat} idx)
+      if (NOT idx LESS 0)
+        message(FATAL_ERROR "Duplicate definition of feature ${feat} "
+                            "in ${LLVM_INTEL_SUPPORTED_FEATURES_FILE}")
+      endif()
+      list(APPEND supported_features ${feat})
+    endforeach()
+  endif()
+
+  # If a feature (e.g. new ISA) becomes public, we probably want to
+  # enable it for all compiler builds.  Use the list below to unconditionally
+  # enable such features (until they are upstreamed and the feature controls
+  # are removed).
+  set(features_enabled_by_default ${LLVM_INTEL_FEATURES})
+  list(APPEND features_enabled_by_default
+    # Add each feature enabled by default in a separate line.
+    #
+    # WARNING: features added here will be enabled for any compiler build,
+    #          so you must not add here any features that must be controlled
+    #          depending on the compiler build flavor, e.g. INTEL_INTERNAL_BUILD
+    #          must never be enabled for Intel release builds.
+    )
+
+# INTEL_FEATURE_CSA
+  if (";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
+    if (NOT ";${features_enabled_by_default};" MATCHES
+        ";${LLVM_INTELFEATURE_PREFIX}_CSA;")
+      # This is a temporary workaround.  We have to pass CSA feature
+      # explicitly from CSA VRD file.
+      list(APPEND features_enabled_by_default
+        "${LLVM_INTELFEATURE_PREFIX}_CSA"
+        )
+    endif()
+  endif()
+# end INTEL_FEATURE_CSA
+
+  # Force adding features enabled by default to CMake cache.
+  if (features_enabled_by_default)
+    list(REMOVE_DUPLICATES features_enabled_by_default)
+    set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
+        CACHE STRING
+        "Semicolon-separated list of Intel features to enable."
+        FORCE)
+  endif()
 
   # If any Intel features are specified for the build, we have to check
   # them against the list of features located in Intel_SupportedFeatures.txt
   list(LENGTH LLVM_INTEL_FEATURES n)
   if (n GREATER 0)
-    string(CONCAT LLVM_INTEL_SUPPORTED_FEATURES_FILE
-           "${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/"
-           "Intel_SupportedFeatures.txt")
     if (NOT EXISTS ${LLVM_INTEL_SUPPORTED_FEATURES_FILE})
       message(FATAL_ERROR
               "${LLVM_INTEL_SUPPORTED_FEATURES_FILE} does not exist")
     endif()
-    # Read the features file line by line into 'sf' list.  Each line
-    # is 'sf' is separated by ';' (as usual for the lists).
-    file(STRINGS ${LLVM_INTEL_SUPPORTED_FEATURES_FILE} sf)
     # For each feature 'f' enabled for the compiler build check
-    # if the feature is present in the 'sf' list.  As usual,
+    # if the feature is present in the 'supported_features' list.  As usual,
     # we have to add semicolons around 'f' to match it inside the list.
     # We also need to add semicolons around the list itself, so that
     # the first starts with semicolon, and the last line ends with a semicolon.
@@ -735,7 +824,7 @@ if(INTEL_CUSTOMIZATION)
       # from the feature name before looking for it in the file.
       string(CONCAT prefix "INTEL_FEATURE" "_")
       string(REPLACE ${prefix} "" fname "${f}")
-      string(REGEX MATCH ";${fname};" m ";${sf};")
+      string(REGEX MATCH ";${fname};" m ";${supported_features};")
       # If the enabled feature is not present in the features file, then
       # we must report an error to the user.  The result of the regex match
       # is in 'm' - it is an empty string, if there is no match.
@@ -755,6 +844,12 @@ if(INTEL_CUSTOMIZATION)
     # by llvm-build).
     configure_file(${LLVM_INTEL_SUPPORTED_FEATURES_FILE}
                    ${CMAKE_CURRENT_BINARY_DIR}/DummyConfigureOutput)
+
+    # Define feature specific macros.
+    foreach(f ${LLVM_INTEL_FEATURES})
+      SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D${f}=1")
+      list(APPEND LLVM_INTEL_TABLEGEN_FLAGS "-D${f}")
+    endforeach(f)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
@@ -982,7 +1077,7 @@ if( LLVM_INCLUDE_UTILS )
 else()
   if ( LLVM_INCLUDE_TESTS )
     message(FATAL_ERROR "Including tests when not building utils will not work.
-    Either set LLVM_INCLUDE_UTILS to On, or set LLVM_INCLDE_TESTS to Off.")
+    Either set LLVM_INCLUDE_UTILS to On, or set LLVM_INCLUDE_TESTS to Off.")
   endif()
 endif()
 
@@ -1102,6 +1197,20 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
     PATTERN ".svn" EXCLUDE
     )
 
+  if (LLVM_INSTALL_MODULEMAPS)
+    install(DIRECTORY include/llvm include/llvm-c
+            DESTINATION include
+            COMPONENT llvm-headers
+            FILES_MATCHING
+            PATTERN "module.modulemap"
+            )
+    install(FILES include/llvm/module.install.modulemap
+            DESTINATION include/llvm
+            COMPONENT llvm-headers
+            RENAME "module.extern.modulemap"
+            )
+  endif(LLVM_INSTALL_MODULEMAPS)
+
   # Installing the headers needs to depend on generating any public
   # tablegen'd headers.
   add_custom_target(llvm-headers DEPENDS intrinsics_gen)
@@ -1189,13 +1298,22 @@ if (LLVM_INCLUDE_BENCHMARKS)
 endif()
 
 if (INTEL_CUSTOMIZATION)
+  # This command is used for creating a fake dependency in order to force
+  # another command(s) to execute.
+  # Its output is never produced as a result thus each other
+  # command that depends on it will always be executed.
+  # We use this to force running deploy installation regardless of
+  # manifest files state.
+  add_custom_command(OUTPUT __force_it
+                     COMMAND "${CMAKE_COMMAND}" -E echo)
+
   if(DEFINED INTEL_DEPLOY_COMPONENTS)
 
     set(manifest_list)
 
     foreach( comp ${INTEL_DEPLOY_COMPONENTS} )
 
-  # Filter out xdev components
+      # Filter out xdev components
       if ( NOT "${comp}"  MATCHES "^xdev-.*")
         message( STATUS "Adding component ${comp} to deploy")
 
@@ -1203,37 +1321,39 @@ if (INTEL_CUSTOMIZATION)
         add_custom_command(OUTPUT ${manifest}
                            COMMAND "${CMAKE_COMMAND}"
                                    "-DCMAKE_INSTALL_COMPONENT=${comp}"
-                                  -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                                   -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                           DEPENDS  __force_it
                            COMMENT "Deploying component ${comp}"
                            USES_TERMINAL)
         list(APPEND manifest_list ${manifest})
       endif()
     endforeach( comp )
 
-  # cmake does not allow to specify dependencies on cmakes' built-in targets such as all, clean, install etc.
-  # There is feature request which filed ~9 years ago but it is still not implemented:
-  # https://gitlab.kitware.com/cmake/cmake/issues/8438
-  # We could work around the issue via adding custom do_build target equivalent to "make all"
-  # but here another problem arises: there is no portable cmake solution to enforce parallel build.
-  # Instead of specifying something like --parallel cmake option we have to explicitly pass
-  # build system dependant options enforcing parallel build. Otherwise we have good chance for too slow build.
-  # Thus although adding dependency on "all" is nice to have unless we have a good solution we simply allow
-  # deploy target to fail if the project was not built before.
-  # Leave code below just in case we change opinion.
-  #
-  #  add_custom_target(do_build
-  #                    COMMAND "${CMAKE_COMMAND}" --build . --target all )
-  #  add_custom_target(deploy DEPENDS do_build ${manifest_list})
+    # cmake does not allow to specify dependencies on cmakes' built-in targets such as all, clean, install etc.
+    # There is feature request which filed ~9 years ago but it is still not implemented:
+    # https://gitlab.kitware.com/cmake/cmake/issues/8438
+    # We could work around the issue via adding custom do_build target equivalent to "make all"
+    # but here another problem arises: there is no portable cmake solution to enforce parallel build.
+    # Instead of specifying something like --parallel cmake option we have to explicitly pass
+    # build system dependant options enforcing parallel build. Otherwise we have good chance for too slow build.
+    # Thus although adding dependency on "all" is nice to have unless we have a good solution we simply allow
+    # deploy target to fail if the project was not built before.
+    # Leave code below just in case we change opinion.
+    #
+    # add_custom_target(do_build
+    #                   COMMAND "${CMAKE_COMMAND}" --build . --target all )
+    # add_custom_target(deploy DEPENDS do_build ${manifest_list})
 
     add_custom_target(deploy DEPENDS ${manifest_list})
   else()
-  # no specific components was given so do full installation
-      set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
-      add_custom_command(OUTPUT ${manifest}
-                         COMMAND "${CMAKE_COMMAND}"
-                                -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-                         COMMENT "Performing deploy operation..."
-                         USES_TERMINAL)
+    # no specific components was given so do full installation
+    set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
+    add_custom_command(OUTPUT ${manifest}
+                       COMMAND "${CMAKE_COMMAND}"
+                               -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                       DEPENDS  __force_it
+                       COMMENT "Performing deploy operation..."
+                       USES_TERMINAL)
     add_custom_target(deploy DEPENDS ${manifest})
   endif()
 endif (INTEL_CUSTOMIZATION)

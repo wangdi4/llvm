@@ -909,7 +909,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   ACT = &getAnalysis<AssumptionCacheTracker>();
-  PSI = getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
+  PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   ILIC = new InliningLoopInfoCache(); // INTEL
   auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {

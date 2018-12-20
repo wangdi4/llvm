@@ -60,6 +60,12 @@ static unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
   return WRLp && WRLp->getSimdlen() ? WRLp->getSimdlen() : 0;
 }
 
+#if INTEL_CUSTOMIZATION
+static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
+  return WRLp && WRLp->getSafelen() ? WRLp->getSafelen() : UINT_MAX;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Return trip count for a given VPlan for a first loop during DFS.
 // Assume, that VPlan has only 1 loop without peel and/or remainder(s).
 // FIXME: This function is incorrect if peel, main and remainder loop will be
@@ -90,7 +96,33 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans() {
 
   unsigned MinVF, MaxVF;
   unsigned ForcedVF = getForcedVF(WRLp);
+
+#if INTEL_CUSTOMIZATION
+  unsigned Safelen = getSafelen(WRLp);
+
+  LLVM_DEBUG(dbgs() << "LVP: ForcedVF: " << ForcedVF << "\n");
+  LLVM_DEBUG(dbgs() << "LVP: Safelen: " << Safelen << "\n");
+
+  // Early return from vectorizer if forced VF or safelen is 1
+  // TODO: This should not be done if VPlanConstrStressTest is enabled
+  if (ForcedVF == 1 || Safelen == 1) {
+    LLVM_DEBUG(dbgs() << "LVP: The forced VF or safelen specified by user is "
+                         "1, VPlans need not be constructed.\n");
+    return 0;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (ForcedVF) {
+#if INTEL_CUSTOMIZATION
+    if (ForcedVF > Safelen) {
+      // We are bailing out of vectorization if ForcedVF > safelen
+      assert(WRLp && WRLp->isOmpSIMDLoop() &&
+             "safelen is set on a non-OMP SIMD loop.");
+      LLVM_DEBUG(dbgs() << "VPlan: The forced VF is greater than safelen set "
+                           "via `#pragma omp simd`\n");
+      return 0;
+    }
+#endif // INTEL_CUSTOMIZATION
     MinVF = ForcedVF;
     MaxVF = ForcedVF;
   } else {
@@ -105,10 +137,30 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans() {
     // FIXME: Currently limits MaxVF by 32.
     MaxVF = std::min(MaxVectorWidth / MinWidthInBits, 32u);
     MinVF = std::max(MinVectorWidth / MaxWidthInBits, 1u);
+#if INTEL_CUSTOMIZATION
+    LLVM_DEBUG(dbgs() << "LVP: Orig MinVF: " << MinVF
+                      << " Orig MaxVF: " << MaxVF << "\n");
+    // Maximum allowed VF specified by user is Safelen
+    MaxVF = std::min(MaxVF, Safelen);
+
+    // If the minimum VF in the search space is greater than Safelen specified
+    // by user, then we reduce the minimum VF to nearest power of 2 less than
+    // or equal to Safelen
+    MinVF = std::min(MinVF, (unsigned)PowerOf2Floor(Safelen));
+
+    // FIXME: Potentially MinVF can be greater than MaxVF if TTI will start to
+    // return 512, 1024 or higher values.
+    assert(MinVF <= MaxVF && "Invalid range of VFs");
+#else
     // FIXME: Potentially MinVF can be greater than MaxVF if TTI will start to
     // return 512, 1024 or higher values.
     assert(MinVF < MaxVF && "Invalid range of VFs");
+#endif // INTEL_CUSTOMIZATION
   }
+
+#if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(dbgs() << "LVP: MinVF: " << MinVF << " MaxVF: " << MaxVF << "\n");
+#endif // INTEL_CUSTOMIZATION
 
   unsigned StartRangeVF = MinVF;
   unsigned EndRangeVF = MaxVF + 1;
@@ -160,20 +212,26 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // FIXME: Without peel and remainder vectorization, it's ok to get trip count
   // from the original loop. Has to be revisited after enabling of
   // peel/remainder vectorization.
-  unsigned TripCount = ::getTripCountForFirstLoopInDfs(ScalarPlan);
+
+  // Even if TripCount is more than 2^32 we can safely assume that it's equal
+  // to 2^32, otherwise all logic below will have a problem with overflow.
+  uint64_t TripCount = std::min(::getTripCountForFirstLoopInDfs(ScalarPlan),
+                                (uint64_t)std::numeric_limits<unsigned>::max());
 #if INTEL_CUSTOMIZATION
   CostModelTy ScalarCM(ScalarPlan, 1, TTI, DL, VLSA);
 #else
   CostModelTy ScalarCM(ScalarPlan, 1, TTI, DL);
 #endif // INTEL_CUSTOMIZATION
   unsigned ScalarIterationCost = ScalarCM.getCost();
+  ScalarIterationCost =
+      ScalarIterationCost == CostModelTy::UnknownCost ? 0 : ScalarIterationCost;
   // FIXME: that multiplication should be the part of CostModel - see below.
-  unsigned ScalarCost = ScalarIterationCost * TripCount;
+  uint64_t ScalarCost = ScalarIterationCost * TripCount;
 
   BestVF = 1;
   // FIXME: Currently, unroll is not in VPlan, so set it to 1.
   BestUF = 1;
-  unsigned BestCost = ScalarCost;
+  uint64_t BestCost = ScalarCost;
   LLVM_DEBUG(dbgs() << "Cost of Scalar VPlan: " << ScalarCost << '\n');
 
 #if INTEL_CUSTOMIZATION
@@ -187,7 +245,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   bool IsVectorAlways = ShouldIgnoreProfitability || VecThreshold == 0;
 
   if (IsVectorAlways) {
-    BestCost = std::numeric_limits<unsigned>::max();
+    BestCost = std::numeric_limits<uint64_t>::max();
     LLVM_DEBUG(dbgs() << "'#pragma vector always'/ '#pragma omp simd' is used "
                          "for the given loop\n");
   }
@@ -212,20 +270,32 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
 #else
     CostModelTy VectorCM(Plan, VF, TTI, DL);
 #endif // INTEL_CUSTOMIZATION
-    unsigned VectorIterationCost = VectorCM.getCost();
-    if (VectorIterationCost == CostModelTy::UnknownCost)
+    const unsigned VectorIterationCost = VectorCM.getCost();
+    if (VectorIterationCost == CostModelTy::UnknownCost) {
+      LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       continue;
+    }
+
+    const decltype(TripCount) VectorTripCount = TripCount / VF;
+    const decltype(TripCount) RemainderTripCount = TripCount % VF;
     // TODO: Take into account overhead for some instructions until explicit
     // representation of peel/remainder not ready.
-    unsigned VectorCost = VectorIterationCost * (TripCount / VF) +
-                          ScalarIterationCost * (TripCount % VF);
+    uint64_t VectorCost = VectorIterationCost * VectorTripCount +
+                          ScalarIterationCost * RemainderTripCount;
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
-                        << VF << ". Original cost = " << VectorCost << "\n");
-      VectorCost = (unsigned)(VectorCost * (100.0 - VecThreshold))/100.0f;
+                        << VF << ". Original cost = " << VectorCost << '\n');
+      VectorCost = (uint64_t)(VectorCost * (100.0 - VecThreshold))/100.0f;
     }
-    LLVM_DEBUG(dbgs() << "Cost of VPlan for VF=" << VF << ": " << VectorCost
-                      << '\n');
+    const char CmpChar =
+        ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
+    (void) CmpChar;
+    LLVM_DEBUG(dbgs() << "Scalar Cost = " << TripCount << " x "
+                      << ScalarIterationCost << " = " << ScalarCost << ' '
+                      << CmpChar << " VectorCost = " << VectorTripCount << "[x"
+                      << VF << "] x " << VectorIterationCost << " + "
+                      << ScalarIterationCost << " x " << RemainderTripCount
+                      << " = " << VectorCost << '\n';);
     if (VectorCost < BestCost) {
       BestCost = VectorCost;
       BestVF = VF;

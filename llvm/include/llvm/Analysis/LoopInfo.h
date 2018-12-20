@@ -737,7 +737,7 @@ public:
     TopLevelLoops.push_back(New);
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// Return the number of top level loops.
   size_t size() const { return TopLevelLoops.size(); }
 #endif

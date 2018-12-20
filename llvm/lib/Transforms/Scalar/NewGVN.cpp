@@ -1086,9 +1086,13 @@ const Expression *NewGVN::checkSimplificationResults(Expression *E,
   CongruenceClass *CC = ValueToClass.lookup(V);
   if (CC) {
     if (CC->getLeader() && CC->getLeader() != I) {
-      // Don't add temporary instructions to the user lists.
-      if (!AllTempInstructions.count(I))
-        addAdditionalUsers(V, I);
+      // If we simplified to something else, we need to communicate
+      // that we're users of the value we simplified to.
+      if (I != V) {
+        // Don't add temporary instructions to the user lists.
+        if (!AllTempInstructions.count(I))
+          addAdditionalUsers(V, I);
+      }
       return createVariableOrConstant(CC->getLeader());
     }
     if (CC->getDefiningExpr()) {
@@ -3171,8 +3175,7 @@ bool NewGVN::singleReachablePHIPath(
   auto FilteredPhiArgs =
       make_filter_range(MP->operands(), ReachableOperandPred);
   SmallVector<const Value *, 32> OperandList;
-  std::copy(FilteredPhiArgs.begin(), FilteredPhiArgs.end(),
-            std::back_inserter(OperandList));
+  llvm::copy(FilteredPhiArgs, std::back_inserter(OperandList));
   bool Okay = is_splat(OperandList);
   if (Okay)
     return singleReachablePHIPath(Visited, cast<MemoryAccess>(OperandList[0]),

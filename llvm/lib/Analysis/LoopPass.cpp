@@ -218,10 +218,12 @@ bool LPPassManager::runOnFunction(Function &F) {
 
       initializeAnalysisImpl(P);
 
+      bool LocalChanged = false;
       {
         PassManagerPrettyStackEntry X(P, *CurrentLoop->getHeader());
         TimeRegion PassTimer(getPassTimer(P));
-        Changed |= P->runOnLoop(CurrentLoop, *this);
+        LocalChanged = P->runOnLoop(CurrentLoop, *this);
+        Changed |= LocalChanged;
         if (EmitICRemark) {
           unsigned NewSize = F.getInstructionCount();
           // Update the size of the function, emit a remark, and update the
@@ -238,7 +240,7 @@ bool LPPassManager::runOnFunction(Function &F) {
       }
 
 #if !INTEL_PRODUCT_RELEASE
-      if (Changed)
+      if (LocalChanged)
         dumpPassInfo(P, MODIFICATION_MSG, ON_LOOP_MSG,
                      CurrentLoopDeleted ? "<deleted loop>"
                                         : CurrentLoop->getName());

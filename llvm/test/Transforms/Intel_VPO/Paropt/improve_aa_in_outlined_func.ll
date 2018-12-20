@@ -118,7 +118,7 @@ attributes #2 = { nounwind }
 !6 = !{!"Simple C/C++ TBAA"}
 !7 = !{!8, !8, i64 0}
 !8 = !{!"double", !5, i64 0}
-!9 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 47, i32 0}
+!9 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 47, i32 0, i32 0}
 
 ; CHECK:  NoAlias:   %1 = load i32, i32* %i.priv, align 4, !tbaa !3, !alias.scope !10, !noalias !17 <->   store double %add11, double* %arrayidx12, align 8, !tbaa !18, !alias.scope !17, !noalias !21
 ; CHECK:  MustAlias:   %1 = load i32, i32* %i.priv, align 4, !tbaa !3, !alias.scope !10, !noalias !17 <->   store i32 %inc, i32* %i.priv, align 4, !tbaa !3, !alias.scope !7, !noalias !11

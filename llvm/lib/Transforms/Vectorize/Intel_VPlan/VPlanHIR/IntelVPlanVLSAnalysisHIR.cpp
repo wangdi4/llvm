@@ -57,6 +57,28 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
   const HLDDNode *DDNode = cast<HLDDNode>(Node);
   assert(DDNode && "HLDDNode is expected.");
 
+  // Restrict creation of VLSMemrefs to load/store instructions only
+  // TODO: Remove this bailout when VLS is made an explicit transformation in
+  // VPlan (JR : CMPLRLLVM-7613)
+  auto *HInst = dyn_cast<HLInst>(DDNode);
+  if (!HInst || !(isa<LoadInst>(HInst->getLLVMInstruction()) ||
+                  isa<StoreInst>(HInst->getLLVMInstruction())))
+    return nullptr;
+
+  // VLS codegen currently handles cases where the underlying HLInst has only
+  // one memref and the instruction is load/store. Cases where HIR Temp Cleanup
+  // pass introduces extra load memrefs within the same HLInst is not correctly
+  // handled.
+  // TODO: Remove this bailout when VLS is made an explicit transformation in
+  // VPlan (JR : CMPLRLLVM-7613)
+
+  int CountMemref = llvm::count_if(
+      make_range(DDNode->op_ddref_begin(), DDNode->op_ddref_end()),
+      [&](const RegDDRef *Ref) { return Ref->isMemRef(); });
+
+  if (CountMemref > 1)
+    return nullptr;
+
   // TODO: Masked case is not supported right now by VPOCG. As soon as OVLS
   // still groups such masked memrefs, CM will try to reduce costs for them,
   // thus it's better to disable collection of masked memrefs here by now.

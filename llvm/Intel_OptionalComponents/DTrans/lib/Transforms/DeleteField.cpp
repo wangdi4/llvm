@@ -101,6 +101,10 @@ private:
 
   bool typeContainsDeletedFields(llvm::Type *Ty);
 
+  // Check if there is any constraint in the enclosed structure that prevents
+  // delete fields
+  bool checkParentStructure(dtrans::StructInfo *ParentStruct);
+
   Constant *getStructReplacement(ConstantStruct *StInit, ValueMapper &Mapper);
   Constant *getArrayReplacement(ConstantArray *ArInit, ValueMapper &Mapper);
   Constant *getReplacement(Constant *Init, ValueMapper &Mapper);
@@ -131,6 +135,54 @@ ModulePass *llvm::createDTransDeleteFieldWrapperPass() {
 static bool canDeleteField(dtrans::FieldInfo &FI) {
   return (!FI.isRead() || FI.isValueUnused()) && !FI.hasComplexUse() &&
          !FI.getLLVMType()->isAggregateType();
+}
+
+// Return false if there is any constraint in the parent structure
+// that prevents the delete fields optimization, else return true.
+bool DeleteFieldImpl::checkParentStructure(dtrans::StructInfo *ParentStruct) {
+
+  if (!ParentStruct)
+    return false;
+
+  // Go conservative if out of bounds is specified
+  if (DTInfo.getDTransOutOfBoundsOK())
+    return !(DTInfo.testSafetyData(ParentStruct, dtrans::DT_DeleteField));
+
+  // Safety conditions in the enclosing structure that
+  // prevents the optimization
+  const dtrans::SafetyData DeleteFieldParent =
+      dtrans::BadCasting | dtrans::BadAllocSizeArg |
+      dtrans::BadPtrManipulation | dtrans::AmbiguousGEP |
+      dtrans::VolatileData | dtrans::WholeStructureReference |
+      dtrans::UnsafePointerStore | dtrans::BadMemFuncSize |
+      dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
+      dtrans::UnsafePtrMerge | dtrans::AddressTaken |
+      dtrans::NoFieldsInStruct | dtrans::SystemObject |
+      dtrans::MismatchedArgUse | dtrans::HasVTable | dtrans::HasFnPtr |
+      dtrans::HasZeroSizedArray | dtrans::HasFnPtr |
+      dtrans::BadCastingConditional | dtrans::UnsafePointerStoreConditional;
+
+  if (ParentStruct->testSafetyData(DeleteFieldParent))
+    return false;
+
+  // Check for safety issues in the fields
+  unsigned Idx = 0;
+  unsigned NumFields = ParentStruct->getNumFields();
+
+  for (Idx = 0; Idx < NumFields; Idx++) {
+
+    dtrans::FieldInfo &Field = ParentStruct->getField(Idx);
+    llvm::Type *FieldTy = Field.getLLVMType();
+    dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldTy);
+
+    // If the field is marked as address taken, then we need to make sure
+    // that it passes the safety issues for delete fields.
+    if (Field.isAddressTaken() &&
+        DTInfo.testSafetyData(FieldTI, dtrans::DT_DeleteField))
+      return false;
+  }
+
+  return true;
 }
 
 bool DeleteFieldImpl::prepareTypes(Module &M) {
@@ -237,7 +289,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
         continue;
 
       // Test enclosing type for safety violations.
-      if (DTInfo.testSafetyData(ParentTI, dtrans::DT_DeleteField)) {
+      if (!checkParentStructure(ParentTI)) {
         LLVM_DEBUG({
           dbgs() << "Rejecting ";
           StInfo->getLLVMType()->print(dbgs(), true, true);

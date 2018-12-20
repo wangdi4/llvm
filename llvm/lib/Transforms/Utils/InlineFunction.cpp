@@ -64,7 +64,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Transforms/IPO/InlineReport.h"  // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"  // INTEL
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -1220,7 +1220,7 @@ static void AddAlignmentAssumptions(CallSite CS, InlineFunctionInfo &IFI) {
   }
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// In case of new callsites appearing in the inlined code we need to have
 /// a list of original callsites and inlined callsites for correct transfer
 /// of inline report information.
@@ -1530,7 +1530,7 @@ static void updateCallerBFI(BasicBlock *CallSiteBlock,
       ClonedBBs);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 
 //
 // Return 'true' if 'F' is a varags function which can be inlined.

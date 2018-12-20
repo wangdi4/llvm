@@ -283,10 +283,14 @@ bool llvm::isReallocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
 /// non-null result
 bool llvm::isNewLikeFn(const Value *V, const TargetLibraryInfo *TLI,
                        bool LookThroughBitCast) {
-  auto Data = getAllocationData(V, OpNewLike, TLI, LookThroughBitCast);
-  if (!Data)
-    return false;
-  return Data.getValue().AllocTy == OpNewLike;
+  bool IsNoBuiltinCall;
+  if (const Function *Callee =
+          getCalledFunction(V, LookThroughBitCast, IsNoBuiltinCall)) {
+    auto Data = getAllocationDataForFunction(Callee, OpNewLike, TLI);
+    if (Data)
+      return Data.getValue().AllocTy == OpNewLike;
+  }
+  return false;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -400,17 +404,18 @@ const CallInst *llvm::extractCallocCall(const Value *I,
   return isCallocLikeFn(I, TLI) ? cast<CallInst>(I) : nullptr;
 }
 
-/// isFreeCall - Returns non-null if the value is a call to the builtin free()
-const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI) {
 #if INTEL_CUSTOMIZATION
+/// isFreeCall - Returns non-null if the value is a call to the builtin free()
+const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
+                                 bool CheckNoBuiltin) {
 // Extracted all, but 'free' checks to isDeleteCall.
-  if (auto *CI = isDeleteCall(I, TLI))
+  if (auto *CI = isDeleteCall(I, TLI, CheckNoBuiltin))
     return CI;
 
   bool IsNoBuiltinCall;
   const Function *Callee =
       getCalledFunction(I, /*LookThroughBitCast=*/false, IsNoBuiltinCall);
-  if (Callee == nullptr || IsNoBuiltinCall)
+  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall))
     return nullptr;
 
   StringRef FnName = Callee->getName();
@@ -431,19 +436,16 @@ const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI) {
     return nullptr;
 
   return dyn_cast<CallInst>(I);
-#endif // INTEL_CUSTOMIZATION
 }
 
-
-#if INTEL_CUSTOMIZATION
-/// isDeleteCall - Returns non-null if the value is a call to the builtin
+/// isDeleteCall - Returns non-null if the value is a call to the
 /// delete/delete[] function.
-const CallInst *llvm::isDeleteCall(const Value *I,
-                                   const TargetLibraryInfo *TLI) {
+const CallInst *llvm::isDeleteCall(const Value *I, const TargetLibraryInfo *TLI,
+                                   bool CheckNoBuiltin) {
   bool IsNoBuiltinCall;
   const Function *Callee =
       getCalledFunction(I, /*LookThroughBitCast=*/false, IsNoBuiltinCall);
-  if (Callee == nullptr || IsNoBuiltinCall)
+  if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall))
     return nullptr;
 
   StringRef FnName = Callee->getName();

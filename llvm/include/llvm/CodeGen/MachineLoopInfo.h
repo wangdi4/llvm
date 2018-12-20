@@ -67,7 +67,7 @@ public:
   /// it returns an unknown location.
   DebugLoc getStartLoc() const;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// \brief Find the llvm.loop metadata for this loop.
   /// If each branch to the header of this loop contains the same llvm.loop
   /// metadata, then this metadata node is returned.  Otherwise, if any
@@ -119,7 +119,7 @@ public:
   using iterator = LoopInfoBase<MachineBasicBlock, MachineLoop>::iterator;
   inline iterator begin() const { return LI.begin(); }
   inline iterator end() const { return LI.end(); }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   using reverse_iterator =
     LoopInfoBase<MachineBasicBlock, MachineLoop>::reverse_iterator;
   inline reverse_iterator rbegin() const { return LI.rbegin(); }

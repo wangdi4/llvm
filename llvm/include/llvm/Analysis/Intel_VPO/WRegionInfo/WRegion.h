@@ -213,9 +213,18 @@ private:
   SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
+#if INTEL_CUSTOMIZATION
+  loopopt::HLNode *EntryHLNode; // for HIR only
+  loopopt::HLNode *ExitHLNode;  // for HIR only
+  loopopt::HLLoop *HLp;         // for HIR only
+#endif //INTEL_CUSTOMIZATION
 
 public:
   WRNParallelLoopNode(BasicBlock *BB, LoopInfo *L);
+#if INTEL_CUSTOMIZATION
+  // constructor for HIR representation
+  WRNParallelLoopNode(loopopt::HLNode *EntryHLN);
+#endif //INTEL_CUSTOMIZATION
 
 protected:
   void setIf(EXPR E) { IfExpr = E; }
@@ -224,6 +233,11 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
+#if INTEL_CUSTOMIZATION
+  void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
+  void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
+  void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
+#endif //INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -256,6 +270,14 @@ public:
   void addCancellationPointAlloca(AllocaInst *I) {
     CancellationPointAllocas.push_back(I);
   }
+
+#if INTEL_CUSTOMIZATION
+  loopopt::HLNode *getEntryHLNode() const { return EntryHLNode; }
+  loopopt::HLNode *getExitHLNode() const { return ExitHLNode; }
+  loopopt::HLLoop *getHLLoop() const { return HLp; }
+  void printHIR(formatted_raw_ostream &OS, unsigned Depth,
+                                           unsigned Verbosity=1) const;
+#endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -916,11 +938,11 @@ public:
 #if INTEL_CUSTOMIZATION
   void printHIR(formatted_raw_ostream &OS, unsigned Depth,
                                            unsigned Verbosity=1) const;
-#endif //INTEL_CUSTOMIZATION
 
   template <class LoopType> LoopType *getTheLoop() const {
     llvm_unreachable("Unsupported LoopType");
   }
+#endif //INTEL_CUSTOMIZATION
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -928,8 +950,8 @@ public:
   }
 };
 
-template <> Loop *WRNVecLoopNode::getTheLoop<Loop>() const;
 #if INTEL_CUSTOMIZATION
+template <> Loop *WRNVecLoopNode::getTheLoop<Loop>() const;
 template <>
 loopopt::HLLoop *WRNVecLoopNode::getTheLoop<loopopt::HLLoop>() const;
 #endif //INTEL_CUSTOMIZATION

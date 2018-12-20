@@ -23,7 +23,7 @@
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #define DEBUG_TYPE "machine-loop-info"
 #endif  // INTEL_CUSTOMIZATION
 
@@ -143,7 +143,7 @@ MachineLoopInfo::findLoopPreheader(MachineLoop *L,
   return Preheader;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 MDNode *MachineLoop::getLoopID() const {
   MDNode *LoopID = nullptr;
 

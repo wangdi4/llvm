@@ -16,9 +16,9 @@
 ; CHECK: loop.[[NUM:.*]]:
 ; CHECK-NEXT: phi{{.*}}[ 0, %entry ] 
 
-; CHECK: br{{.*}} label %loop.[[NUM]], label %for.end
+; CHECK: br{{.*}} label %loop.[[NUM]], label %afterloop.[[NUM1:.*]]
 
-; CHECK: for.end
+; CHECK: afterloop.[[NUM1]]:
 ; CHECK-NEXT: load{{.*}} @A
 ; CHECK-NEXT: ret
 

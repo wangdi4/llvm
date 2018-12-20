@@ -191,12 +191,17 @@ private:
 
   public:
     explicit RegionEntry(StringRef Name, uint32_t Flags)
-      : OffloadEntry(OffloadEntry::EntryKind::RegionKind, Name, Flags) {}
+      : OffloadEntry(RegionKind, Name, Flags) {}
+
+    explicit RegionEntry(GlobalValue *GV, uint32_t Flags)
+      : OffloadEntry(RegionKind, GV->getName(), Flags) {
+      setAddress(GV);
+    }
 
     size_t getSize() const override { return 0; }
 
     static bool classof(const OffloadEntry *E) {
-      return E->getKind() == OffloadEntry::EntryKind::RegionKind;
+      return E->getKind() == RegionKind;
     }
   };
 
@@ -210,7 +215,7 @@ private:
 
   public:
     explicit VarEntry(GlobalVariable *Var, uint32_t Flags)
-      : OffloadEntry(OffloadEntry::EntryKind::VarKind, Var->getName(), Flags) {
+      : OffloadEntry(VarKind, Var->getName(), Flags) {
       setAddress(Var);
     }
 
@@ -220,7 +225,7 @@ private:
     }
 
     static bool classof(const OffloadEntry *E) {
-      return E->getKind() == OffloadEntry::EntryKind::VarKind;
+      return E->getKind() == VarKind;
     }
   };
 

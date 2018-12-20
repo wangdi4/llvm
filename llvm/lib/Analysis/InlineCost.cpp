@@ -2974,6 +2974,7 @@ void CallAnalyzer::findDeadBlocks(BasicBlock *CurrBB, BasicBlock *NextBB) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
 //
 // Starts with Value *V and traces back through a series of at least
 // 'MinBOpCount' but no more than 'MaxBOpCount' BinaryOperators which must
@@ -3297,7 +3298,7 @@ static bool preferNotToInlineForStackComputations(Function *F,
 }
 
 //
-// Return 'true' if Function *F should not be inlined due to its special
+// Return 'true' if CallSite CS should not be inlined due to its special
 // manipulation of stack instructions. (Note that inhibit calls into
 // CS.getCaller() so that the worthy function looks relatively similar in
 // both the compile and link step.
@@ -3307,6 +3308,244 @@ static bool preferNotToInlineForStackComputations(CallSite CS,
    return preferNotToInlineForStackComputations(CS.getCaller(), TLI)
      || preferNotToInlineForStackComputations(CS.getCalledFunction(), TLI);
 }
+
+// Minimal number of cases in a switch to qualify for the "prefer not to
+// inline for switch computations" heuristic.
+static cl::opt<unsigned> MinSwitchCases(
+    "inline-for-switch-min-cases", cl::Hidden, cl::init(11),
+    cl::desc("Min number of switch cases required to trigger heuristic"));
+
+//
+// Return 'true' if the CallSite CS should not be inlined due to having
+// a special type of switch statement. (Note: this heuristic uses info
+// only from the Caller, and not from the Callee of CS.)
+//
+static bool preferNotToInlineForSwitchComputations(CallSite CS,
+                                                   InliningLoopInfoCache &ILIC) {
+  //
+  // Return 'true' if the called function of the Callsite CS is a small
+  // function whose basic blocks that end in a ReturnInst return the
+  // result of an indirect call.
+  //
+  auto WorthySwitchCallSite = [] (CallSite CS) -> bool {
+    auto Callee = CS.getCalledFunction();
+    // Must have the IR for the callee.
+    if (!Callee || Callee->isDeclaration())
+      return false;
+    // Callee must be small (need to limit the compile time).
+    if (Callee->size() > 3)
+      return false;
+    unsigned ReturnCount = 0;
+    for (auto &BB : *Callee) {
+      auto RI = dyn_cast<ReturnInst>(BB.getTerminator());
+      if (!RI)
+        continue;
+      ReturnCount++;
+      auto V = RI->getReturnValue();
+      if (!V)
+        return false;
+      auto ICI = dyn_cast<CallInst>(V);
+      if (!ICI)
+        return false;
+      // Return 'true; if this is an indirect call.
+      CallSite ICS(ICI);
+      if (ICS.getCalledFunction())
+        return false;
+    }
+    return ReturnCount > 0;
+  };
+
+  auto PreferNotToInlineCaller =
+     [&WorthySwitchCallSite](Function *Caller, InliningLoopInfoCache &ILIC)
+     -> bool {
+    // Limit this to Callers with a sufficiently large number of formal
+    // arguments.
+    if (Caller->arg_size() > 3)
+      return false;
+    // Look for a switch statement at the end of the entry block with a
+    // sufficiently large number of cases.
+    BasicBlock *EntryBlock = &(Caller->getEntryBlock());
+    Instruction *TI = EntryBlock->getTerminator();
+    auto SI = dyn_cast<SwitchInst>(TI);
+    if (!SI)
+      return false;
+    if (SI->getNumCases() < MinSwitchCases)
+      return false;
+    auto Cond = SI->getCondition();
+    // The switch statement should get its value from a call to a Function
+    // that makes an indirect call to get its result.
+    auto CI = dyn_cast<CallInst>(Cond);
+    if (!CI)
+      return false;
+    if (!WorthySwitchCallSite(CallSite(CI)))
+      return false;
+    // The actual arguments to the call should come from the formal arguments
+    // to the caller, passed optionally through an all zero index GEP.
+    for (unsigned I = 0; I < CI->getNumArgOperands(); I++) {
+      auto W = CI->getArgOperand(I);
+      auto GEPInst = dyn_cast<GetElementPtrInst>(W);
+      if (GEPInst) {
+        if (!GEPInst->hasAllZeroIndices())
+          return false;
+        W = GEPInst->getPointerOperand();
+      }
+      auto Arg = dyn_cast<Argument>(W);
+      if (!Arg)
+        return false;
+    }
+    // There should be a single join point that all of the switch cases
+    // branch to.  The rest of the code in the caller should be covered
+    // by the switch statements targets.
+    unsigned Count = 0;
+    auto DT = ILIC.getDT(Caller);
+    for (auto &DTN : DT->getNode(EntryBlock)->getChildren()) {
+      auto BB = DTN->getBlock();
+      if (BB->getUniquePredecessor() == EntryBlock)
+        continue;
+      if (++Count > 1)
+        return false;
+      if (!dyn_cast<ReturnInst>(BB->getTerminator()))
+        return false;
+    }
+    if (Count != 1)
+        return false;
+    // Reject any caller that has an invoke instruction.
+    for (auto &I : instructions(Caller))
+      if (isa<InvokeInst>(&I))
+        return false;
+    return true;
+  };
+  //
+  // Use 'WorthyFunction' to store the single worthy Function if found.
+  // Use SmallPtrSet to store those Functions that have already been tested
+  // and have failed the test, so we don't need to test them again.
+  //
+  static Function *WorthyFunction = nullptr;
+  static SmallPtrSet<Function *, 32> FunctionsTestedFail;
+  Function *Caller = CS.getCaller();
+  if (!DTransInlineHeuristics)
+    return false;
+  if (WorthyFunction == Caller)
+    return true;
+  if (FunctionsTestedFail.count(Caller))
+    return false;
+  // The first worthy function we find is the only candidate.
+  if (!PreferNotToInlineCaller(Caller, ILIC)) {
+    FunctionsTestedFail.insert(Caller);
+    return false;
+  }
+  WorthyFunction = Caller;
+  return true;
+}
+
+//
+// Return 'true' if the CallSites of 'Caller' should not be inlined because
+// we are in the 'PrepareForLTO' compile phase and delaying the inlining
+// decision until the link phase will let us more easily decide whether to
+// inline the caller. NOTE: This function 'preferToDelayInlineDecision' can
+// also be called in the link phase.  If it is, we determine whether the
+// caller should be inlined, and if so, add it on the 'QueuedCallers' set.
+//
+static bool preferToDelayInlineDecision(Function *Caller,
+                                        bool PrepareForLTO,
+                                        SmallPtrSetImpl<Function *>
+                                            &QueuedCallers) {
+
+  // Try to return a pointer to a GEP instruction which tests if a structure
+  // field value is greater than 0 at the end of the Caller's entry
+  // BasicBlock. If there is no such pointer, return nullptr.
+  auto TestedGEP = [](Function *Caller) -> GetElementPtrInst * {
+    auto EntryBlock = &(Caller->getEntryBlock());
+    if (EntryBlock->size() > 5)
+      return nullptr;
+    auto BI = dyn_cast<BranchInst>(EntryBlock->getTerminator());
+    if (!BI || BI->isUnconditional())
+      return nullptr;
+    auto ICI = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!ICI || ICI->getPredicate() != ICmpInst::ICMP_SGT)
+      return nullptr;
+    auto Zero = dyn_cast<ConstantInt>(ICI->getOperand(1));
+    if (!Zero || !Zero->isZero())
+      return nullptr;
+    auto LI = dyn_cast<LoadInst>(ICI->getOperand(0));
+    if (!LI)
+      return nullptr;
+    auto GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+    if (!GEP)
+      return nullptr;
+    if (!isa<Argument>(GEP->getPointerOperand()))
+      return nullptr;
+    return GEP;
+  };
+
+  // In the 'PrepareForLTO' phase, return 'true' if the 'Caller' should not
+  // have any of its callsites inlined until the link phase, because inlining
+  // them will make it more difficult to determine whether that Caller should
+  // be inlined during the link phase.  Then, in the link phase, return 'true'
+  // if the 'Caller' should be inlined.
+  auto IsDelayInlineCaller = [&TestedGEP](Function *Caller,
+                                          bool PrepareForLTO) -> bool {
+    if (Caller->size() > (PrepareForLTO ? 5 : 3))
+      return false;
+    if (!TestedGEP(Caller))
+      return false;
+    auto EntryBlock = &(Caller->getEntryBlock());
+    for (auto &BB : *Caller) {
+      if (&BB == EntryBlock)
+        continue;
+      auto TI = BB.getTerminator();
+      auto RI = dyn_cast<ReturnInst>(TI);
+      if (RI) {
+        if (!RI->getReturnValue())
+          return false;
+        if (BB.size() > 2)
+          return false;
+        continue;
+      }
+      auto BI = dyn_cast<BranchInst>(TI);
+      if (!BI)
+        return false;
+      if (BI->isUnconditional())
+        continue;
+      if (!PrepareForLTO)
+        return false;
+      auto II = dyn_cast<IntrinsicInst>(BI->getCondition());
+      if (!II)
+        return false;
+      if (II->getIntrinsicID() != Intrinsic::intel_wholeprogramsafe)
+        return false;
+    }
+    return true;
+  };
+
+  if (!DTransInlineHeuristics)
+    return false;
+  if (IsDelayInlineCaller(Caller, PrepareForLTO)) {
+    if (!PrepareForLTO)
+      QueuedCallers.insert(Caller);
+    return true;
+  }
+  return false;
+}
+
+//
+// Return 'true' if a CallSite with this 'Callee' should be inlined because
+// it is on the 'QueuedCallers' set. NOTE: We determine whether the 'Callee'
+// should be inlined before the inlining of its CallSites, because
+// performing the inlining of the CallSites first makes it harder to tell
+// if the caller should be inlined.
+//
+static bool worthInliningSingleBasicBlockWithStructTest(Function *Callee,
+                                                        bool PrepareForLTO,
+                                                        SmallPtrSetImpl
+                                                            <Function *>
+                                                            &QueuedCallers) {
+  if (PrepareForLTO || !DTransInlineHeuristics)
+    return false;
+  return QueuedCallers.count(Callee);
+}
+
+#endif // INTEL_CUSTOMIZATION
 
 /// Analyze a call site for potential inlining.
 ///
@@ -3329,6 +3568,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
   TempReason = NinlrNoReason; // INTEL
   EarlyExitCost = INT_MAX; // INTEL
   EarlyExitThreshold = INT_MAX; // INTEL
+  static SmallPtrSet<Function *, 10> QueuedCallers; // INTEL
 
   // Perform some tweaks to the cost and threshold based on the direct
   // callsite information.
@@ -3377,6 +3617,17 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
   if (InlineForXmain &&
       preferNotToInlineForStackComputations(CS, TLI)) {
     *ReasonAddr = NinlrStackComputations;
+    return false;
+  }
+  if (InlineForXmain &&
+      preferNotToInlineForSwitchComputations(CS, *ILIC)) {
+    *ReasonAddr = NinlrSwitchComputations;
+    return false;
+  }
+  if (InlineForXmain &&
+      preferToDelayInlineDecision(CS.getCaller(), PrepareForLTO,
+      QueuedCallers)) {
+    *ReasonAddr = NinlrDelayInlineDecision;
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -3434,6 +3685,11 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
       if (worthInliningForStackComputations(&F, TLI, PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrStackComputations);
+      }
+      if (worthInliningSingleBasicBlockWithStructTest(&F, PrepareForLTO,
+          QueuedCallers)) {
+        Cost -= InlineConstants::InliningHeuristicBonus;
+        YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
       }
     }
   }
@@ -3647,7 +3903,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
   if (SingleBB)
     YesReasonVector.push_back(InlrSingleBasicBlock);
   else if (FoundForgivable)
-    YesReasonVector.push_back(InlrAlmostSingleBasicBlock);
+    YesReasonVector.push_back(InlrSingleBasicBlockWithTest);
 #endif // INTEL_CUSTOMIZATION
 
   bool OnlyOneCallAndLocalLinkage =

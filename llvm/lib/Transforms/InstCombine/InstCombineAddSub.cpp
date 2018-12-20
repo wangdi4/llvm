@@ -1573,6 +1573,22 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
           return replaceInstUsesWith(I, SI);
         }
       }
+
+#if INTEL_CUSTOMIZATION
+      // -((X >> C) & 1) -> (X << (BitWidth - C - 1)) >>s (BitWidth - 1)
+      const APInt *Mask;
+      if (match(Op1,
+                m_OneUse(m_And(m_LShr(m_Value(X), m_APInt(ShAmt)),
+                               m_APInt(Mask)))) &&
+          *Mask == 1 && ShAmt->ult(BitWidth)) {
+        Value *Shl = Builder.CreateShl(X,
+                                       ConstantInt::get(I.getType(),
+                                                        BitWidth - *ShAmt - 1));
+        return BinaryOperator::CreateAShr(Shl,
+                                          ConstantInt::get(I.getType(),
+                                                           BitWidth - 1));
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     // Turn this into a xor if LHS is 2^n-1 and the remaining bits are known

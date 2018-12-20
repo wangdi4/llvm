@@ -1050,6 +1050,10 @@ extern kmp_uint64 __kmp_now_nsec();
 /* TODO: tune for KMP_OS_NETBSD */
 #define KMP_INIT_WAIT 1024U /* initial number of spin-tests   */
 #define KMP_NEXT_WAIT 512U /* susequent number of spin-tests */
+#elif KMP_OS_HURD
+/* TODO: tune for KMP_OS_HURD */
+#define KMP_INIT_WAIT 1024U /* initial number of spin-tests   */
+#define KMP_NEXT_WAIT 512U /* susequent number of spin-tests */
 #endif
 
 #if KMP_ARCH_X86 || KMP_ARCH_X86_64
@@ -2160,30 +2164,35 @@ typedef union kmp_depnode kmp_depnode_t;
 typedef struct kmp_depnode_list kmp_depnode_list_t;
 typedef struct kmp_dephash_entry kmp_dephash_entry_t;
 
+// Compiler sends us this info:
 typedef struct kmp_depend_info {
   kmp_intptr_t base_addr;
   size_t len;
   struct {
     bool in : 1;
     bool out : 1;
+    bool mtx : 1;
   } flags;
 } kmp_depend_info_t;
 
+// Internal structures to work with task dependencies:
 struct kmp_depnode_list {
   kmp_depnode_t *node;
   kmp_depnode_list_t *next;
 };
 
+// Max number of mutexinoutset dependencies per node
+#define MAX_MTX_DEPS 4
+
 typedef struct kmp_base_depnode {
-  kmp_depnode_list_t *successors;
-  kmp_task_t *task;
-
-  kmp_lock_t lock;
-
+  kmp_depnode_list_t *successors; /* used under lock */
+  kmp_task_t *task; /* non-NULL if depnode is active, used under lock */
+  kmp_lock_t *mtx_locks[MAX_MTX_DEPS]; /* lock mutexinoutset dependent tasks */
+  kmp_int32 mtx_num_locks; /* number of locks in mtx_locks array */
+  kmp_lock_t lock; /* guards shared fields: task, successors */
 #if KMP_SUPPORT_GRAPH_OUTPUT
   kmp_uint32 id;
 #endif
-
   std::atomic<kmp_int32> npredecessors;
   std::atomic<kmp_int32> nrefs;
 } kmp_base_depnode_t;
@@ -2198,6 +2207,9 @@ struct kmp_dephash_entry {
   kmp_intptr_t addr;
   kmp_depnode_t *last_out;
   kmp_depnode_list_t *last_ins;
+  kmp_depnode_list_t *last_mtxs;
+  kmp_int32 last_flag;
+  kmp_lock_t *mtx_lock; /* is referenced by depnodes w/mutexinoutset dep */
   kmp_dephash_entry_t *next_in_bucket;
 };
 
@@ -2209,6 +2221,18 @@ typedef struct kmp_dephash {
   kmp_uint32 nconflicts;
 #endif
 } kmp_dephash_t;
+
+#if OMP_50_ENABLED
+typedef struct kmp_task_affinity_info {
+  kmp_intptr_t base_addr;
+  size_t len;
+  struct {
+    bool flag1 : 1;
+    bool flag2 : 1;
+    kmp_int32 reserved : 30;
+  } flags;
+} kmp_task_affinity_info_t;
+#endif
 
 #endif
 
@@ -3771,6 +3795,9 @@ KMP_EXPORT void __kmpc_taskloop(ident_t *loc, kmp_int32 gtid, kmp_task_t *task,
 #if OMP_50_ENABLED
 KMP_EXPORT void *__kmpc_task_reduction_init(int gtid, int num_data, void *data);
 KMP_EXPORT void *__kmpc_task_reduction_get_th_data(int gtid, void *tg, void *d);
+KMP_EXPORT kmp_int32 __kmpc_omp_reg_task_with_affinity(
+    ident_t *loc_ref, kmp_int32 gtid, kmp_task_t *new_task, kmp_int32 naffins,
+    kmp_task_affinity_info_t *affin_list);
 #endif
 
 #endif

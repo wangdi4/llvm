@@ -38,11 +38,12 @@
 
 ; TODO: Currently only a single shuffle is seen since codegen does not handle decomposed load VPInstructions. The first two implicit
 ; loads are vectorized into gathers. This test should be updated to check for a wide load and 3 shuffles when that feature is added (Jira : CMPLRLLVM-7542).
+; With the temporary VLS analysis restriction, this loop is vectorized without any wide load or shuffle.
 
 ; CHECK: DO i1 = 0, 99, 2
 ; CHECK: [[Add:%.*]] = (<2 x double>*)(@p)[0][i1 + <i64 0, i64 1>].0[0]  +  (<2 x double>*)(@p)[0][i1 + <i64 0, i64 1>].0[1];
-; CHECK: [[WLd:%.*]] = (<6 x double>*)(@p)[0][i1].0[0];
-; CHECK: [[V3:%.*]] = shufflevector [[WLd]],  undef,  <i32 2, i32 5>;
+; CHECK-NOT: [[WLd:%.*]] = (<6 x double>*)(@p)[0][i1].0[0];
+; CHECK-NOT: [[V3:%.*]] = shufflevector [[WLd]],  undef,  <i32 2, i32 5>;
 ; CHECK: END LOOP
 
 

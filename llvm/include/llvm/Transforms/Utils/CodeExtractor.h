@@ -18,6 +18,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include <limits>
 
 namespace llvm {
@@ -152,7 +153,8 @@ class Value;
 #endif // INTEL_COLLAB
 
   private:
-    void severSplitPHINodes(BasicBlock *&Header);
+    void severSplitPHINodesOfEntry(BasicBlock *&Header);
+    void severSplitPHINodesOfExits(const SmallPtrSetImpl<BasicBlock *> &Exits);
     void splitReturnBlocks();
 
     Function *constructFunction(const ValueSet &inputs,

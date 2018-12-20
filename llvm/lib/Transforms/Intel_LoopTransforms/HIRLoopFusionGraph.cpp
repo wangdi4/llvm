@@ -36,7 +36,8 @@ typedef DDRefGatherer<RegDDRef, AllRefs ^ (BlobRefs | ConstantRefs |
 bool fusion::isGoodLoop(const HLLoop *Loop) {
   return Loop->isDo() && Loop->isNormalized() &&
          !(Loop->isDistributedForMemRec() || Loop->hasUnrollEnablingPragma() ||
-           Loop->hasVectorizeEnablingPragma());
+           Loop->hasVectorizeEnablingPragma() ||
+           Loop->hasFusionDisablingPragma());
 }
 
 class fusion::FuseEdgeHeap {
@@ -852,10 +853,8 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
 
   std::pair<unsigned, unsigned> MinMaxLevel =
       std::minmax(DstRef->getNodeLevel(), SrcRef->getNodeLevel());
-  unsigned StartLevel = std::max(MinMaxLevel.first, CommonLevel);
 
   assert(CanonExprUtils::isValidLoopLevel(CommonLevel));
-  assert(CanonExprUtils::isValidLoopLevel(StartLevel));
 
   // Special handle case when SrcRef or DstRef is in preheader or postexit.
   if (CommonLevel > MinMaxLevel.first) {
@@ -908,7 +907,7 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
   assert(CanonExprUtils::isValidLoopLevel(MinMaxLevel.second));
 
   auto RefinedDep =
-      refineDependency(SrcRef, DstRef, StartLevel, MinMaxLevel.second);
+      refineDependency(SrcRef, DstRef, CommonLevel, MinMaxLevel.second);
 
   if (RefinedDep.isIndependent()) {
     return true;
@@ -918,7 +917,7 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
     return false;
   }
 
-  for (unsigned Level = StartLevel; Level <= MinMaxLevel.second; ++Level) {
+  for (unsigned Level = CommonLevel; Level <= MinMaxLevel.second; ++Level) {
     auto Dir = RefinedDep.getDV()[Level - 1];
     assert(Dir != DVKind::NONE);
 

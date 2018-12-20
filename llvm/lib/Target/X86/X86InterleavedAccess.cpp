@@ -41,7 +41,7 @@ using namespace llvm;
 
 namespace {
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// Allows creating OVLS abstract memory-references for LLVM-IR based
 /// interleaved accesses. E.g. %wide.vec = load <4 x double>, <4 x double>*
 /// %ptr, align 16
@@ -175,7 +175,7 @@ class X86InterleavedAccessGroup {
                                SmallVectorImpl<Value *> &TransposedMatrix,
                                unsigned NumSubVecElems);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   const TargetTransformInfo &TTI;
 
   // Store candidates include only one interleaved shuffle instruction. To make
@@ -289,7 +289,7 @@ public:
   /// instructions/intrinsics.
   bool lowerIntoOptimizedSequence();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// \brief Lowers this interleaved access group into X86-specific
   /// instructions/intrinsics by an Intel customized optimization OptVLS
   /// which uses dynamic algorithm to generate the optimized sequence
@@ -1108,7 +1108,7 @@ bool X86TargetLowering::lowerInterleavedLoad(
   // Create an interleaved access group.
   IRBuilder<> Builder(LI);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   const TargetMachine &TM = getTargetMachine();
   const X86TargetMachine *X86TM = static_cast<const X86TargetMachine *>(&TM);
   const TargetTransformInfo &TTI =

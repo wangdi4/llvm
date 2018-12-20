@@ -116,6 +116,9 @@ def SDTIntBinOp : SDTypeProfile<1, 2, [     // add, and, or, xor, udiv, etc.
 def SDTIntShiftOp : SDTypeProfile<1, 2, [   // shl, sra, srl
   SDTCisSameAs<0, 1>, SDTCisInt<0>, SDTCisInt<2>
 ]>;
+def SDTIntShiftDOp: SDTypeProfile<1, 3, [   // fshl, fshr
+  SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>, SDTCisInt<0>, SDTCisInt<3>
+]>;
 def SDTIntSatNoShOp : SDTypeProfile<1, 2, [   // ssat with no shift
   SDTCisSameAs<0, 1>, SDTCisInt<2>
 ]>;
@@ -162,7 +165,7 @@ def SDTExtInreg : SDTypeProfile<1, 2, [     // sext_inreg
 ]>;
 def SDTExtInvec : SDTypeProfile<1, 1, [     // sext_invec
   SDTCisInt<0>, SDTCisVec<0>, SDTCisInt<1>, SDTCisVec<1>,
-  SDTCisOpSmallerThanOp<1, 0>, SDTCisSameSizeAs<0,1>
+  SDTCisOpSmallerThanOp<1, 0>
 ]>;
 
 def SDTSetCC : SDTypeProfile<1, 3, [        // setcc
@@ -350,6 +353,8 @@ def sra        : SDNode<"ISD::SRA"       , SDTIntShiftOp>;
 def shl        : SDNode<"ISD::SHL"       , SDTIntShiftOp>;
 def rotl       : SDNode<"ISD::ROTL"      , SDTIntShiftOp>;
 def rotr       : SDNode<"ISD::ROTR"      , SDTIntShiftOp>;
+def fshl       : SDNode<"ISD::FSHL"      , SDTIntShiftDOp>;
+def fshr       : SDNode<"ISD::FSHR"      , SDTIntShiftDOp>;
 def and        : SDNode<"ISD::AND"       , SDTIntBinOp,
                         [SDNPCommutative, SDNPAssociative]>;
 def or         : SDNode<"ISD::OR"        , SDTIntBinOp,
@@ -631,6 +636,15 @@ class PatFrags<dag ops, list<dag> frags, code pred = [{}],
   code GISelPredicateCode = [{}];
   code ImmediateCode = [{}];
   SDNodeXForm OperandTransform = xform;
+
+  // When this is set, the PredicateCode may refer to a constant Operands
+  // vector which contains the captured nodes of the DAG, in the order listed
+  // by the Operands field above.
+  //
+  // This is useful when Fragments involves associative / commutative
+  // operators: a single piece of code can easily refer to all operands even
+  // when re-associated / commuted variants of the fragment are matched.
+  bit PredicateCodeUsesOperands = 0;
 
   // Define a few pre-packaged predicates. This helps GlobalISel import
   // existing rules from SelectionDAG for many common cases.

@@ -914,6 +914,12 @@ static bool isUnrollMetadata(MDNode *Node) {
   return Str && Str->getString().startswith("llvm.loop.unroll");
 }
 
+static bool isFusionMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+
+  return Str && Str->getString().startswith("llvm.loop.fusion");
+}
+
 static bool isDistributeMetadata(MDNode *Node) {
   MDString *Str = getStringMetadata(Node);
 
@@ -940,7 +946,8 @@ static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
       isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
-      isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node)) {
+      isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node) ||
+      isFusionMetadata(Node)) {
     return true;
   }
 

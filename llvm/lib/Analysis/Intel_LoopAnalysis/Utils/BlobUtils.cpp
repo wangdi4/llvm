@@ -58,7 +58,12 @@ unsigned BlobUtils::findOrInsertTempBlobIndex(unsigned Symbase) {
 }
 
 unsigned BlobUtils::findOrInsertBlob(BlobTy Blob) {
-  return getHIRParser().findOrInsertBlob(Blob, InvalidBlobIndex);
+  unsigned Symbase = InvalidSymbase;
+  if (isa<SCEVConstant>(Blob)) {
+    Symbase = ConstantSymbase;
+  }
+
+  return getHIRParser().findOrInsertBlob(Blob, Symbase);
 }
 
 void BlobUtils::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
@@ -247,8 +252,16 @@ BlobTy BlobUtils::createBlob(Value *TempVal, unsigned Symbase, bool Insert,
   return getHIRParser().createBlob(TempVal, Symbase, Insert, NewBlobIndex);
 }
 
-BlobTy BlobUtils::createBlob(Value *Val, bool Insert, unsigned *NewBlobIndex) {
-  return getHIRParser().createBlob(Val, InvalidSymbase, Insert, NewBlobIndex);
+BlobTy BlobUtils::createGlobalVarBlob(GlobalVariable *Global, bool Insert,
+                                      unsigned *NewBlobIndex) {
+  unsigned Symbase = getHIRParser().getHIRFramework().getNewSymbase();
+  return getHIRParser().createBlob(Global, Symbase, Insert, NewBlobIndex);
+}
+
+BlobTy BlobUtils::createConstantBlob(Constant *Const, bool Insert,
+                                     unsigned *NewBlobIndex) {
+  return getHIRParser().createBlob(Const, ConstantSymbase, Insert,
+                                   NewBlobIndex);
 }
 
 BlobTy BlobUtils::createBlob(int64_t Val, Type *Ty, bool Insert,

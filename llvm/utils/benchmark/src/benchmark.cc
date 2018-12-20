@@ -322,7 +322,7 @@ State::State(size_t max_iters, const std::vector<int64_t>& ranges, int thread_i,
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // The static_assert is commented out as this caused build error for
   // windows self build compiler.
 

@@ -542,7 +542,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
         // Parm is used to record the address of last private in the compiler
         // shared variables in the thunk.
         LprivI->setNew(ThunkPrivatesGep);
-        LprivI->setParm(ThunkSharedVal);
+        LprivI->setOrigGEP(ThunkSharedVal);
       }
     }
   }

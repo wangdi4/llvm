@@ -143,7 +143,7 @@ def WIN_ALLOCA_64 : I<0, Pseudo, (outs), (ins GR64:$size),
 // These instructions XOR the frame pointer into a GPR. They are used in some
 // stack protection schemes. These are post-RA pseudos because we only know the
 // frame register after register allocation.
-let Constraints = "$src = $dst", isPseudo = 1, Defs = [EFLAGS] in {
+let Constraints = "$src = $dst", isMoveImm = 1, isPseudo = 1, Defs = [EFLAGS] in {
   def XOR32_FP : I<0, Pseudo, (outs GR32:$dst), (ins GR32:$src),
                   "xorl\t$$FP, $src", []>,
                   Requires<[NotLP64]>, Sched<[WriteALU]>;
@@ -270,7 +270,7 @@ def MORESTACK_RET_RESTORE_R10 : I<0, Pseudo, (outs), (ins), "", []>;
 // Alias instruction mapping movr0 to xor.
 // FIXME: remove when we can teach regalloc that xor reg, reg is ok.
 let Defs = [EFLAGS], isReMaterializable = 1, isAsCheapAsAMove = 1,
-    isPseudo = 1, AddedComplexity = 10 in
+    isPseudo = 1, isMoveImm = 1, AddedComplexity = 10 in
 def MOV32r0  : I<0, Pseudo, (outs GR32:$dst), (ins), "",
                  [(set GR32:$dst, 0)]>, Sched<[WriteZero]>;
 
@@ -361,30 +361,6 @@ def : Pat<(i64 (sext (i8 (X86setcc_c X86_COND_B, EFLAGS)))),
 // and, we might as well just match it as a setb.
 def : Pat<(and (i8 (X86setcc_c X86_COND_B, EFLAGS)), 1),
           (SETBr)>;
-
-// (add OP, SETB) -> (adc OP, 0)
-def : Pat<(add (and (i8 (X86setcc_c X86_COND_B, EFLAGS)), 1), GR8:$op),
-          (ADC8ri GR8:$op, 0)>;
-def : Pat<(add (and (i32 (X86setcc_c X86_COND_B, EFLAGS)), 1), GR32:$op),
-          (ADC32ri8 GR32:$op, 0)>;
-def : Pat<(add (and (i64 (X86setcc_c X86_COND_B, EFLAGS)), 1), GR64:$op),
-          (ADC64ri8 GR64:$op, 0)>;
-
-// (sub OP, SETB) -> (sbb OP, 0)
-def : Pat<(sub GR8:$op, (and (i8 (X86setcc_c X86_COND_B, EFLAGS)), 1)),
-          (SBB8ri GR8:$op, 0)>;
-def : Pat<(sub GR32:$op, (and (i32 (X86setcc_c X86_COND_B, EFLAGS)), 1)),
-          (SBB32ri8 GR32:$op, 0)>;
-def : Pat<(sub GR64:$op, (and (i64 (X86setcc_c X86_COND_B, EFLAGS)), 1)),
-          (SBB64ri8 GR64:$op, 0)>;
-
-// (sub OP, SETCC_CARRY) -> (adc OP, 0)
-def : Pat<(sub GR8:$op, (i8 (X86setcc_c X86_COND_B, EFLAGS))),
-          (ADC8ri GR8:$op, 0)>;
-def : Pat<(sub GR32:$op, (i32 (X86setcc_c X86_COND_B, EFLAGS))),
-          (ADC32ri8 GR32:$op, 0)>;
-def : Pat<(sub GR64:$op, (i64 (X86setcc_c X86_COND_B, EFLAGS))),
-          (ADC64ri8 GR64:$op, 0)>;
 
 //===----------------------------------------------------------------------===//
 // String Pseudo Instructions
@@ -1320,6 +1296,15 @@ def : Pat<(i64 (anyext GR16:$src)),
 def : Pat<(i64 (anyext GR32:$src)),
           (INSERT_SUBREG (i64 (IMPLICIT_DEF)), GR32:$src, sub_32bit)>;
 
+// If this is an anyext of the remainder of an 8-bit sdivrem, use a MOVSX
+// instead of a MOVZX. The sdivrem lowering will emit emit a MOVSX to move
+// %ah to the lower byte of a register. By using a MOVSX here we allow a
+// post-isel peephole to merge the two MOVSX instructions into one.
+def anyext_sdiv : PatFrag<(ops node:$lhs), (anyext node:$lhs),[{
+  return (N->getOperand(0).getOpcode() == ISD::SDIVREM &&
+          N->getOperand(0).getResNo() == 1);
+}]>;
+def : Pat<(i32 (anyext_sdiv GR8:$src)), (MOVSX32rr8 GR8:$src)>;
 
 // Any instruction that defines a 32-bit result leaves the high half of the
 // register. Truncate can be lowered to EXTRACT_SUBREG. CopyFromReg may

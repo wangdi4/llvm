@@ -26,6 +26,7 @@ add_subdirectory(ProfileData)
 add_subdirectory(SPIRV)
 # end INTEL_CUSTOMIZATION
 add_subdirectory(Passes)
+add_subdirectory(TextAPI)
 add_subdirectory(ToolDrivers)
 add_subdirectory(XRay)
 add_subdirectory(Testing)

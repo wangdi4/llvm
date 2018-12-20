@@ -92,9 +92,12 @@ class Item
     };
 
   private :
-    VAR   OrigItem; // original var
-    VAR   NewItem;   // new version (eg private) of the var
-    VAR   ParmItem;  // formal parm in outlined entry; usually holds &OrigItem
+    VAR   OrigItem;  // original var
+    VAR   NewItem;   // new version (eg private) of the var. For tasks, it's
+                     // the offset into the thunk for the new var
+    VAR   OrigGEP;   // TASK only: offset in thunk for the addr of orig var
+    VAR   NewOnTaskStack;  // TASK only: stack copy of a privatized var; this
+                           // is for optimization and may be null if unused
     bool  IsByRef;   // true for a by-reference var
     bool  IsNonPod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
@@ -106,33 +109,36 @@ class Item
 
   public:
     Item(VAR Orig, ItemKind K)
-        : OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr),
-          IsByRef(false), IsNonPod(false), IsVla(false), VlaSize(nullptr),
-          ThunkIdx(-1), AliasScope(nullptr), NoAlias(nullptr), Kind(K) {}
+        : OrigItem(Orig), NewItem(nullptr), OrigGEP(nullptr),
+          NewOnTaskStack(nullptr), IsByRef(false), IsNonPod(false),
+          IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
+          NoAlias(nullptr), Kind(K) {}
     virtual ~Item() = default;
 
-    void setOrig(VAR V)          { OrigItem = V;    }
-    void setNew(VAR V)           { NewItem = V;     }
-    void setParm(VAR V)          { ParmItem = V;    }
-    void setIsByRef(bool Flag)   { IsByRef = Flag;  }
-    void setIsNonPod(bool Flag)  { IsNonPod = Flag; }
-    void setIsVla(bool Flag)     { IsVla = Flag;    }
-    void setVlaSize(EXPR Size)   { VlaSize = Size;  }
-    void setThunkIdx(int I)      { ThunkIdx = I;    }
-    void setAliasScope(MDNode *M){ AliasScope = M;  }
-    void setNoAlias(MDNode *M)   { NoAlias = M;     }
+    void setOrig(VAR V)           { OrigItem = V;       }
+    void setNew(VAR V)            { NewItem = V;        }
+    void setOrigGEP(VAR V)        { OrigGEP = V;        }
+    void setNewOnTaskStack(VAR V) { NewOnTaskStack = V; }
+    void setIsByRef(bool Flag)    { IsByRef = Flag;     }
+    void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
+    void setIsVla(bool Flag)      { IsVla = Flag;       }
+    void setVlaSize(EXPR Size)    { VlaSize = Size;     }
+    void setThunkIdx(int I)       { ThunkIdx = I;       }
+    void setAliasScope(MDNode *M) { AliasScope = M;     }
+    void setNoAlias(MDNode *M)    { NoAlias = M;        }
 
-    VAR  getOrig()     const { return OrigItem; }
-    VAR  getNew()      const { return NewItem;  }
-    VAR  getParm()     const { return ParmItem; }
-    bool getIsByRef()  const { return IsByRef;  }
-    bool getIsNonPod() const { return IsNonPod; }
-    bool getIsVla()    const { return IsVla;    }
-    EXPR getVlaSize()  const { return VlaSize;  }
-    int getThunkIdx()  const { return ThunkIdx; }
-    MDNode *getAliasScope() const { return AliasScope; }
-    MDNode *getNoAlias()    const { return NoAlias; }
-    ItemKind getKind() const { return Kind;     }
+    VAR getOrig()           const { return OrigItem;       }
+    VAR getNew()            const { return NewItem;        }
+    VAR getOrigGEP()        const { return OrigGEP;        }
+    VAR getNewOnTaskStack() const { return NewOnTaskStack; }
+    bool getIsByRef()       const { return IsByRef;        }
+    bool getIsNonPod()      const { return IsNonPod;       }
+    bool getIsVla()         const { return IsVla;          }
+    EXPR getVlaSize()       const { return VlaSize;        }
+    int getThunkIdx()       const { return ThunkIdx;       }
+    MDNode *getAliasScope() const { return AliasScope;     }
+    MDNode *getNoAlias()    const { return NoAlias;        }
+    ItemKind getKind()      const { return Kind;           }
 
     void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsByRef())

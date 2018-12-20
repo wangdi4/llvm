@@ -35,6 +35,10 @@
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
+#endif // INTEL_INCLUDE_DTRANS
+
 #define DEBUG_TYPE "VPOCGHIR"
 
 using namespace llvm;
@@ -762,29 +766,10 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   bool NeedFirstItPeelLoop = SearchLoopNeedsPeeling & IsTCValidForPeeling;
   bool NeedRemainderLoop = false;
   HLLoop *PeelLoop = nullptr;
-  // Generate call to __Intel_PaddedMallocInterface() function and use its
-  // return value in runtime check. If the function returned 0 it means that
-  // vector code is not safe to execute.
-  // TODO: This code has to be moved out into VPlan xforms.
   SmallVector<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>, 2> RTChecks;
-  if (getSearchLoopType() == VPlanIdioms::SearchLoopStrEq) {
-    HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
-    if (Function *PMFunction =
-            HNU.getModule().getFunction("__Intel_PaddedMallocInterface")) {
-      SmallVector<RegDDRef *, 0> Args;
-      HLInst *PaddingIsValid =
-          HNU.createCall(PMFunction, Args, "padding.is.valid");
-      HLNodeUtils::insertBefore(OrigLoop, PaddingIsValid);
-      LLVMContext &Context = HNU.getContext();
-      Type *BoolTy = IntegerType::get(Context, 1);
-      DDRefUtils &DDRU = OrigLoop->getDDRefUtils();
-      RegDDRef *ZeroRef = DDRU.createConstDDRef(BoolTy, 0);
-      HLPredicate Pred(PredicateTy::ICMP_NE);
-      auto Check = std::make_tuple(
-          Pred, PaddingIsValid->getLvalDDRef()->clone(), ZeroRef);
-      RTChecks.push_back(Check);
-    }
-  }
+  // Generate padding runtime check if OrigLoops requires it. Otherwise, nothing
+  // is added to RTChecks.
+  addPaddingRuntimeCheck(RTChecks);
   auto MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
       OrigLoop, VF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer,
       &PeelLoop, NeedFirstItPeelLoop, &RTChecks);
@@ -1285,7 +1270,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
                     1);
       } else {
         unsigned Idx = 0;
-        CE->getBlobUtils().createBlob(CV, true, &Idx);
+        CE->getBlobUtils().createConstantBlob(CV, true, &Idx);
         CE->addBlob(Idx, 1);
       }
     }
@@ -2296,5 +2281,49 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
     assert(FinalLvalRef->isLval() && "DDRef is expected to be an lval ref!");
     FinalLvalRef->makeSelfBlob();
   }
+}
+
+void VPOCodeGenHIR::addPaddingRuntimeCheck(
+    SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
+        &RTChecks) {
+  if (getSearchLoopType() != VPlanIdioms::SearchLoopStrEq)
+    return;
+
+#if INTEL_INCLUDE_DTRANS
+  // Generate runtime check __Intel_PaddedMallocCounter[0] < PaddedMallocLimit.
+  // If condition is false, vector code is not safe to execute.
+  HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+  if (GlobalVariable *PaddedMallocVariable =
+          HNU.getModule().getGlobalVariable("__Intel_PaddedMallocCounter",
+                                            true /*AllowInternal*/)) {
+    LLVMContext &Context = HNU.getContext();
+    DDRefUtils &DDRU = OrigLoop->getDDRefUtils();
+    CanonExprUtils &CEU = HNU.getCanonExprUtils();
+
+    Type *IntTy = IntegerType::get(Context, 32);
+    Type *BoolTy = IntegerType::get(Context, 1);
+
+    // Construct memref __Intel_PaddedMallocCounter[0].
+    unsigned PaddedMallocAddrIdx;
+    CEU.getBlobUtils().createGlobalVarBlob(PaddedMallocVariable, true,
+                                           &PaddedMallocAddrIdx);
+    RegDDRef *PaddedMalloc = DDRU.createMemRef(PaddedMallocAddrIdx);
+    PaddedMalloc->addDimension(CEU.createCanonExpr(IntTy));
+
+    // Construct PaddedMallocLimit.
+    RegDDRef *PaddedLimit =
+        DDRU.createConstDDRef(IntTy, llvm::getPaddedMallocLimit());
+
+    HLInst *PaddingIsValid = HNU.createCmp(
+        PredicateTy::ICMP_ULT, PaddedMalloc, PaddedLimit, "valid.padding");
+    HLNodeUtils::insertBefore(OrigLoop, PaddingIsValid);
+
+    RegDDRef *ZeroRef = DDRU.createConstDDRef(BoolTy, 0);
+    HLPredicate Pred(PredicateTy::ICMP_NE);
+    auto Check = std::make_tuple(
+        Pred, PaddingIsValid->getLvalDDRef()->clone(), ZeroRef);
+    RTChecks.push_back(Check);
+  }
+#endif // INTEL_INCLUDE_DTRANS
 }
 } // end namespace llvm

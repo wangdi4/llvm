@@ -58,6 +58,9 @@ class MemInstGroup {
 
   size_t MaxVecRegSize;
 
+  // Total number of scalar-elements in the group.
+  size_t TotalScalarElements = 0;
+
 public:
   MemInstGroup(const DataLayout &DL, size_t MaxVecRegSizeVal)
       : DL(DL), MaxVecRegSize(MaxVecRegSizeVal) {
@@ -101,6 +104,12 @@ public:
   /// \Return the scalar type of a single element.
   Type *getScalarType() const;
 
+  /// \Returns the ith element of the group
+  Instruction *getMember(size_t i) const {
+    assert(i < size() && "Index exceeds Group bounds.");
+    return CoalescedLoads[i];
+  }
+
   /// \Return true if combining loads of this group would be profitable.
   bool isCoalescingLoadsProfitable(const TargetTransformInfo *TTI) const;
 
@@ -112,6 +121,9 @@ public:
 
   /// Return the total byte size of the group.
   size_t getTotalSize() const { return TotalVectorSize; };
+
+  /// Return the total number of scalar elements in the group.
+  size_t getTotalScalarElements() const { return TotalScalarElements; }
 
   /// Returns true if \p I is in the group.
   bool contains(Instruction *I) const { return CoalescedLoads.count(I); }

@@ -756,7 +756,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case LibFunc_assert_fail:
     Changed |= setDoesNotReturn(F);
     Changed |= setDoesNotThrow(F);

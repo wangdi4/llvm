@@ -74,6 +74,13 @@ static cl::opt<bool> AllowScalars(
     "load-coalescing-allow-scalars", cl::init(false), cl::Hidden,
     cl::desc("Allow load coalescing of scalar types (for debugging)"));
 
+static cl::opt<int> LoadCoalescingProfitabilityThreshold(
+    "load-coalescing-profitability-threshold", cl::init(2), cl::Hidden,
+    cl::desc("Set the profitability threshold for LoadCoalescing. This number "
+             "is the different between the cost of coalescing, including the "
+             "cost of executing the required shuffle/extract - element "
+             "instructions V/S the cost of uncoalesced instruction"));
+
 Type *MemInstGroup::getScalarType() const {
   auto Ty = getLoadStoreType(getHead());
   return isa<VectorType>(Ty) ? cast<VectorType>(Ty)->getVectorElementType()
@@ -85,45 +92,66 @@ Type *MemInstGroup::getScalarType() const {
 // strategy it would be better to have a more rubust code-model.
 bool MemInstGroup::isCoalescingLoadsProfitable(
     const TargetTransformInfo *TTI) const {
+
   assert(isa<LoadInst>(getHead()) &&
          "The group should exclusively hold LoadInst's.");
   LoadInst *LI = cast<LoadInst>(getHead());
-  Type *ElementTy = getLoadStoreType(LI);
-  VectorType *GroupTy = VectorType::get(ElementTy->getScalarType(),
-                                        size() * getNumElementsSafe(ElementTy));
-  int ShuffleCost = 0;
-  // TODO: Not sure if we need the vector index or the scalar index as an
-  // argument for getShuffleCost.
-  for (int I = 0, E = size(); I != E; ++I)
-    ShuffleCost += TTI->getShuffleCost(TargetTransformInfo::SK_ExtractSubvector,
-                                       GroupTy, I, ElementTy);
-  int ElementLoadCost =
-      TTI->getMemoryOpCost(LI->getOpcode(), ElementTy, LI->getAlignment(),
-                           LI->getPointerAddressSpace());
+  VectorType *GroupTy =
+      VectorType::get(getScalarType(), getTotalScalarElements());
+
+  size_t ShuffleCost = 0;
+  size_t CoalescedLoadScalarOffset = 0;
+  unsigned CostBeforeCoalescing = 0;
+  for (size_t I = 0, E = size(); I != E; ++I) {
+    // Get the cost of shuffles required. Based on whether we are generating an
+    // actual shuffle as opposed to an extractelement instruction for getting
+    // either a sub-vector or a scalar element, we use the appropriate API to
+    // get the cost. For getting the cost of extractelement instruction, we use
+    // the getVectorInstrCost function.
+    LoadInst *MemberI = cast<LoadInst>(getMember(I));
+    Type *GroupMemType = getLoadStoreType(MemberI);
+    assert(GroupMemType && "Null-value for Group-member type.");
+
+    if (isa<VectorType>(GroupMemType))
+      ShuffleCost +=
+          TTI->getShuffleCost(TargetTransformInfo::SK_ExtractSubvector, GroupTy,
+                              CoalescedLoadScalarOffset, GroupMemType);
+    else
+      ShuffleCost += TTI->getVectorInstrCost(
+          Instruction::ExtractElement, GroupTy, CoalescedLoadScalarOffset);
+
+    CostBeforeCoalescing += TTI->getMemoryOpCost(
+        MemberI->getOpcode(), GroupMemType, MemberI->getAlignment(),
+        MemberI->getPointerAddressSpace());
+
+    CoalescedLoadScalarOffset += getNumElementsSafe(GroupMemType);
+  }
+
   int GroupLoadCost =
       TTI->getMemoryOpCost(LI->getOpcode(), GroupTy, LI->getAlignment(),
                            LI->getPointerAddressSpace());
-  int CostBeforeCoalescing = ElementLoadCost * size();
   int CostAfterCoalescing = GroupLoadCost + ShuffleCost;
-  int ProfitabilityThreshold =
-      std::abs(CostAfterCoalescing - CostBeforeCoalescing);
-  bool IsProfitable = ProfitabilityThreshold < 2;
+  int ProfitabilityThreshold = CostAfterCoalescing - CostBeforeCoalescing;
+  bool IsProfitable =
+      ProfitabilityThreshold < LoadCoalescingProfitabilityThreshold;
   LLVM_DEBUG(if (!IsProfitable) dbgs()
-                 << "LC: G " << getId()
-                 << " CostAfterCoalescing: " << CostAfterCoalescing
+                 << "LC: G " << getId() << '\n'
+                 << " ShuffleCost: " << ShuffleCost << '\n'
+                 << " CostAfterCoalescing: " << CostAfterCoalescing << '\n'
                  << " CostBeforeCoalescing: " << CostBeforeCoalescing << '\n';);
   return IsProfitable;
 }
 
 void MemInstGroup::append(Instruction *LI, size_t LISize) {
+  Type *LIType = LI->getType();
   if (CoalescedLoads.size() == 0) {
-    Type *ScalarTy =
-        (isa<VectorType>(LI->getType())
-             ? cast<VectorType>(LI->getType())->getVectorElementType()
-             : LI->getType());
+    Type *ScalarTy = (isa<VectorType>(LIType)
+                          ? cast<VectorType>(LIType)->getVectorElementType()
+                          : LIType);
     ScalarSize = DL.getTypeSizeInBits(ScalarTy);
   }
 
+  TotalScalarElements += getNumElementsSafe(LIType);
   CoalescedLoads.insert(LI);
   TotalVectorSize += LISize;
 }

@@ -436,6 +436,13 @@ private:
   HLInst *widenPred(const HLIf *HIf, HLIf::const_pred_iterator PredIt,
                     RegDDRef *Mask);
 
+  // For Generate PaddedCounter < 250 and insert it into the vector of runtime
+  // checks if this is a search loop which needs the check.
+  // Nothing is added if padding transformation is not required for this loop.
+  void addPaddingRuntimeCheck(
+      SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
+          &RTChecks);
+
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to
   // the cost model.

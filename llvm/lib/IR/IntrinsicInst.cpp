@@ -191,7 +191,7 @@ bool ConstrainedFPIntrinsic::isTernaryOp() const {
   }
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 unsigned SubscriptInst::getResultVectorNumElements(ArrayRef<Value *> Args) {
   unsigned VectorNumElem = 0;
   for (auto &Arg : Args) {

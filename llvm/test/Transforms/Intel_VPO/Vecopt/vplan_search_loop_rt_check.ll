@@ -29,14 +29,14 @@
 ; After VPlan
 ;
 ; CHECK: BEGIN REGION { modified }
-; CHECK:       %padding.is.valid = @__Intel_PaddedMallocInterface();
+; CHECK:       %valid.padding = (@__Intel_PaddedMallocCounter)[0] <u 250;
 ; CHECK:       + DO i1 = 0, 0, 1   <DO_MULTI_EXIT_LOOP>
 ; CHECK:       |   if ((%pv1)[i1] != (%pv1)[i1])
 ; CHECK:       |   {
 ; CHECK:       |      goto bb3;
 ; CHECK:       |   }
 ; CHECK:       + END LOOP
-; CHECK:       if (%padding.is.valid != 0)
+; CHECK:       if (%valid.padding != 0)
 ; CHECK:       {
 ; CHECK:          %tgu = 2;
 ; CHECK:          + DO i1 = 0, 7, 4   <DO_MULTI_EXIT_LOOP> <novectorize>

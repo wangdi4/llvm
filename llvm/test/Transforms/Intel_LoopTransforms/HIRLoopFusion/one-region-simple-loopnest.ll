@@ -1,6 +1,8 @@
 ; RUN: opt -hir-ssa-deconstruction -disable-output -hir-loop-fusion -print-after=hir-loop-fusion -hir-create-function-level-region < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-create-function-level-region < %s 2>&1 | FileCheck %s
 
+; This case should not be fused: value in %a[i2] depends on the iteration of i1 loop.
+
 ; INPUT:
 ; BEGIN REGION { }
 ;
@@ -21,17 +23,17 @@
 ; ret ;
 ; END REGION
 
-; CHECK: BEGIN REGION { modified }
+; CHECK: BEGIN REGION { }
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   (%a)[i2] = i1;
-; CHECK-NOT: + END LOOP
+; CHECK: |   + END LOOP
+;
+; CHECK: |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   %0 = (%a)[i2];
 ; CHECK: |   |   (%b)[i2] = %0 + 1;
 ; CHECK: |   + END LOOP
-; CHECK-NOT: + DO
 ; CHECK: + END LOOP
-; CHECK-NOT: + DO
 ; CHECK: END REGION
 
 ;Module Before HIR; ModuleID = 'enclosed-simple.c'

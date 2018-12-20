@@ -107,20 +107,34 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, ImmutableCallSite CS,
                               const TargetLibraryInfo &TLI) {
   assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
-
-  if (!dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts())) {
-    assert(Kind == AK_UserMalloc);
-    AllocSizeInd = 1;
-    AllocCountInd = -1U;
-    return;
-  }
-
   switch (Kind) {
-  case AK_UserMalloc:
+  case AK_UserMalloc: {
+    // User-defined malloc with two arguments comes from the operator new which
+    // was re-defined by user in some class. In this case the first argument is
+    // always 'this' pointer and the second argument is 'size' argument.
+    // Indirect call means that devirtualization on this call site didn't
+    // happen.
+    if (CS.arg_size() == 2 ||
+        !dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts())) {
+      // Allow user-defined malloc with 'this' ptr argument.
+      Type *ZeroArgType = CS.getArgument(0)->getType();
+      Type *FirstArgType = CS.getArgument(1)->getType();
+      if (ZeroArgType->isPointerTy() &&
+          ZeroArgType->getPointerElementType()->isStructTy() &&
+          FirstArgType->isIntegerTy()) {
+        AllocSizeInd = 1;
+        AllocCountInd = -1U;
+        return;
+      }
+    }
     AllocSizeInd = 0;
     AllocCountInd = -1U;
     return;
+  }
   case AK_New:
+    AllocSizeInd = 0;
+    AllocCountInd = -1U;
+    return;
   case AK_Calloc:
   case AK_Malloc:
   case AK_Realloc: {
@@ -159,11 +173,11 @@ void dtrans::collectSpecialAllocArgs(AllocKind Kind, ImmutableCallSite CS,
 }
 
 bool dtrans::isFreeFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI) {
-  return isFreeCall(CS.getInstruction(), &TLI);
+  return isFreeCall(CS.getInstruction(), &TLI, false);
 }
 
 bool dtrans::isDeleteFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI) {
-  return isDeleteCall(CS.getInstruction(), &TLI);
+  return isDeleteCall(CS.getInstruction(), &TLI, false);
 }
 
 void dtrans::getFreePtrArg(FreeKind Kind, ImmutableCallSite CS,
@@ -174,6 +188,18 @@ void dtrans::getFreePtrArg(FreeKind Kind, ImmutableCallSite CS,
     assert(Kind == FK_UserFree);
     PtrArgInd = 1;
     return;
+  }
+
+  if ((Kind == FK_UserFree) && (CS.arg_size() == 2)) {
+    // Allow user-defined free with 'this' ptr argument.
+    Type *ZeroArgType = CS.getArgument(0)->getType();
+    Type *FirstArgType = CS.getArgument(1)->getType();
+    if (ZeroArgType->isPointerTy() &&
+        ZeroArgType->getPointerElementType()->isStructTy() &&
+        FirstArgType->isPointerTy()) {
+      PtrArgInd = 1;
+      return;
+    }
   }
   PtrArgInd = 0;
 }
@@ -936,3 +962,42 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
 
   return false;
 }
+
+bool dtrans::isDummyFuncWithUnreachable(ImmutableCallSite CS) {
+  auto *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+  if (!F)
+    return false;
+  if (F->size() != 1)
+    return false;
+  auto &BB = F->getEntryBlock();
+  if (isa<UnreachableInst>(BB.getTerminator()))
+    return true;
+  return false;
+}
+
+bool dtrans::isDummyAllocWithUnreachable(ImmutableCallSite CS) {
+  if (!isDummyFuncWithUnreachable(CS))
+    return false;
+
+  if (CS.arg_size() != 2)
+    return false;
+
+  Type *ZeroArgType = CS.getArgument(0)->getType();
+  Type *FirstArgType = CS.getArgument(1)->getType();
+  return (ZeroArgType->isPointerTy() &&
+          ZeroArgType->getPointerElementType()->isStructTy() &&
+          FirstArgType->isIntegerTy());
+}
+
+bool dtrans::isDummyDeallocWithUnreachable(ImmutableCallSite CS) {
+  if (!isDummyFuncWithUnreachable(CS))
+    return false;
+  if (CS.arg_size() != 2)
+    return false;
+  Type *ZeroArgType = CS.getArgument(0)->getType();
+  Type *FirstArgType = CS.getArgument(1)->getType();
+  return (ZeroArgType->isPointerTy() &&
+          ZeroArgType->getPointerElementType()->isStructTy() &&
+          FirstArgType->isPointerTy());
+}
+

@@ -1,5 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 ; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-framework>" -hir-framework-debug=parser 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="convert-to-subscript,hir-ssa-deconstruction" | opt -passes="print<hir-framework>" -hir-framework-debug=parser 2>&1 | FileCheck %s
 
 ; Verify that we suppress traceback of %arrayidx and %arrayidx2 to %Aoffset and %Boffset to parse %idxprom index as linear.
 

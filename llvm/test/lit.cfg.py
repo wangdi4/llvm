@@ -148,9 +148,9 @@ tools.extend([
     'llvm-objcopy', 'llvm-objdump', 'llvm-pdbutil', 'llvm-profdata',
     'llvm-ranlib', 'llvm-readobj', 'llvm-rtdyld', 'llvm-size', 'llvm-split',
     'llvm-strings', 'llvm-strip', 'llvm-tblgen', 'llvm-undname', 'llvm-c-test',
-    #ifdef INTEL_CUSTOMIZATION
+    # INTEL_CUSTOMIZATION
     'llvm-spirv',
-    #endif // INTEL_CUSTOMIZATION
+    # end INTEL_CUSTOMIZATION
     'llvm-cxxfilt', 'llvm-xray', 'yaml2obj', 'obj2yaml', 'yaml-bench',
     'verify-uselistorder', 'bugpoint', 'llc', 'llvm-symbolizer', 'opt',
     'sancov', 'sanstats'])
@@ -199,6 +199,10 @@ if loadable_module:
 # Static libraries are not built if BUILD_SHARED_LIBS is ON.
 if not config.build_shared_libs and not config.link_llvm_dylib:
     config.available_features.add('static-libs')
+
+# INTEL_CUSTOMIZATION
+llvm_config.add_intel_features()
+# end INTEL_CUSTOMIZATION
 
 def have_cxx_shared_library():
     readobj_exe = lit.util.which('llvm-readobj', config.llvm_tools_dir)

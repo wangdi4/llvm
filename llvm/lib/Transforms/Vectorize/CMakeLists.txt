@@ -7,6 +7,7 @@ add_llvm_library(LLVMVectorize
   VPlan.cpp
   VPlanHCFGBuilder.cpp
   VPlanHCFGTransforms.cpp
+  VPlanSLP.cpp
   VPlanVerifier.cpp
 # INTEL_CUSTOMIZATION
   Intel_LoadCoalescing.cpp

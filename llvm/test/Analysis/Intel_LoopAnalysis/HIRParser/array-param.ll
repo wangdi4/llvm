@@ -1,10 +1,11 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-refs | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-refs | FileCheck %s
 
 ; Check parsing output for the loop verifying that the load of %A is parsed correctly as a 2 dimentional array.
 ; CHECK: DO i1 = 0, 63, 1
 ; CHECK-SAME: DO_LOOP
-; CHECK-NEXT: %0 = (%A)[i1][i1]
-; CHECK-NEXT: %sum.09 = %0  +  %sum.09
+; CHECK-NEXT: %[[TMP:.*]] = (%A)[0:i1:256([64 x i32]*:0)][0:i1:4([64 x i32]:64)]
+; CHECK-NEXT: %sum.09 = %[[TMP]]  +  %sum.09
 ; CHECK-NEXT: END LOOP
 
 

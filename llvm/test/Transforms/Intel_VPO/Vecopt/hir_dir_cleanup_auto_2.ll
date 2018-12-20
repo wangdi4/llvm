@@ -14,7 +14,10 @@
 ;
 ; Test to check that we remove auto vectorization directives even if we fail to
 ; vectorize the loop.
-; RUN: opt -vplan-force-vf=1 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after-all -S < %s 2>&1 | FileCheck %s
+; NOTE: We use the switch -vplan-vectorizer-min-trip-count to make sure that loop
+; is not vectorized. VPlan does not vectorize loops with constant trip counts lesser
+; than the value specified in the switch.
+; RUN: opt -vplan-vectorizer-min-trip-count=1030 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after-all -S < %s 2>&1 | FileCheck %s
 ;
 ; HIR Test.
 ; CHECK: IR Dump After HIR Vec Directive Insertion Pass 

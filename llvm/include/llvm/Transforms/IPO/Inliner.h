@@ -17,7 +17,7 @@
 #include "llvm/ADT/SmallSet.h"    // INTEL
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/IPO/InlineReport.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
 #include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include <utility>
 

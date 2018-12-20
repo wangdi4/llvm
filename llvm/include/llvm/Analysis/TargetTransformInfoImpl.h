@@ -150,7 +150,7 @@ public:
       // FIXME: This is wrong for libc intrinsics.
       return TTI::TCC_Basic;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case Intrinsic::intel_pragma:
 #endif // INTEL_CUSTOMIZATION
     case Intrinsic::annotation:
@@ -163,6 +163,7 @@ public:
     case Intrinsic::invariant_end:
     case Intrinsic::launder_invariant_group:
     case Intrinsic::strip_invariant_group:
+    case Intrinsic::is_constant:
     case Intrinsic::lifetime_start:
     case Intrinsic::lifetime_end:
     case Intrinsic::objectsize:

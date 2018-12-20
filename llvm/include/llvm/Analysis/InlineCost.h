@@ -114,7 +114,8 @@ typedef enum {
    InlrInlineList,
    InlrSingleLocalCall,
    InlrSingleBasicBlock,
-   InlrAlmostSingleBasicBlock,
+   InlrSingleBasicBlockWithTest,
+   InlrSingleBasicBlockWithStructTest,
    InlrEmptyFunction,
    InlrDoubleLocalCall,
    InlrDoubleNonLocalCall,
@@ -165,6 +166,8 @@ typedef enum {
    NinlrPreferMultiversioning,
    NinlrPreferSOAToAOS,
    NinlrStackComputations,
+   NinlrSwitchComputations,
+   NinlrDelayInlineDecision,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 

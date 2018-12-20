@@ -333,9 +333,10 @@ protected:
     // A symbol is exported if its binding is either GLOBAL or WEAK, and its
     // visibility is either DEFAULT or PROTECTED. All other symbols are not
     // exported.
-    return ((Binding == ELF::STB_GLOBAL || Binding == ELF::STB_WEAK) &&
-            (Visibility == ELF::STV_DEFAULT ||
-             Visibility == ELF::STV_PROTECTED));
+    return (
+        (Binding == ELF::STB_GLOBAL || Binding == ELF::STB_WEAK ||
+         Binding == ELF::STB_GNU_UNIQUE) &&
+        (Visibility == ELF::STV_DEFAULT || Visibility == ELF::STV_PROTECTED));
   }
 
   // This flag is used for classof, to distinguish ELFObjectFile from
@@ -1021,6 +1022,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
       return "ELF32-lanai";
     case ELF::EM_MIPS:
       return "ELF32-mips";
+    case ELF::EM_MSP430:
+      return "ELF32-msp430";
     case ELF::EM_ALTERA_NIOS2:
       return "ELF32-nios2";
     case ELF::EM_PPC:
@@ -1093,6 +1096,8 @@ template <class ELFT> Triple::ArchType ELFObjectFile<ELFT>::getArch() const {
     default:
       report_fatal_error("Invalid ELFCLASS!");
     }
+  case ELF::EM_MSP430:
+    return Triple::msp430;
   case ELF::EM_ALTERA_NIOS2:
     switch (EF.getHeader()->e_ident[ELF::EI_CLASS]) {
     case ELF::ELFCLASS32:

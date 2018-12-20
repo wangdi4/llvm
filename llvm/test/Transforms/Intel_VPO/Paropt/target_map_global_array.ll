@@ -40,7 +40,7 @@ attributes #1 = { nounwind }
 !llvm.module.flags = !{!1}
 !llvm.ident = !{!2}
 
-!0 = !{i32 0, i32 59, i32 -1938125551, !"_Z3foov", i32 5, i32 0}
+!0 = !{i32 0, i32 59, i32 -1938125551, !"_Z3foov", i32 5, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang bd018301a7dc67cf16070a769ab95677d0b37161) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 4afa184bc2a40d4c45421960f6f60bab770d02eb)"}
 !3 = !{!4, !5, i64 0}

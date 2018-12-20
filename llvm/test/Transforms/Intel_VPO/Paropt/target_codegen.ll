@@ -48,4 +48,4 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK-ALL-NOT: !omp_offload.info
 !omp_offload.info = !{!0}
 
-!0 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 2, i32 0}
+!0 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 2, i32 0, i32 0}
