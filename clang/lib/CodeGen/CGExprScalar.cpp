@@ -332,6 +332,13 @@ public:
         : TreatBooleanAsSigned(false),
           EmitImplicitIntegerTruncationChecks(false),
           EmitImplicitIntegerSignChangeChecks(false) {}
+
+    ScalarConversionOpts(clang::SanitizerSet SanOpts)
+        : TreatBooleanAsSigned(false),
+          EmitImplicitIntegerTruncationChecks(
+              SanOpts.hasOneOf(SanitizerKind::ImplicitIntegerTruncation)),
+          EmitImplicitIntegerSignChangeChecks(
+              SanOpts.has(SanitizerKind::ImplicitIntegerSignChange)) {}
   };
   Value *
   EmitScalarConversion(Value *Src, QualType SrcTy, QualType DstTy,
@@ -398,6 +405,9 @@ public:
   }
   Value *VisitExpr(Expr *S);
 
+  Value *VisitConstantExpr(ConstantExpr *E) {
+    return Visit(E->getSubExpr());
+  }
   Value *VisitParenExpr(ParenExpr *PE) {
     return Visit(PE->getSubExpr());
   }
@@ -1707,8 +1717,9 @@ Value *ScalarExprEmitter::VisitMemberExpr(MemberExpr *E) {
     CGF.EmitIgnoredExpr(E->getBase());
     return CGF.emitScalarConstant(Constant, E);
   } else {
-    llvm::APSInt Value;
-    if (E->EvaluateAsInt(Value, CGF.getContext(), Expr::SE_AllowSideEffects)) {
+    Expr::EvalResult Result;
+    if (E->EvaluateAsInt(Result, CGF.getContext(), Expr::SE_AllowSideEffects)) {
+      llvm::APSInt Value = Result.Val.getInt();
       CGF.EmitIgnoredExpr(E->getBase());
       return Builder.getInt(Value);
     }
@@ -2188,13 +2199,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_IntegralCast: {
     ScalarConversionOpts Opts;
     if (auto *ICE = dyn_cast<ImplicitCastExpr>(CE)) {
-      if (CGF.SanOpts.hasOneOf(SanitizerKind::ImplicitConversion) &&
-          !ICE->isPartOfExplicitCast()) {
-        Opts.EmitImplicitIntegerTruncationChecks =
-            CGF.SanOpts.hasOneOf(SanitizerKind::ImplicitIntegerTruncation);
-        Opts.EmitImplicitIntegerSignChangeChecks =
-            CGF.SanOpts.has(SanitizerKind::ImplicitIntegerSignChange);
-      }
+      if (!ICE->isPartOfExplicitCast())
+        Opts = ScalarConversionOpts(CGF.SanOpts);
     }
     return EmitScalarConversion(Visit(E), E->getType(), DestTy,
                                 CE->getExprLoc(), Opts);
@@ -2236,7 +2242,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   }
 
   case CK_ZeroToOCLOpaqueType: {
-    assert((DestTy->isEventT() || DestTy->isQueueT()) &&
+    assert((DestTy->isEventT() || DestTy->isQueueT() ||
+            DestTy->isOCLIntelSubgroupAVCType()) &&
            "CK_ZeroToOCLEvent cast on non-event type");
     return llvm::Constant::getNullValue(ConvertType(DestTy));
   }
@@ -2591,9 +2598,11 @@ Value *ScalarExprEmitter::VisitUnaryLNot(const UnaryOperator *E) {
 
 Value *ScalarExprEmitter::VisitOffsetOfExpr(OffsetOfExpr *E) {
   // Try folding the offsetof to a constant.
-  llvm::APSInt Value;
-  if (E->EvaluateAsInt(Value, CGF.getContext()))
+  Expr::EvalResult EVResult;
+  if (E->EvaluateAsInt(EVResult, CGF.getContext())) {
+    llvm::APSInt Value = EVResult.Val.getInt();
     return Builder.getInt(Value);
+  }
 
   // Loop over the components of the offsetof to compute the value.
   unsigned n = E->getNumComponents();
@@ -2862,9 +2871,10 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
   // Expand the binary operator.
   Result = (this->*Func)(OpInfo);
 
-  // Convert the result back to the LHS type.
-  Result =
-      EmitScalarConversion(Result, E->getComputationResultType(), LHSTy, Loc);
+  // Convert the result back to the LHS type,
+  // potentially with Implicit Conversion sanitizer check.
+  Result = EmitScalarConversion(Result, E->getComputationResultType(), LHSTy,
+                                Loc, ScalarConversionOpts(CGF.SanOpts));
 
   if (atomicPHI) {
     llvm::BasicBlock *opBB = Builder.GetInsertBlock();

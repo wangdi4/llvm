@@ -823,7 +823,7 @@ SDValue RegsForValue::getCopyFromRegs(SelectionDAG &DAG,
       // If the source register was virtual and if we know something about it,
       // add an assert node.
       if (!TargetRegisterInfo::isVirtualRegister(Regs[Part+i]) ||
-          !RegisterVT.isInteger() || RegisterVT.isVector())
+          !RegisterVT.isInteger())
         continue;
 
       const FunctionLoweringInfo::LiveOutInfo *LOI =
@@ -831,7 +831,7 @@ SDValue RegsForValue::getCopyFromRegs(SelectionDAG &DAG,
       if (!LOI)
         continue;
 
-      unsigned RegSize = RegisterVT.getSizeInBits();
+      unsigned RegSize = RegisterVT.getScalarSizeInBits();
       unsigned NumSignBits = LOI->NumSignBits;
       unsigned NumZeroBits = LOI->Known.countMinLeadingZeros();
 
@@ -1032,8 +1032,19 @@ SDValue SelectionDAGBuilder::getRoot() {
   }
 
   // Otherwise, we have to make a token factor node.
-  SDValue Root = DAG.getNode(ISD::TokenFactor, getCurSDLoc(), MVT::Other,
-                             PendingLoads);
+  // If we have >= 2^16 loads then split across multiple token factors as
+  // there's a 64k limit on the number of SDNode operands.
+  SDValue Root;
+  size_t Limit = (1 << 16) - 1;
+  while (PendingLoads.size() > Limit) {
+    unsigned SliceIdx = PendingLoads.size() - Limit;
+    auto ExtractedTFs = ArrayRef<SDValue>(PendingLoads).slice(SliceIdx, Limit);
+    SDValue NewTF =
+        DAG.getNode(ISD::TokenFactor, getCurSDLoc(), MVT::Other, ExtractedTFs);
+    PendingLoads.erase(PendingLoads.begin() + SliceIdx, PendingLoads.end());
+    PendingLoads.emplace_back(NewTF);
+  }
+  Root = DAG.getNode(ISD::TokenFactor, getCurSDLoc(), MVT::Other, PendingLoads);
   PendingLoads.clear();
   DAG.setRoot(Root);
   return Root;
@@ -2799,6 +2810,15 @@ static bool isVectorReductionOp(const User *I) {
     }
   }
   return ReduxExtracted;
+}
+
+void SelectionDAGBuilder::visitUnary(const User &I, unsigned Opcode) {
+  SDNodeFlags Flags;
+
+  SDValue Op = getValue(I.getOperand(0));
+  SDValue UnNodeValue = DAG.getNode(Opcode, getCurSDLoc(), Op.getValueType(),
+                                    Op, Flags);
+  setValue(&I, UnNodeValue);
 }
 
 void SelectionDAGBuilder::visitBinary(const User &I, unsigned Opcode) {
@@ -5731,6 +5751,12 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     SDValue Zero = DAG.getConstant(0, sdl, VT);
     SDValue ShAmt = DAG.getNode(ISD::UREM, sdl, VT, Z, BitWidthC);
 
+    auto FunnelOpcode = IsFSHL ? ISD::FSHL : ISD::FSHR;
+    if (TLI.isOperationLegalOrCustom(FunnelOpcode, VT)) {
+      setValue(&I, DAG.getNode(FunnelOpcode, sdl, VT, X, Y, Z));
+      return nullptr;
+    }
+
     // When X == Y, this is rotate. If the data type has a power-of-2 size, we
     // avoid the select that is necessary in the general case to filter out
     // the 0-shift possibility that leads to UB.
@@ -5897,6 +5923,13 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     setValue(&I, Res);
     return nullptr;
   }
+
+  case Intrinsic::is_constant:
+    // If this wasn't constant-folded away by now, then it's not a
+    // constant.
+    setValue(&I, DAG.getConstant(0, sdl, MVT::i1));
+    return nullptr;
+
   case Intrinsic::annotation:
   case Intrinsic::ptr_annotation:
   case Intrinsic::launder_invariant_group:
@@ -6321,6 +6354,56 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     // MachineFunction in SelectionDAGISel::PrepareEHLandingPad. We can safely
     // delete it now.
     return nullptr;
+  case Intrinsic::objc_autorelease:
+    return "objc_autorelease";
+  case Intrinsic::objc_autoreleasePoolPop:
+    return "objc_autoreleasePoolPop";
+  case Intrinsic::objc_autoreleasePoolPush:
+    return "objc_autoreleasePoolPush";
+  case Intrinsic::objc_autoreleaseReturnValue:
+    return "objc_autoreleaseReturnValue";
+  case Intrinsic::objc_copyWeak:
+    return "objc_copyWeak";
+  case Intrinsic::objc_destroyWeak:
+    return "objc_destroyWeak";
+  case Intrinsic::objc_initWeak:
+    return "objc_initWeak";
+  case Intrinsic::objc_loadWeak:
+    return "objc_loadWeak";
+  case Intrinsic::objc_loadWeakRetained:
+    return "objc_loadWeakRetained";
+  case Intrinsic::objc_moveWeak:
+    return "objc_moveWeak";
+  case Intrinsic::objc_release:
+    return "objc_release";
+  case Intrinsic::objc_retain:
+    return "objc_retain";
+  case Intrinsic::objc_retainAutorelease:
+    return "objc_retainAutorelease";
+  case Intrinsic::objc_retainAutoreleaseReturnValue:
+    return "objc_retainAutoreleaseReturnValue";
+  case Intrinsic::objc_retainAutoreleasedReturnValue:
+    return "objc_retainAutoreleasedReturnValue";
+  case Intrinsic::objc_retainBlock:
+    return "objc_retainBlock";
+  case Intrinsic::objc_storeStrong:
+    return "objc_storeStrong";
+  case Intrinsic::objc_storeWeak:
+    return "objc_storeWeak";
+  case Intrinsic::objc_unsafeClaimAutoreleasedReturnValue:
+    return "objc_unsafeClaimAutoreleasedReturnValue";
+  case Intrinsic::objc_retainedObject:
+    return "objc_retainedObject";
+  case Intrinsic::objc_unretainedObject:
+    return "objc_unretainedObject";
+  case Intrinsic::objc_unretainedPointer:
+    return "objc_unretainedPointer";
+  case Intrinsic::objc_retain_autorelease:
+    return "objc_retain_autorelease";
+  case Intrinsic::objc_sync_enter:
+    return "objc_sync_enter";
+  case Intrinsic::objc_sync_exit:
+    return "objc_sync_exit";
   }
 }
 

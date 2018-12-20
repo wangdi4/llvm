@@ -7,10 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// C Includes
-// C++ Includes
-#include <cctype> // for alnum
-// Other libraries and framework includes
+#include <cctype>
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTDiagnostic.h"
 #include "clang/AST/ExternalASTSource.h"
@@ -59,7 +56,6 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Signals.h"
 
-// Project includes
 #include "ClangDiagnostic.h"
 #include "ClangExpressionParser.h"
 
@@ -402,10 +398,9 @@ ClangExpressionParser::ClangExpressionParser(ExecutionContextScope *exe_scope,
     LLVM_FALLTHROUGH;
   case lldb::eLanguageTypeC_plus_plus_03:
     m_compiler->getLangOpts().CPlusPlus = true;
-    // FIXME: the following language option is a temporary workaround,
-    // to "ask for C++, get ObjC++".  Apple hopes to remove this requirement on
-    // non-Apple platforms, but for now it is needed.
-    m_compiler->getLangOpts().ObjC = true;
+    if (process_sp)
+      m_compiler->getLangOpts().ObjC =
+          process_sp->GetLanguageRuntime(lldb::eLanguageTypeObjC) != nullptr;
     break;
   case lldb::eLanguageTypeObjC_plus_plus:
   case lldb::eLanguageTypeUnknown:

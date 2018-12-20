@@ -2635,6 +2635,12 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::OCLReserveID:
     Out << "13ocl_reserveid";
     break;
+#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+  case BuiltinType::Id: \
+    type_name = "ocl_" #ExtType; \
+    Out << type_name.size() << type_name; \
+    break;
+#include "clang/Basic/OpenCLExtensionTypes.def"
   }
 }
 
@@ -2653,6 +2659,7 @@ StringRef CXXNameMangler::getCallingConvQualifierName(CallingConv CC) {
   case CC_X86RegCall:
   case CC_AAPCS:
   case CC_AAPCS_VFP:
+  case CC_AArch64VectorCall:
   case CC_IntelOclBicc:
   case CC_SpirFunction:
   case CC_OpenCLKernel:

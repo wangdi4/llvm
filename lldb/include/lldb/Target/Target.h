@@ -10,16 +10,12 @@
 #ifndef liblldb_Target_h_
 #define liblldb_Target_h_
 
-// C Includes
-// C++ Includes
 #include <list>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
-// Other libraries and framework includes
-// Project includes
 #include "lldb/Breakpoint/BreakpointList.h"
 #include "lldb/Breakpoint/BreakpointName.h"
 #include "lldb/Breakpoint/WatchpointList.h"
@@ -201,6 +197,10 @@ public:
   void SetInjectLocalVariables(ExecutionContext *exe_ctx, bool b);
 
   bool GetUseModernTypeLookup() const;
+
+  void SetRequireHardwareBreakpoints(bool b);
+
+  bool GetRequireHardwareBreakpoints() const;
 
 private:
   //------------------------------------------------------------------
