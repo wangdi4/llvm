@@ -1839,8 +1839,8 @@ void DwarfDebug::emitDebugPubSection(bool GnuStyle, StringRef Name,
     if (GnuStyle) {
       dwarf::PubIndexEntryDescriptor Desc = computeIndexValue(TheU, Entity);
       Asm->OutStreamer->AddComment(
-          Twine("Kind: ") + dwarf::GDBIndexEntryKindString(Desc.Kind) + ", " +
-          dwarf::GDBIndexEntryLinkageString(Desc.Linkage));
+          Twine("Attributes: ") + dwarf::GDBIndexEntryKindString(Desc.Kind) +
+          ", " + dwarf::GDBIndexEntryLinkageString(Desc.Linkage));
       Asm->emitInt8(Desc.toBits());
     }
 
@@ -2275,7 +2275,8 @@ static void emitRangeList(DwarfDebug &DD, AsmPrinter *Asm,
   for (const RangeSpan &Range : List.getRanges())
     SectionRanges[&Range.getStart()->getSection()].push_back(&Range);
 
-  const MCSymbol *CUBase = List.getBaseAddress();
+  const DwarfCompileUnit &CU = List.getCU();
+  const MCSymbol *CUBase = CU.getBaseAddress();
   bool BaseIsSet = false;
   for (const auto &P : SectionRanges) {
     // Don't bother with a base address entry if there's only one range in
@@ -2286,7 +2287,7 @@ static void emitRangeList(DwarfDebug &DD, AsmPrinter *Asm,
     // contributions.
     auto *Base = CUBase;
     if (!Base && (P.second.size() > 1 || DwarfVersion < 5) &&
-        (UseDwarfRangesBaseAddressSpecifier || DwarfVersion >= 5)) {
+        (CU.getCUNode()->getRangesBaseAddress() || DwarfVersion >= 5)) {
       BaseIsSet = true;
       // FIXME/use care: This may not be a useful base address if it's not
       // the lowest address/range in this object.
@@ -2608,10 +2609,18 @@ void DwarfDebug::addDwarfTypeUnitType(DwarfCompileUnit &CU,
   NewTU.setTypeSignature(Signature);
   Ins.first->second = Signature;
 
-  if (useSplitDwarf())
-    NewTU.setSection(Asm->getObjFileLowering().getDwarfTypesDWOSection());
-  else {
-    NewTU.setSection(Asm->getObjFileLowering().getDwarfTypesSection(Signature));
+  if (useSplitDwarf()) {
+    MCSection *Section =
+        getDwarfVersion() <= 4
+            ? Asm->getObjFileLowering().getDwarfTypesDWOSection()
+            : Asm->getObjFileLowering().getDwarfInfoDWOSection();
+    NewTU.setSection(Section);
+  } else {
+    MCSection *Section =
+        getDwarfVersion() <= 4
+            ? Asm->getObjFileLowering().getDwarfTypesSection(Signature)
+            : Asm->getObjFileLowering().getDwarfInfoSection(Signature);
+    NewTU.setSection(Section);
     // Non-split type units reuse the compile unit's line table.
     CU.applyStmtList(UnitDie);
   }

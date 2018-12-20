@@ -7,16 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-// C Includes
-// C++ Includes
 #include <atomic>
 #include <mutex>
 
-// Other libraries and framework includes
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/Threading.h"
 
-// Project includes
 #include "Plugins/Process/Utility/InferiorCallPOSIX.h"
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Breakpoint/StoppointCallbackContext.h"
@@ -1924,7 +1920,7 @@ Process::CreateBreakpointSite(const BreakpointLocationSP &owner,
           owner->SetBreakpointSite(bp_site_sp);
           return m_breakpoint_site_list.Add(bp_site_sp);
         } else {
-          if (show_error) {
+          if (show_error || use_hardware) {
             // Report error for setting breakpoint...
             GetTarget().GetDebugger().GetErrorFile()->Printf(
                 "warning: failed to set breakpoint site at 0x%" PRIx64

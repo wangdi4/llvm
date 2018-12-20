@@ -6,6 +6,7 @@ void __attribute((max_concurrency(4))) foo1()
 }
 // CHECK: FunctionDecl{{.*}}foo1
 // CHECK: MaxConcurrencyAttr
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 
 void __attribute((max_concurrency(0))) foo2()
@@ -14,6 +15,7 @@ void __attribute((max_concurrency(0))) foo2()
 }
 // CHECK: FunctionDecl{{.*}}foo2
 // CHECK: MaxConcurrencyAttr
+// CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: IntegerLiteral{{.*}}0{{$}}
 
 //expected-error@+1{{requires integer constant between 0 and 1048576}}
@@ -44,6 +46,7 @@ void call()
   // CHECK: FunctionDecl{{.*}}tfoo2
   // CHECK-NEXT: TemplateArgument integral 8
   // CHECK: MaxConcurrencyAttr
+  // CHECK-NEXT: ConstantExpr
   // CHECK-NEXT: SubstNonTypeTemplateParmExpr
   // CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   tfoo2<8>();

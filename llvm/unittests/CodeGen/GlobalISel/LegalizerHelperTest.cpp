@@ -11,6 +11,13 @@
 
 namespace {
 
+class DummyGISelObserver : public GISelChangeObserver {
+public:
+  void changedInstr(MachineInstr &MI) override {}
+  void createdInstr(MachineInstr &MI) override {}
+  void erasedInstr(MachineInstr &MI) override {}
+};
+
 // Test CTTZ expansion when CTTZ_ZERO_UNDEF is legal or custom,
 // in which case it becomes CTTZ_ZERO_UNDEF with select.
 TEST_F(LegalizerHelperTest, LowerBitCountingCTTZ0) {
@@ -23,7 +30,8 @@ TEST_F(LegalizerHelperTest, LowerBitCountingCTTZ0) {
   // Build Instr
   auto MIBCTTZ = B.buildInstr(TargetOpcode::G_CTTZ, LLT::scalar(64), Copies[0]);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   // Perform Legalization
   ASSERT_TRUE(Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)) ==
               LegalizerHelper::LegalizeResult::Legalized);
@@ -51,7 +59,8 @@ TEST_F(LegalizerHelperTest, LowerBitCountingCTTZ1) {
   // Build Instr
   auto MIBCTTZ = B.buildInstr(TargetOpcode::G_CTTZ, LLT::scalar(64), Copies[0]);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   // Perform Legalization
   ASSERT_TRUE(Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)) ==
               LegalizerHelper::LegalizeResult::Legalized);
@@ -81,7 +90,8 @@ TEST_F(LegalizerHelperTest, LowerBitCountingCTTZ2) {
   // Build
   auto MIBCTTZ = B.buildInstr(TargetOpcode::G_CTTZ, LLT::scalar(64), Copies[0]);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)) ==
               LegalizerHelper::LegalizeResult::Legalized);
 
@@ -109,7 +119,8 @@ TEST_F(LegalizerHelperTest, LowerBitCountingCTTZ3) {
   auto MIBCTTZ =
       B.buildInstr(TargetOpcode::G_CTTZ_ZERO_UNDEF, LLT::scalar(64), Copies[0]);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)) ==
               LegalizerHelper::LegalizeResult::Legalized);
 
@@ -132,7 +143,8 @@ TEST_F(LegalizerHelperTest, LowerBitCountingCTLZ0) {
   // Build
   auto MIBCTLZ = B.buildInstr(TargetOpcode::G_CTLZ, LLT::scalar(64), Copies[0]);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.lower(*MIBCTLZ, 0, LLT::scalar(64)) ==
               LegalizerHelper::LegalizeResult::Legalized);
 
@@ -142,6 +154,34 @@ TEST_F(LegalizerHelperTest, LowerBitCountingCTLZ0) {
   CHECK: [[SIXTY4:%[0-9]+]]:_(s64) = G_CONSTANT i64 64
   CHECK: [[CMP:%[0-9]+]]:_(s1) = G_ICMP intpred(eq), %0:_(s64), [[ZERO]]
   CHECK: [[SEL:%[0-9]+]]:_(s64) = G_SELECT [[CMP]]:_(s1), [[SIXTY4]]:_, [[CZU]]
+  )";
+
+  // Check
+  ASSERT_TRUE(CheckMachineFunction(*MF, CheckStr));
+}
+
+// CTLZ expansion in terms of CTLZ_ZERO_UNDEF if the latter is a libcall
+TEST_F(LegalizerHelperTest, LowerBitCountingCTLZLibcall) {
+  if (!TM)
+    return;
+
+  // Declare your legalization info
+  DefineLegalizerInfo(
+      A, { getActionDefinitionsBuilder(G_CTLZ_ZERO_UNDEF).libcallFor({s64}); });
+  // Build
+  auto MIBCTLZ = B.buildInstr(TargetOpcode::G_CTLZ, LLT::scalar(64), Copies[0]);
+  AInfo Info(MF->getSubtarget());
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
+  ASSERT_TRUE(Helper.lower(*MIBCTLZ, 0, LLT::scalar(64)) ==
+              LegalizerHelper::LegalizeResult::Legalized);
+
+  auto CheckStr = R"(
+  CHECK: [[CZU:%[0-9]+]]:_(s64) = G_CTLZ_ZERO_UNDEF %0
+  CHECK: [[ZERO:%[0-9]+]]:_(s64) = G_CONSTANT i64 0
+  CHECK: [[THIRTY2:%[0-9]+]]:_(s64) = G_CONSTANT i64 64
+  CHECK: [[CMP:%[0-9]+]]:_(s1) = G_ICMP intpred(eq), %0:_(s64), [[ZERO]]
+  CHECK: [[SEL:%[0-9]+]]:_(s64) = G_SELECT [[CMP]]:_(s1), [[THIRTY2]]:_, [[CZU]]
   )";
 
   // Check
@@ -162,7 +202,8 @@ TEST_F(LegalizerHelperTest, LowerBitCountingCTLZ1) {
   auto MIBTrunc = B.buildTrunc(s8, Copies[0]);
   auto MIBCTLZ = B.buildInstr(TargetOpcode::G_CTLZ, s8, MIBTrunc);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.lower(*MIBCTLZ, 0, s8) ==
               LegalizerHelper::LegalizeResult::Legalized);
 
@@ -201,7 +242,8 @@ TEST_F(LegalizerHelperTest, WidenBitCountingCTLZ) {
   auto MIBTrunc = B.buildTrunc(s8, Copies[0]);
   auto MIBCTLZ = B.buildInstr(TargetOpcode::G_CTLZ, s8, MIBTrunc);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.widenScalar(*MIBCTLZ, 0, s16) ==
               LegalizerHelper::LegalizeResult::Legalized);
 
@@ -233,7 +275,8 @@ TEST_F(LegalizerHelperTest, WidenBitCountingCTLZZeroUndef) {
   auto MIBTrunc = B.buildTrunc(s8, Copies[0]);
   auto MIBCTLZ_ZU = B.buildInstr(TargetOpcode::G_CTLZ_ZERO_UNDEF, s8, MIBTrunc);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.widenScalar(*MIBCTLZ_ZU, 0, s16) ==
               LegalizerHelper::LegalizeResult::Legalized);
 
@@ -265,7 +308,8 @@ TEST_F(LegalizerHelperTest, WidenBitCountingCTPOP) {
   auto MIBTrunc = B.buildTrunc(s8, Copies[0]);
   auto MIBCTPOP = B.buildInstr(TargetOpcode::G_CTPOP, s8, MIBTrunc);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.widenScalar(*MIBCTPOP, 0, s16) ==
               LegalizerHelper::LegalizeResult::Legalized);
 
@@ -296,7 +340,8 @@ TEST_F(LegalizerHelperTest, WidenBitCountingCTTZ_ZERO_UNDEF) {
   auto MIBCTTZ_ZERO_UNDEF =
       B.buildInstr(TargetOpcode::G_CTTZ_ZERO_UNDEF, s8, MIBTrunc);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.widenScalar(*MIBCTTZ_ZERO_UNDEF, 0, s16) ==
               LegalizerHelper::LegalizeResult::Legalized);
 
@@ -326,7 +371,8 @@ TEST_F(LegalizerHelperTest, WidenBitCountingCTTZ) {
   auto MIBTrunc = B.buildTrunc(s8, Copies[0]);
   auto MIBCTTZ = B.buildInstr(TargetOpcode::G_CTTZ, s8, MIBTrunc);
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.widenScalar(*MIBCTTZ, 0, s16) ==
               LegalizerHelper::LegalizeResult::Legalized);
 
@@ -361,7 +407,8 @@ TEST_F(LegalizerHelperTest, WidenUADDO) {
                       .addUse(MIBTrunc->getOperand(0).getReg())
                       .addUse(MIBTrunc->getOperand(0).getReg());
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.widenScalar(*MIBUAddO, 0, s16) ==
               LegalizerHelper::LegalizeResult::Legalized);
 
@@ -399,7 +446,8 @@ TEST_F(LegalizerHelperTest, WidenUSUBO) {
                       .addUse(MIBTrunc->getOperand(0).getReg())
                       .addUse(MIBTrunc->getOperand(0).getReg());
   AInfo Info(MF->getSubtarget());
-  LegalizerHelper Helper(*MF, Info);
+  DummyGISelObserver Observer;
+  LegalizerHelper Helper(*MF, Info, Observer);
   ASSERT_TRUE(Helper.widenScalar(*MIBUSUBO, 0, s16) ==
               LegalizerHelper::LegalizeResult::Legalized);
 

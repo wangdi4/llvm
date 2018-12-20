@@ -1282,6 +1282,7 @@ const char *ARMTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case ARMISD::FMSTAT:        return "ARMISD::FMSTAT";
 
   case ARMISD::CMOV:          return "ARMISD::CMOV";
+  case ARMISD::SUBS:          return "ARMISD::SUBS";
 
   case ARMISD::SSAT:          return "ARMISD::SSAT";
   case ARMISD::USAT:          return "ARMISD::USAT";
@@ -7794,6 +7795,50 @@ SDValue ARMTargetLowering::LowerWindowsDIVLibCall(SDValue Op, SelectionDAG &DAG,
   return LowerCallTo(CLI).first;
 }
 
+// This is a code size optimisation: return the original SDIV node to
+// DAGCombiner when we don't want to expand SDIV into a sequence of
+// instructions, and an empty node otherwise which will cause the
+// SDIV to be expanded in DAGCombine.
+SDValue
+ARMTargetLowering::BuildSDIVPow2(SDNode *N, const APInt &Divisor,
+                                 SelectionDAG &DAG,
+                                 SmallVectorImpl<SDNode *> &Created) const {
+  // TODO: Support SREM
+  if (N->getOpcode() != ISD::SDIV)
+    return SDValue();
+
+  const auto &ST = static_cast<const ARMSubtarget&>(DAG.getSubtarget());
+  const auto &MF = DAG.getMachineFunction();
+  const bool MinSize = MF.getFunction().optForMinSize();
+  const bool HasDivide = ST.isThumb() ? ST.hasDivideInThumbMode()
+                                      : ST.hasDivideInARMMode();
+
+  // Don't touch vector types; rewriting this may lead to scalarizing
+  // the int divs.
+  if (N->getOperand(0).getValueType().isVector())
+    return SDValue();
+
+  // Bail if MinSize is not set, and also for both ARM and Thumb mode we need
+  // hwdiv support for this to be really profitable.
+  if (!(MinSize && HasDivide))
+    return SDValue();
+
+  // ARM mode is a bit simpler than Thumb: we can handle large power
+  // of 2 immediates with 1 mov instruction; no further checks required,
+  // just return the sdiv node.
+  if (!ST.isThumb())
+    return SDValue(N, 0);
+
+  // In Thumb mode, immediates larger than 128 need a wide 4-byte MOV,
+  // and thus lose the code size benefits of a MOVS that requires only 2.
+  // TargetTransformInfo and 'getIntImmCodeSizeCost' could be helpful here,
+  // but as it's doing exactly this, it's not worth the trouble to get TTI.
+  if (Divisor.sgt(128))
+    return SDValue();
+
+  return SDValue(N, 0);
+}
+
 SDValue ARMTargetLowering::LowerDIV_Windows(SDValue Op, SelectionDAG &DAG,
                                             bool Signed) const {
   assert(Op.getValueType() == MVT::i32 &&
@@ -9160,6 +9205,42 @@ ARMTargetLowering::EmitLowered__dbzchk(MachineInstr &MI,
   return ContBB;
 }
 
+// The CPSR operand of SelectItr might be missing a kill marker
+// because there were multiple uses of CPSR, and ISel didn't know
+// which to mark. Figure out whether SelectItr should have had a
+// kill marker, and set it if it should. Returns the correct kill
+// marker value.
+static bool checkAndUpdateCPSRKill(MachineBasicBlock::iterator SelectItr,
+                                   MachineBasicBlock* BB,
+                                   const TargetRegisterInfo* TRI) {
+  // Scan forward through BB for a use/def of CPSR.
+  MachineBasicBlock::iterator miI(std::next(SelectItr));
+  for (MachineBasicBlock::iterator miE = BB->end(); miI != miE; ++miI) {
+    const MachineInstr& mi = *miI;
+    if (mi.readsRegister(ARM::CPSR))
+      return false;
+    if (mi.definesRegister(ARM::CPSR))
+      break; // Should have kill-flag - update below.
+  }
+
+  // If we hit the end of the block, check whether CPSR is live into a
+  // successor.
+  if (miI == BB->end()) {
+    for (MachineBasicBlock::succ_iterator sItr = BB->succ_begin(),
+                                          sEnd = BB->succ_end();
+         sItr != sEnd; ++sItr) {
+      MachineBasicBlock* succ = *sItr;
+      if (succ->isLiveIn(ARM::CPSR))
+        return false;
+    }
+  }
+
+  // We found a def, or hit the end of the basic block and CPSR wasn't live
+  // out. SelectMI should have a kill flag on CPSR.
+  SelectItr->addRegisterKilled(ARM::CPSR, TRI);
+  return true;
+}
+
 MachineBasicBlock *
 ARMTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                MachineBasicBlock *BB) const {
@@ -9258,6 +9339,14 @@ ARMTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MachineBasicBlock *sinkMBB  = F->CreateMachineBasicBlock(LLVM_BB);
     F->insert(It, copy0MBB);
     F->insert(It, sinkMBB);
+
+    // Check whether CPSR is live past the tMOVCCr_pseudo.
+    const TargetRegisterInfo *TRI = Subtarget->getRegisterInfo();
+    if (!MI.killsRegister(ARM::CPSR) &&
+        !checkAndUpdateCPSRKill(MI, thisMBB, TRI)) {
+      copy0MBB->addLiveIn(ARM::CPSR);
+      sinkMBB->addLiveIn(ARM::CPSR);
+    }
 
     // Transfer the remainder of BB and its successor edges to sinkMBB.
     sinkMBB->splice(sinkMBB->begin(), BB,
@@ -12619,30 +12708,38 @@ ARMTargetLowering::PerformCMOVCombine(SDNode *N, SelectionDAG &DAG) const {
                         DAG.getConstant(1, dl, MVT::i32), Neg.getValue(1));
         Res = DAG.getNode(ISD::ADDCARRY, dl, VTs, Sub, Neg, Carry);
       }
-    } else if (CC == ARMCC::NE && LHS != RHS &&
+    } else if (CC == ARMCC::NE && !isNullConstant(RHS) &&
                (!Subtarget->isThumb1Only() || isPowerOf2Constant(TrueVal))) {
       // This seems pointless but will allow us to combine it further below.
-      // CMOV 0, z, !=, (CMPZ x, y) -> CMOV (SUB x, y), z, !=, (CMPZ x, y)
-      SDValue Sub = DAG.getNode(ISD::SUB, dl, VT, LHS, RHS);
+      // CMOV 0, z, !=, (CMPZ x, y) -> CMOV (SUBS x, y), z, !=, (SUBS x, y):1
+      SDValue Sub =
+          DAG.getNode(ARMISD::SUBS, dl, DAG.getVTList(VT, MVT::i32), LHS, RHS);
+      SDValue CPSRGlue = DAG.getCopyToReg(DAG.getEntryNode(), dl, ARM::CPSR,
+                                          Sub.getValue(1), SDValue());
       Res = DAG.getNode(ARMISD::CMOV, dl, VT, Sub, TrueVal, ARMcc,
-                        N->getOperand(3), Cmp);
+                        N->getOperand(3), CPSRGlue.getValue(1));
+      FalseVal = Sub;
     }
   } else if (isNullConstant(TrueVal)) {
-    if (CC == ARMCC::EQ && LHS != RHS &&
+    if (CC == ARMCC::EQ && !isNullConstant(RHS) &&
         (!Subtarget->isThumb1Only() || isPowerOf2Constant(FalseVal))) {
       // This seems pointless but will allow us to combine it further below
       // Note that we change == for != as this is the dual for the case above.
-      // CMOV z, 0, ==, (CMPZ x, y) -> CMOV (SUB x, y), z, !=, (CMPZ x, y)
-      SDValue Sub = DAG.getNode(ISD::SUB, dl, VT, LHS, RHS);
+      // CMOV z, 0, ==, (CMPZ x, y) -> CMOV (SUBS x, y), z, !=, (SUBS x, y):1
+      SDValue Sub =
+          DAG.getNode(ARMISD::SUBS, dl, DAG.getVTList(VT, MVT::i32), LHS, RHS);
+      SDValue CPSRGlue = DAG.getCopyToReg(DAG.getEntryNode(), dl, ARM::CPSR,
+                                          Sub.getValue(1), SDValue());
       Res = DAG.getNode(ARMISD::CMOV, dl, VT, Sub, FalseVal,
                         DAG.getConstant(ARMCC::NE, dl, MVT::i32),
-                        N->getOperand(3), Cmp);
+                        N->getOperand(3), CPSRGlue.getValue(1));
+      FalseVal = Sub;
     }
   }
 
   // On Thumb1, the DAG above may be further combined if z is a power of 2
   // (z == 2 ^ K).
-  // CMOV (SUB x, y), z, !=, (CMPZ x, y) ->
+  // CMOV (SUBS x, y), z, !=, (SUBS x, y):1 ->
   //       merge t3, t4
   // where t1 = (SUBCARRY (SUB x, y), z, 0)
   //       t2 = (SUBCARRY (SUB x, y), t1:0, t1:1)
@@ -12650,8 +12747,8 @@ ARMTargetLowering::PerformCMOVCombine(SDNode *N, SelectionDAG &DAG) const {
   //       t4 = (SUB 1, t2:1)   [ we want a carry, not a borrow ]
   const APInt *TrueConst;
   if (Subtarget->isThumb1Only() && CC == ARMCC::NE &&
-      (FalseVal.getOpcode() == ISD::SUB) && (FalseVal.getOperand(0) == LHS) &&
-      (FalseVal.getOperand(1) == RHS) &&
+      (FalseVal.getOpcode() == ARMISD::SUBS) &&
+      (FalseVal.getOperand(0) == LHS) && (FalseVal.getOperand(1) == RHS) &&
       (TrueConst = isPowerOf2Constant(TrueVal))) {
     SDVTList VTs = DAG.getVTList(VT, MVT::i32);
     unsigned ShiftAmount = TrueConst->logBase2();

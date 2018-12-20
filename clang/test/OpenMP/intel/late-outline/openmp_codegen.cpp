@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
 
 // CHECK-SAME: "QUAL.OMP.PRIVATE"(double* [[ARR3_ADDR]])
 
-// CHECK-SAME: "QUAL.OMP.LINEAR"(i32* [[ARGCREF]], i32 1)
+// CHECK-SAME: "QUAL.OMP.LINEAR:BYREF"(i32** [[ARGCREF_ADDR]], i32 1)
 
 // CHECK-SAME: "QUAL.OMP.LINEAR"(i8*** [[ARGV_ADDR]], i32 1)
 #pragma omp simd private(s1, s2, arr1, arr2, arr3) linear(uval(argcref)) linear(argv)

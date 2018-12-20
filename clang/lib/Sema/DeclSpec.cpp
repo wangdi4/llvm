@@ -579,6 +579,7 @@ bool DeclSpec::SetStorageClassSpec(Sema &S, SCS SC, SourceLocation Loc,
   // these storage-class specifiers.
   // OpenCL v1.2 s6.8 changes this to "The auto and register storage-class
   // specifiers are not supported."
+  // OpenCL C++ v1.0 s2.9 restricts register.
   if (S.getLangOpts().OpenCL &&
       !S.getOpenCLOptions().isEnabled("cl_clang_storage_class_specifiers")) {
     switch (SC) {
@@ -589,8 +590,9 @@ bool DeclSpec::SetStorageClassSpec(Sema &S, SCS SC, SourceLocation Loc,
       // CQ381345: OpenCL is not supported in Intel compatibility mode.
       if (!S.getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION
-      if (S.getLangOpts().OpenCLVersion < 120) {
-        DiagID   = diag::err_opencl_unknown_type_specifier;
+      if (S.getLangOpts().OpenCLVersion < 120 &&
+          !S.getLangOpts().OpenCLCPlusPlus) {
+        DiagID = diag::err_opencl_unknown_type_specifier;
         PrevSpec = getSpecifierName(SC);
         return true;
       }

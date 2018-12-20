@@ -53,7 +53,7 @@ CODEGENOPT(DisableFree       , 1, 0) ///< Don't free memory.
 CODEGENOPT(DiscardValueNames , 1, 0) ///< Discard Value Names from the IR (LLVMContext flag)
 CODEGENOPT(DisableGCov       , 1, 0) ///< Don't run the GCov pass, for testing.
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CMPLRS-47771 - Disable all optimizations that would set the
 //                "Intel Proprietary" module flag so that bitcode files can be
 //                emitted without exposing Intel IP.
@@ -157,6 +157,8 @@ CODEGENOPT(UniformWGSize     , 1, 0) ///< -cl-uniform-work-group-size
 CODEGENOPT(NoZeroInitializedInBSS , 1, 0) ///< -fno-zero-initialized-in-bss.
 /// Method of Objective-C dispatch to use.
 ENUM_CODEGENOPT(ObjCDispatchMethod, ObjCDispatchMethodKind, 2, Legacy)
+/// Replace certain message sends with calls to ObjC runtime entrypoints
+CODEGENOPT(ObjCConvertMessagesToRuntimeCalls , 1, 1)
 CODEGENOPT(OmitLeafFramePointer , 1, 0) ///< Set when -momit-leaf-frame-pointer is
                                         ///< enabled.
 
@@ -187,6 +189,7 @@ CODEGENOPT(SanitizeAddressPoisonCustomArrayCookie, 1,
               ///< global allocation function in AddressSanitizer
 CODEGENOPT(SanitizeAddressGlobalsDeadStripping, 1, 0) ///< Enable linker dead stripping
                                                       ///< of globals in AddressSanitizer
+CODEGENOPT(SanitizeAddressUseOdrIndicator, 1, 0) ///< Enable ODR indicator globals
 CODEGENOPT(SanitizeMemoryTrackOrigins, 2, 0) ///< Enable tracking origins in
                                              ///< MemorySanitizer
 CODEGENOPT(SanitizeMemoryUseAfterDtor, 1, 0) ///< Enable use-after-delete detection
@@ -260,7 +263,9 @@ CODEGENOPT(DebugTypeExtRefs, 1, 0) ///< Whether or not debug info should contain
 CODEGENOPT(DebugExplicitImport, 1, 0)  ///< Whether or not debug info should
                                        ///< contain explicit imports for
                                        ///< anonymous namespaces
-CODEGENOPT(EnableSplitDwarf, 1, 0) ///< Whether to enable split DWARF
+
+ENUM_CODEGENOPT(SplitDwarfMode, DwarfFissionKind, 2, NoFission) ///< DWARF fission mode to use.
+
 CODEGENOPT(SplitDwarfInlining, 1, 1) ///< Whether to include inlining info in the
                                      ///< skeleton CU to allow for symbolication
                                      ///< of inline stack frames without .dwo files.
@@ -311,6 +316,8 @@ VALUE_CODEGENOPT(DwarfVersion, 3, 0)
 /// CodeView and DWARF into the same object.
 CODEGENOPT(EmitCodeView, 1, 0)
 
+/// Whether to emit the .debug$H section containing hashes of CodeView types.
+CODEGENOPT(CodeViewGHash, 1, 0)
 #if INTEL_CUSTOMIZATION
 /// Enable emission of Intel STI debug information.
 CODEGENOPT(EmitIntelSTI, 1, 0)
@@ -363,6 +370,9 @@ CODEGENOPT(PreserveVec3Type, 1, 0)
 
 /// Whether to emit .debug_gnu_pubnames section instead of .debug_pubnames.
 CODEGENOPT(DebugNameTable, 2, 0)
+
+/// Whether to use DWARF base address specifiers in .debug_ranges.
+CODEGENOPT(DebugRangesBaseAddress, 1, 0)
 
 CODEGENOPT(NoPLT, 1, 0)
 

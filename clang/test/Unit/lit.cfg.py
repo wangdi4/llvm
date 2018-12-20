@@ -9,6 +9,10 @@ import subprocess
 import lit.formats
 import lit.util
 
+# INTEL_CUSTOMIZATION
+from lit.llvm import llvm_config
+# end INTEL_CUSTOMIZATION
+
 # name: The name of this test suite.
 config.name = 'Clang-Unit'
 
@@ -55,3 +59,7 @@ for shlibpath_var in find_shlibpath_var():
 else:
     lit_config.warning("unable to inject shared library path on '{}'"
                        .format(platform.system()))
+
+# INTEL_CUSTOMIZATION
+llvm_config.add_intel_features()
+# end INTEL_CUSTOMIZATION

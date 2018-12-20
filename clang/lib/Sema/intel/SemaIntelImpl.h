@@ -41,7 +41,8 @@ void Sema::AddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
   }
 
   if (NumReadPortsAttr::classof(&TmpAttr) ||
-      NumWritePortsAttr::classof(&TmpAttr)) {
+      NumWritePortsAttr::classof(&TmpAttr) ||
+      (MaxConcurrencyAttr::classof(&TmpAttr) && isa<VarDecl>(D))) {
     if (!D->hasAttr<MemoryAttr>())
       D->addAttr(MemoryAttr::CreateImplicit(Context, MemoryAttr::Default));
   }
@@ -60,8 +61,9 @@ void Sema::AddOneConstantPowerTwoValueAttr(SourceRange AttrRange, Decl *D,
     ExprResult ICE;
     if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
       return;
-    llvm::APSInt Value;
-    E->EvaluateAsInt(Value, Context);
+    Expr::EvalResult Result;
+    E->EvaluateAsInt(Result, Context);
+    llvm::APSInt Value = Result.Val.getInt();
     if (!Value.isPowerOf2()) {
       Diag(AttrRange.getBegin(), diag::err_attribute_argument_not_power_of_two)
           << &TmpAttr;

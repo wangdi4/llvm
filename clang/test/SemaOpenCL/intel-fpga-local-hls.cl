@@ -29,13 +29,23 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_five
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   __attribute__((__bankwidth__(4)))
   unsigned int v_five[64];
 
+  //CHECK: VarDecl{{.*}}v_five_two
+  //CHECK: MemoryAttr{{.*}}Implicit
+  //CHECK: MaxConcurrencyAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  __attribute__((max_concurrency(4)))
+  unsigned int v_five_two[64];
+
   //CHECK: VarDecl{{.*}}v_six
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: NumBanksAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   __attribute__((__numbanks__(8)))
   unsigned int v_six[64];
@@ -57,8 +67,10 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_nine
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: NumReadPortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //CHECK: NumWritePortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   __attribute__((__numports_readonly_writeonly__(4,16)))
   unsigned int v_nine[64];
@@ -80,9 +92,13 @@ void foo1()
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}5{{$}}
   __attribute__((__bank_bits__(2,3,4,5)))
   unsigned int v_twelve[64];
@@ -90,11 +106,14 @@ void foo1()
   //CHECK: VarDecl{{.*}}v_thirteen
   //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //CHECK: BankBitsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
   __attribute__((__bank_bits__(2,3), __bankwidth__(16)))
   unsigned int v_thirteen[64];
@@ -180,6 +199,12 @@ void foo1()
 
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
+  __attribute__((__max_concurrency__(16)))
+  //expected-note@-2 {{conflicting attribute is here}}
+  unsigned int reg_six_two[64];
+
+  //expected-error@+2{{attributes are not compatible}}
+  __attribute__((__register__))
   __attribute__((__numbanks__(8)))
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_seven[64];
@@ -228,8 +253,10 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}bw_two
   //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{attribute 'bankwidth' is already applied}}
   __attribute__((__bankwidth__(8)))
@@ -257,6 +284,38 @@ void foo1()
   __attribute__((__bankwidth__(0)))
   unsigned int bw_seven[64];
 
+  // max_concurrency
+  //expected-error@+2{{attributes are not compatible}}
+  __attribute__((__max_concurrency__(16)))
+  __attribute__((__register__))
+  //expected-note@-2 {{conflicting attribute is here}}
+  unsigned int mc_one[64];
+
+  //CHECK: VarDecl{{.*}}mc_two
+  //CHECK: MaxConcurrencyAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
+  //CHECK: MaxConcurrencyAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //expected-warning@+2{{is already applied}}
+  __attribute__((__max_concurrency__(8)))
+  __attribute__((__max_concurrency__(16)))
+  unsigned int mc_two[64];
+
+  //expected-error@+1{{requires integer constant between 0 and 1048576}}
+  __attribute__((__max_concurrency__(-4)))
+  unsigned int mc_four[64];
+
+  int i_max_concurrency = 32;
+  //expected-error@+1{{expression is not an integer constant expression}}
+  __attribute__((__max_concurrency__(i_max_concurrency)))
+  unsigned int mc_five[64];
+
+  //expected-error@+1{{'__max_concurrency__' attribute takes one argument}}
+  __attribute__((__max_concurrency__(4,8)))
+  unsigned int mc_six[64];
+
   // numbanks
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__numbanks__(16)))
@@ -266,8 +325,10 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}nb_two
   //CHECK: NumBanksAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: NumBanksAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{attribute 'numbanks' is already applied}}
   __attribute__((__numbanks__(8)))
@@ -357,12 +418,16 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}nprowo_seven
   //CHECK: NumReadPortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}9{{$}}
   //CHECK-NEXT: NumWritePortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //CHECK: NumReadPortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //CHECK-NEXT: NumWritePortsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //expected-warning@+3{{'numreadports' is already applied}}
   //expected-warning@+2{{'numwriteports' is already applied}}
@@ -411,10 +476,14 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}bb_two
   //CHECK: BankBitsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}42{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}43{{$}}
   //CHECK: BankBitsAttr
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
+  //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //expected-warning@+2{{attribute 'bank_bits' is already applied}}
   __attribute__((__bank_bits__(42,43)))
@@ -462,4 +531,21 @@ kernel void foo2(
   //expected-error-re@+1{{local or static variables{{$}}}}
   __local __attribute__((doublepump)) int *a1)
 {
+  //expected-error@+1{{applies to functions and local non-const variables}}
+  __attribute__((__max_concurrency__(8)))
+  __constant unsigned int loc_one[64] = { 1, 2, 3 };
+
 }
+
+//expected-error@+1{{applies to functions and local non-const variables}}
+__attribute__((__max_concurrency__(8)))
+__constant unsigned int ext_two[64] = { 1, 2, 3 };
+
+void other2()
+{
+  //expected-error@+1{{applies to functions and local non-const variables}}
+  __attribute__((__max_concurrency__(8))) const int ext_six[64];
+}
+
+//expected-error@+1{{applies to functions and local non-const variables}}
+void other3(__attribute__((__max_concurrency__(8))) int pfoo) {}

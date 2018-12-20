@@ -185,18 +185,6 @@ static void instantiateDependentAlignValueAttr(
                         Aligned->getSpellingListIndex());
 }
 #if INTEL_CUSTOMIZATION
-static void instantiateDependentMaxConcurrencyAttr(
-    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const MaxConcurrencyAttr *Max, Decl *New) {
-  // The max_concurrency expression is a constant expression.
-  EnterExpressionEvaluationContext Unevaluated(
-      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-  ExprResult Result = S.SubstExpr(Max->getMax(), TemplateArgs);
-  if (!Result.isInvalid())
-    S.AddMaxConcurrencyAttr(Max->getLocation(), New, Result.getAs<Expr>(),
-                            Max->getSpellingListIndex());
-}
-
 static void instantiateDependentInternalMaxBlockRamDepthAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
     const InternalMaxBlockRamDepthAttr *Max, Decl *New) {
@@ -463,6 +451,20 @@ void Sema::InstantiateAttrsForDecl(
   }
 }
 
+static Sema::RetainOwnershipKind
+attrToRetainOwnershipKind(const Attr *A) {
+  switch (A->getKind()) {
+  case clang::attr::CFConsumed:
+    return Sema::RetainOwnershipKind::CF;
+  case clang::attr::OSConsumed:
+    return Sema::RetainOwnershipKind::OS;
+  case clang::attr::NSConsumed:
+    return Sema::RetainOwnershipKind::NS;
+  default:
+    llvm_unreachable("Wrong argument supplied");
+  }
+}
+
 void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                             const Decl *Tmpl, Decl *New,
                             LateInstantiatedAttrVec *LateAttrs,
@@ -487,9 +489,39 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 #if INTEL_CUSTOMIZATION
+    const HLSIIAttr *II = dyn_cast<HLSIIAttr>(TmplAttr);
+    if (II) {
+      instantiateDependentOneConstantValueAttr<HLSIIAttr>(
+          *this, TemplateArgs, II, New);
+      continue;
+    }
+
+    const HLSMinIIAttr *MinII = dyn_cast<HLSMinIIAttr>(TmplAttr);
+    if (MinII) {
+      instantiateDependentOneConstantValueAttr<HLSMinIIAttr>(
+          *this, TemplateArgs, MinII, New);
+      continue;
+    }
+
+    const HLSMaxIIAttr *MaxII = dyn_cast<HLSMaxIIAttr>(TmplAttr);
+    if (MaxII) {
+      instantiateDependentOneConstantValueAttr<HLSMaxIIAttr>(
+          *this, TemplateArgs, MaxII, New);
+      continue;
+    }
+
+    const HLSMaxInvocationDelayAttr *MID =
+        dyn_cast<HLSMaxInvocationDelayAttr>(TmplAttr);
+    if (MID) {
+      instantiateDependentOneConstantValueAttr<HLSMaxInvocationDelayAttr>(
+          *this, TemplateArgs, MID, New);
+      continue;
+    }
+
     const MaxConcurrencyAttr *MCA = dyn_cast<MaxConcurrencyAttr>(TmplAttr);
     if (MCA) {
-      instantiateDependentMaxConcurrencyAttr(*this, TemplateArgs, MCA, New);
+      instantiateDependentOneConstantValueAttr<MaxConcurrencyAttr>(
+          *this, TemplateArgs, MCA, New);
       continue;
     }
     const SchedulerPipeliningEffortPctAttr *SPEPA =
@@ -592,11 +624,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       continue;
     }
 
-    if (isa<NSConsumedAttr>(TmplAttr) || isa<CFConsumedAttr>(TmplAttr)) {
-      AddNSConsumedAttr(TmplAttr->getRange(), New,
-                        TmplAttr->getSpellingListIndex(),
-                        isa<NSConsumedAttr>(TmplAttr),
-                        /*template instantiation*/ true);
+    if (isa<NSConsumedAttr>(TmplAttr) || isa<OSConsumedAttr>(TmplAttr) ||
+        isa<CFConsumedAttr>(TmplAttr)) {
+      AddXConsumedAttr(New, TmplAttr->getRange(),
+                       TmplAttr->getSpellingListIndex(),
+                       attrToRetainOwnershipKind(TmplAttr),
+                       /*template instantiation=*/true);
       continue;
     }
 
@@ -1956,7 +1989,9 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(FunctionDecl *D,
   // If the original function was part of a friend declaration,
   // inherit its namespace state and add it to the owner.
   if (isFriend) {
-    PrincipalDecl->setObjectOfFriendDecl();
+    Function->setObjectOfFriendDecl();
+    if (FunctionTemplateDecl *FT = Function->getDescribedFunctionTemplate())
+      FT->setObjectOfFriendDecl();
     DC->makeDeclVisibleInContext(PrincipalDecl);
 
     bool QueuedInstantiation = false;
@@ -2841,26 +2876,28 @@ Decl *TemplateDeclInstantiator::VisitUsingPackDecl(UsingPackDecl *D) {
 }
 
 Decl *TemplateDeclInstantiator::VisitClassScopeFunctionSpecializationDecl(
-                                     ClassScopeFunctionSpecializationDecl *Decl) {
+    ClassScopeFunctionSpecializationDecl *Decl) {
   CXXMethodDecl *OldFD = Decl->getSpecialization();
   CXXMethodDecl *NewFD =
     cast_or_null<CXXMethodDecl>(VisitCXXMethodDecl(OldFD, nullptr, true));
   if (!NewFD)
     return nullptr;
 
-  LookupResult Previous(SemaRef, NewFD->getNameInfo(), Sema::LookupOrdinaryName,
-                        Sema::ForExternalRedeclaration);
-
-  TemplateArgumentListInfo TemplateArgs;
-  TemplateArgumentListInfo *TemplateArgsPtr = nullptr;
+  TemplateArgumentListInfo ExplicitTemplateArgs;
+  TemplateArgumentListInfo *ExplicitTemplateArgsPtr = nullptr;
   if (Decl->hasExplicitTemplateArgs()) {
-    TemplateArgs = Decl->templateArgs();
-    TemplateArgsPtr = &TemplateArgs;
+    if (SemaRef.Subst(Decl->templateArgs().getArgumentArray(),
+                      Decl->templateArgs().size(), ExplicitTemplateArgs,
+                      TemplateArgs))
+      return nullptr;
+    ExplicitTemplateArgsPtr = &ExplicitTemplateArgs;
   }
 
+  LookupResult Previous(SemaRef, NewFD->getNameInfo(), Sema::LookupOrdinaryName,
+                        Sema::ForExternalRedeclaration);
   SemaRef.LookupQualifiedName(Previous, SemaRef.CurContext);
-  if (SemaRef.CheckFunctionTemplateSpecialization(NewFD, TemplateArgsPtr,
-                                                  Previous)) {
+  if (SemaRef.CheckFunctionTemplateSpecialization(
+          NewFD, ExplicitTemplateArgsPtr, Previous)) {
     NewFD->setInvalidDecl();
     return NewFD;
   }

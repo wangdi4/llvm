@@ -610,6 +610,8 @@ void TargetLoweringBase::initActions() {
     setOperationAction(ISD::UMIN, VT, Expand);
     setOperationAction(ISD::UMAX, VT, Expand);
     setOperationAction(ISD::ABS, VT, Expand);
+    setOperationAction(ISD::FSHL, VT, Expand);
+    setOperationAction(ISD::FSHR, VT, Expand);
     setOperationAction(ISD::SADDSAT, VT, Expand);
     setOperationAction(ISD::UADDSAT, VT, Expand);
     setOperationAction(ISD::SSUBSAT, VT, Expand);
@@ -1104,7 +1106,7 @@ void TargetLoweringBase::computeRegisterProperties(
       LegalIntReg = IntReg;
     } else {
       RegisterTypeForVT[IntReg] = TransformToType[IntReg] =
-        (const MVT::SimpleValueType)LegalIntReg;
+        (MVT::SimpleValueType)LegalIntReg;
       ValueTypeActions.setTypeAction(IVT, TypePromoteInteger);
     }
   }
@@ -1451,6 +1453,7 @@ int TargetLoweringBase::InstructionOpcodeToISD(unsigned Opcode) const {
   case CatchPad:       return 0;
   case CatchSwitch:    return 0;
   case CleanupPad:     return 0;
+  case FNeg:           return ISD::FNEG;
   case Add:            return ISD::ADD;
   case FAdd:           return ISD::FADD;
   case Sub:            return ISD::SUB;

@@ -48,7 +48,7 @@ void foo() {
   struct st i = {1, 5.0f};
   struct st ii = __builtin_fpga_reg(i);
 // CHECK: %[[IBC1:[0-9]+]] = bitcast %struct.st* %i to i8*
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[IBC1]], i8* align 4 bitcast (%struct.st* @_ZZ3foovE1i to i8*)
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[IBC1]], i8* align 4 bitcast (%struct.st* @__const._Z3foov.i to i8*)
 // CHECK: %[[ATBC:[0-9]+]] = bitcast %struct.st* %agg-temp to i8*
 // CHECK: %[[IBC2:[0-9]+]] = bitcast %struct.st* %i to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[ATBC]], i8* align 4 %[[IBC2]], i64 8, i1 false)
@@ -67,7 +67,7 @@ void foo() {
 // CHECK: store %struct.st* %[[IIIIRES]], %struct.st** %iiii, align 8
   union un u1 = {1};
 // CHECK: %[[U1INIT:[0-9]+]] = bitcast %union.un* %u1 to i8*
-// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[U1INIT]], i8* align 4 bitcast (%union.un* @_ZZ3foovE2u1 to i8*)
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[U1INIT]], i8* align 4 bitcast (%union.un* @__const._Z3foov.u1 to i8*)
   union un u2, *u3;
   u2 = __builtin_fpga_reg(u1);
 // CHECK: %[[U1TMP:[0-9]+]] = bitcast %union.un* %agg-temp4 to i8*
