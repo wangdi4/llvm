@@ -1,3 +1,4 @@
+; INTEL_FEATURE_CSA
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-recognize-par-loop -print-after=hir-recognize-par-loop -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,require<hir-parvec-analysis>,hir-recognize-par-loop,print<hir>" -S < %s 2>&1 | FileCheck %s
 ;
@@ -47,3 +48,4 @@ attributes #0 = { norecurse nounwind uwtable writeonly "correctly-rounded-divide
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
+; end INTEL_FEATURE_CSA

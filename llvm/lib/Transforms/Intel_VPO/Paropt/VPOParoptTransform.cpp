@@ -82,6 +82,14 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-transform"
 
+#if INTEL_CUSTOMIZATION
+// External storage for -loopopt-use-omp-region.
+bool llvm::vpo::UseOmpRegionsInLoopoptFlag;
+static cl::opt<bool, true> UseOmpRegionsInLoopopt(
+    "loopopt-use-omp-region", cl::desc("Handle OpenMP directives in LoopOpt"),
+    cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
+#endif  // INTEL_CUSTOMIZATION
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;

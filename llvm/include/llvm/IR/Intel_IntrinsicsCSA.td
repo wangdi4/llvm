@@ -1,5 +1,5 @@
-// INTEL_FEATURE_CSA//===-----------------------------------*- tablegen -*-===//
-//===- IntrinsicsCSA.td - Defines csa intrinsics -----------*- tablegen -*-===//
+#if INTEL_FEATURE_CSA
+//===- Intel_IntrinsicsCSA.td - Defines csa intrinsics -----*- tablegen -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
@@ -146,4 +146,4 @@ def int_csa_all0 :
               [IntrNoMem] /* , "llvm.csa.all0" */>;
 
 }
-// end INTEL_FEATURE_CSA
+#endif // INTEL_FEATURE_CSA

@@ -1,9 +1,4 @@
-//===----------------------------------------------------------------------===//
-//
-/// \file
-//
-//===----------------------------------------------------------------------===//
-//===- CSAReplaceAllocaWithMalloc.cpp - ------------------------------*- C++ -*--===//
+//===- CSAReplaceAllocaWithMalloc.cpp - ------------------------*- C++ -*--===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //
@@ -12,15 +7,23 @@
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
 //
-// This pass is IR level pass that parses a function to identify stack allocations
-// (alloca's) and replace them with calls to csa_malloc(..) and csa_free(..).
+//===----------------------------------------------------------------------===//
+//
+/// \file
+//
+//===----------------------------------------------------------------------===//
+// This pass is IR level pass that parses a function to identify stack
+// allocations (alloca's) and replace them with calls to csa_malloc(..)
+// and csa_free(..).
 // example
 // Input IR
 // %c = alloca [100 x i32], align 16
 // %0 = bitcast [100 x i32]* %c to i8*
-// call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %0) #3 <-- Site for csa_malloc call
+// call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %0) #3 <--
+//                                                      Site for csa_malloc call
 // %7 = bitcast [100 x i32]* %c to i8*
-// call void @llvm.lifetime.end.p0i8(i64 400, i8* nonnull %7) #3 <-- Site for csa_free call
+// call void @llvm.lifetime.end.p0i8(i64 400, i8* nonnull %7) #3 <--
+//                                                        Site for csa_free call
 // Output IR
 // %call_c = tail call i8* @csa_malloc(i32 100)
 // %c = bitcast i8* %call_c to [100 x i32]*

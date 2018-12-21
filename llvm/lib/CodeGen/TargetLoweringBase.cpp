@@ -645,6 +645,11 @@ void TargetLoweringBase::initActions() {
     // These library functions default to expand.
     setOperationAction(ISD::FROUND, VT, Expand);
     setOperationAction(ISD::FPOWI, VT, Expand);
+#if INTEL_CUSTOMIZATION
+    setOperationAction(ISD::FTAN, VT, Expand);
+    setOperationAction(ISD::FATAN, VT, Expand);
+    setOperationAction(ISD::FATAN2, VT, Expand);
+#endif  // INTEL_CUSTOMIZATION
 
     // These operations default to expand for vector types.
     if (VT.isVector()) {

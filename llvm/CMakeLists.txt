@@ -780,19 +780,6 @@ if(INTEL_CUSTOMIZATION)
     #          must never be enabled for Intel release builds.
     )
 
-# INTEL_FEATURE_CSA
-  if (";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
-    if (NOT ";${features_enabled_by_default};" MATCHES
-        ";${LLVM_INTELFEATURE_PREFIX}_CSA;")
-      # This is a temporary workaround.  We have to pass CSA feature
-      # explicitly from CSA VRD file.
-      list(APPEND features_enabled_by_default
-        "${LLVM_INTELFEATURE_PREFIX}_CSA"
-        )
-    endif()
-  endif()
-# end INTEL_FEATURE_CSA
-
   # Force adding features enabled by default to CMake cache.
   if (features_enabled_by_default)
     list(REMOVE_DUPLICATES features_enabled_by_default)

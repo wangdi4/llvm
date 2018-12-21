@@ -1,17 +1,12 @@
 # INTEL_CUSTOMIZATION
-set(INTEL_SOURCE_FILES
+set(INTEL_SOURCE_FILES_TO_BUILD)
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+# Add custom Intel files below.  Files listed here will be included in
+# INTEL_CUSTOMIZATION build.
   Intel_MIRMatcher.cpp
   Intel_MachineLoopOptReportEmitter.cpp
   )
-
-set(INTEL_SOURCE_FILES_TO_BUILD)
-if (INTEL_CUSTOMIZATION)
-  set(INTEL_SOURCE_FILES_TO_BUILD ${INTEL_SOURCE_FILES})
-else()
-  list(APPEND LLVM_OPTIONAL_SOURCES
-    ${INTEL_SOURCE_FILES}
-    )
-endif()
 # end INTEL_CUSTOMIZATION
 
 add_llvm_library(LLVMCodeGen

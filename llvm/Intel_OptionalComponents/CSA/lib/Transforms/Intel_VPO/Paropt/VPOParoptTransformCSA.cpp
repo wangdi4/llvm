@@ -37,10 +37,6 @@ static cl::opt<bool> UseExpLoopPrivatizer(
   "csa-omp-exp-loop-privatizer", cl::init(false), cl::ReallyHidden,
   cl::desc("Use experimental privatizer for OpenMP loops."));
 
-cl::opt<bool> UseOmpRegionsInLoopopt(
-  "loopopt-use-omp-region", cl::init(false), cl::Hidden,
-  cl::desc("Handle OpenMP directives in LoopOpt"));
-
 static cl::opt<bool> DoLoopSplitting(
   "csa-omp-paropt-loop-splitting", cl::init(false), cl::ReallyHidden,
   cl::desc("Do OpenMP loop splitting in VPO Paropt."));
@@ -1186,7 +1182,7 @@ std::pair<bool, bool> VPOParoptTransform::genCSALoop(WRegionNode *W) {
   auto NumWorkers = getNumWorkers(W);
 
   // LoopOpt can do parallel lowering for loops with 1 worker so far.
-  bool UseLoopOptLowering = UseOmpRegionsInLoopopt && NumWorkers <= 1u;
+  bool UseLoopOptLowering = UseOmpRegionsInLoopoptFlag && NumWorkers <= 1u;
 
   if (!UseLoopOptLowering && DoLoopSplitting)
     return { CSALoopSplitter(*this).run(W), true };

@@ -183,11 +183,7 @@ class VirtRegRewriter : public MachineFunctionPass {
   LiveIntervals *LIS;
   VirtRegMap *VRM;
 
-#if INTEL_CUSTOMIZATION
-  bool rewrite();
-#else  // !INTEL_CUSTOMIZATION
-  void rewrite();
-#endif // !INTEL_CUSTOMIZATION
+  bool rewrite(); // INTEL
   void addMBBLiveIns();
   bool readsUndefSubreg(const MachineOperand &MO) const;
   void addLiveInsForSubRanges(const LiveInterval &LI, unsigned PhysReg) const;
@@ -257,11 +253,7 @@ bool VirtRegRewriter::runOnMachineFunction(MachineFunction &fn) {
   addMBBLiveIns();
 
   // Rewrite virtual registers.
-#if INTEL_CUSTOMIZATION
-  bool ClearVregs = rewrite();
-#else  // !INTEL_CUSTOMIZATION
-  rewrite();
-#endif // !INTEL_CUSTOMIZATION
+  bool ClearVregs = rewrite();  // INTEL
 
   // Write out new DBG_VALUE instructions.
   getAnalysis<LiveDebugVariables>().emitDebugValues(VRM);
@@ -269,13 +261,8 @@ bool VirtRegRewriter::runOnMachineFunction(MachineFunction &fn) {
   // All machine operands and other references to virtual registers have been
   // replaced. Remove the virtual registers and release all the transient data.
   VRM->clearAllVirt();
-#if INTEL_CUSTOMIZATION
-  // TODO (vzakhari 8/30/2018): it looks like we are not clearing
-  //       the MachineRegisterInfo internal structures in this case.
-  //       We have to call clearVirtRegs(), when possible.
-  if (ClearVregs)
-#endif  // INTEL_CUSTOMIZATION
-    MRI->clearVirtRegs(); // INTEL
+  if (ClearVregs)               // INTEL
+    MRI->clearVirtRegs();       // INTEL
   return true;
 }
 
@@ -328,11 +315,13 @@ void VirtRegRewriter::addLiveInsForSubRanges(const LiveInterval &LI,
 void VirtRegRewriter::addMBBLiveIns() {
   for (unsigned Idx = 0, IdxE = MRI->getNumVirtRegs(); Idx != IdxE; ++Idx) {
     unsigned VirtReg = TargetRegisterInfo::index2VirtReg(Idx);
+    if (MRI->reg_nodbg_empty(VirtReg) || // INTEL
 #if INTEL_CUSTOMIZATION
-    if (MRI->reg_nodbg_empty(VirtReg) || MRI->getRegClass(VirtReg)->isVirtual())
-#else  // !INTEL_CUSTOMIZATION
-    if (MRI->reg_nodbg_empty(VirtReg))
-#endif  // !INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        MRI->getRegClass(VirtReg)->isVirtual() ||
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+        false)                           // INTEL
       continue;
     LiveInterval &LI = LIS->getInterval(VirtReg);
     if (LI.empty() || LIS->intervalIsInOneMBB(LI))
@@ -510,12 +499,8 @@ bool VirtRegRewriter::subRegLiveThrough(const MachineInstr &MI,
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
-bool VirtRegRewriter::rewrite() {
-  bool HasVregsToRetain = false;
-#else  // !INTEL_CUSTOMIZATION
-void VirtRegRewriter::rewrite() {
-#endif  // !INTEL_CUSTOMIZATION
+bool VirtRegRewriter::rewrite() { // INTEL
+  bool VregsLeft = false;         // INTEL
   bool NoSubRegLiveness = !MRI->subRegLivenessEnabled();
   SmallVector<unsigned, 8> SuperDeads;
   SmallVector<unsigned, 8> SuperDefs;
@@ -541,10 +526,12 @@ void VirtRegRewriter::rewrite() {
           continue;
         unsigned VirtReg = MO.getReg();
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
         if (MRI->getRegClass(VirtReg)->isVirtual()) {
-          HasVregsToRetain = true;
+          VregsLeft = true;
           continue;
         }
+#endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
         unsigned PhysReg = VRM->getPhys(VirtReg);
         assert(PhysReg != VirtRegMap::NO_PHYS_REG &&
@@ -620,7 +607,5 @@ void VirtRegRewriter::rewrite() {
       handleIdentityCopy(*MI);
     }
   }
-#if INTEL_CUSTOMIZATION
-  return !HasVregsToRetain;
-#endif  // INTEL_CUSTOMIZATION
+  return !VregsLeft; // INTEL
 }

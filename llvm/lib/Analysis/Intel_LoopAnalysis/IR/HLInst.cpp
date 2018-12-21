@@ -750,10 +750,10 @@ int OMPRegionProxy::getOmpRegionEntryDir(const HLInst *I) {
   return IsEntry ? Res : -1;
 }
 
-int OMPRegionProxy::getOmpRegionExitDir(const HLInst *Exit, const HLInst *Entry) {
-#ifndef NDEBUG
+int OMPRegionProxy::getOmpRegionExitDir(const HLInst *Exit,
+                                        const HLInst *Entry) {
   int RegEntryDir = Entry ? getOmpRegionEntryDir(Entry) : -1;
-#endif // NDEBUG
+  (void)RegEntryDir;
   assert((!Entry || (RegEntryDir >= 0)) && "must be region entry");
   const Instruction *LI = Exit->getLLVMInstruction();
   bool IsEntry = false;

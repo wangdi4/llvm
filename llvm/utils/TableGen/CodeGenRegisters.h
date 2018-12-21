@@ -330,8 +330,10 @@ namespace llvm {
     int CopyCost;
     bool Allocatable;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
     bool PureVirtual;
-#endif
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
     StringRef AltOrderSelect;
     uint8_t AllocationPriority;
@@ -449,17 +451,30 @@ namespace llvm {
     struct Key {
       const CodeGenRegister::Vec *Members;
       RegSizeInfoByHwMode RSI;
+
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
       bool PureVirtual;
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
       Key(const CodeGenRegister::Vec *M, const RegSizeInfoByHwMode &I)
-        : Members(M), RSI(I), PureVirtual(false) {}
+        : Members(M), RSI(I)   // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        , PureVirtual(false)
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+      {}                        // INTEL
 
       Key(const CodeGenRegisterClass &RC)
-        : Members(&RC.getMembers()), RSI(RC.RSI), PureVirtual(false)  {}
-#endif
-
-
+        : Members(&RC.getMembers()), RSI(RC.RSI) // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        , PureVirtual(false)
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+      {}                                          // INTEL
 
       // Lexicographical order of (Members, RegSizeInfoByHwMode).
       bool operator<(const Key&) const;

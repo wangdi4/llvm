@@ -1080,9 +1080,12 @@ RegisterInfoEmitter::runMCDesc(raw_ostream &OS, CodeGenTarget &Target,
        << RC.getOrder().size() << ", sizeof(" << RC.getName() << "Bits), "
        << RC.getQualifiedName() + "RegClassID" << ", "
        << RC.CopyCost << ", "
-       << ( RC.Allocatable ? "true" : "false" ) << ", " // INTEL
+       << ( RC.Allocatable ? "true" : "false" ) // INTEL
 #if INTEL_CUSTOMIZATION
-       << ( RC.PureVirtual ? "true" : "false" ) << " },\n";
+#if INTEL_FEATURE_CSA
+       << ", " << ( RC.PureVirtual ? "true" : "false" )
+#endif  // INTEL_FEATURE_CSA
+       << " },\n";
 #endif  // INTEL_CUSTOMIZATION
   }
 

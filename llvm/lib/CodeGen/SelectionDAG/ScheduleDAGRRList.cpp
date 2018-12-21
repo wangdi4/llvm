@@ -1408,11 +1408,9 @@ DelayForLiveRegsBottomUp(SUnit *SU, SmallVectorImpl<unsigned> &LRegs) {
     SkipOptionalDefs =
       MF.getTarget().getTargetTriple().getArch() == Triple::csa;
 #endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
-    if (MCID.hasOptionalDef() && !SkipOptionalDefs) {
-#else
-    if (MCID.hasOptionalDef()) {
-#endif
+    if (MCID.hasOptionalDef() && !SkipOptionalDefs) { // INTEL
       // Most ARM instructions have an OptionalDef for CPSR, to model the S-bit.
       // This operand can be either a def of CPSR, if the S bit is set; or a use
       // of %noreg.  When the OptionalDef is set to a valid register, we need to

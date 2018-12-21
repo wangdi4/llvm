@@ -574,12 +574,6 @@ namespace ISD {
     FP16_TO_FP, FP_TO_FP16,
 
 #if INTEL_CUSTOMIZATION
-    /// FTAN, FATAN, FATAN2,
-#endif // INTEL_CUSTOMIZATION
-    /// FLOG, FLOG2, FLOG10, FEXP, FEXP2,
-    /// FCEIL, FTRUNC, FRINT, FNEARBYINT, FROUND, FFLOOR - Perform various unary
-    /// floating point operations. These are inspired by libm.
-#if INTEL_CUSTOMIZATION
     FTAN, FATAN, FATAN2,
 #endif // INTEL_CUSTOMIZATION
     /// Perform various unary floating-point operations inspired by libm.

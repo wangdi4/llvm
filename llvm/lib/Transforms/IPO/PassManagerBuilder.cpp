@@ -160,12 +160,6 @@ static cl::opt<bool> EnableUnrollAndJam("enable-unroll-and-jam",
                                         cl::init(false), cl::Hidden,
                                         cl::desc("Enable Unroll And Jam Pass"));
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-extern cl::opt<bool> UseOmpRegionsInLoopopt;
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-
 #if INTEL_COLLAB
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
 static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
@@ -1493,10 +1487,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRTempCleanupPass());
 
   if (!RunLoopOptFrameworkOnly) {
-#if INTEL_FEATURE_CSA
-    if (UseOmpRegionsInLoopopt)
+#if INTEL_CUSTOMIZATION
+    if (vpo::UseOmpRegionsInLoopoptFlag)
       PM.add(createHIRRecognizeParLoopPass());
-#endif // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
     PM.add(createHIRPropagateCastedIVPass());
     if (OptLevel > 2) {
