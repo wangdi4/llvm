@@ -717,8 +717,12 @@ void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O, int 
 }
 
 void CSAAsmPrinter::EmitSimpleEntryInstruction(void) {
+  StringRef Linkage("dataflow");
+  const Function &F = MF->getFunction();
+  if (F.hasFnAttribute("__csa_attr_initializer"))
+    Linkage = "initializer";
   OutStreamer->EmitRawText("\t.entry\t" + MF->getFunction().getName() +
-                           ", dataflow");
+                           ", " + Linkage);
 }
 
 void CSAAsmPrinter::EmitParamsResultsDecl(void) {

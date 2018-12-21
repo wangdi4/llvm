@@ -234,6 +234,9 @@ public:
     addPass(createInstructionCombiningPass());
     addPass(createCFGSimplificationPass());
 
+    // Add pass to parse annotation attributes
+    addPass(createCSAParseAnnotateAttributesPass());
+
     // Add pass to replace alloca instructions
     addPass(createCSAReplaceAllocaWithMallocPass(getCSATargetMachine()));
     addPass(createGlobalDCEPass());
