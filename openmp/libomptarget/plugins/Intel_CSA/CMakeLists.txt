@@ -33,6 +33,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 
       # Install plugin under the lib destination folder.
       install(TARGETS "omptarget.rtl.${tmachine_libname}"
+        COMPONENT llvm-csa-ompplugin
         LIBRARY DESTINATION "lib")
 
       target_link_libraries(

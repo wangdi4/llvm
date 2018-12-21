@@ -28,4 +28,5 @@ target_link_libraries(omptarget
   "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
 
 # Install libomptarget under the lib destination folder.
-install(TARGETS omptarget LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
+install(TARGETS omptarget LIBRARY COMPONENT omptarget # INTEL rL350254
+  DESTINATION "${OPENMP_INSTALL_LIBDIR}")             # INTEL rL350254
