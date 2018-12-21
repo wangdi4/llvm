@@ -57,7 +57,8 @@ enum RuntimeDDResult {
   NON_PROFITABLE,
   NON_PROFITABLE_SUBS,
   STRUCT_ACCESS,
-  DIFF_ADDR_SPACE
+  DIFF_ADDR_SPACE,
+  UNSIZED,
 };
 
 // The struct represents a segment of memory. It is used to construct checks
