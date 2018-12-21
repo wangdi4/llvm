@@ -361,3 +361,41 @@ add_lit_target(check-ocl-all
   ARGS ${LLVM_LIT_EXTRA_ARGS}
   )
 
+# This command is used for creating a fake dependency in order to force
+# another command(s) to execute.
+# Its output is never produced as a result thus each other
+# command that depends on it will always be executed.
+# We use this to force running deploy installation regardless of
+# manifest files state.
+add_custom_command(OUTPUT __force_it
+                   COMMAND "${CMAKE_COMMAND}" -E echo)
+
+if(DEFINED INTEL_DEPLOY_COMPONENTS)
+    set(manifest_list)
+
+    foreach( comp ${INTEL_DEPLOY_COMPONENTS} )
+        message( STATUS "Adding component ${comp} to deploy")
+
+        set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
+        add_custom_command(OUTPUT ${manifest}
+                           COMMAND "${CMAKE_COMMAND}"
+                                   "-DCMAKE_INSTALL_COMPONENT=${comp}"
+                                   -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                           DEPENDS  __force_it
+                           COMMENT "Deploying component ${comp}"
+                           USES_TERMINAL)
+        list(APPEND manifest_list ${manifest})
+    endforeach( comp )
+
+    add_custom_target(deploy DEPENDS ${manifest_list})
+else()
+    # no specific components was given so do full installation
+    set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
+    add_custom_command(OUTPUT ${manifest}
+                       COMMAND "${CMAKE_COMMAND}"
+                               -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                       DEPENDS  __force_it
+                       COMMENT "Performing deploy operation..."
+                       USES_TERMINAL)
+    add_custom_target(deploy DEPENDS ${manifest})
+endif()
