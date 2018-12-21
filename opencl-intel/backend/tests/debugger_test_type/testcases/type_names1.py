@@ -31,7 +31,7 @@ class TypeNames(DebuggerTestCase):
         if self.use_gdb:
             self._assert_typename('ull', 'unsigned long')
         else:
-            self._assert_typename('ull', 'unsigned long int')
+            self._assert_typename('ull', 'long unsigned int')
 
         self._assert_typename('gid', 'size_t')
 
