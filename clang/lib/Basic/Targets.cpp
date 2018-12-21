@@ -252,7 +252,6 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
 
   case llvm::Triple::avr:
     return new AVRTargetInfo(Triple, Opts);
-
   case llvm::Triple::bpfeb:
   case llvm::Triple::bpfel:
     return new BPFTargetInfo(Triple, Opts);

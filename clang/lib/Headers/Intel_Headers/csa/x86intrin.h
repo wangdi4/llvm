@@ -1,4 +1,3 @@
-/* INTEL_FEATURE_CSA */
 /*===---- x86intrin.h - CSA intrinsics -------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,4 +32,3 @@
 #include <csaintrin.h>
 
 #endif /* __X86INTRIN_H */
-/* end INTEL_FEATURE_CSA */

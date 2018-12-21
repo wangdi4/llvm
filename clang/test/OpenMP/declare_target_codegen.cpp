@@ -38,6 +38,10 @@
 // CHECK-DAG: define {{.*}}void @{{.*}}TemplateClass{{.*}}(%class.TemplateClass* %{{.*}})
 // CHECK-DAG: define {{.*}}i32 @{{.*}}TemplateClass{{.*}}f_method{{.*}}(%class.TemplateClass* %{{.*}})
 // CHECK-DAG: define {{.*}}void @__omp_offloading__{{.*}}_globals_l[[@LINE+63]]_ctor()
+// INTEL_CUSTOMIZATION
+// The issue is tracked in CMPLRLLVM-6725.
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
 
 #ifndef HEADER
 #define HEADER

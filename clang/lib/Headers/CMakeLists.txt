@@ -31,8 +31,9 @@ set(INTEL_HEADERS)
 # INTEL_FEATURE_CSA
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
-  csaintrin.h
-  CSAx86intrin.h
+  Intel_Headers/csa/csaintrin.h
+  Intel_Headers/csa/x86intrin.h
+  Intel_Headers/csa/bits/mathinline.h
   )
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
@@ -84,9 +85,6 @@ set(files
   cpuid.h
   clflushoptintrin.h
   clwbintrin.h
-# INTEL_CUSTOMIZATION
-  ${INTEL_HEADERS}
-# end INTEL_CUSTOMIZATION
   emmintrin.h
   f16cintrin.h
   float.h
@@ -250,8 +248,6 @@ install(
   COMPONENT clang-headers
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
-
-add_subdirectory(bits)
 
 install(
   FILES ${cuda_wrapper_files}

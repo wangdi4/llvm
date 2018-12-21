@@ -357,7 +357,7 @@ std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
   case llvm::Triple::csa:
     // last of arch or cpu
     if (const Arg *A = Args.getLastArg(options::OPT_march_EQ,
-                                     options::OPT_mcpu_EQ))
+                                       options::OPT_mcpu_EQ))
       return A->getValue();
     return "";
 #endif  // INTEL_FEATURE_CSA

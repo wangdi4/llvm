@@ -139,9 +139,7 @@ void foo1()
   #pragma omp target
   {
     int i = 0;
-    //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
-    //ALL-SAME:"DIR.OMP.ATOMIC"
-    //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.ATOMIC"
+    // CHECK: atomicrmw add i64* [[N1_ADDR]], i64 1 monotonic
     #pragma omp atomic
     i++;
     //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()

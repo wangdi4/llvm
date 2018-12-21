@@ -1,4 +1,3 @@
-/* INTEL_FEATURE_CSA */
 /*===---- csaintrin.h - CSA intrinsics -------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -108,4 +107,3 @@ static __inline__ float __DEFAULT_FN_ATTRS _mm64_extract_ps(__m64f a, int i)
 #undef __DEFAULT_FN_ATTRS
 
 #endif /* __CSAINTRIN_H */
-/* end INTEL_FEATURE_CSA */

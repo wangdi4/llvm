@@ -2532,8 +2532,8 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
 #endif // INTEL_CUSTOMIZATION
        ) {
 #if INTEL_CUSTOMIZATION
-      /* This is a late-outlined region, check if it is nested inside a
-         fe-outlined region. */
+      // This is a late-outlined region, check if it is nested inside a
+      // fe-outlined region.
       auto *CSI = cast<CGLateOutlineOpenMPRegionInfo>(CapturedStmtInfo);
       CodeGenFunction::CGCapturedStmtInfo *outer = CSI->getOldCSI();
       while (outer && outer->isLateOutlinedRegion()) {

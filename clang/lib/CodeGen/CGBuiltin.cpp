@@ -11963,7 +11963,10 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     StringRef Str = cast<StringLiteral>(SPMDStrExpr)->getString();
     Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmdization,
                                      {X->getType(), Y->getType()});
-    return Builder.CreateCall(Callee, {X, Builder.CreateBitCast(CGM.EmitAnnotationString(Str), Int8PtrTy)});
+    return Builder.CreateCall(Callee,
+                              {X, Builder.CreateBitCast(
+                                      CGM.EmitAnnotationString(Str),
+                                      Int8PtrTy)});
   }
   case CSA::BI__builtin_csa_spmd: {
     Value *X = EmitScalarExpr(E->getArg(0));
