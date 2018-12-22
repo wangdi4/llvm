@@ -17,9 +17,9 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/Expr.h"
+#include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Frontend/CodeGenOptions.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
@@ -146,6 +146,9 @@ namespace {
 #endif // INTEL_CUSTOMIZATION
 
       M->setDataLayout(Ctx->getTargetInfo().getDataLayout());
+      const auto &SDKVersion = Ctx->getTargetInfo().getSDKVersion();
+      if (!SDKVersion.empty())
+        M->setSDKVersion(SDKVersion);
       Builder.reset(new CodeGen::CodeGenModule(Context, HeaderSearchOpts,
                                                PreprocessorOpts, CodeGenOpts,
                                                *M, Diags, CoverageInfo));

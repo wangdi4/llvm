@@ -38,7 +38,7 @@ namespace {
 /// WebAssemblyOperand - Instances of this class represent the operands in a
 /// parsed WASM machine instruction.
 struct WebAssemblyOperand : public MCParsedAsmOperand {
-  enum KindTy { Token, Integer, Float, Symbol } Kind;
+  enum KindTy { Token, Integer, Float, Symbol, BrList } Kind;
 
   SMLoc StartLoc, EndLoc;
 
@@ -58,11 +58,16 @@ struct WebAssemblyOperand : public MCParsedAsmOperand {
     const MCExpr *Exp;
   };
 
+  struct BrLOp {
+    std::vector<unsigned> List;
+  };
+
   union {
     struct TokOp Tok;
     struct IntOp Int;
     struct FltOp Flt;
     struct SymOp Sym;
+    struct BrLOp BrL;
   };
 
   WebAssemblyOperand(KindTy K, SMLoc Start, SMLoc End, TokOp T)
@@ -73,6 +78,13 @@ struct WebAssemblyOperand : public MCParsedAsmOperand {
       : Kind(K), StartLoc(Start), EndLoc(End), Flt(F) {}
   WebAssemblyOperand(KindTy K, SMLoc Start, SMLoc End, SymOp S)
       : Kind(K), StartLoc(Start), EndLoc(End), Sym(S) {}
+  WebAssemblyOperand(KindTy K, SMLoc Start, SMLoc End)
+      : Kind(K), StartLoc(Start), EndLoc(End), BrL() {}
+
+  ~WebAssemblyOperand() {
+    if (isBrList())
+      BrL.~BrLOp();
+  }
 
   bool isToken() const override { return Kind == Token; }
   bool isImm() const override {
@@ -80,6 +92,7 @@ struct WebAssemblyOperand : public MCParsedAsmOperand {
   }
   bool isMem() const override { return false; }
   bool isReg() const override { return false; }
+  bool isBrList() const { return Kind == BrList; }
 
   unsigned getReg() const override {
     llvm_unreachable("Assembly inspects a register operand");
@@ -111,6 +124,12 @@ struct WebAssemblyOperand : public MCParsedAsmOperand {
       llvm_unreachable("Should be immediate or symbol!");
   }
 
+  void addBrListOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && isBrList() && "Invalid BrList!");
+    for (auto Br : BrL.List)
+      Inst.addOperand(MCOperand::createImm(Br));
+  }
+
   void print(raw_ostream &OS) const override {
     switch (Kind) {
     case Token:
@@ -124,6 +143,9 @@ struct WebAssemblyOperand : public MCParsedAsmOperand {
       break;
     case Symbol:
       OS << "Sym:" << Sym.Exp;
+      break;
+    case BrList:
+      OS << "BrList:" << BrL.List.size();
       break;
     }
   }
@@ -340,6 +362,21 @@ public:
         Parser.Lex();
         break;
       }
+      case AsmToken::LCurly: {
+        Parser.Lex();
+        auto Op = make_unique<WebAssemblyOperand>(
+            WebAssemblyOperand::BrList, Tok.getLoc(), Tok.getEndLoc());
+        if (!Lexer.is(AsmToken::RCurly))
+          for (;;) {
+            Op->BrL.List.push_back(Lexer.getTok().getIntVal());
+            expect(AsmToken::Integer, "integer");
+            if (!isNext(AsmToken::Comma))
+              break;
+          }
+        expect(AsmToken::RCurly, "}");
+        Operands.push_back(std::move(Op));
+        break;
+      }
       default:
         return error("Unexpected token in operand: ", Tok);
       }
@@ -365,6 +402,24 @@ public:
   void onLabelParsed(MCSymbol *Symbol) override {
     LastLabel = Symbol;
     CurrentState = Label;
+  }
+
+  bool parseSignature(wasm::WasmSignature *Signature) {
+    if (expect(AsmToken::LParen, "("))
+      return true;
+    if (parseRegTypeList(Signature->Params))
+      return true;
+    if (expect(AsmToken::RParen, ")"))
+      return true;
+    if (expect(AsmToken::MinusGreater, "->"))
+      return true;
+    if (expect(AsmToken::LParen, "("))
+      return true;
+    if (parseRegTypeList(Signature->Returns))
+      return true;
+    if (expect(AsmToken::RParen, ")"))
+      return true;
+    return false;
   }
 
   // This function processes wasm-specific directives streamed to
@@ -424,24 +479,29 @@ public:
         CurrentState = FunctionStart;
       }
       auto Signature = make_unique<wasm::WasmSignature>();
-      if (expect(AsmToken::LParen, "("))
-        return true;
-      if (parseRegTypeList(Signature->Params))
-        return true;
-      if (expect(AsmToken::RParen, ")"))
-        return true;
-      if (expect(AsmToken::MinusGreater, "->"))
-        return true;
-      if (expect(AsmToken::LParen, "("))
-        return true;
-      if (parseRegTypeList(Signature->Returns))
-        return true;
-      if (expect(AsmToken::RParen, ")"))
+      if (parseSignature(Signature.get()))
         return true;
       WasmSym->setSignature(Signature.get());
       addSignature(std::move(Signature));
       WasmSym->setType(wasm::WASM_SYMBOL_TYPE_FUNCTION);
       TOut.emitFunctionType(WasmSym);
+      // TODO: backend also calls TOut.emitIndIdx, but that is not implemented.
+      return expect(AsmToken::EndOfStatement, "EOL");
+    }
+
+    if (DirectiveID.getString() == ".eventtype") {
+      auto SymName = expectIdent();
+      if (SymName.empty())
+        return true;
+      auto WasmSym = cast<MCSymbolWasm>(
+          TOut.getStreamer().getContext().getOrCreateSymbol(SymName));
+      auto Signature = make_unique<wasm::WasmSignature>();
+      if (parseRegTypeList(Signature->Params))
+        return true;
+      WasmSym->setSignature(Signature.get());
+      addSignature(std::move(Signature));
+      WasmSym->setType(wasm::WASM_SYMBOL_TYPE_EVENT);
+      TOut.emitEventType(WasmSym);
       // TODO: backend also calls TOut.emitIndIdx, but that is not implemented.
       return expect(AsmToken::EndOfStatement, "EOL");
     }

@@ -381,7 +381,7 @@ static void instantiateOMPDeclareSimdDeclAttr(
               PVD, FD->getParamDecl(PVD->getFunctionScopeIndex()));
         return S.SubstExpr(E, TemplateArgs);
       }
-    Sema::CXXThisScopeRAII ThisScope(S, ThisContext, /*TypeQuals=*/0,
+    Sema::CXXThisScopeRAII ThisScope(S, ThisContext, Qualifiers(),
                                      FD->isCXXInstanceMember());
     return S.SubstExpr(E, TemplateArgs);
   };
@@ -441,7 +441,7 @@ void Sema::InstantiateAttrsForDecl(
       // applicable to template declaration, we'll need to add them here.
       CXXThisScopeRAII ThisScope(
           *this, dyn_cast_or_null<CXXRecordDecl>(ND->getDeclContext()),
-          /*TypeQuals*/ 0, ND->isCXXInstanceMember());
+          Qualifiers(), ND->isCXXInstanceMember());
 
       Attr *NewAttr = sema::instantiateTemplateAttributeForDecl(
           TmplAttr, Context, *this, TemplateArgs);
@@ -646,7 +646,7 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       NamedDecl *ND = dyn_cast<NamedDecl>(New);
       CXXRecordDecl *ThisContext =
           dyn_cast_or_null<CXXRecordDecl>(ND->getDeclContext());
-      CXXThisScopeRAII ThisScope(*this, ThisContext, /*TypeQuals*/0,
+      CXXThisScopeRAII ThisScope(*this, ThisContext, Qualifiers(),
                                  ND && ND->isCXXInstanceMember());
 
       Attr *NewAttr = sema::instantiateTemplateAttribute(TmplAttr, Context,
@@ -2994,7 +2994,7 @@ Decl *TemplateDeclInstantiator::VisitOMPDeclareReductionDecl(
         cast<DeclRefExpr>(D->getCombinerOut())->getDecl(),
         cast<DeclRefExpr>(NewDRD->getCombinerOut())->getDecl());
     auto *ThisContext = dyn_cast_or_null<CXXRecordDecl>(Owner);
-    Sema::CXXThisScopeRAII ThisScope(SemaRef, ThisContext, /*TypeQuals*/ 0,
+    Sema::CXXThisScopeRAII ThisScope(SemaRef, ThisContext, Qualifiers(),
                                      ThisContext);
     SubstCombiner = SemaRef.SubstExpr(D->getCombiner(), TemplateArgs).get();
     SemaRef.ActOnOpenMPDeclareReductionCombinerEnd(NewDRD, SubstCombiner);
@@ -3613,7 +3613,7 @@ TemplateDeclInstantiator::SubstFunctionType(FunctionDecl *D,
   assert(Params.empty() && "parameter vector is non-empty at start");
 
   CXXRecordDecl *ThisContext = nullptr;
-  unsigned ThisTypeQuals = 0;
+  Qualifiers ThisTypeQuals;
   if (CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(D)) {
     ThisContext = cast<CXXRecordDecl>(Owner);
     ThisTypeQuals = Method->getTypeQualifiers();

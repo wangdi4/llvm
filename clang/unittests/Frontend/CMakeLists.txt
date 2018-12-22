@@ -24,6 +24,7 @@ target_link_libraries(FrontendTests
   clangSema
   clangCodeGen
   clangFrontendTool
+  clangSerialization
   )
 
 #if INTEL_CUSTOMIZATION

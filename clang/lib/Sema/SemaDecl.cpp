@@ -3217,9 +3217,9 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     if (OldPr && NewPr && (OldPr->isRestrict() != NewPr->isRestrict())) {
       FunctionProtoType::ExtProtoInfo EPI = NewPr->getExtProtoInfo();
       if (!OldPr->isRestrict() && NewPr->isRestrict()) {
-        EPI.TypeQuals &= ~Qualifiers::Restrict;
+        EPI.TypeQuals.removeRestrict();
       } else if (OldPr->isRestrict() && !NewPr->isRestrict()) {
-        EPI.TypeQuals |= Qualifiers::Restrict;
+        EPI.TypeQuals.addRestrict();
       }
       New->setType(Context.getFunctionType(NewPr->getReturnType(),
                                            NewPr->getParamTypes(), EPI));
@@ -3330,7 +3330,12 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
   if (RequiresAdjustment) {
     const FunctionType *AdjustedType = New->getType()->getAs<FunctionType>();
     AdjustedType = Context.adjustFunctionType(AdjustedType, NewTypeInfo);
-    New->setType(QualType(AdjustedType, 0));
+
+    QualType AdjustedQT = QualType(AdjustedType, 0);
+    LangAS AS = Old->getType().getAddressSpace();
+    AdjustedQT = Context.getAddrSpaceQualType(AdjustedQT, AS);
+
+    New->setType(AdjustedQT);
     NewQType = Context.getCanonicalType(New->getType());
     NewType = cast<FunctionType>(NewQType);
   }
@@ -8465,7 +8470,7 @@ static OpenCLParamType getOpenCLKernelParameterType(Sema &S, QualType PT) {
     const Type *UnderlyingTy = PT->getPointeeOrArrayElementType();
     // Call ourself to check an underlying type of an array. Since the
     // getPointeeOrArrayElementType returns an innermost type which is not an
-    // array, this recusive call only happens once.
+    // array, this recursive call only happens once.
     return getOpenCLKernelParameterType(S, QualType(UnderlyingTy, 0));
   }
 
@@ -10466,7 +10471,7 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
   CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(NewFD);
   if (!getLangOpts().CPlusPlus14 && MD && MD->isConstexpr() &&
       !MD->isStatic() && !isa<CXXConstructorDecl>(MD) &&
-      (MD->getTypeQualifiers() & Qualifiers::Const) == 0) {
+      !MD->getTypeQualifiers().hasConst()) {
     CXXMethodDecl *OldMD = nullptr;
     if (OldDecl)
       OldMD = dyn_cast_or_null<CXXMethodDecl>(OldDecl->getAsFunction());
@@ -10474,7 +10479,7 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
       const FunctionProtoType *FPT =
         MD->getType()->castAs<FunctionProtoType>();
       FunctionProtoType::ExtProtoInfo EPI = FPT->getExtProtoInfo();
-      EPI.TypeQuals |= Qualifiers::Const;
+      EPI.TypeQuals.addConst();
       MD->setType(Context.getFunctionType(FPT->getReturnType(),
                                           FPT->getParamTypes(), EPI));
 
@@ -10993,7 +10998,7 @@ namespace {
       Expr *Base = E;
       bool ReferenceField = false;
 
-      // Get the field memebers used.
+      // Get the field members used.
       while (MemberExpr *ME = dyn_cast<MemberExpr>(Base)) {
         FieldDecl *FD = dyn_cast<FieldDecl>(ME->getMemberDecl());
         if (!FD)
@@ -17262,7 +17267,7 @@ void Sema::ActOnEnumBody(SourceLocation EnumLoc, SourceRange BraceRange,
       NumNegativeBits = std::max(NumNegativeBits,
                                  (unsigned)InitVal.getMinSignedBits());
 
-    // Keep track of whether every enum element has type int (very commmon).
+    // Keep track of whether every enum element has type int (very common).
     if (AllElementsInt)
       AllElementsInt = ECD->getType() == Context.IntTy;
   }

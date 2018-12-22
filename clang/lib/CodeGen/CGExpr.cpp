@@ -29,7 +29,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/NSAPI.h"
-#include "clang/Frontend/CodeGenOptions.h"
+#include "clang/Basic/CodeGenOptions.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DataLayout.h"
@@ -4149,7 +4149,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
       LValue RefLVal = MakeAddrLValue(addr, FieldType, FieldBaseInfo,
                                       FieldTBAAInfo);
       if (RecordCVR & Qualifiers::Volatile)
-        RefLVal.getQuals().setVolatile(true);
+        RefLVal.getQuals().addVolatile();
       addr = EmitLoadOfReference(RefLVal, &FieldBaseInfo, &FieldTBAAInfo);
 
       // Qualifiers on the struct don't apply to the referencee.
@@ -4503,8 +4503,9 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     QualType DestTy = getContext().getPointerType(E->getType());
     llvm::Value *V = getTargetHooks().performAddrSpaceCast(
         *this, LV.getPointer(), E->getSubExpr()->getType().getAddressSpace(),
-        DestTy.getAddressSpace(), ConvertType(DestTy));
-    return MakeNaturalAlignPointeeAddrLValue(V, DestTy);
+        E->getType().getAddressSpace(), ConvertType(DestTy));
+    return MakeAddrLValue(Address(V, LV.getAddress().getAlignment()),
+                          E->getType(), LV.getBaseInfo(), LV.getTBAAInfo());
   }
   case CK_ObjCObjectLValueCast: {
     LValue LV = EmitLValue(E->getSubExpr());

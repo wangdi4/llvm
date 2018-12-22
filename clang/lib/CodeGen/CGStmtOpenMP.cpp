@@ -2997,7 +2997,7 @@ void CodeGenFunction::EmitOMPTaskBasedDirective(
         RedCG.emitAggregateType(CGF, Cnt);
         // FIXME: This must removed once the runtime library is fixed.
         // Emit required threadprivate variables for
-        // initilizer/combiner/finalizer.
+        // initializer/combiner/finalizer.
         CGF.CGM.getOpenMPRuntime().emitTaskReductionFixups(CGF, S.getBeginLoc(),
                                                            RedCG, Cnt);
         Address Replacement = CGF.CGM.getOpenMPRuntime().getTaskReductionItem(
@@ -3043,10 +3043,10 @@ void CodeGenFunction::EmitOMPTaskBasedDirective(
         RedCG.emitSharedLValue(CGF, Cnt);
         RedCG.emitAggregateType(CGF, Cnt);
         // The taskgroup descriptor variable is always implicit firstprivate and
-        // privatized already during procoessing of the firstprivates.
+        // privatized already during processing of the firstprivates.
         // FIXME: This must removed once the runtime library is fixed.
         // Emit required threadprivate variables for
-        // initilizer/combiner/finalizer.
+        // initializer/combiner/finalizer.
         CGF.CGM.getOpenMPRuntime().emitTaskReductionFixups(CGF, S.getBeginLoc(),
                                                            RedCG, Cnt);
         llvm::Value *ReductionsPtr =
