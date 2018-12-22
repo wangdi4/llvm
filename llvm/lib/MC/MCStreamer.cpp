@@ -594,6 +594,15 @@ void MCStreamer::EmitCFIWindowSave() {
   CurFrame->Instructions.push_back(Instruction);
 }
 
+void MCStreamer::EmitCFINegateRAState() {
+  MCSymbol *Label = EmitCFILabel();
+  MCCFIInstruction Instruction = MCCFIInstruction::createNegateRAState(Label);
+  MCDwarfFrameInfo *CurFrame = getCurrentDwarfFrameInfo();
+  if (!CurFrame)
+    return;
+  CurFrame->Instructions.push_back(Instruction);
+}
+
 void MCStreamer::EmitCFIReturnColumn(int64_t Register) {
   MCDwarfFrameInfo *CurFrame = getCurrentDwarfFrameInfo();
   if (!CurFrame)
@@ -1062,7 +1071,8 @@ MCSymbol *MCStreamer::endSection(MCSection *Section) {
   return Sym;
 }
 
-void MCStreamer::EmitVersionForTarget(const Triple &Target) {
+void MCStreamer::EmitVersionForTarget(const Triple &Target,
+                                      const VersionTuple &SDKVersion) {
   if (!Target.isOSBinFormatMachO() || !Target.isOSDarwin())
     return;
   // Do we even know the version?
@@ -1088,5 +1098,5 @@ void MCStreamer::EmitVersionForTarget(const Triple &Target) {
     Target.getiOSVersion(Major, Minor, Update);
   }
   if (Major != 0)
-    EmitVersionMin(VersionType, Major, Minor, Update);
+    EmitVersionMin(VersionType, Major, Minor, Update, SDKVersion);
 }

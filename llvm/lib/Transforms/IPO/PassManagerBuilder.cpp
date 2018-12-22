@@ -1015,6 +1015,8 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createLICMPass());
  }
 
+  MPM.add(createWarnMissedTransformationsPass());
+
   // After vectorization and unrolling, assume intrinsics may tell us more
   // about pointer alignments.
   MPM.add(createAlignmentFromAssumptionsPass());
@@ -1286,6 +1288,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // The vectorizer may have significantly shortened a loop body; unroll again.
   if (!DisableUnrollLoops)
     PM.add(createLoopUnrollPass(OptLevel));
+
+  PM.add(createWarnMissedTransformationsPass());
 
   // Now that we've optimized loops (in particular loop induction variables),
   // we may have exposed more scalar opportunities. Run parts of the scalar

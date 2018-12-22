@@ -1,8 +1,7 @@
 ; RUN: opt < %s -passes='module(call-tree-clone)'  -call-tree-clone-do-mv=false -call-tree-clone-seed=a:0 -call-tree-clone-seed=b:0,1 -S | FileCheck %s
 ; CHECK:@"a|3"()
-; CHECK:@"b|19.-15"()
-; CHECK:@"x|3.5"()
-; CHECK:@"y|17.2"()
+; CHECK:@"x|_.5"(i32)
+; CHECK:@"y|_.2"(i32 %5)
 ; CHECK:@"y|_.-2"(i32)
 ; CHECK:@"a|-1"()
 
