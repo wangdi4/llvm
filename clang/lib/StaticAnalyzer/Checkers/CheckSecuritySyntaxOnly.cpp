@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ClangSACheckers.h"
+#include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/Basic/TargetInfo.h"
@@ -188,7 +188,7 @@ void WalkAST::VisitForStmt(ForStmt *FS) {
 }
 
 //===----------------------------------------------------------------------===//
-// Check: floating poing variable used as loop counter.
+// Check: floating point variable used as loop counter.
 // Originally: <rdar://problem/6336718>
 // Implements: CERT security coding advisory FLP-30.
 //===----------------------------------------------------------------------===//

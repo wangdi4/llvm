@@ -367,9 +367,8 @@ protected:
                           "continuing: %s.",
                           m_should_stop ? "true" : "false");
             process->GetTarget().GetDebugger().GetAsyncOutputStream()->Printf(
-                "Warning: hit breakpoint while "
-                "running function, skipping commands and conditions to prevent "
-                "recursion.");
+                "Warning: hit breakpoint while running function, skipping "
+                "commands and conditions to prevent recursion.\n");
             return;
           }
 
@@ -543,9 +542,9 @@ protected:
               __FUNCTION__, m_value);
       }
 
-      if ((m_should_stop == false || internal_breakpoint)
-          && thread_sp->CompletedPlanOverridesBreakpoint()) {
-        
+      if ((!m_should_stop || internal_breakpoint) &&
+          thread_sp->CompletedPlanOverridesBreakpoint()) {
+
         // Override should_stop decision when we have completed step plan
         // additionally to the breakpoint
         m_should_stop = true;

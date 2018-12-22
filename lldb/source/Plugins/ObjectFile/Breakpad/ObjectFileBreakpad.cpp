@@ -153,7 +153,7 @@ llvm::Optional<Header> Header::parse(llvm::StringRef text) {
 void ObjectFileBreakpad::Initialize() {
   PluginManager::RegisterPlugin(GetPluginNameStatic(),
                                 GetPluginDescriptionStatic(), CreateInstance,
-                                nullptr, GetModuleSpecifications);
+                                CreateMemoryInstance, GetModuleSpecifications);
 }
 
 void ObjectFileBreakpad::Terminate() {
@@ -190,6 +190,12 @@ ObjectFile *ObjectFileBreakpad::CreateInstance(
   return new ObjectFileBreakpad(module_sp, data_sp, data_offset, file,
                                 file_offset, length, std::move(header->arch),
                                 std::move(header->uuid));
+}
+
+ObjectFile *ObjectFileBreakpad::CreateMemoryInstance(
+    const ModuleSP &module_sp, DataBufferSP &data_sp,
+    const ProcessSP &process_sp, addr_t header_addr) {
+  return nullptr;
 }
 
 size_t ObjectFileBreakpad::GetModuleSpecifications(

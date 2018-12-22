@@ -35,6 +35,11 @@ public:
                  lldb::offset_t data_offset, const FileSpec *file,
                  lldb::offset_t file_offset, lldb::offset_t length);
 
+  static ObjectFile *CreateMemoryInstance(const lldb::ModuleSP &module_sp,
+                                          lldb::DataBufferSP &data_sp,
+                                          const lldb::ProcessSP &process_sp,
+                                          lldb::addr_t header_addr);
+
   static size_t GetModuleSpecifications(const FileSpec &file,
                                         lldb::DataBufferSP &data_sp,
                                         lldb::offset_t data_offset,

@@ -361,6 +361,34 @@ def int_objc_storeStrong                    : Intrinsic<[],
 def int_objc_storeWeak                      : Intrinsic<[llvm_ptr_ty],
                                                         [llvm_ptrptr_ty,
                                                          llvm_ptr_ty]>;
+def int_objc_clang_arc_use                  : Intrinsic<[],
+                                                        [llvm_vararg_ty]>;
+def int_objc_unsafeClaimAutoreleasedReturnValue : Intrinsic<[llvm_ptr_ty],
+                                                            [llvm_ptr_ty]>;
+def int_objc_retainedObject                 : Intrinsic<[llvm_ptr_ty],
+                                                        [llvm_ptr_ty]>;
+def int_objc_unretainedObject               : Intrinsic<[llvm_ptr_ty],
+                                                        [llvm_ptr_ty]>;
+def int_objc_unretainedPointer              : Intrinsic<[llvm_ptr_ty],
+                                                        [llvm_ptr_ty]>;
+def int_objc_retain_autorelease             : Intrinsic<[llvm_ptr_ty],
+                                                        [llvm_ptr_ty]>;
+def int_objc_sync_enter                     : Intrinsic<[llvm_i32_ty],
+                                                        [llvm_ptr_ty]>;
+def int_objc_sync_exit                      : Intrinsic<[llvm_i32_ty],
+                                                        [llvm_ptr_ty]>;
+def int_objc_arc_annotation_topdown_bbstart : Intrinsic<[],
+                                                        [llvm_ptrptr_ty,
+                                                         llvm_ptrptr_ty]>;
+def int_objc_arc_annotation_topdown_bbend   : Intrinsic<[],
+                                                        [llvm_ptrptr_ty,
+                                                         llvm_ptrptr_ty]>;
+def int_objc_arc_annotation_bottomup_bbstart  : Intrinsic<[],
+                                                          [llvm_ptrptr_ty,
+                                                           llvm_ptrptr_ty]>;
+def int_objc_arc_annotation_bottomup_bbend  : Intrinsic<[],
+                                                        [llvm_ptrptr_ty,
+                                                         llvm_ptrptr_ty]>;
 
 
 //===--------------------- Code Generator Intrinsics ----------------------===//
@@ -783,7 +811,7 @@ def int_umul_with_overflow : Intrinsic<[llvm_anyint_ty, llvm_i1_ty],
                                        [LLVMMatchType<0>, LLVMMatchType<0>],
                                        [IntrNoMem, IntrSpeculatable]>;
 
-//===------------------------- Fixed Point Intrinsics ---------------------===//
+//===------------------------- Saturation Arithmetic Intrinsics ---------------------===//
 //
 def int_sadd_sat : Intrinsic<[llvm_anyint_ty],
                              [LLVMMatchType<0>, LLVMMatchType<0>],
@@ -797,6 +825,12 @@ def int_ssub_sat : Intrinsic<[llvm_anyint_ty],
 def int_usub_sat : Intrinsic<[llvm_anyint_ty],
                              [LLVMMatchType<0>, LLVMMatchType<0>],
                              [IntrNoMem, IntrSpeculatable]>;
+
+//===------------------------- Fixed Point Arithmetic Intrinsics ---------------------===//
+//
+def int_smul_fix : Intrinsic<[llvm_anyint_ty],
+                             [LLVMMatchType<0>, LLVMMatchType<0>, llvm_i32_ty],
+                             [IntrNoMem, IntrSpeculatable, Commutative]>;
 
 //===------------------------- Memory Use Markers -------------------------===//
 //

@@ -14,12 +14,14 @@
 #include "DurationDivisionCheck.h"
 #include "DurationFactoryFloatCheck.h"
 #include "DurationFactoryScaleCheck.h"
+#include "DurationSubtractionCheck.h"
 #include "FasterStrsplitDelimiterCheck.h"
 #include "NoInternalDependenciesCheck.h"
 #include "NoNamespaceCheck.h"
 #include "RedundantStrcatCallsCheck.h"
 #include "StringFindStartswithCheck.h"
 #include "StrCatAppendCheck.h"
+#include "UpgradeDurationConversionsCheck.h"
 
 namespace clang {
 namespace tidy {
@@ -36,6 +38,8 @@ public:
         "abseil-duration-factory-float");
     CheckFactories.registerCheck<DurationFactoryScaleCheck>(
         "abseil-duration-factory-scale");
+    CheckFactories.registerCheck<DurationSubtractionCheck>(
+        "abseil-duration-subtraction");
     CheckFactories.registerCheck<FasterStrsplitDelimiterCheck>(
         "abseil-faster-strsplit-delimiter");
     CheckFactories.registerCheck<NoInternalDependenciesCheck>(
@@ -47,6 +51,8 @@ public:
         "abseil-str-cat-append");
     CheckFactories.registerCheck<StringFindStartswithCheck>(
         "abseil-string-find-startswith");
+    CheckFactories.registerCheck<UpgradeDurationConversionsCheck>(
+        "abseil-upgrade-duration-conversions");
   }
 };
 
