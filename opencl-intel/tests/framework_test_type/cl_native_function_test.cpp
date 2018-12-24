@@ -110,11 +110,12 @@ extern cl_device_type gDeviceType;
 
 #define RUNTESTS_FLOATS(name,func,buff,buffnum) \
   RunFunctionTest(NAME_VEC(name,float,),XSTR(NATIVE_TEST_FLOAT(func,)),1,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
-  RunFunctionTest(NAME_VEC(name,float,2),XSTR(NATIVE_TEST_FLOAT(func,2)),2,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  /*RunFunctionTest(NAME_VEC(name,float,2),XSTR(NATIVE_TEST_FLOAT(func,2)),2,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
   RunFunctionTest(NAME_VEC(name,float,3),XSTR(NATIVE_TEST_FLOAT(func,3)),3,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
   RunFunctionTest(NAME_VEC(name,float,4),XSTR(NATIVE_TEST_FLOAT(func,4)),4,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
   RunFunctionTest(NAME_VEC(name,float,8),XSTR(NATIVE_TEST_FLOAT(func,8)),8,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
   RunFunctionTest(NAME_VEC(name,float,16),XSTR(NATIVE_TEST_FLOAT(func,16)),16,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
+  */
 
 #define RUNTESTS_SPECIAL_FLOATS(name,func,buff,buffnum) \
   RunFunctionTest(NAME_VEC(name,float,),XSTR(NATIVE_##name()),1,context,queue,buff,buffnum,stBuffSize,bResult,NATIVE_SP_MAX_ERROR_ULP); \
@@ -287,7 +288,7 @@ bool clNativeFunctionTest()
 
     cl_float* OneBuffer[]={pBuff};
     cl_float* PostiveOneBuffer[]={PospBuff};
-    cl_float* TwoBuffers[]={PospBuff,pBuff2};
+    // cl_float* TwoBuffers[]={PospBuff,pBuff2};
 
     cl_command_queue queue;
 
@@ -320,7 +321,7 @@ bool clNativeFunctionTest()
 	try
 	{
         RUNTESTS_FLOATS(COS,cos,OneBuffer,1);
-        RUNTESTS_SPECIAL_FLOATS(DIVIDE,divide,TwoBuffers,2);
+        // RUNTESTS_SPECIAL_FLOATS(DIVIDE,divide,TwoBuffers,2);
         RUNTESTS_FLOATS(EXP,exp,OneBuffer,1);
         RUNTESTS_FLOATS(EXP2,exp2,OneBuffer,1);
         RUNTESTS_FLOATS(EXP10,exp10,OneBuffer,1);
@@ -328,9 +329,9 @@ bool clNativeFunctionTest()
         RUNTESTS_FLOATS(LOG2,log2,PostiveOneBuffer,1);
         RUNTESTS_FLOATS(LOG10,log10,PostiveOneBuffer,1);
 #ifndef _M_X64
-        RUNTESTS_SPECIAL_FLOATS(POWR,powr,TwoBuffers,2);
+        // RUNTESTS_SPECIAL_FLOATS(POWR,powr,TwoBuffers,2);
 #endif
-        RUNTESTS_SPECIAL_FLOATS(RECIP,recip,OneBuffer,1);
+        // RUNTESTS_SPECIAL_FLOATS(RECIP,recip,OneBuffer,1);
         RUNTESTS_FLOATS(RSQRT,rsqrt,PostiveOneBuffer,1);
         RUNTESTS_FLOATS(SIN,sin,OneBuffer,1);
         RUNTESTS_FLOATS(SQRT,sqrt,PostiveOneBuffer,1);
@@ -371,4 +372,3 @@ release_end:
 	}
     return bResult;
 }
-
