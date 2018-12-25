@@ -309,6 +309,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   std::vector<cl_kernel> &kernels =
       DeviceInfo.FuncGblEntries[device_id].Kernels;
   for (unsigned i = 0; i < NumEntries; i++) {
+    // Size is 0 means that it is kernel function.
+    if (image->EntriesBegin[i].size != 0)
+      continue;
     char *name = image->EntriesBegin[i].name;
     kernels[i] = clCreateKernel(program[2], name, &status);
     if (status != 0) {
