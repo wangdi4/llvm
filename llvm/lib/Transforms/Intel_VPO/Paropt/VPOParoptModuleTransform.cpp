@@ -121,13 +121,12 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   if ((Mode & OmpPar) && (Mode & ParTrans))
     fixTidAndBidGlobals();
 
-  if (!VPOAnalysisUtils::isTargetSPIRV(&M)) {
+  if (!VPOAnalysisUtils::isTargetSPIRV(&M))
     // Generate offload initialization code.
     genOffloadingBinaryDescriptorRegistration();
 
-    // Emit offload entries table.
-    genOffloadEntries();
-  }
+  // Emit offload entries table.
+  genOffloadEntries();
 
   if (hasOffloadCompilation() && (Mode & ParTrans)) {
     removeTargetUndeclaredGlobals();
@@ -434,7 +433,7 @@ GlobalVariable *VPOParoptModuleTransform::getDsoHandle() {
 
 // Register the offloading binary descriptors.
 void VPOParoptModuleTransform::genOffloadingBinaryDescriptorRegistration() {
-  if (hasOffloadCompilation() || OffloadEntries.empty())
+  if (OffloadEntries.empty())
     return;
 
   auto OffloadEntryTy = getTgOffloadEntryTy();
@@ -496,6 +495,8 @@ void VPOParoptModuleTransform::genOffloadingBinaryDescriptorRegistration() {
       new GlobalVariable(M, DescInit->getType(),
                          /*isConstant=*/true, GlobalValue::InternalLinkage,
                          DescInit, ".omp_offloading.descriptor");
+  if (hasOffloadCompilation())
+    return;
   Function *TgDescUnregFn = createTgDescUnregisterLib(Desc);
   Function *TgDescRegFn = createTgDescRegisterLib(TgDescUnregFn, Desc);
 
@@ -735,8 +736,11 @@ void VPOParoptModuleTransform::genOffloadEntries() {
     Str->setTargetDeclare(true);
 
     SmallVector<Constant *, 5u> EntryInitBuffer;
-    EntryInitBuffer.push_back(
+    if (!VPOAnalysisUtils::isTargetSPIRV(&M))
+      EntryInitBuffer.push_back(
         ConstantExpr::getBitCast(E->getAddress(), VoidStarTy));
+    else
+      EntryInitBuffer.push_back(Constant::getNullValue(VoidStarTy));
     EntryInitBuffer.push_back(ConstantExpr::getBitCast(Str, VoidStarTy));
     EntryInitBuffer.push_back(ConstantInt::get(SizeTy, E->getSize()));
     EntryInitBuffer.push_back(ConstantInt::get(Int32Ty, E->getFlags()));
