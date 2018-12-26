@@ -658,7 +658,7 @@ lldb::TypeSP PDBASTParser::CreateLLDBTypeFromPDBType(const PDBSymbol &type) {
     CompilerType element_ast_type = element_type->GetForwardCompilerType();
     // If element type is UDT, it needs to be complete.
     if (ClangASTContext::IsCXXClassType(element_ast_type) &&
-        element_ast_type.GetCompleteType() == false) {
+        !element_ast_type.GetCompleteType()) {
       if (ClangASTContext::StartTagDeclarationDefinition(element_ast_type)) {
         ClangASTContext::CompleteTagDeclarationDefinition(element_ast_type);
       } else {
@@ -932,7 +932,8 @@ PDBASTParser::GetDeclForSymbol(const llvm::pdb::PDBSymbol &symbol) {
             continue;
 
           clang::ParmVarDecl *param = m_ast.CreateParameterDeclaration(
-              nullptr, arg_type->GetForwardCompilerType(), clang::SC_None);
+              decl, nullptr, arg_type->GetForwardCompilerType(),
+              clang::SC_None);
           if (param)
             params.push_back(param);
         }

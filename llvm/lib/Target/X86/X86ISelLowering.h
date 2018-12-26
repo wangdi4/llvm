@@ -226,10 +226,6 @@ namespace llvm {
       SCALEF,
       SCALEFS,
 
-      // Integer add/sub with unsigned saturation.
-      ADDUS,
-      SUBUS,
-
       // Integer add/sub with signed saturation.
       ADDS,
       SUBS,
@@ -871,6 +867,7 @@ namespace llvm {
 
     bool SimplifyDemandedBitsForTargetNode(SDValue Op,
                                            const APInt &DemandedBits,
+                                           const APInt &DemandedElts,
                                            KnownBits &Known,
                                            TargetLoweringOpt &TLO,
                                            unsigned Depth) const override;
@@ -1361,11 +1358,6 @@ namespace llvm {
 
     MachineBasicBlock *EmitSjLjDispatchBlock(MachineInstr &MI,
                                              MachineBasicBlock *MBB) const;
-
-    /// Emit nodes that will be selected as "test Op0,Op0", or something
-    /// equivalent, for use with the given x86 condition code.
-    SDValue EmitTest(SDValue Op0, unsigned X86CC, const SDLoc &dl,
-                     SelectionDAG &DAG) const;
 
     /// Emit nodes that will be selected as "cmp Op0,Op1", or something
     /// equivalent, for use with the given x86 condition code.
