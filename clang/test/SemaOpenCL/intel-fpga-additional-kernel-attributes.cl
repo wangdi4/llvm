@@ -130,23 +130,23 @@ __attribute__((num_compute_units(1, 2, 3, 4))) //expected-error{{'num_compute_un
 __kernel void kernel_6i() {
 }
 
-__attribute__((scheduler_pipelining_effort_pct)) //expected-error{{'scheduler_pipelining_effort_pct' attribute takes one argument}}
+__attribute__((scheduler_target_fmax_mhz)) //expected-error{{'scheduler_target_fmax_mhz' attribute takes one argument}}
 __kernel void kernel_7a() {
 }
 
-__attribute__((scheduler_pipelining_effort_pct(12)))
+__attribute__((scheduler_target_fmax_mhz(12)))
 __kernel void kernel_7b() {
 }
 
-__attribute__((scheduler_pipelining_effort_pct("sch"))) // expected-error{{expression is not an integer constant expression}}
+__attribute__((scheduler_target_fmax_mhz("sch"))) // expected-error{{expression is not an integer constant expression}}
 __kernel void kernel_7c() {
 }
 
-__attribute__((scheduler_pipelining_effort_pct(-12))) // expected-error{{'scheduler_pipelining_effort_pct' attribute requires integer constant between 0 and 1048576 inclusive}}
+__attribute__((scheduler_target_fmax_mhz(-12))) // expected-error{{'scheduler_target_fmax_mhz' attribute requires integer constant between 0 and 1048576 inclusive}}
 __kernel void kernel_7d() {
 }
 
-__attribute__((scheduler_pipelining_effort_pct(0)))
+__attribute__((scheduler_target_fmax_mhz(0)))
 __kernel void kernel_7e() {
 }
 

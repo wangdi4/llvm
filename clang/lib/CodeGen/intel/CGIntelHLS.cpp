@@ -156,13 +156,13 @@ void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
                                  Builder.getInt32(SLA->isEnabled()))));
   }
 
-  if (const auto *A = FD->getAttr<SchedulerPipeliningEffortPctAttr>()) {
-    llvm::APSInt SPEPInt =
-        A->getSchedulerPipeliningEffortPct()->EvaluateKnownConstInt(
+  if (const auto *A = FD->getAttr<SchedulerTargetFmaxMHzAttr>()) {
+    llvm::APSInt STFMInt =
+        A->getSchedulerTargetFmaxMHz()->EvaluateKnownConstInt(
             getContext());
-    Fn->setMetadata("scheduler_pipelining_effort_pct",
+    Fn->setMetadata("scheduler_target_fmax_mhz",
                     llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
-                                                   Builder.getInt(SPEPInt))));
+                                                   Builder.getInt(STFMInt))));
   }
   if (FD->hasAttr<HLSIIAttr>()) {
     llvm::APSInt Cycle =

@@ -43,8 +43,8 @@ __kernel void k10() __attribute__((max_global_work_dim(0))) __attribute__((autor
 __kernel void k11() __attribute__((stall_free)) {}
 // CHECK: define spir_kernel void @k11{{[^{]+}} !stall_free ![[MD10]]
 
-__kernel void k12() __attribute__((scheduler_pipelining_effort_pct(12))) {}
-// CHECK: define spir_kernel void @k12{{[^{]+}} !scheduler_pipelining_effort_pct ![[MD12:[0-9]+]]
+__kernel void k12() __attribute__((scheduler_target_fmax_mhz(12))) {}
+// CHECK: define spir_kernel void @k12{{[^{]+}} !scheduler_target_fmax_mhz ![[MD12:[0-9]+]]
 
 __kernel void k13() {
 // CHECK: define spir_kernel void @k13{{[^{]+}}

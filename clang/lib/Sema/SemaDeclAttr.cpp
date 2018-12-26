@@ -3156,7 +3156,7 @@ static void handleStallFreeAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   handleSimpleAttribute<StallFreeAttr>(S, D, Attr);
 }
 
-static void handleSchedulerPipeliningEffortPctAttr(Sema &S, Decl *D,
+static void handleSchedulerTargetFmaxMHzAttr(Sema &S, Decl *D,
                                                    const ParsedAttr &Attr) {
   if (D->isInvalidDecl())
     return;
@@ -3171,25 +3171,24 @@ static void handleSchedulerPipeliningEffortPctAttr(Sema &S, Decl *D,
   if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
     return;
 
-  S.AddSchedulerPipeliningEffortPctAttr(Attr.getRange(), D,
+  S.AddSchedulerTargetFmaxMHzAttr(Attr.getRange(), D,
                                         Attr.getArgAsExpr(0),
                                         Attr.getAttributeSpellingListIndex());
 }
 
-void Sema::AddSchedulerPipeliningEffortPctAttr(SourceRange AttrRange, Decl *D,
+void Sema::AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D,
                                                Expr *E,
                                                unsigned SpellingListIndex) {
-  SchedulerPipeliningEffortPctAttr TmpAttr(AttrRange, Context, E,
+  SchedulerTargetFmaxMHzAttr TmpAttr(AttrRange, Context, E,
                                            SpellingListIndex);
-
   if (!E->isValueDependent()) {
     ExprResult ICE;
-    if (checkRangedIntegralArgument<SchedulerPipeliningEffortPctAttr>(
+    if (checkRangedIntegralArgument<SchedulerTargetFmaxMHzAttr>(
             E, &TmpAttr, ICE))
       return;
     E = ICE.get();
   }
-  D->addAttr(::new (Context) SchedulerPipeliningEffortPctAttr(
+  D->addAttr(::new (Context) SchedulerTargetFmaxMHzAttr(
       AttrRange, Context, E, SpellingListIndex));
 }
 
@@ -8187,8 +8186,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_StallFree:
     handleStallFreeAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_SchedulerPipeliningEffortPct:
-    handleSchedulerPipeliningEffortPctAttr(S, D, AL);
+  case ParsedAttr::AT_SchedulerTargetFmaxMHz:
+    handleSchedulerTargetFmaxMHzAttr(S, D, AL);
     break;
   case ParsedAttr::AT_InternalMaxBlockRamDepth:
     handleInternalMaxBlockRamDepthAttr(S, D, AL);
@@ -8378,7 +8377,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
         Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
         D->setInvalidDecl();
       }
-    } else if (Attr *A = D->getAttr<SchedulerPipeliningEffortPctAttr>()) {
+    } else if (Attr *A = D->getAttr<SchedulerTargetFmaxMHzAttr>()) {
       if (!getLangOpts().HLS) {
         Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
         D->setInvalidDecl();

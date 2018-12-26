@@ -199,18 +199,18 @@ static void instantiateDependentInternalMaxBlockRamDepthAttr(
                                       Max->getSpellingListIndex());
 }
 
-static void instantiateDependentSchedulerPipeliningEffortPctAttr(
+static void instantiateDependentSchedulerTargetFmaxMHzAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const SchedulerPipeliningEffortPctAttr *SPEPA, Decl *New) {
-  // The scheduler_pipelining_effort_pct expression is a constant expression.
+    const SchedulerTargetFmaxMHzAttr *STFM, Decl *New) {
+  // The scheduler_target_fmax_mhz expression is a constant expression.
   EnterExpressionEvaluationContext Unevaluated(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult Result =
-      S.SubstExpr(SPEPA->getSchedulerPipeliningEffortPct(), TemplateArgs);
+      S.SubstExpr(STFM->getSchedulerTargetFmaxMHz(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddSchedulerPipeliningEffortPctAttr(SPEPA->getLocation(), New,
+    S.AddSchedulerTargetFmaxMHzAttr(STFM->getLocation(), New,
                                           Result.getAs<Expr>(),
-                                          SPEPA->getSpellingListIndex());
+                                          STFM->getSpellingListIndex());
 }
 
 template <typename AttrType>
@@ -524,11 +524,11 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, MCA, New);
       continue;
     }
-    const SchedulerPipeliningEffortPctAttr *SPEPA =
-        dyn_cast<SchedulerPipeliningEffortPctAttr>(TmplAttr);
-    if (SPEPA) {
-      instantiateDependentSchedulerPipeliningEffortPctAttr(*this, TemplateArgs,
-                                                           SPEPA, New);
+    const SchedulerTargetFmaxMHzAttr *STFM =
+        dyn_cast<SchedulerTargetFmaxMHzAttr>(TmplAttr);
+    if (STFM) {
+      instantiateDependentSchedulerTargetFmaxMHzAttr(*this, TemplateArgs,
+                                                           STFM, New);
       continue;
     }
     const InternalMaxBlockRamDepthAttr *IMBRDA =

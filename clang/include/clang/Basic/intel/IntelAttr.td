@@ -454,9 +454,9 @@ def StallFree : InheritableAttr {
   let PragmaAttributeSupport = 0;
 }
 
-def SchedulerPipeliningEffortPct : InheritableAttr {
-  let Spellings = [GNU<"scheduler_pipelining_effort_pct">];
-  let Args = [ExprArgument<"SchedulerPipeliningEffortPct">];
+def SchedulerTargetFmaxMHz : InheritableAttr {
+  let Spellings = [GNU<"scheduler_target_fmax_mhz">];
+  let Args = [ExprArgument<"SchedulerTargetFmaxMHz">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
   let PragmaAttributeSupport = 0;

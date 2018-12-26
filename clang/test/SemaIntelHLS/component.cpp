@@ -118,29 +118,29 @@ __attribute__((ihc_component))
 void bar10(__attribute__((slave_memory_argument(0))) int i) {} // expected-error{{'slave_memory_argument' attribute takes no arguments}}
 
 __attribute__((stall_free)) //expected-error{{'stall_free' attribute only applies to functions}}
-__attribute__((scheduler_pipelining_effort_pct(1))) //expected-error{{'scheduler_pipelining_effort_pct' attribute only applies to functions}}
+__attribute__((scheduler_target_fmax_mhz(1))) //expected-error{{'scheduler_target_fmax_mhz' attribute only applies to functions}}
 const int i = 10;
 
 __attribute__((stall_free(0))) //expected-error{{'stall_free' attribute takes no arguments}}
 void bar11(int a) {
 }
-__attribute__((scheduler_pipelining_effort_pct)) //expected-error{{'scheduler_pipelining_effort_pct' attribute takes one argument}}
+__attribute__((scheduler_target_fmax_mhz)) //expected-error{{'scheduler_target_fmax_mhz' attribute takes one argument}}
 void bar12() {
 }
 
-__attribute__((scheduler_pipelining_effort_pct(12)))
+__attribute__((scheduler_target_fmax_mhz(12)))
 void bar13() {
 }
 
-__attribute__((scheduler_pipelining_effort_pct("sch"))) //expected-error{{integral constant expression must have integral or unscoped enumeration type, not 'const char [4]'}}
+__attribute__((scheduler_target_fmax_mhz("sch"))) //expected-error{{integral constant expression must have integral or unscoped enumeration type, not 'const char [4]'}}
 void bar14() {
 }
 
-__attribute__((scheduler_pipelining_effort_pct(-12))) // expected-error{{'scheduler_pipelining_effort_pct' attribute requires integer constant between 0 and 1048576 inclusive}}
+__attribute__((scheduler_target_fmax_mhz(-12))) // expected-error{{'scheduler_target_fmax_mhz' attribute requires integer constant between 0 and 1048576 inclusive}}
 void bar15() {
 }
 
-__attribute__((scheduler_pipelining_effort_pct(0)))
+__attribute__((scheduler_target_fmax_mhz(0)))
 void bar16() {
 }
 
