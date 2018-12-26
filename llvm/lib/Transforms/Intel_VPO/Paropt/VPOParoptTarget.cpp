@@ -891,15 +891,14 @@ void VPOParoptTransform::genOffloadArraysArgument(
 // ...
 // %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
 //      "QUAL.OMP.FIRSTPRIVATE"(i32* %1) ]
-Value *VPOParoptTransform::genGlobalPrivatizationImpl(WRegionNode *W,
-                                                      GlobalVariable *G,
+Value *VPOParoptTransform::genRenamePrivatizationImpl(WRegionNode *W,
+                                                      Value *V,
                                                       BasicBlock *EntryBB,
                                                       BasicBlock *NextExitBB,
                                                       Item *IT) {
-  G->setTargetDeclare(true);
   IRBuilder<> Builder(EntryBB->getFirstNonPHI());
-  Value *NewPrivInst = Builder.CreateLaunderInvariantGroup(G);
-  genPrivatizationReplacement(W, G, NewPrivInst, IT);
+  Value *NewPrivInst = Builder.CreateLaunderInvariantGroup(V);
+  genPrivatizationReplacement(W, V, NewPrivInst, IT);
   return NewPrivInst;
 }
 
@@ -927,6 +926,14 @@ bool VPOParoptTransform::finalizeGlobalPrivatizationCode(WRegionNode *W) {
   for (MapItem *MapI : MpClause.items()) {
     Value *Orig = MapI->getOrig();
     propagateGlobals(Orig);
+    if (MapI->getIsMapChain()) {
+      MapChainTy const &MapChain = MapI->getMapChain();
+      for (int I = MapChain.size() - 1; I >= 0; --I) {
+        MapAggrTy *Aggr = MapChain[I];
+        Value *SectionPtr = Aggr->getSectionPtr();
+        propagateGlobals(SectionPtr);
+      }
+    }
   }
 
   if (W->canHaveFirstprivate()) {
@@ -962,17 +969,73 @@ Value *VPOParoptTransform::getRootValueFromFenceCall(Value *Orig) {
 // replace the the global variable with the stack variable.
 bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
   MapClause const &MpClause = W->getMap();
-  BasicBlock *EntryBB = &(F->getEntryBlock());
+  BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB =
       SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
-  if (W->getEntryBBlock() == EntryBB)
-    W->setEntryBBlock(NewEntryBB);
+  W->setEntryBBlock(NewEntryBB);
   BasicBlock *ExitBB = W->getExitBBlock();
   BasicBlock *NextExitBB = SplitBlock(ExitBB, ExitBB->getTerminator(), DT, LI);
   bool Changed = false;
 
   for (MapItem *MapI : MpClause.items()) {
     Value *Orig = MapI->getOrig();
+    // The map section pointer needs to renamed so that the following cse
+    // optimization can be inhibited.
+    // Before early-cse:
+    //
+    //entry:
+    //  %sbox = alloca i32*, align 8
+    //  store i32* getelementptr inbounds ([256 x i32],
+    //  [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox
+    //  %1 = load i32*, i32** %sbox, align 8
+    //  %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
+    //  br label %DIR.OMP.TARGET.1
+    //
+    //DIR.OMP.TARGET.1:
+    //  %2 = call token @llvm.directive.region.entry() [
+    //         "DIR.OMP.TARGET"(),
+    //         "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    //         "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox,
+    //         i32** %sbox, i64 8),
+    //         "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox,
+    //         i32* %arrayidx, i64 1024),
+    //         ... ]
+    //
+    //After early-cse:
+    //
+    //entry:
+    //  %sbox = alloca i32*, align 8
+    //  store i32* getelementptr inbounds ([256 x i32],
+    //  [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox
+    //  %1 = load i32*, i32** %sbox, align 8
+    //  %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
+    //  br label %DIR.OMP.TARGET.1
+    //
+    //DIR.OMP.TARGET.1:
+    //  %2 = call token @llvm.directive.region.entry() [
+    //         "DIR.OMP.TARGET"(),
+    //         "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    //         "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox, i32** %sbox, i64 8),
+    //         "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox,
+    //         i32* getelementptr inbounds ([256 x i32],
+    //         [256 x i32]* @g_sbox, i32 0, i32 0), i64 1024)
+    //         ... ]
+    // The solution is to rename the value %arrayidx to inbit this early-cse
+    // optimizaiton.
+
+    if (MapI->getIsMapChain()) {
+      MapChainTy const &MapChain = MapI->getMapChain();
+      for (int I = MapChain.size() - 1; I >= 0; --I) {
+        MapAggrTy *Aggr = MapChain[I];
+        Value *SectionPtr = Aggr->getSectionPtr();
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(SectionPtr)) {
+          if (!Changed)
+            W->populateBBSet();
+          genRenamePrivatizationImpl(W, GEP, EntryBB, NextExitBB, MapI);
+          Changed = true;
+        }
+      }
+    }
     if (!Orig)
       continue;
     GlobalVariable *G = dyn_cast<GlobalVariable>(Orig);
@@ -980,7 +1043,7 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
     if (G) {
       if (!Changed)
         W->populateBBSet();
-      genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, MapI);
+      genRenamePrivatizationImpl(W, G, EntryBB, NextExitBB, MapI);
       Changed = true;
     }
   }
@@ -997,7 +1060,7 @@ bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
         if (!Changed)
           W->populateBBSet();
 
-        genGlobalPrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
+        genRenamePrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
 
         Changed = true;
       }
