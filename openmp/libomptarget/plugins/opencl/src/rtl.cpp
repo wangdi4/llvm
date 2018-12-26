@@ -374,8 +374,9 @@ typedef void (*kmpc_task_complete_fn_t)(kmp_task_t *);
 void event_callback_completed(cl_event event, cl_int status, void *data) {
   if (status == CL_SUCCESS) {
     assert(data && "bad task object for the target");
-    kmpc_task_complete_fn_t ptask_completed = (kmpc_task_complete_fn_t)dlsym(
-        RTLD_DEFAULT, "__kmpc_proxy_task_completed_ooo");
+    kmpc_task_complete_fn_t ptask_completed;
+    *((void**)&ptask_completed) = dlsym(RTLD_DEFAULT,
+                                        "__kmpc_proxy_task_completed_ooo");
     if (ptask_completed) {
       DP("Calling __kmpc_proxy_task_completed_ooo(task=%p)\n", data);
       ptask_completed((kmp_task_t *)data);
