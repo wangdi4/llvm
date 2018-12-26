@@ -56,6 +56,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     unsigned CLVersionToVal(uint64_t major, uint64_t minor);
   }
 
+  // Document what source language this module was translated from.
+  // Values defined by SPIR-V spec.
+  namespace OclLanguage {
+    static const unsigned OpenCL_CPP = 4;
+  }
+
   namespace ChannelPipeMetadata {
     struct ChannelPipeMD {
       int PacketSize;
@@ -494,6 +500,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// fetchCLVersionFromMetadata - obtain CL version
     /// from "!opencl.ocl.version" named metadata
     static unsigned fetchCLVersionFromMetadata(const Module &M);
+
+    /// generatedFromOCLCPP - check that IR was generated from OCL C++
+    /// from "!spirv.Source" named metadata
+    static bool generatedFromOCLCPP(const Module &M);
 
     /// Import a declaration of \p Orig into module \p Dst
     ///

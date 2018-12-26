@@ -612,6 +612,22 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return OclVersion::CL_VER_DEFAULT;
   }
 
+  bool CompilationUtils::generatedFromOCLCPP(const Module &M) {
+    /*
+    Example of the metadata
+    !spirv.Source = !{!0}
+    !0 = !{i32 4, i32 100000}
+    */
+
+    auto oclLanguage =
+        ModuleMetadataAPI(const_cast<llvm::Module *>(&M)).SPIRVSourceList;
+
+    if (oclLanguage.hasValue())
+      return (oclLanguage.getItem(0) == OclLanguage::OpenCL_CPP);
+
+    return false;
+  }
+
   StringRef CompilationUtils::fetchCompilerOption(const Module &M, char const* prefix) {
     /*
     Examples of the metadata:
