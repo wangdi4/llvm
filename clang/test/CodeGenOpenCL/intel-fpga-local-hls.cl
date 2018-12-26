@@ -1,19 +1,47 @@
 // RUN: %clang_cc1 -x cl -triple spir-unknown-unknown-intelfpga -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
 // RUN: %clang_cc1 -x cl -triple x86_64-unknown-unknown-intelfpga -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
 
+//CHECK: global_constant1
 //CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:4}{bank_bits:4,5}
+//CHECK: global_constant2
+//CHECK: global_constant3
 //CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numreadports:2}{numwriteports:3}
+//CHECK: global_constant4
+//CHECK: global_constant5
 //CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{register:1}
+//CHECK: global_constant6
 //CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}
+//CHECK: global_constant7
 //CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{bankwidth:4}
-//CHECK: [[ANN6A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{max_concurrency:4}
+//CHECK: global_constant8
 //CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}
+//CHECK: global_constant9
 //CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:2}
+//CHECK: global_constant10
 //CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:foo:depth}
-//CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
+//CHECK: global_constant11
 //CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{internal_max_block_ram_depth:32}
+//CHECK: global_constant12
 //CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_fmax:1}
+//CHECK: global_constant13
 //CHECK: [[ANN13:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_ram_usage:1}
+//CHECK: [[ANN6A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{max_concurrency:4}
+//CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
+//CHECK: @llvm.global.annotations = {{.*}}global_constant1{{.*}}[[ANN2]]{{.*}}global_constant2{{.*}}[[ANN2]]{{.*}}global_constant3{{.*}}[[ANN3]]{{.*}}global_constant4{{.*}}[[ANN3]]{{.*}}global_constant5{{.*}}[[ANN4]]{{.*}}global_constant6{{.*}}[[ANN5]]{{.*}}global_constant7{{.*}}[[ANN6]]{{.*}}global_constant8{{.*}}[[ANN7]]{{.*}}global_constant9{{.*}}[[ANN8]]{{.*}}global_constant10{{.*}}[[ANN9]]{{.*}}global_constant11{{.*}}[[ANN11]]{{.*}}global_constant12{{.*}}[[ANN12]]{{.*}}global_constant13{{.*}}[[ANN13]]
+
+constant int __attribute__((bank_bits(4, 5))) global_constant1 = 0;
+constant int __attribute__((numbanks(4), bank_bits(4, 5))) global_constant2 = 0;
+constant int __attribute__((numports_readonly_writeonly(2, 3))) global_constant3 = 0;
+constant int __attribute__((numreadports(2), numwriteports(3))) global_constant4 = 0;
+constant int __attribute__((register)) global_constant5 = 0;
+constant int __attribute__((__memory__)) global_constant6 = 0;
+constant int __attribute__((__bankwidth__(4))) global_constant7 = 0;
+constant int __attribute__((singlepump)) global_constant8 = 0;
+constant int __attribute__((doublepump)) global_constant9 = 0;
+constant int __attribute__((merge("foo", "depth"))) global_constant10 = 0;
+constant int __attribute__((internal_max_block_ram_depth(32))) global_constant11 = 0;
+constant int __attribute__((optimize_fmax)) global_constant12 = 0;
+constant int __attribute__((optimize_ram_usage)) global_constant13 = 0;
 
 //__attribute__((ihc_component))
 void foo_two() {

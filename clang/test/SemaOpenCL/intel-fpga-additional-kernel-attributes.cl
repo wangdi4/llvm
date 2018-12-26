@@ -162,7 +162,7 @@ __kernel void kernel_7f() {
 // expected-note@-1{{conflicting attribute is here}}
 }
 
-__attribute__((__internal_max_block_ram_depth__(64))) // expected-error{{'__internal_max_block_ram_depth__' attribute only applies to local or static variables}}
+__attribute__((__internal_max_block_ram_depth__(64))) // expected-error{{'__internal_max_block_ram_depth__' attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
 __kernel void kernel_7g() {
 }
 
