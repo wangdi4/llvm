@@ -125,7 +125,7 @@ static bool CheckStats () {
 
   while (getline(testRes, str).good()) {
     if (str.length() > 0 && *str.begin() == '!' &&
-        str.find("= !{!\"Vectorizer@CanVect\", i32 1}")
+        str.find("Vectorizer.CanVect")
           != string::npos) {
       res = true;
       break;
