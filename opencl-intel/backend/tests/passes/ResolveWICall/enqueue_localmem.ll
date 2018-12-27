@@ -1,3 +1,5 @@
+; XFAIL: *
+
 ; test enqueue_kernel with local memory arguments() are replaced with callbacks
 ; RUN: %oclopt -add-implicit-args -resolve-wi-call -S < %s | FileCheck %s
 

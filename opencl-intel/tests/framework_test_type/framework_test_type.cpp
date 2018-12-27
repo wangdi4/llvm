@@ -122,7 +122,7 @@ TEST(FrameworkTestType, Test_clCreateContextTest)
 }
 
 
-TEST(FrameworkTestType, Test_clBuildProgramWithBinaryTest)
+TEST(FrameworkTestType, DISABLED_Test_clBuildProgramWithBinaryTest)
 {
     std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
     if (gBcfuncMap.end() == iter)
@@ -187,7 +187,7 @@ TEST(FrameworkTestType, Test_clLinkProgramTest)
     EXPECT_TRUE(clLinkProgramTest());
 }
 
-TEST(FrameworkTestType, Test_clCreateKernelTest)
+TEST(FrameworkTestType, DISABLED_Test_clCreateKernelTest)
 {
     std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
     if (gBcfuncMap.end() == iter)
@@ -475,7 +475,7 @@ TEST(FrameworkTestType, Test_GenStats)
     EXPECT_TRUE(cl_GenStats());
 }
 
-TEST(FrameworkTestType, clDoNotVectorizeUnreachable)
+TEST(FrameworkTestType, DISABLED_clDoNotVectorizeUnreachable)
 {
     EXPECT_TRUE(clDoNotVectorizeUnreachable());
 }
@@ -631,7 +631,7 @@ TEST_F(CL21, clGetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS)
     GetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS();
 }
 
-TEST_F(CL21, clGetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS)
+TEST_F(CL21, DISABLED_clGetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS)
 {
     GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS();
 }
@@ -711,12 +711,12 @@ TEST_F(CL21, Timers_GetDeviceAndHostTimer)
     GetDeviceAndHostTimer();
 }
 
-TEST_F(CL21, Test_CreateProgramWithIL)
+TEST_F(CL21, DISABLED_Test_CreateProgramWithIL)
 {
     CreateProgramWithIL();
 }
 
-TEST_F(CL21, Test_CreateProgramWithIL_Negative)
+TEST_F(CL21, DISABLED_Test_CreateProgramWithIL_Negative)
 {
     CreateProgramWithIL_Negative();
 }
@@ -726,7 +726,7 @@ TEST_F(CL21, Test_CreateProgramWithIL_IL_VERSION)
     CreateProgramWithIL_IL_VERSION();
 }
 
-TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL)
+TEST_F(CL21, DISABLED_Test_CreateProgramWithIL_PROGRAM_IL)
 {
     CreateProgramWithIL_PROGRAM_IL();
 }
@@ -745,7 +745,7 @@ TEST(FrameworkTestType, cl_device_local_mem_size_test)
     EXPECT_TRUE(cl_device_local_mem_size_test());
 }
 
-TEST(FrameworkTestType, cl_device_private_mem_size_test)
+TEST(FrameworkTestType, DISABLED_cl_device_private_mem_size_test)
 {
     EXPECT_TRUE(cl_device_private_mem_size_test());
 }
