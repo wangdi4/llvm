@@ -1,6 +1,6 @@
 //===--- Intel_MemRefAnalysis.cpp-Defines data-sturctures for MemRef analyses=//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -112,31 +112,16 @@ void BasicBlockMemRefAnalysis::populateBasicBlockMemRefBuckets(
 
   MapVector<Value *, SmallVector<LoadInst *, 8>> Loads;
 
-  // Collect all loads in the basic-block. We use the MapVector to
-  // store all loads corresponding to a base-pointer. E.g., for loads a[i],
-  // a[i+18], a[i+15], b[0], b[i+x], ..., the Loads MapVector will store the
-  // data as
-  // a --> load(a[i]), load(a[i+18]), load(a[i+15])
-  // b --> load(b[0]), load(b[i+x])
-  //
+  // Scan the basic-block for loads and bucket the loads based on the
+  // base-pointer as the bucket header
 
+  BBLoadBuckets.clear();
   for (Instruction &Instr : *BB) {
     Instruction *I = &Instr;
     LoadInst *LI = dyn_cast<LoadInst>(I);
     if (LI && (AllowScalars || isa<VectorType>(LI->getType())) &&
-        LI->isSimple()) {
-      Value *Ptr = GetUnderlyingObject(LI, DL);
-      Loads[Ptr].push_back(LI);
-    }
-  }
-
-  BBLoadBuckets.clear();
-  // Iterate through the newly collected loads and populate the buckets.
-  for (auto &PtrLoadsPair : Loads) {
-    auto &LoadsList = PtrLoadsPair.second;
-    for (auto &L : LoadsList) {
-      insertIntoBucket<LoadInst>(cast<LoadInst>(L));
-    }
+        LI->isSimple())
+      insertIntoBucket<LoadInst>(LI);
   }
 
   // Sort all the Loads
