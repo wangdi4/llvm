@@ -362,6 +362,24 @@ add_lit_target(check-ocl-all
   ARGS ${LLVM_LIT_EXTRA_ARGS}
   )
 
+set(INTEL_DEPLOY_COMPONENTS
+  ocl-clang_compiler${BUILD_PLATFORM}
+  ocl-OclCpuBackEnd${BUILD_PLATFORM}
+  ocl-builtins
+  ocl-svml
+  ocl-OpenCL
+  ocl-intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+  ocl-config
+  ocl-cpu_device${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+  ocl-task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+  ocl-tbb-ext
+  ocl-common_clang
+  ocl-builtins-shared
+  ocl-cl_logger${OPENCL_BINARIES_POSTFIX}
+  ocl-gdb-plugin
+)
+set(SUBSTITUTE_LAYOUT OFF)
+
 # This command is used for creating a fake dependency in order to force
 # another command(s) to execute.
 # Its output is never produced as a result thus each other
