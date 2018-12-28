@@ -188,10 +188,6 @@ private:
   /// Maintains total resource information for loops.
   DenseMap<const HLLoop *, LoopResourceInfo> TotalResourceMap;
 
-  /// \brief Computes self and/or total loop resource of \p Lp. If SelfOnly mode
-  /// is set, we only compute the self resource.
-  const LoopResourceInfo &computeLoopResource(const HLLoop *Lp, bool SelfOnly);
-
   /// Returns the cost of an LLVM instruction.
   unsigned getOperationCost(const Instruction &Inst) const;
 

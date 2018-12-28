@@ -62,64 +62,77 @@ void HIRLoopStatisticsWrapperPass::releaseMemory() { HLS.reset(); }
 struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
   HIRLoopStatistics &HLS;
   const HLLoop *Lp;
-  LoopStatistics &SelfLS;
-  LoopStatistics *TotalLS;
+  LoopStatistics *SelfStats;
+  LoopStatistics *ChildrenStats;
 
   LoopStatisticsVisitor(HIRLoopStatistics &HLS, const HLLoop *Lp,
-                        LoopStatistics &SelfLS, LoopStatistics *TotalLS)
-      : HLS(HLS), Lp(Lp), SelfLS(SelfLS), TotalLS(TotalLS) {}
+                        LoopStatistics *SelfStats,
+                        LoopStatistics *ChildrenStats)
+      : HLS(HLS), Lp(Lp), SelfStats(SelfStats), ChildrenStats(ChildrenStats) {
+    assert((SelfStats || ChildrenStats) &&
+           "At least one of self/children stats should be present!");
+  }
 
   // Main function to compute loop statistics.
   void compute() {
-    // Do not directly recurse inside children loops. Total statistics is
+    // Do not directly recurse inside children loops. Children statistics is
     // recursively computed for children loops by the visitor using
     // getTotalLoopStatistics().
     Lp->getHLNodeUtils().visitRange<true, false>(*this, Lp->child_begin(),
                                                  Lp->child_end());
+  }
 
-    // Add self reource to total resource and classify it.
-    if (TotalLS) {
-      *TotalLS += SelfLS;
+  void visit(const HLIf *If) {
+    if (SelfStats) {
+      SelfStats->NumIfs++;
     }
   }
 
-  void visit(const HLIf *If) { SelfLS.NumIfs++; }
-  void visit(const HLSwitch *Switch) { SelfLS.NumSwitches++; }
+  void visit(const HLSwitch *Switch) {
+    if (SelfStats) {
+      SelfStats->NumSwitches++;
+    }
+  }
 
   void visit(const HLGoto *Goto) {
-    if (!Goto->isUnknownLoopBackEdge()) {
-      SelfLS.NumForwardGotos++;
+    if (SelfStats && !Goto->isUnknownLoopBackEdge()) {
+      SelfStats->NumForwardGotos++;
     }
   }
 
   void visit(const HLLabel *Label) {
-    if (!Label->isUnknownLoopHeaderLabel()) {
-      SelfLS.NumLabels++;
+    if (SelfStats && !Label->isUnknownLoopHeaderLabel()) {
+      SelfStats->NumLabels++;
     }
   }
 
   void visit(const HLInst *HInst) {
+    if (!SelfStats) {
+      return;
+    }
+
     auto *Call = HInst->getCallInst();
 
     if (Call) {
       if (isa<IntrinsicInst>(Call)) {
-        SelfLS.NumIntrinsics++;
+        SelfStats->NumIntrinsics++;
       } else {
-        SelfLS.NumUserCalls++;
+        SelfStats->NumUserCalls++;
       }
 
-      SelfLS.HasCallsWithUnsafeSideEffects |= HLInst::hasUnsafeSideEffect(Call);
+      SelfStats->HasCallsWithUnsafeSideEffects |=
+          HLInst::hasUnsafeSideEffect(Call);
 
-      SelfLS.HasCallsWithNoDuplicate |= Call->cannotDuplicate();
+      SelfStats->HasCallsWithNoDuplicate |= Call->cannotDuplicate();
 
-      SelfLS.HasCallsWithUnknownMemoryAccess |=
+      SelfStats->HasCallsWithUnknownMemoryAccess |=
           HLInst::hasUnknownMemoryAccess(Call);
     }
   }
 
   void visit(const HLLoop *Lp) {
-    if (TotalLS) {
-      *TotalLS += HLS.getTotalLoopStatistics(Lp);
+    if (ChildrenStats) {
+      *ChildrenStats += HLS.getTotalLoopStatistics(Lp);
     }
   }
 
@@ -154,31 +167,6 @@ void LoopStatistics::print(formatted_raw_ostream &OS, const HLLoop *Lp) const {
 }
 
 const LoopStatistics &
-HIRLoopStatistics::computeLoopStatistics(const HLLoop *Loop, bool SelfOnly) {
-
-  // These will be set below using the cache and SelfOnly paramter.
-  LoopStatistics *TotalLS = nullptr;
-
-  // Get or Insert self statistics.
-  auto SelfPair =
-      SelfStatisticsMap.insert(std::make_pair(Loop, LoopStatistics()));
-  LoopStatistics &SelfLS = SelfPair.first->second;
-
-  if (!SelfOnly) {
-    // Set TotalLS to indicate that total statistics need to be computed.
-    auto TotalPair =
-        TotalStatisticsMap.insert(std::make_pair(Loop, LoopStatistics()));
-    TotalLS = &TotalPair.first->second;
-  }
-
-  LoopStatistics::LoopStatisticsVisitor LSV(*this, Loop, SelfLS, TotalLS);
-
-  LSV.compute();
-
-  return SelfOnly ? SelfLS : *TotalLS;
-}
-
-const LoopStatistics &
 HIRLoopStatistics::getSelfLoopStatistics(const HLLoop *Loop) {
   assert(Loop && " Loop parameter is null.");
 
@@ -189,8 +177,14 @@ HIRLoopStatistics::getSelfLoopStatistics(const HLLoop *Loop) {
     return LSIt->second;
   }
 
-  // Compute and return a new reource.
-  return computeLoopStatistics(Loop, true);
+  LoopStatistics SelfStats;
+  LoopStatistics::LoopStatisticsVisitor LSV(*this, Loop, &SelfStats, nullptr);
+
+  LSV.compute();
+
+  auto SelfPair = SelfStatisticsMap.insert(std::make_pair(Loop, SelfStats));
+
+  return SelfPair.first->second;
 }
 
 const LoopStatistics &
@@ -209,8 +203,27 @@ HIRLoopStatistics::getTotalLoopStatistics(const HLLoop *Loop) {
     return LSIt->second;
   }
 
-  // Compute and return a new reource.
-  return computeLoopStatistics(Loop, false);
+  // Check if self statistics also needs to be computed. If so, we compute both
+  // together to avoid traversing the loop body twice.
+  bool HasSelfStats = SelfStatisticsMap.count(Loop);
+
+  LoopStatistics SelfStats, TotalStats;
+  LoopStatistics::LoopStatisticsVisitor LSV(
+      *this, Loop, HasSelfStats ? nullptr : &SelfStats, &TotalStats);
+
+  LSV.compute();
+
+  // We need to retrieve the self stats of the loop again as previous DenseMap
+  // entry might have been invalidated by the traversal (by creating new entries
+  // in the map). insert() doesn't override existing entry so it is okay to
+  // invoke it using empty SelfStats.
+  auto SelfPair = SelfStatisticsMap.insert(std::make_pair(Loop, SelfStats));
+
+  TotalStats += SelfPair.first->second;
+
+  auto TotalPair = TotalStatisticsMap.insert(std::make_pair(Loop, TotalStats));
+
+  return TotalPair.first->second;
 }
 
 void HIRLoopStatistics::print(formatted_raw_ostream &OS, const HLLoop *Lp) {
