@@ -51,9 +51,9 @@ static cl::opt<size_t> MaxVecRegSizeOpt(
         "legal-sized sub-vectors."));
 
 static cl::opt<size_t>
-    MinVecRegSizeOpt("load-coalescing-min-vec-size", cl::init(64), cl::Hidden,
+    MinVecRegSizeOpt("load-coalescing-min-vec-size", cl::init(32), cl::Hidden,
                      cl::desc("Coalesce as many vector loads as possible "
-                              "starting from min of size 64"));
+                              "starting from min of size 32"));
 
 // TODO: Set the init value to 4. This parameter can be used to experiment and
 // the performance might vary on different platforms
@@ -490,7 +490,7 @@ bool LoadCoalescing::buildMaximalGroup(
 
 bool LoadCoalescing::scheduleGroup(const MemInstGroup &G) {
   bool IsSchedulingSuccessful = false;
-  if (G.size() >= MinGroupSizeOpt && G.getTotalSize() > MinVecRegSize) {
+  if (G.size() >= MinGroupSizeOpt && G.getTotalSize() >= MinVecRegSize) {
     bool IsProfitable = G.isCoalescingLoadsProfitable(TTI);
     LLVM_DEBUG(if (!IsProfitable) dbgs()
                << "LC: Skipping G" << G.getId()
