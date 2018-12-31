@@ -1380,6 +1380,8 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
   return WidenMap[V];
 }
 
+// TODO: Consider renaming this function to 'getScalarOrSubvectorValue' as this
+// function can now return a sub-vector in addition to a scalar value
 Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
   // If the value is not an instruction contained in the loop, it should
   // already be scalar.
@@ -1394,7 +1396,30 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
 
   if (Legal->isInductionVariable(V))
     return buildScalarIVForLane(cast<PHINode>(V), Lane);
-    
+
+  // This code assumes that the widened vector, that we are extracting from has
+  // data in AOS layout. If OriginalVL = 2, VF = 4 the widened value would be
+  // Wide.Val = <v1_0, v2_0, v1_1, v2_1, v1_2, v2_2, v1_3, v2_3>.
+  // getScalarValue(Wide.Val, 1) would return <v1_1, v2_1>
+
+  if (V->getType()->isVectorTy() && WidenMap.count(V)) {
+    Value *WidenedVar = WidenMap[V];
+    unsigned OrigNumElts = V->getType()->getVectorNumElements();
+    SmallVector<unsigned, 8> ShufMask;
+    for (unsigned StartIdx = Lane * OrigNumElts,
+                  EndIdx = (Lane * OrigNumElts) + OrigNumElts;
+         StartIdx != EndIdx; ++StartIdx)
+      ShufMask.push_back(StartIdx);
+
+    Value *Shuff = Builder.CreateShuffleVector(
+        WidenedVar, UndefValue::get(WidenedVar->getType()), ShufMask,
+        "extractsubvec.");
+
+    ScalarMap[V][Lane] = Shuff;
+
+    return Shuff;
+  }
+
   Value *VecV = getVectorValue(V);
   auto ScalarV = Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
 
