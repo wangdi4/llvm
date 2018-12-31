@@ -79,8 +79,8 @@
 ; CHECK_UNARY_ASSOC:  [[Chain1_1:%.*]] = sub i32 [[l18:%.*]], [[l26:%.*]]
 ; CHECK_UNARY_ASSOC:  [[Chain1_2:%.*]] = add i32 [[Chain1_1]], [[l38:%.*]]
 ; CHECK_UNARY_ASSOC:  [[Chain1_3:%.*]] = sub i32 [[Chain1_2]], [[l39:%.*]]
-; CHECK_UNARY_ASSOC:  [[Bridge0_0:%.*]] = add i32 [[Trunk0_1:%.*]], [[Chain1_3]]
-; CHECK_UNARY_ASSOC:  [[Bridge0_1:%.*]] = sub i32 [[Bridge0_0]], [[Chain0_3]]
+; CHECK_UNARY_ASSOC:  [[Bridge0_0:%.*]] = sub i32 [[Chain1_3:%.*]], [[Chain0_3]]
+; CHECK_UNARY_ASSOC:  [[Bridge0_1:%.*]] = add i32 [[Bridge0_0]]
 ; CHECK_UNARY_ASSOC: store i32 [[Bridge0_1]]
 
 ; CHECK_CHAIN_REUSE:  [[Chain0_1:%.*]] = sub i32 [[l57:%.*]], [[l65:%.*]]
