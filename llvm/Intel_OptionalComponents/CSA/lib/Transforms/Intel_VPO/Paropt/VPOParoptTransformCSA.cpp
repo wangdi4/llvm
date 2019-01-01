@@ -105,10 +105,12 @@ private:
   // private instance.
   virtual void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) {
     auto *Old = I->getOrig();
-    auto *New = VPOParoptTransform::genPrivatizationAlloca(Old,
+    auto *New = VPOParoptTransform::genPrivatizationAlloca(I,
         getInitBB()->getTerminator(), Suffix);
     I->setNew(New);
-    PT.genPrivatizationReplacement(W, Old, New, I);
+    auto *Rep = VPOParoptTransform::getClauseItemReplacementValue(I,
+        getInitBB()->getTerminator());
+    PT.genPrivatizationReplacement(W, Old, Rep, I);
   }
 
 protected:
@@ -360,13 +362,14 @@ private:
     auto *InsPt = getInitBB()->getFirstNonPHI();
 
     // Create alloca for the private variable.
-    auto *New = VPOParoptTransform::genPrivatizationAlloca(Old, InsPt, Suffix);
+    auto *New = VPOParoptTransform::genPrivatizationAlloca(I, InsPt, Suffix);
     I->setNew(New);
+    auto *Rep = VPOParoptTransform::getClauseItemReplacementValue(I, InsPt);
 
     // Create clones of all collected defs at the beginning of the loop
     // preheader.
     ValueToValueMapTy VMap;
-    VMap[Old] = New;
+    VMap[Old] = Rep;
     for (const auto *I : reverse(Defs)) {
       if (VMap[I])
         continue;
@@ -903,10 +906,12 @@ class VPOParoptTransform::CSALoopSplitter {
       SmallVector<Value*, 8u> Users;
       findUsers(Old, Users, WI.Blocks);
 
-      auto *New = VPOParoptTransform::genPrivatizationAlloca(Old,
+      auto *New = VPOParoptTransform::genPrivatizationAlloca(I,
           getInitBB()->getTerminator(), Suffix);
       I->setNew(New);
-      replaceUses(Old, New, Users);
+      auto *Rep = VPOParoptTransform::getClauseItemReplacementValue(I,
+          getInitBB()->getTerminator());
+      replaceUses(Old, Rep, Users);
     }
 
   public:
