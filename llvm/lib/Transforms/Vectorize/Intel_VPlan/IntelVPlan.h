@@ -808,6 +808,18 @@ public:
 #if INTEL_CUSTOMIZATION
   // FIXME: To be replaced by a proper VPType.
   virtual Type *getType() const override {
+    if (getBaseType())
+      return getBaseType();
+
+    return getCMType();
+  }
+
+  // FIXME: Temporary workaround for TTI problems that make the cost
+  // modeling incorrect. The getCMType() returns nullptr in case the underlying
+  // instruction is not set and this makes the cost of this instruction
+  // undefined (i.e. 0). Non-null return value causes calculation by TTI with
+  // incorrect result.
+  virtual Type *getCMType() const override {
     if (UnderlyingVal)
       return UnderlyingVal->getType();
 
