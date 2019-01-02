@@ -1,4 +1,4 @@
-; RUN: llc -O2 < %s -pass-remarks=csa-streamem 2>&1 | FileCheck %s
+; RUN: llc -O2 < %s -pass-remarks=csa-streammem 2>&1 | FileCheck %s
 ; ModuleID = 'foo.c'
 source_filename = "foo.c"
 target datalayout = "e-m:e-i64:64-n32:64"

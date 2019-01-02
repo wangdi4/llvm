@@ -56,7 +56,6 @@ add_llvm_target(CSACodeGen
   CSASeqOpt.cpp
   CSAStatistics.cpp
   CSAStreamingMemoryConversion.cpp
-  CSAStreamingMemoryPrep.cpp
   CSASubtarget.cpp
   CSATargetMachine.cpp
   CSATargetTransformInfo.cpp

@@ -96,7 +96,6 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSAReassocReducPass(PR);
   initializeCSARedundantMovElimPass(PR);
   initializeCSASeqotToSeqOptimizationPass(PR);
-  initializeCSAStreamingMemoryConversionPassPass(PR);
   initializeControlDependenceGraphPass(PR);
 }
 
@@ -199,6 +198,10 @@ public:
     // Add ordering edges to memops.
     addPass(createCSAMemopOrderingPass(getCSATargetMachine()));
 
+    // Convert loads/stores to sld/sst where possible.
+    if (getOptLevel() != CodeGenOpt::None)
+      addPass(createCSAStreamingMemoryConversionPass());
+
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
 
@@ -218,8 +221,6 @@ public:
     // analyses at O0.
     if (getOptLevel() != CodeGenOpt::None) {
       addPass(createCSAInnerLoopPrepPass());
-      // Add streaming memory reductions.
-      addPass(createCSAStreamingMemoryPrepPass());
     }
 
     // Remove any remaining intrinsics which should not go through instruction
@@ -273,7 +274,6 @@ public:
     addPass(createCSADeadInstructionElimPass(), false);
     addPass(createCSADataflowCanonicalizationPass(), false);
     addPass(createCSASeqotToSeqOptimizationPass(), false);
-    addPass(createCSAStreamingMemoryConversionPass(), false);
     addPass(createCSAMultiSeqPass(), false);
     addPass(createCSARedundantMovElimPass(), false);
     addPass(createCSADeadInstructionElimPass(), false);

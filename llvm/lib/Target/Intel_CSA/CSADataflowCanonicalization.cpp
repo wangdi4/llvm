@@ -488,13 +488,17 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
 
   unsigned srcReg = MI->getOperand(1).getReg();
   unsigned destReg = MI->getOperand(0).getReg();
-    
+
   // Moves involving physical registers should not be removed here
   if (!TargetRegisterInfo::isVirtualRegister(srcReg))  return false;
   if (!TargetRegisterInfo::isVirtualRegister(destReg)) return false;
   if (!MRI->getUniqueVRegDef(destReg))                 return false;
 
   MRI->replaceRegWith(destReg, srcReg);
+  // Clear the definition of srcReg in this operation. If srcReg is itself the
+  // target of a MOV operation, this will enable the above check for
+  // getUniqueVRegDef to return true as it won't consider MI.
+  MI->getOperand(0).setReg(0);
   to_delete.push_back(MI);
   return true;
 }

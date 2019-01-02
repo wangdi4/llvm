@@ -81,6 +81,10 @@ public:
   /// DAG node.
   const char *getTargetNodeName(unsigned Opcode) const override;
 
+  bool getTgtMemIntrinsic(IntrinsicInfo &Info, const CallInst &I,
+                          MachineFunction &MF,
+                          unsigned Intrinsic) const override;
+
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;

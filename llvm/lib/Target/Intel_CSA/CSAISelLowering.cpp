@@ -494,6 +494,53 @@ const char *CSATargetLowering::getTargetNodeName(unsigned Opcode) const {
   }
 }
 
+bool CSATargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
+    const CallInst &I, MachineFunction &MF, unsigned Intrinsic) const {
+  // For streaming memory references, note that we could try to preserve more
+  // bits (such as whether the memory is volatile). This information, however,
+  // is essentially used only to determine what the chain operands are, which
+  // is not useful for CSA.
+  switch (Intrinsic) {
+    case Intrinsic::csa_stream_load:
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.memVT = MVT::getVT(I.getType());
+      Info.ptrVal = I.getArgOperand(0);
+      Info.offset = 0;
+      Info.align = 1;
+      Info.flags = MachineMemOperand::MOLoad;
+      if (Info.memVT == MVT::iPTR)
+        Info.memVT = MVT::i64;
+      if (I.getMetadata(LLVMContext::MD_nontemporal))
+          Info.flags |= MachineMemOperand::MONonTemporal;
+      return true;
+    case Intrinsic::csa_stream_load_x2:
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.memVT = MVT::getVT(I.getType()->getContainedType(0));
+      Info.ptrVal = I.getArgOperand(0);
+      Info.offset = 0;
+      Info.align = 1; // XXX: alignment rules for sld/sst?
+      Info.flags = MachineMemOperand::MOLoad;
+      if (Info.memVT == MVT::iPTR)
+        Info.memVT = MVT::i64;
+      if (I.getMetadata(LLVMContext::MD_nontemporal))
+          Info.flags |= MachineMemOperand::MONonTemporal;
+      return true;
+    case Intrinsic::csa_stream_store:
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.memVT = MVT::getVT(I.getArgOperand(0)->getType());
+      Info.ptrVal = I.getArgOperand(1);
+      Info.offset = 0;
+      Info.align = 1;
+      Info.flags = MachineMemOperand::MOStore;
+      if (Info.memVT == MVT::iPTR)
+        Info.memVT = MVT::i64;
+      if (I.getMetadata(LLVMContext::MD_nontemporal))
+          Info.flags |= MachineMemOperand::MONonTemporal;
+      return true;
+  }
+  return false;
+}
+
 SDValue CSATargetLowering::LowerGlobalAddress(SDValue Op,
                                               SelectionDAG &DAG) const {
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
@@ -750,8 +797,9 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
     SmallVector<OpndSource, 4> uses;
   };
 
-  // The table of memory instructions and how their operands are mapped.
-  static const MemopRec MemopTable[] = {
+  // The tables of memory instructions and how their operands are mapped. The
+  // first table maps ISD opcodes while the second maps intrinsic IDs.
+  static const MemopRec MemopISDTable[] = {
     {
       ISD::LOAD, CSA::Generic::LD, 0,
       {{OPND, 0}, ORD},
@@ -813,6 +861,23 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
     },
   };
+  static const MemopRec MemopIntrinsicTable[] = {
+    {
+      Intrinsic::csa_stream_load, CSA::Generic::SLD, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 2}, {OPND, 3}, {OPND, 4}, LEVEL, ORD}
+    },
+    {
+      Intrinsic::csa_stream_load_x2, CSA::Generic::SLDX2, 0,
+      {{OPND, 0}, {OPND, 1}, ORD},
+      {{OPND, 2}, {OPND, 3}, {OPND, 4}, LEVEL, ORD}
+    },
+    {
+      Intrinsic::csa_stream_store, CSA::Generic::SST, 4,
+      {ORD},
+      {{OPND, 3}, {OPND, 4}, {OPND, 5}, {OPND, 2}, LEVEL, ORD}
+    },
+  };
 
   SDNode *const MemopNode       = Op.getNode();
   MachineMemOperand *MemOperand = nullptr;
@@ -828,7 +893,7 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   SDValue Inord               = GetInord(Chain);
   const bool HasOrderingEdges = static_cast<bool>(Inord);
   if (not HasOrderingEdges) {
-    if (MemopNode->getOpcode() != ISD::LOAD)
+    if (!MemOperand || !MemOperand->isLoad())
       report_fatal_error("Only constant loads should be unordered");
     Inord = DAG.getRegister(CSA::IGN, MVT::i1);
   } else if (isa<ConstantSDNode>(Inord.getNode())) {
@@ -837,10 +902,21 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
 
   // Figure out which memop table entry to use.
   const unsigned SDOpcode = MemopNode->getOpcode();
-  const auto FoundMemop   = find_if(MemopTable, [SDOpcode](const MemopRec &R) {
-    return R.SDOpcode == SDOpcode;
-  });
-  assert(FoundMemop != end(MemopTable));
+  decltype(begin(MemopISDTable)) FoundMemop;
+
+  if (SDOpcode == ISD::INTRINSIC_W_CHAIN) {
+    unsigned ID = cast<ConstantSDNode>(Op->getOperand(1))->getLimitedValue();
+    FoundMemop = find_if(MemopIntrinsicTable, [ID](const MemopRec &R) {
+      return R.SDOpcode == ID;
+    });
+    assert(FoundMemop != end(MemopIntrinsicTable));
+  } else {
+    FoundMemop = find_if(MemopISDTable, [SDOpcode](const MemopRec &R) {
+      return R.SDOpcode == SDOpcode;
+    });
+    assert(FoundMemop != end(MemopISDTable));
+  }
+
   const MemopRec &CurRec = *FoundMemop;
 
   // Figure out the operands for the MachineSDNode.
@@ -1056,6 +1132,10 @@ SDValue CSATargetLowering::LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const {
     return SDValue{DAG.getMachineNode(CSA::ALL0, DL, MVT::i1, Inputs), 0};
 #endif
   }
+  case Intrinsic::csa_stream_load:
+  case Intrinsic::csa_stream_load_x2:
+  case Intrinsic::csa_stream_store:
+    return LowerMemop(Op, DAG);
   default:
     break;
   }

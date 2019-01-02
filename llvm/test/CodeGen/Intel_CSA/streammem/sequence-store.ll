@@ -18,9 +18,7 @@ loop:
 ; CHECK: .param .lic .i0 %[[INORD:[a-z0-9_.]+]]
 ; CHECK: .param .lic .i64 %[[ADDR:[a-z0-9_.]+]]
 ; CHECK: .param .lic .i64 %[[LEN:[a-z0-9_.]+]]
-; CHECK: cmpne64 %[[OT:[a-z0-9_.]+]], 0, %[[LEN]]
-; CHECK: merge64 %[[SAFELEN:[a-z0-9_.]+]], %[[OT]], 1, %[[LEN]]
-; CHECK: sst64 %[[ADDR]], %[[SAFELEN]], 1, %[[VAL:[a-z0-9_.]+]], %[[OUTORD:[a-z0-9_.]+]], %[[INORD]], MEMLEVEL_T0
+; CHECK: sst64 %[[ADDR]], %[[LEN]], 1, %[[VAL:[a-z0-9_.]+]], %[[OUTORD:[a-z0-9_.]+]], %[[INORD]], MEMLEVEL_T0
 
 exit:
   ret void

@@ -171,5 +171,19 @@ def int_csa_lower_lic_read :
     Intrinsic<[llvm_any_ty], [llvm_i32_ty],
     [IntrConvergent, IntrNoDuplicate]>;
 
+def int_csa_stream_load : Intrinsic<[llvm_any_ty],
+    [LLVMPointerType<LLVMMatchType<0>>, llvm_i64_ty, llvm_i64_ty],
+    [IntrArgMemOnly, NoCapture<0>, ReadOnly<0>, IntrConvergent], "",
+    [SDNPMemOperand]>;
+
+def int_csa_stream_load_x2 : Intrinsic<[llvm_any_ty, LLVMMatchType<0>],
+    [LLVMPointerType<LLVMMatchType<0>>, llvm_i64_ty, llvm_i64_ty],
+    [IntrArgMemOnly, NoCapture<0>, ReadOnly<0>, IntrConvergent], "",
+    [SDNPMemOperand]>;
+
+def int_csa_stream_store : Intrinsic<[],
+    [llvm_any_ty, LLVMPointerType<LLVMMatchType<0>>, llvm_i64_ty, llvm_i64_ty],
+    [IntrArgMemOnly, NoCapture<1>, WriteOnly<1>, IntrConvergent], "",
+    [SDNPMemOperand]>;
 }
 #endif // INTEL_FEATURE_CSA
