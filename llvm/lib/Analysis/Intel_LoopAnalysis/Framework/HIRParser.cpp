@@ -2939,10 +2939,13 @@ HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
     // This is a profitability check to form more linear indices.
     // If we trace back, we may have to add offsets to casted IV which will make
     // the index non-linear.
-    auto *HighestIndex = getSCEV(const_cast<Value *>(GEPOp->getIndex(0)));
-
-    if (auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex)) {
-      if (isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
+    if ((!isa<SubscriptInst>(GEPOp) && !isa<SubscriptInst>(NextGEPOp)) ||
+        (isa<SubscriptInst>(GEPOp) && isa<SubscriptInst>(NextGEPOp) &&
+         (cast<SubscriptInst>(GEPOp)->getRank() ==
+          cast<SubscriptInst>(NextGEPOp)->getRank()))) {
+      auto *HighestIndex = getSCEV(const_cast<Value *>(GEPOp->getIndex(0)));
+      auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex);
+      if (CastSCEV && isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
         break;
       }
     }
