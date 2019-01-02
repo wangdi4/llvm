@@ -1122,7 +1122,7 @@ bool LoopSPMDization::fixReductionsIfAny(
 }
 
 // This routine should made generic and be declared somewhere as public to be
-// used here and in csa backend (Target/CSA/CSALoopIntrinsicExpander.cpp)
+// used here and in csa backend (Target/Intel_CSA/CSALoopIntrinsicExpander.cpp)
 IntrinsicInst *LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI,
                                                     DominatorTree *DT,
                                                     PostDominatorTree *PDT,

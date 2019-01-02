@@ -1,4 +1,4 @@
-##===- lib/Target/CSA/TargetInfo/Makefile -------------*- Makefile -*-===##
+##===- lib/Target/Intel_CSA/TargetInfo/Makefile ------------*- Makefile -*-===##
 #
 # Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 #

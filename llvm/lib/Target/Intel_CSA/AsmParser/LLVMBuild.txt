@@ -1,4 +1,4 @@
-;===- ./lib/Target/CSA/AsmParser/LLVMBuild.txt -----------------*- Conf -*--===;
+;===- ./lib/Target/Intel_CSA/AsmParser/LLVMBuild.txt -----------*- Conf -*--===;
 ;
 ; Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 ;

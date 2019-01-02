@@ -1,4 +1,4 @@
-//===-- llvm/lib/Target/CSA/CSALoopIntrinsicExpander.h ----------*- C++ -*-===//
+//===-- llvm/lib/Target/Intel_CSA/CSALoopIntrinsicExpander.h ----*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //

@@ -1,4 +1,4 @@
-//===-- llvm/lib/Target/CSA/CSAIntrinsicCleaner.h ---------------*- C++ -*-===//
+//===-- llvm/lib/Target/Intel_CSA/CSAIntrinsicCleaner.h ---------*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //

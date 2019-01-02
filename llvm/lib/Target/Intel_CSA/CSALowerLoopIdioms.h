@@ -1,4 +1,4 @@
-//===-- llvm/lib/Target/CSA/CSALowerLoopIdioms.h ----------------*- C++ -*-===//
+//===-- llvm/lib/Target/Intel_CSA/CSALowerLoopIdioms.h ----------*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //

@@ -1,4 +1,4 @@
-//===-- llvm/lib/Target/CSA/CSAIROpt.h ---------------*- C++ -*-===//
+//===-- llvm/lib/Target/Intel_CSA/CSAIROpt.h --------------------*- C++ -*-===//
 //
 // Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 //

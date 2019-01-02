@@ -1,4 +1,4 @@
-;===- ./lib/Target/CSA/TargetInfo/LLVMBuild.txt -----------*- Conf -*--===;
+;===- ./lib/Target/Intel_CSA/TargetInfo/LLVMBuild.txt ----------*- Conf -*--===;
 ;
 ; Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
 ;
