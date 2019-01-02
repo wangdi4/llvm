@@ -1,6 +1,6 @@
 include_directories(
-  ${CMAKE_SOURCE_DIR}/lib/Target/CSA
-  ${CMAKE_BINARY_DIR}/lib/Target/CSA
+  ${CMAKE_SOURCE_DIR}/lib/Target/Intel_CSA
+  ${CMAKE_BINARY_DIR}/lib/Target/Intel_CSA
   )
 
 set(LLVM_LINK_COMPONENTS
