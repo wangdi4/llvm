@@ -1,6 +1,6 @@
 //===--------------- ResolveTypes.cpp - DTransResolveTypesPass ------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -47,6 +47,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
+#include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -57,6 +58,9 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 using namespace llvm;
+using dtrans::getTypeBaseName;
+using dtrans::collectAllStructTypes;
+using dtrans::getContainedStructTy;
 
 #define DEBUG_TYPE "dtrans-resolvetypes"
 
@@ -68,109 +72,13 @@ using namespace llvm;
 namespace {
 class CompatibleTypeAnalyzer;
 
-// Check to see if the specified name ends with a suffix consisting of a '.'
-// and one or more digits. If it does, return the name without the suffix.
-// If not, return the name as is.
-//
-// We're looking for types that have the same name except for an appended
-// suffix, like this:
-//
-//   %struct.A = type {...}
-//   %struct.A.123 = type {...}
-//   %struct.A.456 = type {...}
-//   %struct.A.2.789 = type {...}
-//
-// However, we don't want to attempt to match types like this:
-//
-//   %struct.CO = type {...}
-//   %struct.CO2 = type {...}
-//
-// So we start by trimming trailing numbers, then look for and trim a
-// single '.', and repeat this as long as we trimmed something and found
-// a trailing '.'.
-StringRef getTypeBaseName(StringRef TyName) {
-  StringRef RefName = TyName;
-  StringRef BaseName = TyName.rtrim("0123456789");
-  while (RefName.size() != BaseName.size()) {
-    if (!BaseName.endswith("."))
-      return RefName;
-    RefName = BaseName.drop_back(1);
-    BaseName = RefName.rtrim("0123456789");
-  }
-  return RefName;
-}
-
 bool typesHaveSameBaseName(StructType *StTyA, StructType *StTyB) {
   if (!StTyA->hasName() && !StTyB->hasName())
     return true;
   if (!StTyA->hasName() || !StTyB->hasName())
     return false;
   return getTypeBaseName(StTyA->getName())
-      .equals(getTypeBaseName(StTyB->getName()));
-}
-
-// If \p Ty refers to a structure type (potentially with some level of
-// indirection or array usage), return the StructureType, otherwise nullptr.
-llvm::StructType *getContainedStructTy(llvm::Type *Ty) {
-  auto *BaseTy = Ty;
-  while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy()) {
-    if (BaseTy->isPointerTy())
-      BaseTy = BaseTy->getPointerElementType();
-    else
-      BaseTy = BaseTy->getSequentialElementType();
-  }
-  return dyn_cast<StructType>(BaseTy);
-}
-
-// Collect all the named structure types that are reachable in the IR into \p
-// SeenTypes
-//
-// The method Module::getIdentifiedStructTypes() may not return some
-// structures that are nested inside of other types. This function will
-// include those.
-//
-// TODO: This function should be moved to be a utility within DTransOptBase
-// to allow the base class to gather all the structure types without depending
-// on the DTransAnalysis class to visit all the IR.
-void collectAllStructTypes(Module &M,
-                           SetVector<llvm::StructType *> &SeenTypes) {
-  std::function<void(StructType *)> findMissedNestedTypes =
-      [&](StructType *Ty) {
-        for (Type *ElemTy : Ty->elements()) {
-          // Look past pointer, array, and vector wrappers.
-          // If the element is a structure, add it to the SeenTypes set.
-          // If it wasn't already there, check for nested types.
-          if (StructType *ElemStTy = getContainedStructTy(ElemTy))
-            if (SeenTypes.insert(ElemStTy))
-              findMissedNestedTypes(ElemStTy);
-        }
-        if (!Ty->hasName())
-          return;
-        StringRef TyName = Ty->getName();
-        StringRef BaseName = getTypeBaseName(TyName);
-        // If the type name didn't have a suffix, TyName and BaseName will be
-        // the same. Checking the size is sufficient.
-        if (TyName.size() == BaseName.size())
-          return;
-        // Add the base type now. This might be the only way it is found.
-        StructType *BaseTy = M.getTypeByName(BaseName);
-        if (!BaseTy || !SeenTypes.insert(BaseTy))
-          return;
-        findMissedNestedTypes(BaseTy);
-      };
-
-  // Sometimes previous optimizations will have left types that are not
-  // used in a way that allows Module::getIndentifiedStructTypes() to find
-  // them. This can confuse our mapping algorithm, so here we check for
-  // missing types and add them to the set we're looking at. In order to
-  // consistently choose the same target type for equivalent types and
-  // compatible types, a SetVector is used for collecting the available types.
-  for (StructType *Ty : M.getIdentifiedStructTypes()) {
-    // If we've seen this type already, skip it.
-    if (!SeenTypes.insert(Ty))
-      continue;
-    findMissedNestedTypes(Ty);
-  }
+    .equals(getTypeBaseName(StTyB->getName()));
 }
 
 class DTransResolveTypesWrapper : public ModulePass {
