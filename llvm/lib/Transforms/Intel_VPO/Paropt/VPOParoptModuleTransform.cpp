@@ -315,7 +315,11 @@ void VPOParoptModuleTransform::processUsesOfGlobals(
 // attribute.
 void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   std::vector<GlobalVariable *> DeadGlobalVars; // Keep track of dead globals
-  for (GlobalVariable &GV : M.globals())
+  for (GlobalVariable &GV : M.globals()) {
+    if (GV.hasName() && (GV.getName() == "llvm.used" ||
+                         GV.getName() == "llvm.compiler.used"))
+      continue;
+
     if (!GV.isTargetDeclare()) {
       DeadGlobalVars.push_back(&GV); // Keep track of dead globals
       // TODO  The check of use_empty will be removed after the frontend
@@ -327,6 +331,7 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
           Init->destroyConstant();
       }
     }
+  }
 
   std::vector<Function *> DeadFunctions;
 
