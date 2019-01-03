@@ -8,6 +8,7 @@ struct S1 {
   struct S1 *next;
 };
 
+// CHECK-LABEL: foo
 void foo(S1 *ps1)
 {
   // CHECK: [[PS1_ADDR:%.+]] = alloca %struct.S1*,
@@ -90,5 +91,37 @@ void foo(S1 *ps1)
   {
     arrD[11][14] = 4;
   }
+}
+
+struct A {
+  int f_one[20];
+  int f_two[20][10][10];
+};
+
+// CHECK-LABEL: foo_two
+void foo_two(int *ip, A *ap, int n) {
+  // CHECK: [[IP_ADDR:%.+]] = alloca i32*,
+  // CHECK: [[AP_ADDR:%.+]] = alloca %struct.A*,
+
+  // CHECK: [[T:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(%struct.A** %ap.addr
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target map(tofrom : ap->f_two[3][2][n:3])
+  {}
+  // CHECK: [[T:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(%struct.A** %ap.addr
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target map(tofrom : ap->f_one[n:3])
+  {}
+  // CHECK: [[T:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(%struct.A** %ap.addr
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target map(tofrom : ap->f_two[n])
+  {}
+  // CHECK: [[T:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(i32** %ip.addr,
+  // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target map(tofrom : ip[n])
+  {}
 }
 // end INTEL_COLLAB
