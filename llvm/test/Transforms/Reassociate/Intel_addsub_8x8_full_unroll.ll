@@ -1,19 +1,27 @@
 ; RUN: opt < %s -addsub-reassoc -S | FileCheck %s
 
 ; #1
-; CHECK: [[Chain_T24_187:%.*]] = sub i32 [[l44:%.*]], [[l28:%.*]]
-; CHECK-NEXT: [[Chain_T24_185:%.*]] = sub i32 [[Chain_T24_187]]
-; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain_T24_185]]
-; CHECK-NEXT: [[Chain_T24_174178:%.*]] = sub i32 [[l45:%.*]], [[l29:%.*]]
-; CHECK-NEXT: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]]
-; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]]
-; CHECK-NEXT: [[Chain_T24_162166:%.*]] = sub i32 [[l46:%.*]], [[l30:%.*]]
-; CHECK-NEXT: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]]
-; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]]
-; CHECK-NEXT: [[Chain_T24_158:%.*]] = sub i32 [[l47:%.*]], [[l31:%.*]]
-; CHECK-NEXT: [[Chain_T24_156:%.*]] = sub i32 [[Chain_T24_158]]
-; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain_T24_156]]
-; CHECK-NEXT: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK: [[Chain1_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_187:%.*]] = sub i32 [[Chain1_189]]
+; CHECK-NEXT: [[Chain1_185:%.*]] = sub i32 [[Chain1_187]], [[Chain1_191]]
+; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain1_185]]
+; CHECK-NEXT: [[Chain2_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_187:%.*]] = sub i32 [[Chain2_189]]
+; CHECK-NEXT: [[Chain2_185:%.*]] = sub i32 [[Chain2_187]], [[Chain2_191]]
+; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain2_185]]
+; CHECK-NEXT: [[Chain3_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_187:%.*]] = sub i32 [[Chain3_189]]
+; CHECK-NEXT: [[Chain3_185:%.*]] = sub i32 [[Chain3_187]], [[Chain3_191]]
+; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain3_185]]
+; CHECK-NEXT: [[Chain4_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_187:%.*]] = sub i32 [[Chain4_189]]
+; CHECK-NEXT: [[Chain4_185:%.*]] = sub i32 [[Chain4_187]], [[Chain4_191]]
+; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain4_185]]
+; CHECK: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
 ; CHECK-NEXT: [[Bridge1_2:%.*]] = add i32 [[Bridge1_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge1_3]]
@@ -29,20 +37,29 @@
 ; CHECK-NEXT: [[Bridge4_2:%.*]] = sub i32 [[Bridge4_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge4_3:%.*]] = add i32 [[Bridge4_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge4_3]]
+
 ; #2
-; CHECK: [[Chain_T24_187:%.*]] = sub i32 [[l44:%.*]], [[l28:%.*]]
-; CHECK-NEXT: [[Chain_T24_185:%.*]] = sub i32 [[Chain_T24_187]]
-; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain_T24_185]]
-; CHECK-NEXT: [[Chain_T24_174178:%.*]] = sub i32 [[l45:%.*]], [[l29:%.*]]
-; CHECK-NEXT: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]]
-; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]]
-; CHECK-NEXT: [[Chain_T24_162166:%.*]] = sub i32 [[l46:%.*]], [[l30:%.*]]
-; CHECK-NEXT: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]]
-; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]]
-; CHECK-NEXT: [[Chain_T24_158:%.*]] = sub i32 [[l47:%.*]], [[l31:%.*]]
-; CHECK-NEXT: [[Chain_T24_156:%.*]] = sub i32 [[Chain_T24_158]]
-; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain_T24_156]]
-; CHECK-NEXT: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK: [[Chain1_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_187:%.*]] = sub i32 [[Chain1_189]]
+; CHECK-NEXT: [[Chain1_185:%.*]] = sub i32 [[Chain1_187]], [[Chain1_191]]
+; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain1_185]]
+; CHECK-NEXT: [[Chain2_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_187:%.*]] = sub i32 [[Chain2_189]]
+; CHECK-NEXT: [[Chain2_185:%.*]] = sub i32 [[Chain2_187]], [[Chain2_191]]
+; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain2_185]]
+; CHECK-NEXT: [[Chain3_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_187:%.*]] = sub i32 [[Chain3_189]]
+; CHECK-NEXT: [[Chain3_185:%.*]] = sub i32 [[Chain3_187]], [[Chain3_191]]
+; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain3_185]]
+; CHECK-NEXT: [[Chain4_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_187:%.*]] = sub i32 [[Chain4_189]]
+; CHECK-NEXT: [[Chain4_185:%.*]] = sub i32 [[Chain4_187]], [[Chain4_191]]
+; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain4_185]]
+; CHECK: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
 ; CHECK-NEXT: [[Bridge1_2:%.*]] = add i32 [[Bridge1_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge1_3]]
@@ -58,20 +75,29 @@
 ; CHECK-NEXT: [[Bridge4_2:%.*]] = sub i32 [[Bridge4_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge4_3:%.*]] = add i32 [[Bridge4_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge4_3]]
+
 ; #3
-; CHECK: [[Chain_T24_187:%.*]] = sub i32 [[l44:%.*]], [[l28:%.*]]
-; CHECK-NEXT: [[Chain_T24_185:%.*]] = sub i32 [[Chain_T24_187]]
-; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain_T24_185]]
-; CHECK-NEXT: [[Chain_T24_174178:%.*]] = sub i32 [[l45:%.*]], [[l29:%.*]]
-; CHECK-NEXT: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]]
-; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]]
-; CHECK-NEXT: [[Chain_T24_162166:%.*]] = sub i32 [[l46:%.*]], [[l30:%.*]]
-; CHECK-NEXT: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]]
-; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]]
-; CHECK-NEXT: [[Chain_T24_158:%.*]] = sub i32 [[l47:%.*]], [[l31:%.*]]
-; CHECK-NEXT: [[Chain_T24_156:%.*]] = sub i32 [[Chain_T24_158]]
-; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain_T24_156]]
-; CHECK-NEXT: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK: [[Chain1_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_187:%.*]] = sub i32 [[Chain1_189]]
+; CHECK-NEXT: [[Chain1_185:%.*]] = sub i32 [[Chain1_187]], [[Chain1_191]]
+; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain1_185]]
+; CHECK-NEXT: [[Chain2_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_187:%.*]] = sub i32 [[Chain2_189]]
+; CHECK-NEXT: [[Chain2_185:%.*]] = sub i32 [[Chain2_187]], [[Chain2_191]]
+; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain2_185]]
+; CHECK-NEXT: [[Chain3_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_187:%.*]] = sub i32 [[Chain3_189]]
+; CHECK-NEXT: [[Chain3_185:%.*]] = sub i32 [[Chain3_187]], [[Chain3_191]]
+; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain3_185]]
+; CHECK-NEXT: [[Chain4_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_187:%.*]] = sub i32 [[Chain4_189]]
+; CHECK-NEXT: [[Chain4_185:%.*]] = sub i32 [[Chain4_187]], [[Chain4_191]]
+; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain4_185]]
+; CHECK: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
 ; CHECK-NEXT: [[Bridge1_2:%.*]] = add i32 [[Bridge1_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge1_3]]
@@ -87,20 +113,29 @@
 ; CHECK-NEXT: [[Bridge4_2:%.*]] = sub i32 [[Bridge4_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge4_3:%.*]] = add i32 [[Bridge4_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge4_3]]
+
 ; #4
-; CHECK: [[Chain_T24_187:%.*]] = sub i32 [[l44:%.*]], [[l28:%.*]]
-; CHECK-NEXT: [[Chain_T24_185:%.*]] = sub i32 [[Chain_T24_187]]
-; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain_T24_185]]
-; CHECK-NEXT: [[Chain_T24_174178:%.*]] = sub i32 [[l45:%.*]], [[l29:%.*]]
-; CHECK-NEXT: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]]
-; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]]
-; CHECK-NEXT: [[Chain_T24_162166:%.*]] = sub i32 [[l46:%.*]], [[l30:%.*]]
-; CHECK-NEXT: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]]
-; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]]
-; CHECK-NEXT: [[Chain_T24_158:%.*]] = sub i32 [[l47:%.*]], [[l31:%.*]]
-; CHECK-NEXT: [[Chain_T24_156:%.*]] = sub i32 [[Chain_T24_158]]
-; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain_T24_156]]
-; CHECK-NEXT: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK: [[Chain1_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_187:%.*]] = sub i32 [[Chain1_189]]
+; CHECK-NEXT: [[Chain1_185:%.*]] = sub i32 [[Chain1_187]], [[Chain1_191]]
+; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain1_185]]
+; CHECK-NEXT: [[Chain2_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_187:%.*]] = sub i32 [[Chain2_189]]
+; CHECK-NEXT: [[Chain2_185:%.*]] = sub i32 [[Chain2_187]], [[Chain2_191]]
+; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain2_185]]
+; CHECK-NEXT: [[Chain3_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_187:%.*]] = sub i32 [[Chain3_189]]
+; CHECK-NEXT: [[Chain3_185:%.*]] = sub i32 [[Chain3_187]], [[Chain3_191]]
+; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain3_185]]
+; CHECK-NEXT: [[Chain4_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_187:%.*]] = sub i32 [[Chain4_189]]
+; CHECK-NEXT: [[Chain4_185:%.*]] = sub i32 [[Chain4_187]], [[Chain4_191]]
+; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain4_185]]
+; CHECK: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
 ; CHECK-NEXT: [[Bridge1_2:%.*]] = add i32 [[Bridge1_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge1_3]]
@@ -116,20 +151,29 @@
 ; CHECK-NEXT: [[Bridge4_2:%.*]] = sub i32 [[Bridge4_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge4_3:%.*]] = add i32 [[Bridge4_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge4_3]]
+
 ; #5
-; CHECK: [[Chain_T24_187:%.*]] = sub i32 [[l44:%.*]], [[l28:%.*]]
-; CHECK-NEXT: [[Chain_T24_185:%.*]] = sub i32 [[Chain_T24_187]]
-; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain_T24_185]]
-; CHECK-NEXT: [[Chain_T24_174178:%.*]] = sub i32 [[l45:%.*]], [[l29:%.*]]
-; CHECK-NEXT: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]]
-; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]]
-; CHECK-NEXT: [[Chain_T24_162166:%.*]] = sub i32 [[l46:%.*]], [[l30:%.*]]
-; CHECK-NEXT: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]]
-; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]]
-; CHECK-NEXT: [[Chain_T24_158:%.*]] = sub i32 [[l47:%.*]], [[l31:%.*]]
-; CHECK-NEXT: [[Chain_T24_156:%.*]] = sub i32 [[Chain_T24_158]]
-; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain_T24_156]]
-; CHECK-NEXT: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK: [[Chain1_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_187:%.*]] = sub i32 [[Chain1_189]]
+; CHECK-NEXT: [[Chain1_185:%.*]] = sub i32 [[Chain1_187]], [[Chain1_191]]
+; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain1_185]]
+; CHECK-NEXT: [[Chain2_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_187:%.*]] = sub i32 [[Chain2_189]]
+; CHECK-NEXT: [[Chain2_185:%.*]] = sub i32 [[Chain2_187]], [[Chain2_191]]
+; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain2_185]]
+; CHECK-NEXT: [[Chain3_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_187:%.*]] = sub i32 [[Chain3_189]]
+; CHECK-NEXT: [[Chain3_185:%.*]] = sub i32 [[Chain3_187]], [[Chain3_191]]
+; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain3_185]]
+; CHECK-NEXT: [[Chain4_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_187:%.*]] = sub i32 [[Chain4_189]]
+; CHECK-NEXT: [[Chain4_185:%.*]] = sub i32 [[Chain4_187]], [[Chain4_191]]
+; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain4_185]]
+; CHECK: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
 ; CHECK-NEXT: [[Bridge1_2:%.*]] = add i32 [[Bridge1_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge1_3]]
@@ -145,20 +189,29 @@
 ; CHECK-NEXT: [[Bridge4_2:%.*]] = sub i32 [[Bridge4_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge4_3:%.*]] = add i32 [[Bridge4_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge4_3]]
+
 ; #6
-; CHECK: [[Chain_T24_187:%.*]] = sub i32 [[l44:%.*]], [[l28:%.*]]
-; CHECK-NEXT: [[Chain_T24_185:%.*]] = sub i32 [[Chain_T24_187]]
-; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain_T24_185]]
-; CHECK-NEXT: [[Chain_T24_174178:%.*]] = sub i32 [[l45:%.*]], [[l29:%.*]]
-; CHECK-NEXT: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]]
-; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]]
-; CHECK-NEXT: [[Chain_T24_162166:%.*]] = sub i32 [[l46:%.*]], [[l30:%.*]]
-; CHECK-NEXT: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]]
-; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]]
-; CHECK-NEXT: [[Chain_T24_158:%.*]] = sub i32 [[l47:%.*]], [[l31:%.*]]
-; CHECK-NEXT: [[Chain_T24_156:%.*]] = sub i32 [[Chain_T24_158]]
-; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain_T24_156]]
-; CHECK-NEXT: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK: [[Chain1_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_187:%.*]] = sub i32 [[Chain1_189]]
+; CHECK-NEXT: [[Chain1_185:%.*]] = sub i32 [[Chain1_187]], [[Chain1_191]]
+; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain1_185]]
+; CHECK-NEXT: [[Chain2_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_187:%.*]] = sub i32 [[Chain2_189]]
+; CHECK-NEXT: [[Chain2_185:%.*]] = sub i32 [[Chain2_187]], [[Chain2_191]]
+; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain2_185]]
+; CHECK-NEXT: [[Chain3_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_187:%.*]] = sub i32 [[Chain3_189]]
+; CHECK-NEXT: [[Chain3_185:%.*]] = sub i32 [[Chain3_187]], [[Chain3_191]]
+; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain3_185]]
+; CHECK-NEXT: [[Chain4_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_187:%.*]] = sub i32 [[Chain4_189]]
+; CHECK-NEXT: [[Chain4_185:%.*]] = sub i32 [[Chain4_187]], [[Chain4_191]]
+; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain4_185]]
+; CHECK: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
 ; CHECK-NEXT: [[Bridge1_2:%.*]] = add i32 [[Bridge1_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge1_3]]
@@ -174,20 +227,29 @@
 ; CHECK-NEXT: [[Bridge4_2:%.*]] = sub i32 [[Bridge4_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge4_3:%.*]] = add i32 [[Bridge4_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge4_3]]
+
 ; #7
-; CHECK: [[Chain_T24_187:%.*]] = sub i32 [[l44:%.*]], [[l28:%.*]]
-; CHECK-NEXT: [[Chain_T24_185:%.*]] = sub i32 [[Chain_T24_187]]
-; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain_T24_185]]
-; CHECK-NEXT: [[Chain_T24_174178:%.*]] = sub i32 [[l45:%.*]], [[l29:%.*]]
-; CHECK-NEXT: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]]
-; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]]
-; CHECK-NEXT: [[Chain_T24_162166:%.*]] = sub i32 [[l46:%.*]], [[l30:%.*]]
-; CHECK-NEXT: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]]
-; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]]
-; CHECK-NEXT: [[Chain_T24_158:%.*]] = sub i32 [[l47:%.*]], [[l31:%.*]]
-; CHECK-NEXT: [[Chain_T24_156:%.*]] = sub i32 [[Chain_T24_158]]
-; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain_T24_156]]
-; CHECK-NEXT: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK: [[Chain1_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_187:%.*]] = sub i32 [[Chain1_189]]
+; CHECK-NEXT: [[Chain1_185:%.*]] = sub i32 [[Chain1_187]], [[Chain1_191]]
+; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain1_185]]
+; CHECK-NEXT: [[Chain2_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_187:%.*]] = sub i32 [[Chain2_189]]
+; CHECK-NEXT: [[Chain2_185:%.*]] = sub i32 [[Chain2_187]], [[Chain2_191]]
+; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain2_185]]
+; CHECK-NEXT: [[Chain3_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_187:%.*]] = sub i32 [[Chain3_189]]
+; CHECK-NEXT: [[Chain3_185:%.*]] = sub i32 [[Chain3_187]], [[Chain3_191]]
+; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain3_185]]
+; CHECK-NEXT: [[Chain4_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_187:%.*]] = sub i32 [[Chain4_189]]
+; CHECK-NEXT: [[Chain4_185:%.*]] = sub i32 [[Chain4_187]], [[Chain4_191]]
+; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain4_185]]
+; CHECK: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
 ; CHECK-NEXT: [[Bridge1_2:%.*]] = add i32 [[Bridge1_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge1_3]]
@@ -203,20 +265,29 @@
 ; CHECK-NEXT: [[Bridge4_2:%.*]] = sub i32 [[Bridge4_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge4_3:%.*]] = add i32 [[Bridge4_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge4_3]]
+
 ; #8
-; CHECK: [[Chain_T24_187:%.*]] = sub i32 [[l44:%.*]], [[l28:%.*]]
-; CHECK-NEXT: [[Chain_T24_185:%.*]] = sub i32 [[Chain_T24_187]]
-; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain_T24_185]]
-; CHECK-NEXT: [[Chain_T24_174178:%.*]] = sub i32 [[l45:%.*]], [[l29:%.*]]
-; CHECK-NEXT: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]]
-; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]]
-; CHECK-NEXT: [[Chain_T24_162166:%.*]] = sub i32 [[l46:%.*]], [[l30:%.*]]
-; CHECK-NEXT: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]]
-; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]]
-; CHECK-NEXT: [[Chain_T24_158:%.*]] = sub i32 [[l47:%.*]], [[l31:%.*]]
-; CHECK-NEXT: [[Chain_T24_156:%.*]] = sub i32 [[Chain_T24_158]]
-; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain_T24_156]]
-; CHECK-NEXT: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
+; CHECK: [[Chain1_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain1_187:%.*]] = sub i32 [[Chain1_189]]
+; CHECK-NEXT: [[Chain1_185:%.*]] = sub i32 [[Chain1_187]], [[Chain1_191]]
+; CHECK-NEXT: [[Chain1_3:%.*]] = add i32 [[Chain1_185]]
+; CHECK-NEXT: [[Chain2_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain2_187:%.*]] = sub i32 [[Chain2_189]]
+; CHECK-NEXT: [[Chain2_185:%.*]] = sub i32 [[Chain2_187]], [[Chain2_191]]
+; CHECK-NEXT: [[Chain2_3:%.*]] = add i32 [[Chain2_185]]
+; CHECK-NEXT: [[Chain3_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain3_187:%.*]] = sub i32 [[Chain3_189]]
+; CHECK-NEXT: [[Chain3_185:%.*]] = sub i32 [[Chain3_187]], [[Chain3_191]]
+; CHECK-NEXT: [[Chain3_3:%.*]] = add i32 [[Chain3_185]]
+; CHECK-NEXT: [[Chain4_191:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_189:%.*]] = shl i32
+; CHECK-NEXT: [[Chain4_187:%.*]] = sub i32 [[Chain4_189]]
+; CHECK-NEXT: [[Chain4_185:%.*]] = sub i32 [[Chain4_187]], [[Chain4_191]]
+; CHECK-NEXT: [[Chain4_3:%.*]] = add i32 [[Chain4_185]]
+; CHECK: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
 ; CHECK-NEXT: [[Bridge1_2:%.*]] = add i32 [[Bridge1_1]], [[Chain2_3]]
 ; CHECK-NEXT: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
 ; CHECK-NEXT: store i32 [[Bridge1_3]]
