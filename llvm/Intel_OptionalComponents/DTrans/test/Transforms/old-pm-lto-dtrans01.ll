@@ -13,9 +13,11 @@
 ; RUN:     | FileCheck %s
 
 ; Make sure the DTrans transforms are run, without rerunning analysis
-; CHECK: Executing Pass 'Data transformation analysis'
-; CHECK: Executing Pass 'DTrans resolve types'
+; Also, DTrans analysis should not be run prior to the resolve types pass.
+
 ; CHECK-NOT: Executing Pass 'Data transformation analysis'
+; CHECK: Executing Pass 'DTrans resolve types'
+; CHECK: Executing Pass 'Data transformation analysis'
 ; CHECK: Executing Pass 'DTrans struct of arrays to array of structs'
 ; CHECK-NOT: Executing Pass 'Data transformation analysis'
 ; CHECK: Executing Pass 'DTrans weak align'

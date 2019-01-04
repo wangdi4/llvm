@@ -44,7 +44,6 @@
 
 #include "Intel_DTrans/Transforms/ResolveTypes.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
@@ -95,34 +94,26 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-    auto &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
     const TargetLibraryInfo &TLI =
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
     WholeProgramInfo &WPInfo =
         getAnalysis<WholeProgramWrapperPass>().getResult();
-    bool Changed = Impl.runImpl(M, DTInfo, TLI, WPInfo);
-    if (Changed)
-      DTAnalysisWrapper.setInvalidated();
-    return Changed;
+    return Impl.runImpl(M, TLI, WPInfo);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // TODO: Mark the actual required and preserved analyses.
-    AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
 
 class ResolveTypesImpl : public DTransOptBase {
 public:
-  ResolveTypesImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
-                   const DataLayout &DL, const TargetLibraryInfo &TLI,
+  ResolveTypesImpl(LLVMContext &Context, const DataLayout &DL,
+                   const TargetLibraryInfo &TLI,
                    DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(&DTInfo, Context, DL, TLI, "__DTRT_", TypeRemapper) {}
+      : DTransOptBase(nullptr, Context, DL, TLI, "__DTRT_", TypeRemapper) {}
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -907,7 +898,6 @@ private:
 char DTransResolveTypesWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(DTransResolveTypesWrapper, "dtrans-resolvetypes",
                       "DTrans resolve types", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransResolveTypesWrapper, "dtrans-resolvetypes",
@@ -1851,28 +1841,23 @@ ResolveTypesImpl::CompareResult ResolveTypesImpl::compareTypeMembers(
   return CompareResult::Equivalent;
 }
 
-bool dtrans::ResolveTypesPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                       const TargetLibraryInfo &TLI,
+bool dtrans::ResolveTypesPass::runImpl(Module &M, const TargetLibraryInfo &TLI,
                                        WholeProgramInfo &WPInfo) {
   if (!WPInfo.isWholeProgramSafe())
     return false;
 
-  if (!DTInfo.useDTransAnalysis())
-    return false;
-
   DTransTypeRemapper TypeRemapper;
-  ResolveTypesImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(), TLI,
+  ResolveTypesImpl Transformer(M.getContext(), M.getDataLayout(), TLI,
                                &TypeRemapper);
   return Transformer.run(M);
 }
 
 PreservedAnalyses dtrans::ResolveTypesPass::run(Module &M,
                                                 ModuleAnalysisManager &AM) {
-  auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!runImpl(M, DTransInfo, TLI, WPInfo))
+  if (!runImpl(M, TLI, WPInfo))
     return PreservedAnalyses::all();
 
   // TODO: Mark the actual preserved analyses.

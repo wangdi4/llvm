@@ -18,6 +18,7 @@
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Verifier.h"
@@ -204,18 +205,6 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
 // then invokes module/function transformation itself. See header file for
 // complete description of actions.
 bool DTransOptBase::run(Module &M) {
-  // TODO: This test will be removed when DTInfo is made as completely
-  // optional for the base class.
-  if (!DTInfo || !DTInfo->useDTransAnalysis()) {
-    // The DTransAnalysis type info lists are used when determining dependent
-    // types to be handled by the base class. Without this the base class cannot
-    // properly remap the types.
-    LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: DTransAnalysis information is "
-                         "required to be available in order to determine type "
-                         "dependencies.\n");
-    return false;
-  }
-
   if (!prepareTypesBaseImpl(M))
     return false;
 
@@ -254,6 +243,8 @@ bool DTransOptBase::run(Module &M) {
 // created as a result of creating those types. Returns 'true' if types are
 // changed.
 bool DTransOptBase::prepareTypesBaseImpl(Module &M) {
+  dtrans::collectAllStructTypes(M, KnownStructTypes);
+
   // Compute the set of types that each type is a dependee of. This will
   // enable the determination of other types that need to be rewritten when one
   // type changes.
@@ -302,13 +293,8 @@ bool DTransOptBase::prepareTypesBaseImpl(Module &M) {
 // The map created will be used to populating a work list of types that will
 // need to be processed when changing a specific type.
 void DTransOptBase::buildTypeDependencyMapping() {
-  for (auto *TI : DTInfo->type_info_entries()) {
-    dtrans::TypeInfo::TypeInfoKind Kind = TI->getTypeInfoKind();
-    if (Kind == dtrans::TypeInfo::StructInfo ||
-        Kind == dtrans::TypeInfo::ArrayInfo) {
-      collectDependenciesForType(TI->getLLVMType());
-    }
-  }
+  for (StructType *StTy : KnownStructTypes)
+    collectDependenciesForType(StTy);
 
 #if !defined(NDEBUG)
   LLVM_DEBUG(dumpTypeToTypeSetMapping("Type dependency mapping table:",
@@ -317,13 +303,8 @@ void DTransOptBase::buildTypeDependencyMapping() {
 }
 
 void DTransOptBase::buildTypeEnclosingMapping() {
-  for (auto *TI : DTInfo->type_info_entries()) {
-    dtrans::TypeInfo::TypeInfoKind Kind = TI->getTypeInfoKind();
-    if (Kind == dtrans::TypeInfo::StructInfo ||
-        Kind == dtrans::TypeInfo::ArrayInfo) {
-      collectEnclosingForType(TI->getLLVMType());
-    }
-  }
+  for (StructType *StTy : KnownStructTypes)
+    collectEnclosingForType(StTy);
 
 #if !defined(NDEBUG)
   LLVM_DEBUG(dumpTypeToTypeSetMapping("Type enclosing mapping table:",
@@ -487,9 +468,7 @@ void DTransOptBase::prepareDependentTypes(
   // will only contain those types.
   SmallSet<Type *, 16> Processed;
   SmallSetVector<Type *, 16> Worklist;
-  for (auto *TI : DTInfo->type_info_entries()) {
-    Type *OrigTy = TI->getLLVMType();
-
+  for (Type *OrigTy : KnownStructTypes) {
     if (TypeRemapper->hasRemappedType(OrigTy)) {
       Worklist.insert(OrigTy);
 

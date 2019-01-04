@@ -15,10 +15,11 @@
 ; Make sure the DTrans analysis gets recomputed at the start of a
 ; transformation that follows one which changed the structure typess. In this
 ; case, DeleteField and ReorderFields are going to modify the IR.
+; Also, DTrans analysis should not be run prior to the resolve types pass.
 
-; CHECK: Executing Pass 'Data transformation analysis'
+; CHECK-NOT: Executing Pass 'Data transformation analysis'
 ; CHECK: Executing Pass 'DTrans resolve types'
-; CHECK-NOT: Running DTransAnalysisInfo::analyzeModule
+; CHECK: Running DTransAnalysisInfo::analyzeModule
 ; CHECK: Executing Pass 'DTrans struct of arrays to array of structs'
 ; CHECK-NOT: Running DTransAnalysisInfo::analyzeModule
 ; CHECK: Executing Pass 'DTrans weak align'
