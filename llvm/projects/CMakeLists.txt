@@ -6,6 +6,7 @@ foreach(entry ${entries})
   if(IS_DIRECTORY ${entry} AND EXISTS ${entry}/CMakeLists.txt)
     if((NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/compiler-rt) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/opencl) AND #INTEL - exclude opencl from the build by default
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/cclang) AND #INTEL - exclude cclang from the build by default
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/dragonegg) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxx) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxxabi) AND
@@ -40,9 +41,13 @@ if(${LLVM_BUILD_RUNTIME})
 endif()
 
 if(INTEL_CUSTOMIZATION)
- if(${LLVM_BUILD_OPENMP})
-  add_llvm_external_project(openmp)
- endif()
+  if(${LLVM_BUILD_LIBCOMMON_CLANG})
+    add_llvm_external_project(cclang)
+  endif()
+
+  if(${LLVM_BUILD_OPENMP})
+    add_llvm_external_project(openmp)
+  endif()
 endif()
 
 add_llvm_external_project(dragonegg)
