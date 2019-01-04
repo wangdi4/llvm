@@ -133,16 +133,20 @@ public:
   // Data structure to use for mapping one type to a set of types.
   using TypeToTypeSetMap = DenseMap<llvm::Type *, SetVector<Type *>>;
 
-  // \param DTInfo DTrans Analysis Result
-  // \param Context llvm context for the module
-  // \param DL Module's data layout
+  // \param DTInfo        DTrans Analysis Result. This is an optional parameter
+  //                      for the base class. However, if a transform needs to
+  //                      have the DTrans CallInfo data structures kept
+  //                      up-to-date when functions are transformed, this
+  //                      parameter must be provided.
+  // \param Context       llvm context for the module
+  // \param DL            Module's data layout
   // \param DepTypePrefix Optional string to prefix structure names of rewritten
-  // dependent types
-  // \param TypeRemapper Class that will perform type mapping from old types
-  // to new types
-  // \param Materializer Optional class that works with ValueMapper to create
-  // new Values during type remapping
-  DTransOptBase(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
+  //                      dependent types
+  // \param TypeRemapper  Class that will perform type mapping from old types
+  //                      to new types
+  // \param Materializer  Optional class that works with ValueMapper to create
+  //                      new Values during type remapping
+  DTransOptBase(DTransAnalysisInfo *DTInfo, LLVMContext &Context,
                 const DataLayout &DL, const TargetLibraryInfo &TLI,
                 StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper,
                 ValueMaterializer *Materializer = nullptr)
@@ -288,7 +292,7 @@ protected:
   const typename TypeToTypeSetMap::mapped_type &getEnclosingTypes(Type *Ty);
 
 protected:
-  DTransAnalysisInfo &DTInfo;
+  DTransAnalysisInfo *const DTInfo;
   LLVMContext &Context;
   const DataLayout &DL;
   const TargetLibraryInfo &TLI;

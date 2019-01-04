@@ -204,7 +204,9 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
 // then invokes module/function transformation itself. See header file for
 // complete description of actions.
 bool DTransOptBase::run(Module &M) {
-  if (!DTInfo.useDTransAnalysis()) {
+  // TODO: This test will be removed when DTInfo is made as completely
+  // optional for the base class.
+  if (!DTInfo || !DTInfo->useDTransAnalysis()) {
     // The DTransAnalysis type info lists are used when determining dependent
     // types to be handled by the base class. Without this the base class cannot
     // properly remap the types.
@@ -300,7 +302,7 @@ bool DTransOptBase::prepareTypesBaseImpl(Module &M) {
 // The map created will be used to populating a work list of types that will
 // need to be processed when changing a specific type.
 void DTransOptBase::buildTypeDependencyMapping() {
-  for (auto *TI : DTInfo.type_info_entries()) {
+  for (auto *TI : DTInfo->type_info_entries()) {
     dtrans::TypeInfo::TypeInfoKind Kind = TI->getTypeInfoKind();
     if (Kind == dtrans::TypeInfo::StructInfo ||
         Kind == dtrans::TypeInfo::ArrayInfo) {
@@ -315,7 +317,7 @@ void DTransOptBase::buildTypeDependencyMapping() {
 }
 
 void DTransOptBase::buildTypeEnclosingMapping() {
-  for (auto *TI : DTInfo.type_info_entries()) {
+  for (auto *TI : DTInfo->type_info_entries()) {
     dtrans::TypeInfo::TypeInfoKind Kind = TI->getTypeInfoKind();
     if (Kind == dtrans::TypeInfo::StructInfo ||
         Kind == dtrans::TypeInfo::ArrayInfo) {
@@ -485,7 +487,7 @@ void DTransOptBase::prepareDependentTypes(
   // will only contain those types.
   SmallSet<Type *, 16> Processed;
   SmallSetVector<Type *, 16> Worklist;
-  for (auto *TI : DTInfo.type_info_entries()) {
+  for (auto *TI : DTInfo->type_info_entries()) {
     Type *OrigTy = TI->getLLVMType();
 
     if (TypeRemapper->hasRemappedType(OrigTy)) {
@@ -679,8 +681,10 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
   }
 
   LLVM_DEBUG({
-    dbgs() << "Call info after remapping\n";
-    DTInfo.printCallInfo(dbgs());
+    if (DTInfo) {
+      dbgs() << "Call info after remapping\n";
+      DTInfo->printCallInfo(dbgs());
+    }
   });
 
   // The Function to CallInfo mapping is no longer needed, and can be released
@@ -690,10 +694,17 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
 
 // Set up the Function to CallInfo mapping that is needed for keeping
 // the CallInfo objects up to date while the transformation is running.
+//
+// If the class is being used without the DTrans analysis, then call
+// info tracking and updating will not be supported when transforming
+// routines, and this function will not do anything.
 void DTransOptBase::initializeFunctionCallInfoMapping() {
+  if (!DTInfo)
+    return;
+
   resetFunctionCallInfoMapping();
 
-  for (auto *CInfo : DTInfo.call_info_entries()) {
+  for (auto *CInfo : DTInfo->call_info_entries()) {
     Function *F = CInfo->getInstruction()->getParent()->getParent();
     FunctionToCallInfoVec[F].push_back(CInfo);
   }
@@ -704,11 +715,18 @@ void DTransOptBase::initializeFunctionCallInfoMapping() {
 // updated to reflect the remapped types. For cloned functions, the
 // instruction pointer in the call info will be updated to point to the
 // instruction in the cloned function.
+//
+// If the class is being used without the DTrans analysis, then call
+// info tracking and updating will not be supported when transforming
+// routines, and this function will not do anything.
 void DTransOptBase::updateCallInfoForFunction(Function *F, bool isCloned) {
+  if (!DTInfo)
+    return;
+
   if (FunctionToCallInfoVec.count(F))
     for (auto *CInfo : FunctionToCallInfoVec[F]) {
       if (isCloned)
-        DTInfo.replaceCallInfoInstruction(
+        DTInfo->replaceCallInfoInstruction(
             CInfo, cast<Instruction>(VMap[CInfo->getInstruction()]));
 
       dtrans::PointerTypeInfo &PTI = CInfo->getPointerTypeInfoRef();
@@ -916,11 +934,15 @@ void DTransOptBase::removeDeadValues() {
 }
 
 void DTransOptBase::deleteCallInfo(dtrans::CallInfo *CInfo) {
+  assert(DTInfo && "DTransOptBase::deleteCallInfo may only be used when base "
+                   "class has DTrans analysis");
+
   Instruction *I = CInfo->getInstruction();
   Function *F = I->getParent()->getParent();
   auto &InfoVec = FunctionToCallInfoVec[F];
 
   auto It = std::find(InfoVec.begin(), InfoVec.end(), CInfo);
+  assert(It != InfoVec.end() && "Unknown CallInfo for function");
   InfoVec.erase(It);
-  DTInfo.deleteCallInfo(I);
+  DTInfo->deleteCallInfo(I);
 }

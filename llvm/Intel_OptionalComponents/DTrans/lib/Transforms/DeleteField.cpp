@@ -73,7 +73,7 @@ public:
   DeleteFieldImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
                   const DataLayout &DL, const TargetLibraryInfo &TLI,
                   StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
+      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -151,8 +151,8 @@ bool DeleteFieldImpl::checkParentStructure(dtrans::StructInfo *ParentStruct) {
     return false;
 
   // Go conservative if out of bounds is specified
-  if (DTInfo.getDTransOutOfBoundsOK())
-    return !(DTInfo.testSafetyData(ParentStruct, dtrans::DT_DeleteField));
+  if (DTInfo->getDTransOutOfBoundsOK())
+    return !(DTInfo->testSafetyData(ParentStruct, dtrans::DT_DeleteField));
 
   // Safety conditions in the enclosing structure that
   // prevents the optimization
@@ -179,12 +179,12 @@ bool DeleteFieldImpl::checkParentStructure(dtrans::StructInfo *ParentStruct) {
 
     dtrans::FieldInfo &Field = ParentStruct->getField(Idx);
     llvm::Type *FieldTy = Field.getLLVMType();
-    dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldTy);
+    dtrans::TypeInfo *FieldTI = DTInfo->getOrCreateTypeInfo(FieldTy);
 
     // If the field is marked as address taken, then we need to make sure
     // that it passes the safety issues for delete fields.
     if (Field.isAddressTaken() &&
-        DTInfo.testSafetyData(FieldTI, dtrans::DT_DeleteField))
+        DTInfo->testSafetyData(FieldTI, dtrans::DT_DeleteField))
       return false;
   }
 
@@ -194,7 +194,7 @@ bool DeleteFieldImpl::checkParentStructure(dtrans::StructInfo *ParentStruct) {
 bool DeleteFieldImpl::prepareTypes(Module &M) {
   LLVM_DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 
-  for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
+  for (dtrans::TypeInfo *TI : DTInfo->type_info_entries()) {
     uint64_t DeleteableBytes = 0;
 
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
@@ -238,7 +238,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     if (!CanDeleteField)
       continue;
 
-    if (DTInfo.testSafetyData(TI, dtrans::DT_DeleteField)) {
+    if (DTInfo->testSafetyData(TI, dtrans::DT_DeleteField)) {
       LLVM_DEBUG({
         dbgs() << "  Rejecting ";
         StInfo->getLLVMType()->print(dbgs(), true, true);
@@ -287,7 +287,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       if (!isa<llvm::StructType>(ParentTy))
         continue;
 
-      auto *ParentTI = cast<dtrans::StructInfo>(DTInfo.getTypeInfo(ParentTy));
+      auto *ParentTI = cast<dtrans::StructInfo>(DTInfo->getTypeInfo(ParentTy));
 
       // Skip types that are already considered.
       if (std::find(StructsToConvert.begin(), StructsToConvert.end(),
@@ -464,7 +464,7 @@ void DeleteFieldImpl::processFunction(Function &F) {
 // will update the GEP to reflect the new offset. Because the GEP is in
 // byte-flattened form, the GEP can be updated prior to cloning.
 bool DeleteFieldImpl::processPossibleByteFlattenedGEP(GetElementPtrInst *GEP) {
-  auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+  auto InfoPair = DTInfo->getByteFlattenedGEPElement(GEP);
   if (!InfoPair.first)
     return false;
 
@@ -667,7 +667,7 @@ void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
 }
 
 void DeleteFieldImpl::postprocessCallSite(CallSite CS) {
-  auto *CInfo = DTInfo.getCallInfo(CS.getInstruction());
+  auto *CInfo = DTInfo->getCallInfo(CS.getInstruction());
   if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
     return;
 
@@ -707,7 +707,7 @@ void DeleteFieldImpl::processSubInst(Instruction *I) {
   auto *BinOp = cast<BinaryOperator>(I);
   assert(BinOp->getOpcode() == Instruction::Sub &&
          "postProcessSubInst called for non-sub instruction!");
-  llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+  llvm::Type *PtrSubTy = DTInfo->getResolvedPtrSubType(BinOp);
   if (!PtrSubTy)
     return;
   for (auto &ONPair : OrigToNewTypeMapping) {

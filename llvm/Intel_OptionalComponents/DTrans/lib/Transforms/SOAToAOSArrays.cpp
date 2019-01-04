@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSArrays.cpp - Part of SOAToAOSPass -----------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -118,7 +118,7 @@ public:
       const TargetLibraryInfo &TLI, const ArraySummaryForIdiom &S,
       const SOAToAOSArrayMethodsCheckDebugResult &InstsToTransform,
       StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
+      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
         S(S), InstsToTransform(InstsToTransform) {}
 
   bool prepareTypes(Module &M) override {
@@ -172,7 +172,7 @@ public:
     if (!isCloned)
       return;
 
-    ArrayMethodTransformation AMT(DL, DTInfo, TLI, VMap, InstsToTransform,
+    ArrayMethodTransformation AMT(DL, *DTInfo, TLI, VMap, InstsToTransform,
                                   Context);
 
     bool CopyElemInsts = InstsToTransform.MK == MK_Realloc ||

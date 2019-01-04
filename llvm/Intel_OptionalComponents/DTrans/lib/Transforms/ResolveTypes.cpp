@@ -122,7 +122,7 @@ public:
   ResolveTypesImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
                    const DataLayout &DL, const TargetLibraryInfo &TLI,
                    DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, TLI, "__DTRT_", TypeRemapper) {}
+      : DTransOptBase(&DTInfo, Context, DL, TLI, "__DTRT_", TypeRemapper) {}
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;

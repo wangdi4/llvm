@@ -1,6 +1,6 @@
 //===---DTransOptBaseTest.cpp - Test pass for DTransOptBase functionality--===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -68,7 +68,7 @@ public:
   DTransOptBaseTest(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
                     const DataLayout &DL, const TargetLibraryInfo &TLI,
                     StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
+      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
 
   virtual bool prepareTypes(Module &M) override {
     SmallVector<StringRef, 4> SubStrings;
@@ -134,6 +134,11 @@ ModulePass *llvm::createDTransOptBaseTestWrapperPass() {
 
 bool dtrans::OptBaseTestPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                                       const TargetLibraryInfo &TLI) {
+  // Some of the testing verifies that the DTrans call info data structures
+  // are updated when the base class transforms the routines, therefore this
+  // pass can only be run when the analysis was collected.
+  if (!DTInfo.useDTransAnalysis())
+    return false;
 
   DTransTypeRemapper TypeRemapper;
   DTransOptBaseTest Transformer(DTInfo, M.getContext(), M.getDataLayout(), TLI,

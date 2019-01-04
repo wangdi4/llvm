@@ -160,7 +160,7 @@ public:
                         DTransTypeRemapper *TypeRemapper,
                         AOSToSOAMaterializer *Materializer,
                         SmallVectorImpl<dtrans::StructInfo *> &Types)
-      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper,
+      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper,
                       Materializer),
         PeelIndexWidth(64), PeelIndexType(nullptr),
         PointerShrinkingEnabled(false), AnnotationFilenameGEP(nullptr) {
@@ -210,7 +210,7 @@ public:
         // Don't check dependent types that are directly being transformed by
         // AOS-to-SOA.
         if (std::find(TypesToTransform.begin(), TypesToTransform.end(),
-                      DTInfo.getTypeInfo(DepTy)) != TypesToTransform.end())
+                      DTInfo->getTypeInfo(DepTy)) != TypesToTransform.end())
           continue;
 
         // Verify whether it is going to be safe to change a pointer type within
@@ -397,7 +397,7 @@ public:
         updateCallAttributes(CS);
 
         // Check if the call needs to be transformed based on the CallInfo.
-        if (auto *CInfo = DTInfo.getCallInfo(I)) {
+        if (auto *CInfo = DTInfo->getCallInfo(I)) {
           std::pair<llvm::Type *, AOSConvType> ElemConvPair =
               getCallInfoTypeToTransform(CInfo);
           if (ElemConvPair.second == AOS_NoConv)
@@ -406,7 +406,7 @@ public:
           auto *CInfoElemTy = ElemConvPair.first;
           ConvType = ElemConvPair.second;
 
-          auto *TI = DTInfo.getTypeInfo(CInfoElemTy);
+          auto *TI = DTInfo->getTypeInfo(CInfoElemTy);
           assert(TI && "Expected TypeInfo for structure type");
 
           switch (CInfo->getCallInfoKind()) {
@@ -558,7 +558,7 @@ public:
     if (GEP->getNumIndices() != 1)
       return AOS_NoConv;
 
-    auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+    auto InfoPair = DTInfo->getByteFlattenedGEPElement(GEP);
     if (!InfoPair.first)
       return AOS_NoConv;
 
@@ -604,7 +604,7 @@ public:
     if (BinOp->getOpcode() != Instruction::Sub)
       return AOS_NoConv;
 
-    llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+    llvm::Type *PtrSubTy = DTInfo->getResolvedPtrSubType(BinOp);
     if (!PtrSubTy)
       return AOS_NoConv;
 
@@ -628,7 +628,7 @@ public:
     if (!isPointerShrinkingEnabled())
       return false;
 
-    auto *ActualTy = DTInfo.getGenericLoadType(LI);
+    auto *ActualTy = DTInfo->getGenericLoadType(LI);
     if (!ActualTy)
       return false;
 
@@ -658,7 +658,7 @@ public:
     if (!isPointerShrinkingEnabled())
       return false;
 
-    auto *ActualTy = DTInfo.getGenericStoreType(SI);
+    auto *ActualTy = DTInfo->getGenericStoreType(SI);
     if (!ActualTy)
       return false;
 
@@ -968,7 +968,7 @@ public:
   // equaled the structure size. Update the divide instruction to replace the
   // divisor.
   void processBinOp(BinaryOperator *BinOp) {
-    llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+    llvm::Type *PtrSubTy = DTInfo->getResolvedPtrSubType(BinOp);
     uint64_t OrigSize = DL.getTypeAllocSize(PtrSubTy);
     updatePtrSubDivUserSizeOperand(BinOp, OrigSize, 1);
   }
@@ -1055,7 +1055,7 @@ public:
     //    %val = bitcast i32* %2 to i8**
     //
     Value *PtrOp = LI->getPointerOperand();
-    auto *ActualTy = DTInfo.getGenericLoadType(LI);
+    auto *ActualTy = DTInfo->getGenericLoadType(LI);
     assert(ActualTy && "Unexpected load being converted");
 
     llvm::Type *RemapTy = TypeRemapper->remapType(ActualTy);
@@ -1150,7 +1150,7 @@ public:
     //    %2 = bitcast i8*** %ptr to i32**
     //    store i32* %1, i32** %2
     //
-    auto *ActualTy = DTInfo.getGenericStoreType(SI);
+    auto *ActualTy = DTInfo->getGenericStoreType(SI);
     assert(ActualTy && "Unexpected store being converted");
 
     llvm::Type *RemapTy = TypeRemapper->remapType(ActualTy);
@@ -1219,7 +1219,7 @@ public:
   //    %field_gep = getelementptr i32, i32* %soa_addr, i64 %peelIdxAsInt
   //    %p8_B = bitcast i32* %elem_addr to i8*
   void processByteFlattendGEP(GetElementPtrInst *GEP) {
-    auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+    auto InfoPair = DTInfo->getByteFlattenedGEPElement(GEP);
     auto *OrigStructTy = cast<llvm::StructType>(InfoPair.first);
 
     LLVM_DEBUG(dbgs() << "Replacing byte flattened GEP for field "
@@ -1520,8 +1520,8 @@ private:
   // Return 'true' if there are no safety issues with a dependent type \p Ty
   // that prevent transforming a type.
   bool checkDependentTypeSafety(llvm::Type *Ty) {
-    auto *TI = DTInfo.getTypeInfo(Ty);
-    if (DTInfo.testSafetyData(TI, dtrans::DT_AOSToSOADependent))
+    auto *TI = DTInfo->getTypeInfo(Ty);
+    if (DTInfo->testSafetyData(TI, dtrans::DT_AOSToSOADependent))
       return false;
 
     if (TI->testSafetyData(dtrans::FieldAddressTaken)) {
@@ -1533,7 +1533,7 @@ private:
       // affects a field member that is a pointer to a type being transformed,
       // so check whether the code is allowing memory outside the boundaries of
       // a specific field to be accessed when taking the address.
-      if (DTInfo.getDTransOutOfBoundsOK())
+      if (DTInfo->getDTransOutOfBoundsOK())
         return false;
     }
 
@@ -1545,8 +1545,8 @@ private:
   // Return 'true' if there are no safety issues on a dependent type \Ty that
   // prevent shrinking the peeling index to 32-bits.
   bool checkDependentTypeSafeForShrinking(Module &M, llvm::Type *Ty) {
-    auto *TI = DTInfo.getTypeInfo(Ty);
-    if (DTInfo.testSafetyData(TI, dtrans::DT_AOSToSOADependentIndex32))
+    auto *TI = DTInfo->getTypeInfo(Ty);
+    if (DTInfo->testSafetyData(TI, dtrans::DT_AOSToSOADependentIndex32))
       return false;
 
     // If there is a global instance of the type, then we need to check for
@@ -2207,14 +2207,14 @@ private:
                          "dependent type involving result of: "
                       << *BinOp << "\n");
 
-    llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+    llvm::Type *PtrSubTy = DTInfo->getResolvedPtrSubType(BinOp);
     llvm::Type *ReplTy = TypeRemapper->remapType(PtrSubTy);
     updatePtrSubDivUserSizeOperand(BinOp, PtrSubTy, ReplTy, DL);
   }
 
   // Update the offsets of a byte flattened GEP for dependent structure types.
   void processDepByteFlattendGEP(GetElementPtrInst *GEP) {
-    auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+    auto InfoPair = DTInfo->getByteFlattenedGEPElement(GEP);
     auto *OrigStructTy = cast<llvm::StructType>(InfoPair.first);
 
     llvm::Type *ReplTy = TypeRemapper->remapType(OrigStructTy);

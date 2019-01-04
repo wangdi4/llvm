@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSStruct.cpp - Part of SOAToAOSPass -----------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -253,7 +253,7 @@ public:
       const SmallVectorImpl<unsigned> &Offsets,
       const SOAToAOSStructMethodsCheckDebugResult &InstsToTransform,
       StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
+      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
         InstsToTransform(InstsToTransform), S(S), Arrays(Arrays),
         Offsets(Offsets) {}
 
@@ -333,7 +333,7 @@ public:
       return;
 
     StructMethodTransformation SMT(
-        DL, DTInfo, TLI, VMap, InstsToTransform /* CsllSiteComparator */,
+        DL, *DTInfo, TLI, VMap, InstsToTransform /* CsllSiteComparator */,
         InstsToTransform /*TransformationData*/, Context);
 
     SMT.updateReferences(S.StrType, NewArray, Arrays, AOSOffset,
