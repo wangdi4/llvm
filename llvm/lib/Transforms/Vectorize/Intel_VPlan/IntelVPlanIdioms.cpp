@@ -188,23 +188,22 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
 
       // FIXME: Need to look on VPPredicates, not on underlying IR.
       if (!isa<HLIf>(HInst->getParent()))
-        // No support for assignment to live-out terminals or when memory
-        // speculation is not allowed.
-        if (!AllowSpeculation && LvalRef->isTerminalRef() &&
-            LvalRef->isLiveOutOfParentLoop()) {
-          // FIXME: Current CG cannot handle multiple dimensions for
-          // live-out computation in early exit loop. Bail-out by now.
-          if (!RvalRef->isMemRef() || !canSpeculate(LvalRef) ||
-              !canSpeculate(RvalRef)) {
-            LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
-                       dbgs() << " is unmasked, thus it's unsafe.\n");
-            return VPlanIdioms::Unsafe;
-          } else if (RvalRef->getNumDimensions() != 1) {
-            LLVM_DEBUG(dbgs() << "        RvalRef "; RvalRef->dump();
-                       dbgs() << "  has multiple dimensions which is not "
-                                 "supported by current CG.\n");
-            return VPlanIdioms::Unsafe;
-          }
+        if (!canSpeculate(LvalRef)) {
+          LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
+                     dbgs() << " is unmasked, thus it's unsafe.\n");
+          return VPlanIdioms::Unsafe;
+        }
+        // FIXME: Current CG cannot handle multiple dimensions for
+        // live-out computation in early exit loop. Bail-out by now.
+        if (!RvalRef->isMemRef() || !canSpeculate(RvalRef)) {
+          LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
+                     dbgs() << " is unmasked, thus it's unsafe.\n");
+          return VPlanIdioms::Unsafe;
+        } else if (RvalRef->getNumDimensions() != 1) {
+          LLVM_DEBUG(dbgs() << "        RvalRef "; RvalRef->dump();
+                     dbgs() << "  has multiple dimensions which is not "
+                               "supported by current CG.\n");
+          return VPlanIdioms::Unsafe;
         }
     }
   }
