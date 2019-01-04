@@ -83,14 +83,19 @@ protected:
   ScalarEvolution *SE = nullptr;
   AssumptionCache *AC = nullptr;
 
-  // Init, fini and last iteration basic blocks. Alloca instructions for all
-  // private flavors as well as the intialization for for first private and
-  // reduction variables is inserted into InitBB. Destructors for all types
-  // of privates are inserted into the FiniBB as well as reduction updates.
-  // Copyout code for lastprivate variables is inserted into the LastIterBB.
-  BasicBlock *InitBB = nullptr;
-  BasicBlock *FiniBB = nullptr;
-  BasicBlock *LastIterBB = nullptr;
+  // Insertion points for init, fini and last private copyout code. Alloca
+  // instructions for all private flavors as well as the intialization for the
+  // first private and reduction variables is inserted before InitInsPt
+  // instruction. Destructors for all types of privates as well as reduction
+  // updates are inserted before the FiniInsPt instruction. And copyout code for
+  // lastprivate variables is inserted before the LastInsPt instruction.
+  Instruction *InitInsPt = nullptr;
+  Instruction *FiniInsPt = nullptr;
+  Instruction *LastInsPt = nullptr;
+
+  // Keep track of alloca instruction that were created for private variables.
+  // We will try to registerize these allocas.
+  SmallSetVector<AllocaInst*, 16u> Allocas;
 
   // Lower reduction clauses if set to true.
   bool DoReds = true;
@@ -102,34 +107,39 @@ private:
   virtual void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) {
     auto *Old = I->getOrig();
     auto *New = VPOParoptTransform::genPrivatizationAlloca(I,
-        getInitBB()->getTerminator(), Suffix);
+        getInitInsPt(), Suffix);
+    addAlloca(New);
     I->setNew(New);
     auto *Rep = VPOParoptTransform::getClauseItemReplacementValue(I,
-        getInitBB()->getTerminator());
+        getInitInsPt());
+    if (Rep != New)
+      addAlloca(Rep);
     PT.genPrivatizationReplacement(W, Old, Rep, I);
   }
 
 protected:
-  virtual BasicBlock* getInitBB() {
-    if (InitBB)
-      return InitBB;
+  virtual Instruction* getInitInsPt() {
+    if (InitInsPt)
+      return InitInsPt;
     auto *EntryBB = W->getEntryBBlock();
-    InitBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
+    auto *InitBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
     InitBB->setName("omp.priv.init");
-    return InitBB;
+    InitInsPt = InitBB->getTerminator();
+    return InitInsPt;
   }
 
-  virtual BasicBlock* getFiniBB() {
-    if (FiniBB)
-      return FiniBB;
-    FiniBB = W->getExitBBlock();
+  virtual Instruction* getFiniInsPt() {
+    if (FiniInsPt)
+      return FiniInsPt;
+    auto *FiniBB = W->getExitBBlock();
     auto *New = SplitBlock(FiniBB, FiniBB->getFirstNonPHI(), DT, LI);
     W->setExitBBlock(New);
     FiniBB->setName(".omp.priv.fini");
-    return FiniBB;
+    FiniInsPt = FiniBB->getTerminator();
+    return FiniInsPt;
   }
 
-  virtual BasicBlock* getLastIterBB() {
+  virtual Instruction* getLastInsPt() {
     llvm_unreachable("unexpected work region kind");
     return nullptr;
   }
@@ -140,8 +150,7 @@ protected:
     if (auto *C = I->getConstructor())
       VPOParoptUtils::genConstructorCall(C, I->getNew(), I->getNew());
     if (auto *D = I->getDestructor())
-      VPOParoptUtils::genDestructorCall(D, I->getNew(),
-          getFiniBB()->getFirstNonPHI());
+      VPOParoptUtils::genDestructorCall(D, I->getNew(), getFiniInsPt());
   }
 
   // Creates privatization code for the given firstprivate var.
@@ -152,10 +161,9 @@ protected:
         return;
       }
     genPrivItem(I, W, ".fpriv");
-    PT.genFprivInit(I, cast<Instruction>(I->getNew())->getNextNode());
+    PT.genFprivInit(I, getInitInsPt());
     if (auto *D = I->getDestructor())
-      VPOParoptUtils::genDestructorCall(D, I->getNew(),
-          getFiniBB()->getFirstNonPHI());
+      VPOParoptUtils::genDestructorCall(D, I->getNew(), getFiniInsPt());
   }
 
   // Creates privatization code for the given lastprivate var, except the
@@ -171,20 +179,36 @@ protected:
     if (auto *C = I->getConstructor())
       VPOParoptUtils::genConstructorCall(C, I->getNew(), I->getNew());
     if (auto *D = I->getDestructor())
-      VPOParoptUtils::genDestructorCall(D, I->getNew(),
-          getFiniBB()->getFirstNonPHI());
+      VPOParoptUtils::genDestructorCall(D, I->getNew(), getFiniInsPt());
   }
 
   // Creates copyout code for the given lastprivate var.
   void genLPrivVarCopyout(LastprivateItem *I) {
-    PT.genLprivFini(I, getLastIterBB()->getTerminator());
+    PT.genLprivFini(I, getLastInsPt());
   }
 
   // Creates reduction code for the given var.
   void genRedVar(ReductionItem *I, WRegionNode *W) {
     genPrivItem(I, W, ".red");
-    PT.genReductionInit(I, cast<Instruction>(I->getNew())->getNextNode(), DT);
-    PT.genReductionFini(I, I->getOrig(), getFiniBB()->getTerminator(), DT);
+    PT.genReductionInit(I, getInitInsPt(), DT);
+    PT.genReductionFini(I, I->getOrig(), getFiniInsPt(), DT);
+  }
+
+  // Adds value to the list of candidates for registerization if it is an alloca
+  // instruction.
+  void addAlloca(Value *V) {
+    if (auto *AI = dyn_cast<AllocaInst>(V))
+      Allocas.insert(AI);
+  }
+
+  // Promote alloca instructions that were created for private variables to
+  // registers if that is possible.
+  void registerizeAllocas() {
+    if (Allocas.empty())
+      return;
+    SmallVector<AllocaInst*, 16u> PAllocas;
+    copy_if(reverse(Allocas), std::back_inserter(PAllocas), isAllocaPromotable);
+    PromoteMemToReg(PAllocas, *DT, AC);
   }
 
 public:
@@ -200,49 +224,32 @@ public:
 
     W->populateBBSet();
 
-    // Keep track of alloca instruction that were created for private variables.
-    // We will try to registerize these allocas.
-    SmallSetVector<AllocaInst*, 16u> Allocas;
-    auto && addAlloca = [&Allocas](Value *V) {
-      if (auto *AI = dyn_cast<AllocaInst>(V))
-        if (isAllocaPromotable(AI))
-          Allocas.insert(AI);
-    };
-
     // Generate privatization code for all flavors of private variables.
     if (W->canHavePrivate() && !W->getPriv().empty()) {
-      for (auto *I : W->getPriv().items()) {
+      for (auto *I : W->getPriv().items())
         genPrivVar(I, W);
-        addAlloca(I->getNew());
-      }
       Changed = true;
     }
     if (W->canHaveFirstprivate() && !W->getFpriv().empty()) {
-      for (auto *I : W->getFpriv().items()) {
+      for (auto *I : W->getFpriv().items())
         genFPrivVar(I, W);
-        addAlloca(I->getNew());
-      }
       Changed = true;
     }
     if (W->canHaveLastprivate() && !W->getLpriv().empty()) {
       for (auto *I : W->getLpriv().items()) {
         genLPrivVar(I, W);
         genLPrivVarCopyout(I);
-        addAlloca(I->getNew());
       }
       Changed = true;
     }
     if (DoReds && W->canHaveReduction() && !W->getRed().empty()) {
-      for (auto *I : W->getRed().items()) {
+      for (auto *I : W->getRed().items())
         genRedVar(I, W);
-        addAlloca(I->getNew());
-      }
       Changed = true;
     }
 
     // Promote private variables to registers.
-    if (!Allocas.empty())
-      PromoteMemToReg(Allocas.getArrayRef(), *DT, AC);
+    registerizeAllocas();
 
     // Invalidate BBSet after transformation
     W->resetBBSet();
@@ -266,9 +273,9 @@ protected:
 protected:
   // Last iteration block is inserted into the loop body under if which
   // compares induction variable with the loop's upper bound.
-  BasicBlock* getLastIterBB() override {
-    if (LastIterBB)
-      return LastIterBB;
+  Instruction* getLastInsPt() override {
+    if (LastInsPt)
+      return LastInsPt;
 
     // Get loop's induction variable and upper bound.
     auto *IV = WRegionUtils::getOmpCanonicalInductionVariable(L);
@@ -281,12 +288,12 @@ protected:
 
     // Insert if-then blocks at the end of the latch block. Copyout code
     // for last private variables will be emitted to this block.
-    auto *Term = SplitBlockAndInsertIfThen(IsLast,
+    LastInsPt = SplitBlockAndInsertIfThen(IsLast,
         L->getLoopLatch()->getTerminator(), false, nullptr, DT, LI);
-    LastIterBB = Term->getParent();
+    auto *LastIterBB = LastInsPt->getParent();
     LastIterBB->getSingleSuccessor()->setName("omp.lpriv.end");
     LastIterBB->setName("omp.lpriv.copyout");
-    return LastIterBB;
+    return LastInsPt;
   }
 
 public:
@@ -330,20 +337,21 @@ private:
   SmallVector<BasicBlock*, 8u> Blocks;
 
 private:
-  BasicBlock* getInitBB() override {
-    if (InitBB)
-      return InitBB;
-    InitBB = L->getLoopPreheader();
-    return InitBB;
+  Instruction* getInitInsPt() override {
+    if (InitInsPt)
+      return InitInsPt;
+    InitInsPt = L->getLoopPreheader()->getTerminator();
+    return InitInsPt;
   }
 
-  BasicBlock* getFiniBB() override {
-    if (FiniBB)
-      return FiniBB;
-    FiniBB = WRegionUtils::getOmpExitBlock(L);
+  Instruction* getFiniInsPt() override {
+    if (FiniInsPt)
+      return FiniInsPt;
+    auto *FiniBB = WRegionUtils::getOmpExitBlock(L);
     SplitBlock(FiniBB, FiniBB->getFirstNonPHI(), DT, LI);
     FiniBB->setName(".omp.priv.fini");
-    return FiniBB;
+    FiniInsPt = FiniBB->getTerminator();
+    return FiniInsPt;
   }
 
   void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) override {
@@ -355,7 +363,7 @@ private:
     findDefs(W, Old, Blocks, Defs);
 
     // Insertion point for alloca.
-    auto *InsPt = getInitBB()->getFirstNonPHI();
+    auto *InsPt = getInitInsPt();
 
     // Create alloca for the private variable.
     auto *New = VPOParoptTransform::genPrivatizationAlloca(I, InsPt, Suffix);
@@ -426,16 +434,17 @@ class VPOParoptTransform::CSASectionsPrivatizer final :
     public VPOParoptTransform::CSAPrivatizer {
 private:
   // Last iteration block for sections goes to the end of the last section.
-  BasicBlock* getLastIterBB() override {
-    if (LastIterBB)
-      return LastIterBB;
+  Instruction* getLastInsPt() override {
+    if (LastInsPt)
+      return LastInsPt;
 
     auto *LastSecW = W->getChildren().front();
-    LastIterBB = LastSecW->getExitBBlock();
+    auto *LastIterBB = LastSecW->getExitBBlock();
     auto *New = SplitBlock(LastIterBB, LastIterBB->getFirstNonPHI(), DT, LI);
     LastSecW->setExitBBlock(New);
     LastIterBB->setName("omp.lpriv.copyout");
-    return LastIterBB;
+    LastInsPt = LastIterBB->getTerminator();
+    return LastInsPt;
   }
 
 public:
@@ -452,15 +461,6 @@ public:
 
     W->populateBBSet();
 
-    // Keep track of alloca instruction that were created for private variables.
-    // We will try to registerize these allocas.
-    SmallSetVector<AllocaInst*, 16u> Allocas;
-    auto && addAlloca = [&Allocas](Value *V) {
-      if (auto *AI = dyn_cast<AllocaInst>(V))
-        if (isAllocaPromotable(AI))
-          Allocas.insert(AI);
-    };
-
     // For sections construct we need to privatizations for each section.
     for (auto SecW : reverse(W->getChildren())) {
       assert(SecW->isBBSetEmpty() &&
@@ -468,44 +468,34 @@ public:
       SecW->populateBBSet();
       cleanupPrivateItems(W);
       if (!W->getPriv().empty()) {
-        for (auto *I : W->getPriv().items()) {
+        for (auto *I : W->getPriv().items())
           genPrivVar(I, SecW);
-          addAlloca(I->getNew());
-        }
         Changed = true;
       }
       if (!W->getFpriv().empty()) {
-        for (auto *I : W->getFpriv().items()) {
+        for (auto *I : W->getFpriv().items())
           genFPrivVar(I, SecW);
-          addAlloca(I->getNew());
-        }
         Changed = true;
       }
       if (!W->getLpriv().empty()) {
-        for (auto *I : W->getLpriv().items()) {
+        for (auto *I : W->getLpriv().items())
           genLPrivVar(I, SecW);
-          addAlloca(I->getNew());
-        }
         Changed = true;
       }
       if (!W->getRed().empty()) {
-        for (auto *I : W->getRed().items()) {
+        for (auto *I : W->getRed().items())
           genRedVar(I, SecW);
-          addAlloca(I->getNew());
-        }
         Changed = true;
       }
       SecW->resetBBSet();
     }
 
     // Gen copyout code for lastprivate variables.
-    if (!W->getLpriv().empty())
-      for (auto *I : W->getLpriv().items())
-        genLPrivVarCopyout(I);
+    for (auto *I : W->getLpriv().items())
+      genLPrivVarCopyout(I);
 
     // Promote private variables to registers.
-    if (!Allocas.empty())
-      PromoteMemToReg(Allocas.getArrayRef(), *DT, AC);
+    registerizeAllocas();
 
     // Invalidate BBSet after transformations
     W->resetBBSet();
@@ -845,7 +835,7 @@ class VPOParoptTransform::CSALoopSplitter {
                          WL->getLoopLatch()->getTerminator(),
                          "inner.section" + Suffix);
 
-      // Update loop structure, create outer hubrid loop.
+      // Update loop structure, create outer hybrid loop.
       HL = WRegionUtils::createLoop(WL, WL->getParentLoop(), LS.PT.LI);
       WRegionUtils::updateBBForLoop(CLoop, HL, WL->getParentLoop(), LS.PT.LI);
       WRegionUtils::updateBBForLoop(CLatch, HL, WL->getParentLoop(), LS.PT.LI);
@@ -878,22 +868,22 @@ class VPOParoptTransform::CSALoopSplitter {
   // Privatizer for the worker.
   class WorkerPrivatizer final : public CSALoopPrivatizer {
     const Worker &WI;
-    function_ref<BasicBlock*()> InitBBGetter;
-    function_ref<BasicBlock*()> FiniBBGetter;
+    function_ref<Instruction*()> InitInsPtGetter;
+    function_ref<Instruction*()> FiniInsPtGetter;
 
   private:
-    BasicBlock* getInitBB() override {
-      if (InitBB)
-        return InitBB;
-      InitBB = InitBBGetter();
-      return InitBB;
+    Instruction* getInitInsPt() override {
+      if (InitInsPt)
+        return InitInsPt;
+      InitInsPt = InitInsPtGetter();
+      return InitInsPt;
     }
 
-    BasicBlock* getFiniBB() override {
-      if (FiniBB)
-        return FiniBB;
-      FiniBB = FiniBBGetter();
-      return FiniBB;
+    Instruction* getFiniInsPt() override {
+      if (FiniInsPt)
+        return FiniInsPt;
+      FiniInsPt = FiniInsPtGetter();
+      return FiniInsPt;
     }
 
     void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) override {
@@ -903,19 +893,22 @@ class VPOParoptTransform::CSALoopSplitter {
       findUsers(Old, Users, WI.Blocks);
 
       auto *New = VPOParoptTransform::genPrivatizationAlloca(I,
-          getInitBB()->getTerminator(), Suffix);
+          getInitInsPt(), Suffix + WI.Suffix);
+      addAlloca(New);
       I->setNew(New);
       auto *Rep = VPOParoptTransform::getClauseItemReplacementValue(I,
-          getInitBB()->getTerminator());
+          getInitInsPt());
+      if (Rep != New)
+        addAlloca(Rep);
       replaceUses(Old, Rep, Users);
     }
 
   public:
     WorkerPrivatizer(VPOParoptTransform &PT, const Worker &WI,
-                     function_ref<BasicBlock*()> InitBBGetter,
-                     function_ref<BasicBlock*()> FiniBBGetter)
+                     function_ref<Instruction*()> InitInsPtGetter,
+                     function_ref<Instruction*()> FiniInsPtGetter)
       : CSALoopPrivatizer(PT, WI.W, true, WI.WL), WI(WI),
-        InitBBGetter(InitBBGetter), FiniBBGetter(FiniBBGetter)
+        InitInsPtGetter(InitInsPtGetter), FiniInsPtGetter(FiniInsPtGetter)
     {}
 
     bool run() override {
@@ -1049,30 +1042,33 @@ public:
     PT.DT->recalculate(*W->getEntryBBlock()->getParent());
 
     // Helper lamdas for the privatizer.
-    BasicBlock *InitBB = nullptr;
-    auto && getInitBB = [&]() {
-      if (InitBB)
-        return InitBB;
+    Instruction *InitInsPt = nullptr;
+    auto && getInitInsPt = [&]() {
+      if (InitInsPt)
+        return InitInsPt;
       auto *EntryBB = W->getEntryBBlock();
-      InitBB = SplitBlock(EntryBB, EntryBB->getTerminator(), PT.DT, PT.LI);
+      auto *InitBB = SplitBlock(EntryBB, EntryBB->getTerminator(), PT.DT,
+                                PT.LI);
       InitBB->setName("omp.priv.init");
-      return InitBB;
+      InitInsPt = InitBB->getTerminator();
+      return InitInsPt;
     };
 
-    BasicBlock *FiniBB = nullptr;
-    auto && getFiniBB = [&]() {
-      if (FiniBB)
-        return FiniBB;
-      FiniBB = W->getExitBBlock();
+    Instruction *FiniInsPt = nullptr;
+    auto && getFiniInsPt = [&]() {
+      if (FiniInsPt)
+        return FiniInsPt;
+      auto *FiniBB = W->getExitBBlock();
       auto *New = SplitBlock(FiniBB, FiniBB->getFirstNonPHI(), PT.DT, PT.LI);
       W->setExitBBlock(New);
       FiniBB->setName(".omp.priv.fini");
-      return FiniBB;
+      FiniInsPt = FiniBB->getTerminator();
+      return FiniInsPt;
     };
 
     for (auto &WI : Workers) {
       // Generate privatization code.
-      WorkerPrivatizer(PT, WI, getInitBB, getFiniBB).run();
+      WorkerPrivatizer(PT, WI, getInitInsPt, getFiniInsPt).run();
 
       // Mark loop as parallel.
       WI.addParallelIntrinsicCalls();
