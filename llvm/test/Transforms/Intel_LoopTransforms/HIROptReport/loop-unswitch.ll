@@ -17,7 +17,9 @@
 ; Check the proper optreport for loop unswitching using metadata.
 ; RUN: opt -loop-unswitch -intel-loop-optreport=low < %s -S | FileCheck %s
 
-; CHECK: [[M1:!.*]] = distinct !{[[M1]], [[M2:!.*]]}
+; CHECK: llvm.loop [[M1:!.*]]
+; CHECK-NOT: llvm.loop [[M1]]
+; CHECK: [[M1]] = distinct !{[[M1]], [[M2:!.*]]}
 ; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
 ; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]]}
@@ -26,6 +28,12 @@
 ; Check the proper optreport for loop unswitching.
 ; RUN: opt -loop-unswitch -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-EMITTER --strict-whitespace
 
+; CHECK-EMITTER:     LOOP BEGIN
+; CHECK-EMITTER:          LOOP BEGIN
+; CHECK-EMITTER-NEXT:     LOOP END{{[[:space:]]}}
+; CHECK-EMITTER-NEXT:     LOOP BEGIN
+; CHECK-EMITTER-NEXT:     LOOP END
+; CHECK-EMITTER-NEXT: LOOP END
 ; CHECK-EMITTER: LOOP BEGIN
 ; CHECK-EMITTER-NEXT:     Remark: Loop has been unswitched via cmp113{{[[:space:]]}}
 ; CHECK-EMITTER-NEXT:     LOOP BEGIN
@@ -34,11 +42,11 @@
 ; CHECK-EMITTER-NEXT:     LOOP END
 ; CHECK-EMITTER-NEXT: LOOP END
 
+; TODO: -simplifycfg gets rid of one of loops showing the remark of loop unswitch in this test case. We need to change the test case to show loop unswitch remark in the HIR.
 ; RUN: opt -loop-unswitch -intel-loop-optreport=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=CHECK-HIR --strict-whitespace
 
-; CHECK-HIR: LOOP BEGIN
-; CHECK-HIR-NEXT:     Remark: Loop has been unswitched via {{.*}}{{[[:space:]]}}
-; CHECK-HIR-NEXT:     LOOP BEGIN
+; CHECK-HIR:      LOOP BEGIN
+; CHECK-HIR:          LOOP BEGIN
 ; CHECK-HIR-NEXT:         Remark: LOOP WAS VECTORIZED
 ; CHECK-HIR-NEXT:         Remark: vectorization support: vector length {{.*}}
 ; CHECK-HIR-NEXT:     LOOP END{{[[:space:]]}}
@@ -49,7 +57,7 @@
 ; CHECK-HIR-NEXT:         Remark: Loop completely unrolled
 ; CHECK-HIR-NEXT:     LOOP END
 ; CHECK-HIR-NEXT: LOOP END
-
+;
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
