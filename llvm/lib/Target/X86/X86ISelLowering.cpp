@@ -32757,6 +32757,38 @@ static SDValue XFormVExtractWithShuffleIntoLoad(SDNode *N, SelectionDAG &DAG,
                      EltNo);
 }
 
+#if INTEL_CUSTOMIZATION
+// Is this a bitcast of a v32i8/v16i8 setcc to the integer domain that's also
+// used by a setcc in the integer domain? In this case its probably better to
+// use the AVX vpcmpeqb/vpcmpgtb+vpmovmskb+test instead of going through a mask
+// register and using a kortest. The mask compares and kortest are both 3 cycle
+// latency on SKX.
+// TODO: This may be worth open sourcing in some form. Since it only effects
+// codegen for Intel CPUs until other vendors implement AVX512.
+bool isBitcastvxi1SetccToInt(SDValue BitCast) {
+  SDValue N0 = BitCast.getOperand(0);
+
+  if (N0.getOpcode() != ISD::SETCC)
+    return false;
+
+  EVT N00VT = N0.getOperand(0).getValueType();
+  if (N00VT != MVT::v16i8 && N00VT != MVT::v32i8)
+    return false;
+
+  // Now check the users for SETCC.
+  for (SDNode::use_iterator UI = BitCast->use_begin(), UE = BitCast->use_end();
+         UI != UE; ++UI) {
+    if (UI->getOpcode() == ISD::SETCC ||
+        UI->getOpcode() == ISD::BR_CC ||
+        UI->getOpcode() == ISD::SELECT_CC)
+      return true;
+  }
+
+  // Not used by a setcc so kmov is probably ok.
+  return false;
+}
+#endif
+
 // Try to match patterns such as
 // (i16 bitcast (v16i1 x))
 // ->
@@ -32774,7 +32806,10 @@ static SDValue combineBitcastvxi1(SelectionDAG &DAG, SDValue BitCast,
 
   // With AVX512 vxi1 types are legal and we prefer using k-regs.
   // MOVMSK is supported in SSE2 or later.
-  if (Subtarget.hasAVX512() || !Subtarget.hasSSE2())
+#if INTEL_CUSTOMIZATION
+  if (!Subtarget.hasSSE2() ||
+      (Subtarget.hasAVX512() && !isBitcastvxi1SetccToInt(BitCast)))
+#endif // INTEL_CUSTOMIZATION
     return SDValue();
 
   // There are MOVMSK flavors for types v16i8, v32i8, v4f32, v8f32, v4f64 and
@@ -39889,6 +39924,20 @@ static SDValue combineMOVMSK(SDNode *N, SelectionDAG &DAG,
       return DAG.getNode(X86ISD::MOVMSK, SDLoc(N), N->getValueType(0), Cast);
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // If the input to the MOVMSK is being inverted, move the invert to the GPR
+  // domain where it's cheaper. This can help when the input comes from a
+  // SETNE which must be lowered as (NOT (PCMPEQ)).
+  if (isBitwiseNot(Src) && Src.hasOneUse()) {
+    SDLoc dl(N);
+    SDValue Movmsk = DAG.getNode(X86ISD::MOVMSK, dl, VT,
+                                 Src.getOperand(0));
+    APInt Mask = APInt::getLowBitsSet(VT.getSizeInBits(),
+                                      SrcVT.getVectorNumElements());
+    return DAG.getNode(ISD::XOR, dl, VT, Movmsk, DAG.getConstant(Mask, dl, VT));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return SDValue();
 }
