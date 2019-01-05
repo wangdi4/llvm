@@ -332,18 +332,10 @@ template <> struct LoopOptReportTraits<Loop> {
 
     if (LoopID)
       L.setLoopID(LoopID);
-    else if (OrigLoopID) {
+    else if (OrigLoopID)
       // If OptReport was the only entry of the original LoopID,
       // then we have to erase the Loop's LoopID completely.
-      // Unfortunately, there is no existing method for that,
-      // so we create a dummy LoopID and assign it to the Loop.
-      //
-      // We do not want to set the dummy LoopID, if the original
-      // LoopID was NULL, though.
-      LoopID = MDTuple::get(L.getHeader()->getContext(), { nullptr });
-      LoopID->replaceOperandWith(0, LoopID);
-      L.setLoopID(LoopID);
-    }
+      L.eraseLoopID();
   }
 
   static DebugLoc getDebugLoc(const ObjectHandleTy &Handle) {

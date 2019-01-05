@@ -254,6 +254,21 @@ void Loop::setLoopID(MDNode *LoopID) const {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+void Loop::eraseLoopID() const {
+  BasicBlock *H = getHeader();
+  for (BasicBlock *BB : this->blocks()) {
+    Instruction *TI = BB->getTerminator();
+    for (BasicBlock *Successor : successors(TI)) {
+      if (Successor == H) {
+        TI->setMetadata(LLVMContext::MD_loop, nullptr);
+        break;
+      }
+    }
+  }
+}
+#endif  // INTEL_CUSTOMIZATION
+
 void Loop::setLoopAlreadyUnrolled() {
   MDNode *LoopID = getLoopID();
   // First remove any existing loop unrolling metadata.
