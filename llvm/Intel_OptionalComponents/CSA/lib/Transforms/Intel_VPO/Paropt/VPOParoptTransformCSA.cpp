@@ -100,24 +100,20 @@ protected:
   // Lower reduction clauses if set to true.
   bool DoReds = true;
 
-private:
+protected:
   // Creates alloca instruction for the given item, inserts it to the InitBB and
   // replaces all uses of the original variable within work region with a
   // private instance.
-  virtual void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) {
-    auto *Old = I->getOrig();
-    auto *New = VPOParoptTransform::genPrivatizationAlloca(I,
-        getInitInsPt(), Suffix);
+  virtual void genPrivItem(Item *I, WRegionNode *W, const Twine &Suffix) {
+    auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix);
     addAlloca(New);
     I->setNew(New);
-    auto *Rep = VPOParoptTransform::getClauseItemReplacementValue(I,
-        getInitInsPt());
+    auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
     if (Rep != New)
       addAlloca(Rep);
-    PT.genPrivatizationReplacement(W, Old, Rep, I);
+    PT.genPrivatizationReplacement(W, I->getOrig(), Rep, I);
   }
 
-protected:
   virtual Instruction* getInitInsPt() {
     if (InitInsPt)
       return InitInsPt;
@@ -183,7 +179,7 @@ protected:
   }
 
   // Creates copyout code for the given lastprivate var.
-  void genLPrivVarCopyout(LastprivateItem *I) {
+  virtual void genLPrivVarCopyout(LastprivateItem *I) {
     PT.genLprivFini(I, getLastInsPt());
   }
 
@@ -308,16 +304,17 @@ public:
 // Recursively visit users of value V and check if any def-use chain reaches any
 // block in the given set of Blocks. If yes then the def-use chain is added to
 // the Defs list and true is returned.
-static bool findDefs(const WRegionNode *W, Value *V,
-                     const SmallVectorImpl<BasicBlock*> &Blocks,
+template <typename DR, typename UR>
+static bool findDefs(Value *V, DR && DefBBs, UR && UseBBs,
                      SmallSetVector<Value*, 8u> &Defs) {
   bool IsDef = false;
   for (auto *U : V->users()) {
     if (auto *I = dyn_cast<Instruction>(U)) {
       auto *BB = I->getParent();
-      if (!W->contains(BB))
+      if (!is_contained(DefBBs, BB))
         continue;
-      if (is_contained(Blocks, BB) || findDefs(W, I, Blocks, Defs))
+      if (is_contained(UseBBs, BB) ||
+          findDefs(I, DefBBs, UseBBs, Defs))
         IsDef = true;
     }
   }
@@ -326,72 +323,144 @@ static bool findDefs(const WRegionNode *W, Value *V,
   return IsDef;
 }
 
-// Experimental variant of CSA loop privatizer which uses loop preheader as
-// initialization block (where alloca instructions for private instances are
-// inserted).
-class VPOParoptTransform::CSAExpLoopPrivatizer final :
+template <typename T>
+static void replaceUses(Value *Old, Value *New, const T &Users) {
+  for (auto *User : Users)
+    cast<Instruction>(User)->replaceUsesOfWith(Old, New);
+}
+
+// Experimental variant of CSA loop privatizer.
+class VPOParoptTransform::CSAExpLoopPrivatizer :
     public VPOParoptTransform::CSALoopPrivatizer {
-private:
-  // List of blocks that require replacing of original variable references
-  // with private instances.
-  SmallVector<BasicBlock*, 8u> Blocks;
+protected:
+  // Insertion point for in-loop allocas which are executed for all iterations
+  // except first.
+  Instruction *AllocaInsPt = nullptr;
 
-private:
-  Instruction* getInitInsPt() override {
-    if (InitInsPt)
-      return InitInsPt;
-    InitInsPt = L->getLoopPreheader()->getTerminator();
-    return InitInsPt;
+  // And insertion point for instructions at the beginning of the loop body.
+  Instruction *InLoopInsPt = nullptr;
+
+  // Maps private variable to its replacement value.
+  SmallDenseMap<Value*, Value*, 8u> Orig2Rep;
+
+protected:
+  // Returns true if in loop alloca has to be created for the given item. So far
+  // this is needed only for non scalar firstprivate or reduction variables.
+  static bool needsInLoopAlloca(const Item *I) {
+    if (!isa<FirstprivateItem>(I) && !isa<ReductionItem>(I))
+      return false;
+    Type *ElemType = nullptr;
+    Value *NumElems = nullptr;
+    getItemInfoFromValue(I->getOrig(), ElemType, NumElems);
+    if (I->getIsByRef())
+      ElemType = cast<PointerType>(ElemType)->getPointerElementType();
+    return NumElems || ElemType->isAggregateType();
   }
 
-  Instruction* getFiniInsPt() override {
-    if (FiniInsPt)
-      return FiniInsPt;
-    auto *FiniBB = WRegionUtils::getOmpExitBlock(L);
-    SplitBlock(FiniBB, FiniBB->getFirstNonPHI(), DT, LI);
-    FiniBB->setName(".omp.priv.fini");
-    FiniInsPt = FiniBB->getTerminator();
-    return FiniInsPt;
+  // Creates not-first-iter block if work region needs it. Returns true if it
+  // has been created or false otherwise.
+  virtual bool createNotFirstIterBlock() {
+    // Not-first-iter basic block has to be created only if we have a non-scalar
+    // variable in firstprivate or reduction clauses.
+    if (none_of(W->getFpriv().items(), needsInLoopAlloca) &&
+        none_of(W->getRed().items(), needsInLoopAlloca))
+      return false;
+
+    // Get loop's induction variable and lower bound.
+    auto *IV = WRegionUtils::getOmpCanonicalInductionVariable(L);
+    auto *LB = WRegionUtils::getOmpLoopLowerBound(L);
+
+    // Insertion point for instructions at the beginning of the loop body.
+    InLoopInsPt = L->getHeader()->getFirstNonPHI();
+
+    // Induction variable value will match lower bound on the first iteration of
+    // the loop.
+    auto *IsNotFirst = new ICmpInst(InLoopInsPt, ICmpInst::ICMP_NE, IV, LB,
+                                    "is.not.first");
+
+    // Insert if-then blocks at the beginning of the lpop header which is
+    // executed for all iterations except first.
+    AllocaInsPt = SplitBlockAndInsertIfThen(IsNotFirst, InLoopInsPt, false,
+                                            nullptr, DT, LI);
+    auto *NotFirstIterBB = AllocaInsPt->getParent();
+    NotFirstIterBB->setName("not.first.iter");
+    NotFirstIterBB->getSingleSuccessor()->setName("not.first.iter.end");
+    return true;
   }
 
-  void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) override {
-    auto *Old = I->getOrig();
+  void genPrivItem(Item *I, WRegionNode *W, const Twine &Suffix) override {
+    // Do the "standard" privatization if this item does not require extra
+    // alloca inside the loop.
+    if (!needsInLoopAlloca(I))
+      return CSALoopPrivatizer::genPrivItem(I, W, Suffix);
+
+    auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix);
+    addAlloca(New);
+    I->setNew(New);
+
+    // By-ref item are handled differently, just need to store an in-loop
+    // alloca address to the reference.
+    if (I->getIsByRef()) {
+      auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
+      assert(Rep != New && isa<AllocaInst>(Rep) && "unexpected replacement");
+      addAlloca(Rep);
+      PT.genPrivatizationReplacement(W, I->getOrig(), Rep, I);
+
+      auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
+                                           Suffix + ".not.first");
+      new StoreInst(NewNF, Rep, AllocaInsPt);
+      return;
+    }
+
+    // Replace original value with a private instance.
+    PT.genPrivatizationReplacement(W, I->getOrig(), New, I);
 
     // Find all instructions depending on the private variable which need to be
-    // replicated in the loop preheader.
+    // replicated.
     SmallSetVector<Value*, 8u> Defs;
-    findDefs(W, Old, Blocks, Defs);
+    findDefs(New, W->blocks(), L->blocks(), Defs);
+    if (Defs.empty())
+      return;
 
-    // Insertion point for alloca.
-    auto *InsPt = getInitInsPt();
+    // Create reference which will hold the private variable address.
+    auto AAS = New->getModule()->getDataLayout().getAllocaAddrSpace();
+    auto *Ref = new AllocaInst(New->getType(), AAS, New->getName() + ".ref",
+                               getInitInsPt());
+    addAlloca(Ref);
+    new StoreInst(New, Ref, getInitInsPt());
 
-    // Create alloca for the private variable.
-    auto *New = VPOParoptTransform::genPrivatizationAlloca(I, InsPt, Suffix);
-    I->setNew(New);
-    auto *Rep = VPOParoptTransform::getClauseItemReplacementValue(I, InsPt);
+    // Create in-loop alloca and store new address to the reference.
+    auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
+                                         Suffix + ".not.first");
+    new StoreInst(NewNF, Ref, AllocaInsPt);
 
-    // Create clones of all collected defs at the beginning of the loop
-    // preheader.
+    // And finally replace all private uses within loop body with the address
+    // loaded from the private refence.
+    auto *Rep = new LoadInst(Ref, New->getName() + ".in.loop", InLoopInsPt);
+
+    // Save replacement value.
+    Orig2Rep[I->getOrig()] = Rep;
+
+    // Clone all dependent defs at the beginning of the loop body.
     ValueToValueMapTy VMap;
-    VMap[Old] = Rep;
+    VMap[New] = Rep;
     for (const auto *I : reverse(Defs)) {
       if (VMap[I])
         continue;
       auto *C = cast<Instruction>(I)->clone();
-      C->insertBefore(InsPt);
+      C->insertBefore(InLoopInsPt);
       VMap[I] = C;
     }
 
     // Replace uses of defs within the loop with clones.
     for (auto *V : Defs) {
       SmallVector<Value*, 8u> Uses;
-      copy_if(V->users(), std::back_inserter(Uses), [&](const Value *V) {
-        if (auto *I = dyn_cast<Instruction>(V))
-          return is_contained(Blocks, I->getParent());
+      copy_if(V->users(), std::back_inserter(Uses), [this](const Value *U) {
+        if (const auto *I = dyn_cast<Instruction>(U))
+          return L->contains(I);
         return false;
       });
-      for (auto *U : Uses)
-        cast<Instruction>(U)->replaceUsesOfWith(V, VMap[V]);
+      replaceUses(V, VMap[V], Uses);
 
       // Defs with no uses can be safely deleted.
       if (auto *I = dyn_cast<Instruction>(V))
@@ -400,13 +469,35 @@ private:
     }
   }
 
+  void genLPrivVarCopyout(LastprivateItem *I) override {
+    auto *Old = I->getOrig();
+    auto *Rep = Orig2Rep.lookup(Old);
+    if (!Rep)
+      return CSALoopPrivatizer::genLPrivVarCopyout(I);
+
+    auto *New = cast<AllocaInst>(I->getNew());
+
+    const auto &DL = New->getModule()->getDataLayout();
+    auto *InsPt = getLastInsPt();
+
+    if (auto *CA = I->getCopyAssign())
+      VPOParoptUtils::genCopyAssignCall(CA, Old, Rep, InsPt);
+    else if (VPOUtils::canBeRegisterized(New->getAllocatedType(), DL))
+      new StoreInst(new LoadInst(Rep, nullptr, InsPt), Old, InsPt);
+    else
+      VPOUtils::genMemcpy(Old, Rep, DL, New->getAlignment(), InsPt);
+  }
+
 public:
-  CSAExpLoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W, bool DoReds)
-    : CSALoopPrivatizer(PT, W, DoReds) {
-    // Initialize blocks list where private variable references will be replaced
-    // with private instances. It includes loop preheader and all loop blocks.
-    Blocks.push_back(L->getLoopPreheader());
-    copy(L->blocks(), std::back_inserter(Blocks));
+  CSAExpLoopPrivatizer(VPOParoptTransform &PT, WRegionNode *W, bool DoReds,
+    Loop *LL = nullptr)
+    : CSALoopPrivatizer(PT, W, DoReds, LL)
+  {}
+
+  bool run() override {
+    // Create not-first-iter block if needed before doing privatization.
+    createNotFirstIterBlock();
+    return CSALoopPrivatizer::run();
   }
 };
 
@@ -585,12 +676,6 @@ static void findUsers(Value *V, U &Users, const B &Blocks) {
         return true;
     return false;
   });
-}
-
-template <typename T>
-static void replaceUses(Value *Old, Value *New, const T &Users) {
-  for (auto *User : Users)
-    cast<Instruction>(User)->replaceUsesOfWith(Old, New);
 }
 
 // Unified way of calculating parallel region ID for CSA parallel region entry
@@ -886,18 +971,16 @@ class VPOParoptTransform::CSALoopSplitter {
       return FiniInsPt;
     }
 
-    void genPrivItem(Item *I, WRegionNode *W, StringRef Suffix) override {
+    void genPrivItem(Item *I, WRegionNode *W, const Twine &Suffix) override {
       auto *Old = I->getOrig();
       assert(!isa<Constant>(Old) && "unexpected private item");
       SmallVector<Value*, 8u> Users;
       findUsers(Old, Users, WI.Blocks);
 
-      auto *New = VPOParoptTransform::genPrivatizationAlloca(I,
-          getInitInsPt(), Suffix + WI.Suffix);
+      auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
       addAlloca(New);
       I->setNew(New);
-      auto *Rep = VPOParoptTransform::getClauseItemReplacementValue(I,
-          getInitInsPt());
+      auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
       if (Rep != New)
         addAlloca(Rep);
       replaceUses(Old, Rep, Users);
@@ -914,6 +997,149 @@ class VPOParoptTransform::CSALoopSplitter {
     bool run() override {
       cleanupPrivateItems(W);
       return CSALoopPrivatizer::run();
+    }
+  };
+
+  // Experimental version of the worker privatizer.
+  class ExpWorkerPrivatizer final : public CSAExpLoopPrivatizer {
+    Worker &WI;
+    function_ref<Instruction*()> InitInsPtGetter;
+    function_ref<Instruction*()> FiniInsPtGetter;
+
+  private:
+    Instruction* getInitInsPt() override {
+      if (InitInsPt)
+        return InitInsPt;
+      InitInsPt = InitInsPtGetter();
+      return InitInsPt;
+    }
+
+    Instruction* getFiniInsPt() override {
+      if (FiniInsPt)
+        return FiniInsPt;
+      FiniInsPt = FiniInsPtGetter();
+      return FiniInsPt;
+    }
+
+    bool createNotFirstIterBlock() override {
+      if (CSAExpLoopPrivatizer::createNotFirstIterBlock()) {
+        // Refresh worker's set of blocks.
+        SmallPtrSet<BasicBlock*, 16u> Blocks;
+        Blocks.insert(WI.Blocks.begin(), WI.Blocks.end());
+        Blocks.insert(L->block_begin(), L->block_end());
+        WI.Blocks.assign(Blocks.begin(), Blocks.end());
+      }
+      return false;
+    }
+
+    void genPrivItem(Item *I, WRegionNode *W, const Twine &Suffix) override {
+      auto *Old = I->getOrig();
+
+      // Do the "standard" privatization if this item does not require extra
+      // alloca inside the loop.
+      if (!needsInLoopAlloca(I)) {
+        SmallVector<Value*, 8u> Users;
+        findUsers(Old, Users, WI.Blocks);
+
+        auto *New = genPrivatizationAlloca(I, getInitInsPt(),
+                                           Suffix + WI.Suffix);
+        addAlloca(New);
+        I->setNew(New);
+        auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
+        if (Rep != New)
+          addAlloca(Rep);
+        replaceUses(Old, Rep, Users);
+        return;
+      }
+
+      auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
+      addAlloca(New);
+      I->setNew(New);
+
+      // By-ref item are handled differently, just need to store an in-loop
+      // alloca address to the reference.
+      if (I->getIsByRef()) {
+        auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
+        assert(Rep != New && isa<AllocaInst>(Rep) && "unexpected replacement");
+        addAlloca(Rep);
+        PT.genPrivatizationReplacement(W, Old, Rep, I);
+
+        auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
+                                             Suffix + WI.Suffix + ".not.first");
+        new StoreInst(NewNF, Rep, AllocaInsPt);
+        return;
+      }
+
+      // Replace original value with a private instance.
+      SmallVector<Value*, 8u> Users;
+      findUsers(Old, Users, WI.Blocks);
+      replaceUses(Old, New, Users);
+
+      // Find all instructions depending on the private variable which need to
+      // be replicated.
+      SmallSetVector<Value*, 8u> Defs;
+      findDefs(New, WI.Blocks, L->blocks(), Defs);
+      if (Defs.empty())
+        return;
+
+      // Create reference which will hold the private variable address.
+      auto AAS = New->getModule()->getDataLayout().getAllocaAddrSpace();
+      auto *Ref = new AllocaInst(New->getType(), AAS, New->getName() + ".ref",
+                                 getInitInsPt());
+      addAlloca(Ref);
+      new StoreInst(New, Ref, getInitInsPt());
+
+      // Create in-loop alloca and store new address to the reference.
+      auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
+                                           Suffix + WI.Suffix + ".not.first");
+      new StoreInst(NewNF, Ref, AllocaInsPt);
+
+      // And finally replace all private uses within loop body with the address
+      // loaded from the private refence.
+      auto *Rep = new LoadInst(Ref, New->getName() + ".in.loop", InLoopInsPt);
+
+      // Save replacement value.
+      Orig2Rep[Old] = Rep;
+
+      // Clone all dependent defs at the beginning of the loop body.
+      ValueToValueMapTy VMap;
+      VMap[New] = Rep;
+      for (const auto *I : reverse(Defs)) {
+        if (VMap[I])
+          continue;
+        auto *C = cast<Instruction>(I)->clone();
+        C->insertBefore(InLoopInsPt);
+        VMap[I] = C;
+      }
+
+      // Replace uses of defs within the loop with clones.
+      for (auto *V : Defs) {
+        SmallVector<Value*, 8u> Uses;
+        copy_if(V->users(), std::back_inserter(Uses), [this](const Value *U) {
+          if (const auto *I = dyn_cast<Instruction>(U))
+            return L->contains(I);
+          return false;
+        });
+        replaceUses(V, VMap[V], Uses);
+
+        // Defs with no uses can be safely deleted.
+        if (auto *I = dyn_cast<Instruction>(V))
+          if (I->use_empty())
+            I->eraseFromParent();
+      }
+    }
+
+  public:
+    ExpWorkerPrivatizer(VPOParoptTransform &PT, Worker &WI,
+                       function_ref<Instruction*()> InitInsPtGetter,
+                       function_ref<Instruction*()> FiniInsPtGetter)
+      : CSAExpLoopPrivatizer(PT, WI.W, true, WI.WL), WI(WI),
+        InitInsPtGetter(InitInsPtGetter), FiniInsPtGetter(FiniInsPtGetter)
+    {}
+
+    bool run() override {
+      cleanupPrivateItems(W);
+      return CSAExpLoopPrivatizer::run();
     }
   };
 
@@ -1068,7 +1294,10 @@ public:
 
     for (auto &WI : Workers) {
       // Generate privatization code.
-      WorkerPrivatizer(PT, WI, getInitInsPt, getFiniInsPt).run();
+      if (UseExpLoopPrivatizer)
+        ExpWorkerPrivatizer(PT, WI, getInitInsPt, getFiniInsPt).run();
+      else
+        WorkerPrivatizer(PT, WI, getInitInsPt, getFiniInsPt).run();
 
       // Mark loop as parallel.
       WI.addParallelIntrinsicCalls();
