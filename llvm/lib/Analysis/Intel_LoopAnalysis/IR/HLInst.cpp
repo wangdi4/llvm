@@ -500,8 +500,6 @@ bool HLInst::isIntelDirective(int DirectiveID) const {
   return vpo::VPOAnalysisUtils::getDirectiveID(DirStr) == DirectiveID;
 }
 
-bool HLInst::isSIMDDirective() const { return isIntelDirective(DIR_OMP_SIMD); }
-
 bool HLInst::isAutoVecDirective() const {
   return isIntelDirective(DIR_VPO_AUTO_VEC);
 }

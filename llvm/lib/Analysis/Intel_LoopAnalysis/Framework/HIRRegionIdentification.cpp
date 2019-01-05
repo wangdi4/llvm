@@ -136,28 +136,16 @@ HIRRegionIdentificationWrapperPass::HIRRegionIdentificationWrapperPass()
 static bool isSIMDOrParDirective(const Instruction *Inst, bool BeginDir) {
   auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
 
-  if (!IntrinInst) {
+  if (!IntrinInst || !IntrinInst->hasOperandBundles()) {
     return false;
   }
 
-  // TODO: Replace old simd directives by new region entry directives once VPO
-  // support is added.
-  if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinInst->getIntrinsicID())) {
-    StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(
-        const_cast<IntrinsicInst *>(IntrinInst));
+  StringRef TagName = IntrinInst->getOperandBundleAt(0).getTagName();
 
-    int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
-
-    return BeginDir ? (DirID == DIR_OMP_SIMD) : (DirID == DIR_OMP_END_SIMD);
-
-  } else if (IntrinInst->hasOperandBundles()) {
-    StringRef TagName = IntrinInst->getOperandBundleAt(0).getTagName();
-
-    return BeginDir ? (TagName.equals("DIR.OMP.PARALLEL.LOOP") ||
-                       TagName.equals("DIR.OMP.SIMD"))
-                    : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
-                       TagName.equals("DIR.OMP.END.SIMD"));
-  }
+  return BeginDir ? (TagName.equals("DIR.OMP.PARALLEL.LOOP") ||
+                     TagName.equals("DIR.OMP.SIMD"))
+                  : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
+                     TagName.equals("DIR.OMP.END.SIMD"));
 
   return false;
 }
@@ -1433,7 +1421,7 @@ void HIRRegionIdentification::createRegion(
     BBlocks.append(Lp->getBlocks().begin(), Lp->getBlocks().end());
   }
 
-  IRRegions.emplace_back(EntryBB, BBlocks);
+  IRRegions.emplace_back(EntryBB, Loops.front(), BBlocks);
 
   if (ExitBB) {
     IRRegions.back().setExitBBlock(ExitBB);
@@ -1523,7 +1511,7 @@ void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
     BBlocks.push_back(&*BBIt);
   }
 
-  IRRegions.emplace_back(&Func.getEntryBlock(), BBlocks, true);
+  IRRegions.emplace_back(&Func.getEntryBlock(), nullptr, BBlocks, true);
 
   RegionCount++;
 }

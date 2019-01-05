@@ -1106,7 +1106,7 @@ bool HLLoop::hasDirective(int DirectiveID) const {
   return false;
 }
 
-bool HLLoop::hasSIMDRegionDirective() const {
+bool HLLoop::isSIMD() const {
   const HLNode *PrevNode = this;
 
   while ((PrevNode = PrevNode->getPrevNode())) {
@@ -1116,9 +1116,7 @@ bool HLLoop::hasSIMDRegionDirective() const {
     if (!Inst)
       return false;
 
-    // Check if the instruction has an operand bundle with DIR.OMP.SIMD tag
-    if (Inst->getNumOperandBundles() &&
-        Inst->getOperandBundleAt(0).getTagName().equals("DIR.OMP.SIMD"))
+    if (Inst->isSIMDDirective())
       return true;
   }
 

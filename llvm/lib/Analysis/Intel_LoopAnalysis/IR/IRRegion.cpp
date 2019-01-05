@@ -26,17 +26,21 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-IRRegion::IRRegion(BasicBlock *EntryBB, const RegionBBlocksTy &BBs,
-                   bool IsFunctionLevel)
-    : EntryBBlock(EntryBB), ExitBBlock(nullptr), BBlocks(BBs),
-      ParentRegion(nullptr), IsFunctionLevel(IsFunctionLevel) {
+IRRegion::IRRegion(BasicBlock *EntryBB, const Loop *FirstLoop,
+                   const RegionBBlocksTy &BBs, bool IsFunctionLevel)
+    : EntryBBlock(EntryBB), ExitBBlock(nullptr), FirstLoop(FirstLoop),
+      BBlocks(BBs), ParentRegion(nullptr), IsFunctionLevel(IsFunctionLevel) {
   assert(EntryBB && "Entry basic block cannot be null!");
+  assert(
+      (FirstLoop || IsFunctionLevel) &&
+      "Region should either have a first loop or be a function level region!");
   BBlocksSet.insert(BBs.begin(), BBs.end());
 }
 
 IRRegion::IRRegion(IRRegion &&Reg)
     : EntryBBlock(Reg.EntryBBlock), ExitBBlock(Reg.ExitBBlock),
-      BBlocks(std::move(Reg.BBlocks)), BBlocksSet(std::move(Reg.BBlocksSet)),
+      FirstLoop(Reg.FirstLoop), BBlocks(std::move(Reg.BBlocks)),
+      BBlocksSet(std::move(Reg.BBlocksSet)),
       LiveInMap(std::move(Reg.LiveInMap)),
       LiveOutMap(std::move(Reg.LiveOutMap)), ParentRegion(Reg.ParentRegion),
       IsFunctionLevel(Reg.IsFunctionLevel) {}
@@ -44,6 +48,7 @@ IRRegion::IRRegion(IRRegion &&Reg)
 IRRegion &IRRegion::operator=(IRRegion &&Reg) {
   EntryBBlock = Reg.EntryBBlock;
   ExitBBlock = Reg.ExitBBlock;
+  FirstLoop = Reg.FirstLoop;
   BBlocks = std::move(Reg.BBlocks);
   BBlocksSet = std::move(Reg.BBlocksSet);
   LiveInMap = std::move(Reg.LiveInMap);

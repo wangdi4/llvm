@@ -201,9 +201,6 @@ protected:
   /// Return true if the specified directive is attached to the loop.
   bool hasDirective(int DirectiveID) const;
 
-  /// Return true if the loop has OMP.SIMD region entry directive
-  bool hasSIMDRegionDirective() const;
-
 public:
   /// Prints preheader of loop.
   void printPreheader(formatted_raw_ostream &OS, unsigned Depth,
@@ -643,9 +640,7 @@ public:
   virtual void verify() const override;
 
   /// Checks whether SIMD directive is attached to the loop.
-  bool isSIMD() const {
-    return hasDirective(DIR_OMP_SIMD) || hasSIMDRegionDirective();
-  }
+  bool isSIMD() const;
 
   /// Checks whether we have a vectorizable loop by checking if SIMD
   /// or AUTO_VEC directive is attached to the loop.
