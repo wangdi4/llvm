@@ -680,15 +680,30 @@ static SDNode *getSingleUseOfValue(SDValue V) {
 // node from the chain and let it get DCE'd). Otherwise, a null SDValue is
 // returned and Chain is left as-is.
 static SDValue GetInord(SDValue &Chain) {
-  SDValue Inord;
-  const SDNode *const ChainNode = Chain.getNode();
-  if (ChainNode->getOpcode() == ISD::INTRINSIC_VOID and
-      cast<ConstantSDNode>(ChainNode->getOperand(1))->getLimitedValue() ==
-        Intrinsic::csa_inord) {
-    Inord = ChainNode->getOperand(2);
-    Chain = ChainNode->getOperand(0);
+  // A helper function checking if the SDValue is csa_inord intrinsic call.
+  auto isCsaInord = [](const SDValue &V) {
+    if (V->getOpcode() != ISD::INTRINSIC_VOID)
+      return false;
+    const auto IntrId = cast<ConstantSDNode>(V->getOperand(1));
+    return IntrId->getLimitedValue() == Intrinsic::csa_inord;
+  };
+
+  if (Chain->getOpcode() == ISD::TokenFactor) {
+    for (auto &Op : Chain->op_values()) {
+      if (isCsaInord(Op)) {
+        Chain = Op->getOperand(0);
+        return Op->getOperand(2);
+      }
+    }
+    return SDValue();
   }
-  return Inord;
+
+  if (isCsaInord(Chain)) {
+    SDValue Result = Chain->getOperand(2);
+    Chain = Chain->getOperand(0);
+    return Result;
+  }
+  return SDValue();
 }
 
 SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
