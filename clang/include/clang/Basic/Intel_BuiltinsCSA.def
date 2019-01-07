@@ -44,5 +44,10 @@ BUILTIN(__builtin_csa_fmrsf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmasf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmsaf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 
+// LIC Queues Builtins
+BUILTIN(__builtin_csa_lic_init, "iIiILiILi", "n")
+BUILTIN(__builtin_csa_lic_write, "v.", "nt")
+BUILTIN(__builtin_csa_lic_read, "d.", "nt")
+
 #undef BUILTIN
 #endif // INTEL_FEATURE_CSA
