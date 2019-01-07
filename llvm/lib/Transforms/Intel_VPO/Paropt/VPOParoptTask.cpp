@@ -112,8 +112,14 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
 }
 
 // Generate the code to update the last privates for taskloop.
-void VPOParoptTransform::genLprivFiniForTaskLoop(Value *Dst, Value *Src,
+void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
                                                  Instruction *InsertPt) {
+
+  Value *Src = LprivI->getNew();
+  Value *Dst = LprivI->getOrigGEP();
+  if (LprivI->getIsByRef())
+    Dst = new LoadInst(Dst, "", InsertPt);
+
   GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(Src);
   Type *ScalarTy = Gep->getResultElementType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
@@ -301,10 +307,21 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
         Value *Orig = LprivI->getOrig();
+        Type *ElementTy = nullptr;
+        Value *NumElements = nullptr;
+        getItemInfo(LprivI, ElementTy, NumElements);
+        if (NumElements) {
+          assert(isa<ConstantInt>(NumElements) &&
+                 "genKmpTaskTWithPrivatesRecordDecl: VLAs are not supported.");
+          uint64_t NE =
+              *(cast<ConstantInt>(NumElements)->getValue()).getRawData();
+          ElementTy = ArrayType::get(ElementTy, NE);
+        }
+
         auto PT = dyn_cast<PointerType>(Orig->getType());
         assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect last private "
                      "pointer argument");
-        KmpPrivatesIndices.push_back(PT->getElementType());
+        KmpPrivatesIndices.push_back(ElementTy);
         SharedIndices.push_back(PT);
         LprivI->setThunkIdx(Count++);
       }

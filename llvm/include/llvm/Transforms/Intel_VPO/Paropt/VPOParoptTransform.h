@@ -272,6 +272,14 @@ private:
   static void getItemInfoFromValue(Value *OrigValue, Type *&ElementType,
                                    Value *&NumElements);
 
+  /// Extract the type and size of local Alloca to be created to privatize
+  /// \p I.
+  /// \param [in] I Input Item
+  /// \param [out] ElementType Type of one element
+  /// \param [out] NumElements Number of elements, in case \p OrigValue is
+  /// an array, \b nullptr otherwise.
+  static void getItemInfo(Item *I, Type *&ElementType, Value *&NumElements);
+
   /// Generate an AllocaInst for an array of Type \p ElementType, size \p
   /// NumElements, and name \p VarName. \p NumElements can be null for one
   /// element. The generated Instruction is inserted before \pInsertPt.
@@ -407,7 +415,7 @@ private:
   void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
 
   /// \brief Generate the lastprivate update code for taskloop
-  void genLprivFiniForTaskLoop(Value *Dst, Value *Src, Instruction *InsertPt);
+  void genLprivFiniForTaskLoop(LastprivateItem *LprivI, Instruction *InsertPt);
 
   /// \brief Generate loop schdudeling code.
   /// \p IsLastVal is an output from this routine and is used to emit

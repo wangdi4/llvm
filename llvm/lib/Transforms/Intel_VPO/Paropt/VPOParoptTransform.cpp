@@ -2417,6 +2417,48 @@ AllocaInst *VPOParoptTransform::genPrivatizationAlloca(Type *ElementType,
                               VarName);
 }
 
+// Extract the type and size of local Alloca to be created to privatize I.
+void VPOParoptTransform::getItemInfo(Item *I,
+                                     Type *&ElementType,    // out
+                                     Value *&NumElements) { // out
+  assert(I && "Null Clause Item.");
+
+  Value *Orig = I->getOrig();
+  assert(Orig && "Null original Value in clause item.");
+  Orig = getRootValueFromFenceCall(Orig);
+
+  auto getItemInfoIfArraySection = [I, &ElementType, &NumElements]() -> bool {
+    if (ReductionItem *RedI = dyn_cast<ReductionItem>(I))
+      if (RedI->getIsArraySection()) {
+        const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+        ElementType = ArrSecInfo.getElementType();
+        NumElements = ArrSecInfo.getSize();
+        return true;
+      }
+    return false;
+  };
+
+  if (!getItemInfoIfArraySection()) {
+    getItemInfoFromValue(Orig, ElementType, NumElements);
+    assert(ElementType && "Failed to find element type for reduction operand.");
+
+    if (I->getIsByRef()) {
+      assert(isa<PointerType>(ElementType) &&
+             "Expected a pointer type for byref operand.");
+      assert(!NumElements &&
+             "Unexpected number of elements for byref pointer.");
+
+      ElementType = cast<PointerType>(ElementType)->getPointerElementType();
+    }
+  }
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Local Element Info for '";
+             Orig->printAsOperand(dbgs()); dbgs() << "':: Type: ";
+             ElementType->print(dbgs()); if (NumElements) {
+               dbgs() << ", NumElements: ";
+               NumElements->printAsOperand(dbgs());
+             } dbgs() << "\n");
+}
+
 // Generate an AllocaInst for the local copy of OrigValue.
 AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
     Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix) {
@@ -2452,30 +2494,8 @@ VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
 
-  auto getItemInfoIfArraySection = [I, &ElementType, &NumElements]() -> bool {
-    if (ReductionItem *RedI = dyn_cast<ReductionItem>(I))
-      if (RedI->getIsArraySection()) {
-        const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
-        ElementType = ArrSecInfo.getElementType();
-        NumElements = ArrSecInfo.getSize();
-        return true;
-      }
-    return false;
-  };
-
-  if (!getItemInfoIfArraySection()) {
-    getItemInfoFromValue(Orig, ElementType, NumElements);
-    assert(ElementType && "Failed to find element type for reduction operand.");
-
-    if (I->getIsByRef()) {
-      assert(isa<PointerType>(ElementType) &&
-             "Expected a pointer type for byref operand.");
-      assert(!NumElements &&
-             "Unexpected number of elements for byref pointer.");
-
-      ElementType = cast<PointerType>(ElementType)->getPointerElementType();
-    }
-  }
+  getItemInfo(I, ElementType, NumElements);
+  assert(ElementType && "Could not find Type of local element.");
 
   AllocaInst *NewVal = genPrivatizationAlloca(
       ElementType, NumElements, InsertPt, Orig->getName() + NameSuffix);
@@ -2821,8 +2841,10 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       Instruction *InsertPt = &EntryBB->front();
       if (!ForTask)
         NewPrivInst = genPrivatizationAlloca(LprivI, InsertPt, ".lpriv");
-      else
+      else {
         NewPrivInst = LprivI->getNew();
+        InsertPt = cast<Instruction>(NewPrivInst)->getParent()->getTerminator();
+      }
       LprivI->setNew(NewPrivInst);
 
       Value *ReplacementVal = getClauseItemReplacementValue(LprivI, InsertPt);
@@ -2835,8 +2857,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
                                              NewPrivInst, NewPrivInst);
         genLprivFini(LprivI, IfLastIterBB->getTerminator());
       } else
-        genLprivFiniForTaskLoop(LprivI->getOrigGEP(), LprivI->getNew(),
-                                IfLastIterBB->getTerminator());
+        genLprivFiniForTaskLoop(LprivI, IfLastIterBB->getTerminator());
     }
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet
