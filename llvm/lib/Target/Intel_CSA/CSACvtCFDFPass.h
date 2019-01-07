@@ -126,6 +126,9 @@ private:
   /// by generating a dummy return value instead.
   void generateSingleReturn();
 
+  /// Lower intrinsics for LIC queues.
+  void lowerLicQueue();
+
   /// \defgroup Switch generation
   /// This set of functions implements the generation of switch instructions
   /// from branch instructions.

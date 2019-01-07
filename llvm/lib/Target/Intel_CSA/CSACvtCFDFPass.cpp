@@ -210,6 +210,10 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   findLICGroups(false);
   assignLicFrequencies(getAnalysis<MachineBlockFrequencyInfo>());
 
+  // Lower LIC queue intrinsics here. This prevents us from trying to add
+  // switch/picks to the code in question.
+  lowerLicQueue();
+
   if (!RunSXU) {
     removeBranch();
     linearizeCFG();
@@ -223,6 +227,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   return true;
 }
+
 
 void CSACvtCFDFPass::generateSingleReturn() {
   // Gather all return instructions in the function. Note that a block
@@ -2399,4 +2404,46 @@ unsigned PickTreeNode::convertToPick(MachineInstr *Phi,
     .addReg(TrueReg);
 
   return OutputReg;
+}
+
+void CSACvtCFDFPass::lowerLicQueue() {
+  std::vector<unsigned> LicToReg; // maps from licNum -> register number
+  SmallVector<MachineInstr *, 8> ToDelete;
+  for (auto BB : *RPOT) {
+    for (auto &MI : *BB) {
+      if (MI.getOpcode() == CSA::CSA_LIC_INIT){
+        unsigned licNum = MI.getOperand(0).getImm();
+        const TargetRegisterClass *RC =
+          TII->getLicClassForSize(MI.getOperand(1).getImm()*8);
+        unsigned LicReg = LMFI->allocateLIC(RC, Twine("lic_queue") +
+                                            Twine(licNum));
+        LMFI->setLICDepth(LicReg, MI.getOperand(3).getImm());
+        if (licNum >= LicToReg.size()) LicToReg.resize(licNum+1);
+        LicToReg[licNum] = LicReg;
+        ToDelete.push_back(&MI);
+      }
+      else if (MI.getOpcode() == CSA::CSA_LIC_WRITE) {
+        unsigned licNum = MI.getOperand(0).getImm();
+        unsigned reg =  LicToReg[licNum];
+        const TargetRegisterClass *RC = MRI->getRegClass(reg);
+        unsigned MovOpcode = TII->getMoveOpcode(RC);
+        MachineInstr *movInst = BuildMI(*BB, MI, MI.getDebugLoc(),
+                   TII->get(MovOpcode), reg).addReg(MI.getOperand(1).getReg());
+        movInst->setFlag(MachineInstr::NonSequential);
+        ToDelete.push_back(&MI);
+      }
+      else if (MI.getOpcode() == CSA::CSA_LIC_READ) {
+        unsigned licNum = MI.getOperand(1).getImm();
+        unsigned reg =  LicToReg[licNum];
+        const TargetRegisterClass *RC = MRI->getRegClass(reg);
+        unsigned MovOpcode = TII->getMoveOpcode(RC);
+        MachineInstr *movInst = BuildMI(*BB, MI, MI.getDebugLoc(),
+                  TII->get(MovOpcode ), MI.getOperand(0).getReg()).addReg(reg);
+        movInst->setFlag(MachineInstr::NonSequential);
+        ToDelete.push_back(&MI);
+      }
+    }
+  }
+  for (auto MI : ToDelete)
+    MI->eraseFromParent();
 }

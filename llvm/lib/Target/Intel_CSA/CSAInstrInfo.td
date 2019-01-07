@@ -2157,5 +2157,38 @@ def SHUFI32X2: FMTGEN<?, Tf32x2,
     "shufi32x2\t$res, $op1, $op2, $sellow, $selhigh",
     []>;
 
+def CSA_LIC_INIT : PseudoInstCSA<
+    (outs),
+    (ins i32imm:$lic, i8imm:$size, i64imm:$depth, i64imm:$desired_depth),
+    "# .csa_lower_lic_init $lic, $size, $depth, $desired_depth",
+    [(int_csa_lower_lic_init imm:$lic, imm:$size, imm:$depth, imm:$desired_depth)]>;
+
+def CSA_LIC_WRITE : PseudoInstCSA<
+    (outs),
+    (ins i32imm:$lic, CI64:$val),
+    "# .csa_lower_lic_write \t$lic, $val",
+    []>;
+
+def CSA_LIC_READ : PseudoInstCSA<
+    (outs CI64:$val),
+    (ins i32imm:$lic),
+    "# .csa_lower_lic_read \t$lic, $val",
+    []>;
+
+multiclass PushPop<ValueType VT, RegisterClass RC> {
+  def : Pat<(int_csa_lower_lic_write (i32 imm:$lic), VT:$val),
+            (CSA_LIC_WRITE (i32 imm:$lic), (COPY_TO_REGCLASS $val, I64))>;
+  def : Pat<(VT (int_csa_lower_lic_read (i32 imm:$lic))),
+            (COPY_TO_REGCLASS (CSA_LIC_READ (i32 imm:$lic)), RC)>;
+}
+
+defm : PushPop<   i8, CI8>;
+defm : PushPop<  i16, CI16>;
+defm : PushPop<  i32, CI32>;
+defm : PushPop<  i64, CI64>;
+defm : PushPop<  f32, CI32>;
+defm : PushPop<  f64, CI64>;
+defm : PushPop<v2f32, CI64>;
+
 // Eventually
 //include "CSAIntrinsics.td"
