@@ -1,6 +1,6 @@
 //= CSAInstPrinter.h - Convert CSA MCInst to assembly syntax -------*- C++ -*-//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -45,17 +45,10 @@ public:
   void printUnitOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
                         const char *Modifier = nullptr);
 
-  void printRModeOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
-                         const char *Modifier = nullptr);
-
-  void printMemLvlOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
-                          const char *Modifier = nullptr);
-
-  void printSignctlOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
+#define CSA_ASM_OPERAND(Asm, Enum, Default, ...) \
+  void print##Asm##Operand(const MCInst *MI, unsigned OpNo, raw_ostream &O, \
                            const char *Modifier = nullptr);
-
-  void printIntervalOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
-                            const char *Modifier = nullptr);
+#include "AsmOperands.h"
 
   void printPrioOrderOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
                             const char *Modifier = nullptr);

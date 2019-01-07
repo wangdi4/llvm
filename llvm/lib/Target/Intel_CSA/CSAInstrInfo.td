@@ -1,6 +1,6 @@
 //===- CSAInstrInfo.td - CSA Instruction defs -----------------*- tblgen-*-===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -102,6 +102,18 @@ def PrioOrderAsmOperand : AsmOperandClass {
 def PrioOrderOperand : OperandWithDefaultOps<i1, (ops (i1 0))> {
   let ParserMatchClass = PrioOrderAsmOperand;
   let PrintMethod = "printPrioOrderOperand";
+}
+
+// Operands for floating-point comparison operators
+foreach Kind = [ "FPOrdered", "FPSignaling" ] in {
+  def Kind ## AsmOperand : AsmOperandClass {
+    let Name = Kind;
+    let IsOptional = 1;
+  }
+  def Kind ## Operand : OperandWithDefaultOps<i1, (ops (i1 0))> {
+    let ParserMatchClass = !cast<AsmOperandClass>(Kind ## AsmOperand);
+    let PrintMethod = !strconcat("print", Kind, "Operand");
+  }
 }
 
 // Memory level operands. For simplicity these use numeric values that match
@@ -445,11 +457,25 @@ class ShiftOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
 // CmpOp is identical to BinOp, except opNode is a PatFrag rather than
 // an SDNode...
 class CmpOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
-            InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+            InstrItinClass itin = NoItinerary,
+            list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs I1:$dst),
     (ins oi.RCL:$op1, oi.RCL:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2"),
+    [(set I1:$dst, (opNode (oi.VT oi.RCL:$op1), (oi.VT oi.RCL:$op2)))],
+    !listconcat(preds,gen.Preds,oi.Preds), itin> {
+  let isCompare = 1;
+}
+
+class FloatCmpOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
+            InstrItinClass itin = NoItinerary, string floatFlags = "",
+            list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs I1:$dst),
+    (ins oi.RCL:$op1, oi.RCL:$op2, FPSignalingOperand:$sig),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, ",
+               floatFlags, ", $sig"),
     [(set I1:$dst, (opNode (oi.VT oi.RCL:$op1), (oi.VT oi.RCL:$op2)))],
     !listconcat(preds,gen.Preds,oi.Preds), itin> {
   let isCompare = 1;
@@ -1212,9 +1238,9 @@ multiclass UnsignedCmp<GenericOp generic, PatFrag frag> {
   def U32 : CmpOp<generic, frag, Tu32, IIALU>;
   def U64 : CmpOp<generic, frag, Tu64, IIALU>;
 }
-multiclass FloatCmp<GenericOp generic, PatFrag frag> {
-  def F32 : CmpOp<generic, frag, Tf32, IICmpF>;
-  def F64 : CmpOp<generic, frag, Tf64, IICmpF>;
+multiclass FloatCmp<GenericOp generic, PatFrag frag, string floatFlags> {
+  def F32 : FloatCmpOp<generic, frag, Tf32, IICmpF, floatFlags>;
+  def F64 : FloatCmpOp<generic, frag, Tf64, IICmpF, floatFlags>;
 }
 
 def CMPLT  :   GenericOp<"cmplt">;
@@ -1232,10 +1258,6 @@ defm CMPGE : UnsignedCmp<CMPGE, setuge>;
 def CMPEQ  :   GenericOp<"cmpeq">;
 def CMPNE  :   GenericOp<"cmpne">;
 
-// TODO: Fix the issue of unordered versus ordered floating point comparisons.
-// Until there is a clearer story from the hardware side as to which comparisons
-// are actually to exist, we'll generate both ordered and unordered variants
-// that map to the same assembly string.
 def CMPOLT :   GenericOp<"cmplt">;
 def CMPOLE :   GenericOp<"cmple">;
 def CMPOGT :   GenericOp<"cmpgt">;
@@ -1248,18 +1270,18 @@ def CMPUGT :   GenericOp<"cmpgt">;
 def CMPUGE :   GenericOp<"cmpge">;
 def CMPUEQ :   GenericOp<"cmpeq">;
 def CMPUNE :   GenericOp<"cmpne">;
-defm CMPOLT:    FloatCmp<CMPOLT, setolt>;
-defm CMPOLE:    FloatCmp<CMPOLE, setole>;
-defm CMPOGT:    FloatCmp<CMPOGT, setogt>;
-defm CMPOGE:    FloatCmp<CMPOGE, setoge>;
-defm CMPOEQ:    FloatCmp<CMPOEQ, setoeq>;
-defm CMPONE:    FloatCmp<CMPONE, setone>;
-defm CMPULT:    FloatCmp<CMPULT, setult>;
-defm CMPULE:    FloatCmp<CMPULE, setule>;
-defm CMPUGT:    FloatCmp<CMPUGT, setugt>;
-defm CMPUGE:    FloatCmp<CMPUGE, setuge>;
-defm CMPUEQ:    FloatCmp<CMPUEQ, setueq>;
-defm CMPUNE:    FloatCmp<CMPUNE, setune>;
+defm CMPOLT:   FloatCmp<CMPOLT, setolt, "FLT_ORDERED">;
+defm CMPOLE:   FloatCmp<CMPOLE, setole, "FLT_ORDERED">;
+defm CMPOGT:   FloatCmp<CMPOGT, setogt, "FLT_ORDERED">;
+defm CMPOGE:   FloatCmp<CMPOGE, setoge, "FLT_ORDERED">;
+defm CMPOEQ:   FloatCmp<CMPOEQ, setoeq, "FLT_ORDERED">;
+defm CMPONE:   FloatCmp<CMPONE, setone, "FLT_ORDERED">;
+defm CMPULT:   FloatCmp<CMPULT, setult, "FLT_UNORDERED">;
+defm CMPULE:   FloatCmp<CMPULE, setule, "FLT_UNORDERED">;
+defm CMPUGT:   FloatCmp<CMPUGT, setugt, "FLT_UNORDERED">;
+defm CMPUGE:   FloatCmp<CMPUGE, setuge, "FLT_UNORDERED">;
+defm CMPUEQ:   FloatCmp<CMPUEQ, setueq, "FLT_UNORDERED">;
+defm CMPUNE:   FloatCmp<CMPUNE, setune, "FLT_UNORDERED">;
 
 // These are the flags for we-don't-care-about-NaNs. When the architecture
 // finalizes NaN support, these should map into the cheaper ones.
@@ -1278,8 +1300,8 @@ def : Pat<(i1 (setne f64:$op1, f64:$op2)), (CMPONEF64 $op1, $op2)>;
 
 def CMPO   :   GenericOp<"cmpo">;
 def CMPUO  :   GenericOp<"cmpuo">;
-defm CMPO  :    FloatCmp<CMPO, seto>;
-defm CMPUO :    FloatCmp<CMPUO, setuo>;
+defm CMPO  :   FloatCmp<CMPO, seto, "FLT_ORDERED">;
+defm CMPUO :   FloatCmp<CMPUO, setuo, "FLT_UNORDERED">;
 
 def : Pat<(i1 (seteq i1:$op1, i1:$op2)), (NOT1 (XOR1 $op1,$op2))>;
 def : Pat<(i1 (seteq i1:$op1, (i1 imm:$imm))), (NOT1 (XOR1 $op1,$imm))>;
