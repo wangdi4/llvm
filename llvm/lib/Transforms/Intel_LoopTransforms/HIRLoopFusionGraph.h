@@ -271,6 +271,9 @@ private:
                                 FusibleCacheTy &FusibleCache,
                                 SmallVectorImpl<RefNodePairTy> &RValNodePairs);
 
+  void constructNaiveEdges(GraphNodeMapTy &GraphNodeMap,
+                           FusibleCacheTy &FusibleCache);
+
   // Run weighted fusion algorithm.
   void weightedFusion();
 
