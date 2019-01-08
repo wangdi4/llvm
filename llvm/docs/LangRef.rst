@@ -5833,6 +5833,81 @@ Thes attributes in this metdata is added to all followup loops of the
 loop distribution pass. See
 :ref:`Transformation Metadata <transformation-metadata>` for details.
 
+.. INTEL_CUSTOMIZATION
+
+'``llvm.loop.intel.loopcount*``'
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The metadata specifies the minimum, maximum or average number of
+iterations of a loop. In addition, a list of commonly occurring values
+can be specified to help the compiler apply more accurate optimizations for the
+loop using the values in the metadata.
+
+'``llvm.loop.intel.loopcount``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This metadata can be used to specify a list of commonly occurring values that
+the compiler will attempt to iterate the loop. There are only two operands in
+this metadata. The first operand is a string ``llvm.loop.intel.loopcount``
+and the second operand is a positive integer or list of positive integers
+that specify the number of times the loop is iterated.
+The metadata is an optimization hint.
+
+.. code-block:: llvm
+
+   !0 = !{!"llvm.loop.intel.loopcount", i32 3, i32 4}
+
+'``llvm.loop.intel.loopcount_maximum``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This metadata is used when the user specifies the loop iterates for the
+specified maximum number of times. There are only two operands in the metadata.
+The first operand is a string ``llvm.loop.intel.loopcount_maximum``
+and the second operand is a positive integer. Only one constant value is
+allowed for this metadata. The compiler will attempt to iterate the loop
+for the specified maximum value. The metadata is an assertion and the
+loop is assumed to have at most the specified number of iterations.If
+the number exceeds, the behavior is undefined.
+
+.. code-block:: llvm
+
+   !0 = !{!"llvm.loop.intel.loopcount_maximum", i32 10}
+
+
+'``llvm.loop.intel.loopcount_minimum``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This metadata is used when the user specifies the loop iterates for the
+specified minimum number of times. There are only two operands in this metadata.
+The first operand is a string ``llvm.loop.intel.loopcount_minimum``
+and the second operand is a positive integer. Only one constant value is
+allowed for this metadata. The compiler will attempt to iterate the loop
+for the specified minimum value. The metadata is an assertion, the loop
+is assumed to iterate for not less than the specified number of iterations.
+If the number is lower than the specified value then the behavior is undefined.
+
+.. code-block:: llvm
+
+   !0 = !{!"llvm.loop.intel.loopcount_minimum", i32 4}
+
+
+'``llvm.loop.intel.loopcount_average``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This metadata is used when the user specifies the loop iterates for the
+specified average number of times. There are only two operands in this metadata.
+The first operand is the string ``llvm.loop.intel.loopcount_average``
+and the second operand is a positive integer. Only one constant value is
+allowed for this metadata. The compiler will attempt to iterate the loop
+for the specified average value.
+The metadata is an optimization hint.
+
+.. code-block:: llvm
+
+   !0 = !{!"llvm.loop.intel.loopcount_average", i32 7}
+
+.. END INTEL_CUSTOMIZATION
+
 '``llvm.access.group``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
