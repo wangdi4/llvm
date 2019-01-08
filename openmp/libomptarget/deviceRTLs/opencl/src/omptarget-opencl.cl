@@ -102,7 +102,7 @@ INLINE void __kmp_team_barrier(int global_id) {
   // TODO: use global_id to access the barrier object for the team.
 }
 
-void __kmpc_barrier(ident_t *id, int global_id) {
+void __kmpc_barrier() {
   // Built-in work group barrier
   work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
 }
@@ -452,11 +452,11 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, div, /)
 /// Other __kmpc_* entries
 ///
 
-EXTERN int __kmpc_master(ident_t *id, int global_id) {
+EXTERN int __kmpc_master() {
   return (__kmp_get_local_id() == 0) ? KMP_TRUE : KMP_FALSE;
 }
 
-EXTERN void __kmpc_end_master(ident_t *id, int global_id) {
+EXTERN void __kmpc_end_master() {
   // nothing to be done
 }
 

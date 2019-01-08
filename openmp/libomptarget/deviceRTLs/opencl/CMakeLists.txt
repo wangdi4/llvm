@@ -17,6 +17,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 
   # For now, there is only one source file.
   # FIXME: SPIRV tool (spirv-link) is required to build RTL with multiple sources.
+  set(opencl_inc src/omptarget-opencl.h)
   set(opencl_src src/omptarget-opencl.cl)
   get_filename_component(opencl_src_abs ${opencl_src} ABSOLUTE)
 
@@ -33,7 +34,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
   add_custom_command(
     OUTPUT ${opencl_device_rtl}
     COMMAND clang ${opencl_flags} ${opencl_src_abs}
-    DEPENDS ${opencl_src} clang
+    DEPENDS ${opencl_src} ${opencl_inc} clang
     VERBATIM
   )
 
