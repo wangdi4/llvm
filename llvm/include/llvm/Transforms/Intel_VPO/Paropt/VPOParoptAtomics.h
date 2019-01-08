@@ -56,8 +56,9 @@ public:
   /// \param [in] IdentTy is the Loc struct, needed for KMPC calls.
   /// \param [in] TidPtr is pointer to the alloca instruction for
   /// thread ID. Needed for KMPC calls.
+  /// \param [in] IsTargetSPIRV if true don't emit the Ident and Tid parameters
   static bool handleAtomic(WRNAtomicNode *AtomicNode, StructType *IdentTy,
-                           Constant *TidPtr);
+                           Constant *TidPtr, bool IsTargetSPIRV);
 
 private:
   /// \name Private constructors, destructors.
@@ -156,7 +157,7 @@ private:
   /// otherwise.
   template <WRNAtomicKind AtomicKind>
   static bool handleAtomicRW(WRNAtomicNode *AtomicNode, StructType *IdentTy,
-                             Constant *TidPtr);
+                             Constant *TidPtr, bool IsTargetSPIRV);
 
   /// \brief Handles Emitting of KMPC runtime calls for atomic update.
   /// For an incoming IR of form:
@@ -177,7 +178,7 @@ private:
   /// \returns `true` if \p AtomicNode was successfully handled, `false`
   /// otherwise.
   static bool handleAtomicUpdate(WRNAtomicNode *AtomicNode, StructType *IdentTy,
-                                 Constant *TidPtr);
+                                 Constant *TidPtr, bool IsTargetSPIRV);
 
   /// \brief Handles Emitting of KMPC runtime calls for atomic capture.
   /// For atomic_opnd `x`, capture_opnd `v` and value_opnd `expr`, the capture
@@ -206,9 +207,20 @@ private:
   /// \returns `true` if \p AtomicNode was successfully handled, `false`
   /// otherwise.
   static bool handleAtomicCapture(WRNAtomicNode *AtomicNode,
-                                  StructType *IdentTy, Constant *TidPtr);
+                                  StructType *IdentTy, Constant *TidPtr,
+                                  bool IsTargetSPIRV);
 
   /// @}
+
+  /// If IsTargetSPIRV==false, call genKmpcCallWithTid() to emit the Ident and
+  /// Tid parameters. Otherwise, this is for GPU offloading, so we omit those
+  /// parameters, as they're not used when lowered to the device RTL.
+  /// This function does not emit the atomic call into the IR; InsertPt is just
+  /// used to obtain the Bblock where the atomic pragma resides.
+  static CallInst *genAtomicCall(WRNAtomicNode *AtomicNode, StructType *IdentTy,
+                                 Constant *TidPtr, Instruction *InsertPt,
+                                 StringRef Name, Type *ReturnTy,
+                                 ArrayRef<Value *> Args, bool IsTargetSPIRV);
 
   /// \name Methods for identifying the op and opnds for Atomic update and
   /// capture.

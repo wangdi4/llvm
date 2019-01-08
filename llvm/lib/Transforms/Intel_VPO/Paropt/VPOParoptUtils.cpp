@@ -1929,10 +1929,12 @@ GlobalVariable *VPOParoptUtils::genKmpcLocforImplicitBarrier(
 // CancellationPoints.
 CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
                                          Instruction *InsertPt,
-                                         StructType *IdentTy, bool IsExplicit) {
+                                         StructType *IdentTy, bool IsExplicit,
+                                         bool IsTargetSPIRV) {
 
   WRegionNode *WParent = W->getParent();
   bool IsCancelBarrier = WParent && WParent->canHaveCancellationPoints() &&
+                         !IsTargetSPIRV &&
                          WRegionUtils::hasCancelConstruct(WParent);
 
   auto *BarrierCall = VPOParoptUtils::genKmpcBarrierImpl(
@@ -1945,11 +1947,9 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
 }
 
 // Insert kmpc_[cancel_]barrier(...) call before InsertPt.
-CallInst *VPOParoptUtils::genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
-                                             Instruction *InsertPt,
-                                             StructType *IdentTy,
-                                             bool IsExplicit,
-                                             bool IsCancelBarrier) {
+CallInst *VPOParoptUtils::genKmpcBarrierImpl(
+    WRegionNode *W, Value *Tid, Instruction *InsertPt, StructType *IdentTy,
+    bool IsExplicit, bool IsCancelBarrier, bool IsTargetSPIRV) {
   BasicBlock  *B = InsertPt->getParent();
   Function    *F = B->getParent();
   Module      *M = F->getParent();
@@ -1960,11 +1960,19 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
 
 
   if (IsCancelBarrier) {
+    assert(!IsTargetSPIRV && "OMP Cancel not supported for GPU offloading");
     RetTy = Type::getInt32Ty(C);
     FnName = "__kmpc_cancel_barrier";
   } else {
     RetTy = Type::getVoidTy(C);
     FnName = "__kmpc_barrier";
+  }
+
+  if (IsTargetSPIRV) {
+    // Emit an empty __kmpc_barrier without parameters,
+    // and insert it above InsertPt
+    CallInst *BarrierCall = genEmptyCall(M, FnName, RetTy, InsertPt);
+    return BarrierCall;
   }
 
   // Create the arg for Loc
@@ -2131,9 +2139,9 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
 //   %master = call @__kmpc_master(%ident_t* %loc, i32 %tid)
 //      or
 //   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
-CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(WRegionNode *W,
-                            StructType *IdentTy, Value *Tid,
-                            Instruction *InsertPt, bool IsMasterStart) {
+CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
+    WRegionNode *W, StructType *IdentTy, Value *Tid, Instruction *InsertPt,
+    bool IsMasterStart, bool IsTargetSPIRV) {
 
   BasicBlock  *B = W->getEntryBBlock();
   Function    *F = B->getParent();
@@ -2149,6 +2157,14 @@ CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(WRegionNode *W,
   else {
     FnName = "__kmpc_end_master";
     RetTy = Type::getVoidTy(C);
+  }
+
+  if (IsTargetSPIRV) {
+    // Create an empty begin/end master call without parameters.
+    // Don't insert it into the IR yet.
+    Module *M = F->getParent();
+    CallInst *MasterOrEndCall = genEmptyCall(M, FnName, RetTy, nullptr);
+    return MasterOrEndCall;
   }
 
   LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
@@ -2499,6 +2515,7 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
 
 // Genetates a CallInst for the given Function* Fn and its argument list.
 // Fn is assumed to be already declared.
+// If InsertPt!=null, the Call is emitted before InsertPt.
 CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
                                   ArrayRef<Type*> FnArgTypes,
                                   Instruction *InsertPt,
@@ -2516,6 +2533,7 @@ CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
 }
 
 // Genetates a CallInst for a function with name `FnName`.
+// If InsertPt!=null, the Call is emitted before InsertPt.
 CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
                                   ArrayRef<Value *> FnArgs,
                                   ArrayRef<Type*> FnArgTypes,
@@ -2539,6 +2557,7 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
 
 // A genCall() interface where FunArgTypes is omitted; it will be computed from
 // FnArgs.
+// If InsertPt!=null, the Call is emitted before InsertPt.
 CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
                                   ArrayRef<Value *> FnArgs,
                                   Instruction *InsertPt, bool IsTail,
@@ -2560,18 +2579,35 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
 }
 
 // A genCall() interface where the Module is omitted; it will be computed from
-// the insertion point.
+// the insertion point. The created call is inserted before InsertPt.
 CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
                                   ArrayRef<Value*> FnArgs,
                                   ArrayRef<Type*> FnArgTypes,
                                   Instruction *InsertPt, bool IsTail,
                                   bool IsVarArg) {
+  assert (InsertPt && "InsertPt is required to find the Module");
   BasicBlock *B = InsertPt->getParent();
   Function *F = B->getParent();
   Module *M = F->getParent();
 
   CallInst *Call = genCall(M, FnName, ReturnTy, FnArgs, FnArgTypes, InsertPt,
                            IsTail, IsVarArg);
+  return Call;
+}
+
+// Creates a call with no parameters
+CallInst *VPOParoptUtils::genEmptyCall(Module *M, StringRef FnName,
+                                       Type *ReturnTy, Instruction *InsertPt,
+                                       bool IsVarArg) {
+  // Create the function type from the return type. The Fn takes no parameters.
+  FunctionType *FnTy = FunctionType::get(ReturnTy, IsVarArg);
+
+  // Get the function prototype from the module symbol table. If absent,
+  // create and insert it into the symbol table first.
+  Constant *FnC = M->getOrInsertFunction(FnName, FnTy);
+  Function *Fn = cast<Function>(FnC);
+
+  CallInst *Call = CallInst::Create(Fn, "", InsertPt);
   return Call;
 }
 
@@ -3092,6 +3128,14 @@ Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
   if (VectorType *VTy = dyn_cast<VectorType>(Ty))
     return ConstantVector::getSplat(VTy->getNumElements(), MinMaxVal);
   return MinMaxVal;
+}
+
+Value *VPOParoptUtils::genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
+                                        unsigned AddrSpace) {
+  PointerType *PtType = cast<PointerType>(Ptr->getType());
+  IRBuilder<> Builder(InsertPt);
+  return Builder.CreatePointerBitCastOrAddrSpaceCast(
+      Ptr, PtType->getElementType()->getPointerTo(AddrSpace));
 }
 
 #if 0

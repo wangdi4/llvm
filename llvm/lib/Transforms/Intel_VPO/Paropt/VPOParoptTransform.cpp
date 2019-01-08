@@ -839,6 +839,8 @@ bool VPOParoptTransform::paroptTransforms() {
     return RoutineChanged;
   }
 
+  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
+                       hasOffloadCompilation();
   bool NeedTID, NeedBID;
 
   // Collects the list of WRNs into WRegionList, and sets NeedTID and NeedBID
@@ -898,8 +900,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
-          if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()) ||
-              !hasOffloadCompilation()) {
+          if (!IsTargetSPIRV) {
             improveAliasForOutlinedFunc(W);
             // Privatization is enabled for both Prepare and Transform passes
             Changed |= genPrivatizationCode(W);
@@ -938,8 +939,7 @@ bool VPOParoptTransform::paroptTransforms() {
           BasicBlock *IfLastIterBB = nullptr;
           // The compiler does not need to generate the outlined function
           // for omp parallel for loop.
-          if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-              hasOffloadCompilation()) {
+          if (IsTargetSPIRV) {
             Changed |= genOCLParallelLoop(W);
             Changed |= genPrivatizationCode(W);
           } else {
@@ -1096,8 +1096,10 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNAtomic:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
-          Changed = VPOParoptAtomics::handleAtomic(cast<WRNAtomicNode>(W),
-                                                   IdentTy, TidPtrHolder);
+          if (IsTargetSPIRV)
+            Changed |= removeCompilerGeneratedFences(W);
+          Changed = VPOParoptAtomics::handleAtomic(
+              cast<WRNAtomicNode>(W), IdentTy, TidPtrHolder, IsTargetSPIRV);
           RemoveDirectives = true;
         }
         break;
@@ -1119,8 +1121,7 @@ bool VPOParoptTransform::paroptTransforms() {
                     WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
               WT->setParLoopNdInfoAlloca(genTgtLoopParameter(WT, W));
           }
-          if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-              hasOffloadCompilation()) {
+          if (IsTargetSPIRV) {
             Changed |= genOCLParallelLoop(W);
             Changed |= genPrivatizationCode(W);
           } else {
@@ -1161,7 +1162,9 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNMaster:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
-          Changed = genMasterThreadCode(W);
+          if (IsTargetSPIRV)
+            Changed |= removeCompilerGeneratedFences(W);
+          Changed = genMasterThreadCode(W, IsTargetSPIRV);
           RemoveDirectives = true;
         }
         break;
@@ -1187,7 +1190,9 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNBarrier:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
-          Changed = genBarrier(W, true);
+          if (IsTargetSPIRV)
+            Changed |= removeCompilerGeneratedFences(W);
+          Changed = genBarrier(W, true, IsTargetSPIRV);
           RemoveDirectives = true;
         }
         break;
@@ -4675,7 +4680,8 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
 
 // Generate code for master/end master construct and update LLVM control-flow
 // and dominator tree accordingly
-bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
+bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W,
+                                             bool IsTargetSPIRV) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMasterThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
@@ -4684,7 +4690,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 
   // Generate __kmpc_master Call Instruction
   CallInst *MasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(
-      W, IdentTy, TidPtrHolder, InsertPt, true);
+      W, IdentTy, TidPtrHolder, InsertPt, true, IsTargetSPIRV);
   MasterCI->insertBefore(InsertPt);
 
   // LLVM_DEBUG(dbgs() << " MasterCI: " << *MasterCI << "\n\n");
@@ -4693,7 +4699,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 
   // Generate __kmpc_end_master Call Instruction
   CallInst *EndMasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(
-      W, IdentTy, TidPtrHolder, InsertEndPt, false);
+      W, IdentTy, TidPtrHolder, InsertEndPt, false, IsTargetSPIRV);
   EndMasterCI->insertBefore(InsertEndPt);
 
   // Generate (int)__kmpc_master(&loc, tid) test for executing code using
@@ -5065,7 +5071,8 @@ bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
 }
 
 // Insert a call to __kmpc_barrier() at the end of the construct
-bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
+bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit,
+                                    bool IsTargetSPIRV) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genBarrier [explicit="
                     << IsExplicit << "]\n");
@@ -5076,8 +5083,8 @@ bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
   createEmptyPrivFiniBB(W, NewBB);
   Instruction *InsertPt = NewBB->getTerminator();
 
-  VPOParoptUtils::genKmpcBarrier(W, TidPtrHolder, InsertPt, IdentTy,
-                                 IsExplicit);
+  VPOParoptUtils::genKmpcBarrier(W, TidPtrHolder, InsertPt, IdentTy, IsExplicit,
+                                 IsTargetSPIRV);
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
   return true;
@@ -5732,4 +5739,44 @@ void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
                         &(F->getParent()->getDataLayout()));
   W->resetBBSet();
 }
+
+template <typename Range>
+static bool removeFirstFence(Range &&R, AtomicOrdering AO) {
+  for (auto &I : R)
+    if (auto *Fence = dyn_cast<FenceInst>(&I)) {
+      if (Fence->getOrdering() == AO) {
+        Fence->eraseFromParent();
+        return true;
+      }
+      break;
+    }
+  return false;
+}
+
+bool VPOParoptTransform::removeCompilerGeneratedFences(WRegionNode *W) {
+  bool Changed = false;
+  switch (W->getWRegionKindID()) {
+  case WRegionNode::WRNAtomic:
+  case WRegionNode::WRNCritical:
+  case WRegionNode::WRNMaster:
+  case WRegionNode::WRNSingle:
+    if (auto *BB = W->getEntryBBlock()->getSingleSuccessor())
+      Changed |= removeFirstFence(make_range(BB->begin(), BB->end()),
+                                  AtomicOrdering::Acquire);
+    if (auto *BB = W->getExitBBlock()->getSinglePredecessor())
+      Changed |= removeFirstFence(make_range(BB->rbegin(), BB->rend()),
+                                  AtomicOrdering::Release);
+    break;
+  case WRegionNode::WRNBarrier:
+  case WRegionNode::WRNTaskwait:
+    if (auto *BB = W->getEntryBBlock()->getSingleSuccessor())
+      Changed |= removeFirstFence(make_range(BB->begin(), BB->end()),
+                                  AtomicOrdering::AcquireRelease);
+    break;
+  default:
+    llvm_unreachable("unexpected work region kind");
+  }
+  return Changed;
+}
+
 #endif // INTEL_COLLAB

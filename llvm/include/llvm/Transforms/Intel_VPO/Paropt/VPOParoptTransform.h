@@ -612,7 +612,7 @@ private:
 
   /// Generate code for master/end master construct and update LLVM
   /// control-flow and dominator tree accordingly
-  bool genMasterThreadCode(WRegionNode *W);
+  bool genMasterThreadCode(WRegionNode *W, bool IsTargetSPIRV);
 
   /// Generate code for single/end single construct and update LLVM
   /// control-flow and dominator tree accordingly
@@ -709,7 +709,7 @@ private:
                              BasicBlock *&IfLastIterOut);
 
   /// \brief Insert a barrier at the end of the construct
-  bool genBarrier(WRegionNode *W, bool IsExplicit);
+  bool genBarrier(WRegionNode *W, bool IsExplicit, bool IsTargetSPIRV = false);
 
   /// \brief Insert a flush call
   bool genFlush(WRegionNode *W);
@@ -1183,6 +1183,12 @@ private:
   /// Return original global variable if the value Orig is the return value
   /// of a fence call.
   static Value *getRootValueFromFenceCall(Value *Orig);
+
+  /// Clang inserts fence acquire/release instructions for some constructs
+  /// (atomic, critical, single, master, barrier and taskwait).
+  /// For GPU compilation, we must remove such fence instructions because
+  /// they are unsupported by SPIRV and OpenCL.  This routine does that.
+  bool removeCompilerGeneratedFences(WRegionNode *W);
 };
 } /// namespace vpo
 } /// namespace llvm

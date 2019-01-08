@@ -282,7 +282,7 @@ public:
   /// \endcode
   static CallInst *genKmpcBarrier(WRegionNode *W, Value *Tid,
                                   Instruction *InsertPt, StructType *IdentTy,
-                                  bool IsExplicit);
+                                  bool IsExplicit, bool IsTargetSPIRV = false);
 
   /// Insert `kmpc_[cancel]_barrier` call (based on \p IsCancelBarrier) before
   /// \p InsertPt and return it. The CallInst inserted is:
@@ -299,7 +299,8 @@ public:
   static CallInst *genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
                                       Instruction *InsertPt,
                                       StructType *IdentTy, bool IsExplicit,
-                                      bool IsCancelBarrier);
+                                      bool IsCancelBarrier,
+                                      bool IsTargetSPIRV = false);
 
   /// Insert `__kmpc_cancel[lationpoint]` call before \p InsertPt and return
   /// it. The inserted CallInst is:
@@ -420,7 +421,8 @@ public:
   static CallInst *genKmpcMasterOrEndMasterCall(WRegionNode *W,
                                                 StructType *IdentTy, Value *Tid,
                                                 Instruction *InsertPt,
-                                                bool IsMasterStart);
+                                                bool IsMasterStart,
+                                                bool IsTargetSPIRV = false);
 
   /// Generate a call to guard single-region is executed by one of threads in
   /// the enclosing thread team. Emitted call:
@@ -614,6 +616,9 @@ public:
   static Value *genArrayLength(AllocaInst *AI, Value *BaseAddr,
                                Instruction *InsertPt, IRBuilder<> &Builder,
                                Type *&ElementTy, Value *&ArrayBegin);
+
+  static Value *genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
+                                 unsigned AddrSpace);
 
   /// Generate a call to `__kmpc_omp_task_alloc`. Example:
   /// \code
@@ -924,16 +929,7 @@ public:
   static CallInst *genOCLGenericCall(StringRef FnName, ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
 
-private:
-  /// \name Private constructor and destructor to disable instantiation.
-  /// @{
-
-  VPOParoptUtils() = delete;
-  ~VPOParoptUtils() = delete;
-
-  /// @}
-
-  /// \name Helper methods for generating a KMPC call.
+  /// \name Helper methods for generating calls.
   /// @{
 
   /// Generate KMPC runtime call to the function \p IntrinsicName
@@ -989,6 +985,21 @@ private:
                            ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
                            bool IsTail = false, bool IsVarArg = false);
+
+  // Creates a call with no parameters.
+  // If \p InsertPt is not null, insert the call before InsertPt
+  static CallInst *genEmptyCall(Module *M, StringRef FnName, Type *ReturnTy,
+                                Instruction *InsertPt = nullptr,
+                                bool IsVarArg = false);
+  /// @}
+
+private:
+  /// \name Private constructor and destructor to disable instantiation.
+  /// @{
+
+  VPOParoptUtils() = delete;
+  ~VPOParoptUtils() = delete;
+
   /// @}
 
   /// \name Helper methods for generating a Critical Section.
