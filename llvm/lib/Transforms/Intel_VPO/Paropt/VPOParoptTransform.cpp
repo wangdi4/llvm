@@ -1030,9 +1030,9 @@ bool VPOParoptTransform::paroptTransforms() {
           // functions with target regions from being deleted by LTO.
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
-          genCodemotionFenceforAggrData(W);
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationCode(W);
+          genCodemotionFenceforAggrData(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
@@ -1056,9 +1056,9 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetUpdate:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          genCodemotionFenceforAggrData(W);
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationCode(W);
+          genCodemotionFenceforAggrData(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
