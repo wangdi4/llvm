@@ -947,6 +947,23 @@ void VPInstruction::print(raw_ostream &O) const {
       O << " ";
       Operand->printAsOperand(O);
     }
+#if INTEL_CUSTOMIZATION
+    switch (getOpcode()) {
+    case Instruction::ZExt:
+    case Instruction::SExt:
+    case Instruction::FPToUI:
+    case Instruction::FPToSI:
+    case Instruction::FPExt:
+    case Instruction::PtrToInt:
+    case Instruction::IntToPtr:
+    case Instruction::SIToFP:
+    case Instruction::UIToFP:
+    case Instruction::Trunc:
+    case Instruction::FPTrunc:
+      O << " to ";
+      getBaseType()->print(O);
+    }
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Generate the code inside the body of the vectorized loop. Assumes a single
