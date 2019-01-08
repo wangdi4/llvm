@@ -345,10 +345,8 @@ protected:
 
 protected:
   // Returns true if in loop alloca has to be created for the given item. So far
-  // this is needed only for non scalar firstprivate or reduction variables.
+  // this is needed for non scalar privates of all kinds.
   static bool needsInLoopAlloca(const Item *I) {
-    if (!isa<FirstprivateItem>(I) && !isa<ReductionItem>(I))
-      return false;
     Type *ElemType = nullptr;
     Value *NumElems = nullptr;
     getItemInfoFromValue(I->getOrig(), ElemType, NumElems);
@@ -361,8 +359,10 @@ protected:
   // has been created or false otherwise.
   virtual bool createNotFirstIterBlock() {
     // Not-first-iter basic block has to be created only if we have a non-scalar
-    // variable in firstprivate or reduction clauses.
-    if (none_of(W->getFpriv().items(), needsInLoopAlloca) &&
+    // variable in private clauses.
+    if (none_of(W->getPriv().items(), needsInLoopAlloca) &&
+        none_of(W->getFpriv().items(), needsInLoopAlloca) &&
+        none_of(W->getLpriv().items(), needsInLoopAlloca) &&
         none_of(W->getRed().items(), needsInLoopAlloca))
       return false;
 
