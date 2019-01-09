@@ -207,6 +207,25 @@ protected:
     PromoteMemToReg(PAllocas, *DT, AC);
   }
 
+  // Remove private references from directive bundle.
+  void removePrivateRefsFromBundle() {
+    auto && removeRefs = [this](Item *I) {
+      auto &DirEntry = W->getEntryBBlock()->front();
+      assert(VPOAnalysisUtils::isBeginDirective(&DirEntry));
+      if (auto *New = I->getNew())
+        DirEntry.replaceUsesOfWith(New, Constant::getNullValue(New->getType()));
+    };
+
+    if (W->canHavePrivate())
+      for_each(W->getPriv().items(), removeRefs);
+    if (W->canHaveFirstprivate())
+      for_each(W->getFpriv().items(), removeRefs);
+    if (W->canHaveLastprivate())
+      for_each(W->getLpriv().items(), removeRefs);
+    if (W->canHaveReduction())
+      for_each(W->getRed().items(), removeRefs);
+  }
+
 public:
   CSAPrivatizer(VPOParoptTransform &PT, WRegionNode *W, bool DoReds = true)
     : PT(PT), W(W), DT(PT.DT), LI(PT.LI), SE(PT.SE), AC(PT.AC), DoReds(DoReds)
@@ -243,6 +262,9 @@ public:
         genRedVar(I, W);
       Changed = true;
     }
+
+    // Remove references to private items from the WRN's bundle.
+    removePrivateRefsFromBundle();
 
     // Promote private variables to registers.
     registerizeAllocas();
@@ -584,6 +606,9 @@ public:
     // Gen copyout code for lastprivate variables.
     for (auto *I : W->getLpriv().items())
       genLPrivVarCopyout(I);
+
+    // Remove references to private items from the WRN's bundle.
+    removePrivateRefsFromBundle();
 
     // Promote private variables to registers.
     registerizeAllocas();
