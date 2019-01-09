@@ -427,15 +427,27 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   if (Ref->isAddressOf())
     return MemOpVPI;
 
-  // If memory reference is an RVal, then it corresponds to a load. Create a new
-  // load VPInstruction to represent it.
   if (Ref->isRval()) {
+    // If memory reference is an RVal, then it corresponds to a load. Create a
+    // new load VPInstruction to represent it.
     assert(cast<PointerType>(MemOpVPI->getBaseType()) &&
            "Base type of load is not a pointer.");
     // Result type of load will be element type of the pointer
     MemOpVPI = Builder.createNaryOp(
         Instruction::Load, {MemOpVPI},
         cast<PointerType>(MemOpVPI->getBaseType())->getElementType());
+
+    // FIXME: This special-casing for loads that are HLInst is becoming more
+    // complicated than expected since we also have to special-case
+    // createVPInstruction. I think that special-case this code to avoid
+    // creating the VPInstruction load for load HLInsts is starting to make more
+    // sense now.
+    // Attach the DDRef definition operand for loads that are not standalone
+    // HLInst. Standalone loads are handled in createVPInstruction.
+    auto *HInst = dyn_cast<HLInst>(Ref->getHLDDNode());
+    if (!HInst || !isa<LoadInst>(HInst->getLLVMInstruction()) ||
+        HInst->getRvalDDRef() != Ref)
+      cast<VPInstruction>(MemOpVPI)->HIR.setOperandDDR(Ref);
   }
 
   LLVM_DEBUG(dbgs() << "VPDecomp: MemOpVPI: "; MemOpVPI->dump();
@@ -562,10 +574,6 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
     return Builder.createBr(BaseTy, cast<HLGoto>(Node));
   }
 
-  auto *HInst = dyn_cast<HLInst>(Node);
-  assert((!HInst || HInst->getLLVMInstruction()) &&
-         "Missing LLVM Instruction for HLInst.");
-
   // Create VPCmpInst for HLInst representing a CmpInst.
   VPInstruction *NewVPInst;
   auto DDNode = cast<HLDDNode>(Node);
@@ -574,59 +582,67 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   // visited Node when we shouldn't, breaking the RPO traversal order.
   assert(!HLDef2VPValue.count(DDNode) && "Node shouldn't have been visited.");
 
-  if (HInst && isa<CmpInst>(HInst->getLLVMInstruction())) {
-    assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
-    CmpInst::Predicate CmpPredicate = getPredicateFromHIR(DDNode);
-    NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
-                                      VPOperands[1], DDNode);
+  if (auto *HInst = dyn_cast<HLInst>(Node)) {
+    const Instruction *LLVMInst = HInst->getLLVMInstruction();
+    assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
+
+    if (isa<CmpInst>(LLVMInst)) {
+      assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
+      CmpInst::Predicate CmpPredicate = getPredicateFromHIR(DDNode);
+      NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
+                                        VPOperands[1], DDNode);
+    } else if (isa<SelectInst>(LLVMInst)) {
+      // Handle decomposition of select instruction
+      assert(VPOperands.size() == 4 &&
+             "Invalid number of operands for HIR select instruction.");
+
+      VPValue *CmpLHS = VPOperands[0];
+      VPValue *CmpRHS = VPOperands[1];
+      VPValue *TVal = VPOperands[2];
+      VPValue *FVal = VPOperands[3];
+
+      // Decompose first 2 operands into a CmpInst used as predicate for select
+      VPCmpInst *Pred =
+          Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
+      // Set underlying DDNode for the select VPInstruction since it's the
+      // master VPInstruction
+      NewVPInst = cast<VPInstruction>(
+          Builder.createNaryOp(Instruction::Select, {Pred, TVal, FVal},
+                               TVal->getBaseType(), DDNode));
+    } else if (isa<LoadInst>(LLVMInst)) {
+      // No-op behavior for load nodes since the VPInstruction is already added
+      // by decomposeMemoryOp. Check comments in decomposeMemoryOp definition
+      // for more details.
+      assert(VPOperands.size() == 1 &&
+             "Load instruction must have single operand only.");
+      NewVPInst = cast<VPInstruction>(VPOperands.back());
+      assert(NewVPInst->getOpcode() == Instruction::Load &&
+             "Incorrect instruction added for load.");
+      // Set the underlying DDNode for the load instruction since it will be
+      // master VPI for this node
+      NewVPInst->HIR.setUnderlyingNode(DDNode);
+    } else
+      // Generic VPInstruction.
+      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+          LLVMInst->getOpcode(), VPOperands, LLVMInst->getType(), DDNode));
+
+    if (RegDDRef *LvalDDR = HInst->getLvalDDRef()) {
+      // Set Lval DDRef as VPOperandHIR for this VPInstruction. This includes
+      // standalone loads.
+      NewVPInst->HIR.setOperandDDR(LvalDDR);
+
+      if (OutermostHLp->isLiveOut(LvalDDR->getSymbase())) {
+        VPExternalUse *User = Plan->getVPExternalUseForDDRef(LvalDDR);
+        User->addOperand(NewVPInst);
+      }
+    } else if (RegDDRef *RvalDDR = HInst->getRvalDDRef())
+      // Set single Rval as VPOperandHIR for HLInst without Lval DDRef.
+      NewVPInst->HIR.setOperandDDR(RvalDDR);
   } else if (auto *HIf = dyn_cast<HLIf>(DDNode))
     // Handle decomposition of HLIf node.
     NewVPInst = createVPInstsForHLIf(HIf, VPOperands);
-  else if (HInst && isa<SelectInst>(HInst->getLLVMInstruction())) {
-    // Handle decomposition of select instruction
-    assert(VPOperands.size() == 4 &&
-           "Invalid number of operands for HIR select instruction.");
-
-    VPValue *CmpLHS = VPOperands[0];
-    VPValue *CmpRHS = VPOperands[1];
-    VPValue *TVal = VPOperands[2];
-    VPValue *FVal = VPOperands[3];
-
-    // Decompose first 2 operands into a CmpInst used as predicate for select
-    VPCmpInst *Pred =
-        Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
-    // Set underlying DDNode for the select VPInstruction since it's the master
-    // VPInstruction
-    NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-        Instruction::Select, {Pred, TVal, FVal}, TVal->getBaseType(), DDNode));
-  } else if (HInst && isa<LoadInst>(HInst->getLLVMInstruction())) {
-    // No-op behavior for load nodes since the VPInstruction is already added by
-    // decomposeMemoryOp. Check comments in decomposeMemoryOp definition for
-    // more details.
-    assert(VPOperands.size() == 1 &&
-           "Load instruction must have single operand only.");
-    NewVPInst = cast<VPInstruction>(VPOperands.back());
-    assert(NewVPInst->getOpcode() == Instruction::Load &&
-           "Incorrect instruction added for load.");
-    // Set the underlying DDNode for the load instruction since it will be
-    // master VPI for this node
-    NewVPInst->HIR.setUnderlyingNode(DDNode);
-  } else {
-    // Generic VPInstruction.
-    assert(HInst && HInst->getLLVMInstruction() &&
-           "Expected HLInst with underlying LLVM IR.");
-    NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-        HInst->getLLVMInstruction()->getOpcode(), VPOperands,
-        HInst->getLLVMInstruction()->getType(), DDNode));
-  }
-
-  if (HInst && HInst->hasLval()) {
-    RegDDRef *DDRef = HInst->getLvalDDRef();
-    if (OutermostHLp->isLiveOut(DDRef->getSymbase())) {
-      VPExternalUse* User = Plan->getVPExternalUseForDDRef(DDRef);
-      User->addOperand(NewVPInst);
-    }
-  }
+  else
+    llvm_unreachable("Unexpected DDNode!");
 
   HLDef2VPValue[DDNode] = NewVPInst;
   return NewVPInst;

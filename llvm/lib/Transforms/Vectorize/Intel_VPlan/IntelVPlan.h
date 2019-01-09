@@ -600,9 +600,14 @@ class VPInstruction : public VPUser, public VPRecipeBase {
     }
 
     // DESIGN PRINCIPLE: IR-independent algorithms don't need to know about
-    // HIR-specific master, decomposed and new VPInstructions. For that reason,
-    // access to the following HIR-specific methods must be restricted. We
-    // achieve that goal by making VPInstruction's HIRSpecifics member private.
+    // HIR-specific master, decomposed and new VPInstructions or underlying HIR
+    // information. For that reason, access to the following HIR-specific
+    // methods must be restricted. We achieve that goal by making
+    // VPInstruction's HIRSpecifics member private.
+
+    // Hold the underlying HIR information related to the LHS operand of this
+    // VPInstruction.
+    std::unique_ptr<VPOperandHIR> LHSHIROperand;
 
     /// Pointer to access the underlying HIR data attached to this
     /// VPInstruction, if any, depending on its sub-type:
@@ -678,6 +683,22 @@ class VPInstruction : public VPUser, public VPRecipeBase {
       assert(!isSet() && "MasterData is already set!");
       MasterData = new MasterVPInstData(UnderlyingNode);
     }
+
+    /// Attach \p Def to this VPInstruction as its VPOperandHIR.
+    void setOperandDDR(loopopt::DDRef *Def) {
+      assert(!LHSHIROperand && "LHSHIROperand is already set!");
+      LHSHIROperand.reset(new VPBlob(Def));
+    }
+
+    /// Attach \p IVLevel to this VPInstruction as its VPOperandHIR.
+    void setOperandIV(unsigned IVLevel) {
+      assert(!LHSHIROperand && "LHSHIROperand is already set!");
+      LHSHIROperand.reset(new VPIndVar(IVLevel));
+    }
+
+    /// Return the VPOperandHIR with the underlying HIR information of the LHS
+    /// operand.
+    VPOperandHIR *getOperandHIR() { return LHSHIROperand.get(); }
 
     /// Return the master VPInstruction attached to a decomposed VPInstruction.
     VPInstruction *getMaster() {
@@ -2335,7 +2356,8 @@ public:
     return getExternalItem(VPExternalDefs, ExtDef);
   }
 
-  /// Create or retrieve a VPExternalDef for a given HIR unitary DDRef \p DDR.
+  /// Create or retrieve a VPExternalDef for a given non-decomposable DDRef \p
+  /// DDR.
   VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *DDR) {
     return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
   }
@@ -2351,7 +2373,8 @@ public:
     return getExternalItem(VPExternalUses, ExtDef);
   }
 
-  /// Create or retrieve a VPExternalUse for a given HIR unitary DDRef \p DDR.
+  /// Create or retrieve a VPExternalUse for a given non-decomposable DDRef \p
+  /// DDR.
   VPExternalUse *getVPExternalUseForDDRef(loopopt::DDRef *DDR) {
     return getExternalItemForDDRef(VPExternalUsesHIR, DDR);
   }
@@ -2429,6 +2452,7 @@ private:
   // DDRef \p DDR.
   template <typename Def>
   Def *getExternalItemForDDRef(FoldingSet<Def> &Table, loopopt::DDRef *DDR) {
+    assert(DDR->isNonDecomposable() && "Expected non-decomposable DDRef!");
     FoldingSetNodeID ID;
     ID.AddInteger(DDR->getSymbase());
     ID.AddInteger(0 /*IVLevel*/);
