@@ -133,7 +133,7 @@ public:
 
 namespace {
 
-// REMOVE: Hard to estimate the size: not using small vector.
+// Hard to estimate the size: not using small vector.
 typedef std::vector<const CanonExpr *> VecCEsTy;
 
 class CEOpSequence {
@@ -169,22 +169,13 @@ public:
   unsigned numRefs() const { return NumDDRefs; }
 };
 
-// REMOVE: Hard to estimate the size: not using small vector.
+// Hard to estimate the size: not using small vector.
 typedef std::vector<const DDRef *> VecDDRefsTy;
 typedef std::stack<const DDRef *, VecDDRefsTy> StackDDRefsTy;
 typedef std::vector<const HLNode *> VecNodesTy;
 typedef std::vector<CEOpSequence> VecCEOpSeqTy;
 typedef std::vector<VecNodesTy> VecVecNodesTy;
 typedef DenseMap<BlobTy, unsigned> LoopInvariantBlobTy; // SCEV, BID
-
-void printInvBlobs(const LoopInvariantBlobTy &Invs, const BlobUtils &BU) {
-  dbgs() << "Set of invariant blobs: \n";
-  for (LoopInvariantBlobTy::const_iterator I = Invs.begin(), E = Invs.end();
-       I != E; ++I) {
-    BU.printBlob(dbgs(), I->first);
-    dbgs() << " " << I->second << "\n";
-  }
-}
 
 namespace rerollcomparator {
 
@@ -389,7 +380,6 @@ void SequenceBuilder::collectDDRefsFromAStore(const HLInst *HInst, DDGraph &DDG,
     sortRvals(DefInst, RvalDDRefCopy);
     for (const RegDDRef *ChildDDRef :
          make_range(RvalDDRefCopy.begin(), RvalDDRefCopy.end())) {
-      // TODO: Forward typecast in a CE?
       SequenceBuilder::processRegDDRef(ChildDDRef, Seq, TempTracker);
     }
   }
@@ -892,12 +882,8 @@ void rewriteLoopBody(unsigned RerollFactor, unsigned II, VecNodesTy &VecSeeds) {
 
   HIRTransformUtils::multiplyTripCount(Loop, RerollFactor);
 
-  // How to locate the last inst of the first group
+  // Locate the last inst of the first group
   // Inst at the (II-1) from 0
-  // HLContainerTy::iterator PastTheNewLastNode = std::next(VecSeeds[II]);
-  // HLNode *NewLastNode = &*NewLastNodeIt;
-  // NewLastNode->dump();
-  // HLNodeUtils::remove(std::next(NewLastNodeIt),
   HLNodeUtils::remove(std::next(HLContainerTy::iterator(
                           const_cast<HLNode *>(VecSeeds[II - 1]))),
                       std::next(HLContainerTy::iterator(Loop->getLastChild())));
@@ -928,7 +914,7 @@ void rewriteLoopBody(unsigned RerollFactor, unsigned II, VecNodesTy &VecSeeds) {
   HIRInvalidationUtils::invalidateBounds(Loop);
 }
 
-// Used only for Debugging
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 std::string getOpcodeString(unsigned Opcode) {
   if ((Opcode == Instruction::Add) || (Opcode == Instruction::FAdd)) {
     return "  +  ";
@@ -960,7 +946,6 @@ std::string getOpcodeString(unsigned Opcode) {
   return "Non-binary";
 }
 
-#ifndef NDEBUG
 LLVM_DUMP_METHOD void dumpOprdOpSequence(const HLInst *HInst,
                                          const CEOpSequence &Seq) {
   dbgs() << " RefList For Inst ";
@@ -970,6 +955,7 @@ LLVM_DUMP_METHOD void dumpOprdOpSequence(const HLInst *HInst,
     CE->dump();
     dbgs() << ", ";
   }
+
   dbgs() << "\n";
 
   for (auto CE : Seq.CEList) {
@@ -985,10 +971,8 @@ LLVM_DUMP_METHOD void dumpOprdOpSequence(const HLInst *HInst,
 
   for (auto P : Seq.Opcodes) {
     dbgs() << P.first;
-    ;
     dbgs() << ": ";
-    std::string S = getOpcodeString(P.second);
-    dbgs() << S;
+    dbgs() << getOpcodeString(P.second);
     dbgs() << ", ";
   }
   dbgs() << "\n";
@@ -1059,8 +1043,8 @@ bool SequenceBuilder::areRerollSequencesBuilt(HIRDDAnalysis &DDA,
     VecSeq.push_back(Seq);
     VecInstList.push_back(InstList);
 
-#ifndef NDEBUG
-    dumpOprdOpSequence(HInst, Seq);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    LLVM_DEBUG(dumpOprdOpSequence(HInst, Seq));
 #endif
   }
 
