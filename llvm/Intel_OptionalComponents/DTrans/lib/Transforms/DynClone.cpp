@@ -354,7 +354,7 @@ private:
   DynField getAccessStructField(GEPOperator *GEP) const;
   Type *getCallInfoElemTy(CallInfo *CInfo) const;
   Type *getTypeRelatedToInstruction(Instruction *I) const;
-  void createEncodeDecodeFunctions(void); // (Reencoding)
+  void createEncodeDecodeFunctions(void);               // (Reencoding)
   void fillupCoderRoutine(Function *F, bool IsEncoder); // (Reencoding)
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
@@ -961,7 +961,8 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   }
 
   // (Reencoding) Delta is needed to encode those constants that doesn't fit
-  // into ShunkenIntType. Limit number of constants to 10 for runtime effectiveness.
+  // into ShunkenIntType. Limit number of constants to 10 for runtime
+  // effectiveness.
   if (AllDynFieldConstSet.size() > 10) {
     DEBUG_WITH_TYPE(
         REENCODING,
@@ -3212,7 +3213,7 @@ void DynCloneImpl::transformIR(void) {
     return true;
   };
 
-  // The basic idea is to use shruken struct for all address computations
+  // The basic idea is to use shrunken struct for all address computations
   // instead of original struct.
   // Note that index of a field in shrunken structure may not be the same
   // as index of the field in original structure since fields will be
@@ -3337,6 +3338,9 @@ void DynCloneImpl::transformIR(void) {
   //
   auto ProcessLoad = [&](LoadInst *LI, DynField &LdElem, bool NeedsDecoding) {
     LLVM_DEBUG(dbgs() << "Load before convert: " << *LI << "\n");
+    AAMDNodes AATags;
+    LI->getAAMetadata(AATags);
+
     StructType *OldTy = cast<StructType>(LdElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
     unsigned NewIdx = TransformedIndexes[OldTy][LdElem.second];
@@ -3353,21 +3357,21 @@ void DynCloneImpl::transformIR(void) {
     Value *Res = nullptr;
     // (Reencoding) if encoding is not needed, then all values should fit
     // into shrunken bits.
-    if (isAOSTOSOAIndexField(LdElem)) {
+    if (isAOSTOSOAIndexField(LdElem))
       Res = CastInst::CreateZExtOrBitCast(NewLI, LI->getType(), "", LI);
-    } else if (NeedsDecoding) {
+    else if (NeedsDecoding) {
       Res = CallInst::Create(DynFieldDecodeFunc, NewLI, "", LI);
       DEBUG_WITH_TYPE(
           REENCODING,
           dbgs() << "   (Reencoding) Insert a call to decoder function\n");
-    } else {
+    } else
       Res = CastInst::CreateSExtOrBitCast(NewLI, LI->getType(), "", LI);
-    }
 
     LI->replaceAllUsesWith(Res);
     Res->takeName(LI);
 
-    // TODO: Need to fix metadata.
+    if (AATags)
+      NewLI->setAAMetadata(AATags);
 
     LLVM_DEBUG(dbgs() << "Load after convert: " << *NewSrcOp << "\n"
                       << *NewLI << "\n"
@@ -3389,6 +3393,9 @@ void DynCloneImpl::transformIR(void) {
   //
   auto ProcessStore = [&](StoreInst *SI, DynField &StElem, bool NeedsEncoding) {
     LLVM_DEBUG(dbgs() << "Store before convert: " << *SI << "\n");
+    AAMDNodes AATags;
+    SI->getAAMetadata(AATags);
+
     StructType *OldTy = cast<StructType>(StElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
     unsigned NewIdx = TransformedIndexes[OldTy][StElem.second];
@@ -3403,20 +3410,21 @@ void DynCloneImpl::transformIR(void) {
       DEBUG_WITH_TYPE(
           REENCODING,
           dbgs() << "   (Reencoding) Insert a call to encoder function\n");
-    } else {
+    } else
       NewVal = CastInst::CreateTruncOrBitCast(ValOp, NewTy, "", SI);
-    }
+
     Value *SrcOp = SI->getPointerOperand();
     Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", SI);
     Instruction *NewSI = new StoreInst(
         NewVal, NewSrcOp, SI->isVolatile(), DL.getABITypeAlignment(NewTy),
         SI->getOrdering(), SI->getSyncScopeID(), SI);
-    (void)NewSI;
 
-    // TODO: Need to fix metadata.
+    if (AATags)
+      NewSI->setAAMetadata(AATags);
 
-    LLVM_DEBUG(dbgs() << "Store after convert: " << *NewSrcOp << "\n"
+    LLVM_DEBUG(dbgs() << "Store after convert: \n"
                       << *NewVal << "\n"
+                      << *NewSrcOp << "\n"
                       << *NewSI << "\n");
   };
 
@@ -3447,10 +3455,10 @@ void DynCloneImpl::transformIR(void) {
   SmallVector<std::pair<CallInfo *, Type *>, 4> CallsToProcess;
   SmallVector<Instruction *, 32> InstsToRemove;
 
-  // Cloned routines are used for original layout shrukun struct. That means,
-  // there will no changes to cloned routine. Original routines will be modified
-  // to use shrunken layout. Here, it walks through all original routines, which
-  // are cloned, and fix all accesses to structs that are shrunkun.
+  // Cloned routines are used for original layout shrunken struct. That means,
+  // there will be no changes to cloned routine. Original routines will be
+  // modified to use shrunken layout. Control walks through all original
+  // routines, which are cloned, and fixes all accesses to shrunken structs.
   for (auto &CPair : CloningMap) {
 
     Function *F = CPair.first;
