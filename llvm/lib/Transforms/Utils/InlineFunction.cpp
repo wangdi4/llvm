@@ -1718,6 +1718,53 @@ static void updateCalleeCount(BlockFrequencyInfo *CallerBFI, BasicBlock *CallBB,
   Callee->setEntryCount(CalleeCount);
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+/// Reassign region id numbers for CSA parallel region entries.
+///
+/// This is a stopgap solution for fixing region id conflicts resulting from
+/// inlining until we redefine the intrinsics in icx.
+static void reassignCSAParallelRegionId(IntrinsicInst *Intr) {
+  assert(Intr->getIntrinsicID() == Intrinsic::csa_parallel_region_entry);
+
+  // Use getMDKindID to generate a region id, making sure that it doesn't
+  // conflict with existing values in the function. The name that's passed in is
+  // the concatenation of:
+  //  * "inln" - because the value originates from the inliner.
+  //  * <total number of instructions in the function> - to disambiguate between
+  //    inline sites. This is a total hack, but seems to be the least intrusive
+  //    way to do this.
+  //  * <original region id> - to disambiguate different regions from the
+  //    original function.
+  LLVMContext &Context = Intr->getContext();
+
+  int TotalNumberOfInsts = 0;
+  for (const BasicBlock &BB : *Intr->getFunction()) {
+    TotalNumberOfInsts += BB.size();
+  }
+
+  assert(Intr->getNumArgOperands() == 1);
+  const ConstantInt *const OldId =
+    dyn_cast<ConstantInt>(Intr->getArgOperand(0));
+  if (!OldId) return;
+
+  const auto NewIdName =
+      ("inln_" + Twine(TotalNumberOfInsts) +
+       "_" + Twine(OldId->getSExtValue())).str();
+  const int NewId = Context.getMDKindID(NewIdName) + 1000;
+#define DEBUG_TYPE "csa-region-id-renumberer"
+  LLVM_DEBUG(dbgs() << "Updating region id of " << Intr->getName() << " from "
+             << OldId->getSExtValue() << " to " << NewId << " ("
+             << NewIdName << ")\n");
+#undef DEBUG_TYPE
+
+  Intr->setArgOperand(
+    0, ConstantInt::get(IntegerType::get(Context, 32), NewId)
+  );
+}
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+
 /// This function inlines the called function into the basic block of the
 /// caller. This returns false if it is not possible to inline this call.
 /// The program is still in a well defined state if this occurs though.
@@ -2116,6 +2163,13 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
         if (!CI)
           continue;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        if (IntrinsicInst* Intr = dyn_cast<IntrinsicInst>(&I))
+          if (Intr->getIntrinsicID() == Intrinsic::csa_parallel_region_entry)
+            reassignCSAParallelRegionId(Intr);
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
         // Forward varargs from inlined call site to calls to the
         // ForwardVarArgsTo function, if requested, and to musttail calls.
         if (!VarArgsToForward.empty() &&

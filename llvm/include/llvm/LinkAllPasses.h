@@ -69,6 +69,9 @@
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_CSA
+#include "Intel_CSA/CSAIRPasses.h"
+#endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
@@ -343,6 +346,12 @@ namespace {
 
       // dynamic_cast calls optimization pass.
       (void) llvm::createOptimizeDynamicCastsWrapperPass();
+
+  #if INTEL_FEATURE_CSA
+      // Various CSA passes.
+      (void) llvm::createLoopSPMDizationPass();
+      (void) llvm::createCSALowerParallelIntrinsicsWrapperPass();
+  #endif  // INTEL_FEATURE_CSA
   #endif // INTEL_CUSTOMIZATION
 
   #if INTEL_COLLAB

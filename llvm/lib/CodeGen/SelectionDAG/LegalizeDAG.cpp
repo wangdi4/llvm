@@ -3858,6 +3858,23 @@ void SelectionDAGLegalize::ConvertNodeToLibcall(SDNode *Node) {
                                       RTLIB::COS_F80, RTLIB::COS_F128,
                                       RTLIB::COS_PPCF128));
     break;
+#ifdef INTEL_CUSTOMIZATION
+  case ISD::FTAN:
+    Results.push_back(ExpandFPLibCall(Node, RTLIB::TAN_F32, RTLIB::TAN_F64,
+                                      RTLIB::TAN_F80, RTLIB::TAN_F128,
+                                      RTLIB::TAN_PPCF128));
+    break;
+  case ISD::FATAN:
+    Results.push_back(ExpandFPLibCall(Node, RTLIB::ATAN_F32, RTLIB::ATAN_F64,
+                                      RTLIB::ATAN_F80, RTLIB::ATAN_F128,
+                                      RTLIB::ATAN_PPCF128));
+    break;
+  case ISD::FATAN2:
+    Results.push_back(ExpandFPLibCall(Node, RTLIB::ATAN2_F32, RTLIB::ATAN2_F64,
+                                      RTLIB::ATAN2_F80, RTLIB::ATAN2_F128,
+                                      RTLIB::ATAN2_PPCF128));
+    break;
+#endif  // INTEL_CUSTOMIZATION
   case ISD::FSINCOS:
     // Expand into sincos libcall.
     ExpandSinCosLibCall(Node, Results);

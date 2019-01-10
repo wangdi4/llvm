@@ -1070,6 +1070,17 @@ void AsmPrinter::emitStackSizeSection(const MachineFunction &MF) {
 
 static bool needFuncLabelsForEHOrDebugInfo(const MachineFunction &MF,
                                            MachineModuleInfo *MMI) {
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // NOTE :  CSA does not accept function begin/end label
+  // Disable until we find out why these labels are needed.
+  Triple TT(MMI->getModule()->getTargetTriple());
+  if (TT.getArch() == Triple::ArchType::csa)
+     return false;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
   if (!MF.getLandingPads().empty() || MF.hasEHFunclets() || MMI->hasDebugInfo())
     return true;
 

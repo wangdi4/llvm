@@ -63,6 +63,9 @@
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_CSA
+#include "Intel_CSA/CSAIRPasses.h"
+#endif  // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
@@ -156,6 +159,7 @@ static cl::opt<bool> EnableLoopInterchange(
 static cl::opt<bool> EnableUnrollAndJam("enable-unroll-and-jam",
                                         cl::init(false), cl::Hidden,
                                         cl::desc("Enable Unroll And Jam Pass"));
+
 #if INTEL_COLLAB
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
 static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
@@ -602,6 +606,11 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
   if (!DisableUnrollLoops && !isLoopOptEnabled()) // INTEL
     MPM.add(createSimpleLoopUnrollPass(OptLevel));    // Unroll small loops
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  MPM.add(createLoopSPMDizationPass());
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
   // This ends the loop pass pipelines.
 
@@ -1005,6 +1014,12 @@ void PassManagerBuilder::populateModulePassManager(
 
     MPM.add(createLoopUnrollPass(OptLevel));    // Unroll small loops
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    MPM.add(createCSALowerParallelIntrinsicsWrapperPass());
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+
     // LoopUnroll may generate some redundency to cleanup.
     addInstructionCombiningPass(MPM);
 
@@ -1066,6 +1081,12 @@ void PassManagerBuilder::populateModulePassManager(
   // Rename anon globals to be able to handle them in the summary
   if (PrepareForLTO)
     MPM.add(createNameAnonGlobalPass());
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  MPM.add(createPromoteMemoryToRegisterPass(true, true));
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
@@ -1289,6 +1310,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (!DisableUnrollLoops)
     PM.add(createLoopUnrollPass(OptLevel));
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  PM.add(createCSALowerParallelIntrinsicsWrapperPass());
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+
   PM.add(createWarnMissedTransformationsPass());
 
   // Now that we've optimized loops (in particular loop induction variables),
@@ -1464,6 +1491,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRTempCleanupPass());
 
   if (!RunLoopOptFrameworkOnly) {
+#if INTEL_CUSTOMIZATION
+    if (vpo::UseOmpRegionsInLoopoptFlag)
+      PM.add(createHIRRecognizeParLoopPass());
+#endif  // INTEL_CUSTOMIZATION
+
     PM.add(createHIRPropagateCastedIVPass());
     if (OptLevel > 2) {
       PM.add(createHIRLoopConcatenationPass());

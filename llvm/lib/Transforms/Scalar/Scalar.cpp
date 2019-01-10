@@ -29,6 +29,11 @@
 #include "llvm/Transforms/Scalar/Scalarizer.h"
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#include "Intel_CSA/CSAIRPasses.h"
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -121,6 +126,9 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopOptReportEmitterLegacyPassPass(Registry);
   initializeRemoveRegionDirectivesLegacyPassPass(Registry);
   initializeAddSubReassociateLegacyPassPass(Registry);
+#if INTEL_FEATURE_CSA
+  initializeCSAScalarPasses(Registry);
+#endif // INTEL_FEATURE_CSA
   initializeLoopCarriedCSELegacyPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeAggInlAALegacyPassPass(Registry); // INTEL

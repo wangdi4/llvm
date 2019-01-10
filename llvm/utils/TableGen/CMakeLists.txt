@@ -1,3 +1,19 @@
+# INTEL_CUSTOMIZATION
+set(INTEL_SOURCE_FILES_TO_BUILD)
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+# Add custom Intel files below.  Files listed here will be included in
+# INTEL_CUSTOMIZATION build.
+  )
+
+# INTEL_FEATURE_CSA
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
+  ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/CSA/utils/TableGen/CSAOpSizes.cpp
+  )
+# end INTEL_FEATURE_CSA
+# end INTEL_CUSTOMIZATION
+
 set(LLVM_LINK_COMPONENTS Support)
 
 add_tablegen(llvm-tblgen LLVM
@@ -14,6 +30,9 @@ add_tablegen(llvm-tblgen LLVM
   CodeGenRegisters.cpp
   CodeGenSchedule.cpp
   CodeGenTarget.cpp
+# INTEL_CUSTOMIZATION
+  ${INTEL_SOURCE_FILES_TO_BUILD}
+# end INTEL_CUSTOMIZATION
   DAGISelEmitter.cpp
   DAGISelMatcherEmitter.cpp
   DAGISelMatcherGen.cpp

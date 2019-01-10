@@ -121,6 +121,11 @@ private:
   VPOParoptPass Impl;
 };
 
+#if INTEL_CUSTOMIZATION
+// External storage for -loopopt-use-omp-region.
+extern bool UseOmpRegionsInLoopoptFlag;
+#endif  // INTEL_CUSTOMIZATION
+
 } // end namespace vpo
 } // end namespace llvm
 

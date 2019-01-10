@@ -1243,6 +1243,11 @@ include "llvm/IR/IntrinsicsAMDGPU.td"
 include "llvm/IR/IntrinsicsBPF.td"
 include "llvm/IR/IntrinsicsSystemZ.td"
 include "llvm/IR/IntrinsicsWebAssembly.td"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+include "llvm/IR/Intel_IntrinsicsCSA.td"
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 include "llvm/IR/IntrinsicsRISCV.td"
 include "llvm/IR/IntrinsicsNios2.td" // INTEL
 include "llvm/IR/Intel_IntrinsicsFPGA.td" // INTEL

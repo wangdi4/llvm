@@ -41,6 +41,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRLastValueComputation.cpp
         HIRPropagateCastedIV.cpp
         HIRMultiExitLoopReroll.cpp
+        HIRRecognizeParLoop.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

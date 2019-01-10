@@ -329,6 +329,12 @@ namespace llvm {
     RegSizeInfoByHwMode RSI;
     int CopyCost;
     bool Allocatable;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    bool PureVirtual;
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+
     StringRef AltOrderSelect;
     uint8_t AllocationPriority;
     /// Contains the combination of the lane masks of all subregisters.
@@ -446,11 +452,29 @@ namespace llvm {
       const CodeGenRegister::Vec *Members;
       RegSizeInfoByHwMode RSI;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+      bool PureVirtual;
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+
       Key(const CodeGenRegister::Vec *M, const RegSizeInfoByHwMode &I)
-        : Members(M), RSI(I) {}
+        : Members(M), RSI(I)   // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        , PureVirtual(false)
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+      {}                        // INTEL
 
       Key(const CodeGenRegisterClass &RC)
-        : Members(&RC.getMembers()), RSI(RC.RSI) {}
+        : Members(&RC.getMembers()), RSI(RC.RSI) // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        , PureVirtual(false)
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+      {}                                          // INTEL
 
       // Lexicographical order of (Members, RegSizeInfoByHwMode).
       bool operator<(const Key&) const;

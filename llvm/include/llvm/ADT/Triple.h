@@ -55,6 +55,11 @@ public:
     avr,            // AVR: Atmel AVR microcontroller
     bpfel,          // eBPF or extended BPF or 64-bit BPF (little endian)
     bpfeb,          // eBPF or extended BPF or 64-bit BPF (big endian)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    csa,            // CSA: csa
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     hexagon,        // Hexagon: hexagon
     mips,           // MIPS: mips, mipsallegrex, mipsr6
     mipsel,         // MIPSEL: mipsel, mipsallegrexe, mipsr6el

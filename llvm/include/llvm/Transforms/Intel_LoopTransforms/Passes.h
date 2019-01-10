@@ -144,6 +144,9 @@ FunctionPass *createHIRPropagateCastedIVPass();
 
 /// Create pass that rerolls multi-exit loops.
 FunctionPass *createHIRMultiExitLoopRerollPass();
+
+/// Creates a pass that recognizes parallel loops.
+FunctionPass *createHIRRecognizeParLoopPass();
 } // namespace llvm
 
 #endif

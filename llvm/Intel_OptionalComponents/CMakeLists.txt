@@ -14,3 +14,10 @@
 if (INTEL_INCLUDE_DTRANS)
   add_subdirectory(DTrans)
 endif()
+
+# INTEL_FEATURE_CSA
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
+if(p)
+  add_subdirectory(CSA)
+endif()
+# end INTEL_FEATURE_CSA

@@ -74,7 +74,13 @@ void RegAllocBase::seedLiveRegs() {
                      TimerGroupDescription, TimePassesIsEnabled);
   for (unsigned i = 0, e = MRI->getNumVirtRegs(); i != e; ++i) {
     unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
-    if (MRI->reg_nodbg_empty(Reg))
+    if (MRI->reg_nodbg_empty(Reg) || // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        MRI->getRegClass(Reg)->isVirtual() ||
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+        false)                       // INTEL
       continue;
     enqueue(&LIS->getInterval(Reg));
   }

@@ -1,4 +1,34 @@
 # INTEL_COLLAB
+# INTEL_CUSTOMIZATION
+set(INTEL_SOURCE_FILES_TO_BUILD)
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+# Add custom Intel files below.  Files listed here will be included in
+# INTEL_CUSTOMIZATION build.
+  )
+
+# INTEL_FEATURE_CSA
+# TODO (vzakhari 9/27/2018): there are better ways to having
+# CSA-specific VPO transformations isolated from llvm repository:
+# 1. We can build VPOParoptTransformCSA.cpp into a separate LLVM
+#    component library and link it into VPO transform library
+#    for CSA.  Currently VPOParoptTransformCSA.cpp has the following
+#    dependencies on VPO transform library: llvm::vpo::WRegionNode::getName,
+#    getOmpCanonicalInductionVariable, canHaveLastprivate,
+#    getOmpCanonicalInductionVariable, getOmpLoopUpperBound.
+#    To avoid cyclic library dependencies, we may want to extract
+#    these methods into a separate VPO library (say VPO Util)
+#    and then have VPOTransform depend on VPOUtil and VPOCSATransform.
+# 2. Another idea is to abstract this CSA specific transformation
+#    via TTI, allowing each target to implement their own
+#    specific way of handling VPO constructs.
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
+  ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/CSA/lib/Transforms/Intel_VPO/Paropt/VPOParoptTransformCSA.cpp
+  )
+# end INTEL_FEATURE_CSA
+# end INTEL_CUSTOMIZATION
+
 add_llvm_library(LLVMIntel_VPOTransforms
   VPOTransform.cpp
 
@@ -19,6 +49,9 @@ add_llvm_library(LLVMIntel_VPOTransforms
   Paropt/VPOParoptTarget.cpp
   Paropt/VPOParoptTask.cpp
   Paropt/VPOParoptTransform.cpp
+# INTEL_CUSTOMIZATION
+  ${INTEL_SOURCE_FILES_TO_BUILD}
+# end INTEL_CUSTOMIZATION
   Paropt/VPOParoptUtils.cpp
 )
 

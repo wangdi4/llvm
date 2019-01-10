@@ -34,6 +34,7 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"      // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -164,6 +165,7 @@ namespace {
       AU.addPreserved<AndersensAAWrapperPass>();                        // INTEL
       AU.addPreserved<InlineAggressiveWrapperPass>();                   // INTEL
       AU.addRequired<TargetLibraryInfoWrapperPass>();
+      AU.addRequired<TargetTransformInfoWrapperPass>();                 // INTEL
     }
 
     void releaseMemory() override { Impl.releaseMemory(); }
@@ -308,6 +310,13 @@ bool JumpThreading::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+#if INTEL_CUSTOMIZATION
+  // If we need structured CFGs, disable jump threading, since it generally
+  // tends to destructure them.
+  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  if (TTI->needsStructuredCFG())
+    return false;
+#endif
   // Get DT analysis before LVI. When LVI is initialized it conditionally adds
   // DT if it's available.
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();

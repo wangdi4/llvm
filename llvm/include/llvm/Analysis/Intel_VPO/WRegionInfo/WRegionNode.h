@@ -556,8 +556,15 @@ public:
   bbset_reverse_iterator bbset_rend() { return BBlockSet.rend(); }
   bbset_const_reverse_iterator bbset_rend() const { return BBlockSet.rend(); }
 
-  bool contains(BasicBlock *BB) {
-    return std::count(BBlockSet.begin(), BBlockSet.end(), BB);
+  iterator_range<bbset_iterator> blocks() {
+    return make_range(bbset_begin(), bbset_end());
+  }
+  iterator_range<bbset_const_iterator> blocks() const {
+    return make_range(bbset_begin(), bbset_end());
+  }
+
+  bool contains(BasicBlock *BB) const {
+    return is_contained(blocks(), BB);
   }
 
   /// \brief Returns True if BasicBlockSet is empty.
@@ -594,6 +601,7 @@ public:
 
   /// \brief Routines to get WRN derived attributes
   bool getIsParLoop()      const { return  getIsPar()  && getIsOmpLoop(); }
+  bool getIsParSections()  const { return  getIsPar()  && getIsSections(); }
   bool getIsTaskloop()     const { return  getIsTask() && getIsOmpLoop(); }
   bool getIsWksLoop()      const { return !getIsTask() && getIsOmpLoop(); }
 
@@ -640,6 +648,11 @@ public:
     WRNVecLoop,                       // IsOmpLoop
     WRNWksLoop,                       // IsOmpLoop
     WRNSections,                      // IsOmpLoop, IsSections
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    WRNSection,
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     WRNWorkshare,                     // IsOmpLoop
     WRNDistribute,                    // IsOmpLoop, IsDistribute
     WRNAtomic,

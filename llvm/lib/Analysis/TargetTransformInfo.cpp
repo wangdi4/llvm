@@ -138,6 +138,12 @@ TargetTransformInfo::getLoopRotationDefaultThreshold(bool OptForSize) const {
   return TTIImpl->getLoopRotationDefaultThreshold(OptForSize);
 }
 
+#if INTEL_CUSTOMIZATION
+bool TargetTransformInfo::needsStructuredCFG() const {
+  return TTIImpl->needsStructuredCFG();
+}
+#endif
+
 bool TargetTransformInfo::isLegalAddImmediate(int64_t Imm) const {
   return TTIImpl->isLegalAddImmediate(Imm);
 }

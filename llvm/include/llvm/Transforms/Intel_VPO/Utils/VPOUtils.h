@@ -149,6 +149,11 @@ public:
   static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
                              unsigned Align, BasicBlock *BB);
 
+  /// Generate a memcpy call with the destination argument \p D and the source
+  /// argument \p S at before the given instruction \p InsertPt.
+  static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
+                             unsigned Align, Instruction *InsertPt);
+
   /// Return true if the type can be registerized.
   static bool canBeRegisterized(Type *ScalarTy, const DataLayout &DL);
 

@@ -1,0 +1,35 @@
+;===- ./lib/Target/Intel_CSA/LLVMBuild.txt ---------------------*- Conf -*--===;
+;
+; Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+;
+; The information and source code contained herein is the exclusive
+; property of Intel Corporation and may not be disclosed, examined
+; or reproduced in whole or in part without explicit written authorization
+; from the company.
+;
+;===------------------------------------------------------------------------===;
+;
+; This is an LLVMBuild description file for the components in this subdirectory.
+;
+; For more information on the LLVMBuild system, please see:
+;
+;   http://llvm.org/docs/LLVMBuild.html
+;
+;===------------------------------------------------------------------------===;
+
+[common]
+subdirectories = AsmParser InstPrinter MCTargetDesc TargetInfo
+
+[component_0]
+type = TargetGroup
+name = CSA
+parent = Target
+has_asmprinter = 1
+has_asmparser = 1
+
+[component_1]
+type = Library
+name = CSACodeGen
+parent = CSA
+required_libraries = Analysis AsmPrinter BitWriter CodeGen Core CSAAsmPrinter CSADesc CSAInfo MC MCParser Scalar InstCombine SelectionDAG Support Target TransformUtils IPO
+add_to_library_groups = CSA

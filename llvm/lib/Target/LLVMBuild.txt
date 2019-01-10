@@ -25,6 +25,11 @@ subdirectories =
  AArch64
  AVR
  BPF
+; INTEL_CUSTOMIZATION
+; INTEL_FEATURE_CSA
+ Intel_CSA
+; end INTEL_FEATURE_CSA
+; end INTEL_CUSTOMIZATION
  Lanai
  Hexagon
  MSP430

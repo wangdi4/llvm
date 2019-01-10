@@ -292,6 +292,11 @@ set(LLVM_ALL_TARGETS
   AMDGPU
   ARM
   BPF
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_CSA
+  CSA
+# end INTEL_FEATURE_CSA
+# end INTEL_CUSTOMIZATION
   Hexagon
   Lanai
   Mips
@@ -697,6 +702,18 @@ if(INTEL_CUSTOMIZATION)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=0")
   endif()
 
+# INTEL_FEATURE_CSA
+  if (";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
+    set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
+    set(INTEL_CSA_INCLUDE_DIR
+        ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/CSA/include)
+    include_directories(AFTER ${INTEL_CSA_INCLUDE_DIR})
+    SET(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS}
+                               Intel_CSATableGen
+                               Intel_CSAScalarOpt)
+  endif()
+# end INTEL_FEATURE_CSA
+
   # Make sure LLVM_INTEL_FEATURES is in CMake cache, and its default value
   # is "no-features".  Every ICS configuration must explicitly set
   # LLVM_INTEL_FEATURES.  Having LLVM_INTEL_FEATURES in CMake cache
@@ -890,6 +907,13 @@ set(LLVM_ENUM_ASM_PARSERS "")
 set(LLVM_ENUM_DISASSEMBLERS "")
 foreach(t ${LLVM_TARGETS_TO_BUILD})
   set( td ${LLVM_MAIN_SRC_DIR}/lib/Target/${t} )
+  if(INTEL_CUSTOMIZATION)
+# INTEL_FEATURE_CSA
+    if("${t}" STREQUAL "CSA")
+      set(td ${LLVM_MAIN_SRC_DIR}/lib/Target/Intel_${t})
+    endif()
+# end INTEL_FEATURE_CSA
+  endif(INTEL_CUSTOMIZATION)
 
   list(FIND LLVM_ALL_TARGETS ${t} idx)
   list(FIND LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ${t} idy)
@@ -1297,6 +1321,13 @@ if (INTEL_CUSTOMIZATION)
   add_custom_command(OUTPUT __force_it
                      COMMAND "${CMAKE_COMMAND}" -E echo)
 
+  # We've seen problems with installing links, e.g. if install of llvm-ranlib
+  # (link to llvm-ar) runs before llvm-ar, then CMake's create_symlink script
+  # does not create the link sometime.  To resolve this (hopefully) we want to
+  # run the install commands in order, so that the order of deploy components
+  # passed to CMake defines the order of installation.
+  set(chain_dep __force_it)
+
   if(DEFINED INTEL_DEPLOY_COMPONENTS)
 
     set(manifest_list)
@@ -1312,10 +1343,11 @@ if (INTEL_CUSTOMIZATION)
                            COMMAND "${CMAKE_COMMAND}"
                                    "-DCMAKE_INSTALL_COMPONENT=${comp}"
                                    -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-                           DEPENDS  __force_it
+                           DEPENDS  ${chain_dep}
                            COMMENT "Deploying component ${comp}"
                            USES_TERMINAL)
         list(APPEND manifest_list ${manifest})
+        set(chain_dep ${manifest})
       endif()
     endforeach( comp )
 

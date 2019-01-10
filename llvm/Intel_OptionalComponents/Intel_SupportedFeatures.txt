@@ -63,6 +63,9 @@
 # Support for a new target is usually covered by a feature named after
 # the target name, e.g. NIOS.
 # === New targets section begin ===
+# INTEL_FEATURE_CSA
+@CSA:SECRET@
+# end INTEL_FEATURE_CSA
 # === New targets section end ===
 
 # Software features that need to be kept in the "safe" repo use SW_ prefix,

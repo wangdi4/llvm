@@ -82,6 +82,14 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-transform"
 
+#if INTEL_CUSTOMIZATION
+// External storage for -loopopt-use-omp-region.
+bool llvm::vpo::UseOmpRegionsInLoopoptFlag;
+static cl::opt<bool, true> UseOmpRegionsInLoopopt(
+    "loopopt-use-omp-region", cl::desc("Handle OpenMP directives in LoopOpt"),
+    cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
+#endif  // INTEL_CUSTOMIZATION
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -833,6 +841,14 @@ bool VPOParoptTransform::paroptTransforms() {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // Lower OpenMP runtime library calls for CSA in prepare pass.
+  if (isTargetCSA() && (Mode & ParPrepare))
+    RoutineChanged |= translateCSAOmpRtlCalls();
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
   if (WI->WRGraphIsEmpty()) {
     LLVM_DEBUG(
         dbgs() << "\n... No WRegion Candidates for Parallelization ...\n\n");
@@ -847,6 +863,15 @@ bool VPOParoptTransform::paroptTransforms() {
   // to true/false depending on whether it finds a WRN that needs the TID or
   // BID, respectively.
   gatherWRegionNodeList(NeedTID, NeedBID);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  if (isTargetCSA()) {
+    NeedTID = false;
+    NeedBID = false;
+  }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   Type *Int32Ty = Type::getInt32Ty(C);
 
@@ -874,8 +899,24 @@ bool VPOParoptTransform::paroptTransforms() {
     bool RemoveDirectives = false;
     bool RemovePrivateClauses = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    if (isTargetCSA() && !isSupportedOnCSA(W)) {
+      if (Mode & ParPrepare)
+        switch (W->getWRegionKindID()) {
+          case WRegionNode::WRNAtomic:
+          case WRegionNode::WRNCritical:
+          case WRegionNode::WRNTaskwait:
+            Changed |= removeCompilerGeneratedFences(W);
+            break;
+        }
+      RemoveDirectives = true;
+    }
+    else
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
     if (W->getIsOmpLoop() && !W->getIsSections()
-                      &&  W->getWRNLoopInfo().getLoop()==nullptr) {
+        &&  W->getWRNLoopInfo().getLoop()==nullptr) {
       // The WRN is a loop-type construct, but the loop is missing, most likely
       // because it has been optimized away. We skip the code transforms for
       // this WRN, and simply remove its directives.
@@ -900,6 +941,19 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            improveAliasForOutlinedFunc(W);
+            if (W->getIsPar())
+              Changed |= genCSAParallel(W);
+            else
+              llvm_unreachable("Unexpected work region kind");
+            RemoveDirectives = true;
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           if (!IsTargetSPIRV) {
             improveAliasForOutlinedFunc(W);
             // Privatization is enabled for both Prepare and Transform passes
@@ -937,6 +991,25 @@ bool VPOParoptTransform::paroptTransforms() {
           }
           AllocaInst *IsLastVal = nullptr;
           BasicBlock *IfLastIterBB = nullptr;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            if (W->getIsParSections()) {
+              Changed |= genCSASections(W);
+              RemoveDirectives = true;
+            }
+            else if (W->getIsParLoop()) {
+              auto Res = genCSALoop(W);
+              Changed |= Res.first;
+              RemoveDirectives = Res.second;
+            }
+            else
+              llvm_unreachable("Unexpected work region kind");
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           // The compiler does not need to generate the outlined function
           // for omp parallel for loop.
           if (IsTargetSPIRV) {
@@ -1116,6 +1189,24 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            if (W->getIsSections()) {
+              Changed |= genCSASections(W);
+              RemoveDirectives = true;
+            }
+            else if (W->getIsOmpLoop()) {
+              auto Res = genCSALoop(W);
+              Changed |= Res.first;
+              RemoveDirectives = Res.second;
+            }
+            else
+              llvm_unreachable("Unexpected work region kind");
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           if (deviceTriplesHasSPIRV()) {
             if (WRegionNode *WT =
                     WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
@@ -1150,6 +1241,16 @@ bool VPOParoptTransform::paroptTransforms() {
           debugPrintHeader(W, true);
           // Changed = genPrivatizationCode(W);
           // Changed |= genFirstPrivatizationCode(W);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            Changed |= removeCompilerGeneratedFences(W);
+            Changed |= genCSASingle(W);
+            RemoveDirectives = true;
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           AllocaInst *IsSingleThread = nullptr;
           Changed = genSingleThreadCode(W, IsSingleThread);
           Changed |= genCopyPrivateCode(W, IsSingleThread);
@@ -1162,6 +1263,15 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNMaster:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            Changed |= removeCompilerGeneratedFences(W);
+            RemoveDirectives = true;
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           if (IsTargetSPIRV)
             Changed |= removeCompilerGeneratedFences(W);
           Changed = genMasterThreadCode(W, IsTargetSPIRV);
@@ -1190,6 +1300,15 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNBarrier:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, true);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            Changed |= removeCompilerGeneratedFences(W);
+            RemoveDirectives = true;
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           if (IsTargetSPIRV)
             Changed |= removeCompilerGeneratedFences(W);
           Changed = genBarrier(W, true, IsTargetSPIRV);
@@ -1758,8 +1877,7 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
     VPOParoptUtils::genCopyConstructorCall(Cctor, FprivI->getNew(), OldV,
                                            InsertPt);
   else if (!VPOUtils::canBeRegisterized(AI->getAllocatedType(), DL))
-    VPOUtils::genMemcpy(AI, OldV, DL, AI->getAlignment(),
-                        InsertPt->getParent());
+    VPOUtils::genMemcpy(AI, OldV, DL, AI->getAlignment(), InsertPt);
   else {
     LoadInst *Load = Builder.CreateLoad(OldV);
     Builder.CreateStore(Load, AI);
@@ -3248,7 +3366,18 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
     for (PrivateItem *PrivI : PrivClause.items()) {
       Value *Orig = PrivI->getOrig();
 
-      if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
+      if (isa<GlobalVariable>(Orig) ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          // On CSA we also need to do privatization for function arguments
+          // because parallel region are not getting outlined. Thus we have
+          // create private instances for function arguments which are
+          // annotated as private to avoid modification of the original
+          // argument.
+          (isa<Argument>(Orig) && isTargetCSA()) ||
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+          isa<AllocaInst>(Orig)) {
         Value *NewPrivInst;
 
         // Insert alloca for privatization right after the BEGIN directive.

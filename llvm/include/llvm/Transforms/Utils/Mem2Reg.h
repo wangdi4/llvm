@@ -23,7 +23,10 @@ class Function;
 
 class PromotePass : public PassInfoMixin<PromotePass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+#if INTEL_CUSTOMIZATION
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM,
+                        bool AllBBs = false);
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm

@@ -295,6 +295,9 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
 }
 
 void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
+  if (ParTraits != nullptr)
+    OS << " <parallel>";
+
   // Some of the pragma checks require trip count information,
   // so we skip them if it isn't present yet.
   if (!getStrideDDRef()) {

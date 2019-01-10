@@ -1,3 +1,4 @@
+; INTEL_FEATURE_CSA
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
 
@@ -51,5 +52,4 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-
-
+; end INTEL_FEATURE_CSA

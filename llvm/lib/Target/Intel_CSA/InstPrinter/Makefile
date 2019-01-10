@@ -1,0 +1,17 @@
+##===- lib/Target/Intel_CSA/InstPrinter/Makefile -----------*- Makefile -*-===##
+#
+# Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+#
+# The information and source code contained herein is the exclusive
+# property of Intel Corporation and may not be disclosed, examined
+# or reproduced in whole or in part without explicit written authorization
+# from the company.
+#
+##===----------------------------------------------------------------------===##
+LEVEL = ../../../..
+LIBRARYNAME = LLVMCSAAsmPrinter
+
+# Hack: we need to include 'main' CSA target directory to grab private headers
+CPP.Flags += -I$(PROJ_OBJ_DIR)/.. -I$(PROJ_SRC_DIR)/..
+
+include $(LEVEL)/Makefile.common

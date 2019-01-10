@@ -234,6 +234,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputation.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIV.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopReroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
 
 // Intel VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"

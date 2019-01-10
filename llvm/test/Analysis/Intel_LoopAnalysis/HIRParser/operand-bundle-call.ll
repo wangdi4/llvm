@@ -1,3 +1,5 @@
+; INTEL_FEATURE_CSA
+; REQUIRES: csa-registered-target
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -simplifycfg -mem2reg -force-hir-cg -S 2>&1 | FileCheck %s --check-prefix=CHECK-CG
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
@@ -64,5 +66,4 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-
-
+; end INTEL_FEATURE_CSA

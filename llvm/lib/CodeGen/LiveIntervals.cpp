@@ -47,6 +47,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -203,7 +204,13 @@ void LiveIntervals::computeVirtRegInterval(LiveInterval &LI) {
 void LiveIntervals::computeVirtRegs() {
   for (unsigned i = 0, e = MRI->getNumVirtRegs(); i != e; ++i) {
     unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
-    if (MRI->reg_nodbg_empty(Reg))
+    if (MRI->reg_nodbg_empty(Reg) || // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        MRI->getRegClass(Reg)->isVirtual() ||
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+        false)                       // INTEL
       continue;
     createAndComputeVirtRegInterval(Reg);
   }
@@ -511,6 +518,23 @@ bool LiveIntervals::computeDeadValues(LiveInterval &LI,
     // Is the register live before? Otherwise we may have to add a read-undef
     // flag for subregister defs.
     unsigned VReg = LI.reg;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    //
+    // CMPLRS-49391:
+    //
+    // Avoid "dead" marking for CSA LICs, because the LiveInterval
+    // for a LIC may be incorrect due to incosistent IR after
+    // CF-to-DF conversion.  In addition, avoid setRegisterDefReadUndef()
+    // below, because a use may precede the definition in CSA DF IR.
+    //
+    if (MF->getTarget().getTargetTriple().getArch() == Triple::csa &&
+        MRI->getRegClass(VReg)->isVirtual())
+      continue;
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+
     if (MRI->shouldTrackSubRegLiveness(VReg)) {
       if ((I == LI.begin() || std::prev(I)->end < Def) && !VNI->isPHIDef()) {
         MachineInstr *MI = getInstructionFromIndex(Def);
@@ -690,7 +714,13 @@ void LiveIntervals::addKillFlags(const VirtRegMap *VRM) {
 
   for (unsigned i = 0, e = MRI->getNumVirtRegs(); i != e; ++i) {
     unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
-    if (MRI->reg_nodbg_empty(Reg))
+    if (MRI->reg_nodbg_empty(Reg) || // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        MRI->getRegClass(Reg)->isVirtual() ||
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+        false)                       // INTEL
       continue;
     const LiveInterval &LI = getInterval(Reg);
     if (LI.empty())

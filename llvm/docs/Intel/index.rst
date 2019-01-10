@@ -2,6 +2,12 @@
 Xmain
 =====
 
+.. INTEL_FEATURE_CSA
+
+**Intel Top Secret** - **may be removed from this document, when CSA becomes public**
+
+.. end INTEL_FEATURE_CSA
+
 .. contents::
    :local:
 
@@ -26,6 +32,15 @@ Xmain
    DTrans/index
    GapAnalysis/index
    Tools/index
+
+.. INTEL_FEATURE_CSA
+
+.. toctree::
+   :hidden:
+
+   CSA/index
+
+.. end INTEL_FEATURE_CSA
 
 Introduction
 ============
@@ -122,3 +137,10 @@ Major Components
 
 :doc:`Tools <Tools/index>`
    Container for Tools documents.
+
+.. INTEL_FEATURE_CSA
+
+:doc:`CSA <CSA/index>`
+   Describes the CSA backend and related topics.
+
+.. end INTEL_FEATURE_CSA

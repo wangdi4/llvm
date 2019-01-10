@@ -105,6 +105,16 @@ public:
                                         // no signed wrap.
     IsExact      = 1 << 13              // Instruction supports division is
                                         // known to be exact.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    // WARNING: we use the last two free bits for CSA.  If community
+    // WARNING: uses (1 << 14), we will have to change the Flags
+    // WARNING: member declaration below to hold more than 16 bits.
+    ,
+    NonSequential = 1 << 14,            // Instruction removed from sequence
+    RasReplayable = 1 << 15             // Instruction can be replayed
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   };
 
 private:

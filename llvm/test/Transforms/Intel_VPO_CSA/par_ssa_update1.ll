@@ -1,3 +1,4 @@
+; INTEL_FEATURE_CSA
 ; RUN: opt < %s -vpo-paropt  -S | FileCheck %s
 
 ; This file checks the ssa update can generate correct code for the value 
@@ -169,3 +170,4 @@ attributes #2 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-m
 
 ; CHECK-LABEL: define internal void @__omp_offloading_3b_8c022feb__ZN5Radar24apply_filter_gen_offloadEPfiS0_iS0_i_l221.DIR.OMP.PARALLEL.LOOP.1
 ; CHECK: %t1.0.i = phi float [ 0.000000e+00, %{{.*}} ], [ %{{.*}}, %{{.*}} ]
+; end INTEL_FEATURE_CSA

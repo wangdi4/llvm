@@ -95,7 +95,8 @@ public:
                      const TargetLibraryInfo *TLI, AliasAnalysis *AA, int Mode,
                      unsigned OptLevel = 2, bool SwitchToOffload = false)
       : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
-        TLI(TLI), AA(AA), Mode(Mode), OptLevel(OptLevel),
+        TLI(TLI), AA(AA), Mode(Mode),
+        TargetTriple(F->getParent()->getTargetTriple()), OptLevel(OptLevel),
         SwitchToOffload(SwitchToOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
@@ -141,6 +142,9 @@ private:
 
   /// \brief Paropt compilation mode
   int Mode;
+
+  /// \brief Target triple that we are compiling for.
+  Triple TargetTriple;
 
   /// \brief Optimization level.
   unsigned OptLevel;
@@ -217,6 +221,15 @@ private:
              NumberOfPtrs;
     }
   };
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  /// \brief Returns true if we are compiling for CSA target.
+  bool isTargetCSA() const {
+     return TargetTriple.getArch() == Triple::csa;
+  }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
@@ -710,6 +723,41 @@ private:
 
   /// \brief Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit, bool IsTargetSPIRV = false);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  /// \brief Forward declarations for helper classes which implement CSA
+  ///  specific privatization for OpenMP constructs.
+  class CSAPrivatizer;
+  class CSALoopPrivatizer;
+  class CSAExpLoopPrivatizer;
+  class CSASectionsPrivatizer;
+  class CSALoopSplitter;
+  friend CSAPrivatizer;
+  friend CSALoopSplitter;
+
+  /// \brief Transform "omp parallel" work region for CSA target.
+  bool genCSAParallel(WRegionNode *W);
+
+  /// \brief Transform "omp [parallel] for" work region for CSA target.
+  /// Returns a pair of boolean values where the first value tells if function
+  /// was changed and the second whether work region's directives should be
+  /// removed.
+  std::pair<bool, bool> genCSALoop(WRegionNode *W);
+
+  /// \brief Transform "omp [parallel] sections" work region for CSA target.
+  bool genCSASections(WRegionNode *W);
+
+  /// Lower OpenMP runtime library calls.
+  bool translateCSAOmpRtlCalls();
+
+  /// \brief Transform "omp single" work region for CSA target.
+  bool genCSASingle(WRegionNode *W);
+
+  /// \brief Check whether a given construct is supported in CSA.
+  bool isSupportedOnCSA(WRegionNode *W);
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Insert a flush call
   bool genFlush(WRegionNode *W);

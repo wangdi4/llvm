@@ -12,7 +12,7 @@
 ; *** IR Dump After HIR Loop Interchange ***
 ; 
 ; IR Dump Before HIR Loop Interchange ***
-; Function: _Z16gemm_csa_blockedPdS_S_iii
+; Function: _Z16gemm_blockedPdS_S_iii
 ; 
 ; <0>       BEGIN REGION { }
 ; <56>            + DO i1 = 0, sext.i32.i64(%M) + -1, 1   <DO_LOOP>
@@ -30,7 +30,7 @@
 ; 
 
 ; *** IR Dump After HIR Loop Interchange ***
-; Function: _Z16gemm_csa_blockedPdS_S_iii
+; Function: _Z16gemm_blockedPdS_S_iii
 ; 
 ; <0>       BEGIN REGION { modified }
 ; <56>            + DO i1 = 0, sext.i32.i64(%N) + -1, 1   <DO_LOOP>
@@ -52,7 +52,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @_Z16gemm_csa_blockedPdS_S_iii(double* noalias nocapture readonly %matA, double* noalias nocapture readonly %matB, double* noalias nocapture %matC, i32 %M, i32 %N, i32 %K) local_unnamed_addr #0 {
+define void @_Z16gemm_blockedPdS_S_iii(double* noalias nocapture readonly %matA, double* noalias nocapture readonly %matB, double* noalias nocapture %matC, i32 %M, i32 %N, i32 %K) local_unnamed_addr #0 {
 entry:
   %cmp53 = icmp sgt i32 %M, 0
   br i1 %cmp53, label %for.body.lr.ph, label %for.cond.cleanup

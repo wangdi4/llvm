@@ -260,6 +260,9 @@ template <class Node, class ChildIterator>
 struct MachineDomTreeGraphTraitsBase {
   using NodeRef = Node *;
   using ChildIteratorType = ChildIterator;
+#if INTEL_CUSTOMIZATION
+  using nodes_iterator = df_iterator<Node *, df_iterator_default_set<Node*>>;
+#endif // INTEL_CUSTOMIZATION
 
   static NodeRef getEntryNode(NodeRef N) { return N; }
   static ChildIteratorType child_begin(NodeRef N) { return N->begin(); }
@@ -284,6 +287,16 @@ template <> struct GraphTraits<MachineDominatorTree*>
   static NodeRef getEntryNode(MachineDominatorTree *DT) {
     return DT->getRootNode();
   }
+
+#if INTEL_CUSTOMIZATION
+  static nodes_iterator nodes_begin(MachineDominatorTree *N) {
+    return df_begin(getEntryNode(N));
+  }
+
+  static nodes_iterator nodes_end(MachineDominatorTree *N) {
+    return df_end(getEntryNode(N));
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm

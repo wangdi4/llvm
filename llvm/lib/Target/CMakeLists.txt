@@ -15,6 +15,21 @@ add_llvm_library(LLVMTarget
 
 foreach(t ${LLVM_TARGETS_TO_BUILD})
   message(STATUS "Targeting ${t}")
+  if(INTEL_CUSTOMIZATION)
+# INTEL_FEATURE_CSA
+    if("${t}" STREQUAL "CSA")
+      is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
+      if(p)
+        add_subdirectory(Intel_${t})
+        continue()
+      else()
+        message(FATAL_ERROR
+          "Trying to build CSA target without CSA enabled in "
+          "LLVM_INTEL_FEATURES.")
+      endif()
+    endif()
+# end INTEL_FEATURE_CSA
+  endif(INTEL_CUSTOMIZATION)
   add_subdirectory(${t})
 endforeach()
 

@@ -155,6 +155,15 @@ namespace {
       spillImpossible = ~0u
     };
 
+#if INTEL_CUSTOMIZATION
+    bool isVirtualRegister(unsigned Reg) const {
+      return TargetRegisterInfo::isVirtualRegister(Reg) &&
+#if INTEL_FEATURE_CSA
+          !MRI->getRegClass(Reg)->isVirtual() &&
+#endif  // INTEL_FEATURE_CSA
+          true;
+    }
+#endif  // INTEL_CUSTOMIZATION
   public:
     StringRef getPassName() const override { return "Fast Register Allocator"; }
 
@@ -176,8 +185,8 @@ namespace {
   private:
     bool runOnMachineFunction(MachineFunction &MF) override;
 
-    void allocateBasicBlock(MachineBasicBlock &MBB);
-    void allocateInstruction(MachineInstr &MI);
+    bool allocateBasicBlock(MachineBasicBlock &MBB); // INTEL
+    bool allocateInstruction(MachineInstr &MI);      // INTEL
     void handleDebugValue(MachineInstr &MI);
     void handleThroughOperands(MachineInstr &MI,
                                SmallVectorImpl<unsigned> &VirtDead);
@@ -743,7 +752,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
   for (const MachineOperand &MO : MI.operands()) {
     if (!MO.isReg()) continue;
     unsigned Reg = MO.getReg();
-    if (!TargetRegisterInfo::isVirtualRegister(Reg))
+    if (!isVirtualRegister(Reg)) // INTEL
       continue;
     if (MO.isEarlyClobber() || (MO.isUse() && MO.isTied()) ||
         (MO.getSubReg() && MI.readsVirtualRegister(Reg))) {
@@ -772,7 +781,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
     MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
     unsigned Reg = MO.getReg();
-    if (!TargetRegisterInfo::isVirtualRegister(Reg)) continue;
+    if (!isVirtualRegister(Reg)) continue; // INTEL
     if (MO.isUse()) {
       if (!MO.isTied()) continue;
       LLVM_DEBUG(dbgs() << "Operand " << I << "(" << MO
@@ -797,7 +806,7 @@ void RegAllocFast::handleThroughOperands(MachineInstr &MI,
     const MachineOperand &MO = MI.getOperand(I);
     if (!MO.isReg()) continue;
     unsigned Reg = MO.getReg();
-    if (!TargetRegisterInfo::isVirtualRegister(Reg)) continue;
+    if (!isVirtualRegister(Reg)) continue; // INTEL
     if (!MO.isEarlyClobber())
       continue;
     // Note: defineVirtReg may invalidate MO.
@@ -860,7 +869,8 @@ void RegAllocFast::dumpState() {
 }
 #endif
 
-void RegAllocFast::allocateInstruction(MachineInstr &MI) {
+bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
+  bool HasVirtualRegs = false;  // INTEL
   const MCInstrDesc &MCID = MI.getDesc();
 
   // If this is a copy, we may be able to coalesce.
@@ -897,6 +907,14 @@ void RegAllocFast::allocateInstruction(MachineInstr &MI) {
     unsigned Reg = MO.getReg();
     if (!Reg) continue;
     if (TargetRegisterInfo::isVirtualRegister(Reg)) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+      if (MRI->getRegClass(Reg)->isVirtual()) {
+        HasVirtualRegs = true;
+        continue;
+      }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
       VirtOpEnd = i+1;
       if (MO.isUse()) {
         hasTiedOps = hasTiedOps ||
@@ -995,6 +1013,12 @@ void RegAllocFast::allocateInstruction(MachineInstr &MI) {
       definePhysReg(MI, Reg, MO.isDead() ? regFree : regReserved);
       continue;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    else if (MRI->getRegClass(Reg)->isVirtual())
+      continue;
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
     MCPhysReg PhysReg = defineVirtReg(MI, I, Reg, CopySrcReg);
     if (setPhysReg(MI, MI.getOperand(I), PhysReg)) {
       VirtDead.push_back(Reg);
@@ -1016,6 +1040,7 @@ void RegAllocFast::allocateInstruction(MachineInstr &MI) {
     LLVM_DEBUG(dbgs() << "Mark identity copy for removal\n");
     Coalesced.push_back(&MI);
   }
+  return HasVirtualRegs; // INTEL
 }
 
 void RegAllocFast::handleDebugValue(MachineInstr &MI) {
@@ -1053,7 +1078,8 @@ void RegAllocFast::handleDebugValue(MachineInstr &MI) {
   LiveDbgValueMap[Reg].push_back(&MI);
 }
 
-void RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) {
+bool RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) { // INTEL
+  bool HasVirtualRegs = false;  // INTEL
   this->MBB = &MBB;
   LLVM_DEBUG(dbgs() << "\nAllocating " << MBB);
 
@@ -1084,7 +1110,7 @@ void RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) {
       continue;
     }
 
-    allocateInstruction(MI);
+    HasVirtualRegs |= allocateInstruction(MI);  // INTEL
   }
 
   // Spill all physical registers holding virtual registers now.
@@ -1098,6 +1124,7 @@ void RegAllocFast::allocateBasicBlock(MachineBasicBlock &MBB) {
   NumCoalesced += Coalesced.size();
 
   LLVM_DEBUG(MBB.dump());
+  return HasVirtualRegs; // INTEL
 }
 
 bool RegAllocFast::runOnMachineFunction(MachineFunction &MF) {
@@ -1120,12 +1147,23 @@ bool RegAllocFast::runOnMachineFunction(MachineFunction &MF) {
   LiveVirtRegs.setUniverse(NumVirtRegs);
 
   // Loop over all of the basic blocks, eliminating virtual register references
+  bool HasVirtualRegs = false;                 // INTEL
   for (MachineBasicBlock &MBB : MF)
-    allocateBasicBlock(MBB);
+    HasVirtualRegs |= allocateBasicBlock(MBB); // INTEL
 
   // All machine operands and other references to virtual registers have been
   // replaced. Remove the virtual registers.
-  MRI->clearVirtRegs();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#else  // INTEL_FEATURE_CSA
+  (void)HasVirtualRegs;
+  assert(!HasVirtualRegs && "Unallocated instruction.");
+#endif // INTEL_FEATURE_CSA
+#if INTEL_FEATURE_CSA
+  if (!HasVirtualRegs)
+#endif // INTEL_FEATURE_CSA
+    MRI->clearVirtRegs();
+#endif // INTEL_CUSTOMIZATION
 
   StackSlotForVirtReg.clear();
   LiveDbgValueMap.clear();

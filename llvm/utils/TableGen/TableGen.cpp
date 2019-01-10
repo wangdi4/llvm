@@ -54,6 +54,9 @@ enum ActionType {
   GenSVMLVariants,     // TODO: VEC to COLLAB
   GenLibmvecVariants,
   GenMAPatterns,
+#if INTEL_FEATURE_CSA
+  GenCSAOpTypes,
+#endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   GenAttributes,
   GenSearchableTables,
@@ -129,6 +132,10 @@ namespace {
                                "Generate Libmvec variant function names"),
                     clEnumValN(GenMAPatterns, "gen-ma-patterns",
                                "Generate MUL/ADD patterns"),
+#if INTEL_FEATURE_CSA
+                    clEnumValN(GenCSAOpTypes, "gen-csa-op-size",
+                               "Generate op size matches for CSA"),
+#endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
                     clEnumValN(GenSearchableTables, "gen-searchable-tables",
                                "Generate generic binary-searchable table"),
@@ -255,6 +262,11 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   case GenMAPatterns:
     EmitMAPatterns(Records, OS);
     break;
+#if INTEL_FEATURE_CSA
+  case GenCSAOpTypes:
+    EmitCSAOpTypes(Records, OS);
+    break;
+#endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   case GenSearchableTables:
     EmitSearchableTables(Records, OS);

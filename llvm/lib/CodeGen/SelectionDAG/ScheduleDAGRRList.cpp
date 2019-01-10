@@ -1398,7 +1398,19 @@ DelayForLiveRegsBottomUp(SUnit *SU, SmallVectorImpl<unsigned> &LRegs) {
                                RegAdded, LRegs);
 
     const MCInstrDesc &MCID = TII->get(Node->getMachineOpcode());
-    if (MCID.hasOptionalDef()) {
+#if INTEL_CUSTOMIZATION
+    bool SkipOptionalDefs = false;
+#if INTEL_FEATURE_CSA
+    // CSA EDIT: the below assumes that optional defs have DAG node result
+    // values, which isn't the case on CSA. On CSA, optional defs will
+    // never have a real register def at selection time, so skip this handling
+    // altogether.
+    SkipOptionalDefs =
+      MF.getTarget().getTargetTriple().getArch() == Triple::csa;
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
+
+    if (MCID.hasOptionalDef() && !SkipOptionalDefs) { // INTEL
       // Most ARM instructions have an OptionalDef for CPSR, to model the S-bit.
       // This operand can be either a def of CPSR, if the S bit is set; or a use
       // of %noreg.  When the OptionalDef is set to a valid register, we need to

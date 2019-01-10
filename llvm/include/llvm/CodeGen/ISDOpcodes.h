@@ -580,6 +580,9 @@ namespace ISD {
     /// is often a storage-only type but has native conversions.
     FP16_TO_FP, FP_TO_FP16,
 
+#if INTEL_CUSTOMIZATION
+    FTAN, FATAN, FATAN2,
+#endif // INTEL_CUSTOMIZATION
     /// Perform various unary floating-point operations inspired by libm.
     FNEG, FABS, FSQRT, FCBRT, FSIN, FCOS, FPOWI, FPOW,
     FLOG, FLOG2, FLOG10, FEXP, FEXP2,

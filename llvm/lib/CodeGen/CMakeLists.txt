@@ -1,3 +1,14 @@
+# INTEL_CUSTOMIZATION
+set(INTEL_SOURCE_FILES_TO_BUILD)
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+# Add custom Intel files below.  Files listed here will be included in
+# INTEL_CUSTOMIZATION build.
+  Intel_MIRMatcher.cpp
+  Intel_MachineLoopOptReportEmitter.cpp
+  )
+# end INTEL_CUSTOMIZATION
+
 add_llvm_library(LLVMCodeGen
   AggressiveAntiDepBreaker.cpp
   AllocationOrder.cpp
@@ -162,7 +173,7 @@ add_llvm_library(LLVMCodeGen
   WinEHPrepare.cpp
   XRayInstrumentation.cpp
 # INTEL_CUSTOMIZATION
-  Intel_MachineLoopOptReportEmitter.cpp
+  ${INTEL_SOURCE_FILES_TO_BUILD}
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS

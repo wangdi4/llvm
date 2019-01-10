@@ -1,3 +1,5 @@
+; INTEL_FEATURE_CSA
+; REQUIRES: csa-registered-target
 ; RUN: opt < %s  -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -scoped-noalias -aa-eval -evaluate-aa-metadata -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ;
 ; It test whether the compiler can generate the scope alias metadata
@@ -213,3 +215,4 @@ attributes #3 = { nounwind }
 !74 = !DILocation(line: 27, column: 1, scope: !9)
 ; CHECK: MayAlias:     [512 x double]* %arrayidx, double* %arrayidx3
 ; CHECK: MayAlias:     [512 x double]* %arrayidx, double* %arrayidx7
+; end INTEL_FEATURE_CSA
