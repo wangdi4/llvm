@@ -66,7 +66,7 @@
 // making an assumption e.g. `S1 + n == S2 + m` we store `S1 - S2 == m - n` as
 // a constraint which we later retrieve when doing an actual comparison.
 
-#include "ClangSACheckers.h"
+#include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
@@ -551,7 +551,7 @@ void IteratorChecker::checkPreCall(const CallEvent &Call,
     // 
     // In this case the first two arguments to f() must be iterators must belong
     // to the same container and the last to also to the same container but
-    // not neccessarily to the same as the first two.
+    // not necessarily to the same as the first two.
 
     if (!ChecksEnabled[CK_MismatchedIteratorChecker])
       return;
@@ -1213,7 +1213,7 @@ void IteratorChecker::handleAssign(CheckerContext &C, const SVal &Cont,
       const auto OldCData = getContainerData(State, OldContReg);
       if (OldCData) {
         if (const auto OldEndSym = OldCData->getEnd()) {
-          // If we already assigned an "end" symbol to the old conainer, then
+          // If we already assigned an "end" symbol to the old container, then
           // first reassign all iterator positions to the new container which
           // are not past the container (thus not greater or equal to the
           // current "end" symbol).

@@ -474,7 +474,10 @@ PDBLinker::mergeDebugT(ObjFile *File, CVIndexMap *ObjectIndexMap) {
 
     // Drop LF_PRECOMP record from the input stream, as it needs to be replaced
     // with the precompiled headers object type stream.
-    Types.drop_front();
+    // Note that we can't just call Types.drop_front(), as we explicitly want to
+    // rebase the stream.
+    Types.setUnderlyingStream(
+        Types.getUnderlyingStream().drop_front(FirstType->RecordData.size()));
   }
 
   // Fill in the temporary, caller-provided ObjectIndexMap.
@@ -1011,11 +1014,13 @@ void PDBLinker::mergeSymbolRecords(ObjFile *File, const CVIndexMap &IndexMap,
   // Iterate every symbol to check if any need to be realigned, and if so, how
   // much space we need to allocate for them.
   bool NeedsRealignment = false;
-  unsigned RealignedSize = 0;
+  unsigned TotalRealignedSize = 0;
   auto EC = forEachCodeViewRecord<CVSymbol>(
       SymsBuffer, [&](CVSymbol Sym) -> llvm::Error {
-        RealignedSize += alignTo(Sym.length(), alignOf(CodeViewContainer::Pdb));
+        unsigned RealignedSize =
+            alignTo(Sym.length(), alignOf(CodeViewContainer::Pdb));
         NeedsRealignment |= RealignedSize != Sym.length();
+        TotalRealignedSize += RealignedSize;
         return Error::success();
       });
 
@@ -1033,9 +1038,9 @@ void PDBLinker::mergeSymbolRecords(ObjFile *File, const CVIndexMap &IndexMap,
   MutableArrayRef<uint8_t> AlignedSymbolMem;
   if (NeedsRealignment) {
     void *AlignedData =
-        Alloc.Allocate(RealignedSize, alignOf(CodeViewContainer::Pdb));
+        Alloc.Allocate(TotalRealignedSize, alignOf(CodeViewContainer::Pdb));
     AlignedSymbolMem = makeMutableArrayRef(
-        reinterpret_cast<uint8_t *>(AlignedData), RealignedSize);
+        reinterpret_cast<uint8_t *>(AlignedData), TotalRealignedSize);
   }
 
   // Iterate again, this time doing the real work.

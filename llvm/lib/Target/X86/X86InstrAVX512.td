@@ -4834,9 +4834,9 @@ defm VPADDS : avx512_binop_rm_vl_bw<0xEC, 0xED, "vpadds", X86adds,
                                     SchedWriteVecALU, HasBWI, 1>;
 defm VPSUBS : avx512_binop_rm_vl_bw<0xE8, 0xE9, "vpsubs", X86subs,
                                     SchedWriteVecALU, HasBWI, 0>;
-defm VPADDUS : avx512_binop_rm_vl_bw<0xDC, 0xDD, "vpaddus", X86addus,
+defm VPADDUS : avx512_binop_rm_vl_bw<0xDC, 0xDD, "vpaddus", uaddsat,
                                      SchedWriteVecALU, HasBWI, 1>;
-defm VPSUBUS : avx512_binop_rm_vl_bw<0xD8, 0xD9, "vpsubus", X86subus,
+defm VPSUBUS : avx512_binop_rm_vl_bw<0xD8, 0xD9, "vpsubus", usubsat,
                                      SchedWriteVecALU, HasBWI, 0>;
 defm VPMULLD : avx512_binop_rm_vl_d<0x40, "vpmulld", mul,
                                     SchedWritePMULLD, HasAVX512, 1>, T8PD;
@@ -8790,7 +8790,7 @@ let Predicates = [HasVLX] in {
                (v4f32 (COPY_TO_REGCLASS FR32X:$src, VR128X)), 4)))), FR32X)) >;
 }
 
-//  Unordered/Ordered scalar fp compare with Sea and set EFLAGS
+//  Unordered/Ordered scalar fp compare with Sae and set EFLAGS
 multiclass avx512_ord_cmp_sae<bits<8> opc, X86VectorVTInfo _,
                             string OpcodeStr, X86FoldableSchedWrite sched> {
   let hasSideEffects = 0 in
