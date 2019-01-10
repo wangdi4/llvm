@@ -4054,6 +4054,9 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
 
 #if INTEL_COLLAB
   if (CGM.getLangOpts().OpenMPLateOutline)
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
     return;
 #endif // INTEL_COLLAB
 
@@ -7081,8 +7084,14 @@ public:
       QualType Ty =
           I->getAssociatedDeclaration()->getType().getNonReferenceType();
 #if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+      if ((!CGF.CGM.getLangOpts().OpenMPLateOutline ||
+           !CGF.CGM.getLangOpts().OpenMPLateOutlineTarget) &&
+          Ty->isAnyPointerType() && std::next(I) != CE) {
+#else
       if (!CGF.CGM.getLangOpts().OpenMPLateOutline &&
           Ty->isAnyPointerType() && std::next(I) != CE) {
+#endif  // INTEL_CUSTOMIZATION
 #else
       if (Ty->isAnyPointerType() && std::next(I) != CE) {
 #endif // INTEL_COLLAB
@@ -8463,6 +8472,9 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
 #if INTEL_COLLAB
       return false;
     if (CGM.getLangOpts().OpenMPLateOutline)
+#if INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
       return true;
 #else
       return;
@@ -8610,6 +8622,9 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
         scanForTargetRegionsFunctions(FD->getBody(), Name);
 
     // Emit functions with target regions if doing BE outlining.
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
     if (HasTargetRegions && CGM.getLangOpts().OpenMPLateOutline) {
       // Force function to be emitted
       (void) CGM.GetAddrOfFunction(FD);
@@ -8790,6 +8805,9 @@ llvm::Function *CGOpenMPRuntime::emitRegistrationFunction() {
 #if INTEL_COLLAB
   // Offload registration is created by BE with late outlining.
   if (CGM.getLangOpts().OpenMPLateOutline)
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
     return nullptr;
 #endif // INTEL_COLLAB
 

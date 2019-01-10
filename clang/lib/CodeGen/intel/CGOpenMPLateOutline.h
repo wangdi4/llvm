@@ -407,6 +407,10 @@ public:
   void recordValueReference(llvm::Value *V) { Outliner.addValueRef(V); }
   void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
 
+#if INTEL_CUSTOMIZATION
+  bool isLateOutlinedRegion() { return true; }
+#endif // INTEL_CUSTOMIZATION
+
 private:
   /// CodeGen info about outer OpenMP region.
   CodeGenFunction::CGCapturedStmtInfo *OldCSI;

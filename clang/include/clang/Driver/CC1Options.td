@@ -812,6 +812,8 @@ def no_friend_injection : Flag<["--"], "no_friend_injection">,
 def fintel_imf_attr_EQ : Joined<["-"], "mGLOB_imf_attr=">;
 def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,
   HelpText<"Enable emitting of Intel specific OpenMP code with regions">;
+def fno_intel_openmp_offload : Flag<["-"], "fno-intel-openmp-offload">,
+  HelpText<"Enable emitting of Intel specific OpenMP offload code">;
 def fopenmp_threadprivate_legacy : Flag<["-"], "fopenmp-threadprivate-legacy">,
   HelpText<"Generate legacy OpenMP threadprivates">;
 def fintel_openmp_tbb : Flag<["-"], "fopenmp-tbb">,

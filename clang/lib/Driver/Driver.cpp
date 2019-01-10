@@ -17,6 +17,11 @@
 #include "ToolChains/CloudABI.h"
 #include "ToolChains/Contiki.h"
 #include "ToolChains/CrossWindows.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#include "ToolChains/Intel_CSA.h"
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 #include "ToolChains/Cuda.h"
 #include "ToolChains/Darwin.h"
 #include "ToolChains/DragonFly.h"
@@ -4614,6 +4619,13 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       case llvm::Triple::xcore:
         TC = llvm::make_unique<toolchains::XCoreToolChain>(*this, Target, Args);
         break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+      case llvm::Triple::csa:
+        TC = llvm::make_unique<toolchains::CSAToolChain>(*this, Target, Args);
+        break;
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
       case llvm::Triple::wasm32:
       case llvm::Triple::wasm64:
         TC = llvm::make_unique<toolchains::WebAssembly>(*this, Target, Args);

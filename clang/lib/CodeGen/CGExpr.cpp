@@ -2527,7 +2527,31 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
     }
 
 #if INTEL_COLLAB
-    if (getLangOpts().OpenMPLateOutline) {
+#if INTEL_CUSTOMIZATION
+    bool Nested = false;
+#endif // INTEL_CUSTOMIZATION
+    if (getLangOpts().OpenMPLateOutline
+#if INTEL_CUSTOMIZATION
+        && CapturedStmtInfo && CapturedStmtInfo->isLateOutlinedRegion()
+#endif // INTEL_CUSTOMIZATION
+       ) {
+#if INTEL_CUSTOMIZATION
+      // This is a late-outlined region, check if it is nested inside a
+      // fe-outlined region.
+      auto *CSI = cast<CGLateOutlineOpenMPRegionInfo>(CapturedStmtInfo);
+      CodeGenFunction::CGCapturedStmtInfo *outer = CSI->getOldCSI();
+      while (outer && outer->isLateOutlinedRegion()) {
+        auto *CSI = cast<CGLateOutlineOpenMPRegionInfo>(outer);
+        outer = CSI->getOldCSI();
+      }
+      if (outer)
+        Nested = true;
+    }
+    bool NestedGlobal =
+        Nested && (VD->hasLinkage() || VD->isStaticDataMember());
+    if (getLangOpts().OpenMPLateOutline && !NestedGlobal &&
+        (!CapturedStmtInfo || CapturedStmtInfo->isLateOutlinedRegion())) {
+#endif // INTEL_CUSTOMIZATION
       if (CapturedStmtInfo)
         CapturedStmtInfo->recordVariableReference(VD);
       if (isa<OMPCapturedExprDecl>(VD)) {

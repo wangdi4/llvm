@@ -235,6 +235,9 @@ LANGOPT(OpenMPUseTLS      , 1, 0, "Use TLS for threadprivates or runtime calls")
 #if INTEL_COLLAB
 LANGOPT(OpenMPLateOutline , 1, 0, "Outline OpenMP constructs in the back end")
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
+#endif // INTEL_CUSTOMIZATION
 LANGOPT(OpenMPIsDevice    , 1, 0, "Generate code only for OpenMP target device")
 LANGOPT(OpenMPCUDAMode    , 1, 0, "Generate code for OpenMP pragmas in SIMT/SPMD mode")
 LANGOPT(OpenMPCUDAForceFullRuntime , 1, 0, "Force to use full runtime in all constructs when offloading to CUDA devices")

@@ -4506,6 +4506,12 @@ static Value *EmitTargetArchBuiltinExpr(CodeGenFunction *CGF,
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
     return CGF->EmitX86BuiltinExpr(BuiltinID, E);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case llvm::Triple::csa:
+    return CGF->EmitCSABuiltinExpr(BuiltinID, E);
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case llvm::Triple::ppc:
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
@@ -11919,6 +11925,19 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     // instruction, but it will create a memset that won't be optimized away.
     return Builder.CreateMemSet(Ops[0], Ops[1], Ops[2], 1, true);
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case X86::BI__builtin_csa_parallel_region_entry:
+  case X86::BI__builtin_csa_parallel_region_exit:
+  case X86::BI__builtin_csa_parallel_section_entry:
+  case X86::BI__builtin_csa_parallel_section_exit:
+  case X86::BI__builtin_csa_parallel_loop:
+  case X86::BI__builtin_csa_spmdization:
+  case X86::BI__builtin_csa_spmd: {
+    return UndefValue::get(ConvertType(E->getType())); // noop
+  }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
   case X86::BI__ud2:
     // llvm.trap makes a ud2a instruction on x86.
     return EmitTrapCall(Intrinsic::trap);
@@ -11974,6 +11993,54 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return EmitX86AddSubSatExpr(*this, E, Ops, false /* IsAddition */);
   }
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
+                                           const CallExpr *E) {
+  switch (BuiltinID) {
+  case CSA::BI__builtin_csa_directive: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_directive,
+                                     X->getType());
+    return Builder.CreateCall(Callee, X);
+  }
+  case CSA::BI__builtin_csa_parallel_loop: {
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_parallel_loop);
+    return Builder.CreateCall(Callee);
+  }
+  case CSA::BI__builtin_csa_spmdization: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Y = EmitScalarExpr(E->getArg(1));
+    const Expr *SPMDStrExpr = E->getArg(1)->IgnoreParenCasts();
+    StringRef Str = cast<StringLiteral>(SPMDStrExpr)->getString();
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmdization,
+                                     {X->getType(), Y->getType()});
+    return Builder.CreateCall(Callee,
+                              {X, Builder.CreateBitCast(
+                                      CGM.EmitAnnotationString(Str),
+                                      Int8PtrTy)});
+  }
+  case CSA::BI__builtin_csa_spmd: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Y = EmitScalarExpr(E->getArg(1));
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmd,
+                                     {X->getType(), Y->getType()});
+    return Builder.CreateCall(Callee, {X, Y});
+  }
+  case CSA::BI__builtin_csa_pipeline_loop: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_pipeline_loop,
+                                     X->getType());
+    return Builder.CreateCall(Callee, X);
+  }
+
+  default:
+    return nullptr;
+  }
+}
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
 
 Value *CodeGenFunction::EmitPPCBuiltinExpr(unsigned BuiltinID,
                                            const CallExpr *E) {

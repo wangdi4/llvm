@@ -1231,6 +1231,17 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasINVPCID)
     Builder.defineMacro("__INVPCID__");
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // Disable setting of __SSE2_MATH__  as it enables guarded x86 inline asm in
+  // bits/mathinline.hfor CSA and compiler errors on encountering the inline asm
+  // Future we may was to disable only for CSA and disable other macro
+  // defines not needed for CSA
+  // TODO (vzakhari 11/14/2018): I do not understand why we call X86 target
+  //       configuration on CSA.  This needs to be debugged.
+  if (!Opts.OpenMPIsDevice) {
+#endif  // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   // Each case falls through to the previous one here.
   switch (SSELevel) {
   case AVX512F:
@@ -1265,6 +1276,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case NoSSE:
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  }
+#endif  // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   if (Opts.MicrosoftExt && getTriple().getArch() == llvm::Triple::x86) {
     switch (SSELevel) {

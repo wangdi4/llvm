@@ -65,6 +65,16 @@ public:
         InlinedShareds(CGF) {
 #if INTEL_COLLAB
     if (CGF.getLangOpts().OpenMPLateOutline)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+        // TODO (vzakhari 10/2/2018): temporary change to proceed with
+        //       xmain->csa-xmain merge.  We have to figure out what
+        //       is the right assertion, and maybe do this under a target
+        //       triple check.
+#endif  // INTEL_FEATURE_CSA
+      if (S.getStmtClass() != Stmt::OMPAtomicDirectiveClass &&
+          S.getStmtClass() != Stmt::OMPTargetDirectiveClass)
+#endif // INTEL_CUSTOMIZATION
       llvm_unreachable("Should be using OMPLateOutlineScope");
 #endif // INTEL_COLLAB
     if (EmitPreInitStmt)

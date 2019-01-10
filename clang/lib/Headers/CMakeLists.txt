@@ -28,6 +28,14 @@
 #
 # For more examples, please, read Intel_Headers/README.txt.
 set(INTEL_HEADERS)
+# INTEL_FEATURE_CSA
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
+  Intel_Headers/csa/csaintrin.h
+  Intel_Headers/csa/x86intrin.h
+  Intel_Headers/csa/bits/mathinline.h
+  )
+# end INTEL_FEATURE_CSA
 # INTEL_FEATURE_ISA_BF16
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16

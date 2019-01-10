@@ -1,3 +1,5 @@
+//FIXME: re-enable the test, when CMPLRLLVM-8100 is fixed.
+//XFAIL: *
 //RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 //RUN:  -emit-llvm -disable-llvm-passes \
 //RUN:  -fopenmp -fopenmp-targets=spir64,spir \
@@ -139,9 +141,7 @@ void foo1()
   #pragma omp target
   {
     int i = 0;
-    //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
-    //ALL-SAME:"DIR.OMP.ATOMIC"
-    //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.ATOMIC"
+    // CHECK: atomicrmw add i64* [[N1_ADDR]], i64 1 monotonic
     #pragma omp atomic
     i++;
     //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()

@@ -3135,6 +3135,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (!Opts.OpenMPLateOutline)
     Opts.OpenMPLateOutline =
         Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
+  Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
 #endif // INTEL_CUSTOMIZATION
 
   // Check if -fopenmp-simd is specified.
@@ -3203,6 +3204,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
             TT.getArch() == llvm::Triple::ppc64le ||
             TT.getArch() == llvm::Triple::nvptx ||
             TT.getArch() == llvm::Triple::nvptx64 ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+            TT.getArch() == llvm::Triple::csa ||
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
             TT.getArch() == llvm::Triple::x86 ||
 #if INTEL_COLLAB
             TT.getArch() == llvm::Triple::x86_64 ||
