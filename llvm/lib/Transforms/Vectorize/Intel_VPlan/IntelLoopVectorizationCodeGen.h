@@ -756,6 +756,25 @@ private:
   /// Hold names of scalar select builtins
   SmallSet<std::string, 20> ScalarSelectSet;
 
+  /// This function returns the widened GEP instruction that is used
+  /// as a pointer-operand in a load-store instruction. In the generated code,
+  /// the returned GEP is itself used as an operand of a Scatter/Gather
+  /// function.
+  Value *createWidenedGEPForScatterGather(Instruction *I);
+
+  /// This function returns the widened GEP instruction that is used
+  /// as a pointer-operand in a load-store Operation. This particular overload
+  /// handles the case where the original load/store instruction does not use a
+  /// pointer operand which is a result of a GEP-instruction, but rather a
+  /// global variable or an argument. In the generated code, the returned GEP is
+  /// itself used as an operand of a Scatter/Gather function.
+  Value *createWidenedGEPForScatterGather(Instruction *I, Value *Ptr);
+
+  /// This function return an appropriate BasePtr for cases where we are have
+  /// load/store to consecutive memory locations
+  Value *createWidenedBasePtrConsecutiveLoadStore(Instruction *I, Value *Ptr,
+                                                  bool Reverse);
+
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 };

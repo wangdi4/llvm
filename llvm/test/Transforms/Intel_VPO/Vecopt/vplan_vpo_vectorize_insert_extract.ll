@@ -11,13 +11,13 @@
 ; CHECK-VF2: [[wideExtract:%.*]] = shufflevector <4 x i32> [[VAR:%.*]], <4 x i32> undef, <2 x i32> <i32 0, i32 2>
 ; CHECK-VF2-NEXT: [[wideExtract1:%.*]] = shufflevector <4 x i32> [[VAR:%.*]], <4 x i32> undef, <2 x i32> <i32 1, i32 3>
 ; CHECK-VF2: [[wideInsert:%.*]] = shufflevector <2 x i32> [[VAR:%.*]], <2 x i32> undef, <4 x i32> <i32 0, i32 undef, i32 1, i32 undef>
-; CHECK-VF2-NEXT: [[extendedSubVec:%.*]] = shufflevector <2 x i32> [[VAR1:%.*]], <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-VF2-NEXT: [[extendedSubVec:%.*]] = shufflevector <2 x i32> [[VAR1:%.*]], <2 x i32> undef, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
 ; CHECK-VF2-NEXT: [[wideInsert1:%.*]] = shufflevector <4 x i32> [[wideInsert]], <4 x i32> [[extendedSubVec]], <4 x i32> <i32 0, i32 4, i32 2, i32 5>
 
 ; CHECK-VF8: [[wideExtract:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <8 x i32> <i32 0, i32 2, i32 4, i32 6, i32 8, i32 10, i32 12, i32 14>
 ; CHECK-VF8-NEXT: [[wideExtract1:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <8 x i32> <i32 1, i32 3, i32 5, i32 7, i32 9, i32 11, i32 13, i32 15>
 ; CHECK-VF8: [[wideInsert:%.*]] = shufflevector <8 x i32> [[VAR:%.*]], <8 x i32> undef, <16 x i32> <i32 0, i32 undef, i32 1, i32 undef, i32 2, i32 undef, i32 3, i32 undef, i32 4, i32 undef, i32 5, i32 undef, i32 6, i32 undef, i32 7, i32 undef> 
-; CHECK-VF8-NEXT: [[extendedSubVec:%.*]] = shufflevector <8 x i32> [[VAR1:%.*]], <8 x i32> undef,  <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15> 
+; CHECK-VF8-NEXT: [[extendedSubVec:%.*]] = shufflevector <8 x i32> [[VAR1:%.*]], <8 x i32> undef,  <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef> 
 ; CHECK-VF8-NEXT: [[wideInsert1:%.*]] = shufflevector <16 x i32> [[wideInsert]], <16 x i32> [[extendedSubVec]], <16 x i32> <i32 0, i32 16, i32 2, i32 17, i32 4, i32 18, i32 6, i32 19, i32 8, i32 20, i32 10, i32 21, i32 12, i32 22, i32 14, i32 23> 
 
 ; ModuleID = 'main'
