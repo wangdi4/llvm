@@ -513,7 +513,7 @@ bool LoopSPMDization::FindReductionVariables(
     if (!Phi)
       continue;
     RecurrenceDescriptor RedDes;
-    if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes)) {
+    if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes) || RecurrenceDescriptor::AddReductionVar(Phi, RecurrenceDescriptor::RecurrenceKind::RK_FloatMinMax, L, true, RedDes)){
       Value *ReduceVar;
       PHINode *Phiop = Phi;
       PHINode *redoperation;
