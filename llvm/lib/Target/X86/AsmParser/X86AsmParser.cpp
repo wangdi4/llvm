@@ -2026,6 +2026,11 @@ bool X86AsmParser::HandleAVX512Operand(OperandVector &Operands,
           .Case("to4",  "{1to4}")
           .Case("to8",  "{1to8}")
           .Case("to16", "{1to16}")
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+          .Case("to32", "{1to32}")
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
           .Default(nullptr);
       if (!BroadcastPrimitive)
         return TokError("Invalid memory broadcast primitive.");

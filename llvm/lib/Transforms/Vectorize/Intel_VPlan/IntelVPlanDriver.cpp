@@ -203,9 +203,6 @@ private:
   bool processLoop(HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp = 0) override;
 
   bool isSupported(HLLoop *Lp) override {
-    if (!Lp->isInnermost())
-      return false;
-
     if (HIRLoopStats->getSelfLoopStatistics(Lp).hasSwitches())
       return false;
 

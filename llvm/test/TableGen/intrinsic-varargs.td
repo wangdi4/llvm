@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_ISA_FP16
+// UNSUPPORTED: intel_feature_isa_fp16
+// end INTEL_FEATURE_ISA_FP16
+// end INTEL_CUSTOMIZATION
 // RUN: llvm-tblgen -gen-intrinsic-impl %s | FileCheck %s
 // XFAIL: vg_leak
 

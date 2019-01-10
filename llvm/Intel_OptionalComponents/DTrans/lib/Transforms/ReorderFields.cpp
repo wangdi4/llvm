@@ -1,6 +1,6 @@
 //===---------------- ReorderFields.cpp - DTransReorderFieldsPass ---------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -79,17 +79,21 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-    DTransAnalysisInfo &DTInfo =
-        getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
-    return Impl.runImpl(M, DTInfo,
+    DTransAnalysisWrapper &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
+    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
+    bool Changed = Impl.runImpl(M, DTInfo,
                         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
                         getAnalysis<WholeProgramWrapperPass>().getResult());
+    if (Changed)
+      DTAnalysisWrapper.setInvalidated();
+    return Changed;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
+    AU.addPreserved<DTransAnalysisWrapper>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -128,7 +132,7 @@ public:
                     LLVMContext &Context, const DataLayout &DL,
                     const TargetLibraryInfo &TLI, StringRef DepTypePrefix,
                     DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
+      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper),
         RTI(RTI) {}
 
   virtual bool prepareTypes(Module &M) override;
@@ -323,7 +327,7 @@ void ReorderFieldsImpl::processByteFlattenedGetElementPtrInst(
   // Only two operands are expected for ByteFlattened GEPs
   if (GEP.getNumOperands() != 2)
     return;
-  auto GEPInfo = DTInfo.getByteFlattenedGEPElement(&GEP);
+  auto GEPInfo = DTInfo->getByteFlattenedGEPElement(&GEP);
   if (!GEPInfo.first)
     return;
 
@@ -423,7 +427,7 @@ void ReorderFieldsImpl::processBinaryOperator(BinaryOperator &BO) {
 // to process GEPs that are passed as arguments to any calls since
 // Reordering is disabled as it is treated as AddressTaken.
 void ReorderFieldsImpl::processCallInst(CallInst &CI) {
-  CallInfo *CInfo = DTInfo.getCallInfo(&CI);
+  CallInfo *CInfo = DTInfo->getCallInfo(&CI);
   if (CInfo == nullptr)
     return;
   StructType *StrTy = getStructTyAssociatedWithCallInfo(CInfo);

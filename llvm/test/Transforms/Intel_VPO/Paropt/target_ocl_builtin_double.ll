@@ -1,0 +1,158 @@
+; RUN: opt -vpo-paropt -S < %s | FileCheck %s
+; RUN: opt -passes='vpo-paropt' -S < %s  | FileCheck %s
+
+; This test checks that VPOParopt translates names of math functions (double)
+; into OpenCL builtin names. This is needed in the spirv compilation phase
+; of icx -fiopenmp -fopenmp-targets=spir64 for
+;
+; #include <stdio.h>
+; #include <mathimf.h>
+; int main() {
+;   double array[10];
+;   #pragma omp target map(tofrom:array)
+;   {
+;      array[0] = sin(1.0);
+;      array[1] = cos(1.0);
+;      array[2] = tan(1.0);
+;      array[3] = pow(2.0, 3.0);
+;      array[4] = exp(2.0);
+;      array[5] = log(2.0);
+;      array[6] = ceil(2.5);
+;      array[7] = floor(2.5);
+;      array[8] = fabs(-2.0);
+;      array[9] = sqrt(3.0);
+;   }
+;   for (int i = 0; i<10; i++)
+;     printf("array[%d] = %lf\n", i, array[i]);
+;   return 0;
+; }
+
+; ModuleID = '<stdin>'
+source_filename = "target_ocl_builtin_double.cpp"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target triple = "spir64"
+target device_triples = "spir64"
+
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #0
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #0
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @sin(double) #1
+; CHECK: declare dso_local spir_func double @_Z3sind(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @cos(double) #1
+; CHECK: declare dso_local spir_func double @_Z3cosd(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @tan(double) #1
+; CHECK: declare dso_local spir_func double @_Z3tand(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @pow(double, double) #1
+; CHECK: declare dso_local spir_func double @_Z3powdd(double, double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @exp(double) #1
+; CHECK: declare dso_local spir_func double @_Z3expd(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @log(double) #1
+; CHECK: declare dso_local spir_func double @_Z3logd(double)
+
+; Function Attrs: nounwind readnone
+declare dso_local spir_func double @ceil(double) #2
+; CHECK: declare dso_local spir_func double @_Z4ceild(double)
+
+; Function Attrs: nounwind readnone
+declare dso_local spir_func double @floor(double) #2
+; CHECK: declare dso_local spir_func double @_Z5floord(double)
+
+; Function Attrs: nounwind readnone
+declare dso_local spir_func double @fabs(double) #2
+; CHECK: declare dso_local spir_func double @_Z4fabsd(double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @sqrt(double) #1
+; CHECK: declare dso_local spir_func double @_Z4sqrtd(double)
+
+; Function Attrs: noinline norecurse optnone uwtable
+define dso_local spir_kernel void @__omp_offloading_fd02_d323b8_main_l37([10 x double] addrspace(1)* %array) #4 {
+newFuncRoot:
+  br label %for.end
+
+DIR.OMP.END.TARGET.232.exitStub:                  ; preds = %DIR.OMP.END.TARGET.2
+  ret void
+
+for.end:                                          ; preds = %newFuncRoot
+  br label %DIR.OMP.TARGET.1
+
+DIR.OMP.TARGET.1:                                 ; preds = %for.end
+  %call = call spir_func double @sin(double 1.000000e+00) #0
+; CHECK: {{.*}} call spir_func double @_Z3sind
+  %arrayidx1 = getelementptr inbounds [10 x double], [10 x double] addrspace(1)* %array, i64 0, i64 0
+  store double %call, double addrspace(1)* %arrayidx1, align 8
+  %call2 = call spir_func double @cos(double 1.000000e+00) #0
+; CHECK: {{.*}} call spir_func double @_Z3cosd
+  %arrayidx3 = getelementptr inbounds [10 x double], [10 x double] addrspace(1)* %array, i64 0, i64 1
+  store double %call2, double addrspace(1)* %arrayidx3, align 8
+  %call4 = call spir_func double @tan(double 1.000000e+00) #0
+; CHECK: {{.*}} call spir_func double @_Z3tand
+  %arrayidx5 = getelementptr inbounds [10 x double], [10 x double] addrspace(1)* %array, i64 0, i64 2
+  store double %call4, double addrspace(1)* %arrayidx5, align 8
+  %call6 = call spir_func double @pow(double 2.000000e+00, double 3.000000e+00) #0
+; CHECK: {{.*}} call spir_func double @_Z3powdd
+  %arrayidx7 = getelementptr inbounds [10 x double], [10 x double] addrspace(1)* %array, i64 0, i64 3
+  store double %call6, double addrspace(1)* %arrayidx7, align 8
+  %call8 = call spir_func double @exp(double 2.000000e+00) #0
+; CHECK: {{.*}} call spir_func double @_Z3expd
+  %arrayidx9 = getelementptr inbounds [10 x double], [10 x double] addrspace(1)* %array, i64 0, i64 4
+  store double %call8, double addrspace(1)* %arrayidx9, align 8
+  %call10 = call spir_func double @log(double 2.000000e+00) #0
+; CHECK: {{.*}} call spir_func double @_Z3logd
+  %arrayidx11 = getelementptr inbounds [10 x double], [10 x double] addrspace(1)* %array, i64 0, i64 5
+  store double %call10, double addrspace(1)* %arrayidx11, align 8
+  %call12 = call spir_func double @ceil(double 2.500000e+00) #5
+; CHECK: {{.*}} call spir_func double @_Z4ceild
+  %arrayidx13 = getelementptr inbounds [10 x double], [10 x double] addrspace(1)* %array, i64 0, i64 6
+  store double %call12, double addrspace(1)* %arrayidx13, align 8
+  %call14 = call spir_func double @floor(double 2.500000e+00) #5
+; CHECK: {{.*}} call spir_func double @_Z5floord
+  %arrayidx15 = getelementptr inbounds [10 x double], [10 x double] addrspace(1)* %array, i64 0, i64 7
+  store double %call14, double addrspace(1)* %arrayidx15, align 8
+  %call16 = call spir_func double @fabs(double -2.000000e+00) #5
+; CHECK: {{.*}} call spir_func double @_Z4fabsd
+  %arrayidx17 = getelementptr inbounds [10 x double], [10 x double] addrspace(1)* %array, i64 0, i64 8
+  store double %call16, double addrspace(1)* %arrayidx17, align 8
+  %call18 = call spir_func double @sqrt(double 3.000000e+00) #0
+; CHECK: {{.*}} call spir_func double @_Z4sqrtd
+  %arrayidx19 = getelementptr inbounds [10 x double], [10 x double] addrspace(1)* %array, i64 0, i64 9
+  store double %call18, double addrspace(1)* %arrayidx19, align 8
+  br label %DIR.OMP.END.TARGET.2
+
+DIR.OMP.END.TARGET.2:                             ; preds = %DIR.OMP.TARGET.1
+  br label %DIR.OMP.END.TARGET.232.exitStub
+}
+
+attributes #0 = { nounwind }
+attributes #1 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #4 = { noinline norecurse optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target.declare"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #5 = { nounwind readnone }
+
+!llvm.module.flags = !{!0}
+!opencl.used.extensions = !{!1}
+!opencl.used.optional.core.features = !{!2}
+!opencl.compiler.options = !{!1}
+!llvm.ident = !{!3}
+!spirv.Source = !{!4}
+
+!0 = !{i32 1, !"wchar_size", i32 4}
+!1 = !{}
+!2 = !{!"cl_doubles"}
+!3 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 94cf1187207b474fb38049b467acb1d22cb75b39) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm a2481e423de5a371ce5d12cf6c4d1ec818c6ea5e)"}
+!4 = !{i32 4, i32 200000}

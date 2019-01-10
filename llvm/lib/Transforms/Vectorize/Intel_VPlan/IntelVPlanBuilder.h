@@ -207,6 +207,29 @@ public:
     VPInstruction *NewVPInst = new VPPHINode(BaseTy);
     return NewVPInst;
   }
+
+  // Build a VPGEPInstruction for the LLVM-IR instruction \p Inst using base
+  // pointer \p Ptr and list of index operands \p IdxList
+  VPInstruction *createGEP(VPValue *Ptr, ArrayRef<VPValue *> IdxList,
+                           Instruction *Inst) {
+    assert(Inst && "Instruction cannot be a nullptr");
+    VPInstruction *NewVPInst =
+        new VPGEPInstruction(Inst->getType(), Ptr, IdxList);
+    if (BB)
+      BB->insert(NewVPInst, InsertPt);
+    NewVPInst->setUnderlyingValue(Inst);
+    return NewVPInst;
+  }
+
+  // Build an inbounds VPGEPInstruction for the LLVM-IR instruction \p Inst
+  // using base pointer \p Ptr and list of index operands \p IdxList
+  VPInstruction *createInBoundsGEP(VPValue *Ptr, ArrayRef<VPValue *> IdxList,
+                                   Instruction *Inst) {
+    VPInstruction *NewVPInst = createGEP(Ptr, IdxList, Inst);
+    cast<VPGEPInstruction>(NewVPInst)->setIsInBounds(true);
+    return NewVPInst;
+  }
+
   //===--------------------------------------------------------------------===//
   // RAII helpers.
   //===--------------------------------------------------------------------===//

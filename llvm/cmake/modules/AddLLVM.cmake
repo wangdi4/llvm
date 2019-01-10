@@ -584,7 +584,7 @@ function(llvm_add_library name)
 
   if(ARG_SHARED OR ARG_MODULE)
     llvm_externalize_debuginfo(${name})
-    llvm_codesign(TARGET ${name})
+    llvm_codesign(${name})
   endif()
 endfunction()
 
@@ -796,7 +796,7 @@ macro(add_llvm_executable name)
     target_link_libraries(${name} PRIVATE ${LLVM_PTHREAD_LIB})
   endif()
 
-  llvm_codesign(TARGET ${name} ENTITLEMENTS ${ARG_ENTITLEMENTS})
+  llvm_codesign(${name} ENTITLEMENTS ${ARG_ENTITLEMENTS})
 endmacro(add_llvm_executable name)
 
 function(export_executable_symbols target)
@@ -1635,13 +1635,9 @@ function(llvm_externalize_debuginfo name)
   endif()
 endfunction()
 
-# Usage: llvm_codesign(TARGET name [ENTITLEMENTS file])
-#
-# Code-sign the given TARGET with the global LLVM_CODESIGNING_IDENTITY or skip
-# if undefined. Customize capabilities by passing a file path to ENTITLEMENTS.
-#
-function(llvm_codesign)
-  cmake_parse_arguments(ARG "" "TARGET;ENTITLEMENTS" "" ${ARGN})
+# Usage: llvm_codesign(name [ENTITLEMENTS file])
+function(llvm_codesign name)
+  cmake_parse_arguments(ARG "" "ENTITLEMENTS" "" ${ARGN})
 
   if(NOT LLVM_CODESIGNING_IDENTITY)
     return()
@@ -1659,15 +1655,20 @@ function(llvm_codesign)
       )
     endif()
     if(DEFINED ARG_ENTITLEMENTS)
-      set(PASS_ENTITLEMENTS --entitlements ${ARG_ENTITLEMENTS})
+      set(pass_entitlements --entitlements ${ARG_ENTITLEMENTS})
+    endif()
+    if(CMAKE_GENERATOR STREQUAL "Xcode")
+      # Avoid double-signing error: Since output overwrites input, Xcode runs
+      # the post-build rule even if the actual build-step was skipped.
+      set(pass_force --force)
     endif()
 
     add_custom_command(
-      TARGET ${ARG_TARGET} POST_BUILD
+      TARGET ${name} POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E
               env CODESIGN_ALLOCATE=${CMAKE_CODESIGN_ALLOCATE}
               ${CMAKE_CODESIGN} -s ${LLVM_CODESIGNING_IDENTITY}
-              ${PASS_ENTITLEMENTS} $<TARGET_FILE:${ARG_TARGET}>
+              ${pass_entitlements} ${pass_force} $<TARGET_FILE:${name}>
     )
   endif()
 endfunction()
@@ -1780,20 +1781,28 @@ endmacro()
 # feature.
 #
 # For example:
-#     intel_add_file(result FEATURE ISA_AVX512 Intel_Avx512.cpp) - will add
-#     'Intel_Avx512.cpp' into the 'result' list, only if ISA_AVX512 is enabled
-#     for the current compiler build.
+#     intel_add_file(result
+#       FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512
+#       Intel_Avx512.cpp
+#       ) -
+#     will add 'Intel_Avx512.cpp' into the 'result' list, only if
+#     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512 is enabled for the current
+#     compiler build.
 #
 #     intel_add_file(result Intel_CustomFile.cpp) - will add
 #     'Intel_CustomFile.cpp' into the 'result' list, only if the compiler
 #     is built with INTEL_CUSTOMIZATION.
 #
-#     intel_add_file(result COMPLEMENT compl FEATURE ISA_AVX512 Intel_512.cpp) -
-#     if ISA_AVX512 is enabled, then it will add 'Intel_512.cpp' into
+#     intel_add_file(result
+#       COMPLEMENT compl
+#       FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512
+#       Intel_512.cpp
+#       ) - if ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512
+#     is enabled, then it will add 'Intel_512.cpp' into
 #     the 'result' list, otherwise, it will add it to 'compl' list.
 #
 # Note that a compiler built without INTEL_CUSTOMIZATION cannot be built
-# with any other Intel feature (e.g. ISA_AVX512).
+# with any other Intel feature (e.g. ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512).
 macro(intel_add_file result_list)
   cmake_parse_arguments(ARG "" "FEATURE;COMPLEMENT" "" ${ARGN})
   if (ARG_UNPARSED_ARGUMENTS)
@@ -1815,9 +1824,6 @@ macro(intel_add_file result_list)
             # Add files to the complement list.
             list(APPEND ${ARG_COMPLEMENT} ${ARG_UNPARSED_ARGUMENTS})
           endif()
-          message(STATUS
-              "INTEL: file(s) ignored for build for feature "
-              "${ARG_FEATURE}: ${ARG_UNPARSED_ARGUMENTS}")
         endif()
       else()
         # The files must be added to any Intel customized build.
@@ -1827,8 +1833,10 @@ macro(intel_add_file result_list)
       endif()
     else()
       # This is not a customized Intel compiler build.
-      # Add the files to the complement list.
-      list(APPEND ${ARG_COMPLEMENT} ${ARG_UNPARSED_ARGUMENTS})
+      if(ARG_COMPLEMENT)
+        # Add the files to the complement list.
+        list(APPEND ${ARG_COMPLEMENT} ${ARG_UNPARSED_ARGUMENTS})
+      endif()
     endif()
   endif()
 endmacro()

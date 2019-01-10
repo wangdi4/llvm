@@ -1252,9 +1252,6 @@ void LoopUnswitch::UnswitchNontrivialCondition(Value *LIC, Constant *Val,
                     << loopHeader->getName() << " [" << L->getBlocks().size()
                     << " blocks] in Function " << F->getName() << " when '"
                     << *Val << "' == " << *LIC << "\n");
-  LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,           // INTEL
-                                "Loop has been unswitched via %s", // INTEL
-                                LIC->getName());                   // INTEL
 
   // We are going to make essential changes to CFG. This may invalidate cached
   // information for L or one of its parent loops in SCEV.
@@ -1319,6 +1316,10 @@ void LoopUnswitch::UnswitchNontrivialCondition(Value *LIC, Constant *Val,
     // as well.
     ParentLoop->addBasicBlockToLoop(NewBlocks[0], *LI);
   }
+
+  LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,           // INTEL
+                                "Loop has been unswitched via %s", // INTEL
+                                LIC->getName());                   // INTEL
 
   for (unsigned i = 0, e = ExitBlocks.size(); i != e; ++i) {
     BasicBlock *NewExit = cast<BasicBlock>(VMap[ExitBlocks[i]]);

@@ -128,12 +128,13 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
   }
 
   bool HasChanged;
+  BasicBlock *Header = L->getHeader();
 
   do {
     // The flag showing whether a grouping is happened in the iteration
     HasChanged = false;
 
-    for (PHINode &PN : L->getHeader()->phis()) {
+    for (PHINode &PN : Header->phis()) {
       if (!PN.hasOneUse()) {
         continue;
       }
@@ -156,7 +157,7 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
       bool IsSwappedOrder = P0 == &PN;
       PHINode *PN2 = IsSwappedOrder ? P1 : P0;
 
-      if (!PN2->hasOneUse()) {
+      if (!PN2->hasOneUse() || PN2->getParent() != Header) {
         continue;
       }
 

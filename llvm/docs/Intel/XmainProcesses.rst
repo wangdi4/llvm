@@ -458,6 +458,15 @@ line in such files, it must coexist with the emacs marker:
     ...
    // end INTEL_COLLAB
 
+..
+
+  TableGen does support preprocessing, but the upstream version
+  only supports '#ifdef' and does not support '#if'.  As long as
+  our rules allow only '#if' and does not allow '#ifdef', we have to
+  insert INTEL_COLLAB comments instead of real preprocessing
+  directives.  Otherwise, external users of the INTEL_COLLAB
+  code would have problems with '#if' usage.
+
 
 ``Excluding code from sharing within a COLLAB change``
 ------------------------------------------------------
@@ -1094,11 +1103,11 @@ checks, but you can use it for INTEL_CUSTOMIZATION checks:
 |                         | `\<single-line change\>`            |                                    |
 |                         | `// INTEL_CUSTOMIZATION`            |                                    |
 +-------------------------+-------------------------------------+------------------------------------+
-| `.td`                   | `// INTEL_CUSTOMIZATION`            | `// INTEL_FEATURE\_XXX`            |
-| |br|                    | |br|                                | |br|                               |
-| We will have C-like     | `...`                               | `...`                              |
-| preprocessing support   | |br|                                | |br|                               |
-| for .td files soon      | `// end INTEL_CUSTOMIZATION`        | `// end INTEL_FEATURE\_XXX`        |
+| `.td`                   | `#if INTEL_CUSTOMIZATION`           | `#if INTEL_FEATURE\_XXX`           |
+|                         | |br|                                | |br|                               |
+|                         | `...`                               | `...`                              |
+|                         | |br|                                | |br|                               |
+|                         | `#endif // INTEL_CUSTOMIZATION`     | `#endif // INTEL_FEATURE\_XXX`     |
 +-------------------------+-------------------------------------+------------------------------------+
 | `CMakeLists.txt`        | `# INTEL_CUSTOMIZATION`             | `# INTEL_FEATURE\_XXX`             |
 | |br|                    | |br|                                | |br|                               |

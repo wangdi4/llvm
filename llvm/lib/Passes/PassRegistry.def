@@ -300,6 +300,7 @@ FUNCTION_PASS("verify<memoryssa>", MemorySSAVerifierPass())
 FUNCTION_PASS("verify<regions>", RegionInfoVerifierPass())
 FUNCTION_PASS("view-cfg", CFGViewerPass())
 FUNCTION_PASS("view-cfg-only", CFGOnlyViewerPass())
+FUNCTION_PASS("transform-warning", WarnMissedTransformationsPass())
 
 #if INTEL_CUSTOMIZATION
 FUNCTION_PASS("load-coalescing", LoadCoalescingPass())
@@ -334,6 +335,7 @@ FUNCTION_PASS("hir-loop-distribute-memrec", loopopt::HIRLoopDistributionForMemRe
 FUNCTION_PASS("hir-loop-fusion", loopopt::HIRLoopFusionPass())
 FUNCTION_PASS("hir-loop-interchange", loopopt::HIRLoopInterchangePass())
 FUNCTION_PASS("hir-loop-reversal", loopopt::HIRLoopReversalPass())
+FUNCTION_PASS("hir-loop-reroll", loopopt::HIRLoopRerollPass())
 FUNCTION_PASS("hir-mv-const-ub", loopopt::HIRMVForConstUBPass())
 FUNCTION_PASS("hir-opt-predicate", loopopt::HIROptPredicatePass())
 FUNCTION_PASS("hir-opt-var-predicate", loopopt::HIROptVarPredicatePass())
@@ -348,6 +350,8 @@ FUNCTION_PASS("vpo-cfg-restructuring", VPOCFGRestructuringPass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
 FUNCTION_PASS("agginlaa", AggInlAAPass())
 FUNCTION_PASS("addsub-reassociate", AddSubReassociatePass())
+FUNCTION_PASS("loop-carried-cse", LoopCarriedCSEPass())
+FUNCTION_PASS("hir-multi-exit-loop-reroll", loopopt::HIRMultiExitLoopRerollPass())
 #endif // INTEL_CUSTOMIZATION
 #undef FUNCTION_PASS
 

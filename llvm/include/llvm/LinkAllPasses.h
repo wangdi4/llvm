@@ -270,6 +270,7 @@ namespace {
       (void) llvm::createFloat2IntPass();
       (void) llvm::createEliminateAvailableExternallyPass();
       (void) llvm::createScalarizeMaskedMemIntrinPass();
+      (void) llvm::createWarnMissedTransformationsPass();
 
       (void)new llvm::IntervalPartition();
       (void)new llvm::ScalarEvolutionWrapperPass();
@@ -314,6 +315,7 @@ namespace {
       (void) llvm::createHIRVecDirInsertPass();
       (void) llvm::createHIRLoopDistributionForMemRecPass();
       (void) llvm::createHIRLoopDistributionForLoopNestPass();
+      (void) llvm::createHIRLoopRerollPass();
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRLMMPass();
       (void) llvm::createHIRLoopCollapsePass();
@@ -329,6 +331,7 @@ namespace {
       (void) llvm::createHIRDeadStoreEliminationPass();
       (void) llvm::createHIRLastValueComputationPass();
       (void) llvm::createHIRPropagateCastedIVPass();
+      (void) llvm::createHIRMultiExitLoopRerollPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

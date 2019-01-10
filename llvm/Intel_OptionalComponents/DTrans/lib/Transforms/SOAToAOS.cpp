@@ -1,6 +1,6 @@
 //===---------------- SOAToAOS.cpp - SOAToAOSPass -------------------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -59,7 +59,7 @@ public:
                         const DataLayout &DL, const TargetLibraryInfo &TLI,
                         StringRef DepTypePrefix,
                         DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
+      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
 
   ~SOAToAOSTransformImpl() {
     for (auto *Cand : Candidates) {
@@ -202,7 +202,7 @@ private:
 
       SmallVector<StructType *, MaxNumFieldCandidates> Fields(fields_begin(),
                                                               fields_end());
-      StructMethodTransformation SMT(Impl.DL, Impl.DTInfo, Impl.TLI, Impl.VMap,
+      StructMethodTransformation SMT(Impl.DL, *Impl.DTInfo, Impl.TLI, Impl.VMap,
                                      CSInfo, TI,
                                      OrigFunc.getParent()->getContext());
 
@@ -237,12 +237,12 @@ private:
                                         BasePointerOffset)) {
         auto *NewFunc = Impl.OrigFuncToCloneFuncMap[&OrigFunc];
         for (auto &I : instructions(*NewFunc))
-          Impl.DTInfo.deleteCallInfo(&I);
+          Impl.DTInfo->deleteCallInfo(&I);
         NewFunc->deleteBody();
         return;
       }
 
-      ArrayMethodTransformation AMT(Impl.DL, Impl.DTInfo, Impl.TLI, Impl.VMap,
+      ArrayMethodTransformation AMT(Impl.DL, *Impl.DTInfo, Impl.TLI, Impl.VMap,
                                     TI, OrigFunc.getParent()->getContext());
 
       AMT.updateBasePointerInsts(CopyElemInsts, getNumArrays(),
@@ -344,7 +344,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
   for (auto Pair : zip_first(methodsets(), fields()))
     for (auto *F : *std::get<0>(Pair)) {
-      DepCompute DC(Impl.DTInfo, Impl.DL, Impl.TLI, F, std::get<1>(Pair),
+      DepCompute DC(*Impl.DTInfo, Impl.DL, Impl.TLI, F, std::get<1>(Pair),
                     // *this as DepMap to fill.
                     *this);
 
@@ -366,7 +366,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     }
 
   for (auto *F : StructMethods) {
-    DepCompute DC(Impl.DTInfo, Impl.DL, Impl.TLI, F, Struct, *this);
+    DepCompute DC(*Impl.DTInfo, Impl.DL, Impl.TLI, F, Struct, *this);
 
     bool Result = DC.computeDepApproximation();
     LLVM_DEBUG({
@@ -532,7 +532,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
     std::unique_ptr<StructureMethodAnalysis::TransformationData> Data(
         new StructureMethodAnalysis::TransformationData());
 
-    StructureMethodAnalysis MChecker(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S,
+    StructureMethodAnalysis MChecker(Impl.DL, *Impl.DTInfo, Impl.TLI, *this, S,
                                      Arrays, *Data);
     bool SeenArrays = false;
     bool CheckResult = MChecker.checkStructMethod(SeenArrays);
@@ -554,7 +554,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       llvm_unreachable("inconsistent logic in checkStructMethod.");
 
     if (SeenArrays) {
-      CallSiteComparator CSCmp(Impl.DL, Impl.DTInfo, Impl.TLI, *this, S, Arrays,
+      CallSiteComparator CSCmp(Impl.DL, *Impl.DTInfo, Impl.TLI, *this, S, Arrays,
                                ArrayFieldOffsets, *Data, CSInfo,
                                BasePointerOffset);
       bool Comparison = CSCmp.canCallSitesBeMerged();
@@ -580,7 +580,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
 
 bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
 
-  for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
+  for (dtrans::TypeInfo *TI : DTInfo->type_info_entries()) {
     std::unique_ptr<CandidateInfo> Info(new CandidateInfo());
 
     if (!Info->populateLayoutInformation(TI->getLLVMType())) {
@@ -592,14 +592,16 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
       continue;
     }
 
-    bool SafetyViolation = false;
-    for (auto *Fld : Info->fields()) {
-      auto *FTI = DTInfo.getTypeInfo(Fld);
-      if (!FTI || DTInfo.testSafetyData(FTI, dtrans::DT_SOAToAOS)) {
-        SafetyViolation = true;
-        break;
+    // Test safety violations on both structure and array types.
+    bool SafetyViolation = DTInfo->testSafetyData(TI, dtrans::DT_SOAToAOS);
+    if (!SafetyViolation)
+      for (auto *Fld : Info->fields()) {
+        auto *FTI = DTInfo->getTypeInfo(Fld);
+        if (!FTI || DTInfo->testSafetyData(FTI, dtrans::DT_SOAToAOS)) {
+          SafetyViolation = true;
+          break;
+        }
       }
-    }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (!DTransSOAToAOSType.empty() &&
@@ -626,7 +628,7 @@ bool SOAToAOSTransformImpl::prepareTypes(Module &M) {
       continue;
     }
 
-    if (!Info->checkCFG(this->DTInfo)) {
+    if (!Info->checkCFG(*this->DTInfo)) {
       LLVM_DEBUG({
         dbgs() << "  ; Rejecting ";
         TI->getLLVMType()->print(dbgs(), true, true);
@@ -745,13 +747,17 @@ public:
     if (!WP.isWholeProgramSafe())
       return false;
 
-    auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+    auto &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
+    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
     if (!DTInfo.useDTransAnalysis())
       return false;
 
     auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
-    return Impl.runImpl(M, DTInfo, TLI);
+    bool Changed = Impl.runImpl(M, DTInfo, TLI);
+    if (Changed)
+      DTAnalysisWrapper.setInvalidated();
+    return Changed;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -759,6 +765,7 @@ public:
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
     // TODO: Mark the actual preserved analyses.
+    AU.addPreserved<DTransAnalysisWrapper>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };

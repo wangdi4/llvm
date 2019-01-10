@@ -387,6 +387,11 @@ def i64mem  : X86MemOperand<"printi64mem",  X86Mem64AsmOperand>;
 def i128mem : X86MemOperand<"printi128mem", X86Mem128AsmOperand>;
 def i256mem : X86MemOperand<"printi256mem", X86Mem256AsmOperand>;
 def i512mem : X86MemOperand<"printi512mem", X86Mem512AsmOperand>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def f16mem  : X86MemOperand<"printf16mem",  X86Mem16AsmOperand>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 def f32mem  : X86MemOperand<"printf32mem",  X86Mem32AsmOperand>;
 def f64mem  : X86MemOperand<"printf64mem",  X86Mem64AsmOperand>;
 def f80mem  : X86MemOperand<"printf80mem",  X86Mem80AsmOperand>;
@@ -842,6 +847,17 @@ def NoVLX_Or_NoBWI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBWI()">;
 def NoVLX_Or_NoDQI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasDQI()">;
 def PKU        : Predicate<"Subtarget->hasPKU()">;
 def HasVNNI    : Predicate<"Subtarget->hasVNNI()">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+def HasBF16      : Predicate<"Subtarget->hasBF16()">;
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def HasFP16      : Predicate<"Subtarget->hasFP16()">;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 def HasBITALG    : Predicate<"Subtarget->hasBITALG()">;
 def HasPOPCNT    : Predicate<"Subtarget->hasPOPCNT()">;
@@ -905,6 +921,11 @@ def HasWAITPKG   : Predicate<"Subtarget->hasWAITPKG()">;
 def HasINVPCID   : Predicate<"Subtarget->hasINVPCID()">;
 def HasCmpxchg16b: Predicate<"Subtarget->hasCmpxchg16b()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -1089,6 +1110,11 @@ def loadi32 : PatFrag<(ops node:$ptr), (i32 (unindexedload node:$ptr)), [{
 }]>;
 
 def loadi64  : PatFrag<(ops node:$ptr), (i64 (load node:$ptr))>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def loadf16  : PatFrag<(ops node:$ptr), (f16 (load node:$ptr))>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 def loadf32  : PatFrag<(ops node:$ptr), (f32 (load node:$ptr))>;
 def loadf64  : PatFrag<(ops node:$ptr), (f64 (load node:$ptr))>;
 def loadf80  : PatFrag<(ops node:$ptr), (f80 (load node:$ptr))>;
@@ -2744,6 +2770,17 @@ let SchedRW = [WriteSystem] in {
 
 def : InstAlias<"clzero\t{%eax|eax}", (CLZEROr)>, Requires<[Not64BitMode]>;
 def : InstAlias<"clzero\t{%rax|rax}", (CLZEROr)>, Requires<[In64BitMode]>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+//===----------------------------------------------------------------------===//
+// SERIALIZE Instruction
+//
+def SERIALIZE : I<0x01, MRM_E8, (outs), (ins), "serialize",
+                  [(int_x86_serialize)]>, PS,
+                  Requires<[HasSERIALIZE]>;
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Pattern fragments to auto generate TBM instructions.

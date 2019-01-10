@@ -73,7 +73,7 @@ public:
       return false;
 
     DTransAnalysisInfo &DTInfo =
-        getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+        getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M);
 
     const TargetLibraryInfo &TLInfo =
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();

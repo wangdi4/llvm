@@ -342,11 +342,25 @@ protected:
   /// Processor has AVX-512 Vector Length eXtenstions
   bool HasVLX = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  /// Processor has AVX-512 16 bit floating-point extenstions
+  bool HasFP16 = false;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   /// Processor has PKU extenstions
   bool HasPKU = false;
 
   /// Processor has AVX-512 Vector Neural Network Instructions
   bool HasVNNI = false;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+  /// Processor has AVX-512 bfloat16 floating-point extenstions
+  bool HasBF16 = false;
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
 
   /// Processor has AVX-512 Bit Algorithms instructions
   bool HasBITALG = false;
@@ -381,6 +395,13 @@ protected:
 
   /// Processor supports PCONFIG instruction
   bool HasPCONFIG = false;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+  /// Processor supports SERIALIZE instruction
+  bool HasSERIALIZE = false;
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
 
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
@@ -655,8 +676,18 @@ public:
   bool hasDQI() const { return HasDQI; }
   bool hasBWI() const { return HasBWI; }
   bool hasVLX() const { return HasVLX; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  bool hasFP16() const { return HasFP16; }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   bool hasPKU() const { return HasPKU; }
   bool hasVNNI() const { return HasVNNI; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+  bool hasBF16() const { return HasBF16; }
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
   bool hasBITALG() const { return HasBITALG; }
   bool hasMPX() const { return HasMPX; }
   bool hasSHSTK() const { return HasSHSTK; }
@@ -669,6 +700,11 @@ public:
   bool hasSGX() const { return HasSGX; }
   bool threewayBranchProfitable() const { return ThreewayBranchProfitable; }
   bool hasINVPCID() const { return HasINVPCID; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+  bool hasSERIALIZE() const { return HasSERIALIZE; }
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;

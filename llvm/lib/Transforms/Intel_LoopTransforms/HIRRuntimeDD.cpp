@@ -342,13 +342,17 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
 
   const RegDDRef *Lower = getLower();
 
+  if (!Lower->getDestType()->isSized()) {
+    return UNSIZED;
+  }
+
   // We will be replacing every IV inside a RegDDRef: a[i+j+k][j][k]. So we have
   // to check all canon expressions against UB of every loop in loopnest.
   // We skip loops if its IV is absent.
   for (auto I = Lower->canon_begin(), E = Lower->canon_end(); E != I; ++I) {
     const CanonExpr *CE = *I;
 
-    if (CE->isNonLinear()) {
+    if (CE->isNonLinear() || CE->containsUndef()) {
       return NON_LINEAR_SUBS;
     }
 
@@ -470,6 +474,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Struct refs not supported yet";
   case DIFF_ADDR_SPACE:
     return "Different address spaces";
+  case UNSIZED:
+    return "Ref type is unsized";
   default:
     llvm_unreachable("Unexpected give up reason");
   }
@@ -481,7 +487,7 @@ bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
     return true;
   }
 
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Loop);
+  const LoopStatistics &LS = HLS.getTotalLoopStatistics(Loop);
 
   return (!LS.hasCalls() && !LS.hasSwitches());
 }

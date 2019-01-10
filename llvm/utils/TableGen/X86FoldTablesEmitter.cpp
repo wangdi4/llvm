@@ -225,9 +225,18 @@ static inline unsigned int getRegOperandSize(const Record *RegRec) {
 static inline unsigned int
 getMemOperandSize(const Record *MemRec, const bool IntrinsicSensitive = false) {
   if (MemRec->isSubClassOf("Operand")) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    // Intrinsic memory instructions use ssmem/sdmem/shmem.
+    if (IntrinsicSensitive &&
+        (MemRec->getName() == "sdmem" || MemRec->getName() == "ssmem" ||
+         MemRec->getName() == "shmem"))
+#else // INTEL_FEATURE_ISA_FP16
     // Intrinsic memory instructions use ssmem/sdmem.
     if (IntrinsicSensitive &&
         (MemRec->getName() == "sdmem" || MemRec->getName() == "ssmem"))
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       return 128;
 
     StringRef Name =

@@ -1,6 +1,6 @@
 //===---------------- DeleteField.cpp - DTransDeleteFieldPass -------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -17,6 +17,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
+#include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstIterator.h"
@@ -44,13 +45,17 @@ public:
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-    DTransAnalysisInfo &DTInfo =
-        getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+    DTransAnalysisWrapper &DTAnalysisWrapper =
+        getAnalysis<DTransAnalysisWrapper>();
+    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
     const TargetLibraryInfo &TLI =
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
     WholeProgramInfo &WPInfo =
         getAnalysis<WholeProgramWrapperPass>().getResult();
-    return Impl.runImpl(M, DTInfo, TLI, WPInfo);
+    bool Changed = Impl.runImpl(M, DTInfo, TLI, WPInfo);
+    if (Changed)
+      DTAnalysisWrapper.setInvalidated();
+    return Changed;
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -58,6 +63,7 @@ public:
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
+    AU.addPreserved<DTransAnalysisWrapper>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -67,7 +73,7 @@ public:
   DeleteFieldImpl(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
                   const DataLayout &DL, const TargetLibraryInfo &TLI,
                   StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
-      : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
+      : DTransOptBase(&DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -145,8 +151,8 @@ bool DeleteFieldImpl::checkParentStructure(dtrans::StructInfo *ParentStruct) {
     return false;
 
   // Go conservative if out of bounds is specified
-  if (DTInfo.getDTransOutOfBoundsOK())
-    return !(DTInfo.testSafetyData(ParentStruct, dtrans::DT_DeleteField));
+  if (DTInfo->getDTransOutOfBoundsOK())
+    return !(DTInfo->testSafetyData(ParentStruct, dtrans::DT_DeleteField));
 
   // Safety conditions in the enclosing structure that
   // prevents the optimization
@@ -173,12 +179,12 @@ bool DeleteFieldImpl::checkParentStructure(dtrans::StructInfo *ParentStruct) {
 
     dtrans::FieldInfo &Field = ParentStruct->getField(Idx);
     llvm::Type *FieldTy = Field.getLLVMType();
-    dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldTy);
+    dtrans::TypeInfo *FieldTI = DTInfo->getOrCreateTypeInfo(FieldTy);
 
     // If the field is marked as address taken, then we need to make sure
     // that it passes the safety issues for delete fields.
     if (Field.isAddressTaken() &&
-        DTInfo.testSafetyData(FieldTI, dtrans::DT_DeleteField))
+        DTInfo->testSafetyData(FieldTI, dtrans::DT_DeleteField))
       return false;
   }
 
@@ -188,7 +194,7 @@ bool DeleteFieldImpl::checkParentStructure(dtrans::StructInfo *ParentStruct) {
 bool DeleteFieldImpl::prepareTypes(Module &M) {
   LLVM_DEBUG(dbgs() << "Delete field: looking for candidate structures.\n");
 
-  for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
+  for (dtrans::TypeInfo *TI : DTInfo->type_info_entries()) {
     uint64_t DeleteableBytes = 0;
 
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
@@ -232,7 +238,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
     if (!CanDeleteField)
       continue;
 
-    if (DTInfo.testSafetyData(TI, dtrans::DT_DeleteField)) {
+    if (DTInfo->testSafetyData(TI, dtrans::DT_DeleteField)) {
       LLVM_DEBUG({
         dbgs() << "  Rejecting ";
         StInfo->getLLVMType()->print(dbgs(), true, true);
@@ -281,7 +287,7 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       if (!isa<llvm::StructType>(ParentTy))
         continue;
 
-      auto *ParentTI = cast<dtrans::StructInfo>(DTInfo.getTypeInfo(ParentTy));
+      auto *ParentTI = cast<dtrans::StructInfo>(DTInfo->getTypeInfo(ParentTy));
 
       // Skip types that are already considered.
       if (std::find(StructsToConvert.begin(), StructsToConvert.end(),
@@ -458,7 +464,7 @@ void DeleteFieldImpl::processFunction(Function &F) {
 // will update the GEP to reflect the new offset. Because the GEP is in
 // byte-flattened form, the GEP can be updated prior to cloning.
 bool DeleteFieldImpl::processPossibleByteFlattenedGEP(GetElementPtrInst *GEP) {
-  auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+  auto InfoPair = DTInfo->getByteFlattenedGEPElement(GEP);
   if (!InfoPair.first)
     return false;
 
@@ -661,7 +667,7 @@ void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
 }
 
 void DeleteFieldImpl::postprocessCallSite(CallSite CS) {
-  auto *CInfo = DTInfo.getCallInfo(CS.getInstruction());
+  auto *CInfo = DTInfo->getCallInfo(CS.getInstruction());
   if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
     return;
 
@@ -701,7 +707,7 @@ void DeleteFieldImpl::processSubInst(Instruction *I) {
   auto *BinOp = cast<BinaryOperator>(I);
   assert(BinOp->getOpcode() == Instruction::Sub &&
          "postProcessSubInst called for non-sub instruction!");
-  llvm::Type *PtrSubTy = DTInfo.getResolvedPtrSubType(BinOp);
+  llvm::Type *PtrSubTy = DTInfo->getResolvedPtrSubType(BinOp);
   if (!PtrSubTy)
     return;
   for (auto &ONPair : OrigToNewTypeMapping) {

@@ -254,11 +254,13 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
       }
     }
 
-    bool isDummyAlloc = dtrans::isDummyAllocWithUnreachable(ImmutableCallSite(I));
-    bool isDummyDealloc = dtrans::isDummyDeallocWithUnreachable(ImmutableCallSite(I));
-    if (isDummyAlloc) {
+    bool isDummyFuncWithInt =
+        dtrans::isDummyFuncWithThisAndIntArgs(ImmutableCallSite(I), TLI);
+    bool isDummyFuncWithPtr =
+        dtrans::isDummyFuncWithThisAndPtrArgs(ImmutableCallSite(I), TLI);
+    if (isDummyFuncWithInt) {
       collectSpecialAllocArgs(AK_UserMalloc, ImmutableCallSite(I), Args, TLI);
-    } else if (isDummyDealloc) {
+    } else if (isDummyFuncWithPtr) {
       collectSpecialFreeArgs(FK_UserFree, ImmutableCallSite(I), Args, TLI);
     }
 
@@ -283,10 +285,10 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
                                Dep::mkArgList(DM, Remaining))
                 : Dep::mkFree(DM, Dep::mkNonEmptyArgList(DM, Special),
                               Dep::mkArgList(DM, Remaining));
-    else if (isDummyAlloc)
+    else if (isDummyFuncWithInt)
       Rep = Dep::mkAlloc(DM, Dep::mkNonEmptyArgList(DM, Special),
                          Dep::mkArgList(DM, Remaining));
-    else if (isDummyDealloc)
+    else if (isDummyFuncWithPtr)
       Rep = Dep::mkFree(DM, Dep::mkNonEmptyArgList(DM, Special),
                         Dep::mkArgList(DM, Remaining));
     else

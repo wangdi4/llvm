@@ -1,6 +1,6 @@
 //===---DTransOptBaseTest.cpp - Test pass for DTransOptBase functionality--===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -36,6 +36,13 @@ using namespace llvm;
 static cl::opt<std::string>
     DTransOptBaseTestTypeList("dtrans-optbasetest-typelist", cl::ReallyHidden);
 
+// This option controls whether the DTrans analysis info will be passed into
+// the base class to allow testing the base class operation with and without
+// having the DTrans analysis info available.
+static cl::opt<bool>
+    DTransOptBaseTestUseAnalysis("dtrans-optbasetest-use-analysis",
+                                 cl::init(true), cl::ReallyHidden);
+
 namespace {
 
 class DTransOptBaseTestWrapper : public ModulePass {
@@ -50,14 +57,20 @@ public:
   }
 
   bool runOnModule(Module &M) override {
-    auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+    DTransAnalysisInfo *DTInfo =
+        DTransOptBaseTestUseAnalysis
+            ? &getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M)
+            : nullptr;
     auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-    return Impl.runImpl(M, DTInfo, TLI);
+    WholeProgramInfo &WPInfo =
+      getAnalysis<WholeProgramWrapperPass>().getResult();
+    return Impl.runImpl(M, DTInfo, TLI, WPInfo);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DTransAnalysisWrapper>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
@@ -65,7 +78,7 @@ public:
 // This class tests and demonstrates usage of the DTransOptBase class.
 class DTransOptBaseTest : public DTransOptBase {
 public:
-  DTransOptBaseTest(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
+  DTransOptBaseTest(DTransAnalysisInfo *DTInfo, LLVMContext &Context,
                     const DataLayout &DL, const TargetLibraryInfo &TLI,
                     StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper)
       : DTransOptBase(DTInfo, Context, DL, TLI, DepTypePrefix, TypeRemapper) {}
@@ -125,6 +138,7 @@ INITIALIZE_PASS_BEGIN(DTransOptBaseTestWrapper, "dtrans-optbasetest",
                       "DTrans optimization base class tester", false, false)
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransOptBaseTestWrapper, "dtrans-optbasetest",
                     "DTrans optimization base class tester", false, false)
 
@@ -132,8 +146,11 @@ ModulePass *llvm::createDTransOptBaseTestWrapperPass() {
   return new DTransOptBaseTestWrapper();
 }
 
-bool dtrans::OptBaseTestPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                      const TargetLibraryInfo &TLI) {
+bool dtrans::OptBaseTestPass::runImpl(Module &M, DTransAnalysisInfo *DTInfo,
+                                      const TargetLibraryInfo &TLI,
+                                      WholeProgramInfo &WPInfo) {
+  if (!WPInfo.isWholeProgramSafe())
+    return false;
 
   DTransTypeRemapper TypeRemapper;
   DTransOptBaseTest Transformer(DTInfo, M.getContext(), M.getDataLayout(), TLI,
@@ -143,9 +160,12 @@ bool dtrans::OptBaseTestPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
 
 PreservedAnalyses dtrans::OptBaseTestPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
-  auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
+  DTransAnalysisInfo *DTInfo =
+      DTransOptBaseTestUseAnalysis ? &AM.getResult<DTransAnalysis>(M) : nullptr;
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
-  bool Changed = runImpl(M, DTransInfo, TLI);
+  bool Changed = runImpl(M, DTInfo, TLI, WPInfo);
 
   if (!Changed)
     return PreservedAnalyses::all();

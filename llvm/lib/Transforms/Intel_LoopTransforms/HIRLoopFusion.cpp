@@ -352,15 +352,12 @@ static void
 updatePragmaTripCountInfo(HLLoop *FirstLoop,
                           const SmallVectorImpl<HLLoop *> &Candidates,
                           bool HasPeeledLoop) {
-  StringRef MaxInfo = "llvm.loop.intel.loopcount_maximum";
-  StringRef MinInfo = "llvm.loop.intel.loopcount_minimum";
-  StringRef AvgInfo = "llvm.loop.intel.loopcount_average";
 
   // If there exists peeled loop, pragma trip count metadata will be removed
   if (HasPeeledLoop) {
-    FirstLoop->removeLoopMetadata(MaxInfo);
-    FirstLoop->removeLoopMetadata(MinInfo);
-    FirstLoop->removeLoopMetadata(AvgInfo);
+    FirstLoop->removePragmaBasedMinimumTripCount();
+    FirstLoop->removePragmaBasedMaximumTripCount();
+    FirstLoop->removePragmaBasedAverageTripCount();
     return;
   }
 
@@ -390,7 +387,7 @@ updatePragmaTripCountInfo(HLLoop *FirstLoop,
   // Different pragma trip count metadata in the loops will be removed
   if (MaxTripCountSet.size() > 1) {
 
-    FirstLoop->removeLoopMetadata(MaxInfo);
+    FirstLoop->removePragmaBasedMaximumTripCount();
 
   } else if (MaxTripCountSet.size() == 1) {
 
@@ -400,7 +397,7 @@ updatePragmaTripCountInfo(HLLoop *FirstLoop,
 
   if (MinTripCountSet.size() > 1) {
 
-    FirstLoop->removeLoopMetadata(MinInfo);
+    FirstLoop->removePragmaBasedMinimumTripCount();
 
   } else if (MinTripCountSet.size() == 1) {
 
@@ -410,7 +407,7 @@ updatePragmaTripCountInfo(HLLoop *FirstLoop,
 
   if (AvgTripCountSet.size() > 1) {
 
-    FirstLoop->removeLoopMetadata(AvgInfo);
+    FirstLoop->removePragmaBasedAverageTripCount();
 
   } else if (AvgTripCountSet.size() == 1) {
 

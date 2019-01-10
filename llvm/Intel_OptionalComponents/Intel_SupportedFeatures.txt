@@ -47,6 +47,17 @@
 
 # New ISA features usually use ISA_ prefix, e.g. ISA_VNNI.
 # === New ISA features section begin ===
+# INTEL_FEATURE_ISA_BF16
+@ISA_BF16:SECRET@
+# end INTEL_FEATURE_ISA_BF16
+
+# INTEL_FEATURE_ISA_FP16
+@ISA_FP16:SECRET@
+# end INTEL_FEATURE_ISA_FP16
+
+# INTEL_FEATURE_ISA_SERIALIZE
+@ISA_SERIALIZE:SECRET@
+# end INTEL_FEATURE_ISA_SERIALIZE
 # === New ISA features section end ===
 
 # Support for a new target is usually covered by a feature named after

@@ -1330,6 +1330,12 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["movdiri"]         = HasLeaf7 && ((ECX >> 27) & 1);
   Features["movdir64b"]       = HasLeaf7 && ((ECX >> 28) & 1);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+  Features["serialize"]       = HasLeaf7 && ((EDX >> 14) & 1);
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
+
   // There are two CPUID leafs which information associated with the pconfig
   // instruction:
   // EAX=0x7, ECX=0x0 indicates the availability of the instruction (via the 18th
@@ -1341,6 +1347,20 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   // detecting features using the "-march=native" flag.
   // For more info, see X86 ISA docs.
   Features["pconfig"] = HasLeaf7 && ((EDX >> 18) & 1);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  Features["avx512fp16"] = HasLeaf7 && ((EDX >> 23) & 1) && HasAVX512Save;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+  bool HasLeaf7Subleaf1 =
+      MaxLevel >= 7 && !getX86CpuIDAndInfoEx(0x7, 0x1, &EAX, &EBX, &ECX, &EDX);
+  Features["avx512bf16"] = HasLeaf7Subleaf1 && ((EAX >> 5) & 1)
+                           && HasAVX512Save;
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
 
   bool HasLeafD = MaxLevel >= 0xd &&
                   !getX86CpuIDAndInfoEx(0xd, 0x1, &EAX, &EBX, &ECX, &EDX);

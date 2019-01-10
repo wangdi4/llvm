@@ -24,6 +24,13 @@
 #include "llvm/Support/raw_ostream.h"
 #include <tuple>
 #include <vector>
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
+
+using HVAR = llvm::loopopt::RegDDRef *;
+using HEXPR = llvm::loopopt::RegDDRef *;
+
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 
@@ -93,6 +100,9 @@ class Item
 
   private :
     VAR   OrigItem;  // original var
+#if INTEL_CUSTOMIZATION
+    HVAR  HOrigItem; // original var for HIR
+#endif // INTEL_CUSTOMIZATION
     VAR   NewItem;   // new version (eg private) of the var. For tasks, it's
                      // the offset into the thunk for the new var
     VAR   OrigGEP;   // TASK only: offset in thunk for the addr of orig var
@@ -109,7 +119,12 @@ class Item
 
   public:
     Item(VAR Orig, ItemKind K)
+#if INTEL_CUSTOMIZATION
+        : OrigItem(Orig), HOrigItem(nullptr), NewItem(nullptr),
+          OrigGEP(nullptr),
+#else
         : OrigItem(Orig), NewItem(nullptr), OrigGEP(nullptr),
+#endif // INTEL_CUSTOMIZATION
           NewOnTaskStack(nullptr), IsByRef(false), IsNonPod(false),
           IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
           NoAlias(nullptr), Kind(K) {}
@@ -139,10 +154,19 @@ class Item
     MDNode *getAliasScope() const { return AliasScope;     }
     MDNode *getNoAlias()    const { return NoAlias;        }
     ItemKind getKind()      const { return Kind;           }
+#if INTEL_CUSTOMIZATION
+    void setHOrig(HVAR V)         { HOrigItem = V;         }
+    HVAR getHOrig()         const { return HOrigItem;      }
+#endif // INTEL_CUSTOMIZATION
 
     void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsByRef())
         OS << "BYREF(";
+#if INTEL_CUSTOMIZATION
+      if (HOrigItem)
+        HOrigItem->print(OS, PrintType);
+      else
+#endif // INTEL_CUSTOMIZATION
       getOrig()->printAsOperand(OS, PrintType);
       if (getIsByRef())
         OS << ")";
@@ -152,6 +176,11 @@ class Item
       if (getIsByRef())
         OS << "BYREF";
       OS << "(" ;
+#if INTEL_CUSTOMIZATION
+      if (HOrigItem)
+        HOrigItem->print(OS, PrintType);
+      else
+#endif // INTEL_CUSTOMIZATION
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
     }
@@ -599,13 +628,25 @@ class LinearItem : public Item
 {
   private:
     EXPR Step;
+#if INTEL_CUSTOMIZATION
+    HEXPR HStep; // Item's Step for HIR
+#endif // INTEL_CUSTOMIZATION
 
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
   public:
+#if INTEL_CUSTOMIZATION
+    LinearItem(VAR Orig)
+        : Item(Orig, IK_Linear), Step(nullptr), HStep(nullptr) {}
+#else
     LinearItem(VAR Orig) : Item(Orig, IK_Linear), Step(nullptr) {}
+#endif // INTEL_CUSTOMIZATION
     void setStep(EXPR S) { Step = S; }
     EXPR getStep() const { return Step; }
+#if INTEL_CUSTOMIZATION
+    void setHStep(HEXPR S) { HStep = S; }
+    HEXPR getHStep() const { return HStep; }
+#endif // INTEL_CUSTOMIZATION
 
     // Specialized print() to output the stride as well
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
@@ -614,6 +655,11 @@ class LinearItem : public Item
       OS << ", ";
       auto *Step = getStep();
       assert(Step && "Null 'Step' for LINEAR clause.");
+#if INTEL_CUSTOMIZATION
+      if (HStep)
+        HStep->print(OS, PrintType);
+      else
+#endif // INTEL_CUSTOMIZATION
       Step->printAsOperand(OS, PrintType);
       OS << ") ";
     }

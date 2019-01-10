@@ -73,6 +73,13 @@ public:
   void printi512mem(const MCInst *MI, unsigned OpNo, raw_ostream &O) {
     printMemReference(MI, OpNo, O);
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  void printf16mem(const MCInst *MI, unsigned OpNo, raw_ostream &O) {
+    printMemReference(MI, OpNo, O);
+  }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   void printf32mem(const MCInst *MI, unsigned OpNo, raw_ostream &O) {
     printMemReference(MI, OpNo, O);
   }

@@ -1,6 +1,6 @@
 //===---------- Intel_CallTreeCloning.cpp - Call Tree Cloning -------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -258,6 +258,29 @@ static unsigned countPtrArgs(const Function &F) {
   }
   return NumPtrArgs;
 }
+
+// Conduct Module Verifications:
+// - verify the LLVM IR in the given Module is properly constructed
+// - verify the debug info in the Module is well maintained
+#ifndef NDEBUG
+static void doVerification(bool ModuleChanged, Module &M) {
+  if (!ModuleChanged)
+    return;
+
+  // Do a sanity check of the IR after the Call-Tree Cloning optimization
+  // to catch any potential problem early.
+  bool BrokenDebugInfo = false;
+  if (verifyModule(M, &llvm::errs(), &BrokenDebugInfo))
+    report_fatal_error("Module verifier failed after Call-tree cloning "
+                       "(with Multiversioning) on Module: " +
+                       M.getName() + "()\n");
+
+  // Do a sanity check of the debug info on the IR after the Call-Tree Cloning.
+  // Force an assert if debug info is broken.
+  assert(!BrokenDebugInfo &&
+         "Invalid debug info found after Call-Tree Cloning Pass\n");
+}
+#endif
 
 static bool isLeafFunction(const Function &F) {
 
@@ -2196,12 +2219,6 @@ public:
     return "Call-Tree Cloning (with MultiVersioning)";
   }
 
-protected:
-  bool skipModule(const Module &M) {
-    return !M.getContext().getOptPassGate().shouldRunPass(this, M) ||
-           (CTCloningMaxDepth == 0);
-  }
-
 public:
   static char ID;
 };
@@ -2288,11 +2305,12 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
   MultiVersionImpl MV(M, LeafSeeds, Clones, TLI, this);
   bool MVResult = MV.run();
 
+  // Return true if at least 1 of the PP or MV is triggered
   return PPResult || MVResult;
 }
 
 bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
-  if (skipModule(M))
+  if (skipModule(M) || (CTCloningMaxDepth == 0))
     return false;
 
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
@@ -2301,7 +2319,15 @@ bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
   });
   PreservedAnalyses PA;
   CallTreeCloningImpl Impl;
-  return Impl.run(M, Anls, TLI, PA);
+
+  bool ModuleChanged = Impl.run(M, Anls, TLI, PA);
+
+  // Verify Module if there is any change on the LLVM IR
+#ifndef NDEBUG
+  doVerification(ModuleChanged, M);
+#endif
+
+  return ModuleChanged;
 }
 
 namespace {
@@ -2339,6 +2365,8 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
   CallInst *NewCall = CallInst::Create(Clone, NewArgs, "", Call);
   NewCall->setCallingConv(Call->getCallingConv());
   NewCall->setAttributes(NewAttrs);
+  if (MDNode *MD = Call->getMetadata(LLVMContext::MD_dbg))
+    NewCall->setMetadata(LLVMContext::MD_dbg, MD);
   Call->replaceAllUsesWith(NewCall);
   Call->dropAllReferences();
   Call->removeFromParent();
@@ -3774,11 +3802,14 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
 
   LLVM_DEBUG(dbgs() << "Done code gen: \n" << *F);
 
-  // Ensure the generated code is good.
+  // Under DEBUG mode:
+  // ensure the newly generated Multi-version Function is good.
+#ifndef NDEBUG
   if (verifyFunction(*F))
-    report_fatal_error("Function verifier failed after Call-tree cloning "
+    report_fatal_error("Function verification failed after Call-tree cloning "
                        "(with Multi versioning) on Function: " +
                        F->getName() + "()\n");
+#endif
 
   return true;
 }
@@ -3869,7 +3900,13 @@ PreservedAnalyses CallTreeCloningPass::run(Module &M,
 
   // TODO FIXME add preserved analyses
   CallTreeCloningImpl Impl;
-  Impl.run(M, Anls, &TLI, PA);
+  bool ModuleChanged = Impl.run(M, Anls, &TLI, PA);
+
+  // Verify Module if there is any change on the LLVM IR
+#ifndef NDEBUG
+  doVerification(ModuleChanged, M);
+#endif
+  (void)ModuleChanged;
 
   return PA;
 }

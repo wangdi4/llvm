@@ -23,7 +23,6 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -134,7 +133,11 @@ public:
 #if INTEL_CUSTOMIZATION
   virtual ~VPValue() {}
   // FIXME: To be replaced by a proper VPType.
-  virtual Type *getType() const { return nullptr; }
+  virtual Type *getType() const { return getBaseType(); }
+
+  // FIXME: Remove this when the cost model issues are resolved (see comments
+  // for VPInstruction::getCMType())
+  virtual Type *getCMType() const { return nullptr; }
 
   Type *getBaseType() const { return BaseTy; }
 #endif

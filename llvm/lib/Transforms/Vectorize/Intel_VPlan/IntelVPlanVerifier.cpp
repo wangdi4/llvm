@@ -675,12 +675,11 @@ void VPlanVerifier::verifySpecificInstruction(
   switch (Opcode) {
   case Instruction::Load:
   case Instruction::Store:
-  case Instruction::GetElementPtr: {
-    // TODO: The changes for correctly setting type for this instruction is not
-    // in yet. We should add code here once it is checked in.
-    assert(1 && "The type of the operands of GEP/Load/Store are not correct");
+    assert(1 && "The type of the operands of Load/Store are not correct");
     break;
-  }
+  case Instruction::GetElementPtr:
+    verifyGEPInstruction(cast<VPGEPInstruction>(VPInst));
+    break;
   case Instruction::ICmp:
     verifyICmpInst(VPInst);
     break;
@@ -757,12 +756,50 @@ void VPlanVerifier::verifyUsers(const VPValue *Def) {
 }
 
 // Verify that number of incoming values matches to number of predecessors
-// of a where PHI node is located.
+// of the block where PHI node is located. Also verify that each incoming block
+// is found in the predecessor list of \p Phi node's parent VPBB.
 void VPlanVerifier::verifyPHINode(const VPPHINode *Phi) const {
   assert(Phi->getOpcode() == Instruction::PHI);
   assert(Phi->getNumIncomingValues() ==
              Phi->getParent()->getNumPredecessors() &&
          "Number of incoming values doesn't match with number of preds");
+
+  const auto &Preds = Phi->getParent()->getPredecessors();
+  for (auto &Block : Phi->blocks()) {
+    assert(llvm::find(Preds, Block) != Preds.end() &&
+           "Incoming VPBB for VPPHINode is not a predecessor");
+    (void)Block;
+  }
+  (void)Preds;
+}
+
+// Verify operand types of the \p GEP instruction. Also check that the
+// OperandIsStructOffset tracker is consistent with number of operands in \p
+// GEP.
+void VPlanVerifier::verifyGEPInstruction(const VPGEPInstruction *GEP) const {
+  // Check base pointer VPValue type. The first operand of the GEP will be the
+  // base pointer.
+  Type *TargetTy = GEP->getOperand(0)->getBaseType();
+  assert(isa<PointerType>(TargetTy) &&
+         "GEP base pointer is not a vector or a vector of pointers.");
+  (void)TargetTy;
+
+  // Consistency check between operands and OperandIsStructOffset
+  assert(GEP->OperandIsStructOffset.size() == GEP->getNumOperands() &&
+         "Number of operands and struct offset tracker sizes don't match.");
+
+  // Check that the base pointer and first index operand of GEP is not a struct
+  // offset
+  assert(
+      !GEP->OperandIsStructOffset[0] && !GEP->OperandIsStructOffset[1] &&
+      "Base pointer and first index operand of GEP cannot be a struct offset.");
+
+  // Check that each index of GEP is integer or vector of integer type
+  for (auto OpIt = GEP->op_begin() + 1; OpIt != GEP->op_end(); ++OpIt) {
+    assert((*OpIt)->getBaseType()->isIntOrIntVectorTy() &&
+           "GEP indexes must be integers.");
+    (void)OpIt;
+  }
 }
 
 // Verify information of \p Inst nested in \p Block.

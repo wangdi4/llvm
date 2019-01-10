@@ -1,4 +1,11 @@
-; RUN: opt < %s -disable-output -dtrans-aostosoa -dtrans-aostosoa-index32 -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
+; With the old pass manager run, we need to run the aos-to-soa pass followed by
+; the dynclone pass in order to trigger the analysis of the modified structures
+; to occur, because it is being lazily recomputed when invalidated by a
+; transformation.
+; RUN: opt < %s -disable-output -dtrans-aostosoa -dtrans-aostosoa-index32 -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume -dtrans-dynclone -dtrans-print-types 2>&1 | FileCheck %s
+
+; New pass manager will detect that analysis should be run again when the
+; aos-to-soa pass makes modifications.
 ; RUN: opt < %s -disable-output -passes='dtrans-aostosoa,require<dtransanalysis>' -dtrans-aostosoa-index32 -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume -dtrans-print-types 2>&1 | FileCheck %s
 
 ; This test checks the safety data on the new data types created by the

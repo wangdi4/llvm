@@ -1,3 +1,8 @@
+; This set of tests is to verify the functionality of the DTransOptBase class
+; via the DTransOptBaseTest derivation to verify that global variables
+; that need to be remapped to new types due to type replacement get
+; remapped correctly.
+
 ; Test with legacy pass manager
 ; RUN: opt  < %s -whole-program-assume -S -dtrans-optbasetest \
 ; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a \
@@ -8,10 +13,15 @@
 ; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a \
 ; RUN: 2>&1 | FileCheck %s
 
-; This set of tests is to verify the functionality of the DTransOptBase class
-; via the DTransOptBaseTest derivation to verify that global variables
-; that need to be remapped to new types due to type replacement get
-; remapped correctly.
+; Run tests without supplying dtrans analysis info to the base class
+; RUN: opt  < %s -whole-program-assume -S -dtrans-optbasetest \
+; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a -dtrans-optbasetest-use-analysis=false \
+; RUN: 2>&1 | FileCheck %s
+
+; Test with new pass manager
+; RUN: opt  < %s -whole-program-assume -S -passes=dtrans-optbasetest \
+; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a -dtrans-optbasetest-use-analysis=false \
+; RUN: 2>&1 | FileCheck %s
 
 
 ; Test with a global that should not be converted

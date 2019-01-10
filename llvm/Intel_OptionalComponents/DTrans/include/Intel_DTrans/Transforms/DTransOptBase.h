@@ -1,6 +1,6 @@
 //===---- DTransOptBase.h - Common base classes for DTrans Transforms --==//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -31,7 +31,6 @@
 
 namespace llvm {
 
-class BinaryOperator;
 class TargetLibraryInfo;
 
 namespace dtrans {
@@ -134,16 +133,20 @@ public:
   // Data structure to use for mapping one type to a set of types.
   using TypeToTypeSetMap = DenseMap<llvm::Type *, SetVector<Type *>>;
 
-  // \param DTInfo DTrans Analysis Result
-  // \param Context llvm context for the module
-  // \param DL Module's data layout
+  // \param DTInfo        DTrans Analysis Result. This is an optional parameter
+  //                      for the base class. However, if a transform needs to
+  //                      have the DTrans CallInfo data structures kept
+  //                      up-to-date when functions are transformed, this
+  //                      parameter must be provided.
+  // \param Context       llvm context for the module
+  // \param DL            Module's data layout
   // \param DepTypePrefix Optional string to prefix structure names of rewritten
-  // dependent types
-  // \param TypeRemapper Class that will perform type mapping from old types
-  // to new types
-  // \param Materializer Optional class that works with ValueMapper to create
-  // new Values during type remapping
-  DTransOptBase(DTransAnalysisInfo &DTInfo, LLVMContext &Context,
+  //                      dependent types
+  // \param TypeRemapper  Class that will perform type mapping from old types
+  //                      to new types
+  // \param Materializer  Optional class that works with ValueMapper to create
+  //                      new Values during type remapping
+  DTransOptBase(DTransAnalysisInfo *DTInfo, LLVMContext &Context,
                 const DataLayout &DL, const TargetLibraryInfo &TLI,
                 StringRef DepTypePrefix, DTransTypeRemapper *TypeRemapper,
                 ValueMaterializer *Materializer = nullptr)
@@ -289,13 +292,16 @@ protected:
   const typename TypeToTypeSetMap::mapped_type &getEnclosingTypes(Type *Ty);
 
 protected:
-  DTransAnalysisInfo &DTInfo;
+  DTransAnalysisInfo *const DTInfo;
   LLVMContext &Context;
   const DataLayout &DL;
   const TargetLibraryInfo &TLI;
 
   // Optional string to precede names of dependent types that get renamed.
   std::string DepTypePrefix;
+
+  // Collection of all the structure types in the IR.
+  SetVector<llvm::StructType *> KnownStructTypes;
 
   // This will be populated with the a list of dependent types for each
   // structure type prior to call to the prepareTypes method of derived
@@ -359,74 +365,6 @@ private:
   void resetFunctionCallInfoMapping();
 };
 
-namespace dtrans {
-  // Transformations may call this function to find and replace the
-  // input value to the specified instruction which is a multiple of the
-  // original operand size. This function uses the instruction type to
-  // determine which operand is expected to be a size operand and then
-  // searches the use-def chain of that operand (if necessary) to find
-  // a constant value which is a multiple of the alloc size of the original
-  // type and replaces it with the same constant multiple of the alloc size
-  // of the replacement type. If multiple possible values are found (such
-  // as in the case of a calloc instruction whose size and count arguments
-  // are both multiples of the original size) only one value will be
-  // replaced. If any value in the use-def chain between the instruction and
-  // the constant value that is updated has multiple uses, all instructions
-  // between the first instruction in the chain with multiple uses and the
-  // value being replaced will be cloned.
-  //
-  // Note: This function assumes that the calls involved are all processing
-  // the entire function. Optimizations which use this function should check
-  // the MemFuncPartialWrite safety condition.
-  void updateCallSizeOperand(llvm::Instruction *I, llvm::dtrans::CallInfo *CInfo,
-                             llvm::Type *OrigTy, llvm::Type *ReplTy,
-                             const llvm::TargetLibraryInfo &TLI);
-
-  // This is an overloaded version of the above function that allows the
-  // transformations to pass in an original structure size in the \p OrigSize
-  // parameter and a new structure size in the \p ReplSize parameter to use for
-  // replacing the size operand in the function call contained within \p CInfo.
-  void updateCallSizeOperand(llvm::Instruction *I, llvm::dtrans::CallInfo *CInfo,
-                             uint64_t OrigSize, uint64_t ReplSize,
-                             const llvm::TargetLibraryInfo &TLI);
-
-  // Given a pointer to a sub instruction that is known to subtract two
-  // pointers, find all users of the instruction that divide the result by
-  // a constant multiple of the original type and replace them with a divide
-  // by a constant that is the same multiple of the replacement type.
-  // This function requires that all uses of this instruction be either
-  // sdiv or udiv instructions.
-  void updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
-                                      llvm::Type *OrigTy, llvm::Type *ReplTy,
-                                      const DataLayout &DL);
-
-  // Given a pointer to a sub instruction that is known to subtract two
-  // pointers, find all users of the instruction that divide the result by
-  // a constant multiple of the \p OrigSize and replace them with a divide
-  // by a constant that is the same multiple of the \p ReplSize.
-  // This function requires that all uses of this instruction be either
-  // sdiv or udiv instructions.
-  void updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
-                                      uint64_t OrigSize, uint64_t ReplSize);
-
-  // Transformations may use this function to find a constant input value,
-  // searching from the specified operand and following the use-def chain
-  // as necessary, which is a multiple of the specified size. If such a value
-  // is found, the function will return true and the \p UseStack vector will
-  // contain the stack of User-Index pairs in the use-def chain which led to
-  // the constant. Each entry in the stack represents an instruction and the
-  // index of the operand that was followed.
-  //
-  // If such a value is not found, the function will return false and the
-  // \p UseStack vector will not be changed.
-  bool findValueMultipleOfSizeInst(
-      User *U, unsigned Idx, uint64_t Size,
-      SmallVectorImpl<std::pair<User *, unsigned>> &UseStack);
-
-  // Returns 'true' if function, \p F, represents the program's main entry
-  // routine.
-  bool isMainFunction(Function &F);
-} // namespace dtrans
 } // namespace llvm
 
 #endif // INTEL_OPTIONALCOMPONENTS_INTEL_DTRANS_TRANSFORMS_DTRANSOPTBASE_H

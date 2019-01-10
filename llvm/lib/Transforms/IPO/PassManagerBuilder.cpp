@@ -1030,6 +1030,8 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createLICMPass());
  }
 
+  MPM.add(createWarnMissedTransformationsPass());
+
   // After vectorization and unrolling, assume intrinsics may tell us more
   // about pointer alignments.
   MPM.add(createAlignmentFromAssumptionsPass());
@@ -1314,6 +1316,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
+  PM.add(createWarnMissedTransformationsPass());
+
   // Now that we've optimized loops (in particular loop induction variables),
   // we may have exposed more scalar opportunities. Run parts of the scalar
   // optimizer again at this point.
@@ -1521,11 +1525,13 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
     PM.add(createHIRLMMPass());
     PM.add(createHIRLastValueComputationPass());
+    PM.add(createHIRLoopRerollPass());
 
     if (SizeLevel == 0) {
       PM.add(createHIRLoopDistributionForMemRecPass());
     }
 
+    PM.add(createHIRMultiExitLoopRerollPass());
     PM.add(createHIRLoopCollapsePass());
     PM.add(createHIRIdiomRecognitionPass());
     PM.add(createHIRLoopFusionPass());

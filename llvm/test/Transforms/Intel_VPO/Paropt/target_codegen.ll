@@ -10,10 +10,19 @@
 ; #pragma omp target
 ;   {}
 ; }
+;
+; #pragma omp declare target
+; __attribute__((used))
+; static void goo() {}
+; #pragma omp end declare target
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux-gnu"
 target device_triples = "x86_64-pc-linux-gnu"
+
+; Check that @llvm.used is retained after outlining.
+; CHECK-ALL: @llvm.used = appending global [1 x i8*] [i8* bitcast (void ()* @goo to i8*)]
+@llvm.used = appending global [1 x i8*] [i8* bitcast (void ()* @goo to i8*)], section "llvm.metadata"
 
 ; Check that offload entry is created.
 ; CHECK-HST: [[ID:@.+\.region_id]] = weak constant i8 0
@@ -33,6 +42,12 @@ entry:
 ; CHECK-HST: call void @[[OUTLINEDTARGET]]()
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+  ret void
+}
+
+; CHECK-ALL: void @goo()
+define internal void @goo() {
+entry:
   ret void
 }
 

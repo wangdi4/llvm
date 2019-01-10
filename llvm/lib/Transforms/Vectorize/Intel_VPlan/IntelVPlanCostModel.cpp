@@ -1,6 +1,6 @@
 //===-- IntelVPlanCostModel.cpp -------------------------------------------===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -119,9 +119,10 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
 
   bool IsLoad = Opcode == Instruction::Load;
   if (Type *Result = IsLoad ? VPInst->getOperand(0)->getType()
-                            : VPInst->getOperand(1)->getType())
-    return Result;
-
+                            : VPInst->getOperand(1)->getType()) {
+    assert(Result->isPointerTy() && "Expected a pointer type");
+    return Result->getPointerElementType();
+  }
   // FIXME: This is temporal until decomposition is in place - we might end up
   // in operand without underlying HIR instruction currently. The code below
   // workarounds it by accessing the operands of the original load/store which
@@ -219,7 +220,10 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   // If underlying instruction had default alignment (0) we need to query
   // DataLayout what it is, because default alignment for the widened type will
   // be different.
-  return DL->getABITypeAlignment(getMemInstValueType(VPInst));
+  if (Type *Ty = getMemInstValueType(VPInst))
+    return DL->getABITypeAlignment(Ty);
+
+  return 0;
 }
 
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) const {
@@ -329,7 +333,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
     //   <i32 1, i32 2, i32 3, i32 4>
     // that would have had the same underlying llvm::Constant (i32 1).
 
-    Type *BaseTy = VPInst->getType();
+    Type *BaseTy = VPInst->getCMType();
     if (!BaseTy)
       return UnknownCost;
     Type *VecTy = getVectorizedType(BaseTy, VF);
@@ -341,12 +345,12 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
   case Instruction::FCmp: {
     // FIXME: Assuming all the compares are widened, which is obviously wrong
     // for trip count checks.
-    Type *Ty = VPInst->getOperand(0)->getType();
+    Type *Ty = VPInst->getOperand(0)->getCMType();
 
     // FIXME: In the future VPValue will always have Type (VPType), but for now
     // it might be missing so handle such cases.
     if (!Ty)
-      Ty = VPInst->getOperand(1)->getType();
+      Ty = VPInst->getOperand(1)->getCMType();
     if (!Ty)
       return UnknownCost;
 
@@ -361,15 +365,15 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
     if (VPInst->getNumOperands() != 3)
       return UnknownCost;
 
-    Type *CondTy = VPInst->getOperand(0)->getType();
-    Type *OpTy = VPInst->getOperand(1)->getType();
+    Type *CondTy = VPInst->getOperand(0)->getCMType();
+    Type *OpTy = VPInst->getOperand(1)->getCMType();
 
     // FIXME: Remove once VPValue is known to always have type.
     if (!CondTy)
       return UnknownCost;
 
     if (!OpTy)
-      OpTy = VPInst->getOperand(2)->getType();
+      OpTy = VPInst->getOperand(2)->getCMType();
     if (!OpTy)
       return UnknownCost;
 
@@ -389,8 +393,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
   case Instruction::UIToFP:
   case Instruction::Trunc:
   case Instruction::FPTrunc: {
-    Type *BaseDstTy = VPInst->getType();
-    Type *BaseSrcTy = VPInst->getOperand(0)->getType();
+    Type *BaseDstTy = VPInst->getCMType();
+    Type *BaseSrcTy = VPInst->getOperand(0)->getCMType();
 
     if (!BaseDstTy || !BaseSrcTy)
       return UnknownCost;

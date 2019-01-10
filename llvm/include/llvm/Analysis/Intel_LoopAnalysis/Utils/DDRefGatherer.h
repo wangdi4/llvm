@@ -1,6 +1,6 @@
 //=== DDRefGatherer.h - Gathers DDRefs attached to HLNodes ----*-- C++ --*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -273,11 +273,12 @@ struct DDRefGathererLambda : public DDRefGathererUtils {
   typedef SymToRefTy<RefTy> MapTy;
   typedef RefVectorTy<RefTy> VectorTy;
 
-  template <bool Recursive = true, typename Predicate, typename ContainerTy>
+  template <bool Recursive = true, bool RecurseInsideLoops = true,
+            typename Predicate, typename ContainerTy>
   static void gather(const HLNode *Node, ContainerTy &Container,
                      Predicate Pred) {
     DDRefGathererVisitor<RefTy, ContainerTy, Predicate> VImpl(Container, Pred);
-    HLNodeUtils::visit<Recursive>(VImpl, Node);
+    HLNodeUtils::visit<Recursive, RecurseInsideLoops>(VImpl, Node);
   }
 
   template <bool Recursive = true, bool RecurseInsideLoops = true, typename It,
@@ -302,6 +303,7 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
   struct ModeSelectorPredicate {
     bool operator()(const RegDDRef *Ref) {
       unsigned Symbase = Ref->getSymbase();
+      (void)Symbase;
 
       if (!(Mode & ConstantRefs) && (Symbase == ConstantSymbase)) {
         return false;
@@ -326,17 +328,18 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
     }
   };
 
-  template <typename ContainerTy>
+  template <bool Recursive = true, bool RecurseInsideLoops = true,
+            typename ContainerTy>
   static void gather(const HLNode *Node, ContainerTy &Container) {
-    DDRefGathererLambda<RefTy>::gather(Node, Container,
-                                       ModeSelectorPredicate());
+    DDRefGathererLambda<RefTy>::template gather<Recursive, RecurseInsideLoops>(
+        Node, Container, ModeSelectorPredicate());
   }
 
-  template <typename It, typename ContainerTy, bool Recursive = true,
-            bool RecurseInsideLoops = true>
+  template <bool Recursive = true, bool RecurseInsideLoops = true, typename It,
+            typename ContainerTy>
   static void gatherRange(It Begin, It End, ContainerTy &Container) {
-    DDRefGathererLambda<RefTy>::template gatherRange<
-        Recursive, RecurseInsideLoops, It, ModeSelectorPredicate, ContainerTy>(
+    DDRefGathererLambda<RefTy>::template gatherRange<Recursive,
+                                                     RecurseInsideLoops>(
         Begin, End, Container, ModeSelectorPredicate());
   }
 };

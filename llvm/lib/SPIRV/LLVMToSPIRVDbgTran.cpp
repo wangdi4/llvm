@@ -378,6 +378,10 @@ SPIRVWord mapDebugFlags(DINode::DIFlags DFlags) {
     Flags |= SPIRVDebug::FlagIsLValueReference;
   if (DFlags & DINode::FlagRValueReference)
     Flags |= SPIRVDebug::FlagIsRValueReference;
+  if (DFlags & DINode::FlagTypePassByValue)
+    Flags |= SPIRVDebug::FlagTypePassByValue;
+  if (DFlags & DINode::FlagTypePassByReference)
+    Flags |= SPIRVDebug::FlagTypePassByReference;
   return Flags;
 }
 
@@ -397,6 +401,9 @@ SPIRVWord transDebugFlags(const DINode *DN) {
     if (DS->isDefinition())
       Flags |= SPIRVDebug::FlagIsDefinition;
     Flags |= mapDebugFlags(DS->getFlags());
+  }
+  if (const DICompositeType *DC = dyn_cast<DICompositeType>(DN)) {
+    Flags |= mapDebugFlags(DC->getFlags());
   }
   if (DN->getTag() == dwarf::DW_TAG_reference_type)
     Flags |= SPIRVDebug::FlagIsLValueReference;

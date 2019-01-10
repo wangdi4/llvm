@@ -40,6 +40,48 @@ static cl::opt<bool> UseOffloadMetadata(
   "vpo-paropt-use-offload-metadata", cl::Hidden, cl::init(true),
   cl::desc("Use offload metadata created by clang in paropt lowering."));
 
+// This table is used to change math function names (left column) to the
+// OCL builtin format (right column).
+std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
+    // float:
+    {"sinf",   "_Z3sinf"},
+    {"cosf",   "_Z3cosf"},
+    {"tanf",   "_Z3tanf"},
+    {"expf",   "_Z3expf"},
+    {"logf",   "_Z3logf"},
+    {"log2f",  "_Z4log2f"},
+    {"powf",   "_Z3powff"},
+    {"sqrtf",  "_Z4sqrtf"},
+    {"fabsf",  "_Z4fabsf"},
+    {"ceilf",  "_Z4ceilf"},
+    {"floorf", "_Z5floorf"},
+    // double:
+    {"sin",    "_Z3sind"},
+    {"cos",    "_Z3cosd"},
+    {"tan",    "_Z3tand"},
+    {"exp",    "_Z3expd"},
+    {"log",    "_Z3logd"},
+    {"log2",   "_Z4log2d"},
+    {"pow",    "_Z3powdd"},
+    {"sqrt",   "_Z4sqrtd"},
+    {"fabs",   "_Z4fabsd"},
+    {"ceil",   "_Z4ceild"},
+    {"floor",  "_Z5floord"}};
+
+// To support the SPIRV target compilation stage of the OpenMP compilation
+// offloading to GPUs, we must translate the name of math functions (left
+// column in OCLBuiltin) to their OCL builtin counterparts.
+static void replaceMathFnWithOCLBuiltin(Function &F) {
+  StringRef OldName = F.getName();
+  auto Map = OCLBuiltin.find(OldName);
+  if (Map != OCLBuiltin.end()) {
+    StringRef NewName = Map->second;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing " << OldName << " with "
+                      << NewName << '\n');
+    F.setName(NewName);
+  }
+}
+
 // Perform paropt transformations for the module. Each module's function is
 // transformed by a separate VPOParoptTransform instance which performs
 // paropt transformations on a function level. Then, after tranforming all
@@ -50,6 +92,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter) {
 
   bool Changed = false;
+  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
 
   processDeviceTriples();
   loadOffloadMetadata();
@@ -60,8 +103,11 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 
   for (auto F = M.begin(), E = M.end(); F != E; ++F) {
     // TODO: need Front-End to set F->hasOpenMPDirective()
-    if (F->isDeclaration()) // if(!F->hasOpenMPDirective()))
+    if (F->isDeclaration()) { // if(!F->hasOpenMPDirective()))
+      if (IsTargetSPIRV)
+        replaceMathFnWithOCLBuiltin(*F);
       continue;
+    }
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass func: " << F->getName()
                       << " {\n");
     FnList.push_back(&*F);
@@ -121,17 +167,16 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   if ((Mode & OmpPar) && (Mode & ParTrans))
     fixTidAndBidGlobals();
 
-  if (!VPOAnalysisUtils::isTargetSPIRV(&M)) {
+  if (!IsTargetSPIRV)
     // Generate offload initialization code.
     genOffloadingBinaryDescriptorRegistration();
 
-    // Emit offload entries table.
-    genOffloadEntries();
-  }
+  // Emit offload entries table.
+  genOffloadEntries();
 
   if (hasOffloadCompilation() && (Mode & ParTrans)) {
     removeTargetUndeclaredGlobals();
-    if (VPOAnalysisUtils::isTargetSPIRV(&M)) {
+    if (IsTargetSPIRV) {
       // Add the metadata to indicate that the module is OpenCL C++ version.
       // enum SourceLanguage {
       //    SourceLanguageUnknown = 0,
@@ -270,7 +315,11 @@ void VPOParoptModuleTransform::processUsesOfGlobals(
 // attribute.
 void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   std::vector<GlobalVariable *> DeadGlobalVars; // Keep track of dead globals
-  for (GlobalVariable &GV : M.globals())
+  for (GlobalVariable &GV : M.globals()) {
+    if (GV.hasName() && (GV.getName() == "llvm.used" ||
+                         GV.getName() == "llvm.compiler.used"))
+      continue;
+
     if (!GV.isTargetDeclare()) {
       DeadGlobalVars.push_back(&GV); // Keep track of dead globals
       // TODO  The check of use_empty will be removed after the frontend
@@ -282,6 +331,7 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
           Init->destroyConstant();
       }
     }
+  }
 
   std::vector<Function *> DeadFunctions;
 
@@ -434,7 +484,7 @@ GlobalVariable *VPOParoptModuleTransform::getDsoHandle() {
 
 // Register the offloading binary descriptors.
 void VPOParoptModuleTransform::genOffloadingBinaryDescriptorRegistration() {
-  if (hasOffloadCompilation() || OffloadEntries.empty())
+  if (OffloadEntries.empty())
     return;
 
   auto OffloadEntryTy = getTgOffloadEntryTy();
@@ -496,6 +546,8 @@ void VPOParoptModuleTransform::genOffloadingBinaryDescriptorRegistration() {
       new GlobalVariable(M, DescInit->getType(),
                          /*isConstant=*/true, GlobalValue::InternalLinkage,
                          DescInit, ".omp_offloading.descriptor");
+  if (hasOffloadCompilation())
+    return;
   Function *TgDescUnregFn = createTgDescUnregisterLib(Desc);
   Function *TgDescRegFn = createTgDescRegisterLib(TgDescUnregFn, Desc);
 
@@ -735,8 +787,11 @@ void VPOParoptModuleTransform::genOffloadEntries() {
     Str->setTargetDeclare(true);
 
     SmallVector<Constant *, 5u> EntryInitBuffer;
-    EntryInitBuffer.push_back(
+    if (!VPOAnalysisUtils::isTargetSPIRV(&M))
+      EntryInitBuffer.push_back(
         ConstantExpr::getBitCast(E->getAddress(), VoidStarTy));
+    else
+      EntryInitBuffer.push_back(Constant::getNullValue(VoidStarTy));
     EntryInitBuffer.push_back(ConstantExpr::getBitCast(Str, VoidStarTy));
     EntryInitBuffer.push_back(ConstantInt::get(SizeTy, E->getSize()));
     EntryInitBuffer.push_back(ConstantInt::get(Int32Ty, E->getFlags()));

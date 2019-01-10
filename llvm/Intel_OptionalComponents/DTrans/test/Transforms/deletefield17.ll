@@ -1,5 +1,5 @@
-; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; This test verifies the case of a byte-flattened GEPs with a candidate
 ; for field deletion being passed to a select instruction. We should not
@@ -46,7 +46,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 
 ; CHECK: %struct.test = type { i32, i32, i32 }
 
-; CHECK: define i32 @doSomething(%struct.test* %p_test)
+; CHECK: define internal i32 @doSomething(%struct.test* %p_test)
 ; CHECK: %p = bitcast %struct.test* %p_test to i8*
 ; CHECK: %p8_B = getelementptr i8, i8* %p, i64 4
 ; CHECK: %p8_C = getelementptr i8, i8* %p, i64 8

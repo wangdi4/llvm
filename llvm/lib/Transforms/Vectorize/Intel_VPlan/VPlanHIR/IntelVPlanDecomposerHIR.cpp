@@ -305,15 +305,15 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
 
   assert(Ref->hasGEPInfo() &&
          "Expected a GEP RegDDRef to decompose memory operand.");
-  SmallVector<VPValue *, 4> GepOperands;
+
+  // Final VPInstruction obtained on decomposing the MemOp
+  VPValue *MemOpVPI;
 
   VPValue *DecompBaseCE = decomposeCanonExpr(Ref, Ref->getBaseCE());
 
   LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompBaseCE: "; DecompBaseCE->dump();
              dbgs() << "\n");
-  GepOperands.push_back(DecompBaseCE);
 
-  bool NeedGEP = true;
   unsigned NumDims = Ref->getNumDimensions();
   assert(NumDims > 0 && "Number of dimensions in memory operand is 0.");
 
@@ -324,50 +324,79 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   // check Transforms/Intel_VPO/Vecopt/hir_vector_opaque_type.ll
   if (NumDims == 1 && !Ref->hasTrailingStructOffsets() &&
       (*Ref->canon_begin())->isZero())
-    NeedGEP = false;
-  else {
-    // Process indices for each dimension and update GepOperands.
-    for (unsigned I = NumDims; I > 0; --I) {
-      VPValue *DecompIndex = decomposeCanonExpr(Ref, Ref->getDimensionIndex(I));
-      LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompIndex: "; DecompIndex->dump();
-                 dbgs() << "\n");
-      GepOperands.push_back(DecompIndex);
-
-      // TODO: Push indices for trailing struct offsets
-    }
-  }
-
-  // Determine resulting type of the GEP instruction
-  //
-  // Example: float a[1024];
-  //
-  // @a[0][i] will be decomposed as -
-  // float* %vp = getelementptr [1024 x float]* %a, i64 0, i64 %i
-  //
-  // Here -
-  // GepResultType = float*
-  //
-  // NOTE: Type information about pointer type or pointer element type can be
-  // retrieved anytime from the first operand of GEP instruction
-  //
-
-  Type *GepResultType = Ref->getSrcType();
-
-  // For store/load references we need to convert to PointerType
-  if (!Ref->isAddressOf())
-    GepResultType =
-        PointerType::get(GepResultType, Ref->getPointerAddressSpace());
-
-  // Final VPInstruction obtained on decomposing the MemOp
-  VPValue *MemOpVPI;
-
-  if (!NeedGEP)
     MemOpVPI = DecompBaseCE;
-  else if (Ref->isInBounds())
-    // TODO: add extra field to store InBounds in VPGEPInstruction
-    MemOpVPI = Builder.createGEP(GepResultType, GepOperands);
-  else
-    MemOpVPI = Builder.createGEP(GepResultType, GepOperands);
+  else {
+    // Determine resulting type of the GEP instruction
+    //
+    // Example: float a[1024];
+    //
+    // @a[0][i] will be decomposed as -
+    // float* %vp = getelementptr [1024 x float]* %a, i64 0, i64 %i
+    //
+    // Here -
+    // GepResultType = float*
+    //
+    // NOTE: Type information about pointer type or pointer element type can be
+    // retrieved anytime from the first operand of GEP instruction
+    //
+
+    Type *GepResultType = Ref->getSrcType();
+
+    // For store/load references we need to convert to PointerType
+    if (!Ref->isAddressOf())
+      GepResultType =
+          PointerType::get(GepResultType, Ref->getPointerAddressSpace());
+
+    // The VPGEPInstruction generated for given memory operand.
+    // NOTE: At this point, the instruction is built with only the base pointer
+    // operand. The indices operands are added subsequently below.
+    VPGEPInstruction *MemOpVPGEP;
+    if (Ref->isInBounds())
+      MemOpVPGEP = cast<VPGEPInstruction>(
+          Builder.createInBoundsGEP(GepResultType, DecompBaseCE));
+    else
+      MemOpVPGEP = cast<VPGEPInstruction>(
+          Builder.createGEP(GepResultType, DecompBaseCE));
+
+    { // This scope is for the Guard (RAII)
+
+      VPBuilder::InsertPointGuard Guard(Builder);
+      // Ensure that all the VPInstructions created for decomposition of the
+      // index DDRefs are inserted before the GEP VPInstruction
+      Builder.setInsertPoint(MemOpVPGEP);
+
+      // Process indices for each dimension and update operands of VPGEP.
+      for (unsigned I = NumDims; I > 0; --I) {
+        VPValue *DecompIndex =
+            decomposeCanonExpr(Ref, Ref->getDimensionIndex(I));
+        LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompIndex: ";
+                   DecompIndex->dump(); dbgs() << "\n");
+        MemOpVPGEP->addOperand(DecompIndex);
+
+        // Add indices for trailing struct offsets and record it in the struct
+        // offset tracker
+        auto HIRDimOffsets = Ref->getTrailingStructOffsets(I);
+
+        // Add the offsets for the corresponding dimension operand only if it is
+        // non-empty
+        if (!HIRDimOffsets.empty()) {
+          // Trailing struct offsets are always I32 type constants
+          auto I32Ty = Type::getInt32Ty(Ref->getDDRefUtils().getContext());
+          for (auto OffsetVal : HIRDimOffsets) {
+            auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
+            // Build a VPConstant to represent the offset value
+            VPConstant *VPOffset = Plan->getVPConstant(OffsetIndex);
+            LLVM_DEBUG(dbgs() << "VPDecomp: Struct Offset: "; VPOffset->dump();
+                       dbgs() << "\n");
+            MemOpVPGEP->addOperand(VPOffset, true /*IsStructOffset*/);
+          }
+        }
+      }
+
+    } // End Guard scope
+
+    MemOpVPI = MemOpVPGEP;
+  }
 
   // Create a bitcast instruction if needed
   auto BitCastDestTy = Ref->getBitCastDestType();
@@ -787,6 +816,10 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   //      that UB group of decomposed VPInstructions.
   assert(HLp->getUpperDDRef() && "Expected a valid upper DDRef for HLLoop.");
   SmallVector<VPValue *, 2> VPOperands;
+
+  // Keep last instruction before decomposition. We will need it to set the
+  // master VPInstruction of all the created decomposed VPInstructions.
+  VPInstruction *LastVPIBeforeDec = getLastVPI(LpPH);
   VPValue *DecompUB;
   VPOperands.push_back(IVNext);
   { // #1. This scope is for Guard (RAII).
@@ -808,8 +841,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
 
     // Set DecompUBVPI as master VPInstruction of any other decomposed
     // VPInstruction of UB.
-    setMasterForDecomposedVPIs(DecompUBVPI, nullptr /*First VPI before decomp*/,
-                               LpPH);
+    setMasterForDecomposedVPIs(DecompUBVPI, LastVPIBeforeDec, LpPH);
     DecompUBVPI->HIR.setValid();
   }
 

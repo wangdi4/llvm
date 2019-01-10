@@ -33,6 +33,13 @@ namespace X86Disassembler {
 #define XOPA_MAP_SYM      x86DisassemblerXOPAOpcodes
 #define THREEDNOW_MAP_SYM x86Disassembler3DNowOpcodes
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+#define THREEBYTE39_SYM   x86DisassemblerThreeByte39Opcodes
+#define THREEBYTE3B_SYM   x86DisassemblerThreeByte3BOpcodes
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
 #define INSTRUCTIONS_STR  "x86DisassemblerInstrSpecifiers"
 #define CONTEXTS_STR      "x86DisassemblerContexts"
 #define ONEBYTE_STR       "x86DisassemblerOneByteOpcodes"
@@ -43,6 +50,13 @@ namespace X86Disassembler {
 #define XOP9_MAP_STR      "x86DisassemblerXOP9Opcodes"
 #define XOPA_MAP_STR      "x86DisassemblerXOPAOpcodes"
 #define THREEDNOW_MAP_STR "x86Disassembler3DNowOpcodes"
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+#define THREEBYTE39_STR   "x86DisassemblerThreeByte39Opcodes"
+#define THREEBYTE3B_STR   "x86DisassemblerThreeByte3BOpcodes"
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 // Attributes of an instruction that must be known before the opcode can be
 // processed correctly.  Most of these indicate the presence of particular
@@ -297,7 +311,15 @@ enum OpcodeType {
   XOP8_MAP      = 4,
   XOP9_MAP      = 5,
   XOPA_MAP      = 6,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  THREEDNOW_MAP = 7,
+  THREEBYTE_39  = 8,
+  THREEBYTE_3B  = 9
+#else // INTEL_FEATURE_ISA_FP16
   THREEDNOW_MAP = 7
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 };
 
 // The following structs are used for the hierarchical decode table.  After

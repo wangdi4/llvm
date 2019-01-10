@@ -988,7 +988,6 @@ bool VPOParoptTransform::paroptTransforms() {
                     WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
               WT->setParLoopNdInfoAlloca(genTgtLoopParameter(WT, W));
           }
-
           AllocaInst *IsLastVal = nullptr;
           BasicBlock *IfLastIterBB = nullptr;
 
@@ -2736,7 +2735,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         if (W->getIsTarget()) {
           MapItem *MapI = FprivI->getInMap();
           if (MapI)
-            ValueToReplace = MapI->getNew();
+            ValueToReplace = MapI->getOrig();
         }
 
         Instruction *InsertPt = EntryBB->getFirstNonPHI();
@@ -2752,11 +2751,12 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         if (ForTask || (W->getIsTarget() && FprivI->getInMap() &&
                         FprivI->getInMap()->getIsMapFrom())) {
           IRBuilder<> Builder(EntryBB->getTerminator());
-          Builder.CreateStore(Builder.CreateLoad(FprivI->getNew()),
+          Builder.CreateStore(Builder.CreateLoad(ForTask ? FprivI->getNew()
+                                                         : FprivI->getOrig()),
                               NewPrivInst);
           Builder.SetInsertPoint(ExitBB->getTerminator());
           Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
-                              FprivI->getNew());
+                              ForTask ? FprivI->getNew() : FprivI->getOrig());
         }
 
         FprivI->setNew(NewPrivInst);
@@ -3318,6 +3318,21 @@ void VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
     LastprivateClause &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
       genFenceIntrinsic(W, LprivI->getOrig());
+  }
+
+  if (W->canHaveMap()) {
+    MapClause const &MpClause = W->getMap();
+    for (MapItem *MapI : MpClause.items()) {
+      genFenceIntrinsic(W, MapI->getOrig());
+      if (!MapI->getIsMapChain())
+        continue;
+      MapChainTy const &MapChain = MapI->getMapChain();
+      for (unsigned I = 0; I < MapChain.size(); ++I) {
+        MapAggrTy *Aggr = MapChain[I];
+        genFenceIntrinsic(W, Aggr->getBasePtr());
+        genFenceIntrinsic(W, Aggr->getSectionPtr());
+      }
+    }
   }
 }
 

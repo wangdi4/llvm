@@ -956,9 +956,9 @@ private:
                             SmallSetVector<Instruction *, 8> &LiveOutVals,
                             EquivalenceClasses<Value *> &ECs);
 
-  /// \brief The utility to generate the stack variable to pass the value of
-  /// global variable.
-  Value *genGlobalPrivatizationImpl(WRegionNode *W, GlobalVariable *G,
+  /// \brief The utility to generate the stack variable to rename the incoming
+  /// value.
+  Value *genRenamePrivatizationImpl(WRegionNode *W, Value *V,
                                     BasicBlock *EntryBB, BasicBlock *NextExitBB,
                                     Item *IT);
 

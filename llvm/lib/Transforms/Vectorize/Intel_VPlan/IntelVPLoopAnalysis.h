@@ -1,6 +1,6 @@
 //===- IntelVPLoopAnalysis.h ----------------------------------------------===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -103,13 +103,15 @@ public:
 
   /// Set known trip count for a given VPLoop. This function also sets MinTC and
   /// MaxTC to same value.
-  void setKnownTripCountFor(const VPLoopRegion *Lp, const TripCountTy TripCount) {
+  void setKnownTripCountFor(const VPLoopRegion *Lp,
+                            const TripCountTy TripCount) {
     LoopTripCounts[Lp] = TripCountInfo(TripCount, TripCount, TripCount, false);
   }
 
   /// Set estimated trip count for a given VPLoop. This function doesn't touch
   /// MinTC or MaxTC.
-  void setEstimatedTripCountFor(const VPLoopRegion *Lp, const TripCountTy TripCount) {
+  void setEstimatedTripCountFor(const VPLoopRegion *Lp,
+                                const TripCountTy TripCount) {
     LoopTripCounts[Lp].TripCount = TripCount;
     LoopTripCounts[Lp].IsEstimated = true;
   }
@@ -143,7 +145,8 @@ private:
   }
 
 public:
-  explicit VPLoopAnalysis(ScalarEvolution *SE, const TripCountTy DefaultTripCount)
+  explicit VPLoopAnalysis(ScalarEvolution *SE,
+                          const TripCountTy DefaultTripCount)
       : VPLoopAnalysisBase(DefaultTripCount), SE(SE) {}
 };
 
@@ -151,4 +154,3 @@ public:
 } // namespace llvm
 
 #endif // LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVPLOOPANALYSIS_H
-

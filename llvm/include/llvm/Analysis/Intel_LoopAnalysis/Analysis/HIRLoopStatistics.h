@@ -125,11 +125,6 @@ private:
   /// Maintains total statistics information for loops.
   DenseMap<const HLLoop *, LoopStatistics> TotalStatisticsMap;
 
-  /// Computes and returns loop statistics for Loop. \p SelfOnly Indicates
-  /// whether to computer self or total loop statistics.
-  const LoopStatistics &computeLoopStatistics(const HLLoop *Loop,
-                                              bool SelfOnly);
-
 protected:
   /// Prints analyis results for loop.
   virtual void print(formatted_raw_ostream &OS, const HLLoop *Lp) override;

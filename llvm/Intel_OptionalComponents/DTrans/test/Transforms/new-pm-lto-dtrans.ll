@@ -24,15 +24,18 @@
 ; CHECK: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifyPass{{.*}}>
 ; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>
+
+; Verify that resolve types does not invoke DTransAnalysis
 ; CHECK-NEXT: Running pass: dtrans::ResolveTypes
-; CHECK: Running analysis: DTransAnalysis
+; CHECK-NOT: Running analysis: DTransAnalysis
+; CHECK: Running pass: dtrans::SOAToAOSPass
 ; The ordering of the analysis passes seems not to be deterministic so we
-; don't check them all here. The check below guarantees that DeleteFieldPass
+; don't check them all here. The check below guarantees that WeakAlignPass
 ; is the next non-analysis pass to run.
-; CHECK: Running pass:
-; CHECK-SAME: dtrans::SOAToAOSPass
+; CHECK: Running analysis: DTransAnalysis
 ; Now we switch to CHECK-NEXT to make sure the analysis passes aren't re-run.
-; CHECK-NEXT: Running pass: dtrans::WeakAlignPass
+; CHECK: Running pass:
+; CHECK-SAME: dtrans::WeakAlignPass
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass

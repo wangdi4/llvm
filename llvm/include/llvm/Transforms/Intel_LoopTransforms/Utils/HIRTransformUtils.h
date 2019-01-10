@@ -41,11 +41,7 @@ class HIRDDAnalysis;
 class HIRSafeReductionAnalysis;
 class HIRLoopStatistics;
 
-enum OptimizationType {
-  Unroll,
-  UnrollAndJam,
-  Vectorizer
-};
+enum OptimizationType { Unroll, UnrollAndJam, Vectorizer };
 
 /// Defines HIRLoopTransformationUtils class.
 /// It contains static member functions to analyze and transform a loop.
@@ -66,18 +62,18 @@ private:
   static bool isRemainderLoopNeeded(HLLoop *OrigLoop,
                                     unsigned UnrollOrVecFactor,
                                     uint64_t *NewTripCountP,
-                                    RegDDRef **NewTCRef,
-                                    HLIf *RTIf);
+                                    RegDDRef **NewTCRef, HLIf *RTIf);
 
   /// \brief Creates a new loop for unrolling or vectorization. \p NewTripCount
   /// contains the new loop trip count if the original loop is a constant trip
   /// count. For a original non-constant trip count loop, the new loop trip
   /// count is specified in \p NewTCRef.
-  static HLLoop *
-  createUnrollOrVecLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
-                        uint64_t NewTripCount, const RegDDRef *NewTCRef,
-                        LoopOptReportBuilder &LORBuilder, OptimizationType,
-                        HLIf *RTIf);
+  static HLLoop *createUnrollOrVecLoop(HLLoop *OrigLoop,
+                                       unsigned UnrollOrVecFactor,
+                                       uint64_t NewTripCount,
+                                       const RegDDRef *NewTCRef,
+                                       LoopOptReportBuilder &LORBuilder,
+                                       OptimizationType, HLIf *RTIf);
 
   /// \brief Processes the remainder loop for general unrolling and
   /// vectorization. The loop passed in \p OrigLoop is set up to be
@@ -295,6 +291,19 @@ public:
   /// NOTE: Does not handle non-constant lower bounds. For example-
   /// DO i1 = t, t+1, 1
   static void completeUnroll(HLLoop *Loop);
+
+  /// Multiplies trip count of \p Loop using passed in \p Multiplier.
+  /// It also updates trip count pragma and max trip count estimate.
+  ///
+  /// \p Loop is expected to be normalized.
+  ///
+  /// The utility may widen the IV if there is chance of overflow in the
+  /// multiplied trip count. In some cases, it might create a new instruction in
+  /// the preheader and invalidate the parent loop.
+  ///
+  /// This utility was created to be shared between do loop rerolling and
+  /// do multi-exit loop rerolling pass.
+  static void multiplyTripCount(HLLoop *Loop, unsigned Multiplier);
 };
 
 } // End namespace loopopt

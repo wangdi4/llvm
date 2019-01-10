@@ -415,7 +415,13 @@ namespace X86II {
     // belongs to. i.e. one-byte, two-byte, 0x0f 0x38, 0x0f 0x3a, etc.
     //
     OpMapShift = OpPrefixShift + 2,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    OpMapMask  = 0xF << OpMapShift,
+#else // INTEL_FEATURE_ISA_FP16
     OpMapMask  = 0x7 << OpMapShift,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
     // OB - OneByte - Set if this instruction has a one byte opcode.
     OB = 0 << OpMapShift,
@@ -444,13 +450,27 @@ namespace X86II {
     /// this flag to indicate that the encoder should do the wacky 3DNow! thing.
     ThreeDNow = 7 << OpMapShift,
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    // MAP5, MAP6 - Prefix after the 0x0F prefix.
+    T_MAP5 = 8 << OpMapShift,
+    T_MAP6 = 9 << OpMapShift,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
     //===------------------------------------------------------------------===//
     // REX_W - REX prefixes are instruction prefixes used in 64-bit mode.
     // They are used to specify GPRs and SSE registers, 64-bit operand size,
     // etc. We only cares about REX.W and REX.R bits and only the former is
     // statically determined.
     //
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    REXShift    = OpMapShift + 4,
+#else // INTEL_FEATURE_ISA_FP16
     REXShift    = OpMapShift + 3,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     REX_W       = 1 << REXShift,
 
     //===------------------------------------------------------------------===//
@@ -518,19 +538,21 @@ namespace X86II {
 
     // Encoding
     EncodingShift = SSEDomainShift + 2,
-    EncodingMask = 0x3 << EncodingShift,
+#if INTEL_CUSTOMIZATION
+    EncodingMask = 0x3ULL << EncodingShift,
 
     // VEX - encoding using 0xC4/0xC5
-    VEX = 1 << EncodingShift,
+    VEX = 1ULL << EncodingShift,
 
     /// XOP - Opcode prefix used by XOP instructions.
-    XOP = 2 << EncodingShift,
+    XOP = 2ULL << EncodingShift,
 
     // VEX_EVEX - Specifies that this instruction use EVEX form which provides
     // syntax support up to 32 512-bit register operands and up to 7 16-bit
     // mask operands as well as source operand data swizzling/memory operand
     // conversion, eviction hint, and rounding mode.
-    EVEX = 3 << EncodingShift,
+    EVEX = 3ULL << EncodingShift,
+#endif // INTEL_CUSTOMIZATION
 
     // Opcode
     OpcodeShift   = EncodingShift + 2,

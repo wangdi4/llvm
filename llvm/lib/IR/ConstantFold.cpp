@@ -1078,10 +1078,25 @@ Constant *llvm::ConstantFoldBinaryInstruction(unsigned Opcode, Constant *C1,
             isa<GlobalValue>(CE1->getOperand(0))) {
           GlobalValue *GV = cast<GlobalValue>(CE1->getOperand(0));
 
-          unsigned GVAlign =
-              GV->getParent()
-                  ? GV->getPointerAlignment(GV->getParent()->getDataLayout())
-                  : 0;
+#if INTEL_CUSTOMIZATION
+          // CMPLRLLVM-7809: The community change in D55115 removes
+          // the assumption that functions are at least 4-byte aligned.
+          // The issue is that it prevents constant folding for cases
+          // that deal with function pointers.For now we are going to
+          // revert the changes until we have a concrete solution to
+          // this issue.
+
+          // Functions are at least 4-byte aligned.
+          unsigned GVAlign = GV->getAlignment();
+          if (isa<Function>(GV))
+            GVAlign = std::max(GVAlign, 4U);
+
+          // Changes after D55115
+          // unsigned GVAlign =
+          //    GV->getParent()
+          //        ? GV->getPointerAlignment(GV->getParent()->getDataLayout())
+          //        : 0;
+#endif // INTEL_CUSTOMIZATION
 
           if (GVAlign > 1) {
             unsigned DstWidth = CI2->getType()->getBitWidth();
@@ -2053,7 +2068,7 @@ static bool isInBoundsIndices(ArrayRef<IndexTy> Idxs) {
 static bool isIndexInRangeOfArrayType(uint64_t NumElements,
                                       const ConstantInt *CI) {
   // We cannot bounds check the index if it doesn't fit in an int64_t.
-  if (CI->getValue().getActiveBits() > 64)
+  if (CI->getValue().getMinSignedBits() > 64)
     return false;
 
   // A negative index or an index past the end of our sequential type is

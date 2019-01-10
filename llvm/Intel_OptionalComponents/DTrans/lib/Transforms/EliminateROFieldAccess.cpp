@@ -380,7 +380,7 @@ ModulePass *llvm::createDTransEliminateROFieldAccessWrapperPass() {
 }
 
 bool DTransEliminateROFieldAccessWrapper::runOnModule(Module &M) {
-  auto &DTransInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+  auto &DTransInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M);
   auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
 
   if (skipModule(M))

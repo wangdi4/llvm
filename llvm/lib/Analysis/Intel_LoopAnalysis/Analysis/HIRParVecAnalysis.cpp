@@ -464,6 +464,16 @@ void ParVecInfo::emitDiag() {
   print(errs(), false);
 }
 
+// Return true if Loop is either a SIMD loop or part of a SIMD loop.
+static bool loopInSIMD(HLLoop *Loop) {
+  while (Loop) {
+    if (Loop->isSIMD())
+      return true;
+    Loop = Loop->getParentLoop();
+  }
+  return false;
+}
+
 void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
                          HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA) {
 
@@ -483,7 +493,7 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
 
   // DD Analysis is expensive. Be sure to run structural analysis first,
   // i.e., before coming here.
-  if (isVectorMode() && Loop->isSIMD()) {
+  if (isVectorMode() && loopInSIMD(Loop)) {
     setVecType(SIMD);
     return; // no diag needed
   }

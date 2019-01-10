@@ -1,6 +1,6 @@
 //===------ Passes.h - Constructors for HIR transformations -----*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -63,6 +63,10 @@ FunctionPass *createHIRLoopInterchangePass();
 /// createHIRLoopBlockingPass - This creates a pass that performs Loop
 /// Blocking.
 FunctionPass *createHIRLoopBlockingPass();
+
+/// createHIRLoopRerollPass - This creates a pass that performs Loop
+/// Reroll.
+FunctionPass *createHIRLoopRerollPass();
 
 /// createHIRRuntimeDDPass - This creates a HIR Loop pass that is used
 /// for Runtime DD transformation.
@@ -137,6 +141,9 @@ FunctionPass *createHIRLastValueComputationPass();
 
 /// Create pass that propagate casted IV for memory references.
 FunctionPass *createHIRPropagateCastedIVPass();
+
+/// Create pass that rerolls multi-exit loops.
+FunctionPass *createHIRMultiExitLoopRerollPass();
 
 /// Creates a pass that recognizes parallel loops.
 FunctionPass *createHIRRecognizeParLoopPass();

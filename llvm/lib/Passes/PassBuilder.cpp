@@ -164,6 +164,7 @@
 #include "llvm/Transforms/Scalar/SpeculateAroundPHIs.h"
 #include "llvm/Transforms/Scalar/SpeculativeExecution.h"
 #include "llvm/Transforms/Scalar/TailRecursionElimination.h"
+#include "llvm/Transforms/Scalar/WarnMissedTransforms.h"
 #include "llvm/Transforms/Utils/AddDiscriminators.h"
 #include "llvm/Transforms/Utils/BreakCriticalEdges.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
@@ -183,6 +184,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
 #include "llvm/Transforms/Scalar/Intel_AddSubReassociate.h"
+#include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
 
 // Intel Loop Optimization framework
@@ -219,6 +221,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusion.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUB.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicate.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicate.h"
@@ -230,6 +233,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSymbolicTripCountCompleteUnrollPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputation.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIV.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopReroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
 
 // Intel VPO
@@ -980,6 +984,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
         createFunctionToLoopPassAdaptor(LoopUnrollAndJamPass(Level)));
   }
   OptimizePM.addPass(LoopUnrollPass(LoopUnrollOptions(Level)));
+  OptimizePM.addPass(WarnMissedTransformationsPass());
   OptimizePM.addPass(InstCombinePass());
   OptimizePM.addPass(RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(LICMPass(), DebugLogging));

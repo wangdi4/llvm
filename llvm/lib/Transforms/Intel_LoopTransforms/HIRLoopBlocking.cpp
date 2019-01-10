@@ -91,13 +91,6 @@ static cl::opt<bool> DisableLoopDepthCheck(
     "disable-" OPT_SWITCH "-loop-depth-check", cl::init(false), cl::Hidden,
     cl::desc("Disable loop depth check in " OPT_DESC " pass"));
 
-// By default, HIR loop blocking works only for perfect loop nest.
-// If this knob is turned on, this pass attempts to enable perfect loops
-// nest out of near perfect loops by calling enablePerfectLoopNest.
-static cl::opt<bool> LoopBlockingNearPerfectLoopNest(
-    OPT_SWITCH "-near-perfect-loop-nest", cl::init(false), cl::Hidden,
-    cl::desc(OPT_DESC " pass try to work on near perfect loop nests as well."));
-
 // matmul: block as many loops as possible. Will block all 3 levels
 //         for typical matrix multiplications. Showed the best performance
 //         for skx performance machines with following options:
@@ -340,7 +333,7 @@ typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 // It does not count invariant subscript at OutermostLoopLevel.
 // For e.g. with A[i1][i2], B[i2], and C[5][i2][i1],
 // 2 will be returned.
-unsigned calcMaxVariantDimension(MemRefGatherer::VectorTy &Refs,
+unsigned calcMaxVariantDimension(const MemRefGatherer::VectorTy &Refs,
                                  unsigned OutermostLoopLevel,
                                  bool &SeenNonLinear) {
   SeenNonLinear = false;
@@ -625,20 +618,10 @@ public:
 
     HLLoop *InnermostLoop = const_cast<HLLoop *>(ConstInnermostLoop);
 
-    if (IsNearPerfect) {
-      if (LoopBlockingNearPerfectLoopNest) {
-        assert(!IsPerfectNest && "isPerfectLoopNest is malfunctioning");
-        DDGraph DDG = DDA.getGraph(Loop);
-        InterchangeIgnorableSymbasesTy IgnorableSymbases;
-        if (!DDUtils::enablePerfectLoopNest(InnermostLoop, DDG,
-                                            IgnorableSymbases)) {
-          SkipNode = Loop;
-          return;
-        }
-      } else {
-        SkipNode = Loop;
-        return;
-      }
+    if (!IsPerfectNest && !IsNearPerfect) {
+      LLVM_DEBUG(dbgs() << "Neither perfect nor near-perfect loop\n");
+      SkipNode = Loop;
+      return;
     }
 
     if (HLS.getTotalLoopStatistics(InnermostLoop)
@@ -710,12 +693,26 @@ public:
     IsToStripmine =
         determineProfitableStripmineLoop(InnermostLoop, NewOutermost, Refs,
                                          ToStripmines, LoopToBS, ToStripLevels);
-
     if (!IsToStripmine) {
       LLVM_DEBUG(dbgs() << "Failed determineProfitableStipmineLoop\n";);
-    } else if (isLegalToStripmineAndInterchange(ToStripLevels, NewOutermost,
-                                                InnermostLoop, DDA, SRA,
-                                                false)) {
+      SkipNode = Loop;
+      return;
+    }
+
+    if (IsNearPerfect) {
+      // It is near-perfect and looks profitable
+      DDGraph DDG = DDA.getGraph(Loop);
+      InterchangeIgnorableSymbasesTy IgnorableSymbases;
+      if (!DDUtils::enablePerfectLoopNest(InnermostLoop, DDG,
+                                          IgnorableSymbases)) {
+        LLVM_DEBUG(dbgs() << "Failed enabling a perfect loop nest\n";);
+        SkipNode = Loop;
+        return;
+      }
+    }
+
+    if (isLegalToStripmineAndInterchange(ToStripLevels, NewOutermost,
+                                         InnermostLoop, DDA, SRA, false)) {
       OutermostToStrips.emplace_back(NewOutermost, InnermostLoop, ToStripmines);
     } else {
       LLVM_DEBUG(dbgs() << "Failed isLegalToStripmineAndInterchange\n";);

@@ -537,9 +537,10 @@ bool IndirectCallConvLegacyPass::runOnFunction(Function &F) {
                            ? &getAnalysis<AndersensAAWrapperPass>().getResult()
                            : nullptr;
 #if INTEL_INCLUDE_DTRANS
-  auto DTransInfo = (UseDTrans || IndCallConvForceDTrans)
-                        ? &getAnalysis<DTransAnalysisWrapper>().getDTransInfo()
-                        : nullptr;
+  auto DTransInfo =
+      (UseDTrans || IndCallConvForceDTrans)
+          ? &getAnalysis<DTransAnalysisWrapper>().getDTransInfo(*F.getParent())
+          : nullptr;
   IndirectCallConvImpl ImplObj(AnderPointsTo, DTransInfo);
 #else
   IndirectCallConvImpl ImplObj(AnderPointsTo);

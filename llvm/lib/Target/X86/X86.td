@@ -165,9 +165,23 @@ def FeaturePKU   : SubtargetFeature<"pku", "HasPKU", "true",
 def FeatureVNNI    : SubtargetFeature<"avx512vnni", "HasVNNI", "true",
                           "Enable AVX-512 Vector Neural Network Instructions",
                                       [FeatureAVX512]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+def FeatureBF16    : SubtargetFeature<"avx512bf16", "HasBF16", "true",
+                           "Support bfloat16 floating point",
+                                      [FeatureBWI]>;
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
 def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                        "Enable AVX-512 Bit Algorithms",
                         [FeatureBWI]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
+                           "Support 16-bit floating point",
+                           [FeatureBWI]>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",
                          "Enable packed carry-less multiplication instructions",
                                [FeatureSSE2]>;
@@ -258,6 +272,12 @@ def FeatureRDPID : SubtargetFeature<"rdpid", "HasRDPID", "true",
                                     "Support RDPID instructions">;
 def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
                                       "Wait and pause enhancements">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SERIALIZE
+def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
+                                      "Has serialize instruction">;
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+#endif // INTEL_CUSTOMIZATION
 // On some processors, instructions that implicitly take two memory operands are
 // slow. In practice, this means that CALL, PUSH, and POP with memory operands
 // should be avoided in favor of a MOV + register CALL/PUSH/POP.

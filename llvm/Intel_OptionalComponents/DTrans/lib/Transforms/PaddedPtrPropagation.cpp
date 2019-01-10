@@ -990,7 +990,7 @@ void PaddedPtrPropWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
 // Potentially the pass can change the CFG by inserting a new BB after
 // InvokeInst. In that case, it preserves none of its analyses.
 bool PaddedPtrPropWrapper::runOnModule(Module &M) {
-  auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo();
+  auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M);
   WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
   bool Modified = PaddedPtrPropImpl(M, DTInfo).transform(WPInfo);
   return Modified;

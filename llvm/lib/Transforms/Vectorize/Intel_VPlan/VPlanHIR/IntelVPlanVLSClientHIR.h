@@ -37,10 +37,8 @@ private:
 
   unsigned getLoopLevel() const { return LoopLevel; }
   const DDGraph getDDGraph() const {
-    const HLNode *Node =
-        getInstruction()->HIR.isMaster()
-            ? getInstruction()->HIR.getUnderlyingNode()
-            : getInstruction()->HIR.getMaster()->HIR.getUnderlyingNode();
+    const HLNode *Node = getInstruction()->HIR.getUnderlyingNode();
+    assert(Node && "Expected underlying HLNode!");
     const HLLoop *Loop = Node->getParentLoop();
     const DDGraph &DDG = Loop->getParentLoop()
                              ? DDA->getGraph(Loop->getParentLoop())

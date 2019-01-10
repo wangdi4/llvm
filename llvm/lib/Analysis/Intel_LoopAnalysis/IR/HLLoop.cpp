@@ -1005,8 +1005,8 @@ void HLLoop::replaceByFirstIteration() {
       [this, &HNU, Level, &Aux, LB, &ExplicitLB, IsInnermost](RegDDRef *Ref) {
         const CanonExpr *IVReplacement = nullptr;
 
-        if (DDRefUtils::canReplaceIVByCanonExpr(Ref, Level,
-                                                LB->getSingleCanonExpr())) {
+        if (DDRefUtils::canReplaceIVByCanonExpr(
+                Ref, Level, LB->getSingleCanonExpr(), false)) {
           IVReplacement = LB->getSingleCanonExpr();
         } else {
           if (!ExplicitLB) {

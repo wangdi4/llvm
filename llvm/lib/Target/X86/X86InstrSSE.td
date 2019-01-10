@@ -1770,11 +1770,23 @@ def : InstAlias<"vcvtpd2psx\t{$src, $dst|$dst, $src}",
 let Predicates = [HasAVX, NoVLX] in {
 def VCVTPD2PSYrr : VPDI<0x5A, MRMSrcReg, (outs VR128:$dst), (ins VR256:$src),
                         "cvtpd2ps\t{$src, $dst|$dst, $src}",
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+                        [(set VR128:$dst, (v4f32 (fpround VR256:$src)))]>,
+#else // INTEL_FEATURE_ISA_FP16
                         [(set VR128:$dst, (fpround VR256:$src))]>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
                         VEX, VEX_L, Sched<[WriteCvtPD2PSY]>, VEX_WIG;
 def VCVTPD2PSYrm : VPDI<0x5A, MRMSrcMem, (outs VR128:$dst), (ins f256mem:$src),
                         "cvtpd2ps{y}\t{$src, $dst|$dst, $src}",
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+                        [(set VR128:$dst, (v4f32 (fpround (loadv4f64 addr:$src))))]>,
+#else // INTEL_FEATURE_ISA_FP16
                         [(set VR128:$dst, (fpround (loadv4f64 addr:$src)))]>,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
                         VEX, VEX_L, Sched<[WriteCvtPD2PSY.Folded]>, VEX_WIG;
 }
 def : InstAlias<"vcvtpd2psy\t{$src, $dst|$dst, $src}",
@@ -3627,9 +3639,9 @@ defm PADDSB  : PDI_binop_all<0xEC, "paddsb", X86adds, v16i8, v32i8,
                              SchedWriteVecALU, 1, NoVLX_Or_NoBWI>;
 defm PADDSW  : PDI_binop_all<0xED, "paddsw", X86adds, v8i16, v16i16,
                              SchedWriteVecALU, 1, NoVLX_Or_NoBWI>;
-defm PADDUSB : PDI_binop_all<0xDC, "paddusb", X86addus, v16i8, v32i8,
+defm PADDUSB : PDI_binop_all<0xDC, "paddusb", uaddsat, v16i8, v32i8,
                              SchedWriteVecALU, 1, NoVLX_Or_NoBWI>;
-defm PADDUSW : PDI_binop_all<0xDD, "paddusw", X86addus, v8i16, v16i16,
+defm PADDUSW : PDI_binop_all<0xDD, "paddusw", uaddsat, v8i16, v16i16,
                              SchedWriteVecALU, 1, NoVLX_Or_NoBWI>;
 defm PMULLW  : PDI_binop_all<0xD5, "pmullw", mul, v8i16, v16i16,
                              SchedWriteVecIMul, 1, NoVLX_Or_NoBWI>;
@@ -3649,9 +3661,9 @@ defm PSUBSB  : PDI_binop_all<0xE8, "psubsb", X86subs, v16i8, v32i8,
                              SchedWriteVecALU, 0, NoVLX_Or_NoBWI>;
 defm PSUBSW  : PDI_binop_all<0xE9, "psubsw", X86subs, v8i16, v16i16,
                              SchedWriteVecALU, 0, NoVLX_Or_NoBWI>;
-defm PSUBUSB : PDI_binop_all<0xD8, "psubusb", X86subus, v16i8, v32i8,
+defm PSUBUSB : PDI_binop_all<0xD8, "psubusb", usubsat, v16i8, v32i8,
                              SchedWriteVecALU, 0, NoVLX_Or_NoBWI>;
-defm PSUBUSW : PDI_binop_all<0xD9, "psubusw", X86subus, v8i16, v16i16,
+defm PSUBUSW : PDI_binop_all<0xD9, "psubusw", usubsat, v8i16, v16i16,
                              SchedWriteVecALU, 0, NoVLX_Or_NoBWI>;
 defm PMINUB  : PDI_binop_all<0xDA, "pminub", umin, v16i8, v32i8,
                              SchedWriteVecALU, 1, NoVLX_Or_NoBWI>;

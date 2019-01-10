@@ -1,3 +1,8 @@
+; This test verifies that type mapping occurs properly in the DTrans base.
+; The DTrans Transform Test class is used to establish a set of types that
+; should be remapped (__DTT_<name>). Then the DTrans Transform class should
+; identify and create remapped types for all the dependent types (__DDT_<name>)
+
 ; Test with legacy pass manager
 ; RUN: opt  < %s -whole-program-assume -S -dtrans-optbasetest \
 ; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,\
@@ -6,10 +11,15 @@
 ; RUN:struct.test11a,struct.test12a,struct.test13a,struct.test14a,\
 ; RUN:struct.test15a 2>&1 | FileCheck %s
 
-; This test verifies that type mapping occurs properly in the DTrans base.
-; The DTrans Transform Test class is used to establish a set of types that
-; should be remapped (__DTT_<name>). Then the DTrans Transform class should
-; identify and create remapped types for all the dependent types (__DDT_<name>)
+; Test when base class is used without dtrans analysis parameter to
+; be sure all the types and dependent types are found without relying
+; on the analysis pass.
+; RUN: opt  < %s -whole-program-assume -S -dtrans-optbasetest \
+; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,\
+; RUN:struct.test03a,struct.test04a,struct.test05a,struct.test06a,\
+; RUN:struct.test07a,struct.test08a,struct.test09a,struct.test10a,\
+; RUN:struct.test11a,struct.test12a,struct.test13a,struct.test14a,\
+; RUN:struct.test15a -dtrans-optbasetest-use-analysis=false 2>&1 | FileCheck %s
 
 ; CHECK: %__DTT_struct.test01a = type { i32, i32, i32 }
 ; CHECK: %__DDT_struct.test02b = type { i32, %__DTT_struct.test02a* }

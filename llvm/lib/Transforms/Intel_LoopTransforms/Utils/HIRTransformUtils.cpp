@@ -232,8 +232,8 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
     Ref->makeConsistent(&AuxRefs, OrigLoop->getNestingLevel() - 1);
 
     if (*NewTCRef)
-      TempInst = OrigLoop->getHLNodeUtils().createCopyInst(Ref, "tgu",
-                                                           (*NewTCRef)->clone());
+      TempInst = OrigLoop->getHLNodeUtils().createCopyInst(
+          Ref, "tgu", (*NewTCRef)->clone());
     else
       TempInst = OrigLoop->getHLNodeUtils().createCopyInst(Ref, "tgu");
   }
@@ -403,7 +403,6 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     // Original min/avg trip count metadata does not apply to remainder loop.
     OrigLoop->removeLoopMetadata("llvm.loop.intel.loopcount_minimum");
     OrigLoop->removeLoopMetadata("llvm.loop.intel.loopcount_average");
-
   }
 
   LLVM_DEBUG(dbgs() << "\n Remainder Loop \n");
@@ -549,8 +548,7 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
              "Invalid optimization type!");
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for unroll-and-jam");
     }
-  }
-  else
+  } else
     assert((!RuntimeChecks || RuntimeChecks->empty()) &&
            "Remainder loop must exist with rt-checks.");
 
@@ -952,4 +950,131 @@ void HIRTransformUtils::completeUnroll(HLLoop *Loop) {
   assert(Loop->isConstTripLoop() &&
          "Cannot unroll non-constant trip count loop!");
   unroll::completeUnrollLoop(Loop);
+}
+
+static void widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
+
+  unsigned IVSize = Lp->getIVType()->getPrimitiveSizeInBits();
+
+  // This is the maximum size we support.
+  if (IVSize == 64) {
+    return;
+  }
+
+  auto *UpperCE = Lp->getUpperCanonExpr();
+
+  if (UpperCE->isIntConstant()) {
+    return;
+  }
+
+  int64_t MaxVal;
+  bool HasMax = HLNodeUtils::getMaxValue(UpperCE, Lp, MaxVal);
+
+  bool HasSignedIV = Lp->isNSW();
+
+  if (HasMax) {
+    int64_t MaxValForSize =
+        HasSignedIV ? APInt::getSignedMaxValue(IVSize).getZExtValue()
+                    : APInt::getMaxValue(IVSize).getZExtValue();
+
+    if ((MaxVal * Multiplier) < MaxValForSize) {
+      return;
+    }
+  }
+
+  auto &HNU = Lp->getHLNodeUtils();
+  Type *NewIVType = IntegerType::get(HNU.getContext(), 64);
+
+  Lp->setIVType(NewIVType);
+
+  Lp->getLowerCanonExpr()->setSrcAndDestType(NewIVType);
+  Lp->getStrideCanonExpr()->setSrcAndDestType(NewIVType);
+
+  if (UpperCE->isIntConstant()) {
+    UpperCE->setSrcAndDestType(NewIVType);
+
+  } else if (UpperCE->convertToStandAloneBlob()) {
+
+    unsigned Index = UpperCE->getSingleBlobIndex();
+    UpperCE->getBlobUtils().createCastBlob(
+        UpperCE->getBlobUtils().getBlob(Index), HasSignedIV, NewIVType, true,
+        &Index);
+
+    UpperCE->replaceSingleBlobIndex(Index);
+    UpperCE->setSrcAndDestType(NewIVType);
+
+  } else {
+    auto *OldUpperRef = Lp->removeUpperDDRef();
+    auto *UpperInst = HasSignedIV ? HNU.createSExt(NewIVType, OldUpperRef)
+                                  : HNU.createZExt(NewIVType, OldUpperRef);
+
+    HLNodeUtils::insertAsLastPreheaderNode(Lp, UpperInst);
+    auto *NewUpperRef = UpperInst->getLvalDDRef()->clone();
+
+    NewUpperRef->getSingleCanonExpr()->setDefinedAtLevel(Lp->getNestingLevel() -
+                                                         1);
+
+    Lp->setUpperDDRef(NewUpperRef);
+
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Lp);
+  }
+}
+
+static void updateTripCountPragma(HLLoop *Lp, unsigned Multiplier) {
+
+  int64_t MaxPragmaTC = APInt::getMaxValue(32).getZExtValue();
+  unsigned PragmaTripCount;
+
+  // Removes trip count pragma if it overflows after rerolling.
+
+  if (Lp->getPragmaBasedMinimumTripCount(PragmaTripCount)) {
+    if ((static_cast<int64_t>(PragmaTripCount) * Multiplier) <= MaxPragmaTC) {
+      Lp->setPragmaBasedMinimumTripCount(PragmaTripCount * Multiplier);
+    } else {
+      Lp->removePragmaBasedMinimumTripCount();
+    }
+  }
+
+  if (Lp->getPragmaBasedMaximumTripCount(PragmaTripCount)) {
+    if ((static_cast<int64_t>(PragmaTripCount) * Multiplier) <= MaxPragmaTC) {
+      Lp->setPragmaBasedMaximumTripCount(PragmaTripCount * Multiplier);
+    } else {
+      Lp->removePragmaBasedMaximumTripCount();
+    }
+  }
+
+  if (Lp->getPragmaBasedAverageTripCount(PragmaTripCount)) {
+    if ((static_cast<int64_t>(PragmaTripCount) * Multiplier) <= MaxPragmaTC) {
+      Lp->setPragmaBasedAverageTripCount(PragmaTripCount * Multiplier);
+    } else {
+      Lp->removePragmaBasedAverageTripCount();
+    }
+  }
+}
+
+void HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
+  assert(Lp->isNormalized() && "Normalized loop expected");
+
+  widenIVIfNeeded(Lp, Multiplier);
+
+  auto *UpperRef = Lp->getUpperDDRef();
+  bool UpperWasSelfBlob = UpperRef->isSelfBlob();
+
+  auto *UpperCE = UpperRef->getSingleCanonExpr();
+  UpperCE->addConstant(1, true);
+  UpperCE->multiplyByConstant(Multiplier);
+  UpperCE->addConstant(-1, true);
+
+  if (UpperWasSelfBlob) {
+    // Self-blob will turn into non-self blob so we need to add a blob ref.
+    unsigned Index = UpperCE->getSingleBlobIndex();
+
+    auto *BlobRef = UpperRef->getDDRefUtils().createBlobDDRef(
+        Index, UpperCE->getDefinedAtLevel());
+    UpperRef->addBlobDDRef(BlobRef);
+  }
+
+  Lp->setMaxTripCountEstimate(Lp->getMaxTripCountEstimate() * Multiplier);
+
+  updateTripCountPragma(Lp, Multiplier);
 }

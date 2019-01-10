@@ -849,8 +849,9 @@ public:
   void populateAllocDeallocTable(const Module &M);
   bool isMallocWithStoredMMPtr(const Function *F);
   bool isFreeWithStoredMMPtr(const Function *F);
-  bool isUserOrDummyAlloc(ImmutableCallSite CS);
-  bool isUserOrDummyFree(ImmutableCallSite CS);
+  bool isUserAllocOrDummyFunc(ImmutableCallSite CS);
+  bool isUserFreeOrDummyFunc(ImmutableCallSite CS);
+
 private:
   typedef PointerIntPair<StructType *, 1, bool> PtrBoolPair;
   // An enum recording the status of a function. The status is
@@ -1661,8 +1662,9 @@ bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
       return false;
     if (Callee->arg_begin() != Arg0)
       return false;
-    // Check that Function being called is a malloc function.
-    return isUserOrDummyAlloc(CS);
+    // Check that Function being called is a malloc function or dummy function
+    // with unreachable.
+    return isUserAllocOrDummyFunc(CS);
   };
 
   // Check the expected types of the Callee's arguments.
@@ -1735,6 +1737,9 @@ bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
   unsigned StoreCount = 0;
   for (auto &I : instructions(Callee)) {
     if (isa<CallInst>(&I) || isa<InvokeInst>(&I)) {
+      // Skip debug intrinsics
+      if (isa<DbgInfoIntrinsic>(&I))
+          continue;
       if (++CallCount > MallocCallCount)
         return false;
     } else {
@@ -1890,7 +1895,7 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
       return false;
     if (ConstInt->getSExtValue() != -8)
       return false;
-    return isUserOrDummyFree(CS);
+    return isUserFreeOrDummyFunc(CS);
   };
 
   // Check the expected types of the Callee's arguments.
@@ -1951,16 +1956,17 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
   return true;
 }
 
-// Returns true if the called function is user-defined malloc or dummy alloc
+// Returns true if the called function is user-defined malloc or dummy
 // function.
-bool DTransAllocAnalyzer::isUserOrDummyAlloc(ImmutableCallSite CS) {
-  return (dtrans::isDummyAllocWithUnreachable(CS) || isMallocPostDom(CS));
+bool DTransAllocAnalyzer::isUserAllocOrDummyFunc(ImmutableCallSite CS) {
+  return (dtrans::isDummyFuncWithThisAndIntArgs(CS, TLI) ||
+          isMallocPostDom(CS));
 }
 
-// Returns true if the called function is user-defined free or dummy free
+// Returns true if the called function is user-defined free or dummy
 // function.
-bool DTransAllocAnalyzer::isUserOrDummyFree(ImmutableCallSite CS) {
-  return (dtrans::isDummyDeallocWithUnreachable(CS) || isFreePostDom(CS));
+bool DTransAllocAnalyzer::isUserFreeOrDummyFunc(ImmutableCallSite CS) {
+  return (dtrans::isDummyFuncWithThisAndPtrArgs(CS, TLI) || isFreePostDom(CS));
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -4977,6 +4983,8 @@ public:
     Type *FormalType = nullptr;
 
     if (FormalVal) {
+      if (FormalVal->user_empty())
+        return;
       FormalType = FormalVal->getType();
       // Type match
       if (FormalType == ActualType || checkUsersType(FormalVal, ActualType))
@@ -5075,6 +5083,8 @@ public:
       // get the expected alias types from the local pointer analyzer.
       auto Param = F->arg_begin();
       std::advance(Param, ArgNo);
+      if (Param->user_empty())
+        return;
       LocalPointerInfo &ParamLPI = LPA.getLocalPointerInfo(Param);
 
       if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet(),
@@ -7304,6 +7314,11 @@ private:
       // to a memory buffer that can be used in any way.
       if (isa<ConstantPointerNull>(ValIn))
         continue;
+      // If the incoming value is a result of a non-returning function,
+      // then skip it.
+      if (auto CS = ImmutableCallSite(ValIn))
+        if (dtrans::isDummyFuncWithUnreachable(CS, TLI))
+          continue;
       LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValIn);
       if (!ValLPI.canPointToType(DomTy->getPointerElementType())) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer merge -- "
@@ -9058,14 +9073,53 @@ ModulePass *llvm::createDTransAnalysisWrapperPass() {
   return new DTransAnalysisWrapper();
 }
 
-DTransAnalysisWrapper::DTransAnalysisWrapper() : ModulePass(ID) {
+DTransAnalysisWrapper::DTransAnalysisWrapper() : ModulePass(ID), Invalidated(true) {
   initializeDTransAnalysisWrapperPass(*PassRegistry::getPassRegistry());
 }
 
 bool DTransAnalysisWrapper::doFinalization(Module &M) {
   Result.reset();
+  Invalidated = true;
   return false;
 }
+
+DTransAnalysisInfo &DTransAnalysisWrapper::getDTransInfo(Module &M) {
+  // Rerun the analysis, if the prior transformation has marked it as
+  // invalidated.
+  if (Invalidated) {
+    Result.reset();
+    runOnModule(M);
+  } else {
+    // Check that the previous transforms did not change types and forget
+    // to call setInvalidated.
+    assert(verifyValid(M) &&
+           "Types changed, but DTrans analysis not marked as invalidated");
+  }
+
+  return Result;
+}
+
+#if !defined(NDEBUG)
+// This is for verifying that a transformation did not forget to call
+// setInvalidated after making types changes. Because we require the
+// transformation to replace types with new types, this checks to make sure that
+// there aren't any new top-level structure types that the analysis does not
+// know about. This should also prevent the getDTransInfo from being called
+// with a different Module than the one that was collected for. Returns 'true',
+// if everything appears valid.
+bool DTransAnalysisWrapper::verifyValid(Module &M) {
+  if (!Result.useDTransAnalysis())
+    return true;
+
+  for (auto *Ty : M.getIdentifiedStructTypes())
+    if (!Result.getTypeInfo(Ty)) {
+      dbgs() << "No DTrans TypeInfo for struct type:" << *Ty << "\n";
+      return false;
+    }
+
+  return true;
+}
+#endif // !defined(NDEBUG)
 
 bool DTransAnalysisWrapper::runOnModule(Module &M) {
 
@@ -9073,6 +9127,7 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
     return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
   };
 
+  Invalidated = false;
   return Result.analyzeModule(
       M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(),
       getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI);
@@ -9329,7 +9384,7 @@ bool DTransAnalysisInfo::requiresBadCastValidation(
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
-
+  LLVM_DEBUG(dbgs() << "Running DTransAnalysisInfo::analyzeModule\n");
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << "dtrans: Whole Program not safe ... "
                       << "DTransAnalysis didn't run\n");
@@ -9340,7 +9395,6 @@ bool DTransAnalysisInfo::analyzeModule(
 
   if (!shouldComputeDTransAnalysis())
     return false;
-
   DTransAllocAnalyzer DTAA(TLI, M);
   DTransBadCastingAnalyzer DTBCA(*this, DTAA, TLI, M);
   DTAA.populateAllocDeallocTable(M);

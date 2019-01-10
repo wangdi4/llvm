@@ -781,8 +781,35 @@ if(INTEL_CUSTOMIZATION)
     )
 
   # Force adding features enabled by default to CMake cache.
+  # features_enabled_by_default list now contains all features
+  # from the original LLVM_INTEL_FEATURES and also the features
+  # added explicitly above.
   if (features_enabled_by_default)
     list(REMOVE_DUPLICATES features_enabled_by_default)
+
+    if (";${features_enabled_by_default};" MATCHES
+        ";${LLVM_INTELFEATURE_PREFIX}_XISA;")
+      # Expand XISA into a list of new non-public ISA features, and also
+      # delete XISA from the list.  Note that XISA is a "macro" feature
+      # and it must never be used to guard any code.
+      list(REMOVE_ITEM features_enabled_by_default
+           "${LLVM_INTELFEATURE_PREFIX}_XISA")
+# INTEL_FEATURE_ISA_BF16
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16)
+# end INTEL_FEATURE_ISA_BF16
+
+# INTEL_FEATURE_ISA_FP16
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16)
+# end INTEL_FEATURE_ISA_FP16
+
+# INTEL_FEATURE_ISA_SERIALIZE
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE)
+# end INTEL_FEATURE_ISA_SERIALIZE
+    endif()
+
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
         CACHE STRING
         "Semicolon-separated list of Intel features to enable."
@@ -1294,6 +1321,13 @@ if (INTEL_CUSTOMIZATION)
   add_custom_command(OUTPUT __force_it
                      COMMAND "${CMAKE_COMMAND}" -E echo)
 
+  # We've seen problems with installing links, e.g. if install of llvm-ranlib
+  # (link to llvm-ar) runs before llvm-ar, then CMake's create_symlink script
+  # does not create the link sometime.  To resolve this (hopefully) we want to
+  # run the install commands in order, so that the order of deploy components
+  # passed to CMake defines the order of installation.
+  set(chain_dep __force_it)
+
   if(DEFINED INTEL_DEPLOY_COMPONENTS)
 
     set(manifest_list)
@@ -1309,10 +1343,11 @@ if (INTEL_CUSTOMIZATION)
                            COMMAND "${CMAKE_COMMAND}"
                                    "-DCMAKE_INSTALL_COMPONENT=${comp}"
                                    -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-                           DEPENDS  __force_it
+                           DEPENDS  ${chain_dep}
                            COMMENT "Deploying component ${comp}"
                            USES_TERMINAL)
         list(APPEND manifest_list ${manifest})
+        set(chain_dep ${manifest})
       endif()
     endforeach( comp )
 

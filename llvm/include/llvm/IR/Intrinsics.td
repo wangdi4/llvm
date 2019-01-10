@@ -246,6 +246,12 @@ def llvm_v1i128_ty     : LLVMType<v1i128>;   //  1 x i128
 def llvm_v2f16_ty      : LLVMType<v2f16>;    //  2 x half (__fp16)
 def llvm_v4f16_ty      : LLVMType<v4f16>;    //  4 x half (__fp16)
 def llvm_v8f16_ty      : LLVMType<v8f16>;    //  8 x half (__fp16)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def llvm_v16f16_ty     : LLVMType<v16f16>;   // 16 x half (__fp16)
+def llvm_v32f16_ty     : LLVMType<v32f16>;   // 32 x half (__fp16)
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 def llvm_v1f32_ty      : LLVMType<v1f32>;    //  1 x float
 def llvm_v2f32_ty      : LLVMType<v2f32>;    //  2 x float
 def llvm_v4f32_ty      : LLVMType<v4f32>;    //  4 x float
@@ -818,7 +824,7 @@ def int_umul_with_overflow : Intrinsic<[llvm_anyint_ty, llvm_i1_ty],
                                        [LLVMMatchType<0>, LLVMMatchType<0>],
                                        [IntrNoMem, IntrSpeculatable]>;
 
-//===------------------------- Fixed Point Intrinsics ---------------------===//
+//===------------------------- Saturation Arithmetic Intrinsics ---------------------===//
 //
 def int_sadd_sat : Intrinsic<[llvm_anyint_ty],
                              [LLVMMatchType<0>, LLVMMatchType<0>],
@@ -832,6 +838,12 @@ def int_ssub_sat : Intrinsic<[llvm_anyint_ty],
 def int_usub_sat : Intrinsic<[llvm_anyint_ty],
                              [LLVMMatchType<0>, LLVMMatchType<0>],
                              [IntrNoMem, IntrSpeculatable]>;
+
+//===------------------------- Fixed Point Arithmetic Intrinsics ---------------------===//
+//
+def int_smul_fix : Intrinsic<[llvm_anyint_ty],
+                             [LLVMMatchType<0>, LLVMMatchType<0>, llvm_i32_ty],
+                             [IntrNoMem, IntrSpeculatable, Commutative]>;
 
 //===------------------------- Memory Use Markers -------------------------===//
 //
