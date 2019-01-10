@@ -1297,6 +1297,13 @@ if (INTEL_CUSTOMIZATION)
   add_custom_command(OUTPUT __force_it
                      COMMAND "${CMAKE_COMMAND}" -E echo)
 
+  # We've seen problems with installing links, e.g. if install of llvm-ranlib
+  # (link to llvm-ar) runs before llvm-ar, then CMake's create_symlink script
+  # does not create the link sometime.  To resolve this (hopefully) we want to
+  # run the install commands in order, so that the order of deploy components
+  # passed to CMake defines the order of installation.
+  set(chain_dep __force_it)
+
   if(DEFINED INTEL_DEPLOY_COMPONENTS)
 
     set(manifest_list)
@@ -1312,10 +1319,11 @@ if (INTEL_CUSTOMIZATION)
                            COMMAND "${CMAKE_COMMAND}"
                                    "-DCMAKE_INSTALL_COMPONENT=${comp}"
                                    -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-                           DEPENDS  __force_it
+                           DEPENDS  ${chain_dep}
                            COMMENT "Deploying component ${comp}"
                            USES_TERMINAL)
         list(APPEND manifest_list ${manifest})
+        set(chain_dep ${manifest})
       endif()
     endforeach( comp )
 
