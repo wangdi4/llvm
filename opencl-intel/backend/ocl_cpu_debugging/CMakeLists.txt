@@ -74,3 +74,4 @@ endif (WIN32)
 # Install the (GPL'd) GDB OCL plugin. The name and location is important, as
 # GDB will auto-load it if it has the same name as a loaded shared object.
 copy_to (libintelocl.so-gdb.py DESTINATION lib)
+install_to (libintelocl.so-gdb.py DESTINATION lib COMPONENT ocl-gdb-plugin)

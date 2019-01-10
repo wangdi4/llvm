@@ -151,11 +151,11 @@ private:
 
 // initialize statistic objects that are class memebers
 #define OCLSTAT_INIT(NAME,DESC,LIST) \
-  NAME(DEBUG_TYPE, DEBUG_TYPE "@" #NAME, DESC, LIST)
+  NAME(DEBUG_TYPE, DEBUG_TYPE "." #NAME, DESC, LIST)
 
 // define and initialize a statistic object
 #define OCLSTAT_DEFINE(NAME,DESC,LIST) \
-		intel::Statistic NAME(DEBUG_TYPE, DEBUG_TYPE "@" #NAME, DESC, LIST)
+		intel::Statistic NAME(DEBUG_TYPE, DEBUG_TYPE "." #NAME, DESC, LIST)
 
 } // End intel namespace
 
@@ -264,11 +264,11 @@ public:
 
 // initialize statistic objects that are class memebers
 #define OCLSTAT_INIT(NAME,DESC,LIST) \
-  NAME(DEBUG_TYPE, DEBUG_TYPE "@" #NAME, DESC, LIST)
+  NAME(DEBUG_TYPE, DEBUG_TYPE "." #NAME, DESC, LIST)
 
 // define and initialize a statistic object
 #define OCLSTAT_DEFINE(NAME,DESC,LIST) \
-    intel::Statistic NAME(DEBUG_TYPE, DEBUG_TYPE "@" #NAME, DESC, LIST)
+    intel::Statistic NAME(DEBUG_TYPE, DEBUG_TYPE "." #NAME, DESC, LIST)
 
 } // End intel namespace
 

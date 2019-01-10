@@ -720,8 +720,12 @@ Optimizer::Optimizer(llvm::Module *pModule,
   const bool isFpgaEmulator = pConfig->isFpgaEmulator();
 
   // Detect OCL2.0 compilation mode
-  const bool isOcl20 = CompilationUtils::fetchCLVersionFromMetadata(*pModule) >=
-                       OclVersion::CL_VER_2_0;
+  // TODO Remove isOclCPP once OpenCL Optimizer is able to correctly handle
+  // LLVM IR converted from SPIR-V.
+  const bool isOclCPP = CompilationUtils::generatedFromOCLCPP(*pModule);
+  const bool isOcl20 = (CompilationUtils::fetchCLVersionFromMetadata(
+                            *pModule) >= OclVersion::CL_VER_2_0) ||
+                       isOclCPP;
   bool UnrollLoops = true;
 
   // Initialize TTI

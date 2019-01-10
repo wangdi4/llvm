@@ -24,8 +24,18 @@ endif()
 add_subdirectory( utils )
 
 if (WIN32)
-    copy_to(register_vendor32.reg register_vendor64.reg unregister_vendor32.reg unregister_vendor64.reg
-        DESTINATION lib)
+    copy_to(register_vendor32.reg
+            register_vendor64.reg
+            unregister_vendor32.reg
+            unregister_vendor64.reg
+            DESTINATION lib)
+
+    install_to(register_vendor32.reg
+               register_vendor64.reg
+               unregister_vendor32.reg
+               unregister_vendor64.reg
+               DESTINATION lib
+               COMPONENT ocl-common-runtime)
 endif (WIN32)
 
 FIND_SOURCES()

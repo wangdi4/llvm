@@ -138,10 +138,6 @@ if (BACKEND_BUILD_VERIFICATION_LIB)
     set_target_properties( OCLSamplePlugin PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
     set_target_properties( FMAtest PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
     set_target_properties( tinyxml_STL PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/externals )
-endif (BACKEND_BUILD_VERIFICATION_LIB)
 
-if (LLVM_BUILD_OCL_CPU_BACKEND)
-    # Tests
     add_subdirectory(tests)
-endif(LLVM_BUILD_OCL_CPU_BACKEND)
-
+endif (BACKEND_BUILD_VERIFICATION_LIB)

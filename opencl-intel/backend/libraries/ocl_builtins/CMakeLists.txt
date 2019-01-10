@@ -153,18 +153,15 @@ endforeach( LLVM_INCLUDE_DIR_ITEM)
 
 # options for clang to compile OpenCL 2.0 code
 
-# -ffp-contract=off is added to avoid the following bug:
-# Assume that user disabled fp contractions, so there is no
-# opencl.enable.FP_CONTRACT named metadata in the program. When we link user's
-# program with the run-time library all metadata are merged together, so if we
-# build run-time library with default 'fp-contract' option value, clang will
-# add opencl.enable.FP_CONTRACT metadata and they will eventually appear in the
-# user's program.
+# change -ffp-contract=off to fast to fix precision issue in built-in libary code.
+# opencl.enable.FP_CONTRACT will not appear with  open source frontend. So in order to keep FMA
+# folding in built-ins this attribute is required. It places 'contract' attribute that will perform
+# FMAs even in 'standard' CodeGen setting.
 set (CLANG_CL_COMMON_COMPILER_FLAGS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
   -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200
-  -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=off
+  -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=fast
   -cl-ext=+cl_khr_fp16
   )
 
@@ -363,6 +360,7 @@ function( install_svml ARCH )
   endif()
 
   copy_to (${SVML_DLL} DESTINATION lib)
+  install_to (${SVML_DLL} DESTINATION lib COMPONENT ocl-svml)
 
 endfunction( install_svml )
 
@@ -441,7 +439,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
      set (INSTALL_LIST ${INSTALL_LIST} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
   endif (PREBUILD_IMAGE_LIBRARY)
 
-  install_to (${INSTALL_LIST} DESTINATION lib)
+  install_to (${INSTALL_LIST} DESTINATION lib COMPONENT ocl-builtins)
 
 endfunction( create_target)
 

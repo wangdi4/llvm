@@ -236,6 +236,7 @@ private:
 struct ModuleMetadataAPI {
   typedef NamedMDList<int32_t, MDValueModuleStrategy> SpirVersionListTy;
   typedef NamedMDList<int32_t, MDValueModuleStrategy> OpenCLVersionListTy;
+  typedef NamedMDList<int32_t, MDValueModuleStrategy> SPIRVSourceListTy;
   typedef NamedMDList<int32_t, MDValueModuleStrategy> UsedExtentionsListTy;
   typedef NamedMDList<llvm::StringRef, MDValueModuleStrategy>
       OptionalCoreFeaturesListTy;
@@ -244,11 +245,13 @@ struct ModuleMetadataAPI {
   ModuleMetadataAPI(llvm::Module *pModule)
       : SpirVersionList(pModule, "opencl.spir.version"),
         OpenCLVersionList(pModule, "opencl.ocl.version"),
+        SPIRVSourceList(pModule, "spirv.Source"),
         UsedExtentionsList(pModule, "opencl.used.extensions"),
         OptionalCoreFeaturesList(pModule, "opencl.used.optional.core.features"),
         CompilerOptionsList(pModule, "opencl.compiler.options") {
     MDNames.push_back(SpirVersionList.getID());
     MDNames.push_back(OpenCLVersionList.getID());
+    MDNames.push_back(SPIRVSourceList.getID());
     MDNames.push_back(UsedExtentionsList.getID());
     MDNames.push_back(OptionalCoreFeaturesList.getID());
     MDNames.push_back(CompilerOptionsList.getID());
@@ -256,6 +259,7 @@ struct ModuleMetadataAPI {
 
   SpirVersionListTy SpirVersionList;
   OpenCLVersionListTy OpenCLVersionList;
+  SPIRVSourceListTy SPIRVSourceList;
   UsedExtentionsListTy UsedExtentionsList;
   OptionalCoreFeaturesListTy OptionalCoreFeaturesList;
   CompilerOptionsListTy CompilerOptionsList;
