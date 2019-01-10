@@ -523,10 +523,13 @@ void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
   }
 }
 
-bool OpenMPLateOutliner::isUnspecifiedImplicit(const VarDecl *V) {
-  if (ImplicitMap.find(V) == ImplicitMap.end())
+/// Returns true if this variable is specified implicitly and also
+/// should not be propagated to outer regions.
+bool OpenMPLateOutliner::isIgnoredImplicit(const VarDecl *V) {
+  if (!isImplicit(V))
     return false;
-  return ImplicitMap[V] != ICK_specified_firstprivate;
+  ImplicitClauseKind Kind = ImplicitMap[V];
+  return Kind == ICK_unknown || Kind == ICK_normalized_iv;
 }
 
 bool OpenMPLateOutliner::isImplicit(const VarDecl *V) {
@@ -631,12 +634,12 @@ void OpenMPLateOutliner::addImplicitClauses() {
 void OpenMPLateOutliner::addRefsToOuter() {
   if (CGF.CapturedStmtInfo) {
     for (const auto *VD : VarDefs) {
-      if (isUnspecifiedImplicit(VD))
+      if (isIgnoredImplicit(VD))
         continue;
       CGF.CapturedStmtInfo->recordVariableDefinition(VD);
     }
     for (const auto *VD : VarRefs) {
-      if (isUnspecifiedImplicit(VD))
+      if (isIgnoredImplicit(VD))
         continue;
       CGF.CapturedStmtInfo->recordVariableReference(VD);
     }
@@ -1789,8 +1792,12 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     const OMPExecutableDirective &S, OpenMPDirectiveKind Kind) {
   OMPLateOutlineLexicalScope Scope(*this, S);
   OpenMPLateOutliner Outliner(*this, S, Kind);
-
   OpenMPDirectiveKind CurrentDirectiveKind = Outliner.getCurrentDirectiveKind();
+#if INTEL_CUSTOMIZATION
+  bool HasHoistedLoopBounds =
+    HoistLoopBoundsIfPossible(S, CurrentDirectiveKind);
+#endif // INTEL_CUSTOMIZATION
+
   switch (CurrentDirectiveKind) {
   case OMPD_parallel:
     Outliner.emitOMPParallelDirective();
@@ -1952,7 +1959,12 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   Outliner << S.clauses();
   Outliner.insertMarker();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {
+#if INTEL_CUSTOMIZATION
+    LateOutlineOpenMPRegionRAII Region(*this, Outliner, S,
+                                       HasHoistedLoopBounds);
+#else
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
+#endif // INTEL_CUSTOMIZATION
     if (S.getDirectiveKind() != CurrentDirectiveKind) {
       // Unless we've reached the innermost directive, keep going.
       OpenMPDirectiveKind NextKind =

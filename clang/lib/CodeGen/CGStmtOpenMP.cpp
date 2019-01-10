@@ -145,6 +145,9 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
           CGF, VD, CGF.CreateMemTemp(VD->getType().getNonReferenceType()));
     }
     (void)PreCondVars.apply(CGF);
+#if INTEL_CUSTOMIZATION
+    if (!CGF.HasHoistedLoopBounds())
+#endif // INTEL_CUSTOMIZATION
     if (const auto *PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {
       for (const auto *I : PreInits->decls())
         CGF.EmitVarDecl(cast<VarDecl>(*I));
@@ -5069,6 +5072,81 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
   CGM.getOpenMPRuntime().emitTargetDataStandAloneCall(*this, S, IfCond, Device);
 }
 
+#if INTEL_CUSTOMIZATION
+bool CodeGenFunction::HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
+                                                OpenMPDirectiveKind Kind) {
+  // Only hoist for spir targets.
+  if (CGM.getTriple().getArch() != llvm::Triple::spir &&
+      CGM.getTriple().getArch() != llvm::Triple::spir64)
+    return false;
+
+  // Don't hoist if it was already done on outer construct.
+  if (HasHoistedLoopBounds())
+    return false;
+
+  if (const OMPLoopDirective *LD = GetLoopForHoisting(S, Kind)) {
+    if (const auto *PreInits = cast_or_null<DeclStmt>(LD->getPreInits())) {
+      for (const auto *I : PreInits->decls())
+        EmitVarDecl(cast<VarDecl>(*I));
+    }
+    if (LD->getDirectiveKind() != OMPD_simd)
+      EmitOMPHelperVar(*this, cast<DeclRefExpr>(LD->getLowerBoundVariable()));
+    EmitOMPHelperVar(*this, cast<DeclRefExpr>(LD->getUpperBoundVariable()));
+    return true;
+  }
+  return false;
+}
+
+const OMPLoopDirective *
+CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
+                                    OpenMPDirectiveKind Kind) {
+  OpenMPDirectiveKind DKind = S.getDirectiveKind();
+  if (DKind == OMPD_target_parallel_for ||
+      DKind == OMPD_target_parallel_for_simd ||
+      DKind == OMPD_target_teams_distribute ||
+      DKind == OMPD_target_teams_distribute_parallel_for ||
+      DKind == OMPD_target_teams_distribute_parallel_for_simd) {
+    return Kind == OMPD_target ? cast<OMPLoopDirective>(&S) : nullptr;
+  }
+
+  if (DKind == OMPD_target) {
+    if (const Stmt *CS = S.getInnermostCapturedStmt()->getCapturedStmt()) {
+      if (const auto *CompStmt = dyn_cast<CompoundStmt>(CS)) {
+        if (CompStmt->body_front() &&
+            CompStmt->body_front() == CompStmt->body_back())
+          CS = CompStmt->body_front();
+      }
+      Stmt::StmtClass C = CS->getStmtClass();
+      if (C == Stmt::OMPParallelForDirectiveClass ||
+          C == Stmt::OMPParallelForSimdDirectiveClass ||
+          C == Stmt::OMPTeamsDistributeDirectiveClass ||
+          C == Stmt::OMPTeamsDistributeParallelForDirectiveClass ||
+          C == Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass) {
+        return cast<OMPLoopDirective>(CS);
+      }
+      if (C == Stmt::OMPTeamsDirectiveClass) {
+        if (const Stmt *TCS = cast<OMPExecutableDirective>(CS)
+                                 ->getInnermostCapturedStmt()
+                                 ->getCapturedStmt()) {
+          if (const auto *CompStmt = dyn_cast<CompoundStmt>(TCS)) {
+            if (CompStmt->body_front() &&
+                CompStmt->body_front() == CompStmt->body_back())
+              TCS = CompStmt->body_front();
+          }
+          Stmt::StmtClass C = TCS->getStmtClass();
+          if (C == Stmt::OMPDistributeDirectiveClass ||
+              C == Stmt::OMPDistributeParallelForDirectiveClass ||
+              C == Stmt::OMPDistributeParallelForSimdDirectiveClass) {
+            return cast<OMPLoopDirective>(TCS);
+          }
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_COLLAB
 void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                                              OpenMPDirectiveKind Kind) {
@@ -5076,15 +5154,6 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
   auto IVExpr = cast<DeclRefExpr>(S.getIterationVariable());
   auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
   EmitVarDecl(*IVDecl);
-
-  // Emit the iterations count variable.
-  // If it is not a variable, Sema decided to calculate iterations count on each
-  // iteration (e.g., it is foldable into a constant).
-  if (auto LIExpr = dyn_cast<DeclRefExpr>(S.getLastIteration())) {
-    EmitVarDecl(*cast<VarDecl>(LIExpr->getDecl()));
-    // Emit calculation of the iterations count.
-    EmitIgnoredExpr(S.getCalcLastIteration());
-  }
 
   // Check pre-condition.
   {
@@ -5107,18 +5176,17 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
       incrementProfileCounter(&S);
     }
 
-    if (isOpenMPWorksharingDirective(S.getDirectiveKind()) ||
-        isOpenMPTaskLoopDirective(S.getDirectiveKind()) ||
-        isOpenMPDistributeDirective(S.getDirectiveKind())) {
-      // Emit helper vars inits.
-      EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
+#if INTEL_CUSTOMIZATION
+    if (!HasHoistedLoopBounds()) {
+      if (Kind != OMPD_simd)
+        EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
-      EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getStrideVariable()));
-      EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getIsLastIterVariable()));
-    } else if (Kind == OMPD_simd) {
-      EmitOMPHelperVar(*this,
-                       cast<DeclRefExpr>(S.getUpperBoundVariable()));
     }
+#else
+    if (Kind != OMPD_simd)
+      EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
+    EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
+#endif // INTEL_CUSTOMIZATION
 
     // Emit 'then' code.
     {

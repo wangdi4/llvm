@@ -396,6 +396,9 @@ public:
     virtual void recordValueDefinition(llvm::Value *) {}
     virtual void recordValueReference(llvm::Value *) {}
     virtual void recordValueSuppression(llvm::Value *) {}
+#if INTEL_CUSTOMIZATION
+    virtual bool hasHoistedLoopBounds() const { return false; }
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
     virtual bool isLateOutlinedRegion() { return false; }
@@ -3445,12 +3448,23 @@ private:
   void EmitLateOutlineOMPLoopDirective(const OMPLoopDirective &S,
                                        OpenMPDirectiveKind Kind);
 
+#if INTEL_CUSTOMIZATION
+  bool HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
+                                 OpenMPDirectiveKind Kind);
+  const OMPLoopDirective *GetLoopForHoisting(const OMPExecutableDirective &S,
+                                             OpenMPDirectiveKind Kind);
+#endif // INTEL_CUSTOMIZATION
   void EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                               OpenMPDirectiveKind Kind);
 
 public:
   void RemapForLateOutlining(const OMPExecutableDirective &D,
                              OMPPrivateScope &PrivScope);
+#if INTEL_CUSTOMIZATION
+  bool HasHoistedLoopBounds() {
+    return CapturedStmtInfo && CapturedStmtInfo->hasHoistedLoopBounds();
+  }
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 public:
 
