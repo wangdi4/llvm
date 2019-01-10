@@ -13,12 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 ///
-/// Type definitions for compaitbility with host ABI
-///
-typedef struct ident ident_t;
-
-
-///
 /// Misc. definitions
 ///
 
@@ -190,7 +184,7 @@ INLINE size_t __kmp_get_num_groups() {
 /// Barriers
 ///
 
-EXTERN void __kmpc_barrier(ident_t *id, int gid);
+EXTERN void __kmpc_barrier();
 
 
 ///
@@ -200,22 +194,22 @@ EXTERN void __kmpc_barrier(ident_t *id, int gid);
 /// Signature
 #define KMPC_ATOMIC_FN(DATANAME, OPTYPE, DATATYPE)                             \
 EXTERN void __kmpc_atomic_##DATANAME##_##OPTYPE                                \
-  (ident_t *id, int global_id, DATATYPE *lhs, DATATYPE rhs)
+  (DATATYPE *lhs, DATATYPE rhs)
 
 /// Signature for binary and/or
 #define KMPC_ATOMIC_FN_B(DATANAME, OPTYPE, DATATYPE)                           \
 EXTERN void __kmpc_atomic_##DATANAME##_##OPTYPE##b                             \
-  (ident_t *id, int global_id, DATATYPE *lhs, DATATYPE rhs)
+  (DATATYPE *lhs, DATATYPE rhs)
 
 /// Signature for capture atomics
 #define KMPC_ATOMIC_FN_CPT(DATANAME, OPTYPE, DATATYPE)                         \
 EXTERN DATATYPE __kmpc_atomic_##DATANAME##_##OPTYPE##_cpt                      \
-  (ident_t *id, int global_id, DATATYPE *lhs, DATATYPE rhs, int flag)
+  (DATATYPE *lhs, DATATYPE rhs, int flag)
 
 /// Signature for binary and/or capture atomics
 #define KMPC_ATOMIC_FN_B_CPT(DATANAME, OPTYPE, DATATYPE)                       \
 EXTERN DATATYPE __kmpc_atomic_##DATANAME##_##OPTYPE##b_cpt                     \
-  (ident_t *id, int global_id, DATATYPE *lhs, DATATYPE rhs, int flag)
+  (DATATYPE *lhs, DATATYPE rhs, int flag)
 
 /// 4-byte fixed
 KMPC_ATOMIC_FN(fixed4, add, int);
@@ -336,8 +330,8 @@ KMPC_ATOMIC_FN_CPT(float8, div, double);
 /// Other __kmpc_* entries
 ///
 
-EXTERN int __kmpc_master(ident_t *, int);
-EXTERN void __kmpc_end_master(ident_t *, int);
+EXTERN int __kmpc_master();
+EXTERN void __kmpc_end_master();
 
 
 ///

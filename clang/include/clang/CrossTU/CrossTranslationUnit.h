@@ -15,6 +15,7 @@
 #ifndef LLVM_CLANG_CROSSTU_CROSSTRANSLATIONUNIT_H
 #define LLVM_CLANG_CROSSTU_CROSSTRANSLATIONUNIT_H
 
+#include "clang/AST/ASTImporterLookupTable.h"
 #include "clang/Basic/LLVM.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -41,7 +42,9 @@ enum class index_error_code {
   missing_definition,
   failed_import,
   failed_to_get_external_ast,
-  failed_to_generate_usr
+  failed_to_generate_usr,
+  triple_mismatch,
+  lang_mismatch
 };
 
 class IndexError : public llvm::ErrorInfo<IndexError> {
@@ -50,16 +53,25 @@ public:
   IndexError(index_error_code C) : Code(C), LineNo(0) {}
   IndexError(index_error_code C, std::string FileName, int LineNo = 0)
       : Code(C), FileName(std::move(FileName)), LineNo(LineNo) {}
+  IndexError(index_error_code C, std::string FileName, std::string TripleToName,
+             std::string TripleFromName)
+      : Code(C), FileName(std::move(FileName)),
+        TripleToName(std::move(TripleToName)),
+        TripleFromName(std::move(TripleFromName)) {}
   void log(raw_ostream &OS) const override;
   std::error_code convertToErrorCode() const override;
   index_error_code getCode() const { return Code; }
   int getLineNum() const { return LineNo; }
   std::string getFileName() const { return FileName; }
+  std::string getTripleToName() const { return TripleToName; }
+  std::string getTripleFromName() const { return TripleFromName; }
 
 private:
   index_error_code Code;
   std::string FileName;
   int LineNo;
+  std::string TripleToName;
+  std::string TripleFromName;
 };
 
 /// This function parses an index file that determines which
@@ -141,6 +153,7 @@ public:
   void emitCrossTUDiagnostics(const IndexError &IE);
 
 private:
+  void lazyInitLookupTable(TranslationUnitDecl *ToTU);
   ASTImporter &getOrCreateASTImporter(ASTContext &From);
   const FunctionDecl *findFunctionInDeclContext(const DeclContext *DC,
                                                 StringRef LookupFnName);
@@ -152,6 +165,7 @@ private:
       ASTUnitImporterMap;
   CompilerInstance &CI;
   ASTContext &Context;
+  std::unique_ptr<ASTImporterLookupTable> LookupTable;
 };
 
 } // namespace cross_tu

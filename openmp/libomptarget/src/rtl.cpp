@@ -32,7 +32,7 @@ static const char *RTLNames[] = {
     /* MIC target     */ "libomptarget.rtl.x86_64_mic.so",
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
-    /* OpenCL target    */ "libomptarget.rtl.opencl.so",
+    /* OpenCL target  */ "libomptarget.rtl.opencl.so",
 #endif // INTEL_COLLAB
     /* PowerPC target */ "libomptarget.rtl.ppc64.so",
     /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
@@ -118,9 +118,18 @@ void RTLsTy::LoadRTLs() {
               dynlib_handle, "__tgt_rtl_run_target_team_region")))
       continue;
 #if INTEL_COLLAB
-    if (!(*((void**) &R.run_team_nd_region) = dlsym(
-              dynlib_handle, "__tgt_rtl_run_target_team_nd_region")))
-      continue;
+    if ((*((void **)&R.run_team_nd_region) =
+              dlsym(dynlib_handle, "__tgt_rtl_run_target_team_nd_region")))
+      DP("Optional interface: __tgt_rtl_run_target_team_nd_region\n");
+    if ((*((void **)&R.run_region_nowait) =
+              dlsym(dynlib_handle, "__tgt_rtl_run_target_region_nowait")))
+      DP("Optional interface: __tgt_rtl_run_target_region_nowait\n");
+    if ((*((void **)&R.run_team_region_nowait) =
+              dlsym(dynlib_handle, "__tgt_rtl_run_target_team_region_nowait")))
+      DP("Optional interface: __tgt_rtl_run_target_team_region_nowait\n");
+    if ((*((void **)&R.run_team_nd_region_nowait) = dlsym(
+              dynlib_handle, "__tgt_rtl_run_target_team_nd_region_nowait")))
+      DP("Optional interface: __tgt_rtl_run_target_team_nd_region_nowait\n");
 #endif // INTEL_COLLAB
 
     // No devices are supported by this RTL?

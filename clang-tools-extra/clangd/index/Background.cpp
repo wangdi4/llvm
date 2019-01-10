@@ -22,6 +22,7 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/SHA1.h"
@@ -86,6 +87,39 @@ IncludeGraph getSubGraph(const URI &U, const IncludeGraph &FullGraph) {
 
   return IG;
 }
+
+// Creates a filter to not collect index results from files with unchanged
+// digests.
+// \p FileDigests contains file digests for the current indexed files, and all
+// changed files will be added to \p FilesToUpdate.
+decltype(SymbolCollector::Options::FileFilter)
+createFileFilter(const llvm::StringMap<FileDigest> &FileDigests,
+                 llvm::StringMap<FileDigest> &FilesToUpdate) {
+  return [&FileDigests, &FilesToUpdate](const SourceManager &SM, FileID FID) {
+    StringRef Path;
+    if (const auto *F = SM.getFileEntryForID(FID))
+      Path = F->getName();
+    if (Path.empty())
+      return false; // Skip invalid files.
+    SmallString<128> AbsPath(Path);
+    if (std::error_code EC =
+            SM.getFileManager().getVirtualFileSystem()->makeAbsolute(AbsPath)) {
+      elog("Warning: could not make absolute file: {0}", EC.message());
+      return false; // Skip files without absolute path.
+    }
+    sys::path::remove_dots(AbsPath, /*remove_dot_dot=*/true);
+    auto Digest = digestFile(SM, FID);
+    if (!Digest)
+      return false;
+    auto D = FileDigests.find(AbsPath);
+    if (D != FileDigests.end() && D->second == Digest)
+      return false; // Skip files that haven't changed.
+
+    FilesToUpdate[AbsPath] = *Digest;
+    return true;
+  };
+}
+
 } // namespace
 
 BackgroundIndex::BackgroundIndex(
@@ -102,14 +136,8 @@ BackgroundIndex::BackgroundIndex(
           })) {
   assert(ThreadPoolSize > 0 && "Thread pool size can't be zero.");
   assert(this->IndexStorageFactory && "Storage factory can not be null!");
-  while (ThreadPoolSize--) {
+  while (ThreadPoolSize--)
     ThreadPool.emplace_back([this] { run(); });
-    // Set priority to low, since background indexing is a long running task we
-    // do not want to eat up cpu when there are any other high priority threads.
-    // FIXME: In the future we might want a more general way of handling this to
-    // support tasks with various priorities.
-    setThreadPriority(ThreadPool.back(), ThreadPriority::Low);
-  }
 }
 
 BackgroundIndex::~BackgroundIndex() {
@@ -130,6 +158,7 @@ void BackgroundIndex::run() {
   WithContext Background(BackgroundContext.clone());
   while (true) {
     Optional<Task> Task;
+    ThreadPriority Priority;
     {
       std::unique_lock<std::mutex> Lock(QueueMu);
       QueueCV.wait(Lock, [&] { return ShouldStop || !Queue.empty(); });
@@ -139,10 +168,16 @@ void BackgroundIndex::run() {
         return;
       }
       ++NumActiveTasks;
-      Task = std::move(Queue.front());
+      std::tie(Task, Priority) = std::move(Queue.front());
       Queue.pop_front();
     }
+
+    if (Priority != ThreadPriority::Normal)
+      setCurrentThreadPriority(Priority);
     (*Task)();
+    if (Priority != ThreadPriority::Normal)
+      setCurrentThreadPriority(ThreadPriority::Normal);
+
     {
       std::unique_lock<std::mutex> Lock(QueueMu);
       assert(NumActiveTasks > 0 && "before decrementing");
@@ -160,44 +195,60 @@ bool BackgroundIndex::blockUntilIdleForTest(
 }
 
 void BackgroundIndex::enqueue(const std::vector<std::string> &ChangedFiles) {
-  enqueueTask([this, ChangedFiles] {
-    trace::Span Tracer("BackgroundIndexEnqueue");
-    // We're doing this asynchronously, because we'll read shards here too.
-    // FIXME: read shards here too.
+  enqueueTask(
+      [this, ChangedFiles] {
+        trace::Span Tracer("BackgroundIndexEnqueue");
+        // We're doing this asynchronously, because we'll read shards here too.
+        // FIXME: read shards here too.
 
-    log("Enqueueing {0} commands for indexing", ChangedFiles.size());
-    SPAN_ATTACH(Tracer, "files", int64_t(ChangedFiles.size()));
+        log("Enqueueing {0} commands for indexing", ChangedFiles.size());
+        SPAN_ATTACH(Tracer, "files", int64_t(ChangedFiles.size()));
 
-    // We shuffle the files because processing them in a random order should
-    // quickly give us good coverage of headers in the project.
-    std::vector<unsigned> Permutation(ChangedFiles.size());
-    std::iota(Permutation.begin(), Permutation.end(), 0);
-    std::mt19937 Generator(std::random_device{}());
-    std::shuffle(Permutation.begin(), Permutation.end(), Generator);
+        // We shuffle the files because processing them in a random order should
+        // quickly give us good coverage of headers in the project.
+        std::vector<unsigned> Permutation(ChangedFiles.size());
+        std::iota(Permutation.begin(), Permutation.end(), 0);
+        std::mt19937 Generator(std::random_device{}());
+        std::shuffle(Permutation.begin(), Permutation.end(), Generator);
 
-    for (const unsigned I : Permutation)
-      enqueue(ChangedFiles[I]);
-  });
+        for (const unsigned I : Permutation)
+          enqueue(ChangedFiles[I]);
+      },
+      ThreadPriority::Normal);
 }
 
 void BackgroundIndex::enqueue(const std::string &File) {
   ProjectInfo Project;
   if (auto Cmd = CDB.getCompileCommand(File, &Project)) {
     auto *Storage = IndexStorageFactory(Project.SourceRoot);
+    // Set priority to low, since background indexing is a long running
+    // task we do not want to eat up cpu when there are any other high
+    // priority threads.
     enqueueTask(Bind(
-        [this, File, Storage](tooling::CompileCommand Cmd) {
-          Cmd.CommandLine.push_back("-resource-dir=" + ResourceDir);
-          if (auto Error = index(std::move(Cmd), Storage))
-            log("Indexing {0} failed: {1}", File, std::move(Error));
-        },
-        std::move(*Cmd)));
+                    [this, File, Storage](tooling::CompileCommand Cmd) {
+                      Cmd.CommandLine.push_back("-resource-dir=" + ResourceDir);
+                      if (auto Error = index(std::move(Cmd), Storage))
+                        log("Indexing {0} failed: {1}", File, std::move(Error));
+                    },
+                    std::move(*Cmd)),
+                ThreadPriority::Low);
   }
 }
 
-void BackgroundIndex::enqueueTask(Task T) {
+void BackgroundIndex::enqueueTask(Task T, ThreadPriority Priority) {
   {
     std::lock_guard<std::mutex> Lock(QueueMu);
-    Queue.push_back(std::move(T));
+    auto I = Queue.end();
+    // We first store the tasks with Normal priority in the front of the queue.
+    // Then we store low priority tasks. Normal priority tasks are pretty rare,
+    // they should not grow beyond single-digit numbers, so it is OK to do
+    // linear search and insert after that.
+    if (Priority == ThreadPriority::Normal) {
+      I = llvm::find_if(Queue, [](const std::pair<Task, ThreadPriority> &Elem) {
+        return Elem.second == ThreadPriority::Low;
+      });
+    }
+    Queue.insert(I, {std::move(T), Priority});
   }
   QueueCV.notify_all();
 }
@@ -281,38 +332,6 @@ void BackgroundIndex::update(StringRef MainFile, IndexFileIn Index,
   }
 }
 
-// Creates a filter to not collect index results from files with unchanged
-// digests.
-// \p FileDigests contains file digests for the current indexed files, and all
-// changed files will be added to \p FilesToUpdate.
-decltype(SymbolCollector::Options::FileFilter)
-createFileFilter(const llvm::StringMap<FileDigest> &FileDigests,
-                 llvm::StringMap<FileDigest> &FilesToUpdate) {
-  return [&FileDigests, &FilesToUpdate](const SourceManager &SM, FileID FID) {
-    StringRef Path;
-    if (const auto *F = SM.getFileEntryForID(FID))
-      Path = F->getName();
-    if (Path.empty())
-      return false; // Skip invalid files.
-    SmallString<128> AbsPath(Path);
-    if (std::error_code EC =
-            SM.getFileManager().getVirtualFileSystem()->makeAbsolute(AbsPath)) {
-      elog("Warning: could not make absolute file: {0}", EC.message());
-      return false; // Skip files without absolute path.
-    }
-    sys::path::remove_dots(AbsPath, /*remove_dot_dot=*/true);
-    auto Digest = digestFile(SM, FID);
-    if (!Digest)
-      return false;
-    auto D = FileDigests.find(AbsPath);
-    if (D != FileDigests.end() && D->second == Digest)
-      return false; // Skip files that haven't changed.
-
-    FilesToUpdate[AbsPath] = *Digest;
-    return true;
-  };
-}
-
 Error BackgroundIndex::index(tooling::CompileCommand Cmd,
                              BackgroundIndexStorage *IndexStorage) {
   trace::Span Tracer("BackgroundIndex");
@@ -381,6 +400,14 @@ Error BackgroundIndex::index(tooling::CompileCommand Cmd,
   if (!Action->Execute())
     return createStringError(inconvertibleErrorCode(), "Execute() failed");
   Action->EndSourceFile();
+  if (Clang->hasDiagnostics() &&
+      Clang->getDiagnostics().hasUncompilableErrorOccurred()) {
+    return createStringError(inconvertibleErrorCode(),
+                             "IndexingAction failed: has uncompilable errors");
+  }
+
+  assert(Index.Symbols && Index.Refs && Index.Sources
+     && "Symbols, Refs and Sources must be set.");
 
   log("Indexed {0} ({1} symbols, {2} refs, {3} files)",
       Inputs.CompileCommand.Filename, Index.Symbols->size(),

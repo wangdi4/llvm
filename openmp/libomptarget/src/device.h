@@ -154,8 +154,20 @@ struct DeviceTy {
       int32_t ThreadLimit, uint64_t LoopTripCount);
 #if INTEL_COLLAB
   int32_t run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
-      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
-      int32_t ThreadLimit, void *TgtNDLoopDesc);
+                             ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                             int32_t NumTeams, int32_t ThreadLimit,
+                             void *TgtNDLoopDesc);
+  int32_t run_team_nd_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                                    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                    int32_t NumTeams, int32_t ThreadLimit,
+                                    void *TgtNDLoopDesc, void *AsyncData);
+  int32_t run_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                            ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                            void *AsyncData);
+  int32_t run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
+                                 ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                                 int32_t NumTeams, int32_t ThreadLimit,
+                                 uint64_t LoopTripCount, void *AsyncData);
 #endif // INTEL_COLLAB
 private:
   // Call to RTL

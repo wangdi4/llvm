@@ -7,12 +7,14 @@ add_clang_library(clangTidyAbseilModule
   DurationFactoryFloatCheck.cpp
   DurationFactoryScaleCheck.cpp
   DurationRewriter.cpp
+  DurationSubtractionCheck.cpp
   FasterStrsplitDelimiterCheck.cpp
   NoInternalDependenciesCheck.cpp
   NoNamespaceCheck.cpp
   RedundantStrcatCallsCheck.cpp
   StrCatAppendCheck.cpp
   StringFindStartswithCheck.cpp
+  UpgradeDurationConversionsCheck.cpp
 
   LINK_LIBS
   clangAST

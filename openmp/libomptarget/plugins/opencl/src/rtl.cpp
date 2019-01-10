@@ -309,6 +309,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   std::vector<cl_kernel> &kernels =
       DeviceInfo.FuncGblEntries[device_id].Kernels;
   for (unsigned i = 0; i < NumEntries; i++) {
+    // Size is 0 means that it is kernel function.
+    if (image->EntriesBegin[i].size != 0)
+      continue;
     char *name = image->EntriesBegin[i].name;
     kernels[i] = clCreateKernel(program[2], name, &status);
     if (status != 0) {
@@ -368,11 +371,28 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   return OFFLOAD_SUCCESS;
 }
 
-int32_t
-__tgt_rtl_run_target_team_nd_region(int32_t device_id, void *tgt_entry_ptr,
-                                    void **tgt_args, ptrdiff_t *tgt_offsets,
-                                    int32_t num_args, int32_t num_teams,
-                                    int32_t thread_limit, void *loop_desc) {
+typedef struct kmp_task kmp_task_t;
+typedef void (*kmpc_task_complete_fn_t)(kmp_task_t *);
+
+void event_callback_completed(cl_event event, cl_int status, void *data) {
+  if (status == CL_SUCCESS) {
+    assert(data && "bad task object for the target");
+    kmpc_task_complete_fn_t ptask_completed;
+    *((void**)&ptask_completed) = dlsym(RTLD_DEFAULT,
+                                        "__kmpc_proxy_task_completed_ooo");
+    if (ptask_completed) {
+      DP("Calling __kmpc_proxy_task_completed_ooo(task=%p)\n", data);
+      ptask_completed((kmp_task_t *)data);
+      return;
+    }
+  }
+  DP("Error: Failed to complete asynchronous offloading\n");
+}
+
+static inline int32_t run_target_team_nd_region(
+    int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
+    ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
+    int32_t thread_limit, void *loop_desc, void *async_data) {
   cl_int status;
   cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
 
@@ -449,23 +469,72 @@ __tgt_rtl_run_target_team_nd_region(int32_t device_id, void *tgt_entry_ptr,
      local_work_size[1], local_work_size[2]);
   DP("work dimension = %u\n", work_dim);
 
-  status = clEnqueueNDRangeKernel(DeviceInfo.Queues[device_id], *kernel,
-                                  work_dim, nullptr, global_work_size,
-                                  local_work_size, 0, nullptr, nullptr);
+  cl_event complete_event;
+  status =
+      clEnqueueNDRangeKernel(DeviceInfo.Queues[device_id], *kernel, work_dim,
+                             nullptr, global_work_size, local_work_size, 0,
+                             nullptr, async_data ? &complete_event : nullptr);
   if (status != CL_SUCCESS) {
     DP("OpenCL Error: Failed to enqueue kernel: %d\n", status);
     return OFFLOAD_FAIL;
   }
 
   DP("OpenCL: Started executing kernel.\n");
-  status = clFinish(DeviceInfo.Queues[device_id]);
-  if (status != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to execute kernel: %d\n", status);
+
+  if (async_data) {
+    status = clSetEventCallback(complete_event, CL_COMPLETE,
+                                &event_callback_completed, async_data);
+    if (status != CL_SUCCESS) {
+      DP("Error: Failed to set callback for CL_COMPLETE: %d\n", status);
+      return OFFLOAD_FAIL;
+    }
   } else {
-    DP("OpenCL: Successfully finished kernel execution.\n");
+    status = clFinish(DeviceInfo.Queues[device_id]);
+    if (status != CL_SUCCESS) {
+      DP("OpenCL Error: Failed to execute kernel: %d\n", status);
+    } else {
+      DP("OpenCL: Successfully finished kernel execution.\n");
+    }
   }
 
   return OFFLOAD_SUCCESS;
+}
+
+int32_t
+__tgt_rtl_run_target_team_nd_region(int32_t device_id, void *tgt_entry_ptr,
+                                    void **tgt_args, ptrdiff_t *tgt_offsets,
+                                    int32_t num_args, int32_t num_teams,
+                                    int32_t thread_limit, void *loop_desc) {
+  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
+                                   tgt_offsets, num_args, num_teams,
+                                   thread_limit, loop_desc, nullptr);
+}
+
+int32_t __tgt_rtl_run_target_team_nd_region_nowait(
+    int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
+    ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
+    int32_t thread_limit, void *loop_desc, void *async_data) {
+  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
+                                   tgt_offsets, num_args, num_teams,
+                                   thread_limit, loop_desc, async_data);
+}
+
+int32_t __tgt_rtl_run_target_team_region_nowait(
+    int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
+    ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
+    int32_t thread_limit, uint64_t loop_tripcount, void *async_data) {
+  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
+                                   tgt_offsets, arg_num, team_num, thread_limit,
+                                   nullptr, async_data);
+}
+
+int32_t __tgt_rtl_run_target_region_nowait(int32_t device_id,
+                                           void *tgt_entry_ptr, void **tgt_args,
+                                           ptrdiff_t *tgt_offsets,
+                                           int32_t arg_num, void *async_data) {
+  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
+                                   tgt_offsets, arg_num, 1, 0, nullptr,
+                                   async_data);
 }
 
 int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
@@ -474,73 +543,10 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
                                          int32_t arg_num, int32_t team_num,
                                          int32_t thread_limit,
                                          uint64_t loop_tripcount /*not used*/) {
-  cl_int status;
-  cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
-// debug...
-#ifdef OMPTARGET_DEBUG
-  char buffer[128];
-  clGetKernelInfo(*kernel, CL_KERNEL_FUNCTION_NAME, 128, buffer, nullptr);
-  cl_uint n;
-  clGetKernelInfo(*kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &n, nullptr);
-  DP("number of kernel parameters: %d\n", n);
-  DP("number of arguments: %d\n", arg_num);
-#endif
-
-  // set kernel args
-  std::vector<void *> ptrs(arg_num);
-  for (int32_t i = 0; i < arg_num; ++i) {
-    ptrs[i] = (void *)((intptr_t)tgt_args[i] + tgt_offsets[i]);
-    status = clSetKernelArg(
-        *kernel, i, /*sizeof(intptr_t) + tgt_offsets[i]*/ sizeof(cl_mem),
-        &ptrs[i]);
-    if (status != CL_SUCCESS) {
-      DP("OpenCL Error: Failed to set kernel arg %d: %d\n", i, status);
-      return OFFLOAD_FAIL;
-    } else {
-      DP("OpenCL: Kernel Arg %d set successfully\n", i);
-    }
-  }
-
-  size_t global_work_size;
-  size_t local_work_size;
-  // calculate number of threads in each team:
-  clGetKernelWorkGroupInfo(*kernel, DeviceInfo.deviceIDs[device_id],
-                           CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
-                           sizeof(size_t), &local_work_size, nullptr);
-
-  // calculate total number of threads to execute the kernel:
-  if (thread_limit && team_num)
-    global_work_size = std::min(global_work_size, (size_t)thread_limit);
-  else if (thread_limit)
-    global_work_size = thread_limit;
-  else if (team_num)
-    global_work_size = local_work_size * team_num;
-  else
-    global_work_size = local_work_size * DeviceInfo.maxWorkGroups[device_id] *
-                       64; // have sane defaults
-
-  // run kernel:
-  DP("thread limit is %d, team num is %d\n", thread_limit, team_num);
-  DP("global work size is %zd\n", global_work_size);
-  DP("local work size is: %zd\n", local_work_size);
-
-  status = clEnqueueNDRangeKernel(DeviceInfo.Queues[device_id], *kernel, 1,
-                                  nullptr, &global_work_size, &local_work_size,
-                                  0, nullptr, nullptr);
-  if (status != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to enqueue kernel: %d\n", status);
-    return OFFLOAD_FAIL;
-  }
-
-  DP("OpenCL: Started executing kernel.\n");
-  status = clFinish(DeviceInfo.Queues[device_id]);
-  if (status != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to execute kernel: %d\n", status);
-  } else {
-    DP("OpenCL: Successfully finished kernel execution.\n");
-  }
-
-  return OFFLOAD_SUCCESS;
+  // TODO: convert loop_tripcount to loop descriptor
+  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
+                                   tgt_offsets, arg_num, team_num, thread_limit,
+                                   nullptr, nullptr);
 }
 
 int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
