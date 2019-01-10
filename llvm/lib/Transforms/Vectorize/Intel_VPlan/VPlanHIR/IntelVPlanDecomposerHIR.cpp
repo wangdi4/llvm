@@ -63,14 +63,10 @@ VPConstant *VPDecomposerHIR::decomposeCoeff(int64_t Coeff, Type *Ty) {
 }
 
 // Create a VPInstruction with \p Src as source operand, \p ConvOpCode as
-// conversion opcode (ZExt, SExt or Trunc) and \p DestType as destination type.
+// conversion opcode and \p DestType as destination type.
 VPInstruction *VPDecomposerHIR::decomposeConversion(VPValue *Src,
                                                     unsigned ConvOpCode,
                                                     Type *DestType) {
-  assert((ConvOpCode == Instruction::ZExt || ConvOpCode == Instruction::SExt ||
-          ConvOpCode == Instruction::Trunc) &&
-         "Unexpected conversion OpCode.");
-
   auto *NewConv = cast<VPInstruction>(
       Builder.createNaryOp(ConvOpCode, {Src}, DestType));
   return NewConv;
@@ -92,6 +88,21 @@ VPValue *VPDecomposerHIR::decomposeCanonExprConv(CanonExpr *CE, VPValue *Src) {
   llvm_unreachable("Unsupported conversion in VPlan decomposer!");
 }
 
+// Create a VPInstruction for the conversion from \p Src's type to \p DestTy.
+VPValue *VPDecomposerHIR::decomposeBlobImplicitConv(VPValue *Src,
+                                                    Type *DestTy) {
+  Type *SrcTy = Src->getBaseType();
+  if (SrcTy == DestTy)
+    return Src;
+
+  if (SrcTy->isPointerTy() && DestTy->isIntegerTy())
+    return decomposeConversion(Src, Instruction::PtrToInt, DestTy);
+  if (SrcTy->isIntegerTy() && DestTy->isPointerTy())
+    return decomposeConversion(Src, Instruction::IntToPtr, DestTy);
+
+  llvm_unreachable("Unexpected blob implicit conversion!");
+}
+
 // Decompose a blob given its \p BlobIdx and \p BlobCoeff. Return the last
 // VPValue resulting from its decomposition.
 VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
@@ -108,7 +119,6 @@ VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
     Type *CoeffType;
 
     if (BlobTy->isPointerTy()) {
-      // If blob has pointer type, coeff must be integer.
       // If coeff != 1 and blob type is pointer, only -1 coeff is allowed for
       // now.
       assert((BlobCoeff == -1) &&
@@ -127,6 +137,10 @@ VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
       default:
         llvm_unreachable("Unexpected pointer size.");
       }
+
+      // Generate pointer-to-int comparison for pointer blob with -1 coefficient
+      // (-1 * PtrToInt(p)).
+      DecompBlob = decomposeBlobImplicitConv(DecompBlob, CoeffType);
     } else
       CoeffType = Blob->getType();
 
@@ -215,7 +229,8 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
     assert(BlobCoeff != 0 && "Invalid blob coefficient!");
 
-    VPValue *DecompBlob = decomposeBlob(RDDR, BlobIdx, BlobCoeff);
+    VPValue *DecompBlob = decomposeBlobImplicitConv(
+        decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
     DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
                                   Instruction::Add);
   }
@@ -986,8 +1001,9 @@ VPValue *
 VPDecomposerHIR::VPBlobDecompVisitor::decomposeNAryOp(const SCEVNAryExpr *Blob,
                                                       unsigned OpCode) {
   VPValue *DecompDef = nullptr;
+  Type *ExprTy = Blob->getType();
   for (auto *SCOp : Blob->operands()) {
-    VPValue *VPOp = visit(SCOp);
+    VPValue *VPOp = Decomposer.decomposeBlobImplicitConv(visit(SCOp), ExprTy);
     DecompDef =
         Decomposer.combineDecompDefs(VPOp, DecompDef, Blob->getType(), OpCode);
   }

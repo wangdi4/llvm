@@ -78,6 +78,7 @@ private:
   VPInstruction *decomposeConversion(VPValue *Src, unsigned ConvOpCode,
                                      Type *DestType);
   VPValue *decomposeCanonExprConv(loopopt::CanonExpr *CE, VPValue *Src);
+  VPValue *decomposeBlobImplicitConv(VPValue *Src, Type *DestTy);
   VPValue *decomposeBlob(loopopt::RegDDRef *RDDR, unsigned BlobIdx,
                          int64_t BlobCoeff);
   VPValue *decomposeIV(loopopt::RegDDRef *RDDR, loopopt::CanonExpr *CE,
