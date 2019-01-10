@@ -29,9 +29,9 @@
 #include "clang/AST/Type.h"
 #include "clang/Basic/ABI.h"
 #include "clang/Basic/CapturedStmt.h"
+#include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Frontend/CodeGenOptions.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
@@ -393,11 +393,13 @@ public:
 #if INTEL_COLLAB
     virtual void recordVariableDefinition(const VarDecl *VD) {}
     virtual void recordVariableReference(const VarDecl *VD) {}
-    virtual void recordThisPointerReference(llvm::Value *) {}
+    virtual void recordValueDefinition(llvm::Value *) {}
+    virtual void recordValueReference(llvm::Value *) {}
+    virtual void recordValueSuppression(llvm::Value *) {}
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
     virtual bool isLateOutlinedRegion() { return false; }
 #endif // INTEL_CUSTOMIZATION
-#endif // INTEL_COLLAB
   private:
     /// The kind of captured statement being generated.
     CapturedRegionKind Kind;
@@ -1960,7 +1962,7 @@ public:
   void EmitConstructorBody(FunctionArgList &Args);
   void EmitDestructorBody(FunctionArgList &Args);
   void emitImplicitAssignmentOperatorBody(FunctionArgList &Args);
-  void EmitFunctionBody(FunctionArgList &Args, const Stmt *Body);
+  void EmitFunctionBody(const Stmt *Body);
   void EmitBlockWithFallThrough(llvm::BasicBlock *BB, const Stmt *S);
 
   void EmitForwardingCallToLambda(const CXXMethodDecl *LambdaCallOperator,
@@ -2559,6 +2561,10 @@ public:
   /// generating code for an C++ member function.
   llvm::Value *LoadCXXThis() {
     assert(CXXThisValue && "no 'this' value for this function");
+#if INTEL_COLLAB
+    if (CapturedStmtInfo)
+      CapturedStmtInfo->recordValueReference(CXXThisValue);
+#endif  // INTEL_COLLAB
     return CXXThisValue;
   }
   Address LoadCXXThisAddress();
@@ -4154,6 +4160,12 @@ public:
   /// annotation result.
   Address EmitFieldAnnotations(const FieldDecl *D, Address V);
 
+#if INTEL_CUSTOMIZATION
+  /// Emit HLS field annotations for the given field and value. Returns the
+  /// annotation result.
+  Address EmitHLSFieldAnnotations(const FieldDecl *D, Address V,
+                                  StringRef AnnotStr);
+#endif // INTEL_CUSTOMIZATION
   //===--------------------------------------------------------------------===//
   //                             Internal Helpers
   //===--------------------------------------------------------------------===//

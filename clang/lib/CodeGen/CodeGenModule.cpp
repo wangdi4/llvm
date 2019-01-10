@@ -37,13 +37,13 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/CharInfo.h"
+#include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/Version.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
-#include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/ADT/SmallVector.h"
@@ -674,6 +674,9 @@ void CodeGenModule::Release() {
 
   if (getCodeGenOpts().EmitVersionIdentMetadata)
     EmitVersionIdentMetadata();
+
+  if (!getCodeGenOpts().RecordCommandLine.empty())
+    EmitCommandLineMetadata();
 
   EmitTargetMetadata();
 }
@@ -3622,12 +3625,12 @@ static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
     GV->setMetadata("io", ChannelIOMD);
 }
 
-void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
+void CodeGenModule::generateHLSAnnotation(const Decl *D,
                                           llvm::SmallString<256> &AnnotStr) {
   llvm::raw_svector_ostream Out(AnnotStr);
-  if (VD->hasAttr<RegisterAttr>())
+  if (D->hasAttr<RegisterAttr>())
     Out << "{register:1}";
-  if (auto const *MA = VD->getAttr<MemoryAttr>()) {
+  if (auto const *MA = D->getAttr<MemoryAttr>()) {
     MemoryAttr::MemoryKind Kind = MA->getKind();
     Out << "{memory:";
     switch (Kind) {
@@ -3641,43 +3644,43 @@ void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
     }
     Out << '}';
   }
-  if (VD->hasAttr<SinglePumpAttr>())
+  if (D->hasAttr<SinglePumpAttr>())
     Out << "{pump:1}";
-  if (VD->hasAttr<DoublePumpAttr>())
+  if (D->hasAttr<DoublePumpAttr>())
     Out << "{pump:2}";
-  if (const auto *BWA = VD->getAttr<BankWidthAttr>()) {
+  if (const auto *BWA = D->getAttr<BankWidthAttr>()) {
     llvm::APSInt BWAInt = BWA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << BWA->getSpelling() << ':' << BWAInt << '}';
   }
-  if (const auto *MCA = VD->getAttr<MaxConcurrencyAttr>()) {
+  if (const auto *MCA = D->getAttr<MaxConcurrencyAttr>()) {
     llvm::APSInt MCAInt = MCA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << MCA->getSpelling() << ':' << MCAInt << '}';
   }
-  if (const auto *NBA = VD->getAttr<NumBanksAttr>()) {
+  if (const auto *NBA = D->getAttr<NumBanksAttr>()) {
     llvm::APSInt BWAInt = NBA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NBA->getSpelling() << ':' << BWAInt << '}';
   }
-  if (const auto *NRPA = VD->getAttr<NumReadPortsAttr>()) {
+  if (const auto *NRPA = D->getAttr<NumReadPortsAttr>()) {
     llvm::APSInt NRPAInt =
         NRPA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NRPA->getSpelling() << ':' << NRPAInt << '}';
   }
-  if (const auto *NWPA = VD->getAttr<NumWritePortsAttr>()) {
+  if (const auto *NWPA = D->getAttr<NumWritePortsAttr>()) {
     llvm::APSInt NWPAInt =
         NWPA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NWPA->getSpelling() << ':' << NWPAInt << '}';
   }
-  if (const auto *IMDA = VD->getAttr<InternalMaxBlockRamDepthAttr>()) {
+  if (const auto *IMDA = D->getAttr<InternalMaxBlockRamDepthAttr>()) {
     llvm::APSInt IMDAInt =
         IMDA->getInternalMaxBlockRamDepth()->EvaluateKnownConstInt(
             getContext());
     Out << '{' << IMDA->getSpelling() << ':' << IMDAInt << '}';
   }
-  if (VD->hasAttr<OptimizeFMaxAttr>())
+  if (D->hasAttr<OptimizeFMaxAttr>())
     Out << "{optimize_fmax:1}";
-  if (VD->hasAttr<OptimizeRamUsageAttr>())
+  if (D->hasAttr<OptimizeRamUsageAttr>())
     Out << "{optimize_ram_usage:1}";
-  if (const auto *BBA = VD->getAttr<BankBitsAttr>()) {
+  if (const auto *BBA = D->getAttr<BankBitsAttr>()) {
     Out << '{' << BBA->getSpelling() << ':';
     for (BankBitsAttr::args_iterator I = BBA->args_begin(), E = BBA->args_end();
          I != E; ++I) {
@@ -3688,15 +3691,26 @@ void CodeGenModule::generateHLSAnnotation(const VarDecl *VD,
     }
     Out << '}';
   }
-  if (const auto *MA = VD->getAttr<MergeAttr>()) {
+  if (const auto *MA = D->getAttr<MergeAttr>()) {
     Out << '{' << MA->getSpelling() << ':' << MA->getName() << ':'
         << MA->getDirection() << '}';
   }
-  if (VD->getStorageClass() == SC_Static) {
-    llvm::APSInt SARAInt = llvm::APSInt::get(2); // The default.
-    if (const auto *SARA = VD->getAttr<StaticArrayResetAttr>())
-      SARAInt = SARA->getValue()->EvaluateKnownConstInt(getContext());
-    Out << "{staticreset:" << SARAInt << '}';
+  if (const auto *VD = dyn_cast<VarDecl>(D)) {
+    if (VD->getStorageClass() == SC_Static) {
+      llvm::APSInt SARAInt = llvm::APSInt::get(2); // The default.
+      if (const auto *SARA = VD->getAttr<StaticArrayResetAttr>())
+        SARAInt = SARA->getValue()->EvaluateKnownConstInt(getContext());
+      Out << "{staticreset:" << SARAInt << '}';
+    } else if (VD->getType().isConstQualified() ||
+               VD->getType().getAddressSpace() == LangAS::opencl_constant) {
+      if (const auto *SARA = VD->getAttr<StaticArrayResetAttr>())
+        Out << "{staticreset:"
+            << SARA->getValue()->EvaluateKnownConstInt(getContext()) << '}';
+    }
+  } else if (const auto *FD = dyn_cast<FieldDecl>(D)) {
+    if (const auto *SARA = FD->getAttr<StaticArrayResetAttr>())
+      Out << "{staticreset:"
+          << SARA->getValue()->EvaluateKnownConstInt(getContext()) << '}';
   }
 }
 
@@ -3753,8 +3767,15 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   // CUDA E.2.4.1 "__shared__ variables cannot have an initialization
   // as part of their declaration."  Sema has already checked for
   // error cases, so we just need to set Init to UndefValue.
-  if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice &&
-      D->hasAttr<CUDASharedAttr>())
+  bool IsCUDASharedVar =
+      getLangOpts().CUDAIsDevice && D->hasAttr<CUDASharedAttr>();
+  // Shadows of initialized device-side global variables are also left
+  // undefined.
+  bool IsCUDAShadowVar =
+      !getLangOpts().CUDAIsDevice &&
+      (D->hasAttr<CUDAConstantAttr>() || D->hasAttr<CUDADeviceAttr>() ||
+       D->hasAttr<CUDASharedAttr>());
+  if (getLangOpts().CUDA && (IsCUDASharedVar || IsCUDAShadowVar))
     Init = llvm::UndefValue::get(getTypes().ConvertType(ASTTy));
   else if (!InitExpr) {
     // This is a tentative definition; tentative definitions are
@@ -5551,6 +5572,16 @@ void CodeGenModule::EmitVersionIdentMetadata() {
 
   llvm::Metadata *IdentNode[] = {llvm::MDString::get(Ctx, Version)};
   IdentMetadata->addOperand(llvm::MDNode::get(Ctx, IdentNode));
+}
+
+void CodeGenModule::EmitCommandLineMetadata() {
+  llvm::NamedMDNode *CommandLineMetadata =
+    TheModule.getOrInsertNamedMetadata("llvm.commandline");
+  std::string CommandLine = getCodeGenOpts().RecordCommandLine;
+  llvm::LLVMContext &Ctx = TheModule.getContext();
+
+  llvm::Metadata *CommandLineNode[] = {llvm::MDString::get(Ctx, CommandLine)};
+  CommandLineMetadata->addOperand(llvm::MDNode::get(Ctx, CommandLineNode));
 }
 
 void CodeGenModule::EmitTargetMetadata() {

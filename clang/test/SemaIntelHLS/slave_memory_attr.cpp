@@ -163,91 +163,91 @@ void foo12(slave_arg __attribute__((optimize_ram_usage))
 
 // Diagnostics
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar0a(
   not_slave_arg1 __attribute__((memory("MLAB")))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar0b(
   not_slave_arg2 __attribute__((memory("MLAB")))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar0c(
   not_slave_arg3 __attribute__((memory("MLAB")))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar1a(
   not_slave_arg1 __attribute__((memory("BLOCK_RAM")))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar1b(
   not_slave_arg2 __attribute__((memory("BLOCK_RAM")))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar1c(
   not_slave_arg3 __attribute__((memory("BLOCK_RAM")))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar2a(
   not_slave_arg1 __attribute__((numbanks(4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar2b(
   not_slave_arg2 __attribute__((numbanks(4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar2c(
   not_slave_arg3 __attribute__((numbanks(4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar3a(
   not_slave_arg1 __attribute__((bankwidth(4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar3b(
   not_slave_arg2 __attribute__((bankwidth(4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar3c(
   not_slave_arg3 __attribute__((bankwidth(4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar4a(
   not_slave_arg1 __attribute__((singlepump))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar4b(
   not_slave_arg2 __attribute__((singlepump))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar4c(
   not_slave_arg3 __attribute__((singlepump))
@@ -261,156 +261,156 @@ void bar4d(
   //expected-note@-2 {{conflicting attribute is here}}
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar5a(
   not_slave_arg1 __attribute__((doublepump))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar5b(
   not_slave_arg2 __attribute__((doublepump))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar5c(
   not_slave_arg3 __attribute__((doublepump))
   int *i) {}
 
-// expected-error@+4{{local or static variables or slave memory arguments}}
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+4{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar6a(
   not_slave_arg1 __attribute__((numports_readonly_writeonly(4,4)))
   int *i) {}
 
-// expected-error@+4{{local or static variables or slave memory arguments}}
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+4{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar6b(
   not_slave_arg2 __attribute__((numports_readonly_writeonly(4,4)))
   int *i) {}
 
-// expected-error@+4{{local or static variables or slave memory arguments}}
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+4{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar6c(
   not_slave_arg3 __attribute__((numports_readonly_writeonly(4,4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar7a(
   not_slave_arg1 __attribute__((bank_bits(3,4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar7b(
   not_slave_arg2 __attribute__((bank_bits(2,3)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar7c(
   not_slave_arg3 __attribute__((bank_bits(1,2)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar8a(
   not_slave_arg1 __attribute__((numreadports(4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar8b(
   not_slave_arg2 __attribute__((numreadports(4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar8c(
   not_slave_arg3 __attribute__((numreadports(4)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar9a(
   not_slave_arg1 __attribute__((numwriteports(2)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar9b(
   not_slave_arg2 __attribute__((numwriteports(2)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar9c(
   not_slave_arg3 __attribute__((numwriteports(2)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar10a(
   not_slave_arg1 __attribute__((internal_max_block_ram_depth(32)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar10b(
   not_slave_arg2 __attribute__((internal_max_block_ram_depth(32)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar10c(
   not_slave_arg3 __attribute__((internal_max_block_ram_depth(32)))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar11a(
   not_slave_arg1 __attribute__((optimize_fmax))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar11b(
   not_slave_arg2 __attribute__((optimize_fmax))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar11c(
   not_slave_arg3 __attribute__((optimize_fmax))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar12a(
   not_slave_arg1 __attribute__((optimize_ram_usage))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar12b(
   not_slave_arg2 __attribute__((optimize_ram_usage))
   int *i) {}
 
-// expected-error@+3{{local or static variables or slave memory arguments}}
+// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar12c(
   not_slave_arg3 __attribute__((optimize_ram_usage))
   int *i) {}
 
-// expected-error@+5{{local or static variables or slave memory arguments}}
-// expected-error@+5{{local or static variables or slave memory arguments}}
-// expected-error@+5{{local or static variables or slave memory arguments}}
+// expected-error@+5{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+5{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+5{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar11(
   not_slave_arg3 __attribute__((numbanks(4)))
@@ -418,7 +418,7 @@ void bar11(
                  __attribute__((numwriteports(4)))
   int *i) {}
 
-// expected-error-re@+3{{only applies to local or static variables{{$}}}}
+// expected-error@+3{{only applies to constant variables, local variables, static variables, and non-static data members}}
 __attribute__((ihc_component))
 void baz1(
   slave_arg __attribute__((register))

@@ -29,7 +29,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/NSAPI.h"
-#include "clang/Frontend/CodeGenOptions.h"
+#include "clang/Basic/CodeGenOptions.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DataLayout.h"
@@ -83,6 +83,10 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
   if (AllocaAddr)
     *AllocaAddr = Alloca;
   llvm::Value *V = Alloca.getPointer();
+#if INTEL_COLLAB
+  if (CapturedStmtInfo)
+    CapturedStmtInfo->recordValueDefinition(V);
+#endif // INTEL_COLLAB
   // Alloca always returns a pointer in alloca address space, which may
   // be different from the type defined by the language. For example,
   // in C++ the auto variables are in the default address space. Therefore
@@ -2561,7 +2565,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
         VD = VD->getCanonicalDecl();
         if (auto *FD = LambdaCaptureFields.lookup(VD)) {
           if (CapturedStmtInfo)
-            CapturedStmtInfo->recordThisPointerReference(CXXABIThisValue);
+            CapturedStmtInfo->recordValueReference(CXXABIThisValue);
           return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);
         }
       }
@@ -4169,7 +4173,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
       LValue RefLVal = MakeAddrLValue(addr, FieldType, FieldBaseInfo,
                                       FieldTBAAInfo);
       if (RecordCVR & Qualifiers::Volatile)
-        RefLVal.getQuals().setVolatile(true);
+        RefLVal.getQuals().addVolatile();
       addr = EmitLoadOfReference(RefLVal, &FieldBaseInfo, &FieldTBAAInfo);
 
       // Qualifiers on the struct don't apply to the referencee.
@@ -4187,6 +4191,18 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
   if (field->hasAttr<AnnotateAttr>())
     addr = EmitFieldAnnotations(field, addr);
+
+#if INTEL_CUSTOMIZATION
+  // Emit HLS attribute annotation for a field.
+  if (getLangOpts().HLS ||
+      (getLangOpts().OpenCL &&
+       getContext().getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
+    SmallString<256> AnnotStr;
+    CGM.generateHLSAnnotation(field, AnnotStr);
+    if (!AnnotStr.empty())
+      addr = EmitHLSFieldAnnotations(field, addr, AnnotStr);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   LValue LV = MakeAddrLValue(addr, FieldType, FieldBaseInfo, FieldTBAAInfo);
   LV.getQuals().addCVRQualifiers(RecordCVR);
@@ -4511,8 +4527,9 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     QualType DestTy = getContext().getPointerType(E->getType());
     llvm::Value *V = getTargetHooks().performAddrSpaceCast(
         *this, LV.getPointer(), E->getSubExpr()->getType().getAddressSpace(),
-        DestTy.getAddressSpace(), ConvertType(DestTy));
-    return MakeNaturalAlignPointeeAddrLValue(V, DestTy);
+        E->getType().getAddressSpace(), ConvertType(DestTy));
+    return MakeAddrLValue(Address(V, LV.getAddress().getAlignment()),
+                          E->getType(), LV.getBaseInfo(), LV.getTBAAInfo());
   }
   case CK_ObjCObjectLValueCast: {
     LValue LV = EmitLValue(E->getSubExpr());

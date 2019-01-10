@@ -199,18 +199,18 @@ static void instantiateDependentInternalMaxBlockRamDepthAttr(
                                       Max->getSpellingListIndex());
 }
 
-static void instantiateDependentSchedulerPipeliningEffortPctAttr(
+static void instantiateDependentSchedulerTargetFmaxMHzAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const SchedulerPipeliningEffortPctAttr *SPEPA, Decl *New) {
-  // The scheduler_pipelining_effort_pct expression is a constant expression.
+    const SchedulerTargetFmaxMHzAttr *STFM, Decl *New) {
+  // The scheduler_target_fmax_mhz expression is a constant expression.
   EnterExpressionEvaluationContext Unevaluated(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult Result =
-      S.SubstExpr(SPEPA->getSchedulerPipeliningEffortPct(), TemplateArgs);
+      S.SubstExpr(STFM->getSchedulerTargetFmaxMHz(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddSchedulerPipeliningEffortPctAttr(SPEPA->getLocation(), New,
+    S.AddSchedulerTargetFmaxMHzAttr(STFM->getLocation(), New,
                                           Result.getAs<Expr>(),
-                                          SPEPA->getSpellingListIndex());
+                                          STFM->getSpellingListIndex());
 }
 
 template <typename AttrType>
@@ -381,7 +381,7 @@ static void instantiateOMPDeclareSimdDeclAttr(
               PVD, FD->getParamDecl(PVD->getFunctionScopeIndex()));
         return S.SubstExpr(E, TemplateArgs);
       }
-    Sema::CXXThisScopeRAII ThisScope(S, ThisContext, /*TypeQuals=*/0,
+    Sema::CXXThisScopeRAII ThisScope(S, ThisContext, Qualifiers(),
                                      FD->isCXXInstanceMember());
     return S.SubstExpr(E, TemplateArgs);
   };
@@ -441,7 +441,7 @@ void Sema::InstantiateAttrsForDecl(
       // applicable to template declaration, we'll need to add them here.
       CXXThisScopeRAII ThisScope(
           *this, dyn_cast_or_null<CXXRecordDecl>(ND->getDeclContext()),
-          /*TypeQuals*/ 0, ND->isCXXInstanceMember());
+          Qualifiers(), ND->isCXXInstanceMember());
 
       Attr *NewAttr = sema::instantiateTemplateAttributeForDecl(
           TmplAttr, Context, *this, TemplateArgs);
@@ -524,11 +524,11 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, MCA, New);
       continue;
     }
-    const SchedulerPipeliningEffortPctAttr *SPEPA =
-        dyn_cast<SchedulerPipeliningEffortPctAttr>(TmplAttr);
-    if (SPEPA) {
-      instantiateDependentSchedulerPipeliningEffortPctAttr(*this, TemplateArgs,
-                                                           SPEPA, New);
+    const SchedulerTargetFmaxMHzAttr *STFM =
+        dyn_cast<SchedulerTargetFmaxMHzAttr>(TmplAttr);
+    if (STFM) {
+      instantiateDependentSchedulerTargetFmaxMHzAttr(*this, TemplateArgs,
+                                                           STFM, New);
       continue;
     }
     const InternalMaxBlockRamDepthAttr *IMBRDA =
@@ -646,7 +646,7 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
       NamedDecl *ND = dyn_cast<NamedDecl>(New);
       CXXRecordDecl *ThisContext =
           dyn_cast_or_null<CXXRecordDecl>(ND->getDeclContext());
-      CXXThisScopeRAII ThisScope(*this, ThisContext, /*TypeQuals*/0,
+      CXXThisScopeRAII ThisScope(*this, ThisContext, Qualifiers(),
                                  ND && ND->isCXXInstanceMember());
 
       Attr *NewAttr = sema::instantiateTemplateAttribute(TmplAttr, Context,
@@ -2994,7 +2994,7 @@ Decl *TemplateDeclInstantiator::VisitOMPDeclareReductionDecl(
         cast<DeclRefExpr>(D->getCombinerOut())->getDecl(),
         cast<DeclRefExpr>(NewDRD->getCombinerOut())->getDecl());
     auto *ThisContext = dyn_cast_or_null<CXXRecordDecl>(Owner);
-    Sema::CXXThisScopeRAII ThisScope(SemaRef, ThisContext, /*TypeQuals*/ 0,
+    Sema::CXXThisScopeRAII ThisScope(SemaRef, ThisContext, Qualifiers(),
                                      ThisContext);
     SubstCombiner = SemaRef.SubstExpr(D->getCombiner(), TemplateArgs).get();
     SemaRef.ActOnOpenMPDeclareReductionCombinerEnd(NewDRD, SubstCombiner);
@@ -3613,7 +3613,7 @@ TemplateDeclInstantiator::SubstFunctionType(FunctionDecl *D,
   assert(Params.empty() && "parameter vector is non-empty at start");
 
   CXXRecordDecl *ThisContext = nullptr;
-  unsigned ThisTypeQuals = 0;
+  Qualifiers ThisTypeQuals;
   if (CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(D)) {
     ThisContext = cast<CXXRecordDecl>(Owner);
     ThisTypeQuals = Method->getTypeQualifiers();

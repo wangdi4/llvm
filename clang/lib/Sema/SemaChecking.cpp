@@ -902,6 +902,66 @@ static bool SemaOpenCLBuiltinToAddr(Sema &S, unsigned BuiltinID,
   return false;
 }
 
+static ExprResult SemaBuiltinLaunder(Sema &S, CallExpr *TheCall) {
+  if (checkArgCount(S, TheCall, 1))
+    return ExprError();
+
+  // Compute __builtin_launder's parameter type from the argument.
+  // The parameter type is:
+  //  * The type of the argument if it's not an array or function type,
+  //  Otherwise,
+  //  * The decayed argument type.
+  QualType ParamTy = [&]() {
+    QualType ArgTy = TheCall->getArg(0)->getType();
+    if (const ArrayType *Ty = ArgTy->getAsArrayTypeUnsafe())
+      return S.Context.getPointerType(Ty->getElementType());
+    if (ArgTy->isFunctionType()) {
+      return S.Context.getPointerType(ArgTy);
+    }
+    return ArgTy;
+  }();
+
+  TheCall->setType(ParamTy);
+
+  auto DiagSelect = [&]() -> llvm::Optional<unsigned> {
+    if (!ParamTy->isPointerType())
+      return 0;
+    if (ParamTy->isFunctionPointerType())
+      return 1;
+    if (ParamTy->isVoidPointerType())
+      return 2;
+    return llvm::Optional<unsigned>{};
+  }();
+  if (DiagSelect.hasValue()) {
+    S.Diag(TheCall->getBeginLoc(), diag::err_builtin_launder_invalid_arg)
+        << DiagSelect.getValue() << TheCall->getSourceRange();
+    return ExprError();
+  }
+
+  // We either have an incomplete class type, or we have a class template
+  // whose instantiation has not been forced. Example:
+  //
+  //   template <class T> struct Foo { T value; };
+  //   Foo<int> *p = nullptr;
+  //   auto *d = __builtin_launder(p);
+  if (S.RequireCompleteType(TheCall->getBeginLoc(), ParamTy->getPointeeType(),
+                            diag::err_incomplete_type))
+    return ExprError();
+
+  assert(ParamTy->getPointeeType()->isObjectType() &&
+         "Unhandled non-object pointer case");
+
+  InitializedEntity Entity =
+      InitializedEntity::InitializeParameter(S.Context, ParamTy, false);
+  ExprResult Arg =
+      S.PerformCopyInitialization(Entity, SourceLocation(), TheCall->getArg(0));
+  if (Arg.isInvalid())
+    return ExprError();
+  TheCall->setArg(0, Arg.get());
+
+  return TheCall;
+}
+
 // Emit an error and return true if the current architecture is not in the list
 // of supported architectures.
 static bool
@@ -1111,6 +1171,8 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (checkArgCount(*this, TheCall, 1)) return true;
     TheCall->setType(Context.IntTy);
     break;
+  case Builtin::BI__builtin_launder:
+    return SemaBuiltinLaunder(*this, TheCall);
   case Builtin::BI__sync_fetch_and_add:
   case Builtin::BI__sync_fetch_and_add_1:
   case Builtin::BI__sync_fetch_and_add_2:
@@ -2975,7 +3037,7 @@ bool Sema::CheckMipsBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   case Mips::BI__builtin_mips_precr_sra_ph_w: i = 2; l = 0; u = 31; break;
   case Mips::BI__builtin_mips_precr_sra_r_ph_w: i = 2; l = 0; u = 31; break;
   case Mips::BI__builtin_mips_prepend: i = 2; l = 0; u = 31; break;
-  // MSA instrinsics. Instructions (which the intrinsics maps to) which use the
+  // MSA intrinsics. Instructions (which the intrinsics maps to) which use the
   // df/m field.
   // These intrinsics take an unsigned 3 bit immediate.
   case Mips::BI__builtin_msa_bclri_b:
@@ -8466,6 +8528,30 @@ shouldNotPrintDirectly(const ASTContext &Context,
   return std::make_pair(QualType(), StringRef());
 }
 
+/// Return true if \p ICE is an implicit argument promotion of an arithmetic
+/// type. Bit-field 'promotions' from a higher ranked type to a lower ranked
+/// type do not count.
+static bool
+isArithmeticArgumentPromotion(Sema &S, const ImplicitCastExpr *ICE) {
+  QualType From = ICE->getSubExpr()->getType();
+  QualType To = ICE->getType();
+  // It's an integer promotion if the destination type is the promoted
+  // source type.
+  if (ICE->getCastKind() == CK_IntegralCast &&
+      From->isPromotableIntegerType() &&
+      S.Context.getPromotedIntegerType(From) == To)
+    return true;
+  // Look through vector types, since we do default argument promotion for
+  // those in OpenCL.
+  if (const auto *VecTy = From->getAs<ExtVectorType>())
+    From = VecTy->getElementType();
+  if (const auto *VecTy = To->getAs<ExtVectorType>())
+    To = VecTy->getElementType();
+  // It's a floating promotion if the source type is a lower rank.
+  return ICE->getCastKind() == CK_FloatingCast &&
+         S.Context.getFloatingTypeOrder(From, To) < 0;
+}
+
 bool
 CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
                                     const char *StartSpecifier,
@@ -8493,11 +8579,11 @@ CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
 
   // Look through argument promotions for our error message's reported type.
   // This includes the integral and floating promotions, but excludes array
-  // and function pointer decay; seeing that an argument intended to be a
-  // string has type 'char [6]' is probably more confusing than 'char *'.
+  // and function pointer decay (seeing that an argument intended to be a
+  // string has type 'char [6]' is probably more confusing than 'char *') and
+  // certain bitfield promotions (bitfields can be 'demoted' to a lesser type).
   if (const ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(E)) {
-    if (ICE->getCastKind() == CK_IntegralCast ||
-        ICE->getCastKind() == CK_FloatingCast) {
+    if (isArithmeticArgumentPromotion(S, ICE)) {
       E = ICE->getSubExpr();
       ExprTy = E->getType();
 

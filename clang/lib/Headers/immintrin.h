@@ -195,6 +195,9 @@
 #include <avx512pfintrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+/* end INTEL_CUSTOMIZATION */
+
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__PKU__)
 #include <pkuintrin.h>
 #endif

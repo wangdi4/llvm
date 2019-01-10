@@ -8139,9 +8139,11 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
   MappableExprsHandler::MapFlagsArrayTy Types;
   MappableExprsHandler::StructRangeInfoTy PartialStruct;
 
-  while (auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
+  while (const auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
     E = OASE->getBase()->IgnoreParenImpCasts();
-  while (auto *ME = dyn_cast<MemberExpr>(E))
+  while (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+    E = ASE->getBase()->IgnoreParenImpCasts();
+  while (const auto *ME = dyn_cast<MemberExpr>(E))
     E = ME->getBase()->IgnoreParenImpCasts();
   auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
   for (auto L : C->decl_component_lists(VD)) {

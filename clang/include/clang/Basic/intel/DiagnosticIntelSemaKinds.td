@@ -218,8 +218,9 @@ def err_bankbits_numbanks_conflicting : Error<
 def err_bankbits_non_consecutive : Error<
   "bank_bits must be consecutive">;
 def err_memory_attribute_invalid : Error<
-  "%0 attribute only applies to local or static variables"
-  "%select{| or slave memory arguments}1">;
+  "%0 attribute only applies to "
+  "%select{|slave memory arguments, non-static field members, }1"
+  "constant variables, local variables and static variables">;
 def err_hls_force_loop_pipelining_invalid : Error<
   "%0 attribute argument must be 'on' or 'off'">;
 def err_hls_force_loop_pipelining_conflict : Error<

@@ -28,6 +28,15 @@ void Notification::wait() const {
 
 Semaphore::Semaphore(std::size_t MaxLocks) : FreeSlots(MaxLocks) {}
 
+bool Semaphore::try_lock() {
+  std::unique_lock<std::mutex> Lock(Mutex);
+  if (FreeSlots > 0) {
+    --FreeSlots;
+    return true;
+  }
+  return false;
+}
+
 void Semaphore::lock() {
   trace::Span Span("WaitForFreeSemaphoreSlot");
   // trace::Span can also acquire locks in ctor and dtor, we make sure it
@@ -103,13 +112,13 @@ void wait(std::unique_lock<std::mutex> &Lock, std::condition_variable &CV,
 
 static std::atomic<bool> AvoidThreadStarvation = {false};
 
-void setThreadPriority(std::thread &T, ThreadPriority Priority) {
+void setCurrentThreadPriority(ThreadPriority Priority) {
   // Some *really* old glibcs are missing SCHED_IDLE.
 #if defined(__linux__) && defined(SCHED_IDLE)
   sched_param priority;
   priority.sched_priority = 0;
   pthread_setschedparam(
-      T.native_handle(),
+      pthread_self(),
       Priority == ThreadPriority::Low && !AvoidThreadStarvation ? SCHED_IDLE
                                                                 : SCHED_OTHER,
       &priority);

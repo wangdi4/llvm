@@ -559,6 +559,7 @@ BUILTIN(__builtin_vfscanf, "iv*cC*a",  "FS:1:")
 BUILTIN(__builtin_vsscanf, "icC*cC*a", "FS:1:")
 #endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_thread_pointer, "v*", "nc")
+BUILTIN(__builtin_launder, "v*v*", "nt")
 
 // GCC exception builtins
 BUILTIN(__builtin_eh_return, "vzv*", "r") // FIXME: Takes intptr_t, not size_t!
@@ -1082,9 +1083,12 @@ LANGBUILTIN(_interlockedbittestandset_acq,   "UcNiD*Ni", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_interlockedbittestandset_nf,    "UcNiD*Ni", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(_interlockedbittestandset_rel,   "UcNiD*Ni", "n", ALL_MS_LANGUAGES)
 LANGBUILTIN(__noop,           "i.",  "n", ALL_MS_LANGUAGES)
-LANGBUILTIN(__popcnt16, "UsUs",     "nc", ALL_MS_LANGUAGES)
-LANGBUILTIN(__popcnt,   "UiUi",     "nc", ALL_MS_LANGUAGES)
-LANGBUILTIN(__popcnt64, "ULLiULLi", "nc", ALL_MS_LANGUAGES)
+LANGBUILTIN(__lzcnt16, "UsUs",    "nc", ALL_MS_LANGUAGES)
+LANGBUILTIN(__lzcnt,   "UiUi",    "nc", ALL_MS_LANGUAGES)
+LANGBUILTIN(__lzcnt64, "UWiUWi",  "nc", ALL_MS_LANGUAGES)
+LANGBUILTIN(__popcnt16, "UsUs",   "nc", ALL_MS_LANGUAGES)
+LANGBUILTIN(__popcnt,   "UiUi",   "nc", ALL_MS_LANGUAGES)
+LANGBUILTIN(__popcnt64, "UWiUWi", "nc", ALL_MS_LANGUAGES)
 LANGBUILTIN(_ReturnAddress, "v*", "n", ALL_MS_LANGUAGES)
 #if INTEL_CUSTOMIZATION
 // CMPLRS-4684: In icc, these builtins are availble on Linux as well.
@@ -1092,12 +1096,12 @@ LANGBUILTIN(_rotl8,  "UcUcUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 LANGBUILTIN(_rotl16, "UsUsUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 LANGBUILTIN(_rotl,   "UiUii",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 LANGBUILTIN(_lrotl,  "UNiUNii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_rotl64, "ULLiULLii", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotl64, "UWiUWii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 LANGBUILTIN(_rotr8,  "UcUcUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 LANGBUILTIN(_rotr16, "UsUsUc",    "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 LANGBUILTIN(_rotr,   "UiUii",     "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 LANGBUILTIN(_lrotr,  "UNiUNii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
-LANGBUILTIN(_rotr64, "ULLiULLii", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+LANGBUILTIN(_rotr64, "UWiUWii",   "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
 #endif // INTEL_CUSTOMIZATION
 LANGBUILTIN(__va_start,       "vc**.", "nt", ALL_MS_LANGUAGES)
 LANGBUILTIN(__fastfail, "vUi",    "nr", ALL_MS_LANGUAGES)

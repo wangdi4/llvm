@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_ISA_BF16
+// UNSUPPORTED: intel_feature_isa_bf16
+// end INTEL_FEATURE_ISA_BF16
+// end INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -triple i686-linux-gnu -target-cpu i686 -emit-llvm %s -o - | FileCheck %s
 
 int baz(int a) { return 4; }

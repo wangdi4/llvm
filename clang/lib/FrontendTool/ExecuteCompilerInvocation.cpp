@@ -248,7 +248,8 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
   // Honor -analyzer-checker-help.
   // This should happen AFTER plugins have been loaded!
   if (Clang->getAnalyzerOpts()->ShowCheckerHelp) {
-    ento::printCheckerHelp(llvm::outs(), Clang->getFrontendOpts().Plugins);
+    ento::printCheckerHelp(llvm::outs(), Clang->getFrontendOpts().Plugins,
+                           Clang->getDiagnostics());
     return true;
   }
 
@@ -256,7 +257,8 @@ bool ExecuteCompilerInvocation(CompilerInstance *Clang) {
   if (Clang->getAnalyzerOpts()->ShowEnabledCheckerList) {
     ento::printEnabledCheckerList(llvm::outs(),
                                   Clang->getFrontendOpts().Plugins,
-                                  *Clang->getAnalyzerOpts());
+                                  *Clang->getAnalyzerOpts(),
+                                  Clang->getDiagnostics());
   }
 
   // Honor -analyzer-config-help.

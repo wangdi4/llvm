@@ -201,7 +201,7 @@ class OpenMPLateOutliner {
   Address emitOMPArraySectionExpr(const Expr *E, ArraySectionTy *AS);
   const VarDecl *getExplicitVarDecl(const Expr *E);
 
-  void addArg(llvm::Value *Val);
+  void addArg(llvm::Value *V, bool Handled = false);
   void addArg(StringRef Str);
   void addArg(const Expr *E, bool IsRef = false);
 
@@ -277,6 +277,7 @@ class OpenMPLateOutliner {
   bool isUnspecifiedImplicit(const VarDecl *);
   bool isImplicit(const VarDecl *);
   bool isExplicit(const VarDecl *);
+  bool alreadyHandled(llvm::Value *);
   void addImplicitClauses();
   void addRefsToOuter();
 
@@ -296,7 +297,10 @@ class OpenMPLateOutliner {
   llvm::DenseSet<const VarDecl *> ExplicitRefs;
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
-  llvm::Value *ThisPointerValue = nullptr;
+
+  std::vector<llvm::WeakTrackingVH> DefinedValues;
+  std::vector<llvm::WeakTrackingVH> ReferencedValues;
+  llvm::DenseSet<llvm::Value *> HandledValues;
 
 public:
   OpenMPLateOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D,
@@ -342,10 +346,15 @@ public:
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
-  void setThisPointerValue(llvm::Value *ThisValue) {
-    ThisPointerValue = ThisValue;
+  void addValueDef(llvm::Value *V) {
+    llvm::WeakTrackingVH VH = V;
+    DefinedValues.push_back(VH);
   }
-  llvm::Value *getThisPointerValue() { return ThisPointerValue; }
+  void addValueRef(llvm::Value *V) {
+    llvm::WeakTrackingVH VH = V;
+    ReferencedValues.push_back(VH);
+  }
+  void addValueSuppress(llvm::Value *V) { HandledValues.insert(V); }
   OpenMPDirectiveKind getCurrentDirectiveKind() { return CurrentDirectiveKind; }
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
   bool insertPointChangeNeeded() { return MarkerInstruction != nullptr; }
@@ -391,9 +400,13 @@ public:
   void recordVariableReference(const VarDecl *VD) {
     Outliner.addVariableRef(VD);
   }
-  void recordThisPointerReference(llvm::Value *ThisValue) {
-    Outliner.setThisPointerValue(ThisValue);
+  void recordValueDefinition(llvm::Value *V) {
+    Outliner.addValueDef(V);
+    Outliner.addValueRef(V);
   }
+  void recordValueReference(llvm::Value *V) { Outliner.addValueRef(V); }
+  void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
+
 #if INTEL_CUSTOMIZATION
   bool isLateOutlinedRegion() { return true; }
 #endif // INTEL_CUSTOMIZATION

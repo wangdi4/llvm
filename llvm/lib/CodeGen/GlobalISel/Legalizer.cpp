@@ -65,6 +65,8 @@ static bool isArtifact(const MachineInstr &MI) {
   case TargetOpcode::G_SEXT:
   case TargetOpcode::G_MERGE_VALUES:
   case TargetOpcode::G_UNMERGE_VALUES:
+  case TargetOpcode::G_CONCAT_VECTORS:
+  case TargetOpcode::G_BUILD_VECTOR:
     return true;
   }
 }
@@ -79,7 +81,7 @@ public:
   LegalizerWorkListManager(InstListTy &Insts, ArtifactListTy &Arts)
       : InstList(Insts), ArtifactList(Arts) {}
 
-  void createdInstr(MachineInstr &MI) override {
+  void createdInstr(const MachineInstr &MI) override {
     // Only legalize pre-isel generic instructions.
     // Legalization process could generate Target specific pseudo
     // instructions with generic types. Don't record them
@@ -89,18 +91,23 @@ public:
       else
         InstList.insert(&MI);
     }
-    LLVM_DEBUG(dbgs() << ".. .. New MI: " << MI;);
+    LLVM_DEBUG(dbgs() << ".. .. New MI: " << MI);
   }
 
-  void erasedInstr(MachineInstr &MI) override {
+  void erasingInstr(const MachineInstr &MI) override {
+    LLVM_DEBUG(dbgs() << ".. .. Erasing: " << MI);
     InstList.remove(&MI);
     ArtifactList.remove(&MI);
   }
 
-  void changedInstr(MachineInstr &MI) override {
+  void changingInstr(const MachineInstr &MI) override {
+    LLVM_DEBUG(dbgs() << ".. .. Changing MI: " << MI);
+  }
+
+  void changedInstr(const MachineInstr &MI) override {
     // When insts change, we want to revisit them to legalize them again.
     // We'll consider them the same as created.
-    LLVM_DEBUG(dbgs() << ".. .. Changed MI: " << MI;);
+    LLVM_DEBUG(dbgs() << ".. .. Changed MI: " << MI);
     createdInstr(MI);
   }
 };
@@ -119,8 +126,8 @@ bool Legalizer::runOnMachineFunction(MachineFunction &MF) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
 
   // Populate Insts
-  InstListTy InstList;
-  ArtifactListTy ArtifactList;
+  InstListTy InstList(&MF);
+  ArtifactListTy ArtifactList(&MF);
   ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
   // Perform legalization bottom up so we can DCE as we legalize.
   // Traverse BB in RPOT and within each basic block, add insts top down,
@@ -144,7 +151,7 @@ bool Legalizer::runOnMachineFunction(MachineFunction &MF) {
   const LegalizerInfo &LInfo(Helper.getLegalizerInfo());
   LegalizationArtifactCombiner ArtCombiner(Helper.MIRBuilder, MF.getRegInfo(), LInfo);
   auto RemoveDeadInstFromLists = [&WorkListObserver](MachineInstr *DeadMI) {
-    WorkListObserver.erasedInstr(*DeadMI);
+    WorkListObserver.erasingInstr(*DeadMI);
   };
   bool Changed = false;
   do {
@@ -173,7 +180,7 @@ bool Legalizer::runOnMachineFunction(MachineFunction &MF) {
       MachineInstr &MI = *ArtifactList.pop_back_val();
       assert(isPreISelGenericOpcode(MI.getOpcode()) && "Expecting generic opcode");
       if (isTriviallyDead(MI, MRI)) {
-        LLVM_DEBUG(dbgs() << MI << "Is dead; erasing.\n");
+        LLVM_DEBUG(dbgs() << MI << "Is dead\n");
         RemoveDeadInstFromLists(&MI);
         MI.eraseFromParentAndMarkDBGValuesForRemoval();
         continue;
@@ -181,7 +188,7 @@ bool Legalizer::runOnMachineFunction(MachineFunction &MF) {
       SmallVector<MachineInstr *, 4> DeadInstructions;
       if (ArtCombiner.tryCombineInstruction(MI, DeadInstructions)) {
         for (auto *DeadMI : DeadInstructions) {
-          LLVM_DEBUG(dbgs() << ".. Erasing Dead Instruction " << *DeadMI);
+          LLVM_DEBUG(dbgs() << *DeadMI << "Is dead\n");
           RemoveDeadInstFromLists(DeadMI);
           DeadMI->eraseFromParentAndMarkDBGValuesForRemoval();
         }

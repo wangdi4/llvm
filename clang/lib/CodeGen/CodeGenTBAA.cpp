@@ -24,7 +24,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/RecordLayout.h"
-#include "clang/Frontend/CodeGenOptions.h"
+#include "clang/Basic/CodeGenOptions.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
@@ -57,9 +57,8 @@ bool CodeGenTBAA::canCreateUniqueTBAA(const Type *Ty) {
   }
   if (const EnumType *EnumTy = dyn_cast<EnumType>(Ty))
     return Features.CPlusPlus && EnumTy->getDecl()->isExternallyVisible();
-  // Remove this for now as it creates bad TBAA (cq#416741).
-  // if (const RecordType *RecordTy = dyn_cast<RecordType>(Ty))
-  //   return RecordTy->getDecl()->isExternallyVisible();
+  if (const RecordType *RecordTy = dyn_cast<RecordType>(Ty))
+    return RecordTy->getDecl()->isExternallyVisible();
   return false;
 }
 

@@ -996,8 +996,7 @@ public:
   // Write communication file for Intel driver to notify that current module
   // has target specific code and target compilation is required.
   void EmitIntelDriverTempfile();
-  void generateHLSAnnotation(const VarDecl *VD,
-                             llvm::SmallString<256> &AnnotStr);
+  void generateHLSAnnotation(const Decl *D, llvm::SmallString<256> &AnnotStr);
   void addGlobalHLSAnnotation(const VarDecl *VD, llvm::GlobalValue *GV);
 #endif  // INTEL_CUSTOMIZATION
   /// Given a builtin id for a function like "__builtin_fabsf", return a
@@ -1462,6 +1461,9 @@ private:
 
   /// Emit the Clang version as llvm.ident metadata.
   void EmitVersionIdentMetadata();
+
+  /// Emit the Clang commandline as llvm.commandline metadata.
+  void EmitCommandLineMetadata();
 
   /// Emits target specific Metadata for global declarations.
   void EmitTargetMetadata();
