@@ -1,1 +1,4 @@
 copy_to (${CMAKE_CURRENT_SOURCE_DIR}/bin/${OS}${ADDR}_${CMAKE_BUILD_TYPE}/ DESTINATION lib)
+install_to (${CMAKE_CURRENT_SOURCE_DIR}/bin/${OS}${ADDR}_${CMAKE_BUILD_TYPE}/
+            DESTINATION lib
+            COMPONENT ocl-omp-ext )

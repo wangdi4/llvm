@@ -8,13 +8,11 @@ if (WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${TBB_BINARIES_OUTPUT_SRC_DIR} ${TBB_BINARIES_OUTPUT_DIR}
         COMMENT "Copying tbb libraries from ${TBB_BINARIES_OUTPUT_SRC_DIR} to ${TBB_BINARIES_OUTPUT_DIR}")
 
-    # TODO: remove DRY_RUN when build scripts will be aligned with new layout
-    if (DRY_RUN)
-        install_to (${TBB_BINARIES_OUTPUT_DIR} DESTINATION bin)
-    else ()
-        install_to (${TBB_BINARIES_OUTPUT_DIR} DESTINATION lib)
-    endif (DRY_RUN)
+    install_to (${TBB_BINARIES_OUTPUT_DIR} DESTINATION lib COMPONENT ocl-tbb-ext)
 else (WIN32)
     copy_to (${CMAKE_CURRENT_SOURCE_DIR}/bin/${OS}${ADDR}_${CMAKE_BUILD_TYPE}/ DESTINATION lib)
+    install_to (${CMAKE_CURRENT_SOURCE_DIR}/bin/${OS}${ADDR}_${CMAKE_BUILD_TYPE}/
+                DESTINATION lib
+                COMPONENT ocl-tbb-ext)
 endif (WIN32)
 
