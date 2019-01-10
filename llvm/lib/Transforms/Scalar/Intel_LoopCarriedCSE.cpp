@@ -1,7 +1,6 @@
-//===- Intel_LoopCarriedCSE.cpp - Implements Loop Carried CSE Pass
-//------------------------===//
+//===---- Intel_LoopCarriedCSE.cpp - Implements Loop Carried CSE Pass -----===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -16,27 +15,27 @@
 // For example:
 // Convert
 //
-// for.body.preheader:
+// for.preheader:
 //   %gepload =
 //   %gepload37 =
 //   br %loop.25
 //
 // loop.25:
-//   %t32.0 = phi i32 [ %gepload37, %for.body.preheader ], [ %gepload41, %loop.25 ]
-//   %t30.0 = phi i32 [ %gepload, %for.body.preheader ], [%gepload39, %loop.25 ]
+//   %t32.0 = phi i32 [ %gepload37, %for.preheader ], [ %gepload41, %loop.25 ]
+//   %t30.0 = phi i32 [ %gepload, %for.preheader ], [%gepload39, %loop.25 ]
 //   %1 = add i32 %t30.0, %t32.0
 //   %4 = add i32 %gepload39, %gepload41
 //
 // To -
 //
-// for.body.preheader:
+// for.preheader:
 //   %gepload =
 //   %gepload37 =
 //   %1 = add i32 %gepload37, %gepload
 //   br %loop.25
 //
 // loop.25:
-//   %t32.0.lccse = phi i32 [ %1, %for.body.preheader ], [ %4, %loop.25 ]
+//   %t32.0.lccse = phi i32 [ %1, %for.preheader ], [ %4, %loop.25 ]
 //   %4 = add i32 %gepload39, %gepload41
 //===----------------------------------------------------------------------===//
 

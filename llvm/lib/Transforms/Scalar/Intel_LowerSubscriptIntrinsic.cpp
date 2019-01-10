@@ -1,4 +1,4 @@
-//===- Intel_LowerSubscriptIntrinsic.cpp - Lower llvm.intel.subscript intrinsic ------===//
+//=---- Intel_LowerSubscriptIntrinsic.cpp - Lower llvm.intel.subscript ----===//
 //
 //                     The LLVM Compiler Infrastructure
 //
