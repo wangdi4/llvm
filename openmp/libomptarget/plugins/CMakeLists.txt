@@ -70,6 +70,12 @@ add_subdirectory(x86_64)
 if(INTEL_CUSTOMIZATION)
   add_subdirectory(nios2)
   add_subdirectory(x86_64_mic)
+# INTEL_FEATURE_CSA
+  is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
+  if (p)
+    add_subdirectory(Intel_CSA)
+  endif()
+# end INTEL_FEATURE_CSA
 endif()
 
 if (INTEL_COLLAB)
