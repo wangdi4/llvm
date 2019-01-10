@@ -600,6 +600,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     !6 = !{i32 2, i32 0}
     */
 
+    // TODO Remove the block once OpenCL CPU BE compiler is able to handle
+    // LLVM IR converted from SPIR-V correctly.
+    if(CompilationUtils::generatedFromOCLCPP(M))
+       return OclVersion::CL_VER_2_0;
+
     auto oclVersion =
         ModuleMetadataAPI(const_cast<llvm::Module *>(&M)).OpenCLVersionList;
 
