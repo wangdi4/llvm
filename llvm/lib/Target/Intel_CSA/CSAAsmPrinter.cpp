@@ -1,6 +1,6 @@
 //===-- CSAAsmPrinter.cpp - CSA LLVM assembly writer ----------------------===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -79,7 +79,7 @@ static cl::opt<bool>
 static cl::opt<bool>
   EmitExperimental("csa-experimental-annotations", cl::Hidden,
       cl::desc("CSA Specific: Print experimental late tools annotations"),
-      cl::init(false));
+      cl::init(true));
 
 namespace {
 class LineReader {
