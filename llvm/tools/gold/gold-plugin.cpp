@@ -17,7 +17,11 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/CodeGen/CommandFlags.inc"
+#if !INTEL_CUSTOMIZATION
+// This library isn't needed with Intel customizations since we
+// supply our own plugin api.
 #include "llvm/Config/config.h" // plugin-api.h requires HAVE_STDINT_H
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/LTO/Caching.h"
@@ -26,6 +30,7 @@
 #include "llvm/Support/CachePruning.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/intel-plugin-api.h" // INTEL
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
@@ -33,7 +38,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include <list>
 #include <map>
-#include "llvm/Support/intel-plugin-api.h" // INTEL
 #include <string>
 #include <system_error>
 #include <utility>
@@ -324,9 +328,11 @@ ld_plugin_status onload(ld_plugin_tv *tv) {
   bool RegisteredAllSymbolsRead = false;
 
   for (; tv->tv_tag != LDPT_NULL; ++tv) {
-    // Cast tv_tag to int to allow values not in "enum ld_plugin_tag", like, for
-    // example, LDPT_GET_SYMBOLS_V3 when building against an older plugin-api.h
-    // header.
+#if INTEL_CUSTOMIZATION
+    // The tv_tag is cast to int for supporting values that aren't in
+    // "enum ld_plugin_tag". This is done in case we are using an older
+    // version of the plugin header files.
+#endif // INTEL_CUSTOMIZATION
     switch (static_cast<int>(tv->tv_tag)) {
     case LDPT_OUTPUT_NAME:
       output_name = tv->tv_u.tv_string;
