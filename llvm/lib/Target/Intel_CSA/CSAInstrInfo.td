@@ -757,12 +757,22 @@ multiclass StreamStOp<string opStr, CSAOpInfo t, InstrItinClass itin = IIST> {
 }
 
 class XmulOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oi2, SDNode ext,
-               InstrItinClass itin = IIALU, list<Predicate> preds = []> :
+             InstrItinClass itin = IIALU, list<Predicate> preds = []> :
   FMTGEN <gen, oi,
     (outs oi2.RC:$res),
     (ins  oi.RCL:$op1, oi.RCL:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $op1, $op2"),
     [(set oi2.RC:$res, (mul (ext oi.RCL:$op1), (ext oi.RCL:$op2)))],
+    !listconcat(preds,oi.Preds), itin>
+    { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
+
+class ClxmulOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oi2,
+               InstrItinClass itin = IIALU, list<Predicate> preds = []> :
+  FMTGEN <gen, oi,
+    (outs oi2.RC:$res),
+    (ins  oi.RCL:$op1, oi.RCL:$op2),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $op1, $op2"),
+    [],
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
 
@@ -1705,6 +1715,11 @@ def XMULS16 : XmulOp<XMUL, Ts16, Ts32, sext, IIMulI16>;
 def XMULU16 : XmulOp<XMUL, Tu16, Tu32, zext, IIMulI16>;
 def XMULS32 : XmulOp<XMUL, Ts32, Ts64, sext, IIMulI32>;
 def XMULU32 : XmulOp<XMUL, Tu32, Tu64, zext, IIMulI32>;
+
+def CLXMUL   : GenericOp<"clxmul">;
+def CLXMUL8  : ClxmulOp<CLXMUL, Ti8,  Ti16, IIMulI8>;
+def CLXMUL16 : ClxmulOp<CLXMUL, Ti16, Ti32, IIMulI16>;
+def CLXMUL32 : ClxmulOp<CLXMUL, Ti32, Ti64, IIMulI32>;
 
 // Atomic operations
 def ATMAND    : GenericOp<"atmand", [HasRMWAtomic]>;
