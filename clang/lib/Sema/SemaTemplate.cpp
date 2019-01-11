@@ -2784,11 +2784,6 @@ TemplateParameterList *Sema::MatchTemplateParametersToScopeSpecifier(
         continue;
       }
 
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#367129: template explicit partial specialization requires
-      // 'template<>'
-      if (!getLangOpts().IntelCompat)
-#endif
       if (!IsFriend)
         if (DiagnoseMissingExplicitSpecialization(
                 getRangeOfTypeInNestedNameSpecifier(Context, T, SS)))
@@ -2842,18 +2837,6 @@ TemplateParameterList *Sema::MatchTemplateParametersToScopeSpecifier(
     if (TemplateId && !IsFriend) {
       // We don't have a template header for the declaration itself, but we
       // should.
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#367129: template explicit partial specialization requires
-      // 'template<>'
-      // Fix for CQ#374679: Several negative tests are failed after promotion
-      // due to patches allowing too permissive xmain's behavior.
-      if (getLangOpts().IntelCompat &&
-          (SS.isInvalid() || SS.isEmpty() ||
-           (SS.getScopeRep()->getKind() != NestedNameSpecifier::TypeSpec &&
-            SS.getScopeRep()->getKind() !=
-                NestedNameSpecifier::TypeSpecWithTemplate)))
-        return nullptr;
-#endif
       DiagnoseMissingExplicitSpecialization(SourceRange(TemplateId->LAngleLoc,
                                                         TemplateId->RAngleLoc));
 
@@ -7561,11 +7544,6 @@ DeclResult Sema::ActOnClassTemplateSpecialization(
                                             TemplateParams->getRAngleLoc()))
         << SourceRange(LAngleLoc, RAngleLoc);
   } else {
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ#367129: template explicit partial specialization requires
-    // 'template<>'
-    if (!getLangOpts().IntelCompat)
-#endif
     assert(TUK == TUK_Friend && "should have a 'template<>' for this decl");
   }
 
