@@ -926,6 +926,13 @@ def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
+def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
+def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -2892,6 +2899,12 @@ include "X86InstrSVM.td"
 
 include "X86InstrTSX.td"
 include "X86InstrSGX.td"
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+include "Intel_X86InstrAMX.td"
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 
 // System instructions.
 include "X86InstrSystem.td"

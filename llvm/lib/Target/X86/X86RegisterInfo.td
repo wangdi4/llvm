@@ -264,6 +264,20 @@ let SubRegIndices = [sub_ymm] in {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+// Tile "registers". These aren't really registers. Or are they?
+def TMM0:  X86Reg<"tmm0",   0>;
+def TMM1:  X86Reg<"tmm1",   1>;
+def TMM2:  X86Reg<"tmm2",   2>;
+def TMM3:  X86Reg<"tmm3",   3>;
+def TMM4:  X86Reg<"tmm4",   4>;
+def TMM5:  X86Reg<"tmm5",   5>;
+def TMM6:  X86Reg<"tmm6",   6>;
+def TMM7:  X86Reg<"tmm7",   7>;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
+
 // Mask Registers, used by AVX-512 instructions.
 def K0 : X86Reg<"k0", 0>, DwarfRegNum<[118,  93,  93]>;
 def K1 : X86Reg<"k1", 1>, DwarfRegNum<[119,  94,  94]>;
@@ -636,3 +650,11 @@ def VK64WM  : RegisterClass<"X86", [v64i1], 64, (add VK32WM)> {let Size = 64;}
 
 // Bound registers
 def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+// Tiles
+def VTILE : RegisterClass<"X86", [untyped], 0,
+                          (sequence "TMM%u", 0, 7)> {let Size = 1;}
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION

@@ -791,6 +791,11 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE)
 # end INTEL_FEATURE_ISA_SERIALIZE
+
+# INTEL_FEATURE_ISA_AMX
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX)
+# end INTEL_FEATURE_ISA_AMX
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
