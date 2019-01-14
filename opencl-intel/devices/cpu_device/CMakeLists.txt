@@ -85,12 +85,14 @@ endif (WIN32)
 add_opencl_library (${TARGET_NAME} SHARED
     ${TARGET_SOURCES}
 
+    COMPONENTS
+      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+
     LINK_LIBS
       ${HW_UTILS_PROJ_NAME}
       cl_sys_utils
       cl_logger${OPENCL_BINARIES_POSTFIX}
       device_commands
-      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
       ${LINK_LIBS}
 
     RC_TEMPLATE DEFAULT)

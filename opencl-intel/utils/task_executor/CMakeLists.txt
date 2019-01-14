@@ -38,17 +38,6 @@ endif(NOT WIN32)
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()
 
-# add a target named ${TARGET_NAME}
-add_opencl_library (${TARGET_NAME} SHARED
-    ${TARGET_SOURCES}
-
-    INCLUDE_DIRS
-    ${CMAKE_CURRENT_SOURCE_DIR} # keep it here for windows
-    ${CL_API_HEADERS}
-    ${OCL_BINARY_DIR}
-
-    RC_TEMPLATE DEFAULT)
-
 if (WIN32)
     list (APPEND LINK_LIBS delayimp.lib legacy_stdio_definitions.lib)
 else (WIN32)
@@ -61,7 +50,25 @@ else (WIN32)
     endif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 endif(WIN32)
 
-target_link_libraries (${TARGET_NAME} ${LINK_LIBS} cl_logger${OPENCL_BINARIES_POSTFIX} cl_sys_utils cl_hw_utils)
+# add a target named ${TARGET_NAME}
+add_opencl_library (${TARGET_NAME} SHARED
+    ${TARGET_SOURCES}
+
+    INCLUDE_DIRS
+      ${CMAKE_CURRENT_SOURCE_DIR} # keep it here for windows
+      ${CL_API_HEADERS}
+      ${OCL_BINARY_DIR}
+
+    COMPONENTS
+      cl_logger${OPENCL_BINARIES_POSTFIX}
+
+    LINK_LIBS
+      ${LINK_LIBS}
+      cl_sys_utils
+      cl_hw_utils
+
+    RC_TEMPLATE DEFAULT)
+
 set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})
 
 if (WIN32)
