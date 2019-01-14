@@ -156,6 +156,7 @@ public:
   /// This is used to implement the classof checks. This should not be used
   /// for any other purpose, as the values may change as LLVM evolves.
   unsigned getVPValueID() const { return SubclassID; }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #if INTEL_CUSTOMIZATION
   virtual void dump(raw_ostream &OS) const { printAsOperand(OS); }
   virtual void dump() const { dump(errs()); }
@@ -165,6 +166,7 @@ void printAsOperand(raw_ostream &OS) const {
       OS << *getBaseType() << " %vp"
          << (unsigned short)(unsigned long long)this;
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   unsigned getNumUsers() const { return Users.size(); }
   void addUser(VPUser &User) { Users.push_back(&User); }
@@ -349,11 +351,13 @@ public:
   VPConstant(const VPConstant &) = delete;
   VPConstant &operator=(const VPConstant &) const = delete;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
     UnderlyingVal->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
@@ -403,6 +407,7 @@ public:
   VPExternalDef(const VPExternalDef &) = delete;
   VPExternalDef &operator=(const VPExternalDef &) const = delete;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const {
     if (UnderlyingVal)
       UnderlyingVal->printAsOperand(OS);
@@ -412,6 +417,7 @@ public:
       HIROperand->print(OS);
     }
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
@@ -501,11 +507,13 @@ public:
     return UnderlyingVal < C.UnderlyingVal;
   };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
     UnderlyingVal->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {

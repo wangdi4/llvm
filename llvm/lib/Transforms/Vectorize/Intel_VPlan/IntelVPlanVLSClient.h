@@ -82,6 +82,7 @@ public:
 
   const VPInstruction *getInstruction(void) const { return Inst; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
     this->print(dbgs());
     dbgs() << '\n';
@@ -104,6 +105,7 @@ public:
     else
       Os << "unknown";
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   static bool classof(const OVLSMemref *Memref) {
     return Memref->getKind() == VLSK_VPlanVLSClientMemref ||

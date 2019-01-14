@@ -545,6 +545,8 @@ public:
   /// Delete all blocks reachable from a given VPBlockBase, inclusive.
   static void deleteCFG(VPBlockBase *Entry);
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS, bool PrintType) const {
     OS << getName();
   }
@@ -554,6 +556,8 @@ public:
     // support for VPInstructions/Recipes.
     printAsOperand(OS, false);
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   /// Return true if it is legal to hoist instructions into this block.
   bool isLegalToHoistInto() {
@@ -608,8 +612,12 @@ public:
   /// this VPRecipe, thereby "executing" the VPlan.
   virtual void execute(struct VPTransformState &State) = 0;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Each recipe prints itself.
   virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   /// Insert an unlinked recipe into a basic block immediately before
   /// the specified recipe.
@@ -683,11 +691,15 @@ public:
   /// provided.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the Recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
 
   /// Print the VPInstruction.
   void print(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   /// Return true if this instruction may modify memory.
   bool mayWriteToMemory() const {
@@ -732,8 +744,12 @@ public:
     return true;
   }
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A recipe for handling phi nodes of integer and floating-point inductions,
@@ -757,8 +773,12 @@ public:
   /// needed by their users.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A recipe for handling all phi nodes except for integer and FP inductions.
@@ -778,8 +798,12 @@ public:
   /// Generate the phi/select nodes.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A recipe for vectorizing a phi-node as a sequence of mask-based select
@@ -809,8 +833,12 @@ public:
   /// Generate the phi/select nodes.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// VPInterleaveRecipe is a recipe for transforming an interleave group of load
@@ -836,8 +864,12 @@ public:
   /// Generate the wide load or store, and shuffles.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   const InterleaveGroup<Instruction> *getInterleaveGroup() { return IG; }
 };
@@ -886,8 +918,12 @@ public:
 
   void setAlsoPack(bool Pack) { AlsoPack = Pack; }
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A recipe for generating conditional branches on the bits of a mask.
@@ -910,6 +946,8 @@ public:
   /// conditional branch.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override {
     O << " +\n" << Indent << "\"BRANCH-ON-MASK ";
@@ -919,6 +957,8 @@ public:
       O << " All-One";
     O << "\\l\"";
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// VPPredInstPHIRecipe is a recipe for generating the phi nodes needed when
@@ -945,8 +985,12 @@ public:
   /// Generates phi nodes for live-outs as needed to retain SSA form.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A Recipe for widening load/store operations.
@@ -972,8 +1016,12 @@ public:
   /// Generate the wide load/store.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// VPBasicBlock serves as the leaf of the Hierarchical Control-Flow Graph. It
@@ -1253,6 +1301,8 @@ private:
                                   BasicBlock *LoopLatchBB);
 };
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// VPlanPrinter prints a given VPlan to a given output stream. The printing is
 /// indented and follows the dot format.
 class VPlanPrinter {
@@ -1321,6 +1371,8 @@ inline raw_ostream &operator<<(raw_ostream &OS, VPlan &Plan) {
   Printer.dump();
   return OS;
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // GraphTraits specializations for VPlan Hierarchical Control-Flow Graphs     //

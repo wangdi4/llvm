@@ -235,10 +235,14 @@ public:
   /// best selected VPlan.
   void executePlan(InnerLoopVectorizer &LB, DominatorTree *DT);
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printPlans(raw_ostream &O) {
     for (const auto &Plan : VPlans)
       O << *Plan;
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   /// Test a \p Predicate on a \p Range of VF's. Return the value of applying
   /// \p Predicate on Range.Start, possibly decreasing Range.End such that the

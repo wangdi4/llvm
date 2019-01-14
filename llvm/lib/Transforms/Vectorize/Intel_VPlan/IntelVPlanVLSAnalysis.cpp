@@ -118,6 +118,7 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
                              &Plan2VLSInfo[Plan].Mem2Group);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPlanVLSAnalysis::dump(const VPlan *Plan) const {
   dbgs() << "For the VPlan " << Plan << '\n';
   if (!Plan2VLSInfo.count(Plan)) {
@@ -158,6 +159,7 @@ void VPlanVLSAnalysis::dump() const {
   for (auto &PI : Plan2VLSInfo)
     dump(PI.first);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // namespace vpo
 

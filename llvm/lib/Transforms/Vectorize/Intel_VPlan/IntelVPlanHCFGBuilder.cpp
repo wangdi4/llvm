@@ -747,7 +747,9 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintSimplifyCFG) {
     errs() << "Print after simplify plain CFG\n";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     Plan->dump(errs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif
 
@@ -785,7 +787,9 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintHCFG) {
     errs() << "Print after building H-CFG:\n";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     Plan->dump(errs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
   LLVM_DEBUG(Plan->dumpLivenessInfo(dbgs()));
 

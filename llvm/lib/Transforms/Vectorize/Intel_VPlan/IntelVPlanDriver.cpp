@@ -249,6 +249,7 @@ public:
   bool runOnFunction(Function &Fn) override;
 };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // FIXME: \p VF is the single VF that we have VPlan for. That should be changed
 // in the future and the argument won't be required.
 template <typename CostModelTy = VPlanCostModel>
@@ -275,6 +276,7 @@ void printCostModelAnalysisIfRequested(LoopVectorizationPlanner &LVP,
     CM.print(outs());
   }
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // anonymous namespace
 
@@ -625,7 +627,9 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   LVP.buildInitialVPlans();
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   printCostModelAnalysisIfRequested(LVP, TTI, DL, &VLSA);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // VPlan Predicator
   LVP.predicate();
@@ -645,10 +649,12 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintInit) {
-    VPlan *Plan = LVP.getVPlanForVF(VF);
+    VPlan *Plan = LVP.getVPlanForVF(VF); (void)Plan;
     assert(Plan && "Unexpected null VPlan");
     errs() << "Print initial VPlan for VF=" << VF << "\n";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     Plan->dump(errs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif
 
@@ -867,8 +873,10 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
     return false;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(LVP, TTI, DL,
                                                                &VLSA);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // VPlan construction stress test ends here.
   // TODO: Move after predication.
@@ -894,7 +902,9 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintInit) {
     errs() << "Print initial VPlan for VF=" << VF << "\n";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     Plan->dump(errs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif
 

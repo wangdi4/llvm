@@ -427,6 +427,7 @@ bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {
   return DivergentValues.find(&V) != DivergentValues.end();
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // print function differs from the community version because VPlan is VPLoop
 // based and not Module based (function DA).
 void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) const {
@@ -450,6 +451,7 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) const {
     }
   }
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPlanDivergenceAnalysis::compute(VPLoop *CandidateLoop,
                                       VPLoopInfo *VPLInfo,

@@ -117,8 +117,10 @@ public:
     return getGroupForInstruction(Plan, Inst);
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(const VPlan *Plan) const;
   void dump() const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   LLVMContext &getContext() const { return Context; }
 };

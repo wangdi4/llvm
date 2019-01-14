@@ -38,7 +38,9 @@ public:
   unsigned getLoadStoreCost(const VPInstruction *VPInst,
                             const bool UseVLSCost) const;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   ~VPlanCostModelProprietary() {}
 

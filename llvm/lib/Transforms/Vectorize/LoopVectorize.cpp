@@ -6934,6 +6934,8 @@ getOrCreateVectorValues(Value *V, unsigned Part) {
       return ILV.getOrCreateVectorValue(V, Part);
 }
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPInterleaveRecipe::print(raw_ostream &O, const Twine &Indent) const {
   O << " +\n"
     << Indent << "\"INTERLEAVE-GROUP with factor " << IG->getFactor() << " at ";
@@ -6948,6 +6950,8 @@ void VPInterleaveRecipe::print(raw_ostream &O, const Twine &Indent) const {
       O << " +\n"
         << Indent << "\"  " << VPlanIngredient(I) << " " << i << "\\l\"";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 void VPWidenRecipe::execute(VPTransformState &State) {
   for (auto &Instr : make_range(Begin, End))

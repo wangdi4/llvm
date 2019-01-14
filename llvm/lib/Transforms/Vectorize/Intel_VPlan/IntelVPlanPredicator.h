@@ -41,7 +41,9 @@ private:
                                        BasicBlock *To);
   void propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
                                        VPRegionBlock *Region);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void genLitReport(VPRegionBlock *Region);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   void predicateRegionRec(VPRegionBlock *Region);
   void optimizeRegionRec(VPRegionBlock *Region,

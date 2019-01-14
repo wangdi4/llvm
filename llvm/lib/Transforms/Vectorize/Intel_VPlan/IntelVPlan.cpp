@@ -52,6 +52,7 @@ static cl::opt<int>
     DumpVPlanLiveness("vplan-dump-liveness", cl::init(0), cl::Hidden,
                        cl::desc("Print VPlan instructions' liveness info"));
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
     I->dump(OS);
@@ -59,7 +60,7 @@ raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
     V.dump(OS);
   return OS;
 }
-
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
 /// \return the VPBasicBlock that is the entry of Block, possibly indirectly.
@@ -499,6 +500,7 @@ void VPRegionBlock::recomputeSize() {
                        df_iterator<const VPBlockBase *>::end(Exit));
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
   // Print name and predicate
@@ -570,6 +572,7 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
 void VPBasicBlock::dump() const {
   dump(errs(), 1);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(nullptr);
@@ -596,6 +599,7 @@ void VPRegionBlock::getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) c
     Blocks.push_back(Block);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
   SetVector<const VPBlockBase *> Printed;
   SetVector<const VPBlockBase *> SuccList;
@@ -641,6 +645,7 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
 void VPRegionBlock::dump() const {
   dump(errs(), 1);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
@@ -885,6 +890,7 @@ void VPInstruction::execute(VPTransformState &State) {
     generateInstruction(State, Part);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
   O << " +\n" << Indent << "\"EMIT ";
   print(O);
@@ -988,6 +994,7 @@ void VPInstruction::print(raw_ostream &O) const {
   }
 #endif // INTEL_CUSTOMIZATION
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 // Generate the code inside the body of the vectorized loop. Assumes a single
 // LoopVectorBody basic block was created for this; introduces additional
@@ -1248,6 +1255,7 @@ void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
   }
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const Twine VPlanPrinter::getUID(const VPBlockBase *Block) {
   return (isa<VPRegionBlock>(Block) ? "cluster_N" : "N") +
     Twine(getOrCreateBID(Block));
@@ -1526,6 +1534,7 @@ void VPlan::printInst2Recipe() {
   }
 }
 #endif
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
 void VPBlockPredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
@@ -1559,10 +1568,12 @@ void VPBlockPredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
   // Set mask value to use to mask instructions in the block
   CG->setCurMaskValue(VectorizedPredicateHIR[0]);
 }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBlockPredicateRecipe::dump(raw_ostream &OS) const {
   print(OS, "");
   OS << "\n";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
 void VPBlockPredicateRecipe::execute(VPTransformState &State) {
@@ -1594,6 +1605,7 @@ void VPBlockPredicateRecipe::execute(VPTransformState &State) {
   State.ILV->setMaskValue(VectorizedPredicate[0]);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBlockPredicateRecipe::print(raw_ostream &OS, const Twine &Indent) const {
   OS << Name << " = ";
   // Predicate Inputs
@@ -1607,6 +1619,7 @@ void VPBlockPredicateRecipe::print(raw_ostream &OS, const Twine &Indent) const {
     }
   }
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
 void VPIfTruePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
@@ -1633,10 +1646,12 @@ void VPIfTruePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
   VectorizedPredicateHIR.push_back(EdgeMask);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPIfTruePredicateRecipe::dump(raw_ostream &OS) const {
   print(OS, "");
   OS << "\n";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
 void VPIfTruePredicateRecipe::execute(VPTransformState &State) {
@@ -1671,10 +1686,12 @@ void VPEdgePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(PredMask);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPEdgePredicateRecipe::dump(raw_ostream &OS) const {
   if (PredecessorPredicate)
     OS << Name << " = " << PredecessorPredicate->getName() << "\n";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
 void VPEdgePredicateRecipe::execute(VPTransformState &State) {
@@ -1686,6 +1703,7 @@ void VPEdgePredicateRecipe::execute(VPTransformState &State) {
   State.ILV->setEdgeMask(FromBB, ToBB, PredMask);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPEdgePredicateRecipe::print(raw_ostream &OS, const Twine &Indent) const {
   OS << " +\n" << Indent << "\"" << Name << " = ";
   if (PredecessorPredicate)
@@ -1702,6 +1720,7 @@ void VPIfTruePredicateRecipe::print(raw_ostream &OS,
 
   ConditionValue->printAsOperand(OS);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
 void VPIfFalsePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
@@ -1732,10 +1751,12 @@ void VPIfFalsePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
   VectorizedPredicateHIR.push_back(EdgeMask);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPIfFalsePredicateRecipe::dump(raw_ostream &OS) const {
   print(OS, "");
   OS << "\n";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
 void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
@@ -1764,6 +1785,7 @@ void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
   State.ILV->setEdgeMask(FromBB, ToBB, EdgeMask);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPIfFalsePredicateRecipe::print(raw_ostream &OS,
                                      const Twine &Indent) const {
   OS << Name;
@@ -1774,8 +1796,10 @@ void VPIfFalsePredicateRecipe::print(raw_ostream &OS,
   OS << "!";
   ConditionValue->printAsOperand(OS);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBranchInst::print(raw_ostream &O) const {
   O << "br ";
   const BasicBlock *BB = getTargetBlock();
@@ -1785,6 +1809,7 @@ void VPBranchInst::print(raw_ostream &O) const {
     // FIXME: Call HGoto print.
     O << "<External Basic Block>";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 using VPDomTree = DomTreeBase<VPBlockBase>;
 template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);

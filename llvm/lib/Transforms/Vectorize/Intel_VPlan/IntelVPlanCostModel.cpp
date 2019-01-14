@@ -465,6 +465,7 @@ unsigned VPlanCostModel::getCost() const {
   return getCost(Plan->getEntry());
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPlanCostModel::printForVPBlockBase(raw_ostream &OS,
                                          const VPBlockBase *VPBlock) const {
   // TODO: match print order with "vector execution order".
@@ -510,6 +511,7 @@ void VPlanCostModel::print(raw_ostream &OS) const {
 
   OS << '\n';
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // namespace vpo
 

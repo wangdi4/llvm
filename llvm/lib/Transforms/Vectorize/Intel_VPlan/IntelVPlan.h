@@ -441,13 +441,17 @@ public:
 #if INTEL_CUSTOMIZATION
   virtual void executeHIR(VPOCodeGenHIR *CG) = 0;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void dump(raw_ostream &O) const = 0;
 
   virtual void dump() const = 0;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Each recipe prints itself.
   virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 #if INTEL_CUSTOMIZATION
@@ -470,6 +474,7 @@ public:
     return V->getVPRecipeID() == VPRecipeBase::VPMaskGenerationRecipeSC;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &OS, const Twine &Indent) const override {
     OS << " +\n" << Indent << "\"MaskGeneration";
@@ -482,6 +487,7 @@ public:
   void dump() const override {
     dump(errs());
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   void execute(struct VPTransformState &State) override {
     // TODO: vectorizing this recipe should involve generating a mask for the
@@ -517,6 +523,7 @@ public:
     return nullptr;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &OS, const Twine &Indent) const override {
     OS << " +\n" << Indent << "\"Const " << val << "\\l\"";
@@ -530,6 +537,7 @@ public:
   }
 
   StringRef getName() const { return "Constant: " + val; };
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   int val;
@@ -877,18 +885,22 @@ public:
   void execute(VPTransformState &State) override;
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dump the VPInstruction.
   void dump(raw_ostream &O) const override;
 
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// Dump the VPInstruction.
   /// Print the Recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
 
   /// Print the VPInstruction.
   void print(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 #if INTEL_CUSTOMIZATION
@@ -950,7 +962,9 @@ public:
     return nullptr;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   static inline bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == Instruction::Br;
@@ -1317,12 +1331,16 @@ public:
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
 
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 /// A VPEdgePredicateRecipeBase is a pure virtual recipe which supports
@@ -1388,12 +1406,16 @@ public:
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
 
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   BasicBlock *FromBB;
@@ -1422,12 +1444,16 @@ public:
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
 
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   BasicBlock *FromBB;
@@ -1455,12 +1481,16 @@ public:
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
 
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   BasicBlock *FromBB;
@@ -1785,6 +1815,7 @@ public:
   // consideration.
   bool isLegalToHoistInto() { return true; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #if INTEL_CUSTOMIZATION
   void printAsOperand(raw_ostream &OS, bool PrintType) const {
     formatted_raw_ostream FOS(OS);
@@ -1805,6 +1836,7 @@ public:
 
   virtual void dump(raw_ostream &OS, unsigned Indent = 0) const = 0;
 #endif
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 #if INTEL_CUSTOMIZATION
@@ -1838,6 +1870,7 @@ public:
     Incoming.push_back(IncomingPair(IncomingValue, IncomingBlock));
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &OS, const Twine &Indent) const override {
     OS << " +\n" << Indent << "\"Phi ";
@@ -1864,6 +1897,7 @@ public:
   }
 
   StringRef getName() const { return "Phi Recipe"; };
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   ~VPPhiValueRecipe() {
     Phi->deleteValue();
@@ -2022,8 +2056,10 @@ public:
   const RecipeListTy &getRecipes() const { return Recipes; }
   RecipeListTy &getRecipes() { return Recipes; }
 #if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void dump(raw_ostream &OS, unsigned Indent = 0) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
   void setTBlock(BasicBlock *TB) { TBlock = TB; }
@@ -2201,8 +2237,10 @@ public:
   void computePDT(void);
 
   void getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void dump(raw_ostream &OS, unsigned Indent = 0) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
   /// The method which generates the new IR instructions that correspond to
@@ -2361,12 +2399,14 @@ public:
     CondBitUsers[ConditionV].insert(Block);
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printInst2Recipe();
 
   /// Print (in text format) VPlan blocks in order based on dominator tree.
   void dump(raw_ostream &OS) const;
   void dump() const;
   void dumpLivenessInfo(raw_ostream &OS) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -2546,6 +2586,7 @@ public:
 
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// VPlanPrinter prints a given VPlan to a given output stream. The printing is
 /// indented and follows the dot format.
 class VPlanPrinter {
@@ -2653,6 +2694,7 @@ inline raw_ostream &operator<<(raw_ostream &OS, const VPRegionBlock &RB) {
 }
 
 #endif // INTEL_CUSTOMIZATION
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 //===----------------------------------------------------------------------===//
 // VPlan Utilities

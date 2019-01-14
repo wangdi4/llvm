@@ -47,6 +47,8 @@ extern cl::opt<bool> EnableVPlanNativePath;
 
 #define DEBUG_TYPE "vplan"
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *Instr = dyn_cast<VPInstruction>(&V))
     Instr->print(OS);
@@ -54,6 +56,8 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, const VPValue &V) {
     V.printAsOperand(OS);
   return OS;
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 /// \return the VPBasicBlock that is the entry of Block, possibly indirectly.
 const VPBasicBlock *VPBlockBase::getEntryBasicBlock() const {
@@ -320,6 +324,8 @@ void VPInstruction::execute(VPTransformState &State) {
     generateInstruction(State, Part);
 }
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
   O << " +\n" << Indent << "\"EMIT ";
   print(O);
@@ -352,6 +358,8 @@ void VPInstruction::print(raw_ostream &O) const {
     Operand->printAsOperand(O);
   }
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 /// Generate the code inside the body of the vectorized loop. Assumes a single
 /// LoopVectorBody basic-block was created for this. Introduce additional
@@ -474,6 +482,8 @@ void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const Twine VPlanPrinter::getUID(const VPBlockBase *Block) {
   return (isa<VPRegionBlock>(Block) ? "cluster_N" : "N") +
          Twine(getOrCreateBID(Block));
@@ -696,6 +706,8 @@ void VPWidenMemoryInstructionRecipe::print(raw_ostream &O,
   }
   O << "\\l\"";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 template void DomTreeBuilder::Calculate<VPDominatorTree>(VPDominatorTree &DT);
 
