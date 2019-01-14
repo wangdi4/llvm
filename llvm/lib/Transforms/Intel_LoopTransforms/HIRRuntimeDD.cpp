@@ -476,6 +476,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Different address spaces";
   case UNSIZED:
     return "Ref type is unsized";
+  case SIMD_LOOP:
+    return "SIMD Loop";
   default:
     llvm_unreachable("Unexpected give up reason");
   }
@@ -593,6 +595,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     if (LoopI->hasUnrollEnablingPragma()) {
       return UNROLL_PRAGMA_LOOP;
+    }
+
+    if (LoopI->isSIMD()) {
+      return SIMD_LOOP;
     }
 
     uint64_t TripCount;

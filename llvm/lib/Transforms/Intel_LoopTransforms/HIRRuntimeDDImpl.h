@@ -59,6 +59,7 @@ enum RuntimeDDResult {
   STRUCT_ACCESS,
   DIFF_ADDR_SPACE,
   UNSIZED,
+  SIMD_LOOP,
 };
 
 // The struct represents a segment of memory. It is used to construct checks
