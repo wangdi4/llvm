@@ -35,11 +35,12 @@ set(OCL_OUTPUT_LIBRARY_DIR ${OCL_LIBRARY_DIR}/${OUTPUT_ARCH_SUFF}${OUTPUT_OS_SUF
 
 
 # add_opencl_library - binding over add_library for OpenCL needs
-#       name            - defines library name
-#       SHARED / STATIC - defines library type
-#       INCLUDE_DIRS    - defines include directories
-#       LINK_LIBS       - defines libraries to link
-#       RC_TEMPLATE     - defines template for .rc files generation on Windows.
+#       name             - defines library name
+#       SHARED / STATIC  - defines library type
+#       INCLUDE_DIRS     - defines include directories
+#       COMPONENTS       - defines shipping OpenCL libraries to link
+#       LINK_LIBS        - defines rest of libraries to link
+#       RC_TEMPLATE      - defines template for .rc files generation on Windows.
 #                           No .rc file generated if omitted.
 #                           Pass 'default' to use the default one.
 
@@ -47,7 +48,7 @@ function(add_opencl_library name)
     cmake_parse_arguments(ARG
         "SHARED;STATIC"
         "RC_TEMPLATE"
-        "INCLUDE_DIRS;LINK_LIBS"
+        "INCLUDE_DIRS;COMPONENTS;LINK_LIBS"
         ${ARGN})
 
     set(sources ${ARG_UNPARSED_ARGUMENTS})
@@ -89,7 +90,7 @@ function(add_opencl_library name)
             ARCHIVE_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR})
     endif (WIN32)
 
-    target_link_libraries(${name} ${ARG_LINK_LIBS})
+    target_link_libraries(${name} ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
 
     # Deals with pdb on Windows
     if (WIN32 AND ARG_SHARED)
@@ -116,14 +117,15 @@ function(add_opencl_library name)
 
 endfunction(add_opencl_library name)
 
-# add_opencl_executable - binding over add_executable for OpenCL needs
-#       name            - defines executable name
-#       INCLUDE_DIRS    - defines include directories
-#       LINK_LIBS       - defines libraries to link
+# add_opencl_executable  - binding over add_executable for OpenCL needs
+#       name             - defines executable name
+#       INCLUDE_DIRS     - defines include directories
+#       COMPONENTS       - defines shipping OpenCL libraries to link
+#       LINK_LIBS        - defines rest of libraries to link
 #
 
 function(add_opencl_executable name)
-    cmake_parse_arguments(ARG "" "" "INCLUDE_DIRS;LINK_LIBS" ${ARGN})
+    cmake_parse_arguments(ARG "" "" "INCLUDE_DIRS;COMPONENTS;LINK_LIBS" ${ARGN})
 
     # TODO: replace with target_include_directories
     include_directories(AFTER ${ARG_INCLUDE_DIRS})
@@ -145,7 +147,7 @@ function(add_opencl_executable name)
             ARCHIVE_OUTPUT_DIRECTORY ${OCL_OUTPUT_BINARY_DIR})
     endif (WIN32)
 
-    target_link_libraries(${name} ${ARG_LINK_LIBS})
+    target_link_libraries(${name} ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
 
     install_to (${name}
                 DESTINATION bin

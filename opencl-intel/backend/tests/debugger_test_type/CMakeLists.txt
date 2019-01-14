@@ -12,19 +12,23 @@ if (WIN32)
     )
 endif (WIN32)
 
-include_directories(${OCL_SOURCE_DIR}/framework/export
-                    ${OCL_SOURCE_DIR}/cl_api
-                    ${CL_API_HEADERS}
-                    ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
-                    ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
-                    )
-
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
-add_executable(${TARGET} ${TARGET_SOURCES})
+add_opencl_executable(${TARGET}
+  ${TARGET_SOURCES}
 
-target_link_libraries(${TARGET} OpenCL cl_sys_utils)
+  INCLUDE_DIRS
+    ${OCL_SOURCE_DIR}/framework/export
+    ${OCL_SOURCE_DIR}/cl_api
+    ${CL_API_HEADERS}
+    ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
+    ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
+
+    LINK_LIBS
+      OpenCL
+      cl_sys_utils
+  )
 
 #
 ##
