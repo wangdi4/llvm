@@ -265,7 +265,7 @@ public:
 
         // Blob Case
       } else {
-        for (auto Blob = Ref->blob_cbegin(), EB = Ref->blob_cend(); Blob != EB;
+        for (auto Blob = Ref->blob_begin(), EB = Ref->blob_end(); Blob != EB;
              ++Blob) {
           checkLoopLiveinLiveout((*Blob)->getSymbase(), DDNode, UseLoop);
         }

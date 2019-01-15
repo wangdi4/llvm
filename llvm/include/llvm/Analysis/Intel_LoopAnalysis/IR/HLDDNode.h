@@ -51,7 +51,7 @@ public:
   /// for (RegIt: make_range(ddref_begin(), ddref_end())) {
   ///   // Processing of *RegIt
   ///   for (BlobIt:
-  ///     make_range((*RegIt)->blob_cbegin(), (*RegIt)->blob_cbegin())) {
+  ///     make_range((*RegIt)->blob_begin(), (*RegIt)->blob_begin())) {
   ///      // Processing of *BlobIt
   ///   }
   /// }
@@ -84,11 +84,11 @@ public:
       // See descriptors in private section
       if (IsRegDDRef) {
         IsRegDDRef = false;
-        BlobIt = (*RegIt)->blob_cbegin();
+        BlobIt = (*RegIt)->blob_begin();
       } else {
         ++BlobIt;
       }
-      if (BlobIt == (*RegIt)->blob_cend()) {
+      if (BlobIt == (*RegIt)->blob_end()) {
         IsRegDDRef = true;
         BlobIt = nullptr;
         ++RegIt;
@@ -100,9 +100,9 @@ public:
       // See descriptors in private section
       if (IsRegDDRef) {
         IsRegDDRef = false;
-        BlobIt = (*(--RegIt))->blob_cend();
+        BlobIt = (*(--RegIt))->blob_end();
       }
-      if (BlobIt == (*RegIt)->blob_cbegin()) {
+      if (BlobIt == (*RegIt)->blob_begin()) {
         IsRegDDRef = true;
         BlobIt = nullptr;
       } else {

@@ -311,8 +311,8 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       // Every outgoing edge is an incoming edge for a node in our loop nest
       // No need to iterate over both outgoing and incoming
       processOutgoingEdges(*SrcRef, EdgeMap);
-      for (auto BSrcRef = (*SrcRef)->blob_cbegin(),
-                BEnd = (*SrcRef)->blob_cend();
+      for (auto BSrcRef = (*SrcRef)->blob_begin(),
+                BEnd = (*SrcRef)->blob_end();
            BSrcRef != BEnd; ++BSrcRef) {
         processOutgoingEdges(*BSrcRef, EdgeMap);
       }

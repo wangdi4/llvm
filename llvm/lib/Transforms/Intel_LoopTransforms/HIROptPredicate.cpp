@@ -529,7 +529,7 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
     // Look for all incoming flow edges.
 
     for (const BlobDDRef *BDDRef :
-         make_range(VRef->blob_cbegin(), VRef->blob_cend())) {
+         make_range(VRef->blob_begin(), VRef->blob_end())) {
       for (auto &Edge : DDG.incoming(BDDRef)) {
         if (!processPUEdge(If, Edge, PU, RefsStack, DDG)) {
           return false;

@@ -3571,7 +3571,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 static bool hasLvalRvalBlobMismatch(const HLInst *HInst,
                                     const RegDDRef *LvalRef) {
 
-  for (auto BlobIt = LvalRef->blob_cbegin(), EIt = LvalRef->blob_cend();
+  for (auto BlobIt = LvalRef->blob_begin(), EIt = LvalRef->blob_end();
        BlobIt != EIt; ++BlobIt) {
     unsigned BlobIndex = (*BlobIt)->getBlobIndex();
 
@@ -3660,7 +3660,7 @@ void HIRParser::populateRequiredSymbases(const RegDDRef *Ref) {
     RequiredSymbases.insert(Ref->getSymbase());
 
   } else {
-    for (auto BIt = Ref->blob_cbegin(), E = Ref->blob_cend(); BIt != E; ++BIt) {
+    for (auto BIt = Ref->blob_begin(), E = Ref->blob_end(); BIt != E; ++BIt) {
       RequiredSymbases.insert((*BIt)->getSymbase());
     }
   }

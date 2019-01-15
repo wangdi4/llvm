@@ -518,7 +518,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
 
     // Blob dd refs of rval dd refs scanned as well because
     // rval sinks of incoming edges can be a blob ddref.
-    for (auto BI = RRef->blob_cbegin(), BE = RRef->blob_cend(); BI != BE;
+    for (auto BI = RRef->blob_begin(), BE = RRef->blob_end(); BI != BE;
          ++BI) {
       auto Found = Finder(*BI);
       if (Found == POTENTIAL_REDUCTION) {

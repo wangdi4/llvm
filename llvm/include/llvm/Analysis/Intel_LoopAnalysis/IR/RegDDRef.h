@@ -595,8 +595,8 @@ public:
   blob_iterator blob_begin() { return BlobDDRefs.begin(); }
   blob_iterator blob_end() { return BlobDDRefs.end(); }
 
-  const_blob_iterator blob_cbegin() const { return BlobDDRefs.begin(); }
-  const_blob_iterator blob_cend() const { return BlobDDRefs.end(); }
+  const_blob_iterator blob_begin() const { return BlobDDRefs.begin(); }
+  const_blob_iterator blob_end() const { return BlobDDRefs.end(); }
 
   reverse_blob_iterator blob_rbegin() { return BlobDDRefs.rbegin(); }
   reverse_blob_iterator blob_rend() { return BlobDDRefs.rend(); }

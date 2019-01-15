@@ -355,7 +355,7 @@ bool HIRSparseArrayReductionAnalysis::findLoadInstWithinNHops(
     // STEP 4: Blob dd refs are also checked, follow if there is
     // any incoming flow edge.
     // Blobs like 4 * %0 from instruction <5> will get processed here.
-    for (auto BI = RRef->blob_cbegin(), BE = RRef->blob_cend(); BI != BE;
+    for (auto BI = RRef->blob_begin(), BE = RRef->blob_end(); BI != BE;
          BI++) {
       const BlobDDRef *BRRef = *BI;
 
@@ -519,7 +519,7 @@ static unsigned getSingleNonLinearBlobIndex(const RegDDRef *StoreRef,
   // Find the index of only non-linear blob.
   unsigned NonLinearBlobIndex = InvalidBlobIndex;
   // Traverse all the blob ddref of StoreRef.
-  for (auto BI = StoreRef->blob_cbegin(), BE = StoreRef->blob_cend(); BI != BE;
+  for (auto BI = StoreRef->blob_begin(), BE = StoreRef->blob_end(); BI != BE;
        ++BI) {
     if ((*BI)->isNonLinear()) {
       if (NonLinearBlobIndex != InvalidBlobIndex) {

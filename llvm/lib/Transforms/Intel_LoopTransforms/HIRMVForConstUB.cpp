@@ -235,7 +235,7 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
     return false;
   }
 
-  const BlobDDRef *BlobRef = *Ref->blob_cbegin();
+  const BlobDDRef *BlobRef = *Ref->blob_begin();
 
   int64_t ConstValue;
   unsigned BlobIndex = BlobRef->getBlobIndex();

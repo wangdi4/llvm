@@ -656,7 +656,7 @@ static void updateLiveinsLiveoutsForSinkedInst(HLLoop *InnermostLoop,
       updateSinkedRvalLiveinsLiveouts(Ref->getSymbase(), InnermostLoop,
                                       IsPreLoop);
     } else {
-      for (auto BIt = Ref->blob_cbegin(), End = Ref->blob_cend(); BIt != End;
+      for (auto BIt = Ref->blob_begin(), End = Ref->blob_end(); BIt != End;
            ++BIt) {
         updateSinkedRvalLiveinsLiveouts((*BIt)->getSymbase(), InnermostLoop,
                                         IsPreLoop);

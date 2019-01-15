@@ -106,7 +106,7 @@ public:
       : Container(Container), Pred(Pred) {}
 
   void visit(const RegDDRef *Ref) {
-    for (auto I = Ref->blob_cbegin(), E = Ref->blob_cend(); I != E; ++I) {
+    for (auto I = Ref->blob_begin(), E = Ref->blob_end(); I != E; ++I) {
       addRef<BlobDDRef>(const_cast<BlobDDRef *>(*I));
     }
   }

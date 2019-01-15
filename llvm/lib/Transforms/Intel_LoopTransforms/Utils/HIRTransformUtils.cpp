@@ -643,7 +643,7 @@ static void updatePermutedLoopnestLiveIns(HLLoop *InnermostLoop,
       if (Ref->isSelfBlob()) {
         addLiveInToPermutedLoopnest(Ref->getSymbase(), Lp, OutermostLoop);
       } else {
-        for (auto BlobIt = Ref->blob_cbegin(), EB = Ref->blob_cend();
+        for (auto BlobIt = Ref->blob_begin(), EB = Ref->blob_end();
              BlobIt != EB; ++BlobIt) {
           addLiveInToPermutedLoopnest((*BlobIt)->getSymbase(), Lp,
                                       OutermostLoop);

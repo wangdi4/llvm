@@ -268,7 +268,7 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
     OS << "\n";
 
     if (*I) {
-      for (auto B = (*I)->blob_cbegin(), BE = (*I)->blob_cend(); B != BE; ++B) {
+      for (auto B = (*I)->blob_begin(), BE = (*I)->blob_end(); B != BE; ++B) {
         indent(OS, Depth);
         if (IsLoop) {
           OS << "| ";

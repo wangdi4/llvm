@@ -84,7 +84,7 @@ unsigned DDGraph::getNumIncomingFlowEdges(const DDRef *Ref) const {
     return Num;
   }
 
-  for (auto &BRRef : make_range(RRef->blob_cbegin(), RRef->blob_cend())) {
+  for (auto &BRRef : make_range(RRef->blob_begin(), RRef->blob_end())) {
     for (auto &Edge : incoming(BRRef)) {
       assert(Edge->isFLOWdep() &&
              "Incoming edges to blob refs should be flow edges only");
