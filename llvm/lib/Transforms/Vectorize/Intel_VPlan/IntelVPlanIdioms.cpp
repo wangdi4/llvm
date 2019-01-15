@@ -68,10 +68,11 @@ static bool canSpeculate(const RegDDRef *Ref) {
             if (const auto *Inst = dyn_cast<HLInst>(&*NodeIt))
               if (Inst->getLLVMInstruction() == Base) {
                 const RegDDRef *RvalRef = Inst->getRvalDDRef();
-                if (RvalRef->isAddressOf())
+                if (RvalRef->isAddressOf()) {
                   Base = RvalRef->getTempBaseValue();
                   if (llvm::getPaddingForValue(Base) > 0)
                     return true;
+                }
               }
       }
 #endif // INTEL_INCLUDE_DTRANS
