@@ -115,8 +115,12 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_SERIALIZE
   bool HasSERIALIZE = false;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_AMX
+  bool HasAMXTILE = false;
+  bool HasAMXINT8 = false;
+  bool HasAMXBF16 = false;
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
-
 protected:
   /// Enumeration of all of the X86 CPUs supported by Clang.
   ///

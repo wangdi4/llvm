@@ -8433,6 +8433,12 @@ def err_x86_builtin_invalid_rounding : Error<
   "invalid rounding argument">;
 def err_x86_builtin_invalid_scale : Error<
   "scale argument must be 1, 2, 4, or 8">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+def err_x86_builtin_tmul_arg_duplicate : Error<
+  "tmul arguments must refer to different tiles">;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 def err_hexagon_builtin_unsupported_cpu : Error<
   "builtin is not supported on this CPU">;
 def err_hexagon_builtin_requires_hvx : Error<

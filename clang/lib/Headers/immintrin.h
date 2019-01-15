@@ -465,6 +465,15 @@ _storebe_i64(void * __P, long long __D) {
 #include <serializeintrin.h>
 #endif
 /* end INTEL_FEATURE_ISA_SERIALIZE */
+/* INTEL_FEATURE_ISA_AMX */
+/*
+ * TODO: when AMX is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules) || ...
+ */
+#if defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+#include <Intel_amxintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AMX */
 /* end INTEL_CUSTOMIZATION */
 
 #ifdef _MSC_VER

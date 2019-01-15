@@ -717,6 +717,14 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     if (Enabled)
       Features["xsave"] = true;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+    else if (Name == "amx-tile" && !Enabled)
+      Features["amx-bf16"] = Features["amx-int8"] = false;
+    else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
+      Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// handleTargetFeatures - Perform initialization based on the user
@@ -856,9 +864,16 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_AMX
+    } else if (Feature == "+amx-bf16") {
+      HasAMXBF16 = true;
+    } else if (Feature == "+amx-int8") {
+      HasAMXINT8 = true;
+    } else if (Feature == "+amx-tile") {
+      HasAMXTILE = true;
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
     }
-
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
                            .Case("+avx512f", AVX512F)
                            .Case("+avx2", AVX2)
@@ -1241,6 +1256,14 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_AMX
+  if (HasAMXTILE)
+    Builder.defineMacro("__AMXTILE__");
+  if (HasAMXINT8)
+    Builder.defineMacro("__AXMINT8__");
+  if (HasAMXBF16)
+    Builder.defineMacro("__AXMBF16__");
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
   // Each case falls through to the previous one here.
@@ -1341,6 +1364,13 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("3dnowa", true)
       .Case("adx", true)
       .Case("aes", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+      .Case("amx-bf16", true)
+      .Case("amx-int8", true)
+      .Case("amx-tile", true)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
       .Case("avx", true)
       .Case("avx2", true)
       .Case("avx512f", true)
@@ -1429,6 +1459,13 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
   return llvm::StringSwitch<bool>(Feature)
       .Case("adx", HasADX)
       .Case("aes", HasAES)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+      .Case("amx-bf16", HasAMXBF16)
+      .Case("amx-int8", HasAMXINT8)
+      .Case("amx-tile", HasAMXTILE)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)
       .Case("avx512f", SSELevel >= AVX512F)
