@@ -563,17 +563,11 @@ void CSAAsmPrinter::EmitLicGroup(CSALicGroup &licGroup) {
 
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  O << "\t.attrib ";
-  const char *Comma = "";
+  O << "\t.attrib csasim_frequency=";
   auto freq = licGroup.executionFrequency;
-  if (!freq.isZero()) {
-    O << Comma << "csasim_frequency=";
-    freq.print(O);
-    Comma = ", ";
-  }
+  freq.print(O);
   if (licGroup.LoopId) {
-    O << Comma << "csasim_loop_id=" << licGroup.LoopId;
-    Comma = ", ";
+    O << ", csasim_loop_id=" << licGroup.LoopId;
   }
   OutStreamer->EmitRawText(O.str());
 }
