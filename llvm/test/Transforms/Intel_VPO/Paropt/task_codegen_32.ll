@@ -20,8 +20,8 @@
 ;    }
 ;}
 
-
-target triple = "x86_64-unknown-linux-gnu"
+target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
+target triple = "i386-unknown-linux-gnu"
 
 @.str = private unnamed_addr constant [14 x i8] c"fib(%d) = %d\0A\00", align 1
 
@@ -135,5 +135,5 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 ; CHECK:  %{{.*}} = call i8* @__kmpc_omp_task_alloc({{.*}})
 ; CHECK:  call void @__kmpc_omp_task({{.*}})
 ; CHECK:  call void @__kmpc_omp_taskwait({{.*}})
-; sizeof_kmp_task_t and sizeof_shareds arguments are 8-byte integers for 64-bit target.
-; CHECK:  declare i8* @__kmpc_omp_task_alloc({ {{.*}} }*, i32, i32, i64, i64, i32 (i32, i8*)*)
+; sizeof_kmp_task_t and sizeof_shareds arguments are 4-byte integers for 32-bit target.
+; CHECK:  declare i8* @__kmpc_omp_task_alloc({ {{.*}} }*, i32, i32, i32, i32, i32 (i32, i8*)*)

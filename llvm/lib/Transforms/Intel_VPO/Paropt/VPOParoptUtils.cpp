@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //==-- VPOParoptUtils.cpp - Utilities for VPO Paropt Transforms -*- C++ -*--==//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1081,7 +1081,7 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
 
 // This function generates a call as follows.
 //    i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
-//    i64, i64, i32 (i32, i8*)*)
+//    size_t, size_t, i32 (i32, i8*)*)
 CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
                                            Value *TidPtr,
                                            int KmpTaskTTWithPrivatesTySz,
@@ -1100,16 +1100,18 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 
   auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), W->getTaskFlag());
   auto *KmpTaskTWithPrivatesTySize =
-      ConstantInt::get(Type::getInt64Ty(C), KmpTaskTTWithPrivatesTySz);
-  auto *SharedsSize = ConstantInt::get(Type::getInt64Ty(C), KmpSharedTySz);
+      ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
+                       KmpTaskTTWithPrivatesTySz);
+  auto *SharedsSize =
+      ConstantInt::get(IntelGeneralUtils::getSizeTTy(F), KmpSharedTySz);
   IRBuilder<> Builder(InsertPt);
   Value *AllocArgs[] = {
       Loc,         Builder.CreateLoad(TidPtr),
       TaskFlags,   KmpTaskTWithPrivatesTySize,
       SharedsSize, Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy)};
   Type *TypeParams[] = {Loc->getType(),      Type::getInt32Ty(C),
-                        Type::getInt32Ty(C), Type::getInt64Ty(C),
-                        Type::getInt64Ty(C), KmpRoutineEntryPtrTy};
+                        Type::getInt32Ty(C), IntelGeneralUtils::getSizeTTy(F),
+                        IntelGeneralUtils::getSizeTTy(F), KmpRoutineEntryPtrTy};
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
