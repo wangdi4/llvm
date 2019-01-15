@@ -563,9 +563,7 @@ extern int _may_i_use_cpu_feature(unsigned __int64);
 
 #endif /* _MSC_VER */
 
-#if !defined(_MSC_VER) || __has_feature(modules)
-#include <svmlintrin.h>
-#endif
+#include <svmlintrin.h>// INTEL
 
 /* Definitions of feature list to be used by feature select intrinsics */
 #define _FEATURE_GENERIC_IA32        (1ULL     )
