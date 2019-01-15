@@ -96,7 +96,7 @@ public:
 
   /// Returns temp blob index corresponding to symbase. Returns InvalidBlobIndex
   /// if blob cannot be found.
-  unsigned findTempBlobIndex(unsigned Symbase);
+  unsigned findTempBlobIndex(unsigned Symbase) const;
 
   /// Finds or inserts temp blob index corresponding to symbase and returns it.
   unsigned findOrInsertTempBlobIndex(unsigned Symbase);

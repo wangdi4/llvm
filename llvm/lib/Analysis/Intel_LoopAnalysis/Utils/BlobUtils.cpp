@@ -49,7 +49,7 @@ unsigned BlobUtils::findTempBlobSymbase(BlobTy Blob) {
   return getHIRParser().findTempBlobSymbase(Blob);
 }
 
-unsigned BlobUtils::findTempBlobIndex(unsigned Symbase) {
+unsigned BlobUtils::findTempBlobIndex(unsigned Symbase) const {
   return getHIRParser().findTempBlobIndex(Symbase);
 }
 
