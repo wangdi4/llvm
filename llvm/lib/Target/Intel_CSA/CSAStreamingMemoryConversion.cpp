@@ -126,8 +126,14 @@ bool isExpensiveSCEV(const SCEV *S) {
   // In theory, we could say that * and / that can be peepholed to shift
   // operations are cheap.
   switch (S->getSCEVType()) {
+  case scMulExpr: {
+    auto Mul = cast<SCEVMulExpr>(S);
+    // Multiplication by negative 1 is cheap.
+    if (Mul->getNumOperands() == 2 && Mul->getOperand(0)->isAllOnesValue())
+      return false;
+    return true;
+  }
   case scUDivExpr:
-  case scMulExpr:
   case scCouldNotCompute:
     return true;
   }
