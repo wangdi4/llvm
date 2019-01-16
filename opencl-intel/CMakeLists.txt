@@ -330,6 +330,13 @@ include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
 # Compiler
 add_subdirectory( FrontendDriver )
+
+# Versioning for OclCpuDebugging DLL.
+set(DEBUGGING_DLL_VERSION 9)
+set(DEBUGGING_DLL_NAME OclCpuDebugging)
+add_definitions(-DDEBUGGING_DLL_VERSION=${DEBUGGING_DLL_VERSION})
+add_definitions(-DDEBUGGING_DLL_NAME=${DEBUGGING_DLL_NAME})
+
 add_subdirectory( backend )
 
 # Framework
@@ -378,6 +385,11 @@ set(INTEL_DEPLOY_COMPONENTS
   ocl-cl_logger${OPENCL_BINARIES_POSTFIX}
   ocl-gdb-plugin
 )
+
+if(WIN32)
+  set(INTEL_DEPLOY_COMPONENTS ${INTEL_DEPLOY_COMPONENTS} ocl-${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION})
+endif(WIN32)
+
 set(SUBSTITUTE_LAYOUT OFF)
 
 # This command is used for creating a fake dependency in order to force
