@@ -1,16 +1,22 @@
-//==--- CSASeqOpt.cpp - Sequence operator optimization --==//
+//===-- CSASeqOpt.cpp - Sequence operator optimization --------------------===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
 //
+//===----------------------------------------------------------------------===//
+//
+// This pass adds sequence-style operators (such as sequence, repeat, or stride)
+// to the dataflow loops where possible.
+//
+//===----------------------------------------------------------------------===//
+
 #include "CSASeqOpt.h"
 #include "CSAInstrInfo.h"
 #include "CSAReassocReduc.h"
-#include "CSASequenceOpt.h"
 #include "CSATargetMachine.h"
 #include "MachineCDG.h"
 #include "llvm/ADT/SCCIterator.h"
@@ -95,6 +101,43 @@ void CSASeqOpt::FoldRptInit(MachineInstr *rptInstr) {
   rptPick->removeFromParent();
   MRI->markUsesInDebugValueAsUndef(rptInstr->getOperand(0).getReg());
   rptInstr->getOperand(0).setReg(pickDst);
+}
+
+// Helper method: looks up the right opcode for the sequence for
+// an induction variable, based on the opcode for the compare,
+// transforming statement, and whether we need to invert the
+// comparison.
+static bool compute_matching_seq_opcode(unsigned ciOp, unsigned tOp,
+                                        bool commute_compare_operands,
+                                        bool negate_compare,
+                                        const CSAInstrInfo &TII,
+                                        unsigned *indvar_opcode) {
+
+  *indvar_opcode = CSA::INVALID_OPCODE;
+
+  // Transform the comparison opcode if needed.
+  unsigned compareOp = ciOp;
+  compareOp          = TII.commuteNegateCompareOpcode(
+    compareOp, commute_compare_operands, negate_compare);
+  if (compareOp == CSA::INVALID_OPCODE)
+    return false;
+
+  // Find a sequence opcode that matches our compare opcode.
+  unsigned seqOp = TII.convertCompareOpToSeqOTOp(compareOp);
+
+  // CMPLRS-50091: we cannot mix differently sized values in one
+  // sequence instruction.
+  if (TII.getLicSize(seqOp) != TII.getLicSize(tOp))
+    return false;
+
+  if (seqOp != CSA::INVALID_OPCODE &&
+      TII.getGenericOpcode(tOp) == CSA::Generic::ADD) {
+    // If we have a matching sequence op, then check that the
+    // transforming op matches as well.
+    *indvar_opcode = TII.promoteSeqOTOpBitwidth(seqOp, TII.getLicSize(tOp));
+    return true;
+  }
+  return false;
 }
 
 void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
@@ -218,7 +261,7 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
     // no use of switch outside the loop, only use is lhdrphi
     // Find a sequence opcode that matches our compare opcode.
     unsigned seqOp;
-    if (!CSASeqLoopInfo::compute_matching_seq_opcode(
+    if (!compute_matching_seq_opcode(
           cmpNode->minstr->getOpcode(), addNode->minstr->getOpcode(),
           compareSense, switchSense, *TII, &seqOp)) {
       assert(false && "can't find matching sequence opcode\n");
