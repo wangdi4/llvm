@@ -287,7 +287,7 @@ struct HIRLoopReversal::AnalyzeDDInfo final : public HLNodeVisitorBase {
 };
 
 void HIRLoopReversal::AnalyzeDDInfo::collectLvalSymbase(const HLLoop *Lp) {
-  const SafeRedChainList &SRCL = HLR.HSRA.getSafeReductionChain(Lp);
+  const SafeRedInfoList &SRCL = HLR.HSRA.getSafeRedInfoList(Lp);
 
   // Walk SafeReductionChain, collect each Inst's Lval Symbase into LvalSBSet
   for (auto &SafeRedInfo : SRCL) {

@@ -733,7 +733,7 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   LoopsVectorized++;
   SRA->computeSafeReductionChains(OrigLoop);
 
-  const SafeRedChainList &SRCL = SRA->getSafeReductionChain(OrigLoop);
+  const SafeRedInfoList &SRCL = SRA->getSafeRedInfoList(OrigLoop);
   for (auto &SafeRedInfo : SRCL) {
     for (auto &Inst : SafeRedInfo.Chain) {
       // Make sure all reduction instructions are part of the OrigLoop that
