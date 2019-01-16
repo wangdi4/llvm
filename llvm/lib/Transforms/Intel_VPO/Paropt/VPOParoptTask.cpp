@@ -799,7 +799,8 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
 
   AllocaInst *UpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
   Value *UpperBndVal =
-      VPOParoptUtils::computeOmpUpperBound(W, EntryBB->getTerminator());
+      VPOParoptUtils::computeOmpUpperBound(W, EntryBB->getTerminator(),
+                                           ".for.taskloop.init");
 
   if (UpperBndVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())

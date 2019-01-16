@@ -1,6 +1,9 @@
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
 ;
-; It tests whether compiler generates the codo to pass the loop description
+; FE must hoist UB computations, before we can make ndrange initialization work.
+; TODO: we need to recreate the test, when FE generates new code.
+; XFAIL: *
+; It tests whether compiler generates the code to pass the loop description
 ; information into the runtime library.
 ;
 ; #define MAX 100

@@ -68,7 +68,7 @@ entry:
 
 ; TFORM-NEXT: %[[INITVECI8:[0-9]+]] = bitcast { i64, i64, i64 }* %[[INITVEC]] to i8*
 ; TFORM-NEXT: call void @__kmpc_doacross_init({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID:[a-zA-Z._0-9]*]], i32 2, i8* %[[INITVECI8]])
-; TFORM-NEXT:  call void @__kmpc_dispatch_init_4({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID]], i32 35, i32 %{{[a-zA-Z._0-9]*}}, i32 3, i32 1, i32 1)
+; TFORM-NEXT:  call void @__kmpc_dispatch_init_4({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID]], i32 35, i32 %{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 1, i32 1)
 
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4

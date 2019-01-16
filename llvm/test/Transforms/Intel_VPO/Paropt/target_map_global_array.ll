@@ -1,4 +1,5 @@
-; XFAIL: *
+; The test currently fails on Windows.
+; XFAIL: windows
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare  -S | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s
 ;

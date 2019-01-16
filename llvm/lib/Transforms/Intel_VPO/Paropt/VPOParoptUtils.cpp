@@ -2854,85 +2854,26 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
 
 // Computes the OpenMP loop upper bound so that the iteration space can be
 // closed interval.
-Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
-                                            Instruction* InsertPt) {
+Value *VPOParoptUtils::computeOmpUpperBound(
+    WRegionNode *W, Instruction* InsertPt, const Twine &Name) {
   assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
 
-  Loop *L = W->getWRNLoopInfo().getLoop();
-
-  Value *RightValue = WRegionUtils::getOmpLoopUpperBound(L);
-  bool IsLeft = true;
-  CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);
-  IntegerType *UpperBoundTy =
-    cast<IntegerType>(RightValue->getType());
-  ConstantInt *ValueOne  = ConstantInt::get(UpperBoundTy, 1);
-
-  Value *Res = RightValue;
   IRBuilder<> Builder(InsertPt);
+  auto &RegionInfo = W->getWRNLoopInfo();
+  auto *NormUB = RegionInfo.getNormUB();
+  // FIXME: this routine may be called for an OpenCL parallel loop
+  //        with multiple normalized upper bounds.  We have to have
+  //        the loop index to get the right normalized upper bound
+  //        from the list.
+  assert(NormUB && RegionInfo.getNormUBSize() == 1 &&
+         "NORMALIZED.UB clause must specify exactly one upper bound.");
 
-  BasicBlock *LatchBB = L->getLoopLatch();
-  BasicBlock *HeaderBB = L->getHeader();
-  BranchInst *BR = dyn_cast<BranchInst>(LatchBB->getTerminator());
+  auto *NormUBAlloca = cast<AllocaInst>(NormUB);
+  assert(NormUBAlloca && "NORMALIZED.UB clause must specify an AllocaInst.");
+  assert(NormUBAlloca->getAllocatedType()->isIntegerTy() &&
+         "Normalized upper bound must have an integer type.");
 
-  // -------------------------------+----------------------------------
-  // Non-Reversed Branch            | Reversed Branch
-  // -------------------------------+----------------------------------
-  //  for ( i = 0; i < 10; i++) {...}
-  // -------------------------------+----------------------------------
-  // (A)                            | (B)
-  //                                |
-  //  L1:                     <loop header>   L1:
-  //                                |
-  //  i < 10 ? goto L1: goto L2;    |         i > 9 ? goto L2: goto L1;
-  //                                |
-  //  L2:                      <loop exit>    L2:
-  //                                |
-  // -------------------------------+----------------------------------
-  //  No need to swap               | Need to swap and invert the predicate
-  // -------------------------------+----------------------------------
-  //
-  //  for ( i = 10; i > 0; i--) {...}
-  // -------------------------------+----------------------------------
-  // (C)                            | (D)
-  //                                |
-  //  L3:                     <loop header>   L3:
-  //                                |
-  //  i > 0 ? goto L3: goto L4;     |         i < 1 ? goto L4: goto L3;
-  //                                |
-  //  L4:                      <loop exit>    L4:
-  // -------------------------------+----------------------------------
-  //  No need to swap               | Need to swap and invert the predicate
-  // -------------------------------+----------------------------------
-  //
-  // The compiler transforms the loop as follows.
-  //   If the first edge is not a back edge, swap the edges and
-  //   invert the predicate.
-  assert(BR && "computeOmpUpperBound: Expect non-empty branch instruction");
-  if (BR->getSuccessor(0) != HeaderBB) {
-    BR->swapSuccessors();
-    ICmpInst *Cond = dyn_cast<ICmpInst>(BR->getCondition());
-    assert(Cond && "computeOmpUpperBound: Expect non-empty cmp instruction");
-    Cond->setPredicate(ICmpInst::getInversePredicate(PD));
-    PD = WRegionUtils::getOmpPredicate(L, IsLeft);
-  }
-
-  if (PD == ICmpInst::ICMP_SLT ||
-      PD == ICmpInst::ICMP_ULT) {
-    if (IsLeft)
-      Res = Builder.CreateSub(RightValue, ValueOne);
-    else
-      Res = Builder.CreateAdd(RightValue, ValueOne);
-  }
-  else if (PD == ICmpInst::ICMP_SGT ||
-           PD == ICmpInst::ICMP_UGT) {
-    if (IsLeft)
-      Res = Builder.CreateAdd(RightValue, ValueOne);
-    else
-      Res = Builder.CreateSub(RightValue, ValueOne);
-  }
-
-  return Res;
-
+  return Builder.CreateLoad(NormUBAlloca, ".norm.ub" + Name);
 }
 
 // Returns the predicate which includes equal for the zero trip test.

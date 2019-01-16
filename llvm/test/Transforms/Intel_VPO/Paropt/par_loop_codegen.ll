@@ -72,7 +72,7 @@ target triple = "x86_64-unknown-linux-gnu"
 $__clang_call_terminate = comdat any
 
 ; CHECK-LABEL: @_Z23without_schedule_clausePfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z23without_schedule_clausePfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -204,7 +204,7 @@ declare void @llvm.intel.directive(metadata) #1
 declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
 
 ; CHECK-LABEL: @_Z18static_not_chunkedPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z18static_not_chunkedPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -319,7 +319,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 }
 
 ; CHECK-LABEL: @_Z18static_chunked_incPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z18static_chunked_incPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -434,7 +434,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 }
 
 ; CHECK-LABEL: @_Z18static_chunked_decPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i64*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i64*, i64*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z18static_chunked_decPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -545,7 +545,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 }
 
 ; CHECK-LABEL: @_Z23static_chunked_unsignedPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i64*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i64*, i64*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z23static_chunked_unsignedPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -656,7 +656,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 }
 
 ; CHECK-LABEL: @_Z19static_chunked_charPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, i8*, float**, i32*, i32*, i32)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, i8*, float**, i32*, i32*, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z19static_chunked_charPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -832,7 +832,7 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
 }
 
 ; CHECK-LABEL: @_Z33static_chunked_char_unsigned_charPfS_S_S_
-; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*)*
+; CHECK:  bitcast (void (i32*, i32*, float**, float**, float**, float**, i32*, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z33static_chunked_char_unsigned_charPfS_S_S_(float* %a, float* %b, float* %c, float* %d) #0 {
 entry:
@@ -969,7 +969,7 @@ entry:
 }
 
 ; CHECK-LABEL: @_Z12parallel_forPfi
-; CHECK: bitcast (void (i32*, i32*, i64, float**, i32*)*
+; CHECK: bitcast (void (i32*, i32*, i64, float**, i32*, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z12parallel_forPfi(float* %a, i32 %n) #0 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:

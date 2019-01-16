@@ -183,7 +183,8 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(
 
   Builder.CreateStore(InitVal, LowerBnd);
 
-  UpperBndVal = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
+  UpperBndVal =
+      VPOParoptUtils::computeOmpUpperBound(W, InsertPt, ".for.update");
 
   if (UpperBndVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())
@@ -3233,6 +3234,37 @@ void VPOParoptTransform::fixOmpDoWhileLoopImpl(Loop *L) {
   llvm_unreachable("cannot fix omp do-while loop");
 }
 
+AllocaInst *VPOParoptTransform::genRegionLocalCopy(WRegionNode *W, Value *V) {
+  auto *OrigAlloca = cast<AllocaInst>(V);
+  // Create a fake firstprivate item referencing the original alloca.
+  FirstprivateItem FprivI(OrigAlloca);
+  auto *EntryBB = W->getEntryBBlock();
+  auto *InsertPt = EntryBB->getFirstNonPHI();
+
+  // Generate new alloca in the region's entry block.
+  // Note that the alloca will be inserted right before the region
+  // entry directive.  We tried to fix this in genPrivatizationCode(),
+  // but did not succeed.  In the current use cases the generated
+  // alloca will be removed by PromoteMemToReg, so it is currently
+  // not a problem.
+  auto *NewAlloca = genPrivatizationAlloca(&FprivI, InsertPt, ".local");
+  FprivI.setNew(NewAlloca);
+
+  // Replace all uses of the original alloca's result with the new alloca
+  // definition.
+  Value *ReplacementVal = getClauseItemReplacementValue(&FprivI, InsertPt);
+  genPrivatizationReplacement(W, OrigAlloca, ReplacementVal, &FprivI);
+
+  // Copy value from the original "variable" to the new one.
+  // We have to create an empty block after the region entry
+  // directive to simplify the insertion.
+  BasicBlock *PrivInitEntryBB;
+  createEmptyPrvInitBB(W, PrivInitEntryBB);
+  genFprivInit(&FprivI, PrivInitEntryBB->getTerminator());
+
+  return NewAlloca;
+}
+
 // Transform the Ith level of the loop in the region W into the
 // OMP canonical loop form.
 void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
@@ -3241,14 +3273,97 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   const SimplifyQuery SQ = {DL, TLI, DT, AC};
   LoopRotation(L, LI, TTI, AC, DT, SE, nullptr, SQ, true, unsigned(-1), true);
   std::vector<AllocaInst *> Allocas;
-  SmallVector<Value *, 2> LoopEssentialValues;
+  SmallVector<std::pair<Value *, bool>, 3> LoopEssentialValues;
   if (Index < W->getWRNLoopInfo().getNormIVSize())
-    LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormIV(Index));
+    LoopEssentialValues.push_back(
+        std::make_pair(W->getWRNLoopInfo().getNormIV(Index), true));
 
-  if (Index < W->getWRNLoopInfo().getNormUBSize())
-    LoopEssentialValues.push_back(W->getWRNLoopInfo().getNormUB(Index));
+  if (Index < W->getWRNLoopInfo().getNormUBSize()) {
+    // Create a local copy of the normalized upper bound.
+    //
+    // Promoting the normalized upper bound to a register may cause
+    // new live-in values, which are not present in the region's
+    // clauses.  At the same time, we do want to use registerized
+    // upper bound in the loop so that we can canonicalize the loop.
+    // We resolve this by introducing a local copy of the normalized
+    // upper bound, use this local copy inside the loop and promote
+    // it to a register.
+    //
+    // FIXME: this is a potential performance problem, because
+    //        a constant normalized upper bound is not propagated
+    //        into the region any more.  We need to find a way
+    //        to propagate constant normalized upper bounds and
+    //        do not propagate non-constant ones.
+    auto *OrigAlloca = W->getWRNLoopInfo().getNormUB(Index);
+    auto *NewAlloca = genRegionLocalCopy(W, OrigAlloca);
+    // The original load/stores from/to the normalized upper bound
+    // "variable" may be marked volatile, e.g.:
+    //
+    // entry:
+    //     %orig.omp.ub = alloca i64
+    //     %0 = load volatile i64, i64* %orig.omp.ub
+    //     br label %region.entry
+    //
+    // region.entry:
+    //     %1 = call token @llvm.directive.region.entry()
+    //              [ "QUAL.OMP.NORMALIZED.UB"(i64* %orig.omp.ub) ]
+    //     %2 = load volatile i64, i64* %orig.omp.ub
+    //
+    // genRegionLocalCopy() inserts a new alloca %new.omp.ub and replaces
+    // all uses of %orig.omp.ub inside the region with %new.omp.ub.
+    // It also generates code to copy data from *(%orig.omp.ub)
+    // to *(%new.omp.ub):
+    //
+    // entry:
+    //     %orig.omp.ub = alloca i64
+    //     %0 = load volatile i64, i64* %orig.omp.ub
+    //     br label %region.entry
+    //
+    // region.entry:
+    //     %new.omp.ub = alloca i64
+    //     %1 = call token @llvm.directive.region.entry()
+    //              [ "QUAL.OMP.NORMALIZED.UB"(i64* %new.omp.ub) ]
+    //     %3 = load i64, i64* %orig.omp.ub
+    //     store i64 %3, i64* %new.omp.ub
+    //     %2 = load volatile i64, i64* %new.omp.ub
+    //
+    // Note that %0 load in the entry block still uses %orig.omp.ub,
+    // and it is volatile.  Also note that volatile %3 load is now using
+    // %new.omp.ub.
+    //
+    // Now, we want to promote %new.omp.ub to a register.
+    // Before we can do this, we need to clear its use inside
+    // the QUAL.OMP.NORMALIZED.UB clause, otherwise, the promotion
+    // will fail.
+    //
+    // Code below clears volatile from accesses via all pointers
+    // in LoopEssentialValues vector.  The promotion to registers
+    // is only run for %new.omp.ub and normalized-iv (added above)
+    // elements of the vector (the corresponding boolean is set to
+    // true for them).  Allocas that need promotion are also
+    // cleared from the clauses before the promotion.
+    //
+    // The final code looks like this:
+    //
+    // entry:
+    //     %orig.omp.ub = alloca i64
+    //     %0 = load i64, i64* %orig.omp.ub
+    //     br label %region.entry
+    //
+    // region.entry:
+    //     %1 = call token @llvm.directive.region.entry()
+    //              [ "QUAL.OMP.NORMALIZED.UB"(i64* null) ]
+    //     %3 = load i64, i64* %orig.omp.ub
+    //     %2 = %3
+    //
+    LoopEssentialValues.push_back(std::make_pair(NewAlloca, true));
+    // Do not promote the original alloca to register.
+    LoopEssentialValues.push_back(std::make_pair(OrigAlloca, false));
+  }
 
-  for (auto V : LoopEssentialValues) {
+  for (auto &P : LoopEssentialValues) {
+    auto *V = P.first;
+    bool PromoteToReg = P.second;
     AllocaInst *AI = dyn_cast<AllocaInst>(V);
     assert(AI && "Expect alloca instruction for omp_iv or omp_ub");
     for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
@@ -3257,8 +3372,10 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
       if (StoreInst *StInst = dyn_cast<StoreInst>(*IB))
         StInst->setVolatile(false);
     }
-    resetValueInIntelClauseGeneric(W, V);
-    Allocas.push_back(AI);
+    if (PromoteToReg) {
+      resetValueInIntelClauseGeneric(W, V);
+      Allocas.push_back(AI);
+    }
   }
 
   PromoteMemToReg(Allocas, *DT, AC);
@@ -3943,7 +4060,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   StoreInst *Tmp0 = new StoreInst(InitVal, LowerBnd, false, InsertPt);
   Tmp0->setAlignment(4);
 
-  Value *UpperBndVal = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
+  Value *UpperBndVal =
+      VPOParoptUtils::computeOmpUpperBound(W, InsertPt, ".for.scheduling");
   assert(UpperBndVal &&
          "genLoopSchedulingCode: Expect non-empty loop upper bound");
 

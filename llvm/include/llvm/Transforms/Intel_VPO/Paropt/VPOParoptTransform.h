@@ -980,6 +980,17 @@ private:
       SmallSetVector<Instruction *, 8> &LiveOutVals,
       EquivalenceClasses<Value *> &ECs);
 
+  /// \brief Insert local copy of \p V variable inside the region.
+  ///
+  /// \p V is an AllocaInst for \p W region's normalized upper bound pointer.
+  /// Insert a new AllocaInst at the region's entry block, and copy
+  /// the original variable value to the allocated area.
+  /// Replace all uses of the original AllocaInst with the new one.
+  ///
+  /// Since \p V is a normalized upper bound pointer, we do not expect
+  /// it to have non-POD type neither expect it to be By-Ref.
+  AllocaInst *genRegionLocalCopy(WRegionNode *W, Value *V);
+
   /// \brief Transform the given OMP loop into the loop as follows.
   ///         do {
   ///             %omp.iv = phi(%omp.lb, %omp.inc)

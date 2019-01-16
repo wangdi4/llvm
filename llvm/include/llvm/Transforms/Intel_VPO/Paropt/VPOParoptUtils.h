@@ -595,7 +595,8 @@ public:
   static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);
 
   /// Return the predicate which includes equal for the zero trip test.
-  static Value *computeOmpUpperBound(WRegionNode *W, Instruction *InsertPt);
+  static Value *computeOmpUpperBound(WRegionNode *W, Instruction *InsertPt,
+                                     const Twine &Name = "");
 
   /// Update the bottom test predicate to include equal predicate.
   /// It also updates the loop upper bound.

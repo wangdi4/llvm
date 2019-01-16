@@ -77,4 +77,4 @@ attributes #2 = { nounwind }
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
 
-; CHECK: %{{.*}} = icmp sgt i32 1024, %{{.*}}
+; CHECK: %{{.*}} = icmp sgt i32 %{{.*}}, %{{.*}}
