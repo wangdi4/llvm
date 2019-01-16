@@ -94,7 +94,6 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSANormalizeDebugPass(PR);
   initializeCSAOptDFPassPass(PR);
   initializeCSAReassocReducPass(PR);
-  initializeCSARedundantMovElimPass(PR);
   initializeCSASeqotToSeqOptimizationPass(PR);
   initializeControlDependenceGraphPass(PR);
 }
@@ -275,7 +274,6 @@ public:
     addPass(createCSADataflowCanonicalizationPass(), false);
     addPass(createCSASeqotToSeqOptimizationPass(), false);
     addPass(createCSAMultiSeqPass(), false);
-    addPass(createCSARedundantMovElimPass(), false);
     addPass(createCSADeadInstructionElimPass(), false);
     addPass(createCSAReassocReducPass(), false);
     addPass(createCSANormalizeDebugPass(), false);

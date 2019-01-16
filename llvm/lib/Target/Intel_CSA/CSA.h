@@ -36,7 +36,6 @@ MachineFunctionPass *createCSAProcCallsPass();
 MachineFunctionPass *createCSAOptDFPass();
 MachineFunctionPass *createCSAMultiSeqPass();
 MachineFunctionPass *createCSADFParLoopPass();
-MachineFunctionPass *createCSARedundantMovElimPass();
 MachineFunctionPass *createCSADeadInstructionElimPass();
 MachineFunctionPass *createCSAAllocUnitPass();
 MachineFunctionPass *createCSAPrologEpilogPass();

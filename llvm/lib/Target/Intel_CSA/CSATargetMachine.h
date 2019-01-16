@@ -34,7 +34,6 @@ void initializeCSAMemopOrderingPass(PassRegistry &);
 void initializeCSANameLICsPassPass(PassRegistry &);
 void initializeCSANormalizeDebugPass(PassRegistry &);
 void initializeCSAOptDFPassPass(PassRegistry &);
-void initializeCSARedundantMovElimPass(PassRegistry &);
 void initializeCSASeqotToSeqOptimizationPass(PassRegistry &);
 void initializeCSAStreamingMemoryConversionPassPass(PassRegistry &);
 void initializeControlDependenceGraphPass(PassRegistry &);
