@@ -219,3 +219,23 @@ void foo1()
     }
   }
 }
+
+struct ios_base {
+  typedef void (*event_callback) (ios_base& __b);
+  struct _Callback_list {
+    event_callback _M_fn;
+  };
+  struct _Callback_list* Lst;
+};
+
+ios_base *Obj;
+void bar(...);
+void execute_offload () {
+//TARG-SPIR: [[IBASE:%ibase.*]] = alloca i32,
+   bar(Obj);
+//TARG-SPIR: DIR.OMP.TARGET
+//TARG-SPIR-SAME: "QUAL.OMP.PRIVATE"(i32* [[IBASE]])
+//TARG-SPIR: DIR.OMP.END.TARGET
+   #pragma omp target
+       int ibase = 3;
+}

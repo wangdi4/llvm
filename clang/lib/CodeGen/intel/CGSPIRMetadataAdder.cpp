@@ -1,6 +1,6 @@
 //===- SPIRMetadataAdder.cpp - Add SPIR related module scope metadata -----===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -170,11 +170,11 @@ static bool searchTypeInType(llvm::Type *Ty1, llvm::Type *Ty2, bool IgnorePtrs,
     TypesList.insert(Ty1);
     auto *FuncTy = dyn_cast<llvm::FunctionType>(Ty1);
 
-    if (searchTypeInType(FuncTy->getReturnType(), Ty2, IgnorePtrs))
+    if (searchTypeInType(FuncTy->getReturnType(), Ty2, IgnorePtrs, TypesList))
       return true;
 
     for (auto *PTy : FuncTy->params())
-      if (searchTypeInType(PTy, Ty2, IgnorePtrs))
+      if (searchTypeInType(PTy, Ty2, IgnorePtrs, TypesList))
         return true;
   }
 
