@@ -872,15 +872,16 @@ bool DDRefScavenger::hasNonRerollConformantCEs() const {
 // with Insts in VecInstList[0] through VecInstList[II - 1].
 // Replace UPPERBOUND, and IV's Coeffs  as calculated
 // by Reroll Factor.
-void rewriteLoopBody(unsigned RerollFactor, unsigned II, VecNodesTy &VecSeeds) {
+bool rewriteLoopBody(unsigned RerollFactor, unsigned II, VecNodesTy &VecSeeds) {
 
   HLLoop *Loop = const_cast<HLLoop *>(VecSeeds[0]->getParentLoop());
   assert(VecSeeds.size() == RerollFactor * II);
 
-  // We are handling only a normalized form already.
-  assert(Loop->isNormalized());
-
-  HIRTransformUtils::multiplyTripCount(Loop, RerollFactor);
+  bool IsValid = HIRTransformUtils::multiplyTripCount(Loop, RerollFactor);
+  if (!IsValid) {
+    // We cannot come up with a valid new TC
+    return false;
+  }
 
   // Locate the last inst of the first group
   // Inst at the (II-1) from 0
@@ -912,6 +913,8 @@ void rewriteLoopBody(unsigned RerollFactor, unsigned II, VecNodesTy &VecSeeds) {
   // outer loops has to be re-computed because inner loops have invalidated.
   HIRInvalidationUtils::invalidateBody(Loop);
   HIRInvalidationUtils::invalidateBounds(Loop);
+
+  return true;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1148,8 +1151,8 @@ bool rerollStraightCodes(HLLoop *Loop, HIRDDAnalysis &DDA,
     return false;
   }
 
-  rewriteLoopBody(RerollFactor, InitInterval, VecSeeds);
-  return true;
+  bool IsRerolled = rewriteLoopBody(RerollFactor, InitInterval, VecSeeds);
+  return IsRerolled;
 }
 
 unsigned doLoopReroll(HIRFramework &HIRF, HIRDDAnalysis &DDA,

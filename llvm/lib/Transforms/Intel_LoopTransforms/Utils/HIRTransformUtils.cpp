@@ -952,13 +952,34 @@ void HIRTransformUtils::completeUnroll(HLLoop *Loop) {
   unroll::completeUnrollLoop(Loop);
 }
 
-static void widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
+static bool doesConstTCOverflowAfterMult(const HLLoop *Loop, unsigned IVBitSize,
+                                         unsigned Multiplier) {
+  uint64_t TripCnt;
+  if (Loop->isConstTripLoop(&TripCnt)) {
+    APInt APOrigTC(IVBitSize, TripCnt);
+    APInt APMultiplier(IVBitSize, Multiplier);
+    bool Overflow = false;
+    APOrigTC.umul_ov(APMultiplier, Overflow);
+    return Overflow;
+  }
+
+  // For non-const TC, we do not know anything, just say don't overflow
+  return false;
+}
+
+// Returns false if widenIV is not valid.
+static bool widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
+
+  if (doesConstTCOverflowAfterMult(Lp, 64, Multiplier)) {
+    // Not valid if TC overflows u64
+    return false;
+  }
 
   unsigned IVSize = Lp->getIVType()->getPrimitiveSizeInBits();
 
   // This is the maximum size we support.
   if (IVSize == 64) {
-    return;
+    return true;
   }
 
   auto *UpperCE = Lp->getUpperCanonExpr();
@@ -976,7 +997,7 @@ static void widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
                     : APInt::getMaxValue(IVSize).getZExtValue();
 
     if ((MaxVal * Multiplier) < MaxValForSize) {
-      return;
+      return true;
     }
   }
 
@@ -1016,6 +1037,8 @@ static void widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
 
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Lp);
   }
+
+  return true;
 }
 
 static void updateTripCountPragma(HLLoop *Lp, unsigned Multiplier) {
@@ -1050,10 +1073,13 @@ static void updateTripCountPragma(HLLoop *Lp, unsigned Multiplier) {
   }
 }
 
-void HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
+bool HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
   assert(Lp->isNormalized() && "Normalized loop expected");
 
-  widenIVIfNeeded(Lp, Multiplier);
+  bool CanWidenIV = widenIVIfNeeded(Lp, Multiplier);
+  if (!CanWidenIV) {
+    return false;
+  }
 
   auto *UpperRef = Lp->getUpperDDRef();
   bool UpperWasSelfBlob = UpperRef->isSelfBlob();
@@ -1075,4 +1101,5 @@ void HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
   Lp->setMaxTripCountEstimate(Lp->getMaxTripCountEstimate() * Multiplier);
 
   updateTripCountPragma(Lp, Multiplier);
+  return true;
 }
