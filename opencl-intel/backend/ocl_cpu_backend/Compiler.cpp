@@ -232,6 +232,9 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     }
 #endif
 
+    args.push_back("-override-flat-addr-space=4");
+    args.push_back("-infer-as-rewrite-opencl-bis");
+
     // Loops #pragma unroll are unrolled up to -pragma-unroll-threshold, which
     // is set by default to a huge value, and it basically allows to fully
     // unroll any loop. Needless to say, this can by suboptimal for x86 when
