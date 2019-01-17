@@ -2167,6 +2167,7 @@ class VPlan {
 
 private:
 #if INTEL_CUSTOMIZATION
+  LLVMContext *Context = nullptr;
   VPLoopInfo *VPLInfo = nullptr;
   VPlanDivergenceAnalysis *VPlanDA = nullptr;
 #endif
@@ -2240,8 +2241,9 @@ public:
   /// the underlying IR.
   // TODO: To be moved to the Divergence Analysis Infrastructure
   UniformsTy UniformCBVs;
-  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, VPBlockBase *Entry = nullptr)
-      : Entry(Entry), VPLA(VPLA) {}
+  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
+        VPBlockBase *Entry = nullptr)
+      : Context(Context), Entry(Entry), VPLA(VPLA) {}
 #endif
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
 
@@ -2273,6 +2275,7 @@ public:
 
   void setVPlanDA(VPlanDivergenceAnalysis *VPDA) { VPlanDA = VPDA; }
 
+  LLVMContext *getLLVMContext(void) const { return Context; }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }

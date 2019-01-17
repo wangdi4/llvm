@@ -77,7 +77,7 @@ public:
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
-  unsigned buildInitialVPlans(void);
+  unsigned buildInitialVPlans(LLVMContext *Context);
 
   virtual void collectDeadInstructions();
 
@@ -129,7 +129,8 @@ protected:
   // TODO: If this function becomes more complicated, move common code to base
   // class.
   virtual std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                                   unsigned &EndRangeVF);
+                                                   unsigned &EndRangeVF,
+                                                   LLVMContext *Context);
 
   /// \Returns a pair of the <min, max> types' width used in the underlying loop.
   /// Doesn't take into account i1 type.

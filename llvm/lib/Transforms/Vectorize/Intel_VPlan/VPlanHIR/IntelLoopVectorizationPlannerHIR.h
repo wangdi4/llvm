@@ -37,12 +37,14 @@ private:
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   loopopt::HIRDDAnalysis *DDA;
 
+
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
   std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                           unsigned &EndRangeVF) override {
+                                           unsigned &EndRangeVF,
+                                           LLVMContext *Context) override {
     // Create new empty VPlan
-    std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA);
+    std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA, Context);
     VPlan *Plan = SharedPlan.get();
 
     // Build hierarchical CFG

@@ -129,10 +129,10 @@ VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
               BlobTy);
       switch (PointerSize) {
       case 64:
-        CoeffType = Type::getInt64Ty(BlobTy->getContext());
+        CoeffType = Type::getInt64Ty(*Plan->getLLVMContext());
         break;
       case 32:
-        CoeffType = Type::getInt32Ty(BlobTy->getContext());
+        CoeffType = Type::getInt32Ty(*Plan->getLLVMContext());
         break;
       default:
         llvm_unreachable("Unexpected pointer size.");
@@ -396,7 +396,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
         // non-empty
         if (!HIRDimOffsets.empty()) {
           // Trailing struct offsets are always I32 type constants
-          auto I32Ty = Type::getInt32Ty(Ref->getDDRefUtils().getContext());
+          auto I32Ty = Type::getInt32Ty(*Plan->getLLVMContext());
           for (auto OffsetVal : HIRDimOffsets) {
             auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
             // Build a VPConstant to represent the offset value
@@ -558,7 +558,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   assert(!isa<HLLoop>(Node) && "HLLoop shouldn't be processed here!");
 
   if (isa<HLGoto>(Node)) {
-    Type *BaseTy = Type::getInt1Ty(Node->getHLNodeUtils().getContext());
+    Type *BaseTy = Type::getInt1Ty(*Plan->getLLVMContext());
     return Builder.createBr(BaseTy, cast<HLGoto>(Node));
   }
 
