@@ -129,5 +129,6 @@ bool HLRegion::exitsFunction() const {
     return false;
   }
 
-  return isa<ReturnInst>(HInst->getLLVMInstruction());
+  auto *Inst = HInst->getLLVMInstruction();
+  return (isa<ReturnInst>(Inst) || isa<UnreachableInst>(Inst));
 }

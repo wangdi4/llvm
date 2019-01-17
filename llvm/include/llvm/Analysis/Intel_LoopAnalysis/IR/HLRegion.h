@@ -64,12 +64,6 @@ protected:
   // Accesses getIRRegion().
   friend class HIRParser;
 
-  /// \brief Sets the entry(first) bblock of this region.
-  void setEntryBBlock(BasicBlock *EntryBB) { IRReg.setEntryBBlock(EntryBB); }
-
-  /// \brief Sets the exit(last) bblock of this region.
-  void setExitBBlock(BasicBlock *ExitBB) { IRReg.setExitBBlock(ExitBB); }
-
   /// \brief Clone Implementation
   /// Do not support Region cloning.
   HLRegion *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,

@@ -20,8 +20,8 @@
 ; Verify that three inner loops are placed into one regions
 
 ; CHECK: Region 1
-; CHECK: EntryBB: for.body4
-; CHECK: Member BBlocks: for.body13.preheader, for.body26.preheader, for.body4, for.body13, for.body26
+; CHECK: EntryBB: %for.body4
+; CHECK: Member BBlocks: %for.body4, %for.body13, %for.body26, %for.body13.preheader, %for.body26.preheader
 ; CHECK-NOT: Region 2
 
 ;Module Before HIR; ModuleID = 'non-generable-span.c'

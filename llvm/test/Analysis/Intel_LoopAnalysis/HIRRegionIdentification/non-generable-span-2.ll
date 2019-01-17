@@ -20,12 +20,12 @@
 ; Verify that first and last inner loop will not be placed into a single region because of non-generable loop in between.
 
 ; CHECK: Region 1
-; CHECK: EntryBB: for.body4
-; CHECK: Member BBlocks: for.body4
+; CHECK: EntryBB: %for.body4
+; CHECK: Member BBlocks: %for.body4
 
 ; CHECK: Region 2
-; CHECK: EntryBB: for.body27
-; CHECK: Member BBlocks: for.body27
+; CHECK: EntryBB: %for.body27
+; CHECK: Member BBlocks: %for.body27
 
 ;Module Before HIR; ModuleID = 'non-generable-span-2.c'
 source_filename = "non-generable-span-2.c"

@@ -4,7 +4,7 @@
 ; Verify that ssa deconstruction splits the region entry block of %loop2 at the region entry intrinsic point as it also contains region exit intrinsic of %loop1.
 ; HIR regions are not allowed to share bblocks.
 
-; CHECK: EntryBB: loop2.lr.ph.split
+; CHECK: EntryBB: %loop2.lr.ph.split
 ; CHECK-NOT: @llvm.directive.region.exit
 ; CHECK: @llvm.directive.region.entry()
 

@@ -4,12 +4,12 @@
 ; Verify that two top loops are placed in the different regions bacause of irreducible CFG.
 
 ; CHECK: Region 1
-; CHECK: EntryBB: for.body
-; CHECK: Member BBlocks: for.body
+; CHECK: EntryBB: %for.body
+; CHECK: Member BBlocks: %for.body
 
 ; CHECK: Region 2
-; CHECK: EntryBB: for.body13
-; CHECK: Member BBlocks: for.body13
+; CHECK: EntryBB: %for.body13
+; CHECK: Member BBlocks: %for.body13
 
 source_filename = "irr.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

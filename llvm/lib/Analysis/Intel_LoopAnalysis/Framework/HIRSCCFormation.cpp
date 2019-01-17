@@ -962,6 +962,10 @@ void HIRSCCFormation::runImpl() {
   for (auto RegIt = RI.begin(), RegionEndIt = RI.end(); RegIt != RegionEndIt;
        ++RegIt) {
 
+    if (RegIt->isLoopMaterializationCandidate()) {
+      continue;
+    }
+
     setRegion(RegIt);
     VisitedNodes.clear();
 

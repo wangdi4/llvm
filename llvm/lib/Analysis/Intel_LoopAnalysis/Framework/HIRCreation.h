@@ -105,9 +105,6 @@ class HIRCreation {
   /// Returns the last HLNode for the current sub-tree.
   HLNode *doPreOrderRegionWalk(BasicBlock *BB, HLNode *InsertionPos);
 
-  /// Sets the exit basic block of CurRegion using its last child.
-  void setExitBBlock() const;
-
 public:
   HIRCreation(DominatorTree &DT, PostDominatorTree &PDT, LoopInfo &LI,
               HIRRegionIdentification &RI, HLNodeUtils &HNU)

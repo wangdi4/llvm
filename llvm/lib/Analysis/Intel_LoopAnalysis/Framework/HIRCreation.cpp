@@ -393,29 +393,6 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
   return InsertionPos;
 }
 
-void HIRCreation::setExitBBlock() const {
-
-  // No exit block for function level region.
-  if (CurRegion->isFunctionLevel()) {
-    return;
-  }
-
-  auto LastChild = CurRegion->getLastChild();
-  assert(LastChild && "Last child of region is null!");
-
-  // TODO: Handle other last child types later.
-  if (auto LastIf = dyn_cast<HLIf>(LastChild)) {
-    auto ExitRegionBB = getSrcBBlock(LastIf);
-    assert(ExitRegionBB && "Could not find src bblock of if!");
-
-    CurRegion->setExitBBlock(const_cast<BasicBlock *>(ExitRegionBB));
-
-  } else {
-    assert((CurRegion->exitsFunction() || CurRegion->getExitBBlock()) &&
-           "Exit block of region not found!");
-  }
-}
-
 void HIRCreation::run(HLContainerTy &Regions) {
 
   for (auto &I : RI) {
@@ -428,10 +405,10 @@ void HIRCreation::run(HLContainerTy &Regions) {
 
     (void)LastNode;
     assert(isa<HLRegion>(LastNode->getParent()) && "Invalid last region node!");
-
-    setExitBBlock();
+    assert((CurRegion->getExitBBlock() || CurRegion->isFunctionLevel() ||
+            CurRegion->exitsFunction()) &&
+           "Region's exit block not found!");
 
     Regions.push_back(*CurRegion);
   }
 }
-

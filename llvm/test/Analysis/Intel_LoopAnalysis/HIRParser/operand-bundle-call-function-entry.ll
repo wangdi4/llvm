@@ -4,7 +4,7 @@
 
 ; Verify that ssa deconstruction splits the function entry block at the directive entry intrinsic point if it is part of the region.
 
-; CHECK: EntryBB: entry.split
+; CHECK: EntryBB: %entry.split
 ; CHECK-NOT: alloca
 ; CHECK: %0 = @llvm.directive.region.entry(); [ DIR.OMP.PARALLEL.LOOP(),  QUAL.OMP.PRIVATE(&((%i)[0])),  QUAL.OMP.SHARED(&((%ip.addr)[0])) ]
 

@@ -67,6 +67,9 @@ private:
   /// Vector of IRRegion.
   IRRegionsTy IRRegions;
 
+  /// Set of all basic blocks which are present in regions created for loop(s).
+  DenseSet<const BasicBlock *> AllLoopBasedRegionsBBlocks;
+
   /// The loop information for the function we are currently analyzing.
   LoopInfo &LI;
 
@@ -143,8 +146,16 @@ private:
   bool collectIntermediateBBs(const Loop *Loop1, const Loop *Loop2,
                               SmallPtrSetImpl<const BasicBlock *> &BBs);
 
+  /// Returns the lexical insertion position of \p BB in IRRegions.
+  HIRRegionIdentification::iterator
+  getLexicalInsertionPos(const BasicBlock *BB);
+
+  /// Forms regions out of function bblocks which are not part of any loop based
+  /// regions and contain loop materialization candidates.
+  void formRegionsForLoopMaterialization(Function &Func);
+
   /// Identifies regions in the incoming LLVM IR.
-  void formRegions();
+  void formRegions(Function &Func);
 
   /// Returns true if bblocks of the function are generable.
   bool areBBlocksGenerable(Function &Func) const;

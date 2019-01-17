@@ -4,8 +4,8 @@
 ; Verify that two top loops are placed in the same region
 
 ; CHECK: Region 1
-; CHECK: EntryBB: for.body
-; CHECK: Member BBlocks: for.body7.preheader, for.body, for.body7
+; CHECK: EntryBB: %for.body
+; CHECK: Member BBlocks: %for.body, %for.body7, %for.body7.preheader
 ; CHECK-NOT: Region 2
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
