@@ -33,6 +33,8 @@ namespace {
   static const unsigned  DefaultSeqLicDepth = 32;
 }
 
+#define DEBUG_TYPE "csa-seqopt"
+
 using namespace llvm;
 
 static cl::opt<bool> DisableMultiSeq(
@@ -350,6 +352,8 @@ void CSASeqOpt::SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
     cmpNode->minstr->removeFromParent();
     // currently only the cmp instr can have usage outside the cycle
     cmpNode->minstr = seqInstr;
+    NewDrivenOps.push_back(seqInstr);
+    LLVM_DEBUG(errs() << "  Replaced with " << *seqInstr);
 
     // Assign LIC groups for the new registers. first and last execute as many
     // times as the value does, while pred executes a little more frequently.
@@ -585,6 +589,9 @@ void CSASeqOpt::SequenceReduction(CSASSANode *switchNode, CSASSANode *addNode,
     addNode->minstr->removeFromBundle();
     MRI->markUsesInDebugValueAsUndef(lhdrPickNode->minstr->getOperand(0).getReg());
     lhdrPickNode->minstr->removeFromParent();
+
+    NewDrivenOps.push_back(redInstr);
+    LLVM_DEBUG(errs() << "  Replaced with " << *redInstr);
   }
 }
 
@@ -735,6 +742,8 @@ void CSASeqOpt::MultiSequence(CSASSANode *switchNode, CSASSANode *addNode,
       SetSeqLicDepth(firstReg, licDepth);
       SetSeqLicDepth(lastReg, licDepth);
       seqInstr->setFlag(MachineInstr::NonSequential);
+      NewDrivenOps.push_back(seqInstr);
+      LLVM_DEBUG(errs() << "  Replaced with " << *seqInstr);
     } else {
       // can't figure out trip-counter; generate stride
       const TargetRegisterClass *TRC =
@@ -752,6 +761,8 @@ void CSASeqOpt::MultiSequence(CSASSANode *switchNode, CSASSANode *addNode,
       unsigned licDepth = GetSeqIndvLicDepth(seqIndv);
       SetSeqLicDepth(seqReg, licDepth);
       strideInstr->setFlag(MachineInstr::NonSequential);
+      NewDrivenOps.push_back(strideInstr);
+      LLVM_DEBUG(errs() << "  Replaced with " << *strideInstr);
     }
     SequenceSwitchOut(switchNode, addNode, lhdrPickNode, seqIndv, seqReg,
                       backedgeReg);
@@ -865,6 +876,9 @@ void CSASeqOpt::SequenceRepeat(CSASSANode *switchNode,
     // remove the instructions in the IDV cycle.
     switchNode->minstr->removeFromParent();
     lhdrPickNode->minstr->removeFromParent();
+
+    NewDrivenOps.push_back(repeatInstr);
+    LLVM_DEBUG(errs() << "  Replaced with " << *repeatInstr);
   }
 }
 
@@ -904,6 +918,23 @@ void CSASeqOpt::PrepRepeat() {
           isIDVCandidate = false;
         }
       }
+
+      LLVM_DEBUG({
+        errs() << "Identified dataflow loop of " << SCCNodes.size()
+          << " nodes:\n";
+        for (auto Node : SCCNodes) {
+          if (Node == lhdrPickNode)
+            errs() << "    (pick) ";
+          else if (Node == switchNode)
+            errs() << "  (switch) ";
+          else
+            errs() << "           ";
+          errs() << *Node->minstr;
+        }
+        if (!isIDVCandidate)
+          errs() << "  Not an induction variable candidate.\n";
+      });
+
       if (isIDVCandidate && switchNode && lhdrPickNode) {
         SequenceRepeat(switchNode, lhdrPickNode);
       }
@@ -968,6 +999,10 @@ unsigned CSASeqOpt::GetSeqIndvLicDepth(MachineInstr *seqIndv) {
 void CSASeqOpt::SequenceOPT(bool runMultiSeq) {
   if (!runMultiSeq)
     DisableMultiSeq = true;
+
+  LLVM_DEBUG(errs() << "Running sequence optimization " <<
+      (runMultiSeq ? "with multiple sequences" : "with single sequences") <<
+      "\n");
 
   PrepRepeat();
   CSASSAGraph csaSSAGraph;
@@ -1040,6 +1075,26 @@ void CSASeqOpt::SequenceOPT(bool runMultiSeq) {
         }
       }
 
+      LLVM_DEBUG({
+        errs() << "Identified dataflow loop of " << SCCNodes.size()
+          << " nodes:\n";
+        for (auto Node : SCCNodes) {
+          if (Node == lhdrPickNode)
+            errs() << "    (pick) ";
+          else if (Node == cmpNode)
+            errs() << "     (cmp) ";
+          else if (Node == addNode)
+            errs() << "     (add) ";
+          else if (Node == switchNode)
+            errs() << "  (switch) ";
+          else
+            errs() << "           ";
+          errs() << *Node->minstr;
+        }
+        if (!isIDVCandidate)
+          errs() << "  Not an induction variable candidate.\n";
+      });
+
       if (isIDVCandidate && cmpNode && switchNode && addNode && lhdrPickNode) {
         SequenceIndv(cmpNode, switchNode, addNode, lhdrPickNode);
       } else if (isIDVCandidate && switchNode && addNode && lhdrPickNode) {
@@ -1049,6 +1104,9 @@ void CSASeqOpt::SequenceOPT(bool runMultiSeq) {
       }
     }
   }
+
+  annotateBackedges();
+
   DenseMap<MachineInstr *, MachineOperand *>::iterator itm =
     seq2tripcnt.begin();
   while (itm != seq2tripcnt.end()) {
@@ -1084,4 +1142,51 @@ CSASeqOpt::getLoopPredicate(CSASSANode *lhdrPhiNode) {
     loopPredicateGroups[ctlreg] = licGroup;
   }
   return loopPredicateGroups[ctlreg];
+}
+
+void CSASeqOpt::annotateBackedges() {
+  DenseMap<unsigned, unsigned> AnnotatedControls;
+
+  for (MachineInstr *MI : NewDrivenOps) {
+    unsigned CtlInput;
+    if (TII->isSeq(MI)) {
+      continue;
+    } else if (TII->isReduction(MI)) {
+      // These have control inputs that could be included, but they are going to
+      // be replaced in a later pass (in normal operation) anyways, so skip
+      // them.
+      continue;
+    } else {
+      CtlInput = 1;
+    }
+
+    unsigned CtlReg = MI->getOperand(CtlInput).getReg();
+    if (AnnotatedControls.find(CtlReg) == AnnotatedControls.end()) {
+      // Check to see who is driving the loop.
+      MachineInstr *CtlSrc = MRI->getVRegDef(CtlReg);
+      if (TII->isSeq(CtlSrc)) {
+        // If it's a sequence operation, there's no backedge possible.
+        AnnotatedControls.insert(std::make_pair(CtlReg, CtlReg));
+      } else {
+        // Create a mov instruction to hang the annotation off of. Even if the
+        // instruction here might not be directly implicated in a cycle, we
+        // generally want to ignore this edge for viewing a graph as a DAG
+        // anyways, since we expect the control edge to appear after the output
+        // has been generated.
+        unsigned MovReg = LMFI->allocateLIC(&CSA::CI1RegClass);
+        AnnotatedControls.insert(std::make_pair(CtlReg, MovReg));
+        BuildMI(*CtlSrc->getParent(), CtlSrc->getNextNode(),
+            CtlSrc->getDebugLoc(), TII->get(CSA::MOV1), MovReg)
+          .addReg(CtlReg)
+          .setMIFlag(MachineInstr::NonSequential);
+        LMFI->addLICAttribute(MovReg, "csasim_backedge");
+        LMFI->setLICGroup(MovReg, LMFI->getLICGroup(CtlReg));
+      }
+    }
+
+    // Replace the register with the new one, which may be the same one it was
+    // originally.
+    unsigned NewReg = AnnotatedControls[CtlReg];
+    MI->getOperand(CtlInput).setReg(NewReg);
+  }
 }
