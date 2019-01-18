@@ -1,6 +1,9 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline -O2 \
+// RUN:  -triple x86_64-unknown-linux-gnu %s \
+// RUN: | FileCheck %s --check-prefix OPT
 
 int foo();
 
@@ -100,5 +103,33 @@ void bar(int if_val, int num_threads_val) {
   // CHECK-SAME: "QUAL.OMP.DEFAULT.SHARED"
   #pragma omp parallel private(df2) default(shared)
   { foo(); }
+}
+
+//OPT-LABEL: @_Z4bar2
+void bar2()
+{
+  //OPT: [[CDS:%cleanup.dest.slot.*]] = alloca i32,
+  //OPT: region.entry() [ "DIR.OMP.PARALLEL"()
+  //OPT-SAME: "QUAL.OMP.PRIVATE"(i32* [[CDS]])
+  //OPT: "DIR.OMP.END.PARALLEL"
+  #pragma omp parallel
+  {
+    for ( int y = 0 ; y < 100 ; y++ )
+    {
+      for (int x = 0 ; x < 100 ; x++ )
+      {
+      }
+    }
+  }
+
+  //OPT: region.entry() [ "DIR.OMP.PARALLEL"()
+  //OPT-SAME: "QUAL.OMP.PRIVATE"(i32* [[CDS]])
+  //OPT: "DIR.OMP.END.PARALLEL"
+  #pragma omp parallel
+  {
+    for ( int i = 0 ; i < 8 ; i++ )
+    {
+    }
+  }
 }
 // end INTEL_COLLAB

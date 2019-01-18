@@ -599,7 +599,7 @@ void OpenMPLateOutliner::addImplicitClauses() {
         CurrentClauseKind = OMPC_private;
         ClauseEmissionHelper CEH(*this);
         addArg("QUAL.OMP.PRIVATE");
-        addArg(V);
+        addArg(V, /*Handled=*/true);
         CurrentClauseKind = OMPC_unknown;
       }
     } else if (CurrentDirectiveKind == OMPD_target) {
@@ -607,7 +607,7 @@ void OpenMPLateOutliner::addImplicitClauses() {
         CurrentClauseKind = OMPC_firstprivate;
         ClauseEmissionHelper CEH(*this);
         addArg("QUAL.OMP.FIRSTPRIVATE");
-        addArg(V);
+        addArg(V, /*Handled=*/true);
         CurrentClauseKind = OMPC_unknown;
       }
     } else if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared)) {
@@ -616,7 +616,7 @@ void OpenMPLateOutliner::addImplicitClauses() {
         CurrentClauseKind = OMPC_shared;
         ClauseEmissionHelper CEH(*this);
         addArg("QUAL.OMP.SHARED");
-        addArg(V);
+        addArg(V, /*Handled=*/true);
         CurrentClauseKind = OMPC_unknown;
       }
     }
