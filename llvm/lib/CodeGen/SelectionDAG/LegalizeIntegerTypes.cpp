@@ -590,7 +590,7 @@ SDValue DAGTypeLegalizer::PromoteIntRes_ADDSUBSAT(SDNode *N) {
   SDLoc dl(N);
   SDValue Op1 = N->getOperand(0);
   SDValue Op2 = N->getOperand(1);
-  unsigned OldBits = Op1.getValueSizeInBits();
+  unsigned OldBits = Op1.getScalarValueSizeInBits();
 
   unsigned Opcode = N->getOpcode();
   unsigned ShiftOp;
@@ -612,7 +612,7 @@ SDValue DAGTypeLegalizer::PromoteIntRes_ADDSUBSAT(SDNode *N) {
   SDValue Op2Promoted = GetPromotedInteger(Op2);
 
   EVT PromotedType = Op1Promoted.getValueType();
-  unsigned NewBits = Op1Promoted.getValueSizeInBits();
+  unsigned NewBits = PromotedType.getScalarSizeInBits();
   unsigned SHLAmount = NewBits - OldBits;
   EVT SHVT = TLI.getShiftAmountTy(PromotedType, DAG.getDataLayout());
   SDValue ShiftAmount = DAG.getConstant(SHLAmount, dl, SHVT);
@@ -1711,8 +1711,7 @@ ExpandShiftWithKnownAmountBit(SDNode *N, SDValue &Lo, SDValue &Hi) {
   SDLoc dl(N);
 
   APInt HighBitMask = APInt::getHighBitsSet(ShBits, ShBits - Log2_32(NVTBits));
-  KnownBits Known;
-  DAG.computeKnownBits(N->getOperand(1), Known);
+  KnownBits Known = DAG.computeKnownBits(N->getOperand(1));
 
   // If we don't know anything about the high bits, exit.
   if (((Known.Zero|Known.One) & HighBitMask) == 0)

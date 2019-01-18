@@ -550,7 +550,7 @@ bool TargetLowering::SimplifyDemandedBits(
     if (Depth != 0) {
       // If not at the root, Just compute the Known bits to
       // simplify things downstream.
-      TLO.DAG.computeKnownBits(Op, Known, DemandedElts, Depth);
+      Known = TLO.DAG.computeKnownBits(Op, DemandedElts, Depth);
       return false;
     }
     // If this is the root being simplified, allow it to have multiple uses,
@@ -666,9 +666,8 @@ bool TargetLowering::SimplifyDemandedBits(
     // simplify the LHS, here we're using information from the LHS to simplify
     // the RHS.
     if (ConstantSDNode *RHSC = isConstOrConstSplat(Op1)) {
-      KnownBits LHSKnown;
       // Do not increment Depth here; that can cause an infinite loop.
-      TLO.DAG.computeKnownBits(Op0, LHSKnown, DemandedElts, Depth);
+      KnownBits LHSKnown = TLO.DAG.computeKnownBits(Op0, DemandedElts, Depth);
       // If the LHS already has zeros where RHSC does, this 'and' is dead.
       if ((LHSKnown.Zero & DemandedBits) ==
           (~RHSC->getAPIntValue() & DemandedBits))
@@ -1381,7 +1380,7 @@ bool TargetLowering::SimplifyDemandedBits(
     // If this is a bitcast, let computeKnownBits handle it.  Only do this on a
     // recursive call where Known may be useful to the caller.
     if (Depth > 0) {
-      TLO.DAG.computeKnownBits(Op, Known, Depth);
+      Known = TLO.DAG.computeKnownBits(Op, Depth);
       return false;
     }
     break;
@@ -1442,7 +1441,7 @@ bool TargetLowering::SimplifyDemandedBits(
     }
 
     // Just use computeKnownBits to compute output bits.
-    TLO.DAG.computeKnownBits(Op, Known, DemandedElts, Depth);
+    Known = TLO.DAG.computeKnownBits(Op, DemandedElts, Depth);
     break;
   }
 
@@ -1848,6 +1847,13 @@ bool TargetLowering::SimplifyDemandedVectorElts(
       return true;
     KnownZero = SrcZero.zextOrTrunc(NumElts);
     KnownUndef = SrcUndef.zextOrTrunc(NumElts);
+
+    if (Op.getOpcode() == ISD::ZERO_EXTEND_VECTOR_INREG) {
+      // zext(undef) upper bits are guaranteed to be zero.
+      if (DemandedElts.isSubsetOf(KnownUndef))
+        return TLO.CombineTo(Op, TLO.DAG.getConstant(0, SDLoc(Op), VT));
+      KnownUndef.clearAllBits();
+    }
     break;
   }
   case ISD::OR:
@@ -1892,12 +1898,26 @@ bool TargetLowering::SimplifyDemandedVectorElts(
     if (SimplifyDemandedVectorElts(Op.getOperand(0), DemandedElts, KnownUndef,
                                    KnownZero, TLO, Depth + 1))
       return true;
+
+    if (Op.getOpcode() == ISD::ZERO_EXTEND) {
+      // zext(undef) upper bits are guaranteed to be zero.
+      if (DemandedElts.isSubsetOf(KnownUndef))
+        return TLO.CombineTo(Op, TLO.DAG.getConstant(0, SDLoc(Op), VT));
+      KnownUndef.clearAllBits();
+    }
     break;
   default: {
-    if (Op.getOpcode() >= ISD::BUILTIN_OP_END)
+    if (Op.getOpcode() >= ISD::BUILTIN_OP_END) {
       if (SimplifyDemandedVectorEltsForTargetNode(Op, DemandedElts, KnownUndef,
                                                   KnownZero, TLO, Depth))
         return true;
+    } else {
+      KnownBits Known;
+      APInt DemandedBits = APInt::getAllOnesValue(EltSizeInBits);
+      if (SimplifyDemandedBits(Op, DemandedBits, DemandedEltMask, Known, TLO,
+                               Depth, AssumeSingleUse))
+        return true;
+    }
     break;
   }
   }
