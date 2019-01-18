@@ -5148,8 +5148,6 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     TheCall->setArg(i+1, Arg.get());
   }
 
-  ASTContext& Context = this->getASTContext();
-
   // Create a new DeclRefExpr to refer to the new decl.
   DeclRefExpr* NewDRE = DeclRefExpr::Create(
       Context,
@@ -7771,6 +7769,30 @@ shouldNotPrintDirectly(const ASTContext &Context,
   return std::make_pair(QualType(), StringRef());
 }
 
+/// Return true if \p ICE is an implicit argument promotion of an arithmetic
+/// type. Bit-field 'promotions' from a higher ranked type to a lower ranked
+/// type do not count.
+static bool
+isArithmeticArgumentPromotion(Sema &S, const ImplicitCastExpr *ICE) {
+  QualType From = ICE->getSubExpr()->getType();
+  QualType To = ICE->getType();
+  // It's an integer promotion if the destination type is the promoted
+  // source type.
+  if (ICE->getCastKind() == CK_IntegralCast &&
+      From->isPromotableIntegerType() &&
+      S.Context.getPromotedIntegerType(From) == To)
+    return true;
+  // Look through vector types, since we do default argument promotion for
+  // those in OpenCL.
+  if (const auto *VecTy = From->getAs<ExtVectorType>())
+    From = VecTy->getElementType();
+  if (const auto *VecTy = To->getAs<ExtVectorType>())
+    To = VecTy->getElementType();
+  // It's a floating promotion if the source type is a lower rank.
+  return ICE->getCastKind() == CK_FloatingCast &&
+         S.Context.getFloatingTypeOrder(From, To) < 0;
+}
+
 bool
 CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
                                     const char *StartSpecifier,
@@ -7798,11 +7820,11 @@ CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
 
   // Look through argument promotions for our error message's reported type.
   // This includes the integral and floating promotions, but excludes array
-  // and function pointer decay; seeing that an argument intended to be a
-  // string has type 'char [6]' is probably more confusing than 'char *'.
+  // and function pointer decay (seeing that an argument intended to be a
+  // string has type 'char [6]' is probably more confusing than 'char *') and
+  // certain bitfield promotions (bitfields can be 'demoted' to a lesser type).
   if (const ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(E)) {
-    if (ICE->getCastKind() == CK_IntegralCast ||
-        ICE->getCastKind() == CK_FloatingCast) {
+    if (isArithmeticArgumentPromotion(S, ICE)) {
       E = ICE->getSubExpr();
       ExprTy = E->getType();
 
@@ -12355,8 +12377,17 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
       BaseExpr->getType()->getPointeeOrArrayElementType();
   BaseExpr = BaseExpr->IgnoreParenCasts();
   const ConstantArrayType *ArrayTy =
-    Context.getAsConstantArrayType(BaseExpr->getType());
+      Context.getAsConstantArrayType(BaseExpr->getType());
+
   if (!ArrayTy)
+    return;
+
+  const Type *BaseType = ArrayTy->getElementType().getTypePtr();
+  // It is possible that the type of the base expression after IgnoreParenCasts
+  // is incomplete, even though the type of the base expression before
+  // IgnoreParenCasts is complete (see PR39746 for an example). In this case we
+  // have no information about whether the array access is out-of-bounds.
+  if (BaseType->isIncompleteType())
     return;
 
   Expr::EvalResult Result;
@@ -12378,7 +12409,6 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
     if (!size.isStrictlyPositive())
       return;
 
-    const Type *BaseType = BaseExpr->getType()->getPointeeOrArrayElementType();
     if (BaseType != EffectiveType) {
       // Make sure we're comparing apples to apples when comparing index to size
       uint64_t ptrarith_typesize = Context.getTypeSize(EffectiveType);

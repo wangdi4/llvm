@@ -1212,16 +1212,21 @@ def X86testpat : PatFrag<(ops node:$lhs, node:$rhs),
 let isCompare = 1 in {
   let Defs = [EFLAGS] in {
     let isCommutable = 1 in {
-      def TEST8rr  : BinOpRR_F<0x84, "test", Xi8 , X86testpat>;
-      def TEST16rr : BinOpRR_F<0x84, "test", Xi16, X86testpat>;
-      def TEST32rr : BinOpRR_F<0x84, "test", Xi32, X86testpat>;
-      def TEST64rr : BinOpRR_F<0x84, "test", Xi64, X86testpat>;
+      // Avoid selecting these and instead use a test+and. Post processing will
+      // combine them. This gives bunch of other patterns that start with
+      // and a chance to match.
+      def TEST8rr  : BinOpRR_F<0x84, "test", Xi8 , null_frag>;
+      def TEST16rr : BinOpRR_F<0x84, "test", Xi16, null_frag>;
+      def TEST32rr : BinOpRR_F<0x84, "test", Xi32, null_frag>;
+      def TEST64rr : BinOpRR_F<0x84, "test", Xi64, null_frag>;
     } // isCommutable
 
-    def TEST8mr    : BinOpMR_F<0x84, "test", Xi8 , X86testpat>;
-    def TEST16mr   : BinOpMR_F<0x84, "test", Xi16, X86testpat>;
-    def TEST32mr   : BinOpMR_F<0x84, "test", Xi32, X86testpat>;
-    def TEST64mr   : BinOpMR_F<0x84, "test", Xi64, X86testpat>;
+    let hasSideEffects = 0, mayLoad = 1 in {
+    def TEST8mr    : BinOpMR_F<0x84, "test", Xi8 , null_frag>;
+    def TEST16mr   : BinOpMR_F<0x84, "test", Xi16, null_frag>;
+    def TEST32mr   : BinOpMR_F<0x84, "test", Xi32, null_frag>;
+    def TEST64mr   : BinOpMR_F<0x84, "test", Xi64, null_frag>;
+    }
 
     def TEST8ri    : BinOpRI_F<0xF6, "test", Xi8 , X86testpat, MRM0r>;
     def TEST16ri   : BinOpRI_F<0xF6, "test", Xi16, X86testpat, MRM0r>;
