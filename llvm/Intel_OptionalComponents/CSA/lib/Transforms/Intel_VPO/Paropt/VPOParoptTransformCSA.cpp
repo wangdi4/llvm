@@ -239,34 +239,39 @@ public:
     W->populateBBSet();
 
     // Generate privatization code for all flavors of private variables.
-    if (W->canHavePrivate() && !W->getPriv().empty()) {
+    if (W->canHavePrivate() && !W->getPriv().empty())
       for (auto *I : W->getPriv().items())
-        genPrivVar(I, W);
-      Changed = true;
-    }
-    if (W->canHaveFirstprivate() && !W->getFpriv().empty()) {
+        if (!isa<Constant>(I->getOrig())) {
+          genPrivVar(I, W);
+          Changed = true;
+        }
+    if (W->canHaveFirstprivate() && !W->getFpriv().empty())
       for (auto *I : W->getFpriv().items())
-        genFPrivVar(I, W);
-      Changed = true;
-    }
-    if (W->canHaveLastprivate() && !W->getLpriv().empty()) {
-      for (auto *I : W->getLpriv().items()) {
-        genLPrivVar(I, W);
-        genLPrivVarCopyout(I);
-      }
-      Changed = true;
-    }
-    if (DoReds && W->canHaveReduction() && !W->getRed().empty()) {
+        if (!isa<Constant>(I->getOrig())) {
+          genFPrivVar(I, W);
+          Changed = true;
+        }
+    if (W->canHaveLastprivate() && !W->getLpriv().empty())
+      for (auto *I : W->getLpriv().items())
+        if (!isa<Constant>(I->getOrig())) {
+          genLPrivVar(I, W);
+          genLPrivVarCopyout(I);
+          Changed = true;
+        }
+    if (DoReds && W->canHaveReduction() && !W->getRed().empty())
       for (auto *I : W->getRed().items())
-        genRedVar(I, W);
-      Changed = true;
+        if (!isa<Constant>(I->getOrig())) {
+          genRedVar(I, W);
+          Changed = true;
+        }
+
+    if (Changed) {
+      // Remove references to private items from the WRN's bundle.
+      removePrivateRefsFromBundle();
+
+      // Promote private variables to registers.
+      registerizeAllocas();
     }
-
-    // Remove references to private items from the WRN's bundle.
-    removePrivateRefsFromBundle();
-
-    // Promote private variables to registers.
-    registerizeAllocas();
 
     // Invalidate BBSet after transformation
     W->resetBBSetIfChanged(Changed);
@@ -576,40 +581,43 @@ public:
 
       SecW->populateBBSet();
       cleanupPrivateItems(W);
-      if (!W->getPriv().empty()) {
-        for (auto *I : W->getPriv().items())
+      for (auto *I : W->getPriv().items())
+        if (!isa<Constant>(I->getOrig())) {
           genPrivVar(I, SecW);
-        SecChanged = true;
-      }
-      if (!W->getFpriv().empty()) {
-        for (auto *I : W->getFpriv().items())
+          SecChanged = true;
+        }
+      for (auto *I : W->getFpriv().items())
+        if (!isa<Constant>(I->getOrig())) {
           genFPrivVar(I, SecW);
-        SecChanged = true;
-      }
-      if (!W->getLpriv().empty()) {
-        for (auto *I : W->getLpriv().items())
+          SecChanged = true;
+        }
+      for (auto *I : W->getLpriv().items())
+        if (!isa<Constant>(I->getOrig())) {
           genLPrivVar(I, SecW);
-        SecChanged = true;
-      }
-      if (!W->getRed().empty()) {
-        for (auto *I : W->getRed().items())
+          SecChanged = true;
+        }
+      for (auto *I : W->getRed().items())
+        if (!isa<Constant>(I->getOrig())) {
           genRedVar(I, SecW);
-        SecChanged = true;
-      }
+          SecChanged = true;
+        }
       SecW->resetBBSetIfChanged(SecChanged);
 
       Changed |= SecChanged;
     }
 
-    // Gen copyout code for lastprivate variables.
-    for (auto *I : W->getLpriv().items())
-      genLPrivVarCopyout(I);
+    if (Changed) {
+      // Gen copyout code for lastprivate variables.
+      for (auto *I : W->getLpriv().items())
+        if (!isa<Constant>(I->getOrig()))
+          genLPrivVarCopyout(I);
 
-    // Remove references to private items from the WRN's bundle.
-    removePrivateRefsFromBundle();
+      // Remove references to private items from the WRN's bundle.
+      removePrivateRefsFromBundle();
 
-    // Promote private variables to registers.
-    registerizeAllocas();
+      // Promote private variables to registers.
+      registerizeAllocas();
+    }
 
     // Invalidate BBSet after transformations
     W->resetBBSetIfChanged(Changed);
