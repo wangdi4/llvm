@@ -303,6 +303,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
   DerivedArgList *DAL = new DerivedArgList(Args);
 
   bool HasNostdlib = Args.hasArg(options::OPT_nostdlib);
+  bool HasNostdlibxx = Args.hasArg(options::OPT_nostdlibxx);
   bool HasNodefaultlib = Args.hasArg(options::OPT_nodefaultlibs);
   for (Arg *A : Args) {
     // Unfortunately, we have to parse some forwarding options (-Xassembler,
@@ -347,7 +348,8 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       StringRef Value = A->getValue();
 
       // Rewrite unless -nostdlib is present.
-      if (!HasNostdlib && !HasNodefaultlib && Value == "stdc++") {
+      if (!HasNostdlib && !HasNodefaultlib && !HasNostdlibxx &&
+          Value == "stdc++") {
         DAL->AddFlagArg(A, Opts->getOption(options::OPT_Z_reserved_lib_stdcxx));
         continue;
       }
@@ -2067,7 +2069,8 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
           Ty = types::TY_C;
         } else {
           // Otherwise lookup by extension.
-          // Fallback is C if invoked as C preprocessor or Object otherwise.
+          // Fallback is C if invoked as C preprocessor, C++ if invoked with
+          // clang-cl /E, or Object otherwise.
           // We use a host hook here because Darwin at least has its own
           // idea of what .s is.
           if (const char *Ext = strrchr(Value, '.'))
@@ -2076,6 +2079,8 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
           if (Ty == types::TY_INVALID) {
             if (CCCIsCPP())
               Ty = types::TY_C;
+            else if (IsCLMode() && Args.hasArgNoClaim(options::OPT_E))
+              Ty = types::TY_CXX;
             else
               Ty = types::TY_Object;
           }

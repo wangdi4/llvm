@@ -8377,6 +8377,7 @@ bool Sema::CheckDestructor(CXXDestructorDecl *Destructor) {
         }
       }
 
+      DiagnoseUseOfDecl(OperatorDelete, Loc);
       MarkFunctionReferenced(Loc, OperatorDelete);
       Destructor->setOperatorDelete(OperatorDelete, ThisArg);
     }

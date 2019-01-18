@@ -12355,8 +12355,11 @@ void OMPClauseReader::VisitOMPDeviceClause(OMPDeviceClause *C) {
 
 void OMPClauseReader::VisitOMPMapClause(OMPMapClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
-  C->setMapTypeModifier(
-     static_cast<OpenMPMapClauseKind>(Record.readInt()));
+  for (unsigned I = 0; I < OMPMapClause::NumberOfModifiers; ++I) {
+    C->setMapTypeModifier(
+        I, static_cast<OpenMPMapModifierKind>(Record.readInt()));
+    C->setMapTypeModifierLoc(I, Record.readSourceLocation());
+  }
   C->setMapType(
      static_cast<OpenMPMapClauseKind>(Record.readInt()));
   C->setMapLoc(Record.readSourceLocation());
