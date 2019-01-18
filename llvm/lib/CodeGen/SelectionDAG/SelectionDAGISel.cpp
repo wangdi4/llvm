@@ -712,7 +712,7 @@ void SelectionDAGISel::ComputeLiveOutVRegInfo() {
       continue;
 
     unsigned NumSignBits = CurDAG->ComputeNumSignBits(Src);
-    CurDAG->computeKnownBits(Src, Known);
+    Known = CurDAG->computeKnownBits(Src);
     FuncInfo->AddLiveOutRegInfo(DestReg, NumSignBits, Known);
   } while (!Worklist.empty());
 }
@@ -2219,9 +2219,7 @@ bool SelectionDAGISel::CheckOrMask(SDValue LHS, ConstantSDNode *RHS,
   // Otherwise, the DAG Combiner may have proven that the value coming in is
   // either already zero or is not demanded.  Check for known zero input bits.
   APInt NeededMask = DesiredMask & ~ActualMask;
-
-  KnownBits Known;
-  CurDAG->computeKnownBits(LHS, Known);
+  KnownBits Known = CurDAG->computeKnownBits(LHS);
 
   // If all the missing bits in the or are already known to be set, match!
   if (NeededMask.isSubsetOf(Known.One))

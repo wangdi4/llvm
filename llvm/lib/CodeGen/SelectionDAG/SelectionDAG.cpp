@@ -88,6 +88,8 @@ static SDVTList makeVTList(const EVT *VTs, unsigned NumVTs) {
 void SelectionDAG::DAGUpdateListener::NodeDeleted(SDNode*, SDNode*) {}
 void SelectionDAG::DAGUpdateListener::NodeUpdated(SDNode*) {}
 
+void SelectionDAG::DAGNodeDeletedListener::anchor() {}
+
 #define DEBUG_TYPE "selectiondag"
 
 static cl::opt<bool> EnableMemCpyDAGOpt("enable-memcpy-dag-opt",
@@ -270,15 +272,24 @@ bool ISD::allOperandsUndef(const SDNode *N) {
 }
 
 bool ISD::matchUnaryPredicate(SDValue Op,
-                              std::function<bool(ConstantSDNode *)> Match) {
+                              std::function<bool(ConstantSDNode *)> Match,
+                              bool AllowUndefs) {
+  // FIXME: Add support for scalar UNDEF cases?
   if (auto *Cst = dyn_cast<ConstantSDNode>(Op))
     return Match(Cst);
 
+  // FIXME: Add support for vector UNDEF cases?
   if (ISD::BUILD_VECTOR != Op.getOpcode())
     return false;
 
   EVT SVT = Op.getValueType().getScalarType();
   for (unsigned i = 0, e = Op.getNumOperands(); i != e; ++i) {
+    if (AllowUndefs && Op.getOperand(i).isUndef()) {
+      if (!Match(nullptr))
+        return false;
+      continue;
+    }
+
     auto *Cst = dyn_cast<ConstantSDNode>(Op.getOperand(i));
     if (!Cst || Cst->getValueType(0) != SVT || !Match(Cst))
       return false;
@@ -288,26 +299,33 @@ bool ISD::matchUnaryPredicate(SDValue Op,
 
 bool ISD::matchBinaryPredicate(
     SDValue LHS, SDValue RHS,
-    std::function<bool(ConstantSDNode *, ConstantSDNode *)> Match) {
+    std::function<bool(ConstantSDNode *, ConstantSDNode *)> Match,
+    bool AllowUndefs) {
   if (LHS.getValueType() != RHS.getValueType())
     return false;
 
+  // TODO: Add support for scalar UNDEF cases?
   if (auto *LHSCst = dyn_cast<ConstantSDNode>(LHS))
     if (auto *RHSCst = dyn_cast<ConstantSDNode>(RHS))
       return Match(LHSCst, RHSCst);
 
+  // TODO: Add support for vector UNDEF cases?
   if (ISD::BUILD_VECTOR != LHS.getOpcode() ||
       ISD::BUILD_VECTOR != RHS.getOpcode())
     return false;
 
   EVT SVT = LHS.getValueType().getScalarType();
   for (unsigned i = 0, e = LHS.getNumOperands(); i != e; ++i) {
-    auto *LHSCst = dyn_cast<ConstantSDNode>(LHS.getOperand(i));
-    auto *RHSCst = dyn_cast<ConstantSDNode>(RHS.getOperand(i));
-    if (!LHSCst || !RHSCst)
+    SDValue LHSOp = LHS.getOperand(i);
+    SDValue RHSOp = RHS.getOperand(i);
+    bool LHSUndef = AllowUndefs && LHSOp.isUndef();
+    bool RHSUndef = AllowUndefs && RHSOp.isUndef();
+    auto *LHSCst = dyn_cast<ConstantSDNode>(LHSOp);
+    auto *RHSCst = dyn_cast<ConstantSDNode>(RHSOp);
+    if ((!LHSCst && !LHSUndef) || (!RHSCst && !RHSUndef))
       return false;
-    if (LHSCst->getValueType(0) != SVT ||
-        LHSCst->getValueType(0) != RHSCst->getValueType(0))
+    if (LHSOp.getValueType() != SVT ||
+        LHSOp.getValueType() != RHSOp.getValueType())
       return false;
     if (!Match(LHSCst, RHSCst))
       return false;
@@ -2103,6 +2121,15 @@ SDValue SelectionDAG::GetDemandedBits(SDValue V, const APInt &Mask) {
       return getNode(ISD::ANY_EXTEND, SDLoc(V), V.getValueType(), DemandedSrc);
     break;
   }
+  case ISD::SIGN_EXTEND_INREG:
+    EVT ExVT = cast<VTSDNode>(V.getOperand(1))->getVT();
+    unsigned ExVTBits = ExVT.getScalarSizeInBits();
+
+    // If none of the extended bits are demanded, eliminate the sextinreg.
+    if (Mask.getActiveBits() <= ExVTBits)
+      return V.getOperand(0);
+
+    break;
   }
   return SDValue();
 }
@@ -2801,7 +2828,15 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
     Known.Zero.setBitsFrom(InVT.getScalarSizeInBits());
     break;
   }
-  // TODO ISD::SIGN_EXTEND_VECTOR_INREG
+  case ISD::SIGN_EXTEND_VECTOR_INREG: {
+    EVT InVT = Op.getOperand(0).getValueType();
+    APInt InDemandedElts = DemandedElts.zextOrSelf(InVT.getVectorNumElements());
+    Known = computeKnownBits(Op.getOperand(0), InDemandedElts, Depth + 1);
+    // If the sign bit is known to be zero or one, then sext will extend
+    // it to the top bits, else it will just zext.
+    Known = Known.sext(BitWidth);
+    break;
+  }
   case ISD::SIGN_EXTEND: {
     Known = computeKnownBits(Op.getOperand(0), DemandedElts, Depth + 1);
     // If the sign bit is known to be zero or one, then sext will extend
@@ -3172,11 +3207,9 @@ SelectionDAG::OverflowKind SelectionDAG::computeOverflowKind(SDValue N0,
   if (isNullConstant(N1))
     return OFK_Never;
 
-  KnownBits N1Known;
-  computeKnownBits(N1, N1Known);
+  KnownBits N1Known = computeKnownBits(N1);
   if (N1Known.Zero.getBoolValue()) {
-    KnownBits N0Known;
-    computeKnownBits(N0, N0Known);
+    KnownBits N0Known = computeKnownBits(N0);
 
     bool overflow;
     (void)(~N0Known.Zero).uadd_ov(~N1Known.Zero, overflow);
@@ -3190,8 +3223,7 @@ SelectionDAG::OverflowKind SelectionDAG::computeOverflowKind(SDValue N0,
     return OFK_Never;
 
   if (N1.getOpcode() == ISD::UMUL_LOHI && N1.getResNo() == 1) {
-    KnownBits N0Known;
-    computeKnownBits(N0, N0Known);
+    KnownBits N0Known = computeKnownBits(N0);
 
     if ((~N0Known.Zero & 0x01) == ~N0Known.Zero)
       return OFK_Never;
@@ -6992,11 +7024,11 @@ SDValue SelectionDAG::simplifyShift(SDValue X, SDValue Y) {
     return X;
 
   // shift X, C >= bitwidth(X) --> undef
-  // All vector elements must be too big to avoid partial undefs.
+  // All vector elements must be too big (or undef) to avoid partial undefs.
   auto isShiftTooBig = [X](ConstantSDNode *Val) {
-    return Val->getAPIntValue().uge(X.getScalarValueSizeInBits());
+    return !Val || Val->getAPIntValue().uge(X.getScalarValueSizeInBits());
   };
-  if (ISD::matchUnaryPredicate(Y, isShiftTooBig))
+  if (ISD::matchUnaryPredicate(Y, isShiftTooBig, true))
     return getUNDEF(X.getValueType());
 
   return SDValue();
@@ -8465,6 +8497,32 @@ SDValue SelectionDAG::makeEquivalentMemoryOrdering(LoadSDNode *OldLoad,
   ReplaceAllUsesOfValueWith(OldChain, TokenFactor);
   UpdateNodeOperands(TokenFactor.getNode(), OldChain, NewChain);
   return TokenFactor;
+}
+
+SDValue SelectionDAG::getSymbolFunctionGlobalAddress(SDValue Op,
+                                                     Function **OutFunction) {
+  assert(isa<ExternalSymbolSDNode>(Op) && "Node should be an ExternalSymbol");
+
+  auto *Symbol = cast<ExternalSymbolSDNode>(Op)->getSymbol();
+  auto *Module = MF->getFunction().getParent();
+  auto *Function = Module->getFunction(Symbol);
+
+  if (OutFunction != nullptr)
+      *OutFunction = Function;
+
+  if (Function != nullptr) {
+    auto PtrTy = TLI->getPointerTy(getDataLayout(), Function->getAddressSpace());
+    return getGlobalAddress(Function, SDLoc(Op), PtrTy);
+  }
+
+  std::string ErrorStr;
+  raw_string_ostream ErrorFormatter(ErrorStr);
+
+  ErrorFormatter << "Undefined external symbol ";
+  ErrorFormatter << '"' << Symbol << '"';
+  ErrorFormatter.flush();
+
+  report_fatal_error(ErrorStr);
 }
 
 //===----------------------------------------------------------------------===//

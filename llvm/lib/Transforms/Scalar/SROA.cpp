@@ -920,8 +920,7 @@ private:
       if (VAI->hasRegisterAttributeSet())               //INTEL
         return;                                         //INTEL
 
-    if (II.getIntrinsicID() == Intrinsic::lifetime_start ||
-        II.getIntrinsicID() == Intrinsic::lifetime_end) {
+    if (II.isLifetimeStartOrEnd()) {
       ConstantInt *Length = cast<ConstantInt>(II.getArgOperand(0));
       uint64_t Size = std::min(AllocSize - Offset.getLimitedValue(),
                                Length->getLimitedValue());
@@ -1979,8 +1978,7 @@ static bool isVectorPromotionViableForSlice(Partition &P, const Slice &S,
     if (!S.isSplittable())
       return false; // Skip any unsplittable intrinsics.
   } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(U->getUser())) {
-    if (II->getIntrinsicID() != Intrinsic::lifetime_start &&
-        II->getIntrinsicID() != Intrinsic::lifetime_end)
+    if (!II->isLifetimeStartOrEnd())
       return false;
   } else if (U->get()->getType()->getPointerElementType()->isStructTy()) {
     // Disable vector promotion when there are loads or stores of an FCA.
@@ -2201,8 +2199,7 @@ static bool isIntegerWideningViableForSlice(const Slice &S,
     if (!S.isSplittable())
       return false; // Skip any unsplittable intrinsics.
   } else if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(U->getUser())) {
-    if (II->getIntrinsicID() != Intrinsic::lifetime_start &&
-        II->getIntrinsicID() != Intrinsic::lifetime_end)
+    if (!II->isLifetimeStartOrEnd())
       return false;
   } else {
     return false;
@@ -2765,7 +2762,8 @@ private:
     }
     V = convertValue(DL, IRB, V, NewAllocaTy);
     StoreInst *Store = IRB.CreateAlignedStore(V, &NewAI, NewAI.getAlignment());
-    Store->copyMetadata(SI, LLVMContext::MD_mem_parallel_loop_access);
+    Store->copyMetadata(SI, {LLVMContext::MD_mem_parallel_loop_access,
+                             LLVMContext::MD_access_group});
     if (AATags)
       Store->setAAMetadata(AATags);
     Pass.DeadInsts.insert(&SI);
@@ -2834,7 +2832,8 @@ private:
       NewSI = IRB.CreateAlignedStore(V, NewPtr, getSliceAlign(V->getType()),
                                      SI.isVolatile());
     }
-    NewSI->copyMetadata(SI, LLVMContext::MD_mem_parallel_loop_access);
+    NewSI->copyMetadata(SI, {LLVMContext::MD_mem_parallel_loop_access,
+                             LLVMContext::MD_access_group});
     if (AATags)
       NewSI->setAAMetadata(AATags);
     if (SI.isVolatile())
@@ -3183,8 +3182,7 @@ private:
   }
 
   bool visitIntrinsicInst(IntrinsicInst &II) {
-    assert(II.getIntrinsicID() == Intrinsic::lifetime_start ||
-           II.getIntrinsicID() == Intrinsic::lifetime_end   ||  //INTEL
+    assert(II.isLifetimeStartOrEnd() ||                         //INTEL
            II.getIntrinsicID() == Intrinsic::var_annotation);   //INTEL
     LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
 
@@ -3980,7 +3978,8 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
                          PartPtrTy, BasePtr->getName() + "."),
           getAdjustedAlignment(LI, PartOffset, DL), /*IsVolatile*/ false,
           LI->getName());
-      PLoad->copyMetadata(*LI, LLVMContext::MD_mem_parallel_loop_access);
+      PLoad->copyMetadata(*LI, {LLVMContext::MD_mem_parallel_loop_access,
+                                LLVMContext::MD_access_group});
 
       // Append this load onto the list of split loads so we can find it later
       // to rewrite the stores.
@@ -4036,7 +4035,8 @@ bool SROA::presplitLoadsAndStores(AllocaInst &AI, AllocaSlices &AS) {
                            APInt(DL.getIndexSizeInBits(AS), PartOffset),
                            PartPtrTy, StoreBasePtr->getName() + "."),
             getAdjustedAlignment(SI, PartOffset, DL), /*IsVolatile*/ false);
-        PStore->copyMetadata(*LI, LLVMContext::MD_mem_parallel_loop_access);
+        PStore->copyMetadata(*LI, {LLVMContext::MD_mem_parallel_loop_access,
+                                   LLVMContext::MD_access_group});
         LLVM_DEBUG(dbgs() << "      +" << PartOffset << ":" << *PStore << "\n");
       }
 

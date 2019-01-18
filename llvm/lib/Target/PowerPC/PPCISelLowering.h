@@ -576,6 +576,11 @@ namespace llvm {
     /// DAG node.
     const char *getTargetNodeName(unsigned Opcode) const override;
 
+    bool isSelectSupported(SelectSupportKind Kind) const override {
+      // PowerPC does not support scalar condition selects on vectors.
+      return (Kind != SelectSupportKind::ScalarCondVectorVal);
+    }
+
     /// getPreferredVectorAction - The code we generate when vector types are
     /// legalized by promoting the integer element type is often much worse
     /// than code we generate if we widen the type for applicable vector types.
@@ -1118,6 +1123,7 @@ namespace llvm {
     SDValue combineTRUNCATE(SDNode *N, DAGCombinerInfo &DCI) const;
     SDValue combineSetCC(SDNode *N, DAGCombinerInfo &DCI) const;
     SDValue combineABS(SDNode *N, DAGCombinerInfo &DCI) const;
+    SDValue combineVSelect(SDNode *N, DAGCombinerInfo &DCI) const;
 
     /// ConvertSETCCToSubtract - looks at SETCC that compares ints. It replaces
     /// SETCC with integer subtraction when (1) there is a legal way of doing it

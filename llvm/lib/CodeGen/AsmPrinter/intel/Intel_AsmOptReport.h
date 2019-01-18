@@ -17,12 +17,12 @@
 #ifndef LLVM_LIB_CODEGEN_ASMPRINTER_INTEL_INTEL_ASMOPTREPORT_H
 #define LLVM_LIB_CODEGEN_ASMPRINTER_INTEL_INTEL_ASMOPTREPORT_H
 
-#include "AsmPrinterHandler.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
 #include "llvm/CodeGen/AsmPrinter.h"
+#include "llvm/CodeGen/AsmPrinterHandler.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"

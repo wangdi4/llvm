@@ -503,6 +503,8 @@ public:
   struct PragmaAttributeGroup {
     /// The location of the push attribute.
     SourceLocation Loc;
+    /// The namespace of this push group.
+    const IdentifierInfo *Namespace;
     SmallVector<PragmaAttributeEntry, 2> Entries;
   };
 
@@ -5200,6 +5202,15 @@ public:
                          SourceRange DirectInitRange,
                          Expr *Initializer);
 
+  /// Determine whether \p FD is an aligned allocation or deallocation
+  /// function that is unavailable.
+  bool isUnavailableAlignedAllocationFunction(const FunctionDecl &FD) const;
+
+  /// Produce diagnostics if \p FD is an aligned allocation or deallocation
+  /// function that is unavailable.
+  void diagnoseUnavailableAlignedAllocation(const FunctionDecl &FD,
+                                            SourceLocation Loc);
+
   bool CheckAllocatedType(QualType AllocType, SourceLocation Loc,
                           SourceRange R);
 
@@ -8494,10 +8505,12 @@ public:
   void ActOnPragmaAttributeAttribute(ParsedAttr &Attribute,
                                      SourceLocation PragmaLoc,
                                      attr::ParsedSubjectMatchRuleSet Rules);
-  void ActOnPragmaAttributeEmptyPush(SourceLocation PragmaLoc);
+  void ActOnPragmaAttributeEmptyPush(SourceLocation PragmaLoc,
+                                     const IdentifierInfo *Namespace);
 
   /// Called on well-formed '\#pragma clang attribute pop'.
-  void ActOnPragmaAttributePop(SourceLocation PragmaLoc);
+  void ActOnPragmaAttributePop(SourceLocation PragmaLoc,
+                               const IdentifierInfo *Namespace);
 
   /// Adds the attributes that have been specified using the
   /// '\#pragma clang attribute push' directives to the given declaration.
@@ -9233,7 +9246,9 @@ public:
       SourceLocation ColonLoc, SourceLocation EndLoc,
       CXXScopeSpec &ReductionIdScopeSpec,
       const DeclarationNameInfo &ReductionId, OpenMPDependClauseKind DepKind,
-      OpenMPLinearClauseKind LinKind, OpenMPMapClauseKind MapTypeModifier,
+      OpenMPLinearClauseKind LinKind,
+      ArrayRef<OpenMPMapModifierKind> MapTypeModifiers,
+      ArrayRef<SourceLocation> MapTypeModifiersLoc,
       OpenMPMapClauseKind MapType, bool IsMapTypeImplicit,
       SourceLocation DepLinMapLoc);
   /// Called on well-formed 'private' clause.
@@ -9317,7 +9332,8 @@ public:
                                      SourceLocation EndLoc);
   /// Called on well-formed 'map' clause.
   OMPClause *
-  ActOnOpenMPMapClause(OpenMPMapClauseKind MapTypeModifier,
+  ActOnOpenMPMapClause(ArrayRef<OpenMPMapModifierKind> MapTypeModifiers,
+                       ArrayRef<SourceLocation> MapTypeModifiersLoc,
                        OpenMPMapClauseKind MapType, bool IsMapTypeImplicit,
                        SourceLocation MapLoc, SourceLocation ColonLoc,
                        ArrayRef<Expr *> VarList, SourceLocation StartLoc,
@@ -9839,21 +9855,20 @@ public:
   /// \param Method - May be null.
   /// \param [out] ReturnType - The return type of the send.
   /// \return true iff there were any incompatible types.
-  bool CheckMessageArgumentTypes(QualType ReceiverType,
+  bool CheckMessageArgumentTypes(const Expr *Receiver, QualType ReceiverType,
                                  MultiExprArg Args, Selector Sel,
                                  ArrayRef<SourceLocation> SelectorLocs,
                                  ObjCMethodDecl *Method, bool isClassMessage,
-                                 bool isSuperMessage,
-                                 SourceLocation lbrac, SourceLocation rbrac,
-                                 SourceRange RecRange,
+                                 bool isSuperMessage, SourceLocation lbrac,
+                                 SourceLocation rbrac, SourceRange RecRange,
                                  QualType &ReturnType, ExprValueKind &VK);
 
   /// Determine the result of a message send expression based on
   /// the type of the receiver, the method expected to receive the message,
   /// and the form of the message send.
-  QualType getMessageSendResultType(QualType ReceiverType,
-                                    ObjCMethodDecl *Method,
-                                    bool isClassMessage, bool isSuperMessage);
+  QualType getMessageSendResultType(const Expr *Receiver, QualType ReceiverType,
+                                    ObjCMethodDecl *Method, bool isClassMessage,
+                                    bool isSuperMessage);
 
   /// If the given expression involves a message send to a method
   /// with a related result type, emit a note describing what happened.
