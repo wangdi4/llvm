@@ -259,9 +259,16 @@ FunctionPass *llvm::createHIRSSADeconstructionLegacyPass() {
 void HIRSSADeconstruction::attachMetadata(
     Instruction *Inst, StringRef Name,
     ScalarEvolution::HIRLiveKind Kind) const {
-  Metadata *Args[] = {
-      MDString::get(Inst->getContext(), (Name + ".de.ssa").str())};
-  MDNode *Node = MDNode::get(Inst->getContext(), Args);
+
+  MDNode *Node = nullptr;
+
+  if (Name.empty()) {
+    Node = MDNode::get(Inst->getContext(), {});
+  } else {
+    Metadata *Args[] = {
+        MDString::get(Inst->getContext(), (Name + ".de.ssa").str())};
+    Node = MDNode::get(Inst->getContext(), Args);
+  }
 
   Inst->setMetadata(SE->getHIRMDKindID(Kind), Node);
 }
@@ -271,7 +278,7 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   auto CInst = CastInst::Create(Instruction::BitCast, Val, Val->getType(),
                                 Name + (IsLivein ? ".in" : ".out"));
 
-  attachMetadata(CInst, Name,
+  attachMetadata(CInst, IsLivein ? Name : "",
                  IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
                           : ScalarEvolution::HIRLiveKind::LiveOut);
 
@@ -857,8 +864,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
         }
 
         // Attach live range type metadata to suppress SCEV traceback.
-        attachMetadata(SCCInst, Name.str(),
-                       ScalarEvolution::HIRLiveKind::LiveRange);
+        attachMetadata(SCCInst, "", ScalarEvolution::HIRLiveKind::LiveRange);
         // Tell SCEV to reparse the instruction.
         SE->forgetValue(SCCInst);
       }

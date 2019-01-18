@@ -2,12 +2,17 @@
 ; RUN: opt < %s -passes=hir-ssa-deconstruction -S | FileCheck %s
 
 ; Verify that %ptr and %ptr1 form an SCC and we add the metadata to prevent live range violation.
+; Also check that the same metadata node is shared by all liveout and live range metadata.
+
+; CHECK: !out.de.ssa [[MD:!.*]]
+; CHECK: !out.de.ssa [[MD]]
 
 ; CHECK: %tmp31 =
 ; CHECK-SAME: %ptr.out
 
 ; CHECK: %ptr1 =
-; CHECK-SAME: !live.range.de.ssa
+; CHECK-SAME: !live.range.de.ssa [[MD]]
+; CHECK: !live.range.de.ssa [[MD]]
 
 ; HIR for reference:
 ;
