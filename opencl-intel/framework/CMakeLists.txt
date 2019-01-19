@@ -80,14 +80,16 @@ include(itt)
 add_opencl_library (${TARGET_NAME} SHARED
     ${TARGET_SOURCES}
 
+    COMPONENTS
+      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+      cl_logger${OPENCL_BINARIES_POSTFIX}
+
     LINK_LIBS
       Context
       Execution
       Platform
       MemoryAllocator
-      cl_logger${OPENCL_BINARIES_POSTFIX}
       cl_sys_utils
-      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
       CLElfLib
       ${LINK_LIBS}
 
