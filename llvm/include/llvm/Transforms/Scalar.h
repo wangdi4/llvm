@@ -86,6 +86,7 @@ FunctionPass *createCallSiteSplittingPass();
 // it more successful are removing non-obviously dead instructions.
 //
 FunctionPass *createAggressiveDCEPass();
+FunctionPass *createUnskippableAggressiveDCEPass(); // INTEL
 
 //===----------------------------------------------------------------------===//
 //

@@ -240,7 +240,7 @@ public:
 
     // Add pass to replace alloca instructions
     addPass(createCSAReplaceAllocaWithMallocPass(getCSATargetMachine()));
-    addPass(createGlobalDCEPass());
+    addPass(createUnskippableAggressiveDCEPass());
 
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...
