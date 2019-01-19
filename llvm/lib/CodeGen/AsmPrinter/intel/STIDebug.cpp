@@ -11,12 +11,12 @@
 #include "STI.h"
 #include "STIIR.h"
 #include "pdbInterface.h"
-#include "../DbgEntityHistoryCalculator.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PointerUnion.h" // dyn_cast
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/AsmPrinter.h"
+#include "llvm/CodeGen/DbgEntityHistoryCalculator.h"
 #include "llvm/CodeGen/LexicalScopes.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"

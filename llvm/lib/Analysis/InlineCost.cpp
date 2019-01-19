@@ -3485,7 +3485,8 @@ static bool preferToDelayInlineDecision(Function *Caller,
   // if the 'Caller' should be inlined.
   auto IsDelayInlineCaller = [&TestedGEP](Function *Caller,
                                           bool PrepareForLTO) -> bool {
-    if (Caller->size() > (PrepareForLTO ? 5 : 3))
+    unsigned MaxSize = PrepareForLTO ? 5 : 3;
+    if (Caller->size() > MaxSize)
       return false;
     if (!TestedGEP(Caller))
       return false;

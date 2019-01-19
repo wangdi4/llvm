@@ -1,6 +1,6 @@
 //===----- IntelVPOCodeGenHIR.cpp -----------------------------------------===//
 //
-//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -1502,7 +1502,7 @@ HLInst *VPOCodeGenHIR::widenIfNode(const HLIf *HIf, RegDDRef *Mask) {
         "Search loop vectorization handles HLIfs with single predicate only.");
     RegDDRef *Ref = CurWideInst->getLvalDDRef();
     Type *Ty = Ref->getDestType();
-    LLVMContext &Context = Ty->getContext();
+    LLVMContext &Context = *Plan->getLLVMContext();
     Type *IntTy = IntegerType::get(Context, Ty->getPrimitiveSizeInBits());
     HLInst *BitCastInst = createBitCast(IntTy, Ref, "intmask");
     createHLIf(PredicateTy::ICMP_NE, BitCastInst->getLvalDDRef()->clone(),
@@ -1815,7 +1815,7 @@ HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, const Twine &Name) {
   // It's necessary to bitcast mask to integer, otherwise it's not possible to
   // use it in cttz instruction.
   Type *RefTy = Ref->getDestType();
-  LLVMContext &Context = RefTy->getContext();
+  LLVMContext &Context = *Plan->getLLVMContext();
   Type *IntTy = IntegerType::get(Context, RefTy->getPrimitiveSizeInBits());
   HLInst *BitCastInst = createBitCast(IntTy, Ref, Name + "intmask");
 
@@ -2296,7 +2296,7 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
   if (GlobalVariable *PaddedMallocVariable =
           HNU.getModule().getGlobalVariable("__Intel_PaddedMallocCounter",
                                             true /*AllowInternal*/)) {
-    LLVMContext &Context = HNU.getContext();
+    LLVMContext &Context = *Plan->getLLVMContext();
     DDRefUtils &DDRU = OrigLoop->getDDRefUtils();
     CanonExprUtils &CEU = HNU.getCanonExprUtils();
 

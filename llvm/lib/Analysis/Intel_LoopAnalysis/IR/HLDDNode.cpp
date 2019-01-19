@@ -1,6 +1,6 @@
 //===--- HLDDNode.cpp - Implements the HLDDNode class ---------------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -268,7 +268,7 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
     OS << "\n";
 
     if (*I) {
-      for (auto B = (*I)->blob_cbegin(), BE = (*I)->blob_cend(); B != BE; ++B) {
+      for (auto B = (*I)->blob_begin(), BE = (*I)->blob_end(); B != BE; ++B) {
         indent(OS, Depth);
         if (IsLoop) {
           OS << "| ";

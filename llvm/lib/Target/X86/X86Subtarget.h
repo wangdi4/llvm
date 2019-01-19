@@ -403,6 +403,14 @@ protected:
 #endif // INTEL_FEATURE_ISA_SERIALIZE
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  /// Processor has AMX support
+  bool HasAMXTILE = false;
+  bool HasAMXBF16 = false;
+  bool HasAMXINT8 = false;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
 
@@ -709,6 +717,13 @@ public:
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  bool hasAMXTILE() const { return HasAMXTILE; }
+  bool hasAMXBF16() const { return HasAMXBF16; }
+  bool hasAMXINT8() const { return HasAMXINT8; }
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
 
   unsigned getPreferVectorWidth() const { return PreferVectorWidth; }

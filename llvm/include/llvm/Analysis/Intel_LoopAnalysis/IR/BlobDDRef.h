@@ -1,6 +1,6 @@
 //===--- BlobDDRef.h - Data dependency node for blobs in HIR ----*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -97,9 +97,9 @@ public:
   /// which should always be true.
   bool isSelfBlob() const override { return true; }
 
-  // Returns true if the DDRef is a unitary blob. A unitary blob is a single
-  // (non-nested) standalone blob, which is always true for a BlobDDRef.
-  bool isUnitaryBlob() const override { return true; }
+  /// Returns true if the DDRef cannot be decomposed further into simpler
+  /// operations, which is always true for a BlobDDRef.
+  bool isNonDecomposable() const override { return true; }
 
   /// Returns true if DDRef corresponds to temp blob
   /// self-blobs are subset of terminal refs

@@ -1,6 +1,6 @@
 //===----------- HLLoop.h - High level IR loop node -------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -204,9 +204,6 @@ protected:
 
   /// Return true if the specified directive is attached to the loop.
   bool hasDirective(int DirectiveID) const;
-
-  /// Return true if the loop has OMP.SIMD region entry directive
-  bool hasSIMDRegionDirective() const;
 
 public:
   /// Prints preheader of loop.
@@ -647,9 +644,7 @@ public:
   virtual void verify() const override;
 
   /// Checks whether SIMD directive is attached to the loop.
-  bool isSIMD() const {
-    return hasDirective(DIR_OMP_SIMD) || hasSIMDRegionDirective();
-  }
+  bool isSIMD() const;
 
   /// Checks whether we have a vectorizable loop by checking if SIMD
   /// or AUTO_VEC directive is attached to the loop.

@@ -1,6 +1,6 @@
 //===---- HIRSafeReductionAnalysis.cpp - Identify Safe Reduction Chain ----===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -518,7 +518,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
 
     // Blob dd refs of rval dd refs scanned as well because
     // rval sinks of incoming edges can be a blob ddref.
-    for (auto BI = RRef->blob_cbegin(), BE = RRef->blob_cend(); BI != BE;
+    for (auto BI = RRef->blob_begin(), BE = RRef->blob_end(); BI != BE;
          ++BI) {
       auto Found = Finder(*BI);
       if (Found == POTENTIAL_REDUCTION) {

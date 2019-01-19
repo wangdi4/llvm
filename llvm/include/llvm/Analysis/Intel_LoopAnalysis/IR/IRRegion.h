@@ -1,6 +1,6 @@
 //===--- IRRegion.h - Section of LLVM IR representing HLRegion --*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -27,6 +27,7 @@ namespace llvm {
 class Value;
 class Instruction;
 class BasicBlock;
+class Loop;
 class raw_ostream;
 
 namespace loopopt {
@@ -61,6 +62,7 @@ protected:
 private:
   BasicBlock *EntryBBlock;
   BasicBlock *ExitBBlock;
+  const Loop *FirstLoop;
   // TODO: replace following two data structures by SetVector.
   // SmallVector of bblocks is used for deterministic iteration.
   RegionBBlocksTy BBlocks;
@@ -83,8 +85,8 @@ private:
   bool IsFunctionLevel;
 
 public:
-  IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks,
-           bool IsFunctionLevel = false);
+  IRRegion(BasicBlock *Entry, const Loop *FirstLoop,
+           const RegionBBlocksTy &BBlocks, bool IsFunctionLevel = false);
 
   /// \brief Move constructor. This is used by HIRRegionIdentification pass to
   /// push_back regions onto SmallVector.
@@ -110,6 +112,10 @@ public:
 
   /// \brief Sets the exit(last) bblock of this region.
   void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
+
+  /// Returns the lexical first loop of the region. It is null for function
+  /// level region.
+  const Loop *getFirstLoop() const { return FirstLoop; }
 
   /// \brief Returns the predecessor bblock of this region.
   BasicBlock *getPredBBlock() const;

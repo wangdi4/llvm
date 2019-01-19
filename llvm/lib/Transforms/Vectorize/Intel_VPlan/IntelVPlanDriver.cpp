@@ -1,6 +1,6 @@
 //===-- IntelVPlanDriver.cpp ----------------------------------------------===//
 //
-//   Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -571,7 +571,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans()) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext())) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
@@ -785,7 +785,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, nullptr /*Legal*/,
                                   DDA, &VLSA);
 
-  if (!LVP.buildInitialVPlans()) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext())) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }

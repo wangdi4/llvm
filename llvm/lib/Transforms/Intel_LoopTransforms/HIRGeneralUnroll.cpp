@@ -1,6 +1,6 @@
 //===-- HIRGeneralUnroll.cpp - Implements GeneralUnroll class -------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -389,10 +389,12 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
                                     unsigned *UnrollFactor) const {
 
   if (!HasEnablingPragma) {
+    bool IsMultiExit = (Loop->getNumExits() > 1);
+
     // 32bit platform seems to be more sensitive to register pressure/code size.
     // Unrolling too many loops leads to regression in the same benchmark which
     // is improved on 64-bit platform.
-    if (Is32Bit && (Loop->getNumExits() > 1)) {
+    if (Is32Bit && IsMultiExit) {
       LLVM_DEBUG(
           dbgs()
           << "Skipping unroll of multi-exit loops on 32 bit platform!\n");
@@ -415,6 +417,15 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
     if (LS.hasSwitches()) {
       LLVM_DEBUG(
           dbgs() << "Skipping unroll of loop containing switch statement!\n");
+      return false;
+    }
+
+    // Causing 3% degradation in 511.provray's hot function
+    // All_CSG_Intersect_Intersections(). Cause is unknown but all 3 loops being
+    // unrolled fit the pattern.
+    if (IsMultiExit && Loop->isUnknown() && LS.hasUserCalls()) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll of multi-exit unknown loop "
+                           "containing user calls!\n");
       return false;
     }
   }

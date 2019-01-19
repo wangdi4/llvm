@@ -310,6 +310,11 @@ namespace X86II {
     ///
     MRMSrcMemOp4   = 35,
 
+#if INTEL_CUSTOMIZATION
+    /// MRMSrcMem - But force to use the SIB field.
+    MRMSrcMemFSIB      = 36,
+#endif // INTEL_CUSTOMIZATION
+
     /// MRMXm - This form is used for instructions that use the Mod/RM byte
     /// to specify a memory source, but doesn't use the middle field.
     ///
@@ -338,6 +343,11 @@ namespace X86II {
     /// byte to specify the fourth source, which in this case is a register.
     ///
     MRMSrcRegOp4   = 51,
+
+#if INTEL_CUSTOMIZATION
+    // Instructions operate on a register Reg/Opcode operand not the r/m field.
+    MRMr0 = 54,
+#endif // INTEL_CUSTOMIZATION
 
     /// MRMXr - This form is used for instructions that use the Mod/RM byte
     /// to specify a register source, but doesn't use the middle field.
@@ -737,6 +747,9 @@ namespace X86II {
     case X86II::MRMDestMem:
       return 0;
     case X86II::MRMSrcMem:
+#if INTEL_CUSTOMIZATION
+    case X86II::MRMSrcMemFSIB:
+#endif // INTEL_CUSTOMIZATION
       // Start from 1, skip any registers encoded in VEX_VVVV or I8IMM, or a
       // mask register.
       return 1 + HasVEX_4V + HasEVEX_K;
@@ -751,6 +764,9 @@ namespace X86II {
     case X86II::MRMSrcReg4VOp3:
     case X86II::MRMSrcRegOp4:
     case X86II::MRMXr:
+#if INTEL_CUSTOMIZATION
+    case X86II::MRMr0:
+#endif // INTEL_CUSTOMIZATION
     case X86II::MRM0r: case X86II::MRM1r:
     case X86II::MRM2r: case X86II::MRM3r:
     case X86II::MRM4r: case X86II::MRM5r:

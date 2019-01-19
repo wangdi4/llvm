@@ -926,6 +926,13 @@ def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
+def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
+def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -2413,6 +2420,16 @@ let Predicates = [HasBMI], Defs = [EFLAGS] in {
 // Pattern fragments to auto generate BMI instructions.
 //===----------------------------------------------------------------------===//
 
+def or_flag_nocf : PatFrag<(ops node:$lhs, node:$rhs),
+                           (X86or_flag node:$lhs, node:$rhs), [{
+  return hasNoCarryFlagUses(SDValue(N, 1));
+}]>;
+
+def xor_flag_nocf : PatFrag<(ops node:$lhs, node:$rhs),
+                            (X86xor_flag node:$lhs, node:$rhs), [{
+  return hasNoCarryFlagUses(SDValue(N, 1));
+}]>;
+
 let Predicates = [HasBMI] in {
   // FIXME: patterns for the load versions are not implemented
   def : Pat<(and GR32:$src, (add GR32:$src, -1)),
@@ -2429,6 +2446,14 @@ let Predicates = [HasBMI] in {
             (BLSI32rr GR32:$src)>;
   def : Pat<(and GR64:$src, (ineg GR64:$src)),
             (BLSI64rr GR64:$src)>;
+
+  // Versions to match flag producing ops.
+  // X86and_flag nodes are rarely created. Those should use CMP+AND. We do
+  // TESTrr matching in PostProcessISelDAG to allow BLSR/BLSI to be formed.
+  def : Pat<(xor_flag_nocf GR32:$src, (add GR32:$src, -1)),
+            (BLSMSK32rr GR32:$src)>;
+  def : Pat<(xor_flag_nocf GR64:$src, (add GR64:$src, -1)),
+            (BLSMSK64rr GR64:$src)>;
 }
 
 multiclass bmi_bextr<bits<8> opc, string mnemonic, RegisterClass RC,
@@ -2838,6 +2863,45 @@ let Predicates = [HasTBM] in {
             (TZMSK32rr GR32:$src)>;
   def : Pat<(and (not GR64:$src), (add GR64:$src, -1)),
             (TZMSK64rr GR64:$src)>;
+
+  // Patterns to match flag producing ops.
+  // X86and_flag nodes are rarely created. Those should use CMP+AND. We do
+  // TESTrr matching in PostProcessISelDAG to allow BLSR/BLSI to be formed.
+  def : Pat<(or_flag_nocf GR32:$src, (not (add GR32:$src, 1))),
+            (BLCI32rr GR32:$src)>;
+  def : Pat<(or_flag_nocf GR64:$src, (not (add GR64:$src, 1))),
+            (BLCI64rr GR64:$src)>;
+
+  // Extra patterns because opt can optimize the above patterns to this.
+  def : Pat<(or_flag_nocf GR32:$src, (sub -2, GR32:$src)),
+            (BLCI32rr GR32:$src)>;
+  def : Pat<(or_flag_nocf GR64:$src, (sub -2, GR64:$src)),
+            (BLCI64rr GR64:$src)>;
+
+  def : Pat<(xor_flag_nocf GR32:$src, (add GR32:$src, 1)),
+            (BLCMSK32rr GR32:$src)>;
+  def : Pat<(xor_flag_nocf GR64:$src, (add GR64:$src, 1)),
+            (BLCMSK64rr GR64:$src)>;
+
+  def : Pat<(or_flag_nocf GR32:$src, (add GR32:$src, 1)),
+            (BLCS32rr GR32:$src)>;
+  def : Pat<(or_flag_nocf GR64:$src, (add GR64:$src, 1)),
+            (BLCS64rr GR64:$src)>;
+
+  def : Pat<(or_flag_nocf GR32:$src, (add GR32:$src, -1)),
+            (BLSFILL32rr GR32:$src)>;
+  def : Pat<(or_flag_nocf GR64:$src, (add GR64:$src, -1)),
+            (BLSFILL64rr GR64:$src)>;
+
+  def : Pat<(or_flag_nocf (not GR32:$src), (add GR32:$src, -1)),
+            (BLSIC32rr GR32:$src)>;
+  def : Pat<(or_flag_nocf (not GR64:$src), (add GR64:$src, -1)),
+            (BLSIC64rr GR64:$src)>;
+
+  def : Pat<(or_flag_nocf (not GR32:$src), (add GR32:$src, 1)),
+            (T1MSKC32rr GR32:$src)>;
+  def : Pat<(or_flag_nocf (not GR64:$src), (add GR64:$src, 1)),
+            (T1MSKC64rr GR64:$src)>;
 } // HasTBM
 
 //===----------------------------------------------------------------------===//
@@ -2892,6 +2956,12 @@ include "X86InstrSVM.td"
 
 include "X86InstrTSX.td"
 include "X86InstrSGX.td"
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+include "Intel_X86InstrAMX.td"
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 
 // System instructions.
 include "X86InstrSystem.td"

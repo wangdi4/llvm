@@ -420,7 +420,7 @@ void VPlanDivergenceAnalysis::computeImpl() {
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
   return (UniformOverrides.find(&V) != UniformOverrides.end() ||
-          isa<VPExternalDef>(V)) ;
+          isa<VPExternalDef>(V) || isa<VPMetadataAsValue>(V));
 }
 
 bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {

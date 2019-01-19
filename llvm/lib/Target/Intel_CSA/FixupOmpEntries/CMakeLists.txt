@@ -7,6 +7,6 @@
 #    from the company.
 #
 
-add_llvm_loadable_module( LLVMCSAFixupOmpEntries
+add_llvm_library( LLVMCSAFixupOmpEntries MODULE
   CSAFixupOmpEntries.cpp
   )

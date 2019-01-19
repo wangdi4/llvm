@@ -1,6 +1,6 @@
 //===----- HIRSSADeconstruction.cpp - Deconstructs SSA for HIR ------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -136,14 +136,24 @@ private:
   /// \brief Deconstructs phi by inserting copies.
   void deconstructPhi(PHINode *Phi);
 
-  /// Splits the entry block of regions in the following cases-
-  /// 1) It is same as the function entry block.
-  /// 2) It is same as the previous region's exit block.
-  /// Both cases occur in the presence of region entry/exit intrinsics.
-  void splitProblematicRegionEntryBlock(IRRegion &Reg, BasicBlock *FuncEntryBB);
+  /// Replaces liveouts uses of instructions in \p RegionBB by creating a single
+  /// operand phi copy in the region exit block.
+  void replaceLiveoutUsesBySingleOperandPhi(BasicBlock *RegionBB) const;
+
+  /// Processes liveouts instructions in the current region which are not part
+  /// of any loop by creating a single operand phi copy of them in the region
+  /// exit block.
+  void processNonLoopRegionLiveouts() const;
+
+  /// Does the following for regions formed using region entry/exit intrinsic-
+  /// 1) split the entry block starting from region entry intrinsic.
+  /// 2) split the exit block ending at region exit intrinsic.
+  /// 3) create single operand phi copy of liveout instructions in non-loop
+  /// blocks.
+  void preprocessExplicitRegion() const;
 
   /// \brief Performs SSA deconstruction on the regions.
-  void deconstructSSAForRegions(Function &Func);
+  void deconstructSSAForRegions();
 
 private:
   DominatorTree *DT;
@@ -903,10 +913,8 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
   }
 }
 
-static Instruction *findRegionEntryOrExitIntrinsic(BasicBlock *BB,
-                                                   bool IsEntry) {
-  Instruction *RegIntrin = nullptr;
-
+static IntrinsicInst *findRegionEntryOrExitIntrinsic(BasicBlock *BB,
+                                                     bool IsEntry) {
   for (auto &Inst : *BB) {
     auto *Intrin = dyn_cast<IntrinsicInst>(&Inst);
 
@@ -917,28 +925,75 @@ static Instruction *findRegionEntryOrExitIntrinsic(BasicBlock *BB,
     auto Id = Intrin->getIntrinsicID();
 
     if (IsEntry) {
-      if ((Id != Intrinsic::directive_region_entry) &&
-          (Id != Intrinsic::intel_directive)) {
-        continue;
+      if (Id == Intrinsic::directive_region_entry) {
+        return Intrin;
       }
-    } else if (Id != Intrinsic::directive_region_exit) {
-      // We don't expect to support old style intel directives incoming to HIR
-      // so it is okay not to look for them. The check in if-case above is for
-      // handling existing lit tests which still need to be converted to region
-      // entry/exit intrinsics.
-      continue;
+    } else if (Id == Intrinsic::directive_region_exit) {
+      return Intrin;
     }
-
-    RegIntrin = Intrin;
-    break;
   }
 
-  return RegIntrin;
+  return nullptr;
 }
 
-void HIRSSADeconstruction::splitProblematicRegionEntryBlock(
-    IRRegion &Reg, BasicBlock *FuncEntryBB) {
-  if (Reg.isFunctionLevel()) {
+void HIRSSADeconstruction::replaceLiveoutUsesBySingleOperandPhi(
+    BasicBlock *RegionBB) const {
+
+  auto *ExitingBB = CurRegIt->getExitBBlock();
+  auto *ExitBB = ExitingBB->getSingleSuccessor();
+
+  for (auto &Inst : *RegionBB) {
+    PHINode *LiveoutPhi = nullptr;
+
+    for (auto UserIt = Inst.user_begin(), EndIt = Inst.user_end();
+         UserIt != EndIt;) {
+
+      auto *UserInst = cast<Instruction>(*UserIt);
+
+      Use &LiveoutUse = UserIt.getUse();
+      // Increment explicitly as it may gets invalidated later in the iteration.
+      ++UserIt;
+
+      if (!CurRegIt->containsBBlock(UserInst->getParent())) {
+
+        // Create a single operand phi copy of Inst in the exit block.
+        if (!LiveoutPhi) {
+          LiveoutPhi = PHINode::Create(Inst.getType(), 1, "liveoutcopy",
+                                       &*ExitBB->begin());
+          LiveoutPhi->addIncoming(&Inst, ExitingBB);
+        }
+
+        // Replace liveout use by single operand phi.
+        LiveoutUse.set(LiveoutPhi);
+
+        // Invalidate cached SCEV of the user.
+        SE->forgetValue(UserInst);
+      }
+    }
+  }
+}
+
+void HIRSSADeconstruction::processNonLoopRegionLiveouts() const {
+  auto *Lp = CurRegIt->getFirstLoop();
+
+  // Process non-loop blocks before the loop.
+  for (auto *CurBB = Lp->getLoopPreheader(),
+            *EndBB = CurRegIt->getEntryBBlock()->getSinglePredecessor();
+       CurBB != EndBB; CurBB = CurBB->getSinglePredecessor()) {
+    replaceLiveoutUsesBySingleOperandPhi(CurBB);
+  }
+
+  // Process non-loop blocks after the loop.
+  for (auto *CurBB = Lp->getExitBlock(),
+            *EndBB = CurRegIt->getExitBBlock()->getSingleSuccessor();
+       CurBB != EndBB; CurBB = CurBB->getSingleSuccessor()) {
+    replaceLiveoutUsesBySingleOperandPhi(CurBB);
+  }
+}
+
+void HIRSSADeconstruction::preprocessExplicitRegion() const {
+
+  if (CurRegIt->isFunctionLevel()) {
     // Function level region is a special case where we don't need to do
     // anything as the region technically starts from the branch condition of
     // the entry block. This might be an issue if someone uses function level
@@ -947,55 +1002,48 @@ void HIRSSADeconstruction::splitProblematicRegionEntryBlock(
     return;
   }
 
-  auto *RegionEntryBB = Reg.getEntryBBlock();
-  Instruction *RegionEntryIntrin = nullptr;
-  Instruction *RegionExitIntrin = nullptr;
+  auto *RegionEntryBB = CurRegIt->getEntryBBlock();
 
-  if (RegionEntryBB == FuncEntryBB) {
-    // Now we look for region entry intrinsic or intel directive intrinsic as
-    // that is the only case we expect the function entry block to be part of
-    // the region. This instruction will be the bblock splitting point.
-    RegionEntryIntrin = findRegionEntryOrExitIntrinsic(RegionEntryBB, true);
-
-    assert(RegionEntryIntrin &&
-           "Region entry intrinsic expected in region entry block!");
-
-  } else if ((RegionExitIntrin =
-                  findRegionEntryOrExitIntrinsic(RegionEntryBB, false))) {
-    // If the entry bblock has region exit intrinsic which doesn't correspond to
-    // the region entriy intrinsic in the entry block, it belongs to the
-    // previous sibling loop. In such a case we might be sharing the same bblock
-    // between two HIR regions. To fix this we split the entry block at the
-    // region entry intrinsic.
-    RegionEntryIntrin = findRegionEntryOrExitIntrinsic(RegionEntryBB, true);
-
-    assert(RegionEntryIntrin &&
-           "Region entry intrinsic expected in region entry block!");
-    assert(RegionEntryIntrin->hasOneUse() &&
-           "Region entry intrinsic does not have single use!");
-
-    if (*RegionEntryIntrin->user_begin() == RegionExitIntrin) {
-      return;
-    }
-
-    (void)RegionExitIntrin;
-    assert(DT->dominates(RegionExitIntrin, RegionEntryIntrin) &&
-           "Unexpected order of region entry/exit intrinsics in region entry "
-           "block!");
-
-  } else {
-    // Entry block is okay.
+  if (RegionEntryBB == CurRegIt->getFirstLoop()->getHeader()) {
     return;
   }
 
-  auto *NewEntryBB = SplitBlock(RegionEntryBB, RegionEntryIntrin, DT, LI);
+  // Look for region entry intrinsic in the entry bblock and split the bblock
+  // starting at that instruction if it is not the first instruction.
+  auto *RegionEntryIntrin = findRegionEntryOrExitIntrinsic(RegionEntryBB, true);
 
-  Reg.replaceEntryBBlock(NewEntryBB);
+  // Nothing to process.
+  if (!RegionEntryIntrin) {
+    return;
+  }
+
+  if (RegionEntryIntrin != &(*RegionEntryBB->begin())) {
+    auto *NewEntryBB = SplitBlock(RegionEntryBB, RegionEntryIntrin, DT, LI);
+    CurRegIt->replaceEntryBBlock(NewEntryBB);
+  }
+
+  // Look for region exit intrinsic in the exit bblock and split the bblock
+  // starting at that instruction. We split the bblock even if exit intrinsic
+  // is the last instruction (except terminator inst) to keep liveout handling
+  // simple.
+  auto *RegionExitBB = CurRegIt->getExitBBlock();
+  auto *RegionExitIntrin = findRegionEntryOrExitIntrinsic(RegionExitBB, false);
+  auto *NextInst = RegionExitIntrin->getNextNode();
+
+  auto *NewExitSplitBB = SplitBlock(RegionExitBB, NextInst, DT, LI);
+
+  // Check if the exit block of this region is also the entry block of the
+  // next region. If so, update next region's entry block.
+  auto NextRegIt = std::next(CurRegIt);
+  if ((NextRegIt != RI->end()) &&
+      (NextRegIt->getEntryBBlock() == RegionExitBB)) {
+    NextRegIt->replaceEntryBBlock(NewExitSplitBB);
+  }
+
+  processNonLoopRegionLiveouts();
 }
 
-void HIRSSADeconstruction::deconstructSSAForRegions(Function &Func) {
-
-  auto *FuncEntryBB = &Func.getEntryBlock();
+void HIRSSADeconstruction::deconstructSSAForRegions() {
 
   // Traverse regions.
   for (auto RegIt = RI->begin(), EndIt = RI->end(); RegIt != EndIt; ++RegIt) {
@@ -1003,7 +1051,7 @@ void HIRSSADeconstruction::deconstructSSAForRegions(Function &Func) {
     // Set current region
     CurRegIt = RegIt;
 
-    splitProblematicRegionEntryBlock(*CurRegIt, FuncEntryBB);
+    preprocessExplicitRegion();
 
     // Traverse region basic blocks.
     for (auto BBIt = RegIt->bb_begin(), EndBBIt = RegIt->bb_end();
@@ -1048,7 +1096,7 @@ bool HIRSSADeconstruction::run(Function &F, DominatorTree &DT, LoopInfo &LI,
   F.getParent()->setIntelProprietary();
 #endif // INTEL_PRODUCT_RELEASE
 
-  deconstructSSAForRegions(F);
+  deconstructSSAForRegions();
 
   return ModifiedIR;
 }

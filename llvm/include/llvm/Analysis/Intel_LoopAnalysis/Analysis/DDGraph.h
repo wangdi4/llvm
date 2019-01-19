@@ -1,6 +1,6 @@
 //===------- DDTest.h - Provides Data Dependence Analysis -*-- C++ --*-----===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -151,11 +151,15 @@ private:
   const HLNode *CurNode;
   DDGraphTy *G;
 
-public:
+  template<bool IsIncoming>
+  std::function<bool(const DDEdge *)> make_filter(const HLNode *Node) const {
+    return DDGraphFilter<IsIncoming>(Node);
+  }
+
+  template<bool IsIncoming>
   class DDGraphFilter {
     unsigned FirstChildNum;
     unsigned LastChildNum;
-    bool IsIncoming;
 
     template <typename NodeTy> void init(const NodeTy *Node) {
       FirstChildNum = Node->getFirstChild()->getMinTopSortNum();
@@ -163,8 +167,7 @@ public:
     }
 
   public:
-    DDGraphFilter(const HLNode *Node, bool IsIncoming)
-        : IsIncoming(IsIncoming) {
+    DDGraphFilter(const HLNode *Node) {
       if (!Node) {
         return;
       }
@@ -190,10 +193,6 @@ public:
     }
   };
 
-private:
-  DDGraphFilter IncomingFilter;
-  DDGraphFilter OutgoingFilter;
-
   const DDGraphTy *getGraphImpl() const {
     assert(G && "Trying to iterate over uninitialized graph!");
     return G;
@@ -201,28 +200,24 @@ private:
 
 public:
   using FilterEdgeIterator =
-      filter_iterator<DDGraphTy::EdgeIterator, DDGraphFilter>;
+      filter_iterator<DDGraphTy::EdgeIterator,
+                      std::function<bool(const DDEdge *)>>;
 
-  DDGraph()
-      : CurNode(nullptr), G(nullptr), IncomingFilter(nullptr, true),
-        OutgoingFilter(nullptr, false) {}
-
-  DDGraph(const HLNode *Node, DDGraphTy *Graph)
-      : CurNode(Node), G(Graph), IncomingFilter(Node, true),
-        OutgoingFilter(Node, false) {}
+  DDGraph() : CurNode(nullptr), G(nullptr) {}
+  DDGraph(const HLNode *Node, DDGraphTy *Graph) : CurNode(Node), G(Graph) {}
 
   iterator_range<FilterEdgeIterator> incoming(const DDRef *Ref) const {
     return make_filter_range(
         llvm::make_range(getGraphImpl()->incoming_edges_begin(Ref),
                          getGraphImpl()->incoming_edges_end(Ref)),
-        IncomingFilter);
+        make_filter<true>(CurNode));
   }
 
   iterator_range<FilterEdgeIterator> outgoing(const DDRef *Ref) const {
     return make_filter_range(
         llvm::make_range(getGraphImpl()->outgoing_edges_begin(Ref),
                          getGraphImpl()->outgoing_edges_end(Ref)),
-        OutgoingFilter);
+        make_filter<false>(CurNode));
   }
 
   FilterEdgeIterator incoming_edges_begin(const DDRef *Ref) const {

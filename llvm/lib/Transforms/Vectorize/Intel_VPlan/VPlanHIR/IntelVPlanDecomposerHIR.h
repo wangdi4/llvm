@@ -1,6 +1,6 @@
 //===-- VPlanDecomposeHIR.h -------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -78,6 +78,7 @@ private:
   VPInstruction *decomposeConversion(VPValue *Src, unsigned ConvOpCode,
                                      Type *DestType);
   VPValue *decomposeCanonExprConv(loopopt::CanonExpr *CE, VPValue *Src);
+  VPValue *decomposeBlobImplicitConv(VPValue *Src, Type *DestTy);
   VPValue *decomposeBlob(loopopt::RegDDRef *RDDR, unsigned BlobIdx,
                          int64_t BlobCoeff);
   VPValue *decomposeIV(loopopt::RegDDRef *RDDR, loopopt::CanonExpr *CE,

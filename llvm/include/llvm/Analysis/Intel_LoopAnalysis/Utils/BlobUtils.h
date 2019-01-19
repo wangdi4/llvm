@@ -1,6 +1,6 @@
 //===-------------- BlobUtils.h - Blob utilities --------------*- C++ -*---===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -96,7 +96,7 @@ public:
 
   /// Returns temp blob index corresponding to symbase. Returns InvalidBlobIndex
   /// if blob cannot be found.
-  unsigned findTempBlobIndex(unsigned Symbase);
+  unsigned findTempBlobIndex(unsigned Symbase) const;
 
   /// Finds or inserts temp blob index corresponding to symbase and returns it.
   unsigned findOrInsertTempBlobIndex(unsigned Symbase);

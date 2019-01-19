@@ -62,7 +62,7 @@ struct TUAction {
     Idle, // Indicates the worker thread is idle, and ready to run any upcoming
           // actions.
   };
-  TUAction(State S, llvm::StringRef Name) : S(S), Name(Name){};
+  TUAction(State S, llvm::StringRef Name) : S(S), Name(Name) {}
   State S;
   /// The name of the action currently running, e.g. Update, GoToDef, Hover.
   /// Empty if we are in the idle state.
@@ -77,6 +77,8 @@ struct TUStatus {
     /// Indicates whether we reused the prebuilt AST.
     bool ReuseAST = false;
   };
+  /// Serialize this to an LSP file status item.
+  FileStatus render(PathRef File) const;
 
   TUAction Action;
   BuildDetails Details;

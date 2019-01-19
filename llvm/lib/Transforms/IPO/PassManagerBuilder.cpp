@@ -603,9 +603,11 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
   if (EnableLoopInterchange)
     MPM.add(createLoopInterchangePass()); // Interchange loops
+
   // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
-  if (!DisableUnrollLoops && !isLoopOptEnabled()) // INTEL
-    MPM.add(createSimpleLoopUnrollPass(OptLevel));    // Unroll small loops
+  if (!isLoopOptEnabled()) // INTEL
+    MPM.add(createSimpleLoopUnrollPass(OptLevel,  // INTEL
+                                     DisableUnrollLoops)); // Unroll small loops
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   MPM.add(createLoopSPMDizationPass());
@@ -941,7 +943,7 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_CUSTOMIZATION
   if (EnableLV)
-    MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
+    MPM.add(createLoopVectorizePass(DisableUnrollLoops, !LoopVectorize));
   }
 #endif  // INTEL_CUSTOMIZATION
   // Eliminate loads by forwarding stores from the previous iteration to loads
@@ -1003,23 +1005,27 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
   // Disable unroll in LTO mode if loopopt is enabled so it only gets triggered
   // in link phase after loopopt.
-  if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled())) {
+  if (EnableUnrollAndJam && !DisableUnrollLoops &&
+      (!PrepareForLTO || !isLoopOptEnabled())) {
 #endif // INTEL_CUSTOMIZATION
-    if (EnableUnrollAndJam) {
-      // Unroll and Jam. We do this before unroll but need to be in a separate
-      // loop pass manager in order for the outer loop to be processed by
-      // unroll and jam before the inner loop is unrolled.
-      MPM.add(createLoopUnrollAndJamPass(OptLevel));
-    }
+    // Unroll and Jam. We do this before unroll but need to be in a separate
+    // loop pass manager in order for the outer loop to be processed by
+    // unroll and jam before the inner loop is unrolled.
+    MPM.add(createLoopUnrollAndJamPass(OptLevel));
+  }
 
-    MPM.add(createLoopUnrollPass(OptLevel));    // Unroll small loops
+  if (!PrepareForLTO || !isLoopOptEnabled()) // INTEL
+  MPM.add(createLoopUnrollPass(OptLevel,
+                               DisableUnrollLoops)); // Unroll small loops
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
+  if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled()))
     MPM.add(createCSALowerParallelIntrinsicsWrapperPass());
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
+  if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled())) { // INTEL
     // LoopUnroll may generate some redundency to cleanup.
     addInstructionCombiningPass(MPM);
 
@@ -1028,7 +1034,7 @@ void PassManagerBuilder::populateModulePassManager(
     // outer loop. LICM pass can help to promote the runtime check out if the
     // checked value is loop invariant.
     MPM.add(createLICMPass());
- }
+  }
 
   MPM.add(createWarnMissedTransformationsPass());
 
@@ -1300,15 +1306,16 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
-  if (!DisableUnrollLoops && !isLoopOptEnabled())
-    PM.add(createSimpleLoopUnrollPass(OptLevel));   // Unroll small loops
+  if (!isLoopOptEnabled())
+    PM.add(createSimpleLoopUnrollPass(OptLevel,
+                                    DisableUnrollLoops)); // Unroll small loops
   addLoopOptAndAssociatedVPOPasses(PM);
   if (EnableLV)
-    PM.add(createLoopVectorizePass(true, LoopVectorize));
+    PM.add(createLoopVectorizePass(true, !LoopVectorize));
 #endif  // INTEL_CUSTOMIZATION
+
   // The vectorizer may have significantly shortened a loop body; unroll again.
-  if (!DisableUnrollLoops)
-    PM.add(createLoopUnrollPass(OptLevel));
+  PM.add(createLoopUnrollPass(OptLevel, DisableUnrollLoops));
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA

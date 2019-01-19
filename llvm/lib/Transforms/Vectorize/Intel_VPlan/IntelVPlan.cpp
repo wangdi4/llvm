@@ -48,14 +48,18 @@ std::atomic<unsigned> VPlanUtils::NextOrdinal{1};
 static cl::opt<bool>
     DumpPlainVPlanIR("vplan-plain-dump", cl::init(false), cl::Hidden,
                        cl::desc("Print plain VPlan IR"));
+static cl::opt<int>
+    DumpVPlanLiveness("vplan-dump-liveness", cl::init(0), cl::Hidden,
+                       cl::desc("Print VPlan instructions' liveness info"));
 
-raw_ostream &operator<<(raw_ostream &OS, const VPValue &V) {
+raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
     I->dump(OS);
   else
     V.dump(OS);
   return OS;
 }
+
 #endif
 
 /// \return the VPBasicBlock that is the entry of Block, possibly indirectly.
@@ -526,26 +530,35 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
     }
   }
   auto &Successors = getSuccessors();
-  if (Successors.empty()) {
-    OS << StrIndent << "END Block - no SUCCESSORS\n";
-    return;
-  }
-  OS << StrIndent << "SUCCESSORS(" << Successors.size() << "):";
-  if (Successors.size() == 1) {
-    OS << Successors.front()->getName();
-  } else if (Successors.size() == 2) {
-    if (CB) {
-      OS << Successors.front()->getName() << "(";
-      CB->printAsOperand(OS);
-      OS << "), " << Successors.back()->getName() << "(!";
-      CB->printAsOperand(OS);
-      OS << ")";
+  if (Successors.empty())
+    OS << StrIndent << "no SUCCESSORS";
+  else {
+    OS << StrIndent << "SUCCESSORS(" << Successors.size() << "):";
+    if (Successors.size() == 1) {
+      OS << Successors.front()->getName();
+    } else if (Successors.size() == 2) {
+      if (CB) {
+        OS << Successors.front()->getName() << "(";
+        CB->printAsOperand(OS);
+        OS << "), " << Successors.back()->getName() << "(!";
+        CB->printAsOperand(OS);
+        OS << ")";
+      } else {
+        OS << Successors.front()->getName() << "(<undef>), "
+           << Successors.back()->getName() << "(!<undef>)";
+      }
     } else {
-      OS << Successors.front()->getName() << "(<undef>), "
-         << Successors.back()->getName() << "(!<undef>)";
+      assert("More than 2 successors in basic block are not supported!");
     }
+  }
+  OS << "\n";
+  auto &Predecessors = getPredecessors();
+  if (Predecessors.empty()) {
+    OS << StrIndent << "no PREDECESSORS";
   } else {
-    assert("More than 2 successors in basic block are not supported!");
+    OS << StrIndent << "PREDECESSORS(" << Predecessors.size() << "):";
+    for (auto Block : Predecessors)
+      OS << " " << Block->getName();
   }
   OS << "\n\n";
 }
@@ -1132,10 +1145,25 @@ void VPlan::executeHIR(VPOCodeGenHIR *CG) {
   Entry->executeHIR(CG);
 }
 
+void VPlan::verifyVPConstants() const {
+  SmallPtrSet<const Constant *, 16> ConstantSet;
+  for (const auto &Pair : VPConstants) {
+    const Constant *KeyConst = Pair.first;
+    assert(KeyConst == Pair.second->getConstant() &&
+           "Value key and VPConstant's underlying Constant must be the same!");
+    // Checking that an element is repeated in a map is unnecessary but it
+    // will catch bugs if the data structure is changed in the future.
+    assert(!ConstantSet.count(KeyConst) && "Repeated VPConstant!");
+    ConstantSet.insert(KeyConst);
+  }
+}
+
 void VPlan::verifyVPExternalDefs() const {
   SmallPtrSet<const Value *, 16> ValueSet;
   for (const auto &Pair : VPExternalDefs) {
     const Value *KeyVal = Pair.first;
+    assert(!isa<Constant>(KeyVal) && !isa<MetadataAsValue>(KeyVal) &&
+           "Unexpected underlying IR for external definition!");
     assert(KeyVal == Pair.second->getUnderlyingValue() &&
            "Value key and VPExternalDef's underlying Value must be the same!");
     // Checking that an element is repeated in a map is unnecessary but it
@@ -1148,7 +1176,6 @@ void VPlan::verifyVPExternalDefs() const {
 void VPlan::verifyVPExternalDefsHIR() const {
   SmallSet<unsigned, 16> SymbaseSet;
   SmallSet<unsigned, 16> IVLevelSet;
-  SmallPtrSet<const MetadataAsValue *, 16> MDSet;
   for (const auto &Pair : VPExternalDefsHIR) {
     const UnitaryBlobOrIV &KeyHIROp = Pair.first;
     assert(KeyHIROp.isStructurallyEqual(Pair.second->getUnitaryBlobOrIV()) &&
@@ -1156,23 +1183,32 @@ void VPlan::verifyVPExternalDefsHIR() const {
            "the same!");
 
     // Deeper verification depending on the kind of the underlying HIR operand.
-    if (KeyHIROp.isNonMDBlob()) {
+    if (KeyHIROp.isBlob()) {
       // For blobs we check that the symbases are unique.
       unsigned Symbase = KeyHIROp.getBlob()->getSymbase();
       assert(!SymbaseSet.count(Symbase) && "Repeated blob VPExternalDef!");
       SymbaseSet.insert(Symbase);
-    } else if (KeyHIROp.isIV()) {
+    } else {
       // For IVs we check that the IV levels are unique.
+      assert(KeyHIROp.isIV() && "Expected IV VPExternalDef!");
       unsigned IVLevel = KeyHIROp.getIVLevel();
       assert(!IVLevelSet.count(IVLevel) && "Repeated IV VPExternalDef!");
       IVLevelSet.insert(IVLevel);
-    } else {
-      assert(KeyHIROp.isMDBlob() && "Expected metadata VPExternalDef!");
-      // For metadata we check that the underlying metadata is unique.
-      const MetadataAsValue *MD = KeyHIROp.getMetadata();
-      assert(!MDSet.count(MD) && "Repeated Metadata VPExternalDef!");
-      MDSet.insert(MD);
     }
+  }
+}
+
+void VPlan::verifyVPMetadataAsValues() const {
+  SmallPtrSet<const MetadataAsValue *, 16> MDAsValueSet;
+  for (const auto &Pair : VPMetadataAsValues) {
+    const MetadataAsValue *KeyMD = Pair.first;
+    assert(KeyMD == Pair.second->getMetadataAsValue() &&
+           "Value key and VPMetadataAsValue's underlying MetadataAsValue must "
+           "be the same!");
+    // Checking that an element is repeated in a map is unnecessary but it
+    // will catch bugs if the data structure is changed in the future.
+    assert(!MDAsValueSet.count(KeyMD) && "Repeated MetadataAsValue!");
+    MDAsValueSet.insert(KeyMD);
   }
 }
 #endif
@@ -1238,6 +1274,103 @@ void VPlan::dump() const {
     errs() << "VPlan IR for: " << getName() << "\n";
   getEntry()->dump(errs(), 1);
 }
+
+void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
+  if (DumpVPlanLiveness == 0 || !VPLInfo)
+    return;
+  OS << "Live-in and Live-out info:\n";
+  if (!VPExternalDefs.empty()) {
+    OS << "External defs:\n";
+    for (auto DI = VPExternalDefs.begin(); DI != VPExternalDefs.end(); DI++)
+      OS << *(DI->second) << "\n";
+  }
+  if (!VPExternalDefsHIR.empty()) {
+    OS << "External defs:\n";
+    for (auto DI = VPExternalDefsHIR.begin(); DI != VPExternalDefsHIR.end();
+         DI++)
+      OS << *(DI->second) << "\n";
+  }
+  if (!VPExternalUses.empty()) {
+    OS << "Used externally:\n";
+    for (auto UI = VPExternalUses.begin(); UI != VPExternalUses.end(); UI++) {
+      const VPValue *Op = UI->second->getOperand(0);
+      Op->printAsOperand(OS);
+      if (DumpVPlanLiveness > 1 && UI->second->getUnderlyingValue())
+        OS << " (used by " << *(UI->second->getUnderlyingValue()) << ")\n";
+      else
+        OS << "\n";
+    }
+  }
+  if (!VPExternalUsesHIR.empty()) {
+    OS << "Used externally:\n";
+    for (auto UI = VPExternalUsesHIR.begin(); UI != VPExternalUsesHIR.end();
+         UI++) {
+      const VPValue *Op = UI->second->getOperand(0);
+      Op->printAsOperand(OS);
+      if (DumpVPlanLiveness > 1 && UI->second->getUnderlyingValue())
+        OS << " (used by " << *(UI->second->getUnderlyingValue()) << ")\n";
+      else
+        OS << "\n";
+    }
+  }
+  std::function<void(const VPBasicBlock *)> dumpBlockLiveness =
+      [&](const VPBasicBlock *Block) {
+        // For each live-in or live-out instruction in the Block print the
+        // corresponding comment
+        const VPLoop *Loop = VPLInfo->getLoopFor(Block);
+        if (DumpVPlanLiveness > 2)
+          OS << "Liveness for BBlock: " << Block->getName() << "\n";
+        if (Loop == nullptr) {
+          if (DumpVPlanLiveness > 2)
+            OS << "no loop found\n";
+          return;
+        }
+        for (const VPRecipeBase &Recipe : *Block) {
+          const auto *VPInst = dyn_cast<VPInstruction>(&Recipe);
+          if (!VPInst)
+            continue;
+          if (DumpVPlanLiveness > 2)
+            OS << "Instruction: " << *VPInst << "\n";
+          for (const VPValue *Op : VPInst->operands()) {
+            SmallVector<const VPLoop *, 4> LoopList;
+            const VPLoop *ParentLoop = Loop;
+            while (ParentLoop) {
+              if (!ParentLoop->isLiveIn(Op))
+                break;
+              LoopList.push_back(ParentLoop);
+              ParentLoop = ParentLoop->getParentLoop();
+            }
+            if (LoopList.size()) {
+              Op->printAsOperand(OS);
+              OS << " livein in the loops: ";
+              for (const VPLoop *L : LoopList)
+                OS << " " << L->getLoopPreheader()->getName();
+              OS << "\n";
+            }
+          }
+          if (Loop->isLiveOut(VPInst)) {
+            VPInst->printAsOperand(OS);
+            OS << " liveout in the loop: "
+               << Loop->getLoopPreheader()->getName() << "\n";
+          }
+        }
+      };
+  std::function<void(const VPBlockBase *)> dumpLiveness =
+      [&](const VPBlockBase *VPBlock) {
+        // Print liveness information for a basic block or for a region
+        if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
+          for (const VPBlockBase *Block : depth_first(Region->getEntry()))
+            dumpLiveness(Block);
+        } else {
+          const auto *VPBB = cast<VPBasicBlock>(VPBlock);
+          dumpBlockLiveness(VPBB);
+        }
+      };
+
+  dumpLiveness(getEntry());
+  OS << "Live-in and Live-out info end\n";
+}
+
 #endif /* INTEL_CUSTOMIZATION */
 
 void VPlanPrinter::dump() {

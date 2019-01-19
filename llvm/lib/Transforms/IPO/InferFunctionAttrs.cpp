@@ -22,7 +22,7 @@ using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
 // For experimenting with new keywords use -force-attribute option
-const std::array<StringRef, 2> ErrorHandlingKeywords = {"croak", "warn"};
+const std::array<StringRef, 3> ErrorHandlingKeywords = {"croak", "warn", "signal"};
 
 // We detect functions that contain special keywords in their names.
 // If there is a match we assume they are error handling functions,

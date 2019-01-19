@@ -61,6 +61,7 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
     {MD_associated, "associated"},
     {MD_callees, "callees"},
     {MD_irr_loop, "irr_loop"},
+    {MD_access_group, "llvm.access.group"},
 #if INTEL_CUSTOMIZATION
     {MD_std_container_ptr, "std.container.ptr"},
     {MD_std_container_ptr_iter, "std.container.ptr.iter"},

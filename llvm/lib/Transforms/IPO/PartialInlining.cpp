@@ -947,9 +947,8 @@ int PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB) {
 
     IntrinsicInst *IntrInst = dyn_cast<IntrinsicInst>(&I);
     if (IntrInst) {
-      if (IntrInst->getIntrinsicID() == Intrinsic::lifetime_start ||
-          IntrInst->getIntrinsicID() == Intrinsic::lifetime_end)
-        continue;
+      if (I.isLifetimeStartOrEnd())  //INTEL
+        continue;                    //INTEL
 #if INTEL_CUSTOMIZATION
       if (isa<FakeloadInst>(IntrInst))
         continue;

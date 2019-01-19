@@ -1,6 +1,6 @@
 //===-- VPlanDecomposeHIR.cpp ---------------------------------------------===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -63,14 +63,10 @@ VPConstant *VPDecomposerHIR::decomposeCoeff(int64_t Coeff, Type *Ty) {
 }
 
 // Create a VPInstruction with \p Src as source operand, \p ConvOpCode as
-// conversion opcode (ZExt, SExt or Trunc) and \p DestType as destination type.
+// conversion opcode and \p DestType as destination type.
 VPInstruction *VPDecomposerHIR::decomposeConversion(VPValue *Src,
                                                     unsigned ConvOpCode,
                                                     Type *DestType) {
-  assert((ConvOpCode == Instruction::ZExt || ConvOpCode == Instruction::SExt ||
-          ConvOpCode == Instruction::Trunc) &&
-         "Unexpected conversion OpCode.");
-
   auto *NewConv = cast<VPInstruction>(
       Builder.createNaryOp(ConvOpCode, {Src}, DestType));
   return NewConv;
@@ -92,6 +88,21 @@ VPValue *VPDecomposerHIR::decomposeCanonExprConv(CanonExpr *CE, VPValue *Src) {
   llvm_unreachable("Unsupported conversion in VPlan decomposer!");
 }
 
+// Create a VPInstruction for the conversion from \p Src's type to \p DestTy.
+VPValue *VPDecomposerHIR::decomposeBlobImplicitConv(VPValue *Src,
+                                                    Type *DestTy) {
+  Type *SrcTy = Src->getBaseType();
+  if (SrcTy == DestTy)
+    return Src;
+
+  if (SrcTy->isPointerTy() && DestTy->isIntegerTy())
+    return decomposeConversion(Src, Instruction::PtrToInt, DestTy);
+  if (SrcTy->isIntegerTy() && DestTy->isPointerTy())
+    return decomposeConversion(Src, Instruction::IntToPtr, DestTy);
+
+  llvm_unreachable("Unexpected blob implicit conversion!");
+}
+
 // Decompose a blob given its \p BlobIdx and \p BlobCoeff. Return the last
 // VPValue resulting from its decomposition.
 VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
@@ -108,7 +119,6 @@ VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
     Type *CoeffType;
 
     if (BlobTy->isPointerTy()) {
-      // If blob has pointer type, coeff must be integer.
       // If coeff != 1 and blob type is pointer, only -1 coeff is allowed for
       // now.
       assert((BlobCoeff == -1) &&
@@ -119,14 +129,18 @@ VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
               BlobTy);
       switch (PointerSize) {
       case 64:
-        CoeffType = Type::getInt64Ty(BlobTy->getContext());
+        CoeffType = Type::getInt64Ty(*Plan->getLLVMContext());
         break;
       case 32:
-        CoeffType = Type::getInt32Ty(BlobTy->getContext());
+        CoeffType = Type::getInt32Ty(*Plan->getLLVMContext());
         break;
       default:
         llvm_unreachable("Unexpected pointer size.");
       }
+
+      // Generate pointer-to-int comparison for pointer blob with -1 coefficient
+      // (-1 * PtrToInt(p)).
+      DecompBlob = decomposeBlobImplicitConv(DecompBlob, CoeffType);
     } else
       CoeffType = Blob->getType();
 
@@ -215,7 +229,8 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
     assert(BlobCoeff != 0 && "Invalid blob coefficient!");
 
-    VPValue *DecompBlob = decomposeBlob(RDDR, BlobIdx, BlobCoeff);
+    VPValue *DecompBlob = decomposeBlobImplicitConv(
+        decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
     DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
                                   Instruction::Add);
   }
@@ -381,7 +396,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
         // non-empty
         if (!HIRDimOffsets.empty()) {
           // Trailing struct offsets are always I32 type constants
-          auto I32Ty = Type::getInt32Ty(Ref->getDDRefUtils().getContext());
+          auto I32Ty = Type::getInt32Ty(*Plan->getLLVMContext());
           for (auto OffsetVal : HIRDimOffsets) {
             auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
             // Build a VPConstant to represent the offset value
@@ -473,19 +488,13 @@ static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
 
 // Return true if \p Def is considered an external definition. An external
 // definition is a definition that happens outside of the outermost HLLoop,
-// including its preheader and exit. A special kind of operands that fits into
-// this category is metadata operands.
+// including its preheader and exit.
 bool VPDecomposerHIR::isExternalDef(DDRef *UseDDR) {
   // TODO: We are pushing outermost loop PH and Exit outside of the VPlan region
   // for now so this code won't be valid until we bring them back. return
   // !Def->getHLNodeUtils().contains(OutermostHLp, Def,
   //                                 true /*include preheader/exit*/);
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
-
-  // Check if UseDDR is metadata.
-  if (UseDDR->isMetadata())
-    return true;
-
   return OutermostHLp->isLiveIn(UseDDR->getSymbase());
 }
 
@@ -497,12 +506,9 @@ unsigned VPDecomposerHIR::getNumReachingDefinitions(DDRef *UseDDR) {
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
 
   if (UseDDR->isMetadata())
-    // Metadata is considered a external definition. I has a single definition
-    // since a metadata operand doesn't have DD edges.
+    // Metadata operands has a single definition since they are globally defined
+    // only once.
     return 1;
-
-  assert((UseDDR->isSelfBlob() || isa<BlobDDRef>(UseDDR)) &&
-         "Expected self blob or BlobDDRef!");
 
   auto BlobInEdges = DDG.incoming(UseDDR);
   return std::distance(BlobInEdges.begin(), BlobInEdges.end()) +
@@ -552,7 +558,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   assert(!isa<HLLoop>(Node) && "HLLoop shouldn't be processed here!");
 
   if (isa<HLGoto>(Node)) {
-    Type *BaseTy = Type::getInt1Ty(Node->getHLNodeUtils().getContext());
+    Type *BaseTy = Type::getInt1Ty(*Plan->getLLVMContext());
     return Builder.createBr(BaseTy, cast<HLGoto>(Node));
   }
 
@@ -612,6 +618,14 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
     NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
         HInst->getLLVMInstruction()->getOpcode(), VPOperands,
         HInst->getLLVMInstruction()->getType(), DDNode));
+  }
+
+  if (HInst && HInst->hasLval()) {
+    RegDDRef *DDRef = HInst->getLvalDDRef();
+    if (OutermostHLp->isLiveOut(DDRef->getSymbase())) {
+      VPExternalUse* User = Plan->getVPExternalUseForDDRef(DDRef);
+      User->addOperand(NewVPInst);
+    }
   }
 
   HLDef2VPValue[DDNode] = NewVPInst;
@@ -708,6 +722,11 @@ void VPDecomposerHIR::createOrGetVPDefsForUse(
     DDRef *UseDDR, SmallVectorImpl<VPValue *> &VPDefs) {
 
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
+
+  // Process metadata definitions.
+  MetadataAsValue *MDAsValue;
+  if (UseDDR->isMetadata(&MDAsValue))
+    VPDefs.push_back(Plan->getVPMetadataAsValue(MDAsValue));
 
   // Process external definitions.
   if (isExternalDef(UseDDR))
@@ -937,11 +956,11 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     // Decompose constant blobs that are not integer values.
     return decomposeNonIntConstBlob(Blob);
 
-  // If the RegDDRef is a self blob or metadata, we use the RegDDRef directly in
-  // the following steps since there is no BlobDDRef associated to this Blob.
-  // Otherwise, we retrieve and use the BlobDDRef.
+  // If the RegDDRef is a standalone blob (including metadata), we use the
+  // RegDDRef directly in the following steps since there is no BlobDDRef
+  // associated to this Blob. Otherwise, we retrieve and use the BlobDDRef.
   DDRef *DDR;
-  if (RDDR.isSelfBlob() || RDDR.isMetadata())
+  if (RDDR.isNonDecomposable())
     DDR = &RDDR;
   else {
     unsigned BlobIndex = RDDR.getBlobUtils().findBlob(Blob);
@@ -982,8 +1001,9 @@ VPValue *
 VPDecomposerHIR::VPBlobDecompVisitor::decomposeNAryOp(const SCEVNAryExpr *Blob,
                                                       unsigned OpCode) {
   VPValue *DecompDef = nullptr;
+  Type *ExprTy = Blob->getType();
   for (auto *SCOp : Blob->operands()) {
-    VPValue *VPOp = visit(SCOp);
+    VPValue *VPOp = Decomposer.decomposeBlobImplicitConv(visit(SCOp), ExprTy);
     DecompDef =
         Decomposer.combineDecompDefs(VPOp, DecompDef, Blob->getType(), OpCode);
   }

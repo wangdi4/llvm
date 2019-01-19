@@ -1,6 +1,6 @@
 //===-------- HLLoop.cpp - Implements the HLLoop class --------------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1109,7 +1109,7 @@ bool HLLoop::hasDirective(int DirectiveID) const {
   return false;
 }
 
-bool HLLoop::hasSIMDRegionDirective() const {
+bool HLLoop::isSIMD() const {
   const HLNode *PrevNode = this;
 
   while ((PrevNode = PrevNode->getPrevNode())) {
@@ -1119,9 +1119,7 @@ bool HLLoop::hasSIMDRegionDirective() const {
     if (!Inst)
       return false;
 
-    // Check if the instruction has an operand bundle with DIR.OMP.SIMD tag
-    if (Inst->getNumOperandBundles() &&
-        Inst->getOperandBundleAt(0).getTagName().equals("DIR.OMP.SIMD"))
+    if (Inst->isSIMDDirective())
       return true;
   }
 

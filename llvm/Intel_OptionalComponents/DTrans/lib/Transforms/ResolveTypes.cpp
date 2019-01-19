@@ -57,9 +57,9 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 using namespace llvm;
-using dtrans::getTypeBaseName;
 using dtrans::collectAllStructTypes;
 using dtrans::getContainedStructTy;
+using dtrans::getTypeBaseName;
 
 #define DEBUG_TYPE "dtrans-resolvetypes"
 
@@ -77,7 +77,7 @@ bool typesHaveSameBaseName(StructType *StTyA, StructType *StTyB) {
   if (!StTyA->hasName() || !StTyB->hasName())
     return false;
   return getTypeBaseName(StTyA->getName())
-    .equals(getTypeBaseName(StTyB->getName()));
+      .equals(getTypeBaseName(StTyB->getName()));
 }
 
 class DTransResolveTypesWrapper : public ModulePass {
@@ -500,16 +500,16 @@ private:
     // tracked by this TypeUseInfo object.
     //
     // i.e. We saw a bitcast from the TypeUseInfoType *to* the set entry type.
-    SetVector<Type *> BitcastToSet;
-    SetVector<Type *> FnBitcastToSet;
+    SmallPtrSet<Type *, 4> BitcastToSet;
+    SmallPtrSet<Type *, 4> FnBitcastToSet;
 
     // Each type in this set is a type that was seen as the source of
     // a bitcast (or implicit conversion in a bitcast call) to the type
     // tracked by this TypeUseInfo object.
     //
     // i.e. We saw a bitcast *from* the set entry type to the TypeUseInfo type.
-    SetVector<Type *> BitcastFromSet;
-    SetVector<Type *> FnBitcastFromSet;
+    SmallPtrSet<Type *, 4> BitcastFromSet;
+    SmallPtrSet<Type *, 4> FnBitcastFromSet;
 
     // This value indicates whether or not we saw a GEP access to the type
     // using a non-constant index.
@@ -530,6 +530,18 @@ private:
   void dumpCollectedData() {
     auto CompareStructName = [](StructType *ElemA, StructType *ElemB) {
       return ElemA->getName() < ElemB->getName();
+    };
+
+    auto TypeToString = [](Type *Ty) {
+      std::string OutputVal;
+      raw_string_ostream OutputStream(OutputVal);
+      auto *DST = dyn_cast<StructType>(Ty);
+      if (DST && DST->hasName())
+        OutputStream << "    " << DST->getName();
+      else
+        OutputStream << "    " << *Ty;
+      OutputStream.flush();
+      return OutputVal;
     };
 
     dbgs() << "\n========================\n";
@@ -630,13 +642,9 @@ private:
           dbgs() << " None\n";
         } else {
           dbgs() << "\n";
-          for (auto *DestTy : CastTo) {
-            auto *DST = dyn_cast<StructType>(DestTy);
-            if (DST && DST->hasName())
-              dbgs() << "    " << DST->getName() << "\n";
-            else
-              dbgs() << "    " << *DestTy << "\n";
-          }
+          dtrans::printCollectionSorted(dbgs(), CastTo.begin(), CastTo.end(),
+                                        "\n", TypeToString);
+          dbgs() << "\n";
         }
 
         dbgs() << "  Bitcast from:";
@@ -645,13 +653,9 @@ private:
           dbgs() << " None\n";
         } else {
           dbgs() << "\n";
-          for (auto *SrcTy : CastFrom) {
-            auto *SST = dyn_cast<StructType>(SrcTy);
-            if (SST && SST->hasName())
-              dbgs() << "    " << SST->getName() << "\n";
-            else
-              dbgs() << "    " << *SrcTy << "\n";
-          }
+          dtrans::printCollectionSorted(dbgs(), CastFrom.begin(),
+                                        CastFrom.end(), "\n", TypeToString);
+          dbgs() << "\n";
         }
 
         dbgs() << "  Fn Bitcast to:";
@@ -660,13 +664,9 @@ private:
           dbgs() << " None\n";
         } else {
           dbgs() << "\n";
-          for (auto *DestTy : FnCastTo) {
-            auto *DST = dyn_cast<StructType>(DestTy);
-            if (DST && DST->hasName())
-              dbgs() << "    " << DST->getName() << "\n";
-            else
-              dbgs() << "    " << *DestTy << "\n";
-          }
+          dtrans::printCollectionSorted(dbgs(), FnCastTo.begin(),
+                                        FnCastTo.end(), "\n", TypeToString);
+          dbgs() << "\n";
         }
 
         dbgs() << "  Fn Bitcast from:";
@@ -675,13 +675,9 @@ private:
           dbgs() << " None\n";
         } else {
           dbgs() << "\n";
-          for (auto *SrcTy : FnCastFrom) {
-            auto *SST = dyn_cast<StructType>(SrcTy);
-            if (SST && SST->hasName())
-              dbgs() << "    " << SST->getName() << "\n";
-            else
-              dbgs() << "    " << *SrcTy << "\n";
-          }
+          dtrans::printCollectionSorted(dbgs(), FnCastFrom.begin(),
+                                        FnCastFrom.end(), "\n", TypeToString);
+          dbgs() << "\n";
         }
 
         StructType *RemapCandidateTy = getRemapCandidate(Ty);

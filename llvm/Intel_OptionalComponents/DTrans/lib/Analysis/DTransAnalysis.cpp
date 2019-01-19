@@ -1,6 +1,6 @@
 //===---------------- DTransAnalysis.cpp - DTrans Analysis ----------------===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -955,8 +955,8 @@ bool DTransAllocAnalyzer::isFreePostDom(ImmutableCallSite CS) {
   // that it is inside a BitCast. In this case we need
   // to strip the pointer casting from the Value and then
   // access the Function.
-  const Function *F
-      = dyn_cast<const Function>(CS.getCalledValue()->stripPointerCasts());
+  const Function *F =
+      dyn_cast<const Function>(CS.getCalledValue()->stripPointerCasts());
 
   if (!F)
     // Check for deallocation routine.
@@ -1739,7 +1739,7 @@ bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
     if (isa<CallInst>(&I) || isa<InvokeInst>(&I)) {
       // Skip debug intrinsics
       if (isa<DbgInfoIntrinsic>(&I))
-          continue;
+        continue;
       if (++CallCount > MallocCallCount)
         return false;
     } else {
@@ -2521,8 +2521,8 @@ private:
             // If the bitcast is to an i8** and element zero of the accessed
             // type is a pointer, we need to add the type of that pointer
             // to the destination value's alias set.
-            auto *Int8PtrPtrTy = llvm::Type::getInt8PtrTy(DestTy->getContext())
-                                     ->getPointerTo();
+            auto *Int8PtrPtrTy =
+                llvm::Type::getInt8PtrTy(DestTy->getContext())->getPointerTo();
             if (DestTy == Int8PtrPtrTy) {
               Info.addPointerTypeAlias(
                   cast<CompositeType>(AccessedTy->getPointerElementType())
@@ -9073,7 +9073,8 @@ ModulePass *llvm::createDTransAnalysisWrapperPass() {
   return new DTransAnalysisWrapper();
 }
 
-DTransAnalysisWrapper::DTransAnalysisWrapper() : ModulePass(ID), Invalidated(true) {
+DTransAnalysisWrapper::DTransAnalysisWrapper()
+    : ModulePass(ID), Invalidated(true) {
   initializeDTransAnalysisWrapperPass(*PassRegistry::getPassRegistry());
 }
 
@@ -9154,7 +9155,7 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
   GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
                             Other.GenericLoadInfoMap.end());
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
-                            Other.MultiElemLoadStoreInfo.end());
+                                Other.MultiElemLoadStoreInfo.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -9178,7 +9179,7 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
                             Other.GenericLoadInfoMap.end());
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
-                            Other.MultiElemLoadStoreInfo.end());
+                                Other.MultiElemLoadStoreInfo.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -9573,14 +9574,15 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
     Field.getSingleValue()->printAsOperand(outs());
   } else if (Field.isMultipleValue()) {
     outs() << "    Multiple Value: [ ";
-    auto FirstI = Field.values().begin();
-    for (auto I = FirstI, E = Field.values().end(); I != E; ++I) {
-      if (I != FirstI) {
-        outs() << ", ";
-      }
-
-      (*I)->printAsOperand(outs(), false);
-    }
+    dtrans::printCollectionSorted(outs(), Field.values().begin(),
+                                  Field.values().end(), ", ",
+                                  [](llvm::Constant *C) {
+                                    std::string OutputVal;
+                                    raw_string_ostream OutputStream(OutputVal);
+                                    C->printAsOperand(OutputStream, false);
+                                    OutputStream.flush();
+                                    return OutputVal;
+                                  });
     outs() << " ] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
            << ">";
   }

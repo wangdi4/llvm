@@ -2167,6 +2167,7 @@ class VPlan {
 
 private:
 #if INTEL_CUSTOMIZATION
+  LLVMContext *Context = nullptr;
   VPLoopInfo *VPLInfo = nullptr;
   VPlanDivergenceAnalysis *VPlanDA = nullptr;
 #endif
@@ -2196,12 +2197,16 @@ protected:
 
 #if INTEL_CUSTOMIZATION
   /// Holds all the VPConstants created for this VPlan.
-  DenseSet<VPConstant*> VPConstants;
+  DenseMap<Constant *, std::unique_ptr<VPConstant>> VPConstants;
 
   /// Holds all the external definitions representing an underlying Value
   /// in this VPlan. The key is the underlying Value that uniquely identifies
   /// each external definition.
   DenseMap<Value *, std::unique_ptr<VPExternalDef>> VPExternalDefs;
+
+  /// Holds all the VPMetadataAsValues created for this VPlan.
+  DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>
+      VPMetadataAsValues;
 
   /// Holds all the external definitions representing an HIR underlying entity
   /// in this VPlan. The key is the underlying HIR information that uniquely
@@ -2210,7 +2215,20 @@ protected:
            SymbaseIVLevelMapInfo>
       VPExternalDefsHIR;
 
+  /// Holds all the external uses in this VPlan representing an underlying
+  /// Value. The key is the underlying Value that uniquely identifies each
+  /// external use.
+  DenseMap<Value *, std::unique_ptr<VPExternalUse>> VPExternalUses;
+
+  /// Holds all the external uses representing an HIR underlying entity
+  /// in this VPlan. The key is the underlying HIR information that uniquely
+  /// identifies each external use.
+  DenseMap<UnitaryBlobOrIV, std::unique_ptr<VPExternalUse>,
+           SymbaseIVLevelMapInfo>
+      VPExternalUsesHIR;
+
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
+
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
@@ -2223,8 +2241,9 @@ public:
   /// the underlying IR.
   // TODO: To be moved to the Divergence Analysis Infrastructure
   UniformsTy UniformCBVs;
-  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, VPBlockBase *Entry = nullptr)
-      : Entry(Entry), VPLA(VPLA) {}
+  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
+        VPBlockBase *Entry = nullptr)
+      : Context(Context), Entry(Entry), VPLA(VPLA) {}
 #endif
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
 
@@ -2236,8 +2255,6 @@ public:
       delete (VPLInfo);
     if (VPlanDA)
       delete VPlanDA;
-    for (auto *VPConst : VPConstants)
-      delete VPConst;
 #else
     for (auto &MapEntry : Value2VPValue)
       delete MapEntry.second;
@@ -2257,6 +2274,8 @@ public:
   void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 
   void setVPlanDA(VPlanDivergenceAnalysis *VPDA) { VPlanDA = VPDA; }
+
+  LLVMContext *getLLVMContext(void) const { return Context; }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }
@@ -2292,6 +2311,8 @@ public:
   /// Print (in text format) VPlan blocks in order based on dominator tree.
   void dump(raw_ostream &OS) const;
   void dump() const;
+  void dumpLivenessInfo(raw_ostream &OS) const;
+
 #endif // INTEL_CUSTOMIZATION
 
   void addVF(unsigned VF) { VFs.insert(VF); }
@@ -2306,43 +2327,67 @@ public:
   /// Create a new VPConstant for \p Const if it doesn't exist or retrieve the
   /// existing one.
   VPConstant *getVPConstant(Constant *Const) {
-    // Dropping the const qualifier is not a problem because VPConstant is
-    // immutable.
-    return *VPConstants.insert(new VPConstant(Const)).first;
-  }
-
-  // Create or retrieve a VPExternalDef for a given Value \p ExtVal.
-  VPExternalDef *getVPExternalDef(Value *ExtDef) {
-    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefs[ExtDef];
+    std::unique_ptr<VPConstant> &UPtr = VPConstants[Const];
     if (!UPtr)
-      // ExtDef is a new VPExternalDef to be inserted in the map.
-      UPtr.reset(new VPExternalDef(ExtDef));
+      // Const is a new VPConstant to be inserted in the map.
+      UPtr.reset(new VPConstant(Const));
 
     return UPtr.get();
+  }
+
+  /// Create or retrieve a VPExternalDef for a given Value \p ExtVal.
+  VPExternalDef *getVPExternalDef(Value *ExtDef) {
+    return getExternalItem(VPExternalDefs, ExtDef);
   }
 
   /// Create or retrieve a VPExternalDef for a given HIR unitary DDRef \p DDR.
   VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *DDR) {
-    UnitaryBlobOrIV ExtDef(DDR);
-    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefsHIR[ExtDef];
-    if (!UPtr)
-      // ExtDef is a new VPExternalDef to be inserted in the map.
-      UPtr.reset(new VPExternalDef(DDR));
-
-    return UPtr.get();
+    return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
   }
 
   /// Create or retrieve a VPExternalDef for an HIR IV identified by its \p
   /// IVLevel.
   VPExternalDef *getVPExternalDefForIV(unsigned IVLevel, Type *BaseTy) {
-    UnitaryBlobOrIV ExtDef(IVLevel);
-    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefsHIR[ExtDef];
+    return getExternalItemForIV(VPExternalDefsHIR, IVLevel, BaseTy);
+  }
+
+  /// Create or retrieve a VPExternalUse for a given Value \p ExtVal.
+  VPExternalUse *getVPExternalUse(Value *ExtDef) {
+    return getExternalItem(VPExternalUses, ExtDef);
+  }
+
+  /// Create or retrieve a VPExternalUse for a given HIR unitary DDRef \p DDR.
+  VPExternalUse *getVPExternalUseForDDRef(loopopt::DDRef *DDR) {
+    return getExternalItemForDDRef(VPExternalUsesHIR, DDR);
+  }
+
+  /// Create or retrieve a VPExternalUse for an HIR IV identified by its \p
+  /// IVLevel.
+  VPExternalUse *getVPExternalUseForIV(unsigned IVLevel, Type *BaseTy) {
+    return getExternalItemForIV(VPExternalUsesHIR, IVLevel, BaseTy);
+  }
+
+  /// Create a new VPMetadataAsValue for \p MDAsValue if it doesn't exist or
+  /// retrieve the existing one.
+  VPMetadataAsValue *getVPMetadataAsValue(MetadataAsValue *MDAsValue) {
+    std::unique_ptr<VPMetadataAsValue> &UPtr = VPMetadataAsValues[MDAsValue];
     if (!UPtr)
-      // ExtDef is a new VPExternalDef to be inserted in the map.
-      UPtr.reset(new VPExternalDef(IVLevel, BaseTy));
+      // MDAsValue is a new VPMetadataAsValue to be inserted in the map.
+      UPtr.reset(new VPMetadataAsValue(MDAsValue));
 
     return UPtr.get();
   }
+
+  /// Create a new VPMetadataAsValue for Metadata \p MD if it doesn't exist or
+  /// retrieve the existing one.
+  VPMetadataAsValue *getVPMetadataAsValue(Metadata *MD) {
+    // TODO: implement this method when needed.
+    llvm_unreachable("Not implemented yet!");
+  }
+
+  // Verify that VPConstants are unique in the pool and that the map keys are
+  // consistent with the underlying IR information of each VPConstant.
+  void verifyVPConstants() const;
 
   // Verify that VPExternalDefs are unique in the pool and that the map keys are
   // consistent with the underlying IR information of each VPExternalDef.
@@ -2351,6 +2396,11 @@ public:
   // Verify that VPExternalDefs are unique in the pool and that the map keys are
   // consistent with the underlying HIR information of each VPExternalDef.
   void verifyVPExternalDefsHIR() const;
+
+  // Verify that VPMetadataAsValues are unique in the pool and that the map keys
+  // are consistent with the underlying IR information of each
+  // VPMetadataAsValue.
+  void verifyVPMetadataAsValues() const;
 #else
   void addVPValue(Value &V) {
     if (!Value2VPValue.count(&V))
@@ -2366,6 +2416,47 @@ private:
   static void updateDominatorTree(class DominatorTree *DT,
                                   BasicBlock *LoopPreHeaderBB,
                                   BasicBlock *LoopLatchBB);
+
+  // Create or retrieve an external item from \p Table for a given Value \p
+  // ExtVal.
+  template <typename T>
+  typename T::mapped_type::element_type *getExternalItem(T &Table,
+                                                         Value *ExtVal) {
+    using Def = typename T::mapped_type::element_type;
+    typename T::mapped_type &UPtr = Table[ExtVal];
+    if (!UPtr)
+      // Def is a new external item to be inserted in the map.
+      UPtr.reset(new Def(ExtVal));
+    return UPtr.get();
+  }
+
+  // Create or retrieve an external item from \p Table for given HIR unitary
+  // DDRef \p DDR.
+  template <typename T>
+  typename T::mapped_type::element_type *
+  getExternalItemForDDRef(T &Table, loopopt::DDRef *DDR) {
+    using Def = typename T::mapped_type::element_type;
+    UnitaryBlobOrIV ExtDef(DDR);
+    typename T::mapped_type &UPtr = Table[ExtDef];
+    if (!UPtr)
+      // Def is a new external item to be inserted in the map.
+      UPtr.reset(new Def(DDR));
+    return UPtr.get();
+  }
+
+  // Create or retrieve an external item from \p Table for an HIR IV identified
+  // by its \p IVLevel.
+  template <typename T>
+  typename T::mapped_type::element_type *
+  getExternalItemForIV(T &Table, unsigned IVLevel, Type *BaseTy) {
+    using Def = typename T::mapped_type::element_type;
+    UnitaryBlobOrIV ExtDef(IVLevel);
+    typename T::mapped_type &UPtr = Table[ExtDef];
+    if (!UPtr)
+      // Def is a new external item to be inserted in the map.
+      UPtr.reset(new Def(IVLevel, BaseTy));
+    return UPtr.get();
+  }
 };
 
 #if INTEL_CUSTOMIZATION

@@ -1,6 +1,6 @@
 //===----- RegDDRef.cpp - Implements the RegDDRef class -------------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -53,7 +53,7 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
   }
 
   // Loop over BlobDDRefs
-  for (auto I = RegDDRefObj.blob_cbegin(), E = RegDDRefObj.blob_cend(); I != E;
+  for (auto I = RegDDRefObj.blob_begin(), E = RegDDRefObj.blob_end(); I != E;
        ++I) {
     BlobDDRef *NewBlobDDRef = (*I)->clone();
     addBlobDDRef(NewBlobDDRef);
@@ -512,9 +512,13 @@ bool RegDDRef::isSelfBlob() const {
   return (getSymbase() == SB);
 }
 
-bool RegDDRef::isUnitaryBlob() const {
+bool RegDDRef::isNonDecomposable() const {
   if (!isTerminalRef()) {
     return false;
+  }
+
+  if (isLval()) {
+    return true;
   }
 
   return getSingleCanonExpr()->isUnitaryBlob();
@@ -827,7 +831,7 @@ RegDDRef::getNonConstBlobIterator(const_blob_iterator CBlobI) {
 }
 
 BlobDDRef *RegDDRef::removeBlobDDRef(const_blob_iterator CBlobI) {
-  assert((CBlobI != blob_cend()) && "End iterator is not a valid input!");
+  assert((CBlobI != blob_end()) && "End iterator is not a valid input!");
 
   auto BlobI = getNonConstBlobIterator(CBlobI);
   auto BRef = *BlobI;
@@ -895,7 +899,7 @@ void RegDDRef::removeAllBlobDDRefs() {
 
   while (!BlobDDRefs.empty()) {
 
-    auto BlobI = blob_cbegin();
+    auto BlobI = blob_begin();
     removeBlobDDRef(BlobI);
   }
 }
@@ -953,7 +957,7 @@ void RegDDRef::populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
     return;
   }
 
-  for (auto BlobIt = blob_cbegin(), E = blob_cend(); BlobIt != E; ++BlobIt) {
+  for (auto BlobIt = blob_begin(), E = blob_end(); BlobIt != E; ++BlobIt) {
     Blobs.push_back(GetIndices ? (*BlobIt)->getBlobIndex()
                                : (*BlobIt)->getSymbase());
   }
@@ -1094,7 +1098,7 @@ bool RegDDRef::findTempBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
     return false;
   }
 
-  for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
+  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
     Index = (*I)->getBlobIndex();
 
     if (Index == BlobIndex) {
@@ -1135,7 +1139,7 @@ void RegDDRef::checkBlobAndDefAtLevelConsistency() const {
   std::sort(BlobIndices.begin(), BlobIndices.end());
 
   // Look for stale blob DDRefs.
-  for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
+  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
     unsigned Index = (*I)->getBlobIndex();
 
     auto It = std::lower_bound(BlobIndices.begin(), BlobIndices.end(), Index);
@@ -1224,7 +1228,7 @@ void RegDDRef::verify() const {
     }
   }
 
-  for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
+  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
     (*I)->verify();
     assert((*I)->getParentDDRef() == this &&
            "Child blob DDRefs should have this RegDDRef as a parent!");

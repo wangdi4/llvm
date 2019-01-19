@@ -1,6 +1,6 @@
 //===---- HIRRegionIdentification.h - Identifies HIR regions ---*- C++ --*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -109,11 +109,13 @@ private:
   /// loops. \p IsFunctionRegionMode is set to true when we want to form a
   /// single function level region.
   bool isSelfGenerable(const Loop &Lp, unsigned LoopnestDepth,
-                       bool IsFunctionRegionMode) const;
+                       bool IsFunctionRegionMode,
+                       bool &ThrottleParentLoop) const;
 
   /// Returns true if this loop should be throttled based on cost model
   /// analysis.
-  bool shouldThrottleLoop(const Loop &Lp, const SCEV *BECount) const;
+  bool shouldThrottleLoop(const Loop &Lp, const SCEV *BECount,
+                          bool &ThrottleParentLoop) const;
 
   /// Creates a Region out of Loops' and \p IntermediateBlocks basic blocks.
   void

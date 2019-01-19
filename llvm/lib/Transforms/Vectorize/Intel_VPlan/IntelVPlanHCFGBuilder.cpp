@@ -1,6 +1,6 @@
 //===-- IntelVPlanHCFGBuilder.cpp -----------------------------------------===//
 //
-//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -802,6 +802,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     errs() << "Print after building H-CFG:\n";
     Plan->dump(errs());
   }
+  LLVM_DEBUG(Plan->dumpLivenessInfo(dbgs()));
 
   LLVM_DEBUG(Verifier->setVPLoopInfo(VPLInfo);
              Verifier->verifyHierarchicalCFG(Plan, TopRegion));
@@ -961,7 +962,10 @@ private:
   void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
   void fixPhiNodes();
   VPBasicBlock *createOrGetVPBB(BasicBlock *BB);
-  bool isExternalDef(Value *Val);
+  bool isExternalDef(Value *Val) const;
+  // Check whether Val has uses outside the vectorized loop and create
+  // VPExternalUse-s for NewVPInst accordingly.
+  void addExternalUses(Value *Val, VPValue *NewVPInst);
   VPValue *createOrGetVPOperand(Value *IROp);
   void createVPInstructionsForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
 
@@ -1048,10 +1052,12 @@ VPBasicBlock *PlainCFGBuilder::createOrGetVPBB(BasicBlock *BB) {
 // However, since we don't represent loop Instructions in loop PH/Exit as
 // VPInstructions during plain CFG construction, those are also considered
 // external definitions in this particular context.
-bool PlainCFGBuilder::isExternalDef(Value *Val) {
+bool PlainCFGBuilder::isExternalDef(Value *Val) const {
 #if INTEL_CUSTOMIZATION
   assert(!isa<Constant>(Val) &&
          "Constants should have been processed separately.");
+  assert(!isa<MetadataAsValue>(Val) &&
+         "MetadataAsValue should have been processed separately.");
 #endif
   // All the Values that are not Instructions are considered external
   // definitions for now.
@@ -1063,6 +1069,16 @@ bool PlainCFGBuilder::isExternalDef(Value *Val) {
   return !TheLoop->contains(Inst);
 }
 
+// Check whether any use of Val is outside
+void PlainCFGBuilder::addExternalUses(Value *Val, VPValue *NewVPInst) {
+  for (User *U : Val->users())
+    if (auto Inst = dyn_cast<Instruction>(U))
+      if (!TheLoop->contains(Inst)) {
+        VPExternalUse *User = Plan->getVPExternalUse(Inst);
+        User->addOperand(NewVPInst);
+      }
+}
+
 // Create a new VPValue or retrieve an existing one for the Instruction's
 // operand \p IROp. This function must only be used to create/retrieve VPValues
 // for *Instruction's operands* and not to create regular VPInstruction's. For
@@ -1072,6 +1088,9 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
   // Constant operand
   if (Constant *IRConst = dyn_cast<Constant>(IROp))
     return Plan->getVPConstant(IRConst);
+
+  if (MetadataAsValue *MDAsValue = dyn_cast<MetadataAsValue>(IROp))
+    return Plan->getVPMetadataAsValue(MDAsValue);
 #endif
 
   auto VPValIt = IRDef2VPValue.find(IROp);
@@ -1081,8 +1100,8 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
     return VPValIt->second;
 
 #if INTEL_CUSTOMIZATION
-  // Operand is not a Constant and doesn't have a previously created
-  // VPInstruction/VPVailue. This means that operand is:
+  // Operand is not Constant or MetadataAsValue and doesn't have a previously
+  // created VPInstruction/VPValue. This means that operand is:
 #else
   // Operand doesn't have a previously created VPInstruction/VPValue. This
   // means that operand is:
@@ -1165,6 +1184,8 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
           Inst->getOpcode(), Inst->getType(), VPOperands, Inst));
     }
+    if (TheLoop->contains(Inst))
+      addExternalUses(Inst, NewVPInst);
     IRDef2VPValue[Inst] = NewVPInst;
   }
 }

@@ -1,6 +1,6 @@
 //===------- HLInst.h - High level IR instruction node ----*- C++ -*-------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -305,7 +305,10 @@ public:
   bool isIntelDirective(int DirectiveID) const;
 
   /// Checks whether the instruction is a call to a omp simd directive.
-  bool isSIMDDirective() const;
+  bool isSIMDDirective() const {
+    return getNumOperandBundles() &&
+           getOperandBundleAt(0).getTagName().equals("DIR.OMP.SIMD");
+  }
 
   /// Checks whether the instruction is a call to an auto vectorization
   /// directive.

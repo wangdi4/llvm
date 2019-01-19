@@ -380,6 +380,19 @@ namespace X86Disassembler {
   ENTRY(BND1)         \
   ENTRY(BND2)         \
   ENTRY(BND3)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+#define REGS_TMM  \
+  ENTRY(TMM0)     \
+  ENTRY(TMM1)     \
+  ENTRY(TMM2)     \
+  ENTRY(TMM3)     \
+  ENTRY(TMM4)     \
+  ENTRY(TMM5)     \
+  ENTRY(TMM6)     \
+  ENTRY(TMM7)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 
 #define ALL_EA_BASES  \
   EA_BASES_16BIT      \
@@ -390,6 +403,25 @@ namespace X86Disassembler {
   REGS_32BIT          \
   REGS_64BIT
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+#define ALL_REGS      \
+  REGS_8BIT           \
+  REGS_16BIT          \
+  REGS_32BIT          \
+  REGS_64BIT          \
+  REGS_MMX            \
+  REGS_XMM            \
+  REGS_YMM            \
+  REGS_ZMM            \
+  REGS_MASKS          \
+  REGS_SEGMENT        \
+  REGS_DEBUG          \
+  REGS_CONTROL        \
+  REGS_BOUND          \
+  REGS_TMM            \
+  ENTRY(RIP)
+#else // INTEL_FEATURE_ISA_AMX
 #define ALL_REGS      \
   REGS_8BIT           \
   REGS_16BIT          \
@@ -405,7 +437,8 @@ namespace X86Disassembler {
   REGS_CONTROL        \
   REGS_BOUND          \
   ENTRY(RIP)
-
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 /// All possible values of the base field for effective-address
 /// computations, a.k.a. the Mod and R/M fields of the ModR/M byte.
 /// We distinguish between bases (EA_BASE_*) and registers that just happen

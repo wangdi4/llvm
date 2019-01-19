@@ -268,7 +268,7 @@ void SequenceBuilder::processRegDDRef(const RegDDRef *Ref, CEOpSequence &Seq,
   //     %n, %3
   SmallVector<const BlobDDRef *, 8> Blobs;
   const HLLoop *Lp = Loop;
-  std::copy_if(Ref->blob_cbegin(), Ref->blob_cend(), std::back_inserter(Blobs),
+  std::copy_if(Ref->blob_begin(), Ref->blob_end(), std::back_inserter(Blobs),
                [Lp](const BlobDDRef *Blob) {
                  return !Lp->isLiveIn(Blob->getSymbase());
                });
@@ -837,7 +837,7 @@ void DDRefScavenger::populateLoopInvariantBlobs(
       AddInvariantBlob(Ref->getSingleCanonExpr(), Level);
     } else {
       for (const BlobDDRef *BRef :
-           make_range(Ref->blob_cbegin(), Ref->blob_cend())) {
+           make_range(Ref->blob_begin(), Ref->blob_end())) {
         AddInvariantBlob(BRef->getSingleCanonExpr(), Level);
       }
     }

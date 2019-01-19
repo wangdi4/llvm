@@ -1457,6 +1457,82 @@ static int readModRM(struct InternalInstruction* insn) {
   return 0;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+#define GENERIC_FIXUP_FUNC(name, base, prefix, mask)      \
+  static uint16_t name(struct InternalInstruction *insn,  \
+                       OperandType type,                  \
+                       uint8_t index,                     \
+                       uint8_t *valid) {                  \
+    *valid = 1;                                           \
+    switch (type) {                                       \
+    default:                                              \
+      debug("Unhandled register type");                   \
+      *valid = 0;                                         \
+      return 0;                                           \
+    case TYPE_Rv:                                         \
+      return base + index;                                \
+    case TYPE_R8:                                         \
+      index &= mask;                                      \
+      if (index > 0xf)                                    \
+        *valid = 0;                                       \
+      if (insn->rexPrefix &&                              \
+         index >= 4 && index <= 7) {                      \
+        return prefix##_SPL + (index - 4);                \
+      } else {                                            \
+        return prefix##_AL + index;                       \
+      }                                                   \
+    case TYPE_R16:                                        \
+      index &= mask;                                      \
+      if (index > 0xf)                                    \
+        *valid = 0;                                       \
+      return prefix##_AX + index;                         \
+    case TYPE_R32:                                        \
+      index &= mask;                                      \
+      if (index > 0xf)                                    \
+        *valid = 0;                                       \
+      return prefix##_EAX + index;                        \
+    case TYPE_R64:                                        \
+      index &= mask;                                      \
+      if (index > 0xf)                                    \
+        *valid = 0;                                       \
+      return prefix##_RAX + index;                        \
+    case TYPE_ZMM:                                        \
+      return prefix##_ZMM0 + index;                       \
+    case TYPE_YMM:                                        \
+      return prefix##_YMM0 + index;                       \
+    case TYPE_XMM:                                        \
+      return prefix##_XMM0 + index;                       \
+    case TYPE_TMM:                                        \
+      return prefix##_TMM0 + index;                       \
+    case TYPE_VK:                                         \
+      index &= 0xf;                                       \
+      if (index > 7)                                      \
+        *valid = 0;                                       \
+      return prefix##_K0 + index;                         \
+    case TYPE_MM64:                                       \
+      return prefix##_MM0 + (index & 0x7);                \
+    case TYPE_SEGMENTREG:                                 \
+      if ((index & 7) > 5)                                \
+        *valid = 0;                                       \
+      return prefix##_ES + (index & 7);                   \
+    case TYPE_DEBUGREG:                                   \
+      return prefix##_DR0 + index;                        \
+    case TYPE_CONTROLREG:                                 \
+      return prefix##_CR0 + index;                        \
+    case TYPE_BNDR:                                       \
+      if (index > 3)                                      \
+        *valid = 0;                                       \
+      return prefix##_BND0 + index;                       \
+    case TYPE_MVSIBX:                                     \
+      return prefix##_XMM0 + index;                       \
+    case TYPE_MVSIBY:                                     \
+      return prefix##_YMM0 + index;                       \
+    case TYPE_MVSIBZ:                                     \
+      return prefix##_ZMM0 + index;                       \
+    }                                                     \
+  }
+#else // INTEL_FEATURE_ISA_AMX
 #define GENERIC_FIXUP_FUNC(name, base, prefix, mask)      \
   static uint16_t name(struct InternalInstruction *insn,  \
                        OperandType type,                  \
@@ -1528,7 +1604,8 @@ static int readModRM(struct InternalInstruction* insn) {
       return prefix##_ZMM0 + index;                       \
     }                                                     \
   }
-
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 /*
  * fixup*Value - Consults an operand type to determine the meaning of the
  *   reg or R/M field.  If the operand is an XMM operand, for example, an

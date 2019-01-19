@@ -5,17 +5,11 @@
 ; in the structure changes to 'incomplete' under DTransOutOfBoundsOK=true.
 
 ; CHECK-LABEL: LLVMType: %struct.type0 = type
-; CHECK: Multiple Value
-; CHECK-SAME: 6
-; CHECK-SAME: 0
+; CHECK: Multiple Value: [ 0, 6 ]
 ; CHECK-SAME: incomplete
-; CHECK: Multiple Value
-; CHECK-SAME: 8
-; CHECK-SAME: 0
+; CHECK: Multiple Value: [ 0, 8 ]
 ; CHECK-SAME: incomplete
-; CHECK: Multiple Value
-; CHECK-SAME: 16
-; CHECK-SAME: 0
+; CHECK: Multiple Value: [ 0, 16 ]
 ; CHECK-SAME: incomplete
 ; CHECK: Safety data:
 

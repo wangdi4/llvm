@@ -1,6 +1,6 @@
 //===--- HIRLoopConcatenation.cpp - Implements Loop Concatenation class ---===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -629,7 +629,7 @@ bool HIRLoopConcatenation::isValidAllocaStore(
   }
 
   // Based on the structure, LvalRef has only one blob for the base.
-  unsigned Symbase = (*LvalRef->blob_cbegin())->getSymbase();
+  unsigned Symbase = (*LvalRef->blob_begin())->getSymbase();
 
   if (AllocaSymbase == 0) {
     // Check that base type is [4 x [4 x i32]]*.
@@ -721,7 +721,7 @@ bool HIRLoopConcatenation::isValidAllocaLoad(
     return false;
   }
 
-  unsigned Symbase = (*RvalRef->blob_cbegin())->getSymbase();
+  unsigned Symbase = (*RvalRef->blob_begin())->getSymbase();
 
   if (Symbase != AllocaSymbase) {
     return false;
@@ -1418,7 +1418,7 @@ void HIRLoopConcatenation::createReductionLoop(
     HLNodeUtils::remove(UnConcatenatedLoops[I]);
   }
 
-  unsigned AllocaSymbase = (*AllocaRef->blob_cbegin())->getSymbase();
+  unsigned AllocaSymbase = (*AllocaRef->blob_begin())->getSymbase();
   RednLp->addLiveInTemp(AllocaSymbase);
 }
 

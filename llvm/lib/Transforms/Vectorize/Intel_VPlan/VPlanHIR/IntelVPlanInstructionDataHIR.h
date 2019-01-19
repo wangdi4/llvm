@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -61,8 +61,8 @@ public:
 };
 
 /// This class holds the underlying HIR information for unitary blobs and
-/// induction variables. For unitary blobs, including metadata (for now), a
-/// DDRef is held. For induction variables, the IV level is held.
+/// induction variables. For unitary blobs, a DDRef is held. For induction
+/// variables, the IV level is held.
 ///
 /// DESIGN PRINCIPLE: A class hierarchy would make more sense here from a OOD
 /// point of view. However, using a single class allows us to save a pointer in
@@ -91,8 +91,9 @@ public:
 
   /// Construct a UnitaryBlobOrIV for a unitary DDRef \p Unitary.
   UnitaryBlobOrIV(loopopt::DDRef *Unitary) : UnitaryBlob(Unitary), IVLevel(0) {
-    assert(Unitary->isUnitaryBlob() &&
-           "Expected BlobDDRef or unitary blob RegDDRef!");
+    assert(Unitary->isNonDecomposable() && "Expected non-decomposable DDRef!");
+    assert(!Unitary->isMetadata() && "Unexpected metadata!");
+    ;
   }
 
   /// Construct an UnitaryBlobOrIV for an induction variable given its \p
@@ -105,42 +106,26 @@ public:
   /// Structural comparison comprises:
   ///   a) Blobs: symbase comparison.
   ///   b) IVs: IVLevel comparison.
-  ///   c) Metadata: Underlying MetadataAsValue comparison.
   bool isStructurallyEqual(const UnitaryBlobOrIV &U) const {
-    if (isNonMDBlob() && U.isNonMDBlob())
+    if (isBlob() && U.isBlob())
       return getBlob()->getSymbase() == U.getBlob()->getSymbase();
 
     if (isIV() && U.isIV())
       return getIVLevel() == U.getIVLevel();
 
-    if (isMDBlob() && U.isMDBlob()) {
-      // All metadata as value has the same symbase in HIR so we compare that
-      // the underlying LLVM-IR metadata is the same.
-      const MetadataAsValue *MDLeft = getMetadata();
-      const MetadataAsValue *MDRight = U.getMetadata();
-      return MDLeft->getMetadata() == MDRight->getMetadata();
-    }
-
     return false;
   }
 
-  /// Return true if this UnitaryBlobOrIV is either a non-metadata or a metadata
-  /// unitary blob.
+  /// Return true if this UnitaryBlobOrIV is a unitary blob.
   bool isBlob() const {
     verifyState();
     return UnitaryBlob != nullptr;
   }
 
-  /// Return true if this UnitaryBlobOrIV is a non-metadata unitary blob.
-  bool isNonMDBlob() const { return isBlob() && !UnitaryBlob->isMetadata(); }
-
-  /// Return true if this UnitaryBlobOrIV is a metadata unitary blob.
-  bool isMDBlob() const { return isBlob() && UnitaryBlob->isMetadata(); }
-
   /// Return true if this UnitaryBlobOrIV is an induction variable.
   bool isIV() const {
     verifyState();
-    return IVLevel;
+    return IVLevel != 0;
   }
 
   // Return the DDRef of this underlying unitary blob.
@@ -148,14 +133,6 @@ public:
 
   /// Return the IV level of this underlying IV.
   unsigned getIVLevel() const { return IVLevel; }
-
-  const MetadataAsValue *getMetadata() const {
-    assert(isMDBlob() && "Expected underlying metadata!");
-    MetadataAsValue *MD = nullptr;
-    UnitaryBlob->isMetadata(&MD);
-    assert(MD && "Metadata not found!");
-    return MD;
-  }
 
   void print(raw_ostream &OS) const {
     if (isBlob()) {
