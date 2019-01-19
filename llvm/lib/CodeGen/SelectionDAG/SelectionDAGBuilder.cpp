@@ -3694,8 +3694,11 @@ void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
   if (isVolatile || NumValues > MaxParallelChains)
     // Serialize volatile loads with other side effects.
     Root = getRoot();
-  else if (AA && AA->pointsToConstantMemory(MemoryLocation(
-               SV, DAG.getDataLayout().getTypeStoreSize(Ty), AAInfo))) {
+  else if (AA &&
+           AA->pointsToConstantMemory(MemoryLocation(
+               SV,
+               LocationSize::precise(DAG.getDataLayout().getTypeStoreSize(Ty)),
+               AAInfo))) {
     // Do not serialize (non-volatile) loads of constant memory with anything.
     Root = DAG.getEntryNode();
     ConstantMemory = true;
@@ -3806,9 +3809,12 @@ void SelectionDAGBuilder::visitLoadFromSwiftError(const LoadInst &I) {
   Type *Ty = I.getType();
   AAMDNodes AAInfo;
   I.getAAMetadata(AAInfo);
-  assert((!AA || !AA->pointsToConstantMemory(MemoryLocation(
-             SV, DAG.getDataLayout().getTypeStoreSize(Ty), AAInfo))) &&
-         "load_from_swift_error should not be constant memory");
+  assert(
+      (!AA ||
+       !AA->pointsToConstantMemory(MemoryLocation(
+           SV, LocationSize::precise(DAG.getDataLayout().getTypeStoreSize(Ty)),
+           AAInfo))) &&
+      "load_from_swift_error should not be constant memory");
 
   SmallVector<EVT, 4> ValueVTs;
   SmallVector<uint64_t, 4> Offsets;
@@ -4095,8 +4101,12 @@ void SelectionDAGBuilder::visitMaskedLoad(const CallInst &I, bool IsExpanding) {
   const MDNode *Ranges = I.getMetadata(LLVMContext::MD_range);
 
   // Do not serialize masked loads of constant memory with anything.
-  bool AddToChain = !AA || !AA->pointsToConstantMemory(MemoryLocation(
-      PtrOperand, DAG.getDataLayout().getTypeStoreSize(I.getType()), AAInfo));
+  bool AddToChain =
+      !AA || !AA->pointsToConstantMemory(MemoryLocation(
+                 PtrOperand,
+                 LocationSize::precise(
+                     DAG.getDataLayout().getTypeStoreSize(I.getType())),
+                 AAInfo));
   SDValue InChain = AddToChain ? DAG.getRoot() : DAG.getEntryNode();
 
   MachineMemOperand *MMO =
@@ -4137,10 +4147,12 @@ void SelectionDAGBuilder::visitMaskedGather(const CallInst &I) {
   const Value *BasePtr = Ptr;
   bool UniformBase = getUniformBase(BasePtr, Base, Index, Scale, this);
   bool ConstantMemory = false;
-  if (UniformBase &&
-      AA && AA->pointsToConstantMemory(MemoryLocation(
-          BasePtr, DAG.getDataLayout().getTypeStoreSize(I.getType()),
-          AAInfo))) {
+  if (UniformBase && AA &&
+      AA->pointsToConstantMemory(
+          MemoryLocation(BasePtr,
+                         LocationSize::precise(
+                             DAG.getDataLayout().getTypeStoreSize(I.getType())),
+                         AAInfo))) {
     // Do not serialize (non-volatile) loads of constant memory with anything.
     Root = DAG.getEntryNode();
     ConstantMemory = true;
@@ -5762,17 +5774,15 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     // avoid the select that is necessary in the general case to filter out
     // the 0-shift possibility that leads to UB.
     if (X == Y && isPowerOf2_32(VT.getScalarSizeInBits())) {
-      // TODO: This should also be done if the operation is custom, but we have
-      // to make sure targets are handling the modulo shift amount as expected.
       auto RotateOpcode = IsFSHL ? ISD::ROTL : ISD::ROTR;
-      if (TLI.isOperationLegal(RotateOpcode, VT)) {
+      if (TLI.isOperationLegalOrCustom(RotateOpcode, VT)) {
         setValue(&I, DAG.getNode(RotateOpcode, sdl, VT, X, Z));
         return nullptr;
       }
 
       // Some targets only rotate one way. Try the opposite direction.
       RotateOpcode = IsFSHL ? ISD::ROTR : ISD::ROTL;
-      if (TLI.isOperationLegal(RotateOpcode, VT)) {
+      if (TLI.isOperationLegalOrCustom(RotateOpcode, VT)) {
         // Negate the shift amount because it is safe to ignore the high bits.
         SDValue NegShAmt = DAG.getNode(ISD::SUB, sdl, VT, Zero, Z);
         setValue(&I, DAG.getNode(RotateOpcode, sdl, VT, X, NegShAmt));
@@ -6363,56 +6373,6 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     // MachineFunction in SelectionDAGISel::PrepareEHLandingPad. We can safely
     // delete it now.
     return nullptr;
-  case Intrinsic::objc_autorelease:
-    return "objc_autorelease";
-  case Intrinsic::objc_autoreleasePoolPop:
-    return "objc_autoreleasePoolPop";
-  case Intrinsic::objc_autoreleasePoolPush:
-    return "objc_autoreleasePoolPush";
-  case Intrinsic::objc_autoreleaseReturnValue:
-    return "objc_autoreleaseReturnValue";
-  case Intrinsic::objc_copyWeak:
-    return "objc_copyWeak";
-  case Intrinsic::objc_destroyWeak:
-    return "objc_destroyWeak";
-  case Intrinsic::objc_initWeak:
-    return "objc_initWeak";
-  case Intrinsic::objc_loadWeak:
-    return "objc_loadWeak";
-  case Intrinsic::objc_loadWeakRetained:
-    return "objc_loadWeakRetained";
-  case Intrinsic::objc_moveWeak:
-    return "objc_moveWeak";
-  case Intrinsic::objc_release:
-    return "objc_release";
-  case Intrinsic::objc_retain:
-    return "objc_retain";
-  case Intrinsic::objc_retainAutorelease:
-    return "objc_retainAutorelease";
-  case Intrinsic::objc_retainAutoreleaseReturnValue:
-    return "objc_retainAutoreleaseReturnValue";
-  case Intrinsic::objc_retainAutoreleasedReturnValue:
-    return "objc_retainAutoreleasedReturnValue";
-  case Intrinsic::objc_retainBlock:
-    return "objc_retainBlock";
-  case Intrinsic::objc_storeStrong:
-    return "objc_storeStrong";
-  case Intrinsic::objc_storeWeak:
-    return "objc_storeWeak";
-  case Intrinsic::objc_unsafeClaimAutoreleasedReturnValue:
-    return "objc_unsafeClaimAutoreleasedReturnValue";
-  case Intrinsic::objc_retainedObject:
-    return "objc_retainedObject";
-  case Intrinsic::objc_unretainedObject:
-    return "objc_unretainedObject";
-  case Intrinsic::objc_unretainedPointer:
-    return "objc_unretainedPointer";
-  case Intrinsic::objc_retain_autorelease:
-    return "objc_retain_autorelease";
-  case Intrinsic::objc_sync_enter:
-    return "objc_sync_enter";
-  case Intrinsic::objc_sync_exit:
-    return "objc_sync_exit";
   }
 }
 

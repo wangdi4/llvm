@@ -188,7 +188,10 @@ GetNestedTagRecord(const NestedTypeRecord &Record, const CVTagRecord &parent,
   // inner tag type is not necessarily the same as the outer tag type, re-write
   // it to match the inner tag type.
   qname[3] = child.asTag().getUniqueName()[3];
-  std::string piece = Record.Name;
+  std::string piece;
+  if (qname[3] == 'W')
+    piece = "4";
+  piece += Record.Name;
   piece.push_back('@');
   qname.insert(4, std::move(piece));
   if (qname != child.asTag().UniqueName)
@@ -583,6 +586,18 @@ PdbAstBuilder::GetOrCreateBlockDecl(PdbCompilandSymId block_id) {
   return block_decl;
 }
 
+clang::VarDecl *PdbAstBuilder::CreateVariableDecl(PdbSymUid uid, CVSymbol sym,
+                                                  clang::DeclContext &scope) {
+  VariableInfo var_info = GetVariableNameInfo(sym);
+  clang::QualType qt = GetOrCreateType(var_info.type);
+
+  clang::VarDecl *var_decl = m_clang.CreateVariableDeclaration(
+      &scope, var_info.name.str().c_str(), qt);
+
+  m_uid_to_decl[toOpaqueUid(uid)] = var_decl;
+  return var_decl;
+}
+
 clang::VarDecl *
 PdbAstBuilder::GetOrCreateLocalVariableDecl(PdbCompilandSymId scope_id,
                                             PdbCompilandSymId var_id) {
@@ -591,15 +606,17 @@ PdbAstBuilder::GetOrCreateLocalVariableDecl(PdbCompilandSymId scope_id,
 
   clang::DeclContext *scope = GetOrCreateDeclContextForUid(scope_id);
 
-  CVSymbol var = m_index.ReadSymbolRecord(var_id);
-  VariableInfo var_info = GetVariableNameInfo(var);
-  clang::QualType qt = GetOrCreateType(var_info.type);
+  CVSymbol sym = m_index.ReadSymbolRecord(var_id);
+  return CreateVariableDecl(PdbSymUid(var_id), sym, *scope);
+}
 
-  clang::VarDecl *var_decl =
-      m_clang.CreateVariableDeclaration(scope, var_info.name.str().c_str(), qt);
+clang::VarDecl *
+PdbAstBuilder::GetOrCreateGlobalVariableDecl(PdbGlobalSymId var_id) {
+  if (clang::Decl *decl = TryGetDecl(var_id))
+    return llvm::dyn_cast<clang::VarDecl>(decl);
 
-  m_uid_to_decl[toOpaqueUid(var_id)] = var_decl;
-  return var_decl;
+  CVSymbol sym = m_index.ReadSymbolRecord(var_id);
+  return CreateVariableDecl(PdbSymUid(var_id), sym, GetTranslationUnitDecl());
 }
 
 clang::QualType PdbAstBuilder::GetBasicType(lldb::BasicType type) {
