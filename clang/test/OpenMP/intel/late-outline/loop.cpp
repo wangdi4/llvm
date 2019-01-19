@@ -114,28 +114,42 @@ void foo(int *arr1, int **arr2) {
 // CHECK: define {{.*}}multiloop
 void multiloop(int in, int *arr)
 {
-  // CHECK-NOT: "QUAL.OMP.PRIVATE"(i32* %.omp.ub
+  // CHECK: [[OMP_UB1:%.omp.ub.*]] = alloca i32,
+  // CHECK: [[OMP_UB2:%.omp.ub.*]] = alloca i32,
+  // CHECK: [[OMP_UB3:%.omp.ub.*]] = alloca i32,
+  // CHECK: [[OMP_UB4:%.omp.ub.*]] = alloca i32,
+  // CHECK: [[OMP_UB5:%.omp.ub.*]] = alloca i32,
+  // CHECK: [ "DIR.OMP.PARALLEL"()
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB1]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB2]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB3]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB4]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB5]])
   // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
   #pragma omp parallel
   {
-
+    //1
     #pragma omp simd
     for(int i=0;i<16;++i)
       arr[i] = in;
 
+    //2
     int i;
     #pragma omp simd
     for(i=0;i<16;++i)
       arr[i] = in;
 
+    //3
     #pragma omp for
     for(i=0;i<16;++i)
       arr[i] = in;
 
+    //4
     #pragma omp parallel for
     for(i=0;i<16;++i)
       arr[i] = in;
 
+    //5
     #pragma omp parallel for simd
     for(i=0;i<16;++i)
       arr[i] = in;
