@@ -677,10 +677,23 @@ static int readOpcode(struct InternalInstruction* insn) {
   insn->opcodeType = ONEBYTE;
 
   if (insn->vectorExtensionType == TYPE_EVEX) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
     switch (mmmFromEVEX2of4(insn->vectorExtensionPrefix[1])) {
+#else // INTEL_FEATURE_ISA_FP16
+    switch (mmFromEVEX2of4(insn->vectorExtensionPrefix[1])) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     default:
-      dbgprintf(insn, "Unhandled mm field for instruction (0x%hhx)",
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      dbgprintf(insn, "Unhandled mmm field for instruction (0x%hhx)",
                 mmmFromEVEX2of4(insn->vectorExtensionPrefix[1]));
+#else // INTEL_FEATURE_ISA_FP16
+      dbgprintf(insn, "Unhandled mm field for instruction (0x%hhx)",
+                mmFromEVEX2of4(insn->vectorExtensionPrefix[1]));
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       return -1;
     case VEX_LOB_0F:
       insn->opcodeType = TWOBYTE;
