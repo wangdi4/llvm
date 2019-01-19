@@ -90,7 +90,7 @@ public:
         assert(VD == VD->getCanonicalDecl() &&
                "Canonical decl must be captured.");
         DeclRefExpr DRE(
-            const_cast<VarDecl *>(VD),
+            CGF.getContext(), const_cast<VarDecl *>(VD),
             isCapturedVar(CGF, VD) || (CGF.CapturedStmtInfo &&
                                        InlinedShareds.isGlobalVarCaptured(VD)),
             VD->getType().getNonReferenceType(), VK_LValue, C.getLocation());
@@ -208,7 +208,7 @@ public:
           auto *VD = C.getCapturedVar();
           assert(VD == VD->getCanonicalDecl() &&
                  "Canonical decl must be captured.");
-          DeclRefExpr DRE(const_cast<VarDecl *>(VD),
+          DeclRefExpr DRE(CGF.getContext(), const_cast<VarDecl *>(VD),
                           isCapturedVar(CGF, VD) ||
                               (CGF.CapturedStmtInfo &&
                                InlinedShareds.isGlobalVarCaptured(VD)),
@@ -239,7 +239,7 @@ LValue CodeGenFunction::EmitOMPSharedLValue(const Expr *E) {
           LambdaCaptureFields.lookup(OrigVD) ||
           (CapturedStmtInfo && CapturedStmtInfo->lookup(OrigVD)) ||
           (CurCodeDecl && isa<BlockDecl>(CurCodeDecl));
-      DeclRefExpr DRE(const_cast<VarDecl *>(OrigVD), IsCaptured,
+      DeclRefExpr DRE(getContext(), const_cast<VarDecl *>(OrigVD), IsCaptured,
                       OrigDRE->getType(), VK_LValue, OrigDRE->getExprLoc());
       return EmitLValue(&DRE);
     }
@@ -780,7 +780,7 @@ bool CodeGenFunction::EmitOMPFirstprivateClause(const OMPExecutableDirective &D,
         const auto *VDInit =
             cast<VarDecl>(cast<DeclRefExpr>(*InitsRef)->getDecl());
         bool IsRegistered;
-        DeclRefExpr DRE(const_cast<VarDecl *>(OrigVD),
+        DeclRefExpr DRE(getContext(), const_cast<VarDecl *>(OrigVD),
                         /*RefersToEnclosingVariableOrCapture=*/FD != nullptr,
                         (*IRef)->getType(), VK_LValue, (*IRef)->getExprLoc());
         LValue OriginalLVal = EmitLValue(&DRE);
@@ -895,8 +895,8 @@ bool CodeGenFunction::EmitOMPCopyinClause(const OMPExecutableDirective &D) {
             getContext().getTargetInfo().isTLSSupported()) {
           assert(CapturedStmtInfo->lookup(VD) &&
                  "Copyin threadprivates should have been captured!");
-          DeclRefExpr DRE(const_cast<VarDecl *>(VD), true, (*IRef)->getType(),
-                          VK_LValue, (*IRef)->getExprLoc());
+          DeclRefExpr DRE(getContext(), const_cast<VarDecl *>(VD), true,
+                          (*IRef)->getType(), VK_LValue, (*IRef)->getExprLoc());
           MasterAddr = EmitLValue(&DRE).getAddress();
           LocalDeclMap.erase(VD);
         } else {
@@ -970,11 +970,10 @@ bool CodeGenFunction::EmitOMPLastprivateClauseInit(
         const auto *DestVD =
             cast<VarDecl>(cast<DeclRefExpr>(*IDestRef)->getDecl());
         PrivateScope.addPrivate(DestVD, [this, OrigVD, IRef]() {
-          DeclRefExpr DRE(
-              const_cast<VarDecl *>(OrigVD),
-              /*RefersToEnclosingVariableOrCapture=*/CapturedStmtInfo->lookup(
-                  OrigVD) != nullptr,
-              (*IRef)->getType(), VK_LValue, (*IRef)->getExprLoc());
+          DeclRefExpr DRE(getContext(), const_cast<VarDecl *>(OrigVD),
+                          /*RefersToEnclosingVariableOrCapture=*/
+                              CapturedStmtInfo->lookup(OrigVD) != nullptr,
+                          (*IRef)->getType(), VK_LValue, (*IRef)->getExprLoc());
           return EmitLValue(&DRE).getAddress();
         });
         // Check if the variable is also a firstprivate: in this case IInit is
@@ -1436,7 +1435,7 @@ bool CodeGenFunction::EmitOMPLinearClauseInit(const OMPLoopDirective &D) {
               dyn_cast<DeclRefExpr>(VD->getInit()->IgnoreImpCasts())) {
         AutoVarEmission Emission = EmitAutoVarAlloca(*VD);
         const auto *OrigVD = cast<VarDecl>(Ref->getDecl());
-        DeclRefExpr DRE(const_cast<VarDecl *>(OrigVD),
+        DeclRefExpr DRE(getContext(), const_cast<VarDecl *>(OrigVD),
                         CapturedStmtInfo->lookup(OrigVD) != nullptr,
                         VD->getInit()->getType(), VK_LValue,
                         VD->getInit()->getExprLoc());
@@ -1481,7 +1480,7 @@ void CodeGenFunction::EmitOMPLinearClauseFinal(
         }
       }
       const auto *OrigVD = cast<VarDecl>(cast<DeclRefExpr>(*IC)->getDecl());
-      DeclRefExpr DRE(const_cast<VarDecl *>(OrigVD),
+      DeclRefExpr DRE(getContext(), const_cast<VarDecl *>(OrigVD),
                       CapturedStmtInfo->lookup(OrigVD) != nullptr,
                       (*IC)->getType(), VK_LValue, (*IC)->getExprLoc());
       Address OrigAddr = EmitLValue(&DRE).getAddress();
@@ -1549,7 +1548,7 @@ void CodeGenFunction::EmitOMPPrivateLoopCounters(
     if (LocalDeclMap.count(VD) || CapturedStmtInfo->lookup(VD) ||
         VD->hasGlobalStorage()) {
       (void)LoopScope.addPrivate(PrivateVD, [this, VD, E]() {
-        DeclRefExpr DRE(const_cast<VarDecl *>(VD),
+        DeclRefExpr DRE(getContext(), const_cast<VarDecl *>(VD),
                         LocalDeclMap.count(VD) || CapturedStmtInfo->lookup(VD),
                         E->getType(), VK_LValue, E->getExprLoc());
         return EmitLValue(&DRE).getAddress();
@@ -1696,7 +1695,7 @@ void CodeGenFunction::EmitOMPSimdFinal(
       if (CED) {
         OrigAddr = EmitLValue(CED->getInit()->IgnoreImpCasts()).getAddress();
       } else {
-        DeclRefExpr DRE(const_cast<VarDecl *>(PrivateVD),
+        DeclRefExpr DRE(getContext(), const_cast<VarDecl *>(PrivateVD),
                         /*RefersToEnclosingVariableOrCapture=*/false,
                         (*IPC)->getType(), VK_LValue, (*IPC)->getExprLoc());
         OrigAddr = EmitLValue(&DRE).getAddress();
@@ -2981,11 +2980,11 @@ void CodeGenFunction::EmitOMPTaskBasedDirective(
                                                           CopyFn, CallArgs);
       for (const auto &Pair : LastprivateDstsOrigs) {
         const auto *OrigVD = cast<VarDecl>(Pair.second->getDecl());
-        DeclRefExpr DRE(
-            const_cast<VarDecl *>(OrigVD),
-            /*RefersToEnclosingVariableOrCapture=*/CGF.CapturedStmtInfo->lookup(
-                OrigVD) != nullptr,
-            Pair.second->getType(), VK_LValue, Pair.second->getExprLoc());
+        DeclRefExpr DRE(CGF.getContext(), const_cast<VarDecl *>(OrigVD),
+                        /*RefersToEnclosingVariableOrCapture=*/
+                            CGF.CapturedStmtInfo->lookup(OrigVD) != nullptr,
+                        Pair.second->getType(), VK_LValue,
+                        Pair.second->getExprLoc());
         Scope.addPrivate(Pair.first, [&CGF, &DRE]() {
           return CGF.EmitLValue(&DRE).getAddress();
         });

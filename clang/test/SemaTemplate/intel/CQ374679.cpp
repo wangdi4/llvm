@@ -12,6 +12,6 @@ struct A {
   template<int M> void B () ;
 };
 
-void A<0>::B<0>() {    // expected-error {{template specialization requires 'template<>'}}
+void A<0>::B<0>() {    // expected-error 2 {{template specialization requires 'template<>'}}
 }
 

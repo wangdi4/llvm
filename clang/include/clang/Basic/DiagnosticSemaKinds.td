@@ -835,7 +835,8 @@ def err_pragma_attribute_matcher_negated_subrule_contradicts_subrule : Error<
 def err_pragma_attribute_invalid_matchers : Error<
   "attribute %0 can't be applied to %1">;
 def err_pragma_attribute_stack_mismatch : Error<
-  "'#pragma clang attribute pop' with no matching '#pragma clang attribute push'">;
+  "'#pragma clang attribute %select{%1.|}0pop' with no matching"
+  " '#pragma clang attribute %select{%1.|}0push'">;
 def warn_pragma_attribute_unused : Warning<
   "unused attribute %0 in '#pragma clang attribute push' region">,
   InGroup<PragmaClangAttribute>;
@@ -4971,7 +4972,7 @@ def warn_braces_around_scalar_init : Warning<
   "braces around scalar initializer">, InGroup<DiagGroup<"braced-scalar-init">>;
 def ext_many_braces_around_scalar_init : ExtWarn<
   "too many braces around scalar initializer">,
-  InGroup<DiagGroup<"many-braces-around-scalar-init">>;
+  InGroup<DiagGroup<"many-braces-around-scalar-init">>, SFINAEFailure;
 def ext_complex_component_init : Extension<
   "complex initialization specifying real and imaginary components "
   "is an extension">, InGroup<DiagGroup<"complex-component-init">>;
@@ -8433,6 +8434,12 @@ def err_x86_builtin_invalid_rounding : Error<
   "invalid rounding argument">;
 def err_x86_builtin_invalid_scale : Error<
   "scale argument must be 1, 2, 4, or 8">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+def err_x86_builtin_tmul_arg_duplicate : Error<
+  "tmul arguments must refer to different tiles">;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 def err_hexagon_builtin_unsupported_cpu : Error<
   "builtin is not supported on this CPU">;
 def err_hexagon_builtin_requires_hvx : Error<
@@ -8862,6 +8869,8 @@ def err_omp_expected_access_to_data_field : Error<
   "expected access to data field">;
 def err_omp_multiple_array_items_in_map_clause : Error<
   "multiple array elements associated with the same variable are not allowed in map clauses of the same construct">;
+def err_omp_duplicate_map_type_modifier : Error<
+  "same map type modifier has been specified more than once">;
 def err_omp_pointer_mapped_along_with_derived_section : Error<
   "pointer cannot be mapped along with a section derived from itself">;
 def err_omp_original_storage_is_shared_and_does_not_contain : Error<

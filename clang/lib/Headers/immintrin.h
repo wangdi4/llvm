@@ -455,6 +455,27 @@ _storebe_i64(void * __P, long long __D) {
 #include <invpcidintrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_SERIALIZE */
+/*
+ * TODO: when SERIALIZE is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules)
+ */
+#if defined(__SERIALIZE__)
+#include <serializeintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_SERIALIZE */
+/* INTEL_FEATURE_ISA_AMX */
+/*
+ * TODO: when AMX is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules) || ...
+ */
+#if defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+#include <Intel_amxintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AMX */
+/* end INTEL_CUSTOMIZATION */
+
 #ifdef _MSC_VER
 /* Define the default attributes for these intrinsics */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
@@ -542,9 +563,7 @@ extern int _may_i_use_cpu_feature(unsigned __int64);
 
 #endif /* _MSC_VER */
 
-#if !defined(_MSC_VER) || __has_feature(modules)
-#include <svmlintrin.h>
-#endif
+#include <svmlintrin.h>// INTEL
 
 /* Definitions of feature list to be used by feature select intrinsics */
 #define _FEATURE_GENERIC_IA32        (1ULL     )

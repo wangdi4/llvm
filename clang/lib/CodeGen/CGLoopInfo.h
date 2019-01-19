@@ -159,6 +159,9 @@ public:
   /// Get the set of attributes active for this loop.
   const LoopAttributes &getAttributes() const { return Attrs; }
 
+  /// Return this loop's access group or nullptr if it does not have one.
+  llvm::MDNode *getAccessGroup() const { return AccGroup; }
+
 private:
   /// Loop ID metadata.
   llvm::MDNode *LoopID;
@@ -166,6 +169,8 @@ private:
   llvm::BasicBlock *Header;
   /// The attributes for this loop.
   LoopAttributes Attrs;
+  /// The access group for memory accesses parallel to this loop.
+  llvm::MDNode *AccGroup = nullptr;
 };
 
 /// A stack of loop information corresponding to loop nesting levels.

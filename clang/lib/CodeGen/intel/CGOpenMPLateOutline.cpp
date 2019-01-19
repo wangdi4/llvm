@@ -170,7 +170,8 @@ OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
   if (Init && !NewCGF.isTrivialInitializer(Init)) {
     CodeGenFunction::RunCleanupsScope Scope(NewCGF);
     auto *CCE = cast<CXXConstructExpr>(Init);
-    DeclRefExpr SrcExpr(&SrcDecl, /*RefersToEnclosingVariableOrCapture=*/false,
+    DeclRefExpr SrcExpr(C, &SrcDecl,
+                        /*RefersToEnclosingVariableOrCapture=*/false,
                         ObjPtrTy, VK_LValue, SourceLocation());
     ImplicitCastExpr CastExpr(ImplicitCastExpr::OnStack,
                               C.getPointerType(ElemType), CK_BitCast, &SrcExpr,
@@ -512,7 +513,7 @@ void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
     auto savedCSI = CGF.CapturedStmtInfo;
     CGF.CapturedStmtInfo = nullptr;
 
-    DeclRefExpr DRE(const_cast<VarDecl *>(VD),
+    DeclRefExpr DRE(CGF.CGM.getContext(), const_cast<VarDecl *>(VD),
                     /*RefersToEnclosingVariableOrCapture=*/false,
                     VD->getType().getNonReferenceType(), VK_LValue,
                     SourceLocation());
@@ -1270,19 +1271,14 @@ void OpenMPLateOutliner::emitOMPHintClause(const OMPHintClause *Cl) {
 
 static void getQualString(SmallString<32> &Op, const OMPMapClause *C) {
   Op += "QUAL.OMP.MAP.";
-  switch (C->getMapTypeModifier()) {
-  case OMPC_MAP_always:
-    Op += "ALWAYS.";
-    break;
-  case OMPC_MAP_unknown:
-    break;
-  case OMPC_MAP_alloc:
-  case OMPC_MAP_to:
-  case OMPC_MAP_from:
-  case OMPC_MAP_tofrom:
-  case OMPC_MAP_delete:
-  case OMPC_MAP_release:
-    llvm_unreachable("Unexpected map modifier");
+  for (unsigned I = 0; I < OMPMapClause::NumberOfModifiers; ++I) {
+    if (C->getMapTypeModifier(I) == OMPC_MAP_MODIFIER_always) {
+      Op += "ALWAYS.";
+      break;
+    } else if (C->getMapTypeModifier(I) == OMPC_MAP_MODIFIER_unknown)
+      break;
+    else
+      llvm_unreachable("Unexpected map modifier");
   }
   switch (C->getMapType()) {
   case OMPC_MAP_alloc:
@@ -1304,8 +1300,6 @@ static void getQualString(SmallString<32> &Op, const OMPMapClause *C) {
   case OMPC_MAP_release:
     Op += "RELEASE";
     break;
-  case OMPC_MAP_always:
-    llvm_unreachable("Unexpected mapping type");
   }
 }
 

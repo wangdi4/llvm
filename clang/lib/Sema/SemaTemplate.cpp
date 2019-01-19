@@ -1255,9 +1255,10 @@ Sema::ActOnTemplateParameterList(unsigned Depth,
       RAngleLoc, RequiresClause);
 }
 
-static void SetNestedNameSpecifier(TagDecl *T, const CXXScopeSpec &SS) {
+static void SetNestedNameSpecifier(Sema &S, TagDecl *T,
+                                   const CXXScopeSpec &SS) {
   if (SS.isSet())
-    T->setQualifierInfo(SS.getWithLocInContext(T->getASTContext()));
+    T->setQualifierInfo(SS.getWithLocInContext(S.Context));
 }
 
 DeclResult Sema::CheckClassTemplate(
@@ -1554,7 +1555,7 @@ DeclResult Sema::CheckClassTemplate(
                           PrevClassTemplate && ShouldAddRedecl ?
                             PrevClassTemplate->getTemplatedDecl() : nullptr,
                           /*DelayTypeCreation=*/true);
-  SetNestedNameSpecifier(NewClass, SS);
+  SetNestedNameSpecifier(*this, NewClass, SS);
   if (NumOuterTemplateParamLists > 0)
     NewClass->setTemplateParameterListsInfo(
         Context, llvm::makeArrayRef(OuterTemplateParamLists,
@@ -2784,11 +2785,6 @@ TemplateParameterList *Sema::MatchTemplateParametersToScopeSpecifier(
         continue;
       }
 
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#367129: template explicit partial specialization requires
-      // 'template<>'
-      if (!getLangOpts().IntelCompat)
-#endif
       if (!IsFriend)
         if (DiagnoseMissingExplicitSpecialization(
                 getRangeOfTypeInNestedNameSpecifier(Context, T, SS)))
@@ -2842,18 +2838,6 @@ TemplateParameterList *Sema::MatchTemplateParametersToScopeSpecifier(
     if (TemplateId && !IsFriend) {
       // We don't have a template header for the declaration itself, but we
       // should.
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#367129: template explicit partial specialization requires
-      // 'template<>'
-      // Fix for CQ#374679: Several negative tests are failed after promotion
-      // due to patches allowing too permissive xmain's behavior.
-      if (getLangOpts().IntelCompat &&
-          (SS.isInvalid() || SS.isEmpty() ||
-           (SS.getScopeRep()->getKind() != NestedNameSpecifier::TypeSpec &&
-            SS.getScopeRep()->getKind() !=
-                NestedNameSpecifier::TypeSpecWithTemplate)))
-        return nullptr;
-#endif
       DiagnoseMissingExplicitSpecialization(SourceRange(TemplateId->LAngleLoc,
                                                         TemplateId->RAngleLoc));
 
@@ -3139,8 +3123,10 @@ Sema::findFailedBooleanCondition(Expr *Cond) {
   std::string Description;
   {
     llvm::raw_string_ostream Out(Description);
-    FailedBooleanConditionPrinterHelper Helper(getPrintingPolicy());
-    FailedCond->printPretty(Out, &Helper, getPrintingPolicy());
+    PrintingPolicy Policy = getPrintingPolicy();
+    Policy.PrintCanonicalTypes = true;
+    FailedBooleanConditionPrinterHelper Helper(Policy);
+    FailedCond->printPretty(Out, &Helper, Policy, 0, "\n", nullptr);
   }
   return { FailedCond, Description };
 }
@@ -7561,11 +7547,6 @@ DeclResult Sema::ActOnClassTemplateSpecialization(
                                             TemplateParams->getRAngleLoc()))
         << SourceRange(LAngleLoc, RAngleLoc);
   } else {
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ#367129: template explicit partial specialization requires
-    // 'template<>'
-    if (!getLangOpts().IntelCompat)
-#endif
     assert(TUK == TUK_Friend && "should have a 'template<>' for this decl");
   }
 
@@ -7685,7 +7666,7 @@ DeclResult Sema::ActOnClassTemplateSpecialization(
                                                        TemplateArgs,
                                                        CanonType,
                                                        PrevPartial);
-    SetNestedNameSpecifier(Partial, SS);
+    SetNestedNameSpecifier(*this, Partial, SS);
     if (TemplateParameterLists.size() > 1 && SS.isSet()) {
       Partial->setTemplateParameterListsInfo(
           Context, TemplateParameterLists.drop_back(1));
@@ -7711,7 +7692,7 @@ DeclResult Sema::ActOnClassTemplateSpecialization(
                                                 ClassTemplate,
                                                 Converted,
                                                 PrevDecl);
-    SetNestedNameSpecifier(Specialization, SS);
+    SetNestedNameSpecifier(*this, Specialization, SS);
     if (TemplateParameterLists.size() > 0) {
       Specialization->setTemplateParameterListsInfo(Context,
                                                     TemplateParameterLists);
@@ -8000,6 +7981,7 @@ Sema::CheckSpecializationInstantiationRedecl(SourceLocation NewLoc,
       HasNoEffect = true;
       return false;
     }
+    llvm_unreachable("Unexpected TemplateSpecializationKind!");
 
   case TSK_ExplicitInstantiationDefinition:
     switch (PrevTSK) {
@@ -8810,7 +8792,7 @@ DeclResult Sema::ActOnExplicitInstantiation(
                                                 ClassTemplate,
                                                 Converted,
                                                 PrevDecl);
-    SetNestedNameSpecifier(Specialization, SS);
+    SetNestedNameSpecifier(*this, Specialization, SS);
 
     if (!HasNoEffect && !PrevDecl) {
       // Insert the new specialization.

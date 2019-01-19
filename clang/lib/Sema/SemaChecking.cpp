@@ -3663,6 +3663,46 @@ bool Sema::CheckX86BuiltinGatherScatterScale(unsigned BuiltinID,
          << Arg->getSourceRange();
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
+  switch (BuiltinID) {
+  default:
+    return false;
+  case X86::BI__builtin_ia32_tileloadd64:
+  case X86::BI__builtin_ia32_tileloaddt164:
+  case X86::BI__builtin_ia32_tilestored64:
+  case X86::BI__builtin_ia32_tilezero:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7);
+  case X86::BI__builtin_ia32_tdpbssd:
+  case X86::BI__builtin_ia32_tdpbsud:
+  case X86::BI__builtin_ia32_tdpbusd:
+  case X86::BI__builtin_ia32_tdpbuud:
+  case X86::BI__builtin_ia32_tdpbf16ps:
+    if (SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) ||
+        SemaBuiltinConstantArgRange(TheCall, 1, 0, 7) ||
+        SemaBuiltinConstantArgRange(TheCall, 2, 0, 7))
+      return true;
+
+    llvm::APSInt Arg0, Arg1, Arg2;
+    SemaBuiltinConstantArg(TheCall, 0, Arg0);
+    SemaBuiltinConstantArg(TheCall, 1, Arg1);
+    SemaBuiltinConstantArg(TheCall, 2, Arg2);
+    Expr *Args = TheCall->getArg(0);
+
+    if ((Arg0.getSExtValue() == Arg1.getSExtValue()) ||
+        (Arg0.getSExtValue() == Arg2.getSExtValue()) ||
+        (Arg1.getSExtValue() == Arg2.getSExtValue()))
+      return Diag(TheCall->getBeginLoc(),
+                  diag::err_x86_builtin_tmul_arg_duplicate)
+             << Args->getSourceRange();
+
+    return false;
+  }
+}
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
+
 static bool isX86_32Builtin(unsigned BuiltinID) {
   // These builtins only work on x86-32 targets.
   switch (BuiltinID) {
@@ -3694,6 +3734,14 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   // If the intrinsic has a gather/scatter scale immediate make sure its valid.
   if (CheckX86BuiltinGatherScatterScale(BuiltinID, TheCall))
     return true;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  // If the intrinsic has a tile arguments, make sure they are valid.
+  if (CheckX86BuiltinTileArguments(BuiltinID, TheCall))
+    return true;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   if (BuiltinID == X86::BIget_compute_id)
@@ -5854,8 +5902,6 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     // FIXME: Do this check.
     TheCall->setArg(i+1, Arg.get());
   }
-
-  ASTContext& Context = this->getASTContext();
 
   // Create a new DeclRefExpr to refer to the new decl.
   DeclRefExpr* NewDRE = DeclRefExpr::Create(
@@ -13158,8 +13204,17 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
       BaseExpr->getType()->getPointeeOrArrayElementType();
   BaseExpr = BaseExpr->IgnoreParenCasts();
   const ConstantArrayType *ArrayTy =
-    Context.getAsConstantArrayType(BaseExpr->getType());
+      Context.getAsConstantArrayType(BaseExpr->getType());
+
   if (!ArrayTy)
+    return;
+
+  const Type *BaseType = ArrayTy->getElementType().getTypePtr();
+  // It is possible that the type of the base expression after IgnoreParenCasts
+  // is incomplete, even though the type of the base expression before
+  // IgnoreParenCasts is complete (see PR39746 for an example). In this case we
+  // have no information about whether the array access is out-of-bounds.
+  if (BaseType->isIncompleteType())
     return;
 
   Expr::EvalResult Result;
@@ -13181,7 +13236,6 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
     if (!size.isStrictlyPositive())
       return;
 
-    const Type *BaseType = BaseExpr->getType()->getPointeeOrArrayElementType();
     if (BaseType != EffectiveType) {
       // Make sure we're comparing apples to apples when comparing index to size
       uint64_t ptrarith_typesize = Context.getTypeSize(EffectiveType);

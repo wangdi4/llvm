@@ -108,6 +108,25 @@ TARGET_BUILTIN(__builtin_ia32_cvtusi2sd64, "V2dV2dULLiIi", "ncV:128:", "avx512f"
 TARGET_BUILTIN(__builtin_ia32_cvtusi2ss64, "V4fV4fULLiIi", "ncV:128:", "avx512f")
 TARGET_BUILTIN(__builtin_ia32_directstore_u64, "vULi*ULi", "n", "movdiri")
 TARGET_BUILTIN(__builtin_ia32_ptwrite64, "vULLi", "n", "ptwrite")
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+// AMX
+TARGET_BUILTIN(__builtin_ia32_tile_loadconfig, "vvC*", "n", "amx-tile")
+TARGET_BUILTIN(__builtin_ia32_tile_storeconfig, "vvC*", "n", "amx-tile")
+TARGET_BUILTIN(__builtin_ia32_tilerelease, "v", "n", "amx-tile")
+TARGET_BUILTIN(__builtin_ia32_tilezero, "vUc", "n", "amx-tile")
+
+TARGET_BUILTIN(__builtin_ia32_tileloadd64, "vIUcULLiULLi", "n", "amx-tile")
+TARGET_BUILTIN(__builtin_ia32_tileloaddt164, "vIUcULLiULLi", "n", "amx-tile")
+TARGET_BUILTIN(__builtin_ia32_tilestored64, "vIUcULLiULLi", "n", "amx-tile")
+
+TARGET_BUILTIN(__builtin_ia32_tdpbssd, "vIUcIUcIUc", "n", "amx-int8")
+TARGET_BUILTIN(__builtin_ia32_tdpbsud, "vIUcIUcIUc", "n", "amx-int8")
+TARGET_BUILTIN(__builtin_ia32_tdpbusd, "vIUcIUcIUc", "n", "amx-int8")
+TARGET_BUILTIN(__builtin_ia32_tdpbuud, "vIUcIUcIUc", "n", "amx-int8")
+TARGET_BUILTIN(__builtin_ia32_tdpbf16ps, "vIUcIUcIUc", "n", "amx-bf16")
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 LANGBUILTIN(get_compute_id, "zi", "i", OCLC1X_LANG)

@@ -226,10 +226,6 @@ namespace llvm {
       SCALEF,
       SCALEFS,
 
-      // Integer add/sub with signed saturation.
-      ADDS,
-      SUBS,
-
       // Unsigned Integer average.
       AVG,
 
@@ -1366,6 +1362,13 @@ namespace llvm {
 
     /// Convert a comparison if required by the subtarget.
     SDValue ConvertCmpIfNecessary(SDValue Cmp, SelectionDAG &DAG) const;
+
+    /// Emit flags for the given setcc condition and operands. Also returns the
+    /// corresponding X86 condition code constant in X86CC.
+    SDValue emitFlagsForSetcc(SDValue Op0, SDValue Op1,
+                              ISD::CondCode CC, const SDLoc &dl,
+                              SelectionDAG &DAG,
+                              SDValue &X86CC) const;
 
     /// Check if replacement of SQRT with RSQRT should be disabled.
     bool isFsqrtCheap(SDValue Operand, SelectionDAG &DAG) const override;

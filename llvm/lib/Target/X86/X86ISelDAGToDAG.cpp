@@ -472,6 +472,10 @@ namespace {
                                 SDValue &InFlag);
 
     bool tryOptimizeRem8Extend(SDNode *N);
+
+    bool onlyUsesZeroFlag(SDValue Flags) const;
+    bool hasNoSignFlagUses(SDValue Flags) const;
+    bool hasNoCarryFlagUses(SDValue Flags) const;
   };
 }
 
@@ -898,9 +902,54 @@ void X86DAGToDAGISel::PostprocessISelDAG() {
       continue;
     }
 
-    // Attempt to remove vectors moves that were inserted to zero upper bits.
+    // Look for a TESTrr+ANDrr pattern where both operands of the test are
+    // the same. Rewrite to remove the AND.
+    unsigned Opc = N->getMachineOpcode();
+    if ((Opc == X86::TEST8rr || Opc == X86::TEST16rr ||
+         Opc == X86::TEST32rr || Opc == X86::TEST64rr) &&
+        N->getOperand(0) == N->getOperand(1) &&
+        N->isOnlyUserOf(N->getOperand(0).getNode()) &&
+        N->getOperand(0).isMachineOpcode()) {
+      SDValue And = N->getOperand(0);
+      unsigned N0Opc = And.getMachineOpcode();
+      if (N0Opc == X86::AND8rr || N0Opc == X86::AND16rr ||
+          N0Opc == X86::AND32rr || N0Opc == X86::AND64rr) {
+        MachineSDNode *Test = CurDAG->getMachineNode(Opc, SDLoc(N),
+                                                     MVT::i32,
+                                                     And.getOperand(0),
+                                                     And.getOperand(1));
+        ReplaceUses(N, Test);
+        MadeChange = true;
+        continue;
+      }
+      if (N0Opc == X86::AND8rm || N0Opc == X86::AND16rm ||
+          N0Opc == X86::AND32rm || N0Opc == X86::AND64rm) {
+        unsigned NewOpc;
+        switch (N0Opc) {
+        case X86::AND8rm:  NewOpc = X86::TEST8mr; break;
+        case X86::AND16rm: NewOpc = X86::TEST16mr; break;
+        case X86::AND32rm: NewOpc = X86::TEST32mr; break;
+        case X86::AND64rm: NewOpc = X86::TEST64mr; break;
+        }
 
-    if (N->getMachineOpcode() != TargetOpcode::SUBREG_TO_REG)
+        // Need to swap the memory and register operand.
+        SDValue Ops[] = { And.getOperand(1),
+                          And.getOperand(2),
+                          And.getOperand(3),
+                          And.getOperand(4),
+                          And.getOperand(5),
+                          And.getOperand(0),
+                          And.getOperand(6)  /* Chain */ };
+        MachineSDNode *Test = CurDAG->getMachineNode(NewOpc, SDLoc(N),
+                                                     MVT::i32, MVT::Other, Ops);
+        ReplaceUses(N, Test);
+        MadeChange = true;
+        continue;
+      }
+    }
+
+    // Attempt to remove vectors moves that were inserted to zero upper bits.
+    if (Opc != TargetOpcode::SUBREG_TO_REG)
       continue;
 
     unsigned SubRegIdx = N->getConstantOperandVal(2);
@@ -1356,8 +1405,7 @@ static bool foldMaskAndShiftToScale(SelectionDAG &DAG, SDValue N,
   }
   APInt MaskedHighBits =
     APInt::getHighBitsSet(X.getSimpleValueType().getSizeInBits(), MaskLZ);
-  KnownBits Known;
-  DAG.computeKnownBits(X, Known);
+  KnownBits Known = DAG.computeKnownBits(X);
   if (MaskedHighBits != Known.Zero) return true;
 
   // We've identified a pattern that can be transformed into a single shift
@@ -2191,9 +2239,21 @@ bool X86DAGToDAGISel::isSExtAbsoluteSymbolRef(unsigned Width, SDNode *N) const {
          CR->getSignedMax().slt(1ull << Width);
 }
 
-/// Test whether the given X86ISD::CMP node has any uses which require the SF
-/// flag to be accurate.
-static bool hasNoSignFlagUses(SDValue Flags) {
+static X86::CondCode getCondFromOpc(unsigned Opc) {
+  X86::CondCode CC = X86::COND_INVALID;
+  if (CC == X86::COND_INVALID)
+    CC = X86::getCondFromBranchOpc(Opc);
+  if (CC == X86::COND_INVALID)
+    CC = X86::getCondFromSETOpc(Opc);
+  if (CC == X86::COND_INVALID)
+    CC = X86::getCondFromCMovOpc(Opc);
+
+  return CC;
+}
+
+/// Test whether the given X86ISD::CMP node has any users that use a flag
+/// other than ZF.
+bool X86DAGToDAGISel::onlyUsesZeroFlag(SDValue Flags) const {
   // Examine each user of the node.
   for (SDNode::use_iterator UI = Flags->use_begin(), UE = Flags->use_end();
          UI != UE; ++UI) {
@@ -2211,48 +2271,56 @@ static bool hasNoSignFlagUses(SDValue Flags) {
       if (FlagUI.getUse().getResNo() != 1) continue;
       // Anything unusual: assume conservatively.
       if (!FlagUI->isMachineOpcode()) return false;
-      // Examine the opcode of the user.
-      switch (FlagUI->getMachineOpcode()) {
-      // These comparisons don't treat the most significant bit specially.
-      case X86::SETAr: case X86::SETAEr: case X86::SETBr: case X86::SETBEr:
-      case X86::SETEr: case X86::SETNEr: case X86::SETOr: case X86::SETNOr:
-      case X86::SETPr: case X86::SETNPr:
-      case X86::SETAm: case X86::SETAEm: case X86::SETBm: case X86::SETBEm:
-      case X86::SETEm: case X86::SETNEm: case X86::SETOm: case X86::SETNOm:
-      case X86::SETPm: case X86::SETNPm:
-      case X86::JA_1: case X86::JAE_1: case X86::JB_1: case X86::JBE_1:
-      case X86::JE_1: case X86::JNE_1: case X86::JO_1: case X86::JNO_1:
-      case X86::JP_1: case X86::JNP_1:
-      case X86::CMOVA16rr: case X86::CMOVA16rm:
-      case X86::CMOVA32rr: case X86::CMOVA32rm:
-      case X86::CMOVA64rr: case X86::CMOVA64rm:
-      case X86::CMOVAE16rr: case X86::CMOVAE16rm:
-      case X86::CMOVAE32rr: case X86::CMOVAE32rm:
-      case X86::CMOVAE64rr: case X86::CMOVAE64rm:
-      case X86::CMOVB16rr: case X86::CMOVB16rm:
-      case X86::CMOVB32rr: case X86::CMOVB32rm:
-      case X86::CMOVB64rr: case X86::CMOVB64rm:
-      case X86::CMOVBE16rr: case X86::CMOVBE16rm:
-      case X86::CMOVBE32rr: case X86::CMOVBE32rm:
-      case X86::CMOVBE64rr: case X86::CMOVBE64rm:
-      case X86::CMOVE16rr: case X86::CMOVE16rm:
-      case X86::CMOVE32rr: case X86::CMOVE32rm:
-      case X86::CMOVE64rr: case X86::CMOVE64rm:
-      case X86::CMOVNE16rr: case X86::CMOVNE16rm:
-      case X86::CMOVNE32rr: case X86::CMOVNE32rm:
-      case X86::CMOVNE64rr: case X86::CMOVNE64rm:
-      case X86::CMOVNP16rr: case X86::CMOVNP16rm:
-      case X86::CMOVNP32rr: case X86::CMOVNP32rm:
-      case X86::CMOVNP64rr: case X86::CMOVNP64rm:
-      case X86::CMOVO16rr: case X86::CMOVO16rm:
-      case X86::CMOVO32rr: case X86::CMOVO32rm:
-      case X86::CMOVO64rr: case X86::CMOVO64rm:
-      case X86::CMOVP16rr: case X86::CMOVP16rm:
-      case X86::CMOVP32rr: case X86::CMOVP32rm:
-      case X86::CMOVP64rr: case X86::CMOVP64rm:
+      // Examine the condition code of the user.
+      X86::CondCode CC = getCondFromOpc(FlagUI->getMachineOpcode());
+
+      switch (CC) {
+      // Comparisons which only use the zero flag.
+      case X86::COND_E: case X86::COND_NE:
         continue;
       // Anything else: assume conservatively.
-      default: return false;
+      default:
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/// Test whether the given X86ISD::CMP node has any uses which require the SF
+/// flag to be accurate.
+bool X86DAGToDAGISel::hasNoSignFlagUses(SDValue Flags) const {
+  // Examine each user of the node.
+  for (SDNode::use_iterator UI = Flags->use_begin(), UE = Flags->use_end();
+         UI != UE; ++UI) {
+    // Only check things that use the flags.
+    if (UI.getUse().getResNo() != Flags.getResNo())
+      continue;
+    // Only examine CopyToReg uses that copy to EFLAGS.
+    if (UI->getOpcode() != ISD::CopyToReg ||
+        cast<RegisterSDNode>(UI->getOperand(1))->getReg() != X86::EFLAGS)
+      return false;
+    // Examine each user of the CopyToReg use.
+    for (SDNode::use_iterator FlagUI = UI->use_begin(),
+           FlagUE = UI->use_end(); FlagUI != FlagUE; ++FlagUI) {
+      // Only examine the Flag result.
+      if (FlagUI.getUse().getResNo() != 1) continue;
+      // Anything unusual: assume conservatively.
+      if (!FlagUI->isMachineOpcode()) return false;
+      // Examine the condition code of the user.
+      X86::CondCode CC = getCondFromOpc(FlagUI->getMachineOpcode());
+
+      switch (CC) {
+      // Comparisons which don't examine the SF flag.
+      case X86::COND_A: case X86::COND_AE:
+      case X86::COND_B: case X86::COND_BE:
+      case X86::COND_E: case X86::COND_NE:
+      case X86::COND_O: case X86::COND_NO:
+      case X86::COND_P: case X86::COND_NP:
+        continue;
+      // Anything else: assume conservatively.
+      default:
+        return false;
       }
     }
   }
@@ -2261,7 +2329,7 @@ static bool hasNoSignFlagUses(SDValue Flags) {
 
 /// Test whether the given node which sets flags has any uses which require the
 /// CF flag to be accurate.
-static bool hasNoCarryFlagUses(SDValue Flags) {
+ bool X86DAGToDAGISel::hasNoCarryFlagUses(SDValue Flags) const {
   // Examine each user of the node.
   for (SDNode::use_iterator UI = Flags->use_begin(), UE = Flags->use_end();
          UI != UE; ++UI) {
@@ -2281,39 +2349,17 @@ static bool hasNoCarryFlagUses(SDValue Flags) {
       // Anything unusual: assume conservatively.
       if (!FlagUI->isMachineOpcode())
         return false;
-      // Examine the opcode of the user.
-      switch (FlagUI->getMachineOpcode()) {
+      // Examine the condition code of the user.
+      X86::CondCode CC = getCondFromOpc(FlagUI->getMachineOpcode());
+
+      switch (CC) {
       // Comparisons which don't examine the CF flag.
-      case X86::SETOr: case X86::SETNOr: case X86::SETEr: case X86::SETNEr:
-      case X86::SETSr: case X86::SETNSr: case X86::SETPr: case X86::SETNPr:
-      case X86::SETLr: case X86::SETGEr: case X86::SETLEr: case X86::SETGr:
-      case X86::JO_1: case X86::JNO_1: case X86::JE_1: case X86::JNE_1:
-      case X86::JS_1: case X86::JNS_1: case X86::JP_1: case X86::JNP_1:
-      case X86::JL_1: case X86::JGE_1: case X86::JLE_1: case X86::JG_1:
-      case X86::CMOVO16rr: case X86::CMOVO32rr: case X86::CMOVO64rr:
-      case X86::CMOVO16rm: case X86::CMOVO32rm: case X86::CMOVO64rm:
-      case X86::CMOVNO16rr: case X86::CMOVNO32rr: case X86::CMOVNO64rr:
-      case X86::CMOVNO16rm: case X86::CMOVNO32rm: case X86::CMOVNO64rm:
-      case X86::CMOVE16rr: case X86::CMOVE32rr: case X86::CMOVE64rr:
-      case X86::CMOVE16rm: case X86::CMOVE32rm: case X86::CMOVE64rm:
-      case X86::CMOVNE16rr: case X86::CMOVNE32rr: case X86::CMOVNE64rr:
-      case X86::CMOVNE16rm: case X86::CMOVNE32rm: case X86::CMOVNE64rm:
-      case X86::CMOVS16rr: case X86::CMOVS32rr: case X86::CMOVS64rr:
-      case X86::CMOVS16rm: case X86::CMOVS32rm: case X86::CMOVS64rm:
-      case X86::CMOVNS16rr: case X86::CMOVNS32rr: case X86::CMOVNS64rr:
-      case X86::CMOVNS16rm: case X86::CMOVNS32rm: case X86::CMOVNS64rm:
-      case X86::CMOVP16rr: case X86::CMOVP32rr: case X86::CMOVP64rr:
-      case X86::CMOVP16rm: case X86::CMOVP32rm: case X86::CMOVP64rm:
-      case X86::CMOVNP16rr: case X86::CMOVNP32rr: case X86::CMOVNP64rr:
-      case X86::CMOVNP16rm: case X86::CMOVNP32rm: case X86::CMOVNP64rm:
-      case X86::CMOVL16rr: case X86::CMOVL32rr: case X86::CMOVL64rr:
-      case X86::CMOVL16rm: case X86::CMOVL32rm: case X86::CMOVL64rm:
-      case X86::CMOVGE16rr: case X86::CMOVGE32rr: case X86::CMOVGE64rr:
-      case X86::CMOVGE16rm: case X86::CMOVGE32rm: case X86::CMOVGE64rm:
-      case X86::CMOVLE16rr: case X86::CMOVLE32rr: case X86::CMOVLE64rr:
-      case X86::CMOVLE16rm: case X86::CMOVLE32rm: case X86::CMOVLE64rm:
-      case X86::CMOVG16rr: case X86::CMOVG32rr: case X86::CMOVG64rr:
-      case X86::CMOVG16rm: case X86::CMOVG32rm: case X86::CMOVG64rm:
+      case X86::COND_O: case X86::COND_NO:
+      case X86::COND_E: case X86::COND_NE:
+      case X86::COND_S: case X86::COND_NS:
+      case X86::COND_P: case X86::COND_NP:
+      case X86::COND_L: case X86::COND_GE:
+      case X86::COND_G: case X86::COND_LE:
         continue;
       // Anything else: assume conservatively.
       default:
@@ -3676,6 +3722,10 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     SDValue N0 = Node->getOperand(0);
     SDValue N1 = Node->getOperand(1);
 
+    // Optimizations for TEST compares.
+    if (!isNullConstant(N1))
+      break;
+
     // Save the original VT of the compare.
     MVT CmpVT = N0.getSimpleValueType();
 
@@ -3683,7 +3733,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     // by a test instruction. The test should be removed later by
     // analyzeCompare if we are using only the zero flag.
     // TODO: Should we check the users and use the BEXTR flags directly?
-    if (isNullConstant(N1) && N0.getOpcode() == ISD::AND && N0.hasOneUse()) {
+    if (N0.getOpcode() == ISD::AND && N0.hasOneUse()) {
       if (MachineSDNode *NewNode = matchBEXTRFromAndImm(N0.getNode())) {
         unsigned TestOpc = CmpVT == MVT::i64 ? X86::TEST64rr
                                              : X86::TEST32rr;
@@ -3704,11 +3754,39 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     // Look past the truncate if CMP is the only use of it.
     if (N0.getOpcode() == ISD::AND &&
         N0.getNode()->hasOneUse() &&
-        N0.getValueType() != MVT::i8 &&
-        isNullConstant(N1)) {
+        N0.getValueType() != MVT::i8) {
       ConstantSDNode *C = dyn_cast<ConstantSDNode>(N0.getOperand(1));
       if (!C) break;
       uint64_t Mask = C->getZExtValue();
+
+      // Check if we can replace AND+IMM64 with a shift. This is possible for
+      // masks/ like 0xFF000000 or 0x00FFFFFF and if we care only about the zero
+      // flag.
+      if (CmpVT == MVT::i64 && !isInt<32>(Mask) &&
+          onlyUsesZeroFlag(SDValue(Node, 0))) {
+        if (isMask_64(~Mask)) {
+          unsigned TrailingZeros = countTrailingZeros(Mask);
+          SDValue Imm = CurDAG->getTargetConstant(TrailingZeros, dl, MVT::i64);
+          SDValue Shift =
+            SDValue(CurDAG->getMachineNode(X86::SHR64ri, dl, MVT::i64,
+                                           N0.getOperand(0), Imm), 0);
+          MachineSDNode *Test = CurDAG->getMachineNode(X86::TEST64rr, dl,
+                                                       MVT::i32, Shift, Shift);
+          ReplaceNode(Node, Test);
+          return;
+        }
+        if (isMask_64(Mask)) {
+          unsigned LeadingZeros = countLeadingZeros(Mask);
+          SDValue Imm = CurDAG->getTargetConstant(LeadingZeros, dl, MVT::i64);
+          SDValue Shift =
+            SDValue(CurDAG->getMachineNode(X86::SHL64ri, dl, MVT::i64,
+                                           N0.getOperand(0), Imm), 0);
+          MachineSDNode *Test = CurDAG->getMachineNode(X86::TEST64rr, dl,
+                                                       MVT::i32, Shift, Shift);
+          ReplaceNode(Node, Test);
+          return;
+        }
+      }
 
       MVT VT;
       int SubRegOp;

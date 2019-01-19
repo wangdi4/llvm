@@ -1,25 +1,30 @@
+import("//clang/lib/ARCMigrate/enable.gni")
+import("//clang/lib/StaticAnalyzer/Frontend/enable.gni")
+
 group("default") {
   deps = [
-    ":lld",
-    "//llvm/tools/llc",
-    "//llvm/tools/llvm-ar:symlinks",
-    "//llvm/tools/llvm-as",
-    "//llvm/tools/llvm-bcanalyzer",
-    "//llvm/tools/llvm-dis",
-    "//llvm/tools/llvm-dwarfdump",
-    "//llvm/tools/llvm-mc",
-    "//llvm/tools/llvm-nm:symlinks",
-    "//llvm/tools/llvm-objdump:symlinks",
-    "//llvm/tools/llvm-pdbutil",
-    "//llvm/tools/llvm-readobj:symlinks",
+    "//clang/test",
+    "//lld/test",
+    "//llvm/tools/llvm-exegesis",
+    "//llvm/tools/llvm-extract",
+    "//llvm/tools/llvm-link",
+    "//llvm/tools/llvm-rc",
+    "//llvm/tools/llvm-rtdyld",
     "//llvm/tools/llvm-undname",
-    "//llvm/tools/obj2yaml",
-    "//llvm/tools/opt",
-    "//llvm/tools/yaml2obj",
-    "//llvm/utils/FileCheck",
-    "//llvm/utils/count",
-    "//llvm/utils/not",
   ]
+  if (clang_enable_arcmt) {
+    deps += [
+      "//clang/tools/arcmt-test",
+      "//clang/tools/c-arcmt-test",
+    ]
+  }
+  if (clang_enable_static_analyzer) {
+    deps += [
+      "//clang/tools/clang-check",
+      "//clang/tools/clang-func-mapping",
+    ]
+  }
+  testonly = true
 }
 
 # Symlink handling.
@@ -44,6 +49,11 @@ group("default") {
 # update symlinks (in particular, on Windows it doesn't copy the new lld to its
 # new locations).
 # That seems simpler, more explicit, and good enough.
+group("clang") {
+  deps = [
+    "//clang/tools/driver:symlinks",
+  ]
+}
 group("lld") {
   deps = [
     "//lld/tools/lld:symlinks",
@@ -59,6 +69,11 @@ group("llvm-nm") {
     "//llvm/tools/llvm-nm:symlinks",
   ]
 }
+group("llvm-objcopy") {
+  deps = [
+    "//llvm/tools/llvm-objcopy:symlinks",
+  ]
+}
 group("llvm-objdump") {
   deps = [
     "//llvm/tools/llvm-objdump:symlinks",
@@ -67,6 +82,11 @@ group("llvm-objdump") {
 group("llvm-readobj") {
   deps = [
     "//llvm/tools/llvm-readobj:symlinks",
+  ]
+}
+group("llvm-symbolizer") {
+  deps = [
+    "//llvm/tools/llvm-symbolizer:symlinks",
   ]
 }
 
