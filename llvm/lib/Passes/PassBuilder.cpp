@@ -530,7 +530,15 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
       !isOptimizingForSize(Level))
     FPM.addPass(PGOMemOPSizeOpt());
 
-  FPM.addPass(TailCallElimPass());
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  bool SkipRecProgression = PrepareForLTO && EnableDTrans;
+#else
+  bool SkipRecProgression = false;
+#endif // INTEL_INCLUDE_DTRANS
+  FPM.addPass(TailCallElimPass(SkipRecProgression));
+                                              // Eliminate tail calls
+#endif // INTEL_CUSTOMIZATION
   FPM.addPass(SimplifyCFGPass());
 
   // Form canonically associated expression trees, and simplify the trees using
@@ -1149,7 +1157,12 @@ PassBuilder::buildLTOPreLinkDefaultPipeline(OptimizationLevel Level,
                                             bool DebugLogging) {
   assert(Level != O0 && "Must request optimizations for the default pipeline!");
   // FIXME: We should use a customized pre-link pipeline!
-  return buildPerModuleDefaultPipeline(Level, DebugLogging);
+#if INTEL_CUSTOMIZATION
+  PrepareForLTO = true;
+  auto RV = buildPerModuleDefaultPipeline(Level, DebugLogging);
+  PrepareForLTO = false;
+  return RV;
+#endif // INTEL_CUSTOMIZATION
 }
 
 ModulePassManager
@@ -1170,8 +1183,18 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(GlobalDCEPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableIPCloning)
+  if (EnableIPCloning) {
+#if INTEL_INCLUDE_DTRANS
+    // This pass is being added under DTRANS only at this point, because a
+    // particular benchmark needs it to prove that the period of a recursive
+    // progression is constant. We can remove the test for EnableDTrans if
+    // we find IPSCCP to be generally useful here and we are willing to
+    // tolerate the additional compile time.
+    if (EnableDTrans)
+      MPM.addPass(IPSCCPPass());
+#endif // INTEL_INCLUDE_DTRANS
     MPM.addPass(IPCloningPass(/*AfterInl*/ false));
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Force any function attributes we want the rest of the pipeline to observe.

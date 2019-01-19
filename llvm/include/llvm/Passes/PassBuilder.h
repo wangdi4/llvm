@@ -66,6 +66,11 @@ class PassBuilder {
   PassInstrumentationCallbacks *PIC;
 
 public:
+
+#if INTEL_CUSTOMIZATION
+  bool PrepareForLTO; // We are in the compile step of an LTO compilation
+#endif // INTEL_CUSTOMIZATION
+
   /// A struct to capture parsed pass pipeline names.
   ///
   /// A pipeline is defined as a series of names, each of which may in itself
@@ -180,7 +185,7 @@ public:
   explicit PassBuilder(TargetMachine *TM = nullptr,
                        Optional<PGOOptions> PGOOpt = None,
                        PassInstrumentationCallbacks *PIC = nullptr)
-      : TM(TM), PGOOpt(PGOOpt), PIC(PIC) {}
+      : TM(TM), PGOOpt(PGOOpt), PIC(PIC), PrepareForLTO(false) {}  // INTEL
 
   /// Cross register the analysis managers through their proxies.
   ///

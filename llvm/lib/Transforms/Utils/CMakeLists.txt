@@ -25,6 +25,9 @@ add_llvm_library(LLVMTransformUtils
   IntegerDivision.cpp
 # INTEL_COLLAB
   Intel_InferAddressSpacesUtils.cpp
+# end INTEL_COLLAB
+  Intel_CloneUtils.cpp # INTEL_CUSTOMIZATION
+# INTEL_COLLAB
   Intel_GeneralUtils.cpp
   Intel_IntrinsicUtils.cpp
   ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils

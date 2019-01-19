@@ -13,16 +13,24 @@
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.
-; CHECK: Starting llvm::Module pass manager run.
+; CHECK: Running analysis: PassInstrumentationAnalysis
+; CHECK-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-NEXT: Running pass: PassManager<{{.*}}Module
 ; CHECK-NEXT: Starting llvm::Module pass manager run.
-
+; CHECK-NEXT: GlobalDCEPass
+; CHECK-NEXT: IPSCCPPass
 ; CHECK: Running analysis: TargetLibraryAnalysis
-; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}Function{{.*}}>
-; CHECK: Running analysis: DominatorTreeAnalysis
-; CHECK: Running analysis: AssumptionAnalysis
-; CHECK: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifyPass{{.*}}>
+; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module{{.*}}>
+; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
+; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on foo
+; CHECK-NEXT: Running analysis: AssumptionAnalysis on foo
+; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on main
+; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on main
+; CHECK-NEXT: Running analysis: AssumptionAnalysis on main
+; CHECK-NEXT: Running pass: IPCloningPass
+; CHECK-NEXT: Running pass: ForceFunctionAttrsPass
+; CHECK-NEXT: Running pass: InferFunctionAttrsPass
+; CHECK: Running pass: ModuleToFunctionPassAdaptor<{{.*}}InstSimplifyPass{{.*}}>
 ; CHECK-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}SimplifyCFGPass{{.*}}>
 
 ; Verify that resolve types does not invoke DTransAnalysis

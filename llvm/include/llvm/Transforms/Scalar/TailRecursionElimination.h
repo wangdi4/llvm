@@ -59,6 +59,11 @@
 namespace llvm {
 
 struct TailCallElimPass : PassInfoMixin<TailCallElimPass> {
+private:                   // INTEL
+  bool SkipRecProgression; // INTEL
+public:                    // INTEL
+  explicit TailCallElimPass(bool SkipRecProgression = false) // INTEL
+      : SkipRecProgression(SkipRecProgression) {}            // INTEL
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 }

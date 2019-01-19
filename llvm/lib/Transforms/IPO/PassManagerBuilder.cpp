@@ -571,7 +571,15 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   if (SizeLevel == 0)
     MPM.add(createPGOMemOPSizeOptLegacyPass());
 
-  MPM.add(createTailCallEliminationPass()); // Eliminate tail calls
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  bool SkipRecProgression = PrepareForLTO && EnableDTrans;
+#else
+  bool SkipRecProgression = false;
+#endif // INTEL_INCLUDE_DTRANS
+  MPM.add(createTailCallEliminationPass(SkipRecProgression));
+                                              // Eliminate tail calls
+#endif // INTEL_CUSTOMIZATION
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
   MPM.add(createReassociatePass());           // Reassociate expressions
 
@@ -1114,8 +1122,18 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createWholeProgramWrapperPassPass());
 
   // IP Cloning
-  if (EnableIPCloning)
+  if (EnableIPCloning) {
+#if INTEL_INCLUDE_DTRANS
+    // This pass is being added under DTRANS only at this point, because a
+    // particular benchmark needs it to prove that the period of a recursive
+    // progression is constant. We can remove the test for EnableDTrans if
+    // we find IPSCCP to be generally useful here and we are willing to
+    // tolerate the additional compile time.
+    if (EnableDTrans)
+      PM.add(createIPSCCPPass());
+#endif // INTEL_INCLUDE_DTRANS
     PM.add(createIPCloningLegacyPass());
+  }
 
   // Apply dynamic_casts optimization pass.
   PM.add(createOptimizeDynamicCastsWrapperPass());

@@ -335,8 +335,11 @@ Pass *createStructurizeCFGPass(bool SkipUniformRegions = false);
 //
 // TailCallElimination - This pass eliminates call instructions to the current
 // function which occur immediately before return instructions.
-//
-FunctionPass *createTailCallEliminationPass();
+#if INTEL_CUSTOMIZATION
+// When skipRecProgression is TRUE, we skip functions with a recognized
+// recursive progression through one of the arguments.
+FunctionPass *createTailCallEliminationPass(bool skipRecProgression = false);
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //
