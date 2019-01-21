@@ -95,11 +95,8 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
       return TE_WAIT_MASTER_THREAD_BLOCKING;
     }
 
-    if ( 0 == pTaskToWait )
-    {
-      m_pMasterSync->Reset();
-      Enqueue(m_pMasterSync);
-    }
+    m_pMasterSync->Reset();
+    Enqueue(m_pMasterSync);
 
     do
     {
