@@ -42,6 +42,8 @@ class HIRLoopStatistics;
 /// Defines utilities for HLNode class and manages their creation/destruction.
 /// It contains a bunch of member functions which manipulate HLNodes.
 class HLNodeUtils {
+public:
+  typedef std::vector<const HLNode *> VecNodesTy;
 private:
   /// Special deleter is required to call HLNodeUtils private destructor.
   struct HLNodeUtilsDeleter {
@@ -1571,8 +1573,12 @@ public:
                                         HLContainerTy::iterator End,
                                         bool RemoveEmptyParentNodes = true);
 
-  // Recompute loop exits in the subtree starting from \p Node.
+  /// Recompute loop exits in the subtree starting from \p Node.
   static void updateNumLoopExits(HLNode *Node);
+
+  /// Sort the nodes in the increasing order of topological sort number
+  /// and remove duplications if-any
+  static void sortInTopOrderAndUniq(VecNodesTy &Nodes);
 };
 
 } // End namespace loopopt

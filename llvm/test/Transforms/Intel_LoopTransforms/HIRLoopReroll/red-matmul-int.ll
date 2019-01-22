@@ -1,8 +1,15 @@
-; XFAIL: *
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-before=hir-loop-reroll -print-after=hir-loop-reroll  < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-before=hir-loop-reroll -print-after=hir-loop-reroll -hir-verify-cf-def-level  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
+
+; XFAIL:*
 
 ; ICC can reroll this basic matmul. ICX can't today.
+; Current reroll implementation does not maintain information of 
+; definedAtLevel and DefAtLevel of
+; possibly new SCEVs of (%4 * %5) or (%1 * %2).
+; Notice that HIRParser may not choose to have 
+; (%4 * %5) or (%1 * %2) separate blobs (i.e blobIndex).
+; Extension may require assignement of new symbase, blobIndex and so on.
 
 ; #define SIZE 1000
 ; int A[SIZE][SIZE];

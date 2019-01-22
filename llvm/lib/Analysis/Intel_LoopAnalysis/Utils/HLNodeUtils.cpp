@@ -4563,3 +4563,15 @@ void HLNodeUtils::updateNumLoopExits(HLNode *Node) {
   UpdateLoopExitsVisitor V;
   HLNodeUtils::visit(V, Node);
 }
+
+void HLNodeUtils::sortInTopOrderAndUniq(VecNodesTy &Nodes) {
+  auto NodeComparator = [](const HLNode *N1, const HLNode *N2) {
+    return N1->getTopSortNum() < N2->getTopSortNum();
+  };
+  std::sort(Nodes.begin(), Nodes.end(), NodeComparator);
+  auto Last = std::unique(Nodes.begin(), Nodes.end(),
+                          [](const HLNode *N1, const HLNode *N2) {
+                          return N1->getTopSortNum() == N2->getTopSortNum();
+                          });
+  Nodes.erase(Last, Nodes.end());
+}

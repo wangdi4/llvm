@@ -836,12 +836,6 @@ public:
   //  CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
   // }
 
-  /// Returns the index of the blob represented by this self-blob DDRef.
-  unsigned getSelfBlobIndex() const {
-    assert(isSelfBlob() && "DDRef is not a self blob!");
-    return getSingleCanonExpr()->getSingleBlobIndex();
-  }
-
   /// Replaces existing self blob index with \p NewIndex.
   void replaceSelfBlobIndex(unsigned NewIndex);
 

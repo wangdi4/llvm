@@ -1,6 +1,5 @@
-; XFAIL: *
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-before=hir-loop-reroll -print-after=hir-loop-reroll  < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-before=hir-loop-reroll -print-after=hir-loop-reroll -hir-verify-cf-def-level  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
 
 ; Current implementation does not handle rerolling of reduction-like pattern.
 ; For this specific example, ICC does not reroll either.
@@ -18,7 +17,8 @@
  
 ; CHECK:      BEGIN REGION { }
 ; CHECK:            + DO i1 = 0, 999, 1   <DO_LOOP>
-; CHECK:            |   %S.013 = %S.013 + (@A)[0][i1];
+; CHECK:            |   %0 = (@A)[0][i1];
+; CHECK:            |   %S.013 = %S.013  +  %0;
 ; CHECK:            + END LOOP
 ; CHECK:      END REGION
 
