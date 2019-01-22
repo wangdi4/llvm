@@ -21,6 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/IteratedDominanceFrontier.h"
 
 #define DEBUG_TYPE "vplan-decomposer"
 
@@ -909,15 +910,280 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   return BottomTest;
 }
 
+
+/// Determine which blocks the current symbase \p CurSymbase is live in.
+///
+///  These are the blocks that lead to actual use of the symbase. This knowlegde
+///  will help us avoid inserting PHI nodes into blocks without any uses (no
+///  dead PHI nodes)
+void VPDecomposerHIR::computeLiveInBlocks(
+    unsigned CurSymbase, const SmallPtrSetImpl<VPBlockBase *> &DefBlocks,
+    const SmallPtrSetImpl<VPBlockBase *> &UsingBlocks,
+    SmallPtrSetImpl<VPBlockBase *> &LiveInBlocks) {
+  // Liveness of the current symbase is determined by iterating over
+  // predecessors of the blocks where definition is live. These blocks are
+  // tracked via a worklist
+
+  // Initially this worklist contains all the using blocks of the current
+  // symbase
+  SmallVector<VPBlockBase *, 16> LiveInBlockWorklist(UsingBlocks.begin(),
+                                                     UsingBlocks.end());
+
+  // If a VPBB is both a defining and using block of the symbase, then we need
+  // to check if the definition comes before or after the use. If definition
+  // happens before use, the symbase is not really live-in to VPBB
+  for (unsigned I = 0, E = LiveInBlockWorklist.size(); I != E; ++I) {
+    VPBlockBase *VPBB = LiveInBlockWorklist[I];
+    if (!DefBlocks.count(VPBB))
+      continue;
+
+    // VPBB has both use and definition of symbase, iterate over it's VPIs to
+    // find out which comes first
+    assert(isa<VPBasicBlock>(VPBB) && "HCFG block is not a VPBasicBlock");
+    for (auto &Recipe : cast<VPBasicBlock>(VPBB)->getInstList()) {
+      VPInstruction *VPI = cast<VPInstruction>(&Recipe);
+      // Underlying HIR is not attached to non-master VPInstructions
+      if (!VPI->HIR.isMaster())
+        continue;
+      // We don't need to analyze non DDNode nodes like HLGoto
+      if (!isa<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode()))
+        continue;
+
+      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode());
+      // We reverse iterate over the DDRefs of the node to handle reduction
+      // scenarios. For example - %t1 = %5 + %t1 If current symbase is for
+      // %t1, forward iterating over DDRefs would incorrectly recognize it
+      // as def before use and hence not live-in, while it is actually live
+      HLDDNode::reverse_ddref_iterator DDRIt = std::find_if(
+          DDNode->op_ddref_rbegin(), DDNode->op_ddref_rend(),
+          [&](const RegDDRef *Ref) {
+            // For Lval refs and SelfBlob Rval refs, we can get the Symbase
+            // directly
+            if (Ref->getSymbase() == CurSymbase)
+              return true;
+            // If ref is Rval which is not SelfBlob, then iterate over its Blobs
+            // to find any use of CurSymbase
+            // TODO: Is the second check redundant? Can we have non SelfBlob
+            // refs in Lval?
+            if (!Ref->isSelfBlob() && DDNode->isRval(Ref)) {
+              for (auto BlobI = Ref->blob_begin(), BlobE = Ref->blob_end();
+                   BlobI != BlobE; ++BlobI) {
+                if ((*BlobI)->getSymbase() == CurSymbase)
+                  return true;
+              }
+            }
+            return false;
+          });
+
+      // If we find a RegDDRef, then liveness decision can be made. Lval refs
+      // simulate store (or def) scenario, while Rval refs simulate a use
+      // scenario. If def happens before use, then symbase is not live-in, else
+      // it is actually live.
+      if (DDRIt != DDNode->op_ddref_rend()) {
+        const RegDDRef *RDDR = *DDRIt;
+        if (DDNode->isLval(RDDR)) {
+          // We are seeing a definition to this symbase before any use of it, so
+          // the symbase is not really live in this VPBB
+          LiveInBlockWorklist[I] = LiveInBlockWorklist.back();
+          LiveInBlockWorklist.pop_back();
+          --I;
+          --E;
+        }
+        break;
+      }
+    }
+  }
+
+  // Now we have a list of blocks where the current symbase is actually live-in.
+  // Recursively add their predecessors, until we find the full region where the
+  // symbase is live.
+  while (!LiveInBlockWorklist.empty()) {
+    VPBlockBase *VPBB = LiveInBlockWorklist.pop_back_val();
+
+    // Insert the VPBB into the proper LiveInBlocks set. If it already in the
+    // set then we have also processed its predecessors
+    if (!LiveInBlocks.insert(VPBB).second)
+      continue;
+
+    // Add predecessors of VPBB unless they are defining blocks of current
+    // symbase
+    for (VPBlockBase *Pred : VPBB->getPredecessors()) {
+      if (DefBlocks.count(Pred))
+        continue;
+
+      // Predecessor is not a defining block, so symbase is live in there too
+      LiveInBlockWorklist.push_back(Pred);
+    }
+  }
+}
+
+// 1. Do an RPOT traversal, and collect defining VPBBs for each tracked symbase
+//    Map:
+//    Symbase1 --> [VPBB1, VPBB2]
+//
+// 2. Iterate over the map and call IDF to find IDFPHIBlocks. If an entry in
+//    IDFPHIBlocks does not already have a PHI for the current Symbase, then
+//    add it.
+void VPDecomposerHIR::addIDFPhiNodes() {
+  DenseMap<unsigned, SmallPtrSet<VPBlockBase *, 8>> SymbaseDefBlocks;
+  DenseMap<unsigned, SmallPtrSet<VPBlockBase *, 8>> SymbaseUsingBlocks;
+  VPRegionBlock *Region = Builder.getInsertBlock()->getParent();
+  Region->computeDT();
+  VPDominatorTree &DT = *(Region->getDT());
+  VPBlockBase *HCFGEntry = Region->getEntry();
+
+  ///// Populate use-def blocks of each tracked symbase //////
+
+  // Initialize all keys for the Symbase(Def|Using)Blocks map. If Symbase has an
+  // external def then the HCFGEntry block is noted as one of its defining block
+  for (auto Sym : TrackedSymbases) {
+    if (Plan->getVPExternalDefForSymbase(Sym)) {
+      SymbaseDefBlocks[Sym] = {HCFGEntry};
+    } else {
+      SymbaseDefBlocks[Sym] = {};
+    }
+
+    SymbaseUsingBlocks[Sym] = {};
+  }
+
+  // For using blocks we can reuse information available in the PhiToFix map,
+  // since we know that Decomposer adds an empty PHI node only for an ambiguous
+  // use of the Symbase
+  for (auto PhiMapIt : PhisToFix) {
+    unsigned Sym = PhiMapIt.first.second;
+    assert(TrackedSymbases.count(Sym) && "Untracked symbase in PhisToFix.");
+    SymbaseUsingBlocks[Sym].insert(PhiMapIt.first.first);
+  }
+
+  // For defining blocks we need to traverse the HCFG and check the Lval of each
+  // underlying HIR nodes of each VPBB
+  for (VPBlockBase *VPBB :
+       make_range(df_iterator<VPBlockBase *>::begin(HCFGEntry),
+                  df_iterator<VPBlockBase *>::end(HCFGEntry))) {
+    assert(isa<VPBasicBlock>(VPBB) && "HCFG block is not a VPBasicBlock");
+    for (auto &Recipe : cast<VPBasicBlock>(VPBB)->getInstList()) {
+      VPInstruction *VPI = cast<VPInstruction>(&Recipe);
+      if (!VPI->HIR.isMaster())
+        continue;
+      // We don't need to analyze non DDNode nodes like HLGoto
+      if (!isa<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode()))
+        continue;
+
+      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode());
+      if (DDNode->hasLval()) {
+        unsigned Sym = DDNode->getLvalDDRef()->getSymbase();
+        if (TrackedSymbases.count(Sym)) {
+          LLVM_DEBUG(dbgs() << "DDNode: "; DDNode->dump();
+                     dbgs() << "  defines the symbase: " << Sym << "\n");
+          SymbaseDefBlocks[Sym].insert(VPBB);
+        }
+      }
+    }
+  }
+
+  assert(SymbaseDefBlocks.size() == TrackedSymbases.size() &&
+         "Should find defining blocks for all tracked symbases.");
+  assert(SymbaseUsingBlocks.size() == TrackedSymbases.size() &&
+         "Should find using blocks for all tracked symbases.");
+
+  auto PrintDefUseBlocks = [&](raw_ostream &OS) {
+    OS << "\nSymbaseDefBlocks:\n";
+    for (auto MapIt : SymbaseDefBlocks) {
+      OS << "Symbase " << MapIt.first << " -> [";
+      for (auto B : MapIt.second) {
+        OS << " " << B->getName() << " ";
+      }
+      OS << "]\n";
+    }
+    OS << "\nSymbaseUsingBlocks:\n";
+    for (auto MapIt : SymbaseUsingBlocks) {
+      OS << "Symbase " << MapIt.first << " -> [";
+      for (auto B : MapIt.second) {
+        OS << " " << B->getName() << " ";
+      }
+      OS << "]\n";
+    }
+  };
+
+  LLVM_DEBUG(PrintDefUseBlocks(dbgs()));
+  (void)PrintDefUseBlocks;
+
+  // For each tracked symbase compute blocks where the Symbase is actually live
+  // in. These are the blocks that lead to uses. Use DefBlocks and LiveInBlocks
+  // to run IDF and determine additional PHI nodes that are needed in the HCFG
+  for (auto Sym : TrackedSymbases) {
+    VPlanForwardIDFCalculator IDF(DT);
+    SmallPtrSet<VPBlockBase *, 8> SymLiveInBlocks;
+    SmallVector<VPBlockBase *, 8> IDFPHIBlocks;
+
+    assert(!SymbaseDefBlocks[Sym].empty() &&
+           "Tracked symbase has no defining blocks.");
+    assert(!SymbaseUsingBlocks[Sym].empty() &&
+           "Tracked symbase has no defining blocks.");
+    computeLiveInBlocks(Sym, SymbaseDefBlocks[Sym], SymbaseUsingBlocks[Sym],
+                        SymLiveInBlocks);
+
+    LLVM_DEBUG(dbgs() << "\n Results from IDF calculator: \n");
+
+    // NOTE: SymLiveInBlocks can be empty for cases when DDG is inaccurate and
+    // we place a unnecessary PHI node
+    for (auto LIB : SymLiveInBlocks) {
+      LLVM_DEBUG(dbgs() << "VPDecomp: " << LIB->getName()
+                        << " is a live-in block for the tracked symbase " << Sym
+                        << "\n");
+      (void)LIB;
+    }
+
+    IDF.setDefiningBlocks(SymbaseDefBlocks[Sym]);
+    IDF.setLiveInBlocks(SymLiveInBlocks);
+
+    IDF.calculate(IDFPHIBlocks);
+
+    for (auto IPB : IDFPHIBlocks) {
+      VPBasicBlock *NewPhiBB = cast<VPBasicBlock>(IPB);
+      LLVM_DEBUG(dbgs() << "VPDecomp: IDF decided to add a PHI in "
+                        << NewPhiBB->getName() << " for the tracked symbase "
+                        << Sym << "\n");
+      std::pair<VPBasicBlock *, unsigned> VPBBSymPair =
+          std::make_pair(NewPhiBB, Sym);
+      if (PhisToFix.find(VPBBSymPair) == PhisToFix.end()) {
+        // IDF suggests to add a new PHI node in IPB basic block, no entry was
+        // found in PhisToFix
+
+        VPBuilder::InsertPointGuard Guard(Builder);
+        Builder.setInsertPoint(NewPhiBB, NewPhiBB->begin());
+
+        assert(TrackedSymTypes.count(Sym) &&
+               "PHI type for tracked symbase not found.");
+        auto *NewIDFPHI =
+            cast<VPPHINode>(Builder.createPhiInstruction(TrackedSymTypes[Sym]));
+        // Add the new empty PHI to list of phis to fix
+        PhisToFix[VPBBSymPair] = std::make_pair(NewIDFPHI, nullptr);
+
+        LLVM_DEBUG(dbgs() << "Adding a new empty IDF PHI node for:\n");
+        LLVM_DEBUG(dbgs() << "Symbase: " << Sym << "\n");
+
+        // Update PhiToSymbaseMap
+        PhiToSymbaseMap[NewIDFPHI] = Sym;
+      }
+    }
+  }
+}
+
 // Add operands to VPInstructions representing PHI nodes inserted by HIR
 // decomposer. PhisToFix represents a map of empty PHI nodes which need to be
 // fixed. We implement a dataflow analysis algorithm which tracks the VPValue of
 // ambiguous Symbases (corresponding to sink DDRefs) inside each VPBasicBlock of
 // the HCFG. The dataflow analysis is described in detail in the function
 // fixPhiNodePass.
-
 void VPDecomposerHIR::fixPhiNodes() {
   LLVM_DEBUG(dbgs() << "New PHI node fix algorithm in progress...\n");
+
+  LLVM_DEBUG(dbgs() << "The HIR being decomposed is:\n");
+  LLVM_DEBUG(OutermostHLp->dump());
+  LLVM_DEBUG(dbgs() << "\n");
+
+  addIDFPhiNodes();
 
   // If there are no PHIs to fix, bypass the fixPhiNodePass
   if (PhisToFix.empty())
@@ -973,6 +1239,75 @@ void VPDecomposerHIR::fixPhiNodes() {
 
   // TODO: validate correctness of the PHI nodes after fixing, also set their
   // master VPI's HIR to valid (VPPhi->HIR.getMaster()->HIR.setValid())
+  for (auto PhiMapIt : PhisToFix) {
+    VPPHINode *FixedPhi = PhiMapIt.second.first;
+    if (FixedPhi->getNumIncomingValues() ==
+        FixedPhi->getParent()->getNumPredecessors())
+      continue;
+    // This fixed PHI node has an empty/null incoming value from one of its
+    // predecessors. This could happen due to inaccuracies in DDG. In most
+    // cases such PHI nodes are not even needed. Following are possible cases :
+    // 1. The PHI node has just a single incoming value.
+    //    Solution : We replace all uses of this PHI with its operand, and
+    //    remove the PHI.
+    // 2. The PHI node has no incoming value.
+    //    Solution : This means there was no definition of the ambiguous symbase
+    //    before visiting the VPBB i.e. the VPBB defines this symbase for the
+    //    first time. Iterate over the underlying HIR instructions of the VPBB,
+    //    get the first HLInst (and VPInstruction)  that defines the symbase,
+    //    replace all uses of PHI with this instruction thereby removing the
+    //    PHI.
+    if (FixedPhi->getNumIncomingValues() > 1)
+      llvm_unreachable(
+          "Only expecting incorrect PHIs with single or no incoming values.");
+
+    LLVM_DEBUG(dbgs() << "VPDecomp fixPhiNodes : The fixed PHI node will be "
+                         "replaced and removed:";
+               FixedPhi->dump(); dbgs() << "\n");
+
+    if (FixedPhi->getNumIncomingValues() == 1) {
+      // Solution for case 1
+      unsigned Idx = 0;
+      FixedPhi->replaceAllUsesWith(FixedPhi->getIncomingValue(Idx));
+      FixedPhi->getParent()->eraseRecipe(FixedPhi);
+    } else {
+      // Solution for case 2
+      HLDDNode *FirstDefNode = nullptr;
+      for (auto &Recipe : FixedPhi->getParent()->getInstList()) {
+        VPInstruction *VPI = cast<VPInstruction>(&Recipe);
+        if (!VPI->HIR.isMaster())
+          continue;
+
+        if (!isa<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode()))
+          continue;
+
+        HLDDNode *DDNode =
+            cast<loopopt::HLDDNode>(VPI->HIR.getUnderlyingNode());
+        if (DDNode->hasLval()) {
+          unsigned Sym = DDNode->getLvalDDRef()->getSymbase();
+          if (Sym == PhiToSymbaseMap[FixedPhi]) {
+            FirstDefNode = DDNode;
+            break;
+          }
+        }
+      }
+
+      assert(FirstDefNode &&
+             "First defining HIR node for ambiguous symbase not found.");
+      assert(HLDef2VPValue.count(FirstDefNode) &&
+             "First defining HIR node not found in HLDef2VPValue map.");
+
+      VPInstruction *FirstDefVPI =
+          cast<VPInstruction>(HLDef2VPValue[FirstDefNode]);
+      LLVM_DEBUG(dbgs() << "VPDecomp fixPhiNodes:\n FirstDefNode: ";
+                 FirstDefNode->dump(); dbgs() << "\n FirstDefVPI: ";
+                 FirstDefVPI->dump(); dbgs() << "\n");
+
+      // Replace the PHI node and remove it from HCFG
+      FixedPhi->replaceAllUsesWith(FirstDefVPI);
+      FixedPhi->getParent()->eraseRecipe(FixedPhi);
+    }
+  }
 }
 
 // Empty PHI nodes are populated with appropriate incoming VPValues using a
@@ -1275,6 +1610,14 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
 
     // Add the Symbase of sink DDRef to be tracked for fixing PHI nodes
     Decomposer.TrackedSymbases.insert(DDR->getSymbase());
+
+    // Add the type of the PHI node that was added for this tracked Symbase
+    if (Decomposer.TrackedSymTypes.count(DDR->getSymbase())) {
+      assert(Decomposer.TrackedSymTypes[DDR->getSymbase()] == BaseTy &&
+             "Different type PHI node was inserted for same symbase.");
+    } else {
+      Decomposer.TrackedSymTypes[DDR->getSymbase()] = BaseTy;
+    }
 
     // Add entry to map the PHI node to the sink DDRef Symbase it was generated
     // for

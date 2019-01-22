@@ -17,14 +17,16 @@
 
 namespace llvm {
 
-template <class NodeTy, bool IsPostDom>
-void IDFCalculator<NodeTy, IsPostDom>::calculate(
-    SmallVectorImpl<BasicBlock *> &PHIBlocks) {
+#if INTEL_CUSTOMIZATION
+template <class NodeTy, bool IsPostDom, class BlockTy>
+void IDFCalculator<NodeTy, IsPostDom, BlockTy>::calculate(
+    SmallVectorImpl<BlockTy *> &PHIBlocks) {
+#endif // INTEL_CUSTOMIZATION
   // Use a priority queue keyed on dominator tree level so that inserted nodes
   // are handled from the bottom of the dominator tree upwards. We also augment
   // the level with a DFS number to ensure that the blocks are ordered in a
   // deterministic way.
-  typedef std::pair<DomTreeNode *, std::pair<unsigned, unsigned>>
+  typedef std::pair<DomTreeTy *, std::pair<unsigned, unsigned>> // INTEL
       DomTreeNodePair;
   typedef std::priority_queue<DomTreeNodePair, SmallVector<DomTreeNodePair, 32>,
                               less_second> IDFPriorityQueue;
@@ -32,19 +34,21 @@ void IDFCalculator<NodeTy, IsPostDom>::calculate(
 
   DT.updateDFSNumbers();
 
-  for (BasicBlock *BB : *DefBlocks) {
-    if (DomTreeNode *Node = DT.getNode(BB))
+  for (BlockTy *BB : *DefBlocks) {        // INTEL
+    if (DomTreeTy *Node = DT.getNode(BB)) // INTEL
       PQ.push({Node, std::make_pair(Node->getLevel(), Node->getDFSNumIn())});
   }
 
-  SmallVector<DomTreeNode *, 32> Worklist;
-  SmallPtrSet<DomTreeNode *, 32> VisitedPQ;
-  SmallPtrSet<DomTreeNode *, 32> VisitedWorklist;
+#if INTEL_CUSTOMIZATION
+  SmallVector<DomTreeTy *, 32> Worklist;
+  SmallPtrSet<DomTreeTy *, 32> VisitedPQ;
+  SmallPtrSet<DomTreeTy *, 32> VisitedWorklist;
+#endif // INTEL_CUSTOMIZATION
 
   while (!PQ.empty()) {
     DomTreeNodePair RootPair = PQ.top();
     PQ.pop();
-    DomTreeNode *Root = RootPair.first;
+    DomTreeTy *Root = RootPair.first; // INTEL
     unsigned RootLevel = RootPair.second.first;
 
     // Walk all dominator tree children of Root, inspecting their CFG edges with
@@ -57,12 +61,12 @@ void IDFCalculator<NodeTy, IsPostDom>::calculate(
     VisitedWorklist.insert(Root);
 
     while (!Worklist.empty()) {
-      DomTreeNode *Node = Worklist.pop_back_val();
-      BasicBlock *BB = Node->getBlock();
+      DomTreeTy *Node = Worklist.pop_back_val(); // INTEL
+      BlockTy *BB = Node->getBlock();            // INTEL
       // Succ is the successor in the direction we are calculating IDF, so it is
       // successor for IDF, and predecessor for Reverse IDF.
-      auto DoWork = [&](BasicBlock *Succ) {
-        DomTreeNode *SuccNode = DT.getNode(Succ);
+      auto DoWork = [&](BlockTy *Succ) {        // INTEL
+        DomTreeTy *SuccNode = DT.getNode(Succ); // INTEL
 
         const unsigned SuccLevel = SuccNode->getLevel();
         if (SuccLevel > RootLevel)
@@ -71,7 +75,7 @@ void IDFCalculator<NodeTy, IsPostDom>::calculate(
         if (!VisitedPQ.insert(SuccNode).second)
           return;
 
-        BasicBlock *SuccBB = SuccNode->getBlock();
+        BlockTy *SuccBB = SuccNode->getBlock(); // INTEL
         if (useLiveIn && !LiveInBlocks->count(SuccBB))
           return;
 
@@ -81,9 +85,11 @@ void IDFCalculator<NodeTy, IsPostDom>::calculate(
               SuccNode, std::make_pair(SuccLevel, SuccNode->getDFSNumIn())));
       };
 
-      if (GD) {
+      if (GD && !std::is_same<BlockTy, vpo::VPBlockBase>::value) { // INTEL
         for (auto Pair : children<
-                 std::pair<const GraphDiff<BasicBlock *, IsPostDom> *, NodeTy>>(
+#if INTEL_CUSTOMIZATION
+                 std::pair<const GraphDiff<BlockTy *, IsPostDom> *, NodeTy>>(
+#endif // INTEL_CUSTOMIZATION
                  {GD, BB}))
           DoWork(Pair.second);
       } else {
@@ -101,4 +107,7 @@ void IDFCalculator<NodeTy, IsPostDom>::calculate(
 
 template class IDFCalculator<BasicBlock *, false>;
 template class IDFCalculator<Inverse<BasicBlock *>, true>;
+#if INTEL_CUSTOMIZATION
+template class IDFCalculator<vpo::VPBlockBase *, false, vpo::VPBlockBase>;
+#endif // INTEL_CUSTOMIZATION
 }

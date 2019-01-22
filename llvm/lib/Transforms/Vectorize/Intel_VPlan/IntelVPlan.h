@@ -38,14 +38,14 @@
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
+#include "IntelVPLoopAnalysis.h"
 #include "IntelVPlanDivergenceAnalysis.h"
-#include "Intel_VPlan/IntelVPLoopAnalysis.h"
-#include "Intel_VPlan/IntelVPlanLoopInfo.h"
-#include "Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.h"
+#include "IntelVPlanLoopInfo.h"
+#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Support/FormattedStream.h"
 #endif // INTEL_CUSTOMIZATION
@@ -868,6 +868,24 @@ public:
       return nullptr;
 
     return LLVMInst->getType();
+  }
+
+  // Return number of successors that this VPInstruction has. The instruction
+  // must be a terminator.
+  // TODO: Implement function when/if terminator instructions are added to
+  // VPlan. This function is needed to templatize common LLVM CFG algorithms
+  // (like GraphDiff).
+  unsigned getNumSuccessors() {
+    llvm_unreachable(
+        "VPlan function defined for GraphDiff compilation invoked.");
+  }
+  // Return the specified successor. This instruction must be a terminator.
+  // TODO: Implement function when/if terminator instructions are added to
+  // VPlan. This function is needed to templatize common LLVM CFG algorithms
+  // (like GraphDiff).
+  VPBlockBase *getSuccessor(unsigned Idx) {
+    llvm_unreachable(
+        "VPlan function defined for GraphDiff compilation invoked.");
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2244,7 +2262,15 @@ public:
   void removeRecipe(VPRecipeBase *Recipe) { Recipes.remove(Recipe); }
 
   /// Remove the recipe from VPBasicBlock's recipes and destroy Recipe object.
-  void eraseRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
+  void eraseRecipe(VPRecipeBase *Recipe) {
+    // If Recipe is a VPInstruction, then we need to remove all its operands
+    // before erasing the VPInstruction. Else this breaks the use-def chains.
+    if (auto *VPI = dyn_cast<VPInstruction>(Recipe)) {
+      while (VPI->getNumOperands())
+        VPI->removeOperand(0);
+    }
+    Recipes.erase(Recipe);
+  }
 
   /// The method which generates all new IR instructions that correspond to
   /// this VPBasicBlock in the vectorized version, thereby "executing" the
@@ -3433,6 +3459,20 @@ struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
   static unsigned size(GraphRef N) { return N->getSize(); }
 };
 
+#if INTEL_CUSTOMIZATION
+// Successors iterating interfaces added to compile VPlan HCFG for GraphDiff
+// utility.The iterator requires terminator instruction for corresponding VPBB.
+// TODO: Implement function when/if terminator instructions are added to VPlan.
+// This function is needed to templatize common LLVM CFG algorithms (like
+// GraphDiff).
+using vp_succ_iterator = SuccIterator<vpo::VPInstruction, vpo::VPBlockBase>;
+inline vp_succ_iterator succ_begin(vpo::VPBlockBase *VPBB) {
+  llvm_unreachable("VPlan function defined for GraphDiff compilation invoked.");
+}
+inline vp_succ_iterator succ_end(vpo::VPBlockBase *VPBB) {
+  llvm_unreachable("VPlan function defined for GraphDiff compilation invoked.");
+}
+#endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H

@@ -47,6 +47,7 @@ class VPIfTruePredicateRecipe;
 class VPIfFalsePredicateRecipe;
 class VPlanPredicator;
 class VPlan;
+class VPLoop;
 class VPExternalUse;
 #endif
 
@@ -186,6 +187,10 @@ void printAsOperand(raw_ostream &OS) const {
            });
   }
 
+  /// Replace all uses of *this with \p NewVal. If the \p Loop is not null then
+  /// replacement is restricted by VPInstructions from the \p Loop.
+  void replaceAllUsesWith(VPValue *NewVal, VPLoop *L = nullptr);
+
 #endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
@@ -294,6 +299,12 @@ public:
   /// Return the number of operands that match \p Op.
   int getNumOperandsFrom(const VPValue *Op) const {
     return std::count(op_begin(), op_end(), Op);
+  }
+  /// Replace all uses of operand \From by \To.
+  void replaceUsesOfWith(VPValue *From, VPValue *To) {
+    for (int I = 0, E = getNumOperands(); I != E; ++I)
+      if (getOperand(I) == From)
+        setOperand(I, To);
   }
 #endif // INTEL_CUSTOMIZATION
 

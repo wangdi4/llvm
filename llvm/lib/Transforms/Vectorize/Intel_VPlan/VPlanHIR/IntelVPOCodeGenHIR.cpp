@@ -2453,6 +2453,16 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     llvm_unreachable("Master VPInstruction with unexpected HLDDNode.");
   }
 
+  // Invalid HIR for a non-decomposed PHI node means that it was most probably a
+  // PHI node introduced while fixing PHI nodes (by IDF) after HIR decomposer.
+  // In this case it's safe to just skip such PHI because other, decomposed,
+  // instructions will handle code gen properly.
+  if (isa<VPPHINode>(VPInst)) {
+    LLVM_DEBUG(dbgs() << "Skipping PHI node added by IDF after HIR decomposer:"
+                      << *VPInst << "\n");
+    return;
+  }
+
   SmallVector<RegDDRef *, 6> WideOps;
   for (const VPValue *Operand : VPInst->operands()) {
     RegDDRef *WideRef = widenRef(Operand, getVF());

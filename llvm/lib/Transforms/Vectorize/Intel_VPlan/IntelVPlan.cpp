@@ -904,11 +904,11 @@ void VPInstruction::print(raw_ostream &O) const {
       O << " ]";
     };
     const unsigned size = Phi->getNumIncomingValues();
-    for (unsigned i = 0; i < size - 1; ++i) {
+    for (unsigned i = 0; i < size; ++i) {
+      if (i > 0)
+        O << ",";
       PrintValueWithBB(i);
-      O << ",";
     }
-    PrintValueWithBB(size-1);
   } else {
 #endif // INTEL_CUSTOMIZATION
     for (const VPValue *Operand : operands()) {
@@ -1747,6 +1747,20 @@ void VPBranchInst::print(raw_ostream &O) const {
     O << "<External Basic Block>";
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+void VPValue::replaceAllUsesWith(VPValue *NewVal, VPLoop *Loop) {
+  assert(getType() == NewVal->getType() && "Incompatible data types");
+  unsigned Cnt = 0;
+  while (getNumUsers() > Cnt) {
+    if (Loop)
+      if (auto Instr = dyn_cast<VPInstruction>(Users[Cnt]))
+        if (!Loop->contains(cast<VPBlockBase>(Instr->getParent()))) {
+          ++Cnt;
+          continue;
+        }
+    Users[Cnt]->replaceUsesOfWith(this, NewVal);
+  }
+}
 
 using VPDomTree = DomTreeBase<VPBlockBase>;
 template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);

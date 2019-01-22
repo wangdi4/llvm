@@ -1,0 +1,166 @@
+; Test to verify the correctness of PHI node placement and fixing algorithm using IDF. For this test case, HIR decomposer
+; does not initially place a missing PHI node due to lack of use. The issue is addressed when IDF based PHI node placement
+; algorithm is executed.
+
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-plain-cfg < %s 2>&1 | FileCheck %s
+
+; Input HIR
+; <50>    + DO i1 = 0, %n + -1, 1   <DO_LOOP>
+; <9>     |   %.omp.iv.0.out = i1;
+; <10>    |   %inc.lcssa25 = 0;
+; <51>    |
+; <15>    |      %conv = sitofp.i64.float(i1);
+; <51>    |   + DO i2 = 0, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 101>
+; <21>    |   |   (%a)[i1][i2] = %conv;
+; <24>    |   |   (%ub)[i2] = 3 * i2 + %ret.021;
+; <51>    |   + END LOOP
+; <25>    |      %add10 = 2 * %m + %ret.021 + -2  +  2;
+; <34>    |      %ret.021 = %add10;
+; <35>    |      %inc.lcssa25 = %m;
+; <50>    + END LOOP
+
+; For the above HIR, decomposer initially would place PHI nodes for the variable %ret.021 only in inner loop body and outer loop
+; exit VPBBs. However a PHI node is needed in the outer loop header since %ret.021 is updated in every iteration of outerloop. These
+; kind of scenarios are handled by the IDF based PHI node placement algorithm that is executed during fixPhiNode. IDF correctly inserts
+; a PHI node for %ret.021 in the outer loop header (BB2).
+
+
+; Check the plain CFG structure and correctness of incoming values of PHI nodes
+; CHECK-LABEL:  Print after buildPlainCFG
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
+; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK:         [[BB1]] (BP: NULL) :
+; CHECK-NEXT:     i64 [[VP0:%.*]] = add i64 [[N:%.*]] i64 -1
+; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK:         [[BB2]] (BP: NULL) :
+; CHECK-DAG:      i64 [[VP1:%.*]] = phi  [ i64 [[RET_021:%.*]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-DAG:      i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
+; CHECK:         SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
+; CHECK:         [[BB4]] (BP: NULL) :
+; CHECK:         SUCCESSORS(1):[[BB5:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK:         [[BB5]] (BP: NULL) :
+; CHECK-DAG:      i64 [[VP9:%.*]] = phi  [ i64 [[VP1]], [[BB4]] ],  [ i64 [[VP9]], [[BB5]] ]
+; CHECK-DAG:      i64 [[VP10:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP11:%.*]], [[BB5]] ]
+; CHECK:          i64 [[VP11]] = add i64 [[VP10]] i64 1
+; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp i64 [[VP11]] i64 {{%vp.*}}
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP16]]), [[BB3]](!i1 [[VP16]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB5]]
+; CHECK:         [[BB3]] (BP: NULL) :
+; CHECK-NEXT:     i64 [[VP17:%.*]] = phi  [ i64 [[VP9]], [[BB5]] ]
+; CHECK:          i64 [[VP2]] = bitcast i64 {{%vp.*}}
+; CHECK:          i64 [[VP4]] = add i64 [[VP3]] i64 1
+; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp i64 [[VP4]] i64 [[VP0]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP23]]), [[BB6:BB[0-9]+]](!i1 [[VP23]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK:         [[BB6]] (BP: NULL) :
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+; CHECK:         [[BB7]] (BP: NULL) :
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK:         END Region([[REGION0]])
+
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+@A = dso_local local_unnamed_addr global [101 x [101 x float]] zeroinitializer, align 16
+@B = dso_local local_unnamed_addr global [101 x [101 x float]] zeroinitializer, align 16
+@ub = dso_local local_unnamed_addr global [101 x i64] zeroinitializer, align 16
+
+; Function Attrs: nounwind uwtable
+define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [101 x float]* nocapture %a, i1 zeroext %vec) local_unnamed_addr {
+entry:
+  %i = alloca i64, align 8
+  %j = alloca i64, align 8
+  %0 = bitcast i64* %i to i8*
+  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %0) #2
+  %1 = bitcast i64* %j to i8*
+  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %1) #2
+  %cmp = icmp sgt i64 %n, 0
+  br i1 %cmp, label %DIR.OMP.SIMD.118, label %omp.precond.end
+
+DIR.OMP.SIMD.118:                                 ; preds = %entry
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR"(i64* %i, i32 1), "QUAL.OMP.LINEAR"(i64* %j, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %cmp622 = icmp sgt i64 %m, 0
+  br label %omp.inner.for.body
+
+omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.118
+  %.omp.iv.0 = phi i64 [ %add11, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.118 ]
+  %ret.021 = phi i64 [ %ret.1.lcssa, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.118 ]
+  br i1 %cmp622, label %for.body.lr.ph, label %omp.inner.for.inc
+
+for.body.lr.ph:                                   ; preds = %omp.inner.for.body
+  %conv = sitofp i64 %.omp.iv.0 to float
+  br label %for.body
+
+for.body:                                         ; preds = %for.body, %for.body.lr.ph
+  %ret.124 = phi i64 [ %ret.021, %for.body.lr.ph ], [ %add10, %for.body ]
+  %storemerge23 = phi i64 [ 0, %for.body.lr.ph ], [ %inc, %for.body ]
+  %arrayidx7 = getelementptr inbounds [101 x float], [101 x float]* %a, i64 %.omp.iv.0, i64 %storemerge23
+  store float %conv, float* %arrayidx7, align 4, !tbaa !2
+  %add8 = add nsw i64 %ret.124, %storemerge23
+  %arrayidx9 = getelementptr inbounds i64, i64* %ub, i64 %storemerge23
+  store i64 %add8, i64* %arrayidx9, align 8, !tbaa !7
+  %add10 = add nsw i64 %ret.124, 2
+  %inc = add nuw nsw i64 %storemerge23, 1
+  %exitcond = icmp eq i64 %inc, %m
+  br i1 %exitcond, label %omp.inner.for.inc.loopexit, label %for.body
+
+omp.inner.for.inc.loopexit:                       ; preds = %for.body
+  %add10.lcssa = phi i64 [ %add10, %for.body ]
+  br label %omp.inner.for.inc
+
+omp.inner.for.inc:                                ; preds = %omp.inner.for.inc.loopexit, %omp.inner.for.body
+  %inc.lcssa25 = phi i64 [ 0, %omp.inner.for.body ], [ %m, %omp.inner.for.inc.loopexit ]
+  %ret.1.lcssa = phi i64 [ %ret.021, %omp.inner.for.body ], [ %add10.lcssa, %omp.inner.for.inc.loopexit ]
+  %add11 = add nuw nsw i64 %.omp.iv.0, 1
+  %exitcond26 = icmp eq i64 %add11, %n
+  br i1 %exitcond26, label %omp.loop.exit, label %omp.inner.for.body
+
+omp.loop.exit:                                    ; preds = %omp.inner.for.inc
+  %inc.lcssa25.lcssa = phi i64 [ %inc.lcssa25, %omp.inner.for.inc ]
+  %ret.1.lcssa.lcssa = phi i64 [ %ret.1.lcssa, %omp.inner.for.inc ]
+  %.omp.iv.0.lcssa = phi i64 [ %.omp.iv.0, %omp.inner.for.inc ]
+  store i64 %inc.lcssa25.lcssa, i64* %j, align 8, !tbaa !7
+  store i64 %.omp.iv.0.lcssa, i64* %i, align 8, !tbaa !7
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.SIMD"() ]
+  br label %omp.precond.end
+
+omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
+  %ret.2 = phi i64 [ %ret.1.lcssa.lcssa, %omp.loop.exit ], [ 0, %entry ]
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %1) #2
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %0) #2
+  ret i64 %ret.2
+}
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #2
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #2
+
+; Function Attrs: argmemonly nounwind
+declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+
+attributes #1 = { argmemonly nounwind }
+attributes #2 = { nounwind }
+
+
+!2 = !{!3, !4, i64 0}
+!3 = !{!"array@_ZTSA101_f", !4, i64 0}
+!4 = !{!"float", !5, i64 0}
+!5 = !{!"omnipotent char", !6, i64 0}
+!6 = !{!"Simple C++ TBAA"}
+!7 = !{!8, !8, i64 0}
+!8 = !{!"long", !5, i64 0}

@@ -14,6 +14,7 @@
 #ifndef LLVM_IR_CFGDIFF_H
 #define LLVM_IR_CFGDIFF_H
 
+#include "../../../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h" // INTEL
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
@@ -155,15 +156,19 @@ public:
 #endif
 };
 
-template <bool InverseGraph = false> struct CFGViewSuccessors {
-  using DataRef = const GraphDiff<BasicBlock *, InverseGraph> *;
-  using NodeRef = std::pair<DataRef, BasicBlock *>;
+#if INTEL_CUSTOMIZATION
+template <bool InverseGraph = false, class BlockTy = BasicBlock,
+          class SuccIterTy = succ_iterator>
+struct CFGViewSuccessors {
+  using DataRef = const GraphDiff<BlockTy *, InverseGraph> *;
+  using NodeRef = std::pair<DataRef, BlockTy *>;
+#endif // INTEL_CUSTOMIZATION
 
   using ExistingChildIterator =
-      WrappedPairNodeDataIterator<succ_iterator, NodeRef, DataRef>;
+      WrappedPairNodeDataIterator<SuccIterTy, NodeRef, DataRef>; // INTEL
   struct DeletedEdgesFilter {
-    BasicBlock *BB;
-    DeletedEdgesFilter(BasicBlock *BB) : BB(BB){};
+    BlockTy *BB;                                // INTEL
+    DeletedEdgesFilter(BlockTy *BB) : BB(BB){}; // INTEL
     bool operator()(NodeRef N) const {
       return !N.first->ignoreChild(BB, N.second, false);
     }
@@ -171,7 +176,9 @@ template <bool InverseGraph = false> struct CFGViewSuccessors {
   using FilterExistingChildrenIterator =
       filter_iterator<ExistingChildIterator, DeletedEdgesFilter>;
 
-  using vec_iterator = SmallVectorImpl<BasicBlock *>::const_iterator;
+#if INTEL_CUSTOMIZATION
+  using vec_iterator = typename SmallVectorImpl<BlockTy *>::const_iterator;
+#endif // INTEL_CUSTOMIZATION
   using AddNewChildrenIterator =
       WrappedPairNodeDataIterator<vec_iterator, NodeRef, DataRef>;
   using ChildIteratorType =
@@ -279,6 +286,16 @@ template <>
 struct GraphTraits<
     std::pair<const GraphDiff<BasicBlock *, true> *, Inverse<BasicBlock *>>>
     : CFGViewPredecessors<true> {};
+#if INTEL_CUSTOMIZATION
+template <>
+struct GraphTraits<
+    std::pair<const GraphDiff<vpo::VPBlockBase *, false> *, vpo::VPBlockBase *>>
+    : CFGViewSuccessors<false, vpo::VPBlockBase, vp_succ_iterator> {};
+template <>
+struct GraphTraits<
+    std::pair<const GraphDiff<vpo::VPBlockBase *, true> *, vpo::VPBlockBase *>>
+    : CFGViewSuccessors<true, vpo::VPBlockBase, vp_succ_iterator> {};
+#endif // INTEL_CUSTOMIZATION
 } // end namespace llvm
 
 #endif // LLVM_IR_CFGDIFF_H
