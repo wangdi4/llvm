@@ -2326,56 +2326,6 @@ static void FillImfFuncSet(llvm::StringSet<> &ImfFuncSet) {
     ImfFuncSet.insert(it);
   }
 }
-
-// Get the appropriate g++ ABI version for this invocation.
-// If the user has specified a non-zero ABI version, return that.
-// If the user has specified an ABI version of 0, return the highest ABI
-// version supported in the current g++ version
-// Otherwise, return the ABI version that is the default in the current
-// g++ version
-static int getGNUFABIVersion(bool hasFABIVersionArg,
-                             int specifiedABIVersion,
-                             int GNUVersion) {
-  int appropriateABIVersion = 0;
-
-  if (hasFABIVersionArg && specifiedABIVersion != 0)
-    return specifiedABIVersion;
-  if (GNUVersion >= 70000)
-    appropriateABIVersion = 11;
-  else if (GNUVersion >= 60100)
-    appropriateABIVersion = 10;
-  else if (GNUVersion >= 50000) // Note GNU doc says 5.2
-    appropriateABIVersion = 9;
-  else if (GNUVersion >= 40900) {
-    if (hasFABIVersionArg)
-      appropriateABIVersion = 8;
-    else
-      appropriateABIVersion = 2;
-  } else if (GNUVersion >= 40800) {
-    if (hasFABIVersionArg)
-      appropriateABIVersion = 7;
-    else
-      appropriateABIVersion = 2;
-  } else if (GNUVersion >= 40700) {
-    if (hasFABIVersionArg)
-      appropriateABIVersion = 6;
-    else
-      appropriateABIVersion = 2;
-  } else if (GNUVersion >= 40600) {
-    if (hasFABIVersionArg)
-      appropriateABIVersion = 5;
-    else
-      appropriateABIVersion = 2;
-  } else if (GNUVersion >= 40500) {
-    if (hasFABIVersionArg)
-      appropriateABIVersion = 4;
-    else
-      appropriateABIVersion = 2;
-  } else
-    appropriateABIVersion = 2;
-
-  return appropriateABIVersion;
-}
 #endif // INTEL_CUSTOMIZATION
 
 /// Check if input file kind and language standard are compatible.
@@ -2645,28 +2595,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (Opts.GNUFABIVersion == 0)
     Opts.EmulateGNUABIBugs = 0;
 
-  // CQ380574: Ability to set various predefines based on gcc version needed.
-  Opts.GNUVersion = getLastArgIntValue(Args, OPT_gnu_version_EQ,
-                                       40500,
-                                       Diags);
-
-  // cmplrs-417: Get the appropriate FABI version to emulate
-  Opts.GNUFABIVersion = getGNUFABIVersion(Args.hasArg(OPT_gnu_fabi_version_EQ),
-                                          Opts.GNUFABIVersion,
-                                          Opts.GNUVersion);
-
-  Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode &&
-                                     Opts.GNUVersion >= 40400);
+  Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode);
   // CQ376358: Support -ffriend-injection option.
-  // GCC < 4.01.00 supports friend function injections by default.
-  // GCC < 4.00.01 supports friend classes injections by default.
-  // This copied from EDG for better compatibility with icc/gcc.
   Opts.FriendFunctionInject =
-      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
-                   Opts.GNUVersion < 40100 && !Opts.CPlusPlus11);
+      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection, false);
   Opts.FriendClassInject =
-      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
-                   Opts.GNUVersion < 40001 && !Opts.CPlusPlus11);
+      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection, false);
 #endif  // INTEL_CUSTOMIZATION
 
   // -cl-strict-aliasing needs to emit diagnostic in the case where CL > 1.0.
