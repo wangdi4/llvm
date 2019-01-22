@@ -771,7 +771,13 @@ void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
     ++LoopLevel;
   }
 
-  CExpr->simplify(true);
+  // We need more information to determine whether CE is non-negative.
+  // Since the nodes are disconnected for the unrolling transformation, it is
+  // not safe to call HLNodeUtils::isKnownNonNegative(). Leaving this as a TODO
+  // until we encounter real perf issue. At that time we may have to relax the
+  // utility to handle disconnected nodes.
+  bool IsNonNegative = false;
+  CExpr->simplify(true, IsNonNegative);
 }
 
 ///// CanonExpr Visitor End
@@ -1139,8 +1145,7 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::populateRemBlobs(
   unsigned MaxNonRemBlobLevel = 0;
   auto CurNode = Ref->getHLDDNode();
 
-  for (auto BIt = Ref->blob_begin(), End = Ref->blob_end(); BIt != End;
-       ++BIt) {
+  for (auto BIt = Ref->blob_begin(), End = Ref->blob_end(); BIt != End; ++BIt) {
     auto Blob = *BIt;
     auto Index = Blob->getBlobIndex();
     unsigned BlobLevel =
@@ -1166,8 +1171,7 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::getMaxNonSimplifiedBlobLevel(
 
   unsigned BasePtrIndex = Ref->getBasePtrBlobIndex();
 
-  for (auto BIt = Ref->blob_begin(), End = Ref->blob_end(); BIt != End;
-       ++BIt) {
+  for (auto BIt = Ref->blob_begin(), End = Ref->blob_end(); BIt != End; ++BIt) {
     auto Blob = *BIt;
     auto Index = Blob->getBlobIndex();
     unsigned BlobLevel =

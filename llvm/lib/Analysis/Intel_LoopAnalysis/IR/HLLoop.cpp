@@ -724,7 +724,7 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
 
   Result->divide(StrideConst);
   Result->addConstant(StrideConst, true);
-  Result->simplify(true);
+  Result->simplify(true, true);
   return Result;
 }
 
@@ -1336,7 +1336,7 @@ bool HLLoop::normalize() {
   }
 
   UpperCE->divide(Stride);
-  UpperCE->simplify(true);
+  UpperCE->simplify(true, true);
 
   unsigned Level = getNestingLevel();
 

@@ -28,9 +28,9 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-static cl::opt<bool> PrintDetailsRefs(
-    "hir-details-refs", cl::ReallyHidden,
-    cl::desc("Print details of RegDDRef dimensions"));
+static cl::opt<bool>
+    PrintDetailsRefs("hir-details-refs", cl::ReallyHidden,
+                     cl::desc("Print details of RegDDRef dimensions"));
 
 #define DEBUG_TYPE "hir-regddref"
 
@@ -70,8 +70,8 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
       Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed),
       Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
       LowerBounds(Info.LowerBounds), Strides(Info.Strides),
-      DimTypes(Info.DimTypes), MDNodes(Info.MDNodes),
-      GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc) {}
+      DimTypes(Info.DimTypes), MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
+      MemDbgLoc(Info.MemDbgLoc) {}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 
@@ -1177,12 +1177,26 @@ bool RegDDRef::isNonLinear(void) const {
 }
 
 void RegDDRef::replaceIVByConstant(unsigned LoopLevel, int64_t Val) {
+  auto *Node = getHLDDNode();
+  bool IsLoopBound = Node && isa<HLLoop>(Node);
+
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
     CanonExpr *CE = (*I);
 
     // Replace IV by constant Val and then simplify the CE
     CE->replaceIVByConstant(LoopLevel, Val);
-    CE->simplify(true);
+
+    bool IsNonNegative = IsLoopBound;
+
+    // Check for non-unit denominator to skip calling uitlity for compile time
+    // savings.
+    if (!IsLoopBound && (CE->getDenominator() != 1)) {
+      // Utility may assert for non-attached nodes.
+      IsNonNegative =
+          (Node->isAttached() && HLNodeUtils::isKnownNonNegative(CE, Node));
+    }
+
+    CE->simplify(true, IsNonNegative);
   }
 }
 
@@ -1272,8 +1286,7 @@ void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
   }
 
   if (!LowerBoundCE) {
-    LowerBoundCE =
-        getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
+    LowerBoundCE = getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
   }
 
   GepInfo->LowerBounds.push_back(LowerBoundCE);
@@ -1297,8 +1310,7 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
   createGEP();
 
   if (!LowerBoundCE) {
-    LowerBoundCE =
-        getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
+    LowerBoundCE = getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
   }
 
   // If no dimension information provided then try to compute it from the BaseCE
@@ -1318,8 +1330,7 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
       // Note: for variable stride arrays the StrideCE and DimTy should be
       // provided explicitly.
       DimTy = getDimensionElementType(1);
-      DimTy = DDRefUtils::getOffsetType(
-          DimTy, getTrailingStructOffsets(1));
+      DimTy = DDRefUtils::getOffsetType(DimTy, getTrailingStructOffsets(1));
       ElemTy = DimTy->isPointerTy() ? DimTy->getPointerElementType()
                                     : DimTy->getArrayElementType();
     }
@@ -1347,12 +1358,12 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
   // Add Dimension type
   assert(DimTy && "DimTy may not be unknown");
   assert((DimTy->isArrayTy() || DimTy->isPointerTy()) &&
-      "Dimension type should be either array or pointer");
+         "Dimension type should be either array or pointer");
   GepInfo->DimTypes.insert(GepInfo->DimTypes.begin(), DimTy);
 }
 
-void RegDDRef::setTrailingStructOffsets(
-    unsigned DimensionNum, ArrayRef<unsigned> Offsets) {
+void RegDDRef::setTrailingStructOffsets(unsigned DimensionNum,
+                                        ArrayRef<unsigned> Offsets) {
   createGEP();
 
   if (getGEPInfo()->DimensionOffsets.size() < DimensionNum) {

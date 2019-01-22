@@ -2807,7 +2807,9 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
 
   // Divide by element size to convert byte offset to number of elements.
   IndexCE->divide(getPointerElementSize(PhiTy));
-  IndexCE->simplify(true);
+  // Index is already multiplied by element size as the SCEV form is in bytes so
+  // it should be okay to simplify denominator.
+  IndexCE->simplify(true, true);
 
   // Bail out if element size does not divide stride evenly and Phi has an
   // unusual access pattern.

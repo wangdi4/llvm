@@ -93,7 +93,7 @@ static void propagateConstant(HLLoop *Loop, unsigned TempIndex,
     bool Changed = false;
     for (CanonExpr *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
       if (CE->replaceTempBlobByConstant(TempIndex, Constant)) {
-        CE->simplify(true);
+        CE->simplify(true, true);
         Changed = true;
       }
     }

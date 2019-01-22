@@ -205,8 +205,11 @@ const CanonExpr *DDTest::getInvariant(const CanonExpr *CE) {
 
   CE2->clearIVs();
 
-  // TODO: note that it could be unsafe to simplify denominator in constant CEs.
-  CE2->simplify(false);
+  // Check denominator first to avoid spending compile time in the utility.
+  bool IsNonNegative = (CE2->getDenominator() != 1) &&
+                       HLNodeUtils::isKnownNonNegative(CE2, DeepestLoop);
+
+  CE2->simplify(false, IsNonNegative);
 
   push(CE2);
   return CE2;
@@ -360,7 +363,11 @@ const CanonExpr *DDTest::getMinus(const CanonExpr *SrcConst,
     return nullptr;
   }
 
-  CE->simplify(false);
+  // Check denominator first to avoid spending compile time in the utility.
+  bool IsNonNegative = (CE->getDenominator() != 1) &&
+                       HLNodeUtils::isKnownNonNegative(CE, DeepestLoop);
+
+  CE->simplify(false, IsNonNegative);
 
   push(CE);
   return CE;
@@ -377,7 +384,11 @@ const CanonExpr *DDTest::getAdd(const CanonExpr *SrcConst,
     return nullptr;
   }
 
-  CE->simplify(false);
+  // Check denominator first to avoid spending compile time in the utility.
+  bool IsNonNegative = (CE->getDenominator() != 1) &&
+                       HLNodeUtils::isKnownNonNegative(CE, DeepestLoop);
+
+  CE->simplify(false, IsNonNegative);
 
   push(CE);
   return CE;
@@ -1082,7 +1093,7 @@ void DependenceAnalysis::unifySubscriptType(Subscript *Pair) {
 // the actual analysis.
 void DDTest::removeMatchingExtensions(Subscript *Pair) {
 
-// TODO:  will handle this later
+  // TODO:  will handle this later
 
 #if 0
   const CanonExpr *Src = Pair->Src;
@@ -4236,7 +4247,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   LLVM_DEBUG(dbgs() << "\n Src, Dst DDRefs\n"; SrcDDRef->dump());
   LLVM_DEBUG(dbgs() << ",  "; DstDDRef->dump());
-  LLVM_DEBUG(dbgs() << "\n" << SrcDDRef->getHLDDNode()->getNumber() << ":"
+  LLVM_DEBUG(dbgs() << "\n"
+                    << SrcDDRef->getHLDDNode()->getNumber() << ":"
                     << DstDDRef->getHLDDNode()->getNumber());
 
   LLVM_DEBUG(dbgs() << "\n Input DV "; InputDV.print(dbgs(), MaxLoopNestLevel));

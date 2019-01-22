@@ -1174,7 +1174,7 @@ int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
   return CurrentGCD;
 }
 
-void CanonExpr::simplify(bool SimplifyCast) {
+void CanonExpr::simplify(bool SimplifyCast, bool IsUnsignedOrNonNegative) {
   int64_t Denom = 0, NumeratorGCD = -1, CommonGCD = 0;
 
   // Numerator is constant, we can evaluate value of the CE.
@@ -1184,6 +1184,12 @@ void CanonExpr::simplify(bool SimplifyCast) {
       simplifyConstantCast();
     }
 
+    return;
+  }
+
+  // Cannot simplify unsigned division for negative numerator.
+  // ((-3 * %t) /u 9) != ((-1 * %t) /u 3)
+  if (!IsUnsignedOrNonNegative && isUnsignedDiv()) {
     return;
   }
 

@@ -225,7 +225,7 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
 
     // Use the same canon expr to generate the division.
     TripCE->divide(UnrollOrVecFactor);
-    TripCE->simplify(true);
+    TripCE->simplify(true, true);
 
     Ref->setSymbase(Ref->getDDRefUtils().getNewSymbase());
 
@@ -834,7 +834,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
 
   //  UB / StripmineSize: (N-1) / 64
   UBCE->divide(StripmineSize);
-  UBCE->simplify(true);
+  UBCE->simplify(true, true);
 
   RegDDRef *InnerLBRef =
       UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);
@@ -963,12 +963,10 @@ static void widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
 
   auto *UpperCE = Lp->getUpperCanonExpr();
 
-  if (UpperCE->isIntConstant()) {
-    return;
-  }
-
   int64_t MaxVal;
-  bool HasMax = HLNodeUtils::getMaxValue(UpperCE, Lp, MaxVal);
+
+  bool HasMax = (UpperCE->isIntConstant(&MaxVal) ||
+                 HLNodeUtils::getMaxValue(UpperCE, Lp, MaxVal));
 
   bool HasSignedIV = Lp->isNSW();
 
