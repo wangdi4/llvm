@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
-//===- VPOParoptTarget.cpp - Transformation of W-Region for offloading --===//
+//===- VPOParoptTarget.cpp - Transformation of W-Region for offloading ----===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -383,7 +383,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     bool &hasRuntimeEvaluationCaptureSize,
     bool &IsFirstExprFlag) {
   const DataLayout DL = F->getParent()->getDataLayout();
-
+  LLVMContext &C = F->getContext();
 
   MapClause const &MpClause = W->getMap();
   bool Match = false;
@@ -401,9 +401,13 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         if (!ConstValue) {
           hasRuntimeEvaluationCaptureSize = true;
           ConstSizes.push_back(ConstantInt::get(
-              IntelGeneralUtils::getSizeTTy(F), DL.getTypeAllocSize(T)));
-        } else
-          ConstSizes.push_back(ConstValue);
+              Type::getInt64Ty(C), DL.getTypeAllocSize(T)));
+        } else {
+          // Sign extend the constant to signed 64-bit integer.
+          // This is the format of arg_sizes passed to __tgt_target.
+          ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
+                                                ConstValue->getSExtValue()));
+        }
         MapTypes.push_back(
             getMapTypeFlag(MapI, !IsFirstExprFlag,
                 MapChain.size() > 1 ? false : true,
@@ -414,7 +418,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
           break;
       }
     } else {
-      ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
+      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                             DL.getTypeAllocSize(T)));
       MapTypes.push_back(getMapTypeFlag(MapI, !IsFirstExprFlag, true, true));
     }
@@ -434,9 +438,13 @@ void VPOParoptTransform::genTgtInformationForPtrs(
             hasRuntimeEvaluationCaptureSize = true;
             Type *T = MapI->getOrig()->getType()->getPointerElementType();
             ConstSizes.push_back(ConstantInt::get(
-              IntelGeneralUtils::getSizeTTy(F), DL.getTypeAllocSize(T)));
-          } else
-            ConstSizes.push_back(ConstValue);
+              Type::getInt64Ty(C), DL.getTypeAllocSize(T)));
+          } else {
+            // Sign extend the constant to signed 64-bit integer.
+            // This is the format of arg_sizes passed to __tgt_target.
+            ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
+                                                  ConstValue->getSExtValue()));
+          }
           MapTypes.push_back(
             getMapTypeFlag(MapI, !IsFirstExprFlag,
             true,
@@ -455,7 +463,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       if (FprivI->getInMap())
         continue;
       Type *T = FprivI->getOrig()->getType()->getPointerElementType();
-      ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
+      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                             DL.getTypeAllocSize(T)));
       MapTypes.push_back(generateDefaultMap());
     }
@@ -466,14 +474,14 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
       if (IsDevicePtrI->getOrig() != V)
         continue;
-      Type *T = IntelGeneralUtils::getSizeTTy(F);
+      Type *T = Type::getInt64Ty(C);
       ConstSizes.push_back(ConstantInt::get(T, DL.getTypeAllocSize(T)));
       MapTypes.push_back(TGT_MAP_LITERAL | TGT_MAP_TARGET_PARAM | TGT_MAP_IMPLICIT);
     }
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {
     Type *T = W->getParLoopNdInfoAlloca()->getType()->getPointerElementType();
-    ConstSizes.push_back(ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
+    ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                           DL.getTypeAllocSize(T)));
     MapTypes.push_back(TGT_MAP_ND_DESC);
   }
@@ -580,6 +588,7 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Value *RegionId,
                                                 Instruction *InsertPt) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
+  LLVMContext &C = F->getContext();
   IRBuilder<> Builder(F->getEntryBlock().getFirstNonPHI());
   TgDataInfo Info;
 
@@ -620,11 +629,11 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
     if (hasRuntimeEvaluationCaptureSize)
       SizesArray = Builder.CreateAlloca(
-          ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), nullptr,
-          ".offload_sizes");
+          ArrayType::get(Type::getInt64Ty(C), Info.NumberOfPtrs),
+          nullptr, ".offload_sizes");
     else {
       auto *SizesArrayInit = ConstantArray::get(
-          ArrayType::get(IntelGeneralUtils::getSizeTTy(F), ConstSizes.size()),
+          ArrayType::get(Type::getInt64Ty(C), ConstSizes.size()),
           ConstSizes);
 
       GlobalVariable *SizesArrayGbl =
@@ -660,7 +669,7 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                          hasRuntimeEvaluationCaptureSize);
   }
 
-  genOffloadArraysArgument(&Info, InsertPt, hasRuntimeEvaluationCaptureSize);
+  genOffloadArraysArgument(&Info, InsertPt);
   if (hasOffloadCompilation())
     return Call;
 
@@ -680,7 +689,7 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     TgtCall = VPOParoptUtils::genTgtTargetDataBegin(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
-    genOffloadArraysArgument(&Info, Call, hasRuntimeEvaluationCaptureSize);
+    genOffloadArraysArgument(&Info, Call);
     VPOParoptUtils::genTgtTargetDataEnd(
         W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
         Info.ResDataSizes, Info.ResDataMapTypes, Call);
@@ -733,15 +742,17 @@ void VPOParoptTransform::genOffloadArraysInitUtil(
   Builder.CreateStore(NewBPVal, P);
 
   if (hasRuntimeEvaluationCaptureSize) {
+    LLVMContext &C = F->getContext();
     S = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
+        ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
         Info->DataSizes, 0, Cnt);
 
     if (Size && !dyn_cast<ConstantInt>(Size))
       SizeValue = Size;
     else
       SizeValue = ConstSizes[Cnt];
-    Builder.CreateStore(genCastforAddr(SizeValue, Builder), S);
+    Builder.CreateStore(
+        Builder.CreateSExt(SizeValue, Type::getInt64Ty(C)), S);
   }
   Cnt++;
 }
@@ -839,9 +850,10 @@ void VPOParoptTransform::genOffloadArraysInit(
 // Generate the pointers pointing to the array of base pointer, the
 // array of section pointers, the array of sizes, the array of map types.
 void VPOParoptTransform::genOffloadArraysArgument(
-    TgDataInfo *Info, Instruction *InsertPt,
-    bool hasRuntimeEvaluationCaptureSize) {
+    TgDataInfo *Info, Instruction *InsertPt) {
   IRBuilder<> Builder(InsertPt);
+
+  LLVMContext &C = F->getContext();
 
   if (Info->NumberOfPtrs) {
     Info->ResBaseDataPtrs = Builder.CreateConstInBoundsGEP2_32(
@@ -851,23 +863,20 @@ void VPOParoptTransform::genOffloadArraysArgument(
         ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
         Info->DataPtrs, 0, 0);
     Info->ResDataSizes = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(hasRuntimeEvaluationCaptureSize
-                           ? Builder.getInt8PtrTy()
-                           : IntelGeneralUtils::getSizeTTy(F),
-                       Info->NumberOfPtrs),
+        ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
         Info->DataSizes, 0, 0);
     Info->ResDataMapTypes = Builder.CreateConstInBoundsGEP2_32(
-        ArrayType::get(IntelGeneralUtils::getSizeTTy(F), Info->NumberOfPtrs),
+        ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
         Info->DataMapTypes, 0, 0);
   } else {
     Info->ResBaseDataPtrs = ConstantPointerNull::get(
         PointerType::getUnqual(Builder.getInt8PtrTy()));
     Info->ResDataPtrs = ConstantPointerNull::get(
         PointerType::getUnqual(Builder.getInt8PtrTy()));
-    Info->ResDataSizes = ConstantPointerNull::get(PointerType::getUnqual(
-                               IntelGeneralUtils::getSizeTTy(F)));
-    Info->ResDataMapTypes = ConstantPointerNull::get(
-        PointerType::getUnqual(IntelGeneralUtils::getSizeTTy(F)));
+    Info->ResDataSizes =
+        ConstantPointerNull::get(PointerType::getUnqual(Type::getInt64Ty(C)));
+    Info->ResDataMapTypes =
+        ConstantPointerNull::get(PointerType::getUnqual(Type::getInt64Ty(C)));
   }
 }
 

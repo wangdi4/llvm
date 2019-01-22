@@ -2887,11 +2887,12 @@ bool HIRParser::representsStructOffset(const GEPOrSubsOperator *GEPOp) {
   return (Offsets[GEPOp->getNumOperands() - 2] != -1);
 }
 
-bool HIRParser::isValidGEPOp(const GEPOrSubsOperator *GEPOp) const {
+bool HIRParser::isValidGEPOp(const GEPOrSubsOperator *GEPOp,
+                             bool SkipLiveRangeCheck) const {
 
   auto GEPInst = dyn_cast<Instruction>(GEPOp);
 
-  if (GEPInst &&
+  if (!SkipLiveRangeCheck && GEPInst &&
       SE.getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) {
     return false;
   }
@@ -3525,19 +3526,18 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     GEPVal = Opnd;
   }
 
-  auto GEPInst = dyn_cast<Instruction>(GEPVal);
-  const GEPOrSubsOperator *GEPOp = nullptr;
+  const GEPOrSubsOperator *GEPOp = dyn_cast<GEPOrSubsOperator>(GEPVal);
 
   // Try to get to the phi associated with this GEP.
-  // Do not cross the live range indicator for GEP uses (load/store/bitcast).
-  if ((!IsUse || !GEPInst ||
-       !SE.getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) &&
-      (GEPOp = dyn_cast<GEPOrSubsOperator>(GEPVal))) {
-
-    BasePhi = dyn_cast<PHINode>(getBaseGEPOp(GEPOp)->getPointerOperand());
-
-  } else if (GEPInst) {
-    BasePhi = dyn_cast<PHINode>(GEPInst);
+  if (GEPOp) {
+    // Do not cross the live range indicator for GEP uses (load/store/bitcast).
+    if (isValidGEPOp(GEPOp, !IsUse)) {
+      BasePhi = dyn_cast<PHINode>(getBaseGEPOp(GEPOp)->getPointerOperand());
+    } else {
+      GEPOp = nullptr;
+    }
+  } else {
+    BasePhi = dyn_cast<PHINode>(GEPVal);
   }
 
   if (BasePhi && RI.isHeaderPhi(BasePhi)) {

@@ -565,6 +565,14 @@ public:
   /// operand should be the node itself.
   void setLoopID(MDNode *LoopID) const;
 
+#if INTEL_CUSTOMIZATION
+  /// Erase the llvm.loop loop id metadata for this loop.
+  ///
+  /// The LoopID metadata will be erased from each terminator instruction in
+  /// the loop that branches to the loop header.
+  void eraseLoopID() const;
+#endif  // INTEL_CUSTOMIZATION
+
   /// Add llvm.loop.unroll.disable to this loop's loop id metadata.
   ///
   /// Remove existing unroll metadata and add unroll disable metadata to

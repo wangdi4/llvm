@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //===-- VPO/Paropt/VPOParoptTranform.h - Paropt Transform Class -*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -566,8 +566,7 @@ private:
 
   /// \brief Generate the pointers pointing to the array of base pointer, the
   /// array of section pointers, the array of sizes, the array of map types.
-  void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt,
-                                bool hasRuntimeEvaluationCaptureSize);
+  void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt);
 
   /// \brief Pass the data to the array of base pointer as well as  array of
   /// section pointers. If the flag hasRuntimeEvaluationCaptureSize is true,

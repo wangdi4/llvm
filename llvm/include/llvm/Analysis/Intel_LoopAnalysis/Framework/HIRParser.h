@@ -398,7 +398,8 @@ class HIRParser {
   unsigned getPointerElementSize(Type *Ty) const;
 
   // Returns true if it is valid to parse this GEPOrSubsOperator.
-  bool isValidGEPOp(const GEPOrSubsOperator *GEPOp) const;
+  bool isValidGEPOp(const GEPOrSubsOperator *GEPOp,
+                    bool SkipLiveRangeCheck = false) const;
 
   /// Returns the base(earliest) GEP in case there are multiple GEPs associated
   /// with this load/store.

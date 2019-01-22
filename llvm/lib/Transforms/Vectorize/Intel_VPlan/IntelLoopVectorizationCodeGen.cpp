@@ -96,6 +96,16 @@ static bool isUsedInReductionScheme(PHINode *Phi,
   });
 }
 
+// {0, 1, 2, 3} -> TargetLength = 8 -> { 0, 1, 2, 3, undef, undef, undef, undef}
+static Value *extendVector(Value *OrigVal, unsigned TargetLength,
+                           IRBuilder<> &Builder, const Twine &Name = "") {
+  Type *OrigTy = OrigVal->getType();
+  assert(isa<VectorType>(OrigTy) && "OriginalVal should be of a vector type");
+  Constant *ShufMask = createSequentialMask(Builder, 0, TargetLength, 0);
+  return Builder.CreateShuffleVector(OrigVal, UndefValue::get(OrigTy), ShufMask,
+                                     "extended." + Name);
+}
+
 /// Reduce vector \p Vec to a scalar value according to the
 /// recurrence descriptor.
 static Value *reduceVector(Value *Vec,
@@ -2136,13 +2146,15 @@ void VPOCodeGen::vectorizeExtractElement(Instruction *Inst) {
   unsigned Index = cast<ConstantInt>(IndexVal)->getZExtValue();
 
   // Extract subvector. The subvector should include VF elements.
-  // The start position for extracting is VF*Index.
   SmallVector<unsigned, 8> ShufMask;
-  for (unsigned i = 0; i < VF; ++i)
-    ShufMask.push_back(VF * Index + i);
+  unsigned OriginalVL =
+      ExtrEltInst->getOperand(0)->getType()->getVectorNumElements();
+  unsigned WideNumElts = VF * OriginalVL;
+  for (unsigned Idx = Index; Idx < WideNumElts; Idx += OriginalVL)
+    ShufMask.push_back(Idx);
   Type *VTy = ExtrFrom->getType();
-  WidenMap[Inst] =
-      Builder.CreateShuffleVector(ExtrFrom, UndefValue::get(VTy), ShufMask);
+  WidenMap[Inst] = Builder.CreateShuffleVector(ExtrFrom, UndefValue::get(VTy),
+                                               ShufMask, "wide.extract");
 }
 
 void VPOCodeGen::vectorizeShuffle(Instruction *Inst) {
@@ -2193,40 +2205,91 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
   Value *IndexVal = InsEltInst->getOperand(2);
   unsigned Index = cast<ConstantInt>(IndexVal)->getZExtValue();
   unsigned WideNumElts = InsertTo->getType()->getVectorNumElements();
+  unsigned OriginalVL =
+      InsEltInst->getOperand(0)->getType()->getVectorNumElements();
+
+  // Widen the insert into an empty, undef-vector
+  // E.g. For OriginalVL = 4 and VF = 2, the following code,
+  //%add13 = add i32 %scalar, %scalar9
+  //%add14 = add i32 %scalar6, %scalar10
+  //%add15 = add i32 %scalar7, %scalar11
+  //%add16 = add i32 %scalar8, %scalar12
+  //%assembled.vect = insertelement <4 x i32> undef, i32 %add13, i32 0
+  //
+  // is transformed into,
+  // %6 = add <2 x i32> %Wide.Extract12, %Wide.Extract
+  // %7 = add <2 x i32> %Wide.Extract13, %Wide.Extract4
+  // %8 = add <2 x i32> %Wide.Extract14, %Wide.Extract5
+  // %9 = add <2 x i32> %Wide.Extract15, %Wide.Extract6
+  // %wide.insert = shufflevector <2 x i32> %6, <2 x i32> undef,
+  //                              <8 x i32> <i32 0, i32 undef, i32 undef, i32
+  //                              undef,
+  //                                         i32 1, i32 undef, i32 undef, i32
+  //                                         undef>
 
   if (isa<UndefValue>(InsertTo)) {
-    // Insert into Undef vector.
-    SmallVector<unsigned, 8> ShufMask;
-    for (unsigned i = 0; i < WideNumElts; ++i)
-      ShufMask.push_back(i);
-    unsigned StartInd = Index * VF;
-    for (unsigned i = 0; i < VF; ++i)
-      ShufMask[StartInd + i] = i;
+    SmallVector<Constant *, 8> ShufMask;
+    ShufMask.resize(WideNumElts, UndefValue::get(Builder.getInt32Ty()));
+    for (size_t Lane = 0; Lane < VF; Lane++)
+      ShufMask[Lane * OriginalVL + Index] = Builder.getInt32(Lane);
+
     Value *Shuf = Builder.CreateShuffleVector(
-        NewSubVec, UndefValue::get(NewSubVec->getType()), ShufMask);
+        NewSubVec, UndefValue::get(NewSubVec->getType()),
+        ConstantVector::get(ShufMask), "wide.insert");
     WidenMap[Inst] = Shuf;
     return;
   }
 
-  // Two shuffles. The first one is extending the Subvector to the width of
-  // the first source. And the second one is for merging.
-  SmallVector<unsigned, 8> ShufMask;
-  for (unsigned i = 0; i < VF; ++i)
-    ShufMask.push_back(i);
+  // Generate two shuffles. The first one is extending the Subvector to the
+  // width of the source and the second one is for blending in the actual
+  // values.
+  // In continuation of the example above, the following code,
+  // %assembled.vect17 = insertelement <4 x i32> %assembled.vect, i32 %add14,
+  //                                                              i32 1
+  // %assembled.vect18 = insertelement <4 x i32> %assembled.vect17, i32 %add15,
+  //                                                                i32 2
+  // %assembled.vect19 = insertelement <4 x i32> %assembled.vect18, i32 %add16,
+  //                                                                i32 3
+  //
+  // is transformed into,
+  // %extended. = shufflevector <2 x i32> %7,
+  //                            <2 x i32> undef,
+  //                            <8 x i32> <i32 0, i32 1, i32 2, i32 2,
+  //                                       i32 2, i32 2, i32 2, i32 2>
+  // %wide.insert16 = shufflevector <8 x i32> %wide.insert,
+  //                                <8 x i32> %extended.,
+  //                                <8 x i32> <i32 0, i32 8, i32 2, i32 3,
+  //                                           i32 4, i32 9, i32 6, i32 7>
+  // %extended.17 = shufflevector <2 x i32> %8,
+  //                              <2 x i32> undef,
+  //                              <8 x i32> <i32 0, i32 1, i32 2, i32 2,
+  //                                         i32 2, i32 2, i32 2, i32 2>
+  // %wide.insert18 = shufflevector <8 x i32> %wide.insert16,
+  //                                <8 x i32> %extended.17,
+  //                                <8 x i32> <i32 0, i32 1, i32 8, i32 3,
+  //                                           i32 4, i32 5, i32 9, i32 7>
+  // %extended.19 = shufflevector <2 x i32> %9,
+  //                              <2 x i32> undef,
+  //                              <8 x i32> <i32 0, i32 1, i32 2, i32 2,
+  //                                         i32 2, i32 2, i32 2, i32 2>
+  // %wide.insert20 = shufflevector <8 x i32> %wide.insert18,
+  //                                <8 x i32> %extended.19,
+  //                              <8 x i32> <i32 0, i32 1, i32 2, i32 8,
+  //                                         i32 4, i32 5, i32 6, i32 9>
 
-  for (unsigned i = VF; i < WideNumElts; ++i)
-    ShufMask.push_back(VF);
-  Value *ExtendSubVec = Builder.CreateShuffleVector(
-      NewSubVec, UndefValue::get(NewSubVec->getType()), ShufMask);
-
+  Value *ExtendSubVec =
+      extendVector(NewSubVec, WideNumElts, Builder, NewSubVec->getName());
   SmallVector<unsigned, 8> ShufMask2;
-  for (unsigned i = 0; i < WideNumElts; ++i)
-    ShufMask2.push_back(i);
-  unsigned StartInd = Index * VF;
-  for (unsigned i = 0; i < VF; ++i)
-    ShufMask2[StartInd + i] = WideNumElts + i;
-  WidenMap[Inst] =
-      Builder.CreateShuffleVector(InsertTo, ExtendSubVec, ShufMask2);
+  for (unsigned FirstVecIdx = 0, SecondVecIdx = WideNumElts;
+       FirstVecIdx < WideNumElts; ++FirstVecIdx) {
+    if ((FirstVecIdx % OriginalVL) == Index)
+      ShufMask2.push_back(SecondVecIdx++);
+    else
+      ShufMask2.push_back(FirstVecIdx);
+  }
+  Value *SecondShuf = Builder.CreateShuffleVector(InsertTo, ExtendSubVec,
+                                                  ShufMask2, "wide.insert");
+  WidenMap[Inst] = SecondShuf;
 }
 
 void VPOCodeGen::serializeWithPredication(Instruction *Inst) {
