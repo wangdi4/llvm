@@ -1754,7 +1754,7 @@ class Init<CSAOpInfo t, list<Predicate> preds, InstrItinClass itin> :
   PseudoInstCSA<
       (outs t.RC:$dst),
       (ins t.L:$imm),
-      ".curr\t$dst;\t.value $imm;\t.avail 0",
+      ".curr\t$dst;\t.value $imm",
       [], preds, itin> {
   let hasSideEffects = 1;
   let GenOp = INIT;
