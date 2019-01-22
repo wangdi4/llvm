@@ -118,6 +118,12 @@ void RTLsTy::LoadRTLs() {
               dynlib_handle, "__tgt_rtl_run_target_team_region")))
       continue;
 #if INTEL_COLLAB
+    if ((*((void **)&R.data_submit_nowait) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_submit_nowait")))
+      DP("Optional interface: __tgt_rtl_data_submit_nowait\n");
+    if ((*((void **)&R.data_retrieve_nowait) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_retrieve_nowait")))
+      DP("Optional interface: __tgt_rtl_data_retrieve_nowait\n");
     if ((*((void **)&R.run_team_nd_region) =
               dlsym(dynlib_handle, "__tgt_rtl_run_target_team_nd_region")))
       DP("Optional interface: __tgt_rtl_run_target_team_nd_region\n");

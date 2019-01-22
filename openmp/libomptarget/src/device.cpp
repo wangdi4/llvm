@@ -333,6 +333,22 @@ int32_t DeviceTy::run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
       TgtVarsSize, NumTeams, ThreadLimit, LoopTripCount);
 }
 #if INTEL_COLLAB
+int32_t DeviceTy::data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
+                                     int64_t Size, void *AsyncData) {
+  if (!RTL->data_submit_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->data_submit_nowait(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
+                                 AsyncData);
+}
+
+int32_t DeviceTy::data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
+                                       int64_t Size, void *AsyncData) {
+  if (!RTL->data_retrieve_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->data_retrieve_nowait(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
+                                   AsyncData);
+}
+
 int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
                                      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                      int32_t NumTeams, int32_t ThreadLimit,

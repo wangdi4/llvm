@@ -153,6 +153,10 @@ struct DeviceTy {
       ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
       int32_t ThreadLimit, uint64_t LoopTripCount);
 #if INTEL_COLLAB
+  int32_t data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
+                             int64_t Size, void *AsyncData);
+  int32_t data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
+                               int64_t Size, void *AsyncData);
   int32_t run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
                              ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                              int32_t NumTeams, int32_t ThreadLimit,

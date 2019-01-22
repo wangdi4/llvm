@@ -408,6 +408,23 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   return &table;
 }
 
+void event_callback_completed(cl_event event, cl_int status, void *data) {
+  if (status == CL_SUCCESS) {
+    assert(data && "bad task object for the target");
+    const char *entry = "__kmpc_proxy_task_completed_ooo";
+    void (*ptask_completed)(void *) = nullptr;
+    *((void **)&ptask_completed) = dlsym(RTLD_DEFAULT, entry);
+    if (ptask_completed) {
+      DP("Calling %s(task=%p)\n", entry, data);
+      ptask_completed(data);
+    } else {
+      DP("Error: Cannot find the entry, %s.\n", entry);
+    }
+  } else {
+    DP("Error: Failed to complete asynchronous offloading.\n");
+  }
+}
+
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
   cl_int status;
   cl_mem mem = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_READ_WRITE,
@@ -427,6 +444,24 @@ int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
   return OFFLOAD_SUCCESS;
 }
 
+int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
+                                     void *hst_ptr, int64_t size,
+                                     void *async_data) {
+  if (async_data) {
+    cl_event completed;
+    INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
+                       &completed);
+    INVOKE_CL_RET_FAIL(clSetEventCallback, completed, CL_COMPLETE,
+                       &event_callback_completed, async_data);
+  } else {
+    INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
+                       nullptr);
+  }
+  return OFFLOAD_SUCCESS;
+}
+
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                 int64_t size) {
   INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
@@ -435,26 +470,27 @@ int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
   return OFFLOAD_SUCCESS;
 }
 
-int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
-  INVOKE_CL_RET_FAIL(clReleaseMemObject, (cl_mem)tgt_ptr);
+int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
+                                       void *tgt_ptr, int64_t size,
+                                       void *async_data) {
+  if (async_data) {
+    cl_event completed;
+    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
+                       &completed);
+    INVOKE_CL_RET_FAIL(clSetEventCallback, completed, CL_COMPLETE,
+                       &event_callback_completed, async_data);
+  } else {
+    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
+                       nullptr);
+  }
   return OFFLOAD_SUCCESS;
 }
 
-void event_callback_completed(cl_event event, cl_int status, void *data) {
-  if (status == CL_SUCCESS) {
-    assert(data && "bad task object for the target");
-    const char *entry = "__kmpc_proxy_task_completed_ooo";
-    void (*ptask_completed)(void *) = nullptr;
-    *((void **)&ptask_completed) = dlsym(RTLD_DEFAULT, entry);
-    if (ptask_completed) {
-      DP("Calling %s(task=%p)\n", entry, data);
-      ptask_completed(data);
-    } else {
-      DP("Error: Cannot find the entry, %s.\n", entry);
-    }
-  } else {
-    DP("Error: Failed to complete asynchronous offloading.\n");
-  }
+int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
+  INVOKE_CL_RET_FAIL(clReleaseMemObject, (cl_mem)tgt_ptr);
+  return OFFLOAD_SUCCESS;
 }
 
 static inline int32_t run_target_team_nd_region(
