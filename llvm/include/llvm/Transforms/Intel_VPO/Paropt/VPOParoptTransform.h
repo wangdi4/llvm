@@ -556,7 +556,8 @@ private:
   /// \brief Reset the expression value in IsDevicePtr clause to be empty.
   void resetValueInIsDevicePtrClause(WRegionNode *W);
 
-  /// Set the value in num_teams and thread_limit clause to be empty.
+  /// Set the value in num_teams, thread_limit and num_threads
+  /// clauses to be empty.
   void resetValueInNumTeamsAndThreadsClause(WRegionNode *W);
 
   /// \brief Reset the value in the Map clause to be empty.

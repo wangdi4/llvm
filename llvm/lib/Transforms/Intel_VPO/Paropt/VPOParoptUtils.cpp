@@ -322,11 +322,14 @@ CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
   return PushNumTeams;
 }
 
-// This function generates a call to set num_threads for the parallel
-// region and parallel loop/sections
+/// This function generates a call to set num_threads for the parallel
+/// region and parallel loop/sections
 //
-// call void @__kmpc_push_num_threads(%ident_t* %loc, i32
-// Builder.CreateBitCast(SharedGep, PointerType::getUnqual(%tid, i32 %nths)
+/// \code
+/// call void @__kmpc_push_num_threads(ident_t *loc,
+///                                    kmp_int32 global_tid,
+///                                    kmp_int32 num_threads)
+/// \endcode
 CallInst *VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
                                                 StructType *IdentTy, Value *Tid,
                                                 Value *NumThreads,
@@ -350,8 +353,17 @@ CallInst *VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
-  SmallVector<Value *, 3> FnArgs {Loc, Tid, NumThreads};
+  // Assert that we used the right type for internally created
+  // thread ID.
+  assert(Tid->getType()->isIntegerTy(32) &&
+         "Thread ID must be 4-byte integer.");
 
+  // Cast num_threads() value to 4-byte integer.  This has to be done
+  // by FE, but we can handle it here, if FE failed to insert a bitcast.
+  IRBuilder<> Builder(InsertPt);
+  NumThreads = Builder.CreateSExtOrTrunc(NumThreads, Type::getInt32Ty(C));
+
+  SmallVector<Value *, 3> FnArgs {Loc, Tid, NumThreads};
   Type *RetTy = Type::getVoidTy(C);
 
   // Generate __kmpc_push_num_threads(loc, tid, num_threads) in IR

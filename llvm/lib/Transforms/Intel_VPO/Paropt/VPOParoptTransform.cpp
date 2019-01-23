@@ -948,8 +948,6 @@ bool VPOParoptTransform::paroptTransforms() {
       //      Parallel [for|sections], task, taskloop, etc.
 
       case WRegionNode::WRNTeams:
-        if ((Mode & OmpPar) && (Mode & ParTrans))
-          resetValueInNumTeamsAndThreadsClause(W);
       case WRegionNode::WRNParallel:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
@@ -4458,6 +4456,10 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
          "genMultiThreadedCode: BBSET should start empty");
 
   W->populateBBSet();
+
+  // Remove references from num_teams/thread_limit or num_threads
+  // clauses so that they do not appear as live-ins for the code extractor.
+  resetValueInNumTeamsAndThreadsClause(W);
 
   bool Changed = false;
 

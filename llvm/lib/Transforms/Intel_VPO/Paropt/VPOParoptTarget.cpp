@@ -272,18 +272,21 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   return Changed;
 }
 
-// Set the value in num_teams and thread_limit clause to be empty.
+// Set the value in num_teams, thread_limit and num_threads clauses to be empty.
 void VPOParoptTransform::resetValueInNumTeamsAndThreadsClause(WRegionNode *W) {
-  if (!W->getIsTeams())
+  if (W->getIsTeams()) {
+    if (auto *NumTeamsPtr = W->getNumTeams())
+      resetValueInIntelClauseGeneric(W, NumTeamsPtr);
+
+    if (auto *ThreadLimitPtr = W->getThreadLimit())
+      resetValueInIntelClauseGeneric(W, ThreadLimitPtr);
+
     return;
+  }
 
-  Value *NumTeamsPtr = W->getNumTeams();
-  if (NumTeamsPtr)
-    resetValueInIntelClauseGeneric(W, NumTeamsPtr);
-
-  Value *ThreadLimitPtr = W->getThreadLimit();
-  if (ThreadLimitPtr)
-    resetValueInIntelClauseGeneric(W, ThreadLimitPtr);
+  if (W->getIsPar())
+    if (auto *NumThreadsPtr = W->getNumThreads())
+      resetValueInIntelClauseGeneric(W, NumThreadsPtr);
 }
 
 // Reset the expression value in IsDevicePtr clause to be empty.
