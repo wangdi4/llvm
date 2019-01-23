@@ -1,6 +1,6 @@
 # Test creates environment variable for enablling SATest OCL Recorder
 # Checks SATest will fail with specific error output
-# RUN: python OclBackendPluginsSet %s.py -c=%s.cfg -d=%t
+# RUN: python OclBackendPluginsSet %s.py -b SATest -c=%s.cfg -d=%t
 import os, subprocess
 from optparse import OptionParser
 import sys
@@ -16,9 +16,10 @@ if sys.version_info < (2, 7):
 parser = OptionParser()
 parser.add_option("-c", dest="config",    default=None)
 parser.add_option("-d", dest="llvm_file",    default=None)
+parser.add_option("-b", dest="binary",    default=None)
 (options, args) = parser.parse_args()
 
-execstr = "SATest"
+execstr = options.binary
 confstr = "-config=" + options.config
 dumpstr = "-dump-llvm-file=" + options.llvm_file
 
