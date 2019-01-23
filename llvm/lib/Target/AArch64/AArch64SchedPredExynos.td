@@ -88,12 +88,19 @@ def ExynosResetFn   : TIIPredicate<
                              [ADR, ADRP,
                               MOVNWi, MOVNXi,
                               MOVZWi, MOVZXi],
-                             MCReturnStatement<TruePred>>],
+                             MCReturnStatement<TruePred>>,
+                           MCOpcodeSwitchCase<
+                             [ORRWri, ORRXri],
+                             MCReturnStatement<
+                               CheckAll<
+                                 [CheckIsRegOperand<1>,
+                                  CheckAny<
+                                    [CheckRegOperand<1, WZR>,
+                                     CheckRegOperand<1, XZR>]>]>>>],
                           MCReturnStatement<
                             CheckAny<
                               [IsCopyIdiomFn,
-                               IsZeroFPIdiomFn,
-                               IsZeroIdiomFn]>>>>;
+                               IsZeroFPIdiomFn]>>>>;
 def ExynosResetPred : MCSchedPredicate<ExynosResetFn>;
 
 // Identify EXTR as the alias for ROR (immediate).
@@ -119,13 +126,12 @@ def ExynosShiftExFn   : TIIPredicate<
                                IsArithLogicShiftOp.ValidOpcodes,
                                MCReturnStatement<
                                  CheckAny<
-                                   [CheckAll<
+                                   [ExynosCheckShift,
+                                    CheckAll<
                                      [CheckShiftLSL,
-                                      CheckShiftBy8]>,
-                                    ExynosCheckShift]>>>],
+                                      CheckShiftBy8]>]>>>],
                             MCReturnStatement<FalsePred>>>;
 def ExynosShiftExPred : MCSchedPredicate<ExynosShiftExFn>;
-
 
 // Identify arithmetic and logic immediate instructions.
 def ExynosCheapFn : TIIPredicate<
