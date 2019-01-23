@@ -42,7 +42,7 @@ namespace X86Disassembler {
 #if INTEL_FEATURE_ISA_FP16
 #define mmmFromEVEX2of4(evex)    ((evex) & 0x7)
 #else // INTEL_FEATURE_ISA_FP16
-#define mmmFromEVEX2of4(evex)    ((evex) & 0x3)
+#define mmFromEVEX2of4(evex)    ((evex) & 0x3)
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 #define wFromEVEX3of4(evex)     (((evex) & 0x80) >> 7)
