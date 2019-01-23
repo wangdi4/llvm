@@ -95,6 +95,7 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSAOptDFPassPass(PR);
   initializeCSAReassocReducPass(PR);
   initializeCSASeqotToSeqOptimizationPass(PR);
+  initializeCSAStreamingMemoryPass(PR);
   initializeControlDependenceGraphPass(PR);
 }
 

@@ -46,10 +46,6 @@ static cl::opt<bool> EnableLargerStrides(
   "csa-enable-all-strides", cl::Hidden,
   cl::desc("CSA Specific: enable streaming memory even if stride is not 1"));
 
-namespace llvm {
-void initializeCSAStreamingMemoryPass(PassRegistry &);
-}
-
 namespace {
 struct StreamingMemoryDetails {
   const SCEV *Base;
@@ -346,9 +342,35 @@ static bool isInLoop(Value *V, Loop *L) {
   return false;
 }
 
+static bool areMergeParamsOutsideLoop(Value *V, Loop *L) {
+  if (auto I = dyn_cast<IntrinsicInst>(V)) {
+    if (I->getIntrinsicID() == Intrinsic::csa_all0) {
+      // If the intrinsic is outside the loop, we're cool.
+      if (!L->contains(I->getParent()))
+        return true;
+
+      // Loop through all the arguments to see if they're inside the loop. They
+      // could in theory be other all0 calls themselves, so we have to recurse.
+      for (auto &Arg : I->arg_operands()) {
+        if (!areMergeParamsOutsideLoop(Arg, L))
+          return false;
+      }
+      return true;
+    }
+  }
+  return !isInLoop(V, L);
+}
+
 static bool anyUseInLoop(Value *V, Loop *L) {
   for (auto Use : V->users()) {
     bool InLoop = isInLoop(Use, L);
+
+    // If the use is an all0, check if the all0 itself is used inside of the
+    // loop.
+    auto II = dyn_cast<IntrinsicInst>(Use);
+    if (InLoop && II && II->getIntrinsicID() == Intrinsic::csa_all0)
+      InLoop = anyUseInLoop(II, L);
+
     if (InLoop)
       return true;
   }
@@ -388,7 +410,7 @@ Optional<StreamingMemoryDetails> CSAStreamingMemoryImpl::getLegalStream(
 
   // Get the input and output ordering edges.
   CallInst *InOrd = getInordEdge(MemInst);
-  if (InOrd && isInLoop(InOrd->getArgOperand(0), L)) {
+  if (InOrd && !areMergeParamsOutsideLoop(InOrd->getArgOperand(0), L)) {
     reportFailure(MemInst, "memory ordering tokens are not loop-invariant");
     LLVM_DEBUG(dbgs() << "Input ordering edge is inside the loop, aborting\n");
     return None;
@@ -397,6 +419,7 @@ Optional<StreamingMemoryDetails> CSAStreamingMemoryImpl::getLegalStream(
   CallInst *OutOrd = getOutordEdge(MemInst);
   if (OutOrd && anyUseInLoop(OutOrd, L)) {
     reportFailure(MemInst, "memory ordering tokens are not loop-invariant");
+    LLVM_DEBUG(dbgs() << "Output ordering edge is inside the loop, aborting\n");
     return None;
   }
 
@@ -450,6 +473,103 @@ Value *CSAStreamingMemoryImpl::createLic(Type *LicType, Instruction *PushIP,
       { LicType }, { Lic }, nullptr, LicName + ".pop");
 
   return PoppedValue;
+}
+
+static void collectNonLoopLeaves(IntrinsicInst *All0, Loop *L,
+    SmallVectorImpl<Value *> &Leaves) {
+  for (auto &MergedValue : All0->arg_operands()) {
+    auto I = dyn_cast<Instruction>(MergedValue);
+    // This probably shouldn't ever be the case.
+    if (!I) {
+      assert(false && "All0 inputs should only be from instructions.");
+      continue;
+    }
+
+    if (L->contains(I->getParent())) {
+      auto II = dyn_cast<IntrinsicInst>(MergedValue);
+      assert(II && II->getIntrinsicID() == Intrinsic::csa_all0 &&
+          "Non-loop-invariant in the all0");
+      collectNonLoopLeaves(II, L, Leaves);
+    } else {
+      Leaves.push_back(I);
+    }
+  }
+}
+
+static Value *makeMerge(Instruction *InsertPoint, ArrayRef<Value *> Values) {
+  if (Values.size() == 1) {
+    return Values[0];
+  } else {
+    Module *M = InsertPoint->getParent()->getParent()->getParent();
+    Value *NewAll0 = CallInst::Create(
+        Intrinsic::getDeclaration(M, Intrinsic::csa_all0),
+        Values, "newmergeord", InsertPoint);
+    LLVM_DEBUG(dbgs() << "Created new merge: " << *NewAll0 << "\n");
+    return NewAll0;
+  }
+}
+
+static void fixMergeUses(CallInst *InOrder, Loop *L) {
+  Value *OrderEdge = InOrder->getArgOperand(0);
+  auto II = dyn_cast<IntrinsicInst>(OrderEdge);
+  if (!II || II->getIntrinsicID() != Intrinsic::csa_all0) {
+    // This is not a call to all0. By the earlier checks, we should dominate the
+    // loop header at this point, so we shouldn't have to do anything.
+#ifndef NDEBUG
+    if (auto I = dyn_cast<Instruction>(OrderEdge))
+      assert(!L->contains(I->getParent()) &&
+          "We should have caught this ordering violation earlier");
+#endif
+    return;
+  }
+
+  // Outside the loop, we're good.
+  if (!L->contains(II->getParent()))
+    return;
+
+  // Generate a merge using all of the values from outside the loop. This is
+  // equivalent to the original merge value.
+  SmallVector<Value *, 4> NewMerge;
+  collectNonLoopLeaves(II, L, NewMerge);
+  II->replaceAllUsesWith(makeMerge(InOrder, NewMerge));
+  II->eraseFromParent();
+}
+
+static void pushOutMerges(Value *OutOrd, Loop *L) {
+  SmallVector<IntrinsicInst *, 4> MergeUses;
+  for (auto Use : OutOrd->users()) {
+    // The use is outside the loop, no need to fix it up.
+    if (!isInLoop(Use, L)) {
+      continue;
+    }
+
+    // If the use is inside the loop, then it should only be an all0.
+    auto II = dyn_cast<IntrinsicInst>(Use);
+    assert(II && II->getIntrinsicID() == Intrinsic::csa_all0 &&
+        "We should not have any use where this is not the case");
+
+    MergeUses.push_back(II);
+  }
+
+  for (auto II : MergeUses) {
+    // Make all uses of this merge be outside the loop.
+    pushOutMerges(II, L);
+
+    // Merge all the other values in the loop as necessary.
+    SmallVector<Value *, 4> LoopMergeParams;
+    for (auto &MergedValue : II->arg_operands()) {
+      if (MergedValue != OutOrd)
+        LoopMergeParams.push_back(MergedValue);
+    }
+    Value *LoopMergedValue = makeMerge(II, LoopMergeParams);
+
+    // Merge the new outorder with the loop-merged value in the exit block of
+    // the loop.
+    Value *NewMerge = makeMerge(L->getExitBlock()->getFirstNonPHI(),
+        { LoopMergedValue, OutOrd });
+    II->replaceAllUsesWith(NewMerge);
+    II->eraseFromParent();
+  }
 }
 
 void CSAStreamingMemoryImpl::makeStreaming(StreamingMemoryDetails &Details) {
@@ -506,9 +626,11 @@ void CSAStreamingMemoryImpl::makeStreaming(StreamingMemoryDetails &Details) {
   // Adjust the ordering edges to the new instruction.
   if (Details.InOrd) {
     Details.InOrd->moveBefore(NewInst);
+    fixMergeUses(Details.InOrd, L);
   }
   if (Details.OutOrd) {
     Details.OutOrd->moveAfter(NewInst);
+    pushOutMerges(Details.OutOrd, L);
   }
 
   // Delete the old instruction.
@@ -633,11 +755,13 @@ bool CSAStreamingMemoryImpl::attemptWide(StreamingMemoryDetails &A,
   if (Lo.InOrd) {
     Lo.InOrd->moveBefore(NewInst);
     Hi.InOrd->eraseFromParent();
+    fixMergeUses(Lo.InOrd, L);
   }
   if (Lo.OutOrd) {
     Lo.OutOrd->moveAfter(NewInst);
     Hi.OutOrd->replaceAllUsesWith(Lo.OutOrd);
     Hi.OutOrd->eraseFromParent();
+    pushOutMerges(Lo.OutOrd, L);
   }
 
   // Delete the old instructions.

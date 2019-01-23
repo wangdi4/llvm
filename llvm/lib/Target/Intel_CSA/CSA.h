@@ -54,6 +54,7 @@ Pass *createCSAMemopOrderingPass(const CSATargetMachine &TM);
 Pass *createCSAParseAnnotateAttributesPass();
 
 void initializeCSAMemopOrderingPasses(PassRegistry &);
+void initializeCSAStreamingMemoryPass(PassRegistry &);
 
 bool shouldRunDataflowPass(const MachineFunction &MF);
 
