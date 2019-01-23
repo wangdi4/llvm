@@ -26,6 +26,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanIdioms.h"
+#include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
@@ -400,37 +401,61 @@ std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
 }
 
 // Feed explicit data, saved in WRNVecLoopNode to the CodeGen.
-void LoopVectorizationPlanner::EnterExplicitData(
-    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL) {
+#if INTEL_CUSTOMIZATION
+template <class Legality> constexpr IRKind getIRKindByLegality() {
+  return std::is_same<Legality, VPOVectorizationLegality>::value
+             ? IRKind::LLVMIR
+             : IRKind::HIR;
+}
+
+template <class VPOVectorizationLegality>
+#endif
+void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
+                                                 VPOVectorizationLegality &LVL) {
+#if INTEL_CUSTOMIZATION
+  constexpr IRKind Kind = getIRKindByLegality<VPOVectorizationLegality>();
+#endif
   // Collect any SIMD loop private information
   if (WRLp) {
     LastprivateClause &LastPrivateClause = WRLp->getLpriv();
     for (LastprivateItem *PrivItem : LastPrivateClause.items()) {
+#if INTEL_CUSTOMIZATION
+      auto PrivVal = PrivItem->getOrig<Kind>();
+#else
       auto PrivVal = PrivItem->getOrig();
-      if (isa<AllocaInst>(PrivVal))
-        LVL.addLoopPrivate(PrivVal, true, PrivItem->getIsConditional());
+#endif
+      LVL.addLoopPrivate(PrivVal, true, PrivItem->getIsConditional());
     }
     PrivateClause &PrivateClause = WRLp->getPriv();
     for (PrivateItem *PrivItem : PrivateClause.items()) {
+#if INTEL_CUSTOMIZATION
+      auto PrivVal = PrivItem->getOrig<Kind>();
+#else
       auto PrivVal = PrivItem->getOrig();
-      if (isa<AllocaInst>(PrivVal))
-        LVL.addLoopPrivate(PrivVal);
+#endif
+      LVL.addLoopPrivate(PrivVal);
     }
 
     // Add information about loop linears to Legality
     LinearClause &LinearClause = WRLp->getLinear();
     for (LinearItem *LinItem : LinearClause.items()) {
+#if INTEL_CUSTOMIZATION
+      auto LinVal = LinItem->getOrig<Kind>();
+      auto Step = LinItem->getStep<Kind>();
+#else
       auto LinVal = LinItem->getOrig();
-
-      // Currently front-end does not yet support globals - restrict to allocas
-      // for now.
-      if (isa<AllocaInst>(LinVal))
-        LVL.addLinear(LinVal, LinItem->getStep());
+      auto Step = LinItem->getStep();
+#endif
+      LVL.addLinear(LinVal, Step);
     }
 
     ReductionClause &RedClause = WRLp->getRed();
     for (ReductionItem *RedItem : RedClause.items()) {
-      Value *V = RedItem->getOrig();
+#if INTEL_CUSTOMIZATION
+      auto V = RedItem->getOrig<Kind>();
+#else
+      auto V = RedItem->getOrig();
+#endif
       ReductionItem::WRNReductionKind Type = RedItem->getType();
       switch (Type) {
       case ReductionItem::WRNReductionMin:
@@ -461,6 +486,18 @@ void LoopVectorizationPlanner::EnterExplicitData(
     }
   }
 }
+namespace llvm {
+namespace vpo {
+#if INTEL_CUSTOMIZATION
+template void
+LoopVectorizationPlanner::EnterExplicitData<HIRVectorizationLegality>(
+    WRNVecLoopNode *WRLp, HIRVectorizationLegality &LVL);
+template void
+LoopVectorizationPlanner::EnterExplicitData<VPOVectorizationLegality>(
+    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL);
+#endif
+} // namespace llvm
+} // namespace vpo
 
 void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");

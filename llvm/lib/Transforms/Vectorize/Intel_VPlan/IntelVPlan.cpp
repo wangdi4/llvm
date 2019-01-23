@@ -1268,7 +1268,7 @@ void VPlan::dump(raw_ostream &OS) const {
     OS << "VPlan IR for: " << getName() << "\n";
   for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
        EIter != End; ++EIter) {
-    VPLoopEntities *E = EIter->second.get();
+    VPLoopEntityList *E = EIter->second.get();
     E->dump(OS, EIter->first->getHeader());
   }
   getEntry()->dump(OS, 1);

@@ -21,6 +21,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionClause.h"
 #else
 #include "VPlan.h"
 #endif
@@ -100,8 +101,10 @@ public:
 
   /// Feed information from explicit clauses to the loop Legality.
   /// This information is necessary for initial loop analysis in the CodeGen.
-  static void EnterExplicitData(WRNVecLoopNode *WRLp,
-                                VPOVectorizationLegality &Legality);
+#if INTEL_CUSTOMIZATION
+  template <class VPOVectorizationLegality>
+#endif
+  static void EnterExplicitData(WRNVecLoopNode *WRLp, VPOVectorizationLegality &Legal);
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor.

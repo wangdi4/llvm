@@ -14,6 +14,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANDECOMPOSERHIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANDECOMPOSERHIR_H
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "IntelVPlanBuilderHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -228,6 +229,14 @@ public:
   void fixPhiNodes();
 
   VPValue *getVPValueForNode(const loopopt::HLNode *Node);
+
+  /// Return requested VPConstant, for components that don't have VPlan
+  /// reference.
+  VPConstant *getVPValueForConst(Constant *CVal) const {
+    return Plan->getVPConstant(CVal);
+  }
+
+  /// Return indcution list.
   VPInductionHIRList &getInductions(const loopopt::HLLoop *L) {
     return *(Inductions[L]);
   }

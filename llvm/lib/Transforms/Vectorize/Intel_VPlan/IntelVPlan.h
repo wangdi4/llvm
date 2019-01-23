@@ -2521,7 +2521,7 @@ protected:
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
-  DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntities>> LoopEntities;
+  DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
@@ -2574,15 +2574,15 @@ public:
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA; }
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
-  VPLoopEntities *getOrCreateLoopEntities(const VPLoop *L) {
+  VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
     // Sanity check
     VPBlockBase *HeaderBB = L->getHeader(); (void)HeaderBB;
     assert(VPLInfo->getLoopFor(HeaderBB) == L &&
            "the loop does not exist in VPlan");
 
-    std::unique_ptr<VPLoopEntities> &Ptr = LoopEntities[L];
+    std::unique_ptr<VPLoopEntityList> &Ptr = LoopEntities[L];
     if (!Ptr) {
-      VPLoopEntities *E = new VPLoopEntities(this);
+      VPLoopEntityList *E = new VPLoopEntityList(this);
       Ptr.reset(E);
     }
     return Ptr.get();
@@ -2590,7 +2590,7 @@ public:
 
   /// Return LoopEntities list for the loop \p L. The nullptr is returned if
   /// the descriptors were not created for the loop.
-  const VPLoopEntities* getLoopEntities(const VPLoop* L) const {
+  const VPLoopEntityList* getLoopEntities(const VPLoop* L) const {
     auto Iter = LoopEntities.find(L);
     if (Iter == LoopEntities.end())
       return nullptr;

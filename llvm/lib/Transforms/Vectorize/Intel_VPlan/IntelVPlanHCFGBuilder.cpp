@@ -1972,7 +1972,8 @@ VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
   PlainCFGBuilder PCFGBuilder(TheLoop, LI, Legal, Plan);
   VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
   // Converting loop enities.
-  PCFGBuilder.convertEntityDescriptors(Legal, Cvts);
+  if (LoopEntityImportEnabled)
+    PCFGBuilder.convertEntityDescriptors(Legal, Cvts);
   return TopRegion;
 }
 

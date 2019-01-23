@@ -857,9 +857,11 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   std::unique_ptr<VPInductionHIRList> &IndList = Inductions[HLp];
   if (!IndList)
     IndList.reset(new VPInductionHIRList);
-  IndList->insert(IndList->begin(),
-                  std::unique_ptr<VPInductionHIR>(
-                      new VPInductionHIR(IVNext, One, nullptr)));
+  IndList->insert(
+      IndList->begin(),
+      llvm::make_unique<VPInductionHIR>(
+          IVNext, One,
+          Plan->getVPConstant(Constant::getNullValue(HLp->getIVType()))));
 
   // Create VPValue for bottom test condition. If decomposition is needed:
   //   1) decompose UB operand. Decomposed VPInstructions are inserted into the

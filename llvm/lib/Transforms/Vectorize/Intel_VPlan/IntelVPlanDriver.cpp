@@ -138,7 +138,7 @@ protected:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 #if INTEL_CUSTOMIZATION
-  bool processFunction(Function &Fn, WRegionCollection::InputIRKind IR);
+  bool processFunction(Function &Fn, IRKind IR);
 #else
   bool processFunction(Function &Fn);
 #endif // INTEL_CUSTOMIZATION
@@ -148,7 +148,7 @@ protected:
 
   // VPlan Driver running modes
 #if INTEL_CUSTOMIZATION
-  bool runStandardMode(Function &Fn, WRegionCollection::InputIRKind IR);
+  bool runStandardMode(Function &Fn, IRKind IR);
 #else
   bool runStandardMode(Function &Fn);
 #endif // INTEL_CUSTOMIZATION
@@ -329,7 +329,7 @@ void VPlanDriverBase<LoopType>::getAnalysisUsage(AnalysisUsage &AU) const {
 // LLVM-IR-HIR common analyses and choose an execution mode.
 template <class LoopType>
 bool VPlanDriverBase<LoopType>::processFunction(
-    Function &Fn, WRegionCollection::InputIRKind IR) {
+    Function &Fn, IRKind IR) {
 #else
 template <class LoopType>
 bool VPlanDriverBase<LoopType>::processFunction(Function &Fn) {
@@ -381,7 +381,7 @@ bool VPlanDriverBase<LoopType>::processFunction(Function &Fn) {
 template <class LoopType>
 #if INTEL_CUSTOMIZATION
 bool VPlanDriverBase<LoopType>::runStandardMode(
-    Function &Fn, WRegionCollection::InputIRKind IR) {
+    Function &Fn, IRKind IR) {
 #else
 bool VPlanDriverBase<LoopType>::runStandardMode(Function &Fn) {
 #endif // INTEL_CUSTOMIZATION
@@ -583,7 +583,7 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
                    getAnalysis<OptReportOptionsPass>().getVerbosity());
 
   bool ModifiedFunc =
-      VPlanDriverBase::processFunction(Fn, WRegionCollection::LLVMIR);
+      VPlanDriverBase::processFunction(Fn, LLVMIR);
 
   return ModifiedFunc;
 }
@@ -596,6 +596,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   // The decision about possible loop vectorization is based
   // on this data.
   LoopVectorizationPlanner::EnterExplicitData(WRLp, LVL);
+
   // The function canVectorize() collects information about induction
   // and reduction variables. It also verifies that the loop vectorization
   // is fully supported.
@@ -837,24 +838,13 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   LORBuilder.setup(Fn.getContext(),
                    getAnalysis<OptReportOptionsPass>().getVerbosity());
 
-  return VPlanDriverBase::processFunction(Fn, WRegionCollection::HIR);
+  return VPlanDriverBase::processFunction(Fn, HIR);
 }
 
 bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
                                  WRNVecLoopNode *WRLp) {
   // TODO: How do we allow stress-testing for HIR path?
   assert(WRLp && "WRLp should be non-null!");
-
-  // TODO: Do we need legality check in HIR?. If we reach this point, the loop
-  // either has been marked with SIMD directive by 'HIR Vec Directive Insertion
-  // Pass' or we are in stress testing mode.
-  // VPOVectorizationLegality LVL(Lp, PSE, TLI, TTI, &Fn, LI, DT);
-
-  // Send explicit data from WRLoop to the Legality.
-  // The decision about possible loop vectorization is based
-  // on this data.
-  // TODO: EnterExplicitData works with Values. This is weird. Please, revisit.
-  // LoopVectorizationPlanner::EnterExplicitData(WRLp, LVL);
 
   HLLoop *HLoop = WRLp->getTheLoop<HLLoop>();
   (void) HLoop;
@@ -877,11 +867,14 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext());
 
-  HIRSafeReductionAnalysis *SafeRedAnalysis;
-  SafeRedAnalysis =
+  HIRSafeReductionAnalysis *SafeRedAnalysis =
       &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, SafeRedAnalysis, DDA,
+  HIRVectorizationLegality HIRVecLegal(SafeRedAnalysis);
+  LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,
                                   &VLSA);
+
+  // Send explicit data from WRLoop to the Legality.
+  LVP.EnterExplicitData(WRLp, HIRVecLegal);
 
   if (!LVP.buildInitialVPlans(&Fn.getContext())) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");

@@ -27,14 +27,22 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 // Flag to enable printing of loop entities.
-static cl::opt<bool>
-    DumpVPlanEntities("vplan-entities-dump", cl::init(false), cl::Hidden,
-                       cl::desc("Print VPlan entities"));
+static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
+                                       cl::Hidden,
+                                       cl::desc("Print VPlan entities"));
+
+// Temporary flag to disable loop entities import until CMPLRLLVM-9026 is
+// fixed.
+cl::opt<bool>
+    LoopEntityImportEnabled("vplan-import-entities", cl::init(false),
+                            cl::Hidden,
+                            cl::desc("Enable VPloop entities import"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void VPReduction::dump(raw_ostream &OS) const {
-  OS << (isSigned() ? " signed " : " ");
+  OS << (isIntegerRecurrenceKind(getRecurrenceKind()) && isSigned() ? " signed "
+                                                                    : " ");
   switch (getRecurrenceKind()) {
   default:
     OS << "unknown";
@@ -83,8 +91,8 @@ void VPReduction::dump(raw_ostream &OS) const {
     }
   }
   if (getRecurrenceStartValue()) {
-     OS << " Start: ";
-     getRecurrenceStartValue()->printAsOperand(OS);
+    OS << " Start: ";
+    getRecurrenceStartValue()->printAsOperand(OS);
   }
   if (getLoopExitInstr()) {
     OS << " Exit: ";
@@ -150,7 +158,7 @@ void VPInduction::dump(raw_ostream &OS) const {
 void VPPrivate::dump(raw_ostream &OS) const {
 }
 
-void VPInMemoryEntity::dump(raw_ostream &OS) const {
+void VPLoopEntityMemoryDescriptor::dump(raw_ostream &OS) const {
   MemoryPtr->dump(OS);
 }
 #endif // NDEBUG
@@ -161,57 +169,62 @@ unsigned int VPInduction::getInductionOpcode() const {
   return getInductionBinOp() ? getInductionBinOp()->getOpcode() : BinOpcode;
 }
 
-void VPLoopEntities::addReduction(VPInstruction *Instr, VPValue *Incoming,
-                                  VPInstruction *Exit, RecurrenceKind Kind,
-                                  FastMathFlags FMF, MinMaxRecurrenceKind MKind,
-                                  Type *RedTy, bool Signed, VPValue *AI) {
-  VPReduction *Red =
-      new VPReduction(Incoming, Exit, Kind, FMF, MKind, RedTy, Signed);
+VPReduction *VPLoopEntityList::addReduction(
+    VPInstruction *Instr, VPValue *Incoming, VPInstruction *Exit,
+    RecurrenceKind Kind, FastMathFlags FMF, MinMaxRecurrenceKind MKind,
+    Type *RedTy, bool Signed, VPValue *AI, bool ValidMemOnly) {
+  VPReduction *Red = new VPReduction(Incoming, Exit, Kind, FMF, MKind, RedTy,
+                                     Signed, ValidMemOnly);
   ReductionList.emplace_back(Red);
-  if (Instr)
-    ReductionMap[Instr] = Red;
+  linkValue(ReductionMap, Red, Instr);
   createMemDescFor(Red, AI);
+  return Red;
 }
-void VPLoopEntities::addIndexReduction(VPInstruction *Instr,
-                                       const VPReduction *Parent,
-                                       VPValue *Incoming, VPInstruction *Exit,
-                                       Type *RedTy, bool Signed, bool ForLast,
-                                       VPValue *AI) {
+VPIndexReduction *VPLoopEntityList::addIndexReduction(
+    VPInstruction *Instr, const VPReduction *Parent, VPValue *Incoming,
+    VPInstruction *Exit, Type *RedTy, bool Signed, bool ForLast, VPValue *AI,
+    bool ValidMemOnly) {
   assert(Parent && "null parent in index-reduction");
-  VPIndexReduction *Red =
-      new VPIndexReduction(Parent, Incoming, Exit, RedTy, Signed, ForLast);
+  VPIndexReduction *Red = new VPIndexReduction(Parent, Incoming, Exit, RedTy,
+                                               Signed, ForLast, ValidMemOnly);
   ReductionList.emplace_back(Red);
-  if (Instr)
-    ReductionMap[Instr] = Red;
+  linkValue(ReductionMap, Red, Instr);
   MinMaxIndexes[Parent] = Red;
   createMemDescFor(Red, AI);
+  return Red;
 }
-void VPLoopEntities::addInduction(VPInstruction *Start, VPValue *Incoming,
-                                  InductionKind Kind, VPValue *Step,
-                                  VPInstruction *InductionBinOp,
-                                  unsigned int Opc, VPValue *AI) {
-//  assert(Start && "null starting instruction");
-  VPInduction *Ind = new VPInduction(Incoming, Kind, Step, InductionBinOp, Opc);
+VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
+                                            VPValue *Incoming,
+                                            InductionKind Kind, VPValue *Step,
+                                            VPInstruction *InductionBinOp,
+                                            unsigned int Opc, VPValue *AI,
+                                            bool ValidMemOnly) {
+  //  assert(Start && "null starting instruction");
+  VPInduction *Ind =
+      new VPInduction(Incoming, Kind, Step, InductionBinOp, ValidMemOnly, Opc);
   InductionList.emplace_back(Ind);
-  if (Start)
-    InductionMap[Start] = InductionList.back().get();
+  linkValue(InductionMap, Ind, Start);
   createMemDescFor(Ind, AI);
+  return Ind;
 }
-void VPLoopEntities::addPrivate(VPInstruction *Assign, bool isConditional,
-                                bool Explicit, VPValue *AI) {
+VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *Assign,
+                                        bool isConditional, bool Explicit,
+                                        VPValue *AI, bool ValidMemOnly) {
   assert(Assign && "null assign");
-  VPPrivate *Priv = new VPPrivate(Assign, isConditional, Explicit);
+  VPPrivate *Priv =
+      new VPPrivate(Assign, isConditional, Explicit, ValidMemOnly);
   PrivateList.emplace_back(Priv);
-  PrivateMap[Assign] = PrivateList.back().get();
+  linkValue(PrivateMap, Priv, Assign);
   createMemDescFor(Priv, AI);
+  return Priv;
 }
 
-void VPLoopEntities::createMemDescFor(VPLoopEntity *E, VPValue *AI) {
+void VPLoopEntityList::createMemDescFor(VPLoopEntity *E, VPValue *AI) {
   if (!AI)
     return;
-  std::unique_ptr<VPInMemoryEntity> &Ptr = MemoryDescriptors[E];
+  std::unique_ptr<VPLoopEntityMemoryDescriptor> &Ptr = MemoryDescriptors[E];
   if (!Ptr)
-    Ptr.reset(new VPInMemoryEntity(AI));
+    Ptr.reset(new VPLoopEntityMemoryDescriptor(AI));
   else
     assert(Ptr.get()->getMemoryPtr() == AI &&
            "Secondary memory location for a VPLoopEntity");
@@ -219,7 +232,7 @@ void VPLoopEntities::createMemDescFor(VPLoopEntity *E, VPValue *AI) {
 }
 
 /// Returns identity corresponding to the RecurrenceKind.
-VPValue *VPLoopEntities::getReductionIdentiy(const VPReduction *Red) const {
+VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   switch (Red->getRecurrenceKind()) {
   case RecurrenceKind::RK_IntegerXor:
   case RecurrenceKind::RK_IntegerAdd:
@@ -240,10 +253,12 @@ VPValue *VPLoopEntities::getReductionIdentiy(const VPReduction *Red) const {
   }
 }
 //TODO - not implemented yet
-bool VPLoopEntities::isMinMaxInclusive(const VPReduction &Red) { return false; }
+bool VPLoopEntityList::isMinMaxInclusive(const VPReduction &Red) {
+  return false;
+}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPLoopEntities::dump(raw_ostream &OS,
+void VPLoopEntityList::dump(raw_ostream &OS,
                           const VPBlockBase *LoopHeader) const {
   if (!DumpVPlanEntities)
     return;
@@ -264,9 +279,9 @@ void VPLoopEntities::dump(raw_ostream &OS,
 }
 #endif //NDEBUG
 
-void VPLoopEntities::finalizeImport() {
+void VPLoopEntityList::finalizeImport() {
   for (auto &Red: ReductionList) {
-    const VPReduction* R = Red.get();
+    VPReduction* R = Red.get();
     if (auto StartVal = R->getRecurrenceStartValue())
       linkValue(ReductionMap, R, StartVal);
     if (auto ExInstr = R->getLoopExitInstr())
@@ -321,6 +336,7 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
   if (StartPhi == nullptr) {
     // The phi was not found. That means we have an explicit reduction.
     assert(isa<VPExternalDef>(Start) && "Reduction is not properly defined");
+    Start = findMemoryUses(Start, Loop);
   } else if (Start == nullptr) {
     Start = getLiveInOrConstOperand(StartPhi, Loop);
     assert(Start && "Can't identify reduction start value");
@@ -328,23 +344,68 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
 }
 
 void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
-  VPLoopEntities *LE = Plan->getOrCreateLoopEntities(Loop);
+  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   if (LinkPhi == nullptr)
     LE->addReduction(StartPhi, Start, Exit, K, FastMathFlags::getFast(), MK, RT,
-                     Signed, AllocaInst);
+                     Signed, AllocaInst, ValidMemOnly);
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     bool ForLast = LE->isMinMaxInclusive(*Parent);
     LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed, ForLast,
-                          AllocaInst);
+                          AllocaInst, ValidMemOnly);
   }
 }
 
 bool VPEntityImportDescr::isDuplicate(const VPlan *Plan,
                                       const VPLoop *Loop) const {
-  const VPLoopEntities *LE = Plan->getLoopEntities(Loop);
-  // It's not first (LE exists) and already have the same alloca instruction.
+  const VPLoopEntityList *LE = Plan->getLoopEntities(Loop);
+  // It's not first (LE exists) and already have the same alloca instruction
   return LE && AllocaInst && LE->getMemoryDescriptor(AllocaInst);
+}
+
+// We need to avoid type inconsistency. That inconsistency
+// arises from that omp directive contains pointer to the real variable
+// used in the clause. So we have a pointer type for Start but entity type
+// is really of a pointed-to type. We replace Start with a load in this case
+// and Start should not be used at initialization, use AI in this case to
+// generate a load.
+VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
+                                             const VPLoop *Loop) {
+  Importing = Start->getNumUsers() != 0;
+  ValidMemOnly = true;
+  if (Importing) {
+    // Try to find either load or store. Not having them we can't proceed
+    // further. E.g., the code might be something like below. We can't guess
+    // which/whether a call is an update and create a correct code.
+    //  #omp linear(k:1)
+    //  do
+    //    foo(&k);
+    //    goo(&k);
+    //  enddo
+    //  use(k);
+    //
+    // TODO: for inductions, this situation can be handled using close-form
+    // re-calculation at the beginning of the loop.
+    VPValue *LdStInstr = nullptr;
+    for (auto User : Start->users())
+      if (auto Instr = dyn_cast<VPInstruction>(User))
+        if (Loop->contains(cast<VPBlockBase>(Instr->getParent()))) {
+          if (Instr->getOpcode() == Instruction::Load)
+            LdStInstr = Instr;
+          else if (Instr->getOpcode() == Instruction::Store)
+            LdStInstr = Instr->getOperand(0);
+          if (LdStInstr)
+            break;
+        }
+    if (!LdStInstr) {
+      // No able to find load/store. Assert in debug mode and don't
+      // import it in product compiler. So far no cases detected.
+      assert(false && "Can't handle explicit induction/reduction");
+      Importing = false;
+    } else
+      Start = LdStInstr;
+  }
+  return Start;
 }
 
 void InductionDescr::checkParentVPLoop(const VPlan *Plan,
@@ -361,8 +422,9 @@ bool InductionDescr::isIncomplete() const {
 
 void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
   if (Importing)
-    Plan->getOrCreateLoopEntities(Loop)->addInduction(
-        StartPhi, Start, K, Step, InductionBinOp, BinOpcode, AllocaInst);
+    Plan->getOrCreateLoopEntities(Loop)->addInduction(StartPhi, Start, K, Step,
+                                                      InductionBinOp, BinOpcode,
+                                                      AllocaInst, ValidMemOnly);
 }
 
 void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
@@ -382,45 +444,7 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
       // Start should represent AllocaIns.
       assert((isa<VPExternalDef>(Start) && InductionBinOp == nullptr) &&
              "Induction is not properly defined");
-      // Temporary(?) hack to avoid type inconsistency. That inconsistency
-      // arises from that omp directive contains pointer to the real induction.
-      // So we have a pointer type for Start but induction type is really of
-      // a pointed-to type. We replace Start with a load in this case and Start
-      // should not be used at initialization, use AI in this case to generate
-      // a load.
-      Importing = Start->getNumUsers() != 0;
-      ValidMemOnly = true;
-      if (Importing) {
-        // Try to find either load or store. Not having them we can't proceed
-        // further. E.g., the code might be something like below. We can't guess
-        // which/whether a call is an update and create a correct code.
-        //  #omp linear(k:1)
-        //  do
-        //    foo(&k);
-        //    goo(&k);
-        //  enddo
-        //  use(k);
-        //
-        // TODO: this situation can be handled using close-form re-calculation at
-        // the beginning of the loop.
-        VPValue *LdStInstr = nullptr;
-        for (auto User : Start->users())
-          if (auto Instr = dyn_cast<VPInstruction>(User))
-            if (Loop->contains(cast<VPBlockBase>(Instr->getParent()))) {
-              if (Instr->getOpcode() == Instruction::Load)
-                LdStInstr = Instr;
-              else if (Instr->getOpcode() == Instruction::Store)
-                LdStInstr = Instr->getOperand(0);
-              if (LdStInstr)
-                break;
-            }
-        if (!LdStInstr) {
-          // Assert in debug mode, don't import in release.
-          assert(false && "Can't handle explicit induction");
-          Importing = false;
-        } else
-          Start = LdStInstr;
-      }
+      Start = findMemoryUses(Start, Loop);
     }
   }
 

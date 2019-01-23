@@ -270,7 +270,7 @@ WRegionCollection::WRegionCollection(Function *F, DominatorTree *DT,
 
 
 #if INTEL_CUSTOMIZATION
-void WRegionCollection::buildWRGraph(InputIRKind IR) {
+void WRegionCollection::buildWRGraph(IRKind IR) {
 #else
 void WRegionCollection::buildWRGraph() {
 #endif // INTEL_CUSTOMIZATION

@@ -1,6 +1,3 @@
-;
-; The fail is described in CMPLRLLVM-9026.
-; XFAIL: *
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -debug -S < %s
 ; TODO | FileCheck %s
 ; REQUIRES: asserts

@@ -78,7 +78,7 @@ public:
 #if INTEL_CUSTOMIZATION
   /// If IR==HIR, it walks the HIR; else, it walks the LLVM IR
   void
-  buildWRGraph(WRegionCollection::InputIRKind IR = WRegionCollection::LLVMIR);
+  buildWRGraph(IRKind IR = LLVMIR);
 #else
   void buildWRGraph();
 #endif // INTEL_CUSTOMIZATION

@@ -109,7 +109,7 @@ WRegionInfo::WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI,
       WRC(WRC), ORE(ORE) {}
 
 #if INTEL_CUSTOMIZATION
-void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
+void WRegionInfo::buildWRGraph(IRKind IR) {
 #else
 void WRegionInfo::buildWRGraph() {
 #endif // INTEL_CUSTOMIZATION
