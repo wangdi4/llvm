@@ -709,6 +709,11 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
     return false;
   }
 
+  if (Loop->isSIMD()) {
+    LLVM_DEBUG(dbgs() << "SIMD Loop skipped\n");
+    return false;
+  }
+
   SmallVector<HLIf *, 4> Candidates;
 
   std::unique_ptr<CanonExpr> LowerCE(Loop->getLowerCanonExpr()->clone());

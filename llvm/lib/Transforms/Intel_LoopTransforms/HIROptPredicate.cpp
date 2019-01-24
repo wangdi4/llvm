@@ -645,6 +645,10 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
     TransformLoop = false;
   }
 
+  if (Loop->isSIMD()) {
+    TransformLoop = false;
+  }
+
   CandidateLookup Lookup(Pass, TransformLoop, MinLevel);
   Loop->getHLNodeUtils().visitRange(Lookup, Loop->child_begin(),
                                     Loop->child_end());
