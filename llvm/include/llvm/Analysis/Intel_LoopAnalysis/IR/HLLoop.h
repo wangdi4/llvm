@@ -1083,7 +1083,7 @@ public:
 class HLLoopParallelTraits {
 public:
   HLLoopParallelTraits() : NumThreads(nullptr) {}
-  HLLoopParallelTraits(const HLLoopParallelTraits &O);
+  HLLoopParallelTraits(const HLLoopParallelTraits &O) = delete;
 
   void setNumThreads(const RegDDRef *N) { NumThreads = N; }
   const RegDDRef* getNumThreads() { return NumThreads; }

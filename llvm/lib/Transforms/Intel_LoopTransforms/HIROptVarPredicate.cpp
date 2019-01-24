@@ -359,11 +359,6 @@ bool HIROptVarPredicate::run() {
 
   ForPostEach<HLLoop>::visitRange(
       HIRF.hir_begin(), HIRF.hir_end(), [this](HLLoop *Loop) {
-        // Opt on non-innermost loops is likely to cause degradations.
-        if (!DisableCostModel && !Loop->isInnermost()) {
-          return;
-        }
-
         processLoop(Loop);
       });
 
@@ -697,7 +692,15 @@ void HIROptVarPredicate::splitLoop(
 }
 
 bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
-  LLVM_DEBUG(dbgs() << "Processing loop #" << Loop->getNumber() << "\n");
+  LLVM_DEBUG(dbgs() << "Processing loop <" << Loop->getNumber() << ">\n");
+
+  // Opt on non-innermost loops is likely to cause degradations.
+  if (!DisableCostModel && !Loop->isInnermost()) {
+    LLVM_DEBUG(
+        dbgs()
+        << "Non-innermost loop skipped due to profitability assumptions\n");
+    return false;
+  }
 
   if (!Loop->isDo()) {
     LLVM_DEBUG(dbgs() << "Unknown/Multiexit loop skipped.\n");

@@ -156,6 +156,7 @@ private:
   void deconstructSSAForRegions();
 
 private:
+  Function *F;
   DominatorTree *DT;
   LoopInfo *LI;
   ScalarEvolution *SE;
@@ -1023,7 +1024,9 @@ void HIRSSADeconstruction::preprocessExplicitRegion() const {
     return;
   }
 
-  if (RegionEntryIntrin != &(*RegionEntryBB->begin())) {
+  bool InFunctionEntryBB = &(*F->begin()) == RegionEntryIntrin->getParent();
+
+  if (InFunctionEntryBB || RegionEntryIntrin != &(*RegionEntryBB->begin())) {
     auto *NewEntryBB = SplitBlock(RegionEntryBB, RegionEntryIntrin, DT, LI);
     CurRegIt->replaceEntryBBlock(NewEntryBB);
   }
@@ -1090,6 +1093,7 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
 bool HIRSSADeconstruction::run(Function &F, DominatorTree &DT, LoopInfo &LI,
                                ScalarEvolution &SE, HIRRegionIdentification &RI,
                                HIRSCCFormation &SCCF) {
+  this->F = &F;
   this->DT = &DT;
   this->LI = &LI;
   this->SE = &SE;
