@@ -3479,13 +3479,6 @@ static void handlePumpAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
     return;
 
-  // doublepump is not allowed with memory("MLAB").
-  if (Attr.getKind() == ParsedAttr::AT_DoublePump) {
-    if (const auto *MA = D->getAttr<MemoryAttr>())
-      if (MA->getKind() == MemoryAttr::MLAB &&
-          checkAttrMutualExclusion<MemoryAttr>(S, D, Attr))
-        return;
-  }
   if (!D->hasAttr<MemoryAttr>())
     D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
 
@@ -3515,11 +3508,6 @@ static void handleMemoryAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
       return;
     }
   }
-
-  // doublepump is not allowed with memory("MLAB").
-  if (Kind == MemoryAttr::MLAB &&
-      checkAttrMutualExclusion<DoublePumpAttr>(S, D, Attr))
-    return;
 
   // We are adding a user memory attribute, drop any implicit default.
   if (auto *MA = D->getAttr<MemoryAttr>())

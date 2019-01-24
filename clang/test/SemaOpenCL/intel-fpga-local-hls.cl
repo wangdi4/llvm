@@ -191,19 +191,33 @@ void foo1()
   unsigned int v_twelve[64];
 
   //CHECK: VarDecl{{.*}}v_thirteen
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: BankWidthAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  //CHECK: MemoryAttr{{.*}}Implicit
   //CHECK: BankBitsAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
+  //CHECK: BankWidthAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   __attribute__((__bank_bits__(2,3), __bankwidth__(16)))
   unsigned int v_thirteen[64];
+
+  //CHECK: VarDecl{{.*}}v_fourteen
+  //CHECK: DoublePumpAttr
+  //CHECK: MemoryAttr{{.*}}MLAB{{$}}
+  __attribute__((__doublepump__))
+  __attribute__((__memory__("MLAB")))
+  unsigned int v_fourteen[64];
+
+  //CHECK: VarDecl{{.*}}v_fifteen
+  //CHECK: MemoryAttr{{.*}}MLAB{{$}}
+  //CHECK: DoublePumpAttr
+  __attribute__((__memory__("MLAB")))
+  __attribute__((__doublepump__))
+  unsigned int v_fifteen[64];
 
   int __attribute__((__register__)) A;
   int __attribute__((__numbanks__(4), __bankwidth__(16), __singlepump__,
@@ -674,6 +688,18 @@ struct foo {
   //CHECK: DoublePumpAttr
   __attribute__((__memory__("BLOCK_RAM")))
   __attribute__((doublepump)) unsigned int v_two_C[64];
+
+  //CHECK: FieldDecl{{.*}}v_two_D
+  //CHECK: MemoryAttr{{.*}}MLAB{{$}}
+  //CHECK: DoublePumpAttr
+  __attribute__((__memory__("MLAB")))
+  __attribute__((doublepump)) unsigned int v_two_D[64];
+
+  //CHECK: FieldDecl{{.*}}v_two_E
+  //CHECK: DoublePumpAttr
+  //CHECK: MemoryAttr{{.*}}MLAB{{$}}
+  __attribute__((doublepump))
+  __attribute__((__memory__("MLAB"))) unsigned int v_two_E[64];
 
   //CHECK: FieldDecl{{.*}}v_three
   //CHECK: RegisterAttr

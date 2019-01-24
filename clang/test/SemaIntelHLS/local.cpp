@@ -475,18 +475,6 @@ void foo1()
   __attribute__((memory("BLOCK_RAM"))) __attribute__((__memory__))
       unsigned int mem_five[64];
 
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((__memory__("MLAB")))
-  __attribute__((__doublepump__))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int mem_six[64];
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((doublepump))
-  __attribute__((memory("MLAB")))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int mem_seven[64];
-
   //expected-error@+1{{requires either no argument or one of: MLAB BLOCK_RAM}}
   __attribute__((memory("")))
   unsigned int mem_eight[64];
@@ -952,6 +940,18 @@ struct foo {
   //CHECK: DoublePumpAttr
   __attribute__((__memory__("BLOCK_RAM")))
   __attribute__((doublepump)) unsigned int v_two_C[64];
+
+  //CHECK: FieldDecl{{.*}}v_two_D
+  //CHECK: MemoryAttr{{.*}}MLAB{{$}}
+  //CHECK: DoublePumpAttr
+  __attribute__((__memory__("MLAB")))
+  __attribute__((doublepump)) unsigned int v_two_D[64];
+
+  //CHECK: FieldDecl{{.*}}v_two_E
+  //CHECK: DoublePumpAttr
+  //CHECK: MemoryAttr{{.*}}MLAB{{$}}
+  __attribute__((doublepump))
+  __attribute__((__memory__("MLAB"))) unsigned int v_two_E[64];
 
   //CHECK: FieldDecl{{.*}}v_three
   //CHECK: RegisterAttr
