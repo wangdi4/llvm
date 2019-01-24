@@ -1,6 +1,6 @@
 // Protocol Buffers - Google's data interchange format
 // Copyright 2008 Google Inc.  All rights reserved.
-// http://code.google.com/p/protobuf/
+// https://developers.google.com/protocol-buffers/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -28,61 +28,51 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Author: kenton@google.com (Kenton Varda)
+// This header file defines an internal class that encapsulates internal message
+// metadata (Unknown-field set, Arena pointer, ...) and allows its
+// representation to be made more space-efficient via various optimizations.
 //
-// emulates google3/base/once.h
-//
-// This header is intended to be included only by internal .cc files and
-// generated .pb.cc files.  Users should not use this directly.
+// Note that this is distinct from google::protobuf::Metadata, which encapsulates
+// Descriptor and Reflection pointers.
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
+#ifndef GOOGLE_PROTOBUF_METADATA_H__
+#define GOOGLE_PROTOBUF_METADATA_H__
 
-#include <google/protobuf/stubs/once.h>
+#include <google/protobuf/metadata_lite.h>
+#include <google/protobuf/unknown_field_set.h>
 
 namespace google {
 namespace protobuf {
+namespace internal {
 
-#ifdef _WIN32
+class InternalMetadataWithArena
+    : public InternalMetadataWithArenaBase<UnknownFieldSet,
+                                           InternalMetadataWithArena> {
+ public:
+  InternalMetadataWithArena() {}
+  explicit InternalMetadataWithArena(Arena* arena)
+      : InternalMetadataWithArenaBase<UnknownFieldSet,
+                                           InternalMetadataWithArena>(arena) {}
 
-struct ProtobufOnceInternal {
-  ProtobufOnceInternal() {
-    InitializeCriticalSection(&critical_section);
+  void DoSwap(UnknownFieldSet* other) {
+    mutable_unknown_fields()->Swap(other);
   }
-  ~ProtobufOnceInternal() {
-    DeleteCriticalSection(&critical_section);
+
+  void DoMergeFrom(const UnknownFieldSet& other) {
+    mutable_unknown_fields()->MergeFrom(other);
   }
-  CRITICAL_SECTION critical_section;
+
+  void DoClear() {
+    mutable_unknown_fields()->Clear();
+  }
+
+  static const UnknownFieldSet& default_instance() {
+    return *UnknownFieldSet::default_instance();
+  }
 };
 
-ProtobufOnceType::~ProtobufOnceType()
-{
-  delete internal_;
-  internal_ = NULL;
-}
-
-ProtobufOnceType::ProtobufOnceType() {
-  // internal_ may be non-NULL if Init() was already called.
-  if (internal_ == NULL) internal_ = new ProtobufOnceInternal;
-}
-
-void ProtobufOnceType::Init(void (*init_func)()) {
-  // internal_ may be NULL if we're still in dynamic initialization and the
-  // constructor has not been called yet.  As mentioned in once.h, we assume
-  // that the program is still single-threaded at this time, and therefore it
-  // should be safe to initialize internal_ like so.
-  if (internal_ == NULL) internal_ = new ProtobufOnceInternal;
-
-  EnterCriticalSection(&internal_->critical_section);
-  if (!initialized_) {
-    init_func();
-    initialized_ = true;
-  }
-  LeaveCriticalSection(&internal_->critical_section);
-}
-
-#endif
-
+}  // namespace internal
 }  // namespace protobuf
+
 }  // namespace google
+#endif  // GOOGLE_PROTOBUF_METADATA_H__
