@@ -37,8 +37,8 @@ static cl::opt<bool>
 static cl::opt<bool> HIRCFDefLevel(
     "hir-verify-cf-def-level",
     cl::desc("Verify consistency of control-flow-related def-level "
-             "attribute (default=false)"),
-    cl::init(false));
+             "attribute (default=true)"),
+    cl::init(true));
 
 namespace {
 
