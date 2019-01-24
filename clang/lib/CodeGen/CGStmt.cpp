@@ -43,14 +43,7 @@ static bool useFrontEndOutlining(CodeGenModule &CGM, const Stmt *S) {
   if (Ctx.getTargetInfo().getTriple().getArch() == llvm::Triple::csa)
    return true;
 #endif  // INTEL_FEATURE_CSA
-#if INTEL_FEATURE_CSA
-  // FIXME: this is just a temporary workaround for csa-xmain->xmain
-  //        promotion fails.  The CSA guard has to be removed, when
-  //        CMPLRLLVM-8100 is fixed.
-  const auto *AD = cast<OMPAtomicDirective>(S);
-  if (Ctx.getTypeSize(AD->getX()->getType()) <= 64)
-    return true;
-#endif  // INTEL_FEATURE_CSA
+
   return false;
 }
 #endif // INTEL_CUSTOMIZATION
