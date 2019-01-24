@@ -1,6 +1,5 @@
 ; Checks that the Call Tree Cloning transformation clones expected functions,
 
-; XFAIL: windows-gnu,windows-msvc
 ; RUN: opt < %s -passes='module(call-tree-clone)' -call-tree-clone-do-mv=false -S | FileCheck %s
 
 ; CHECK:"foo|_.6.5.11"

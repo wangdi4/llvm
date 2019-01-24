@@ -1,27 +1,23 @@
 ; RUN: opt < %s -passes='module(call-tree-clone)'  -call-tree-clone-do-mv=false -call-tree-clone-seed=a:0 -call-tree-clone-seed=b:0,1 -S | FileCheck %s
 ; CHECK:@"a|3"()
 ; CHECK:@"b|19.-15"()
-; CHECK:@"x|3.5"()
 ; CHECK:@"y|17.2"()
-; CHECK:@"y|_.-2"(i32)
-; CHECK:@"a|-1"()
+; CHECK:@"x|3.5"()
 
 ; This test checks is "call-tree-clone" optimization works correctly on the
 ; following call graph below:
-; main(1) main(2)
-;    |   /
-;    x  /
-;    | /
+; main
+;    |
+;    x
+;    |
 ;    y
 ;   / \
 ;  a   b
 ;
 ; It is specifically checked that:
-; 1) expected clones of y are created, when y is called from multiple
-;    levels in the call graph
-; 2) negative integer constants are equally accepted for cloning
-; 3) two types of clones for y are generated - y|_.x and y|x.x
-; 4) -call-tree-clone-seed option works as expected
+; 1) specialized clone of x is created as x|3.5, that both arguments are specialized
+; 2) negative integer constants are equally accepted for cloning (e.g. b|19.-15() )
+; 3) -call-tree-clone-seed option works as expected
 
 
 ; *** IR Dump After IP Cloning ***; ModuleID = 'ld-temp.o'
@@ -60,13 +56,8 @@ define internal i32 @x(i32, i32) unnamed_addr #0 {
 
 ; Function Attrs: norecurse nounwind readnone uwtable
 define i32 @main(i32, i8** nocapture readnone) local_unnamed_addr #1 {
-  %3 = add nsw i32 %0, 1
-  %4 = call i32 @x(i32 %0, i32 %3)
-  %5 = call i32 @x(i32 3, i32 5)
-  %6 = add nsw i32 %5, %4
-  %7 = call i32 @y(i32 %0, i32 -2)
-  %8 = add nsw i32 %6, %7
-  ret i32 %8
+  %3 = call i32 @x(i32 3, i32 5)
+  ret i32 %3
 }
 
 attributes #0 = { noinline norecurse nounwind readnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
