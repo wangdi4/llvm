@@ -1085,6 +1085,7 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   MPM.add(createPromoteMemoryToRegisterPass(true, true));
+  MPM.add(createSROAPass());
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 }
