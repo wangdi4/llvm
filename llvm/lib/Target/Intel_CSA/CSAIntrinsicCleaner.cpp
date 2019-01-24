@@ -120,9 +120,10 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
             continue;
           }
         }
-        report_fatal_error("LIC queues can only have writes/reads");
+        report_fatal_error("LIC streams can only have writes/reads");
       }
-
+      if(!write || !read)
+        report_fatal_error("LIC streams must have one write and one read");
       auto licID = ConstantInt::get(IntegerType::getInt32Ty(CTX), licNum++);
       CallInst::Create(
           Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_init),

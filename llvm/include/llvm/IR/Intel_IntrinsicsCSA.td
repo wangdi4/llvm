@@ -148,15 +148,15 @@ def int_csa_all0 :
 // LIC Queues intrinsics
 def int_csa_lic_init :
     Intrinsic<[llvm_i32_ty], [llvm_i8_ty, llvm_i64_ty, llvm_i64_ty],
-   [IntrConvergent, IntrNoDuplicate]>;
+   [IntrConvergent, IntrInaccessibleMemOrArgMemOnly]>;
 
 def int_csa_lic_write :
     Intrinsic<[], [llvm_i32_ty, llvm_any_ty],
-    [IntrConvergent, IntrNoDuplicate] /* , "llvm.csa.lic.write" */>;
+    [IntrConvergent, IntrInaccessibleMemOrArgMemOnly] /* , "llvm.csa.lic.write" */>;
 
 def int_csa_lic_read :
     Intrinsic<[llvm_any_ty], [llvm_i32_ty],
-    [IntrConvergent, IntrNoDuplicate] /* , "llvm.csa.lic.read" */>;
+    [IntrConvergent, IntrInaccessibleMemOrArgMemOnly] /* , "llvm.csa.lic.read" */>;
 
 // LIC Queues Lowering intrinsics
 def int_csa_lower_lic_init :
