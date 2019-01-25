@@ -3672,15 +3672,15 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tileloaddt164:
   case X86::BI__builtin_ia32_tilestored64:
   case X86::BI__builtin_ia32_tilezero:
-    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 7);
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 15);
   case X86::BI__builtin_ia32_tdpbssd:
   case X86::BI__builtin_ia32_tdpbsud:
   case X86::BI__builtin_ia32_tdpbusd:
   case X86::BI__builtin_ia32_tdpbuud:
   case X86::BI__builtin_ia32_tdpbf16ps:
-    if (SemaBuiltinConstantArgRange(TheCall, 0, 0, 7) ||
-        SemaBuiltinConstantArgRange(TheCall, 1, 0, 7) ||
-        SemaBuiltinConstantArgRange(TheCall, 2, 0, 7))
+    if (SemaBuiltinConstantArgRange(TheCall, 0, 0, 15) ||
+        SemaBuiltinConstantArgRange(TheCall, 1, 0, 15) ||
+        SemaBuiltinConstantArgRange(TheCall, 2, 0, 15))
       return true;
 
     llvm::APSInt Arg0, Arg1, Arg2;

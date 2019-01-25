@@ -74,6 +74,13 @@ static const char *const GCCRegNames[] = {
     "cr0",   "cr2",   "cr3",   "cr4",   "cr8",
     "dr0",   "dr1",   "dr2",   "dr3",   "dr6",     "dr7",
     "bnd0",  "bnd1",  "bnd2",  "bnd3",
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+    "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
+    // Just align with ICC for tmm8-15
+    "tmm8",  "tmm9",  "tmm10", "tmm11", "tmm12",   "tmm13", "tmm14", "tmm15",
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 };
 
 const TargetInfo::AddlRegName AddlRegNames[] = {
