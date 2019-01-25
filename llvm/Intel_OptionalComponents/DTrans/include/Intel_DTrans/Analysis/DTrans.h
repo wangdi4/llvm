@@ -840,7 +840,7 @@ public:
   MemfuncCallInfo(Instruction *I, MemfuncKind MK, MemfuncRegion &MRDest,
                   MemfuncRegion &MRSrc)
       : CallInfo(I, CallInfoKind::CIK_Memfunc), MK(MK) {
-    assert((MK == MK_Memcpy || MK_Memmove) &&
+    assert(((MK == MK_Memcpy) || (MK == MK_Memmove)) &&
            "MemfuncCallInfo: Dual range form expects memcpy or memmove");
 
     Regions.push_back(MRDest);
