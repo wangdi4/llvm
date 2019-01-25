@@ -8134,7 +8134,7 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
       if (Cost < -SLPCostThreshold) {
         LLVM_DEBUG(dbgs() << "SLP: Vectorizing list at cost:" << Cost << ".\n");
         R.getORE()->emit(OptimizationRemark(SV_NAME, "VectorizedList",
-                                                    cast<Instruction>(Ops[0]))
+                                 cast<Instruction>(TrackValues[I])) // INTEL
                                  << "SLP vectorized with cost " << ore::NV("Cost", Cost)
                                  << " and with tree size "
                                  << ore::NV("TreeSize", R.getTreeSize()));
