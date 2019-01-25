@@ -2147,8 +2147,8 @@ static bool isDoubleCallSite(Function *F)
 static bool worthyDoubleInternalCallSite(CallSite &CS,
   InliningLoopInfoCache& ILIC)
 {
-  return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC)
-    || worthyDoubleCallSite3(CS, ILIC);
+  return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC) ||
+    worthyDoubleCallSite3(CS, ILIC);
 }
 
 //
@@ -3439,6 +3439,15 @@ static bool preferNotToInlineForSwitchComputations(CallSite CS,
 }
 
 //
+// Return 'true' if 'Callee' is preferred for not inlining because it is
+// a recursive progressive clone marked with an attribute as being
+// preferred for not inlining ("prefer-noinline-rec-pro-clone").
+//
+static bool preferNotToInlineForRecProgressiveClone(Function *Callee) {
+  return Callee && Callee->hasFnAttribute("prefer-noinline-rec-pro-clone");
+}
+
+//
 // Return 'true' if the CallSites of 'Caller' should not be inlined because
 // we are in the 'PrepareForLTO' compile phase and delaying the inlining
 // decision until the link phase will let us more easily decide whether to
@@ -3546,6 +3555,15 @@ static bool worthInliningSingleBasicBlockWithStructTest(Function *Callee,
   return QueuedCallers.count(Callee);
 }
 
+//
+// Return 'true' if 'Callee' is preferred for inlining because it is
+// a recursive progressive clone marked with an attribute as being
+// preferred for inlining ("prefer-inline-rec-pro-clone").
+//
+static bool worthInliningForRecProgressiveClone(Function *Callee) {
+  return Callee && Callee->hasFnAttribute("prefer-inline-rec-pro-clone");
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Analyze a call site for potential inlining.
@@ -3626,6 +3644,11 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
     return false;
   }
   if (InlineForXmain &&
+      preferNotToInlineForRecProgressiveClone(CS.getCalledFunction())) {
+    *ReasonAddr = NinlrRecursive;
+    return false;
+  }
+  if (InlineForXmain &&
       preferToDelayInlineDecision(CS.getCaller(), PrepareForLTO,
       QueuedCallers)) {
     *ReasonAddr = NinlrDelayInlineDecision;
@@ -3691,6 +3714,10 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
           QueuedCallers)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
+      }
+      if (worthInliningForRecProgressiveClone(&F)) {
+        Cost -= InlineConstants::DeepInliningHeuristicBonus;
+        YesReasonVector.push_back(InlrRecProClone);
       }
     }
   }

@@ -813,6 +813,13 @@ static void createRecProgressiveClones(Function &F,
   for (unsigned I = 0; I < Count; ++I) {
     ValueToValueMapTy VMap;
     Function *NewF = CloneFunction(&F, VMap);
+    // Mark the first Count - 1 clones as preferred for inlining, the last
+    // preferred for not inlining.
+    if (I < Count - 1)
+      NewF->addFnAttr("prefer-inline-rec-pro-clone");
+    else
+      NewF->addFnAttr("prefer-noinline-rec-pro-clone");
+
     if (LastCloneF)
       fixRecProgressiveRecCalls(F, *LastCloneF, *NewF);
     else
