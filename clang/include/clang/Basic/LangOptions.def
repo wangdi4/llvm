@@ -112,6 +112,7 @@ LANGOPT(EmulateGNUABIBugs , 1, 1, "Emulation of GNU ABI bugs")
 // CQ376358: Support -ffriend-injection option
 LANGOPT(FriendFunctionInject, 1, 0, "Inject friend functions into the enclosing namespace")
 LANGOPT(FriendClassInject, 1, 0, "Inject friend classes into the enclosing namespace")
+LANGOPT(LongDoubleSize, 8, 0, "Set the size for LongDouble")
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(MSVCCompat        , 1, 0, "Microsoft Visual C++ full compatibility mode")
 LANGOPT(MicrosoftExt      , 1, 0, "Microsoft C++ extensions")

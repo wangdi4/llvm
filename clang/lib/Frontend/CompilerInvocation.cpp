@@ -2601,6 +2601,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection, false);
   Opts.FriendClassInject =
       Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection, false);
+
+  if (const Arg *A = Args.getLastArg(OPT_fintel_long_double_size_EQ)) {
+    StringRef Value = A->getValue();
+    if (Value == "128")
+      Opts.LongDoubleSize = 128;
+    else if (Value == "80")
+      Opts.LongDoubleSize = 80;
+    else if (Value == "64")
+      Opts.LongDoubleSize = 64;
+    else {
+      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
+                                                << A->getValue();
+    }
+  }
 #endif  // INTEL_CUSTOMIZATION
 
   // -cl-strict-aliasing needs to emit diagnostic in the case where CL > 1.0.
