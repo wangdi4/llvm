@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //=-- VPOParoptUtils.h - Class definition for VPO Paropt utilites -*- C++ -*-=//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -927,7 +927,9 @@ public:
   //    %11 = call i64 @_Z14get_local_sizej(i32 0)
   ///      where the value 0 is the dimension number.
   //  \endcode
-  static CallInst *genOCLGenericCall(StringRef FnName, ArrayRef<Value *> FnArgs,
+  static CallInst *genOCLGenericCall(StringRef FnName,
+                                     Type *RetType,
+                                     ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
 
   /// \name Helper methods for generating calls.

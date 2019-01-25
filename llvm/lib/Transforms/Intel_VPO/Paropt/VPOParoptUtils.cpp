@@ -697,14 +697,14 @@ CallInst *VPOParoptUtils::genTgtRegGeneric(Value *Desc, Instruction *InsertPt,
 //   "_Z14read_mem_fencej"
 //   "_Z15write_mem_fencej".
 CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
+                                            Type *RetType,
                                             ArrayRef<Value *> FnArgs,
                                             Instruction *InsertPt) {
-  BasicBlock *B = InsertPt->getParent();
-  Function *F = B->getParent();
+  BasicBlock *B  = InsertPt->getParent();
+  Function *F    = B->getParent();
   LLVMContext &C = F->getContext();
-  Type *ArgTypes[] = {Type::getInt32Ty(C)};
   CallInst *Call =
-      genCall(FnName, Type::getInt64Ty(C), FnArgs, ArgTypes, InsertPt);
+      genCall(FnName, RetType, FnArgs, { Type::getInt32Ty(C) } , InsertPt);
   return Call;
 }
 

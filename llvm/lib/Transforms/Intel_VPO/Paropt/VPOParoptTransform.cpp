@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //===- VPOParoptTransform.cpp - Transformation of W-Region for threading --===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -258,15 +258,22 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   Instruction *InsertPt =
       cast<Instruction>(L->getLoopPreheader()->getTerminator());
   IRBuilder<> Builder(InsertPt);
-  LLVMContext &C = F->getContext();
 
   // Call the function get_num_group to get the group size for dimension Idx.
   SmallVector<Value *, 3> Arg;
   initArgArray(&Arg, Idx);
+  // get_num_groups() returns a value of type size_t by specification,
+  // and the return value is greater than 0.
   CallInst *NumGroupsCall =
-      VPOParoptUtils::genOCLGenericCall("_Z14get_num_groupsj", Arg, InsertPt);
+      VPOParoptUtils::genOCLGenericCall("_Z14get_num_groupsj",
+                                        IntelGeneralUtils::getSizeTTy(F),
+                                        Arg, InsertPt);
   Value *LB = Builder.CreateLoad(LowerBnd);
   Value *UB = Builder.CreateLoad(UpperBnd);
+  // LB and UB have the type of the canonical induction variable.
+  auto *ItSpaceType = LB->getType();
+  // The subtraction cannot overflow, because the normalized lower bound
+  // is a non-negative value.
   Value *ItSpace = Builder.CreateSub(UB, LB);
 
   DistSchedKind = VPOParoptUtils::getDistLoopScheduleKind(W);
@@ -276,9 +283,9 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 
   // Compute team_chunk_size
   Value *Chunk = nullptr;
-  Value *NumGroups =
-      Builder.CreateSExtOrTrunc(NumGroupsCall, ItSpace->getType());
+  Value *NumGroups = Builder.CreateZExtOrTrunc(NumGroupsCall, ItSpaceType);
   if (DistSchedKind == WRNScheduleDistributeStaticEven) {
+    // FIXME: this add may actually overflow.
     Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumGroups);
     Chunk = Builder.CreateSDiv(ItSpaceRounded, NumGroups);
   } else if (DistSchedKind == WRNScheduleDistributeStatic)
@@ -286,15 +293,23 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   else
     llvm_unreachable(
         "Unsupported distribute schedule type in OpenCL based offloading!");
-  Chunk = Builder.CreateSExtOrTrunc(Chunk, NumGroups->getType());
+  Chunk = Builder.CreateSExtOrTrunc(Chunk, ItSpaceType);
+  // FIXME: this multiplication may actually overflow,
+  //        if big chunk size is specified in the schedule() clause.
   Value *TeamStrideVal = Builder.CreateMul(NumGroups, Chunk);
   Builder.CreateStore(TeamStrideVal, TeamStride);
 
+  // get_group_id returns a value of type size_t by specification,
+  // and the return value is non-negative.
   CallInst *GroupIdCall =
-      VPOParoptUtils::genOCLGenericCall("_Z12get_group_idj", Arg, InsertPt);
-  Value *GroupId = Builder.CreateSExtOrTrunc(GroupIdCall, Type::getInt32Ty(C));
+      VPOParoptUtils::genOCLGenericCall("_Z12get_group_idj",
+                                        IntelGeneralUtils::getSizeTTy(F),
+                                        Arg, InsertPt);
+  Value *GroupId = Builder.CreateZExtOrTrunc(GroupIdCall, ItSpaceType);
 
   // Compute new_team_lb
+  // FIXME: this multiplication may actually overflow,
+  //        if big chunk size is specified in the schedule() clause.
   Value *LBDiff = Builder.CreateMul(GroupId, Chunk);
   LB = Builder.CreateAdd(LB, LBDiff);
   Builder.CreateStore(LB, LowerBnd);
@@ -302,8 +317,7 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   Builder.CreateStore(UB, TeamUpperBnd);
 
   // Compute new_team_ub
-  ConstantInt *ValueOne =
-      ConstantInt::get(cast<IntegerType>(Chunk->getType()), 1);
+  ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(ItSpaceType), 1);
   Value *Ch = Builder.CreateSub(Chunk, ValueOne);
   Value *NewUB = Builder.CreateAdd(LB, Ch);
 
@@ -352,7 +366,9 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   SmallVector<Value *, 3> Arg;
   initArgArray(&Arg, Idx);
   CallInst *LocalSize =
-      VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej", Arg, InsertPt);
+      VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
+                                        IntelGeneralUtils::getSizeTTy(F),
+                                        Arg, InsertPt);
   Value *LB = Builder.CreateLoad(LowerBnd);
   Value *UB = Builder.CreateLoad(UpperBnd);
   Value *ItSpace = Builder.CreateSub(UB, LB);
@@ -376,7 +392,9 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   Builder.CreateStore(SchedStrideVal, SchedStride);
 
   CallInst *LocalId =
-      VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj", Arg, InsertPt);
+      VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
+                                        IntelGeneralUtils::getSizeTTy(F),
+                                        Arg, InsertPt);
   Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, Chunk->getType());
   Value *LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
   LB = Builder.CreateAdd(LB, LBDiff);
