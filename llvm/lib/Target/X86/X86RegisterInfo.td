@@ -275,6 +275,15 @@ def TMM4:  X86Reg<"tmm4",   4>;
 def TMM5:  X86Reg<"tmm5",   5>;
 def TMM6:  X86Reg<"tmm6",   6>;
 def TMM7:  X86Reg<"tmm7",   7>;
+// FIXME Just align with ICC, tmm8-15 is not supported by HW.
+def TMM8:  X86Reg<"tmm8",   8>;
+def TMM9:  X86Reg<"tmm9",   9>;
+def TMM10: X86Reg<"tmm10", 10>;
+def TMM11: X86Reg<"tmm11", 11>;
+def TMM12: X86Reg<"tmm12", 12>;
+def TMM13: X86Reg<"tmm13", 13>;
+def TMM14: X86Reg<"tmm14", 14>;
+def TMM15: X86Reg<"tmm15", 15>;
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
@@ -655,6 +664,6 @@ def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 #if INTEL_FEATURE_ISA_AMX
 // Tiles
 def VTILE : RegisterClass<"X86", [untyped], 0,
-                          (sequence "TMM%u", 0, 7)> {let Size = 1;}
+                          (sequence "TMM%u", 0, 15)> {let Size = 1;}
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION

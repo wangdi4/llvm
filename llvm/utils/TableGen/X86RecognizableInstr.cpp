@@ -626,6 +626,9 @@ void RecognizableInstr::emitInstructionSpecifier() {
     break;
 #if INTEL_CUSTOMIZATION
   case X86Local::MRMr0:
+    // Operand 1 is a register operand in the R/M field.
+    HANDLE_OPTIONAL(roRegister)
+    break;
 #endif // INTEL_CUSTOMIZATION
   case X86Local::MRMXr:
   case X86Local::MRM0r:
@@ -747,7 +750,9 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     break;
   case X86Local::MRMDestMem:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
   case X86Local::MRMSrcMemFSIB:
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
   case X86Local::MRMSrcMem:
   case X86Local::MRMSrcMem4VOp3:
@@ -762,9 +767,11 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     filter = llvm::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0r);
     break;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
   case X86Local::MRMr0:
-    filter = llvm::make_unique<ExtendedFilter>(true, Form - X86Local::MRMr0);
+    filter = llvm::make_unique<ExtendedRMFilter>(true, Form - X86Local::MRMr0);
     break;
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
   case X86Local::MRM0m: case X86Local::MRM1m:
   case X86Local::MRM2m: case X86Local::MRM3m:

@@ -189,6 +189,13 @@ static InstrUID decode(OpcodeType type,
     if (modFromModRM(modRM) == 0x3)
       return modRMTable[dec->instructionIDs+((modRM & 0x38) >> 3)+8];
     return modRMTable[dec->instructionIDs+((modRM & 0x38) >> 3)];
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  case MODRM_SPLITREGM:
+    assert(modFromModRM(modRM) == 0x3);
+    return modRMTable[dec->instructionIDs+(modRM & 0x7)];
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   case MODRM_SPLITMISC:
     if (modFromModRM(modRM) == 0x3)
       return modRMTable[dec->instructionIDs+(modRM & 0x3f)+8];

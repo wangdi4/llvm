@@ -29686,6 +29686,14 @@ static unsigned TMMImmToTMMReg(unsigned Imm) {
   case 5: return X86::TMM5;
   case 6: return X86::TMM6;
   case 7: return X86::TMM7;
+  case 8: return X86::TMM8 ;
+  case 9: return X86::TMM9 ;
+  case 10: return X86::TMM10;
+  case 11: return X86::TMM11;
+  case 12: return X86::TMM12;
+  case 13: return X86::TMM13;
+  case 14: return X86::TMM14;
+  case 15: return X86::TMM15;
   default: llvm_unreachable("Unexpected tmm immediate");
   }
 }

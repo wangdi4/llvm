@@ -130,3 +130,53 @@ tdpbusd %tmm3, %tmm2, %tmm1
 // CHECK: tdpbuud       %tmm3, %tmm2, %tmm1
 // CHECK: encoding: [0xc4,0xe2,0x60,0x5e,0xca]
 tdpbuud %tmm3, %tmm2, %tmm1
+
+// TMM8-15Test
+// CHECK: tilezero      %tmm10
+// CHECK: encoding: [0xc4,0xc2,0x7b,0x49,0xd0]
+tilezero  %tmm10
+
+// CHECK: tilezero      %tmm15
+// CHECK: encoding: [0xc4,0xc2,0x7b,0x49,0xf8]
+tilezero  %tmm15
+
+// CHECK: tdpbssd %tmm10, %tmm13, %tmm15
+// CHECK: encoding: [0xc4,0x42,0x2b,0x5e,0xfd]
+tdpbssd %tmm10, %tmm13, %tmm15
+
+// CHECK: tdpbssd %tmm2, %tmm5, %tmm9
+// CHECK: encoding: [0xc4,0x62,0x6b,0x5e,0xcd]
+tdpbssd %tmm2, %tmm5, %tmm9
+
+// CHECK: tdpbsud %tmm10, %tmm13, %tmm15
+// CHECK: encoding: [0xc4,0x42,0x2a,0x5e,0xfd]
+tdpbsud %tmm10, %tmm13, %tmm15
+
+// CHECK: tdpbsud %tmm2, %tmm5, %tmm9
+// CHECK: encoding: [0xc4,0x62,0x6a,0x5e,0xcd]
+tdpbsud %tmm2, %tmm5, %tmm9
+
+// CHECK: tdpbusd %tmm10, %tmm13, %tmm15
+// CHECK: encoding: [0xc4,0x42,0x29,0x5e,0xfd]
+tdpbusd %tmm10, %tmm13, %tmm15
+
+// CHECK: tdpbusd %tmm2, %tmm5, %tmm9
+// CHECK: encoding: [0xc4,0x62,0x69,0x5e,0xcd]
+tdpbusd %tmm2, %tmm5, %tmm9
+
+// CHECK: tdpbuud %tmm10, %tmm13, %tmm15
+// CHECK: encoding: [0xc4,0x42,0x28,0x5e,0xfd]
+tdpbuud %tmm10, %tmm13, %tmm15
+
+// CHECK: tdpbuud %tmm2, %tmm5, %tmm9
+// CHECK: encoding: [0xc4,0x62,0x68,0x5e,0xcd]
+tdpbuud %tmm2, %tmm5, %tmm9
+
+// CHECK: tdpbf16ps %tmm10, %tmm13, %tmm15
+// CHECK: encoding: [0xc4,0x42,0x2a,0x5c,0xfd]
+tdpbf16ps %tmm10, %tmm13, %tmm15
+
+// CHECK: tdpbf16ps %tmm2, %tmm5, %tmm9
+// CHECK: encoding: [0xc4,0x62,0x6a,0x5c,0xcd]
+tdpbf16ps %tmm2, %tmm5, %tmm9
+// end TMM8-15Test

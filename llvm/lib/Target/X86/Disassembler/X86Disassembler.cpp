@@ -899,6 +899,11 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_XMM:
   case TYPE_YMM:
   case TYPE_ZMM:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  case TYPE_TMM:
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   case TYPE_VK:
   case TYPE_DEBUGREG:
   case TYPE_CONTROLREG:

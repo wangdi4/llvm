@@ -347,12 +347,24 @@ typedef uint16_t InstrUID;
 //                  corresponds to instructions that use reg field as opcode
 // MODRM_FULL     - Potentially, each value of the ModR/M byte could correspond
 //                  to a different instruction.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
 #define MODRMTYPES            \
   ENUM_ENTRY(MODRM_ONEENTRY)  \
   ENUM_ENTRY(MODRM_SPLITRM)   \
   ENUM_ENTRY(MODRM_SPLITMISC)  \
   ENUM_ENTRY(MODRM_SPLITREG)  \
+  ENUM_ENTRY(MODRM_SPLITREGM) \
   ENUM_ENTRY(MODRM_FULL)
+#else // INTEL_FEATURE_ISA_AMX
+#define MODRMTYPES            \
+  ENUM_ENTRY(MODRM_ONEENTRY)  \
+  ENUM_ENTRY(MODRM_SPLITRM)   \
+  ENUM_ENTRY(MODRM_SPLITMISC) \
+  ENUM_ENTRY(MODRM_SPLITREG)  \
+  ENUM_ENTRY(MODRM_FULL)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 
 #define ENUM_ENTRY(n) n,
 enum ModRMDecisionType {

@@ -390,7 +390,15 @@ namespace X86Disassembler {
   ENTRY(TMM4)     \
   ENTRY(TMM5)     \
   ENTRY(TMM6)     \
-  ENTRY(TMM7)
+  ENTRY(TMM7)     \
+  ENTRY(TMM8)     \
+  ENTRY(TMM9)     \
+  ENTRY(TMM10)    \
+  ENTRY(TMM11)    \
+  ENTRY(TMM12)    \
+  ENTRY(TMM13)    \
+  ENTRY(TMM14)    \
+  ENTRY(TMM15)
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 

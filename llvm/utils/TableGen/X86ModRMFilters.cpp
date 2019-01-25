@@ -19,4 +19,10 @@ void ModFilter::anchor() { }
 
 void ExtendedFilter::anchor() { }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+void ExtendedRMFilter::anchor() { }
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
+
 void ExactFilter::anchor() { }
