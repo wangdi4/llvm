@@ -23,6 +23,7 @@ add_llvm_target(CSACodeGen
   CSAAllocUnitPass.cpp
   CSAAsmPrinter.cpp
   CSAAsmWrapOstream.cpp
+  CSACreateSelfContainedGraph.cpp
   CSACvtCFDFPass.cpp
   CSADataflowCanonicalization.cpp
   CSADataflowVerifier.cpp

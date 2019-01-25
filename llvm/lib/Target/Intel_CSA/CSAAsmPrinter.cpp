@@ -131,13 +131,10 @@ class CSAAsmPrinter : public AsmPrinter {
   void EmitCallInstruction(const MachineInstr *);
   void EmitContinueInstruction(const MachineInstr *);
   void EmitAll0(const MachineInstr *);
-  void EmitEntryInstruction();
-  void EmitSimpleEntryInstruction();
-  void EmitParamsResultsDecl();
-  void EmitReturnInstruction();
+  void EmitSimpleEntryInstruction(MachineFunction *MF);
+  void EmitParamsResultsDecl(MachineInstr *, MachineInstr *);
   void EmitTrampolineMarkers(const MachineInstr *);
   void EmitCSAOperands(const MachineInstr *, raw_ostream &, int, int);
-
   unsigned resultReg;
   void writeSmallFountain(const MachineInstr *MI);
 
@@ -157,6 +154,7 @@ public:
   void EmitStartOfAsmFile(Module &) override;
   void EmitEndOfAsmFile(Module &) override;
 
+  bool runOnMachineFunction(MachineFunction &F) override;
   void EmitFunctionEntryLabel() override;
   void EmitFunctionBodyStart() override;
   void EmitFunctionBodyEnd() override;
@@ -167,6 +165,19 @@ public:
   void EmitCsaCodeSection();
 };
 } // end of anonymous namespace
+
+bool CSAAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
+  CSAMachineFunctionInfo *LMFI = MF.getInfo<CSAMachineFunctionInfo>();
+  if (LMFI && LMFI->getDoNotEmitAsm())
+    return false;
+  SmallString<128> Str;
+  raw_svector_ostream O(Str);
+  O << ".module __mod_" << MF.getName();
+  OutStreamer->EmitRawText(O.str());
+  AsmPrinter::runOnMachineFunction(MF);
+  OutStreamer->EmitRawText(".endmodule");
+  return false;
+}
 
 void CSAAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
                                  raw_ostream &O) {
@@ -547,7 +558,8 @@ void CSAAsmPrinter::setLICNames(void) {
       unsigned vreg = TargetRegisterInfo::index2VirtReg(index);
       if (!MRI->reg_empty(vreg)) {
         StringRef name = LMFI->getLICName(vreg);
-        if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet())) || name.empty()) {
+        if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet()))
+            || name.empty()) {
           LMFI->setLICName(vreg, Twine("cv") + Twine(LMFI->getLICSize(vreg)) +
                                    "_" + Twine(index));
         }
@@ -576,18 +588,11 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
   MRI  = &MF->getRegInfo();
   LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   if (csa_utils::isAlwaysDataFlowLinkageSet()) {
-    // In one of the earlier discussions, it was decided that any function f1
-    // in a CSA graph that is called internally by another function f2 in the
-    // same CSA graph will be considered 'internal' and any function f1 that
-    // is not called from anywhere inside the CSA graph is 'external'.
-    // This is irrespective of whether the function is found to be internal or external.
-    // This argument may change when we start supporting external/proxy calls
-    // and also when we start having linker support in some sense.
-    // Hence getNumCallSites() == 0 is used as a check to see if the function
-    // is internal or external
-    if (LMFI->getNumCallSites() == 0) {
-      EmitSimpleEntryInstruction();
-      EmitParamsResultsDecl();
+    // Emit code for all entry points
+    for (unsigned i = 0; i < LMFI->getNumCSAEntryPoints(); ++i) {
+      const CSAEntryPoint &CSAEP = LMFI->getCSAEntryPoint(i);
+      EmitSimpleEntryInstruction(CSAEP.MF);
+      EmitParamsResultsDecl(CSAEP.EntryMI,CSAEP.ReturnMI);
     }
   }
   if (not ImplicitLicDefs) {
@@ -632,14 +637,15 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       bool isParam = false;
       Function::const_arg_iterator I, E;
       unsigned Arg;
-      for (I = F->arg_begin(), E = F->arg_end(), Arg= CSA::P64_2; I != E; ++I, ++Arg) {
+      for (I = F->arg_begin(), E = F->arg_end(), Arg= CSA::P64_2;
+            I != E; ++I, ++Arg) {
         if (Arg == reg) {
           isParam = true;
           break;
         }
       }
       if (isParam || (resultReg == reg)) continue;
-      // A decl is needed if we allocated this LIC and it is has a using/defining
+      // A decl is needed if we allocated this LIC and it has using/defining
       // instruction. (Sometimes all such instructions are cleaned up by DIE.)
       if (reg != CSA::IGN && reg != CSA::NA && !MRI->reg_empty(reg)) {
         StringRef name = "";
@@ -655,45 +661,42 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       if (!MRI->reg_empty(vreg) && LMFI->getIsDeclared(vreg)) {
         if (csa_utils::isAlwaysDataFlowLinkageSet()) {
           if (LMFI->getNumCallSites() == 0) {
-            const MachineInstr *entryMI = LMFI->getEntryMI();
-            const MachineInstr *returnMI = LMFI->getReturnMI();
-            bool isParam = false;
-            for (unsigned i = 0; i < entryMI->getNumOperands(); ++i) {
-              unsigned reg = entryMI->getOperand(i).getReg();
-              if (reg == vreg) { isParam = true; break; }
+            bool isParamOrResult = false;
+            for (auto UI = MRI->use_begin(vreg); UI != MRI->use_end(); ++UI) {
+              MachineInstr *MI = UI->getParent();
+              if (MI->getOpcode() == CSA::CSA_RETURN) {
+                isParamOrResult = true;
+                break;
+              }
             }
-            bool isResult = false;
-            for (unsigned i = 0; i < returnMI->getNumOperands(); ++i) {
-              unsigned reg = returnMI->getOperand(i).getReg();
-              if (reg == vreg) { isResult = true; break; }
-            }
-            if (isParam || isResult) continue;
+            MachineInstr *DefMI = MRI->getUniqueVRegDef(vreg);
+            if (DefMI && DefMI->getOpcode() == CSA::CSA_ENTRY)
+                isParamOrResult = true;
+            if (isParamOrResult) continue;
           }
         }
         if (!csa_utils::isAlwaysDataFlowLinkageSet())
           assert(!MRI->use_nodbg_empty(vreg) && "LIC without consumers");
         StringRef name = LMFI->getLICName(vreg);
-        if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet())) || name.empty()) {
+        if ((!EmitRegNames &&
+              !(csa_utils::isAlwaysDataFlowLinkageSet())) || name.empty()) {
           LMFI->setLICName(vreg, Twine("cv") + Twine(LMFI->getLICSize(vreg)) +
                                    "_" + Twine(index));
         }
         printRegister(vreg, LMFI->getLICName(vreg));
       }
     }
-    if (csa_utils::isAlwaysDataFlowLinkageSet() && LMFI->getNumCallSites() != 0) 
-      EmitEntryInstruction();
   }
   if (csa_utils::isAlwaysDataFlowLinkageSet())
     OutStreamer->EmitRawText("{");
 }
 
-void CSAAsmPrinter::EmitFunctionBodyEnd() { 
-  if (csa_utils::isAlwaysDataFlowLinkageSet())
-    EmitReturnInstruction();
+void CSAAsmPrinter::EmitFunctionBodyEnd() {
   OutStreamer->EmitRawText("}");
 }
 
-void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O, int startindex, int numopds) { 
+void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O,
+  int startindex, int numopds) {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   for (int i=startindex; i<numopds; ++i) {
     unsigned reg = MI->getOperand(i).getReg();
@@ -710,21 +713,19 @@ void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O, int 
   }
 }
 
-void CSAAsmPrinter::EmitSimpleEntryInstruction(void) {
+void CSAAsmPrinter::EmitSimpleEntryInstruction(MachineFunction *CalleeMF) {
   StringRef Linkage("dataflow");
-  const Function &F = MF->getFunction();
+  const Function &F = CalleeMF->getFunction();
   if (F.hasFnAttribute("__csa_attr_initializer"))
     Linkage = "initializer";
-  OutStreamer->EmitRawText("\t.entry\t" + MF->getFunction().getName() +
+  OutStreamer->EmitRawText("\t.entry\t" + CalleeMF->getFunction().getName() +
                            ", " + Linkage);
 }
 
-void CSAAsmPrinter::EmitParamsResultsDecl(void) {
+void CSAAsmPrinter::EmitParamsResultsDecl(
+  MachineInstr *entryMI, MachineInstr *returnMI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
-  const MachineInstr *entryMI = LMFI->getEntryMI();
-  const MachineInstr *returnMI = LMFI->getReturnMI();
   // Emit CSA parameters
   if (returnMI)
     for (unsigned i = 0; i < returnMI->getNumOperands(); ++i) {
@@ -743,29 +744,6 @@ void CSAAsmPrinter::EmitParamsResultsDecl(void) {
           << LMFI->getLICName(reg) << "\n";
     }
   }
-  OutStreamer->EmitRawText(O.str());
-}
-
-void CSAAsmPrinter::EmitEntryInstruction(void) {
-  SmallString<128> Str;
-  raw_svector_ostream O(Str);
-  const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
-  const MachineInstr *entryMI = LMFI->getEntryMI();
-  O << "\t#.entry\t";
-  O << MF->getFunction().getName();
-  O << ", dataflow, ";
-  EmitCSAOperands(entryMI,O,0,entryMI->getNumOperands());
-  O << "\n";
-  OutStreamer->EmitRawText(O.str());
-}
-void CSAAsmPrinter::EmitReturnInstruction() { 
-  SmallString<128> Str;
-  raw_svector_ostream O(Str);
-  O << "\t#.return\t";
-  const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
-  const MachineInstr *returnMI = LMFI->getReturnMI();
-  EmitCSAOperands(returnMI,O,0,returnMI->getNumOperands());
-  O << "\n";
   OutStreamer->EmitRawText(O.str());
 }
 
@@ -839,9 +817,16 @@ void CSAAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   if (MI->getOpcode() == CSA::CSA_ENTRY) { return; }
   if (MI->getOpcode() == CSA::CSA_RETURN) return;
   if (MI->getOpcode() == CSA::CSA_CALL) { EmitCallInstruction(MI); return; }
-  if (MI->getOpcode() == CSA::CSA_CONTINUE) { EmitContinueInstruction(MI); return; }
+  if (MI->getOpcode() == CSA::CSA_CONTINUE) {
+    EmitContinueInstruction(MI);
+    return;
+  }
   if (MI->getOpcode() == CSA::ALL0) { EmitAll0(MI); return; }
-  if (MI->getOpcode() == CSA::TRAMPOLINE_START || MI->getOpcode() == CSA::TRAMPOLINE_END) { EmitTrampolineMarkers(MI); return; }
+  if (MI->getOpcode() == CSA::TRAMPOLINE_START ||
+      MI->getOpcode() == CSA::TRAMPOLINE_END) {
+    EmitTrampolineMarkers(MI);
+    return;
+  }
   if (MI->getFlag(MachineInstr::RasReplayable)) {
       OutStreamer->EmitRawText("\t.attrib ras_replayable=true\n");
   }

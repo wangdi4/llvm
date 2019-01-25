@@ -27,6 +27,7 @@ CSAMachineFunctionInfo::CSAMachineFunctionInfo(MachineFunction &MF)
       nameCounter(0),
       FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {
   InMemoryLicSXU = allocateLIC(&CSA::CI0RegClass, "in_ctl");
+  DoNotEmitAsm = true;
 }
 
 CSAMachineFunctionInfo::~CSAMachineFunctionInfo() {}

@@ -55,9 +55,11 @@ Pass *createCSAParseAnnotateAttributesPass();
 
 void initializeCSAMemopOrderingPasses(PassRegistry &);
 void initializeCSAStreamingMemoryPass(PassRegistry &);
+void initializeCSACreateSelfContainedGraphPass(PassRegistry &);
 
 bool shouldRunDataflowPass(const MachineFunction &MF);
 
+Pass *createCSACreateSelfContainedGraphPass();
 } // namespace llvm
 
 #endif

@@ -82,6 +82,7 @@ extern "C" void LLVMInitializeCSATarget() {
   // is placed here because it is too target-specific.
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeCSAAllocUnitPassPass(PR);
+  initializeCSACreateSelfContainedGraphPass(PR);
   initializeCSACvtCFDFPassPass(PR);
   initializeCSADataflowCanonicalizationPassPass(PR);
   initializeCSADataflowVerifierPass(PR);
@@ -302,7 +303,10 @@ public:
     }
 
     if (csa_utils::isAlwaysDataFlowLinkageSet()) {
-      addPass(createCSAProcCallsPass(), false);
+      if (csa_utils::createSCG())
+        addPass(createCSACreateSelfContainedGraphPass(), false);
+      else
+        addPass(createCSAProcCallsPass(), false);
     }
   }
 

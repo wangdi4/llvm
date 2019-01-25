@@ -441,6 +441,10 @@ void CSAProcCallsPass::addTrampolineCode(MachineInstr *entryMI, MachineInstr *re
   }
   LLVM_DEBUG(errs() << "Number of call sites for " << name << " is " << num_call_sites << "\n");
   LMFI->setNumCallSites(num_call_sites);
+  LMFI->setDoNotEmitAsm(false);
+  if (num_call_sites == 0) {
+    LMFI->addCSAEntryPoint(thisMF, entryMI, returnMI);
+  }
   if (!num_call_sites) return;
   const TargetInstrInfo *TII = thisMF->getSubtarget().getInstrInfo();
   // Special case: need only movs
