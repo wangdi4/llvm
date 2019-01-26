@@ -54,7 +54,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 
@@ -4447,198 +4446,171 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
   bool Changed = false;
 
-  // brief extract a W-Region to generate a function
-  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false,
-                   nullptr, nullptr, false, true);
-
-  assert(CE.isEligible());
-
   // Set up Fn Attr for the new function
-  if (Function *NewF = CE.extractCodeRegion()) {
+  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT);
+  if (hasParentTarget(W))
+    NewF->addFnAttr("target.declare", "true");
 
-    // Set up the Calling Convention used by OpenMP Runtime Library
-    CallingConv::ID CC = CallingConv::C;
+  CallInst *NewCall = cast<CallInst>(NewF->user_back());
+  CallSite CS(NewCall);
 
-    DT->verify(DominatorTree::VerificationLevel::Full);
+  unsigned int TidArgNo = 0;
+  bool IsTidArg = false;
 
-    // Adjust the calling convention for both the function and the
-    // call site.
-    NewF->setCallingConv(CC);
-
-    if (hasParentTarget(W))
-      NewF->addFnAttr("target.declare", "true");
-
-    assert(NewF->hasOneUse() && "New function should have one use");
-    User *U = NewF->user_back();
-
-    // Remove @llvm.dbg.declare, @llvm.dbg.value intrinsics from NewF
-    // to prevent verification failures. This is due due to the
-    // CodeExtractor not properly handling them at the moment.
-    VPOUtils::stripDebugInfoInstrinsics(*NewF);
-
-    CallInst *NewCall = cast<CallInst>(U);
-    NewCall->setCallingConv(CC);
-
-    CallSite CS(NewCall);
-
-    unsigned int TidArgNo = 0;
-    bool IsTidArg = false;
-
-    for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
-      if (*I == TidPtrHolder) {
-        IsTidArg = true;
-        LLVM_DEBUG(dbgs() << " NewF Tid Argument: " << *(*I) << "\n");
-        break;
-      }
-      ++TidArgNo;
+  for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
+    if (*I == TidPtrHolder) {
+      IsTidArg = true;
+      LLVM_DEBUG(dbgs() << " NewF Tid Argument: " << *(*I) << "\n");
+      break;
     }
-
-    // Finalized multithreaded Function declaration and definition
-    Function *MTFn = finalizeExtractedMTFunction(W, NewF, IsTidArg, TidArgNo);
-
-    std::vector<Value *> MTFnArgs;
-
-    // Pass tid and bid arguments.
-    MTFnArgs.push_back(TidPtrHolder);
-    MTFnArgs.push_back(BidPtrHolder);
-    genThreadedEntryActualParmList(W, MTFnArgs);
-
-    LLVM_DEBUG(dbgs() << " New Call to MTFn: " << *NewCall << "\n");
-    // Pass all the same arguments of the extracted function.
-    for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
-      if (*I != TidPtrHolder) {
-        LLVM_DEBUG(dbgs() << " NewF Arguments: " << *(*I) << "\n");
-        MTFnArgs.push_back((*I));
-      }
-    }
-
-    CallInst *MTFnCI = CallInst::Create(MTFn, MTFnArgs, "", NewCall);
-    MTFnCI->setCallingConv(CS.getCallingConv());
-
-    // Copy isTailCall attribute
-    if (NewCall->isTailCall())
-      MTFnCI->setTailCall();
-
-    MTFnCI->setDebugLoc(NewCall->getDebugLoc());
-
-    // MTFnArgs.clear();
-
-    if (!NewCall->use_empty())
-      NewCall->replaceAllUsesWith(MTFnCI);
-
-    // Keep the orginal extraced function name after finalization
-    MTFnCI->takeName(NewCall);
-    BasicBlock *MTFnBB = MTFnCI->getParent();
-
-    if (IntelGeneralUtils::hasNextUniqueInstruction(MTFnCI)) {
-      Instruction* NextI = IntelGeneralUtils::nextUniqueInstruction(MTFnCI);
-      SplitBlock(MTFnBB, NextI, DT, LI);
-    }
-
-    // Remove the orginal serial call to extracted NewF from the program,
-    // reducing the use-count of NewF
-    NewCall->eraseFromParent();
-
-    // Finally, nuke the original extracted function.
-    NewF->eraseFromParent();
-
-    // Generate __kmpc_fork_call for multithreaded execution of MTFn call
-    CallInst* ForkCI = genForkCallInst(W, MTFnCI);
-
-    // Generate __kmpc_ok_to_fork test Call Instruction
-    CallInst* ForkTestCI = VPOParoptUtils::genKmpcForkTest(W, IdentTy, ForkCI);
-
-    //
-    // Genrerate __kmpc_ok_to_fork test for taking either __kmpc_fork_call
-    // or serial call branch, and update CFG and DomTree
-    //
-    //  ForkTestBB(codeRepl)
-    //         /    \
-    //        /      \
-    // ThenForkBB   ElseCallBB
-    //        \       /
-    //         \     /
-    //  SuccessorOfThenForkBB
-    //
-    BasicBlock *ForkTestBB = ForkTestCI->getParent();
-
-    BasicBlock *ForkBB = ForkCI->getParent();
-
-    BasicBlock *ThenForkBB = SplitBlock(ForkBB, ForkCI, DT, LI);
-    ThenForkBB->setName("if.then.fork." + Twine(W->getNumber()));
-
-    BasicBlock *CallBB = MTFnCI->getParent();
-
-    BasicBlock *ElseCallBB = SplitBlock(CallBB, MTFnCI, DT, LI);
-    ElseCallBB->setName("if.else.call." + Twine(W->getNumber()));
-
-    Function *F = ForkTestBB->getParent();
-    LLVMContext &C = F->getContext();
-
-    ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-
-    Instruction *TermInst = ForkTestBB->getTerminator();
-
-    Value *IfClauseValue = nullptr;
-
-    if (!W->getIsTeams())
-      IfClauseValue = W->getIf();
-
-    ICmpInst* CondInst = nullptr;
-
-    if (IfClauseValue) {
-      Instruction *IfAndForkTestCI = BinaryOperator::CreateAnd(
-                     IfClauseValue, ForkTestCI, "and.if.clause", TermInst);
-      IfAndForkTestCI->setDebugLoc(TermInst->getDebugLoc());
-      CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
-                              IfAndForkTestCI, ValueZero, "if.fork.test");
-    }
-    else
-      CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
-                              ForkTestCI, ValueZero, "fork.test");
-
-    Instruction *NewTermInst = BranchInst::Create(ThenForkBB, ElseCallBB,
-                                                     CondInst);
-    ReplaceInstWithInst(TermInst, NewTermInst);
-
-    Instruction *NewForkBI = BranchInst::Create(
-                                  ElseCallBB->getTerminator()->getSuccessor(0));
-
-    ReplaceInstWithInst(ThenForkBB->getTerminator(), NewForkBI);
-
-    DT->changeImmediateDominator(ThenForkBB, ForkTestCI->getParent());
-    DT->changeImmediateDominator(ElseCallBB, ForkTestCI->getParent());
-    DT->changeImmediateDominator(ThenForkBB->getTerminator()->getSuccessor(0),
-                                 ForkTestCI->getParent());
-
-    // Generate __kmpc_push_num_threads(...) Call Instruction
-    Value *NumThreads = nullptr;
-    Value *NumTeams = nullptr;
-    if (W->getIsTeams()) {
-      NumTeams = W->getNumTeams();
-      NumThreads = W->getThreadLimit();
-    } else
-      NumThreads = W->getNumThreads();
-
-    if (NumThreads || NumTeams) {
-      LoadInst *Tid = new LoadInst(TidPtrHolder, "my.tid", ForkCI);
-      Tid->setAlignment(4);
-      if (W->getIsTeams())
-        VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams,
-                                            NumThreads, ForkCI);
-      else
-        VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, NumThreads,
-                                              ForkCI);
-    }
-
-    // Remove the serial call to MTFn function from the program, reducing
-    // the use-count of MTFn
-    // MTFnCI->eraseFromParent();
-
-    W->resetBBSet(); // Invalidate BBSet after transformations
-
-    Changed = true;
+    ++TidArgNo;
   }
+
+  // Finalized multithreaded Function declaration and definition
+  Function *MTFn = finalizeExtractedMTFunction(W, NewF, IsTidArg, TidArgNo);
+
+  std::vector<Value *> MTFnArgs;
+
+  // Pass tid and bid arguments.
+  MTFnArgs.push_back(TidPtrHolder);
+  MTFnArgs.push_back(BidPtrHolder);
+  genThreadedEntryActualParmList(W, MTFnArgs);
+
+  LLVM_DEBUG(dbgs() << " New Call to MTFn: " << *NewCall << "\n");
+  // Pass all the same arguments of the extracted function.
+  for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
+    if (*I != TidPtrHolder) {
+      LLVM_DEBUG(dbgs() << " NewF Arguments: " << *(*I) << "\n");
+      MTFnArgs.push_back((*I));
+    }
+  }
+
+  CallInst *MTFnCI = CallInst::Create(MTFn, MTFnArgs, "", NewCall);
+  MTFnCI->setCallingConv(CS.getCallingConv());
+
+  // Copy isTailCall attribute
+  if (NewCall->isTailCall())
+    MTFnCI->setTailCall();
+
+  MTFnCI->setDebugLoc(NewCall->getDebugLoc());
+
+  // MTFnArgs.clear();
+
+  if (!NewCall->use_empty())
+    NewCall->replaceAllUsesWith(MTFnCI);
+
+  // Keep the orginal extraced function name after finalization
+  MTFnCI->takeName(NewCall);
+  BasicBlock *MTFnBB = MTFnCI->getParent();
+
+  if (IntelGeneralUtils::hasNextUniqueInstruction(MTFnCI)) {
+    Instruction* NextI = IntelGeneralUtils::nextUniqueInstruction(MTFnCI);
+    SplitBlock(MTFnBB, NextI, DT, LI);
+  }
+
+  // Remove the orginal serial call to extracted NewF from the program,
+  // reducing the use-count of NewF
+  NewCall->eraseFromParent();
+
+  // Finally, nuke the original extracted function.
+  NewF->eraseFromParent();
+
+  // Generate __kmpc_fork_call for multithreaded execution of MTFn call
+  CallInst* ForkCI = genForkCallInst(W, MTFnCI);
+
+  // Generate __kmpc_ok_to_fork test Call Instruction
+  CallInst* ForkTestCI = VPOParoptUtils::genKmpcForkTest(W, IdentTy, ForkCI);
+
+  //
+  // Genrerate __kmpc_ok_to_fork test for taking either __kmpc_fork_call
+  // or serial call branch, and update CFG and DomTree
+  //
+  //  ForkTestBB(codeRepl)
+  //         /       \
+  //        /         \
+  // ThenForkBB   ElseCallBB
+  //        \       /
+  //         \     /
+  //  SuccessorOfThenForkBB
+  //
+  BasicBlock *ForkTestBB = ForkTestCI->getParent();
+
+  BasicBlock *ForkBB = ForkCI->getParent();
+
+  BasicBlock *ThenForkBB = SplitBlock(ForkBB, ForkCI, DT, LI);
+  ThenForkBB->setName("if.then.fork." + Twine(W->getNumber()));
+
+  BasicBlock *CallBB = MTFnCI->getParent();
+
+  BasicBlock *ElseCallBB = SplitBlock(CallBB, MTFnCI, DT, LI);
+  ElseCallBB->setName("if.else.call." + Twine(W->getNumber()));
+
+  Function *F = ForkTestBB->getParent();
+  LLVMContext &C = F->getContext();
+
+  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
+
+  Instruction *TermInst = ForkTestBB->getTerminator();
+
+  Value *IfClauseValue = nullptr;
+
+  if (!W->getIsTeams())
+    IfClauseValue = W->getIf();
+
+  ICmpInst* CondInst = nullptr;
+
+  if (IfClauseValue) {
+    Instruction *IfAndForkTestCI = BinaryOperator::CreateAnd(
+        IfClauseValue, ForkTestCI, "and.if.clause", TermInst);
+    IfAndForkTestCI->setDebugLoc(TermInst->getDebugLoc());
+    CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
+                            IfAndForkTestCI, ValueZero, "if.fork.test");
+  }
+  else
+    CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
+                            ForkTestCI, ValueZero, "fork.test");
+
+  Instruction *NewTermInst = BranchInst::Create(ThenForkBB, ElseCallBB,
+                                                CondInst);
+  ReplaceInstWithInst(TermInst, NewTermInst);
+
+  Instruction *NewForkBI = BranchInst::Create(
+                               ElseCallBB->getTerminator()->getSuccessor(0));
+
+  ReplaceInstWithInst(ThenForkBB->getTerminator(), NewForkBI);
+
+  DT->changeImmediateDominator(ThenForkBB, ForkTestCI->getParent());
+  DT->changeImmediateDominator(ElseCallBB, ForkTestCI->getParent());
+  DT->changeImmediateDominator(ThenForkBB->getTerminator()->getSuccessor(0),
+                               ForkTestCI->getParent());
+
+  // Generate __kmpc_push_num_threads(...) Call Instruction
+  Value *NumThreads = nullptr;
+  Value *NumTeams = nullptr;
+  if (W->getIsTeams()) {
+    NumTeams = W->getNumTeams();
+    NumThreads = W->getThreadLimit();
+  } else
+    NumThreads = W->getNumThreads();
+
+  if (NumThreads || NumTeams) {
+    LoadInst *Tid = new LoadInst(TidPtrHolder, "my.tid", ForkCI);
+    Tid->setAlignment(4);
+    if (W->getIsTeams())
+      VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams,
+                                          NumThreads, ForkCI);
+    else
+      VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, NumThreads,
+                                            ForkCI);
+  }
+
+  // Remove the serial call to MTFn function from the program, reducing
+  // the use-count of MTFn
+  // MTFnCI->eraseFromParent();
+
+  W->resetBBSet(); // Invalidate BBSet after transformations
+
+  Changed = true;
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMultiThreadedCode\n");
   return Changed;

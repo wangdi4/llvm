@@ -30,6 +30,8 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -994,6 +996,11 @@ public:
   static CallInst *genEmptyCall(Module *M, StringRef FnName, Type *ReturnTy,
                                 Instruction *InsertPt = nullptr,
                                 bool IsVarArg = false);
+
+  // Creates new Function and outlines \p W region into it.
+  // \p DT DominatorTree is updated accordingly.
+  static Function *genOutlineFunction(const WRegionNode &W, DominatorTree *DT);
+
   /// @}
 
 private:

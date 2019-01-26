@@ -34,7 +34,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/Intel_InferAddressSpacesUtils.h"
 
 #include "llvm/PassAnalysisSupport.h"
@@ -161,37 +160,13 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   bool Changed = false;
 
-  // extract a W-Region to generate a function
-  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false,
-                   nullptr, nullptr, false, true);
-
-  assert(CE.isEligible());
-
   // Set up Fn Attr for the new function
-  Function *NewF = CE.extractCodeRegion();
+  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT);
 
-  assert(NewF != nullptr && "Expect non-empty outline function");
-
-  // Set up the Calling Convention used by OpenMP Runtime Library
-  CallingConv::ID CC = CallingConv::C;
   if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
     NewF->addFnAttr("target.declare", "true");
 
-  DT->verify(DominatorTree::VerificationLevel::Full);
-
-  // Adjust the calling convention for both the function and the
-  // call site.
-  NewF->setCallingConv(CC);
-
-  // Remove @llvm.dbg.declare, @llvm.dbg.value intrinsics from NewF
-  // to prevent verification failures. This is due due to the
-  // CodeExtractor not properly handling them at the moment.
-  VPOUtils::stripDebugInfoInstrinsics(*NewF);
-
-  assert(NewF->hasOneUse() && "New function should have one use");
-  User *U = NewF->user_back();
-  CallInst *NewCall = cast<CallInst>(U);
-  NewCall->setCallingConv(CC);
+  CallInst *NewCall = cast<CallInst>(NewF->user_back());
 
   Constant *RegionId = nullptr;
   if (isa<WRNTargetNode>(W)) {

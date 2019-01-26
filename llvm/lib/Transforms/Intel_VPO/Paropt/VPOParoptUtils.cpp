@@ -36,12 +36,24 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
+#include "llvm/Transforms/Utils/CodeExtractor.h"
 #include <string>
 
 #define DEBUG_TYPE "vpo-paropt-utils"
 
 using namespace llvm;
 using namespace llvm::vpo;
+
+// Disable outline verification by default, because it fails in many tests
+// currently.
+static cl::opt<bool> EnableOutlineVerification(
+    "vpo-paropt-enable-outline-verification", cl::Hidden, cl::init(false),
+    cl::desc("Enable checking that all arguments of outlined routines "
+             "are pointers or have pointer-sized types."));
+
+static cl::opt<bool> StrictOutlineVerification(
+    "vpo-paropt-strict-outline-verification", cl::Hidden, cl::init(true),
+    cl::desc("Only allow pointers to be arguments of outlined routines."));
 
 static const unsigned StackAdjustedAlignment = 16;
 
@@ -3117,4 +3129,63 @@ uint64_t VPOParoptUtils::getMinInt(Type *Ty, bool IsUnsigned) {
 }
 #endif // if 0
 
+Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W, DominatorTree *DT)
+{
+  CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
+                   nullptr, nullptr, false, true);
+  assert(CE.isEligible() && "Region is not eligible for extraction.");
+
+  auto *NewFunction = CE.extractCodeRegion();
+  assert(NewFunction && "Code extraction failed for the region.");
+  assert(NewFunction->hasOneUse() && "New function should have one use.");
+
+  auto *CallSite = cast<CallInst>(NewFunction->user_back());
+
+  if (EnableOutlineVerification) {
+    const auto &DL = CallSite->getModule()->getDataLayout();
+    auto &C = CallSite->getModule()->getContext();
+
+    // Verify that the outlined function's arguments are pointers.
+    auto *FnType = NewFunction->getFunctionType();
+    // Get size of any pointer type.
+    auto PointerSize =
+        DL.getTypeSizeInBits(PointerType::getUnqual(Type::getInt8Ty(C)));
+
+    for (auto ArgTyI = FnType->param_begin(), ArgTyE = FnType->param_end();
+         ArgTyI != ArgTyE; ++ArgTyI)
+      // If it is not a pointer type and the strict verification is enabled,
+      // then fail. If strict verification is disabled, then check
+      // if the argument's size matches the pointer size,
+      if (!(*ArgTyI)->isPointerTy()) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Outlined function '";
+                   NewFunction->printAsOperand(dbgs());
+                   dbgs() << "' has a non-pointer argument of type "
+                   << **ArgTyI << "\nCall site:\n" << *CallSite << "\n");
+
+        if (StrictOutlineVerification)
+          llvm_unreachable("Outlined function has a non-pointer argument.");
+
+        if (!(*ArgTyI)->isSized() ||
+            DL.getTypeSizeInBits((*ArgTyI)) != PointerSize)
+          llvm_unreachable("Outlined function's argument has size "
+                           "different from pointer size.");
+      }
+  }
+
+  DT->verify(DominatorTree::VerificationLevel::Full);
+
+  // Set up the calling convention used by OpenMP runtime library.
+  CallingConv::ID CC = CallingConv::C;
+  // Adjust the calling convention for both the function and the
+  // call site.
+  NewFunction->setCallingConv(CC);
+  CallSite->setCallingConv(CC);
+
+  // Remove @llvm.dbg.declare, @llvm.dbg.value intrinsics from NewF
+  // to prevent verification failures. This is due due to the
+  // CodeExtractor not properly handling them at the moment.
+  VPOUtils::stripDebugInfoInstrinsics(*NewFunction);
+
+  return NewFunction;
+}
 #endif // INTEL_COLLAB
