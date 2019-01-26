@@ -837,7 +837,9 @@ void VPOParoptTransform::genOffloadArraysInit(
                                   hasRuntimeEvaluationCaptureSize, BPVal, Match,
                                   Builder, Cnt);
 
-    if (!Match)
+    // For target data don't add BPVals that don't match the map clauses.
+    // They should not be sent to the __tgt_target_data_* runtime.
+    if (!Match && !isa<WRNTargetDataNode>(W))
       genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
                                Cnt, hasRuntimeEvaluationCaptureSize);
   }
