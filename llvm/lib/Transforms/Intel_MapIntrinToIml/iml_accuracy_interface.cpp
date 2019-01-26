@@ -1,4 +1,4 @@
-//      Copyright  (C) 2009-2016 Intel Corporation.
+//      Copyright  (C) 2009-2019 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -8,7 +8,7 @@
 // and may not be copied or disclosed except in accordance
 // with the terms of that agreement.
 //
-// cvs_id[] = "$Id$"
+// cvs_id[] = "$Id: iml_accuracy_interface.c 14521 2018-10-04 22:17:06Z rcgilber $"
 //
 
 //++
@@ -57,7 +57,7 @@
 //      25-Mar-2013, Fix for cq299935: changing "abs-error" to "absolute-error"
 //                   to be in sync with driver. Nikita Astafiev
 //      26-Nov-2013, New advanced SVML table usage enabled. Andrey Kolesov
-//      29-Nov-2013, Check for integer funcs made both for 
+//      29-Nov-2013, Check for integer funcs made both for
 //                   LIBM and SVML (bugfix). Andrey Kolesov
 //      04-Dec-2013, New SVML table disabled both for LRB and GFX. Andrey Kolesov
 //      05-Dec-2013, OCL SVML build restored. Andrey Kolesov
@@ -66,6 +66,26 @@
 //                   by compiler process DPD200363179. SVML tables do not differ
 //                   across 32-64 bits, so there's no point in maintaining two
 //                   versions. Nikita Astafiev
+//      05-Feb-2016, Fixed compiler warning in string pointer assignment.
+//                   Nikita Astafiev
+//      31-May-2016, precision=high now correctly translates to max-error=0.6.
+//                   This currently only affects inline sequences. DPD200411603
+//                   Nikita Astafiev
+//      15-Mar-2017, Adding support for new attributes: use-svml, force-dynamic,
+//                   isa-set. Making fixups for integer functions.
+//                   Nikita Astafiev
+//      16-Mar-2017, Moving tables definitions, requires addition of a symbol
+//                   into exclusion list in dev/proton/npcg/pcglib_test.sym
+//                   Nikita Astafiev
+//      22-Mar-2017, _FEATURE_PCLMULQDQ is not needed to detect HSW, and it is not
+//                   used in libsvml/libimf; plus the compiler is not
+//                   auto-generating it under -xCORE_AVX2. I'm wiping it from
+//                   here, otherwise the isa-set features set passed to the
+//                   get_library_function_name under -xCORE_AVX2 is not getting
+//                   mapped to HSW specific configuration. A similar change shall
+//                   be done in LIBM/SVML CPU dispatchers. Nikita Astafiev
+//      19-Jun-2017, strcat related KW warning fixed, CMPLRS-43705. Nikita Astafiev
+//      19-Mar-2108, Adding recognition of zmm-low=true/false. CMPLRS-47343. NA
 //
 //--
 
@@ -73,6 +93,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <cstdio>
 
 #include "llvm/Transforms/Intel_MapIntrinToIml/search.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/messaging.h"
@@ -97,8 +118,6 @@
 extern "C" {
 #endif // __cplusplus
 
-
-
 #if 0
 #if defined GFX
     #if (defined LRB) || (defined AVX3)
@@ -112,7 +131,7 @@ extern "C" {
 #endif
 
 // This should be equal to
-// SUPPORTED_ACCURACIES_NUMBER*SUPPORTED_CONFIGURATIONS_NUMBER
+// SUPPORTED_ACCURACIES_NUMBER*SUPPORTED_CPUS_NUMBER
 #define SUPPORTED_VARIANTS_NUMBER             4
 
 
@@ -144,10 +163,12 @@ typedef enum
     SUPPORTED_ACCURACIES_NUMBER
 } AccuracyEnum;
 
+#if 0
 static const char* valid_accuracy_names[] =
 {
     "la", "ep", "br", "ha", "cr"
 };
+#endif
 
 // note: here we maintain ordered list of accuracies, for ease of
 // compares:
@@ -178,6 +199,7 @@ typedef enum
     c_precision_quad_complex
 } PrecisionEnum;
 
+#if defined IML_DEBUG
 static const char* valid_precision_names[] =
 {
     "unsupported",
@@ -198,26 +220,119 @@ static const char* valid_precision_names[] =
     "long_double_complex",
     "quad_complex"
 };
+#endif
 
 // This list contains all currently supported
 // configurations in text and enumerations representations.
 // Note: this list must be in sync with the valid_configurations_names list
 typedef enum
 {
-    c_configuration_unsupported = -1,
-    c_configuration_all         =  0,
-    c_configuration_p3          =  1,
-    c_configuration_p4          =  2,
-    c_configuration_knf,
-    c_configuration_knc,
-    SUPPORTED_CONFIGURATIONS_NUMBER
-} ConfigurationsEnum;
+    c_cpu_unsupported = -2,
+    c_cpu_force_dynamic = -1,
+    c_cpu_all = 0, //dispatcher routine
+    c_cpu_x87 = 1, // Not to be used with SVML
+    c_cpu_sse = 2, // Not to be used with DP SVML
+    c_cpu_sse2,
+    c_cpu_sse3,
+    c_cpu_ssse3,
+    c_cpu_sse41,
+    c_cpu_sse42,
+    c_cpu_avx,
+    c_cpu_avx2,
+    c_cpu_micavx512,
+    c_cpu_coreavx512,
+    c_cpu_coreavx512zmmlow,
+    SUPPORTED_CPUS_NUMBER
+} SupportedCpusEnum;
 
+#if defined IML_DEBUG
 // Note: this list is assumed unsorted
-static const char* valid_configurations_names[SUPPORTED_CONFIGURATIONS_NUMBER] =
+static const char* valid_configurations_names[SUPPORTED_CPUS_NUMBER] =
 {
-    "all", "p3", "p4", "knf", "knc"
+    "all", "x87", "sse", "sse2", "sse3", "ssse3", "sse41", "sse42", "avx", "avx2", "micavx512", "coreavx512", "coreavx512zmmlow"
 };
+
+static const char* attrGetConfigName(SupportedCpusEnum c)
+{
+    if(c == c_cpu_unsupported)
+        return "unsupported";
+    if(c == c_cpu_force_dynamic)
+        return valid_configurations_names[c_cpu_all];
+    return valid_configurations_names[c];
+}
+#endif
+
+//TODO: replace bits from immintrin.h into something else
+#include <immintrin.h>
+
+#if 0
+//TODO: support cpu features from LLVM in this interface instead of using immintrin.h
+static SupportedCpusEnum attrLibFeatureFlagToTTABIndex(unsigned long long features)
+{
+    SupportedCpusEnum new_value;
+
+    #define LIBIML_ATTR_COREAVX512                  (_FEATURE_AVX512F  | \
+                                                     _FEATURE_AVX512CD | \
+                                                     _FEATURE_AVX512DQ | \
+                                                     _FEATURE_AVX512BW | \
+                                                     _FEATURE_AVX512VL )
+
+    #define LIBIML_ATTR_MICAVX512                   (_FEATURE_AVX512F  | \
+                                                     _FEATURE_AVX512ER | \
+                                                     _FEATURE_AVX512PF | \
+                                                     _FEATURE_AVX512CD )
+
+    #define LIBIML_ATTR_AVX2                        (_FEATURE_FMA       | \
+                                                     _FEATURE_LZCNT     | \
+                                                     _FEATURE_BMI       | \
+                                                     _FEATURE_AVX2      )
+
+    if ( (LIBIML_ATTR_COREAVX512 & features) == LIBIML_ATTR_COREAVX512) {
+        new_value = c_cpu_coreavx512;
+    }
+    else if ( (LIBIML_ATTR_MICAVX512 & features) == LIBIML_ATTR_MICAVX512) {
+        new_value = c_cpu_micavx512;
+    }
+    else if ( (LIBIML_ATTR_AVX2 & features) == LIBIML_ATTR_AVX2) {
+        new_value = c_cpu_avx2;
+    }
+    else if ( (_FEATURE_AVX & features) == _FEATURE_AVX) {
+        new_value = c_cpu_avx;
+    }
+    else if ( (_FEATURE_SSE4_2 & features) == _FEATURE_SSE4_2) {
+        new_value = c_cpu_sse42;
+    }
+    else if ( (_FEATURE_SSE4_1 & features) == _FEATURE_SSE4_1) {
+        new_value = c_cpu_sse41;
+    }
+    else if ( (_FEATURE_SSSE3 & features) == _FEATURE_SSSE3) {
+        new_value = c_cpu_ssse3;
+    }
+    else if ( (_FEATURE_SSE3 & features) == _FEATURE_SSE3) {
+        new_value = c_cpu_sse3;
+    }
+    else if ( (_FEATURE_SSE2 & features) == _FEATURE_SSE2) {
+        new_value = c_cpu_sse2;
+    }
+    else if ( (_FEATURE_SSE & features) == _FEATURE_SSE) {
+        new_value = c_cpu_sse;
+    }
+    else if ( (_FEATURE_FPU & features) == _FEATURE_FPU) {
+        new_value = c_cpu_x87;
+    }
+    else if (features == 0) {
+        new_value = c_cpu_all;
+    }
+    else
+    {
+        new_value = c_cpu_unsupported;
+    }
+
+    PRN_MSG("%-32s: \tconverting int64 feature flag %08X%08X into integer index %d meaning %s\n","attrLibFeatureFlagToTTABIndex", *(1+(int *)(&features)), *(0+(int *)(&features)), new_value, attrGetConfigName(new_value));
+
+    return new_value;
+}
+#endif
 
 // This structure contains all possible information
 // on the function. It replaces text specification with
@@ -225,13 +340,13 @@ static const char* valid_configurations_names[SUPPORTED_CONFIGURATIONS_NUMBER] =
 typedef struct
 {
     const char * parent_function_name;
-    const char * variant_function_name;
+    // function position in libm_description_table
+    int index;
+
     // Here are the attributes of function itself:
     // e.g. sin is the first function in the library,
     // it has double precision.
 
-    // function position in libm_description_table
-    int index;
     // function precision
     PrecisionEnum  precision;
 
@@ -243,7 +358,7 @@ typedef struct
     // requested accuracy
     AccuracyEnum  accuracy;
     // requested configuration
-    ConfigurationsEnum  configuration;
+    SupportedCpusEnum configuration;
     // requested relative error
     float ulp_error;
     // requested absolute error
@@ -256,6 +371,18 @@ typedef struct
     int arch_consistency;
     // flag 1 if correcly set status bits requested, 0 otherwise
     int valid_status_bits;
+    // flag 1 if function may be called under -fimf-use-svml=true
+    int use_svml_allowed;
+    // flag 1 if -qopt-zmm-usage=low requested, 0 otherwize
+    int zmm_low;
+
+    // array of pointers to constant names of cpu-specific functions
+    const char * cpu_specific_names[SUPPORTED_CPUS_NUMBER];
+
+    // flag 1 if GLOB_fusa_math is requested, 0 otherwize
+    // TODO: populate table with the right values, now they are not
+    // given in the initializers lists and such this always gets 0.
+    int fusa;
 
 } FunctionDescriptionType;
 
@@ -271,11 +398,15 @@ typedef enum
     c_attribute_accurate_bits_64,
     c_attribute_accurate_bits_80,
     c_attribute_bitwise_consistency,
-    c_attribute_configuration,
     c_attribute_domain_exclusion,
+    c_attribute_force_dynamic,
+    c_attribute_fusa,
+    c_attribute_configuration,
     c_attribute_relative_error,
     c_attribute_precision,
+    c_attribute_use_svml,
     c_attribute_valid_status_bits,
+    c_attribute_zmm_low,
     SUPPORTED_ATTRIBUTES_NUMBER
 } FunctionAttributeEnum;
 
@@ -289,11 +420,15 @@ static const char* valid_attributes_names[SUPPORTED_ATTRIBUTES_NUMBER] =
     "accuracy-bits-64",     // 4
     "accuracy-bits-80",     // 5
     "arch-consistency",     // 6
-    "configuration",        // 7
-    "domain-exclusion",     // 8
-    "max-error",            // 9
-    "precision",            // 10
-    "valid-status-bits"     // 11
+    "domain-exclusion",     // 7
+    "force-dynamic",        // 8
+    "fusa",                 // 9
+    "isa-set",              // 10
+    "max-error",            // 11
+    "precision",            // 12
+    "use-svml",             // 13
+    "valid-status-bits",    // 14
+    "zmm-low"               // 15
 };
 
 typedef union
@@ -334,49 +469,16 @@ static const char* inline_description_table[][2] =
 };
 static const int inline_functions_num = _IML_ATTR_SIZEOF_TABLE(inline_description_table);
 
-
-//  SVML library description table in full format  automatically generated by btgen_SVML.pl
-static FunctionDescriptionType FunctionDescription_table[] =
-{
-// TODO: This code can eventually be removed because will will need to have both tables
-// loaded since there are no compile time macros defined for targets. We will have to
-// select during run-time.
-#if defined LRB
-    #include "iml_table_svml_knc.inc"
-    //#pragma message "KNC LIBIMLATTR TABLE LOADED"
-#else
-    #include "iml_table_svml_ia32.inc"
-    //#pragma message "IA32 LIBIMLATTR TABLE LOADED"
-#endif
-};
-static const int svml_functions_num =  _IML_ATTR_SIZEOF_TABLE(FunctionDescription_table);
-
-
-
 // exp2f implementation included here to avoid dependency on math library
 #include "llvm/Transforms/Intel_MapIntrinToIml/iml_exp2f.h"
 
-#if defined(__GNUC__)
-static const char* attrGetAccuracyName(AccuracyEnum a)
-                                      __attribute__((unused));
-#endif
+
+#if 0
 static const char* attrGetAccuracyName(AccuracyEnum a)
 {
     return valid_accuracy_names[a];
 }
-
-
-#if defined(__GNUC__)
-static const char* attrGetConfigName(ConfigurationsEnum c)
-                                         __attribute__((unused));
 #endif
-static const char* attrGetConfigName(ConfigurationsEnum c)
-{
-  if(c == c_configuration_unsupported)
-    return "unsupported";
-  else
-    return valid_configurations_names[c];
-}
 
 // This function converts a floating point quantity
 // representing a number of correct mantissa bits into
@@ -466,6 +568,7 @@ static PrecisionEnum attrMapPrecisionStr2Enum(const char* string_precision)
 static int attrInitFuncDescription(
                 FunctionDescriptionType* function_description)
 {
+    int i;
     if (function_description == NULL)
     {
         PRN_MSG("%-32s: [ERROR] in attrInitFuncDescription: passed NULL pointer\n","attrInitFuncDescription");
@@ -473,20 +576,51 @@ static int attrInitFuncDescription(
     }
 
     function_description->parent_function_name = NULL;
-    function_description->variant_function_name = NULL;
     function_description->index = -1;
     function_description->precision = c_precision_unsupported;
     function_description->accuracy = c_accuracy_cr;
-    function_description->configuration = c_configuration_all;
+    function_description->configuration = c_cpu_all;
     function_description->ulp_error = -3.14f;
     function_description->accurate_bits  = -1.57f;
     function_description->absolute_error = -6.28f;
     function_description->domain_exclusion = -1;
     function_description->arch_consistency = 0;
     function_description->valid_status_bits = 0;
+    function_description->use_svml_allowed = 0;
+    function_description->zmm_low = 0;
+    function_description->fusa = 0;
+
+    for (i = 0; i < SUPPORTED_CPUS_NUMBER; i++)
+    {
+        function_description->cpu_specific_names[i] = NULL;
+    }
 
     return 0;
 }
+
+// This function re-initializes description structure
+// for the integer function. The intention is to
+// remove irrelevant FP attributes and let the function
+// pass through any check on FP side.
+static int attrFixupIntegerFuncDescription(
+                FunctionDescriptionType* function_description)
+{
+    if (function_description == NULL)
+    {
+        PRN_MSG("%-32s: [ERROR]: received NULL pointer\n","attrFixupIntegerFuncDescription");
+        return -1;
+    }
+
+    function_description->accuracy = c_accuracy_cr;
+    function_description->ulp_error = 0.5;
+    function_description->accurate_bits  = 53;
+    function_description->absolute_error = 1e30f;
+    function_description->domain_exclusion = 0;
+    function_description->arch_consistency = 1;
+
+    return 0;
+}
+
 
 // This function converts a pair of strings attribute name-value
 // into internal attribute structure representation.
@@ -496,9 +630,9 @@ static int attrExternal2InternalAttr(
 {
     int flag = 0;
     const char* aname = NULL;
+    (void)aname;
     int attr_chosen = 0;
-
-    (void)aname; // Quiet unused variable warning.
+    unsigned long long int tmp;
 
     // search internal_attribute name within allowed names
     flag = IML_ATTR_get_name_index(external_attribute->name, valid_attributes_names, SUPPORTED_ATTRIBUTES_NUMBER);
@@ -512,10 +646,16 @@ static int attrExternal2InternalAttr(
     switch(internal_attribute->attribute_name)
     {
         case c_attribute_configuration: aname = "c_attribute_configuration";
-            flag = IML_ATTR_get_name_index_unsorted(external_attribute->value, valid_configurations_names, SUPPORTED_CONFIGURATIONS_NUMBER);
+    #if (defined LIBIML_ATTR_IN_WIN)
+            sscanf(external_attribute->value, "%I64u", &tmp);
+    #else
+            sscanf(external_attribute->value, "%llu", &tmp);
+    #endif
+            //flag = attrLibFeatureFlagToTTABIndex(tmp);
+            flag = 0; //TODO: support cpu feature lookup so that target specific flags can be set.
             if (flag < 0)
             {
-              PRN_MSG("%-32s: [failure] configuration value \"%s\" wasn't found \n", "attrExternal2InternalAttr", external_attribute->value);
+              PRN_MSG("%-32s: [failure] configuration value \"%s\" wasn't properly converted\n", "attrExternal2InternalAttr", external_attribute->value);
             }
 
             internal_attribute->attribute_value.i = flag;
@@ -540,7 +680,11 @@ static int attrExternal2InternalAttr(
             break;
 
         case c_attribute_bitwise_consistency:  aname =  "c_attribute_bitwise_consistency"; attr_chosen = 1;
-        case c_attribute_valid_status_bits:    if(!attr_chosen){aname =  "c_attribute_valid_status_bits";}
+        case c_attribute_force_dynamic:        if(!attr_chosen){aname =  "c_attribute_force_dynamic"; attr_chosen = 1;}
+        case c_attribute_use_svml:             if(!attr_chosen){aname =  "c_attribute_use_svml"; attr_chosen = 1;}
+        case c_attribute_valid_status_bits:    if(!attr_chosen){aname =  "c_attribute_valid_status_bits"; attr_chosen = 1;}
+        case c_attribute_zmm_low:              if(!attr_chosen){aname =  "c_attribute_zmm_low"; attr_chosen = 1;}
+        case c_attribute_fusa:                 if(!attr_chosen){aname =  "c_attribute_fusa"; attr_chosen = 1;}
             internal_attribute->attribute_value.i = (!strcmp(external_attribute->value,"true"))?1:0; //assuming false even if garbage input
             PRN_MSG("%-32s: \tattribute %s = %d \n", "attrExternal2InternalAttr", aname, internal_attribute->attribute_value.i);
             break;
@@ -567,6 +711,11 @@ static int attrUpdateFuncDescription(
     float error_value;
     float HA_THRESHOLD, LA_THRESHOLD, EP_THRESHOLD;
 
+    union u_error_value {
+      unsigned u;
+      float f;
+    } t_error_value;
+
     // store function precision
     PrecisionEnum working_precision = function_description->precision;
 
@@ -574,7 +723,10 @@ static int attrUpdateFuncDescription(
     FunctionAttributeEnum current_attribute_name = internal_attribute->attribute_name;
 
     // set the relative error thresholds
-    HA_THRESHOLD = 0.6f;
+    // 0.6 is not exactly representable, so to avoid discrepancies
+    // we convert it to floating point using exactly the same mechanism
+    // as the max-error attribute: i.e. using atof() library routine.
+    HA_THRESHOLD = (float)atof("0.6");
     LA_THRESHOLD = 4.0f;
     // c_accuracy_ep gives 11 and 26 correct bits for
     // single/double precisions. Other precisions do not
@@ -596,8 +748,7 @@ static int attrUpdateFuncDescription(
     {
         if (!strcmp(internal_attribute->attribute_value.s,"high"))
         {
-            // between high and low, so that high is selected
-            internal_attribute->attribute_value.f = (LA_THRESHOLD + HA_THRESHOLD)/2.0f;
+            internal_attribute->attribute_value.f = HA_THRESHOLD;
         }
         else if (!strcmp(internal_attribute->attribute_value.s,"medium"))
         {
@@ -623,19 +774,52 @@ static int attrUpdateFuncDescription(
     // search internal_attribute value within allowed for a particular attribute_name
     switch(current_attribute_name)
     {
-        case c_attribute_configuration:
-            // check if requested configuration is supported
-            // and update function_description accordingly.
-            if ( (internal_attribute->attribute_value.i >=
-                    SUPPORTED_CONFIGURATIONS_NUMBER) ||
-                 (internal_attribute->attribute_value.i < 0 ))
+        case c_attribute_force_dynamic:
+            if ( (internal_attribute->attribute_value.i == 0) && (function_description->configuration == c_cpu_force_dynamic) )
             {
-                // set generic configuration if requested configuration is invalid
-                function_description->configuration = c_configuration_all;
+                // if previously recorder force_dynamic=true is now
+                // cancelled by this request, then we reset the configuration
+                // to CPU-dispatcher
+                function_description->configuration = c_cpu_all;
+            }
+            else if (internal_attribute->attribute_value.i == 1)
+            {
+                // record the force_dynamic=true
+                function_description->configuration = c_cpu_force_dynamic;
             }
             else
             {
-                function_description->configuration = (ConfigurationsEnum)internal_attribute->attribute_value.i;
+                // if no force_dynamic=true was previously recorded,
+                // then this force_dynamic=false has no effect
+            }
+            break;
+
+        case c_attribute_configuration:
+            // Guard against changing target CPU in case
+            // c_attribute_force_dynamic was previously
+            // set to 1.
+            if (function_description->configuration == c_cpu_force_dynamic)
+            {
+                PRN_MSG("%-32s: CPU change is ignored due to previous force dynamic request\n","attrUpdateFuncDescription");
+                break;
+            }
+
+            // check if requested configuration is supported
+            // and update function_description accordingly.
+            if ( (internal_attribute->attribute_value.i >=
+                    SUPPORTED_CPUS_NUMBER) ||
+                 (internal_attribute->attribute_value.i < c_cpu_all ))
+            {
+                // if requested configuration is invalid
+                // TODO: may want to change the response in case of
+                //       invalid compiler input
+                // function_description->configuration = c_cpu_unsupported;
+                PRN_MSG("%-32s: unsupported CPU request was changed into a dispatcher request\n","attrUpdateFuncDescription");
+                function_description->configuration = c_cpu_all;
+            }
+            else
+            {
+                function_description->configuration = (SupportedCpusEnum)internal_attribute->attribute_value.i;
             }
             break;
 
@@ -693,13 +877,14 @@ static int attrUpdateFuncDescription(
 
             error_value = internal_attribute->attribute_value.f;
 
+            t_error_value.f = error_value;
             // isnan check implemented to avoid 3-rd party dependency
             #define IML_ATTR_ISNANF(x)   ( (((*((unsigned int *)&(x))) & 0x7fffffff) > 0x7f800000) ? 1 : 0 )
 
-            if ( IML_ATTR_ISNANF(error_value) || (error_value < 0.0f) )
+            if ( IML_ATTR_ISNANF(t_error_value.u) || (error_value < 0.0f) )
             {
                 // NaN value or negative
-                PRN_MSG("%-32s: [EERROR] requested accuracy is either NaN or negative\n","attrUpdateFuncDescription");
+                PRN_MSG("%-32s: [ERROR] requested accuracy is either NaN or negative\n","attrUpdateFuncDescription");
                 break;
             }
 
@@ -776,6 +961,20 @@ static int attrUpdateFuncDescription(
             // store requested absolute error value for possible future
             // processing. here we ignore this internal_attribute
             function_description->absolute_error = error_value;
+
+        case c_attribute_use_svml:
+            function_description->use_svml_allowed = internal_attribute->attribute_value.i;
+
+            break;
+
+        case c_attribute_zmm_low:
+            function_description->zmm_low = internal_attribute->attribute_value.i;
+
+            break;
+
+        case c_attribute_fusa:
+            function_description->fusa = internal_attribute->attribute_value.i;
+            break;
 
         default: // not supported internal_attribute
             PRN_MSG("%-32s: [ERROR] internal_attribute not supported\n","attrUpdateFuncDescription");
@@ -947,7 +1146,7 @@ static int svmlGetFuncVariantsNum(
                 }
             }
             *length = j - i;
-            PRN_MSG("%-32s: Base name found at position = %d, numberf of variants = %d\n", "svmlGetFuncVariantsNum", i, *length);
+            PRN_MSG("%-32s: Base name found at position = %d, number of variants = %d\n", "svmlGetFuncVariantsNum", i, *length);
             return i;
         }
     }
@@ -959,7 +1158,7 @@ static int svmlGetFuncVariantsNum(
 
 static int svmlGetFuncVariantsList(FunctionDescriptionType** functions_list,
                                         const char* func_base_name,
-                                        FunctionDescriptionType* functions_table,
+                                        const FunctionDescriptionType* functions_table,
                                         int functions_table_length)
 {
     int start = -1;
@@ -968,7 +1167,7 @@ static int svmlGetFuncVariantsList(FunctionDescriptionType** functions_list,
     start = svmlGetFuncVariantsNum(func_base_name, functions_table, functions_table_length, &length);
     if ((start >=0) && (length >0))
     {
-        *functions_list = (FunctionDescriptionType *)functions_table + start;
+        *functions_list = const_cast<FunctionDescriptionType*>(functions_table) + start;
         return length;
     }
 
@@ -993,7 +1192,11 @@ static int svmlMatchFuncDescriptions(
     PRN_MSG("%-32s: \tconfiguration check : requested \"%s\", suggested \"%s\": ","svmlMatchFuncDescriptions",\
             attrGetConfigName(function_description_user.configuration), attrGetConfigName(function_description_compiler.configuration));
 
-    if (function_description_user.configuration > function_description_compiler.configuration)
+    if ( (function_description_user.configuration <= c_cpu_unsupported)     ||
+         (function_description_user.configuration >= SUPPORTED_CPUS_NUMBER) ||
+         (function_description_compiler.configuration <= c_cpu_unsupported) ||
+         (function_description_compiler.configuration >= SUPPORTED_CPUS_NUMBER)
+        )
     {
         PRN_MSG("[failure]\n");
         return 0;
@@ -1112,13 +1315,78 @@ static int svmlMatchFuncDescriptions(
         PRN_MSG("[success]\n");
     }
 
+    PRN_MSG("%-32s: \tuse-svml requirement check : requested %d, suggested %d: ", "svmlMatchFuncDescriptions",\
+            function_description_user.use_svml_allowed,  function_description_compiler.use_svml_allowed);
+    if (function_description_user.use_svml_allowed >  function_description_compiler.use_svml_allowed)
+    {
+        PRN_MSG("[failure]: either we are trying to inline a sequence (which has no use_svml_allowed field or it is set to zero) or we are trying to call some complex LIBM function (which is not handled here in this function yet anyway)\n");
+        return 0;
+    }
+    else
+    {
+        PRN_MSG("[success]\n");
+    }
+
     PRN_MSG("%-32s: ***** ALL REQUIREMENTS MATCH [success]\n","svmlMatchFuncDescriptions");
     return 1;
 }
 
 
+static int svmlGetListForBaseName(const char * func_base_name, FunctionDescriptionType ** functions_list_to_fill)
+{
+    const FunctionDescriptionType * FunctionDescription_table_ptr;
+    int svml_functions_num;
 
+//  SVML library description table in full format  automatically generated by btgen_SVML.pl
+#if !defined LRB
+    static const FunctionDescriptionType FunctionDescription_table32[] = {
+        #include "iml_table_svml_ia32.inc"
+        //#pragma message "IA32 LIBIMLATTR TABLE LOADED"
+    };
+#endif
+#if 0
+    static const FunctionDescriptionType FunctionDescription_table64[] = {
+#if defined LRB
+        #include "iml_table_svml_knc.inc"
+        //#pragma message "KNC LIBIMLATTR TABLE LOADED"
+#else
+        #include "iml_table_svml_em64t.inc"
+        //#pragma message "EFI2 LIBIMLATTR TABLE LOADED"
+#endif
+    };
+#endif
 
+#if !defined LRB
+//TODO: here we are using some compiler internal functionality
+//      to keep our code standalone we should not be doing this.
+//      The only other way around is to receive target arch as yet
+//      another attribute...
+//TODO for xmain: cpu_info keeps track of target architecture specific features in icc.
+//This needs to be changed to use an appropriate LLVM mechanism such as the Target Triple.
+//See MapIntrinToIml.cpp for usage.
+/*
+    if (cpu_info::em64t_target())
+    {
+#endif
+        FunctionDescription_table_ptr = FunctionDescription_table64;
+        svml_functions_num = sizeof(FunctionDescription_table64) / sizeof(FunctionDescriptionType);
+#if !defined LRB
+    }
+    else
+    {
+*/
+        FunctionDescription_table_ptr = FunctionDescription_table32;
+        svml_functions_num = sizeof(FunctionDescription_table32) / sizeof(FunctionDescriptionType);
+//    }
+#endif
+
+    // read the table and locate a sub-array of function descriptions
+    int variants_num = svmlGetFuncVariantsList(  functions_list_to_fill,
+                                                   func_base_name,
+                                                   FunctionDescription_table_ptr,
+                                                   svml_functions_num );
+    return variants_num;
+}
 
 
 
@@ -1156,6 +1424,7 @@ const char* get_library_function_name(const char* func_base_name,
     int is_svml = 0;
     int function_description_compiler_variants_num = 0;
     const char* result_string_pointer = NULL;
+    PrecisionEnum function_precision = c_precision_unsupported;
     FunctionAttributeType       internal_attribute; // Storage for internal representation of current attribute
     FunctionDescriptionType     function_description_user; // Storage for current function information
     FunctionDescriptionType *   function_description_compiler_variant;
@@ -1202,38 +1471,24 @@ const char* get_library_function_name(const char* func_base_name,
         }
 
         // Read the function precision property from the libm_description_table
-        function_description_user.precision = libmGetFuncPrecision( function_description_user.index );
+        function_precision = libmGetFuncPrecision( function_description_user.index );
     }
     else
     {
-        // read the table and create an array of function descriptions
-        function_description_compiler_variants_num = svmlGetFuncVariantsList( &function_description_compiler_variant,
-                                                                               func_base_name,
-                                                                               FunctionDescription_table,
-                                                                               svml_functions_num );
-        if(function_description_compiler_variants_num < 1)
+        // read the table and locate an array of function descriptions
+        function_description_compiler_variants_num = svmlGetListForBaseName(func_base_name, &function_description_compiler_variant);
+
+        if (function_description_compiler_variants_num < 1)
         {
           PRN_MSG("%-32s: [FAILURE] function wasn't chosen\n", "get_library_function_name");
           PRN_MSG("=================================\n\n");
           return NULL;
         }
 
-        function_description_user.precision = function_description_compiler_variant[0].precision;
+        function_precision = function_description_compiler_variant[0].precision;
     }
 
-    // =========================================================================
-    // If the function is integer, processing attributes doesn't make sense now,
-    // and default mechanizm will not initialize accuracy field correctly.
-    // We set accuracy variant to default (low) and proceed with the attributes
-    // processing just in case future attributes will apply.
-    // =========================================================================
-    if ( (function_description_user.precision == c_precision_signed_int) || (function_description_user.precision == c_precision_unsigned_int) )
-    {
-        function_description_user.accuracy = c_accuracy_low;
-        PRN_MSG("%-32s: Function is integer, setting its accuracy to low %d\n", "get_library_function_name", function_description_user.accuracy );
-    }
-
-    (void)valid_precision_names; // Quiet unused variable warning.
+    function_description_user.precision = function_precision;
     PRN_MSG("%-32s: Func precision = %s\n", "get_library_function_name", valid_precision_names[function_description_user.precision+1] );
 
     PRN_MSG("%-32s: User requested attributes:\n", "get_library_function_name");
@@ -1247,6 +1502,58 @@ const char* get_library_function_name(const char* func_base_name,
         attrExternal2InternalAttr(&internal_attribute, external_attributes);
         attrUpdateFuncDescription(&function_description_user, &internal_attribute);
         external_attributes = external_attributes->next; // get next external attribute pointer
+    }
+
+    // check if user requested use svml on a libm function
+    if ( (is_svml == 0) && (function_description_user.use_svml_allowed == 1) )
+    {
+        // hack the base name and try to locate the function in the SVML table
+        // NOTE: this strcat is supposedly secure enough as the func_base_name has been
+        //       already found in the LIBM table, thus adding prefix/suffix would not
+        //       make it longer than 1024 symbols as LIBM names are all short.
+        char new_name[1024];
+        strcpy(new_name, "__svml_");
+        // doing strncat here to assure the compiler we have enough space in destination
+        strncat(new_name, func_base_name, 100);
+        strcat(new_name, "1");
+        PRN_MSG("%-32s: old basename: %s, looking for changed basename %s in SVML table\n", "get_library_function_name", func_base_name, new_name);
+        function_description_compiler_variants_num = svmlGetListForBaseName((const char *)new_name, &function_description_compiler_variant);
+
+        if (function_description_compiler_variants_num < 1)
+        {
+            PRN_MSG("%-32s: [FAILURE] function wasn't chosen\n", "get_library_function_name");
+            PRN_MSG("=================================\n\n");
+            return NULL;
+        }
+
+        // check previously initialized function_precision for a match
+        if ( function_precision != function_description_compiler_variant[0].precision )
+        {
+            PRN_MSG("%-32s: [FAILURE] new function precision doesn't match the old one\n", "get_library_function_name");
+            PRN_MSG("=================================\n\n");
+            return NULL;
+        }
+
+        // pretend we are in SVML now
+        is_svml = 1;
+        PRN_MSG("%-32s: we found the name in SVML table, now working with its variants\n", "get_library_function_name");
+    }
+
+    // =========================================================================
+    // If the function is integer, processing FP attributes doesn't make sense.
+    // =========================================================================
+    if ( (function_description_user.precision == c_precision_signed_int) || (function_description_user.precision == c_precision_unsigned_int) )
+    {
+        attrFixupIntegerFuncDescription(&function_description_user);
+        PRN_MSG("%-32s: Function is integer, resetting its FP attributes to good ones\n", "get_library_function_name");
+    }
+
+    // Handle FuSa
+    if ( function_description_user.fusa == 1 )
+    {
+            PRN_MSG("%-32s: [FAILURE] no FuSa functions yet\n", "get_library_function_name");
+            PRN_MSG("=================================\n\n");
+            return NULL;
     }
 
     if ( is_svml == 0)
@@ -1269,11 +1576,48 @@ const char* get_library_function_name(const char* func_base_name,
         // loop over function descriptions and choose the fastest acceptable implementation
         for (i = 0; i < function_description_compiler_variants_num; i++)
         {
-            PRN_MSG("%-32s: Looking at \"%s\" variant:\n", "get_library_function_name", function_description_compiler_variant[i].variant_function_name);
+            PRN_MSG("%-32s: Looking at \"%s\" variant:\n", "get_library_function_name", function_description_compiler_variant[i].cpu_specific_names[c_cpu_all]);
             if (svmlMatchFuncDescriptions(function_description_user, function_description_compiler_variant[i]))
             {   //Assumption: the first matching implementation is the fastest
-                result_string_pointer = function_description_compiler_variant[i].variant_function_name;
+                result_string_pointer = function_description_compiler_variant[i].cpu_specific_names[c_cpu_all];
+                PRN_MSG("%-32s: \"%s\" Generic interface function name\n", "get_library_function_name", result_string_pointer);
+                // Find available CPU variant
+                // Unless dynamic dispatching was enforced
+                if (function_description_user.configuration == c_cpu_force_dynamic)
+                {
+                    PRN_MSG("%-32s: configuration number %d will be treated further as generic %d\n", "get_library_function_name", c_cpu_force_dynamic, c_cpu_all);
+                    function_description_user.configuration = c_cpu_all;
+                }
+                // Handle zmm-low
+                if ( (function_description_user.configuration == c_cpu_coreavx512) && (function_description_user.zmm_low == 1) )
+                {
+                    PRN_MSG("%-32s: configuration \"%s\" will be treated further as zmm-low \"%s\"\n", "get_library_function_name", \
+                             attrGetConfigName(c_cpu_coreavx512), attrGetConfigName(c_cpu_coreavx512zmmlow));
+                    function_description_user.configuration = c_cpu_coreavx512zmmlow;
+                }
+                // Handle invalid input
+                if ( (function_description_user.configuration < c_cpu_all) || (function_description_user.configuration >= SUPPORTED_CPUS_NUMBER))
+                {
+                    PRN_MSG("%-32s: [ERROR] unsupported configuration attribute %d\n", "get_library_function_name", function_description_user.configuration);
+                    break;
+                }
+                // Choose cpu-specific variant
+                result_string_pointer = function_description_compiler_variant[i].cpu_specific_names[function_description_user.configuration];
+                // Handle data corruption in the table
+                if (result_string_pointer == NULL)
+                {
+                    PRN_MSG("%-32s: [ERROR] configuration number %d unexpectedly led to NULL pointer name\n", "get_library_function_name", function_description_user.configuration);
+                    break;
+                }
+                // Handle missing cpu-specific entries
+                if (result_string_pointer[0] == '\0')
+                {
+                    PRN_MSG("%-32s: configuration number %d led to an empty function name, we may be not exposing these names in SVML or maybe being asked for DP on SSE1?\n", "get_library_function_name", function_description_user.configuration);
 
+                    PRN_MSG("%-32s: resorting to dispatcher entry\n", "get_library_function_name");
+                    result_string_pointer = function_description_compiler_variant[i].cpu_specific_names[c_cpu_all];
+                }
+                // Success
                 PRN_MSG("%-32s: [SUCCESS] return \"%s\" function name\n", "get_library_function_name", result_string_pointer);
                 PRN_MSG("=================================\n\n");
                 return result_string_pointer;
@@ -1392,11 +1736,9 @@ int may_i_use_inline_implementation(
         }
         else
         {
-            /* Search in SVML table */
-            function_description_compiler_variants_num = svmlGetFuncVariantsList( &function_description_compiler_variant,
-                                                                                    func_base_name,
-                                                                                    FunctionDescription_table,
-                                                                                    svml_functions_num );
+            // read the table and locate an array of function descriptions
+            function_description_compiler_variants_num = svmlGetListForBaseName(func_base_name, &function_description_compiler_variant);
+
             if(function_description_compiler_variants_num > 0)
             {
                 function_description_user.precision = function_description_compiler_variant[0].precision;

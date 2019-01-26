@@ -1055,6 +1055,14 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
         VectorF, CallArgs, VectorF->getName(), nullptr);
     HLNodeUtils::insertBefore(HInst, WideCall);
 
+    Instruction *Inst =
+        const_cast<Instruction *>(WideCall->getLLVMInstruction());
+
+    // Make sure we don't lose attributes at the call site. E.g., IMF
+    // attributes are taken from call sites in MapIntrinToIml to refine
+    // SVML calls for precision.
+    cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
+
     // TODO: Matt can you look into the following code review comment
     // from Pankaj?
     // Call instructions can have one fake memref for each AddressOf
@@ -2180,6 +2188,11 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
     if (isa<FPMathOperator>(Inst)) {
       Inst->copyFastMathFlags(Call);
     }
+
+    // Make sure we don't lose attributes at the call site. E.g., IMF
+    // attributes are taken from call sites in MapIntrinToIml to refine
+    // SVML calls for precision.
+    cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
 
     if (FnName.find("sincos") != StringRef::npos) {
       analyzeCallArgMemoryReferences(INode, WideInst, CallArgs);

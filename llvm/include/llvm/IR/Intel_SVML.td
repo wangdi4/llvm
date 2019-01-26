@@ -113,5 +113,6 @@ def sind       : SvmlVariants<[FPBothMasked]>;
 def sinh       : SvmlVariants<[FPBothMasked]>;
 def sqrt       : SvmlVariants<[FPBothMasked]>;
 def tan        : SvmlVariants<[FPBothMasked]>;
+def tand       : SvmlVariants<[FPBothMasked]>;
 def tanh       : SvmlVariants<[FPBothMasked]>;
 def trunc      : SvmlVariants<[FPBothMasked]>;

@@ -3211,6 +3211,11 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
       && !isOpenCLReadChannel(CalledFunc->getName()))
     VecCall->copyFastMathFlags(Call);
 
+  // Make sure we don't lose attributes at the call site. E.g., IMF
+  // attributes are taken from call sites in MapIntrinToIml to refine
+  // SVML calls for precision.
+  VecCall->setAttributes(Call->getAttributes());
+
   Loop *Lp = LI->getLoopFor(Call->getParent());
   analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
 

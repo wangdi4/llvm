@@ -196,6 +196,20 @@ void MapIntrinToIml::createImfAttributeList(CallInst *CI, ImfAttr **List) {
   // passed in from the caller via the List parameter.
   ImfAttr *Tail = nullptr;
 
+  // Set default precision to high accuracy. For bitwise reproducible svml
+  // functions, the iml accuracy inferface expects these attributes to appear
+  // before imf-arch-consistency.
+  ImfAttr *MaxError = new ImfAttr();
+  MaxError->name = "max-error";
+  MaxError->value = "0.6";
+  ImfAttr *Precision = new ImfAttr();
+  Precision->name = "precision";
+  Precision->value = "high";
+  MaxError->next = Precision;
+  Precision->next = nullptr;
+  addAttributeToList(List, &Tail, MaxError);
+  addAttributeToList(List, &Tail, Precision);
+
   // Build the linked list of IMF attributes that will be used to query
   // the IML interface.
 
@@ -245,21 +259,6 @@ void MapIntrinToIml::createImfAttributeList(CallInst *CI, ImfAttr **List) {
         addAttributeToList(List, &Tail, Attribute);
       }
     }
-  }
-
-  // If no IMF attributes were found for the function call, then default to
-  // high accuracy.
-  if (!*List) {
-    ImfAttr *MaxError = new ImfAttr();
-    MaxError->name = "max-error";
-    MaxError->value = "0.5";
-    ImfAttr *Precision = new ImfAttr();
-    Precision->name = "precision";
-    Precision->value = "high";
-    MaxError->next = Precision;
-    Precision->next = nullptr;
-    addAttributeToList(List, &Tail, MaxError);
-    addAttributeToList(List, &Tail, Precision);
   }
 
   // TODO: only debug mode
