@@ -2122,7 +2122,7 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //                  ...
 //                  if !(L_i64_Max > 0x000000007fffffff ||
 //                      L_i64_Min < 0xffffffff80000000 ||
-//                      sizeN > 0x7fff ||
+//                      sizeN > 0xffff ||
 //                      dyn.safeflag == 0) {
 //                    OldType* SPtr = ptr;
 //                    NewType* DPtr = ptr;
@@ -2745,13 +2745,15 @@ void DynCloneImpl::transformInitRoutine(void) {
     FinalCond = GenerateFinalCond(Pair.second, GetShrunkenMaxValue(Pair.first),
                                   ICmpInst::ICMP_SGT, FinalCond, RetI);
 
-  // Generate runtime check for AOSTOSOA index.
+  // Generate runtime check for AOSTOSOA index. AOSTOSOA indexes are always
+  // expected to be positive values. Check if AOSTOSOA exceeds 16-bit
+  // unsigned max value.
   for (auto *SOACI : AOSSOAACalls)
     FinalCond = GenerateFinalCondWithLIValue(
         AllocCallSizes[SOACI],
         ConstantInt::get(AllocCallSizes[SOACI]->getType(),
-                         std::numeric_limits<int16_t>::max()),
-        ICmpInst::ICMP_SGT, FinalCond, RetI);
+                         std::numeric_limits<uint16_t>::max()),
+        ICmpInst::ICMP_UGT, FinalCond, RetI);
 
   // Generate runtime check for alloc safety flag
   FinalCond = GenerateFinalCond(AllocSafetyFlag, ConstantInt::get(FlagType, 0),

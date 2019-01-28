@@ -80,9 +80,9 @@ define void @proc1() {
 
 ; CHECK: [[LDASIZE:%dyn.alloc.ld[0-9]*]] = load i64, i64* [[ASIZEVAR]]
 
-; Runtime check with 32767
+; Runtime check with 0xffff
 ; CHECK: [[OR1:%d.or[0-9]*]] = or i1
-; CHECK: [[CMP1:%d.cmp[0-9]*]] = icmp sgt i64 [[LDASIZE]], 32767
+; CHECK: [[CMP1:%d.cmp[0-9]*]] = icmp ugt i64 [[LDASIZE]], 65535
 ; CHECK: [[OR2:%d.or[0-9]*]] = or i1 [[OR1]], [[CMP1]]
 
 ; CHECK: store i8 1, i8* @__Shrink__Happened__
