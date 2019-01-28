@@ -126,7 +126,16 @@ struct CSAStreamingMemory : public FunctionPass {
   bool runOnLoop(Loop *L);
 };
 
-bool isExpensiveSCEV(const SCEV *S) {
+bool isExpensiveSCEV(ScalarEvolution &SE, const SCEV *S) {
+  // Check if there is a value that corresponds to S.
+  auto *Set = SE.getSCEVValues(S);
+  if (Set) {
+    for (auto const &VOPair : *Set) {
+      if (VOPair.first)
+        return false;
+    }
+  }
+
   // In theory, we could say that * and / that can be peepholed to shift
   // operations are cheap.
   switch (S->getSCEVType()) {
@@ -137,7 +146,8 @@ bool isExpensiveSCEV(const SCEV *S) {
       return false;
     return true;
   }
-  case scUDivExpr:
+  case scUDivExpr: {
+  }
   case scCouldNotCompute:
     return true;
   }
@@ -225,7 +235,10 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
   const SCEV *BackedgeCount = SE.getBackedgeTakenCount(L);
   if (isa<SCEVCouldNotCompute>(BackedgeCount))
     return Changed;
-  if (SCEVExprContains(BackedgeCount, isExpensiveSCEV)) {
+  auto boundExpensive = [&](const SCEV *S) {
+    return isExpensiveSCEV(SE, S);
+  };
+  if (SCEVExprContains(BackedgeCount, boundExpensive)) {
     LLVM_DEBUG(dbgs() << "Expensive execution count " << *BackedgeCount
         << " for loop " << *L);
     if (!EnableAllLoops)
