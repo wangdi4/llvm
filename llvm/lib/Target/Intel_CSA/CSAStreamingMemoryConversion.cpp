@@ -46,6 +46,14 @@ static cl::opt<bool> EnableLargerStrides(
   "csa-enable-all-strides", cl::Hidden,
   cl::desc("CSA Specific: enable streaming memory even if stride is not 1"));
 
+static cl::opt<bool> EnableAllLoops(
+  "csa-streammem-expensive", cl::Hidden,
+  cl::desc("CSA Specific: enable streaming memory even if trip counts are expensive"));
+
+namespace llvm {
+void initializeCSAStreamingMemoryPass(PassRegistry &);
+}
+
 namespace {
 struct StreamingMemoryDetails {
   const SCEV *Base;
@@ -220,7 +228,8 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
   if (SCEVExprContains(BackedgeCount, isExpensiveSCEV)) {
     LLVM_DEBUG(dbgs() << "Expensive execution count " << *BackedgeCount
         << " for loop " << *L);
-    return Changed;
+    if (!EnableAllLoops)
+      return Changed;
   }
 
   // Ensure that the count is an i64. If the backedge count is a really weird
