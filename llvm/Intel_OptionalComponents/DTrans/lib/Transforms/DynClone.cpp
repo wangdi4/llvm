@@ -76,17 +76,6 @@ int64_t getMinShrIntTyValueWithDelta() {
   llvm_unreachable("Unexpected type width for shrinking");
 }
 
-// Max unsigned value for 32 and 16 bit int.
-int64_t getMaxShrunkenUIntTypeValue() {
-  switch (DTransDynCloneShrTyWidth) {
-  case 32:
-    return std::numeric_limits<uint32_t>::max();
-  case 16:
-    return std::numeric_limits<uint16_t>::max();
-  };
-  llvm_unreachable("Unexpected type width for shrinking");
-}
-
 class DTransDynCloneWrapper : public ModulePass {
 private:
   dtrans::DynClonePass Impl;
