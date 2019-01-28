@@ -766,9 +766,13 @@ public:
   unsigned getNumGotos() const { return NumGotos; }
 };
 
-static void doReroll(HLLoop *Lp, unsigned RerollFactor,
+static bool doReroll(HLLoop *Lp, unsigned RerollFactor,
                      SmallVectorImpl<HLNode *> &NodeSequence,
                      SmallVectorImpl<unsigned> &LiveoutsToBeRemoved) {
+
+  if (!HIRTransformUtils::multiplyTripCount(Lp, RerollFactor)) {
+    return false;
+  }
 
   CanonExprUpdater CEUpdater(RerollFactor, Lp->getNestingLevel());
 
@@ -788,9 +792,8 @@ static void doReroll(HLLoop *Lp, unsigned RerollFactor,
 
   Lp->setNumExits(CEUpdater.getNumGotos() + 1);
 
-  HIRTransformUtils::multiplyTripCount(Lp, RerollFactor);
-
   HIRInvalidationUtils::invalidateBody(Lp);
+  return true;
 }
 
 bool HIRMultiExitLoopReroll::tryReroll(SmallVectorImpl<HLLoop *> &Loops) {
@@ -810,10 +813,10 @@ bool HIRMultiExitLoopReroll::tryReroll(SmallVectorImpl<HLLoop *> &Loops) {
 
     assert(RerollFactor > 1 && "Invalid Reroll factor!");
 
-    doReroll(Lp, RerollFactor, NodeSequence, LiveoutsToBeRemoved);
-
-    ++LoopsRerolled;
-    Rerolled = true;
+    if (doReroll(Lp, RerollFactor, NodeSequence, LiveoutsToBeRemoved)) {
+      ++LoopsRerolled;
+      Rerolled = true;
+    }
   }
 
   return Rerolled;
