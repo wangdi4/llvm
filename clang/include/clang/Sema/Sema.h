@@ -10665,7 +10665,7 @@ private:
   bool SemaBuiltinVAArgPackChecks(CallExpr *TheCall, unsigned BuiltinID);
 #if INTEL_FEATURE_CSA
   bool CheckCSABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
-#endif
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
 public:

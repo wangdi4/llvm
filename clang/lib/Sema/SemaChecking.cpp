@@ -1594,7 +1594,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (CheckCSABuiltinFunctionCall(BuiltinID, TheCall))
       return ExprError();
     break;
-#endif
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
       default:
         break;
@@ -4645,7 +4645,7 @@ bool Sema::CheckCSABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   }
   return false;
 }
-#endif
+#endif // INTEL_FEATURE_CSA
 
 bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   bool RequiresSuccess = false;

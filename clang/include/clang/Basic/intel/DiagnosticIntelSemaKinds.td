@@ -341,6 +341,6 @@ def err_pragma_loop_invalid_negative_value : Error<
 def err_csa_builtin_arg_mismatch : Error<
   "CSA builtin parameter must be %select{"
   "a scalar or a vector type|an integer}0">;
-#endif
+#endif // INTEL_FEATURE_CSA
 
 } // end of sema component.
