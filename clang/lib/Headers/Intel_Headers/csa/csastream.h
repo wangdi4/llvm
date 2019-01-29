@@ -33,7 +33,7 @@ namespace csa
   public:
     __attribute__((always_inline))
 #ifdef __CSA__
-    Stream() : identifier(__builtin_csa_lic_init(sizeof(T), depth, pref_depth))
+    stream() : identifier(__builtin_csa_lic_init(sizeof(T), depth, pref_depth))
     {}
 #endif
     __attribute__((always_inline))
