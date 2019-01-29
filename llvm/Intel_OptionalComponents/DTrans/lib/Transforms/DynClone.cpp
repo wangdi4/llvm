@@ -3630,6 +3630,10 @@ void DynCloneImpl::createEncodeDecodeFunctions(void) {
 // }
 //
 void DynCloneImpl::fillupCoderRoutine(Function *F, bool IsEncoder) {
+  // Indicate this function doesn't use vectors. This prevents the inliner from
+  // deleting it from the caller when merging attributes.
+  F->addFnAttr("min-legal-vector-width", "0");
+
   llvm::IntegerType *SrcType = dyn_cast<IntegerType>(F->arg_begin()->getType());
   llvm::IntegerType *DstType = dyn_cast<IntegerType>(F->getReturnType());
   BasicBlock *BB = BasicBlock::Create(M.getContext(), "entry", F);
