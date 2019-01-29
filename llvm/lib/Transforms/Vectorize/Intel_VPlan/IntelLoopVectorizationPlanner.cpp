@@ -30,6 +30,8 @@
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
 #if INTEL_CUSTOMIZATION
+extern cl::opt<bool> VPlanConstrStressTest;
+
 cl::opt<uint64_t>
     VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
                         cl::desc("Default estimated trip count"));
@@ -104,7 +106,6 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context) {
   LLVM_DEBUG(dbgs() << "LVP: Safelen: " << Safelen << "\n");
 
   // Early return from vectorizer if forced VF or safelen is 1
-  // TODO: This should not be done if VPlanConstrStressTest is enabled
   if (ForcedVF == 1 || Safelen == 1) {
     LLVM_DEBUG(dbgs() << "LVP: The forced VF or safelen specified by user is "
                          "1, VPlans need not be constructed.\n");
@@ -125,6 +126,14 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context) {
 #endif // INTEL_CUSTOMIZATION
     MinVF = ForcedVF;
     MaxVF = ForcedVF;
+#if INTEL_CUSTOMIZATION
+  } else if (VPlanConstrStressTest) {
+    // If we are only stress testing VPlan construction, force VPlan
+    // construction for just VF 1. This avoids any divide by zero errors in the
+    // min/max VF computation.
+    MinVF = 1;
+    MaxVF = 1;
+#endif // INTEL_CUSTOMIZATION
   } else {
     unsigned MinWidthInBits, MaxWidthInBits;
     std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();

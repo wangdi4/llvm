@@ -68,7 +68,7 @@ static cl::opt<bool> DisableCodeGen(
         "Disable VPO codegen, when true, the pass stops at VPlan creation"));
 
 // TODO: Unify with LoopVectorize's vplan-build-stress-test?
-static cl::opt<bool> VPlanConstrStressTest(
+cl::opt<bool> VPlanConstrStressTest(
     "vpo-vplan-build-stress-test", cl::init(false),
     cl::desc("Construct VPlan for every loop (stress testing)"));
 
@@ -632,6 +632,16 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 // nest constraints are in 'isSupported' function.
 static bool isSupportedRec(Loop *Lp) {
 
+  // The interface getUniqueExitBlock() asserts that the loop has dedicated
+  // exits. Check that a loop has dedicated exits before the check for unique
+  // exit block. This is especially needed when stress testing VPlan builds.
+  if (!Lp->hasDedicatedExits()) {
+    LLVM_DEBUG(dbgs() << "VD: loop form "
+                      << "(" << Lp->getName()
+                      << ") is not supported: no dedicated exits.\n");
+    return false;
+  }
+
   if (!Lp->getUniqueExitBlock()) {
     LLVM_DEBUG(dbgs() << "VD: loop form "
                       << "(" << Lp->getName()
@@ -655,8 +665,11 @@ bool VPlanDriver::isSupported(Loop *Lp) {
   // VPlanDriver. The reasoning behind this is due to the idea that we want to
   // perform all the enabling transformations before VPlanDriver so that the
   // only modifications to the underlying LLVM IR are done as a result of
-  // vectorization.
-  assert(Lp->isRecursivelyLCSSAForm(*DT, *LI) && "Loop is not in LCSSA form!");
+  // vectorization. When stress testing VPlan construction, allow loops not
+  // in LCSSA form.
+  if (!VPlanConstrStressTest)
+    assert(Lp->isRecursivelyLCSSAForm(*DT, *LI) &&
+           "Loop is not in LCSSA form!");
 
   // Check for loop specific constraints
   if (!isSupportedRec(Lp)) {
