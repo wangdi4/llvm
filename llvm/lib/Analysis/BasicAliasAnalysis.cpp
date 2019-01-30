@@ -574,7 +574,9 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
         const ConstantInt *CStride = dyn_cast<ConstantInt>(Stride);
         if (!CStride) {
           Decomposed.Base = V;
-          return false;
+          // The decomposed indices must be constants. Bail out:
+          // (true=>limit hit)
+          return true;
         }
 
         DecomposeSubscript(Subs, Decomposed, DL, AC, DT);
