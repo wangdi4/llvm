@@ -195,13 +195,6 @@ public:
 
   bool addInstSelector() override {
 
-    // Add ordering edges to memops.
-    addPass(createCSAMemopOrderingPass(getCSATargetMachine()));
-
-    // Convert loads/stores to sld/sst where possible.
-    if (getOptLevel() != CodeGenOpt::None)
-      addPass(createCSAStreamingMemoryConversionPass());
-
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
 
@@ -245,6 +238,13 @@ public:
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...
     addPass(createLoopSimplifyPass());
+
+    // Add ordering edges to memops.
+    addPass(createCSAMemopOrderingPass(getCSATargetMachine()));
+
+    // Convert loads/stores to sld/sst where possible.
+    if (getOptLevel() != CodeGenOpt::None)
+      addPass(createCSAStreamingMemoryConversionPass());
 
     return false;
   }
