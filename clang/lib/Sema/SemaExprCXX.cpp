@@ -3845,6 +3845,7 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
   case ImplicitConversionSequence::PermissiveConversion:
     Diag(From->getBeginLoc(), diag::warn_impcast_permissive_conversion)
         << From->getType() << ToType;
+    LLVM_FALLTHROUGH;
 #endif // INTEL_CUSTOMIZATION
   case ImplicitConversionSequence::StandardConversion: {
     ExprResult Res = PerformImplicitConversion(From, ToType, ICS.Standard,

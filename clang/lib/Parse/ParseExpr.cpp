@@ -1135,6 +1135,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
       Res = ParseIntelGenericSelectionExpression();
       break;
     }
+    LLVM_FALLTHROUGH;
 #endif // INTEL_CUSTOMIZATION
   case tok::kw___builtin_va_arg:
   case tok::kw___builtin_offsetof:
