@@ -3903,6 +3903,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
   assert(W->getIsOmpLoop() && "genLoopSchedulingCode: not a loop-type WRN");
 
+  W->populateBBSet();
+
   Loop *L = W->getWRNLoopInfo().getLoop();
 
   assert(L && "genLoopSchedulingCode: Loop not found");
@@ -3927,18 +3929,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   Value *DistChunkVal = ConstantInt::getSigned(Int32Ty, 1);
 
   WRNScheduleKind DistSchedKind;
-
-  if (IsDistParLoop) {
-
-    // Get dist_schedule kind and chunk information from W-Region node
-    // Default: DistributeStaticEven.
-    DistSchedKind = VPOParoptUtils::getDistLoopScheduleKind(W);
-
-    if (DistSchedKind == WRNScheduleDistributeStatic) {
-      DistChunkVal = W->getDistSchedule().getChunkExpr();
-      IsDistChunkedParLoop = true;
-    }
-  }
 
 #if 0
   LLVM_DEBUG(dbgs() << "---- Loop Induction: "
@@ -4035,6 +4025,27 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
 
   ConstantInt *SchedType = ConstantInt::getSigned(Int32Ty, SchedKind);
+
+  if (IsDistParLoop) {
+
+    // Get dist_schedule kind and chunk information from W-Region node
+    // Default: DistributeStaticEven.
+    DistSchedKind = VPOParoptUtils::getDistLoopScheduleKind(W);
+
+    if (DistSchedKind == WRNScheduleDistributeStatic) {
+      DistChunkVal = W->getDistSchedule().getChunkExpr();
+#if 0
+      // FIXME: enable this back, when FE starts capturing dist_schedule
+      //        chunk size.
+      if (!isa<Constant>(DistChunkVal)) {
+        resetValueInIntelClauseGeneric(W, DistChunkVal);
+        DistChunkVal =
+            VPOParoptUtils::cloneInstructions(DistChunkVal, InsertPt);
+      }
+#endif
+      IsDistChunkedParLoop = true;
+    }
+  }
 
   AllocaInst *TeamIsLast;
   AllocaInst *TeamLowerBnd;
@@ -4134,6 +4145,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
                      SchedKind == WRNScheduleOrderedStaticEven) ?
                                   ValueOne : W->getSchedule().getChunkExpr();
 
+  if (!isa<Constant>(ChunkVal) && !isa<WRNWksLoopNode>(W)) {
+    resetValueInIntelClauseGeneric(W, ChunkVal);
+    ChunkVal = VPOParoptUtils::cloneInstructions(ChunkVal, InsertPt);
+  }
 
   LLVM_DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");
 
