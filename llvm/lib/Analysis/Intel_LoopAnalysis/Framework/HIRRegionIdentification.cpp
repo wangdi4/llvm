@@ -615,6 +615,8 @@ public:
   bool visitStoreInst(const StoreInst &SI);
   bool visitCallInst(const CallInst &CI);
   bool visitBranchInst(const BranchInst &BI);
+
+  void printStats() const;
 };
 
 HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
@@ -635,6 +637,14 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
   // Suppress parent loops of unknown loops.
   ThrottleParentLoop = IsUnknownLoop;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HIRRegionIdentification::CostModelAnalyzer::printStats() const {
+  dbgs() << "Loop instruction count: " << InstCount << "\n";
+  dbgs() << "Loop goto count: " << UnstructuredJumpCount << "\n";
+  dbgs() << "Loop if count: " << IfCount << "\n";
+}
+#endif
 
 void HIRRegionIdentification::CostModelAnalyzer::analyze() {
 
@@ -706,7 +716,10 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
 bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
     const Instruction &Inst) {
   // Compares are most likely eliminated in HIR.
-  if (!isa<CmpInst>(Inst)) {
+  // Subscript instructions are like GEPs and hence most likely eliminated in
+  // HIR. This check can be removed once we add support for them in
+  // ScalarEvolution.
+  if (!isa<CmpInst>(Inst) && !isa<SubscriptInst>(Inst)) {
 
     // The following checks are to ignore linear instructions.
     if (RI.SE.isSCEVable(Inst.getType())) {
@@ -894,6 +907,8 @@ bool HIRRegionIdentification::shouldThrottleLoop(
 
   CostModelAnalyzer CMA(*this, Lp, BECount, ThrottleParentLoop);
   CMA.analyze();
+
+  LLVM_DEBUG(CMA.printStats());
 
   return !CMA.isProfitable();
 }
