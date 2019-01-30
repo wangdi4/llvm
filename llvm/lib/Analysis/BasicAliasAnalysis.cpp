@@ -1915,6 +1915,66 @@ static Value* getNoAliasPtrOfPHI(const Value* U) {
   return NoAliasPtr;
 }
 
+// This routine does simple analysis to detect if given \p U is a copy
+// of an argument and returns the argument if it finds one. Otherwise,
+// returns nullptr.
+//
+// In the below example,
+// 1. This routine returns %twp if %twp.addr is given as input.
+// 2. This routine returns %data if %data is given as input.
+//
+// define void @foo(double* noalias %data, double* %twp) {
+//   ...
+//   %twp.addr = phi double* [ %twp, %for.body ], [ %inc.ptr, %for.end ]
+//   ...
+//   %inc.ptr = getelementptr inbounds double, double* %twp.addr, i64 1
+// }
+//
+static const Value* getArgumentBasePtr(const Value* U) {
+  // Just return it if U is already argument.
+  if (isa<Argument>(U))
+    return U;
+  // Not handling non-PHI nodes for now.
+  if (!isa<PHINode>(U))
+    return nullptr;
+
+  const Value* ArgumentPtr = nullptr;
+  const PHINode *PN = cast<PHINode>(U);
+  unsigned NumIncomingValues = PN->getNumIncomingValues();
+  // Limit number of incoming values of PHI. It is considered
+  // as dead BasicBlock if NumIncomingValues is zero.
+  if (NumIncomingValues > 2 || NumIncomingValues == 0)
+    return nullptr;
+
+  for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I) {
+    Value* V = PN->getIncomingValue(I);
+    if (GEPOperator *G = dyn_cast<GEPOperator>(V)) {
+      Value* GEP1 = G->getPointerOperand();
+      // Skip it if PointerOperand of GEP is the PHI node
+      // that we are currently processing.
+      if (GEP1 == PN)
+        continue;
+      V = GEP1;
+    } else if (auto *Subs = dyn_cast<SubscriptInst>(V)) {
+      Value* SUB1 = Subs->getPointerOperand();
+      // Skip it if PointerOperand of Subscript is the PHI node
+      // that we are currently processing.
+      if (SUB1 == PN)
+        continue;
+      V = SUB1;
+    }
+
+    if (!isa<Argument>(V))
+      return nullptr;
+
+    // Makes sure here all incoming values point to same argument
+    if (ArgumentPtr != nullptr && ArgumentPtr != V)
+     return nullptr;
+    ArgumentPtr = V;
+  }
+  return ArgumentPtr;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Provides a bunch of ad-hoc rules to disambiguate in common cases, such as
@@ -2020,6 +2080,26 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
         return NoAlias;
       }
     }
+
+    // Return NoAlias if one pointer is an argument that is marked
+    // with noalias and other pointer is a copy of another argument.
+    //
+    // Ex: Detects that %data and %twp.addr are NoAlias
+    //
+    // define void @foo(double* noalias %data, double* %twp) {
+    //   ...
+    //   %twp.addr = phi double* [ %twp, %for.body ], [ %inc.ptr, %for.end ]
+    //   ...
+    //   %inc.ptr = getelementptr inbounds double, double* %twp.addr, i64 1
+    // }
+    //
+    const Value* ArgBasePtr1 = getArgumentBasePtr(O1);
+    const Value* ArgBasePtr2 = getArgumentBasePtr(O2);
+    if (ArgBasePtr1 && ArgBasePtr2 && ArgBasePtr1 != ArgBasePtr2 &&
+        ((isa<Argument>(ArgBasePtr1) && isNoAliasArgument(ArgBasePtr2)) ||
+        (isa<Argument>(ArgBasePtr2) && isNoAliasArgument(ArgBasePtr1))))
+      return NoAlias;
+
 #endif // INTEL_CUSTOMIZATION
   }
 
