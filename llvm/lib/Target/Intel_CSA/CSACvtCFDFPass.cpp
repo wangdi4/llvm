@@ -1,6 +1,6 @@
 //===-- CSACvtCFDFPass.cpp - CSA convert control flow to data flow --------===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -951,6 +951,9 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     // Advise the simulator not to be concerned if the this has values in it on
     // exit; this is expected.
     LMFI->addLICAttribute(newToken, "csasim_ignore_on_exit");
+
+    // This is also a backedge from a dataflow perspective.
+    LMFI->addLICAttribute(newToken, "csasim_backedge");
 
     // TODO: Do not need to reorder 0-bit channels; we should be able to just
     // do rate-limiting with no reordering/storage once the compiler starts
