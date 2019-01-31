@@ -561,8 +561,13 @@ void OpenMPLateOutliner::addImplicitClauses() {
     if (VD->getName() == ".omp.iv")
       continue;
     if (VarDefs.find(VD) != VarDefs.end()) {
-      // Defined in the region: private
-      emitImplicit(VD, ICK_private);
+      // Defined in the region
+      if (VD->getStorageDuration() == SD_Static) {
+        if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared))
+          emitImplicit(VD, ICK_shared);
+      } else {
+        emitImplicit(VD, ICK_private);
+      }
     } else if (CurrentDirectiveKind == OMPD_target) {
       if (!VD->getType()->isScalarType() ||
           Directive.hasClausesOfKind<OMPDefaultmapClause>())

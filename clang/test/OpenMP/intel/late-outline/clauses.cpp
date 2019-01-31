@@ -132,4 +132,31 @@ void bar2()
     }
   }
 }
+
+static int st_b1;
+void baz(int);
+
+//CHECK-LABEL: bar3
+void bar3()
+{
+  //CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
+  //CHECK-SAME: "QUAL.OMP.SHARED"(i32* @_ZZ4bar3vE5st_b3)
+  //CHECK-SAME: "QUAL.OMP.SHARED"(i32* @_ZL5st_b1)
+  //CHECK: "DIR.OMP.END.PARALLEL"
+  #pragma omp parallel
+  {
+    static int st_b3;
+    baz(st_b1+st_b3);
+  }
+
+  //CHECK: region.entry() [ "DIR.OMP.SIMD"()
+  //CHECK-NOT: "QUAL.OMP.SHARED"
+  //CHECK-NOT: "QUAL.OMP.PRIVATE"
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp simd
+  for (int i=0;i<16;++i) {
+    static int st_b4;
+    baz(st_b1+st_b4);
+  }
+}
 // end INTEL_COLLAB
