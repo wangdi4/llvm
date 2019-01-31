@@ -317,6 +317,11 @@ struct HIRFramework::MaxTripCountEstimator final : public HLNodeVisitorBase {
 };
 
 void HIRFramework::MaxTripCountEstimator::visit(HLLoop *Lp) {
+
+  if (Lp->isUnknown()) {
+    return;
+  }
+
   // This can set trip count estimate for triangular loops.
   // DO i1 = 0, 10
   // DO i2 = 0, i1 - 1  <MAX_TC_EST = 10>

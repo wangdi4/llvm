@@ -174,10 +174,6 @@ protected:
     RegDDRefs.resize(getNumLoopDDRefs(), nullptr);
   }
 
-  /// Used to implement get*CanonExpr() functionality.
-  CanonExpr *getLoopCanonExpr(RegDDRef *Ref);
-  const CanonExpr *getLoopCanonExpr(const RegDDRef *Ref) const;
-
   /// Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const {
     return getNumLoopDDRefs() + getNumZttOperands();
@@ -351,9 +347,15 @@ public:
 
   /// Returns the DDRef associated with loop upper bound.
   /// The second DDRef is associated with upper bound.
-  RegDDRef *getUpperDDRef() { return getOperandDDRefImpl(1); }
-  const RegDDRef *getUpperDDRef() const {
-    return const_cast<HLLoop *>(this)->getUpperDDRef();
+  /// Asserts on unknown loop unless \p AllowUnknownLoop is set to true.
+  RegDDRef *getUpperDDRef(bool AllowUnknownLoop = false) {
+    assert((AllowUnknownLoop || !isUnknown()) &&
+           "Invalid access to unknown loop's upper bound!");
+    return getOperandDDRefImpl(1);
+  }
+
+  const RegDDRef *getUpperDDRef(bool AllowUnknownLoop = false) const {
+    return const_cast<HLLoop *>(this)->getUpperDDRef(AllowUnknownLoop);
   }
 
   /// Sets the DDRef associated with loop upper bound.
@@ -385,17 +387,29 @@ public:
   RegDDRef *removeStrideDDRef();
 
   /// Returns the CanonExpr associated with loop lower bound.
-  CanonExpr *getLowerCanonExpr();
-  const CanonExpr *getLowerCanonExpr() const;
+  CanonExpr *getLowerCanonExpr() {
+    return getLowerDDRef()->getSingleCanonExpr();
+  }
+  const CanonExpr *getLowerCanonExpr() const {
+    return getLowerDDRef()->getSingleCanonExpr();
+  }
 
   /// Returns the CanonExpr associated with loop upper bound.
-  CanonExpr *getUpperCanonExpr();
-  const CanonExpr *getUpperCanonExpr() const;
+  CanonExpr *getUpperCanonExpr() {
+    return getUpperDDRef()->getSingleCanonExpr();
+  }
+  const CanonExpr *getUpperCanonExpr() const {
+    return getUpperDDRef()->getSingleCanonExpr();
+  }
 
   /// Returns the CanonExpr associated with loop stride.
   // TODO: Should we keep an uint64_t stride if it is always constant?
-  CanonExpr *getStrideCanonExpr();
-  const CanonExpr *getStrideCanonExpr() const;
+  CanonExpr *getStrideCanonExpr() {
+    return getStrideDDRef()->getSingleCanonExpr();
+  }
+  const CanonExpr *getStrideCanonExpr() const {
+    return getStrideDDRef()->getSingleCanonExpr();
+  }
 
   /// Returns the CanonExpr associated with loop trip count.
   /// Returns a newly allocated CanonExpr as this information is not
@@ -1068,7 +1082,7 @@ public:
   // Collects all HLGotos which exit the loop.
   void populateEarlyExits(SmallVectorImpl<HLGoto *> &Gotos);
 
-  HLLoopParallelTraits* getParallelTraits() const { return ParTraits.get(); }
+  HLLoopParallelTraits *getParallelTraits() const { return ParTraits.get(); }
   void setParallelTraits(HLLoopParallelTraits *CT) {
     assert(ParTraits == nullptr && "parallel traits already set");
     ParTraits.reset(CT);
@@ -1086,7 +1100,7 @@ public:
   HLLoopParallelTraits(const HLLoopParallelTraits &O) = delete;
 
   void setNumThreads(const RegDDRef *N) { NumThreads = N; }
-  const RegDDRef* getNumThreads() { return NumThreads; }
+  const RegDDRef *getNumThreads() { return NumThreads; }
 
 private:
   // Number of threads as found in the num_threads clause

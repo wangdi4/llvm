@@ -93,15 +93,6 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
   setStrideDDRef(StrideDDRef);
 
   setIVType(LowerDDRef->getDestType());
-
-  assert(((!getLowerDDRef()->isStandAloneUndefBlob() &&
-           !getUpperDDRef()->isStandAloneUndefBlob() &&
-           !getStrideDDRef()->isStandAloneUndefBlob()) ||
-          (getLowerDDRef()->isStandAloneUndefBlob() &&
-           getUpperDDRef()->isStandAloneUndefBlob() &&
-           getStrideDDRef()->isStandAloneUndefBlob())) &&
-         "Lower, Upper and Stride DDRefs "
-         "should be all defined or all undefined");
 }
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj)
@@ -135,7 +126,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 
   /// Clone loop RegDDRefs
   setLowerDDRef(HLLoopObj.getLowerDDRef()->clone());
-  setUpperDDRef(HLLoopObj.getUpperDDRef()->clone());
+  setUpperDDRef(HLLoopObj.getUpperDDRef(true)->clone());
   setStrideDDRef(HLLoopObj.getStrideDDRef()->clone());
 }
 
@@ -673,40 +664,6 @@ HLIf *HLLoop::removeZtt() {
   return If;
 }
 
-CanonExpr *HLLoop::getLoopCanonExpr(RegDDRef *Ref) {
-  assert(Ref && "RegDDRef can not be null");
-  return Ref->getSingleCanonExpr();
-}
-
-const CanonExpr *HLLoop::getLoopCanonExpr(const RegDDRef *Ref) const {
-  return const_cast<HLLoop *>(this)->getLoopCanonExpr(
-      const_cast<RegDDRef *>(Ref));
-}
-
-CanonExpr *HLLoop::getLowerCanonExpr() {
-  return getLoopCanonExpr(getLowerDDRef());
-}
-
-const CanonExpr *HLLoop::getLowerCanonExpr() const {
-  return const_cast<HLLoop *>(this)->getLowerCanonExpr();
-}
-
-CanonExpr *HLLoop::getUpperCanonExpr() {
-  return getLoopCanonExpr(getUpperDDRef());
-}
-
-const CanonExpr *HLLoop::getUpperCanonExpr() const {
-  return const_cast<HLLoop *>(this)->getUpperCanonExpr();
-}
-
-CanonExpr *HLLoop::getStrideCanonExpr() {
-  return getLoopCanonExpr(getStrideDDRef());
-}
-
-const CanonExpr *HLLoop::getStrideCanonExpr() const {
-  return const_cast<HLLoop *>(this)->getStrideCanonExpr();
-}
-
 CanonExpr *HLLoop::getTripCountCanonExpr() const {
   if (isUnknown()) {
     return nullptr;
@@ -1049,7 +1006,7 @@ void HLLoop::verify() const {
   HLDDNode::verify();
 
   assert(getLowerDDRef() && "Null lower ref not expected!");
-  assert(getUpperDDRef() && "Null upper ref not expected");
+  assert(getUpperDDRef(true) && "Null upper ref not expected");
   assert(getStrideDDRef() && "Null stride ref not expected!");
 
   if (isUnknown()) {

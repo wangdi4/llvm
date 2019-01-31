@@ -1223,6 +1223,11 @@ bool DDTest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
 // This routine collects upper bound and extends if needed.
 // Return null if no bound available.
 const CanonExpr *DDTest::collectUpperBound(const HLLoop *L, Type *T) {
+
+  if (L->isUnknown()) {
+    return nullptr;
+  }
+
   const CanonExpr *UpperBound = L->getUpperCanonExpr();
 
   uint64_t MaxTC;
@@ -1330,8 +1335,8 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
   // check that |Delta| < iteration count
   // TBD: get UB for CurLoop
 
-  if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
-
+  if (!CurLoop->isUnknown()) {
+    const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr();
     // There is a bug with the original code
     // for a[2 *n ]  n is SI64  in source.
     // Coeff in SCEV is  2*n  I64
@@ -1577,7 +1582,8 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
 
   // We're certain that Delta > 0 and ConstCoeff > 0.
   // Check Delta/(2*ConstCoeff) against upper loop bound
-  if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
+  if (!CurLoop->isUnknown()) {
+    const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr();
     LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
     const CanonExpr *ConstantTwo =
         getConstantWithType(UpperBound->getSrcType(), 2);
@@ -1803,7 +1809,8 @@ bool DDTest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   bool UMValid = false;
 
   // UM is perhaps unavailable, let's check
-  if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
+  if (!CurLoop->isUnknown()) {
+    const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr();
     if (UpperBound->isIntConstant(&UBVal)) {
       UM = llvm::APInt(64, UBVal, true);
       LLVM_DEBUG(dbgs() << "\t    UM = " << UM << "\n");
@@ -2066,7 +2073,8 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
 
   // check that Delta/SrcCoeff < iteration count
   // really check NewDelta < count*AbsCoeff
-  if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
+  if (!CurLoop->isUnknown()) {
+    const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr();
     LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
 
     const CanonExpr *Product = getMulExpr(AbsCoeff, UpperBound);
@@ -2196,7 +2204,8 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
 
   // check that Delta/SrcCoeff < iteration count
   // really check NewDelta < count*AbsCoeff
-  if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
+  if (!CurLoop->isUnknown()) {
+    const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr();
     LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
     const CanonExpr *Product = getMulExpr(AbsCoeff, UpperBound);
 
@@ -2303,7 +2312,8 @@ bool DDTest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   bool SrcUMvalid = false;
   // SrcUM is perhaps unavailable, let's check
 
-  if (const CanonExpr *UpperBound = SrcLoop->getUpperCanonExpr()) {
+  if (!SrcLoop->isUnknown()) {
+    const CanonExpr *UpperBound = SrcLoop->getUpperCanonExpr();
     if (UpperBound->isIntConstant(&ubVal)) {
       SrcUM = llvm::APInt(64, ubVal, true);
       LLVM_DEBUG(dbgs() << "\t    SrcUM = " << SrcUM << "\n");
@@ -2315,7 +2325,8 @@ bool DDTest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   bool DstUMvalid = false;
 
   // UM is perhaps unavailable, let's check
-  if (const CanonExpr *UpperBound = DstLoop->getUpperCanonExpr()) {
+  if (!DstLoop->isUnknown()) {
+    const CanonExpr *UpperBound = DstLoop->getUpperCanonExpr();
     if (UpperBound->isIntConstant(&ubVal)) {
       DstUM = llvm::APInt(64, ubVal, true);
       LLVM_DEBUG(dbgs() << "\t    DstUM = " << DstUM << "\n");
@@ -2424,8 +2435,10 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
   LLVM_DEBUG(dbgs() << "\n    C1 = "; C1->dump());
   LLVM_DEBUG(dbgs() << "\n    C2 = "; C2->dump());
 
-  const CanonExpr *N1 = Loop1->getUpperCanonExpr();
-  const CanonExpr *N2 = Loop2->getUpperCanonExpr();
+  const CanonExpr *N1 =
+      !Loop1->isUnknown() ? Loop1->getUpperCanonExpr() : nullptr;
+  const CanonExpr *N2 =
+      !Loop2->isUnknown() ? Loop2->getUpperCanonExpr() : nullptr;
 
   if (N1) {
     LLVM_DEBUG(dbgs() << "\n    N1 = "; N1->dump());
