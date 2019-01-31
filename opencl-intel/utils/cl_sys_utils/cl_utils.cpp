@@ -51,6 +51,9 @@ void clSleep(int milliseconds)
 
 void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
+#ifdef WINDOWS_ONECORE
+    assert(0 && "Affinity is not supported on universal windows platform");
+#else
     assert(*mask <= (DWORD_PTR)-1);
     if (0 == tid)
     {        
@@ -62,16 +65,24 @@ void clSetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
         SetThreadAffinityMask(tid_handle, (DWORD_PTR)*mask);
         CloseHandle(tid_handle);
     }
+#endif
 }
 
 void clGetThreadAffinityMask(affinityMask_t* mask, threadid_t tid)
 {
+#ifdef WINDOWS_ONECORE
+    assert(0 && "Affinity is not supported on universal windows platform");
+#else
     // Currently not supported on Windows
     *mask = -1;
+#endif
 }
 
 void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
 {
+#ifdef WINDOWS_ONECORE
+    assert(0 && "Affinity is not supported on universal windows platform");
+#else
     DWORD_PTR mask = 1 << core;
     if (0 == tid)
     {
@@ -84,10 +95,14 @@ void clSetThreadAffinityToCore(unsigned int core, threadid_t tid)
         CloseHandle(tid_handle);
     }
     //printf("Thread %d is running on processor %d (expected %d)\n", GetCurrentThreadId(), GetCurrentProcessorNumber(), core);
+#endif
 }
 
 void clResetThreadAffinityMask(threadid_t tid)
 {
+#ifdef WINDOWS_ONECORE
+    assert(0 && "Affinity is not supported on universal windows platform");
+#else
     static const DWORD_PTR allMask = (DWORD_PTR)-1;
     if (0 == tid)
     {
@@ -99,10 +114,15 @@ void clResetThreadAffinityMask(threadid_t tid)
         SetThreadAffinityMask(tid_handle, allMask);
         CloseHandle(tid_handle);
     }
+#endif
 }
 
 bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len)
 {
+#ifdef WINDOWS_ONECORE
+    assert(0 && "Affinity is not supported on universal windows platform");
+    return false;
+#else
     assert(mask);
     assert(IDs);
     assert(*mask <= (DWORD_PTR)-1);
@@ -119,6 +139,7 @@ bool clTranslateAffinityMask(affinityMask_t* mask, unsigned int* IDs, size_t len
         localMask >>= 1;
     }
     return (len == set_bits) && (0 == localMask);
+#endif
 }
 
 threadid_t clMyThreadId()
