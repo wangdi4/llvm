@@ -1835,13 +1835,8 @@ void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE,
     NewInitV = Trunc;
   }
 
-  if (spmd_approach == SPMD_CYCLIC || spmd_approach == SPMD_HYBRID) {
-    NewCondOp1 = NewInitV;
-    NewCondOp0 = TripCount;
-  } else if (spmd_approach == SPMD_BLOCKING) {
-    NewCondOp1 = ConstantInt::get(TripCountV->getType(), PE);
-    NewCondOp0 = TripCountV;
-  }
+  NewCondOp1 = NewInitV;
+  NewCondOp0 = TripCount;
 
   if (CmpCond->getPredicate() == CmpInst::ICMP_EQ ||
       CmpCond->getPredicate() == CmpInst::ICMP_NE) {
