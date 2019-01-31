@@ -162,15 +162,12 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
         string nameStr, nameStr2;
         const char *name = nullptr;
 
-        cl = CommandLineToArgvW(L"", &numArgs);
-        if (nullptr != cl) {
-            std::wstring wstr(*cl);
+        WCHAR path[MAX_PATH];
+        if (!GetModuleFileNameW(GetModuleHandleW(nullptr), path, MAX_PATH)) {
+            std::wstring wstr(path);
             nameStr = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(wstr);
             name = nameStr.c_str();
         }
-
-        // Free memory allocated for CommandLineToArgvW arguments.
-        LocalFree(cl);
 
         // find the base name by searching for the last '/' in the name
         // Remove .exe from the name. To actually create a file name without

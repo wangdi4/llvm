@@ -50,20 +50,20 @@ Logger::~Logger()
 // Shared memory for singleton object storage
 // We need this shared memory because we use static library and want to have singleton across DLL's
 // We need assure that the name is unique for each process
-const char g_szMemoryNameTemplate[]="LoggerSharedMemory(%06d)";
-const char g_szMutexNameTemplate[]="LoggerMutex(%06d)";
+const wchar_t g_szMemoryNameTemplate[]=L"LoggerSharedMemory(%06d)";
+const wchar_t g_szMutexNameTemplate[]=L"LoggerMutex(%06d)";
 
 struct LoggerSingletonHandler
 {
 	LoggerSingletonHandler()
 	{
-		char szName[sizeof(g_szMemoryNameTemplate)/sizeof(char)+6];
+		wchar_t szName[sizeof(g_szMemoryNameTemplate)/sizeof(wchar_t)+sizeof(wchar_t)*6];
 
 		// Create process unique name
-		sprintf_s(szName, sizeof(szName)/sizeof(char), g_szMemoryNameTemplate, GetCurrentProcessId());
+		swprintf_s(szName, sizeof(szName)/sizeof(wchar_t), g_szMemoryNameTemplate, GetCurrentProcessId());
 
 		// Open shared memory, we are looking for previously allocated executor
-		hMapFile = CreateFileMapping(
+		hMapFile = CreateFileMappingW(
 			INVALID_HANDLE_VALUE,    // use paging file
 			nullptr,                 // default security
 			PAGE_READWRITE,          // read/write access
@@ -88,8 +88,8 @@ struct LoggerSingletonHandler
 		}
 
 		// Test for singleton existence
-		sprintf_s(szName, sizeof(szName)/sizeof(char), g_szMutexNameTemplate, GetCurrentProcessId());
-		hMutex = CreateMutex(nullptr, TRUE, szName);
+		swprintf_s(szName, sizeof(szName)/sizeof(wchar_t), g_szMutexNameTemplate, GetCurrentProcessId());
+		hMutex = CreateMutexW(nullptr, TRUE, szName);
 		if ( nullptr == hMutex)
 		{
 			UnmapViewOfFile(pSharedBuf);
