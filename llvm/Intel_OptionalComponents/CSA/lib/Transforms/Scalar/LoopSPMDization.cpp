@@ -367,6 +367,17 @@ try a different SPMDization strategy instead.
                    std::to_string(PE) +
                    "  ,as directed by the builtin_assume or the constant value "
                    "of the upper bound of the loop.");
+        AssumptionCache *AC =
+          &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
+        Instruction *const terminator =
+          NewLoop->getLoopPreheader()->getTerminator();
+        IRBuilder<> Builder{terminator};
+        Instruction *CondI = dyn_cast<Instruction>(Cond);
+        auto *assume = Builder.
+          CreateICmpSLT(NewInitV, CondI->getOperand(1));
+        CallInst *workerAssume =
+          Builder.CreateIntrinsic(Intrinsic::assume, {}, assume);
+        AC->registerAssumption(workerAssume);
       }
       // This assumes menable-unsafe-fp-math is set
       // flat vs. nested: there are multiple small differences on how to handle
