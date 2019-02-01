@@ -52,6 +52,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
@@ -205,6 +206,10 @@ public:
   }
 
   bool addPreISel() override {
+    // In case if lib-bc routines were not inlined till this point,
+    // force their inlining by calling always inliner pass.
+    addPass(createUnskippableAlwaysInlinerLegacyPass());
+
     // addPass(createUnifyFunctionExitNodesPass());
     addPass(createLowerSwitchPass());
     // Add a pass to generate more candidates for reduction operations

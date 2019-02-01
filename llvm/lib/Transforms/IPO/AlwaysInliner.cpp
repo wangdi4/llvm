@@ -131,7 +131,16 @@ public:
 #endif // INTEL_CUSTOMIZATION
   }
 };
-}
+
+#if INTEL_CUSTOMIZATION
+class UnskippableAlwaysInlinerLegacyPass : public AlwaysInlinerLegacyPass {
+public:
+  UnskippableAlwaysInlinerLegacyPass(bool InsertLietime)
+      : AlwaysInlinerLegacyPass(InsertLietime) {}
+  bool skipSCC(CallGraphSCC &SCC) const override { return false; }
+};
+#endif // INTEL_CUSTOMIZATION
+} // namespace
 
 char AlwaysInlinerLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(AlwaysInlinerLegacyPass, "always-inline",
@@ -146,6 +155,12 @@ INITIALIZE_PASS_END(AlwaysInlinerLegacyPass, "always-inline",
 Pass *llvm::createAlwaysInlinerLegacyPass(bool InsertLifetime) {
   return new AlwaysInlinerLegacyPass(InsertLifetime);
 }
+
+#if INTEL_CUSTOMIZATION
+Pass *llvm::createUnskippableAlwaysInlinerLegacyPass(bool InsertLifetime) {
+  return new UnskippableAlwaysInlinerLegacyPass(InsertLifetime);
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Get the inline cost for the always-inliner.
 ///
