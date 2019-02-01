@@ -34,8 +34,8 @@ using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::fusion;
 
-typedef DDRefGatherer<RegDDRef, AllRefs ^ (BlobRefs | ConstantRefs |
-                                           GenericRValRefs | IsAddressOfRefs)>
+typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
+                                        IsAddressOfRefs)>
     Gatherer;
 
 bool fusion::isGoodLoop(const HLLoop *Loop) {
@@ -1011,7 +1011,7 @@ void FuseGraph::constructDirectedEdges(
     HLNode *SrcNode = &Child;
     unsigned SrcNumber = getFuseNode(GraphNodeMap, SrcNode);
 
-    for (RegDDRef *Ref : Refs) {
+    for (DDRef *Ref : Refs) {
       // Collect Directed Dependency Edges
       for (const DDEdge *DDEdge : DDG.outgoing(Ref)) {
         if (!DDEdge->isForwardDep()) {
@@ -1067,8 +1067,9 @@ void FuseGraph::constructDirectedEdges(
       }
 
       // Collect RVals for undirected (input data dependency) edges
-      if (Ref->isRval() && Ref->isMemRef()) {
-        RValNodePairs.emplace_back(Ref, SrcNode);
+      RegDDRef *RDDRef = dyn_cast<RegDDRef>(Ref);
+      if (RDDRef && RDDRef->isRval() && RDDRef->isMemRef()) {
+        RValNodePairs.emplace_back(RDDRef, SrcNode);
       }
     }
   }
