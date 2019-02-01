@@ -324,7 +324,9 @@ def err_hls_builtin_arg_mismatch : Error<
   "|a power of two integer between 8 and 1024"
   "|an integer between 1 and 64 inclusive"
   "|an integer between 1 and 1024 inclusive"
-  "|a pointer to an integer}0">;
+  "|a pointer to an integer"
+  "|a non-negative integer constant, 0 or -1}0">;
+
 def err_hls_builtin_without_fhls : Error <
   "HLS builtin can only be used when the HLS flag is present on the command "
   "line invocation">;

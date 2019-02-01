@@ -4801,20 +4801,21 @@ bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
                   diag::err_hls_builtin_arg_mismatch)
              << 2;
 
-    // ReadyLatency, positive constant integer.
+    // ReadyLatency, positive constant integer, 0 or -1.
     if (SemaBuiltinConstantArg(TheCall, 3, Result))
       return true;
-    if (Result.isNegative())
+    if (Result < -1)
       return Diag(TheCall->getArg(3)->getBeginLoc(),
                   diag::err_hls_builtin_arg_mismatch)
-             << 2;
+             << 10;
 
     // BitsPerSymbol, positive integer value that evenly divides Type size.
     if (SemaBuiltinConstantArg(TheCall, 4, Result))
       return true;
-    if (Result.isNegative() || Context.getTypeSize(Pointer->getPointeeType()) %
-                                       Result.getZExtValue() !=
-                                   0)
+    if (!Result.isNullValue() &&
+        (Result.isNegative() ||
+         Context.getTypeSize(Pointer->getPointeeType())
+             % Result.getZExtValue() != 0))
       return Diag(TheCall->getArg(4)->getBeginLoc(),
                   diag::err_hls_builtin_arg_mismatch)
              << 3;
