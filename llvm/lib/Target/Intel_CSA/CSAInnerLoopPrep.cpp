@@ -80,7 +80,7 @@ static cl::opt<int> DefaultDegreeOfPipeliningParallelism(
   "csa-ilpl-tokens", cl::Hidden,
   cl::desc(
     "CSA Specific: degree of concurrency allowed by inner loop pipelining"),
-  cl::init(32));
+  cl::init(64));
 
 namespace {
 struct CSAInnerLoopPrep : public FunctionPass {
