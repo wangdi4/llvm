@@ -179,10 +179,10 @@ private:
   /// TargetNode from \p CurBB via predecessor bblock traversal.
   /// \p EndNode specifies the scope of traveral in CurBB. It is set to null
   /// to indicate full bblock traversal.
-  bool foundIntermediateSCCNode(const BasicBlock *CurBB,
-                                const Instruction *EndNode,
-                                const Instruction *TargetNode,
-                                const SCC &CurSCC) const;
+  bool foundIntermediateSCCNode(
+      const BasicBlock *CurBB, const Instruction *EndNode,
+      const Instruction *TargetNode, const SCC &CurSCC,
+      SmallPtrSet<const BasicBlock *, 8> &VisitedBBs) const;
 
   /// Returns true if there is live range overlap on SCC edges originating from
   /// \p Node.
