@@ -269,11 +269,15 @@ WRNScheduleKind VPOParoptUtils::getDistLoopScheduleKind(WRegionNode *W)
   return WRNScheduleDistributeStaticEven;
 }
 
-// Generate a call to set `num_teams` for the `teams` region. Example:
-// \code
-//  call void @__kmpc_push_num_teams(%ident_t* %loc, i32 %tid, i32 %ntms,
-//                                   i32 %nths)
-// \endcode
+/// This function generates a call to set num_teams and num_threads
+/// (from thread_limit clause) for the teams region.
+///
+/// \code
+/// call void @__kmpc_push_num_teams(ident_t *loc,
+///                                  kmp_int32 global_tid,
+///                                  kmp_int32 num_teams,
+///                                  kmp_int32 num_threads)
+/// \endcode
 CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
                                               StructType *IdentTy, Value *Tid,
                                               Value *NumTeams,
@@ -297,22 +301,29 @@ CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
-  Type *Int32Ty = Type::getInt32Ty(C);
-  Value *Zero = ConstantInt::get(Int32Ty, 0);
 
-  SmallVector<Value *, 3> FnArgs;
-  FnArgs.push_back(Loc);
-  FnArgs.push_back(Tid);
+  // Assert that we used the right type for internally created
+  // thread ID.
+  assert(Tid->getType()->isIntegerTy(32) &&
+         "Thread ID must be 4-byte integer.");
+
+  // Cast num_teams() and thread_limit() values to 4-byte integer.
+  // This has to be done by FE, but we can handle it here, if FE failed
+  // to insert a bitcast.
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Type::getInt32Ty(C);
+
   if (NumTeams)
-    FnArgs.push_back(NumTeams);
+    NumTeams = Builder.CreateSExtOrTrunc(NumTeams, Int32Ty);
   else
-    FnArgs.push_back(Zero);
+    NumTeams = ConstantInt::get(Int32Ty, 0);
 
   if (NumThreads)
-    FnArgs.push_back(NumThreads);
+    NumThreads = Builder.CreateSExtOrTrunc(NumThreads, Int32Ty);
   else
-    FnArgs.push_back(Zero);
+    NumThreads = ConstantInt::get(Int32Ty, 0);
 
+  SmallVector<Value *, 4> FnArgs {Loc, Tid, NumTeams, NumThreads};
   Type *RetTy = Type::getVoidTy(C);
 
   // Generate __kmpc_push_num_teams(loc, tid, num_teams, num_threads) in IR
