@@ -1326,9 +1326,11 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
       // Emit var without initialization.
       if (VD->isLocalVarDecl() && !LocalDeclMap.count(VD)) {
         auto VarEmission = EmitAutoVarAlloca(*VD);
-        if (CapturedStmtInfo && isOpenMPSimdDirective(D.getDirectiveKind()))
+        if (CapturedStmtInfo) {
+          CapturedStmtInfo->recordVariableDefinition(VD);
           CapturedStmtInfo->recordValueSuppression(
               VarEmission.Addr.getPointer());
+        }
         EmitAutoVarCleanups(VarEmission);
       }
     }

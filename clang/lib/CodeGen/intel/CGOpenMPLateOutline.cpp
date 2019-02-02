@@ -528,8 +528,7 @@ void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
 bool OpenMPLateOutliner::isIgnoredImplicit(const VarDecl *V) {
   if (!isImplicit(V))
     return false;
-  ImplicitClauseKind Kind = ImplicitMap[V];
-  return Kind == ICK_unknown || Kind == ICK_normalized_iv;
+  return ImplicitMap[V] == ICK_normalized_iv;
 }
 
 bool OpenMPLateOutliner::isImplicit(const VarDecl *V) {
@@ -1403,7 +1402,7 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
     auto *LoopDir = dyn_cast<OMPLoopDirective>(&D);
     for (auto *E : LoopDir->counters()) {
       auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-      if (isOpenMPSimdDirective(CurrentDirectiveKind))
+      if (CurrentDirectiveKind == OMPD_simd)
         ImplicitMap.insert(std::make_pair(PVD, ICK_unknown));
       else
         ImplicitMap.insert(std::make_pair(PVD, ICK_private));

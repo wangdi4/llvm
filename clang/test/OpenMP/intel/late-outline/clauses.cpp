@@ -1,7 +1,8 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline -O2 \
+// RUN: %clang_cc1 -disable-llvm-passes -emit-llvm -o - \
+// RUN:  -fopenmp -fopenmp-late-outline -O2 \
 // RUN:  -triple x86_64-unknown-linux-gnu %s \
 // RUN: | FileCheck %s --check-prefix OPT
 
@@ -157,6 +158,87 @@ void bar3()
   for (int i=0;i<16;++i) {
     static int st_b4;
     baz(st_b1+st_b4);
+  }
+}
+
+//CHECK-LABEL: bar4
+void bar4(float c0, float *Anext, const int nx)
+{
+  int j1,j2,j3;
+  //CHECK: [[J1:%j1.*]] = alloca i32,
+  //CHECK: [[J2:%j2.*]] = alloca i32,
+  //CHECK: [[J3:%j3.*]] = alloca i32,
+  //CHECK: [[I1:%i1.*]] = alloca i32,
+  //CHECK: [[I2:%i2.*]] = alloca i32,
+  //CHECK: [[I3:%i3.*]] = alloca i32,
+
+  //CHECK: region.entry() [ "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I1]])
+  //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I1]])
+  //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
+  //CHECK: "DIR.OMP.END.TARGET"
+  #pragma omp target map(alloc:Anext[0:nx])
+  #pragma omp parallel for
+  for(int i1=1;i1<nx-1;i1++) {
+    Anext[i1] = c0;
+  }
+  //CHECK: region.entry() [ "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I2]])
+  //CHECK-NOT: "DIR.OMP.SIMD"(){{.*}}"QUAL.OMP.PRIVATE"(i32* [[I2]])
+  //CHECK: "DIR.OMP.END.SIMD"
+  //CHECK: "DIR.OMP.END.TARGET"
+  #pragma omp target map(alloc:Anext[0:nx])
+  #pragma omp simd
+  for(int i2=1;i2<nx-1;i2++) {
+    Anext[i2] = c0;
+  }
+  //CHECK: region.entry() [ "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I3]])
+  //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I3]])
+  //CHECK-NOT: "DIR.OMP.SIMD"(){{.*}}"QUAL.OMP.PRIVATE"(i32* [[I3]])
+  //CHECK: "DIR.OMP.END.SIMD"
+  //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
+  //CHECK: "DIR.OMP.END.TARGET"
+  #pragma omp target map(alloc:Anext[0:nx])
+  #pragma omp parallel for simd
+  for(int i3=1;i3<nx-1;i3++) {
+    Anext[i3] = c0;
+  }
+  //CHECK: region.entry() [ "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J1]])
+  //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J1]])
+  //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
+  //CHECK: "DIR.OMP.END.TARGET"
+  #pragma omp target map(alloc:Anext[0:nx])
+  #pragma omp parallel for
+  for(j1=1;j1<nx-1;j1++) {
+    Anext[j1] = c0;
+  }
+  //CHECK: region.entry() [ "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J2]])
+  //CHECK: region.entry() [ "DIR.OMP.SIMD"()
+  //CHECK: "DIR.OMP.END.SIMD"
+  //CHECK: "DIR.OMP.END.TARGET"
+  #pragma omp target map(alloc:Anext[0:nx])
+  #pragma omp simd
+  for(j2=1;j2<nx-1;j2++) {
+    Anext[j2] = c0;
+  }
+  //CHECK: region.entry() [ "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J3]])
+  //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J3]])
+  //CHECK: region.entry() [ "DIR.OMP.SIMD"()
+  //CHECK: "DIR.OMP.END.SIMD"
+  //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
+  //CHECK: "DIR.OMP.END.TARGET"
+  #pragma omp target map(alloc:Anext[0:nx])
+  #pragma omp parallel for simd
+  for(j3=1;j3<nx-1;j3++) {
+    Anext[j3] = c0;
   }
 }
 // end INTEL_COLLAB
