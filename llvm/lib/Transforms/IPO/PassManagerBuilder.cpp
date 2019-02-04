@@ -178,7 +178,13 @@ static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
   cl::desc("Run VPO Vecopt Pass"));
 
-static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(false),
+// Switch to enable or disable all VPO related pre-loopopt passes
+static cl::opt<bool>
+    RunPreLoopOptVPOPasses("pre-loopopt-vpo-passes", cl::init(true), cl::Hidden,
+                           cl::desc("Run VPO passes before loopot"));
+
+// Set LLVM-IR VPlan driver pass to be enabled by default
+static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(true),
                                        cl::Hidden,
                                        cl::desc("Enable VPlan Driver"));
 
@@ -1428,13 +1434,6 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
     PM.add(createVPOParoptPass(RunVPOParopt, OptLevel));
   }
   #if INTEL_CUSTOMIZATION
-  // TODO: Temporary hook-up for VPlan VPO Vectorizer
-  if (EnableVPlanDriver && RunVec) {
-    PM.add(createLowerSwitchPass());
-    PM.add(createVPOCFGRestructuringPass());
-    PM.add(createVPlanDriverPass());
-  }
-
   // If vectorizer was required to run then cleanup any remaining directives
   // that were not removed by vectorizer. This applies to all optimization
   // levels since this function is called with RunVec=true in both pass
@@ -1449,6 +1448,15 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION // HIR passes
+
+void PassManagerBuilder::addVPOPassesPreLoopOpt(
+    legacy::PassManagerBase &PM) const {
+  PM.add(createLowerSwitchPass(true /*Only for SIMD loops*/));
+  // Add LCSSA pass before VPlan driver
+  PM.add(createLCSSAPass());
+  PM.add(createVPOCFGRestructuringPass());
+  PM.add(createVPlanDriverPass());
+}
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
   if (!DisableIntelProprietaryOpts &&
@@ -1611,12 +1619,17 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
     // harder, so run CSE here to do some clean-up before HIR construction.
     PM.add(createEarlyCSEPass());
   }
+
+  // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit SIMD
+  // loops
+  if (RunVPOOpt && RunPreLoopOptVPOPasses && EnableVPlanDriver)
+    addVPOPassesPreLoopOpt(PM);
+
   addLoopOptPasses(PM);
 
   // Process directives inserted by LoopOpt Autopar.
-  // Call with RunVec==true (2nd argument) to enable Vectorizer to catch
-  // any vec directives that loopopt might have missed; may change it to
-  // false in the future when loopopt is fully implemented.
+  // Call with RunVec==true (2nd argument) to cleanup any vec directives
+  // that loopopt and vectorizers might have missed.
   if (RunVPOOpt)
     addVPOPasses(PM, true);
 

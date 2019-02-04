@@ -45,7 +45,7 @@ extern char &InstructionNamerID;
 // LowerSwitch - This pass converts SwitchInst instructions into a sequence of
 // chained binary branch instructions.
 //
-FunctionPass *createLowerSwitchPass();
+FunctionPass *createLowerSwitchPass(bool FnWithSIMDLoopOnly = false); // INTEL
 extern char &LowerSwitchID;
 
 //===----------------------------------------------------------------------===//
