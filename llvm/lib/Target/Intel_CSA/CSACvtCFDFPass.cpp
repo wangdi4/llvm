@@ -732,10 +732,9 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
     // of 2**8-1==255 by the VISA.
     unsigned numTokens = std::min(255U, pipeliningDegree);
 
-    // ...and they're further limited to a maximum depth of 32 according to V1
-    // expectations, which is what the simulator is currently intepreting
-    // compiler output as.
-    numTokens = std::min(32U, numTokens);
+    // ...and they're further limited to a maximum depth of 64 according to V1
+    // expectations. This limit will seemingly be exposed to the vISA.
+    numTokens = std::min(64U, numTokens);
 
     assert(DFLoop.getNumExits() == 1 &&
       "Can only pipeline loops with single exit blocks");
