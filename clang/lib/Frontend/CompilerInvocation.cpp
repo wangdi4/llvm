@@ -2588,16 +2588,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
   Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);
-  // CQ371729: Incompatible name mangling.
-  Opts.GNUMangling =
-      Args.hasFlag(OPT_gnu_mangling_for_simd_types,
-                   OPT_no_gnu_mangling_for_simd_types, Opts.GNUMangling);
-  Opts.GNUFABIVersion = getLastArgIntValue(Args, OPT_gnu_fabi_version_EQ,
-                                           Opts.GNUFABIVersion, Diags);
-
-  // CQ382285: Emulate GNU ABI support exactly as icc does it.
-  if (Opts.GNUFABIVersion == 0)
-    Opts.EmulateGNUABIBugs = 0;
 
   Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode);
   // CQ376358: Support -ffriend-injection option.

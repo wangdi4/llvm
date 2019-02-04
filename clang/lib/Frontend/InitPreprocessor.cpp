@@ -575,20 +575,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__GNUC_MINOR__", "2");
     Builder.defineMacro("__GNUC_PATCHLEVEL__", "1");
     Builder.defineMacro("__GNUC__", "4");
-#if INTEL_CUSTOMIZATION
-    switch (LangOpts.GNUFABIVersion) {
-    case 0:
-      Builder.defineMacro("__GXX_ABI_VERSION", "999999");
-      break;
-    case 1:
-      Builder.defineMacro("__GXX_ABI_VERSION", "102");
-      break;
-    default:
-      Builder.defineMacro("__GXX_ABI_VERSION",
-                          llvm::itostr(1000 + LangOpts.GNUFABIVersion));
-      break;
-    }
-#endif
+    Builder.defineMacro("__GXX_ABI_VERSION", "1002");
   }
 
   // Define macros for the C11 / C++11 memory orderings

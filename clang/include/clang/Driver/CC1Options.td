@@ -795,13 +795,6 @@ def fargument_noalias : Flag<["-"], "fargument-noalias">,
 // CQ#373517,CQ#376357 - GCC option -fpermissive.
 def gnu_permissive : Flag<["-"], "gnu-permissive">,
   HelpText<"Turn on GNU -fpermissive mode">;
-// CQ371729: Incompatible name mangling.
-def gnu_mangling_for_simd_types : Flag<["--"], "gnu_mangling_for_simd_types">,
-  HelpText<"Turn on GNU mangling for vector types">;
-def no_gnu_mangling_for_simd_types : Flag<["--"], "no_gnu_mangling_for_simd_types">,
-  HelpText<"Turn off GNU mangling for vector types">;
-def gnu_fabi_version_EQ : Joined<["--"], "gnu_fabi_version=">,
-  HelpText<"Emulate GNU C++ABI version">;
 // CQ380574: Ability to set various predefines based on gcc version needed.
 def gnu_version_EQ : Joined<["--"], "gnu_version=">,
   HelpText<"Emulate GNU C++ version">;

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu --gnu_fabi_version=6 -std=c++0x -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -triple x86_64-unknown-linux-gnu -std=c++0x -emit-llvm -o - %s | FileCheck %s
 
 template <class... Args> int f(Args... args);
 
