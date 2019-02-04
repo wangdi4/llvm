@@ -26,6 +26,7 @@ add_llvm_library(LLVMipo
   Intel_IPCloning.cpp     # INTEL
   Intel_InlineLists.cpp   # INTEL
   Intel_OptimizeDynamicCasts.cpp    # INTEL
+  Intel_PartialInline.cpp           # INTEL
   Internalize.cpp
   LoopExtractor.cpp
   LowerTypeTests.cpp

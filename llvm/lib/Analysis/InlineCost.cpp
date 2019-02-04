@@ -3465,6 +3465,86 @@ static bool preferNotToInlineForRecProgressiveClone(Function *Callee) {
 }
 
 //
+// Return 'true' if 'Callee' is a function that is preferred to be
+// partially inlined over fully inlined. This function won't be inlined
+// since it is called from the function that is marked as
+// "prefer-partial-inline-inlined-clone". For example:
+//
+// define i1 @foo(%"struct.pov::Object_Struct"*) {
+//  %3 = icmp eq %"struct.pov::Object_Struct"* %0, null
+//  br i1 %3, label %12, label %4
+//
+// ; <label>:4:
+//  %5 = phi %"struct.pov::Object_Struct"* [ %9, %4 ], [ %0, %2 ]
+//  %6 = Some computation
+//  ...
+//  br i1 %11, label %4, label %12
+//
+// ; <label>:12:
+//  %13 = phi i1 [ true, %2 ], [ %6, %4 ]
+//  ret i1 %14
+// }
+//
+// The Intel partial inliner will create the following functions:
+//
+// define i1 @foo.1(%"struct::Object_Struct"*) {
+// ; <label>:2:
+//  %phitmp.loc = alloca i1
+//  %3 = icmp eq %"struct.pov::Object_Struct"* %0, null
+//  br i1 %3, label %6, label %4
+//
+// ; <label>:4:
+//  call void @foo.1.for.body(%"struct.pov::Object_Struct"* %0, i1*phitmp.loc)
+//  %phitmp.reload = load i1, i1* %phitmp.loc
+//  br label %6
+//
+// ; <label>:6:
+//  %7 = phi i1 [ true, %2 ], [ %phitmp.reload, %4 ]
+//  ret i1 %7
+// }
+//
+// define void @foo.1.for.body(%"struct::Object_Struct"*, i1* %phitmp.out) {
+// newFuncRoot:
+//  br label %for.body
+//
+// for.body.for.end_crit_edge.exitStub:
+//  ret void
+//
+// for.body:
+//  %5 = phi %"struct.pov::Object_Struct"* [ %9, %for.body ],
+//                                         [ 0, %newFuncRoot ]
+//  %6 = Some computation
+//  ...
+// %cmp = icmp eq %"struct.pov::Object_Struct"* %Var, null
+//   br i1 %cmp, label %for.body.for.end_crit_edge.exitStub, label %for.body
+// }
+//
+// All the calls to @foo will be replaced with @foo.1. The partial inliner will
+// set the attribute 'prefer-partial-inline-outlined-func' on @foo.1.for.body
+// and 'prefer-partial-inline-inlined-clone' on @foo.1. The inliner will fully
+// inline @foo.1 and won't inline @foo.1.for.body. This creates the partial
+// inlining of @foo based on the argument %1.
+//
+// In the example mentioned above, this function will return true for
+// @foo.1.for.body since it is the function marked as
+// 'prefer-partial-inline-outlined-func'.
+//
+static bool preferPartialInlineOutlinedFunc(Function *Callee) {
+  return Callee && Callee->hasFnAttribute(
+    "prefer-partial-inline-outlined-func");
+}
+
+//
+// Return 'true' if 'Callee' is marked as
+// 'prefer-partial-inline-inlined-clone'. Refer to the example in
+// preferPartialInlineOutlinedFunc. This function will return true for @foo.1.
+//
+static bool preferPartialInlineInlinedClone(Function *Callee) {
+  return Callee && Callee->hasFnAttribute(
+    "prefer-partial-inline-inlined-clone");
+}
+
+//
 // Return 'true' if the CallSites of 'Caller' should not be inlined because
 // we are in the 'PrepareForLTO' compile phase and delaying the inlining
 // decision until the link phase will let us more easily decide whether to
@@ -3687,6 +3767,11 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
     *ReasonAddr = NinlrDelayInlineDecision;
     return false;
   }
+  if (InlineForXmain &&
+      preferPartialInlineOutlinedFunc(CS.getCalledFunction())) {
+    *ReasonAddr = NinlrPreferPartialInline;
+    return false;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Give out bonuses for the callsite, as the instructions setting them up
@@ -3751,6 +3836,9 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
       if (worthInliningForRecProgressiveClone(&F)) {
         Cost -= InlineConstants::DeepInliningHeuristicBonus;
         YesReasonVector.push_back(InlrRecProClone);
+      }
+      if (preferPartialInlineInlinedClone(&F)) {
+        YesReasonVector.push_back(InlrPreferPartialInline);
       }
     }
   }

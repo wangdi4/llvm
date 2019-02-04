@@ -84,10 +84,11 @@
 #include "llvm/Transforms/IPO/HotColdSplitting.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
-#include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
+#include "llvm/Transforms/IPO/Intel_PartialInline.h" // INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/PartialInlining.h"
@@ -326,6 +327,11 @@ static cl::opt<bool>
 static cl::opt<bool> EnableDTrans("enable-npm-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
+
+// Partial inlining for simple functions
+static cl::opt<bool>
+    EnableIntelPI("enable-npm-intel-pi", cl::init(true), cl::Hidden,
+                cl::desc("Enable the partial inlining for simple functions"));
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1315,6 +1321,17 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(PeepholeFPM)));
 
 #if INTEL_CUSTOMIZATION
+
+#if INTEL_INCLUDE_DTRANS
+  bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
+#else
+  bool EnableIntelPartialInlining = false;
+#endif // INTEL_INCLUDE_DTRANS
+
+  // Partially inline small functions
+  if (EnableIntelPartialInlining)
+    MPM.addPass(IntelPartialInlinePass());
+
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());
   if (EnableAndersen) {
@@ -1325,6 +1342,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
     MPM.addPass(createModuleToFunctionPassAdaptor(
         IndirectCallConvPass(true /* EnableAndersen */,
                              false /* EnableDTrans */)));
+
   // Require the InlineAggAnalysis for the module so we can query it within
   // the inliner and AggInlAAPass.
   if (EnableInlineAggAnalysis) {
