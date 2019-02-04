@@ -624,6 +624,13 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
         }
   if (StartPhi == nullptr) {
     // The phi was not found. That means we have an explicit reduction.
+    if (!Start) {
+      // Reduction variable is not used inside the loop. Stop importing.
+      // TODO: This check should be removed after alias analysis replacement is
+      // implemented.
+      setImporting(false);
+      return;
+    }
     assert(isa<VPExternalDef>(Start) && "Reduction is not properly defined");
     Start = findMemoryUses(Start, Loop);
   } else if (Start == nullptr) {

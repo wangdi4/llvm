@@ -782,8 +782,14 @@ void VPDecomposerHIR::getOrCreateVPDefsForUse(
     VPDefs.push_back(Plan->getVPMetadataAsValue(MDAsValue));
 
   // Process external definitions. Add live-in definition only if it is valid.
-  if (isExternalDef(UseDDR) && useLiveInDef(UseDDR, DDG))
-    VPDefs.push_back(Plan->getVPExternalDefForDDRef(UseDDR));
+  if (isExternalDef(UseDDR) && useLiveInDef(UseDDR, DDG)) {
+    VPExternalDef *ExtDef = Plan->getVPExternalDefForDDRef(UseDDR);
+    VPDefs.push_back(ExtDef);
+    // If UseDDR represents an external definition then update the corresponding
+    // HIRLegality descriptor (linear/reduction), if any, that it is being
+    // directly used inside the loop.
+    HIRLegality.recordPotentialSIMDDescrUse(UseDDR);
+  }
 
   // Process definitions coming from incoming DD edges. At this point, all
   // the sources of the incoming edges of UseDDR must have an associated
@@ -1545,6 +1551,11 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
   // Set NewVPInst as master VPInstruction of any decomposed VPInstruction
   // resulting from decomposing its operands.
   setMasterForDecomposedVPIs(NewVPInst, LastVPIBeforeDec, InsPointVPBB);
+
+  // If this Node is a HLInst, check if it potentially updates any HIRLegality's
+  // SIMD descriptors (linear/reduction).
+  if (auto *HInst = dyn_cast<HLInst>(Node))
+    HIRLegality.recordPotentialSIMDDescrUpdate(HInst);
 
   // Set the underlying HIR of the new VPInstruction (and its potential
   // decomposed VPInstructions) to valid.

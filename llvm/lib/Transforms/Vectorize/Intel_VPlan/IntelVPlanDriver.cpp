@@ -843,6 +843,9 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   // Send explicit data from WRLoop to the Legality.
   LVP.EnterExplicitData(WRLp, HIRVecLegal);
+  // Find any DDRefs in loop pre-header that are aliases to the descriptor
+  // variables
+  HIRVecLegal.findAliasDDRefs(WRLp->getEntryHLNode(), HLoop);
 
   // Setup the use of new predicator in the planner if user has not disabled
   // the same.

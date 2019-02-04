@@ -14,8 +14,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANDECOMPOSERHIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANDECOMPOSERHIR_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "IntelVPlanBuilderHIR.h"
+#include "IntelVPlanHCFGBuilderHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
@@ -80,7 +80,10 @@ private:
   // Holds lists of induction descriptors, grouped by HLLoop.
   VPLoopInductionsHIRMap Inductions;
 
-   // A map to track empty VPPhi nodes that are added during decomposition. We
+  // HIR legality object
+  HIRVectorizationLegality &HIRLegality;
+
+  // A map to track empty VPPhi nodes that are added during decomposition. We
   // know that there can be only one unique PHI node per VPBasicBlock for a
   // given Symbase (corresponding to the sink DDRef). Currently we are also
   // storing the sink DDRef that triggered the placement of this VPPhi node, but
@@ -139,7 +142,7 @@ private:
 
   void addIDFPhiNodes();
 
- // Methods to create VPInstructions out of an HLNode.
+  // Methods to create VPInstructions out of an HLNode.
   bool isExternalDef(loopopt::DDRef *UseDDR);
   unsigned getNumReachingDefinitions(loopopt::DDRef *UseDDR);
   void setMasterForDecomposedVPIs(VPInstruction *MasterVPI,
@@ -211,8 +214,9 @@ private:
 
 public:
   VPDecomposerHIR(VPlan *P, const loopopt::HLLoop *OHLp,
-                  const loopopt::DDGraph &DDG)
-      : Plan(P), OutermostHLp(OHLp), DDG(DDG){};
+                  const loopopt::DDGraph &DDG,
+                  HIRVectorizationLegality &HIRLegality)
+      : Plan(P), OutermostHLp(OHLp), DDG(DDG), HIRLegality(HIRLegality){};
 
   /// Create VPInstructions for the incoming \p Node and insert them into \p
   /// InsPointVPBB. \p Node will be decomposed into several VPInstructions if
@@ -248,7 +252,13 @@ public:
     return Plan->getVPConstant(CVal);
   }
 
-  /// Return indcution list.
+  VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *Ref) {
+    assert(isExternalDef(Ref) &&
+           "DDRef is not externally defined for the loop.");
+    return Plan->getVPExternalDefForDDRef(Ref);
+  }
+
+  /// Return induction list.
   VPInductionHIRList &getInductions(const loopopt::HLLoop *L) {
     return *(Inductions[L]);
   }

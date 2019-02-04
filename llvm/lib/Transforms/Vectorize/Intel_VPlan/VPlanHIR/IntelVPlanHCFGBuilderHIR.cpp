@@ -65,6 +65,178 @@
 using namespace llvm;
 using namespace vpo;
 
+/// Check if the incoming \p Ref matches the original SIMD descriptor DDRef \p
+/// DescrRef
+static bool isSIMDDescriptorDDRef(RegDDRef *DescrRef, DDRef *Ref) {
+  assert(DescrRef->isAddressOf() &&
+         "Original SIMD descriptor ref is not address of type.");
+
+  // Since we know descriptor ref is always address of type, set address-of to
+  // false for equality check. Reset to true after check.
+  DescrRef->setAddressOf(false);
+  if (DescrRef->getDDRefUtils().areEqual(DescrRef, Ref)) {
+    DescrRef->setAddressOf(true);
+    return true;
+  }
+
+  DescrRef->setAddressOf(true);
+
+  // Special casing for incoming Ref of the form %s which was actually the Base
+  // CE of the memref %s[0]
+  CanonExpr *DescrRefCE = DescrRef->getBaseCE();
+  if (auto *BDDR = dyn_cast<BlobDDRef>(Ref)) {
+    CanonExpr *RefCE = BDDR->getSingleCanonExpr();
+    if (DescrRefCE->getCanonExprUtils().areEqual(DescrRefCE, RefCE))
+      return true;
+  }
+
+  return false;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HIRVectorizationLegality::dump(raw_ostream &OS) const {
+  OS << "HIRLegality Descriptor Lists\n";
+  OS << "\n\nHIRLegality PrivateList:\n";
+  for (auto &Pvt : PrivateList) {
+    Pvt.dump();
+    OS << "\n";
+  }
+  OS << "\n\nHIRLegality LinearList:\n";
+  for (auto &Lin : LinearList) {
+    Lin.dump();
+    OS << "\n";
+  }
+  OS << "\n\nHIRLegality ReductionList:\n";
+  for (auto &Red : ReductionList) {
+    Red.dump();
+    OS << "\n";
+  }
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+template <typename DescrType>
+DescrType *HIRVectorizationLegality::findDescr(SmallVectorImpl<DescrType> &List,
+                                               DDRef *Ref) {
+  for (auto &Descr : List) {
+    DescrType *CurrentDescr = &Descr;
+    assert(isa<RegDDRef>(CurrentDescr->Ref) &&
+           "The original SIMD descriptor Ref is not a RegDDRef.");
+    if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->Ref), Ref))
+      return CurrentDescr;
+
+    // Check if Ref matches any aliases of current descriptor's ref
+    if (CurrentDescr->Aliases.count(Ref))
+      return CurrentDescr;
+  }
+
+  return nullptr;
+}
+
+void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
+
+  DescrWithAliases *Descr = getLinearRednDescriptors(Ref);
+
+  // If Ref does not correspond to linear/reduction then nothing to do
+  if (!Descr)
+    return;
+
+  assert(isa<RegDDRef>(Descr->Ref) &&
+         "The original SIMD descriptor Ref is not a RegDDRef.");
+  if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->Ref), Ref)) {
+    // Ref refers to the original descriptor
+    // TODO: should we assert that InitVPValue is not set already?
+    Descr->InitValue = Ref;
+  } else {
+    // Ref is an alias to the original descriptor
+    auto AliasIt = Descr->Aliases.find(Ref);
+    assert(AliasIt != Descr->Aliases.end() && "Alias not found.");
+    DescrValues *Alias = AliasIt->second.get();
+    Alias->InitValue = Ref;
+  }
+}
+
+void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
+    HLInst *UpdateInst) {
+  RegDDRef *Ref = UpdateInst->getLvalDDRef();
+
+  // Instruction does not write into any LVal, bail out of analysis
+  if (!Ref)
+    return;
+
+  DescrWithAliases *Descr = getLinearRednDescriptors(Ref);
+
+  // If Ref does not correspond to linear/reduction then nothing to do
+  if (!Descr)
+    return;
+
+  assert(isa<RegDDRef>(Descr->Ref) &&
+         "The original SIMD descriptor Ref is not a RegDDRef.");
+  if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->Ref), Ref)) {
+    // Ref refers to the original descriptor
+    Descr->UpdateInstructions.push_back(UpdateInst);
+  } else {
+    // Ref is an alias to the original descriptor
+    auto AliasIt = Descr->Aliases.find(Ref);
+    assert(AliasIt != Descr->Aliases.end() && "Alias not found.");
+    DescrValues *Alias = AliasIt->second.get();
+    Alias->UpdateInstructions.push_back(UpdateInst);
+  }
+}
+
+void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
+                                               HLLoop *HLoop) {
+
+  // Container to collect all nodes that are present before HLoop to process for
+  // potential aliases
+  SmallVector<HLNode *, 8> PreLoopNodes;
+
+  // Collect nodes between the SIMD clause directive and the HLLoop node
+  HLNode *CurNode = ClauseNode;
+  while (auto *NextNode = CurNode->getNextNode()) {
+    if (NextNode == HLoop)
+      break;
+
+    LLVM_DEBUG(dbgs() << "PreHLLoop node: "; NextNode->dump(););
+    PreLoopNodes.push_back(NextNode);
+    CurNode = NextNode;
+  }
+
+  // Collect nodes present in HLLoop's preheader
+  for (auto &Pre : make_range(HLoop->pre_begin(), HLoop->pre_end())) {
+    LLVM_DEBUG(dbgs() << "Preheader node: "; Pre.dump(););
+    PreLoopNodes.push_back(&Pre);
+  }
+
+  // Process all pre-loop nodes
+  for (HLNode *PLN : PreLoopNodes) {
+    // Evaluate Rvals of only HLInsts in the pre-loop nodes
+    if (auto *HInst = dyn_cast<HLInst>(PLN)) {
+      RegDDRef *RVal = HInst->getRvalDDRef();
+
+      // If there is no RVal ignore node
+      if (!RVal)
+        continue;
+
+      // Check if RVal is any of explicit SIMD descriptors
+      DescrWithAliases *Descr = isPrivate(RVal);
+      if (Descr == nullptr)
+        Descr = isLinear(RVal);
+      if (Descr == nullptr)
+        Descr = isReduction(RVal);
+
+      // RVal is not a SIMD descriptor, move to next HLInst
+      if (Descr == nullptr)
+        continue;
+
+      LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
+                 RVal->dump(); dbgs() << "\n");
+      RegDDRef *LVal = HInst->getLvalDDRef();
+      assert(LVal && "HLInst in the preheader does not have an Lval.");
+      Descr->Aliases[LVal] = llvm::make_unique<DescrValues>(LVal);
+    }
+  }
+}
+
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
 // VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's of
 // the plain CFG.
@@ -128,9 +300,10 @@ private:
 
 public:
   PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlan *Plan,
-                     SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp)
+                     SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp,
+                     HIRVectorizationLegality *HIRLegality)
       : TheLoop(Lp), Plan(Plan), Header2HLLoop(H2HLLp),
-        Decomposer(Plan, Lp, DDG) {}
+        Decomposer(Plan, Lp, DDG, *HIRLegality) {}
 
   /// Build a plain CFG for an HLLoop loop nest. Return the TopRegion containing
   /// the plain CFG.
@@ -708,8 +881,8 @@ public:
 
   void operator()(InductionDescr &Descriptor,
                   const LinearList::value_type &CurrValue) {
-    Type *IndTy = CurrValue.first->getDestType();
-    HLDDNode *HLNode = CurrValue.first->getHLDDNode();
+    Type *IndTy = CurrValue.Ref->getDestType();
+    HLDDNode *HLNode = CurrValue.Ref->getHLDDNode();
     Descriptor.setStartPhi(
         dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HLNode)));
     if (IndTy->isIntegerTy())
@@ -721,7 +894,7 @@ public:
       Descriptor.setKind(InductionDescriptor::IK_FpInduction);
     }
     Descriptor.setStart(Descriptor.getStartPhi());
-    int64_t Stride = CurrValue.second->getSingleCanonExpr()->getConstant();
+    int64_t Stride = CurrValue.Step->getSingleCanonExpr()->getConstant();
     Constant *Cstep = nullptr;
     if (IndTy->isPointerTy()) {
       Type *PointerElementType = IndTy->getPointerElementType();
@@ -729,7 +902,7 @@ public:
       // not sized.
       assert(PointerElementType->isSized() &&
              "Can't determine size of pointed-to type");
-      const DataLayout &DL = CurrValue.first->getDDRefUtils().getDataLayout();
+      const DataLayout &DL = CurrValue.Ref->getDDRefUtils().getDataLayout();
       int64_t Size =
           static_cast<int64_t>(DL.getTypeAllocSize(PointerElementType));
       assert(Size && "Can't determine size of pointed-to type");
@@ -772,15 +945,37 @@ class ExplicitReductionListCvt : public VPEntityConverterBase {
 public:
   ExplicitReductionListCvt(VPDecomposerHIR &Decomp) : VPEntityConverterBase(Decomp) {}
 
-  /// Fill in the data from list of auto-recognized reductions
+  /// Fill in the data from list of explicit reductions
   void operator()(ReductionDescr &Descriptor,
                   const ExplicitReductionList::value_type &CurrValue) {
-    Type *RType = CurrValue.DDRef->getDestType();
-    HLDDNode *HLNode = CurrValue.DDRef->getHLDDNode();
-    Descriptor.setExit(
-        dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HLNode)));
+    Type *RType = CurrValue.Ref->getDestType();
+    assert(isa<PointerType>(RType) &&
+           "SIMD reduction descriptor DDRef is not pointer type.");
+    // Get pointee type of descriptor ref
+    RType = cast<PointerType>(RType)->getElementType();
+    // TODO: Copy HIRLegality descriptor's UpdateInsts to tmp descriptor
+    // Descriptor.UpdateVPInsts = ExplicitRedCurrent->UpdateInsts;
+    // Set start value of descriptor (can be null)
+    Descriptor.setStart(
+        CurrValue.InitValue
+            ? Decomposer.getVPExternalDefForDDRef(CurrValue.InitValue)
+            : nullptr);
+
+    if (HIRVectorizationLegality::DescrValues *Alias =
+            CurrValue.getValidAlias()) {
+      // TODO
+      // Descriptor.setAlias(Alias->InitVPValue, Alias->UpdateVPInsts);
+      (void)Alias;
+    }
+
+    // NOTE: Exit is not set here, it is identified based on some analysis in
+    // Phase 2
+    Descriptor.setExit(nullptr);
+    // AI will refer to the ExternalDef (start value) of the original descriptor
+    // (can be null if its not used inside loop)
+    Descriptor.setAllocaInst(Descriptor.getStart());
+
     Descriptor.setStartPhi(nullptr);
-    Descriptor.setStart(Descriptor.getExit());
     Descriptor.setKind(CurrValue.Kind);
     Descriptor.setMinMaxKind(CurrValue.MMKind);
     // In the directive, we have the kinds always set as for integers. Need to
@@ -801,7 +996,6 @@ public:
     }
     Descriptor.setRecType(RType);
     Descriptor.setSigned(CurrValue.IsSigned);
-    Descriptor.setAllocaInst(Descriptor.getExit());
     Descriptor.setLinkPhi(nullptr);
   }
 };
@@ -873,10 +1067,10 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     InductionListCvt InducListCvt(Decomposer);
     auto InducPair = std::make_pair(InducRange, InducListCvt);
 
-    const LinearList *LL = Legal->getLinears();
+    const LinearList &LL = Legal->getLinears();
 #if 1
     // TODO: remove after correction of descriptor translation (see
-    iterator_range<LinearList::const_iterator> LinearRange(LL->end(), LL->end());
+    iterator_range<LinearList::const_iterator> LinearRange(LL.end(), LL.end());
 #else
     iterator_range<LinearList::const_iterator> LinearRange(LL->begin(), LL->end());
 #endif
@@ -888,13 +1082,11 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     ReductionListCvt RedListCvt(Decomposer);
     auto ReducPair = std::make_pair(ReducRange, RedListCvt);
 
-    const ExplicitReductionList *ERL = Legal->getReductions();
-#if 1
-    // TODO: enable after correction of descriptor translation (see
-    iterator_range<ExplicitReductionList::const_iterator> ExplRedRange(ERL->end(), ERL->end());
-#else
-    iterator_range<ExplicitReductionList::const_iterator> ExplRedRange(ERL->begin(), ERL->end());
-#endif
+    const ExplicitReductionList &ERL = Legal->getReductions();
+
+    iterator_range<ExplicitReductionList::const_iterator> ExplRedRange(
+        ERL.begin(), ERL.end());
+
     ExplicitReductionListCvt ExplRedCvt(Decomposer);
     auto ExplRedPair = std::make_pair(ExplRedRange, ExplRedCvt);
 
@@ -907,7 +1099,8 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
 
 VPRegionBlock *
 VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
-  PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, Plan, Header2HLLoop);
+  PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, Plan, Header2HLLoop,
+                                 HIRLegality);
   VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
   if (LoopEntityImportEnabled)
     PCFGBuilder.convertEntityDescriptors(HIRLegality, CvtVec);
@@ -916,6 +1109,9 @@ VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
 
 void VPlanHCFGBuilderHIR::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
   typedef VPLoopEntitiesConverterTempl<HLLoop2VPLoopMapper> BaseConverter;
+
+  // The HIRLegality lists should be populated by now
+  LLVM_DEBUG(HIRLegality->dump());
 
   HLLoop2VPLoopMapper Mapper(Plan, Header2HLLoop);
   for (auto &Cvt : Cvts) {
