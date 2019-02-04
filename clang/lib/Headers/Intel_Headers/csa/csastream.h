@@ -28,7 +28,7 @@
 namespace csa
 {
   template<typename T, int depth = 0, int pref_depth = 0>
-  class Stream {
+  class stream {
     int identifier;
   public:
     __attribute__((always_inline))
