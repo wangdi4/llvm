@@ -253,6 +253,7 @@ set( BACKEND_PASSES
     SubGroupAdaptation
     LinearIdResolver
     Materialize
+    ResolveBlockToStaticCall
     PatchCallbackArgs
     SinCosFold
     SmartGVN
