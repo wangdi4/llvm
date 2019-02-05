@@ -745,6 +745,9 @@ bool CSAStreamingMemoryImpl::attemptWide(StreamingMemoryDetails &A,
   Loop *L = LI.getLoopFor(BB);
   const SCEV *ExecCount = ExecCounts[BB];
 
+  // Double the length for each of the inputs.
+  ExecCount = SE.getAddExpr(ExecCount, ExecCount);
+
   // Generate the base and length values for the stream
   Instruction *DeloopedIP = L->getLoopPreheader()->getTerminator();
   IRBuilder<> Builder(DeloopedIP);
