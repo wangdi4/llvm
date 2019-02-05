@@ -179,6 +179,11 @@ Value* getOpenCLReadWriteChannelAlloc(const CallInst *Call);
 
 /// \brief Returns a string representation of Type \p Ty.
 std::string typeToString(Type *Ty);
+
+/// \brief Returns true if \p VFnName is a SVML vector function for a given
+/// vectorizable scalar function \p FnName.
+bool isSVMLFunction(TargetLibraryInfo *TLI, StringRef FnName,
+                    StringRef VFnName);
 #endif // INTEL_CUSTOMIZATION
 
 /// Compute the union of two access-group lists.

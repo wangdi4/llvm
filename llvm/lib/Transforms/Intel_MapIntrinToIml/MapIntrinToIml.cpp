@@ -320,6 +320,7 @@ void MapIntrinToIml::generateMathLibCalls(
       *InsertPt = ArgInst;
     }
     CallInst *NewCI = CallInst::Create(Func, Args[I], "vcall");
+    NewCI->setCallingConv(CallingConv::SVML);
     NewCI->insertAfter(*InsertPt);
     Calls.push_back(NewCI);
     *InsertPt = NewCI;
@@ -1058,6 +1059,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
                                           InsertPt);
 
         CallInst *NewCI = CallInst::Create(FCache, NewArgs, "vcall");
+        NewCI->setCallingConv(CallingConv::SVML);
         Instruction *CallResult = NewCI;
         NewCI->insertBefore(InsertPt);
 

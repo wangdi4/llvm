@@ -681,6 +681,11 @@ std::string llvm::typeToString(Type *Ty) {
   llvm_unreachable("Unsupported type for converting type to string");
 }
 
+bool llvm::isSVMLFunction(TargetLibraryInfo *TLI, StringRef FnName,
+                          StringRef VFnName) {
+  return TLI->isFunctionVectorizable(FnName) && VFnName.startswith("__svml_");
+}
+
 Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
                                           SmallVectorImpl<Type*> &ArgTys,
                                           TargetLibraryInfo *TLI,

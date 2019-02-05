@@ -3018,6 +3018,10 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   // SVML calls for precision.
   VecCall->setAttributes(Call->getAttributes());
 
+  // Set calling convention for SVML function calls
+  if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
+    VecCall->setCallingConv(CallingConv::SVML);
+
   Loop *Lp = LI->getLoopFor(Call->getParent());
   analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
 

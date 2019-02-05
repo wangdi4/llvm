@@ -1090,6 +1090,13 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
       // analyzeCallArgMemoryReferences(HInst, WideCall, CallArgs);
     }
 
+    // Set calling conventions for SVML function calls
+    if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
+      Instruction *WideInst =
+          const_cast<Instruction *>(WideCall->getLLVMInstruction());
+      cast<CallInst>(WideInst)->setCallingConv(CallingConv::SVML);
+    }
+
     InstsToRemove.push_back(HInst);
 
     if (auto LvalDDRef = HInst->getLvalDDRef()) {
@@ -2195,6 +2202,11 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
     // attributes are taken from call sites in MapIntrinToIml to refine
     // SVML calls for precision.
     cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
+
+    // Set calling conventions for SVML function calls
+    if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
+      cast<CallInst>(Inst)->setCallingConv(CallingConv::SVML);
+    }
 
     if (FnName.find("sincos") != StringRef::npos) {
       analyzeCallArgMemoryReferences(INode, WideInst, CallArgs);

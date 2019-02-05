@@ -11,7 +11,7 @@
 ; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; Check to see that the main vector loop was vectorized with svml
-; CHECK: call void @__svml_sincosf4_mask
+; CHECK: call svml_cc void @__svml_sincosf4_mask
 
 ; Check to see that the remainder loop broadcasts the call arguments and uses svml to match the main vector loop.
 ; CHECK-LABEL: {{then.[0-9]+}}:
@@ -24,7 +24,7 @@
 ; CHECK-NEXT: load float*
 ; CHECK-NEXT: insertelement <4 x float*>
 ; CHECK-NEXT: shufflevector <4 x float*>
-; CHECK-NEXT: call void @__svml_sincosf4
+; CHECK-NEXT: call svml_cc void @__svml_sincosf4
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
