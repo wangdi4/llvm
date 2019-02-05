@@ -1045,6 +1045,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genDestructorCode(W);
             Changed |= genMultiThreadedCode(W);
           }
+          Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
         }
         break;
@@ -1102,6 +1103,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genRedCodeForTaskGeneric(W);
           Changed |= genTaskGenericCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                         LBPtr, UBPtr, STPtr);
+          Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
         }
         break;
@@ -1249,6 +1251,7 @@ bool VPOParoptTransform::paroptTransforms() {
             if (!W->getIsDistribute() && !W->getNowait())
               Changed |= genBarrier(W, false);
           }
+          Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
         }
         break;
@@ -3278,6 +3281,99 @@ AllocaInst *VPOParoptTransform::genRegionLocalCopy(WRegionNode *W, Value *V) {
   genFprivInit(&FprivI, PrivInitEntryBB->getTerminator());
 
   return NewAlloca;
+}
+
+bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
+  // Check if there is a child SIMD region associated with
+  // this region's loop.
+  WRNVecLoopNode *SimdNode = WRegionUtils::getEnclosedSimdForSameLoop(W);
+
+  if (!SimdNode)
+    return false;
+
+  // The lambda looks for OpenMP directive call inside the given
+  // block. If found, it returns the call instruction,
+  // nullptr - otherwise.
+  auto FindDirectiveCall = [](BasicBlock *BB) -> Instruction * {
+    auto DirI =
+        std::find_if(BB->begin(), BB->end(),
+                     [](Instruction &I) {
+                       return VPOAnalysisUtils::isRegionDirective(&I);
+                     });
+
+    return (DirI != BB->end()) ? &*DirI : nullptr;
+  };
+
+  // Look for a directive call in the SIMD region's entry block.
+  auto *EntryBB = SimdNode->getEntryBBlock();
+  auto *EntryDir = FindDirectiveCall(EntryBB);
+
+  // Look for a directive call in the SIMD region's exit block.
+  auto *ExitBB = SimdNode->getExitBBlock();
+  auto *ExitDir = FindDirectiveCall(ExitBB);
+
+  if (!EntryDir && !ExitDir)
+    // The SIMD region must have been removed.
+    return false;
+
+  // If the SIMD region was not removed, we must be able
+  // to find both region's entry and exit directives.
+  assert(EntryDir && ExitDir && "Malformed SIMD region.");
+
+  // Find the loop's exit block, and find or create the loop's
+  // pre-header block.
+  bool Changed = false;
+  auto *L = SimdNode->getWRNLoopInfo().getLoop();
+  assert(L == W->getWRNLoopInfo().getLoop() &&
+         "Mismatched loops for region and its SIMD child.");
+
+  auto *LoopExitBB = WRegionUtils::getOmpExitBlock(L);
+  assert(LoopExitBB && "SIMD loop with no exit block.");
+
+  auto *PreheaderBB = L->getLoopPreheader();
+  if (!PreheaderBB) {
+    // Insert a pre-header.
+    // FIXME: pass false for PreserveLCSSA for the time being.
+    //        Pass the actual value, when it is clear, how
+    //        to compute it with the new pass manager.
+    PreheaderBB = InsertPreheaderForLoop(L, DT, LI, false);
+    Changed = true;
+  }
+
+  assert(PreheaderBB && "Pre-header insertion failed for SIMD loop.");
+
+  if (PreheaderBB != EntryBB) {
+    // Move the directive calls from the SIMD region's entry block
+    // to the loop's pre-header block.
+#ifndef NDEBUG
+    // Before moving directives into the pre-header, verify that
+    // the pre-header block does not contain other directives.
+    // If it does, moving SIMD directives into this block will
+    // break the assumption that a block may contain only
+    // one set of directives.
+    assert(!FindDirectiveCall(PreheaderBB) &&
+           "Pre-header block already contains directives.");
+#endif  // NDEBUG
+    PreheaderBB->getInstList().splice(
+        PreheaderBB->getTerminator()->getIterator(), EntryBB->getInstList(),
+        EntryDir->getIterator(), ++(EntryDir->getIterator()));
+    Changed = true;
+  }
+
+  if (LoopExitBB != ExitBB) {
+    // Move the directive calls from the SIMD region's exit block
+    // to the loop's exit block.
+#ifndef NDEBUG
+    assert(!FindDirectiveCall(LoopExitBB) &&
+           "Loop exit block already contains directives.");
+#endif  // NDEBUG
+    LoopExitBB->getInstList().splice(LoopExitBB->begin(), ExitBB->getInstList(),
+                                     ExitDir->getIterator(),
+                                     ++(ExitDir->getIterator()));
+    Changed = true;
+  }
+
+  return Changed;
 }
 
 // Transform the Ith level of the loop in the region W into the

@@ -992,6 +992,26 @@ private:
   /// it to have non-POD type neither expect it to be By-Ref.
   AllocaInst *genRegionLocalCopy(WRegionNode *W, Value *V);
 
+  /// \brief Move SIMD directives next to the loop associated
+  /// with the given OpenMP loop region \p W.
+  ///
+  /// \p W is an OpenMP loop region.  If this method finds
+  /// a SIMD region, which is a child of \p W, then it moves
+  /// the corresponding SIMD directive next to the loop.
+  /// After code generation for \p W, the enclosed SIMD
+  /// directives may become too distant from the loop itself,
+  /// which prevents correct handling of the SIMD loop by the later
+  /// passes.  This method helps to solve these problems.
+  ///
+  /// Note that the enclosed SIMD region will be in inconsistent
+  /// state after this method moves the directives, in particular,
+  /// the original entry/exit blocks of the SIMD region will no longer
+  /// hold the SIMD directives.  This should not be a problem,
+  /// as long as we process regions from children to parents.
+  /// If we ever need to keep the SIMD region in consistent state,
+  /// we have to be able to update the region's entry/exit blocks.
+  bool sinkSIMDDirectives(WRegionNode *W);
+
   /// \brief Transform the given OMP loop into the loop as follows.
   ///         do {
   ///             %omp.iv = phi(%omp.lb, %omp.inc)
