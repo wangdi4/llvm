@@ -17,6 +17,7 @@
 
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelLoopVectorizationCodeGen.h"
+#include "IntelNewVPlanPredicator.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanPredicator.h"
@@ -52,6 +53,11 @@ static cl::opt<unsigned> VPlanForceVF(
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
+
+cl::opt<bool>
+    EnableNewVPlanPredicator("enable-new-vplan-predicator", cl::init(false),
+                             cl::Hidden,
+                             cl::desc("Enable New VPlan predicator."));
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -348,8 +354,14 @@ void LoopVectorizationPlanner::predicate() {
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
-    VPlanPredicator VPP(VPlan);
-    VPP.predicate();
+    if (EnableNewVPlanPredicator) {
+      NewVPlanPredicator VPP(*VPlan);
+      VPP.predicate();
+    } else {
+      VPlanPredicator VPP(VPlan);
+      VPP.predicate();
+    }
+
     PredicatedVPlans.insert(VPlan);
   }
 }

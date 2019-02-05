@@ -760,7 +760,9 @@ public:
   // proper Phi nodes. At this point, we can find semi-phis at any point of the
   // VPBasicBlock and even redundant semi-phis blending exactly the same
   // definitions.
-  enum { Not = Instruction::OtherOpsEnd + 1, SemiPhi, SMax, UMax, };
+  enum {
+      Not = Instruction::OtherOpsEnd + 1, AllZero, Pred, SemiPhi, SMax, UMax,
+  };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
 #endif
@@ -1493,6 +1495,9 @@ private:
   /// holds a predicate for a VPBlock.
   VPPredicateRecipeBase *PredicateRecipe = nullptr;
 
+  /// Current block predicate - null if the block does not need a predicate.
+  VPValue *Predicate = nullptr;
+
 #if INTEL_CUSTOMIZATION
 public:
 #endif
@@ -1559,6 +1564,7 @@ public:
   /// recursively, if the latter is a VPRegionBlock. Otherwise, if this
   /// VPBlockBase is a VPBasicBlock, it is returned.
   const class VPBasicBlock *getEntryBasicBlock() const;
+  class VPBasicBlock *getEntryBasicBlock();
 
   /// \return the VPBasicBlock that is the exit of this VPBlockBase,
   /// recursively, if the latter is a VPRegionBlock. Otherwise, if this
@@ -1670,6 +1676,12 @@ public:
   VPBlockBase *getSingleHierarchicalPredecessor() {
     return getAncestorWithPredecessors()->getSinglePredecessor();
   }
+
+  VPValue *getPredicate() { return Predicate; }
+
+  const VPValue *getPredicate() const { return Predicate; }
+
+  void setPredicate(VPValue *Pred) { Predicate = Pred; }
 
 #if INTEL_CUSTOMIZATION
   // Please, do not use setSuccessor and setTwoSuccessors in VPO Vectorizer.
@@ -2797,6 +2809,18 @@ public:
     }
 
     return false;
+  }
+
+  /// Count and return the number of succesors of \p PredBlock excluding any
+  /// backedges.
+  static unsigned countSuccessorsNoBE(VPBlockBase *PredBlock,
+                                      VPLoopInfo *VPLI) {
+    unsigned Count = 0;
+    for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
+      if (!VPBlockUtils::isBackEdge(PredBlock, SuccBlock, VPLI))
+        Count++;
+    }
+    return Count;
   }
 
   static VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,

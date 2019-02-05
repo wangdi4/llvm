@@ -297,6 +297,10 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
     // VPValue-based operands overload.
     return 0;
   }
+  case VPInstruction::Pred: // This is a no-op - used to mark block predicate.
+    return 0;
+  case VPInstruction::AllZero: // TODO - costmodel support for AllZero.
+    return 0;
   case Instruction::Load:
   case Instruction::Store:
     return VPlanCostModel::getLoadStoreCost(VPInst);
@@ -316,6 +320,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
   case Instruction::AShr:
   case Instruction::And:
   case Instruction::Or:
+  case VPInstruction::Not: // Treat same as Xor.
   case Instruction::Xor: {
     TargetTransformInfo::OperandValueKind Op1VK =
         TargetTransformInfo::OK_AnyValue;

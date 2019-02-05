@@ -19,6 +19,11 @@
 
 void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
+#ifdef VPlanPredicator
+  // Community version stores VPlan reference - to minimize changes get a
+  // pointer to the VPlan here.
+  auto *Plan = &(this->Plan);
+#endif
   LLVM_DEBUG(dbgs() << "Before inner loop control flow transformation\n");
   LLVM_DEBUG(Plan->dump());
 
@@ -99,6 +104,46 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
         VPValue *One = Plan->getVPConstant(AllOnes);
         LoopBodyMask->addIncoming(One, SubLoopPreHeader);
       }
+
+#ifdef VPlanPredicator
+      // We are in the middle of transitioning to the new VPInstruction based
+      // predicator implementation and only plan to handle inner loop flow
+      // uniformity with the new predicator implementation. This code only
+      // kicks in in the new predicator where we define VPlanPredicator as
+      // NewVPlanPredicator.
+      { // This scope is for the Guard (RAII)
+        VPBuilder::InsertPointGuard Guard(Builder);
+        Builder.setInsertPoint(RegionExitBlock);
+
+        // If the back edge is the false successor of the loop latch, the bottom
+        // test needs to be adjusted when masking the loop body by negating it.
+        bool BackEdgeIsFalseSucc =
+            NewLoopLatch->getSuccessors()[1]->getEntryBasicBlock() ==
+            SubLoopHeader;
+
+        if (BackEdgeIsFalseSucc)
+          BottomTest = Builder.createNot(cast<VPInstruction>(BottomTest));
+
+        // Combine the bottom test with the current loop body mask - inactive
+        // lanes need to to remain inactive.
+        BottomTest =
+            Builder.createAnd(BottomTest, cast<VPInstruction>(LoopBodyMask));
+
+        // Compute and set the new condition bit in the loop latch. If all the
+        // lanes are inactive, new condition bit will be true.
+        auto *NewCondBit = Builder.createAllZero(BottomTest);
+
+        // If back edge is the false successor, we can use new condition bit as
+        // the loop latch condition. However, if back edge is the true
+        // successor, we need to negate the new condition bit before using it as
+        // the loop latch condition.
+        if (!BackEdgeIsFalseSucc)
+          NewCondBit = Builder.createNot(NewCondBit);
+
+        NewLoopLatch->setCondBit(NewCondBit, Plan);
+      }
+#endif // VPlanPredicator
+
       LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
       SubLoopHeader->addRecipe(LoopBodyMask);
       RegionEntryBlock->setCondBit(LoopBodyMask, Plan);

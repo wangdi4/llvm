@@ -154,11 +154,30 @@ public:
                              {LHS, RHS});
   }
 
+  VPValue *createPred(VPValue *Operand) {
+    return createInstruction(VPInstruction::Pred, Operand->getBaseType(),
+                             {Operand});
+  }
+
+  VPValue *createNot(VPValue *Operand) {
+    return createInstruction(VPInstruction::Not, Operand->getBaseType(),
+                             {Operand});
+  }
+
   VPValue *createAnd(VPValue *LHS, VPValue *RHS) {
     return createInstruction(Instruction::BinaryOps::And, LHS->getBaseType(),
                              {LHS, RHS});
   }
 
+  VPValue *createOr(VPValue *LHS, VPValue *RHS) {
+    return createInstruction(Instruction::BinaryOps::Or, LHS->getBaseType(),
+                             {LHS, RHS});
+  }
+
+  VPValue *createAllZero(VPValue *Operand) {
+    return createInstruction(VPInstruction::AllZero, Operand->getBaseType(),
+                             {Operand});
+  }
 #else
 
   VPValue *createNot(VPValue *Operand) {

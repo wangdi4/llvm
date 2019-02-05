@@ -70,6 +70,13 @@ const VPBasicBlock *VPBlockBase::getEntryBasicBlock() const {
   return cast<VPBasicBlock>(Block);
 }
 
+VPBasicBlock *VPBlockBase::getEntryBasicBlock() {
+  VPBlockBase *Block = this;
+  while (VPRegionBlock *Region = dyn_cast<VPRegionBlock>(Block))
+    Block = Region->getEntry();
+  return cast<VPBasicBlock>(Block);
+}
+
 /// \return the VPBasicBlock that is the exit of Block, possibly indirectly.
 const VPBasicBlock *VPBlockBase::getExitBasicBlock() const {
   const VPBlockBase *Block = this;
@@ -918,6 +925,12 @@ void VPInstruction::print(raw_ostream &O) const {
     O << "not";
     break;
 #if INTEL_CUSTOMIZATION
+  case VPInstruction::AllZero:
+    O << "all-zero";
+    break;
+  case VPInstruction::Pred:
+    O << "block-predicate";
+    break;
   case VPInstruction::SemiPhi:
     O << "semi-phi";
     break;
