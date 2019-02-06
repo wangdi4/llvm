@@ -101,7 +101,7 @@ TypeAndOrName ItaniumABILanguageRuntime::GetTypeInfoFromVTableAddress(
             llvm::DenseSet<SymbolFile *> searched_symbol_files;
             if (sc.module_sp) {
               num_matches = sc.module_sp->FindTypes(
-                  sc, ConstString(lookup_name), exact_match, 1,
+                  ConstString(lookup_name), exact_match, 1,
                   searched_symbol_files, class_types);
             }
 
@@ -109,7 +109,7 @@ TypeAndOrName ItaniumABILanguageRuntime::GetTypeInfoFromVTableAddress(
             // list in the target and get as many unique matches as possible
             if (num_matches == 0) {
               num_matches = target.GetImages().FindTypes(
-                  sc, ConstString(lookup_name), exact_match, UINT32_MAX,
+                  nullptr, ConstString(lookup_name), exact_match, UINT32_MAX,
                   searched_symbol_files, class_types);
             }
 
@@ -554,6 +554,9 @@ bool ItaniumABILanguageRuntime::ExceptionBreakpointsExplainStop(
 
 ValueObjectSP ItaniumABILanguageRuntime::GetExceptionObjectForThread(
     ThreadSP thread_sp) {
+  if (!thread_sp->SafeToCallFunctions())
+    return {};
+
   ClangASTContext *clang_ast_context =
       m_process->GetTarget().GetScratchClangASTContext();
   CompilerType voidstar =

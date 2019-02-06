@@ -28,6 +28,7 @@
 #include <memory>
 
 namespace llvm {
+
 namespace mca {
 
 constexpr int UNKNOWN_CYCLES = -512;
@@ -137,8 +138,8 @@ class WriteState {
 public:
   WriteState(const WriteDescriptor &Desc, unsigned RegID,
              bool clearsSuperRegs = false, bool writesZero = false)
-      : WD(&Desc), CyclesLeft(UNKNOWN_CYCLES), RegisterID(RegID),
-        PRFID(0), ClearsSuperRegs(clearsSuperRegs), WritesZero(writesZero),
+      : WD(&Desc), CyclesLeft(UNKNOWN_CYCLES), RegisterID(RegID), PRFID(0),
+        ClearsSuperRegs(clearsSuperRegs), WritesZero(writesZero),
         IsEliminated(false), DependentWrite(nullptr), PartialWrite(nullptr),
         DependentWriteCyclesLeft(0) {}
 
@@ -154,7 +155,9 @@ public:
   void addUser(ReadState *Use, int ReadAdvance);
   void addUser(WriteState *Use);
 
-  unsigned getDependentWriteCyclesLeft() const { return DependentWriteCyclesLeft; }
+  unsigned getDependentWriteCyclesLeft() const {
+    return DependentWriteCyclesLeft;
+  }
 
   unsigned getNumUsers() const {
     unsigned NumUsers = Users.size();
@@ -336,6 +339,10 @@ struct InstrDesc {
   bool HasSideEffects;
   bool BeginGroup;
   bool EndGroup;
+
+  // True if all buffered resources are in-order, and there is at least one
+  // buffer which is a dispatch hazard (BufferSize = 0).
+  bool MustIssueImmediately;
 
   // A zero latency instruction doesn't consume any scheduler resources.
   bool isZeroLatency() const { return !MaxLatency && Resources.empty(); }
@@ -541,4 +548,4 @@ public:
 } // namespace mca
 } // namespace llvm
 
-#endif  // LLVM_MCA_INSTRUCTION_H
+#endif // LLVM_MCA_INSTRUCTION_H

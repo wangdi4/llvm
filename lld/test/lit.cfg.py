@@ -56,7 +56,7 @@ if lit_config.useValgrind:
     config.target_triple += '-vg'
 
 # Running on ELF based *nix
-if platform.system() in ['FreeBSD', 'Linux']:
+if platform.system() in ['FreeBSD', 'NetBSD', 'Linux']:
     config.available_features.add('system-linker-elf')
 
 # Set if host-cxxabi's demangler can handle target's symbols.
@@ -72,6 +72,7 @@ llvm_config.feature_config(
                           'AVR': 'avr',
                           'Hexagon': 'hexagon',
                           'Mips': 'mips',
+                          'MSP430': 'msp430',
                           'PowerPC': 'ppc',
                           'RISCV': 'riscv',
                           'Sparc': 'sparc',

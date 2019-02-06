@@ -4,7 +4,7 @@
 ; It additionally enables -fwhole-program-vtables to get more information in
 ; TYPE_IDs of GLOBALVAL_SUMMARY_BLOCK.
 
-; RUN: opt -thinlto-bc -o %t.o %s
+; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
 
 ; INTEL_CUSTOMIZATION
 ; This customization is for turning off the multiversioning

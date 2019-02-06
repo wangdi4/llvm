@@ -327,11 +327,15 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                  .Case("interleave_count", LoopHintAttr::InterleaveCount)
                  .Case("unroll", LoopHintAttr::Unroll)
                  .Case("unroll_count", LoopHintAttr::UnrollCount)
+                 .Case("pipeline", LoopHintAttr::PipelineDisabled)
+                 .Case("pipeline_initiation_interval",
+                       LoopHintAttr::PipelineInitiationInterval)
                  .Case("distribute", LoopHintAttr::Distribute)
                  .Default(LoopHintAttr::Vectorize);
     if (Option == LoopHintAttr::VectorizeWidth ||
         Option == LoopHintAttr::InterleaveCount ||
-        Option == LoopHintAttr::UnrollCount) {
+        Option == LoopHintAttr::UnrollCount ||
+        Option == LoopHintAttr::PipelineInitiationInterval) {
       assert(ValueExpr && "Attribute must have a valid value expression.");
       if (S.CheckLoopHintExpr(ValueExpr, St->getBeginLoc()))
         return nullptr;
@@ -339,7 +343,8 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     } else if (Option == LoopHintAttr::Vectorize ||
                Option == LoopHintAttr::Interleave ||
                Option == LoopHintAttr::Unroll ||
-               Option == LoopHintAttr::Distribute) {
+               Option == LoopHintAttr::Distribute ||
+               Option == LoopHintAttr::PipelineDisabled) {
       assert(StateLoc && StateLoc->Ident && "Loop hint must have an argument");
       if (StateLoc->Ident->isStr("disable"))
         State = LoopHintAttr::Disable;
@@ -608,9 +613,9 @@ bool Sema::CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BL) {
 static void
 CheckForIncompatibleAttributes(Sema &S,
                                const SmallVectorImpl<const Attr *> &Attrs) {
-  // There are 5 categories of loop hints attributes: vectorize, interleave,
-  // unroll, unroll_and_jam and distribute. Except for distribute they come
-  // in two variants: a state form and a numeric form.  The state form
+  // There are 6 categories of loop hints attributes: vectorize, interleave,
+  // unroll, unroll_and_jam, pipeline and distribute. Except for distribute they
+  // come in two variants: a state form and a numeric form.  The state form
   // selectively defaults/enables/disables the transformation for the loop
   // (for unroll, default indicates full unrolling rather than enabling the
   // transformation). The numeric form form provides an integer hint (for
@@ -620,9 +625,8 @@ CheckForIncompatibleAttributes(Sema &S,
   struct {
     const LoopHintAttr *StateAttr;
     const LoopHintAttr *NumericAttr;
-  } HintAttrs[] = {{nullptr, nullptr},
 #if INTEL_CUSTOMIZATION
-                                       // Vectorize (above)
+  } HintAttrs[] = {{nullptr, nullptr}, // Vectorize
                    {nullptr, nullptr}, // II
                    {nullptr, nullptr}, // IVDep
                    {nullptr, nullptr}, // IVDepLoop
@@ -638,15 +642,12 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // LoopCountMin
                    {nullptr, nullptr}, // LoopCountMax
                    {nullptr, nullptr}, // LoopCountAvg
-                                       // Interleave (below)
-                                       // Unroll
-                                       // UnrollAndJam
-                                       // Distribute
+                   {nullptr, nullptr}, // Interleave
+                   {nullptr, nullptr}, // Unroll
+                   {nullptr, nullptr}, // UnrollAndJam
+                   {nullptr, nullptr}, // Pipeline
+                   {nullptr, nullptr}};// Distribute
 #endif // INTEL_CUSTOMIZATION
-                   {nullptr, nullptr},
-                   {nullptr, nullptr},
-                   {nullptr, nullptr},
-                   {nullptr, nullptr}};
 
 #if INTEL_CUSTOMIZATION
   const LoopHintAttr *IVDepAttr = nullptr;
@@ -680,7 +681,8 @@ CheckForIncompatibleAttributes(Sema &S,
       Interleave,
       Unroll,
       UnrollAndJam,
-      Distribute
+      Distribute,
+      Pipeline
     } Category;
 #endif // INTEL_CUSTOMIZATION
     switch (Option) {
@@ -755,6 +757,10 @@ CheckForIncompatibleAttributes(Sema &S,
     case LoopHintAttr::Distribute:
       // Perform the check for duplicated 'distribute' hints.
       Category = Distribute;
+      break;
+    case LoopHintAttr::PipelineDisabled:
+    case LoopHintAttr::PipelineInitiationInterval:
+      Category = Pipeline;
       break;
     };
 
@@ -867,6 +873,7 @@ CheckForIncompatibleAttributes(Sema &S,
     if (Option == LoopHintAttr::Vectorize ||
         Option == LoopHintAttr::Interleave || Option == LoopHintAttr::Unroll ||
         Option == LoopHintAttr::UnrollAndJam ||
+        Option == LoopHintAttr::PipelineDisabled ||
         Option == LoopHintAttr::Distribute) {
       // Enable|Disable|AssumeSafety hint.  For example, vectorize(enable).
       PrevAttr = CategoryState.StateAttr;

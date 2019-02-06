@@ -4469,7 +4469,7 @@ static bool HandleFunctionCall(SourceLocation CallLoc,
     if (!handleLValueToRValueConversion(Info, Args[0], Args[0]->getType(),
                                         RHS, RHSValue))
       return false;
-    if (!handleAssignment(Info, Args[0], *This, MD->getThisType(Info.Ctx),
+    if (!handleAssignment(Info, Args[0], *This, MD->getThisType(),
                           RHSValue))
       return false;
     This->moveInto(Result);
