@@ -5,7 +5,7 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} )
+set( TARGET_NAME task_executor${BUILD_PLATFORM} )
 
 # Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system library directories
 include(embed.rpath)
@@ -60,7 +60,7 @@ add_opencl_library (${TARGET_NAME} SHARED
       ${OCL_BINARY_DIR}
 
     COMPONENTS
-      cl_logger${OPENCL_BINARIES_POSTFIX}
+      cl_logger
 
     LINK_LIBS
       ${LINK_LIBS}

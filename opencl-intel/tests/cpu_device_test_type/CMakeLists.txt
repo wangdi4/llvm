@@ -7,9 +7,8 @@ CALCULATE_TARGET_SOURCES()
 
 link_directories( ${TBB_LIB_DIR} )
 
-set( TARGET_LIBS cl_sys_utils
-    cpu_device${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
-    task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} test_utils )
+set( TARGET_LIBS cl_sys_utils cpu_device${BUILD_PLATFORM}
+    task_executor${BUILD_PLATFORM} test_utils )
 
 add_ocl_unittest( ${TARGET} SOURCE_FILES ${TARGET_SOURCES}
     LINK_LIBRARIES ${TARGET_LIBS} )
