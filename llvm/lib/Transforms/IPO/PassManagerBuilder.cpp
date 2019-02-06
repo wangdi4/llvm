@@ -1550,7 +1550,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRLoopReversalPass());
 
     if (SizeLevel == 0) {
-      PM.add(createHIRPreVecCompleteUnrollPass(OptLevel));
+      PM.add(createHIRPreVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));
     }
 
     PM.add(createHIRLMMPass());
@@ -1567,7 +1567,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRLoopFusionPass());
 
     if (SizeLevel == 0) {
-      PM.add(createHIRUnrollAndJamPass());
+      PM.add(createHIRUnrollAndJamPass(DisableUnrollLoops));
       PM.add(createHIROptVarPredicatePass());
       PM.add(createHIROptPredicatePass(OptLevel == 3));
       if (RunVPOOpt) {
@@ -1577,8 +1577,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
           PM.add(createVPlanDriverHIRPass());
         }
       }
-      PM.add(createHIRPostVecCompleteUnrollPass(OptLevel));
-      PM.add(createHIRGeneralUnrollPass());
+      PM.add(createHIRPostVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));
+      PM.add(createHIRGeneralUnrollPass(DisableUnrollLoops));
     }
 
     PM.add(createHIRScalarReplArrayPass());

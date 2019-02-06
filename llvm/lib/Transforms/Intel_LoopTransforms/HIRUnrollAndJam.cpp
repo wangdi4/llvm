@@ -138,9 +138,10 @@ class HIRUnrollAndJam {
 public:
   HIRUnrollAndJam(HIRFramework &HIRF, HIRLoopStatistics &HLS,
                   HIRLoopResource &HLR, HIRLoopLocality &HLA,
-                  HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA)
+                  HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA,
+                  bool PragmaOnlyUnroll)
       : HIRF(HIRF), HLS(HLS), HLR(HLR), HLA(HLA), DDA(DDA), HSRA(HSRA),
-        HaveUnrollCandidates(false) {}
+        HaveUnrollCandidates(false), PragmaOnlyUnroll(PragmaOnlyUnroll) {}
 
   bool run();
 
@@ -168,6 +169,7 @@ private:
 
   LoopNestUnrollJamInfoTy LoopNestUnrollJamInfo;
   bool HaveUnrollCandidates;
+  bool PragmaOnlyUnroll;
 
   class Analyzer;
 
@@ -928,6 +930,12 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
 
   bool HasEnablingPragma = Lp->hasUnrollAndJamEnablingPragma();
 
+  // Disable all other unrolling if only pragma enabled unrolling is allowed.
+  if (HUAJ.PragmaOnlyUnroll && !HasEnablingPragma) {
+    HUAJ.throttle(Lp);
+    return;
+  }
+
   unsigned UnrollFactor = computeUnrollFactorUsingCost(Lp, HasEnablingPragma);
 
   if (!UnrollFactor) {
@@ -1558,7 +1566,7 @@ PreservedAnalyses HIRUnrollAndJamPass::run(llvm::Function &F,
                   AM.getResult<HIRLoopResourceAnalysis>(F),
                   AM.getResult<HIRLoopLocalityAnalysis>(F),
                   AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRSafeReductionAnalysisPass>(F))
+                  AM.getResult<HIRSafeReductionAnalysisPass>(F), false)
       .run();
 
   return PreservedAnalyses::all();
@@ -1567,8 +1575,10 @@ PreservedAnalyses HIRUnrollAndJamPass::run(llvm::Function &F,
 class HIRUnrollAndJamLegacyPass : public HIRTransformPass {
 public:
   static char ID;
+  bool PragmaOnlyUnroll;
 
-  HIRUnrollAndJamLegacyPass() : HIRTransformPass(ID) {
+  HIRUnrollAndJamLegacyPass(bool PragmaOnlyUnroll = false)
+      : HIRTransformPass(ID), PragmaOnlyUnroll(PragmaOnlyUnroll) {
     initializeHIRUnrollAndJamLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -1593,7 +1603,8 @@ public:
                getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
                getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
                getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR())
+               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
+               PragmaOnlyUnroll)
         .run();
   }
 };
@@ -1610,6 +1621,6 @@ INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRUnrollAndJamLegacyPass, "hir-unroll-and-jam",
                     "HIR Unroll & Jam", false, false)
 
-FunctionPass *llvm::createHIRUnrollAndJamPass() {
-  return new HIRUnrollAndJamLegacyPass();
+FunctionPass *llvm::createHIRUnrollAndJamPass(bool PragmaOnlyUnroll) {
+  return new HIRUnrollAndJamLegacyPass(PragmaOnlyUnroll);
 }

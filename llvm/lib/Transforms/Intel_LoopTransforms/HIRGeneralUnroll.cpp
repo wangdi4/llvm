@@ -133,9 +133,9 @@ namespace {
 class HIRGeneralUnroll {
 public:
   HIRGeneralUnroll(HIRFramework &HIRF, HIRLoopResource &HLR,
-                   HIRLoopStatistics &HLS)
+                   HIRLoopStatistics &HLS, bool PragmaOnlyUnroll)
       : HIRF(HIRF), HLR(HLR), HLS(HLS), IsUnrollTriggered(false),
-        Is32Bit(false) {}
+        Is32Bit(false), PragmaOnlyUnroll(PragmaOnlyUnroll) {}
 
   bool run();
 
@@ -146,6 +146,7 @@ private:
 
   bool IsUnrollTriggered;
   bool Is32Bit;
+  bool PragmaOnlyUnroll;
 
   /// Processes and santitizes command line options.
   void sanitizeOptions();
@@ -251,6 +252,11 @@ void HIRGeneralUnroll::processGeneralUnroll(
     unsigned UnrollFactor = 0;
 
     bool HasEnablingPragma = Loop->hasGeneralUnrollEnablingPragma();
+
+    // Disable all other unrolling if only pragma enabled unrolling is allowed.
+    if (PragmaOnlyUnroll && !HasEnablingPragma) {
+      continue;
+    }
 
     // Perform a cost/profitability analysis on the loop
     // If all conditions are met, unroll it.
@@ -563,7 +569,7 @@ PreservedAnalyses HIRGeneralUnrollPass::run(llvm::Function &F,
                                             llvm::FunctionAnalysisManager &AM) {
   HIRGeneralUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
                    AM.getResult<HIRLoopResourceAnalysis>(F),
-                   AM.getResult<HIRLoopStatisticsAnalysis>(F))
+                   AM.getResult<HIRLoopStatisticsAnalysis>(F), false)
       .run();
   return PreservedAnalyses::all();
 }
@@ -571,8 +577,10 @@ PreservedAnalyses HIRGeneralUnrollPass::run(llvm::Function &F,
 class HIRGeneralUnrollLegacyPass : public HIRTransformPass {
 public:
   static char ID;
+  bool PragmaOnlyUnroll;
 
-  HIRGeneralUnrollLegacyPass() : HIRTransformPass(ID) {
+  HIRGeneralUnrollLegacyPass(bool PragmaOnlyUnroll = false)
+      : HIRTransformPass(ID), PragmaOnlyUnroll(PragmaOnlyUnroll) {
     initializeHIRGeneralUnrollLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -591,7 +599,8 @@ public:
     return HIRGeneralUnroll(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
-               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+               PragmaOnlyUnroll)
         .run();
   }
 };
@@ -605,6 +614,6 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRGeneralUnrollLegacyPass, "hir-general-unroll",
                     "HIR General Unroll", false, false)
 
-FunctionPass *llvm::createHIRGeneralUnrollPass() {
-  return new HIRGeneralUnrollLegacyPass();
+FunctionPass *llvm::createHIRGeneralUnrollPass(bool PragmaOnlyUnroll) {
+  return new HIRGeneralUnrollLegacyPass(PragmaOnlyUnroll);
 }

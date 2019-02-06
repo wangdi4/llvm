@@ -186,9 +186,10 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
                                      const TargetTransformInfo &TTI,
                                      HIRLoopStatistics &HLS, HIRDDAnalysis &DDA,
                                      HIRSafeReductionAnalysis &HSRA,
-                                     unsigned OptLevel, bool IsPreVec)
+                                     unsigned OptLevel, bool IsPreVec,
+                                     bool PragmaOnlyUnroll)
     : HIRF(HIRF), DT(DT), TTI(TTI), HLS(HLS), DDA(DDA), HSRA(HSRA),
-      IsPreVec(IsPreVec) {
+      IsPreVec(IsPreVec), PragmaOnlyUnroll(PragmaOnlyUnroll) {
 
   Limits.SavingsThreshold =
       IsPreVec ? PreVectorSavingsThreshold : PostVectorSavingsThreshold;
@@ -2882,6 +2883,11 @@ HIRCompleteUnroll::performTripCountAnalysis(HLLoop *Loop) {
     return std::make_pair(-1, 0);
   }
 
+  // Disable all other unrolling if only pragma enabled unrolling is allowed.
+  if (PragmaOnlyUnroll) {
+    return std::make_pair(-1, 0);
+  }
+
   if (!Loop->isInnermost()) {
     SmallVector<HLLoop *, 8> ChildLoops;
     Loop->getHLNodeUtils().gatherLoopsWithLevel(Loop, ChildLoops,
@@ -3188,6 +3194,6 @@ bool HIRCompleteUnrollLegacyPass::runOnFunction(Function &F) {
              getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
              getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
-             OptLevel, IsPreVec)
+             OptLevel, IsPreVec, PragmaOnlyUnroll)
       .run();
 }

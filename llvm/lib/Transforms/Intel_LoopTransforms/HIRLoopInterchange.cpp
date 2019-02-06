@@ -251,8 +251,8 @@ bool isInterchangingNearPerfectProfitable(const HLLoop *OutermostLoop,
   // Examine MemRefs in Pre/postloop or prehead/postexit of the innermost.
   // Recursive = true (pre/postexit), RecursiveInsidedLoop = false (no child)
   MemRefGatherer::VectorTy Refs;
-  MemRefGatherer::gatherRange<true, false>(
-      ParentLp->child_begin(), ParentLp->child_end(), Refs);
+  MemRefGatherer::gatherRange<true, false>(ParentLp->child_begin(),
+                                           ParentLp->child_end(), Refs);
   bool MayInterchange = false;
   for (RegDDRef *Ref : Refs) {
     LLVM_DEBUG(Ref->dump());
@@ -319,6 +319,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
                       *EndLoop = Loop->getParentLoop();
          TmpLoop != EndLoop; TmpLoop = TmpLoop->getParentLoop()) {
       if (TmpLoop->hasUnrollEnablingPragma() ||
+          TmpLoop->hasUnrollAndJamEnablingPragma() ||
           TmpLoop->hasVectorizeEnablingPragma()) {
         LLVM_DEBUG(dbgs() << "\nSkipping loop with unroll/vector pragma\n");
         SkipNode = Loop;
