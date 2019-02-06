@@ -110,9 +110,6 @@ def ext_intel_forward_ref_enum : ExtWarn<
 def warn_switch_into_protected_scope : Warning<
   "jump from switch statement to this case label bypasses variable initialization">,
   InGroup<IntelCompat>;
-// CQ370802 - allows indirect goto to const address if IntelCompat
-def warn_indirect_goto_with_const_expr : Warning<
-  "expr in 'goto *expr' is constant">, InGroup<IntelCompat>;
 // CQ370802 - allows indirect got to any places
 def warn_indirect_goto_in_protected_scope : Warning<
   err_indirect_goto_in_protected_scope.Text>, InGroup<IntelCompat>;
