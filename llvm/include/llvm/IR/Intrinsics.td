@@ -427,6 +427,13 @@ def int_localescape : Intrinsic<[], [llvm_vararg_ty]>;
 def int_localrecover : Intrinsic<[llvm_ptr_ty],
                                  [llvm_ptr_ty, llvm_ptr_ty, llvm_i32_ty],
                                  [IntrNoMem]>;
+
+// Given the frame pointer passed into an SEH filter function, returns a
+// pointer to the local variable area suitable for use with llvm.localrecover.
+def int_eh_recoverfp : Intrinsic<[llvm_ptr_ty],
+                                 [llvm_ptr_ty, llvm_ptr_ty],
+                                 [IntrNoMem]>;
+
 // Note: we treat stacksave/stackrestore as writemem because we don't otherwise
 // model their dependencies on allocas.
 def int_stacksave     : Intrinsic<[llvm_ptr_ty]>,
@@ -1249,5 +1256,4 @@ include "llvm/IR/Intel_IntrinsicsCSA.td"
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 include "llvm/IR/IntrinsicsRISCV.td"
-include "llvm/IR/IntrinsicsNios2.td" // INTEL
 include "llvm/IR/Intel_IntrinsicsFPGA.td" // INTEL

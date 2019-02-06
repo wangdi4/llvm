@@ -27,7 +27,6 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -1078,25 +1077,10 @@ Constant *llvm::ConstantFoldBinaryInstruction(unsigned Opcode, Constant *C1,
             isa<GlobalValue>(CE1->getOperand(0))) {
           GlobalValue *GV = cast<GlobalValue>(CE1->getOperand(0));
 
-#if INTEL_CUSTOMIZATION
-          // CMPLRLLVM-7809: The community change in D55115 removes
-          // the assumption that functions are at least 4-byte aligned.
-          // The issue is that it prevents constant folding for cases
-          // that deal with function pointers.For now we are going to
-          // revert the changes until we have a concrete solution to
-          // this issue.
-
           // Functions are at least 4-byte aligned.
           unsigned GVAlign = GV->getAlignment();
           if (isa<Function>(GV))
             GVAlign = std::max(GVAlign, 4U);
-
-          // Changes after D55115
-          // unsigned GVAlign =
-          //    GV->getParent()
-          //        ? GV->getPointerAlignment(GV->getParent()->getDataLayout())
-          //        : 0;
-#endif // INTEL_CUSTOMIZATION
 
           if (GVAlign > 1) {
             unsigned DstWidth = CI2->getType()->getBitWidth();

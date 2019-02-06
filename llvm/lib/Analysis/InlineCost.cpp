@@ -3605,6 +3605,19 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
   // Update the threshold based on callsite properties
   updateThreshold(CS, F, YesReasonVector); // INTEL
 
+  // While Threshold depends on commandline options that can take negative
+  // values, we want to enforce the invariant that the computed threshold and
+  // bonuses are non-negative.
+#if INTEL_CUSTOMIZATION
+  // There is nothing in updateThreshold() to put a lower limit of 0 on the
+  // Threshold when -inline-threshold is specified as < 0. Commenting this
+  // out, at least for now. The same goes for the SingleBBBonus and VectorBonus,
+  // which are derived from Threshold.
+  // assert(Threshold >= 0);
+  // assert(SingleBBBonus >= 0);
+  // assert(VectorBonus >= 0);
+#endif // INTEL_CUSTOMIZATION
+
   // INTEL  CQ378383: Tolerate a single "forgivable" condition when optimizing
   // INTEL  for size. In this case, we delay subtracting out the single basic
   // INTEL  block bonus until we see a second branch with multiple targets.

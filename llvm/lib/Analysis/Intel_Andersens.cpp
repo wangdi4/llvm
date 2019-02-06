@@ -997,22 +997,22 @@ static const char *getModRefResultStr(ModRefInfo R) {
 }
 
 ModRefInfo
-AndersensAAResult::getModRefInfo(ImmutableCallSite CS,
+AndersensAAResult::getModRefInfo(const CallBase *Call,
                          const MemoryLocation &LocA) {
   if (PrintAndersModRefQueries) {
       errs() << " getModRefInfo_begin\n";
-      errs() << "CS:  " << *(CS.getInstruction()) << "\n";
+      errs() << "Call:  " << *Call << "\n";
       errs() << "Loc: " << *(LocA.Ptr) << "\n";
   }
 
   // Try to use the collected Mod/Ref sets, if available.
   ModRefInfo R = ModRefInfo::ModRef;
    if (UseIntelModRef && IMR) {
-        R = IMR->getModRefInfo(CS, LocA);
+        R = IMR->getModRefInfo(Call, LocA);
    }
 
    if (R != ModRefInfo::NoModRef) {
-       ModRefInfo Others = AAResultBase::getModRefInfo(CS, LocA);
+       ModRefInfo Others = AAResultBase::getModRefInfo(Call, LocA);
        R = intersectModRef(R, Others);
    }
 
@@ -1024,18 +1024,18 @@ AndersensAAResult::getModRefInfo(ImmutableCallSite CS,
   return R;
 }
 
-ModRefInfo AndersensAAResult::getModRefInfo(ImmutableCallSite CS1, 
-                                            ImmutableCallSite CS2) {
+ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
+                                            const CallBase *Call2) {
   if (PrintAndersModRefQueries) {
       errs() << " getModRefInfo_begin\n";
-      errs() << "CS1: " << *(CS1.getInstruction()) << "\n";
-      errs() << "CS2: " << *(CS2.getInstruction()) << "\n";
+      errs() << "Call1: " << *Call1 << "\n";
+      errs() << "Call2: " << *Call2 << "\n";
   }
 
   // Just forward the request along the chain. Note, a downstream analysis
   // may return to the Andersens to check for aliases via the AAChain
   // parameter.
-  ModRefInfo R = AAResultBase::getModRefInfo(CS1, CS2);
+  ModRefInfo R = AAResultBase::getModRefInfo(Call1, Call2);
   if (PrintAndersModRefQueries) {
       errs() << "Result: " << getModRefResultStr(R) << "\n";
       errs() << " getModRefInfo_end\n";
@@ -4344,8 +4344,7 @@ namespace llvm {
     bool runOnModule(Module &M);
 
     // Return the ModRef state for the Location.
-    ModRefInfo getModRefInfo(ImmutableCallSite CS,
-      const MemoryLocation &Loc);
+    ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
 
     // Print all the ModRef sets.
     void dump() const;
@@ -5115,14 +5114,14 @@ void IntelModRefImpl::print(raw_ostream &O, bool Summary) const
 
 // Check the ModRef sets to see if a specific call will Modify or Reference
 // (or Both) the Location.
-ModRefInfo IntelModRefImpl::getModRefInfo(ImmutableCallSite CS,
+ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
     const MemoryLocation &Loc)
 {
     ModRefInfo Result = ModRefInfo::ModRef;
     const Value *Object = GetUnderlyingObject(Loc.Ptr, *DL);
 
     DEBUG_WITH_TYPE("imr-query", errs() << "IntelModRefImpl::getModRefInfo(" <<
-        (CS.getCalledFunction() ? CS.getCalledFunction()->getName() :
+        (Call->getCalledFunction() ? Call->getCalledFunction()->getName() :
         "<indirect>")
         << ", ");
 
@@ -5137,7 +5136,7 @@ ModRefInfo IntelModRefImpl::getModRefInfo(ImmutableCallSite CS,
       (isa<GlobalValue>(Object) ? "[global]" : ""));
     DEBUG_WITH_TYPE("imr-query", errs() << ")\n");
 
-    const Function *F = CS.getCalledFunction();
+    const Function *F = Call->getCalledFunction();
     if (!F) {
         DEBUG_WITH_TYPE("imr-query", errs() << "  Indirect destination\n");
         return ModRefInfo::ModRef;
@@ -5231,13 +5230,13 @@ void AndersensAAResult::IntelModRef::runAnalysis(Module &M)
 
 // Interface to query for mod/ref information about a memory location.
 ModRefInfo AndersensAAResult::IntelModRef::getModRefInfo(
-  ImmutableCallSite CS, const MemoryLocation &Loc)
+  const CallBase *Call, const MemoryLocation &Loc)
 {
   if (!Impl) {
     return ModRefInfo::ModRef;
   }
 
-  return Impl->getModRefInfo(CS, Loc);
+  return Impl->getModRefInfo(Call, Loc);
 }
 
 // The following implementation of escape analysis is based

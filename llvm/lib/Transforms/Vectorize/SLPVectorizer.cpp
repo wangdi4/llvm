@@ -493,15 +493,6 @@ static bool arePSLPLegalOpcodes(ArrayRef<Value *> VL) {
   return true;
 }
 
-/// Fills in OpcodesSet with all opcodes found in \p VL.
-static void getOpcodes(ArrayRef<Value *> VL, std::set<unsigned> &OpcodesSet) {
-  OpcodesSet.clear();
-  for (Value *V : VL) {
-    assert(isa<Instruction>(V));
-    OpcodesSet.insert(cast<Instruction>(V)->getOpcode());
-  }
-}
-
 /// \returns true if all values in VL[] are Instructions.
 static bool allInstructions(ArrayRef<Value *> VL) {
   for (Value *V : VL) {
@@ -2340,17 +2331,31 @@ getOperandPair(Instruction *I,
 // Given a VL with different opcodes, generate select instructions that
 // select between the
 void BoUpSLP::generatePSLPCode(SmallVectorImpl<Value *> &VL) {
-  assert(isa<Instruction>(VL[0]));
-  std::set<unsigned> OpcodesSet;
-  getOpcodes(VL, OpcodesSet);
-  assert(OpcodesSet.size() == 2 && "Can't handle less/more than 2 opcodes.");
-  std::vector<unsigned> OpcodesVec;
-  for (unsigned Opcode : OpcodesSet)
-    OpcodesVec.push_back(Opcode);
+  unsigned LeftOpcode = 0;
+  unsigned RightOpcode = 0;
+
+  for (auto *Value : VL) {
+    assert(isa<Instruction>(Value));
+    unsigned Opcode = cast<Instruction>(Value)->getOpcode();
+
+    if (Opcode == LeftOpcode || Opcode == RightOpcode)
+      continue;
+
+    if (LeftOpcode == 0)
+      LeftOpcode = Opcode;
+    else if (RightOpcode == 0)
+      RightOpcode = Opcode;
+    else
+      assert("Not more than two opcodes expected");
+  }
+
+  assert(LeftOpcode != 0 && RightOpcode != 0 &&
+         "Not less than two opcodes expected");
+
   Instruction::BinaryOps LeftBinOpcode =
-      static_cast<Instruction::BinaryOps>(OpcodesVec[0]);
+      static_cast<Instruction::BinaryOps>(LeftOpcode);
   Instruction::BinaryOps RightBinOpcode =
-      static_cast<Instruction::BinaryOps>(OpcodesVec[1]);
+      static_cast<Instruction::BinaryOps>(RightOpcode);
 
   // The LastOperandPair helps us in reordering the operands of commutative ops.
   std::vector<ValuePair> LastOperandPairVec;
@@ -2372,7 +2377,9 @@ void BoUpSLP::generatePSLPCode(SmallVectorImpl<Value *> &VL) {
       std::string IName =
           Instruction::getOpcodeName(RightBinOpcode) + std::string("_PSLP");
       IRHS = BinaryOperator::Create(RightBinOpcode, OperandPair.first,
-                                    OperandPair.second, IName, I /*Before*/);
+                                    OperandPair.second, IName);
+
+      IRHS->insertAfter(I);
 
       // Be optimistic and set "no overflow" flags for padded instruction. Doing
       // so is safe for two reasons: 1) Results of padded instructions are not
@@ -2389,7 +2396,8 @@ void BoUpSLP::generatePSLPCode(SmallVectorImpl<Value *> &VL) {
       std::string IName =
           Instruction::getOpcodeName(LeftBinOpcode) + std::string("_PSLP");
       ILHS = BinaryOperator::Create(LeftBinOpcode, OperandPair.first,
-                                    OperandPair.second, IName, I /*Before*/);
+                                    OperandPair.second, IName);
+      ILHS->insertBefore(I);
       IRHS = I;
 
       // Be optimistic and set "no overflow" flags for padded instruction. Doing
@@ -3839,8 +3847,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
   // If any of the scalars is marked as a value that needs to stay scalar, then
   // we need to gather the scalars.
+  // The reduction nodes (stored in UserIgnoreList) also should stay scalar.
   for (unsigned i = 0, e = VL.size(); i != e; ++i) {
-    if (MustGather.count(VL[i])) {
+    if (MustGather.count(VL[i]) || is_contained(UserIgnoreList, VL[i])) {
       LLVM_DEBUG(dbgs() << "SLP: Gathering due to gathered scalar.\n");
       newTreeEntry(VL, false, UserTreeIdx);
       return;

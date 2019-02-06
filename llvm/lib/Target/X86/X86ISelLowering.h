@@ -98,7 +98,7 @@ namespace llvm {
       SETCC,
 
       /// X86 Select
-      SELECT, SELECTS,
+      SELECTS,
 
       // Same as SETCC except it's materialized with a sbb and the value is all
       // one's or all zero's.
@@ -203,8 +203,9 @@ namespace llvm {
 
       /// Dynamic (non-constant condition) vector blend where only the sign bits
       /// of the condition elements are used. This is used to enforce that the
-      /// condition mask is not valid for generic VSELECT optimizations.
-      SHRUNKBLEND,
+      /// condition mask is not valid for generic VSELECT optimizations. This
+      /// can also be used to implement the intrinsics.
+      BLENDV,
 
       /// Combined add and sub on an FP vector.
       ADDSUB,
@@ -292,11 +293,21 @@ namespace llvm {
       // Vector integer truncate with unsigned/signed saturation.
       VTRUNCUS, VTRUNCS,
 
+      // Masked version of the above. Used when less than a 128-bit result is
+      // produced since the mask only applies to the lower elements and can't
+      // be represented by a select.
+      // SRC, PASSTHRU, MASK
+      VMTRUNC, VMTRUNCUS, VMTRUNCS,
+
       // Vector FP extend.
       VFPEXT, VFPEXT_RND, VFPEXTS_RND,
 
       // Vector FP round.
       VFPROUND, VFPROUND_RND, VFPROUNDS_RND,
+
+      // Masked version of above. Used for v2f64->v4f32.
+      // SRC, PASSTHRU, MASK
+      VMFPROUND,
 
       // 128-bit vector logical left / right shift
       VSHLDQ, VSRLDQ,
@@ -337,7 +348,7 @@ namespace llvm {
 
       // Arithmetic operations with FLAGS results.
       ADD, SUB, ADC, SBB, SMUL, UMUL,
-      INC, DEC, OR, XOR, AND,
+      OR, XOR, AND,
 
       // Bit field extract.
       BEXTR,
@@ -503,6 +514,9 @@ namespace llvm {
       // Vector signed/unsigned integer to float/double.
       CVTSI2P, CVTUI2P,
 
+      // Masked versions of above. Used for v2f64->v4f32.
+      // SRC, PASSTHRU, MASK
+      MCVTP2SI, MCVTP2UI, MCVTTP2SI, MCVTTP2UI,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16
       // Vector float to bfloat16
@@ -557,6 +571,10 @@ namespace llvm {
       // Conversions between float and half-float.
       CVTPS2PH, CVTPH2PS, CVTPH2PS_RND,
 
+      // Masked version of above.
+      // SRC, RND, PASSTHRU, MASK
+      MCVTPS2PH,
+
       // Galois Field Arithmetic Instructions
       GF2P8AFFINEINVQB, GF2P8AFFINEQB, GF2P8MULB,
 
@@ -575,7 +593,7 @@ namespace llvm {
 
       /// LOCK-prefixed arithmetic read-modify-write instructions.
       /// EFLAGS, OUTCHAIN = LADD(INCHAIN, PTR, RHS)
-      LADD, LSUB, LOR, LXOR, LAND, LINC, LDEC,
+      LADD, LSUB, LOR, LXOR, LAND,
 
       // Load, scalar_to_vector, and zero extend.
       VZEXT_LOAD,
@@ -1045,6 +1063,11 @@ namespace llvm {
     /// with this index.
     bool isExtractSubvectorCheap(EVT ResVT, EVT SrcVT,
                                  unsigned Index) const override;
+
+    /// Scalar ops always have equal or better analysis/performance/power than
+    /// the vector equivalent, so this always makes sense if the scalar op is
+    /// supported.
+    bool shouldScalarizeBinop(SDValue) const override;
 
     bool storeOfVectorConstantIsCheap(EVT MemVT, unsigned NumElem,
                                       unsigned AddrSpace) const override {

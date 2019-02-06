@@ -41,8 +41,8 @@ public:
   }
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
-  ModRefInfo getModRefInfo(ImmutableCallSite CS, const MemoryLocation &Loc);
-  ModRefInfo getModRefInfo(ImmutableCallSite CS1, ImmutableCallSite CS2);
+  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
+  ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2);
 
 private:
   bool mayAliasInStdContainer(MDNode *M1, MDNode *M2);

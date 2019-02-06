@@ -414,7 +414,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
     ~IntelModRef();
 
     void runAnalysis(Module &M);
-    ModRefInfo getModRefInfo(ImmutableCallSite CS, const MemoryLocation &Loc);
+    ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
 
   private:
     // Pointer to implementation idiom
@@ -452,8 +452,8 @@ public:
   //
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
 
-  ModRefInfo getModRefInfo(ImmutableCallSite CS, const MemoryLocation &Loc);
-  ModRefInfo getModRefInfo(ImmutableCallSite CS1, ImmutableCallSite CS2);
+  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
+  ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2);
 
   // Chases pointers until we find a (constant global) or not.
   bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal);

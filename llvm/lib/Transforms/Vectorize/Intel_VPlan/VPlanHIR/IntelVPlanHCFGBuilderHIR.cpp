@@ -320,8 +320,10 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   ConditionVPBB->setCondBit(CondBit, Plan);
 
   // - Then branch -
-  // Force creation of a new VPBB for Then branch.
+  // Force creation of a new VPBB for Then branch even if the Then branch has no
+  // children.
   ActiveVPBB = nullptr;
+  updateActiveVPBB();
   HLNodeUtils::visitRange<false /*Recursive*/>(
       *this /*visitor*/, HIf->then_begin(), HIf->then_end());
 

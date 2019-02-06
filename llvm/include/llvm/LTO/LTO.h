@@ -428,6 +428,9 @@ private:
   Error runThinLTO(AddStreamFn AddStream, NativeObjectCache Cache);
 
   mutable bool CalledGetMaxTasks = false;
+
+  // Use Optional to distinguish false from not yet initialized.
+  Optional<bool> EnableSplitLTOUnit;
 };
 
 /// The resolution for a symbol. The linker must provide a SymbolResolution for

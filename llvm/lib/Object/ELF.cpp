@@ -45,15 +45,6 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
       break;
     }
     break;
-#if INTEL_CUSTOMIZATION
-  case ELF::EM_ALTERA_NIOS2:
-    switch (Type) {
-#include "llvm/BinaryFormat/ELFRelocs/Nios2.def"
-    default:
-      break;
-    }
-    break;
-#endif // INTEL_CUSTOMIZATION
   case ELF::EM_AARCH64:
     switch (Type) {
 #include "llvm/BinaryFormat/ELFRelocs/AArch64.def"

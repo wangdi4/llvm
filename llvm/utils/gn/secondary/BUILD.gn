@@ -1,51 +1,15 @@
 import("//clang/lib/ARCMigrate/enable.gni")
 import("//clang/lib/StaticAnalyzer/Frontend/enable.gni")
+import("//llvm/utils/gn/build/toolchain/compiler.gni")
 
 group("default") {
   deps = [
     "//clang/test",
+    "//compiler-rt/test/hwasan",
     "//lld/test",
-    "//llvm/tools/bugpoint",
-    "//llvm/tools/dsymutil",
-    "//llvm/tools/llvm-c-test",
-    "//llvm/tools/llvm-cfi-verify",
-    "//llvm/tools/llvm-cov",
-    "//llvm/tools/llvm-cvtres",
-    "//llvm/tools/llvm-cxxdump",
-    "//llvm/tools/llvm-cxxfilt",
-    "//llvm/tools/llvm-cxxmap",
-    "//llvm/tools/llvm-diff",
-    "//llvm/tools/llvm-dwp",
-    "//llvm/tools/llvm-exegesis",
-    "//llvm/tools/llvm-extract",
-    "//llvm/tools/llvm-link",
-    "//llvm/tools/llvm-mca",
-    "//llvm/tools/llvm-mt",
-    "//llvm/tools/llvm-opt-report",
-    "//llvm/tools/llvm-rc",
-    "//llvm/tools/llvm-rtdyld",
-    "//llvm/tools/llvm-size",
-    "//llvm/tools/llvm-split",
-    "//llvm/tools/llvm-strings",
-    "//llvm/tools/llvm-undname",
-    "//llvm/tools/llvm-xray",
-    "//llvm/tools/sancov",
-    "//llvm/tools/sanstats",
-    "//llvm/tools/verify-uselistorder",
-    "//llvm/utils/yaml-bench",
+    "//llvm/test",
   ]
-  if (clang_enable_arcmt) {
-    deps += [
-      "//clang/tools/arcmt-test",
-      "//clang/tools/c-arcmt-test",
-    ]
-  }
-  if (clang_enable_static_analyzer) {
-    deps += [
-      "//clang/tools/clang-check",
-      "//clang/tools/clang-func-mapping",
-    ]
-  }
+
   testonly = true
 }
 

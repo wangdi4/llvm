@@ -52,6 +52,7 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -831,6 +832,21 @@ static bool canPaddingBeAccessed(Argument *arg) {
   return false;
 }
 
+static bool areFunctionArgsABICompatible(
+    const Function &F, const TargetTransformInfo &TTI,
+    SmallPtrSetImpl<Argument *> &ArgsToPromote,
+    SmallPtrSetImpl<Argument *> &ByValArgsToTransform) {
+  for (const Use &U : F.uses()) {
+    CallSite CS(U.getUser());
+    const Function *Caller = CS.getCaller();
+    const Function *Callee = CS.getCalledFunction();
+    if (!TTI.areFunctionArgsABICompatible(Caller, Callee, ArgsToPromote) ||
+        !TTI.areFunctionArgsABICompatible(Caller, Callee, ByValArgsToTransform))
+      return false;
+  }
+  return true;
+}
+
 /// PromoteArguments - This method checks the specified function to see if there
 /// are any promotable arguments and if it is safe to promote the function (for
 /// example, all callers are direct).  If safe to promote some arguments, it
@@ -839,7 +855,8 @@ static Function *
 promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
                  unsigned MaxElements,
                  Optional<function_ref<void(CallSite OldCS, CallSite NewCS)>>
-                     ReplaceCallSite) {
+                     ReplaceCallSite,
+                 const TargetTransformInfo &TTI) {
   // Don't perform argument promotion for naked functions; otherwise we can end
   // up removing parameters that are seemingly 'not used' as they are referred
   // to in the assembly.
@@ -868,7 +885,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
   // Second check: make sure that all callers are direct callers.  We can't
   // transform functions that have indirect callers.  Also see if the function
-  // is self-recursive.
+  // is self-recursive and check that target features are compatible.
   bool isSelfRecursive = false;
   for (Use &U : F->uses()) {
     CallSite CS(U.getUser());
@@ -977,6 +994,10 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   if (ArgsToPromote.empty() && ByValArgsToTransform.empty())
     return nullptr;
 
+  if (!areFunctionArgsABICompatible(*F, TTI, ArgsToPromote,
+                                    ByValArgsToTransform))
+    return nullptr;
+
   return doPromotion(F, ArgsToPromote, ByValArgsToTransform, ReplaceCallSite);
 }
 
@@ -1002,7 +1023,9 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
         return FAM.getResult<AAManager>(F);
       };
 
-      Function *NewF = promoteArguments(&OldF, AARGetter, MaxElements, None);
+      const TargetTransformInfo &TTI = FAM.getResult<TargetIRAnalysis>(OldF);
+      Function *NewF =
+          promoteArguments(&OldF, AARGetter, MaxElements, None, TTI);
       if (!NewF)
         continue;
       LocalChange = true;
@@ -1054,6 +1077,7 @@ struct ArgPromotion : public CallGraphSCCPass {
     AU.addPreserved<AndersensAAWrapperPass>();      // INTEL
     AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
     AU.addPreserved<InlineAggressiveWrapperPass>(); // INTEL
+    AU.addRequired<TargetTransformInfoWrapperPass>();
     getAAResultsAnalysisUsage(AU);
     CallGraphSCCPass::getAnalysisUsage(AU);
   }
@@ -1079,6 +1103,7 @@ INITIALIZE_PASS_BEGIN(ArgPromotion, "argpromotion",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(ArgPromotion, "argpromotion",
                     "Promote 'by reference' arguments to scalars", false, false)
 
@@ -1115,8 +1140,10 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
         CallerNode->replaceCallEdge(OldCS, NewCS, NewCalleeNode);
       };
 
+      const TargetTransformInfo &TTI =
+          getAnalysis<TargetTransformInfoWrapperPass>().getTTI(*OldF);
       if (Function *NewF = promoteArguments(OldF, AARGetter, MaxElements,
-                                            {ReplaceCallSite})) {
+                                            {ReplaceCallSite}, TTI)) {
         LocalChange = true;
 
         // INTEL Argument promotion is replacing F with NF.

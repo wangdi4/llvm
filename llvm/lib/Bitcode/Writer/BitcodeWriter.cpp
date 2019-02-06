@@ -3642,6 +3642,13 @@ void ModuleBitcodeWriterBase::writePerModuleGlobalValueSummary() {
 
   Stream.EmitRecord(bitc::FS_VERSION, ArrayRef<uint64_t>{INDEX_VERSION});
 
+  // Write the index flags.
+  uint64_t Flags = 0;
+  // Bits 1-3 are set only in the combined index, skip them.
+  if (Index->enableSplitLTOUnit())
+    Flags |= 0x8;
+  Stream.EmitRecord(bitc::FS_FLAGS, ArrayRef<uint64_t>{Flags});
+
   if (Index->begin() == Index->end()) {
     Stream.ExitBlock();
     return;
@@ -3758,6 +3765,10 @@ void IndexBitcodeWriter::writeCombinedGlobalValueSummary() {
     Flags |= 0x2;
   if (Index.hasSyntheticEntryCounts())
     Flags |= 0x4;
+  if (Index.enableSplitLTOUnit())
+    Flags |= 0x8;
+  if (Index.partiallySplitLTOUnits())
+    Flags |= 0x10;
   Stream.EmitRecord(bitc::FS_FLAGS, ArrayRef<uint64_t>{Flags});
 
   for (const auto &GVI : valueIds()) {
