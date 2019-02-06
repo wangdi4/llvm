@@ -2111,6 +2111,9 @@ void CSACvtCFDFPass::computeBlockPredicates() {
         LoopInitPredicate)
       .addImm(0);
 
+    // This is a backedge, too.
+    LMFI->addLICAttribute(LoopInitPredicate, "csasim_backedge");
+
     // Block predicate is Loop || Start.
     BuildMI(*MBB, InsertPoint, L->getStartLoc(), TII->get(CSA::LOR1), BlockPred)
       .addReg(LoopInitPredicate)
