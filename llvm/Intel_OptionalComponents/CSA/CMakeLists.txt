@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2018 Intel Corporation. All rights reserved.
+#    Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 #
 #    The information and source code contained herein is the exclusive
 #    property of Intel Corporation. and may not be disclosed, examined
@@ -16,3 +16,4 @@ set(CSA_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(CSA_MAIN_INCLUDE_DIR ${CSA_SOURCE_DIR}/include/Intel_CSA)
 
 add_subdirectory(lib)
+add_subdirectory(test)
