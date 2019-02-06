@@ -318,6 +318,16 @@ namespace intel {
 
       }
       else if(ShuffleVectorInst * pOldShuffle = dyn_cast<ShuffleVectorInst>(pOldOp)) {
+        Value *Op1 = pOldShuffle->getOperand(0);
+        unsigned Op1Length =
+            cast<VectorType>(Op1->getType())->getVectorNumElements();
+        // When dealing with reduction-shuffle, i.e.,
+        // %x = shufflevector <m x Ty> %Op1, <m x Ty> %Op2, <n x i32> Mask
+        // where n !=  m, we want to set the type 'pNewTy' correctly.
+        if (Op1Length != cast<VectorType>(pNewTy)->getVectorNumElements()) {
+          pNewTy = VectorType::get(
+              cast<VectorType>(pNewTy)->getVectorElementType(), Op1Length);
+        }
         Value * pNewVecLHS = makeSExtValue(pOldShuffle->getOperand(0), pNewTy);
         Value * pNewVecRHS = makeSExtValue(pOldShuffle->getOperand(1), pNewTy);
         if(!pNewVecLHS || !pNewVecRHS) continue; // give up here to avoid crashes in release
