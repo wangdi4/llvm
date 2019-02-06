@@ -100,7 +100,10 @@ public:
   CSAStreamingMemoryImpl(DominatorTree &DT, LoopInfo &LI, ScalarEvolution &SE,
       OptimizationRemarkEmitter &ORE)
     : DT(DT), LI(LI), ORE(ORE), SE(SE),
-      Expander(SE, SE.getDataLayout(), "streammem") {}
+      Expander(SE, SE.getDataLayout(), "streammem") {
+        // Cause AddRecExprs to be expanded as phi loops rather than mul/adds.
+        Expander.disableCanonicalMode();
+      }
 
   bool run(Function &F);
   bool runOnLoop(Loop *L);
