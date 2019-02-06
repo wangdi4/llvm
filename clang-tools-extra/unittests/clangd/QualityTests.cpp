@@ -30,7 +30,6 @@
 #include "gtest/gtest.h"
 #include <vector>
 
-using namespace llvm;
 namespace clang {
 namespace clangd {
 
@@ -253,7 +252,7 @@ TEST(QualityTests, SymbolRelevanceSignalsSanity) {
 
   SymbolRelevanceSignals IndexProximate;
   IndexProximate.SymbolURI = "unittest:/foo/bar.h";
-  StringMap<SourceParams> ProxSources;
+  llvm::StringMap<SourceParams> ProxSources;
   ProxSources.try_emplace(testPath("foo/baz.h"));
   URIDistance Distance(ProxSources);
   IndexProximate.FileProximityMatch = &Distance;
@@ -371,7 +370,7 @@ TEST(QualityTests, IsInstanceMember) {
   Rel.merge(BarSym);
   EXPECT_TRUE(Rel.IsInstanceMember);
 
-  Rel.IsInstanceMember =false;
+  Rel.IsInstanceMember = false;
   const Symbol &TplSym = findSymbol(Symbols, "Foo::tpl");
   Rel.merge(TplSym);
   EXPECT_TRUE(Rel.IsInstanceMember);

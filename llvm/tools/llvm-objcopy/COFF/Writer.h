@@ -12,6 +12,7 @@
 
 #include "Buffer.h"
 #include "llvm/MC/StringTableBuilder.h"
+#include "llvm/Support/Error.h"
 #include <cstddef>
 #include <utility>
 
@@ -21,44 +22,36 @@ namespace coff {
 
 struct Object;
 
-class Writer {
-protected:
+class COFFWriter {
   Object &Obj;
   Buffer &Buf;
 
-public:
-  virtual ~Writer();
-  virtual void write() = 0;
-
-  Writer(Object &O, Buffer &B) : Obj(O), Buf(B) {}
-};
-
-class COFFWriter : public Writer {
   size_t FileSize;
   size_t FileAlignment;
   size_t SizeOfInitializedData;
   StringTableBuilder StrTabBuilder;
 
+  Error finalizeRelocTargets();
   void layoutSections();
   size_t finalizeStringTable();
   template <class SymbolTy> std::pair<size_t, size_t> finalizeSymbolTable();
 
-  void finalize(bool IsBigObj);
+  Error finalize(bool IsBigObj);
 
   void writeHeaders(bool IsBigObj);
   void writeSections();
   template <class SymbolTy> void writeSymbolStringTables();
 
-  void write(bool IsBigObj);
+  Error write(bool IsBigObj);
 
-  void patchDebugDirectory();
+  Error patchDebugDirectory();
 
 public:
   virtual ~COFFWriter() {}
-  void write() override;
+  Error write();
 
   COFFWriter(Object &Obj, Buffer &Buf)
-      : Writer(Obj, Buf), StrTabBuilder(StringTableBuilder::WinCOFF) {}
+      : Obj(Obj), Buf(Buf), StrTabBuilder(StringTableBuilder::WinCOFF) {}
 };
 
 } // end namespace coff

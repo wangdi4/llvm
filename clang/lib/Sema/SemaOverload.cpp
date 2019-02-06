@@ -1041,6 +1041,36 @@ Sema::CheckOverload(Scope *S, FunctionDecl *New, const LookupResult &Old,
     }
   }
 
+  // C++ [temp.friend]p1:
+  //   For a friend function declaration that is not a template declaration:
+  //    -- if the name of the friend is a qualified or unqualified template-id,
+  //       [...], otherwise
+  //    -- if the name of the friend is a qualified-id and a matching
+  //       non-template function is found in the specified class or namespace,
+  //       the friend declaration refers to that function, otherwise,
+  //    -- if the name of the friend is a qualified-id and a matching function
+  //       template is found in the specified class or namespace, the friend
+  //       declaration refers to the deduced specialization of that function
+  //       template, otherwise
+  //    -- the name shall be an unqualified-id [...]
+  // If we get here for a qualified friend declaration, we've just reached the
+  // third bullet. If the type of the friend is dependent, skip this lookup
+  // until instantiation.
+  if (New->getFriendObjectKind() && New->getQualifier() &&
+      !New->getDependentSpecializationInfo() &&
+      !New->getType()->isDependentType()) {
+    LookupResult TemplateSpecResult(LookupResult::Temporary, Old);
+    TemplateSpecResult.addAllDecls(Old);
+    if (CheckFunctionTemplateSpecialization(New, nullptr, TemplateSpecResult,
+                                            /*QualifiedFriend*/true)) {
+      New->setInvalidDecl();
+      return Ovl_Overload;
+    }
+
+    Match = TemplateSpecResult.getAsSingle<FunctionDecl>();
+    return Ovl_Match;
+  }
+
   return Ovl_Overload;
 }
 
@@ -2824,11 +2854,9 @@ void Sema::HandleFunctionTypeMismatch(PartialDiagnostic &PDiag,
     return;
   }
 
-  // FIXME: OpenCL: Need to consider address spaces
-  unsigned FromQuals = FromFunction->getTypeQuals().getCVRUQualifiers();
-  unsigned ToQuals = ToFunction->getTypeQuals().getCVRUQualifiers();
-  if (FromQuals != ToQuals) {
-    PDiag << ft_qualifer_mismatch << ToQuals << FromQuals;
+  if (FromFunction->getTypeQuals() != ToFunction->getTypeQuals()) {
+    PDiag << ft_qualifer_mismatch << ToFunction->getTypeQuals()
+          << FromFunction->getTypeQuals();
     return;
   }
 
@@ -3250,7 +3278,7 @@ IsInitializerListConstructorConversion(Sema &S, Expr *From, QualType ToType,
   case OR_Success: {
     // Record the standard conversion we used and the conversion function.
     CXXConstructorDecl *Constructor = cast<CXXConstructorDecl>(Best->Function);
-    QualType ThisType = Constructor->getThisType(S.Context);
+    QualType ThisType = Constructor->getThisType();
     // Initializer lists don't have conversions as such.
     User.Before.setAsIdentityConversion();
     User.HadMultipleCandidates = HadMultipleCandidates;
@@ -3431,7 +3459,7 @@ IsUserDefinedConversion(Sema &S, Expr *From, QualType ToType,
       //   sequence converts the source type to the type required by
       //   the argument of the constructor.
       //
-      QualType ThisType = Constructor->getThisType(S.Context);
+      QualType ThisType = Constructor->getThisType();
       if (isa<InitListExpr>(From)) {
         // Initializer lists don't have conversions as such.
         User.Before.setAsIdentityConversion();
@@ -5185,12 +5213,12 @@ Sema::PerformObjectArgumentInitialization(Expr *From,
                                           CXXMethodDecl *Method) {
   QualType FromRecordType, DestType;
   QualType ImplicitParamRecordType  =
-    Method->getThisType(Context)->getAs<PointerType>()->getPointeeType();
+    Method->getThisType()->getAs<PointerType>()->getPointeeType();
 
   Expr::Classification FromClassification;
   if (const PointerType *PT = From->getType()->getAs<PointerType>()) {
     FromRecordType = PT->getPointeeType();
-    DestType = Method->getThisType(Context);
+    DestType = Method->getThisType();
     FromClassification = Expr::Classification::makeSimpleLValue();
   } else {
     FromRecordType = From->getType();
@@ -9024,6 +9052,11 @@ static bool isBetterMultiversionCandidate(const OverloadCandidate &Cand1,
   if (!Cand1.Function || !Cand1.Function->isMultiVersion() || !Cand2.Function ||
       !Cand2.Function->isMultiVersion())
     return false;
+
+  // If Cand1 is invalid, it cannot be a better match, if Cand2 is invalid, this
+  // is obviously better.
+  if (Cand1.Function->isInvalidDecl()) return false;
+  if (Cand2.Function->isInvalidDecl()) return true;
 
   // If this is a cpu_dispatch/cpu_specific multiversion situation, prefer
   // cpu_dispatch, else arbitrarily based on the identifiers.

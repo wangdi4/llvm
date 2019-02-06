@@ -87,6 +87,8 @@ static SDVTList makeVTList(const EVT *VTs, unsigned NumVTs) {
 void SelectionDAG::DAGUpdateListener::NodeDeleted(SDNode*, SDNode*) {}
 void SelectionDAG::DAGUpdateListener::NodeUpdated(SDNode*) {}
 
+void SelectionDAG::DAGNodeDeletedListener::anchor() {}
+
 #define DEBUG_TYPE "selectiondag"
 
 static cl::opt<bool> EnableMemCpyDAGOpt("enable-memcpy-dag-opt",
@@ -2825,7 +2827,15 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
     Known.Zero.setBitsFrom(InVT.getScalarSizeInBits());
     break;
   }
-  // TODO ISD::SIGN_EXTEND_VECTOR_INREG
+  case ISD::SIGN_EXTEND_VECTOR_INREG: {
+    EVT InVT = Op.getOperand(0).getValueType();
+    APInt InDemandedElts = DemandedElts.zextOrSelf(InVT.getVectorNumElements());
+    Known = computeKnownBits(Op.getOperand(0), InDemandedElts, Depth + 1);
+    // If the sign bit is known to be zero or one, then sext will extend
+    // it to the top bits, else it will just zext.
+    Known = Known.sext(BitWidth);
+    break;
+  }
   case ISD::SIGN_EXTEND: {
     Known = computeKnownBits(Op.getOperand(0), DemandedElts, Depth + 1);
     // If the sign bit is known to be zero or one, then sext will extend
@@ -3683,7 +3693,7 @@ unsigned SelectionDAG::ComputeNumSignBits(SDValue Op, const APInt &DemandedElts,
     }
     return ComputeNumSignBits(Src, Depth + 1);
   }
-  case ISD::CONCAT_VECTORS:
+  case ISD::CONCAT_VECTORS: {
     // Determine the minimum number of sign bits across all demanded
     // elts of the input vectors. Early out if the result is already 1.
     Tmp = std::numeric_limits<unsigned>::max();
@@ -3700,6 +3710,40 @@ unsigned SelectionDAG::ComputeNumSignBits(SDValue Op, const APInt &DemandedElts,
     }
     assert(Tmp <= VTBits && "Failed to determine minimum sign bits");
     return Tmp;
+  }
+  case ISD::INSERT_SUBVECTOR: {
+    // If we know the element index, demand any elements from the subvector and
+    // the remainder from the src its inserted into, otherwise demand them all.
+    SDValue Src = Op.getOperand(0);
+    SDValue Sub = Op.getOperand(1);
+    auto *SubIdx = dyn_cast<ConstantSDNode>(Op.getOperand(2));
+    unsigned NumSubElts = Sub.getValueType().getVectorNumElements();
+    if (SubIdx && SubIdx->getAPIntValue().ule(NumElts - NumSubElts)) {
+      Tmp = std::numeric_limits<unsigned>::max();
+      uint64_t Idx = SubIdx->getZExtValue();
+      APInt DemandedSubElts = DemandedElts.extractBits(NumSubElts, Idx);
+      if (!!DemandedSubElts) {
+        Tmp = ComputeNumSignBits(Sub, DemandedSubElts, Depth + 1);
+        if (Tmp == 1) return 1; // early-out
+      }
+      APInt SubMask = APInt::getBitsSet(NumElts, Idx, Idx + NumSubElts);
+      APInt DemandedSrcElts = DemandedElts & ~SubMask;
+      if (!!DemandedSrcElts) {
+        Tmp2 = ComputeNumSignBits(Src, DemandedSrcElts, Depth + 1);
+        Tmp = std::min(Tmp, Tmp2);
+      }
+      assert(Tmp <= VTBits && "Failed to determine minimum sign bits");
+      return Tmp;
+    }
+
+    // Not able to determine the index so just assume worst case.
+    Tmp = ComputeNumSignBits(Sub, Depth + 1);
+    if (Tmp == 1) return 1; // early-out
+    Tmp2 = ComputeNumSignBits(Src, Depth + 1);
+    Tmp = std::min(Tmp, Tmp2);
+    assert(Tmp <= VTBits && "Failed to determine minimum sign bits");
+    return Tmp;
+  }
   }
 
   // If we are looking at the loaded value of the SDNode.
@@ -4444,6 +4488,10 @@ static std::pair<APInt, bool> FoldValue(unsigned Opcode, const APInt &C1,
   case ISD::SMAX: return std::make_pair(C1.sge(C2) ? C1 : C2, true);
   case ISD::UMIN: return std::make_pair(C1.ule(C2) ? C1 : C2, true);
   case ISD::UMAX: return std::make_pair(C1.uge(C2) ? C1 : C2, true);
+  case ISD::SADDSAT: return std::make_pair(C1.sadd_sat(C2), true);
+  case ISD::UADDSAT: return std::make_pair(C1.uadd_sat(C2), true);
+  case ISD::SSUBSAT: return std::make_pair(C1.ssub_sat(C2), true);
+  case ISD::USUBSAT: return std::make_pair(C1.usub_sat(C2), true);
   case ISD::UDIV:
     if (!C2.getBoolValue())
       break;
@@ -4783,6 +4831,10 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
   case ISD::SMAX:
   case ISD::UMIN:
   case ISD::UMAX:
+  case ISD::SADDSAT:
+  case ISD::SSUBSAT:
+  case ISD::UADDSAT:
+  case ISD::USUBSAT:
     assert(VT.isInteger() && "This operator does not apply to FP types!");
     assert(N1.getValueType() == N2.getValueType() &&
            N1.getValueType() == VT && "Binary operator types must match!");
@@ -5130,6 +5182,8 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
       case ISD::SDIV:
       case ISD::UREM:
       case ISD::SREM:
+      case ISD::SSUBSAT:
+      case ISD::USUBSAT:
         return getConstant(0, DL, VT);    // fold op(undef, arg2) -> 0
       }
     }
@@ -5153,8 +5207,12 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
       return getUNDEF(VT);       // fold op(arg1, undef) -> undef
     case ISD::MUL:
     case ISD::AND:
+    case ISD::SSUBSAT:
+    case ISD::USUBSAT:
       return getConstant(0, DL, VT);  // fold op(arg1, undef) -> 0
     case ISD::OR:
+    case ISD::SADDSAT:
+    case ISD::UADDSAT:
       return getAllOnesConstant(DL, VT);
     }
   }
