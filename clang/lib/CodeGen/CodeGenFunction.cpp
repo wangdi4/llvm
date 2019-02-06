@@ -847,6 +847,12 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
     Fn->setMetadata("autorun", llvm::MDNode::get(Context, attrMDArgs));
   }
 
+  if (const UsesGlobalWorkOffsetAttr *A = FD->getAttr<UsesGlobalWorkOffsetAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt1(A->getEnabled()))};
+    Fn->setMetadata("uses_global_work_offset", llvm::MDNode::get(Context, attrMDArgs));
+  }
+
   if (const NumComputeUnitsAttr *A = FD->getAttr<NumComputeUnitsAttr>()) {
     llvm::Metadata *attrMDArgs[] = {
         llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),

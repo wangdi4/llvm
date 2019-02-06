@@ -3088,6 +3088,23 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
       Attr.getAttributeSpellingListIndex()));
 }
 
+static void handleUsesGlobalWorkOffsetAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
+  if (!S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
+        << Attr;
+    return;
+  }
+
+  uint32_t Enabled;
+  const Expr *E = Attr.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, Attr, E, Enabled, 0,
+                           /*StrictlyUnsigned=*/true)) return;
+
+  D->addAttr(::new (S.Context) UsesGlobalWorkOffsetAttr(
+      Attr.getRange(), S.Context, Enabled,
+      Attr.getAttributeSpellingListIndex()));
+}
+
 static void handleClusterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored) << Attr;
@@ -8495,6 +8512,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Autorun:
     handleAutorunAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_UsesGlobalWorkOffset:
+    handleUsesGlobalWorkOffsetAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_OpenCLHostAccessible:
     handleOpenCLHostAccessible(S, D, AL);
     break;
@@ -8689,6 +8709,9 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<AutorunAttr>()) {
+      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
+      D->setInvalidDecl();
+    } else if (const auto *A = D->getAttr<UsesGlobalWorkOffsetAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (Attr *A = D->getAttr<StallFreeAttr>()) {

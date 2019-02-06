@@ -195,6 +195,14 @@ def Autorun : InheritableAttr {
   let Documentation = [AutorunDocs];
 }
 
+def UsesGlobalWorkOffset : InheritableAttr {
+  let Spellings = [GNU<"uses_global_work_offset">];
+  let Args = [BoolArgument<"Enabled">];
+  let LangOpts = [OpenCL];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [UsesGlobalWorkOffsetDocs];
+}
+
 def OpenCLHostAccessible : Attr {
   let Spellings = [GNU<"intel_host_accessible">];
   let Subjects = SubjectList<[Var]>;

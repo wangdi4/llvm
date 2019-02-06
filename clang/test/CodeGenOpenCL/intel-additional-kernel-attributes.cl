@@ -70,6 +70,15 @@ __kernel void k13b() {
 // CHECK: llvm.var.annotation{{.*}}[[STUFFBCB]]{{.*}}[[IMDB]]
 }
 
+__kernel void k14() __attribute__((uses_global_work_offset(0))) {}
+// CHECK: define spir_kernel void @k14{{[^{]+}} !uses_global_work_offset ![[MD13:[0-9]+]]
+
+__kernel void k15() __attribute__((uses_global_work_offset(1))) {}
+// CHECK: define spir_kernel void @k15{{[^{]+}} !uses_global_work_offset ![[MD10]]
+
+__kernel void k16() __attribute__((uses_global_work_offset(31))) {}
+// CHECK: define spir_kernel void @k16{{[^{]+}} !uses_global_work_offset ![[MD10]]
+
 // CHECK-DAG: [[MD1]] = !{i32 1024, i32 1, i32 1}
 // CHECK-DAG: [[MD2]] = !{i32 0}
 // CHECK-DAG: [[MD3]] = !{i32 16, i32 16, i32 16}
@@ -80,3 +89,4 @@ __kernel void k13b() {
 // CHECK-DAG: [[MD9]] = !{i32 1}
 // CHECK-DAG: [[MD10]] = !{i1 true}
 // CHECK-DAG: [[MD12]] = !{i32 12}
+// CHECK-DAG: [[MD13]] = !{i1 false}

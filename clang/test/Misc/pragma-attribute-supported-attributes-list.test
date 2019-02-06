@@ -152,6 +152,7 @@
 // CHECK-NEXT: TestTypestate (SubjectMatchRule_function_is_member)
 // CHECK-NEXT: TrivialABI (SubjectMatchRule_record)
 // if INTEL_CUSTOMIZATION
+// CHECK-NEXT: UsesGlobalWorkOffset (SubjectMatchRule_function)
 // CHECK-NEXT: VecLenHint (SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION
 // CHECK-NEXT: VecReturn (SubjectMatchRule_record)

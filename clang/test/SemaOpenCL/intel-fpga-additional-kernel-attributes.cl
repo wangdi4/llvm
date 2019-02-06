@@ -207,3 +207,21 @@ __kernel void kernel_8b() {}
 
 __attribute__((max_work_group_size(1, 1, 1)))
 void fun_8b() {} // expected-error{{attribute 'max_work_group_size' can only be applied to an OpenCL kernel function}}
+
+__attribute__((uses_global_work_offset(0)))
+__kernel void kernel_9a() {}
+
+__attribute__((uses_global_work_offset(1)))
+__kernel void kernel_9b() {}
+
+__attribute__((uses_global_work_offset(1)))
+void fun_9b() {} // expected-error{{attribute 'uses_global_work_offset' can only be applied to an OpenCL kernel function}}
+
+__attribute__((uses_global_work_offset(1,2,3))) // expected-error{{'uses_global_work_offset' attribute takes one argument}}
+__kernel void kernel_9c() {}
+
+__attribute__((uses_global_work_offset())) // expected-error{{'uses_global_work_offset' attribute takes one argument}}
+__kernel void kernel_9d() {}
+
+__attribute__((uses_global_work_offset(-1))) // expected-error{{'uses_global_work_offset' attribute requires a non-negative integral compile time constant expression}}
+__kernel void kernel_9f() {}
