@@ -241,4 +241,19 @@ void bar4(float c0, float *Anext, const int nx)
     Anext[j3] = c0;
   }
 }
+
+//CHECK-LABEL: bar5
+void bar5()
+{
+  int i,sx;
+  // CHECK-NOT: call token{{.*}}"DIR.OMP.TARGET"{{.*}}REDUCTION
+  // CHECK: [[T1:%[0-9]+]] = call token{{.*}} "DIR.OMP.TEAMS"
+  // CHECK: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "DIR.OMP.DISTRIBUTE.PARLOOP"()
+  #pragma omp target teams distribute parallel for reduction(+:sx)
+  for(i=0;i<10;++i) {}
+  // CHECK: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  // CHECK: "DIR.OMP.END.TARGET"
+}
 // end INTEL_COLLAB

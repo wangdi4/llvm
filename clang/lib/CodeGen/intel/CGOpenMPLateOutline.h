@@ -80,7 +80,6 @@ class OpenMPLateOutliner {
   using ArraySectionTy = llvm::SmallVector<ArraySectionDataTy, 4>;
 
   // Used temporarily to build a bundle.
-  OpenMPClauseKind CurrentClauseKind;
   StringRef BundleString;
   SmallVector<llvm::Value*, 8> BundleValues;
   void clearBundleTemps() { BundleString = ""; BundleValues.clear(); }
@@ -173,13 +172,14 @@ class OpenMPLateOutliner {
   class ClauseEmissionHelper final {
     llvm::IRBuilderBase::InsertPoint SavedIP;
     OpenMPLateOutliner &O;
+    OpenMPClauseKind CK;
     ClauseStringBuilder CSB;
     bool EmitClause;
 
   public:
-    ClauseEmissionHelper(OpenMPLateOutliner &O, StringRef InitStr = "",
-                         bool EmitClause = true)
-        : O(O), CSB(InitStr), EmitClause(EmitClause) {
+    ClauseEmissionHelper(OpenMPLateOutliner &O, OpenMPClauseKind CK,
+                         StringRef InitStr = "", bool EmitClause = true)
+        : O(O), CK(CK), CSB(InitStr), EmitClause(EmitClause) {
       if (O.insertPointChangeNeeded()) {
         SavedIP = O.CGF.Builder.saveIP();
         O.setInsertPoint();
@@ -189,7 +189,7 @@ class OpenMPLateOutliner {
       if (O.insertPointChangeNeeded())
         O.CGF.Builder.restoreIP(SavedIP);
       if (EmitClause)
-        O.emitClause();
+        O.emitClause(CK);
     }
     ClauseStringBuilder &getBuilder() { return CSB; }
   };
@@ -206,11 +206,12 @@ class OpenMPLateOutliner {
   void addArg(const Expr *E, bool IsRef = false);
 
   void addFenceCalls(bool IsBegin);
-  void getApplicableDirectives(SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
+  void getApplicableDirectives(OpenMPClauseKind CK,
+                               SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
   void startDirectiveIntrinsicSet(StringRef B, StringRef E,
-                                  OpenMPDirectiveKind K = OMPD_unknown);
+                                  OpenMPDirectiveKind K);
   void emitDirective(DirectiveIntrinsicSet &D, StringRef Name);
-  void emitClause();
+  void emitClause(OpenMPClauseKind CK);
   void emitOMPSharedClause(const OMPSharedClause *Cl);
   void emitOMPPrivateClause(const OMPPrivateClause *Cl);
   void emitOMPLastprivateClause(const OMPLastprivateClause *Cl);
