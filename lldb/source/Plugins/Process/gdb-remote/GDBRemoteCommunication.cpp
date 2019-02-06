@@ -69,8 +69,9 @@ GDBRemoteCommunication::GDBRemoteCommunication(const char *comm_name,
       m_echo_number(0), m_supports_qEcho(eLazyBoolCalculate), m_history(512),
       m_send_acks(true), m_compression_type(CompressionType::None),
       m_listen_url(), m_decompression_scratch_type(CompressionType::None),
-      m_decompression_scratch(nullptr)
-{ 
+      m_decompression_scratch(nullptr) {
+  // Unused unless HAVE_LIBCOMPRESSION is defined.
+  (void)m_decompression_scratch_type;
 }
 
 //----------------------------------------------------------------------
@@ -1073,9 +1074,9 @@ Status GDBRemoteCommunication::StartDebugserverProcess(
                         __FUNCTION__, error.AsCString());
           return error;
         }
-        int write_fd = socket_pipe.GetWriteFileDescriptor();
+        pipe_t write = socket_pipe.GetWritePipe();
         debugserver_args.AppendArgument(llvm::StringRef("--pipe"));
-        debugserver_args.AppendArgument(llvm::to_string(write_fd));
+        debugserver_args.AppendArgument(llvm::to_string(write));
         launch_info.AppendCloseFileAction(socket_pipe.GetReadFileDescriptor());
 #endif
       } else {

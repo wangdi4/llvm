@@ -23,13 +23,11 @@ namespace coff {
 
 using namespace object;
 
-Reader::~Reader() {}
-
-void COFFReader::readExecutableHeaders(Object &Obj) const {
+Error COFFReader::readExecutableHeaders(Object &Obj) const {
   const dos_header *DH = COFFObj.getDOSHeader();
   Obj.Is64 = COFFObj.is64();
   if (!DH)
-    return;
+    return Error::success();
 
   Obj.IsPE = true;
   Obj.DosHeader = *DH;
@@ -40,12 +38,12 @@ void COFFReader::readExecutableHeaders(Object &Obj) const {
   if (COFFObj.is64()) {
     const pe32plus_header *PE32Plus = nullptr;
     if (auto EC = COFFObj.getPE32PlusHeader(PE32Plus))
-      reportError(COFFObj.getFileName(), std::move(EC));
+      return errorCodeToError(EC);
     Obj.PeHeader = *PE32Plus;
   } else {
     const pe32_header *PE32 = nullptr;
     if (auto EC = COFFObj.getPE32Header(PE32))
-      reportError(COFFObj.getFileName(), std::move(EC));
+      return errorCodeToError(EC);
     copyPeHeader(Obj.PeHeader, *PE32);
     // The pe32plus_header (stored in Object) lacks the BaseOfData field.
     Obj.BaseOfData = PE32->BaseOfData;
@@ -54,43 +52,46 @@ void COFFReader::readExecutableHeaders(Object &Obj) const {
   for (size_t I = 0; I < Obj.PeHeader.NumberOfRvaAndSize; I++) {
     const data_directory *Dir;
     if (auto EC = COFFObj.getDataDirectory(I, Dir))
-      reportError(COFFObj.getFileName(), std::move(EC));
+      return errorCodeToError(EC);
     Obj.DataDirectories.emplace_back(*Dir);
   }
+  return Error::success();
 }
 
-void COFFReader::readSections(Object &Obj) const {
+Error COFFReader::readSections(Object &Obj) const {
   // Section indexing starts from 1.
   for (size_t I = 1, E = COFFObj.getNumberOfSections(); I <= E; I++) {
     const coff_section *Sec;
     if (auto EC = COFFObj.getSection(I, Sec))
-      reportError(COFFObj.getFileName(), std::move(EC));
+      return errorCodeToError(EC);
     Obj.Sections.push_back(Section());
     Section &S = Obj.Sections.back();
     S.Header = *Sec;
     if (auto EC = COFFObj.getSectionContents(Sec, S.Contents))
-      reportError(COFFObj.getFileName(), std::move(EC));
+      return errorCodeToError(EC);
     ArrayRef<coff_relocation> Relocs = COFFObj.getRelocations(Sec);
-    S.Relocs.insert(S.Relocs.end(), Relocs.begin(), Relocs.end());
+    for (const coff_relocation &R : Relocs)
+      S.Relocs.push_back(R);
     if (auto EC = COFFObj.getSectionName(Sec, S.Name))
-      reportError(COFFObj.getFileName(), std::move(EC));
+      return errorCodeToError(EC);
     if (Sec->hasExtendedRelocations())
-      reportError(
-          COFFObj.getFileName(),
-          make_error<StringError>("Extended relocations not supported yet",
-                                  object_error::parse_failed));
+      return make_error<StringError>("Extended relocations not supported yet",
+                                     object_error::parse_failed);
   }
+  return Error::success();
 }
 
-void COFFReader::readSymbols(Object &Obj, bool IsBigObj) const {
+Error COFFReader::readSymbols(Object &Obj, bool IsBigObj) const {
+  std::vector<Symbol> Symbols;
+  Symbols.reserve(COFFObj.getRawNumberOfSymbols());
   for (uint32_t I = 0, E = COFFObj.getRawNumberOfSymbols(); I < E;) {
     Expected<COFFSymbolRef> SymOrErr = COFFObj.getSymbol(I);
     if (!SymOrErr)
-      reportError(COFFObj.getFileName(), SymOrErr.takeError());
+      return SymOrErr.takeError();
     COFFSymbolRef SymRef = *SymOrErr;
 
-    Obj.Symbols.push_back(Symbol());
-    Symbol &Sym = Obj.Symbols.back();
+    Symbols.push_back(Symbol());
+    Symbol &Sym = Symbols.back();
     // Copy symbols from the original form into an intermediate coff_symbol32.
     if (IsBigObj)
       copySymbol(Sym.Sym,
@@ -99,15 +100,40 @@ void COFFReader::readSymbols(Object &Obj, bool IsBigObj) const {
       copySymbol(Sym.Sym,
                  *reinterpret_cast<const coff_symbol16 *>(SymRef.getRawPtr()));
     if (auto EC = COFFObj.getSymbolName(SymRef, Sym.Name))
-      reportError(COFFObj.getFileName(), std::move(EC));
+      return errorCodeToError(EC);
     Sym.AuxData = COFFObj.getSymbolAuxData(SymRef);
     assert((Sym.AuxData.size() %
             (IsBigObj ? sizeof(coff_symbol32) : sizeof(coff_symbol16))) == 0);
     I += 1 + SymRef.getNumberOfAuxSymbols();
   }
+  Obj.addSymbols(Symbols);
+  return Error::success();
 }
 
-std::unique_ptr<Object> COFFReader::create() const {
+Error COFFReader::setRelocTargets(Object &Obj) const {
+  std::vector<const Symbol *> RawSymbolTable;
+  for (const Symbol &Sym : Obj.getSymbols()) {
+    RawSymbolTable.push_back(&Sym);
+    for (size_t I = 0; I < Sym.Sym.NumberOfAuxSymbols; I++)
+      RawSymbolTable.push_back(nullptr);
+  }
+  for (Section &Sec : Obj.Sections) {
+    for (Relocation &R : Sec.Relocs) {
+      if (R.Reloc.SymbolTableIndex >= RawSymbolTable.size())
+        return make_error<StringError>("SymbolTableIndex out of range",
+                                       object_error::parse_failed);
+      const Symbol *Sym = RawSymbolTable[R.Reloc.SymbolTableIndex];
+      if (Sym == nullptr)
+        return make_error<StringError>("Invalid SymbolTableIndex",
+                                       object_error::parse_failed);
+      R.Target = Sym->UniqueId;
+      R.TargetName = Sym->Name;
+    }
+  }
+  return Error::success();
+}
+
+Expected<std::unique_ptr<Object>> COFFReader::create() const {
   auto Obj = llvm::make_unique<Object>();
 
   const coff_file_header *CFH = nullptr;
@@ -119,9 +145,8 @@ std::unique_ptr<Object> COFFReader::create() const {
     Obj->CoffFileHeader = *CFH;
   } else {
     if (!CBFH)
-      reportError(COFFObj.getFileName(),
-                  make_error<StringError>("No COFF file header returned",
-                                          object_error::parse_failed));
+      return make_error<StringError>("No COFF file header returned",
+                                     object_error::parse_failed);
     // Only copying the few fields from the bigobj header that we need
     // and won't recreate in the end.
     Obj->CoffFileHeader.Machine = CBFH->Machine;
@@ -129,11 +154,16 @@ std::unique_ptr<Object> COFFReader::create() const {
     IsBigObj = true;
   }
 
-  readExecutableHeaders(*Obj);
-  readSections(*Obj);
-  readSymbols(*Obj, IsBigObj);
+  if (Error E = readExecutableHeaders(*Obj))
+    return std::move(E);
+  if (Error E = readSections(*Obj))
+    return std::move(E);
+  if (Error E = readSymbols(*Obj, IsBigObj))
+    return std::move(E);
+  if (Error E = setRelocTargets(*Obj))
+    return std::move(E);
 
-  return Obj;
+  return std::move(Obj);
 }
 
 } // end namespace coff

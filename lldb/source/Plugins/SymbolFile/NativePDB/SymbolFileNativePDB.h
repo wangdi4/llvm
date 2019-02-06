@@ -77,32 +77,38 @@ public:
 
   uint32_t GetNumCompileUnits() override;
 
+  void
+  ParseDeclsForContext(lldb_private::CompilerDeclContext decl_ctx) override;
+
   lldb::CompUnitSP ParseCompileUnitAtIndex(uint32_t index) override;
 
-  lldb::LanguageType ParseCompileUnitLanguage(const SymbolContext &sc) override;
+  lldb::LanguageType
+  ParseLanguage(lldb_private::CompileUnit &comp_unit) override;
 
-  size_t ParseCompileUnitFunctions(const SymbolContext &sc) override;
+  size_t ParseFunctions(lldb_private::CompileUnit &comp_unit) override;
 
-  bool ParseCompileUnitLineTable(const SymbolContext &sc) override;
+  bool ParseLineTable(lldb_private::CompileUnit &comp_unit) override;
 
-  bool ParseCompileUnitDebugMacros(const SymbolContext &sc) override;
+  bool ParseDebugMacros(lldb_private::CompileUnit &comp_unit) override;
 
-  bool ParseCompileUnitSupportFiles(const SymbolContext &sc,
-                                    FileSpecList &support_files) override;
+  bool ParseSupportFiles(lldb_private::CompileUnit &comp_unit,
+                         FileSpecList &support_files) override;
+  size_t ParseTypes(lldb_private::CompileUnit &comp_unit) override;
 
   bool
   ParseImportedModules(const SymbolContext &sc,
                        std::vector<ConstString> &imported_modules) override;
 
-  size_t ParseFunctionBlocks(const SymbolContext &sc) override;
+  size_t ParseBlocksRecursive(Function &func) override;
 
   uint32_t FindGlobalVariables(const ConstString &name,
                                const CompilerDeclContext *parent_decl_ctx,
                                uint32_t max_matches,
                                VariableList &variables) override;
 
-  size_t ParseTypes(const SymbolContext &sc) override;
   size_t ParseVariablesForContext(const SymbolContext &sc) override;
+
+  void AddSymbols(Symtab &symtab) override;
 
   CompilerDecl GetDeclForUID(lldb::user_id_t uid) override;
   CompilerDeclContext GetDeclContextForUID(lldb::user_id_t uid) override;
@@ -116,6 +122,10 @@ public:
   uint32_t ResolveSymbolContext(const Address &so_addr,
                                 lldb::SymbolContextItem resolve_scope,
                                 SymbolContext &sc) override;
+  uint32_t ResolveSymbolContext(const FileSpec &file_spec, uint32_t line,
+                                bool check_inlines,
+                                lldb::SymbolContextItem resolve_scope,
+                                SymbolContextList &sc_list) override;
 
   size_t GetTypes(SymbolContextScope *sc_scope, lldb::TypeClass type_mask,
                   TypeList &type_list) override;
@@ -129,7 +139,7 @@ public:
   uint32_t FindFunctions(const RegularExpression &regex, bool include_inlines,
                          bool append, SymbolContextList &sc_list) override;
 
-  uint32_t FindTypes(const SymbolContext &sc, const ConstString &name,
+  uint32_t FindTypes(const ConstString &name,
                      const CompilerDeclContext *parent_decl_ctx, bool append,
                      uint32_t max_matches,
                      llvm::DenseSet<SymbolFile *> &searched_symbol_files,
@@ -141,7 +151,7 @@ public:
   TypeSystem *GetTypeSystemForLanguage(lldb::LanguageType language) override;
 
   CompilerDeclContext
-  FindNamespace(const SymbolContext &sc, const ConstString &name,
+  FindNamespace(const ConstString &name,
                 const CompilerDeclContext *parent_decl_ctx) override;
 
   ConstString GetPluginName() override;
@@ -194,12 +204,14 @@ private:
   lldb::VariableSP GetOrCreateLocalVariable(PdbCompilandSymId scope_id,
                                             PdbCompilandSymId var_id,
                                             bool is_param);
+  lldb::TypeSP GetOrCreateTypedef(PdbGlobalSymId id);
 
   lldb::FunctionSP CreateFunction(PdbCompilandSymId func_id,
                                   CompileUnit &comp_unit);
   Block &CreateBlock(PdbCompilandSymId block_id);
   lldb::VariableSP CreateLocalVariable(PdbCompilandSymId scope_id,
                                        PdbCompilandSymId var_id, bool is_param);
+  lldb::TypeSP CreateTypedef(PdbGlobalSymId id);
   lldb::CompUnitSP CreateCompileUnit(const CompilandIndexItem &cci);
   lldb::TypeSP CreateType(PdbTypeSymId type_id, CompilerType ct);
   lldb::TypeSP CreateAndCacheType(PdbTypeSymId type_id);
@@ -213,6 +225,7 @@ private:
   llvm::BumpPtrAllocator m_allocator;
 
   lldb::addr_t m_obj_load_address = 0;
+  bool m_done_full_type_scan = false;
 
   std::unique_ptr<PdbIndex> m_index;
 

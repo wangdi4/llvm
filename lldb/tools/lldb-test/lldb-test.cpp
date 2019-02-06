@@ -100,10 +100,14 @@ cl::list<std::string> InputFilenames(cl::Positional, cl::desc("<input files>"),
 } // namespace object
 
 namespace symbols {
-static cl::list<std::string> InputFilenames(cl::Positional,
-                                            cl::desc("<input files>"),
-                                            cl::OneOrMore,
-                                            cl::sub(SymbolsSubcommand));
+static cl::opt<std::string> InputFile(cl::Positional, cl::desc("<input file>"),
+                                      cl::Required, cl::sub(SymbolsSubcommand));
+
+static cl::opt<std::string>
+    SymbolPath("symbol-file",
+               cl::desc("The file from which to fetch symbol information."),
+               cl::value_desc("file"), cl::sub(SymbolsSubcommand));
+
 enum class FindType {
   None,
   Function,
@@ -437,9 +441,8 @@ Error opts::symbols::findNamespaces(lldb_private::Module &Module) {
   CompilerDeclContext *ContextPtr =
       ContextOr->IsValid() ? &*ContextOr : nullptr;
 
-  SymbolContext SC;
   CompilerDeclContext Result =
-      Vendor.FindNamespace(SC, ConstString(Name), ContextPtr);
+      Vendor.FindNamespace(ConstString(Name), ContextPtr);
   if (Result)
     outs() << "Found namespace: "
            << Result.GetScopeQualifiedName().GetStringRef() << "\n";
@@ -456,10 +459,9 @@ Error opts::symbols::findTypes(lldb_private::Module &Module) {
   CompilerDeclContext *ContextPtr =
       ContextOr->IsValid() ? &*ContextOr : nullptr;
 
-  SymbolContext SC;
   DenseSet<SymbolFile *> SearchedFiles;
   TypeMap Map;
-  Vendor.FindTypes(SC, ConstString(Name), ContextPtr, true, UINT32_MAX,
+  Vendor.FindTypes(ConstString(Name), ContextPtr, true, UINT32_MAX,
                    SearchedFiles, Map);
 
   outs() << formatv("Found {0} types:\n", Map.GetSize());
@@ -518,6 +520,7 @@ Error opts::symbols::dumpModule(lldb_private::Module &Module) {
 
 Error opts::symbols::dumpAST(lldb_private::Module &Module) {
   SymbolVendor &plugin = *Module.GetSymbolVendor();
+   Module.ParseAllDebugSymbols();
 
   auto symfile = plugin.GetSymbolFile();
   if (!symfile)
@@ -535,9 +538,6 @@ Error opts::symbols::dumpAST(lldb_private::Module &Module) {
   auto tu = ast_ctx->getTranslationUnitDecl();
   if (!tu)
     return make_string_error("Can't retrieve translation unit declaration.");
-
-  symfile->ParseDeclsForContext(CompilerDeclContext(
-      clang_ast_ctx, static_cast<clang::DeclContext *>(tu)));
 
   tu->print(outs());
 
@@ -694,28 +694,24 @@ int opts::symbols::dumpSymbols(Debugger &Dbg) {
   }
   auto Action = *ActionOr;
 
-  int HadErrors = 0;
-  for (const auto &File : InputFilenames) {
-    outs() << "Module: " << File << "\n";
-    ModuleSpec Spec{FileSpec(File)};
-    Spec.GetSymbolFileSpec().SetFile(File, FileSpec::Style::native);
+  outs() << "Module: " << InputFile << "\n";
+  ModuleSpec Spec{FileSpec(InputFile)};
+  StringRef Symbols = SymbolPath.empty() ? InputFile : SymbolPath;
+  Spec.GetSymbolFileSpec().SetFile(Symbols, FileSpec::Style::native);
 
-    auto ModulePtr = std::make_shared<lldb_private::Module>(Spec);
-    SymbolVendor *Vendor = ModulePtr->GetSymbolVendor();
-    if (!Vendor) {
-      WithColor::error() << "Module has no symbol vendor.\n";
-      HadErrors = 1;
-      continue;
-    }
-
-    if (Error E = Action(*ModulePtr)) {
-      WithColor::error() << toString(std::move(E)) << "\n";
-      HadErrors = 1;
-    }
-
-    outs().flush();
+  auto ModulePtr = std::make_shared<lldb_private::Module>(Spec);
+  SymbolVendor *Vendor = ModulePtr->GetSymbolVendor();
+  if (!Vendor) {
+    WithColor::error() << "Module has no symbol vendor.\n";
+    return 1;
   }
-  return HadErrors;
+
+  if (Error E = Action(*ModulePtr)) {
+    WithColor::error() << toString(std::move(E)) << "\n";
+    return 1;
+  }
+
+  return 0;
 }
 
 static void dumpSectionList(LinePrinter &Printer, const SectionList &List, bool is_subsection) {
@@ -787,6 +783,8 @@ static int dumpObjectFiles(Debugger &Dbg) {
     Printer.formatLine("Stripped: {0}", ObjectPtr->IsStripped());
     Printer.formatLine("Type: {0}", ObjectPtr->GetType());
     Printer.formatLine("Strata: {0}", ObjectPtr->GetStrata());
+    Printer.formatLine("Base VM address: {0:x}",
+                       ObjectPtr->GetBaseAddress().GetFileAddress());
 
     dumpSectionList(Printer, *Sections, /*is_subsection*/ false);
 

@@ -80,6 +80,7 @@ static BasicBlock *getOnlyLiveSuccessor(BasicBlock *BB) {
   return nullptr;
 }
 
+namespace {
 /// Helper class that can turn branches and switches with constant conditions
 /// into unconditional branches.
 class ConstantTerminatorFoldingImpl {
@@ -87,6 +88,7 @@ private:
   Loop &L;
   LoopInfo &LI;
   DominatorTree &DT;
+  ScalarEvolution &SE;
   MemorySSAUpdater *MSSAU;
 
   // Whether or not the current loop has irreducible CFG.
@@ -459,8 +461,9 @@ private:
 
 public:
   ConstantTerminatorFoldingImpl(Loop &L, LoopInfo &LI, DominatorTree &DT,
+                                ScalarEvolution &SE,
                                 MemorySSAUpdater *MSSAU)
-      : L(L), LI(LI), DT(DT), MSSAU(MSSAU) {}
+      : L(L), LI(LI), DT(DT), SE(SE), MSSAU(MSSAU) {}
   bool run() {
     assert(L.getLoopLatch() && "Should be single latch!");
 
@@ -507,6 +510,7 @@ public:
       return false;
     }
 
+    SE.forgetTopmostLoop(&L);
     // Dump analysis results.
     LLVM_DEBUG(dump());
 
@@ -535,10 +539,12 @@ public:
     return true;
   }
 };
+} // namespace
 
 /// Turn branches and switches with known constant conditions into unconditional
 /// branches.
 static bool constantFoldTerminators(Loop &L, DominatorTree &DT, LoopInfo &LI,
+                                    ScalarEvolution &SE,
                                     MemorySSAUpdater *MSSAU) {
   if (!EnableTermFolding)
     return false;
@@ -548,7 +554,7 @@ static bool constantFoldTerminators(Loop &L, DominatorTree &DT, LoopInfo &LI,
   if (!L.getLoopLatch())
     return false;
 
-  ConstantTerminatorFoldingImpl BranchFolder(L, LI, DT, MSSAU);
+  ConstantTerminatorFoldingImpl BranchFolder(L, LI, DT, SE, MSSAU);
   return BranchFolder.run();
 }
 
@@ -585,7 +591,7 @@ static bool simplifyLoopCFG(Loop &L, DominatorTree &DT, LoopInfo &LI,
   bool Changed = false;
 
   // Constant-fold terminators with known constant conditions.
-  Changed |= constantFoldTerminators(L, DT, LI, MSSAU);
+  Changed |= constantFoldTerminators(L, DT, LI, SE, MSSAU);
 
   // Eliminate unconditional branches by merging blocks into their predecessors.
   Changed |= mergeBlocksIntoPredecessors(L, DT, LI, MSSAU);

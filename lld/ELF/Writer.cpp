@@ -910,12 +910,18 @@ void PhdrEntry::add(OutputSection *Sec) {
 template <class ELFT> void Writer<ELFT>::addRelIpltSymbols() {
   if (Config->Relocatable || needsInterpSection())
     return;
-  StringRef S = Config->IsRela ? "__rela_iplt_start" : "__rel_iplt_start";
-  addOptionalRegular(S, In.RelaIplt, 0, STV_HIDDEN, STB_WEAK);
 
-  S = Config->IsRela ? "__rela_iplt_end" : "__rel_iplt_end";
-  ElfSym::RelaIpltEnd =
-      addOptionalRegular(S, In.RelaIplt, 0, STV_HIDDEN, STB_WEAK);
+  // By default, __rela_iplt_{start,end} belong to a dummy section 0
+  // because .rela.plt might be empty and thus removed from output.
+  // We'll override Out::ElfHeader with In.RelaIplt later when we are
+  // sure that .rela.plt exists in output.
+  ElfSym::RelaIpltStart = addOptionalRegular(
+      Config->IsRela ? "__rela_iplt_start" : "__rel_iplt_start",
+      Out::ElfHeader, 0, STV_HIDDEN, STB_WEAK);
+
+  ElfSym::RelaIpltEnd = addOptionalRegular(
+      Config->IsRela ? "__rela_iplt_end" : "__rel_iplt_end",
+      Out::ElfHeader, 0, STV_HIDDEN, STB_WEAK);
 }
 
 template <class ELFT>
@@ -949,8 +955,12 @@ template <class ELFT> void Writer<ELFT>::setReservedSymbolSections() {
     ElfSym::GlobalOffsetTable->Section = GotSection;
   }
 
-  if (ElfSym::RelaIpltEnd)
+  // .rela_iplt_{start,end} mark the start and the end of .rela.plt section.
+  if (ElfSym::RelaIpltStart && !In.RelaIplt->empty()) {
+    ElfSym::RelaIpltStart->Section = In.RelaIplt;
+    ElfSym::RelaIpltEnd->Section = In.RelaIplt;
     ElfSym::RelaIpltEnd->Value = In.RelaIplt->getSize();
+  }
 
   PhdrEntry *Last = nullptr;
   PhdrEntry *LastRO = nullptr;
@@ -2181,11 +2191,23 @@ template <class ELFT> void Writer<ELFT>::setPhdrs() {
       P->p_memsz = alignTo(P->p_memsz, Target->PageSize);
     }
 
-    // The TLS pointer goes after PT_TLS for variant 2 targets. At least glibc
-    // will align it, so round up the size to make sure the offsets are
-    // correct.
-    if (P->p_type == PT_TLS && P->p_memsz)
+    if (P->p_type == PT_TLS && P->p_memsz) {
+      if (!Config->Shared &&
+          (Config->EMachine == EM_ARM || Config->EMachine == EM_AARCH64)) {
+        // On ARM/AArch64, reserve extra space (8 words) between the thread
+        // pointer and an executable's TLS segment by overaligning the segment.
+        // This reservation is needed for backwards compatibility with Android's
+        // TCB, which allocates several slots after the thread pointer (e.g.
+        // TLS_SLOT_STACK_GUARD==5). For simplicity, this overalignment is also
+        // done on other operating systems.
+        P->p_align = std::max<uint64_t>(P->p_align, Config->Wordsize * 8);
+      }
+
+      // The TLS pointer goes after PT_TLS for variant 2 targets. At least glibc
+      // will align it, so round up the size to make sure the offsets are
+      // correct.
       P->p_memsz = alignTo(P->p_memsz, P->p_align);
+    }
   }
 }
 

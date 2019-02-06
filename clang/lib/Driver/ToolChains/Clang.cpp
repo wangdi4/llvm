@@ -19,6 +19,7 @@
 #include "AMDGPU.h"
 #include "CommonArgs.h"
 #include "Hexagon.h"
+#include "MSP430.h"
 #include "InputInfo.h"
 #include "PS4CPU.h"
 #include "clang/Basic/CharInfo.h"
@@ -364,6 +365,8 @@ static void getTargetFeatures(const ToolChain &TC, const llvm::Triple &Triple,
   case llvm::Triple::amdgcn:
     amdgpu::getAMDGPUTargetFeatures(D, Args, Features);
     break;
+  case llvm::Triple::msp430:
+    msp430::getMSP430TargetFeatures(D, Args, Features);
   }
 
   // Find the last of each feature.
@@ -4434,6 +4437,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_version_EQ);
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_cuda_number_of_sm_EQ);
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_cuda_blocks_per_sm_EQ);
+      if (Args.hasFlag(options::OPT_fopenmp_optimistic_collapse,
+                       options::OPT_fno_openmp_optimistic_collapse,
+                       /*Default=*/false))
+        CmdArgs.push_back("-fopenmp-optimistic-collapse");
 
       // When in OpenMP offloading mode with NVPTX target, forward
       // cuda-mode flag
@@ -5222,6 +5229,17 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fwhole-program-vtables");
   }
 
+  bool RequiresSplitLTOUnit = WholeProgramVTables || Sanitize.needsLTO();
+  bool SplitLTOUnit =
+      Args.hasFlag(options::OPT_fsplit_lto_unit,
+                   options::OPT_fno_split_lto_unit, RequiresSplitLTOUnit);
+  if (RequiresSplitLTOUnit && !SplitLTOUnit)
+    D.Diag(diag::err_drv_argument_not_allowed_with)
+        << "-fno-split-lto-unit"
+        << (WholeProgramVTables ? "-fwhole-program-vtables" : "-fsanitize=cfi");
+  if (SplitLTOUnit)
+    CmdArgs.push_back("-fsplit-lto-unit");
+
   if (Arg *A = Args.getLastArg(options::OPT_fexperimental_isel,
                                options::OPT_fno_experimental_isel)) {
     CmdArgs.push_back("-mllvm");
@@ -5292,6 +5310,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                       !TC.getTriple().isPS4() &&
                       !TC.getTriple().isOSNetBSD() &&
                       !Distro(D.getVFS()).IsGentoo() &&
+                      !TC.getTriple().isAndroid() &&
                        TC.useIntegratedAs()))
     CmdArgs.push_back("-faddrsig");
 

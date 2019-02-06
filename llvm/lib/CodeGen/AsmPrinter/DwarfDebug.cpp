@@ -1180,6 +1180,18 @@ DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
     LLVM_DEBUG(dbgs() << "DotDebugLoc: " << *Begin << "\n");
 
     auto Value = getDebugLocValue(Begin);
+
+    // Omit entries with empty ranges as they do not have any effect in DWARF.
+    if (StartLabel == EndLabel) {
+      // If this is a fragment, we must still add the value to the list of
+      // open ranges, since it may describe non-overlapping parts of the
+      // variable.
+      if (DIExpr->isFragment())
+        OpenRanges.push_back(Value);
+      LLVM_DEBUG(dbgs() << "Omitting location list entry with empty range.\n");
+      continue;
+    }
+
     DebugLocEntry Loc(StartLabel, EndLabel, Value);
     bool couldMerge = false;
 
@@ -1918,6 +1930,7 @@ static void emitDebugLocValue(const AsmPrinter &AP, const DIBasicType *BT,
 void DebugLocEntry::finalize(const AsmPrinter &AP,
                              DebugLocStream::ListBuilder &List,
                              const DIBasicType *BT) {
+  assert(Begin != End && "unexpected location list entry with empty range");
   DebugLocStream::EntryBuilder Entry(List, Begin, End);
   BufferByteStreamer Streamer = Entry.getStreamer();
   DebugLocDwarfExpression DwarfExpr(AP.getDwarfVersion(), Streamer);
@@ -2363,8 +2376,8 @@ static void emitRangeList(DwarfDebug &DD, AsmPrinter *Asm,
   }
 }
 
-void emitDebugRangesImpl(DwarfDebug &DD, AsmPrinter *Asm,
-                         const DwarfFile &Holder, MCSymbol *TableEnd) {
+static void emitDebugRangesImpl(DwarfDebug &DD, AsmPrinter *Asm,
+                                const DwarfFile &Holder, MCSymbol *TableEnd) {
   for (const RangeSpanList &List : Holder.getRangeLists())
     emitRangeList(DD, Asm, List);
 

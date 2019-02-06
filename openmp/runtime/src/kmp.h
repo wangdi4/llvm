@@ -3160,9 +3160,9 @@ extern kmp_global_t __kmp_global; /* global status */
 
 extern kmp_info_t __kmp_monitor;
 // For Debugging Support Library
-extern std::atomic<kmp_uint32> __kmp_team_counter;
+extern std::atomic<kmp_int32> __kmp_team_counter;
 // For Debugging Support Library
-extern std::atomic<kmp_uint32> __kmp_task_counter;
+extern std::atomic<kmp_int32> __kmp_task_counter;
 
 #if USE_DEBUGGER
 #define _KMP_GEN_ID(counter)                                                   \
@@ -3999,6 +3999,13 @@ typedef enum kmp_target_offload_kind kmp_target_offload_kind_t;
 extern kmp_target_offload_kind_t __kmp_target_offload;
 extern int __kmpc_get_target_offload();
 #endif
+
+#if OMP_40_ENABLED
+// Constants used in libomptarget
+#define KMP_DEVICE_DEFAULT -1 // This is libomptarget's default device.
+#define KMP_HOST_DEVICE -10 // This is what it is in libomptarget, go figure.
+#define KMP_DEVICE_ALL -11 // This is libomptarget's "all devices".
+#endif // OMP_40_ENABLED
 
 #ifdef __cplusplus
 }

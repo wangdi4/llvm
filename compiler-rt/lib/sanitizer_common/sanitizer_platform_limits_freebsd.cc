@@ -65,6 +65,7 @@
 #include <net/ppp_defs.h>
 #include <glob.h>
 #include <stdio.h>
+#include <stringlist.h>
 #include <term.h>
 #include <utmpx.h>
 #include <wchar.h>
@@ -133,6 +134,7 @@ namespace __sanitizer {
   unsigned struct_fstab_sz = sizeof(struct fstab);
   unsigned struct_FTS_sz = sizeof(FTS);
   unsigned struct_FTSENT_sz = sizeof(FTSENT);
+  unsigned struct_StringList_sz = sizeof(StringList);
 
   const uptr sig_ign = (uptr)SIG_IGN;
   const uptr sig_dfl = (uptr)SIG_DFL;
@@ -505,7 +507,7 @@ CHECK_SIZE_AND_OFFSET(group, gr_passwd);
 CHECK_SIZE_AND_OFFSET(group, gr_gid);
 CHECK_SIZE_AND_OFFSET(group, gr_mem);
 
-#if HAVE_RPC_XDR_H || HAVE_TIRPC_RPC_XDR_H
+#if HAVE_RPC_XDR_H
 CHECK_TYPE_SIZE(XDR);
 CHECK_SIZE_AND_OFFSET(XDR, x_op);
 CHECK_SIZE_AND_OFFSET(XDR, x_ops);

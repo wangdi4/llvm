@@ -69,6 +69,7 @@
 #define TEST_CLANG_VER (__clang_major__ * 100) + __clang_minor__
 #elif defined(__GNUC__)
 #define TEST_GCC_VER (__GNUC__ * 100 + __GNUC_MINOR__)
+#define TEST_GCC_VER_NEW (TEST_GCC_VER * 10 + __GNUC_PATCHLEVEL__)
 #endif
 
 /* Make a nice name for the standard version */
@@ -210,8 +211,9 @@
 
 // FIXME: Fix this feature check when either (A) a compiler provides a complete
 // implementation, or (b) a feature check macro is specified
+#if !defined(_MSC_VER) || defined(__clang__) || _MSC_VER < 1920 || _MSVC_LANG <= 201703L
 #define TEST_HAS_NO_SPACESHIP_OPERATOR
-
+#endif
 
 #if TEST_STD_VER < 11
 #define ASSERT_NOEXCEPT(...)
