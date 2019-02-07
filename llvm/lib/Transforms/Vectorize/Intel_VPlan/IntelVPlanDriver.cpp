@@ -404,6 +404,11 @@ bool VPlanDriverBase<LoopType>::runStandardMode(Function &Fn) {
       //      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
       //      formLCSSARecursively(*Lp, *DT, LI, SE);
 
+      if (!Lp) {
+        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop was optimized out.\n");
+        continue;
+      }
+
       if (!VPlanForceBuild && !isSupported(Lp)) {
         LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
         continue;
