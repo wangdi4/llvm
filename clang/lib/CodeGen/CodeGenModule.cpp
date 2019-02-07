@@ -4113,13 +4113,17 @@ static bool isVarDeclStrongDefinition(const ASTContext &Context,
     }
   }
 
-  // Microsoft's link.exe doesn't support alignments greater than 32 for common
-  // symbols, so symbols with greater alignment requirements cannot be common.
+#if INTEL_CUSTOMIZATION
+  // Microsoft's link.exe doesn't support alignments greater than 32 bytes for
+  // common symbols, so symbols with greater alignment requirements cannot be
+  // common.
+#endif // INTEL_CUSTOMIZATION
   // Other COFF linkers (ld.bfd and LLD) support arbitrary power-of-two
   // alignments for common symbols via the aligncomm directive, so this
   // restriction only applies to MSVC environments.
   if (Context.getTargetInfo().getTriple().isKnownWindowsMSVCEnvironment() &&
-      Context.getTypeAlignIfKnown(D->getType()) > 32)
+      Context.getTypeAlignIfKnown(D->getType()) > // INTEL
+          Context.toBits(CharUnits::fromQuantity(32))) // INTEL
     return true;
 
   return false;

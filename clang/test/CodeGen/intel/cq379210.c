@@ -24,9 +24,9 @@ void foo()
 // LIN: [[function:@.+]] = common global i8* null
 // LIN: [[pretty_function:@.+]] = common global i8* null
 //
-// WIN: [[func:@.+]] = dso_local global i8* null
-// WIN: [[function:@.+]] = dso_local global i8* null
-// WIN: [[pretty_function:@.+]] = dso_local global i8* null
+// WIN: [[func:@.+]] = common dso_local global i8* null
+// WIN: [[function:@.+]] = common dso_local global i8* null
+// WIN: [[pretty_function:@.+]] = common dso_local global i8* null
 
 // CHECK: store i8* getelementptr inbounds ([4 x i8], [4 x i8]* [[__func__]], i64 0, i64 0), i8** [[func]]
 // CHECK: store i8* getelementptr inbounds ([4 x i8], [4 x i8]* [[__func__]], i64 0, i64 0), i8** [[function]]

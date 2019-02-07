@@ -5,5 +5,5 @@ typedef int *ipa[2];
 restrict ipa yyyyy;
 
 // LIN: @yyyyy = common global
-// WIN: @yyyyy = dso_local global
+// WIN: @yyyyy = common dso_local global
 
