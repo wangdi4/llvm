@@ -16,6 +16,7 @@
 
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/MapVector.h>
+#include <llvm/ADT/SetVector.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/IR/IRBuilder.h>
@@ -701,6 +702,16 @@ replaceLocalChannelUses(Function *UserFunc, Type *ChannelTy, Type *PipeTy,
   VMap[Arg] = Arg;
 }
 
+void FindUsesToDelete(Function *F, SetVector<Function *> &UsesToDelete) {
+  for (User *U : F->users()) {
+    if (Instruction *Inst = dyn_cast<Instruction>(U)) {
+      if (!Inst->getFunction()->use_empty())
+        FindUsesToDelete(Inst->getFunction(), UsesToDelete);
+      UsesToDelete.insert(Inst->getFunction());
+    }
+  }
+}
+
 static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
                     ValueToValueMap &VMap) {
   for (auto I : ToDelete) {
@@ -713,12 +724,18 @@ static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
     I->eraseFromParent();
   }
 
+  SetVector <Function *> UsesToDelete;
   for (auto It : VMap) {
     if (Function *F = dyn_cast<Function>(It.first)) {
       Function *R = cast<Function>(It.second);
+      FindUsesToDelete(F, UsesToDelete);
       R->takeName(F);
-      F->eraseFromParent();
+      UsesToDelete.insert(F);
     }
+  }
+
+  for (Function* F : UsesToDelete) {
+    F->eraseFromParent();
   }
 
   // remove channel built-ins declarations
