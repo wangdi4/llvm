@@ -18,6 +18,10 @@
 
 #include <cl_cpu_detect.h>
 
+#ifndef INTEL_PRODUCT_RELEASE
+#include <stdlib.h>
+#endif // INTEL_PRODUCT_RELEASE
+
 #include <string>
 #include <sstream>
 
@@ -152,8 +156,22 @@ const char* CPUDeviceConfig::GetExtensions() const
         m_extensions += OCL_EXT_KHR_DEPTH_IMAGES " ";
         m_extensions += OCL_EXT_KHR_3D_IMAGE_WRITES " ";
 
+        // The env var is meant to be temporary and must removed when
+        // the implementation is fully complete.
+#ifndef INTEL_PRODUCT_RELEASE
+        if (const char *pEnv = getenv("VOLCANO_ENABLE_INTEL_SUBGROUPS"))
+        {
+            if (pEnv[0] != 0)
+            {
+                // common Intel extensions
+                m_extensions += OCL_EXT_INTEL_SUBGROUPS " ";
+            }
+        }
+#endif // INTEL_PRODUCT_RELEASE
+
         // INTEL CPU execlusive extensions
         m_extensions += OCL_EXT_INTEL_EXEC_BY_LOCAL_THREAD " ";
+        m_extensions += OCL_EXT_INTEL_VEC_LEN_HINT " ";
         #ifndef _WIN32
             m_extensions += OCL_EXT_INTEL_DEVICE_PARTITION_BY_NAMES " ";
         #endif
@@ -175,8 +193,6 @@ const char* CPUDeviceConfig::GetExtensions() const
         {
             m_extensions += OCL_EXT_KHR_IMAGE2D_FROM_BUFFER " ";
         }
-
-        m_extensions += OCL_EXT_INTEL_VEC_LEN_HINT " ";
     }
 
     return m_extensions.c_str();
