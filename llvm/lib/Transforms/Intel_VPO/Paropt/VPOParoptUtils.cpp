@@ -1347,21 +1347,15 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
 //
 //     call void @__kmpc_for_static_init_8( ... , i64 17)
 //
-CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
-                                            StructType *IdentTy,
-                                            Value *Tid, Value *SchedType,
-                                            Value *IsLastVal, Value *LB,
-                                            Value *UB, Value *DistUB, Value *ST,
-                                            Value *Inc, Value *Chunk,
-                                            int Size, bool IsUnsigned,
-                                            Instruction *InsertPt) {
+CallInst *VPOParoptUtils::genKmpcStaticInit(
+    WRegionNode *W, StructType *IdentTy, Value *Tid,
+    Value *IsLastVal, Value *LB, Value *UB, Value *DistUB, Value *ST,
+    Value *Inc, Value *Chunk, bool IsUnsigned, Instruction *InsertPt) {
+
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
 
   Function *F = B->getParent();
-  Module   *M = F->getParent();
-
-  LLVMContext &C = F->getContext();
 
   int Flags = KMP_IDENT_KMPC;
   GlobalVariable *Loc =
@@ -1369,99 +1363,97 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
-  bool IsDistChunkedParLoop = false;
+  auto Size = LB->getType()->getPointerElementType()->getIntegerBitWidth();
+  assert((Size == 32 || Size == 64) &&
+         "Invalid plower parameter type in genKmpcStaticInit().");
 
-  if (isa<WRNDistributeParLoopNode>(W))  {
-    WRNScheduleKind DistSchedKind = VPOParoptUtils::getDistLoopScheduleKind(W);
-    if (DistSchedKind == WRNScheduleDistributeStatic)
-      IsDistChunkedParLoop = true;
-  }
+  // Verify type sizes of the other parameters.
+  assert(IsLastVal->getType()->getPointerElementType()->isIntegerTy(32) &&
+         UB->getType()->getPointerElementType()->isIntegerTy(Size) &&
+         DistUB->getType()->getPointerElementType()->isIntegerTy(Size) &&
+         ST->getType()->getPointerElementType()->isIntegerTy(Size) &&
+         Inc->getType()->isIntegerTy(Size) &&
+         "Invalid parameter types in genKmpcStaticInit().");
 
-  Type *Int32Ty = Type::getInt32Ty(C);
-  Type *Int64Ty = Type::getInt64Ty(C);
-
-  Type *IntArgTy = (Size == 32) ? Int32Ty : Int64Ty;
+  LLVMContext &C = F->getContext();
+  auto *Int32Ty = Type::getInt32Ty(C);
+  auto *IntArgTy = (Size == 32) ? Int32Ty : Type::getInt64Ty(C);
 
   // If Chunk's type != IntArgTy, cast it to IntArgTy
   IRBuilder<> Builder(InsertPt);
   Chunk = Builder.CreateSExtOrTrunc(Chunk, IntArgTy, "chunk.cast");
 
-  StringRef FnName;
+  // Call __kmpc_dist_for_static_init only for "distribute parallel for"
+  // without dist_schedule() clause.
+  bool IsDistEvenParLoop =
+      isa<WRNDistributeParLoopNode>(W) &&
+      (VPOParoptUtils::getDistLoopScheduleKind(W) ==
+       WRNScheduleDistributeStaticEven);
 
-  if (IsUnsigned) {
-    if (isa<WRNDistributeParLoopNode>(W) && !IsDistChunkedParLoop)
-      FnName = (Size == 32) ? "__kmpc_dist_for_static_init_4u" :
-                              "__kmpc_dist_for_static_init_8u" ;
-    else
-      FnName = (Size == 32) ? "__kmpc_for_static_init_4u" :
-                              "__kmpc_for_static_init_8u" ;
+  // dist_schedule() is only used for distribute-for loops.
+  // Side note: we will call __kmpc_for_static_init in this case.
+  auto SchedKind =
+      isa<WRNDistributeNode>(W) ?
+          getDistLoopScheduleKind(W) : getLoopScheduleKind(W);
+
+  auto *SchedID = ConstantInt::getSigned(Int32Ty, SchedKind);
+
+  // The name is: __kmpc_[dist_]for_static_init_4/8[u]
+  std::string FnName =
+      (Twine("__kmpc_") +
+       (IsDistEvenParLoop ? Twine("dist_") : Twine("")) +
+       Twine("for_static_init_") + Twine(Size / 8) +
+       (IsUnsigned ? Twine("u") : Twine(""))).str();
+
+  SmallVector<Type *, 10> FnArgTypes;
+
+  if (IsDistEvenParLoop)
+    // void __kmpc_dist_for_static_init_4/8[u](
+    //          ident_t *loc, kmp_int32 gtid,
+    //          kmp_int32 schedule, kmp_int32 *plastiter,
+    //          kmp_[u]int32/64 *plower, kmp_[u]int32/64 *pupper,
+    //          kmp_[u]int32/64 *pupperD, // not used for __kmpc_for_static_init
+    //          kmp_int32/64 *pstride, kmp_int32/64 incr, kmp_int32/64 chunk)
+    FnArgTypes = { PointerType::getUnqual(IdentTy),
+                   Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
+                   PointerType::getUnqual(IntArgTy),
+                   PointerType::getUnqual(IntArgTy),
+                   PointerType::getUnqual(IntArgTy),
+                   PointerType::getUnqual(IntArgTy),
+                   IntArgTy, IntArgTy };
+  else
+    // void __kmpc_for_static_init_4/8[u](
+    //          ident_t *loc, kmp_int32 gtid,
+    //          kmp_int32 schedule, kmp_int32 *plastiter,
+    //          kmp_[u]int32/64 *plower, kmp_[u]int32/64 *pupper,
+    //          kmp_int32/64 *pstride, kmp_int32/64 incr, kmp_int32/64 chunk)
+    FnArgTypes = { PointerType::getUnqual(IdentTy),
+                   Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
+                   PointerType::getUnqual(IntArgTy),
+                   PointerType::getUnqual(IntArgTy),
+                   PointerType::getUnqual(IntArgTy),
+                   IntArgTy, IntArgTy };
+
+  SmallVector<Value *, 10> FnArgs { Loc, Tid, SchedID, IsLastVal, LB, UB };
+
+  if (IsDistEvenParLoop) {
+    FnArgs.push_back(DistUB);
   }
-  else {
-    if (isa<WRNDistributeParLoopNode>(W) && !IsDistChunkedParLoop)
-      FnName = (Size == 32) ? "__kmpc_dist_for_static_init_4" :
-                              "__kmpc_dist_for_static_init_8" ;
-    else
-      FnName = (Size == 32) ? "__kmpc_for_static_init_4" :
-                              "__kmpc_for_static_init_8" ;
-  }
 
-  FunctionType *FnTy;
+  FnArgs.push_back(ST);
+  FnArgs.push_back(Inc);
+  FnArgs.push_back(Chunk);
 
-  if (isa<WRNDistributeParLoopNode>(W) && !IsDistChunkedParLoop) {
-    Type *ParamsTy[] = {PointerType::getUnqual(IdentTy),
-                        Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
-                        PointerType::getUnqual(IntArgTy),
-                        PointerType::getUnqual(IntArgTy),
-                        PointerType::getUnqual(IntArgTy),
-                        PointerType::getUnqual(IntArgTy),
-                        IntArgTy, IntArgTy};
-    FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
-  }
-  else {
-    Type *ParamsTy[] = {PointerType::getUnqual(IdentTy),
-                        Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
-                        PointerType::getUnqual(IntArgTy),
-                        PointerType::getUnqual(IntArgTy),
-                        PointerType::getUnqual(IntArgTy),
-                        IntArgTy, IntArgTy};
-    FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
-  }
-
-  Function *FnStaticInit = M->getFunction(FnName);
-
-  if (!FnStaticInit) {
-    FnStaticInit = Function::Create(FnTy, GlobalValue::ExternalLinkage,
-                                    FnName, M);
-    FnStaticInit->setCallingConv(CallingConv::C);
-  }
-
-  std::vector<Value *> FnStaticInitArgs;
-
-  FnStaticInitArgs.push_back(Loc);
-  FnStaticInitArgs.push_back(Tid);
-  FnStaticInitArgs.push_back(SchedType);
-  FnStaticInitArgs.push_back(IsLastVal);
-  FnStaticInitArgs.push_back(LB);
-  FnStaticInitArgs.push_back(UB);
-
-  if (isa<WRNDistributeParLoopNode>(W) && !IsDistChunkedParLoop)
-    FnStaticInitArgs.push_back(DistUB);
-
-  FnStaticInitArgs.push_back(ST);
-  FnStaticInitArgs.push_back(Inc);
-  FnStaticInitArgs.push_back(Chunk);
-
-  CallInst *StaticInitCall = CallInst::Create(FnStaticInit,
-                                              FnStaticInitArgs, "", InsertPt);
-  StaticInitCall->setCallingConv(CallingConv::C);
-  StaticInitCall->setTailCall(false);
-
-  return StaticInitCall;
+  return genCall(FnName, Type::getVoidTy(C), FnArgs, FnArgTypes, InsertPt);
 }
 
-// This function generates a call to notify the runtime system that the static
-// loop scheduling is done
-//   call void @__kmpc_for_static_fini(%ident_t* %loc, i32 %tid)
+/// This function generates a call to notify the runtime system that the static
+/// loop scheduling is done
+///
+/// \code
+/// call void @__kmpc_for_static_fini(ident_t *loc,
+///                                   kmp_int32 global_tid)
+/// \endcode
 CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
                                             StructType *IdentTy,
                                             Value *Tid,
@@ -1470,40 +1462,25 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
   BasicBlock *E = W->getExitBBlock();
 
   Function *F = B->getParent();
-  Module   *M = F->getParent();
   LLVMContext &C = F->getContext();
 
   int Flags = KMP_IDENT_KMPC;
-
-  Type *IntTy = Type::getInt32Ty(C);
 
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
-  Type *ParamsTy[] = {PointerType::getUnqual(IdentTy), IntTy};
+  // Assert that we used the right type for internally created
+  // thread ID.
+  assert(Tid->getType()->isIntegerTy(32) &&
+         "Thread ID must be 4-byte integer.");
 
-  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
+  SmallVector<Type *, 2> FnArgTypes { PointerType::getUnqual(IdentTy),
+                                      Type::getInt32Ty(C) };
+  SmallVector<Value *, 2> FnArgs { Loc, Tid };
 
-  Function *FnStaticFini = M->getFunction("__kmpc_for_static_fini");
-
-  if (!FnStaticFini) {
-    FnStaticFini = Function::Create(FnTy, GlobalValue::ExternalLinkage,
-                                  "__kmpc_for_static_fini", M);
-    FnStaticFini->setCallingConv(CallingConv::C);
-  }
-
-  std::vector<Value *> FnStaticFiniArgs;
-
-  FnStaticFiniArgs.push_back(Loc);
-  FnStaticFiniArgs.push_back(Tid);
-
-  CallInst *StaticFiniCall = CallInst::Create(FnStaticFini,
-                                              FnStaticFiniArgs, "", InsertPt);
-  StaticFiniCall->setCallingConv(CallingConv::C);
-  StaticFiniCall->setTailCall(false);
-
-  return StaticFiniCall;
+  return genCall("__kmpc_for_static_fini", Type::getVoidTy(C),
+                 FnArgs, FnArgTypes, InsertPt);
 }
 
 // This function generates a call to notify the runtime system that the
@@ -1576,8 +1553,8 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
 
   if (isa<WRNDistributeParLoopNode>(W) && !IsDistChunkedParLoop) {
     Type *ParamsTy[] = {PointerType::getUnqual(IdentTy),
-                        Int32Ty, Int32Ty,
-                        IntArgTy, IntArgTy, IntArgTy, IntArgTy, IntArgTy};
+                        Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
+                        IntArgTy, IntArgTy, IntArgTy, IntArgTy};
     FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
   }
   else {
@@ -2489,17 +2466,15 @@ VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
 //   call void @__kmpc_doacross_fini({ i32, i32, i32, i32, i8* }* @.kmpc_loc,
 //   i32 %my.tid)
 //
-//   The call is inserted \en after \p InsertPt.
 CallInst *VPOParoptUtils::genKmpcDoacrossFini(WRegionNode *W,
                                               StructType *IdentTy, Value *Tid,
                                               Instruction *InsertPt) {
 
   CallInst *Fini = VPOParoptUtils::genKmpcCall(
-      W, IdentTy, InsertPt, "__kmpc_doacross_fini", nullptr, {Tid});
+      W, IdentTy, InsertPt, "__kmpc_doacross_fini", nullptr, {Tid}, true);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross fini call emitted.\n");
 
-  Fini->insertAfter(InsertPt);
   return Fini;
 }
 
