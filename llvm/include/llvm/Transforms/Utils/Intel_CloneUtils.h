@@ -27,15 +27,18 @@ class Function;
 // is a reasonably small constant. If 'true' is returned, set '*ArgPos' to
 // the position of the recursive progressive argument, and set '*Start',
 // '*Inc', and '*Count' to the initial value, increment, and number of terms
-// in the recursive progression. If 'TestCountForConstant' is false, set
-// '*Count' to 0. If any of 'ArgPos', 'Count', 'Start' or 'Inc' are nullptr,
-// do not set the value on return.
+// in the recursive progression. Also set 'IsByRef' if the recursive
+// progressive argument is a by reference value, and set 'IsCyclic' if the
+// recursive progression is cyclic.  If 'TestCountForConstant' is false, set
+// '*Count' to 0. If any of 'ArgPos', 'Count', 'Start' 'Inc', 'IsByRef', or
+// 'IsCyclic' are nullptr, do not set the value on return.
 //
 // For an example of a recursive progression, see Intel_CloneUtils.cpp.
 //
 extern bool isRecProgressionCloneCandidate(
     Function &F, bool TestCountForConstant, unsigned *ArgPos = nullptr,
-    unsigned *Count = nullptr, int *Start = nullptr, int *Inc = nullptr);
+    unsigned *Count = nullptr, int *Start = nullptr, int *Inc = nullptr,
+    bool *IsByRef = nullptr, bool *IsCyclic = nullptr);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORM_UTILS_INTEL_CLONEUTILS_H
