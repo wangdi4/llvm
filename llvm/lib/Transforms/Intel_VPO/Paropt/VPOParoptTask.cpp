@@ -312,8 +312,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
         if (NumElements) {
           assert(isa<ConstantInt>(NumElements) &&
                  "genKmpTaskTWithPrivatesRecordDecl: VLAs are not supported.");
-          uint64_t NE =
-              *(cast<ConstantInt>(NumElements)->getValue()).getRawData();
+          uint64_t NE = cast<ConstantInt>(NumElements)->getZExtValue();
           ElementTy = ArrayType::get(ElementTy, NE);
         }
 

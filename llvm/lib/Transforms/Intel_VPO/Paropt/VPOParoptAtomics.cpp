@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //===- VPOParoptAtomics.cpp - Transformation of W-Region for threading --===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -1645,10 +1645,10 @@ const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
         {{Instruction::FMul, {F64, F64}}, "__kmpc_atomic_float8_mul_cpt"},
         {{Instruction::FDiv, {F64, F64}}, "__kmpc_atomic_float8_div_cpt"},
         // F80 = F80 op F80
-        {{Instruction::FAdd, {F80, F80}}, "__kmpc_atomic_gloat10_add_cpt"},
-        {{Instruction::FSub, {F80, F80}}, "__kmpc_atomic_gloat10_sub_cpt"},
-        {{Instruction::FMul, {F80, F80}}, "__kmpc_atomic_gloat10_mul_cpt"},
-        {{Instruction::FDiv, {F80, F80}}, "__kmpc_atomic_gloat10_div_cpt"},
+        {{Instruction::FAdd, {F80, F80}}, "__kmpc_atomic_float10_add_cpt"},
+        {{Instruction::FSub, {F80, F80}}, "__kmpc_atomic_float10_sub_cpt"},
+        {{Instruction::FMul, {F80, F80}}, "__kmpc_atomic_float10_mul_cpt"},
+        {{Instruction::FDiv, {F80, F80}}, "__kmpc_atomic_float10_div_cpt"},
         // F128 = F128 op F128
         {{Instruction::FAdd, {F128, F128}},
          "__kmpc_atomic_float16_add_a16_cpt"},

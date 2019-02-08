@@ -181,6 +181,70 @@ entry:
   ret void
 }
 
+; Function Attrs: noinline nounwind optnone uwtable
+define dso_local void @atomic_cpt_f10(x86_fp80 %x) #0 {
+entry:
+  %x.addr = alloca x86_fp80, align 16
+  store x86_fp80 %x, x86_fp80* %x.addr, align 16
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
+  fence acquire
+  %1 = load x86_fp80, x86_fp80* %x.addr, align 16
+  %conv = fptosi x86_fp80 %1 to i64
+  store i64 %conv, i64* @v, align 8
+  %2 = load fp128, fp128* @e, align 16
+  %3 = load x86_fp80, x86_fp80* %x.addr, align 16
+  %conv1 = fpext x86_fp80 %3 to fp128
+  %add = fadd fp128 %conv1, %2
+  %conv2 = fptrunc fp128 %add to x86_fp80
+  store x86_fp80 %conv2, x86_fp80* %x.addr, align 16
+  fence release
+; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_add_cpt({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
+  fence acquire
+  %5 = load x86_fp80, x86_fp80* %x.addr, align 16
+  %conv3 = fptosi x86_fp80 %5 to i64
+  store i64 %conv3, i64* @v, align 8
+  %6 = load fp128, fp128* @e, align 16
+  %7 = load x86_fp80, x86_fp80* %x.addr, align 16
+  %conv4 = fpext x86_fp80 %7 to fp128
+  %mul = fmul fp128 %conv4, %6
+  %conv5 = fptrunc fp128 %mul to x86_fp80
+  store x86_fp80 %conv5, x86_fp80* %x.addr, align 16
+  fence release
+; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_mul_cpt({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
+  call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.ATOMIC"() ]
+  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
+  fence acquire
+  %9 = load x86_fp80, x86_fp80* %x.addr, align 16
+  %conv6 = fptosi x86_fp80 %9 to i64
+  store i64 %conv6, i64* @v, align 8
+  %10 = load fp128, fp128* @e, align 16
+  %11 = load x86_fp80, x86_fp80* %x.addr, align 16
+  %conv7 = fpext x86_fp80 %11 to fp128
+  %sub = fsub fp128 %conv7, %10
+  %conv8 = fptrunc fp128 %sub to x86_fp80
+  store x86_fp80 %conv8, x86_fp80* %x.addr, align 16
+  fence release
+; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_sub_cpt({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
+  call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.ATOMIC"() ]
+  %12 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
+  fence acquire
+  %13 = load x86_fp80, x86_fp80* %x.addr, align 16
+  %conv9 = fptosi x86_fp80 %13 to i64
+  store i64 %conv9, i64* @v, align 8
+  %14 = load fp128, fp128* @e, align 16
+  %15 = load x86_fp80, x86_fp80* %x.addr, align 16
+  %conv10 = fpext x86_fp80 %15 to fp128
+  %div = fdiv fp128 %conv10, %14
+  %conv11 = fptrunc fp128 %div to x86_fp80
+  store x86_fp80 %conv11, x86_fp80* %x.addr, align 16
+  fence release
+; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_div_cpt({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
+  call void @llvm.directive.region.exit(token %12) [ "DIR.OMP.END.ATOMIC"() ]
+  ret void
+}
+
 attributes #0 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }
 
