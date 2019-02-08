@@ -2178,9 +2178,24 @@ void VPOCodeGen::vectorizeExtractElement(Instruction *Inst) {
   ExtractElementInst *ExtrEltInst = cast<ExtractElementInst>(Inst);
   Value *ExtrFrom = getVectorValue(ExtrEltInst->getVectorOperand());
   Value *IndexVal = ExtrEltInst->getIndexOperand();
-  if (!isa<ConstantInt>(IndexVal))
-    return llvm_unreachable(
-        "Extract element with variable index is not supported");
+
+  // In case of an non-const index, we serialize the instruction.
+  // We first get the actual index, for the vectorized data using
+  // 'add', extract the element using the index and then finally insert it into
+  // the narrower sub-vector
+  if (!isa<ConstantInt>(IndexVal)) {
+    Value *WideExtract =
+        UndefValue::get(VectorType::get(ExtrEltInst->getType(), VF));
+    for (unsigned VIdx = 0; VIdx < VF; ++VIdx) {
+      Value *VectorIdx = Builder.CreateAdd(
+          ConstantInt::get(IndexVal->getType(), VIdx * VF), IndexVal);
+      WideExtract = Builder.CreateInsertElement(
+          WideExtract, Builder.CreateExtractElement(ExtrFrom, VectorIdx), VIdx);
+    }
+    WidenMap[Inst] = WideExtract;
+    return;
+  }
+
   unsigned Index = cast<ConstantInt>(IndexVal)->getZExtValue();
 
   // Extract subvector. The subvector should include VF elements.
@@ -2241,6 +2256,23 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
   Value *InsertTo = getVectorValue(InsEltInst->getOperand(0));
   Value *NewSubVec = getVectorValue(InsEltInst->getOperand(1));
   Value *IndexVal = InsEltInst->getOperand(2);
+
+  // In case of an non-const index, we serialize the instruction.
+  // We first get the actual index, for the vectorized data using
+  // 'add' and then insert that scalar into the index
+
+  if (!isa<ConstantInt>(IndexVal)) {
+    Value *WideInsert = InsertTo;
+    for (unsigned VIdx = 0; VIdx < VF; ++VIdx) {
+      Value *VectorIdx = Builder.CreateAdd(
+          ConstantInt::get(IndexVal->getType(), VIdx * VF), IndexVal);
+      WideInsert = Builder.CreateInsertElement(
+          WideInsert, InsEltInst->getOperand(1), VectorIdx);
+    }
+    WidenMap[Inst] = WideInsert;
+    return;
+  }
+
   unsigned Index = cast<ConstantInt>(IndexVal)->getZExtValue();
   unsigned WideNumElts = InsertTo->getType()->getVectorNumElements();
   unsigned OriginalVL =
@@ -2248,11 +2280,11 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
 
   // Widen the insert into an empty, undef-vector
   // E.g. For OriginalVL = 4 and VF = 2, the following code,
-  //%add13 = add i32 %scalar, %scalar9
-  //%add14 = add i32 %scalar6, %scalar10
-  //%add15 = add i32 %scalar7, %scalar11
-  //%add16 = add i32 %scalar8, %scalar12
-  //%assembled.vect = insertelement <4 x i32> undef, i32 %add13, i32 0
+  // %add13 = add i32 %scalar, %scalar9
+  // %add14 = add i32 %scalar6, %scalar10
+  // %add15 = add i32 %scalar7, %scalar11
+  // %add16 = add i32 %scalar8, %scalar12
+  // %assembled.vect = insertelement <4 x i32> undef, i32 %add13, i32 0
   //
   // is transformed into,
   // %6 = add <2 x i32> %Wide.Extract12, %Wide.Extract
@@ -2261,9 +2293,8 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
   // %9 = add <2 x i32> %Wide.Extract15, %Wide.Extract6
   // %wide.insert = shufflevector <2 x i32> %6, <2 x i32> undef,
   //                              <8 x i32> <i32 0, i32 undef, i32 undef, i32
-  //                              undef,
-  //                                         i32 1, i32 undef, i32 undef, i32
-  //                                         undef>
+  //                              undef, i32 1, i32 undef, i32 undef,
+  //                              i32 undef>
 
   if (isa<UndefValue>(InsertTo)) {
     SmallVector<Constant *, 8> ShufMask;
