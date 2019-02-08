@@ -39,6 +39,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
@@ -788,6 +789,16 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   (void) HLoop;
   assert(HLoop && "Expected HIR Loop.");
   assert(HLoop->getParentRegion() && "Expected parent HLRegion.");
+
+  if (WRLp->isOmpSIMDLoop() && !WRLp->isValidHIRSIMDRegion()) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    assert(false && "VPlan: Invalid HIR SIMD region for given loop");
+#else
+    WithColor::warning() << "Loop was not vectorized. Invalid SIMD region "
+                            "detected for given loop\n";
+    return false;
+#endif
+  }
 
   // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
   // process for vectorization

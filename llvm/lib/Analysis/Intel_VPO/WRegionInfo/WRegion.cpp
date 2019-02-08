@@ -494,6 +494,24 @@ void WRNVecLoopNode::printHIR(formatted_raw_ostream &OS, unsigned Depth,
                         Depth, Verbosity);
 }
 
+// Check if the HIR SIMD region associated with this WRNVecLoopNode is valid.
+// A given SIMD region is valid if its BEGIN and END directive nodes belong to
+// the same parent as that of the associated HLLoop.
+bool WRNVecLoopNode::isValidHIRSIMDRegion() const {
+  assert(isOmpSIMDLoop() && "Checking for SIMD region in a non-SIMD loop.");
+
+  // If the node does not have an underlying HLLoop, then it is invalid for
+  // vectorization.
+  if (!getHLLoop())
+    return false;
+
+  loopopt::HLNode *LoopParent = getHLLoop()->getParent();
+  loopopt::HLNode *EntryNodeParent = getEntryHLNode()->getParent();
+  loopopt::HLNode *ExitNodeParent = getExitHLNode()->getParent();
+
+  return LoopParent == EntryNodeParent && LoopParent == ExitNodeParent;
+}
+
 // Specify namespace for the template instantiation or the build will fail
 namespace llvm {
 namespace vpo {
