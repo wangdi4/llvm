@@ -36,6 +36,15 @@ class CalleeSavedInfo {
     int FrameIdx;
     unsigned DstReg;
   };
+
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM - 7519: These changes are based on a preliminary workaround.
+  // When a long term fix is checked into llorg, it will take precedence.
+  // Windows exception handling requires callee saved registers to be saved
+  // for EH funclets separately from the main function.
+  int FuncletFrameIdx;
+#endif // INTEL_CUSTOMIZATION
+
   /// Flag indicating whether the register is actually restored in the epilog.
   /// In most cases, if a register is saved, it is also restored. There are
   /// some situations, though, when this is not the case. For example, the
@@ -55,7 +64,12 @@ class CalleeSavedInfo {
 
 public:
   explicit CalleeSavedInfo(unsigned R, int FI = 0)
-  : Reg(R), FrameIdx(FI), Restored(true), SpilledToReg(false) {}
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM - 7519: These changes are based on a preliminary workaround.
+    // When a long term fix is checked into llorg, it will take precedence.
+    : Reg(R), FrameIdx(FI), FuncletFrameIdx(0), Restored(true),
+        SpilledToReg(false) {}
+#endif // INTEL_CUSTOMIZATION
 
   // Accessors.
   unsigned getReg()                        const { return Reg; }
@@ -69,6 +83,14 @@ public:
     DstReg = SpillReg;
     SpilledToReg = true;
   }
+
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM - 7519: These changes are based on a preliminary workaround.
+  // When a long term fix is checked into llorg, it will take precedence.
+  int getFuncletFrameIdx() const { return FuncletFrameIdx; }
+  void setFuncletFrameIdx(int FI) { FuncletFrameIdx = FI; }
+#endif // INTEL_CUSTOMIZATION
+
   bool isRestored()                        const { return Restored; }
   void setRestored(bool R)                       { Restored = R; }
   bool isSpilledToReg()                    const { return SpilledToReg; }
