@@ -18,5 +18,4 @@
 type = Library
 name = AsmPrinter
 parent = Libraries
-required_libraries = Analysis BinaryFormat CodeGen Core DebugInfoCodeView DebugInfoMSF MC MCParser Support Target Intel_OptReport
-; INTEL_CUSTOMIZATION: Intel_OptReport
+required_libraries = Analysis BinaryFormat CodeGen Core DebugInfoCodeView DebugInfoMSF MC MCParser Support Target

@@ -1,6 +1,6 @@
 //===- Intel_AsmOptReport.h - Collect and dump OptReport --------*- C++ -*-===//
 //
-// Copyright (C) 2018-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,6 +18,7 @@
 #define LLVM_LIB_CODEGEN_ASMPRINTER_INTEL_INTEL_ASMOPTREPORT_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
@@ -51,6 +52,7 @@ class LLVM_LIBRARY_VISIBILITY OptReportAsmPrinterHandler
     OptReportFlag = 0x08
   };
 
+  bool FirstInstructionProcessed = false;
 
 public:
   OptReportAsmPrinterHandler(AsmPrinter *AP);
@@ -129,6 +131,20 @@ private:
   // blocks between beginInstruction() and endFunction().
   // It is cleared at the end of endFunction().
   DenseMap<const MachineBasicBlock *, MCSymbol *> BlockLabels;
+
+  // Scratch map between MachineLoops with sibling opt-reports attached,
+  // and "exit" blocks of these loops.  The map is built on the first call
+  // to beginInstruction() and is cleared in endFunction().
+  // Finding an "exit" block for a sparsely blocked loop may be tricky,
+  // see code in beginInstruction() for the current way of computing
+  // the "exit" block.
+  DenseMap<const MachineLoop *, MachineBasicBlock *> LoopToExit;
+
+  // A set of MachineBasicBlocks that are "exit" blocks for MachineLoops
+  // with sibling opt-reports attached.  We emit labels for blocks
+  // in this set in beginInstruction(), so that later we are able to get
+  // these labels for MachineLoops via LoopToExit and BlockLabels maps.
+  SmallPtrSet<const MachineBasicBlock *, 16> LoopExitBlocks;
 
   // A collection of optimization report descriptors for the functions
   // in the current module.

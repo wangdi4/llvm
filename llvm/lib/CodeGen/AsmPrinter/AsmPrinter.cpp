@@ -150,6 +150,16 @@ static const char *const STIDebugGroupName = "sti_info";
 static const char *const STIDebugGroupDescription = "STI Debug Info Emission";
 static const char *const OptReportGroupName = "optreport_info";
 static const char *const OptReportGroupDescription = "OptReport Info Emission";
+
+static cl::opt<bool>
+    EmbedBinaryOptReport("opt-report-embed", cl::Hidden, cl::init(false),
+                         cl::desc("If an assembly/object file/executable "
+                                  "is being generated, special loop info "
+                                  "annotations will be emitted into the "
+                                  "assembly/object file/executable for use "
+                                  "by the Intel Advisor application. "
+                                  "Automatically enabled when optimization "
+                                  "reports are enabled."));
 #endif // INTEL_CUSTOMIZATION
 
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
@@ -264,13 +274,11 @@ void AsmPrinter::getAnalysisUsage(AnalysisUsage &AU) const {
 
 #if INTEL_CUSTOMIZATION
 namespace {
-// Return true, if the optimization reports verbosity is not None.
+// Return true, if binary optimization reports needs to be emitted.
 static bool needsBinaryOptReport() {
   OptReportOptionsPass ORO;
-  // TODO (vzakhari 10/8/2018): encode binary opt-report always,
-  //       when opt-report verbosity is not None.  We probably
-  //       need to additionally control this under another option.
-  return (ORO.getVerbosity() != OptReportVerbosity::None);
+  return (EmbedBinaryOptReport &&
+          ORO.getVerbosity() != OptReportVerbosity::None);
 }
 } // end anonymous namespace
 #endif  // INTEL_CUSTOMIZATION

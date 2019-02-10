@@ -1,6 +1,6 @@
-;===--- ./lib/Analysis/Intel_LoopAnalysis/LLVMBuild.txt --------*- Conf -*--===;
+;===- ./lib/Analysis/Intel_LoopAnalysis/OptReport/LLVMBuild.txt -*- Conf -*-===;
 ;
-; Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+; Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
 ;
 ; The information and source code contained herein is the exclusive
 ; property of Intel Corporation and may not be disclosed, examined
@@ -18,11 +18,8 @@
 ;
 ;===------------------------------------------------------------------------===;
 
-[common]
-subdirectories = OptReport
-
 [component_0]
 type = Library
-name = Intel_LoopAnalysis
+name = Intel_LoopOptReportSupport
 parent = Libraries
-required_libraries = Analysis Core Support ProfileData Object TransformUtils Intel_OptReport
+required_libraries = Core Support Intel_OptReport
