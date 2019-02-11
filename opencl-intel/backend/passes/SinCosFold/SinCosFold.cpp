@@ -75,9 +75,9 @@ namespace intel {
 
     // Find (or create) declaration for newly called function
     using namespace Intel::OpenCL::DeviceBackend;
-    Constant * sinCosFunc = CompilationUtils::importFunctionDecl(&M, sinCosF);
+    FunctionCallee sinCosFunc = CompilationUtils::importFunctionDecl(&M, sinCosF);
     assert(sinCosFunc && "Failed generating function in current module");
-    Function * f = dyn_cast<Function>(sinCosFunc);
+    Function * f = dyn_cast<Function>(sinCosFunc.getCallee());
     assert(f && "Function type mismatch, caused a constant expression cast!");
 
     SmallVector<Value *, 16> args;

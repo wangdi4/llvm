@@ -207,7 +207,7 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
                     arg_types.push_back(*I);
                 //construct function with void return type, call params taken from built-in description
                 FunctionType *FT = FunctionType::get(Type::getVoidTy(C->getContext()), arg_types, false);
-                Function *pre_method = cast<Function>(this->Modules[0]->getOrInsertFunction(pre_method_name, FT));
+                Function *pre_method = cast<Function>(this->Modules[0]->getOrInsertFunction(pre_method_name, FT).getCallee());
                 pre_method->setCallingConv(CallingConv::C);
                 std::vector<Value*> args;
                 //provide same param values as in Called built-in

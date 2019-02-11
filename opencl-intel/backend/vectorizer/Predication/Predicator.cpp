@@ -154,7 +154,7 @@ void Predicator::createAllOne(Module &M) {
     IntegerType::get(M.getContext(), 1), allOneArgs, false);
   // Declare function
   Function* func_allOne = dyn_cast<Function>(M.getOrInsertFunction(
-      Mangler::name_allOne, allOneType));
+      Mangler::name_allOne, allOneType).getCallee());
   V_ASSERT(func_allOne && "Function type is incorrect, so dyn_cast failed");
 
   // Save for later
@@ -162,7 +162,7 @@ void Predicator::createAllOne(Module &M) {
 
   // Declare function
   Function* func_allZero = dyn_cast<Function>(M.getOrInsertFunction(
-      Mangler::name_allZero, allOneType));
+      Mangler::name_allZero, allOneType).getCallee());
   V_ASSERT(func_allZero && "Function type is incorrect, so dyn_cast failed");
 
   // Save for later
@@ -264,7 +264,7 @@ Function* Predicator::createSelect(PHINode* phi, Value* mask) {
   // Declare function
   Module* currentModule = phi->getParent()->getParent()->getParent();
   Function* func_select = dyn_cast<Function>(
-    currentModule->getOrInsertFunction("select", selectType));
+    currentModule->getOrInsertFunction("select", selectType).getCallee());
   V_ASSERT(func_select && "Function type is incorrect, so dyn_cast failed");
 
   return func_select;
@@ -725,7 +725,7 @@ Function* Predicator::createPredicatedFunction(Instruction *inst,
   // Declare function
   Module * currentModule = inst->getParent()->getParent()->getParent();
   Function* f = dyn_cast<Function>(
-    currentModule->getOrInsertFunction(name, type));
+    currentModule->getOrInsertFunction(name, type).getCallee());
   V_ASSERT(f && "Function type is incorrect, so dyn_cast failed");
   m_externalFunections[name] = f;
   return f;

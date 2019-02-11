@@ -671,7 +671,7 @@ namespace intel {
 
     Type *pResult = Type::getVoidTy(*m_pContext);
     Module *M = Then->getParent()->getParent();
-    Constant *pFunc = M->getOrInsertFunction("DebugCopy.", pResult);
+    FunctionCallee pFunc = M->getOrInsertFunction("DebugCopy.", pResult);
     CallInst::Create(pFunc, "", &pThenFront);
     CallInst::Create(pFunc, "", &pElseFront);
   }

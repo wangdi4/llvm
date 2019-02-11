@@ -34,8 +34,8 @@ Function *getWIFunc(Module *M, StringRef name, Type *retTy) {
   // create declaration.
   std::vector<Type *> argTypes(1, Type::getInt32Ty(retTy->getContext()));
   FunctionType *fType = FunctionType::get(retTy, argTypes, false);
-  Constant *fConst = M->getOrInsertFunction(name, fType);
-  func = dyn_cast<Function>(fConst);
+  FunctionCallee fConst = M->getOrInsertFunction(name, fType);
+  func = dyn_cast<Function>(fConst.getCallee());
   assert(func && "null WI function");
   return func;
 }

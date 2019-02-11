@@ -62,7 +62,7 @@ static Function *getPipeBuiltin(OCLBuiltins &Builtins, const PipeKind &Kind) {
         Builtins.get(CompilationUtils::getPipeName(NonBlockingKind));
     return cast<Function>(Builtins.getTargetModule().getOrInsertFunction(
         CompilationUtils::getPipeName(Kind),
-        NonBlockingBuiltin->getFunctionType()));
+        NonBlockingBuiltin->getFunctionType()).getCallee());
   }
 
   return Builtins.get(CompilationUtils::getPipeName(Kind));
@@ -116,7 +116,8 @@ static Function *createGlobalPipeDtor(Module &M) {
                                    ArrayRef<Type *>(), false);
 
   Function *Dtor =
-      cast<Function>(M.getOrInsertFunction("__pipe_global_dtor", DtorTy));
+      cast<Function>(M.getOrInsertFunction("__pipe_global_dtor", DtorTy)
+                                          .getCallee());
 
   Dtor->setLinkage(GlobalValue::ExternalLinkage);
 

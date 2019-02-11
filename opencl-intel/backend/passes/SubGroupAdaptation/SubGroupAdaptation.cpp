@@ -77,7 +77,7 @@ bool SubGroupAdaptation::runOnModule(Module &M) {
 
       FunctionType *pNewFuncType = FunctionType::get(m_pSizeT, false);
       Function *newF = cast<Function>(m_pModule->getOrInsertFunction(
-          fName, pNewFuncType, pFunc->getAttributes()));
+          fName, pNewFuncType, pFunc->getAttributes()).getCallee());
       CallInst *pNewCall = CallInst::Create(newF, "callInst", entry);
       pNewCall->setCallingConv(pFunc->getCallingConv());
       newF->setCallingConv(pFunc->getCallingConv());
@@ -194,7 +194,7 @@ void SubGroupAdaptation::replaceFunction(Function *oldFunc,
     newName = mangle(fd);
   }
   Function *newF = cast<Function>(m_pModule->getOrInsertFunction(
-      newName, oldFunc->getFunctionType(), oldFunc->getAttributes()));
+      newName, oldFunc->getFunctionType(), oldFunc->getAttributes()).getCallee());
   newF->setCallingConv(oldFunc->getCallingConv());
   oldFunc->replaceAllUsesWith(newF);
   oldFunc->eraseFromParent();
@@ -283,7 +283,7 @@ void SubGroupAdaptation::defineSubGroupBroadcast(Function *pFunc) {
   FunctionType *pNewFuncType =
       FunctionType::get(pFunc->getReturnType(), types, false);
   Function *newF = cast<Function>(m_pModule->getOrInsertFunction(
-      newFuncName, pNewFuncType, pFunc->getAttributes()));
+      newFuncName, pNewFuncType, pFunc->getAttributes()).getCallee());
   CallInst *pNewCall = CallInst::Create(newF, ArrayRef<Value *>(params),
                                         "CallWGBroadCast", entry);
 
@@ -299,7 +299,7 @@ CallInst *SubGroupAdaptation::getWICall(BasicBlock *pAtEnd,
   ;
   FunctionType *pFuncType = FunctionType::get(m_pSizeT, pInt32Type, false);
   Function *func =
-      cast<Function>(m_pModule->getOrInsertFunction(funcName, pFuncType));
+      cast<Function>(m_pModule->getOrInsertFunction(funcName, pFuncType).getCallee());
   func->setCallingConv(CallingConv::SPIR_FUNC);
   CallInst *pCall = CallInst::Create(
       func, ArrayRef<Value *>(ConstantInt::get(pInt32Type, dimIdx)), instName,

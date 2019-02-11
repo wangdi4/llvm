@@ -240,7 +240,7 @@ namespace intel {
       if(!pNewFunc) {
         // Create the i32 function
         FunctionType * pI32FuncTy = FunctionType::get(pOldCall->getType(), pNewTy, false);
-        pNewFunc = cast<Function>(pOldFunc->getParent()->getOrInsertFunction(i32Name, pI32FuncTy));
+        pNewFunc = cast<Function>(pOldFunc->getParent()->getOrInsertFunction(i32Name, pI32FuncTy).getCallee());
         pNewFunc->setAttributes(pOldFunc->getAttributes());
         pNewFunc->setLinkage(pOldFunc->getLinkage());
         pNewFunc->setCallingConv(pOldFunc->getCallingConv());

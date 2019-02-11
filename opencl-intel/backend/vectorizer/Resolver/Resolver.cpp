@@ -569,7 +569,7 @@ void FuncResolver::resolveFunc(CallInst* caller) {
   Module * currModule = caller->getParent()->getParent()->getParent();
   Function* func = currModule->getFunction(Mangler::demangle(name));
   if (!func) {
-    func = dyn_cast<Function>(currModule->getOrInsertFunction(Mangler::demangle(name),funcType));
+    func = dyn_cast<Function>(currModule->getOrInsertFunction(Mangler::demangle(name),funcType).getCallee());
     V_ASSERT(func && "should not be a cast, as function was not locally found");
   }
 
