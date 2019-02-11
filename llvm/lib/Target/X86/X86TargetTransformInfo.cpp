@@ -3172,6 +3172,29 @@ bool X86TTIImpl::areInlineCompatible(const Function *Caller,
 }
 
 #if INTEL_CUSTOMIZATION
+// Will try to upstream this to community, but needed to enable
+// prefer-vector-width=256 on SKX in xmain.
+bool X86TTIImpl::areFunctionArgsABICompatible(
+    const Function *Caller, const Function *Callee,
+    SmallPtrSetImpl<Argument *> &Args) const {
+  if (!BaseT::areFunctionArgsABICompatible(Caller, Callee, Args))
+    return false;
+
+  // If we get here, we know the target features match. If one function
+  // considers 512-bit vectors legal and the other does not, consider them
+  // incompatible.
+  // FIXME Look at the arguments and only consider 512 bit or larger vectors?
+  const TargetMachine &TM = getTLI()->getTargetMachine();
+
+  const X86Subtarget *CallerST =
+      static_cast<const X86Subtarget *>(TM.getSubtargetImpl(*Caller));
+  const X86Subtarget *CalleeST =
+      static_cast<const X86Subtarget *>(TM.getSubtargetImpl(*Callee));
+  return CallerST->useAVX512Regs() == CalleeST->useAVX512Regs();
+}
+#endif
+
+#if INTEL_CUSTOMIZATION
 unsigned X86TTIImpl::getLoopRotationDefaultThreshold(bool OptForSize) const {
   return (ST->getCPU() == "lakemont" && OptForSize) ? 2 : 16;
 }

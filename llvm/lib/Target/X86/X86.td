@@ -908,6 +908,9 @@ def SKXFeatures : ProcessorFeatures<SKLFeatures.Value, [
 
 class SkylakeServerProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                                  SKXFeatures.Value, [
+// INTEL_CUSTOMIZATION
+  FeaturePrefer256Bit,
+// end INTEL_CUSTOMIZATION
   FeatureHasFastGather,
   FeaturePOPCNTFalseDeps
 ]>;
@@ -920,6 +923,9 @@ def CLXFeatures : ProcessorFeatures<SKXFeatures.Value, [
 
 class CascadelakeProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                               CLXFeatures.Value, [
+// INTEL_CUSTOMIZATION
+  FeaturePrefer256Bit,
+// end INTEL_CUSTOMIZATION
   FeatureHasFastGather,
   FeaturePOPCNTFalseDeps
 ]>;
@@ -940,6 +946,9 @@ def CNLFeatures : ProcessorFeatures<SKLFeatures.Value, [
 
 class CannonlakeProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                               CNLFeatures.Value, [
+// INTEL_CUSTOMIZATION
+  FeaturePrefer256Bit,
+// end INTEL_CUSTOMIZATION
   FeatureHasFastGather
 ]>;
 def : CannonlakeProc<"cannonlake">;
@@ -958,12 +967,18 @@ def ICLFeatures : ProcessorFeatures<CNLFeatures.Value, [
 
 class IcelakeClientProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                                  ICLFeatures.Value, [
+// INTEL_CUSTOMIZATION
+  FeaturePrefer256Bit,
+// end INTEL_CUSTOMIZATION
   FeatureHasFastGather
 ]>;
 def : IcelakeClientProc<"icelake-client">;
 
 class IcelakeServerProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                                  ICLFeatures.Value, [
+// INTEL_CUSTOMIZATION
+  FeaturePrefer256Bit,
+// end INTEL_CUSTOMIZATION
   FeaturePCONFIG,
   FeatureWBNOINVD,
   FeatureHasFastGather

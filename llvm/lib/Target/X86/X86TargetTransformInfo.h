@@ -140,6 +140,12 @@ public:
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
+#if INTEL_CUSTOMIZATION
+  // Will try to upstream to llorg.
+  bool areFunctionArgsABICompatible(const Function *Caller,
+                                    const Function *Callee,
+                                    SmallPtrSetImpl<Argument *> &Args) const;
+#endif
   const TTI::MemCmpExpansionOptions *enableMemCmpExpansion(
       bool IsZeroCmp) const;
   bool enableInterleavedAccessVectorization();
