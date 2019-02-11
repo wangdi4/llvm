@@ -1076,25 +1076,25 @@ static void updateTripCountPragma(HLLoop *Lp, unsigned Multiplier) {
 bool HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
   assert(Lp->isNormalized() && "Normalized loop expected");
 
+  auto *UpperRef = Lp->getUpperDDRef();
+  bool UpperWasSelfBlob = UpperRef->isSelfBlob();
+  auto *UpperCE = UpperRef->getSingleCanonExpr();
+  unsigned OrigIndex =
+      UpperWasSelfBlob ? UpperCE->getSingleBlobIndex() : InvalidBlobIndex;
+
   bool CanWidenIV = widenIVIfNeeded(Lp, Multiplier);
   if (!CanWidenIV) {
     return false;
   }
 
-  auto *UpperRef = Lp->getUpperDDRef();
-  bool UpperWasSelfBlob = UpperRef->isSelfBlob();
-
-  auto *UpperCE = UpperRef->getSingleCanonExpr();
   UpperCE->addConstant(1, true);
   UpperCE->multiplyByConstant(Multiplier);
   UpperCE->addConstant(-1, true);
 
   if (UpperWasSelfBlob) {
     // Self-blob will turn into non-self blob so we need to add a blob ref.
-    unsigned Index = UpperCE->getSingleBlobIndex();
-
     auto *BlobRef = UpperRef->getDDRefUtils().createBlobDDRef(
-        Index, UpperCE->getDefinedAtLevel());
+        OrigIndex, UpperCE->getDefinedAtLevel());
     UpperRef->addBlobDDRef(BlobRef);
   }
 
