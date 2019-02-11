@@ -616,7 +616,7 @@ void llvm::getFunctionsToVectorize(
 
   for (auto It = M.begin(), End = M.end(); It != End; ++It) {
     Function &F = *It;
-    if (F.hasFnAttribute("vector-variants")) {
+    if (F.hasFnAttribute("vector-variants") && !F.isDeclaration()) {
       Attribute Attr = F.getFnAttribute("vector-variants");
       StringRef VariantsStr = Attr.getValueAsString();
       SmallVector<StringRef, 8> Variants;
