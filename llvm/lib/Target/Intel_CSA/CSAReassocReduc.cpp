@@ -359,9 +359,9 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
     .addUse(parts_pred_ctl)
     .addUse(parts);
 
-  // op_to_parts is the natural backedge of the reducer loop, because it is the
-  // input to its pick.
-  LMFI->addLICAttribute(op_to_parts, "csasim_backedge");
+  // The backedge of the reducer loop should be parts because otherwise
+  // auto-buffering fails to add necessary buffer on one leg of parts_pred_ctl.
+  LMFI->addLICAttribute(parts, "csasim_backedge");
 
   // If init happens to be the identity element, parts can just be reinitialized
   // with identity elements.
