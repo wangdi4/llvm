@@ -44,7 +44,6 @@ set(OCL_BE_PASSES
     SinCosFold
     SmartGVN
     StripIntelIP
-    PreLegalizeBools
     OCLAliasAnalysis
     PrintfArgumentsPromotion
 )

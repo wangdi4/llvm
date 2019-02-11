@@ -136,7 +136,6 @@ llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectRecursionPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
-llvm::ModulePass *createPreLegalizeBoolsPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
@@ -507,13 +506,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
       PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_AFTER,
                                pConfig->GetDumpIRDir()));
-    }
-    if (!HasGatherScatter) {
-      // no point to run for older CPU archs
-      if (pConfig->GetCpuId().HasSSE41()) {
-        // Workaround boolean vectors legalization issue.
-        PM.add(createPreLegalizeBoolsPass());
-      }
     }
 
   }
