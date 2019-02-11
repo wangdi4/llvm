@@ -36,8 +36,10 @@ endif()
 add_definitions( -DWIN32 )
 
 # ITT/GPA/VTUNE integration
-add_definitions( -DUSE_GPA )
-include_directories( ${CMAKE_SOURCE_DIR}/externals/gpa/include )
+if (USE_GPA)
+    add_definitions( -DUSE_GPA )
+    include_directories( ${CMAKE_SOURCE_DIR}/externals/gpa/include )
+endif (USE_GPA)
 
 # Linker switches
 if (BUILD_X64)
