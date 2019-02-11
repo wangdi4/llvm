@@ -3008,6 +3008,13 @@ void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
+
+    // A sibling candidate loop may be removed by removeRedundantNodes(). This
+    // check skips them.
+    if (!Loop->isAttached()) {
+      continue;
+    }
+
     HLNode *ParentNode = Loop->getParentLoop();
     if (!ParentNode) {
       ParentNode = Loop->getParentRegion();
