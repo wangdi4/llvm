@@ -132,6 +132,7 @@ DECLARE_ALIAS(clCloneKernel);
 DECLARE_ALIAS(clSetDefaultDeviceCommandQueue);
 DECLARE_ALIAS(clEnqueueSVMMigrateMem);
 DECLARE_ALIAS(clGetKernelSubGroupInfo);
+DECLARE_ALIAS(clGetKernelSubGroupInfoKHR);
 DECLARE_ALIAS(clGetProfileDataDeviceIntelFPGA);
 DECLARE_ALIAS(clMapHostPipeIntelFPGA);
 DECLARE_ALIAS(clUnmapHostPipeIntelFPGA);
