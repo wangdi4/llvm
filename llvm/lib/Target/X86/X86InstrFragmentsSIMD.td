@@ -661,6 +661,12 @@ def X86vfproundRnd: SDNode<"X86ISD::VFPROUND_RND",
 def X86cvtne2ps2bf16 : SDNode<"X86ISD::CVTNE2PS2BF16",
                        SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>,
                                             SDTCisSameAs<1,2>]>>;
+def X86mcvtneps2bf16 : SDNode<"X86ISD::MCVTNEPS2BF16",
+                       SDTypeProfile<1, 3, [SDTCVecEltisVT<0, i16>,
+                                            SDTCVecEltisVT<1, f32>,
+                                            SDTCisSameAs<0, 2>,
+                                            SDTCVecEltisVT<3, i1>,
+                                            SDTCisSameNumEltsAs<1, 3>]>>;
 def X86cvtneps2bf16 :  SDNode<"X86ISD::CVTNEPS2BF16",
                        SDTypeProfile<1, 1, [SDTCVecEltisVT<0, i16>,
                                             SDTCVecEltisVT<1, f32>]>>;

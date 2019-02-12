@@ -516,10 +516,15 @@ namespace llvm {
       // SRC, PASSTHRU, MASK
       MCVTP2SI, MCVTP2UI, MCVTTP2SI, MCVTTP2UI,
       MCVTSI2P, MCVTUI2P,
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16
       // Vector float to bfloat16
       CVTNE2PS2BF16, CVTNEPS2BF16, DPBF16PS,
+
+      // Masked version of above.
+      // SRC, PASSTHRU, MASK
+      MCVTNEPS2BF16,
 #endif // INTEL_FEATURE_ISA_BF16
 #endif // INTEL_CUSTOMIZATION
 
