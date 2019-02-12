@@ -13030,7 +13030,7 @@ multiclass avx512_cvtps2bf16<bits<8> opc, string OpcodeStr, X86SchedWriteWidths
 
 defm VCVTNEPS2BF16 : avx512_cvtps2bf16<0x72, "vcvtneps2bf16",
                                        SchedWriteCvtPD2PS>, T8XS,
-                                       EVEX_CD8<32, CD8VT1>;
+                                       EVEX_CD8<32, CD8VF>;
 
 let Constraints = "$src1 = $dst" in {
 multiclass avx512_dpbf16ps_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
@@ -13077,6 +13077,6 @@ multiclass avx512_dpbf16ps_sizes<bits<8> opc, string OpcodeStr, SDNode OpNode,
 
 defm VDPBF16PS : avx512_dpbf16ps_sizes<0x52, "vdpbf16ps", X86dpbf16ps,
                                        avx512vl_f32_info, avx512vl_i32_info,
-                                       HasBF16>, T8XS;
+                                       HasBF16>, T8XS, EVEX_CD8<32, CD8VF>;
 #endif // INTEL_FEATURE_ISA_BF16
 #endif // INTEL_CUSTOMIZATION

@@ -110,7 +110,7 @@
           vcvtneps2bf16 xmm30, dword ptr [r9]{1to4}
 
 // CHECK: vcvtneps2bf16 xmm30, xmmword ptr [rcx + 2032]
-// CHECK: encoding: [0x62,0x62,0x7e,0x08,0x72,0xb1,0xf0,0x07,0x00,0x00]
+// CHECK: encoding: [0x62,0x62,0x7e,0x08,0x72,0x71,0x7f]
           vcvtneps2bf16 xmm30, xmmword ptr [rcx + 2032]
 
 // CHECK: vcvtneps2bf16 xmm30 {k7} {z}, dword ptr [rdx - 512]{1to4}
@@ -130,7 +130,7 @@
           vcvtneps2bf16 xmm30, dword ptr [r9]{1to8}
 
 // CHECK: vcvtneps2bf16 xmm30, ymmword ptr [rcx + 4064]
-// CHECK: encoding: [0x62,0x62,0x7e,0x28,0x72,0xb1,0xe0,0x0f,0x00,0x00]
+// CHECK: encoding: [0x62,0x62,0x7e,0x28,0x72,0x71,0x7f]
           vcvtneps2bf16 xmm30, ymmword ptr [rcx + 4064]
 
 // CHECK: vcvtneps2bf16 xmm30 {k7} {z}, dword ptr [rdx - 512]{1to8}
@@ -154,7 +154,7 @@
           vdpbf16ps ymm30, ymm29, ymmword ptr [rcx + 4064]
 
 // CHECK: vdpbf16ps ymm30 {k7} {z}, ymm29, dword ptr [rdx - 512]{1to8}
-// CHECK: encoding: [0x62,0x62,0x16,0xb7,0x52,0xb2,0x00,0xfe,0xff,0xff]
+// CHECK: encoding: [0x62,0x62,0x16,0xb7,0x52,0x72,0x80]
           vdpbf16ps ymm30 {k7} {z}, ymm29, dword ptr [rdx - 512]{1to8}
 
 // CHECK: vdpbf16ps xmm30, xmm29, xmm28
@@ -174,6 +174,6 @@
           vdpbf16ps xmm30, xmm29, xmmword ptr [rcx + 2032]
 
 // CHECK: vdpbf16ps xmm30 {k7} {z}, xmm29, dword ptr [rdx - 512]{1to4}
-// CHECK: encoding: [0x62,0x62,0x16,0x97,0x52,0xb2,0x00,0xfe,0xff,0xff]
+// CHECK: encoding: [0x62,0x62,0x16,0x97,0x52,0x72,0x80]
           vdpbf16ps xmm30 {k7} {z}, xmm29, dword ptr [rdx - 512]{1to4}
 
