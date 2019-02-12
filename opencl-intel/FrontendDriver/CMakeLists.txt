@@ -54,7 +54,7 @@ else (WIN32)
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
 endif (WIN32)
 
-add_opencl_library (${TARGET_NAME} SHARED
+set(TARGET_SOURCES
     clang_device_info.h
     Compile.cpp
     Compile.h
@@ -72,6 +72,16 @@ add_opencl_library (${TARGET_NAME} SHARED
     SPIRMaterializer.h
     SPIRVMaterializer.cpp
     SPIRVMaterializer.h
+)
+
+if (WIN32)
+    list( APPEND TARGET_SOURCES fe_driver_main_win32.cpp )
+else (WIN32)
+    list( APPEND TARGET_SOURCES fe_driver_main_linux.cpp )
+endif (WIN32)
+
+add_opencl_library (${TARGET_NAME} SHARED
+    ${TARGET_SOURCES}
 
     INCLUDE_DIRS
       ${INCLUDE_DIRS}
@@ -100,6 +110,10 @@ add_opencl_library (${TARGET_NAME} SHARED
 
     RC_TEMPLATE DEFAULT
 )
+
+if (WIN32)
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:common_clang${BUILD_PLATFORM}.dll")
+endif (WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} )
 

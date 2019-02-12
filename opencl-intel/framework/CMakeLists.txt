@@ -99,6 +99,7 @@ copy_to (${CONFIG_FILES} DESTINATION lib)
 install_to (${CONFIG_FILES} DESTINATION lib  COMPONENT ocl-config)
 
 if (WIN32)
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}.dll")
     get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
     set_target_properties (${TARGET_NAME} PROPERTIES
         LINK_FLAGS_DEBUG  "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT")
