@@ -1838,7 +1838,7 @@ TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16_256, "V16sV8fV8f", "ncV:256:",
                                                  "avx512bf16,avx512vl")
 TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16_512, "V32sV16fV16f", "ncV:512:",
                                                  "avx512bf16")
-TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16_128, "V8sV4f", "ncV:128:",
+TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16_128_mask, "V8sV4fV8sUc", "ncV:128:",
                                                 "avx512bf16,avx512vl")
 TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16_256, "V8sV8f", "ncV:256:",
                                                 "avx512bf16,avx512vl")

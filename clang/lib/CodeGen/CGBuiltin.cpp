@@ -12299,6 +12299,18 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_cmpordsd:
     return getCmpIntrinsicCall(Intrinsic::x86_sse2_cmp_sd, 7);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16
+// AVX512 bf16 intrinsics
+  case X86::BI__builtin_ia32_cvtneps2bf16_128_mask: {
+    Ops[2] = getMaskVecValue(*this, Ops[2],
+                             Ops[0]->getType()->getVectorNumElements());
+    Intrinsic::ID IID = Intrinsic::x86_avx512bf16_mask_cvtneps2bf16_128;
+    return Builder.CreateCall(CGM.getIntrinsic(IID), Ops);
+  }
+#endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
+
   case X86::BI__emul:
   case X86::BI__emulu: {
     llvm::Type *Int64Ty = llvm::IntegerType::get(getLLVMContext(), 64);
