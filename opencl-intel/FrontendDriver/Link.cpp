@@ -124,122 +124,6 @@ bool ClangLinkOptions::checkOptions(char *pszUnknownOptions,
 
 bool ClangLinkOptions::hasArg(int id) const { return m_pArgs->hasArg(id); }
 
-SpirOptions::SpirOptions(llvm::Module *pModule)
-    : m_bDebugInfo(false), m_bProfiling(false), m_bDisableOpt(false),
-      m_bFastRelaxedMath(false), m_bDenormsAreZero(false) {
-  llvm::NamedMDNode *metadata =
-      pModule->getNamedMetadata("opencl.compiler.options");
-
-  if (!metadata || metadata->getNumOperands() == 0)
-    return;
-
-  llvm::MDNode *flag = metadata->getOperand(0);
-  if (!flag)
-    return;
-
-  for (uint32_t i = 0; i < flag->getNumOperands(); ++i) {
-    llvm::MDString *flagName =
-        llvm::dyn_cast<llvm::MDString>(flag->getOperand(i));
-    assert(flagName && "Invalid opencl.compiler.options metadata");
-
-    if (flagName->getString() == "-g")
-      setDebugInfoFlag(true);
-    else if (flagName->getString() == "-profiling")
-      setProfiling(true);
-    else if (flagName->getString() == "-cl-opt-disable")
-      setDisableOpt(true);
-    else if (flagName->getString() == "-cl-fast-relaxed-math")
-      setFastRelaxedMath(true);
-    else if (flagName->getString() == "-cl-denorms-are-zero")
-      setDenormsAreZero(true);
-    else
-      addOption(flagName->getString());
-  }
-}
-
-void SpirOptions::save(llvm::Module *pModule) {
-  // Add build options
-  llvm::NamedMDNode *pRoot =
-      pModule->getOrInsertNamedMetadata("opencl.compiler.options");
-  pRoot->dropAllReferences();
-
-  llvm::SmallVector<llvm::Metadata *, 5> values;
-  for (std::list<std::string>::const_iterator it = m_options.begin(),
-                                              e = m_options.end();
-       it != e; ++it) {
-    values.push_back(llvm::MDString::get(pModule->getContext(), *it));
-  }
-  pRoot->addOperand(llvm::MDNode::get(pModule->getContext(), values));
-}
-
-void SpirOptions::addOption(const std::string &option) {
-  if (std::find(m_options.begin(), m_options.end(), option) ==
-      m_options.end()) {
-    m_options.push_back(option);
-  }
-}
-
-void SpirOptions::setBoolFlag(bool value, const char *flag, bool &dest) {
-  if (value == dest)
-    return;
-
-  dest = value;
-
-  if (!value)
-    m_options.remove(std::string(flag));
-  else
-    m_options.push_back(std::string(flag));
-}
-
-MetadataLinker::MetadataLinker(const ClangLinkOptions &linkOptions,
-                               llvm::Module *pModule)
-    : m_effectiveOptions(pModule), m_bDenormsAreZeroLinkOpt(false),
-      m_bNoSignedZerosLinkOpt(false), m_bUnsafeMathLinkOpt(false),
-      m_bFiniteMathOnlyLinkOpt(false), m_bFastRelaxedMathLinkOpt(false) {
-  // get the options specified during link
-  m_bEnableLinkOptions = linkOptions.hasArg(OPT_LINK_enable_link_options);
-  m_bCreateLibrary = linkOptions.hasArg(OPT_LINK_create_library);
-  m_bDenormsAreZeroLinkOpt = linkOptions.hasArg(OPT_LINK_cl_denorms_are_zero);
-  m_bNoSignedZerosLinkOpt = linkOptions.hasArg(OPT_LINK_cl_no_signed_zeroes);
-  m_bUnsafeMathLinkOpt =
-      linkOptions.hasArg(OPT_LINK_cl_unsafe_math_optimizations);
-  m_bFiniteMathOnlyLinkOpt = linkOptions.hasArg(OPT_LINK_cl_finite_math_only);
-  m_bFastRelaxedMathLinkOpt = linkOptions.hasArg(OPT_LINK_cl_fast_relaxed_math);
-}
-
-void MetadataLinker::Link(llvm::Module *pModule) {
-  // do NOT take the link options overrides into account yet
-  SpirOptions options(pModule);
-
-  m_effectiveOptions.setDebugInfoFlag(m_effectiveOptions.getDebugInfoFlag() &
-                                      options.getDebugInfoFlag());
-  m_effectiveOptions.setProfiling(m_effectiveOptions.getProfiling() &
-                                  options.getProfiling());
-  m_effectiveOptions.setDisableOpt(m_effectiveOptions.getDisableOpt() |
-                                   options.getDisableOpt());
-  m_effectiveOptions.setFastRelaxedMath(
-      m_effectiveOptions.getFastRelaxedMath() & options.getFastRelaxedMath());
-  m_effectiveOptions.setDenormsAreZero(m_effectiveOptions.getDenormsAreZero() &
-                                       options.getDenormsAreZero());
-
-  for (std::list<std::string>::const_iterator it = options.beginOptions(),
-                                              ie = options.endOptions();
-       it != ie; ++it) {
-    m_effectiveOptions.addOption(*it);
-  }
-}
-
-void MetadataLinker::Save(llvm::Module *pModule) {
-  // overwrite the known options if such were specified during link
-  if (m_bEnableLinkOptions && m_bCreateLibrary) {
-    if (m_bDenormsAreZeroLinkOpt)
-      m_effectiveOptions.setDenormsAreZero(true);
-    if (m_bFastRelaxedMathLinkOpt)
-      m_effectiveOptions.setFastRelaxedMath(true);
-  }
-  m_effectiveOptions.save(pModule);
-}
-
 OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
                                 unsigned int uiNumBinaries,
                                 const size_t *puiBinariesSizes,
@@ -271,8 +155,6 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
     // Parse options
     ClangLinkOptions optionsParser(pszOptions);
 
-    // Now go over the rest of the binaries and link them.
-    MetadataLinker mdlinker(optionsParser, composite.get());
     for (unsigned int i = 1; i < uiNumBinaries; ++i) {
       llvm::StringRef InputBinary(static_cast<const char *>(pInputBinaries[i]),
                                   puiBinariesSizes[i]);
@@ -283,13 +165,11 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
         throw ModuleOr.takeError();
       }
       std::unique_ptr<llvm::Module> module = std::move(ModuleOr.get());
-      mdlinker.Link(module.get());
 
       if (llvm::Linker::linkModules(*composite, std::move(module))) {
         throw std::string("Linking has failed");
       }
     }
-    mdlinker.Save(composite.get());
     IR_TYPE binaryType = optionsParser.hasArg(OPT_LINK_create_library)
                              ? IR_TYPE_LIBRARY
                              : IR_TYPE_EXECUTABLE;

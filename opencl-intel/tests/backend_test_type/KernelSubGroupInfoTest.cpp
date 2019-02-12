@@ -42,7 +42,7 @@ TEST_F(BackEndTests_KernelSubGroupInfo, SubGroupInfoSuccess)
     ret = pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
 
-    ret = pCompileService->BuildProgram(pProgram, &buildOptions);
+    ret = pCompileService->BuildProgram(pProgram, &buildOptions, "");
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     EXPECT_EQ(pProgram->GetKernelsCount(), 1);
 

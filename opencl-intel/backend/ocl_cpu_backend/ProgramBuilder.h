@@ -54,7 +54,7 @@ public:
     /**
      * Build the given program using the supplied build options
      */
-    cl_dev_err_code BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions);
+    cl_dev_err_code BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions, const char* pBuildOpts);
 
     /**
      * Parses the given program
@@ -70,12 +70,14 @@ protected:
 
     virtual KernelSet* CreateKernels(Program* pProgram,
                              llvm::Module* pModule,
+                             const char* pBuildOpts,
                              ProgramBuildResult& buildResult) const = 0;
 
     KernelJITProperties* CreateKernelJITProperties(unsigned int vectorSize) const;
 
     KernelProperties* CreateKernelProperties(const Program* pProgram,
                                              llvm::Function *func,
+                                             const char* pBuildOpts,
                                              const ProgramBuildResult& buildResult) const;
 
     // reloads the program from his object binary

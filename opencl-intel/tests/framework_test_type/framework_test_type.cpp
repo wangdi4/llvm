@@ -187,6 +187,11 @@ TEST(FrameworkTestType, Test_clLinkProgramTest)
     EXPECT_TRUE(clLinkProgramTest());
 }
 
+TEST(FrameworkTestType, Test_clGetProgramBuildInfoTest)
+{
+    ASSERT_NO_FATAL_FAILURE(clGetProgramBuildInfoTest());
+}
+
 TEST(FrameworkTestType, DISABLED_Test_clCreateKernelTest)
 {
     std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);

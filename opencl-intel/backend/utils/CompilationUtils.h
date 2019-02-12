@@ -492,11 +492,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///     global ulong *value)
     static const std::string NAME_CAPTURE_EVENT_PROFILING_INFO;
 
-    /// fetchCompilerOption - if an option with specified prefix exists in
-    /// the module's metadata returns an entire option string (the fist was met),
-    /// Otherwise returns an empty string.
-    static StringRef fetchCompilerOption(const Module &M, char const* prefix);
-
     /// fetchCLVersionFromMetadata - obtain CL version
     /// from "!opencl.ocl.version" named metadata
     static unsigned fetchCLVersionFromMetadata(const Module &M);

@@ -78,10 +78,11 @@ public:
      */
     virtual cl_dev_err_code BuildProgram(
         ICLDevBackendProgram_* pProgram,
-        const ICLDevBackendOptions* pOptions ) = 0;
+        const ICLDevBackendOptions* pOptions,
+        const char* pBuildOpts) = 0;
 
     /**
-     * Dumps the content of the given code container 
+     * Dumps the content of the given code container
      * using the options passed in pOptions parameter
      *
      * @param pCodeContainer Code container to dump
