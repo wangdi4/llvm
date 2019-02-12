@@ -4673,9 +4673,15 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   ICmpInst* CondInst = nullptr;
 
   if (IfClauseValue) {
-    Instruction *IfAndForkTestCI = BinaryOperator::CreateAnd(
-        IfClauseValue, ForkTestCI, "and.if.clause", TermInst);
-    IfAndForkTestCI->setDebugLoc(TermInst->getDebugLoc());
+    IRBuilder<> Builder(TermInst);
+
+    // FE may generate if() condition as a boolean value,
+    // so we need to cast it to the type of __kmpc_ok_to_fork().
+    IfClauseValue = Builder.CreateZExtOrTrunc(IfClauseValue,
+                                              ForkTestCI->getType());
+    auto *IfAndForkTestCI =
+        Builder.CreateAnd(IfClauseValue, ForkTestCI, "and.if.clause");
+    cast<Instruction>(IfAndForkTestCI)->setDebugLoc(TermInst->getDebugLoc());
     CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
                             IfAndForkTestCI, ValueZero, "if.fork.test");
   }
