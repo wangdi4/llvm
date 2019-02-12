@@ -38,8 +38,8 @@ namespace intel {
 
 // index of block_invoke function address in
 // block literal structure of form
-// { i8**, i32, i32, i8*, %struct.__block_descriptor* }
-static const int BLOCK_LITERAL_INVOKE_ADDR_INDEX = 3;
+// { i32, i32, i8 addrspace(4)* }
+static const int BLOCK_LITERAL_INVOKE_ADDR_INDEX = 2;
 
 // check and get if it is function pointer call
 // @return CallInst with call
@@ -62,7 +62,7 @@ static bool IsGEPBlockInvokeAccess(const GetElementPtrInst *GEP){
   ConstantInt * idx1 = dyn_cast<ConstantInt>(GEP->getOperand(1));
   if(!idx1 || (idx1->getZExtValue() != 0))
     return false;
-  // check index2 is i32 3
+  // check index2 is i32 2
   ConstantInt * idx2 = dyn_cast<ConstantInt>(GEP->getOperand(2));
   if(!idx2 || (idx2->getZExtValue() != (uint64_t)BLOCK_LITERAL_INVOKE_ADDR_INDEX))
     return false;

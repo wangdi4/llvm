@@ -40,24 +40,25 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   private:
     int32_t size;
     int32_t alignment;
+    void    *invoke;
 
     /// imported (captured) variables go here
     /// int var1;
     /// float var;
   public:
     /// @brief Serialize block_literal and blockdescriptor to destination address
-    /// @param dst - destination memory buffer pre-allocated with GetLiteralAndDescriptorSize() 
+    /// @param dst - destination memory buffer pre-allocated with GetLiteralAndDescriptorSize()
     void Serialize(void *dst, size_t dst_size) const {
       MEMCPY_S(dst, dst_size, this, size);
     }
 
-    /// @brief Deserialize BlockLiteral inplace in memory 
+    /// @brief Deserialize BlockLiteral inplace in memory
     /// @param src - memory address where serialized BlockLiteral is stored
     /// @return - ptr to correct BlockLiteral structure
     static BlockLiteral * DeserializeInBuffer(void *src) {
       return reinterpret_cast<BlockLiteral *>(src);
     }
-    
+
     /// @brief clones BlockLiteral. Allocates memory and creates copy
     /// @param src - source BlockLiteral
     /// @return created BlockLiteral
@@ -68,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       src->Serialize(mem, SizeBytes);
       return DeserializeInBuffer(mem);
     }
-    
+
     /// @brief free memory for BlockLiteral allocated by Clone()
     /// @param p - valid BlockLiteral object created by Clone()
     static void FreeMem(BlockLiteral * p) {
@@ -78,6 +79,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     int64_t GetSize() const {
       return size;
+    }
+
+    /// @brief get block function invoke address
+    void * GetInvoke() const {
+      return invoke;
     }
 
   private:
