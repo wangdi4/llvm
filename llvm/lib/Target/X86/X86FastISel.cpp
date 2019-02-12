@@ -2771,10 +2771,12 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
 #if INTEL_CUSTOMIZATION
     // Determine the function name to use based upon whether or not
     // the corresponding standard library function is available in the
-    // targeted environment and Intel's libirc can be used.
+    // targeted environment and Intel's libirc can be used and opt
+    // level is higher than O1.
     MachineFunction *MF = FuncInfo.MF;
     RTLIB::Libcall libcall = RTLIB::MEMCPY;
     if (LibInfo->has(LibFunc_memcpy) &&
+        TM.getOptLevel() > CodeGenOpt::Less &&
         MF->getTarget().Options.IntelLibIRCAllowed) {
       libcall = RTLIB::INTEL_MEMCPY;
     }
@@ -2800,10 +2802,12 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
 #if INTEL_CUSTOMIZATION
     // Determine the function name to use based upon whether or not
     // the corresponding standard library function is available in the
-    // targeted environment and Intel's libirc can be used.
+    // targeted environment and Intel's libirc can be used and opt
+    // level is higher than O1.
     MachineFunction *MF = FuncInfo.MF;
     RTLIB::Libcall libcall = RTLIB::MEMSET;
     if (LibInfo->has(LibFunc_memset) &&
+        TM.getOptLevel() > CodeGenOpt::Less &&
         MF->getTarget().Options.IntelLibIRCAllowed) {
       libcall = RTLIB::INTEL_MEMSET;
     }

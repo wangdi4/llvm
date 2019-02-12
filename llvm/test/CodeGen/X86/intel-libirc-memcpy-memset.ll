@@ -1,12 +1,13 @@
 ; RUN: llc < %s -O0                                                  | FileCheck %s -check-prefix=NOLIBIRC
 ; RUN: llc < %s -O0                       -disable-simplify-libcalls | FileCheck %s -check-prefix=NOLIBIRC
 ; RUN: llc < %s -O0 -intel-libirc-allowed -disable-simplify-libcalls | FileCheck %s -check-prefix=NOLIBIRC
-; RUN: llc < %s -O0 -intel-libirc-allowed                            | FileCheck %s -check-prefix=LIBIRC
+; RUN: llc < %s -O0 -intel-libirc-allowed                            | FileCheck %s -check-prefix=LIBIRCO0
+; RUN: llc < %s -O1 -intel-libirc-allowed                            | FileCheck %s -check-prefix=LIBIRCO1
 ;
 ; RUN: llc < %s -O2                                                  | FileCheck %s -check-prefix=NOLIBIRC
 ; RUN: llc < %s -O2                       -disable-simplify-libcalls | FileCheck %s -check-prefix=NOLIBIRC
 ; RUN: llc < %s -O2 -intel-libirc-allowed -disable-simplify-libcalls | FileCheck %s -check-prefix=NOLIBIRC
-; RUN: llc < %s -O2 -intel-libirc-allowed                            | FileCheck %s -check-prefix=LIBIRC
+; RUN: llc < %s -O2 -intel-libirc-allowed                            | FileCheck %s -check-prefix=LIBIRCO2
 
 
 ; This test checks that llc make calls to libirc mem* functions only if
@@ -17,8 +18,12 @@
 
 ; NOLIBIRC-LABEL: MOO:
 ; NOLIBIRC-NOT: _intel_fast_memcpy
-; LIBIRC-LABEL: MOO:
-; LIBIRC: _intel_fast_memcpy
+; LIBIRCO0-LABEL: MOO:
+; LIBIRCO0-NOT: _intel_fast_memcpy
+; LIBIRCO1-LABEL: MOO:
+; LIBIRCO1-NOT: _intel_fast_memcpy
+; LIBIRCO2-LABEL: MOO:
+; LIBIRCO2: _intel_fast_memcpy
 
 ; Function Attrs: nounwind uwtable
 define void @MOO(i8* noalias nocapture readonly %S, i8* noalias nocapture %D, i32 %N) #0 {
@@ -34,8 +39,12 @@ declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture readonly, i
 
 ; NOLIBIRC-LABEL: COO:
 ; NOLIBIRC-NOT: _intel_fast_memset
-; LIBIRC-LABEL: COO:
-; LIBIRC: _intel_fast_memset
+; LIBIRCO0-LABEL: COO:
+; LIBIRCO0-NOT: _intel_fast_memset
+; LIBIRCO1-LABEL: COO:
+; LIBIRCO1-NOT: _intel_fast_memset
+; LIBIRCO2-LABEL: COO:
+; LIBIRCO2: _intel_fast_memset
 
 ; Function Attrs: nounwind uwtable
 define void @COO(i8* noalias nocapture %D, i8 signext %c, i32 %N) #0 {
