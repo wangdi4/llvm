@@ -1,9 +1,8 @@
 //===---- CGOpenMPRuntimeNVPTX.cpp - Interface to OpenMP NVPTX Runtimes ---===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -4495,6 +4494,20 @@ static std::pair<unsigned, unsigned> getSMsBlocksPerSM(CodeGenModule &CGM) {
 }
 
 void CGOpenMPRuntimeNVPTX::clear() {
+  if (CGDebugInfo *DI = CGM.getModuleDebugInfo())
+    if (CGM.getCodeGenOpts().getDebugInfo() >=
+        codegenoptions::LimitedDebugInfo) {
+      ASTContext &C = CGM.getContext();
+      auto *VD = VarDecl::Create(
+          C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(),
+          &C.Idents.get("_$_"), C.IntTy, /*TInfo=*/nullptr, SC_Static);
+      auto *Var = cast<llvm::GlobalVariable>(
+          CGM.CreateRuntimeVariable(CGM.IntTy, "_$_"));
+      Var->setInitializer(llvm::ConstantInt::getNullValue(CGM.IntTy));
+      Var->setLinkage(llvm::GlobalVariable::CommonLinkage);
+      CGM.addCompilerUsedGlobal(Var);
+      DI->EmitGlobalVariable(Var, VD);
+    }
   if (!GlobalizedRecords.empty()) {
     ASTContext &C = CGM.getContext();
     llvm::SmallVector<const GlobalPtrSizeRecsTy *, 4> GlobalRecs;

@@ -1,9 +1,8 @@
 //===--- HIP.cpp - HIP Tool and ToolChain Implementations -------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -294,8 +293,10 @@ void HIPToolChain::addClangTargetOptions(
   // Default to "hidden" visibility, as object level linking will not be
   // supported for the foreseeable future.
   if (!DriverArgs.hasArg(options::OPT_fvisibility_EQ,
-                         options::OPT_fvisibility_ms_compat))
+                         options::OPT_fvisibility_ms_compat)) {
     CC1Args.append({"-fvisibility", "hidden"});
+    CC1Args.push_back("-fapply-global-visibility-to-externs");
+  }
 }
 
 llvm::opt::DerivedArgList *

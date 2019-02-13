@@ -1,9 +1,8 @@
 //===-- Verifier.cpp - Implement the Module Verifier -----------------------==//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -3431,10 +3430,22 @@ void Verifier::visitAtomicRMWInst(AtomicRMWInst &RMWI) {
   PointerType *PTy = dyn_cast<PointerType>(RMWI.getOperand(0)->getType());
   Assert(PTy, "First atomicrmw operand must be a pointer.", &RMWI);
   Type *ElTy = PTy->getElementType();
-  Assert(ElTy->isIntegerTy(), "atomicrmw " +
-         AtomicRMWInst::getOperationName(Op) +
-         " operand must have integer type!",
-         &RMWI, ElTy);
+  if (Op == AtomicRMWInst::Xchg) {
+    Assert(ElTy->isIntegerTy() || ElTy->isFloatingPointTy(), "atomicrmw " +
+           AtomicRMWInst::getOperationName(Op) +
+           " operand must have integer or floating point type!",
+           &RMWI, ElTy);
+  } else if (AtomicRMWInst::isFPOperation(Op)) {
+    Assert(ElTy->isFloatingPointTy(), "atomicrmw " +
+           AtomicRMWInst::getOperationName(Op) +
+           " operand must have floating point type!",
+           &RMWI, ElTy);
+  } else {
+    Assert(ElTy->isIntegerTy(), "atomicrmw " +
+           AtomicRMWInst::getOperationName(Op) +
+           " operand must have integer type!",
+           &RMWI, ElTy);
+  }
   checkAtomicMemAccessSize(ElTy, &RMWI);
   Assert(ElTy == RMWI.getOperand(1)->getType(),
          "Argument value type does not match pointer operand type!", &RMWI,

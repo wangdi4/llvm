@@ -1,9 +1,8 @@
 //===--- SourceCode.h - Manipulating source code as strings -----*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 #include "SourceCode.h"
@@ -142,6 +141,16 @@ Position sourceLocToPosition(const SourceManager &SM, SourceLocation Loc) {
   return P;
 }
 
+llvm::Expected<SourceLocation> sourceLocationInMainFile(const SourceManager &SM,
+                                                        Position P) {
+  llvm::StringRef Code = SM.getBuffer(SM.getMainFileID())->getBuffer();
+  auto Offset =
+      positionToOffset(Code, P, /*AllowColumnBeyondLineLength=*/false);
+  if (!Offset)
+    return Offset.takeError();
+  return SM.getLocForStartOfFile(SM.getMainFileID()).getLocWithOffset(*Offset);
+}
+
 Range halfOpenToRange(const SourceManager &SM, CharSourceRange R) {
   // Clang is 1-based, LSP uses 0-based indexes.
   Position Begin = sourceLocToPosition(SM, R.getBegin());
@@ -232,7 +241,7 @@ TextEdit toTextEdit(const FixItHint &FixIt, const SourceManager &M,
   return Result;
 }
 
-bool IsRangeConsecutive(const Range &Left, const Range &Right) {
+bool isRangeConsecutive(const Range &Left, const Range &Right) {
   return Left.end.line == Right.start.line &&
          Left.end.character == Right.start.character;
 }
@@ -247,6 +256,19 @@ llvm::Optional<FileDigest> digestFile(const SourceManager &SM, FileID FID) {
   if (Invalid)
     return None;
   return digest(Content);
+}
+
+format::FormatStyle getFormatStyleForFile(llvm::StringRef File,
+                                          llvm::StringRef Content,
+                                          llvm::vfs::FileSystem *FS) {
+  auto Style = format::getStyle(format::DefaultFormatStyle, File,
+                                format::DefaultFallbackStyle, Content, FS);
+  if (!Style) {
+    log("getStyle() failed for file {0}: {1}. Fallback is LLVM style.", File,
+        Style.takeError());
+    Style = format::getLLVMStyle();
+  }
+  return *Style;
 }
 
 } // namespace clangd

@@ -1,9 +1,8 @@
 //===- ELFObjcopy.cpp -----------------------------------------------------===//
 //
-//                      The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -69,6 +68,17 @@ static bool onlyKeepDWOPred(const Object &Obj, const SectionBase &Sec) {
   // Short of keeping the string table we want to keep everything that is a DWO
   // section and remove everything else.
   return !isDWOSection(Sec);
+}
+
+static uint64_t setSectionFlagsPreserveMask(uint64_t OldFlags,
+                                            uint64_t NewFlags) {
+  // Preserve some flags which should not be dropped when setting flags.
+  // Also, preserve anything OS/processor dependant.
+  const uint64_t PreserveMask = ELF::SHF_COMPRESSED | ELF::SHF_EXCLUDE |
+                                ELF::SHF_GROUP | ELF::SHF_LINK_ORDER |
+                                ELF::SHF_MASKOS | ELF::SHF_MASKPROC |
+                                ELF::SHF_TLS | ELF::SHF_INFO_LINK;
+  return (OldFlags & PreserveMask) | (NewFlags & ~PreserveMask);
 }
 
 static ElfType getOutputElfType(const Binary &Bin) {
@@ -177,8 +187,10 @@ static void splitDWOToFile(const CopyConfig &Config, const Reader &Reader,
     DWOFile->Machine = Config.OutputArch.getValue().EMachine;
   FileBuffer FB(File);
   auto Writer = createWriter(Config, *DWOFile, FB, OutputElfType);
-  Writer->finalize();
-  Writer->write();
+  if (Error E = Writer->finalize())
+    error(std::move(E));
+  if (Error E = Writer->write())
+    error(std::move(E));
 }
 
 static Error dumpSectionToFile(StringRef SecName, StringRef Filename,
@@ -186,9 +198,10 @@ static Error dumpSectionToFile(StringRef SecName, StringRef Filename,
   for (auto &Sec : Obj.sections()) {
     if (Sec.Name == SecName) {
       if (Sec.OriginalData.empty())
-        return make_error<StringError>("Can't dump section \"" + SecName +
-                                           "\": it has no contents",
-                                       object_error::parse_failed);
+        return createStringError(
+            object_error::parse_failed,
+            "Can't dump section \"%s\": it has no contents",
+            SecName.str().c_str());
       Expected<std::unique_ptr<FileOutputBuffer>> BufferOrErr =
           FileOutputBuffer::create(Filename, Sec.OriginalData.size());
       if (!BufferOrErr)
@@ -201,8 +214,7 @@ static Error dumpSectionToFile(StringRef SecName, StringRef Filename,
       return Error::success();
     }
   }
-  return make_error<StringError>("Section not found",
-                                 object_error::parse_failed);
+  return createStringError(object_error::parse_failed, "Section not found");
 }
 
 static bool isCompressed(const SectionBase &Section) {
@@ -483,16 +495,19 @@ static void handleArgs(const CopyConfig &Config, Object &Obj,
       if (Iter != Config.SectionsToRename.end()) {
         const SectionRename &SR = Iter->second;
         Sec.Name = SR.NewName;
-        if (SR.NewFlags.hasValue()) {
-          // Preserve some flags which should not be dropped when setting flags.
-          // Also, preserve anything OS/processor dependant.
-          const uint64_t PreserveMask = ELF::SHF_COMPRESSED | ELF::SHF_EXCLUDE |
-                                        ELF::SHF_GROUP | ELF::SHF_LINK_ORDER |
-                                        ELF::SHF_MASKOS | ELF::SHF_MASKPROC |
-                                        ELF::SHF_TLS | ELF::SHF_INFO_LINK;
-          Sec.Flags = (Sec.Flags & PreserveMask) |
-                      (SR.NewFlags.getValue() & ~PreserveMask);
-        }
+        if (SR.NewFlags.hasValue())
+          Sec.Flags =
+              setSectionFlagsPreserveMask(Sec.Flags, SR.NewFlags.getValue());
+      }
+    }
+  }
+
+  if (!Config.SetSectionFlags.empty()) {
+    for (auto &Sec : Obj.sections()) {
+      const auto Iter = Config.SetSectionFlags.find(Sec.Name);
+      if (Iter != Config.SetSectionFlags.end()) {
+        const SectionFlagsUpdate &SFU = Iter->second;
+        Sec.Flags = setSectionFlagsPreserveMask(Sec.Flags, SFU.NewFlags);
       }
     }
   }
@@ -543,8 +558,10 @@ void executeObjcopyOnRawBinary(const CopyConfig &Config, MemoryBuffer &In,
   handleArgs(Config, *Obj, Reader, OutputElfType);
   std::unique_ptr<Writer> Writer =
       createWriter(Config, *Obj, Out, OutputElfType);
-  Writer->finalize();
-  Writer->write();
+  if (Error E = Writer->finalize())
+    error(std::move(E));
+  if (Error E = Writer->write())
+    error(std::move(E));
 }
 
 void executeObjcopyOnBinary(const CopyConfig &Config,
@@ -571,8 +588,10 @@ void executeObjcopyOnBinary(const CopyConfig &Config,
   handleArgs(Config, *Obj, Reader, OutputElfType);
   std::unique_ptr<Writer> Writer =
       createWriter(Config, *Obj, Out, OutputElfType);
-  Writer->finalize();
-  Writer->write();
+  if (Error E = Writer->finalize())
+    error(std::move(E));
+  if (Error E = Writer->write())
+    error(std::move(E));
   if (!Config.BuildIdLinkDir.empty() && Config.BuildIdLinkOutput) {
     linkToBuildIdDir(Config, Config.OutputFilename,
                      Config.BuildIdLinkOutput.getValue(), BuildIdBytes);

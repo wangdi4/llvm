@@ -1,9 +1,8 @@
 //===- LegalizeDAG.cpp - Implement SelectionDAG::Legalize -----------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -3291,7 +3290,7 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     Results.push_back(TLI.expandAddSubSat(Node, DAG));
     break;
   case ISD::SMULFIX:
-    Results.push_back(TLI.getExpandedFixedPointMultiplication(Node, DAG));
+    Results.push_back(TLI.expandFixedPointMul(Node, DAG));
     break;
   case ISD::SADDO:
   case ISD::SSUBO: {
@@ -4530,6 +4529,24 @@ void SelectionDAGLegalize::PromoteNode(SDNode *Node) {
     SDValue Concat = DAG.getNode(ISD::CONCAT_VECTORS, SL, NVT, NewElts);
     SDValue CvtVec = DAG.getNode(ISD::BITCAST, SL, OVT, Concat);
     Results.push_back(CvtVec);
+    break;
+  }
+  case ISD::ATOMIC_SWAP: {
+    AtomicSDNode *AM = cast<AtomicSDNode>(Node);
+    SDLoc SL(Node);
+    SDValue CastVal = DAG.getNode(ISD::BITCAST, SL, NVT, AM->getVal());
+    assert(NVT.getSizeInBits() == OVT.getSizeInBits() &&
+           "unexpected promotion type");
+    assert(AM->getMemoryVT().getSizeInBits() == NVT.getSizeInBits() &&
+           "unexpected atomic_swap with illegal type");
+
+    SDValue NewAtomic
+      = DAG.getAtomic(ISD::ATOMIC_SWAP, SL, NVT,
+                      DAG.getVTList(NVT, MVT::Other),
+                      { AM->getChain(), AM->getBasePtr(), CastVal },
+                      AM->getMemOperand());
+    Results.push_back(DAG.getNode(ISD::BITCAST, SL, OVT, NewAtomic));
+    Results.push_back(NewAtomic.getValue(1));
     break;
   }
   }

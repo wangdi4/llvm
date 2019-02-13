@@ -4,10 +4,9 @@
 
 //===----------------------------------------------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.txt for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -2839,7 +2838,7 @@ static void __kmp_enable_tasking(kmp_task_team_t *task_team,
   threads_data = (kmp_thread_data_t *)TCR_PTR(task_team->tt.tt_threads_data);
   KMP_DEBUG_ASSERT(threads_data != NULL);
 
-  if ((__kmp_tasking_mode == tskm_task_teams) &&
+  if (__kmp_tasking_mode == tskm_task_teams &&
       (__kmp_dflt_blocktime != KMP_MAX_BLOCKTIME)) {
     // Release any threads sleeping at the barrier, so that they can steal
     // tasks and execute them.  In extra barrier mode, tasks do not sleep

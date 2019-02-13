@@ -1,9 +1,8 @@
 //===--- Background.h - Build an index in a background thread ----*- C++-*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -68,9 +67,7 @@ public:
   /// If BuildIndexPeriodMs is greater than 0, the symbol index will only be
   /// rebuilt periodically (one per \p BuildIndexPeriodMs); otherwise, index is
   /// rebuilt for each indexed file.
-  // FIXME: resource-dir injection should be hoisted somewhere common.
-  BackgroundIndex(Context BackgroundContext, llvm::StringRef ResourceDir,
-                  const FileSystemProvider &,
+  BackgroundIndex(Context BackgroundContext, const FileSystemProvider &,
                   const GlobalCompilationDatabase &CDB,
                   BackgroundIndexStorage::Factory IndexStorageFactory,
                   size_t BuildIndexPeriodMs = 0,
@@ -99,7 +96,6 @@ private:
               BackgroundIndexStorage *IndexStorage);
 
   // configuration
-  std::string ResourceDir;
   const FileSystemProvider &FSProvider;
   const GlobalCompilationDatabase &CDB;
   Context BackgroundContext;

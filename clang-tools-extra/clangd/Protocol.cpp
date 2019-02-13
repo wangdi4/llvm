@@ -1,9 +1,8 @@
 //===--- Protocol.cpp - Language Server Protocol Implementation -----------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -422,6 +421,9 @@ bool fromJSON(const llvm::json::Value &Params, WorkspaceEdit &R) {
 
 const llvm::StringLiteral ExecuteCommandParams::CLANGD_APPLY_FIX_COMMAND =
     "clangd.applyFix";
+const llvm::StringLiteral ExecuteCommandParams::CLANGD_APPLY_TWEAK =
+    "clangd.applyTweak";
+
 bool fromJSON(const llvm::json::Value &Params, ExecuteCommandParams &R) {
   llvm::json::ObjectMapper O(Params);
   if (!O || !O.map("command", R.command))
@@ -432,6 +434,8 @@ bool fromJSON(const llvm::json::Value &Params, ExecuteCommandParams &R) {
     return Args && Args->size() == 1 &&
            fromJSON(Args->front(), R.workspaceEdit);
   }
+  if (R.command == ExecuteCommandParams::CLANGD_APPLY_TWEAK)
+    return Args && Args->size() == 1 && fromJSON(Args->front(), R.tweakArgs);
   return false; // Unrecognized command.
 }
 
@@ -456,25 +460,25 @@ bool operator==(const SymbolDetails &LHS, const SymbolDetails &RHS) {
 }
 
 llvm::json::Value toJSON(const SymbolDetails &P) {
-  llvm::json::Object result{{"name", llvm::json::Value(nullptr)},
+  llvm::json::Object Result{{"name", llvm::json::Value(nullptr)},
                             {"containerName", llvm::json::Value(nullptr)},
                             {"usr", llvm::json::Value(nullptr)},
                             {"id", llvm::json::Value(nullptr)}};
 
   if (!P.name.empty())
-    result["name"] = P.name;
+    Result["name"] = P.name;
 
   if (!P.containerName.empty())
-    result["containerName"] = P.containerName;
+    Result["containerName"] = P.containerName;
 
   if (!P.USR.empty())
-    result["usr"] = P.USR;
+    Result["usr"] = P.USR;
 
   if (P.ID.hasValue())
-    result["id"] = P.ID.getValue().str();
+    Result["id"] = P.ID.getValue().str();
 
   // Older clang cannot compile 'return Result', even though it is legal.
-  return llvm::json::Value(std::move(result));
+  return llvm::json::Value(std::move(Result));
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &O, const SymbolDetails &S) {
@@ -498,10 +502,13 @@ llvm::json::Value toJSON(const Command &C) {
   auto Cmd = llvm::json::Object{{"title", C.title}, {"command", C.command}};
   if (C.workspaceEdit)
     Cmd["arguments"] = {*C.workspaceEdit};
+  if (C.tweakArgs)
+    Cmd["arguments"] = {*C.tweakArgs};
   return std::move(Cmd);
 }
 
 const llvm::StringLiteral CodeAction::QUICKFIX_KIND = "quickfix";
+const llvm::StringLiteral CodeAction::REFACTOR_KIND = "refactor";
 
 llvm::json::Value toJSON(const CodeAction &CA) {
   auto CodeAction = llvm::json::Object{{"title", CA.title}};
@@ -545,6 +552,17 @@ llvm::json::Value toJSON(const WorkspaceEdit &WE) {
   return llvm::json::Object{{"changes", std::move(FileChanges)}};
 }
 
+bool fromJSON(const llvm::json::Value &Params, TweakArgs &A) {
+  llvm::json::ObjectMapper O(Params);
+  return O && O.map("file", A.file) && O.map("selection", A.selection) &&
+         O.map("tweakID", A.tweakID);
+}
+
+llvm::json::Value toJSON(const TweakArgs &A) {
+  return llvm::json::Object{
+      {"tweakID", A.tweakID}, {"selection", A.selection}, {"file", A.file}};
+}
+
 llvm::json::Value toJSON(const ApplyWorkspaceEditParams &Params) {
   return llvm::json::Object{{"edit", Params.edit}};
 }
@@ -560,10 +578,10 @@ bool fromJSON(const llvm::json::Value &Params, CompletionContext &R) {
   if (!O)
     return false;
 
-  int triggerKind;
-  if (!O.map("triggerKind", triggerKind))
+  int TriggerKind;
+  if (!O.map("triggerKind", TriggerKind))
     return false;
-  R.triggerKind = static_cast<CompletionTriggerKind>(triggerKind);
+  R.triggerKind = static_cast<CompletionTriggerKind>(TriggerKind);
 
   if (auto *TC = Params.getAsObject()->get("triggerCharacter"))
     return fromJSON(*TC, R.triggerCharacter);
@@ -620,11 +638,11 @@ bool fromJSON(const llvm::json::Value &E, CompletionItemKind &Out) {
 
 CompletionItemKind
 adjustKindToCapability(CompletionItemKind Kind,
-                       CompletionItemKindBitset &supportedCompletionItemKinds) {
+                       CompletionItemKindBitset &SupportedCompletionItemKinds) {
   auto KindVal = static_cast<size_t>(Kind);
   if (KindVal >= CompletionItemKindMin &&
-      KindVal <= supportedCompletionItemKinds.size() &&
-      supportedCompletionItemKinds[KindVal])
+      KindVal <= SupportedCompletionItemKinds.size() &&
+      SupportedCompletionItemKinds[KindVal])
     return Kind;
 
   switch (Kind) {

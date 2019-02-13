@@ -13,9 +13,6 @@ set(LIBFUZZER_SOURCES
   FuzzerMerge.cpp
   FuzzerMutate.cpp
   FuzzerSHA1.cpp
-  FuzzerShmemFuchsia.cpp
-  FuzzerShmemPosix.cpp
-  FuzzerShmemWindows.cpp
   FuzzerTracePC.cpp
   FuzzerUtil.cpp
   FuzzerUtilDarwin.cpp
@@ -43,7 +40,6 @@ set(LIBFUZZER_HEADERS
   FuzzerOptions.h
   FuzzerRandom.h
   FuzzerSHA1.h
-  FuzzerShmem.h
   FuzzerTracePC.h
   FuzzerUtil.h
   FuzzerValueBitMap.h)
@@ -71,8 +67,15 @@ if (CMAKE_CXX_FLAGS MATCHES "fsanitize-coverage")
   list(APPEND LIBFUZZER_CFLAGS -fno-sanitize-coverage=trace-pc-guard,edge,trace-cmp,indirect-calls,8bit-counters)
 endif()
 
-if(NOT HAS_THREAD_LOCAL)
-  list(APPEND LIBFUZZER_CFLAGS -Dthread_local=__thread)
+if(MSVC)
+  # Silence warnings by turning off exceptions in MSVC headers and avoid an
+  # error by unecessarily defining thread_local when it isn't even used on
+  # Windows.
+  list(APPEND LIBFUZZER_CFLAGS -D_HAS_EXCEPTIONS=0)
+else()
+  if(NOT HAS_THREAD_LOCAL)
+    list(APPEND LIBFUZZER_CFLAGS -Dthread_local=__thread)
+  endif()
 endif()
 
 set(FUZZER_SUPPORTED_OS ${SANITIZER_COMMON_SUPPORTED_OS})

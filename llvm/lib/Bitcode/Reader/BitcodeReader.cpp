@@ -1,9 +1,8 @@
 //===- BitcodeReader.cpp - Internal BitcodeReader implementation ----------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -1035,6 +1034,8 @@ static AtomicRMWInst::BinOp getDecodedRMWOperation(unsigned Val) {
   case bitc::RMW_MIN: return AtomicRMWInst::Min;
   case bitc::RMW_UMAX: return AtomicRMWInst::UMax;
   case bitc::RMW_UMIN: return AtomicRMWInst::UMin;
+  case bitc::RMW_FADD: return AtomicRMWInst::FAdd;
+  case bitc::RMW_FSUB: return AtomicRMWInst::FSub;
   }
 }
 

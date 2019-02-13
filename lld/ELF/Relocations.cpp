@@ -1,9 +1,8 @@
 //===- Relocations.cpp ----------------------------------------------------===//
 //
-//                             The LLVM Linker
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -356,7 +355,7 @@ static bool needsGot(RelExpr Expr) {
 static bool isRelExpr(RelExpr Expr) {
   return isRelExprOneOf<R_PC, R_GOTREL, R_GOTREL_FROM_END, R_MIPS_GOTREL,
                         R_PPC_CALL, R_PPC_CALL_PLT, R_AARCH64_PAGE_PC,
-                        R_RELAX_GOT_PC>(Expr);
+                        R_AARCH64_PLT_PAGE_PC, R_RELAX_GOT_PC>(Expr);
 }
 
 // Returns true if a given relocation can be computed at link-time.
@@ -1000,6 +999,9 @@ static void scanReloc(InputSectionBase &Sec, OffsetGetter &GetOffset, RelTy *&I,
   // Ignore "hint" relocations because they are only markers for relaxation.
   if (isRelExprOneOf<R_HINT, R_NONE>(Expr))
     return;
+
+  if (Config->EMachine == EM_PPC64 && isPPC64SmallCodeModelReloc(Type))
+    Sec.File->PPC64SmallCodeModelRelocs = true;
 
   // Strenghten or relax relocations.
   //

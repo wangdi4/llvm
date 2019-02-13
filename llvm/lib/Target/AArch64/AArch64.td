@@ -1,9 +1,8 @@
 //=- AArch64.td - Describe the AArch64 Target Machine --------*- tablegen -*-=//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -715,6 +714,9 @@ def : ProcessorModel<"thunderxt83", ThunderXT8XModel,  [ProcThunderXT83]>;
 def : ProcessorModel<"thunderx2t99", ThunderX2T99Model, [ProcThunderX2T99]>;
 // FIXME: HiSilicon TSV110 is currently modeled as a Cortex-A57.
 def : ProcessorModel<"tsv110", CortexA57Model, [ProcTSV110]>;
+
+// Alias for the latest Apple processor model supported by LLVM.
+def : ProcessorModel<"apple-latest", CycloneModel, [ProcCyclone]>;
 
 //===----------------------------------------------------------------------===//
 // Assembly parser
