@@ -5086,9 +5086,16 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
 #if INTEL_CUSTOMIZATION
 bool CodeGenFunction::HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
                                                 OpenMPDirectiveKind Kind) {
-  // Only hoist for spir targets.
-  if (CGM.getTriple().getArch() != llvm::Triple::spir &&
-      CGM.getTriple().getArch() != llvm::Triple::spir64)
+  // Only hoist when there are spir targets.
+  bool HasSpirTarget = false;
+  for (const llvm::Triple &T : getLangOpts().OMPTargetTriples) {
+    if (T.getArch() == llvm::Triple::spir64 ||
+        T.getArch() == llvm::Triple::spir) {
+      HasSpirTarget = true;
+      break;
+    }
+  }
+  if (!HasSpirTarget)
     return false;
 
   // Don't hoist if it was already done on outer construct.
@@ -5118,41 +5125,6 @@ CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
       DKind == OMPD_target_teams_distribute_parallel_for ||
       DKind == OMPD_target_teams_distribute_parallel_for_simd) {
     return Kind == OMPD_target ? cast<OMPLoopDirective>(&S) : nullptr;
-  }
-
-  if (DKind == OMPD_target) {
-    if (const Stmt *CS = S.getInnermostCapturedStmt()->getCapturedStmt()) {
-      if (const auto *CompStmt = dyn_cast<CompoundStmt>(CS)) {
-        if (CompStmt->body_front() &&
-            CompStmt->body_front() == CompStmt->body_back())
-          CS = CompStmt->body_front();
-      }
-      Stmt::StmtClass C = CS->getStmtClass();
-      if (C == Stmt::OMPParallelForDirectiveClass ||
-          C == Stmt::OMPParallelForSimdDirectiveClass ||
-          C == Stmt::OMPTeamsDistributeDirectiveClass ||
-          C == Stmt::OMPTeamsDistributeParallelForDirectiveClass ||
-          C == Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass) {
-        return cast<OMPLoopDirective>(CS);
-      }
-      if (C == Stmt::OMPTeamsDirectiveClass) {
-        if (const Stmt *TCS = cast<OMPExecutableDirective>(CS)
-                                 ->getInnermostCapturedStmt()
-                                 ->getCapturedStmt()) {
-          if (const auto *CompStmt = dyn_cast<CompoundStmt>(TCS)) {
-            if (CompStmt->body_front() &&
-                CompStmt->body_front() == CompStmt->body_back())
-              TCS = CompStmt->body_front();
-          }
-          Stmt::StmtClass C = TCS->getStmtClass();
-          if (C == Stmt::OMPDistributeDirectiveClass ||
-              C == Stmt::OMPDistributeParallelForDirectiveClass ||
-              C == Stmt::OMPDistributeParallelForSimdDirectiveClass) {
-            return cast<OMPLoopDirective>(TCS);
-          }
-        }
-      }
-    }
   }
   return nullptr;
 }
