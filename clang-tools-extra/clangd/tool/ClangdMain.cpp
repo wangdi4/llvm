@@ -1,9 +1,8 @@
 //===--- ClangdMain.cpp - clangd server loop ------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -202,6 +201,18 @@ static llvm::cl::opt<bool> EnableFunctionArgSnippets(
                    "placeholders for method parameters."),
     llvm::cl::init(CodeCompleteOptions().EnableFunctionArgSnippets));
 
+static llvm::cl::opt<std::string> ClangTidyChecks(
+    "clang-tidy-checks",
+    llvm::cl::desc("List of clang-tidy checks to run (this will override "
+                   ".clang-tidy files)"),
+    llvm::cl::init(""));
+
+static llvm::cl::opt<bool> SuggestMissingIncludes(
+    "suggest-missing-includes",
+    llvm::cl::desc("Attempts to fix diagnostic errors caused by missing "
+                   "includes using index."),
+    llvm::cl::init(false));
+
 namespace {
 
 /// \brief Supports a test URI scheme with relaxed constraints for lit tests.
@@ -223,9 +234,7 @@ public:
     Body = Body.ltrim('/');
     llvm::SmallVector<char, 16> Path(Body.begin(), Body.end());
     path::native(Path);
-    auto Err = fs::make_absolute(TestScheme::TestDir, Path);
-    if (Err)
-      llvm_unreachable("Failed to make absolute path in test scheme.");
+    fs::make_absolute(TestScheme::TestDir, Path);
     return std::string(Path.begin(), Path.end());
   }
 
@@ -411,6 +420,7 @@ int main(int argc, char *argv[]) {
   CCOpts.EnableFunctionArgSnippets = EnableFunctionArgSnippets;
   CCOpts.AllScopes = AllScopesCompletion;
 
+  RealFileSystemProvider FSProvider;
   // Initialize and run ClangdLSPServer.
   // Change stdin to binary to not lose \r\n on windows.
   llvm::sys::ChangeStdinToBinary();
@@ -430,8 +440,17 @@ int main(int argc, char *argv[]) {
         PrettyPrint, InputStyle);
   }
 
+  // Create an empty clang-tidy option.
+  auto OverrideClangTidyOptions = tidy::ClangTidyOptions::getDefaults();
+  OverrideClangTidyOptions.Checks = ClangTidyChecks;
+  tidy::FileOptionsProvider ClangTidyOptProvider(
+      tidy::ClangTidyGlobalOptions(),
+      /* Default */ tidy::ClangTidyOptions::getDefaults(),
+      /* Override */ OverrideClangTidyOptions, FSProvider.getFileSystem());
+  Opts.ClangTidyOptProvider = &ClangTidyOptProvider;
+  Opts.SuggestMissingIncludes = SuggestMissingIncludes;
   ClangdLSPServer LSPServer(
-      *TransportLayer, CCOpts, CompileCommandsDirPath,
+      *TransportLayer, FSProvider, CCOpts, CompileCommandsDirPath,
       /*UseDirBasedCDB=*/CompileArgsFrom == FilesystemCompileArgs, Opts);
   llvm::set_thread_name("clangd.main");
   return LSPServer.run() ? 0

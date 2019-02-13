@@ -1,9 +1,8 @@
 //===- llvm/Instructions.h - Instruction subclass definitions ---*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -725,8 +724,14 @@ public:
     /// *p = old <unsigned v ? old : v
     UMin,
 
+    /// *p = old + v
+    FAdd,
+
+    /// *p = old - v
+    FSub,
+
     FIRST_BINOP = Xchg,
-    LAST_BINOP = UMin,
+    LAST_BINOP = FSub,
     BAD_BINOP
   };
 
@@ -747,6 +752,16 @@ public:
   }
 
   static StringRef getOperationName(BinOp Op);
+
+  static bool isFPOperation(BinOp Op) {
+    switch (Op) {
+    case AtomicRMWInst::FAdd:
+    case AtomicRMWInst::FSub:
+      return true;
+    default:
+      return false;
+    }
+  }
 
   void setOperation(BinOp Operation) {
     unsigned short SubclassData = getSubclassDataFromInstruction();
@@ -803,6 +818,10 @@ public:
   /// Returns the address space of the pointer operand.
   unsigned getPointerAddressSpace() const {
     return getPointerOperand()->getType()->getPointerAddressSpace();
+  }
+
+  bool isFloatingPointOperation() const {
+    return isFPOperation(getOperation());
   }
 
   // Methods for support type inquiry through isa, cast, and dyn_cast:
@@ -1683,9 +1702,6 @@ public:
   void setCanReturnTwice() {
     addAttribute(AttributeList::FunctionIndex, Attribute::ReturnsTwice);
   }
-
-  /// Check if this call is an inline asm statement.
-  bool isInlineAsm() const { return isa<InlineAsm>(getCalledOperand()); }
 
   // Methods for support type inquiry through isa, cast, and dyn_cast:
   static bool classof(const Instruction *I) {

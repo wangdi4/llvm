@@ -1,9 +1,8 @@
 //===--- Index.cpp -----------------------------------------------*- C++-*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -54,12 +53,12 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, SymbolOrigin O) {
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, Symbol::SymbolFlag F) {
   if (F == Symbol::None)
     return OS << "None";
-  std::string s;
+  std::string S;
   if (F & Symbol::Deprecated)
-    s += "deprecated|";
+    S += "deprecated|";
   if (F & Symbol::IndexedForCodeCompletion)
-    s += "completion|";
-  return OS << llvm::StringRef(s).rtrim('|');
+    S += "completion|";
+  return OS << llvm::StringRef(S).rtrim('|');
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const Symbol &S) {

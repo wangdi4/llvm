@@ -1,9 +1,8 @@
 //===- Parsing, selection, and construction of pass pipelines -------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 /// \file
@@ -331,6 +330,8 @@ static cl::opt<bool> EnableDTrans("enable-npm-dtrans",
 #endif // INTEL_CUSTOMIZATION
 
 extern cl::opt<bool> EnableHotColdSplit;
+
+extern cl::opt<bool> FlattenedProfileUsed;
 
 static bool isOptimizingForSize(PassBuilder::OptimizationLevel Level) {
   switch (Level) {
@@ -757,9 +758,13 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (PGOOpt && !PGOOpt->SampleProfileFile.empty()) {
     // Annotate sample profile right after early FPM to ensure freshness of
     // the debug info.
-    MPM.addPass(SampleProfileLoaderPass(PGOOpt->SampleProfileFile,
-                                        PGOOpt->ProfileRemappingFile,
-                                        Phase == ThinLTOPhase::PreLink));
+    // In ThinLTO mode, when flattened profile is used, all the available
+    // profile information will be annotated in PreLink phase so there is
+    // no need to load the profile again in PostLink.
+    if (!(FlattenedProfileUsed && Phase == ThinLTOPhase::PostLink))
+      MPM.addPass(SampleProfileLoaderPass(PGOOpt->SampleProfileFile,
+                                          PGOOpt->ProfileRemappingFile,
+                                          Phase == ThinLTOPhase::PreLink));
     // Do not invoke ICP in the ThinLTOPrelink phase as it makes it hard
     // for the profile annotation to be accurate in the ThinLTO backend.
     if (Phase != ThinLTOPhase::PreLink)
@@ -794,6 +799,14 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Remove any dead arguments exposed by cleanups and constand folding
   // globals.
   MPM.addPass(DeadArgumentEliminationPass());
+
+  // Split out cold code. Splitting is done before inlining because 1) the most
+  // common kinds of cold regions can (a) be found before inlining and (b) do
+  // not grow after inlining, and 2) inhibiting inlining of cold code improves
+  // code size & compile time. Split after Mem2Reg to make code model estimates
+  // more accurate, but before InstCombine to allow it to clean things up.
+  if (EnableHotColdSplit && Phase != ThinLTOPhase::PostLink)
+    MPM.addPass(HotColdSplittingPass());
 
   // Create a small function pass pipeline to cleanup after all the global
   // optimizations.
@@ -862,11 +875,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // CGSCC walk.
   MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
       buildFunctionSimplificationPipeline(Level, Phase, DebugLogging)));
-
-  // We only want to do hot cold splitting once for ThinLTO, during the
-  // post-link ThinLTO.
-  if (EnableHotColdSplit && Phase != ThinLTOPhase::PreLink)
-    MPM.addPass(HotColdSplittingPass());
 
   for (auto &C : CGSCCOptimizerLateEPCallbacks)
     C(MainCGPipeline, Level);

@@ -1,9 +1,8 @@
 //===--- TextNodeDumper.h - Printing of AST nodes -------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -173,6 +172,8 @@ public:
 
   void Visit(const BlockDecl::Capture &C);
 
+  void Visit(const GenericSelectionExpr::ConstAssociation &A);
+
   void dumpPointer(const void *Ptr);
   void dumpLocation(SourceLocation Loc);
   void dumpSourceRange(SourceRange R);
@@ -236,6 +237,7 @@ public:
   void VisitFloatingLiteral(const FloatingLiteral *Node);
   void VisitStringLiteral(const StringLiteral *Str);
   void VisitInitListExpr(const InitListExpr *ILE);
+  void VisitGenericSelectionExpr(const GenericSelectionExpr *E);
   void VisitUnaryOperator(const UnaryOperator *Node);
   void VisitUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *Node);
   void VisitMemberExpr(const MemberExpr *Node);

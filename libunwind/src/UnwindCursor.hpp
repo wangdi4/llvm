@@ -1,9 +1,8 @@
 //===------------------------- UnwindCursor.hpp ---------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //
 // C++ interface to lower levels of libunwind
@@ -12,7 +11,6 @@
 #ifndef __UNWINDCURSOR_HPP__
 #define __UNWINDCURSOR_HPP__
 
-#include <algorithm>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,7 +104,6 @@ private:
   static void dyldUnloadHook(const struct mach_header *mh, intptr_t slide);
   static bool _registeredForDyldUnloads;
 #endif
-  // Can't use std::vector<> here because this code is below libc++.
   static entry *_buffer;
   static entry *_bufferUsed;
   static entry *_bufferEnd;
@@ -789,6 +786,8 @@ bool UnwindCursor<A, R>::validFloatReg(int regNum) {
   if (regNum >= UNW_ARM_D0 && regNum <= UNW_ARM_D31) return true;
 #elif defined(_LIBUNWIND_TARGET_AARCH64)
   if (regNum >= UNW_ARM64_D0 && regNum <= UNW_ARM64_D31) return true;
+#else
+  (void)regNum;
 #endif
   return false;
 }
@@ -816,6 +815,7 @@ unw_fpreg_t UnwindCursor<A, R>::getFloatReg(int regNum) {
 #elif defined(_LIBUNWIND_TARGET_AARCH64)
   return _msContext.V[regNum - UNW_ARM64_D0].D[0];
 #else
+  (void)regNum;
   _LIBUNWIND_ABORT("float registers unimplemented");
 #endif
 }
@@ -843,6 +843,8 @@ void UnwindCursor<A, R>::setFloatReg(int regNum, unw_fpreg_t value) {
 #elif defined(_LIBUNWIND_TARGET_AARCH64)
   _msContext.V[regNum - UNW_ARM64_D0].D[0] = value;
 #else
+  (void)regNum;
+  (void)value;
   _LIBUNWIND_ABORT("float registers unimplemented");
 #endif
 }
@@ -1221,7 +1223,6 @@ template<typename A>
 struct EHABISectionIterator {
   typedef EHABISectionIterator _Self;
 
-  typedef std::random_access_iterator_tag iterator_category;
   typedef typename A::pint_t value_type;
   typedef typename A::pint_t* pointer;
   typedef typename A::pint_t& reference;
@@ -1275,6 +1276,29 @@ struct EHABISectionIterator {
   const UnwindInfoSections* _sects;
 };
 
+namespace {
+
+template <typename A>
+EHABISectionIterator<A> EHABISectionUpperBound(
+    EHABISectionIterator<A> first,
+    EHABISectionIterator<A> last,
+    typename A::pint_t value) {
+  size_t len = last - first;
+  while (len > 0) {
+    size_t l2 = len / 2;
+    EHABISectionIterator<A> m = first + l2;
+    if (value < *m) {
+        len = l2;
+    } else {
+        first = ++m;
+        len -= l2 + 1;
+    }
+  }
+  return first;
+}
+
+}
+
 template <typename A, typename R>
 bool UnwindCursor<A, R>::getInfoFromEHABISection(
     pint_t pc,
@@ -1286,7 +1310,7 @@ bool UnwindCursor<A, R>::getInfoFromEHABISection(
   if (begin == end)
     return false;
 
-  EHABISectionIterator<A> itNextPC = std::upper_bound(begin, end, pc);
+  EHABISectionIterator<A> itNextPC = EHABISectionUpperBound(begin, end, pc);
   if (itNextPC == begin)
     return false;
   EHABISectionIterator<A> itThisPC = itNextPC - 1;
@@ -1296,8 +1320,7 @@ bool UnwindCursor<A, R>::getInfoFromEHABISection(
   // in the table, we don't really know the function extent and have to choose a
   // value for nextPC. Choosing max() will allow the range check during trace to
   // succeed.
-  pint_t nextPC = (itNextPC == end) ? std::numeric_limits<pint_t>::max()
-                                    : itNextPC.functionAddress();
+  pint_t nextPC = (itNextPC == end) ? UINTPTR_MAX : itNextPC.functionAddress();
   pint_t indexDataAddr = itThisPC.dataAddress();
 
   if (indexDataAddr == 0)

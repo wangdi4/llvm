@@ -1,9 +1,8 @@
 //===-- FindSymbolsTests.cpp -------------------------*- C++ -*------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 #include "Annotations.h"
@@ -88,13 +87,16 @@ protected:
 
 } // namespace
 
-TEST_F(WorkspaceSymbolsTest, NoMacro) {
+TEST_F(WorkspaceSymbolsTest, Macros) {
   addFile("foo.cpp", R"cpp(
-      #define MACRO X
-      )cpp");
+       #define MACRO X
+       )cpp");
 
-  // Macros are not in the index.
-  EXPECT_THAT(getSymbols("macro"), IsEmpty());
+  // LSP's SymbolKind doesn't have a "Macro" kind, and
+  // indexSymbolKindToSymbolKind() currently maps macros
+  // to SymbolKind::String.
+  EXPECT_THAT(getSymbols("macro"),
+              ElementsAre(AllOf(QName("MACRO"), WithKind(SymbolKind::String))));
 }
 
 TEST_F(WorkspaceSymbolsTest, NoLocals) {

@@ -1,9 +1,8 @@
 //===- BitcodeReader.cpp - Internal BitcodeReader implementation ----------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -1062,6 +1061,8 @@ static AtomicRMWInst::BinOp getDecodedRMWOperation(unsigned Val) {
   case bitc::RMW_MIN: return AtomicRMWInst::Min;
   case bitc::RMW_UMAX: return AtomicRMWInst::UMax;
   case bitc::RMW_UMIN: return AtomicRMWInst::UMin;
+  case bitc::RMW_FADD: return AtomicRMWInst::FAdd;
+  case bitc::RMW_FSUB: return AtomicRMWInst::FSub;
   }
 }
 
@@ -1215,8 +1216,8 @@ static uint64_t getRawAttributeMask(Attribute::AttrKind Val) {
   case Attribute::SpeculativeLoadHardening:
     return 1ULL << 60;
 #if INTEL_CUSTOMIZATION
-  case Attribute::AlwaysInlineRecursive: return 1ULL << 62;
-  case Attribute::InlineHintRecursive:   return 1ULL << 63;
+  case Attribute::AlwaysInlineRecursive: return 1ULL << 61;
+  case Attribute::InlineHintRecursive:   return 1ULL << 62;
 #endif // INTEL_CUSTOMIZATION
   case Attribute::Dereferenceable:
     llvm_unreachable("dereferenceable attribute not supported in raw format");

@@ -1,9 +1,8 @@
 //===-- Background.cpp - Build an index in a background thread ------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -127,13 +126,12 @@ llvm::SmallString<128> getAbsolutePath(const tooling::CompileCommand &Cmd) {
 } // namespace
 
 BackgroundIndex::BackgroundIndex(
-    Context BackgroundContext, llvm::StringRef ResourceDir,
-    const FileSystemProvider &FSProvider, const GlobalCompilationDatabase &CDB,
+    Context BackgroundContext, const FileSystemProvider &FSProvider,
+    const GlobalCompilationDatabase &CDB,
     BackgroundIndexStorage::Factory IndexStorageFactory,
     size_t BuildIndexPeriodMs, size_t ThreadPoolSize)
-    : SwapIndex(llvm::make_unique<MemIndex>()), ResourceDir(ResourceDir),
-      FSProvider(FSProvider), CDB(CDB),
-      BackgroundContext(std::move(BackgroundContext)),
+    : SwapIndex(llvm::make_unique<MemIndex>()), FSProvider(FSProvider),
+      CDB(CDB), BackgroundContext(std::move(BackgroundContext)),
       BuildIndexPeriodMs(BuildIndexPeriodMs),
       SymbolsUpdatedSinceLastIndex(false),
       IndexStorageFactory(std::move(IndexStorageFactory)),
@@ -230,7 +228,6 @@ void BackgroundIndex::enqueue(tooling::CompileCommand Cmd,
                               BackgroundIndexStorage *Storage) {
   enqueueTask(Bind(
                   [this, Storage](tooling::CompileCommand Cmd) {
-                    Cmd.CommandLine.push_back("-resource-dir=" + ResourceDir);
                     // We can't use llvm::StringRef here since we are going to
                     // move from Cmd during the call below.
                     const std::string FileName = Cmd.Filename;
@@ -398,7 +395,7 @@ llvm::Error BackgroundIndex::index(tooling::CompileCommand Cmd,
     DigestsSnapshot = IndexedFileDigests;
   }
 
-  log("Indexing {0} (digest:={1})", Cmd.Filename, llvm::toHex(Hash));
+  vlog("Indexing {0} (digest:={1})", Cmd.Filename, llvm::toHex(Hash));
   ParseInputs Inputs;
   Inputs.FS = std::move(FS);
   Inputs.FS->setCurrentWorkingDirectory(Cmd.Directory);
