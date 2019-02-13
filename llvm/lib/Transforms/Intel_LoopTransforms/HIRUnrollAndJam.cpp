@@ -259,12 +259,8 @@ public:
   /// Do nothing for instructions.
   void visit(HLInst *Inst) {}
 
-  /// Throttle if we encounter an HLNode other than HLLoop or HLInst.
-  void visit(HLNode *Node) {
-    if (auto ParentLoop = Node->getLexicalParentLoop()) {
-      HUAJ.throttleRecursively(ParentLoop);
-    }
-  }
+  /// Handle nodes other than HLLoop or HLInst.
+  void visit(HLNode *Node);
 
   void postVisit(HLNode *) {}
 
@@ -566,7 +562,7 @@ void HIRUnrollAndJam::throttleRecursively(HLLoop *Lp,
                                           bool IsCostModelThrottling) {
   assert(Lp && "Loop is null!");
 
-  while (Lp && !updateUnrollFactor(Lp, 0)) {
+  while (Lp && updateUnrollFactor(Lp, 0)) {
     // Do not throttle parent loops with enabling pragma based on cost model.
     if (IsCostModelThrottling) {
       while (Lp && Lp->hasUnrollAndJamEnablingPragma()) {
@@ -575,6 +571,19 @@ void HIRUnrollAndJam::throttleRecursively(HLLoop *Lp,
     } else {
       Lp = Lp->getParentLoop();
     }
+  }
+}
+
+void HIRUnrollAndJam::Analyzer::visit(HLNode *Node) {
+  assert((!isa<HLLoop>(Node) && !isa<HLInst>(Node)) &&
+         "Loop or Inst not expected!");
+
+  auto *ParentLoop = Node->getParentLoop();
+
+  // Allow HLIfs in innermost loops. This is handled correctly by the
+  // transformation although it may not be profitable in most cases.
+  if (!isa<HLIf>(Node) || !ParentLoop->isInnermost()) {
+    HUAJ.throttleRecursively(ParentLoop);
   }
 }
 
