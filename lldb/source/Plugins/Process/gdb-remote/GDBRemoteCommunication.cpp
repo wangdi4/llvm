@@ -1,9 +1,8 @@
 //===-- GDBRemoteCommunication.cpp ------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -42,8 +41,7 @@
 #define DEBUGSERVER_BASENAME "lldb-server"
 #endif
 
-#if defined(__APPLE__)
-#define HAVE_LIBCOMPRESSION
+#if defined(HAVE_LIBCOMPRESSION)
 #include <compression.h>
 #endif
 
@@ -68,10 +66,7 @@ GDBRemoteCommunication::GDBRemoteCommunication(const char *comm_name,
 #endif
       m_echo_number(0), m_supports_qEcho(eLazyBoolCalculate), m_history(512),
       m_send_acks(true), m_compression_type(CompressionType::None),
-      m_listen_url(), m_decompression_scratch_type(CompressionType::None),
-      m_decompression_scratch(nullptr) {
-  // Unused unless HAVE_LIBCOMPRESSION is defined.
-  (void)m_decompression_scratch_type;
+      m_listen_url() {
 }
 
 //----------------------------------------------------------------------
@@ -82,8 +77,10 @@ GDBRemoteCommunication::~GDBRemoteCommunication() {
     Disconnect();
   }
 
+#if defined(HAVE_LIBCOMPRESSION)
   if (m_decompression_scratch)
     free (m_decompression_scratch);
+#endif
 
   // Stop the communications read thread which is used to parse all incoming
   // packets.  This function will block until the read thread returns.
@@ -1266,7 +1263,7 @@ void GDBRemoteCommunication::DumpHistory(Stream &strm) { m_history.Dump(strm); }
 
 void GDBRemoteCommunication::SetHistoryStream(llvm::raw_ostream *strm) {
   m_history.SetStream(strm);
-};
+}
 
 llvm::Error
 GDBRemoteCommunication::ConnectLocally(GDBRemoteCommunication &client,

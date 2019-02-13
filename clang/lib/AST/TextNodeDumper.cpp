@@ -1,9 +1,8 @@
 //===--- TextNodeDumper.cpp - Printing of AST nodes -----------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -256,6 +255,17 @@ void TextNodeDumper::Visit(const Decl *D) {
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D))
     if (FD->isConstexpr())
       OS << " constexpr";
+
+  if (!isa<FunctionDecl>(*D)) {
+    const auto *MD = dyn_cast<ObjCMethodDecl>(D);
+    if (!MD || !MD->isThisDeclarationADefinition()) {
+      const auto *DC = dyn_cast<DeclContext>(D);
+      if (DC && DC->hasExternalLexicalStorage()) {
+        ColorScope Color(OS, ShowColors, UndeserializedColor);
+        OS << " <undeserialized declarations>";
+      }
+    }
+  }
 }
 
 void TextNodeDumper::Visit(const CXXCtorInitializer *Init) {
@@ -300,6 +310,19 @@ void TextNodeDumper::Visit(const OMPClause *C) {
   dumpSourceRange(SourceRange(C->getBeginLoc(), C->getEndLoc()));
   if (C->isImplicit())
     OS << " <implicit>";
+}
+
+void TextNodeDumper::Visit(const GenericSelectionExpr::ConstAssociation &A) {
+  const TypeSourceInfo *TSI = A.getTypeSourceInfo();
+  if (TSI) {
+    OS << "case ";
+    dumpType(TSI->getType());
+  } else {
+    OS << "default";
+  }
+
+  if (A.isSelected())
+    OS << " selected";
 }
 
 void TextNodeDumper::dumpPointer(const void *Ptr) {
@@ -753,6 +776,11 @@ void TextNodeDumper::VisitInitListExpr(const InitListExpr *ILE) {
   }
 }
 
+void TextNodeDumper::VisitGenericSelectionExpr(const GenericSelectionExpr *E) {
+  if (E->isResultDependent())
+    OS << " result_dependent";
+}
+
 void TextNodeDumper::VisitUnaryOperator(const UnaryOperator *Node) {
   OS << " " << (Node->isPostfix() ? "postfix" : "prefix") << " '"
      << UnaryOperator::getOpcodeStr(Node->getOpcode()) << "'";
@@ -1096,6 +1124,8 @@ void TextNodeDumper::VisitFunctionProtoType(const FunctionProtoType *T) {
     OS << " volatile";
   if (T->isRestrict())
     OS << " restrict";
+  if (T->getExtProtoInfo().Variadic)
+    OS << " variadic";
   switch (EPI.RefQualifier) {
   case RQ_None:
     break;

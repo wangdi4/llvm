@@ -1,9 +1,8 @@
 //===- PPC64.cpp ----------------------------------------------------------===//
 //
-//                             The LLVM Linker
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -97,6 +96,15 @@ unsigned elf::getPPC64GlobalEntryToLocalEntryOffset(uint8_t StOther) {
 
   error("reserved value of 7 in the 3 most-significant-bits of st_other");
   return 0;
+}
+
+bool elf::isPPC64SmallCodeModelReloc(RelType Type) {
+  // List is not yet complete, at the very least the got based tls related
+  // relocations need to be added, and we need to determine how the section
+  // sorting interacts with the thread pointer and dynamic thread pointer
+  // relative tls relocations.
+  return Type == R_PPC64_GOT16 || Type == R_PPC64_TOC16 ||
+         Type == R_PPC64_TOC16_DS;
 }
 
 namespace {

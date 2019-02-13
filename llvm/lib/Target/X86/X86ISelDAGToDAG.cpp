@@ -1,9 +1,8 @@
 //===- X86ISelDAGToDAG.cpp - A DAG pattern matching inst selector for X86 -===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -3381,13 +3380,17 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     }
     break;
 
-  case X86ISD::BLENDV: {
-    // BLENDV selects like a regular VSELECT.
-    SDValue VSelect = CurDAG->getNode(
-        ISD::VSELECT, SDLoc(Node), Node->getValueType(0), Node->getOperand(0),
+  case ISD::VSELECT: {
+    // Replace VSELECT with non-mask conditions with with BLENDV.
+    if (Node->getOperand(0).getValueType().getVectorElementType() == MVT::i1)
+      break;
+
+    assert(Subtarget->hasSSE41() && "Expected SSE4.1 support!");
+    SDValue Blendv = CurDAG->getNode(
+        X86ISD::BLENDV, SDLoc(Node), Node->getValueType(0), Node->getOperand(0),
         Node->getOperand(1), Node->getOperand(2));
-    ReplaceNode(Node, VSelect.getNode());
-    SelectCode(VSelect.getNode());
+    ReplaceNode(Node, Blendv.getNode());
+    SelectCode(Blendv.getNode());
     // We already called ReplaceUses.
     return;
   }

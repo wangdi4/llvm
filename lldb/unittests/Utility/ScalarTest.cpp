@@ -1,9 +1,8 @@
 //===-- ScalarTest.cpp ------------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -263,4 +262,19 @@ TEST(ScalarTest, SetValueFromCString) {
   EXPECT_THAT_ERROR(
       a.SetValueFromCString("-123", lldb::eEncodingUint, 8).ToError(),
       Failed());
+}
+
+TEST(ScalarTest, APIntConstructor) {
+  auto width_array = {8, 16, 32};
+  for (auto &w : width_array) {
+    Scalar A(APInt(w, 24));
+    EXPECT_EQ(A.GetType(), Scalar::e_sint);
+  }
+
+  Scalar B(APInt(64, 42));
+  EXPECT_EQ(B.GetType(), Scalar::e_slonglong);
+  Scalar C(APInt(128, 96));
+  EXPECT_EQ(C.GetType(), Scalar::e_sint128);
+  Scalar D(APInt(256, 156));
+  EXPECT_EQ(D.GetType(), Scalar::e_sint256);
 }

@@ -1,9 +1,8 @@
 //===-- llvm/CodeGen/GlobalISel/MachineIRBuilder.h - MIBuilder --*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 /// \file
@@ -226,6 +225,11 @@ public:
 
   /// Getter for the function we currently build.
   MachineFunction &getMF() {
+    assert(State.MF && "MachineFunction is not set");
+    return *State.MF;
+  }
+
+  const MachineFunction &getMF() const {
     assert(State.MF && "MachineFunction is not set");
     return *State.MF;
   }
@@ -457,6 +461,15 @@ public:
   ///
   /// \return The newly created instruction.
   MachineInstrBuilder buildSExt(const DstOp &Res, const SrcOp &Op);
+
+  /// \return The opcode of the extension the target wants to use for boolean
+  /// values.
+  unsigned getBoolExtOp(bool IsVec, bool IsFP) const;
+
+  // Build and insert \p Res = G_ANYEXT \p Op, \p Res = G_SEXT \p Op, or \p Res
+  // = G_ZEXT \p Op depending on how the target wants to extend boolean values.
+  MachineInstrBuilder buildBoolExt(const DstOp &Res, const SrcOp &Op,
+                                   bool IsFP);
 
   /// Build and insert \p Res = G_ZEXT \p Op
   ///
@@ -1122,6 +1135,24 @@ public:
                                const SrcOp &Src1,
                                Optional<unsigned> Flags = None) {
     return buildInstr(TargetOpcode::G_MUL, {Dst}, {Src0, Src1}, Flags);
+  }
+
+  MachineInstrBuilder buildUMulH(const DstOp &Dst, const SrcOp &Src0,
+                                 const SrcOp &Src1,
+                                 Optional<unsigned> Flags = None) {
+    return buildInstr(TargetOpcode::G_UMULH, {Dst}, {Src0, Src1}, Flags);
+  }
+
+  MachineInstrBuilder buildSMulH(const DstOp &Dst, const SrcOp &Src0,
+                                 const SrcOp &Src1,
+                                 Optional<unsigned> Flags = None) {
+    return buildInstr(TargetOpcode::G_SMULH, {Dst}, {Src0, Src1}, Flags);
+  }
+
+  MachineInstrBuilder buildShl(const DstOp &Dst, const SrcOp &Src0,
+                               const SrcOp &Src1,
+                               Optional<unsigned> Flags = None) {
+    return buildInstr(TargetOpcode::G_SHL, {Dst}, {Src0, Src1}, Flags);
   }
 
   /// Build and insert \p Res = G_AND \p Op0, \p Op1

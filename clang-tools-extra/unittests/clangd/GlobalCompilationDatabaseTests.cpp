@@ -1,9 +1,8 @@
 //===-- GlobalCompilationDatabaseTests.cpp ----------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -65,7 +64,7 @@ protected:
 };
 
 TEST_F(OverlayCDBTest, GetCompileCommand) {
-  OverlayCDB CDB(Base.get());
+  OverlayCDB CDB(Base.get(), {}, std::string(""));
   EXPECT_EQ(CDB.getCompileCommand(testPath("foo.cc")),
             Base->getCompileCommand(testPath("foo.cc")));
   EXPECT_EQ(CDB.getCompileCommand(testPath("missing.cc")), llvm::None);
@@ -85,7 +84,7 @@ TEST_F(OverlayCDBTest, GetFallbackCommand) {
 }
 
 TEST_F(OverlayCDBTest, NoBase) {
-  OverlayCDB CDB(nullptr, {"-DA=6"});
+  OverlayCDB CDB(nullptr, {"-DA=6"}, std::string(""));
   EXPECT_EQ(CDB.getCompileCommand(testPath("bar.cc")), None);
   auto Override = cmd(testPath("bar.cc"), "-DA=5");
   CDB.setCompileCommand(testPath("bar.cc"), Override);

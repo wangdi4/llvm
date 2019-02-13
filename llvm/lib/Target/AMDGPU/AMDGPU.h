@@ -1,9 +1,8 @@
 //===-- AMDGPU.h - MachineFunction passes hw codegen --------------*- C++ -*-=//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 /// \file
 //===----------------------------------------------------------------------===//
@@ -254,7 +253,7 @@ namespace AMDGPUAS {
 
     FLAT_ADDRESS = 0,     ///< Address space for flat memory.
     GLOBAL_ADDRESS = 1,   ///< Address space for global memory (RAT0, VTX0).
-    REGION_ADDRESS = 2,   ///< Address space for region memory.
+    REGION_ADDRESS = 2,   ///< Address space for region memory. (GDS)
 
     CONSTANT_ADDRESS = 4, ///< Address space for constant memory (VTX2)
     LOCAL_ADDRESS = 3,    ///< Address space for local memory.

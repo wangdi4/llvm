@@ -1,9 +1,8 @@
 //===-- WebAssemblyEHRestoreStackPointer.cpp - __stack_pointer restoration ===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 ///
@@ -78,7 +77,7 @@ bool WebAssemblyEHRestoreStackPointer::runOnMachineFunction(
     // function uses the red zone, but that only happens with leaf functions,
     // and we don't restore __stack_pointer in leaf functions anyway.
     auto InsertPos = MBB.begin();
-    if (WebAssembly::isCatch(*MBB.begin()))
+    if (MBB.begin()->getOpcode() == WebAssembly::CATCH)
       InsertPos++;
     FrameLowering->writeSPToGlobal(WebAssembly::SP32, MF, MBB, InsertPos,
                                    MBB.begin()->getDebugLoc());

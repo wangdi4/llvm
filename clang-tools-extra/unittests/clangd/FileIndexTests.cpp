@@ -1,9 +1,8 @@
 //===-- FileIndexTests.cpp  ---------------------------*- C++ -*-----------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -364,7 +363,8 @@ TEST(FileIndexTest, ReferencesInMainFileWithPreamble) {
   auto AST =
       ParsedAST::build(createInvocationFromCommandLine(Cmd), PreambleData,
                        llvm::MemoryBuffer::getMemBufferCopy(Main.code()),
-                       std::make_shared<PCHContainerOperations>(), PI.FS);
+                       std::make_shared<PCHContainerOperations>(), PI.FS,
+                       /*Index=*/nullptr, ParseOptions());
   ASSERT_TRUE(AST);
   FileIndex Index;
   Index.updateMain(MainFile, *AST);
