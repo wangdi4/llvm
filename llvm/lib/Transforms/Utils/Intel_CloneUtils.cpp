@@ -87,32 +87,183 @@ static bool hasLoopIndexArg(CallSite &CS) {
 }
 
 //
-// Return 'true' if 'F' is a recursive progression clone candidate. If
-// 'true' is returned, set 'ArgPos' to the position of the argument through
-// which the recursive progression occurs, and set 'Start', 'Inc' and
-// 'Count' to the beginning, increment, and length of the recursive
-// progression.
+// Return 'true' if 'Arg' is a Type I recursive progressive argument of
+// recursive progressive function. A Type I recursive progressive argument
+// has the following properties:
+//   (1) It is by reference.
+//   (2) It is not cyclic.
+//   (3) It has only one recursive call site.
+// For the meaning of 'TestCountForConstant', 'Start', 'Inc', and 'Count'
+// and the definition of cyclic, see the description of the function
+// 'isRecProgressionCloneArgument' below.
 //
-// As an example, consider a function foo() with the form:
-//   static void foo(int i) {
-//     ..
-//     int p = (i + 1) % 4;
-//     foo(p);
-//     ..
-//   }
+static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
+                                           Argument &Arg, unsigned &Count,
+                                           int &Start, int &Inc) {
+  int LocalStart = 0;
+  int LocalInc = 0;
+  int LocalCount = 0;
+  if (!Arg.hasOneUse())
+    return false;
+  User *UL = *Arg.user_begin();
+  auto LI = dyn_cast<LoadInst>(UL);
+  if (!LI)
+    return false;
+  if (!LI->getType()->isIntegerTy())
+    return false;
+  // Validate the form of the recursive progression.
+  BinaryOperator *BI = nullptr;
+  ConstantInt *CI = nullptr;
+  for (User *U : LI->users()) {
+    auto BIT = dyn_cast<BinaryOperator>(U);
+    if (!BIT || BIT->getOpcode() != Instruction::Add)
+      continue;
+    if (BI)
+      return false;
+    auto CIT = dyn_cast<ConstantInt>(BIT->getOperand(0));
+    if (CIT) {
+      if (BIT->getOperand(1) != LI)
+        continue;
+    } else {
+      CIT = dyn_cast<ConstantInt>(BIT->getOperand(1));
+      if (BIT->getOperand(0) != LI)
+        continue;
+    }
+    if (!CIT)
+      continue;
+    BI = BIT;
+    CI = CIT;
+  }
+  if (!CI)
+    return false;
+  LocalInc = CI->getSExtValue();
+  if (!BI->hasOneUse())
+    return false;
+  User *US = *(BI->user_begin());
+  auto SI = dyn_cast<StoreInst>(US);
+  if (!SI)
+    return false;
+  if (SI->getValueOperand() != BI)
+    return false;
+  auto LV = SI->getPointerOperand();
+  auto LAV = dyn_cast<AllocaInst>(LV);
+  if (!LAV)
+    return false;
+  Function *F = Arg.getParent();
+  CallInst *CLI = nullptr;
+  for (User *U : LAV->users()) {
+    if (U == SI)
+      continue;
+    if (CLI)
+      return false;
+    CallSite CS(U);
+    if (!CS || CS.getCalledFunction() != F)
+      return false;
+    if (Arg.getArgNo() >= CS.arg_size())
+      return false;
+    if (*(CS.arg_begin() + Arg.getArgNo()) != LAV)
+      return false;
+    CLI = cast<CallInst>(CS.getInstruction());
+  }
+  bool SawBasis = false;
+  bool SawRecCall = false;
+  // Check for the basis call and recursive call.
+  for (User *U : F->users()) {
+    CallSite CS(U);
+    if (!CS || CS.getCalledFunction() != F)
+      return false;
+    if (Arg.getArgNo() >= CS.arg_size())
+      return false;
+    auto CSI = CS.getInstruction();
+    if (CSI->getFunction() == F) {
+      if (SawRecCall)
+        return false;
+      SawRecCall = true;
+    } else {
+      if (SawBasis)
+        return false;
+      auto AI = dyn_cast<AllocaInst>(CS.arg_begin() + Arg.getArgNo());
+      if (!AI)
+        return false;
+      bool SawStore = false;
+      for (User *V : AI->users()) {
+        if (CSI == V)
+          continue;
+        if (SawStore)
+          return false;
+        auto SCI = dyn_cast<StoreInst>(V);
+        if (!SCI)
+          return false;
+        if (SCI->getPointerOperand() != AI)
+          return false;
+        auto BCI = dyn_cast<ConstantInt>(SCI->getValueOperand());
+        if (!BCI)
+          return false;
+        SawStore = true;
+        LocalStart = BCI->getSExtValue();
+      }
+      if (!SawStore)
+        return false;
+      SawBasis = true;
+    }
+  }
+  // Check for the termination test.
+  ConstantInt *ECI = nullptr;
+  auto BP = CLI->getParent();
+  auto BB = BP->getSinglePredecessor();
+  for (; BB; BP = BB, BB = BB->getSinglePredecessor()) {
+    auto TI = BB->getTerminator();
+    auto BI = dyn_cast<BranchInst>(TI);
+    if (BI->getNumSuccessors() != 2)
+      continue;
+    auto CMI = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!CMI)
+      continue;
+    auto P = BI->getSuccessor(0) == BP ? ICmpInst::ICMP_NE : ICmpInst::ICMP_EQ;
+    if (CMI->getPredicate() != P)
+      continue;
+    if (CMI->getOperand(0) == LI)
+      ECI = dyn_cast<ConstantInt>(CMI->getOperand(1));
+    else if (CMI->getOperand(1) == LI)
+      ECI = dyn_cast<ConstantInt>(CMI->getOperand(0));
+    if (ECI)
+      break;
+  }
+  if (!ECI)
+    return false;
+  int LocalStop = ECI->getSExtValue();
+  if (LocalInc == 0 || ((LocalStop < LocalStart) && LocalInc > 0) ||
+      ((LocalStop > LocalStart) && LocalInc < 0))
+    return false;
+  int LocalRange = LocalStop - LocalStart + LocalInc;
+  LocalCount = LocalRange / LocalInc;
+  if (LocalCount * LocalInc != LocalRange)
+    return false;
+  assert((LocalCount >= 0) && "Expecting non-negative range");
+  // Store back the values.
+  Start = LocalStart;
+  Inc = LocalInc;
+  Count = (unsigned) LocalCount;
+  return true;
+}
+
 //
-//   static void bar() {
-//     ..
-//     foo(1);
-//     ..
-//   }
-// Here, the recursive progressive argument is "i", 'ArgPos' is 0, 'Start'
-// is 1, 'Inc' is 1, and 'Count' is 4.  The call to foo() in bar() which
-// launches the recursive progression is called the basis call.
+// Return 'true' if 'Arg' is a Type II recursive progressive argument of
+// recursive progressive function. A Type II recursive progressive argument
+// has the following properties:
+//   (1) It is not by reference.
+//   (2) It is cyclic.
+//   (3) It has a cyclic period that is at least 2 but no more than
+//       'IPRPCloningMaxPeriod'.
+//   (4) It has no more than 'IPRPCloningMaxRecCount' recursive call sites.
+//   (5) Its basis call is within a loop.
+// For the meaning of 'TestCountForConstant', 'Start', 'Inc', and 'Count'
+// and the definition of cyclic and basis call, see the description of the
+// function 'isRecProgressionCloneArgument' below.
 //
-static bool isRecProgressionCloneArgument(bool TestCountForConstant,
-                                          Argument &Arg, unsigned &Count,
-                                          int &Start, int &Inc) {
+static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
+                                           Argument &Arg, unsigned &Count,
+                                           int &Start, int &Inc) {
   bool SawBasis = false;
   int LocalStart = 0;
   int LocalInc = 0;
@@ -120,6 +271,7 @@ static bool isRecProgressionCloneArgument(bool TestCountForConstant,
   unsigned RecCount = 0;
   if (!Arg.hasOneUse())
     return false;
+  // Validate the form of the recursive progression.
   User *U = *Arg.user_begin();
   auto SR = dyn_cast<Instruction>(U);
   if (!SR || SR->getOpcode() != Instruction::SRem)
@@ -133,6 +285,7 @@ static bool isRecProgressionCloneArgument(bool TestCountForConstant,
       return false;
     LocalCount = BigLocalCount;
   }
+  // Check for the basis call and recursive calls.
   Function *F = Arg.getParent();
   for (User *U : F->users()) {
     CallSite CS(U);
@@ -177,10 +330,88 @@ static bool isRecProgressionCloneArgument(bool TestCountForConstant,
       SawBasis = true;
     }
   }
+  // Store back the values.
   Start = LocalStart;
   Inc = LocalInc;
   Count = LocalCount;
   return true;
+}
+
+//
+// Return 'true' if 'Arg' is a recursive progressive argument for a recursive
+// progressive clone candidate. If 'true' is returned, set 'Start', 'Inc' and
+// 'Count' to the beginning, increment, and length of the recursive
+// progression. Also, set 'IsByRef' if the recursive progressive argument is
+// a by reference value, and set 'IsCyclic' if the recursive progression is
+// cyclic.
+//
+// If 'TestForConstant' is 'true', we return 'false' if the 'Count' value is
+// not a constant. In determining whether we are sure we have a recursive
+// progression, we should set 'TestForConstant' to 'true'. We use this
+// query function with 'TestForConstant' equal to 'false' to inhibit the
+// performing of the tail call elimination optimization on functions which
+// are potential recursive progressive clone candidates.  This is because
+// the tail call elimination optimization can occur in the 'PrepareForLTO'
+// step before IP cloning and we may not know at that point the value of
+// 'Count'.
+//
+// Here is an example of a function foo() with a cyclic recursive progression:
+//   static void foo(int i) {
+//     ..
+//     int p = (i + 1) % 4;
+//     foo(p);
+//     ..
+//   }
+//   static void bar() {
+//     ..
+//     foo(0);
+//     ..
+//   }
+// The recursive progressive argument is "i", 'ArgPos' is 0, 'Start'
+// is 0, 'Inc' is 1, and 'Count' is 4.  The call to foo() in bar() which
+// launches the recursive progression is called the basis call. The argument
+// is has the values 0, 1, 2, 3, 0, 1, 2, 3, ... on successive recursive calls
+// to foo.
+//
+// Here is an example of a function foo() with a non-cyclic recursive
+// progression:
+//   static void foo(int j) {
+//     ..
+//     if (j != 8)
+//       foo(j + 1);
+//     ..
+//   }
+//   static void bar() {
+//     ..
+//     foo(1);
+//     ..
+//   }
+// The recursive progressive argument is "j", 'ArgPos' is 0, 'Start'
+// is 1, 'Inc' is 1, and 'Count' is 8. The argument has the values 1, 2, 3, 4,
+// 5, 6, 7, 8 on successive recursive calls to foo. The guard test around
+// the recursive call ensures that the values do not cycle.
+//
+static bool isRecProgressionCloneArgument(bool TestCountForConstant,
+                                          Argument &Arg, unsigned &Count,
+                                          int &Start, int &Inc,
+                                          bool &IsByRef, bool &IsCyclic) {
+
+   bool RV;
+   RV = isRecProgressionCloneArgument1(TestCountForConstant, Arg, Count,
+                                       Start, Inc);
+   if (RV) {
+     IsByRef = true;
+     IsCyclic = false;
+     return true;
+   }
+   RV = isRecProgressionCloneArgument2(TestCountForConstant, Arg, Count,
+                                       Start, Inc);
+   if (RV) {
+     IsByRef = false;
+     IsCyclic = true;
+     return true;
+   }
+   return false;
 }
 
 namespace llvm {
@@ -188,13 +419,17 @@ namespace llvm {
 extern bool isRecProgressionCloneCandidate(Function &F,
                                            bool TestCountForConstant,
                                            unsigned *ArgPos, unsigned *Count,
-                                           int *Start, int *Inc) {
+                                           int *Start, int *Inc,
+                                           bool *IsByRef, bool *IsCyclic) {
   unsigned LocalCount;
   int LocalStart;
   int LocalInc;
+  bool LocalIsByRef;
+  bool LocalIsCyclic;
   for (auto &Arg : F.args()) {
     if (isRecProgressionCloneArgument(TestCountForConstant, Arg, LocalCount,
-                                      LocalStart, LocalInc)) {
+                                      LocalStart, LocalInc, LocalIsByRef,
+                                      LocalIsCyclic)) {
       unsigned LocalArgPos = Arg.getArgNo();
       if (ArgPos)
         *ArgPos = LocalArgPos;
@@ -204,6 +439,10 @@ extern bool isRecProgressionCloneCandidate(Function &F,
         *Start = LocalStart;
       if (Inc)
         *Inc = LocalInc;
+      if (IsByRef)
+        *IsByRef = LocalIsByRef;
+      if (IsCyclic)
+        *IsCyclic = LocalIsCyclic;
       return true;
     }
   }

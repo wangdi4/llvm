@@ -759,12 +759,39 @@ static void fixRecProgressiveRecCalls(Function &OrigF, Function &PrevF,
 }
 
 //
+// Delete the calls in 'PrevF' to 'OrigF'.
+//
+// (This is done to ensure that the recursive progression terminates for a
+// non-cyclic recursive progression clone candidate.)
+//
+static void deleteRecProgressiveRecCalls(Function &OrigF, Function &PrevF) {
+  auto UI = OrigF.use_begin();
+  auto UE = OrigF.use_end();
+  for (; UI != UE;) {
+    Use &U = *UI;
+    ++UI;
+    CallSite CS(U.getUser());
+    if (CS && (CS.getCalledFunction() == &OrigF)) {
+      if (CS.getCaller() == &PrevF) {
+        auto CI = CS.getInstruction();
+        if (!CI->user_empty())
+           CI->replaceAllUsesWith(Constant::getNullValue(CI->getType()));
+        CI->eraseFromParent();
+      }
+    }
+  }
+}
+
+//
 // Create the recursive progressive clones for the recursive progressive
 // clone candidate 'F'.  'ArgPos' is the position of the recursive progressive
 // argument, whose initial value is 'Start', and is incremented by 'Inc', a
 // total of 'Count' times, and then repeats.
 //
-// For example,
+// If 'IsByRef' is 'true', the recursive progressive argument is by reference.
+// If 'IsCyclic' is 'true', the recursive progression is cyclic.
+//
+// For example, in the case of a cyclic recursive progression:
 //   static void foo(int i) {
 //     ..
 //     int p = (i + 1) % 4;
@@ -773,7 +800,7 @@ static void fixRecProgressiveRecCalls(Function &OrigF, Function &PrevF,
 //   }
 //   static void bar() {
 //     ..
-//     foo(1);
+//     foo(0);
 //     ..
 //   }
 // is replaced by a series of clones:
@@ -804,9 +831,50 @@ static void fixRecProgressiveRecCalls(Function &OrigF, Function &PrevF,
 //     ..
 //   }
 //
+// while in the case of a non-cyclic recursive progression:
+//   static void foo(int j) {
+//     ..
+//     if (j != 4)
+//       foo(j+1);
+//     ..
+//   }
+//   static void bar() {
+//     ..
+//     foo(0);
+//     ..
+//   }
+// is replaced by a series of clones:
+//   static void foo.0() {
+//     ..
+//     foo.1();
+//     ..
+//   }
+//   static void foo.1() {
+//     ..
+//     foo.2();
+//     ..
+//   }
+//   static void foo.2() {
+//     ..
+//     foo.3();
+//     ..
+//   }
+//   static void foo.3() {
+//     ..
+//     /* The recursive call is deleted here. */
+//     ..
+//   }
+// with
+//   static void bar() {
+//     ..
+//     foo.0();
+//     ..
+//   }
+//
 static void createRecProgressiveClones(Function &F,
                                        unsigned ArgPos, unsigned Count,
-                                       int Start, int Inc) {
+                                       int Start, int Inc, bool IsByRef,
+                                       bool IsCyclic) {
   int FormalValue = Start;
   Function *FirstCloneF = nullptr;
   Function *LastCloneF = nullptr;
@@ -815,7 +883,7 @@ static void createRecProgressiveClones(Function &F,
     Function *NewF = CloneFunction(&F, VMap);
     // Mark the first Count - 1 clones as preferred for inlining, the last
     // preferred for not inlining.
-    if (I < Count - 1)
+    if (!IsCyclic || I < Count - 1)
       NewF->addFnAttr("prefer-inline-rec-pro-clone");
     else
       NewF->addFnAttr("prefer-noinline-rec-pro-clone");
@@ -826,20 +894,32 @@ static void createRecProgressiveClones(Function &F,
       fixRecProgressiveBasisCall(F, *NewF);
     NumIPCloned++;
     Argument *NewFormal = NewF->arg_begin() + ArgPos;
-    Value *Rep = ConstantInt::get(NewFormal->getType(), FormalValue);
+    auto ConstantType = NewFormal->getType();
+    if (IsByRef)
+      ConstantType = ConstantType->getPointerElementType();
+    Value *Rep = ConstantInt::get(ConstantType, FormalValue);
     FormalValue += Inc;
     if (IPCloningTrace) {
       errs() << "        Function: " << NewF->getName() << "\n";
       errs() << "        ArgPos : " << ArgPos << "\n";
       errs() << "        Argument : " << *NewFormal << "\n";
+      errs() << "        IsByRef : " << (IsByRef ? "T" : "F") << "\n";
       errs() << "        Replacement:  " << *Rep << "\n";
     }
-    NewFormal->replaceAllUsesWith(Rep);
+    if (IsByRef) {
+      assert(NewFormal->hasOneUse() && "Expecting single use of ByRef Formal");
+      auto LI = cast<LoadInst>(*(NewFormal->user_begin()));
+      LI->replaceAllUsesWith(Rep);
+    } else
+      NewFormal->replaceAllUsesWith(Rep);
     if (!FirstCloneF)
       FirstCloneF = NewF;
     LastCloneF = NewF;
   }
-  fixRecProgressiveRecCalls(F, *LastCloneF, *FirstCloneF);
+  if (IsCyclic)
+    fixRecProgressiveRecCalls(F, *LastCloneF, *FirstCloneF);
+  else
+    deleteRecProgressiveRecCalls(F, *LastCloneF);
 }
 
 // Create argument set for CallSites 'CS' of  'F' and save it in
@@ -1626,12 +1706,14 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
     else {
       int Start, Inc;
       unsigned ArgPos, Count;
+      bool IsByRef, IsCyclic;
       if (isRecProgressionCloneCandidate(F, true,
-          &ArgPos, &Count, &Start, &Inc)) {
+          &ArgPos, &Count, &Start, &Inc, &IsByRef, &IsCyclic)) {
         CloneType = RecProgressionClone;
         if (IPCloningTrace)
           errs() << "    Selected RecProgression cloning  " << "\n";
-        createRecProgressiveClones(F, ArgPos, Count, Start, Inc);
+        createRecProgressiveClones(F, ArgPos, Count, Start, Inc, IsByRef,
+                                   IsCyclic);
         continue;
       }
       // For now, run either FuncPtrsClone or SpecializationClone for any
