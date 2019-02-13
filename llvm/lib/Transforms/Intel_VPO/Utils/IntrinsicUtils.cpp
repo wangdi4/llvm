@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //==-- IntrinsicUtils.cpp - Utilities for VPO related intrinsics -*- C++ -*-==//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -326,7 +326,7 @@ void VPOUtils::genCopyFromSrcToDst(AllocaInst *AI, IRBuilder<> &Builder,
     Builder.CreateStore(Builder.CreateLoad(Source), Destination);
 }
 
-typedef SmallDenseMap<Value *, MDNode *, 8> PtrScopeMap;
+using ScopeSetType = SmallSetVector<Metadata *, 8>;
 void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
                            const DataLayout *DL) {
 
@@ -443,17 +443,22 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
     C.set(Row);
   };
 
-  // Set alias_scope MetaData for 'I' using new scope.
-  auto generateScopeMD = [&](Instruction* I, MDNode* NewScope) {
+  // Concatenate is expensive and we try not to call these two functions
+  // on the same instruction twice.
+
+  // Set alias_scope MetaData for 'I' using new scope. Preserve existing
+  // scope MD.
+  auto generateScopeMD = [&](Instruction *I, Metadata *NewScope) {
     MDNode* SM = I->getMetadata(LLVMContext::MD_alias_scope);
-    MDNode* SM1 = MDNode::concatenate(SM, NewScope);
+    MDNode *SM1 = MDNode::concatenate(SM, cast<MDNode>(NewScope));
     I->setMetadata(LLVMContext::MD_alias_scope, SM1);
   };
 
-  // Set noAlias MetaData for 'I' using new scope.
-  auto generateNoAliasMD = [&](Instruction* I, MDNode* NewScope) {
+  // Set noAlias MetaData for 'I' using new scope. Preserve existing
+  // noalias MD.
+  auto generateNoAliasMD = [](Instruction *I, Metadata *NewScope) {
     MDNode* AM = I->getMetadata(LLVMContext::MD_noalias);
-    MDNode* AM1 = MDNode::concatenate(AM, NewScope);
+    MDNode *AM1 = MDNode::concatenate(AM, cast<MDNode>(NewScope));
     I->setMetadata(LLVMContext::MD_noalias, AM1);
   };
 
@@ -469,44 +474,83 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
     MDBuilder MDB(C);
     MDNode *NewDomain = MDB.createAnonymousAliasScopeDomain("OMPDomain");
 
-    DenseMap<unsigned, SmallVector<MDNode *, 8>> InstrToCliqueSetMap(
-        Insns.size());
+    // For each instruction in Insns[], this vector stores the alias.scope
+    // MDNodes for the cliques that the instruction belongs to.
+    SmallVector<ScopeSetType, 0> ScopeSetVec(Insns.size());
 
     StringRef Name = "OMPAliasScope";
+
+    // Each clique is identified by one MDNode in alias.scope format:
+    // !2 = distinct !{!2, !99, "OMPAliasScope"}
+    // where !99 is the OMPDomain scope domain (created above).
+    // Each inst may belong to 0->N cliques.
+    // For each clique, create the MDNode for that clique, then insert the
+    // MDNode into the CliqueSet of each instruction in that clique.
     for (const BitVector &Bv : CliqueSet) {
       MDNode *CliqueIdMD = MDB.createAnonymousAliasScope(NewDomain, Name);
       for (unsigned I = 0; I < Bv.size(); ++I) {
         if (Bv.test(I))
-          InstrToCliqueSetMap[I].push_back(CliqueIdMD);
+          ScopeSetVec[I].insert(CliqueIdMD);
       }
     }
 
-    PtrScopeMap PointersScopes;
-
+    // Attach the clique MDNodes to the instructions.
+    // Assign a new scope MDNode to instructions without a clique,
+    // so that each instruction will have an alias.scope node.
     for (unsigned I = 0; I < Insns.size(); ++I) {
-      SmallVector<MDNode *, 8> &InstrCliques = InstrToCliqueSetMap[I];
+      ScopeSetType &CliquesI = ScopeSetVec[I];
       Instruction *Ins = Insns[I];
-      if (InstrCliques.empty()) {
+
+      if (CliquesI.empty()) {
         MDNode *M = MDB.createAnonymousAliasScope(NewDomain, Name);
+        CliquesI.insert(M);
         generateScopeMD(Ins, M);
+      } else if (CliquesI.size() == 1) {
+        // 1 clique, attach the MDNode directly to the inst instead of
+        // creating a 1-element list.
+        generateScopeMD(Ins, CliquesI[0]);
       } else {
-        MDNode *M = InstrCliques[0];
-        for (unsigned II = 1; II < InstrCliques.size(); II++)
-          M = MDNode::concatenate(M, InstrCliques[II]);
+        // Multiple cliques, create a list of clique MDNodes.
+        // !3 = distinct !{!3, !99, "OMPAliasScope"}
+        // !4 = distinct !{!4, !99, "OMPAliasScope"}
+        // !8 = {!3, !4}
+        MDNode *M = MDNode::get(C, CliquesI.getArrayRef());
         generateScopeMD(Ins, M);
       }
-      PointersScopes[Ins] = Ins->getMetadata(LLVMContext::MD_alias_scope);
     }
+
+    // For each pair of Insns: (I,J), if I and J do not alias,
+    // record that I does not alias the scopes of J, and J does not
+    // alias the scopes of I.
+    SmallVector<ScopeSetType, 0> NoAliasMDs(Insns.size());
 
     for (unsigned I = 0; I < Insns.size(); ++I) {
       LoadInst *LIA = dyn_cast<LoadInst>(Insns[I]);
       for (unsigned J = I + 1; J < Insns.size(); ++J) {
         LoadInst *LIB = dyn_cast<LoadInst>(Insns[J]);
+        // 2 loads never alias, don't bother tracking that.
         if (LIA && LIB)
           continue;
         if (!BM.bitTest(J, I)) {
-          generateNoAliasMD(Insns[J], PointersScopes.lookup(Insns[I]));
-          generateNoAliasMD(Insns[I], PointersScopes.lookup(Insns[J]));
+          ScopeSetType &CliquesI = ScopeSetVec[I];
+          ScopeSetType &CliquesJ = ScopeSetVec[J];
+          NoAliasMDs[J].insert(CliquesI.begin(), CliquesI.end());
+          NoAliasMDs[I].insert(CliquesJ.begin(), CliquesJ.end());
+        }
+      }
+    }
+
+    // Now attach the noalias scope lists that we computed, to the actual
+    // insts.
+    for (unsigned I = 0; I < Insns.size(); ++I) {
+      ScopeSetType &NoAliasMDI = NoAliasMDs[I];
+      if (!NoAliasMDI.empty()) {
+        if (NoAliasMDI.size() == 1) {
+          generateNoAliasMD(Insns[I], NoAliasMDI[0]);
+        } else {
+          // Multiple scopes, make a list.
+          MDNode *M = MDNode::get(C, NoAliasMDI.getArrayRef());
+          generateNoAliasMD(Insns[I], M);
         }
       }
     }
