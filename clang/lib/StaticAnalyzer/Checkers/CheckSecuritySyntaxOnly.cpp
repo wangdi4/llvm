@@ -1,9 +1,8 @@
 //==- CheckSecuritySyntaxOnly.cpp - Basic security checks --------*- C++ -*-==//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -906,12 +905,23 @@ public:
 };
 }
 
+void ento::registerSecuritySyntaxChecker(CheckerManager &mgr) {
+  mgr.registerChecker<SecuritySyntaxChecker>();
+}
+
+bool ento::shouldRegisterSecuritySyntaxChecker(const LangOptions &LO) {
+  return true;
+}
+
 #define REGISTER_CHECKER(name)                                                 \
   void ento::register##name(CheckerManager &mgr) {                             \
-    SecuritySyntaxChecker *checker =                                           \
-        mgr.registerChecker<SecuritySyntaxChecker>();                          \
+    SecuritySyntaxChecker *checker =  mgr.getChecker<SecuritySyntaxChecker>(); \
     checker->filter.check_##name = true;                                       \
     checker->filter.checkName_##name = mgr.getCurrentCheckName();              \
+  }                                                                            \
+                                                                               \
+  bool ento::shouldRegister##name(const LangOptions &LO) {                     \
+    return true;                                                               \
   }
 
 REGISTER_CHECKER(bcmp)

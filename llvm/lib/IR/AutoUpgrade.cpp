@@ -1,9 +1,8 @@
 //===-- AutoUpgrade.cpp - Implement auto-upgrade helper functions ---------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -199,14 +198,14 @@ static bool ShouldUpgradeX86Intrinsic(Function *F, StringRef Name) {
       Name.startswith("avx512.mask.pmull.") || // Added in 4.0
       Name.startswith("avx512.mask.cvtdq2pd.") || // Added in 4.0
       Name.startswith("avx512.mask.cvtudq2pd.") || // Added in 4.0
-      Name == "avx512.mask.cvtudq2ps.128" || // Added in 7.0
-      Name == "avx512.mask.cvtudq2ps.256" || // Added in 7.0
-      Name == "avx512.mask.cvtqq2pd.128" || // Added in 7.0
-      Name == "avx512.mask.cvtqq2pd.256" || // Added in 7.0
-      Name == "avx512.mask.cvtuqq2pd.128" || // Added in 7.0
-      Name == "avx512.mask.cvtuqq2pd.256" || // Added in 7.0
-      Name == "avx512.mask.cvtdq2ps.128" || // Added in 7.0
-      Name == "avx512.mask.cvtdq2ps.256" || // Added in 7.0
+      Name.startswith("avx512.mask.cvtudq2ps.") || // Added in 7.0 updated 9.0
+      Name.startswith("avx512.mask.cvtqq2pd.") || // Added in 7.0 updated 9.0
+      Name.startswith("avx512.mask.cvtuqq2pd.") || // Added in 7.0 updated 9.0
+      Name.startswith("avx512.mask.cvtdq2ps.") || // Added in 7.0 updated 9.0
+      Name == "avx512.mask.cvtqq2ps.256" || // Added in 9.0
+      Name == "avx512.mask.cvtqq2ps.512" || // Added in 9.0
+      Name == "avx512.mask.cvtuqq2ps.256" || // Added in 9.0
+      Name == "avx512.mask.cvtuqq2ps.512" || // Added in 9.0
       Name == "avx512.mask.cvtpd2dq.256" || // Added in 7.0
       Name == "avx512.mask.cvtpd2ps.256" || // Added in 7.0
       Name == "avx512.mask.cvttpd2dq.256" || // Added in 7.0
@@ -300,6 +299,11 @@ static bool ShouldUpgradeX86Intrinsic(Function *F, StringRef Name) {
       Name.startswith("avx512.mask.fpclass.p") || // Added in 7.0
       Name.startswith("avx512.mask.vpshufbitqmb.") || // Added in 8.0
       Name.startswith("avx512.mask.pmultishift.qb.") || // Added in 8.0
+      Name.startswith("avx512.mask.conflict.") || // Added in 9.0
+      Name == "avx512.mask.pmov.qd.256" || // Added in 9.0
+      Name == "avx512.mask.pmov.qd.512" || // Added in 9.0
+      Name == "avx512.mask.pmov.wb.256" || // Added in 9.0
+      Name == "avx512.mask.pmov.wb.512" || // Added in 9.0
       Name == "sse.cvtsi2ss" || // Added in 7.0
       Name == "sse.cvtsi642ss" || // Added in 7.0
       Name == "sse2.cvtsi2sd" || // Added in 7.0
@@ -338,6 +342,16 @@ static bool ShouldUpgradeX86Intrinsic(Function *F, StringRef Name) {
       Name.startswith("avx512.mask.load.") || // Added in 3.9
       Name.startswith("avx512.mask.expand.load.") || // Added in 7.0
       Name.startswith("avx512.mask.compress.store.") || // Added in 7.0
+      Name.startswith("avx512.mask.expand.b") || // Added in 9.0
+      Name.startswith("avx512.mask.expand.w") || // Added in 9.0
+      Name.startswith("avx512.mask.expand.d") || // Added in 9.0
+      Name.startswith("avx512.mask.expand.q") || // Added in 9.0
+      Name.startswith("avx512.mask.expand.p") || // Added in 9.0
+      Name.startswith("avx512.mask.compress.b") || // Added in 9.0
+      Name.startswith("avx512.mask.compress.w") || // Added in 9.0
+      Name.startswith("avx512.mask.compress.d") || // Added in 9.0
+      Name.startswith("avx512.mask.compress.q") || // Added in 9.0
+      Name.startswith("avx512.mask.compress.p") || // Added in 9.0
       Name == "sse42.crc32.64.8" || // Added in 3.4
       Name.startswith("avx.vbroadcast.s") || // Added in 3.5
       Name.startswith("avx512.vbroadcast.s") || // Added in 7.0
@@ -362,8 +376,7 @@ static bool ShouldUpgradeX86Intrinsic(Function *F, StringRef Name) {
       Name == "xop.vpcmov.256" || // Added in 5.0
       Name.startswith("avx512.mask.move.s") || // Added in 4.0
       Name.startswith("avx512.cvtmask2") || // Added in 5.0
-      (Name.startswith("xop.vpcom") && // Added in 3.2
-       F->arg_size() == 2) ||
+      Name.startswith("xop.vpcom") || // Added in 3.2, Updated in 9.0
       Name.startswith("xop.vprot") || // Added in 8.0
       Name.startswith("avx512.prol") || // Added in 8.0
       Name.startswith("avx512.pror") || // Added in 8.0
@@ -1053,6 +1066,45 @@ static Value *upgradeX86Rotate(IRBuilder<> &Builder, CallInst &CI,
   return Res;
 }
 
+static Value *upgradeX86vpcom(IRBuilder<> &Builder, CallInst &CI, unsigned Imm,
+                              bool IsSigned) {
+  Type *Ty = CI.getType();
+  Value *LHS = CI.getArgOperand(0);
+  Value *RHS = CI.getArgOperand(1);
+
+  CmpInst::Predicate Pred;
+  switch (Imm) {
+  case 0x0:
+    Pred = IsSigned ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT;
+    break;
+  case 0x1:
+    Pred = IsSigned ? ICmpInst::ICMP_SLE : ICmpInst::ICMP_ULE;
+    break;
+  case 0x2:
+    Pred = IsSigned ? ICmpInst::ICMP_SGT : ICmpInst::ICMP_UGT;
+    break;
+  case 0x3:
+    Pred = IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE;
+    break;
+  case 0x4:
+    Pred = ICmpInst::ICMP_EQ;
+    break;
+  case 0x5:
+    Pred = ICmpInst::ICMP_NE;
+    break;
+  case 0x6:
+    return Constant::getNullValue(Ty); // FALSE
+  case 0x7:
+    return Constant::getAllOnesValue(Ty); // TRUE
+  default:
+    llvm_unreachable("Unknown XOP vpcom/vpcomu predicate");
+  }
+
+  Value *Cmp = Builder.CreateICmp(Pred, LHS, RHS);
+  Value *Ext = Builder.CreateSExt(Cmp, Ty);
+  return Ext;
+}
+
 static Value *upgradeX86ConcatShift(IRBuilder<> &Builder, CallInst &CI,
                                     bool IsShiftRight, bool ZeroMask) {
   Type *Ty = CI.getType();
@@ -1460,6 +1512,21 @@ static bool upgradeAVX512MaskToSelect(StringRef Name, IRBuilder<> &Builder,
       IID = Intrinsic::x86_avx512_pmultishift_qb_256;
     else if (VecWidth == 512)
       IID = Intrinsic::x86_avx512_pmultishift_qb_512;
+    else
+      llvm_unreachable("Unexpected intrinsic");
+  } else if (Name.startswith("conflict.")) {
+    if (Name[9] == 'd' && VecWidth == 128)
+      IID = Intrinsic::x86_avx512_conflict_d_128;
+    else if (Name[9] == 'd' && VecWidth == 256)
+      IID = Intrinsic::x86_avx512_conflict_d_256;
+    else if (Name[9] == 'd' && VecWidth == 512)
+      IID = Intrinsic::x86_avx512_conflict_d_512;
+    else if (Name[9] == 'q' && VecWidth == 128)
+      IID = Intrinsic::x86_avx512_conflict_q_128;
+    else if (Name[9] == 'q' && VecWidth == 256)
+      IID = Intrinsic::x86_avx512_conflict_q_256;
+    else if (Name[9] == 'q' && VecWidth == 512)
+      IID = Intrinsic::x86_avx512_conflict_q_512;
     else
       llvm_unreachable("Unexpected intrinsic");
   } else
@@ -1917,38 +1984,47 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
                          Name == "avx.cvtdq2.ps.256" ||
                          Name.startswith("avx512.mask.cvtdq2pd.") ||
                          Name.startswith("avx512.mask.cvtudq2pd.") ||
-                         Name == "avx512.mask.cvtdq2ps.128" ||
-                         Name == "avx512.mask.cvtdq2ps.256" ||
-                         Name == "avx512.mask.cvtudq2ps.128" ||
-                         Name == "avx512.mask.cvtudq2ps.256" ||
-                         Name == "avx512.mask.cvtqq2pd.128" ||
-                         Name == "avx512.mask.cvtqq2pd.256" ||
-                         Name == "avx512.mask.cvtuqq2pd.128" ||
-                         Name == "avx512.mask.cvtuqq2pd.256" ||
+                         Name.startswith("avx512.mask.cvtdq2ps.") ||
+                         Name.startswith("avx512.mask.cvtudq2ps.") ||
+                         Name.startswith("avx512.mask.cvtqq2pd.") ||
+                         Name.startswith("avx512.mask.cvtuqq2pd.") ||
+                         Name == "avx512.mask.cvtqq2ps.256" ||
+                         Name == "avx512.mask.cvtqq2ps.512" ||
+                         Name == "avx512.mask.cvtuqq2ps.256" ||
+                         Name == "avx512.mask.cvtuqq2ps.512" ||
                          Name == "sse2.cvtps2pd" ||
                          Name == "avx.cvt.ps2.pd.256" ||
                          Name == "avx512.mask.cvtps2pd.128" ||
                          Name == "avx512.mask.cvtps2pd.256")) {
       Type *DstTy = CI->getType();
       Rep = CI->getArgOperand(0);
+      Type *SrcTy = Rep->getType();
 
       unsigned NumDstElts = DstTy->getVectorNumElements();
-      if (NumDstElts < Rep->getType()->getVectorNumElements()) {
+      if (NumDstElts < SrcTy->getVectorNumElements()) {
         assert(NumDstElts == 2 && "Unexpected vector size");
         uint32_t ShuffleMask[2] = { 0, 1 };
         Rep = Builder.CreateShuffleVector(Rep, Rep, ShuffleMask);
       }
 
-      bool IsPS2PD = (StringRef::npos != Name.find("ps2"));
+      bool IsPS2PD = SrcTy->getVectorElementType()->isFloatTy();
       bool IsUnsigned = (StringRef::npos != Name.find("cvtu"));
       if (IsPS2PD)
         Rep = Builder.CreateFPExt(Rep, DstTy, "cvtps2pd");
-      else if (IsUnsigned)
-        Rep = Builder.CreateUIToFP(Rep, DstTy, "cvt");
-      else
-        Rep = Builder.CreateSIToFP(Rep, DstTy, "cvt");
+      else if (CI->getNumArgOperands() == 4 &&
+               (!isa<ConstantInt>(CI->getArgOperand(3)) ||
+                cast<ConstantInt>(CI->getArgOperand(3))->getZExtValue() != 4)) {
+        Intrinsic::ID IID = IsUnsigned ? Intrinsic::x86_avx512_uitofp_round
+                                       : Intrinsic::x86_avx512_sitofp_round;
+        Function *F = Intrinsic::getDeclaration(CI->getModule(), IID,
+                                                { DstTy, SrcTy });
+        Rep = Builder.CreateCall(F, { Rep, CI->getArgOperand(3) });
+      } else {
+        Rep = IsUnsigned ? Builder.CreateUIToFP(Rep, DstTy, "cvt")
+                         : Builder.CreateSIToFP(Rep, DstTy, "cvt");
+      }
 
-      if (CI->getNumArgOperands() == 3)
+      if (CI->getNumArgOperands() >= 3)
         Rep = EmitX86Select(Builder, CI->getArgOperand(2), Rep,
                             CI->getArgOperand(1));
     } else if (IsX86 && (Name.startswith("avx512.mask.loadu."))) {
@@ -1989,52 +2065,56 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
                                                 Intrinsic::masked_compressstore,
                                                 ResultTy);
       Rep = Builder.CreateCall(CSt, { CI->getArgOperand(1), Ptr, MaskVec });
+    } else if (IsX86 && (Name.startswith("avx512.mask.compress.") ||
+                         Name.startswith("avx512.mask.expand."))) {
+      Type *ResultTy = CI->getType();
+
+      Value *MaskVec = getX86MaskVec(Builder, CI->getArgOperand(2),
+                                     ResultTy->getVectorNumElements());
+
+      bool IsCompress = Name[12] == 'c';
+      Intrinsic::ID IID = IsCompress ? Intrinsic::x86_avx512_mask_compress
+                                     : Intrinsic::x86_avx512_mask_expand;
+      Function *Intr = Intrinsic::getDeclaration(F->getParent(), IID, ResultTy);
+      Rep = Builder.CreateCall(Intr, { CI->getOperand(0), CI->getOperand(1),
+                                       MaskVec });
     } else if (IsX86 && Name.startswith("xop.vpcom")) {
-      Intrinsic::ID intID;
-      if (Name.endswith("ub"))
-        intID = Intrinsic::x86_xop_vpcomub;
-      else if (Name.endswith("uw"))
-        intID = Intrinsic::x86_xop_vpcomuw;
-      else if (Name.endswith("ud"))
-        intID = Intrinsic::x86_xop_vpcomud;
-      else if (Name.endswith("uq"))
-        intID = Intrinsic::x86_xop_vpcomuq;
-      else if (Name.endswith("b"))
-        intID = Intrinsic::x86_xop_vpcomb;
-      else if (Name.endswith("w"))
-        intID = Intrinsic::x86_xop_vpcomw;
-      else if (Name.endswith("d"))
-        intID = Intrinsic::x86_xop_vpcomd;
-      else if (Name.endswith("q"))
-        intID = Intrinsic::x86_xop_vpcomq;
+      bool IsSigned;
+      if (Name.endswith("ub") || Name.endswith("uw") || Name.endswith("ud") ||
+          Name.endswith("uq"))
+        IsSigned = false;
+      else if (Name.endswith("b") || Name.endswith("w") || Name.endswith("d") ||
+               Name.endswith("q"))
+        IsSigned = true;
       else
         llvm_unreachable("Unknown suffix");
 
-      Name = Name.substr(9); // strip off "xop.vpcom"
       unsigned Imm;
-      if (Name.startswith("lt"))
-        Imm = 0;
-      else if (Name.startswith("le"))
-        Imm = 1;
-      else if (Name.startswith("gt"))
-        Imm = 2;
-      else if (Name.startswith("ge"))
-        Imm = 3;
-      else if (Name.startswith("eq"))
-        Imm = 4;
-      else if (Name.startswith("ne"))
-        Imm = 5;
-      else if (Name.startswith("false"))
-        Imm = 6;
-      else if (Name.startswith("true"))
-        Imm = 7;
-      else
-        llvm_unreachable("Unknown condition");
+      if (CI->getNumArgOperands() == 3) {
+        Imm = cast<ConstantInt>(CI->getArgOperand(2))->getZExtValue();
+      } else {
+        Name = Name.substr(9); // strip off "xop.vpcom"
+        if (Name.startswith("lt"))
+          Imm = 0;
+        else if (Name.startswith("le"))
+          Imm = 1;
+        else if (Name.startswith("gt"))
+          Imm = 2;
+        else if (Name.startswith("ge"))
+          Imm = 3;
+        else if (Name.startswith("eq"))
+          Imm = 4;
+        else if (Name.startswith("ne"))
+          Imm = 5;
+        else if (Name.startswith("false"))
+          Imm = 6;
+        else if (Name.startswith("true"))
+          Imm = 7;
+        else
+          llvm_unreachable("Unknown condition");
+      }
 
-      Function *VPCOM = Intrinsic::getDeclaration(F->getParent(), intID);
-      Rep =
-          Builder.CreateCall(VPCOM, {CI->getArgOperand(0), CI->getArgOperand(1),
-                                     Builder.getInt8(Imm)});
+      Rep = upgradeX86vpcom(Builder, *CI, Imm, IsSigned);
     } else if (IsX86 && Name.startswith("xop.vpcmov")) {
       Value *Sel = CI->getArgOperand(2);
       Value *NotSel = Builder.CreateNot(Sel);
@@ -2103,6 +2183,14 @@ void llvm::UpgradeIntrinsicCall(CallInst *CI, Function *NewFn) {
       if (CI->getNumArgOperands() == 3)
         Rep = EmitX86Select(Builder, CI->getArgOperand(2), Rep,
                             CI->getArgOperand(1));
+    } else if (Name == "avx512.mask.pmov.qd.256" ||
+               Name == "avx512.mask.pmov.qd.512" ||
+               Name == "avx512.mask.pmov.wb.256" ||
+               Name == "avx512.mask.pmov.wb.512") {
+      Type *Ty = CI->getArgOperand(1)->getType();
+      Rep = Builder.CreateTrunc(CI->getArgOperand(0), Ty);
+      Rep = EmitX86Select(Builder, CI->getArgOperand(2), Rep,
+                          CI->getArgOperand(1));
     } else if (IsX86 && (Name.startswith("avx.vbroadcastf128") ||
                          Name == "avx2.vbroadcasti128")) {
       // Replace vbroadcastf128/vbroadcasti128 with a vector load+shuffle.

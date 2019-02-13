@@ -1,9 +1,8 @@
 //===- OpenMPClause.h - Classes for OpenMP clauses --------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -5340,6 +5339,7 @@ public:
 
 #define OPENMP_CLAUSE(Name, Class)                              \
   RetTy Visit ## Class (PTR(Class) S) { DISPATCH(Class); }
+  OPENMP_CLAUSE(flush, OMPFlushClause)
 #include "clang/Basic/OpenMPKinds.def"
 
   RetTy Visit(PTR(OMPClause) S) {
@@ -5348,6 +5348,7 @@ public:
     default: llvm_unreachable("Unknown clause kind!");
 #define OPENMP_CLAUSE(Name, Class)                              \
     case OMPC_ ## Name : return Visit ## Class(static_cast<PTR(Class)>(S));
+    OPENMP_CLAUSE(flush, OMPFlushClause)
 #include "clang/Basic/OpenMPKinds.def"
     }
   }
@@ -5379,6 +5380,7 @@ public:
       : OS(OS), Policy(Policy) {}
 
 #define OPENMP_CLAUSE(Name, Class) void Visit##Class(Class *S);
+  OPENMP_CLAUSE(flush, OMPFlushClause)
 #include "clang/Basic/OpenMPKinds.def"
 };
 

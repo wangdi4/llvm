@@ -1686,6 +1686,9 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
     if (!isAllowedClauseForDirective(CurrentDirectiveKind, ClauseKind))
       continue;
     switch (ClauseKind) {
+    case OMPC_flush:
+      emitOMPFlushClause(cast<OMPFlushClause>(C));
+      break;
 #define OPENMP_CLAUSE(Name, Class)                                             \
   case OMPC_##Name:                                                            \
     emit##Class(cast<Class>(C));                                               \

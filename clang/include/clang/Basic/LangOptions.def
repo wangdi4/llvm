@@ -1,9 +1,8 @@
 //===--- LangOptions.def - Language option database -------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -292,9 +291,11 @@ LANGOPT(
 
 ENUM_LANGOPT(GC, GCMode, 2, NonGC, "Objective-C Garbage Collection mode")
 ENUM_LANGOPT(ValueVisibilityMode, Visibility, 3, DefaultVisibility,
-             "value symbol visibility")
+             "default visibility for functions and variables [-fvisibility]")
 ENUM_LANGOPT(TypeVisibilityMode, Visibility, 3, DefaultVisibility,
-             "type symbol visibility")
+             "default visibility for types [-ftype-visibility]")
+LANGOPT(SetVisibilityForExternDecls, 1, 0,
+        "apply global symbol visibility to external declarations without an explicit visibility")
 ENUM_LANGOPT(StackProtector, StackProtectorMode, 2, SSPOff,
              "stack protector mode")
 ENUM_LANGOPT(TrivialAutoVarInit, TrivialAutoVarInitKind, 2, TrivialAutoVarInitKind::Uninitialized,

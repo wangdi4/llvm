@@ -1,13 +1,13 @@
 //===-- SymbolFileBreakpad.cpp ----------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
 #include "Plugins/SymbolFile/Breakpad/SymbolFileBreakpad.h"
+#include "Plugins/ObjectFile/Breakpad/BreakpadRecords.h"
 #include "Plugins/ObjectFile/Breakpad/ObjectFileBreakpad.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
@@ -26,8 +26,9 @@ namespace {
 class LineIterator {
 public:
   // begin iterator for sections of given type
-  LineIterator(ObjectFile &obj, ConstString section_type)
-      : m_obj(&obj), m_section_type(section_type), m_next_section_idx(0) {
+  LineIterator(ObjectFile &obj, Record::Kind section_type)
+      : m_obj(&obj), m_section_type(toString(section_type)),
+        m_next_section_idx(0) {
     ++*this;
   }
 
@@ -77,7 +78,7 @@ const LineIterator &LineIterator::operator++() {
 }
 
 static llvm::iterator_range<LineIterator> lines(ObjectFile &obj,
-                                                ConstString section_type) {
+                                                Record::Kind section_type) {
   return llvm::make_range(LineIterator(obj, section_type), LineIterator(obj));
 }
 
@@ -180,44 +181,40 @@ void SymbolFileBreakpad::AddSymbols(Symtab &symtab) {
   }
 
   const SectionList &list = *module.GetSectionList();
-  for (llvm::StringRef line : lines(*m_obj_file, ConstString("PUBLIC"))) {
-    // PUBLIC [m] address param_size name
-    // skip PUBLIC keyword
-    line = getToken(line).second;
-    llvm::StringRef token;
-    std::tie(token, line) = getToken(line);
-    if (token == "m")
-      std::tie(token, line) = getToken(line);
-
-    addr_t address;
-    if (!to_integer(token, address, 16))
-      continue;
+  llvm::DenseMap<addr_t, Symbol> symbols;
+  auto add_symbol = [&](addr_t address, llvm::Optional<addr_t> size,
+                        llvm::StringRef name) {
     address += base;
-
-    // skip param_size
-    line = getToken(line).second;
-
-    llvm::StringRef name = line.trim();
-
     SectionSP section_sp = list.FindSectionContainingFileAddress(address);
     if (!section_sp) {
       LLDB_LOG(log,
                "Ignoring symbol {0}, whose address ({1}) is outside of the "
                "object file. Mismatched symbol file?",
                name, address);
-      continue;
+      return;
     }
+    symbols.try_emplace(
+        address, /*symID*/ 0, Mangled(name, /*is_mangled*/ false),
+        eSymbolTypeCode, /*is_global*/ true, /*is_debug*/ false,
+        /*is_trampoline*/ false, /*is_artificial*/ false,
+        AddressRange(section_sp, address - section_sp->GetFileAddress(),
+                     size.getValueOr(0)),
+        size.hasValue(), /*contains_linker_annotations*/ false, /*flags*/ 0);
+  };
 
-    symtab.AddSymbol(Symbol(
-        /*symID*/ 0, Mangled(name, /*is_mangled*/ false), eSymbolTypeCode,
-        /*is_global*/ true, /*is_debug*/ false, /*is_trampoline*/ false,
-        /*is_artificial*/ false,
-        AddressRange(section_sp, address - section_sp->GetFileAddress(), 0),
-        /*size_is_valid*/ 0, /*contains_linker_annotations*/ false,
-        /*flags*/ 0));
+  for (llvm::StringRef line : lines(*m_obj_file, Record::Func)) {
+    if (auto record = FuncRecord::parse(line))
+      add_symbol(record->Address, record->Size, record->Name);
   }
 
-  // TODO: Process FUNC records as well.
+  for (llvm::StringRef line : lines(*m_obj_file, Record::Public)) {
+    if (auto record = PublicRecord::parse(line))
+      add_symbol(record->Address, llvm::None, record->Name);
+    else
+      LLDB_LOG(log, "Failed to parse: {0}. Skipping record.", line);
+  }
 
+  for (auto &KV : symbols)
+    symtab.AddSymbol(std::move(KV.second));
   symtab.CalculateSymbolSizes();
 }

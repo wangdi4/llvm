@@ -1,9 +1,8 @@
 //===--- CGDebugInfo.cpp - Emit Debug Information for a Module ------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -3910,6 +3909,32 @@ CGDebugInfo::EmitDeclareOfAutoVariable(const VarDecl *VD, llvm::Value *Storage,
                                        CGBuilderTy &Builder) {
   assert(DebugKind >= codegenoptions::LimitedDebugInfo);
   return EmitDeclare(VD, Storage, llvm::None, Builder);
+}
+
+void CGDebugInfo::EmitLabel(const LabelDecl *D, CGBuilderTy &Builder) {
+  assert(DebugKind >= codegenoptions::LimitedDebugInfo);
+  assert(!LexicalBlockStack.empty() && "Region stack mismatch, stack empty!");
+
+  if (D->hasAttr<NoDebugAttr>())
+    return;
+
+  auto *Scope = cast<llvm::DIScope>(LexicalBlockStack.back());
+  llvm::DIFile *Unit = getOrCreateFile(D->getLocation());
+
+  // Get location information.
+  unsigned Line = getLineNumber(D->getLocation());
+  unsigned Column = getColumnNumber(D->getLocation());
+
+  StringRef Name = D->getName();
+
+  // Create the descriptor for the label.
+  auto *L =
+      DBuilder.createLabel(Scope, Name, Unit, Line, CGM.getLangOpts().Optimize);
+
+  // Insert an llvm.dbg.label into the current block.
+  DBuilder.insertLabel(L,
+                       llvm::DebugLoc::get(Line, Column, Scope, CurInlinedAt),
+                       Builder.GetInsertBlock());
 }
 
 llvm::DIType *CGDebugInfo::CreateSelfType(const QualType &QualTy,

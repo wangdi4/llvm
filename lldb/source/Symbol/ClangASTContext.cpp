@@ -1,9 +1,8 @@
 //===-- ClangASTContext.cpp -------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -5010,8 +5009,9 @@ CompilerType ClangASTContext::GetBasicTypeFromAST(lldb::BasicType basic_type) {
 // Exploring the type
 //----------------------------------------------------------------------
 
-uint64_t ClangASTContext::GetBitSize(lldb::opaque_compiler_type_t type,
-                                     ExecutionContextScope *exe_scope) {
+Optional<uint64_t>
+ClangASTContext::GetBitSize(lldb::opaque_compiler_type_t type,
+                            ExecutionContextScope *exe_scope) {
   if (GetCompleteType(type)) {
     clang::QualType qual_type(GetCanonicalQualType(type));
     const clang::Type::TypeClass type_class = qual_type->getTypeClass();
@@ -5020,7 +5020,7 @@ uint64_t ClangASTContext::GetBitSize(lldb::opaque_compiler_type_t type,
       if (GetCompleteType(type))
         return getASTContext()->getTypeSize(qual_type);
       else
-        return 0;
+        return None;
       break;
 
     case clang::Type::ObjCInterface:
@@ -5065,10 +5065,14 @@ uint64_t ClangASTContext::GetBitSize(lldb::opaque_compiler_type_t type,
         return bit_size +
                getASTContext()->getTypeSize(
                    getASTContext()->ObjCBuiltinClassTy);
-      return bit_size;
+      // Function types actually have a size of 0, that's not an error.
+      if (qual_type->isFunctionProtoType())
+        return bit_size;
+      if (bit_size)
+        return bit_size;
     }
   }
-  return 0;
+  return None;
 }
 
 size_t ClangASTContext::GetTypeBitAlign(lldb::opaque_compiler_type_t type) {

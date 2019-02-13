@@ -1,9 +1,8 @@
 //===-- LoopUtils.cpp - Loop Utility functions -------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -217,7 +216,10 @@ static Optional<bool> getOptionalBoolLoopAttribute(const Loop *TheLoop,
     // When the value is absent it is interpreted as 'attribute set'.
     return true;
   case 2:
-    return mdconst::extract_or_null<ConstantInt>(MD->getOperand(1).get());
+    if (ConstantInt *IntMD =
+            mdconst::extract_or_null<ConstantInt>(MD->getOperand(1).get()))
+      return IntMD->getZExtValue();
+    return true;
   }
   llvm_unreachable("unexpected number of options");
 }

@@ -1,9 +1,8 @@
 //===-- X86ISelLowering.h - X86 DAG Lowering Interface ----------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -204,7 +203,8 @@ namespace llvm {
       /// Dynamic (non-constant condition) vector blend where only the sign bits
       /// of the condition elements are used. This is used to enforce that the
       /// condition mask is not valid for generic VSELECT optimizations. This
-      /// can also be used to implement the intrinsics.
+      /// is also used to implement the intrinsics.
+      /// Operands are in VSELECT order: MASK, TRUE, FALSE
       BLENDV,
 
       /// Combined add and sub on an FP vector.
@@ -315,10 +315,8 @@ namespace llvm {
       // Vector shift elements
       VSHL, VSRL, VSRA,
 
-      // Vector variable shift right arithmetic.
-      // Unlike ISD::SRA, in case shift count greater then element size
-      // use sign bit to fill destination data element.
-      VSRAV,
+      // Vector variable shift
+      VSHLV, VSRLV, VSRAV,
 
       // Vector shift elements by immediate
       VSHLI, VSRLI, VSRAI,
@@ -517,6 +515,7 @@ namespace llvm {
       // Masked versions of above. Used for v2f64->v4f32.
       // SRC, PASSTHRU, MASK
       MCVTP2SI, MCVTP2UI, MCVTTP2SI, MCVTTP2UI,
+      MCVTSI2P, MCVTUI2P,
 
       // Save xmm argument registers to the stack, according to %al. An operator
       // is needed so that this can be expanded with control flow.

@@ -1,9 +1,8 @@
 //===--------------------- Instruction.h ------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 /// \file
@@ -333,6 +332,10 @@ struct InstrDesc {
   unsigned MaxLatency;
   // Number of MicroOps for this instruction.
   unsigned NumMicroOps;
+  // SchedClassID used to construct this InstrDesc.
+  // This information is currently used by views to do fast queries on the
+  // subtarget when computing the reciprocal throughput.
+  unsigned SchedClassID;
 
   bool MayLoad;
   bool MayStore;

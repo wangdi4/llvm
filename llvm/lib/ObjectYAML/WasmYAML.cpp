@@ -1,9 +1,8 @@
 //===- WasmYAML.cpp - Wasm YAMLIO implementation --------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -72,6 +71,14 @@ static void sectionMapping(IO &IO, WasmYAML::LinkingSection &Section) {
   IO.mapOptional("SegmentInfo", Section.SegmentInfos);
   IO.mapOptional("InitFunctions", Section.InitFunctions);
   IO.mapOptional("Comdats", Section.Comdats);
+}
+
+static void sectionMapping(IO &IO, WasmYAML::ProducersSection &Section) {
+  commonSectionMapping(IO, Section);
+  IO.mapRequired("Name", Section.Name);
+  IO.mapOptional("Languages", Section.Languages);
+  IO.mapOptional("Tools", Section.Tools);
+  IO.mapOptional("SDKs", Section.SDKs);
 }
 
 static void sectionMapping(IO &IO, WasmYAML::CustomSection &Section) {
@@ -169,6 +176,10 @@ void MappingTraits<std::unique_ptr<WasmYAML::Section>>::mapping(
       if (!IO.outputting())
         Section.reset(new WasmYAML::NameSection());
       sectionMapping(IO, *cast<WasmYAML::NameSection>(Section.get()));
+    } else if (SectionName == "producers") {
+      if (!IO.outputting())
+        Section.reset(new WasmYAML::ProducersSection());
+      sectionMapping(IO, *cast<WasmYAML::ProducersSection>(Section.get()));
     } else {
       if (!IO.outputting())
         Section.reset(new WasmYAML::CustomSection(SectionName));
@@ -291,6 +302,12 @@ void MappingTraits<WasmYAML::NameEntry>::mapping(
     IO &IO, WasmYAML::NameEntry &NameEntry) {
   IO.mapRequired("Index", NameEntry.Index);
   IO.mapRequired("Name", NameEntry.Name);
+}
+
+void MappingTraits<WasmYAML::ProducerEntry>::mapping(
+    IO &IO, WasmYAML::ProducerEntry &ProducerEntry) {
+  IO.mapRequired("Name", ProducerEntry.Name);
+  IO.mapRequired("Version", ProducerEntry.Version);
 }
 
 void MappingTraits<WasmYAML::SegmentInfo>::mapping(
