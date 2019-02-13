@@ -34,6 +34,11 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif  // INTEL_CUSTOMIZATION
+
 #include <functional>
 
 namespace llvm {
@@ -93,6 +98,12 @@ private:
   // Paropt mode.
   unsigned Mode;
 
+#if INTEL_CUSTOMIZATION
+  // Verbosity level for generating remarks using Loop Opt Report
+  // framework (under -qopt-report).
+  OptReportVerbosity::Level ORVerbosity;
+#endif  // INTEL_CUSTOMIZATION
+
   // Optimization level.
   unsigned OptLevel;
 };
@@ -119,6 +130,12 @@ public:
 
 private:
   VPOParoptPass Impl;
+
+#if INTEL_CUSTOMIZATION
+  // Verbosity level for generating remarks using Loop Opt Report
+  // framework (under -qopt-report).
+  OptReportVerbosity::Level ORVerbosity;
+#endif  // INTEL_CUSTOMIZATION
 };
 
 #if INTEL_CUSTOMIZATION

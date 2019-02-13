@@ -62,6 +62,11 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif  // INTEL_CUSTOMIZATION
+
 #include <queue>
 
 namespace llvm {
@@ -93,15 +98,28 @@ public:
                      LoopInfo *LI, ScalarEvolution *SE,
                      const TargetTransformInfo *TTI, AssumptionCache *AC,
                      const TargetLibraryInfo *TLI, AliasAnalysis *AA, int Mode,
+#if INTEL_CUSTOMIZATION
+                     OptReportVerbosity::Level ORVerbosity,
+#endif  // INTEL_CUSTOMIZATION
                      unsigned OptLevel = 2, bool SwitchToOffload = false)
       : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
         TLI(TLI), AA(AA), Mode(Mode),
-        TargetTriple(F->getParent()->getTargetTriple()), OptLevel(OptLevel),
-        SwitchToOffload(SwitchToOffload),
+        TargetTriple(F->getParent()->getTargetTriple()),
+#if INTEL_CUSTOMIZATION
+        ORVerbosity(ORVerbosity),
+#endif  // INTEL_CUSTOMIZATION
+        OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
         KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
-        KmpTaskDependInfoTy(nullptr) {}
+        KmpTaskDependInfoTy(nullptr) {
+
+#if INTEL_CUSTOMIZATION
+        // Set up Builder for generating remarks using Loop Opt Report
+        // framework (under -qopt-report).
+        LORBuilder.setup(F->getContext(), ORVerbosity);
+#endif  // INTEL_CUSTOMIZATION
+      }
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -145,6 +163,14 @@ private:
 
   /// \brief Target triple that we are compiling for.
   Triple TargetTriple;
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Verbosity level for generating remarks using Loop Opt Report framework (under -qopt-report).
+  OptReportVerbosity::Level ORVerbosity;
+
+  /// \brief Builder for generating remarks using Loop Opt Report framework (under -qopt-report).
+  LoopOptReportBuilder LORBuilder;
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Optimization level.
   unsigned OptLevel;

@@ -42,6 +42,11 @@
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -51,6 +56,9 @@ INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare",
                      "VPO Paropt Prepare Function Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
+#if INTEL_CUSTOMIZATION
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+#endif // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
                     "VPO Paropt Prepare Function Pass", false, false)
 
@@ -74,6 +82,9 @@ VPOParoptPreparePass::VPOParoptPreparePass(unsigned MyMode)
 void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredID(LoopSimplifyID);
   AU.addRequired<WRegionInfoWrapperPass>();
+#if INTEL_CUSTOMIZATION
+  AU.addRequired<OptReportOptionsPass>();
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool VPOParoptPrepare::runOnFunction(Function &F) {
@@ -89,6 +100,10 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   }
 
   WRegionInfo &WI = getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
+
+#if INTEL_CUSTOMIZATION
+  ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
+#endif // INTEL_CUSTOMIZATION
 
   bool Changed = Impl.runImpl(F, WI);
 
@@ -150,7 +165,11 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
+#if INTEL_CUSTOMIZATION
+                        WI.getAliasAnalysis(), Mode, ORVerbosity);
+#else
                         WI.getAliasAnalysis(), Mode);
+#endif // INTEL_CUSTOMIZATION
   Changed = Changed | VP.paroptTransforms();
 
   LLVM_DEBUG(
@@ -177,6 +196,10 @@ PreservedAnalyses VPOParoptPreparePass::run(Function &F,
   }
 
   auto &WI = AM.getResult<WRegionInfoAnalysis>(F);
+
+#if INTEL_CUSTOMIZATION
+  ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();
+#endif // INTEL_CUSTOMIZATION
 
   bool Changed = runImpl(F, WI);
 

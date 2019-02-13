@@ -63,6 +63,10 @@ public:
   Result run(Function &, FunctionAnalysisManager &) {
     return OptReportOptions();
   }
+
+  Result run(Module &, ModuleAnalysisManager &) {
+    return OptReportOptions();
+  }
 };
 
 class OptReportOptionsPass : public ImmutablePass {
