@@ -77,7 +77,7 @@ void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
 void initializeBIImportPass(llvm::PassRegistry&);
 void initializeGenericAddressStaticResolutionPass(llvm::PassRegistry&);
 void initializeGenericAddressDynamicResolutionPass(llvm::PassRegistry&);
-void initializeSpirMaterializerPass(llvm::PassRegistry&);
+void initializeLLVMEqualizerPass(llvm::PassRegistry&);
 void initializeSubGroupAdaptationPass(llvm::PassRegistry&);
 void initializeLinearIdResolverPass(llvm::PassRegistry&);
 void initializePrepareKernelArgsPass(llvm::PassRegistry&);
