@@ -135,6 +135,7 @@ llvm::Pass *createSmartGVNPass(bool);
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectRecursionPass();
+llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ModulePass *createPreLegalizeBoolsPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
@@ -316,6 +317,10 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   PM.add(createFMASplitterPass());
   PM.add(createOclSyncFunctionAttrsPass());
   PM.add(createPrintfArgumentsPromotionPass());
+  if (isOcl20) {
+    // OCL2.0 resolve block to static call
+    PM.add(createResolveBlockToStaticCallPass());
+  }
 
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
