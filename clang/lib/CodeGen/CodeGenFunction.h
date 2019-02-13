@@ -1009,6 +1009,21 @@ public:
       return !VD->isLocalVarDeclOrParm() && CGF.LocalDeclMap.count(VD) > 0;
     }
   };
+#if INTEL_COLLAB
+  void addMappedClause(const OMPClause* C, Address Addr) {
+    auto It = ClauseMap.find(C);
+    if (It == ClauseMap.end())
+      ClauseMap.insert({C, Addr});
+  }
+  llvm::Value *getMappedClause(const OMPClause* C) {
+    auto It = ClauseMap.find(C);
+    if (It == ClauseMap.end())
+      return nullptr;
+    return It->second.getPointer();
+  }
+  typedef llvm::DenseMap<const OMPClause*, Address> ClauseMapTy;
+  ClauseMapTy ClauseMap;
+#endif // INTEL_COLLAB
 
   /// Takes the old cleanup stack size and emits the cleanup blocks
   /// that have been added.
@@ -3468,6 +3483,9 @@ private:
   const OMPLoopDirective *GetLoopForHoisting(const OMPExecutableDirective &S,
                                              OpenMPDirectiveKind Kind);
 #endif // INTEL_CUSTOMIZATION
+  void EnsureAddressableClauseExpr(const OMPClause *C);
+  void HoistTeamsClausesIfPossible(const OMPExecutableDirective &S,
+                                   OpenMPDirectiveKind Kind);
   void EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                               OpenMPDirectiveKind Kind);
 

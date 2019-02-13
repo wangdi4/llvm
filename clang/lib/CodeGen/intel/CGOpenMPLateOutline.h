@@ -22,43 +22,6 @@
 namespace clang {
 namespace CodeGen {
 
-class OMPLateOutlineLexicalScope : public CodeGenFunction::LexicalScope {
-  CodeGenFunction::OMPPrivateScope Remaps;
-public:
-  OMPLateOutlineLexicalScope(
-      CodeGenFunction &CGF, const OMPExecutableDirective &S,
-      OpenMPDirectiveKind CapturedRegion = OMPD_unknown)
-      : CodeGenFunction::LexicalScope(CGF, S.getSourceRange()), Remaps(CGF) {
-
-    for (const auto *C : S.clauses()) {
-      if (const auto *CPI = OMPClauseWithPreInit::get(C)) {
-        if (const auto *PreInit =
-                cast_or_null<DeclStmt>(CPI->getPreInitStmt())) {
-          for (const auto *I : PreInit->decls()) {
-            if (!I->hasAttr<OMPCaptureNoInitAttr>()) {
-              CGF.EmitVarDecl(cast<VarDecl>(*I));
-            } else {
-              CodeGenFunction::AutoVarEmission Emission =
-                  CGF.EmitAutoVarAlloca(cast<VarDecl>(*I));
-              CGF.EmitAutoVarCleanups(Emission);
-            }
-          }
-        }
-      }
-    }
-
-    CGF.RemapForLateOutlining(S, Remaps);
-    (void)Remaps.Privatize();
-  }
-
-  static bool isCapturedVar(CodeGenFunction &CGF, const VarDecl *VD) {
-    return CGF.LambdaCaptureFields.lookup(VD) ||
-           (CGF.CapturedStmtInfo && CGF.CapturedStmtInfo->lookup(VD)) ||
-           (CGF.CurCodeDecl && isa<BlockDecl>(CGF.CurCodeDecl));
-  }
-
-};
-
 enum OMPAtomicClause {
   OMP_read,
   OMP_write,
@@ -369,6 +332,50 @@ public:
     // from clauses must be inserted before this point.
     MarkerInstruction = CGF.Builder.CreateCall(RegionEntryDirective, {});
   }
+  static bool isFirstDirectiveInSet(const OMPExecutableDirective &S,
+                                    OpenMPDirectiveKind Kind);
+};
+
+class OMPLateOutlineLexicalScope : public CodeGenFunction::LexicalScope {
+  CodeGenFunction::OMPPrivateScope Remaps;
+public:
+  OMPLateOutlineLexicalScope(CodeGenFunction &CGF,
+                             const OMPExecutableDirective &S,
+                             OpenMPDirectiveKind Kind)
+      : CodeGenFunction::LexicalScope(CGF, S.getSourceRange()), Remaps(CGF) {
+
+    // Only declare variables for the PreInit statements on the first
+    // directive in a multi-directive set.
+    if (!OpenMPLateOutliner::isFirstDirectiveInSet(S, Kind))
+      return;
+
+    for (const auto *C : S.clauses()) {
+      if (const auto *CPI = OMPClauseWithPreInit::get(C)) {
+        if (const auto *PreInit =
+                cast_or_null<DeclStmt>(CPI->getPreInitStmt())) {
+          for (const auto *I : PreInit->decls()) {
+            if (!I->hasAttr<OMPCaptureNoInitAttr>()) {
+              CGF.EmitVarDecl(cast<VarDecl>(*I));
+            } else {
+              CodeGenFunction::AutoVarEmission Emission =
+                  CGF.EmitAutoVarAlloca(cast<VarDecl>(*I));
+              CGF.EmitAutoVarCleanups(Emission);
+            }
+          }
+        }
+      }
+    }
+
+    CGF.RemapForLateOutlining(S, Remaps);
+    (void)Remaps.Privatize();
+  }
+
+  static bool isCapturedVar(CodeGenFunction &CGF, const VarDecl *VD) {
+    return CGF.LambdaCaptureFields.lookup(VD) ||
+           (CGF.CapturedStmtInfo && CGF.CapturedStmtInfo->lookup(VD)) ||
+           (CGF.CurCodeDecl && isa<BlockDecl>(CGF.CurCodeDecl));
+  }
+
 };
 
 class CGLateOutlineOpenMPRegionInfo

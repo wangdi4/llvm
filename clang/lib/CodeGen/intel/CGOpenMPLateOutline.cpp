@@ -1215,14 +1215,24 @@ void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *Cl) {
 void OpenMPLateOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_num_teams);
   addArg("QUAL.OMP.NUM_TEAMS");
-  addArg(CGF.EmitScalarExpr(Cl->getNumTeams()));
+  if (llvm::Value *V = CGF.getMappedClause(Cl)) {
+    addValueRef(V);
+    addArg(V, /*Handled=*/true);
+  } else {
+    addArg(CGF.EmitScalarExpr(Cl->getNumTeams()));
+  }
 }
 
 void OpenMPLateOutliner::emitOMPThreadLimitClause(
     const OMPThreadLimitClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_thread_limit);
   addArg("QUAL.OMP.THREAD_LIMIT");
-  addArg(CGF.EmitScalarExpr(Cl->getThreadLimit()));
+  if (llvm::Value *V = CGF.getMappedClause(Cl)) {
+    addValueRef(V);
+    addArg(V, /*Handled=*/true);
+  } else {
+    addArg(CGF.EmitScalarExpr(Cl->getThreadLimit()));
+  }
 }
 
 void OpenMPLateOutliner::emitOMPDistScheduleClause(
@@ -1703,6 +1713,38 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
   return *this;
 }
 
+bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
+                                               OpenMPDirectiveKind Kind) {
+  if (Kind == OMPD_unknown)
+    return true;
+
+  OpenMPDirectiveKind DKind = S.getDirectiveKind();
+  if (Kind == DKind)
+    return true;
+
+  switch (DKind) {
+  case OMPD_target_parallel:
+  case OMPD_target_parallel_for:
+  case OMPD_target_parallel_for_simd:
+  case OMPD_target_simd:
+  case OMPD_target_teams:
+  case OMPD_target_teams_distribute:
+  case OMPD_target_teams_distribute_simd:
+  case OMPD_target_teams_distribute_parallel_for:
+  case OMPD_target_teams_distribute_parallel_for_simd:
+    return Kind == OMPD_target;
+
+  case OMPD_teams_distribute:
+  case OMPD_teams_distribute_simd:
+  case OMPD_teams_distribute_parallel_for:
+  case OMPD_teams_distribute_parallel_for_simd:
+    return Kind == OMPD_teams;
+
+  default:
+    llvm_unreachable("Base directive kind in isFirstDirectiveInSet");
+  }
+}
+
 /// Emit the captured statement body.
 void CGLateOutlineOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF,
                                              const Stmt *S) {
@@ -1815,13 +1857,14 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
 
 void CodeGenFunction::EmitLateOutlineOMPDirective(
     const OMPExecutableDirective &S, OpenMPDirectiveKind Kind) {
-  OMPLateOutlineLexicalScope Scope(*this, S);
+  OMPLateOutlineLexicalScope Scope(*this, S, Kind);
   OpenMPLateOutliner Outliner(*this, S, Kind);
   OpenMPDirectiveKind CurrentDirectiveKind = Outliner.getCurrentDirectiveKind();
 #if INTEL_CUSTOMIZATION
   bool HasHoistedLoopBounds =
     HoistLoopBoundsIfPossible(S, CurrentDirectiveKind);
 #endif // INTEL_CUSTOMIZATION
+  HoistTeamsClausesIfPossible(S, CurrentDirectiveKind);
 
   switch (CurrentDirectiveKind) {
   case OMPD_parallel:

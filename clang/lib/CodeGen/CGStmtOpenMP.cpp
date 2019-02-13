@@ -5131,6 +5131,85 @@ CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
+/// Some clauses can be specified with a general rvalue expression but passing
+/// the value into an outlined region can require an address.  This stores the
+/// address or creates a temp with the value and stores that address.
+/// When processing the clause the address is used instead of normal rvalue
+/// expression processing.
+void CodeGenFunction::EnsureAddressableClauseExpr(const OMPClause *C) {
+
+  if (!C)
+    return;
+
+  const Expr *E;
+  if (const auto *NTC = dyn_cast<OMPNumTeamsClause>(C))
+    E = NTC->getNumTeams();
+  else if (const auto *TLC = dyn_cast<OMPThreadLimitClause>(C))
+    E = TLC->getThreadLimit();
+  else
+    return;
+
+  // Constants are okay to emit as rvalues.
+  llvm::APSInt ConstLength;
+  if (E->isIntegerConstantExpr(ConstLength, getContext()))
+    return;
+
+  // Use the lvalue directly.
+  if (E->IgnoreImplicit()->isLValue()) {
+    E = E->IgnoreImplicit();
+    addMappedClause(C, EmitLValue(E).getAddress());
+    return;
+  }
+
+  // Create and initialize a temp.
+  QualType T = E->getType();
+  Address A = CreateMemTemp(T, "omp.clause.tmp");
+  addMappedClause(C, A);
+  LValue LV = MakeAddrLValue(A, T);
+  RValue RV = RValue::get(EmitScalarExpr(E));
+  EmitStoreThroughLValue(RV, LV, /*isInit=*/true);
+}
+
+void CodeGenFunction::HoistTeamsClausesIfPossible(
+    const OMPExecutableDirective &S, OpenMPDirectiveKind Kind) {
+  if (Kind != OMPD_target)
+    return;
+
+  const OMPExecutableDirective *Dir = nullptr;
+  switch (S.getDirectiveKind()) {
+    case OMPD_target_teams:
+    case OMPD_target_teams_distribute:
+    case OMPD_target_teams_distribute_simd:
+    case OMPD_target_teams_distribute_parallel_for:
+    case OMPD_target_teams_distribute_parallel_for_simd:
+      Dir = &S;
+      break;
+    case OMPD_target:
+      if (const Stmt *CS = S.getInnermostCapturedStmt()->getCapturedStmt()) {
+        if (const auto *CompStmt = dyn_cast<CompoundStmt>(CS)) {
+          if (CompStmt->body_front() &&
+              CompStmt->body_front() == CompStmt->body_back())
+            CS = CompStmt->body_front();
+        }
+        Stmt::StmtClass C = CS->getStmtClass();
+        if (C == Stmt::OMPTeamsDirectiveClass ||
+            C == Stmt::OMPTeamsDistributeDirectiveClass ||
+            C == Stmt::OMPTeamsDistributeSimdDirectiveClass ||
+            C == Stmt::OMPTeamsDistributeParallelForDirectiveClass ||
+            C == Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass)
+          Dir = cast<OMPExecutableDirective>(CS);
+      }
+      break;
+    default:
+      break;
+  }
+  if (Dir == nullptr)
+    return;
+
+  EnsureAddressableClauseExpr(Dir->getSingleClause<OMPNumTeamsClause>());
+  EnsureAddressableClauseExpr(Dir->getSingleClause<OMPThreadLimitClause>());
+}
+
 void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                                              OpenMPDirectiveKind Kind) {
   // Emit the loop iteration variable.
