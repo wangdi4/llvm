@@ -17,8 +17,10 @@
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/PatternMatch.h"
 
 using namespace llvm;
+using namespace llvm::PatternMatch;
 using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-transform-csa"
@@ -714,6 +716,11 @@ static unsigned getParRegionID(WRegionNode *W,
 class VPOParoptTransform::CSALoopSplitter {
   VPOParoptTransform &PT;
 
+  // TODO: makes sense to have OptimizationRemarkEmitterAnalysis as a dependency
+  // for paropt transform passes, but until it is done use a local instance of
+  // optimization remarks emitter.
+  OptimizationRemarkEmitter ORE;
+
   // A structure that represents a single worker in a split loop.
   class Worker {
     // Reference to the parent.
@@ -742,6 +749,42 @@ class VPOParoptTransform::CSALoopSplitter {
     BasicBlock *Tail = nullptr;
 
   private:
+    // Check if worker needs ZTT for the loop (outter loop for hybrid mode)
+    // based on the min TC esimate if available.
+    bool needsZTT() const {
+      if (LS.MinTC) {
+        auto MinTC = LS.MinTC->getZExtValue();
+        if (!LS.SPMDMode) {
+          // Blocked mode. All iterations [0, TC) are divided across N workers
+          // at runtime. Let TCi be the number of iterations executed by i'th
+          // worker.
+          //
+          //   TC0 = (TC/N) + D, where D is [0, 1)
+          //   TCi+1 <= TCi
+          //
+          // I'th worker does not need ZTT if
+          //   i*TC0 < TC
+          //
+          // or, after expanding TC0
+          //   i*((TC/N) + D) < TC
+          //
+          // In the worst case D = (N-1)/N, therefore
+          //   i*((TC/N) + ((N-1)/N)) < TC
+          //   i*TC + i*(N-1) < N*TC
+          //
+          // And finally
+          //   (N-i)*TC > i*(N-1)
+          //
+          // Many thanks to Nikolai Bozhenov for helping with these formulas.
+          auto NW = LS.Workers.size();
+          return (NW - ID) * MinTC <= ID * (NW - 1u);
+        }
+        // Cyclic or Hybrid mode.
+        return MinTC <= ID * LS.SPMDMode;
+      }
+      return true;
+    }
+
     void fixupLoopBounds(Value *NewLB, Value *NewUB, BasicBlock *Entry) {
       // Need to update ZTT, induction variable value comming
       // from the preheader block and loop bottom test.
@@ -752,10 +795,31 @@ class VPOParoptTransform::CSALoopSplitter {
         IV->replaceUsesOfWith(LB, NewLB);
       if (auto *Ztt = WRegionUtils::getOmpLoopZeroTripTest(WL, Entry)) {
         assert(is_contained(Ztt->operands(), LB));
-        if (NewUB)
-          Ztt->setOperand(Ztt->getOperand(0) == LB, NewUB);
-        if (NewLB)
-          Ztt->setOperand(Ztt->getOperand(0) != LB, NewLB);
+
+        // Try to eliminate ZTT if this is the outter loop.
+        if (LS.SPMDMode <= 1u && !needsZTT() && Ztt->hasOneUse())
+          if (auto *BI = dyn_cast<BranchInst>(*Ztt->user_begin()))
+            if (auto *LPH = WL->getLoopPreheader()) {
+              BranchInst::Create(LPH, BI);
+              BI->eraseFromParent();
+              assert(Ztt->use_empty());
+              Ztt->eraseFromParent();
+              Ztt = nullptr;
+
+              LS.ORE.emit(OptimizationRemark(DEBUG_TYPE, "", WL->getStartLoc(),
+                                             WL->getHeader())
+                          << "CSA Paropt zero trip count check was not "
+                             "inserted for Worker #" + std::to_string(ID) +
+                             ", as directed by the __builtin_assume.");
+            }
+
+        // Fixup loop bounds for ZTT if it is still there.
+        if (Ztt) {
+          if (NewUB)
+            Ztt->setOperand(Ztt->getOperand(0) == LB, NewUB);
+          if (NewLB)
+            Ztt->setOperand(Ztt->getOperand(0) != LB, NewLB);
+        }
       }
       if (NewUB) {
         auto *Inc = IV->getIncomingValueForBlock(WL->getLoopLatch());
@@ -785,7 +849,7 @@ class VPOParoptTransform::CSALoopSplitter {
       auto *Inc =
           cast<Instruction>(IV->getIncomingValueForBlock(WL->getLoopLatch()));
       assert(Inc && Inc->getOpcode() == Instruction::Add &&
-            is_contained(Inc->operands(), IV));
+             is_contained(Inc->operands(), IV));
 
       auto *Stride = Inc->getOperand(Inc->getOperand(0) == IV);
       assert(cast<ConstantInt>(Stride)->isOne() && "unexpected loop stride");
@@ -842,7 +906,7 @@ class VPOParoptTransform::CSALoopSplitter {
         LB->eraseFromParent();
     }
 
-    void makeHybrid(unsigned Chunk) {
+    void makeHybrid() {
       // head:
       //  br label %cyclic.ztt
       //
@@ -905,10 +969,14 @@ class VPOParoptTransform::CSALoopSplitter {
 
       // Create ZTT code.
       IRBuilder<> Builder(CZtt->getTerminator());
-      auto *CLB = ConstantInt::get(Ty, ID * Chunk, IsSigned);
-      auto *ZttCond = IsSigned ? Builder.CreateICmpSLE(CLB, UB) :
-                                 Builder.CreateICmpULE(CLB, UB);
-      Builder.CreateCondBr(ZttCond, CLPH, Tail);
+      auto *CLB = ConstantInt::get(Ty, ID * LS.SPMDMode, IsSigned);
+      if (needsZTT()) {
+        auto *Cond = IsSigned ? Builder.CreateICmpSLE(CLB, UB) :
+                                Builder.CreateICmpULE(CLB, UB);
+        Builder.CreateCondBr(Cond, CLPH, Tail);
+      }
+      else
+        Builder.CreateBr(CLPH);
 
       // Create blocked LB.
       Builder.SetInsertPoint(&CLoop->front());
@@ -917,14 +985,15 @@ class VPOParoptTransform::CSALoopSplitter {
 
       // And blocked UB.
       auto *BNext = Builder.CreateAdd(BLB,
-          ConstantInt::get(Ty, Chunk - 1u, IsSigned));
+          ConstantInt::get(Ty, LS.SPMDMode - 1u, IsSigned));
       auto *BCmp = IsSigned ? Builder.CreateICmpSLE(BNext, UB) :
                               Builder.CreateICmpULE(BNext, UB);
       auto *BUB = Builder.CreateSelect(BCmp, BNext, UB, "blocked.ub" + Suffix);
 
       // Create latch code.
       Builder.SetInsertPoint(CLatch->getTerminator());
-      auto *CStride = ConstantInt::get(Ty, LS.Workers.size() * Chunk, IsSigned);
+      auto *CStride = ConstantInt::get(Ty, LS.Workers.size() * LS.SPMDMode,
+                                       IsSigned);
       auto *CNext = Builder.CreateAdd(BLB, CStride);
       BLB->addIncoming(CNext, CLatch);
 
@@ -1171,7 +1240,75 @@ class VPOParoptTransform::CSALoopSplitter {
 private:
   SmallVector<Worker, 8u> Workers;
 
+  // SPMD mode
+  //   Blocked  0
+  //   Cyclic   1
+  //   Hybrid   >1  (defines stride for cyclic loop)
+  unsigned SPMDMode = 0u;
+
+  // Loop trip count estimate derived from the function's assumption cache.
+  Optional<APInt> MinTC;
+
 private:
+  void getTripCountEstimate(WRegionNode *W) {
+    // Check if we can find the following pattern
+    //
+    // %Val = ...
+    // %Cmp = icmp sgt i32 %Val, Imm1
+    // call void @llvm.assume(i1 %Cmp)
+    // %UB = add nsw i32 %Val, Imm2
+    //
+    // If it exists then min TC value would be (Imm1 + Imm2 + 2) taking into
+    // account that OpenMP loops are normalized and have 0 as lower bound.
+    //
+    // It comes from the following computations:
+    //   UB = Val + Imm2;   // The pattern we are looking for
+    //   UB = TC - 1;	    // True for a normalizer loop
+    // =>
+    //   TC = Val + Imm2 + 1;
+    //
+    // From the assumption cache we can find that
+    //   Val > Imm1         // Pattern that we are serching assumptions for
+    //
+    // This leads to
+    //   TC > Imm1 + Imm2 + 1;
+    // =>
+    //   MinTC = Imm1 + Imm2 + 2;
+
+    auto *WL = W->getWRNLoopInfo().getLoop();
+    auto *UB = WRegionUtils::getOmpLoopUpperBound(WL);
+
+    APInt TC;
+
+    Value *Val1 = nullptr;
+    const APInt *C1 = nullptr;
+    if (match(UB, m_c_Add(m_Value(Val1), m_APInt(C1))))
+      for (auto &VH : PT.AC->assumptionsFor(Val1)) {
+        if (!VH)
+          continue;
+        auto *AV = cast<CallInst>(VH)->getOperand(0);
+        CmpInst::Predicate Pred = CmpInst::BAD_ICMP_PREDICATE;
+        Value *Val2 = nullptr;
+        const APInt *C2 = nullptr;
+        if (match(AV, m_ICmp(Pred, m_Value(Val2), m_APInt(C2)))) {
+          if (Pred == CmpInst::ICMP_SGT ||
+              Pred == CmpInst::ICMP_UGT) {
+            TC = *C1 + *C2 + 2u;
+            break;
+          }
+          else if (Pred == CmpInst::ICMP_SGE ||
+                   Pred == CmpInst::ICMP_UGE) {
+            TC = *C1 + *C2 + 1u;
+            break;
+          }
+        }
+      }
+
+    // Save TC if it has meaningful value.
+    if (TC.isStrictlyPositive())
+      MinTC = TC;
+  }
+
   // Clones given loop with subloops.
   Loop* cloneLoops(const Loop *L, DenseMap<const Loop*, Loop*> &LMap) {
     if (auto *PL = L->getParentLoop())
@@ -1266,18 +1403,22 @@ private:
   }
 
 public:
-  CSALoopSplitter(VPOParoptTransform &PT) : PT(PT) {}
+  CSALoopSplitter(VPOParoptTransform &PT) : PT(PT), ORE(PT.F) {}
 
   bool run(WRegionNode *W) {
     assert(W->getIsOmpLoop() && "must be a loop");
+
+    SPMDMode = getSPMDMode(W);
+
+    // Check if we can get TC estimate from the function's assumption cache.
+    getTripCountEstimate(W);
 
     // Create workers.
     cloneWorkers(W);
 
     // Fixup workers.
-    auto Mode = getSPMDMode(W);
-    for (auto &WI : Workers) {
-      switch (Mode) {
+    for (auto &WI : Workers)
+      switch (SPMDMode) {
         case 0:
           WI.makeBlocked();
           break;
@@ -1285,9 +1426,8 @@ public:
           WI.makeCyclic();
           break;
         default:
-          WI.makeHybrid(Mode);
+          WI.makeHybrid();
       }
-    }
 
     // Rebuild dominator tree.
     PT.DT->recalculate(*W->getEntryBBlock()->getParent());
