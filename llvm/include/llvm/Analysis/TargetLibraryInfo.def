@@ -2074,6 +2074,22 @@ TLI_DEFINE_STRING_INTERNAL("reallocf")
 /// char *realpath(const char *file_name, char *resolved_name);
 TLI_DEFINE_ENUM_INTERNAL(realpath)
 TLI_DEFINE_STRING_INTERNAL("realpath")
+#if INTEL_CUSTOMIZATION
+/// int regcomp(regex_t *preg, const char *regex, int cflags);
+TLI_DEFINE_ENUM_INTERNAL(regcomp)
+TLI_DEFINE_STRING_INTERNAL("regcomp")
+/// size_t regerror(int errcode, const regex_t *preg, char *errbuf,
+///                 size_t errbuf_size);
+TLI_DEFINE_ENUM_INTERNAL(regerror)
+TLI_DEFINE_STRING_INTERNAL("regerror")
+/// int regexec(const regex_t *preg, const char *string, size_t nmatch,
+///             regmatch_t pmatch[], int eflags);
+TLI_DEFINE_ENUM_INTERNAL(regexec)
+TLI_DEFINE_STRING_INTERNAL("regexec")
+/// void regfree(regex_t *preg);
+TLI_DEFINE_ENUM_INTERNAL(regfree)
+TLI_DEFINE_STRING_INTERNAL("regfree")
+#endif // INTEL_CUSTOMIZATION
 /// int remove(const char *path);
 TLI_DEFINE_ENUM_INTERNAL(remove)
 TLI_DEFINE_STRING_INTERNAL("remove")

@@ -887,6 +887,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_lxstat:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_regcomp:
+  case LibFunc_regerror:
+  case LibFunc_regexec:
+  case LibFunc_regfree:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_sigsetjmp:
     return Changed;
   case LibFunc_sysv_signal:

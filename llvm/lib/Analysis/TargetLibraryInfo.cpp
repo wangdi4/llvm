@@ -387,6 +387,10 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_raise);
     TLI.setUnavailable(LibFunc_readdir);
     TLI.setUnavailable(LibFunc_readdir64);
+    TLI.setUnavailable(LibFunc_regcomp);
+    TLI.setUnavailable(LibFunc_regerror);
+    TLI.setUnavailable(LibFunc_regexec);
+    TLI.setUnavailable(LibFunc_regfree);
     TLI.setUnavailable(LibFunc_scandir);
     TLI.setUnavailable(LibFunc_select);
     TLI.setUnavailable(LibFunc_setgid);
@@ -1839,6 +1843,31 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_regcomp:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_regerror:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_regexec:
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isIntegerTy());
+
+  case LibFunc_regfree:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_sigsetjmp:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
