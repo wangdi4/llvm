@@ -97,6 +97,7 @@
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/BasicBlock.h"
@@ -118,6 +119,7 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -125,6 +127,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include <algorithm>
 #include <cassert>
 #include <iterator>
 #include <limits>
@@ -137,6 +140,10 @@ using namespace llvm;
 
 static const unsigned UninitializedAddressSpace =
     std::numeric_limits<unsigned>::max();
+
+static cl::opt<bool> RewriteOpenCLBuiltins("infer-as-rewrite-opencl-bis",
+    cl::init(false));
+
 
 namespace {
 
@@ -234,6 +241,154 @@ static SmallVector<Value *, 2> getPointerOperands(const Value &V) {
   default:
     llvm_unreachable("Unexpected instruction type.");
   }
+}
+
+static void mangleAddressSpacePointer(PointerType *PTy,
+                                      SmallVectorImpl<char> &Out) {
+  Out.clear();
+  unsigned AS = PTy->getAddressSpace();
+  if (AS == 0) {
+    raw_svector_ostream(Out) << "P";
+    return;
+  }
+
+  SmallString<4> ASNum;
+  raw_svector_ostream(ASNum) << "AS" << AS;
+  raw_svector_ostream(Out) << "PU" << ASNum.size() << ASNum;
+}
+
+// Construct a new name that corresponds to th \p CI, but with an argument of
+// another type (matching the \p NewV). Note that this function does not handle
+// arbitraty mangled functions: it only works with a subset of OpenCL builtins
+// which guaranteed to not contain unexpected type names.
+static void remangleOpenCLBuiltin(CallInst *CI,
+                                  Value *OldV,
+                                  Value *NewV,
+                                  raw_ostream &NewName) {
+   Function *F = CI->getCalledFunction();
+   assert(F && "Indirect call is not supported.");
+   StringRef OldName = F->getName();
+
+   PointerType *OldVTy = cast<PointerType>(OldV->getType());
+
+   // Construct the mangling string for a pointer in the flat address space,
+   // e.g. PU3AS4 if flat address space is 4.
+   SmallString<8> FlatASMangling;
+   mangleAddressSpacePointer(OldVTy, FlatASMangling);
+
+   // Construct the mangling string for a pointer in a concrete address space,
+   // e.g. PU3AS1 if a concrete address space is global.
+   SmallString<8> ReplacementASMangling;
+   mangleAddressSpacePointer(
+       cast<PointerType>(NewV->getType()),
+       ReplacementASMangling);
+
+   // If we have more than one pointer argument in the flat address
+   // space, it will be mangled several times, so we need to know
+   // which occurence of FlatASMangling has to be replaced.
+   unsigned PtrArgOccurence = 0;
+   for (Value *Op : CI->arg_operands()) {
+     Type *OpTy = Op->getType();
+     if (PointerType *OpPTy = dyn_cast<PointerType>(OpTy)) {
+       if (OpPTy->getAddressSpace() == OldVTy->getAddressSpace()) {
+         ++PtrArgOccurence;
+         if (Op == OldV)
+           break;
+       }
+     }
+   }
+
+   size_t PtrManglingStart = 0;
+   for (unsigned PtrManglingNo = 0; PtrManglingNo < PtrArgOccurence;
+        ++PtrManglingNo) {
+     PtrManglingStart = OldName.find(FlatASMangling, PtrManglingStart);
+     assert(PtrManglingStart != OldName.npos &&
+            "Could not find Nth occurence of a pointer mangling substring.");
+   }
+   size_t PtrManglingEnd = PtrManglingStart + FlatASMangling.size();
+
+   NewName << OldName.substr(0, PtrManglingStart);
+   NewName << ReplacementASMangling;
+   NewName << OldName.substr(PtrManglingEnd);
+}
+
+static bool rewriteOpenCLBuiltinOperands(CallInst *CI,
+                                         Value *OldV,
+                                         Value *NewV) {
+  Function *OldF = CI->getCalledFunction();
+  if (!OldF)
+    return false; // indirect call
+
+  StringRef OldName = OldF->getName();
+  const char* SupportedBuiltins[] = {
+    "_Z5fract",                                    "_Z5frexp",
+    "_Z8lgamma_r",                                 "_Z4modf",
+    "_Z6remquo",                                   "_Z6sincos",
+    "_Z6vload2",                                   "_Z6vload8",
+    "_Z6vload3",                                   "_Z7vload16",
+    "_Z6vload4",                                   "_Z7vstore2",
+    "_Z7vstore3",                                  "_Z7vstore8",
+    "_Z7vstore4",                                  "_Z8vstore16",
+    "_Z11vloada_half",                             "_Z12vloada_half2",
+    "_Z12vloada_half3",                            "_Z12vloada_half4",
+    "_Z12vloada_half8",                            "_Z13vloada_half16",
+    "_Z11vstore_half",                             "_Z12vstore_half2",
+    "_Z12vstore_half3",                            "_Z12vstore_half4",
+    "_Z12vstore_half8",                            "_Z13vstore_half16",
+    "_Z11atomic_init",                             "_Z12atomic_store",
+    "_Z21atomic_store_explicit",                   "_Z11atomic_load",
+    "_Z20atomic_load_explicit",                    "_Z15atomic_exchange",
+    "_Z24atomic_exchange_explicit",                "_Z30atomic_compare_exchange_strong",
+    "_Z39atomic_compare_exchange_strong_explicit", "_Z28atomic_compare_exchange_weak",
+    "_Z37atomic_compare_exchange_weak_explicit",   "_Z16atomic_fetch_add",
+    "_Z25atomic_fetch_add_explicit",               "_Z16atomic_fetch_sub",
+    "_Z25atomic_fetch_sub_explicit",               "_Z15atomic_fetch_or",
+    "_Z24atomic_fetch_or_explicit",                "_Z16atomic_fetch_xor",
+    "_Z25atomic_fetch_xor_explicit",               "_Z16atomic_fetch_and",
+    "_Z25atomic_fetch_and_explicit",               "_Z16atomic_fetch_min",
+    "_Z25atomic_fetch_min_explicit",               "_Z16atomic_fetch_max",
+    "_Z25atomic_fetch_max_explicit",               "_Z24atomic_flag_test_and_set",
+    "_Z33atomic_flag_test_and_set_explicit",       "_Z17atomic_flag_clear",
+    "_Z26atomic_flag_clear_explicit",
+    // TODO: "_Z14enqueue_marker",
+    // TODO: "wait_group_events",
+  };
+
+  if (std::end(SupportedBuiltins) ==
+      std::find_if(std::begin(SupportedBuiltins),
+                   std::end(SupportedBuiltins),
+                   [&OldName](const char *Supported) {
+                     return OldName.startswith(Supported);
+                   })) {
+    return false;
+  }
+
+  SmallString<256> NewName;
+  raw_svector_ostream NewNameStream(NewName);
+  remangleOpenCLBuiltin(CI, OldV, NewV, NewNameStream);
+
+  Type *RetTy = CI->getType();
+  SmallVector<Type *, 4> NewTypes;
+  for (Value *Op : CI->arg_operands()) {
+    NewTypes.push_back((Op == OldV) ? NewV->getType() : Op->getType());
+  }
+
+  Function *NewF = cast<Function>(
+      CI->getModule()->getOrInsertFunction(
+          NewName,
+          FunctionType::get(RetTy, NewTypes,
+                            OldF->getFunctionType()->isVarArg()),
+          OldF->getAttributes()).getCallee());
+
+  for (unsigned i = 0; i < CI->getNumArgOperands(); ++i) {
+    if (CI->getArgOperand(i) == OldV) {
+      CI->setArgOperand(i, NewV);
+      break;
+    }
+  }
+  CI->setCalledFunction(NewF);
+
+  return true;
 }
 
 // TODO: Move logic to TTI?
@@ -368,6 +523,11 @@ InferAddressSpaces::collectFlatAddressExpressions(Function &F) const {
     } else if (auto *ASC = dyn_cast<AddrSpaceCastInst>(&I)) {
       if (!ASC->getType()->isVectorTy())
         PushPtrOperand(ASC->getPointerOperand());
+    } else if (auto *CI = dyn_cast<CallInst>(&I)) {
+      for (Value *Op : CI->arg_operands()) {
+        if (isa<PointerType>(Op->getType()))
+          PushPtrOperand(Op);
+      }
     }
   }
 
@@ -925,6 +1085,13 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
       if (auto *II = dyn_cast<IntrinsicInst>(CurUser)) {
         if (rewriteIntrinsicOperands(II, V, NewV))
           continue;
+      }
+
+      if (RewriteOpenCLBuiltins) {
+        if (auto *CI = dyn_cast<CallInst>(CurUser)) {
+          if (rewriteOpenCLBuiltinOperands(CI, V, NewV))
+            continue;
+        }
       }
 
       if (isa<Instruction>(CurUser)) {
