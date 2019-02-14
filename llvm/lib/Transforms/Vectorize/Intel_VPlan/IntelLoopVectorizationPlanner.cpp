@@ -189,6 +189,16 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     std::shared_ptr<VPlan> Plan =
         buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
 
+    if (VPlanUseVPEntityInstructions) {
+      VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+      // Loop entities may be not created in some cases.
+      VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
+      VPBuilder VPIRBuilder;
+      LE->insertVPInstructions(VPIRBuilder);
+      LLVM_DEBUG(Plan->setName("After insertion VPEntities instructions\n");
+                 dbgs() << *Plan;);
+    }
+
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
 

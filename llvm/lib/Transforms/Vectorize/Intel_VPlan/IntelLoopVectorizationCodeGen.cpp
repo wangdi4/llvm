@@ -352,13 +352,19 @@ void VPOVectorizationLegality::parseMinMaxReduction(
   //   br i1 %exitcond, label %for.end, label %for.body
 
   PHINode *LoopHeaderPhiNode = nullptr;
-  PHINode *MinMaxResultPhi = nullptr;
+  Instruction *MinMaxResultPhi = nullptr;
   Value *StartV = nullptr;
   if (doesReductionUsePhiNodes(RedVarPtr, LoopHeaderPhiNode, StartV)) {
-    for (auto PnUser : LoopHeaderPhiNode->users())
+    for (auto PnUser : LoopHeaderPhiNode->users()) {
+      if (TheLoop->isLoopInvariant(PnUser))
+        continue;
       if (auto Phi = dyn_cast<PHINode>(PnUser))
-        if (!TheLoop->isLoopInvariant(Phi))
-          MinMaxResultPhi = Phi;
+        MinMaxResultPhi = Phi;
+      else if (auto Select = dyn_cast<SelectInst>(PnUser))
+        MinMaxResultPhi = Select;
+      if (MinMaxResultPhi != nullptr)
+        break;
+    }
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
     RecurrenceDescriptor RD(StartV, MinMaxResultPhi, Kind, FMF, Mrk,

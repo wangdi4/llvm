@@ -834,6 +834,45 @@ void VPInstruction::execute(VPTransformState &State) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+const char *VPInstruction::getOpcodeName(unsigned Opcode) {
+  switch (Opcode) {
+  case VPInstruction::Not:
+    return "not";
+#if INTEL_CUSTOMIZATION
+  case VPInstruction::AllZeroCheck:
+    return "all-zero-check";
+  case VPInstruction::Pred:
+    return "block-predicate";
+  case VPInstruction::SMax:
+    return "smax";
+  case VPInstruction::UMax:
+    return "umax";
+  case VPInstruction::SMin:
+    return "smin";
+  case VPInstruction::UMin:
+    return "umin";
+  case VPInstruction::FMax:
+    return "fmax";
+  case VPInstruction::FMin:
+    return "fmin";
+  case VPInstruction::InductionInit:
+    return "induction-init";
+  case VPInstruction::InductionInitStep:
+    return "induction-init-step";
+  case VPInstruction::InductionFinal:
+    return "induction-final";
+  case VPInstruction::ReductionInit:
+    return "reduction-init";
+  case VPInstruction::ReductionFinal:
+    return "reduction-final";
+  case VPInstruction::AllocatePrivate:
+    return "allocate-priv";
+#endif
+  default:
+    return Instruction::getOpcodeName(Opcode);
+  }
+}
+
 void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
   O << " +\n" << Indent << "\"EMIT ";
   print(O);
@@ -859,36 +898,48 @@ void VPInstruction::print(raw_ostream &O) const {
 #endif /* INTEL_CUSTOMIZATION */
 
   switch (getOpcode()) {
-  case VPInstruction::Not:
-    O << "not";
-    break;
 #if INTEL_CUSTOMIZATION
-  case VPInstruction::AllZeroCheck:
-    O << "all-zero-check";
-    break;
-  case VPInstruction::Pred:
-    O << "block-predicate";
-    break;
-  case VPInstruction::SMax:
-    O << "smax";
-    break;
-  case VPInstruction::UMax:
-    O << "umax";
-    break;
   case Instruction::Br:
     cast<VPBranchInst>(this)->print(O);
     return;
   case Instruction::GetElementPtr:
-    O << Instruction::getOpcodeName(getOpcode());
+    O << getOpcodeName(getOpcode());
     if (auto *VPGEP = dyn_cast<const VPGEPInstruction>(this)) {
       if (VPGEP->isInBounds()) {
         O << " inbounds";
       }
     }
     break;
+  case VPInstruction::InductionInit:
+    O << getOpcodeName(getOpcode()) << "{"
+      << getOpcodeName(cast<const VPInductionInit>(this)->getBinOpcode())
+      << "}";
+    break;
+  case VPInstruction::InductionInitStep:
+    O << getOpcodeName(getOpcode()) << "{"
+      << getOpcodeName(cast<const VPInductionInitStep>(this)->getBinOpcode())
+      << "}";
+    break;
+  case VPInstruction::InductionFinal: {
+    O << getOpcodeName(getOpcode());
+    const VPInductionFinal *Ind = cast<const VPInductionFinal>(this);
+    if (Ind->getBinOpcode() != Instruction::BinaryOpsEnd)
+      O << "{" << getOpcodeName(Ind->getBinOpcode()) << "}";
+    break;
+  }
+  case VPInstruction::ReductionFinal: {
+    O << getOpcodeName(getOpcode()) << "{";
+    Type *Ty = getType();
+    if (Ty->isIntegerTy()) {
+      O << (cast<const VPReductionFinal>(this)->isSigned() ? "s_" : "u_");
+    }
+    O << getOpcodeName(cast<const VPReductionFinal>(this)->getBinOpcode())
+      << "}";
+    break;
+  }
 #endif
   default:
-    O << Instruction::getOpcodeName(getOpcode());
+    O << getOpcodeName(getOpcode());
   }
 
 #if INTEL_CUSTOMIZATION
@@ -910,6 +961,10 @@ void VPInstruction::print(raw_ostream &O) const {
       PrintValueWithBB(i);
     }
   } else {
+    if (getOpcode() == VPInstruction::AllocatePrivate) {
+      O << " ";
+      getType()->print(O);
+    }
 #endif // INTEL_CUSTOMIZATION
     for (const VPValue *Operand : operands()) {
       O << " ";
@@ -940,7 +995,6 @@ void VPInstruction::print(raw_ostream &O) const {
 // LoopVectorBody basic block was created for this; introduces additional
 // basic blocks as needed, and fills them all.
 void VPlan::execute(VPTransformState *State) {
-
 #if INTEL_CUSTOMIZATION
   // The community version and "vpo" version of "execute" for VPlan, diverge
   // considerably. Instead of having INTEL_CUSTOMIZATION for every few lines
@@ -1748,7 +1802,8 @@ void VPBranchInst::print(raw_ostream &O) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void VPValue::replaceAllUsesWith(VPValue *NewVal, VPLoop *Loop) {
+void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop) {
+  assert(NewVal && "Can't replace uses with null value");
   assert(getType() == NewVal->getType() && "Incompatible data types");
   unsigned Cnt = 0;
   while (getNumUsers() > Cnt) {

@@ -89,6 +89,10 @@ private:
   // Hold the underlying Val, if any, attached to this VPValue.
   Value *UnderlyingVal;
 
+  /// Replace all uses of *this with \p NewVal. If the \p Loop is not null then
+  /// replacement is restricted by VPInstructions from the \p Loop.
+  void replaceAllUsesWithImpl(VPValue* NewVal, VPLoop* L);
+
 protected:
 
 #if INTEL_CUSTOMIZATION
@@ -131,6 +135,7 @@ public:
     VPExternalDefSC,
     VPMetadataAsValueSC,
     VPExternalUseSC,
+    VPPrivateMemorySC,
   };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
@@ -190,10 +195,15 @@ void printAsOperand(raw_ostream &OS) const {
            });
   }
 
-  /// Replace all uses of *this with \p NewVal. If the \p Loop is not null then
-  /// replacement is restricted by VPInstructions from the \p Loop.
-  void replaceAllUsesWith(VPValue *NewVal, VPLoop *L = nullptr);
+  /// Replace all uses of *this with \p NewVal.
+  void replaceAllUsesWith(VPValue *NewVal) {
+    replaceAllUsesWithImpl(NewVal, nullptr);
+  }
 
+  /// Replace all uses of *this with \p NewVal in the \p Loop.
+  void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop) {
+    replaceAllUsesWithImpl(NewVal, &Loop);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
@@ -308,6 +318,14 @@ public:
     for (int I = 0, E = getNumOperands(); I != E; ++I)
       if (getOperand(I) == From)
         setOperand(I, To);
+  }
+
+  /// Return index of a given \p Operand.
+  int getOperandIndex(const VPValue *Operand) const {
+    auto It = llvm::find(make_range(op_begin(), op_end()), Operand);
+    if (It != op_end())
+      return std::distance(op_begin(), It);
+    return -1;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -533,6 +551,7 @@ public:
     return V->getVPValueID() == VPMetadataAsValueSC;
   }
 };
+
 } // namespace vpo
 #endif // INTEL_CUSTOMIZATION
 } // namespace llvm

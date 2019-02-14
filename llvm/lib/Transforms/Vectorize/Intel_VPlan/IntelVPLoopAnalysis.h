@@ -26,6 +26,7 @@
 using namespace llvm;
 
 extern cl::opt<bool> LoopEntityImportEnabled;
+extern cl::opt<bool> VPlanUseVPEntityInstructions;
 
 namespace llvm {
 
@@ -41,7 +42,9 @@ class VPlan;
 class VPValue;
 class VPConstant;
 class VPInstruction;
+class VPPHINode;
 class VPBlockBase;
+class VPBuilder;
 
 class VPLoopAnalysisBase {
 protected:
@@ -216,6 +219,9 @@ public:
   static inline bool classof(const VPLoopEntity *V) {
     return V->getID() == Reduction;
   }
+
+  unsigned getReductionOpcode() const;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void dump(raw_ostream &OS) const;
 #endif
@@ -271,7 +277,7 @@ public:
   }
 
   /// Return stride
-  const VPValue *getStep() const { return Step; }
+  VPValue *getStep() const { return Step; }
 
   /// Return true if the induction needs a close-form generation at the
   /// beginning of the loop body. These cases are: explicit linears w/o
@@ -307,7 +313,7 @@ public:
   void dump(raw_ostream &OS) const override;
 #endif
 private:
-  const VPValue *Step;
+  VPValue *Step;
   unsigned int BinOpcode; // Explicitly set opcode.
   bool NeedCloseForm = false;
 };
@@ -494,16 +500,20 @@ public:
     return nullptr;
   }
 
-  VPLoopEntityList(VPlan *P) : Plan(P) {}
+  VPLoopEntityList(VPlan &P, VPLoop &L) : Plan(P), Loop(L) {}
 
   VPValue *getReductionIdentity(const VPReduction *Red) const;
   static bool isMinMaxInclusive(const VPReduction &Red);
+
+  void insertVPInstructions(VPBuilder &Builder);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS, const VPBlockBase *LoopHeader = nullptr) const;
   void dump() const { dump(errs()); }
 #endif
 private:
-  VPlan *Plan;
+  VPlan &Plan;
+  VPLoop &Loop;
 
   VPReductionList ReductionList;
   VPInductionList InductionList;
@@ -564,6 +574,53 @@ private:
     }
   }
 
+  // Create private memory allocator for VPLoopEntity if the corresponding
+  // memory descriptor exists.
+  // If the memory descriptor exists, stores the descriptor's alloca instruction
+  // into \p AI, and returns a newly created VPAllocatePrivate. In case of
+  // in-register entity (i.e. no descriptor exists), the nullptr is stored in \p
+  // AI and nullptr is returned.
+  VPValue *createPrivateMemory(VPLoopEntity &E, VPBuilder &Builder,
+                               VPValue *&AI);
+
+  // Process initial value \p Init of entity \p E.
+  // If the private memory \p PrivateMem is not null then an instruction
+  // to store the \p Init into \p PrivateMem is created. Then, all occurences of
+  // the scalar memory \p AI are replaced, in the loop, by \p PrivateMemory.
+  // Also all relevant occurences of the start value \p Start are replaced by
+  // the new \p Init.
+  void processInitValue(VPLoopEntity &E, VPValue *AI, VPValue *PrivateMem,
+                        VPBuilder &Builder, VPValue &Init, Type *Ty,
+                        VPValue &Start);
+
+  // Process final value \p Final of entity \p E. The store to original memory
+  // \p AI is created and original exit value \p Exit ocurrences are replaced by
+  // the new final value \p Final, in all external uses.
+  void processFinalValue(VPLoopEntity &E, VPValue *AI, VPBuilder &Builder,
+                         VPValue &Final, Type *Ty, VPValue *Exit);
+
+  // Create "close-form calculation" for induction. The close-form
+  // calculation is calculation by the formula v = i MUL step OP v0. In case of
+  // the loop inductions, the need of the close-form means that we need
+  // up-to-date induction value at the beginning of each loop iteration. This
+  // cases are, for example, when induction is used after its increment or is
+  // updated inside a function. The example of the first case is below.
+  // DO
+  //   %ind = phi(init, %inc_ind)
+  //   ... uses of %ind
+  //   %inc_ind = %ind OP step   // we can't replace step with VF here due to
+  //   ... uses of inc_ind       // the followed uses.
+  // ENDDO
+  // The close-form calculation can be done in two ways: insert calculation
+  // exactly by the formula at the beginning of the loop, or insert increment of
+  // the original induction in the end of the loop, ignoring any updates inside
+  // loop body. The second way increases register pressure but seems more
+  // effective in terms of run-time.
+  void createInductionCloseForm(VPInduction *Induction, VPBuilder &Builder,
+                                VPValue &InitStep, VPValue &PrivateMem);
+
+  VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
+  VPPHINode *findInductionStartPhi(const VPInduction *Induction) const;
 };
 
 class VPEntityImportDescr {

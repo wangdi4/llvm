@@ -774,11 +774,16 @@ public:
       Pred,
       SMax,
       UMax,
+      FMax,
+      SMin,
+      UMin,
+      FMin,
       InductionInit,
       InductionInitStep,
       InductionFinal,
       ReductionInit,
       ReductionFinal,
+      AllocatePrivate,
   };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
@@ -911,6 +916,8 @@ public:
 
   /// Print the VPInstruction.
   void print(raw_ostream &O) const;
+
+  static const char *getOpcodeName(unsigned Opcode);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
@@ -1402,6 +1409,31 @@ private:
   bool Signed;
 };
 
+// VPInstruction to allocate private memory. This is translated into
+// allocation of a private memory in the function entry block. This instruction
+// is not supposed to vectorize alloca instructions that appear inside the loop
+// for arrays of a variable size.
+class VPAllocatePrivate : public VPInstruction {
+public:
+  VPAllocatePrivate(Type *Ty, bool IsSoa = false)
+      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
+        IsSOALayout(IsSoa) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::AllocatePrivate;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  bool isSOALayout() const { return IsSOALayout; }
+
+private:
+  bool IsSOALayout;
+};
 #endif // INTEL_CUSTOMIZATION
 
 /// A VPPredicateRecipeBase is a pure virtual recipe which supports predicate
@@ -2636,7 +2668,8 @@ public:
 
     std::unique_ptr<VPLoopEntityList> &Ptr = LoopEntities[L];
     if (!Ptr) {
-      VPLoopEntityList *E = new VPLoopEntityList(this);
+      VPLoopEntityList *E =
+          new VPLoopEntityList(*this, *(const_cast<VPLoop *>(L)));
       Ptr.reset(E);
     }
     return Ptr.get();
