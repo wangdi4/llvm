@@ -18,22 +18,21 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: %[[I:.*]] = trunc <4 x i64> %vec.ind to <4 x i32>
 ; CHECK: store <4 x i32>
 ; CHECK: [[VP1:VPlannedBB[0-9]+]]:
-; CHECK: phi i64 [{{.*}}, %[[VP1]] ], [ 0, %VPlannedBB{{[0-9]*}} ]
-; CHECK: %A_val.vec = phi <4 x i32>
+; CHECK: phi {{.*i64.*}} [{{.*}}, %[[VP1]] ], [ {{.*}}, %VPlannedBB{{[0-9]*}} ]
+; CHECK: [[A_val_vec:%.*]] = phi <4 x i32>
 ; CHECK: %[[B_j:.*]] = load i32, i32*
 ; CHECK: %[[B_j_insert:.*]] = insertelement <4 x i32> undef, i32 %[[B_j]], i32 0
 ; CHECK: %[[B_j_splat:.*]] = shufflevector <4 x i32> %[[B_j_insert]], <4 x i32> undef, <4 x i32> zeroinitializer
 ; CHECK: add <4 x i32> %[[B_j_splat]], %[[I]]
-; CHECK: add <4 x i32> %{{.*}}, %A_val.vec
+; CHECK: add <4 x i32> %{{.*}}, [[A_val_vec]]
 ; CHECK: [[VP2:VPlannedBB[0-9]+]]:
-; CHECK:  %add6.lcssa.vec = phi <4 x i32> 
+; CHECK:  [[add6_lcssa_vec:%.*]] = phi <4 x i32> 
 ; CHECK:  getelementptr i32, i32* %A, i64 {{.*}}
-; CHECK:  store <4 x i32> %add6.lcssa.vec, <4 x i32>*
+; CHECK:  store <4 x i32> [[add6_lcssa_vec]], <4 x i32>*
 
 
 define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %iCount, i32 %jCount, i32 %c) local_unnamed_addr #0 {
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %0
@@ -82,8 +81,7 @@ outer_2:                                      ; preds = %inner_loop_exit, %1
   br label %.outer
 
 .outer:                                    ; preds = %.outer.loopexit, %DIR.QUAL.LIST.END.2
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
   br label %DIR.QUAL.LIST.END.4
 
 DIR.QUAL.LIST.END.4:                              ; preds = %.outer
@@ -91,7 +89,10 @@ DIR.QUAL.LIST.END.4:                              ; preds = %.outer
 
 }
 
-declare void @llvm.intel.directive(metadata)
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #1
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #1
 
 

@@ -231,6 +231,12 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
       continue;
     const auto Inst = cast<const VPInstruction>(&Recipe);
 
+    // Ignore instruction used to mark the block predicate and for setting
+    // up uniform inner loop control flow.
+    if (Inst->getOpcode() == VPInstruction::AllZeroCheck ||
+        Inst->getOpcode() == VPInstruction::Pred)
+      continue;
+
     if (isa<const VPBranchInst>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->HIR.isValid()))
       continue;

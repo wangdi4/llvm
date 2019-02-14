@@ -154,14 +154,9 @@ public:
                              {LHS, RHS});
   }
 
-  VPValue *createPred(VPValue *Operand) {
-    return createInstruction(VPInstruction::Pred, Operand->getBaseType(),
-                             {Operand});
-  }
-
-  VPValue *createNot(VPValue *Operand) {
-    return createInstruction(VPInstruction::Not, Operand->getBaseType(),
-                             {Operand});
+  VPValue *createAllZeroCheck(VPValue *Operand) {
+    return createInstruction(VPInstruction::AllZeroCheck,
+                             Operand->getBaseType(), {Operand});
   }
 
   VPValue *createAnd(VPValue *LHS, VPValue *RHS) {
@@ -169,14 +164,24 @@ public:
                              {LHS, RHS});
   }
 
+  VPValue *createNot(VPValue *Operand) {
+    return createInstruction(VPInstruction::Not, Operand->getBaseType(),
+                             {Operand});
+  }
+
   VPValue *createOr(VPValue *LHS, VPValue *RHS) {
     return createInstruction(Instruction::BinaryOps::Or, LHS->getBaseType(),
                              {LHS, RHS});
   }
 
-  VPValue *createAllZero(VPValue *Operand) {
-    return createInstruction(VPInstruction::AllZero, Operand->getBaseType(),
+  VPValue *createPred(VPValue *Operand) {
+    return createInstruction(VPInstruction::Pred, Operand->getBaseType(),
                              {Operand});
+  }
+
+  VPValue *createSelect(VPValue *Mask, VPValue *Tval, VPValue *Fval) {
+    return createInstruction(Instruction::Select, Tval->getBaseType(),
+                             {Mask, Tval, Fval});
   }
 #else
 

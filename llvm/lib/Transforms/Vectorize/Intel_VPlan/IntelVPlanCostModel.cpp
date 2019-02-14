@@ -297,10 +297,14 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
     // VPValue-based operands overload.
     return 0;
   }
-  case VPInstruction::Pred: // This is a no-op - used to mark block predicate.
+#if INTEL_CUSTOMIZATION
+  // TODO - costmodel support for AllZeroCheck.
+  case VPInstruction::AllZeroCheck:
     return 0;
-  case VPInstruction::AllZero: // TODO - costmodel support for AllZero.
+  // This is a no-op - used to mark block predicate.
+  case VPInstruction::Pred:
     return 0;
+#endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
   case Instruction::Store:
     return VPlanCostModel::getLoadStoreCost(VPInst);

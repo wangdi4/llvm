@@ -34,7 +34,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: REGION: {{region[0-9]+}} (BP: NULL)
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: <Empty Block>
+; CHECK-NEXT: i1 [[TOPTESTNOT:%vp[0-9]+]] = not i1 [[TOPTEST]]
 ; CHECK-NEXT: Condition({{BB[0-9]+}}): i1 [[TOPTEST]] = icmp
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[TOPTEST]]), [[INNERLOOPREGION:loop[0-9]+]](!i1 [[TOPTEST]])
 ; CHECK-NEXT: no PREDECESSORS
@@ -50,7 +50,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: [[HEADER]] (BP: NULL) :
 ; CHECK-NEXT: phi
 ; CHECK-NEXT: phi
-; CHECK-NEXT: i1 [[MASKPHI:%vp[0-9]+]] = phi  [ i1 [[TOPTEST]], [[PREHEADER]] ],  [ i1 [[BOTTOMTEST:%vp[0-9]+]], [[LATCH:BB[0-9]+]] ]
+; CHECK-NEXT: i1 [[MASKPHI:%vp[0-9]+]] = phi  [ i1 [[TOPTESTNOT]], [[PREHEADER]] ],  [ i1 [[BOTTOMTEST:%vp[0-9]+]], [[LATCH:BB[0-9]+]] ]
 ; CHECK-NEXT: SUCCESSORS(1):{{mask_region[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(2): [[LATCH]] [[PREHEADER]]
 ; CHECK-EMPTY:
@@ -77,7 +77,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[REGIONEXIT]] (BP: NULL) :
-; CHECK-NEXT: i1 [[BOTTOMTEST]]
+; CHECK-NEXT: i1 [[BOTTOMTEST_1:%vp[0-9]+]] = icmp
+; CHECK-NEXT: i1 [[BOTTOMTEST]] = and i1 [[BOTTOMTEST_1]] i1 [[MASKPHI]]
+; CHECK-NEXT: select i1 [[BOTTOMTEST]]
+; CHECK-NEXT: select i1 [[BOTTOMTEST]]
+; CHECK-NEXT: i1 [[ALLZEROCHECK:%vp[0-9]+]] = all-zero-check i1 [[BOTTOMTEST]]
+; CHECK-NEXT: i1 [[NOTALLZEROCHECK:%vp[0-9]+]] = not i1 [[ALLZEROCHECK]]
 ; CHECK-NEXT: no SUCCESSORS
 ; CHECK-NEXT: PREDECESSORS(2): [[LOOPBODYHEADER]] [[MASKREGIONENTRY]]
 ; CHECK-EMPTY:
@@ -87,8 +92,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-NEXT: [[LATCH]] (BP: NULL) :
 ; CHECK-NEXT: <Empty Block>
-; CHECK-NEXT: Condition([[REGIONEXIT]]): i1 [[BOTTOMTEST]] = icmp
-; CHECK-NEXT: SUCCESSORS(2):[[HEADER]](i1 [[BOTTOMTEST]]), [[EXIT:BB[0-9]+]](!i1 [[BOTTOMTEST]])
+; CHECK-NEXT: Condition([[REGIONEXIT]]): i1 [[NOTALLZEROCHECK]] = not
+; CHECK-NEXT: SUCCESSORS(2):[[HEADER]](i1 [[NOTALLZEROCHECK]]), [[EXIT:BB[0-9]+]](!i1 [[NOTALLZEROCHECK]])
 ; CHECK-NEXT: PREDECESSORS(1): [[MASKREGION]]
 ; CHECK-EMPTY:
 

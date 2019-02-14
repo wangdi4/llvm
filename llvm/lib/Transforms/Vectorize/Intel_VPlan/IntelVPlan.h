@@ -318,7 +318,9 @@ struct VPTransformState {
     SmallDenseMap<VPBasicBlock *, BasicBlock *> VPBB2IRBB;
 
 #if INTEL_CUSTOMIZATION
-    SmallDenseMap<class VPBasicBlock *, class BasicBlock *> EdgesToFix;
+    /// Vector of VPBasicBlocks whose terminator instruction needs to be fixed
+    /// up at the end of vector code generation.
+    SmallVector<VPBasicBlock *, 8> VPBBsToFix;
 #endif
     CFGState() : PrevVPBB(nullptr), PrevBB(nullptr), LastBB(nullptr) {}
   } CFG;
@@ -589,6 +591,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPlanVLSAnalysis;
   friend class VPlanVLSAnalysisHIR;
   friend class VPlanVerifier;
+  friend class VPOCodeGen;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
@@ -761,7 +764,12 @@ public:
   // VPBasicBlock and even redundant semi-phis blending exactly the same
   // definitions.
   enum {
-      Not = Instruction::OtherOpsEnd + 1, AllZero, Pred, SemiPhi, SMax, UMax,
+      Not = Instruction::OtherOpsEnd + 1,
+      AllZeroCheck,
+      Pred,
+      SemiPhi,
+      SMax,
+      UMax,
   };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
@@ -954,7 +962,15 @@ class VPPHINode : public VPInstruction {
 private:
   SmallVector<VPBasicBlock *, 2> VPBBUsers;
 
+  // Used to indicate that this PHI needs to be blended using selects during
+  // vector code generation. This can be removed once we make the phi->select
+  // transformation explicit in VPlan.
+  bool Blend = false;
+
 public:
+  void setBlend(bool B) { Blend = B; }
+  bool getBlend() const { return Blend; }
+
   using vpblock_iterator = SmallVectorImpl<VPBasicBlock *>::iterator;
   using const_vpblock_iterator =
       SmallVectorImpl<VPBasicBlock *>::const_iterator;
@@ -2021,11 +2037,22 @@ public:
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() { return OriginalBB; }
 
+  // Pair of incoming edge mask and predecessor basic block. This
+  // information is used to convert phis to select blends.
+  using MaskBlockPair = std::pair<VPValue *, VPBasicBlock *>;
+
+  void addMaskBlockPair(VPValue *Mask, VPBasicBlock *Block) {
+    IncomingMasks.push_back(std::make_pair(Mask, Block));
+  }
+
+  SmallVectorImpl<MaskBlockPair> &getIncomingMasks() { return IncomingMasks; }
+
 private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
   BasicBlock *OriginalBB;
+  SmallVector<MaskBlockPair, 4> IncomingMasks;
 #endif
   /// Create an IR BasicBlock to hold the instructions vectorized from this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.

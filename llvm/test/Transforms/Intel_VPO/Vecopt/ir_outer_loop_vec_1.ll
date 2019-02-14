@@ -16,8 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define void @foo() local_unnamed_addr #0 {
 entry:
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.inc6, %entry
@@ -40,8 +39,7 @@ for.inc6:                                         ; preds = %for.body3
   br i1 %exitcond21, label %for.end8, label %for.cond1.preheader
 
 for.end8:                                         ; preds = %for.inc6
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %for.end8
@@ -51,14 +49,11 @@ DIR.QUAL.LIST.END.1:                              ; preds = %for.end8
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start(i64, i8* nocapture) #1
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #1
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual(metadata) #1
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end(i64, i8* nocapture) #1

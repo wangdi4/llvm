@@ -31,6 +31,11 @@
 namespace llvm {
 namespace vpo {
 
+class VPValue;
+class VPInstruction;
+class VPPHINode;
+struct VPTransformState;
+
 class VPOVectorizationLegality {
 public:
   VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE,
@@ -326,6 +331,8 @@ public:
 
   // Widen the given instruction to VF wide vector instruction
   void vectorizeInstruction(Instruction *Inst);
+  void vectorizeInstruction(VPInstruction *VPInst);
+
   // Vectorize the given instruction that cannot be widened using serialization.
   // This is done using a sequence of extractelement, Scalar Op, InsertElement
   // instructions.
@@ -346,6 +353,7 @@ public:
   // has not been widened, we widen it by VF and store it in WidenMap
   // before returning the widened value
   Value *getVectorValue(Value *V);
+  Value *getVectorValue(VPValue *V);
 
   // Get widened base pointer of in-memory private variable
   Value *getVectorPrivateBase(Value *V);
@@ -359,6 +367,7 @@ public:
   /// been vectorized but not scalarized, the necessary extractelement
   /// instruction will be generated.
   Value *getScalarValue(Value *V, unsigned Lane);
+  Value *getScalarValue(VPValue *V, unsigned Lane);
 
   /// MaskValue setter
   void setMaskValue(Value *MV) { MaskValue = MV; }
@@ -390,6 +399,10 @@ public:
     // Add NewVal as the new scalar value for lane 0
     ScalarMap[LinVal][0] = NewVal;
   }
+
+  /// Set transform state
+  void setTransformState(struct VPTransformState *SP) { State = SP; }
+
 private:
 
   /// Emit blocks of vector loop
@@ -515,7 +528,7 @@ private:
 
   /// Widen Phi node, which is not an induction variable. This Phi node
   /// is a result of merging blocks ruled out by uniform branch.
-  void widenNonInductionPhi(PHINode *Phi);
+  void widenNonInductionPhi(VPPHINode *Phi);
 
   void fixNonInductionPhis();
 
@@ -612,8 +625,17 @@ private:
   /// The data is collected per VF.
   DenseMap<unsigned, SmallPtrSet<Instruction *, 4>> Scalars;
 
-  // Map of widened value.
-  std::map<Value *, Value *> WidenMap;
+  /// Holds a mapping between the VPPHINode and the corresponding vector LLVM
+  /// IR PHI node that needs fix up. The operands of the VPPHINode are used
+  /// to setup the operands of the LLVM IR PHI node.
+  DenseMap<VPPHINode *, PHINode *> PhisToFix;
+
+  // Map of scalar LLVM IR value and widened LLVM IR value.
+  DenseMap<Value *, Value *> WidenMap;
+
+  // Map of scalar VPValue and widened LLVM IR value.
+  DenseMap<VPValue *, Value *> VPWidenMap;
+
   // Map of scalar values.
   std::map<Value *, DenseMap<unsigned, Value *>> ScalarMap;
 
@@ -627,8 +649,6 @@ private:
   // Holds the end values for each induction variable. We save the end values
   // so we can later fix-up the external users of the induction variables.
   DenseMap<PHINode *, Value *> IVEndValues;
-
-  SmallVector<PHINode *, 8> OrigInductionPhisToFix;
 
   // --- Vectorization state ---
 
@@ -648,6 +668,10 @@ private:
   Value *MaskValue;
   /// A list of all bypass blocks. The first block is the entry of the loop.
   SmallVector<BasicBlock *, 4> LoopBypassBlocks;
+
+  // Pointer to current transformation state - used to obtain VPBasicBlock to
+  // BasicBlock mapping.
+  struct VPTransformState *State;
 
   // Widen the load of a linear value. We do a scalar load and generate a vector
   // value using the linear \p Step 
@@ -699,7 +723,7 @@ private:
 
   // Widen the given PHI instruction. For now we assume this corresponds to
   // the Induction PHI.
-  void vectorizePHIInstruction(Instruction *Inst);
+  void vectorizePHIInstruction(VPPHINode *VPPhi);
 
   void vectorizeReductionPHI(PHINode *Inst);
 

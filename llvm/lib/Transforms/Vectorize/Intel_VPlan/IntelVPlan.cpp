@@ -247,45 +247,24 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
   for (VPBlockBase *PredVPBlock : make_range(Preds.rbegin(), Preds.rend())) {
 
     VPBasicBlock *PredVPBB = PredVPBlock->getExitBasicBlock();
-    if (!CFG.VPBB2IRBB.count(PredVPBB)) {
-      // Back edge from inner loop
-      CFG.EdgesToFix[PredVPBB] = NewBB;
+    auto &PredVPSuccessors = PredVPBB->getSuccessors();
+
+    // In order to keep the hookup code simple, we delay fixing up blocks
+    // with two successors to the end of code generation when all blocks
+    // have been visited.
+    if (PredVPSuccessors.size() == 2) {
+      CFG.VPBBsToFix.push_back(PredVPBB);
+      continue;
+    }
+
+    BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
+    auto *PredBBTerminator = PredBB->getTerminator();
+    LLVM_DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
+    if (isa<UnreachableInst>(PredBB->getTerminator())) {
+      PredBBTerminator->eraseFromParent();
+      BranchInst::Create(NewBB, PredBB);
     } else {
-      BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
-      LLVM_DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
-      if (isa<UnreachableInst>(PredBB->getTerminator())) {
-        PredBB->getTerminator()->eraseFromParent();
-        BranchInst::Create(NewBB, PredBB);
-      } else {
-        // Replace old unconditional branch with new conditional branch.
-        // Note: we rely on traversing the successors in order.
-        BasicBlock *FirstSuccBB;
-        BasicBlock *SecondSuccBB;
-
-        assert(PredBB->getSingleSuccessor() && "Unexpected null successor");
-        if (PredVPBB->getSuccessors()[0] == this) {
-          FirstSuccBB = NewBB;
-          SecondSuccBB = PredBB->getSingleSuccessor();
-          assert(SecondSuccBB && "Expected single successor!");
-        } else {
-          FirstSuccBB = PredBB->getSingleSuccessor();
-          assert(FirstSuccBB && "Expected single successor!");
-          SecondSuccBB = NewBB;
-        }
-
-        PredBB->getTerminator()->eraseFromParent();
-        VPValue *CBV = PredVPBlock->getCondBit();
-        assert(CBV && "Expected condition bit!");
-        Value *Bit = nullptr;
-        if (State->CBVToConditionBitMap.count(CBV)) {
-          Bit = State->CBVToConditionBitMap[CBV];
-        } else {
-          Bit = CBV->getUnderlyingValue();
-        }
-        assert(Bit && "Cannot create conditional branch with empty bit.");
-        assert(!Bit->getType()->isVectorTy() && "Should be 1-bit scalar");
-        BranchInst::Create(FirstSuccBB, SecondSuccBB, Bit, PredBB);
-      }
+      llvm_unreachable("Predecessor with two successors unexpected here");
     }
   }
 #else
@@ -387,6 +366,24 @@ void VPBasicBlock::execute(VPTransformState *State) {
   // VPBasicBlock's instructions, we have to reset MaskValue in order not to
   // propagate its value to the next VPBasicBlock.
   State->ILV->setMaskValue(nullptr);
+
+  if (auto *CBV = getCondBit()) {
+    // Condition bit value in a VPBasicBlock is used as the branch selector. All
+    // branches that remain are uniform - we generate a branch instruction using
+    // the condition value from vector lane 0 and dummy successors. The
+    // successors are fixed later when the successor blocks are visited.
+    Value *NewCond = State->ILV->getScalarValue(CBV, 0);
+
+    // Replace the temporary unreachable terminator with the new conditional
+    // branch.
+    auto *CurrentTerminator = NewBB->getTerminator();
+    assert(isa<UnreachableInst>(CurrentTerminator) &&
+           "Expected to replace unreachable terminator with conditional "
+           "branch.");
+    auto *CondBr = BranchInst::Create(NewBB, nullptr, NewCond);
+    CondBr->setSuccessor(0, nullptr);
+    ReplaceInstWithInst(CurrentTerminator, CondBr);
+  }
 
   LLVM_DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 
@@ -658,16 +655,8 @@ void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
 
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
-
-  // Just remove when code gen supports loop mask for inner loop control flow
-  // uniformity.
-  if (isa<VPPHINode>(this) && !getInstruction())
-    llvm_unreachable(
-        "loop body mask instruction not yet supported in code gen\n");
-
 #if INTEL_CUSTOMIZATION
-  assert(getInstruction() && "There is no underlying Instruction.");
-  State.ILV->vectorizeInstruction(getInstruction());
+  State.ILV->vectorizeInstruction(this);
   return;
 #endif
   IRBuilder<> &Builder = State.Builder;
@@ -925,8 +914,8 @@ void VPInstruction::print(raw_ostream &O) const {
     O << "not";
     break;
 #if INTEL_CUSTOMIZATION
-  case VPInstruction::AllZero:
-    O << "all-zero";
+  case VPInstruction::AllZeroCheck:
+    O << "all-zero-check";
     break;
   case VPInstruction::Pred:
     O << "block-predicate";
@@ -1048,29 +1037,19 @@ void VPlan::execute(VPTransformState *State) {
     CurrentBlock->execute(State);
   }
 
-  // 3. Fix the back edges
-  for (auto Edge : State->CFG.EdgesToFix) {
-    VPBasicBlock *FromVPBB = Edge.first;
-    assert(State->CFG.VPBB2IRBB.count(FromVPBB) &&
-           "The IR basic block should be ready at this moment");
-    BasicBlock *FromBB = State->CFG.VPBB2IRBB[FromVPBB];
-    BasicBlock *ToBB = Edge.second;
+  // 3. Fix the edges for blocks in VPBBsToFix list.
+  for (auto VPBB : State->CFG.VPBBsToFix) {
+    BasicBlock *BB = State->CFG.VPBB2IRBB[VPBB];
+    assert(BB && "Unexpected null basic block for VPBB");
 
-    // We should have conditional branch from FromBB to ToBB. Conditional branch
-    // is 2 edges - forward edge and backward edge.
-    // The forward edge should be in-place, we are fixing the backward
-    // edge only.
-    assert(!isa<UnreachableInst>(FromBB->getTerminator()) &&
-           "One edge should be in-place");
+    unsigned Idx = 0;
+    auto *BBTerminator = BB->getTerminator();
 
-    BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
-    assert(FirstSuccBB && "Unexpected null successor");
-    FromBB->getTerminator()->eraseFromParent();
-    VPValue *CBV = FromVPBB->getCondBit();
-    assert(State->CBVToConditionBitMap.count(CBV) && "Must be in map.");
-    Value *NCondBit = State->CBVToConditionBitMap[CBV];
-    assert(NCondBit && "Null scalar value for condition bit.");
-    BranchInst::Create(FirstSuccBB, ToBB, NCondBit, FromBB);
+    for (VPBlockBase *SuccVPBlock : VPBB->getHierarchicalSuccessors()) {
+      VPBasicBlock *SuccVPBB = SuccVPBlock->getEntryBasicBlock();
+      BBTerminator->setSuccessor(Idx, State->CFG.VPBB2IRBB[SuccVPBB]);
+      ++Idx;
+    }
   }
 
   // 4. Merge the temporary latch created with the last basic block filled.

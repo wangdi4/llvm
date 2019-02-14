@@ -54,11 +54,6 @@ static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
 
-cl::opt<bool>
-    EnableNewVPlanPredicator("enable-new-vplan-predicator", cl::init(false),
-                             cl::Hidden,
-                             cl::desc("Enable New VPlan predicator."));
-
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -354,7 +349,7 @@ void LoopVectorizationPlanner::predicate() {
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
-    if (EnableNewVPlanPredicator) {
+    if (UseNewPredicator) {
       NewVPlanPredicator VPP(*VPlan);
       VPP.predicate();
     } else {
@@ -483,6 +478,11 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ValMap, ILV,
                          CallbackILV, Legal);
   State.CFG.PrevBB = ILV->getLoopVectorPH();
+
+#if INTEL_CUSTOMIZATION
+  // Set ILV transform state
+  ILV->setTransformState(&State);
+#endif // INTEL_CUSTOMIZATION
 
   VPlan *Plan = getVPlanForVF(BestVF);
   // TODO: This should be removed once we get proper divergence analysis

@@ -71,6 +71,8 @@ public:
         LI(LI), SE(SE), DT(DT), VLSA(VLSA) {
     VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip);
   }
+
+  void setUseNewPredicator() { UseNewPredicator = true; }
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -200,6 +202,9 @@ private:
 
   /// VPlan VLS Analysis.
   VPlanVLSAnalysis *VLSA;
+
+  /// Use new predicator
+  bool UseNewPredicator = false;
 #endif // INTEL_CUSTOMIZATION
 
   /// The profitablity analysis.

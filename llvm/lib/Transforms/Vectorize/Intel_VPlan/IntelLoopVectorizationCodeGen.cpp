@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationCodeGen.h"
+#include "IntelVPlan.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -1329,6 +1330,16 @@ void VPOCodeGen::vectorizeBitCast(Instruction *Inst) {
   WidenMap[Inst] = Builder.CreateBitCast(A, VecTy);
 }
 
+Value *VPOCodeGen::getVectorValue(VPValue *V) {
+  Value *UV = V->getUnderlyingValue();
+  if (UV)
+    return getVectorValue(UV);
+
+  Value *VecV = VPWidenMap[V];
+  assert(VecV && "Value not in VPWidenMap");
+  return VecV;
+}
+
 Value *VPOCodeGen::getVectorValue(Value *V) {
 
   // If we have this scalar in the map, return it.
@@ -1390,6 +1401,26 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
   return WidenMap[V];
 }
 
+Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
+  Value *UV = V->getUnderlyingValue();
+
+  if (UV)
+    return getScalarValue(UV, Lane);
+  else {
+    Value *VecV = getVectorValue(V);
+    IRBuilder<>::InsertPointGuard Guard(Builder);
+    if (auto VecInst = dyn_cast<Instruction>(VecV)) {
+      if (isa<PHINode>(VecInst))
+        Builder.SetInsertPoint(&*(VecInst->getParent()->getFirstInsertionPt()));
+      else
+        Builder.SetInsertPoint(VecInst->getNextNode());
+    }
+
+    // TODO - add ScalarMap for VPValue.
+    return Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
+  }
+}
+
 // TODO: Consider renaming this function to 'getScalarOrSubvectorValue' as this
 // function can now return a sub-vector in addition to a scalar value
 Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
@@ -1431,6 +1462,13 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
   }
 
   Value *VecV = getVectorValue(V);
+  IRBuilder<>::InsertPointGuard Guard(Builder);
+  if (auto VecInst = dyn_cast<Instruction>(VecV)) {
+    if (isa<PHINode>(VecInst))
+      Builder.SetInsertPoint(&*(VecInst->getParent()->getFirstInsertionPt()));
+    else
+      Builder.SetInsertPoint(VecInst->getNextNode());
+  }
   auto ScalarV = Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
 
   // Add to scalar map
@@ -2608,48 +2646,21 @@ void VPOCodeGen::widenIntOrFpInduction(PHINode *IV) {
 }
 
 void VPOCodeGen::fixNonInductionPhis() {
-  // When checking for uniformity below, we should be using the original
-  // phi in the scalar loop.
-  for (auto OrigPhi : OrigInductionPhisToFix) {
-    PHINode *NewPhi;
-    bool IsUniform = isUniformAfterVectorization(OrigPhi, VF);
+  // Fix up the PHIs in the PhisToFix map. We use the VPPHI operands to setup
+  // the operands of the PHI.
+  for (auto PhiToFix : PhisToFix) {
+    auto *VPPhi = PhiToFix.first;
+    auto *Phi = PhiToFix.second;
+    auto *UnderlyingPhi = VPPhi->getInstruction();
+    const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
+    bool IsUniform = isUniformAfterVectorization(UnderlyingPhi, VF);
 
-    if (IsUniform)
-      NewPhi = cast<PHINode>(getScalarValue(OrigPhi, 0));
-    else
-      NewPhi = cast<PHINode>(getVectorValue(OrigPhi));
-
-    unsigned NumIncomingValues = OrigPhi->getNumIncomingValues();
-
-    SmallVector<BasicBlock *, 2> ScalarBBPredecessors;
-    for (auto BB : predecessors(OrigPhi->getParent()))
-      ScalarBBPredecessors.push_back(BB);
-    SmallVector<BasicBlock *, 2> VectorBBPredecessors;
-    for (auto BB : predecessors(NewPhi->getParent()))
-      VectorBBPredecessors.push_back(BB);
-
-    assert(
-      ScalarBBPredecessors.size() == VectorBBPredecessors.size() &&
-      "Scalar and Vector BB should have the same number of predecessors");
-
-    // We assume that blocks layout is preserved and search the incoming BB
-    // basing on the predecessors order in scalar blocks.
-    for (unsigned i = 0; i < NumIncomingValues; ++i) {
-      auto BB = VectorBBPredecessors[i];
-
-      // When looking up the new scalar/vector values to fix up use incoming
-      // values from original phi.
-      Value *ScIncV =
-          OrigPhi->getIncomingValueForBlock(ScalarBBPredecessors[i]);
-      Value *NewIncV;
-      if (IsUniform) {
-        NewIncV = getScalarValue(ScIncV, 0);
-        NewPhi->setIncomingBlock(i, BB);
-        NewPhi->setIncomingValue(i, NewIncV);
-      } else {
-        NewIncV = getVectorValue(ScIncV);
-        NewPhi->addIncoming(NewIncV, BB);
-      }
+    for (unsigned I = 0; I < NumPhiValues; ++I) {
+      auto *VPValue = VPPhi->getIncomingValue(I);
+      auto *VPBB = VPPhi->getIncomingBlock(I);
+      Value *IncValue =
+          IsUniform ? getScalarValue(VPValue, 0) : getVectorValue(VPValue);
+      Phi->addIncoming(IncValue, State->CFG.VPBB2IRBB[VPBB]);
     }
   }
 }
@@ -2665,74 +2676,85 @@ Value *VPOCodeGen::getEdgeMask(BasicBlock *From, BasicBlock *To) {
   return nullptr;
 }
 
-void VPOCodeGen::widenNonInductionPhi(PHINode *Phi) {
-  if (isUniformAfterVectorization(Phi, VF)) {
-    Instruction *Cloned = Phi->clone();
-    Cloned->setName(Phi->getName() + ".cloned");
-    Builder.Insert(Cloned);
-    ScalarMap[Phi][0] = Cloned;
-    // Set incoming values later, they may be not ready yet in case of back-edges.
-    OrigInductionPhisToFix.push_back(Phi);
+void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
+  PHINode *UnderlyingPhi = cast_or_null<PHINode>(VPPhi->getInstruction());
+
+  // If the PHI is not being blended into a select, go ahead and create a PHI
+  // and return after adding it to the PHIsToFix map.
+  if (VPPhi->getBlend() == false) {
+    auto PhiTy = VPPhi->getType();
+    PHINode *NewPhi;
+    if (isUniformAfterVectorization(UnderlyingPhi, VF)) {
+      NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
+      ScalarMap[UnderlyingPhi][0] = NewPhi;
+    } else {
+      PhiTy = VectorType::get(PhiTy, VF);
+      NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
+      WidenMap[UnderlyingPhi] = NewPhi;
+      VPWidenMap[VPPhi] = NewPhi;
+    }
+
+    // Set incoming values later, they may not be ready yet in case of
+    // back-edges.
+    PhisToFix[VPPhi] = NewPhi;
     return;
   }
 
-  Value *Entry = nullptr;
-  bool ConvertablePhi = true;
-  unsigned NumIncomingValues = Phi->getNumIncomingValues();
+  // Blend the PHIs using selects and incoming masks.
+  unsigned NumIncomingValues = VPPhi->getNumIncomingValues();
+  VPBasicBlock *VPBB = VPPhi->getParent();
+  Value *BlendVal;
   assert(NumIncomingValues && "Unexpected PHI with zero values");
 
   // Generate a sequence of selects of the form:
   // SELECT(Mask3, In3,
   //      SELECT(Mask2, In2,
   //                   ( ...)))
+  const SmallVectorImpl<VPBasicBlock::MaskBlockPair> &IncomingMasks =
+      VPBB->getIncomingMasks();
+
   for (unsigned In = 0; In < NumIncomingValues; In++) {
-    auto IncBlock = Phi->getIncomingBlock(In);
-    Value *Cond = getEdgeMask(IncBlock, Phi->getParent());
-    if (!Cond) {
-      ConvertablePhi = false;
-      break;
-    }
-    Value *In0 = getVectorValue(Phi->getIncomingValue(In));
+    // We might have single edge PHIs (blocks) - use an identity
+    // 'select' for the first PHI operand.
+    auto *PredVPBB = IncomingMasks[In].second;
+    Value *In0 = getVectorValue(VPPhi->getIncomingValue(PredVPBB));
     if (In == 0)
-      Entry = In0;
+      BlendVal = In0; // Initialize with the first incoming value.
     else {
       // Select between the current value and the previous incoming edge
       // based on the incoming mask.
-      auto IncBlock = Phi->getIncomingBlock(In);
-      Value *Cond = getEdgeMask(IncBlock, Phi->getParent());
-      assert(Cond && "Edge not in predicate map");
-      Entry = Builder.CreateSelect(Cond, In0, Entry, "predphi");
+      Value *Cond = getVectorValue(IncomingMasks[In].first);
+      BlendVal = Builder.CreateSelect(Cond, In0, BlendVal, "predphi");
     }
   }
-
-  if (!ConvertablePhi) {
-    Type *Ty = Phi->getType();
-    Type *VecTy = VectorType::get(Ty, VF);
-    Entry =
-      Builder.CreatePHI(VecTy, NumIncomingValues, Phi->getName() + ".vec");
-    // Set incoming values later, they may be not ready yet in case of back-edges.
-    OrigInductionPhisToFix.push_back(Phi);
-  }
-  assert(Entry && "Unexpected null widen value for PHI");
-  WidenMap[Phi] = Entry;
+  WidenMap[UnderlyingPhi] = BlendVal;
+  VPWidenMap[VPPhi] = BlendVal;
 }
 
-void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
+void VPOCodeGen::vectorizePHIInstruction(VPPHINode *VPPhi) {
 
-  PHINode *P = cast<PHINode>(Inst);
+  PHINode *P = cast_or_null<PHINode>(VPPhi->getInstruction());
+
+  // We are assuming for now that any VPPHIs added without an underlying
+  // PHI is not an induction.
+  if (!P) {
+    return widenNonInductionPhi(VPPhi);
+  }
+
   // Handle recurrences.
   if (Legal->isReductionVariable(P)) {
     Type *VecTy = VectorType::get(P->getType(), VF);
     PHINode *VecPhi = PHINode::Create(
       VecTy, 2, "vec.phi", &*LoopVectorBody->getFirstInsertionPt());
     WidenMap[P] = VecPhi;
+    VPWidenMap[VPPhi] = VecPhi;
     return;
   }
 
   if (!Legal->getInductionVars()->count(P)) {
     // The Phi node is not induction. It combines 2 basic blocks ruled out
     // by uniform branch.
-    return widenNonInductionPhi(P);
+    return widenNonInductionPhi(VPPhi);
   }
 
   InductionDescriptor II = Legal->getInductionVars()->lookup(P);
@@ -2762,11 +2784,10 @@ void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
       Value *SclrGep =
           emitTransformedIndex(Builder, GlobalIdx, PSE.getSE(), DL, II);
       SclrGep->setName("next.gep");
-      ScalarMap[Inst][Lane] = SclrGep;
+      ScalarMap[P][Lane] = SclrGep;
     }
     return;
   }
-
   }
 }
 
@@ -3179,6 +3200,77 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   WidenMap[cast<Value>(Call)] = VecCall;
 }
 
+void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
+  if (auto *VPPhi = dyn_cast<VPPHINode>(VPInst)) {
+    vectorizePHIInstruction(VPPhi);
+    return;
+  }
+
+  if (auto *Inst = VPInst->getInstruction()) {
+    vectorizeInstruction(Inst);
+
+    // Add the widened value to the VPValue widen map.
+    if (WidenMap.count(Inst)) {
+      VPWidenMap[VPInst] = WidenMap[Inst];
+    }
+
+    return;
+  }
+
+  switch (VPInst->getOpcode()) {
+  case VPInstruction::AllZeroCheck: {
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Type *Ty = A->getType();
+
+    // Bitcast <VF x i1> to an integer value VF bits long.
+    Type *IntTy =
+        IntegerType::get(Ty->getContext(), Ty->getPrimitiveSizeInBits());
+    auto *BitCastInst = Builder.CreateBitCast(A, IntTy);
+
+    // Compare the bitcast value to zero. The compare will be true if all
+    // the i1 masks in <VF x i1> are false.
+    auto *CmpInst =
+        Builder.CreateICmpEQ(BitCastInst, Constant::getNullValue(IntTy));
+
+    // Broadcast the compare and set as the widened value.
+    auto *V = getBroadcastInstrs(CmpInst);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
+  case Instruction::And:
+  case Instruction::Or: {
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Value *B = getVectorValue(VPInst->getOperand(1));
+    Value *V =
+        Builder.CreateBinOp((Instruction::BinaryOps)VPInst->getOpcode(), A, B);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
+  case VPInstruction::Not: {
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Value *V = Builder.CreateNot(A);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
+  case VPInstruction::Pred: {
+    // Pred instruction just marks the block mask.
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    setMaskValue(A);
+    return;
+  }
+  case Instruction::Select: {
+    Value *M = getVectorValue(VPInst->getOperand(0));
+    Value *A = getVectorValue(VPInst->getOperand(1));
+    Value *B = getVectorValue(VPInst->getOperand(2));
+    Value *V = Builder.CreateSelect(M, A, B);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
+  default:
+    llvm_unreachable("Unexpected VPInstruction");
+  }
+}
+
 void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   // Diego: Why are we blindly vectorizing any instruction?
   //if (isUniformAfterVectorization(Inst, VF)) {
@@ -3316,8 +3408,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   }
 
   case Instruction::PHI: {
-    vectorizePHIInstruction(Inst);
-    break;
+    llvm_unreachable("Phi instruction should not reach here");
   }
   case Instruction::ExtractElement:
     vectorizeExtractElement(Inst);
@@ -3622,6 +3713,7 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
 
   for (auto *BB : TheLoop->blocks())
     for (auto &I : *BB) {
+#if 0
       auto isInnerLoopInduction = [&](PHINode *Phi, const Loop *&InnerL) -> bool {
         if (isInductionVariable(Phi))
           return false;
@@ -3636,7 +3728,11 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
         }
         return false;
       };
-      // Add non-induction phis to the list
+
+      // The code below incorrectly assumes that all inner loop inductions are
+      // uniform. This is not true for divergent inner loops. This issue will
+      // be fixed when we move to full VPValue based code generation combined
+      // with use of DA analysis information.
       if (auto Phi = dyn_cast<PHINode>(&I)) {
         const Loop *InnerLoop = nullptr;
         if (isInnerLoopInduction(Phi, InnerLoop)) {
@@ -3658,7 +3754,9 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
                             << "\n");
           Worklist.insert(IndUpdate);
         }
-      } else if (auto Br = dyn_cast<BranchInst>(&I)) {
+      }
+#endif
+      if (auto Br = dyn_cast<BranchInst>(&I)) {
         if (!Br->isConditional())
           continue;
         Value *Cond = Br->getCondition();
@@ -3885,6 +3983,11 @@ void VPOCodeGen::collectUniformsAndScalars(unsigned VF) {
 /// Returns true if \p I is known to be uniform after vectorization.
 bool VPOCodeGen::isUniformAfterVectorization(Instruction *I,
                                              unsigned VF) const {
+  // TODO - we need to use uniformity information coming from DA. For now, we
+  // assume non-uniform if we do not have underlying IR instruction.
+  if (!I)
+    return false;
+
   assert(Uniforms.count(VF) && "VF not yet analyzed for uniformity");
   auto UniformsPerVF = Uniforms.find(VF);
   return UniformsPerVF->second.count(I);

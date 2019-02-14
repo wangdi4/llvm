@@ -87,6 +87,13 @@ static cl::opt<bool>
 static cl::opt<bool>
     VPlanPrintInit("vplan-print-after-init", cl::init(false),
                    cl::desc("Print plain dump after initial VPlan generated"));
+
+// New predicator is used in the LLVM IR path when this flag is true. This flag
+// is currently NFC for the HIR path.
+static cl::opt<bool>
+    EnableNewVPlanPredicator("enable-new-vplan-predicator", cl::init(true),
+                             cl::Hidden,
+                             cl::desc("Enable New VPlan predicator."));
 #endif
 
 static cl::opt<unsigned> VPlanVectCand(
@@ -454,7 +461,6 @@ bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
   for (LoopType *Lp : Worklist) {
     if (CandLoopsVectorized < VPlanVectCand && isVPlanCandidate(Fn, Lp)) {
       ModifiedFunc |= processLoop(Lp, Fn);
-      CandLoopsVectorized++;
     }
   }
 
@@ -572,6 +578,11 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
+  // Setup the use of new predicator in the planner if user has not disabled
+  // the same.
+  if (EnableNewVPlanPredicator)
+    LVP.setUseNewPredicator();
+
   if (!LVP.buildInitialVPlans(&Fn.getContext())) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
@@ -622,6 +633,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       if (WRLp)
         VPOUtils::stripDirectives(WRLp);
 
+      CandLoopsVectorized++;
       ModifiedLoop = true;
     }
   }

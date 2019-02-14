@@ -31,6 +31,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
 
   for (auto *SubLoop : LoopRegion->getVPLoop()->getSubLoops()) {
     auto *SubLoopRegion = cast<VPLoopRegion>(SubLoop->getHeader()->getParent());
+    LLVM_DEBUG(dbgs() << "Subloop before Loop CFU transformation\n");
+    LLVM_DEBUG(SubLoopRegion->dump());
     LLVM_DEBUG(dbgs() << "Checking inner loop control flow uniformity for:\n");
     LLVM_DEBUG(dbgs() << "SubLoopRegion: " << SubLoopRegion->getName() << "\n");
     auto *SubLoopPreHeader = cast<VPBasicBlock>(SubLoop->getLoopPreheader());
@@ -41,12 +43,24 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
     auto *SubLoopLatch = cast<VPBasicBlock>(SubLoop->getLoopLatch());
     LLVM_DEBUG(dbgs() << "SubLoopLatch: " << SubLoopLatch->getName() << "\n");
 
+    auto *SubLoopRegnPred = SubLoopRegion->getSinglePredecessor();
     // Find inner loop top test
-    assert(SubLoopRegion->getSinglePredecessor() &&
+    assert(SubLoopRegnPred &&
            "Assumed a single predecessor of subloop contains top test");
-    VPValue *TopTest = SubLoopRegion->getSinglePredecessor()->getCondBit();
-    if (TopTest)
+    VPValue *TopTest = SubLoopRegnPred->getCondBit();
+    if (TopTest) {
+#ifdef VPlanPredicator
+      auto *SubLoopRegnPredBlock = cast<VPBasicBlock>(SubLoopRegnPred);
+      // If the subloop region is the false successor of the predecessor,
+      // we need to negate the top test.
+      if (SubLoopRegnPredBlock->getSuccessors()[1] == SubLoopRegion) {
+        VPBuilder::InsertPointGuard Guard(Builder);
+        Builder.setInsertPoint(SubLoopRegnPredBlock);
+        TopTest = Builder.createNot(TopTest);
+      }
+#endif // VPlanPredicator
       LLVM_DEBUG(dbgs() << "Top Test: "; TopTest->dump(); errs() << "\n");
+    }
 
     // Get inner loop bottom test
     VPValue *BottomTest = SubLoopLatch->getCondBit();
@@ -54,6 +68,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
     LLVM_DEBUG(dbgs() << "BottomTest: "; BottomTest->dump(); errs() << "\n");
 
     if (VPDA->isDivergent(*BottomTest)) {
+      LLVM_DEBUG(dbgs() << "BottomTest is divergent\n");
 
       SubLoopRegion->computeDT();
       VPDominatorTree *DT = SubLoopRegion->getDT();
@@ -84,9 +99,12 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
       // original loop header, but these instructions are now part of the loop
       // body that need to be under mask.
       SmallVector<VPRecipeBase *, 2> ToMove;
+      SmallVector<VPRecipeBase *, 2> SubLoopHeaderPhis;
       for (auto &Inst : SubLoopHeader->getInstList()) {
         if (!isa<VPPHINode>(Inst))
           ToMove.push_back(&Inst);
+        else
+          SubLoopHeaderPhis.push_back(&Inst);
       }
       for (auto *Inst : ToMove) {
         SubLoopHeader->removeRecipe(Inst);
@@ -129,9 +147,20 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
         BottomTest =
             Builder.createAnd(BottomTest, cast<VPInstruction>(LoopBodyMask));
 
+        // The subloop header phis are live out of the subloop. The incoming
+        // value of such phis from the loop latch need to be blended in with
+        // the phi value using bottom test as the mask.
+        for (auto *Inst : SubLoopHeaderPhis) {
+          auto *VPPhi = cast<VPPHINode>(Inst);
+          auto *IncomingValForLatch = VPPhi->getIncomingValue(NewLoopLatch);
+          auto *Blend =
+              Builder.createSelect(BottomTest, IncomingValForLatch, VPPhi);
+          VPPhi->setIncomingValue(VPPhi->getBlockIndex(NewLoopLatch), Blend);
+        }
+
         // Compute and set the new condition bit in the loop latch. If all the
         // lanes are inactive, new condition bit will be true.
-        auto *NewCondBit = Builder.createAllZero(BottomTest);
+        auto *NewCondBit = Builder.createAllZeroCheck(BottomTest);
 
         // If back edge is the false successor, we can use new condition bit as
         // the loop latch condition. However, if back edge is the true
@@ -173,6 +202,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
           RegionBasicBlock->setParent(MaskRegion);
       }
     }
+    LLVM_DEBUG(dbgs() << "Subloop after Loop CFU transformation\n");
+    LLVM_DEBUG(SubLoopRegion->dump());
   }
 
   LLVM_DEBUG(dbgs() << "After inner loop control flow transformation\n");

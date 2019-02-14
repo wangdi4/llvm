@@ -65,6 +65,7 @@ class VPValue {
   friend class VPBasicBlock;
   friend class VPlanPredicator;
   friend class VPlanHCFGBuilder;
+  friend class VPOCodeGen;
 #endif
 
 private:

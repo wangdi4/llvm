@@ -162,9 +162,38 @@ void VPlanPredicator::createOrPropagatePredicates(VPBlockBase *CurrBlock,
   // Collect all incoming predicates in a worklist.
   std::list<VPValue *> IncomingPredicates;
 
+#if INTEL_CUSTOMIZATION
+  // PHIs in non loop header blocks are currently converted to selects during
+  // vector code generation - record the decision here where we have VPLoopInfo.
+  // In future, this decision to blend needs to be revisited using DA
+  // information.
+  VPBasicBlock *CurrBB = CurrBlock->getEntryBasicBlock();
+  bool BlendPhi = !VPLI->isLoopHeader(CurrBB);
+  VPInstruction *FirstNonPHIInst = nullptr;
+
+  for (auto I = CurrBB->begin(), E = CurrBB->end(); I != E; ++I) {
+    VPRecipeBase *Ingredient = &*I;
+    VPPHINode *VPPhi = dyn_cast<VPPHINode>(Ingredient);
+    if (VPPhi)
+      VPPhi->setBlend(BlendPhi);
+    else
+      FirstNonPHIInst = dyn_cast<VPInstruction>(Ingredient);
+  }
+
+  // TODO - the PHIs need to be the first instructions in a block. For now,
+  // we are generating the predication related instructions at the start
+  // of the block if we are going to blend the PHIs into selects as the
+  // incoming predicates are used to generate the selects. This needs to
+  // be changed to explicitly convert such PHIs to selects.
+  if (BlendPhi || !FirstNonPHIInst)
+    Builder.setInsertPoint(CurrBB, CurrBB->begin());
+  else
+    Builder.setInsertPoint(FirstNonPHIInst);
+#else
   // Set the builder's insertion point to the top of the current BB
   VPBasicBlock *CurrBB = cast<VPBasicBlock>(CurrBlock->getEntryBasicBlock());
   Builder.setInsertPoint(CurrBB, CurrBB->begin());
+#endif // INTEL_CUSTOMIZATION
 
   // For each predecessor, generate the VPInstructions required for
   // computing 'BP AND (not) CBV" at the top of CurrBB.
@@ -197,6 +226,11 @@ void VPlanPredicator::createOrPropagatePredicates(VPBlockBase *CurrBlock,
 
     if (IncomingPredicate)
       IncomingPredicates.push_back(IncomingPredicate);
+#if INTEL_CUSTOMIZATION
+    // Push the incoming predicate into current basic block's incoming masks so
+    // that we can use it to blend phis to selects.
+    CurrBB->addMaskBlockPair(IncomingPredicate, PredBlock->getExitBasicBlock());
+#endif // INTEL_CUSTOMIZATION
   }
 
 #if INTEL_CUSTOMIZATION
@@ -215,7 +249,6 @@ void VPlanPredicator::createOrPropagatePredicates(VPBlockBase *CurrBlock,
         InsertBB = cast<VPBasicBlock>(CurrBlock);
 
       if (InsertBB != Region->getEntryBasicBlock()) {
-        Builder.setInsertPoint(InsertBB, InsertBB->begin());
         Builder.createPred(RegionBP);
       }
     }
@@ -324,6 +357,7 @@ void VPlanPredicator::predicate(void) {
   // Linearlize the blocks with Region.
   linearizeRegionRec(cast<VPRegionBlock>(Plan.getEntry()));
 #if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(dbgs() << "VPlan after predication and linearization\n");
   LLVM_DEBUG(Plan.setName("Predicator: After predication\n"));
   LLVM_DEBUG(Plan.dump());
 #endif // INTEL_CUSTOMIZATION
