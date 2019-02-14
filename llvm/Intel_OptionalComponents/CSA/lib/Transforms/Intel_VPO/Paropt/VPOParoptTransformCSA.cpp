@@ -483,7 +483,7 @@ protected:
     if (auto *CA = I->getCopyAssign())
       VPOParoptUtils::genCopyAssignCall(CA, Old, Rep, InsPt);
     else if (VPOUtils::canBeRegisterized(New->getAllocatedType(), DL))
-      new StoreInst(new LoadInst(Rep, nullptr, InsPt), Old, InsPt);
+      new StoreInst(new LoadInst(Rep, "", InsPt), Old, InsPt);
     else
       VPOUtils::genMemcpy(Old, Rep, DL, New->getAlignment(), InsPt);
   }
@@ -616,7 +616,7 @@ static Value* genParRegionCalls(unsigned ID,
   auto *Region = Builder.CreateCall(RegionEntry, { UniqueID }, Name);
 
   Builder.SetInsertPoint(ExitPt);
-  Builder.CreateCall(RegionExit, { Region }, {});
+  Builder.CreateCall(RegionExit, { Region }, {}, "");
 
   return Region;
 }
@@ -641,7 +641,7 @@ static void genParSectionCalls(Value *Region,
   auto *Section = Builder.CreateCall(SectionEntry, { Region }, Name);
 
   Builder.SetInsertPoint(ExitPt);
-  Builder.CreateCall(SectionExit, { Section }, {});
+  Builder.CreateCall(SectionExit, { Section }, {}, "");
 }
 
 // Returns the number of workers to be created for the loop WRN.
@@ -1447,7 +1447,7 @@ std::pair<bool, bool> VPOParoptTransform::genCSALoop(WRegionNode *W) {
                                       "spmd");
 
     Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
-    Builder.CreateCall(Exit, { SpmdID }, {});
+    Builder.CreateCall(Exit, { SpmdID }, {}, "");
   }
 
   // Insert parallel region entry/exit calls
