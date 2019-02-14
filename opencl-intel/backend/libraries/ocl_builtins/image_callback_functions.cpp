@@ -2574,7 +2574,9 @@ int4 ProjectToEdgeInt(image2d_t image, int4 coord)
 
 }
 
-float4 Unnormalize(image2d_t image,float4 coord)
+// the coordinate translation functions with linear filter will generate
+// unexpected fma if this function is inlined.
+__attribute__((noinline)) float4 Unnormalize(image2d_t image,float4 coord)
 {
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     float4 fupper = as_float4(_mm_load_ps((float*)(&pImage->dimf)));
