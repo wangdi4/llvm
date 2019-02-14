@@ -409,6 +409,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZNKSs7compareEPKc);
     TLI.setUnavailable(LibFunc_ZNKSt13runtime_error4whatEv);
     TLI.setUnavailable(LibFunc_ZNKSt5ctypeIcE13_M_widen_initEv);
+    TLI.setUnavailable(LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc);
     TLI.setUnavailable(LibFunc_ZNKSt9bad_alloc4whatEv);
     TLI.setUnavailable(LibFunc_ZNKSt9exception4whatEv);
     TLI.setUnavailable(LibFunc_ZNSi10_M_extractIdEERSiRT_);
@@ -465,6 +466,12 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKSsSt13_Ios_Openmode);
     TLI.setUnavailable(LibFunc_ZNSt6localeC1Ev);
     TLI.setUnavailable(LibFunc_ZNSt6localeD1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm);
     TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_);
     TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base7_M_hookEPS0_);
     TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base9_M_unhookEv);
@@ -490,6 +497,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZSt19__throw_logic_errorPKc);
     TLI.setUnavailable(LibFunc_ZSt20__throw_length_errorPKc);
     TLI.setUnavailable(LibFunc_ZSt20__throw_out_of_rangePKc);
+    TLI.setUnavailable(LibFunc_ZSt24__throw_out_of_range_fmtPKcz);
     TLI.setUnavailable(LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_);
     TLI.setUnavailable(LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_);
     TLI.setUnavailable(LibFunc_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RSbIS4_S5_T1_ES4_);
@@ -1913,6 +1921,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
 
+  case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
   case LibFunc_ZNKSt9bad_alloc4whatEv:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
@@ -2207,6 +2220,47 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
 
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm:
+    return (NumParams == 5 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isIntegerTy());
+
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm:
+    return (NumParams == 5 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isIntegerTy());
+
+
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
+    return (NumParams = 4 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
   case LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_:
     return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() && // this pointer
@@ -2320,6 +2374,10 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
 
   // static call (not a member function)
   case LibFunc_ZSt20__throw_out_of_rangePKc:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_ZSt24__throw_out_of_range_fmtPKcz:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy());
 
