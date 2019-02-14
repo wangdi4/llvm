@@ -132,7 +132,7 @@ public:
   bool isLegalMaskedGather(Type *DataType);
   bool isLegalMaskedScatter(Type *DataType);
 #if INTEL_CUSTOMIZATION
-  bool isAdvancedOptimEnabled() const;
+  bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
 #endif // INTEL_CUSTOMIZATION

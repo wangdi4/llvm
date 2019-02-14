@@ -922,8 +922,18 @@ public:
   Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                            Type *ExpectedType) const;
 #if INTEL_CUSTOMIZATION
-  // Returns true if AdvancedOptim is enabled.
-  bool isAdvancedOptimEnabled() const;
+  /// List of advanced Intel optimizations that are enabled depending
+  /// on the target. This list should be updated as conditions requiring
+  /// new optimization control are found.
+  enum AdvancedOptLevel {
+      AO_TargetHasSSE42,
+      AO_TargetHasAVX,
+      AO_TargetHasAVX2,
+      AO_TargetHasAVX512
+  };
+  /// \returns true if the level of optimization would be desirable
+  /// based on the target architecture.
+  bool isAdvancedOptEnabled(AdvancedOptLevel AO) const;
 
   bool adjustCallArgs(CallInst *) const;
 
@@ -1201,7 +1211,7 @@ public:
   virtual Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                                    Type *ExpectedType) = 0;
 #if INTEL_CUSTOMIZATION
-  virtual bool isAdvancedOptimEnabled() const = 0;
+  virtual bool isAdvancedOptEnabled(AdvancedOptLevel AO) const = 0;
   virtual bool adjustCallArgs(CallInst *) = 0;
 
   virtual bool
@@ -1584,8 +1594,8 @@ public:
     return Impl.getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
   }
 #if INTEL_CUSTOMIZATION
-  bool isAdvancedOptimEnabled() const override {
-    return Impl.isAdvancedOptimEnabled();
+  bool isAdvancedOptEnabled(AdvancedOptLevel AO) const override {
+    return Impl.isAdvancedOptEnabled(AO);
   }
 
   bool adjustCallArgs(CallInst *CI) override {

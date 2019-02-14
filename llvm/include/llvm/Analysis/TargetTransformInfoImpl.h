@@ -509,7 +509,7 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
-  bool isAdvancedOptimEnabled() const { return false; }
+  bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const { return false; }
 
   bool adjustCallArgs(CallInst *CI) { return false; }
 
