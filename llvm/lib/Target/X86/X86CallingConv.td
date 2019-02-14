@@ -1089,8 +1089,8 @@ def CC_SVML : CallingConv<[
   CCIfType<[v16f32, v8f64, v16i32, v8i64],
            CCAssignToReg<[ZMM0, ZMM1, ZMM2]>>,
 
-  CCIfType<[v8i1, v16i1],
-           CCAssignToReg<[K1]>>
+  CCIfType<[v2i1, v4i1, v8i1, v16i1],
+           CCCustom<"CC_SVML_Mask">>
 ]>;
 // endif INTEL_CUSTOMIZATION
 

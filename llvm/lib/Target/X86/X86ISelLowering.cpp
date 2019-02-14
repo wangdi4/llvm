@@ -2025,6 +2025,14 @@ X86TargetLowering::getPreferredVectorAction(MVT VT) const {
 MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
                                                      CallingConv::ID CC,
                                                      EVT VT) const {
+#if INTEL_CUSTOMIZATION
+  // Preserve mask arguments in their original type. Otherwise they'll be
+  // modified on pre-AVX512 targets before we get a chance to analyze them.
+  if (CC == CallingConv::SVML && VT.isSimple() && VT.isVector() &&
+      VT.getVectorElementType() == MVT::i1)
+    return VT.getSimpleVT();
+#endif
+
   if (VT == MVT::v32i1 && Subtarget.hasAVX512() && !Subtarget.hasBWI())
     return MVT::v32i8;
   return TargetLowering::getRegisterTypeForCallingConv(Context, CC, VT);
@@ -2033,6 +2041,14 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
                                                           CallingConv::ID CC,
                                                           EVT VT) const {
+#if INTEL_CUSTOMIZATION
+  // Preserve mask arguments in their original type. Otherwise they'll be
+  // modified on pre-AVX512 targets before we get a chance to analyze them.
+  if (CC == CallingConv::SVML && VT.isSimple() && VT.isVector() &&
+      VT.getVectorElementType() == MVT::i1)
+    return 1;
+#endif
+
   if (VT == MVT::v32i1 && Subtarget.hasAVX512() && !Subtarget.hasBWI())
     return 1;
   return TargetLowering::getNumRegistersForCallingConv(Context, CC, VT);

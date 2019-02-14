@@ -287,5 +287,55 @@ static bool CC_X86_32_MCUInReg(unsigned &ValNo, MVT &ValVT, MVT &LocVT,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Conditionally promote masks to XMM/YMM register based on the VT of the
+/// already assigned first argument.
+/// \return true if registers were allocated and false otherwise.
+static bool CC_SVML_Mask(unsigned ValNo, MVT ValVT, MVT LocVT,
+                         CCValAssign::LocInfo LocInfo,
+                         ISD::ArgFlagsTy ArgFlags,
+                         CCState &State) {
+  if (ValNo == 0)
+    report_fatal_error("Can't handle mask as first argument.");
+
+  // Find the size of argument 0.
+  unsigned PrevSize = State.getLoc(0).getLocVT().getSizeInBits();
+
+  // If the previous size was 512 bits use mask directly.
+  if (PrevSize == 512) {
+    if (unsigned Reg = State.AllocateReg(X86::K1)) {
+      State.addLoc(CCValAssign::getReg(ValNo, ValVT, Reg, LocVT, LocInfo));
+      return true;
+    }
+    return false;
+  }
+
+  ArrayRef<MCPhysReg> Regs;
+  if (PrevSize == 128) {
+    static const MCPhysReg XMMRegs[] = { X86::XMM0, X86::XMM1, X86::XMM2 };
+    Regs = XMMRegs;
+  } else if (PrevSize == 256) {
+    static const MCPhysReg YMMRegs[] = { X86::YMM0, X86::YMM1, X86::YMM2 };
+    Regs = YMMRegs;
+  } else {
+    report_fatal_error("Unable to determine size for mask!");
+  }
+
+  if (unsigned Reg = State.AllocateReg(Regs)) {
+    // Determine the integer VT corresponding to the argument 0 size with the
+    // right number of elements.
+    unsigned EltSize = PrevSize / ValVT.getVectorNumElements();
+    MVT EltVT = MVT::getIntegerVT(EltSize);
+    MVT VecVT = MVT::getVectorVT(EltVT, PrevSize / EltSize);
+    // Force a sign extend to be generated.
+    LocInfo = CCValAssign::SExt;
+    State.addLoc(CCValAssign::getReg(ValNo, ValVT, Reg, VecVT, LocInfo));
+    return true;
+  }
+
+  return false;
+}
+#endif
+
 // Provides entry points of CC_X86 and RetCC_X86.
 #include "X86GenCallingConv.inc"

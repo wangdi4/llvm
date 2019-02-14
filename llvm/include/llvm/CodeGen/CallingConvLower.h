@@ -260,6 +260,13 @@ public:
     Locs.push_back(V);
   }
 
+#if INTEL_CUSTOMIZATION
+  // This is need to allow SVML to analyze a previous argument.
+  const CCValAssign &getLoc(unsigned i) const {
+    return Locs[i];
+  }
+#endif
+
   LLVMContext &getContext() const { return Context; }
   MachineFunction &getMachineFunction() const { return MF; }
   CallingConv::ID getCallingConv() const { return CallingConv; }
