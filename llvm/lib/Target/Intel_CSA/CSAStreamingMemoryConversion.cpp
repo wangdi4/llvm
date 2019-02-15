@@ -74,6 +74,8 @@ class CSAStreamingMemoryImpl {
   SCEVExpander Expander;
   DenseMap<BasicBlock *, const SCEV *> ExecCounts;
 
+  bool isPipelinedLoop(Loop *L);
+
   Optional<StreamingMemoryDetails> getLegalStream(Value *Pointer,
       Instruction *MemInst);
   CallInst *getInordEdge(Instruction *MemInst);
@@ -270,6 +272,13 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
   auto *ExitBlock = L->getExitBlock();
   if (!ExitBlock)
     return Changed;
+
+  // If the inner loop is to be pipelined, do not attempt to convert streaming
+  // memory references inside of the loop.
+  if (isPipelinedLoop(L)) {
+    LLVM_DEBUG(dbgs() << "Ignoring ILPL-based loop " << *L);
+    return Changed;
+  }
 
   LLVM_DEBUG(dbgs() << "Searching for opportunities in " << *L);
   LLVM_DEBUG(dbgs() << "Backedge count is " << *BackedgeCount << "\n");
@@ -802,4 +811,17 @@ bool CSAStreamingMemoryImpl::attemptWide(StreamingMemoryDetails &A,
   RecursivelyDeleteTriviallyDeadInstructions(OldLoPointer);
   RecursivelyDeleteTriviallyDeadInstructions(OldHiPointer);
   return true;
+}
+
+bool CSAStreamingMemoryImpl::isPipelinedLoop(Loop *L) {
+  // We use a marker intrinsic in the loop header to identify pipelining, even
+  // if automatic pipelining is enabled.
+  for (auto &I : *L->getHeader()) {
+    if (auto II = dyn_cast<IntrinsicInst>(&I)) {
+      if (II->getIntrinsicID() == Intrinsic::csa_pipelineable_loop_marker)
+        return true;
+    }
+  }
+
+  return false;
 }
