@@ -5174,6 +5174,14 @@ public:
       collectSpecialFreeArgs(FreeKind, CS, SpecialArguments, TLI);
     }
 
+    // Do not check and potentially set the mismatched arg safety condition on
+    // the 'this' pointer argument of a bitcast call created by
+    // devirtualization. The devirtualizer has already proven the argument type
+    // is the correct type for the member function.
+    if (CS.getInstruction()->getMetadata("_Intel.Devirt.Call") &&
+        CS.arg_size() >= 1)
+      SpecialArguments.insert(CS.getArgument(0));
+
     // If the Function wasn't found, then there is a possibility
     // that it is inside a BitCast. In this case we need
     // to strip the pointer casting from the Value and then
