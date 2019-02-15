@@ -818,6 +818,8 @@ def fnointel_openmp_tbb : Flag<["-"], "fnoopenmp-tbb">,
   HelpText<"Disable OpenMP TBB directives">;
 def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=">,
   HelpText<"Name of the file for communication between front-end and driver.">;
+def header_base_path : JoinedOrSeparate<["-"], "header-base-path">,
+                       MetaVarName<"<directory>">;
 // endif INTEL_CUSTOMIZATION
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall,regcall">;

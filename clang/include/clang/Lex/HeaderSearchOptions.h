@@ -173,6 +173,9 @@ public:
   std::vector<std::string> VFSOverlayFiles;
 
 #if INTEL_CUSTOMIZATION
+  /// The base directory of Intel compiler headers.
+  std::string HeaderBasePath;
+
   /// The set of libraries with user-provided virtual filesystem.
   std::vector<std::string> VFSOverlayLibs;
 #endif // INTEL_CUSTOMIZATION

@@ -2590,8 +2590,11 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   llvm::raw_fd_ostream ArgFile(ArgFileDesc, /*shouldClose=*/true);
   ArgFile << "/I\".\"\n";
   auto HSOpts = HeaderInfo.getHeaderSearchOpts();
-  for (const auto &Iter : HSOpts.UserEntries)
-    ArgFile << "/I\"" << Iter.Path << "\"\n";
+  for (const auto &Iter : HSOpts.UserEntries) {
+    if (HSOpts.HeaderBasePath.empty() ||
+        Iter.Path.rfind(HSOpts.HeaderBasePath, 0) != 0)
+      ArgFile << "/I\"" << Iter.Path << "\"\n";
+  }
 
   SmallString<128> OutputDir = getPreprocessorOpts().OutputFile;
   llvm::sys::path::remove_filename(OutputDir);

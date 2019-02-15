@@ -2099,6 +2099,8 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
     Opts.AddVFSOverlayFile(A->getValue());
 
 #if INTEL_CUSTOMIZATION
+  if (const Arg *A = Args.getLastArg(OPT_header_base_path))
+    Opts.HeaderBasePath = A->getValue();
   for (const auto *A : Args.filtered(OPT_ivfsoverlay_lib))
     Opts.AddVFSOverlayLib(A->getValue());
 #endif // INTEL_CUSTOMIZATION
