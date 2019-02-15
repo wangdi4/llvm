@@ -124,6 +124,50 @@ overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
   return false;
 }
 
+static bool checkParentLoopBounds(HLLoop *PostDominatingLoop, HLLoop *PrevLoop,
+                                  const RegDDRef *PostDominatingRef) {
+  unsigned LoopLevel = PostDominatingLoop->getNestingLevel();
+  unsigned PrevLoopLevel = PrevLoop->getNestingLevel();
+
+  if (LoopLevel != PrevLoopLevel) {
+    return false;
+  }
+
+  while (PrevLoop != PostDominatingLoop) {
+
+    if (!PrevLoop->isDo() || !PostDominatingLoop->isDo()) {
+      return false;
+    }
+
+    if (!PostDominatingRef->hasIV(LoopLevel)) {
+      LoopLevel--;
+      PostDominatingLoop = PostDominatingLoop->getParentLoop();
+      PrevLoop = PrevLoop->getParentLoop();
+      continue;
+    }
+
+    RegDDRef *PDLoopUpperRef = PostDominatingLoop->getUpperDDRef();
+    RegDDRef *PDLoopLowerRef = PostDominatingLoop->getLowerDDRef();
+    RegDDRef *PDLoopStrideRef = PostDominatingLoop->getStrideDDRef();
+
+    RegDDRef *PrevLoopUpperRef = PrevLoop->getUpperDDRef();
+    RegDDRef *PrevLoopLowerRef = PrevLoop->getLowerDDRef();
+    RegDDRef *PrevLoopStrideRef = PrevLoop->getStrideDDRef();
+
+    if (!DDRefUtils::areEqual(PDLoopUpperRef, PrevLoopUpperRef) ||
+        !DDRefUtils::areEqual(PDLoopLowerRef, PrevLoopLowerRef) ||
+        !DDRefUtils::areEqual(PDLoopStrideRef, PrevLoopStrideRef)) {
+      return false;
+    }
+
+    PostDominatingLoop = PostDominatingLoop->getParentLoop();
+    PrevLoop = PrevLoop->getParentLoop();
+    LoopLevel--;
+  }
+
+  return true;
+}
+
 static bool doTransform(HLLoop *OutermostLp) {
   bool Result = false;
 
@@ -181,6 +225,17 @@ static bool doTransform(HLLoop *OutermostLp) {
         // lower top sort number.
         const HLDDNode *PrevDDNode = PrevRef->getHLDDNode();
         if (!HLNodeUtils::postDominates(DDNode, PrevDDNode)) {
+          I++;
+          continue;
+        }
+
+        // Check whether PostDominatingRef and PrevRef's parent loops have the
+        // same upperbound, lowerbound and stride.
+        HLLoop *PostDominatingLoop = DDNode->getLexicalParentLoop();
+        HLLoop *PrevLoop = PrevDDNode->getLexicalParentLoop();
+
+        if (!checkParentLoopBounds(PostDominatingLoop, PrevLoop,
+                                   PostDominatingRef)) {
           I++;
           continue;
         }
