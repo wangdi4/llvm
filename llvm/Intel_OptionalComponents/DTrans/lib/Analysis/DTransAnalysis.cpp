@@ -4116,7 +4116,7 @@ bool DTransBadCastingAnalyzer::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
         CI->getOperand(VoidArgumentIndex) != LI)
       return false;
     auto GEPI2 = dyn_cast<GetElementPtrInst>(LI2->getPointerOperand());
-    if (GEPI2->getPointerOperand() != GEPI->getPointerOperand())
+    if (!GEPI2 || (GEPI2->getPointerOperand() != GEPI->getPointerOperand()))
       return false;
   }
   return true;
@@ -6490,7 +6490,8 @@ private:
                  (!VAListType)) {
           CallSite CS = CallSite(&Inst);
           Function *Fn = CS.getCalledFunction();
-          if (Fn->isIntrinsic() && Fn->getIntrinsicID() == Intrinsic::vastart) {
+          if (Fn && Fn->isIntrinsic() &&
+              Fn->getIntrinsicID() == Intrinsic::vastart) {
             Value *Arg = CS.getArgument(0);
             LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
             VAListType = LPI.getDominantAggregateTy();
@@ -8345,13 +8346,14 @@ private:
       auto *StInfo = cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StTy));
       for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
         llvm::Type *FieldTy = StTy->getTypeAtIndex(I);
-        llvm::Constant *ConstVal = Init->getAggregateElement(I);
+        llvm::Constant *ConstVal = Init ? Init->getAggregateElement(I) :
+                                   nullptr;
         dtrans::FieldInfo &FI = StInfo->getField(I);
         analyzeGlobalStructSingleValue(FieldTy, ConstVal);
         DEBUG_WITH_TYPE(DTRANS_FSV,
                         dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType())
                                << " [" << I << "] ");
-        if (ConstVal->getType() == FieldTy) {
+        if (ConstVal && (ConstVal->getType() == FieldTy)) {
           DEBUG_WITH_TYPE(DTRANS_FSV, ConstVal->printAsOperand(dbgs()));
           FI.processNewSingleValue(ConstVal);
           DEBUG_WITH_TYPE(
@@ -8375,7 +8377,8 @@ private:
       auto *ComponentTI = ArInfo->getElementDTransInfo();
       llvm::Type *ComponentTy = ComponentTI->getLLVMType();
       for (unsigned I = 0, E = ArInfo->getNumElements(); I != E; ++I) {
-        llvm::Constant *ConstVal = Init->getAggregateElement(I);
+        llvm::Constant *ConstVal = Init ? Init->getAggregateElement(I) :
+                                   nullptr;
         analyzeGlobalStructSingleValue(ComponentTy, ConstVal);
       }
     }
@@ -9320,7 +9323,7 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
               // conditions. So print a note, discard the check and return
               // 'false'.
               checkFailed = false;
-              dyn_cast<dtrans::StructInfo>(TyInfo)->setIgnoredFor(Transform);
+              cast<dtrans::StructInfo>(TyInfo)->setIgnoredFor(Transform);
               LLVM_DEBUG(dbgs() << "dtrans-"
                                 << dtrans::getStringForTransform(Transform)
                                 << ": ignoring " << dtrans::getStructName(Ty)

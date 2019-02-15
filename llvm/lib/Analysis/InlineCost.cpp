@@ -3018,6 +3018,8 @@ static GlobalValue *traceBack(Value *V, unsigned MinBOpCount,
 // we would have no knowledge of its contents in the compile phase.)
 //
 static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
+  if (!F)
+    return false;
   if (F->getName().contains("realloc"))
     return true;
   for (auto &I : instructions(F))
