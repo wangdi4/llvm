@@ -1671,6 +1671,14 @@ void CGDebugInfo::CollectCXXBasesAux(
     if (!SeenTypes.insert(Base).second)
       continue;
     auto *BaseTy = getOrCreateType(BI.getType(), Unit);
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM-8006 [xmain] gdbCpp/tr76176 at opt_none_debug fails ..."
+    // When emitting complete class data for this class, also emit complete class
+    // data for base classes. Note that this does not emit class data for dynamic
+    // classes which have vtables defined externally unless we are emitting
+    // full debug info.
+    completeClassData(Base);
+#endif // INTEL_CUSTOMIZATION
     llvm::DINode::DIFlags BFlags = StartingFlags;
     uint64_t BaseOffset;
     uint32_t VBPtrOffset = 0;
@@ -2024,8 +2032,18 @@ static bool isDefinedInClangModule(const RecordDecl *RD) {
 void CGDebugInfo::completeClassData(const RecordDecl *RD) {
   if (auto *CXXRD = dyn_cast<CXXRecordDecl>(RD))
     if (CXXRD->isDynamicClass() &&
+#if INTEL_CUSTOMIZATION
+        // CMPLRLLVM-8006 [xmain] gdbCpp/tr76176 at opt_none_debug fails ..."
+        // The vtable linkage type does not accurately reflect whether the class
+        // should have debug information emitted ... it even varies based on
+        // optimization level. Instead, use isVTableExternal().  Also, only
+        // omit the class data if we are not emitting full debug information.
+        DebugKind < codegenoptions::FullDebugInfo &&
+        CGM.getVTables().isVTableExternal(CXXRD) &&
+#else
         CGM.getVTableLinkage(CXXRD) ==
             llvm::GlobalValue::AvailableExternallyLinkage &&
+#endif
         !isClassOrMethodDLLImport(CXXRD))
       return;
 
