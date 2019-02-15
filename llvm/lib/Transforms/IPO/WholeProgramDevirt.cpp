@@ -511,6 +511,12 @@ struct DevirtModule {
     std::string TargetName;           // Basic Block's name
   };
 
+#if INTEL_INCLUDE_DTRANS
+  // Metadata node that will be used to mark a function call as being
+  // created by the devirtualizer to help DTrans analyze bitcast function calls.
+  MDNode *DevirtCallMDNode = nullptr;
+#endif // INTEL_INCLUDE_DTRANS
+
   // True if whole program safe is achieved, else false
   bool IsWholeProgramSafe : 1;
 
@@ -869,6 +875,19 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
                              TheFn->stripPointerCasts()->getName(), OREGetter);
       VCallSite.CS.setCalledFunction(ConstantExpr::getBitCast(
           TheFn, VCallSite.CS.getCalledValue()->getType()));
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+      // If a bitcast operation has been performed to match the callsite to
+      // the call target for the object type, mark the call to allow DTrans
+      // analysis to treat the 'this' pointer argument as being the expected
+      // type for the call, rather than a mismatched argument type. The
+      // devirtualizer has proven the types to match, so this marking avoids
+      // needing to try to prove the types match again during DTrans analysis.
+      if (TheFn->getType() != VCallSite.CS.getCalledValue()->getType())
+        VCallSite.CS.getInstruction()->setMetadata("_Intel.Devirt.Call",
+                                                 DevirtCallMDNode);
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
       // This use is no longer unsafe.
       if (VCallSite.NumUnsafeUses)
         --*VCallSite.NumUnsafeUses;
@@ -1113,11 +1132,23 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
 
     // Replace the called function with the direct call
     CallSite NewCS = CallSite(CloneCS);
-    if (Target.Fn->getFunctionType() != VCallSite.CS.getFunctionType())
+    if (Target.Fn->getFunctionType() != VCallSite.CS.getFunctionType()) {
       NewCS.setCalledFunction(ConstantExpr::getBitCast(
-          Target.Fn, VCallSite.CS.getCalledValue()->getType()));
-    else
+        Target.Fn, VCallSite.CS.getCalledValue()->getType()));
+#if INTEL_INCLUDE_DTRANS
+      // Because a bitcast operation has been performed to match the callsite to
+      // the call target for the object type, mark the call to allow DTrans
+      // analysis to treat the 'this' pointer argument as being the expected
+      // type for the call, rather than a mismatched argument type. The
+      // devirtualizer has proven the types to match, so this marking avoids
+      // needing to try to prove the types match again during DTrans analysis.
+      NewCS.getInstruction()->setMetadata("_Intel.Devirt.Call",
+                                          DevirtCallMDNode);
+#endif // INTEL_INCLUDE_DTRANS
+    }
+    else {
       NewCS.setCalledFunction(Target.Fn);
+    }
 
     // Save the new instruction for PHINode
     NewTarget->CallInstruction = NewCS.getInstruction();
@@ -2377,7 +2408,14 @@ bool DevirtModule::run() {
   // For each (type, offset) pair:
   bool DidVirtualConstProp = false;
   std::map<std::string, Function*> DevirtTargets;
-  unsigned int CallSlotI = 0;                // INTEL
+
+#if INTEL_CUSTOMIZATION
+  unsigned int CallSlotI = 0;
+#if INTEL_INCLUDE_DTRANS
+  DevirtCallMDNode = MDNode::get(
+      M.getContext(), MDString::get(M.getContext(), "_Intel.Devirt.Call"));
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   for (auto &S : CallSlots) {
     // Search each of the members of the type identifier for the virtual
