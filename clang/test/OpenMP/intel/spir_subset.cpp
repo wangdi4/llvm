@@ -119,6 +119,20 @@ void foo1()
   #pragma omp target teams distribute parallel for
   for (i=0;i<16;++i) {}
 
+  // Split case
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TEAMS"
+  //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.DISTRIBUTE.PARLOOP"
+  //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+  #pragma omp target
+  #pragma omp teams distribute parallel for
+  for (i=0;i<16;++i) {}
+
   //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   //ALL-SAME:"DIR.OMP.TARGET"
   //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
