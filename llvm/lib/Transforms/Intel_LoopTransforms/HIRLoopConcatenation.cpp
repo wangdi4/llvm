@@ -268,6 +268,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
@@ -285,8 +286,8 @@ namespace {
 
 class HIRLoopConcatenation {
 public:
-  HIRLoopConcatenation(HIRFramework &HIRF)
-      : HIRF(HIRF), AllocaSymbase(0), Is16LoopMode(true) {
+  HIRLoopConcatenation(HIRFramework &HIRF, const TargetTransformInfo &TTI)
+      : HIRF(HIRF), TTI(TTI), AllocaSymbase(0), Is16LoopMode(true) {
     llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
     Is64Bit = TargetTriple.isArch64Bit();
   }
@@ -383,6 +384,7 @@ private:
 
 private:
   HIRFramework &HIRF;
+  const TargetTransformInfo &TTI;
 
   SmallVector<HLLoop *, 8> AllocaReadLoops;
   SmallVector<HLLoop *, 8> AllocaWriteLoops;
@@ -400,6 +402,11 @@ private:
 bool HIRLoopConcatenation::run() {
   if (DisableConcatenation) {
     LLVM_DEBUG(dbgs() << "HIR Loop Concatenation disabled \n");
+    return false;
+  }
+
+  if (!TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2)) {
     return false;
   }
 
@@ -1425,7 +1432,9 @@ void HIRLoopConcatenation::createReductionLoop(
 PreservedAnalyses
 HIRLoopConcatenationPass::run(llvm::Function &F,
                               llvm::FunctionAnalysisManager &AM) {
-  HIRLoopConcatenation(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+  HIRLoopConcatenation(AM.getResult<HIRFrameworkAnalysis>(F),
+                       AM.getResult<TargetIRAnalysis>(F))
+      .run();
   return PreservedAnalyses::all();
 }
 
@@ -1440,6 +1449,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
+    AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   }
 
@@ -1449,7 +1459,9 @@ public:
       return false;
     }
 
-    return HIRLoopConcatenation(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+    return HIRLoopConcatenation(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F))
         .run();
   }
 };
@@ -1457,6 +1469,7 @@ public:
 char HIRLoopConcatenationLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopConcatenationLegacyPass, "hir-loop-concatenation",
                       "HIR Loop Concatenation", false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRLoopConcatenationLegacyPass, "hir-loop-concatenation",
                     "HIR Loop Concatenation", false, false)
