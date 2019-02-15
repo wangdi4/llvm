@@ -269,6 +269,28 @@ WRNScheduleKind VPOParoptUtils::getDistLoopScheduleKind(WRegionNode *W)
   return WRNScheduleDistributeStaticEven;
 }
 
+/// \p Arg is a Value from a clause.  It is either a Constant or
+/// a Value of pointer type.  If it is a pointer Value, the method
+/// loads the clause's actual argument value via this pointer,
+/// otherwise the clause's actual argument value is \p Arg itself.
+/// The method sign-extends or truncates the clause's actual argument
+/// value to type \p Ty using the provided \p Builder.
+Value *VPOParoptUtils::getByRefClauseArgValueSExt(
+    Value *Arg, Type *Ty, IRBuilder<> &Builder) {
+  if (!Arg)
+    return nullptr;
+
+  assert(Ty->isIntegerTy() && "Expected integer type.");
+
+  if (Arg->getType()->isPointerTy())
+    Arg = Builder.CreateLoad(Arg);
+  // FIXME: assert that Arg is a Constant in an else clause
+  //        of the above IF, when FE passes clause's argument
+  //        by reference.
+
+  return Builder.CreateSExtOrTrunc(Arg, Ty);
+}
+
 /// This function generates a call to set num_teams and num_threads
 /// (from thread_limit clause) for the teams region.
 ///
@@ -314,12 +336,12 @@ CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
   Type *Int32Ty = Type::getInt32Ty(C);
 
   if (NumTeams)
-    NumTeams = Builder.CreateSExtOrTrunc(NumTeams, Int32Ty);
+    NumTeams = getByRefClauseArgValueSExt(NumTeams, Int32Ty, Builder);
   else
     NumTeams = ConstantInt::get(Int32Ty, 0);
 
   if (NumThreads)
-    NumThreads = Builder.CreateSExtOrTrunc(NumThreads, Int32Ty);
+    NumThreads = getByRefClauseArgValueSExt(NumThreads, Int32Ty, Builder);
   else
     NumThreads = ConstantInt::get(Int32Ty, 0);
 
@@ -637,12 +659,13 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
       if (NumTeamsPtr == nullptr)
         NumTeams = Builder.getInt32(0);
       else
-        NumTeams = Builder.CreateSExtOrTrunc(NumTeamsPtr, Int32Ty);
+        NumTeams = getByRefClauseArgValueSExt(NumTeamsPtr, Int32Ty, Builder);
 
       if (ThreadLimitPtr == nullptr)
         ThreadLimit = Builder.getInt32(0);
       else
-        ThreadLimit = Builder.CreateSExtOrTrunc(ThreadLimitPtr, Int32Ty);
+        ThreadLimit =
+            getByRefClauseArgValueSExt(ThreadLimitPtr, Int32Ty, Builder);
     }
   } else {
     // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams
