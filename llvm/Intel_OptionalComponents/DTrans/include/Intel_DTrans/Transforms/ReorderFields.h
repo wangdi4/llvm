@@ -1,6 +1,6 @@
 //===--------------- ReorderFields.h - DTransReorderFieldsPass ------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -93,7 +93,8 @@ private:
   bool isCandidateType(StructType *StructT, const DataLayout &DL);
   bool isCandidateTypeHasEnoughPadding(StructType *StructT,
                                        const DataLayout &DL);
-  void collectReorderTransInfoIfProfitable(TypeInfo *TI, const DataLayout &DL);
+  void collectReorderTransInfoIfProfitable(StructInfo *StInfo,
+                                           const DataLayout &DL);
 };
 
 } // namespace dtrans

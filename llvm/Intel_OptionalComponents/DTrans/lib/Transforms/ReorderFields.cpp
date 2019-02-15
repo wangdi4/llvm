@@ -625,9 +625,8 @@ public:
 // and collects required info to apply reorder transformation if it
 // is profitable.
 void ReorderFieldsPass::collectReorderTransInfoIfProfitable(
-    TypeInfo *TI, const DataLayout &DL) {
+    StructInfo *StInfo, const DataLayout &DL) {
   SmallVector<FieldData, 8> Fields;
-  auto *StInfo = dyn_cast<StructInfo>(TI);
   StructType *StructT = cast<StructType>(StInfo->getLLVMType());
 
   // Collect info Fields

@@ -7715,6 +7715,11 @@ private:
       return;
     }
 
+    // If DestParentTy was null, we should have either hit the overloaded
+    // alias set early return, the (!DestParentTy && !pointsToSomeElement)
+    // early return or the pointsToSomeElement early return above.
+    assert(DestParentTy && "Unexpected null parent type!");
+
     // The operand is not a pointer to member if we reach this point
     auto *DestPointeeTy = DestParentTy->getPointerElementType();
     uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);

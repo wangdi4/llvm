@@ -960,6 +960,8 @@ unsigned dtrans::PaddedMallocGlobals::getPaddedMallocSize(Module &M) {
   // Collect the node related to the metadata
   MDNode *Node = PaddedMallocFunc->getMetadata("dtrans.paddedmallocsize");
 
+  assert(Node && "Padded malloc metadata found but not accessible?");
+
   // Get the metadata
   ConstantAsMetadata *ConstMetaData =
       cast<ConstantAsMetadata>(Node->getOperand(0));
