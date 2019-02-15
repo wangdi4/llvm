@@ -223,7 +223,7 @@ else()
       ENV LIBRARY_PATH
       ENV LD_LIBRARY_PATH
     PATH_SUFFIXES
-      lib lib64)
+      lib lib64 lib/intel64_lin)
   message(STATUS "OpenCL lib: ${LIBOMPTARGET_DEP_OPENCL_LIBRARIES}")
 
   if (NOT LIBOMPTARGET_DEP_OPENCL_LIBRARIES)
