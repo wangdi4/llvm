@@ -34,6 +34,11 @@
 #if !__has_feature(modules)
 #define __STDDEF_H
 #endif
+/* INTEL_CUSTOMIZATION */
+#if defined(_MSC_VER)
+#include <corecrt.h>
+#endif // if defined(_MSC_VER)
+/* end INTEL_CUSTOMIZATION */
 #define __need_ptrdiff_t
 #define __need_size_t
 #define __need_wchar_t

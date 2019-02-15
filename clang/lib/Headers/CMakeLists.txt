@@ -309,22 +309,22 @@ set(intel_exclude_files
   float.h
 #  htmintrin.h
 #  htmxlintrin.h
-  inttypes.h
-  iso646.h
+#  inttypes.h
+#  iso646.h
   limits.h
   module.modulemap
 #  msa.h
 #  s390intrin.h
-  stdalign.h
-  stdarg.h
-  stdatomic.h
-  stdbool.h
-  stddef.h
-  stdint.h
-  stdnoreturn.h
+#  stdalign.h
+#  stdarg.h
+#  stdatomic.h
+#  stdbool.h
+#  stddef.h
+#  stdint.h
+#  stdnoreturn.h
 # tgmath.h
   unwind.h
-  varargs.h
+#  varargs.h
 # vecintrin.h
   )
 

@@ -25,6 +25,11 @@
 
 #ifndef __STDARG_H
 #define __STDARG_H
+/* INTEL_CUSTOMIZATION */
+#if defined(_MSC_VER)
+#include <vcruntime.h>
+#endif // if defined(_MSC_VER)
+/* end INTEL_CUSTOMIZATION */
 
 #ifndef _VA_LIST
 typedef __builtin_va_list va_list;
