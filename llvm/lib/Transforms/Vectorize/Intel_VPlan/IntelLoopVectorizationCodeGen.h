@@ -345,6 +345,11 @@ public:
 
   BasicBlock *getLoopVectorPH() { return LoopVectorPreHeader;  }
 
+  Loop *getMainLoop() const { return NewLoop; }
+  unsigned getVF() const { return VF; }
+  bool getNeedRemainderLoop() const { return false; }
+  Loop *getRemainderLoop() const { return nullptr; }
+
   static void collectTriviallyDeadInstructions(
     Loop *OrigLoop, VPOVectorizationLegality *Legal,
     SmallPtrSetImpl<Instruction *> &DeadInstructions);

@@ -156,7 +156,7 @@ protected:
 
   // Add remarks to the VPlan loop opt-report for loops created by codegen
   template <class VPOCodeGenType>
-  void addOptReportRemarks(VPlanOptReportBuilder<LoopType> &VPORBuilder,
+  void addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
                            VPOCodeGenType *VCodeGen);
 
   // TODO: Move isSupported to Legality class.
@@ -181,6 +181,7 @@ private:
   DemandedBits *DB;
   LoopAccessLegacyAnalysis *LAA;
   OptimizationRemarkEmitter *ORE;
+  LoopOptReportBuilder LORBuilder;
 
   bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp = 0) override;
 
@@ -477,7 +478,7 @@ bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
 template <class LoopType>
 template <class VPOCodeGenType>
 void VPlanDriverBase<LoopType>::addOptReportRemarks(
-    VPlanOptReportBuilder<LoopType> &VPORBuilder, VPOCodeGenType *VCodeGen) {
+    VPlanOptReportBuilder &VPORBuilder, VPOCodeGenType *VCodeGen) {
   // The new vectorized loop is stored in MainLoop
   LoopType *MainLoop = VCodeGen->getMainLoop();
 
@@ -495,6 +496,26 @@ void VPlanDriverBase<LoopType>::addOptReportRemarks(
   }
 }
 
+// Definitions of addRemark functions in VPlanOptReportBuilder
+template <typename... Args>
+void VPlanOptReportBuilder::addRemark(HLLoop *Lp,
+                                      OptReportVerbosity::Level Verbosity,
+                                      unsigned MsgID, Args &&... args) {
+  LORBuilder(*Lp).addRemark(Verbosity, loopopt::OptReportDiag::getMsg(MsgID),
+                            std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+void VPlanOptReportBuilder::addRemark(Loop *Lp,
+                                      OptReportVerbosity::Level Verbosity,
+                                      unsigned MsgID, Args &&... args) {
+  // For LLVM-IR Loop, LORB needs a valid LoopInfo object
+  assert(LI && "LoopInfo for opt-report builder is null.");
+  LORBuilder(*Lp, *LI).addRemark(Verbosity,
+                                 loopopt::OptReportDiag::getMsg(MsgID),
+                                 std::forward<Args>(args)...);
+}
+
 INITIALIZE_PASS_BEGIN(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
@@ -506,6 +527,7 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DemandedBitsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopAccessLegacyAnalysis)
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -532,6 +554,7 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<DemandedBitsWrapperPass>();
   AU.addRequired<LoopAccessLegacyAnalysis>();
   AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
+  AU.addRequired<OptReportOptionsPass>();
 }
 
 bool VPlanDriver::runOnFunction(Function &Fn) {
@@ -552,6 +575,8 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   DB = &getAnalysis<DemandedBitsWrapperPass>().getDemandedBits();
   ORE = &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
   LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
+  LORBuilder.setup(Fn.getContext(),
+                   getAnalysis<OptReportOptionsPass>().getVerbosity());
 
   bool ModifiedFunc =
       VPlanDriverBase::processFunction(Fn, WRegionCollection::LLVMIR);
@@ -578,6 +603,10 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
     if (!VPlanConstrStressTest && !DisableCodeGen)
       return false;
   }
+
+  // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
+  // process for vectorization
+  VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
 
   VPlanVLSAnalysis VLSA(Lp->getHeader()->getContext());
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
@@ -641,8 +670,14 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 
       CandLoopsVectorized++;
       ModifiedLoop = true;
+      addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
     }
   }
+
+  // Emit opt report remark if a VPlan candidate SIMD loop was not vectorized
+  // TODO: Emit reason for bailing out
+  if (!ModifiedLoop)
+    VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, 15436, "");
 
   return ModifiedLoop;
 }
@@ -820,7 +855,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
   // process for vectorization
-  VPlanOptReportBuilder<HLLoop> VPORBuilder(LORBuilder);
+  VPlanOptReportBuilder VPORBuilder(LORBuilder);
 
   VPlanVLSAnalysisHIR VLSA(DDA, Lp->getLLVMLoop()->getHeader()->getContext());
   // TODO: No Legal for HIR.

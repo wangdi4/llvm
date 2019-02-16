@@ -2955,7 +2955,7 @@ public:
 
 /// A wrapper class to add VPlan related remarks for opt-report. Currently
 /// the implementation is naive with a single method to add a remark for
-/// a given LoopType loop.
+/// a given loop (can be HLLoop or llvm::Loop).
 //  TODO:
 /// In the future this will be extended to record all vectorization related
 /// remarks emitted by VPlan by mapping the remarks to underlying VPlan data
@@ -2963,20 +2963,27 @@ public:
 ///
 /// VPLoopRegion MainLoop --> {"LOOP WAS VECTORIZED", "vector length: 4"}
 /// VPLoopRegion RemainderLoop --> {"remainder loop was not vectorized"}
-template <class LoopType> class VPlanOptReportBuilder {
+class VPlanOptReportBuilder {
   LoopOptReportBuilder &LORBuilder;
+  // LORB needs the LoopInfo while adding remarks for llvm::Loop. This will be
+  // nullptr for HLLoop.
+  LoopInfo *LI;
 
 public:
-  VPlanOptReportBuilder(LoopOptReportBuilder &LORB) : LORBuilder(LORB) {}
+  VPlanOptReportBuilder(LoopOptReportBuilder &LORB, LoopInfo *LI = nullptr)
+      : LORBuilder(LORB), LI(LI) {}
 
-  /// Add a vectorization related remark for \p Lp. The remark message is
-  /// identified by \p MsgID.
+  /// Add a vectorization related remark for the HIR loop \p Lp. The remark
+  /// message is identified by \p MsgID.
   template <typename... Args>
-  void addRemark(LoopType *Lp, OptReportVerbosity::Level Verbosity,
-                 unsigned MsgID, Args &&... args) {
-    LORBuilder(*Lp).addRemark(Verbosity, loopopt::OptReportDiag::getMsg(MsgID),
-                              std::forward<Args>(args)...);
-  }
+  void addRemark(loopopt::HLLoop *Lp, OptReportVerbosity::Level Verbosity,
+                 unsigned MsgID, Args &&... args);
+
+  /// Add a vectorization related remark for the LLVM loop \p Lp. The remark
+  /// message is identified by \p MsgID.
+  template <typename... Args>
+  void addRemark(Loop *Lp, OptReportVerbosity::Level Verbosity, unsigned MsgID,
+                 Args &&... args);
 };
 
 } // namespace vpo
