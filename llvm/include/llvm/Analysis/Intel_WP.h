@@ -1,6 +1,6 @@
 //===------- Intel_WP.h - Whole program Analysis -*------===//
 //
-// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,6 +18,7 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
@@ -42,6 +43,12 @@ private:
   // Set to true if all symbols have been resolved.
   bool WholeProgramSeen;
 
+  // Set to true if for each possible Level,
+  //   TTI->isAdvancedOptLevelEnabled(Level)
+  // is true for all Functions in the LTO unit with IR.
+  bool IsAdvancedOptEnabled[
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetNumLevels];
+
   size_t UnresolvedCallsCount;
 
   // SetVectors used for tracing the libfuncs
@@ -54,6 +61,10 @@ private:
   // return false.
   bool isWholeProgramHidden();
 
+  // Compute the values of IsAdvancedOptEnabled[].
+  void computeIsAdvancedOptEnabled(Module &M,
+      function_ref<TargetTransformInfo &(Function &)> GTTI);
+
 public:
   WholeProgramInfo();
   //WholeProgramInfo(WholeProgramInfo &&Arg);
@@ -61,6 +72,8 @@ public:
 
   static WholeProgramInfo analyzeModule(Module &M,
                                         const TargetLibraryInfo &TLI,
+                                        function_ref<TargetTransformInfo
+                                            &(Function &)> GTTI,
                                         CallGraph *CG);
 
   // Fold the intrinsic llvm.intel.wholeprogramsafe
@@ -69,6 +82,7 @@ public:
 
   bool isWholeProgramSafe();
   bool isWholeProgramSeen();
+  bool isAdvancedOptEnabled(TargetTransformInfo::AdvancedOptLevel AO);
 
   void wholeProgramAllExternsAreIntrins(Module &M,
                                         const TargetLibraryInfo &TLI);
@@ -82,7 +96,7 @@ public:
 
 // Analysis pass providing a never-invalidated whole program analysis result.
 class WholeProgramAnalysis : public AnalysisInfoMixin<WholeProgramAnalysis> {
-  static AnalysisKey Key; 
+  static AnalysisKey Key;
   friend AnalysisInfoMixin<WholeProgramAnalysis>;
   static char PassID;
 

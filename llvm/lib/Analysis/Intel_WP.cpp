@@ -81,6 +81,7 @@ static SetVector<StringRef> VisibleSymbolsVector;
 INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 
@@ -130,18 +131,25 @@ bool WholeProgramWrapperPass::doFinalization(Module &M) {
 }
 
 bool WholeProgramWrapperPass::runOnModule(Module &M) {
+  auto GTTI = [this](Function &F) -> TargetTransformInfo & {
+    return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  };
   CallGraphWrapperPass *CGPass =
       getAnalysisIfAvailable<CallGraphWrapperPass>();
   CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
   Result.reset(new WholeProgramInfo(
                 WholeProgramInfo::analyzeModule(
-      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(), CG)));
+      M, getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(), GTTI, CG)));
   return false;
 }
 
 WholeProgramInfo::WholeProgramInfo() {
   WholeProgramSafe = false;
   WholeProgramSeen = false;
+  auto EE = TargetTransformInfo::AdvancedOptLevel::AO_TargetNumLevels;
+  unsigned E = static_cast<unsigned>(EE);
+  for (unsigned I = 0; I < E; ++I)
+    IsAdvancedOptEnabled[I] = true;
 }
 
 WholeProgramInfo::~WholeProgramInfo() {}
@@ -262,7 +270,8 @@ void WholeProgramInfo::foldIntrinsicWholeProgramSafe(Module &M) {
 
 WholeProgramInfo
 WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
-                                CallGraph *CG) {
+                                function_ref<TargetTransformInfo
+                                    &(Function &)> GTTI, CallGraph *CG) {
 
   WholeProgramInfo Result;
 
@@ -279,15 +288,17 @@ WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
   // Remove the uses of the intrinsic
   // llvm.intel.wholeprogramsafe
   Result.foldIntrinsicWholeProgramSafe(M);
+  Result.computeIsAdvancedOptEnabled(M, GTTI);
 
   return Result;
 }
 
-// This analysis depends on TargetLibraryInfo. Analysis info is not
-// modified by any other pass.
+// This analysis depends on TargetLibraryInfo and TargetTransformInfo.
+// Analysis info is not modified by any other pass.
 void WholeProgramWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
 }
 
 // This function takes Value that is an operand to call or invoke instruction
@@ -507,6 +518,30 @@ void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
     }
 }
 
+// Compute and store the value of isAdvancedOptEnabled(AO) for all
+// possible values of the argument AO.
+void WholeProgramInfo::computeIsAdvancedOptEnabled(Module &M,
+                       function_ref<TargetTransformInfo &(Function &)> GTTI) {
+  for (Function &F : M) {
+    if (F.isDeclaration())
+      continue;
+    TargetTransformInfo &TTI = GTTI(F);
+    auto EE = TargetTransformInfo::AdvancedOptLevel::AO_TargetNumLevels;
+    unsigned E = static_cast<unsigned>(EE);
+    for (unsigned I = 0; I < E; ++I) {
+      auto II = static_cast<TargetTransformInfo::AdvancedOptLevel>(I);
+      IsAdvancedOptEnabled[I] &= TTI.isAdvancedOptEnabled(II);
+    }
+  }
+}
+
+// Return true if TTI->isAdvancedOptEnabled(AO) is true for all Functions
+// in the LTO unit which have IR.
+bool WholeProgramInfo::isAdvancedOptEnabled(
+    TargetTransformInfo::AdvancedOptLevel AO) {
+  return IsAdvancedOptEnabled[AO];
+}
+
 // This returns true if AssumeWholeProgram is true or WholeProgramSafe is true.
 // WholeProgramSafe is set to true only if all symbols have been resolved
 // and building executable (i.e not building shared library).
@@ -536,8 +571,13 @@ AnalysisKey WholeProgramAnalysis::Key;
 
 WholeProgramInfo WholeProgramAnalysis::run(Module &M,
                                 AnalysisManager<Module> &AM) {
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  std::function<TargetTransformInfo &(Function &)> GTTI =
+      [&FAM](Function &F) -> TargetTransformInfo & {
+    return FAM.getResult<TargetIRAnalysis>(F);
+  };
   return WholeProgramInfo::analyzeModule(M,
-                                      AM.getResult<TargetLibraryAnalysis>(M),
+                                  AM.getResult<TargetLibraryAnalysis>(M), GTTI,
                                   AM.getCachedResult<CallGraphAnalysis>(M));
 }
 

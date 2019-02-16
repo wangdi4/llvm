@@ -926,10 +926,12 @@ public:
   /// on the target. This list should be updated as conditions requiring
   /// new optimization control are found.
   enum AdvancedOptLevel {
-      AO_TargetHasSSE42,
+      AO_TargetHasSSE42 = 0,
       AO_TargetHasAVX,
       AO_TargetHasAVX2,
-      AO_TargetHasAVX512
+      AO_TargetHasAVX512,
+      AO_TargetNumLevels // This is a sentinel to mark the end of the list
+                         // and to be used as a terminator in iterators.
   };
   /// \returns true if the level of optimization would be desirable
   /// based on the target architecture.
