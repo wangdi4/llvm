@@ -728,8 +728,7 @@ ExprResult Sema::UsualUnaryConversions(Expr *E) {
 /// do not have a prototype. Arguments that have type float or __fp16
 /// are promoted to double. All other argument types are converted by
 /// UsualUnaryConversions().
-ExprResult Sema::DefaultArgumentPromotion(Expr *E,               // INTEL
-                                          VariadicCallType CT) { // INTEL
+ExprResult Sema::DefaultArgumentPromotion(Expr *E) {
   QualType Ty = E->getType();
   assert(!Ty.isNull() && "DefaultArgumentPromotion - missing type");
 
@@ -755,11 +754,6 @@ ExprResult Sema::DefaultArgumentPromotion(Expr *E,               // INTEL
     }
   }
 
-#if INTEL_CUSTOMIZATION
-  // cq381613: Pass argumets of varadic function call by value.
-  if (getLangOpts().IntelCompat && CT == VariadicFunction)
-    return E;
-#endif // INTEL_CUSTOMIZATION
   // C++ performs lvalue-to-rvalue conversion as a default argument
   // promotion, even on class types, but note:
   //   C++11 [conv.lval]p2:
@@ -901,17 +895,13 @@ ExprResult Sema::DefaultVariadicArgumentPromotion(Expr *E, VariadicCallType CT,
     }
   }
 
-  ExprResult ExprRes = DefaultArgumentPromotion(E, CT); // INTEL
+  ExprResult ExprRes = DefaultArgumentPromotion(E);
   if (ExprRes.isInvalid())
     return ExprError();
   E = ExprRes.get();
 
   // Diagnostics regarding non-POD argument types are
   // emitted along with format string checking in Sema::CheckFunctionCall().
-#if INTEL_CUSTOMIZATION
-  // cq381613: don't turn into trap variadic calls.
-  if (!getLangOpts().IntelCompat || CT != VariadicFunction) 
-#endif // INTEL_CUSTOMIZATION
   if (isValidVarArgType(E->getType()) == VAK_Undefined) {
     // Turn this into a trap.
     CXXScopeSpec SS;
@@ -5218,8 +5208,7 @@ bool Sema::GatherArgumentsForCall(SourceLocation CallLoc, FunctionDecl *FDecl,
         FDecl->isExternC()) {
       for (Expr *A : Args.slice(ArgIx)) {
         QualType paramType; // ignored
-        ExprResult arg =
-            checkUnknownAnyArg(CallLoc, A, paramType, CallType); // INTEL
+        ExprResult arg = checkUnknownAnyArg(CallLoc, A, paramType);
         Invalid |= arg.isInvalid();
         AllArgs.push_back(arg.get());
       }
@@ -5956,8 +5945,7 @@ ExprResult Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
         Arg = ArgE.getAs<Expr>();
 
       } else {
-        ExprResult ArgE = DefaultArgumentPromotion(      // INTEL
-            Arg, getVariadicCallType(FDecl, Proto, Fn)); // INTEL
+        ExprResult ArgE = DefaultArgumentPromotion(Arg);
 
         if (ArgE.isInvalid())
           return true;
@@ -17157,13 +17145,12 @@ ExprResult Sema::forceUnknownAnyToType(Expr *E, QualType ToType) {
 }
 
 ExprResult Sema::checkUnknownAnyArg(SourceLocation callLoc,
-                                    Expr *arg, QualType &paramType, // INTEL
-                                    VariadicCallType CallType) {    // INTEL
+                                    Expr *arg, QualType &paramType) {
   // If the syntactic form of the argument is not an explicit cast of
   // any sort, just do default argument promotion.
   ExplicitCastExpr *castArg = dyn_cast<ExplicitCastExpr>(arg->IgnoreParens());
   if (!castArg) {
-    ExprResult result = DefaultArgumentPromotion(arg, CallType); // INTEL
+    ExprResult result = DefaultArgumentPromotion(arg);
     if (result.isInvalid()) return ExprError();
     paramType = result.get()->getType();
     return result;

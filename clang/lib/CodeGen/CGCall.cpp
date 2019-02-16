@@ -3543,11 +3543,6 @@ void CodeGenFunction::EmitCallArgs(
 
   // Evaluate each argument in the appropriate order.
   size_t CallArgsStart = Args.size();
-#if INTEL_CUSTOMIZATION
-  bool IsVariadic = AC.hasFunctionDecl() ? 
-                        cast<FunctionDecl>(AC.getDecl())->isVariadic() 
-                        : false;
-#endif // INTEL_CUSTOMIZATION
   for (unsigned I = 0, E = ArgTypes.size(); I != E; ++I) {
     unsigned Idx = LeftToRight ? I : E - I - 1;
     CallExpr::const_arg_iterator Arg = ArgRange.begin() + Idx;
@@ -3560,8 +3555,7 @@ void CodeGenFunction::EmitCallArgs(
             (isa<ObjCMethodDecl>(AC.getDecl()) &&
              isObjCMethodWithTypeParams(cast<ObjCMethodDecl>(AC.getDecl())))) &&
            "Argument and parameter types don't match");
-    EmitCallArg(Args, *Arg, ArgTypes[Idx],                              // INTEL
-                IsVariadic && Idx >= AC.getNumParams ()); // INTEL
+    EmitCallArg(Args, *Arg, ArgTypes[Idx]);
     // In particular, we depend on it being the last arg in Args, and the
     // objectsize bits depend on there only being one arg if !LeftToRight.
     assert(InitialArgSize + 1 == Args.size() &&
@@ -3652,7 +3646,7 @@ void CallArg::copyInto(CodeGenFunction &CGF, Address Addr) const {
 }
 
 void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
-                                  QualType type, bool IsVariadic) { // INTEL
+                                  QualType type) {
   DisableDebugLocationUpdates Dis(*this, E);
   if (const ObjCIndirectCopyRestoreExpr *CRE
         = dyn_cast<ObjCIndirectCopyRestoreExpr>(E)) {
@@ -3660,10 +3654,6 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     return emitWritebackArg(*this, args, CRE);
   }
 
-#if INTEL_CUSTOMIZATION
-  // cq381613: Not reference for variadic arguments. 
-  if (!getLangOpts().IntelCompat || !IsVariadic) {
-#endif // INTEL_CUSTOMIZATION
   assert(type->isReferenceType() == E->isGLValue() &&
          "reference binding to unmaterialized r-value!");
 
@@ -3671,9 +3661,6 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     assert(E->getObjectKind() == OK_Ordinary);
     return args.add(EmitReferenceBindingToExpr(E), type);
   }
-#if INTEL_CUSTOMIZATION
-  }
-#endif // INTEL_CUSTOMIZATION
   bool HasAggregateEvalKind = hasAggregateEvaluationKind(type);
 
   // In the Microsoft C++ ABI, aggregate arguments are destructed by the callee.
