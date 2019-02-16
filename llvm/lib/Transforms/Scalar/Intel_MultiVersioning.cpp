@@ -1,6 +1,6 @@
 //===----- Intel_MultiVersion.cpp - Whole Function multi-versioning -*-----===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -29,6 +29,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
@@ -410,11 +411,20 @@ class BoolMultiVersioningImpl {
 private:
   Function &F;
   AAResults &AAR;
+  TargetTransformInfo &TTI;
 
 public:
-  BoolMultiVersioningImpl(Function &F, AAResults &AAR) : F(F), AAR(AAR) {}
+  BoolMultiVersioningImpl(Function &F, AAResults &AAR,
+      TargetTransformInfo &TTI) : F(F), AAR(AAR), TTI(TTI) {}
 
   bool run() const {
+
+    // If AVX2 or higher is not present, then don't run optimization
+    if (!TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2)) {
+      return false;
+    }
+
     // Build closures for all function arguments.
     SmallVector<BoolClosure, 8u> Closures;
     for (const auto &Arg : F.args())
@@ -441,13 +451,15 @@ public:
 PreservedAnalyses MultiVersioningPass::run(Function &F,
                                            FunctionAnalysisManager &AM) {
   auto &AAR = AM.getResult<AAManager>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
 
-  if (!BoolMultiVersioningImpl(F, AAR).run())
+  if (!BoolMultiVersioningImpl(F, AAR, TTI).run())
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();
   PA.preserve<WholeProgramAnalysis>();
   PA.preserve<GlobalsAA>();
+  PA.preserve<TargetIRAnalysis>();
   PA.preserve<AndersensAA>();
   PA.preserve<InlineAggAnalysis>();
 
@@ -469,12 +481,14 @@ public:
       return false;
 
     auto &AAR = getAnalysis<AAResultsWrapperPass>().getAAResults();
+    auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
 
-    return BoolMultiVersioningImpl(F, AAR).run();
+    return BoolMultiVersioningImpl(F, AAR, TTI).run();
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AAResultsWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addPreserved<AAResultsWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
@@ -491,6 +505,7 @@ char MultiVersioningWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(MultiVersioningWrapper, DEBUG_TYPE,
                       "Function multi-versioning", false, false)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(MultiVersioningWrapper, DEBUG_TYPE,
                     "Function multi-versioning", false, false)
 
