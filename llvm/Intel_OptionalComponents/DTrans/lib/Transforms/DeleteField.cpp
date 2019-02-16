@@ -31,6 +31,15 @@ using namespace llvm;
 
 namespace {
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// For triaging this transformation, define an upper limit on the number of
+// candidate structures that will be allowed to have fields deleted.
+cl::opt<unsigned>
+    DeleteFieldMaxStruct("dtrans-deletefield-max-struct",
+                         cl::init(std::numeric_limits<unsigned>::max()),
+                         cl::ReallyHidden);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 class DTransDeleteFieldWrapper : public ModulePass {
 private:
   dtrans::DeleteFieldPass Impl;
@@ -273,6 +282,50 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
 
     StructsToConvert.push_back(StInfo);
   }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Check for triage limits on the number of structures to potentially modify.
+  //
+  // Note: This is done before checking whether any of the identified structures
+  // should be skipped due to being nested in structures that cannot be changed.
+  // This is necessary because otherwise we would need to re-identify the
+  // OrigEnclosingTypes set after pruning the StructsToConvert based on the
+  // triage limit.
+  if (DeleteFieldMaxStruct != std::numeric_limits<unsigned>::max() &&
+    StructsToConvert.size() > DeleteFieldMaxStruct) {
+    // The set of structures that may be deleted from have been identified,
+    // but the order of evaluation is not deterministic because the walk
+    // of the type_info_entries is arbitrary. Sort the structures by name
+    // so that triaging can be applied.
+    LLVM_DEBUG(dbgs() << "Triaging: Reducing " << StructsToConvert.size()
+      << " candidates down to " << DeleteFieldMaxStruct
+      << " structures\n");
+    std::sort(
+      StructsToConvert.begin(), StructsToConvert.end(),
+      [](dtrans::StructInfo *A, dtrans::StructInfo *B) {
+      auto *AStTy = cast<StructType>(A->getLLVMType());
+      auto *BStTy = cast<StructType>(B->getLLVMType());
+      assert(
+        AStTy->hasName() && BStTy->hasName() &&
+        "Field deletion expected to be restricted to named structures");
+      return AStTy->getName() < BStTy->getName();
+    });
+
+    LLVM_DEBUG({
+      unsigned Count = 0;
+      for (auto *StInfo : StructsToConvert) {
+        dbgs() << Count << ":  Triaging will "
+               << (Count >= DeleteFieldMaxStruct ? "NOT " : "") << "process: ";
+        StInfo->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << "\n";
+        ++Count;
+      }
+    });
+
+    // Trim the vector to the number to transform based on the triage limit.
+    StructsToConvert.resize(DeleteFieldMaxStruct);
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // Scan for dependent types, they will not be changed directly, but their
   // sizes could be updated. Also collect types whose dependencies violate
