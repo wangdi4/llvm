@@ -60,6 +60,7 @@
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 
 using namespace llvm;
 
@@ -238,10 +239,12 @@ public:
     addPass(createCSAParseAnnotateAttributesPass());
 
     // Add pass to replace alloca instructions
+    addPass(createPromoteMemoryToRegisterPass(true, true));
     addPass(createCSAReplaceAllocaWithMallocPass(getCSATargetMachine()));
     addPass(createUnskippableAggressiveDCEPass());
+    addPass(createUnskippableInstSimplifyLegacyPass());
     addPass(createGlobalDCEPass());
-    
+
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...
     addPass(createLoopSimplifyPass());
@@ -261,10 +264,7 @@ public:
 
     addPass(createCSARASReplayableLoadsDetectionPass(), false);
     addPass(createCSANameLICsPass(), false);
-
-    if (getOptLevel() != CodeGenOpt::None) {
-      addPass(createCSACvtCFDFPass(), false);
-    }
+    addPass(createCSACvtCFDFPass(), false);
 
     if (RunCSAStatistics) {
       addPass(createCSAStatisticsPass(), false);

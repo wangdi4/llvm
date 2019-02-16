@@ -108,6 +108,12 @@ struct InstSimplifyLegacyPass : public FunctionPass {
     return runImpl(F, SQ, ORE);
   }
 };
+
+#if INTEL_CUSTOMIZATION
+class UnskippableInstSimplifyLegacyPass : public InstSimplifyLegacyPass {
+  bool skipFunction(const Function &F) const override { return false; }
+};
+#endif // INTEL_CUSTOMIZATION
 } // namespace
 
 char InstSimplifyLegacyPass::ID = 0;
@@ -124,6 +130,12 @@ INITIALIZE_PASS_END(InstSimplifyLegacyPass, "instsimplify",
 FunctionPass *llvm::createInstSimplifyLegacyPass() {
   return new InstSimplifyLegacyPass();
 }
+
+#if INTEL_CUSTOMIZATION
+FunctionPass *llvm::createUnskippableInstSimplifyLegacyPass() {
+  return new UnskippableInstSimplifyLegacyPass();
+}
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses InstSimplifyPass::run(Function &F,
                                         FunctionAnalysisManager &AM) {
