@@ -80,11 +80,10 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
         genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
 
         IRBuilder<> Builder(EntryBB->getTerminator());
-        VPOUtils::genCopyFromSrcToDst(NewPrivInst, Builder, NewPrivInst,
-                                      RedI->getNew(), NewPrivInst, EntryBB);
-        Builder.SetInsertPoint(ExitBB->getTerminator());
-        VPOUtils::genCopyFromSrcToDst(NewPrivInst, Builder, NewPrivInst,
-                                      NewPrivInst, RedI->getNew(), ExitBB);
+        VPOParoptUtils::genCopyByAddr(NewPrivInst, RedI->getNew(),
+                                      EntryBB->getTerminator());
+        VPOParoptUtils::genCopyByAddr(RedI->getNew(), NewPrivInst,
+                                      ExitBB->getTerminator());
       }
     }
   };
@@ -612,10 +611,13 @@ bool VPOParoptTransform::genTaskLoopInitCode(
 // Set up the mapping between the variables (firstprivate,
 // lastprivate, reduction and shared) and the counterparts in the thunk.
 AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
-                                                      Instruction *InsertPt,
                                                       StructType *KmpSharedTy) {
   SmallVector<Value *, 4> Indices;
 
+  assert(W->getEntryBBlock()->getSinglePredecessor() &&
+         "Single pre-task block not created.");
+  Instruction *InsertPt =
+      W->getEntryBBlock()->getSinglePredecessor()->getTerminator();
   IRBuilder<> Builder(InsertPt);
   AllocaInst *TaskSharedBase =
       Builder.CreateAlloca(KmpSharedTy, nullptr, "taskt.shared.agg");
@@ -628,8 +630,9 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
       Indices.push_back(Builder.getInt32(FprivI->getThunkIdx()));
       Value *Gep =
           Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
-      LoadInst *Load = Builder.CreateLoad(FprivI->getOrig());
-      Builder.CreateStore(Load, Gep);
+      // TODO: need to call copy constructor here
+      VPOParoptUtils::genCopyByAddr(Gep, FprivI->getOrig(),
+                                    cast<Instruction>(Gep)->getNextNode());
     }
   }
 
@@ -642,6 +645,7 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
         Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
         Value *Gep =
             Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+        // storing pointer value to task base
         Builder.CreateStore(LprivI->getOrig(), Gep);
       }
     }
@@ -1198,6 +1202,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   bool Changed = false;
 
+  AllocaInst *PrivateBase = genTaskPrivateMapping(W, KmpSharedTy);
+
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT);
 
@@ -1231,14 +1237,13 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   if (!NewCall->use_empty())
     NewCall->replaceAllUsesWith(MTFnCI);
 
-  // Keep the orginal extraced function name after finalization
+  // Keep the orginal extracted function name after finalization
   MTFnCI->takeName(NewCall);
 
   genRedInitForTask(W, NewCall);
 
   AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, NewCall);
 
-  AllocaInst *PrivateBase = genTaskPrivateMapping(W, NewCall, KmpSharedTy);
   const DataLayout DL = NewF->getParent()->getDataLayout();
   int KmpTaskTTWithPrivatesTySz =
       DL.getTypeAllocSize(KmpTaskTTWithPrivatesTy);

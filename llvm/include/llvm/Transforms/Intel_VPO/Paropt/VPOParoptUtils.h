@@ -601,6 +601,15 @@ public:
                                      Instruction *InsertBeforePt);
   /// @}
 
+  /// Copy data from the source address \p To to the destination address
+  /// \p From
+  /// These must both be pointer types.
+  /// A copy constructor or copy-assign function \p Cctor will be used if
+  /// given.
+  /// \p IsByRef will insert an extra load to dereference the \p From pointer.
+  static void genCopyByAddr(Value *To, Value *From, Instruction *InsertPt,
+                            Function *Cctor = nullptr, bool IsByRef = false);
+
   /// Compute the OpenMP loop upper bound so that the loop iteration space can
   /// be closed interval.
   static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);

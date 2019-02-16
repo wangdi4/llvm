@@ -312,21 +312,8 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
   return MemcpyBuilder.CreateMemCpy(Dest, Align, Src, Align, Size);
 }
 
-// Utility to copy the data from the source to the destination.
-void VPOUtils::genCopyFromSrcToDst(AllocaInst *AI, IRBuilder<> &Builder,
-                                   AllocaInst *NewPrivInst, Value *Source,
-                                   Value *Destination, BasicBlock *InsertBB) {
-  const DataLayout &DL = AI->getModule()->getDataLayout();
-
-  if (!canBeRegisterized(AI->getAllocatedType(), DL) ||
-      NewPrivInst->isArrayAllocation())
-    genMemcpy(Destination, Source, DL,
-              NewPrivInst->getAlignment(), InsertBB);
-  else
-    Builder.CreateStore(Builder.CreateLoad(Source), Destination);
-}
-
 using ScopeSetType = SmallSetVector<Metadata *, 8>;
+
 void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
                            const DataLayout *DL) {
 

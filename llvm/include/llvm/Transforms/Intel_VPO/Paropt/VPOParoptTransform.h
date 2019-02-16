@@ -473,8 +473,7 @@ private:
 
   /// \brief Set up the mapping between the variables (firstprivate,
   /// lastprivate, reduction and shared) and the counterparts in the thunk.
-  AllocaInst *genTaskPrivateMapping(WRegionNode *W, Instruction *InsertPt,
-                                    StructType *KmpSharedTy);
+  AllocaInst *genTaskPrivateMapping(WRegionNode *W, StructType *KmpSharedTy);
 
   /// \brief Initialize the data in the shared data area inside the thunk
   void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,

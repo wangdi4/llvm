@@ -2895,6 +2895,33 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
   return Call;
 }
 
+// Utility to copy data from address "From" to address "To", with an optional
+// copy constructor call (can be null) and by-ref dereference (false);
+void VPOParoptUtils::genCopyByAddr(Value *To, Value *From,
+                                   Instruction *InsertPt, Function *Cctor,
+                                   bool IsByRef) {
+  IRBuilder<> Builder(InsertPt);
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+  AllocaInst *AI = dyn_cast<AllocaInst>(To);
+  if (!AI)
+    AI = dyn_cast<AllocaInst>(From);
+
+  // For by-refs, do a pointer dereference to reach the actual operand.
+  if (IsByRef)
+    From = Builder.CreateLoad(From);
+  assert(From->getType()->isPointerTy() && To->getType()->isPointerTy());
+  Type *ObjType = AI ? AI->getAllocatedType()
+                     : cast<PointerType>(From->getType())->getElementType();
+  if (Cctor)
+    genCopyConstructorCall(Cctor, To, From, InsertPt);
+  else if (!VPOUtils::canBeRegisterized(ObjType, DL) ||
+           (AI && AI->isArrayAllocation())) {
+    unsigned Alignment = AI ? AI->getAlignment() : DL.getStackAlignment();
+    VPOUtils::genMemcpy(To, From, DL, Alignment, InsertPt);
+  } else
+    Builder.CreateStore(Builder.CreateLoad(From), To);
+}
+
 // Emit Copy Assign call and insert it before InsertBeforePt
 CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
                                             Instruction *InsertBeforePt) {

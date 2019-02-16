@@ -128,11 +128,6 @@ public:
   /// verification failure with `-fiopenmp -O0 -g`.
   static void stripDebugInfoInstrinsics(Function &F);
 
-  /// Copy data from the \p Source to the \p Destination.
-  static void genCopyFromSrcToDst(AllocaInst *AI, IRBuilder<> &Builder,
-                                  AllocaInst *NewPrivInst, Value *Source,
-                                  Value *Destination, BasicBlock *InsertBB);
-
   /// Generate the alias_scope and no_alias metadata for the incoming BBs.
   static void genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
                           const DataLayout *DL);

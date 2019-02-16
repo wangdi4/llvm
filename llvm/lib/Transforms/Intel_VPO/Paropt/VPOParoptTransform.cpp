@@ -1883,24 +1883,9 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
                                       Instruction *InsertPt) {
   assert(isa<AllocaInst>(FprivI->getNew()) &&
          "genFprivInit: Expect non-empty alloca instruction");
-  AllocaInst *AI = cast<AllocaInst>(FprivI->getNew());
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-  IRBuilder<> Builder(InsertPt);
-
-  Value *OldV = FprivI->getOrig();
-  // For by-refs, do a pointer dereference to reach the actual operand.
-  if (FprivI->getIsByRef())
-    OldV = Builder.CreateLoad(OldV);
-
-  if (Function *Cctor = FprivI->getCopyConstructor())
-    VPOParoptUtils::genCopyConstructorCall(Cctor, FprivI->getNew(), OldV,
-                                           InsertPt);
-  else if (!VPOUtils::canBeRegisterized(AI->getAllocatedType(), DL))
-    VPOUtils::genMemcpy(AI, OldV, DL, AI->getAlignment(), InsertPt);
-  else {
-    LoadInst *Load = Builder.CreateLoad(OldV);
-    Builder.CreateStore(Load, AI);
-  }
+  VPOParoptUtils::genCopyByAddr(FprivI->getNew(), FprivI->getOrig(), InsertPt,
+                                FprivI->getCopyConstructor(),
+                                FprivI->getIsByRef());
 }
 
 // Generate the lastprivate update code. The same mechanism is also applied
@@ -1924,17 +1909,9 @@ void VPOParoptTransform::genLprivFini(Value *NewV, Value *OldV,
                                       Instruction *InsertPt) {
   assert(isa<AllocaInst>(NewV) &&
          "genLprivFini: Expect non-empty alloca instruction.");
-  AllocaInst *AI = cast<AllocaInst>(NewV);
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-
-  IRBuilder<> Builder(InsertPt);
-  if (!VPOUtils::canBeRegisterized(AI->getAllocatedType(), DL))
-    VPOUtils::genMemcpy(OldV, AI, DL, AI->getAlignment(),
-                        InsertPt->getParent());
-  else {
-    LoadInst *Load = Builder.CreateLoad(AI);
-    Builder.CreateStore(Load, OldV);
-  }
+  // todo: copy constructor call needed?
+  VPOParoptUtils::genCopyByAddr(OldV, NewV,
+                                InsertPt->getParent()->getTerminator());
 }
 
 // genLprivFini interface to support nonPOD with call to CopyAssign
@@ -2789,18 +2766,19 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
         genPrivatizationReplacement(W, ValueToReplace, ReplacementVal, FprivI);
 
-        // For a given firstprivate variable, if it also occurs in a map
-        // clause with "from" attribute, the compiler needs to generate
-        // the code to copy the value back to the target memory.
+        // For task firstprivate, and target-mapped variables with "from",
+        // copy the data from the task entry object to the task's local
+        // stack copy, and back again when the task region ends.
         if (ForTask || (W->getIsTarget() && FprivI->getInMap() &&
                         FprivI->getInMap()->getIsMapFrom())) {
-          IRBuilder<> Builder(EntryBB->getTerminator());
-          Builder.CreateStore(Builder.CreateLoad(ForTask ? FprivI->getNew()
-                                                         : FprivI->getOrig()),
-                              NewPrivInst);
-          Builder.SetInsertPoint(ExitBB->getTerminator());
-          Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
-                              ForTask ? FprivI->getNew() : FprivI->getOrig());
+          Value *OutsideVal = ForTask ? FprivI->getNew() : FprivI->getOrig();
+          VPOParoptUtils::genCopyByAddr(
+              NewPrivInst, OutsideVal, EntryBB->getTerminator(),
+              FprivI->getCopyConstructor(), FprivI->getIsByRef());
+
+          VPOParoptUtils::genCopyByAddr(
+              OutsideVal, NewPrivInst, ExitBB->getTerminator(),
+              FprivI->getCopyConstructor(), FprivI->getIsByRef());
         }
 
         FprivI->setNew(NewPrivInst);
