@@ -447,6 +447,7 @@ public:
 
       auto P = BufferMap.insert({ MemBufferTy(TargetPtr, Size), Buf });
       assert(P.second && "New buffer overlaps with existing buffer\n");
+      (void)(P);
 
       return TargetPtr;
     }

@@ -114,6 +114,7 @@ static int DebugLevel = 0;
 
 #define TO_STR(s) case s: return #s;
 
+#ifdef OMPTARGET_DEBUG
 static const char *getCLErrorName(int error) {
   switch (error) {
     FOREACH_CL_ERROR_CODE(TO_STR)
@@ -121,6 +122,7 @@ static const char *getCLErrorName(int error) {
     return "Unknown Error";
   }
 }
+#endif // OMPTARGET_DEBUG
 
 #define INVOKE_CL_RET(ret, fn, ...)                                            \
   do {                                                                         \
