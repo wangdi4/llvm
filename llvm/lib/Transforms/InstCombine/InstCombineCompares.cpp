@@ -1925,6 +1925,11 @@ Instruction *InstCombiner::foldICmpShlConstant(ICmpInst &Cmp,
   Value *X = Shl->getOperand(0);
   Type *ShType = Shl->getType();
 
+#if INTEL_CUSTOMIZATION
+  // Disabling this particular optimization before loopopt as it interferes
+  // with ztt recognition.
+  if (!Cmp.getParent()->getParent()->isPreLoopOpt()) {
+#endif // INTEL_CUSTOMIZATION
   // NSW guarantees that we are only shifting out sign bits from the high bits,
   // so we can ASHR the compare constant without needing a mask and eliminate
   // the shift.
@@ -1954,6 +1959,9 @@ Instruction *InstCombiner::foldICmpShlConstant(ICmpInst &Cmp,
     if (isSignTest(Pred, C))
       return new ICmpInst(Pred, X, Constant::getNullValue(ShType));
   }
+#if INTEL_CUSTOMIZATION
+  } // !Cmp.getParent()->getParent()->isPreLoopOpt()
+#endif // INTEL_CUSTOMIZATION
 
   // NUW guarantees that we are only shifting out zero bits from the high bits,
   // so we can LSHR the compare constant without needing a mask and eliminate
