@@ -188,7 +188,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
       }
 
       // FIXME: Need to look on VPPredicates, not on underlying IR.
-      if (!isa<HLIf>(HInst->getParent()))
+      if (!isa<HLIf>(HInst->getParent())) {
         if (!canSpeculate(LvalRef)) {
           LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
                      dbgs() << " is unmasked, thus it's unsafe.\n");
@@ -206,6 +206,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
                                "supported by current CG.\n");
           return VPlanIdioms::Unsafe;
         }
+      }
     }
   }
   return HasIf ? VPlanIdioms::SearchLoopStrEq : VPlanIdioms::Unknown;

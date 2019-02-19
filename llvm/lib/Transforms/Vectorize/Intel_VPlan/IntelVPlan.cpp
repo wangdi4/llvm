@@ -963,7 +963,7 @@ void VPInstruction::print(raw_ostream &O) const {
       O << ",";
     }
     PrintValueWithBB(size-1);
-  } else
+  } else {
 #endif // INTEL_CUSTOMIZATION
     for (const VPValue *Operand : operands()) {
       O << " ";
@@ -985,6 +985,7 @@ void VPInstruction::print(raw_ostream &O) const {
       O << " to ";
       getBaseType()->print(O);
     }
+  }
 #endif // INTEL_CUSTOMIZATION
 }
 
