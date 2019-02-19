@@ -1344,6 +1344,9 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
 #if INTEL_FEATURE_ISA_SERIALIZE
   Features["serialize"]       = HasLeaf7 && ((EDX >> 14) & 1);
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+  Features["tsxldtrk"]        = HasLeaf7 && ((EDX >> 16) & 1);
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
 
   // There are two CPUID leafs which information associated with the pconfig

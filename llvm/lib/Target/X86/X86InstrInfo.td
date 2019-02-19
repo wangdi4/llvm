@@ -915,8 +915,9 @@ def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 #if INTEL_FEATURE_ISA_SERIALIZE
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_TSXLDTRK
+def HasTSXLDTRK : Predicate<"Subtarget->hasTSXLDTRK()">;
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
 def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
 def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
@@ -2803,6 +2804,18 @@ def SERIALIZE : I<0x01, MRM_E8, (outs), (ins), "serialize",
                   [(int_x86_serialize)]>, PS,
                   Requires<[HasSERIALIZE]>;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+
+#if INTEL_FEATURE_ISA_TSXLDTRK
+//===----------------------------------------------------------------------===//
+// TSXLDTRK - TSX Suspend Load Address Tracking
+//
+let Predicates = [HasTSXLDTRK] in {
+  def XSUSLDTRK : I<0x01, MRM_E8, (outs), (ins), "xsusldtrk",
+                    [(int_x86_xsusldtrk)]>, XD;
+  def XRESLDTRK : I<0x01, MRM_E9, (outs), (ins), "xresldtrk",
+                    [(int_x86_xresldtrk)]>, XD;
+}
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

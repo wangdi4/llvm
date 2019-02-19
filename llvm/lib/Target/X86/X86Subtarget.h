@@ -400,9 +400,12 @@ protected:
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_TSXLDTRK
+  /// Processor supports TSXLDTRK instruction
+  bool HasTSXLDTRK = false;
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
+
 #if INTEL_FEATURE_ISA_AMX
   /// Processor has AMX support
   bool HasAMXTILE = false;
@@ -711,6 +714,9 @@ public:
 #if INTEL_FEATURE_ISA_SERIALIZE
   bool hasSERIALIZE() const { return HasSERIALIZE; }
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+  bool hasTSXLDTRK() const { return HasTSXLDTRK; }
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
