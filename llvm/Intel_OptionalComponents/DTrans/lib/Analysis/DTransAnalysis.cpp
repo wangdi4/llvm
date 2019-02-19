@@ -8211,6 +8211,17 @@ private:
     // any transforms will have to deal the complexity of the types when
     // memcpy/memmove calls have to be modified.
     if (DstPtrToMember != SrcPtrToMember) {
+
+      // In order for control to reach this point,
+      //   1. If DestParentTy is null, DstPtrToMember must be true.
+      //   2. If SrcParentTy is null, SrcPtrToMember must be true.
+      //   3. DestParentTy must equal SrcParentTy, so if either is null
+      //      both must be null.
+      // We can only get here if either DstPtrToMember or SrcPtrToMember
+      // is false, so we can assert that neither ParentTy pointer is null.
+      assert(DestParentTy && SrcParentTy &&
+             "Broken assumptions in analyzeMemcpyOrMemmove!");
+
       // Conservatively set destination pointer to unknown value.
       markPointerWrittenWithMultipleValue(DstLPI, SetSize);
 
@@ -8363,6 +8374,12 @@ private:
 
       return;
     }
+
+    // Far above we have checks that would have marked a safety condition and
+    // returned if DestParentTy is null and DestPtrToMember is false. The block
+    // immediately above returns in all cases where DestPtrToMember is true,
+    // so at this point we can be sure that DestParentTy is not null.
+    assert(DestParentTy && "Unexpected null DestParentTy");
 
     // The operand is not a pointer to member if we reach this point,
     // and the source and destination types are the same.
