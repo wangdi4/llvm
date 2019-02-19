@@ -72,6 +72,13 @@ namespace intel {
     /// @param pNewF function with implicit arguments added
     void replaceCallInst(CallInst *CI, ArrayRef<Type *> newArgs, Function * pNewF);
 
+    /// @brief Helper function. Replaces indirect call instruction with
+    ///        another indirect call instruction that receives implicit
+    ///        arguments
+    /// @param CI - pointer to CallInst
+    /// @param newArgs - arguments of new function with implicit arguments added
+    void replaceIndirectCallInst(CallInst *CI, ArrayRef<Type *> newArgs);
+
     /// @brief Updates metadata nodes with new Function signature
     /// @param pMetadata The current metadata node
     /// @param visited set with metadata we alreay visit.

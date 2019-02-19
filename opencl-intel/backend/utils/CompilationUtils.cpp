@@ -727,6 +727,47 @@ CallInst *CompilationUtils::AddMoreArgsToCall(CallInst *OldC,
   return NewC;
 }
 
+CallInst *
+CompilationUtils::AddMoreArgsToIndirectCall(CallInst *OldC,
+                                            ArrayRef<Value *> NewArgs) {
+  assert(OldC && "CallInst is NULL");
+  assert(!OldC->getCalledFunction() && "Not an indirect call");
+
+  SmallVector<Value *, 16> Args;
+  // Copy existing arguments
+  for (unsigned I = 0, E = OldC->getNumArgOperands(); I != E; ++I)
+    Args.push_back(OldC->getArgOperand(I));
+  // And append new arguments
+  Args.append(NewArgs.begin(), NewArgs.end());
+
+  auto *FPtrType = cast<PointerType>(OldC->getCalledValue()->getType());
+  auto *FType = cast<FunctionType>(FPtrType->getElementType());
+  SmallVector<Type *, 16> ArgTys;
+  for (const auto &V : Args)
+    ArgTys.push_back(V->getType());
+
+  auto *NewFType =
+      FunctionType::get(FType->getReturnType(), ArgTys, /* vararg = */ false);
+  auto *Cast = CastInst::CreatePointerCast(
+      OldC->getCalledValue(),
+      PointerType::get(NewFType, FPtrType->getAddressSpace()), "", OldC);
+  assert(Cast && "Failed to create CastInst");
+
+  // Replace the original function with a call
+  auto *NewC = CallInst::Create(Cast, Args, "", OldC);
+  assert(NewC && "Failed to create CallInst");
+
+  // Copy debug metadata to new function if available
+  if (OldC->hasMetadata())
+    NewC->setDebugLoc(OldC->getDebugLoc());
+
+  OldC->replaceAllUsesWith(NewC);
+  // Erasing from parent is not really necessary, but let's cleanup a little bit
+  // here
+  OldC->eraseFromParent();
+  return NewC;
+}
+
 template <reflection::TypePrimitiveEnum Ty>
 static std::string optionalMangleWithParam(const char*const N){
   reflection::FunctionDescriptor FD;

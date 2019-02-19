@@ -97,7 +97,9 @@ namespace intel {
 
       // Analyze call instruction
       const Function *pCallee = pCallInstr->getCalledFunction();
-      assert(pCallee && "Call instruction doesn't have a callee!");
+      if (!pCallee)
+        continue; // skip indirect calls
+
       if (isAddressQualifierBI(pCallee)) {
         // Address Qualifier BI function call - start BOTTOM-UP data flow
         // analysis in search for definition point of its (single) parameter

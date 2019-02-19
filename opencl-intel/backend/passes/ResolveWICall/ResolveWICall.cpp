@@ -108,7 +108,10 @@ namespace intel {
       if ( !pCall ) {
         continue;
       }
-      // Call instruction
+      if (!pCall->getCalledFunction())
+        continue; // skip indirect function calls
+
+      // Direct call instruction
       toHandleCalls.push_back(pCall);
     }
     for ( std::vector<CallInst*>::iterator ii = toHandleCalls.begin(),
