@@ -1195,7 +1195,7 @@ dumpMemrefDistanceMapVector(OVLSostream &OS,
 }
 #endif
 
-static unsigned genMask(uint64_t Mask, uint32_t shiftcount,
+static uint64_t genMask(uint64_t Mask, uint32_t shiftcount,
                         uint32_t bitlocation) {
   assert(bitlocation + shiftcount <= MAX_VECTOR_LENGTH &&
          "Invalid bit location for a bytemask");
@@ -2470,6 +2470,9 @@ bool OptVLSInterface::getSequencePredefined(
   int64_t stride = 0;
   if ((Group.hasAConstStride(stride) == true) && (stride == 16) &&
       (Group.getNumElems() == 8) && (Group.getElemSize() == 32) &&
+      // TODO: add utility function that checks for all ones using compare
+      // mask of size stride instead of hard-coded 65535. See other uses
+      // of getNByteAccessMask.
       (Group.getNByteAccessMask() == 65535) &&
       (Group.getAccessType().isStridedLoad())) {
     // Sequence can be safely generated.
