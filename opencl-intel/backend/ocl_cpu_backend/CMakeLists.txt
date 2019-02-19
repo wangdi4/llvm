@@ -258,7 +258,6 @@ set( BACKEND_PASSES
     SinCosFold
     SmartGVN
     StripIntelIP
-    PreLegalizeBools
     OCLAliasAnalysis
     PrintfArgumentsPromotion
 )
