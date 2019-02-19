@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -anders-aa -hir-ssa-deconstruction -hir-temp-cleanup -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="require<anders-aa>,function(hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange)" -aa-pipeline="basic-aa,anders-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -basicaa -hir-ssa-deconstruction -hir-temp-cleanup -debug-only=hir-loop-interchange -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="function(hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange)" -aa-pipeline="basic-aa" -debug-only=hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK:  Interchanged:
 
 ; These two instructions appear in between i2-i3 loopnest and are sinked to i3 loop-
@@ -9,8 +9,8 @@
 
 ; Verify that %twp.addr.0162 is added as livein to i3 loop and %8/%9 are removed as liveins after sinking.
 
-; RUN: opt -anders-aa -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-loop-interchange -print-after=hir-loop-interchange -hir-loop-interchange -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LIVE
-; RUN: opt -passes="require<anders-aa>,function(hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-interchange,print<hir>)" -aa-pipeline="basic-aa,anders-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LIVE
+; RUN: opt -basicaa -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-loop-interchange -print-after=hir-loop-interchange -hir-loop-interchange -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LIVE
+; RUN: opt -passes="function(hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-interchange,print<hir>)" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LIVE
 
 ; CHECK-LIVE: Function
 
