@@ -333,8 +333,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(llvm::createInstSimplifyLegacyPass());
   }
 
-  if (isOcl20)
-    PM.add(createSubGroupAdaptationPass());
+  PM.add(createSubGroupAdaptationPass());
 
   if (isOcl20) {
     // Flatten get_{local, global}_linear_id()
