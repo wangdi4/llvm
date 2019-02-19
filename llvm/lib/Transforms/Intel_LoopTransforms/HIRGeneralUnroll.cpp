@@ -434,6 +434,16 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
                            "containing user calls!\n");
       return false;
     }
+
+    // This is to supress unroll of perlbench loop in Perl_runops_standard().
+    // TODO: Tune loop resource cost and unroll thresholds to make this check
+    // generic.
+    if (Loop->isUnknown() && (LS.getNumIndirectCalls() == 1) &&
+        (LS.getNumUserCalls() == 3) && (LS.getNumIfs() == 3)) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll of unknown loop with too many "
+                           "branching operations!\n");
+      return false;
+    }
   }
 
   // Determine unroll factor of the loop.

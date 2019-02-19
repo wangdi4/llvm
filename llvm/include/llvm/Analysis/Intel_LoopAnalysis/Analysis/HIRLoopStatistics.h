@@ -40,6 +40,7 @@ private:
   unsigned NumForwardGotos = 0;
   unsigned NumLabels = 0;
   unsigned NumUserCalls = 0;
+  unsigned NumIndirectCalls = 0;
   unsigned NumIntrinsics = 0;
   bool HasCallsWithUnsafeSideEffects = false;
   bool HasCallsWithNoDuplicate = false;
@@ -66,6 +67,9 @@ public:
 
   unsigned getNumUserCalls() const { return NumUserCalls; }
   bool hasUserCalls() const { return getNumUserCalls() > 0; }
+
+  unsigned getNumIndirectCalls() const { return NumIndirectCalls; }
+  bool hasIndirectCalls() const { return getNumIndirectCalls() > 0; }
 
   unsigned getNumIntrinsics() const { return NumIntrinsics; }
   bool hasIntrinsics() const { return getNumIntrinsics() > 0; }
@@ -105,6 +109,7 @@ public:
     NumForwardGotos += LS.NumForwardGotos;
     NumLabels += LS.NumLabels;
     NumUserCalls += LS.NumUserCalls;
+    NumIndirectCalls += LS.NumIndirectCalls;
     NumIntrinsics += LS.NumIntrinsics;
     HasCallsWithUnsafeSideEffects |= LS.HasCallsWithUnsafeSideEffects;
     HasCallsWithNoDuplicate |= LS.HasCallsWithNoDuplicate;
