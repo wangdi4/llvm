@@ -476,6 +476,17 @@ _storebe_i64(void * __P, long long __D) {
 #include <serializeintrin.h>
 #endif
 /* end INTEL_FEATURE_ISA_SERIALIZE */
+
+/* INTEL_FEATURE_ISA_TSXLDTRK */
+/*
+ * TODO: when TSXLDTRK is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules)
+ */
+#if defined(__TSXLDTRK__)
+#include <tsxldtrkintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_TSXLDTRK */
+
 /* INTEL_FEATURE_ISA_AMX */
 /*
  * TODO: when AMX is public change the #if checks below to also check:

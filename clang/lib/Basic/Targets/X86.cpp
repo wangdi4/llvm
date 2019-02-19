@@ -921,6 +921,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+    } else if (Feature == "+tsxldtrk") {
+      HasTSXLDTRK = true;
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
     } else if (Feature == "+amx-bf16") {
       HasAMXBF16 = true;
@@ -1329,6 +1333,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+  if (HasTSXLDTRK)
+    Builder.defineMacro("__TSXLDTRK__");
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
   if (HasAMXTILE)
     Builder.defineMacro("__AMXTILE__");
@@ -1527,6 +1535,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_SERIALIZE
       .Case("serialize", true)
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+      .Case("tsxldtrk", true)
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
       .Case("sgx", true)
       .Case("sha", true)
@@ -1628,6 +1639,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_SERIALIZE
       .Case("serialize", HasSERIALIZE)
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+      .Case("tsxldtrk", HasTSXLDTRK)
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
       .Case("sgx", HasSGX)
       .Case("sha", HasSHA)

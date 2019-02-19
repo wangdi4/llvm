@@ -2997,6 +2997,10 @@ def mno_sahf : Flag<["-"], "mno-sahf">, Group<m_x86_Features_Group>;
 def mserialize : Flag<["-"], "mserialize">, Group<m_x86_Features_Group>;
 def mno_serialize : Flag<["-"], "mno-serialize">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+def mtsxldtrk : Flag<["-"], "mtsxldtrk">, Group<m_x86_Features_Group>;
+def mno_tsxldtrk : Flag<["-"], "mno-tsxldtrk">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
 def msgx : Flag<["-"], "msgx">, Group<m_x86_Features_Group>;
 def mno_sgx : Flag<["-"], "mno-sgx">, Group<m_x86_Features_Group>;

@@ -1922,6 +1922,12 @@ TARGET_BUILTIN(__builtin_ia32_invpcid, "vUiv*", "nc", "invpcid")
 // SERIALIZE
 TARGET_BUILTIN(__builtin_ia32_serialize, "v", "n", "serialize")
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+
+#if INTEL_FEATURE_ISA_TSXLDTRK
+// TSXLDTRK
+TARGET_BUILTIN(__builtin_ia32_xsusldtrk, "v", "n", "tsxldtrk")
+TARGET_BUILTIN(__builtin_ia32_xresldtrk, "v", "n", "tsxldtrk")
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
 
 // MSVC
