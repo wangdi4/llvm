@@ -201,8 +201,11 @@ public:
       bool IsZeroCmp) const;
   bool enableInterleavedAccessVectorization();
 private:
-  int getGSScalarCost(unsigned Opcode, Type *DataTy, bool VariableMask,
-                      unsigned Alignment, unsigned AddressSpace);
+#if INTEL_CUSTOMIZATION
+  int getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,
+                      bool VariableMask, unsigned Alignment,
+                      unsigned AddressSpace);
+#endif // INTEL_CUSTOMIZATION
   int getGSVectorCost(unsigned Opcode, Type *DataTy, Value *Ptr,
                       unsigned Alignment, unsigned AddressSpace);
 
