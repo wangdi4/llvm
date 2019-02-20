@@ -45,6 +45,7 @@ static bool canSpeculate(const RegDDRef *Ref) {
     // FIXME: Copied code from CM. Has to be removed.
     int64_t ConstStride;
     const HLLoop *Loop = Ref->getParentLoop();
+    assert(Loop && "Expected the RegDDRef to have a valid parent-loop");
     unsigned NestingLevel = Loop->getNestingLevel();
     if (!Ref->getConstStrideAtLevel(NestingLevel, &ConstStride) || !ConstStride)
       return false;
@@ -189,7 +190,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
 
       // FIXME: Need to look on VPPredicates, not on underlying IR.
       if (!isa<HLIf>(HInst->getParent())) {
-        if (!canSpeculate(LvalRef)) {
+        if (LvalRef && !canSpeculate(LvalRef)) {
           LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
                      dbgs() << " is unmasked, thus it's unsafe.\n");
           return VPlanIdioms::Unsafe;
