@@ -2589,7 +2589,7 @@ void BoUpSLP::PSLPFailureCleanup() {
 void BoUpSLP::undoMultiNodeReordering() {
   if (!EnableMultiNodeSLP)
     return;
-  for (MultiNode &MNode : MultiNodes) {
+  for (MultiNode &MNode : reverse(MultiNodes)) {
     // 1. Restore the instructions in CurrentMultiNode to their original state
     unsigned NumLanes = MNode.getNumLanes();
     int OpIMax = MNode.getNumOperands();
