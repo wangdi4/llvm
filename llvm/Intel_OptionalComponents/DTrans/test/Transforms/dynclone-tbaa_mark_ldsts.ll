@@ -1,8 +1,8 @@
 ; This test verifies that !tbaa tags on load(s) and store(s) from a user routine
 ; will be carried into its corresponding dyn-clone transformed user routine.
 
-;  RUN: opt < %s -S -whole-program-assume -dtrans-dynclone 2>&1 | FileCheck %s
-;  RUN: opt < %s -S -whole-program-assume -passes=dtrans-dynclone 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; This routine has accesses to 2nd and 3rd fields of %struct.test.01, which
 ; are marked as aostosoa index fields.
-; CHECK: define internal void @proc1() {
+; CHECK: define internal void @proc1()
 
 define void @proc1() {
   %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
