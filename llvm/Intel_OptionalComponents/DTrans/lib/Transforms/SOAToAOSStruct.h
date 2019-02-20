@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSStruct.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1207,10 +1207,10 @@ private:
                         unsigned Off1, unsigned Off2, bool Copy) const {
 
     if (!CtorDtorCheck::isThisArgNonInitialized(
-            DTInfo, TLI, dyn_cast<Function>(CS1.getCalledValue()),
+            DTInfo, TLI, cast<Function>(CS1.getCalledValue()),
             DL.getTypeAllocSize(getSOAArrayType(S.StrType, Off1))) ||
         !CtorDtorCheck::isThisArgNonInitialized(
-            DTInfo, TLI, dyn_cast<Function>(CS2.getCalledValue()),
+            DTInfo, TLI, cast<Function>(CS2.getCalledValue()),
             DL.getTypeAllocSize(getSOAArrayType(S.StrType, Off2))))
       return false;
 
@@ -1894,6 +1894,8 @@ public:
         MI = MS;
       } else if (auto CS = ImmutableCallSite(I)) {
         auto *FCalled = CS.getCalledFunction();
+        if (!FCalled)
+          return false;
         auto *StrType = getStructTypeOfMethod(*FCalled);
         assert(std::find(Arrays.begin(), Arrays.end(), StrType) !=
                    Arrays.end() &&
@@ -2021,8 +2023,10 @@ public:
         continue;
       if (auto CS = CallSite(NewI)) {
         auto OldCS = ImmutableCallSite(I);
+        auto *FCalled = OldCS.getCalledFunction();
+        assert(FCalled && "Expected direct call");
         // 'this' argument has the same type as pointer to arrays in S.StrType.
-        bool ToRemove = getStructTypeOfMethod(*OldCS.getCalledFunction()) !=
+        bool ToRemove = getStructTypeOfMethod(*FCalled) !=
                         getSOAArrayType(OldStruct, AOSOff);
 
         if (std::find(CSInfo.Appends.begin(), CSInfo.Appends.end(),
@@ -2128,8 +2132,11 @@ private:
 
     auto *NewAppend = cast<CallInst>((Value *)VMap[SortedAppends[0]]);
     auto *OldFunctionTy = SortedAppends[0]->getFunctionType();
+    auto *FCalled = SortedAppends[0]->getCalledFunction();
+    assert(FCalled && "Expected direct call");
     auto *ArrType =
-        getStructTypeOfMethod(*SortedAppends[0]->getCalledFunction());
+        getStructTypeOfMethod(*FCalled);
+    assert(ArrType && "Expected class type for array method");
     auto *ElementType = getSOAElementType(ArrType, ElemOffset);
 
     unsigned Offset = -1U;

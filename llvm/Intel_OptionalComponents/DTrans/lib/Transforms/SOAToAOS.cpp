@@ -155,10 +155,11 @@ private:
           for (auto *Elem : elements())
             Elems.push_back(Elem);
 
+          auto *ArrType = getStructTypeOfMethod(*Method);
+          assert(ArrType && "Expected class type for array method");
           NewFunctionTy = ArrayMethodTransformation::mapNewAppendType(
               *Method,
-              getSOAElementType(getStructTypeOfMethod(*Method),
-                                BasePointerOffset),
+              getSOAElementType(ArrType, BasePointerOffset),
               Elems, Impl.TypeRemapper, AppendMethodElemParamOffset);
         } else
           Impl.TypeRemapper->addTypeMapping(FunctionTy, NewFunctionTy);
@@ -215,6 +216,7 @@ private:
         const ComputeArrayMethodClassification::TransformationData &TI) {
 
       auto *ArrType = getStructTypeOfMethod(OrigFunc);
+      assert(ArrType && "Expected class type for array method");
       auto *CurrElem = getSOAElementType(ArrType, BasePointerOffset);
 
       auto It = std::find(fields_begin(), fields_end(), ArrType);

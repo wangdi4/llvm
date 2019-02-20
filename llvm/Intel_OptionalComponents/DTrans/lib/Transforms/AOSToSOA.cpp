@@ -969,6 +969,7 @@ public:
   // divisor.
   void processBinOp(BinaryOperator *BinOp) {
     llvm::Type *PtrSubTy = DTInfo->getResolvedPtrSubType(BinOp);
+    assert(PtrSubTy && "Expected type for pointer Sub instruction");
     uint64_t OrigSize = DL.getTypeAllocSize(PtrSubTy);
     updatePtrSubDivUserSizeOperand(BinOp, OrigSize, 1);
   }
@@ -2208,6 +2209,7 @@ private:
                       << *BinOp << "\n");
 
     llvm::Type *PtrSubTy = DTInfo->getResolvedPtrSubType(BinOp);
+    assert(PtrSubTy && "Expected type for pointer Sub instruction");
     llvm::Type *ReplTy = TypeRemapper->remapType(PtrSubTy);
     updatePtrSubDivUserSizeOperand(BinOp, PtrSubTy, ReplTy, DL);
   }

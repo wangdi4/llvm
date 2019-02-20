@@ -4697,6 +4697,7 @@ void IntelModRefImpl::propagate(Module &M)
 
                 FunctionRecord *FR = getFunctionInfo(F);
                 if (FR) {
+                    assert(CI->second && "Expected valid CallGraph");
                     if (Function *Callee = CI->second->getFunction()) {
                         FunctionRecord *CalleeFR = getFunctionInfo(Callee);
                         if (CalleeFR) {

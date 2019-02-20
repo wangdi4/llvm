@@ -282,10 +282,11 @@ public:
         // updateAppends in StructMethodTransformation compute necessary
         // offset during CallSite creation.
         unsigned IgnoreElemOffset = 0;
+        auto *StType = getStructTypeOfMethod(*Method);
+        assert(StType && "Expected class type for struct method");
         NewFunctionTy = ArrayMethodTransformation::mapNewAppendType(
             *Method,
-            getSOAElementType(getStructTypeOfMethod(*Method),
-                              DTransSOAToAOSBasePtrOff),
+            getSOAElementType(StType, DTransSOAToAOSBasePtrOff),
             Elems, TypeRemapper, IgnoreElemOffset);
       } else
         TypeRemapper->addTypeMapping(FunctionTy, NewFunctionTy);

@@ -2521,6 +2521,7 @@ void DynCloneImpl::transformInitRoutine(void) {
           auto *AInfo = LPair.second;
           CallInst *CI = cast<CallInst>(AInfo->getInstruction());
           Type *Ty = getCallInfoElemTy(AInfo);
+          assert(Ty && "Expected struct type associated with call");
           Value *NewPtr = RematerializePtr(GEP, AllocCallRets[CI], Ty, AddInst);
 
           IRBuilder<> MergeB(
@@ -3634,8 +3635,8 @@ void DynCloneImpl::fillupCoderRoutine(Function *F, bool IsEncoder) {
   // deleting it from the caller when merging attributes.
   F->addFnAttr("min-legal-vector-width", "0");
 
-  llvm::IntegerType *SrcType = dyn_cast<IntegerType>(F->arg_begin()->getType());
-  llvm::IntegerType *DstType = dyn_cast<IntegerType>(F->getReturnType());
+  llvm::IntegerType *SrcType = cast<IntegerType>(F->arg_begin()->getType());
+  llvm::IntegerType *DstType = cast<IntegerType>(F->getReturnType());
   BasicBlock *BB = BasicBlock::Create(M.getContext(), "entry", F);
   IRBuilder<> IRB(BB);
   BasicBlock *DefaultBB = BasicBlock::Create(M.getContext(), "default", F);
