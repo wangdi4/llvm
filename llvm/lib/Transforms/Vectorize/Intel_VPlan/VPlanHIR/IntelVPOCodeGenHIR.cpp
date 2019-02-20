@@ -978,6 +978,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
   SmallVector<HLInst *, 1> InstsToRemove;
 
   const CallInst *Call = HInst->getCallInst();
+  assert(Call && "Unexpected null call");
   Function *F = Call->getCalledFunction();
   assert(F && "Unexpected null called function");
   StringRef FnName = F->getName();
@@ -2006,6 +2007,7 @@ HLInst *VPOCodeGenHIR::widenNonMaskedUniformStore(const HLInst *INode) {
   unsigned NestingLevel = OrigLoop->getNestingLevel();
   if (!Rval->isStructurallyInvariantAtLevel(NestingLevel)) {
     RegDDRef *WideRef = widenRef(Rval, getVF());
+    assert(WideRef && "Unexpected null widened ref");
     // create an extractelement instruction to get last element of vector
     auto Extract = INode->getHLNodeUtils().createExtractElementInst(
         WideRef, VF - 1, "last");

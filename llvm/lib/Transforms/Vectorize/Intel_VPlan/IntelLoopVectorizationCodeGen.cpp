@@ -3189,6 +3189,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
     //    appropriate match.
     // 2) A SIMD function is not a library function.
     MatchedVariant = matchVectorVariant(CalledFunc, isMasked);
+    assert(MatchedVariant && "Unexpected null matched vector variant");
     LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode()
                       << "\n");
   }
@@ -3456,7 +3457,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     vectorizeShuffle(Inst);
     break;
   case Instruction::ICmp: {
-    auto *Cmp = dyn_cast<ICmpInst>(Inst);
+    auto *Cmp = cast<ICmpInst>(Inst);
     Value *A = getVectorValue(Cmp->getOperand(0));
     Value *B = getVectorValue(Cmp->getOperand(1));
     WidenMap[Inst] = Builder.CreateICmp(Cmp->getPredicate(), A, B);
@@ -3464,7 +3465,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   }
 
   case Instruction::FCmp: {
-    auto *FCmp = dyn_cast<FCmpInst>(Inst);
+    auto *FCmp = cast<FCmpInst>(Inst);
     Value *A = getVectorValue(FCmp->getOperand(0));
     Value *B = getVectorValue(FCmp->getOperand(1));
     Value *NewFCmp = Builder.CreateFCmp(FCmp->getPredicate(), A, B);

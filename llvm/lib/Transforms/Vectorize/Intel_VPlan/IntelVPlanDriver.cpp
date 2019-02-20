@@ -617,6 +617,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintInit) {
     VPlan *Plan = LVP.getVPlanForVF(VF);
+    assert(Plan && "Unexpected null VPlan");
     errs() << "Print initial VPlan for VF=" << VF << "\n";
     Plan->dump(errs());
   }
@@ -850,6 +851,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   RSO << "Initial VPlan for VF=" << VF;
   RSO.flush();
   VPlan *Plan = LVP.getVPlanForVF(VF);
+  assert(Plan && "Unexpected null VPlan");
   Plan->setName(PlanName);
 
   LLVM_DEBUG(dbgs() << "VD:\n" << *Plan);
