@@ -494,6 +494,7 @@ public:
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<InlineAggressiveWrapperPass>();
+    AU.addPreserved<TargetTransformInfoWrapperPass>();
     getAAResultsAnalysisUsage(AU);
   }
 };
