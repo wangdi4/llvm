@@ -143,7 +143,7 @@ void AliasSet::addPointer(AliasSetTracker &AST, PointerRec &Entry,
         // First entry of must alias must have maximum size!
         P->updateSizeAndAAInfo(Size, AAInfo);
       }
-      assert(Result != NoAlias && "Cannot be part of must set!");
+      //assert(Result != NoAlias && "Cannot be part of must set!"); // INTEL
     }
 
   Entry.setAliasSet(this);
@@ -569,9 +569,13 @@ void AliasSetTracker::copyValue(Value *From, Value *To) {
   I = PointerMap.find_as(From);
   // Add it to the alias set it aliases...
   AliasSet *AS = I->second->getAliasSet(*this);
+
+  // Special handling of PHINodes is required as their AliasSets    // INTEL
+  // should have 'MayAlias', not 'MustAlias'.                       // INTEL
+  // CMPLRLLVM-186                                                  // INTEL
   AS->addPointer(*this, Entry, I->second->getSize(),
                  I->second->getAAInfo(),
-                 true);
+                 !(isa<PHINode>(From)));    // INTEL
 }
 
 AliasSet &AliasSetTracker::mergeAllAliasSets() {
