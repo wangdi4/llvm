@@ -1,6 +1,5 @@
-;
-; RUN: opt -dtrans-inline-heuristics -inline -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
-; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
+; RUN: opt -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-inline-heuristics -inline -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
+; RUN: opt -passes='cgscc(inline)' -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-inline-heuristics -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
 
 ; Checks that mc_chroma() is NOT inlined because it
 ; - has 2 consecutive AND instructions with 0x07 on their operands;

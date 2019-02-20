@@ -412,7 +412,9 @@ public:
         NumInstructionsSimplified(0), SROACostSavings(0),
         SROACostSavingsLost(0) {}
 
-  InlineResult analyzeCall(CallSite CS, InlineReason* Reason); // INTEL
+  InlineResult analyzeCall(CallSite CS,                          // INTEL
+                           const TargetTransformInfo &CalleeTTI, // INTEL
+                           InlineReason* Reason);                // INTEL
 
   int getThreshold() { return Threshold; }
   int getCost() { return Cost; }
@@ -1452,7 +1454,7 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS, // INTEL
                   TLI, ILIC, AI, CallSitesForFusion,                 // INTEL
                   CallSitesForDTrans, IndirectCallParams);           // INTEL
-  if (CA.analyzeCall(CS, nullptr)) { // INTEL
+  if (CA.analyzeCall(CS, TTI, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
     Cost -= std::max(0, CA.getThreshold() - CA.getCost());
@@ -2393,12 +2395,10 @@ static bool isLeafFunction(const Function &F) {
 // of an LTO compilation.
 //
 static bool preferMultiversioningToInlining(CallSite CS,
+                                            const TargetTransformInfo
+                                                &CalleeTTI,
                                             InliningLoopInfoCache &ILIC,
                                             bool PrepareForLTO) {
-
-  //Only focus on Link time at present:
-  if (PrepareForLTO)
-    return false;
 
   // Right now, only the callee is tested for multiversioning.  We use
   // this set to keep track of callees that have already been tested,
@@ -2407,8 +2407,15 @@ static bool preferMultiversioningToInlining(CallSite CS,
   // be rejected quickly.
   static SmallPtrSet<Function *, 3> CalleeFxnPtrSet;
 
+  //Only focus on Link time at present:
+  if (PrepareForLTO)
+    return false;
+
   // Quick tests:
   if (!DTransInlineHeuristics)
+    return false;
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
     return false;
   Function *Callee = CS.getCalledFunction();
   if (!Callee)
@@ -2640,9 +2647,18 @@ static cl::opt<cl::boolOrDefault>
 /// In case we decide that current CS is a candidate for inlining for fusion,
 /// then we store other CS to the same function in the same basic block in
 /// the set of inlining candidates for fusion.
-static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
+static bool worthInliningForFusion(CallSite &CS,
+                                   const TargetTransformInfo &CalleeTTI,
+                                   InliningLoopInfoCache &ILIC,
                                    SmallSet<CallSite, 20> *CallSitesForFusion,
                                    bool PrepareForLTO) {
+
+  if (InliningForFusionHeuristics != cl::BOU_TRUE) {
+    auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+    if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
+      return false;
+  }
+
   // Heuristic is enabled if option is unset and it is first inliner run
   // (on PrepareForLTO phase) OR if option is set to true.
   if (((InliningForFusionHeuristics != cl::BOU_UNSET) || !PrepareForLTO) &&
@@ -3578,8 +3594,11 @@ static bool worthInliningForRecProgressiveClone(Function *Callee) {
 /// INTEL The Intel version also sets the value of *Reason to be the principal
 /// INTEL the call site would be inlined or not inlined.
 
-InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
-                                       InlineReason* Reason) { // INTEL
+#if INTEL_CUSTOMIZATION
+InlineResult CallAnalyzer::analyzeCall(CallSite CS,
+                                       const TargetTransformInfo &CalleeTTI,
+                                       InlineReason *Reason) {
+#endif // INTEL_CUSTOMIZATION
   ++NumCallsAnalyzed;
   InlineReason TempReason = NinlrNoReason; // INTEL
   InlineReason* ReasonAddr = Reason == nullptr ? &TempReason : Reason; // INTEL
@@ -3638,7 +3657,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
     return "prefer cloning";
   }
   if (InlineForXmain &&
-      preferMultiversioningToInlining(CS, *ILIC, PrepareForLTO)) {
+      preferMultiversioningToInlining(CS, CalleeTTI, *ILIC, PrepareForLTO)) {
     *ReasonAddr = NinlrPreferMultiversioning;
     return false;
   }
@@ -3706,7 +3725,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
            }
         }
       }
-      if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion,
+      if (worthInliningForFusion(CS, CalleeTTI, *ILIC, CallSitesForFusion,
                                  PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrForFusion);
@@ -4183,7 +4202,7 @@ InlineCost llvm::getInlineCost(
                   CallSitesForDTrans, Params);         // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
-  InlineResult ShouldInline = CA.analyzeCall(CS, &Reason);
+  InlineResult ShouldInline = CA.analyzeCall(CS, CalleeTTI, &Reason);
   assert(Reason != InlrNoReason);
 #endif // INTEL_CUSTOMIZATION
 
