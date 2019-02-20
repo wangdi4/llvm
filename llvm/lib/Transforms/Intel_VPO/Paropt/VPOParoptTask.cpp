@@ -421,11 +421,11 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   Loop *L;
   if (isLoop) {
     L = W->getWRNLoopInfo().getLoop();
+    assert(L && "genTaskLoopInitCode: Loop not found");
     ICmpInst *CmpI =
       WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock());
     if (CmpI)
       W->getWRNLoopInfo().setZTTBB(CmpI->getParent());
-    assert(L && "genTaskLoopInitCode: Loop not found");
     genLoopInitCodeForTaskLoop(W, LBPtr, UBPtr, STPtr);
   }
 

@@ -432,7 +432,7 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
   wrnUpdateSSAPreprocess(L, ValueToLiveinMap, LiveOutVals, ECs);
 
   Instruction *InsertPt =
-      dyn_cast<Instruction>(L->getLoopPreheader()->getTerminator());
+      cast<Instruction>(L->getLoopPreheader()->getTerminator());
   IRBuilder<> Builder(InsertPt);
 
   LoadInst *LoadLB = Builder.CreateLoad(LowerBnd);
@@ -3653,7 +3653,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           VPOParoptUtils::genConstructorCall(PrivI->getConstructor(),
                                              NewPrivInst, NewPrivInst);
         } else {
-          AllocaInst *AI = dyn_cast<AllocaInst>(NewPrivInst);
+          AllocaInst *AI = cast<AllocaInst>(NewPrivInst);
           const DataLayout &DL = AI->getModule()->getDataLayout();
           // The compiler creates the stack space for the local vars. Thus
           // the data needs to be copied from the thunk to the local vars.
@@ -3752,7 +3752,7 @@ void VPOParoptTransform::wrnCollectLiveInVals(
   for (Instruction &I : *BB) {
     if (!isa<PHINode>(I))
       break;
-    PHINode *PN = dyn_cast<PHINode>(&I);
+    PHINode *PN = cast<PHINode>(&I);
     unsigned NumPHIValues = PN->getNumIncomingValues();
     unsigned II;
     BasicBlock *InBB;

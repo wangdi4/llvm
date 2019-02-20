@@ -511,6 +511,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
         {Builder.getInt32(0), Builder.getInt32(3 * I + 2)});
     Value *CloneUB = VPOParoptUtils::cloneInstructions(
         WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
+    assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
                         UpperBndGep);
 

@@ -176,7 +176,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
       for (BasicBlock *BB : BBlockSet)
         for (Instruction &I : *BB)
           if (VPOAnalysisUtils::isCallOfName(&I, "__read_pipe_2_bl_intel")) {
-            CallInst *Call = dyn_cast<CallInst>(&I);
+            CallInst *Call = cast<CallInst>(&I);
             // LLVM_DEBUG(dbgs() << "Found Call: " << *Call << "\n");
             assert(Call->getNumArgOperands()==2 &&
                    "__read_pipe_2_bl_intel() is expected to have 2 operands");
