@@ -33,7 +33,8 @@ void VPLoopAnalysisHIR::computeTripCountImpl(const VPLoopRegion *Lp) {
   bool IsAverageTakenFromPragma = false;
 
   assert(isa<VPLoopRegionHIR>(Lp) && "Not a VPLoopRegionHIR");
-  const HLLoop *HLoop = dyn_cast<const VPLoopRegionHIR>(Lp)->getHLLoop();
+  const HLLoop *HLoop = cast<const VPLoopRegionHIR>(Lp)->getHLLoop();
+
   LoopTripCounts[Lp] = TripCountInfo();
 
   if (HLoop->isConstTripLoop(&TripCount)) {
