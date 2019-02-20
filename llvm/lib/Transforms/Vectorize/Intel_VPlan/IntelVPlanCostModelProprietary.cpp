@@ -48,6 +48,9 @@ bool VPlanCostModelProprietary::isUnitStrideLoadStore(
   if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
     // FIXME: It's not correct to getParentLoop() for outerloop
     // vectorization.
+    if (!Inst->getParentLoop()) {
+      return false;
+    }
     assert(Inst->getParentLoop()->isInnermost() &&
            "Outerloop vectorization is not supported.");
     unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();

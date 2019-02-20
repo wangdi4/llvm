@@ -378,7 +378,6 @@ private:
   // Construct a VPExternalDef given a Value \p ExtVal.
   VPExternalDef(Value *ExtVal)
       : VPValue(VPValue::VPExternalDefSC, ExtVal->getType(), ExtVal) {
-    assert(ExtVal && "An external definition must have a underlying Value!");
   }
 
   // Construct a VPExternalDef given an underlying DDRef \p DDR.

@@ -70,7 +70,7 @@ static bool canSpeculate(const RegDDRef *Ref) {
                 const RegDDRef *RvalRef = Inst->getRvalDDRef();
                 if (RvalRef->isAddressOf()) {
                   Base = RvalRef->getTempBaseValue();
-                  if (llvm::getPaddingForValue(Base) > 0)
+                  if (Base && llvm::getPaddingForValue(Base) > 0)
                     return true;
                 }
               }
