@@ -122,6 +122,7 @@ VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
   // Decompose Blob.
   VPBlobDecompVisitor BlobDecomp(*RDDR, *this);
   VPValue *DecompBlob = BlobDecomp.visit(Blob);
+  assert(DecompBlob && "Blob was not decomposed into valid VPValues");
 
   if (BlobCoeff != 1) {
     // Create VPInstruction for Coeff * blob.

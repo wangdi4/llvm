@@ -298,6 +298,7 @@ struct DivergencePropagator {
 
     // immediate post dominator (no join block beyond that block)
     const auto *PdNode = PDT.getNode(const_cast<VPBlockBase *>(&RootBlock));
+    assert(PdNode && "Immediate post dominator node is null.");
     const auto *IpdNode = PdNode->getIDom();
     const auto *PdBoundBlock = IpdNode ? IpdNode->getBlock() : nullptr;
 

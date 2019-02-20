@@ -54,7 +54,7 @@ void VPlanVerifier::verifyContainerLoop(
 void VPlanVerifier::verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const {
 
   const VPLoop *Loop = LoopRegion->getVPLoop();
-  assert(LoopRegion && "Missing VPLoop for VPLoopRegion");
+  assert(Loop && "Missing VPLoop for VPLoopRegion");
 
   const VPBlockBase *Preheader = LoopRegion->getEntry();
   assert(Preheader && Preheader == Loop->getLoopPreheader() &&
