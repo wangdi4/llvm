@@ -2858,6 +2858,11 @@ public:
   /// Returns true if the edge \p FromBlock -> \p ToBlock is a back-edge.
   static bool isBackEdge(const VPBlockBase *FromBlock,
                          const VPBlockBase *ToBlock, const VPLoopInfo *VPLI) {
+
+    if (!isa<VPBasicBlock>(FromBlock) || !isa<VPBasicBlock>(ToBlock))
+      // Back edge can exist only between BBs, not between BB/Region.
+      return false;
+
     assert(FromBlock->getParent() == ToBlock->getParent() &&
            FromBlock->getParent() != nullptr && "Must be in same region");
     const VPLoop *FromLoop = VPLI->getLoopFor(FromBlock);

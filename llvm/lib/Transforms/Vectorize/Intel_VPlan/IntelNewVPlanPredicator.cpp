@@ -200,7 +200,7 @@ void VPlanPredicator::createOrPropagatePredicates(VPBlockBase *CurrBlock,
   // Collect the outcome of this calculation for all predecessors
   // into IncomingPredicates.
   for (VPBlockBase *PredBlock : CurrBlock->getPredecessors()) {
-    // Skip back-edges
+    // Skip back-edges.
     if (VPBlockUtils::isBackEdge(PredBlock, CurrBlock, VPLI))
       continue;
 
@@ -311,7 +311,6 @@ void VPlanPredicator::linearizeRegionRec(VPRegionBlock *Region) {
     // TODO: Handle nested regions once we start generating the same.
     assert(!isa<VPRegionBlock>(CurrBlock) && "Nested region not expected");
 #endif // INTEL_CUSTOMIZATION
-
     // Linearize control flow by adding an unconditional edge between PrevBlock
     // and CurrBlock skipping loop headers and latches to keep intact loop
     // header predecessors and loop latch successors.
@@ -348,8 +347,13 @@ void VPlanPredicator::predicate(void) {
   VPLoopRegion *EntryLoopR = cast<VPLoopRegion>(PH->getParent());
 
   // Transform inner loop control to become uniform.
-  if (VPlanLoopCFU)
+  if (VPlanLoopCFU) {
+    LLVM_DEBUG(dbgs() << "Before inner loop control flow transformation\n");
+    LLVM_DEBUG(Plan.dump());
     handleInnerLoopBackedges(EntryLoopR);
+    LLVM_DEBUG(dbgs() << "After inner loop control flow transformation\n");
+    LLVM_DEBUG(Plan.dump());
+  }
 #endif // INTEL_CUSTOMIZATION
   // Predicate the blocks within Region.
   predicateRegionRec(cast<VPRegionBlock>(Plan.getEntry()));

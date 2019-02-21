@@ -111,10 +111,11 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
 
   // Update incoming block of VPPHINodes in successors, if any
   for (auto &Successor : NewBlock->getSuccessors()) {
-    // Iterate over all VPPHINodes in Successor
+    // Iterate over all VPPHINodes in Successor. Successor can be a region so
+    // we should take its entry.
     // NOTE: Here we assume that all VPPHINodes are always placed at the top of
     // its parent VPBasicBlock
-    for (auto &Inst : cast<VPBasicBlock>(Successor)->getVPPhis()) {
+    for (auto &Inst : Successor->getEntryBasicBlock()->getVPPhis()) {
       assert(isa<VPPHINode>(Inst) &&
              "Non VPPHINode found in sublist returned by getVPPhis().");
       VPPHINode *VPN = cast<VPPHINode>(&Inst);
