@@ -2871,3 +2871,30 @@ cl_int CL_API_CALL clGetProfileDataDeviceIntelFPGA(
 SET_ALIAS(clGetProfileDataDeviceIntelFPGA);
 REGISTER_EXTENSION_FUNCTION(clGetProfileDataDeviceIntelFPGA,
                             clGetProfileDataDeviceIntelFPGA);
+
+cl_int CL_API_CALL clGetDeviceFunctionPointerINTEL(cl_device_id device,
+    cl_program program, const char* func_name, cl_ulong* func_pointer_ret)
+{
+  if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+      ApiLogger apiLogger("clGetDeviceFunctionPointerINTEL");
+      apiLogger << "cl_device_id device" << device
+                << "cl_program program" << program
+                << "const char* func_name" << func_name
+                << "cl_ulong* func_pointer_ret" << func_pointer_ret;
+      OutputParamsValueProvider provider(apiLogger);
+      provider.AddParam("func_pointer_ret", func_pointer_ret, false, true);
+      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+          GetDeviceFunctionPointer(device, program, func_name,
+              func_pointer_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+            GetDeviceFunctionPointer(device, program, func_name,
+                func_pointer_ret));
+    }
+}
+SET_ALIAS(clGetDeviceFunctionPointerINTEL);
+REGISTER_EXTENSION_FUNCTION(clGetDeviceFunctionPointerINTEL,
+    clGetDeviceFunctionPointerINTEL);

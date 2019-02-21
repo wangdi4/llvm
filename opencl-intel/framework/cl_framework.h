@@ -181,6 +181,10 @@ extern CL_API_ENTRY cl_mem CL_API_CALL clCreatePipeINTEL(
     size_t *                    /*size_ret*/,
     cl_int *                    /*errcode_ret*/ );
 
+extern CL_API_ENTRY cl_int CL_API_CALL clGetDeviceFunctionPointerINTEL(
+    cl_device_id device, cl_program program, const char* func_name,
+    cl_ulong* func_pointer_ret);
+
 #ifdef __cplusplus
 }
 #endif

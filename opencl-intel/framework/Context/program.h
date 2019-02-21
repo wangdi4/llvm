@@ -148,6 +148,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
             return m_afAutorunKernelsLaunched.test_and_set();
         }
 
+        cl_err_code GetDeviceFunctionPointer(cl_device_id device,
+            const char* func_name, cl_ulong* func_pointer_ret);
+
 	protected:
 		virtual ~Program();
 

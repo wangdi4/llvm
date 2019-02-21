@@ -476,6 +476,18 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
     return CL_SUCCESS;
 }
 
+cl_int DeviceProgram::GetFunctionPointer(const char* func_name,
+    cl_ulong* func_pointer_ret)
+{
+    if (nullptr == m_programHandle)
+    {
+        return CL_INVALID_PROGRAM_EXECUTABLE;
+    }
+
+    return m_pDevice->GetDeviceAgent()->clDevGetFunctionPointerFor(
+        m_programHandle, func_name, func_pointer_ret);
+}
+
 cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * puiBinSizeRet)
 {
     if (nullptr == pBin && nullptr == puiBinSizeRet)

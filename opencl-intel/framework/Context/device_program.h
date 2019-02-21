@@ -142,6 +142,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         bool CheckProgramBinary(size_t uiBinSize, const void* pBinary, cl_prog_binary_type* pBinaryType = nullptr);
 
+        cl_int GetFunctionPointer(const char* func_name,
+            cl_ulong* func_pointer_ret);
+
     protected:
         // Current program state
         EDeviceProgramState m_state;

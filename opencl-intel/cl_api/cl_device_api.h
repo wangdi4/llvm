@@ -223,6 +223,7 @@ enum cl_dev_err_code
     CL_DEV_INVALID_BINARY,                      //!< The binary is not supported by the device or program container content is invalid
     CL_DEV_INVALID_BUILD_OPTIONS,               //!< One of more build options specified for the back-end compiler are invalid
     CL_DEV_INVALID_PROGRAM,                     //!< Invalid program object handle
+    CL_DEV_INVALID_PROGRAM_EXECUTABLE,          //!< There is no successfully built executable for program
     CL_DEV_BUILD_IN_PROGRESS,                   //!< Back-end compiler is still in operation
     CL_DEV_BUILD_ALREADY_COMPLETE,              //!< Back-end compiler previously compiled this program
     CL_DEV_BUILD_ERROR,                         //!< Error occurred during back-end build process
@@ -1511,6 +1512,10 @@ public:
         \return     Raw Memory Allocator interface if available, NULL otherwise
     */
     virtual IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() = 0;
+
+    //! Retrieves Function poitner to a function in a compiled program
+    virtual cl_dev_err_code clDevGetFunctionPointerFor(cl_dev_program IN prog,
+        const char* IN func_name, cl_ulong* OUT func_pointer_ret) const = 0;
 
 };
 
