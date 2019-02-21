@@ -102,7 +102,9 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
                                        VPPostDominatorTree &PostDomTree,
                                        VPlan *Plan) {
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-  insertBlockAfter(NewBlock, Block, Plan);
+  if (isa<VPBasicBlock>(Block))
+    cast<VPBasicBlock>(Block)->moveConditionalEOBTo(NewBlock, Plan);
+  insertBlockAfter(NewBlock, Block);
 
   // Add NewBlock to VPLoopInfo
   if (VPLoop *Loop = VPLInfo->getLoopFor(Block)) {
@@ -205,6 +207,15 @@ VPBlockBase *VPBlockBase::getAncestorWithPredecessors() {
   return Parent->getAncestorWithPredecessors();
 }
 
+void VPBlockBase::setTwoSuccessors(VPValue *ConditionV, VPBlockBase *IfTrue,
+                                   VPBlockBase *IfFalse, VPlan *Plan) {
+  assert(Successors.empty() && "Setting two successors when others exist.");
+  setCondBit(ConditionV);
+  Plan->setCondBitUser(ConditionV, this);
+  appendSuccessor(IfTrue);
+  appendSuccessor(IfFalse);
+}
+
 void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
   SmallVector<VPBlockBase *, 8> Blocks;
   for (VPBlockBase *Block : depth_first(Entry))
@@ -213,14 +224,6 @@ void VPBlockBase::deleteCFG(VPBlockBase *Entry) {
   for (VPBlockBase *Block : Blocks)
     delete Block;
 }
-
-#if INTEL_CUSTOMIZATION
-void VPBlockBase::setCondBit(VPValue *CB, VPlan *Plan) {
-  CondBit = CB;
-  if (CB)
-    Plan->setCondBitUser(CB, this);
-}
-#endif
 
 BasicBlock *
 #if INTEL_CUSTOMIZATION
@@ -487,11 +490,13 @@ void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan) {
   // original VPBB recipe list.
   if (getNumSuccessors() > 1) {
     assert(getCondBit() && "Missing CondBit");
-    ToBB->setCondBit(getCondBit(), Plan);
+    ToBB->setCondBit(getCondBit());
+    Plan->setCondBitUser(getCondBit(), ToBB);
     ToBB->setCBlock(CBlock);
     ToBB->setTBlock(TBlock);
     ToBB->setFBlock(FBlock);
-    setCondBit(nullptr, Plan);
+    Plan->removeCondBitUser(getCondBit(), this);
+    setCondBit(nullptr);
     CBlock = TBlock = FBlock = nullptr;
   }
 }
@@ -525,8 +530,11 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
     const VPInstruction *CBI = dyn_cast<VPInstruction>(CB);
     if (CBI && CBI->getNumOperands()) {
       if (CBI->getParent() != this) {
-        OS << StrIndent << " Condition(" << CBI->getParent()->getName()
-           << "): " << *CBI;
+        OS << StrIndent << " Condition(";
+        if (CBI->getParent()) {
+          OS << CBI->getParent()->getName();
+        }
+        OS << "): " << *CBI;
       }
     } else {
       // We fall here if VPInstruction has no operands or Value is
@@ -1265,10 +1273,15 @@ void VPlan::dump(raw_ostream &OS) const {
     VPLoopEntityList *E = EIter->second.get();
     E->dump(OS, EIter->first->getHeader());
   }
-  getEntry()->dump(OS, 1);
+  const VPBlockBase *Entry = getEntry();
+  Entry->dump(OS, 1);
+  for (auto &Succ : Entry->getSuccessors()) {
+    Succ->dump(OS, 1);
+  }
 }
+
 void VPlan::dump() const {
-  dump(errs());
+  dump(dbgs());
 }
 
 void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
@@ -1815,6 +1828,35 @@ void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop) {
         }
     Users[Cnt]->replaceUsesOfWith(this, NewVal);
   }
+}
+
+void VPBlockUtils::setParentRegionForBody(VPRegionBlock *Region) {
+  for (VPBlockBase *Block :
+       make_range(df_iterator<VPBlockBase *>::begin(Region->getEntry()),
+                  df_iterator<VPBlockBase *>::end(Region->getExit()))) {
+    Block->setParent(Region);
+  }
+}
+
+const VPLoopRegion *VPlanUtils::findNthLoopDFS(const VPlan *Plan, unsigned N) {
+  std::function<const VPLoopRegion *(const VPBlockBase *)> Dfs =
+      [&](const VPBlockBase *Block) -> const VPLoopRegion * {
+    if (const auto Loop = dyn_cast<const VPLoopRegion>(Block)) {
+      --N;
+      if (N == 0) {
+        return Loop;
+      }
+    }
+
+    if (const auto Region = dyn_cast<const VPRegionBlock>(Block))
+      for (const VPBlockBase *Block : depth_first(Region->getEntry()))
+        if (const VPLoopRegion *Loop = Dfs(Block))
+          return Loop;
+
+    return nullptr;
+  };
+
+  return Dfs(Plan->getEntry());
 }
 
 using VPDomTree = DomTreeBase<VPBlockBase>;

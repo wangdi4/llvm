@@ -36,6 +36,7 @@ add_llvm_library(LLVMVectorize
   Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPLoopAnalysisHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanVLSAnalysisHIR.cpp
+  Intel_VPlan/IntelVPlanClone.cpp
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS

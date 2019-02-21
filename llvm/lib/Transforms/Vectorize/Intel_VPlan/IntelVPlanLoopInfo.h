@@ -32,6 +32,7 @@ class VPValue;
 class VPLoop : public LoopBase<VPBlockBase, VPLoop> {
 private:
   friend class LoopInfoBase<VPBlockBase, VPLoop>;
+  explicit VPLoop() : LoopBase<VPBlockBase, VPLoop>() {}
   explicit VPLoop(VPBlockBase *VPB) : LoopBase<VPBlockBase, VPLoop>(VPB) {}
 
 public:
@@ -44,6 +45,37 @@ public:
 typedef LoopInfoBase<VPBlockBase, VPLoop> VPLoopInfo;
 
 } // namespace vpo
+
+template <> struct GraphTraits<vpo::VPLoop *> {
+  using NodeRef = vpo::VPLoop *;
+  using ChildIteratorType = vpo::VPLoopInfo::iterator;
+
+  static NodeRef getEntryNode(NodeRef N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return N->end();
+  }
+};
+
+template <> struct GraphTraits<const vpo::VPLoop *> {
+  using NodeRef = const vpo::VPLoop *;
+  using ChildIteratorType = vpo::VPLoopInfo::iterator;
+
+  static NodeRef getEntryNode(NodeRef N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) {
+    return N->end();
+  }
+};
+
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANLOOPINFO_H

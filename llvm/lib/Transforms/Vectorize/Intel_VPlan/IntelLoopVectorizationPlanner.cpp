@@ -26,6 +26,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanClone.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -82,21 +83,7 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 // explicitly represented in VPlan. Also it's incorrect for multi level loop
 // vectorization.
 static uint64_t getTripCountForFirstLoopInDfs(const VPlan *VPlan) {
-
-  std::function<const VPLoopRegion *(const VPBlockBase *)> FindLoop =
-      [&](const VPBlockBase *VPBlock) -> const VPLoopRegion * {
-    if (const auto Loop = dyn_cast<const VPLoopRegion>(VPBlock))
-      return Loop;
-
-    if (const auto Region = dyn_cast<const VPRegionBlock>(VPBlock))
-      for (const VPBlockBase *Block : depth_first(Region->getEntry()))
-        if (const VPLoopRegion *Loop = FindLoop(Block))
-          return Loop;
-
-    return nullptr;
-  };
-
-  const auto Loop = FindLoop(VPlan->getEntry());
+  const VPLoopRegion *Loop = VPlanUtils::findFirstLoopDFS(VPlan);
 
   return VPlan->getVPLoopAnalysis()->getTripCountFor(Loop);
 }

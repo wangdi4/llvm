@@ -175,13 +175,15 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
       // the loop latch condition.
       if (!BackEdgeIsFalseSucc)
         NewCondBit = Builder.createNot(NewCondBit);
-      NewLoopLatch->setCondBit(NewCondBit, Plan);
+      NewLoopLatch->setCondBit(NewCondBit);
+      Plan->setCondBitUser(NewCondBit, NewLoopLatch);
     }
 #endif // VPlanPredicator
 
     LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
     SubLoopHeader->addRecipe(LoopBodyMask);
-    RegionEntryBlock->setCondBit(LoopBodyMask, Plan);
+    RegionEntryBlock->setCondBit(LoopBodyMask);
+    Plan->setCondBitUser(LoopBodyMask, RegionEntryBlock);
 
     // Connect region entry/exit blocks so that predicate can be propagated
     // along mask=false path. i.e., this edge skips the loop body.

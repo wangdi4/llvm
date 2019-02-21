@@ -369,6 +369,8 @@ struct VPTransformState {
 /// instructions.
 class VPRecipeBase : public ilist_node_with_parent<VPRecipeBase, VPBasicBlock> {
   friend VPBasicBlock;
+  friend class VPCloneUtils;
+  friend class VPValueMapper;
 
 private:
   const unsigned char SubclassID; /// Subclass identifier (for isa/dyn_cast).
@@ -602,6 +604,8 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPlanVerifier;
   friend class VPOCodeGen;
   friend class VPOCodeGenHIR;
+  friend class VPCloneUtils;
+  friend class VPValueMapper;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
@@ -919,6 +923,14 @@ public:
 
   static const char *getOpcodeName(unsigned Opcode);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  virtual VPInstruction *clone() const {
+    VPInstruction *Cloned = new VPInstruction(Opcode, getType(), {});
+    for (auto &O : operands()) {
+      Cloned->addOperand(O);
+    }
+    return Cloned;
+  }
 };
 
 #if INTEL_CUSTOMIZATION
@@ -945,6 +957,14 @@ public:
   }
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  static bool classof(const VPRecipeBase *R) {
+    return isa<VPInstruction>(R) && classof(cast<VPInstruction>(R));
+  }
+
+  virtual VPCmpInst *clone() const final {
+    return new VPCmpInst(getOperand(0), getOperand(1), getPredicate());
   }
 
 private:
@@ -986,6 +1006,13 @@ public:
 
   static inline bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == Instruction::Br;
+  }
+
+  virtual VPBranchInst *clone() const final {
+    VPBranchInst *Cloned = new VPBranchInst(getType());
+    Cloned->HIR.setUnderlyingNode(
+        const_cast<loopopt::HLNode *>(HIR.getUnderlyingNode()));
+    return Cloned;
   }
 };
 
@@ -1116,6 +1143,17 @@ public:
   static inline bool classof(const VPRecipeBase *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
+
+  /// Create new PHINode and copy original incoming values to the newly created
+  /// PHINode. Caller is responsible to replace these values with what is
+  /// needed.
+  virtual VPPHINode *clone() const final {
+    VPPHINode *Cloned = new VPPHINode(getType());
+    for (unsigned i = 0, e = getNumIncomingValues(); i != e; ++i) {
+      Cloned->addIncoming(getIncomingValue(i), getIncomingBlock(i));
+    }
+    return Cloned;
+  }
 };
 
 /// Concrete class to represent GEP instruction in VPlan.
@@ -1226,6 +1264,19 @@ public:
 
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  static bool classof(const VPRecipeBase *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  virtual VPGEPInstruction *clone() const final {
+    VPGEPInstruction *Cloned =
+        new VPGEPInstruction(getType(), getOperand(0), {}, isInBounds());
+    for (auto *O : make_range(op_begin()+1, op_end())) {
+      Cloned->addOperand(O, isOperandStructOffset(O));
+    }
+    return Cloned;
   }
 };
 
@@ -1990,12 +2041,7 @@ public:
   /// predecessor of \p IfTrue or \p IfFalse. This VPBlockBase must have no
   /// successors. \p ConditionV is set as successor selector.
   void setTwoSuccessors(VPValue *ConditionV, VPBlockBase *IfTrue,
-                        VPBlockBase *IfFalse, VPlan *Plan) {
-    assert(Successors.empty() && "Setting two successors when others exist.");
-    setCondBit(ConditionV, Plan);
-    appendSuccessor(IfTrue);
-    appendSuccessor(IfFalse);
-  }
+                        VPBlockBase *IfFalse, VPlan *Plan);
 
   /// Set each VPBasicBlock in \p NewPreds as predecessor of this VPBlockBase.
   /// This VPBlockBase must have no predecessors. This VPBlockBase is not added
@@ -2023,11 +2069,7 @@ public:
 
   const VPValue *getCondBit() const { return CondBit; }
 
-#if INTEL_CUSTOMIZATION
-  void setCondBit(VPValue *CB, VPlan *Plan);
-#else
   void setCondBit(VPValue *CB) { CondBit = CB; }
-#endif
 
   VPPredicateRecipeBase *getPredicateRecipe() const { return PredicateRecipe; }
 
@@ -2712,7 +2754,15 @@ public:
   }
 
   void setCondBitUser(VPValue *ConditionV, const VPBlockBase *Block) {
-    CondBitUsers[ConditionV].insert(Block);
+    if (ConditionV) {
+      CondBitUsers[ConditionV].insert(Block);
+    }
+  }
+
+  void removeCondBitUser(VPValue *ConditionV, const VPBlockBase *Block) {
+    if (ConditionV) {
+      CondBitUsers[ConditionV].erase(Block);
+    }
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -2895,10 +2945,15 @@ private:
     Table.InsertNode(ExtDef, IP);
     return ExtDef;
   }
+
+  VPlan *clone(void) const {
+    llvm_unreachable("Implement after VPlan redesign.");
+  }
 };
 
 #if INTEL_CUSTOMIZATION
 class VPLoopRegion : public VPRegionBlock {
+  friend class VPValueMapper;
 private:
   // Pointer to VPLoopInfo analysis information for this loop region
   VPLoop *VPLp;
@@ -2906,6 +2961,8 @@ private:
 protected:
   VPLoopRegion(const unsigned char SC, const std::string &Name, VPLoop *Lp)
       : VPRegionBlock(SC, Name), VPLp(Lp) {}
+
+  void setVPLoop(VPLoop *Lp) { VPLp = Lp; }
 
 public:
   VPLoopRegion(const std::string &Name, VPLoop *Lp)
@@ -3071,14 +3128,7 @@ public:
   /// Insert NewBlock in the HCFG after BlockPtr and update parent region
   /// accordingly. If BlockPtr has more that one successors, its CondBit is
   /// propagated to NewBlock.
-  static void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr,
-                               VPlan *Plan) {
-
-    if (BlockPtr->getNumSuccessors() > 1) {
-      VPBasicBlock *ThisBB = cast<VPBasicBlock>(BlockPtr);
-      VPBasicBlock *ToBB = cast<VPBasicBlock>(NewBlock);
-      ThisBB->moveConditionalEOBTo(ToBB, Plan);
-    }
+  static void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
 
     VPRegionBlock *ParentRegion = BlockPtr->getParent();
     moveSuccessors(BlockPtr, NewBlock);
@@ -3282,6 +3332,10 @@ public:
       ParentRegion->Size -= Region->Size + 1 /*Region*/;
     }
   }
+
+  /// Set parent region for each VPBlockBase of the given region. Don't enter
+  /// into subregions, because their VPBlockBases must not be touched.
+  static void setParentRegionForBody(VPRegionBlock *Region);
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -3329,11 +3383,16 @@ public:
 
   /// Create a unique name for a new VPlan entity such as a VPBasicBlock or
   /// VPRegionBlock.
-  static std::string createUniqueName(const char *Prefix) {
+  static std::string createUniqueName(const llvm::StringRef &Prefix) {
     std::string S;
     raw_string_ostream RSO(S);
     RSO << Prefix << NextOrdinal++;
     return RSO.str();
+  }
+
+  static const VPLoopRegion *findNthLoopDFS(const VPlan *Plan, unsigned N);
+  static const VPLoopRegion *findFirstLoopDFS(const VPlan *Plan) {
+    return findNthLoopDFS(Plan, 1);
   }
 };
 

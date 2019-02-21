@@ -442,7 +442,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // instructions.
   VPBasicBlock *NewLoopLatch =
       new VPBasicBlock(VPlanUtils::createUniqueName("NewLoopLatch"));
-  VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch, Plan);
+  OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch, Plan);
+  VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch);
   VPL->addBasicBlockToLoop(NewLoopLatch, *VPLInfo);
   // Remove the original loop latch from the blocks of the phi node of the loop
   // header.
@@ -470,7 +471,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   NewLoopLatch->addRecipeAfter(Cond, VPPhiMarker);
   VPInstruction *NewCondBit =
       cast<VPInstruction>(VPBldr.createAnd(Cond, VPPhiMarker));
-  NewLoopLatch->setCondBit(NewCondBit, Plan);
+  NewLoopLatch->setCondBit(NewCondBit);
   VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
   VPlanDA->markDivergent(*NewCondBit);
   // Add the original loop latch in the NewLoopLatch's phi node.
@@ -1990,4 +1991,3 @@ void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
     Converter->passToVPlan(Plan, Mapper);
   }
 }
-

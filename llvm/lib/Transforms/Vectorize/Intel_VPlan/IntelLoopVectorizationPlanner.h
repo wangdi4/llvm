@@ -126,6 +126,8 @@ public:
     return It != VPlans.end() ? It->second.get() : nullptr;
   }
 
+  VPlan *getScalarVPlan(void) const { return getVPlanForVF(1); }
+
   bool hasVPlanForVF(const unsigned VF) const { return VPlans.count(VF) != 0; }
 
 protected:

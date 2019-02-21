@@ -44,15 +44,6 @@ private:
     return createInstruction(Opcode, BaseTy, ArrayRef<VPValue *>(Operands));
   }
 
-  /// \brief Create VPCmpInst with its two operands.
-  VPCmpInst *createCmpInst(CmpInst::Predicate Pred, VPValue *LeftOp,
-                           VPValue *RightOp) {
-    assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
-    VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
-    if (BB)
-      BB->insert(Instr, InsertPt);
-    return Instr;
-  }
 #else
   VPInstruction *createInstruction(unsigned Opcode,
                                    std::initializer_list<VPValue *> Operands) {
@@ -207,6 +198,16 @@ public:
         createCmpInst(CI->getPredicate(), LeftOp, RightOp);
     VPCI->setUnderlyingValue(CI);
     return VPCI;
+  }
+
+  /// \brief Create VPCmpInst with its two operands.
+  VPCmpInst *createCmpInst(CmpInst::Predicate Pred, VPValue *LeftOp,
+                           VPValue *RightOp) {
+    assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
+    VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
+    if (BB)
+      BB->insert(Instr, InsertPt);
+    return Instr;
   }
 
   // Create dummy VPBranchInst instruction.
