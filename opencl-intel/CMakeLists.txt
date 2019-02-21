@@ -176,12 +176,16 @@ elseif ( REVISION_ID MATCHES "-r[0-9]*" ) # Review ID
   set( GIT_REVISION $ENV{RELEASE_BRANCH} )
 endif()
 
-# MAJOR and MINOR version aligned with 15.40 branch because currently
-# we are delivering cpu bundle from master.
-# As soon as we will deliver cpu buncle from release branch to vpg
-# revert this change. CSSD100021694.
-set( PRODUCTVER_MAJOR 7 )
-set( PRODUCTVER_MINOR 6 )
+# Align OpenCL version to release date
+string(TIMESTAMP PRODUCTVER_MAJOR "%Y")
+string(TIMESTAMP PRODUCTVER_MINOR "%m")
+
+# Make month number single digit
+string(FIND ${PRODUCTVER_MINOR} "0" ZERO_POS)
+if(${ZERO_POS} STREQUAL "0")
+  string(SUBSTRING ${PRODUCTVER_MINOR} 1 1 PRODUCTVER_MINOR)
+endif(ZERO_POS)
+set(PRODUCTVER_MINOR "${PRODUCTVER_MINOR}.0")
 
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 set(BUILDVER_16_BIT_MINOR "$ENV{BUILDDATE}")
@@ -211,7 +215,6 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 #define PRODUCTVERSION_MINOR ${PRODUCTVER_MINOR}\n
 #define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n
 #define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n
-#define VERSIONSTRING \"${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define IOCVERSIONSTRING \"1.6.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define KBVERSIONSTRING \"1.4.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
 # --------------

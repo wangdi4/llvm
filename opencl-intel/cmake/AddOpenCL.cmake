@@ -32,15 +32,24 @@ endif (WIN32)
 # This macro sets OpenCL libraries version as 'x.y', where 'x' is a major
 # version of LLVM and 'y' is an internally agreed digit.
 macro(set_opencl_version)
-    if( NOT DEFINED OPENCL_LIBRARY_VERSION )
+    if( NOT DEFINED VERSIONSTRING )
         if( NOT DEFINED LLVM_PATH_FE )
             message( FATAL_ERROR "LLVM_PATH_FE is not specified." )
         endif()
 
         set(LLVM_PATH ${LLVM_PATH_FE})
         find_package(LLVM REQUIRED)
-        set( OPENCL_LIBRARY_VERSION "${LLVM_VERSION_MAJOR}.0" )
-    endif( NOT DEFINED OPENCL_LIBRARY_VERSION )
+        math(EXPR LLVM_RELEASE_VER "${LLVM_VERSION_MAJOR} - 1")
+        set(VERSIONSTRING "${PRODUCTVER_MAJOR}.${LLVM_RELEASE_VER}.${PRODUCTVER_MINOR}")
+        add_definitions(-DVERSIONSTRING="${VERSIONSTRING}")
+        file(WRITE ${OCL_BINARY_DIR}/driverversion.h.txt
+        "#ifndef VERSIONSTRIN\n
+            #define VERSIONSTRING \"${VERSIONSTRING}\"\n
+        #endif\n")
+        execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        ${OCL_BINARY_DIR}/driverversion.h.txt
+                        ${OCL_BINARY_DIR}/driverversion.h)
+    endif( NOT DEFINED VERSIONSTRING )
 endmacro(set_opencl_version)
 
 # Define output dirs
@@ -104,7 +113,7 @@ function(add_opencl_library name)
             RUNTIME_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
             LIBRARY_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
             ARCHIVE_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
-            SOVERSION ${OPENCL_LIBRARY_VERSION})
+            SOVERSION ${VERSIONSTRING})
     endif (WIN32)
 
     target_link_libraries(${name} ${ARG_LINK_LIBS} ${ARG_COMPONENTS})

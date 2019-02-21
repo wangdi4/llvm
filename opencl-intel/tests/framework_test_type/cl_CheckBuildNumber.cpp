@@ -49,41 +49,42 @@ bool cl_CheckBuildNumber() {
         Buffer[1024 - 1] = 0;
         cout << "CL_DRIVER_VERSION: " << Buffer << '\n';
 
-        // The expected string in Buffer should be 'XX.Y.Z.MMDD'.
-        // Let's validate build date 'MMDD' only
-        // For Aug-03 MMDD should be 0803
+        // The expected string in Buffer should be 'YYYY.L.MM.0',
+        // where YYYY - current year, L - latest LLVM release version,
+        // MM - current month (single digit until September) and 0 - internally
+        // agreed digit.
+        // We can't validate latest LLVM release version from here as well as
+        // hardcoded '0', so let's validate build year YYYY and build month MM.
+        // For Apr 2019 YYYY should be '2019' and MM '4'.
 
-        // 2. Check for 'MMDD' string:
-        const char *S = strrchr(Buffer, '.');
-        if (!S) {
-            CheckException("'.' symbol is missed", true, false);
-        }
-        S++;
-        int i = 0;
-        while (i < 4) {
-            if (!isdigit(S[i])) {
-                // Only digits are allowed
-                CheckException("MMDD", true, false);
+        // Check for 'YYYY' string:
+        for (int i = 0; i != 4; ++i) {
+            if (!isdigit(Buffer[i])) {
+                CheckException("YYYY", true, false);
             }
-            i++;
         }
-        if (S[i]) {
-            CheckException("Zero symbol was expected here", true, false);
-        }
+        // Year can't be less that the current one (2019)
+        char Year[4];
+        Year[0] = Buffer[0];
+        Year[1] = Buffer[1];
+        Year[2] = Buffer[2];
+        Year[3] = Buffer[3];
+        int Val = atoi(Year);
+        CheckException("Year", Val >= 2019, true);
 
-        // First two symbols can not be more than 12 (Month):
-        char Date[3];
-        Date[0] = S[0];
-        Date[1] = S[1];
-        Date[2] = 0;
-        int Val = atoi(Date);
+        // Check for 'MM' string:
+        char Month[2];
+        int i = 0;
+        while (isdigit(Buffer[7 + i])) {
+          Month[0] = Buffer[7 + i];
+          ++i;
+        }
+        Val = atoi(Month);
         CheckException("Month", Val <= 12, true);
 
-        // Next two symbols can not be more than 31 (Day):
-        Date[0] = S[2];
-        Date[1] = S[3];
-        Val = atoi(Date);
-        CheckException("Day", Val <= 31, true);
+        if (Buffer[11]) {
+            CheckException("Zero symbol was expected here", true, false);
+        }
     }
     catch (const std::exception&)
     {

@@ -13,12 +13,12 @@
 // License.
 
 #include "cl_sys_info.h"
-#include <buildversion.h>
+#include <driverversion.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // return the product version:
-// Arguments - major, minor, revision, build - output version numbers
-////////////////////////////////////////////////////////////////////
+// Arguments - year, LLVM version, month, digit (0) - output version numbers
+///////////////////////////////////////////////////////////////////////////////
 const char* Intel::OpenCL::Utils::GetModuleProductVersion()
 {
     return VERSIONSTRING;

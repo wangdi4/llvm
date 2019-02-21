@@ -12,6 +12,8 @@ CALCULATE_TARGET_SOURCES()
 
 SET_UNICODE_OFF()
 
+set_opencl_version()
+
 # Include the ASM sources
 if (CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (WIN32)
