@@ -164,6 +164,7 @@ namespace unrollsymtc {
 
 class HIRSymbolicTripCountCompleteUnroll {
   HIRFramework &HIRF;
+  const TargetTransformInfo &TTI;
   HIRDDAnalysis &HDDA;
   HLNodeUtils &HNU;
 
@@ -186,8 +187,10 @@ class HIRSymbolicTripCountCompleteUnroll {
   struct StructuralCollector;
 
 public:
-  HIRSymbolicTripCountCompleteUnroll(HIRFramework &HIRF, HIRDDAnalysis &HDDA)
-      : HIRF(HIRF), HDDA(HDDA), HNU(HIRF.getHLNodeUtils()) {}
+  HIRSymbolicTripCountCompleteUnroll(HIRFramework &HIRF,
+                                     const TargetTransformInfo &TTI,
+                                     HIRDDAnalysis &HDDA)
+      : HIRF(HIRF), TTI(TTI), HDDA(HDDA), HNU(HIRF.getHLNodeUtils()) {}
 
   bool run();
 

@@ -36,6 +36,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -298,6 +299,11 @@ void HIRSymbolicTripCountCompleteUnroll::StructuralCollector::print(
 bool HIRSymbolicTripCountCompleteUnroll::run() {
   if (DisableHIRSymbolicTripCountCompleteUnroll) {
     LLVM_DEBUG(dbgs() << "HIR Loop Pattern Match Early Disabled\n");
+    return false;
+  }
+
+  if (!TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2)) {
     return false;
   }
 
@@ -1827,8 +1833,8 @@ PreservedAnalyses
 HIRSymbolicTripCountCompleteUnrollPass::run(llvm::Function &F,
                                             llvm::FunctionAnalysisManager &AM) {
   HIRSymbolicTripCountCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
-                                     AM.getResult<HIRDDAnalysisPass>(F))
-      .run();
+                                     AM.getResult<TargetIRAnalysis>(F),
+                                     AM.getResult<HIRDDAnalysisPass>(F)).run();
 
   return PreservedAnalyses::all();
 }
@@ -1844,6 +1850,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.setPreservesAll();
   }
@@ -1856,8 +1863,8 @@ public:
 
     return HIRSymbolicTripCountCompleteUnroll(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
-        .run();
+               getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA()).run();
   }
 };
 
@@ -1867,6 +1874,7 @@ INITIALIZE_PASS_BEGIN(
     "hir-pm-symbolic-tripcount-completeunroll",
     "HIR Symbolic TripCount CompleteUnroll Pattern Match Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRSymbolicTripCountCompleteUnrollLegacyPass,
                     "hir-pm-symbolic-tripcount-completeunroll",
