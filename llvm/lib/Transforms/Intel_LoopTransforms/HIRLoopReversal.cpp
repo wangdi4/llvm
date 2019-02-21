@@ -248,6 +248,13 @@ void HIRLoopReversal::MarkedCECollector::checkAndCollectMCE(
       Stride = RegDD->getDimensionConstStride(Dimension);
     }
 
+    // If the dimension stride is variable, Stride will be 0
+    // TODO: Handle negative strides
+    if (Stride == 0) {
+      AbortCollector = true;
+      return;
+    }
+
     // Collect the MCE
     CEVAP.push_back(MarkedCanonExpr(CE, Stride, RegDD, CalculatedWeight));
   }
