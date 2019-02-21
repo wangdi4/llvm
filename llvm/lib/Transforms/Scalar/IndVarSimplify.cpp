@@ -2342,6 +2342,29 @@ static Value *genLoopLimit(PHINode *IndVar, const SCEV *IVCount, Loop *L,
     // SCEV expression (IVInit) for a pointer type IV value (IndVar).
     Type *LimitTy = IVCount->getType()->isPointerTy() ?
       IndVar->getType() : IVCount->getType();
+#if INTEL_CUSTOMIZATION
+    // ScalarEvolution does not preserve nuw/nsw flags so it is preferrable to
+    // use the original value if the loop limit is the same.
+    Value *OrigCond = BI->getCondition();
+    if (auto *CmpInst = dyn_cast<ICmpInst>(OrigCond)) {
+      auto *Op0 = CmpInst->getOperand(0);
+      auto *Op1 = CmpInst->getOperand(1);
+
+      if (Op0->getType() == LimitTy) {
+        auto *BinOp0 = dyn_cast<OverflowingBinaryOperator>(Op0);
+        auto *BinOp1 = dyn_cast<OverflowingBinaryOperator>(Op1);
+        if (BinOp0 &&
+            (BinOp0->hasNoUnsignedWrap() || BinOp0->hasNoSignedWrap()) &&
+            (SE->getSCEV(Op0) == IVLimit)) {
+          return Op0;
+        } else if (BinOp1 &&
+                  (BinOp1->hasNoUnsignedWrap() || BinOp1->hasNoSignedWrap()) &&
+                  (SE->getSCEV(Op1) == IVLimit)) {
+          return Op1;
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
     return Rewriter.expandCodeFor(IVLimit, LimitTy, BI);
   }
 }
