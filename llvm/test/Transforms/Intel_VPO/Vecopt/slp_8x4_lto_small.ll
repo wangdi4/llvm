@@ -1,4 +1,4 @@
-; RUN: opt < %s -slp-vectorizer -S -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -tti | FileCheck %s 
+; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -S -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake-avx512 -tti | FileCheck %s 
 
 ; ModuleID = 'ld-temp.o'
 source_filename = "ld-temp.o"

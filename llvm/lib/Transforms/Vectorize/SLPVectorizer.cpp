@@ -7748,6 +7748,15 @@ bool SLPVectorizerPass::runImpl(Function &F, ScalarEvolution *SE_,
   GEPs.clear();
   bool Changed = false;
 
+
+#if INTEL_CUSTOMIZATION
+  if (!TTI->isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2)) {
+    PSLPEnabled = false;
+    EnableMultiNodeSLP = false;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // If the target claims to have no vector registers don't attempt
   // vectorization.
   if (!TTI->getNumberOfRegisters(true))

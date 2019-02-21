@@ -1,4 +1,4 @@
-; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -mattr=-prefer-256-bit -tti -S | FileCheck %s -check-prefix=16WIDE
+; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -mattr=-prefer-256-bit -tti -S | FileCheck %s -check-prefix=16WIDE
 ; This test checks that we don't crash because of not unique values and still vectorize part of the tree.
 ; Full support for this case requires "head duplication".
 
