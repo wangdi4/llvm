@@ -125,7 +125,7 @@ public:
 class CanonNode {
   friend class CanonForm;
   /// Incoming value called a leaf.
-  Value *Leaf;
+  TrackingVH<Value> Leaf;
   /// The canonicalized opcode. In addition it keeps associative instructions
   /// like '<< 4' as well.
   OpcodeData Opcode;
@@ -138,7 +138,9 @@ public:
 
   void appendAssocInstruction(Instruction *I) { Opcode.appendAssocInstr(I); }
 
-  hash_code getHash() const { return hash_combine(Leaf, Opcode.getHash()); }
+  hash_code getHash() const {
+    //hash_code LeafHC = hash_value();
+    return hash_combine(Leaf.getValPtr(), Opcode.getHash()); }
   /// Two nodes are equal if they have the same incoming leaf. Please note that
   /// we don't take opcode into account.
   bool operator==(const CanonNode &Pair2) const { return Leaf == Pair2.Leaf; }
