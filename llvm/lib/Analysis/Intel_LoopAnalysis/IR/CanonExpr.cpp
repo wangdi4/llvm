@@ -757,6 +757,12 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
     Val = static_cast<int64_t>(APVal.getZExtValue());
   }
 
+  // Val may becomes zero in the SrcType by truncation.
+  if (!Val) {
+    removeIV(Lvl);
+    return;
+  }
+
   int64_t NewVal = IVCoeffs[Lvl - 1].Coeff * Val;
 
   if (IVCoeffs[Lvl - 1].Index != InvalidBlobIndex) {
