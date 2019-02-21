@@ -700,7 +700,12 @@ namespace llvm {
 namespace dtrans {
 
 bool SOAToAOSPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                           const TargetLibraryInfo &TLI) {
+                           const TargetLibraryInfo &TLI,
+                           WholeProgramInfo &WPInfo) {
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
+    return false;
+
   // Perform the actual transformation.
   DTransTypeRemapper TypeRemapper;
   SOAToAOSTransformImpl Transformer(DTInfo, M.getContext(), M.getDataLayout(),
@@ -715,7 +720,7 @@ PreservedAnalyses SOAToAOSPass::run(Module &M, ModuleAnalysisManager &AM) {
 
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
-  bool Changed = runImpl(M, DTransInfo, TLI);
+  bool Changed = runImpl(M, DTransInfo, TLI, WP);
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -756,7 +761,7 @@ public:
 
     auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
-    bool Changed = Impl.runImpl(M, DTInfo, TLI);
+    bool Changed = Impl.runImpl(M, DTInfo, TLI, WP);
     if (Changed)
       DTAnalysisWrapper.setInvalidated();
     return Changed;
