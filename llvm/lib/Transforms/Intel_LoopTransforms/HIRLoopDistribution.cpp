@@ -40,6 +40,24 @@ cl::opt<bool> DisableDist("disable-hir-loop-distribute",
                           cl::desc("Disable HIR Loop Distribution"), cl::Hidden,
                           cl::init(false));
 
+enum PragmaReturnCode {
+  NotProcessed,
+  NoDistribution,
+  Success,
+  UnsupportedStmts,
+  TooComplex,
+  TooManyDistributePoints,
+  Last
+};
+
+const char *OptReportMsg[Last] = {
+    "Distribute point pragma not processed",
+    "No Distribution as requested by pragma",
+    "Distribute point pragma processed",
+    "Distribute point pragma not processed: Unsupported constructs in loops",
+    "Distribute point pragma not processed: Loop is too complex",
+    "Distribute point pragma not processed: Too many Distribute points"};
+
 bool HIRLoopDistribution::run() {
   if (DisableDist) {
     LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: Transform disabled\n");
@@ -59,7 +77,10 @@ bool HIRLoopDistribution::run() {
   }
 
   bool Modified = false;
+  LoopOptReportBuilder &LORBuilder = HIRF.getLORBuilder();
+
   for (auto I = Loops.begin(), E = Loops.end(); I != E; ++I) {
+    DistributedLoops.clear();
     HLLoop *Lp = *I;
     if (!loopIsCandidate(Lp)) {
       if (OptReportLevel >= 3) {
@@ -68,6 +89,17 @@ bool HIRLoopDistribution::run() {
       }
       continue;
     }
+
+    LoopHasDistributePoint = false;
+    if (Lp->hasDistributePoint()) {
+      LoopHasDistributePoint = true;
+      unsigned RC = distributeLoopForDirective(Lp);
+      if (RC != NotProcessed) {
+        LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, OptReportMsg[RC]);
+      }
+      continue;
+    }
+
     unsigned TotalMemOps = 0;
     bool ForceCycleForLoopIndepDep = true;
 
@@ -110,13 +142,24 @@ bool HIRLoopDistribution::run() {
     findDistPoints(Lp, PG, NewOrdering);
 
     if (NewOrdering.size() > 1) {
-      Modified = distributeLoop(Lp, NewOrdering, HIRF.getLORBuilder());
-    } else {
-      if (OptReportLevel >= 3) {
-        dbgs() << "LOOP DISTRIBUTION: "
-               << "Found no valid distribution points"
-               << "\n";
+      // Refactor NewOrdering into a different vector, to make codegen
+      // routine shareable from Dist PiBlocks or user pragma
+      for (PiBlockList &PList : NewOrdering) {
+        HLDDNodeList CurLoopHLDDNodeList;
+        for (PiBlock *PiBlk : PList) {
+          for (auto NodeI = PiBlk->nodes_begin(), E = PiBlk->nodes_end();
+               NodeI != E; ++NodeI) {
+            HLDDNode *Node = cast<HLDDNode>(*NodeI);
+            CurLoopHLDDNodeList.push_back(Node);
+          }
+        }
+        DistributedLoops.push_back(CurLoopHLDDNodeList);
       }
+      Modified = distributeLoop(Lp, DistributedLoops, false, LORBuilder);
+    } else if (OptReportLevel >= 3) {
+      dbgs() << "LOOP DISTRIBUTION: "
+             << "Found no valid distribution points"
+             << "\n";
     }
   }
 
@@ -144,11 +187,29 @@ static void updateLiveInAllocaTemp(HLLoop *Loop, unsigned SB) {
   }
 }
 
-RegDDRef *HIRLoopDistribution::createTempArrayStore(RegDDRef *TempRef) {
+RegDDRef *HIRLoopDistribution::createTempArrayStore(HLLoop *Lp,
+                                                    DDRef *TempRef) {
 
-  // TEMP[i] = tx
-  HLDDNode *HLNode = TempRef->getHLDDNode();
-  HLLoop *Lp = HLNode->getParentLoop();
+  // Generates  TEMP[i] = tx
+  //  tx may be from assignments of this form:
+  //  tx = ty   ;  tx = 1000
+  //  Make it a self-blob to avoid IR validation error
+
+  HLDDNode *TempRefDDNode = TempRef->getHLDDNode();
+
+  RegDDRef *TempRegRef = dyn_cast<RegDDRef>(TempRef);
+  if (!TempRegRef) {
+    TempRegRef = HNU.getDDRefUtils().createScalarRegDDRef(
+        TempRef->getSymbase(), TempRef->getSingleCanonExpr());
+  }
+
+  auto CE = TempRegRef->getSingleCanonExpr();
+
+  // Checking of isConstant needs to use TempRef
+  if (CE->isSelfBlob() || TempRegRef->isConstant()) {
+    TempRegRef = TempRegRef->clone();
+    TempRegRef->makeSelfBlob(true);
+  }
 
   auto ArrTy = ArrayType::get(TempRef->getDestType(), StripmineSize);
 
@@ -159,100 +220,176 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(RegDDRef *TempRef) {
   auto IVType = Lp->getIVType();
   CanonExpr *FirstCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
   FirstCE->addIV(LoopLevel, 0, 1);
+
   //  Create constant of 0
   CanonExpr *SecondCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
   TmpArrayRef->addDimension(SecondCE);
   TmpArrayRef->addDimension(FirstCE);
-  HLInst *StoreInst = HNU.createStore(TempRef->clone(), ".TempSt", TmpArrayRef);
 
-  HLNodeUtils::insertAfter(HLNode, StoreInst);
+  TmpArrayRef =
+      insertTempArrayStore(Lp, TempRegRef, TmpArrayRef, TempRefDDNode);
+
+  return TmpArrayRef;
+}
+
+RegDDRef *HIRLoopDistribution::insertTempArrayStore(HLLoop *Lp,
+                                                    RegDDRef *TempRef,
+                                                    RegDDRef *TmpArrayRef,
+                                                    HLDDNode *TempRefDDNode) {
+
+  HLInst *StoreInst = HNU.createStore(TempRef->clone(), ".TempSt", TmpArrayRef);
+  HLNodeUtils::insertAfter(TempRefDDNode, StoreInst);
 
   updateLiveInAllocaTemp(Lp, TmpArrayRef->getBasePtrSymbase());
   TempArraySB.push_back(TmpArrayRef->getSymbase());
-
   return TmpArrayRef;
 }
 
 void HIRLoopDistribution::createTempArrayLoad(RegDDRef *TempRef,
                                               RegDDRef *TmpArrayRef,
-                                              HLDDNode *Node) {
+                                              HLDDNode *Node,
+                                              bool TempRedefined) {
 
-  //  tx = TEMP[i]
+  // tx = TEMP[i]
   HLLoop *Lp = Node->getParentLoop();
 
   const std::string TempName = "scextmp";
   HLInst *LoadInst =
       HNU.createLoad(TmpArrayRef->clone(), TempName, TempRef->clone());
 
-  // if stmt is inside an if, insertion should be done before If
-  // because we do insert once per loop
-
   auto TmpNode = Node;
   HLNode *IfParent;
 
-  do {
-    IfParent = TmpNode;
-    TmpNode = dyn_cast<HLIf>(TmpNode->getParent());
-  } while (TmpNode);
+  if (TempRedefined) {
+    HLLoop *Lp = Node->getParentLoop();
+    IfParent = cast<HLDDNode>(Lp->getFirstChild());
+  } else {
+    // if stmt is inside an if, insertion should be done before If
+    // because we do insert once per loop
+    do {
+      IfParent = TmpNode;
+      TmpNode = dyn_cast<HLIf>(TmpNode->getParent());
+    } while (TmpNode);
+  }
 
   HLNodeUtils::insertBefore(IfParent, LoadInst);
   updateLiveInAllocaTemp(Lp, TmpArrayRef->getBasePtrSymbase());
   TempArraySB.push_back(TmpArrayRef->getSymbase());
 }
 
-void HIRLoopDistribution::replaceWithArrayTemp(
-    TerminalRefGatherer::VectorTy *Refs) {
+bool HIRLoopDistribution::isScalarExpansionCandidate(const DDRef *Ref) const {
 
-  RegDDRef *TmpArrayRef = nullptr;
+  // We need to scalar expand scalar global vars besides temps.
+  // When Memref cleanup is suppessed for distribute point pragma,
+  // Scalar global vars are not turning into temp.
+  // Global vars should be scalar expanded also, to avoid loss of
+  // functionality
+
+  const RegDDRef *RegRef = dyn_cast<RegDDRef>(Ref);
+  bool IsMemRef;
+
+  if (!RegRef) {
+    return true;
+  }
+
+  if ((IsMemRef = RegRef->isMemRef()) && LoopHasDistributePoint &&
+      RegRef->getNumDimensions() == 1) {
+    auto BaseCE = RegRef->getBaseCE();
+    return !BaseCE->isNonLinear() && RegRef->getDimensionIndex(1)->isZero();
+  }
+
+  return !IsMemRef;
+}
+
+void HIRLoopDistribution::replaceWithArrayTemp(Gatherer::VectorTy *Refs) {
+
+  // Map for temp symbase and its Array Temp
+  SmallDenseMap<unsigned, RegDDRef *, 16> ArrayTempMap;
+  // <Symbase, Loop number>
+  SmallVector<std::pair<unsigned, unsigned>, 8> InsertLoadVector;
 
   for (unsigned I = 0; I < LastLoopNum - 1; ++I) {
-    // refs can only be terminal or blobs here
-    for (DDRef *Ref : Refs[I]) {
-      if (Ref->isRval()) {
+    for (DDRef *SrcRef : Refs[I]) {
+      RegDDRef *TmpArrayRef = nullptr;
+      if (SrcRef->isRval()) {
         continue;
       }
-
-      bool StoreInserted = false;
-      RegDDRef *TempRef = cast<RegDDRef>(Ref);
-      const HLInst *Inst = dyn_cast<HLInst>(TempRef->getHLDDNode());
-
+      if (!isScalarExpansionCandidate(SrcRef)) {
+        continue;
+      }
+      const HLInst *Inst = cast<HLInst>(SrcRef->getHLDDNode());
       // No need to check for safe reduction because reduction temps
-      // will not be distributed into two different loops
-      if (Inst && Inst->isInPreheaderOrPostexit()) {
+      // Will not be distributed into two different loops
+      if (Inst->isInPreheaderOrPostexit()) {
         continue;
       }
+
+      RegDDRef *SrcRegRef = cast<RegDDRef>(SrcRef);
+      HLLoop *Lp = SrcRef->getParentLoop();
+
       for (unsigned J = I + 1; J < LastLoopNum; ++J) {
-        bool LoadInserted = false;
-        for (auto It = Refs[J].begin(); It != Refs[J].end();) {
-          // Refs here could be blob or temp
-          DDRef *SinkRef = *It;
-          if (SinkRef->isLval() ||
-              TempRef->getSymbase() != SinkRef->getSymbase()) {
-            ++It;
+        bool TempRedefined = false;
+        for (DDRef *SinkRef : Refs[J]) {
+
+          // For Pragma, we support global scalar (*tx) to be scalar
+          // expanded. In case *tx, *ty are mapped to same Symbase,
+          // they will be treated as different
+
+          if (SrcRef->getSymbase() != SinkRef->getSymbase() ||
+              (SrcRegRef->isMemRef() &&
+               (!DDRefUtils::areEqual(SrcRef, SinkRef)))) {
             continue;
           }
-          // Create TEMP[i] = tx and insert
-          if (!StoreInserted) {
-            TmpArrayRef = createTempArrayStore(TempRef);
-            StoreInserted = true;
-          }
-          //  Create tx = TEMP[i] and insert.  Cannot do direct replacement
-          //  because Copy Inst does not allow Memref
-          if (!LoadInserted) {
-            createTempArrayLoad(TempRef, TmpArrayRef, SinkRef->getHLDDNode());
-            LoadInserted = true;
+
+          if (!isScalarExpansionCandidate(SinkRef)) {
+            TempRedefined = true;
+            continue;
           }
 
-          It = Refs[J].erase(It);
+          // Create TEMP[i] = tx and insert
+          unsigned SB = SrcRef->getSymbase();
+
+          if (!TmpArrayRef) {
+            auto Iter = ArrayTempMap.find(SB);
+            // If ArrayTemp is created, just clone and insert
+            if (Iter != ArrayTempMap.end()) {
+              TmpArrayRef = Iter->second;
+              TmpArrayRef =
+                  insertTempArrayStore(Lp, SrcRegRef, TmpArrayRef->clone(),
+                                       SrcRegRef->getHLDDNode());
+
+            } else {
+              TmpArrayRef = createTempArrayStore(Lp, SrcRef);
+              ArrayTempMap[SB] = TmpArrayRef;
+            }
+          }
+
+          // Create tx = TEMP[i] and insert.  Cannot do direct replacement
+          //  because Copy Inst does not allow Memref
+          //  CrateTempArrayLoad will find the right place to insert before
+          //  the if stmt or at loop entry.
+          //  Loading is needed once per loop
+          if (std::find(InsertLoadVector.begin(), InsertLoadVector.end(),
+                        std::make_pair(SB, J)) == InsertLoadVector.end()) {
+            assert(TmpArrayRef && "Temp Store missing");
+            RegDDRef *SinkTempRef = dyn_cast<RegDDRef>(SinkRef);
+            if (!SinkTempRef) {
+              SinkTempRef = HNU.getDDRefUtils().createScalarRegDDRef(
+                  SinkRef->getSymbase(), SinkRef->getSingleCanonExpr());
+            }
+            createTempArrayLoad(SinkTempRef, TmpArrayRef,
+                                SinkRef->getHLDDNode(), TempRedefined);
+            InsertLoadVector.emplace_back(SB, J);
+          }
         }
       }
     }
   }
 }
 
-bool HIRLoopDistribution::arrayTempExceeded(
-    unsigned LastLoopNum, unsigned &NumArrayTemps,
-    TerminalRefGatherer::VectorTy *Refs) {
+bool HIRLoopDistribution::arrayTempExceeded(unsigned LastLoopNum,
+                                            unsigned &NumArrayTemps,
+                                            Gatherer::VectorTy *Refs) {
 
   NumArrayTemps = 0;
   if (DistCostModel != DistHeuristics::BreakMemRec) {
@@ -261,29 +398,28 @@ bool HIRLoopDistribution::arrayTempExceeded(
 
   for (unsigned I = 0; I < LastLoopNum - 1; ++I) {
     for (const DDRef *Ref : Refs[I]) {
+
       if (Ref->isRval()) {
         continue;
       }
-
-      const HLInst *Inst = dyn_cast<HLInst>(Ref->getHLDDNode());
-      if (Inst &&
-          (Inst->isInPreheaderOrPostexit() || SRA.isSafeReduction(Inst))) {
+      if (!isScalarExpansionCandidate(Ref)) {
+        continue;
+      }
+      const HLInst *Inst = cast<HLInst>(Ref->getHLDDNode());
+      if (Inst->isInPreheaderOrPostexit()) {
         continue;
       }
       // Check any usage in another loop
       bool Done = false;
       for (unsigned J = I + 1; J < LastLoopNum && !Done; ++J) {
         for (const DDRef *SinkRef : Refs[J]) {
-
-          if (SinkRef->isLval()) {
+          if (Ref->isLval() && !isScalarExpansionCandidate(SinkRef)) {
             continue;
           }
-
           if (Ref->getSymbase() == SinkRef->getSymbase()) {
             if (++NumArrayTemps >= MaxArrayTempsAllowed) {
-              LLVM_DEBUG(dbgs()
-                         << "Loop Dist  bail out because #of Array temps "
-                            "exceeded");
+              LLVM_DEBUG(dbgs() << "Loop Dist bail out because #of Array temps "
+                                   "exceeded");
               return true;
             }
             // Add to NumArrayTemp once per temp
@@ -294,7 +430,6 @@ bool HIRLoopDistribution::arrayTempExceeded(
       }
     }
   }
-
   return false;
 }
 
@@ -332,20 +467,18 @@ bool HIRLoopDistribution::arrayTempExceeded(
 /// perfect.
 
 bool HIRLoopDistribution::distributeLoop(
-    HLLoop *Loop, SmallVectorImpl<PiBlockList> &DistPoints,
-    LoopOptReportBuilder &LORBuilder) {
+    HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
+    bool ForDirective, LoopOptReportBuilder &LORBuilder) {
 
-  assert(DistPoints.size() > 1 && "Invalid loop distribution");
-
+  LastLoopNum = DistributedLoops.size();
+  assert(LastLoopNum > 1 && "Invalid loop distribution");
   if (OptReportLevel >= 3) {
-    dbgs() << "LOOP DISTRIBUTION : " << DistPoints.size()
-           << " way distributed\n";
+    dbgs() << "LOOP DISTRIBUTION : " << LastLoopNum << " way distributed\n";
   }
 
   TempArraySB.clear();
   bool CopyPreHeader = true;
   HLLoop *LoopNode;
-  LastLoopNum = DistPoints.size();
   if (LastLoopNum >= MaxDistributedLoop) {
     return false;
   }
@@ -354,36 +487,31 @@ bool HIRLoopDistribution::distributeLoop(
   LoopLevel = Loop->getNestingLevel();
 
   // Gather DDRefs into an array per loop
-  TerminalRefGatherer::VectorTy Refs[MaxDistributedLoop];
-
+  Gatherer::VectorTy Refs[MaxDistributedLoop];
   unsigned I = 0;
-  for (PiBlockList &PList : DistPoints) {
-    // Each PiBlockList forms a new loop
-    // Each piblock is comprised of multiple HLNodes
-    for (PiBlock *PiBlk : PList) {
-      for (auto NodeI = PiBlk->nodes_begin(), E = PiBlk->nodes_end();
-           NodeI != E; ++NodeI) {
-        TerminalRefGatherer::gather(*NodeI, Refs[I]);
-      }
+  for (HLDDNodeList &HLNodeList : DistributedLoops) {
+    for (HLDDNode *Node : HLNodeList) {
+      Gatherer::gather(Node, Refs[I]);
     }
     I++;
   }
+
   // Find number of Scalar Temps.
   // Large number of extra memory refs will affect performance
-  // Do not proceed if threshold exceeded
+  // Do not proceed if threshold exceeds
 
   if (arrayTempExceeded(LastLoopNum, NumArrayTemps, Refs)) {
     return false;
   }
-
   bool NotRequired = true;
-  if (NumArrayTemps && !(Loop->canStripmine(StripmineSize, NotRequired))) {
+  if (NumArrayTemps && !Loop->hasDistributePoint() &&
+      !(Loop->canStripmine(StripmineSize, NotRequired))) {
     return false;
   }
 
   unsigned Num = 0;
   I = 0;
-  for (PiBlockList &PList : DistPoints) {
+  for (HLDDNodeList &HLNodeList : DistributedLoops) {
     // Each PiBlockList forms a new loop
     // Clone Empty Loop. Copy preheader for 1st loop and
     // postexit for last loop
@@ -396,42 +524,51 @@ bool HIRLoopDistribution::distributeLoop(
       HLNodeUtils::moveAsFirstPreheaderNodes(LoopNode, Loop->pre_begin(),
                                              Loop->pre_end());
       CopyPreHeader = false;
+      if (ForDirective) {
+        LORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
+                                        OptReportMsg[Success]);
+      }
       LORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
                                       "Loop distributed (%d way)", LastLoopNum);
     }
+
     if (++Num == LastLoopNum) {
       HLNodeUtils::moveAsFirstPostexitNodes(LoopNode, Loop->post_begin(),
                                             Loop->post_end());
     }
-    // Each piblock is comprised of multiple HLNodes
-    for (PiBlock *PiBlk : PList) {
-      for (auto NodeI = PiBlk->nodes_begin(), E = PiBlk->nodes_end();
-           NodeI != E; ++NodeI) {
-        HLNodeUtils::moveAsLastChild(LoopNode, *NodeI);
+    for (HLDDNode *Node : HLNodeList) {
+      if (DistDirectiveNodeMap[Node].second) {
+        HLNodeUtils::insertAsLastChild(LoopNode, Node);
+      } else {
+        HLNodeUtils::moveAsLastChild(LoopNode, Node);
       }
     }
+
     LORBuilder(*LoopNode).addOrigin("Distributed chunk %d", Num);
   }
 
-  // The loop is now empty, all its children moved into new loops
-  assert(!Loop->hasChildren() &&
+  // The loop is now empty, all its children are moved to new loops
+  // except for user pragma, where some of the IF needs to be cloned
+
+  assert((!Loop->hasChildren() || Loop->hasDistributePoint()) &&
          "Loop Distribution failed to account for all Loop Children");
 
   for (unsigned I = 0; I < LastLoopNum; ++I) {
     // Distributed flag is used by Loop Fusion to skip loops that are
-    // distributed Need to set for Memory related distribution only. Distributed
-    // loops for enabling perfect loop nest, can still be fused after
-    // interchange is done
+    // distributed.  Need to set for Memory related distribution only.
+    // Distributed loops for enabling perfect loop nest, can still be fused
+    // after interchange is done
     if (DistCostModel == DistHeuristics::BreakMemRec) {
       NewLoops[I]->setDistributedForMemRec();
     }
     HLNodeUtils::insertBefore(Loop, NewLoops[I]);
   }
-
   if (NumArrayTemps) {
     replaceWithArrayTemp(Refs);
+
     // For constant trip count <= StripmineSize, no stripmine is done
     if (!NotRequired) {
+
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LastLoopNum - 1],
                                    StripmineSize);
       // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
@@ -442,9 +579,9 @@ bool HIRLoopDistribution::distributeLoop(
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
       Loop);
   HIRInvalidationUtils::invalidateBody(Loop);
-
   RegionNode->setGenCode();
   HLNodeUtils::remove(Loop);
+
   return true;
 }
 
@@ -564,7 +701,8 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
   // edge between the two new loops when considering I. Distributing
   // again won't enable vectorization, but create more loop overhead.
 
-  if (Lp->hasUnrollEnablingPragma() || Lp->hasVectorizeEnablingPragma()) {
+  if (Lp->hasUnrollEnablingPragma() || Lp->hasVectorizeEnablingPragma() ||
+      !Lp->isDo()) {
     return false;
   }
 
@@ -656,10 +794,10 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
     SmallVectorImpl<PiBlockList> &DistPoints) const {
 
   PiBlockList CurLoopPiBlkList;
-  // Walk through topsorted nodes of Pigraph, keeping in mind the fact that
-  // each of those nodes can legally form its own loop if the
-  // loops(distributed chunks) are ordered in same topsort order of nodes. Add
-  // the node to current loop. Look for outgoing edges that indicate
+  // Walk through topsorted nodes of Pigraph, keeping in mind the fact that each
+  // of those nodes can legally form its own loop if the loops(distributed
+  // chunks) are ordered in same topsort order of nodes.
+  // Add the node to current loop. Look for outgoing edges that indicate
   // recurrences. If none, continue on. Otherwise terminate the current loop,
   // start a new one. Src and sink of recurrence will be in different loops,
   // breaking the recurrence.
@@ -668,8 +806,8 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
   SmallVector<unsigned, 12> MemRefSBVector;
 
   SRA.computeSafeReductionChains(Lp);
-  unsigned HasSparseArrayReductions =
-      SARA.getNumSparseArrayReductionChains(Lp) > 0;
+
+  bool HasSparseArrayReductions = SARA.getNumSparseArrayReductionChains(Lp) > 0;
 
   // Get number of loads/stores, needed to decide if threashold is exceeded.
   // Arrays with same SB, in general, have locality, and do not need to be
@@ -691,10 +829,9 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
     for (auto NodeI = SrcBlk->nodes_begin(), E = SrcBlk->nodes_end();
          NodeI != E; ++NodeI) {
       HLDDNode *Node = cast<HLDDNode>(*NodeI);
-
       for (auto RefIt = Node->ddref_begin(), E = Node->ddref_end(); RefIt != E;
            ++RefIt) {
-        RegDDRef *Ref = *RefIt;
+        const RegDDRef *Ref = *RefIt;
         if (Ref->isMemRef()) {
           unsigned SB = Ref->getSymbase();
           if (std::find(MemRefSBVector.begin(), MemRefSBVector.end(), SB) !=
@@ -759,6 +896,202 @@ void HIRLoopDistribution::findDistPoints(
 
   LLVM_DEBUG(dbgs() << "Loop Dist proposes " << DistPoints.size()
                     << " Loops\n");
+}
+
+unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
+
+  //  Process user pragma Loop Directive for distribution
+  //  - No data dependency checking is needed
+  //  - Multiple distribution points are allowed
+  //  - User can put the pragma inside nested If statements, which is not
+  //    handled in automatic  distribution
+  //  IfNodeMap stores lowest and highest Loop Num
+
+  if (DistCostModel != DistHeuristics::BreakMemRec || !Lp->isInnermost()) {
+    return NotProcessed;
+  }
+
+  bool NotRequired = true;
+  if (!Lp->canStripmine(StripmineSize, NotRequired)) {
+    return TooComplex;
+  }
+
+  HLDDNode *Node = cast<HLDDNode>(Lp->getFirstChild());
+  // Distribute point placed right before first stmt implies
+  // no distribution
+  if (Node && Node->isDistributePoint()) {
+    Node->setDistributePoint(false);
+    return NoDistribution;
+  }
+
+  // - Mark each HLNode with the Loop Num
+  // - For if stmt - identify lowest and highest loop Num
+  // - For each Node in HLNNode, walk top down
+  //   - if loopNum != current new LoopNum
+  //      push HLDDNodeList in DistributedLoops
+  //   - if not IF stmt or current loopnum == lowest and highest loopnum
+  //         -- save Node in HLDDNodeList because it can be moved as a nest
+  //         -- continue
+  //   (If stmt from there on)
+  //   - Clone empty IF stmt
+  //   - Walk all stmts in IF nest,
+  //     - if loopNum in stmt matches current loop
+  //         attach HLNode to new IF depending on T/F path
+
+  DistDirectiveNodeMap.clear();
+  IfNodeMap.clear();
+
+  HLDDNodeList CurLoopHLDDNodeList;
+  HLDDNode *TopIfNode = nullptr;
+  unsigned TopIfNodeLoopNum = 0;
+  unsigned DistLoopNum = 1;
+  PragmaReturnCode UnsupportedRC = Success;
+
+  ForEach<HLDDNode>::visitRange(
+      Lp->child_begin(), Lp->child_end(),
+      [this, Lp, &DistLoopNum, &TopIfNode, &TopIfNodeLoopNum,
+       &UnsupportedRC](HLDDNode *HNode) {
+        if (isa<HLLabel>(HNode) || isa<HLGoto>(HNode) || isa<HLSwitch>(HNode)) {
+          UnsupportedRC = UnsupportedStmts;
+          return;
+        }
+        if (HNode->isDistributePoint()) {
+          HNode->setDistributePoint(false);
+          DistLoopNum++;
+          if (DistLoopNum >= MaxDistributedLoop) {
+            UnsupportedRC = TooManyDistributePoints;
+            return;
+          }
+        }
+        // 2nd argument indicates insert/move (for cloned/existing)
+        DistDirectiveNodeMap[HNode] = std::make_pair(DistLoopNum, false);
+        if (!(isa<HLIf>(HNode->getParent()))) {
+          if (TopIfNode) {
+            IfNodeMap[TopIfNode] =
+                std::make_pair(TopIfNodeLoopNum, DistLoopNum);
+          }
+          if (isa<HLIf>(HNode)) {
+            TopIfNode = HNode;
+            TopIfNodeLoopNum = DistLoopNum;
+          } else {
+            TopIfNode = nullptr;
+          }
+        }
+      });
+
+  if (UnsupportedRC != Success) {
+    return UnsupportedRC;
+  }
+  if (TopIfNode) {
+    // TopIfNode is live out
+    IfNodeMap[TopIfNode] = std::make_pair(TopIfNodeLoopNum, DistLoopNum);
+  }
+
+  collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
+  bool RC = distributeLoop(Lp, DistributedLoops, true, HIRF.getLORBuilder());
+  return (RC ? Success : TooComplex);
+}
+
+void HIRLoopDistribution::collectHNodesForDirective(
+    HLLoop *Lp, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
+    HLDDNodeList &CurLoopHLDDNodeList) {
+
+  unsigned DistLoopNum = 1;
+
+  for (auto NodeIt = Lp->child_begin(), E = Lp->child_end(); NodeIt != E;
+       ++NodeIt) {
+    HLDDNode *HNode = cast<HLDDNode>(&*NodeIt);
+    if (DistLoopNum != DistDirectiveNodeMap[HNode].first) {
+      DistributedLoops.push_back(CurLoopHLDDNodeList);
+      CurLoopHLDDNodeList.clear();
+      DistLoopNum++;
+    }
+
+    if ((!isa<HLIf>(HNode) &&
+         DistLoopNum == DistDirectiveNodeMap[HNode].first) ||
+        (isa<HLIf>(HNode) && DistLoopNum == IfNodeMap[HNode].first &&
+         DistLoopNum == IfNodeMap[HNode].second)) {
+      CurLoopHLDDNodeList.push_back(HNode);
+      continue;
+    }
+
+    if (isa<HLIf>(HNode)) {
+      for (unsigned LoopNum = IfNodeMap[HNode].first;
+           LoopNum <= IfNodeMap[HNode].second; ++LoopNum) {
+        HLDDNode *NewIf =
+            processPragmaForIf(HNode, HNode, CurLoopHLDDNodeList, LoopNum);
+        if (NewIf) {
+          CurLoopHLDDNodeList.push_back(NewIf);
+        }
+        if (LoopNum != IfNodeMap[HNode].second) {
+          DistributedLoops.push_back(CurLoopHLDDNodeList);
+          CurLoopHLDDNodeList.clear();
+        }
+        DistLoopNum = LoopNum;
+      }
+    }
+  }
+
+  if (CurLoopHLDDNodeList.size()) {
+    DistributedLoops.push_back(CurLoopHLDDNodeList);
+  }
+}
+
+void HIRLoopDistribution::moveIfChildren(HLContainerTy::iterator Begin,
+                                         HLContainerTy::iterator End,
+                                         HLIf *NewHLIf, HLDDNode *TopIfHNode,
+                                         HLDDNodeList &CurLoopHLDDNodeList,
+                                         unsigned TopIfLoopNum,
+                                         bool IsThenChild) {
+
+  unsigned NodeLoopNum = 0;
+  HLDDNode *NewHLIfChild = nullptr;
+
+  for (auto Iter = Begin; Iter != End;) {
+
+    HLDDNode *Node = cast<HLDDNode>(&*Iter);
+
+    NodeLoopNum = DistDirectiveNodeMap[Node].first;
+    // Iter needs to be bumped up here because Node is changed
+    ++Iter;
+    if (isa<HLIf>(Node)) {
+      NewHLIfChild = processPragmaForIf(TopIfHNode, Node, CurLoopHLDDNodeList,
+                                        TopIfLoopNum);
+      if (NewHLIfChild) {
+        IsThenChild ? HLNodeUtils::insertAsLastThenChild(NewHLIf, NewHLIfChild)
+                    : HLNodeUtils::insertAsLastElseChild(NewHLIf, NewHLIfChild);
+      }
+    } else if (NodeLoopNum == TopIfLoopNum) {
+      IsThenChild ? HLNodeUtils::moveAsLastThenChild(NewHLIf, Node)
+                  : HLNodeUtils::moveAsLastElseChild(NewHLIf, Node);
+    }
+  }
+}
+
+HLDDNode *HIRLoopDistribution::processPragmaForIf(
+    HLDDNode *TopIfHNode, HLDDNode *CurrentIfHNode,
+    HLDDNodeList &CurLoopHLDDNodeList, unsigned TopIfLoopNum) {
+
+  HLNode *Node = CurrentIfHNode;
+  HLIf *IfParent = cast<HLIf>(Node);
+  HLIf *NewHLIf = IfParent->cloneEmpty();
+
+  if (TopIfHNode == CurrentIfHNode) {
+    DistDirectiveNodeMap[NewHLIf] = std::make_pair(TopIfLoopNum, true);
+  }
+
+  moveIfChildren(IfParent->then_begin(), IfParent->then_end(), NewHLIf,
+                 TopIfHNode, CurLoopHLDDNodeList, TopIfLoopNum, true);
+  moveIfChildren(IfParent->else_begin(), IfParent->else_end(), NewHLIf,
+                 TopIfHNode, CurLoopHLDDNodeList, TopIfLoopNum, false);
+
+  // For nested If statements, pragma can be inserted anywhere and
+  // ends up with empty If.
+
+  if (!NewHLIf->hasThenChildren() && !NewHLIf->hasElseChildren()) {
+    NewHLIf = nullptr;
+  }
+  return NewHLIf;
 }
 
 void HIRLoopDistributionLegacyPass::getAnalysisUsage(

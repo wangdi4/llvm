@@ -323,6 +323,10 @@ void HIRLMM::CollectMemRefs::collectMemRef(RegDDRef *Ref) {
 //   . no call
 //
 bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
+
+  if (Lp->hasDistributePoint()) {
+    return false;
+  }
   const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
   // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnsafeSideEffects()) {

@@ -15,7 +15,6 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTIONIMPL_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRLOOPDISTRIBUTIONIMPL_H
 
-#include "HIRLoopDistributionGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -52,7 +51,12 @@ enum class DistHeuristics : unsigned char {
 
 class HIRLoopDistribution {
   typedef SmallVector<PiBlock *, 4> PiBlockList;
-  typedef DDRefGatherer<DDRef, (TerminalRefs | BlobRefs)> TerminalRefGatherer;
+  typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
+                                          IsAddressOfRefs)>
+      Gatherer;
+  typedef SmallVector<HLDDNode *, 12> HLDDNodeList;
+  typedef unsigned LoopNum;
+  typedef bool InsertOrMove;
 
 public:
   HIRLoopDistribution(HIRFramework &HIRF, HIRDDAnalysis &DDA,
@@ -75,15 +79,20 @@ private:
   HIRLoopResource &HLR;
 
   DistHeuristics DistCostModel;
-
   unsigned AllocaBlobIdx;
   unsigned NumArrayTemps;
   unsigned LastLoopNum;
   unsigned LoopLevel;
   HLRegion *RegionNode;
+  bool LoopHasDistributePoint;
   HLLoop *NewLoops[MaxDistributedLoop];
   SmallVector<unsigned, 12> TempArraySB;
+  SmallDenseMap<const HLDDNode *, std::pair<LoopNum, InsertOrMove>, 16>
+      DistDirectiveNodeMap;
+  SmallVector<HLDDNodeList, 8> DistributedLoops;
+  SmallDenseMap<const HLDDNode *, std::pair<LoopNum, LoopNum>, 16> IfNodeMap;
 
+private:
   void findDistPoints(const HLLoop *L, std::unique_ptr<PiGraph> const &PGraph,
                       SmallVectorImpl<PiBlockList> &DistPoints) const;
 
@@ -116,23 +125,56 @@ private:
   bool distributeLoop(HLLoop *L, SmallVectorImpl<PiBlockList> &DistPoints,
                       LoopOptReportBuilder &LORBuilder);
 
-  // Create an assignment TEMP[i] = temp
-  RegDDRef *createTempArrayStore(RegDDRef *TempRef);
+  bool distributeLoop(HLLoop *L,
+                      SmallVectorImpl<HLDDNodeList> &DistributedLoops,
+                      bool ForDirective, LoopOptReportBuilder &LORBuilder);
+
+  //  Different selection criteria for pragma
+  bool isScalarExpansionCandidate(const DDRef *Ref) const;
+
+  // Create TEMP[i] = temp and insert
+  RegDDRef *createTempArrayStore(HLLoop *Lp, DDRef *TempRef);
+
+  // Insert an assignment TEMP[i] = temp after DDNode
+  RegDDRef *insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
+                                 RegDDRef *TmpArrayRef,
+                                 HLDDNode *TempRefDDNode);
 
   // Create an assignment  temp = TEMP[i]
+  // TempRefined if true means temp is refined in the sink loop
+  // Insertion of assignment needs special handling
   void createTempArrayLoad(RegDDRef *TempRef, RegDDRef *TempArrayRef,
-                           HLDDNode *Node);
+                           HLDDNode *Node, bool TempRefined);
 
   // After scalar expansion, scalar temps is need to be replaced with Array Temp
-  void replaceWithArrayTemp(TerminalRefGatherer::VectorTy *Refs);
+  void replaceWithArrayTemp(Gatherer::VectorTy *Refs);
 
   // Do not distribute if number of array temps exceeded
   bool arrayTempExceeded(unsigned LastLoopNum, unsigned &NumArrayTemps,
-                         TerminalRefGatherer::VectorTy *Refs);
+                         Gatherer::VectorTy *Refs);
 
   // After calling Stripmining util, temp iv coeffs need to fixed
   // as single IV:  TEMP[i2], while other indexes have i1, i2
   void fixTempArrayCoeff(HLLoop *Loop);
+
+  // Process pragma for Loop directive Distribute Point
+
+  unsigned distributeLoopForDirective(HLLoop *Lp);
+
+  // Collect HNodes that match LoopNum
+  void
+  collectHNodesForDirective(HLLoop *Lp,
+                            SmallVectorImpl<HLDDNodeList> &DistributedLoops,
+                            HLDDNodeList &CurLoopHLDDNodeList);
+  // If nodes can be split up into different loops.
+  HLDDNode *processPragmaForIf(HLDDNode *IfParent, HLDDNode *CurrentIf,
+                               HLDDNodeList &CurLoopHLDDNodeList,
+                               unsigned LoopNum);
+  // Moving children of If to new loops
+  void moveIfChildren(HLContainerTy::iterator Begin,
+                      HLContainerTy::iterator End, HLIf *NewHLIf,
+                      HLDDNode *TopIfHNode, HLDDNodeList &CurLoopHLDDNodeList,
+                      unsigned TopIfLoopNum, bool IsThenChild);
 };
 
 class HIRLoopDistributionLegacyPass : public HIRTransformPass {

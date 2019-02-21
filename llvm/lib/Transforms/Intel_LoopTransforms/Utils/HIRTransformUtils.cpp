@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "HIRUnroll.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
@@ -833,6 +833,11 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   CanonExpr *UBCE = UBRef->getSingleCanonExpr();
 
   //  UB / StripmineSize: (N-1) / 64
+
+  if (UBRef->isSelfBlob()) {
+    UBRef->addBlobDDRef(UBRef->getSelfBlobIndex(), Level - 1);
+  }
+
   UBCE->divide(StripmineSize);
   UBCE->simplify(true, true);
 
