@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -mllvm -enable-subscript-lowering=0 -emit-llvm -o - %s | FileCheck %s
 // expected-no-diagnostics
 
 void foo() {
