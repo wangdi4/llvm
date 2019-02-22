@@ -399,8 +399,11 @@ public:
   // to the InstVisitor base class which will in turn call our instruction
   // visitors.
   void visitModule(Module &M) {
-    for (auto &GV : M.globals())
+    for (auto &GV : M.globals()) {
       visitGlobalValueUsers(&GV);
+      if (GV.hasInitializer() && !GV.getInitializer()->isZeroValue())
+        visitGlobalValueInitializer(GV.getInitializer());
+    }
     for (auto &A : M.aliases())
       visitGlobalValueUsers(&A);
 
@@ -729,6 +732,65 @@ private:
       // If we still haven't reached an instruction user, keep following uses.
       if (auto *CE = dyn_cast<ConstantExpr>(U))
         visitGlobalValueUsers(CE);
+    }
+  }
+
+  // This function updates the NonScalarFieldsUsed bitmask for structure types
+  // used for initializing global variables. \p C is a global variable
+  // initializer for a non-zero initialization. If the structure type is a
+  // candidate for compatible type remapping, then these initializations need
+  // to be treated as field uses when checking if a remapping is possible.
+  // Otherwise, it is possible that a structure type is remapped, but the
+  // pointer members within it are not remapped, leading to an inconsistent
+  // state when creating a new initializer value for the global variable.
+  //
+  // For example:
+  //    %struct.Node = type { %struct.NodeSocket* }
+  //    %struct.Node.66557 = type { %struct.NodeSocket.66556* }
+  //    @var = global %struct.Node.66557 { %struct.NodeSocket.66556* null }
+  //
+  // If %struct.Node.66557 is replaced to be %struct.Node, then this initializer
+  // would also need to be changed to use %struct.NodeSocket* in place of
+  // %struct.NodeSocket.66556*. This may be possible by extending the behavior
+  // of the function remapCompatibleTypes to also try to remap pointer types
+  // within structures for initialized fields, like it does for nested types.
+  // However, this is a rare case that is not needed at the moment, so we will
+  // mark these fields as being used, which will prevent remapping this type,
+  // except to a compatible type that has a matching type for this field.
+  void visitGlobalValueInitializer(const Constant *C) {
+    llvm::Type *Ty = C->getType();
+    if (isa<ArrayType>(Ty)) {
+      visitGlobalValueInitializer(C->getAggregateElement(0U));
+      return;
+    }
+
+    // Check if the constant is initializing a structure that is going to be
+    // evaluated as a candidate for compatible type remapping. If so, we need
+    // to update the fields used bitmask for any non-scalar fields.
+    if (isTypeOfInterest(Ty)) {
+      SmallBitVector &Bits = TypeUseInfoMap[Ty].NonScalarFieldsUsed;
+
+      assert(C->getType()->isAggregateType() &&
+             "Expecting aggregate initializer");
+      unsigned NumElements = C->getType()->getNumContainedTypes();
+      for (unsigned I = 0; I < NumElements; ++I) {
+        Type *FieldTy = C->getAggregateElement(I)->getType();
+        if (FieldTy->isIntOrIntVectorTy())
+          continue;
+
+        if (Bits.size() <= I)
+          Bits.resize(I + 1);
+        Bits.set(I);
+        DEBUG_WITH_TYPE(
+            DTRT_COMPAT_VERBOSE,
+            dbgs() << "DTRT-compat: Global initializer accesses type:\n    "
+                   << *Ty << "\n  At index: " << I << "\n  Initializer:\n    "
+                   << *C << "\n");
+
+        // Update any nested types.
+        if (FieldTy->isAggregateType())
+          visitGlobalValueInitializer(C->getAggregateElement(I));
+      }
     }
   }
 
