@@ -3022,16 +3022,36 @@ static Value *findChainToLoad(Value *V,
   if (TruncInst *Trunc = dyn_cast<TruncInst>(V)) {
     ChainToBase.push_back(Trunc);
     return findChainToLoad(Trunc->getOperand(0), ChainToBase);
-  } else if (SExtInst *SI = dyn_cast<SExtInst>(V)) {
+  }
+
+  if (SExtInst *SI = dyn_cast<SExtInst>(V)) {
     ChainToBase.push_back(SI);
     return findChainToLoad(SI->getOperand(0), ChainToBase);
-  } else if (ZExtInst *ZI = dyn_cast<ZExtInst>(V)) {
+  }
+
+  if (ZExtInst *ZI = dyn_cast<ZExtInst>(V)) {
     ChainToBase.push_back(ZI);
     return findChainToLoad(ZI->getOperand(0), ChainToBase);
-  } else if (LoadInst *LI = dyn_cast<LoadInst>(V)) {
+  }
+
+  if (LoadInst *LI = dyn_cast<LoadInst>(V)) {
     ChainToBase.push_back(LI);
     return LI;
   }
+
+  // When the original loop UB is unsigned in the source, Clang may emit IR
+  // where the UB is an add (eg: %add4 = add i32 %11, 1). We need to handle
+  // such cases.
+  if (auto *AddInst = dyn_cast<Instruction>(V))
+    if (AddInst->getOpcode() == Instruction::Add) {
+      auto *Opnd0 = AddInst->getOperand(0);
+      auto *Opnd1 = AddInst->getOperand(1);
+      if (!isa<Constant>(Opnd0) && isa<Constant>(Opnd1)) {
+        ChainToBase.push_back(AddInst);
+        return findChainToLoad(Opnd0, ChainToBase);
+      }
+    }
+
   llvm_unreachable("findChainToLoad: unhandled instruction");
 }
 

@@ -3220,14 +3220,11 @@ void VPOParoptTransform::fixOmpDoWhileLoopImpl(Loop *L) {
             CondInst->swapOperands();
             ExitBrInst->swapSuccessors();
             return;
-          } else
-            llvm_unreachable("cannot fix omp do-while loop");
-        } else
-          llvm_unreachable("cannot fix omp do-while loop");
+          }
+        }
       }
     }
   }
-  llvm_unreachable("cannot fix omp do-while loop");
 }
 
 AllocaInst *VPOParoptTransform::genRegionLocalCopy(WRegionNode *W, Value *V) {
