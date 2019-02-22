@@ -140,6 +140,24 @@ private:
     Distinct    // The types are neither equivalent nor compatible
   };
 
+  // These using directives are here to allow the container type to be easily
+  // changed, without needing to modify all the method interfaces that take
+  // these types.
+  //
+  // Container type that will be used for storing a mapping from a structure
+  // type to the set of other structures which share a common base name. The
+  // set stored for each structure type in the map are the types that will be
+  // analyzed for equivalence/compatibility with one another. This is using a
+  // MapVector container so that trace messages from the resolve types pass
+  // are emitted in a consistent order.
+  using CandidateTypeContainer =
+      MapVector<StructType *, SetVector<StructType *>>;
+
+  // Container type used to store a set of speculative compatible type
+  // remaps that are pending that will also need to take place for the type
+  // currently being evaluated within the function remapCompatibleTypes()
+  using PendingRemapContainer = MapVector<StructType *, StructType *>;
+
   CompareResult compareTypes(StructType *TyA, StructType *TyB);
   CompareResult
   compareTypeMembers(StructType *TyA, StructType *TyB,
@@ -165,18 +183,16 @@ private:
   // Store the candidates into the container \p CandidateTypeSets, where the key
   // will be a structure type with no suffix, and the value will be the set of
   // types that share the common base name.
-  void identifyCandidateSets(
-      Module &M, SetVector<StructType *> &SeenTypes,
-      SmallPtrSetImpl<StructType *> &ExternTypes,
-      DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets);
+  void identifyCandidateSets(Module &M, SetVector<StructType *> &SeenTypes,
+                             SmallPtrSetImpl<StructType *> &ExternTypes,
+                             CandidateTypeContainer &CandidateTypeSets);
 
   // Examine the types that are dependent on types used externally to determine
   // types that cannot be remapped.
-  void findNonRemappableTypes(
-      Module &M,
-      DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
-      SmallPtrSetImpl<StructType *> &ExternTypes,
-      SmallPtrSetImpl<StructType *> &NonRemappableTypes);
+  void
+  findNonRemappableTypes(Module &M, CandidateTypeContainer &CandidateTypeSets,
+                         SmallPtrSetImpl<StructType *> &ExternTypes,
+                         SmallPtrSetImpl<StructType *> &NonRemappableTypes);
 
   // Examine the \p CandidateTypeSets to determine which types are equivalent
   // and which types are compatible. Refer to the description of compareTypes
@@ -192,7 +208,7 @@ private:
   // remapCompatibleTypes
   // routine.
   bool identifyEquivalentAndCompatibleTypes(
-      DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
+      CandidateTypeContainer &CandidateTypeSets,
       SmallPtrSetImpl<StructType *> &ExternTypes,
       EquivalenceClasses<StructType *> &CompatibleTypes);
 
@@ -202,13 +218,12 @@ private:
   bool resolveNestedTypes(StructType *Ty, StructType *RemapTy,
                           EquivalenceClasses<StructType *> &CompatibleTypes,
                           CompatibleTypeAnalyzer &CTA,
-                          DenseMap<StructType *, StructType *> &PendingRemaps);
+                          PendingRemapContainer &PendingRemaps);
 
-  bool
-  canResolveTypeToType(StructType *Ty, StructType *RemapTy,
-                       EquivalenceClasses<StructType *> &CompatibleTypes,
-                       CompatibleTypeAnalyzer &CTA,
-                       DenseMap<StructType *, StructType *> &PendingRemaps);
+  bool canResolveTypeToType(StructType *Ty, StructType *RemapTy,
+                            EquivalenceClasses<StructType *> &CompatibleTypes,
+                            CompatibleTypeAnalyzer &CTA,
+                            PendingRemapContainer &PendingRemaps);
 };
 
 // This class analyzes all globals and functions in the module to see if any
@@ -764,7 +779,7 @@ private:
         TypeUseInfoMap[IndexedTy].HasNonConstantIndexAccess = true;
         continue;
       }
-      // If we can't get a value for this constant or it exceeeds the capacity
+      // If we can't get a value for this constant or it exceeds the capacity
       // of an unsigned value, we can't track it.
       uint64_t IdxVal = Idx->getLimitedValue();
       if (IdxVal > std::numeric_limits<unsigned>::max()) {
@@ -914,7 +929,7 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
   SetVector<StructType *> SeenTypes;
   collectAllStructTypes(M, SeenTypes);
 
-  DenseMap<StructType *, SetVector<StructType *>> CandidateTypeSets;
+  CandidateTypeContainer CandidateTypeSets;
   identifyCandidateSets(M, SeenTypes, ExternTypes, CandidateTypeSets);
   if (CandidateTypeSets.empty())
     return false;
@@ -979,7 +994,7 @@ void ResolveTypesImpl::collectExternalStructTypes(
 void ResolveTypesImpl::identifyCandidateSets(
     Module &M, SetVector<StructType *> &SeenTypes,
     SmallPtrSetImpl<StructType *> &ExternTypes,
-    DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets) {
+    CandidateTypeContainer &CandidateTypeSets) {
 
   // Based on the names of the structures, identify a set of structures
   // that may be related to one another as either being identical copies
@@ -1060,8 +1075,7 @@ void ResolveTypesImpl::identifyCandidateSets(
 // propagating to all types, and also enables "InFile" to be processed as a
 // candidate.
 void ResolveTypesImpl::findNonRemappableTypes(
-    Module &M,
-    DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
+    Module &M, CandidateTypeContainer &CandidateTypeSets,
     SmallPtrSetImpl<StructType *> &ExternTypes,
     SmallPtrSetImpl<StructType *> &NonRemappableTypes) {
 
@@ -1117,7 +1131,7 @@ void ResolveTypesImpl::findNonRemappableTypes(
         DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "Cannot remap type: "
                                              << BaseTy->getName() << "\n");
         Worklist.emplace_back(BaseTy);
-        for (auto *CandTy : It->getSecond()) {
+        for (auto *CandTy : It->second) {
           if (!Visited.count(CandTy)) {
             DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "Cannot remap type: "
                                                  << CandTy->getName() << "\n");
@@ -1157,7 +1171,7 @@ void ResolveTypesImpl::findNonRemappableTypes(
 // If it is not equivalent to any of these, it will be added to the set of
 // alternatives.
 bool ResolveTypesImpl::identifyEquivalentAndCompatibleTypes(
-    DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
+    CandidateTypeContainer &CandidateTypeSets,
     SmallPtrSetImpl<StructType *> &ExternTypes,
     EquivalenceClasses<StructType *> &CompatibleTypes) {
   bool TypesRemapped = false;
@@ -1215,7 +1229,7 @@ bool ResolveTypesImpl::remapCompatibleTypes(
     CompatibleTypeAnalyzer &CTA,
     EquivalenceClasses<StructType *> &CompatibleTypes) {
   bool TypesRemapped = false;
-  DenseMap<StructType *, StructType *> PendingRemaps;
+  PendingRemapContainer PendingRemaps;
 
   // Get a list of the leader types, sorted by name, so that analyzing and
   // remapping of compatible types will be in a deterministic order. This is
@@ -1297,8 +1311,7 @@ bool ResolveTypesImpl::remapCompatibleTypes(
 bool ResolveTypesImpl::resolveNestedTypes(
     StructType *Ty, StructType *RemapTy,
     EquivalenceClasses<StructType *> &CompatibleTypes,
-    CompatibleTypeAnalyzer &CTA,
-    DenseMap<StructType *, StructType *> &PendingRemaps) {
+    CompatibleTypeAnalyzer &CTA, PendingRemapContainer &PendingRemaps) {
 
   // Strip any array/vector wrappers from the type, but do not walk pointer
   // indirections.
@@ -1416,8 +1429,7 @@ bool ResolveTypesImpl::resolveNestedTypes(
 bool ResolveTypesImpl::canResolveTypeToType(
     StructType *Ty, StructType *RemapTy,
     EquivalenceClasses<StructType *> &CompatibleTypes,
-    CompatibleTypeAnalyzer &CTA,
-    DenseMap<StructType *, StructType *> &PendingRemaps) {
+    CompatibleTypeAnalyzer &CTA, PendingRemapContainer &PendingRemaps) {
 
   if (!CompatibleTypes.isEquivalent(Ty, RemapTy)) {
     DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
