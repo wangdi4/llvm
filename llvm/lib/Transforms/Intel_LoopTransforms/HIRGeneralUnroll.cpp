@@ -125,7 +125,7 @@ static cl::opt<unsigned>
                                  "unroll factor factored in"));
 
 static cl::opt<unsigned> MaxLoopCost(
-    "hir-general-unroll-max-loop-cost", cl::init(50), cl::Hidden,
+    "hir-general-unroll-max-loop-cost", cl::init(40), cl::Hidden,
     cl::desc("Max allowed cost of the original loop which is to be unrolled"));
 
 namespace {
@@ -423,25 +423,6 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
     if (LS.hasSwitches()) {
       LLVM_DEBUG(
           dbgs() << "Skipping unroll of loop containing switch statement!\n");
-      return false;
-    }
-
-    // Causing 3% degradation in 511.provray's hot function
-    // All_CSG_Intersect_Intersections(). Cause is unknown but all 3 loops being
-    // unrolled fit the pattern.
-    if (IsMultiExit && Loop->isUnknown() && LS.hasUserCalls()) {
-      LLVM_DEBUG(dbgs() << "Skipping unroll of multi-exit unknown loop "
-                           "containing user calls!\n");
-      return false;
-    }
-
-    // This is to supress unroll of perlbench loop in Perl_runops_standard().
-    // TODO: Tune loop resource cost and unroll thresholds to make this check
-    // generic.
-    if (Loop->isUnknown() && (LS.getNumIndirectCalls() == 1) &&
-        (LS.getNumUserCalls() == 3) && (LS.getNumIfs() == 3)) {
-      LLVM_DEBUG(dbgs() << "Skipping unroll of unknown loop with too many "
-                           "branching operations!\n");
       return false;
     }
   }

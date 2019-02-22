@@ -103,7 +103,7 @@ static cl::opt<unsigned> MinTripCountThreshold(
 
 // This determines the unroll factor of loops inside the loopnest.
 static cl::opt<unsigned> MaxUnrolledLoopNestCost(
-    "hir-unroll-and-jam-max-unrolled-loopnest-cost", cl::init(760), cl::Hidden,
+    "hir-unroll-and-jam-max-unrolled-loopnest-cost", cl::init(680), cl::Hidden,
     cl::desc(
         "Max allowed cost of the loopnest with the unroll factor factored in"));
 
