@@ -1,7 +1,7 @@
 //==--- MapIntrinToIml.cpp - Legalize svml calls and apply IMF -*- C++ -*---==//
 //                           attributes.
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -827,6 +827,7 @@ const char* MapIntrinToIml::findX86Variant(CallInst *CI, StringRef FuncName,
   // Note: this does not remove the attributes from the instruction, only the
   // internal data structure used to query the iml interface.
   deleteAttributeList(&AttrList);
+  delete ParentFuncName;
 
   return VariantFuncName;
 }
@@ -866,6 +867,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
   Triple *T = new Triple(M->getTargetTriple());
   bool X86Target = (T->getArch() == Triple::x86 ||
                     T->getArch() == Triple::x86_64);
+  delete T;
 
   // Will be populated with the call instructions that will be replaced with
   // legalized/refined svml calls.

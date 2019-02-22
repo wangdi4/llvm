@@ -111,6 +111,8 @@ public:
 
   VPlanVerifier(const DataLayout &DLObj) : TheLoop(nullptr), LInfo(nullptr), DL(DLObj) {}
 
+  virtual ~VPlanVerifier() {}
+
   /// Set VPLoopInfo analysis. This information will be used in some
   /// verification steps, if available.
   void setVPLoopInfo(const VPLoopInfo *VPLI) { VPLInfo = VPLI; }

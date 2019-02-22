@@ -110,6 +110,11 @@ public:
                    const DataLayout &DL, const WRNVecLoopNode *WRL, VPlan *Plan,
                    VPOVectorizationLegality *Legal);
 
+  virtual ~VPlanHCFGBuilder() {
+    if (Verifier)
+      delete Verifier;
+  }
+
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
   void buildHierarchicalCFG();
 };

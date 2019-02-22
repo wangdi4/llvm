@@ -3287,13 +3287,16 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     assert(F && "Unexpected null called function");
     StringRef CalledFunc = F->getName();
     bool isMasked = (MaskValue != nullptr) ? true : false;
+    VectorVariant *MatchedVariant = nullptr;
     if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
         (F->hasFnAttribute("vector-variants") &&
-         matchVectorVariant(F, isMasked)) ||
+         (MatchedVariant = matchVectorVariant(F, isMasked))) ||
         (isOpenCLReadChannel(CalledFunc) ||
-           isOpenCLWriteChannel(CalledFunc)))
+           isOpenCLWriteChannel(CalledFunc))) {
       vectorizeCallInstruction(Call);
-    else {
+      if (MatchedVariant)
+        delete MatchedVariant;
+    } else {
       LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
       serializeWithPredication(Call);
     }
