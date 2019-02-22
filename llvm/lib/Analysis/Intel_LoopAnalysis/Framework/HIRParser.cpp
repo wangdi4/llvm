@@ -1768,27 +1768,123 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   return BaseTempBlob;
 }
 
+bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
+                                                       int64_t *Multiplier,
+                                                       BlobTy *NewBlob,
+                                                       bool IsTop) {
+
+  if (!IsTop) {
+    if (auto *Const = dyn_cast<SCEVConstant>(Blob)) {
+      *Multiplier = getSCEVConstantValue(Const);
+      *NewBlob = SE.getConstant(Const->getType(), 1, true);
+      return true;
+    }
+  }
+
+  if (auto *MulBlob = dyn_cast<SCEVMulExpr>(Blob)) {
+    // We want to keep UMin blob so it can be recognized by HIR analyses and
+    // transformations.
+    if (isUMinBlob(Blob)) {
+      return false;
+    }
+
+    // If there is a constant, it will be the first operand due to operand
+    // ordering.
+    auto *ConstOp = dyn_cast<SCEVConstant>(MulBlob->getOperand(0));
+
+    if (!ConstOp) {
+      return false;
+    }
+
+    SmallVector<BlobTy, 4> Ops;
+
+    for (auto I = MulBlob->op_begin() + 1, E = MulBlob->op_end(); I != E; ++I) {
+      Ops.push_back(*I);
+    }
+
+    *Multiplier = getSCEVConstantValue(ConstOp);
+    *NewBlob = SE.getMulExpr(Ops, MulBlob->getNoWrapFlags());
+    return true;
+
+  } else if (auto *CommutativeBlob = dyn_cast<SCEVCommutativeExpr>(Blob)) {
+    // The multiplier may be folded into the constant so we have to recurse into
+    // the blob. Ex: (-8 + 8 * %t)
+
+    int64_t LocalMultiplier = 0;
+    SmallVector<BlobTy, 4> Ops;
+    SmallVector<int64_t, 4> OpMultipliers;
+
+    for (auto I = CommutativeBlob->op_begin(), E = CommutativeBlob->op_end();
+         I != E; ++I) {
+
+      BlobTy Op = *I;
+
+      BlobTy NewOp;
+      int64_t OpMultiplier;
+
+      if (!breakConstantMultiplierCommutativeBlob(Op, &OpMultiplier, &NewOp) ||
+          (OpMultiplier == LONG_MIN)) {
+        return false;
+      }
+
+      if (!LocalMultiplier) {
+        LocalMultiplier = std::llabs(OpMultiplier);
+      } else {
+        LocalMultiplier =
+            CanonExprUtils::gcd(LocalMultiplier, std::llabs(OpMultiplier));
+      }
+
+      if (LocalMultiplier == 1) {
+        return false;
+      }
+
+      Ops.push_back(NewOp);
+      OpMultipliers.push_back(OpMultiplier);
+    }
+
+    // If the overall multiplier is less than the original multiplier of the
+    // operand, push it back into the operand.
+    for (unsigned I = 0, Num = Ops.size(); I < Num; ++I) {
+
+      if (LocalMultiplier != OpMultipliers[I]) {
+        auto *UnusedMultiplier = SE.getConstant(
+            Ops[I]->getType(), OpMultipliers[I] / LocalMultiplier, true);
+
+        auto *CommutativeOp = dyn_cast<SCEVCommutativeExpr>(Ops[I]);
+
+        Ops[I] = SE.getMulExpr(Ops[I], UnusedMultiplier,
+                               CommutativeOp ? CommutativeOp->getNoWrapFlags()
+                                             : SCEV::FlagAnyWrap);
+      }
+    }
+
+    *Multiplier = LocalMultiplier;
+
+    switch (CommutativeBlob->getSCEVType()) {
+    case scAddExpr:
+      *NewBlob = SE.getAddExpr(Ops, CommutativeBlob->getNoWrapFlags());
+      break;
+    case scUMaxExpr:
+      *NewBlob = SE.getUMaxExpr(Ops);
+      break;
+    case scSMaxExpr:
+      *NewBlob = SE.getSMaxExpr(Ops);
+      break;
+    default:
+      llvm_unreachable("Unexpected scev type!");
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
 void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
                                             BlobTy *NewBlob) {
 
-  auto *MulSCEV = dyn_cast<SCEVMulExpr>(Blob);
-
-  // We want to keep UMin blob so it can be recognized by HIR analyses and
-  // transformations.
-  if (MulSCEV && !isUMinBlob(Blob)) {
-
-    if (auto ConstSCEV = dyn_cast<SCEVConstant>(MulSCEV->getOperand(0))) {
-      SmallVector<const SCEV *, 4> Ops;
-
-      for (auto I = MulSCEV->op_begin() + 1, E = MulSCEV->op_end(); I != E;
-           ++I) {
-        Ops.push_back(*I);
-      }
-
-      *Multiplier = getSCEVConstantValue(ConstSCEV);
-      *NewBlob = SE.getMulExpr(Ops, MulSCEV->getNoWrapFlags());
-      return;
-    }
+  if (breakConstantMultiplierCommutativeBlob(Blob, Multiplier, NewBlob, true)) {
+    return;
   }
 
   *Multiplier = 1;
@@ -2805,6 +2901,9 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
 
   auto PhiTy = Phi->getType();
 
+  int64_t OrigDenom = IndexCE->getDenominator();
+  (void)OrigDenom;
+
   // Divide by element size to convert byte offset to number of elements.
   IndexCE->divide(getPointerElementSize(PhiTy));
   // Index is already multiplied by element size as the SCEV form is in bytes so
@@ -2817,6 +2916,9 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
       hasNonGEPAccess(Phi, cast<Instruction>(UpdateVal))) {
     return nullptr;
   }
+
+  assert(IndexCE->getDenominator() <= OrigDenom &&
+         "Could not simplify denominator!");
 
   return IndexCE.release();
 }
