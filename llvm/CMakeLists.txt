@@ -833,6 +833,11 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX)
 # end INTEL_FEATURE_ISA_AMX
+
+# INTEL_FEATURE_CPU_GLC
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_CPU_GLC)
+# end INTEL_FEATURE_CPU_GLC
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"

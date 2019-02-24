@@ -1002,6 +1002,34 @@ class IcelakeServerProc<string Name> : ProcModel<Name, SkylakeServerModel,
 ]>;
 def : IcelakeServerProc<"icelake-server">;
 
+#if INTEL_CUSTOMIZATION
+class IntelAnonymousFeaturesList<list<SubtargetFeature> features> {
+    list<SubtargetFeature> Value = features;
+}
+
+def IntelAnonymousFeaturesList1 : IntelAnonymousFeaturesList<[
+#if INTEL_FEATURE_ISA_AMX
+  FeatureAMXTILE,
+  FeatureAMXINT8,
+  FeatureAMXBF16,
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_SERIALIZE
+  FeatureSERIALIZE,
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+  FeaturePrefer256Bit,
+  FeaturePCONFIG,
+  FeatureWBNOINVD,
+  FeatureHasFastGather
+]>;
+
+#if INTEL_FEATURE_CPU_GLC
+class GoldencoveProc<string Name> : ProcModel<Name, SkylakeServerModel,
+                                              IntelAnonymousFeaturesList1.Value,
+                                              []>;
+def : GoldencoveProc<"goldencove">;
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
+
 // AMD CPUs.
 
 def : Proc<"k6",              [FeatureX87, FeatureSlowUAMem16, FeatureMMX]>;

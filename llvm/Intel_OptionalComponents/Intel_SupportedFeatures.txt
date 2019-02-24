@@ -82,6 +82,13 @@
 # === New SW features section begin ===
 # === New SW features section end ===
 
+# === New CPU section begin ===
+# INTEL_FEATURE_CPU_GLC
+@CPU_GLC:SECRET@
+# end INTEL_FEATURE_CPU_GLC
+
+# === New CPU section end ===
+
 # Special software features section currently consist of
 # INTEL_INTERNAL_BUILD feature only.  We may actually represent
 # the current INTEL_CUSTOMIZATION, INTEL_SPECIFIC_OPENMP,
