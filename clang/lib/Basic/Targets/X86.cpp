@@ -134,6 +134,18 @@ bool X86TargetInfo::initFeatureMap(
   if (Kind != CK_Lakemont)
     setFeatureEnabledImpl(Features, "x87", true);
 
+#if INTEL_CUSTOMIZATION
+  SmallVector<StringRef, 16> AnonymousCPU1Features;
+#if INTEL_FEATURE_ISA_AMX
+  AnonymousCPU1Features.push_back("amx-tile");
+  AnonymousCPU1Features.push_back("amx-int8");
+  AnonymousCPU1Features.push_back("amx-bf16");
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_SERIALIZE
+  AnonymousCPU1Features.push_back("serialize");
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+  AnonymousCPU1Features.push_back("sse2"); // To avoid unused variable error.
+#endif // INTEL_CUSTOMIZATION
   switch (Kind) {
   case CK_Generic:
   case CK_i386:
@@ -151,6 +163,14 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "mmx", true);
     break;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GLC
+  case CK_Goldencove:
+    for (auto Feature : AnonymousCPU1Features)
+      setFeatureEnabledImpl(Features, Feature, true);
+    LLVM_FALLTHROUGH;
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
   case CK_IcelakeServer:
     setFeatureEnabledImpl(Features, "pconfig", true);
     setFeatureEnabledImpl(Features, "wbnoinvd", true);
@@ -1056,6 +1076,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Cannonlake:
   case CK_IcelakeClient:
   case CK_IcelakeServer:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GLC
+  case CK_Goldencove:
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
