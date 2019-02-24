@@ -1266,9 +1266,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasAMXTILE)
     Builder.defineMacro("__AMXTILE__");
   if (HasAMXINT8)
-    Builder.defineMacro("__AXMINT8__");
+    Builder.defineMacro("__AMXINT8__");
   if (HasAMXBF16)
-    Builder.defineMacro("__AXMBF16__");
+    Builder.defineMacro("__AMXBF16__");
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
