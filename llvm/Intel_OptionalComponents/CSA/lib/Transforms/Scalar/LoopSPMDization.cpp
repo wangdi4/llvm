@@ -114,7 +114,8 @@ private:
                               std::vector<Instruction *> &OldInst);
   void setLoopAlreadySPMDized(Loop *L);
   void AddUnrollDisableMetadata(Loop *L);
-  bool FindReductionVariables(Loop *L, std::vector<Value *> &ReduceVarExitOrig,
+  bool FindReductionVariables(Loop *L, ScalarEvolution *SE,
+                              std::vector<Value *> &ReduceVarExitOrig,
                               std::vector<Instruction *> &ReduceVarOrig);
   unsigned FindReductionVectorsSize(Loop *L);
   PHINode *getInductionVariable(Loop *L, ScalarEvolution *SE);
@@ -222,7 +223,7 @@ Branches to or from an OpenMP structured block are illegal
     std::vector<Instruction *> ReduceVarOrig(r);
     // there is OldInst foreach reduction variable
     std::vector<Instruction *> OldInsts(r);
-    FindReductionVariables(L, ReduceVarExitOrig, ReduceVarOrig);
+    FindReductionVariables(L, SE, ReduceVarExitOrig, ReduceVarOrig);
     // retrieve the minimum number of iterations of the loop in order to assess
     // whether to insert the zero trip count check or not
     int min_iterations = GetMinLoopIterations(L, SE);
@@ -516,24 +517,31 @@ unsigned LoopSPMDization::FindReductionVectorsSize(Loop *L) {
 }
 
 bool LoopSPMDization::FindReductionVariables(
-    Loop *L, std::vector<Value *> &ReduceVarExitOrig,
+    Loop *L, ScalarEvolution *SE,
+    std::vector<Value *> &ReduceVarExitOrig,
     std::vector<Instruction *> &ReduceVarOrig) {
+  Function *F = L->getHeader()->getParent();
+  OptimizationRemarkEmitter ORE(F);
   unsigned r = 0;
   for (Instruction &I : *L->getHeader()) {
     PHINode *Phi = dyn_cast<PHINode>(&I);
     if (!Phi)
       continue;
     RecurrenceDescriptor RedDes;
-    if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes) || RecurrenceDescriptor::AddReductionVar(Phi, RecurrenceDescriptor::RecurrenceKind::RK_FloatMinMax, L, true, RedDes)){
+    if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes) ||
+        RecurrenceDescriptor::AddReductionVar(Phi,
+                                              RecurrenceDescriptor::
+                                              RecurrenceKind::RK_FloatMinMax,
+                                              L, true, RedDes)) {
       Value *ReduceVar;
       PHINode *Phiop = Phi;
       PHINode *redoperation;
       if (Phi->getIncomingBlock(0) == L->getLoopPreheader()) {
-        ReduceVar = dyn_cast<Value>(Phi->getIncomingValue(1));
+        ReduceVar = Phi->getIncomingValue(1);
         redoperation = dyn_cast<PHINode>(Phiop->getIncomingValue(1));
         ReduceVarOrig[r] = dyn_cast<Instruction>(Phiop->getIncomingValue(1));
       } else {
-        ReduceVar = dyn_cast<Value>(Phi->getIncomingValue(0));
+        ReduceVar = Phi->getIncomingValue(0);
         redoperation = dyn_cast<PHINode>(Phiop->getIncomingValue(0));
         ReduceVarOrig[r] = dyn_cast<Instruction>(Phiop->getIncomingValue(0));
       }
@@ -560,7 +568,24 @@ bool LoopSPMDization::FindReductionVariables(
         if (ReduceVarExit == ReduceVar)
           ReduceVarExitOrig[r] = dyn_cast<Value>(PhiExit);
       }
-      // r++;
+    }
+    else {
+      //OptimizationRemark is not able to detect phi location
+      // si we have to print the instruction that uses a phi
+      // this might be a reduction that is not suported
+      // or an operation that involves a loop carry dependency
+      InductionDescriptor ID;
+      if (!InductionDescriptor::isInductionPHI(Phi, L, SE, ID)) {
+        Instruction *op = cast<Instruction>(Phi);
+        for (auto UA = Phi->user_begin(), EA = Phi->user_end(); UA != EA;) {
+          op = cast<Instruction>(*UA++);
+        }
+        ORE.emit(
+                 OptimizationRemark(DEBUG_TYPE, "SPMD Reductions:", op)
+                 <<"Detected unsupported loop carried value in a loop marked"
+                 <<" for SPMDization; please remove the SPMDization marking"
+                 <<" or use one of the supported reduction patterns instead");
+      }
     }
     r++; // count also the non reduction phis
   }
