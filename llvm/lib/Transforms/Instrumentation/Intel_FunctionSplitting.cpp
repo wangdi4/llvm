@@ -1,6 +1,6 @@
 //===----------------- Intel_FunctionSplitting.cpp ----------------------===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -45,6 +45,7 @@
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
+#include "llvm/Transforms/Utils/Intel_RegionSplitter.h"
 
 using namespace llvm;
 
@@ -93,11 +94,6 @@ namespace {
 // to start a region of code to split to a new function.
 using CandidateBlocksT = SmallPtrSet<BasicBlock *, 16>;
 
-// A region of blocks that are to be extracted from the function, and replaced
-// with a call to a new function. The new function will take ownership of the
-// blocks when the function is split.
-using SplinterRegionT = SmallSetVector<BasicBlock *, 16>;
-
 // Forward declarations
 class FunctionSplitter;
 
@@ -129,119 +125,6 @@ raw_ostream &operator<<(raw_ostream &OS, const SplinterRegionT &Region) {
 }
 #endif // !NDEBUG
 
-// Helper class that implements the functionality for splitting a
-// SplinterRegion out of the Function.
-class RegionSplitter {
-public:
-  RegionSplitter(DominatorTree &DT, BlockFrequencyInfo &BFI,
-                 BranchProbabilityInfo &BPI)
-      : DT(DT), BFI(BFI), BPI(BPI) {}
-
-  // Split the function, and return a pointer to the newly created Function.
-  Function *splitRegion(const SplinterRegionT &Region);
-
-private:
-  // Update the IR to prepare the PHINodes of function to receive values
-  // from the split out code.
-  bool prepareRegionForSplit(const SplinterRegionT &Region);
-
-  // Do the actual split.
-  Function *doSplit(const SplinterRegionT &Region);
-
-  // Handles to the DominatorTree, BlockFrequencyInfo, and
-  // BranchProbabilityInfo analysis for the function are needed for calls to
-  // the CodeExtractor class.
-  DominatorTree &DT;
-  BlockFrequencyInfo &BFI;
-  BranchProbabilityInfo &BPI;
-};
-
-// Public interface routine that performs all the steps required
-// to split the 'Region' into a new function. Returns a pointer
-// to the newly created function.
-//
-Function *RegionSplitter::splitRegion(const SplinterRegionT &Region) {
-  prepareRegionForSplit(Region);
-  Function *NewF = doSplit(Region);
-
-  return NewF;
-}
-
-// Modifies the IR to overcome some limitations in the type of IR that
-// is handled by the CodeExtractor class. Eventually, the CodeExtractor
-// class may be updated to handle these cases, but for now handle them
-// here.
-//
-bool RegionSplitter::prepareRegionForSplit(const SplinterRegionT &Region) {
-  // Some edges that exit the region need to be split so that each path that
-  // exits the splinter region and returns to the original function will be
-  // uniquely identifiable. This is necessary to handle the case where 2 or
-  // more Value objects get defined within the region being split out, and
-  // get referenced by the same PHI node.
-  //
-  // For example, if the original function contains the following IR:
-  //
-  // if.end11:                      ; preds = %while.cond, %if.else9, %if.then
-  // %rs.0 = phi i32[365, %if.then], [%0, %if.else9], [%x.addr.0, %while.cond]
-  //
-  // If the 'if.else9' and 'while.cond' nodes are both within the splinter
-  // region, following the extraction, they would both be defined by the block
-  // containing call to the new function following the code extraction, such
-  // as:
-  //   %rs.0 = phi i32[365, %if.then], [%0, %splitR], [%x.addr.0, %splitR]
-  // This would be invalid, because it would not clear which value should be
-  // used.
-  //
-  // By splitting the necessary edges, the source values for the PHI nodes
-  // stay will stay in blocks that are kept within the original function.
-  // A return value of the call to the extracted function will be used to
-  // determine edge should be executed following the return of the function
-  // call.
-
-  // Collect the set of edges which exit the splinter region, and execute
-  // a PHINode instruction.
-  SetVector<std::pair<BasicBlock *, BasicBlock *>> SplitEdges;
-
-  for (BasicBlock *BB : Region.getArrayRef()) {
-    for (auto SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI) {
-      if (!Region.count(*SI)) {
-        // Only need to check the first instruction, since any PHI nodes must
-        // be at the start of the basic block.
-        Instruction *I = &(*SI)->getInstList().front();
-        if (isa<PHINode>(*I))
-          SplitEdges.insert(std::make_pair(BB, *SI));
-      }
-    }
-  }
-
-  for (auto E : SplitEdges) {
-    SplitEdge(E.first, E.second);
-  }
-
-  return true;
-}
-
-// Do the steps to extract the 'Region' to a new function.
-// Returns the new function, if successful, otherwise nullptr.
-Function *RegionSplitter::doSplit(const SplinterRegionT &Region) {
-  CodeExtractor Extractor(Region.getArrayRef(), &DT, false, &BFI, &BPI);
-  Function *NewF = Extractor.extractCodeRegion();
-  if (NewF == nullptr)
-    return nullptr;
-
-  // Mark the function to be kept in a cold segment.
-  NewF->setSectionPrefix(getUnlikelySectionPrefix());
-
-  // Override any inlining directives, if present, and prevent the split out
-  // routine from being inlined back to the original function.
-  NewF->removeFnAttr(Attribute::AlwaysInline);
-  NewF->removeFnAttr(Attribute::AlwaysInlineRecursive);
-  NewF->removeFnAttr(Attribute::InlineHint);
-  NewF->removeFnAttr(Attribute::InlineHintRecursive);
-  NewF->addFnAttr(Attribute::NoInline);
-
-  return NewF;
-}
 
 // The main class that implements the function splitting process. This
 // class is responsible for analyzing the function to select regions that
@@ -275,18 +158,18 @@ private:
     return CandidateBlocks.count(BB) != 0;
   }
 
-  void identifySplinterRegions();
+  void identifySplinterRegions(RegionSplitter &Splitter);
   void populateCandidateRegion(const DomTreeNode *Node,
                                SplinterRegionT &Region);
 
-  EvaluationT evaluateCandidateRegion(SplinterRegionT &Region);
-  bool isSingleEntrySingleExit(const SplinterRegionT &Region) const;
+  EvaluationT evaluateCandidateRegion(SplinterRegionT &Region,
+                                      RegionSplitter &Splitter);
   unsigned estimateRegionSize(const SplinterRegionT &Region) const;
 
   void addRegionToSplitList(SplinterRegionT &Region);
   void tryPruneRejectedRegion(SplinterRegionT &Region, EvaluationT &Eval);
 
-  bool splitRegions();
+  bool splitRegions(RegionSplitter &Splitter);
   void stripDebugInfoIntrinsics(Function &F);
 
   //===------------------------------------------------------------------===//
@@ -366,7 +249,10 @@ private:
 
 // Process the function for splitting.
 bool FunctionSplitter::runOnFunction() {
-  identifySplinterRegions();
+
+  RegionSplitter Splitter(DT, BFI, BPI);
+
+  identifySplinterRegions(Splitter);
 
   if (FunctionSplittingEmitDebugGraphs)
     writeGraph(&F, this);
@@ -374,14 +260,14 @@ bool FunctionSplitter::runOnFunction() {
   if (RegionsToSplit.empty())
     return false;
 
-  bool Changed = splitRegions();
+  bool Changed = splitRegions(Splitter);
   return Changed;
 }
 
 // Collect code regions that start from a block in the block
 // candidate list, and for the ones that are valid and worth splitting
 // put them into RegionsToSplit collection.
-void FunctionSplitter::identifySplinterRegions() {
+void FunctionSplitter::identifySplinterRegions(RegionSplitter &Splitter) {
   // Each region begins with a dominating node. Walk the DomTree from
   // top to bottom to identify the regions to be split.
   DomTreeNode *Root = DT.getRootNode();
@@ -443,7 +329,7 @@ void FunctionSplitter::identifySplinterRegions() {
         // the region to be split out.
         SplinterRegionT Candidate;
         populateCandidateRegion(Child, Candidate);
-        EvaluationT Eval = evaluateCandidateRegion(Candidate);
+        EvaluationT Eval = evaluateCandidateRegion(Candidate, Splitter);
         BlockToEvaluationMapping.insert(std::make_pair(BB, Eval));
         if (Eval.first == RegionOk) {
           addRegionToSplitList(Candidate);
@@ -478,8 +364,9 @@ void FunctionSplitter::populateCandidateRegion(const DomTreeNode *Node,
 // to be worth splitting.
 //
 FunctionSplitter::EvaluationT
-FunctionSplitter::evaluateCandidateRegion(SplinterRegionT &Region) {
-  if (!isSingleEntrySingleExit(Region)) {
+FunctionSplitter::evaluateCandidateRegion(SplinterRegionT &Region,
+    RegionSplitter &Splitter) {
+  if (!(Splitter.isSingleEntrySingleExit(Region))) {
     LLVM_DEBUG(dbgs() << "Region has paths into it besides entry block: "
                       << Region << "\n");
     return std::make_pair(RegionNotSESE, 0);
@@ -514,53 +401,6 @@ FunctionSplitter::evaluateCandidateRegion(SplinterRegionT &Region) {
 
   LLVM_DEBUG(dbgs() << "Region ok for split: " << Region << "\n");
   return std::make_pair(RegionOk, RegionSize);
-}
-
-// Return 'true' if there is only a single entry basic block that enters the
-// region, and all exits from the region go to the same basic block outside of
-// the region (or all paths out of the region return from the function).
-bool FunctionSplitter::isSingleEntrySingleExit(
-    const SplinterRegionT &Region) const {
-  assert(!Region.empty());
-
-  const BasicBlock *EntryBlock = Region.front();
-  BasicBlock *RegionSuccessorBlock = nullptr;
-  bool RegionExitsFunction = false;
-
-  for (auto &BB : Region.getArrayRef()) {
-    // Check for entry points into the region, other than the initial
-    // block.
-    if (BB != EntryBlock) {
-      for (auto Pred : predecessors(BB)) {
-        if (!Region.count(Pred)) {
-          return false;
-        }
-      }
-    }
-
-    if (BB->getTerminator() && BB->getTerminator()->getNumSuccessors() == 0) {
-      if (RegionSuccessorBlock != nullptr) {
-        return false;
-      }
-
-      RegionExitsFunction = true;
-    }
-
-    // Check if after executing the region, control flow could go to more
-    // than 1 block of the original function.
-    for (auto Succ : successors(BB)) {
-      if (!Region.count(Succ)) {
-        if ((RegionSuccessorBlock && RegionSuccessorBlock != Succ) ||
-            RegionExitsFunction) {
-          return false;
-        }
-
-        RegionSuccessorBlock = Succ;
-      }
-    }
-  }
-
-  return true;
 }
 
 // Get an estimate for the size of the region. Currently, this is a summation
@@ -608,7 +448,7 @@ void FunctionSplitter::tryPruneRejectedRegion(SplinterRegionT &Region,
   // re-evaluating, but that is not currently implemented.
 }
 
-bool FunctionSplitter::splitRegions() {
+bool FunctionSplitter::splitRegions(RegionSplitter &Splitter) {
   bool Changed = false;
   // TODO: Currently, if there are "llvm.dbg.declare" statements in the
   // function, then splitting the function can result in these statements
@@ -616,8 +456,6 @@ bool FunctionSplitter::splitRegions() {
   // cold function or vice-versa following the split. For now, remove all
   // of these to avoid verification errors.
   stripDebugInfoIntrinsics(F);
-
-  RegionSplitter Splitter(DT, BFI, BPI);
 
   for (auto &R : RegionsToSplit) {
     LLVM_DEBUG(dbgs() << F.getName() << ": Extracting " << R.size()
