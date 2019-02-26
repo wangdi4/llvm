@@ -2034,7 +2034,7 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
     break;
 #if INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
-    Out << "_Q";
+    mangleArtificialTagType(TTK_Struct, "__float128", {"__clang"});
     break;
 #endif  // INTEL_CUSTOMIZATION
   case BuiltinType::WChar_S:
