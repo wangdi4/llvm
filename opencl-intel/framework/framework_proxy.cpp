@@ -511,9 +511,7 @@ void FrameworkProxy::Release(bool bTerminate)
     }
     cl_monitor_summary;
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// FrameworkProxy::TerminateProcess()
-///////////////////////////////////////////////////////////////////////////////////////////////////
+
 void FrameworkProxy::RegisterDllCallback( at_exit_dll_callback_fn cb )
 {
     if (nullptr != cb)
@@ -534,21 +532,27 @@ void FrameworkProxy::UnregisterDllCallback( at_exit_dll_callback_fn cb )
 
 void FrameworkProxy::AtExitTrigger( at_exit_dll_callback_fn cb )
 {
+    bool needToDisableAPI = (nullptr == m_pInstance) ?
+      false : m_pInstance->NeedToDisableAPIsAtShutdown();
+
     if (isDllUnloadingState())
     {
         UnregisterDllCallback( cb );
         cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_DLL_UNLOADING_MODE,
-            m_pInstance->NeedToDisableAPIsAtShutdown());
+            needToDisableAPI);
         cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_DLL_UNLOADING_MODE,
-            m_pInstance->NeedToDisableAPIsAtShutdown());
+            needToDisableAPI);
     }
     else
     {
-        TerminateProcess();
+        TerminateProcess(needToDisableAPI);
     }
 }
 
-void FrameworkProxy::TerminateProcess()
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// FrameworkProxy::TerminateProcess(bool needToDisableAPI)
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void FrameworkProxy::TerminateProcess(bool needToDisableAPI)
 {
     if (WORKING != gGlobalState)
     {
@@ -574,7 +578,7 @@ void FrameworkProxy::TerminateProcess()
         {
             at_exit_dll_callback_fn cb = *it;
             cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_PROCESS_UNLOADING_MODE,
-               m_pInstance->NeedToDisableAPIsAtShutdown());
+               needToDisableAPI);
         }
     }
 
@@ -597,7 +601,7 @@ void FrameworkProxy::TerminateProcess()
         {
             at_exit_dll_callback_fn cb = *it;
             cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_PROCESS_UNLOADING_MODE,
-               m_pInstance->NeedToDisableAPIsAtShutdown());
+               needToDisableAPI);
         }
         m_at_exit_cbs.clear();
     }
