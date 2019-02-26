@@ -886,43 +886,6 @@ void Dependences::dump(raw_ostream &OS) const {
 }
 #endif
 
-#if 0	
-
-static
-AAResults::AliasResult underlyingObjectsAlias(AAResults *AA,
-                                                  const Value *A,
-                                                  const Value *B) {
-  const Value *AObj = GetUnderlyingObject(A);
-  const Value *BObj = GetUnderlyingObject(B);
-  return AA->alias(AObj, AA->getTypeStoreSize(AObj->getType()),
-                   BObj, AA->getTypeStoreSize(BObj->getType()));
-}
-
-
-// Returns true if the load or store can be analyzed. Atomic and volatile
-// operations have properties which this analysis does not understand.
-static
-bool isLoadOrStore(const Instruction *I) {
-  if (const LoadInst *LI = dyn_cast<LoadInst>(I))
-    return LI->isUnordered();
-  else if (const StoreInst *SI = dyn_cast<StoreInst>(I))
-    return SI->isUnordered();
-  return false;
-}
-
-
-static
-Value *getPointerOperand(Instruction *I) {
-  if (LoadInst *LI = dyn_cast<LoadInst>(I))
-    return LI->getPointerOperand();
-  if (StoreInst *SI = dyn_cast<StoreInst>(I))
-    return SI->getPointerOperand();
-  llvm_unreachable("Value is not load or store instruction");
-  return nullptr;
-}
-
-#endif
-
 // Examines the loop nesting of the Src and Dst
 // instructions and establishes their shared loops. Sets the variables
 // CommonLevels, SrcLevels, and MaxLevels.

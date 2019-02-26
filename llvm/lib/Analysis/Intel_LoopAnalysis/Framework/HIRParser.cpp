@@ -2727,7 +2727,7 @@ unsigned HIRParser::getPointerElementSize(Type *Ty) const {
 
   auto ElTy = cast<PointerType>(Ty)->getElementType();
 
-  return ElTy->isSized() ? getDataLayout().getTypeStoreSize(ElTy) : 0;
+  return ElTy->isSized() ? getCanonExprUtils().getTypeSizeInBytes(ElTy) : 0;
 }
 
 const Value *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
