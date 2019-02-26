@@ -23098,6 +23098,20 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
       return DAG.getNode(ISD::MERGE_VALUES, dl, Op->getVTList(), Result,
                          Operation.getValue(1));
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+    case Intrinsic::x86_testui: {
+      SDLoc dl(Op);
+      SDValue Chain = Op.getOperand(0);
+      SDVTList VTs = DAG.getVTList(MVT::i32, MVT::Other);
+      SDValue Operation = DAG.getNode(X86ISD::TESTUI, dl, VTs, Chain);
+      SDValue SetCC = getSETCC(X86::COND_B, Operation.getValue(0), dl, DAG);
+      SDValue Result = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::i8, SetCC);
+      return DAG.getNode(ISD::MERGE_VALUES, dl, Op->getVTList(), Result,
+                         Operation.getValue(1));
+    }
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
     }
     return SDValue();
   }
@@ -27825,6 +27839,11 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case X86ISD::NT_BRIND:           return "X86ISD::NT_BRIND";
   case X86ISD::UMWAIT:             return "X86ISD::UMWAIT";
   case X86ISD::TPAUSE:             return "X86ISD::TPAUSE";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+  case X86ISD::TESTUI:             return "X86ISD::TESTUI";
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
   }
   return nullptr;
 }

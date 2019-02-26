@@ -1374,6 +1374,9 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["movdir64b"]       = HasLeaf7 && ((ECX >> 28) & 1);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+  Features["uli"]             = HasLeaf7 && ((EDX >> 5) & 1);
+#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_SERIALIZE
   Features["serialize"]       = HasLeaf7 && ((EDX >> 14) & 1);
 #endif // INTEL_FEATURE_ISA_SERIALIZE

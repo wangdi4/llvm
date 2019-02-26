@@ -305,6 +305,13 @@ def X86tpause : SDNode<"X86ISD::TPAUSE",
                                             SDTCisVT<2, i32>, SDTCisVT<3, i32>]>,
                        [SDNPHasChain, SDNPSideEffect]>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+def X86testui : SDNode<"X86ISD::TESTUI",
+                       SDTypeProfile<1, 0, [SDTCisVT<0, i32>]>, [SDNPHasChain]>;
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // X86 Operand Definitions.
 //
@@ -917,6 +924,9 @@ def HasINVPCID   : Predicate<"Subtarget->hasINVPCID()">;
 def HasCmpxchg16b: Predicate<"Subtarget->hasCmpxchg16b()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+def HasULI : Predicate<"Subtarget->hasULI()">;
+#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_SERIALIZE
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
@@ -2801,6 +2811,26 @@ def : InstAlias<"clzero\t{%eax|eax}", (CLZEROr)>, Requires<[Not64BitMode]>;
 def : InstAlias<"clzero\t{%rax|rax}", (CLZEROr)>, Requires<[In64BitMode]>;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+//===----------------------------------------------------------------------===//
+// ULI Instructions
+//
+let Predicates = [HasULI, In64BitMode] in {
+  def UIRET : I<0x01, MRM_EC, (outs), (ins), "uiret", []>, XS;
+  def CLUI : I<0x01, MRM_EE, (outs), (ins), "clui",
+               [(int_x86_clearui)]>, XS;
+  def STUI : I<0x01, MRM_EF, (outs), (ins), "stui",
+               [(int_x86_setui)]>, XS;
+
+  def SENDUIPI : I<0xC7, MRM6r, (outs), (ins GR64:$arg), "senduipi\t$arg",
+                   [(int_x86_senduipi GR64:$arg)]>, XS;
+
+  let Defs = [EFLAGS] in
+    def TESTUI : I<0x01, MRM_ED, (outs), (ins), "testui",
+                   [(set EFLAGS, (X86testui))]>, XS;
+}
+#endif // INTEL_FEATURE_ISA_ULI
+
 #if INTEL_FEATURE_ISA_SERIALIZE
 //===----------------------------------------------------------------------===//
 // SERIALIZE Instruction

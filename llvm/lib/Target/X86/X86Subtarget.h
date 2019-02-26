@@ -396,6 +396,9 @@ protected:
   bool HasPCONFIG = false;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+  bool HasULI = false;
+#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_SERIALIZE
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
@@ -716,6 +719,9 @@ public:
   bool threewayBranchProfitable() const { return ThreewayBranchProfitable; }
   bool hasINVPCID() const { return HasINVPCID; }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+  bool hasULI() const { return HasULI; }
+#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_SERIALIZE
   bool hasSERIALIZE() const { return HasSERIALIZE; }
 #endif // INTEL_FEATURE_ISA_SERIALIZE

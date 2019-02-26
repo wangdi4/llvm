@@ -292,6 +292,10 @@ def FeatureRDPID : SubtargetFeature<"rdpid", "HasRDPID", "true",
 def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
                                       "Wait and pause enhancements">;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
+                                  "Has ULI Instructions">;
+#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_SERIALIZE
 def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
                                       "Has serialize instruction">;

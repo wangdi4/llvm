@@ -588,6 +588,13 @@ namespace llvm {
       // User level wait
       UMWAIT, TPAUSE,
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+      // User level interrupts - testui
+      TESTUI,
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
+
       // Compare and swap.
       LCMPXCHG_DAG = ISD::FIRST_TARGET_MEMORY_OPCODE,
       LCMPXCHG8_DAG,
