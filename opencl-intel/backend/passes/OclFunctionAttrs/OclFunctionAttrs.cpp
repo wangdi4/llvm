@@ -186,7 +186,7 @@ namespace intel{
       Function* pFunc = &*I;
       if (oclSyncFunctions.count(pFunc) || oclSyncBuiltins.count(pFunc)) {
         pFunc->setAttributes(pFunc->getAttributes().addAttribute(
-          pFunc->getContext(), AttributeList::FunctionIndex, Attribute::NoDuplicate));
+          pFunc->getContext(), AttributeList::FunctionIndex, Attribute::Convergent));
         Changed = true;
       }
     }
