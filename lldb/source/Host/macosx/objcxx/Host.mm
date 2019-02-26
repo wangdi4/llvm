@@ -1,9 +1,8 @@
 //===-- Host.mm -------------------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -627,7 +626,7 @@ uint32_t Host::FindProcesses(const ProcessInstanceInfoMatch &match_info,
   int mib[3] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
 
   size_t pid_data_size = 0;
-  if (::sysctl(mib, 4, NULL, &pid_data_size, NULL, 0) != 0)
+  if (::sysctl(mib, 3, nullptr, &pid_data_size, nullptr, 0) != 0)
     return 0;
 
   // Add a few extra in case a few more show up
@@ -637,7 +636,7 @@ uint32_t Host::FindProcesses(const ProcessInstanceInfoMatch &match_info,
   kinfos.resize(estimated_pid_count);
   pid_data_size = kinfos.size() * sizeof(struct kinfo_proc);
 
-  if (::sysctl(mib, 4, &kinfos[0], &pid_data_size, NULL, 0) != 0)
+  if (::sysctl(mib, 3, &kinfos[0], &pid_data_size, nullptr, 0) != 0)
     return 0;
 
   const size_t actual_pid_count = (pid_data_size / sizeof(struct kinfo_proc));
@@ -1300,12 +1299,15 @@ Status Host::LaunchProcess(ProcessLaunchInfo &launch_info) {
 
   lldb::pid_t pid = LLDB_INVALID_PROCESS_ID;
 
-  if (ShouldLaunchUsingXPC(launch_info)) {
-    error = LaunchProcessXPC(exe_spec.GetPath().c_str(), launch_info, pid);
-  } else {
-    error =
-        LaunchProcessPosixSpawn(exe_spec.GetPath().c_str(), launch_info, pid);
-  }
+  // From now on we'll deal with the external (devirtualized) path.
+  auto exe_path = fs.GetExternalPath(exe_spec);
+  if (!exe_path)
+    return Status(exe_path.getError());
+
+  if (ShouldLaunchUsingXPC(launch_info))
+    error = LaunchProcessXPC(exe_path->c_str(), launch_info, pid);
+  else
+    error = LaunchProcessPosixSpawn(exe_path->c_str(), launch_info, pid);
 
   if (pid != LLDB_INVALID_PROCESS_ID) {
     // If all went well, then set the process ID into the launch info

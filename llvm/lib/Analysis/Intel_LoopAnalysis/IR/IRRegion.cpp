@@ -1,6 +1,6 @@
 //===--- IRRegion.cpp - Implements the IRRegion class ---------------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -26,10 +26,14 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-IRRegion::IRRegion(BasicBlock *EntryBB, const RegionBBlocksTy &BBs,
-                   bool IsFunctionLevel)
-    : EntryBBlock(EntryBB), ExitBBlock(nullptr), BBlocks(BBs),
-      ParentRegion(nullptr), IsFunctionLevel(IsFunctionLevel) {
+IRRegion::IRRegion(BasicBlock *EntryBB, BasicBlock *ExitBB,
+                   const RegionBBlocksTy &BBs,
+                   const RegionBBlocksTy &NonLoopBBs,
+                   bool IsMaterializationCandidate, bool IsFunctionLevel)
+    : EntryBBlock(EntryBB), ExitBBlock(ExitBB), BBlocks(BBs),
+      NonLoopBBlocks(NonLoopBBs), ParentRegion(nullptr),
+      IsLoopMaterializationCandidate(IsMaterializationCandidate),
+      IsFunctionLevel(IsFunctionLevel) {
   assert(EntryBB && "Entry basic block cannot be null!");
   BBlocksSet.insert(BBs.begin(), BBs.end());
 }
@@ -37,8 +41,10 @@ IRRegion::IRRegion(BasicBlock *EntryBB, const RegionBBlocksTy &BBs,
 IRRegion::IRRegion(IRRegion &&Reg)
     : EntryBBlock(Reg.EntryBBlock), ExitBBlock(Reg.ExitBBlock),
       BBlocks(std::move(Reg.BBlocks)), BBlocksSet(std::move(Reg.BBlocksSet)),
+      NonLoopBBlocks(std::move(Reg.NonLoopBBlocks)),
       LiveInMap(std::move(Reg.LiveInMap)),
       LiveOutMap(std::move(Reg.LiveOutMap)), ParentRegion(Reg.ParentRegion),
+      IsLoopMaterializationCandidate(Reg.IsLoopMaterializationCandidate),
       IsFunctionLevel(Reg.IsFunctionLevel) {}
 
 IRRegion &IRRegion::operator=(IRRegion &&Reg) {
@@ -46,10 +52,12 @@ IRRegion &IRRegion::operator=(IRRegion &&Reg) {
   ExitBBlock = Reg.ExitBBlock;
   BBlocks = std::move(Reg.BBlocks);
   BBlocksSet = std::move(Reg.BBlocksSet);
+  NonLoopBBlocks = std::move(Reg.NonLoopBBlocks);
   LiveInMap = std::move(Reg.LiveInMap);
   LiveOutMap = std::move(Reg.LiveOutMap);
   ParentRegion = Reg.ParentRegion;
   IsFunctionLevel = Reg.IsFunctionLevel;
+  IsLoopMaterializationCandidate = Reg.IsLoopMaterializationCandidate;
   return *this;
 }
 
@@ -58,11 +66,14 @@ void IRRegion::dump() const { print(dbgs(), 0); }
 #endif
 
 void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
-  OS.indent(IndentWidth) << "EntryBB: " << EntryBBlock->getName() << "\n";
+  OS.indent(IndentWidth) << "EntryBB: ";
+  EntryBBlock->printAsOperand(OS, false);
+  OS << "\n";
+
   OS.indent(IndentWidth) << "ExitBB: ";
 
   if (ExitBBlock) {
-    OS << ExitBBlock->getName();
+    ExitBBlock->printAsOperand(OS, false);
   } else {
     OS << ExitBBlock;
   }
@@ -74,7 +85,7 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
     if (I != BBlocks.begin()) {
       OS << ", ";
     }
-    OS << (*I)->getName();
+    (*I)->printAsOperand(OS, false);
   }
 
   OS << "\n";
@@ -225,5 +236,17 @@ void IRRegion::replaceEntryBBlock(BasicBlock *NewEntryBB) {
 
   *EntryIt = NewEntryBB;
   BBlocksSet.insert(NewEntryBB);
+
+  auto NonLoopEntryIt =
+      std::find(NonLoopBBlocks.begin(), NonLoopBBlocks.end(), EntryBBlock);
+
+  if (NonLoopEntryIt != NonLoopBBlocks.end()) {
+    *NonLoopEntryIt = NewEntryBB;
+  }
+
+  if (ExitBBlock == EntryBBlock) {
+    ExitBBlock = NewEntryBB;
+  }
+
   EntryBBlock = NewEntryBB;
 }

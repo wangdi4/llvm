@@ -1,6 +1,6 @@
 //===- HIROptVarPredicate.cpp - Optimization of predicates containing IVs -===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -359,11 +359,6 @@ bool HIROptVarPredicate::run() {
 
   ForPostEach<HLLoop>::visitRange(
       HIRF.hir_begin(), HIRF.hir_end(), [this](HLLoop *Loop) {
-        // Opt on non-innermost loops is likely to cause degradations.
-        if (!DisableCostModel && !Loop->isInnermost()) {
-          return;
-        }
-
         processLoop(Loop);
       });
 
@@ -697,7 +692,15 @@ void HIROptVarPredicate::splitLoop(
 }
 
 bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
-  LLVM_DEBUG(dbgs() << "Processing loop #" << Loop->getNumber() << "\n");
+  LLVM_DEBUG(dbgs() << "Processing loop <" << Loop->getNumber() << ">\n");
+
+  // Opt on non-innermost loops is likely to cause degradations.
+  if (!DisableCostModel && !Loop->isInnermost()) {
+    LLVM_DEBUG(
+        dbgs()
+        << "Non-innermost loop skipped due to profitability assumptions\n");
+    return false;
+  }
 
   if (!Loop->isDo()) {
     LLVM_DEBUG(dbgs() << "Unknown/Multiexit loop skipped.\n");
@@ -706,6 +709,11 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
 
   if (Loop->hasUnrollEnablingPragma() || Loop->hasVectorizeEnablingPragma()) {
     LLVM_DEBUG(dbgs() << "Loop with unroll/vector pragma skipped\n");
+    return false;
+  }
+
+  if (Loop->isSIMD()) {
+    LLVM_DEBUG(dbgs() << "SIMD Loop skipped\n");
     return false;
   }
 

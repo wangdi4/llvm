@@ -1,6 +1,6 @@
 //===---- HIRRegionIdentification.h - Identifies HIR regions ---*- C++ --*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -67,6 +67,9 @@ private:
   /// Vector of IRRegion.
   IRRegionsTy IRRegions;
 
+  /// Set of all basic blocks which are present in regions created for loop(s).
+  DenseSet<const BasicBlock *> AllLoopBasedRegionsBBlocks;
+
   /// The loop information for the function we are currently analyzing.
   LoopInfo &LI;
 
@@ -109,11 +112,13 @@ private:
   /// loops. \p IsFunctionRegionMode is set to true when we want to form a
   /// single function level region.
   bool isSelfGenerable(const Loop &Lp, unsigned LoopnestDepth,
-                       bool IsFunctionRegionMode) const;
+                       bool IsFunctionRegionMode,
+                       bool &ThrottleParentLoop) const;
 
   /// Returns true if this loop should be throttled based on cost model
   /// analysis.
-  bool shouldThrottleLoop(const Loop &Lp, const SCEV *BECount) const;
+  bool shouldThrottleLoop(const Loop &Lp, const SCEV *BECount,
+                          bool &ThrottleParentLoop) const;
 
   /// Creates a Region out of Loops' and \p IntermediateBlocks basic blocks.
   void
@@ -141,8 +146,16 @@ private:
   bool collectIntermediateBBs(const Loop *Loop1, const Loop *Loop2,
                               SmallPtrSetImpl<const BasicBlock *> &BBs);
 
+  /// Returns the lexical insertion position of \p BB in IRRegions.
+  HIRRegionIdentification::iterator
+  getLexicalInsertionPos(const BasicBlock *BB);
+
+  /// Forms regions out of function bblocks which are not part of any loop based
+  /// regions and contain loop materialization candidates.
+  void formRegionsForLoopMaterialization(Function &Func);
+
   /// Identifies regions in the incoming LLVM IR.
-  void formRegions();
+  void formRegions(Function &Func);
 
   /// Returns true if bblocks of the function are generable.
   bool areBBlocksGenerable(Function &Func) const;

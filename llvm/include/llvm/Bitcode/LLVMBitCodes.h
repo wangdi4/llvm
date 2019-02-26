@@ -1,9 +1,8 @@
 //===- LLVMBitCodes.h - Enum values for the LLVM bitcode format -*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -412,7 +411,9 @@ enum RMWOperations {
   RMW_MAX = 7,
   RMW_MIN = 8,
   RMW_UMAX = 9,
-  RMW_UMIN = 10
+  RMW_UMIN = 10,
+  RMW_FADD = 11,
+  RMW_FSUB = 12
 };
 
 /// OverflowingBinaryOperatorOptionalFlags - Flags for serializing
@@ -607,13 +608,12 @@ enum AttributeKindCodes {
   ATTR_KIND_OPT_FOR_FUZZING = 57,
   ATTR_KIND_SHADOWCALLSTACK = 58,
   ATTR_KIND_SPECULATIVE_LOAD_HARDENING = 59,
-
 #if INTEL_CUSTOMIZATION
   // Note: Anything 63/over causes an issue with shifting later on.  The
   // underlying type of this will have to be changed to a larger type if we get
   // above 61 in community.
-  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 61,
-  ATTR_KIND_INLINE_HINT_RECURSIVE = 62,
+  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 60,
+  ATTR_KIND_INLINE_HINT_RECURSIVE = 61,
 #endif //INTEL_CUSTOMIZATION
 };
 

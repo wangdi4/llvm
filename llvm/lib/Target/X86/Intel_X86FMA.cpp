@@ -1,6 +1,6 @@
 //====-- Intel_X86FMA.cpp - Fused Multiply Add optimization ---------------====
 //
-//      Copyright (c) 2018 Intel Corporation.
+//      Copyright (c) 2016-2019 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -842,16 +842,16 @@ public:
   /// Returns the latency of the expression tree.
   unsigned getLatency() const { return Latency; }
 
-  /// Returns the number of ADD and SUB opeations in the expresssion tree.
+  /// Returns the number of ADD and SUB operations in the expression tree.
   unsigned getNumAddSub() const { return NumAddSub; }
 
-  /// Returns the number of MUL opeations in the expresssion tree.
+  /// Returns the number of MUL operations in the expression tree.
   unsigned getNumMul() const { return NumMul; }
 
-  /// Returns the number of FMA opeations in the expresssion tree.
+  /// Returns the number of FMA operations in the expression tree.
   unsigned getNumFMA() const { return NumFMA; }
 
-  /// Returns the number of all opeations in the expresssion tree.
+  /// Returns the number of all operations in the expression tree.
   unsigned getNumOperations() const { return NumAddSub + NumMul + NumFMA; }
 
   /// Returns true if 'this' performance metrics seem better than \p OtherDesc.
@@ -887,7 +887,7 @@ public:
   /// Returns true if the term or expression used in \p NodeInd and \p OpndInd
   /// operand is used the last time in this DAG.
   /// The word "last" should be understood in the way how code-generation phase
-  /// would understand it. Code-geneneration translate the DAG to IR starting
+  /// would understand it. Code-generation translate the DAG to IR starting
   /// from the node with maximum index. So the term with
   /// (\p NodeInd, \p OpndInd) coordinates is the last if it is not used
   /// in nodes with indices 0 to (\p NodeInd - 1), and is not used
@@ -1368,6 +1368,13 @@ private:
   /// down to their users.
   const MachineInstr *MI;
 
+  /// A reference to the DBG_VALUE instruction, which is associated with the
+  /// register defined by the FMA instruction MI. If the current FMA expression
+  /// gets consumed by some other FMA, then DbgValMI must be added
+  /// to ConsumedMIs too. So, we would be sure that it gets removed when not
+  /// used anymore.
+  const MachineInstr *DbgValMI;
+
   /// A set of machine instructions corresponding to other FMA expressions
   /// consumed by this FMA expression. The machine instructions in this list
   /// must be removed from IR when/if this expression is translated back to IR.
@@ -1380,7 +1387,7 @@ private:
   /// into the expression tree referenced by 'this' FMA expression.
   ///
   /// Conversion of the term to an unsigned index may be needed to bind
-  /// FMA terms represesnted as FMAExpr and terms represented as unsigned
+  /// FMA terms represented as FMAExpr and terms represented as unsigned
   /// in FMAExprSP/FMADag classes.
   unsigned getUsedTermIndex(const FMATerm *Term) const;
 
@@ -1476,6 +1483,14 @@ public:
   /// Returns the reference to machine instruction associated with
   /// FMA expression.
   const MachineInstr *getMI() const { return MI; }
+
+  /// Returns the reference to the DBG_VALUE machine instruction associated
+  /// with this FMA expression.
+  const MachineInstr *getDbgValMI() const { return DbgValMI; }
+
+  /// Associates the DBG_VALUE machine instruction with the current
+  /// FMA expression.
+  void setDbgValMI(MachineInstr *I) {  DbgValMI = I; }
 
   /// This method puts 'this' node and all subexpressions to the given
   /// set \p ExprSet. It may be needed when each expression node must be
@@ -1611,7 +1626,8 @@ public:
 FMAExpr::FMAExpr(MVT VT, const MachineInstr *MI, FMARegisterTerm *ResultTerm,
                  FMANode *Op1, FMANode *Op2, FMANode *Op3)
     : FMANode(VT), MulSign(false), AddSign(false),
-      IsFullyConsumedByKnownExpressions(false), ResultTerm(ResultTerm), MI(MI) {
+      IsFullyConsumedByKnownExpressions(false), ResultTerm(ResultTerm), MI(MI),
+      DbgValMI(nullptr) {
 
   assert((Op1 && Op2 && Op3) && "Unexpected operands in FMAExpr constructor.");
   assert(ResultTerm && "Unexpected result term in FMAExpr constructor.");
@@ -2022,6 +2038,8 @@ void FMAExpr::consume(FMAExpr *FWSExpr) {
   // Also, FWSExpr does not need to keep the list of consumed machine
   // instructions anymore.
   ConsumedMIs.push_back(FWSExpr->getMI());
+  if (FWSExpr->DbgValMI)
+    ConsumedMIs.push_back(FWSExpr->DbgValMI);
   ConsumedMIs.splice(ConsumedMIs.end(), FWSExpr->ConsumedMIs);
 
   // Term defined by the FWSExpr.
@@ -2212,9 +2230,20 @@ public:
       FMARegisterTerm *Term = T2E.first;
       unsigned Reg = Term->getReg();
       auto MIsSetEnd = MIsSet.end();
-      for (MachineInstr &I : MRI->reg_instructions(Reg))
+      for (MachineInstr &I : MRI->reg_instructions(Reg)) {
+        // Do not count DBG_VALUE as a real user.
+        // Otherwise, -g would severely affect the optimization.
+        // DBG_VALUE though must be registered. So it would be
+        // deleted when gets unused.
+        if (I.isDebugValue()) {
+          FMAExpr *Expr = T2E.second;
+          Expr->setDbgValMI(&I);
+          continue;
+        }
+
         if (MIsSet.find(&I) == MIsSetEnd)
           Term->setDefHasUnknownUsers();
+      }
     }
   }
 
@@ -2428,6 +2457,13 @@ FMAExpr *FMAExpr::findFWSCandidate(FMABasicBlock &FMABB,
     if (TermDefFMA == nullptr)
       continue;
 
+    // This expression cannot be removed even if it gets consumed by another
+    // one. It still may be possible to proceed and get some performance,
+    // but those are very rare corner cases, which though complicate
+    // the optimization alot and create bigger risks.
+    if (TermDefFMA->hasUnknownUsers())
+      continue;
+
     // If TermDefFMA was consumed, then TermDefFMA expression would be part of
     // 'this' expression and the term defined by TermDefFMA would not be used
     // as an operand of 'this' expression.
@@ -2572,9 +2608,9 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   // Also, if the patterns storage is already created/initialized once, it
   // does not make sense to re-initialize it again.
   // This place may need to be updated if/when the patterns storage
-  // initialization gets dependant on the target CPU settings. For example,
+  // initialization gets dependent on the target CPU settings. For example,
   // if the patterns are initialized one way for AVX, another way for AVX2,
-  // and there are functions with different target CPU setttings.
+  // and there are functions with different target CPU settings.
   if (Patterns == nullptr) {
     Patterns = new FMAPatterns();
     Patterns->init();
@@ -2701,6 +2737,7 @@ bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
 
     EverMadeChangeInBB = true;
     generateOutputIR(*Expr, *Dag, FMABB, MBB);
+    LLVM_DEBUG(fmadbgs() << "\n");
   }
 
   FMABB.setIsKilledAttributeForTerms();

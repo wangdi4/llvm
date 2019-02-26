@@ -1,9 +1,8 @@
 //===-- Host.cpp - Implement OS Host Concept --------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -1252,10 +1251,21 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   // If CPUID indicates support for XSAVE, XRESTORE and AVX, and XGETBV
   // indicates that the AVX registers will be saved and restored on context
   // switch, then we have full AVX support.
-  bool HasAVXSave = ((ECX >> 27) & 1) && ((ECX >> 28) & 1) &&
-                    !getX86XCR0(&EAX, &EDX) && ((EAX & 0x6) == 0x6);
+#if INTEL_CUSTOMIZATION
+  bool HasXSave = ((ECX >> 27) & 1) && !getX86XCR0(&EAX, &EDX);
+  bool HasAVXSave = HasXSave && ((ECX >> 28) & 1) && ((EAX & 0x6) == 0x6);
+#endif // INTEL_CUSTOMIZATION
+
   // AVX512 requires additional context to be saved by the OS.
   bool HasAVX512Save = HasAVXSave && ((EAX & 0xe0) == 0xe0);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  // AMX requires additional context to be saved by the OS.
+  const unsigned AMXBits = (1 << 17) | (1 << 18);
+  bool HasAMXSave = HasXSave && ((EAX & AMXBits) == AMXBits);
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 
   Features["avx"]   = HasAVXSave;
   Features["fma"]   = ((ECX >> 12) & 1) && HasAVXSave;
@@ -1360,6 +1370,14 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["avx512bf16"] = HasLeaf7Subleaf1 && ((EAX >> 5) & 1)
                            && HasAVX512Save;
 #endif // INTEL_FEATURE_ISA_BF16
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  Features["amx-bf16"]   = HasLeaf7 && ((EDX >> 22) & 1) && HasAMXSave;
+  Features["amx-tile"]   = HasLeaf7 && ((EDX >> 24) & 1) && HasAMXSave;
+  Features["amx-int8"]   = HasLeaf7 && ((EDX >> 25) & 1) && HasAMXSave;
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
   bool HasLeafD = MaxLevel >= 0xd &&

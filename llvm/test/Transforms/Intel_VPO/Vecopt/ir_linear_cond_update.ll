@@ -1,4 +1,4 @@
-; RUN: opt -vplan-force-vf=4 -VPlanDriver -S %s | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -VPlanDriver -enable-new-vplan-predicator=false -S %s | FileCheck %s
 
 ; This test checks for handling of linear values and that we do a unit stride store
 ; CHECK: vector.ph
@@ -21,9 +21,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR", i32* nonnull %i2, i32 1)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR"(i32* %i2, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -61,8 +59,7 @@ omp.inner.for.inc:                                ; preds = %if.then, %if.then2.
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.inc
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
@@ -77,11 +74,11 @@ declare void @foo3(i32*) local_unnamed_addr #2
 
 declare void @baz(...) local_unnamed_addr #2
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #1
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #1
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #1
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end(i64, i8* nocapture) #1

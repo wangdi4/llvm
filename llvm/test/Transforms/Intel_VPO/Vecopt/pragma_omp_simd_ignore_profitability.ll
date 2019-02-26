@@ -19,7 +19,6 @@
 ; CHECK: %[[BitCastRes:.*]] = bitcast float* %[[GEPIndVar:.*]] to <{{.*}} x float>*
 ; CHECK: %[[WideLoad:.*]] = load <{{.*}} x float>, <{{.*}} x float>* %[[BitCastRes]], align 4
 ; CHECK: %[[CmpRes:.*]] = fcmp ogt <{{.*}} x float> %[[WideLoad]], zeroinitializer
-; CHECK: %[[XORRes:.*]] = xor <{{.*}} x i1> %[[CmpRes]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK: %[[TruncRes:.*]] = trunc <{{.*}} x i64> %[[VecInd:.*]] to <{{.*}} x i32>
 ; CHECK: %[[AddRes:.*]] = add <{{.*}} x i32> %[[BroadcastSplat1:.*]], %[[TruncRes]]
 ; CHECK: %[[SitOfPRes:.*]] = sitofp <{{.*}} x i32> %[[AddRes]] to <{{.*}} x float>

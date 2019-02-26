@@ -1,6 +1,6 @@
 //===----- HIRFramework.cpp - public interface for HIR framework ----------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -317,6 +317,11 @@ struct HIRFramework::MaxTripCountEstimator final : public HLNodeVisitorBase {
 };
 
 void HIRFramework::MaxTripCountEstimator::visit(HLLoop *Lp) {
+
+  if (Lp->isUnknown()) {
+    return;
+  }
+
   // This can set trip count estimate for triangular loops.
   // DO i1 = 0, 10
   // DO i2 = 0, i1 - 1  <MAX_TC_EST = 10>

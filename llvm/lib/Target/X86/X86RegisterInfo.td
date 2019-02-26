@@ -1,9 +1,8 @@
 //===- X86RegisterInfo.td - Describe the X86 Register File --*- tablegen -*-==//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -264,6 +263,29 @@ let SubRegIndices = [sub_ymm] in {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+// Tile "registers". These aren't really registers. Or are they?
+def TMM0:  X86Reg<"tmm0",   0>;
+def TMM1:  X86Reg<"tmm1",   1>;
+def TMM2:  X86Reg<"tmm2",   2>;
+def TMM3:  X86Reg<"tmm3",   3>;
+def TMM4:  X86Reg<"tmm4",   4>;
+def TMM5:  X86Reg<"tmm5",   5>;
+def TMM6:  X86Reg<"tmm6",   6>;
+def TMM7:  X86Reg<"tmm7",   7>;
+// FIXME Just align with ICC, tmm8-15 is not supported by HW.
+def TMM8:  X86Reg<"tmm8",   8>;
+def TMM9:  X86Reg<"tmm9",   9>;
+def TMM10: X86Reg<"tmm10", 10>;
+def TMM11: X86Reg<"tmm11", 11>;
+def TMM12: X86Reg<"tmm12", 12>;
+def TMM13: X86Reg<"tmm13", 13>;
+def TMM14: X86Reg<"tmm14", 14>;
+def TMM15: X86Reg<"tmm15", 15>;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
+
 // Mask Registers, used by AVX-512 instructions.
 def K0 : X86Reg<"k0", 0>, DwarfRegNum<[118,  93,  93]>;
 def K1 : X86Reg<"k1", 1>, DwarfRegNum<[119,  94,  94]>;
@@ -522,9 +544,15 @@ def FR64 : RegisterClass<"X86", [f64], 64, (add FR32)>;
 // faster on common hardware.  In reality, this should be controlled by a
 // command line option or something.
 
+
 def RFP32 : RegisterClass<"X86",[f32], 32, (sequence "FP%u", 0, 6)>;
 def RFP64 : RegisterClass<"X86",[f64], 32, (add RFP32)>;
 def RFP80 : RegisterClass<"X86",[f80], 32, (add RFP32)>;
+
+// st(7) may be is not allocatable.
+def RFP80_7 : RegisterClass<"X86",[f80], 32, (add FP7)> {
+  let isAllocatable = 0;
+}
 
 // Floating point stack registers (these are not allocatable by the
 // register allocator - the floating point stackifier is responsible
@@ -636,3 +664,11 @@ def VK64WM  : RegisterClass<"X86", [v64i1], 64, (add VK32WM)> {let Size = 64;}
 
 // Bound registers
 def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+// Tiles
+def VTILE : RegisterClass<"X86", [untyped], 0,
+                          (sequence "TMM%u", 0, 15)> {let Size = 1;}
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION

@@ -1,6 +1,6 @@
 //===-------- HLLoop.cpp - Implements the HLLoop class --------------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -93,15 +93,6 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
   setStrideDDRef(StrideDDRef);
 
   setIVType(LowerDDRef->getDestType());
-
-  assert(((!getLowerDDRef()->isStandAloneUndefBlob() &&
-           !getUpperDDRef()->isStandAloneUndefBlob() &&
-           !getStrideDDRef()->isStandAloneUndefBlob()) ||
-          (getLowerDDRef()->isStandAloneUndefBlob() &&
-           getUpperDDRef()->isStandAloneUndefBlob() &&
-           getStrideDDRef()->isStandAloneUndefBlob())) &&
-         "Lower, Upper and Stride DDRefs "
-         "should be all defined or all undefined");
 }
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj)
@@ -135,7 +126,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 
   /// Clone loop RegDDRefs
   setLowerDDRef(HLLoopObj.getLowerDDRef()->clone());
-  setUpperDDRef(HLLoopObj.getUpperDDRef()->clone());
+  setUpperDDRef(HLLoopObj.getUpperDDRef(true)->clone());
   setStrideDDRef(HLLoopObj.getStrideDDRef()->clone());
 }
 
@@ -297,6 +288,10 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
 void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
   if (ParTraits != nullptr)
     OS << " <parallel>";
+
+  if (isSIMD()) {
+    OS << " <simd>";
+  }
 
   // Some of the pragma checks require trip count information,
   // so we skip them if it isn't present yet.
@@ -669,40 +664,6 @@ HLIf *HLLoop::removeZtt() {
   return If;
 }
 
-CanonExpr *HLLoop::getLoopCanonExpr(RegDDRef *Ref) {
-  assert(Ref && "RegDDRef can not be null");
-  return Ref->getSingleCanonExpr();
-}
-
-const CanonExpr *HLLoop::getLoopCanonExpr(const RegDDRef *Ref) const {
-  return const_cast<HLLoop *>(this)->getLoopCanonExpr(
-      const_cast<RegDDRef *>(Ref));
-}
-
-CanonExpr *HLLoop::getLowerCanonExpr() {
-  return getLoopCanonExpr(getLowerDDRef());
-}
-
-const CanonExpr *HLLoop::getLowerCanonExpr() const {
-  return const_cast<HLLoop *>(this)->getLowerCanonExpr();
-}
-
-CanonExpr *HLLoop::getUpperCanonExpr() {
-  return getLoopCanonExpr(getUpperDDRef());
-}
-
-const CanonExpr *HLLoop::getUpperCanonExpr() const {
-  return const_cast<HLLoop *>(this)->getUpperCanonExpr();
-}
-
-CanonExpr *HLLoop::getStrideCanonExpr() {
-  return getLoopCanonExpr(getStrideDDRef());
-}
-
-const CanonExpr *HLLoop::getStrideCanonExpr() const {
-  return const_cast<HLLoop *>(this)->getStrideCanonExpr();
-}
-
 CanonExpr *HLLoop::getTripCountCanonExpr() const {
   if (isUnknown()) {
     return nullptr;
@@ -724,7 +685,7 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
 
   Result->divide(StrideConst);
   Result->addConstant(StrideConst, true);
-  Result->simplify(true);
+  Result->simplify(true, true);
   return Result;
 }
 
@@ -1045,7 +1006,7 @@ void HLLoop::verify() const {
   HLDDNode::verify();
 
   assert(getLowerDDRef() && "Null lower ref not expected!");
-  assert(getUpperDDRef() && "Null upper ref not expected");
+  assert(getUpperDDRef(true) && "Null upper ref not expected");
   assert(getStrideDDRef() && "Null stride ref not expected!");
 
   if (isUnknown()) {
@@ -1109,7 +1070,7 @@ bool HLLoop::hasDirective(int DirectiveID) const {
   return false;
 }
 
-bool HLLoop::hasSIMDRegionDirective() const {
+bool HLLoop::isSIMD() const {
   const HLNode *PrevNode = this;
 
   while ((PrevNode = PrevNode->getPrevNode())) {
@@ -1119,9 +1080,7 @@ bool HLLoop::hasSIMDRegionDirective() const {
     if (!Inst)
       return false;
 
-    // Check if the instruction has an operand bundle with DIR.OMP.SIMD tag
-    if (Inst->getNumOperandBundles() &&
-        Inst->getOperandBundleAt(0).getTagName().equals("DIR.OMP.SIMD"))
+    if (Inst->isSIMDDirective())
       return true;
   }
 
@@ -1338,7 +1297,7 @@ bool HLLoop::normalize() {
   }
 
   UpperCE->divide(Stride);
-  UpperCE->simplify(true);
+  UpperCE->simplify(true, true);
 
   unsigned Level = getNestingLevel();
 

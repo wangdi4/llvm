@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -60,142 +60,115 @@ public:
   void setInvalid() { UnderlyingNode.setInt(false);}
 };
 
-/// This class holds the underlying HIR information for unitary blobs and
-/// induction variables. For unitary blobs, including metadata (for now), a
-/// DDRef is held. For induction variables, the IV level is held.
-///
-/// DESIGN PRINCIPLE: A class hierarchy would make more sense here from a OOD
-/// point of view. However, using a single class allows us to save a pointer in
-/// VPExternalDef and use an UnitaryBlobOrIV object directly. This trade-off
-/// should make sense as long as no more kinds are needed.
-class UnitaryBlobOrIV {
-  friend SymbaseIVLevelMapInfo;
+/// Base class to hold the underlying HIR information for blobs and induction
+/// variables.
+class VPOperandHIR {
+private:
+  /// Subclass identifier (for isa/dyn_cast).
+  const unsigned char SubclassID;
 
+protected:
+  /// Enumeration to keep track of the concrete sub-classes of VPOperandHIR.
+  enum { VPBlobSC, VPIndVarSC };
+
+  VPOperandHIR(const unsigned char ID) : SubclassID(ID) {}
+
+public:
+  VPOperandHIR() = delete;
+  VPOperandHIR(const VPOperandHIR &) = delete;
+  VPOperandHIR &operator=(const VPOperandHIR &) = delete;
+
+  /// Return true if this VPBlob is structurally equal to \p U.
+  virtual bool isStructurallyEqual(const VPOperandHIR *U) const = 0;
+
+  /// Method to support FoldingSet's hashing.
+  virtual void Profile(FoldingSetNodeID &ID) const = 0;
+
+  virtual void print(raw_ostream &OS) const = 0;
+
+  unsigned char getSubclassID() const { return SubclassID; }
+};
+
+/// Class that holds underlying HIR information for unitaty blobs.
+class VPBlob final : public VPOperandHIR {
 private:
   // Hold DDRef for uninaty DDRef operand.
-  loopopt::DDRef *UnitaryBlob;
+  loopopt::DDRef *OperandBlob;
 
+public:
+  /// Construct a VPBlob with the DDRef \p Operand.
+  VPBlob(loopopt::DDRef *Operand)
+      : VPOperandHIR(VPBlobSC), OperandBlob(Operand) {
+    assert(!Operand->isMetadata() && "Unexpected metadata!");
+  }
+
+  /// Return true if this VPBlob is structurally equal to \p U.
+  /// Structural comparision for VPBlobs checks if the symbase is the
+  /// same.
+  bool isStructurallyEqual(const VPOperandHIR *U) const override {
+    const auto *UnitBlob = dyn_cast<VPBlob>(U);
+    if (!UnitBlob)
+      return false;
+
+    return getBlob()->getSymbase() == UnitBlob->getBlob()->getSymbase();
+  }
+
+  // Return the DDRef of this VPBlob.
+  const loopopt::DDRef *getBlob() const { return OperandBlob; }
+
+  /// Method to support FoldingSet's hashing.
+  void Profile(FoldingSetNodeID &ID) const override {
+    ID.AddInteger(OperandBlob->getSymbase());
+    ID.AddInteger(0 /*IVLevel*/);
+  }
+
+  void print(raw_ostream &OS) const override {
+    formatted_raw_ostream FOS(OS);
+    OperandBlob->print(FOS);
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPOperandHIR *U) {
+    return U->getSubclassID() == VPBlobSC;
+  }
+};
+
+/// Class that holds underlying HIR information for induction variables.
+class VPIndVar final : public VPOperandHIR {
+private:
   // Hold IV level for IV operand.
   unsigned IVLevel;
 
-  void verifyState() const {
-    assert((!UnitaryBlob ^ !IVLevel) && "Invalid state!");
-  }
-
 public:
-  // Create an invalid UnitaryBlobOrIV (nullptr UnitaryBlob, level-0 IV)  when
-  // no underlying HIR is passed. This implicit construction helps reduce
-  // INTEL_CUSTOMIZATION in VPExternalDef constructors, which will make open
-  // sourcing easier.
-  UnitaryBlobOrIV() : UnitaryBlob(nullptr), IVLevel(0) {}
-
-  /// Construct a UnitaryBlobOrIV for a unitary DDRef \p Unitary.
-  UnitaryBlobOrIV(loopopt::DDRef *Unitary) : UnitaryBlob(Unitary), IVLevel(0) {
-    assert(Unitary->isUnitaryBlob() &&
-           "Expected BlobDDRef or unitary blob RegDDRef!");
-  }
-
-  /// Construct an UnitaryBlobOrIV for an induction variable given its \p
+  /// Construct an VPIndVar for an induction variable given its \p
   /// IVLevel.
-  UnitaryBlobOrIV(unsigned IVLevel) : UnitaryBlob(nullptr), IVLevel(IVLevel) {}
+  VPIndVar(unsigned IVLevel) : VPOperandHIR(VPIndVarSC), IVLevel(IVLevel) {}
 
-  ~UnitaryBlobOrIV() {}
+  /// Return true if this VPIndVar is structurally equal to \p U.
+  /// Structural comparision for VPIndVars checks if the IV level is the
+  /// same.
+  bool isStructurallyEqual(const VPOperandHIR *U) const override {
+    const auto *UnitIV = dyn_cast<VPIndVar>(U);
+    if (!UnitIV)
+      return false;
 
-  /// Return true if this UnitaryBlobOrIV is structurally equal to \p U.
-  /// Structural comparison comprises:
-  ///   a) Blobs: symbase comparison.
-  ///   b) IVs: IVLevel comparison.
-  ///   c) Metadata: Underlying MetadataAsValue comparison.
-  bool isStructurallyEqual(const UnitaryBlobOrIV &U) const {
-    if (isNonMDBlob() && U.isNonMDBlob())
-      return getBlob()->getSymbase() == U.getBlob()->getSymbase();
-
-    if (isIV() && U.isIV())
-      return getIVLevel() == U.getIVLevel();
-
-    if (isMDBlob() && U.isMDBlob()) {
-      // All metadata as value has the same symbase in HIR so we compare that
-      // the underlying LLVM-IR metadata is the same.
-      const MetadataAsValue *MDLeft = getMetadata();
-      const MetadataAsValue *MDRight = U.getMetadata();
-      return MDLeft->getMetadata() == MDRight->getMetadata();
-    }
-
-    return false;
+    return getIVLevel() == UnitIV->getIVLevel();
   }
-
-  /// Return true if this UnitaryBlobOrIV is either a non-metadata or a metadata
-  /// unitary blob.
-  bool isBlob() const {
-    verifyState();
-    return UnitaryBlob != nullptr;
-  }
-
-  /// Return true if this UnitaryBlobOrIV is a non-metadata unitary blob.
-  bool isNonMDBlob() const { return isBlob() && !UnitaryBlob->isMetadata(); }
-
-  /// Return true if this UnitaryBlobOrIV is a metadata unitary blob.
-  bool isMDBlob() const { return isBlob() && UnitaryBlob->isMetadata(); }
-
-  /// Return true if this UnitaryBlobOrIV is an induction variable.
-  bool isIV() const {
-    verifyState();
-    return IVLevel;
-  }
-
-  // Return the DDRef of this underlying unitary blob.
-  const loopopt::DDRef *getBlob() const { return UnitaryBlob; }
 
   /// Return the IV level of this underlying IV.
   unsigned getIVLevel() const { return IVLevel; }
 
-  const MetadataAsValue *getMetadata() const {
-    assert(isMDBlob() && "Expected underlying metadata!");
-    MetadataAsValue *MD = nullptr;
-    UnitaryBlob->isMetadata(&MD);
-    assert(MD && "Metadata not found!");
-    return MD;
+  /// Method to support FoldingSet's hashing.
+  void Profile(FoldingSetNodeID &ID) const override {
+    ID.AddInteger(0 /*Symbase*/);
+    ID.AddInteger(IVLevel);
   }
 
-  void print(raw_ostream &OS) const {
-    if (isBlob()) {
-      formatted_raw_ostream FOS(OS);
-      UnitaryBlob->print(FOS);
-    } else if (isIV())
-      OS << "%i" << IVLevel;
-    else
-      llvm_unreachable("Unexpected UnitaryBlobOrIV kind!");
-  }
-};
+  void print(raw_ostream &OS) const override { OS << "%i" << IVLevel; }
 
-/// MapInfo class necessary to use UnitaryBlobOrIV in DenseSet/DenseMap. This
-/// implementation compares DDRefs based on their symbase. This means that two
-/// different DDRef object with the same symbase will be considered equal (and
-/// stored only once in the DenseSet/DenseMap.
-struct SymbaseIVLevelMapInfo {
-  static inline UnitaryBlobOrIV getEmptyKey() {
-    // Empty key will be an IV with level UINT_MAX;
-    return UnitaryBlobOrIV((unsigned)UINT_MAX);
-  }
-
-  static inline UnitaryBlobOrIV getTombstoneKey() {
-    // Tombstone key will be an IV with level UINT_MAX -1;
-    return UnitaryBlobOrIV((unsigned)UINT_MAX - 1);
-  }
-
-  // Following same approach as in DenseMapInfo<std::pair<T, U>> with
-  // T = char, for enum, and unsigned for (symbase/IV level).
-  static unsigned getHashValue(const UnitaryBlobOrIV &HIROperand) {
-    unsigned Symbase =
-        HIROperand.isBlob() ? HIROperand.getBlob()->getSymbase() : 0;
-    unsigned IVLevel = HIROperand.getIVLevel();
-
-    return DenseMapInfo<std::pair<unsigned, unsigned>>::getHashValue(
-        std::make_pair(Symbase, IVLevel));
-  }
-
-  static bool isEqual(const UnitaryBlobOrIV &LHS, const UnitaryBlobOrIV &RHS) {
-    return LHS.isStructurallyEqual(RHS);
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPOperandHIR *U) {
+    return U->getSubclassID() == VPIndVarSC;
   }
 };
 } // namespace vpo

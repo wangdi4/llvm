@@ -1,6 +1,6 @@
 //===------ HIRSCCFormation.cpp - Identifies SCC in IRRegions -------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -595,14 +595,18 @@ bool HIRSCCFormation::isCmpAndSelectPattern(Instruction *Inst1,
   return (CInst->hasOneUse() && (*(CInst->user_begin()) == SelInst));
 }
 
-bool HIRSCCFormation::foundIntermediateSCCNode(const BasicBlock *CurBB,
-                                               const Instruction *EndNode,
-                                               const Instruction *TargetNode,
-                                               const SCC &CurSCC) const {
+bool HIRSCCFormation::foundIntermediateSCCNode(
+    const BasicBlock *CurBB, const Instruction *EndNode,
+    const Instruction *TargetNode, const SCC &CurSCC,
+    SmallPtrSet<const BasicBlock *, 8> &VisitedBBs) const {
   bool IsTargetBB = (CurBB == TargetNode->getParent());
   bool FullBBScope = (!IsTargetBB && !EndNode);
 
   SmallPtrSet<const NodeTy *, 4> CurBBSCCNodes;
+
+  if (VisitedBBs.count(CurBB)) {
+    return false;
+  }
 
   // This check attempts to save compile time by traversing (likely fewer) SCC
   // instructions rather than (probably many) bblock instructions. If none of
@@ -632,7 +636,12 @@ bool HIRSCCFormation::foundIntermediateSCCNode(const BasicBlock *CurBB,
     }
   }
 
+  if (FullBBScope) {
+    VisitedBBs.insert(CurBB);
+  }
+
   if (!IsTargetBB) {
+
     // Recurse on predecessors until we reach target bblock.
     for (auto PredIt = pred_begin(CurBB), E = pred_end(CurBB); PredIt != E;
          ++PredIt) {
@@ -641,7 +650,8 @@ bool HIRSCCFormation::foundIntermediateSCCNode(const BasicBlock *CurBB,
         continue;
       }
 
-      if (foundIntermediateSCCNode(*PredIt, nullptr, TargetNode, CurSCC)) {
+      if (foundIntermediateSCCNode(*PredIt, nullptr, TargetNode, CurSCC,
+                                   VisitedBBs)) {
         return true;
       }
     }
@@ -654,6 +664,9 @@ bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
                                           const SCC &CurSCC) const {
 
   auto ParentBB = Node->getParent();
+  // Maintain a set of visited bblocks to cache explored paths from uses to
+  // Node.
+  SmallPtrSet<const BasicBlock *, 8> VisitedBBs;
 
   for (auto I = Node->user_begin(), E = Node->user_end(); I != E; ++I) {
     auto UserInst = cast<Instruction>(*I);
@@ -679,13 +692,13 @@ bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
         }
 
         if (foundIntermediateSCCNode(UserPhi->getIncomingBlock(I), nullptr,
-                                     Node, CurSCC)) {
+                                     Node, CurSCC, VisitedBBs)) {
           return true;
         }
       }
 
     } else if (foundIntermediateSCCNode(UserInst->getParent(), UserInst, Node,
-                                        CurSCC)) {
+                                        CurSCC, VisitedBBs)) {
       return true;
     }
   }
@@ -948,6 +961,10 @@ void HIRSCCFormation::runImpl() {
   // Iterate through the regions.
   for (auto RegIt = RI.begin(), RegionEndIt = RI.end(); RegIt != RegionEndIt;
        ++RegIt) {
+
+    if (RegIt->isLoopMaterializationCandidate()) {
+      continue;
+    }
 
     setRegion(RegIt);
     VisitedNodes.clear();

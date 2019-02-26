@@ -1,6 +1,6 @@
 //===- HIRCompleteUnroll.cpp - Implements CompleteUnroll class ------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -186,9 +186,10 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
                                      const TargetTransformInfo &TTI,
                                      HIRLoopStatistics &HLS, HIRDDAnalysis &DDA,
                                      HIRSafeReductionAnalysis &HSRA,
-                                     unsigned OptLevel, bool IsPreVec)
+                                     unsigned OptLevel, bool IsPreVec,
+                                     bool PragmaOnlyUnroll)
     : HIRF(HIRF), DT(DT), TTI(TTI), HLS(HLS), DDA(DDA), HSRA(HSRA),
-      IsPreVec(IsPreVec) {
+      IsPreVec(IsPreVec), PragmaOnlyUnroll(PragmaOnlyUnroll) {
 
   Limits.SavingsThreshold =
       IsPreVec ? PreVectorSavingsThreshold : PostVectorSavingsThreshold;
@@ -771,7 +772,13 @@ void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
     ++LoopLevel;
   }
 
-  CExpr->simplify(true);
+  // We need more information to determine whether CE is non-negative.
+  // Since the nodes are disconnected for the unrolling transformation, it is
+  // not safe to call HLNodeUtils::isKnownNonNegative(). Leaving this as a TODO
+  // until we encounter real perf issue. At that time we may have to relax the
+  // utility to handle disconnected nodes.
+  bool IsNonNegative = false;
+  CExpr->simplify(true, IsNonNegative);
 }
 
 ///// CanonExpr Visitor End
@@ -1139,8 +1146,7 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::populateRemBlobs(
   unsigned MaxNonRemBlobLevel = 0;
   auto CurNode = Ref->getHLDDNode();
 
-  for (auto BIt = Ref->blob_cbegin(), End = Ref->blob_cend(); BIt != End;
-       ++BIt) {
+  for (auto BIt = Ref->blob_begin(), End = Ref->blob_end(); BIt != End; ++BIt) {
     auto Blob = *BIt;
     auto Index = Blob->getBlobIndex();
     unsigned BlobLevel =
@@ -1166,8 +1172,7 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::getMaxNonSimplifiedBlobLevel(
 
   unsigned BasePtrIndex = Ref->getBasePtrBlobIndex();
 
-  for (auto BIt = Ref->blob_cbegin(), End = Ref->blob_cend(); BIt != End;
-       ++BIt) {
+  for (auto BIt = Ref->blob_begin(), End = Ref->blob_end(); BIt != End; ++BIt) {
     auto Blob = *BIt;
     auto Index = Blob->getBlobIndex();
     unsigned BlobLevel =
@@ -2878,6 +2883,11 @@ HIRCompleteUnroll::performTripCountAnalysis(HLLoop *Loop) {
     return std::make_pair(-1, 0);
   }
 
+  // Disable all other unrolling if only pragma enabled unrolling is allowed.
+  if (PragmaOnlyUnroll) {
+    return std::make_pair(-1, 0);
+  }
+
   if (!Loop->isInnermost()) {
     SmallVector<HLLoop *, 8> ChildLoops;
     Loop->getHLNodeUtils().gatherLoopsWithLevel(Loop, ChildLoops,
@@ -2998,6 +3008,13 @@ void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
+
+    // A sibling candidate loop may be removed by removeRedundantNodes(). This
+    // check skips them.
+    if (!Loop->isAttached()) {
+      continue;
+    }
+
     HLNode *ParentNode = Loop->getParentLoop();
     if (!ParentNode) {
       ParentNode = Loop->getParentRegion();
@@ -3184,6 +3201,6 @@ bool HIRCompleteUnrollLegacyPass::runOnFunction(Function &F) {
              getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
              getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
-             OptLevel, IsPreVec)
+             OptLevel, IsPreVec, PragmaOnlyUnroll)
       .run();
 }

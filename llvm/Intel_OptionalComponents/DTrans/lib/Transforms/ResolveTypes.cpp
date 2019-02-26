@@ -57,9 +57,9 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 using namespace llvm;
-using dtrans::getTypeBaseName;
 using dtrans::collectAllStructTypes;
 using dtrans::getContainedStructTy;
+using dtrans::getTypeBaseName;
 
 #define DEBUG_TYPE "dtrans-resolvetypes"
 
@@ -77,7 +77,7 @@ bool typesHaveSameBaseName(StructType *StTyA, StructType *StTyB) {
   if (!StTyA->hasName() || !StTyB->hasName())
     return false;
   return getTypeBaseName(StTyA->getName())
-    .equals(getTypeBaseName(StTyB->getName()));
+      .equals(getTypeBaseName(StTyB->getName()));
 }
 
 class DTransResolveTypesWrapper : public ModulePass {
@@ -140,6 +140,24 @@ private:
     Distinct    // The types are neither equivalent nor compatible
   };
 
+  // These using directives are here to allow the container type to be easily
+  // changed, without needing to modify all the method interfaces that take
+  // these types.
+  //
+  // Container type that will be used for storing a mapping from a structure
+  // type to the set of other structures which share a common base name. The
+  // set stored for each structure type in the map are the types that will be
+  // analyzed for equivalence/compatibility with one another. This is using a
+  // MapVector container so that trace messages from the resolve types pass
+  // are emitted in a consistent order.
+  using CandidateTypeContainer =
+      MapVector<StructType *, SetVector<StructType *>>;
+
+  // Container type used to store a set of speculative compatible type
+  // remaps that are pending that will also need to take place for the type
+  // currently being evaluated within the function remapCompatibleTypes()
+  using PendingRemapContainer = MapVector<StructType *, StructType *>;
+
   CompareResult compareTypes(StructType *TyA, StructType *TyB);
   CompareResult
   compareTypeMembers(StructType *TyA, StructType *TyB,
@@ -165,18 +183,16 @@ private:
   // Store the candidates into the container \p CandidateTypeSets, where the key
   // will be a structure type with no suffix, and the value will be the set of
   // types that share the common base name.
-  void identifyCandidateSets(
-      Module &M, SetVector<StructType *> &SeenTypes,
-      SmallPtrSetImpl<StructType *> &ExternTypes,
-      DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets);
+  void identifyCandidateSets(Module &M, SetVector<StructType *> &SeenTypes,
+                             SmallPtrSetImpl<StructType *> &ExternTypes,
+                             CandidateTypeContainer &CandidateTypeSets);
 
   // Examine the types that are dependent on types used externally to determine
   // types that cannot be remapped.
-  void findNonRemappableTypes(
-      Module &M,
-      DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
-      SmallPtrSetImpl<StructType *> &ExternTypes,
-      SmallPtrSetImpl<StructType *> &NonRemappableTypes);
+  void
+  findNonRemappableTypes(Module &M, CandidateTypeContainer &CandidateTypeSets,
+                         SmallPtrSetImpl<StructType *> &ExternTypes,
+                         SmallPtrSetImpl<StructType *> &NonRemappableTypes);
 
   // Examine the \p CandidateTypeSets to determine which types are equivalent
   // and which types are compatible. Refer to the description of compareTypes
@@ -192,7 +208,7 @@ private:
   // remapCompatibleTypes
   // routine.
   bool identifyEquivalentAndCompatibleTypes(
-      DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
+      CandidateTypeContainer &CandidateTypeSets,
       SmallPtrSetImpl<StructType *> &ExternTypes,
       EquivalenceClasses<StructType *> &CompatibleTypes);
 
@@ -202,13 +218,12 @@ private:
   bool resolveNestedTypes(StructType *Ty, StructType *RemapTy,
                           EquivalenceClasses<StructType *> &CompatibleTypes,
                           CompatibleTypeAnalyzer &CTA,
-                          DenseMap<StructType *, StructType *> &PendingRemaps);
+                          PendingRemapContainer &PendingRemaps);
 
-  bool
-  canResolveTypeToType(StructType *Ty, StructType *RemapTy,
-                       EquivalenceClasses<StructType *> &CompatibleTypes,
-                       CompatibleTypeAnalyzer &CTA,
-                       DenseMap<StructType *, StructType *> &PendingRemaps);
+  bool canResolveTypeToType(StructType *Ty, StructType *RemapTy,
+                            EquivalenceClasses<StructType *> &CompatibleTypes,
+                            CompatibleTypeAnalyzer &CTA,
+                            PendingRemapContainer &PendingRemaps);
 };
 
 // This class analyzes all globals and functions in the module to see if any
@@ -384,8 +399,11 @@ public:
   // to the InstVisitor base class which will in turn call our instruction
   // visitors.
   void visitModule(Module &M) {
-    for (auto &GV : M.globals())
+    for (auto &GV : M.globals()) {
       visitGlobalValueUsers(&GV);
+      if (GV.hasInitializer() && !GV.getInitializer()->isZeroValue())
+        visitGlobalValueInitializer(GV.getInitializer());
+    }
     for (auto &A : M.aliases())
       visitGlobalValueUsers(&A);
 
@@ -500,16 +518,16 @@ private:
     // tracked by this TypeUseInfo object.
     //
     // i.e. We saw a bitcast from the TypeUseInfoType *to* the set entry type.
-    SetVector<Type *> BitcastToSet;
-    SetVector<Type *> FnBitcastToSet;
+    SmallPtrSet<Type *, 4> BitcastToSet;
+    SmallPtrSet<Type *, 4> FnBitcastToSet;
 
     // Each type in this set is a type that was seen as the source of
     // a bitcast (or implicit conversion in a bitcast call) to the type
     // tracked by this TypeUseInfo object.
     //
     // i.e. We saw a bitcast *from* the set entry type to the TypeUseInfo type.
-    SetVector<Type *> BitcastFromSet;
-    SetVector<Type *> FnBitcastFromSet;
+    SmallPtrSet<Type *, 4> BitcastFromSet;
+    SmallPtrSet<Type *, 4> FnBitcastFromSet;
 
     // This value indicates whether or not we saw a GEP access to the type
     // using a non-constant index.
@@ -530,6 +548,18 @@ private:
   void dumpCollectedData() {
     auto CompareStructName = [](StructType *ElemA, StructType *ElemB) {
       return ElemA->getName() < ElemB->getName();
+    };
+
+    auto TypeToString = [](Type *Ty) {
+      std::string OutputVal;
+      raw_string_ostream OutputStream(OutputVal);
+      auto *DST = dyn_cast<StructType>(Ty);
+      if (DST && DST->hasName())
+        OutputStream << "    " << DST->getName();
+      else
+        OutputStream << "    " << *Ty;
+      OutputStream.flush();
+      return OutputVal;
     };
 
     dbgs() << "\n========================\n";
@@ -630,13 +660,9 @@ private:
           dbgs() << " None\n";
         } else {
           dbgs() << "\n";
-          for (auto *DestTy : CastTo) {
-            auto *DST = dyn_cast<StructType>(DestTy);
-            if (DST && DST->hasName())
-              dbgs() << "    " << DST->getName() << "\n";
-            else
-              dbgs() << "    " << *DestTy << "\n";
-          }
+          dtrans::printCollectionSorted(dbgs(), CastTo.begin(), CastTo.end(),
+                                        "\n", TypeToString);
+          dbgs() << "\n";
         }
 
         dbgs() << "  Bitcast from:";
@@ -645,13 +671,9 @@ private:
           dbgs() << " None\n";
         } else {
           dbgs() << "\n";
-          for (auto *SrcTy : CastFrom) {
-            auto *SST = dyn_cast<StructType>(SrcTy);
-            if (SST && SST->hasName())
-              dbgs() << "    " << SST->getName() << "\n";
-            else
-              dbgs() << "    " << *SrcTy << "\n";
-          }
+          dtrans::printCollectionSorted(dbgs(), CastFrom.begin(),
+                                        CastFrom.end(), "\n", TypeToString);
+          dbgs() << "\n";
         }
 
         dbgs() << "  Fn Bitcast to:";
@@ -660,13 +682,9 @@ private:
           dbgs() << " None\n";
         } else {
           dbgs() << "\n";
-          for (auto *DestTy : FnCastTo) {
-            auto *DST = dyn_cast<StructType>(DestTy);
-            if (DST && DST->hasName())
-              dbgs() << "    " << DST->getName() << "\n";
-            else
-              dbgs() << "    " << *DestTy << "\n";
-          }
+          dtrans::printCollectionSorted(dbgs(), FnCastTo.begin(),
+                                        FnCastTo.end(), "\n", TypeToString);
+          dbgs() << "\n";
         }
 
         dbgs() << "  Fn Bitcast from:";
@@ -675,13 +693,9 @@ private:
           dbgs() << " None\n";
         } else {
           dbgs() << "\n";
-          for (auto *SrcTy : FnCastFrom) {
-            auto *SST = dyn_cast<StructType>(SrcTy);
-            if (SST && SST->hasName())
-              dbgs() << "    " << SST->getName() << "\n";
-            else
-              dbgs() << "    " << *SrcTy << "\n";
-          }
+          dtrans::printCollectionSorted(dbgs(), FnCastFrom.begin(),
+                                        FnCastFrom.end(), "\n", TypeToString);
+          dbgs() << "\n";
         }
 
         StructType *RemapCandidateTy = getRemapCandidate(Ty);
@@ -718,6 +732,65 @@ private:
       // If we still haven't reached an instruction user, keep following uses.
       if (auto *CE = dyn_cast<ConstantExpr>(U))
         visitGlobalValueUsers(CE);
+    }
+  }
+
+  // This function updates the NonScalarFieldsUsed bitmask for structure types
+  // used for initializing global variables. \p C is a global variable
+  // initializer for a non-zero initialization. If the structure type is a
+  // candidate for compatible type remapping, then these initializations need
+  // to be treated as field uses when checking if a remapping is possible.
+  // Otherwise, it is possible that a structure type is remapped, but the
+  // pointer members within it are not remapped, leading to an inconsistent
+  // state when creating a new initializer value for the global variable.
+  //
+  // For example:
+  //    %struct.Node = type { %struct.NodeSocket* }
+  //    %struct.Node.66557 = type { %struct.NodeSocket.66556* }
+  //    @var = global %struct.Node.66557 { %struct.NodeSocket.66556* null }
+  //
+  // If %struct.Node.66557 is replaced to be %struct.Node, then this initializer
+  // would also need to be changed to use %struct.NodeSocket* in place of
+  // %struct.NodeSocket.66556*. This may be possible by extending the behavior
+  // of the function remapCompatibleTypes to also try to remap pointer types
+  // within structures for initialized fields, like it does for nested types.
+  // However, this is a rare case that is not needed at the moment, so we will
+  // mark these fields as being used, which will prevent remapping this type,
+  // except to a compatible type that has a matching type for this field.
+  void visitGlobalValueInitializer(const Constant *C) {
+    llvm::Type *Ty = C->getType();
+    if (isa<ArrayType>(Ty)) {
+      visitGlobalValueInitializer(C->getAggregateElement(0U));
+      return;
+    }
+
+    // Check if the constant is initializing a structure that is going to be
+    // evaluated as a candidate for compatible type remapping. If so, we need
+    // to update the fields used bitmask for any non-scalar fields.
+    if (isTypeOfInterest(Ty)) {
+      SmallBitVector &Bits = TypeUseInfoMap[Ty].NonScalarFieldsUsed;
+
+      assert(C->getType()->isAggregateType() &&
+             "Expecting aggregate initializer");
+      unsigned NumElements = C->getType()->getNumContainedTypes();
+      for (unsigned I = 0; I < NumElements; ++I) {
+        Type *FieldTy = C->getAggregateElement(I)->getType();
+        if (FieldTy->isIntOrIntVectorTy())
+          continue;
+
+        if (Bits.size() <= I)
+          Bits.resize(I + 1);
+        Bits.set(I);
+        DEBUG_WITH_TYPE(
+            DTRT_COMPAT_VERBOSE,
+            dbgs() << "DTRT-compat: Global initializer accesses type:\n    "
+                   << *Ty << "\n  At index: " << I << "\n  Initializer:\n    "
+                   << *C << "\n");
+
+        // Update any nested types.
+        if (FieldTy->isAggregateType())
+          visitGlobalValueInitializer(C->getAggregateElement(I));
+      }
     }
   }
 
@@ -768,7 +841,7 @@ private:
         TypeUseInfoMap[IndexedTy].HasNonConstantIndexAccess = true;
         continue;
       }
-      // If we can't get a value for this constant or it exceeeds the capacity
+      // If we can't get a value for this constant or it exceeds the capacity
       // of an unsigned value, we can't track it.
       uint64_t IdxVal = Idx->getLimitedValue();
       if (IdxVal > std::numeric_limits<unsigned>::max()) {
@@ -918,7 +991,7 @@ bool ResolveTypesImpl::prepareTypes(Module &M) {
   SetVector<StructType *> SeenTypes;
   collectAllStructTypes(M, SeenTypes);
 
-  DenseMap<StructType *, SetVector<StructType *>> CandidateTypeSets;
+  CandidateTypeContainer CandidateTypeSets;
   identifyCandidateSets(M, SeenTypes, ExternTypes, CandidateTypeSets);
   if (CandidateTypeSets.empty())
     return false;
@@ -983,7 +1056,7 @@ void ResolveTypesImpl::collectExternalStructTypes(
 void ResolveTypesImpl::identifyCandidateSets(
     Module &M, SetVector<StructType *> &SeenTypes,
     SmallPtrSetImpl<StructType *> &ExternTypes,
-    DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets) {
+    CandidateTypeContainer &CandidateTypeSets) {
 
   // Based on the names of the structures, identify a set of structures
   // that may be related to one another as either being identical copies
@@ -1064,8 +1137,7 @@ void ResolveTypesImpl::identifyCandidateSets(
 // propagating to all types, and also enables "InFile" to be processed as a
 // candidate.
 void ResolveTypesImpl::findNonRemappableTypes(
-    Module &M,
-    DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
+    Module &M, CandidateTypeContainer &CandidateTypeSets,
     SmallPtrSetImpl<StructType *> &ExternTypes,
     SmallPtrSetImpl<StructType *> &NonRemappableTypes) {
 
@@ -1121,7 +1193,7 @@ void ResolveTypesImpl::findNonRemappableTypes(
         DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "Cannot remap type: "
                                              << BaseTy->getName() << "\n");
         Worklist.emplace_back(BaseTy);
-        for (auto *CandTy : It->getSecond()) {
+        for (auto *CandTy : It->second) {
           if (!Visited.count(CandTy)) {
             DEBUG_WITH_TYPE(DTRT_VERBOSE, dbgs() << "Cannot remap type: "
                                                  << CandTy->getName() << "\n");
@@ -1161,7 +1233,7 @@ void ResolveTypesImpl::findNonRemappableTypes(
 // If it is not equivalent to any of these, it will be added to the set of
 // alternatives.
 bool ResolveTypesImpl::identifyEquivalentAndCompatibleTypes(
-    DenseMap<StructType *, SetVector<StructType *>> &CandidateTypeSets,
+    CandidateTypeContainer &CandidateTypeSets,
     SmallPtrSetImpl<StructType *> &ExternTypes,
     EquivalenceClasses<StructType *> &CompatibleTypes) {
   bool TypesRemapped = false;
@@ -1219,7 +1291,7 @@ bool ResolveTypesImpl::remapCompatibleTypes(
     CompatibleTypeAnalyzer &CTA,
     EquivalenceClasses<StructType *> &CompatibleTypes) {
   bool TypesRemapped = false;
-  DenseMap<StructType *, StructType *> PendingRemaps;
+  PendingRemapContainer PendingRemaps;
 
   // Get a list of the leader types, sorted by name, so that analyzing and
   // remapping of compatible types will be in a deterministic order. This is
@@ -1301,8 +1373,7 @@ bool ResolveTypesImpl::remapCompatibleTypes(
 bool ResolveTypesImpl::resolveNestedTypes(
     StructType *Ty, StructType *RemapTy,
     EquivalenceClasses<StructType *> &CompatibleTypes,
-    CompatibleTypeAnalyzer &CTA,
-    DenseMap<StructType *, StructType *> &PendingRemaps) {
+    CompatibleTypeAnalyzer &CTA, PendingRemapContainer &PendingRemaps) {
 
   // Strip any array/vector wrappers from the type, but do not walk pointer
   // indirections.
@@ -1420,8 +1491,7 @@ bool ResolveTypesImpl::resolveNestedTypes(
 bool ResolveTypesImpl::canResolveTypeToType(
     StructType *Ty, StructType *RemapTy,
     EquivalenceClasses<StructType *> &CompatibleTypes,
-    CompatibleTypeAnalyzer &CTA,
-    DenseMap<StructType *, StructType *> &PendingRemaps) {
+    CompatibleTypeAnalyzer &CTA, PendingRemapContainer &PendingRemaps) {
 
   if (!CompatibleTypes.isEquivalent(Ty, RemapTy)) {
     DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,

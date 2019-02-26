@@ -1,6 +1,6 @@
 //===----- HIRSCCFormation.h - Identifies SCC in IRRegions -----*- C++ --*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -179,10 +179,10 @@ private:
   /// TargetNode from \p CurBB via predecessor bblock traversal.
   /// \p EndNode specifies the scope of traveral in CurBB. It is set to null
   /// to indicate full bblock traversal.
-  bool foundIntermediateSCCNode(const BasicBlock *CurBB,
-                                const Instruction *EndNode,
-                                const Instruction *TargetNode,
-                                const SCC &CurSCC) const;
+  bool foundIntermediateSCCNode(
+      const BasicBlock *CurBB, const Instruction *EndNode,
+      const Instruction *TargetNode, const SCC &CurSCC,
+      SmallPtrSet<const BasicBlock *, 8> &VisitedBBs) const;
 
   /// Returns true if there is live range overlap on SCC edges originating from
   /// \p Node.

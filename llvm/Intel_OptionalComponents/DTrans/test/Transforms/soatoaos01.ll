@@ -1,5 +1,5 @@
-; RUN: opt < %s -dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dtrans-soatoaos -enable-dtrans-soatoaos -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaos -dtrans-soatoaos-typename=noname -disable-output 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; This test check essential layout requirements and simple CFG properties. See comments inlined.

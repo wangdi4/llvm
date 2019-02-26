@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -50,7 +50,7 @@ public:
                 HLLoop *Loop, LoopOptReportBuilder &LORB, WRNVecLoopNode *WRLp,
                 const VPlanIdioms::Opcode SearchLoopType)
       : TLI(TLI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
-        Context(Fn.getContext()), OrigLoop(Loop), PeelLoop(nullptr),
+        Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
         TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
         SearchLoopType(SearchLoopType) {}

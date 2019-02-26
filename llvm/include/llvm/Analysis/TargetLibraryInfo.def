@@ -1,9 +1,8 @@
 //===-- TargetLibraryInfo.def - Library information -------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -139,6 +138,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNKSt13runtime_error4whatEv")
 /// void std::ctype<char>::_M_widen_init() const
 TLI_DEFINE_ENUM_INTERNAL(ZNKSt5ctypeIcE13_M_widen_initEv)
 TLI_DEFINE_STRING_INTERNAL("_ZNKSt5ctypeIcE13_M_widen_initEv")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::compare(char const*) const
+TLI_DEFINE_ENUM_INTERNAL(ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc)
+TLI_DEFINE_STRING_INTERNAL("_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc")
 /// const char * std::bad_alloc::what()
 TLI_DEFINE_ENUM_INTERNAL(ZNKSt9bad_alloc4whatEv)
 TLI_DEFINE_STRING_INTERNAL("_ZNKSt9bad_alloc4whatEv")
@@ -307,6 +309,24 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt6localeC1Ev")
 /// std::locale::~locale()
 TLI_DEFINE_ENUM_INTERNAL(ZNSt6localeD1Ev)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt6localeD1Ev")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_replace(unsigned long, unsigned long, char const*, unsigned long)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_append(char const*, unsigned long)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_assign(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_create(unsigned long&, unsigned long)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_mutate(unsigned long, unsigned long, char const*, unsigned long)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm")
+/// std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::_M_sync(char*, unsigned long, unsigned long)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm")
 /// void std::__detail::_List_node_base::_M_transfer(std::__detail::_List_node_base*, std::__detail::_List_node_base*)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_")
@@ -382,6 +402,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZSt20__throw_length_errorPKc")
 /// void std::__throw_out_of_range(char const*)
 TLI_DEFINE_ENUM_INTERNAL(ZSt20__throw_out_of_rangePKc)
 TLI_DEFINE_STRING_INTERNAL("_ZSt20__throw_out_of_rangePKc")
+/// std::__throw_out_of_range_fmt(char const*, ...)
+TLI_DEFINE_ENUM_INTERNAL(ZSt24__throw_out_of_range_fmtPKcz)
+TLI_DEFINE_STRING_INTERNAL("_ZSt24__throw_out_of_range_fmtPKcz")
 /// void std::_Rb_tree_rebalance_for_erase(std::_Rb_tree_node_base*, std::_Rb_tree_node_base&)
 TLI_DEFINE_ENUM_INTERNAL(ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_)
 TLI_DEFINE_STRING_INTERNAL("_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_")
@@ -2051,6 +2074,22 @@ TLI_DEFINE_STRING_INTERNAL("reallocf")
 /// char *realpath(const char *file_name, char *resolved_name);
 TLI_DEFINE_ENUM_INTERNAL(realpath)
 TLI_DEFINE_STRING_INTERNAL("realpath")
+#if INTEL_CUSTOMIZATION
+/// int regcomp(regex_t *preg, const char *regex, int cflags);
+TLI_DEFINE_ENUM_INTERNAL(regcomp)
+TLI_DEFINE_STRING_INTERNAL("regcomp")
+/// size_t regerror(int errcode, const regex_t *preg, char *errbuf,
+///                 size_t errbuf_size);
+TLI_DEFINE_ENUM_INTERNAL(regerror)
+TLI_DEFINE_STRING_INTERNAL("regerror")
+/// int regexec(const regex_t *preg, const char *string, size_t nmatch,
+///             regmatch_t pmatch[], int eflags);
+TLI_DEFINE_ENUM_INTERNAL(regexec)
+TLI_DEFINE_STRING_INTERNAL("regexec")
+/// void regfree(regex_t *preg);
+TLI_DEFINE_ENUM_INTERNAL(regfree)
+TLI_DEFINE_STRING_INTERNAL("regfree")
+#endif // INTEL_CUSTOMIZATION
 /// int remove(const char *path);
 TLI_DEFINE_ENUM_INTERNAL(remove)
 TLI_DEFINE_STRING_INTERNAL("remove")

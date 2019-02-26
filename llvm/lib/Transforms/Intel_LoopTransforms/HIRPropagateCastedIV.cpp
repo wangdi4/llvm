@@ -1,7 +1,7 @@
 //===- HIRPropagateCastedIV.cpp - Implements PropagateCastedIV class
 //------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -106,7 +106,7 @@ void CollectMemRefs::visit(HLDDNode *Node) {
 
     bool IsValid = true;
 
-    for (auto BIt = Ref->blob_cbegin(), End = Ref->blob_cend(); BIt != End;
+    for (auto BIt = Ref->blob_begin(), End = Ref->blob_end(); BIt != End;
          ++BIt) {
       auto Blob = *BIt;
       if (Blob->getBlobIndex() != CandidateBlobIndex && Blob->isNonLinear()) {

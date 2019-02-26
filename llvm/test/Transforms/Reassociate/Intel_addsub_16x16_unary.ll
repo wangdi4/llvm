@@ -1,32 +1,31 @@
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=true -addsub-reassoc-unshare-leaves=true -addsub-reassoc-canonicalize-group=true -S | FileCheck %s -check-prefix=CHECK_CANON_GROUP
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=true -addsub-reassoc-unshare-leaves=true -addsub-reassoc-canonicalize-group=false -S | FileCheck %s -check-prefix=CHECK_UNSHARE
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=true -addsub-reassoc-unshare-leaves=false -addsub-reassoc-canonicalize-group=false -S | FileCheck %s -check-prefix=CHECK_UNARY_ASSOC
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=true -addsub-reassoc-memcan-enable-unary-associations=false -addsub-reassoc-unshare-leaves=false -addsub-reassoc-canonicalize-group=false -S | FileCheck %s -check-prefix=CHECK_CHAIN_REUSE
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-reuse-chain=false -addsub-reassoc-memcan-enable-unary-associations=false -addsub-reassoc-unshare-leaves=false -addsub-reassoc-canonicalize-group=false -S | FileCheck %s -check-prefix=CHECK_SIMP
-; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=false -addsub-reassoc-simplify-chains=false -addsub-reassoc-reuse-chain=false -addsub-reassoc-memcan-enable-unary-associations=false -addsub-reassoc-unshare-leaves=false -addsub-reassoc-canonicalize-group=false -S | FileCheck %s -check-prefix=CHECK
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-memcan-enable-unary-associations=true -addsub-reassoc-unshare-leaves=true -addsub-reassoc-canonicalize-group=true -S | FileCheck %s -check-prefix=CHECK_CANON_GROUP
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-memcan-enable-unary-associations=true -addsub-reassoc-unshare-leaves=true -addsub-reassoc-canonicalize-group=false -S | FileCheck %s -check-prefix=CHECK_UNSHARE
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-memcan-enable-unary-associations=true -addsub-reassoc-unshare-leaves=false -addsub-reassoc-canonicalize-group=false -S | FileCheck %s -check-prefix=CHECK_UNARY_ASSOC
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=true -addsub-reassoc-simplify-chains=true -addsub-reassoc-memcan-enable-unary-associations=false -addsub-reassoc-unshare-leaves=false -addsub-reassoc-canonicalize-group=false -S | FileCheck %s -check-prefix=CHECK_SIMP
+; RUN: opt < %s -addsub-reassoc -addsub-reassoc-simplify-trunks=false -addsub-reassoc-simplify-chains=false -addsub-reassoc-memcan-enable-unary-associations=false -addsub-reassoc-unshare-leaves=false -addsub-reassoc-canonicalize-group=false -S | FileCheck %s -check-prefix=CHECK
 
 ; This is a test for AddSubReassoc pass to check that it kicks in for satd_16x16 like pattern.
 
-; CHECK_CANON_GROUP: [[l34:%.*]] = shl i32 %25, 16
-; CHECK_CANON_GROUP: [[l35:%.*]] = shl i32 %33, 16
-; CHECK_CANON_GROUP: [[Chain_T24_187:%.*]] = sub i32 [[l35]], %29
-; CHECK_CANON_GROUP: [[Chain_T24_185:%.*]] = sub i32 [[Chain_T24_187]], [[l34]]
-; CHECK_CANON_GROUP: [[Chain1_3:%.*]] = add i32 [[Chain_T24_185]], %21
-; CHECK_CANON_GROUP: [[l36:%.*]] = shl i32 %32, 16
-; CHECK_CANON_GROUP: [[l37:%.*]] = shl i32 %24, 16
-; CHECK_CANON_GROUP: [[Chain_T24_174178:%.*]] = sub i32 [[l36]], %28
-; CHECK_CANON_GROUP: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]], [[l37]]
-; CHECK_CANON_GROUP: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]], %20
-; CHECK_CANON_GROUP: [[l38:%.*]] = shl i32 %31, 16
-; CHECK_CANON_GROUP: [[l39:%.*]] = shl i32 %23, 16
-; CHECK_CANON_GROUP: [[Chain_T24_162166:%.*]] = sub i32 [[l38]], %27
-; CHECK_CANON_GROUP: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]], [[l39]]
-; CHECK_CANON_GROUP: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]], %19
-; CHECK_CANON_GROUP: [[l40:%.*]] = shl i32 %30, 16
-; CHECK_CANON_GROUP: [[l41:%.*]] = shl i32 %22, 16
-; CHECK_CANON_GROUP: [[Chain_T24_158:%.*]] = sub i32 [[l40]], %26
-; CHECK_CANON_GROUP: [[Chain_T24_156:%.*]] = sub i32 [[Chain_T24_158]], [[l41]]
-; CHECK_CANON_GROUP: [[Chain4_3:%.*]] = add i32 [[Chain_T24_156]], %18
+; CHECK_CANON_GROUP: [[Chain1_191:%.*]] = shl i32
+; CHECK_CANON_GROUP: [[Chain1_189:%.*]] = shl i32
+; CHECK_CANON_GROUP: [[Chain1_187:%.*]] = sub i32 [[Chain1_189]]
+; CHECK_CANON_GROUP: [[Chain1_185:%.*]] = sub i32 [[Chain1_187]], [[Chain1_191]]
+; CHECK_CANON_GROUP: [[Chain1_3:%.*]] = add i32 [[Chain1_185]]
+; CHECK_CANON_GROUP: [[Chain2_191:%.*]] = shl i32
+; CHECK_CANON_GROUP: [[Chain2_189:%.*]] = shl i32
+; CHECK_CANON_GROUP: [[Chain2_187:%.*]] = sub i32 [[Chain2_189]]
+; CHECK_CANON_GROUP: [[Chain2_185:%.*]] = sub i32 [[Chain2_187]], [[Chain2_191]]
+; CHECK_CANON_GROUP: [[Chain2_3:%.*]] = add i32 [[Chain2_185]]
+; CHECK_CANON_GROUP: [[Chain3_191:%.*]] = shl i32
+; CHECK_CANON_GROUP: [[Chain3_189:%.*]] = shl i32
+; CHECK_CANON_GROUP: [[Chain3_187:%.*]] = sub i32 [[Chain3_189]]
+; CHECK_CANON_GROUP: [[Chain3_185:%.*]] = sub i32 [[Chain3_187]], [[Chain3_191]]
+; CHECK_CANON_GROUP: [[Chain3_3:%.*]] = add i32 [[Chain3_185]]
+; CHECK_CANON_GROUP: [[Chain4_191:%.*]] = shl i32
+; CHECK_CANON_GROUP: [[Chain4_189:%.*]] = shl i32
+; CHECK_CANON_GROUP: [[Chain4_187:%.*]] = sub i32 [[Chain4_189]]
+; CHECK_CANON_GROUP: [[Chain4_185:%.*]] = sub i32 [[Chain4_187]], [[Chain4_191]]
+; CHECK_CANON_GROUP: [[Chain4_3:%.*]] = add i32 [[Chain4_185]]
 ; CHECK_CANON_GROUP: [[Bridge1_1:%.*]] = add i32 [[Chain4_3]], [[Chain3_3]]
 ; CHECK_CANON_GROUP: [[Bridge1_2:%.*]] = add i32 [[Bridge1_1]], [[Chain2_3]]
 ; CHECK_CANON_GROUP: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
@@ -44,21 +43,29 @@
 ; CHECK_CANON_GROUP: [[Bridge4_3:%.*]] = add i32 [[Bridge4_2]], [[Chain1_3]]
 ; CHECK_CANON_GROUP: store i32 [[Bridge4_3]]
 
-; CHECK_UNSHARE: [[Chain_T24_187:%.*]] = sub i32 [[l44:%.*]], [[l40:%.*]]
-; CHECK_UNSHARE: [[Chain_T24_185:%.*]] = add i32 [[Chain_T24_187]], [[l16:%.*]]
-; CHECK_UNSHARE: [[Chain1_3:%.*]] = sub i32 [[Chain_T24_185]], [[l28:%.*]]
-; CHECK_UNSHARE: [[Chain_T24_174178:%.*]] = sub i32 [[l41:%.*]], [[l45:%.*]]
-; CHECK_UNSHARE: [[Chain_T24_173177:%.*]] = sub i32 [[Chain_T24_174178]], [[l17:%.*]]
-; CHECK_UNSHARE: [[Chain2_3:%.*]] = add i32 [[Chain_T24_173177]], [[l29:%.*]]
-; CHECK_UNSHARE: [[Chain_T24_162166:%.*]] = sub i32 [[l42:%.*]], [[l46:%.*]]
-; CHECK_UNSHARE: [[Chain_T24_161165:%.*]] = sub i32 [[Chain_T24_162166]], [[l18:%.*]]
-; CHECK_UNSHARE: [[Chain3_3:%.*]] = add i32 [[Chain_T24_161165]], [[l30:%.*]]
-; CHECK_UNSHARE: [[Chain_T24_158:%.*]] = sub i32 [[l47:%.*]], [[l43:%.*]]
-; CHECK_UNSHARE: [[Chain_T24_156:%.*]] = add i32 [[Chain_T24_158]], [[l19:%.*]]
-; CHECK_UNSHARE: [[Chain4_3:%.*]] = sub i32 [[Chain_T24_156]], [[l31:%.*]]
-; CHECK_UNSHARE: [[Bridge1_1:%.*]] = sub i32 [[Chain4_3]], [[Chain3_3]]
-; CHECK_UNSHARE: [[Bridge1_2:%.*]] = sub i32 [[Bridge1_1]], [[Chain2_3]]
-; CHECK_UNSHARE: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3]]
+; CHECK_UNSHARE: [[Chain1_191:%.*]] = shl i32
+; CHECK_UNSHARE: [[Chain1_189:%.*]] = shl i32
+; CHECK_UNSHARE: [[Chain1_187:%.*]] = sub i32 [[l44:%.*]], [[l40:%.*]]
+; CHECK_UNSHARE: [[Chain1_185:%.*]] = add i32 [[Chain1_187]], [[Chain1_189]]
+; CHECK_UNSHARE: [[Chain1_3:%.*]] = sub i32 [[Chain1_185]], [[Chain1_191]]
+; CHECK_UNSHARE: [[Chain2_191:%.*]] = shl i32
+; CHECK_UNSHARE: [[Chain2_189:%.*]] = shl i32
+; CHECK_UNSHARE: [[Chain2_173177:%.*]] = sub i32 [[Chain2_189]], [[Chain2_191]]
+; CHECK_UNSHARE: [[Chain2_174178:%.*]] = sub i32 [[Chain2_173177]]
+; CHECK_UNSHARE: [[Chain2_3:%.*]] = add i32 [[Chain2_174178]]
+; CHECK_UNSHARE: [[Chain3_191:%.*]] = shl i32
+; CHECK_UNSHARE: [[Chain3_189:%.*]] = shl i32
+; CHECK_UNSHARE: [[Chain3_173177:%.*]] = sub i32 [[Chain3_189]], [[Chain3_191]]
+; CHECK_UNSHARE: [[Chain3_174178:%.*]] = sub i32 [[Chain3_173177]]
+; CHECK_UNSHARE: [[Chain3_3:%.*]] = add i32 [[Chain3_174178]]
+; CHECK_UNSHARE: [[Chain4_191:%.*]] = shl i32
+; CHECK_UNSHARE: [[Chain4_189:%.*]] = shl i32
+; CHECK_UNSHARE: [[Chain4_173177:%.*]] = sub i32 [[Chain4_189]], [[Chain4_191]]
+; CHECK_UNSHARE: [[Chain4_174178:%.*]] = sub i32 [[Chain4_173177]]
+; CHECK_UNSHARE: [[Chain4_3:%.*]] = add i32 [[Chain4_174178]]
+; CHECK_UNSHARE: [[Bridge1_1:%.*]] = sub i32 [[Chain4_3:%.*]], [[Chain3_3:%.*]]
+; CHECK_UNSHARE: [[Bridge1_2:%.*]] = sub i32 [[Bridge1_1]], [[Chain2_3:%.*]]
+; CHECK_UNSHARE: [[Bridge1_3:%.*]] = add i32 [[Bridge1_2]], [[Chain1_3:%.*]]
 ; CHECK_UNSHARE: store i32 [[Bridge1_3]]
 ; CHECK_UNSHARE: [[Bridge2_1:%.*]] = sub i32 [[Chain3_3]], [[Chain4_3]]
 ; CHECK_UNSHARE: [[Bridge2_2:%.*]] = sub i32 [[Bridge2_1]], [[Chain2_3]]
@@ -73,33 +80,35 @@
 ; CHECK_UNSHARE: [[Bridge4_3:%.*]] = add i32 [[Bridge4_2]], [[Chain1_3]]
 ; CHECK_UNSHARE: store i32 [[Bridge4_3]]
 
-; CHECK_UNARY_ASSOC:  [[Chain0_1:%.*]] = sub i32 [[l27:%27]], [[l19:%.*]]
-; CHECK_UNARY_ASSOC:  [[Chain0_2:%.*]] = sub i32 [[Chain0_1]], [[l35:%.*]]
-; CHECK_UNARY_ASSOC:  [[Chain0_3:%.*]] = add i32 [[Chain0_2]], [[l37:%.*]]
-; CHECK_UNARY_ASSOC:  [[Chain1_1:%.*]] = sub i32 [[l18:%.*]], [[l26:%.*]]
-; CHECK_UNARY_ASSOC:  [[Chain1_2:%.*]] = add i32 [[Chain1_1]], [[l38:%.*]]
-; CHECK_UNARY_ASSOC:  [[Chain1_3:%.*]] = sub i32 [[Chain1_2]], [[l39:%.*]]
-; CHECK_UNARY_ASSOC:  [[Bridge0_0:%.*]] = add i32 [[Trunk0_1:%.*]], [[Chain1_3]]
-; CHECK_UNARY_ASSOC:  [[Bridge0_1:%.*]] = sub i32 [[Bridge0_0]], [[Chain0_3]]
+; CHECK_UNARY_ASSOC: [[Chain1_191:%.*]] = shl i32
+; CHECK_UNARY_ASSOC: [[Chain1_189:%.*]] = shl i32
+; CHECK_UNARY_ASSOC: [[Chain1_173177:%.*]] = sub i32 [[Chain1_189]], [[Chain1_191]]
+; CHECK_UNARY_ASSOC: [[Chain1_174178:%.*]] = sub i32 [[Chain1_173177]]
+; CHECK_UNARY_ASSOC: [[Chain1_3:%.*]] = add i32 [[Chain1_174178]]
+; CHECK_UNARY_ASSOC: [[Chain2_191:%.*]] = shl i32
+; CHECK_UNARY_ASSOC: [[Chain2_189:%.*]] = shl i32
+; CHECK_UNARY_ASSOC: [[Chain2_173177:%.*]] = sub i32 [[Chain2_189]], [[Chain2_191]]
+; CHECK_UNARY_ASSOC: [[Chain2_174178:%.*]] = sub i32 [[Chain2_173177]]
+; CHECK_UNARY_ASSOC: [[Chain2_3:%.*]] = add i32 [[Chain2_174178]]
+; CHECK_UNARY_ASSOC: [[Chain3_189:%.*]] = shl i32
+; CHECK_UNARY_ASSOC: [[Chain3_173177:%.*]] = sub i32 [[Chain3_189]]
+; CHECK_UNARY_ASSOC: [[Chain3_3:%.*]] = add i32 [[Chain3_173177]]
+; CHECK_UNARY_ASSOC: [[Bridge0_0:%.*]] = sub i32 [[Chain3_3]], [[Chain2_3]]
+; CHECK_UNARY_ASSOC: [[Bridge0_1:%.*]] = add i32 [[Bridge0_0]], [[Chain1_3]]
 ; CHECK_UNARY_ASSOC: store i32 [[Bridge0_1]]
 
-; CHECK_CHAIN_REUSE:  [[Chain0_1:%.*]] = sub i32 [[l57:%.*]], [[l65:%.*]]
-; CHECK_CHAIN_REUSE:  [[Chain1_1:%.*]] = sub i32 [[l64:%.*]], [[l56:%.*]]
-; CHECK_CHAIN_REUSE:  [[Bridge0_0:%.*]] = add i32 [[reass_add1995:%.*]], [[Chain1_1]]
-; CHECK_CHAIN_REUSE:  [[Bridge0_1:%.*]] = sub i32 [[Bridge0_0]], [[Chain0_1]]
+; CHECK_SIMP:  [[Chain1_1:%.*]] = sub i32 [[l57:%.*]], [[l65:%.*]]
+; CHECK_SIMP:  [[Chain2_1:%.*]] = sub i32 [[l64:%.*]], [[l56:%.*]]
+; CHECK_SIMP:  [[Bridge0_0:%.*]] = sub i32 [[Chain2_1]], [[Chain1_1]]
+; CHECK_SIMP:  [[Bridge0_1:%.*]] = add i32 [[Bridge0_0]],
 
-; CHECK_SIMP:  [[Chain0_1:%.*]] = sub i32 [[l57:%.*]], [[l65:%.*]]
-; CHECK_SIMP:  [[Chain1_1:%.*]] = sub i32 [[l64:%.*]], [[l56:%.*]]
-; CHECK_SIMP:  [[Bridge0_0:%.*]] = add i32 [[reass_add1995:%.*]], [[Chain1_1]]
-; CHECK_SIMP:  [[Bridge0_1:%.*]] = sub i32 [[Bridge0_0]], [[Chain0_1]]
-
-; CHECK:  [[Trunk0_0:%.*]] = add i32 0, [[reass_add1995:%.*]]
-; CHECK:  [[Chain0_0:%.*]] = sub i32 0, [[l65:%.*]]
-; CHECK:  [[Chain0_1:%.*]] = add i32 [[Chain0_0]], [[l57:%.*]]
-; CHECK:  [[Chain1_0:%.*]] = add i32 0, [[l64:%.*]]
-; CHECK:  [[Chain1_1:%.*]] = sub i32 [[Chain1_0]], [[l56:%.*]]
-; CHECK:  [[Bridge0_0:%.*]] = add i32 [[Trunk0_0]], [[Chain1_1]]
+; CHECK:  [[Chain0_0:%.*]] = add i32 0, [[l65:%.*]]
+; CHECK:  [[Chain0_1:%.*]] = sub i32 [[Chain0_0]], [[l57:%.*]]
+; CHECK:  [[Chain1_0:%.*]] = sub i32 0, [[l64:%.*]]
+; CHECK:  [[Chain1_1:%.*]] = add i32 [[Chain1_0]], [[l56:%.*]]
+; CHECK:  [[Bridge0_0:%.*]] = add i32 0, [[Chain1_1]]
 ; CHECK:  [[Bridge0_1:%.*]] = sub i32 [[Bridge0_0]], [[Chain0_1]]
+; CHECK:  [[Bridge0_2:%.*]] = add i32 [[Bridge0_1]]
 
 define dso_local i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i_pix1, i8* nocapture readonly %pix2, i32 %i_pix2) #2 {
 entry:

@@ -1,6 +1,6 @@
 //===-- IntelLoopVectorizationPlanner.cpp ---------------------------------===//
 //
-//   Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -17,6 +17,7 @@
 
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelLoopVectorizationCodeGen.h"
+#include "IntelNewVPlanPredicator.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanPredicator.h"
@@ -30,6 +31,8 @@
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
 #if INTEL_CUSTOMIZATION
+extern cl::opt<bool> VPlanConstrStressTest;
+
 cl::opt<uint64_t>
     VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
                         cl::desc("Default estimated trip count"));
@@ -91,7 +94,7 @@ static uint64_t getTripCountForFirstLoopInDfs(const VPlan *VPlan) {
   return VPlan->getVPLoopAnalysis()->getTripCountFor(Loop);
 }
 
-unsigned LoopVectorizationPlanner::buildInitialVPlans() {
+unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context) {
   collectDeadInstructions();
 
   unsigned MinVF, MaxVF;
@@ -104,7 +107,6 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans() {
   LLVM_DEBUG(dbgs() << "LVP: Safelen: " << Safelen << "\n");
 
   // Early return from vectorizer if forced VF or safelen is 1
-  // TODO: This should not be done if VPlanConstrStressTest is enabled
   if (ForcedVF == 1 || Safelen == 1) {
     LLVM_DEBUG(dbgs() << "LVP: The forced VF or safelen specified by user is "
                          "1, VPlans need not be constructed.\n");
@@ -125,6 +127,14 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans() {
 #endif // INTEL_CUSTOMIZATION
     MinVF = ForcedVF;
     MaxVF = ForcedVF;
+#if INTEL_CUSTOMIZATION
+  } else if (VPlanConstrStressTest) {
+    // If we are only stress testing VPlan construction, force VPlan
+    // construction for just VF 1. This avoids any divide by zero errors in the
+    // min/max VF computation.
+    MinVF = 1;
+    MaxVF = 1;
+#endif // INTEL_CUSTOMIZATION
   } else {
     unsigned MinWidthInBits, MaxWidthInBits;
     std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();
@@ -169,7 +179,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans() {
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<VPlan> Plan =
-        buildInitialVPlan(StartRangeVF, EndRangeVF);
+        buildInitialVPlan(StartRangeVF, EndRangeVF, Context);
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
@@ -339,8 +349,14 @@ void LoopVectorizationPlanner::predicate() {
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
-    VPlanPredicator VPP(VPlan);
-    VPP.predicate();
+    if (UseNewPredicator) {
+      NewVPlanPredicator VPP(*VPlan);
+      VPP.predicate();
+    } else {
+      VPlanPredicator VPP(VPlan);
+      VPP.predicate();
+    }
+
     PredicatedVPlans.insert(VPlan);
   }
 }
@@ -370,11 +386,10 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
   return {MinWidth, MaxWidth};
 }
 
-std::shared_ptr<VPlan>
-LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
-                                            unsigned &EndRangeVF) {
+std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
+    unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA);
+  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA, Context);
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
@@ -463,6 +478,11 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ValMap, ILV,
                          CallbackILV, Legal);
   State.CFG.PrevBB = ILV->getLoopVectorPH();
+
+#if INTEL_CUSTOMIZATION
+  // Set ILV transform state
+  ILV->setTransformState(&State);
+#endif // INTEL_CUSTOMIZATION
 
   VPlan *Plan = getVPlanForVF(BestVF);
   // TODO: This should be removed once we get proper divergence analysis

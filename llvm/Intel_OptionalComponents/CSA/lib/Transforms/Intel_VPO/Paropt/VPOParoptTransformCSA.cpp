@@ -1,6 +1,6 @@
 //=- VPOParoptTransformCSA.cpp - W-Region transformations for CSA -*- C++ -*-=//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -507,7 +507,7 @@ protected:
     if (auto *CA = I->getCopyAssign())
       VPOParoptUtils::genCopyAssignCall(CA, Old, Rep, InsPt);
     else if (VPOUtils::canBeRegisterized(New->getAllocatedType(), DL))
-      new StoreInst(new LoadInst(Rep, nullptr, InsPt), Old, InsPt);
+      new StoreInst(new LoadInst(Rep, "", InsPt), Old, InsPt);
     else
       VPOUtils::genMemcpy(Old, Rep, DL, New->getAlignment(), InsPt);
   }
@@ -643,7 +643,7 @@ static Value* genParRegionCalls(unsigned ID,
   auto *Region = Builder.CreateCall(RegionEntry, { UniqueID }, Name);
 
   Builder.SetInsertPoint(ExitPt);
-  Builder.CreateCall(RegionExit, { Region }, {});
+  Builder.CreateCall(RegionExit, { Region }, {}, "");
 
   return Region;
 }
@@ -668,7 +668,7 @@ static void genParSectionCalls(Value *Region,
   auto *Section = Builder.CreateCall(SectionEntry, { Region }, Name);
 
   Builder.SetInsertPoint(ExitPt);
-  Builder.CreateCall(SectionExit, { Section }, {});
+  Builder.CreateCall(SectionExit, { Section }, {}, "");
 }
 
 // Returns the number of workers to be created for the loop WRN.
@@ -1612,7 +1612,7 @@ std::pair<bool, bool> VPOParoptTransform::genCSALoop(WRegionNode *W) {
                                       "spmd");
 
     Builder.SetInsertPoint(&*W->getExitBBlock()->getFirstInsertionPt());
-    Builder.CreateCall(Exit, { SpmdID }, {});
+    Builder.CreateCall(Exit, { SpmdID }, {}, "");
   }
 
   // Insert parallel region entry/exit calls
@@ -1822,32 +1822,4 @@ static bool removeFirstFence(Range &&R, AtomicOrdering AO) {
       break;
     }
   return false;
-}
-
-bool VPOParoptTransform::removeCompilerGeneratedFences(WRegionNode *W) {
-  assert(isTargetCSA() && "unexpected target");
-
-  bool Changed = false;
-  switch (W->getWRegionKindID()) {
-    case WRegionNode::WRNAtomic:
-    case WRegionNode::WRNCritical:
-    case WRegionNode::WRNMaster:
-    case WRegionNode::WRNSingle:
-      if (auto *BB = W->getEntryBBlock()->getSingleSuccessor())
-        Changed |= removeFirstFence(make_range(BB->begin(), BB->end()),
-                                    AtomicOrdering::Acquire);
-      if (auto *BB = W->getExitBBlock()->getSinglePredecessor())
-        Changed |= removeFirstFence(make_range(BB->rbegin(), BB->rend()),
-                                    AtomicOrdering::Release);
-      break;
-    case WRegionNode::WRNBarrier:
-    case WRegionNode::WRNTaskwait:
-      if (auto *BB = W->getEntryBBlock()->getSingleSuccessor())
-        Changed |= removeFirstFence(make_range(BB->begin(), BB->end()),
-                                    AtomicOrdering::AcquireRelease);
-      break;
-    default:
-      llvm_unreachable("unexpected work region kind");
-  }
-  return Changed;
 }

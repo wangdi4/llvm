@@ -1,9 +1,10 @@
+; INTEL_FEATURE_CSA
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Verify that ssa deconstruction splits the function entry block at the directive entry intrinsic point if it is part of the region.
 
-; CHECK: EntryBB: entry.split
+; CHECK: EntryBB: %entry.split
 ; CHECK-NOT: alloca
 ; CHECK: %0 = @llvm.directive.region.entry(); [ DIR.OMP.PARALLEL.LOOP(),  QUAL.OMP.PRIVATE(&((%i)[0])),  QUAL.OMP.SHARED(&((%ip.addr)[0])) ]
 
@@ -51,5 +52,4 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-
-
+; end INTEL_FEATURE_CSA

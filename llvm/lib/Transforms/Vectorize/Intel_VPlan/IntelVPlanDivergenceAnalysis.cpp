@@ -116,8 +116,9 @@ bool VPlanDivergenceAnalysis::isTemporalDivergent(
     return false;
   // check whether any divergent loop carrying @Val terminates before control
   // proceeds to @ObservingBlock
-  for (const auto *VPLp = VPLI->getLoopFor(Inst->getParent());
-       VPLp != RegionLoop && !VPLp->contains(&ObservingBlock);
+  const auto *VPLp = VPLI->getLoopFor(Inst->getParent());
+  assert(VPLp && "Phi does not have parent loop?");
+  for (; VPLp && VPLp != RegionLoop && !VPLp->contains(&ObservingBlock);
        VPLp = VPLp->getParentLoop()) {
     if (DivergentLoops.find(VPLp) != DivergentLoops.end())
       return true;
@@ -420,13 +421,14 @@ void VPlanDivergenceAnalysis::computeImpl() {
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
   return (UniformOverrides.find(&V) != UniformOverrides.end() ||
-          isa<VPExternalDef>(V)) ;
+          isa<VPExternalDef>(V) || isa<VPMetadataAsValue>(V));
 }
 
 bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {
   return DivergentValues.find(&V) != DivergentValues.end();
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // print function differs from the community version because VPlan is VPLoop
 // based and not Module based (function DA).
 void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) const {
@@ -450,6 +452,7 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) const {
     }
   }
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPlanDivergenceAnalysis::compute(VPLoop *CandidateLoop,
                                       VPLoopInfo *VPLInfo,
@@ -474,8 +477,13 @@ void VPlanDivergenceAnalysis::compute(VPLoop *CandidateLoop,
   // after the scalar remainder loop is extracted, the loop exit condition will
   // be uniform
   // Source of code divergence here away from community - no getTerminator()
-  auto LoopExitCond = CandidateLoop->getExitingBlock()->getCondBit();
-  addUniformOverride(*LoopExitCond);
+  VPBlockBase *ExitingBlock = CandidateLoop->getExitingBlock();
+  if (ExitingBlock) {
+    auto LoopExitCond = ExitingBlock->getCondBit();
+    assert(LoopExitCond && "Loop exit condition not found");
+    if (LoopExitCond)
+      addUniformOverride(*LoopExitCond);
+  }
 
   computeImpl();
 

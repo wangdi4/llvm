@@ -1,4 +1,4 @@
-; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -padded-pointer-prop -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-test-paddedmalloc -dtrans-print-types -padded-pointer-prop -dtrans-paddedmalloc -S 2>&1 | FileCheck %s
 
 ; This test case tests the runtime badcast validation.
 

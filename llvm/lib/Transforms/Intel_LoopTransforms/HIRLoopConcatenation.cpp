@@ -1,6 +1,6 @@
 //===--- HIRLoopConcatenation.cpp - Implements Loop Concatenation class ---===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -268,6 +268,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
@@ -285,8 +286,8 @@ namespace {
 
 class HIRLoopConcatenation {
 public:
-  HIRLoopConcatenation(HIRFramework &HIRF)
-      : HIRF(HIRF), AllocaSymbase(0), Is16LoopMode(true) {
+  HIRLoopConcatenation(HIRFramework &HIRF, const TargetTransformInfo &TTI)
+      : HIRF(HIRF), TTI(TTI), AllocaSymbase(0), Is16LoopMode(true) {
     llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
     Is64Bit = TargetTriple.isArch64Bit();
   }
@@ -383,6 +384,7 @@ private:
 
 private:
   HIRFramework &HIRF;
+  const TargetTransformInfo &TTI;
 
   SmallVector<HLLoop *, 8> AllocaReadLoops;
   SmallVector<HLLoop *, 8> AllocaWriteLoops;
@@ -400,6 +402,11 @@ private:
 bool HIRLoopConcatenation::run() {
   if (DisableConcatenation) {
     LLVM_DEBUG(dbgs() << "HIR Loop Concatenation disabled \n");
+    return false;
+  }
+
+  if (!TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2)) {
     return false;
   }
 
@@ -629,7 +636,7 @@ bool HIRLoopConcatenation::isValidAllocaStore(
   }
 
   // Based on the structure, LvalRef has only one blob for the base.
-  unsigned Symbase = (*LvalRef->blob_cbegin())->getSymbase();
+  unsigned Symbase = (*LvalRef->blob_begin())->getSymbase();
 
   if (AllocaSymbase == 0) {
     // Check that base type is [4 x [4 x i32]]*.
@@ -721,7 +728,7 @@ bool HIRLoopConcatenation::isValidAllocaLoad(
     return false;
   }
 
-  unsigned Symbase = (*RvalRef->blob_cbegin())->getSymbase();
+  unsigned Symbase = (*RvalRef->blob_begin())->getSymbase();
 
   if (Symbase != AllocaSymbase) {
     return false;
@@ -1418,14 +1425,16 @@ void HIRLoopConcatenation::createReductionLoop(
     HLNodeUtils::remove(UnConcatenatedLoops[I]);
   }
 
-  unsigned AllocaSymbase = (*AllocaRef->blob_cbegin())->getSymbase();
+  unsigned AllocaSymbase = (*AllocaRef->blob_begin())->getSymbase();
   RednLp->addLiveInTemp(AllocaSymbase);
 }
 
 PreservedAnalyses
 HIRLoopConcatenationPass::run(llvm::Function &F,
                               llvm::FunctionAnalysisManager &AM) {
-  HIRLoopConcatenation(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+  HIRLoopConcatenation(AM.getResult<HIRFrameworkAnalysis>(F),
+                       AM.getResult<TargetIRAnalysis>(F))
+      .run();
   return PreservedAnalyses::all();
 }
 
@@ -1440,6 +1449,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
+    AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   }
 
@@ -1449,7 +1459,9 @@ public:
       return false;
     }
 
-    return HIRLoopConcatenation(getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+    return HIRLoopConcatenation(
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F))
         .run();
   }
 };
@@ -1457,6 +1469,7 @@ public:
 char HIRLoopConcatenationLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopConcatenationLegacyPass, "hir-loop-concatenation",
                       "HIR Loop Concatenation", false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRLoopConcatenationLegacyPass, "hir-loop-concatenation",
                     "HIR Loop Concatenation", false, false)

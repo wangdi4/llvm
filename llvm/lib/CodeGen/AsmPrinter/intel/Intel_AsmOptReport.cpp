@@ -1,6 +1,6 @@
 //===- Intel_OptReportAsmHandler.cpp - Collect and dump OptReport ---------===//
 //
-// Copyright (C) 2018-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,6 +15,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_AsmOptReport.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/OptReport/LoopOptReportSupport.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSectionMachO.h"
@@ -41,12 +43,54 @@ void OptReportAsmPrinterHandler::beginInstruction(const MachineInstr *MI) {
   //
   // If we want to enable binary optimization reports without -g, then
   // we have to force calling beginInstruction() in the AsmPrinter.
+  if (!FirstInstructionProcessed) {
+    // Find exit blocks for some loops (see details below).
+    // This code cannot be run in beginFunction(), because MachineLoopInfo
+    // is not guaranteed to be computed there.
+    FirstInstructionProcessed = true;
+
+    // If a loop has sibling opt-reports, we need to find its "exit"
+    // block, which is where we will attach these opt-reports.
+    // There are several questions: what to do, if there are multiple
+    // exit blocks, and, what if the ordering of the "live" loop's blocks is not
+    // continuous.  For the first implementation we keep these problems
+    // aside, and just pick the first exit block.
+    auto &MLI = getMLI();
+    for (const auto *ML : make_range(MLI.rbegin(), MLI.rend())) {
+      auto *LoopID = ML->getLoopID();
+      if (!LoopID)
+        continue;
+
+      LoopOptReport OptReport = LoopOptReport::findOptReportInLoopID(LoopID);
+      if (!OptReport)
+        continue;
+
+      if (!OptReport.nextSibling())
+        continue;
+
+      // The loop's opt-report has sibling opt-reports attached,
+      // so we need to find an anchor for them.
+      SmallVector<MachineBasicBlock *, 8> ExitBlocks;
+      ML->getExitBlocks(ExitBlocks);
+      if (!ExitBlocks.empty()) {
+        auto EB = ExitBlocks.front();
+        LoopToExit[ML] = EB;
+        LoopExitBlocks.insert(EB);
+      }
+    }
+  }
   auto *MBB = MI->getParent();
   if (&MBB->front() != MI)
     return;
 
   auto &MLI = getMLI();
-  if (!MLI.isLoopHeader(MBB))
+  // Emit labels for:
+  //     - loop header blocks
+  //     - loop exit blocks
+  //     - function entry blocks
+  if (!MLI.isLoopHeader(MBB) &&
+      LoopExitBlocks.find(MBB) == LoopExitBlocks.end() &&
+      MBB != &*(MBB->getParent()->begin()))
     return;
 
   // TODO (vzakhari 10/3/2018): we may want to emit optimization reports
@@ -82,9 +126,26 @@ void OptReportAsmPrinterHandler::endFunction(const MachineFunction *MF) {
   auto *Section = AP.getObjFileLowering().getOptReportSection();
   registerFunction(Section);
 
+  // This function anchors the given child/sibling opt-report
+  // (and all its child/sibling opt-reports recursively) to the given symbol.
+  std::function<void(MCSymbol *, LoopOptReport)>
+      registerMissingOptReports =
+          [this, &registerMissingOptReports](
+              MCSymbol *HeaderSym, LoopOptReport OptReport) {
+            if (!HeaderSym || !OptReport)
+              return;
+
+            // First, anchor the child/sibling opt-report itself.
+            registerLoop(HeaderSym, OptReport);
+            // Recursively anchor child opt-reports.
+            registerMissingOptReports(HeaderSym, OptReport.firstChild());
+            // Recursively anchor sibling opt-reports.
+            registerMissingOptReports(HeaderSym, OptReport.nextSibling());
+          };
+
   // Register loops so that parents precede children.
   std::function<void(const MachineLoop *)> addLoop =
-      [this, &addLoop](const MachineLoop *ML) {
+      [this, &addLoop, &registerMissingOptReports](const MachineLoop *ML) {
 
         auto *Header = ML->getHeader();
         assert(Header && "Loop without header.");
@@ -107,20 +168,48 @@ void OptReportAsmPrinterHandler::endFunction(const MachineFunction *MF) {
         if (!HeaderSym)
           LLVM_DEBUG(dbgs() << "!!! Header does not have a label. !!!\n");
 
+        // Process child opt-reports, if any.
+        if (OptReport)
+          registerMissingOptReports(HeaderSym, OptReport.firstChild());
+
         // Process child loops.
         auto EntryNode = GraphTraits<const MachineLoop *>::getEntryNode(ML);
         for (auto I = GraphTraits<const MachineLoop *>::child_begin(EntryNode),
                   E = GraphTraits<const MachineLoop *>::child_end(EntryNode);
              I != E; ++I)
           addLoop(*I);
+
+        // If we labeled the "exit" block for this loop, this means
+        // we found that sibling opt-reports are attached to it.
+        // Here we need to anchor these sibling opt-reports to the "exit"
+        // block.
+        if (OptReport) {
+          auto EBI = LoopToExit.find(ML);
+          if (EBI != LoopToExit.end())
+            registerMissingOptReports(
+                BlockLabels[EBI->second], OptReport.nextSibling());
+        }
   };
 
+  // Loop opt-reports attached to the function will be anchored
+  // to the first block.
+  //
+  // TODO (vzakhari 02/11/2019): we have to find better anchors
+  //       for such opt-reports.
+  LoopOptReport FunOR =
+      LoopOptReportTraits<Function>::getOptReport(MF->getFunction());
+  if (FunOR)
+    registerMissingOptReports(BlockLabels[&*(MF->begin())], FunOR.firstChild());
+
+  // Traverse loops and emit their opt-reports.
   auto &MLI = getMLI();
   for (const auto *ML : make_range(MLI.rbegin(), MLI.rend())) {
     addLoop(ML);
   }
 
   BlockLabels.clear();
+  LoopToExit.clear();
+  LoopExitBlocks.clear();
 
   LLVM_DEBUG(
     const Function &F = MF->getFunction();
@@ -384,21 +473,9 @@ void OptReportAsmPrinterHandler::endModule() {
 
     // Loop opt-report entries.
     for (auto &&OR : OptReports) {
-      // TODO (vzakhari 10/3/2018): emit zero opt-report expression for now.
-      //       We have to get the encoded opt-report descriptor from
-      //       the opt-report library by passing OR->OprReport to it.
-      //
-      //       We also need to decide how to encode child and sibling
-      //       optimization reports that were reattached due to
-      //       the loops removal.  It seems the child opt-reports
-      //       has to have the same anchor label as their parent opt-report.
-      //       The best anchor for the sibling opt-reports is the exit
-      //       block of the "live" opt-report's loop, though there are
-      //       several questions: what to do, if there are multiple exit blocks,
-      //       and, what if the ordering of the "live" loop's blocks is not
-      //       continuous.  For the first implementation we keep these problems
-      //       aside.
-      emitOptReportExpression(OR->EntrySym, "");
+      emitOptReportExpression(
+          OR->EntrySym,
+          llvm::LoopOptReportSupport::formatBinaryStream(OR->OptReport));
     }
 
     getOS().EmitLabel(ExprtabEndLabel);

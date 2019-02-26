@@ -43,7 +43,9 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK:         [[BB8]] (BP: NULL) :
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    END Block - no SUCCESSORS
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): BB6
+; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:

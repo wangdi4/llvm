@@ -2,15 +2,15 @@
 
 ; Check output of hir-regions
 ; CHECK: Region 1
-; CHECK-NEXT: EntryBB: for.body
+; CHECK-NEXT: EntryBB: %for.body
 ; CHECK-NEXT: ExitBB
 ; CHECK-NEXT: Member
-; CHECK-SAME: for.body
+; CHECK-SAME: %for.body
 ; CHECK: Region 2
-; CHECK-NEXT: EntryBB: for.body4
+; CHECK-NEXT: EntryBB: %for.body4
 ; CHECK-NEXT: ExitBB
 ; CHECK-NEXT: Member
-; CHECK-SAME: for.body4
+; CHECK-SAME: %for.body4
 
 
 ; Check that a single region is formed with -hir-create-function-level-region=true.
@@ -18,7 +18,7 @@
 ; RUN: opt < %s -analyze -hir-region-identification -hir-create-function-level-region=true | FileCheck %s -check-prefix=FUNC-REG
 
 ; FUNC-REG: Region 1
-; FUNC-REG-NEXT: EntryBB: entry
+; FUNC-REG-NEXT: EntryBB: %entry
 
 ; FUNC-REG-NOT: Region 2
 

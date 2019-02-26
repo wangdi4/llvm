@@ -1,6 +1,6 @@
 //===--- LoopOptReport.cpp ---------------------------------------*- C++ -*-==//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -225,6 +225,7 @@ void LoopOptReport::addRemark(LoopOptRemark Remark) const {
 
 void LoopOptReport::addChild(LoopOptReport Child) const {
   assert(Child && "Null Child");
+  assert((Child.OptReport != this->OptReport) && "Parent/child cycle");
   if (LoopOptReport Next = firstChild()) {
     Next.addSibling(Child);
     return;
@@ -234,11 +235,21 @@ void LoopOptReport::addChild(LoopOptReport Child) const {
 
 void LoopOptReport::addSibling(LoopOptReport Sibling) const {
   assert(Sibling && "Null Sibling");
-  if (LoopOptReport Next = nextSibling()) {
-    Next.addSibling(Sibling);
+  LoopOptReport Current = *this;
+  if (Current.OptReport == Sibling.OptReport) {
+    llvm_unreachable("Duplicate nodes in optreport list");
+    // out of spec, but still possible to continue compilation
     return;
   }
-  addOptReportSingleValue(OptReport, LoopOptReportTag::NextSibling,
+  while (Current.nextSibling()) {
+    Current = Current.nextSibling();
+    if (Current.OptReport == Sibling.OptReport) {
+      llvm_unreachable("Duplicate nodes in optreport list");
+      return;
+    }
+  }
+  addOptReportSingleValue(Current.OptReport,
+                          LoopOptReportTag::NextSibling,
                           Sibling.get());
 }
 

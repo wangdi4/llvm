@@ -76,17 +76,6 @@ int64_t getMinShrIntTyValueWithDelta() {
   llvm_unreachable("Unexpected type width for shrinking");
 }
 
-// Max unsigned value for 32 and 16 bit int.
-int64_t getMaxShrunkenUIntTypeValue() {
-  switch (DTransDynCloneShrTyWidth) {
-  case 32:
-    return std::numeric_limits<uint32_t>::max();
-  case 16:
-    return std::numeric_limits<uint16_t>::max();
-  };
-  llvm_unreachable("Unexpected type width for shrinking");
-}
-
 class DTransDynCloneWrapper : public ModulePass {
 private:
   dtrans::DynClonePass Impl;
@@ -354,7 +343,7 @@ private:
   DynField getAccessStructField(GEPOperator *GEP) const;
   Type *getCallInfoElemTy(CallInfo *CInfo) const;
   Type *getTypeRelatedToInstruction(Instruction *I) const;
-  void createEncodeDecodeFunctions(void); // (Reencoding)
+  void createEncodeDecodeFunctions(void);               // (Reencoding)
   void fillupCoderRoutine(Function *F, bool IsEncoder); // (Reencoding)
   void printCandidateFields(raw_ostream &OS) const;
   void printDynField(raw_ostream &OS, const DynField &DField) const;
@@ -961,7 +950,8 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   }
 
   // (Reencoding) Delta is needed to encode those constants that doesn't fit
-  // into ShunkenIntType. Limit number of constants to 10 for runtime effectiveness.
+  // into ShunkenIntType. Limit number of constants to 10 for runtime
+  // effectiveness.
   if (AllDynFieldConstSet.size() > 10) {
     DEBUG_WITH_TYPE(
         REENCODING,
@@ -2121,7 +2111,7 @@ void DynCloneImpl::createShrunkenTypes(void) {
 //                  ...
 //                  if !(L_i64_Max > 0x000000007fffffff ||
 //                      L_i64_Min < 0xffffffff80000000 ||
-//                      sizeN > 0x7fff ||
+//                      sizeN > 0xffff ||
 //                      dyn.safeflag == 0) {
 //                    OldType* SPtr = ptr;
 //                    NewType* DPtr = ptr;
@@ -2531,6 +2521,7 @@ void DynCloneImpl::transformInitRoutine(void) {
           auto *AInfo = LPair.second;
           CallInst *CI = cast<CallInst>(AInfo->getInstruction());
           Type *Ty = getCallInfoElemTy(AInfo);
+          assert(Ty && "Expected struct type associated with call");
           Value *NewPtr = RematerializePtr(GEP, AllocCallRets[CI], Ty, AddInst);
 
           IRBuilder<> MergeB(
@@ -2744,13 +2735,15 @@ void DynCloneImpl::transformInitRoutine(void) {
     FinalCond = GenerateFinalCond(Pair.second, GetShrunkenMaxValue(Pair.first),
                                   ICmpInst::ICMP_SGT, FinalCond, RetI);
 
-  // Generate runtime check for AOSTOSOA index.
+  // Generate runtime check for AOSTOSOA index. AOSTOSOA indexes are always
+  // expected to be positive values. Check if AOSTOSOA exceeds 16-bit
+  // unsigned max value.
   for (auto *SOACI : AOSSOAACalls)
     FinalCond = GenerateFinalCondWithLIValue(
         AllocCallSizes[SOACI],
         ConstantInt::get(AllocCallSizes[SOACI]->getType(),
-                         std::numeric_limits<int16_t>::max()),
-        ICmpInst::ICMP_SGT, FinalCond, RetI);
+                         std::numeric_limits<uint16_t>::max()),
+        ICmpInst::ICMP_UGT, FinalCond, RetI);
 
   // Generate runtime check for alloc safety flag
   FinalCond = GenerateFinalCond(AllocSafetyFlag, ConstantInt::get(FlagType, 0),
@@ -3212,7 +3205,7 @@ void DynCloneImpl::transformIR(void) {
     return true;
   };
 
-  // The basic idea is to use shruken struct for all address computations
+  // The basic idea is to use shrunken struct for all address computations
   // instead of original struct.
   // Note that index of a field in shrunken structure may not be the same
   // as index of the field in original structure since fields will be
@@ -3337,6 +3330,9 @@ void DynCloneImpl::transformIR(void) {
   //
   auto ProcessLoad = [&](LoadInst *LI, DynField &LdElem, bool NeedsDecoding) {
     LLVM_DEBUG(dbgs() << "Load before convert: " << *LI << "\n");
+    AAMDNodes AATags;
+    LI->getAAMetadata(AATags);
+
     StructType *OldTy = cast<StructType>(LdElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
     unsigned NewIdx = TransformedIndexes[OldTy][LdElem.second];
@@ -3353,21 +3349,21 @@ void DynCloneImpl::transformIR(void) {
     Value *Res = nullptr;
     // (Reencoding) if encoding is not needed, then all values should fit
     // into shrunken bits.
-    if (isAOSTOSOAIndexField(LdElem)) {
+    if (isAOSTOSOAIndexField(LdElem))
       Res = CastInst::CreateZExtOrBitCast(NewLI, LI->getType(), "", LI);
-    } else if (NeedsDecoding) {
+    else if (NeedsDecoding) {
       Res = CallInst::Create(DynFieldDecodeFunc, NewLI, "", LI);
       DEBUG_WITH_TYPE(
           REENCODING,
           dbgs() << "   (Reencoding) Insert a call to decoder function\n");
-    } else {
+    } else
       Res = CastInst::CreateSExtOrBitCast(NewLI, LI->getType(), "", LI);
-    }
 
     LI->replaceAllUsesWith(Res);
     Res->takeName(LI);
 
-    // TODO: Need to fix metadata.
+    if (AATags)
+      NewLI->setAAMetadata(AATags);
 
     LLVM_DEBUG(dbgs() << "Load after convert: " << *NewSrcOp << "\n"
                       << *NewLI << "\n"
@@ -3389,6 +3385,9 @@ void DynCloneImpl::transformIR(void) {
   //
   auto ProcessStore = [&](StoreInst *SI, DynField &StElem, bool NeedsEncoding) {
     LLVM_DEBUG(dbgs() << "Store before convert: " << *SI << "\n");
+    AAMDNodes AATags;
+    SI->getAAMetadata(AATags);
+
     StructType *OldTy = cast<StructType>(StElem.first);
     StructType *NewSt = TransformedTypeMap[OldTy];
     unsigned NewIdx = TransformedIndexes[OldTy][StElem.second];
@@ -3403,20 +3402,21 @@ void DynCloneImpl::transformIR(void) {
       DEBUG_WITH_TYPE(
           REENCODING,
           dbgs() << "   (Reencoding) Insert a call to encoder function\n");
-    } else {
+    } else
       NewVal = CastInst::CreateTruncOrBitCast(ValOp, NewTy, "", SI);
-    }
+
     Value *SrcOp = SI->getPointerOperand();
     Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", SI);
     Instruction *NewSI = new StoreInst(
         NewVal, NewSrcOp, SI->isVolatile(), DL.getABITypeAlignment(NewTy),
         SI->getOrdering(), SI->getSyncScopeID(), SI);
-    (void)NewSI;
 
-    // TODO: Need to fix metadata.
+    if (AATags)
+      NewSI->setAAMetadata(AATags);
 
-    LLVM_DEBUG(dbgs() << "Store after convert: " << *NewSrcOp << "\n"
+    LLVM_DEBUG(dbgs() << "Store after convert: \n"
                       << *NewVal << "\n"
+                      << *NewSrcOp << "\n"
                       << *NewSI << "\n");
   };
 
@@ -3447,10 +3447,10 @@ void DynCloneImpl::transformIR(void) {
   SmallVector<std::pair<CallInfo *, Type *>, 4> CallsToProcess;
   SmallVector<Instruction *, 32> InstsToRemove;
 
-  // Cloned routines are used for original layout shrukun struct. That means,
-  // there will no changes to cloned routine. Original routines will be modified
-  // to use shrunken layout. Here, it walks through all original routines, which
-  // are cloned, and fix all accesses to structs that are shrunkun.
+  // Cloned routines are used for original layout shrunken struct. That means,
+  // there will be no changes to cloned routine. Original routines will be
+  // modified to use shrunken layout. Control walks through all original
+  // routines, which are cloned, and fixes all accesses to shrunken structs.
   for (auto &CPair : CloningMap) {
 
     Function *F = CPair.first;
@@ -3631,8 +3631,12 @@ void DynCloneImpl::createEncodeDecodeFunctions(void) {
 // }
 //
 void DynCloneImpl::fillupCoderRoutine(Function *F, bool IsEncoder) {
-  llvm::IntegerType *SrcType = dyn_cast<IntegerType>(F->arg_begin()->getType());
-  llvm::IntegerType *DstType = dyn_cast<IntegerType>(F->getReturnType());
+  // Indicate this function doesn't use vectors. This prevents the inliner from
+  // deleting it from the caller when merging attributes.
+  F->addFnAttr("min-legal-vector-width", "0");
+
+  llvm::IntegerType *SrcType = cast<IntegerType>(F->arg_begin()->getType());
+  llvm::IntegerType *DstType = cast<IntegerType>(F->getReturnType());
   BasicBlock *BB = BasicBlock::Create(M.getContext(), "entry", F);
   IRBuilder<> IRB(BB);
   BasicBlock *DefaultBB = BasicBlock::Create(M.getContext(), "default", F);
@@ -3732,7 +3736,9 @@ bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
                            TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo,
                            LoopInfoFuncType &GetLI) {
 
-  if (!WPInfo.isWholeProgramSafe())
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!WPInfo.isWholeProgramSafe() ||
+      !WPInfo.isAdvancedOptEnabled(TTIAVX2))
     return false;
 
   if (!DTInfo.useDTransAnalysis())

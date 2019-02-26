@@ -1,6 +1,6 @@
 //===------------ Intel_DTransUtils.cpp - Utilities for DTrans ------------===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -964,7 +964,6 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
 }
 
 // Check that function only throws an exception.
-// TODO: Add more checks on instructions.
 bool dtrans::isDummyFuncWithUnreachable(ImmutableCallSite CS,
                                         const TargetLibraryInfo &TLI) {
   auto *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
@@ -975,39 +974,46 @@ bool dtrans::isDummyFuncWithUnreachable(ImmutableCallSite CS,
   auto &BB = F->getEntryBlock();
   if (!isa<UnreachableInst>(BB.getTerminator()))
     return false;
-  if (BB.size() != 6)
-    return false;
-  auto *CurrInst = dyn_cast<Instruction>(&BB.front());
-  if (!isa<CallInst>(CurrInst))
-    return false;
-  auto *CallExAlloc = dyn_cast<CallInst>(CurrInst);
-  auto *ExAlloc =
-      dyn_cast<Function>(CallExAlloc->getCalledValue()->stripPointerCasts());
-  LibFunc Func;
-  if (!TLI.getLibFunc(*ExAlloc, Func))
-    return false;
-  if (!TLI.has(Func) || Func != LibFunc_cxa_allocate_exception)
-    return false;
-  CurrInst = CurrInst->getNextNode();
-  if (!isa<BitCastInst>(CurrInst))
-    return false;
-  CurrInst = CurrInst->getNextNode();
-  if (!isa<GetElementPtrInst>(CurrInst))
-    return false;
-  CurrInst = CurrInst->getNextNode();
-  if (!isa<StoreInst>(CurrInst))
-    return false;
-  CurrInst = CurrInst->getNextNode();
-  if (!isa<CallInst>(CurrInst))
-    return false;
-  auto *CallExThrow = dyn_cast<CallInst>(CurrInst);
-  auto *ExThrow =
-      dyn_cast<Function>(CallExThrow->getCalledValue()->stripPointerCasts());
-  if (!TLI.getLibFunc(*ExThrow, Func))
-    return false;
-  if (!TLI.has(Func) || Func != LibFunc_cxa_throw)
-    return false;
-  return true;
+
+  // In dummy function we expect to see only those instructions which throw
+  // bad_alloc exception.
+  bool CallExAllocFound = false, StoreFound = false, BitCastFound = false;
+  bool GEPFound = true, CallExThrowFound = false;
+  for (auto &I : BB) {
+    if (isa<BitCastInst>(&I))
+      BitCastFound = true;
+    if (isa<GetElementPtrInst>(&I))
+      GEPFound = true;
+    auto *Call = dyn_cast<CallInst>(&I);
+    if (Call) {
+      // Skip debug intrinsics
+      if (isa<DbgInfoIntrinsic>(&I))
+        continue;
+      auto *Func =
+          dyn_cast<Function>(Call->getCalledValue()->stripPointerCasts());
+      if (!Func)
+        return false;
+
+      LibFunc LFunc;
+      if (!TLI.getLibFunc(*Func, LFunc) || !TLI.has(LFunc))
+        return false;
+
+      if (LFunc == LibFunc_cxa_allocate_exception)
+        CallExAllocFound = true;
+      else if (LFunc == LibFunc_cxa_throw)
+        CallExThrowFound = true;
+      else
+        return false;
+    }
+    if (isa<StoreInst>(&I)) {
+      if (!StoreFound && CallExAllocFound)
+        StoreFound = true;
+      else
+        return false;
+    }
+  }
+  return CallExAllocFound && StoreFound && BitCastFound && GEPFound &&
+         CallExThrowFound;
 }
 
 bool dtrans::isDummyFuncWithThisAndIntArgs(ImmutableCallSite CS,

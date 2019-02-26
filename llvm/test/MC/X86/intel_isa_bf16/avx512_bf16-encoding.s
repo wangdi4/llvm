@@ -62,7 +62,7 @@
           vcvtneps2bf16   (%ecx){1to16}, %ymm6
 
 // CHECK: vcvtneps2bf16   8128(%ecx), %ymm6
-// CHECK: encoding: [0x62,0xf2,0x7e,0x48,0x72,0xb1,0xc0,0x1f,0x00,0x00]
+// CHECK: encoding: [0x62,0xf2,0x7e,0x48,0x72,0x71,0x7f]
           vcvtneps2bf16   8128(%ecx), %ymm6
 
 // CHECK: vcvtneps2bf16   -512(%edx){1to16}, %ymm6 {%k7} {z}
@@ -86,6 +86,6 @@
           vdpbf16ps   8128(%ecx), %zmm5, %zmm6
 
 // CHECK: vdpbf16ps   -512(%edx){1to16}, %zmm5, %zmm6 {%k7} {z}
-// CHECK: encoding: [0x62,0xf2,0x56,0xdf,0x52,0xb2,0x00,0xfe,0xff,0xff]
+// CHECK: encoding: [0x62,0xf2,0x56,0xdf,0x52,0x72,0x80]
           vdpbf16ps   -512(%edx){1to16}, %zmm5, %zmm6 {%k7} {z}
 

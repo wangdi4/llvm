@@ -1,9 +1,8 @@
 //===- llvm/unittest/Support/DynamicLibrary/PipSqueak.h -------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -28,6 +27,12 @@
 #else
 #define PIPSQUEAK_EXPORT
 #endif
+
+#if INTEL_CUSTOMIZATION
+enum State { FIRST_CONSTANT,          SECOND_CONSTANT,
+             GLOBAL_CONSTRUCTOR_CALL, GLOBAL_DESTRUCTOR_CALL,
+             LOCAL_CONSTRUCTOR_CALL,  LOCAL_DESTRUCTOR_CALL };
+#endif // INTEL_CUSTOMIZATION
 
 extern "C" PIPSQUEAK_EXPORT const char *TestA();
 

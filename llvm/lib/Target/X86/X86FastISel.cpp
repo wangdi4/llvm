@@ -1,9 +1,8 @@
 //===-- X86FastISel.cpp - X86 FastISel implementation ---------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -312,8 +311,6 @@ bool X86FastISel::isTypeLegal(Type *Ty, MVT &VT, bool AllowI1) {
   // support it.
   return (AllowI1 && VT == MVT::i1) || TLI.isTypeLegal(VT);
 }
-
-#include "X86GenCallingConv.inc"
 
 /// X86FastEmitLoad - Emit a machine instruction to load a value of type VT.
 /// The address is either pre-computed, i.e. Ptr, or a GlobalAddress, i.e. GV.
@@ -2771,10 +2768,12 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
 #if INTEL_CUSTOMIZATION
     // Determine the function name to use based upon whether or not
     // the corresponding standard library function is available in the
-    // targeted environment and Intel's libirc can be used.
+    // targeted environment and Intel's libirc can be used and opt
+    // level is higher than O1.
     MachineFunction *MF = FuncInfo.MF;
     RTLIB::Libcall libcall = RTLIB::MEMCPY;
     if (LibInfo->has(LibFunc_memcpy) &&
+        TM.getOptLevel() > CodeGenOpt::Less &&
         MF->getTarget().Options.IntelLibIRCAllowed) {
       libcall = RTLIB::INTEL_MEMCPY;
     }
@@ -2800,10 +2799,12 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
 #if INTEL_CUSTOMIZATION
     // Determine the function name to use based upon whether or not
     // the corresponding standard library function is available in the
-    // targeted environment and Intel's libirc can be used.
+    // targeted environment and Intel's libirc can be used and opt
+    // level is higher than O1.
     MachineFunction *MF = FuncInfo.MF;
     RTLIB::Libcall libcall = RTLIB::MEMSET;
     if (LibInfo->has(LibFunc_memset) &&
+        TM.getOptLevel() > CodeGenOpt::Less &&
         MF->getTarget().Options.IntelLibIRCAllowed) {
       libcall = RTLIB::INTEL_MEMSET;
     }
@@ -2934,23 +2935,15 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
         isCommutativeIntrinsic(II))
       std::swap(LHS, RHS);
 
-    bool UseIncDec = false;
-    if (isa<ConstantInt>(RHS) && cast<ConstantInt>(RHS)->isOne())
-      UseIncDec = true;
-
     unsigned BaseOpc, CondOpc;
     switch (II->getIntrinsicID()) {
     default: llvm_unreachable("Unexpected intrinsic!");
     case Intrinsic::sadd_with_overflow:
-      BaseOpc = UseIncDec ? unsigned(X86ISD::INC) : unsigned(ISD::ADD);
-      CondOpc = X86::SETOr;
-      break;
+      BaseOpc = ISD::ADD; CondOpc = X86::SETOr; break;
     case Intrinsic::uadd_with_overflow:
       BaseOpc = ISD::ADD; CondOpc = X86::SETBr; break;
     case Intrinsic::ssub_with_overflow:
-      BaseOpc = UseIncDec ? unsigned(X86ISD::DEC) : unsigned(ISD::SUB);
-      CondOpc = X86::SETOr;
-      break;
+      BaseOpc = ISD::SUB; CondOpc = X86::SETOr; break;
     case Intrinsic::usub_with_overflow:
       BaseOpc = ISD::SUB; CondOpc = X86::SETBr; break;
     case Intrinsic::smul_with_overflow:
@@ -2972,9 +2965,11 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
         { X86::DEC8r, X86::DEC16r, X86::DEC32r, X86::DEC64r }
       };
 
-      if (BaseOpc == X86ISD::INC || BaseOpc == X86ISD::DEC) {
+      if (CI->isOne() && (BaseOpc == ISD::ADD || BaseOpc == ISD::SUB) &&
+          CondOpc == X86::SETOr) {
+        // We can use INC/DEC.
         ResultReg = createResultReg(TLI.getRegClassFor(VT));
-        bool IsDec = BaseOpc == X86ISD::DEC;
+        bool IsDec = BaseOpc == ISD::SUB;
         BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
                 TII.get(Opc[IsDec][VT.SimpleTy-MVT::i8]), ResultReg)
           .addReg(LHSReg, getKillRegState(LHSIsKill));

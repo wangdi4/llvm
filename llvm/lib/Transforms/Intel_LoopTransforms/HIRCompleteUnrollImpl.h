@@ -1,6 +1,6 @@
 //===----- HIRCompleteUnroll.h - Implements complete unroll ---------------===//
 //
-// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -49,7 +49,7 @@ public:
   HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
                     const TargetTransformInfo &TTI, HIRLoopStatistics &HLS,
                     HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA,
-                    unsigned OptLevel, bool IsPreVec);
+                    unsigned OptLevel, bool IsPreVec, bool PragmaOnlyUnroll);
 
   bool run();
 
@@ -71,6 +71,8 @@ private:
 
   /// Indicates whether we are in pre or post vec mode.
   bool IsPreVec;
+  // Indicates whether only pragma enabled unrolling is allowed.
+  bool PragmaOnlyUnroll;
 
   /// Storage for loops which will be transformed.
   /// Only outermost loops to be transformed will be stored.
@@ -144,12 +146,15 @@ private:
 class HIRCompleteUnrollLegacyPass : public HIRTransformPass {
   unsigned OptLevel;
   bool IsPreVec;
+  bool PragmaOnlyUnroll;
 
 public:
   static char ID;
 
-  HIRCompleteUnrollLegacyPass(char &ID, unsigned OptLevel, bool IsPreVec)
-      : HIRTransformPass(ID), OptLevel(OptLevel), IsPreVec(IsPreVec) {}
+  HIRCompleteUnrollLegacyPass(char &ID, unsigned OptLevel, bool IsPreVec,
+                              bool PragmaOnlyUnroll)
+      : HIRTransformPass(ID), OptLevel(OptLevel), IsPreVec(IsPreVec),
+        PragmaOnlyUnroll(PragmaOnlyUnroll) {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const;
 

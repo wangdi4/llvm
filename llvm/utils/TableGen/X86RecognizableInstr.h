@@ -1,9 +1,8 @@
 //===- X86RecognizableInstr.h - Disassembler instruction spec ----*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -106,6 +105,9 @@ namespace X86Local {
     MRMSrcMem      = 33,
     MRMSrcMem4VOp3 = 34,
     MRMSrcMemOp4   = 35,
+#if INTEL_CUSTOMIZATION
+    MRMSrcMemFSIB  = 36,
+#endif // INTEL_CUSTOMIZATION
     MRMXm = 39,
     MRM0m = 40, MRM1m = 41, MRM2m = 42, MRM3m = 43,
     MRM4m = 44, MRM5m = 45, MRM6m = 46, MRM7m = 47,
@@ -113,6 +115,9 @@ namespace X86Local {
     MRMSrcReg      = 49,
     MRMSrcReg4VOp3 = 50,
     MRMSrcRegOp4   = 51,
+#if INTEL_CUSTOMIZATION
+    MRMr0 = 54,
+#endif // INTEL_CUSTOMIZATION
     MRMXr = 55,
     MRM0r = 56, MRM1r = 57, MRM2r = 58, MRM3r = 59,
     MRM4r = 60, MRM5r = 61, MRM6r = 62, MRM7r = 63,

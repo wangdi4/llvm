@@ -1,6 +1,6 @@
 //===------- DtransPaddedMalloc.cpp - DTrans Padded Malloc -*------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,6 +16,7 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -650,6 +651,14 @@ bool dtrans::PaddedMallocPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
     LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Padded malloc disabled\n");
     return false;
   }
+  else {
+    auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+    if (!WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
+      PaddedMallocData.destroyGlobalsInfo(M);
+      LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: does not pass AVX2 test\n");
+      return false;
+    }
+  }
 
   // Check if the module requires runtime safety checks
   SmallPtrSet<Function *, 16> Funcs;
@@ -798,6 +807,8 @@ void dtrans::PaddedMallocGlobals::buildInterfaceFunction(Module &M) {
 
   GlobalVariable *GlobalCounter = M.getGlobalVariable(
       "__Intel_PaddedMallocCounter", true /*AllowInternal*/);
+
+  assert(GlobalCounter && "dtrans-paddedmalloc: Global counter not generated");
 
   // Create the function first
   FunctionType *funcType = FunctionType::get(Builder.getInt1Ty(), false);
@@ -957,6 +968,8 @@ unsigned dtrans::PaddedMallocGlobals::getPaddedMallocSize(Module &M) {
 
   // Collect the node related to the metadata
   MDNode *Node = PaddedMallocFunc->getMetadata("dtrans.paddedmallocsize");
+
+  assert(Node && "Padded malloc metadata found but not accessible?");
 
   // Get the metadata
   ConstantAsMetadata *ConstMetaData =

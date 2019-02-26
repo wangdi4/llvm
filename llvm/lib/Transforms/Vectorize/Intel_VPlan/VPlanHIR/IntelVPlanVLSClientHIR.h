@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSClientHIR.h - ------------------------------------------===/
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -168,11 +168,13 @@ public:
 
   const RegDDRef *getRegDDRef() const { return Ref; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void print(raw_ostream &Os, const Twine Indent = "") const final {
     VPVLSClientMemref::print(Os, Indent);
     formatted_raw_ostream Fos(Os);
     getRegDDRef()->print(Fos);
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 } // namespace vpo

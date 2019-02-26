@@ -1,4 +1,4 @@
-//===- Intel_LowerSubscriptIntrinsic.cpp - Lower llvm.intel.subscript intrinsic ------===//
+//=---- Intel_LowerSubscriptIntrinsic.cpp - Lower llvm.intel.subscript ----===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -9,6 +9,8 @@
 //
 // This pass lowers the 'llvm.intel.subscript' intrinsic to explicit address
 // computations.
+// For now the pass also removes 'distribute' points.
+// TODO: move out the logic to a separate pass or rename current pass.
 //
 //===----------------------------------------------------------------------===//
 
@@ -30,7 +32,8 @@ using namespace llvm;
 
 static cl::opt<bool> EnableSubscriptLowering(
     "enable-subscript-lowering", cl::Hidden, cl::init(true),
-    cl::desc("Enable lowering llvm.intel.subscript lowering to pointer arithmetic"));
+    cl::desc(
+        "Enable lowering llvm.intel.subscript lowering to pointer arithmetic"));
 
 static bool lowerIntrinsics(Function &F) {
 
@@ -45,6 +48,23 @@ static bool lowerIntrinsics(Function &F) {
     // Replace llvm.intel.subscript intrinsics.
     for (auto BI = BB.begin(), BE = BB.end(); BI != BE;) {
       Instruction &Inst = *BI++;
+
+      // Remove distribute points
+      IntrinsicInst *Intrin = dyn_cast<IntrinsicInst>(&Inst);
+      if (Intrin && Intrin->hasOperandBundles()) {
+        OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+        StringRef TagName = BU.getTagName();
+        if (TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT") ||
+            TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT")) {
+
+          Intrin->replaceAllUsesWith(UndefValue::get(Intrin->getType()));
+          Intrin->eraseFromParent();
+          Changed = true;
+          continue;
+        }
+      }
+
       SubscriptInst *CI = dyn_cast<SubscriptInst>(&Inst);
       if (!CI)
         continue;
@@ -264,8 +284,7 @@ bool ConvertGEPToSubscriptIntrinsicPass::convertGEPToSubscriptIntrinsic(
           convertGEPToSubscript(DL, Builder, cast<GEPOperator>(GEP))) {
     Replacement->takeName(GEP);
     GEP->replaceAllUsesWith(Replacement);
-  }
-  else
+  } else
     return false;
 
   if (Unlink)
@@ -299,8 +318,7 @@ static bool convertToIntrinsics(Function &F) {
     for (auto BI = BB.begin(), BE = BB.end(); BI != BE;) {
       Instruction &Inst = *BI++;
       for (Use &Use : Inst.operands()) {
-        if (isa<GEPOperator>(Use.get()) &&
-            isa<ConstantExpr>(Use.get())) {
+        if (isa<GEPOperator>(Use.get()) && isa<ConstantExpr>(Use.get())) {
           if (ConvertGEPToSubscriptIntrinsicPass::
                   convertGEPToSubscriptIntrinsic(DL, &Inst, &Use)) {
             Changed = true;
@@ -345,15 +363,13 @@ public:
   }
 
   bool runOnFunction(Function &F) override { return lowerIntrinsics(F); }
-
 };
 } // end anonymous namespace
 
 char LowerSubscriptIntrinsicLegacyPass::ID = 0;
 
-INITIALIZE_PASS(LowerSubscriptIntrinsicLegacyPass,
-                "lower-subscript", "Subscript Intrinsic Lowering",
-                false, false)
+INITIALIZE_PASS(LowerSubscriptIntrinsicLegacyPass, "lower-subscript",
+                "Subscript Intrinsic Lowering", false, false)
 
 FunctionPass *llvm::createLowerSubscriptIntrinsicLegacyPass() {
   return new LowerSubscriptIntrinsicLegacyPass();
@@ -381,8 +397,8 @@ public:
 char ConvertGEPToSubscriptIntrinsicLegacyPass::ID = 0;
 
 INITIALIZE_PASS(ConvertGEPToSubscriptIntrinsicLegacyPass,
-                "convert-to-subscript", "GEP to Subscript conversion",
-                false, false)
+                "convert-to-subscript", "GEP to Subscript conversion", false,
+                false)
 
 FunctionPass *llvm::createConvertGEPToSubscriptIntrinsicLegacyPass() {
   return new ConvertGEPToSubscriptIntrinsicLegacyPass();

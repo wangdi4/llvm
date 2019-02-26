@@ -1,9 +1,8 @@
 //===- InlineCost.h - Cost analysis for inliner -----------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -53,6 +52,7 @@ const int SecondToLastCallToStaticBonus = 410; // INTEL
 const int AggressiveInlineCallBonus = 5000;    // INTEL
 const int BigBasicBlockPredCount = 90;         // INTEL
 const int InliningHeuristicBonus = 1000;       // INTEL
+const int DeepInliningHeuristicBonus = 10000;  // INTEL
 const int ColdccPenalty = 2000;
 /// Do not inline functions which allocate this many bytes on the stack
 /// when the caller is recursive.
@@ -112,6 +112,7 @@ typedef enum {
    InlrAlwaysInline,
    InlrAlwaysInlineRecursive,
    InlrInlineList,
+   InlrRecProClone,
    InlrSingleLocalCall,
    InlrSingleBasicBlock,
    InlrSingleBasicBlockWithTest,

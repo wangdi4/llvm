@@ -1,6 +1,6 @@
 //===- CanonExpr.h - Closed form in high level IR ---------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -702,12 +702,13 @@ public:
   void collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
                               bool MakeUnique = true) const;
 
-  /// Simplifies canon expr by dividing numerator and denominator by gcd.
-  // \p SimpliyCast indicates whether we can simplify a constant CE of the form
-  // sext.i32.i64(4) into i64(4). This is currently not set by DD but should be
-  // set by everyone else.
-  // TODO: Can we set it for DD too?
-  void simplify(bool SimplifyCast);
+  /// Simplifies canon expr by dividing numerator and denominator by gcd if \p
+  /// IsUnsignedOrNonNegative is true.
+  /// \p SimpliyCast indicates whether we can simplify a constant CE of the form
+  /// sext.i32.i64(4) into i64(4). This is currently not set by DD but should be
+  /// set by everyone else.
+  /// TODO: Can we set it for DD too?
+  void simplify(bool SimplifyCast, bool IsUnsignedOrNonNegative);
 
   /// Multiplies the canon expr by Val. Returns false if the result expression
   /// can not be represented as a single CanonExpr.

@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -82,7 +82,9 @@ public:
   virtual unsigned getCost(const VPBasicBlock *VPBB) const;
   virtual unsigned getCost() const;
   virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) const;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   virtual ~VPlanCostModel() {}
 
   static constexpr unsigned UnknownCost = static_cast<unsigned>(-1);

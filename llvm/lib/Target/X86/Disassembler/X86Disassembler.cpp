@@ -1,9 +1,8 @@
 //===-- X86Disassembler.cpp - Disassembler for x86 and x86_64 -------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -899,6 +898,11 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_XMM:
   case TYPE_YMM:
   case TYPE_ZMM:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  case TYPE_TMM:
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   case TYPE_VK:
   case TYPE_DEBUGREG:
   case TYPE_CONTROLREG:

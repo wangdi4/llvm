@@ -5,8 +5,8 @@
 ; GEP/Load/Store/llvm.ptr.annotation for shrunken aostosoa index
 ; fields (in proc1 routine).
 
-;  RUN: opt < %s -S -whole-program-assume -dtrans-dynclone 2>&1 | FileCheck %s
-;  RUN: opt < %s -S -whole-program-assume -passes=dtrans-dynclone 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -35,7 +35,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; This routine has accesses to 2nd and 3rd fields of %struct.test.01, which
 ; are marked as aostosoa index fields.
-; CHECK: define internal void @proc1() {
+; CHECK: define internal void @proc1()
 define void @proc1() {
   %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
   %tp2 = bitcast i8* %call1 to %struct.test.01*
@@ -80,9 +80,9 @@ define void @proc1() {
 
 ; CHECK: [[LDASIZE:%dyn.alloc.ld[0-9]*]] = load i64, i64* [[ASIZEVAR]]
 
-; Runtime check with 32767
+; Runtime check with 0xffff
 ; CHECK: [[OR1:%d.or[0-9]*]] = or i1
-; CHECK: [[CMP1:%d.cmp[0-9]*]] = icmp sgt i64 [[LDASIZE]], 32767
+; CHECK: [[CMP1:%d.cmp[0-9]*]] = icmp ugt i64 [[LDASIZE]], 65535
 ; CHECK: [[OR2:%d.or[0-9]*]] = or i1 [[OR1]], [[CMP1]]
 
 ; CHECK: store i8 1, i8* @__Shrink__Happened__

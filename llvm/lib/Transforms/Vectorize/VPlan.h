@@ -1,9 +1,8 @@
 //===- VPlan.h - Represent A Vectorizer Plan --------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -353,6 +352,9 @@ private:
   /// Successor selector, null for zero or single successor blocks.
   VPValue *CondBit = nullptr;
 
+  /// Current block predicate - null if the block does not need a predicate.
+  VPValue *Predicate = nullptr;
+
   /// Add \p Successor as the last successor to this block.
   void appendSuccessor(VPBlockBase *Successor) {
     assert(Successor && "Cannot add nullptr successor!");
@@ -491,6 +493,12 @@ public:
 
   void setCondBit(VPValue *CV) { CondBit = CV; }
 
+  VPValue *getPredicate() { return Predicate; }
+
+  const VPValue *getPredicate() const { return Predicate; }
+
+  void setPredicate(VPValue *Pred) { Predicate = Pred; }
+
   /// Set a given VPBlockBase \p Successor as the single successor of this
   /// VPBlockBase. This VPBlockBase is not added as predecessor of \p Successor.
   /// This VPBlockBase must have no successors.
@@ -521,6 +529,15 @@ public:
       appendPredecessor(Pred);
   }
 
+  /// Remove all the predecessor of this block.
+  void clearPredecessors() { Predecessors.clear(); }
+
+  /// Remove all the successors of this block and set to null its condition bit
+  void clearSuccessors() {
+    Successors.clear();
+    CondBit = nullptr;
+  }
+
   /// The method which generates the output IR that correspond to this
   /// VPBlockBase, thereby "executing" the VPlan.
   virtual void execute(struct VPTransformState *State) = 0;
@@ -528,6 +545,8 @@ public:
   /// Delete all blocks reachable from a given VPBlockBase, inclusive.
   static void deleteCFG(VPBlockBase *Entry);
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS, bool PrintType) const {
     OS << getName();
   }
@@ -537,6 +556,8 @@ public:
     // support for VPInstructions/Recipes.
     printAsOperand(OS, false);
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   /// Return true if it is legal to hoist instructions into this block.
   bool isLegalToHoistInto() {
@@ -591,8 +612,12 @@ public:
   /// this VPRecipe, thereby "executing" the VPlan.
   virtual void execute(struct VPTransformState &State) = 0;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Each recipe prints itself.
   virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   /// Insert an unlinked recipe into a basic block immediately before
   /// the specified recipe.
@@ -666,11 +691,15 @@ public:
   /// provided.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the Recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
 
   /// Print the VPInstruction.
   void print(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   /// Return true if this instruction may modify memory.
   bool mayWriteToMemory() const {
@@ -715,8 +744,12 @@ public:
     return true;
   }
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A recipe for handling phi nodes of integer and floating-point inductions,
@@ -740,8 +773,12 @@ public:
   /// needed by their users.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A recipe for handling all phi nodes except for integer and FP inductions.
@@ -761,8 +798,12 @@ public:
   /// Generate the phi/select nodes.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A recipe for vectorizing a phi-node as a sequence of mask-based select
@@ -792,8 +833,12 @@ public:
   /// Generate the phi/select nodes.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// VPInterleaveRecipe is a recipe for transforming an interleave group of load
@@ -819,8 +864,12 @@ public:
   /// Generate the wide load or store, and shuffles.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
   const InterleaveGroup<Instruction> *getInterleaveGroup() { return IG; }
 };
@@ -869,8 +918,12 @@ public:
 
   void setAlsoPack(bool Pack) { AlsoPack = Pack; }
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A recipe for generating conditional branches on the bits of a mask.
@@ -893,6 +946,8 @@ public:
   /// conditional branch.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override {
     O << " +\n" << Indent << "\"BRANCH-ON-MASK ";
@@ -902,6 +957,8 @@ public:
       O << " All-One";
     O << "\\l\"";
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// VPPredInstPHIRecipe is a recipe for generating the phi nodes needed when
@@ -928,8 +985,12 @@ public:
   /// Generates phi nodes for live-outs as needed to retain SSA form.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// A Recipe for widening load/store operations.
@@ -955,8 +1016,12 @@ public:
   /// Generate the wide load/store.
   void execute(VPTransformState &State) override;
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// VPBasicBlock serves as the leaf of the Hierarchical Control-Flow Graph. It
@@ -1236,6 +1301,8 @@ private:
                                   BasicBlock *LoopLatchBB);
 };
 
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// VPlanPrinter prints a given VPlan to a given output stream. The printing is
 /// indented and follows the dot format.
 class VPlanPrinter {
@@ -1304,6 +1371,8 @@ inline raw_ostream &operator<<(raw_ostream &OS, VPlan &Plan) {
   Printer.dump();
   return OS;
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // GraphTraits specializations for VPlan Hierarchical Control-Flow Graphs     //
@@ -1490,6 +1559,41 @@ public:
     assert(To && "Successor to disconnect is null.");
     From->removeSuccessor(To);
     To->removePredecessor(From);
+  }
+
+  /// Returns true if the edge \p FromBlock -> \p ToBlock is a back-edge.
+  static bool isBackEdge(const VPBlockBase *FromBlock,
+                         const VPBlockBase *ToBlock, const VPLoopInfo *VPLI) {
+    assert(FromBlock->getParent() == ToBlock->getParent() &&
+           FromBlock->getParent() && "Must be in same region");
+    const VPLoop *FromLoop = VPLI->getLoopFor(FromBlock);
+    const VPLoop *ToLoop = VPLI->getLoopFor(ToBlock);
+    if (!FromLoop || !ToLoop || FromLoop != ToLoop)
+      return false;
+
+    // A back-edge is a branch from the loop latch to its header.
+    return ToLoop->isLoopLatch(FromBlock) && ToBlock == ToLoop->getHeader();
+  }
+
+  /// Returns true if \p Block is a loop latch
+  static bool blockIsLoopLatch(const VPBlockBase *Block,
+                               const VPLoopInfo *VPLInfo) {
+    if (const VPLoop *ParentVPL = VPLInfo->getLoopFor(Block))
+      return ParentVPL->isLoopLatch(Block);
+
+    return false;
+  }
+
+  /// Count and return the number of succesors of \p PredBlock excluding any
+  /// backedges.
+  static unsigned countSuccessorsNoBE(VPBlockBase *PredBlock,
+                                      VPLoopInfo *VPLI) {
+    unsigned Count = 0;
+    for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
+      if (!VPBlockUtils::isBackEdge(PredBlock, SuccBlock, VPLI))
+        Count++;
+    }
+    return Count;
   }
 };
 

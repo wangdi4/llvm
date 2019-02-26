@@ -1,6 +1,6 @@
 //===---- HIRVerifier.cpp - Verifies internal structure of HLNodes --------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -37,8 +37,8 @@ static cl::opt<bool>
 static cl::opt<bool> HIRCFDefLevel(
     "hir-verify-cf-def-level",
     cl::desc("Verify consistency of control-flow-related def-level "
-             "attribute (default=false)"),
-    cl::init(false));
+             "attribute (default=true)"),
+    cl::init(true));
 
 namespace {
 
@@ -265,7 +265,7 @@ public:
 
         // Blob Case
       } else {
-        for (auto Blob = Ref->blob_cbegin(), EB = Ref->blob_cend(); Blob != EB;
+        for (auto Blob = Ref->blob_begin(), EB = Ref->blob_end(); Blob != EB;
              ++Blob) {
           checkLoopLiveinLiveout((*Blob)->getSymbase(), DDNode, UseLoop);
         }

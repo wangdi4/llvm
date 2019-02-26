@@ -1,6 +1,6 @@
 //===-- IntelLoopVectorizationPlannerHIR.h ----------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -37,12 +37,14 @@ private:
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   loopopt::HIRDDAnalysis *DDA;
 
+
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
   std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
-                                           unsigned &EndRangeVF) override {
+                                           unsigned &EndRangeVF,
+                                           LLVMContext *Context) override {
     // Create new empty VPlan
-    std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA);
+    std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA, Context);
     VPlan *Plan = SharedPlan.get();
 
     // Build hierarchical CFG

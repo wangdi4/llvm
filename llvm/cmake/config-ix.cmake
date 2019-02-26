@@ -325,6 +325,15 @@ else()
   unset(HAVE_FFI_CALL CACHE)
 endif( LLVM_ENABLE_FFI )
 
+# Whether we can use std::is_trivially_copyable to verify llvm::is_trivially_copyable.
+CHECK_CXX_SOURCE_COMPILES("
+#include <type_traits>
+struct T { int val; };
+static_assert(std::is_trivially_copyable<T>::value, \"ok\");
+int main() { return 0;}
+" HAVE_STD_IS_TRIVIALLY_COPYABLE)
+
+
 # Define LLVM_HAS_ATOMICS if gcc or MSVC atomic builtins are supported.
 include(CheckAtomic)
 
@@ -392,6 +401,8 @@ elseif (LLVM_NATIVE_ARCH MATCHES "arm64")
   set(LLVM_NATIVE_ARCH AArch64)
 elseif (LLVM_NATIVE_ARCH MATCHES "arm")
   set(LLVM_NATIVE_ARCH ARM)
+elseif (LLVM_NATIVE_ARCH MATCHES "avr")
+  set(LLVM_NATIVE_ARCH AVR)
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_CSA
 elseif (INTEL_CUSTOMIZATION AND LLVM_NATIVE_ARCH MATCHES "csa")
@@ -404,8 +415,6 @@ elseif (LLVM_NATIVE_ARCH MATCHES "xcore")
   set(LLVM_NATIVE_ARCH XCore)
 elseif (LLVM_NATIVE_ARCH MATCHES "msp430")
   set(LLVM_NATIVE_ARCH MSP430)
-elseif (LLVM_NATIVE_ARCH MATCHES "nios2")
-  set(LLVM_NATIVE_ARCH NIOS2)
 elseif (LLVM_NATIVE_ARCH MATCHES "hexagon")
   set(LLVM_NATIVE_ARCH Hexagon)
 elseif (LLVM_NATIVE_ARCH MATCHES "s390x")

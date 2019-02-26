@@ -1,9 +1,8 @@
 //===- BuildLibCalls.cpp - Utility builder for libcalls -------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -888,6 +887,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_lxstat:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_regcomp:
+  case LibFunc_regerror:
+  case LibFunc_regexec:
+  case LibFunc_regfree:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_sigsetjmp:
     return Changed;
   case LibFunc_sysv_signal:
@@ -932,6 +937,11 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_ZNKSt5ctypeIcE13_M_widen_initEv:
+    return Changed;
+  case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_ZNKSt9bad_alloc4whatEv:
     Changed |= setOnlyReadsMemory(F);
@@ -1052,6 +1062,18 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt6localeD1Ev:
     return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
+    return Changed;
   case LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_:
     return Changed;
   case LibFunc_ZNSt8__detail15_List_node_base7_M_hookEPS0_:
@@ -1106,6 +1128,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_ZSt20__throw_out_of_rangePKc:
+    Changed |= setDoesNotReturn(F);
+    return Changed;
+  case LibFunc_ZSt24__throw_out_of_range_fmtPKcz:
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_:

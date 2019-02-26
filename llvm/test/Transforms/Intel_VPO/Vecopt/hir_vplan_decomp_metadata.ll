@@ -17,8 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @foo(i32 %factor) local_unnamed_addr {
 entry:
   %mul3 = mul i32 %factor, 15
-  tail call void @llvm.intel.directive(metadata !40)
-  call void @llvm.intel.directive.qual.opnd.i32(metadata !42, i32 8)
+  %t4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
@@ -33,13 +32,14 @@ omp.inner.for.body:
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %t4) [ "DIR.OMP.END.SIMD"() ]
   ret void
 }
 
-declare void @llvm.intel.directive(metadata) #1
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
+declare void @llvm.intel.directive(metadata)
 
-!40 = !{!"DIR.OMP.SIMD"}
-!42 = !{!"QUAL.OMP.SIMDLEN"}
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)

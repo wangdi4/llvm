@@ -52,12 +52,6 @@ public:
 
   void printPrioOrderOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
                             const char *Modifier = nullptr);
-
-  //    void printPCRelImmOperand(const MCInst *MI, unsigned OpNo, raw_ostream
-  //    &O); void printSrcMemOperand(const MCInst *MI, unsigned OpNo,
-  //    raw_ostream &O,
-  //                            const char *Modifier = nullptr);
-  //    void printCCOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 };
 } // namespace llvm
 

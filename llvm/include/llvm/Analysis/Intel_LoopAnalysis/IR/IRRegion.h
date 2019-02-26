@@ -1,6 +1,6 @@
 //===--- IRRegion.h - Section of LLVM IR representing HLRegion --*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -27,13 +27,14 @@ namespace llvm {
 class Value;
 class Instruction;
 class BasicBlock;
+class Loop;
 class raw_ostream;
 
 namespace loopopt {
 
 class HLRegion;
 
-/// \brief Section of LLVM IR which can be transformed into HLRegion.
+/// Section of LLVM IR which can be transformed into HLRegion.
 ///
 /// IRRegion can be minimally defined as a pair of entry basic block and a set
 /// of basic blocks (including the entry basic block).
@@ -52,7 +53,7 @@ public:
   typedef LiveOutMapTy::const_iterator const_live_out_iterator;
 
 protected:
-  /// \brief Make class uncopyable.
+  /// Make class uncopyable.
   IRRegion(const IRRegion &) = delete;
 
   // Sets parent region.
@@ -62,10 +63,15 @@ private:
   BasicBlock *EntryBBlock;
   BasicBlock *ExitBBlock;
   // TODO: replace following two data structures by SetVector.
+  // Contains all bblocks of region.
   // SmallVector of bblocks is used for deterministic iteration.
   RegionBBlocksTy BBlocks;
   // DenseSet of bblocks is used for faster query results to containsBBlock().
   RegionBBlocksSetTy BBlocksSet;
+
+  // Contains bblocks which do not belong to any loops in the region. It is
+  // empty for function level region.
+  RegionBBlocksTy NonLoopBBlocks;
 
   // Map of symbase to their initial values which need to be materialized into
   // a store during HIRCG.
@@ -79,44 +85,42 @@ private:
   ReverseLiveOutMapTy ReverseLiveOutMap;
   HLRegion *ParentRegion;
 
+  // Indicates that the region was formed for loop materialization.
+  bool IsLoopMaterializationCandidate;
   // Indicates that the region is composed of all the function bblocks.
   bool IsFunctionLevel;
 
 public:
-  IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks,
+  IRRegion(BasicBlock *Entry, BasicBlock *Exit, const RegionBBlocksTy &BBlocks,
+           const RegionBBlocksTy &NonLoopBBlocks,
+           bool IsMaterializationCandidate = false,
            bool IsFunctionLevel = false);
 
-  /// \brief Move constructor. This is used by HIRRegionIdentification pass to
+  /// Move constructor. This is used by HIRRegionIdentification pass to
   /// push_back regions onto SmallVector.
   IRRegion(IRRegion &&);
   IRRegion &operator=(IRRegion &&);
 
-  /// \brief Dumps IRRegion.
+  /// Dumps IRRegion.
   void dump() const;
-  /// \brief Prints IRRegion..
+  /// Prints IRRegion..
   void print(raw_ostream &OS, unsigned IndentWidth) const;
 
-  /// \brief Returns the entry(first) bblock of this region.
+  /// Returns the entry(first) bblock of this region.
   BasicBlock *getEntryBBlock() const { return EntryBBlock; }
 
-  /// \brief Returns the exit(last) bblock of this region.
+  /// Returns the exit(last) bblock of this region.
   BasicBlock *getExitBBlock() const { return ExitBBlock; }
-
-  /// \brief Sets the entry(first) bblock of this region.
-  void setEntryBBlock(BasicBlock *EntryBB) { EntryBBlock = EntryBB; }
 
   /// Replaces the existing entry bblock of the region by the new one.
   void replaceEntryBBlock(BasicBlock *NewEntryBB);
 
-  /// \brief Sets the exit(last) bblock of this region.
-  void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
-
-  /// \brief Returns the predecessor bblock of this region.
+  /// Returns the predecessor bblock of this region.
   BasicBlock *getPredBBlock() const;
-  /// \brief Returns the successor bblock of this region.
+  /// Returns the successor bblock of this region.
   BasicBlock *getSuccBBlock() const;
 
-  /// \brief Returns true if this region contains BB.
+  /// Returns true if this region contains BB.
   bool containsBBlock(const BasicBlock *BB) const {
     return BBlocksSet.count(BB);
   }
@@ -126,7 +130,14 @@ public:
     BBlocksSet.insert(BB);
   }
 
-  /// \brief Adds a live-in temp (represented using Symbase) with initial value
+  bool hasNonLoopBBlocks() const { return !NonLoopBBlocks.empty(); }
+
+  // Returns true if region was formed for loop materialization.
+  bool isLoopMaterializationCandidate() const {
+    return IsLoopMaterializationCandidate;
+  }
+
+  /// Adds a live-in temp (represented using Symbase) with initial value
   /// InitVal to the region.
   void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
     auto Ret = LiveInMap.insert(std::make_pair(Symbase, InitVal));
@@ -135,7 +146,7 @@ public:
            "Inconsistent livein value detected!");
   }
 
-  /// \brief Adds a live-out temp (represented using Symbase) to the region.
+  /// Adds a live-out temp (represented using Symbase) to the region.
   void addLiveOutTemp(unsigned Symbase, const Instruction *Temp);
 
   /// Removes \p Symbase from the liveout temp set.
@@ -143,16 +154,19 @@ public:
 
   void replaceLiveOutTemp(unsigned OldSymbase, unsigned NewSymbase);
 
-  /// \brief Returns true if this symbase is live in to this region.
+  /// Returns true if this symbase is live in to this region.
   bool isLiveIn(unsigned Symbase) const { return LiveInMap.count(Symbase); }
 
-  /// \brief Returns true if this symbase is live out of this region.
+  /// Returns true if this symbase is live out of this region.
   bool isLiveOut(unsigned Symbase) const { return LiveOutMap.count(Symbase); }
 
   bool hasLiveOuts() const { return !LiveOutMap.empty(); }
 
   const_bb_iterator bb_begin() const { return BBlocks.begin(); }
   const_bb_iterator bb_end() const { return BBlocks.end(); }
+
+  const_bb_iterator non_loop_bb_begin() { return NonLoopBBlocks.begin(); }
+  const_bb_iterator non_loop_bb_end() { return NonLoopBBlocks.end(); }
 
   const_live_in_iterator live_in_begin() const { return LiveInMap.begin(); }
   const_live_in_iterator live_in_end() const { return LiveInMap.end(); }

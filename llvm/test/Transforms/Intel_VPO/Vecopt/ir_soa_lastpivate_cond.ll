@@ -10,10 +10,8 @@
 
 ; CHECK: vector.body:                                      ; preds = %vector.body, %vector.ph
 ; CHECK:   %replicatedMaskElts. = shufflevector <4 x i1> {{.*}}, <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
-; CHECK:   %wide.masked.load = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32({{.*}} <8 x i1> %replicatedMask
-; CHECK:   %transposed.wide.masked.load = shufflevector <8 x i32> %wide.masked.load, <8 x i32> undef, <8 x i32> <i32 0, i32 2, i32 4, i32 6, i32 1, i32 3, i32 5, i32 7>
-; CHECK:   %[[ReplicatedMaskVec:.*]] = shufflevector <4 x i1> {{.*}}, <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK:   call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> %transposed.wide.masked.load, <8 x i32>* %tmp.vec, i32 4, <8 x i1> %[[ReplicatedMaskVec]])
+; CHECK:   %wide.masked.load = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32({{.*}} <8 x i1> %replicatedMaskElts.
+; CHECK:   call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> %wide.masked.load, <8 x i32>* %tmp.vec, i32 4, <8 x i1> %[[ReplicatedMaskVec:.*]])
 
 ; CHECK: middle.block:                                     ; preds = %VPlannedBB{{[0-9]*}}
 ; CHECK:   %[[MASK_INT:.*]] = load i4, i4* %tmp.mask
@@ -87,8 +85,7 @@ DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
 ; CHECK-LABEL: @foo2
 ; CHECK: %tmp.vec = alloca <8 x i32>, align 8
 ; CHECK: %[[WideLoad:.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>*
-; CHECK:  %[[Transposed:.*]] = shufflevector <8 x i32> %[[WideLoad]], <8 x i32> undef, <8 x i32> <i32 0, i32 2, i32 4, i32 6, i32 1, i32 3, i32 5, i32 7>
-; CHECK:  %[[ToStore:.*]] = bitcast <8 x i32> %[[Transposed:.*]] to <4 x i64>
+; CHECK:  %[[ToStore:.*]] = bitcast <8 x i32> %[[WideLoad:.*]] to <4 x i64>
 
 ; CHECK: call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> %[[ToStore]]
 

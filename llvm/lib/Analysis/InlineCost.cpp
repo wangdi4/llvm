@@ -1,9 +1,8 @@
 //===- InlineCost.cpp - Cost analysis for inliner -------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -413,7 +412,9 @@ public:
         NumInstructionsSimplified(0), SROACostSavings(0),
         SROACostSavingsLost(0) {}
 
-  InlineResult analyzeCall(CallSite CS, InlineReason* Reason); // INTEL
+  InlineResult analyzeCall(CallSite CS,                          // INTEL
+                           const TargetTransformInfo &CalleeTTI, // INTEL
+                           InlineReason* Reason);                // INTEL
 
   int getThreshold() { return Threshold; }
   int getCost() { return Cost; }
@@ -1453,7 +1454,7 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   CallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F, CS, // INTEL
                   TLI, ILIC, AI, CallSitesForFusion,                 // INTEL
                   CallSitesForDTrans, IndirectCallParams);           // INTEL
-  if (CA.analyzeCall(CS, nullptr)) { // INTEL
+  if (CA.analyzeCall(CS, TTI, nullptr)) { // INTEL
     // We were able to inline the indirect call! Subtract the cost from the
     // threshold to get the bonus we want to apply, but don't go below zero.
     Cost -= std::max(0, CA.getThreshold() - CA.getCost());
@@ -2147,8 +2148,8 @@ static bool isDoubleCallSite(Function *F)
 static bool worthyDoubleInternalCallSite(CallSite &CS,
   InliningLoopInfoCache& ILIC)
 {
-  return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC)
-    || worthyDoubleCallSite3(CS, ILIC);
+  return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC) ||
+    worthyDoubleCallSite3(CS, ILIC);
 }
 
 //
@@ -2394,12 +2395,10 @@ static bool isLeafFunction(const Function &F) {
 // of an LTO compilation.
 //
 static bool preferMultiversioningToInlining(CallSite CS,
+                                            const TargetTransformInfo
+                                                &CalleeTTI,
                                             InliningLoopInfoCache &ILIC,
                                             bool PrepareForLTO) {
-
-  //Only focus on Link time at present:
-  if (PrepareForLTO)
-    return false;
 
   // Right now, only the callee is tested for multiversioning.  We use
   // this set to keep track of callees that have already been tested,
@@ -2408,8 +2407,15 @@ static bool preferMultiversioningToInlining(CallSite CS,
   // be rejected quickly.
   static SmallPtrSet<Function *, 3> CalleeFxnPtrSet;
 
+  //Only focus on Link time at present:
+  if (PrepareForLTO)
+    return false;
+
   // Quick tests:
   if (!DTransInlineHeuristics)
+    return false;
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
     return false;
   Function *Callee = CS.getCalledFunction();
   if (!Callee)
@@ -2641,9 +2647,18 @@ static cl::opt<cl::boolOrDefault>
 /// In case we decide that current CS is a candidate for inlining for fusion,
 /// then we store other CS to the same function in the same basic block in
 /// the set of inlining candidates for fusion.
-static bool worthInliningForFusion(CallSite &CS, InliningLoopInfoCache &ILIC,
+static bool worthInliningForFusion(CallSite &CS,
+                                   const TargetTransformInfo &CalleeTTI,
+                                   InliningLoopInfoCache &ILIC,
                                    SmallSet<CallSite, 20> *CallSitesForFusion,
                                    bool PrepareForLTO) {
+
+  if (InliningForFusionHeuristics != cl::BOU_TRUE) {
+    auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+    if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
+      return false;
+  }
+
   // Heuristic is enabled if option is unset and it is first inliner run
   // (on PrepareForLTO phase) OR if option is set to true.
   if (((InliningForFusionHeuristics != cl::BOU_UNSET) || !PrepareForLTO) &&
@@ -3019,6 +3034,8 @@ static GlobalValue *traceBack(Value *V, unsigned MinBOpCount,
 // we would have no knowledge of its contents in the compile phase.)
 //
 static bool callsRealloc(Function *F, TargetLibraryInfo *TLI) {
+  if (!F)
+    return false;
   if (F->getName().contains("realloc"))
     return true;
   for (auto &I : instructions(F))
@@ -3439,6 +3456,15 @@ static bool preferNotToInlineForSwitchComputations(CallSite CS,
 }
 
 //
+// Return 'true' if 'Callee' is preferred for not inlining because it is
+// a recursive progressive clone marked with an attribute as being
+// preferred for not inlining ("prefer-noinline-rec-pro-clone").
+//
+static bool preferNotToInlineForRecProgressiveClone(Function *Callee) {
+  return Callee && Callee->hasFnAttribute("prefer-noinline-rec-pro-clone");
+}
+
+//
 // Return 'true' if the CallSites of 'Caller' should not be inlined because
 // we are in the 'PrepareForLTO' compile phase and delaying the inlining
 // decision until the link phase will let us more easily decide whether to
@@ -3485,7 +3511,8 @@ static bool preferToDelayInlineDecision(Function *Caller,
   // if the 'Caller' should be inlined.
   auto IsDelayInlineCaller = [&TestedGEP](Function *Caller,
                                           bool PrepareForLTO) -> bool {
-    if (Caller->size() > (PrepareForLTO ? 5 : 3))
+    unsigned MaxSize = PrepareForLTO ? 5 : 3;
+    if (Caller->size() > MaxSize)
       return false;
     if (!TestedGEP(Caller))
       return false;
@@ -3545,6 +3572,15 @@ static bool worthInliningSingleBasicBlockWithStructTest(Function *Callee,
   return QueuedCallers.count(Callee);
 }
 
+//
+// Return 'true' if 'Callee' is preferred for inlining because it is
+// a recursive progressive clone marked with an attribute as being
+// preferred for inlining ("prefer-inline-rec-pro-clone").
+//
+static bool worthInliningForRecProgressiveClone(Function *Callee) {
+  return Callee && Callee->hasFnAttribute("prefer-inline-rec-pro-clone");
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Analyze a call site for potential inlining.
@@ -3558,8 +3594,11 @@ static bool worthInliningSingleBasicBlockWithStructTest(Function *Callee,
 /// INTEL The Intel version also sets the value of *Reason to be the principal
 /// INTEL the call site would be inlined or not inlined.
 
-InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
-                                       InlineReason* Reason) { // INTEL
+#if INTEL_CUSTOMIZATION
+InlineResult CallAnalyzer::analyzeCall(CallSite CS,
+                                       const TargetTransformInfo &CalleeTTI,
+                                       InlineReason *Reason) {
+#endif // INTEL_CUSTOMIZATION
   ++NumCallsAnalyzed;
   InlineReason TempReason = NinlrNoReason; // INTEL
   InlineReason* ReasonAddr = Reason == nullptr ? &TempReason : Reason; // INTEL
@@ -3586,6 +3625,19 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
   // Update the threshold based on callsite properties
   updateThreshold(CS, F, YesReasonVector); // INTEL
 
+  // While Threshold depends on commandline options that can take negative
+  // values, we want to enforce the invariant that the computed threshold and
+  // bonuses are non-negative.
+#if INTEL_CUSTOMIZATION
+  // There is nothing in updateThreshold() to put a lower limit of 0 on the
+  // Threshold when -inline-threshold is specified as < 0. Commenting this
+  // out, at least for now. The same goes for the SingleBBBonus and VectorBonus,
+  // which are derived from Threshold.
+  // assert(Threshold >= 0);
+  // assert(SingleBBBonus >= 0);
+  // assert(VectorBonus >= 0);
+#endif // INTEL_CUSTOMIZATION
+
   // INTEL  CQ378383: Tolerate a single "forgivable" condition when optimizing
   // INTEL  for size. In this case, we delay subtracting out the single basic
   // INTEL  block bonus until we see a second branch with multiple targets.
@@ -3605,7 +3657,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
     return "prefer cloning";
   }
   if (InlineForXmain &&
-      preferMultiversioningToInlining(CS, *ILIC, PrepareForLTO)) {
+      preferMultiversioningToInlining(CS, CalleeTTI, *ILIC, PrepareForLTO)) {
     *ReasonAddr = NinlrPreferMultiversioning;
     return false;
   }
@@ -3622,6 +3674,11 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
   if (InlineForXmain &&
       preferNotToInlineForSwitchComputations(CS, *ILIC)) {
     *ReasonAddr = NinlrSwitchComputations;
+    return false;
+  }
+  if (InlineForXmain &&
+      preferNotToInlineForRecProgressiveClone(CS.getCalledFunction())) {
+    *ReasonAddr = NinlrRecursive;
     return false;
   }
   if (InlineForXmain &&
@@ -3668,7 +3725,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
            }
         }
       }
-      if (worthInliningForFusion(CS, *ILIC, CallSitesForFusion,
+      if (worthInliningForFusion(CS, CalleeTTI, *ILIC, CallSitesForFusion,
                                  PrepareForLTO)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrForFusion);
@@ -3690,6 +3747,10 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,            // INTEL
           QueuedCallers)) {
         Cost -= InlineConstants::InliningHeuristicBonus;
         YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
+      }
+      if (worthInliningForRecProgressiveClone(&F)) {
+        Cost -= InlineConstants::DeepInliningHeuristicBonus;
+        YesReasonVector.push_back(InlrRecProClone);
       }
     }
   }
@@ -4141,7 +4202,7 @@ InlineCost llvm::getInlineCost(
                   CallSitesForDTrans, Params);         // INTEL
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
-  InlineResult ShouldInline = CA.analyzeCall(CS, &Reason);
+  InlineResult ShouldInline = CA.analyzeCall(CS, CalleeTTI, &Reason);
   assert(Reason != InlrNoReason);
 #endif // INTEL_CUSTOMIZATION
 

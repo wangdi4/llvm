@@ -1,9 +1,8 @@
 //===- KillTheDoctor - Prevent Dr. Watson from stopping tests ---*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -188,7 +187,9 @@ static std::error_code GetFileNameFromHandle(HANDLE FileHandle,
 
   // Create a file mapping object.
   FileMappingScopedHandle FileMapping(
-    ::CreateFileMappingA(FileHandle,
+#if INTEL_CUSTOMIZATION
+    ::CreateFileMappingW(FileHandle,
+#endif // INTEL_CUSTOMIZATION
                          NULL,
                          PAGE_READONLY,
                          0,

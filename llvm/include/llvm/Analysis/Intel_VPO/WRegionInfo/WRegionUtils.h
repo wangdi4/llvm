@@ -1,8 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
-//===----- WRegionNodeUtils.h - Utilities for WRegionNodeNode class -----*- C++
-//-*-===//
+//===--- WRegionUtils.h - Utilities for WRegionNode class -----*- C++ -*---===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -315,6 +314,12 @@ public:
   /// target regions from the target code after outlining is done.
   static bool hasTargetDirective(WRContainerImpl &WRC);
   static bool hasTargetDirective(WRegionInfo *WI);
+
+  /// Given a loop-type WRN \p W, if there is an enclosed SIMD construct bound
+  /// to the same loop as W, then return the pointer to the WRNVecLoopNode
+  /// corresponding to the SIMD construct. Otherwise, return nullptr.
+  static WRNVecLoopNode *getEnclosedSimdForSameLoop(WRegionNode *W,
+                                                    unsigned Idx = 0);
 };
 
 } // End VPO Namespace

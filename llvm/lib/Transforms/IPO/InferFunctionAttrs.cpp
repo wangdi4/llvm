@@ -1,9 +1,8 @@
 //===- InferFunctionAttrs.cpp - Infer implicit function attributes --------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -22,7 +21,7 @@ using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
 // For experimenting with new keywords use -force-attribute option
-const std::array<StringRef, 2> ErrorHandlingKeywords = {"croak", "warn"};
+const std::array<StringRef, 3> ErrorHandlingKeywords = {"croak", "warn", "signal"};
 
 // We detect functions that contain special keywords in their names.
 // If there is a match we assume they are error handling functions,

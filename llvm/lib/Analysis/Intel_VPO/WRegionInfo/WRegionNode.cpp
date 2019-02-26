@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //===-- WRegionNode.cpp - Implements the WRegionNode class ----------------===//
 //
-//   Copyright (C) 2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -176,7 +176,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
       for (BasicBlock *BB : BBlockSet)
         for (Instruction &I : *BB)
           if (VPOAnalysisUtils::isCallOfName(&I, "__read_pipe_2_bl_intel")) {
-            CallInst *Call = dyn_cast<CallInst>(&I);
+            CallInst *Call = cast<CallInst>(&I);
             // LLVM_DEBUG(dbgs() << "Found Call: " << *Call << "\n");
             assert(Call->getNumArgOperands()==2 &&
                    "__read_pipe_2_bl_intel() is expected to have 2 operands");
@@ -586,9 +586,8 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   // so we must extract the integer N from V and store N.
   int64_t N = -1;
   ConstantInt *CI = dyn_cast<ConstantInt>(V);
-  if (CI != nullptr) {
-    N = *((CI->getValue()).getRawData());
-  }
+  if (CI != nullptr)
+    N = CI->getZExtValue();
 
   switch (ClauseID) {
   case QUAL_OMP_SIMDLEN:
@@ -759,7 +758,7 @@ void WRegionNode::extractScheduleOpndList(ScheduleClause &Sched,
   int64_t ChunkSize = -1;
   ConstantInt *CI = dyn_cast<ConstantInt>(ChunkArg);
   if (CI != nullptr) {
-    ChunkSize = *((CI->getValue()).getRawData());
+    ChunkSize = CI->getZExtValue();
     LLVM_DEBUG(dbgs() << " Schedule chunk size is constant: " << ChunkSize
                       << "\n");
   }
@@ -890,7 +889,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     assert(isa<ConstantInt>(Args[1]) &&
            "Non-constant Value for number of array section dimensions.");
     ConstantInt *CI = cast<ConstantInt>(Args[1]);
-    unsigned NumDims = *((CI->getValue()).getRawData());
+    uint64_t NumDims = CI->getZExtValue();
 
     assert(NumArgs == 3 * NumDims + 2 &&
            "Unexpected number of args for array section operand.");
@@ -1067,7 +1066,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     assert(isa<ConstantInt>(Args[0]) &&
            "Non-constant Value of N for ordered(N).");
     ConstantInt *CI = cast<ConstantInt>(Args[0]);
-    unsigned N = *((CI->getValue()).getRawData());
+    uint64_t N = CI->getZExtValue();
     setOrdered(N);
 
     if (N == 0)

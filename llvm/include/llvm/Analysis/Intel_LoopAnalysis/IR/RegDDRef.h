@@ -1,6 +1,6 @@
 //===----- RegDDRef.h - Regular data dependency node in HIR -----*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -595,8 +595,8 @@ public:
   blob_iterator blob_begin() { return BlobDDRefs.begin(); }
   blob_iterator blob_end() { return BlobDDRefs.end(); }
 
-  const_blob_iterator blob_cbegin() const { return BlobDDRefs.begin(); }
-  const_blob_iterator blob_cend() const { return BlobDDRefs.end(); }
+  const_blob_iterator blob_begin() const { return BlobDDRefs.begin(); }
+  const_blob_iterator blob_end() const { return BlobDDRefs.end(); }
 
   reverse_blob_iterator blob_rbegin() { return BlobDDRefs.rbegin(); }
   reverse_blob_iterator blob_rend() { return BlobDDRefs.rend(); }
@@ -679,9 +679,10 @@ public:
   /// DDRef for %t2 to the DDRef.
   bool isSelfBlob() const override;
 
-  /// Returns true if the DDRef is a unitary blob. A unitary blob is a single
-  /// (non-nested) standalone blob.
-  bool isUnitaryBlob() const override;
+  /// Returns true if the DDRef cannot be decomposed further into simpler
+  /// operations. Non-decomposable refs include LHS terminal refs and RHS
+  /// unitary blobs.
+  bool isNonDecomposable() const override;
 
   /// Returns true if this ref looks like 1 * undef.
   bool isStandAloneUndefBlob() const override;

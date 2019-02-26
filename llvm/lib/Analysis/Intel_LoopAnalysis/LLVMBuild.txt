@@ -18,6 +18,9 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = OptReport
+
 [component_0]
 type = Library
 name = Intel_LoopAnalysis

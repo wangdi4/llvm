@@ -3,9 +3,8 @@
 
 ; Verify that we are able to handle deconstruction of loop exit phi %spec.select.lcssa properly.
 
-; CHECK: @llvm.intel.directive(!"DIR.OMP.SIMD");
-; CHECK: @llvm.intel.directive.qual.opndlist(!"QUAL.OMP.NORMALIZED.IV",  &((%.omp.iv)[0]));
-; CHECK: @llvm.intel.directive(!"DIR.QUAL.LIST.END");
+; CHECK: %t4 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD() ]
+
 ; CHECK: (%.omp.iv)[0] = 0;
 ; CHECK: %index.017 = -1;
 
@@ -15,8 +14,8 @@
 ; CHECK: + END LOOP
 
 ; CHECK: (%.omp.iv)[0] = %n;
-; CHECK: @llvm.intel.directive(!"DIR.OMP.END.SIMD");
-; CHECK: @llvm.intel.directive(!"DIR.QUAL.LIST.END");
+
+; CHECK: @llvm.directive.region.exit(%t4); [ DIR.OMP.END.SIMD() ]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -30,9 +29,7 @@ entry:
   br i1 %cmp, label %omp.precond.then, label %omp.precond.end
 
 omp.precond.then:                                 ; preds = %entry
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.NORMALIZED.IV", i32* nonnull %.omp.iv)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %t4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   store i32 0, i32* %.omp.iv, align 4
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body
@@ -52,8 +49,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
   %spec.select.lcssa = phi i32 [ %spec.select, %omp.inner.for.body ]
   store i32 %n, i32* %.omp.iv, align 4
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %t4) [ "DIR.OMP.END.SIMD"() ]
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
@@ -61,9 +57,9 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
   ret i32 %index.2
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata)
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...)
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
 

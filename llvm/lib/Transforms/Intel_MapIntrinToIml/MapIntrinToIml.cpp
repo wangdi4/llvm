@@ -1,7 +1,7 @@
 //==--- MapIntrinToIml.cpp - Legalize svml calls and apply IMF -*- C++ -*---==//
 //                           attributes.
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -196,6 +196,20 @@ void MapIntrinToIml::createImfAttributeList(CallInst *CI, ImfAttr **List) {
   // passed in from the caller via the List parameter.
   ImfAttr *Tail = nullptr;
 
+  // Set default precision to high accuracy. For bitwise reproducible svml
+  // functions, the iml accuracy inferface expects these attributes to appear
+  // before imf-arch-consistency.
+  ImfAttr *MaxError = new ImfAttr();
+  MaxError->name = "max-error";
+  MaxError->value = "0.6";
+  ImfAttr *Precision = new ImfAttr();
+  Precision->name = "precision";
+  Precision->value = "high";
+  MaxError->next = Precision;
+  Precision->next = nullptr;
+  addAttributeToList(List, &Tail, MaxError);
+  addAttributeToList(List, &Tail, Precision);
+
   // Build the linked list of IMF attributes that will be used to query
   // the IML interface.
 
@@ -245,21 +259,6 @@ void MapIntrinToIml::createImfAttributeList(CallInst *CI, ImfAttr **List) {
         addAttributeToList(List, &Tail, Attribute);
       }
     }
-  }
-
-  // If no IMF attributes were found for the function call, then default to
-  // high accuracy.
-  if (!*List) {
-    ImfAttr *MaxError = new ImfAttr();
-    MaxError->name = "max-error";
-    MaxError->value = "0.5";
-    ImfAttr *Precision = new ImfAttr();
-    Precision->name = "precision";
-    Precision->value = "high";
-    MaxError->next = Precision;
-    Precision->next = nullptr;
-    addAttributeToList(List, &Tail, MaxError);
-    addAttributeToList(List, &Tail, Precision);
   }
 
   // TODO: only debug mode
@@ -321,6 +320,7 @@ void MapIntrinToIml::generateMathLibCalls(
       *InsertPt = ArgInst;
     }
     CallInst *NewCI = CallInst::Create(Func, Args[I], "vcall");
+    NewCI->setCallingConv(CallingConv::SVML);
     NewCI->insertAfter(*InsertPt);
     Calls.push_back(NewCI);
     *InsertPt = NewCI;
@@ -828,6 +828,7 @@ const char* MapIntrinToIml::findX86Variant(CallInst *CI, StringRef FuncName,
   // Note: this does not remove the attributes from the instruction, only the
   // internal data structure used to query the iml interface.
   deleteAttributeList(&AttrList);
+  delete ParentFuncName;
 
   return VariantFuncName;
 }
@@ -867,6 +868,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
   Triple *T = new Triple(M->getTargetTriple());
   bool X86Target = (T->getArch() == Triple::x86 ||
                     T->getArch() == Triple::x86_64);
+  delete T;
 
   // Will be populated with the call instructions that will be replaced with
   // legalized/refined svml calls.
@@ -1057,6 +1059,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
                                           InsertPt);
 
         CallInst *NewCI = CallInst::Create(FCache, NewArgs, "vcall");
+        NewCI->setCallingConv(CallingConv::SVML);
         Instruction *CallResult = NewCI;
         NewCI->insertBefore(InsertPt);
 

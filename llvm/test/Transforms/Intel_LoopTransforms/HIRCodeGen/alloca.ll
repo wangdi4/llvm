@@ -1,5 +1,5 @@
-;RUN: opt -hir-cg -force-hir-cg -S %s | FileCheck %s
-;RUN: opt -passes="hir-cg" -force-hir-cg -S %s | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-cg -force-hir-cg -S %s | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S %s | FileCheck %s
 
 
 ;          BEGIN REGION { }
@@ -11,7 +11,7 @@
 ;CHECK: region.0:
 ;CHECK: loop.{{[0-9]+}}:
 ;CHECK-NEXT: [[SEXT_SIZE:%[0-9]+]] = sext i32 %size to i64
-;CHECK-NEXT: = alloca i8, i64 [[SEXT_SIZE]]
+;CHECK-NEXT: = alloca i8, i64 [[SEXT_SIZE]], align 1
 
 ; ModuleID = 'alloca.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

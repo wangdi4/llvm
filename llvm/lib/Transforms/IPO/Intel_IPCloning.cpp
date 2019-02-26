@@ -1,6 +1,6 @@
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
-// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -27,6 +27,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/Intel_CloneUtils.h"
 #include <sstream>
 #include <string>
 using namespace llvm;
@@ -44,7 +45,8 @@ enum IPCloneKind {
   NoneClone = 0,
   FuncPtrsClone = 1,
   SpecializationClone = 2,
-  GenericClone = 3
+  GenericClone = 3,
+  RecProgressionClone = 4
 };
 }
 
@@ -80,12 +82,12 @@ static cl::opt<unsigned> IPSpeCloningMinArgSetsLimit(
           "ip-spe-cloning-min-argsets-limit", cl::init(1), cl::ReallyHidden);
 
 // It is a mapping between formals of current function that is being processed
-// for cloning and set of possible constant values that can reach from 
+// for cloning and set of possible constant values that can reach from
 // call-sites to the formals.
 SmallDenseMap<Value *, std::set<Constant *>> FormalConstantValues;
 
 // It is a mapping between actuals of a Callsite that is being processed
-// for cloning and set of possible constant values that can reach from 
+// for cloning and set of possible constant values that can reach from
 // call-sites to the actuals.
 SmallDenseMap<Value *, std::set<Constant *>> ActualConstantValues;
 
@@ -98,7 +100,7 @@ SmallPtrSet<Value *, 16> InexactFormals;
 DenseMap<Instruction *, unsigned> CallInstArgumentSetIndexMap;
 
 // All constant argument sets for a function that is currently being
-// processed. Each constant argument set is mapped with unique index value. 
+// processed. Each constant argument set is mapped with unique index value.
 SmallDenseMap<unsigned,
     std::vector<std::pair<unsigned, Constant*>>> FunctionAllArgumentsSets;
 
@@ -116,13 +118,13 @@ std::set<Function *> ClonedFunctionList;
 SmallPtrSet<Value *, 16> WorthyFormalsForCloning;
 
 // It is mapping of Callsites of a routine that is currently being processed
-// and all possible argument sets at each CallSite. 
+// and all possible argument sets at each CallSite.
 SmallDenseMap<Instruction*, std::vector<
     std::vector<std::pair<unsigned, Value*>>>> AllCallsArgumentsSets;
 
 // InexactArgsSets means not all possible arguments sets are found at CallSites.
 // List of CallSites with InexactArgsSets for a routine that is currently
-// being processed. 
+// being processed.
 SmallPtrSet<Instruction*, 8> InexactArgsSetsCallList;
 
 // It is mapping between Special Constants (i.e address of stack location)
@@ -221,12 +223,12 @@ static void collectConstantArgument(Value* FormalV, Value* ActualV,
   // Now, we know it is valid constant for cloning.
   Constant *C = cast<Constant>(ActualV);
   auto &ValList = FormalConstantValues[FormalV];
-    
+
   if (!ValList.count(C))
     ValList.insert(C);
 
   auto &ActValList = ActualConstantValues[ActualV];
-    
+
   if (!ActValList.count(C))
     ActValList.insert(C);
 }
@@ -245,7 +247,7 @@ static unsigned getMaxClones() {
 
     if (count == 0)
       count = 1;
-      
+
     prod = prod * count;
   }
   return prod;
@@ -278,7 +280,7 @@ static void GetPointerToArrayDims(Type* PTy, unsigned& SizeInBytes,
   if (!isPointerToCharArray(PTy)) return;
   auto ATy = cast<PointerType>(PTy)->getElementType();
 
-  NumElems = cast<ArrayType>(ATy)->getNumElements(); 
+  NumElems = cast<ArrayType>(ATy)->getNumElements();
   SizeInBytes = DL.getTypeSizeInBits(ATy);
 }
 
@@ -350,7 +352,7 @@ static bool isSpecializationGVCandidate(Value* V, Instruction *I) {
   if (!GV->isConstant()) return false;
   if (!GV->hasDefinitiveInitializer()) return false;
   Constant *Init = GV->getInitializer();
-  if (!isa<ConstantArray>(Init)) return false; 
+  if (!isa<ConstantArray>(Init)) return false;
 
   if (GV->getLinkage() != GlobalVariable::PrivateLinkage) return false;
   if (GV->hasComdat()) return false;
@@ -358,11 +360,11 @@ static bool isSpecializationGVCandidate(Value* V, Instruction *I) {
 
   Type *Ty = GV->getValueType();
   if (!Ty->isSized()) return false;
-  const DataLayout &DL = I->getModule()->getDataLayout(); 
+  const DataLayout &DL = I->getModule()->getDataLayout();
   if (DL.getTypeSizeInBits(Ty) > IPSpecCloningArrayLimit) return false;
 
   // Add more checks like below but not required
-  // if (GlobalWasGeneratedByCompiler(GV)) return false; 
+  // if (GlobalWasGeneratedByCompiler(GV)) return false;
   // if (!Ty->isArrayTy() ||
   //     !Ty->getArrayElementType()->isArrayTy()) return false;
   return true;
@@ -375,7 +377,7 @@ static bool isSpecializationGVCandidate(Value* V, Instruction *I) {
 //
 //  AInst:     %7 = alloca [5 x [2 x i8]], align 1
 //
-//  MemCpySrc (AUse): %11 = getelementptr inbounds [5 x [2 x i8]], 
+//  MemCpySrc (AUse): %11 = getelementptr inbounds [5 x [2 x i8]],
 //           [5 x [2 x i8]]* %7, i64 0, i64 0, i64 0
 //
 //  Callee:    call void @llvm.lifetime.start(i64 10, i8* %11) #9
@@ -411,7 +413,7 @@ static Value* isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
   Type * GEPType = GEP->getSourceElementType();
   if (GEPType != AllocaI->getAllocatedType())
     return nullptr;
-  
+
   // Get another use of AllocaInst other than the one that
   // is passed to Call
   AUse = nullptr;
@@ -462,7 +464,7 @@ static Value* isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
     if (MemCpyDst->getNumIndices() != MemCpySrc->getNumIndices())
       return nullptr;
     Value* MemCpySize = User->getArgOperand(2);
-    
+
     // Make sure there is only one memcpy
     if (GlobAddr != nullptr) return nullptr;
     GlobAddr = MemCpyDst->getOperand(0);
@@ -470,8 +472,8 @@ static Value* isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
 
     if (!isSpecializationGVCandidate(GlobAddr, GEP))
       return nullptr;
-    
-    const DataLayout &DL = GEP->getModule()->getDataLayout(); 
+
+    const DataLayout &DL = GEP->getModule()->getDataLayout();
     unsigned ArraySize = DL.getTypeSizeInBits(GEPType) / 8;
     ConstantInt *CI = dyn_cast<ConstantInt>(MemCpySize);
     if (!CI) return nullptr;
@@ -481,10 +483,10 @@ static Value* isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
 }
 
 // Returns true if 'V' is a special constant for specialization cloning.
-// If 'V' special constant, it saves corresponding propagated value in 
+// If 'V' special constant, it saves corresponding propagated value in
 // 'SpecialConstPropagatedValueMap' to use it during transformation.
 // For given 'Arg', which is PHINode, it gets one of the input GEP
-// operands and save it in SpecialConstGEPMap to use it during 
+// operands and save it in SpecialConstGEPMap to use it during
 // transformation.
 //
 static bool isSpecializationCloningSpecialConst(Value* V, Value* Arg) {
@@ -530,7 +532,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallSite CS,
   }
 
   // Collect argument sets for PHINodes in PhiValues that are passed
-  // as arguments at CS. 
+  // as arguments at CS.
   BasicBlock *BB = PHI_I->getParent();
   for (BasicBlock *PredBB : predecessors(BB)) {
     unsigned Position = 0;
@@ -563,7 +565,7 @@ static void collectArgsSetsForSpecialization(Function &F, CallSite CS,
           Duplicate = true;
           break;
         }
-      }   
+      }
       if (!Duplicate)
         CallArgumentsSets.push_back(ConstantArgs);
     }
@@ -653,14 +655,14 @@ static void analyzeCallSitesForSpecializationCloning(Function &F) {
 
     analyzeCallForSpecialization(F, CS);
   }
-  // All CallSites of 'F' are analyzed. Delete if 
+  // All CallSites of 'F' are analyzed. Delete if
   // LoopInfo is computed.
   LoopInfo* LI = FunctionLoopInfoMap[&F];
   if (!LI) delete LI;
 }
 
 // Look at all CallSites of 'F' and collect all constant values
-// of formals. Return true if use of 'F' is noticed as non-call. 
+// of formals. Return true if use of 'F' is noticed as non-call.
 static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
   bool FunctionAddressTaken = false;
 
@@ -684,7 +686,7 @@ static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
     }
 
     // Collect constant values for each formal
-    CurrCallList.push_back(CS.getInstruction()); 
+    CurrCallList.push_back(CS.getInstruction());
     CallSite::arg_iterator CAI = CS.arg_begin();
     for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
          AI != E; ++AI, ++CAI) {
@@ -700,21 +702,233 @@ static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
 static bool IsFunctionPtrCloneCandidate(Function &F) {
   for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
        AI != E; ++AI) {
-    Type *T = (&*AI)->getType();   
-    if (isa<PointerType>(T) && 
+    Type *T = (&*AI)->getType();
+    if (isa<PointerType>(T) &&
         isa<FunctionType>(cast<PointerType>(T)->getElementType()))
       return true;
   }
   return false;
 }
 
-// Create argument set for CallSites 'CS' of  'F' and save it in 
+//
+// Fix the basis call of the recursive progression clone candidate 'OrigF' by
+// redirecting it to call the first in the series of recursive progressive
+// clones, 'NewF'.
+//
+static void fixRecProgressiveBasisCall(Function &OrigF, Function &NewF) {
+  auto UI = OrigF.use_begin();
+  auto UE = OrigF.use_end();
+  for (; UI != UE;) {
+    Use &U = *UI;
+    ++UI;
+    CallSite CS(U.getUser());
+    if (CS && (CS.getCalledFunction() == &OrigF)) {
+      if ((CS.getCaller() != &OrigF) && (CS.getCaller() != &NewF)) {
+        U.set(&NewF);
+        CS.setCalledFunction(&NewF);
+      }
+    }
+  }
+}
+
+// Fix the recursive calls within 'PrevF' to call 'NewF' rather than 'OrigF'.
+// After this is done, the recursive progressive clone 'foo.1' will look like:
+//   static void foo.1(int i) {
+//     ..
+//     int p = (i + 1) % 4;
+//     foo.2(p);
+//     ..
+//   }
+// where 'OrigF' is foo(), 'PrevF' is foo.1(), and 'NewF' is foo.2().
+//
+static void fixRecProgressiveRecCalls(Function &OrigF, Function &PrevF,
+                                      Function &NewF) {
+  auto UI = OrigF.use_begin();
+  auto UE = OrigF.use_end();
+  for (; UI != UE;) {
+    Use &U = *UI;
+    ++UI;
+    CallSite CS(U.getUser());
+    if (CS && (CS.getCalledFunction() == &OrigF)) {
+      if (CS.getCaller() == &PrevF) {
+        U.set(&NewF);
+        CS.setCalledFunction(&NewF);
+      }
+    }
+  }
+}
+
+//
+// Delete the calls in 'PrevF' to 'OrigF'.
+//
+// (This is done to ensure that the recursive progression terminates for a
+// non-cyclic recursive progression clone candidate.)
+//
+static void deleteRecProgressiveRecCalls(Function &OrigF, Function &PrevF) {
+  auto UI = OrigF.use_begin();
+  auto UE = OrigF.use_end();
+  for (; UI != UE;) {
+    Use &U = *UI;
+    ++UI;
+    CallSite CS(U.getUser());
+    if (CS && (CS.getCalledFunction() == &OrigF)) {
+      if (CS.getCaller() == &PrevF) {
+        auto CI = CS.getInstruction();
+        if (!CI->user_empty())
+           CI->replaceAllUsesWith(Constant::getNullValue(CI->getType()));
+        CI->eraseFromParent();
+      }
+    }
+  }
+}
+
+//
+// Create the recursive progressive clones for the recursive progressive
+// clone candidate 'F'.  'ArgPos' is the position of the recursive progressive
+// argument, whose initial value is 'Start', and is incremented by 'Inc', a
+// total of 'Count' times, and then repeats.
+//
+// If 'IsByRef' is 'true', the recursive progressive argument is by reference.
+// If 'IsCyclic' is 'true', the recursive progression is cyclic.
+//
+// For example, in the case of a cyclic recursive progression:
+//   static void foo(int i) {
+//     ..
+//     int p = (i + 1) % 4;
+//     foo(p);
+//     ..
+//   }
+//   static void bar() {
+//     ..
+//     foo(0);
+//     ..
+//   }
+// is replaced by a series of clones:
+//   static void foo.0() {
+//     ..
+//     foo.1();
+//     ..
+//   }
+//   static void foo.1() {
+//     ..
+//     foo.2();
+//     ..
+//   }
+//   static void foo.2() {
+//     ..
+//     foo.3();
+//     ..
+//   }
+//   static void foo.3() {
+//     ..
+//     foo.0();
+//     ..
+//   }
+// with
+//   static void bar() {
+//     ..
+//     foo.0();
+//     ..
+//   }
+//
+// while in the case of a non-cyclic recursive progression:
+//   static void foo(int j) {
+//     ..
+//     if (j != 4)
+//       foo(j+1);
+//     ..
+//   }
+//   static void bar() {
+//     ..
+//     foo(0);
+//     ..
+//   }
+// is replaced by a series of clones:
+//   static void foo.0() {
+//     ..
+//     foo.1();
+//     ..
+//   }
+//   static void foo.1() {
+//     ..
+//     foo.2();
+//     ..
+//   }
+//   static void foo.2() {
+//     ..
+//     foo.3();
+//     ..
+//   }
+//   static void foo.3() {
+//     ..
+//     /* The recursive call is deleted here. */
+//     ..
+//   }
+// with
+//   static void bar() {
+//     ..
+//     foo.0();
+//     ..
+//   }
+//
+static void createRecProgressiveClones(Function &F,
+                                       unsigned ArgPos, unsigned Count,
+                                       int Start, int Inc, bool IsByRef,
+                                       bool IsCyclic) {
+  int FormalValue = Start;
+  Function *FirstCloneF = nullptr;
+  Function *LastCloneF = nullptr;
+  for (unsigned I = 0; I < Count; ++I) {
+    ValueToValueMapTy VMap;
+    Function *NewF = CloneFunction(&F, VMap);
+    // Mark the first Count - 1 clones as preferred for inlining, the last
+    // preferred for not inlining.
+    if (!IsCyclic || I < Count - 1)
+      NewF->addFnAttr("prefer-inline-rec-pro-clone");
+    else
+      NewF->addFnAttr("prefer-noinline-rec-pro-clone");
+
+    if (LastCloneF)
+      fixRecProgressiveRecCalls(F, *LastCloneF, *NewF);
+    else
+      fixRecProgressiveBasisCall(F, *NewF);
+    NumIPCloned++;
+    Argument *NewFormal = NewF->arg_begin() + ArgPos;
+    auto ConstantType = NewFormal->getType();
+    if (IsByRef)
+      ConstantType = ConstantType->getPointerElementType();
+    Value *Rep = ConstantInt::get(ConstantType, FormalValue);
+    FormalValue += Inc;
+    if (IPCloningTrace) {
+      errs() << "        Function: " << NewF->getName() << "\n";
+      errs() << "        ArgPos : " << ArgPos << "\n";
+      errs() << "        Argument : " << *NewFormal << "\n";
+      errs() << "        IsByRef : " << (IsByRef ? "T" : "F") << "\n";
+      errs() << "        Replacement:  " << *Rep << "\n";
+    }
+    if (IsByRef) {
+      assert(NewFormal->hasOneUse() && "Expecting single use of ByRef Formal");
+      auto LI = cast<LoadInst>(*(NewFormal->user_begin()));
+      LI->replaceAllUsesWith(Rep);
+    } else
+      NewFormal->replaceAllUsesWith(Rep);
+    if (!FirstCloneF)
+      FirstCloneF = NewF;
+    LastCloneF = NewF;
+  }
+  if (IsCyclic)
+    fixRecProgressiveRecCalls(F, *LastCloneF, *FirstCloneF);
+  else
+    deleteRecProgressiveRecCalls(F, *LastCloneF);
+}
+
+// Create argument set for CallSites 'CS' of  'F' and save it in
 // 'ConstantArgsSet'
 //
 static void createConstantArgumentsSet(CallSite CS,  Function &F,
          std::vector<std::pair<unsigned, Constant *>>& ConstantArgsSet,
          bool AfterInl) {
-  
+
   unsigned position = 0;
   CallSite::arg_iterator CAI = CS.arg_begin();
   for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
@@ -725,13 +939,13 @@ static void createConstantArgumentsSet(CallSite CS,  Function &F,
     if (!WorthyFormalsForCloning.count(&*AI))
       continue;
 
-    
+
     Value* ActualV = *CAI;
     auto &ValList = ActualConstantValues[ActualV];
     if (ValList.size() == 0)
       continue;
     Constant *C = *ValList.begin();
-    ConstantArgsSet.push_back(std::make_pair(position, C)); 
+    ConstantArgsSet.push_back(std::make_pair(position, C));
   }
 }
 
@@ -797,7 +1011,7 @@ static void dumpFormalsConstants(Function &F) {
        errs() << "  (Inexact)  \n";
      else
        errs() << "  (Exact)  \n";
-     
+
      // Dump list of constants
      for (auto I = CList.begin(), E = CList.end(); I != E; I++) {
        errs() << "                  " << *(*(&*I)) << "\n";
@@ -839,7 +1053,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl) {
       else {
         if (IPCloningTrace) {
           errs() << "  Skipping FORMAL_" << (f_count - 1);
-          errs() << " due to heuristics\n";   
+          errs() << " due to heuristics\n";
         }
       }
     }
@@ -912,7 +1126,7 @@ static bool isArgumentConstantAtPosition(
 //
 static bool okayEliminateRecursion(Function *ClonedFn, unsigned index,
                                    CallSite CS, bool AfterInl) {
-  // Get constant argument set for ClonedFn. 
+  // Get constant argument set for ClonedFn.
   auto &CArgs = FunctionAllArgumentsSets[index];
 
   unsigned position = 0;
@@ -921,14 +1135,14 @@ static bool okayEliminateRecursion(Function *ClonedFn, unsigned index,
        E = ClonedFn->arg_end(); AI != E; ++AI, ++CAI, position++) {
 
     if (!isArgumentConstantAtPosition(CArgs, position)) {
-      // If argument is not constant in CArgs, then actual argument of CS 
+      // If argument is not constant in CArgs, then actual argument of CS
       // should be non-constant.
      if (isConstantArgForCloning(*CAI, FuncPtrsClone))
         return false;
 
     }
     else {
-      // If argument is constant in CArgs, then actual argument of CS 
+      // If argument is constant in CArgs, then actual argument of CS
       // should pass through formal.
       if ((&*AI) != (*CAI))
         return false;
@@ -969,7 +1183,7 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
 
     CallSite CS = CallSite(&*II);
     Function *Callee = CS.getCalledFunction();
-    if (Callee == OriginalFn && 
+    if (Callee == OriginalFn &&
         okayEliminateRecursion(ClonedFn, index, CS, AfterInl)) {
       CS.setCalledFunction(ClonedFn);
       NumIPCallsCloned++;
@@ -1027,10 +1241,10 @@ static Value* isSpecializationConstantAtPosition(
       return I->second;
   }
   return nullptr;
-} 
+}
 
-// Creates GetElementPtrInst 'BaseAddr' as pointer operand with 
-// 'NumIndices' number of Indices and  inserts at the beginning 
+// Creates GetElementPtrInst 'BaseAddr' as pointer operand with
+// 'NumIndices' number of Indices and  inserts at the beginning
 // of 'NewFn'.
 //
 // %7 = getelementptr inbounds [3 x [2 x i8]],
@@ -1052,16 +1266,16 @@ static Value* createGEPAtFrontInClonedFunction(Function* NewFn,
    Rep = GetElementPtrInst::CreateInBounds(BaseAddr, Indices, "", InsertPt);
    if (IPCloningTrace)
      errs() << "     Created New GEP: " << *Rep << "\n";
-   
+
    return Rep;
 }
 
 // It unpacks 'Number' into Initializer with 'Cols' columns and 'Rows'
-// rows. Then, it creates new Global Variables and sets Initializer. 
+// rows. Then, it creates new Global Variables and sets Initializer.
 // 'NewFn' and 'CallI' are used to get Context and Module for creating
 // Types and Global Variable.
 //
-// Ex: 
+// Ex:
 //  @convolutionalEncode.136.clone.0  = private constant [4 x [2 x i8]]
 //     [[2 x i8] c"\01\01", [2 x i8] c"\01\00", [2 x i8] c"\01\01",
 //     [2 x i8] c"\01\01"]
@@ -1077,7 +1291,7 @@ static GlobalVariable* createGlobalVariableWithInit(Function* NewFn,
 
   // Unpack 'Number" and create INIT like below
   //
-  // Convert 0x0101010100010101 to  
+  // Convert 0x0101010100010101 to
   // [[2 x i8] c"\01\01", [2 x i8] c"\01\00", [2 x i8] c"\01\01",
   //    [2 x i8] c"\01\01"]
   //
@@ -1086,7 +1300,7 @@ static GlobalVariable* createGlobalVariableWithInit(Function* NewFn,
     ArrayVec.clear();
     for(unsigned J = 0; J < Rows; J++) {
       ArrayVec.push_back(ConstantInt::get(
-              Type::getInt8Ty(NewFn->getContext()), Number & 0xFF)); 
+              Type::getInt8Ty(NewFn->getContext()), Number & 0xFF));
       // Shift Number by size of Int8Ty
       Number = Number >> 8;
     }
@@ -1097,10 +1311,10 @@ static GlobalVariable* createGlobalVariableWithInit(Function* NewFn,
   Module *M = CallI->getModule();
   auto *NewGlobal = new GlobalVariable(*M, ArrayArrayTy ,
                 /*isConstant=*/true,
-                GlobalValue::PrivateLinkage, nullptr, 
+                GlobalValue::PrivateLinkage, nullptr,
                 NewFn->getName()+".clone."+Twine(Counter));
 
-   NewGlobal->setInitializer(ConstantArray::get(ArrayArrayTy, ArrayArrayVec)); 
+   NewGlobal->setInitializer(ConstantArray::get(ArrayArrayTy, ArrayArrayVec));
    Counter++;
 
   if (IPCloningTrace)
@@ -1113,35 +1327,35 @@ static GlobalVariable* createGlobalVariableWithInit(Function* NewFn,
 // to be propagated to 'NewFn'. 'Formal' is used to get type info of
 // argument. 'CallI' and 'DL' are used to get Module and size info.
 //
-static Value* getReplacementValueForArg(Function* NewFn, Value *V, 
+static Value* getReplacementValueForArg(Function* NewFn, Value *V,
                                  Value* Formal, Instruction *CallI,
                                  const DataLayout &DL, unsigned& Counter) {
-  
+
   // Case 0:
   //   It is plain constant. Just returns the same.
   if (isa<Constant>(V)) return V;
-  
+
   Value* PropValue = nullptr;;
   PropValue = SpecialConstPropagatedValueMap[V];
 
   // If it is not constant, there are two possible values that need
-  // to be propagated. 
-  // Case 1: 
+  // to be propagated.
+  // Case 1:
   //        store i64 72340172821299457, i64* %6, align 8
   //
   //  Case 2:
   //   getelementptr inbounds ([5 x [2 x i8]], [5 x [2 x i8]]* @i.CM_THREE
   //
-   
+
   Value* Rep;
   GetElementPtrInst* GEP = SpecialConstGEPMap[V];
-  unsigned NumIndices = GEP->getNumIndices(); 
+  unsigned NumIndices = GEP->getNumIndices();
 
   if (!isa<StoreInst>(PropValue)) {
     // Case 2:
     //    Create New GEP Instruction in cloned function
     //
-    //    %7 = getelementptr inbounds [5 x [2 x i8]], 
+    //    %7 = getelementptr inbounds [5 x [2 x i8]],
     //                [5 x [2 x i8]]* @t.CM_THREE, i32 0, i32 0
     //
     Rep = createGEPAtFrontInClonedFunction(NewFn, PropValue, NumIndices);
@@ -1149,9 +1363,9 @@ static Value* getReplacementValueForArg(Function* NewFn, Value *V,
   }
 
   assert(isa<StoreInst>(PropValue) && "Expects StoreInst");
- 
+
   // Case 1:
-  //     1. Create new global variable with INIT 
+  //     1. Create new global variable with INIT
   //     2. Then create New GEP Instruction in cloned function
   //
   //     @convolutionalEncode.136.clone.0 = private constant [4 x [2 x i8]]
@@ -1161,7 +1375,7 @@ static Value* getReplacementValueForArg(Function* NewFn, Value *V,
   //     %7 = getelementptr inbounds [4 x [2 x i8]],
   //          [4 x [2 x i8]]* @convolutionalEncode.136.clone.0, i32 0, i32 0
   //
-  
+
   unsigned SizeInBytes = 0;
   unsigned NumElems = 0;
 
@@ -1193,7 +1407,7 @@ static Value* getReplacementValueForArg(Function* NewFn, Value *V,
 static void propagateArgumentsToClonedFunction(Function* NewFn,
                            unsigned ArgsIndex, Instruction *CallI) {
   unsigned Position = 0;
-  unsigned Counter = 0; 
+  unsigned Counter = 0;
   Value* Rep;
   auto &CallArgsSets = AllCallsArgumentsSets[CallI];
   auto CArgs = CallArgsSets[ArgsIndex];
@@ -1204,7 +1418,7 @@ static void propagateArgumentsToClonedFunction(Function* NewFn,
 
      Value* V = isSpecializationConstantAtPosition(CArgs, Position);
      if (V == nullptr) continue;
-      
+
      Value* Formal = &*AI;
 
      Rep = getReplacementValueForArg(NewFn, V, Formal, CallI, DL, Counter);
@@ -1214,7 +1428,7 @@ static void propagateArgumentsToClonedFunction(Function* NewFn,
       errs() << "        Value : " << *V << "\n";
       errs() << "        Replacement:  " << *Rep << "\n";
     }
- 
+
     Formal->replaceAllUsesWith(Rep);
   }
 }
@@ -1223,7 +1437,7 @@ static void propagateArgumentsToClonedFunction(Function* NewFn,
 // Create a new call instruction for a clone of 'CS' and insert it in
 // 'Insert_BB'. Return a CallSite for that new call instruction.
 // NewCall is created for 'ArgsIndex', which is the index of argument-sets
-// of CS.  
+// of CS.
 //
 static CallSite createNewCall(CallSite CS, BasicBlock* Insert_BB,
                               unsigned ArgsIndex) {
@@ -1253,7 +1467,7 @@ static CallSite createNewCall(CallSite CS, BasicBlock* Insert_BB,
   }
   unsigned Index = getConstantArgumentsSetIndex(ConstantArgs);
   Function* NewFn = ArgSetIndexClonedFunctionMap[Index];
-  
+
   CallInst *CI = cast<CallInst>(CS.getInstruction());
   ValueToValueMapTy VMap;
   CallInst* New_CI;
@@ -1268,7 +1482,7 @@ static CallSite createNewCall(CallSite CS, BasicBlock* Insert_BB,
     NumIPCloned++;
   }
   std::vector<Value*> Args(CI->op_begin(), CI->op_end() - 1);
-  // NameStr should be "" if return type is void. 
+  // NameStr should be "" if return type is void.
   std::string New_Name;
   New_Name = CI->hasName() ? CI->getName().str() + ".clone.spec.cs" : "";
   New_CI = CallInst::Create(NewFn, Args, New_Name, Insert_BB);
@@ -1293,7 +1507,7 @@ static void cloneSpecializationFunction(void) {
   std::vector<CallInst*> NewClonedCalls;
   std::vector<BasicBlock*> NewClonedCallBBs;
     // The basic blocks the NewClonedCalls will be in
-   
+
   // Iterate through the list of CallSites that will be cloned.
   for (unsigned I = 0, E = CurrCallList.size(); I != E; ++I) {
     NewClonedCallBBs.clear();
@@ -1436,7 +1650,7 @@ static void cloneSpecializationFunction(void) {
     }
     CI->eraseFromParent();
   }
-} 
+}
 
 // Clear all maps and sets
 //
@@ -1460,9 +1674,14 @@ static void clearAllMaps(void) {
 static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
   bool FunctionAddressTaken;
 
-  if (IPCloningTrace)
-    errs() << " Enter IP cloning \n";
-  
+  if (IPCloningTrace) {
+    errs() << " Enter IP cloning";
+    if (AfterInl)
+      errs() << ": (After inlining)\n";
+    else
+      errs() << ": (Before inlining)\n";
+  }
+
   ClonedFunctionList.clear();
 
   for (Function &F : M) {
@@ -1473,11 +1692,11 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
       continue;
     }
 
-    clearAllMaps(); 
+    clearAllMaps();
 
     if (IPCloningTrace)
       errs() << " Cloning Analysis for:  " <<  F.getName() << "\n";
-   
+
     IPCloneKind CloneType;
     if (AfterInl) {
       CloneType = GenericClone;
@@ -1485,6 +1704,18 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
         errs() << "    Selected generic cloning  " << "\n";
     }
     else {
+      int Start, Inc;
+      unsigned ArgPos, Count;
+      bool IsByRef, IsCyclic;
+      if (isRecProgressionCloneCandidate(F, true,
+          &ArgPos, &Count, &Start, &Inc, &IsByRef, &IsCyclic)) {
+        CloneType = RecProgressionClone;
+        if (IPCloningTrace)
+          errs() << "    Selected RecProgression cloning  " << "\n";
+        createRecProgressiveClones(F, ArgPos, Count, Start, Inc, IsByRef,
+                                   IsCyclic);
+        continue;
+      }
       // For now, run either FuncPtrsClone or SpecializationClone for any
       // function before inlining. If required, we can run both in future.
       // FuncPtrsClone is selected for a function if it has at least one
@@ -1520,7 +1751,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
       cloneSpecializationFunction();
       continue;
     }
-    
+
     if (FormalConstantValues.size() == 0 || CurrCallList.size() == 0) {
       if (IPCloningTrace)
         errs() << " Skipping non-candidate " << F.getName() << "\n";
@@ -1530,8 +1761,8 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
     if (IPCloningTrace)
       dumpFormalsConstants(F);
 
-    unsigned MaxClones = getMaxClones(); 
-    unsigned MinClones = getMinClones(); 
+    unsigned MaxClones = getMaxClones();
+    unsigned MinClones = getMinClones();
 
     if (IPCloningTrace) {
       errs() << " Max clones:  " << MaxClones << "\n";
@@ -1563,7 +1794,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
     errs() << " Total clones:  " << NumIPCloned << "\n";
 
   if (NumIPCloned != 0)
-    return true; 
+    return true;
 
   return false;
 }
@@ -1572,7 +1803,7 @@ static bool runIPCloning(Module &M, bool AfterInl) {
   bool Change = false;
 
   Change = analysisCallsCloneFunctions(M, AfterInl);
-  clearAllMaps(); 
+  clearAllMaps();
 
   return Change;
 }

@@ -1,6 +1,6 @@
 //===--- CanonExprUtils.cpp - Implements CanonExprUtils class -------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -49,7 +49,7 @@ unsigned BlobUtils::findTempBlobSymbase(BlobTy Blob) {
   return getHIRParser().findTempBlobSymbase(Blob);
 }
 
-unsigned BlobUtils::findTempBlobIndex(unsigned Symbase) {
+unsigned BlobUtils::findTempBlobIndex(unsigned Symbase) const {
   return getHIRParser().findTempBlobIndex(Symbase);
 }
 

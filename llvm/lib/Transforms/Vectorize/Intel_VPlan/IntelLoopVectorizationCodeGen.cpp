@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationCodeGen.h"
+#include "IntelVPlan.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -154,17 +155,49 @@ static Value *joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
   return VParts[0];
 }
 
+// {0, 1, 2, 3} -> TargetLength = 8 -> { 0, 1, 2, 3, undef, undef, undef, undef}
+static Value *extendVector(Value *OrigVal, unsigned TargetLength,
+                           IRBuilder<> &Builder, const Twine &Name = "") {
+  Type *OrigTy = OrigVal->getType();
+  assert(isa<VectorType>(OrigTy) && "OriginalVal should be of a vector type");
+  unsigned VectorElts = OrigTy->getVectorNumElements();
+  assert(TargetLength >= VectorElts &&
+         "TargetLength should be greater than or equal to VectorElts");
+  if (VectorElts == TargetLength)
+    return OrigVal;
+  Constant *ShufMask = createSequentialMask(
+      Builder, 0, VectorElts, TargetLength - VectorElts /*No. of undef's*/);
+  return Builder.CreateShuffleVector(OrigVal, UndefValue::get(OrigTy), ShufMask,
+                                     "extended." + Name);
+}
+
+// Interleave an array of vectors into a single, wider vector.
+// Input: {<v11, v12>, <v21, v22>} --->
+//         <v11, v12, v21, v22> ---> interleave
+// Output: <v11, v21, v12, v22>
+//
+// Input: {<v11, v12>, <v21, v22>, <v31, v32>} --->
+//         <v11, v12, v21, v22, v31, v32> ---> interleave
+// Output: <v11, v21, v31, v12, v22, v32>
+static Value *interleaveVectors(ArrayRef<Value *> VectorsToJoin,
+                                IRBuilder<> &Builder, unsigned VF) {
+  Value *ConcatenatedVector = concatenateVectors(Builder, VectorsToJoin);
+  Value *InterleavedMask =
+      createInterleaveMask(Builder, VF, VectorsToJoin.size());
+  Value *TransposedVec = Builder.CreateShuffleVector(
+      ConcatenatedVector, UndefValue::get(ConcatenatedVector->getType()),
+      InterleavedMask, "interleaved.");
+  return TransposedVec;
+}
+
 // {0, 1, 2, 3} -> { 0, 0, 1, 1, 2, 2, 3, 3}
 static Value *replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
                                   IRBuilder<> &Builder,
                                   const Twine &Name = "") {
   if (OriginalVL == 1)
     return OrigVal;
-  unsigned NumElts = OrigVal->getType()->getVectorNumElements();
-  SmallVector<unsigned, 8> ShuffleMask;
-  for (unsigned i = 0; i < NumElts; ++i)
-    for (unsigned j = 0; j < OriginalVL; j++)
-      ShuffleMask.push_back((signed)i);
+  Value *ShuffleMask = createReplicatedMask(
+      Builder, OriginalVL, OrigVal->getType()->getVectorNumElements());
   return Builder.CreateShuffleVector(OrigVal,
                                      UndefValue::get(OrigVal->getType()),
                                      ShuffleMask, Name + OrigVal->getName());
@@ -1319,6 +1352,16 @@ void VPOCodeGen::vectorizeBitCast(Instruction *Inst) {
   WidenMap[Inst] = Builder.CreateBitCast(A, VecTy);
 }
 
+Value *VPOCodeGen::getVectorValue(VPValue *V) {
+  Value *UV = V->getUnderlyingValue();
+  if (UV)
+    return getVectorValue(UV);
+
+  Value *VecV = VPWidenMap[V];
+  assert(VecV && "Value not in VPWidenMap");
+  return VecV;
+}
+
 Value *VPOCodeGen::getVectorValue(Value *V) {
 
   // If we have this scalar in the map, return it.
@@ -1380,6 +1423,28 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
   return WidenMap[V];
 }
 
+Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
+  Value *UV = V->getUnderlyingValue();
+
+  if (UV)
+    return getScalarValue(UV, Lane);
+  else {
+    Value *VecV = getVectorValue(V);
+    IRBuilder<>::InsertPointGuard Guard(Builder);
+    if (auto VecInst = dyn_cast<Instruction>(VecV)) {
+      if (isa<PHINode>(VecInst))
+        Builder.SetInsertPoint(&*(VecInst->getParent()->getFirstInsertionPt()));
+      else
+        Builder.SetInsertPoint(VecInst->getNextNode());
+    }
+
+    // TODO - add ScalarMap for VPValue.
+    return Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
+  }
+}
+
+// TODO: Consider renaming this function to 'getScalarOrSubvectorValue' as this
+// function can now return a sub-vector in addition to a scalar value
 Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
   // If the value is not an instruction contained in the loop, it should
   // already be scalar.
@@ -1394,8 +1459,38 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
 
   if (Legal->isInductionVariable(V))
     return buildScalarIVForLane(cast<PHINode>(V), Lane);
-    
+
+  // This code assumes that the widened vector, that we are extracting from has
+  // data in AOS layout. If OriginalVL = 2, VF = 4 the widened value would be
+  // Wide.Val = <v1_0, v2_0, v1_1, v2_1, v1_2, v2_2, v1_3, v2_3>.
+  // getScalarValue(Wide.Val, 1) would return <v1_1, v2_1>
+
+  if (V->getType()->isVectorTy() && WidenMap.count(V)) {
+    Value *WidenedVar = WidenMap[V];
+    unsigned OrigNumElts = V->getType()->getVectorNumElements();
+    SmallVector<unsigned, 8> ShufMask;
+    for (unsigned StartIdx = Lane * OrigNumElts,
+                  EndIdx = (Lane * OrigNumElts) + OrigNumElts;
+         StartIdx != EndIdx; ++StartIdx)
+      ShufMask.push_back(StartIdx);
+
+    Value *Shuff = Builder.CreateShuffleVector(
+        WidenedVar, UndefValue::get(WidenedVar->getType()), ShufMask,
+        "extractsubvec.");
+
+    ScalarMap[V][Lane] = Shuff;
+
+    return Shuff;
+  }
+
   Value *VecV = getVectorValue(V);
+  IRBuilder<>::InsertPointGuard Guard(Builder);
+  if (auto VecInst = dyn_cast<Instruction>(VecV)) {
+    if (isa<PHINode>(VecInst))
+      Builder.SetInsertPoint(&*(VecInst->getParent()->getFirstInsertionPt()));
+    else
+      Builder.SetInsertPoint(VecInst->getNextNode());
+  }
   auto ScalarV = Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
 
   // Add to scalar map
@@ -1420,78 +1515,6 @@ Value *VPOCodeGen::reverseVector(Value *Vec, unsigned OriginalVL) {
   return Builder.CreateShuffleVector(Vec, UndefValue::get(Vec->getType()),
                                      ConstantVector::get(ShuffleMask),
                                      "reverse");
-}
-
-/// Transpose vector \p Vec (usualy we do this after load). \p OriginalVL
-/// specifies the original vector length before vectorization.
-/// Example: < A0, B0, A1, B1, A2, B2, A3, B3 >. In this case OriginalVL = 2.
-/// The result after transpose will be < A0, A1, A2, A3, B0, B1, B2, B3>
-static Value *transposeVector(Value *Vec, unsigned OriginalVL,
-                              IRBuilder<>& Builder) {
-  unsigned NumElts = Vec->getType()->getVectorNumElements();
-  SmallVector<unsigned, 8> ShuffleMask;
-  for (unsigned j = 0; j < OriginalVL; j++)
-    for (unsigned i = 0; i < NumElts; i += OriginalVL)
-      ShuffleMask.push_back((signed)(i + j));
-  return Builder.CreateShuffleVector(Vec, UndefValue::get(Vec->getType()),
-                                     ShuffleMask,
-                                     "transposed." + Vec->getName());
-}
-
-// The given pointer \p Ptr may be a bitcast from pointer-to-vector to a 
-// pointer to scalar. In this case the data \p DataVec will be transposed.
-// The \p DataVec is an output vector after Load.
-static Value *transposeVectorIfNeeded(Value *Ptr, Value *DataVec,
-                                      IRBuilder<>& Builder) {
-  if (auto BitCast = dyn_cast<BitCastInst>(Ptr)) {
-    Type *OrigTy = BitCast->getSrcTy()->getPointerElementType();
-    if (OrigTy->isVectorTy()) {
-      unsigned OriginalVL = OrigTy->getVectorNumElements();
-      unsigned VF = DataVec->getType()->getVectorNumElements();
-      Type *NewVecTy = VectorType::get(OrigTy->getVectorElementType(),
-                                       VF * OriginalVL);
-      Value *VecToTranspose = Builder.CreateBitCast(DataVec, NewVecTy);
-      Value *Transposed = transposeVector(VecToTranspose, OriginalVL, Builder);
-      return Builder.CreateBitCast(Transposed, DataVec->getType());
-    }
-  }
-  return DataVec;
-}
-
-// Revert the transpose.
-// Transposed vector: <A0, A1, A2, A3, B0, B1, B2, B3>. In this case Factor = 2.
-// After normalization: < A0, B0, A1, B1, A2, B2, A3, B3 >
-static Value *normalizeVector(Value *Vec, unsigned OriginalVL,
-                              IRBuilder<> &Builder) {
-  unsigned NumElts = Vec->getType()->getVectorNumElements();
-  SmallVector<unsigned, 8> ShuffleMask;
-  unsigned Lane = NumElts / OriginalVL;
-  for (unsigned j = 0; j < Lane; j++)
-    for (unsigned i = 0; i < NumElts; i += Lane)
-      ShuffleMask.push_back((signed)(i + j));
-  return Builder.CreateShuffleVector(Vec, UndefValue::get(Vec->getType()),
-                                     ShuffleMask,
-                                     "normalized." + Vec->getName());
-}
-
-// The given pointer \p Ptr may be a bitcast from pointer-to-vector to a 
-// pointer to scalar. In this case the data \p DataVec will be transposed.
-// The \p DataVec is an input vector for Store.
-static Value *normalizeVectorIfNeeded(Value *Ptr, Value *DataVec,
-                                      IRBuilder<>& Builder) {
-  if (auto BitCast = dyn_cast<BitCastInst>(Ptr)) {
-    Type *OrigTy = BitCast->getSrcTy()->getPointerElementType();
-    if (OrigTy->isVectorTy()) {
-      unsigned OriginalVL = OrigTy->getVectorNumElements();
-      unsigned VF = DataVec->getType()->getVectorNumElements();
-      Type *NewVecTy = VectorType::get(OrigTy->getVectorElementType(),
-                                       VF * OriginalVL);
-      Value *VecToNormalize = Builder.CreateBitCast(DataVec, NewVecTy);
-      Value *Normalized = normalizeVector(VecToNormalize, OriginalVL, Builder);
-      return Builder.CreateBitCast(Normalized, DataVec->getType());
-    }
-  }
-  return DataVec;
 }
 
 // Return Value indicating that the mask is not all-zero
@@ -1523,151 +1546,106 @@ void storeMaskValue(Value *MaskValue, Value *Ptr, unsigned VF,
   Builder.CreateStore(MaskToStore, Ptr);
 }
 
-void VPOCodeGen::widenVectorStore(StoreInst *SI) {
-  Value *Ptr = SI->getPointerOperand();
-  unsigned Alignment = SI->getAlignment();
-  // An alignment of 0 means target abi alignment. We need to use the scalar's
-  // target abi alignment in such a case.
-  const DataLayout &DL = SI->getModule()->getDataLayout();
-  Value *DataOp = SI->getValueOperand();
-  if (!Alignment)
-    Alignment = DL.getABITypeAlignment(DataOp->getType());
-  unsigned AddrSpace = Ptr->getType()->getPointerAddressSpace();
-
-  Value *VecDataOp = getVectorValue(DataOp);
-  Type *WideDataTy = VecDataOp->getType();
-  unsigned OriginalVL = WideDataTy->getVectorNumElements() / VF;
-  Type *ScalarTy = WideDataTy->getVectorElementType();
-
+// This function returns the widened GEP instruction that is used
+// as a pointer-operand in a load-store instruction. In the generated code, the
+// returned GEP is itself used as an operand of a Scatter/Gather function.
+Value *VPOCodeGen::createWidenedGEPForScatterGather(Instruction *I) {
+  assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
+         "Expect 'I' to be either a LoadInst or a StoreInst");
+  Type *LSIType = getLoadStoreType(I);
+  unsigned OriginalVL = LSIType->getVectorNumElements();
+  Value *Ptr = getPointerOperand(I);
+  unsigned AddrSpace = getLoadStoreAddressSpace(I);
   auto GEP = getGEPInstruction(Ptr);
-  int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
-  if (ConsecutiveStride) {
-    bool Reverse = (ConsecutiveStride == -1);
-    bool IsPrivate = Legal->isLoopPrivate(Ptr);
-    bool StoreMaskValue = Legal->isCondLastPrivate(Ptr);
-    Value *VecPtr = nullptr;
-    if (IsPrivate)
-      VecPtr = getVectorPrivateBase(Ptr);
-    else if (GEP) {
-      GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(GEP->clone());
-      Gep2->setName("gep.indvar");
+  assert(GEP && "Expected a valid GEP instructions as an operand to load/store");
+  Value *BasePtr = GEP->getPointerOperand();
+  if (!Legal->isLoopInvariant(BasePtr)) {
+    BasePtr = getVectorValue(BasePtr);
+    // Vectorized BasePtr looks like <ptr0, ptr1, ptr2, ptr3>.
+    // Replicate the vector OriginalVL times.
+    // If the OriginalVL is 2 it will look like:
+    // <ptr0, ptr1, ptr2, ptr3, ptr0, ptr1, ptr2, ptr3>
+    BasePtr = replicateVector(BasePtr, OriginalVL, Builder);
+  } else {
+    Type *BasePtrTy = BasePtr->getType()->getPointerElementType();
+    if (BasePtrTy->isArrayTy()) {
+      Type *ArrayEltTy = BasePtrTy->getArrayElementType();
+      assert(ArrayEltTy->isVectorTy() && "Expected array of vectors");
+      Type *ScalarEltTy = ArrayEltTy->getVectorElementType();
+      Type *OneDimentionArrayTy =
+          ArrayType::get(ScalarEltTy, BasePtrTy->getArrayNumElements());
 
-      for (unsigned i = 0; i < GEP->getNumOperands(); ++i)
-        Gep2->setOperand(i, getScalarValue(GEP->getOperand(i), 0));
-      VecPtr = Builder.Insert(Gep2);
+      Type *NewBasePtrTy = PointerType::get(OneDimentionArrayTy, AddrSpace);
+      BasePtr = Builder.CreateBitCast(BasePtr, NewBasePtrTy);
 
-    } else // No GEP
-      VecPtr = getScalarValue(Ptr, 0);
-    VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
-
-    if (!IsPrivate)
-      VecDataOp = normalizeVector(VecDataOp, OriginalVL, Builder);
-
-    if (Reverse)
-      VecDataOp = reverseVector(VecDataOp, OriginalVL);
-
-    if (MaskValue) {
-      // When the value is Private, it is stored in memory in the transposed
-      // form. Vector representation of struct {a, b} will be:
-      // {a0, a1, a2, a3, b0, b1, b2, b3}, and the mask should be replicated
-      // to match this form {m0, m1, m2, m3, m0, m1, m2, m3}.
-      // For non-private values the memory representation should be original:
-      // {a0, b0, a1, b1, a2, b2, a3, b3}. The mask value will be replicated 
-      // accordingly: {m0, m0, m1, m1, m2, m2, m3, m3}.
-      Value *WideMask = IsPrivate
-        ? replicateVector(MaskValue, OriginalVL, Builder, "replicateMask")
-        : replicateVectorElts(MaskValue, OriginalVL, Builder,
-                              "replicatedMaskElts.");
-
-      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, WideMask);
-    }
-    else
-      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
-
-    if (StoreMaskValue)
-      storeMaskValue(MaskValue, LoopPrivateLastMask[getPtrThruBitCast(Ptr)],
-                     VF, Builder);
-
-    return;
+    } else
+      BasePtr = Builder.CreateBitCast(
+          BasePtr, LSIType->getVectorElementType()->getPointerTo(AddrSpace));
   }
-  // SCATTER
-  if (GEP) {
-    Value *BasePtr = GEP->getPointerOperand();
-    if (!Legal->isLoopInvariant(BasePtr)) {
-      BasePtr = getVectorValue(BasePtr);
-      // Vectorized BasePtr looks like <ptr0, ptr1, ptr2, ptr3>.
-      // Replicate the vector OriginalVL times.
-      // If the OriginalVL is 2 it will look like:
-      // <ptr0, ptr1, ptr2, ptr3, ptr0, ptr1, ptr2, ptr3>
-      BasePtr = replicateVector(BasePtr, OriginalVL, Builder);
-    } else {
-      Type *BasePtrTy = BasePtr->getType()->getPointerElementType();
-      if (BasePtrTy->isArrayTy()) {
-        Type *ArrayEltTy = BasePtrTy->getArrayElementType();
-        assert(ArrayEltTy->isVectorTy() && "Expected array of vectors");
-        Type *ScalarEltTy = ArrayEltTy->getVectorElementType();
-        Type *OneDimentionArrayTy =
-            ArrayType::get(ScalarEltTy, BasePtrTy->getArrayNumElements());
-
-        Type *NewBasePtrTy = PointerType::get(OneDimentionArrayTy, AddrSpace);
-        BasePtr = Builder.CreateBitCast(BasePtr, NewBasePtrTy);
-
-      } else
-        BasePtr =
-            Builder.CreateBitCast(BasePtr, ScalarTy->getPointerTo(AddrSpace));
+  // Loop invariant index remains as is. The IV-dependent index should
+  // take a vector form.
+  SmallVector<Value *, 2> NewIndices;
+  // First, handle all indices except the last one
+  for (unsigned i = 1; i < GEP->getNumOperands() - 1; ++i) {
+    Value *GepIndex = GEP->getOperand(i);
+    if (Legal->isLoopInvariant(GepIndex))
+      NewIndices.push_back(getScalarValue(GepIndex, 0));
+    else {
+      Value *VecIndex = getVectorValue(GepIndex);
+      // When the Loop-variant index is no the last it should be
+      // replicated, as we did for the Loop-variant base pointer.
+      VecIndex =
+          replicateVector(VecIndex, OriginalVL, Builder, "replicatedGepIndex");
+      NewIndices.push_back(VecIndex);
     }
-    // Loop invariant index remains as is. The IV-dependent index should
-    // take a vector form.
-    SmallVector<Value *, 2> NewIndices;
-    // First, handle all indices except the last one
-    for (unsigned i = 1; i < GEP->getNumOperands() - 1; ++i) {
-      Value *GepIndex = GEP->getOperand(i);
-      if (Legal->isLoopInvariant(GepIndex))
-        NewIndices.push_back(getScalarValue(GepIndex, 0));
-      else {
-        Value *VecIndex = getVectorValue(GepIndex);
-        // When the Loop-variant index is no the last it should be
-        // replicated, as we did for the Loop-variant base pointer.
-        VecIndex = replicateVector(VecIndex, OriginalVL, Builder,
-                                   "replicatedGepIndex");
-        NewIndices.push_back(VecIndex);
-      }
-    }
-
-    // Now handle the last index.
-    // For VF=4, OriginalVL=2 it should take the following form:
-    // < Ind, Ind, Ind, Ind, Ind+1, Ind+1, Ind+1, Ind+1>
-
-    Value *GepLastIndex = GEP->getOperand(GEP->getNumOperands() - 1);
-    SmallVector<Value *, 4> Parts;
-    Value *P0 = getVectorValue(GepLastIndex);
-    Type *IndexTy = P0->getType();
-    P0 = Builder.CreateMul(P0, ConstantInt::get(IndexTy, OriginalVL),
-                           "Ind_" + Twine(0) + ".");
-    Parts.push_back(P0);
-    for (unsigned i = 1; i < OriginalVL; ++i)
-      Parts.push_back(Builder.CreateAdd(P0, ConstantInt::get(IndexTy, i),
-                                        "Ind_" + Twine(i) + "."));
-    Value *VecIndex = joinVectors(Parts, Builder);
-    NewIndices.push_back(VecIndex);
-
-    GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
-        Builder.CreateGEP(BasePtr, NewIndices, "mm_vectorGEP"));
-
-    VectorGEP->setIsInBounds(GEP->isInBounds());
-    Value *WidenMask = MaskValue
-                           ? replicateVector(MaskValue, OriginalVL, Builder,
-                                             "replicatedMaskVec.")
-                           : nullptr;
-    Builder.CreateMaskedScatter(VecDataOp, VectorGEP, Alignment, WidenMask);
-    return;
   }
-  // No GEP
+
+  // Now handle the last index.
+  // For VF=4, OriginalVL=2 it should take the following form:
+  // < Ind, Ind, Ind, Ind, Ind+1, Ind+1, Ind+1, Ind+1>
+
+  Value *GepLastIndex = GEP->getOperand(GEP->getNumOperands() - 1);
+  SmallVector<Value *, 4> Parts;
+  Value *P0 = getVectorValue(GepLastIndex);
+  Type *IndexTy = P0->getType();
+  P0 = Builder.CreateMul(P0, ConstantInt::get(IndexTy, OriginalVL),
+                         "Ind_" + Twine(0) + ".");
+  Parts.push_back(P0);
+  for (unsigned i = 1; i < OriginalVL; ++i)
+    Parts.push_back(Builder.CreateAdd(P0, ConstantInt::get(IndexTy, i),
+                                      "Ind_" + Twine(i) + "."));
+  Value *VecIndex = interleaveVectors(Parts, Builder, VF);
+  NewIndices.push_back(VecIndex);
+
+  GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
+      Builder.CreateGEP(BasePtr, NewIndices, "mm_vectorGEP"));
+
+  VectorGEP->setIsInBounds(GEP->isInBounds());
+  return VectorGEP;
+}
+
+// This function returns the widened GEP instruction that is used
+// as a pointer-operand in a load-store Operation. This particular overload
+// handles the case where the original load/store instruction does not use a
+// pointer operand which is a result of a GEP-instruction, but rather a global
+// variable or something. In the generated code, the returned GEP is itself used
+// as an operand of a Scatter/Gather function.
+Value *VPOCodeGen::createWidenedGEPForScatterGather(Instruction *I, Value *Ptr) {
+  assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
+         "Expect 'I' to be either a LoadInst or a StoreInst");
   Value *BasePtr = getVectorValue(Ptr);
   // Transform vector-of-pointers-to-vectors into vector-of-pointers-to-scalars
   // For example <4 x <2 x i32>*> should be transformed to <4 x i32*> because
   // the element type we are going to gather is i32.
 
+  Type *LSIType = getLoadStoreType(I);
+  assert(
+      isa<VectorType>(LSIType) &&
+      "Expect the original type of Load/Store instruction to be a vector-type");
+
+  unsigned OriginalVL = LSIType->getVectorNumElements();
+  Type *ScalarTy = LSIType->getVectorElementType();
+  unsigned AddrSpace = getLoadStoreAddressSpace(I);
   Type *NewTypeOfBasePtr =
       VectorType::get(PointerType::get(ScalarTy, AddrSpace), VF);
   BasePtr = Builder.CreateBitCast(BasePtr, NewTypeOfBasePtr);
@@ -1684,12 +1662,95 @@ void VPOCodeGen::widenVectorStore(StoreInst *SI) {
     for (unsigned i = 0; i < VF; ++i)
       Indices.push_back(Builder.getInt32(j));
   Value *VecInd = ConstantVector::get(Indices);
-  GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
-      Builder.CreateGEP(BasePtr, VecInd, "mm_vectorGEP"));
-  Value *WidenMask = MaskValue ? replicateVector(MaskValue, OriginalVL, Builder,
-                                                 "replicatedMaskVec.")
-                               : nullptr;
-  Builder.CreateMaskedScatter(VecDataOp, VectorGEP, Alignment, WidenMask);
+  return Builder.CreateGEP(BasePtr, VecInd, "mm_vectorGEP");
+}
+
+// This function return an appropriate BasePtr for cases where we are dealing
+// with load/store to consecutive memory locations
+Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(Instruction *I,
+                                                            Value *Ptr,
+                                                            bool Reverse) {
+  Type *VecTy = getLoadStoreType(I);
+  unsigned AddrSpace = getLoadStoreAddressSpace(I);
+  unsigned OriginalVL =
+      isa<VectorType>(VecTy) ? VecTy->getVectorNumElements() : 1;
+  Type *SubTy = isa<VectorType>(VecTy) ? VecTy->getVectorElementType() : VecTy;
+  Type *WideDataTy = VectorType::get(SubTy, VF * OriginalVL);
+  Value *VecPtr = nullptr;
+  if (Legal->isLoopPrivate(Ptr))
+    VecPtr = getVectorPrivateBase(Ptr);
+  else if (auto GEP = getGEPInstruction(Ptr)) {
+    GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(GEP->clone());
+    Gep2->setName("gep.indvar");
+
+    for (unsigned i = 0; i < GEP->getNumOperands(); ++i)
+      Gep2->setOperand(i, getScalarValue(GEP->getOperand(i), 0));
+    VecPtr = Builder.Insert(Gep2);
+
+  } else // No GEP
+    VecPtr = getScalarValue(Ptr, 0);
+
+  VecPtr = Reverse ? Builder.CreateGEP(nullptr, VecPtr,
+                                       Builder.getInt32(1 - OriginalVL * VF))
+                   : VecPtr;
+  VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
+  return VecPtr;
+}
+
+void VPOCodeGen::widenVectorStore(StoreInst *SI) {
+  Value *Ptr = SI->getPointerOperand();
+  unsigned Alignment = SI->getAlignment();
+  // An alignment of 0 means target abi alignment. We need to use the scalar's
+  // target abi alignment in such a case.
+  const DataLayout &DL = SI->getModule()->getDataLayout();
+  Value *DataOp = SI->getValueOperand();
+  if (!Alignment)
+    Alignment = DL.getABITypeAlignment(DataOp->getType());
+
+  Value *VecDataOp = getVectorValue(DataOp);
+  Type *WideDataTy = VecDataOp->getType();
+  unsigned OriginalVL = WideDataTy->getVectorNumElements() / VF;
+
+  int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
+  if (ConsecutiveStride) {
+    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
+        SI, Ptr, ConsecutiveStride == -1);
+
+    // We replicate the mask-value as {m0, m0, m1, m1, m2, m2, m3, m3}.
+    Value *WidenedMask =
+        MaskValue ? replicateVectorElts(MaskValue, OriginalVL, Builder,
+                                        "replicatedMaskElts.")
+                  : nullptr;
+
+    if (ConsecutiveStride == -1) // Reverse
+      VecDataOp = reverseVector(VecDataOp, OriginalVL);
+
+    if (WidenedMask) {
+      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, WidenedMask);
+    } else
+      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
+
+    // Store the mask value in case of a last-private.
+    if (Legal->isCondLastPrivate(Ptr))
+      storeMaskValue(MaskValue, LoopPrivateLastMask[getPtrThruBitCast(Ptr)], VF,
+                     Builder);
+
+  } else {
+    // We replicate the mask-value as {m0, m1, m2, m3, m0, m1, m2, m3}.
+    Value *WidenedMask = MaskValue
+                             ? replicateVector(MaskValue, OriginalVL, Builder,
+                                               "replicatedMaskVec.")
+                             : nullptr;
+    Value *VectorGEP = nullptr;
+    auto GEP = getGEPInstruction(Ptr);
+    // SCATTER
+    if (GEP) {
+      VectorGEP = createWidenedGEPForScatterGather(SI);
+    } else {
+      VectorGEP = createWidenedGEPForScatterGather(SI, Ptr);
+    }
+    Builder.CreateMaskedScatter(VecDataOp, VectorGEP, Alignment, WidenedMask);
+  }
 }
 
 void VPOCodeGen::widenVectorLoad(LoadInst *LI) {
@@ -1700,40 +1761,20 @@ void VPOCodeGen::widenVectorLoad(LoadInst *LI) {
   const DataLayout &DL = LI->getModule()->getDataLayout();
   if (!Alignment)
     Alignment = DL.getABITypeAlignment(LI->getType());
-  unsigned AddrSpace = Ptr->getType()->getPointerAddressSpace();
 
-  Type *ScalarTy = LI->getType()->getVectorElementType();
-  unsigned OriginalVL = LI->getType()->getVectorNumElements();
+  Type *VecTy = getLoadStoreType(LI);
+  Type *ScalarTy = VecTy->getVectorElementType();
+  unsigned OriginalVL = VecTy->getVectorNumElements();
   if (!ScalarTy->isSingleValueType())
     llvm_unreachable("Re-vectorization supports simple vectors only!");
-
-  unsigned WideVF = VF * OriginalVL;
-  Type *WideDataTy = VectorType::get(ScalarTy, WideVF);
-  auto GEP = getGEPInstruction(Ptr);
   int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
+
+  Value *NewLI = nullptr;
   if (ConsecutiveStride) {
-    // Long load and shuffles (G2S)
-    bool Reverse = (ConsecutiveStride == -1);
-    bool IsPrivate = false;
-    if (Legal->isLoopPrivate(Ptr)) {
-      Ptr = getVectorPrivateBase(Ptr);
-      IsPrivate = true;
-    } else if (GEP) {
-      GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(GEP->clone());
-      for (unsigned i = 0; i < GEP->getNumOperands(); ++i)
-        Gep2->setOperand(i, getScalarValue(GEP->getOperand(i), 0));
-      Ptr = Builder.Insert(Gep2, "gep.indvar");
+    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
+        LI, Ptr, ConsecutiveStride == -1);
 
-    } else // No GEP
-      Ptr = getScalarValue(Ptr, 0);
-    Ptr = Reverse
-              ? Builder.CreateGEP(nullptr, Ptr, Builder.getInt32(1 - WideVF))
-              : Ptr;
-    Value *VecPtr =
-        Builder.CreateBitCast(Ptr, WideDataTy->getPointerTo(AddrSpace));
-
-    Value *NewLI;
-    if (MaskValue && !IsPrivate) {
+    if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
       // Masking not needed for privates.
       // Mask value should be replicated for each element.
       Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
@@ -1742,120 +1783,26 @@ void VPOCodeGen::widenVectorLoad(LoadInst *LI) {
                                        "wide.masked.load");
     } else
       NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
-
-    if (Reverse)
+    if (ConsecutiveStride == -1)
       NewLI = reverseVector(NewLI, OriginalVL);
-
-    if (!IsPrivate)
-      NewLI = transposeVector(NewLI, OriginalVL, Builder);
-    WidenMap[LI] = NewLI;
-    return;
-  }
-
-  // Non-consecutive load. Build gathers, not need to transpose afterwards.
-
-  if (GEP) {
-    Value *BasePtr = GEP->getPointerOperand();
-    if (!Legal->isLoopInvariant(BasePtr)) {
-      BasePtr = getVectorValue(BasePtr);
-      // Vectorized BasePtr looks like <ptr0, ptr1, ptr2, ptr3>.
-      // Replicate the vector OriginalVL times.
-      // If the OriginalVL is 2 it will look like:
-      // <ptr0, ptr1, ptr2, ptr3, ptr0, ptr1, ptr2, ptr3>
-      BasePtr =
-          replicateVector(BasePtr, OriginalVL, Builder, "replicatedGepBasePtr");
-    } else {
-      Type *BasePtrTy = BasePtr->getType()->getPointerElementType();
-      if (BasePtrTy->isArrayTy()) {
-        Type *ArrayEltTy = BasePtrTy->getArrayElementType();
-        assert(ArrayEltTy->isVectorTy() && "Expected array of vectors");
-        Type *ScalarEltTy = ArrayEltTy->getVectorElementType();
-        Type *OneDimentionArrayTy =
-          ArrayType::get(ScalarEltTy, BasePtrTy->getArrayNumElements());
-        Type *NewBasePtrTy = PointerType::get(OneDimentionArrayTy, AddrSpace);
-        BasePtr = Builder.CreateBitCast(BasePtr, NewBasePtrTy);
-
-      } else
-        BasePtr =
-            Builder.CreateBitCast(BasePtr, ScalarTy->getPointerTo(AddrSpace));
-    }
-    // Loop invariant index remains as is. The IV-dependent index should
-    // take a vector form.
-    SmallVector<Value *, 2> NewIndices;
-    // First, handle all indices except the last one
-    for (unsigned i = 1; i < GEP->getNumOperands() - 1; ++i) {
-      Value *GepIndex = GEP->getOperand(i);
-      if (Legal->isLoopInvariant(GepIndex))
-        NewIndices.push_back(getScalarValue(GepIndex, 0));
-      else {
-        Value *VecIndex = getVectorValue(GepIndex);
-        // When the Loop-variant index is no the last it should be
-        // replicated, as we did for the Loop-variant base pointer.
-        VecIndex = replicateVector(VecIndex, OriginalVL, Builder,
-                                   "replicatedGepIndex");
-        NewIndices.push_back(VecIndex);
-      }
-    }
-
-    // Now handle the last index.
-    // For VF=4, OriginalVL=2 it should take the following form:
-    // < Ind, Ind, Ind, Ind, Ind+1, Ind+1, Ind+1, Ind+1>
-
-    Value *GepLastIndex = GEP->getOperand(GEP->getNumOperands() - 1);
-    SmallVector<Value *, 4> Parts;
-    Value *P0 = getVectorValue(GepLastIndex);
-    Type *IndexTy = P0->getType();
-    P0 = Builder.CreateMul(P0, ConstantInt::get(IndexTy, OriginalVL),
-                           "Ind_" + Twine(0) + ".");
-    Parts.push_back(P0);
-    for (unsigned i = 1; i < OriginalVL; ++i)
-      Parts.push_back(Builder.CreateAdd(P0, ConstantInt::get(IndexTy, i),
-                                        "Ind_" + Twine(i) + "."));
-    Value *VecIndex = joinVectors(Parts, Builder);
-    NewIndices.push_back(VecIndex);
-
-    GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
-        Builder.CreateGEP(BasePtr, NewIndices, "mm_vectorGEP"));
-    VectorGEP->setIsInBounds(GEP->isInBounds());
+  } else {
+    // We replicate the mask-value as {m0, m0, m1, m1, m2, m2, m3, m3}.
     Value *WidenMask = MaskValue
                            ? replicateVector(MaskValue, OriginalVL, Builder,
                                              "replicatedMaskVec.")
                            : nullptr;
-    Value *NewVec = Builder.CreateMaskedGather(VectorGEP, Alignment, WidenMask,
-                                               nullptr, "wide.masked.gather");
-    WidenMap[LI] = NewVec;
-    return;
+    Value *VectorGEP = nullptr;
+    auto GEP = getGEPInstruction(Ptr);
+    if (GEP)
+      VectorGEP = createWidenedGEPForScatterGather(LI);
+    else
+      // No GEP
+      VectorGEP = createWidenedGEPForScatterGather(LI, Ptr);
+
+    NewLI = Builder.CreateMaskedGather(VectorGEP, Alignment, WidenMask, nullptr,
+                                       "wide.masked.gather");
   }
-  // No GEP
-  Value *BasePtr = getVectorValue(Ptr);
-  // Transform vector-of-pointers-to-vectors into vector-of-pointers-to-scalars
-  // For example <4 x <2 x i32>*> should be transformed to <4 x i32*> because
-  // the element type we are going to gather is i32.
-
-  Type *NewTypeOfBasePtr =
-      VectorType::get(PointerType::get(ScalarTy, AddrSpace), VF);
-  BasePtr = Builder.CreateBitCast(BasePtr, NewTypeOfBasePtr);
-  // Vectorized BasePtr looks like <ptr0, ptr1, ptr2, ptr3>.
-  // Replicate the vector OriginalVL times.
-  // If the OriginalVL is 2 it will look like:
-  // <ptr0, ptr1, ptr2, ptr3, ptr0, ptr1, ptr2, ptr3>
-  BasePtr = replicateVector(BasePtr, OriginalVL, Builder);
-  // Build constant indices, Example for VF=4, OriginalVL=2:
-  // <0, 0, 0, 0, 1, 1, 1, 1>
-  SmallVector<Constant *, 4> Indices;
-  for (unsigned j = 0; j < OriginalVL; ++j)
-    for (unsigned i = 0; i < VF; ++i)
-      Indices.push_back(Builder.getInt32(j));
-  Value *VecInd = ConstantVector::get(Indices);
-
-  Value *VectorGEP = Builder.CreateGEP(BasePtr, VecInd, "mm_vectorGEP");
-
-  Value *WidenMask = MaskValue ? replicateVector(MaskValue, OriginalVL, Builder,
-                                                 "replicatedMaskVec.")
-                               : nullptr;
-  Value *NewVec = Builder.CreateMaskedGather(VectorGEP, Alignment, WidenMask,
-                                             nullptr, "wide.masked.gather");
-  WidenMap[LI] = NewVec;
+  WidenMap[LI] = NewLI;
 }
 
 void VPOCodeGen::vectorizeLinearLoad(Instruction *LinLdInst, int LinStep) {
@@ -1903,7 +1850,6 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
   }
 
   int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
-  bool Reverse = (ConsecutiveStride == -1);
   if (!MaskValue && ConsecutiveStride == 0 && !EmitIntrinsic) {
     serializeInstruction(Inst);
     return;
@@ -1912,60 +1858,39 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
   if (LI->getType()->isVectorTy())
     return widenVectorLoad(LI);
 
-  Type *DataTy = VectorType::get(LI->getType(), VF);
   unsigned Alignment = LI->getAlignment();
   // An alignment of 0 means target abi alignment. We need to use the scalar's
   // target abi alignment in such a case.
   const DataLayout &DL = Inst->getModule()->getDataLayout();
   if (!Alignment)
     Alignment = DL.getABITypeAlignment(LI->getType());
-  unsigned AddressSpace = Ptr->getType()->getPointerAddressSpace();
+
+  Value *NewLI = nullptr;
 
   // Handle consecutive loads.
-  if (ConsecutiveStride != 0) {
-    bool IsPrivate = false;
-    if (Legal->isLoopPrivate(Ptr)) {
-      Ptr = getVectorPrivateBase(Ptr);
-      IsPrivate = true;
-    } else {
-      GetElementPtrInst *Gep = getGEPInstruction(Ptr);
-      if (Gep) {
-        GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
-        for (unsigned i = 0; i < Gep->getNumOperands(); ++i)
-          Gep2->setOperand(i, getScalarValue(Gep->getOperand(i), 0));
-        Ptr = Builder.Insert(Gep2, "gep.indvar");
-      } else // No GEP
-        Ptr = getScalarValue(Ptr, 0);
+  if (ConsecutiveStride) {
+    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
+        LI, Ptr, ConsecutiveStride == -1);
 
-      Ptr = Reverse ? Builder.CreateGEP(nullptr, Ptr, Builder.getInt32(1 - VF))
-                    : Ptr;
-    }
-    Value *VecPtr =
-        Builder.CreateBitCast(Ptr, DataTy->getPointerTo(AddressSpace));
-
-    Value *NewLI;
-    if (MaskValue && !IsPrivate) {
+    if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
       // Masking not needed for privates.
       NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, MaskValue, nullptr,
                                        "wide.masked.load");
     } else
       NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
 
-    if (Reverse)
+    if (ConsecutiveStride == -1) //Reverse
       NewLI = reverseVector(NewLI);
 
-    if (!IsPrivate)
-      NewLI = transposeVectorIfNeeded(LI->getPointerOperand(), NewLI, Builder);
     WidenMap[cast<Value>(Inst)] = NewLI;
-    return;
+  } else {
+
+    // GATHER
+    Value *VectorPtr = getVectorValue(Ptr);
+    NewLI = Builder.CreateMaskedGather(VectorPtr, Alignment, MaskValue, nullptr,
+                                       "wide.masked.gather");
   }
 
-  // GATHER
-  Value *VectorPtr = getVectorValue(Ptr);
-  Value *NewLI = Builder.CreateMaskedGather(
-      VectorPtr, Alignment, MaskValue, nullptr, "wide.masked.gather");
-
-  NewLI = transposeVectorIfNeeded(LI->getPointerOperand(), NewLI, Builder);
   WidenMap[cast<Value>(Inst)] = NewLI;
 }
 
@@ -2027,7 +1952,6 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
   }
 
   int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
-  bool Reverse = (ConsecutiveStride == -1);
   if (!MaskValue && ConsecutiveStride == 0 && !EmitIntrinsic) {
     serializeInstruction(Inst);
     return;
@@ -2038,43 +1962,19 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
     return widenVectorStore(SI);
 
   Type *ScalarDataTy = SI->getValueOperand()->getType();
-  Type *DataTy = VectorType::get(ScalarDataTy, VF);
 
   unsigned Alignment = SI->getAlignment();
   if (!Alignment)
     Alignment = DL.getABITypeAlignment(ScalarDataTy);
-  unsigned AddressSpace = Ptr->getType()->getPointerAddressSpace();
   Value *VecDataOp = getVectorValue(SI->getValueOperand());
 
   // Handle consecutive stores.
   if (ConsecutiveStride) {
-    bool IsPrivate = Legal->isLoopPrivate(Ptr);
     bool StoreMaskValue = Legal->isCondLastPrivate(Ptr);
+    Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
+        SI, Ptr, ConsecutiveStride == -1);
 
-    Value *VecPtr = nullptr;
-    if (IsPrivate)
-      VecPtr = getVectorPrivateBase(Ptr);
-    else {
-      GetElementPtrInst *Gep = getGEPInstruction(Ptr);
-      if (Gep) {
-        GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
-        Gep2->setName("gep.indvar");
-
-        for (unsigned i = 0; i < Gep->getNumOperands(); ++i)
-          Gep2->setOperand(i, getScalarValue(Gep->getOperand(i), 0));
-        VecPtr = Builder.Insert(Gep2);
-      } else // No GEP
-        VecPtr = getScalarValue(Ptr, 0);
-
-      VecPtr = Reverse ?
-        Builder.CreateGEP(nullptr, VecPtr, Builder.getInt32(1 - VF)) : VecPtr;
-
-    }
-    VecPtr = Builder.CreateBitCast(VecPtr, DataTy->getPointerTo(AddressSpace));
-    if (!IsPrivate)
-      VecDataOp = normalizeVectorIfNeeded(SI->getPointerOperand(), VecDataOp,
-                                          Builder);
-    if (Reverse)
+    if (ConsecutiveStride == -1) // Reverse
       // If we store to reverse consecutive memory locations, then we need
       // to reverse the order of elements in the stored value.
       VecDataOp = reverseVector(VecDataOp);
@@ -2085,39 +1985,55 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
       Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
 
     if (StoreMaskValue)
-      storeMaskValue(MaskValue, LoopPrivateLastMask[getPtrThruBitCast(Ptr)],
-                     VF, Builder);
-    return;
+      storeMaskValue(MaskValue, LoopPrivateLastMask[getPtrThruBitCast(Ptr)], VF,
+                     Builder);
+  } else {
+
+    // SCATTER
+    Value *VectorPtr = getVectorValue(Ptr);
+    Type *PtrToElemTy = VectorPtr->getType()->getVectorElementType();
+    Type *ElemTy = PtrToElemTy->getPointerElementType();
+    VectorType *DesiredDataTy = VectorType::get(ElemTy, VF);
+    VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
+
+    Builder.CreateMaskedScatter(VecDataOp, VectorPtr, Alignment, MaskValue);
   }
-
-  // SCATTER
-  Value *VectorPtr = getVectorValue(Ptr);
-  Type *PtrToElemTy = VectorPtr->getType()->getVectorElementType();
-  Type *ElemTy = PtrToElemTy->getPointerElementType();
-  VectorType *DesiredDataTy = VectorType::get(ElemTy, VF);
-  VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
-
-  VecDataOp = normalizeVectorIfNeeded(SI->getPointerOperand(), VecDataOp, Builder);
-  Builder.CreateMaskedScatter(VecDataOp, VectorPtr, Alignment, MaskValue);
 }
 
 void VPOCodeGen::vectorizeExtractElement(Instruction *Inst) {
   ExtractElementInst *ExtrEltInst = cast<ExtractElementInst>(Inst);
   Value *ExtrFrom = getVectorValue(ExtrEltInst->getVectorOperand());
   Value *IndexVal = ExtrEltInst->getIndexOperand();
-  if (!isa<ConstantInt>(IndexVal))
-    return llvm_unreachable(
-        "Extract element with variable index is not supported");
+
+  // In case of an non-const index, we serialize the instruction.
+  // We first get the actual index, for the vectorized data using
+  // 'add', extract the element using the index and then finally insert it into
+  // the narrower sub-vector
+  if (!isa<ConstantInt>(IndexVal)) {
+    Value *WideExtract =
+        UndefValue::get(VectorType::get(ExtrEltInst->getType(), VF));
+    for (unsigned VIdx = 0; VIdx < VF; ++VIdx) {
+      Value *VectorIdx = Builder.CreateAdd(
+          ConstantInt::get(IndexVal->getType(), VIdx * VF), IndexVal);
+      WideExtract = Builder.CreateInsertElement(
+          WideExtract, Builder.CreateExtractElement(ExtrFrom, VectorIdx), VIdx);
+    }
+    WidenMap[Inst] = WideExtract;
+    return;
+  }
+
   unsigned Index = cast<ConstantInt>(IndexVal)->getZExtValue();
 
   // Extract subvector. The subvector should include VF elements.
-  // The start position for extracting is VF*Index.
   SmallVector<unsigned, 8> ShufMask;
-  for (unsigned i = 0; i < VF; ++i)
-    ShufMask.push_back(VF * Index + i);
+  unsigned OriginalVL =
+      ExtrEltInst->getOperand(0)->getType()->getVectorNumElements();
+  unsigned WideNumElts = VF * OriginalVL;
+  for (unsigned Idx = Index; Idx < WideNumElts; Idx += OriginalVL)
+    ShufMask.push_back(Idx);
   Type *VTy = ExtrFrom->getType();
-  WidenMap[Inst] =
-      Builder.CreateShuffleVector(ExtrFrom, UndefValue::get(VTy), ShufMask);
+  WidenMap[Inst] = Builder.CreateShuffleVector(ExtrFrom, UndefValue::get(VTy),
+                                               ShufMask, "wide.extract");
 }
 
 void VPOCodeGen::vectorizeShuffle(Instruction *Inst) {
@@ -2166,42 +2082,84 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
   Value *InsertTo = getVectorValue(InsEltInst->getOperand(0));
   Value *NewSubVec = getVectorValue(InsEltInst->getOperand(1));
   Value *IndexVal = InsEltInst->getOperand(2);
+
+  // In case of an non-const index, we serialize the instruction.
+  // We first get the actual index, for the vectorized data using
+  // 'add' and then insert that scalar into the index
+
+  if (!isa<ConstantInt>(IndexVal)) {
+    Value *WideInsert = InsertTo;
+    for (unsigned VIdx = 0; VIdx < VF; ++VIdx) {
+      Value *VectorIdx = Builder.CreateAdd(
+          ConstantInt::get(IndexVal->getType(), VIdx * VF), IndexVal);
+      WideInsert = Builder.CreateInsertElement(
+          WideInsert, InsEltInst->getOperand(1), VectorIdx);
+    }
+    WidenMap[Inst] = WideInsert;
+    return;
+  }
+
   unsigned Index = cast<ConstantInt>(IndexVal)->getZExtValue();
   unsigned WideNumElts = InsertTo->getType()->getVectorNumElements();
+  unsigned OriginalVL =
+      InsEltInst->getOperand(0)->getType()->getVectorNumElements();
+
+  // Widen the insert into an empty, undef-vector
+  // E.g. For OriginalVL = 4 and VF = 2, the following code,
+  // %add13 = add i32 %scalar, %scalar9
+  // %assembled.vect = insertelement <4 x i32> undef, i32 %add13, i32 0
+  //
+  // is transformed into,
+  // %6 = add <2 x i32> %Wide.Extract12, %Wide.Extract
+  // %wide.insert = shufflevector <2 x i32> %6, <2 x i32> undef,
+  //                              <8 x i32> <i32 0, i32 undef, i32 undef, i32
+  //                                         undef,
+  //                                         i32 1, i32 undef, i32 undef, i32
+  //                                         undef>
 
   if (isa<UndefValue>(InsertTo)) {
-    // Insert into Undef vector.
-    SmallVector<unsigned, 8> ShufMask;
-    for (unsigned i = 0; i < WideNumElts; ++i)
-      ShufMask.push_back(i);
-    unsigned StartInd = Index * VF;
-    for (unsigned i = 0; i < VF; ++i)
-      ShufMask[StartInd + i] = i;
+    SmallVector<Constant *, 8> ShufMask;
+    ShufMask.resize(WideNumElts, UndefValue::get(Builder.getInt32Ty()));
+    for (size_t Lane = 0; Lane < VF; Lane++)
+      ShufMask[Lane * OriginalVL + Index] = Builder.getInt32(Lane);
+
     Value *Shuf = Builder.CreateShuffleVector(
-        NewSubVec, UndefValue::get(NewSubVec->getType()), ShufMask);
+        NewSubVec, UndefValue::get(NewSubVec->getType()),
+        ConstantVector::get(ShufMask), "wide.insert");
     WidenMap[Inst] = Shuf;
     return;
   }
 
-  // Two shuffles. The first one is extending the Subvector to the width of
-  // the first source. And the second one is for merging.
-  SmallVector<unsigned, 8> ShufMask;
-  for (unsigned i = 0; i < VF; ++i)
-    ShufMask.push_back(i);
+  // Generate two shuffles. The first one is extending the Subvector to the
+  // width of the source and the second one is for blending in the actual
+  // values.
+  // In continuation of the example above, the following code,
+  // %assembled.vect17 = insertelement <4 x i32> %assembled.vect, i32 %add14,
+  //                                                              i32 1
+  //
+  // is transformed into,
+  // %extended. = shufflevector <2 x i32> %7,
+  //                            <2 x i32> undef,
+  //                            <8 x i32> <i32 0, i32 1, i32 2, i32 2,
+  //                                       i32 2, i32 2, i32 2, i32 2>
+  // %wide.insert16 = shufflevector <8 x i32> %wide.insert,
+  //                                <8 x i32> %extended.,
+  //                                <8 x i32> <i32 0, i32 8, i32 2, i32 3,
+  //                                           i32 4, i32 9, i32 6, i32 7>
 
-  for (unsigned i = VF; i < WideNumElts; ++i)
-    ShufMask.push_back(VF);
-  Value *ExtendSubVec = Builder.CreateShuffleVector(
-      NewSubVec, UndefValue::get(NewSubVec->getType()), ShufMask);
-
+  Value *ExtendSubVec =
+      extendVector(NewSubVec, WideNumElts, Builder, NewSubVec->getName());
   SmallVector<unsigned, 8> ShufMask2;
-  for (unsigned i = 0; i < WideNumElts; ++i)
-    ShufMask2.push_back(i);
-  unsigned StartInd = Index * VF;
-  for (unsigned i = 0; i < VF; ++i)
-    ShufMask2[StartInd + i] = WideNumElts + i;
-  WidenMap[Inst] =
-      Builder.CreateShuffleVector(InsertTo, ExtendSubVec, ShufMask2);
+  for (unsigned FirstVecIdx = 0, SecondVecIdx = WideNumElts;
+       FirstVecIdx < WideNumElts; ++FirstVecIdx) {
+    if ((FirstVecIdx % OriginalVL) == Index)
+      ShufMask2.push_back(SecondVecIdx++);
+    else
+      ShufMask2.push_back(FirstVecIdx);
+  }
+  Value *SecondShuf = Builder.CreateShuffleVector(InsertTo, ExtendSubVec,
+                                                  ShufMask2, "wide.insert");
+  WidenMap[Inst] = SecondShuf;
 }
 
 void VPOCodeGen::serializeWithPredication(Instruction *Inst) {
@@ -2520,48 +2478,21 @@ void VPOCodeGen::widenIntOrFpInduction(PHINode *IV) {
 }
 
 void VPOCodeGen::fixNonInductionPhis() {
-  // When checking for uniformity below, we should be using the original
-  // phi in the scalar loop.
-  for (auto OrigPhi : OrigInductionPhisToFix) {
-    PHINode *NewPhi;
-    bool IsUniform = isUniformAfterVectorization(OrigPhi, VF);
+  // Fix up the PHIs in the PhisToFix map. We use the VPPHI operands to setup
+  // the operands of the PHI.
+  for (auto PhiToFix : PhisToFix) {
+    auto *VPPhi = PhiToFix.first;
+    auto *Phi = PhiToFix.second;
+    auto *UnderlyingPhi = VPPhi->getInstruction();
+    const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
+    bool IsUniform = isUniformAfterVectorization(UnderlyingPhi, VF);
 
-    if (IsUniform)
-      NewPhi = cast<PHINode>(getScalarValue(OrigPhi, 0));
-    else
-      NewPhi = cast<PHINode>(getVectorValue(OrigPhi));
-
-    unsigned NumIncomingValues = OrigPhi->getNumIncomingValues();
-
-    SmallVector<BasicBlock *, 2> ScalarBBPredecessors;
-    for (auto BB : predecessors(OrigPhi->getParent()))
-      ScalarBBPredecessors.push_back(BB);
-    SmallVector<BasicBlock *, 2> VectorBBPredecessors;
-    for (auto BB : predecessors(NewPhi->getParent()))
-      VectorBBPredecessors.push_back(BB);
-
-    assert(
-      ScalarBBPredecessors.size() == VectorBBPredecessors.size() &&
-      "Scalar and Vector BB should have the same number of predecessors");
-
-    // We assume that blocks layout is preserved and search the incoming BB
-    // basing on the predecessors order in scalar blocks.
-    for (unsigned i = 0; i < NumIncomingValues; ++i) {
-      auto BB = VectorBBPredecessors[i];
-
-      // When looking up the new scalar/vector values to fix up use incoming
-      // values from original phi.
-      Value *ScIncV =
-          OrigPhi->getIncomingValueForBlock(ScalarBBPredecessors[i]);
-      Value *NewIncV;
-      if (IsUniform) {
-        NewIncV = getScalarValue(ScIncV, 0);
-        NewPhi->setIncomingBlock(i, BB);
-        NewPhi->setIncomingValue(i, NewIncV);
-      } else {
-        NewIncV = getVectorValue(ScIncV);
-        NewPhi->addIncoming(NewIncV, BB);
-      }
+    for (unsigned I = 0; I < NumPhiValues; ++I) {
+      auto *VPValue = VPPhi->getIncomingValue(I);
+      auto *VPBB = VPPhi->getIncomingBlock(I);
+      Value *IncValue =
+          IsUniform ? getScalarValue(VPValue, 0) : getVectorValue(VPValue);
+      Phi->addIncoming(IncValue, State->CFG.VPBB2IRBB[VPBB]);
     }
   }
 }
@@ -2577,74 +2508,85 @@ Value *VPOCodeGen::getEdgeMask(BasicBlock *From, BasicBlock *To) {
   return nullptr;
 }
 
-void VPOCodeGen::widenNonInductionPhi(PHINode *Phi) {
-  if (isUniformAfterVectorization(Phi, VF)) {
-    Instruction *Cloned = Phi->clone();
-    Cloned->setName(Phi->getName() + ".cloned");
-    Builder.Insert(Cloned);
-    ScalarMap[Phi][0] = Cloned;
-    // Set incoming values later, they may be not ready yet in case of back-edges.
-    OrigInductionPhisToFix.push_back(Phi);
+void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
+  PHINode *UnderlyingPhi = cast_or_null<PHINode>(VPPhi->getInstruction());
+
+  // If the PHI is not being blended into a select, go ahead and create a PHI
+  // and return after adding it to the PHIsToFix map.
+  if (VPPhi->getBlend() == false) {
+    auto PhiTy = VPPhi->getType();
+    PHINode *NewPhi;
+    if (isUniformAfterVectorization(UnderlyingPhi, VF)) {
+      NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
+      ScalarMap[UnderlyingPhi][0] = NewPhi;
+    } else {
+      PhiTy = VectorType::get(PhiTy, VF);
+      NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
+      WidenMap[UnderlyingPhi] = NewPhi;
+      VPWidenMap[VPPhi] = NewPhi;
+    }
+
+    // Set incoming values later, they may not be ready yet in case of
+    // back-edges.
+    PhisToFix[VPPhi] = NewPhi;
     return;
   }
 
-  Value *Entry = nullptr;
-  bool ConvertablePhi = true;
-  unsigned NumIncomingValues = Phi->getNumIncomingValues();
+  // Blend the PHIs using selects and incoming masks.
+  unsigned NumIncomingValues = VPPhi->getNumIncomingValues();
+  VPBasicBlock *VPBB = VPPhi->getParent();
+  Value *BlendVal;
   assert(NumIncomingValues && "Unexpected PHI with zero values");
 
   // Generate a sequence of selects of the form:
   // SELECT(Mask3, In3,
   //      SELECT(Mask2, In2,
   //                   ( ...)))
+  const SmallVectorImpl<VPBasicBlock::MaskBlockPair> &IncomingMasks =
+      VPBB->getIncomingMasks();
+
   for (unsigned In = 0; In < NumIncomingValues; In++) {
-    auto IncBlock = Phi->getIncomingBlock(In);
-    Value *Cond = getEdgeMask(IncBlock, Phi->getParent());
-    if (!Cond) {
-      ConvertablePhi = false;
-      break;
-    }
-    Value *In0 = getVectorValue(Phi->getIncomingValue(In));
+    // We might have single edge PHIs (blocks) - use an identity
+    // 'select' for the first PHI operand.
+    auto *PredVPBB = IncomingMasks[In].second;
+    Value *In0 = getVectorValue(VPPhi->getIncomingValue(PredVPBB));
     if (In == 0)
-      Entry = In0;
+      BlendVal = In0; // Initialize with the first incoming value.
     else {
       // Select between the current value and the previous incoming edge
       // based on the incoming mask.
-      auto IncBlock = Phi->getIncomingBlock(In);
-      Value *Cond = getEdgeMask(IncBlock, Phi->getParent());
-      assert(Cond && "Edge not in predicate map");
-      Entry = Builder.CreateSelect(Cond, In0, Entry, "predphi");
+      Value *Cond = getVectorValue(IncomingMasks[In].first);
+      BlendVal = Builder.CreateSelect(Cond, In0, BlendVal, "predphi");
     }
   }
-
-  if (!ConvertablePhi) {
-    Type *Ty = Phi->getType();
-    Type *VecTy = VectorType::get(Ty, VF);
-    Entry =
-      Builder.CreatePHI(VecTy, NumIncomingValues, Phi->getName() + ".vec");
-    // Set incoming values later, they may be not ready yet in case of back-edges.
-    OrigInductionPhisToFix.push_back(Phi);
-  }
-  assert(Entry && "Unexpected null widen value for PHI");
-  WidenMap[Phi] = Entry;
+  WidenMap[UnderlyingPhi] = BlendVal;
+  VPWidenMap[VPPhi] = BlendVal;
 }
 
-void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
+void VPOCodeGen::vectorizePHIInstruction(VPPHINode *VPPhi) {
 
-  PHINode *P = cast<PHINode>(Inst);
+  PHINode *P = cast_or_null<PHINode>(VPPhi->getInstruction());
+
+  // We are assuming for now that any VPPHIs added without an underlying
+  // PHI is not an induction.
+  if (!P) {
+    return widenNonInductionPhi(VPPhi);
+  }
+
   // Handle recurrences.
   if (Legal->isReductionVariable(P)) {
     Type *VecTy = VectorType::get(P->getType(), VF);
     PHINode *VecPhi = PHINode::Create(
       VecTy, 2, "vec.phi", &*LoopVectorBody->getFirstInsertionPt());
     WidenMap[P] = VecPhi;
+    VPWidenMap[VPPhi] = VecPhi;
     return;
   }
 
   if (!Legal->getInductionVars()->count(P)) {
     // The Phi node is not induction. It combines 2 basic blocks ruled out
     // by uniform branch.
-    return widenNonInductionPhi(P);
+    return widenNonInductionPhi(VPPhi);
   }
 
   InductionDescriptor II = Legal->getInductionVars()->lookup(P);
@@ -2674,11 +2616,10 @@ void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
       Value *SclrGep =
           emitTransformedIndex(Builder, GlobalIdx, PSE.getSE(), DL, II);
       SclrGep->setName("next.gep");
-      ScalarMap[Inst][Lane] = SclrGep;
+      ScalarMap[P][Lane] = SclrGep;
     }
     return;
   }
-
   }
 }
 
@@ -3049,6 +2990,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
     //    appropriate match.
     // 2) A SIMD function is not a library function.
     MatchedVariant = matchVectorVariant(CalledFunc, isMasked);
+    assert(MatchedVariant && "Unexpected null matched vector variant");
     LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode()
                       << "\n");
   }
@@ -3071,6 +3013,15 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
       && !isOpenCLReadChannel(CalledFunc->getName()))
     VecCall->copyFastMathFlags(Call);
 
+  // Make sure we don't lose attributes at the call site. E.g., IMF
+  // attributes are taken from call sites in MapIntrinToIml to refine
+  // SVML calls for precision.
+  VecCall->setAttributes(Call->getAttributes());
+
+  // Set calling convention for SVML function calls
+  if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
+    VecCall->setCallingConv(CallingConv::SVML);
+
   Loop *Lp = LI->getLoopFor(Call->getParent());
   analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
 
@@ -3089,6 +3040,77 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   }
 
   WidenMap[cast<Value>(Call)] = VecCall;
+}
+
+void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
+  if (auto *VPPhi = dyn_cast<VPPHINode>(VPInst)) {
+    vectorizePHIInstruction(VPPhi);
+    return;
+  }
+
+  if (auto *Inst = VPInst->getInstruction()) {
+    vectorizeInstruction(Inst);
+
+    // Add the widened value to the VPValue widen map.
+    if (WidenMap.count(Inst)) {
+      VPWidenMap[VPInst] = WidenMap[Inst];
+    }
+
+    return;
+  }
+
+  switch (VPInst->getOpcode()) {
+  case VPInstruction::AllZeroCheck: {
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Type *Ty = A->getType();
+
+    // Bitcast <VF x i1> to an integer value VF bits long.
+    Type *IntTy =
+        IntegerType::get(Ty->getContext(), Ty->getPrimitiveSizeInBits());
+    auto *BitCastInst = Builder.CreateBitCast(A, IntTy);
+
+    // Compare the bitcast value to zero. The compare will be true if all
+    // the i1 masks in <VF x i1> are false.
+    auto *CmpInst =
+        Builder.CreateICmpEQ(BitCastInst, Constant::getNullValue(IntTy));
+
+    // Broadcast the compare and set as the widened value.
+    auto *V = getBroadcastInstrs(CmpInst);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
+  case Instruction::And:
+  case Instruction::Or: {
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Value *B = getVectorValue(VPInst->getOperand(1));
+    Value *V =
+        Builder.CreateBinOp((Instruction::BinaryOps)VPInst->getOpcode(), A, B);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
+  case VPInstruction::Not: {
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Value *V = Builder.CreateNot(A);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
+  case VPInstruction::Pred: {
+    // Pred instruction just marks the block mask.
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    setMaskValue(A);
+    return;
+  }
+  case Instruction::Select: {
+    Value *M = getVectorValue(VPInst->getOperand(0));
+    Value *A = getVectorValue(VPInst->getOperand(1));
+    Value *B = getVectorValue(VPInst->getOperand(2));
+    Value *V = Builder.CreateSelect(M, A, B);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
+  default:
+    llvm_unreachable("Unexpected VPInstruction");
+  }
 }
 
 void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
@@ -3228,8 +3250,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   }
 
   case Instruction::PHI: {
-    vectorizePHIInstruction(Inst);
-    break;
+    llvm_unreachable("Phi instruction should not reach here");
   }
   case Instruction::ExtractElement:
     vectorizeExtractElement(Inst);
@@ -3241,7 +3262,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     vectorizeShuffle(Inst);
     break;
   case Instruction::ICmp: {
-    auto *Cmp = dyn_cast<ICmpInst>(Inst);
+    auto *Cmp = cast<ICmpInst>(Inst);
     Value *A = getVectorValue(Cmp->getOperand(0));
     Value *B = getVectorValue(Cmp->getOperand(1));
     WidenMap[Inst] = Builder.CreateICmp(Cmp->getPredicate(), A, B);
@@ -3249,7 +3270,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   }
 
   case Instruction::FCmp: {
-    auto *FCmp = dyn_cast<FCmpInst>(Inst);
+    auto *FCmp = cast<FCmpInst>(Inst);
     Value *A = getVectorValue(FCmp->getOperand(0));
     Value *B = getVectorValue(FCmp->getOperand(1));
     Value *NewFCmp = Builder.CreateFCmp(FCmp->getPredicate(), A, B);
@@ -3270,13 +3291,16 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     assert(F && "Unexpected null called function");
     StringRef CalledFunc = F->getName();
     bool isMasked = (MaskValue != nullptr) ? true : false;
+    VectorVariant *MatchedVariant = nullptr;
     if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
         (F->hasFnAttribute("vector-variants") &&
-         matchVectorVariant(F, isMasked)) ||
+         (MatchedVariant = matchVectorVariant(F, isMasked))) ||
         (isOpenCLReadChannel(CalledFunc) ||
-           isOpenCLWriteChannel(CalledFunc)))
+           isOpenCLWriteChannel(CalledFunc))) {
       vectorizeCallInstruction(Call);
-    else {
+      if (MatchedVariant)
+        delete MatchedVariant;
+    } else {
       LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
       serializeWithPredication(Call);
     }
@@ -3534,6 +3558,7 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
 
   for (auto *BB : TheLoop->blocks())
     for (auto &I : *BB) {
+#if 0
       auto isInnerLoopInduction = [&](PHINode *Phi, const Loop *&InnerL) -> bool {
         if (isInductionVariable(Phi))
           return false;
@@ -3548,7 +3573,11 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
         }
         return false;
       };
-      // Add non-induction phis to the list
+
+      // The code below incorrectly assumes that all inner loop inductions are
+      // uniform. This is not true for divergent inner loops. This issue will
+      // be fixed when we move to full VPValue based code generation combined
+      // with use of DA analysis information.
       if (auto Phi = dyn_cast<PHINode>(&I)) {
         const Loop *InnerLoop = nullptr;
         if (isInnerLoopInduction(Phi, InnerLoop)) {
@@ -3570,7 +3599,9 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
                             << "\n");
           Worklist.insert(IndUpdate);
         }
-      } else if (auto Br = dyn_cast<BranchInst>(&I)) {
+      }
+#endif
+      if (auto Br = dyn_cast<BranchInst>(&I)) {
         if (!Br->isConditional())
           continue;
         Value *Cond = Br->getCondition();
@@ -3797,6 +3828,11 @@ void VPOCodeGen::collectUniformsAndScalars(unsigned VF) {
 /// Returns true if \p I is known to be uniform after vectorization.
 bool VPOCodeGen::isUniformAfterVectorization(Instruction *I,
                                              unsigned VF) const {
+  // TODO - we need to use uniformity information coming from DA. For now, we
+  // assume non-uniform if we do not have underlying IR instruction.
+  if (!I)
+    return false;
+
   assert(Uniforms.count(VF) && "VF not yet analyzed for uniformity");
   auto UniformsPerVF = Uniforms.find(VF);
   return UniformsPerVF->second.count(I);

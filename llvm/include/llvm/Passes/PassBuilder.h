@@ -1,9 +1,8 @@
 //===- Parsing, selection, and construction of pass pipelines --*- C++ -*--===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 /// \file
@@ -66,6 +65,11 @@ class PassBuilder {
   PassInstrumentationCallbacks *PIC;
 
 public:
+
+#if INTEL_CUSTOMIZATION
+  bool PrepareForLTO; // We are in the compile step of an LTO compilation
+#endif // INTEL_CUSTOMIZATION
+
   /// A struct to capture parsed pass pipeline names.
   ///
   /// A pipeline is defined as a series of names, each of which may in itself
@@ -180,7 +184,7 @@ public:
   explicit PassBuilder(TargetMachine *TM = nullptr,
                        Optional<PGOOptions> PGOOpt = None,
                        PassInstrumentationCallbacks *PIC = nullptr)
-      : TM(TM), PGOOpt(PGOOpt), PIC(PIC) {}
+      : TM(TM), PGOOpt(PGOOpt), PIC(PIC), PrepareForLTO(false) {}  // INTEL
 
   /// Cross register the analysis managers through their proxies.
   ///

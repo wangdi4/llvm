@@ -1,6 +1,6 @@
 //===-- IntelVPlanDriver.cpp ----------------------------------------------===//
 //
-//   Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -39,6 +39,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
@@ -68,7 +69,7 @@ static cl::opt<bool> DisableCodeGen(
         "Disable VPO codegen, when true, the pass stops at VPlan creation"));
 
 // TODO: Unify with LoopVectorize's vplan-build-stress-test?
-static cl::opt<bool> VPlanConstrStressTest(
+cl::opt<bool> VPlanConstrStressTest(
     "vpo-vplan-build-stress-test", cl::init(false),
     cl::desc("Construct VPlan for every loop (stress testing)"));
 
@@ -86,6 +87,13 @@ static cl::opt<bool>
 static cl::opt<bool>
     VPlanPrintInit("vplan-print-after-init", cl::init(false),
                    cl::desc("Print plain dump after initial VPlan generated"));
+
+// New predicator is used in the LLVM IR path when this flag is true. This flag
+// is currently NFC for the HIR path.
+static cl::opt<bool>
+    EnableNewVPlanPredicator("enable-new-vplan-predicator", cl::init(true),
+                             cl::Hidden,
+                             cl::desc("Enable New VPlan predicator."));
 #endif
 
 static cl::opt<unsigned> VPlanVectCand(
@@ -148,7 +156,7 @@ protected:
 
   // Add remarks to the VPlan loop opt-report for loops created by codegen
   template <class VPOCodeGenType>
-  void addOptReportRemarks(VPlanOptReportBuilder<LoopType> &VPORBuilder,
+  void addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
                            VPOCodeGenType *VCodeGen);
 
   // TODO: Move isSupported to Legality class.
@@ -173,6 +181,7 @@ private:
   DemandedBits *DB;
   LoopAccessLegacyAnalysis *LAA;
   OptimizationRemarkEmitter *ORE;
+  LoopOptReportBuilder LORBuilder;
 
   bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp = 0) override;
 
@@ -240,6 +249,7 @@ public:
   bool runOnFunction(Function &Fn) override;
 };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // FIXME: \p VF is the single VF that we have VPlan for. That should be changed
 // in the future and the argument won't be required.
 template <typename CostModelTy = VPlanCostModel>
@@ -266,6 +276,7 @@ void printCostModelAnalysisIfRequested(LoopVectorizationPlanner &LVP,
     CM.print(outs());
   }
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // anonymous namespace
 
@@ -396,6 +407,11 @@ bool VPlanDriverBase<LoopType>::runStandardMode(Function &Fn) {
       //      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
       //      formLCSSARecursively(*Lp, *DT, LI, SE);
 
+      if (!Lp) {
+        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop was optimized out.\n");
+        continue;
+      }
+
       if (!VPlanForceBuild && !isSupported(Lp)) {
         LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
         continue;
@@ -453,7 +469,6 @@ bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
   for (LoopType *Lp : Worklist) {
     if (CandLoopsVectorized < VPlanVectCand && isVPlanCandidate(Fn, Lp)) {
       ModifiedFunc |= processLoop(Lp, Fn);
-      CandLoopsVectorized++;
     }
   }
 
@@ -465,7 +480,7 @@ bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
 template <class LoopType>
 template <class VPOCodeGenType>
 void VPlanDriverBase<LoopType>::addOptReportRemarks(
-    VPlanOptReportBuilder<LoopType> &VPORBuilder, VPOCodeGenType *VCodeGen) {
+    VPlanOptReportBuilder &VPORBuilder, VPOCodeGenType *VCodeGen) {
   // The new vectorized loop is stored in MainLoop
   LoopType *MainLoop = VCodeGen->getMainLoop();
 
@@ -483,6 +498,26 @@ void VPlanDriverBase<LoopType>::addOptReportRemarks(
   }
 }
 
+// Definitions of addRemark functions in VPlanOptReportBuilder
+template <typename... Args>
+void VPlanOptReportBuilder::addRemark(HLLoop *Lp,
+                                      OptReportVerbosity::Level Verbosity,
+                                      unsigned MsgID, Args &&... args) {
+  LORBuilder(*Lp).addRemark(Verbosity, loopopt::OptReportDiag::getMsg(MsgID),
+                            std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+void VPlanOptReportBuilder::addRemark(Loop *Lp,
+                                      OptReportVerbosity::Level Verbosity,
+                                      unsigned MsgID, Args &&... args) {
+  // For LLVM-IR Loop, LORB needs a valid LoopInfo object
+  assert(LI && "LoopInfo for opt-report builder is null.");
+  LORBuilder(*Lp, *LI).addRemark(Verbosity,
+                                 loopopt::OptReportDiag::getMsg(MsgID),
+                                 std::forward<Args>(args)...);
+}
+
 INITIALIZE_PASS_BEGIN(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
@@ -494,6 +529,7 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DemandedBitsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopAccessLegacyAnalysis)
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -520,6 +556,7 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<DemandedBitsWrapperPass>();
   AU.addRequired<LoopAccessLegacyAnalysis>();
   AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
+  AU.addRequired<OptReportOptionsPass>();
 }
 
 bool VPlanDriver::runOnFunction(Function &Fn) {
@@ -540,6 +577,8 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   DB = &getAnalysis<DemandedBitsWrapperPass>().getDemandedBits();
   ORE = &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
   LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
+  LORBuilder.setup(Fn.getContext(),
+                   getAnalysis<OptReportOptionsPass>().getVerbosity());
 
   bool ModifiedFunc =
       VPlanDriverBase::processFunction(Fn, WRegionCollection::LLVMIR);
@@ -567,11 +606,20 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       return false;
   }
 
+  // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
+  // process for vectorization
+  VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
+
   VPlanVLSAnalysis VLSA(Lp->getHeader()->getContext());
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans()) {
+  // Setup the use of new predicator in the planner if user has not disabled
+  // the same.
+  if (EnableNewVPlanPredicator)
+    LVP.setUseNewPredicator();
+
+  if (!LVP.buildInitialVPlans(&Fn.getContext())) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
@@ -579,7 +627,9 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   LVP.buildInitialVPlans();
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   printCostModelAnalysisIfRequested(LVP, TTI, DL, &VLSA);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // VPlan Predicator
   LVP.predicate();
@@ -599,9 +649,12 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintInit) {
-    VPlan *Plan = LVP.getVPlanForVF(VF);
+    VPlan *Plan = LVP.getVPlanForVF(VF); (void)Plan;
+    assert(Plan && "Unexpected null VPlan");
     errs() << "Print initial VPlan for VF=" << VF << "\n";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     Plan->dump(errs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif
 
@@ -621,9 +674,16 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
       if (WRLp)
         VPOUtils::stripDirectives(WRLp);
 
+      CandLoopsVectorized++;
       ModifiedLoop = true;
+      addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
     }
   }
+
+  // Emit opt report remark if a VPlan candidate SIMD loop was not vectorized
+  // TODO: Emit reason for bailing out
+  if (!ModifiedLoop)
+    VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, 15436, "");
 
   return ModifiedLoop;
 }
@@ -631,6 +691,16 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 // Auxiliary function that checks only loop-specific constraints. Generic loop
 // nest constraints are in 'isSupported' function.
 static bool isSupportedRec(Loop *Lp) {
+
+  // The interface getUniqueExitBlock() asserts that the loop has dedicated
+  // exits. Check that a loop has dedicated exits before the check for unique
+  // exit block. This is especially needed when stress testing VPlan builds.
+  if (!Lp->hasDedicatedExits()) {
+    LLVM_DEBUG(dbgs() << "VD: loop form "
+                      << "(" << Lp->getName()
+                      << ") is not supported: no dedicated exits.\n");
+    return false;
+  }
 
   if (!Lp->getUniqueExitBlock()) {
     LLVM_DEBUG(dbgs() << "VD: loop form "
@@ -655,8 +725,11 @@ bool VPlanDriver::isSupported(Loop *Lp) {
   // VPlanDriver. The reasoning behind this is due to the idea that we want to
   // perform all the enabling transformations before VPlanDriver so that the
   // only modifications to the underlying LLVM IR are done as a result of
-  // vectorization.
-  assert(Lp->isRecursivelyLCSSAForm(*DT, *LI) && "Loop is not in LCSSA form!");
+  // vectorization. When stress testing VPlan construction, allow loops not
+  // in LCSSA form.
+  if (!VPlanConstrStressTest)
+    assert(Lp->isRecursivelyLCSSAForm(*DT, *LI) &&
+           "Loop is not in LCSSA form!");
 
   // Check for loop specific constraints
   if (!isSupportedRec(Lp)) {
@@ -776,22 +849,34 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   assert(HLoop && "Expected HIR Loop.");
   assert(HLoop->getParentRegion() && "Expected parent HLRegion.");
 
+  if (WRLp->isOmpSIMDLoop() && !WRLp->isValidHIRSIMDRegion()) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    assert(false && "VPlan: Invalid HIR SIMD region for given loop");
+#else
+    WithColor::warning() << "Loop was not vectorized. Invalid SIMD region "
+                            "detected for given loop\n";
+    return false;
+#endif
+  }
+
   // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
   // process for vectorization
-  VPlanOptReportBuilder<HLLoop> VPORBuilder(LORBuilder);
+  VPlanOptReportBuilder VPORBuilder(LORBuilder);
 
   VPlanVLSAnalysisHIR VLSA(DDA, Lp->getLLVMLoop()->getHeader()->getContext());
   // TODO: No Legal for HIR.
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, nullptr /*Legal*/,
                                   DDA, &VLSA);
 
-  if (!LVP.buildInitialVPlans()) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext())) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(LVP, TTI, DL,
                                                                &VLSA);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // VPlan construction stress test ends here.
   // TODO: Move after predication.
@@ -809,6 +894,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   RSO << "Initial VPlan for VF=" << VF;
   RSO.flush();
   VPlan *Plan = LVP.getVPlanForVF(VF);
+  assert(Plan && "Unexpected null VPlan");
   Plan->setName(PlanName);
 
   LLVM_DEBUG(dbgs() << "VD:\n" << *Plan);
@@ -816,7 +902,9 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintInit) {
     errs() << "Print initial VPlan for VF=" << VF << "\n";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     Plan->dump(errs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif
 

@@ -61,6 +61,7 @@
 ; CHECK-O-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-O-NEXT: Running pass: OptimizeDynamicCastsPass    ;INTEL
 ; CHECK-O-NEXT: Running analysis: WholeProgramAnalysis    ;INTEL
+; CHECK-O1-NEXT: Running analysis: TargetIRAnalysis on foo ;INTEL
 ; CHECK-O-NEXT: Running pass: GlobalSplitPass
 ; CHECK-O-NEXT: Running pass: WholeProgramDevirtPass
 ; CHECK-O1-NEXT: Running pass: LowerTypeTestsPass

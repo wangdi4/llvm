@@ -1,6 +1,6 @@
 //===-- HIRGeneralUnroll.cpp - Implements GeneralUnroll class -------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -133,9 +133,9 @@ namespace {
 class HIRGeneralUnroll {
 public:
   HIRGeneralUnroll(HIRFramework &HIRF, HIRLoopResource &HLR,
-                   HIRLoopStatistics &HLS)
+                   HIRLoopStatistics &HLS, bool PragmaOnlyUnroll)
       : HIRF(HIRF), HLR(HLR), HLS(HLS), IsUnrollTriggered(false),
-        Is32Bit(false) {}
+        Is32Bit(false), PragmaOnlyUnroll(PragmaOnlyUnroll) {}
 
   bool run();
 
@@ -146,6 +146,7 @@ private:
 
   bool IsUnrollTriggered;
   bool Is32Bit;
+  bool PragmaOnlyUnroll;
 
   /// Processes and santitizes command line options.
   void sanitizeOptions();
@@ -251,6 +252,11 @@ void HIRGeneralUnroll::processGeneralUnroll(
     unsigned UnrollFactor = 0;
 
     bool HasEnablingPragma = Loop->hasGeneralUnrollEnablingPragma();
+
+    // Disable all other unrolling if only pragma enabled unrolling is allowed.
+    if (PragmaOnlyUnroll && !HasEnablingPragma) {
+      continue;
+    }
 
     // Perform a cost/profitability analysis on the loop
     // If all conditions are met, unroll it.
@@ -389,10 +395,12 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
                                     unsigned *UnrollFactor) const {
 
   if (!HasEnablingPragma) {
+    bool IsMultiExit = (Loop->getNumExits() > 1);
+
     // 32bit platform seems to be more sensitive to register pressure/code size.
     // Unrolling too many loops leads to regression in the same benchmark which
     // is improved on 64-bit platform.
-    if (Is32Bit && (Loop->getNumExits() > 1)) {
+    if (Is32Bit && IsMultiExit) {
       LLVM_DEBUG(
           dbgs()
           << "Skipping unroll of multi-exit loops on 32 bit platform!\n");
@@ -415,6 +423,25 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
     if (LS.hasSwitches()) {
       LLVM_DEBUG(
           dbgs() << "Skipping unroll of loop containing switch statement!\n");
+      return false;
+    }
+
+    // Causing 3% degradation in 511.provray's hot function
+    // All_CSG_Intersect_Intersections(). Cause is unknown but all 3 loops being
+    // unrolled fit the pattern.
+    if (IsMultiExit && Loop->isUnknown() && LS.hasUserCalls()) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll of multi-exit unknown loop "
+                           "containing user calls!\n");
+      return false;
+    }
+
+    // This is to supress unroll of perlbench loop in Perl_runops_standard().
+    // TODO: Tune loop resource cost and unroll thresholds to make this check
+    // generic.
+    if (Loop->isUnknown() && (LS.getNumIndirectCalls() == 1) &&
+        (LS.getNumUserCalls() == 3) && (LS.getNumIfs() == 3)) {
+      LLVM_DEBUG(dbgs() << "Skipping unroll of unknown loop with too many "
+                           "branching operations!\n");
       return false;
     }
   }
@@ -552,7 +579,7 @@ PreservedAnalyses HIRGeneralUnrollPass::run(llvm::Function &F,
                                             llvm::FunctionAnalysisManager &AM) {
   HIRGeneralUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
                    AM.getResult<HIRLoopResourceAnalysis>(F),
-                   AM.getResult<HIRLoopStatisticsAnalysis>(F))
+                   AM.getResult<HIRLoopStatisticsAnalysis>(F), false)
       .run();
   return PreservedAnalyses::all();
 }
@@ -560,8 +587,10 @@ PreservedAnalyses HIRGeneralUnrollPass::run(llvm::Function &F,
 class HIRGeneralUnrollLegacyPass : public HIRTransformPass {
 public:
   static char ID;
+  bool PragmaOnlyUnroll;
 
-  HIRGeneralUnrollLegacyPass() : HIRTransformPass(ID) {
+  HIRGeneralUnrollLegacyPass(bool PragmaOnlyUnroll = false)
+      : HIRTransformPass(ID), PragmaOnlyUnroll(PragmaOnlyUnroll) {
     initializeHIRGeneralUnrollLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -580,7 +609,8 @@ public:
     return HIRGeneralUnroll(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
-               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+               PragmaOnlyUnroll)
         .run();
   }
 };
@@ -594,6 +624,6 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRGeneralUnrollLegacyPass, "hir-general-unroll",
                     "HIR General Unroll", false, false)
 
-FunctionPass *llvm::createHIRGeneralUnrollPass() {
-  return new HIRGeneralUnrollLegacyPass();
+FunctionPass *llvm::createHIRGeneralUnrollPass(bool PragmaOnlyUnroll) {
+  return new HIRGeneralUnrollLegacyPass(PragmaOnlyUnroll);
 }

@@ -1,9 +1,8 @@
 //===- LowerSwitch.cpp - Eliminate Switch instructions --------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -17,6 +16,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -68,11 +68,20 @@ namespace {
 
   /// Replace all SwitchInst instructions with chained branch instructions.
   class LowerSwitch : public FunctionPass {
+#if INTEL_CUSTOMIZATION
+    // Flag to check if pass should be run only when function has a SIMD loop
+    // region
+    bool FnWithSIMDLoopOnly;
+#endif // INTEL_CUSTOMIZATION
+
   public:
     // Pass identification, replacement for typeid
     static char ID;
 
-    LowerSwitch() : FunctionPass(ID) {
+#if INTEL_CUSTOMIZATION
+    LowerSwitch(bool FnWithSIMDLoopOnly = false)
+        : FunctionPass(ID), FnWithSIMDLoopOnly(FnWithSIMDLoopOnly) {
+#endif // INTEL_CUSTOMIZATION
       initializeLowerSwitchPass(*PassRegistry::getPassRegistry());
     }
 
@@ -125,13 +134,39 @@ INITIALIZE_PASS(LowerSwitch, "lowerswitch",
                 "Lower SwitchInst's to branches", false, false)
 
 // createLowerSwitchPass - Interface to this file...
-FunctionPass *llvm::createLowerSwitchPass() {
-  return new LowerSwitch();
+#if INTEL_CUSTOMIZATION
+FunctionPass *llvm::createLowerSwitchPass(bool FnWithSIMDLoopOnly) {
+  return new LowerSwitch(FnWithSIMDLoopOnly);
 }
+
+/// Checks if incoming function \p F has atleast one OMP SIMD loop region
+static bool functionHasSIMDLoops(Function &F) {
+  for (auto &BB : F) {
+    for (auto &I : BB) {
+      StringRef DirString = vpo::VPOAnalysisUtils::getRegionDirectiveString(&I);
+      if (!DirString.empty() && DirString.equals("DIR.OMP.SIMD"))
+        return true;
+    }
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool LowerSwitch::runOnFunction(Function &F) {
   bool Changed = false;
   SmallPtrSet<BasicBlock*, 8> DeleteList;
+
+#if INTEL_CUSTOMIZATION
+  if (FnWithSIMDLoopOnly) {
+    LLVM_DEBUG(dbgs() << "LowerSwitch: Required to run pass only for functions "
+                         "with SIMD loops.\n");
+    if (!functionHasSIMDLoops(F))
+      return false;
+    LLVM_DEBUG(
+        dbgs() << "LowerSwitch: Function has SIMD loops, executing pass.\n");
+  }
+#endif // INTEL_CUSTOMIZATION
 
   for (Function::iterator I = F.begin(), E = F.end(); I != E; ) {
     BasicBlock *Cur = &*I++; // Advance over block so we don't traverse new blocks

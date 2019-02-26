@@ -1,4 +1,5 @@
 ; RUN: opt -S -basicaa -gvn < %s | FileCheck %s
+; RUN: opt -S -basicaa -gvn -basicaa-force-at-least-64b=0 < %s | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -S -basicaa -gvn | FileCheck %s
 

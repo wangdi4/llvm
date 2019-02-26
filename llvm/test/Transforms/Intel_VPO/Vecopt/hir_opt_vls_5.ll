@@ -40,6 +40,14 @@
 ; loads are vectorized into gathers. This test should be updated to check for a wide load and 3 shuffles when that feature is added (Jira : CMPLRLLVM-7542).
 ; With the temporary VLS analysis restriction, this loop is vectorized without any wide load or shuffle.
 
+; XFAIL: *
+; This test unexpectedly generates the right shuffles now because temp cleanup
+; (which propagates loads to add instruction) is suppressed for SIMD loops.
+; Before this change, we were looking for old style intel directives and did not
+; consider this as a SIMD loop.
+; Removing region entry/exit intrinsics also doesn't work because the loop is
+; not legal to vectorize due to backward edge for %ret.029.
+
 ; CHECK: DO i1 = 0, 99, 2
 ; CHECK: [[Add:%.*]] = (<2 x double>*)(@p)[0][i1 + <i64 0, i64 1>].0[0]  +  (<2 x double>*)(@p)[0][i1 + <i64 0, i64 1>].0[1];
 ; CHECK-NOT: [[WLd:%.*]] = (<6 x double>*)(@p)[0][i1].0[0];

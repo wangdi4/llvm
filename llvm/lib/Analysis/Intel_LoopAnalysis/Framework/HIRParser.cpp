@@ -1,6 +1,6 @@
 //===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -102,8 +102,7 @@ bool HIRParser::validBlobSymbasePair(BlobTy Blob, unsigned Symbase) const {
     assert((Symbase > GenericRvalSymbase) && "Temp has invalid symbase!");
     assert(!foundInBlobTable(Symbase) &&
            "Symbase is already present in blob table!");
-  }
-  else if (isa<SCEVConstant>(Blob)) {
+  } else if (isa<SCEVConstant>(Blob)) {
     assert(Symbase == ConstantSymbase && "Constant must have correct symbase.");
   }
 
@@ -2808,7 +2807,9 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
 
   // Divide by element size to convert byte offset to number of elements.
   IndexCE->divide(getPointerElementSize(PhiTy));
-  IndexCE->simplify(true);
+  // Index is already multiplied by element size as the SCEV form is in bytes so
+  // it should be okay to simplify denominator.
+  IndexCE->simplify(true, true);
 
   // Bail out if element size does not divide stride evenly and Phi has an
   // unusual access pattern.
@@ -2888,11 +2889,12 @@ bool HIRParser::representsStructOffset(const GEPOrSubsOperator *GEPOp) {
   return (Offsets[GEPOp->getNumOperands() - 2] != -1);
 }
 
-bool HIRParser::isValidGEPOp(const GEPOrSubsOperator *GEPOp) const {
+bool HIRParser::isValidGEPOp(const GEPOrSubsOperator *GEPOp,
+                             bool SkipLiveRangeCheck) const {
 
   auto GEPInst = dyn_cast<Instruction>(GEPOp);
 
-  if (GEPInst &&
+  if (!SkipLiveRangeCheck && GEPInst &&
       SE.getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) {
     return false;
   }
@@ -3069,6 +3071,61 @@ static void populateIndexedTypes(const GEPOrSubsOperator *GEPOp,
   }
 }
 
+/// This function returns restructured one-past-the-end GEPOperator if
+/// applicable, otherwise returns nullptr.
+///
+/// For a global pointer of type *[10 x i32], given a reference to one past the
+/// end element like &A[0][10], optimizer can turn it into equivalent &A[1][0].
+/// This is problematic for DD so we reverts it into the original form.
+static GEPOrSubsOperator *
+restructureOnePastTheEndGEP(const GEPOrSubsOperator *GEPOrSubsOp) {
+
+  // As far as I know, this restructuring only happens with constant gep exprs.
+  // Assuming this for GEP instructions might not be correct.
+  if (isa<Instruction>(GEPOrSubsOp)) {
+    return nullptr;
+  }
+
+  const GEPOperator *GEPOp =
+      cast<GEPOperator>(static_cast<const Operator *>(GEPOrSubsOp));
+
+  if (GEPOp->getNumIndices() != 2) {
+    return nullptr;
+  }
+
+  auto *FirstIndex = dyn_cast<ConstantInt>(*GEPOp->idx_begin());
+
+  if (!FirstIndex || !FirstIndex->isOne()) {
+    return nullptr;
+  }
+
+  auto *SecondIndex = dyn_cast<ConstantInt>(*(GEPOp->idx_begin() + 1));
+
+  if (!SecondIndex || !SecondIndex->isZero()) {
+    return nullptr;
+  }
+
+  auto *ArrTy = dyn_cast<ArrayType>(GEPOp->getSourceElementType());
+
+  if (!ArrTy) {
+    return nullptr;
+  }
+
+  SmallVector<Value *, 8> Indices;
+
+  // Make first index zero.
+  Indices.push_back(SecondIndex);
+
+  // Second index is equal to number of elements.
+  Indices.push_back(
+      ConstantInt::get(SecondIndex->getType(), ArrTy->getNumElements()));
+
+  IRBuilder<NoFolder> Builder(ArrTy->getContext());
+
+  return cast<GEPOrSubsOperator>(Builder.CreateGEP(
+      const_cast<Value *>(GEPOp->getPointerOperand()), Indices));
+}
+
 // Consider the following sequence of GEPs-
 // %arrayidx = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x
 // i32]]* @B, i64 0, i64 %i
@@ -3111,15 +3168,23 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
     return ConstantInt::get(OffsetTy, Stride);
   };
 
+  GEPOrSubsOperator *RestructuredBaseGEPOp = nullptr;
+
   do {
     auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
+
+    IsBaseGEPOp = (GEPOp == BaseGEPOp);
+
+    if (IsBaseGEPOp &&
+        (RestructuredBaseGEPOp = restructureOnePastTheEndGEP(GEPOp))) {
+      GEPOp = RestructuredBaseGEPOp;
+    }
 
     SmallVector<Type *, 8> IndexedTypes;
     populateIndexedTypes(GEPOp, IndexedTypes);
 
     // Ignore base pointer operand.
     int LastIndex = GEPOp->getNumIndices() - 1;
-    IsBaseGEPOp = (GEPOp == BaseGEPOp);
 
     auto CurDimInfo = Dims.end();
 
@@ -3232,6 +3297,10 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
     Ref->addDimensionHighest(IndexCE, StructOffsets, LBCE, StrideCE,
                              DimI.getType());
+  }
+
+  if (RestructuredBaseGEPOp) {
+    RestructuredBaseGEPOp->deleteValue();
   }
 }
 
@@ -3419,40 +3488,6 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
   return Ref;
 }
 
-void HIRParser::restructureOnePastTheEndRef(RegDDRef *Ref) const {
-  unsigned NumDims = Ref->getNumDimensions();
-
-  // We are looking for a reference of the form: A[1][-i1-1]. The highest index
-  // is the constant one and the second highest index yields a negative index.
-  // If so, we restructure it so it looks like A[0][-i1+9] assuming the
-  // dimension size of 10.
-  if (NumDims == 1) {
-    return;
-  }
-
-  auto HighestCE = Ref->getDimensionIndex(NumDims);
-
-  int64_t Val;
-  // The current logic doesn't work for non-contiguous dimensions so we bail
-  // out. Will wait for an actual test case to think about fixing such cases.
-  if (Ref->hasTrailingStructOffsets(NumDims) ||
-      !HighestCE->isIntConstant(&Val) || (Val != 1)) {
-    return;
-  }
-
-  auto SecondHighestCE = Ref->getDimensionIndex(NumDims - 1);
-
-  if (!HLNodeUtils::getMinValue(SecondHighestCE, CurNode, Val)) {
-    return;
-  }
-
-  if (Val < 0) {
-    HighestCE->setConstant(0);
-    auto NumElem = Ref->getNumDimensionElements(NumDims - 1);
-    SecondHighestCE->addConstant(NumElem, true);
-  }
-}
-
 // NOTE: AddRec->delinearize() doesn't work with constant bound arrays.
 // TODO: handle struct GEPs.
 RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
@@ -3493,19 +3528,18 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     GEPVal = Opnd;
   }
 
-  auto GEPInst = dyn_cast<Instruction>(GEPVal);
-  const GEPOrSubsOperator *GEPOp = nullptr;
+  const GEPOrSubsOperator *GEPOp = dyn_cast<GEPOrSubsOperator>(GEPVal);
 
   // Try to get to the phi associated with this GEP.
-  // Do not cross the live range indicator for GEP uses (load/store/bitcast).
-  if ((!IsUse || !GEPInst ||
-       !SE.getHIRMetadata(GEPInst, ScalarEvolution::HIRLiveKind::LiveRange)) &&
-      (GEPOp = dyn_cast<GEPOrSubsOperator>(GEPVal))) {
-
-    BasePhi = dyn_cast<PHINode>(getBaseGEPOp(GEPOp)->getPointerOperand());
-
-  } else if (GEPInst) {
-    BasePhi = dyn_cast<PHINode>(GEPInst);
+  if (GEPOp) {
+    // Do not cross the live range indicator for GEP uses (load/store/bitcast).
+    if (isValidGEPOp(GEPOp, !IsUse)) {
+      BasePhi = dyn_cast<PHINode>(getBaseGEPOp(GEPOp)->getPointerOperand());
+    } else {
+      GEPOp = nullptr;
+    }
+  } else {
+    BasePhi = dyn_cast<PHINode>(GEPVal);
   }
 
   if (BasePhi && RI.isHeaderPhi(BasePhi)) {
@@ -3524,8 +3558,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
   populateRequiredSymbases(Ref);
 
-  restructureOnePastTheEndRef(Ref);
-
   // Add a mapping for getting the original pointer value for the Ref.
   GEPRefToPointerMap.insert(
       std::make_pair(Ref, const_cast<Value *>(OrigGEPVal)));
@@ -3541,7 +3573,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 static bool hasLvalRvalBlobMismatch(const HLInst *HInst,
                                     const RegDDRef *LvalRef) {
 
-  for (auto BlobIt = LvalRef->blob_cbegin(), EIt = LvalRef->blob_cend();
+  for (auto BlobIt = LvalRef->blob_begin(), EIt = LvalRef->blob_end();
        BlobIt != EIt; ++BlobIt) {
     unsigned BlobIndex = (*BlobIt)->getBlobIndex();
 
@@ -3630,7 +3662,7 @@ void HIRParser::populateRequiredSymbases(const RegDDRef *Ref) {
     RequiredSymbases.insert(Ref->getSymbase());
 
   } else {
-    for (auto BIt = Ref->blob_cbegin(), E = Ref->blob_cend(); BIt != E; ++BIt) {
+    for (auto BIt = Ref->blob_begin(), E = Ref->blob_end(); BIt != E; ++BIt) {
       RequiredSymbases.insert((*BIt)->getSymbase());
     }
   }

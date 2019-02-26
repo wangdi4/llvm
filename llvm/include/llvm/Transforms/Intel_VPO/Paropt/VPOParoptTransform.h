@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //===-- VPO/Paropt/VPOParoptTranform.h - Paropt Transform Class -*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -298,6 +298,14 @@ private:
   static void getItemInfoFromValue(Value *OrigValue, Type *&ElementType,
                                    Value *&NumElements);
 
+  /// Extract the type and size of local Alloca to be created to privatize
+  /// \p I.
+  /// \param [in] I Input Item
+  /// \param [out] ElementType Type of one element
+  /// \param [out] NumElements Number of elements, in case \p OrigValue is
+  /// an array, \b nullptr otherwise.
+  static void getItemInfo(Item *I, Type *&ElementType, Value *&NumElements);
+
   /// Generate an AllocaInst for an array of Type \p ElementType, size \p
   /// NumElements, and name \p VarName. \p NumElements can be null for one
   /// element. The generated Instruction is inserted before \pInsertPt.
@@ -433,7 +441,7 @@ private:
   void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
 
   /// \brief Generate the lastprivate update code for taskloop
-  void genLprivFiniForTaskLoop(Value *Dst, Value *Src, Instruction *InsertPt);
+  void genLprivFiniForTaskLoop(LastprivateItem *LprivI, Instruction *InsertPt);
 
   /// \brief Generate loop schdudeling code.
   /// \p IsLastVal is an output from this routine and is used to emit
@@ -491,8 +499,7 @@ private:
 
   /// \brief Set up the mapping between the variables (firstprivate,
   /// lastprivate, reduction and shared) and the counterparts in the thunk.
-  AllocaInst *genTaskPrivateMapping(WRegionNode *W, Instruction *InsertPt,
-                                    StructType *KmpSharedTy);
+  AllocaInst *genTaskPrivateMapping(WRegionNode *W, StructType *KmpSharedTy);
 
   /// \brief Initialize the data in the shared data area inside the thunk
   void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,
@@ -574,7 +581,8 @@ private:
   /// \brief Reset the expression value in IsDevicePtr clause to be empty.
   void resetValueInIsDevicePtrClause(WRegionNode *W);
 
-  /// Set the value in num_teams and thread_limit clause to be empty.
+  /// Set the value in num_teams, thread_limit and num_threads
+  /// clauses to be empty.
   void resetValueInNumTeamsAndThreadsClause(WRegionNode *W);
 
   /// \brief Reset the value in the Map clause to be empty.
@@ -592,8 +600,7 @@ private:
 
   /// \brief Generate the pointers pointing to the array of base pointer, the
   /// array of section pointers, the array of sizes, the array of map types.
-  void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt,
-                                bool hasRuntimeEvaluationCaptureSize);
+  void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt);
 
   /// \brief Pass the data to the array of base pointer as well as  array of
   /// section pointers. If the flag hasRuntimeEvaluationCaptureSize is true,
@@ -651,7 +658,7 @@ private:
 
   /// Generate code for master/end master construct and update LLVM
   /// control-flow and dominator tree accordingly
-  bool genMasterThreadCode(WRegionNode *W);
+  bool genMasterThreadCode(WRegionNode *W, bool IsTargetSPIRV);
 
   /// Generate code for single/end single construct and update LLVM
   /// control-flow and dominator tree accordingly
@@ -748,7 +755,7 @@ private:
                              BasicBlock *&IfLastIterOut);
 
   /// \brief Insert a barrier at the end of the construct
-  bool genBarrier(WRegionNode *W, bool IsExplicit);
+  bool genBarrier(WRegionNode *W, bool IsExplicit, bool IsTargetSPIRV = false);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -782,11 +789,6 @@ private:
 
   /// \brief Check whether a given construct is supported in CSA.
   bool isSupportedOnCSA(WRegionNode *W);
-
-  /// \brief Remove fence acquire/release instructions inserted by FE for
-  /// certain work regions (atomic, critical, single, master, barrier and
-  /// taskwait).
-  bool removeCompilerGeneratedFences(WRegionNode *W);
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
@@ -1003,6 +1005,37 @@ private:
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
       SmallSetVector<Instruction *, 8> &LiveOutVals,
       EquivalenceClasses<Value *> &ECs);
+
+  /// \brief Insert local copy of \p V variable inside the region.
+  ///
+  /// \p V is an AllocaInst for \p W region's normalized upper bound pointer.
+  /// Insert a new AllocaInst at the region's entry block, and copy
+  /// the original variable value to the allocated area.
+  /// Replace all uses of the original AllocaInst with the new one.
+  ///
+  /// Since \p V is a normalized upper bound pointer, we do not expect
+  /// it to have non-POD type neither expect it to be By-Ref.
+  AllocaInst *genRegionLocalCopy(WRegionNode *W, Value *V);
+
+  /// \brief Move SIMD directives next to the loop associated
+  /// with the given OpenMP loop region \p W.
+  ///
+  /// \p W is an OpenMP loop region.  If this method finds
+  /// a SIMD region, which is a child of \p W, then it moves
+  /// the corresponding SIMD directive next to the loop.
+  /// After code generation for \p W, the enclosed SIMD
+  /// directives may become too distant from the loop itself,
+  /// which prevents correct handling of the SIMD loop by the later
+  /// passes.  This method helps to solve these problems.
+  ///
+  /// Note that the enclosed SIMD region will be in inconsistent
+  /// state after this method moves the directives, in particular,
+  /// the original entry/exit blocks of the SIMD region will no longer
+  /// hold the SIMD directives.  This should not be a problem,
+  /// as long as we process regions from children to parents.
+  /// If we ever need to keep the SIMD region in consistent state,
+  /// we have to be able to update the region's entry/exit blocks.
+  bool sinkSIMDDirectives(WRegionNode *W);
 
   /// \brief Transform the given OMP loop into the loop as follows.
   ///         do {
@@ -1262,6 +1295,12 @@ private:
   /// Return original global variable if the value Orig is the return value
   /// of a fence call.
   static Value *getRootValueFromFenceCall(Value *Orig);
+
+  /// Clang inserts fence acquire/release instructions for some constructs
+  /// (atomic, critical, single, master, barrier and taskwait).
+  /// For GPU compilation, we must remove such fence instructions because
+  /// they are unsupported by SPIRV and OpenCL.  This routine does that.
+  bool removeCompilerGeneratedFences(WRegionNode *W);
 };
 } /// namespace vpo
 } /// namespace llvm

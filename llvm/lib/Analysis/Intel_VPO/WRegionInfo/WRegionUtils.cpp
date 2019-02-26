@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
-//===----- WRegionNodeUtils.cpp - W-Region Node Utils class -----*- C++ -*-===//
+//===----- WRegionUtils.cpp - W-Region Node Utils class -----*- C++ -*-----===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -867,6 +867,20 @@ bool WRegionUtils::hasTargetDirective(WRegionInfo *WI) {
   if (WRGraph)
     return hasTargetDirective(*WRGraph);
   return false;
+}
+
+WRNVecLoopNode *WRegionUtils::getEnclosedSimdForSameLoop(WRegionNode *W,
+                                                         unsigned Idx) {
+  assert(W->getIsOmpLoop() && "Expected a loop-type WRN");
+  Loop *L = W->getWRNLoopInfo().getLoop(Idx);
+  for (auto *Child : W->getChildren()) {
+    if (WRNVecLoopNode *VecNode =  dyn_cast<WRNVecLoopNode>(Child)) {
+      Loop *VecLoop = VecNode->getWRNLoopInfo().getLoop(Idx);
+      if (L == VecLoop)
+        return VecNode;
+    }
+  }
+  return nullptr;
 }
 
 #endif // INTEL_COLLAB

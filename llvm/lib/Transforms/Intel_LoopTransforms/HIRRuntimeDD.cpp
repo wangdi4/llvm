@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.cpp - Implements Multiversioning for Runtime DD -=========//
 //
-// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -328,7 +328,7 @@ void IVSegment::replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
            "are mergeable.");
     (void)Ret;
 
-    CE->simplify(true);
+    CE->simplify(true, true);
   }
 }
 
@@ -476,6 +476,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Different address spaces";
   case UNSIZED:
     return "Ref type is unsized";
+  case SIMD_LOOP:
+    return "SIMD Loop";
   default:
     llvm_unreachable("Unexpected give up reason");
   }
@@ -593,6 +595,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     if (LoopI->hasUnrollEnablingPragma()) {
       return UNROLL_PRAGMA_LOOP;
+    }
+
+    if (LoopI->isSIMD()) {
+      return SIMD_LOOP;
     }
 
     uint64_t TripCount;

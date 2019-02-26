@@ -4,9 +4,9 @@
 ; Verify that we are able to parse this test case successfully. Framework was failing when trying to restructure one-past-the-end lval ref in i2 loop preheader.
 
 ; CHECK: + DO i1 = 0, 9, 1   <DO_LOOP>
-; CHECK: |   %0 = (@A)[1][%t * i1 + %t];
+; CHECK: |   %0 = (@A)[0][%t * i1 + %t + 10];
 ; CHECK: |
-; CHECK: |      (@A)[1][%t * i1 + %t] = i1 + %0;
+; CHECK: |      (@A)[0][%t * i1 + %t + 10] = i1 + %0;
 ; CHECK: |   + DO i2 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
 ; CHECK: |   |   %1 = (@A)[0][i2];
 ; CHECK: |   |   (@A)[0][i2] = i2 + %1;

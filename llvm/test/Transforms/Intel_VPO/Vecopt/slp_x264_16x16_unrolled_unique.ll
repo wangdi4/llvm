@@ -1,4 +1,4 @@
-; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -mattr=-prefer-256-bit -tti -S | FileCheck %s -check-prefix=16WIDE
+; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -mattr=-prefer-256-bit -tti -S | FileCheck %s -check-prefix=16WIDE
 
 source_filename = "x264_pixel_satd_16x16.ll"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

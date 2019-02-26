@@ -1,9 +1,8 @@
 //===-- Scalar.h - Scalar Transformations -----------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -184,11 +183,12 @@ Pass *createLoopInstSimplifyPass();
 //
 // LoopUnroll - This pass is a simple loop unrolling pass.
 //
-Pass *createLoopUnrollPass(int OptLevel = 2, int Threshold = -1, int Count = -1,
+Pass *createLoopUnrollPass(int OptLevel = 2, bool OnlyWhenForced = false,
+                           int Threshold = -1, int Count = -1,
                            int AllowPartial = -1, int Runtime = -1,
                            int UpperBound = -1, int AllowPeeling = -1);
 // Create an unrolling pass for full unrolling that uses exact trip count only.
-Pass *createSimpleLoopUnrollPass(int OptLevel = 2);
+Pass *createSimpleLoopUnrollPass(int OptLevel = 2, bool OnlyWhenForced = false);
 
 //===----------------------------------------------------------------------===//
 //
@@ -335,8 +335,11 @@ Pass *createStructurizeCFGPass(bool SkipUniformRegions = false);
 //
 // TailCallElimination - This pass eliminates call instructions to the current
 // function which occur immediately before return instructions.
-//
-FunctionPass *createTailCallEliminationPass();
+#if INTEL_CUSTOMIZATION
+// When skipRecProgression is TRUE, we skip functions with a recognized
+// recursive progression through one of the arguments.
+FunctionPass *createTailCallEliminationPass(bool skipRecProgression = false);
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //
@@ -543,6 +546,7 @@ FunctionPass *createLoopDataPrefetchPass();
 
 ///===---------------------------------------------------------------------===//
 ModulePass *createNameAnonGlobalPass();
+ModulePass *createCanonicalizeAliasesPass();
 
 //===----------------------------------------------------------------------===//
 //

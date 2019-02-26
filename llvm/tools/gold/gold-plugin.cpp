@@ -1,9 +1,8 @@
 //===-- gold-plugin.cpp - Plugin to gold for Link Time Optimization  ------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -17,7 +16,11 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/CodeGen/CommandFlags.inc"
+#if !INTEL_CUSTOMIZATION
+// This library isn't needed with Intel customizations since we
+// supply our own plugin api.
 #include "llvm/Config/config.h" // plugin-api.h requires HAVE_STDINT_H
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/LTO/Caching.h"
@@ -26,6 +29,7 @@
 #include "llvm/Support/CachePruning.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/intel-plugin-api.h" // INTEL
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
@@ -33,7 +37,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include <list>
 #include <map>
-#include "llvm/Support/intel-plugin-api.h" // INTEL
 #include <string>
 #include <system_error>
 #include <utility>
@@ -129,6 +132,7 @@ namespace options {
     OT_NORMAL,
     OT_DISABLE,
     OT_BC_ONLY,
+    OT_ASM_ONLY,
     OT_SAVE_TEMPS
   };
   static OutputType TheOutputType = OT_NORMAL;
@@ -239,6 +243,8 @@ namespace options {
       TheOutputType = OT_SAVE_TEMPS;
     } else if (opt == "disable-output") {
       TheOutputType = OT_DISABLE;
+    } else if (opt == "emit-asm") {
+      TheOutputType = OT_ASM_ONLY;
     } else if (opt == "thinlto") {
       thinlto = true;
     } else if (opt == "thinlto-index-only") {
@@ -324,9 +330,11 @@ ld_plugin_status onload(ld_plugin_tv *tv) {
   bool RegisteredAllSymbolsRead = false;
 
   for (; tv->tv_tag != LDPT_NULL; ++tv) {
-    // Cast tv_tag to int to allow values not in "enum ld_plugin_tag", like, for
-    // example, LDPT_GET_SYMBOLS_V3 when building against an older plugin-api.h
-    // header.
+#if INTEL_CUSTOMIZATION
+    // The tv_tag is cast to int for supporting values that aren't in
+    // "enum ld_plugin_tag". This is done in case we are using an older
+    // version of the plugin header files.
+#endif // INTEL_CUSTOMIZATION
     switch (static_cast<int>(tv->tv_tag)) {
     case LDPT_OUTPUT_NAME:
       output_name = tv->tv_u.tv_string;
@@ -903,6 +911,9 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
     check(Conf.addSaveTemps(output_name + ".",
                             /* UseInputModulePath */ true));
     break;
+  case options::OT_ASM_ONLY:
+    Conf.CGFileType = TargetMachine::CGFT_AssemblyFile;
+    break;
   }
 
   if (!options::sample_profile.empty())
@@ -1030,6 +1041,8 @@ static std::vector<std::pair<SmallString<128>, bool>> runLTO() {
     Filename = options::obj_path;
   else if (options::TheOutputType == options::OT_SAVE_TEMPS)
     Filename = output_name + ".o";
+  else if (options::TheOutputType == options::OT_ASM_ONLY)
+    Filename = output_name;
   bool SaveTemps = !Filename.empty();
 
   size_t MaxTasks = Lto->getMaxTasks();
@@ -1078,7 +1091,8 @@ static ld_plugin_status allSymbolsReadHook() {
   std::vector<std::pair<SmallString<128>, bool>> Files = runLTO();
 
   if (options::TheOutputType == options::OT_DISABLE ||
-      options::TheOutputType == options::OT_BC_ONLY)
+      options::TheOutputType == options::OT_BC_ONLY ||
+      options::TheOutputType == options::OT_ASM_ONLY)
     return LDPS_OK;
 
   if (options::thinlto_index_only) {
@@ -1103,6 +1117,7 @@ static ld_plugin_status all_symbols_read_hook(void) {
   llvm_shutdown();
 
   if (options::TheOutputType == options::OT_BC_ONLY ||
+      options::TheOutputType == options::OT_ASM_ONLY ||
       options::TheOutputType == options::OT_DISABLE) {
     if (options::TheOutputType == options::OT_DISABLE) {
       // Remove the output file here since ld.bfd creates the output file

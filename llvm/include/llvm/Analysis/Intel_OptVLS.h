@@ -403,12 +403,14 @@ public:
   /// (e.g. false does not mean the group has a variable stride).
   bool hasAConstStride(int64_t &ConstStride) const {
     int64_t Stride = 0;
-    if (getFirstMemref()->hasAConstStride(&Stride)) {
-      // A group only comprises the memrefs that have the same matching strides.
-      // Therefore, checking whether the first memref in the group has a
-      // constant stride is sufficient.
-      ConstStride = Stride;
-      return true;
+    if (getFirstMemref() != nullptr) {
+      if (getFirstMemref()->hasAConstStride(&Stride)) {
+        // A group only comprises the memrefs that have the same matching strides.
+        // Therefore, checking whether the first memref in the group has a
+        // constant stride is sufficient.
+        ConstStride = Stride;
+        return true;
+      }
     }
     return false;
   }

@@ -67,7 +67,9 @@ public:
   /// Whether \p Val is a divergent value
   bool isDivergent(const VPValue &Val) const;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const VPLoop *VPLp) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   /// Whether \p BB is part of the region.

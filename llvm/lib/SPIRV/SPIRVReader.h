@@ -236,7 +236,6 @@ private:
   Type *transFPType(SPIRVType* T);
   BinaryOperator *transShiftLogicalBitwiseInst(SPIRVValue* BV, BasicBlock* BB,
       Function* F);
-  void transFlags(Value* V);
   Instruction *transCmpInst(SPIRVValue* BV, BasicBlock* BB, Function* F);
   void transOCLBuiltinFromInstPreproc(SPIRVInstruction* BI, Type *&RetTy,
       std::vector<SPIRVValue *> &Args);

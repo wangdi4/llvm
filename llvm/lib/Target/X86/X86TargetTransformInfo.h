@@ -1,9 +1,8 @@
 //===-- X86TargetTransformInfo.h - X86 specific TTI -------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 /// \file
@@ -133,7 +132,7 @@ public:
   bool isLegalMaskedGather(Type *DataType);
   bool isLegalMaskedScatter(Type *DataType);
 #if INTEL_CUSTOMIZATION
-  bool isAdvancedOptimEnabled() const;
+  bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
 #endif // INTEL_CUSTOMIZATION
@@ -141,6 +140,12 @@ public:
   bool isFCmpOrdCheaperThanFCmpZero(Type *Ty);
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const;
+#if INTEL_CUSTOMIZATION
+  // Will try to upstream to llorg.
+  bool areFunctionArgsABICompatible(const Function *Caller,
+                                    const Function *Callee,
+                                    SmallPtrSetImpl<Argument *> &Args) const;
+#endif
   const TTI::MemCmpExpansionOptions *enableMemCmpExpansion(
       bool IsZeroCmp) const;
   bool enableInterleavedAccessVectorization();

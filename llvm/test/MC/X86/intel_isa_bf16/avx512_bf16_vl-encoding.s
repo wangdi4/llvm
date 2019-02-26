@@ -102,7 +102,7 @@
           vcvtneps2bf16   (%ecx){1to4}, %xmm6
 
 // CHECK: vcvtneps2bf16x  2032(%ecx), %xmm6
-// CHECK: encoding: [0x62,0xf2,0x7e,0x08,0x72,0xb1,0xf0,0x07,0x00,0x00]
+// CHECK: encoding: [0x62,0xf2,0x7e,0x08,0x72,0x71,0x7f]
           vcvtneps2bf16x  2032(%ecx), %xmm6
 
 // CHECK: vcvtneps2bf16   -512(%edx){1to4}, %xmm6 {%k7} {z}
@@ -122,7 +122,7 @@
           vcvtneps2bf16   (%ecx){1to8}, %xmm6
 
 // CHECK: vcvtneps2bf16y  4064(%ecx), %xmm6
-// CHECK: encoding: [0x62,0xf2,0x7e,0x28,0x72,0xb1,0xe0,0x0f,0x00,0x00]
+// CHECK: encoding: [0x62,0xf2,0x7e,0x28,0x72,0x71,0x7f]
           vcvtneps2bf16y  4064(%ecx), %xmm6
 
 // CHECK: vcvtneps2bf16   -512(%edx){1to8}, %xmm6 {%k7} {z}
@@ -146,7 +146,7 @@
           vdpbf16ps   4064(%ecx), %ymm5, %ymm6
 
 // CHECK: vdpbf16ps   -512(%edx){1to8}, %ymm5, %ymm6 {%k7} {z}
-// CHECK: encoding: [0x62,0xf2,0x56,0xbf,0x52,0xb2,0x00,0xfe,0xff,0xff]
+// CHECK: encoding: [0x62,0xf2,0x56,0xbf,0x52,0x72,0x80]
           vdpbf16ps   -512(%edx){1to8}, %ymm5, %ymm6 {%k7} {z}
 
 // CHECK: vdpbf16ps %xmm4, %xmm5, %xmm6
@@ -166,6 +166,6 @@
           vdpbf16ps   2032(%ecx), %xmm5, %xmm6
 
 // CHECK: vdpbf16ps   -512(%edx){1to4}, %xmm5, %xmm6 {%k7} {z}
-// CHECK: encoding: [0x62,0xf2,0x56,0x9f,0x52,0xb2,0x00,0xfe,0xff,0xff]
+// CHECK: encoding: [0x62,0xf2,0x56,0x9f,0x52,0x72,0x80]
           vdpbf16ps   -512(%edx){1to4}, %xmm5, %xmm6 {%k7} {z}
 

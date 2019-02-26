@@ -1,9 +1,8 @@
 //===-- X86FrameLowering.cpp - X86 Frame Information ----------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -185,7 +184,8 @@ static unsigned findDeadCallerSavedReg(MachineBasicBlock &MBB,
     }
 
     for (auto CS : AvailableRegs)
-      if (!Uses.count(CS) && CS != X86::RIP)
+      if (!Uses.count(CS) && CS != X86::RIP && CS != X86::RSP &&
+          CS != X86::ESP)
         return CS;
   }
   }
@@ -2015,6 +2015,38 @@ bool X86FrameLowering::assignCalleeSavedSpillSlots(
     MFI.ensureMaxAlignment(Align);
   }
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM - 7519: These changes are based on a preliminary workaround.
+  // When a long term fix is checked into llorg, it will take precedence.
+  // If this function has funclets, create extra slots for non-GPRs in the
+  // funclets.
+  if (MF.hasEHFunclets()) {
+    for (unsigned i = CSI.size(); i != 0; --i) {
+      unsigned Reg = CSI[i - 1].getReg();
+      if (X86::GR64RegClass.contains(Reg) || X86::GR32RegClass.contains(Reg))
+        continue;
+
+      // FIXME: I'm not sure all of this is necessary, but it will work.
+
+      // If this is k-register make sure we lookup via the largest legal type.
+      MVT VT = MVT::Other;
+      if (X86::VK16RegClass.contains(Reg))
+        VT = STI.hasBWI() ? MVT::v64i1 : MVT::v16i1;
+
+      const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg, VT);
+      unsigned Size = TRI->getSpillSize(*RC);
+      unsigned Align = TRI->getSpillAlignment(*RC);
+      // ensure alignment
+      SpillSlotOffset -= std::abs(SpillSlotOffset) % Align;
+      // spill into slot
+      SpillSlotOffset -= Size;
+      int SlotIndex = MFI.CreateFixedSpillStackObject(Size, SpillSlotOffset);
+      CSI[i - 1].setFuncletFrameIdx(SlotIndex);
+      MFI.ensureMaxAlignment(Align);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return true;
 }
 
@@ -2080,8 +2112,13 @@ bool X86FrameLowering::spillCalleeSavedRegisters(
     MBB.addLiveIn(Reg);
     const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg, VT);
 
-    TII.storeRegToStackSlot(MBB, MI, Reg, true, CSI[i - 1].getFrameIdx(), RC,
-                            TRI);
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM - 7519: These changes are based on a preliminary workaround.
+    // When a long term fix is checked into llorg, it will take precedence.
+    int FrameIdx = (MBB.isEHFuncletEntry() ? CSI[i - 1].getFuncletFrameIdx()
+                                           : CSI[i - 1].getFrameIdx());
+    TII.storeRegToStackSlot(MBB, MI, Reg, true, FrameIdx, RC, TRI);
+#endif // INTEL_CUSTOMIZATION
     --MI;
     MI->setFlag(MachineInstr::FrameSetup);
     ++MI;
@@ -2126,8 +2163,13 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
                                           const TargetRegisterInfo *TRI) const {
   if (CSI.empty())
     return false;
-
-  if (MI != MBB.end() && isFuncletReturnInstr(*MI) && STI.isOSWindows()) {
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM - 7519: These changes are based on a preliminary workaround.
+  // When a long term fix is checked into llorg, it will take precedence.
+  bool IsEHFuncletReturn =
+      (MI != MBB.end() && isFuncletReturnInstr(*MI) && STI.isOSWindows());
+  if (IsEHFuncletReturn) {
+#endif // INTEL_CUSTOMIZATION
     // Don't restore CSRs in 32-bit EH funclets. Matches
     // spillCalleeSavedRegisters.
     if (STI.is32Bit())
@@ -2158,7 +2200,13 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
       VT = STI.hasBWI() ? MVT::v64i1 : MVT::v16i1;
 
     const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg, VT);
-    TII.loadRegFromStackSlot(MBB, MI, Reg, CSI[i].getFrameIdx(), RC, TRI);
+#if INTEL_CUSTOMIZATION
+    // CMPLRLLVM - 7519: These changes are based on a preliminary workaround.
+    // When a long term fix is checked into llorg, it will take precedence.
+    int FrameIdx = (IsEHFuncletReturn ? CSI[i].getFuncletFrameIdx()
+                                      : CSI[i].getFrameIdx());
+    TII.loadRegFromStackSlot(MBB, MI, Reg, FrameIdx, RC, TRI);
+#endif // INTEL_CUSTOMIZATION
   }
 
   // POP GPRs.

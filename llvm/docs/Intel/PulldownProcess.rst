@@ -245,7 +245,7 @@ current state of the repository:
 
    .. code-block:: bash
 
-     $ repo forall -c 'echo $REPO_PATH:`git rev-list -1 HEAD`'  > heads.txt
+     $ repo forall -c 'echo $REPO_PATH:`git rev-list -1 HEAD`' > heads.txt
 
 This is especially useful if all the remaining issues were just fixed in the
 current ``xmain-web`` and we want to start our ``xmain-cand`` right from it.
@@ -261,23 +261,24 @@ the normal branch promotion process, e.g.
 
      $ ics mk xmain-promo-ws xmain head -git
      $ ics merge xmain-cand head
-     $ alloy -file xmain_checkin_pulldown -file zperf_checkin_xmain -ref_comp ws -notify
+     $ alloy run -file xmain_checkin_pulldown -file zperf_checkin_xmain -ref_comp ws -notify
      <Request gatekeeper approval>
      $ ics merge -push
+
+`ics merge -push` tries to push the results of the previous merge to ``xmain``
+branch via fast-forwarding. If that merge commit cannot be fast-forwarded,
+a new merge is created without making any push to ``xmain``. At this point,
+at least a local testing must be done by running `ics build check-all` before
+pushing the second merge again. Please note, xmain gatekeeper might require
+full testing depending on the nature of the conflicts.
 
 Note the difference from regular checkin :ref:`testing-requirements`.
 `xmain_checkin_pulldown` required for promotion contains some additional testing
 that we don't run for ordinary commits.
 
 Once promotion is complete, pulldown automation in ``xmain-cand`` (both
-auto-merging from ``xmain`` to ``xmain-cand`` and nightly testing) should be
-temporarily suspended by adding
-
-   .. code-block:: bash
-
-     HALT until new xmain-cand gets taken
-
-to `<top ws>/merge.status` and `<top ws>/build.status`.
+auto-merging from ``xmain`` to ``xmain-cand`` and nightly testing) is
+temporarily suspended by the tool until new ``xmain-cand`` gets taken.
 
 Checkin criteria for ``xmain-cand``
 -----------------------------------

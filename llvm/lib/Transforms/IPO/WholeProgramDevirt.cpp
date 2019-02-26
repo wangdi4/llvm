@@ -1,9 +1,8 @@
 //===- WholeProgramDevirt.cpp - Whole program virtual call optimization ---===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -512,6 +511,12 @@ struct DevirtModule {
     std::string TargetName;           // Basic Block's name
   };
 
+#if INTEL_INCLUDE_DTRANS
+  // Metadata node that will be used to mark a function call as being
+  // created by the devirtualizer to help DTrans analyze bitcast function calls.
+  MDNode *DevirtCallMDNode = nullptr;
+#endif // INTEL_INCLUDE_DTRANS
+
   // True if whole program safe is achieved, else false
   bool IsWholeProgramSafe : 1;
 
@@ -870,6 +875,19 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
                              TheFn->stripPointerCasts()->getName(), OREGetter);
       VCallSite.CS.setCalledFunction(ConstantExpr::getBitCast(
           TheFn, VCallSite.CS.getCalledValue()->getType()));
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+      // If a bitcast operation has been performed to match the callsite to
+      // the call target for the object type, mark the call to allow DTrans
+      // analysis to treat the 'this' pointer argument as being the expected
+      // type for the call, rather than a mismatched argument type. The
+      // devirtualizer has proven the types to match, so this marking avoids
+      // needing to try to prove the types match again during DTrans analysis.
+      if (TheFn->getType() != VCallSite.CS.getCalledValue()->getType())
+        VCallSite.CS.getInstruction()->setMetadata("_Intel.Devirt.Call",
+                                                 DevirtCallMDNode);
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
       // This use is no longer unsafe.
       if (VCallSite.NumUnsafeUses)
         --*VCallSite.NumUnsafeUses;
@@ -1114,11 +1132,23 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
 
     // Replace the called function with the direct call
     CallSite NewCS = CallSite(CloneCS);
-    if (Target.Fn->getFunctionType() != VCallSite.CS.getFunctionType())
+    if (Target.Fn->getFunctionType() != VCallSite.CS.getFunctionType()) {
       NewCS.setCalledFunction(ConstantExpr::getBitCast(
-          Target.Fn, VCallSite.CS.getCalledValue()->getType()));
-    else
+        Target.Fn, VCallSite.CS.getCalledValue()->getType()));
+#if INTEL_INCLUDE_DTRANS
+      // Because a bitcast operation has been performed to match the callsite to
+      // the call target for the object type, mark the call to allow DTrans
+      // analysis to treat the 'this' pointer argument as being the expected
+      // type for the call, rather than a mismatched argument type. The
+      // devirtualizer has proven the types to match, so this marking avoids
+      // needing to try to prove the types match again during DTrans analysis.
+      NewCS.getInstruction()->setMetadata("_Intel.Devirt.Call",
+                                          DevirtCallMDNode);
+#endif // INTEL_INCLUDE_DTRANS
+    }
+    else {
       NewCS.setCalledFunction(Target.Fn);
+    }
 
     // Save the new instruction for PHINode
     NewTarget->CallInstruction = NewCS.getInstruction();
@@ -2285,6 +2315,17 @@ bool DevirtModule::run() {
       M.getFunction(Intrinsic::getName(Intrinsic::type_checked_load));
   Function *AssumeFunc = M.getFunction(Intrinsic::getName(Intrinsic::assume));
 
+  // If only some of the modules were split, we cannot correctly handle
+  // code that contains type tests or type checked loads.
+  if ((ExportSummary && ExportSummary->partiallySplitLTOUnits()) ||
+      (ImportSummary && ImportSummary->partiallySplitLTOUnits())) {
+    if ((TypeTestFunc && !TypeTestFunc->use_empty()) ||
+        (TypeCheckedLoadFunc && !TypeCheckedLoadFunc->use_empty()))
+      report_fatal_error("inconsistent LTO Unit splitting with llvm.type.test "
+                         "or llvm.type.checked.load");
+    return false;
+  }
+
   // Normally if there are no users of the devirtualization intrinsics in the
   // module, this pass has nothing to do. But if we are exporting, we also need
   // to handle any users that appear only in the function summaries.
@@ -2367,7 +2408,14 @@ bool DevirtModule::run() {
   // For each (type, offset) pair:
   bool DidVirtualConstProp = false;
   std::map<std::string, Function*> DevirtTargets;
-  unsigned int CallSlotI = 0;                // INTEL
+
+#if INTEL_CUSTOMIZATION
+  unsigned int CallSlotI = 0;
+#if INTEL_INCLUDE_DTRANS
+  DevirtCallMDNode = MDNode::get(
+      M.getContext(), MDString::get(M.getContext(), "_Intel.Devirt.Call"));
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   for (auto &S : CallSlots) {
     // Search each of the members of the type identifier for the virtual

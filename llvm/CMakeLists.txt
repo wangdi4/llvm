@@ -12,7 +12,7 @@ if(POLICY CMP0075)
 endif()
 
 if(NOT DEFINED LLVM_VERSION_MAJOR)
-  set(LLVM_VERSION_MAJOR 8)
+  set(LLVM_VERSION_MAJOR 9)
 endif()
 if(NOT DEFINED LLVM_VERSION_MINOR)
   set(LLVM_VERSION_MINOR 0)
@@ -104,7 +104,7 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
-set(LLVM_ALL_PROJECTS "clang;libcxx;libcxxabi;lldb;compiler-rt;lld;polly;debuginfo-tests")
+set(LLVM_ALL_PROJECTS "clang;libcxx;libcxxabi;libunwind;lldb;compiler-rt;lld;polly;debuginfo-tests")
 set(LLVM_ENABLE_PROJECTS "" CACHE STRING
 	"Semicolon-separated list of projects to build (${LLVM_ALL_PROJECTS}), or \"all\".")
 if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
@@ -607,6 +607,22 @@ set(TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
 message(STATUS "LLVM host triple: ${LLVM_HOST_TRIPLE}")
 message(STATUS "LLVM default target triple: ${LLVM_DEFAULT_TARGET_TRIPLE}")
 
+set(INTEL_CUSTOMIZATION ON)
+# INTEL_CUSTOMIZATION
+if (UWD_BUILD)
+  add_definitions( -DWINDOWS_ONECORE )
+  if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(LLVM_USE_CRT_RELEASE "MT" CACHE STRING "Link rintime library statically" FORCE)
+    set(CMAKE_STANDARD_LIBRARIES "OneCore.lib libcmt.lib libvcruntime.lib libucrt.lib"
+        CACHE STRING "Building with OneCore.lib" FORCE)
+  elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(LLVM_USE_CRT_DEBUG "MTd" CACHE STRING "Link rintime library statically" FORCE)
+    set(CMAKE_STANDARD_LIBRARIES "OneCore.lib libcmtd.lib libvcruntimed.lib libucrtd.lib"
+        CACHE STRING "Building with OneCore.lib" FORCE)
+  endif()
+endif()
+#end INTEL_CUSTOMIZATION
+
 include(HandleLLVMOptions)
 
 # Verify that we can find a Python 2 interpreter.  Python 3 is unsupported.
@@ -660,7 +676,6 @@ endif (LLVM_USE_PERF)
 SET(INTEL_COLLAB ON)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_COLLAB=1")
 # end INTEL_COLLAB
-SET(INTEL_CUSTOMIZATION ON)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_CILKPLUS=1")
@@ -808,6 +823,11 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE)
 # end INTEL_FEATURE_ISA_SERIALIZE
+
+# INTEL_FEATURE_ISA_AMX
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX)
+# end INTEL_FEATURE_ISA_AMX
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"

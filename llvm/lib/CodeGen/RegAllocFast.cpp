@@ -1,9 +1,8 @@
 //===- RegAllocFast.cpp - A fast register allocator for debug code --------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -1154,12 +1153,16 @@ bool RegAllocFast::runOnMachineFunction(MachineFunction &MF) {
   // All machine operands and other references to virtual registers have been
   // replaced. Remove the virtual registers.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#else  // INTEL_FEATURE_CSA
   (void)HasVirtualRegs;
+  assert(!HasVirtualRegs && "Unallocated instruction.");
+#endif // INTEL_FEATURE_CSA
 #if INTEL_FEATURE_CSA
   if (!HasVirtualRegs)
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
-    MRI->clearVirtRegs(); // INTEL
+#endif // INTEL_FEATURE_CSA
+    MRI->clearVirtRegs();
+#endif // INTEL_CUSTOMIZATION
 
   StackSlotForVirtReg.clear();
   LiveDbgValueMap.clear();

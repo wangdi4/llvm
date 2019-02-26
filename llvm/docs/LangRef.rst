@@ -2256,6 +2256,24 @@ volatile operations. The optimizers *may* change the order of volatile
 operations relative to non-volatile operations. This is not Java's
 "volatile" and has no cross-thread synchronization behavior.
 
+A volatile load or store may have additional target-specific semantics.
+Any volatile operation can have side effects, and any volatile operation
+can read and/or modify state which is not accessible via a regular load
+or store in this module. Volatile operations may use addresses which do
+not point to memory (like MMIO registers). This means the compiler may
+not use a volatile operation to prove a non-volatile access to that
+address has defined behavior.
+
+The allowed side-effects for volatile accesses are limited.  If a
+non-volatile store to a given address would be legal, a volatile
+operation may modify the memory at that address. A volatile operation
+may not modify any other memory accessible by the module being compiled.
+A volatile operation may not call any code in the current module.
+
+The compiler may assume execution will continue after a volatile operation,
+so operations which modify memory or may have undefined behavior can be
+hoisted past a volatile operation.
+
 IR-level volatile loads and stores cannot safely be optimized into
 llvm.memcpy or llvm.memmove intrinsics even when those intrinsics are
 flagged volatile. Likewise, the backend should never split or merge
@@ -4568,13 +4586,36 @@ DIGlobalVariable
 
 .. code-block:: text
 
-    !0 = !DIGlobalVariable(name: "foo", linkageName: "foo", scope: !1,
-                           file: !2, line: 7, type: !3, isLocal: true,
-                           isDefinition: false, variable: i32* @foo,
-                           declaration: !4)
+    @foo = global i32, !dbg !0
+    !0 = !DIGlobalVariableExpression(var: !1, expr: !DIExpression())
+    !1 = !DIGlobalVariable(name: "foo", linkageName: "foo", scope: !2,
+                           file: !3, line: 7, type: !4, isLocal: true,
+                           isDefinition: false, declaration: !5)
 
-All global variables should be referenced by the `globals:` field of a
-:ref:`compile unit <DICompileUnit>`.
+
+DIGlobalVariableExpression
+""""""""""""""""""""""""""
+
+``DIGlobalVariableExpression`` nodes tie a :ref:`DIGlobalVariable` together
+with a :ref:`DIExpression`.
+
+.. code-block:: text
+
+    @lower = global i32, !dbg !0
+    @upper = global i32, !dbg !1
+    !0 = !DIGlobalVariableExpression(
+             var: !2,
+             expr: !DIExpression(DW_OP_LLVM_fragment, 0, 32)
+             )
+    !1 = !DIGlobalVariableExpression(
+             var: !2,
+             expr: !DIExpression(DW_OP_LLVM_fragment, 32, 32)
+             )
+    !2 = !DIGlobalVariable(name: "split64", linkageName: "split64", scope: !3,
+                           file: !4, line: 8, type: !5, declaration: !6)
+
+All global variable expressions should be referenced by the `globals:` field of
+a :ref:`compile unit <DICompileUnit>`.
 
 .. _DISubprogram:
 
@@ -5317,6 +5358,72 @@ For example, in the code below, the call instruction may only target the
     ...
     !0 = !{i64 (i64, i64)* @add, i64 (i64, i64)* @sub}
 
+'``callback``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^
+
+``callback`` metadata may be attached to a function declaration, or definition.
+(Call sites are excluded only due to the lack of a use case.) For ease of
+exposition, we'll refer to the function annotated w/ metadata as a broker
+function. The metadata describes how the arguments of a call to the broker are
+in turn passed to the callback function specified by the metadata. Thus, the
+``callback`` metadata provides a partial description of a call site inside the
+broker function with regards to the arguments of a call to the broker. The only
+semantic restriction on the broker function itself is that it is not allowed to
+inspect or modify arguments referenced in the ``callback`` metadata as
+pass-through to the callback function.
+
+The broker is not required to actually invoke the callback function at runtime.
+However, the assumptions about not inspecting or modifying arguments that would
+be passed to the specified callback function still hold, even if the callback
+function is not dynamically invoked. The broker is allowed to invoke the
+callback function more than once per invocation of the broker. The broker is
+also allowed to invoke (directly or indirectly) the function passed as a
+callback through another use. Finally, the broker is also allowed to relay the
+callback callee invocation to a different thread.
+
+The metadata is structured as follows: At the outer level, ``callback``
+metadata is a list of ``callback`` encodings. Each encoding starts with a
+constant ``i64`` which describes the argument position of the callback function
+in the call to the broker. The following elements, except the last, describe
+what arguments are passed to the callback function. Each element is again an
+``i64`` constant identifying the argument of the broker that is passed through,
+or ``i64 -1`` to indicate an unknown or inspected argument. The order in which
+they are listed has to be the same in which they are passed to the callback
+callee. The last element of the encoding is a boolean which specifies how
+variadic arguments of the broker are handled. If it is true, all variadic
+arguments of the broker are passed through to the callback function *after* the
+arguments encoded explicitly before.
+
+In the code below, the ``pthread_create`` function is marked as a broker
+through the ``!callback !1`` metadata. In the example, there is only one
+callback encoding, namely ``!2``, associated with the broker. This encoding
+identifies the callback function as the second argument of the broker (``i64
+2``) and the sole argument of the callback function as the third one of the
+broker function (``i64 3``).
+
+.. code-block:: llvm
+
+    declare !callback !1 dso_local i32 @pthread_create(i64*, %union.pthread_attr_t*, i8* (i8*)*, i8*)
+
+    ...
+    !2 = !{i64 2, i64 3, i1 false}
+    !1 = !{!2}
+
+Another example is shown below. The callback callee is the second argument of
+the ``__kmpc_fork_call`` function (``i64 2``). The callee is given two unknown
+values (each identified by a ``i64 -1``) and afterwards all
+variadic arguments that are passed to the ``__kmpc_fork_call`` call (due to the
+final ``i1 true``).
+
+.. code-block:: llvm
+
+    declare !callback !0 dso_local void @__kmpc_fork_call(%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...)
+
+    ...
+    !1 = !{i64 2, i64 -1, i64 -1, i1 true}
+    !0 = !{!1}
+
+
 '``unpredictable``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -5391,7 +5498,7 @@ vectorization width and interleave count. These metadata should be used in
 conjunction with ``llvm.loop`` loop identification metadata. The
 ``llvm.loop.vectorize`` and ``llvm.loop.interleave`` metadata are only
 optimization hints and the optimizer will only interleave and vectorize loops if
-it believes it is safe to do so. The ``llvm.mem.parallel_loop_access`` metadata
+it believes it is safe to do so. The ``llvm.loop.parallel_accesses`` metadata
 which contains information about loop-carried memory dependencies can be helpful
 in determining the safety of these transformations.
 
@@ -5694,89 +5801,119 @@ Thes attributes in this metdata is added to all followup loops of the
 loop distribution pass. See
 :ref:`Transformation Metadata <transformation-metadata>` for details.
 
-'``llvm.mem``'
-^^^^^^^^^^^^^^^
+'``llvm.access.group``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Metadata types used to annotate memory accesses with information helpful
-for optimizations are prefixed with ``llvm.mem``.
+``llvm.access.group`` metadata can be attached to any instruction that
+potentially accesses memory. It can point to a single distinct metadata
+node, which we call access group. This node represents all memory access
+instructions referring to it via ``llvm.access.group``. When an
+instruction belongs to multiple access groups, it can also point to a
+list of accesses groups, illustrated by the following example.
 
-'``llvm.mem.parallel_loop_access``' Metadata
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: llvm
 
-The ``llvm.mem.parallel_loop_access`` metadata refers to a loop identifier,
-or metadata containing a list of loop identifiers for nested loops.
-The metadata is attached to memory accessing instructions and denotes that
-no loop carried memory dependence exist between it and other instructions denoted
-with the same loop identifier. The metadata on memory reads also implies that
-if conversion (i.e. speculative execution within a loop iteration) is safe.
+   %val = load i32, i32* %arrayidx, !llvm.access.group !0
+   ...
+   !0 = !{!1, !2}
+   !1 = distinct !{}
+   !2 = distinct !{}
 
-Precisely, given two instructions ``m1`` and ``m2`` that both have the
-``llvm.mem.parallel_loop_access`` metadata, with ``L1`` and ``L2`` being the
-set of loops associated with that metadata, respectively, then there is no loop
-carried dependence between ``m1`` and ``m2`` for loops in both ``L1`` and
-``L2``.
+It is illegal for the list node to be empty since it might be confused
+with an access group.
 
-As a special case, if all memory accessing instructions in a loop have
-``llvm.mem.parallel_loop_access`` metadata that refers to that loop, then the
-loop has no loop carried memory dependences and is considered to be a parallel
-loop.
+The access group metadata node must be 'distinct' to avoid collapsing
+multiple access groups by content. A access group metadata node must
+always be empty which can be used to distinguish an access group
+metadata node from a list of access groups. Being empty avoids the
+situation that the content must be updated which, because metadata is
+immutable by design, would required finding and updating all references
+to the access group node.
 
-Note that if not all memory access instructions have such metadata referring to
-the loop, then the loop is considered not being trivially parallel. Additional
+The access group can be used to refer to a memory access instruction
+without pointing to it directly (which is not possible in global
+metadata). Currently, the only metadata making use of it is
+``llvm.loop.parallel_accesses``.
+
+'``llvm.loop.parallel_accesses``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``llvm.loop.parallel_accesses`` metadata refers to one or more
+access group metadata nodes (see ``llvm.access.group``). It denotes that
+no loop-carried memory dependence exist between it and other instructions
+in the loop with this metadata.
+
+Let ``m1`` and ``m2`` be two instructions that both have the
+``llvm.access.group`` metadata to the access group ``g1``, respectively
+``g2`` (which might be identical). If a loop contains both access groups
+in its ``llvm.loop.parallel_accesses`` metadata, then the compiler can
+assume that there is no dependency between ``m1`` and ``m2`` carried by
+this loop. Instructions that belong to multiple access groups are
+considered having this property if at least one of the access groups
+matches the ``llvm.loop.parallel_accesses`` list.
+
+If all memory-accessing instructions in a loop have
+``llvm.loop.parallel_accesses`` metadata that refers to that loop, then the
+loop has no loop carried memory dependences and is considered to be a
+parallel loop.
+
+Note that if not all memory access instructions belong to an access
+group referred to by ``llvm.loop.parallel_accesses``, then the loop must
+not be considered trivially parallel. Additional
 memory dependence analysis is required to make that determination. As a fail
 safe mechanism, this causes loops that were originally parallel to be considered
 sequential (if optimization passes that are unaware of the parallel semantics
 insert new memory instructions into the loop body).
 
 Example of a loop that is considered parallel due to its correct use of
-both ``llvm.loop`` and ``llvm.mem.parallel_loop_access``
-metadata types that refer to the same loop identifier metadata.
+both ``llvm.access.group`` and ``llvm.loop.parallel_accesses``
+metadata types.
 
 .. code-block:: llvm
 
    for.body:
      ...
-     %val0 = load i32, i32* %arrayidx, !llvm.mem.parallel_loop_access !0
+     %val0 = load i32, i32* %arrayidx, !llvm.access.group !1
      ...
-     store i32 %val0, i32* %arrayidx1, !llvm.mem.parallel_loop_access !0
+     store i32 %val0, i32* %arrayidx1, !llvm.access.group !1
      ...
      br i1 %exitcond, label %for.end, label %for.body, !llvm.loop !0
 
    for.end:
    ...
-   !0 = !{!0}
+   !0 = distinct !{!0, !{!"llvm.loop.parallel_accesses", !1}}
+   !1 = distinct !{}
 
-It is also possible to have nested parallel loops. In that case the
-memory accesses refer to a list of loop identifier metadata nodes instead of
-the loop identifier metadata node directly:
+It is also possible to have nested parallel loops:
 
 .. code-block:: llvm
 
    outer.for.body:
      ...
-     %val1 = load i32, i32* %arrayidx3, !llvm.mem.parallel_loop_access !2
+     %val1 = load i32, i32* %arrayidx3, !llvm.access.group !4
      ...
      br label %inner.for.body
 
    inner.for.body:
      ...
-     %val0 = load i32, i32* %arrayidx1, !llvm.mem.parallel_loop_access !0
+     %val0 = load i32, i32* %arrayidx1, !llvm.access.group !3
      ...
-     store i32 %val0, i32* %arrayidx2, !llvm.mem.parallel_loop_access !0
+     store i32 %val0, i32* %arrayidx2, !llvm.access.group !3
      ...
      br i1 %exitcond, label %inner.for.end, label %inner.for.body, !llvm.loop !1
 
    inner.for.end:
      ...
-     store i32 %val1, i32* %arrayidx4, !llvm.mem.parallel_loop_access !2
+     store i32 %val1, i32* %arrayidx4, !llvm.access.group !4
      ...
      br i1 %exitcond, label %outer.for.end, label %outer.for.body, !llvm.loop !2
 
    outer.for.end:                                          ; preds = %for.body
    ...
-   !0 = !{!1, !2} ; a list of loop identifiers
-   !1 = !{!1} ; an identifier for the inner loop
-   !2 = !{!2} ; an identifier for the outer loop
+   !1 = distinct !{!1, !{!"llvm.loop.parallel_accesses", !3}}     ; metadata for the inner loop
+   !2 = distinct !{!2, !{!"llvm.loop.parallel_accesses", !3, !4}} ; metadata for the outer loop
+   !3 = distinct !{} ; access group for instructions in the inner loop (which are implicitly contained in outer loop as well)
+   !4 = distinct !{} ; access group for instructions in the outer, but not the inner loop
 
 '``irr_loop``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -6746,7 +6883,7 @@ The '``ret``' instruction optionally accepts a single argument, the
 return value. The type of the return value must be a ':ref:`first
 class <t_firstclass>`' type.
 
-A function is not :ref:`well formed <wellformed>` if it it has a non-void
+A function is not :ref:`well formed <wellformed>` if it has a non-void
 return type and contains a '``ret``' instruction with no return value or
 a return value with a type that does not match its type, or if it has a
 void return type and contains a '``ret``' instruction with a return
@@ -6981,7 +7118,7 @@ This instruction requires several arguments:
 #. The optional :ref:`Parameter Attributes <paramattrs>` list for return
    values. Only '``zeroext``', '``signext``', and '``inreg``' attributes
    are valid here.
-#. The optional addrspace attribute can be used to indicate the adress space
+#. The optional addrspace attribute can be used to indicate the address space
    of the called function. If it is not specified, the program address space
    from the :ref:`datalayout string<langref_datalayout>` will be used.
 #. '``ty``': the type of the call instruction itself which is also the
@@ -7286,7 +7423,7 @@ Arguments:
 
 The argument to the '``fneg``' instruction must be a
 :ref:`floating-point <t_floating>` or :ref:`vector <t_vector>` of
-floating-point values. 
+floating-point values.
 
 Semantics:
 """"""""""
@@ -8898,14 +9035,18 @@ operation. The operation must be one of the following keywords:
 -  min
 -  umax
 -  umin
+-  fadd
+-  fsub
 
-The type of '<value>' must be an integer type whose bit width is a power
-of two greater than or equal to eight and less than or equal to a
-target-specific size limit. The type of the '``<pointer>``' operand must
-be a pointer to that type. If the ``atomicrmw`` is marked as
-``volatile``, then the optimizer is not allowed to modify the number or
-order of execution of this ``atomicrmw`` with other :ref:`volatile
-operations <volatile>`.
+For most of these operations, the type of '<value>' must be an integer
+type whose bit width is a power of two greater than or equal to eight
+and less than or equal to a target-specific size limit. For xchg, this
+may also be a floating point type with the same size constraints as
+integers.  For fadd/fsub, this must be a floating point type.  The
+type of the '``<pointer>``' operand must be a pointer to that type. If
+the ``atomicrmw`` is marked as ``volatile``, then the optimizer is not
+allowed to modify the number or order of execution of this
+``atomicrmw`` with other :ref:`volatile operations <volatile>`.
 
 A ``atomicrmw`` instruction can also take an optional
 ":ref:`syncscope <syncscope>`" argument.
@@ -8931,6 +9072,8 @@ operation argument:
    comparison)
 -  umin: ``*ptr = *ptr < val ? *ptr : val`` (using an unsigned
    comparison)
+- fadd: ``*ptr = *ptr + val`` (using floating point arithmetic)
+- fsub: ``*ptr = *ptr - val`` (using floating point arithmetic)
 
 Example:
 """"""""
@@ -10117,7 +10260,7 @@ This instruction requires several arguments:
 #. The optional :ref:`Parameter Attributes <paramattrs>` list for return
    values. Only '``zeroext``', '``signext``', and '``inreg``' attributes
    are valid here.
-#. The optional addrspace attribute can be used to indicate the adress space
+#. The optional addrspace attribute can be used to indicate the address space
    of the called function. If it is not specified, the program address space
    from the :ref:`datalayout string<langref_datalayout>` will be used.
 #. '``ty``': the type of the call instruction itself which is also the
@@ -12442,19 +12585,22 @@ integer type.
       declare i16 @llvm.bitreverse.i16(i16 <id>)
       declare i32 @llvm.bitreverse.i32(i32 <id>)
       declare i64 @llvm.bitreverse.i64(i64 <id>)
+      declare <4 x i32> @llvm.bitreverse.v4i32(<4 x i32> <id>)
 
 Overview:
 """""""""
 
 The '``llvm.bitreverse``' family of intrinsics is used to reverse the
-bitpattern of an integer value; for example ``0b10110110`` becomes
-``0b01101101``.
+bitpattern of an integer value or vector of integer values; for example
+``0b10110110`` becomes ``0b01101101``.
 
 Semantics:
 """"""""""
 
 The ``llvm.bitreverse.iN`` intrinsic returns an iN value that has bit
-``M`` in the input moved to bit ``N-M`` in the output.
+``M`` in the input moved to bit ``N-M`` in the output. The vector
+intrinsics, such as ``llvm.bitreverse.v4i32``, operate on a per-element
+basis and the element order is not affected.
 
 '``llvm.bswap.*``' Intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -12470,14 +12616,14 @@ integer type that is an even number of bytes (i.e. BitWidth % 16 == 0).
       declare i16 @llvm.bswap.i16(i16 <id>)
       declare i32 @llvm.bswap.i32(i32 <id>)
       declare i64 @llvm.bswap.i64(i64 <id>)
+      declare <4 x i32> @llvm.bswap.v4i32(<4 x i32> <id>)
 
 Overview:
 """""""""
 
-The '``llvm.bswap``' family of intrinsics is used to byte swap integer
-values with an even number of bytes (positive multiple of 16 bits).
-These are useful for performing operations on data that is not in the
-target's native byte order.
+The '``llvm.bswap``' family of intrinsics is used to byte swap an integer
+value or vector of integer values with an even number of bytes (positive
+multiple of 16 bits).
 
 Semantics:
 """"""""""
@@ -12489,7 +12635,8 @@ swapped, so that if the input bytes are numbered 0, 1, 2, 3 then the
 returned i32 will have its bytes in 3, 2, 1, 0 order. The
 ``llvm.bswap.i48``, ``llvm.bswap.i64`` and other intrinsics extend this
 concept to additional even-byte lengths (6 bytes, 8 bytes and more,
-respectively).
+respectively). The vector intrinsics, such as ``llvm.bswap.v4i32``,
+operate on a per-element basis and the element order is not affected.
 
 '``llvm.ctpop.*``' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -15302,13 +15449,13 @@ Syntax:
 Overview:
 """""""""
 
-The '``llvm.experimental.constrained.maxnum``' intrinsic returns the maximum 
+The '``llvm.experimental.constrained.maxnum``' intrinsic returns the maximum
 of the two arguments.
 
 Arguments:
 """"""""""
 
-The first two arguments and the return value are floating-point numbers 
+The first two arguments and the return value are floating-point numbers
 of the same type.
 
 The third and forth arguments specify the rounding mode and exception
@@ -15376,7 +15523,7 @@ Syntax:
 Overview:
 """""""""
 
-The '``llvm.experimental.constrained.ceil``' intrinsic returns the ceiling of the 
+The '``llvm.experimental.constrained.ceil``' intrinsic returns the ceiling of the
 first operand.
 
 Arguments:
@@ -15412,7 +15559,7 @@ Syntax:
 Overview:
 """""""""
 
-The '``llvm.experimental.constrained.floor``' intrinsic returns the floor of the 
+The '``llvm.experimental.constrained.floor``' intrinsic returns the floor of the
 first operand.
 
 Arguments:
@@ -15429,7 +15576,7 @@ Semantics:
 """"""""""
 
 This function returns the same values as the libm ``floor`` functions
-would and handles error conditions in the same way. 
+would and handles error conditions in the same way.
 
 
 '``llvm.experimental.constrained.round``' Intrinsic
@@ -15448,7 +15595,7 @@ Syntax:
 Overview:
 """""""""
 
-The '``llvm.experimental.constrained.round``' intrinsic returns the first 
+The '``llvm.experimental.constrained.round``' intrinsic returns the first
 operand rounded to the nearest integer.
 
 Arguments:
@@ -15484,8 +15631,8 @@ Syntax:
 Overview:
 """""""""
 
-The '``llvm.experimental.constrained.trunc``' intrinsic returns the first 
-operand rounded to the nearest integer not larger in magnitude than the 
+The '``llvm.experimental.constrained.trunc``' intrinsic returns the first
+operand rounded to the nearest integer not larger in magnitude than the
 operand.
 
 Arguments:

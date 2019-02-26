@@ -1,6 +1,6 @@
 //===- Intel_IndirectCallConv.cpp - Indirect call Conv transformation -===//
 //
-// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -199,7 +199,7 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
   std::vector<llvm::Value *> PossibleTargets;
   Value *call_fptr = CS.getCalledValue()->stripPointerCasts();
 #if INTEL_INCLUDE_DTRANS
-  if (DTransInfo)
+  if (DTransInfo && DTransInfo->useDTransAnalysis())
     IsComplete = DTransInfo->GetFuncPointerPossibleTargets(
         call_fptr, PossibleTargets, CS, IndCallConvTrace);
 #endif // INTEL_INCLUDE_DTRANS

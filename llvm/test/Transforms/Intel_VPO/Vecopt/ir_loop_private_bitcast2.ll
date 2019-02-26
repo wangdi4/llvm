@@ -8,11 +8,11 @@
 ; CHECK:  %[[PRIV1_BITCAST2:.*]] = bitcast <4 x float>* %[[PRIV1_VEC]] to <4 x i32>*
 ; CHECK:  %[[PRIV1_BITCAST3:.*]] = bitcast <4 x i32>* %[[PRIV1_BITCAST2]] to i32*
 ; CHECK:  %[[PRIV1_GEP:.*]] = getelementptr i32, i32* %[[PRIV1_BITCAST3]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK: extractelement <4 x i32*> %[[PRIV1_GEP]], i32 {{[0123]}}
+; CHECK: extractelement <4 x i32*> %[[PRIV1_GEP]], i32 {{[0123]}}
 ; CHECK:   getelementptr i32, <4 x i32*> %[[PRIV1_GEP]]
 ; CHECK:   masked.scatter
-; CHECK: extractelement <4 x i32*> %[[PRIV1_GEP]], i32 0
 ; CHECK: call
-; CHECK: extractelement <4 x i32*> %[[PRIV1_GEP]], i32 1
 ; CHECK: call
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -29,12 +29,7 @@ entry:
   br i1 %cmp, label %omp.precond.then, label %omp.precond.end
 
 omp.precond.then:                                 ; preds = %entry
-  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i64* nonnull %count)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", float* nonnull %accumulated_occupancy_output)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i32* nonnull %a2)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", float* nonnull %accumulated_occupancy_input)
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i64* %count, float* %accumulated_occupancy_output, i32 *%a2, float* %accumulated_occupancy_input) ]
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %omp.precond.then
@@ -66,8 +61,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
-  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
@@ -77,6 +71,9 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
 declare float @baz(float, i32*) #1
 
 declare void @llvm.lifetime.end(i64 , i8*)
-declare void @llvm.intel.directive(metadata)
-declare void @llvm.intel.directive.qual.opndlist(metadata , ...)
 
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #1
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #1

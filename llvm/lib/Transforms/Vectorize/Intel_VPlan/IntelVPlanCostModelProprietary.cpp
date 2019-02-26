@@ -1,6 +1,6 @@
 //===-- IntelVPlanCostModelProprietary.cpp --------------------------------===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -48,6 +48,9 @@ bool VPlanCostModelProprietary::isUnitStrideLoadStore(
   if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
     // FIXME: It's not correct to getParentLoop() for outerloop
     // vectorization.
+    if (!Inst->getParentLoop()) {
+      return false;
+    }
     assert(Inst->getParentLoop()->isInnermost() &&
            "Outerloop vectorization is not supported.");
     unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();
@@ -156,6 +159,7 @@ unsigned VPlanCostModelProprietary::getCost() const {
   return Cost;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPlanCostModelProprietary::print(raw_ostream &OS) {
   OS << "HIR Cost Model for VPlan " << Plan->getName() << " with VF = " << VF
      << ":\n";
@@ -166,6 +170,7 @@ void VPlanCostModelProprietary::print(raw_ostream &OS) {
   for (const VPBlockBase *Block : depth_first(Plan->getEntry()))
     printForVPBlockBase(OS, Block);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // namespace vpo
 

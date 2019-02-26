@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSAnalysis.cpp - -----------------------------------------===/
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -118,6 +118,7 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
                              &Plan2VLSInfo[Plan].Mem2Group);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPlanVLSAnalysis::dump(const VPlan *Plan) const {
   dbgs() << "For the VPlan " << Plan << '\n';
   if (!Plan2VLSInfo.count(Plan)) {
@@ -158,6 +159,7 @@ void VPlanVLSAnalysis::dump() const {
   for (auto &PI : Plan2VLSInfo)
     dump(PI.first);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // namespace vpo
 

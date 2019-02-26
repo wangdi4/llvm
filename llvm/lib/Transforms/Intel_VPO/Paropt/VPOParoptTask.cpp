@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //===- VPOParoptTask.cpp - Transformation of W-Region for threading --===//
 //
-// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -33,7 +33,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/CodeExtractor.h"
 
 #include "llvm/PassAnalysisSupport.h"
 
@@ -81,11 +80,10 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
         genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
 
         IRBuilder<> Builder(EntryBB->getTerminator());
-        VPOUtils::genCopyFromSrcToDst(NewPrivInst, Builder, NewPrivInst,
-                                      RedI->getNew(), NewPrivInst, EntryBB);
-        Builder.SetInsertPoint(ExitBB->getTerminator());
-        VPOUtils::genCopyFromSrcToDst(NewPrivInst, Builder, NewPrivInst,
-                                      NewPrivInst, RedI->getNew(), ExitBB);
+        VPOParoptUtils::genCopyByAddr(NewPrivInst, RedI->getNew(),
+                                      EntryBB->getTerminator());
+        VPOParoptUtils::genCopyByAddr(RedI->getNew(), NewPrivInst,
+                                      ExitBB->getTerminator());
       }
     }
   };
@@ -112,8 +110,14 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
 }
 
 // Generate the code to update the last privates for taskloop.
-void VPOParoptTransform::genLprivFiniForTaskLoop(Value *Dst, Value *Src,
+void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
                                                  Instruction *InsertPt) {
+
+  Value *Src = LprivI->getNew();
+  Value *Dst = LprivI->getOrigGEP();
+  if (LprivI->getIsByRef())
+    Dst = new LoadInst(Dst, "", InsertPt);
+
   GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(Src);
   Type *ScalarTy = Gep->getResultElementType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
@@ -301,10 +305,20 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
         Value *Orig = LprivI->getOrig();
+        Type *ElementTy = nullptr;
+        Value *NumElements = nullptr;
+        getItemInfo(LprivI, ElementTy, NumElements);
+        if (NumElements) {
+          assert(isa<ConstantInt>(NumElements) &&
+                 "genKmpTaskTWithPrivatesRecordDecl: VLAs are not supported.");
+          uint64_t NE = cast<ConstantInt>(NumElements)->getZExtValue();
+          ElementTy = ArrayType::get(ElementTy, NE);
+        }
+
         auto PT = dyn_cast<PointerType>(Orig->getType());
         assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect last private "
                      "pointer argument");
-        KmpPrivatesIndices.push_back(PT->getElementType());
+        KmpPrivatesIndices.push_back(ElementTy);
         SharedIndices.push_back(PT);
         LprivI->setThunkIdx(Count++);
       }
@@ -406,11 +420,11 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   Loop *L;
   if (isLoop) {
     L = W->getWRNLoopInfo().getLoop();
+    assert(L && "genTaskLoopInitCode: Loop not found");
     ICmpInst *CmpI =
       WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock());
     if (CmpI)
       W->getWRNLoopInfo().setZTTBB(CmpI->getParent());
-    assert(L && "genTaskLoopInitCode: Loop not found");
     genLoopInitCodeForTaskLoop(W, LBPtr, UBPtr, STPtr);
   }
 
@@ -597,10 +611,13 @@ bool VPOParoptTransform::genTaskLoopInitCode(
 // Set up the mapping between the variables (firstprivate,
 // lastprivate, reduction and shared) and the counterparts in the thunk.
 AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
-                                                      Instruction *InsertPt,
                                                       StructType *KmpSharedTy) {
   SmallVector<Value *, 4> Indices;
 
+  assert(W->getEntryBBlock()->getSinglePredecessor() &&
+         "Single pre-task block not created.");
+  Instruction *InsertPt =
+      W->getEntryBBlock()->getSinglePredecessor()->getTerminator();
   IRBuilder<> Builder(InsertPt);
   AllocaInst *TaskSharedBase =
       Builder.CreateAlloca(KmpSharedTy, nullptr, "taskt.shared.agg");
@@ -613,8 +630,9 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
       Indices.push_back(Builder.getInt32(FprivI->getThunkIdx()));
       Value *Gep =
           Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
-      LoadInst *Load = Builder.CreateLoad(FprivI->getOrig());
-      Builder.CreateStore(Load, Gep);
+      // TODO: need to call copy constructor here
+      VPOParoptUtils::genCopyByAddr(Gep, FprivI->getOrig(),
+                                    cast<Instruction>(Gep)->getNextNode());
     }
   }
 
@@ -627,6 +645,7 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
         Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
         Value *Gep =
             Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+        // storing pointer value to task base
         Builder.CreateStore(LprivI->getOrig(), Gep);
       }
     }
@@ -782,7 +801,8 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
 
   AllocaInst *UpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
   Value *UpperBndVal =
-      VPOParoptUtils::computeOmpUpperBound(W, EntryBB->getTerminator());
+      VPOParoptUtils::computeOmpUpperBound(W, EntryBB->getTerminator(),
+                                           ".for.taskloop.init");
 
   if (UpperBndVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())
@@ -1182,148 +1202,118 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   bool Changed = false;
 
-  // brief extract a W-Region to generate a function
-  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false,
-                   nullptr, nullptr, false, true);
-
-  assert(CE.isEligible());
+  AllocaInst *PrivateBase = genTaskPrivateMapping(W, KmpSharedTy);
 
   // Set up Fn Attr for the new function
-  if (Function *NewF = CE.extractCodeRegion()) {
+  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT);
 
-    // Set up the Calling Convention used by OpenMP Runtime Library
-    CallingConv::ID CC = CallingConv::C;
+  CallInst *NewCall = cast<CallInst>(NewF->user_back());
+  CallSite CS(NewCall);
 
-    DT->verify(DominatorTree::VerificationLevel::Full);
+  // TidArgNo parameter is unused, if IsTidArg is false.
+  Function *MTFn = finalizeExtractedMTFunction(W, NewF, false, -1U, false);
 
-    // Adjust the calling convention for both the function and the
-    // call site.
-    NewF->setCallingConv(CC);
+  std::vector<Value *> MTFnArgs;
 
-    assert(NewF->hasOneUse() && "New function should have one use");
-    User *U = NewF->user_back();
+  LLVMContext &C = NewF->getContext();
+  IntegerType *Int32Ty = Type::getInt32Ty(C);
+  ConstantInt *ValueZero = ConstantInt::getSigned(Int32Ty, 0);
+  MTFnArgs.push_back(ValueZero);
+  genThreadedEntryActualParmList(W, MTFnArgs);
 
-    // Remove @llvm.dbg.declare, @llvm.dbg.value intrinsics from NewF
-    // to prevent verification failures. This is due due to the
-    // CodeExtractor not properly handling them at the moment.
-    VPOUtils::stripDebugInfoInstrinsics(*NewF);
-
-    CallInst *NewCall = cast<CallInst>(U);
-    NewCall->setCallingConv(CC);
-
-    CallSite CS(NewCall);
-
-    unsigned int TidArgNo = 0;
-
-    for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
-      ++TidArgNo;
-    }
-
-    Function *MTFn =
-        finalizeExtractedMTFunction(W, NewF, false, TidArgNo, false);
-
-    std::vector<Value *> MTFnArgs;
-
-    LLVMContext &C = NewF->getContext();
-    IntegerType *Int32Ty = Type::getInt32Ty(C);
-    ConstantInt *ValueZero = ConstantInt::getSigned(Int32Ty, 0);
-    MTFnArgs.push_back(ValueZero);
-    genThreadedEntryActualParmList(W, MTFnArgs);
-
-    for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
-      MTFnArgs.push_back((*I));
-    }
-    CallInst *MTFnCI = CallInst::Create(MTFn, MTFnArgs, "", NewCall);
-    MTFnCI->setCallingConv(CS.getCallingConv());
-
-    // Copy isTailCall attribute
-    if (NewCall->isTailCall())
-      MTFnCI->setTailCall();
-
-    MTFnCI->setDebugLoc(NewCall->getDebugLoc());
-
-
-    if (!NewCall->use_empty())
-      NewCall->replaceAllUsesWith(MTFnCI);
-
-    // Keep the orginal extraced function name after finalization
-    MTFnCI->takeName(NewCall);
-
-    genRedInitForTask(W, NewCall);
-
-    AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, NewCall);
-
-    AllocaInst *PrivateBase = genTaskPrivateMapping(W, NewCall, KmpSharedTy);
-    const DataLayout DL = NewF->getParent()->getDataLayout();
-    int KmpTaskTTWithPrivatesTySz =
-        DL.getTypeAllocSize(KmpTaskTTWithPrivatesTy);
-    int KmpSharedTySz = DL.getTypeAllocSize(KmpSharedTy);
-    assert(MTFnCI->getCalledFunction() &&
-           "genTaskGenericCode: Expect non-empty function.");
-    CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
-        W, IdentTy, TidPtrHolder, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
-        KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
-        Mode & OmpTbb);
-
-    genSharedInitForTaskLoop(W, PrivateBase, TaskAllocCI, KmpSharedTy,
-                             KmpTaskTTWithPrivatesTy, NewCall);
-
-    IRBuilder<> Builder(NewCall);
-
-    Value *VIf = W->getIf();
-    Value *Cmp = nullptr;
-    if (VIf)
-      Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
-    if (isLoop) {
-      VPOParoptUtils::genKmpcTaskLoop(
-          W, IdentTy, TidPtrHolder, TaskAllocCI, Cmp, LBPtr, UBPtr, STPtr,
-          KmpTaskTTWithPrivatesTy, NewCall, Mode & OmpTbb,
-          genLastPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
-    } else {
-      if (!VIf) {
-        if (!DummyTaskTDependRec)
-          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                                      NewCall);
-        else
-          genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                      DummyTaskTDependRec, NewCall, false);
-      } else {
-
-        Instruction *ThenTerm, *ElseTerm;
-
-        buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall);
-        IRBuilder<> ElseBuilder(ElseTerm);
-        if (!DummyTaskTDependRec)
-          VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                                      ThenTerm);
-        else {
-          genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                      DummyTaskTDependRec, ThenTerm, false);
-          genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                      DummyTaskTDependRec, ElseTerm, true);
-        }
-        VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder,
-                                            TaskAllocCI, ElseTerm);
-        MTFnArgs.clear();
-        MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtrHolder));
-        MTFnArgs.push_back(ElseBuilder.CreateBitCast(
-            TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
-        CallInst *SeqCI = CallInst::Create(MTFn, MTFnArgs, "", ElseTerm);
-        SeqCI->setCallingConv(CS.getCallingConv());
-        SeqCI->takeName(NewCall);
-        VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtrHolder,
-                                               TaskAllocCI, ElseTerm);
-      }
-    }
-
-    NewCall->eraseFromParent();
-    NewF->eraseFromParent();
-    MTFnCI->eraseFromParent();
-
-    W->resetBBSet(); // Invalidate BBSet after transformations
-
-    Changed = true;
+  for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
+    MTFnArgs.push_back((*I));
   }
+  CallInst *MTFnCI = CallInst::Create(MTFn, MTFnArgs, "", NewCall);
+  MTFnCI->setCallingConv(CS.getCallingConv());
+
+  // Copy isTailCall attribute
+  if (NewCall->isTailCall())
+    MTFnCI->setTailCall();
+
+  MTFnCI->setDebugLoc(NewCall->getDebugLoc());
+
+
+  if (!NewCall->use_empty())
+    NewCall->replaceAllUsesWith(MTFnCI);
+
+  // Keep the orginal extracted function name after finalization
+  MTFnCI->takeName(NewCall);
+
+  genRedInitForTask(W, NewCall);
+
+  AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, NewCall);
+
+  const DataLayout DL = NewF->getParent()->getDataLayout();
+  int KmpTaskTTWithPrivatesTySz =
+      DL.getTypeAllocSize(KmpTaskTTWithPrivatesTy);
+  int KmpSharedTySz = DL.getTypeAllocSize(KmpSharedTy);
+  assert(MTFnCI->getCalledFunction() &&
+         "genTaskGenericCode: Expect non-empty function.");
+  CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
+      W, IdentTy, TidPtrHolder, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
+      KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
+      Mode & OmpTbb);
+
+  genSharedInitForTaskLoop(W, PrivateBase, TaskAllocCI, KmpSharedTy,
+                           KmpTaskTTWithPrivatesTy, NewCall);
+
+  IRBuilder<> Builder(NewCall);
+
+  Value *VIf = W->getIf();
+  Value *Cmp = nullptr;
+  if (VIf)
+    Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
+  if (isLoop) {
+    VPOParoptUtils::genKmpcTaskLoop(
+        W, IdentTy, TidPtrHolder, TaskAllocCI, Cmp, LBPtr, UBPtr, STPtr,
+        KmpTaskTTWithPrivatesTy, NewCall, Mode & OmpTbb,
+        genLastPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
+  } else {
+    if (!VIf) {
+      if (!DummyTaskTDependRec)
+        VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                                    NewCall);
+      else
+        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                    DummyTaskTDependRec, NewCall, false);
+    } else {
+
+      Instruction *ThenTerm, *ElseTerm;
+
+      buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall);
+      IRBuilder<> ElseBuilder(ElseTerm);
+      if (!DummyTaskTDependRec)
+        VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                                    ThenTerm);
+      else {
+        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                    DummyTaskTDependRec, ThenTerm, false);
+        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                    DummyTaskTDependRec, ElseTerm, true);
+      }
+      VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder,
+                                          TaskAllocCI, ElseTerm);
+      MTFnArgs.clear();
+      MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtrHolder));
+      MTFnArgs.push_back(ElseBuilder.CreateBitCast(
+          TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
+      CallInst *SeqCI = CallInst::Create(MTFn, MTFnArgs, "", ElseTerm);
+      SeqCI->setCallingConv(CS.getCallingConv());
+      SeqCI->takeName(NewCall);
+      VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtrHolder,
+                                             TaskAllocCI, ElseTerm);
+    }
+  }
+
+  NewCall->eraseFromParent();
+  NewF->eraseFromParent();
+  MTFnCI->eraseFromParent();
+
+  W->resetBBSet(); // Invalidate BBSet after transformations
+
+  Changed = true;
+
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskGenericCode\n");
   return Changed;
 }

@@ -1,6 +1,6 @@
 //===-- IntelVPlanCostModel.cpp -------------------------------------------===//
 //
-//   Copyright (C) 2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -297,6 +297,14 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
     // VPValue-based operands overload.
     return 0;
   }
+#if INTEL_CUSTOMIZATION
+  // TODO - costmodel support for AllZeroCheck.
+  case VPInstruction::AllZeroCheck:
+    return 0;
+  // This is a no-op - used to mark block predicate.
+  case VPInstruction::Pred:
+    return 0;
+#endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
   case Instruction::Store:
     return VPlanCostModel::getLoadStoreCost(VPInst);
@@ -316,6 +324,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
   case Instruction::AShr:
   case Instruction::And:
   case Instruction::Or:
+  case VPInstruction::Not: // Treat same as Xor.
   case Instruction::Xor: {
     TargetTransformInfo::OperandValueKind Op1VK =
         TargetTransformInfo::OK_AnyValue;
@@ -456,6 +465,7 @@ unsigned VPlanCostModel::getCost() const {
   return getCost(Plan->getEntry());
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPlanCostModel::printForVPBlockBase(raw_ostream &OS,
                                          const VPBlockBase *VPBlock) const {
   // TODO: match print order with "vector execution order".
@@ -501,6 +511,7 @@ void VPlanCostModel::print(raw_ostream &OS) const {
 
   OS << '\n';
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // namespace vpo
 

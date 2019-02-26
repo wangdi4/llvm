@@ -1,9 +1,8 @@
 //===- llvm/CallingConvLower.h - Calling Conventions ------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -260,6 +259,13 @@ public:
   void addLoc(const CCValAssign &V) {
     Locs.push_back(V);
   }
+
+#if INTEL_CUSTOMIZATION
+  // This is need to allow SVML to analyze a previous argument.
+  const CCValAssign &getLoc(unsigned i) const {
+    return Locs[i];
+  }
+#endif
 
   LLVMContext &getContext() const { return Context; }
   MachineFunction &getMachineFunction() const { return MF; }

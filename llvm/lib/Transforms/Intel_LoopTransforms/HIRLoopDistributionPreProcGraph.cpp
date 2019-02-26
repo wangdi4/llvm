@@ -1,6 +1,6 @@
 //===--- HIRLoopDistributionGraph.cpp - Forms Distribution Graph  ---------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -311,8 +311,8 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       // Every outgoing edge is an incoming edge for a node in our loop nest
       // No need to iterate over both outgoing and incoming
       processOutgoingEdges(*SrcRef, EdgeMap);
-      for (auto BSrcRef = (*SrcRef)->blob_cbegin(),
-                BEnd = (*SrcRef)->blob_cend();
+      for (auto BSrcRef = (*SrcRef)->blob_begin(),
+                BEnd = (*SrcRef)->blob_end();
            BSrcRef != BEnd; ++BSrcRef) {
         processOutgoingEdges(*BSrcRef, EdgeMap);
       }

@@ -1,6 +1,6 @@
 //===--------   HIRSafeReductionAnalysis.h    -----------------------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -49,7 +49,7 @@ struct SafeRedInfo {
         HasUnsafeAlgebra(HasUnsafeAlgebra) {}
 };
 
-typedef SmallVector<SafeRedInfo, 4> SafeRedChainList;
+typedef SmallVector<SafeRedInfo, 4> SafeRedInfoList;
 
 class HIRSafeReductionAnalysis : public HIRAnalysis {
   HIRDDAnalysis &DDA;
@@ -57,7 +57,7 @@ class HIRSafeReductionAnalysis : public HIRAnalysis {
   unsigned FirstRvalSB;
   const HLNode *FirstChild;
   // From Loop, look up all sets of Insts in a Safe Reduction chain
-  SmallDenseMap<const HLLoop *, SafeRedChainList, 16> SafeReductionMap;
+  SmallDenseMap<const HLLoop *, SafeRedInfoList, 16> SafeReductionMap;
   // From Inst, Look up  Index to Reduction Info (Chain, Symbase and Opcode).
   // There is no need to go through Loop,
   // because there are no many safe reductions in a function.
@@ -93,7 +93,7 @@ public:
   void computeSafeReductionChains(const HLLoop *Loop);
 
   // Get SafeReduction of a Loop
-  const SafeRedChainList &getSafeReductionChain(const HLLoop *Loop);
+  const SafeRedInfoList &getSafeRedInfoList(const HLLoop *Loop);
 
   // Is Inst part of a Safe Reduction. Indicate of Single Stmt when
   // argument supplied
@@ -109,7 +109,7 @@ public:
   void printAnalysis(raw_ostream &OS) const override;
   void print(formatted_raw_ostream &OS, const HLLoop *Loop) override;
   void print(formatted_raw_ostream &OS, const HLLoop *Loop,
-             const SafeRedChainList *SR);
+             const SafeRedInfoList *SR);
 
   void markLoopBodyModified(const HLLoop *L) override;
 };

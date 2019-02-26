@@ -1,9 +1,8 @@
 //===- llvm/CodeGen/VirtRegMap.cpp - Virtual Register Map -----------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -253,7 +252,13 @@ bool VirtRegRewriter::runOnMachineFunction(MachineFunction &fn) {
   addMBBLiveIns();
 
   // Rewrite virtual registers.
-  bool ClearVregs = rewrite();  // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  bool ClearVregs = rewrite();
+#else  // INTEL_FEATURE_CSA
+  rewrite();
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   // Write out new DBG_VALUE instructions.
   getAnalysis<LiveDebugVariables>().emitDebugValues(VRM);
@@ -261,8 +266,14 @@ bool VirtRegRewriter::runOnMachineFunction(MachineFunction &fn) {
   // All machine operands and other references to virtual registers have been
   // replaced. Remove the virtual registers and release all the transient data.
   VRM->clearAllVirt();
-  if (ClearVregs)               // INTEL
-    MRI->clearVirtRegs();       // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  if (ClearVregs)
+    MRI->clearVirtRegs();
+#else  // INTEL_FEATURE_CSA
+  MRI->clearVirtRegs();
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   return true;
 }
 

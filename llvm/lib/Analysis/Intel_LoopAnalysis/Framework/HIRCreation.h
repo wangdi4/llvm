@@ -1,6 +1,6 @@
 //===----------- HIRCreation.h - Creates HIR nodes ------------*-- C++ --*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -104,9 +104,6 @@ class HIRCreation {
   /// region.
   /// Returns the last HLNode for the current sub-tree.
   HLNode *doPreOrderRegionWalk(BasicBlock *BB, HLNode *InsertionPos);
-
-  /// Sets the exit basic block of CurRegion using its last child.
-  void setExitBBlock() const;
 
 public:
   HIRCreation(DominatorTree &DT, PostDominatorTree &PDT, LoopInfo &LI,

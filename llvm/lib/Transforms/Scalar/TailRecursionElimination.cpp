@@ -1,9 +1,8 @@
 //===- TailRecursionElimination.cpp - Eliminate Tail Calls ----------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -83,6 +82,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Intel_CloneUtils.h"  // INTEL
 using namespace llvm;
 
 #define DEBUG_TYPE "tailcallelim"
@@ -90,6 +90,14 @@ using namespace llvm;
 STATISTIC(NumEliminated, "Number of tail calls removed");
 STATISTIC(NumRetDuped,   "Number of return duplicated");
 STATISTIC(NumAccumAdded, "Number of accumulators introduced");
+
+#if INTEL_CUSTOMIZATION
+// Option to inhibit tail call elimination on recursive progressive
+// clone candidates. Useful for LIT tests.
+static cl::opt<bool> NoTailCallForRecProClone("no-tail-call-for-rec-pro-clone",
+                                              cl::init(false),
+                                              cl::ReallyHidden);
+#endif // INTEL_CUSTOMIZATION
 
 /// Scan the specified function for alloca instructions.
 /// If it contains any dynamic allocas, returns false.
@@ -750,10 +758,15 @@ static bool processReturningBlock(
 static bool eliminateTailRecursion(Function &F, const TargetTransformInfo *TTI,
                                    AliasAnalysis *AA,
                                    OptimizationRemarkEmitter *ORE,
+                                   bool SkipRecProgression, // INTEL
                                    DomTreeUpdater &DTU) {
   if (F.getFnAttribute("disable-tail-calls").getValueAsString() == "true")
     return false;
-
+#if INTEL_CUSTOMIZATION
+  if ((SkipRecProgression || NoTailCallForRecProClone) &&
+      isRecProgressionCloneCandidate(F, false))
+    return false;
+#endif // INTEL_CUSTOMIZATION
   bool MadeChange = false;
   bool AllCallsAreTailCalls = false;
   MadeChange |= markTails(F, AllCallsAreTailCalls, ORE);
@@ -812,8 +825,10 @@ static bool eliminateTailRecursion(Function &F, const TargetTransformInfo *TTI,
 
 namespace {
 struct TailCallElim : public FunctionPass {
+  const bool SkipRecProgression; // INTEL
   static char ID; // Pass identification, replacement for typeid
-  TailCallElim() : FunctionPass(ID) {
+  TailCallElim(bool  SkipRecProgression = false)                   // INTEL
+      : FunctionPass(ID), SkipRecProgression(SkipRecProgression) { // INTEL
     initializeTailCallElimPass(*PassRegistry::getPassRegistry());
   }
 
@@ -843,7 +858,8 @@ struct TailCallElim : public FunctionPass {
     return eliminateTailRecursion(
         F, &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
         &getAnalysis<AAResultsWrapperPass>().getAAResults(),
-        &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE(), DTU);
+        &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE(), // INTEL
+        SkipRecProgression, DTU);                                      // INTEL
   }
 };
 }
@@ -857,9 +873,11 @@ INITIALIZE_PASS_END(TailCallElim, "tailcallelim", "Tail Call Elimination",
                     false, false)
 
 // Public interface to the TailCallElimination pass
-FunctionPass *llvm::createTailCallEliminationPass() {
-  return new TailCallElim();
+#if INTEL_CUSTOMIZATION
+FunctionPass *llvm::createTailCallEliminationPass(bool SkipRecProgression) {
+  return new TailCallElim(SkipRecProgression);
 }
+#endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses TailCallElimPass::run(Function &F,
                                         FunctionAnalysisManager &AM) {
@@ -873,7 +891,8 @@ PreservedAnalyses TailCallElimPass::run(Function &F,
   // UpdateStrategy based on some test results. It is feasible to switch the
   // UpdateStrategy to Lazy if we find it profitable later.
   DomTreeUpdater DTU(DT, PDT, DomTreeUpdater::UpdateStrategy::Eager);
-  bool Changed = eliminateTailRecursion(F, &TTI, &AA, &ORE, DTU);
+  bool Changed = eliminateTailRecursion(F, &TTI, &AA, &ORE, // INTEL
+      SkipRecProgression, DTU);                             // INTEL
 
   if (!Changed)
     return PreservedAnalyses::all();

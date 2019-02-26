@@ -3,6 +3,65 @@
 ; This test verifies that a bitcast of a function pointer in a call instruction
 ; is handled as a bitcast of the arguments.
 
+; Test the case where the bitcast call was created by the devirtualizer,
+; and marked with metadata to indicate that the 'this' pointer is safe.
+; and therefore should not be marked as "mismatched argument use".
+%class.test01.base = type { i32 (...)** }
+%class.test01.base.123 = type { i32 (...)** }
+%class.test01.derived = type { %class.test01.base.123, i32 }
+define void @classDoSomething01(%class.test01.derived* %derived) !_Intel.Devirt.Target !1 {
+  %addr = getelementptr %class.test01.derived, %class.test01.derived* %derived, i64 0, i32 1
+  store i32 0, i32* %addr
+  ret void
+}
+define void @classTest01(%class.test01.base* %base) {
+  call void bitcast (void (%class.test01.derived*)* @classDoSomething01
+                  to void (%class.test01.base*)*)
+                          (%class.test01.base* %base), !_Intel.Devirt.Call !0
+  ret void
+}
+
+; CHECK: %class.test01.base = type { i32 (...)** }
+; CHECK: Safety data: Has vtable
+; CHECK: %class.test01.base.123 = type { i32 (...)** }
+; CHECK: Safety data: Nested structure | Has vtable
+; CHECK: %class.test01.derived = type { %class.test01.base.123, i32 }
+; CHECK: Safety data: Contains nested structure{{ *$}}
+
+
+; Test that mismatched arg use is not set on 'this' pointer argument, but
+; does get set on other arguments that don't match.
+%class.test02.base = type { i32 (...)** }
+%class.test02.base.123 = type { i32 (...)** }
+%class.test02.derived = type { %class.test02.base.123, i32 }
+%class.test02.other = type { i64 }
+%class.test02.other.2 = type { i64, i64 }
+define void @classDoSomething02(%class.test02.derived* %derived, %class.test02.other* %other) !_Intel.Devirt.Target !1 {
+  %addr = getelementptr %class.test02.derived, %class.test02.derived* %derived, i64 0, i32 1
+  store i32 0, i32* %addr
+  %addr2 = getelementptr %class.test02.other, %class.test02.other* %other, i64 0, i32 0
+  store i64 0, i64* %addr2
+  ret void
+}
+define void @classTest02(%class.test02.base* %base, %class.test02.other.2* %other) {
+  %addr = getelementptr %class.test02.other.2, %class.test02.other.2* %other, i64 0, i32 0
+  store i64 1, i64* %addr
+  call void bitcast (void (%class.test02.derived*, %class.test02.other*)* @classDoSomething02
+                  to void (%class.test02.base*, %class.test02.other.2*)*)
+                          (%class.test02.base* %base, %class.test02.other.2* %other), !_Intel.Devirt.Call !0
+  ret void
+}
+; CHECK: %class.test02.base = type { i32 (...)** }
+; CHECK: Safety data: Has vtable
+; CHECK: %class.test02.base.123 = type { i32 (...)** }
+; CHECK: Safety data: Nested structure | Has vtable
+; CHECK: %class.test02.derived = type { %class.test02.base.123, i32 }
+; CHECK: Safety data: Contains nested structure{{ *$}}
+; CHECK: %class.test02.other = type { i64 }
+; CHECK: Safety data: Mismatched argument use
+; CHECK: %class.test02.other.2 = type { i64, i64 }
+; CHECK: Safety data: Mismatched argument use
+
 ; Test the case where the argument is known to match the function called.
 @myglobal = common dso_local local_unnamed_addr global i32 0, align 4
 %struct.test01 = type { i32, i32 }
@@ -252,4 +311,5 @@ define void @test9(i8** %pp) {
 ; CHECK: LLVMType: %struct.test9b = type { %struct.test9a, i32 }
 ; CHECK: Safety data: Contains nested structure | Mismatched argument use
 
-
+!0 = !{!"_Intel.Devirt.Call"}
+!1 = !{!"_Intel.Devirt.Target"}

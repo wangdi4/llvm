@@ -318,7 +318,9 @@ struct VPTransformState {
     SmallDenseMap<VPBasicBlock *, BasicBlock *> VPBB2IRBB;
 
 #if INTEL_CUSTOMIZATION
-    SmallDenseMap<class VPBasicBlock *, class BasicBlock *> EdgesToFix;
+    /// Vector of VPBasicBlocks whose terminator instruction needs to be fixed
+    /// up at the end of vector code generation.
+    SmallVector<VPBasicBlock *, 8> VPBBsToFix;
 #endif
     CFGState() : PrevVPBB(nullptr), PrevBB(nullptr), LastBB(nullptr) {}
   } CFG;
@@ -439,13 +441,17 @@ public:
 #if INTEL_CUSTOMIZATION
   virtual void executeHIR(VPOCodeGenHIR *CG) = 0;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void dump(raw_ostream &O) const = 0;
 
   virtual void dump() const = 0;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Each recipe prints itself.
   virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 #if INTEL_CUSTOMIZATION
@@ -468,6 +474,7 @@ public:
     return V->getVPRecipeID() == VPRecipeBase::VPMaskGenerationRecipeSC;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &OS, const Twine &Indent) const override {
     OS << " +\n" << Indent << "\"MaskGeneration";
@@ -480,6 +487,7 @@ public:
   void dump() const override {
     dump(errs());
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   void execute(struct VPTransformState &State) override {
     // TODO: vectorizing this recipe should involve generating a mask for the
@@ -515,6 +523,7 @@ public:
     return nullptr;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &OS, const Twine &Indent) const override {
     OS << " +\n" << Indent << "\"Const " << val << "\\l\"";
@@ -528,6 +537,7 @@ public:
   }
 
   StringRef getName() const { return "Constant: " + val; };
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   int val;
@@ -589,6 +599,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPlanVLSAnalysis;
   friend class VPlanVLSAnalysisHIR;
   friend class VPlanVerifier;
+  friend class VPOCodeGen;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
@@ -600,9 +611,14 @@ class VPInstruction : public VPUser, public VPRecipeBase {
     }
 
     // DESIGN PRINCIPLE: IR-independent algorithms don't need to know about
-    // HIR-specific master, decomposed and new VPInstructions. For that reason,
-    // access to the following HIR-specific methods must be restricted. We
-    // achieve that goal by making VPInstruction's HIRSpecifics member private.
+    // HIR-specific master, decomposed and new VPInstructions or underlying HIR
+    // information. For that reason, access to the following HIR-specific
+    // methods must be restricted. We achieve that goal by making
+    // VPInstruction's HIRSpecifics member private.
+
+    // Hold the underlying HIR information related to the LHS operand of this
+    // VPInstruction.
+    std::unique_ptr<VPOperandHIR> LHSHIROperand;
 
     /// Pointer to access the underlying HIR data attached to this
     /// VPInstruction, if any, depending on its sub-type:
@@ -679,6 +695,22 @@ class VPInstruction : public VPUser, public VPRecipeBase {
       MasterData = new MasterVPInstData(UnderlyingNode);
     }
 
+    /// Attach \p Def to this VPInstruction as its VPOperandHIR.
+    void setOperandDDR(loopopt::DDRef *Def) {
+      assert(!LHSHIROperand && "LHSHIROperand is already set!");
+      LHSHIROperand.reset(new VPBlob(Def));
+    }
+
+    /// Attach \p IVLevel to this VPInstruction as its VPOperandHIR.
+    void setOperandIV(unsigned IVLevel) {
+      assert(!LHSHIROperand && "LHSHIROperand is already set!");
+      LHSHIROperand.reset(new VPIndVar(IVLevel));
+    }
+
+    /// Return the VPOperandHIR with the underlying HIR information of the LHS
+    /// operand.
+    VPOperandHIR *getOperandHIR() { return LHSHIROperand.get(); }
+
     /// Return the master VPInstruction attached to a decomposed VPInstruction.
     VPInstruction *getMaster() {
       assert(isDecomposed() && "Only decomposed VPInstructions have a pointer "
@@ -739,7 +771,14 @@ public:
   // proper Phi nodes. At this point, we can find semi-phis at any point of the
   // VPBasicBlock and even redundant semi-phis blending exactly the same
   // definitions.
-  enum { Not = Instruction::OtherOpsEnd + 1, SemiPhi, SMax, UMax, };
+  enum {
+      Not = Instruction::OtherOpsEnd + 1,
+      AllZeroCheck,
+      Pred,
+      SemiPhi,
+      SMax,
+      UMax,
+  };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
 #endif
@@ -846,18 +885,22 @@ public:
   void execute(VPTransformState &State) override;
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dump the VPInstruction.
   void dump(raw_ostream &O) const override;
 
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// Dump the VPInstruction.
   /// Print the Recipe.
   void print(raw_ostream &O, const Twine &Indent) const override;
 
   /// Print the VPInstruction.
   void print(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 #if INTEL_CUSTOMIZATION
@@ -919,7 +962,9 @@ public:
     return nullptr;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   static inline bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == Instruction::Br;
@@ -931,7 +976,15 @@ class VPPHINode : public VPInstruction {
 private:
   SmallVector<VPBasicBlock *, 2> VPBBUsers;
 
+  // Used to indicate that this PHI needs to be blended using selects during
+  // vector code generation. This can be removed once we make the phi->select
+  // transformation explicit in VPlan.
+  bool Blend = false;
+
 public:
+  void setBlend(bool B) { Blend = B; }
+  bool getBlend() const { return Blend; }
+
   using vpblock_iterator = SmallVectorImpl<VPBasicBlock *>::iterator;
   using const_vpblock_iterator =
       SmallVectorImpl<VPBasicBlock *>::const_iterator;
@@ -1278,12 +1331,16 @@ public:
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
 
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 /// A VPEdgePredicateRecipeBase is a pure virtual recipe which supports
@@ -1349,12 +1406,16 @@ public:
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
 
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   BasicBlock *FromBB;
@@ -1383,12 +1444,16 @@ public:
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
 
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   BasicBlock *FromBB;
@@ -1416,12 +1481,16 @@ public:
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG) override;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
 
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const Twine &Indent) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
   BasicBlock *FromBB;
@@ -1471,6 +1540,9 @@ private:
 
   /// holds a predicate for a VPBlock.
   VPPredicateRecipeBase *PredicateRecipe = nullptr;
+
+  /// Current block predicate - null if the block does not need a predicate.
+  VPValue *Predicate = nullptr;
 
 #if INTEL_CUSTOMIZATION
 public:
@@ -1538,6 +1610,7 @@ public:
   /// recursively, if the latter is a VPRegionBlock. Otherwise, if this
   /// VPBlockBase is a VPBasicBlock, it is returned.
   const class VPBasicBlock *getEntryBasicBlock() const;
+  class VPBasicBlock *getEntryBasicBlock();
 
   /// \return the VPBasicBlock that is the exit of this VPBlockBase,
   /// recursively, if the latter is a VPRegionBlock. Otherwise, if this
@@ -1650,6 +1723,12 @@ public:
     return getAncestorWithPredecessors()->getSinglePredecessor();
   }
 
+  VPValue *getPredicate() { return Predicate; }
+
+  const VPValue *getPredicate() const { return Predicate; }
+
+  void setPredicate(VPValue *Pred) { Predicate = Pred; }
+
 #if INTEL_CUSTOMIZATION
   // Please, do not use setSuccessor and setTwoSuccessors in VPO Vectorizer.
   // Depending on what you need, you may want to use connectBlocks or
@@ -1736,6 +1815,7 @@ public:
   // consideration.
   bool isLegalToHoistInto() { return true; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #if INTEL_CUSTOMIZATION
   void printAsOperand(raw_ostream &OS, bool PrintType) const {
     formatted_raw_ostream FOS(OS);
@@ -1756,6 +1836,7 @@ public:
 
   virtual void dump(raw_ostream &OS, unsigned Indent = 0) const = 0;
 #endif
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 #if INTEL_CUSTOMIZATION
@@ -1789,6 +1870,7 @@ public:
     Incoming.push_back(IncomingPair(IncomingValue, IncomingBlock));
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &OS, const Twine &Indent) const override {
     OS << " +\n" << Indent << "\"Phi ";
@@ -1815,6 +1897,7 @@ public:
   }
 
   StringRef getName() const { return "Phi Recipe"; };
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   ~VPPhiValueRecipe() {
     Phi->deleteValue();
@@ -1956,10 +2039,7 @@ public:
 #endif
 
   /// Remove the recipe from VPBasicBlock's recipes.
-  // TODO: Please, note that this is actually destroying Recipe object. We
-  // should replace 'erase' by 'remove' and revisit algorithms using
-  // 'removeRecipe'.
-  void removeRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
+  void removeRecipe(VPRecipeBase *Recipe) { Recipes.remove(Recipe); }
 
   /// Remove the recipe from VPBasicBlock's recipes and destroy Recipe object.
   void eraseRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
@@ -1976,8 +2056,10 @@ public:
   const RecipeListTy &getRecipes() const { return Recipes; }
   RecipeListTy &getRecipes() { return Recipes; }
 #if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void dump(raw_ostream &OS, unsigned Indent = 0) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
   void setTBlock(BasicBlock *TB) { TBlock = TB; }
@@ -1991,11 +2073,22 @@ public:
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() { return OriginalBB; }
 
+  // Pair of incoming edge mask and predecessor basic block. This
+  // information is used to convert phis to select blends.
+  using MaskBlockPair = std::pair<VPValue *, VPBasicBlock *>;
+
+  void addMaskBlockPair(VPValue *Mask, VPBasicBlock *Block) {
+    IncomingMasks.push_back(std::make_pair(Mask, Block));
+  }
+
+  SmallVectorImpl<MaskBlockPair> &getIncomingMasks() { return IncomingMasks; }
+
 private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
   BasicBlock *OriginalBB;
+  SmallVector<MaskBlockPair, 4> IncomingMasks;
 #endif
   /// Create an IR BasicBlock to hold the instructions vectorized from this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.
@@ -2144,8 +2237,10 @@ public:
   void computePDT(void);
 
   void getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void dump(raw_ostream &OS, unsigned Indent = 0) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
   /// The method which generates the new IR instructions that correspond to
@@ -2167,6 +2262,7 @@ class VPlan {
 
 private:
 #if INTEL_CUSTOMIZATION
+  LLVMContext *Context = nullptr;
   VPLoopInfo *VPLInfo = nullptr;
   VPlanDivergenceAnalysis *VPlanDA = nullptr;
 #endif
@@ -2196,7 +2292,7 @@ protected:
 
 #if INTEL_CUSTOMIZATION
   /// Holds all the VPConstants created for this VPlan.
-  DenseSet<VPConstant*> VPConstants;
+  DenseMap<Constant *, std::unique_ptr<VPConstant>> VPConstants;
 
   /// Holds all the external definitions representing an underlying Value
   /// in this VPlan. The key is the underlying Value that uniquely identifies
@@ -2204,13 +2300,26 @@ protected:
   DenseMap<Value *, std::unique_ptr<VPExternalDef>> VPExternalDefs;
 
   /// Holds all the external definitions representing an HIR underlying entity
+  /// in this VPlan. The hash is based on the underlying HIR information that
+  /// uniquely identifies each external definition.
+  FoldingSet<VPExternalDef> VPExternalDefsHIR;
+
+  /// Holds all the external uses in this VPlan representing an underlying
+  /// Value. The key is the underlying Value that uniquely identifies each
+  /// external use.
+  DenseMap<Value *, std::unique_ptr<VPExternalUse>> VPExternalUses;
+
+  /// Holds all the external uses representing an HIR underlying entity
   /// in this VPlan. The key is the underlying HIR information that uniquely
-  /// identifies each external definition.
-  DenseMap<UnitaryBlobOrIV, std::unique_ptr<VPExternalDef>,
-           SymbaseIVLevelMapInfo>
-      VPExternalDefsHIR;
+  /// identifies each external use.
+  FoldingSet<VPExternalUse> VPExternalUsesHIR;
+
+  /// Holds all the VPMetadataAsValues created for this VPlan.
+  DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>
+      VPMetadataAsValues;
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
+
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
@@ -2223,8 +2332,9 @@ public:
   /// the underlying IR.
   // TODO: To be moved to the Divergence Analysis Infrastructure
   UniformsTy UniformCBVs;
-  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, VPBlockBase *Entry = nullptr)
-      : Entry(Entry), VPLA(VPLA) {}
+  VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
+        VPBlockBase *Entry = nullptr)
+      : Context(Context), Entry(Entry), VPLA(VPLA) {}
 #endif
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
 
@@ -2236,8 +2346,6 @@ public:
       delete (VPLInfo);
     if (VPlanDA)
       delete VPlanDA;
-    for (auto *VPConst : VPConstants)
-      delete VPConst;
 #else
     for (auto &MapEntry : Value2VPValue)
       delete MapEntry.second;
@@ -2257,6 +2365,10 @@ public:
   void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 
   void setVPlanDA(VPlanDivergenceAnalysis *VPDA) { VPlanDA = VPDA; }
+
+  LLVMContext *getLLVMContext(void) const { return Context; }
+
+  VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA; }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }
@@ -2287,11 +2399,15 @@ public:
     CondBitUsers[ConditionV].insert(Block);
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printInst2Recipe();
 
   /// Print (in text format) VPlan blocks in order based on dominator tree.
   void dump(raw_ostream &OS) const;
   void dump() const;
+  void dumpLivenessInfo(raw_ostream &OS) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
 #endif // INTEL_CUSTOMIZATION
 
   void addVF(unsigned VF) { VFs.insert(VF); }
@@ -2306,43 +2422,69 @@ public:
   /// Create a new VPConstant for \p Const if it doesn't exist or retrieve the
   /// existing one.
   VPConstant *getVPConstant(Constant *Const) {
-    // Dropping the const qualifier is not a problem because VPConstant is
-    // immutable.
-    return *VPConstants.insert(new VPConstant(Const)).first;
+    std::unique_ptr<VPConstant> &UPtr = VPConstants[Const];
+    if (!UPtr)
+      // Const is a new VPConstant to be inserted in the map.
+      UPtr.reset(new VPConstant(Const));
+
+    return UPtr.get();
   }
 
-  // Create or retrieve a VPExternalDef for a given Value \p ExtVal.
+  /// Create or retrieve a VPExternalDef for a given Value \p ExtVal.
   VPExternalDef *getVPExternalDef(Value *ExtDef) {
-    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefs[ExtDef];
-    if (!UPtr)
-      // ExtDef is a new VPExternalDef to be inserted in the map.
-      UPtr.reset(new VPExternalDef(ExtDef));
-
-    return UPtr.get();
+    return getExternalItem(VPExternalDefs, ExtDef);
   }
 
-  /// Create or retrieve a VPExternalDef for a given HIR unitary DDRef \p DDR.
+  /// Create or retrieve a VPExternalDef for a given non-decomposable DDRef \p
+  /// DDR.
   VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *DDR) {
-    UnitaryBlobOrIV ExtDef(DDR);
-    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefsHIR[ExtDef];
-    if (!UPtr)
-      // ExtDef is a new VPExternalDef to be inserted in the map.
-      UPtr.reset(new VPExternalDef(DDR));
-
-    return UPtr.get();
+    return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
   }
 
   /// Create or retrieve a VPExternalDef for an HIR IV identified by its \p
   /// IVLevel.
   VPExternalDef *getVPExternalDefForIV(unsigned IVLevel, Type *BaseTy) {
-    UnitaryBlobOrIV ExtDef(IVLevel);
-    std::unique_ptr<VPExternalDef> &UPtr = VPExternalDefsHIR[ExtDef];
+    return getExternalItemForIV(VPExternalDefsHIR, IVLevel, BaseTy);
+  }
+
+  /// Create or retrieve a VPExternalUse for a given Value \p ExtVal.
+  VPExternalUse *getVPExternalUse(Value *ExtDef) {
+    return getExternalItem(VPExternalUses, ExtDef);
+  }
+
+  /// Create or retrieve a VPExternalUse for a given non-decomposable DDRef \p
+  /// DDR.
+  VPExternalUse *getVPExternalUseForDDRef(loopopt::DDRef *DDR) {
+    return getExternalItemForDDRef(VPExternalUsesHIR, DDR);
+  }
+
+  /// Create or retrieve a VPExternalUse for an HIR IV identified by its \p
+  /// IVLevel.
+  VPExternalUse *getVPExternalUseForIV(unsigned IVLevel, Type *BaseTy) {
+    return getExternalItemForIV(VPExternalUsesHIR, IVLevel, BaseTy);
+  }
+
+  /// Create a new VPMetadataAsValue for \p MDAsValue if it doesn't exist or
+  /// retrieve the existing one.
+  VPMetadataAsValue *getVPMetadataAsValue(MetadataAsValue *MDAsValue) {
+    std::unique_ptr<VPMetadataAsValue> &UPtr = VPMetadataAsValues[MDAsValue];
     if (!UPtr)
-      // ExtDef is a new VPExternalDef to be inserted in the map.
-      UPtr.reset(new VPExternalDef(IVLevel, BaseTy));
+      // MDAsValue is a new VPMetadataAsValue to be inserted in the map.
+      UPtr.reset(new VPMetadataAsValue(MDAsValue));
 
     return UPtr.get();
   }
+
+  /// Create a new VPMetadataAsValue for Metadata \p MD if it doesn't exist or
+  /// retrieve the existing one.
+  VPMetadataAsValue *getVPMetadataAsValue(Metadata *MD) {
+    // TODO: implement this method when needed.
+    llvm_unreachable("Not implemented yet!");
+  }
+
+  // Verify that VPConstants are unique in the pool and that the map keys are
+  // consistent with the underlying IR information of each VPConstant.
+  void verifyVPConstants() const;
 
   // Verify that VPExternalDefs are unique in the pool and that the map keys are
   // consistent with the underlying IR information of each VPExternalDef.
@@ -2351,6 +2493,11 @@ public:
   // Verify that VPExternalDefs are unique in the pool and that the map keys are
   // consistent with the underlying HIR information of each VPExternalDef.
   void verifyVPExternalDefsHIR() const;
+
+  // Verify that VPMetadataAsValues are unique in the pool and that the map keys
+  // are consistent with the underlying IR information of each
+  // VPMetadataAsValue.
+  void verifyVPMetadataAsValues() const;
 #else
   void addVPValue(Value &V) {
     if (!Value2VPValue.count(&V))
@@ -2366,6 +2513,51 @@ private:
   static void updateDominatorTree(class DominatorTree *DT,
                                   BasicBlock *LoopPreHeaderBB,
                                   BasicBlock *LoopLatchBB);
+
+  // Create or retrieve an external item from \p Table for a given Value \p
+  // ExtVal.
+  template <typename T>
+  typename T::mapped_type::element_type *getExternalItem(T &Table,
+                                                         Value *ExtVal) {
+    using Def = typename T::mapped_type::element_type;
+    typename T::mapped_type &UPtr = Table[ExtVal];
+    if (!UPtr)
+      // Def is a new external item to be inserted in the map.
+      UPtr.reset(new Def(ExtVal));
+    return UPtr.get();
+  }
+
+  // Create or retrieve an external item from \p Table for given HIR unitary
+  // DDRef \p DDR.
+  template <typename Def>
+  Def *getExternalItemForDDRef(FoldingSet<Def> &Table, loopopt::DDRef *DDR) {
+    assert(DDR->isNonDecomposable() && "Expected non-decomposable DDRef!");
+    FoldingSetNodeID ID;
+    ID.AddInteger(DDR->getSymbase());
+    ID.AddInteger(0 /*IVLevel*/);
+    void *IP = nullptr;
+    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+    Def *ExtDef = new Def(DDR);
+    Table.InsertNode(ExtDef, IP);
+    return ExtDef;
+  }
+
+  // Create or retrieve an external item from \p Table for an HIR IV identified
+  // by its \p IVLevel.
+  template <typename Def>
+  Def *getExternalItemForIV(FoldingSet<Def> &Table, unsigned IVLevel,
+                            Type *BaseTy) {
+    FoldingSetNodeID ID;
+    ID.AddInteger(0 /*Symbase*/);
+    ID.AddInteger(IVLevel);
+    void *IP = nullptr;
+    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+    Def *ExtDef = new Def(IVLevel, BaseTy);
+    Table.InsertNode(ExtDef, IP);
+    return ExtDef;
+  }
 };
 
 #if INTEL_CUSTOMIZATION
@@ -2394,6 +2586,7 @@ public:
 
 #endif
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// VPlanPrinter prints a given VPlan to a given output stream. The printing is
 /// indented and follows the dot format.
 class VPlanPrinter {
@@ -2501,6 +2694,7 @@ inline raw_ostream &operator<<(raw_ostream &OS, const VPRegionBlock &RB) {
 }
 
 #endif // INTEL_CUSTOMIZATION
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 //===----------------------------------------------------------------------===//
 // VPlan Utilities
@@ -2686,6 +2880,18 @@ public:
     return false;
   }
 
+  /// Count and return the number of succesors of \p PredBlock excluding any
+  /// backedges.
+  static unsigned countSuccessorsNoBE(VPBlockBase *PredBlock,
+                                      VPLoopInfo *VPLI) {
+    unsigned Count = 0;
+    for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
+      if (!VPBlockUtils::isBackEdge(PredBlock, SuccBlock, VPLI))
+        Count++;
+    }
+    return Count;
+  }
+
   static VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                                   VPDominatorTree &DomTree,
                                   VPPostDominatorTree &PostDomTree,
@@ -2791,7 +2997,7 @@ public:
 
 /// A wrapper class to add VPlan related remarks for opt-report. Currently
 /// the implementation is naive with a single method to add a remark for
-/// a given LoopType loop.
+/// a given loop (can be HLLoop or llvm::Loop).
 //  TODO:
 /// In the future this will be extended to record all vectorization related
 /// remarks emitted by VPlan by mapping the remarks to underlying VPlan data
@@ -2799,20 +3005,27 @@ public:
 ///
 /// VPLoopRegion MainLoop --> {"LOOP WAS VECTORIZED", "vector length: 4"}
 /// VPLoopRegion RemainderLoop --> {"remainder loop was not vectorized"}
-template <class LoopType> class VPlanOptReportBuilder {
+class VPlanOptReportBuilder {
   LoopOptReportBuilder &LORBuilder;
+  // LORB needs the LoopInfo while adding remarks for llvm::Loop. This will be
+  // nullptr for HLLoop.
+  LoopInfo *LI;
 
 public:
-  VPlanOptReportBuilder(LoopOptReportBuilder &LORB) : LORBuilder(LORB) {}
+  VPlanOptReportBuilder(LoopOptReportBuilder &LORB, LoopInfo *LI = nullptr)
+      : LORBuilder(LORB), LI(LI) {}
 
-  /// Add a vectorization related remark for \p Lp. The remark message is
-  /// identified by \p MsgID.
+  /// Add a vectorization related remark for the HIR loop \p Lp. The remark
+  /// message is identified by \p MsgID.
   template <typename... Args>
-  void addRemark(LoopType *Lp, OptReportVerbosity::Level Verbosity,
-                 unsigned MsgID, Args &&... args) {
-    LORBuilder(*Lp).addRemark(Verbosity, loopopt::OptReportDiag::getMsg(MsgID),
-                              std::forward<Args>(args)...);
-  }
+  void addRemark(loopopt::HLLoop *Lp, OptReportVerbosity::Level Verbosity,
+                 unsigned MsgID, Args &&... args);
+
+  /// Add a vectorization related remark for the LLVM loop \p Lp. The remark
+  /// message is identified by \p MsgID.
+  template <typename... Args>
+  void addRemark(Loop *Lp, OptReportVerbosity::Level Verbosity, unsigned MsgID,
+                 Args &&... args);
 };
 
 } // namespace vpo

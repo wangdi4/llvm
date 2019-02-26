@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //=-- VPOParoptUtils.h - Class definition for VPO Paropt utilites -*- C++ -*-=//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -30,6 +30,8 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -145,6 +147,15 @@ public:
   static GlobalVariable *genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
                                                 StructType *IdentTy, int Flags,
                                                 BasicBlock *BS, BasicBlock *BE);
+
+  /// \p Arg is a Value from a clause.  It is either a Constant or
+  /// a Value of pointer type.  If it is a pointer Value, the method
+  /// loads the clause's actual argument value via this pointer,
+  /// otherwise the clause's actual argument value is \p Arg itself.
+  /// The method sign-extends or truncates the clause's actual argument
+  /// value to type \p Ty using the provided \p Builder.
+  static Value *getByRefClauseArgValueSExt(
+      Value *Arg, Type *Ty, IRBuilder<> &Builder);
 
   /// Generate a call to set `num_threads` for the `parallel` region and
   /// `parallel loop/sections`. Example:
@@ -282,7 +293,7 @@ public:
   /// \endcode
   static CallInst *genKmpcBarrier(WRegionNode *W, Value *Tid,
                                   Instruction *InsertPt, StructType *IdentTy,
-                                  bool IsExplicit);
+                                  bool IsExplicit, bool IsTargetSPIRV = false);
 
   /// Insert `kmpc_[cancel]_barrier` call (based on \p IsCancelBarrier) before
   /// \p InsertPt and return it. The CallInst inserted is:
@@ -299,7 +310,8 @@ public:
   static CallInst *genKmpcBarrierImpl(WRegionNode *W, Value *Tid,
                                       Instruction *InsertPt,
                                       StructType *IdentTy, bool IsExplicit,
-                                      bool IsCancelBarrier);
+                                      bool IsCancelBarrier,
+                                      bool IsTargetSPIRV = false);
 
   /// Insert `__kmpc_cancel[lationpoint]` call before \p InsertPt and return
   /// it. The inserted CallInst is:
@@ -420,7 +432,8 @@ public:
   static CallInst *genKmpcMasterOrEndMasterCall(WRegionNode *W,
                                                 StructType *IdentTy, Value *Tid,
                                                 Instruction *InsertPt,
-                                                bool IsMasterStart);
+                                                bool IsMasterStart,
+                                                bool IsTargetSPIRV = false);
 
   /// Generate a call to guard single-region is executed by one of threads in
   /// the enclosing thread team. Emitted call:
@@ -588,12 +601,22 @@ public:
                                      Instruction *InsertBeforePt);
   /// @}
 
+  /// Copy data from the source address \p To to the destination address
+  /// \p From
+  /// These must both be pointer types.
+  /// A copy constructor or copy-assign function \p Cctor will be used if
+  /// given.
+  /// \p IsByRef will insert an extra load to dereference the \p From pointer.
+  static void genCopyByAddr(Value *To, Value *From, Instruction *InsertPt,
+                            Function *Cctor = nullptr, bool IsByRef = false);
+
   /// Compute the OpenMP loop upper bound so that the loop iteration space can
   /// be closed interval.
   static CmpInst::Predicate computeOmpPredicate(CmpInst::Predicate PD);
 
   /// Return the predicate which includes equal for the zero trip test.
-  static Value *computeOmpUpperBound(WRegionNode *W, Instruction *InsertPt);
+  static Value *computeOmpUpperBound(WRegionNode *W, Instruction *InsertPt,
+                                     const Twine &Name = "");
 
   /// Update the bottom test predicate to include equal predicate.
   /// It also updates the loop upper bound.
@@ -614,6 +637,9 @@ public:
   static Value *genArrayLength(AllocaInst *AI, Value *BaseAddr,
                                Instruction *InsertPt, IRBuilder<> &Builder,
                                Type *&ElementTy, Value *&ArrayBegin);
+
+  static Value *genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
+                                 unsigned AddrSpace);
 
   /// Generate a call to `__kmpc_omp_task_alloc`. Example:
   /// \code
@@ -921,19 +947,12 @@ public:
   //    %11 = call i64 @_Z14get_local_sizej(i32 0)
   ///      where the value 0 is the dimension number.
   //  \endcode
-  static CallInst *genOCLGenericCall(StringRef FnName, ArrayRef<Value *> FnArgs,
+  static CallInst *genOCLGenericCall(StringRef FnName,
+                                     Type *RetType,
+                                     ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
 
-private:
-  /// \name Private constructor and destructor to disable instantiation.
-  /// @{
-
-  VPOParoptUtils() = delete;
-  ~VPOParoptUtils() = delete;
-
-  /// @}
-
-  /// \name Helper methods for generating a KMPC call.
+  /// \name Helper methods for generating calls.
   /// @{
 
   /// Generate KMPC runtime call to the function \p IntrinsicName
@@ -989,6 +1008,26 @@ private:
                            ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
                            bool IsTail = false, bool IsVarArg = false);
+
+  // Creates a call with no parameters.
+  // If \p InsertPt is not null, insert the call before InsertPt
+  static CallInst *genEmptyCall(Module *M, StringRef FnName, Type *ReturnTy,
+                                Instruction *InsertPt = nullptr,
+                                bool IsVarArg = false);
+
+  // Creates new Function and outlines \p W region into it.
+  // \p DT DominatorTree is updated accordingly.
+  static Function *genOutlineFunction(const WRegionNode &W, DominatorTree *DT);
+
+  /// @}
+
+private:
+  /// \name Private constructor and destructor to disable instantiation.
+  /// @{
+
+  VPOParoptUtils() = delete;
+  ~VPOParoptUtils() = delete;
+
   /// @}
 
   /// \name Helper methods for generating a Critical Section.

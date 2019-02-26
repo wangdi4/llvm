@@ -1,6 +1,6 @@
 //===-- IntelVPlanHCFGBuilderHIR.cpp --------------------------------------===//
 //
-//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -320,8 +320,10 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   ConditionVPBB->setCondBit(CondBit, Plan);
 
   // - Then branch -
-  // Force creation of a new VPBB for Then branch.
+  // Force creation of a new VPBB for Then branch even if the Then branch has no
+  // children.
   ActiveVPBB = nullptr;
+  updateActiveVPBB();
   HLNodeUtils::visitRange<false /*Recursive*/>(
       *this /*visitor*/, HIf->then_begin(), HIf->then_end());
 

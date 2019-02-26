@@ -37,8 +37,6 @@
 ; CHECK: Function
 
 ; CHECK: BEGIN REGION { }
-; CHECK:       @llvm.lifetime.start.p0i8(4,  &((i8*)(%.omp.lb)[0]));
-; CHECK:       (%.omp.lb)[0] = 0;
 ; CHECK:       %1 = @llvm.directive.region.entry(); [ DIR.OMP.PARALLEL.LOOP(), QUAL.OMP.NUM_THREADS(3), QUAL.OMP.FIRSTPRIVATE(&((%.omp.lb)[0])), QUAL.OMP.NORMALIZED.IV(null), QUAL.OMP.NORMALIZED.UB(null), QUAL.OMP.PRIVATE(&((%i)[0])), QUAL.OMP.SHARED(&((%ip.addr)[0])) ]
 ; CHECK:       %2 = (%.omp.lb)[0];
 ; CHECK:       if (%2 < %n)
@@ -59,8 +57,6 @@
 ; CHECK: Function
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK:       @llvm.lifetime.start.p0i8(4,  &((i8*)(%.omp.lb)[0]));
-; CHECK:       (%.omp.lb)[0] = 0;
 ; CHECK:       %2 = (%.omp.lb)[0];
 ; CHECK:       if (%2 < %n)
 ; CHECK:       {

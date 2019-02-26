@@ -176,7 +176,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   if ((Mode & OmpPar) && (Mode & ParTrans))
     fixTidAndBidGlobals();
 
-  if (!IsTargetSPIRV)
+  if (!hasOffloadCompilation())
     // Generate offload initialization code.
     genOffloadingBinaryDescriptorRegistration();
 

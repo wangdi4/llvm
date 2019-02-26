@@ -71,14 +71,14 @@ bool StdContainerAAResult::mayAliasInStdContainer(MDNode *M1, MDNode *M2) {
   return false;
 }
 
-ModRefInfo StdContainerAAResult::getModRefInfo(ImmutableCallSite CS,
+ModRefInfo StdContainerAAResult::getModRefInfo(const CallBase *Call,
                                                const MemoryLocation &Loc) {
-  return AAResultBase::getModRefInfo(CS, Loc);
+  return AAResultBase::getModRefInfo(Call, Loc);
 }
 
-ModRefInfo StdContainerAAResult::getModRefInfo(ImmutableCallSite CS1,
-                                               ImmutableCallSite CS2) {
-  return AAResultBase::getModRefInfo(CS1, CS2);
+ModRefInfo StdContainerAAResult::getModRefInfo(const CallBase *Call1,
+                                               const CallBase *Call2) {
+  return AAResultBase::getModRefInfo(Call1, Call2);
 }
 
 char StdContainerAA::PassID;

@@ -1,14 +1,14 @@
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
 
 ; CHECK: vector.body:
-; CHECK:  shufflevector <8 x i32> %transposed.wide.masked.load, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-; CHECK:  sitofp <4 x i32> 
-; CHECK:  shufflevector <8 x i32> %transposed.wide.masked.load, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK:  sitofp <4 x i32> 
-; CHECK:  fadd <4 x float> 
-; CHECK:  %[[RES1:.*]] = fptosi <4 x float> 
-; CHECK:  %[[RES2:.*]] = shufflevector <4 x i32> %[[RES1]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>
-; CHECK:  shufflevector <8 x i32> %transposed.wide.masked.load, <8 x i32> %[[RES2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; CHECK:  [[EXTRACT1:%.*]] = shufflevector <8 x i32> %{{.*}}, <8 x i32> undef, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
+; CHECK-NEXT:  [[OP1:%.*]] = sitofp <4 x i32> [[EXTRACT1]] to <4 x float> 
+; CHECK:  [[EXTRACT2:%.*]] = shufflevector <8 x i32> %{{.*}}, <8 x i32> undef, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
+; CHECK-NEXT:  [[OP2:%.*]] = sitofp <4 x i32> [[EXTRACT2]] to <4 x float>
+; CHECK:  [[ADD:%.*]] = fadd <4 x float> [[OP2]], [[OP1]]
+; CHECK:  [[RES1:%.*]] = fptosi <4 x float> [[ADD]] 
+; CHECK:  [[EXTEND:%.*]] = shufflevector <4 x i32> [[RES1]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK:  shufflevector <8 x i32> %{{.*}}, <8 x i32> [[EXTEND]], <8 x i32> <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
 
 @arr2p = external global <2 x i32>*, align 8
 @arrB = external global i32*, align 8

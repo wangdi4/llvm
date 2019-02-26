@@ -636,7 +636,7 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
   // the new types that DTrans is creating with DICompositeType entries.
   for (DISubprogram *SP : DIFinder.subprograms()) {
     if (auto *RawNode = SP->getRawRetainedNodes()) {
-      auto *Node = dyn_cast<MDTuple>(RawNode);
+      auto *Node = cast<MDTuple>(RawNode);
       unsigned NumOperands = Node->getNumOperands();
       LLVM_DEBUG({
         if (NumOperands)

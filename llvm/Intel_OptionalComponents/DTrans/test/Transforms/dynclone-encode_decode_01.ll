@@ -2,8 +2,8 @@
 ; Load/Store instructions when DynClone+Reencoding transformation
 ; is triggered.
 
-;  RUN: opt < %s -S -whole-program-assume -dtrans-dynclone 2>&1 | FileCheck %s
-;  RUN: opt < %s -S -whole-program-assume -passes=dtrans-dynclone 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -90,7 +90,7 @@ define void @proc2() {
   ret void
 }
 
-; CHECK-LABEL: define internal void @init() {
+; CHECK-LABEL: define internal void @init()
 
 ; This routine is selected as InitRoutine.
 define void @init() {
@@ -149,7 +149,7 @@ define void @init() {
 ;   { 300000, 2000000, 2000015, 4000000, 4000015}
 ;
 
-; CHECK-LABEL: define internal i16 @__DYN_encoder(i64) {
+; CHECK-LABEL: define internal i16 @__DYN_encoder(i64) #1 {
 ; CHECK:    switch i64 %0, label %default [
 ; CHECK:      i64 300000, label %case
 ; CHECK:      i64 2000000, label %case1
@@ -174,7 +174,7 @@ define void @init() {
 ; CHECK:  case4:
 ; CHECK:    br label %return
 
-; CHECK-LABEL: define internal i64 @__DYN_decoder(i16) {
+; CHECK-LABEL: define internal i64 @__DYN_decoder(i16) #1 {
 ; CHECK:  switch i16 [[ARG:%[0-9]+]], label %default [
 ; CHECK:  i16 16384, label %case
 ; CHECK:  i16 16385, label %case1
@@ -200,6 +200,8 @@ define void @init() {
 ; CHECK:  br label %return
 ; CHECK:}
 
+; CHECK: attributes #1 = { "min-legal-vector-width"="0" }
+
 ; Call to "init" routine is qualified as InitRoutine for DynClone.
 define i32 @main() {
 entry:
@@ -211,3 +213,4 @@ entry:
 }
 ; Function Attrs: nounwind
 declare dso_local noalias i8* @calloc(i64, i64)
+attributes #0 = { "target-features"="+avx2" }

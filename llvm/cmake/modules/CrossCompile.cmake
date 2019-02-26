@@ -15,6 +15,12 @@ function(llvm_create_cross_target_internal target_name toolchain buildtype)
       -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
       )
   endif()
+  if (INTEL_CUSTOMIZATION)
+    # Pass LLVM_INTEL_FEATURES for building native tools.
+    set(CROSS_TOOLCHAIN_FLAGS_INIT ${CROSS_TOOLCHAIN_FLAGS_INIT}
+      -DLLVM_INTEL_FEATURES=${LLVM_INTEL_FEATURES}
+      )
+  endif(INTEL_CUSTOMIZATION)
   set(CROSS_TOOLCHAIN_FLAGS_${target_name} ${CROSS_TOOLCHAIN_FLAGS_INIT}
     CACHE STRING "Toolchain configuration for ${target_name}")
 

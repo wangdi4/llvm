@@ -1,6 +1,6 @@
 //===- IntelVPlanIdioms.h -------------------------------------------------===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -45,6 +45,7 @@ static bool canSpeculate(const RegDDRef *Ref) {
     // FIXME: Copied code from CM. Has to be removed.
     int64_t ConstStride;
     const HLLoop *Loop = Ref->getParentLoop();
+    assert(Loop && "Expected the RegDDRef to have a valid parent-loop");
     unsigned NestingLevel = Loop->getNestingLevel();
     if (!Ref->getConstStrideAtLevel(NestingLevel, &ConstStride) || !ConstStride)
       return false;
@@ -68,10 +69,11 @@ static bool canSpeculate(const RegDDRef *Ref) {
             if (const auto *Inst = dyn_cast<HLInst>(&*NodeIt))
               if (Inst->getLLVMInstruction() == Base) {
                 const RegDDRef *RvalRef = Inst->getRvalDDRef();
-                if (RvalRef->isAddressOf())
+                if (RvalRef->isAddressOf()) {
                   Base = RvalRef->getTempBaseValue();
-                  if (llvm::getPaddingForValue(Base) > 0)
+                  if (Base && llvm::getPaddingForValue(Base) > 0)
                     return true;
+                }
               }
       }
 #endif // INTEL_INCLUDE_DTRANS
@@ -187,25 +189,25 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
       }
 
       // FIXME: Need to look on VPPredicates, not on underlying IR.
-      if (!isa<HLIf>(HInst->getParent()))
-        // No support for assignment to live-out terminals or when memory
-        // speculation is not allowed.
-        if (!AllowSpeculation && LvalRef->isTerminalRef() &&
-            LvalRef->isLiveOutOfParentLoop()) {
-          // FIXME: Current CG cannot handle multiple dimensions for
-          // live-out computation in early exit loop. Bail-out by now.
-          if (!RvalRef->isMemRef() || !canSpeculate(LvalRef) ||
-              !canSpeculate(RvalRef)) {
-            LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
-                       dbgs() << " is unmasked, thus it's unsafe.\n");
-            return VPlanIdioms::Unsafe;
-          } else if (RvalRef->getNumDimensions() != 1) {
-            LLVM_DEBUG(dbgs() << "        RvalRef "; RvalRef->dump();
-                       dbgs() << "  has multiple dimensions which is not "
-                                 "supported by current CG.\n");
-            return VPlanIdioms::Unsafe;
-          }
+      if (!isa<HLIf>(HInst->getParent())) {
+        if (LvalRef && !canSpeculate(LvalRef)) {
+          LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
+                     dbgs() << " is unmasked, thus it's unsafe.\n");
+          return VPlanIdioms::Unsafe;
         }
+        // FIXME: Current CG cannot handle multiple dimensions for
+        // live-out computation in early exit loop. Bail-out by now.
+        if (!RvalRef->isMemRef() || !canSpeculate(RvalRef)) {
+          LLVM_DEBUG(dbgs() << "        HLInst "; HInst->dump();
+                     dbgs() << " is unmasked, thus it's unsafe.\n");
+          return VPlanIdioms::Unsafe;
+        } else if (RvalRef->getNumDimensions() != 1) {
+          LLVM_DEBUG(dbgs() << "        RvalRef "; RvalRef->dump();
+                     dbgs() << "  has multiple dimensions which is not "
+                               "supported by current CG.\n");
+          return VPlanIdioms::Unsafe;
+        }
+      }
     }
   }
   return HasIf ? VPlanIdioms::SearchLoopStrEq : VPlanIdioms::Unknown;
@@ -230,6 +232,12 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
     if (!isa<const VPInstruction>(&Recipe))
       continue;
     const auto Inst = cast<const VPInstruction>(&Recipe);
+
+    // Ignore instruction used to mark the block predicate and for setting
+    // up uniform inner loop control flow.
+    if (Inst->getOpcode() == VPInstruction::AllZeroCheck ||
+        Inst->getOpcode() == VPInstruction::Pred)
+      continue;
 
     if (isa<const VPBranchInst>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->HIR.isValid()))

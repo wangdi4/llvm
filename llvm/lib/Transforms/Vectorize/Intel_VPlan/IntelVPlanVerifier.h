@@ -1,6 +1,6 @@
 //===-- IntelVPlanVerifier.h ------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -110,6 +110,8 @@ public:
       : TheLoop(Lp), LInfo(LInfo), DL(DLObj) {}
 
   VPlanVerifier(const DataLayout &DLObj) : TheLoop(nullptr), LInfo(nullptr), DL(DLObj) {}
+
+  virtual ~VPlanVerifier() {}
 
   /// Set VPLoopInfo analysis. This information will be used in some
   /// verification steps, if available.

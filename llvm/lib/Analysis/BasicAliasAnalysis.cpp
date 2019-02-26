@@ -1,9 +1,8 @@
 //===- BasicAliasAnalysis.cpp - Stateless Alias Analysis Impl -------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -31,7 +30,6 @@
 #include "llvm/Analysis/PhiValues.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -68,6 +66,16 @@ using namespace llvm;
 /// Enable analysis of recursive PHI nodes.
 static cl::opt<bool> EnableRecPhiAnalysis("basicaa-recphi", cl::Hidden,
                                           cl::init(false));
+
+/// By default, even on 32-bit architectures we use 64-bit integers for
+/// calculations. This will allow us to more-aggressively decompose indexing
+/// expressions calculated using i64 values (e.g., long long in C) which is
+/// common enough to worry about.
+static cl::opt<bool> ForceAtLeast64Bits("basicaa-force-at-least-64b",
+                                        cl::Hidden, cl::init(true));
+static cl::opt<bool> DoubleCalcBits("basicaa-double-calc-bits",
+                                    cl::Hidden, cl::init(false));
+
 /// SearchLimitReached / SearchTimes shows how often the limit of
 /// to decompose GEPs is reached. It will affect the precision
 /// of basic alias analysis.
@@ -175,7 +183,7 @@ static bool isNonEscapingLocalObject(const Value *V) {
 /// Returns true if the pointer is one which would have been considered an
 /// escape by isNonEscapingLocalObject.
 static bool isEscapeSource(const Value *V) {
-  if (ImmutableCallSite(V))
+  if (isa<CallBase>(V))
     return true;
 
   if (isa<Argument>(V))
@@ -422,13 +430,22 @@ static bool isObjectSize(const Value *V, uint64_t Size, const DataLayout &DL,
 }
 
 /// To ensure a pointer offset fits in an integer of size PointerSize
-/// (in bits) when that size is smaller than 64. This is an issue in
-/// particular for 32b programs with negative indices that rely on two's
-/// complement wrap-arounds for precise alias information.
-static int64_t adjustToPointerSize(int64_t Offset, unsigned PointerSize) {
-  assert(PointerSize <= 64 && "Invalid PointerSize!");
-  unsigned ShiftBits = 64 - PointerSize;
-  return (int64_t)((uint64_t)Offset << ShiftBits) >> ShiftBits;
+/// (in bits) when that size is smaller than the maximum pointer size. This is
+/// an issue, for example, in particular for 32b pointers with negative indices
+/// that rely on two's complement wrap-arounds for precise alias information
+/// where the maximum pointer size is 64b.
+static APInt adjustToPointerSize(APInt Offset, unsigned PointerSize) {
+  assert(PointerSize <= Offset.getBitWidth() && "Invalid PointerSize!");
+  unsigned ShiftBits = Offset.getBitWidth() - PointerSize;
+  return (Offset << ShiftBits).ashr(ShiftBits);
+}
+
+static unsigned getMaxPointerSize(const DataLayout &DL) {
+  unsigned MaxPointerSize = DL.getMaxPointerSizeInBits();
+  if (MaxPointerSize < 64 && ForceAtLeast64Bits) MaxPointerSize = 64;
+  if (DoubleCalcBits) MaxPointerSize *= 2;
+
+  return MaxPointerSize;
 }
 
 #if INTEL_CUSTOMIZATION
@@ -445,8 +462,9 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
   const Value *Stride = Subs->getStride();
 
   const ConstantInt *CStride = cast<ConstantInt>(Stride);
+  unsigned MaxPointerSize = getMaxPointerSize(DL);
 
-  int64_t StrideVal = CStride->getSExtValue();
+  APInt StrideVal = CStride->getValue().sextOrSelf(MaxPointerSize);
 
   const Value *Offsets[] = {Subs->getIndex(), Subs->getLowerBound()};
   for (int i = 0; i < 2; ++i) {
@@ -454,7 +472,7 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
 
     // Index      -> Scale
     // LowerBound -> -Scale
-    int64_t Scale = (i == 1) ? -StrideVal : StrideVal;
+    APInt Scale = (i == 1) ? -StrideVal : StrideVal;
 
     // For an array/pointer, add the element offset, explicitly scaled.
     if (auto *CIdx = dyn_cast<ConstantInt>(Index)) {
@@ -495,7 +513,7 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
       }
     }
 
-    if (Scale) {
+    if (!!Scale) {
       VariableGEPIndex Entry = {Index, ZExtBits, SExtBits, Scale};
       Decomposed.VarIndices.push_back(Entry);
     }
@@ -525,8 +543,7 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
   unsigned MaxLookup = MaxLookupSearchDepth;
   SearchTimes++;
 
-  Decomposed.StructOffset = 0;
-  Decomposed.OtherOffset = 0;
+  unsigned MaxPointerSize = getMaxPointerSize(DL);
   Decomposed.VarIndices.clear();
   do {
     // See if this is a bitcast or GEP.
@@ -551,7 +568,7 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
 
     const GEPOperator *GEPOp = dyn_cast<GEPOperator>(Op);
     if (!GEPOp) {
-      if (auto CS = ImmutableCallSite(V)) {
+      if (const auto *Call = dyn_cast<CallBase>(V)) {
         // CaptureTracking can know about special capturing properties of some
         // intrinsics like launder.invariant.group, that can't be expressed with
         // the attributes, but have properties like returning aliasing pointer.
@@ -561,7 +578,7 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
         // because it should be in sync with CaptureTracking. Not using it may
         // cause weird miscompilations where 2 aliasing pointers are assumed to
         // noalias.
-        if (auto *RP = getArgumentAliasingToReturnedPointer(CS)) {
+        if (auto *RP = getArgumentAliasingToReturnedPointer(Call)) {
           V = RP;
           continue;
         }
@@ -574,7 +591,9 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
         const ConstantInt *CStride = dyn_cast<ConstantInt>(Stride);
         if (!CStride) {
           Decomposed.Base = V;
-          return false;
+          // The decomposed indices must be constants. Bail out:
+          // (true=>limit hit)
+          return true;
         }
 
         DecomposeSubscript(Subs, Decomposed, DL, AC, DT);
@@ -636,13 +655,15 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
         if (CIdx->isZero())
           continue;
         Decomposed.OtherOffset +=
-          DL.getTypeAllocSize(GTI.getIndexedType()) * CIdx->getSExtValue();
+          (DL.getTypeAllocSize(GTI.getIndexedType()) *
+            CIdx->getValue().sextOrSelf(MaxPointerSize))
+              .sextOrTrunc(MaxPointerSize);
         continue;
       }
 
       GepHasConstantOffset = false;
 
-      uint64_t Scale = DL.getTypeAllocSize(GTI.getIndexedType());
+      APInt Scale(MaxPointerSize, DL.getTypeAllocSize(GTI.getIndexedType()));
       unsigned ZExtBits = 0, SExtBits = 0;
 
       // If the integer type is smaller than the pointer size, it is implicitly
@@ -654,20 +675,34 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
       // Use GetLinearExpression to decompose the index into a C1*V+C2 form.
       APInt IndexScale(Width, 0), IndexOffset(Width, 0);
       bool NSW = true, NUW = true;
+      const Value *OrigIndex = Index;
       Index = GetLinearExpression(Index, IndexScale, IndexOffset, ZExtBits,
                                   SExtBits, DL, 0, AC, DT, NSW, NUW);
 
-      // All GEP math happens in the width of the pointer type,
-      // so we can truncate the value to 64-bits as we don't handle
-      // currently pointers larger than 64 bits and we would crash
-      // later. TODO: Make `Scale` an APInt to avoid this problem.
-      if (IndexScale.getBitWidth() > 64)
-        IndexScale = IndexScale.sextOrTrunc(64);
-
       // The GEP index scale ("Scale") scales C1*V+C2, yielding (C1*V+C2)*Scale.
       // This gives us an aggregate computation of (C1*Scale)*V + C2*Scale.
-      Decomposed.OtherOffset += IndexOffset.getSExtValue() * Scale;
-      Scale *= IndexScale.getSExtValue();
+
+      // It can be the case that, even through C1*V+C2 does not overflow for
+      // relevant values of V, (C2*Scale) can overflow. In that case, we cannot
+      // decompose the expression in this way.
+      //
+      // FIXME: C1*Scale and the other operations in the decomposed
+      // (C1*Scale)*V+C2*Scale can also overflow. We should check for this
+      // possibility.
+      APInt WideScaledOffset = IndexOffset.sextOrTrunc(MaxPointerSize*2) *
+                                 Scale.sext(MaxPointerSize*2);
+      if (WideScaledOffset.getMinSignedBits() > MaxPointerSize) {
+        Index = OrigIndex;
+        IndexScale = 1;
+        IndexOffset = 0;
+
+        ZExtBits = SExtBits = 0;
+        if (PointerSize > Width)
+          SExtBits += PointerSize - Width;
+      } else {
+        Decomposed.OtherOffset += IndexOffset.sextOrTrunc(MaxPointerSize) * Scale;
+        Scale *= IndexScale.sextOrTrunc(MaxPointerSize);
+      }
 
       // If we already had an occurrence of this index variable, merge this
       // scale into it.  For example, we want to handle:
@@ -687,9 +722,8 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
       // pointer size.
       Scale = adjustToPointerSize(Scale, PointerSize);
 
-      if (Scale) {
-        VariableGEPIndex Entry = {Index, ZExtBits, SExtBits,
-                                  static_cast<int64_t>(Scale)};
+      if (!!Scale) {
+        VariableGEPIndex Entry = {Index, ZExtBits, SExtBits, Scale};
         Decomposed.VarIndices.push_back(Entry);
       }
     }
@@ -775,8 +809,8 @@ bool BasicAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
 }
 
 /// Returns the behavior when calling the given call site.
-FunctionModRefBehavior BasicAAResult::getModRefBehavior(ImmutableCallSite CS) {
-  if (CS.doesNotAccessMemory())
+FunctionModRefBehavior BasicAAResult::getModRefBehavior(const CallBase *Call) {
+  if (Call->doesNotAccessMemory())
     // Can't do better than this.
     return FMRB_DoesNotAccessMemory;
 
@@ -784,23 +818,23 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(ImmutableCallSite CS) {
 
   // If the callsite knows it only reads memory, don't return worse
   // than that.
-  if (CS.onlyReadsMemory())
+  if (Call->onlyReadsMemory())
     Min = FMRB_OnlyReadsMemory;
-  else if (CS.doesNotReadMemory())
+  else if (Call->doesNotReadMemory())
     Min = FMRB_DoesNotReadMemory;
 
-  if (CS.onlyAccessesArgMemory())
+  if (Call->onlyAccessesArgMemory())
     Min = FunctionModRefBehavior(Min & FMRB_OnlyAccessesArgumentPointees);
-  else if (CS.onlyAccessesInaccessibleMemory())
+  else if (Call->onlyAccessesInaccessibleMemory())
     Min = FunctionModRefBehavior(Min & FMRB_OnlyAccessesInaccessibleMem);
-  else if (CS.onlyAccessesInaccessibleMemOrArgMem())
+  else if (Call->onlyAccessesInaccessibleMemOrArgMem())
     Min = FunctionModRefBehavior(Min & FMRB_OnlyAccessesInaccessibleOrArgMem);
 
-  // If CS has operand bundles then aliasing attributes from the function it
-  // calls do not directly apply to the CallSite.  This can be made more
-  // precise in the future.
-  if (!CS.hasOperandBundles())
-    if (const Function *F = CS.getCalledFunction())
+  // If the call has operand bundles then aliasing attributes from the function
+  // it calls do not directly apply to the call.  This can be made more precise
+  // in the future.
+  if (!Call->hasOperandBundles())
+    if (const Function *F = Call->getCalledFunction())
       Min =
           FunctionModRefBehavior(Min & getBestAAResults().getModRefBehavior(F));
 
@@ -833,9 +867,9 @@ FunctionModRefBehavior BasicAAResult::getModRefBehavior(const Function *F) {
 }
 
 /// Returns true if this is a writeonly (i.e Mod only) parameter.
-static bool isWriteOnlyParam(ImmutableCallSite CS, unsigned ArgIdx,
+static bool isWriteOnlyParam(const CallBase *Call, unsigned ArgIdx,
                              const TargetLibraryInfo &TLI) {
-  if (CS.paramHasAttr(ArgIdx, Attribute::WriteOnly))
+  if (Call->paramHasAttr(ArgIdx, Attribute::WriteOnly))
     return true;
 
   // We can bound the aliasing properties of memset_pattern16 just as we can
@@ -845,7 +879,8 @@ static bool isWriteOnlyParam(ImmutableCallSite CS, unsigned ArgIdx,
   // FIXME Consider handling this in InferFunctionAttr.cpp together with other
   // attributes.
   LibFunc F;
-  if (CS.getCalledFunction() && TLI.getLibFunc(*CS.getCalledFunction(), F) &&
+  if (Call->getCalledFunction() &&
+      TLI.getLibFunc(*Call->getCalledFunction(), F) &&
       F == LibFunc_memset_pattern16 && TLI.has(F))
     if (ArgIdx == 0)
       return true;
@@ -857,23 +892,23 @@ static bool isWriteOnlyParam(ImmutableCallSite CS, unsigned ArgIdx,
   return false;
 }
 
-ModRefInfo BasicAAResult::getArgModRefInfo(ImmutableCallSite CS,
+ModRefInfo BasicAAResult::getArgModRefInfo(const CallBase *Call,
                                            unsigned ArgIdx) {
   // Checking for known builtin intrinsics and target library functions.
-  if (isWriteOnlyParam(CS, ArgIdx, TLI))
+  if (isWriteOnlyParam(Call, ArgIdx, TLI))
     return ModRefInfo::Mod;
 
-  if (CS.paramHasAttr(ArgIdx, Attribute::ReadOnly))
+  if (Call->paramHasAttr(ArgIdx, Attribute::ReadOnly))
     return ModRefInfo::Ref;
 
-  if (CS.paramHasAttr(ArgIdx, Attribute::ReadNone))
+  if (Call->paramHasAttr(ArgIdx, Attribute::ReadNone))
     return ModRefInfo::NoModRef;
 
-  return AAResultBase::getArgModRefInfo(CS, ArgIdx);
+  return AAResultBase::getArgModRefInfo(Call, ArgIdx);
 }
 
-static bool isIntrinsicCall(ImmutableCallSite CS, Intrinsic::ID IID) {
-  const IntrinsicInst *II = dyn_cast<IntrinsicInst>(CS.getInstruction());
+static bool isIntrinsicCall(const CallBase *Call, Intrinsic::ID IID) {
+  const IntrinsicInst *II = dyn_cast<IntrinsicInst>(Call);
   return II && II->getIntrinsicID() == IID;
 }
 
@@ -929,9 +964,9 @@ AliasResult BasicAAResult::alias(const MemoryLocation &LocA,
 /// Since we only look at local properties of this function, we really can't
 /// say much about this query.  We do, however, use simple "address taken"
 /// analysis on local objects.
-ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
+ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
                                         const MemoryLocation &Loc) {
-  assert(notDifferentParent(CS.getInstruction(), Loc.Ptr) &&
+  assert(notDifferentParent(Call, Loc.Ptr) &&
          "AliasAnalysis query involving multiple functions!");
 
   const Value *Object = GetUnderlyingObject(Loc.Ptr, DL);
@@ -942,15 +977,21 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
   // contents of the alloca into argument registers or stack slots, so there is
   // no lifetime issue.
   if (isa<AllocaInst>(Object))
-    if (const CallInst *CI = dyn_cast<CallInst>(CS.getInstruction()))
+    if (const CallInst *CI = dyn_cast<CallInst>(Call))
       if (CI->isTailCall() &&
           !CI->getAttributes().hasAttrSomewhere(Attribute::ByVal))
         return ModRefInfo::NoModRef;
 
+  // Stack restore is able to modify unescaped dynamic allocas. Assume it may
+  // modify them even though the alloca is not escaped.
+  if (auto *AI = dyn_cast<AllocaInst>(Object))
+    if (!AI->isStaticAlloca() && isIntrinsicCall(Call, Intrinsic::stackrestore))
+      return ModRefInfo::Mod;
+
   // If the pointer is to a locally allocated object that does not escape,
   // then the call can not mod/ref the pointer unless the call takes the pointer
   // as an argument, and itself doesn't capture it.
-  if (!isa<Constant>(Object) && CS.getInstruction() != Object &&
+  if (!isa<Constant>(Object) && Call != Object &&
       isNonEscapingLocalObject(Object)) {
 
     // Optimistically assume that call doesn't touch Object and check this
@@ -959,19 +1000,20 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
     bool IsMustAlias = true;
 
     unsigned OperandNo = 0;
-    for (auto CI = CS.data_operands_begin(), CE = CS.data_operands_end();
+    for (auto CI = Call->data_operands_begin(), CE = Call->data_operands_end();
          CI != CE; ++CI, ++OperandNo) {
       // Only look at the no-capture or byval pointer arguments.  If this
       // pointer were passed to arguments that were neither of these, then it
       // couldn't be no-capture.
       if (!(*CI)->getType()->isPointerTy() ||
-          (!CS.doesNotCapture(OperandNo) &&
-           OperandNo < CS.getNumArgOperands() && !CS.isByValArgument(OperandNo)))
+          (!Call->doesNotCapture(OperandNo) &&
+           OperandNo < Call->getNumArgOperands() &&
+           !Call->isByValArgument(OperandNo)))
         continue;
 
       // Call doesn't access memory through this operand, so we don't care
       // if it aliases with Object.
-      if (CS.doesNotAccessMemory(OperandNo))
+      if (Call->doesNotAccessMemory(OperandNo))
         continue;
 
       // If this is a no-capture pointer argument, see if we can tell that it
@@ -985,12 +1027,12 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
         continue;
       // Operand aliases 'Object', but call doesn't modify it. Strengthen
       // initial assumption and keep looking in case if there are more aliases.
-      if (CS.onlyReadsMemory(OperandNo)) {
+      if (Call->onlyReadsMemory(OperandNo)) {
         Result = setRef(Result);
         continue;
       }
       // Operand aliases 'Object' but call only writes into it.
-      if (CS.doesNotReadMemory(OperandNo)) {
+      if (Call->doesNotReadMemory(OperandNo)) {
         Result = setMod(Result);
         continue;
       }
@@ -1014,17 +1056,16 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
     }
   }
 
-  // If the CallSite is to malloc or calloc, we can assume that it doesn't
+  // If the call is to malloc or calloc, we can assume that it doesn't
   // modify any IR visible value.  This is only valid because we assume these
   // routines do not read values visible in the IR.  TODO: Consider special
   // casing realloc and strdup routines which access only their arguments as
   // well.  Or alternatively, replace all of this with inaccessiblememonly once
   // that's implemented fully.
-  auto *Inst = CS.getInstruction();
-  if (isMallocOrCallocLikeFn(Inst, &TLI)) {
+  if (isMallocOrCallocLikeFn(Call, &TLI)) {
     // Be conservative if the accessed pointer may alias the allocation -
     // fallback to the generic handling below.
-    if (getBestAAResults().alias(MemoryLocation(Inst), Loc) == NoAlias)
+    if (getBestAAResults().alias(MemoryLocation(Call), Loc) == NoAlias)
       return ModRefInfo::NoModRef;
   }
 
@@ -1032,7 +1073,7 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
   // operands, i.e., source and destination of any given memcpy must no-alias.
   // If Loc must-aliases either one of these two locations, then it necessarily
   // no-aliases the other.
-  if (auto *Inst = dyn_cast<AnyMemCpyInst>(CS.getInstruction())) {
+  if (auto *Inst = dyn_cast<AnyMemCpyInst>(Call)) {
     AliasResult SrcAA, DestAA;
 
     if ((SrcAA = getBestAAResults().alias(MemoryLocation::getForSource(Inst),
@@ -1056,7 +1097,7 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
   // While the assume intrinsic is marked as arbitrarily writing so that
   // proper control dependencies will be maintained, it never aliases any
   // particular memory location.
-  if (isIntrinsicCall(CS, Intrinsic::assume))
+  if (isIntrinsicCall(Call, Intrinsic::assume))
     return ModRefInfo::NoModRef;
 
   // Like assumes, guard intrinsics are also marked as arbitrarily writing so
@@ -1066,7 +1107,7 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
   // *Unlike* assumes, guard intrinsics are modeled as reading memory since the
   // heap state at the point the guard is issued needs to be consistent in case
   // the guard invokes the "deopt" continuation.
-  if (isIntrinsicCall(CS, Intrinsic::experimental_guard))
+  if (isIntrinsicCall(Call, Intrinsic::experimental_guard))
     return ModRefInfo::Ref;
 
   // Like assumes, invariant.start intrinsics were also marked as arbitrarily
@@ -1092,20 +1133,20 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS,
   // The transformation will cause the second store to be ignored (based on
   // rules of invariant.start)  and print 40, while the first program always
   // prints 50.
-  if (isIntrinsicCall(CS, Intrinsic::invariant_start))
+  if (isIntrinsicCall(Call, Intrinsic::invariant_start))
     return ModRefInfo::Ref;
 
   // The AAResultBase base class has some smarts, lets use them.
-  return AAResultBase::getModRefInfo(CS, Loc);
+  return AAResultBase::getModRefInfo(Call, Loc);
 }
 
-ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS1,
-                                        ImmutableCallSite CS2) {
+ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call1,
+                                        const CallBase *Call2) {
   // While the assume intrinsic is marked as arbitrarily writing so that
   // proper control dependencies will be maintained, it never aliases any
   // particular memory location.
-  if (isIntrinsicCall(CS1, Intrinsic::assume) ||
-      isIntrinsicCall(CS2, Intrinsic::assume))
+  if (isIntrinsicCall(Call1, Intrinsic::assume) ||
+      isIntrinsicCall(Call2, Intrinsic::assume))
     return ModRefInfo::NoModRef;
 
   // Like assumes, guard intrinsics are also marked as arbitrarily writing so
@@ -1119,18 +1160,18 @@ ModRefInfo BasicAAResult::getModRefInfo(ImmutableCallSite CS1,
   // NB! This function is *not* commutative, so we specical case two
   // possibilities for guard intrinsics.
 
-  if (isIntrinsicCall(CS1, Intrinsic::experimental_guard))
-    return isModSet(createModRefInfo(getModRefBehavior(CS2)))
+  if (isIntrinsicCall(Call1, Intrinsic::experimental_guard))
+    return isModSet(createModRefInfo(getModRefBehavior(Call2)))
                ? ModRefInfo::Ref
                : ModRefInfo::NoModRef;
 
-  if (isIntrinsicCall(CS2, Intrinsic::experimental_guard))
-    return isModSet(createModRefInfo(getModRefBehavior(CS1)))
+  if (isIntrinsicCall(Call2, Intrinsic::experimental_guard))
+    return isModSet(createModRefInfo(getModRefBehavior(Call1)))
                ? ModRefInfo::Mod
                : ModRefInfo::NoModRef;
 
   // The AAResultBase base class has some smarts, lets use them.
-  return AAResultBase::getModRefInfo(CS1, CS2);
+  return AAResultBase::getModRefInfo(Call1, Call2);
 }
 
 /// Provide ad-hoc rules to disambiguate accesses through two GEP operators,
@@ -1168,8 +1209,12 @@ static AliasResult aliasSameBasePointerGEPs(const GEPOperator *GEP1,
 
   // If the last (struct) indices are constants and are equal, the other indices
   // might be also be dynamically equal, so the GEPs can alias.
-  if (C1 && C2 && C1->getSExtValue() == C2->getSExtValue())
-    return MayAlias;
+  if (C1 && C2) {
+    unsigned BitWidth = std::max(C1->getBitWidth(), C2->getBitWidth());
+    if (C1->getValue().sextOrSelf(BitWidth) ==
+        C2->getValue().sextOrSelf(BitWidth))
+      return MayAlias;
+  }
 
   // Find the last-indexed type of the GEP, i.e., the type you'd get if
   // you stripped the last index.
@@ -1251,6 +1296,10 @@ static AliasResult aliasSameBasePointerGEPs(const GEPOperator *GEP1,
   } else if (!LastIndexedStruct || !C1 || !C2) {
     return MayAlias;
   }
+
+  if (C1->getValue().getActiveBits() > 64 ||
+      C2->getValue().getActiveBits() > 64)
+    return MayAlias;
 
   // We know that:
   // - both GEPs begin indexing from the exact same pointer;
@@ -1339,8 +1388,8 @@ bool BasicAAResult::isGEPBaseAtNegativeOffset(const AddressOperator *GEPOp, // I
       !DecompObject.VarIndices.empty())
     return false;
 
-  int64_t ObjectBaseOffset = DecompObject.StructOffset +
-                             DecompObject.OtherOffset;
+  APInt ObjectBaseOffset = DecompObject.StructOffset +
+                           DecompObject.OtherOffset;
 
   // If the GEP has no variable indices, we know the precise offset
   // from the base, then use it. If the GEP has variable indices,
@@ -1348,10 +1397,11 @@ bool BasicAAResult::isGEPBaseAtNegativeOffset(const AddressOperator *GEPOp, // I
   // false in that case.
   if (!DecompGEP.VarIndices.empty())
     return false;
-  int64_t GEPBaseOffset = DecompGEP.StructOffset;
+
+  APInt GEPBaseOffset = DecompGEP.StructOffset;
   GEPBaseOffset += DecompGEP.OtherOffset;
 
-  return (GEPBaseOffset >= ObjectBaseOffset + (int64_t)ObjectAccessSize);
+  return GEPBaseOffset.sge(ObjectBaseOffset + (int64_t)ObjectAccessSize);
 }
 
 /// Provides a bunch of ad-hoc rules to disambiguate a GEP instruction against
@@ -1367,13 +1417,17 @@ BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
                         LocationSize V2Size, const AAMDNodes &V2AAInfo,
                         const Value *UnderlyingV1, const Value *UnderlyingV2) {
   DecomposedGEP DecompGEP1, DecompGEP2;
+  unsigned MaxPointerSize = getMaxPointerSize(DL);
+  DecompGEP1.StructOffset = DecompGEP1.OtherOffset = APInt(MaxPointerSize, 0);
+  DecompGEP2.StructOffset = DecompGEP2.OtherOffset = APInt(MaxPointerSize, 0);
+
   bool GEP1MaxLookupReached =
     DecomposeGEPExpression(GEP1, DecompGEP1, DL, &AC, DT);
   bool GEP2MaxLookupReached =
     DecomposeGEPExpression(V2, DecompGEP2, DL, &AC, DT);
 
-  int64_t GEP1BaseOffset = DecompGEP1.StructOffset + DecompGEP1.OtherOffset;
-  int64_t GEP2BaseOffset = DecompGEP2.StructOffset + DecompGEP2.OtherOffset;
+  APInt GEP1BaseOffset = DecompGEP1.StructOffset + DecompGEP1.OtherOffset;
+  APInt GEP2BaseOffset = DecompGEP2.StructOffset + DecompGEP2.OtherOffset;
 
   assert((DecompGEP1.Base == UnderlyingV1 ||       // INTEL
           isa<SubscriptInst>(DecompGEP1.Base)) &&  // INTEL
@@ -1470,33 +1524,34 @@ BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
         V2Size.getValue() <= (uint64_t)std::numeric_limits<int64_t>::max() &&
         !DecompGEP1.VarIndices.empty()) {
 
-      int64_t MinCoeff = std::abs(DecompGEP1.VarIndices[0].Scale);
+      APInt MinCoeff = DecompGEP1.VarIndices[0].Scale.abs();
       for (unsigned i = 1, e = DecompGEP1.VarIndices.size(); i != e; ++i)
-        MinCoeff = std::min(MinCoeff, std::abs(DecompGEP1.VarIndices[i].Scale));
+        MinCoeff = MinCoeff.sle(DecompGEP1.VarIndices[i].Scale.abs()) ?
+                   MinCoeff : DecompGEP1.VarIndices[i].Scale.abs();
 
       bool CoeffsAreDivisible = true;
       for (unsigned i = 0, e = DecompGEP1.VarIndices.size(); i != e; ++i)
-        if (DecompGEP1.VarIndices[i].Scale % MinCoeff) {
+        if (!!(DecompGEP1.VarIndices[i].Scale.srem(MinCoeff))) {
           CoeffsAreDivisible = false;
           break;
         }
 
-      if (CoeffsAreDivisible && (int64_t)V1Size.getValue() <= MinCoeff &&
-          (int64_t)V2Size.getValue() <= MinCoeff) {
-        int64_t GEP1BaseOffsetReduced = GEP1BaseOffset % MinCoeff;
-        if (GEP1BaseOffsetReduced > 0) {
+      if (CoeffsAreDivisible && MinCoeff.sge((int64_t)V1Size.getValue()) &&
+          MinCoeff.sge((int64_t)V2Size.getValue())) {
+        APInt GEP1BaseOffsetReduced = GEP1BaseOffset.srem(MinCoeff);
+        if (GEP1BaseOffsetReduced.sgt(0)) {
           // | V2 ... V2 + V2Size |
           // | GEP1BaseOffsetReduced | V1 ... V1 + V1Size
           // | MinCoeff                                     |
-          if ((int64_t)V2Size.getValue() <= GEP1BaseOffsetReduced &&
-              GEP1BaseOffsetReduced <= MinCoeff - (int64_t)V1Size.getValue())
+          if (GEP1BaseOffsetReduced.sge((int64_t)V2Size.getValue()) &&
+              GEP1BaseOffsetReduced.sle(MinCoeff - (int64_t)V1Size.getValue()))
             return NoAlias;
-        } else if (GEP1BaseOffsetReduced < 0) {
+        } else if (GEP1BaseOffsetReduced.slt(0)) {
           // | V1 ... V1 + V1Size |
           // | GEP1BaseOffsetReduced | V2 ... V2 + V2Size
           // | MinCoeff                                     |
-          if ((int64_t)V1Size.getValue() <= -GEP1BaseOffsetReduced &&
-              -GEP1BaseOffsetReduced <= MinCoeff - (int64_t)V2Size.getValue())
+          if ((-GEP1BaseOffsetReduced).sge((int64_t)V1Size.getValue()) &&
+              (-GEP1BaseOffsetReduced).sle(MinCoeff - (int64_t)V2Size.getValue()))
             return NoAlias;
         }
       }
@@ -1543,9 +1598,9 @@ BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
   // that the objects are partially overlapping.  If the difference is
   // greater, we know they do not overlap.
   if (GEP1BaseOffset != 0 && DecompGEP1.VarIndices.empty()) {
-    if (GEP1BaseOffset >= 0) {
+    if (GEP1BaseOffset.sge(0)) {
       if (V2Size != LocationSize::unknown()) {
-        if ((uint64_t)GEP1BaseOffset < V2Size.getValue())
+        if (GEP1BaseOffset.ult(V2Size.getValue()))
           return PartialAlias;
         return NoAlias;
       }
@@ -1560,7 +1615,7 @@ BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
       // stripped a gep with negative index ('gep <ptr>, -1, ...).
       if (V1Size != LocationSize::unknown() &&
           V2Size != LocationSize::unknown()) {
-        if (-(uint64_t)GEP1BaseOffset < V1Size.getValue())
+        if ((-GEP1BaseOffset).ult(V1Size.getValue()))
           return PartialAlias;
         return NoAlias;
       }
@@ -1568,7 +1623,7 @@ BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
   }
 
   if (!DecompGEP1.VarIndices.empty()) {
-    uint64_t Modulo = 0;
+    APInt Modulo(MaxPointerSize, 0);
     bool AllPositive = true;
     for (unsigned i = 0, e = DecompGEP1.VarIndices.size(); i != e; ++i) {
 
@@ -1576,7 +1631,7 @@ BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
       // Grab the least significant bit set in any of the scales. We
       // don't need std::abs here (even if the scale's negative) as we'll
       // be ^'ing Modulo with itself later.
-      Modulo |= (uint64_t)DecompGEP1.VarIndices[i].Scale;
+      Modulo |= DecompGEP1.VarIndices[i].Scale;
 
       if (AllPositive) {
         // If the Value could change between cycles, then any reasoning about
@@ -1597,9 +1652,9 @@ BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
         // If the variable begins with a zero then we know it's
         // positive, regardless of whether the value is signed or
         // unsigned.
-        int64_t Scale = DecompGEP1.VarIndices[i].Scale;
+        APInt Scale = DecompGEP1.VarIndices[i].Scale;
         AllPositive =
-            (SignKnownZero && Scale >= 0) || (SignKnownOne && Scale < 0);
+            (SignKnownZero && Scale.sge(0)) || (SignKnownOne && Scale.slt(0));
       }
     }
 
@@ -1608,18 +1663,18 @@ BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
     // We can compute the difference between the two addresses
     // mod Modulo. Check whether that difference guarantees that the
     // two locations do not alias.
-    uint64_t ModOffset = (uint64_t)GEP1BaseOffset & (Modulo - 1);
+    APInt ModOffset = GEP1BaseOffset & (Modulo - 1);
     if (V1Size != LocationSize::unknown() &&
-        V2Size != LocationSize::unknown() && ModOffset >= V2Size.getValue() &&
-        V1Size.getValue() <= Modulo - ModOffset)
+        V2Size != LocationSize::unknown() && ModOffset.uge(V2Size.getValue()) &&
+        (Modulo - ModOffset).uge(V1Size.getValue()))
       return NoAlias;
 
     // If we know all the variables are positive, then GEP1 >= GEP1BasePtr.
     // If GEP1BasePtr > V2 (GEP1BaseOffset > 0) then we know the pointers
     // don't alias if V2Size can fit in the gap between V2 and GEP1BasePtr.
-    if (AllPositive && GEP1BaseOffset > 0 &&
+    if (AllPositive && GEP1BaseOffset.sgt(0) &&
         V2Size != LocationSize::unknown() &&
-        V2Size.getValue() <= (uint64_t)GEP1BaseOffset)
+        GEP1BaseOffset.uge(V2Size.getValue()))
       return NoAlias;
 
     if (constantOffsetHeuristic(DecompGEP1.VarIndices, V1Size, V2Size,
@@ -1907,6 +1962,69 @@ static Value* getNoAliasPtrOfPHI(const Value* U) {
   return NoAliasPtr;
 }
 
+// This routine does simple analysis to detect if given \p U is a copy
+// of an argument and returns the argument if it finds one. Otherwise,
+// returns nullptr.
+//
+// In the below example,
+// 1. This routine returns %twp if %twp.addr is given as input.
+// 2. This routine returns %data if %data is given as input.
+//
+// define void @foo(double* noalias %data, double* %twp) {
+//   ...
+//   %twp.addr = phi double* [ %twp, %for.body ], [ %twp.addr.ssa, %for.end ]
+//   ...
+//   %twp.addr.ssa = phi double* [ %twp.addr, %for.le ], [ %inc.ptr, %for.ph ]
+//   ...
+//   %inc.ptr = getelementptr inbounds double, double* %twp.addr, i64 1
+//   ...
+// }
+//
+static const Value* getArgumentBasePtr(const Value* U, const DataLayout &DL) {
+  // Just return it if U is already argument.
+  if (isa<Argument>(U))
+    return U;
+
+  const Value* ArgumentPtr = nullptr;
+  SmallPtrSet<const Value *, 4> Visited;
+  SmallVector<const Value *, 4> Worklist;
+
+  Worklist.push_back(U);
+  do {
+    const Value *V = GetUnderlyingObject(Worklist.pop_back_val(), DL);
+    if (!Visited.insert(V).second)
+      continue;
+
+    if (auto *PN = dyn_cast<PHINode>(V)) {
+      // Limit number of incoming values of PHI. It is considered
+      // as dead BasicBlock if NumIncomingValues is zero.
+      unsigned NumIncomingValues = PN->getNumIncomingValues();
+      if (NumIncomingValues > 2 || NumIncomingValues == 0)
+        return nullptr;
+      for (Value *IncValue : PN->incoming_values())
+        Worklist.push_back(IncValue);
+      continue;
+    }
+    if (auto *G = dyn_cast<GEPOperator>(V)) {
+      Worklist.push_back(G->getPointerOperand());
+      continue;
+    }
+    if (auto *Subs = dyn_cast<SubscriptInst>(V)) {
+      Worklist.push_back(Subs->getPointerOperand());
+      continue;
+    }
+    if (!isa<Argument>(V))
+      return nullptr;
+
+    // Makes sure here all incoming values point to same argument
+    if (ArgumentPtr != nullptr && ArgumentPtr != V)
+     return nullptr;
+    ArgumentPtr = V;
+
+  } while (!Worklist.empty());
+  return ArgumentPtr;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Provides a bunch of ad-hoc rules to disambiguate in common cases, such as
@@ -1917,7 +2035,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
                                       const Value *O1, const Value *O2) {
   // If either of the memory references is empty, it doesn't matter what the
   // pointer values are.
-  if (V1Size == 0 || V2Size == 0)
+  if (V1Size.isZero() || V2Size.isZero())
     return NoAlias;
 
   // Strip off any casts if they exist.
@@ -2012,6 +2130,27 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
         return NoAlias;
       }
     }
+
+    // Return NoAlias if one pointer is an argument that is marked
+    // with noalias and other pointer is a copy of another argument.
+    //
+    // Ex: Detects that %data and %twp.addr are NoAlias
+    //
+    // define void @foo(double* noalias %data, double* %twp) {
+    //   ...
+    //   %twp.addr = phi double* [ %twp, %for.body ], [ %inc.ptr, %for.end ]
+    //   ...
+    //   %inc.ptr = getelementptr inbounds double, double* %twp.addr, i64 1
+    // }
+    //
+    const Value* ArgBasePtr1 = getArgumentBasePtr(O1, DL);
+    const Value* ArgBasePtr2 = getArgumentBasePtr(O2, DL);
+    if (ArgBasePtr1 && ArgBasePtr2 && ArgBasePtr1 != ArgBasePtr2 &&
+        ((isa<Argument>(ArgBasePtr1) && isNoAliasArgument(ArgBasePtr2)) ||
+        (isa<Argument>(ArgBasePtr2) && isNoAliasArgument(ArgBasePtr1)))) {
+      return NoAlias;
+   }
+
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -2136,7 +2275,7 @@ void BasicAAResult::GetIndexDifference(
   for (unsigned i = 0, e = Src.size(); i != e; ++i) {
     const Value *V = Src[i].V;
     unsigned ZExtBits = Src[i].ZExtBits, SExtBits = Src[i].SExtBits;
-    int64_t Scale = Src[i].Scale;
+    APInt Scale = Src[i].Scale;
 
     // Find V in Dest.  This is N^2, but pointer indices almost never have more
     // than a few variable indexes.
@@ -2156,7 +2295,7 @@ void BasicAAResult::GetIndexDifference(
     }
 
     // If we didn't consume this entry, add it to the end of the Dest list.
-    if (Scale) {
+    if (!!Scale) {
       VariableGEPIndex Entry = {V, ZExtBits, SExtBits, -Scale};
       Dest.push_back(Entry);
     }
@@ -2165,7 +2304,7 @@ void BasicAAResult::GetIndexDifference(
 
 bool BasicAAResult::constantOffsetHeuristic(
     const SmallVectorImpl<VariableGEPIndex> &VarIndices,
-    LocationSize MaybeV1Size, LocationSize MaybeV2Size, int64_t BaseOffset,
+    LocationSize MaybeV1Size, LocationSize MaybeV2Size, APInt BaseOffset,
     AssumptionCache *AC, DominatorTree *DT) {
   if (VarIndices.size() != 2 || MaybeV1Size == LocationSize::unknown() ||
       MaybeV2Size == LocationSize::unknown())
@@ -2210,14 +2349,15 @@ bool BasicAAResult::constantOffsetHeuristic(
   // the minimum distance between %i and %i + 5 is 3.
   APInt MinDiff = V0Offset - V1Offset, Wrapped = -MinDiff;
   MinDiff = APIntOps::umin(MinDiff, Wrapped);
-  uint64_t MinDiffBytes = MinDiff.getZExtValue() * std::abs(Var0.Scale);
+  APInt MinDiffBytes =
+    MinDiff.zextOrTrunc(Var0.Scale.getBitWidth()) * Var0.Scale.abs();
 
   // We can't definitely say whether GEP1 is before or after V2 due to wrapping
   // arithmetic (i.e. for some values of GEP1 and V2 GEP1 < V2, and for other
   // values GEP1 > V2). We'll therefore only declare NoAlias if both V1Size and
   // V2Size can fit in the MinDiffBytes gap.
-  return V1Size + std::abs(BaseOffset) <= MinDiffBytes &&
-         V2Size + std::abs(BaseOffset) <= MinDiffBytes;
+  return MinDiffBytes.uge(V1Size + BaseOffset.abs()) &&
+         MinDiffBytes.uge(V2Size + BaseOffset.abs());
 }
 
 //===----------------------------------------------------------------------===//

@@ -1,6 +1,6 @@
 //===---- HIRSafeReductionAnalysis.cpp - Identify Safe Reduction Chain ----===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -84,7 +84,7 @@ void HIRSafeReductionAnalysisWrapperPass::getAnalysisUsage(
 //  b. In Vectorizer:
 //	if (SRA->isSafeReduction(Inst))   ....
 //  or this to walk the chains
-//  const SafeRedChainList & SRCL = SRA->getSafeReductionChain(Loop);
+//  const SafeRedInfoList & SRCL = SRA->getSafeRedInfoList(Loop);
 //	if (!SRCL.empty()) {
 //		for (auto SRC : SRCL) {
 //			for (auto Inst : SRC) {
@@ -168,11 +168,11 @@ void HIRSafeReductionAnalysis::computeSafeReductionChains(const HLLoop *Loop) {
   }
 }
 
-const SafeRedChainList &
-HIRSafeReductionAnalysis::getSafeReductionChain(const HLLoop *Loop) {
+const SafeRedInfoList &
+HIRSafeReductionAnalysis::getSafeRedInfoList(const HLLoop *Loop) {
 
   assert(Loop->isInnermost() && "SafeReduction supports only innermost loop");
-  SafeRedChainList &SRCL = SafeReductionMap[Loop];
+  SafeRedInfoList &SRCL = SafeReductionMap[Loop];
   return SRCL;
 }
 
@@ -518,7 +518,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
 
     // Blob dd refs of rval dd refs scanned as well because
     // rval sinks of incoming edges can be a blob ddref.
-    for (auto BI = RRef->blob_cbegin(), BE = RRef->blob_cend(); BI != BE;
+    for (auto BI = RRef->blob_begin(), BE = RRef->blob_end(); BI != BE;
          ++BI) {
       auto Found = Finder(*BI);
       if (Found == POTENTIAL_REDUCTION) {
@@ -562,7 +562,7 @@ void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
                                                    unsigned RedSymbase,
                                                    unsigned RedOpCode) {
 
-  SafeRedChainList &SRCL = SafeReductionMap[Loop];
+  SafeRedInfoList &SRCL = SafeReductionMap[Loop];
   SRCL.emplace_back(RedInsts, RedSymbase, RedOpCode,
                     anyUnsafeAlgebraInChain(RedInsts));
   unsigned SRIIndex = SRCL.size() - 1;
@@ -621,7 +621,7 @@ void HIRSafeReductionAnalysis::printAnalysis(raw_ostream &OS) const {
 
 void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
                                      const HLLoop *Loop,
-                                     const SafeRedChainList *SRCL) {
+                                     const SafeRedInfoList *SRCL) {
   unsigned Depth = Loop->getNestingLevel() + 1;
 
   if (SRCL->empty()) {
@@ -669,16 +669,16 @@ HIRSafeReductionAnalysis::getSafeRedInfo(const HLInst *Inst) const {
   // Get index of SafeRedInfo via Inst
   auto &SRIIndex = Iter->second;
   const HLLoop *Loop = Inst->getLexicalParentLoop();
-  // Get SafeRedChainList via Loop
+  // Get SafeRedInfoList via Loop
   auto Iter2 = SafeReductionMap.find(Loop);
 
   assert(Iter2 != SafeReductionMap.end() &&
          "safe reduction analysis is in an inconsistent state!");
 
-  auto &SRCL = Iter2->second;
+  auto &SRIL = Iter2->second;
 
   // Return SafeRedInfo via obtained Index and SRCL
-  return &SRCL[SRIIndex];
+  return &SRIL[SRIIndex];
 }
 
 bool HIRSafeReductionAnalysis::isReductionRef(const RegDDRef *Ref,

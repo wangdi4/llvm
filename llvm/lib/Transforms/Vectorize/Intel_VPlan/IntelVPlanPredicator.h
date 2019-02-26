@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -41,13 +41,17 @@ private:
                                        BasicBlock *To);
   void propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
                                        VPRegionBlock *Region);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void genLitReport(VPRegionBlock *Region);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   void predicateRegionRec(VPRegionBlock *Region);
   void optimizeRegionRec(VPRegionBlock *Region,
                          VPPredicateRecipeBase *IncomingAllOnesPred);
   // Linearize the CFG within Region.
   void linearizeRegionRec(VPRegionBlock *Region);
+
+  void handleInnerLoopBackedges(VPLoopRegion *LoopRegion);
 
 public:
   VPlanPredicator(VPlan *Plan) : Plan(Plan), VPLI(Plan->getVPLoopInfo()) {}

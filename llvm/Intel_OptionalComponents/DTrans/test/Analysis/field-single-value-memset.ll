@@ -5,17 +5,11 @@
 ; type { i32, i32, i32 }, memset size 12 bytes.
 
 ; CHECK-LABEL: LLVMType: %struct.type0 = type
-; CHECK: Multiple Value
-; CHECK-SAME: 6
-; CHECK-SAME: 0
+; CHECK: Multiple Value: [ 0, 6 ]
 ; CHECK-SAME: complete
-; CHECK: Multiple Value
-; CHECK-SAME: 8
-; CHECK-SAME: 0
+; CHECK: Multiple Value: [ 0, 8 ]
 ; CHECK-SAME: complete
-; CHECK: Multiple Value
-; CHECK-SAME: 16
-; CHECK-SAME: 0
+; CHECK: Multiple Value: [ 0, 16 ]
 ; CHECK-SAME: complete
 ; CHECK: Safety data:
 
@@ -32,12 +26,9 @@ define dso_local i32 @test0() {
 ; type { i32, i32, i32 }, memset size 6 bytes.
 
 ; CHECK-LABEL: LLVMType: %struct.type1 = type
-; CHECK: Multiple Value
-; CHECK-SAME: 6
-; CHECK-SAME: 0
+; CHECK: Multiple Value: [ 0, 6 ]
 ; CHECK-SAME: complete
-; CHECK: Multiple Value
-; CHECK-SAME: 8
+; CHECK: Multiple Value: [ 8 ]
 ; CHECK-SAME: incomplete
 ; CHECK: Single Value: i32 16
 ; CHECK: Safety data:
@@ -57,13 +48,9 @@ define dso_local i32 @test1() {
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: LLVMType: %struct.type2 = type
-; CHECK: Multiple Value
-; CHECK-SAME: 6
-; CHECK-SAME: 0
+; CHECK: Multiple Value: [ 0, 6 ]
 ; CHECK-SAME: complete
-; CHECK: Multiple Value
-; CHECK-SAME: 8
-; CHECK-SAME: 0
+; CHECK: Multiple Value: [ 0, 8 ]
 ; CHECK-SAME: complete
 ; CHECK: Single Value: i32 16
 ; CHECK: Safety data:

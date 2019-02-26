@@ -1,6 +1,6 @@
 //===--- HIROptPredicate.cpp - Implements OptPredicate class --------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -529,7 +529,7 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
     // Look for all incoming flow edges.
 
     for (const BlobDDRef *BDDRef :
-         make_range(VRef->blob_cbegin(), VRef->blob_cend())) {
+         make_range(VRef->blob_begin(), VRef->blob_end())) {
       for (auto &Edge : DDG.incoming(BDDRef)) {
         if (!processPUEdge(If, Edge, PU, RefsStack, DDG)) {
           return false;
@@ -642,6 +642,10 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   bool TransformLoop = true;
 
   if (!DisableCostModel && !Loop->isInnermost()) {
+    TransformLoop = false;
+  }
+
+  if (Loop->isSIMD()) {
     TransformLoop = false;
   }
 

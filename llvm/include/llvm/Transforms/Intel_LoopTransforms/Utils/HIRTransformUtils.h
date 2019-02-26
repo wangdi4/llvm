@@ -1,6 +1,6 @@
 //===------ HIRTransformUtils.h ---------------------------- --*- C++ -*---===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -294,6 +294,8 @@ public:
 
   /// Multiplies trip count of \p Loop using passed in \p Multiplier.
   /// It also updates trip count pragma and max trip count estimate.
+  /// Returns false if multiplied trip count will overflow uint64,
+  /// and do not change Loop's trip count.
   ///
   /// \p Loop is expected to be normalized.
   ///
@@ -303,7 +305,7 @@ public:
   ///
   /// This utility was created to be shared between do loop rerolling and
   /// do multi-exit loop rerolling pass.
-  static void multiplyTripCount(HLLoop *Loop, unsigned Multiplier);
+  static bool multiplyTripCount(HLLoop *Loop, unsigned Multiplier);
 };
 
 } // End namespace loopopt

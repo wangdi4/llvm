@@ -1,9 +1,8 @@
 //===-- X86DisassemblerDecoderInternal.h - Disassembler decoder -*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -42,7 +41,7 @@ namespace X86Disassembler {
 #if INTEL_FEATURE_ISA_FP16
 #define mmmFromEVEX2of4(evex)    ((evex) & 0x7)
 #else // INTEL_FEATURE_ISA_FP16
-#define mmmFromEVEX2of4(evex)    ((evex) & 0x3)
+#define mmFromEVEX2of4(evex)    ((evex) & 0x3)
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 #define wFromEVEX3of4(evex)     (((evex) & 0x80) >> 7)
@@ -380,6 +379,27 @@ namespace X86Disassembler {
   ENTRY(BND1)         \
   ENTRY(BND2)         \
   ENTRY(BND3)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+#define REGS_TMM  \
+  ENTRY(TMM0)     \
+  ENTRY(TMM1)     \
+  ENTRY(TMM2)     \
+  ENTRY(TMM3)     \
+  ENTRY(TMM4)     \
+  ENTRY(TMM5)     \
+  ENTRY(TMM6)     \
+  ENTRY(TMM7)     \
+  ENTRY(TMM8)     \
+  ENTRY(TMM9)     \
+  ENTRY(TMM10)    \
+  ENTRY(TMM11)    \
+  ENTRY(TMM12)    \
+  ENTRY(TMM13)    \
+  ENTRY(TMM14)    \
+  ENTRY(TMM15)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 
 #define ALL_EA_BASES  \
   EA_BASES_16BIT      \
@@ -390,6 +410,25 @@ namespace X86Disassembler {
   REGS_32BIT          \
   REGS_64BIT
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+#define ALL_REGS      \
+  REGS_8BIT           \
+  REGS_16BIT          \
+  REGS_32BIT          \
+  REGS_64BIT          \
+  REGS_MMX            \
+  REGS_XMM            \
+  REGS_YMM            \
+  REGS_ZMM            \
+  REGS_MASKS          \
+  REGS_SEGMENT        \
+  REGS_DEBUG          \
+  REGS_CONTROL        \
+  REGS_BOUND          \
+  REGS_TMM            \
+  ENTRY(RIP)
+#else // INTEL_FEATURE_ISA_AMX
 #define ALL_REGS      \
   REGS_8BIT           \
   REGS_16BIT          \
@@ -405,7 +444,8 @@ namespace X86Disassembler {
   REGS_CONTROL        \
   REGS_BOUND          \
   ENTRY(RIP)
-
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 /// All possible values of the base field for effective-address
 /// computations, a.k.a. the Mod and R/M fields of the ModR/M byte.
 /// We distinguish between bases (EA_BASE_*) and registers that just happen

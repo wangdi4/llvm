@@ -1,6 +1,6 @@
 //===-- IntelVPlanVerifier.cpp --------------------------------------------===//
 //
-//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -54,7 +54,7 @@ void VPlanVerifier::verifyContainerLoop(
 void VPlanVerifier::verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const {
 
   const VPLoop *Loop = LoopRegion->getVPLoop();
-  assert(LoopRegion && "Missing VPLoop for VPLoopRegion");
+  assert(Loop && "Missing VPLoop for VPLoopRegion");
 
   const VPBlockBase *Preheader = LoopRegion->getEntry();
   assert(Preheader && Preheader == Loop->getLoopPreheader() &&
@@ -295,8 +295,10 @@ void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
 
 #if INTEL_CUSTOMIZATION
 void VPlanVerifier::verifyHCFGContext(const VPlan *Plan) {
+  Plan->verifyVPConstants();
   Plan->verifyVPExternalDefs();
   Plan->verifyVPExternalDefsHIR();
+  Plan->verifyVPMetadataAsValues();
 }
 #endif
 
@@ -764,13 +766,14 @@ void VPlanVerifier::verifyPHINode(const VPPHINode *Phi) const {
              Phi->getParent()->getNumPredecessors() &&
          "Number of incoming values doesn't match with number of preds");
 
-  const auto &Preds = Phi->getParent()->getPredecessors();
-  for (auto &Block : Phi->blocks()) {
-    assert(llvm::find(Preds, Block) != Preds.end() &&
-           "Incoming VPBB for VPPHINode is not a predecessor");
+  const auto &PBlocks = Phi->blocks();
+  for (auto *Block : Phi->getParent()->getPredecessors()) {
+    // A VPRegion can be set as a predecessor thus we use getExitBasicBlock().
+    assert(llvm::find(PBlocks, Block->getExitBasicBlock())!= PBlocks.end() &&
+           "A predecessor is not incoming VPBB for VPPHINode");
     (void)Block;
   }
-  (void)Preds;
+  (void)PBlocks;
 }
 
 // Verify operand types of the \p GEP instruction. Also check that the

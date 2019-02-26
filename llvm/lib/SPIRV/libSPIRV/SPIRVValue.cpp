@@ -73,4 +73,32 @@ SPIRVValue::setVolatile(bool IsVolatile) {
   SPIRVDBG(spvdbgs() << "Set volatile " << " for obj " << Id << "\n")
 }
 
+bool SPIRVValue::hasNoSignedWrap() const {
+  return hasDecorate(DecorationNoSignedWrap);
+}
+
+void SPIRVValue::setNoSignedWrap(bool HasNoSignedWrap) {
+  if (!HasNoSignedWrap) {
+    eraseDecorate(DecorationNoSignedWrap);
+    return;
+  }
+  addDecorate(new SPIRVDecorate(DecorationNoSignedWrap, this));
+  SPIRVDBG(spvdbgs() << "Set nsw "
+                     << " for obj " << Id << "\n")
+}
+
+bool SPIRVValue::hasNoUnsignedWrap() const {
+  return hasDecorate(DecorationNoUnsignedWrap);
+}
+
+void SPIRVValue::setNoUnsignedWrap(bool HasNoUnsignedWrap) {
+  if (!HasNoUnsignedWrap) {
+    eraseDecorate(DecorationNoUnsignedWrap);
+    return;
+  }
+  addDecorate(new SPIRVDecorate(DecorationNoUnsignedWrap, this));
+  SPIRVDBG(spvdbgs() << "Set nuw "
+                     << " for obj " << Id << "\n")
+}
+
 }

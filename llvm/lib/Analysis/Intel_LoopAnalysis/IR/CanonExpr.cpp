@@ -1,6 +1,6 @@
 //===- CanonExpr.cpp - Implements the CanonExpr class ---------------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -757,6 +757,12 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
     Val = static_cast<int64_t>(APVal.getZExtValue());
   }
 
+  // Val may becomes zero in the SrcType by truncation.
+  if (!Val) {
+    removeIV(Lvl);
+    return;
+  }
+
   int64_t NewVal = IVCoeffs[Lvl - 1].Coeff * Val;
 
   if (IVCoeffs[Lvl - 1].Index != InvalidBlobIndex) {
@@ -1174,7 +1180,7 @@ int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
   return CurrentGCD;
 }
 
-void CanonExpr::simplify(bool SimplifyCast) {
+void CanonExpr::simplify(bool SimplifyCast, bool IsUnsignedOrNonNegative) {
   int64_t Denom = 0, NumeratorGCD = -1, CommonGCD = 0;
 
   // Numerator is constant, we can evaluate value of the CE.
@@ -1184,6 +1190,12 @@ void CanonExpr::simplify(bool SimplifyCast) {
       simplifyConstantCast();
     }
 
+    return;
+  }
+
+  // Cannot simplify unsigned division for negative numerator.
+  // ((-3 * %t) /u 9) != ((-1 * %t) /u 3)
+  if (!IsUnsignedOrNonNegative && isUnsignedDiv()) {
     return;
   }
 

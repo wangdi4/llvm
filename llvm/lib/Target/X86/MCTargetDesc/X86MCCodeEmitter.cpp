@@ -1,9 +1,8 @@
 //===-- X86MCCodeEmitter.cpp - Convert X86 code to machine code -----------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -133,7 +132,7 @@ public:
   void emitMemModRMByte(const MCInst &MI, unsigned Op, unsigned RegOpcodeField,
                         uint64_t TSFlags, bool Rex, unsigned &CurByte,
                         raw_ostream &OS, SmallVectorImpl<MCFixup> &Fixups,
-                        const MCSubtargetInfo &STI) const;
+                        const MCSubtargetInfo &STI, bool ForceSIB) const;//INTEL
 
   void encodeInstruction(const MCInst &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups,
@@ -379,7 +378,8 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
                                         uint64_t TSFlags, bool Rex,
                                         unsigned &CurByte, raw_ostream &OS,
                                         SmallVectorImpl<MCFixup> &Fixups,
-                                        const MCSubtargetInfo &STI) const {
+                                        const MCSubtargetInfo &STI, // INTEL
+                                        bool ForceSIB) const {      // INTEL
   const MCOperand &Disp     = MI.getOperand(Op+X86::AddrDisp);
   const MCOperand &Base     = MI.getOperand(Op+X86::AddrBaseReg);
   const MCOperand &Scale    = MI.getOperand(Op+X86::AddrScaleAmt);
@@ -505,7 +505,8 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
   // resolve addresses on-the-fly, otherwise use SIB (Intel Manual 2A, table
   // 2-7) and absolute references.
 
-  if (// The SIB byte must be used if there is an index register.
+  if (!ForceSIB && // INTEL
+      // The SIB byte must be used if there is an index register. // INTEL
       IndexReg.getReg() == 0 &&
       // The SIB byte must be used if the base is ESP/RSP/R12, all of which
       // encode to an R/M value of 4, which indicates that a SIB byte is
@@ -745,6 +746,7 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
 
   switch (TSFlags & X86II::FormMask) {
   default: llvm_unreachable("Unexpected form in EmitVEXOpcodePrefix!");
+  case X86II::MRM_C0: // INTEL
   case X86II::RawFrm:
     break;
   case X86II::MRMDestMem: {
@@ -776,6 +778,7 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
     EVEX_R2 = ~(RegEnc >> 4) & 1;
     break;
   }
+  case X86II::MRMSrcMemFSIB: // INTEL
   case X86II::MRMSrcMem: {
     // MRMSrcMem instructions forms:
     //  src1(ModR/M), MemAddr
@@ -945,6 +948,7 @@ void X86MCCodeEmitter::EmitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
       EncodeRC = true;
     break;
   }
+  case X86II::MRMr0: // INTEL
   case X86II::MRM0r: case X86II::MRM1r:
   case X86II::MRM2r: case X86II::MRM3r:
   case X86II::MRM4r: case X86II::MRM5r:
@@ -1076,6 +1080,7 @@ uint8_t X86MCCodeEmitter::DetermineREXPrefix(const MCInst &MI, uint64_t TSFlags,
     REX |= isREXExtendedReg(MI, CurOp++) << 2; // REX.R
     REX |= isREXExtendedReg(MI, CurOp++) << 0; // REX.B
     break;
+  case X86II::MRMSrcMemFSIB: // INTEL
   case X86II::MRMSrcMem: {
     REX |= isREXExtendedReg(MI, CurOp++) << 2; // REX.R
     REX |= isREXExtendedReg(MI, MemOperand+X86::AddrBaseReg) << 0; // REX.B
@@ -1108,6 +1113,11 @@ uint8_t X86MCCodeEmitter::DetermineREXPrefix(const MCInst &MI, uint64_t TSFlags,
   case X86II::MRM6r: case X86II::MRM7r:
     REX |= isREXExtendedReg(MI, CurOp++) << 0; // REX.B
     break;
+#if INTEL_CUSTOMIZATION
+  case X86II::MRMr0:
+    REX |= isREXExtendedReg(MI, CurOp++) << 2; // REX.R
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
   if (REX && UsesHighByteReg)
     report_fatal_error("Cannot encode high byte register in REX-prefixed instruction");
@@ -1399,7 +1409,7 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
       ++SrcRegNum;
 
     emitMemModRMByte(MI, CurOp, GetX86RegNum(MI.getOperand(SrcRegNum)), TSFlags,
-                     Rex, CurByte, OS, Fixups, STI);
+                     Rex, CurByte, OS, Fixups, STI, false); // INTEL
     CurOp = SrcRegNum + 1;
     break;
   }
@@ -1449,6 +1459,7 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
     CurOp = SrcRegNum + 1;
     break;
   }
+  case X86II::MRMSrcMemFSIB: // INTEL
   case X86II::MRMSrcMem: {
     unsigned FirstMemOp = CurOp+1;
 
@@ -1460,8 +1471,11 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
 
     EmitByte(BaseOpcode, CurByte, OS);
 
+#if INTEL_CUSTOMIZATION
+    bool BFSIB = (Form == X86II::MRMSrcMemFSIB);
     emitMemModRMByte(MI, FirstMemOp, GetX86RegNum(MI.getOperand(CurOp)),
-                     TSFlags, Rex, CurByte, OS, Fixups, STI);
+                     TSFlags, Rex, CurByte, OS, Fixups, STI, BFSIB);
+#endif // INTEL_CUSTOMIZATION
     CurOp = FirstMemOp + X86::AddrNumOperands;
     if (HasVEX_I8Reg)
       I8RegNum = getX86RegEncoding(MI, CurOp++);
@@ -1473,7 +1487,7 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
     EmitByte(BaseOpcode, CurByte, OS);
 
     emitMemModRMByte(MI, FirstMemOp, GetX86RegNum(MI.getOperand(CurOp)),
-                     TSFlags, Rex, CurByte, OS, Fixups, STI);
+                     TSFlags, Rex, CurByte, OS, Fixups, STI, false); // INTEL
     CurOp = FirstMemOp + X86::AddrNumOperands;
     ++CurOp; // Encoded in VEX.VVVV.
     break;
@@ -1490,7 +1504,7 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
     EmitByte(BaseOpcode, CurByte, OS);
 
     emitMemModRMByte(MI, FirstMemOp, GetX86RegNum(MI.getOperand(CurOp)),
-                     TSFlags, Rex, CurByte, OS, Fixups, STI);
+                     TSFlags, Rex, CurByte, OS, Fixups, STI, false);// INTEL
     CurOp = FirstMemOp + X86::AddrNumOperands;
     break;
   }
@@ -1510,6 +1524,13 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
                      CurByte, OS);
     break;
 
+#if INTEL_CUSTOMIZATION
+  case X86II::MRMr0:
+    EmitByte(BaseOpcode, CurByte, OS);
+    EmitByte(ModRMByte(3, GetX86RegNum(MI.getOperand(CurOp++)),0), CurByte, OS);
+    break;
+#endif // INTEL_CUSTOMIZATION
+
   case X86II::MRMXm:
   case X86II::MRM0m: case X86II::MRM1m:
   case X86II::MRM2m: case X86II::MRM3m:
@@ -1522,7 +1543,7 @@ encodeInstruction(const MCInst &MI, raw_ostream &OS,
     EmitByte(BaseOpcode, CurByte, OS);
     emitMemModRMByte(MI, CurOp,
                      (Form == X86II::MRMXm) ? 0 : Form - X86II::MRM0m, TSFlags,
-                     Rex, CurByte, OS, Fixups, STI);
+                     Rex, CurByte, OS, Fixups, STI, false); // INTEL
     CurOp += X86::AddrNumOperands;
     break;
 

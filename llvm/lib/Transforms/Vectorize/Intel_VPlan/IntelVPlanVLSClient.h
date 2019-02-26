@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSClient.h - ---------------------------------------------===/
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -82,6 +82,7 @@ public:
 
   const VPInstruction *getInstruction(void) const { return Inst; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
     this->print(dbgs());
     dbgs() << '\n';
@@ -104,6 +105,7 @@ public:
     else
       Os << "unknown";
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   static bool classof(const OVLSMemref *Memref) {
     return Memref->getKind() == VLSK_VPlanVLSClientMemref ||

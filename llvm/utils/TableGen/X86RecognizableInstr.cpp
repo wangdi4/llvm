@@ -1,9 +1,8 @@
 //===- X86RecognizableInstr.cpp - Disassembler instruction spec --*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -581,6 +580,9 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(rmRegister)
     HANDLE_OPTIONAL(immediate)
     break;
+#if INTEL_CUSTOMIZATION
+  case X86Local::MRMSrcMemFSIB:
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRMSrcMem:
     // Operand 1 is a register operand in the Reg/Opcode field.
     // Operand 2 is a memory operand (possibly SIB-extended)
@@ -621,6 +623,12 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(memory)
     HANDLE_OPTIONAL(immediate)
     break;
+#if INTEL_CUSTOMIZATION
+  case X86Local::MRMr0:
+    // Operand 1 is a register operand in the R/M field.
+    HANDLE_OPTIONAL(roRegister)
+    break;
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRMXr:
   case X86Local::MRM0r:
   case X86Local::MRM1r:
@@ -740,6 +748,11 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     filter = llvm::make_unique<ModFilter>(true);
     break;
   case X86Local::MRMDestMem:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  case X86Local::MRMSrcMemFSIB:
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRMSrcMem:
   case X86Local::MRMSrcMem4VOp3:
   case X86Local::MRMSrcMemOp4:
@@ -752,6 +765,13 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRM6r: case X86Local::MRM7r:
     filter = llvm::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0r);
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  case X86Local::MRMr0:
+    filter = llvm::make_unique<ExtendedRMFilter>(true, Form - X86Local::MRMr0);
+    break;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRM0m: case X86Local::MRM1m:
   case X86Local::MRM2m: case X86Local::MRM3m:
   case X86Local::MRM4m: case X86Local::MRM5m:
@@ -937,6 +957,11 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("vz256mem",            TYPE_MVSIBZ)
   TYPE("vz512mem",            TYPE_MVSIBZ)
   TYPE("BNDR",                TYPE_BNDR)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  TYPE("VTILE",               TYPE_TMM)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled type string " << s << "\n";
   llvm_unreachable("Unhandled type string");
 }
@@ -982,6 +1007,11 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
   ENCODING("VR128X",          ENCODING_IB)
   ENCODING("VR256X",          ENCODING_IB)
   ENCODING("VR512",           ENCODING_IB)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  ENCODING("VTILE",           ENCODING_IB)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled immediate encoding " << s << "\n";
   llvm_unreachable("Unhandled immediate encoding");
 }
@@ -1019,6 +1049,11 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
   ENCODING("VK32",            ENCODING_RM)
   ENCODING("VK64",            ENCODING_RM)
   ENCODING("BNDR",            ENCODING_RM)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  ENCODING("VTILE",           ENCODING_RM)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled R/M register encoding " << s << "\n";
   llvm_unreachable("Unhandled R/M register encoding");
 }
@@ -1065,6 +1100,11 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
   ENCODING("VK32WM",          ENCODING_REG)
   ENCODING("VK64WM",          ENCODING_REG)
   ENCODING("BNDR",            ENCODING_REG)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  ENCODING("VTILE",           ENCODING_REG)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled reg/opcode register encoding " << s << "\n";
   llvm_unreachable("Unhandled reg/opcode register encoding");
 }
@@ -1096,6 +1136,11 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("VK16",            ENCODING_VVVV)
   ENCODING("VK32",            ENCODING_VVVV)
   ENCODING("VK64",            ENCODING_VVVV)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  ENCODING("VTILE",           ENCODING_VVVV)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled VEX.vvvv register encoding " << s << "\n";
   llvm_unreachable("Unhandled VEX.vvvv register encoding");
 }

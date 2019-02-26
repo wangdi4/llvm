@@ -48,20 +48,32 @@ std::atomic<unsigned> VPlanUtils::NextOrdinal{1};
 static cl::opt<bool>
     DumpPlainVPlanIR("vplan-plain-dump", cl::init(false), cl::Hidden,
                        cl::desc("Print plain VPlan IR"));
+static cl::opt<int>
+    DumpVPlanLiveness("vplan-dump-liveness", cl::init(0), cl::Hidden,
+                       cl::desc("Print VPlan instructions' liveness info"));
 
-raw_ostream &operator<<(raw_ostream &OS, const VPValue &V) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
     I->dump(OS);
   else
     V.dump(OS);
   return OS;
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
 /// \return the VPBasicBlock that is the entry of Block, possibly indirectly.
 const VPBasicBlock *VPBlockBase::getEntryBasicBlock() const {
   const VPBlockBase *Block = this;
   while (const VPRegionBlock *Region = dyn_cast<VPRegionBlock>(Block))
+    Block = Region->getEntry();
+  return cast<VPBasicBlock>(Block);
+}
+
+VPBasicBlock *VPBlockBase::getEntryBasicBlock() {
+  VPBlockBase *Block = this;
+  while (VPRegionBlock *Region = dyn_cast<VPRegionBlock>(Block))
     Block = Region->getEntry();
   return cast<VPBasicBlock>(Block);
 }
@@ -236,45 +248,24 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
   for (VPBlockBase *PredVPBlock : make_range(Preds.rbegin(), Preds.rend())) {
 
     VPBasicBlock *PredVPBB = PredVPBlock->getExitBasicBlock();
-    if (!CFG.VPBB2IRBB.count(PredVPBB)) {
-      // Back edge from inner loop
-      CFG.EdgesToFix[PredVPBB] = NewBB;
+    auto &PredVPSuccessors = PredVPBB->getSuccessors();
+
+    // In order to keep the hookup code simple, we delay fixing up blocks
+    // with two successors to the end of code generation when all blocks
+    // have been visited.
+    if (PredVPSuccessors.size() == 2) {
+      CFG.VPBBsToFix.push_back(PredVPBB);
+      continue;
+    }
+
+    BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
+    auto *PredBBTerminator = PredBB->getTerminator();
+    LLVM_DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
+    if (isa<UnreachableInst>(PredBB->getTerminator())) {
+      PredBBTerminator->eraseFromParent();
+      BranchInst::Create(NewBB, PredBB);
     } else {
-      BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
-      LLVM_DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
-      if (isa<UnreachableInst>(PredBB->getTerminator())) {
-        PredBB->getTerminator()->eraseFromParent();
-        BranchInst::Create(NewBB, PredBB);
-      } else {
-        // Replace old unconditional branch with new conditional branch.
-        // Note: we rely on traversing the successors in order.
-        BasicBlock *FirstSuccBB;
-        BasicBlock *SecondSuccBB;
-
-        assert(PredBB->getSingleSuccessor() && "Unexpected null successor");
-        if (PredVPBB->getSuccessors()[0] == this) {
-          FirstSuccBB = NewBB;
-          SecondSuccBB = PredBB->getSingleSuccessor();
-          assert(SecondSuccBB && "Expected single successor!");
-        } else {
-          FirstSuccBB = PredBB->getSingleSuccessor();
-          assert(FirstSuccBB && "Expected single successor!");
-          SecondSuccBB = NewBB;
-        }
-
-        PredBB->getTerminator()->eraseFromParent();
-        VPValue *CBV = PredVPBlock->getCondBit();
-        assert(CBV && "Expected condition bit!");
-        Value *Bit = nullptr;
-        if (State->CBVToConditionBitMap.count(CBV)) {
-          Bit = State->CBVToConditionBitMap[CBV];
-        } else {
-          Bit = CBV->getUnderlyingValue();
-        }
-        assert(Bit && "Cannot create conditional branch with empty bit.");
-        assert(!Bit->getType()->isVectorTy() && "Should be 1-bit scalar");
-        BranchInst::Create(FirstSuccBB, SecondSuccBB, Bit, PredBB);
-      }
+      llvm_unreachable("Predecessor with two successors unexpected here");
     }
   }
 #else
@@ -376,6 +367,24 @@ void VPBasicBlock::execute(VPTransformState *State) {
   // VPBasicBlock's instructions, we have to reset MaskValue in order not to
   // propagate its value to the next VPBasicBlock.
   State->ILV->setMaskValue(nullptr);
+
+  if (auto *CBV = getCondBit()) {
+    // Condition bit value in a VPBasicBlock is used as the branch selector. All
+    // branches that remain are uniform - we generate a branch instruction using
+    // the condition value from vector lane 0 and dummy successors. The
+    // successors are fixed later when the successor blocks are visited.
+    Value *NewCond = State->ILV->getScalarValue(CBV, 0);
+
+    // Replace the temporary unreachable terminator with the new conditional
+    // branch.
+    auto *CurrentTerminator = NewBB->getTerminator();
+    assert(isa<UnreachableInst>(CurrentTerminator) &&
+           "Expected to replace unreachable terminator with conditional "
+           "branch.");
+    auto *CondBr = BranchInst::Create(NewBB, nullptr, NewCond);
+    CondBr->setSuccessor(0, nullptr);
+    ReplaceInstWithInst(CurrentTerminator, CondBr);
+  }
 
   LLVM_DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 
@@ -491,6 +500,7 @@ void VPRegionBlock::recomputeSize() {
                        df_iterator<const VPBlockBase *>::end(Exit));
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
   // Print name and predicate
@@ -526,26 +536,35 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
     }
   }
   auto &Successors = getSuccessors();
-  if (Successors.empty()) {
-    OS << StrIndent << "END Block - no SUCCESSORS\n";
-    return;
-  }
-  OS << StrIndent << "SUCCESSORS(" << Successors.size() << "):";
-  if (Successors.size() == 1) {
-    OS << Successors.front()->getName();
-  } else if (Successors.size() == 2) {
-    if (CB) {
-      OS << Successors.front()->getName() << "(";
-      CB->printAsOperand(OS);
-      OS << "), " << Successors.back()->getName() << "(!";
-      CB->printAsOperand(OS);
-      OS << ")";
+  if (Successors.empty())
+    OS << StrIndent << "no SUCCESSORS";
+  else {
+    OS << StrIndent << "SUCCESSORS(" << Successors.size() << "):";
+    if (Successors.size() == 1) {
+      OS << Successors.front()->getName();
+    } else if (Successors.size() == 2) {
+      if (CB) {
+        OS << Successors.front()->getName() << "(";
+        CB->printAsOperand(OS);
+        OS << "), " << Successors.back()->getName() << "(!";
+        CB->printAsOperand(OS);
+        OS << ")";
+      } else {
+        OS << Successors.front()->getName() << "(<undef>), "
+           << Successors.back()->getName() << "(!<undef>)";
+      }
     } else {
-      OS << Successors.front()->getName() << "(<undef>), "
-         << Successors.back()->getName() << "(!<undef>)";
+      assert("More than 2 successors in basic block are not supported!");
     }
+  }
+  OS << "\n";
+  auto &Predecessors = getPredecessors();
+  if (Predecessors.empty()) {
+    OS << StrIndent << "no PREDECESSORS";
   } else {
-    assert("More than 2 successors in basic block are not supported!");
+    OS << StrIndent << "PREDECESSORS(" << Predecessors.size() << "):";
+    for (auto Block : Predecessors)
+      OS << " " << Block->getName();
   }
   OS << "\n\n";
 }
@@ -553,6 +572,7 @@ void VPBasicBlock::dump(raw_ostream &OS, unsigned Indent) const {
 void VPBasicBlock::dump() const {
   dump(errs(), 1);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(nullptr);
@@ -561,14 +581,14 @@ void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
 }
 
 void VPRegionBlock::computeDT(void) {
-  assert(!RegionDT && "Null expected");
-  RegionDT = new VPDominatorTree();
+  if (!RegionDT)
+    RegionDT = new VPDominatorTree();
   RegionDT->recalculate(*this);
 }
 
 void VPRegionBlock::computePDT(void) {
-  assert(!RegionPDT && "Null expected");
-  RegionPDT = new VPPostDominatorTree();
+  if (!RegionPDT)
+    RegionPDT = new VPPostDominatorTree();
   RegionPDT->recalculate(*this);
 }
 
@@ -579,6 +599,7 @@ void VPRegionBlock::getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) c
     Blocks.push_back(Block);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
   SetVector<const VPBlockBase *> Printed;
   SetVector<const VPBlockBase *> SuccList;
@@ -624,6 +645,7 @@ void VPRegionBlock::dump(raw_ostream &OS, unsigned Indent) const {
 void VPRegionBlock::dump() const {
   dump(errs(), 1);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
@@ -639,8 +661,7 @@ void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
-  assert(getInstruction() && "There is no underlying Instruction.");
-  State.ILV->vectorizeInstruction(getInstruction());
+  State.ILV->vectorizeInstruction(this);
   return;
 #endif
   IRBuilder<> &Builder = State.Builder;
@@ -869,6 +890,7 @@ void VPInstruction::execute(VPTransformState &State) {
     generateInstruction(State, Part);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
   O << " +\n" << Indent << "\"EMIT ";
   print(O);
@@ -898,6 +920,12 @@ void VPInstruction::print(raw_ostream &O) const {
     O << "not";
     break;
 #if INTEL_CUSTOMIZATION
+  case VPInstruction::AllZeroCheck:
+    O << "all-zero-check";
+    break;
+  case VPInstruction::Pred:
+    O << "block-predicate";
+    break;
   case VPInstruction::SemiPhi:
     O << "semi-phi";
     break;
@@ -941,13 +969,32 @@ void VPInstruction::print(raw_ostream &O) const {
       O << ",";
     }
     PrintValueWithBB(size-1);
-  } else
+  } else {
 #endif // INTEL_CUSTOMIZATION
     for (const VPValue *Operand : operands()) {
       O << " ";
       Operand->printAsOperand(O);
     }
+#if INTEL_CUSTOMIZATION
+    switch (getOpcode()) {
+    case Instruction::ZExt:
+    case Instruction::SExt:
+    case Instruction::FPToUI:
+    case Instruction::FPToSI:
+    case Instruction::FPExt:
+    case Instruction::PtrToInt:
+    case Instruction::IntToPtr:
+    case Instruction::SIToFP:
+    case Instruction::UIToFP:
+    case Instruction::Trunc:
+    case Instruction::FPTrunc:
+      O << " to ";
+      getBaseType()->print(O);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 // Generate the code inside the body of the vectorized loop. Assumes a single
 // LoopVectorBody basic block was created for this; introduces additional
@@ -998,29 +1045,19 @@ void VPlan::execute(VPTransformState *State) {
     CurrentBlock->execute(State);
   }
 
-  // 3. Fix the back edges
-  for (auto Edge : State->CFG.EdgesToFix) {
-    VPBasicBlock *FromVPBB = Edge.first;
-    assert(State->CFG.VPBB2IRBB.count(FromVPBB) &&
-           "The IR basic block should be ready at this moment");
-    BasicBlock *FromBB = State->CFG.VPBB2IRBB[FromVPBB];
-    BasicBlock *ToBB = Edge.second;
+  // 3. Fix the edges for blocks in VPBBsToFix list.
+  for (auto VPBB : State->CFG.VPBBsToFix) {
+    BasicBlock *BB = State->CFG.VPBB2IRBB[VPBB];
+    assert(BB && "Unexpected null basic block for VPBB");
 
-    // We should have conditional branch from FromBB to ToBB. Conditional branch
-    // is 2 edges - forward edge and backward edge.
-    // The forward edge should be in-place, we are fixing the backward
-    // edge only.
-    assert(!isa<UnreachableInst>(FromBB->getTerminator()) &&
-           "One edge should be in-place");
+    unsigned Idx = 0;
+    auto *BBTerminator = BB->getTerminator();
 
-    BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
-    assert(FirstSuccBB && "Unexpected null successor");
-    FromBB->getTerminator()->eraseFromParent();
-    VPValue *CBV = FromVPBB->getCondBit();
-    assert(State->CBVToConditionBitMap.count(CBV) && "Must be in map.");
-    Value *NCondBit = State->CBVToConditionBitMap[CBV];
-    assert(NCondBit && "Null scalar value for condition bit.");
-    BranchInst::Create(FirstSuccBB, ToBB, NCondBit, FromBB);
+    for (VPBlockBase *SuccVPBlock : VPBB->getHierarchicalSuccessors()) {
+      VPBasicBlock *SuccVPBB = SuccVPBlock->getEntryBasicBlock();
+      BBTerminator->setSuccessor(Idx, State->CFG.VPBB2IRBB[SuccVPBB]);
+      ++Idx;
+    }
   }
 
   // 4. Merge the temporary latch created with the last basic block filled.
@@ -1115,10 +1152,25 @@ void VPlan::executeHIR(VPOCodeGenHIR *CG) {
   Entry->executeHIR(CG);
 }
 
+void VPlan::verifyVPConstants() const {
+  SmallPtrSet<const Constant *, 16> ConstantSet;
+  for (const auto &Pair : VPConstants) {
+    const Constant *KeyConst = Pair.first;
+    assert(KeyConst == Pair.second->getConstant() &&
+           "Value key and VPConstant's underlying Constant must be the same!");
+    // Checking that an element is repeated in a map is unnecessary but it
+    // will catch bugs if the data structure is changed in the future.
+    assert(!ConstantSet.count(KeyConst) && "Repeated VPConstant!");
+    ConstantSet.insert(KeyConst);
+  }
+}
+
 void VPlan::verifyVPExternalDefs() const {
   SmallPtrSet<const Value *, 16> ValueSet;
   for (const auto &Pair : VPExternalDefs) {
     const Value *KeyVal = Pair.first;
+    assert(!isa<Constant>(KeyVal) && !isa<MetadataAsValue>(KeyVal) &&
+           "Unexpected underlying IR for external definition!");
     assert(KeyVal == Pair.second->getUnderlyingValue() &&
            "Value key and VPExternalDef's underlying Value must be the same!");
     // Checking that an element is repeated in a map is unnecessary but it
@@ -1131,31 +1183,36 @@ void VPlan::verifyVPExternalDefs() const {
 void VPlan::verifyVPExternalDefsHIR() const {
   SmallSet<unsigned, 16> SymbaseSet;
   SmallSet<unsigned, 16> IVLevelSet;
-  SmallPtrSet<const MetadataAsValue *, 16> MDSet;
-  for (const auto &Pair : VPExternalDefsHIR) {
-    const UnitaryBlobOrIV &KeyHIROp = Pair.first;
-    assert(KeyHIROp.isStructurallyEqual(Pair.second->getUnitaryBlobOrIV()) &&
-           "UnitaryBlobOrIV key and VPExternalDef's UnitaryBlobOrIV must be "
-           "the same!");
+  for (const auto &ExtDef : VPExternalDefsHIR) {
+    const VPOperandHIR *HIROperand = ExtDef.getOperandHIR();
 
     // Deeper verification depending on the kind of the underlying HIR operand.
-    if (KeyHIROp.isNonMDBlob()) {
+    if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
       // For blobs we check that the symbases are unique.
-      unsigned Symbase = KeyHIROp.getBlob()->getSymbase();
+      unsigned Symbase = Blob->getBlob()->getSymbase();
       assert(!SymbaseSet.count(Symbase) && "Repeated blob VPExternalDef!");
       SymbaseSet.insert(Symbase);
-    } else if (KeyHIROp.isIV()) {
+    } else {
       // For IVs we check that the IV levels are unique.
-      unsigned IVLevel = KeyHIROp.getIVLevel();
+      const auto *IV = cast<VPIndVar>(HIROperand);
+      unsigned IVLevel = IV->getIVLevel();
       assert(!IVLevelSet.count(IVLevel) && "Repeated IV VPExternalDef!");
       IVLevelSet.insert(IVLevel);
-    } else {
-      assert(KeyHIROp.isMDBlob() && "Expected metadata VPExternalDef!");
-      // For metadata we check that the underlying metadata is unique.
-      const MetadataAsValue *MD = KeyHIROp.getMetadata();
-      assert(!MDSet.count(MD) && "Repeated Metadata VPExternalDef!");
-      MDSet.insert(MD);
     }
+  }
+}
+
+void VPlan::verifyVPMetadataAsValues() const {
+  SmallPtrSet<const MetadataAsValue *, 16> MDAsValueSet;
+  for (const auto &Pair : VPMetadataAsValues) {
+    const MetadataAsValue *KeyMD = Pair.first;
+    assert(KeyMD == Pair.second->getMetadataAsValue() &&
+           "Value key and VPMetadataAsValue's underlying MetadataAsValue must "
+           "be the same!");
+    // Checking that an element is repeated in a map is unnecessary but it
+    // will catch bugs if the data structure is changed in the future.
+    assert(!MDAsValueSet.count(KeyMD) && "Repeated MetadataAsValue!");
+    MDAsValueSet.insert(KeyMD);
   }
 }
 #endif
@@ -1198,6 +1255,7 @@ void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
   }
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const Twine VPlanPrinter::getUID(const VPBlockBase *Block) {
   return (isa<VPRegionBlock>(Block) ? "cluster_N" : "N") +
     Twine(getOrCreateBID(Block));
@@ -1221,6 +1279,103 @@ void VPlan::dump() const {
     errs() << "VPlan IR for: " << getName() << "\n";
   getEntry()->dump(errs(), 1);
 }
+
+void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
+  if (DumpVPlanLiveness == 0 || !VPLInfo)
+    return;
+  OS << "Live-in and Live-out info:\n";
+  if (!VPExternalDefs.empty()) {
+    OS << "External defs:\n";
+    for (auto DI = VPExternalDefs.begin(); DI != VPExternalDefs.end(); DI++)
+      OS << *(DI->second) << "\n";
+  }
+  if (!VPExternalDefsHIR.empty()) {
+    OS << "External defs:\n";
+    for (auto DI = VPExternalDefsHIR.begin(); DI != VPExternalDefsHIR.end();
+         DI++)
+      OS << *DI << "\n";
+  }
+  if (!VPExternalUses.empty()) {
+    OS << "Used externally:\n";
+    for (auto UI = VPExternalUses.begin(); UI != VPExternalUses.end(); UI++) {
+      const VPValue *Op = UI->second->getOperand(0);
+      Op->printAsOperand(OS);
+      if (DumpVPlanLiveness > 1 && UI->second->getUnderlyingValue())
+        OS << " (used by " << *(UI->second->getUnderlyingValue()) << ")\n";
+      else
+        OS << "\n";
+    }
+  }
+  if (!VPExternalUsesHIR.empty()) {
+    OS << "Used externally:\n";
+    for (auto UI = VPExternalUsesHIR.begin(); UI != VPExternalUsesHIR.end();
+         UI++) {
+      const VPValue *Op = UI->getOperand(0);
+      Op->printAsOperand(OS);
+      if (DumpVPlanLiveness > 1 && UI->getUnderlyingValue())
+        OS << " (used by " << *(UI->getUnderlyingValue()) << ")\n";
+      else
+        OS << "\n";
+    }
+  }
+  std::function<void(const VPBasicBlock *)> dumpBlockLiveness =
+      [&](const VPBasicBlock *Block) {
+        // For each live-in or live-out instruction in the Block print the
+        // corresponding comment
+        const VPLoop *Loop = VPLInfo->getLoopFor(Block);
+        if (DumpVPlanLiveness > 2)
+          OS << "Liveness for BBlock: " << Block->getName() << "\n";
+        if (Loop == nullptr) {
+          if (DumpVPlanLiveness > 2)
+            OS << "no loop found\n";
+          return;
+        }
+        for (const VPRecipeBase &Recipe : *Block) {
+          const auto *VPInst = dyn_cast<VPInstruction>(&Recipe);
+          if (!VPInst)
+            continue;
+          if (DumpVPlanLiveness > 2)
+            OS << "Instruction: " << *VPInst << "\n";
+          for (const VPValue *Op : VPInst->operands()) {
+            SmallVector<const VPLoop *, 4> LoopList;
+            const VPLoop *ParentLoop = Loop;
+            while (ParentLoop) {
+              if (!ParentLoop->isLiveIn(Op))
+                break;
+              LoopList.push_back(ParentLoop);
+              ParentLoop = ParentLoop->getParentLoop();
+            }
+            if (LoopList.size()) {
+              Op->printAsOperand(OS);
+              OS << " livein in the loops: ";
+              for (const VPLoop *L : LoopList)
+                OS << " " << L->getLoopPreheader()->getName();
+              OS << "\n";
+            }
+          }
+          if (Loop->isLiveOut(VPInst)) {
+            VPInst->printAsOperand(OS);
+            OS << " liveout in the loop: "
+               << Loop->getLoopPreheader()->getName() << "\n";
+          }
+        }
+      };
+  std::function<void(const VPBlockBase *)> dumpLiveness =
+      [&](const VPBlockBase *VPBlock) {
+        // Print liveness information for a basic block or for a region
+        if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
+          for (const VPBlockBase *Block : depth_first(Region->getEntry()))
+            dumpLiveness(Block);
+        } else {
+          const auto *VPBB = cast<VPBasicBlock>(VPBlock);
+          dumpBlockLiveness(VPBB);
+        }
+      };
+
+  dumpLiveness(getEntry());
+  OS << "Live-in and Live-out info end\n";
+}
+
 #endif /* INTEL_CUSTOMIZATION */
 
 void VPlanPrinter::dump() {
@@ -1379,6 +1534,7 @@ void VPlan::printInst2Recipe() {
   }
 }
 #endif
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
 void VPBlockPredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
@@ -1412,10 +1568,12 @@ void VPBlockPredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
   // Set mask value to use to mask instructions in the block
   CG->setCurMaskValue(VectorizedPredicateHIR[0]);
 }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBlockPredicateRecipe::dump(raw_ostream &OS) const {
   print(OS, "");
   OS << "\n";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
 void VPBlockPredicateRecipe::execute(VPTransformState &State) {
@@ -1447,6 +1605,7 @@ void VPBlockPredicateRecipe::execute(VPTransformState &State) {
   State.ILV->setMaskValue(VectorizedPredicate[0]);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBlockPredicateRecipe::print(raw_ostream &OS, const Twine &Indent) const {
   OS << Name << " = ";
   // Predicate Inputs
@@ -1460,6 +1619,7 @@ void VPBlockPredicateRecipe::print(raw_ostream &OS, const Twine &Indent) const {
     }
   }
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
 void VPIfTruePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
@@ -1486,10 +1646,12 @@ void VPIfTruePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
   VectorizedPredicateHIR.push_back(EdgeMask);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPIfTruePredicateRecipe::dump(raw_ostream &OS) const {
   print(OS, "");
   OS << "\n";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
 void VPIfTruePredicateRecipe::execute(VPTransformState &State) {
@@ -1524,10 +1686,12 @@ void VPEdgePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(PredMask);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPEdgePredicateRecipe::dump(raw_ostream &OS) const {
   if (PredecessorPredicate)
     OS << Name << " = " << PredecessorPredicate->getName() << "\n";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
 void VPEdgePredicateRecipe::execute(VPTransformState &State) {
@@ -1539,6 +1703,7 @@ void VPEdgePredicateRecipe::execute(VPTransformState &State) {
   State.ILV->setEdgeMask(FromBB, ToBB, PredMask);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPEdgePredicateRecipe::print(raw_ostream &OS, const Twine &Indent) const {
   OS << " +\n" << Indent << "\"" << Name << " = ";
   if (PredecessorPredicate)
@@ -1555,6 +1720,7 @@ void VPIfTruePredicateRecipe::print(raw_ostream &OS,
 
   ConditionValue->printAsOperand(OS);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
 void VPIfFalsePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
@@ -1585,10 +1751,12 @@ void VPIfFalsePredicateRecipe::executeHIR(VPOCodeGenHIR *CG) {
   VectorizedPredicateHIR.push_back(EdgeMask);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPIfFalsePredicateRecipe::dump(raw_ostream &OS) const {
   print(OS, "");
   OS << "\n";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
 void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
@@ -1617,6 +1785,7 @@ void VPIfFalsePredicateRecipe::execute(VPTransformState &State) {
   State.ILV->setEdgeMask(FromBB, ToBB, EdgeMask);
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPIfFalsePredicateRecipe::print(raw_ostream &OS,
                                      const Twine &Indent) const {
   OS << Name;
@@ -1627,8 +1796,10 @@ void VPIfFalsePredicateRecipe::print(raw_ostream &OS,
   OS << "!";
   ConditionValue->printAsOperand(OS);
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBranchInst::print(raw_ostream &O) const {
   O << "br ";
   const BasicBlock *BB = getTargetBlock();
@@ -1638,6 +1809,7 @@ void VPBranchInst::print(raw_ostream &O) const {
     // FIXME: Call HGoto print.
     O << "<External Basic Block>";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 using VPDomTree = DomTreeBase<VPBlockBase>;
 template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);

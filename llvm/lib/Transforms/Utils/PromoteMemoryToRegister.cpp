@@ -1,9 +1,8 @@
 //===- PromoteMemoryToRegister.cpp - Convert allocas to registers ---------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -85,8 +84,7 @@ bool llvm::isAllocaPromotable(const AllocaInst *AI) {
       if (const VarAnnotIntrinsic *VAI = dyn_cast<VarAnnotIntrinsic>(II)) {   //INTEL
         if (!VAI->hasRegisterAttributeSet())                                  //INTEL
           return false;                                                       //INTEL
-      } else if (II->getIntrinsicID() != Intrinsic::lifetime_start &&         //INTEL
-                 II->getIntrinsicID() != Intrinsic::lifetime_end)
+      } else if (!II->isLifetimeStartOrEnd())        //INTEL
         return false;
     } else if (const BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
       if (BCI->getType() != Type::getInt8PtrTy(U->getContext(), AS))

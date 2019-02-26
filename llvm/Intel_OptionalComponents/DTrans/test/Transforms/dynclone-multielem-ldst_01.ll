@@ -3,8 +3,8 @@
 ; marked with aostosoa index fields and analysis able to detect all fields
 ; involved (in proc1).
 
-;  RUN: opt < %s -S -whole-program-assume -dtrans-dynclone 2>&1 | FileCheck %s
-;  RUN: opt < %s -S -whole-program-assume -passes=dtrans-dynclone 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -dtrans-dynclone 2>&1 | FileCheck %s
+;  RUN: opt < %s -S -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -passes=dtrans-dynclone 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -26,7 +26,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; AOSTOSOA allocation call is marked with this annotation.
 @__intel_dtrans_aostosoa_index = private constant [41 x i8] c"{dtrans} AOS-to-SOA peeling index {id:0}\00"
 
- ; CHECK: define internal void @proc1() {
+ ; CHECK: define internal void @proc1()
 
 ; %L (load) and a store to %M involves multiple fields of %struct.test.01
 ; (2nd and 3rd), which are marked as aostosoa index fields. Analysis able

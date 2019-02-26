@@ -1,9 +1,8 @@
 //===- SLPVectorizer.cpp - A bottom up SLP Vectorizer ---------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -491,15 +490,6 @@ static bool arePSLPLegalOpcodes(ArrayRef<Value *> VL) {
     }
   }
   return true;
-}
-
-/// Fills in OpcodesSet with all opcodes found in \p VL.
-static void getOpcodes(ArrayRef<Value *> VL, std::set<unsigned> &OpcodesSet) {
-  OpcodesSet.clear();
-  for (Value *V : VL) {
-    assert(isa<Instruction>(V));
-    OpcodesSet.insert(cast<Instruction>(V)->getOpcode());
-  }
 }
 
 /// \returns true if all values in VL[] are Instructions.
@@ -2340,17 +2330,31 @@ getOperandPair(Instruction *I,
 // Given a VL with different opcodes, generate select instructions that
 // select between the
 void BoUpSLP::generatePSLPCode(SmallVectorImpl<Value *> &VL) {
-  assert(isa<Instruction>(VL[0]));
-  std::set<unsigned> OpcodesSet;
-  getOpcodes(VL, OpcodesSet);
-  assert(OpcodesSet.size() == 2 && "Can't handle less/more than 2 opcodes.");
-  std::vector<unsigned> OpcodesVec;
-  for (unsigned Opcode : OpcodesSet)
-    OpcodesVec.push_back(Opcode);
+  unsigned LeftOpcode = 0;
+  unsigned RightOpcode = 0;
+
+  for (auto *Value : VL) {
+    assert(isa<Instruction>(Value));
+    unsigned Opcode = cast<Instruction>(Value)->getOpcode();
+
+    if (Opcode == LeftOpcode || Opcode == RightOpcode)
+      continue;
+
+    if (LeftOpcode == 0)
+      LeftOpcode = Opcode;
+    else if (RightOpcode == 0)
+      RightOpcode = Opcode;
+    else
+      assert("Not more than two opcodes expected");
+  }
+
+  assert(LeftOpcode != 0 && RightOpcode != 0 &&
+         "Not less than two opcodes expected");
+
   Instruction::BinaryOps LeftBinOpcode =
-      static_cast<Instruction::BinaryOps>(OpcodesVec[0]);
+      static_cast<Instruction::BinaryOps>(LeftOpcode);
   Instruction::BinaryOps RightBinOpcode =
-      static_cast<Instruction::BinaryOps>(OpcodesVec[1]);
+      static_cast<Instruction::BinaryOps>(RightOpcode);
 
   // The LastOperandPair helps us in reordering the operands of commutative ops.
   std::vector<ValuePair> LastOperandPairVec;
@@ -2372,7 +2376,9 @@ void BoUpSLP::generatePSLPCode(SmallVectorImpl<Value *> &VL) {
       std::string IName =
           Instruction::getOpcodeName(RightBinOpcode) + std::string("_PSLP");
       IRHS = BinaryOperator::Create(RightBinOpcode, OperandPair.first,
-                                    OperandPair.second, IName, I /*Before*/);
+                                    OperandPair.second, IName);
+
+      IRHS->insertAfter(I);
 
       // Be optimistic and set "no overflow" flags for padded instruction. Doing
       // so is safe for two reasons: 1) Results of padded instructions are not
@@ -2389,7 +2395,8 @@ void BoUpSLP::generatePSLPCode(SmallVectorImpl<Value *> &VL) {
       std::string IName =
           Instruction::getOpcodeName(LeftBinOpcode) + std::string("_PSLP");
       ILHS = BinaryOperator::Create(LeftBinOpcode, OperandPair.first,
-                                    OperandPair.second, IName, I /*Before*/);
+                                    OperandPair.second, IName);
+      ILHS->insertBefore(I);
       IRHS = I;
 
       // Be optimistic and set "no overflow" flags for padded instruction. Doing
@@ -2582,7 +2589,7 @@ void BoUpSLP::PSLPFailureCleanup() {
 void BoUpSLP::undoMultiNodeReordering() {
   if (!EnableMultiNodeSLP)
     return;
-  for (MultiNode &MNode : MultiNodes) {
+  for (MultiNode &MNode : reverse(MultiNodes)) {
     // 1. Restore the instructions in CurrentMultiNode to their original state
     unsigned NumLanes = MNode.getNumLanes();
     int OpIMax = MNode.getNumOperands();
@@ -3839,8 +3846,9 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
   // If any of the scalars is marked as a value that needs to stay scalar, then
   // we need to gather the scalars.
+  // The reduction nodes (stored in UserIgnoreList) also should stay scalar.
   for (unsigned i = 0, e = VL.size(); i != e; ++i) {
-    if (MustGather.count(VL[i])) {
+    if (MustGather.count(VL[i]) || is_contained(UserIgnoreList, VL[i])) {
       LLVM_DEBUG(dbgs() << "SLP: Gathering due to gathered scalar.\n");
       newTreeEntry(VL, false, UserTreeIdx);
       return;
@@ -4827,7 +4835,7 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
                 // extractelement/ext pair.
                 DeadCost -= TTI->getExtractWithExtendCost(
                     Ext->getOpcode(), Ext->getType(), VecTy, i);
-                // Add back the cost of s|zext which is subtracted seperately.
+                // Add back the cost of s|zext which is subtracted separately.
                 DeadCost += TTI->getCastInstrCost(
                     Ext->getOpcode(), Ext->getType(), E->getType(), Ext);
                 continue;
@@ -5233,13 +5241,13 @@ int BoUpSLP::getTreeCost() {
     // uses. However, we should not compute the cost of duplicate sequences.
     // For example, if we have a build vector (i.e., insertelement sequence)
     // that is used by more than one vector instruction, we only need to
-    // compute the cost of the insertelement instructions once. The redundent
+    // compute the cost of the insertelement instructions once. The redundant
     // instructions will be eliminated by CSE.
     //
     // We should consider not creating duplicate tree entries for gather
     // sequences, and instead add additional edges to the tree representing
     // their uses. Since such an approach results in fewer total entries,
-    // existing heuristics based on tree size may yeild different results.
+    // existing heuristics based on tree size may yield different results.
     //
     if (TE.NeedToGather &&
         std::any_of(std::next(VectorizableTree.begin(), I + 1),
@@ -7149,7 +7157,7 @@ unsigned BoUpSLP::getVectorElementSize(Value *V) {
     Worklist.push_back(I);
 
   // Traverse the expression tree in bottom-up order looking for loads. If we
-  // encounter an instruciton we don't yet handle, we give up.
+  // encounter an instruction we don't yet handle, we give up.
   auto MaxWidth = 0u;
   auto FoundUnknownInst = false;
   while (!Worklist.empty() && !FoundUnknownInst) {
@@ -7739,6 +7747,15 @@ bool SLPVectorizerPass::runImpl(Function &F, ScalarEvolution *SE_,
   Stores.clear();
   GEPs.clear();
   bool Changed = false;
+
+
+#if INTEL_CUSTOMIZATION
+  if (!TTI->isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2)) {
+    PSLPEnabled = false;
+    EnableMultiNodeSLP = false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If the target claims to have no vector registers don't attempt
   // vectorization.

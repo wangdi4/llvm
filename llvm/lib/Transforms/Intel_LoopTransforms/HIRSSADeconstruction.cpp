@@ -1,6 +1,6 @@
 //===----- HIRSSADeconstruction.cpp - Deconstructs SSA for HIR ------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -136,14 +136,24 @@ private:
   /// \brief Deconstructs phi by inserting copies.
   void deconstructPhi(PHINode *Phi);
 
-  /// Splits the entry block of regions in the following cases-
-  /// 1) It is same as the function entry block.
-  /// 2) It is same as the previous region's exit block.
-  /// Both cases occur in the presence of region entry/exit intrinsics.
-  void splitProblematicRegionEntryBlock(IRRegion &Reg, BasicBlock *FuncEntryBB);
+  /// Processes liveouts instructions in the current region which are not part
+  /// of any loop by creating a single operand phi copy of them in the region
+  /// exit block.
+  void processNonLoopRegionLiveouts() const;
+
+  /// Splits region exit block at \p SplitPos for ease of liveout handling. It
+  /// \p SplitPos is not specified, we split at the terminator.
+  void splitNonLoopRegionExit(Instruction *SplitPos = nullptr) const;
+
+  /// Does the following for regions containing non-loop blocks-
+  /// 1) Split the entry block if required.
+  /// 2) Split the exit block if required for liveout handling.
+  /// 3) Create single operand phi copy of liveout instructions in non-loop
+  /// blocks.
+  void processNonLoopRegionBlocks() const;
 
   /// \brief Performs SSA deconstruction on the regions.
-  void deconstructSSAForRegions(Function &Func);
+  void deconstructSSAForRegions();
 
 private:
   DominatorTree *DT;
@@ -249,9 +259,16 @@ FunctionPass *llvm::createHIRSSADeconstructionLegacyPass() {
 void HIRSSADeconstruction::attachMetadata(
     Instruction *Inst, StringRef Name,
     ScalarEvolution::HIRLiveKind Kind) const {
-  Metadata *Args[] = {
-      MDString::get(Inst->getContext(), (Name + ".de.ssa").str())};
-  MDNode *Node = MDNode::get(Inst->getContext(), Args);
+
+  MDNode *Node = nullptr;
+
+  if (Name.empty()) {
+    Node = MDNode::get(Inst->getContext(), {});
+  } else {
+    Metadata *Args[] = {
+        MDString::get(Inst->getContext(), (Name + ".de.ssa").str())};
+    Node = MDNode::get(Inst->getContext(), Args);
+  }
 
   Inst->setMetadata(SE->getHIRMDKindID(Kind), Node);
 }
@@ -261,7 +278,7 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   auto CInst = CastInst::Create(Instruction::BitCast, Val, Val->getType(),
                                 Name + (IsLivein ? ".in" : ".out"));
 
-  attachMetadata(CInst, Name,
+  attachMetadata(CInst, IsLivein ? Name : "",
                  IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
                           : ScalarEvolution::HIRLiveKind::LiveOut);
 
@@ -847,8 +864,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
         }
 
         // Attach live range type metadata to suppress SCEV traceback.
-        attachMetadata(SCCInst, Name.str(),
-                       ScalarEvolution::HIRLiveKind::LiveRange);
+        attachMetadata(SCCInst, "", ScalarEvolution::HIRLiveKind::LiveRange);
         // Tell SCEV to reparse the instruction.
         SE->forgetValue(SCCInst);
       }
@@ -903,10 +919,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
   }
 }
 
-static Instruction *findRegionEntryOrExitIntrinsic(BasicBlock *BB,
-                                                   bool IsEntry) {
-  Instruction *RegIntrin = nullptr;
-
+static IntrinsicInst *findRegionEntryIntrinsic(BasicBlock *BB) {
   for (auto &Inst : *BB) {
     auto *Intrin = dyn_cast<IntrinsicInst>(&Inst);
 
@@ -914,88 +927,201 @@ static Instruction *findRegionEntryOrExitIntrinsic(BasicBlock *BB,
       continue;
     }
 
-    auto Id = Intrin->getIntrinsicID();
-
-    if (IsEntry) {
-      if ((Id != Intrinsic::directive_region_entry) &&
-          (Id != Intrinsic::intel_directive)) {
-        continue;
-      }
-    } else if (Id != Intrinsic::directive_region_exit) {
-      // We don't expect to support old style intel directives incoming to HIR
-      // so it is okay not to look for them. The check in if-case above is for
-      // handling existing lit tests which still need to be converted to region
-      // entry/exit intrinsics.
-      continue;
+    if (Intrin->getIntrinsicID() == Intrinsic::directive_region_entry) {
+      return Intrin;
     }
-
-    RegIntrin = Intrin;
-    break;
   }
 
-  return RegIntrin;
+  return nullptr;
 }
 
-void HIRSSADeconstruction::splitProblematicRegionEntryBlock(
-    IRRegion &Reg, BasicBlock *FuncEntryBB) {
-  if (Reg.isFunctionLevel()) {
-    // Function level region is a special case where we don't need to do
-    // anything as the region technically starts from the branch condition of
-    // the entry block. This might be an issue if someone uses function level
-    // region mode when the function entry block was included because of region
-    // entry intrinsics.
+class SCEVInvalidator {
+  ScalarEvolution &SE;
+  BasicBlock *BB;
+
+public:
+  SCEVInvalidator(ScalarEvolution &SE, BasicBlock *BB) : SE(SE), BB(BB) {}
+
+  bool follow(const SCEV *SC) {
+    auto *UnknownSC = dyn_cast<SCEVUnknown>(SC);
+
+    if (!UnknownSC) {
+      return true;
+    }
+
+    auto *Inst = dyn_cast<Instruction>(UnknownSC->getValue());
+
+    if (!Inst || (Inst->getParent() != BB)) {
+      return false;
+    }
+
+    SE.forgetValue(Inst);
+
+    return false;
+  }
+
+  bool isDone() const { return false; }
+};
+
+static void invalidateSCEVableInsts(ScalarEvolution &SE, Instruction *Inst) {
+  if (!SE.isSCEVable(Inst->getType())) {
     return;
   }
 
-  auto *RegionEntryBB = Reg.getEntryBBlock();
-  Instruction *RegionEntryIntrin = nullptr;
-  Instruction *RegionExitIntrin = nullptr;
+  SE.forgetValue(Inst);
 
-  if (RegionEntryBB == FuncEntryBB) {
-    // Now we look for region entry intrinsic or intel directive intrinsic as
-    // that is the only case we expect the function entry block to be part of
-    // the region. This instruction will be the bblock splitting point.
-    RegionEntryIntrin = findRegionEntryOrExitIntrinsic(RegionEntryBB, true);
+  SCEVInvalidator Invalidator(SE, Inst->getParent());
+  visitAll(SE.getSCEV(Inst), Invalidator);
+}
 
-    assert(RegionEntryIntrin &&
-           "Region entry intrinsic expected in region entry block!");
+void HIRSSADeconstruction::processNonLoopRegionLiveouts() const {
+  auto *ExitingBB = CurRegIt->getExitBBlock();
+  auto *ExitBB = ExitingBB->getSingleSuccessor();
 
-  } else if ((RegionExitIntrin =
-                  findRegionEntryOrExitIntrinsic(RegionEntryBB, false))) {
-    // If the entry bblock has region exit intrinsic which doesn't correspond to
-    // the region entriy intrinsic in the entry block, it belongs to the
-    // previous sibling loop. In such a case we might be sharing the same bblock
-    // between two HIR regions. To fix this we split the entry block at the
-    // region entry intrinsic.
-    RegionEntryIntrin = findRegionEntryOrExitIntrinsic(RegionEntryBB, true);
+  for (auto BBIt = CurRegIt->non_loop_bb_begin(),
+            EndIt = CurRegIt->non_loop_bb_end();
+       BBIt != EndIt; ++BBIt) {
 
-    assert(RegionEntryIntrin &&
-           "Region entry intrinsic expected in region entry block!");
-    assert(RegionEntryIntrin->hasOneUse() &&
-           "Region entry intrinsic does not have single use!");
+    BasicBlock *BB = const_cast<BasicBlock *>(*BBIt);
 
-    if (*RegionEntryIntrin->user_begin() == RegionExitIntrin) {
-      return;
+    /// Replace liveouts uses of instructions by creating a single operand phi
+    /// copy in the region exit block.
+    for (Instruction &Inst : *BB) {
+      PHINode *LiveoutPhi = nullptr;
+
+      for (auto UserIt = Inst.user_begin(), EndIt = Inst.user_end();
+           UserIt != EndIt;) {
+
+        auto *UserInst = cast<Instruction>(*UserIt);
+
+        Use &LiveoutUse = UserIt.getUse();
+        // Increment explicitly as it may gets invalidated later in the
+        // iteration.
+        ++UserIt;
+
+        if (!CurRegIt->containsBBlock(UserInst->getParent())) {
+
+          // Create a single operand phi copy of Inst in the exit block.
+          if (!LiveoutPhi) {
+            LiveoutPhi = PHINode::Create(Inst.getType(), 1, "liveoutcopy",
+                                         &*ExitBB->begin());
+            LiveoutPhi->addIncoming(&Inst, ExitingBB);
+
+            // Attach live range type metadata to suppress SCEV traceback.
+            attachMetadata(LiveoutPhi, "",
+                           ScalarEvolution::HIRLiveKind::LiveRange);
+
+            invalidateSCEVableInsts(*SE, &Inst);
+          }
+
+          // Replace liveout use by single operand phi.
+          LiveoutUse.set(LiveoutPhi);
+        }
+      }
+    }
+  }
+}
+
+void HIRSSADeconstruction::splitNonLoopRegionExit(Instruction *SplitPos) const {
+  auto *RegionExitBB = CurRegIt->getExitBBlock();
+
+  // Split exit block to maintain single predecessor/successor relationship for
+  // ease of liveout handling.
+
+  // We can skip splitting if there are no successors.
+  if (succ_begin(RegionExitBB) == succ_end(RegionExitBB)) {
+    return;
+  }
+
+  auto *SuccessorBB = RegionExitBB->getSingleSuccessor();
+
+  if (SplitPos || !SuccessorBB || !SuccessorBB->getSinglePredecessor()) {
+    auto *NewSplitBB =
+        SplitBlock(RegionExitBB,
+                   SplitPos ? SplitPos : RegionExitBB->getTerminator(), DT, LI);
+
+    if (SplitPos) {
+      // Check if the exit block of this region is also the entry block of the
+      // next region. If so, update next region's entry block.
+      auto NextRegIt = std::next(CurRegIt);
+      if ((NextRegIt != RI->end()) &&
+          (NextRegIt->getEntryBBlock() == RegionExitBB)) {
+        NextRegIt->replaceEntryBBlock(NewSplitBB);
+      }
+    }
+  }
+}
+
+void HIRSSADeconstruction::processNonLoopRegionBlocks() const {
+
+  if (!CurRegIt->hasNonLoopBBlocks()) {
+    return;
+  }
+
+  auto *RegionEntryBB = CurRegIt->getEntryBBlock();
+
+  if (CurRegIt->isLoopMaterializationCandidate()) {
+    // Always split entry block of loop materialization candidate to avoid
+    // cross-region code generation complications. For example, this bblock may
+    // be an early exit block of the loop which is in another region.
+    auto *NewEntryBB =
+        SplitBlock(RegionEntryBB, RegionEntryBB->getFirstNonPHI(), DT, LI);
+    CurRegIt->replaceEntryBBlock(NewEntryBB);
+
+    // If the terminator instruction is a conditinal branch and the condition is
+    // the previous instruction, split the bblock at the condition. The
+    // condition may be a ztt for a loop. If we don't move the condition along
+    // with the branch, we will lose the ztt recognition due to live range
+    // metadata suppressing traceback of liveout values.
+    Instruction *SplitPos = nullptr;
+    auto *ExitBB = CurRegIt->getExitBBlock();
+    auto *TermInst = ExitBB->getTerminator();
+
+    auto *BrInst = dyn_cast<BranchInst>(TermInst);
+    if (BrInst && BrInst->isConditional()) {
+      auto *CondInst = dyn_cast<Instruction>(BrInst->getCondition());
+
+      if (CondInst && (CondInst->getNextNode() == TermInst)) {
+        SplitPos = CondInst;
+      }
     }
 
-    (void)RegionExitIntrin;
-    assert(DT->dominates(RegionExitIntrin, RegionEntryIntrin) &&
-           "Unexpected order of region entry/exit intrinsics in region entry "
-           "block!");
+    splitNonLoopRegionExit(SplitPos);
+
+  } else if (auto *RegionEntryIntrin =
+                 findRegionEntryIntrinsic(RegionEntryBB)) {
+    // Look for region entry intrinsic in the entry bblock and split the bblock
+    // starting at that instruction if it is not the first instruction or if the
+    // region entry block is also the function entry block.
+
+    if ((RegionEntryIntrin != &(*RegionEntryBB->begin())) ||
+        (RegionEntryBB == &RegionEntryBB->getParent()->getEntryBlock())) {
+      auto *NewEntryBB = SplitBlock(RegionEntryBB, RegionEntryIntrin, DT, LI);
+      CurRegIt->replaceEntryBBlock(NewEntryBB);
+    }
+
+    // Split the exit bblock after region exit intrinsic.
+    auto *RegionExitIntrin =
+        cast<Instruction>(*(RegionEntryIntrin->user_begin()));
+
+    splitNonLoopRegionExit(RegionExitIntrin->getNextNode());
 
   } else {
-    // Entry block is okay.
-    return;
+    // Region created for fusion.
+
+    // Exit is from the loop latch so we split the exiting edge instead of
+    // splitting the exit block.
+    auto *SuccessorBB = CurRegIt->getSuccBBlock();
+
+    if (!SuccessorBB->getSinglePredecessor()) {
+      SplitEdge(CurRegIt->getExitBBlock(), SuccessorBB, DT, LI);
+    }
   }
 
-  auto *NewEntryBB = SplitBlock(RegionEntryBB, RegionEntryIntrin, DT, LI);
-
-  Reg.replaceEntryBBlock(NewEntryBB);
+  processNonLoopRegionLiveouts();
 }
 
-void HIRSSADeconstruction::deconstructSSAForRegions(Function &Func) {
-
-  auto *FuncEntryBB = &Func.getEntryBlock();
+void HIRSSADeconstruction::deconstructSSAForRegions() {
 
   // Traverse regions.
   for (auto RegIt = RI->begin(), EndIt = RI->end(); RegIt != EndIt; ++RegIt) {
@@ -1003,15 +1129,12 @@ void HIRSSADeconstruction::deconstructSSAForRegions(Function &Func) {
     // Set current region
     CurRegIt = RegIt;
 
-    splitProblematicRegionEntryBlock(*CurRegIt, FuncEntryBB);
+    processNonLoopRegionBlocks();
 
     // Traverse region basic blocks.
     for (auto BBIt = RegIt->bb_begin(), EndBBIt = RegIt->bb_end();
          BBIt != EndBBIt; ++BBIt) {
 
-      // TODO: patch non-phi liveout values in fused regions which are outside
-      // any loops by creating single operand phis in region exit block
-      // otherwise CG will not be able to handle them.
       for (auto Inst = (*BBIt)->begin(), EndI = (*BBIt)->end(); Inst != EndI;
            ++Inst) {
         auto Phi = dyn_cast<PHINode>(Inst);
@@ -1048,7 +1171,7 @@ bool HIRSSADeconstruction::run(Function &F, DominatorTree &DT, LoopInfo &LI,
   F.getParent()->setIntelProprietary();
 #endif // INTEL_PRODUCT_RELEASE
 
-  deconstructSSAForRegions(F);
+  deconstructSSAForRegions();
 
   return ModifiedIR;
 }

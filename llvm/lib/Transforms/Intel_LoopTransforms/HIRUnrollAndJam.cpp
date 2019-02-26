@@ -1,6 +1,6 @@
 //===----- HIRUnrollAndJam.cpp - Implements UnrollAndJam class ------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -138,9 +138,10 @@ class HIRUnrollAndJam {
 public:
   HIRUnrollAndJam(HIRFramework &HIRF, HIRLoopStatistics &HLS,
                   HIRLoopResource &HLR, HIRLoopLocality &HLA,
-                  HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA)
+                  HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA,
+                  bool PragmaOnlyUnroll)
       : HIRF(HIRF), HLS(HLS), HLR(HLR), HLA(HLA), DDA(DDA), HSRA(HSRA),
-        HaveUnrollCandidates(false) {}
+        HaveUnrollCandidates(false), PragmaOnlyUnroll(PragmaOnlyUnroll) {}
 
   bool run();
 
@@ -168,6 +169,7 @@ private:
 
   LoopNestUnrollJamInfoTy LoopNestUnrollJamInfo;
   bool HaveUnrollCandidates;
+  bool PragmaOnlyUnroll;
 
   class Analyzer;
 
@@ -257,12 +259,8 @@ public:
   /// Do nothing for instructions.
   void visit(HLInst *Inst) {}
 
-  /// Throttle if we encounter an HLNode other than HLLoop or HLInst.
-  void visit(HLNode *Node) {
-    if (auto ParentLoop = Node->getLexicalParentLoop()) {
-      HUAJ.throttleRecursively(ParentLoop);
-    }
-  }
+  /// Handle nodes other than HLLoop or HLInst.
+  void visit(HLNode *Node);
 
   void postVisit(HLNode *) {}
 
@@ -564,7 +562,7 @@ void HIRUnrollAndJam::throttleRecursively(HLLoop *Lp,
                                           bool IsCostModelThrottling) {
   assert(Lp && "Loop is null!");
 
-  while (Lp && !updateUnrollFactor(Lp, 0)) {
+  while (Lp && updateUnrollFactor(Lp, 0)) {
     // Do not throttle parent loops with enabling pragma based on cost model.
     if (IsCostModelThrottling) {
       while (Lp && Lp->hasUnrollAndJamEnablingPragma()) {
@@ -573,6 +571,19 @@ void HIRUnrollAndJam::throttleRecursively(HLLoop *Lp,
     } else {
       Lp = Lp->getParentLoop();
     }
+  }
+}
+
+void HIRUnrollAndJam::Analyzer::visit(HLNode *Node) {
+  assert((!isa<HLLoop>(Node) && !isa<HLInst>(Node)) &&
+         "Loop or Inst not expected!");
+
+  auto *ParentLoop = Node->getParentLoop();
+
+  // Allow HLIfs in innermost loops. This is handled correctly by the
+  // transformation although it may not be profitable in most cases.
+  if (!isa<HLIf>(Node) || !ParentLoop->isInnermost()) {
+    HUAJ.throttleRecursively(ParentLoop);
   }
 }
 
@@ -927,6 +938,12 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
   }
 
   bool HasEnablingPragma = Lp->hasUnrollAndJamEnablingPragma();
+
+  // Disable all other unrolling if only pragma enabled unrolling is allowed.
+  if (HUAJ.PragmaOnlyUnroll && !HasEnablingPragma) {
+    HUAJ.throttle(Lp);
+    return;
+  }
 
   unsigned UnrollFactor = computeUnrollFactorUsingCost(Lp, HasEnablingPragma);
 
@@ -1558,7 +1575,7 @@ PreservedAnalyses HIRUnrollAndJamPass::run(llvm::Function &F,
                   AM.getResult<HIRLoopResourceAnalysis>(F),
                   AM.getResult<HIRLoopLocalityAnalysis>(F),
                   AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRSafeReductionAnalysisPass>(F))
+                  AM.getResult<HIRSafeReductionAnalysisPass>(F), false)
       .run();
 
   return PreservedAnalyses::all();
@@ -1567,8 +1584,10 @@ PreservedAnalyses HIRUnrollAndJamPass::run(llvm::Function &F,
 class HIRUnrollAndJamLegacyPass : public HIRTransformPass {
 public:
   static char ID;
+  bool PragmaOnlyUnroll;
 
-  HIRUnrollAndJamLegacyPass() : HIRTransformPass(ID) {
+  HIRUnrollAndJamLegacyPass(bool PragmaOnlyUnroll = false)
+      : HIRTransformPass(ID), PragmaOnlyUnroll(PragmaOnlyUnroll) {
     initializeHIRUnrollAndJamLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -1593,7 +1612,8 @@ public:
                getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
                getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
                getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR())
+               getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
+               PragmaOnlyUnroll)
         .run();
   }
 };
@@ -1610,6 +1630,6 @@ INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRUnrollAndJamLegacyPass, "hir-unroll-and-jam",
                     "HIR Unroll & Jam", false, false)
 
-FunctionPass *llvm::createHIRUnrollAndJamPass() {
-  return new HIRUnrollAndJamLegacyPass();
+FunctionPass *llvm::createHIRUnrollAndJamPass(bool PragmaOnlyUnroll) {
+  return new HIRUnrollAndJamLegacyPass(PragmaOnlyUnroll);
 }

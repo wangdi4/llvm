@@ -1,6 +1,6 @@
 //===----- IntelVPOCodeGenHIR.cpp -----------------------------------------===//
 //
-//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -733,7 +733,7 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   LoopsVectorized++;
   SRA->computeSafeReductionChains(OrigLoop);
 
-  const SafeRedChainList &SRCL = SRA->getSafeReductionChain(OrigLoop);
+  const SafeRedInfoList &SRCL = SRA->getSafeRedInfoList(OrigLoop);
   for (auto &SafeRedInfo : SRCL) {
     for (auto &Inst : SafeRedInfo.Chain) {
       // Make sure all reduction instructions are part of the OrigLoop that
@@ -978,6 +978,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
   SmallVector<HLInst *, 1> InstsToRemove;
 
   const CallInst *Call = HInst->getCallInst();
+  assert(Call && "Unexpected null call");
   Function *F = Call->getCalledFunction();
   assert(F && "Unexpected null called function");
   StringRef FnName = F->getName();
@@ -1055,6 +1056,14 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
         VectorF, CallArgs, VectorF->getName(), nullptr);
     HLNodeUtils::insertBefore(HInst, WideCall);
 
+    Instruction *Inst =
+        const_cast<Instruction *>(WideCall->getLLVMInstruction());
+
+    // Make sure we don't lose attributes at the call site. E.g., IMF
+    // attributes are taken from call sites in MapIntrinToIml to refine
+    // SVML calls for precision.
+    cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
+
     // TODO: Matt can you look into the following code review comment
     // from Pankaj?
     // Call instructions can have one fake memref for each AddressOf
@@ -1079,6 +1088,13 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
             VecCall->getContext(), I + 1, AttrList));
       }
       // analyzeCallArgMemoryReferences(HInst, WideCall, CallArgs);
+    }
+
+    // Set calling conventions for SVML function calls
+    if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
+      Instruction *WideInst =
+          const_cast<Instruction *>(WideCall->getLLVMInstruction());
+      cast<CallInst>(WideInst)->setCallingConv(CallingConv::SVML);
     }
 
     InstsToRemove.push_back(HInst);
@@ -1502,7 +1518,7 @@ HLInst *VPOCodeGenHIR::widenIfNode(const HLIf *HIf, RegDDRef *Mask) {
         "Search loop vectorization handles HLIfs with single predicate only.");
     RegDDRef *Ref = CurWideInst->getLvalDDRef();
     Type *Ty = Ref->getDestType();
-    LLVMContext &Context = Ty->getContext();
+    LLVMContext &Context = *Plan->getLLVMContext();
     Type *IntTy = IntegerType::get(Context, Ty->getPrimitiveSizeInBits());
     HLInst *BitCastInst = createBitCast(IntTy, Ref, "intmask");
     createHLIf(PredicateTy::ICMP_NE, BitCastInst->getLvalDDRef()->clone(),
@@ -1815,7 +1831,7 @@ HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, const Twine &Name) {
   // It's necessary to bitcast mask to integer, otherwise it's not possible to
   // use it in cttz instruction.
   Type *RefTy = Ref->getDestType();
-  LLVMContext &Context = RefTy->getContext();
+  LLVMContext &Context = *Plan->getLLVMContext();
   Type *IntTy = IntegerType::get(Context, RefTy->getPrimitiveSizeInBits());
   HLInst *BitCastInst = createBitCast(IntTy, Ref, Name + "intmask");
 
@@ -1998,6 +2014,7 @@ HLInst *VPOCodeGenHIR::widenNonMaskedUniformStore(const HLInst *INode) {
   unsigned NestingLevel = OrigLoop->getNestingLevel();
   if (!Rval->isStructurallyInvariantAtLevel(NestingLevel)) {
     RegDDRef *WideRef = widenRef(Rval, getVF());
+    assert(WideRef && "Unexpected null widened ref");
     // create an extractelement instruction to get last element of vector
     auto Extract = INode->getHLNodeUtils().createExtractElementInst(
         WideRef, VF - 1, "last");
@@ -2181,6 +2198,16 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
       Inst->copyFastMathFlags(Call);
     }
 
+    // Make sure we don't lose attributes at the call site. E.g., IMF
+    // attributes are taken from call sites in MapIntrinToIml to refine
+    // SVML calls for precision.
+    cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
+
+    // Set calling conventions for SVML function calls
+    if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
+      cast<CallInst>(Inst)->setCallingConv(CallingConv::SVML);
+    }
+
     if (FnName.find("sincos") != StringRef::npos) {
       analyzeCallArgMemoryReferences(INode, WideInst, CallArgs);
     }
@@ -2296,7 +2323,7 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
   if (GlobalVariable *PaddedMallocVariable =
           HNU.getModule().getGlobalVariable("__Intel_PaddedMallocCounter",
                                             true /*AllowInternal*/)) {
-    LLVMContext &Context = HNU.getContext();
+    LLVMContext &Context = *Plan->getLLVMContext();
     DDRefUtils &DDRU = OrigLoop->getDDRefUtils();
     CanonExprUtils &CEU = HNU.getCanonExprUtils();
 

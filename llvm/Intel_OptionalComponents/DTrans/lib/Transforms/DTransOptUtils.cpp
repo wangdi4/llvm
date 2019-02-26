@@ -66,6 +66,7 @@ replaceSizeValue(Instruction *BaseI,
     // Also replace the use of this value in the previous instruction
     // on the stack.
     User *PrevUser = PrevPair.first;
+    assert(PrevUser && "Null user in size use stack!");
     unsigned PrevIdx = PrevPair.second;
     assert((PrevUser->getOperand(PrevIdx) == OrigUse) &&
            "Size use stack is broken!");

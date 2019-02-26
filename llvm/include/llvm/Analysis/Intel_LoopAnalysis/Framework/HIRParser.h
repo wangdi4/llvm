@@ -1,6 +1,6 @@
 //===---------- HIRParser.h - Parses SCEVs into CanonExprs --*- C++ -*-----===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -398,7 +398,8 @@ class HIRParser {
   unsigned getPointerElementSize(Type *Ty) const;
 
   // Returns true if it is valid to parse this GEPOrSubsOperator.
-  bool isValidGEPOp(const GEPOrSubsOperator *GEPOp) const;
+  bool isValidGEPOp(const GEPOrSubsOperator *GEPOp,
+                    bool SkipLiveRangeCheck = false) const;
 
   /// Returns the base(earliest) GEP in case there are multiple GEPs associated
   /// with this load/store.
@@ -464,11 +465,6 @@ class HIRParser {
   /// Creates a GEP RegDDRef for this GEPOrSubsOperator.
   RegDDRef *createRegularGEPDDRef(const GEPOrSubsOperator *GEPOp,
                                   unsigned Level);
-
-  /// For a var of type *[10 x i32], given a reference to one past the end
-  /// element like &A[0][10], instcombine can turn it into equivalent &A[1][0].
-  /// This is problematic for DD so parser reverts it into the original form.
-  void restructureOnePastTheEndRef(RegDDRef *Ref) const;
 
   /// Returns a RegDDRef containing GEPInfo. IsUse indicates whether this is a
   /// definition or a use of GEP.

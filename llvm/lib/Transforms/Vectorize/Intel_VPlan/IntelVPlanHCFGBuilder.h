@@ -1,6 +1,6 @@
 //===-- IntelVPlanHCFGBuilder.h ---------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -109,6 +109,11 @@ public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
                    const DataLayout &DL, const WRNVecLoopNode *WRL, VPlan *Plan,
                    VPOVectorizationLegality *Legal);
+
+  virtual ~VPlanHCFGBuilder() {
+    if (Verifier)
+      delete Verifier;
+  }
 
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
   void buildHierarchicalCFG();

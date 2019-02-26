@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 //
-//   Copyright (C) 2017 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -80,6 +80,10 @@ static cl::opt<bool> DumpVPlanDot("dump-vplan-dot", cl::init(false), cl::Hidden,
 static cl::opt<bool> DisablePredicatorOpts(
     "disable-predicator-opts", cl::init(false), cl::Hidden,
     cl::desc("Disable optimizations in VPlan Predicator."));
+
+cl::opt<bool> VPlanLoopCFU(
+    "vplan-loop-cfu", cl::init(false), cl::Hidden,
+    cl::desc("Perform inner loop control flow uniformity transformation"));
 
 // Returns the first recipe in BB or NULL if empty.
 static VPRecipeBase *getFirstRecipeSafe(VPBasicBlock *BB) {
@@ -282,6 +286,7 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
   }
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Dump predicates for LIT testing.
 void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
   if (!VPlanPredicatorReport) {
@@ -321,6 +326,7 @@ void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
   }
   outs() << "End of the Predicator report.\n";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 // Generate all predicates within Region and recursively predicate nested
 // regions.
@@ -372,11 +378,13 @@ void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
     propagatePredicatesAcrossBlocks(VPB, Region);
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // We generate only one LIT report per region. If predicator optimizations are
   // disabled, we generate the report here. Otherwise, the report is generated
   // in 'optimizeRegionRec'.
   if (DisablePredicatorOpts)
     genLitReport(Region);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Predicate subregions
   for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
@@ -582,9 +590,12 @@ void VPlanPredicator::optimizeRegionRec(
   // Post-order optimizations
   optimizeRegionPostOrder(IncomingAllOnesPred, AllOnesPreds);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   genLitReport(Region);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // FIXME: Only for debugging. Can be removed.
 static void dumpVplanDot(VPlan *Plan,
                          const char *dotFile = "/tmp/vplan.dot") {
@@ -595,6 +606,7 @@ static void dumpVplanDot(VPlan *Plan,
     file.close();
   }
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if 0
 // TODO - if we need to skip backedges
@@ -676,9 +688,13 @@ void VPlanPredicator::linearizeRegionRec(VPRegionBlock *Region) {
   }
 }
 
+#include "IntelVPlanLoopCFU.h"
+
 // Entry point. The driver function for the predicator.
 void VPlanPredicator::predicate(void) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   dumpVplanDot(Plan, "/tmp/vplan.before.dot"); // For debugging
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Get the outermost VPLoopRegion where predication will start from
   // TODO: We should have a better way to do this. A pointer in VPlan, for
@@ -692,17 +708,25 @@ void VPlanPredicator::predicate(void) {
   assert(!EntryLoopR->getPredicateRecipe() &&
          "Entry loop region must have no predicate.");
 
+  // Transform inner loop control to become uniform.
+  if (VPlanLoopCFU)
+    handleInnerLoopBackedges(EntryLoopR);
+
   // Predicate the blocks within Region and recursively predicate nested
   // regions.
   predicateRegionRec(EntryLoopR);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   dumpVplanDot(Plan, "/tmp/vplan.after.dot"); // For debugging
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Optimize predicates within Region and recursively optimize predicates in
   // nested regions.
   if (!DisablePredicatorOpts) {
     optimizeRegionRec(EntryLoopR, nullptr /* IncomingAllOnesPred */);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     dumpVplanDot(Plan, "/tmp/vplan.optimized.dot"); // For debugging
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
   const VPLoop *VPL = EntryLoopR->getVPLoop();
   SmallVector<VPBlockBase *, 8> Exits;
@@ -714,5 +738,7 @@ void VPlanPredicator::predicate(void) {
 
   linearizeRegionRec(EntryLoopR);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   dumpVplanDot(Plan, "/tmp/vplan.after.linearized.dot"); // For debugging
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 }

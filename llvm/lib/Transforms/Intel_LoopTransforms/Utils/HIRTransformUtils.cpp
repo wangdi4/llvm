@@ -1,6 +1,6 @@
 //===--- HIRTransformUtils.cpp  -------------------------------------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "HIRUnroll.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
@@ -225,7 +225,7 @@ bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
 
     // Use the same canon expr to generate the division.
     TripCE->divide(UnrollOrVecFactor);
-    TripCE->simplify(true);
+    TripCE->simplify(true, true);
 
     Ref->setSymbase(Ref->getDDRefUtils().getNewSymbase());
 
@@ -643,7 +643,7 @@ static void updatePermutedLoopnestLiveIns(HLLoop *InnermostLoop,
       if (Ref->isSelfBlob()) {
         addLiveInToPermutedLoopnest(Ref->getSymbase(), Lp, OutermostLoop);
       } else {
-        for (auto BlobIt = Ref->blob_cbegin(), EB = Ref->blob_cend();
+        for (auto BlobIt = Ref->blob_begin(), EB = Ref->blob_end();
              BlobIt != EB; ++BlobIt) {
           addLiveInToPermutedLoopnest((*BlobIt)->getSymbase(), Lp,
                                       OutermostLoop);
@@ -833,8 +833,13 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   CanonExpr *UBCE = UBRef->getSingleCanonExpr();
 
   //  UB / StripmineSize: (N-1) / 64
+
+  if (UBRef->isSelfBlob()) {
+    UBRef->addBlobDDRef(UBRef->getSelfBlobIndex(), Level - 1);
+  }
+
   UBCE->divide(StripmineSize);
-  UBCE->simplify(true);
+  UBCE->simplify(true, true);
 
   RegDDRef *InnerLBRef =
       UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);
@@ -952,23 +957,42 @@ void HIRTransformUtils::completeUnroll(HLLoop *Loop) {
   unroll::completeUnrollLoop(Loop);
 }
 
-static void widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
+static bool doesConstTCOverflowAfterMult(const HLLoop *Loop, unsigned IVBitSize,
+                                         unsigned Multiplier) {
+  uint64_t TripCnt;
+  if (Loop->isConstTripLoop(&TripCnt)) {
+    APInt APOrigTC(IVBitSize, TripCnt);
+    APInt APMultiplier(IVBitSize, Multiplier);
+    bool Overflow = false;
+    APOrigTC.umul_ov(APMultiplier, Overflow);
+    return Overflow;
+  }
+
+  // For non-const TC, we do not know anything, just say don't overflow
+  return false;
+}
+
+// Returns false if widenIV is not valid.
+static bool widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
+
+  if (doesConstTCOverflowAfterMult(Lp, 64, Multiplier)) {
+    // Not valid if TC overflows u64
+    return false;
+  }
 
   unsigned IVSize = Lp->getIVType()->getPrimitiveSizeInBits();
 
   // This is the maximum size we support.
   if (IVSize == 64) {
-    return;
+    return true;
   }
 
   auto *UpperCE = Lp->getUpperCanonExpr();
 
-  if (UpperCE->isIntConstant()) {
-    return;
-  }
-
   int64_t MaxVal;
-  bool HasMax = HLNodeUtils::getMaxValue(UpperCE, Lp, MaxVal);
+
+  bool HasMax = (UpperCE->isIntConstant(&MaxVal) ||
+                 HLNodeUtils::getMaxValue(UpperCE, Lp, MaxVal));
 
   bool HasSignedIV = Lp->isNSW();
 
@@ -978,7 +1002,7 @@ static void widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
                     : APInt::getMaxValue(IVSize).getZExtValue();
 
     if ((MaxVal * Multiplier) < MaxValForSize) {
-      return;
+      return true;
     }
   }
 
@@ -1018,6 +1042,8 @@ static void widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
 
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Lp);
   }
+
+  return true;
 }
 
 static void updateTripCountPragma(HLLoop *Lp, unsigned Multiplier) {
@@ -1052,29 +1078,33 @@ static void updateTripCountPragma(HLLoop *Lp, unsigned Multiplier) {
   }
 }
 
-void HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
+bool HIRTransformUtils::multiplyTripCount(HLLoop *Lp, unsigned Multiplier) {
   assert(Lp->isNormalized() && "Normalized loop expected");
-
-  widenIVIfNeeded(Lp, Multiplier);
 
   auto *UpperRef = Lp->getUpperDDRef();
   bool UpperWasSelfBlob = UpperRef->isSelfBlob();
-
   auto *UpperCE = UpperRef->getSingleCanonExpr();
+  unsigned OrigIndex =
+      UpperWasSelfBlob ? UpperCE->getSingleBlobIndex() : InvalidBlobIndex;
+
+  bool CanWidenIV = widenIVIfNeeded(Lp, Multiplier);
+  if (!CanWidenIV) {
+    return false;
+  }
+
   UpperCE->addConstant(1, true);
   UpperCE->multiplyByConstant(Multiplier);
   UpperCE->addConstant(-1, true);
 
   if (UpperWasSelfBlob) {
     // Self-blob will turn into non-self blob so we need to add a blob ref.
-    unsigned Index = UpperCE->getSingleBlobIndex();
-
     auto *BlobRef = UpperRef->getDDRefUtils().createBlobDDRef(
-        Index, UpperCE->getDefinedAtLevel());
+        OrigIndex, UpperCE->getDefinedAtLevel());
     UpperRef->addBlobDDRef(BlobRef);
   }
 
   Lp->setMaxTripCountEstimate(Lp->getMaxTripCountEstimate() * Multiplier);
 
   updateTripCountPragma(Lp, Multiplier);
+  return true;
 }

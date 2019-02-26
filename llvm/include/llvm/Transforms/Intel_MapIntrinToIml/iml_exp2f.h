@@ -52,6 +52,8 @@
  *    if x < -151.0 then exp2f(x) underflow
  */
 
+#include <cassert>
+
 static float IML_ATTR_exp2f (float x)
 {
     /* macros to sign-expand low 'num' bits of 'val' to native integer */
@@ -77,16 +79,29 @@ static float IML_ATTR_exp2f (float x)
 
     /* miscellaneous data */
 
-    #define TWO_23H (*(const float *)_TWO_23H)
-    static const unsigned _TWO_23H[] = { 0x4b400000 };  /* 2^23+2^22 */
+    union uTWO_23H {
+      unsigned u;
+      float f;
+    } tTWO_23H;
+    #define TWO_23H (tTWO_23H.f)
+    tTWO_23H.u = 0x4b400000 /* 2^23+2^22 */;
+
+    union uI32x2F32x2 {
+      unsigned u[2];
+      float f[2];
+    };
+
+    union uI32x2F32x2 t_large_value_32, t_small_value_32;
 
     #define OVERFLOW_32(S) (large_value_32[(S)] * large_value_32[0])
-    #define large_value_32 ((const float *)_large_value_32)
-    static const unsigned int _large_value_32[] = { 0x71800000,0xf1800000 };    /* +2^100,-2^100 */
+    #define large_value_32 (t_large_value_32.f)
+    t_large_value_32.u[0] = 0x71800000; /* +2^100 */
+    t_large_value_32.u[1] = 0xf1800000; /* -2^100 */
 
     #define UNDERFLOW_32(S) (small_value_32[(S)] * small_value_32[0])
-    #define small_value_32 ((const float *)_small_value_32)
-    static const unsigned int _small_value_32[] = { 0x0d800000,0x8d800000 };    /* +2^(-100),-2^(-100) */
+    #define small_value_32 (t_small_value_32.f)
+    t_small_value_32.u[0] = 0x0d800000; /* +2^(-100) */
+    t_small_value_32.u[1] = 0x8d800000; /* -2^(-100) */
 
     static const float ones[2] = { 1.0f,-1.0f };
 
@@ -96,8 +111,17 @@ static float IML_ATTR_exp2f (float x)
     #define EXPO_32(i) (((i) >> 23) - BIAS_32)
     #define FRACTION_32(i) ((i) << (32-23 + EXPO_32(i)))
 
-    #define I32(f) (*(volatile int *)&f)
-    #define I64(f) (*(long long int *)&f)
+    union uI32F32 {
+      int i;
+      float f;
+    };
+
+    union uI32F32 tI32_tv, tI32_resultf, tI32_scf, tI32_x;
+
+    union uI64_scale {
+      long long int i;
+      double d;
+    } tI64_scale;
 
     /* exp2f() data */
     #define L 6
@@ -109,47 +133,49 @@ static float IML_ATTR_exp2f (float x)
 
     unsigned ix;
     int sign,m,n,j;
-    float resultf,scf;
+    float resultf;
     float volatile tv;
-    double y,z,t,p,scale;
+    double y,z,t,p;
 
-    ix = (I32(x) & ~0x80000000);
+    tI32_x.f = x;
+    ix = (tI32_x.i & ~0x80000000);
 #ifdef EXACT_RESULTS
     /* check for argument values for which result must be exact.
     * for exp2f, this is all integers in the inclusive range [-149..127].
     */
     if ((ix-0x3f800000 <= 0x42fe0000-0x3f800000) && (FRACTION_32(ix) == 0) &&   /* |x| >= 1.0, x is integer */
-        (tv = (x + TWO_23H), m = SIGN_EXPAND (I32(tv), 23-1), m >= -149)) {     /* m = (int)x */
+        (tI32_tv.f = (x + TWO_23H), m = SIGN_EXPAND (tI32_tv.i, 23-1), m >= -149)) {     /* m = (int)x */
             if ((m += BIAS_32) > 0) {   /* exact normal result */
-                I32(resultf) = ((int)m << 23);
+                tI32_resultf.i = ((int)m << 23);
             } else {                    /* exact subnormal resultf */
-                I32(resultf) = ((int)1 << (m+22));
+                tI32_resultf.i = ((int)1 << (m+22));
             }
-            return resultf;
+            return tI32_resultf.f;
     }
 #endif  /*EXACT_RESULTS*/
     if (ix < 0x42fa0000 /*125.0*/) {    /* 0 <= |x| < 125.0 */
         if (ix < 0x31800000) {  /* 0 <= |x| < 2^(-28) */
             return tv = (ones[0] + x);   /* value of 1.0 with inexact raised, except for x==0 */
         }
-        tv = (x*KONE + TWO_23H); t = (tv - TWO_23H); m = SIGN_EXPAND (I32(tv), 23-1);
+        tv = (x*KONE + TWO_23H); t = (tv - TWO_23H); tI32_tv.f = tv; m = SIGN_EXPAND (tI32_tv.i, 23-1);
         y = (x + t*NONEK); j = SIGN_EXPAND (m, L); n = (m - j) >> L;
-        I32(scf) = (int)( n + BIAS_32 ) << 23;
+        tI32_scf.i = (int)( n + BIAS_32 ) << 23;
         z = y*y; p = (P[3]*z + P[1])*z + (P[2]*z + P[0])*y;
-        resultf = (p*T[K/2+j] + T[K/2+j])*scf;
+        resultf = (p*T[K/2+j] + T[K/2+j])*tI32_scf.f;
         return resultf;
     }
-    sign = ((unsigned)I32(x) >> 31);
+    assert(tI32_x.f == x && "Expected x not to be redefined in this function");
+    sign = ((unsigned)tI32_x.i >> 31);
     if (ix <= range[sign]) {    /* 125.0 <= |x| <= range */
-        tv = (x*KONE + TWO_23H); t = (tv - TWO_23H); m = SIGN_EXPAND (I32(tv), 23-1);
+        tv = (x*KONE + TWO_23H); t = (tv - TWO_23H); tI32_tv.f = tv; m = SIGN_EXPAND (tI32_tv.i, 23-1);
         y = (x + t*NONEK); j = SIGN_EXPAND (m, L); n = (m - j) >> L;
-        I64(scale) = (long long int)( BIAS_64 + n ) << 52;
+        tI64_scale.i = (long long int)( BIAS_64 + n ) << 52;
         z = y*y; p = (P[3]*z + P[1])*z + (P[2]*z + P[0])*y;
-        resultf = (p*T[K/2+j] + T[K/2+j])*scale;
-        if (I32(resultf) < 0x00800000) {
+        tI32_resultf.i = (p*T[K/2+j] + T[K/2+j])*tI64_scale.d;
+        if (tI32_resultf.i < 0x00800000) {
             //__libm_error_support (&x, &x, &resultf, exp2f_underflow);
         }
-        return resultf;
+        return tI32_resultf.f;
     }
     /* NaN, INF, or range error */
     if (ix < 0x7f800000) {  /* range error */

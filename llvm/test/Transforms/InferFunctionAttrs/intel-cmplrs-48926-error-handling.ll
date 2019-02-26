@@ -15,6 +15,11 @@ define void @my_warn_func() {
   ret void
 }
 
+; CHECK: define void @my_signal_func() #0 {
+define void @my_signal_func() {
+  ret void
+}
+
 ; CHECK: declare void @my_croak_func1() #0
 declare void @my_croak_func1()
 

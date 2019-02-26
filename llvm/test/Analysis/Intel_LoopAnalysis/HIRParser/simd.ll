@@ -2,10 +2,8 @@
 
 ; Check parsing output for the simd loop verifying that it has the simd directives prepended/appended to it
 
-; CHECK: @llvm.intel.directive(!7);
-; CHECK: @llvm.intel.directive.qual.opndlist(!8,  %a,  %b,  %mask);
-; CHECK: @llvm.intel.directive.qual.opnd.i32(!9,  4);
-; CHECK: @llvm.intel.directive.qual(!10);
+; CHECK: %t4 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD() ]
+
 ; CHECK: + DO i1 = 0, 3, 1   <DO_LOOP>
 ; CHECK: |   %mask5 = (%veccast.3)[i1];
 ; CHECK: |   if (%mask5 != 0)
@@ -15,7 +13,8 @@
 ; CHECK: |      (%veccast)[i1] = %0 + %1;
 ; CHECK: |   }
 ; CHECK: + END LOOP
-; CHECK: @llvm.intel.directive(!12);
+
+; CHECK: @llvm.directive.region.exit(%t4); [ DIR.OMP.END.SIMD() ]
 
 ; ModuleID = 'simd.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -49,10 +48,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  call void @llvm.intel.directive(metadata !7)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !8, <4 x i32> %a, <4 x i32> %b, <4 x i32> %mask)
-  call void @llvm.intel.directive.qual.opnd.i32(metadata !9, i32 4)
-  call void @llvm.intel.directive.qual(metadata !10)
+  %t4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -81,7 +77,7 @@ simd.loop.exit:                                   ; preds = %simd.loop.else, %si
   br i1 %vlcond, label %simd.loop, label %simd.end.region
 
 simd.end.region:                                  ; preds = %simd.loop.exit
-  call void @llvm.intel.directive(metadata !11)
+  call void @llvm.directive.region.exit(token %t4) [ "DIR.OMP.END.SIMD"() ]
   br label %return
 
 return:                                           ; preds = %simd.end.region
@@ -90,26 +86,9 @@ return:                                           ; preds = %simd.end.region
   ret <4 x i32> %vec_ret
 }
 
-declare void @llvm.intel.directive(metadata)
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
 
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...)
-
-declare void @llvm.intel.directive.qual(metadata)
-
-!cilk.functions = !{!0}
-!llvm.ident = !{!6}
-
-!0 = !{i32 (i32, i32)* @vec_sum, !1, !2, !3, !4, !5}
-!1 = !{!"elemental"}
-!2 = !{!"arg_name", !"a", !"b"}
-!3 = !{!"arg_step", i32 undef, i32 undef}
-!4 = !{!"arg_alig", i32 undef, i32 undef}
-!5 = !{!"vec_length", i32 undef, i32 4}
-!6 = !{!"clang version 3.8.0 (branches/vpo 1412)"}
-!7 = !{!"DIR.OMP.SIMD"}
-!8 = !{!"QUAL.OMP.PRIVATE"}
-!9 = !{!"QUAL.OMP.SIMDLEN"}
-!10 = !{!"QUAL.LIST.END"}
-!11 = !{!"DIR.OMP.END.SIMD"}

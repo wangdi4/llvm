@@ -10,7 +10,7 @@
 #ifndef LLVM_LIB_CODEGEN_ASMPRINTER_STIDEBUG_H
 #define LLVM_LIB_CODEGEN_ASMPRINTER_STIDEBUG_H
 
-#include "../AsmPrinterHandler.h"
+#include "llvm/CodeGen/AsmPrinterHandler.h"
 
 namespace llvm {
 

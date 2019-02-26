@@ -47,6 +47,7 @@ class VPIfTruePredicateRecipe;
 class VPIfFalsePredicateRecipe;
 class VPlanPredicator;
 class VPlan;
+class VPExternalUse;
 #endif
 
 // This is the base class of the VPlan Def/Use graph, used for modeling the data
@@ -64,6 +65,7 @@ class VPValue {
   friend class VPBasicBlock;
   friend class VPlanPredicator;
   friend class VPlanHCFGBuilder;
+  friend class VPOCodeGen;
 #endif
 
 private:
@@ -102,7 +104,7 @@ protected:
   // back-end and analysis information for the new IR.
 
   /// Return the underlying Value attached to this VPValue.
-  Value *getUnderlyingValue() { return UnderlyingVal; }
+  Value *getUnderlyingValue() const { return UnderlyingVal; }
 
   // Set \p Val as the underlying Value of this VPValue.
   void setUnderlyingValue(Value *Val) {
@@ -116,7 +118,15 @@ public:
   /// the SubclassID field of the VPValue objects. They are used for concrete
   /// type identification.
 #if INTEL_CUSTOMIZATION
-  enum { VPValueSC, VPUserSC, VPInstructionSC, VPConstantSC, VPExternalDefSC };
+  enum {
+    VPValueSC,
+    VPUserSC,
+    VPInstructionSC,
+    VPConstantSC,
+    VPExternalDefSC,
+    VPMetadataAsValueSC,
+    VPExternalUseSC,
+  };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
 #endif // INTEL_CUSTOMIZATION
@@ -146,6 +156,7 @@ public:
   /// This is used to implement the classof checks. This should not be used
   /// for any other purpose, as the values may change as LLVM evolves.
   unsigned getVPValueID() const { return SubclassID; }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #if INTEL_CUSTOMIZATION
   virtual void dump(raw_ostream &OS) const { printAsOperand(OS); }
   virtual void dump() const { dump(errs()); }
@@ -155,6 +166,7 @@ void printAsOperand(raw_ostream &OS) const {
       OS << *getBaseType() << " %vp"
          << (unsigned short)(unsigned long long)this;
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   unsigned getNumUsers() const { return Users.size(); }
   void addUser(VPUser &User) { Users.push_back(&User); }
@@ -169,6 +181,13 @@ void printAsOperand(raw_ostream &OS) const {
   int getNumUsersTo(const VPUser *U) const {
     return std::count(Users.begin(), Users.end(), U);
   }
+
+  bool hasExternalUse() const {
+    return std::any_of(Users.begin(), Users.end(), [](const VPUser *U) {
+             return isa<VPExternalUse>(U);
+           });
+  }
+
 #endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
@@ -322,7 +341,7 @@ protected:
   /// Return the underlying Constant attached to this VPConstant. This interface
   /// is similar to getValue() but hides the cast when we are working with
   /// VPConstant pointers.
-  Constant *getConstant() {
+  Constant *getConstant() const {
     assert(isa<Constant>(UnderlyingVal) &&
            "Expected Constant as underlying Value.");
     return cast<Constant>(UnderlyingVal);
@@ -332,19 +351,13 @@ public:
   VPConstant(const VPConstant &) = delete;
   VPConstant &operator=(const VPConstant &) const = delete;
 
-  // Structural comparators.
-  bool operator==(const VPConstant &C) const {
-    return UnderlyingVal == C.UnderlyingVal;
-  };
-  bool operator<(const VPConstant &C) const {
-    return UnderlyingVal < C.UnderlyingVal;
-  };
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
     UnderlyingVal->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
   void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
@@ -358,56 +371,153 @@ public:
 /// shared by structural equivalence (e.g. i32 %param0 == i32 %param0). They
 /// must be created through the VPlan::getVPExternalDef interface, to guarantee
 /// that only once instance of each external definition is created.
-class VPExternalDef : public VPValue {
+class VPExternalDef : public VPValue, public FoldingSetNode {
   // VPlan is currently the context where the pool of VPExternalDefs is held.
   friend class VPlan;
 
 private:
-  // Hold the HIR information related to this external definition operand (DDRef
-  // or IV).
-  UnitaryBlobOrIV HIROperand;
+  // Hold the DDRef or IV information related to this external definition.
+  std::unique_ptr<VPOperandHIR> HIROperand;
 
   // Construct a VPExternalDef given a Value \p ExtVal.
   VPExternalDef(Value *ExtVal)
       : VPValue(VPValue::VPExternalDefSC, ExtVal->getType(), ExtVal) {
-    assert(ExtVal && "An external definition must have a underlying Value!");
   }
 
   // Construct a VPExternalDef given an underlying DDRef \p DDR.
   VPExternalDef(loopopt::DDRef *DDR)
-      : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()), HIROperand(DDR) {
-  }
+      : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
+        HIROperand(new VPBlob(DDR)) {}
 
   // Construct a VPExternalDef given an underlying IV level \p IVLevel.
   VPExternalDef(unsigned IVLevel, Type *BaseTy)
-      : VPValue(VPValue::VPExternalDefSC, BaseTy), HIROperand(IVLevel) {}
+      : VPValue(VPValue::VPExternalDefSC, BaseTy),
+        HIROperand(new VPIndVar(IVLevel)) {}
 
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as
   // independent as possible of the underlying IR. We grant access to the
   // underlying IR using friendship.
 
-  /// Return the underlying HIR information for this VPExternalDef.
-  const UnitaryBlobOrIV &getUnitaryBlobOrIV() { return HIROperand; };
+  /// Return the HIR operand for this VPExternalDef.
+  const VPOperandHIR *getOperandHIR() const { return HIROperand.get(); };
 
 public:
   VPExternalDef() = delete;
   VPExternalDef(const VPExternalDef &) = delete;
   VPExternalDef &operator=(const VPExternalDef &) const = delete;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const {
     if (UnderlyingVal)
       UnderlyingVal->printAsOperand(OS);
     else {
       getBaseType()->print(OS);
       OS << " ";
-      HIROperand.print(OS);
+      HIROperand->print(OS);
     }
   }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
     return V->getVPValueID() == VPExternalDefSC;
+  }
+
+  /// Method to support FoldingSet's hashing.
+  void Profile(FoldingSetNodeID &ID) const { HIROperand->Profile(ID); }
+};
+
+/// Concrete class for an external use.
+class VPExternalUse : public VPUser, public FoldingSetNode {
+private:
+  friend class VPlan;
+
+  // Hold the DDRef or IV information related to this external use.
+  std::unique_ptr<VPOperandHIR> HIROperand;
+
+  // Construct a VPExternalUse given a Value \p ExtVal.
+  VPExternalUse(Value *ExtVal)
+      : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()) {
+    setUnderlyingValue(ExtVal);
+  }
+  // Construct a VPExternalUse given an underlying DDRef \p DDR.
+  VPExternalUse(loopopt::DDRef *DDR)
+      : VPUser(VPValue::VPExternalUseSC, DDR->getDestType()),
+        HIROperand(new VPBlob(DDR)) {}
+  // Construct a VPExternalUse given an underlying IV level \p IVLevel.
+  VPExternalUse(unsigned IVLevel, Type *BaseTy)
+      : VPUser(VPValue::VPExternalUseSC, BaseTy),
+        HIROperand(new VPIndVar(IVLevel)) {}
+
+  // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
+  // the front-end and back-end of VPlan so that the middle-end is as
+  // independent as possible of the underlying IR. We grant access to the
+  // underlying IR using friendship.
+
+  /// Return the HIR operand for this VPExternalDef.
+  const VPOperandHIR *getOperandHIR() const { return HIROperand.get(); };
+
+public:
+  VPExternalUse() = delete;
+  VPExternalUse(const VPExternalUse &) = delete;
+  VPExternalUse &operator=(const VPExternalUse &) = delete;
+
+  /// \brief Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPExternalUseSC;
+  }
+
+  /// Method to support FoldingSet's hashing.
+  void Profile(FoldingSetNodeID &ID) const { HIROperand->Profile(ID); }
+};
+
+/// This class augments VPValue with Metadata that is used as operand of another
+/// VPValue class. It contains a pointer to the underlying MetadataAsValue.
+class VPMetadataAsValue : public VPValue {
+  // VPlan is currently the context where we hold the pool of
+  // VPMetadataAsValues.
+  friend class VPlan;
+
+protected:
+  VPMetadataAsValue(MetadataAsValue *MDAsValue)
+      : VPValue(VPValue::VPMetadataAsValueSC, MDAsValue->getType(), MDAsValue) {
+  }
+
+  /// Return the underlying MetadataAsValue.
+  MetadataAsValue *getMetadataAsValue() {
+    assert(isa<MetadataAsValue>(UnderlyingVal) &&
+           "Expected MetadataAsValue as underlying Value.");
+    return cast<MetadataAsValue>(UnderlyingVal);
+  }
+
+  /// Return the Metadata of the underlying MetadataAsValue.
+  Metadata *getMetadata() { return getMetadataAsValue()->getMetadata(); }
+
+public:
+  VPMetadataAsValue(const VPMetadataAsValue &) = delete;
+  VPMetadataAsValue &operator=(const VPMetadataAsValue &) const = delete;
+
+  // Structural comparators.
+  bool operator==(const VPMetadataAsValue &C) const {
+    return UnderlyingVal == C.UnderlyingVal;
+  };
+  bool operator<(const VPMetadataAsValue &C) const {
+    return UnderlyingVal < C.UnderlyingVal;
+  };
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printAsOperand(raw_ostream &OS) const override {
+    UnderlyingVal->printAsOperand(OS);
+  }
+  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
+  void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPMetadataAsValueSC;
   }
 };
 } // namespace vpo

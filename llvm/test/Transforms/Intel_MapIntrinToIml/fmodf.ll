@@ -1,14 +1,10 @@
-; __svml_fmodf4 only has a low precision svml variant, so no match during the iml query should be made. This results in scalarizing the call.
+; __svml_fmodf4 does not have a high precision variant, so just use the low precision one.
 
 ; RUN: opt -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK: vector.body
-; CHECK: call float @fmodf
-; CHECK: call float @fmodf
-; CHECK: call float @fmodf
-; CHECK: call float @fmodf
-; CHECK-NOT: call <4 x float> @__svml_fmodf4
+; CHECK: call svml_cc <4 x float> @__svml_fmodf4
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

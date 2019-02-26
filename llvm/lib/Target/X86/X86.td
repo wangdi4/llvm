@@ -1,9 +1,8 @@
 //===-- X86.td - Target definition file for the Intel X86 --*- tablegen -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -247,6 +246,18 @@ def FeaturePTWRITE  : SubtargetFeature<"ptwrite", "HasPTWRITE", "true",
                                       "Support ptwrite instruction">;
 def FeatureMPX     : SubtargetFeature<"mpx", "HasMPX", "true",
                                       "Support MPX instructions">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+def FeatureAMXTILE     : SubtargetFeature<"amx-tile", "HasAMXTILE", "true",
+                                      "Support AMX tile instructions">;
+def FeatureAMXINT8     : SubtargetFeature<"amx-int8", "HasAMXINT8", "true",
+                                      "Support AMX amx-int8 instructions",
+                                      [FeatureAMXTILE]>;
+def FeatureAMXBF16     : SubtargetFeature<"amx-bf16", "HasAMXBF16", "true",
+                                      "Support AMX amx-bf16 instructions",
+                                      [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
 def FeatureSlowDivide32 : SubtargetFeature<"idivl-to-divb",
@@ -897,6 +908,9 @@ def SKXFeatures : ProcessorFeatures<SKLFeatures.Value, [
 
 class SkylakeServerProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                                  SKXFeatures.Value, [
+// INTEL_CUSTOMIZATION
+  FeaturePrefer256Bit,
+// end INTEL_CUSTOMIZATION
   FeatureHasFastGather,
   FeaturePOPCNTFalseDeps
 ]>;
@@ -909,6 +923,9 @@ def CLXFeatures : ProcessorFeatures<SKXFeatures.Value, [
 
 class CascadelakeProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                               CLXFeatures.Value, [
+// INTEL_CUSTOMIZATION
+  FeaturePrefer256Bit,
+// end INTEL_CUSTOMIZATION
   FeatureHasFastGather,
   FeaturePOPCNTFalseDeps
 ]>;
@@ -929,6 +946,9 @@ def CNLFeatures : ProcessorFeatures<SKLFeatures.Value, [
 
 class CannonlakeProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                               CNLFeatures.Value, [
+// INTEL_CUSTOMIZATION
+  FeaturePrefer256Bit,
+// end INTEL_CUSTOMIZATION
   FeatureHasFastGather
 ]>;
 def : CannonlakeProc<"cannonlake">;
@@ -947,12 +967,18 @@ def ICLFeatures : ProcessorFeatures<CNLFeatures.Value, [
 
 class IcelakeClientProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                                  ICLFeatures.Value, [
+// INTEL_CUSTOMIZATION
+  FeaturePrefer256Bit,
+// end INTEL_CUSTOMIZATION
   FeatureHasFastGather
 ]>;
 def : IcelakeClientProc<"icelake-client">;
 
 class IcelakeServerProc<string Name> : ProcModel<Name, SkylakeServerModel,
                                                  ICLFeatures.Value, [
+// INTEL_CUSTOMIZATION
+  FeaturePrefer256Bit,
+// end INTEL_CUSTOMIZATION
   FeaturePCONFIG,
   FeatureWBNOINVD,
   FeatureHasFastGather

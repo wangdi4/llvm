@@ -41,12 +41,14 @@ FunctionPass *createHIROptPredicatePass(bool EnablePartialUnswitch = true);
 
 /// createHIRPreVecCompleteUnrollPass - This creates a pass that performs
 /// complete unrolling before vectorizer.
-FunctionPass *createHIRPreVecCompleteUnrollPass(unsigned OptLevel = 0);
+FunctionPass *createHIRPreVecCompleteUnrollPass(unsigned OptLevel = 0,
+                                                bool PragmaOnlyUnroll = false);
 
 /// createHIRPostVecCompleteUnrollPass - This creates a pass that performs
 /// complete
 /// unrolling after vectorizer.
-FunctionPass *createHIRPostVecCompleteUnrollPass(unsigned OptLevel = 0);
+FunctionPass *createHIRPostVecCompleteUnrollPass(unsigned OptLevel = 0,
+                                                 bool PragmaOnlyUnroll = false);
 
 /// createHIRLoopDistributionForMemRecPass - This creates a pass that
 /// performs Loop Distribution for breaking memory recurrences.
@@ -78,11 +80,11 @@ FunctionPass *createHIRDummyTransformationPass();
 
 /// createHIRGeneralUnrollPass - This creates a pass that performs general
 /// unrolling for larger trip count HIR loops.
-FunctionPass *createHIRGeneralUnrollPass();
+FunctionPass *createHIRGeneralUnrollPass(bool PragmaOnlyUnroll = false);
 
 /// createHIRUnrollAndJamPass - This creates a pass that performs unroll & jam
 /// on loops.
-FunctionPass *createHIRUnrollAndJamPass();
+FunctionPass *createHIRUnrollAndJamPass(bool PragmaOnlyUnroll = false);
 
 /// createHIRLoopReversalPass - This creates a HIR Loop pass that performs Loop
 /// Reversal.

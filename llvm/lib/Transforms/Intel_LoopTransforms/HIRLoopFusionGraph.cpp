@@ -1,6 +1,6 @@
 //===- HIRLoopFusionGraph.cpp - Implements Loop Fusion Graph --------------===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -25,12 +25,17 @@
 #define DEBUG_TYPE "hir-loop-fusion"
 #define DEBUG_FG(X) DEBUG_WITH_TYPE(DEBUG_TYPE "-fg", X)
 
+static cl::opt<bool>
+    ConstructNaiveEdges(DEBUG_TYPE "-naive-edges", cl::init(false), cl::Hidden,
+                        cl::desc("Construct profitable edges just because "
+                                 "loops are having common trip count"));
+
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::fusion;
 
-typedef DDRefGatherer<RegDDRef, AllRefs ^ (BlobRefs | ConstantRefs |
-                                           GenericRValRefs | IsAddressOfRefs)>
+typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
+                                        IsAddressOfRefs)>
     Gatherer;
 
 bool fusion::isGoodLoop(const HLLoop *Loop) {
@@ -218,9 +223,6 @@ static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
     CommonTC = 100;
   }
 
-  // L1 |----------------|
-  // L2 |-------------------------|
-  //                     ^-UBDist-^
   // L1 |-------------------------|
   // L2 |----------------|
   //                     ^-UBDist-^
@@ -628,9 +630,11 @@ void FuseGraph::updateSuccessors(FuseEdgeHeap &Heap, unsigned NodeV,
     } else if (Neighbors[NodeV].count(NodeY)) {
       // Already a neighbor of NodeV, need to replace by a directed edge.
       Successors[NodeV].insert(NodeY);
+      Predecessors[NodeY].insert(NodeV);
 
       auto &Edge = getFuseEdge(NodeV, NodeY);
       Edge.merge(getFuseEdge(NodeX, NodeY));
+      Edge.IsUndirected = false;
 
       Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
       Heap.remove(NodeX, NodeY);
@@ -673,9 +677,11 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
     } else if (Neighbors[NodeV].count(NodeY)) {
       // Already a neighbor of NodeV, need to replace by a directed edge.
       Predecessors[NodeV].insert(NodeY);
+      Successors[NodeY].insert(NodeV);
 
       auto &Edge = getFuseEdge(NodeY, NodeV);
       Edge.merge(getFuseEdge(NodeY, NodeX));
+      Edge.IsUndirected = false;
 
       Heap.reheapEdge(NodeY, NodeV, Edge.Weight);
       Heap.remove(NodeY, NodeX);
@@ -1005,7 +1011,7 @@ void FuseGraph::constructDirectedEdges(
     HLNode *SrcNode = &Child;
     unsigned SrcNumber = getFuseNode(GraphNodeMap, SrcNode);
 
-    for (RegDDRef *Ref : Refs) {
+    for (DDRef *Ref : Refs) {
       // Collect Directed Dependency Edges
       for (const DDEdge *DDEdge : DDG.outgoing(Ref)) {
         if (!DDEdge->isForwardDep()) {
@@ -1061,8 +1067,9 @@ void FuseGraph::constructDirectedEdges(
       }
 
       // Collect RVals for undirected (input data dependency) edges
-      if (Ref->isRval() && Ref->isMemRef()) {
-        RValNodePairs.emplace_back(Ref, SrcNode);
+      RegDDRef *RDDRef = dyn_cast<RegDDRef>(Ref);
+      if (RDDRef && RDDRef->isRval() && RDDRef->isMemRef()) {
+        RValNodePairs.emplace_back(RDDRef, SrcNode);
       }
     }
   }
@@ -1114,6 +1121,28 @@ void FuseGraph::constructUndirectedEdges(
 
           ExistingEdge->Weight += CommonTC;
         }
+      }
+    }
+  }
+}
+
+void FuseGraph::constructNaiveEdges(GraphNodeMapTy &GraphNodeMap,
+                                    FusibleCacheTy &FusibleCache) {
+  for (int I = 0, E = Vertex.size(); I < E; ++I) {
+    for (int J = I + 1; J < E; ++J) {
+      unsigned CommonTC =
+          areFusibleWithCommonTC(FusibleCache, Vertex[I], Vertex[J]);
+
+      if (CommonTC) {
+        FuseEdge *ExistingEdge = tryGetFuseEdge(I, J);
+
+        if (!ExistingEdge) {
+          // Create new undirected edge
+          ExistingEdge = &getOrCreateFuseEdge(I, J);
+          ExistingEdge->IsUndirected = true;
+        }
+
+        ExistingEdge->Weight += CommonTC;
       }
     }
   }
@@ -1215,6 +1244,10 @@ FuseGraph::FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS, DDGraph DDG,
                          RValNodePairs);
 
   constructUndirectedEdges(GraphNodeMap, FusibleCache, RValNodePairs);
+
+  if (ConstructNaiveEdges) {
+    constructNaiveEdges(GraphNodeMap, FusibleCache);
+  }
 
   initGraphHelpers();
 

@@ -35,3 +35,8 @@ add_llvm_library(LLVMAsmPrinter
   DEPENDS
   intrinsics_gen
   )
+
+if(INTEL_CUSTOMIZATION)
+  target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_OptReport)
+  target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_LoopOptReportSupport)
+endif(INTEL_CUSTOMIZATION)

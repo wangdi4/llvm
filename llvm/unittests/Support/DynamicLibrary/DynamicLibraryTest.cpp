@@ -1,9 +1,8 @@
 //===- llvm/unittest/Support/DynamicLibrary/DynamicLibraryTest.cpp --------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -33,8 +32,10 @@ std::string LibPath(const std::string Name = "PipSqueak") {
 
 #if defined(_WIN32) || (defined(HAVE_DLFCN_H) && defined(HAVE_DLOPEN))
 
-typedef void (*SetStrings)(std::string &GStr, std::string &LStr);
-typedef void (*TestOrder)(std::vector<std::string> &V);
+#if INTEL_CUSTOMIZATION
+typedef void (*SetStrings)(int &GStr, int &LStr);
+typedef void (*TestOrder)(std::vector<int> &V);
+#endif // INTEL_CUSTOMIZATION
 typedef const char *(*GetString)();
 
 template <class T> static T FuncPtr(void *Ptr) {
@@ -110,13 +111,17 @@ TEST(DynamicLibrary, Overload) {
 }
 
 TEST(DynamicLibrary, Shutdown) {
-  std::string A("PipSqueak"), B, C("SecondLib");
-  std::vector<std::string> Order;
+#if INTEL_CUSTOMIZATION
+  std::string A_lib("PipSqueak"), C_lib("SecondLib");
+  int A = State::FIRST_CONSTANT, B = 0, C = State::SECOND_CONSTANT;
+  std::vector<int> Order;
+  Order.reserve(2);
+#endif // INTEL_CUSTOMIZATION
   {
     std::string Err;
     llvm_shutdown_obj Shutdown;
     DynamicLibrary DL =
-        DynamicLibrary::getPermanentLibrary(LibPath(A).c_str(), &Err);
+        DynamicLibrary::getPermanentLibrary(LibPath(A_lib).c_str(), &Err); // INTEL
     EXPECT_TRUE(DL.isValid());
     EXPECT_TRUE(Err.empty());
 
@@ -125,14 +130,14 @@ TEST(DynamicLibrary, Shutdown) {
     EXPECT_TRUE(SS_0 != nullptr);
 
     SS_0(A, B);
-    EXPECT_EQ(B, "Local::Local(PipSqueak)");
+    EXPECT_TRUE(B == State::LOCAL_CONSTRUCTOR_CALL); // INTEL
 
     TestOrder TO_0 = FuncPtr<TestOrder>(
         DynamicLibrary::SearchForAddressOfSymbol("TestOrder"));
     EXPECT_TRUE(TO_0 != nullptr);
-    
+
     DynamicLibrary DL2 =
-        DynamicLibrary::getPermanentLibrary(LibPath(C).c_str(), &Err);
+        DynamicLibrary::getPermanentLibrary(LibPath(C_lib).c_str(), &Err); // INTEL
     EXPECT_TRUE(DL2.isValid());
     EXPECT_TRUE(Err.empty());
 
@@ -147,22 +152,27 @@ TEST(DynamicLibrary, Shutdown) {
     EXPECT_TRUE(TO_1 != nullptr);
     EXPECT_TRUE(TO_0 != TO_1);
 
-    B.clear();
+    B = 0;
     SS_1(C, B);
-    EXPECT_EQ(B, "Local::Local(SecondLib)");
+    EXPECT_TRUE(B == State::LOCAL_CONSTRUCTOR_CALL); // INTEL
 
     TO_0(Order);
     TO_1(Order);
   }
-  EXPECT_EQ(A, "Global::~Global");
-  EXPECT_EQ(B, "Local::~Local");
+#if INTEL_CUSTOMIZATION
+  EXPECT_TRUE(A == State::GLOBAL_DESTRUCTOR_CALL);
+  EXPECT_TRUE(B == State::LOCAL_DESTRUCTOR_CALL);
+#endif // INTEL_CUSTOMIZATION
+
   EXPECT_TRUE(FuncPtr<SetStrings>(DynamicLibrary::SearchForAddressOfSymbol(
                   "SetStrings")) == nullptr);
 
   // Test unload/destruction ordering
   EXPECT_EQ(Order.size(), 2UL);
-  EXPECT_EQ(Order.front(), "SecondLib");
-  EXPECT_EQ(Order.back(), "PipSqueak");
+#if INTEL_CUSTOMIZATION
+  EXPECT_EQ(Order.front(), State::SECOND_CONSTANT);
+  EXPECT_EQ(Order.back(), State::FIRST_CONSTANT);
+#endif // INTEL_CUSTOMIZATION
 }
 
 #else

@@ -1,6 +1,6 @@
 //===---------------- DTransAnalysis.cpp - DTrans Analysis ----------------===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -955,8 +955,8 @@ bool DTransAllocAnalyzer::isFreePostDom(ImmutableCallSite CS) {
   // that it is inside a BitCast. In this case we need
   // to strip the pointer casting from the Value and then
   // access the Function.
-  const Function *F
-      = dyn_cast<const Function>(CS.getCalledValue()->stripPointerCasts());
+  const Function *F =
+      dyn_cast<const Function>(CS.getCalledValue()->stripPointerCasts());
 
   if (!F)
     // Check for deallocation routine.
@@ -1739,7 +1739,7 @@ bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
     if (isa<CallInst>(&I) || isa<InvokeInst>(&I)) {
       // Skip debug intrinsics
       if (isa<DbgInfoIntrinsic>(&I))
-          continue;
+        continue;
       if (++CallCount > MallocCallCount)
         return false;
     } else {
@@ -2521,8 +2521,8 @@ private:
             // If the bitcast is to an i8** and element zero of the accessed
             // type is a pointer, we need to add the type of that pointer
             // to the destination value's alias set.
-            auto *Int8PtrPtrTy = llvm::Type::getInt8PtrTy(DestTy->getContext())
-                                     ->getPointerTo();
+            auto *Int8PtrPtrTy =
+                llvm::Type::getInt8PtrTy(DestTy->getContext())->getPointerTo();
             if (DestTy == Int8PtrPtrTy) {
               Info.addPointerTypeAlias(
                   cast<CompositeType>(AccessedTy->getPointerElementType())
@@ -4116,7 +4116,7 @@ bool DTransBadCastingAnalyzer::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
         CI->getOperand(VoidArgumentIndex) != LI)
       return false;
     auto GEPI2 = dyn_cast<GetElementPtrInst>(LI2->getPointerOperand());
-    if (GEPI2->getPointerOperand() != GEPI->getPointerOperand())
+    if (!GEPI2 || (GEPI2->getPointerOperand() != GEPI->getPointerOperand()))
       return false;
   }
   return true;
@@ -5018,11 +5018,15 @@ public:
       }
     });
 
-    if (FormalType && DTInfo.isTypeOfInterest(FormalType))
-      setBaseTypeInfoSafetyData(FormalType, dtrans::MismatchedArgUse);
-
-    if (ActualType && DTInfo.isTypeOfInterest(ActualType))
-      setBaseTypeInfoSafetyData(ActualType, dtrans::MismatchedArgUse);
+    // Capture the types for further analysis that will determine whether the
+    // mismatched argument use safety flag needs to be cascaded through pointers
+    // contained within the types. When both FormalType and ActualType are types
+    // of interest to DTrans, this determination cannot be made until usage
+    // information has been collected for the complete module. If one of the
+    // types is not a type of interest, the safety data will be cascaded through
+    // all pointers.
+    addDeferredPointerCarriedSafetyData(FormalType, ActualType,
+                                        dtrans::MismatchedArgUse);
   }
 
   // FIXME: unify with checkArgTypeMismatch.
@@ -5095,8 +5099,9 @@ public:
                           << "overloaded alias set found at call site:\n"
                           << "  " << *CS.getInstruction() << "\n  " << *Arg
                           << "\n");
-        setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
-        setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
+        setAllAliasedTypeSafetyDataWithCascading(LPI, dtrans::MismatchedArgUse);
+        setAllAliasedTypeSafetyDataWithCascading(ParamLPI,
+                                                 dtrans::MismatchedArgUse);
       } else {
         llvm::Type *DomParamTy = ParamLPI.getDominantAggregateTy();
         llvm::Type *DomArgTy = LPI.getDominantAggregateTy();
@@ -5105,8 +5110,10 @@ public:
                      << "dtrans-safety: Mismatched argument use -- "
                      << "overloaded alias set found at call site:\n"
                      << "  " << *CS.getInstruction() << "\n  " << *Arg << "\n");
-          setAllAliasedTypeSafetyData(LPI, dtrans::MismatchedArgUse);
-          setAllAliasedTypeSafetyData(ParamLPI, dtrans::MismatchedArgUse);
+          setAllAliasedTypeSafetyDataWithCascading(LPI,
+                                                   dtrans::MismatchedArgUse);
+          setAllAliasedTypeSafetyDataWithCascading(ParamLPI,
+                                                   dtrans::MismatchedArgUse);
         }
       }
     } else {
@@ -5174,6 +5181,14 @@ public:
       collectSpecialFreeArgs(FreeKind, CS, SpecialArguments, TLI);
     }
 
+    // Do not check and potentially set the mismatched arg safety condition on
+    // the 'this' pointer argument of a bitcast call created by
+    // devirtualization. The devirtualizer has already proven the argument type
+    // is the correct type for the member function.
+    if (CS.getInstruction()->getMetadata("_Intel.Devirt.Call") &&
+      CS.arg_size() >= 1)
+      SpecialArguments.insert(CS.getArgument(0));
+
     // If the Function wasn't found, then there is a possibility
     // that it is inside a BitCast. In this case we need
     // to strip the pointer casting from the Value and then
@@ -5222,7 +5237,8 @@ public:
               << "dtrans-safety: Mismatched argument use -- bitcast "
                  "function arguments mismatch with layout incompatibility:\n  "
               << *CS.getInstruction());
-          setValueTypeInfoSafetyData(&Arg, dtrans::MismatchedArgUse);
+          setValueTypeInfoSafetyDataWithCascading(&Arg,
+                                                  dtrans::MismatchedArgUse);
         }
 
         for (Value *Arg : CS.args()) {
@@ -5231,7 +5247,8 @@ public:
               << "dtrans-safety: Mismatched argument use -- bitcast "
                  "function arguments mismatch with layout incompatibility:\n  "
               << *CS.getInstruction());
-          setValueTypeInfoSafetyData(Arg, dtrans::MismatchedArgUse);
+          setValueTypeInfoSafetyDataWithCascading(Arg,
+                                                  dtrans::MismatchedArgUse);
         }
       } else {
         for (auto Pair : zip(F->args(), CS.args()))
@@ -6247,6 +6264,19 @@ public:
     return true;
   }
 
+  // This is a version of setValueTypeInfoSafetyDataBase() that always cascades
+  // the safety data to nested types and through pointers for all types the
+  // local pointer info has associated with \p V.
+  bool setValueTypeInfoSafetyDataBaseWithCascading(Value *V,
+                                                   dtrans::SafetyData Data) {
+    if (!isValueOfInterest(V))
+      return false;
+
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(V);
+    setAllAliasedTypeSafetyDataWithCascading(LPI, Data);
+    return true;
+  }
+
   // Also propagate the safety data to sibling types and types nested
   // within the siblings, when appropriate.
   void setValueTypeInfoSafetyData(Value *V, dtrans::SafetyData Data) {
@@ -6263,6 +6293,299 @@ public:
         setBaseTypeInfoSafetyData(PointeePair.first, Data);
   }
 
+  // This is a version of setValueTypeInfoSafetyData() that always cascades the
+  // safety data to nested types and through pointers. This sets the safety
+  // data on all types the local pointer info has associated with \p V, and to
+  // members of the element pointee set.
+  void setValueTypeInfoSafetyDataWithCascading(Value *V,
+                                               dtrans::SafetyData Data) {
+
+    if (!setValueTypeInfoSafetyDataBaseWithCascading(V, Data))
+      return;
+
+    // If the value is a pointer to an element in some aggregate type
+    // set the safety info for that type also.
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(V);
+    auto ElementPointees = LPI.getElementPointeeSet();
+    if (ElementPointees.size() > 0)
+      for (auto &PointeePair : ElementPointees)
+        setBaseTypeInfoSafetyDataWithCascading(PointeePair.first, Data);
+  }
+
+  // This method is used for noting certain types of bitcast operations that
+  // may need to be carried through the pointer members of structure type.
+  // However, it cannot be determined whether the safety data needs to be
+  // propagated through the pointer fields until the complete application has
+  // been examined. If the casting is happening between two types of interest,
+  // record a safety check for a pointer carried safety condition that involves
+  // the casting of one type to another for later processing. If there is only
+  // one type of interest, the safety bit can be cascaded completely right now.
+  void addDeferredPointerCarriedSafetyData(llvm::Type *CastTy1,
+                                           llvm::Type *CastTy2,
+                                           dtrans::SafetyData Data) {
+    // TODO: Currently, this deferral of cascaded pointer carried data has
+    // only been analyzed for the MismatchedArgUse safety condition. In the
+    // future, other bitcast safety conditions may also be able to be handled
+    // here.
+    assert(Data == dtrans::MismatchedArgUse &&
+           "Unsupported safety data for deferred pointer carried safety "
+           "setting");
+
+    llvm::Type *Ty1 = nullptr;
+    if (CastTy1 && DTInfo.isTypeOfInterest(CastTy1))
+      Ty1 = CastTy1;
+
+    llvm::Type *Ty2 = nullptr;
+    if (CastTy2 && DTInfo.isTypeOfInterest(CastTy2))
+      Ty2 = CastTy2;
+
+    if (Ty1 && Ty2)
+      DeferredCastingSafetyCascades.insert(std::make_tuple(Ty1, Ty2, Data));
+    else if (Ty1)
+      setBaseTypeInfoSafetyDataWithCascading(Ty1, Data);
+    else if (Ty2)
+      setBaseTypeInfoSafetyDataWithCascading(Ty2, Data);
+  }
+
+  // Set the deferred safety checks for the types that were collected, but needed
+  // the entire module to be analyzed before it could be determined which safety
+  // data will be pointer carried.
+  void processDeferredPointerCarriedSafetyData() {
+    LLVM_DEBUG(dbgs() << "\nStart of processing deferred safety cascades\n");
+    for (auto &Elem : DeferredCastingSafetyCascades) {
+      llvm::Type *Ty1 = std::get<0>(Elem);
+      llvm::Type *Ty2 = std::get<1>(Elem);
+      dtrans::SafetyData Data = std::get<2>(Elem);
+      assert(Ty1 && Ty2 && "Deferred processing requires from/to types");
+      cascadeSafetyDataToMismatchedFields(Ty1, Ty2, Data);
+    }
+  }
+
+  // This function is for setting safety data on a type when one type is
+  // cast to another type, such as at a bitcast function call that coerces a
+  // parameter into the type expected by the function. This type of safety data
+  // needs to be cascaded through pointer members contained within structures.
+  // However, there are some conditions that can allow us to resolve that
+  // there is not a safety issue which requires the safety data to be
+  // pointer carried. This function analyzes those conditions, and only
+  // propagates the safety data when necessary.
+  //
+  // The following conditions do not require the safety data to be pointer
+  // carried:
+  //
+  // 1) The same type is reached at that same offset in both the type
+  // being cast from and the type being cast to.
+  //
+  // For example:
+  //    Src: %typeA = { %typeB*, %typeC* }
+  //    Dst: %typeA.1 = { %typeB.1*, %typeC* }
+  //
+  // The safety data will be carried to the pointer members %typeB and %typeB.1,
+  // but does not need to be carried to %typeC because the same data type will
+  // be used regardless of which form of %typeA is used.
+  //
+  // 2) The pointer is never dereferenced by the program in one of the types.
+  // This typically occurs as a result of the IRMover assembling types which
+  // contained opaque types resulting in the bitcast at function boundaries, but
+  // don't actually exist in the program.
+  //
+  // For example:
+  //    Src: %typeA = { %typeB*, %typeC* }
+  //    Dst: %typeA.1 = { %typeB.1*, %typeC* }
+  //         %typeB = { %typeD* }
+  //         %typeD = opaque
+  //
+  //    If the %typeB.1 field of %typeA.1 is not referenced by the program,
+  //    then cast of %typeA to %typeA.1 cannot cause accesses to %typeB to be
+  //    mismatched.
+  //
+  void cascadeSafetyDataToMismatchedFields(llvm::Type *SrcTy, llvm::Type *DstTy,
+                                           dtrans::SafetyData Data) {
+
+    // Helper to check whether a pointer field is dereferenced. This can be
+    // improved in the future by having the analysis keep a 'dereferenced' bit
+    // in the FieldInfo structure. Currently, this is more conservative than
+    // necessary because a memset/memcpy could result in the field being marked
+    // read/written.
+    auto IsFieldUsed = [](dtrans::FieldInfo &FI) {
+      return FI.isAddressTaken() || FI.isRead() || FI.isWritten() ||
+             FI.hasComplexUse();
+    };
+
+    // This lambda does the work of analyzing and propagating the safety data.
+    std::function<void(llvm::Type *, llvm::Type *, dtrans::SafetyData,
+                       SmallPtrSetImpl<llvm::Type *> &, unsigned)>
+        CascadeToMismatchedFields =
+            [this, &CascadeToMismatchedFields, &IsFieldUsed](
+                llvm::Type *SrcTy, llvm::Type *DstTy, dtrans::SafetyData Data,
+                SmallPtrSetImpl<llvm::Type *> &Visited,
+                unsigned Depth) -> void {
+      // SrcTy and DstTy are being iterated in lockstep, so only need to check
+      // if a visit of the source type is underway.
+      if (!Visited.insert(SrcTy).second)
+        return;
+
+      LLVM_DEBUG({
+        dbgs().indent(Depth * 2);
+        dbgs() << "Propagating to : " << *SrcTy << "\n";
+        dbgs().indent(Depth * 2);
+        dbgs() << "Propagating to : " << *DstTy << "\n";
+      });
+
+      if (SrcTy == DstTy) {
+        LLVM_DEBUG(dbgs() << "Common type reached: ending propagation\n");
+        return;
+      }
+
+      // If the src and dst types cannot be walked concurrently, set
+      // the safety data on all elements reachable from the src and dst
+      // types. This may be more conservative than necessary because some
+      // fields may match each other in the src and dst types.
+      if (SrcTy->getTypeID() != DstTy->getTypeID() ||
+          SrcTy->getNumContainedTypes() != DstTy->getNumContainedTypes()) {
+        setPointerCarriedCascadingSafetyData(SrcTy, Data);
+        setPointerCarriedCascadingSafetyData(DstTy, Data);
+        return;
+      }
+
+      // For pointer types, step into the object type that is pointed-to and set
+      // the safety bit.
+      if (auto PtrSrcTy = dyn_cast<llvm::PointerType>(SrcTy)) {
+        CascadeToMismatchedFields(PtrSrcTy->getPointerElementType(),
+                                  DstTy->getPointerElementType(), Data, Visited,
+                                  Depth + 1);
+        return;
+      }
+
+      if (!SrcTy->isAggregateType())
+        return;
+
+      // For arrays, set the safety bit on the src and dst arrays, then cascade
+      // it to the element type of the array.
+      if (isa<llvm::ArrayType>(SrcTy)) {
+        dtrans::TypeInfo *SrcTI = DTInfo.getOrCreateTypeInfo(SrcTy);
+        dtrans::TypeInfo *DstTI = DTInfo.getOrCreateTypeInfo(DstTy);
+        SrcTI->setSafetyData(Data);
+        DstTI->setSafetyData(Data);
+        CascadeToMismatchedFields(SrcTy->getArrayElementType(),
+                                  DstTy->getArrayElementType(), Data, Visited,
+                                  Depth + 1);
+        return;
+      }
+
+      // For struct types, walk the fields of the source and destination types
+      // concurrently. If both structures contain a pointer to the same type at
+      // the same offset, then there is no casting violation. Also, if one of
+      // the structures never dereferences the pointer, then there not a casting
+      // violation.
+      assert(SrcTy->isStructTy() && "Expected struct type");
+      auto SrcStTy = cast<llvm::StructType>(SrcTy);
+      auto DstStTy = cast<llvm::StructType>(DstTy);
+
+      // If one of the types is opaque, there can't be accesses to mismatched
+      // fields.
+      if (SrcStTy->isOpaque() || DstStTy->isOpaque())
+        return;
+
+      // Set the safety data on the structure, then walk the members to set it
+      // on the nested elements and cases where it should be pointer-carried.
+      dtrans::StructInfo *SrcTI =
+          cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(SrcTy));
+      SrcTI->setSafetyData(Data);
+      dtrans::StructInfo *DstTI =
+          cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(DstTy));
+      DstTI->setSafetyData(Data);
+
+      auto *SrcLayout = DL.getStructLayout(SrcStTy);
+      auto *DstLayout = DL.getStructLayout(DstStTy);
+      for (unsigned I = 0, E = SrcTy->getNumContainedTypes(); I != E; ++I) {
+        // Check that field offsets are still matching up when walking,
+        // otherwise remaining fields need to be marked. If a mismatch in
+        // offsets is found, all elements starting from that element need to be
+        // cascaded to.
+        if (SrcLayout->getElementOffset(I) != DstLayout->getElementOffset(I)) {
+          for (; I != E; ++I) {
+            setPointerCarriedCascadingSafetyData(SrcTy->getContainedType(I),
+                                                 Data);
+            setPointerCarriedCascadingSafetyData(DstTy->getContainedType(I),
+                                                 Data);
+          }
+          return;
+        }
+
+        // If the field is not used for one of the types, there is not a need to
+        // cascade the safety data to the field of the other type.
+        dtrans::FieldInfo &SrcFI = SrcTI->getField(I);
+        dtrans::FieldInfo &DstFI = DstTI->getField(I);
+        if (SrcFI.getLLVMType()->isPointerTy() &&
+            DstFI.getLLVMType()->isPointerTy() &&
+            (!IsFieldUsed(SrcFI) || !IsFieldUsed(DstFI)))
+          continue;
+
+        CascadeToMismatchedFields(SrcTy->getContainedType(I),
+                                  DstTy->getContainedType(I), Data, Visited,
+                                  Depth + 1);
+      }
+    };
+
+    SmallPtrSet<llvm::Type *, 8> Visited;
+    CascadeToMismatchedFields(SrcTy, DstTy, Data, Visited, 0);
+  }
+
+  // Cascade the safety condition to all nested structures and all structures
+  // reached via pointers within the type, recursively. This function differs
+  // from setBaseTypeInfoSafetyData in that it will continue descending into
+  // types even if the safety data is set on that type. This is necessary
+  // when the deferred safety checks are being set, because that routine has not
+  // exhaustively set the safety data yet, so a field may be reached that has
+  // the safety data on it, but members within it have not been set yet.
+  void setPointerCarriedCascadingSafetyData(llvm::Type *Ty,
+                                            dtrans::SafetyData Data) {
+
+    // Lambda that sets the safety bit, and recurses through the elements,
+    // keeping track of which structures have been visited so far.
+    DTransAnalysisInfo &DTInfo = this->DTInfo;
+    std::function<void(llvm::Type *, dtrans::SafetyData,
+                       SmallPtrSetImpl<llvm::Type *> &, unsigned Depth)>
+        SetPointerCarriedRecursive = [&DTInfo, &SetPointerCarriedRecursive](
+                                         llvm::Type *Ty,
+                                         dtrans::SafetyData Data,
+                                         SmallPtrSetImpl<llvm::Type *> &Visited,
+                                         unsigned IndentLevel) -> void {
+      llvm::Type *BaseTy = Ty;
+      while (BaseTy->isPointerTy())
+        BaseTy = BaseTy->getPointerElementType();
+
+      if (!DTInfo.isTypeOfInterest(BaseTy))
+        return;
+
+      if (!Visited.insert(BaseTy).second)
+        return;
+
+      LLVM_DEBUG({
+        dbgs().indent(IndentLevel * 2);
+        dbgs() << "Cascading to: " << *BaseTy << "\n";
+      });
+
+      dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(BaseTy);
+      TI->setSafetyData(Data);
+
+      // Propagate this condition to any nested types or pointer elements.
+      if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI))
+        for (dtrans::FieldInfo &FI : StInfo->getFields())
+          SetPointerCarriedRecursive(FI.getLLVMType(), Data, Visited,
+                                     IndentLevel + 1);
+      else if (isa<dtrans::ArrayInfo>(TI))
+        SetPointerCarriedRecursive(BaseTy->getArrayElementType(), Data, Visited,
+                                   IndentLevel + 1);
+    };
+
+    // Recursively, set the safety data on every nested type and pointer type
+    // reached from Ty.
+    SmallPtrSet<llvm::Type *, 8> Visited;
+    SetPointerCarriedRecursive(Ty, Data, Visited, 0);
+  }
+
 private:
   DTransAnalysisInfo &DTInfo;
   const DataLayout &DL;
@@ -6277,6 +6600,25 @@ private:
   function_ref<BlockFrequencyInfo &(Function &)> &GetBFI;
   // Set this in visitFunction before visiting instructions in the function.
   BlockFrequencyInfo *BFI;
+
+  // A collection for safety data that needs to be set which may also require
+  // cascading to pointer types that are reachable from a type. These are
+  // deferred because it is not known whether the cascading is needed until it
+  // is determined whether the pointers fields get used or not, which requires
+  // deferring this safety data until the entire IR has been analyzed.
+  //
+  // The cascading algorithm needs to examine the members of the type being cast
+  // from along with the type being cast to, so this data structure will store
+  // the type being cast from as the first member of the tuple, the type being
+  // cast to as the second member, along with the safety type.
+  //
+  // A SetVector is used here, instead of just a SmallSet so that traces get
+  // emitted in a consistent order when the elements are processed while walking
+  // the set.
+  using DeferredInfo =
+      std::tuple<llvm::Type *, llvm::Type *, dtrans::SafetyData>;
+  SetVector<DeferredInfo, std::vector<DeferredInfo>, SmallSet<DeferredInfo, 16>>
+      DeferredCastingSafetyCascades;
 
   // We need these types often enough that it's worth keeping them around.
   llvm::Type *Int8PtrTy;
@@ -6482,7 +6824,8 @@ private:
                  (!VAListType)) {
           CallSite CS = CallSite(&Inst);
           Function *Fn = CS.getCalledFunction();
-          if (Fn->isIntrinsic() && Fn->getIntrinsicID() == Intrinsic::vastart) {
+          if (Fn && Fn->isIntrinsic() &&
+              Fn->getIntrinsicID() == Intrinsic::vastart) {
             Value *Arg = CS.getArgument(0);
             LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
             VAListType = LPI.getDominantAggregateTy();
@@ -7706,6 +8049,11 @@ private:
       return;
     }
 
+    // If DestParentTy was null, we should have either hit the overloaded
+    // alias set early return, the (!DestParentTy && !pointsToSomeElement)
+    // early return or the pointsToSomeElement early return above.
+    assert(DestParentTy && "Unexpected null parent type!");
+
     // The operand is not a pointer to member if we reach this point
     auto *DestPointeeTy = DestParentTy->getPointerElementType();
     uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
@@ -7863,6 +8211,17 @@ private:
     // any transforms will have to deal the complexity of the types when
     // memcpy/memmove calls have to be modified.
     if (DstPtrToMember != SrcPtrToMember) {
+
+      // In order for control to reach this point,
+      //   1. If DestParentTy is null, DstPtrToMember must be true.
+      //   2. If SrcParentTy is null, SrcPtrToMember must be true.
+      //   3. DestParentTy must equal SrcParentTy, so if either is null
+      //      both must be null.
+      // We can only get here if either DstPtrToMember or SrcPtrToMember
+      // is false, so we can assert that neither ParentTy pointer is null.
+      assert(DestParentTy && SrcParentTy &&
+             "Broken assumptions in analyzeMemcpyOrMemmove!");
+
       // Conservatively set destination pointer to unknown value.
       markPointerWrittenWithMultipleValue(DstLPI, SetSize);
 
@@ -8015,6 +8374,12 @@ private:
 
       return;
     }
+
+    // Far above we have checks that would have marked a safety condition and
+    // returned if DestParentTy is null and DestPtrToMember is false. The block
+    // immediately above returns in all cases where DestPtrToMember is true,
+    // so at this point we can be sure that DestParentTy is not null.
+    assert(DestParentTy && "Unexpected null DestParentTy");
 
     // The operand is not a pointer to member if we reach this point,
     // and the source and destination types are the same.
@@ -8337,13 +8702,14 @@ private:
       auto *StInfo = cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StTy));
       for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
         llvm::Type *FieldTy = StTy->getTypeAtIndex(I);
-        llvm::Constant *ConstVal = Init->getAggregateElement(I);
+        llvm::Constant *ConstVal = Init ? Init->getAggregateElement(I) :
+                                   nullptr;
         dtrans::FieldInfo &FI = StInfo->getField(I);
         analyzeGlobalStructSingleValue(FieldTy, ConstVal);
         DEBUG_WITH_TYPE(DTRANS_FSV,
                         dbgs() << "dtrans-fsv: " << *(StInfo->getLLVMType())
                                << " [" << I << "] ");
-        if (ConstVal->getType() == FieldTy) {
+        if (ConstVal && (ConstVal->getType() == FieldTy)) {
           DEBUG_WITH_TYPE(DTRANS_FSV, ConstVal->printAsOperand(dbgs()));
           FI.processNewSingleValue(ConstVal);
           DEBUG_WITH_TYPE(
@@ -8367,7 +8733,8 @@ private:
       auto *ComponentTI = ArInfo->getElementDTransInfo();
       llvm::Type *ComponentTy = ComponentTI->getLLVMType();
       for (unsigned I = 0, E = ArInfo->getNumElements(); I != E; ++I) {
-        llvm::Constant *ConstVal = Init->getAggregateElement(I);
+        llvm::Constant *ConstVal = Init ? Init->getAggregateElement(I) :
+                                   nullptr;
         analyzeGlobalStructSingleValue(ComponentTy, ConstVal);
       }
     }
@@ -8634,6 +9001,15 @@ private:
         setBaseTypeInfoSafetyData(Ty, Data);
   }
 
+  // This is a version of setAllAliasedTypeSafetyData that always cascades the
+  // safety data to nested types and through pointers.
+  void setAllAliasedTypeSafetyDataWithCascading(LocalPointerInfo &LPI,
+                                                dtrans::SafetyData Data) {
+    for (auto *Ty : LPI.getPointerTypeAliasSet())
+      if (DTInfo.isTypeOfInterest(Ty))
+        setBaseTypeInfoSafetyDataWithCascading(Ty, Data);
+  }
+
   // Return true if 'Data' should be propagated down to all types nested
   // within some type for which the safety condition was found to hold.
   // The motivation for this propagation is that a user may access outside
@@ -8676,12 +9052,39 @@ private:
   // zero or more layers of indirection and sets the specified safety data
   // for that type.
   void setBaseTypeInfoSafetyData(llvm::Type *Ty, dtrans::SafetyData Data) {
+    setBaseTypeInfoSafetyData(Ty, Data, isCascadingSafetyCondition(Data),
+                              isPointerCarriedSafetyCondition(Data));
+  }
+
+  // This is a version of setBaseTypeInfoSafetyData that always cascades the
+  // safety data to nested types and through pointers.
+  void setBaseTypeInfoSafetyDataWithCascading(llvm::Type *Ty,
+                                              dtrans::SafetyData Data) {
+    setBaseTypeInfoSafetyData(Ty, Data, /*IsCascading=*/true,
+                              /*IsPointerCarried=*/true);
+  }
+
+  // This is a helper function that retrieves the aggregate type through
+  // zero or more layers of indirection and sets the specified safety data
+  // for that type.
+  //
+  // When \p IsCascading is set, the safety data will also
+  // be set for fields nested (and possibly pointers) within a structure type.
+  //
+  // When \p IsPointerCarried is set, the safety data will also be cascaded to
+  // the types referenced via the pointer. This parameter is only used, when
+  // \p IsCascading is set to true.
+  //
+  // Note, the descending into types for cascading of the safety data stops when
+  // a type is encountered that already contains the safety data value.
+  void setBaseTypeInfoSafetyData(llvm::Type *Ty, dtrans::SafetyData Data,
+                                 bool IsCascading, bool IsPointerCarried) {
     llvm::Type *BaseTy = Ty;
     while (BaseTy->isPointerTy())
       BaseTy = BaseTy->getPointerElementType();
     dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(BaseTy);
     TI->setSafetyData(Data);
-    if (!isCascadingSafetyCondition(Data))
+    if (!IsCascading)
       return;
 
     // This lambda encapsulates the logic for propagating safety conditions to
@@ -8693,14 +9096,16 @@ private:
     // call to setBaseTypeInfoSafetyData in order to handle additional levels
     // of nesting.
     auto maybePropagateSafetyCondition = [this](llvm::Type *FieldTy,
-                                                dtrans::SafetyData Data) {
+                                                dtrans::SafetyData Data,
+                                                bool IsCascading,
+                                                bool IsPointerCarried) {
       // If FieldTy is not a type of interest, there's no need to propagate.
       if (!DTInfo.isTypeOfInterest(FieldTy))
         return;
       // If the field is an instance of the type, propagate the condition.
       if (!FieldTy->isPointerTy()) {
-        setBaseTypeInfoSafetyData(FieldTy, Data);
-      } else if (isPointerCarriedSafetyCondition(Data)) {
+        setBaseTypeInfoSafetyData(FieldTy, Data, IsCascading, IsPointerCarried);
+      } else if (IsPointerCarried) {
         // In some cases we need to propagate the condition even to fields
         // that are pointers to structures, but in order to avoid infinite
         // loops in the case where two structures each have pointers to the
@@ -8711,16 +9116,19 @@ private:
           FieldBaseTy = FieldBaseTy->getPointerElementType();
         dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldBaseTy);
         if (!FieldTI->testSafetyData(Data))
-          setBaseTypeInfoSafetyData(FieldBaseTy, Data);
+          setBaseTypeInfoSafetyData(FieldBaseTy, Data, IsCascading,
+                                    IsPointerCarried);
       }
     };
 
     // Propagate this condition to any nested types.
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI))
       for (dtrans::FieldInfo &FI : StInfo->getFields())
-        maybePropagateSafetyCondition(FI.getLLVMType(), Data);
+        maybePropagateSafetyCondition(FI.getLLVMType(), Data, IsCascading,
+                                      IsPointerCarried);
     else if (isa<dtrans::ArrayInfo>(TI))
-      maybePropagateSafetyCondition(BaseTy->getArrayElementType(), Data);
+      maybePropagateSafetyCondition(BaseTy->getArrayElementType(), Data,
+                                    IsCascading, IsPointerCarried);
   }
 
   void setBaseTypeCallGraph(llvm::Type *Ty, Function *F) {
@@ -9073,7 +9481,8 @@ ModulePass *llvm::createDTransAnalysisWrapperPass() {
   return new DTransAnalysisWrapper();
 }
 
-DTransAnalysisWrapper::DTransAnalysisWrapper() : ModulePass(ID), Invalidated(true) {
+DTransAnalysisWrapper::DTransAnalysisWrapper()
+    : ModulePass(ID), Invalidated(true) {
   initializeDTransAnalysisWrapperPass(*PassRegistry::getPassRegistry());
 }
 
@@ -9154,7 +9563,7 @@ DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
   GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
                             Other.GenericLoadInfoMap.end());
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
-                            Other.MultiElemLoadStoreInfo.end());
+                                Other.MultiElemLoadStoreInfo.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -9178,7 +9587,7 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   GenericLoadInfoMap.insert(Other.GenericLoadInfoMap.begin(),
                             Other.GenericLoadInfoMap.end());
   MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
-                            Other.MultiElemLoadStoreInfo.end());
+                                Other.MultiElemLoadStoreInfo.end());
   MaxTotalFrequency = Other.MaxTotalFrequency;
   FunctionCount = Other.FunctionCount;
   CallsiteCount = Other.CallsiteCount;
@@ -9311,7 +9720,7 @@ bool DTransAnalysisInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
               // conditions. So print a note, discard the check and return
               // 'false'.
               checkFailed = false;
-              dyn_cast<dtrans::StructInfo>(TyInfo)->setIgnoredFor(Transform);
+              cast<dtrans::StructInfo>(TyInfo)->setIgnoredFor(Transform);
               LLVM_DEBUG(dbgs() << "dtrans-"
                                 << dtrans::getStringForTransform(Transform)
                                 << ": ignoring " << dtrans::getStructName(Ty)
@@ -9405,6 +9814,7 @@ bool DTransAnalysisInfo::analyzeModule(
 
   DTBCA.analyzeBeforeVisit();
   Visitor.visit(M);
+  Visitor.processDeferredPointerCarriedSafetyData();
   DTBCA.analyzeAfterVisit();
 
   // Record functions require bad cast validation.
@@ -9573,14 +9983,15 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
     Field.getSingleValue()->printAsOperand(outs());
   } else if (Field.isMultipleValue()) {
     outs() << "    Multiple Value: [ ";
-    auto FirstI = Field.values().begin();
-    for (auto I = FirstI, E = Field.values().end(); I != E; ++I) {
-      if (I != FirstI) {
-        outs() << ", ";
-      }
-
-      (*I)->printAsOperand(outs(), false);
-    }
+    dtrans::printCollectionSorted(outs(), Field.values().begin(),
+                                  Field.values().end(), ", ",
+                                  [](llvm::Constant *C) {
+                                    std::string OutputVal;
+                                    raw_string_ostream OutputStream(OutputVal);
+                                    C->printAsOperand(OutputStream, false);
+                                    OutputStream.flush();
+                                    return OutputVal;
+                                  });
     outs() << " ] <" << (Field.isValueSetComplete() ? "complete" : "incomplete")
            << ">";
   }

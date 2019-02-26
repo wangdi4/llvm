@@ -1,6 +1,6 @@
 //===-- VPlanDecomposeHIR.cpp ---------------------------------------------===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -34,6 +34,16 @@ static Type *getBaseTypeForSemiPhiOp(ArrayRef<VPValue *> Operands) {
   return Operands[0]->getBaseType();
 }
 
+// Splice the instruction list of the VPBB where \p Phi belongs, by moving the
+// VPPhi instruction to the front of the list
+static void moveSemiPhiToFront(VPInstruction *Phi) {
+  assert(Phi->getOpcode() == VPInstruction::SemiPhi &&
+         "move operation called on a non-semiphi instruction!");
+  VPBasicBlock *BB = Phi->getParent();
+  BB->getInstList().splice((BB->front()).getIterator(), BB->getInstList(),
+                           Phi->getIterator());
+}
+
 // Creates a decomposed VPInstruction that combines \p LHS and \p RHS VPValues
 // using \p OpCode as operator and \p MasterVPI as master VPInstruction. If \p
 // LHS or \p RHS is null, it returns the non-null VPValue.
@@ -63,14 +73,10 @@ VPConstant *VPDecomposerHIR::decomposeCoeff(int64_t Coeff, Type *Ty) {
 }
 
 // Create a VPInstruction with \p Src as source operand, \p ConvOpCode as
-// conversion opcode (ZExt, SExt or Trunc) and \p DestType as destination type.
+// conversion opcode and \p DestType as destination type.
 VPInstruction *VPDecomposerHIR::decomposeConversion(VPValue *Src,
                                                     unsigned ConvOpCode,
                                                     Type *DestType) {
-  assert((ConvOpCode == Instruction::ZExt || ConvOpCode == Instruction::SExt ||
-          ConvOpCode == Instruction::Trunc) &&
-         "Unexpected conversion OpCode.");
-
   auto *NewConv = cast<VPInstruction>(
       Builder.createNaryOp(ConvOpCode, {Src}, DestType));
   return NewConv;
@@ -92,6 +98,21 @@ VPValue *VPDecomposerHIR::decomposeCanonExprConv(CanonExpr *CE, VPValue *Src) {
   llvm_unreachable("Unsupported conversion in VPlan decomposer!");
 }
 
+// Create a VPInstruction for the conversion from \p Src's type to \p DestTy.
+VPValue *VPDecomposerHIR::decomposeBlobImplicitConv(VPValue *Src,
+                                                    Type *DestTy) {
+  Type *SrcTy = Src->getBaseType();
+  if (SrcTy == DestTy)
+    return Src;
+
+  if (SrcTy->isPointerTy() && DestTy->isIntegerTy())
+    return decomposeConversion(Src, Instruction::PtrToInt, DestTy);
+  if (SrcTy->isIntegerTy() && DestTy->isPointerTy())
+    return decomposeConversion(Src, Instruction::IntToPtr, DestTy);
+
+  llvm_unreachable("Unexpected blob implicit conversion!");
+}
+
 // Decompose a blob given its \p BlobIdx and \p BlobCoeff. Return the last
 // VPValue resulting from its decomposition.
 VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
@@ -101,6 +122,7 @@ VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
   // Decompose Blob.
   VPBlobDecompVisitor BlobDecomp(*RDDR, *this);
   VPValue *DecompBlob = BlobDecomp.visit(Blob);
+  assert(DecompBlob && "Blob was not decomposed into valid VPValues");
 
   if (BlobCoeff != 1) {
     // Create VPInstruction for Coeff * blob.
@@ -108,7 +130,6 @@ VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
     Type *CoeffType;
 
     if (BlobTy->isPointerTy()) {
-      // If blob has pointer type, coeff must be integer.
       // If coeff != 1 and blob type is pointer, only -1 coeff is allowed for
       // now.
       assert((BlobCoeff == -1) &&
@@ -119,14 +140,18 @@ VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
               BlobTy);
       switch (PointerSize) {
       case 64:
-        CoeffType = Type::getInt64Ty(BlobTy->getContext());
+        CoeffType = Type::getInt64Ty(*Plan->getLLVMContext());
         break;
       case 32:
-        CoeffType = Type::getInt32Ty(BlobTy->getContext());
+        CoeffType = Type::getInt32Ty(*Plan->getLLVMContext());
         break;
       default:
         llvm_unreachable("Unexpected pointer size.");
       }
+
+      // Generate pointer-to-int comparison for pointer blob with -1 coefficient
+      // (-1 * PtrToInt(p)).
+      DecompBlob = decomposeBlobImplicitConv(DecompBlob, CoeffType);
     } else
       CoeffType = Blob->getType();
 
@@ -215,7 +240,8 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
     assert(BlobCoeff != 0 && "Invalid blob coefficient!");
 
-    VPValue *DecompBlob = decomposeBlob(RDDR, BlobIdx, BlobCoeff);
+    VPValue *DecompBlob = decomposeBlobImplicitConv(
+        decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
     DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
                                   Instruction::Add);
   }
@@ -381,7 +407,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
         // non-empty
         if (!HIRDimOffsets.empty()) {
           // Trailing struct offsets are always I32 type constants
-          auto I32Ty = Type::getInt32Ty(Ref->getDDRefUtils().getContext());
+          auto I32Ty = Type::getInt32Ty(*Plan->getLLVMContext());
           for (auto OffsetVal : HIRDimOffsets) {
             auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
             // Build a VPConstant to represent the offset value
@@ -412,15 +438,27 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   if (Ref->isAddressOf())
     return MemOpVPI;
 
-  // If memory reference is an RVal, then it corresponds to a load. Create a new
-  // load VPInstruction to represent it.
   if (Ref->isRval()) {
+    // If memory reference is an RVal, then it corresponds to a load. Create a
+    // new load VPInstruction to represent it.
     assert(cast<PointerType>(MemOpVPI->getBaseType()) &&
            "Base type of load is not a pointer.");
     // Result type of load will be element type of the pointer
     MemOpVPI = Builder.createNaryOp(
         Instruction::Load, {MemOpVPI},
         cast<PointerType>(MemOpVPI->getBaseType())->getElementType());
+
+    // FIXME: This special-casing for loads that are HLInst is becoming more
+    // complicated than expected since we also have to special-case
+    // createVPInstruction. I think that special-case this code to avoid
+    // creating the VPInstruction load for load HLInsts is starting to make more
+    // sense now.
+    // Attach the DDRef definition operand for loads that are not standalone
+    // HLInst. Standalone loads are handled in createVPInstruction.
+    auto *HInst = dyn_cast<HLInst>(Ref->getHLDDNode());
+    if (!HInst || !isa<LoadInst>(HInst->getLLVMInstruction()) ||
+        HInst->getRvalDDRef() != Ref)
+      cast<VPInstruction>(MemOpVPI)->HIR.setOperandDDR(Ref);
   }
 
   LLVM_DEBUG(dbgs() << "VPDecomp: MemOpVPI: "; MemOpVPI->dump();
@@ -473,19 +511,13 @@ static CmpInst::Predicate getPredicateFromHIR(HLDDNode *DDNode) {
 
 // Return true if \p Def is considered an external definition. An external
 // definition is a definition that happens outside of the outermost HLLoop,
-// including its preheader and exit. A special kind of operands that fits into
-// this category is metadata operands.
+// including its preheader and exit.
 bool VPDecomposerHIR::isExternalDef(DDRef *UseDDR) {
   // TODO: We are pushing outermost loop PH and Exit outside of the VPlan region
   // for now so this code won't be valid until we bring them back. return
   // !Def->getHLNodeUtils().contains(OutermostHLp, Def,
   //                                 true /*include preheader/exit*/);
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
-
-  // Check if UseDDR is metadata.
-  if (UseDDR->isMetadata())
-    return true;
-
   return OutermostHLp->isLiveIn(UseDDR->getSymbase());
 }
 
@@ -497,12 +529,9 @@ unsigned VPDecomposerHIR::getNumReachingDefinitions(DDRef *UseDDR) {
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
 
   if (UseDDR->isMetadata())
-    // Metadata is considered a external definition. I has a single definition
-    // since a metadata operand doesn't have DD edges.
+    // Metadata operands has a single definition since they are globally defined
+    // only once.
     return 1;
-
-  assert((UseDDR->isSelfBlob() || isa<BlobDDRef>(UseDDR)) &&
-         "Expected self blob or BlobDDRef!");
 
   auto BlobInEdges = DDG.incoming(UseDDR);
   return std::distance(BlobInEdges.begin(), BlobInEdges.end()) +
@@ -552,13 +581,9 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   assert(!isa<HLLoop>(Node) && "HLLoop shouldn't be processed here!");
 
   if (isa<HLGoto>(Node)) {
-    Type *BaseTy = Type::getInt1Ty(Node->getHLNodeUtils().getContext());
+    Type *BaseTy = Type::getInt1Ty(*Plan->getLLVMContext());
     return Builder.createBr(BaseTy, cast<HLGoto>(Node));
   }
-
-  auto *HInst = dyn_cast<HLInst>(Node);
-  assert((!HInst || HInst->getLLVMInstruction()) &&
-         "Missing LLVM Instruction for HLInst.");
 
   // Create VPCmpInst for HLInst representing a CmpInst.
   VPInstruction *NewVPInst;
@@ -568,51 +593,67 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   // visited Node when we shouldn't, breaking the RPO traversal order.
   assert(!HLDef2VPValue.count(DDNode) && "Node shouldn't have been visited.");
 
-  if (HInst && isa<CmpInst>(HInst->getLLVMInstruction())) {
-    assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
-    CmpInst::Predicate CmpPredicate = getPredicateFromHIR(DDNode);
-    NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
-                                      VPOperands[1], DDNode);
+  if (auto *HInst = dyn_cast<HLInst>(Node)) {
+    const Instruction *LLVMInst = HInst->getLLVMInstruction();
+    assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
+
+    if (isa<CmpInst>(LLVMInst)) {
+      assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
+      CmpInst::Predicate CmpPredicate = getPredicateFromHIR(DDNode);
+      NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
+                                        VPOperands[1], DDNode);
+    } else if (isa<SelectInst>(LLVMInst)) {
+      // Handle decomposition of select instruction
+      assert(VPOperands.size() == 4 &&
+             "Invalid number of operands for HIR select instruction.");
+
+      VPValue *CmpLHS = VPOperands[0];
+      VPValue *CmpRHS = VPOperands[1];
+      VPValue *TVal = VPOperands[2];
+      VPValue *FVal = VPOperands[3];
+
+      // Decompose first 2 operands into a CmpInst used as predicate for select
+      VPCmpInst *Pred =
+          Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
+      // Set underlying DDNode for the select VPInstruction since it's the
+      // master VPInstruction
+      NewVPInst = cast<VPInstruction>(
+          Builder.createNaryOp(Instruction::Select, {Pred, TVal, FVal},
+                               TVal->getBaseType(), DDNode));
+    } else if (isa<LoadInst>(LLVMInst)) {
+      // No-op behavior for load nodes since the VPInstruction is already added
+      // by decomposeMemoryOp. Check comments in decomposeMemoryOp definition
+      // for more details.
+      assert(VPOperands.size() == 1 &&
+             "Load instruction must have single operand only.");
+      NewVPInst = cast<VPInstruction>(VPOperands.back());
+      assert(NewVPInst->getOpcode() == Instruction::Load &&
+             "Incorrect instruction added for load.");
+      // Set the underlying DDNode for the load instruction since it will be
+      // master VPI for this node
+      NewVPInst->HIR.setUnderlyingNode(DDNode);
+    } else
+      // Generic VPInstruction.
+      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+          LLVMInst->getOpcode(), VPOperands, LLVMInst->getType(), DDNode));
+
+    if (RegDDRef *LvalDDR = HInst->getLvalDDRef()) {
+      // Set Lval DDRef as VPOperandHIR for this VPInstruction. This includes
+      // standalone loads.
+      NewVPInst->HIR.setOperandDDR(LvalDDR);
+
+      if (OutermostHLp->isLiveOut(LvalDDR->getSymbase())) {
+        VPExternalUse *User = Plan->getVPExternalUseForDDRef(LvalDDR);
+        User->addOperand(NewVPInst);
+      }
+    } else if (RegDDRef *RvalDDR = HInst->getRvalDDRef())
+      // Set single Rval as VPOperandHIR for HLInst without Lval DDRef.
+      NewVPInst->HIR.setOperandDDR(RvalDDR);
   } else if (auto *HIf = dyn_cast<HLIf>(DDNode))
     // Handle decomposition of HLIf node.
     NewVPInst = createVPInstsForHLIf(HIf, VPOperands);
-  else if (HInst && isa<SelectInst>(HInst->getLLVMInstruction())) {
-    // Handle decomposition of select instruction
-    assert(VPOperands.size() == 4 &&
-           "Invalid number of operands for HIR select instruction.");
-
-    VPValue *CmpLHS = VPOperands[0];
-    VPValue *CmpRHS = VPOperands[1];
-    VPValue *TVal = VPOperands[2];
-    VPValue *FVal = VPOperands[3];
-
-    // Decompose first 2 operands into a CmpInst used as predicate for select
-    VPCmpInst *Pred =
-        Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
-    // Set underlying DDNode for the select VPInstruction since it's the master
-    // VPInstruction
-    NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-        Instruction::Select, {Pred, TVal, FVal}, TVal->getBaseType(), DDNode));
-  } else if (HInst && isa<LoadInst>(HInst->getLLVMInstruction())) {
-    // No-op behavior for load nodes since the VPInstruction is already added by
-    // decomposeMemoryOp. Check comments in decomposeMemoryOp definition for
-    // more details.
-    assert(VPOperands.size() == 1 &&
-           "Load instruction must have single operand only.");
-    NewVPInst = cast<VPInstruction>(VPOperands.back());
-    assert(NewVPInst->getOpcode() == Instruction::Load &&
-           "Incorrect instruction added for load.");
-    // Set the underlying DDNode for the load instruction since it will be
-    // master VPI for this node
-    NewVPInst->HIR.setUnderlyingNode(DDNode);
-  } else {
-    // Generic VPInstruction.
-    assert(HInst && HInst->getLLVMInstruction() &&
-           "Expected HLInst with underlying LLVM IR.");
-    NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-        HInst->getLLVMInstruction()->getOpcode(), VPOperands,
-        HInst->getLLVMInstruction()->getType(), DDNode));
-  }
+  else
+    llvm_unreachable("Unexpected DDNode!");
 
   HLDef2VPValue[DDNode] = NewVPInst;
   return NewVPInst;
@@ -708,6 +749,11 @@ void VPDecomposerHIR::createOrGetVPDefsForUse(
     DDRef *UseDDR, SmallVectorImpl<VPValue *> &VPDefs) {
 
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
+
+  // Process metadata definitions.
+  MetadataAsValue *MDAsValue;
+  if (UseDDR->isMetadata(&MDAsValue))
+    VPDefs.push_back(Plan->getVPMetadataAsValue(MDAsValue));
 
   // Process external definitions.
   if (isExternalDef(UseDDR))
@@ -857,10 +903,13 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
 // PhisToFix contains a pair with VPPhi and its associated sink DDRef. We get
 // the source of each incoming edge of DDRef and set the VPValue associated to
 // that source as operand of the VPPhi.
+// TODO: Above documentation is incorrect. Update after new algorithm.
 void VPDecomposerHIR::fixPhiNodes() {
-  for (auto &VPPhiDDRPair : PhisToFix) {
-    VPInstruction *VPPhi = VPPhiDDRPair.first;
-    DDRef *UseDDR = VPPhiDDRPair.second;
+  for (auto &VPPhiMapPair : PhisToFix) {
+    VPInstruction *VPPhi = VPPhiMapPair.second.first;
+    // Move the VPPhi node to the top of its VPBB
+    moveSemiPhiToFront(VPPhi);
+    DDRef *UseDDR = VPPhiMapPair.second.second;
     assert(VPPhi->getNumOperands() == 0 &&
            "Expected VPInstruction with no operands.");
 
@@ -874,6 +923,7 @@ void VPDecomposerHIR::fixPhiNodes() {
     VPPhi->HIR.getMaster()->HIR.setValid();
   }
 }
+
 
 VPInstruction *
 VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
@@ -937,11 +987,11 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     // Decompose constant blobs that are not integer values.
     return decomposeNonIntConstBlob(Blob);
 
-  // If the RegDDRef is a self blob or metadata, we use the RegDDRef directly in
-  // the following steps since there is no BlobDDRef associated to this Blob.
-  // Otherwise, we retrieve and use the BlobDDRef.
+  // If the RegDDRef is a standalone blob (including metadata), we use the
+  // RegDDRef directly in the following steps since there is no BlobDDRef
+  // associated to this Blob. Otherwise, we retrieve and use the BlobDDRef.
   DDRef *DDR;
-  if (RDDR.isSelfBlob() || RDDR.isMetadata())
+  if (RDDR.isNonDecomposable())
     DDR = &RDDR;
   else {
     unsigned BlobIndex = RDDR.getBlobUtils().findBlob(Blob);
@@ -966,12 +1016,28 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
   } else {
     // The operands of the semi-phi are not set right now since some of them
     // might not have been created yet. They will be set by fixPhiNodes.
-    // Add the corresponding Instruction and DDRef to PhisToFix.
+    // Map the corresponding Instruction to <DDRef's Symbase, VPBlockID> in
+    // PhisToFix if not found.
     Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
     Type *BaseTy = VPDefs.front()->getBaseType();
+
+    // Build the key pair to look-up PhiToFix map
+    PhiFixMapKey SymVPBBPair = std::make_pair(
+        DDR->getSymbase(), Decomposer.Builder.getInsertBlock()->getVPBlockID());
+
+    auto VPPhiMapIt = Decomposer.PhisToFix.find(SymVPBBPair);
+    // If a VPPhi node was already created for this sink DDRef's Symbase in
+    // current VPBB, then reuse that.
+    if (VPPhiMapIt != Decomposer.PhisToFix.end())
+      return (VPPhiMapIt->second).first;
+
+    // If no entry is found in PhisToFix then create a new VPPhi node and add it
+    // to the map
     auto *SemiPhi = cast<VPInstruction>(Decomposer.Builder.createSemiPhiOp(
         BaseTy, {} /*No operands*/, nullptr));
-    Decomposer.PhisToFix.push_back(std::make_pair(SemiPhi, DDR));
+    LLVM_DEBUG(dbgs() << "VPDecomp: Empty SemiPhi "; SemiPhi->dump();
+               dbgs() << "\n");
+    Decomposer.PhisToFix[SymVPBBPair] = std::make_pair(SemiPhi, DDR);
     return SemiPhi;
   }
 }
@@ -982,8 +1048,9 @@ VPValue *
 VPDecomposerHIR::VPBlobDecompVisitor::decomposeNAryOp(const SCEVNAryExpr *Blob,
                                                       unsigned OpCode) {
   VPValue *DecompDef = nullptr;
+  Type *ExprTy = Blob->getType();
   for (auto *SCOp : Blob->operands()) {
-    VPValue *VPOp = visit(SCOp);
+    VPValue *VPOp = Decomposer.decomposeBlobImplicitConv(visit(SCOp), ExprTy);
     DecompDef =
         Decomposer.combineDecompDefs(VPOp, DecompDef, Blob->getType(), OpCode);
   }

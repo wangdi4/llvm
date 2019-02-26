@@ -1,6 +1,6 @@
 //===--- HIRLMM.cpp -Implements Loop Memory Motion Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -323,6 +323,10 @@ void HIRLMM::CollectMemRefs::collectMemRef(RegDDRef *Ref) {
 //   . no call
 //
 bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
+
+  if (Lp->hasDistributePoint()) {
+    return false;
+  }
   const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
   // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnsafeSideEffects()) {
@@ -704,6 +708,7 @@ bool HIRLMM::sinkedSingleStore(HLLoop *Lp, RegDDRef *StoreRef, MemRefGroup &MRG,
   Lp->addLiveOutTemp(TempRef->getSymbase());
 
   StoreRef->updateDefLevel(LoopLevel - 1);
+  TempRef->updateDefLevel(LoopLevel - 1);
 
   LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                             "Store sinked out of the loop");

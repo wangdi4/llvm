@@ -344,6 +344,8 @@ SPIRVMap<Decoration, std::string>::init() {
   add(DecorationInputAttachmentIndex, "InputAttachmentIndex");
   add(DecorationAlignment, "Alignment");
   add(DecorationMaxByteOffset, "MaxByteOffset");
+  add(DecorationNoSignedWrap, "NoSignedWrap");
+  add(DecorationNoUnsignedWrap, "NoUnsignedWrap");
 }
 SPIRV_DEF_NAMEMAP(Decoration, SPIRVDecorationNameMap)
 

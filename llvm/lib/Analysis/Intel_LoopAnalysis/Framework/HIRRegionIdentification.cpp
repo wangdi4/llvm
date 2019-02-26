@@ -1,6 +1,6 @@
 //===- HIRRegionIdentification.cpp - Identifies HIR Regions ---------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -64,6 +64,11 @@ static cl::opt<bool> DisableFusionRegions(
     "disable-hir-create-fusion-regions", cl::init(true), cl::Hidden,
     cl::desc("Disable HIR to create regions for multiple loops"
              "suitable for loop fusion"));
+
+static cl::opt<unsigned> LoopMaterializationBBSize(
+    "hir-loop-materialization-bb-size", cl::init(50), cl::Hidden,
+    cl::desc("Threshold for number of instructions allowed in the basic block "
+             "which may be a loop materialization candidate"));
 
 STATISTIC(RegionCount, "Number of regions created");
 
@@ -136,28 +141,16 @@ HIRRegionIdentificationWrapperPass::HIRRegionIdentificationWrapperPass()
 static bool isSIMDOrParDirective(const Instruction *Inst, bool BeginDir) {
   auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
 
-  if (!IntrinInst) {
+  if (!IntrinInst || !IntrinInst->hasOperandBundles()) {
     return false;
   }
 
-  // TODO: Replace old simd directives by new region entry directives once VPO
-  // support is added.
-  if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinInst->getIntrinsicID())) {
-    StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(
-        const_cast<IntrinsicInst *>(IntrinInst));
+  StringRef TagName = IntrinInst->getOperandBundleAt(0).getTagName();
 
-    int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
-
-    return BeginDir ? (DirID == DIR_OMP_SIMD) : (DirID == DIR_OMP_END_SIMD);
-
-  } else if (IntrinInst->hasOperandBundles()) {
-    StringRef TagName = IntrinInst->getOperandBundleAt(0).getTagName();
-
-    return BeginDir ? (TagName.equals("DIR.OMP.PARALLEL.LOOP") ||
-                       TagName.equals("DIR.OMP.SIMD"))
-                    : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
-                       TagName.equals("DIR.OMP.END.SIMD"));
-  }
+  return BeginDir ? (TagName.equals("DIR.OMP.PARALLEL.LOOP") ||
+                     TagName.equals("DIR.OMP.SIMD"))
+                  : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
+                     TagName.equals("DIR.OMP.END.SIMD"));
 
   return false;
 }
@@ -610,7 +603,7 @@ class HIRRegionIdentification::CostModelAnalyzer
 
 public:
   CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp,
-                    const SCEV *BECount);
+                    const SCEV *BECount, bool &ThrottleParentLoop);
 
   bool isProfitable() const { return IsProfitable; }
 
@@ -622,10 +615,13 @@ public:
   bool visitStoreInst(const StoreInst &SI);
   bool visitCallInst(const CallInst &CI);
   bool visitBranchInst(const BranchInst &BI);
+
+  void printStats() const;
 };
 
 HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
-    const HIRRegionIdentification &RI, const Loop &Lp, const SCEV *BECount)
+    const HIRRegionIdentification &RI, const Loop &Lp, const SCEV *BECount,
+    bool &ThrottleParentLoop)
     : RI(RI), Lp(Lp), IsInnermostLoop(Lp.empty()),
       IsUnknownLoop(isa<SCEVCouldNotCompute>(BECount)), IsProfitable(true),
       OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
@@ -637,7 +633,18 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
   IsSmallTripLoop =
       (ConstBECount &&
        (ConstBECount->getValue()->getZExtValue() <= SmallTripThreshold));
+
+  // Suppress parent loops of unknown loops.
+  ThrottleParentLoop = IsUnknownLoop;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HIRRegionIdentification::CostModelAnalyzer::printStats() const {
+  dbgs() << "Loop instruction count: " << InstCount << "\n";
+  dbgs() << "Loop goto count: " << UnstructuredJumpCount << "\n";
+  dbgs() << "Loop if count: " << IfCount << "\n";
+}
+#endif
 
 void HIRRegionIdentification::CostModelAnalyzer::analyze() {
 
@@ -661,8 +668,8 @@ void HIRRegionIdentification::CostModelAnalyzer::analyze() {
   // We don't do much for outer unknown loops except prefetching which isn't
   // ready yet. Innermost unknown loops embedded inside other loops are
   // throttled for compile time reasons.
-  if (IsUnknownLoop && (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) ||
-                        !Lp.empty() || (Lp.getLoopDepth() != 1))) {
+  if (IsUnknownLoop &&
+      (((OptLevel < 3) && (Lp.getNumBlocks() != 1)) || !Lp.empty())) {
     LLVM_DEBUG(
         dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
                   "time reasons.\n");
@@ -709,7 +716,10 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
 bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
     const Instruction &Inst) {
   // Compares are most likely eliminated in HIR.
-  if (!isa<CmpInst>(Inst)) {
+  // Subscript instructions are like GEPs and hence most likely eliminated in
+  // HIR. This check can be removed once we add support for them in
+  // ScalarEvolution.
+  if (!isa<CmpInst>(Inst) && !isa<SubscriptInst>(Inst)) {
 
     // The following checks are to ignore linear instructions.
     if (RI.SE.isSCEVable(Inst.getType())) {
@@ -888,15 +898,17 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   return true;
 }
 
-bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
-                                                 const SCEV *BECount) const {
+bool HIRRegionIdentification::shouldThrottleLoop(
+    const Loop &Lp, const SCEV *BECount, bool &ThrottleParentLoop) const {
 
   if (!CostModelThrottling) {
     return false;
   }
 
-  CostModelAnalyzer CMA(*this, Lp, BECount);
+  CostModelAnalyzer CMA(*this, Lp, BECount, ThrottleParentLoop);
   CMA.analyze();
+
+  LLVM_DEBUG(CMA.printStats());
 
   return !CMA.isProfitable();
 }
@@ -1287,7 +1299,8 @@ const Loop *HIRRegionIdentification::getOutermostParentLoop(const Loop *Lp) {
 
 bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
                                               unsigned LoopnestDepth,
-                                              bool IsFunctionRegionMode) const {
+                                              bool IsFunctionRegionMode,
+                                              bool &ThrottleParentLoop) const {
 
   // At least one of this loop's subloops reach MaxLoopNestLevel so we cannot
   // generate this loop.
@@ -1396,7 +1409,8 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   // We skip cost model throttling for function level region.
-  if (!IsFunctionRegionMode && shouldThrottleLoop(Lp, BECount)) {
+  if (!IsFunctionRegionMode &&
+      shouldThrottleLoop(Lp, BECount, ThrottleParentLoop)) {
     return false;
   }
 
@@ -1415,9 +1429,11 @@ void HIRRegionIdentification::createRegion(
   }
 
   IRRegion::RegionBBlocksTy BBlocks;
+  IRRegion::RegionBBlocksTy NonLoopBBlocks;
 
   if (IntermediateBlocks) {
-    BBlocks.append(IntermediateBlocks->begin(), IntermediateBlocks->end());
+    NonLoopBBlocks.append(IntermediateBlocks->begin(),
+                          IntermediateBlocks->end());
   }
 
   BasicBlock *EntryBB = Loops.front()->getHeader();
@@ -1427,17 +1443,20 @@ void HIRRegionIdentification::createRegion(
     bool IsFirstLoop = (Lp == Loops.front());
     bool IsLastLoop = (Lp == Loops.back());
 
-    isSIMDOrParLoop(*Lp, &BBlocks, IsFirstLoop ? &EntryBB : nullptr,
+    isSIMDOrParLoop(*Lp, &NonLoopBBlocks, IsFirstLoop ? &EntryBB : nullptr,
                     IsLastLoop ? &ExitBB : nullptr);
 
     BBlocks.append(Lp->getBlocks().begin(), Lp->getBlocks().end());
   }
 
-  IRRegions.emplace_back(EntryBB, BBlocks);
+  BBlocks.append(NonLoopBBlocks.begin(), NonLoopBBlocks.end());
 
-  if (ExitBB) {
-    IRRegions.back().setExitBBlock(ExitBB);
-  }
+  IRRegions.emplace_back(EntryBB,
+                         ExitBB ? ExitBB : Loops.back()->getLoopLatch(),
+                         BBlocks, NonLoopBBlocks);
+
+  // Keep track of all bblocks part of regular regions.
+  AllLoopBasedRegionsBBlocks.insert(BBlocks.begin(), BBlocks.end());
 
   RegionCount++;
 }
@@ -1462,8 +1481,10 @@ bool HIRRegionIdentification::isGenerableLoopnest(
     }
   }
 
+  bool ThrottleParentLoop = false;
   // Check whether Lp is generable.
-  if (Generable && !isSelfGenerable(Lp, ++LoopnestDepth, false)) {
+  if (Generable &&
+      !isSelfGenerable(Lp, ++LoopnestDepth, false, ThrottleParentLoop)) {
     Generable = false;
   }
 
@@ -1475,15 +1496,337 @@ bool HIRRegionIdentification::isGenerableLoopnest(
     GenerableLoops.append(SubGenerableLoops.begin(), SubGenerableLoops.end());
   }
 
-  return Generable;
+  return (!ThrottleParentLoop && Generable);
 }
 
-void HIRRegionIdentification::formRegions() {
-  SmallVector<const Loop *, 32> GenerableLoops;
+static const Instruction *getSingleUserInSameBBlock(const Instruction *Inst,
+                                                    const BasicBlock *BB) {
 
-  if (LI.empty()) {
-    return;
+  auto IsValidUser = [BB](const Instruction *Inst) {
+    if (Inst->getParent() != BB) {
+      return false;
+    }
+    if (isa<CallInst>(Inst)) {
+      return false;
+    }
+    return true;
+  };
+
+  if (Inst->hasOneUse()) {
+    auto *UserInst = cast<Instruction>(*Inst->user_begin());
+
+    if (!IsValidUser(UserInst)) {
+      return nullptr;
+    }
+
+    return UserInst;
   }
+
+  // This is to handle cases like this-
+  // t1 = A[0]
+  // t2 = t1 * t1
+  if (!Inst->hasNUses(2)) {
+    return nullptr;
+  }
+
+  auto *FirstUserInst = cast<Instruction>(*Inst->user_begin());
+  auto *SecondUserInst = cast<Instruction>(*(std::next(Inst->user_begin())));
+
+  if ((FirstUserInst != SecondUserInst) || !IsValidUser(FirstUserInst)) {
+    return nullptr;
+  }
+
+  return FirstUserInst;
+}
+
+static bool haveExpectedDistance(const Value *Val1, const Value *Val2,
+                                 ScalarEvolution &SE,
+                                 uint64_t ExpectedDistance) {
+  auto *SC1 = SE.getSCEV(const_cast<Value *>(Val1));
+  auto *SC2 = SE.getSCEV(const_cast<Value *>(Val2));
+
+  auto *ConstSCEV = dyn_cast<SCEVConstant>(SE.getMinusSCEV(SC1, SC2));
+
+  if (ConstSCEV &&
+      (ConstSCEV->getValue()->getZExtValue() == ExpectedDistance)) {
+    return true;
+  }
+
+  return false;
+}
+
+static bool foundMatchingLoads(
+    const LoadInst *LInst,
+    SmallVectorImpl<std::pair<const LoadInst *, const Instruction *>>
+        &CandidateLoads,
+    ScalarEvolution &SE, const DataLayout &DL) {
+  // Looks for two loads with following properties-
+  // 1) Have single user in same bblock.
+  // 2) Opcode and type of single user is the same.
+  // 3) If single user is a store, they access consecutive locations. Otherwise,
+  //    we check the same properties on second level users.
+  // 4) Loads access consecutive locations.
+
+  auto *ParentBB = LInst->getParent();
+  auto *User = getSingleUserInSameBBlock(LInst, ParentBB);
+
+  if (!User) {
+    return false;
+  }
+
+  auto FoundMatchingUsers = [&SE, &DL](const Instruction *User1,
+                                       const Instruction *User2) {
+    if (User1->getOpcode() != User2->getOpcode()) {
+      return false;
+    }
+
+    if (auto *StoreUser1 = dyn_cast<StoreInst>(User1)) {
+      auto *StoreUser2 = cast<StoreInst>(User2);
+
+      auto *Ptr1 = StoreUser1->getPointerOperand();
+      uint64_t StoreSize =
+          DL.getTypeStoreSize(Ptr1->getType()->getPointerElementType());
+
+      if (!haveExpectedDistance(Ptr1, StoreUser2->getPointerOperand(), SE,
+                                StoreSize)) {
+        return false;
+      }
+    } else if (User1->getType() != User2->getType()) {
+      // Even though opcodes match, the type may be different for cast
+      // instructions.
+      return false;
+    }
+
+    return true;
+  };
+
+  auto *Ptr = LInst->getPointerOperand();
+  uint64_t LoadSize = DL.getTypeStoreSize(LInst->getType());
+
+  for (auto &PrevEntry : CandidateLoads) {
+
+    auto *PrevLoad = PrevEntry.first;
+    if (LInst->getType() != PrevLoad->getType()) {
+      continue;
+    }
+
+    auto *PrevUser = PrevEntry.second;
+    if (!FoundMatchingUsers(User, PrevUser)) {
+      continue;
+    }
+
+    if (!isa<StoreInst>(User) && (User != PrevUser)) {
+      auto *SecondLevelUser = getSingleUserInSameBBlock(User, ParentBB);
+      auto *SecondLevelPrevUser = getSingleUserInSameBBlock(PrevUser, ParentBB);
+
+      if (!SecondLevelUser || !SecondLevelPrevUser ||
+          !FoundMatchingUsers(SecondLevelUser, SecondLevelPrevUser)) {
+        continue;
+      }
+    }
+
+    auto *PrevPtr = PrevLoad->getPointerOperand();
+
+    if (haveExpectedDistance(Ptr, PrevPtr, SE, LoadSize)) {
+      return true;
+    }
+  }
+
+  CandidateLoads.emplace_back(LInst, User);
+
+  return false;
+}
+
+static bool
+foundMatchingStores(const StoreInst *SInst,
+                    SmallVectorImpl<const StoreInst *> &CandidateStores,
+                    ScalarEvolution &SE, const DataLayout &DL) {
+  // Looks for two stores with following properties-
+  // 1) Stores access consecutive locations.
+  // 2) Store values are the same-
+  //    A[0] = t1;
+  //    A[1] = t1;
+  // Rest of the cases are mostly handled by load path.
+  //
+  // Leaving following case as a TODO as just matching for constants results
+  // in lot of cases with arbitrary constants. Stricter matching requires
+  // more logic.
+  //
+  // A[0] = 0;
+  // A[1] = 1;
+
+  auto *Ptr = SInst->getPointerOperand();
+  auto *StoreVal = SInst->getValueOperand();
+
+  uint64_t StoreSize =
+      DL.getTypeStoreSize(Ptr->getType()->getPointerElementType());
+
+  for (auto *PrevStore : CandidateStores) {
+    if (StoreVal != PrevStore->getValueOperand()) {
+      continue;
+    }
+
+    auto *PrevPtr = PrevStore->getPointerOperand();
+    if (Ptr->getType() != PrevPtr->getType()) {
+      continue;
+    }
+
+    if (haveExpectedDistance(Ptr, PrevPtr, SE, StoreSize)) {
+      return true;
+    }
+  }
+
+  CandidateStores.push_back(SInst);
+
+  return false;
+}
+
+static bool isLoopMaterializationCandidate(const BasicBlock &BB,
+                                           ScalarEvolution &SE) {
+
+  // Skip big bblocks.
+  if (BB.size() > LoopMaterializationBBSize) {
+    return false;
+  }
+
+  SmallVector<std::pair<const LoadInst *, const Instruction *>, 8>
+      CandidateLoads;
+  SmallVector<const StoreInst *, 8> CandidateStores;
+
+  auto &DL = BB.getParent()->getParent()->getDataLayout();
+
+  for (auto &Inst : BB) {
+    if (auto *LInst = dyn_cast<LoadInst>(&Inst)) {
+      if (LInst->isVolatile()) {
+        return false;
+      }
+
+      if (foundMatchingLoads(LInst, CandidateLoads, SE, DL)) {
+        return true;
+      }
+
+    } else if (auto *SInst = dyn_cast<StoreInst>(&Inst)) {
+      if (SInst->isVolatile()) {
+        return false;
+      }
+
+      if (foundMatchingStores(SInst, CandidateStores, SE, DL)) {
+        return true;
+      }
+
+    } else if (isa<CallInst>(Inst)) {
+      // Ignore candidates across call insts.
+      CandidateLoads.clear();
+      CandidateStores.clear();
+    }
+  }
+
+  return false;
+}
+
+HIRRegionIdentification::iterator
+HIRRegionIdentification::getLexicalInsertionPos(const BasicBlock *BB) {
+  // Lexical position is determined using following 'reachability' logic-
+  //
+  // 1) Returns the first region whose entry block is reachable from BB. In this
+  // case, BB comes lexically before this region.
+  //
+  // Or
+  //
+  // 2) Returns the second region amongst two consecutive regions such that
+  // first region's entry block can reach BB but second region's entry block
+  // cannot. In this case BB comes lexically after first region but has no
+  // 'reachability' relationship with the next region. For example-
+  //
+  // if () {
+  //   Lp1
+  //   BB
+  // } else {
+  //   Lp2
+  // }
+  //
+  // Or
+  //
+  // 3) Returns end iterator.
+  //
+
+  SmallPtrSet<const BasicBlock *, 1> FromBBs, EmptyEndBBs;
+  FromBBs.insert(BB);
+  auto RegIt = IRRegions.begin();
+
+  for (auto PrevRegIt = IRRegions.end(), E = IRRegions.end(); RegIt != E;
+       PrevRegIt = RegIt, ++RegIt) {
+    auto *RegEntryBB = RegIt->getEntryBBlock();
+
+    // Satisfied condition 1) mentioned above.
+    if (isReachableFrom(RegEntryBB, EmptyEndBBs, FromBBs)) {
+      break;
+    }
+
+    if (PrevRegIt == E) {
+      continue;
+    }
+
+    SmallPtrSet<const BasicBlock *, 1> PrevRegEntry, RegEntry;
+    PrevRegEntry.insert(PrevRegIt->getEntryBBlock());
+    RegEntry.insert(RegEntryBB);
+
+    // We can end search if we reach current region from previous region.
+    if (isReachableFrom(BB, RegEntry, PrevRegEntry)) {
+
+      // Satisfied condition 2) mentioned above.
+      if (!isReachableFrom(BB, EmptyEndBBs, RegEntry)) {
+        break;
+      }
+    }
+  }
+
+  return RegIt;
+}
+
+void HIRRegionIdentification::formRegionsForLoopMaterialization(
+    Function &Func) {
+
+  for (auto &BB : Func) {
+    if (AllLoopBasedRegionsBBlocks.count(&BB)) {
+      continue;
+    }
+
+    if (!isGenerable(&BB, nullptr)) {
+      continue;
+    }
+
+    if (!isLoopMaterializationCandidate(BB, SE)) {
+      continue;
+    }
+
+    // Region number threshold setup is half-broken in the presence of regions
+    // for loop materialization as they are created after regular regions even
+    // though lexically they may fall between regular regions.
+    if (RegionNumThreshold && (RegionCount == RegionNumThreshold)) {
+      LLVM_DEBUG(
+          dbgs() << "LOOPOPT_OPTREPORT: Region throttled due to region number "
+                    "threshold.\n");
+      return;
+    }
+
+    auto InsertPos = getLexicalInsertionPos(&BB);
+
+    IRRegion::RegionBBlocksTy BBs, NonLoopBBs;
+    BBs.push_back(&BB);
+    NonLoopBBs.push_back(&BB);
+
+    IRRegion TempRegion(&BB, &BB, BBs, NonLoopBBs, true);
+
+    // SmallVector does not have emplace().
+    IRRegions.insert(InsertPos, std::move(TempRegion));
+
+    RegionCount++;
+  }
+}
+
+void HIRRegionIdentification::formRegions(Function &Func) {
+  SmallVector<const Loop *, 32> GenerableLoops;
 
   // LoopInfo::iterator visits loops in reverse program order so we need to
   // use reverse_iterator here.
@@ -1497,16 +1840,17 @@ void HIRRegionIdentification::formRegions() {
       createRegion(Lp, nullptr);
     }
 
-    return;
+  } else {
+    SmallVector<LoopSpanTy, 8> LoopSpans;
+    computeLoopSpansForFusion(GenerableLoops, LoopSpans);
+
+    for (auto &LoopSpan : LoopSpans) {
+      // Create region for generable loop span.
+      createRegion(LoopSpan.first, &LoopSpan.second);
+    }
   }
 
-  SmallVector<LoopSpanTy, 8> LoopSpans;
-  computeLoopSpansForFusion(GenerableLoops, LoopSpans);
-
-  for (auto &LoopSpan : LoopSpans) {
-    // Create region for generable loop span.
-    createRegion(LoopSpan.first, &LoopSpan.second);
-  }
+  formRegionsForLoopMaterialization(Func);
 }
 
 void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
@@ -1523,7 +1867,9 @@ void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
     BBlocks.push_back(&*BBIt);
   }
 
-  IRRegions.emplace_back(&Func.getEntryBlock(), BBlocks, true);
+  IRRegion::RegionBBlocksTy NonLoopBBlocks;
+  IRRegions.emplace_back(&Func.getEntryBlock(), nullptr, BBlocks,
+                         NonLoopBBlocks, false, true);
 
   RegionCount++;
 }
@@ -1556,8 +1902,9 @@ bool HIRRegionIdentification::canFormFunctionLevelRegion(Function &Func) {
 
   SmallVector<Loop *, 16> AllLoops = LI.getLoopsInPreorder();
 
+  bool ThrottleParentLoop;
   for (auto Lp : AllLoops) {
-    if (!isSelfGenerable(*Lp, Lp->getLoopDepth(), true)) {
+    if (!isSelfGenerable(*Lp, Lp->getLoopDepth(), true, ThrottleParentLoop)) {
       return false;
     }
   }
@@ -1690,7 +2037,7 @@ void HIRRegionIdentification::runImpl(Function &F) {
       createFunctionLevelRegion(F);
     }
   } else {
-    formRegions();
+    formRegions(F);
   }
 }
 

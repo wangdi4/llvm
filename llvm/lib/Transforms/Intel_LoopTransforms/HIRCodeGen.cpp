@@ -1,6 +1,6 @@
 //===--------- HIRCodeGen.cpp - Implements HIRCodeGen class ---------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -947,7 +947,6 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
           IndexV.push_back(OffsetIndex);
         }
       }
-
     }
 
     GEPVal = CreateGEP(GEPVal, IndexV);
@@ -1886,15 +1885,18 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     assert(Ops.size() == 2 && "Gep Inst have single rhs of form &val");
     StoreVal = Ops[1];
 
-  } else if (isa<AllocaInst>(Inst)) {
+  } else if (auto *Alloca = dyn_cast<AllocaInst>(Inst)) {
     // Lval type is a pointer to type returned by alloca inst. We need to
     // dereference twice to get to element type
     Type *ElementType =
         Ops[0]->getType()->getPointerElementType()->getPointerElementType();
 
-    StoreVal = Builder.CreateAlloca(ElementType, Ops[1],
-                                    "hir.alloca." +
-                                        std::to_string(HInst->getNumber()));
+    auto *NewAlloca = Builder.CreateAlloca(
+        ElementType, Ops[1],
+        "hir.alloca." + std::to_string(HInst->getNumber()));
+
+    NewAlloca->setAlignment(Alloca->getAlignment());
+    StoreVal = NewAlloca;
 
   } else if (isa<ExtractElementInst>(Inst)) {
     StoreVal = Builder.CreateExtractElement(Ops[1], Ops[2], Inst->getName());

@@ -1,4 +1,4 @@
-;RUN: opt -hir-ssa-deconstruction -hir-details -print-after=hir-loop-distribute-memrec -hir-loop-distribute-memrec -hir-verify-cf-def-level < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-details -print-after=hir-loop-distribute-memrec -hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
 
 ;+ DO i64 i1 = 0, (%storemerge966 + -1)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ;| <RVAL-REG> LINEAR i64 (%storemerge966 + -1)/u64 {sb:2}

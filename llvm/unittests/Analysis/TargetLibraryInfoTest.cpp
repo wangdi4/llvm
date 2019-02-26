@@ -1,9 +1,8 @@
 //===--- TargetLibraryInfoTest.cpp - TLI/LibFunc unit tests ---------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -624,6 +623,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @_ZNKSs7compareEPKc(i8*, i8*)\n"
       "declare i8* @_ZNKSt13runtime_error4whatEv(i8*)\n"
       "declare void @_ZNKSt5ctypeIcE13_M_widen_initEv(i8*)\n"
+      "declare i32 @_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc(i8*, i8*)\n"
       "declare i8* @_ZNKSt9bad_alloc4whatEv(i8*)\n"
       "declare i8* @_ZNKSt9exception4whatEv(i8*)\n"
       "declare i8* @_ZNSi10_M_extractIdEERSiRT_(i8*, double*)\n"
@@ -680,6 +680,12 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKSsSt13_Ios_Openmode(i8*, i8*, i32)\n"
       "declare void @_ZNSt6localeC1Ev(i8*)\n"
       "declare void @_ZNSt6localeD1Ev(i8*)\n"
+      "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm(i8*, i8*, i32)\n"
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_(i8*, i8*)\n"
+      "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm(i8*, i8*, i32)\n"
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm(i8*, i32, i32, i8*, i32)\n"
+      "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm(i8*, i32, i32, i8*, i32)\n"
+      "declare void @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm(i8*, i8*, i32, i32)\n"
       "declare void @_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_(i8*, i8*, i8*)\n"
       "declare void @_ZNSt8__detail15_List_node_base7_M_hookEPS0_(i8*, i8*)\n"
       "declare void @_ZNSt8__detail15_List_node_base9_M_unhookEv(i8*)\n"
@@ -705,6 +711,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZSt19__throw_logic_errorPKc(i8*)\n"
       "declare void @_ZSt20__throw_length_errorPKc(i8*)\n"
       "declare void @_ZSt20__throw_out_of_rangePKc(i8*)\n"
+      "declare void @_ZSt24__throw_out_of_range_fmtPKcz(i8*)\n"
       "declare i8* @_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_(i8*, i8*)\n"
       "declare void @_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_(i32, i8*, i8*, i8*)\n"
       "declare i8* @_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RSbIS4_S5_T1_ES4_(i8*, i8*, i8*, i32)\n"
@@ -826,6 +833,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @rand()\n"
       "declare i8* @readdir(i8*)\n"
       "declare i8* @readdir64(i8*)\n"
+      "declare i32 @regcomp(%struct*, i8*, i32)\n"
+      "declare i64 @regerror(i32, %struct*, i8*, i64)\n"
+      "declare i32 @regexec(%struct*, i8*, i64, %struct*, i32)\n"
+      "declare void @regfree(%struct*)\n"
       "declare i32 @scandir(i8*, i8*, i8*, i8*)\n"
       "declare i32 @select(i32, i8*, i8*, i8*, i8*)\n"
       "declare i32 @setgid(i32)\n"

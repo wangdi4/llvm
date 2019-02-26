@@ -1,9 +1,8 @@
 //===- ELFObjectFile.h - ELF object file implementation ---------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -1040,8 +1039,6 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
       return "ELF32-mips";
     case ELF::EM_MSP430:
       return "ELF32-msp430";
-    case ELF::EM_ALTERA_NIOS2:
-      return "ELF32-nios2";
     case ELF::EM_PPC:
       return "ELF32-ppc";
     case ELF::EM_RISCV:
@@ -1114,13 +1111,6 @@ template <class ELFT> Triple::ArchType ELFObjectFile<ELFT>::getArch() const {
     }
   case ELF::EM_MSP430:
     return Triple::msp430;
-  case ELF::EM_ALTERA_NIOS2:
-    switch (EF.getHeader()->e_ident[ELF::EI_CLASS]) {
-    case ELF::ELFCLASS32:
-      return Triple::nios2;
-    default:
-      report_fatal_error("Invalid ELFCLASS!");
-    }
   case ELF::EM_PPC:
     return Triple::ppc;
   case ELF::EM_PPC64:

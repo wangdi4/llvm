@@ -1,6 +1,6 @@
 //===----- RegDDRef.cpp - Implements the RegDDRef class -------------------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -28,9 +28,9 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-static cl::opt<bool> PrintDetailsRefs(
-    "hir-details-refs", cl::ReallyHidden,
-    cl::desc("Print details of RegDDRef dimensions"));
+static cl::opt<bool>
+    PrintDetailsRefs("hir-details-refs", cl::ReallyHidden,
+                     cl::desc("Print details of RegDDRef dimensions"));
 
 #define DEBUG_TYPE "hir-regddref"
 
@@ -53,7 +53,7 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
   }
 
   // Loop over BlobDDRefs
-  for (auto I = RegDDRefObj.blob_cbegin(), E = RegDDRefObj.blob_cend(); I != E;
+  for (auto I = RegDDRefObj.blob_begin(), E = RegDDRefObj.blob_end(); I != E;
        ++I) {
     BlobDDRef *NewBlobDDRef = (*I)->clone();
     addBlobDDRef(NewBlobDDRef);
@@ -70,8 +70,8 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
       Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed),
       Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
       LowerBounds(Info.LowerBounds), Strides(Info.Strides),
-      DimTypes(Info.DimTypes), MDNodes(Info.MDNodes),
-      GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc) {}
+      DimTypes(Info.DimTypes), MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
+      MemDbgLoc(Info.MemDbgLoc) {}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 
@@ -512,9 +512,13 @@ bool RegDDRef::isSelfBlob() const {
   return (getSymbase() == SB);
 }
 
-bool RegDDRef::isUnitaryBlob() const {
+bool RegDDRef::isNonDecomposable() const {
   if (!isTerminalRef()) {
     return false;
+  }
+
+  if (isLval()) {
+    return true;
   }
 
   return getSingleCanonExpr()->isUnitaryBlob();
@@ -827,7 +831,7 @@ RegDDRef::getNonConstBlobIterator(const_blob_iterator CBlobI) {
 }
 
 BlobDDRef *RegDDRef::removeBlobDDRef(const_blob_iterator CBlobI) {
-  assert((CBlobI != blob_cend()) && "End iterator is not a valid input!");
+  assert((CBlobI != blob_end()) && "End iterator is not a valid input!");
 
   auto BlobI = getNonConstBlobIterator(CBlobI);
   auto BRef = *BlobI;
@@ -895,7 +899,7 @@ void RegDDRef::removeAllBlobDDRefs() {
 
   while (!BlobDDRefs.empty()) {
 
-    auto BlobI = blob_cbegin();
+    auto BlobI = blob_begin();
     removeBlobDDRef(BlobI);
   }
 }
@@ -953,7 +957,7 @@ void RegDDRef::populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
     return;
   }
 
-  for (auto BlobIt = blob_cbegin(), E = blob_cend(); BlobIt != E; ++BlobIt) {
+  for (auto BlobIt = blob_begin(), E = blob_end(); BlobIt != E; ++BlobIt) {
     Blobs.push_back(GetIndices ? (*BlobIt)->getBlobIndex()
                                : (*BlobIt)->getSymbase());
   }
@@ -1094,7 +1098,7 @@ bool RegDDRef::findTempBlobLevel(unsigned BlobIndex, unsigned *DefLevel) const {
     return false;
   }
 
-  for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
+  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
     Index = (*I)->getBlobIndex();
 
     if (Index == BlobIndex) {
@@ -1135,7 +1139,7 @@ void RegDDRef::checkBlobAndDefAtLevelConsistency() const {
   std::sort(BlobIndices.begin(), BlobIndices.end());
 
   // Look for stale blob DDRefs.
-  for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
+  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
     unsigned Index = (*I)->getBlobIndex();
 
     auto It = std::lower_bound(BlobIndices.begin(), BlobIndices.end(), Index);
@@ -1173,12 +1177,26 @@ bool RegDDRef::isNonLinear(void) const {
 }
 
 void RegDDRef::replaceIVByConstant(unsigned LoopLevel, int64_t Val) {
+  auto *Node = getHLDDNode();
+  bool IsLoopBound = Node && isa<HLLoop>(Node);
+
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
     CanonExpr *CE = (*I);
 
     // Replace IV by constant Val and then simplify the CE
     CE->replaceIVByConstant(LoopLevel, Val);
-    CE->simplify(true);
+
+    bool IsNonNegative = IsLoopBound;
+
+    // Check for non-unit denominator to skip calling uitlity for compile time
+    // savings.
+    if (!IsLoopBound && (CE->getDenominator() != 1)) {
+      // Utility may assert for non-attached nodes.
+      IsNonNegative =
+          (Node->isAttached() && HLNodeUtils::isKnownNonNegative(CE, Node));
+    }
+
+    CE->simplify(true, IsNonNegative);
   }
 }
 
@@ -1224,7 +1242,7 @@ void RegDDRef::verify() const {
     }
   }
 
-  for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
+  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
     (*I)->verify();
     assert((*I)->getParentDDRef() == this &&
            "Child blob DDRefs should have this RegDDRef as a parent!");
@@ -1268,8 +1286,7 @@ void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
   }
 
   if (!LowerBoundCE) {
-    LowerBoundCE =
-        getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
+    LowerBoundCE = getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
   }
 
   GepInfo->LowerBounds.push_back(LowerBoundCE);
@@ -1293,8 +1310,7 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
   createGEP();
 
   if (!LowerBoundCE) {
-    LowerBoundCE =
-        getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
+    LowerBoundCE = getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
   }
 
   // If no dimension information provided then try to compute it from the BaseCE
@@ -1314,8 +1330,7 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
       // Note: for variable stride arrays the StrideCE and DimTy should be
       // provided explicitly.
       DimTy = getDimensionElementType(1);
-      DimTy = DDRefUtils::getOffsetType(
-          DimTy, getTrailingStructOffsets(1));
+      DimTy = DDRefUtils::getOffsetType(DimTy, getTrailingStructOffsets(1));
       ElemTy = DimTy->isPointerTy() ? DimTy->getPointerElementType()
                                     : DimTy->getArrayElementType();
     }
@@ -1343,12 +1358,12 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
   // Add Dimension type
   assert(DimTy && "DimTy may not be unknown");
   assert((DimTy->isArrayTy() || DimTy->isPointerTy()) &&
-      "Dimension type should be either array or pointer");
+         "Dimension type should be either array or pointer");
   GepInfo->DimTypes.insert(GepInfo->DimTypes.begin(), DimTy);
 }
 
-void RegDDRef::setTrailingStructOffsets(
-    unsigned DimensionNum, ArrayRef<unsigned> Offsets) {
+void RegDDRef::setTrailingStructOffsets(unsigned DimensionNum,
+                                        ArrayRef<unsigned> Offsets) {
   createGEP();
 
   if (getGEPInfo()->DimensionOffsets.size() < DimensionNum) {

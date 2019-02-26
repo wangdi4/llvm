@@ -1,6 +1,6 @@
 //===------- HIRPreVecCompleteUnroll.cpp - pre vec complete unroll --------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -39,12 +39,13 @@ HIRPreVecCompleteUnrollPass::run(llvm::Function &F,
     return PreservedAnalyses::all();
   }
 
-  HIRCompleteUnroll(
-      AM.getResult<HIRFrameworkAnalysis>(F),
-      AM.getResult<DominatorTreeAnalysis>(F), AM.getResult<TargetIRAnalysis>(F),
-      AM.getResult<HIRLoopStatisticsAnalysis>(F),
-      AM.getResult<HIRDDAnalysisPass>(F),
-      AM.getResult<HIRSafeReductionAnalysisPass>(F), OptLevel, true)
+  HIRCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
+                    AM.getResult<DominatorTreeAnalysis>(F),
+                    AM.getResult<TargetIRAnalysis>(F),
+                    AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                    AM.getResult<HIRDDAnalysisPass>(F),
+                    AM.getResult<HIRSafeReductionAnalysisPass>(F), OptLevel,
+                    true, PragmaOnlyUnroll)
       .run();
 
   return PreservedAnalyses::all();
@@ -56,8 +57,9 @@ class HIRPreVecCompleteUnrollLegacyPass : public HIRCompleteUnrollLegacyPass {
 public:
   static char ID;
 
-  HIRPreVecCompleteUnrollLegacyPass(unsigned OptLevel = 0)
-      : HIRCompleteUnrollLegacyPass(ID, OptLevel, true) {
+  HIRPreVecCompleteUnrollLegacyPass(unsigned OptLevel = 0,
+                                    bool PragmaOnlyUnroll = false)
+      : HIRCompleteUnrollLegacyPass(ID, OptLevel, true, PragmaOnlyUnroll) {
     initializeHIRPreVecCompleteUnrollLegacyPassPass(
         *PassRegistry::getPassRegistry());
   }
@@ -88,6 +90,7 @@ INITIALIZE_PASS_END(HIRPreVecCompleteUnrollLegacyPass,
                     "hir-pre-vec-complete-unroll", "HIR PreVec Complete Unroll",
                     false, false)
 
-FunctionPass *llvm::createHIRPreVecCompleteUnrollPass(unsigned OptLevel) {
-  return new HIRPreVecCompleteUnrollLegacyPass(OptLevel);
+FunctionPass *llvm::createHIRPreVecCompleteUnrollPass(unsigned OptLevel,
+                                                      bool PragmaOnlyUnroll) {
+  return new HIRPreVecCompleteUnrollLegacyPass(OptLevel, PragmaOnlyUnroll);
 }

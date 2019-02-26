@@ -1,4 +1,4 @@
-; RUN: opt < %s -slp-vectorizer -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -mattr=-prefer-256-bit -tti -S | FileCheck %s -check-prefix=16WIDE
+; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -mattr=-prefer-256-bit -tti -S | FileCheck %s -check-prefix=16WIDE
 ; This test checks that we don't crash because of not unique values and still vectorize part of the tree.
 ; Full support for this case requires "head duplication".
 
@@ -471,8 +471,8 @@ attributes #9 = { nounwind }
 ; Just check for a few of them.
 
 
-; 16WIDE: sub nsw <16 x i32>
 ; 16WIDE: add nsw <16 x i32>
+; 16WIDE: sub nsw <16 x i32>
 ; 16WIDE: add nsw <16 x i32>
 ; 16WIDE: sub nsw <16 x i32>
 ; 16WIDE: store <16 x i32> [[SEL1:%.*]], <16 x i32>*

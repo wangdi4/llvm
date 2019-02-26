@@ -1,6 +1,6 @@
 // ===- HIRLoopReversal.cpp - Implement HIR Loop Reversal Transformation -===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -248,6 +248,13 @@ void HIRLoopReversal::MarkedCECollector::checkAndCollectMCE(
       Stride = RegDD->getDimensionConstStride(Dimension);
     }
 
+    // If the dimension stride is variable, Stride will be 0
+    // TODO: Handle negative strides
+    if (Stride == 0) {
+      AbortCollector = true;
+      return;
+    }
+
     // Collect the MCE
     CEVAP.push_back(MarkedCanonExpr(CE, Stride, RegDD, CalculatedWeight));
   }
@@ -287,7 +294,7 @@ struct HIRLoopReversal::AnalyzeDDInfo final : public HLNodeVisitorBase {
 };
 
 void HIRLoopReversal::AnalyzeDDInfo::collectLvalSymbase(const HLLoop *Lp) {
-  const SafeRedChainList &SRCL = HLR.HSRA.getSafeReductionChain(Lp);
+  const SafeRedInfoList &SRCL = HLR.HSRA.getSafeRedInfoList(Lp);
 
   // Walk SafeReductionChain, collect each Inst's Lval Symbase into LvalSBSet
   for (auto &SafeRedInfo : SRCL) {

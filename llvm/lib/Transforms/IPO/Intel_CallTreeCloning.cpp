@@ -79,8 +79,10 @@
 #include "llvm/PassSupport.h"
 
 #include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -339,15 +341,24 @@ public:
     return *this;
   }
 
+  // Check: does ParamIndSet have Idx ON?
+  bool haveIndex(const unsigned Idx) const {
+    if (Idx >= size())
+      return false;
+    return this->operator[](Idx);
+  }
+
+#ifndef NDEBUG
   std::string toString() const {
-    if (size() > 128)
+    const unsigned Size = size();
+    if (Size > 128)
       return "{too big}"; // too big to print
 
     std::ostringstream S;
     S << "{" << size() << "|";
     unsigned Cnt = 0;
 
-    for (unsigned I = 0; I < size(); ++I)
+    for (unsigned I = 0; I < Size; ++I)
       if (this->operator[](I)) {
         if (++Cnt > 1)
           S << " ";
@@ -357,39 +368,35 @@ public:
     return S.str();
   }
 
-  // Check: does ParamIndSet have Idx ON?
-  bool haveIndex(const unsigned Idx) const {
-    if (Idx >= size())
-      return false;
-    return this->operator[](Idx);
-  }
-
-#ifndef NDEBUG
-  LLVM_DUMP_METHOD void dump(bool PrintNewLine = true) const {
-    llvm::dbgs() << toString();
-    if (PrintNewLine)
-      llvm::dbgs() << "\n";
-  }
+  LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString(); }
 #endif // NDEBUG
-};
+};     // namespace
 
 // ParamIndSet "less" comparator for STL containers
 struct ParamIndSetLess {
   bool operator()(const ParamIndSet &Ps0, const ParamIndSet &Ps1) const {
-    if (Ps0.size() != Ps1.size())
-      return Ps0.size() < Ps1.size();
+    unsigned Size0 = Ps0.size();
+    unsigned Size1 = Ps1.size();
+
+    if (Size0 != Size1)
+      return Size0 < Size1;
+
+    // if they are exactly the same: false
+    if (Ps0 == Ps1)
+      return false;
+
+    assert((Size0 == Size1) && "expect equal size\n");
 
     ParamIndSet Ps(Ps0);
     Ps ^= Ps1;
     // the most significant bit which is different:
     // (SmallBitVector::find_last is 1-based: 64-countLeadingZeros(bits) -
     // make it 0-based)
-    auto Last1 = Ps.find_last() - 1;
+    int LastPos = Ps.find_last();
+    assert(((LastPos >= 0) && (LastPos < (int)Size0)) &&
+           "equal-size bitvectors can't have negative diff position\n");
 
-    if (Last1 < 0)
-      return false; // equal
-
-    return Ps1[Last1];
+    return Ps1[LastPos];
   }
 };
 
@@ -543,9 +550,10 @@ public:
   }
 
   ParamIndSet getParamIndSet() const {
-    ParamIndSet Res(size());
+    const unsigned Size = size();
+    ParamIndSet Res(Size);
 
-    for (unsigned I = 0, E = size(); I < E; ++I)
+    for (unsigned I = 0; I < Size; ++I)
       if (this->operator[](I))
         Res.set(I);
 
@@ -554,12 +562,8 @@ public:
 
 #ifndef NDEBUG
   std::string toString() const;
+  LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString(); }
 
-  LLVM_DUMP_METHOD void dump(bool PrintNewLine = true) const {
-    llvm::dbgs() << toString();
-    if (PrintNewLine)
-      llvm::dbgs() << "\n";
-  }
 #endif // NDEBUG
 };
 
@@ -629,7 +633,12 @@ public:
   DCGNode *dst() { return second; }
 
   friend class DetailedCallGraph;
-};
+
+#ifndef NDEBUG
+  std::string toString() const;
+  LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString() << "\n"; }
+#endif // NDEBUG
+};     // namespace
 
 // Detailed call graph node - based on a call site.
 class DCGNode {
@@ -666,7 +675,6 @@ public:
 
 #ifndef NDEBUG
   std::string toString(bool PrintCallAddr = false) const;
-
   LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString() << "\n"; }
 #endif // NDEBUG
 
@@ -692,9 +700,8 @@ using DCGNodeList = SmallVector<DCGNode *, EST_NUM_CALL_SITES_PER_FUNC>;
 struct CompareDCGNodePtr
     : public std::binary_function<DCGNode *, DCGNode *, bool> {
   bool operator()(const DCGNode *lhs, const DCGNode *rhs) const {
-    if (lhs == nullptr || rhs == nullptr) {
+    if (lhs == nullptr || rhs == nullptr)
       return lhs < rhs;
-    }
     return lhs->id() < rhs->id();
   }
 };
@@ -708,9 +715,9 @@ struct CompareFuncPtr
   }
 };
 
-// A "detailed" call graph. Nodes are call sites, an edge from node n to node
-// M is present if n's callee is M's caller function. Also maps a function to
-// nodes where it is a caller
+// In a "detailed" call graph, nodes are call sites, an edge from node N to node
+// M is present if N's callee is M's caller function. It also maps a function to
+// nodes where the function is a caller.
 class DetailedCallGraph
     : public std::map<const Function *, DCGNodeList, CompareFuncPtr> {
 public:
@@ -719,6 +726,9 @@ public:
   static DetailedCallGraph *build(Module &M) {
     DetailedCallGraph *DCG = new DetailedCallGraph();
 
+    // Scan all instructions in the Module and add each CallInst
+    // (regardless of whether it is a direct or indirect call) into the
+    // CallGraph.
     for (auto &F : M)
       for (auto &I : instructions(F))
         if (auto *CI = dyn_cast<CallInst>(&I))
@@ -727,11 +737,13 @@ public:
     return DCG;
   }
 
+  // Search the Call2Nodes map for Function *F
   const DCGNodeList *getNodesWithCallee(const Function *F) const {
     // TODO edges can be "compressed":
-    // Nodes are grouped by the callee, e.g. a->b (1), a->b (2) go in group X,
-    // a->c (1), a->c (2) go into group Y; there is a single edge between the
-    // group X and echo group of b, and between Y and each group of c
+    // Nodes are grouped by the callee, e.g. a->b (1), a->b (2) go
+    // in group X, a->c (1), a->c (2) go into group Y; there is a
+    // single edge between the group X and echo group of b, and
+    // between Y and each group of c
 
     // take any node of f and get all predecessors
     auto Nit = Callee2Nodes.find(F);
@@ -742,6 +754,8 @@ public:
     return &Nit->second;
   }
 
+  // Search the inherited std::map (from DetailedCallGraph) for
+  // Function *F
   const DCGNodeList *getNodesOf(const Function *F) const {
     auto I = find(F);
 
@@ -751,24 +765,26 @@ public:
     return &(I->second);
   }
 
+  // Reset the Cnt (counter) to 0 for each Node in Nodes list
   void resetTraversalState() {
     for (auto X : Nodes)
       X.resetTraversalState();
   }
 
 #ifndef NDEBUG
-  void print(raw_ostream &Os) const;
+  std::string toString() const;
+  LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString() << "\n"; }
 #endif // NDEBUG
 
 private:
-  // extend the call graph with one node corresponding to give call and 1 or
-  // more edges
+  // grow the call graph with 1 CallInst and 1 or more edge(s)
   void addCallSite(CallInst *I);
 
 private:
   std::list<DCGEdge> Edges;
   std::list<DCGNode> Nodes;
   // maps a function to nodes where it is the callee
+  // - maps a function to all DCGNodes (calls) it has
   std::map<const Function *, DCGNodeList> Callee2Nodes;
   uint32_t NodeId;
 };
@@ -779,19 +795,22 @@ void DetailedCallGraph::addCallSite(CallInst *CI) {
   Function *Caller = CI->getParent()->getParent();
   Function *Callee = CI->getCalledFunction();
 
+  // Skip any indirect call or va_arg call
   if (!Caller || !Callee || Caller->isVarArg() || Callee->isVarArg())
-    // TODO support vararg functions
+    // TODO support vararg functions or indirect calls
     return;
 
-  // create and push a new node
+  // create and push a new node into Nodes list
   Nodes.emplace_front(DCGNode(CI, NodeId++));
   DCGNode *L = &Nodes.front();
 
-  // add the node to A's node list
+  // add the new node to A's node list
+  // (to caller's list obtained through inherited std::map)
   auto &ANodes = (*this)[Caller];
   ANodes.push_back(L);
 
-  // add edges between Caller's caller nodes and L
+  // add edges between Caller's existing callee nodes and L
+  // This establishes one-direction sibling relationship over (K -> L).
   auto It = Callee2Nodes.find(Caller);
 
   if (It != Callee2Nodes.end())
@@ -824,18 +843,19 @@ void DetailedCallGraph::addCallSite(CallInst *CI) {
 // Result of backwards parameter mapping
 enum ParamMappingResult {
   // actual parameter (set) is not a foldable function(s) of formals
-  params_cannot_fold,
-  // actual parameter (set) a potentially foldable function(s) of formals
-  params_foldable,
+  params_cannot_fold, // 0
+  // actual parameter (set) a potentially foldable function(s) of
+  // formals
+  params_foldable, // 1
   // actual parameter (set) is a constant
-  params_constant,
+  params_constant, // 2
   // actual parameter has not been tried to be back-mapped
-  params_unprocessed
+  params_unprocessed // 3
 };
 
-// a data dependence tree of an actual parameter flattened as a sequnce of
-// Value's (BinaryOperator's ConstantInt's,...) in normal Polish notation
-// (operation preceeds operands)
+// A data dependence tree of an actual parameter flattened as a
+// sequence of Value's (BinaryOperator's ConstantInt's,...) in
+// normal Polish notation (operation preceeds operands)
 class ActualParamFormula
     : public SmallVector<const Value *, EST_ACT_PARAM_DEP_TREE_SIZE> {
 public:
@@ -849,11 +869,10 @@ public:
 
 #ifndef NDEBUG
   unsigned dumpRec(StringRef Pref, raw_ostream &Os, unsigned Pos, int T) const;
-
   void print(raw_ostream &Os) const;
-
   LLVM_DUMP_METHOD void dump() const { print(llvm::dbgs()); }
 #endif // NDEBUG
+
   friend class ParamTform;
 
 private:
@@ -864,11 +883,12 @@ private:
 };
 
 #ifndef NDEBUG
-raw_ostream &operator<<(raw_ostream &Os, const ActualParamFormula &F) {
-  F.dumpRec("\n...", Os, 0, 0);
+raw_ostream &operator<<(raw_ostream &Os, const ActualParamFormula &APF) {
+  APF.dumpRec("\n...", Os, 0, 0);
   return Os;
 }
 
+// Convert the ParamMappingResult enum to its string representation
 StringRef to_string(ParamMappingResult R) {
   switch (R) {
   case params_cannot_fold:
@@ -884,6 +904,7 @@ StringRef to_string(ParamMappingResult R) {
   }
 }
 
+// Print a std::set of DCGNode *
 void print_node_set(const std::string &Msg,
                     std::set<DCGNode *, CompareDCGNodePtr> Nodes) {
   dbgs() << Msg << "\n";
@@ -893,6 +914,35 @@ void print_node_set(const std::string &Msg,
 
   dbgs() << "\n";
 }
+
+// Print a SmallVector of DCGNode *
+void print_node_vector(const SmallVectorImpl<DCGNode *> &Nodes) {
+  for (const auto X : Nodes)
+    dbgs() << X->toString() << " ";
+  dbgs() << "\n";
+}
+
+void print_node_vector(const SmallVectorImpl<DCGNode *> *Nodes) {
+  for (const auto X : *Nodes)
+    dbgs() << X->toString() << " ";
+  dbgs() << "\n";
+}
+
+// Print a std::list of Value*
+void print_value_list(const std::string &Msg,
+                      std::list<const Value *> &ValueList) {
+  dbgs() << Msg << "\n";
+
+  for (const Value *V : ValueList) {
+    if (V)
+      dbgs() << *V << " ";
+    else
+      dbgs() << " null ";
+  }
+
+  dbgs() << "\n";
+}
+
 #endif // NDEBUG
 
 using ActualParamFormulas =
@@ -914,56 +964,77 @@ public:
 
   void evaluate(const ConstParamVec &Src, ConstParamVec &Dst) const;
 
-  // 'back-maps' a set of actual parameters act_params to formal parameters
-  // form_params through the (reverse) transform defined by the actual SSA
-  // dependence chains ('formulas') of each parameter from the Dst:
-  // type foo(<formal_params>) { ... some_call(<act_params>) ... }
-  // The resut 'Res' is a set of formal parameter indices, which participate
-  // in definitions of actual parameters in 'Dst'.
+  // 'back-maps' a set of actual parameters act_params to formal
+  // parameters form_params through the (reverse) transform defined
+  // by the actual SSA dependence chains ('formulas') of each
+  // parameter from the Dst: foo(<formal_params>) {
+  //   ...
+  //   some_call(<act_params>);
+  //   ...
+  // }
+  //
+  // The result 'Res' is a set of formal parameter indices, which
+  // participate in definitions of actual parameters in 'Dst'.
+  //
   ParamMappingResult mapBack(ParamIndSet &Dst, ParamIndSet &Res);
 
-  // Determine whether given actual parameter of the underlying call can be
-  // folded to a constant given that formal parameters it depends on are
-  // constants. Returns:
+  // Determine whether a given actual parameter of the underlying
+  // call can be folded to a constant given that formal parameters
+  // it depends on are constants.
+  //
+  // Returns:
   // - params_cannot_fold
   //     if the parameters can't be folded
+  //
   // - params_foldable
-  //     if it can; 'Res' will contain indices of the formal parameters
+  //     if it can; 'Res' will contain indices of the formal
+  //     parameters
+  //
   // - params_constant
   //     if the parameter is constant
+  //
   ParamMappingResult mapBack(int ActParamInd, ParamIndSet &Res);
 
   const DCGNode *getDCGNode() const { return Impl; }
 
+  // get: # of arguments of the caller function
   unsigned getInputsSize() const { return Impl->getCaller()->arg_size(); }
 
+  // get: # of arguments of the callee function
   unsigned getOutputsSize() const { return Impl->getCallee()->arg_size(); }
 
 #ifndef NDEBUG
   std::string toString() const;
+  LLVM_DUMP_METHOD void dump(void) const { llvm::dbgs() << toString(); }
 #endif // NDEBUG
 
 private:
   // the DCGraph edge defining this transform
   const DCGNode *Impl;
-  // records the status of back-mapping for each of the actual parameters
+
+  // records the status of back-mapping for each of the actual
+  // parameters
   SmallVector<ParamMappingResult, EST_PARAM_LIST_SIZE> ActParamStatus;
+
   // maps a formal parameter index to actuals that depend on it
   SmallVector<ParamIndSet, EST_PARAM_LIST_SIZE> Form2Act;
+
   // maps an actual parameter index to formals it depends on
   SmallVector<ParamIndSet, EST_PARAM_LIST_SIZE> Act2Form;
-  // "formulas" of calculating actual parameters based on formal parameters;
-  // each formula is a complete list of all transitive data dependencies of
-  // the corresponding actual parameter laid out in DFS order
+
+  // "formulas" of calculating actual parameters based on formal
+  // parameters; each formula is a complete list of all transitive
+  // data dependencies of the corresponding actual parameter laid
+  // out in DFS order
   ActualParamFormulas ActParamFormulas;
 };
 
 // A set of parameter index sets.
 class SetOfParamIndSets : public std::set<ParamIndSet, ParamIndSetLess> {
 public:
-  // Derives a set of parameter indices A set to a constant from the given
-  // constant parameter vector. Then checks if there is subset in this
-  // set of sets such that it is enclosed by A.
+  // Derives a set of parameter indices A set to a constant from the
+  // given constant parameter vector. Then checks if there is subset
+  // in this set of sets such that it is enclosed by A.
   bool hasSetCoveredBy(const ConstParamVec &ConstParams) const {
     ParamIndSet ConstParamsInds = ConstParams.getParamIndSet();
 
@@ -987,27 +1058,26 @@ public:
 
 #ifndef NDEBUG
   std::string toString() const;
-
   LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString() << "\n"; }
 #endif // NDEBUG
 };
 
-// Groups various information about parameter data flow through a call graph
-// node; it is decoupled from the node itself so that the detailed call graph
-// could be used externally (some day)
+// Groups various information about parameter data flow through a
+// call graph node; it is decoupled from the node itself so that the
+// detailed call graph could be used externally (some day).
 class DCGNodeParamFlow {
 public:
   DCGNodeParamFlow(const DCGNode *Impl)
       : Tform(Impl), Marked(false), Visited(false) {}
   DCGNodeParamFlow() : Marked(false), Visited(false) {}
 
+  // Getters + setters:
   void setMarked(bool Val, bool Force = false) {
     assert((Val != Marked || Force) && "already set");
     Marked = Val;
   }
 
   void setVisited(bool val) { Visited = val; }
-
   bool isMarked() const { return Marked; }
   bool isVisited() const { return Visited; }
 
@@ -1028,14 +1098,23 @@ private:
   // used externally
   bool Marked;
   bool Visited;
+
+public:
+#ifndef NDEBUG
+  std::string toString() const;
+  LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString() << "\n"; }
+#endif // NDEBUG
 };
 
 #ifndef NDEBUG
 void printSeeds(
     const std::string &Msg,
     std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &Seeds) {
+
+  // print msg
   dbgs() << Msg << "<" << Seeds.size() << ">\n";
 
+  // print each Seed in the Seeds map
   for (auto &Seed : Seeds) {
     DCGNode *Node = Seed.first;
     const SetOfParamIndSets &Psets = Seed.second;
@@ -1048,16 +1127,15 @@ void printSeeds(
 void printSeeds(
     const std::string &Msg,
     std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &Seeds) {
+
+  // Print msg
   dbgs() << Msg << "\n";
 
+  // Print each Seed in the Seeds Map
   for (auto &Seed : Seeds) {
     Function *F = Seed.first;
     const SetOfParamIndSets &Psets = Seed.second;
-
-    dbgs() << F->getName();
-    dbgs() << "->";
-    dbgs() << Psets.toString();
-    dbgs() << "\n";
+    dbgs() << F->getName() << " -> " << Psets.toString() << "\n";
   }
 
   dbgs() << "\n";
@@ -1101,6 +1179,22 @@ public:
     auto I = find(N);
     return I != end() ? &I->second : nullptr;
   }
+
+#ifndef NDEBUG
+  std::string toString() const {
+    std::ostringstream S;
+    S << "DCGParamFlows: <" << size() << ">{\n";
+
+    for (auto &Item : *this) {
+      S << "[ " << Item.first->toString() << " -> " << Item.second.toString()
+        << " ]\n";
+    }
+
+    return S.str();
+  }
+
+  LLVM_DUMP_METHOD void dump() const { llvm::dbgs() << toString() << "\n"; }
+#endif // NDEBUG
 };
 
 class Analyses {
@@ -1111,33 +1205,48 @@ public:
 };
 
 // Cost model interface whose task is to assess whether there are some formal
-// parameters sets in function f which, if set to constants, whould generate
-// profitable clone
+// parameters sets in function F which, if set to constants, would generate
+// profitable clone(s).
 class CTCCostModel {
 public:
   virtual SetOfParamIndSets assess(Function &F) = 0;
 };
 
-// Cost model used for debugging, engaged when the user specifies seeds from
-// the command line.
+// Cost model used for debugging, engaged when the user specifies seeds from the
+// command line.
 class CTCDebugCostModel : public CTCCostModel {
 public:
   template <typename It> CTCDebugCostModel(It Beg, It End);
   virtual SetOfParamIndSets assess(Function &F);
 
+#ifndef NDEBUG
+  std::string toString(void) const {
+    std::ostringstream S;
+    S << "CTCDebugCostModel: <" << SeedsFromCmdLine.size() << ">{\n";
+
+    for (auto &Item : SeedsFromCmdLine) {
+      S << Item.first << " -> " << Item.second.toString() << "\n";
+    }
+
+    return S.str();
+  }
+
+  LLVM_DUMP_METHOD void dump(void) const { llvm::dbgs() << toString(); }
+#endif
+
 private:
   std::map<std::string, SetOfParamIndSets> SeedsFromCmdLine;
 };
 
-// Real cost model based on loop presense.
+// Real cost model based on loop presence.
 class CTCLoopBasedCostModel : public CTCCostModel {
 public:
   CTCLoopBasedCostModel(Analyses &AnlsP) : Anls(AnlsP) {}
 
-  // For given function tells whether there are sets of formal parameters
-  // which give significant performance benefits if replaced with constants.
-  // Returns all such sets. E.g. for the function below these could be two
-  // sets - <0,1> and <1,2>
+  // For given function tells whether there are sets of formal parameters which
+  // give significant performance benefits if replaced with constants. Returns
+  // all such sets. E.g. for the function below these could be two sets - <0,1>
+  // and <1,2>
   //
   // void foo(int a, int b, int c) {
   //   for (int i = 0; i < a + b; i++) {
@@ -1155,15 +1264,15 @@ protected:
   /// - \p HasCalls - whether the function contains non-intrinsic calls.
   void getFunctionIRStats(const Function &F, size_t &IRSize, bool &HasCalls);
 
-  /// Looks for loops within given function and applies the overloaded
-  /// function below to each.
+  /// Looks for loops within given function and applies the overloaded function
+  /// below to each.
   void gatherParamDepsForFoldableLoopBounds(Function &F,
                                             SetOfParamIndSets &Psets);
 
   /// Checks if bounds of a given loop \p L are foldable functions of formal
   /// parameters, in which case constructs a set of the parameter indices and
-  /// adds it to the output \p Pset parameter. \p Scev is used to determine
-  /// the dependence on the formals.
+  /// adds it to the output \p Pset parameter. \p Scev is used to determine the
+  /// dependence on the formals.
   void gatherParamDepsForFoldableLoopBounds(Loop *L, SetOfParamIndSets &Psets);
 
 private:
@@ -1192,7 +1301,7 @@ void print_CloneRegistry(const std::string &Msg, CloneRegistry &Clones) {
 
     // dump key:
     dbgs() << Key.first->getName() << " : ";
-    Key.second.dump(false);
+    Key.second.dump();
 
     dbgs() << " -> ";
 
@@ -1214,10 +1323,12 @@ inline ParamMappingResult merge_result(ParamMappingResult SetResult,
 }
 
 void ParamTform::copyConstantParams(ConstParamVec &ConstParams) const {
-  unsigned N = getOutputsSize();
+  unsigned N = getOutputsSize(); // N: number of arguments on callee
   ConstParams.resize(N);
   assert(ActParamFormulas.size() == N && "bad number of formulas");
 
+  // scan each available index position in callee's argument:
+  // convert to ConstantInt* if possible
   for (unsigned I = 0; I < N; ++I) {
     // no parallel access to ActParamFormulas, so get() is safe
     ActualParamFormula *F = ActParamFormulas[I].get();
@@ -1231,26 +1342,36 @@ void ParamTform::copyConstantParams(ConstParamVec &ConstParams) const {
 }
 
 ParamIndSet ParamTform::getConstantParamInds() const {
-  ParamIndSet Res;
-  unsigned N = getOutputsSize();
-  Res.resize(N);
+  ParamIndSet PIS;
+  unsigned N = getOutputsSize(); // get number of arguments intcallee
+  PIS.resize(N);
 
+  // scan each argument-index position in callee:
+  // if the matching index position is a ConstantInt*, turn the
+  // matching index bit ON a ParamIndexSet, and return this
+  // ParamIndexSet in the end.
   for (unsigned I = 0; I < N; ++I) {
     // no parallel access to ActParamFormulas, so get() is safe
     ActualParamFormula *F = ActParamFormulas[I].get();
 
     if (F && F->asConstantInt())
-      Res.set(I);
+      PIS.set(I);
   }
-  return Res;
+
+  return PIS;
 }
 
+// Evaluate individual positions in Src ConstParamVec, and store the
+// result into Dst ConstParamVec
 void ParamTform::evaluate(const ConstParamVec &Src, ConstParamVec &Dst) const {
+  // set Dst's number of bits to the number of arguments in callee
   Dst.resize(getOutputsSize());
   assert(ActParamFormulas.size() == Dst.size() && "bad number of formulas");
   DBGX(2, dbgs() << "\n");
 
-  for (unsigned I = 0; I < Dst.size(); ++I)
+  // Scan each bit-index position:
+  // if the index position has a Formula, evaluate it
+  for (unsigned I = 0, E = Dst.size(); I < E; ++I)
     if (auto &Formula = ActParamFormulas[I]) {
       DBGX(2, dbgs() << "Evaluating param " << I << "\n");
       Dst[I] = Formula->evaluate(Src);
@@ -1261,8 +1382,10 @@ void ParamTform::evaluate(const ConstParamVec &Src, ConstParamVec &Dst) const {
 }
 
 ParamMappingResult ParamTform::mapBack(ParamIndSet &Dst, ParamIndSet &Res) {
-  // early bailout check
-  for (unsigned I = 0; I < ActParamStatus.size(); ++I) {
+  // Early bail-out check:
+  // if any position (on ActParamStatus) is params_cannot_fold on
+  // over-sized Dst return params_cannot_fold
+  for (unsigned I = 0, E = ActParamStatus.size(); I < E; ++I) {
     auto S = ActParamStatus[I];
 
     if (S == params_cannot_fold && Dst.size() > I && Dst[I])
@@ -1270,12 +1393,14 @@ ParamMappingResult ParamTform::mapBack(ParamIndSet &Dst, ParamIndSet &Res) {
       // can't fold the entire set
       return params_cannot_fold;
   }
-  ParamMappingResult Ret = params_unprocessed;
+
+  ParamMappingResult PMR = params_unprocessed;
   const DCGNode &N = *getDCGNode();
   const Function *Caller = N.getCaller();
   const Function *Callee = N.getCallee();
   assert(!Caller->isVarArg() && !Callee->isVarArg() &&
-         "vararg functions should've been skipped in the detailed call graph");
+         "vararg functions should've been skipped in the detailed "
+         "call graph");
   size_t ResSize = Caller->arg_size();
   size_t DstSize = Callee->arg_size();
 
@@ -1294,7 +1419,7 @@ ParamMappingResult ParamTform::mapBack(ParamIndSet &Dst, ParamIndSet &Res) {
   assert(Res.size() == ResSize && "Res param set size mismatch");
   assert(ActParamFormulas.size() == DstSize && "formula set size mismatch");
 
-  for (unsigned I = 0; I < Dst.size(); ++I) {
+  for (unsigned I = 0, E = Dst.size(); I < E; ++I) {
     if (!Dst[I])
       continue; // this actual parameter is not of interest
 
@@ -1317,35 +1442,41 @@ ParamMappingResult ParamTform::mapBack(ParamIndSet &Dst, ParamIndSet &Res) {
 
       Res |= IparamDeps;
     }
-    // else the parameter is constant and no action is needed because
-    // it does not add any dependencies on the caller's formal parametes
-    // (does not extend the incoming 'Res' set)
+    // else the parameter is constant and no action is needed because it does
+    // not add any dependencies on the caller's formal parameters (does not
+    // extend the incoming 'Res' set)
 
     // dependencies for this actual has already been determined
-    Ret = merge_result(Ret, Status);
+    PMR = merge_result(PMR, Status);
   }
-  return Ret;
+
+  return PMR;
 }
 
-// Tells whether given instruction can potentially be constant-folded. Used to
-// discard unfoldable cases early.
+// Tells whether given instruction can potentially be
+// constant-folded. Used this function to discard unfoldable cases early.
+//
+// what it does:
+// - check if the given instruction's operand is actually a valid
+// Binary Opcode.
+//
 // TODO: should really be a part of ConstantFolding
-// TODO: binary ops only for now - add everything supported by ConstantFolding
+// TODO: binary ops only for now - add everything supported by
+// ConstantFolding
 bool might_constant_fold_inst(const Instruction *I) {
   auto Opc = I->getOpcode();
-
-  if (Opc >= Instruction::BinaryOpsBegin && Opc < Instruction::BinaryOpsEnd)
-    return true;
-
-  return false;
+  return ((Opc >= Instruction::BinaryOpsBegin) &&
+          (Opc < Instruction::BinaryOpsEnd));
 }
 
 ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
-  // build data dependence chain for given actual parameter and see if its
-  // leaves are either constants or formal parameters of the caller.
+  // build data dependence chain for a given actual parameter and
+  // see if its leaves are either constants or formal parameters of
+  // the caller.
 
-  // DFS worklist
+  // DFS work list:
   SmallVector<const Value *, EST_ACT_PARAM_DEP_TREE_SIZE / 2> WrkList;
+
   // Create the container for resulting "formula" - dependencies in DFS order:
   assert(ActParamFormulas[ActParamInd] == nullptr);
   ActParamFormulas[ActParamInd] = llvm::make_unique<ActualParamFormula>();
@@ -1408,10 +1539,11 @@ ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
       // don't change Ret, only leafs can tell whether the result is
       // "constant" or "foldable"
     }
+
     if (Met)
-      // this instruction is an operand of more than one other visited -
-      // don't recurse, as it was serialized together with its dependencies
-      // at the time it was first met
+      // this instruction is an operand of more than one other visited - don't
+      // recurse, as it was serialized together with its dependencies at the
+      // time it was first met
       continue;
 
     // visit instruction operands; need to push in reverse order so that they
@@ -1423,8 +1555,7 @@ ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
       auto I = V2N.find(Opnd);
 
       if ((I != V2N.end()) && (I->second < DfsNum - 1)) {
-        // successor already visited and there is A dependence cycle - bail
-        // out
+        // successor already visited and there is A dependence cycle - bail out
         Ret = params_cannot_fold;
         break;
       }
@@ -1435,15 +1566,18 @@ ParamMappingResult ParamTform::mapBack(int ActParamInd, ParamIndSet &Res) {
 
     std::copy(Opnds.rbegin(), Opnds.rend(), std::back_inserter(WrkList));
   }
+
   assert(((Ret != params_foldable) ||
           ((Res.count() > 0) && (Act2Form[ActParamInd].count() > 0))) &&
          "foldable actual must be a function of formals");
+
 #ifndef NDEBUG
   if (Ret == params_foldable || Ret == params_constant)
     DBGX(2, dbgs() << *Formula << "\n");
 
   DBGX(2, dbgs() << "...RESULT: " << to_string(Ret) << "\n");
 #endif // NDEBUG
+
   if (Ret == params_cannot_fold)
     // de-allocate formula
     ActParamFormulas[ActParamInd] = nullptr;
@@ -1455,17 +1589,22 @@ const ConstantInt *ActualParamFormula::evaluateRec(
     const ConstParamVec &Formals, std::list<const Value *> &ExprStack,
     std::list<const Value *>::iterator At,
     DenseMap<const Value *, const ConstantInt *> &Folded) const {
+
   assert(At != ExprStack.end() && "invalid expr");
   const Value *V = *At;
   assert(V && "invalid expr");
+
 #ifndef NDEBUG
   unsigned Depth = std::distance(ExprStack.begin(), At);
   bool IsArg = false;
 #endif // NDEBUG
 
+  // If the current Value *V is an argument: replace it with its
+  // matching ConstantInt* value from Formals vector
   if (const Argument *Arg = dyn_cast<Argument>(V)) {
     LLVM_DEBUG(IsArg = true);
-    // it is a formal paramter - replace it with a constant if possible
+
+    // it is a formal parameter - replace it with a constant if possible
     const ConstantInt *C = Formals[Arg->getArgNo()];
     DBGX(2, dbgs().indent(Depth * 2 + 2) << "arg[" << Arg->getArgNo() << "]=");
 
@@ -1477,19 +1616,24 @@ const ConstantInt *ActualParamFormula::evaluateRec(
     V = C;
     // ... and continue
   }
+
+  // If the current Value *V is already an ConstantInt*: do nothing
   if (const ConstantInt *Res = dyn_cast<ConstantInt>(V)) {
     // a constant already - nothing to do
     DBGX(2, (IsArg ? dbgs().indent(0) : dbgs().indent(Depth * 2 + 2))
                 << *Res << "\n");
     return Res;
   }
+
+  // Search the Folded map for V, and return the ContantInt* if
+  // found (from Folded Map)
   auto It = Folded.find(V);
 
   if (It != Folded.end())
     // operation is input to multiple other operations and has been folded
     return It->second;
 
-  // otherwise try to fold the operation;
+  // Otherwise: try to fold the operation;
   const BinaryOperator *Op = dyn_cast<BinaryOperator>(V);
 
   if (!Op)
@@ -1511,8 +1655,8 @@ const ConstantInt *ActualParamFormula::evaluateRec(
   if (!X1)
     return nullptr;
 
-  // the constant folding call below does not really change its arguments,
-  // so use const_cast to satisfy the contract
+  // the constant folding call below does not really change its arguments, so
+  // use const_cast to satisfy the contract
   Constant *Opnds[2] = {const_cast<ConstantInt *>(X0),
                         const_cast<ConstantInt *>(X1)};
   const auto &DL = Op->getModule()->getDataLayout();
@@ -1532,19 +1676,21 @@ const ConstantInt *ActualParamFormula::evaluateRec(
   return C;
 }
 
+// Call evaluateRec() to evaluate the given ConstParamVec & Formals
 const ConstantInt *
 ActualParamFormula::evaluate(const ConstParamVec &Formals) const {
   // use list for quick erasure:
   std::list<const Value *> ExprStack;
   std::copy(begin(), end(), std::back_inserter(ExprStack));
   DenseMap<const Value *, const ConstantInt *> Folded;
+
   // recursively evaluate staring from the first Value:
   return evaluateRec(Formals, ExprStack, ExprStack.begin(), Folded);
 }
 
 // Constructs a dummy cost model which does not analyse functions, but
-// constructs algorithm seeds from given set of textual specifications.
-// The format is described in the CCloneSeeds option.
+// constructs algorithm seeds from given set of textual specifications. The
+// format is described in the CCloneSeeds option.
 template <typename It> CTCDebugCostModel::CTCDebugCostModel(It Beg, It End) {
   std::for_each(Beg, End, [&](const std::string &Sstr) {
     StringRef S(Sstr);
@@ -1606,8 +1752,8 @@ SetOfParamIndSets CTCDebugCostModel::assess(Function &F) {
 
   if (It != SeedsFromCmdLine.end()) {
     // function/param sets were added from the command line - make it a seed
-    // unconditionally; but first check that parameter set is valid as
-    // compiler may have constant-propagated and folded some of them
+    // unconditionally; but first check that parameter set is valid as compiler
+    // may have constant-propagated and folded some of them
     SetOfParamIndSets ResPsets;
 
     for (const ParamIndSet &Pset : It->second) {
@@ -1698,8 +1844,8 @@ void CTCLoopBasedCostModel::gatherParamDepsForFoldableLoopBounds(
     return;
 
   // Check: loop L's UpperBound composition is a constant, argument, or can
-  // trace to a constant or argument.
-  // Formal argument's indexes are saved into Pset
+  // trace to a constant or argument. Formal argument's indexes are saved into
+  // Pset
   ParamIndSet Pset;
   if (!checkLoop(L, Pset))
     return;
@@ -1718,7 +1864,7 @@ public:
   CallTreeCloningImpl() {}
 
   bool run(Module &M, Analyses &Anl, TargetLibraryInfo *TLI,
-           PreservedAnalyses &PA);
+           WholeProgramInfo *WPI, PreservedAnalyses &PA);
 
 protected:
   // -count the number of CallInst(s) and InvokeInst(s)
@@ -1744,27 +1890,27 @@ protected:
     return true;
   }
 
-  // The main algorithm - performs bottom-up parameter sets propagation and
-  // then top-down parameter sets propagation/evaluation and function cloning.
+  // The main algorithm - performs bottom-up parameter sets propagation and then
+  // top-down parameter sets propagation/evaluation and function cloning.
   bool findAndCloneCallSubtrees(
       DetailedCallGraph *Cgraph,
       std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &AlgSeeds,
       CloneRegistry &Clones);
 
-  // Clone a given function 'F' by replacing some of the parameters with given
-  // constants 'ConstParams'. Non-null at position i means i'th parameter
-  // is replaced by this constant. 'Call2Clone' maps all callsites within the
+  // Clone a given function 'F' by replacing some of the parameters with a given
+  // constants 'ConstParams'. Non-null at position i means i'th parameter is
+  // replaced by this constant. 'Call2Clone' maps all callsites within the
   // source function to <Function, <constant parameter set>> pairs. For every
   // callsite a counterpart within the clone function is found, and updated to
-  // call the mapped function with constant parameter removed.
-  // 'clones' keeps record of cloned functions.
-  // The clone is created only if it is not found in this map.
+  // call the mapped function with constant parameter removed. 'clones' keeps
+  // record of cloned functions. The clone is created only if it is not found in
+  // this map.
   Function *cloneFunction(Function *F, const ConstParamVec &ConstParams,
                           const Call2ClonedFunc &Call2Clone,
                           CloneRegistry &Clones);
 
   // The recursive bottom-up pass of the algorithm, which determines clone
-  // roots, live-in and live-out parameter sets, parameter transoform formulas
+  // roots, live-in and live-out parameter sets, parameter transform formulas
   // for detailed call graph nodes met along all paths from seeds to roots
   // (along reverse edges of the graph)
   void findParamDepsRec(DCGNode *Top,
@@ -1780,8 +1926,8 @@ protected:
       CloneRegistry &Clones, const DCGParamFlows &Flows);
 };
 
-// Do post-process cleanup after the recursive Call-Tree Cloning finished the
-// module. New opportunities are created. E.g.
+// Do post-process cleanup after the recursive Call-Tree Cloning
+// finished the module. New opportunities are created. E.g.
 // ...
 // %10 = shl 4, 2;
 // %11 = shl 2, 2;
@@ -1973,16 +2119,16 @@ private:
   // Collect all function candidates for multi-version transformation
   // - candidates are from cloner's leaf-seed functions;
   // - filter the candidates by function's size, number of desired arguments,
-  //   etc.
+  // etc.
   //   This produces multi-version candidates (MVSeeds).
   bool doCollection(void);
 
   // Analyze the MVSeeds, and produce:
-  // 1. map<Function *, std::set<ConstParamsVec>>: map between OrigF*
-  //  and its potentially multiple ConstParamsVec(s);
+  // 1. map<Function *, std::set<ConstParamsVec>>: map between
+  // OrigF* and its potentially multiple ConstParamsVec(s);
   //
-  // 2. map<unsigned idx, std::set<ConstantInt*>: map between OrigF's
-  //  argument position to all possible constants that position may have;
+  // 2. map<unsigned idx, std::set<ConstantInt*>: map between
+  // OrigF's argument position to all possible constants that position may have;
   //
   bool doAnalysis(void);
 
@@ -1994,27 +2140,29 @@ private:
   // Multi-version code generation:
   //
   // - Generate if_then style LLVM code blocks for 2 given (Arg0,C0) and
-  //  (Arg1,C1) pairs, as:
+  // (Arg1,C1) pairs, as:
   //
   //[C: 1 2-variable clone]
   // if((i_width == C0) && (i_height == C1)) {
   //   matched_clone();
   // }
   //
-  //[LLVM: 1 2-variable clone]  ---------------------------------------------
-  //%cmp = icmp eq i32 %6, 16                          CommonBB
-  //%cmp1 = icmp eq i32 %7, 16
-  //%and.cond = and i1 %cmp, %cmp1
+  //[LLVM: 1 2-variable clone]
+  //------------------------------------------------------
+  // %cmp = icmp eq i32 %6, 16                        CommonBB
+  // %cmp1 = icmp eq i32 %7,
+  // 16 %and.cond = and i1 %cmp, %cmp1
   // br i1 %and.cond, label %if.then, label %if.end
   //
-  // if.then:                   ---------------------------------------------
+  // if.then: ---------------------------------------------
+  //
   // tail call void (...) @pixel_avg16x16() #2         ThenBB
   // ret
   //
-  // if.end:                    ---------------------------------------------
+  // if.end: ---------------------------------------------
   //                                                   MergeBB
   //
-  //                            ---------------------------------------------
+  // ---------------------------------------------
   //
   // Note:
   // - Current clause's MergeBB is the CommonBB for the next clause.
@@ -2039,35 +2187,36 @@ private:
   // - a "ret" instruction
   bool doCodeGenOrigClone(Function *F, BasicBlock *CallBB);
 
-  // Create additional runtime values by interpolating existing values.
-  // E.g.
+  // Create additional runtime values by interpolating existing values. E.g.
   // [Before] ValSet:{     16,     8}
+  //
   // [After]  ValSet:{ 20, 16, 12, 8}
   //                   ^       ^
   // 20 and 12 are new values created through interpolation.
   bool interpolateForRTValues(
       std::set<ConstantInt *, ConstantIntGreaterThan> &ValSet);
 
-  // - Generate if_then style LLVM code blocks for a single (Arg,C) pair,
-  // as:
+  // - Generate if_then style LLVM code blocks for a single (Arg,C) pair, as:
   //
   //[C: 1 1-variable clone]
   // if(i_width == C0)
   //   matched_clone();
   // }
   //
-  //[LLVM: 1 1-variable clone] --------------------------------------------
-  //%cmp = icmp eq i32 %6, 16                     CommonBB Blobk
+  //[LLVM: 1 1-variable clone]
+  // ------------------------------------------------------------
+  // %cmp = icmp eq i32 %6, 16                    CommonBB Block
   // br i1 %cmp, label %if.then, label %if.end
-  //                           --------------------------------------------
+  //
+  // ------------------------------------------------------------
   // if.then:                                     ThenBB Block
   // tail call void (...) @pixel_avg16x_() #2
   // ret
   //
-  // if.end:                   --------------------------------------------
+  // if.end: ----------------------------------------------------
   //                                              MergeBB Block
   //
-  //                           --------------------------------------------
+  // ------------------------------------------------------------
   //
   bool doCodeGenMV1VarClone(Function *F, unsigned Pos, ConstantInt *C,
                             BasicBlock *&CommonBB, BasicBlock *&ThenBB,
@@ -2225,12 +2374,16 @@ public:
 } // end of namespace llvm
 
 bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
-                              PreservedAnalyses &PA) {
-  if (!checkThreshold(M)) {
+                              WholeProgramInfo *WPI, PreservedAnalyses &PA) {
+  if (!WPI->isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX2)) {
     LLVM_DEBUG(
-        dbgs()
-        << "Disable CallTreeClone pass due to potential callgraph's size "
-           "over threshold\n");
+        dbgs() << "Disable CallTreeClone pass due to AdvancedOpt disabled\n");
+    return false;
+  }
+
+  if (!checkThreshold(M)) {
+    LLVM_DEBUG(dbgs() << "Disable CallTreeClone pass due to potential "
+                         "callgraph's size over threshold\n");
     return false;
   }
 
@@ -2238,10 +2391,10 @@ bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
   std::unique_ptr<DetailedCallGraph> Cgraph(DetailedCallGraph::build(M));
 
   DBGX(1, dbgs() << "--- Call graph:\n");
-  DBGX(1, Cgraph->print(dbgs()));
+  DBGX(1, Cgraph->dump());
 
-  // now find "seed" nodes for the algorithm based on cost model and filters -
-  // call sites with callees being functions profitable to clone
+  // now find "seed" nodes for the algorithm based on cost model and
+  // filters - call sites with callees being functions profitable to clone
   std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> AlgSeeds;
   std::unique_ptr<CTCCostModel> CM;
   std::map<Function *, SetOfParamIndSets, CompareFuncPtr> LeafSeeds;
@@ -2313,14 +2466,14 @@ bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
   if (skipModule(M) || (CTCloningMaxDepth == 0))
     return false;
 
+  auto *WPA = &getAnalysis<WholeProgramWrapperPass>().getResult();
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   Analyses Anls([&](Function &F) -> LoopInfo & {
     return getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
   });
   PreservedAnalyses PA;
   CallTreeCloningImpl Impl;
-
-  bool ModuleChanged = Impl.run(M, Anls, TLI, PA);
+  bool ModuleChanged = Impl.run(M, Anls, TLI, WPA, PA);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG
@@ -2331,8 +2484,9 @@ bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
 }
 
 namespace {
-// changes the call site so that it calls a cloned version of the function
-// with reduced actual argument list
+// Change the call site, so that it calls a cloned version of the
+// function with specialized-to-constant and reduced-number actual
+// argument list.
 CallInst *specializeCallSite(CallInst *Call, Function *Clone,
                              const ParamIndSet &ConstArgs) {
   unsigned NumArgs = Call->getNumArgOperands();
@@ -2380,6 +2534,7 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
 void CallTreeCloningImpl::findParamDepsRec(
     DCGNode *Top, std::set<DCGNode *, CompareDCGNodePtr> &CloneRoots,
     SmallVectorImpl<DCGNode *> *CallStack, DCGParamFlows &Flows) {
+
   DBGX(1, dbgs().indent(CallStack->size() * 2) << Top->toString());
   DCGNodeParamFlow *Flow = Flows.getOrCreate(Top);
 
@@ -2387,7 +2542,8 @@ void CallTreeCloningImpl::findParamDepsRec(
     // skip marked nodes
     return;
 
-  // call stack is CTCloningMaxDepth size max, so 'find' is constant-time
+  // call stack is CTCloningMaxDepth size max, so 'find' is
+  // constant-time
   if (std::find(CallStack->begin(), CallStack->end(), Top) !=
       CallStack->end()) {
     // the edge creates a cycle - skip it
@@ -2410,8 +2566,8 @@ void CallTreeCloningImpl::findParamDepsRec(
     DBGX(1, dbgs() << " " << CurLiveOut.toString() << "<-");
 
     if (Res == params_foldable) {
-      // current parameter set can be constant-folded from caller's formals
-      // if they are known constants
+      // current parameter set can be constant-folded from caller's
+      // formals if they are known constants
       auto InsRes = Flow->liveIn().insert(CurLiveIn);
       NewLiveInMet = NewLiveInMet || InsRes.second;
       DBGX(1, dbgs() << CurLiveIn.toString());
@@ -2427,21 +2583,23 @@ void CallTreeCloningImpl::findParamDepsRec(
         //     Y
         //    / \
         //   A   B
-        // if X and Y in the detailed call graph picture above are both found
-        // to be roots (edge direction is down) then only X must remain as
-        // root. More generally, all roots reachable from other roots must be
-        // removed. Otherwise, top-down pass from X (or across X from some
-        // upper node) won't clone Y's subtree. The code below keeps the set
-        // of clone roots satisfying that property (none of the roots can be
-        // reacheable from other roots along any path from a root to a seed).
+        // if X and Y in the detailed call graph picture above are both found to
+        // be roots (edge direction is down) then only X must remain as root.
+        // More generally, all roots reachable from other roots must be removed.
+        // Otherwise, top-down pass from X (or across X from some upper node)
+        // won't clone Y's subtree. The code below keeps the set of clone roots
+        // satisfying that property (none of the roots can be reacheable from
+        // other roots along any path from a root to a seed).
 
         // Top->cnt() being non-zero means this node is on a path to some root;
-        // here it is zero, which means Top is not on the path to any root yet -
-        // now
+        // here it is zero, which means Top is not on the path to any root yet.
+        //
+        // actions:
         // (1) mark all the node in the CallStack as such, since Top is
         // identified as a root
         std::for_each(CallStack->begin(), CallStack->end(),
                       [&](DCGNode *N) -> void { N->cnt() = 1; });
+
         // (2) record current node as a clone root
         CloneRoots.insert(Top);
         // see step (3) in the caller
@@ -2458,13 +2616,16 @@ void CallTreeCloningImpl::findParamDepsRec(
   }
   DBGX(1, dbgs() << " " << Tform.toString());
 
-  // see if it is allowed to ascend the call tree even if there are
-  // callers (cheeper tests first); factors which can prevent that:
-  // - call tree depth limit is reached
-  // - none of the parameter sets "survive" the edge's transform - i.e. the
-  //   transform can't fold constant input paramters into the output
-  //   parameters beloning to the set
-  // - the input parameter sets are constants (cloning can proceed)
+  // See if it is allowed to ascend the call tree even if there are callers
+  // (less expensive tests first).
+  //
+  // Factors which can prevent that:
+  // - call tree depth limit is reached;
+  // - none of the parameter sets "survive" the edge's transform;
+  //   E.g.
+  //   the transform can't fold constant input parameters into the output
+  //   parameters belonging to the set.
+  // - the input parameter sets are constants (cloning can proceed).
 
   // - 'depth' test:
   bool Stop = CallStack->size() >= CTCloningMaxDepth;
@@ -2482,14 +2643,14 @@ void CallTreeCloningImpl::findParamDepsRec(
   DBGX(1, llvm::dbgs() << "\n");
 
   if (!Stop) {
-    // recurse through the input nodes to the work list, but skip those which
-    // don't get any new input for the back-propagation
+    // recurse through the input nodes to the work list, but skip
+    // those which don't get any new input for the back-propagation
     for (const auto &E : Top->inEdgesView()) {
       DCGNode *pred = E->src();
       DCGNodeParamFlow *PredFlow = Flows.getOrCreate(pred);
       bool NewLiveOut = false;
 
-      for (const auto &LiveIn : Flow->liveIn()) {
+      for (auto &LiveIn : Flow->liveIn()) {
         auto &KilledOut = PredFlow->killedOut();
 
         if (KilledOut.find(LiveIn) != KilledOut.end())
@@ -2510,23 +2671,24 @@ void CallTreeCloningImpl::findParamDepsRec(
 }
 
 // Starting from given "seed" <node,parameter set> pairs, propagates the
-// parameter sets up the call tree until "root" nodes where all parameters
-// of interest are fold-able to constants. Then goes back from roots to seeds
-// along all possible paths calculating input constant parameter sets and
-// cloning the callee functions.
+// parameter sets up the call tree until "root" nodes where all parameters of
+// interest are fold-able to constants. Then goes back from roots to seeds along
+// all possible paths calculating input constant parameter sets and cloning the
+// callee functions.
 //
 // Algorithm of finding all paths from 'start' to leaves in a directed acyclic
-// graph is DFS w/o tracking the 'visited' property
+// graph is DFS w/o tracking the 'visited' property.
 //
 bool CallTreeCloningImpl::findAndCloneCallSubtrees(
     DetailedCallGraph *Cgraph,
     std::map<DCGNode *, SetOfParamIndSets, CompareDCGNodePtr> &AlgSeeds,
     CloneRegistry &Clones) {
+
   // parameter data-flow information for each call graph node
   DCGParamFlows Flows;
 
-  // storage of nodes which start call-trees leading to compile-time
-  // defined parameter sets in any of the seed nodes
+  // storage of nodes which start call-trees leading to compile-time defined
+  // parameter sets in any of the seed nodes
   std::set<DCGNode *, CompareDCGNodePtr> CloneRoots;
 
   DBGX(1, dbgs() << "\n--- Bottom-up pass (!-can't fold, C-constant)\n\n");
@@ -2534,8 +2696,11 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
   // bottom-up pass finding paths to root calls with constant actual parameters
   // and parameter transformations performed by each involved call site
   for (auto &AlgSeed : AlgSeeds) {
-    const SetOfParamIndSets &SeedLiveOut = AlgSeed.second;
     DCGNode *SeedNode = AlgSeed.first;
+    const SetOfParamIndSets &SeedLiveOut = AlgSeed.second;
+
+    DBGX(1, dbgs() << "SeedNode: " << SeedNode->toString() << "\n";);
+    DBGX(1, dbgs() << "SeedLiveOut: " << SeedLiveOut.toString() << "\n";);
 
     DCGNodeParamFlow *Flow = Flows.getOrCreate(SeedNode);
     Flow->liveOut().insert(SeedLiveOut.begin(), SeedLiveOut.end());
@@ -2550,17 +2715,20 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
   }
 
   DBGX(1, print_node_set("--- Raw clone roots:", CloneRoots));
+
   // Step (3) of the "Clone root reachability" maintenance described in
   // findParamDepsRec: bust the clone roots which have a predecessor marked as
-  // being on a way to another root. This handles the situation as shown
-  // below:
+  // being on a way to another root. This handles the situation as shown below:
+  //
   //   X----A
   //  / \  /
   // Z   \/
   //  \  /\
   //   \/  \
   //   Y----B
+  //
   // If X and Z are both seeds, X could be cloned unnecessarily w/o this step
+
   auto CloneIter = CloneRoots.begin();
   while (CloneIter != CloneRoots.end()) {
     DCGNode *N = *CloneIter;
@@ -2581,9 +2749,10 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
   // At this point we have a detailed call graph annotated with:
   // - information about "clone roots" (see above) to start cloning with
   // - formal->actual parameter transformation function at some of the nodes,
-  //   which have been visited during the bottom-up traversal
-  // Weilding this information, do subgraph cloning for each clone root,
-  // recording all cloned functions in the clone registry.
+  //   which have been visited during the bottom-up traversal.
+  //
+  // With this information, do subgraph cloning for each clone root, and record
+  // all cloned functions in the clone registry.
 
   // the number of functions cloned by this pass
   unsigned NumClones = 0;
@@ -2594,9 +2763,9 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
   LLVM_DEBUG(dbgs() << "\n--- Top-down pass\n\n");
 
   // Edges which introduce cycles (isMarked() == true) are skipped in
-  // cloneCallSubtreeRec below, so it is safe not to track visited nodes -
-  // this leads to all *paths* from roots to seeds having been traversed,
-  // rather than just all nodes visited
+  // cloneCallSubtreeRec below, so it is safe not to track visited nodes.
+  // This leads to all *paths *from roots to seeds having been traversed, rather
+  // than just all nodes visited.
   for (auto *Root : CloneRoots) {
     DBGX(1, dbgs() << "ROOT " << Root->toString() << ": ");
 
@@ -2627,8 +2796,10 @@ bool CallTreeCloningImpl::findAndCloneCallSubtrees(
       specializeCallSite(Call, Clone, ConstParamsInds);
     }
   }
+
   NumClones = static_cast<unsigned>(Clones.size()) - NumClones;
   LLVM_DEBUG(dbgs() << "Number of clones: " << NumClones << "\n");
+
   return NumClones > 0;
 }
 
@@ -2657,8 +2828,9 @@ Function *CallTreeCloningImpl::cloneCallSubtreeRec(
   if (It != Seeds.end()) {
     DBGX(1, dbgs() << "SEED ");
     // seed node, stop recursion and clone function
-    // ... but first see if constant parameters entirely cover at least one
-    // of the seed parameter sets
+    // ...
+    // but first see if constant parameters entirely cover at least one of the
+    // seed parameter sets
     bool HasLiveSet = It->second.hasSetCoveredBy(ConstParams);
     DBGX(1, dbgs() << (HasLiveSet ? "" : "No LIVE set! "));
     Function *Clone = HasLiveSet ? cloneFunction(Root->getCallee(), ConstParams,
@@ -2669,8 +2841,9 @@ Function *CallTreeCloningImpl::cloneCallSubtreeRec(
   }
   LLVM_DEBUG(dbgs() << "\n");
   CallStack->push_back(Root);
-  // clone the subgraph starting with nodes where the callee is a caller and
-  // update the call site to call the cloned callee
+
+  // clone the subgraph starting with nodes where the callee is a
+  // caller and update the call site to call the cloned callee
   Function *F = Root->getCallee();
 
   for (auto *Edge : Root->outEdgesView()) {
@@ -2680,12 +2853,13 @@ Function *CallTreeCloningImpl::cloneCallSubtreeRec(
     const DCGNodeParamFlow *Flow = Flows.get(N);
 
     if (!Flow || Flow->isMarked() || !Flow->isVisited() || !N->isValid())
-      // the node isn't of interest and does not participate in cloning;
+      // The node isn't of interest and does not participate in cloning;
       // !N->isValid() means that N is one of the found clone roots and its
-      // callsite has already been specialized - replaced with a call to a
-      // cloned function; this, in turn, means that all "live out" parameter
-      // sets are defined by constants in this call and constants coming from
-      // root's invocation of N's caller are useless
+      // callsite has already been specialized.
+      //
+      // Replaced with a call to a cloned function; this, in turn, means that
+      // all "live out" parameter sets are defined by constants in this call and
+      // constants coming from root's invocation of N's caller are useless.
       continue;
 
     // see if any of parameter sets instantiated using the incoming constants
@@ -2744,9 +2918,10 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
            << CTCloningMaxClones << ")\n";
     return nullptr;
   }
+
   // create:
   // - a new function type with constant parameters removed
-  // - a unique name for the new function based on the constant args
+  // - a unique name for the new function based on the constant argument(s)
   ValueToValueMapTy Old2New;
   FunctionType *FTy = F->getFunctionType();
   unsigned NParams = FTy->getNumParams();
@@ -2807,8 +2982,8 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
   SmallVector<ReturnInst *, 8> Rets;
   CloneFunctionInto(Clone, F, Old2New, true, Rets);
 
-  // now redirect the calls in the input map to the cloned functions they map
-  // to; also fix the actual parameter lists removing the constants
+  // Redirect the calls in the input map to the cloned functions they map to.
+  // Also fix the actual parameter lists removing the constants
   for (auto &X : Call2Clone) {
     CallInst *OldCall = X.first;
     CallInst *NewCall = cast<CallInst>(Old2New[OldCall]);
@@ -2849,8 +3024,10 @@ bool PostProcessor::collectPPCallInst(CallInst *CI) {
   SetOfParamIndSets Psets = LeafSeeds[Callee];
 
   // Check:
-  // on the Pset position, does the callee have any constant fold-able
-  // BinaryOperator argument, or any argument that is already constant?
+  // - on the Pset position, does the callee have any constant foldable
+  //   BinaryOperator argument?
+  // or
+  // - any argument that is already constant?
   unsigned CFArgPos = 0;
   for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; ++I) {
     if (!Psets.haveIndex(I))
@@ -2879,12 +3056,11 @@ bool PostProcessor::collectPPCallInst(CallInst *CI) {
   // If the CallInst has any constant fold-able argument, save this CallInst
   // with its matching CFArgPos.
   if (CFArgPos) {
-    LLVM_DEBUG(
-        dbgs()
-        << "CI: " << *CI
-        << " has constant a fold-able argument or a constant\t at ArgPos: "
-        << std::bitset<32>(CFArgPos).to_string() << "  Dec: " << CFArgPos
-        << "\n");
+    LLVM_DEBUG(dbgs() << "CI: " << *CI
+                      << " has constant a fold-able argument or a "
+                         "constant\t at ArgPos: "
+                      << std::bitset<32>(CFArgPos).to_string()
+                      << "  Dec: " << CFArgPos << "\n");
 
     PPCandidates[CI] = CFArgPos;
   }
@@ -2892,10 +3068,13 @@ bool PostProcessor::collectPPCallInst(CallInst *CI) {
   return CFArgPos;
 }
 
-// CloneRegistery is a map of: <Function*, ConstParamVec> -> Function *
+// CloneRegistery is a map of: <Function*, ConstParamVec> -> Function
+// *
 bool PostProcessor::doCollection(void) {
-  // -Collect all Function(s) appears in CloneRegistry, both the source
-  //  Function(s), the ConstParamvVec, and their mapped Clone(s);
+  // -Collect all Function(s) appears in CloneRegistry:
+  //  . the source Function(s),
+  //  . the ConstParamvVec,
+  //  . and their mapped Clone(s).
   unsigned Count = 0;
   for (auto &CloneRegItem : Clones) {
     Function *OrigF = const_cast<Function *>(CloneRegItem.first.first);
@@ -2961,10 +3140,9 @@ bool PostProcessor::foldConstantAndReplWithClone(CallInst *&CI, unsigned Pos) {
     IsBinOp = isa<BinaryOperator>(arg);
     bool IsConstant = isa<ConstantInt>(arg);
     if (!IsBinOp && !IsConstant)
-      assert(
-          0 &&
-          "Expect the argument be either a ConstantInt or a constant fold-able "
-          "BinaryOperator\n");
+      assert(0 && "Expect the argument be either a ConstantInt or a "
+                  "constant fold-able "
+                  "BinaryOperator\n");
 
     if (IsConstant) { // constant case
       ConstantInt *ConstInt = dyn_cast<ConstantInt>(arg);
@@ -2989,8 +3167,7 @@ bool PostProcessor::foldConstantAndReplWithClone(CallInst *&CI, unsigned Pos) {
       dbgs() << "After Constant Fold: " << *CI << "\n";
   });
 
-  // 2.Replace the original callee with its matching cloned version
-  // Source:
+  // 2.Replace the original callee with its matching cloned version Source:
   // - CI, with constant parameter(s) folded;
   // - ConstParams;
   //
@@ -3021,8 +3198,8 @@ bool PostProcessor::foldConstantAndReplWithClone(CallInst *&CI, unsigned Pos) {
 // INPUT: std::map<CallInst *, unsigned> PPCandidates;
 //
 // For each collected CallInst:
-// -Fold constant, replace the respective argument with the constant value
-// -Replace the original callee with the cloned copy of the callee
+// - Fold constant, replace the respective argument with the constant value;
+// - Replace the original callee with the cloned copy of the callee;
 //
 bool PostProcessor::doTransformation(void) {
   unsigned Count = 0;
@@ -3088,7 +3265,8 @@ bool MultiVersionImpl::doCollection(void) {
   LLVM_DEBUG(dbgs() << "Match1VarMV: " << Match1VarMV.toString() << "\n");
 
   // Short-cut collection:
-  // - Allow Functions to be collected through bypassing collection testing.
+  // - Allow Functions to be collected through bypassing collection
+  // testing.
   if (MVBypassCollectionForLITTestOnly) {
     for (auto &LeafSeed : LeafSeeds) {
       Function *F = LeafSeed.first;
@@ -3114,15 +3292,16 @@ bool MultiVersionImpl::doCollection(void) {
 
 // Analyze the MVSeeds:
 // 1. fill in MVFunctionInfo record for each unique Function* from MVSeed, and
-// populate the MVFI map: Function * -> MVFunctionInfo,
-// where MVFunctinInfo contains:
+// populate the MVFI map: Function * -> MVFunctionInfo, where MVFunctinInfo
+// contains:
 //  -Function *
 //  -SetOfParamIdxSets
 //  -map: ConstParamVec -> CloneF
 //  -map: idxPos -> std::set<ConstantInt*, ConstantIntGreaterThan>
 //
-// 2. Reduce potential combinations of std::set<ConstantInt*> by sorting and
-// limiting the max size of the set. Currently, the max size is set to 2.
+// 2. Reduce potential combinations of std::set<ConstantInt*> by
+// sorting and limiting the max size of the set. Currently, the max
+// size is set to 2.
 //
 bool MultiVersionImpl::doAnalysis(void) {
   // Check: does Seeds map contains a given Function *
@@ -3235,19 +3414,6 @@ bool MultiVersionImpl::doAnalysis(void) {
   return true;
 }
 
-#ifndef NDEBUG
-void printValSet(const std::string &Msg,
-                 std::set<ConstantInt *, ConstantIntGreaterThan> &ValSet) {
-  dbgs() << Msg << "<" << ValSet.size() << ">\n";
-
-  for (auto *C : ValSet) {
-    dbgs() << C->getSExtValue() << ", ";
-  }
-
-  dbgs() << "\n";
-}
-#endif
-
 bool MultiVersionImpl::createAdditionalClones(Function *F) {
   Call2ClonedFunc Call2Clone;
   ConstParamVec ConstParams;
@@ -3342,7 +3508,8 @@ bool MultiVersionImpl::doCodeGenMV2VarClone(
     BasicBlock *&CommonBB, BasicBlock *&ThenBB, BasicBlock *&MergeBB) {
 
   unsigned static Count = 0;
-  // Figure out the CloneF Function: mapped from F and (Pos0,C0),(Pos1,C1)
+  // Figure out the CloneF Function: mapped from F and
+  // (Pos0,C0),(Pos1,C1)
   unsigned ArgSize = F->arg_size();
   assert((Pos0 < ArgSize) && "Pos0 is out of bound\n");
   assert((Pos1 < ArgSize) && "Pos1 is out of bound\n");
@@ -3374,19 +3541,21 @@ bool MultiVersionImpl::doCodeGenMV2VarClone(
   //    pixel_avg16x16();
   // }
   //
-  //[LLVM: 1 2-variable clone]   ---------------------------------------------
-  //%cmp0 = icmp eq i32 %a, 16
-  //%cmp1 = icmp eq i32 %b, 16                       CommonBB Block
-  //%and01 = and i1 %cmp0, %cmp1
+  //[LLVM: 1 2-variable clone]
+  //--------------------------------------------------------------------------
+  // %cmp0 = icmp eq i32 %a, 16                      CommonBB Block
+  // %cmp1 = icmp eq i32 %b, 16
+  // Block %and01 = and i1 %cmp0, %cmp1
   // br i1 %and01, label %if.then.0, label %if.end.0
-  //                             ----------------------------------------------
-  // if.then.0:                                          ; preds = %entry
+  // -------------------------------------------------------------------------
+  // if.then.0:           ; preds = %entry           ThenBB Block
   // tail call void (...) @pixel_avg16x16() #2
-  // ret                                             ThenBB Block
-  //                             ----------------------------------------------
+  // ret
+  //
+  // -------------------------------------------------------------------------
   // if.end.0:                                       MergeBB Block
   //
-  //                             ----------------------------------------------
+  // -------------------------------------------------------------------------
 
   // Create/reuse the CommonBB
   if (CommonBB == nullptr) {
@@ -3475,6 +3644,19 @@ bool MultiVersionImpl::doCodeGenOrigClone(Function *F, BasicBlock *CallBB) {
   return true;
 }
 
+#ifndef NDEBUG
+void dump_val_set(const std::string &Msg,
+                  std::set<ConstantInt *, ConstantIntGreaterThan> &ValSet) {
+  dbgs() << Msg << "<" << ValSet.size() << ">\n";
+
+  for (auto *C : ValSet) {
+    dbgs() << C->getSExtValue() << ", ";
+  }
+
+  dbgs() << "\n";
+}
+#endif
+
 // interpolate the ValSet, and grow/guess additional run-time values.
 // E.g. ValSet:
 // before interpolation { 16, 8 }
@@ -3482,7 +3664,7 @@ bool MultiVersionImpl::doCodeGenOrigClone(Function *F, BasicBlock *CallBB) {
 //                        ^_      ^_
 bool MultiVersionImpl::interpolateForRTValues(
     std::set<ConstantInt *, ConstantIntGreaterThan> &ValSet) {
-  LLVM_DEBUG({ printValSet("before interpolateForRTValues():", ValSet); });
+  LLVM_DEBUG({ dump_val_set("before interpolateForRTValues():", ValSet); });
 
   // Note: ValSet is already sorted in descending order!
   unsigned ValSetSize = ValSet.size();
@@ -3502,13 +3684,13 @@ bool MultiVersionImpl::interpolateForRTValues(
     ConstantInt *V = Builder.getIntN(C->getBitWidth(), CurVal + Dist);
     NewSet.insert(V);
   }
-  LLVM_DEBUG({ printValSet("NewSet:", NewSet); });
+  LLVM_DEBUG({ dump_val_set("NewSet:", NewSet); });
 
   // Merge NewSet into ValSet:
   std::copy(NewSet.begin(), NewSet.end(),
             std::inserter(ValSet, ValSet.begin()));
 
-  LLVM_DEBUG({ printValSet("after interpolateForRTValues():", ValSet); });
+  LLVM_DEBUG({ dump_val_set("after interpolateForRTValues():", ValSet); });
 
   return true;
 }
@@ -3520,17 +3702,20 @@ bool MultiVersionImpl::interpolateForRTValues(
 //    pixel_avg16();
 // }
 //
-//[LLVM: 1 1-variable clone]   ----------------------------------------------
+//[LLVM: 1 1-variable clone]
+// -------------------------------------------------------------------------
 //  %cmp = icmp eq i32 %b, 16                       Common Block
 //  br i1 %cmp, label %if.then, label %if.end
-//                             ----------------------------------------------
+//
+// -------------------------------------------------------------------------
 // if.then:                                         Then Block
 //  tail call void (...) @pixel_avg16() #2
 //  return
-//                                   ----------------------------------------------
+//
+// -------------------------------------------------------------------------
 // if.end.0:                                        Merge Block
 //
-//                                   ----------------------------------------------
+// -------------------------------------------------------------------------
 bool MultiVersionImpl::doCodeGenMV1VarClone(Function *F, unsigned Pos,
                                             ConstantInt *C,
                                             BasicBlock *&CommonBB,
@@ -3637,7 +3822,8 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
     }
   });
 
-  // For each valid 2-value pair, call doCodeGenMV2VarClone2VarClone():
+  // For each valid 2-value pair, call
+  // doCodeGenMV2VarClone2VarClone():
   std::set<ConstantInt *, ConstantIntGreaterThan> ValSet0 = ValSetVec[0];
   std::set<ConstantInt *, ConstantIntGreaterThan> ValSet1 = ValSetVec[1];
   unsigned Pos0 = PosVec[0];
@@ -3647,8 +3833,8 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
   BasicBlock *ThenBB = nullptr;
   BasicBlock *MergeBB = nullptr;
 
-  // Force certain order by actually generating needed pairs and sort the
-  // pairs in particular order!!
+  // Force certain order by actually generating needed pairs and sort
+  // the pairs in particular order!!
   using ConstantIntPair = std::pair<ConstantInt *, ConstantInt *>;
   SmallVector<ConstantIntPair, 8> CIPVec;
 
@@ -3691,9 +3877,8 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
   //
   // Note:
   // - This case only works for 2 conditionals.
-  // - In case there are 3 or more conditionals, we may either rewrite the
-  //   logic to handle those cases, or rebuild algorithm to make it more
-  //   generic.
+  // - In case there are 3 or more conditionals, we may either rewrite the logic
+  //   to handle those cases, or rebuild algorithm to make it more generic.
   //
   std::sort(CIPVec.begin(), CIPVec.end(),
             [&](const ConstantIntPair &P0, const ConstantIntPair &P1) -> bool {
@@ -3754,8 +3939,8 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
         return false;
       }
     } else {
-      // rotate: MergeBB from the previous iteration becomes CommonBB in current
-      // iteration.
+      // rotate: MergeBB from the previous iteration becomes CommonBB
+      // in current iteration.
       CommonBB = MergeBB;
 
       if (!doCodeGenMV2VarClone(F, Pos0, C0, Pos1, C1, CommonBB, ThenBB,
@@ -3795,8 +3980,7 @@ bool MultiVersionImpl::doCodeGen(Function *F) {
   }
 
   // Create a call to the original clone (e.g. mc_chrome|_._..._()) at end of
-  // the last MergeBB.
-  // This is the default fail-over protection path.
+  // the last MergeBB. This is the default fail-over protection path.
   if (!doCodeGenOrigClone(F, MergeBB))
     return false;
 
@@ -3873,6 +4057,7 @@ llvm::CallTreeCloningLegacyPass::CallTreeCloningLegacyPass() : ModulePass(ID) {
 void CallTreeCloningLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<WholeProgramWrapperPass>();
 }
 
 llvm::ModulePass *llvm::createCallTreeCloningPass() {
@@ -3885,6 +4070,7 @@ char llvm::CallTreeCloningLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(CallTreeCloningLegacyPass, PASS_NAME, PASS_DESC, false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(CallTreeCloningLegacyPass, PASS_NAME, PASS_DESC, false,
                     false)
 
@@ -3897,10 +4083,11 @@ PreservedAnalyses CallTreeCloningPass::run(Module &M,
   });
   PreservedAnalyses PA;
   auto &TLI = MAM.getResult<TargetLibraryAnalysis>(M);
+  auto &WPI = MAM.getResult<WholeProgramAnalysis>(M);
 
   // TODO FIXME add preserved analyses
   CallTreeCloningImpl Impl;
-  bool ModuleChanged = Impl.run(M, Anls, &TLI, PA);
+  bool ModuleChanged = Impl.run(M, Anls, &TLI, &WPI, PA);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG
@@ -3970,50 +4157,112 @@ std::string DCGNode::toString(bool PrintCallAddr) const {
   return S.str();
 }
 
-void DetailedCallGraph::print(raw_ostream &Os) const {
+std::string DCGEdge::toString() const {
+  std::ostringstream S;
+  S << "DCGEdge[:\n";
+
+  // src:
+  const DCGNode *SrcNode = src();
+  S << "  src: ";
+  if (SrcNode)
+    S << SrcNode->toString();
+  else
+    S << " null ";
+  S << "\n";
+
+  // dst:
+  const DCGNode *DstNode = dst();
+  S << "  dst: ";
+  if (DstNode)
+    S << DstNode->toString();
+  else
+    S << " null ";
+  S << "\n";
+
+  S << "]\n";
+  return S.str();
+}
+
+std::string DetailedCallGraph::toString() const {
+  std::ostringstream S;
+
+  // Print each Node in the DetailedCallGraph (DCG):
   for (const auto &N : Nodes) {
-    Os << N.toString() << "\n";
+    S << N.toString() << "\n";
+    S << "  outgoing: ";
     unsigned Cnt = 0;
 
+    // Print: outEdges if any
     if (N.outEdgesView().size() > 0) {
-      Os << "    ";
+      S << "    ";
 
       for (const auto &E : N.outEdgesView()) {
         if (++Cnt % 10 == 0)
-          Os << "\n    ";
+          S << "\n    ";
 
         assert(E->src() == &N && "inconsistent call graph 0");
-        Os << "[" << E->dst()->id() << "] ";
+        S << "[" << E->dst()->id() << "] ";
       }
-      Os << "\n";
     }
+    S << "\n";
+
+    // Print: inEdges if any
     if (N.inEdgesView().size() > 0) {
-      Os << "  incoming: ";
+      S << "  incoming: ";
       Cnt = 0;
 
       for (const auto &E : N.inEdgesView()) {
         if (++Cnt % 10 == 0)
-          Os << "\n    ";
+          S << "\n    ";
 
         assert(E->dst() == &N && "inconsistent call graph 1");
-        Os << "[" << E->src()->id() << "] ";
+        S << "[" << E->src()->id() << "] ";
       }
-      Os << "\n";
+      S << "\n";
     }
   }
+
   for (const auto &X : *this) {
-    Os << X.first->getName() << ":";
+    S << X.first->getName().str() << ":";
 
     for (const auto *N : X.second)
-      Os << " [" << N->id() << "]";
+      S << " [" << N->id() << "]";
 
-    Os << "\n";
+    S << "\n";
   }
+
+  return S.str();
+}
+
+std::string DCGNodeParamFlow::toString() const {
+  std::ostringstream S;
+
+  S << "DCGNodeParamFlow:{\n";
+
+  // LiveIn:
+  S << " -LiveIn:    " << LiveIn.toString() << "\n";
+
+  // LiveOut:
+  S << " -LiveOut:   " << LiveOut.toString() << "\n";
+
+  // KilledOut:
+  S << " -killedOut: " << KilledOut.toString() << "\n";
+
+  // ParamTform Tform:
+  // note: have to comment it out since it will fire an assert!
+  // S << " -Tform:     " << Tform.toString() << "\n";
+
+  // Boolean variables:
+  S << " -Marked:  " << std::boolalpha << Marked << "\n";
+  S << " -Visited: " << std::boolalpha << Visited << "\n";
+
+  S << "}\n";
+  return S.str();
 }
 
 unsigned ActualParamFormula::dumpRec(StringRef Pref, raw_ostream &Os,
                                      unsigned Pos, int T) const {
-  assert(Pos < size() && "Pos is out of range");
+  assert(Pos <= size() && "Pos is out of range");
   const Value *V = (*this)[Pos];
   Os << Pref;
   Os.indent(2 * T);
@@ -4088,4 +4337,27 @@ extern "C" void dump_cvec(const ConstParamVec *Cvec) { Cvec->dump(); }
 extern "C" void dump_psets(const SetOfParamIndSets *Psets) { Psets->dump(); }
 extern "C" void dump_node(const DCGNode *N) { N->dump(); }
 extern "C" void dump_formula(const ActualParamFormula *F) { F->dump(); }
+extern "C" void dump_nodeset(const std::set<const DCGNode *> &NodeSet) {
+  for (const auto X : NodeSet)
+    dbgs() << X->toString() << " ";
+  dbgs() << "\n";
+}
+extern "C" void dump_nodev(SmallVectorImpl<const DCGNode *> NodeV) {
+
+  for (const auto X : NodeV)
+    dbgs() << X->toString() << " ";
+  dbgs() << "\n";
+}
+
+extern "C" void dump_valuev(SmallVectorImpl<const Value *> &ValueV) {
+  if (ValueV.size() == 0)
+    return;
+
+  for (const Value *V : ValueV) {
+    V->dump();
+    dbgs() << " ";
+  }
+  dbgs() << "\n";
+}
+
 #endif // NDEBUG

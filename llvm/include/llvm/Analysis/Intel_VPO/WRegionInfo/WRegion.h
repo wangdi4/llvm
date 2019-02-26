@@ -930,6 +930,7 @@ public:
   loopopt::HLNode *getExitHLNode() const { return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const { return HLp; }
   bool isOmpSIMDLoop() const { return !getIsAutoVec(); }
+  bool isValidHIRSIMDRegion() const;
 #endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,

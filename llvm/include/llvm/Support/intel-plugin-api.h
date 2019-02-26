@@ -1,6 +1,6 @@
 //===------- intel-plugin-api.h - Interface for gold plugin - C++ -*------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -21,8 +21,8 @@
 ///
 //===---------------------------------------------------------------------===//
 
-#ifndef PLUGIN_API_H
-#define PLUGIN_API_H
+#ifndef INTEL_PLUGIN_API_H
+#define INTEL_PLUGIN_API_H
 
 #ifdef __cplusplus
 extern "C"
@@ -46,7 +46,7 @@ enum ld_plugin_status
 // used in the gold-plugin.cpp file.
 enum ld_plugin_output_file_type
 {
-  LDPO_REL,     // .o
+  LDPO_REL,       // .o
   LDPO_EXEC,      // .exe
   LDPO_DYN,       // .so
   LDPO_PIE        // position independent executable
@@ -180,7 +180,7 @@ enum ld_pugin_symbol_visibility
   LDPV_DEFAULT,
   LDPV_PROTECTED,
   LDPV_INTERNAL,
-  LDPV_HIDDEN,
+  LDPV_HIDDEN
 };
 
 // Status of the symbol resolution
@@ -377,4 +377,4 @@ enum ld_plugin_status (*ld_plugin_onload)(struct ld_plugin_tv *tv);
 }
 #endif
 
-#endif // PLUGIN_API_H
+#endif // INTEL_PLUGIN_API_H

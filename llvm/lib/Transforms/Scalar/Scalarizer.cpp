@@ -1,9 +1,8 @@
 //===- Scalarizer.cpp - Scalarize vector operations -----------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -379,7 +378,8 @@ bool ScalarizerVisitor::canTransferMetadata(unsigned Tag) {
           || Tag == LLVMContext::MD_invariant_load
           || Tag == LLVMContext::MD_alias_scope
           || Tag == LLVMContext::MD_noalias
-          || Tag == ParallelLoopAccessMDKind);
+          || Tag == ParallelLoopAccessMDKind
+          || Tag == LLVMContext::MD_access_group);
 }
 
 // Transfer metadata from Op to the instructions in CV if it is known

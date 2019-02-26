@@ -1,9 +1,8 @@
 //===- AsmPrinter.cpp - Common AsmPrinter code ----------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -12,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/AsmPrinter.h"
-#include "AsmPrinterHandler.h"
 #include "CodeViewDebug.h"
 #include "DwarfDebug.h"
 #include "DwarfException.h"
@@ -41,6 +39,7 @@
 #include "llvm/BinaryFormat/COFF.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/BinaryFormat/ELF.h"
+#include "llvm/CodeGen/AsmPrinterHandler.h"
 #include "llvm/CodeGen/GCMetadata.h"
 #include "llvm/CodeGen/GCMetadataPrinter.h"
 #include "llvm/CodeGen/GCStrategy.h"
@@ -151,6 +150,16 @@ static const char *const STIDebugGroupName = "sti_info";
 static const char *const STIDebugGroupDescription = "STI Debug Info Emission";
 static const char *const OptReportGroupName = "optreport_info";
 static const char *const OptReportGroupDescription = "OptReport Info Emission";
+
+static cl::opt<bool>
+    EmbedBinaryOptReport("opt-report-embed", cl::Hidden, cl::init(false),
+                         cl::desc("If an assembly/object file/executable "
+                                  "is being generated, special loop info "
+                                  "annotations will be emitted into the "
+                                  "assembly/object file/executable for use "
+                                  "by the Intel Advisor application. "
+                                  "Automatically enabled when optimization "
+                                  "reports are enabled."));
 #endif // INTEL_CUSTOMIZATION
 
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
@@ -244,6 +253,12 @@ void AsmPrinter::EmitToStreamer(MCStreamer &S, const MCInst &Inst) {
   S.EmitInstruction(Inst, getSubtargetInfo());
 }
 
+void AsmPrinter::emitInitialRawDwarfLocDirective(const MachineFunction &MF) {
+  assert(DD && "Dwarf debug file is not defined.");
+  assert(OutStreamer->hasRawTextSupport() && "Expected assembly output mode.");
+  (void)DD->emitInitialLocDirective(MF, /*CUID=*/0);
+}
+
 /// getCurrentSection() - Return the current section we are emitting to.
 const MCSection *AsmPrinter::getCurrentSection() const {
   return OutStreamer->getCurrentSectionOnly();
@@ -259,13 +274,11 @@ void AsmPrinter::getAnalysisUsage(AnalysisUsage &AU) const {
 
 #if INTEL_CUSTOMIZATION
 namespace {
-// Return true, if the optimization reports verbosity is not None.
+// Return true, if binary optimization reports needs to be emitted.
 static bool needsBinaryOptReport() {
   OptReportOptionsPass ORO;
-  // TODO (vzakhari 10/8/2018): encode binary opt-report always,
-  //       when opt-report verbosity is not None.  We probably
-  //       need to additionally control this under another option.
-  return (ORO.getVerbosity() != OptReportVerbosity::None);
+  return (EmbedBinaryOptReport &&
+          ORO.getVerbosity() != OptReportVerbosity::None);
 }
 } // end anonymous namespace
 #endif  // INTEL_CUSTOMIZATION
@@ -700,6 +713,9 @@ void AsmPrinter::EmitFunctionHeader() {
 
   if (MAI->hasDotTypeDotSizeDirective())
     OutStreamer->EmitSymbolAttribute(CurrentFnSym, MCSA_ELF_TypeFunction);
+
+  if (F.hasFnAttribute(Attribute::Cold))
+    OutStreamer->EmitSymbolAttribute(CurrentFnSym, MCSA_Cold);
 
   if (isVerbose()) {
     F.printAsOperand(OutStreamer->GetCommentOS(),

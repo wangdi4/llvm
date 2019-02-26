@@ -124,16 +124,6 @@ static cl::opt<bool> SkipAndersUnreachableAsserts("skip-anders-unreachable-asser
 // Option to control ignoring NullPtr during collection of constraints
 static cl::opt<bool> IgnoreNullPtr("anders-ignore-nullptr", cl::init(true), cl::ReallyHidden);
 
-// Option to control using restrict attribute for better AA.
-// It is not really related to Andersens analysis. For given two pointers,
-// AndersensAAResult::alias returns NoAlias if one pointer is noalias 
-// (restrict) argument and other pointer is not a copy of the noalias
-// pointer. It does some simple analysis to prove that second pointer is
-// not copy of noalias pointer.
-// BasicAA has some code that use noalias attribute but it doesn't do
-// any analysis except some simple checks.
-static cl::opt<bool> UseRestrictAttr("anders-use-restrict-attr", cl::init(true), cl::ReallyHidden);
-
 // Limit number of indirect calls processed during propagation. No limit check
 // if it is set to -1. If number of indirect calls exceeds this limit, treat
 // all indirect calls conservatively.
@@ -765,118 +755,6 @@ unsigned AndersensAAResult::getNodeValue(Value &V) {
   return Index;
 }
 
-// Returns parent function of V.
-//
-static const Function* getValueParent(const Value* V) {
-  if (const Instruction *inst = dyn_cast<Instruction>(V))
-    return inst->getParent()->getParent();
-
-  if (const Argument *arg = dyn_cast<Argument>(V))
-    return arg->getParent();
-
-  return nullptr;
-}
-
-// Returns true if Ptr can be escaped through PtrUser.
-// Currently, this routine checks PtrUser is Load/Store
-// instructions to prove that Ptr is not escaped.
-//
-static bool PtrUseMayBeEcaped(const Value* PtrUser, const Value* Ptr) {
-  if (const StoreInst *SI = dyn_cast<StoreInst>(PtrUser)) {
-    // Make sure Ptr is not saved to someother location
-    if (SI->getOperand(0) == Ptr)
-      return true;
-    if (SI->isVolatile())
-      return true;
-  }
-  else if (const LoadInst *LI = dyn_cast<LoadInst>(PtrUser)) {
-   if (LI->isVolatile())
-    return true;
-  }
-  return false;
-}
- 
-
-// Returns true if all below checks are true
-//     1. V1 is noalias pointer argument
-//     2. V2 is not a direct use of V1
-//     3. All uses of V1 are tracked to make sure no copy of V1 is escaped.
-//
-static bool isAllUsesOfNoAliasPtrTracked(const Value *V1, const Value *V2) {
-  const Argument *A = dyn_cast<Argument>(V1);
-
-  // Check V1 is noalias pointer argument
-  if (A == nullptr)
-    return false;
-  if (!A->hasNoAliasAttr())
-    return false;
-
-  for (const User *U : V1->users()) {
-
-    // Check V2 is not a direct use of V1
-    if (&*U == V2)
-      return false;
-
-    // Check uses of V1 are escaped
-    if (!PtrUseMayBeEcaped(&*U, V1))
-      continue;
-
-    // If use of V1 is GetElementPtr, try to prove that uses of
-    // GetElementPtr are not escaped.
-    const Instruction *Inst = cast<Instruction>(U);
-    // For now, ignore complex GetElementPtr by limiting number of
-    // operands.
-    if (!isa<AddressInst>(Inst))
-      if (!isa<GetElementPtrInst>(Inst) || Inst->getNumOperands() >= 3)
-        return false;
-
-    // Check all uses of GetElementPtr are not escaped
-    for (const User *U1 : U->users()) {
-      const Value* AU = &*U1;
-      if (PtrUseMayBeEcaped(AU, U))
-        return false;
-    }
-  }
-  return true;
-}
-
-// Returns true if it proves V1 and V2 are not aliases using
-// restrict (noalias) attribute on argument.
-// This code is not related to Andersens analysis. Later,
-// this code needs to be moved to the right place where it
-// belongs.
-//
-static bool NoAliasSpecialCaseCheckUsingRestrictAttr(Value *V1,
-                                 Value *V2, const DataLayout &DL) {
-
-  // Return false if V1 and V2 are not from same routine
-  const Function* F1 = getValueParent(V1);
-  if (F1 == nullptr)
-    return false;
-
-  const Function* F2 = getValueParent(V2);
-  if (F2 == nullptr)
-    return false;
-
-  if (F1 != F2)
-    return false;
-
-  // Get underlying objects for V1 and V2 
-  Value* O1 = GetUnderlyingObject(V1, DL, 1);
-  Value* O2 = GetUnderlyingObject(V2, DL, 1);
-
-  // If V1/V2 point to the same object, so we can't say NoAlias.
-  if (O1 == O2)
-    return false;
-
-  if (isAllUsesOfNoAliasPtrTracked(O1, V2) ||
-      isAllUsesOfNoAliasPtrTracked(O2, V1))
-    return true;
-
-  return false;
-}
-
-
 //ModulePass *llvm::createAndersensPass() { return new Andersens(); }
 
 //===---------------------------------------------------------------------===//
@@ -909,16 +787,6 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       errs() << " Node 2: ";
       PrintNode(N2);
       errs() << " \n";
-  }
-
-  // Use restrict (noalias) attr for better AA.
-  if (UseRestrictAttr &&
-      NoAliasSpecialCaseCheckUsingRestrictAttr(V1, V2, DL)) {
-    if (PrintAndersAliasQueries) {
-      errs() << " Result: NoAlias -- using restrict attr\n";
-      errs() << " Alias_End \n";
-    }
-    return NoAlias;
   }
 
   if (N1->PointsTo->test(UniversalSet) && N2->PointsTo->test(UniversalSet)) {
@@ -997,22 +865,22 @@ static const char *getModRefResultStr(ModRefInfo R) {
 }
 
 ModRefInfo
-AndersensAAResult::getModRefInfo(ImmutableCallSite CS,
+AndersensAAResult::getModRefInfo(const CallBase *Call,
                          const MemoryLocation &LocA) {
   if (PrintAndersModRefQueries) {
       errs() << " getModRefInfo_begin\n";
-      errs() << "CS:  " << *(CS.getInstruction()) << "\n";
+      errs() << "Call:  " << *Call << "\n";
       errs() << "Loc: " << *(LocA.Ptr) << "\n";
   }
 
   // Try to use the collected Mod/Ref sets, if available.
   ModRefInfo R = ModRefInfo::ModRef;
    if (UseIntelModRef && IMR) {
-        R = IMR->getModRefInfo(CS, LocA);
+        R = IMR->getModRefInfo(Call, LocA);
    }
 
    if (R != ModRefInfo::NoModRef) {
-       ModRefInfo Others = AAResultBase::getModRefInfo(CS, LocA);
+       ModRefInfo Others = AAResultBase::getModRefInfo(Call, LocA);
        R = intersectModRef(R, Others);
    }
 
@@ -1024,18 +892,18 @@ AndersensAAResult::getModRefInfo(ImmutableCallSite CS,
   return R;
 }
 
-ModRefInfo AndersensAAResult::getModRefInfo(ImmutableCallSite CS1, 
-                                            ImmutableCallSite CS2) {
+ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
+                                            const CallBase *Call2) {
   if (PrintAndersModRefQueries) {
       errs() << " getModRefInfo_begin\n";
-      errs() << "CS1: " << *(CS1.getInstruction()) << "\n";
-      errs() << "CS2: " << *(CS2.getInstruction()) << "\n";
+      errs() << "Call1: " << *Call1 << "\n";
+      errs() << "Call2: " << *Call2 << "\n";
   }
 
   // Just forward the request along the chain. Note, a downstream analysis
   // may return to the Andersens to check for aliases via the AAChain
   // parameter.
-  ModRefInfo R = AAResultBase::getModRefInfo(CS1, CS2);
+  ModRefInfo R = AAResultBase::getModRefInfo(Call1, Call2);
   if (PrintAndersModRefQueries) {
       errs() << "Result: " << getModRefResultStr(R) << "\n";
       errs() << " getModRefInfo_end\n";
@@ -1157,72 +1025,68 @@ bool AndersensAAResult::analyzeGlobalEscape(
     const Value *V, SmallPtrSet<const PHINode *, 16> PhiUsers,
     const Function **SingleAcessingFunction) {
   const ConstantExpr *CE;
+  bool escapes = false;
   for (const Use &U : V->uses()) {
     const User *UR = U.getUser();
     CE = dyn_cast<ConstantExpr>(UR);
     if (CE) {
-      if (analyzeGlobalEscape(CE, PhiUsers,
-                              SingleAcessingFunction))
-        return true;
+      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction))
+        escapes = true;
     } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
       if (*SingleAcessingFunction == nullptr) {
         *SingleAcessingFunction = I->getParent()->getParent();
       } else if (*SingleAcessingFunction != I->getParent()->getParent()) {
         *SingleAcessingFunction = nullptr;
-        return true;
+        escapes = true;
       }
       if (const LoadInst *LI = dyn_cast<LoadInst>(I)) {
         if (LI->isVolatile()) {
-          return true;
+          escapes = true;
         }
-        if (!isPointsToType(LI->getType())) 
+        if (!isPointsToType(LI->getType()))
           NonPointerAssignments.insert(LI);
-        
+
         CE = dyn_cast<ConstantExpr>(V);
         if (LI->getOperand(0) == V && CE) {
-          if (analyzeGlobalEscape(LI, PhiUsers, 
-                                  SingleAcessingFunction)) {
-            return true;
+          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction)) {
+            escapes = true;
           }
         }
       } else if (const StoreInst *SI = dyn_cast<StoreInst>(I)) {
         if (SI->isVolatile()) {
-          return true;
+          escapes = true;
         }
         if (!isPointsToType(SI->getOperand(0)->getType()))
           NonPointerAssignments.insert(SI);
 
       } else if (isa<BitCastInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, 
-                                SingleAcessingFunction))
-          return true;
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+          escapes = true;
       } else if (isa<GetElementPtrInst>(I) || isa<AddressInst>(I)) {
         if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
-          return true;
+          escapes = true;
       } else if (isa<SelectInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, 
-                                SingleAcessingFunction))
-          return true;
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+          escapes = true;
       } else if (const PHINode *PN = dyn_cast<PHINode>(I)) {
         if (PhiUsers.insert(PN).second) {
-          if (!isPointsToType(PN->getType())) 
+          if (!isPointsToType(PN->getType()))
             NonPointerAssignments.insert(PN);
 
-          if (analyzeGlobalEscape(I, PhiUsers, 
-                                  SingleAcessingFunction))
-            return true;
+          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+            escapes = true;
         }
       } else if (const MemTransferInst *MTI = dyn_cast<MemTransferInst>(I)) {
         if (MTI->isVolatile())
-          return true;
+          escapes = true;
       } else if (const MemSetInst *MSI = dyn_cast<MemSetInst>(I)) {
         if (MSI->isVolatile())
-          return true;
+          escapes = true;
       }
     }
   }
 
-  return false;
+  return escapes;
 }
 
 //===----------------------------------------------------------------------===//
@@ -4344,8 +4208,7 @@ namespace llvm {
     bool runOnModule(Module &M);
 
     // Return the ModRef state for the Location.
-    ModRefInfo getModRefInfo(ImmutableCallSite CS,
-      const MemoryLocation &Loc);
+    ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
 
     // Print all the ModRef sets.
     void dump() const;
@@ -4834,6 +4697,7 @@ void IntelModRefImpl::propagate(Module &M)
 
                 FunctionRecord *FR = getFunctionInfo(F);
                 if (FR) {
+                    assert(CI->second && "Expected valid CallGraph");
                     if (Function *Callee = CI->second->getFunction()) {
                         FunctionRecord *CalleeFR = getFunctionInfo(Callee);
                         if (CalleeFR) {
@@ -5115,14 +4979,14 @@ void IntelModRefImpl::print(raw_ostream &O, bool Summary) const
 
 // Check the ModRef sets to see if a specific call will Modify or Reference
 // (or Both) the Location.
-ModRefInfo IntelModRefImpl::getModRefInfo(ImmutableCallSite CS,
+ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
     const MemoryLocation &Loc)
 {
     ModRefInfo Result = ModRefInfo::ModRef;
     const Value *Object = GetUnderlyingObject(Loc.Ptr, *DL);
 
     DEBUG_WITH_TYPE("imr-query", errs() << "IntelModRefImpl::getModRefInfo(" <<
-        (CS.getCalledFunction() ? CS.getCalledFunction()->getName() :
+        (Call->getCalledFunction() ? Call->getCalledFunction()->getName() :
         "<indirect>")
         << ", ");
 
@@ -5137,7 +5001,7 @@ ModRefInfo IntelModRefImpl::getModRefInfo(ImmutableCallSite CS,
       (isa<GlobalValue>(Object) ? "[global]" : ""));
     DEBUG_WITH_TYPE("imr-query", errs() << ")\n");
 
-    const Function *F = CS.getCalledFunction();
+    const Function *F = Call->getCalledFunction();
     if (!F) {
         DEBUG_WITH_TYPE("imr-query", errs() << "  Indirect destination\n");
         return ModRefInfo::ModRef;
@@ -5231,13 +5095,13 @@ void AndersensAAResult::IntelModRef::runAnalysis(Module &M)
 
 // Interface to query for mod/ref information about a memory location.
 ModRefInfo AndersensAAResult::IntelModRef::getModRefInfo(
-  ImmutableCallSite CS, const MemoryLocation &Loc)
+  const CallBase *Call, const MemoryLocation &Loc)
 {
   if (!Impl) {
     return ModRefInfo::ModRef;
   }
 
-  return Impl->getModRefInfo(CS, Loc);
+  return Impl->getModRefInfo(Call, Loc);
 }
 
 // The following implementation of escape analysis is based

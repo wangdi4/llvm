@@ -52,6 +52,10 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "VPOParoptPrepare"
 
+static cl::opt<bool> PrepareSwitchToOffload(
+    "prepare-switch-to-offload", cl::Hidden, cl::init(false),
+    cl::desc("switch to offload mode (default = false)"));
+
 INITIALIZE_PASS_BEGIN(VPOParoptPrepare, "vpo-paropt-prepare",
                      "VPO Paropt Prepare Function Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
@@ -165,11 +169,11 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
+                        WI.getAliasAnalysis(), Mode,
 #if INTEL_CUSTOMIZATION
-                        WI.getAliasAnalysis(), Mode, ORVerbosity);
-#else
-                        WI.getAliasAnalysis(), Mode);
-#endif // INTEL_CUSTOMIZATION
+                        ORVerbosity,
+#endif  // INTEL_CUSTOMIZATION
+                        2, PrepareSwitchToOffload);
   Changed = Changed | VP.paroptTransforms();
 
   LLVM_DEBUG(

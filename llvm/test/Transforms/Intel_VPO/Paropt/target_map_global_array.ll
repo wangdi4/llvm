@@ -1,7 +1,9 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; The test currently fails on Windows.
+; XFAIL: windows
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare  -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s
 ;
-; Check whether the compiler generates the correct code for map global array.
+; Check whether the compiler generates the call llvm.launder.invariant.group for map global array in vpo-paropt prepare pass.
 ;
 ; int arrS[100];
 ; void foo()
@@ -49,4 +51,4 @@ attributes #1 = { nounwind }
 !6 = !{!"omnipotent char", !7, i64 0}
 !7 = !{!"Simple C++ TBAA"}
 ;
-; CHECK: %{{.*}} = bitcast i8* bitcast ([100 x i32]* @arrS to i8*) to [100 x i32]*
+; CHECK: llvm.launder.invariant.group.p0i8

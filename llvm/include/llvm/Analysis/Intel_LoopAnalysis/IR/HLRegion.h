@@ -1,6 +1,6 @@
 //===-------- HLRegion.h - High level IR region node ------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -63,12 +63,6 @@ protected:
   friend class HIRCreation;
   // Accesses getIRRegion().
   friend class HIRParser;
-
-  /// \brief Sets the entry(first) bblock of this region.
-  void setEntryBBlock(BasicBlock *EntryBB) { IRReg.setEntryBBlock(EntryBB); }
-
-  /// \brief Sets the exit(last) bblock of this region.
-  void setExitBBlock(BasicBlock *ExitBB) { IRReg.setExitBBlock(ExitBB); }
 
   /// \brief Clone Implementation
   /// Do not support Region cloning.

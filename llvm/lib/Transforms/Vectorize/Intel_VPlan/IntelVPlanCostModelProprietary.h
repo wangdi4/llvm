@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2018 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -38,7 +38,9 @@ public:
   unsigned getLoadStoreCost(const VPInstruction *VPInst,
                             const bool UseVLSCost) const;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   ~VPlanCostModelProprietary() {}
 

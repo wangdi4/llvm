@@ -1,4 +1,6 @@
-; RUN: opt < %s -passes='module(call-tree-clone)' -call-tree-clone-do-mv=false -call-tree-clone-seed=a:0 -call-tree-clone-seed=b:0,1 -call-tree-clone-max-depth=2 -S | FileCheck %s
+; RUN: opt < %s -passes='module(call-tree-clone)' -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -call-tree-clone-do-mv=false -call-tree-clone-seed=a:0 -call-tree-clone-seed=b:0,1 -call-tree-clone-max-depth=2 -S | FileCheck %s
+; RUN: opt < %s -call-tree-clone -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -call-tree-clone-do-mv=false -call-tree-clone-seed=a:0 -call-tree-clone-seed=b:0,1 -call-tree-clone-max-depth=2 -S | FileCheck %s
+
 ; CHECK:source_filename
 ; CHECK-NOT:@"a|3"()
 ; CHECK-NOT:@"b|19.-15"()

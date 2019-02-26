@@ -1,9 +1,8 @@
 //===-- X86InstrFormats.td - X86 Instruction Formats -------*- tablegen -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -31,6 +30,7 @@ def MRMDestMem     : Format<32>;
 def MRMSrcMem      : Format<33>;
 def MRMSrcMem4VOp3 : Format<34>;
 def MRMSrcMemOp4   : Format<35>;
+def MRMSrcMemFSIB  : Format<36>; //INTEL
 def MRMXm  : Format<39>;
 def MRM0m  : Format<40>;  def MRM1m  : Format<41>;  def MRM2m  : Format<42>;
 def MRM3m  : Format<43>;  def MRM4m  : Format<44>;  def MRM5m  : Format<45>;
@@ -39,6 +39,7 @@ def MRMDestReg     : Format<48>;
 def MRMSrcReg      : Format<49>;
 def MRMSrcReg4VOp3 : Format<50>;
 def MRMSrcRegOp4   : Format<51>;
+def MRMr0  : Format<54>; //INTEL
 def MRMXr  : Format<55>;
 def MRM0r  : Format<56>;  def MRM1r  : Format<57>;  def MRM2r  : Format<58>;
 def MRM3r  : Format<59>;  def MRM4r  : Format<60>;  def MRM5r  : Format<61>;

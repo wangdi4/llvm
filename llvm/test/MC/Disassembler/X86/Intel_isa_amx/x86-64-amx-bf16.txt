@@ -1,0 +1,9 @@
+# REQUIRES: intel_feature_isa_amx
+# RUN: llvm-mc --disassemble %s -triple=x86_64-apple-darwin9 | FileCheck %s
+
+# CHECK: tdpbf16ps %tmm10, %tmm13, %tmm15
+0xc4,0x42,0x2a,0x5c,0xfd
+
+# CHECK: tdpbf16ps %tmm2, %tmm5, %tmm9
+0xc4,0x62,0x6a,0x5c,0xcd
+
