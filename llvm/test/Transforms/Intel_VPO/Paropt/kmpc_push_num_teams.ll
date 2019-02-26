@@ -24,14 +24,10 @@ define dso_local void @_Z3foox(i64 %n) #0 {
 entry:
   %n.addr = alloca i64, align 8
   store i64 %n, i64* %n.addr, align 8
-; These two loads were manually moved out of the target region.
-; Otherwise, IR verification fails after BE outlining (CMPLRLLVM-8274).
-  %0 = load i64, i64* %n.addr, align 8
-  %1 = load i64, i64* %n.addr, align 8
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(i64* %n.addr) ]
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.NUM_TEAMS"(i64 %0), "QUAL.OMP.THREAD_LIMIT"(i64 %1) ]
-  call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.TEAMS"() ]
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(i64* %n.addr), "QUAL.OMP.FIRSTPRIVATE"(i64* %n.addr) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.NUM_TEAMS"(i64* %n.addr), "QUAL.OMP.THREAD_LIMIT"(i64* %n.addr) ]
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
 

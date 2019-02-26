@@ -26,24 +26,23 @@ define dso_local void @_Z3fooi(i32 %n) #1 {
 entry:
   %n.addr = alloca i32, align 4
   store i32 %n, i32* %n.addr, align 4, !tbaa !2
-  %0 = load i32, i32* %n.addr, align 4, !tbaa !2
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   br label %DIR.OMP.TEAMS.3
 
 DIR.OMP.TEAMS.3:                                  ; preds = %DIR.OMP.TARGET.1
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.NUM_TEAMS"(i32 %0) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.NUM_TEAMS"(i32* %n.addr) ]
   call void @_Z3barv()
   br label %DIR.OMP.END.TEAMS.5
 
 DIR.OMP.END.TEAMS.5:                              ; preds = %DIR.OMP.TEAMS.3
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
   br label %DIR.OMP.END.TEAMS.6
 
 DIR.OMP.END.TEAMS.6:                              ; preds = %DIR.OMP.END.TEAMS.5
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
 

@@ -154,7 +154,7 @@ public:
   /// otherwise the clause's actual argument value is \p Arg itself.
   /// The method sign-extends or truncates the clause's actual argument
   /// value to type \p Ty using the provided \p Builder.
-  static Value *getByRefClauseArgValueSExt(
+  static Value *getOrLoadClauseArgValueWithSext(
       Value *Arg, Type *Ty, IRBuilder<> &Builder);
 
   /// Generate a call to set `num_threads` for the `parallel` region and

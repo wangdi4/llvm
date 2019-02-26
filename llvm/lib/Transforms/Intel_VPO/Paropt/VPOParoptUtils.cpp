@@ -269,24 +269,21 @@ WRNScheduleKind VPOParoptUtils::getDistLoopScheduleKind(WRegionNode *W)
   return WRNScheduleDistributeStaticEven;
 }
 
-/// \p Arg is a Value from a clause.  It is either a Constant or
-/// a Value of pointer type.  If it is a pointer Value, the method
-/// loads the clause's actual argument value via this pointer,
-/// otherwise the clause's actual argument value is \p Arg itself.
-/// The method sign-extends or truncates the clause's actual argument
-/// value to type \p Ty using the provided \p Builder.
-Value *VPOParoptUtils::getByRefClauseArgValueSExt(
+// Returns Value of a clause argument, which may be passed either
+// via a pointer or as a Constant.
+// The resulting value is casted to the given type.
+Value *VPOParoptUtils::getOrLoadClauseArgValueWithSext(
     Value *Arg, Type *Ty, IRBuilder<> &Builder) {
   if (!Arg)
     return nullptr;
 
-  assert(Ty->isIntegerTy() && "Expected integer type.");
+  assert(Ty && Ty->isIntegerTy() && "Expected integer type.");
 
   if (Arg->getType()->isPointerTy())
     Arg = Builder.CreateLoad(Arg);
-  // FIXME: assert that Arg is a Constant in an else clause
-  //        of the above IF, when FE passes clause's argument
-  //        by reference.
+  else
+    assert(isa<Constant>(Arg) &&
+           "The clause argument must be either pointer or Constant Value.");
 
   return Builder.CreateSExtOrTrunc(Arg, Ty);
 }
@@ -336,12 +333,12 @@ CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
   Type *Int32Ty = Type::getInt32Ty(C);
 
   if (NumTeams)
-    NumTeams = getByRefClauseArgValueSExt(NumTeams, Int32Ty, Builder);
+    NumTeams = getOrLoadClauseArgValueWithSext(NumTeams, Int32Ty, Builder);
   else
     NumTeams = ConstantInt::get(Int32Ty, 0);
 
   if (NumThreads)
-    NumThreads = getByRefClauseArgValueSExt(NumThreads, Int32Ty, Builder);
+    NumThreads = getOrLoadClauseArgValueWithSext(NumThreads, Int32Ty, Builder);
   else
     NumThreads = ConstantInt::get(Int32Ty, 0);
 
@@ -659,13 +656,14 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
       if (NumTeamsPtr == nullptr)
         NumTeams = Builder.getInt32(0);
       else
-        NumTeams = getByRefClauseArgValueSExt(NumTeamsPtr, Int32Ty, Builder);
+        NumTeams =
+            getOrLoadClauseArgValueWithSext(NumTeamsPtr, Int32Ty, Builder);
 
       if (ThreadLimitPtr == nullptr)
         ThreadLimit = Builder.getInt32(0);
       else
         ThreadLimit =
-            getByRefClauseArgValueSExt(ThreadLimitPtr, Int32Ty, Builder);
+            getOrLoadClauseArgValueWithSext(ThreadLimitPtr, Int32Ty, Builder);
     }
   } else {
     // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams
