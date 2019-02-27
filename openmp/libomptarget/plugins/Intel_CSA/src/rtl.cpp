@@ -82,10 +82,15 @@ static std::unique_ptr<String2StringMap> Entry2AsmFile;
 #define ENV_VERBOSE "CSA_VERBOSE"
 static bool Verbosity;
 
-// If defined, dumps the simulator statistics after each offloaded procedure
-// is run
+// If defined, dumps the simulator statistics
 #define ENV_DUMP_STATS "CSA_DUMP_STATS"
-static bool DumpStats;
+// Enum for indicating when to dump the stats
+enum DumpStatLocation {
+   DumpStatDisabled     = 0,
+   DumpStatEndOfProgram = 1,
+   DumpStatAfterEachOffload = 2
+};
+static DumpStatLocation DumpStats = DumpStatDisabled;
 
 // If defined, leave the temporary files on disk in the user's directory
 #define ENV_SAVE_TEMPS "CSA_SAVE_TEMPS"
@@ -220,6 +225,34 @@ std::string get_process_name() {
   }
 }
 #endif
+
+static
+std::string get_process_name_with_rank() {
+   auto name = get_process_name();
+   // Append MPI rank to the name if the process is running under MPI.
+   if (const auto *Rank = getenv("PMI_RANK"))
+        name = name + "-mpi" + Rank;
+   return name;
+}
+
+static
+const char *get_offload_name(const char *name) {
+
+   // offload name is embedded as follows
+   // __omp_offloading_xxx_xxx_offloadname
+   auto *fname = name;
+   auto count = 0;
+   auto slength = strlen(name);
+   while (slength) {
+     if (*fname == '_')
+        count++;
+     if (count == 6)
+        break;
+     slength--;
+     fname++;
+   }
+   return strlen(fname) ? fname : name;
+}
 
 #ifdef OMPTARGET_DEBUG
 // Return string describing UMR error.
@@ -523,6 +556,14 @@ public:
                   RunNumber, Name);
         }
 
+        if (DumpStats == DumpStatAfterEachOffload) {
+           auto ProcessName = get_process_name_with_rank();
+           auto FuncName = get_offload_name(Name);
+           std::stringstream SS;
+           SS << ProcessName << "-run" << RunNumber << FuncName;
+           CsaUmrSimulatorDumpStatistics(Context, SS.str().c_str());
+        }
+
         CsaUmrCallInfo CI = { 0 };
         CI.flags = kCsaUmrCallEntryByName;
         CI.graph = Graph;
@@ -629,7 +670,7 @@ public:
   }
 
   ~RTLDeviceInfoTy() {
-    if (DumpStats) {
+    if (DumpStats == DumpStatEndOfProgram) {
       std::unordered_map<std::thread::id, int> TID2Num;
 
       // Build a map of thread IDs to simple numbers
@@ -639,11 +680,7 @@ public:
           if (TID2Num.find(Thr.first) == TID2Num.end())
             TID2Num[Thr.first] = ThreadNum++;
       int Width = ceil(log10(ThreadNum));
-      auto ProcessName = get_process_name();
-
-      // Append MPI rank to the name if the process is running under MPI.
-      if (const auto *Rank = getenv("PMI_RANK"))
-        ProcessName = ProcessName + "-mpi" + Rank;
+      auto ProcessName = get_process_name_with_rank();
 
       // Finish up - Dump the stats, release the CSA instances
       for (int I = 0; I < getNumDevices(); ++I)
@@ -674,7 +711,6 @@ static RTLDeviceInfoTy& getDeviceInfo() {
       DebugLevel = std::stoi(Str);
 #endif // OMPTARGET_DEBUG
     Verbosity = getenv(ENV_VERBOSE);
-    DumpStats = getenv(ENV_DUMP_STATS);
     SaveTemps = getenv(ENV_SAVE_TEMPS);
     if (SaveTemps) {
       // Temp prefix is in effect only if save temps is set.
@@ -683,6 +719,8 @@ static RTLDeviceInfoTy& getDeviceInfo() {
       else
         TempPrefix = get_process_name();
     }
+    if (const char *Str = getenv(ENV_DUMP_STATS))
+       DumpStats = (DumpStatLocation) std::stoi(Str);
     if (const auto *Str = getenv(ENV_ASSEMBLY_FILE)) {
       // Parse string which is expected to have the following format
       //   CSA_ASSEMBLY_FILE=<file>[:<entry list>][;<file>[:<entry list>]]
