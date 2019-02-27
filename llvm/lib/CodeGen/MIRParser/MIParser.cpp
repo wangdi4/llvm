@@ -1,9 +1,8 @@
 //===- MIParser.cpp - Machine instructions parser implementation ----------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -1931,6 +1930,9 @@ bool MIParser::parseCFIOperand(MachineOperand &Dest) {
   case MIToken::kw_cfi_window_save:
     CFIIndex = MF.addFrameInst(MCCFIInstruction::createWindowSave(nullptr));
     break;
+  case MIToken::kw_cfi_aarch64_negate_ra_sign_state:
+    CFIIndex = MF.addFrameInst(MCCFIInstruction::createNegateRAState(nullptr));
+    break;
   case MIToken::kw_cfi_escape: {
     std::string Values;
     if (parseCFIEscapeValues(Values))
@@ -2223,6 +2225,7 @@ bool MIParser::parseMachineOperand(MachineOperand &Dest,
   case MIToken::kw_cfi_restore_state:
   case MIToken::kw_cfi_undefined:
   case MIToken::kw_cfi_window_save:
+  case MIToken::kw_cfi_aarch64_negate_ra_sign_state:
     return parseCFIOperand(Dest);
   case MIToken::kw_blockaddress:
     return parseBlockAddressOperand(Dest);

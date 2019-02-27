@@ -1,13 +1,13 @@
 //===-- RISCVAsmBackend.cpp - RISCV Assembler Backend ---------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
 #include "RISCVAsmBackend.h"
+#include "RISCVMCExpr.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
@@ -20,6 +20,44 @@
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
+
+// If linker relaxation is enabled, or the relax option had previously been
+// enabled, always emit relocations even if the fixup can be resolved. This is
+// necessary for correctness as offsets may change during relaxation.
+bool RISCVAsmBackend::shouldForceRelocation(const MCAssembler &Asm,
+                                            const MCFixup &Fixup,
+                                            const MCValue &Target) {
+  bool ShouldForce = false;
+
+  switch ((unsigned)Fixup.getKind()) {
+  default:
+    break;
+  case RISCV::fixup_riscv_pcrel_lo12_i:
+  case RISCV::fixup_riscv_pcrel_lo12_s:
+    // For pcrel_lo12, force a relocation if the target of the corresponding
+    // pcrel_hi20 is not in the same fragment.
+    const MCFixup *T = cast<RISCVMCExpr>(Fixup.getValue())->getPCRelHiFixup();
+    if (!T) {
+      Asm.getContext().reportError(Fixup.getLoc(),
+                                   "could not find corresponding %pcrel_hi");
+      return false;
+    }
+
+    switch ((unsigned)T->getKind()) {
+    default:
+      llvm_unreachable("Unexpected fixup kind for pcrel_lo12");
+      break;
+    case RISCV::fixup_riscv_pcrel_hi20:
+      ShouldForce = T->getValue()->findAssociatedFragment() !=
+                    Fixup.getValue()->findAssociatedFragment();
+      break;
+    }
+    break;
+  }
+
+  return ShouldForce || STI.getFeatureBits()[RISCV::FeatureRelax] ||
+         ForceRelocs;
+}
 
 bool RISCVAsmBackend::fixupNeedsRelaxationAdvanced(const MCFixup &Fixup,
                                                    bool Resolved,

@@ -30,7 +30,9 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
         add_library(omptarget.rtl.opencl SHARED src/rtl.cpp)
 
         # Install plugin under the lib destination folder.
-        install(TARGETS omptarget.rtl.opencl LIBRARY DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX})
+        install(TARGETS omptarget.rtl.opencl LIBRARY
+                COMPONENT llvm-opencl-ompplugin
+                DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX})
         target_link_libraries(omptarget.rtl.opencl
                 ${LIBOMPTARGET_DEP_OPENCL_LIBRARIES}
                 dl

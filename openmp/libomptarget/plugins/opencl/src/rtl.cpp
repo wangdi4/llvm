@@ -49,6 +49,94 @@ static int DebugLevel = 0;
   {}
 #endif // OMPTARGET_DEBUG
 
+#define FOREACH_CL_ERROR_CODE(FN)                                              \
+  FN(CL_SUCCESS)                                                               \
+  FN(CL_DEVICE_NOT_FOUND)                                                      \
+  FN(CL_DEVICE_NOT_AVAILABLE)                                                  \
+  FN(CL_COMPILER_NOT_AVAILABLE)                                                \
+  FN(CL_MEM_OBJECT_ALLOCATION_FAILURE)                                         \
+  FN(CL_OUT_OF_RESOURCES)                                                      \
+  FN(CL_OUT_OF_HOST_MEMORY)                                                    \
+  FN(CL_PROFILING_INFO_NOT_AVAILABLE)                                          \
+  FN(CL_MEM_COPY_OVERLAP)                                                      \
+  FN(CL_IMAGE_FORMAT_MISMATCH)                                                 \
+  FN(CL_IMAGE_FORMAT_NOT_SUPPORTED)                                            \
+  FN(CL_BUILD_PROGRAM_FAILURE)                                                 \
+  FN(CL_MAP_FAILURE)                                                           \
+  FN(CL_MISALIGNED_SUB_BUFFER_OFFSET)                                          \
+  FN(CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)                             \
+  FN(CL_COMPILE_PROGRAM_FAILURE)                                               \
+  FN(CL_LINKER_NOT_AVAILABLE)                                                  \
+  FN(CL_LINK_PROGRAM_FAILURE)                                                  \
+  FN(CL_DEVICE_PARTITION_FAILED)                                               \
+  FN(CL_KERNEL_ARG_INFO_NOT_AVAILABLE)                                         \
+  FN(CL_INVALID_VALUE)                                                         \
+  FN(CL_INVALID_DEVICE_TYPE)                                                   \
+  FN(CL_INVALID_PLATFORM)                                                      \
+  FN(CL_INVALID_DEVICE)                                                        \
+  FN(CL_INVALID_CONTEXT)                                                       \
+  FN(CL_INVALID_QUEUE_PROPERTIES)                                              \
+  FN(CL_INVALID_COMMAND_QUEUE)                                                 \
+  FN(CL_INVALID_HOST_PTR)                                                      \
+  FN(CL_INVALID_MEM_OBJECT)                                                    \
+  FN(CL_INVALID_IMAGE_FORMAT_DESCRIPTOR)                                       \
+  FN(CL_INVALID_IMAGE_SIZE)                                                    \
+  FN(CL_INVALID_SAMPLER)                                                       \
+  FN(CL_INVALID_BINARY)                                                        \
+  FN(CL_INVALID_BUILD_OPTIONS)                                                 \
+  FN(CL_INVALID_PROGRAM)                                                       \
+  FN(CL_INVALID_PROGRAM_EXECUTABLE)                                            \
+  FN(CL_INVALID_KERNEL_NAME)                                                   \
+  FN(CL_INVALID_KERNEL_DEFINITION)                                             \
+  FN(CL_INVALID_KERNEL)                                                        \
+  FN(CL_INVALID_ARG_INDEX)                                                     \
+  FN(CL_INVALID_ARG_VALUE)                                                     \
+  FN(CL_INVALID_ARG_SIZE)                                                      \
+  FN(CL_INVALID_KERNEL_ARGS)                                                   \
+  FN(CL_INVALID_WORK_DIMENSION)                                                \
+  FN(CL_INVALID_WORK_GROUP_SIZE)                                               \
+  FN(CL_INVALID_WORK_ITEM_SIZE)                                                \
+  FN(CL_INVALID_GLOBAL_OFFSET)                                                 \
+  FN(CL_INVALID_EVENT_WAIT_LIST)                                               \
+  FN(CL_INVALID_EVENT)                                                         \
+  FN(CL_INVALID_OPERATION)                                                     \
+  FN(CL_INVALID_GL_OBJECT)                                                     \
+  FN(CL_INVALID_BUFFER_SIZE)                                                   \
+  FN(CL_INVALID_MIP_LEVEL)                                                     \
+  FN(CL_INVALID_GLOBAL_WORK_SIZE)                                              \
+  FN(CL_INVALID_PROPERTY)                                                      \
+  FN(CL_INVALID_IMAGE_DESCRIPTOR)                                              \
+  FN(CL_INVALID_COMPILER_OPTIONS)                                              \
+  FN(CL_INVALID_LINKER_OPTIONS)                                                \
+  FN(CL_INVALID_DEVICE_PARTITION_COUNT)                                        \
+  FN(CL_INVALID_PIPE_SIZE)                                                     \
+  FN(CL_INVALID_DEVICE_QUEUE)
+
+#define TO_STR(s) case s: return #s;
+
+#ifdef OMPTARGET_DEBUG
+static const char *getCLErrorName(int error) {
+  switch (error) {
+    FOREACH_CL_ERROR_CODE(TO_STR)
+  default:
+    return "Unknown Error";
+  }
+}
+#endif // OMPTARGET_DEBUG
+
+#define INVOKE_CL_RET(ret, fn, ...)                                            \
+  do {                                                                         \
+    cl_int rc = fn(__VA_ARGS__);                                               \
+    if (rc != CL_SUCCESS) {                                                    \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #fn, rc,    \
+         getCLErrorName(rc));                                                  \
+      return ret;                                                              \
+    }                                                                          \
+  } while (false)
+
+#define INVOKE_CL_RET_FAIL(fn, ...) INVOKE_CL_RET(OFFLOAD_FAIL, fn, __VA_ARGS__)
+#define INVOKE_CL_RET_NULL(fn, ...) INVOKE_CL_RET(NULL, fn, __VA_ARGS__)
+
 // TODO: The current implementation only supports one device. It will be
 // extended in the future.
 #define NUMBER_OF_DEVICES 1
@@ -108,7 +196,7 @@ public:
       if (strncmp("OpenCL 2", buffer, 8)) {
         continue;
       }
-      DP("cl platform version is %s\n", buffer);
+      DP("Platform version is %s\n", buffer);
 
       clGetDeviceIDs(id, CL_DEVICE_TYPE_ALL, 0, nullptr, &numDevices);
       deviceIDs.resize(numDevices);
@@ -127,18 +215,19 @@ public:
       for (unsigned i = 0; i < numDevices; i++) {
         cl_device_id deviceId = deviceIDs[i];
         clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 128, buffer, nullptr);
-        DP("Device#%d: %s\n", i, buffer);
+        DP("Device %d: %s\n", i, buffer);
         clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
                         &maxWorkGroups[i], nullptr);
-        DP("max WGs is: %d\n", maxWorkGroups[i]);
+        DP("Maximum number of work groups (compute units) is %d\n",
+           maxWorkGroups[i]);
         clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
                         &maxWorkGroupSize[i], nullptr);
-        DP("max WG size is: %d\n", maxWorkGroupSize[i]);
+        DP("Maximum work group size is %d\n", maxWorkGroupSize[i]);
 #ifdef OMPTARGET_DEBUG
         cl_uint addressmode;
         clGetDeviceInfo(deviceId, CL_DEVICE_ADDRESS_BITS, 4, &addressmode,
                         nullptr);
-        DP("addressing mode is %d bit\n", addressmode);
+        DP("Addressing mode is %d bit\n", addressmode);
 #endif
       }
       // set misc. flags
@@ -181,7 +270,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   DeviceInfo.CTX[device_id] = clCreateContext(
       props, 1, &DeviceInfo.deviceIDs[device_id], nullptr, nullptr, &status);
   if (status != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to create context: %d\n", status);
+    DP("Error: Failed to create context: %d\n", status);
     return OFFLOAD_FAIL;
   }
 
@@ -189,7 +278,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
       DeviceInfo.CTX[device_id], DeviceInfo.deviceIDs[device_id], nullptr,
       &status);
   if (status != 0) {
-    DP("OpenCL Error: Failed to create CommandQueue: %d\n", status);
+    DP("Error: Failed to create CommandQueue: %d\n", status);
     return OFFLOAD_FAIL;
   }
 
@@ -199,10 +288,10 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                                           __tgt_device_image *image) {
 
-  DP("Dev %d: load binary from " DPxMOD " image\n", device_id,
+  DP("Device %d: load binary from " DPxMOD " image\n", device_id,
      DPxPTR(image->ImageStart));
 
-  assert(device_id >= 0 && device_id < NUMBER_OF_DEVICES && "bad dev id");
+  assert(device_id >= 0 && device_id < NUMBER_OF_DEVICES && "bad device id");
 
   size_t ImageSize = (size_t)image->ImageEnd - (size_t)image->ImageStart;
   size_t NumEntries = (size_t)(image->EntriesEnd - image->EntriesBegin);
@@ -258,16 +347,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                                          device_rtl_bin.c_str(), device_rtl_len,
                                          &status);
       if (status != CL_SUCCESS) {
-        DP("OpenCL Error: Failed to create device RTL from IL: %d\n", status);
+        DP("Error: Failed to create device RTL from IL: %d\n", status);
         return NULL;
       }
 
-      status = clCompileProgram(program[0], 0, nullptr, nullptr, 0, nullptr,
-                                nullptr, nullptr, nullptr);
-      if (status != CL_SUCCESS) {
-        DP("OpenCL Error: Failed to compile device RTL: %d\n", status);
-        return NULL;
-      }
+      INVOKE_CL_RET_NULL(clCompileProgram, program[0], 0, nullptr, nullptr, 0,
+                         nullptr, nullptr, nullptr, nullptr);
       num_programs++;
     }
   }
@@ -276,16 +361,13 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   program[1] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
                                      image->ImageStart, ImageSize, &status);
   if (status != 0) {
-    DP("OpenCL Error: Failed to create program: %d\n", status);
+    DP("Error: Failed to create program: %d\n", status);
     return NULL;
   }
 
-  status = clCompileProgram(program[1], 0, nullptr, nullptr, 0, nullptr,
-                            nullptr, nullptr, nullptr);
-  if (status != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to compile program: %d\n", status);
-    return NULL;
-  }
+  INVOKE_CL_RET_NULL(clCompileProgram, program[1], 0, nullptr, nullptr, 0,
+                     nullptr, nullptr, nullptr, nullptr);
+
   num_programs++;
 
   if (num_programs < 2)
@@ -295,10 +377,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DeviceInfo.CTX[device_id], 1, &DeviceInfo.deviceIDs[device_id], nullptr,
       num_programs, &program[0], nullptr, nullptr, &status);
   if (status != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to link program: %d\n", status);
+    DP("Error: Failed to link program: %d\n", status);
     return NULL;
   } else {
-    DP("OpenCL: Successfully linked program.\n");
+    DP("Successfully linked program.\n");
   }
 
   // create kernel and target entries
@@ -315,7 +397,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     char *name = image->EntriesBegin[i].name;
     kernels[i] = clCreateKernel(program[2], name, &status);
     if (status != 0) {
-      DP("OpenCL Error: Failed to create kernel %s, %d\n", name, status);
+      DP("Error: Failed to create kernel %s, %d\n", name, status);
       return NULL;
     }
     entries[i].addr = &kernels[i];
@@ -328,12 +410,29 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   return &table;
 }
 
+void event_callback_completed(cl_event event, cl_int status, void *data) {
+  if (status == CL_SUCCESS) {
+    assert(data && "bad task object for the target");
+    const char *entry = "__kmpc_proxy_task_completed_ooo";
+    void (*ptask_completed)(void *) = nullptr;
+    *((void **)&ptask_completed) = dlsym(RTLD_DEFAULT, entry);
+    if (ptask_completed) {
+      DP("Calling %s(task=%p)\n", entry, data);
+      ptask_completed(data);
+    } else {
+      DP("Error: Cannot find the entry, %s.\n", entry);
+    }
+  } else {
+    DP("Error: Failed to complete asynchronous offloading.\n");
+  }
+}
+
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
   cl_int status;
   cl_mem mem = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_READ_WRITE,
                               size, NULL, &status);
   if (status != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to allocate memory: %d\n", status);
+    DP("Error: Failed to allocate memory: %d\n", status);
     return NULL;
   }
   return mem;
@@ -341,72 +440,74 @@ void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
 
 int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
                               int64_t size) {
-  cl_int status =
-      clEnqueueWriteBuffer(DeviceInfo.Queues[device_id], (cl_mem)tgt_ptr,
-                           CL_TRUE, 0, size, hst_ptr, 0, nullptr, nullptr);
-  if (status != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to write buffer: %d\n", status);
-    return OFFLOAD_FAIL;
+  INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
+                     (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
+                     nullptr);
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
+                                     void *hst_ptr, int64_t size,
+                                     void *async_data) {
+  if (async_data) {
+    cl_event completed;
+    INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
+                       &completed);
+    INVOKE_CL_RET_FAIL(clSetEventCallback, completed, CL_COMPLETE,
+                       &event_callback_completed, async_data);
+  } else {
+    INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
+                       nullptr);
   }
   return OFFLOAD_SUCCESS;
 }
 
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                 int64_t size) {
-  cl_int status =
-      clEnqueueReadBuffer(DeviceInfo.Queues[device_id], (cl_mem)tgt_ptr,
-                          CL_TRUE, 0, size, hst_ptr, 0, nullptr, nullptr);
-  if (status != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to read buffer: %d\n", status);
-    return OFFLOAD_FAIL;
+  INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
+                     (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
+                     nullptr);
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
+                                       void *tgt_ptr, int64_t size,
+                                       void *async_data) {
+  if (async_data) {
+    cl_event completed;
+    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
+                       &completed);
+    INVOKE_CL_RET_FAIL(clSetEventCallback, completed, CL_COMPLETE,
+                       &event_callback_completed, async_data);
+  } else {
+    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
+                       nullptr);
   }
   return OFFLOAD_SUCCESS;
 }
 
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
-  if (cl_int status = clReleaseMemObject((cl_mem)tgt_ptr) != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to release buffer: %d\n", status);
-    return OFFLOAD_FAIL;
-  }
+  INVOKE_CL_RET_FAIL(clReleaseMemObject, (cl_mem)tgt_ptr);
   return OFFLOAD_SUCCESS;
-}
-
-typedef struct kmp_task kmp_task_t;
-typedef void (*kmpc_task_complete_fn_t)(kmp_task_t *);
-
-void event_callback_completed(cl_event event, cl_int status, void *data) {
-  if (status == CL_SUCCESS) {
-    assert(data && "bad task object for the target");
-    kmpc_task_complete_fn_t ptask_completed;
-    *((void**)&ptask_completed) = dlsym(RTLD_DEFAULT,
-                                        "__kmpc_proxy_task_completed_ooo");
-    if (ptask_completed) {
-      DP("Calling __kmpc_proxy_task_completed_ooo(task=%p)\n", data);
-      ptask_completed((kmp_task_t *)data);
-      return;
-    }
-  }
-  DP("Error: Failed to complete asynchronous offloading\n");
 }
 
 static inline int32_t run_target_team_nd_region(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
     int32_t thread_limit, void *loop_desc, void *async_data) {
-  cl_int status;
+
   cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
 
   // set kernel args
   std::vector<void *> ptrs(num_args);
   for (int32_t i = 0; i < num_args; ++i) {
     ptrs[i] = (void *)((intptr_t)tgt_args[i] + tgt_offsets[i]);
-    status = clSetKernelArg(*kernel, i, sizeof(cl_mem), &ptrs[i]);
-    if (status != CL_SUCCESS) {
-      DP("OpenCL Error: Failed to set kernel arg %d: %d\n", i, status);
-      return OFFLOAD_FAIL;
-    } else {
-      DP("OpenCL: Kernel Arg %d set successfully\n", i);
-    }
+    INVOKE_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(cl_mem), &ptrs[i]);
+    DP("Kernel Arg %d set successfully\n", i);
   }
 
   // compute local/global work size
@@ -459,42 +560,30 @@ static inline int32_t run_target_team_nd_region(
   for (int32_t i = 0; i < 3; ++i)
     global_work_size[i] = local_work_size[i] * num_work_groups[i];
 
-  DP("thread_limit = %d, num_teams = %d\n", thread_limit, num_teams);
+  DP("THREAD_LIMIT = %d, NUM_TEAMS = %d\n", thread_limit, num_teams);
   if (loop_levels) {
-    DP("collapsed loops are %ld\n", *loop_levels);
+    DP("Collapsed %ld loops.\n", *loop_levels);
   }
-  DP("global work size = (%zd, %zd, %zd)\n", global_work_size[0],
+  DP("Global work size = (%zd, %zd, %zd)\n", global_work_size[0],
      global_work_size[1], global_work_size[2]);
-  DP("local work size = (%zd, %zd, %zd)\n", local_work_size[0],
+  DP("Local work size = (%zd, %zd, %zd)\n", local_work_size[0],
      local_work_size[1], local_work_size[2]);
-  DP("work dimension = %u\n", work_dim);
+  DP("Work dimension = %u\n", work_dim);
 
   cl_event complete_event;
-  status =
-      clEnqueueNDRangeKernel(DeviceInfo.Queues[device_id], *kernel, work_dim,
-                             nullptr, global_work_size, local_work_size, 0,
-                             nullptr, async_data ? &complete_event : nullptr);
-  if (status != CL_SUCCESS) {
-    DP("OpenCL Error: Failed to enqueue kernel: %d\n", status);
-    return OFFLOAD_FAIL;
-  }
+  INVOKE_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo.Queues[device_id],
+                     *kernel, work_dim, nullptr, global_work_size,
+                     local_work_size, 0, nullptr,
+                     async_data ? &complete_event : nullptr);
 
-  DP("OpenCL: Started executing kernel.\n");
+  DP("Started executing kernel.\n");
 
   if (async_data) {
-    status = clSetEventCallback(complete_event, CL_COMPLETE,
-                                &event_callback_completed, async_data);
-    if (status != CL_SUCCESS) {
-      DP("Error: Failed to set callback for CL_COMPLETE: %d\n", status);
-      return OFFLOAD_FAIL;
-    }
+    INVOKE_CL_RET_FAIL(clSetEventCallback, complete_event, CL_COMPLETE,
+                       &event_callback_completed, async_data);
   } else {
-    status = clFinish(DeviceInfo.Queues[device_id]);
-    if (status != CL_SUCCESS) {
-      DP("OpenCL Error: Failed to execute kernel: %d\n", status);
-    } else {
-      DP("OpenCL: Successfully finished kernel execution.\n");
-    }
+    INVOKE_CL_RET_FAIL(clFinish, DeviceInfo.Queues[device_id]);
+    DP("Successfully finished kernel execution.\n");
   }
 
   return OFFLOAD_SUCCESS;

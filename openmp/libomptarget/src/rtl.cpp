@@ -1,9 +1,8 @@
 //===----------- rtl.cpp - Target independent OpenMP target RTL -----------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.txt for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -118,6 +117,12 @@ void RTLsTy::LoadRTLs() {
               dynlib_handle, "__tgt_rtl_run_target_team_region")))
       continue;
 #if INTEL_COLLAB
+    if ((*((void **)&R.data_submit_nowait) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_submit_nowait")))
+      DP("Optional interface: __tgt_rtl_data_submit_nowait\n");
+    if ((*((void **)&R.data_retrieve_nowait) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_retrieve_nowait")))
+      DP("Optional interface: __tgt_rtl_data_retrieve_nowait\n");
     if ((*((void **)&R.run_team_nd_region) =
               dlsym(dynlib_handle, "__tgt_rtl_run_target_team_nd_region")))
       DP("Optional interface: __tgt_rtl_run_target_team_nd_region\n");

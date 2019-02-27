@@ -1,9 +1,8 @@
 //===--- SourceCode.h - Manipulating source code as strings -----*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -17,7 +16,9 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Format/Format.h"
 #include "clang/Tooling/Core/Replacement.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/SHA1.h"
 
 namespace clang {
@@ -55,6 +56,11 @@ Position offsetToPosition(llvm::StringRef Code, size_t Offset);
 /// FIXME: This should return an error if the location is invalid.
 Position sourceLocToPosition(const SourceManager &SM, SourceLocation Loc);
 
+/// Return the file location, corresponding to \p P. Note that one should take
+/// care to avoid comparing the result with expansion locations.
+llvm::Expected<SourceLocation> sourceLocationInMainFile(const SourceManager &SM,
+                                                        Position P);
+
 // Converts a half-open clang source range to an LSP range.
 // Note that clang also uses closed source ranges, which this can't handle!
 Range halfOpenToRange(const SourceManager &SM, CharSourceRange R);
@@ -78,19 +84,25 @@ std::vector<TextEdit> replacementsToEdits(StringRef Code,
 TextEdit toTextEdit(const FixItHint &FixIt, const SourceManager &M,
                     const LangOptions &L);
 
-/// Get the real/canonical path of \p F.  This means:
+/// Get the canonical path of \p F.  This means:
 ///
 ///   - Absolute path
 ///   - Symlinks resolved
 ///   - No "." or ".." component
 ///   - No duplicate or trailing directory separator
 ///
-/// This function should be used when sending paths to clients, so that paths
-/// are normalized as much as possible.
-llvm::Optional<std::string> getRealPath(const FileEntry *F,
-                                        const SourceManager &SourceMgr);
+/// This function should be used when paths needs to be used outside the
+/// component that generate it, so that paths are normalized as much as
+/// possible.
+llvm::Optional<std::string> getCanonicalPath(const FileEntry *F,
+                                             const SourceManager &SourceMgr);
 
-bool IsRangeConsecutive(const Range &Left, const Range &Right);
+bool isRangeConsecutive(const Range &Left, const Range &Right);
+
+format::FormatStyle getFormatStyleForFile(llvm::StringRef File,
+                                          llvm::StringRef Content,
+                                          llvm::vfs::FileSystem *FS);
+
 } // namespace clangd
 } // namespace clang
 #endif

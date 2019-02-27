@@ -1,9 +1,8 @@
 //===- AddressSanitizer.cpp - memory error detector -----------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -441,8 +440,11 @@ public:
     for (auto MDN : Globals->operands()) {
       // Metadata node contains the global and the fields of "Entry".
       assert(MDN->getNumOperands() == 5);
-      auto *GV = mdconst::extract_or_null<GlobalVariable>(MDN->getOperand(0));
+      auto *V = mdconst::extract_or_null<Constant>(MDN->getOperand(0));
       // The optimizer may optimize away a global entirely.
+      if (!V) continue;
+      auto *StrippedV = V->stripPointerCasts();
+      auto *GV = dyn_cast<GlobalVariable>(StrippedV);
       if (!GV) continue;
       // We can already have an entry for GV if it was merged with another
       // global.
@@ -1002,7 +1004,7 @@ struct FunctionStackPoisoner : public InstVisitor<FunctionStackPoisoner> {
     if (ID == Intrinsic::localescape) LocalEscapeCall = &II;
     if (!ASan.UseAfterScope)
       return;
-    if (ID != Intrinsic::lifetime_start && ID != Intrinsic::lifetime_end)
+    if (!II.isLifetimeStartOrEnd())
       return;
     // Found lifetime intrinsic, add ASan instrumentation if necessary.
     ConstantInt *Size = dyn_cast<ConstantInt>(II.getArgOperand(0));
@@ -2147,6 +2149,10 @@ bool AddressSanitizerModule::InstrumentGlobals(IRBuilder<> &IRB, Module &M, bool
     NewGlobal->copyAttributesFrom(G);
     NewGlobal->setComdat(G->getComdat());
     NewGlobal->setAlignment(MinRZ);
+    // Don't fold globals with redzones. ODR violation detector and redzone
+    // poisoning implicitly creates a dependence on the global's address, so it
+    // is no longer valid for it to be marked unnamed_addr.
+    NewGlobal->setUnnamedAddr(GlobalValue::UnnamedAddr::None);
 
     // Move null-terminated C strings to "__asan_cstring" section on Darwin.
     if (TargetTriple.isOSBinFormatMachO() && !G->hasSection() &&
@@ -2194,10 +2200,8 @@ bool AddressSanitizerModule::InstrumentGlobals(IRBuilder<> &IRB, Module &M, bool
           GlobalAlias::create(GlobalValue::PrivateLinkage, "", NewGlobal);
     }
 
-    // ODR check is not useful for the following, but we see false reports
-    // caused by linker optimizations.
-    if (NewGlobal->hasLocalLinkage() || NewGlobal->hasGlobalUnnamedAddr() ||
-        NewGlobal->hasLinkOnceODRLinkage() || NewGlobal->hasWeakODRLinkage()) {
+    // ODR should not happen for local linkage.
+    if (NewGlobal->hasLocalLinkage()) {
       ODRIndicator = ConstantExpr::getIntToPtr(ConstantInt::get(IntptrTy, -1),
                                                IRB.getInt8PtrTy());
     } else if (UseOdrIndicator) {

@@ -1,9 +1,8 @@
 //===---- CGBuiltin.cpp - Emit LLVM Code for builtins ---------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -27,7 +26,6 @@
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
@@ -800,9 +798,9 @@ static RValue EmitMSVCRTSetJmp(CodeGenFunction &CGF, MSVCSetJmpKind SJKind,
   llvm::Value *Buf = CGF.Builder.CreateBitOrPointerCast(
       CGF.EmitScalarExpr(E->getArg(0)), CGF.Int8PtrTy);
   llvm::Value *Args[] = {Buf, Arg1};
-  llvm::CallSite CS = CGF.EmitRuntimeCallOrInvoke(SetJmpFn, Args);
-  CS.setAttributes(ReturnsTwiceAttr);
-  return RValue::get(CS.getInstruction());
+  llvm::CallBase *CB = CGF.EmitRuntimeCallOrInvoke(SetJmpFn, Args);
+  CB->setAttributes(ReturnsTwiceAttr);
+  return RValue::get(CB);
 }
 
 // Many of MSVC builtins are on x64, ARM and AArch64; to avoid repeating code,
@@ -1003,9 +1001,9 @@ Value *CodeGenFunction::EmitMSVCBuiltinExpr(MSVCIntrin BuiltinID,
     llvm::AttributeList NoReturnAttr = llvm::AttributeList::get(
         getLLVMContext(), llvm::AttributeList::FunctionIndex,
         llvm::Attribute::NoReturn);
-    CallSite CS = Builder.CreateCall(IA, EmitScalarExpr(E->getArg(0)));
-    CS.setAttributes(NoReturnAttr);
-    return CS.getInstruction();
+    llvm::CallInst *CI = Builder.CreateCall(IA, EmitScalarExpr(E->getArg(0)));
+    CI->setAttributes(NoReturnAttr);
+    return CI;
   }
   }
   llvm_unreachable("Incorrect MSVC intrinsic!");
@@ -1235,7 +1233,7 @@ static bool isSpecialMixedSignMultiply(unsigned BuiltinID,
                                        WidthAndSignedness Op2Info,
                                        WidthAndSignedness ResultInfo) {
   return BuiltinID == Builtin::BI__builtin_mul_overflow &&
-         Op1Info.Width == Op2Info.Width && Op1Info.Width >= ResultInfo.Width &&
+         std::max(Op1Info.Width, Op2Info.Width) >= ResultInfo.Width &&
          Op1Info.Signed != Op2Info.Signed;
 }
 
@@ -1256,11 +1254,20 @@ EmitCheckedMixedSignMultiply(CodeGenFunction &CGF, const clang::Expr *Op1,
   const clang::Expr *UnsignedOp = Op1Info.Signed ? Op2 : Op1;
   llvm::Value *Signed = CGF.EmitScalarExpr(SignedOp);
   llvm::Value *Unsigned = CGF.EmitScalarExpr(UnsignedOp);
+  unsigned SignedOpWidth = Op1Info.Signed ? Op1Info.Width : Op2Info.Width;
+  unsigned UnsignedOpWidth = Op1Info.Signed ? Op2Info.Width : Op1Info.Width;
+
+  // One of the operands may be smaller than the other. If so, [s|z]ext it.
+  if (SignedOpWidth < UnsignedOpWidth)
+    Signed = CGF.Builder.CreateSExt(Signed, Unsigned->getType(), "op.sext");
+  if (UnsignedOpWidth < SignedOpWidth)
+    Unsigned = CGF.Builder.CreateZExt(Unsigned, Signed->getType(), "op.zext");
 
   llvm::Type *OpTy = Signed->getType();
   llvm::Value *Zero = llvm::Constant::getNullValue(OpTy);
   Address ResultPtr = CGF.EmitPointerWithAlignment(ResultArg);
   llvm::Type *ResTy = ResultPtr.getElementType();
+  unsigned OpWidth = std::max(Op1Info.Width, Op2Info.Width);
 
   // Take the absolute value of the signed operand.
   llvm::Value *IsNegative = CGF.Builder.CreateICmpSLT(Signed, Zero);
@@ -1278,8 +1285,8 @@ EmitCheckedMixedSignMultiply(CodeGenFunction &CGF, const clang::Expr *Op1,
   if (ResultInfo.Signed) {
     // Signed overflow occurs if the result is greater than INT_MAX or lesser
     // than INT_MIN, i.e when |Result| > (INT_MAX + IsNegative).
-    auto IntMax = llvm::APInt::getSignedMaxValue(ResultInfo.Width)
-                      .zextOrSelf(Op1Info.Width);
+    auto IntMax =
+        llvm::APInt::getSignedMaxValue(ResultInfo.Width).zextOrSelf(OpWidth);
     llvm::Value *MaxResult =
         CGF.Builder.CreateAdd(llvm::ConstantInt::get(OpTy, IntMax),
                               CGF.Builder.CreateZExt(IsNegative, OpTy));
@@ -1297,9 +1304,9 @@ EmitCheckedMixedSignMultiply(CodeGenFunction &CGF, const clang::Expr *Op1,
     llvm::Value *Underflow = CGF.Builder.CreateAnd(
         IsNegative, CGF.Builder.CreateIsNotNull(UnsignedResult));
     Overflow = CGF.Builder.CreateOr(UnsignedOverflow, Underflow);
-    if (ResultInfo.Width < Op1Info.Width) {
+    if (ResultInfo.Width < OpWidth) {
       auto IntMax =
-          llvm::APInt::getMaxValue(ResultInfo.Width).zext(Op1Info.Width);
+          llvm::APInt::getMaxValue(ResultInfo.Width).zext(OpWidth);
       llvm::Value *TruncOverflow = CGF.Builder.CreateICmpUGT(
           UnsignedResult, llvm::ConstantInt::get(OpTy, IntMax));
       Overflow = CGF.Builder.CreateOr(Overflow, TruncOverflow);
@@ -1895,15 +1902,17 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     return RValue::get(Result);
   }
   case Builtin::BI__builtin_assume_aligned: {
-    Value *PtrValue = EmitScalarExpr(E->getArg(0));
+    const Expr *Ptr = E->getArg(0);
+    Value *PtrValue = EmitScalarExpr(Ptr);
     Value *OffsetValue =
       (E->getNumArgs() > 2) ? EmitScalarExpr(E->getArg(2)) : nullptr;
 
     Value *AlignmentValue = EmitScalarExpr(E->getArg(1));
     ConstantInt *AlignmentCI = cast<ConstantInt>(AlignmentValue);
-    unsigned Alignment = (unsigned) AlignmentCI->getZExtValue();
+    unsigned Alignment = (unsigned)AlignmentCI->getZExtValue();
 
-    EmitAlignmentAssumption(PtrValue, Alignment, OffsetValue);
+    EmitAlignmentAssumption(PtrValue, Ptr, /*The expr loc is sufficient.*/ SourceLocation(),
+                            Alignment, OffsetValue);
     return RValue::get(PtrValue);
   }
   case Builtin::BI__assume:
@@ -2117,6 +2126,17 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     V = Builder.CreateAnd(Eq, IsLessThanInf, "and");
     V = Builder.CreateAnd(V, IsNormal, "and");
     return RValue::get(Builder.CreateZExt(V, ConvertType(E->getType())));
+  }
+
+  case Builtin::BI__builtin_flt_rounds: {
+    Value *F = CGM.getIntrinsic(Intrinsic::flt_rounds);
+
+    llvm::Type *ResultType = ConvertType(E->getType());
+    Value *Result = Builder.CreateCall(F);
+    if (Result->getType() != ResultType)
+      Result = Builder.CreateIntCast(Result, ResultType, /*isSigned*/true,
+                                     "cast");
+    return RValue::get(Result);
   }
 
   case Builtin::BI__builtin_fpclassify: {
@@ -9128,6 +9148,20 @@ static Value *EmitX86ExpandLoad(CodeGenFunction &CGF,
   return CGF.Builder.CreateCall(F, { Ptr, MaskVec, Ops[1] });
 }
 
+static Value *EmitX86CompressExpand(CodeGenFunction &CGF,
+                                    ArrayRef<Value *> Ops,
+                                    bool IsCompress) {
+  llvm::Type *ResultTy = Ops[1]->getType();
+
+  Value *MaskVec = getMaskVecValue(CGF, Ops[2],
+                                   ResultTy->getVectorNumElements());
+
+  Intrinsic::ID IID = IsCompress ? Intrinsic::x86_avx512_mask_compress
+                                 : Intrinsic::x86_avx512_mask_expand;
+  llvm::Function *F = CGF.CGM.getIntrinsic(IID, ResultTy);
+  return CGF.Builder.CreateCall(F, { Ops[0], Ops[1], MaskVec });
+}
+
 static Value *EmitX86CompressStore(CodeGenFunction &CGF,
                                    ArrayRef<Value *> Ops) {
   llvm::Type *ResultTy = Ops[1]->getType();
@@ -9157,6 +9191,64 @@ static Value *EmitX86MaskLogic(CodeGenFunction &CGF, Instruction::BinaryOps Opc,
 
   return CGF.Builder.CreateBitCast(CGF.Builder.CreateBinOp(Opc, LHS, RHS),
                                    Ops[0]->getType());
+}
+
+static Value *EmitX86FunnelShift(CodeGenFunction &CGF, Value *Op0, Value *Op1,
+                                 Value *Amt, bool IsRight) {
+  llvm::Type *Ty = Op0->getType();
+
+  // Amount may be scalar immediate, in which case create a splat vector.
+  // Funnel shifts amounts are treated as modulo and types are all power-of-2 so
+  // we only care about the lowest log2 bits anyway.
+  if (Amt->getType() != Ty) {
+    unsigned NumElts = Ty->getVectorNumElements();
+    Amt = CGF.Builder.CreateIntCast(Amt, Ty->getScalarType(), false);
+    Amt = CGF.Builder.CreateVectorSplat(NumElts, Amt);
+  }
+
+  unsigned IID = IsRight ? Intrinsic::fshr : Intrinsic::fshl;
+  Value *F = CGF.CGM.getIntrinsic(IID, Ty);
+  return CGF.Builder.CreateCall(F, {Op0, Op1, Amt});
+}
+
+static Value *EmitX86vpcom(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
+                           bool IsSigned) {
+  Value *Op0 = Ops[0];
+  Value *Op1 = Ops[1];
+  llvm::Type *Ty = Op0->getType();
+  uint64_t Imm = cast<llvm::ConstantInt>(Ops[2])->getZExtValue() & 0x7;
+
+  CmpInst::Predicate Pred;
+  switch (Imm) {
+  case 0x0:
+    Pred = IsSigned ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT;
+    break;
+  case 0x1:
+    Pred = IsSigned ? ICmpInst::ICMP_SLE : ICmpInst::ICMP_ULE;
+    break;
+  case 0x2:
+    Pred = IsSigned ? ICmpInst::ICMP_SGT : ICmpInst::ICMP_UGT;
+    break;
+  case 0x3:
+    Pred = IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE;
+    break;
+  case 0x4:
+    Pred = ICmpInst::ICMP_EQ;
+    break;
+  case 0x5:
+    Pred = ICmpInst::ICMP_NE;
+    break;
+  case 0x6:
+    return llvm::Constant::getNullValue(Ty); // FALSE
+  case 0x7:
+    return llvm::Constant::getAllOnesValue(Ty); // TRUE
+  default:
+    llvm_unreachable("Unexpected XOP vpcom/vpcomu predicate");
+  }
+
+  Value *Cmp = CGF.Builder.CreateICmp(Pred, Op0, Op1);
+  Value *Res = CGF.Builder.CreateSExt(Cmp, Ty);
+  return Res;
 }
 
 static Value *EmitX86Select(CodeGenFunction &CGF,
@@ -9247,6 +9339,25 @@ static Value *EmitX86MaskedCompare(CodeGenFunction &CGF, unsigned CC,
 static Value *EmitX86ConvertToMask(CodeGenFunction &CGF, Value *In) {
   Value *Zero = Constant::getNullValue(In->getType());
   return EmitX86MaskedCompare(CGF, 1, true, { In, Zero });
+}
+
+static Value *EmitX86ConvertIntToFp(CodeGenFunction &CGF,
+                                    ArrayRef<Value *> Ops, bool IsSigned) {
+  unsigned Rnd = cast<llvm::ConstantInt>(Ops[3])->getZExtValue();
+  llvm::Type *Ty = Ops[1]->getType();
+
+  Value *Res;
+  if (Rnd != 4) {
+    Intrinsic::ID IID = IsSigned ? Intrinsic::x86_avx512_sitofp_round
+                                 : Intrinsic::x86_avx512_uitofp_round;
+    Function *F = CGF.CGM.getIntrinsic(IID, { Ty, Ops[0]->getType() });
+    Res = CGF.Builder.CreateCall(F, { Ops[0], Ops[3] });
+  } else {
+    Res = IsSigned ? CGF.Builder.CreateSIToFP(Ops[0], Ty)
+                   : CGF.Builder.CreateUIToFP(Ops[0], Ty);
+  }
+
+  return EmitX86Select(CGF, Ops[2], Res, Ops[1]);
 }
 
 static Value *EmitX86Abs(CodeGenFunction &CGF, ArrayRef<Value *> Ops) {
@@ -9478,31 +9589,15 @@ static Value *EmitX86SExtMask(CodeGenFunction &CGF, Value *Op,
   return CGF.Builder.CreateSExt(Mask, DstTy, "vpmovm2");
 }
 
-// Emit addition or subtraction with saturation.
-// Handles both signed and unsigned intrinsics.
-static Value *EmitX86AddSubSatExpr(CodeGenFunction &CGF, const CallExpr *E,
-                                   SmallVectorImpl<Value *> &Ops,
+// Emit addition or subtraction with signed/unsigned saturation.
+static Value *EmitX86AddSubSatExpr(CodeGenFunction &CGF,
+                                   ArrayRef<Value *> Ops, bool IsSigned,
                                    bool IsAddition) {
-
-  // Collect vector elements and type data.
-  llvm::Type *ResultType = CGF.ConvertType(E->getType());
-
-  Value *Res;
-  if (IsAddition) {
-    // ADDUS: a > (a+b) ? ~0 : (a+b)
-    // If Ops[0] > Add, overflow occurred.
-    Value *Add = CGF.Builder.CreateAdd(Ops[0], Ops[1]);
-    Value *ICmp = CGF.Builder.CreateICmp(ICmpInst::ICMP_UGT, Ops[0], Add);
-    Value *Max = llvm::Constant::getAllOnesValue(ResultType);
-    Res = CGF.Builder.CreateSelect(ICmp, Max, Add);
-  } else {
-    // SUBUS: max(a, b) - b
-    Value *ICmp = CGF.Builder.CreateICmp(ICmpInst::ICMP_UGT, Ops[0], Ops[1]);
-    Value *Select = CGF.Builder.CreateSelect(ICmp, Ops[0], Ops[1]);
-    Res = CGF.Builder.CreateSub(Select, Ops[1]);
-  }
-
-  return Res;
+  Intrinsic::ID IID =
+      IsSigned ? (IsAddition ? Intrinsic::sadd_sat : Intrinsic::ssub_sat)
+               : (IsAddition ? Intrinsic::uadd_sat : Intrinsic::usub_sat);
+  llvm::Function *F = CGF.CGM.getIntrinsic(IID, Ops[0]->getType());
+  return CGF.Builder.CreateCall(F, {Ops[0], Ops[1]});
 }
 
 Value *CodeGenFunction::EmitX86CpuIs(const CallExpr *E) {
@@ -9526,6 +9621,7 @@ Value *CodeGenFunction::EmitX86CpuIs(StringRef CPUStr) {
 
   // Grab the global __cpu_model.
   llvm::Constant *CpuModel = CGM.CreateRuntimeVariable(STy, "__cpu_model");
+  cast<llvm::GlobalValue>(CpuModel)->setDSOLocal(true);
 
   // Calculate the index needed to access the correct field based on the
   // range. Also adjust the expected value.
@@ -9598,6 +9694,7 @@ llvm::Value *CodeGenFunction::EmitX86CpuSupports(uint64_t FeaturesMask) {
 
     // Grab the global __cpu_model.
     llvm::Constant *CpuModel = CGM.CreateRuntimeVariable(STy, "__cpu_model");
+    cast<llvm::GlobalValue>(CpuModel)->setDSOLocal(true);
 
     // Grab the first (0th) element from the field __cpu_features off of the
     // global in the struct STy.
@@ -9617,6 +9714,8 @@ llvm::Value *CodeGenFunction::EmitX86CpuSupports(uint64_t FeaturesMask) {
   if (Features2 != 0) {
     llvm::Constant *CpuFeatures2 = CGM.CreateRuntimeVariable(Int32Ty,
                                                              "__cpu_features2");
+    cast<llvm::GlobalValue>(CpuFeatures2)->setDSOLocal(true);
+
     Value *Features =
         Builder.CreateAlignedLoad(CpuFeatures2, CharUnits::fromQuantity(4));
 
@@ -9634,6 +9733,9 @@ Value *CodeGenFunction::EmitX86CpuInit() {
   llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy,
                                                     /*Variadic*/ false);
   llvm::Constant *Func = CGM.CreateRuntimeFunction(FTy, "__cpu_indicator_init");
+  cast<llvm::GlobalValue>(Func)->setDSOLocal(true);
+  cast<llvm::GlobalValue>(Func)->setDLLStorageClass(
+      llvm::GlobalValue::DefaultStorageClass);
   return Builder.CreateCall(Func);
 }
 
@@ -9813,7 +9915,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_xsavec:
   case X86::BI__builtin_ia32_xsavec64:
   case X86::BI__builtin_ia32_xsaves:
-  case X86::BI__builtin_ia32_xsaves64: {
+  case X86::BI__builtin_ia32_xsaves64:
+  case X86::BI__builtin_ia32_xsetbv:
+  case X86::BI_xsetbv: {
     Intrinsic::ID ID;
 #define INTRINSIC_X86_XSAVE_ID(NAME) \
     case X86::BI__builtin_ia32_##NAME: \
@@ -9833,6 +9937,10 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     INTRINSIC_X86_XSAVE_ID(xsavec64);
     INTRINSIC_X86_XSAVE_ID(xsaves);
     INTRINSIC_X86_XSAVE_ID(xsaves64);
+    INTRINSIC_X86_XSAVE_ID(xsetbv);
+    case X86::BI_xsetbv:
+      ID = Intrinsic::x86_xsetbv;
+      break;
     }
 #undef INTRINSIC_X86_XSAVE_ID
     Value *Mhi = Builder.CreateTrunc(
@@ -9842,6 +9950,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     Ops.push_back(Mlo);
     return Builder.CreateCall(CGM.getIntrinsic(ID), Ops);
   }
+  case X86::BI__builtin_ia32_xgetbv:
+  case X86::BI_xgetbv:
+    return Builder.CreateCall(CGM.getIntrinsic(Intrinsic::x86_xgetbv), Ops);
   case X86::BI__builtin_ia32_storedqudi128_mask:
   case X86::BI__builtin_ia32_storedqusi128_mask:
   case X86::BI__builtin_ia32_storedquhi128_mask:
@@ -9909,6 +10020,15 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_cvtq2mask256:
   case X86::BI__builtin_ia32_cvtq2mask512:
     return EmitX86ConvertToMask(*this, Ops[0]);
+
+  case X86::BI__builtin_ia32_cvtdq2ps512_mask:
+  case X86::BI__builtin_ia32_cvtqq2ps512_mask:
+  case X86::BI__builtin_ia32_cvtqq2pd512_mask:
+    return EmitX86ConvertIntToFp(*this, Ops, /*IsSigned*/true);
+  case X86::BI__builtin_ia32_cvtudq2ps512_mask:
+  case X86::BI__builtin_ia32_cvtuqq2ps512_mask:
+  case X86::BI__builtin_ia32_cvtuqq2pd512_mask:
+    return EmitX86ConvertIntToFp(*this, Ops, /*IsSigned*/false);
 
   case X86::BI__builtin_ia32_vfmaddss3:
   case X86::BI__builtin_ia32_vfmaddsd3:
@@ -10052,6 +10172,262 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_compressstoreqi256_mask:
   case X86::BI__builtin_ia32_compressstoreqi512_mask:
     return EmitX86CompressStore(*this, Ops);
+
+  case X86::BI__builtin_ia32_expanddf128_mask:
+  case X86::BI__builtin_ia32_expanddf256_mask:
+  case X86::BI__builtin_ia32_expanddf512_mask:
+  case X86::BI__builtin_ia32_expandsf128_mask:
+  case X86::BI__builtin_ia32_expandsf256_mask:
+  case X86::BI__builtin_ia32_expandsf512_mask:
+  case X86::BI__builtin_ia32_expanddi128_mask:
+  case X86::BI__builtin_ia32_expanddi256_mask:
+  case X86::BI__builtin_ia32_expanddi512_mask:
+  case X86::BI__builtin_ia32_expandsi128_mask:
+  case X86::BI__builtin_ia32_expandsi256_mask:
+  case X86::BI__builtin_ia32_expandsi512_mask:
+  case X86::BI__builtin_ia32_expandhi128_mask:
+  case X86::BI__builtin_ia32_expandhi256_mask:
+  case X86::BI__builtin_ia32_expandhi512_mask:
+  case X86::BI__builtin_ia32_expandqi128_mask:
+  case X86::BI__builtin_ia32_expandqi256_mask:
+  case X86::BI__builtin_ia32_expandqi512_mask:
+    return EmitX86CompressExpand(*this, Ops, /*IsCompress*/false);
+
+  case X86::BI__builtin_ia32_compressdf128_mask:
+  case X86::BI__builtin_ia32_compressdf256_mask:
+  case X86::BI__builtin_ia32_compressdf512_mask:
+  case X86::BI__builtin_ia32_compresssf128_mask:
+  case X86::BI__builtin_ia32_compresssf256_mask:
+  case X86::BI__builtin_ia32_compresssf512_mask:
+  case X86::BI__builtin_ia32_compressdi128_mask:
+  case X86::BI__builtin_ia32_compressdi256_mask:
+  case X86::BI__builtin_ia32_compressdi512_mask:
+  case X86::BI__builtin_ia32_compresssi128_mask:
+  case X86::BI__builtin_ia32_compresssi256_mask:
+  case X86::BI__builtin_ia32_compresssi512_mask:
+  case X86::BI__builtin_ia32_compresshi128_mask:
+  case X86::BI__builtin_ia32_compresshi256_mask:
+  case X86::BI__builtin_ia32_compresshi512_mask:
+  case X86::BI__builtin_ia32_compressqi128_mask:
+  case X86::BI__builtin_ia32_compressqi256_mask:
+  case X86::BI__builtin_ia32_compressqi512_mask:
+    return EmitX86CompressExpand(*this, Ops, /*IsCompress*/true);
+
+  case X86::BI__builtin_ia32_gather3div2df:
+  case X86::BI__builtin_ia32_gather3div2di:
+  case X86::BI__builtin_ia32_gather3div4df:
+  case X86::BI__builtin_ia32_gather3div4di:
+  case X86::BI__builtin_ia32_gather3div4sf:
+  case X86::BI__builtin_ia32_gather3div4si:
+  case X86::BI__builtin_ia32_gather3div8sf:
+  case X86::BI__builtin_ia32_gather3div8si:
+  case X86::BI__builtin_ia32_gather3siv2df:
+  case X86::BI__builtin_ia32_gather3siv2di:
+  case X86::BI__builtin_ia32_gather3siv4df:
+  case X86::BI__builtin_ia32_gather3siv4di:
+  case X86::BI__builtin_ia32_gather3siv4sf:
+  case X86::BI__builtin_ia32_gather3siv4si:
+  case X86::BI__builtin_ia32_gather3siv8sf:
+  case X86::BI__builtin_ia32_gather3siv8si:
+  case X86::BI__builtin_ia32_gathersiv8df:
+  case X86::BI__builtin_ia32_gathersiv16sf:
+  case X86::BI__builtin_ia32_gatherdiv8df:
+  case X86::BI__builtin_ia32_gatherdiv16sf:
+  case X86::BI__builtin_ia32_gathersiv8di:
+  case X86::BI__builtin_ia32_gathersiv16si:
+  case X86::BI__builtin_ia32_gatherdiv8di:
+  case X86::BI__builtin_ia32_gatherdiv16si: {
+    Intrinsic::ID IID;
+    switch (BuiltinID) {
+    default: llvm_unreachable("Unexpected builtin");
+    case X86::BI__builtin_ia32_gather3div2df:
+      IID = Intrinsic::x86_avx512_mask_gather3div2_df;
+      break;
+    case X86::BI__builtin_ia32_gather3div2di:
+      IID = Intrinsic::x86_avx512_mask_gather3div2_di;
+      break;
+    case X86::BI__builtin_ia32_gather3div4df:
+      IID = Intrinsic::x86_avx512_mask_gather3div4_df;
+      break;
+    case X86::BI__builtin_ia32_gather3div4di:
+      IID = Intrinsic::x86_avx512_mask_gather3div4_di;
+      break;
+    case X86::BI__builtin_ia32_gather3div4sf:
+      IID = Intrinsic::x86_avx512_mask_gather3div4_sf;
+      break;
+    case X86::BI__builtin_ia32_gather3div4si:
+      IID = Intrinsic::x86_avx512_mask_gather3div4_si;
+      break;
+    case X86::BI__builtin_ia32_gather3div8sf:
+      IID = Intrinsic::x86_avx512_mask_gather3div8_sf;
+      break;
+    case X86::BI__builtin_ia32_gather3div8si:
+      IID = Intrinsic::x86_avx512_mask_gather3div8_si;
+      break;
+    case X86::BI__builtin_ia32_gather3siv2df:
+      IID = Intrinsic::x86_avx512_mask_gather3siv2_df;
+      break;
+    case X86::BI__builtin_ia32_gather3siv2di:
+      IID = Intrinsic::x86_avx512_mask_gather3siv2_di;
+      break;
+    case X86::BI__builtin_ia32_gather3siv4df:
+      IID = Intrinsic::x86_avx512_mask_gather3siv4_df;
+      break;
+    case X86::BI__builtin_ia32_gather3siv4di:
+      IID = Intrinsic::x86_avx512_mask_gather3siv4_di;
+      break;
+    case X86::BI__builtin_ia32_gather3siv4sf:
+      IID = Intrinsic::x86_avx512_mask_gather3siv4_sf;
+      break;
+    case X86::BI__builtin_ia32_gather3siv4si:
+      IID = Intrinsic::x86_avx512_mask_gather3siv4_si;
+      break;
+    case X86::BI__builtin_ia32_gather3siv8sf:
+      IID = Intrinsic::x86_avx512_mask_gather3siv8_sf;
+      break;
+    case X86::BI__builtin_ia32_gather3siv8si:
+      IID = Intrinsic::x86_avx512_mask_gather3siv8_si;
+      break;
+    case X86::BI__builtin_ia32_gathersiv8df:
+      IID = Intrinsic::x86_avx512_mask_gather_dpd_512;
+      break;
+    case X86::BI__builtin_ia32_gathersiv16sf:
+      IID = Intrinsic::x86_avx512_mask_gather_dps_512;
+      break;
+    case X86::BI__builtin_ia32_gatherdiv8df:
+      IID = Intrinsic::x86_avx512_mask_gather_qpd_512;
+      break;
+    case X86::BI__builtin_ia32_gatherdiv16sf:
+      IID = Intrinsic::x86_avx512_mask_gather_qps_512;
+      break;
+    case X86::BI__builtin_ia32_gathersiv8di:
+      IID = Intrinsic::x86_avx512_mask_gather_dpq_512;
+      break;
+    case X86::BI__builtin_ia32_gathersiv16si:
+      IID = Intrinsic::x86_avx512_mask_gather_dpi_512;
+      break;
+    case X86::BI__builtin_ia32_gatherdiv8di:
+      IID = Intrinsic::x86_avx512_mask_gather_qpq_512;
+      break;
+    case X86::BI__builtin_ia32_gatherdiv16si:
+      IID = Intrinsic::x86_avx512_mask_gather_qpi_512;
+      break;
+    }
+
+    unsigned MinElts = std::min(Ops[0]->getType()->getVectorNumElements(),
+                                Ops[2]->getType()->getVectorNumElements());
+    Ops[3] = getMaskVecValue(*this, Ops[3], MinElts);
+    Function *Intr = CGM.getIntrinsic(IID);
+    return Builder.CreateCall(Intr, Ops);
+  }
+
+  case X86::BI__builtin_ia32_scattersiv8df:
+  case X86::BI__builtin_ia32_scattersiv16sf:
+  case X86::BI__builtin_ia32_scatterdiv8df:
+  case X86::BI__builtin_ia32_scatterdiv16sf:
+  case X86::BI__builtin_ia32_scattersiv8di:
+  case X86::BI__builtin_ia32_scattersiv16si:
+  case X86::BI__builtin_ia32_scatterdiv8di:
+  case X86::BI__builtin_ia32_scatterdiv16si:
+  case X86::BI__builtin_ia32_scatterdiv2df:
+  case X86::BI__builtin_ia32_scatterdiv2di:
+  case X86::BI__builtin_ia32_scatterdiv4df:
+  case X86::BI__builtin_ia32_scatterdiv4di:
+  case X86::BI__builtin_ia32_scatterdiv4sf:
+  case X86::BI__builtin_ia32_scatterdiv4si:
+  case X86::BI__builtin_ia32_scatterdiv8sf:
+  case X86::BI__builtin_ia32_scatterdiv8si:
+  case X86::BI__builtin_ia32_scattersiv2df:
+  case X86::BI__builtin_ia32_scattersiv2di:
+  case X86::BI__builtin_ia32_scattersiv4df:
+  case X86::BI__builtin_ia32_scattersiv4di:
+  case X86::BI__builtin_ia32_scattersiv4sf:
+  case X86::BI__builtin_ia32_scattersiv4si:
+  case X86::BI__builtin_ia32_scattersiv8sf:
+  case X86::BI__builtin_ia32_scattersiv8si: {
+    Intrinsic::ID IID;
+    switch (BuiltinID) {
+    default: llvm_unreachable("Unexpected builtin");
+    case X86::BI__builtin_ia32_scattersiv8df:
+      IID = Intrinsic::x86_avx512_mask_scatter_dpd_512;
+      break;
+    case X86::BI__builtin_ia32_scattersiv16sf:
+      IID = Intrinsic::x86_avx512_mask_scatter_dps_512;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv8df:
+      IID = Intrinsic::x86_avx512_mask_scatter_qpd_512;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv16sf:
+      IID = Intrinsic::x86_avx512_mask_scatter_qps_512;
+      break;
+    case X86::BI__builtin_ia32_scattersiv8di:
+      IID = Intrinsic::x86_avx512_mask_scatter_dpq_512;
+      break;
+    case X86::BI__builtin_ia32_scattersiv16si:
+      IID = Intrinsic::x86_avx512_mask_scatter_dpi_512;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv8di:
+      IID = Intrinsic::x86_avx512_mask_scatter_qpq_512;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv16si:
+      IID = Intrinsic::x86_avx512_mask_scatter_qpi_512;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv2df:
+      IID = Intrinsic::x86_avx512_mask_scatterdiv2_df;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv2di:
+      IID = Intrinsic::x86_avx512_mask_scatterdiv2_di;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv4df:
+      IID = Intrinsic::x86_avx512_mask_scatterdiv4_df;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv4di:
+      IID = Intrinsic::x86_avx512_mask_scatterdiv4_di;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv4sf:
+      IID = Intrinsic::x86_avx512_mask_scatterdiv4_sf;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv4si:
+      IID = Intrinsic::x86_avx512_mask_scatterdiv4_si;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv8sf:
+      IID = Intrinsic::x86_avx512_mask_scatterdiv8_sf;
+      break;
+    case X86::BI__builtin_ia32_scatterdiv8si:
+      IID = Intrinsic::x86_avx512_mask_scatterdiv8_si;
+      break;
+    case X86::BI__builtin_ia32_scattersiv2df:
+      IID = Intrinsic::x86_avx512_mask_scattersiv2_df;
+      break;
+    case X86::BI__builtin_ia32_scattersiv2di:
+      IID = Intrinsic::x86_avx512_mask_scattersiv2_di;
+      break;
+    case X86::BI__builtin_ia32_scattersiv4df:
+      IID = Intrinsic::x86_avx512_mask_scattersiv4_df;
+      break;
+    case X86::BI__builtin_ia32_scattersiv4di:
+      IID = Intrinsic::x86_avx512_mask_scattersiv4_di;
+      break;
+    case X86::BI__builtin_ia32_scattersiv4sf:
+      IID = Intrinsic::x86_avx512_mask_scattersiv4_sf;
+      break;
+    case X86::BI__builtin_ia32_scattersiv4si:
+      IID = Intrinsic::x86_avx512_mask_scattersiv4_si;
+      break;
+    case X86::BI__builtin_ia32_scattersiv8sf:
+      IID = Intrinsic::x86_avx512_mask_scattersiv8_sf;
+      break;
+    case X86::BI__builtin_ia32_scattersiv8si:
+      IID = Intrinsic::x86_avx512_mask_scattersiv8_si;
+      break;
+    }
+
+    unsigned MinElts = std::min(Ops[2]->getType()->getVectorNumElements(),
+                                Ops[3]->getType()->getVectorNumElements());
+    Ops[1] = getMaskVecValue(*this, Ops[1], MinElts);
+    Function *Intr = CGM.getIntrinsic(IID);
+    return Builder.CreateCall(Intr, Ops);
+  }
 
   case X86::BI__builtin_ia32_storehps:
   case X86::BI__builtin_ia32_storelps: {
@@ -10582,7 +10958,41 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     SI->setAlignment(1);
     return SI;
   }
-
+  // Rotate is a special case of funnel shift - 1st 2 args are the same.
+  case X86::BI__builtin_ia32_vprotb:
+  case X86::BI__builtin_ia32_vprotw:
+  case X86::BI__builtin_ia32_vprotd:
+  case X86::BI__builtin_ia32_vprotq:
+  case X86::BI__builtin_ia32_vprotbi:
+  case X86::BI__builtin_ia32_vprotwi:
+  case X86::BI__builtin_ia32_vprotdi:
+  case X86::BI__builtin_ia32_vprotqi:
+  case X86::BI__builtin_ia32_prold128:
+  case X86::BI__builtin_ia32_prold256:
+  case X86::BI__builtin_ia32_prold512:
+  case X86::BI__builtin_ia32_prolq128:
+  case X86::BI__builtin_ia32_prolq256:
+  case X86::BI__builtin_ia32_prolq512:
+  case X86::BI__builtin_ia32_prolvd128:
+  case X86::BI__builtin_ia32_prolvd256:
+  case X86::BI__builtin_ia32_prolvd512:
+  case X86::BI__builtin_ia32_prolvq128:
+  case X86::BI__builtin_ia32_prolvq256:
+  case X86::BI__builtin_ia32_prolvq512:
+    return EmitX86FunnelShift(*this, Ops[0], Ops[0], Ops[1], false);
+  case X86::BI__builtin_ia32_prord128:
+  case X86::BI__builtin_ia32_prord256:
+  case X86::BI__builtin_ia32_prord512:
+  case X86::BI__builtin_ia32_prorq128:
+  case X86::BI__builtin_ia32_prorq256:
+  case X86::BI__builtin_ia32_prorq512:
+  case X86::BI__builtin_ia32_prorvd128:
+  case X86::BI__builtin_ia32_prorvd256:
+  case X86::BI__builtin_ia32_prorvd512:
+  case X86::BI__builtin_ia32_prorvq128:
+  case X86::BI__builtin_ia32_prorvq256:
+  case X86::BI__builtin_ia32_prorvq512:
+    return EmitX86FunnelShift(*this, Ops[0], Ops[0], Ops[1], true);
   case X86::BI__builtin_ia32_selectb_128:
   case X86::BI__builtin_ia32_selectb_256:
   case X86::BI__builtin_ia32_selectb_512:
@@ -10639,6 +11049,16 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     unsigned CC = cast<llvm::ConstantInt>(Ops[2])->getZExtValue() & 0x7;
     return EmitX86MaskedCompare(*this, CC, false, Ops);
   }
+  case X86::BI__builtin_ia32_vpcomb:
+  case X86::BI__builtin_ia32_vpcomw:
+  case X86::BI__builtin_ia32_vpcomd:
+  case X86::BI__builtin_ia32_vpcomq:
+    return EmitX86vpcom(*this, Ops, true);
+  case X86::BI__builtin_ia32_vpcomub:
+  case X86::BI__builtin_ia32_vpcomuw:
+  case X86::BI__builtin_ia32_vpcomud:
+  case X86::BI__builtin_ia32_vpcomuq:
+    return EmitX86vpcom(*this, Ops, false);
 
   case X86::BI__builtin_ia32_kortestcqi:
   case X86::BI__builtin_ia32_kortestchi:
@@ -10947,6 +11367,52 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_pternlogq256_maskz:
     return EmitX86Ternlog(*this, /*ZeroMask*/true, Ops);
 
+  case X86::BI__builtin_ia32_vpshldd128:
+  case X86::BI__builtin_ia32_vpshldd256:
+  case X86::BI__builtin_ia32_vpshldd512:
+  case X86::BI__builtin_ia32_vpshldq128:
+  case X86::BI__builtin_ia32_vpshldq256:
+  case X86::BI__builtin_ia32_vpshldq512:
+  case X86::BI__builtin_ia32_vpshldw128:
+  case X86::BI__builtin_ia32_vpshldw256:
+  case X86::BI__builtin_ia32_vpshldw512:
+    return EmitX86FunnelShift(*this, Ops[0], Ops[1], Ops[2], false);
+
+  case X86::BI__builtin_ia32_vpshrdd128:
+  case X86::BI__builtin_ia32_vpshrdd256:
+  case X86::BI__builtin_ia32_vpshrdd512:
+  case X86::BI__builtin_ia32_vpshrdq128:
+  case X86::BI__builtin_ia32_vpshrdq256:
+  case X86::BI__builtin_ia32_vpshrdq512:
+  case X86::BI__builtin_ia32_vpshrdw128:
+  case X86::BI__builtin_ia32_vpshrdw256:
+  case X86::BI__builtin_ia32_vpshrdw512:
+    // Ops 0 and 1 are swapped.
+    return EmitX86FunnelShift(*this, Ops[1], Ops[0], Ops[2], true);
+
+  case X86::BI__builtin_ia32_vpshldvd128:
+  case X86::BI__builtin_ia32_vpshldvd256:
+  case X86::BI__builtin_ia32_vpshldvd512:
+  case X86::BI__builtin_ia32_vpshldvq128:
+  case X86::BI__builtin_ia32_vpshldvq256:
+  case X86::BI__builtin_ia32_vpshldvq512:
+  case X86::BI__builtin_ia32_vpshldvw128:
+  case X86::BI__builtin_ia32_vpshldvw256:
+  case X86::BI__builtin_ia32_vpshldvw512:
+    return EmitX86FunnelShift(*this, Ops[0], Ops[1], Ops[2], false);
+
+  case X86::BI__builtin_ia32_vpshrdvd128:
+  case X86::BI__builtin_ia32_vpshrdvd256:
+  case X86::BI__builtin_ia32_vpshrdvd512:
+  case X86::BI__builtin_ia32_vpshrdvq128:
+  case X86::BI__builtin_ia32_vpshrdvq256:
+  case X86::BI__builtin_ia32_vpshrdvq512:
+  case X86::BI__builtin_ia32_vpshrdvw128:
+  case X86::BI__builtin_ia32_vpshrdvw256:
+  case X86::BI__builtin_ia32_vpshrdvw512:
+    // Ops 0 and 1 are swapped.
+    return EmitX86FunnelShift(*this, Ops[1], Ops[0], Ops[2], true);
+
   // 3DNow!
   case X86::BI__builtin_ia32_pswapdsf:
   case X86::BI__builtin_ia32_pswapdsi: {
@@ -11052,6 +11518,51 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
 
     Value *Fpclass = Builder.CreateCall(CGM.getIntrinsic(ID), Ops);
     return EmitX86MaskedCompareResult(*this, Fpclass, NumElts, MaskIn);
+  }
+
+  case X86::BI__builtin_ia32_vpmultishiftqb128:
+  case X86::BI__builtin_ia32_vpmultishiftqb256:
+  case X86::BI__builtin_ia32_vpmultishiftqb512: {
+    Intrinsic::ID ID;
+    switch (BuiltinID) {
+    default: llvm_unreachable("Unsupported intrinsic!");
+    case X86::BI__builtin_ia32_vpmultishiftqb128:
+      ID = Intrinsic::x86_avx512_pmultishift_qb_128;
+      break;
+    case X86::BI__builtin_ia32_vpmultishiftqb256:
+      ID = Intrinsic::x86_avx512_pmultishift_qb_256;
+      break;
+    case X86::BI__builtin_ia32_vpmultishiftqb512:
+      ID = Intrinsic::x86_avx512_pmultishift_qb_512;
+      break;
+    }
+
+    return Builder.CreateCall(CGM.getIntrinsic(ID), Ops);
+  }
+
+  case X86::BI__builtin_ia32_vpshufbitqmb128_mask:
+  case X86::BI__builtin_ia32_vpshufbitqmb256_mask:
+  case X86::BI__builtin_ia32_vpshufbitqmb512_mask: {
+    unsigned NumElts = Ops[0]->getType()->getVectorNumElements();
+    Value *MaskIn = Ops[2];
+    Ops.erase(&Ops[2]);
+
+    Intrinsic::ID ID;
+    switch (BuiltinID) {
+    default: llvm_unreachable("Unsupported intrinsic!");
+    case X86::BI__builtin_ia32_vpshufbitqmb128_mask:
+      ID = Intrinsic::x86_avx512_vpshufbitqmb_128;
+      break;
+    case X86::BI__builtin_ia32_vpshufbitqmb256_mask:
+      ID = Intrinsic::x86_avx512_vpshufbitqmb_256;
+      break;
+    case X86::BI__builtin_ia32_vpshufbitqmb512_mask:
+      ID = Intrinsic::x86_avx512_vpshufbitqmb_512;
+      break;
+    }
+
+    Value *Shufbit = Builder.CreateCall(CGM.getIntrinsic(ID), Ops);
+    return EmitX86MaskedCompareResult(*this, Shufbit, NumElts, MaskIn);
   }
 
   // packed comparison intrinsics
@@ -11339,9 +11850,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     llvm::AttributeList NoReturnAttr = llvm::AttributeList::get(
         getLLVMContext(), llvm::AttributeList::FunctionIndex,
         llvm::Attribute::NoReturn);
-    CallSite CS = Builder.CreateCall(IA);
-    CS.setAttributes(NoReturnAttr);
-    return CS.getInstruction();
+    llvm::CallInst *CI = Builder.CreateCall(IA);
+    CI->setAttributes(NoReturnAttr);
+    return CI;
   }
   case X86::BI__readfsbyte:
   case X86::BI__readfsword:
@@ -11367,20 +11878,34 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     Load->setVolatile(true);
     return Load;
   }
+  case X86::BI__builtin_ia32_paddsb512:
+  case X86::BI__builtin_ia32_paddsw512:
+  case X86::BI__builtin_ia32_paddsb256:
+  case X86::BI__builtin_ia32_paddsw256:
+  case X86::BI__builtin_ia32_paddsb128:
+  case X86::BI__builtin_ia32_paddsw128:
+    return EmitX86AddSubSatExpr(*this, Ops, true, true);
   case X86::BI__builtin_ia32_paddusb512:
   case X86::BI__builtin_ia32_paddusw512:
   case X86::BI__builtin_ia32_paddusb256:
   case X86::BI__builtin_ia32_paddusw256:
   case X86::BI__builtin_ia32_paddusb128:
   case X86::BI__builtin_ia32_paddusw128:
-    return EmitX86AddSubSatExpr(*this, E, Ops, true /* IsAddition */);
+    return EmitX86AddSubSatExpr(*this, Ops, false, true);
+  case X86::BI__builtin_ia32_psubsb512:
+  case X86::BI__builtin_ia32_psubsw512:
+  case X86::BI__builtin_ia32_psubsb256:
+  case X86::BI__builtin_ia32_psubsw256:
+  case X86::BI__builtin_ia32_psubsb128:
+  case X86::BI__builtin_ia32_psubsw128:
+    return EmitX86AddSubSatExpr(*this, Ops, true, false);
   case X86::BI__builtin_ia32_psubusb512:
   case X86::BI__builtin_ia32_psubusw512:
   case X86::BI__builtin_ia32_psubusb256:
   case X86::BI__builtin_ia32_psubusw256:
   case X86::BI__builtin_ia32_psubusb128:
   case X86::BI__builtin_ia32_psubusw128:
-    return EmitX86AddSubSatExpr(*this, E, Ops, false /* IsAddition */);
+    return EmitX86AddSubSatExpr(*this, Ops, false, false);
   }
 }
 
@@ -11952,6 +12477,14 @@ Value *CodeGenFunction::EmitAMDGPUBuiltinExpr(unsigned BuiltinID,
   case AMDGPU::BI__builtin_amdgcn_fmed3f:
   case AMDGPU::BI__builtin_amdgcn_fmed3h:
     return emitTernaryBuiltin(*this, E, Intrinsic::amdgcn_fmed3);
+  case AMDGPU::BI__builtin_amdgcn_ds_append:
+  case AMDGPU::BI__builtin_amdgcn_ds_consume: {
+    Intrinsic::ID Intrin = BuiltinID == AMDGPU::BI__builtin_amdgcn_ds_append ?
+      Intrinsic::amdgcn_ds_append : Intrinsic::amdgcn_ds_consume;
+    Value *Src0 = EmitScalarExpr(E->getArg(0));
+    Function *F = CGM.getIntrinsic(Intrin, { Src0->getType() });
+    return Builder.CreateCall(F, { Src0, Builder.getFalse() });
+  }
   case AMDGPU::BI__builtin_amdgcn_read_exec: {
     CallInst *CI = cast<CallInst>(
       EmitSpecialRegisterBuiltin(*this, E, Int64Ty, Int64Ty, true, "exec"));
@@ -12929,31 +13462,6 @@ Value *CodeGenFunction::EmitWebAssemblyBuiltinExpr(unsigned BuiltinID,
     };
     Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_memory_grow, ResultType);
     return Builder.CreateCall(Callee, Args);
-  }
-  case WebAssembly::BI__builtin_wasm_mem_size: {
-    llvm::Type *ResultType = ConvertType(E->getType());
-    Value *I = EmitScalarExpr(E->getArg(0));
-    Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_mem_size, ResultType);
-    return Builder.CreateCall(Callee, I);
-  }
-  case WebAssembly::BI__builtin_wasm_mem_grow: {
-    llvm::Type *ResultType = ConvertType(E->getType());
-    Value *Args[] = {
-      EmitScalarExpr(E->getArg(0)),
-      EmitScalarExpr(E->getArg(1))
-    };
-    Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_mem_grow, ResultType);
-    return Builder.CreateCall(Callee, Args);
-  }
-  case WebAssembly::BI__builtin_wasm_current_memory: {
-    llvm::Type *ResultType = ConvertType(E->getType());
-    Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_current_memory, ResultType);
-    return Builder.CreateCall(Callee);
-  }
-  case WebAssembly::BI__builtin_wasm_grow_memory: {
-    Value *X = EmitScalarExpr(E->getArg(0));
-    Value *Callee = CGM.getIntrinsic(Intrinsic::wasm_grow_memory, X->getType());
-    return Builder.CreateCall(Callee, X);
   }
   case WebAssembly::BI__builtin_wasm_throw: {
     Value *Tag = EmitScalarExpr(E->getArg(0));

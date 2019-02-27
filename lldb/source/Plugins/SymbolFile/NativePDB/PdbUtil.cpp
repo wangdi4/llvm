@@ -1,9 +1,8 @@
 //===-- PdbUtil.cpp ---------------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,8 +16,8 @@
 #include "llvm/DebugInfo/CodeView/TypeDeserializer.h"
 #include "llvm/DebugInfo/PDB/Native/TpiStream.h"
 
+#include "Plugins/Language/CPlusPlus/MSVCUndecoratedNameParser.h"
 #include "lldb/Utility/LLDBAssert.h"
-
 #include "lldb/lldb-enumerations.h"
 
 using namespace lldb_private;
@@ -449,16 +448,7 @@ TypeIndex lldb_private::npdb::LookThroughModifierRecord(CVType modifier) {
 }
 
 llvm::StringRef lldb_private::npdb::DropNameScope(llvm::StringRef name) {
-  // Not all PDB names can be parsed with CPlusPlusNameParser.
-  // E.g. it fails on names containing `anonymous namespace'.
-  // So we simply drop everything before '::'
-
-  auto offset = name.rfind("::");
-  if (offset == llvm::StringRef::npos)
-    return name;
-  assert(offset + 2 <= name.size());
-
-  return name.substr(offset + 2);
+  return MSVCUndecoratedNameParser::DropScope(name);
 }
 
 VariableInfo lldb_private::npdb::GetVariableNameInfo(CVSymbol sym) {
@@ -485,6 +475,30 @@ VariableInfo lldb_private::npdb::GetVariableNameInfo(CVSymbol sym) {
     cantFail(SymbolDeserializer::deserializeAs<LocalSym>(sym, local));
     result.type = local.Type;
     result.name = local.Name;
+    return result;
+  }
+
+  if (sym.kind() == S_GDATA32 || sym.kind() == S_LDATA32) {
+    DataSym data(SymbolRecordKind::DataSym);
+    cantFail(SymbolDeserializer::deserializeAs<DataSym>(sym, data));
+    result.type = data.Type;
+    result.name = data.Name;
+    return result;
+  }
+
+  if (sym.kind() == S_GTHREAD32 || sym.kind() == S_LTHREAD32) {
+    ThreadLocalDataSym data(SymbolRecordKind::ThreadLocalDataSym);
+    cantFail(SymbolDeserializer::deserializeAs<ThreadLocalDataSym>(sym, data));
+    result.type = data.Type;
+    result.name = data.Name;
+    return result;
+  }
+
+  if (sym.kind() == S_CONSTANT) {
+    ConstantSym constant(SymbolRecordKind::ConstantSym);
+    cantFail(SymbolDeserializer::deserializeAs<ConstantSym>(sym, constant));
+    result.type = constant.Type;
+    result.name = constant.Name;
     return result;
   }
 
@@ -534,10 +548,6 @@ VariableInfo lldb_private::npdb::GetVariableLocationInfo(
       result.ranges = MakeRangeList(index, loc.Range, loc.Gaps);
     } else {
       // FIXME: Handle other kinds
-      llvm::APSInt value;
-      value = 42;
-      result.location = MakeConstantLocationExpression(
-          TypeIndex::Int32(), index.tpi(), value, module);
     }
     return result;
   }
@@ -709,7 +719,11 @@ size_t lldb_private::npdb::GetSizeOfType(PdbTypeSymId id,
     return 0;
   }
 
-  CVType cvt = tpi.getType(id.index);
+  TypeIndex index = id.index;
+  if (IsForwardRefUdt(index, tpi))
+    index = llvm::cantFail(tpi.findFullDeclForForwardRef(index));
+
+  CVType cvt = tpi.getType(index);
   switch (cvt.kind()) {
   case LF_MODIFIER:
     return GetSizeOfType({LookThroughModifierRecord(cvt)}, tpi);

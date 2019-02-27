@@ -1,9 +1,8 @@
 //===- MILexer.cpp - Machine instructions lexer implementation ------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -220,6 +219,7 @@ static MIToken::TokenKind getIdentifierKind(StringRef Identifier) {
       .Case("undefined", MIToken::kw_cfi_undefined)
       .Case("register", MIToken::kw_cfi_register)
       .Case("window_save", MIToken::kw_cfi_window_save)
+      .Case("negate_ra_sign_state", MIToken::kw_cfi_aarch64_negate_ra_sign_state)
       .Case("blockaddress", MIToken::kw_blockaddress)
       .Case("intrinsic", MIToken::kw_intrinsic)
       .Case("target-index", MIToken::kw_target_index)

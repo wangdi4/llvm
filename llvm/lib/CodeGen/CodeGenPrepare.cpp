@@ -1,9 +1,8 @@
 //===- CodeGenPrepare.cpp - Prepare a function for code generation --------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -1846,10 +1845,8 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB) {
   // return is the first instruction in the block.
   if (PN) {
     BasicBlock::iterator BI = BB->begin();
-    do { ++BI; } while (isa<DbgInfoIntrinsic>(BI));
-    if (&*BI == BCI)
-      // Also skip over the bitcast.
-      ++BI;
+    // Skip over debug and the bitcast.
+    do { ++BI; } while (isa<DbgInfoIntrinsic>(BI) || &*BI == BCI);
     if (&*BI != RetI)
       return false;
   } else {
@@ -4664,13 +4661,27 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
     // will look through it and provide only the integer value. In that case,
     // use it here.
     if (!DL->isNonIntegralPointerType(Addr->getType())) {
+      const auto getResultPtr = [MemoryInst, Addr,
+                                 &Builder](Value *Reg) -> Value * {
+        BasicBlock *BB = MemoryInst->getParent();
+        for (User *U : Reg->users())
+          if (auto *I2P = dyn_cast<IntToPtrInst>(U))
+            if (I2P->getType() == Addr->getType() && I2P->getParent() == BB) {
+              auto *RegInst = dyn_cast<Instruction>(Reg);
+              if (RegInst && RegInst->getParent() == BB &&
+                  !isa<PHINode>(RegInst) && !RegInst->isEHPad())
+                I2P->moveAfter(RegInst);
+              else
+                I2P->moveBefore(*BB, BB->getFirstInsertionPt());
+              return I2P;
+            }
+        return Builder.CreateIntToPtr(Reg, Addr->getType(), "sunkaddr");
+      };
       if (!ResultPtr && AddrMode.BaseReg) {
-        ResultPtr = Builder.CreateIntToPtr(AddrMode.BaseReg, Addr->getType(),
-                                           "sunkaddr");
+        ResultPtr = getResultPtr(AddrMode.BaseReg);
         AddrMode.BaseReg = nullptr;
       } else if (!ResultPtr && AddrMode.Scale == 1) {
-        ResultPtr = Builder.CreateIntToPtr(AddrMode.ScaledReg, Addr->getType(),
-                                           "sunkaddr");
+        ResultPtr = getResultPtr(AddrMode.ScaledReg);
         AddrMode.Scale = 0;
       }
     }
@@ -5160,11 +5171,11 @@ bool CodeGenPrepare::splitLargeGEPOffsets() {
       }
 
       // Generate a new GEP to replace the current one.
-      IRBuilder<> Builder(GEP);
+      LLVMContext &Ctx = GEP->getContext();
       Type *IntPtrTy = DL->getIntPtrType(GEP->getType());
       Type *I8PtrTy =
-          Builder.getInt8PtrTy(GEP->getType()->getPointerAddressSpace());
-      Type *I8Ty = Builder.getInt8Ty();
+          Type::getInt8PtrTy(Ctx, GEP->getType()->getPointerAddressSpace());
+      Type *I8Ty = Type::getInt8Ty(Ctx);
 
       if (!NewBaseGEP) {
         // Create a new base if we don't have one yet.  Find the insertion
@@ -5200,6 +5211,7 @@ bool CodeGenPrepare::splitLargeGEPOffsets() {
         NewGEPBases.insert(NewBaseGEP);
       }
 
+      IRBuilder<> Builder(GEP);
       Value *NewGEP = NewBaseGEP;
       if (Offset == BaseOffset) {
         if (GEP->getType() != I8PtrTy)

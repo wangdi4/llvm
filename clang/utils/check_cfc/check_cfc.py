@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 
 """Check CFC - Check Compile Flow Consistency
 
@@ -47,7 +47,7 @@ To add a new check:
  subclass.
 """
 
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import imp
 import os
@@ -98,8 +98,8 @@ def remove_dir_from_path(path_var, directory):
     PATH"""
     pathlist = path_var.split(os.pathsep)
     norm_directory = os.path.normpath(os.path.normcase(directory))
-    pathlist = filter(lambda x: os.path.normpath(
-        os.path.normcase(x)) != norm_directory, pathlist)
+    pathlist = [x for x in pathlist if os.path.normpath(
+        os.path.normcase(x)) != norm_directory]
     return os.pathsep.join(pathlist)
 
 def path_without_wrapper():

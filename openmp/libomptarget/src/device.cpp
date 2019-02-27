@@ -1,9 +1,8 @@
 //===--------- device.cpp - Target independent OpenMP target RTL ----------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.txt for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -333,6 +332,22 @@ int32_t DeviceTy::run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
       TgtVarsSize, NumTeams, ThreadLimit, LoopTripCount);
 }
 #if INTEL_COLLAB
+int32_t DeviceTy::data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
+                                     int64_t Size, void *AsyncData) {
+  if (!RTL->data_submit_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->data_submit_nowait(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
+                                 AsyncData);
+}
+
+int32_t DeviceTy::data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
+                                       int64_t Size, void *AsyncData) {
+  if (!RTL->data_retrieve_nowait)
+    return OFFLOAD_FAIL;
+  return RTL->data_retrieve_nowait(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
+                                   AsyncData);
+}
+
 int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
                                      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                      int32_t NumTeams, int32_t ThreadLimit,

@@ -1,9 +1,8 @@
 //===-- Scalar.h ------------------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -13,6 +12,7 @@
 #include "lldb/Utility/Status.h"
 #include "lldb/lldb-enumerations.h"
 #include "lldb/lldb-private-types.h"
+#include "lldb/Utility/LLDBAssert.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include <cstddef>
@@ -98,30 +98,19 @@ public:
     case 8:
     case 16:
     case 32:
-      if (m_integer.isSignedIntN(sizeof(sint_t) * 8))
-        m_type = e_sint;
-      else
-        m_type = e_uint;
-      break;
+      m_type = e_sint;
+      return;
     case 64:
-      if (m_integer.isSignedIntN(sizeof(slonglong_t) * 8))
-        m_type = e_slonglong;
-      else
-        m_type = e_ulonglong;
-      break;
+      m_type = e_slonglong;
+      return;
     case 128:
-      if (m_integer.isSignedIntN(BITWIDTH_INT128))
-        m_type = e_sint128;
-      else
-        m_type = e_uint128;
-      break;
+      m_type = e_sint128;
+      return;
     case 256:
-      if (m_integer.isSignedIntN(BITWIDTH_INT256))
-        m_type = e_sint256;
-      else
-        m_type = e_uint256;
-      break;
+      m_type = e_sint256;
+      return;
     }
+    lldbassert(false && "unsupported bitwidth");
   }
   Scalar(const Scalar &rhs);
   // Scalar(const RegisterValue& reg_value);

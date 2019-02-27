@@ -1,9 +1,8 @@
 //===-- ObjectFileELF.h --------------------------------------- -*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -121,7 +120,7 @@ public:
 
   void Dump(lldb_private::Stream *s) override;
 
-  bool GetArchitecture(lldb_private::ArchSpec &arch) override;
+  lldb_private::ArchSpec GetArchitecture() override;
 
   bool GetUUID(lldb_private::UUID *uuid) override;
 
@@ -133,6 +132,8 @@ public:
   GetImageInfoAddress(lldb_private::Target *target) override;
 
   lldb_private::Address GetEntryPointAddress() override;
+
+  lldb_private::Address GetBaseAddress() override;
 
   ObjectFile::Type CalculateType() override;
 
@@ -220,10 +221,10 @@ private:
   /// The address class for each symbol in the elf file
   FileAddressToAddressClassMap m_address_class_map;
 
-  /// Returns a 1 based index of the given section header.
+  /// Returns the index of the given section header.
   size_t SectionIndex(const SectionHeaderCollIter &I);
 
-  /// Returns a 1 based index of the given section header.
+  /// Returns the index of the given section header.
   size_t SectionIndex(const SectionHeaderCollConstIter &I) const;
 
   // Parses the ELF program headers.

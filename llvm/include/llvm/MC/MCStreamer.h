@@ -1,9 +1,8 @@
 //===- MCStreamer.h - High-level Streaming Machine Code Output --*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -806,6 +805,8 @@ public:
                                        Optional<StringRef> Source,
                                        unsigned CUID = 0);
 
+  virtual void EmitCFIBKeyFrame();
+
   /// This implements the DWARF2 '.loc fileno lineno ...' assembler
   /// directive.
   virtual void EmitDwarfLocDirective(unsigned FileNo, unsigned Line,
@@ -900,6 +901,7 @@ public:
   virtual void EmitCFIUndefined(int64_t Register);
   virtual void EmitCFIRegister(int64_t Register1, int64_t Register2);
   virtual void EmitCFIWindowSave();
+  virtual void EmitCFINegateRAState();
 
   virtual void EmitWinCFIStartProc(const MCSymbol *Symbol, SMLoc Loc = SMLoc());
   virtual void EmitWinCFIEndProc(SMLoc Loc = SMLoc());

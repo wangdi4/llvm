@@ -1,9 +1,8 @@
 //===-- PPCISelLowering.h - PPC32 DAG Lowering Interface --------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -576,6 +575,11 @@ namespace llvm {
     /// DAG node.
     const char *getTargetNodeName(unsigned Opcode) const override;
 
+    bool isSelectSupported(SelectSupportKind Kind) const override {
+      // PowerPC does not support scalar condition selects on vectors.
+      return (Kind != SelectSupportKind::ScalarCondVectorVal);
+    }
+
     /// getPreferredVectorAction - The code we generate when vector types are
     /// legalized by promoting the integer element type is often much worse
     /// than code we generate if we widen the type for applicable vector types.
@@ -1118,6 +1122,7 @@ namespace llvm {
     SDValue combineTRUNCATE(SDNode *N, DAGCombinerInfo &DCI) const;
     SDValue combineSetCC(SDNode *N, DAGCombinerInfo &DCI) const;
     SDValue combineABS(SDNode *N, DAGCombinerInfo &DCI) const;
+    SDValue combineVSelect(SDNode *N, DAGCombinerInfo &DCI) const;
 
     /// ConvertSETCCToSubtract - looks at SETCC that compares ints. It replaces
     /// SETCC with integer subtraction when (1) there is a legal way of doing it
@@ -1130,8 +1135,6 @@ namespace llvm {
     SDValue getRecipEstimate(SDValue Operand, SelectionDAG &DAG, int Enabled,
                              int &RefinementSteps) const override;
     unsigned combineRepeatedFPDivisors() const override;
-
-    CCAssignFn *useFastISelCCs(unsigned Flag) const;
 
     SDValue
     combineElementTruncationToVectorTruncation(SDNode *N,
@@ -1162,30 +1165,6 @@ namespace llvm {
                              const TargetLibraryInfo *LibInfo);
 
   } // end namespace PPC
-
-  bool CC_PPC32_SVR4_Custom_Dummy(unsigned &ValNo, MVT &ValVT, MVT &LocVT,
-                                  CCValAssign::LocInfo &LocInfo,
-                                  ISD::ArgFlagsTy &ArgFlags,
-                                  CCState &State);
-
-  bool CC_PPC32_SVR4_Custom_AlignArgRegs(unsigned &ValNo, MVT &ValVT,
-                                         MVT &LocVT,
-                                         CCValAssign::LocInfo &LocInfo,
-                                         ISD::ArgFlagsTy &ArgFlags,
-                                         CCState &State);
-
-  bool
-  CC_PPC32_SVR4_Custom_SkipLastArgRegsPPCF128(unsigned &ValNo, MVT &ValVT,
-                                                 MVT &LocVT,
-                                                 CCValAssign::LocInfo &LocInfo,
-                                                 ISD::ArgFlagsTy &ArgFlags,
-                                                 CCState &State);
-
-  bool CC_PPC32_SVR4_Custom_AlignFPArgRegs(unsigned &ValNo, MVT &ValVT,
-                                           MVT &LocVT,
-                                           CCValAssign::LocInfo &LocInfo,
-                                           ISD::ArgFlagsTy &ArgFlags,
-                                           CCState &State);
 
   bool isIntS16Immediate(SDNode *N, int16_t &Imm);
   bool isIntS16Immediate(SDValue Op, int16_t &Imm);
