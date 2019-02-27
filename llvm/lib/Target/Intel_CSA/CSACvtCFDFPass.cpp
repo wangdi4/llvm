@@ -1355,39 +1355,22 @@ void CSACvtCFDFPass::removeBranch() {
 }
 
 void CSACvtCFDFPass::linearizeCFG() {
-  std::stack<MachineBasicBlock *> mbbStack;
-  MachineBasicBlock *root = &*thisMF->begin();
-  for (scc_iterator<MachineFunction *> I  = scc_begin(thisMF),
-                                       IE = scc_end(thisMF);
-       I != IE; ++I) {
-    // Obtain the vector of BBs in this SCC
-    const std::vector<MachineBasicBlock *> &SCCBBs = *I;
-    for (std::vector<MachineBasicBlock *>::const_iterator BBI  = SCCBBs.begin(),
-                                                          BBIE = SCCBBs.end();
-         BBI != BBIE; ++BBI) {
-      mbbStack.push(*BBI);
-    }
+  MachineBasicBlock *Entry = &*thisMF->begin();
+  for (auto SI = Entry->succ_begin(); SI != Entry->succ_end(); ) {
+    SI = Entry->removeSuccessor(SI);
   }
-  MachineBasicBlock *x = mbbStack.top();
-  assert(x == root);
-  _unused(x);
-  MachineBasicBlock::succ_iterator SI = root->succ_begin();
-  while (SI != root->succ_end()) {
-    SI = root->removeSuccessor(SI);
-  }
-  mbbStack.pop();
-  while (!mbbStack.empty()) {
-    MachineBasicBlock *mbb = mbbStack.top();
-    mbbStack.pop();
-    root->splice(root->end(), mbb, mbb->begin(), mbb->end());
-    mbb->eraseFromParent();
+  for (MachineBasicBlock *MBB : *RPOT) {
+    if (MBB == Entry)
+      continue;
+    Entry->splice(Entry->end(), MBB, MBB->begin(), MBB->end());
+    MBB->eraseFromParent();
   }
 
   // Move the return instruction to the end.
   MachineInstr *ReturnMI = LMFI->getReturnMI();
   if (ReturnMI) {
     ReturnMI->removeFromParent();
-    root->insert(root->end(), ReturnMI);
+    Entry->insert(Entry->end(), ReturnMI);
   }
 }
 
