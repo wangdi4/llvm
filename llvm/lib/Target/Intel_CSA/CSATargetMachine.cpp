@@ -52,6 +52,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
@@ -94,9 +95,8 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeCSANormalizeDebugPass(PR);
   initializeCSAOptDFPassPass(PR);
   initializeCSAReassocReducPass(PR);
-  initializeCSARedundantMovElimPass(PR);
   initializeCSASeqotToSeqOptimizationPass(PR);
-  initializeCSAStreamingMemoryConversionPassPass(PR);
+  initializeCSAStreamingMemoryPass(PR);
   initializeControlDependenceGraphPass(PR);
 }
 
@@ -196,9 +196,6 @@ public:
 
   bool addInstSelector() override {
 
-    // Add ordering edges to memops.
-    addPass(createCSAMemopOrderingPass(getCSATargetMachine()));
-
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
 
@@ -209,6 +206,10 @@ public:
   }
 
   bool addPreISel() override {
+    // In case if lib-bc routines were not inlined till this point,
+    // force their inlining by calling always inliner pass.
+    addPass(createUnskippableAlwaysInlinerLegacyPass());
+
     // addPass(createUnifyFunctionExitNodesPass());
     addPass(createLowerSwitchPass());
     // Add a pass to generate more candidates for reduction operations
@@ -218,8 +219,6 @@ public:
     // analyses at O0.
     if (getOptLevel() != CodeGenOpt::None) {
       addPass(createCSAInnerLoopPrepPass());
-      // Add streaming memory reductions.
-      addPass(createCSAStreamingMemoryPrepPass());
     }
 
     // Remove any remaining intrinsics which should not go through instruction
@@ -239,11 +238,19 @@ public:
 
     // Add pass to replace alloca instructions
     addPass(createCSAReplaceAllocaWithMallocPass(getCSATargetMachine()));
+    addPass(createUnskippableAggressiveDCEPass());
     addPass(createGlobalDCEPass());
-
+    
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...
     addPass(createLoopSimplifyPass());
+
+    // Add ordering edges to memops.
+    addPass(createCSAMemopOrderingPass(getCSATargetMachine()));
+
+    // Convert loads/stores to sld/sst where possible.
+    if (getOptLevel() != CodeGenOpt::None)
+      addPass(createCSAStreamingMemoryConversionPass());
 
     return false;
   }
@@ -273,9 +280,7 @@ public:
     addPass(createCSADeadInstructionElimPass(), false);
     addPass(createCSADataflowCanonicalizationPass(), false);
     addPass(createCSASeqotToSeqOptimizationPass(), false);
-    addPass(createCSAStreamingMemoryConversionPass(), false);
     addPass(createCSAMultiSeqPass(), false);
-    addPass(createCSARedundantMovElimPass(), false);
     addPass(createCSADeadInstructionElimPass(), false);
     addPass(createCSAReassocReducPass(), false);
     addPass(createCSANormalizeDebugPass(), false);
@@ -292,7 +297,9 @@ public:
     // TODO: This should be running right before AsmPrinter, but the procedure
     // calls pass is causing problems with it. We should be able to move it
     // later when the call lowering is improved.
-    addPass(createCSADataflowVerifier(), false);
+    if (csa_utils::isAlwaysDataFlowLinkageSet()) {
+      addPass(createCSADataflowVerifier(), false);
+    }
 
     if (csa_utils::isAlwaysDataFlowLinkageSet()) {
       addPass(createCSAProcCallsPass(), false);

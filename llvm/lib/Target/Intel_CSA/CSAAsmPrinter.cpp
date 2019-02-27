@@ -79,7 +79,7 @@ static cl::opt<bool>
 static cl::opt<bool>
   EmitExperimental("csa-experimental-annotations", cl::Hidden,
       cl::desc("CSA Specific: Print experimental late tools annotations"),
-      cl::init(false));
+      cl::init(true));
 
 namespace {
 class LineReader {
@@ -563,17 +563,11 @@ void CSAAsmPrinter::EmitLicGroup(CSALicGroup &licGroup) {
 
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  O << "\t.attrib ";
-  const char *Comma = "";
+  O << "\t.attrib csasim_frequency=";
   auto freq = licGroup.executionFrequency;
-  if (!freq.isZero()) {
-    O << Comma << "csasim_frequency=";
-    freq.print(O);
-    Comma = ", ";
-  }
+  freq.print(O);
   if (licGroup.LoopId) {
-    O << Comma << "csasim_loop_id=" << licGroup.LoopId;
-    Comma = ", ";
+    O << ", csasim_loop_id=" << licGroup.LoopId;
   }
   OutStreamer->EmitRawText(O.str());
 }
@@ -786,8 +780,6 @@ void CSAAsmPrinter::EmitCallInstruction(const MachineInstr *MI) {
   } else if (MO.isSymbol())
     O << MI->getOperand(0).getSymbolName();
   O << ", ";
-  unsigned call_site_index = MI->getOperand(1).getImm();
-  O << MF->getFunction().getName() << "_cont_point_" << call_site_index << ", ";
   EmitCSAOperands(MI,O,2,MI->getNumOperands());
   O << "\n";
   OutStreamer->EmitRawText(O.str());
@@ -797,10 +789,7 @@ void CSAAsmPrinter::EmitContinueInstruction(const MachineInstr *MI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
   O << "\t#.continue\t";
-  unsigned call_site_index = MI->getOperand(MI->getNumOperands()-1).getImm();
-  O << MF->getFunction().getName() << "_cont_point_" << call_site_index << ", ";
-  
-  EmitCSAOperands(MI,O,0,MI->getNumOperands()-1);
+  EmitCSAOperands(MI,O,0,MI->getNumOperands());
   O << "\n";
   OutStreamer->EmitRawText(O.str());
 }

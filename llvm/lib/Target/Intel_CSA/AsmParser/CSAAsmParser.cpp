@@ -37,10 +37,9 @@ class CSAAsmParser : public MCTargetAsmParser {
   std::unique_ptr<CSAOperand> parseImmediate();
 
   std::unique_ptr<CSAOperand> defaultOptionalRegOperands();
-  std::unique_ptr<CSAOperand> defaultMemLvlOperands();
-  std::unique_ptr<CSAOperand> defaultRModeOperands();
-  std::unique_ptr<CSAOperand> defaultSignctlOperands();
-  std::unique_ptr<CSAOperand> defaultIntervalOperands();
+#define CSA_ASM_OPERAND(Asm, Enum, Default, ...) \
+  std::unique_ptr<CSAOperand> default##Asm##Operands();
+#include "AsmOperands.h"
   std::unique_ptr<CSAOperand> defaultPrioOrderOperands();
 
   bool parsePrePost(StringRef Type, int *OffsetValue);
@@ -169,13 +168,9 @@ public:
 
   bool isOptionalReg() const { return isReg(); }
 
-  bool isMemLvl() const { return isImm(); }
-
-  bool isRMode() const { return isImm(); }
-
-  bool isInterval() const { return isImm(); }
-
-  bool isSignctl() const { return isImm(); }
+#define CSA_ASM_OPERAND(Asm, Enum, Default, ...) \
+  bool is##Asm() const { return isImm(); }
+#include "AsmOperands.h"
 
   bool isPrioOrder() const { return isImm(); }
 
@@ -260,25 +255,12 @@ public:
     Inst.addOperand(MCOperand::createReg(getReg()));
   }
 
-  void addMemLvlOperands(MCInst &Inst, unsigned N) const {
-    assert(N == 1 && "Invalid number of operands!");
-    addExpr(Inst, getImm());
+#define CSA_ASM_OPERAND(Asm, Enum, Default, ...) \
+  void add##Asm##Operands(MCInst &Inst, unsigned N) const { \
+    assert(N == 1 && "Invalid number of operands!"); \
+    addExpr(Inst, getImm()); \
   }
-
-  void addRModeOperands(MCInst &Inst, unsigned N) const {
-    assert(N == 1 && "Invalid number of operands!");
-    addExpr(Inst, getImm());
-  }
-
-  void addIntervalOperands(MCInst &Inst, unsigned N) const {
-    assert(N == 1 && "Invalid number of operands!");
-    addExpr(Inst, getImm());
-  }
-
-  void addSignctlOperands(MCInst &Inst, unsigned N) const {
-    assert(N == 1 && "Invalid number of operands!");
-    addExpr(Inst, getImm());
-  }
+#include "AsmOperands.h"
 
   void addPrioOrderOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
@@ -374,43 +356,12 @@ bool CSAAsmParser::ParseRegister(unsigned &RegNum, SMLoc &StartLoc,
   return (Op == nullptr);
 }
 
-static int roundingModeToInt(StringRef T) {
-  return StringSwitch<int>(T)
-    .Case("ROUND_NEAREST", CSA::ROUND_NEAREST)
-    .Case("ROUND_DOWNWARD", CSA::ROUND_DOWNWARD)
-    .Case("ROUND_UPWARD", CSA::ROUND_UPWARD)
-    .Case("ROUND_TOWARDZERO", CSA::ROUND_TOWARDZERO)
-    .Case("ROUND_NEAREST_NW", CSA::ROUND_NEAREST_NW)
-    .Case("ROUND_DOWNWARD_NW", CSA::ROUND_DOWNWARD_NW)
-    .Case("ROUND_UPWARD_NW", CSA::ROUND_UPWARD_NW)
-    .Case("ROUND_TOWARDZERO_NW", CSA::ROUND_TOWARDZERO_NW)
-    .Default(-1);
-}
-
-static int memLvlToInt(StringRef T) {
-  return StringSwitch<int>(T)
-    .Case("MEMLEVEL_NTA", CSA::MEMLEVEL_NTA)
-    .Case("MEMLEVEL_T2", CSA::MEMLEVEL_T2)
-    .Case("MEMLEVEL_T1", CSA::MEMLEVEL_T1)
-    .Case("MEMLEVEL_T0", CSA::MEMLEVEL_T0)
-    .Default(-1);
-}
-
-static int SignctlToInt(StringRef T) {
-  return StringSwitch<int>(T)
-    .Case("SIGNCTL_PROP", CSA::SIGNCTL_PROP)
-    .Case("SIGNCTL_FORCE", CSA::SIGNCTL_FORCE)
-    .Case("SIGNCTL_FORCE_AND_CHECK", CSA::SIGNCTL_FORCE_AND_CHECK)
-    .Default(-1);
-}
-
-static int IntervalToInt(StringRef T) {
-  return StringSwitch<int>(T)
-    .Case("INTERVAL0", CSA::INTERVAL0)
-    .Case("INTERVAL1", CSA::INTERVAL1)
-    .Case("INTERVAL2", CSA::INTERVAL2)
-    .Case("INTERVAL3", CSA::INTERVAL3)
-    .Default(-1);
+static int asmImmediateLabel(StringRef T) {
+  StringSwitch<int> sw(T);
+#define CSA_ASM_OPERAND_VALUE(x) sw.Case(#x, CSA::x)
+#define CSA_ASM_OPERAND(Asm, Enum, Default, ...) __VA_ARGS__;
+#include "AsmOperands.h"
+  return sw.Default(-1);
 }
 
 std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
@@ -425,13 +376,10 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
       return 0;
 
     // Check for one of the enum words
-    auto funcs = {roundingModeToInt, memLvlToInt, SignctlToInt, IntervalToInt};
-    for (auto func : funcs) {
-      int value = func(Identifier);
-      if (value >= 0) {
-        const MCConstantExpr *exp = MCConstantExpr::create(value, getContext());
-        return CSAOperand::createImm(exp, Start, End);
-      }
+    int value = asmImmediateLabel(Identifier);
+    if (value >= 0) {
+      const MCConstantExpr *exp = MCConstantExpr::create(value, getContext());
+      return CSAOperand::createImm(exp, Start, End);
     }
 
     // Otherwise, it's a symbol of some kind.
@@ -456,29 +404,13 @@ std::unique_ptr<CSAOperand> CSAAsmParser::defaultOptionalRegOperands() {
   return CSAOperand::createReg(CSA::IGN, loc, loc);
 }
 
-std::unique_ptr<CSAOperand> CSAAsmParser::defaultMemLvlOperands() {
-  SMLoc loc = Parser.getTok().getLoc();
-  return CSAOperand::createImm(
-    MCConstantExpr::create(CSA::MEMLEVEL_T0, getContext()), loc, loc);
-}
-
-std::unique_ptr<CSAOperand> CSAAsmParser::defaultRModeOperands() {
-  SMLoc loc = Parser.getTok().getLoc();
-  return CSAOperand::createImm(
-    MCConstantExpr::create(CSA::ROUND_NEAREST, getContext()), loc, loc);
-}
-
-std::unique_ptr<CSAOperand> CSAAsmParser::defaultSignctlOperands() {
-  SMLoc loc = Parser.getTok().getLoc();
-  return CSAOperand::createImm(
-    MCConstantExpr::create(CSA::SIGNCTL_PROP, getContext()), loc, loc);
-}
-
-std::unique_ptr<CSAOperand> CSAAsmParser::defaultIntervalOperands() {
-  SMLoc loc = Parser.getTok().getLoc();
-  return CSAOperand::createImm(
-    MCConstantExpr::create(CSA::INTERVAL0, getContext()), loc, loc);
-}
+#define CSA_ASM_OPERAND(Asm, Enum, Default, ...) \
+  std::unique_ptr<CSAOperand> CSAAsmParser::default##Asm##Operands() { \
+    SMLoc loc = Parser.getTok().getLoc(); \
+    return CSAOperand::createImm( \
+        MCConstantExpr::create(CSA::Default, getContext()), loc, loc); \
+  }
+#include "AsmOperands.h"
 
 std::unique_ptr<CSAOperand> CSAAsmParser::defaultPrioOrderOperands() {
   SMLoc loc = Parser.getTok().getLoc();

@@ -16,3 +16,4 @@ set(CSA_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(CSA_MAIN_INCLUDE_DIR ${CSA_SOURCE_DIR}/include/Intel_CSA)
 
 add_subdirectory(lib)
+add_subdirectory(test)

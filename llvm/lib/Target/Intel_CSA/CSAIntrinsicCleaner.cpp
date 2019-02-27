@@ -71,6 +71,9 @@ private:
   bool clean_spmdization(Function &);
   // Removes any unused pipeline_loop intrinsic pairs from a function
   bool clean_pipeline(Function &);
+    // Create a LIC ID rather than the class used in the builtins
+  bool expandLicQueueIntrinsics(Function &F);
+
 };
 
 char CSAIntrinsicCleaner::ID = 0;
@@ -82,7 +85,67 @@ bool CSAIntrinsicCleaner::runOnFunction(Function &F) {
         break;
     }
   }
-  return clean_spmdization(F) | clean_pipeline(F);
+  return expandLicQueueIntrinsics(F) | clean_spmdization(F) | clean_pipeline(F);
+}
+
+// convert init/write/read intrinsics to lower_init/lower_write/lower_read intrinsic
+bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
+
+  LLVMContext &CTX = F.getContext();
+  Module *M = F.getParent();
+
+  unsigned licNum = 0;
+  SmallVector<Instruction *, 4> toDelete;
+  for (auto &BB : F) {
+    for (auto &I : BB) {
+      auto intrinsic = dyn_cast<IntrinsicInst>(&I);
+      if (!intrinsic)
+        continue;
+
+      if (intrinsic->getIntrinsicID() != Intrinsic::csa_lic_init)
+        continue;
+      IntrinsicInst *write = nullptr, *read = nullptr;
+      for (auto user : intrinsic->users()) {
+        if (auto useIntrinsic = dyn_cast<IntrinsicInst>(user)) {
+          if (useIntrinsic->getIntrinsicID() == Intrinsic::csa_lic_write) {
+            if (write)
+              report_fatal_error("Can only have one write for a LIC queue");
+            write = useIntrinsic;
+            continue;
+          }
+          if (useIntrinsic->getIntrinsicID() == Intrinsic::csa_lic_read) {
+            if (read)
+              report_fatal_error("Can only have one read for a LIC queue");
+            read = useIntrinsic;
+            continue;
+          }
+        }
+        report_fatal_error("LIC streams can only have writes/reads");
+      }
+      if(!write || !read)
+        report_fatal_error("LIC streams must have one write and one read");
+      auto licID = ConstantInt::get(IntegerType::getInt32Ty(CTX), licNum++);
+      CallInst::Create(
+          Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_init),
+          { licID, I.getOperand(0), I.getOperand(1), I.getOperand(2) }, "", &I);
+      CallInst::Create(
+          Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_write,
+                                    write->getFunctionType()->getParamType(1)),
+          { licID, write->getOperand(1) }, "", write);
+      auto newRead = CallInst::Create(
+          Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_read,
+            read->getFunctionType()->getReturnType()),
+          { licID }, "", read);
+      read->replaceAllUsesWith(newRead);
+      read->eraseFromParent();
+      write->eraseFromParent();
+      toDelete.push_back(&I);
+    }
+  }
+
+  for (auto I : toDelete)
+    I->eraseFromParent();
+  return licNum != 0;
 }
 
 // Determines whether there are lifetime start intrinsics anywhere in L. If

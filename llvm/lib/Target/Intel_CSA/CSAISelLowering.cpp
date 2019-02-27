@@ -491,7 +491,62 @@ const char *CSATargetLowering::getTargetNodeName(unsigned Opcode) const {
     return "CSAISD::FMSUBADD";
   case CSAISD::Swizzle:
     return "CSAISD::Swizzle";
+  case CSAISD::GetVal:
+    return "CSAISD::GetVal";
+  case CSAISD::EntryPseudo:
+    return "CSAISD::EntryPseudo";
+  case CSAISD::ContinuePseudo:
+    return "CSAISD::ContinuePseudo";
+  case CSAISD::CallDF:
+    return "CSAISD::CallDF";
   }
+}
+
+bool CSATargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
+    const CallInst &I, MachineFunction &MF, unsigned Intrinsic) const {
+  // For streaming memory references, note that we could try to preserve more
+  // bits (such as whether the memory is volatile). This information, however,
+  // is essentially used only to determine what the chain operands are, which
+  // is not useful for CSA.
+  switch (Intrinsic) {
+    case Intrinsic::csa_stream_load:
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.memVT = MVT::getVT(I.getType());
+      Info.ptrVal = I.getArgOperand(0);
+      Info.offset = 0;
+      Info.align = 1;
+      Info.flags = MachineMemOperand::MOLoad;
+      if (Info.memVT == MVT::iPTR)
+        Info.memVT = MVT::i64;
+      if (I.getMetadata(LLVMContext::MD_nontemporal))
+          Info.flags |= MachineMemOperand::MONonTemporal;
+      return true;
+    case Intrinsic::csa_stream_load_x2:
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.memVT = MVT::getVT(I.getType()->getContainedType(0));
+      Info.ptrVal = I.getArgOperand(0);
+      Info.offset = 0;
+      Info.align = 1; // XXX: alignment rules for sld/sst?
+      Info.flags = MachineMemOperand::MOLoad;
+      if (Info.memVT == MVT::iPTR)
+        Info.memVT = MVT::i64;
+      if (I.getMetadata(LLVMContext::MD_nontemporal))
+          Info.flags |= MachineMemOperand::MONonTemporal;
+      return true;
+    case Intrinsic::csa_stream_store:
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.memVT = MVT::getVT(I.getArgOperand(0)->getType());
+      Info.ptrVal = I.getArgOperand(1);
+      Info.offset = 0;
+      Info.align = 1;
+      Info.flags = MachineMemOperand::MOStore;
+      if (Info.memVT == MVT::iPTR)
+        Info.memVT = MVT::i64;
+      if (I.getMetadata(LLVMContext::MD_nontemporal))
+          Info.flags |= MachineMemOperand::MONonTemporal;
+      return true;
+  }
+  return false;
 }
 
 SDValue CSATargetLowering::LowerGlobalAddress(SDValue Op,
@@ -750,8 +805,9 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
     SmallVector<OpndSource, 4> uses;
   };
 
-  // The table of memory instructions and how their operands are mapped.
-  static const MemopRec MemopTable[] = {
+  // The tables of memory instructions and how their operands are mapped. The
+  // first table maps ISD opcodes while the second maps intrinsic IDs.
+  static const MemopRec MemopISDTable[] = {
     {
       ISD::LOAD, CSA::Generic::LD, 0,
       {{OPND, 0}, ORD},
@@ -813,6 +869,23 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
     },
   };
+  static const MemopRec MemopIntrinsicTable[] = {
+    {
+      Intrinsic::csa_stream_load, CSA::Generic::SLD, 0,
+      {{OPND, 0}, ORD},
+      {{OPND, 2}, {OPND, 3}, {OPND, 4}, LEVEL, ORD}
+    },
+    {
+      Intrinsic::csa_stream_load_x2, CSA::Generic::SLDX2, 0,
+      {{OPND, 0}, {OPND, 1}, ORD},
+      {{OPND, 2}, {OPND, 3}, {OPND, 4}, LEVEL, ORD}
+    },
+    {
+      Intrinsic::csa_stream_store, CSA::Generic::SST, 4,
+      {ORD},
+      {{OPND, 3}, {OPND, 4}, {OPND, 5}, {OPND, 2}, LEVEL, ORD}
+    },
+  };
 
   SDNode *const MemopNode       = Op.getNode();
   MachineMemOperand *MemOperand = nullptr;
@@ -828,7 +901,7 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   SDValue Inord               = GetInord(Chain);
   const bool HasOrderingEdges = static_cast<bool>(Inord);
   if (not HasOrderingEdges) {
-    if (MemopNode->getOpcode() != ISD::LOAD)
+    if (!MemOperand || !MemOperand->isLoad())
       report_fatal_error("Only constant loads should be unordered");
     Inord = DAG.getRegister(CSA::IGN, MVT::i1);
   } else if (isa<ConstantSDNode>(Inord.getNode())) {
@@ -837,10 +910,21 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
 
   // Figure out which memop table entry to use.
   const unsigned SDOpcode = MemopNode->getOpcode();
-  const auto FoundMemop   = find_if(MemopTable, [SDOpcode](const MemopRec &R) {
-    return R.SDOpcode == SDOpcode;
-  });
-  assert(FoundMemop != end(MemopTable));
+  decltype(begin(MemopISDTable)) FoundMemop;
+
+  if (SDOpcode == ISD::INTRINSIC_W_CHAIN) {
+    unsigned ID = cast<ConstantSDNode>(Op->getOperand(1))->getLimitedValue();
+    FoundMemop = find_if(MemopIntrinsicTable, [ID](const MemopRec &R) {
+      return R.SDOpcode == ID;
+    });
+    assert(FoundMemop != end(MemopIntrinsicTable));
+  } else {
+    FoundMemop = find_if(MemopISDTable, [SDOpcode](const MemopRec &R) {
+      return R.SDOpcode == SDOpcode;
+    });
+    assert(FoundMemop != end(MemopISDTable));
+  }
+
   const MemopRec &CurRec = *FoundMemop;
 
   // Figure out the operands for the MachineSDNode.
@@ -965,23 +1049,69 @@ SDValue CSATargetLowering::LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const {
   const unsigned IntrId =
     cast<ConstantSDNode>(Op->getOperand(IdOpnd))->getLimitedValue();
   const SDLoc DL{Op};
+  MachineFunction &MF = DAG.getMachineFunction();
   switch (IntrId) {
   case Intrinsic::csa_mementry: {
     assert(Op->getOpcode() == ISD::INTRINSIC_W_CHAIN);
-    const SDValue Chain = Op->getOperand(0);
-    SDValue Copy        = DAG.getCopyFromReg(Chain, DL, CSA::RA, MVT::i1);
-    SDValue Outs[]      = {Copy, Copy.getValue(1)};
-    return DAG.getMergeValues(Outs, DL);
+    if (!MF.getSubtarget<CSASubtarget>().isSequential() &&
+      csa_utils::isAlwaysDataFlowLinkageSet()) {
+      // Get the SDValue correspoding to input memory ordering edge
+      SDNode *Entry = DAG.getEntryNode().getNode();
+      SDValue MemOpOrdering;
+      SDValue MemChain;
+      for (SDNode::use_iterator U = Entry->use_begin(), UE = Entry->use_end(); U != UE; ++U)
+        if (U->getOpcode() == CSAISD::EntryPseudo) {
+          SDNode *EntryPseudoNode = *U;
+          SDNode *MemOpNode = nullptr;
+          for (SDNode::use_iterator U1 = EntryPseudoNode->use_begin(), UE1 = EntryPseudoNode->use_end(); U1 != UE1; ++U1)
+            if (U1.getUse().get().getValueType() == MVT::Other)
+              MemOpNode = *U1;
+          assert(MemOpNode && "Input memory ordering edge was not generated by LowerFormalArguments");
+          LLVM_DEBUG(errs() << "MemOpNode = "; MemOpNode->dumpr(); errs() << "\n");
+          MemOpOrdering = SDValue(MemOpNode,0);
+          MemChain = Op->getOperand(0);
+          break;
+        }
+      SDValue Outs[]      = {MemOpOrdering, MemChain};
+      return DAG.getMergeValues(Outs, DL);
+    } else {
+      const SDValue Chain = Op->getOperand(0);
+      SDValue Copy        = DAG.getCopyFromReg(Chain, DL, CSA::RA, MVT::i1);
+      SDValue Outs[]      = {Copy, Copy.getValue(1)};
+      return DAG.getMergeValues(Outs, DL);
+    }
   }
   case Intrinsic::csa_outord: {
     assert(Op->getOpcode() == ISD::INTRINSIC_W_CHAIN);
-    const SDValue Chain = Op->getOperand(0);
-    if (isCallOrGluedToCall(Chain)) {
-      SDValue Copy   = DAG.getCopyFromReg(Chain, DL, CSA::RA, MVT::i1);
-      SDValue Outs[] = {Copy, Copy.getValue(1)};
+    if (!MF.getSubtarget<CSASubtarget>().isSequential() &&
+      csa_utils::isAlwaysDataFlowLinkageSet()) {
+      SDValue Chain = Op->getOperand(0);
+      if (Chain->getOpcode() != CSAISD::GetVal)
+        break;
+      while (1) {
+        if (Chain->getOpcode() == CSAISD::ContinuePseudo)
+          break;
+        Chain = Chain->getOperand(0);
+      }
+      SDNode *MemOpNode = nullptr;
+      for (SDNode::use_iterator U1 = Chain->use_begin(), UE1 = Chain->use_end(); U1 != UE1; ++U1)
+        if (U1.getUse().get().getValueType() == MVT::Other)
+          MemOpNode = *U1;
+      assert(MemOpNode && "Output memory ordering edge was not generated by LowerCall");
+      LLVM_DEBUG(errs() << "MemOpNode = "; MemOpNode->dumpr(); errs() << "\n");
+      SDValue MemOpOrdering = SDValue(MemOpNode,0);
+      SDValue MemChain = Op->getOperand(0);
+      SDValue Outs[]      = {MemOpOrdering, MemChain};
       return DAG.getMergeValues(Outs, DL);
+    } else {
+      const SDValue Chain = Op->getOperand(0);
+      if (isCallOrGluedToCall(Chain)) {
+        SDValue Copy   = DAG.getCopyFromReg(Chain, DL, CSA::RA, MVT::i1);
+        SDValue Outs[] = {Copy, Copy.getValue(1)};
+        return DAG.getMergeValues(Outs, DL);
+      }
+      break;
     }
-    break;
   }
   case Intrinsic::csa_all0: {
     assert(Op->getOpcode() == ISD::INTRINSIC_WO_CHAIN);
@@ -1056,6 +1186,10 @@ SDValue CSATargetLowering::LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const {
     return SDValue{DAG.getMachineNode(CSA::ALL0, DL, MVT::i1, Inputs), 0};
 #endif
   }
+  case Intrinsic::csa_stream_load:
+  case Intrinsic::csa_stream_load_x2:
+  case Intrinsic::csa_stream_store:
+    return LowerMemop(Op, DAG);
   default:
     break;
   }
@@ -1574,11 +1708,6 @@ bool CSATargetLowering::isLegalAddressingMode(const DataLayout &DL,
 /// for tail call optimization.
 bool CSATargetLowering::IsEligibleForTailCallOptimization(
   unsigned NextStackOffset, const CSAMachineFunctionInfo &FI) const {
-  if (csa_utils::isAlwaysDataFlowLinkageSet()) {
-    LLVM_DEBUG(errs() << "Tail call not supported for data flow linkage\n");
-    return false;
-  }
-        
   //  if (!EnableCSATailCalls)
   //    return false;
 
@@ -1611,6 +1740,47 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   MachineFunction &MF = DAG.getMachineFunction();
 
+  if (!MF.getSubtarget<CSASubtarget>().isSequential() &&
+      csa_utils::isAlwaysDataFlowLinkageSet()) {
+    // If the callee is a GlobalAddress/ExternalSymbol node (quite common, every
+    // direct call is) turn it into a TargetGlobalAddress/TargetExternalSymbol
+    // node so that legalize doesn't hack it.
+    if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee)) {
+      const GlobalValue *GV = G->getGlobal();
+      Callee =
+        DAG.getTargetGlobalAddress(GV, dl, getPointerTy(DAG.getDataLayout()));
+    } else if (ExternalSymbolSDNode *S = dyn_cast<ExternalSymbolSDNode>(Callee)) {
+      const char *Sym = S->getSymbol();
+      Callee =
+        DAG.getTargetExternalSymbol(Sym, getPointerTy(DAG.getDataLayout()));
+    }
+    // Grab the input ordering edge. If it is constant, it can be replaced with
+    // %ign.
+    SDValue Inord = GetInord(Chain);
+    if (not Inord)
+      report_fatal_error("Function call found without input ordering edge");
+    if (isa<ConstantSDNode>(Inord.getNode()))
+      Inord = DAG.getRegister(CSA::IGN, MVT::i1);
+    SmallVector<SDValue, 4> CallOps{Chain,Callee,Inord};
+    CallOps.append(OutVals.begin(), OutVals.end());
+    SDValue CallNode = DAG.getNode(CSAISD::CallDF, dl, MVT::Other, CallOps);
+    Chain = CallNode.getValue(0);
+    SmallVector<SDValue, 4> ContinueOps{Chain};
+    SDValue ContinueNode = DAG.getNode(CSAISD::ContinuePseudo, dl, {MVT::i1, MVT::Other}, ContinueOps);
+    Chain = ContinueNode.getValue(1);
+    SDValue LinkOut = ContinueNode.getValue(0);
+    SmallVector<SDValue, 4> GetValMemOps{Chain, LinkOut};
+    SDValue GetValMemOpNode = DAG.getNode(CSAISD::GetVal, dl, {MVT::i1, MVT::Other}, GetValMemOps);
+    Chain = GetValMemOpNode.getValue(1);
+    for (auto in : Ins) {
+      SmallVector<SDValue, 4> GetValParamOps{Chain, LinkOut};
+      SDValue GetValParamNode = DAG.getNode(CSAISD::GetVal, dl, {in.VT, MVT::Other}, GetValParamOps);
+      Chain = GetValParamNode.getValue(1);
+      SDValue Param = GetValParamNode.getValue(0);
+      InVals.push_back(Param);
+    }
+    return Chain;
+  }
   // Analyze operands of the call, assigning locations to each operand.
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), ArgLocs,
@@ -1644,9 +1814,6 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     }
   } else {
     // All arguments are treated the same.
-    if (csa_utils::isAlwaysDataFlowLinkageSet())
-      CCInfo.AnalyzeCallOperands(Outs, CC_LIC_CSA);
-    else
     CCInfo.AnalyzeCallOperands(Outs, CC_Reg_CSA);
   }
 
@@ -1669,7 +1836,7 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   if (isa<ConstantSDNode>(Inord.getNode()))
     Inord = DAG.getRegister(CSA::IGN, MVT::i1);
 
-  if (!csa_utils::isAlwaysDataFlowLinkageSet() && !isTailCall)
+  if (!isTailCall)
     Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, dl);
 
   // Add a copy to preserve the input memory ordering edge.
@@ -1792,7 +1959,6 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   InFlag           = Chain.getValue(1);
 
   // Create the CALLSEQ_END node.
-  if (!csa_utils::isAlwaysDataFlowLinkageSet())
   Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, dl, true),
                              DAG.getIntPtrConstant(0, dl, true), InFlag, dl);
   if (!Ins.empty())
@@ -1816,9 +1982,6 @@ SDValue CSATargetLowering::LowerCallResult(
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), RVLocs,
                  *DAG.getContext());
 
-  if (csa_utils::isAlwaysDataFlowLinkageSet())
-	  CCInfo.AnalyzeCallResult(Ins, RetCC_LIC_CSA);
-  else
   CCInfo.AnalyzeCallResult(Ins, RetCC_Reg_CSA);
 
   // Copy all of the result registers out of their specified physreg.
@@ -1845,19 +2008,34 @@ SDValue CSATargetLowering::LowerFormalArguments(
   SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
   const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &dl, SelectionDAG &DAG,
   SmallVectorImpl<SDValue> &InVals) const {
-
   MachineFunction &MF         = DAG.getMachineFunction();
-  MachineFrameInfo &MFI       = MF.getFrameInfo();
   CSAMachineFunctionInfo *UFI = MF.getInfo<CSAMachineFunctionInfo>();
-
+  if (!MF.getSubtarget<CSASubtarget>().isSequential() &&
+      csa_utils::isAlwaysDataFlowLinkageSet()) {
+    SmallVector<SDValue, 4> EntryOps{Chain};
+    SDValue EntryNode = DAG.getNode(CSAISD::EntryPseudo, dl, {MVT::i1, MVT::Other}, EntryOps);
+    Chain = EntryNode.getValue(1);
+    SDValue LinkOut = EntryNode.getValue(0);
+    SmallVector<SDValue, 4> GetValMemOps{Chain, LinkOut};
+    SDValue GetValMemOpNode = DAG.getNode(CSAISD::GetVal, dl, {MVT::i1, MVT::Other}, GetValMemOps);
+    Chain = GetValMemOpNode.getValue(1);
+    for (auto in : Ins) {
+      SmallVector<SDValue, 4> GetValParamOps{Chain, LinkOut};
+      SDValue GetValParamNode = DAG.getNode(CSAISD::GetVal, dl, {in.VT, MVT::Other}, GetValParamOps);
+      Chain = GetValParamNode.getValue(1);
+      SDValue Param = GetValParamNode.getValue(0);
+      InVals.push_back(Param);
+    }
+    return Chain;
+  }
+  // Also remove the inord node when generating sequential code.
+  GetInord(Chain);
+  MachineFrameInfo &MFI       = MF.getFrameInfo();
   // Assign locations to all of the incoming arguments.
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), ArgLocs,
                  *DAG.getContext());
 
-  if (csa_utils::isAlwaysDataFlowLinkageSet())
-	  CCInfo.AnalyzeFormalArguments(Ins, CC_LIC_CSA);
-  else
   CCInfo.AnalyzeFormalArguments(Ins, CC_Reg_CSA);
 
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
@@ -1867,26 +2045,25 @@ SDValue CSATargetLowering::LowerFormalArguments(
     if (VA.isRegLoc()) {
       // EVT RegVT = VA.getLocVT();
 
-      bool isDF = (csa_utils::isAlwaysDataFlowLinkageSet());
       // Transform the arguments stored in physical registers into virtual ones
-      const TargetRegisterClass *tClass = isDF ? &CSA::CI64RegClass : &CSA::RI64RegClass;
+      const TargetRegisterClass *tClass = &CSA::RI64RegClass;
       MVT tVT                           = VA.getValVT();
       if (tVT == MVT::i64) {
-        tClass = isDF ? &CSA::CI64RegClass : &CSA::I64RegClass;
+        tClass = &CSA::I64RegClass;
       } else if (tVT == MVT::i32) {
-        tClass = isDF ? &CSA::CI32RegClass : &CSA::I32RegClass;
+        tClass = &CSA::I32RegClass;
       } else if (tVT == MVT::i16) {
-        tClass = isDF ? &CSA::CI16RegClass : &CSA::I16RegClass;
+        tClass = &CSA::I16RegClass;
       } else if (tVT == MVT::i8) {
-        tClass = isDF ? &CSA::CI8RegClass : &CSA::I8RegClass;
+        tClass = &CSA::I8RegClass;
       } else if (tVT == MVT::i1) {
-        tClass = isDF ? &CSA::CI1RegClass : &CSA::I1RegClass;
+        tClass = &CSA::I1RegClass;
       } else if (tVT == MVT::f64) {
-        tClass = isDF ? &CSA::CI64RegClass : &CSA::I64RegClass;
+        tClass = &CSA::I64RegClass;
       } else if (tVT == MVT::f32) {
-        tClass = isDF ? &CSA::CI32RegClass : &CSA::I32RegClass;
+        tClass = &CSA::I32RegClass;
       } else if (tVT == MVT::v2f32) {
-        tClass = isDF ? &CSA::CI64RegClass : &CSA::I64RegClass;
+        tClass = &CSA::I64RegClass;
       } else {
         llvm_unreachable("WTC!!");
       }

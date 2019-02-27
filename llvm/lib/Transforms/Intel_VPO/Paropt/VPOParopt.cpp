@@ -33,8 +33,12 @@
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Utils.h"
 
-#define DEBUG_TYPE "VPOParopt"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif  // INTEL_CUSTOMIZATION
 
+#define DEBUG_TYPE "VPOParopt"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -47,6 +51,9 @@ INITIALIZE_PASS_BEGIN(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
+#if INTEL_CUSTOMIZATION
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+#endif  // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
                     false)
 
@@ -71,6 +78,9 @@ VPOParoptPass::VPOParoptPass(unsigned MyMode, unsigned OptLevel)
 void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredID(LoopSimplifyID);
   AU.addRequired<WRegionInfoWrapperPass>();
+#if INTEL_CUSTOMIZATION
+  AU.addRequired<OptReportOptionsPass>();
+#endif  // INTEL_CUSTOMIZATION
 }
 
 bool VPOParopt::runOnModule(Module &M) {
@@ -81,6 +91,10 @@ bool VPOParopt::runOnModule(Module &M) {
     return getAnalysis<WRegionInfoWrapperPass>(F).getWRegionInfo();
   };
 
+#if INTEL_CUSTOMIZATION
+  ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
+#endif  // INTEL_CUSTOMIZATION
+
   return Impl.runImpl(M, WRegionInfoGetter);
 }
 
@@ -90,6 +104,10 @@ PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
         AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
     return FAM.getResult<WRegionInfoAnalysis>(F);
   };
+
+#if INTEL_CUSTOMIZATION
+  ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(M).getVerbosity();
+#endif  // INTEL_CUSTOMIZATION
 
   if (!runImpl(M, WRegionInfoGetter))
     return PreservedAnalyses::all();

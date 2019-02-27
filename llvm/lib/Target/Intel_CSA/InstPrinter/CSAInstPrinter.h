@@ -45,17 +45,10 @@ public:
   void printUnitOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
                         const char *Modifier = nullptr);
 
-  void printRModeOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
-                         const char *Modifier = nullptr);
-
-  void printMemLvlOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
-                          const char *Modifier = nullptr);
-
-  void printSignctlOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
+#define CSA_ASM_OPERAND(Asm, Enum, Default, ...) \
+  void print##Asm##Operand(const MCInst *MI, unsigned OpNo, raw_ostream &O, \
                            const char *Modifier = nullptr);
-
-  void printIntervalOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
-                            const char *Modifier = nullptr);
+#include "AsmOperands.h"
 
   void printPrioOrderOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
                             const char *Modifier = nullptr);

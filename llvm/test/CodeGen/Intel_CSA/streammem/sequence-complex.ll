@@ -1,10 +1,6 @@
 ; RUN: llc < %s | FileCheck %s
 target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
-; Test is expected to fail because it relies on an LDD-based pattern in
-; streaming memory conversion and LDD is no longer being generated. This may be
-; fixed as part of CBSDK-19.
-; XFAIL: *
 
 ; Function Attrs: nounwind uwtable
 define void @norm_double({double, double}* noalias nocapture readonly %a, double* noalias nocapture %res, i32 %N) local_unnamed_addr #0 {

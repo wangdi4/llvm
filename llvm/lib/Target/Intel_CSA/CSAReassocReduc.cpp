@@ -359,6 +359,10 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
     .addUse(parts_pred_ctl)
     .addUse(parts);
 
+  // The backedge of the reducer loop should be parts because otherwise
+  // auto-buffering fails to add necessary buffer on one leg of parts_pred_ctl.
+  LMFI->addLICAttribute(parts, "csasim_backedge");
+
   // If init happens to be the identity element, parts can just be reinitialized
   // with identity elements.
   if (init_is_identity) {
@@ -453,6 +457,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   const unsigned clpsr_right = add_lic(lic_class, "clpsr_right");
   const unsigned clpsr_out   = add_lic(lic_class, "clpsr_out");
   const unsigned clpsr_back  = add_lic(lic_class, "clpsr_back");
+  LMFI->addLICAttribute(clpsr_back, "csasim_backedge");
   add_instr(opcode_pick)
     .addDef(clpsr_in)
     .addUse(clpsr_picker)

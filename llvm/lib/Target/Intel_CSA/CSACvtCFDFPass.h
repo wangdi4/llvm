@@ -126,6 +126,9 @@ private:
   /// by generating a dummy return value instead.
   void generateSingleReturn();
 
+  /// Lower intrinsics for LIC queues.
+  void lowerLicQueue();
+
   /// \defgroup Switch generation
   /// This set of functions implements the generation of switch instructions
   /// from branch instructions.
@@ -392,5 +395,9 @@ private:
   /// buildBBMapping is true, attempt to propagate information about basic
   /// block mapping as well.
   void findLICGroups(bool buildBBMapping);
+
+  /// generate entry inst from entrypseudo and getval insts
+  void  generateEntryInstr(void);
+  void  generateContinueInstrs(void);
 };
 } // namespace llvm

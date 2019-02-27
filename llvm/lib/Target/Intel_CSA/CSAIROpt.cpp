@@ -94,6 +94,9 @@ INITIALIZE_PASS_END(CSAIRReductionOpt, DEBUG_TYPE, "IR Reduction optimization",
 bool CSAIRReductionOpt::runOnLoop(Loop *L, LPPassManager &) {
   if (DisableIRReductionOpt)
     return false;
+  // This causes isReductionPHI to crash if there is no loop preheader.
+  if (!L->getLoopPreheader())
+    return false;
   bool changed         = false;
   LLVMContext &context = L->getHeader()->getContext();
   SmallVector<Instruction *, 8> toBeDeleted;

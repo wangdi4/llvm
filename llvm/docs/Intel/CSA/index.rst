@@ -35,13 +35,15 @@ general compilation flow:
   (:ref:`CSAFortranIntrinsics`, :ref:`CSALoopIntrinsicExpander`) - Lowers
   user-facing pathfinding builtins into common/internal forms.
 - Generic IR optimizations + LoopSPMDization
-- Late CSA IR passes (CSAIRReductionOpt, StructurizeCFG, CSAInnerLoopPrep,
-  CSAStreamingMemoryPrep, :ref:`CSAIntrinsicCleaner`,
+- Late CSA IR passes (CSAIRReductionOpt, CSAInnerLoopPrep,
+  :ref:`CSAIntrinsicCleaner`,
   :doc:`CSALowerLoopIdioms`) - These perform extra
   CSA-advantaged optimizations and prepare the code for instruction selection.
 - :doc:`CSA Memory Operation Ordering (CSAMemopOrdering) <MemoryOrdering>` -
   Inserts ordering edges between memory operations as needed to enforce memory
   ordering constraints in the original program.
+- CSAStreamingMemoryConversion - This makes streaming loads and stores out of
+  affine loop expressions.
 - Instruction Selection + CSAExpandInlineAsm
 - :doc:`CSA Dataflow Conversion (CSACvtCFDFPass) <DataflowConversion>` -
   Converts the code from SSA form into dataflow by converting branches/phis

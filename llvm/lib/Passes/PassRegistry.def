@@ -32,6 +32,9 @@ MODULE_ANALYSIS("targetlibinfo", TargetLibraryAnalysis())
 MODULE_ANALYSIS("wholeprogram", WholeProgramAnalysis())     // INTEL
 MODULE_ANALYSIS("verify", VerifierAnalysis())
 MODULE_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
+#if INTEL_CUSTOMIZATION
+MODULE_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())
+#endif // INTEL_CUSTOMIZATION
 
 #ifndef MODULE_ALIAS_ANALYSIS
 #define MODULE_ALIAS_ANALYSIS(NAME, CREATE_PASS)                               \

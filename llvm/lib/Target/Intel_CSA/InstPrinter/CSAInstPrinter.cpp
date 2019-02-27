@@ -34,8 +34,6 @@ static cl::opt<bool> WrapAsmOpt("csa-wrap-asm", cl::Hidden, cl::ZeroOrMore,
                                 cl::init(false));
 
 static std::map<int, const char *> FUName;
-static std::map<int, const char *> RMName;
-static std::map<int, const char *> MLName;
 
 // Pin the vtable to this file
 void CSAInstPrinter::anchor() {}
@@ -57,22 +55,6 @@ CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
   FUName[CSA::FUNCUNIT::MEM]  = "mem"; // Memory access
   FUName[CSA::FUNCUNIT::SXU]  = "sxu"; // Sequential eXecution Unit
   FUName[CSA::FUNCUNIT::SPD]  = "spd"; // Scratchpad
-
-  // Should match lists in CSAInstrInfo.h and csa.h in the simulator.
-  RMName[CSA::ROUND_NEAREST]       = "ROUND_NEAREST";
-  RMName[CSA::ROUND_DOWNWARD]      = "ROUND_DOWNWARD";
-  RMName[CSA::ROUND_UPWARD]        = "ROUND_UPWARD";
-  RMName[CSA::ROUND_TOWARDZERO]    = "ROUND_TOWARDZERO";
-  RMName[CSA::ROUND_NEAREST_NW]    = "ROUND_NEAREST_NW";
-  RMName[CSA::ROUND_DOWNWARD_NW]   = "ROUND_DOWNWARD_NW";
-  RMName[CSA::ROUND_UPWARD_NW]     = "ROUND_UPWARD_NW";
-  RMName[CSA::ROUND_TOWARDZERO_NW] = "ROUND_TOWARDZERO_NW";
-
-  // Should also match the names in CSAInstrInfo.h and the simulator.
-  MLName[CSA::MEMLEVEL_NTA] = "MEMLEVEL_NTA";
-  MLName[CSA::MEMLEVEL_T2]  = "MEMLEVEL_T2";
-  MLName[CSA::MEMLEVEL_T1]  = "MEMLEVEL_T1";
-  MLName[CSA::MEMLEVEL_T0]  = "MEMLEVEL_T0";
 }
 
 bool CSAInstPrinter::WrapCsaAsm() { return WrapAsmOpt; }
@@ -125,70 +107,23 @@ void CSAInstPrinter::printUnitOperand(const MCInst *MI, unsigned OpNo,
   O << FUName[Op.getImm()];
 }
 
-void CSAInstPrinter::printRModeOperand(const MCInst *MI, unsigned OpNo,
-                                       raw_ostream &O, const char *Modifier) {
-  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
-
-  // This is an optional operand. The optional MO is added at selection, so if
-  // this instruction was added later, it may still not have this operand. In
-  // this case, just print the default, 0.
-  int64_t immV = 0;
-
-  if (OpNo < MI->getNumOperands()) {
-    const MCOperand &Op = MI->getOperand(OpNo);
-    immV                = Op.getImm();
-  }
-
-  auto it = RMName.find(immV);
-  if (it != RMName.end())
-    O << RMName[immV];
-  else
-    printOperand(MI, OpNo, O, Modifier);
+#define CSA_ASM_OPERAND_VALUE(x) #x
+#define CSA_ASM_OPERAND(Asm, Enum, Default, ...) \
+void CSAInstPrinter::print##Asm##Operand(const MCInst *MI, unsigned OpNo, \
+                                         raw_ostream &O, const char *Modifier) { \
+  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported"); \
+  uint64_t value = CSA::Default; \
+  if (OpNo < MI->getNumOperands()) \
+    value = MI->getOperand(OpNo).getImm(); \
+  static const char *names[] = { \
+    __VA_ARGS__ \
+  }; \
+  assert(value < sizeof(names) / sizeof(names[0]) && \
+    #Asm " operand is outside range of permissible values"); \
+  O << names[value]; \
 }
 
-void CSAInstPrinter::printMemLvlOperand(const MCInst *MI, unsigned OpNo,
-                                        raw_ostream &O, const char *Modifier) {
-  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
-
-  int64_t immV = MI->getOperand(OpNo).getImm();
-  auto it      = MLName.find(immV);
-  if (it != MLName.end())
-    O << it->second;
-  else
-    printOperand(MI, OpNo, O, Modifier);
-}
-
-void CSAInstPrinter::printSignctlOperand(const MCInst *MI, unsigned OpNo,
-                                         raw_ostream &O, const char *Modifier) {
-  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
-
-  int64_t immV = MI->getOperand(OpNo).getImm();
-  static const std::array<const char *, 3> names = {
-    "SIGNCTL_PROP", "SIGNCTL_FORCE", "SIGNCTL_FORCE_AND_CHECK"};
-  if (immV >= 0 && immV < (int64_t)names.size())
-    O << names[immV];
-  else
-    printOperand(MI, OpNo, O, Modifier);
-}
-
-void CSAInstPrinter::printIntervalOperand(const MCInst *MI, unsigned OpNo,
-                                          raw_ostream &O,
-                                          const char *Modifier) {
-  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
-
-  int64_t immV = MI->getOperand(OpNo).getImm();
-  static const std::array<const char *, 4> names = {
-    "INTERVAL0",
-    "INTERVAL1",
-    "INTERVAL2",
-    "INTERVAL3",
-  };
-  if (immV >= 0 && immV < (int64_t)names.size())
-    O << names[immV];
-  else
-    printOperand(MI, OpNo, O, Modifier);
-}
-
+#include "AsmOperands.h"
 
 void CSAInstPrinter::printPrioOrderOperand(const MCInst *MI, unsigned OpNo,
                                            raw_ostream &O,

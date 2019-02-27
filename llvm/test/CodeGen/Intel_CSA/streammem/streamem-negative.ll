@@ -1,4 +1,4 @@
-; RUN: llc <%s | FileCheck %s
+; RUN: llc -csa-enable-all-strides <%s | FileCheck %s
 ; ModuleID = 'bugpoint-reduced-simplified.bc'
 source_filename = "bugpoint-output-3f7a382.bc"
 target datalayout = "e-m:e-i64:64-n32:64"

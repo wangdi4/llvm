@@ -31,6 +31,11 @@
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif  // INTEL_CUSTOMIZATION
+
 #include <functional>
 
 namespace llvm {
@@ -53,7 +58,11 @@ public:
   /// ParoptModuleTransform object constructor
   VPOParoptModuleTransform(Module &M, int Mode, unsigned OptLevel = 2,
                            bool SwitchToOffload = false)
-    : M(M), C(M.getContext()), Mode(Mode), OptLevel(OptLevel),
+    : M(M), C(M.getContext()), Mode(Mode),
+#if INTEL_CUSTOMIZATION
+      ORVerbosity(OptReportVerbosity::Low),
+#endif  // INTEL_CUSTOMIZATION
+      OptLevel(OptLevel),
       SwitchToOffload(SwitchToOffload),
       TgOffloadEntryTy(nullptr), TgDeviceImageTy(nullptr),
       TgBinaryDescriptorTy(nullptr), DsoHandle(nullptr)
@@ -87,6 +96,12 @@ private:
 
   /// Paropt compilation mode.
   int Mode;
+
+#if INTEL_CUSTOMIZATION
+  /// Verbosity level for generating remarks using Loop Opt Report
+  /// framework (under -qopt-report).
+  OptReportVerbosity::Level ORVerbosity;
+#endif  // INTEL_CUSTOMIZATION
 
   /// Optimization level.
   unsigned OptLevel;

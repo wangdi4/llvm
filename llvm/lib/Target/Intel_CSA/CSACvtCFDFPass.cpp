@@ -146,6 +146,10 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   // which need to be flowed in.
   createFIEntryDefs();
 
+  if (csa_utils::isAlwaysDataFlowLinkageSet()) {
+    generateEntryInstr();
+    generateContinueInstrs();
+  }
   generateSingleReturn();
   replaceUndefWithIgn();
   handleAllConstantInputs();
@@ -210,6 +214,10 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   findLICGroups(false);
   assignLicFrequencies(getAnalysis<MachineBlockFrequencyInfo>());
 
+  // Lower LIC queue intrinsics here. This prevents us from trying to add
+  // switch/picks to the code in question.
+  lowerLicQueue();
+
   if (!RunSXU) {
     removeBranch();
     linearizeCFG();
@@ -222,6 +230,77 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   RunSXU = false;
 
   return true;
+}
+
+static MachineInstr *getEntryPseudoMI(MachineFunction *MF) {
+  for (MachineFunction::iterator MBB = MF->begin(); MBB != MF->end(); MBB++) {
+    for (MachineBasicBlock::iterator I = MBB->begin(); I != MBB->end(); I++) {
+      MachineInstr *MI = &*I;
+      if (MI->getOpcode() == CSA::CSA_ENTRYPSEUDO)
+        return MI;
+    }
+  }
+  assert(false && "Pseudo entry instruction not found!!");
+  return nullptr;
+}
+
+// During ISelLowering, Function entry points are lowered to CSA_ENTRYPSEUDO
+// followed by a list of CSA_GETVAL* instructions, one for each input argument
+// This function merges these PSEUDO instruction to generate a single CSA_ENTRY instruction
+void CSACvtCFDFPass::generateEntryInstr() {
+  MachineInstr *EntryPseudoMI = getEntryPseudoMI(thisMF);
+  MachineInstrBuilder MIB =
+    BuildMI(*(EntryPseudoMI->getParent()), EntryPseudoMI, EntryPseudoMI->getDebugLoc(),
+            TII->get(CSA::CSA_ENTRY));
+  // Parsing through instructions to find the related GETVALs
+  unsigned reg = EntryPseudoMI->getOperand(0).getReg();
+  auto nextUI = MRI->use_begin(reg);
+  for (auto UI = MRI->use_begin(reg), UE = MRI->use_end(); UI != UE; UI = nextUI) {
+    MachineInstr *MI = UI->getParent();
+    assert(TII->getGenericOpcode(MI->getOpcode()) == CSA::Generic::CSA_GETVAL);
+    ++UI;
+    nextUI = UI;
+    MIB.addDef(MI->getOperand(0).getReg());
+    MI->eraseFromParent();
+  }
+  MIB.setMIFlag(MachineInstr::NonSequential);
+  LMFI->setEntryMI(&*MIB);
+  EntryPseudoMI->eraseFromParent();
+}
+
+// During ISelLowering, call-sites are lowered to CSA_CALL and CSA_CONTINUEPSEUDO
+// followed by a list of CSA_GETVAL* instructions, one for each returned value
+// This function merges these PSEUDO instruction to generate a single CSA_CONTINUE instruction
+void CSACvtCFDFPass::generateContinueInstrs() {
+  // Loop through all instructions and find sites to include CSA_CONTINUE
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end();
+       BB != E; ++BB) {
+    for (MachineBasicBlock::iterator I = BB->begin(), EI = BB->end(); I != EI;) {
+      MachineInstr *ContinuePseudoMI = &*I;
+      if (ContinuePseudoMI->getOpcode() == CSA::CSA_CONTINUEPSEUDO) {
+        MachineInstrBuilder MIB =
+          BuildMI(*(ContinuePseudoMI->getParent()), ContinuePseudoMI, ContinuePseudoMI->getDebugLoc(),
+              TII->get(CSA::CSA_CONTINUE));
+        // Parsing through instructions to find the related GETVALs
+        unsigned reg = ContinuePseudoMI->getOperand(0).getReg();
+        auto nextUI = MRI->use_begin(reg);
+        for (auto UI = MRI->use_begin(reg), UE = MRI->use_end(); UI != UE; UI = nextUI) {
+          MachineInstr *MI = UI->getParent();
+          ++UI;
+          nextUI = UI;
+          if (TII->getGenericOpcode(MI->getOpcode()) != CSA::Generic::CSA_GETVAL) continue;
+          MIB.addDef(MI->getOperand(0).getReg());
+          MI->eraseFromParent();
+        }
+        // End of parsing through instructions to find the related GETVALs
+        MIB.setMIFlag(MachineInstr::NonSequential);
+        ContinuePseudoMI->eraseFromParent();
+        MachineBasicBlock::iterator nextI(&*MIB);
+        I = nextI;
+      } else
+        ++I;
+    }
+  }
 }
 
 void CSACvtCFDFPass::generateSingleReturn() {
@@ -653,10 +732,9 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
     // of 2**8-1==255 by the VISA.
     unsigned numTokens = std::min(255U, pipeliningDegree);
 
-    // ...and they're further limited to a maximum depth of 32 according to V1
-    // expectations, which is what the simulator is currently intepreting
-    // compiler output as.
-    numTokens = std::min(32U, numTokens);
+    // ...and they're further limited to a maximum depth of 64 according to V1
+    // expectations. This limit will seemingly be exposed to the vISA.
+    numTokens = std::min(64U, numTokens);
 
     assert(DFLoop.getNumExits() == 1 &&
       "Can only pipeline loops with single exit blocks");
@@ -872,6 +950,9 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
     // Advise the simulator not to be concerned if the this has values in it on
     // exit; this is expected.
     LMFI->addLICAttribute(newToken, "csasim_ignore_on_exit");
+
+    // This is also a backedge from a dataflow perspective.
+    LMFI->addLICAttribute(newToken, "csasim_backedge");
 
     // TODO: Do not need to reorder 0-bit channels; we should be able to just
     // do rate-limiting with no reordering/storage once the compiler starts
@@ -1274,39 +1355,22 @@ void CSACvtCFDFPass::removeBranch() {
 }
 
 void CSACvtCFDFPass::linearizeCFG() {
-  std::stack<MachineBasicBlock *> mbbStack;
-  MachineBasicBlock *root = &*thisMF->begin();
-  for (scc_iterator<MachineFunction *> I  = scc_begin(thisMF),
-                                       IE = scc_end(thisMF);
-       I != IE; ++I) {
-    // Obtain the vector of BBs in this SCC
-    const std::vector<MachineBasicBlock *> &SCCBBs = *I;
-    for (std::vector<MachineBasicBlock *>::const_iterator BBI  = SCCBBs.begin(),
-                                                          BBIE = SCCBBs.end();
-         BBI != BBIE; ++BBI) {
-      mbbStack.push(*BBI);
-    }
+  MachineBasicBlock *Entry = &*thisMF->begin();
+  for (auto SI = Entry->succ_begin(); SI != Entry->succ_end(); ) {
+    SI = Entry->removeSuccessor(SI);
   }
-  MachineBasicBlock *x = mbbStack.top();
-  assert(x == root);
-  _unused(x);
-  MachineBasicBlock::succ_iterator SI = root->succ_begin();
-  while (SI != root->succ_end()) {
-    SI = root->removeSuccessor(SI);
-  }
-  mbbStack.pop();
-  while (!mbbStack.empty()) {
-    MachineBasicBlock *mbb = mbbStack.top();
-    mbbStack.pop();
-    root->splice(root->end(), mbb, mbb->begin(), mbb->end());
-    mbb->eraseFromParent();
+  for (MachineBasicBlock *MBB : *RPOT) {
+    if (MBB == Entry)
+      continue;
+    Entry->splice(Entry->end(), MBB, MBB->begin(), MBB->end());
+    MBB->eraseFromParent();
   }
 
   // Move the return instruction to the end.
   MachineInstr *ReturnMI = LMFI->getReturnMI();
   if (ReturnMI) {
     ReturnMI->removeFromParent();
-    root->insert(root->end(), ReturnMI);
+    Entry->insert(Entry->end(), ReturnMI);
   }
 }
 
@@ -2030,6 +2094,9 @@ void CSACvtCFDFPass::computeBlockPredicates() {
         LoopInitPredicate)
       .addImm(0);
 
+    // This is a backedge, too.
+    LMFI->addLICAttribute(LoopInitPredicate, "csasim_backedge");
+
     // Block predicate is Loop || Start.
     BuildMI(*MBB, InsertPoint, L->getStartLoc(), TII->get(CSA::LOR1), BlockPred)
       .addReg(LoopInitPredicate)
@@ -2399,4 +2466,46 @@ unsigned PickTreeNode::convertToPick(MachineInstr *Phi,
     .addReg(TrueReg);
 
   return OutputReg;
+}
+
+void CSACvtCFDFPass::lowerLicQueue() {
+  std::vector<unsigned> LicToReg; // maps from licNum -> register number
+  SmallVector<MachineInstr *, 8> ToDelete;
+  for (auto BB : *RPOT) {
+    for (auto &MI : *BB) {
+      if (MI.getOpcode() == CSA::CSA_LIC_INIT){
+        unsigned licNum = MI.getOperand(0).getImm();
+        const TargetRegisterClass *RC =
+          TII->getLicClassForSize(MI.getOperand(1).getImm()*8);
+        unsigned LicReg = LMFI->allocateLIC(RC, Twine("lic_queue") +
+                                            Twine(licNum));
+        LMFI->setLICDepth(LicReg, MI.getOperand(3).getImm());
+        if (licNum >= LicToReg.size()) LicToReg.resize(licNum+1);
+        LicToReg[licNum] = LicReg;
+        ToDelete.push_back(&MI);
+      }
+      else if (MI.getOpcode() == CSA::CSA_LIC_WRITE) {
+        unsigned licNum = MI.getOperand(0).getImm();
+        unsigned reg =  LicToReg[licNum];
+        const TargetRegisterClass *RC = MRI->getRegClass(reg);
+        unsigned MovOpcode = TII->getMoveOpcode(RC);
+        MachineInstr *movInst = BuildMI(*BB, MI, MI.getDebugLoc(),
+                   TII->get(MovOpcode), reg).addReg(MI.getOperand(1).getReg());
+        movInst->setFlag(MachineInstr::NonSequential);
+        ToDelete.push_back(&MI);
+      }
+      else if (MI.getOpcode() == CSA::CSA_LIC_READ) {
+        unsigned licNum = MI.getOperand(1).getImm();
+        unsigned reg =  LicToReg[licNum];
+        const TargetRegisterClass *RC = MRI->getRegClass(reg);
+        unsigned MovOpcode = TII->getMoveOpcode(RC);
+        MachineInstr *movInst = BuildMI(*BB, MI, MI.getDebugLoc(),
+                  TII->get(MovOpcode ), MI.getOperand(0).getReg()).addReg(reg);
+        movInst->setFlag(MachineInstr::NonSequential);
+        ToDelete.push_back(&MI);
+      }
+    }
+  }
+  for (auto MI : ToDelete)
+    MI->eraseFromParent();
 }

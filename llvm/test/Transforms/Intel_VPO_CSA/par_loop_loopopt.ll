@@ -23,8 +23,8 @@ DIR.OMP.PARALLEL.LOOP.1:
   br label %DIR.OMP.PARALLEL.LOOP.19
 
 DIR.OMP.PARALLEL.LOOP.19:
-; CHECK: [[TOK:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 1) ]
+; CHECK: [[TOK:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 1), "QUAL.OMP.FIRSTPRIVATE"(i32* null), "QUAL.OMP.PRIVATE"(i32* null)
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 1), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %i) ]
   br label %DIR.OMP.PARALLEL.LOOP.2
 
 DIR.OMP.PARALLEL.LOOP.2:
@@ -73,7 +73,7 @@ DIR.OMP.PARALLEL.LOOP.1:
 
 DIR.OMP.PARALLEL.LOOP.19:
 ; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 2) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 2), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %i) ]
   br label %DIR.OMP.PARALLEL.LOOP.2
 
 DIR.OMP.PARALLEL.LOOP.2:

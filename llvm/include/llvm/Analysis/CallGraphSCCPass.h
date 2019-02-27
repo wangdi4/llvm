@@ -82,7 +82,7 @@ public:
 protected:
   /// Optional passes call this function to check whether the pass should be
   /// skipped. This is the case when optimization bisect is over the limit.
-  bool skipSCC(CallGraphSCC &SCC) const;
+  virtual bool skipSCC(CallGraphSCC &SCC) const; // INTEL
 };
 
 /// CallGraphSCC - This is a single SCC that a CallGraphSCCPass is run on.

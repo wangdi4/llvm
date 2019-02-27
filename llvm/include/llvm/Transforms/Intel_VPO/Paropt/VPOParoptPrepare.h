@@ -36,6 +36,11 @@
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif  // INTEL_CUSTOMIZATION
+
 namespace llvm {
 
 class FunctionPass;
@@ -58,6 +63,12 @@ private:
 
   // VPO-mode
   unsigned Mode;
+
+#if INTEL_CUSTOMIZATION
+  // Verbosity level for generating remarks using Loop Opt Report
+  // framework (under -qopt-report).
+  OptReportVerbosity::Level ORVerbosity;
+#endif  // INTEL_CUSTOMIZATION
 };
 
 namespace vpo {
@@ -82,6 +93,12 @@ public:
 
 private:
   VPOParoptPreparePass Impl;
+
+#if INTEL_CUSTOMIZATION
+  // Verbosity level for generating remarks using Loop Opt Report
+  // framework (under -qopt-report).
+  OptReportVerbosity::Level ORVerbosity;
+#endif  // INTEL_CUSTOMIZATION
 };
 
 } // end namespace vpo

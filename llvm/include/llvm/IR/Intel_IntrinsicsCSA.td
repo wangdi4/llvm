@@ -145,5 +145,45 @@ def int_csa_all0 :
     Intrinsic<[llvm_i1_ty], [llvm_vararg_ty],
               [IntrNoMem] /* , "llvm.csa.all0" */>;
 
+// LIC Queues intrinsics
+def int_csa_lic_init :
+    Intrinsic<[llvm_i32_ty], [llvm_i8_ty, llvm_i64_ty, llvm_i64_ty],
+   []>;
+
+def int_csa_lic_write :
+    Intrinsic<[], [llvm_i32_ty, llvm_any_ty],
+    [] /* , "llvm.csa.lic.write" */>;
+
+def int_csa_lic_read :
+    Intrinsic<[llvm_any_ty], [llvm_i32_ty],
+    [] /* , "llvm.csa.lic.read" */>;
+
+// LIC Queues Lowering intrinsics
+def int_csa_lower_lic_init :
+    Intrinsic<[], [llvm_i32_ty, llvm_i8_ty, llvm_i64_ty, llvm_i64_ty],
+    [IntrConvergent, IntrNoDuplicate]>;
+
+def int_csa_lower_lic_write :
+    Intrinsic<[], [llvm_i32_ty, llvm_any_ty],
+    [IntrConvergent, IntrNoDuplicate]>;
+
+def int_csa_lower_lic_read :
+    Intrinsic<[llvm_any_ty], [llvm_i32_ty],
+    [IntrConvergent, IntrNoDuplicate]>;
+
+def int_csa_stream_load : Intrinsic<[llvm_any_ty],
+    [LLVMPointerType<LLVMMatchType<0>>, llvm_i64_ty, llvm_i64_ty],
+    [IntrArgMemOnly, NoCapture<0>, ReadOnly<0>, IntrConvergent], "",
+    [SDNPMemOperand]>;
+
+def int_csa_stream_load_x2 : Intrinsic<[llvm_any_ty, LLVMMatchType<0>],
+    [LLVMPointerType<LLVMMatchType<0>>, llvm_i64_ty, llvm_i64_ty],
+    [IntrArgMemOnly, NoCapture<0>, ReadOnly<0>, IntrConvergent], "",
+    [SDNPMemOperand]>;
+
+def int_csa_stream_store : Intrinsic<[],
+    [llvm_any_ty, LLVMPointerType<LLVMMatchType<0>>, llvm_i64_ty, llvm_i64_ty],
+    [IntrArgMemOnly, NoCapture<1>, WriteOnly<1>, IntrConvergent], "",
+    [SDNPMemOperand]>;
 }
 #endif // INTEL_FEATURE_CSA

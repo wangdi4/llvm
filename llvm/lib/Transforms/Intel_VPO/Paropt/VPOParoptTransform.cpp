@@ -72,6 +72,11 @@
 #include "llvm/Transforms/Utils/LoopRotationUtils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif  // INTEL_CUSTOMIZATION
+
 #include <algorithm>
 #include <set>
 #include <vector>
@@ -809,6 +814,13 @@ bool VPOParoptTransform::paroptTransforms() {
 
   BasicBlock::iterator I = F->getEntryBlock().begin();
 
+#ifdef INTEL_CUSTOMIZATION
+  // Following two variables are used when generating remarks using
+  // Loop Opt Report framework (under -qopt-report).
+  LoopInfo *ORLinfo = nullptr;
+  Loop *ORLoop = nullptr;
+#endif  // INTEL_CUSTOMIZATION
+
   // Setup Anchor Instuction Point
   Instruction *AI = &*I;
 
@@ -942,6 +954,7 @@ bool VPOParoptTransform::paroptTransforms() {
     }
     else {
       bool IsPrepare = Mode & ParPrepare;
+
       switch (W->getWRegionKindID()) {
 
       // 1. Constructs that need to perform outlining:
@@ -1010,7 +1023,16 @@ bool VPOParoptTransform::paroptTransforms() {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-          if (isTargetCSA()) {
+            if (isTargetCSA()) {
+               // Generate remarks using Loop Opt Report framework (under -qopt-report).
+               if (isa<WRNParallelLoopNode>(W)) {
+                  ORLinfo = W->getWRNLoopInfo().getLoopInfo();
+                  ORLoop = W->getWRNLoopInfo().getLoop();
+                  if (ORLoop != nullptr)
+                      LORBuilder(*ORLoop, *ORLinfo).addRemark(OptReportVerbosity::Low,
+                                "CSA: OpenMP parallel loop will be pipelined");
+            }
+
             if (W->getIsParSections()) {
               Changed |= genCSASections(W);
               RemoveDirectives = true;
@@ -1032,6 +1054,24 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genOCLParallelLoop(W);
             Changed |= genPrivatizationCode(W);
           } else {
+#if INTEL_CUSTOMIZATION
+            // Generate remarks using Loop Opt Report framework (under -qopt-report).
+            if (isa<WRNParallelLoopNode>(W)) {
+               ORLinfo = W->getWRNLoopInfo().getLoopInfo();
+               ORLoop = W->getWRNLoopInfo().getLoop();
+               if (ORLoop != nullptr) {
+                   LORBuilder(*ORLoop, *ORLinfo).addRemark(OptReportVerbosity::Low,
+                              "OpenMP: Outlined parallel loop");
+
+                   // Add remark to enclosing loop (if any).
+                   if (ORLoop->getParentLoop() != nullptr)
+                      // An enclosing loop is present.
+                      LORBuilder(*(ORLoop->getParentLoop()), *ORLinfo).addRemark(OptReportVerbosity::Low,
+                                 "OpenMP: Parallel loop was outlined");
+                   }
+               }
+#endif  // INTEL_CUSTOMIZATION
+
             Changed |= genLoopSchedulingCode(W, IsLastVal);
             // Privatization is enabled for both Prepare and Transform passes
             Changed |= genPrivatizationCode(W);
@@ -1210,6 +1250,15 @@ bool VPOParoptTransform::paroptTransforms() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
+            // Generate remarks using Loop Opt Report framework (under -qopt-report).
+            if (isa<WRNWksLoopNode>(W)) {
+               ORLinfo = W->getWRNLoopInfo().getLoopInfo();
+               ORLoop = W->getWRNLoopInfo().getLoop();
+               if (ORLoop != nullptr)
+                  LORBuilder(*ORLoop, *ORLinfo).addRemark(OptReportVerbosity::Low,
+                             "CSA: OpenMP worksharing loop will be pipelined");
+            }
+
             if (W->getIsSections()) {
               Changed |= genCSASections(W);
               RemoveDirectives = true;
@@ -1234,6 +1283,17 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genOCLParallelLoop(W);
             Changed |= genPrivatizationCode(W);
           } else {
+#if INTEL_CUSTOMIZATION
+            // Generate remarks using Loop Opt Report framework (under -qopt-report).
+            if (isa<WRNWksLoopNode>(W)) {
+               ORLinfo = W->getWRNLoopInfo().getLoopInfo();
+               ORLoop = W->getWRNLoopInfo().getLoop();
+               if (ORLoop != nullptr)
+                  LORBuilder(*ORLoop, *ORLinfo).addRemark(OptReportVerbosity::Low,
+                             "OpenMP: Worksharing loop");
+            }
+#endif  // INTEL_CUSTOMIZATION
+
             AllocaInst *IsLastVal = nullptr;
             BasicBlock *IfLastIterBB = nullptr;
             Changed |= genLoopSchedulingCode(W, IsLastVal);

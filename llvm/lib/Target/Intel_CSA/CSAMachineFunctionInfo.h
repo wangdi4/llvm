@@ -62,7 +62,7 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
   int num_call_sites;
   mutable StringSet<> namedLICs;
   mutable unsigned nameCounter;
-
+  unsigned InMemoryLicSXU;
   virtual void anchor();
 
   /// Holds for each function where on the stack the Frame Pointer must be
@@ -75,9 +75,6 @@ class CSAMachineFunctionInfo : public MachineFunctionInfo {
 
   /// VarArgsFrameIndex - FrameIndex for start of varargs area.
   int VarArgsFrameIndex;
-
-  /// Register number of the input memory ordering edge.
-  unsigned InMemoryLic;
 
 public:
   explicit CSAMachineFunctionInfo(MachineFunction &MF);
@@ -182,7 +179,7 @@ public:
   }
 
   /// Return the register that has the input memory edge.
-  unsigned getInMemoryLic() const { return InMemoryLic; }
+  unsigned getInMemoryLic() const;
 
   /// Return the register that has the output memory edge.
   unsigned getOutMemoryLic() const;

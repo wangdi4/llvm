@@ -44,6 +44,10 @@ public:
 /// Create a legacy pass manager instance of a pass to inline and remove
 /// functions marked as "always_inline".
 Pass *createAlwaysInlinerLegacyPass(bool InsertLifetime = true);
-}
+
+#if INTEL_CUSTOMIZATION
+Pass *createUnskippableAlwaysInlinerLegacyPass(bool InsertLifetime = true);
+#endif // INTEL_CUSTOMIZATION
+} // namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_ALWAYSINLINER_H

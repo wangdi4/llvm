@@ -267,6 +267,13 @@ static cl::opt<bool> EnableFunctionSplitting("enable-function-splitting",
 static cl::opt<bool> EnableMultiVersioning("enable-multiversioning",
   cl::init(false), cl::Hidden,
   cl::desc("Enable Function Multi-versioning"));
+
+#if INTEL_FEATURE_CSA
+// CSA graph splitter.
+static cl::opt<bool> RunCSAGraphSplitter("enable-csa-graph-splitter",
+  cl::init(false), cl::Hidden,
+  cl::desc("Run CSA graph splitter after late outlining."));
+#endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -1115,6 +1122,7 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   MPM.add(createPromoteMemoryToRegisterPass(true, true));
+  MPM.add(createSROAPass());
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 }
@@ -1432,6 +1440,12 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
     }
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt, OptLevel));
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    if (RunCSAGraphSplitter)
+      PM.add(createCSAGraphSplitterPass());
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   }
   #if INTEL_CUSTOMIZATION
   // If vectorizer was required to run then cleanup any remaining directives

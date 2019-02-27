@@ -310,7 +310,7 @@ protected:
   /// Optional passes call this function to check whether the pass should be
   /// skipped. This is the case when Attribute::OptimizeNone is set or when
   /// optimization bisect is over the limit.
-  bool skipFunction(const Function &F) const;
+  virtual bool skipFunction(const Function &F) const; // INTEL
 };
 
 //===----------------------------------------------------------------------===//

@@ -29,6 +29,7 @@ namespace llvm {
 void initializeCSAScalarPasses(PassRegistry&);
 void initializeLoopSPMDizationPass(PassRegistry&);
 void initializeCSALowerParallelIntrinsicsWrapperPass(PassRegistry&);
+void initializeCSAGraphSplitterPass(PassRegistry&);
 
 //
 // LoopSPMDization - This pass is a simple loop SPMDization pass.
@@ -40,6 +41,12 @@ Pass *createLoopSPMDizationPass();
 // intrinsics calls into LLVM metadata.
 //
 Pass *createCSALowerParallelIntrinsicsWrapperPass();
+
+//
+// CSAGraphSplitter - This pass removes dependencies between graphs by
+// cloning functions that are called by multiple graphs.
+//
+Pass *createCSAGraphSplitterPass();
 } // namespace llvm
 
 #endif  // INTEL_CSA_CSAIRPASSES_H

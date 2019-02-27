@@ -488,13 +488,41 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
 
   unsigned srcReg = MI->getOperand(1).getReg();
   unsigned destReg = MI->getOperand(0).getReg();
-    
+
   // Moves involving physical registers should not be removed here
   if (!TargetRegisterInfo::isVirtualRegister(srcReg))  return false;
   if (!TargetRegisterInfo::isVirtualRegister(destReg)) return false;
   if (!MRI->getUniqueVRegDef(destReg))                 return false;
 
+  // If the opcode is a generic copy, replace it with a MOV instruction. This
+  // prevents COPY->MOV conversion later in the pipeline from creating
+  // sequential instructions.
+  bool Changed = false;
+  if (MI->getOpcode() == CSA::COPY) {
+    MI->setDesc(TII->get(TII->makeOpcode(CSA::Generic::MOV,
+      MRI->getRegClass(destReg))));
+    Changed = true;
+  }
+
+  // We need to consider the interaction of MOV with mcast generation. Later
+  // tools will collapse MOV operations and multiple uses of a single LIC into
+  // mcast operations. Sometimes, we want to apply attributes to some, but not
+  // all, outputs of the mcast. Retaining a MOV to a destination with different
+  // attributes will cause this functionality to occur.
+  if (!MRI->hasOneNonDBGUse(srcReg)) {
+    auto &DestInfo = LMFI->getLICInfo(destReg);
+    if (DestInfo.licDepth)
+      return Changed;
+
+    if (DestInfo.attribs.find("csasim_backedge") != DestInfo.attribs.end())
+      return Changed;
+  }
+
   MRI->replaceRegWith(destReg, srcReg);
+  // Clear the definition of srcReg in this operation. If srcReg is itself the
+  // target of a MOV operation, this will enable the above check for
+  // getUniqueVRegDef to return true as it won't consider MI.
+  MI->getOperand(0).setReg(0);
   to_delete.push_back(MI);
   return true;
 }

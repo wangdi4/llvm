@@ -367,6 +367,17 @@ try a different SPMDization strategy instead.
                    std::to_string(PE) +
                    "  ,as directed by the builtin_assume or the constant value "
                    "of the upper bound of the loop.");
+        AssumptionCache *AC =
+          &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
+        Instruction *const terminator =
+          NewLoop->getLoopPreheader()->getTerminator();
+        IRBuilder<> Builder{terminator};
+        Instruction *CondI = dyn_cast<Instruction>(Cond);
+        auto *assume = Builder.
+          CreateICmpSLT(NewInitV, CondI->getOperand(1));
+        CallInst *workerAssume =
+          Builder.CreateIntrinsic(Intrinsic::assume, {}, assume);
+        AC->registerAssumption(workerAssume);
       }
       // This assumes menable-unsafe-fp-math is set
       // flat vs. nested: there are multiple small differences on how to handle
@@ -513,7 +524,7 @@ bool LoopSPMDization::FindReductionVariables(
     if (!Phi)
       continue;
     RecurrenceDescriptor RedDes;
-    if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes)) {
+    if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes) || RecurrenceDescriptor::AddReductionVar(Phi, RecurrenceDescriptor::RecurrenceKind::RK_FloatMinMax, L, true, RedDes)){
       Value *ReduceVar;
       PHINode *Phiop = Phi;
       PHINode *redoperation;
@@ -1835,13 +1846,8 @@ void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE,
     NewInitV = Trunc;
   }
 
-  if (spmd_approach == SPMD_CYCLIC || spmd_approach == SPMD_HYBRID) {
-    NewCondOp1 = NewInitV;
-    NewCondOp0 = TripCount;
-  } else if (spmd_approach == SPMD_BLOCKING) {
-    NewCondOp1 = ConstantInt::get(TripCountV->getType(), PE);
-    NewCondOp0 = TripCountV;
-  }
+  NewCondOp1 = NewInitV;
+  NewCondOp0 = TripCount;
 
   if (CmpCond->getPredicate() == CmpInst::ICMP_EQ ||
       CmpCond->getPredicate() == CmpInst::ICMP_NE) {

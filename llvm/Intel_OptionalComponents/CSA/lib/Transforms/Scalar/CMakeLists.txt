@@ -15,6 +15,7 @@ add_llvm_library(LLVMIntel_CSAScalarOpt
   Scalar.cpp
   LoopSPMDization.cpp
   CSALowerParallelIntrinsics.cpp
+  CSAGraphSplitter.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${CSA_MAIN_INCLUDE_DIR}/Transforms/Scalar

@@ -22,4 +22,5 @@ using namespace llvm;
 void llvm::initializeCSAScalarPasses(PassRegistry &Registry) {
   initializeLoopSPMDizationPass(Registry);
   initializeCSALowerParallelIntrinsicsWrapperPass(Registry);
+  initializeCSAGraphSplitterPass(Registry);
 }

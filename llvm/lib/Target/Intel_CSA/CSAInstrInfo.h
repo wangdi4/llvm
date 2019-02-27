@@ -55,25 +55,9 @@ enum FuncUnit {
 };
 }
 
-// This should match the same enum in the simulator's csa.h.
-enum RoundingMode {
-  ROUND_NEAREST = 0,
-  ROUND_DOWNWARD,
-  ROUND_UPWARD,
-  ROUND_TOWARDZERO,
-  ROUND_NEAREST_NW,
-  ROUND_DOWNWARD_NW,
-  ROUND_UPWARD_NW,
-  ROUND_TOWARDZERO_NW,
-};
-
-// This is reversed from the simulator's convention to match the intrinsic.
-enum MemLvl { MEMLEVEL_NTA, MEMLEVEL_T2, MEMLEVEL_T1, MEMLEVEL_T0 };
-
-// These enums are used for the getmant instruction.
-enum Signctl { SIGNCTL_PROP, SIGNCTL_FORCE, SIGNCTL_FORCE_AND_CHECK };
-
-enum Interval { INTERVAL0, INTERVAL1, INTERVAL2, INTERVAL3 };
+#define CSA_ASM_OPERAND(Asm, Enum, Default, ...) \
+  enum Enum { __VA_ARGS__ };
+#include "AsmOperands.h"
 
 /// This indicates the kind of output when distinguishing between different
 /// opcodes that generate the same generic opcode.

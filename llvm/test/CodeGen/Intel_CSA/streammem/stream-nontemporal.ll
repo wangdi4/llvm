@@ -12,7 +12,7 @@ loop:
   %addr.src = getelementptr inbounds double, double* %src, i64 %indvar
   %addr.dest = getelementptr inbounds double, double* %dest, i64 %indvar
   %val = load double, double* %addr.src, align 8
-  store double %val, double* %addr.dest, align 8
+  store double %val, double* %addr.dest, align 8, !nontemporal !0
   %indvar.next = add nuw i64 %indvar, 1
   %exitcond = icmp eq i64 %indvar.next, %N
   br i1 %exitcond, label %exit, label %loop
@@ -21,10 +21,12 @@ loop:
 ; CHECK: .param .lic .i64 %[[SRC:[a-z0-9_.]+]]
 ; CHECK: .param .lic .i64 %[[LEN:[a-z0-9_.]+]]
 ; CHECK: sld64 %[[VAL:[a-z0-9_.]+]], %[[SRC]], %[[LEN]], 1, %ign, %[[INORD]], MEMLEVEL_T0
-; CHECK: sst64 %[[DEST]], %[[LEN]], 1, %[[VAL]], %[[OUTORDS:[a-z0-9_.]+]], %ign, MEMLEVEL_T0
+; CHECK: sst64 %[[DEST]], %[[LEN]], 1, %[[VAL]], %[[OUTORDS:[a-z0-9_.]+]], %ign, MEMLEVEL_NTA
 
 exit:
   ret void
 }
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+
+!0 = !{i32 1}

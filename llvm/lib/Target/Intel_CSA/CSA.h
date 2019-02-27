@@ -36,14 +36,13 @@ MachineFunctionPass *createCSAProcCallsPass();
 MachineFunctionPass *createCSAOptDFPass();
 MachineFunctionPass *createCSAMultiSeqPass();
 MachineFunctionPass *createCSADFParLoopPass();
-MachineFunctionPass *createCSARedundantMovElimPass();
 MachineFunctionPass *createCSADeadInstructionElimPass();
 MachineFunctionPass *createCSAAllocUnitPass();
 MachineFunctionPass *createCSAPrologEpilogPass();
 MachineFunctionPass *createCSAExpandInlineAsmPass();
 MachineFunctionPass *createCSANormalizeDebugPass();
 MachineFunctionPass *createCSADataflowCanonicalizationPass();
-MachineFunctionPass *createCSAStreamingMemoryConversionPass();
+Pass *createCSAStreamingMemoryConversionPass();
 MachineFunctionPass *createCSASeqotToSeqOptimizationPass();
 MachineFunctionPass *createCSANameLICsPass();
 MachineFunctionPass *createCSARASReplayableLoadsDetectionPass();
@@ -52,10 +51,10 @@ MachineFunctionPass *createCSADataflowVerifier();
 Pass *createCSAInnerLoopPrepPass();
 Pass *createCSAReplaceAllocaWithMallocPass(CSATargetMachine &TM);
 Pass *createCSAMemopOrderingPass(const CSATargetMachine &TM);
-Pass *createCSAStreamingMemoryPrepPass();
 Pass *createCSAParseAnnotateAttributesPass();
 
 void initializeCSAMemopOrderingPasses(PassRegistry &);
+void initializeCSAStreamingMemoryPass(PassRegistry &);
 
 bool shouldRunDataflowPass(const MachineFunction &MF);
 

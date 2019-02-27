@@ -31,6 +31,11 @@
 
 #include "llvm/Transforms/Utils/Local.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -145,7 +150,11 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     VPOParoptTransform VP(this, F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                           WI.getSE(), WI.getTargetTransformInfo(),
                           WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
+#if INTEL_CUSTOMIZATION
+                          WI.getAliasAnalysis(), Mode, ORVerbosity, OptLevel,
+#else
                           WI.getAliasAnalysis(), Mode, OptLevel,
+#endif // INTEL_CUSTOMIZATION
                           SwitchToOffload);
     Changed = Changed | VP.paroptTransforms();
 

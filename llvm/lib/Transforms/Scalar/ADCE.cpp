@@ -723,6 +723,9 @@ struct ADCELegacyPass : public FunctionPass {
   }
 };
 
+struct UnskippableADCELegacyPass : public ADCELegacyPass {              // INTEL
+  bool skipFunction(const Function &F) const override { return false; } // INTEL
+};                                                                      // INTEL
 } // end anonymous namespace
 
 char ADCELegacyPass::ID = 0;
@@ -734,3 +737,6 @@ INITIALIZE_PASS_END(ADCELegacyPass, "adce", "Aggressive Dead Code Elimination",
                     false, false)
 
 FunctionPass *llvm::createAggressiveDCEPass() { return new ADCELegacyPass(); }
+FunctionPass *llvm::createUnskippableAggressiveDCEPass() { // INTEL
+  return new UnskippableADCELegacyPass();                  // INTEL
+} // INTEL

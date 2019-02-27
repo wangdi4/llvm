@@ -104,6 +104,18 @@ def PrioOrderOperand : OperandWithDefaultOps<i1, (ops (i1 0))> {
   let PrintMethod = "printPrioOrderOperand";
 }
 
+// Operands for floating-point comparison operators
+foreach Kind = [ "FPOrdered", "FPSignaling" ] in {
+  def Kind ## AsmOperand : AsmOperandClass {
+    let Name = Kind;
+    let IsOptional = 1;
+  }
+  def Kind ## Operand : OperandWithDefaultOps<i1, (ops (i1 0))> {
+    let ParserMatchClass = !cast<AsmOperandClass>(Kind ## AsmOperand);
+    let PrintMethod = !strconcat("print", Kind, "Operand");
+  }
+}
+
 // Memory level operands. For simplicity these use numeric values that match
 // the intrinsic rather than the simulator (so the default value is T0, not NTA).
 def MemLvlAsmOperand : AsmOperandClass {
@@ -238,11 +250,15 @@ def XPHI : Instruction {
 }
 
 // These are target-independent nodes, but have target-specific formats.
-def SDT_CSACall         : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
+def SDT_CSACall         : SDTypeProfile<0, -1, [SDTCisVT<0, iPTR>]>;
+def SDT_CSACallDF       : SDTypeProfile<0, -1, [SDTCisVT<0, iPTR>]>;
 def SDT_CSAReturn       : SDTypeProfile<0, -1, []>;
 def SDT_CSACallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 def SDT_CSACallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 
+def SDT_CSAEntryPseudo  : SDTypeProfile<1, 0, []>;
+def SDT_CSAContinuePseudo : SDTypeProfile<1, 0, []>;
+def SDT_CSAGetVal       : SDTypeProfile<1, 1, []>;
 def SDT_CSAWrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0,1>,
                                                SDTCisPtrTy<0>]>;
 
@@ -252,6 +268,22 @@ def SDT_CSAMinMax       : SDTypeProfile<
 def SDT_CSASwizzle      : SDTypeProfile<
   1, 2, [SDTCisSameAs<0, 1>, SDTCisVT<2, i8>]>;
 
+// Function entry points will be lowered to this SD node
+// followed by a list of CSAGetVal Nodes.
+// Output of this node is input to each of the CSAGetVal nodes
+def CSAEntryPseudo : SDNode<"CSAISD::EntryPseudo", SDT_CSAEntryPseudo,
+    [SDNPHasChain, SDNPSideEffect]>;
+
+// Function call sites will be lowered to CSACallDF node followed by this SD node
+// which is in turn followed by a list of CSAGetVal Nodes.
+// Output of this node is input to each of the CSAGetVal nodes
+def CSAContinuePseudo : SDNode<"CSAISD::ContinuePseudo", SDT_CSAContinuePseudo,
+    [SDNPHasChain, SDNPSideEffect]>;
+
+// This node is used as a way to hold multiple outputs
+// for the CSA_ENTRY and CSA_CONTINUE instructions at the ISel Lowering stage
+def CSAGetVal : SDNode<"CSAISD::GetVal", SDT_CSAGetVal,
+    [SDNPHasChain, SDNPSideEffect]>;
 
 def CSARet : SDNode<"CSAISD::Ret", SDT_CSAReturn,
     [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
@@ -260,6 +292,9 @@ def CSARet : SDNode<"CSAISD::Ret", SDT_CSAReturn,
 def CSACall : SDNode<"CSAISD::Call", SDT_CSACall,
                       [SDNPHasChain, SDNPOutGlue, SDNPOptInGlue,
                       SDNPVariadic]>;
+
+def CSACallDF : SDNode<"CSAISD::CallDF", SDT_CSACallDF,
+                      [SDNPHasChain, SDNPVariadic, SDNPSideEffect]>;
 
 def CSATailCall : SDNode<"CSAISD::TailCall", SDT_CSACall,
                       [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
@@ -309,18 +344,62 @@ def CSA_ENTRY : PseudoInstCSA<
     (ins),
     "csa_entry",
     []>;
-    
+
+def CSA_ENTRYPSEUDO : PseudoInstCSA<
+    (outs CI0:$link),
+    (ins),
+    "csa_entry_pseudo",
+    [(set CI0:$link, (CSAEntryPseudo))],
+    [IsDataflow]> {
+      let hasSideEffects = 1;
+    }
+
+class CSAGetValOp<GenericOp gen, CSAOpInfo oi,
+            InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs oi.RC:$val),
+    (ins CI0:$link),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $link"),
+    [(set oi.VT:$val, (CSAGetVal CI0:$link))],
+    !listconcat(preds,oi.Preds), itin> {
+      let OpInfo = oi; let hasSideEffects = 1;
+    }
+
+def CSA_GETVAL         : GenericOp<"get_val">;
+def CSA_GETVAL1        : CSAGetValOp<CSA_GETVAL, Ti1,  IIALU>;
+def CSA_GETVAL8        : CSAGetValOp<CSA_GETVAL, Ti8,  IIALU>;
+def CSA_GETVAL16       : CSAGetValOp<CSA_GETVAL, Ti16,  IIALU>;
+def CSA_GETVAL32       : CSAGetValOp<CSA_GETVAL, Ti32,  IIALU>;
+def CSA_GETVAL64       : CSAGetValOp<CSA_GETVAL, Ti64,  IIALU>;
+
+def : Pat<(f32 (CSAGetVal CI0:$link)), (CSA_GETVAL32 $link)>;
+def : Pat<(f64 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
+def : Pat<(v2f32 (CSAGetVal CI0:$link)), (CSA_GETVAL64 $link)>;
+
+
 def CSA_CALL : PseudoInstCSA<
     (outs),
-    (ins calltarget:$callee_func, I64:$call_site_index, I64:$context, MemOrdUse:$mem_ord, variable_ops),
+    (ins calltarget:$callee_func, CI0:$mem_ord, variable_ops),
     "csa_call",
-    []>;
-    
+    []> {
+      let hasSideEffects = 1;
+    }
+def : Pat<(CSACallDF tglobaladdr:$dst, CI0:$mem_ord),      (CSA_CALL tglobaladdr:$dst, CI0:$mem_ord)>;
+def : Pat<(CSACallDF texternalsym:$dst, CI0:$mem_ord),     (CSA_CALL texternalsym:$dst,CI0:$mem_ord)>;
+
 def CSA_CONTINUE : PseudoInstCSA<
     (outs I64:$context, MemOrdDef:$mem_ord, variable_ops),
     (ins I64:$call_site_index),
     "csa_continue",
     []>;
+def CSA_CONTINUEPSEUDO : PseudoInstCSA<
+    (outs CI0:$link),
+    (ins),
+    "csa_continue_pseudo",
+    [(set CI0:$link, (CSAContinuePseudo))],
+    [IsDataflow]> {
+      let hasSideEffects = 1;
+    }
 
 let isReturn=1, isTerminator=1, isBarrier=1, Itinerary=IICtl in
 def CSA_RETURN : PseudoInstCSA<
@@ -328,7 +407,7 @@ def CSA_RETURN : PseudoInstCSA<
     (ins CI0:$mem_ord, variable_ops),
     "csa_return",
     [(CSARet CI0:$mem_ord)], [IsDataflow]>;
-    
+
 class MovOp<GenericOp gen, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
@@ -445,11 +524,25 @@ class ShiftOp<GenericOp gen, SDNode opNode, CSAOpInfo oi,
 // CmpOp is identical to BinOp, except opNode is a PatFrag rather than
 // an SDNode...
 class CmpOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
-            InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+            InstrItinClass itin = NoItinerary,
+            list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs I1:$dst),
     (ins oi.RCL:$op1, oi.RCL:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2"),
+    [(set I1:$dst, (opNode (oi.VT oi.RCL:$op1), (oi.VT oi.RCL:$op2)))],
+    !listconcat(preds,gen.Preds,oi.Preds), itin> {
+  let isCompare = 1;
+}
+
+class FloatCmpOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
+            InstrItinClass itin = NoItinerary, string floatFlags = "",
+            list<Predicate> preds = []> :
+  FMTGEN<gen, oi,
+    (outs I1:$dst),
+    (ins oi.RCL:$op1, oi.RCL:$op2, FPSignalingOperand:$sig),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, ",
+               floatFlags, ", $sig"),
     [(set I1:$dst, (opNode (oi.VT oi.RCL:$op1), (oi.VT oi.RCL:$op2)))],
     !listconcat(preds,gen.Preds,oi.Preds), itin> {
   let isCompare = 1;
@@ -757,12 +850,22 @@ multiclass StreamStOp<string opStr, CSAOpInfo t, InstrItinClass itin = IIST> {
 }
 
 class XmulOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oi2, SDNode ext,
-               InstrItinClass itin = IIALU, list<Predicate> preds = []> :
+             InstrItinClass itin = IIALU, list<Predicate> preds = []> :
   FMTGEN <gen, oi,
     (outs oi2.RC:$res),
     (ins  oi.RCL:$op1, oi.RCL:$op2),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $op1, $op2"),
     [(set oi2.RC:$res, (mul (ext oi.RCL:$op1), (ext oi.RCL:$op2)))],
+    !listconcat(preds,oi.Preds), itin>
+    { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
+
+class ClxmulOp<GenericOp gen, CSAOpInfo oi, CSAOpInfo oi2,
+               InstrItinClass itin = IIALU, list<Predicate> preds = []> :
+  FMTGEN <gen, oi,
+    (outs oi2.RC:$res),
+    (ins  oi.RCL:$op1, oi.RCL:$op2),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$res, $op1, $op2"),
+    [],
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
 
@@ -1202,9 +1305,9 @@ multiclass UnsignedCmp<GenericOp generic, PatFrag frag> {
   def U32 : CmpOp<generic, frag, Tu32, IIALU>;
   def U64 : CmpOp<generic, frag, Tu64, IIALU>;
 }
-multiclass FloatCmp<GenericOp generic, PatFrag frag> {
-  def F32 : CmpOp<generic, frag, Tf32, IICmpF>;
-  def F64 : CmpOp<generic, frag, Tf64, IICmpF>;
+multiclass FloatCmp<GenericOp generic, PatFrag frag, string floatFlags> {
+  def F32 : FloatCmpOp<generic, frag, Tf32, IICmpF, floatFlags>;
+  def F64 : FloatCmpOp<generic, frag, Tf64, IICmpF, floatFlags>;
 }
 
 def CMPLT  :   GenericOp<"cmplt">;
@@ -1222,10 +1325,6 @@ defm CMPGE : UnsignedCmp<CMPGE, setuge>;
 def CMPEQ  :   GenericOp<"cmpeq">;
 def CMPNE  :   GenericOp<"cmpne">;
 
-// TODO: Fix the issue of unordered versus ordered floating point comparisons.
-// Until there is a clearer story from the hardware side as to which comparisons
-// are actually to exist, we'll generate both ordered and unordered variants
-// that map to the same assembly string.
 def CMPOLT :   GenericOp<"cmplt">;
 def CMPOLE :   GenericOp<"cmple">;
 def CMPOGT :   GenericOp<"cmpgt">;
@@ -1238,18 +1337,18 @@ def CMPUGT :   GenericOp<"cmpgt">;
 def CMPUGE :   GenericOp<"cmpge">;
 def CMPUEQ :   GenericOp<"cmpeq">;
 def CMPUNE :   GenericOp<"cmpne">;
-defm CMPOLT:    FloatCmp<CMPOLT, setolt>;
-defm CMPOLE:    FloatCmp<CMPOLE, setole>;
-defm CMPOGT:    FloatCmp<CMPOGT, setogt>;
-defm CMPOGE:    FloatCmp<CMPOGE, setoge>;
-defm CMPOEQ:    FloatCmp<CMPOEQ, setoeq>;
-defm CMPONE:    FloatCmp<CMPONE, setone>;
-defm CMPULT:    FloatCmp<CMPULT, setult>;
-defm CMPULE:    FloatCmp<CMPULE, setule>;
-defm CMPUGT:    FloatCmp<CMPUGT, setugt>;
-defm CMPUGE:    FloatCmp<CMPUGE, setuge>;
-defm CMPUEQ:    FloatCmp<CMPUEQ, setueq>;
-defm CMPUNE:    FloatCmp<CMPUNE, setune>;
+defm CMPOLT:   FloatCmp<CMPOLT, setolt, "FLT_ORDERED">;
+defm CMPOLE:   FloatCmp<CMPOLE, setole, "FLT_ORDERED">;
+defm CMPOGT:   FloatCmp<CMPOGT, setogt, "FLT_ORDERED">;
+defm CMPOGE:   FloatCmp<CMPOGE, setoge, "FLT_ORDERED">;
+defm CMPOEQ:   FloatCmp<CMPOEQ, setoeq, "FLT_ORDERED">;
+defm CMPONE:   FloatCmp<CMPONE, setone, "FLT_ORDERED">;
+defm CMPULT:   FloatCmp<CMPULT, setult, "FLT_UNORDERED">;
+defm CMPULE:   FloatCmp<CMPULE, setule, "FLT_UNORDERED">;
+defm CMPUGT:   FloatCmp<CMPUGT, setugt, "FLT_UNORDERED">;
+defm CMPUGE:   FloatCmp<CMPUGE, setuge, "FLT_UNORDERED">;
+defm CMPUEQ:   FloatCmp<CMPUEQ, setueq, "FLT_UNORDERED">;
+defm CMPUNE:   FloatCmp<CMPUNE, setune, "FLT_UNORDERED">;
 
 // These are the flags for we-don't-care-about-NaNs. When the architecture
 // finalizes NaN support, these should map into the cheaper ones.
@@ -1268,8 +1367,8 @@ def : Pat<(i1 (setne f64:$op1, f64:$op2)), (CMPONEF64 $op1, $op2)>;
 
 def CMPO   :   GenericOp<"cmpo">;
 def CMPUO  :   GenericOp<"cmpuo">;
-defm CMPO  :    FloatCmp<CMPO, seto>;
-defm CMPUO :    FloatCmp<CMPUO, setuo>;
+defm CMPO  :   FloatCmp<CMPO, seto, "FLT_ORDERED">;
+defm CMPUO :   FloatCmp<CMPUO, setuo, "FLT_UNORDERED">;
 
 def : Pat<(i1 (seteq i1:$op1, i1:$op2)), (NOT1 (XOR1 $op1,$op2))>;
 def : Pat<(i1 (seteq i1:$op1, (i1 imm:$imm))), (NOT1 (XOR1 $op1,$imm))>;
@@ -1655,7 +1754,7 @@ class Init<CSAOpInfo t, list<Predicate> preds, InstrItinClass itin> :
   PseudoInstCSA<
       (outs t.RC:$dst),
       (ins t.L:$imm),
-      ".curr\t$dst;\t.value $imm;\t.avail 0",
+      ".curr\t$dst;\t.value $imm",
       [], preds, itin> {
   let hasSideEffects = 1;
   let GenOp = INIT;
@@ -1705,6 +1804,11 @@ def XMULS16 : XmulOp<XMUL, Ts16, Ts32, sext, IIMulI16>;
 def XMULU16 : XmulOp<XMUL, Tu16, Tu32, zext, IIMulI16>;
 def XMULS32 : XmulOp<XMUL, Ts32, Ts64, sext, IIMulI32>;
 def XMULU32 : XmulOp<XMUL, Tu32, Tu64, zext, IIMulI32>;
+
+def CLXMUL   : GenericOp<"clxmul">;
+def CLXMUL8  : ClxmulOp<CLXMUL, Ti8,  Ti16, IIMulI8>;
+def CLXMUL16 : ClxmulOp<CLXMUL, Ti16, Ti32, IIMulI16>;
+def CLXMUL32 : ClxmulOp<CLXMUL, Ti32, Ti64, IIMulI32>;
 
 // Atomic operations
 def ATMAND    : GenericOp<"atmand", [HasRMWAtomic]>;
@@ -2141,6 +2245,39 @@ def SHUFI32X2: FMTGEN<?, Tf32x2,
     (ins RCLf32x2:$op1, RCLf32x2:$op2, i8imm:$sellow, i8imm:$selhigh),
     "shufi32x2\t$res, $op1, $op2, $sellow, $selhigh",
     []>;
+
+def CSA_LIC_INIT : PseudoInstCSA<
+    (outs),
+    (ins i32imm:$lic, i8imm:$size, i64imm:$depth, i64imm:$desired_depth),
+    "# .csa_lower_lic_init $lic, $size, $depth, $desired_depth",
+    [(int_csa_lower_lic_init imm:$lic, imm:$size, imm:$depth, imm:$desired_depth)]>;
+
+def CSA_LIC_WRITE : PseudoInstCSA<
+    (outs),
+    (ins i32imm:$lic, CI64:$val),
+    "# .csa_lower_lic_write \t$lic, $val",
+    []>;
+
+def CSA_LIC_READ : PseudoInstCSA<
+    (outs CI64:$val),
+    (ins i32imm:$lic),
+    "# .csa_lower_lic_read \t$lic, $val",
+    []>;
+
+multiclass PushPop<ValueType VT, RegisterClass RC> {
+  def : Pat<(int_csa_lower_lic_write (i32 imm:$lic), VT:$val),
+            (CSA_LIC_WRITE (i32 imm:$lic), (COPY_TO_REGCLASS $val, I64))>;
+  def : Pat<(VT (int_csa_lower_lic_read (i32 imm:$lic))),
+            (COPY_TO_REGCLASS (CSA_LIC_READ (i32 imm:$lic)), RC)>;
+}
+
+defm : PushPop<   i8, CI8>;
+defm : PushPop<  i16, CI16>;
+defm : PushPop<  i32, CI32>;
+defm : PushPop<  i64, CI64>;
+defm : PushPop<  f32, CI32>;
+defm : PushPop<  f64, CI64>;
+defm : PushPop<v2f32, CI64>;
 
 // Eventually
 //include "CSAIntrinsics.td"

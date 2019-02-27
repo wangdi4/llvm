@@ -352,6 +352,7 @@ namespace {
       // Various CSA passes.
       (void) llvm::createLoopSPMDizationPass();
       (void) llvm::createCSALowerParallelIntrinsicsWrapperPass();
+      (void) llvm::createCSAGraphSplitterPass();
   #endif  // INTEL_FEATURE_CSA
   #endif // INTEL_CUSTOMIZATION
 

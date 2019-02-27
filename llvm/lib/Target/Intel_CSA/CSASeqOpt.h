@@ -85,5 +85,13 @@ private:
   /// Get a LIC group that is appropriate for the predicate output of a
   /// sequence optimization.
   std::shared_ptr<CSALicGroup> getLoopPredicate(CSASSANode *lhdrPhiNode);
+
+  /// Collect a list of REPEAT and STRIDE operations that were created by this
+  /// pass.
+  std::vector<MachineInstr *> NewDrivenOps;
+
+  /// Add backedge annotations to the control inputs of REPEAT/STRIDE operations
+  /// created by this pass.
+  void annotateBackedges();
 };
 } // namespace llvm

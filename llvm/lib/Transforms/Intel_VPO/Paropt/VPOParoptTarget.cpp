@@ -166,6 +166,12 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
     NewF->addFnAttr("target.declare", "true");
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // Add "target.entry" attribute to the outlined function.
+  NewF->addFnAttr("omp.target.entry");
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
 
   Constant *RegionId = nullptr;

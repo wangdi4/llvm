@@ -26,7 +26,7 @@ CSAMachineFunctionInfo::CSAMachineFunctionInfo(MachineFunction &MF)
     : MF(MF), MRI(MF.getRegInfo()), TII(MF.getSubtarget<CSASubtarget>().getInstrInfo()),
       nameCounter(0),
       FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {
-  InMemoryLic = allocateLIC(&CSA::CI0RegClass, "in_ctl");
+  InMemoryLicSXU = allocateLIC(&CSA::CI0RegClass, "in_ctl");
 }
 
 CSAMachineFunctionInfo::~CSAMachineFunctionInfo() {}
@@ -184,4 +184,16 @@ unsigned CSAMachineFunctionInfo::getOutMemoryLic() const {
   const MachineOperand &OrdOp = Return->getOperand(0);
   assert(OrdOp.isUse() && "Output ordering edge isn't a register?");
   return OrdOp.getReg();
+}
+
+unsigned CSAMachineFunctionInfo::getInMemoryLic() const {
+  if (!MF.getSubtarget<CSASubtarget>().isSequential() &&
+      csa_utils::isAlwaysDataFlowLinkageSet()) {
+    const MachineInstr *const Entry = getEntryMI();
+    assert(Entry && "Cannot find in ordering lic - no entry instruction set");
+    const MachineOperand &OrdOp = Entry->getOperand(0);
+    assert(OrdOp.isDef() && "Input ordering edge isn't a register?");
+    return OrdOp.getReg();
+  } else
+    return InMemoryLicSXU;
 }

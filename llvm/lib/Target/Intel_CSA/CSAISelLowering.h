@@ -50,7 +50,12 @@ enum {
 
   // Wrapper - A wrapper node for TargetConstantPool, TargetExternalSymbol,
   // and TargetGlobalAddress
-  Wrapper
+  Wrapper,
+  // Early call lowering helper nodes
+  GetVal,
+  EntryPseudo,
+  ContinuePseudo,
+  CallDF
 };
 }
 
@@ -80,6 +85,10 @@ public:
   /// getTargetNodeName - This method returns the name of a target specific
   /// DAG node.
   const char *getTargetNodeName(unsigned Opcode) const override;
+
+  bool getTgtMemIntrinsic(IntrinsicInfo &Info, const CallInst &I,
+                          MachineFunction &MF,
+                          unsigned Intrinsic) const override;
 
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
