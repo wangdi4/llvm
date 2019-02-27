@@ -38,20 +38,22 @@ __attribute__ ((destructor)) static void dll_fini(void);
 using namespace Intel::OpenCL::Framework;
 
 // explicitly instantiate some SharedPtrBase classes:
-template class SharedPtrBase<GenericMemObject>;
-template class SharedPtrBase<GenericMemObject const>;
-template class SharedPtrBase<MemoryObject>;
-template class SharedPtrBase<Context>;
-template class SharedPtrBase<GenericMemObject::DataCopyEvent>;
-template class SharedPtrBase<IOclCommandQueueBase>;
-template class SharedPtrBase<FissionableDevice>;
-template class SharedPtrBase<QueueEvent>;
-template class SharedPtrBase<QueueEvent const>;
-template class SharedPtrBase<OclEvent>;
-template class SharedPtrBase<OCLObject<_cl_device_id_int, _cl_platform_id_int> >;
-template class SharedPtrBase<OCLObject<_cl_event_int, _cl_context_int> >;
-template class SharedPtrBase<FissionableDevice const>;
-template class SharedPtrBase<IEventObserver>;
+template class Intel::OpenCL::Utils::SharedPtrBase<GenericMemObject>;
+template class Intel::OpenCL::Utils::SharedPtrBase<GenericMemObject const>;
+template class Intel::OpenCL::Utils::SharedPtrBase<MemoryObject>;
+template class Intel::OpenCL::Utils::SharedPtrBase<Context>;
+template class Intel::OpenCL::Utils::SharedPtrBase<GenericMemObject::DataCopyEvent>;
+template class Intel::OpenCL::Utils::SharedPtrBase<IOclCommandQueueBase>;
+template class Intel::OpenCL::Utils::SharedPtrBase<FissionableDevice>;
+template class Intel::OpenCL::Utils::SharedPtrBase<QueueEvent>;
+template class Intel::OpenCL::Utils::SharedPtrBase<QueueEvent const>;
+template class Intel::OpenCL::Utils::SharedPtrBase<OclEvent>;
+template class Intel::OpenCL::Utils::
+SharedPtrBase<OCLObject<_cl_device_id_int, _cl_platform_id_int> >;
+template class Intel::OpenCL::Utils::
+SharedPtrBase<OCLObject<_cl_event_int, _cl_context_int> >;
+template class Intel::OpenCL::Utils::SharedPtrBase<FissionableDevice const>;
+template class Intel::OpenCL::Utils::SharedPtrBase<IEventObserver>;
 
 void dll_init(void)
 {
