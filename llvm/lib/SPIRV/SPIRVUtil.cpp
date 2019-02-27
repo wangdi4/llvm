@@ -470,7 +470,7 @@ std::string getPostfixForReturnType(const Type *pRetTy, bool IsSigned) {
 
 Op
 getSPIRVFuncOC(const std::string& S, SmallVectorImpl<std::string> *Dec) {
-  Op OC;
+  Op OC = OpNop;
   SmallVector<StringRef, 2> Postfix;
   std::string Name;
   if (!oclIsBuiltin(S, &Name))
