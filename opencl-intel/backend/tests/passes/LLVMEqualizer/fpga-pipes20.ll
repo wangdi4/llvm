@@ -22,7 +22,7 @@
 ;   -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL2.0 -disable-llvm-passes -finclude-default-header
 ; ----------------------------------------------------
 ; REQUIRES: fpga-emulator
-; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -spir-materializer -verify -S %s | FileCheck %s
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -verify -S %s | FileCheck %s
 
 ; CHECK-LABEL: define void @test1
 ; CHECK-NOT: call i32 @__read_pipe_2_AS{{[0-9]}}

@@ -123,7 +123,7 @@ llvm::ModulePass *createDuplicateCalledKernelsPass();
 llvm::ModulePass *createPatchCallbackArgsPass();
 llvm::ModulePass *createDeduceMaxWGDimPass();
 
-llvm::ModulePass *createSpirMaterializer();
+llvm::ModulePass *createLLVMEqualizerPass();
 llvm::FunctionPass *createPrefetchPassLevel(int level);
 llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
@@ -747,7 +747,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
 void Optimizer::Optimize() {
   legacy::PassManager materializerPM;
   materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
-  materializerPM.add(createSpirMaterializer());
+  materializerPM.add(createLLVMEqualizerPass());
   materializerPM.run(*m_pModule);
   m_PreFailCheckPM.run(*m_pModule);
 

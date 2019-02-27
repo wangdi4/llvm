@@ -20,20 +20,20 @@
 
 namespace intel {
 ///////////////////////////////////////////////////////////////////////////////
-// @name  SpirMaterializer
+// @name  LLVMEqualizer
 // @brief Adjusts the given module to be processed by the BE.
 // More concretely:
 // - replaces SPIR artifacts with Intel-implementation specific stuff.
 // - updates LLVM IR to version supported by back-end compiler
 ///////////////////////////////////////////////////////////////////////////////
-class SpirMaterializer : public llvm::ModulePass {
+class LLVMEqualizer : public llvm::ModulePass {
 public:
-  SpirMaterializer();
+  LLVMEqualizer();
 
   bool runOnModule(llvm::Module &);
 
   virtual StringRef getPassName() const {
-    return "spir materializer";
+    return "LLVMEqualizer";
   }
 
   static char ID;
