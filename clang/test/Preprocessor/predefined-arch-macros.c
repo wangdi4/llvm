@@ -648,6 +648,75 @@
 // CHECK_BROADWELL_M64: #define __x86_64 1
 // CHECK_BROADWELL_M64: #define __x86_64__ 1
 
+// INTEL_CUSTOMIZATION
+// RUN: %clang -march=common-avx512 -m32 -E -dM %s -o - 2>&1 \
+// RUN:     -target i386-unknown-linux \
+// RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_COMMONAVX512_M32
+// CHECK_COMMONAVX512_M32: #define __ADX__ 1
+// CHECK_COMMONAVX512_M32: #define __AVX2__ 1
+// CHECK_COMMONAVX512_M32: #define __AVX512CD__ 1
+// CHECK_COMMONAVX512_M32: #define __AVX512F__ 1
+// CHECK_COMMONAVX512_M32: #define __AVX__ 1
+// CHECK_COMMONAVX512_M32: #define __BMI2__ 1
+// CHECK_COMMONAVX512_M32: #define __BMI__ 1
+// CHECK_COMMONAVX512_M32: #define __F16C__ 1
+// CHECK_COMMONAVX512_M32: #define __FMA__ 1
+// CHECK_COMMONAVX512_M32: #define __LZCNT__ 1
+// CHECK_COMMONAVX512_M32: #define __MMX__ 1
+// CHECK_COMMONAVX512_M32: #define __MOVBE__ 1
+// CHECK_COMMONAVX512_M32: #define __PCLMUL__ 1
+// CHECK_COMMONAVX512_M32: #define __POPCNT__ 1
+// CHECK_COMMONAVX512_M32: #define __PRFCHW__ 1
+// CHECK_COMMONAVX512_M32: #define __RDRND__ 1
+// CHECK_COMMONAVX512_M32: #define __RDSEED__ 1
+// CHECK_COMMONAVX512_M32: #define __SSE2__ 1
+// CHECK_COMMONAVX512_M32: #define __SSE3__ 1
+// CHECK_COMMONAVX512_M32: #define __SSE4_1__ 1
+// CHECK_COMMONAVX512_M32: #define __SSE4_2__ 1
+// CHECK_COMMONAVX512_M32: #define __SSE__ 1
+// CHECK_COMMONAVX512_M32: #define __SSSE3__ 1
+// CHECK_COMMONAVX512_M32: #define __XSAVEOPT__ 1
+// CHECK_COMMONAVX512_M32: #define __XSAVE__ 1
+// CHECK_COMMONAVX512_M32: #define __i386 1
+// CHECK_COMMONAVX512_M32: #define __i386__ 1
+// CHECK_COMMONAVX512_M32: #define i386 1
+
+// RUN: %clang -march=common-avx512 -m64 -E -dM %s -o - 2>&1 \
+// RUN:     -target i386-unknown-linux \
+// RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_COMMONAVX512_M64
+// CHECK_COMMONAVX512_M64: #define __ADX__ 1
+// CHECK_COMMONAVX512_M64: #define __AVX2__ 1
+// CHECK_COMMONAVX512_M64: #define __AVX512CD__ 1
+// CHECK_COMMONAVX512_M64: #define __AVX512F__ 1
+// CHECK_COMMONAVX512_M64: #define __AVX__ 1
+// CHECK_COMMONAVX512_M64: #define __BMI2__ 1
+// CHECK_COMMONAVX512_M64: #define __BMI__ 1
+// CHECK_COMMONAVX512_M64: #define __F16C__ 1
+// CHECK_COMMONAVX512_M64: #define __FMA__ 1
+// CHECK_COMMONAVX512_M64: #define __LZCNT__ 1
+// CHECK_COMMONAVX512_M64: #define __MMX__ 1
+// CHECK_COMMONAVX512_M64: #define __MOVBE__ 1
+// CHECK_COMMONAVX512_M64: #define __PCLMUL__ 1
+// CHECK_COMMONAVX512_M64: #define __POPCNT__ 1
+// CHECK_COMMONAVX512_M64: #define __PRFCHW__ 1
+// CHECK_COMMONAVX512_M64: #define __RDRND__ 1
+// CHECK_COMMONAVX512_M64: #define __RDSEED__ 1
+// CHECK_COMMONAVX512_M64: #define __SSE2_MATH__ 1
+// CHECK_COMMONAVX512_M64: #define __SSE2__ 1
+// CHECK_COMMONAVX512_M64: #define __SSE3__ 1
+// CHECK_COMMONAVX512_M64: #define __SSE4_1__ 1
+// CHECK_COMMONAVX512_M64: #define __SSE4_2__ 1
+// CHECK_COMMONAVX512_M64: #define __SSE_MATH__ 1
+// CHECK_COMMONAVX512_M64: #define __SSE__ 1
+// CHECK_COMMONAVX512_M64: #define __SSSE3__ 1
+// CHECK_COMMONAVX512_M64: #define __XSAVEOPT__ 1
+// CHECK_COMMONAVX512_M64: #define __XSAVE__ 1
+// CHECK_COMMONAVX512_M64: #define __amd64 1
+// CHECK_COMMONAVX512_M64: #define __amd64__ 1
+// CHECK_COMMONAVX512_M64: #define __x86_64 1
+// CHECK_COMMONAVX512_M64: #define __x86_64__ 1
+// end INTEL_CUSTOMIZATION
+
 // RUN: %clang -march=skylake -m32 -E -dM %s -o - 2>&1 \
 // RUN:     -target i386-unknown-linux \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_SKL_M32

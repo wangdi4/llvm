@@ -293,12 +293,16 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "avx512vpopcntdq", true);
     LLVM_FALLTHROUGH;
   case CK_KNL:
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "avx512cd", true);
+#if INTEL_CUSTOMIZATION
     setFeatureEnabledImpl(Features, "avx512er", true);
     setFeatureEnabledImpl(Features, "avx512pf", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
     setFeatureEnabledImpl(Features, "prefetchwt1", true);
+    LLVM_FALLTHROUGH;
+  case CK_CommonAVX512:
+    setFeatureEnabledImpl(Features, "avx512cd", true);
+    setFeatureEnabledImpl(Features, "avx512f", true);
+    setFeatureEnabledImpl(Features, "prfchw", true);
+#endif // INTEL_CUSTOMIZATION
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "rdseed", true);
     setFeatureEnabledImpl(Features, "adx", true);
@@ -1026,6 +1030,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     // recent primary x86 CPUs, and we should keep it that way.
     defineCPUMacros(Builder, "corei7");
     break;
+#if INTEL_CUSTOMIZATION
+  case CK_CommonAVX512:
+    break;
+#endif // INTEL_CUSTOMIZATION
   case CK_KNL:
     defineCPUMacros(Builder, "knl");
     break;

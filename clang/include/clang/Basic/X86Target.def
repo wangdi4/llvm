@@ -144,6 +144,12 @@ PROC_ALIAS(Haswell, "core-avx2")
 /// Broadwell microarchitecture based processors.
 PROC_WITH_FEAT(Broadwell, "broadwell", PROC_64_BIT, FEATURE_AVX2)
 
+#if INTEL_CUSTOMIZATION
+/// \name CommonAVX512
+/// Intersection of SKX and KNL.
+PROC(CommonAVX512, "common-avx512", PROC_64_BIT)
+#endif // INTEL_CUSTOMIZATION
+
 /// \name Skylake Client
 /// Skylake client microarchitecture based processors.
 PROC_WITH_FEAT(SkylakeClient, "skylake", PROC_64_BIT, FEATURE_AVX2)
