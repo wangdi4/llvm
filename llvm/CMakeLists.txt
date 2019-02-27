@@ -1357,6 +1357,19 @@ if (INTEL_CUSTOMIZATION)
 
     set(manifest_list)
 
+    if (BUILD_SHARED_LIBS)
+      # CMPLRTOOLS-14831:
+      # If we are building shared libraries, we need to install
+      # LLVM_LIBS.
+      list(APPEND INTEL_DEPLOY_COMPONENTS ${LLVM_LIBS})
+
+      # clang libraries are in CLANG_EXPORTS list.
+      # Hopefully, the extra tools, which are also in the list,
+      # may be safely installed without causing any conflicts.
+      get_property(CLANG_EXPORTS GLOBAL PROPERTY CLANG_EXPORTS)
+      list(APPEND INTEL_DEPLOY_COMPONENTS ${CLANG_EXPORTS})
+    endif()
+
     foreach( comp ${INTEL_DEPLOY_COMPONENTS} )
 
       # Filter out xdev components
