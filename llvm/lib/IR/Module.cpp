@@ -1,9 +1,8 @@
 //===- Module.cpp - Implement the Module class ----------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -203,16 +202,14 @@ GlobalVariable *Module::getGlobalVariable(StringRef Name,
 ///      with a constantexpr cast to the right type.
 ///   3. Finally, if the existing global is the correct declaration, return the
 ///      existing global.
-Constant *Module::getOrInsertGlobal(StringRef Name, Type *Ty) {
+Constant *Module::getOrInsertGlobal(
+    StringRef Name, Type *Ty,
+    function_ref<GlobalVariable *()> CreateGlobalCallback) {
   // See if we have a definition for the specified global already.
   GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(getNamedValue(Name));
-  if (!GV) {
-    // Nope, add it
-    GlobalVariable *New =
-      new GlobalVariable(*this, Ty, false, GlobalVariable::ExternalLinkage,
-                         nullptr, Name);
-     return New;                    // Return the new declaration.
-  }
+  if (!GV)
+    GV = CreateGlobalCallback();
+  assert(GV && "The CreateGlobalCallback is expected to create a global");
 
   // If the variable exists but has the wrong type, return a bitcast to the
   // right type.
@@ -223,6 +220,14 @@ Constant *Module::getOrInsertGlobal(StringRef Name, Type *Ty) {
 
   // Otherwise, we just found the existing function or a prototype.
   return GV;
+}
+
+// Overload to construct a global variable using its constructor's defaults.
+Constant *Module::getOrInsertGlobal(StringRef Name, Type *Ty) {
+  return getOrInsertGlobal(Name, Ty, [&] {
+    return new GlobalVariable(*this, Ty, false, GlobalVariable::ExternalLinkage,
+                              nullptr, Name);
+  });
 }
 
 //===----------------------------------------------------------------------===//

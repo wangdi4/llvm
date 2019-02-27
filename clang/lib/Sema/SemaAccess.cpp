@@ -1,9 +1,8 @@
 //===---- SemaAccess.cpp - C++ Access Control -------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -1636,17 +1635,6 @@ Sema::AccessResult Sema::CheckConstructorAccess(SourceLocation UseLoc,
   PartialDiagnostic PD(PDiag());
   switch (Entity.getKind()) {
   default:
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ374722: for compatibility reasons allow to call private
-    // constructor from template or template instantiation in intel
-    // compatibility mode. In MS compatibility mode allow to call private
-    // constructor at any point.
-    if (getLangOpts().IntelCompat &&
-        (getLangOpts().IntelMSCompat || CurContext->isDependentContext() ||
-         !CodeSynthesisContexts.empty()))
-      PD = PDiag(diag::warn_access_ctor);
-    else
-#endif // INTEL_CUSTOMIZATION
     PD = PDiag(IsCopyBindingRefToTemp
                  ? diag::ext_rvalue_to_reference_access_ctor
                  : diag::err_access_ctor);

@@ -1,9 +1,8 @@
 //===--- Gnu.cpp - Gnu Tool and ToolChain Implementations -------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -324,6 +323,52 @@ static bool getPIE(const ArgList &Args, const toolchains::Linux &ToolChain) {
   return A->getOption().matches(options::OPT_pie);
 }
 
+#if INTEL_CUSTOMIZATION
+static void addIntelLibPaths(ArgStringList &CmdArgs,
+    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+  // Add Intel specific library search locations
+  // TODO: This is a rudimentary way to add the library search locations
+  if (ToolChain.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
+    // deploy
+    CmdArgs.push_back(Args.MakeArgString("-L" +
+        ToolChain.getDriver().Dir + "/../../compiler/lib/intel64_lin"));
+  } else {
+    // deploy
+    CmdArgs.push_back(Args.MakeArgString("-L" +
+        ToolChain.getDriver().Dir + "/../../compiler/lib/ia32_lin"));
+  }
+  // IA32ROOT
+  const char * IA32Root = getenv("IA32ROOT");
+  if (IA32Root) {
+    SmallString<128> P("-L");
+    P.append(IA32Root);
+    llvm::sys::path::append(P, "lib_lin");
+    CmdArgs.push_back(Args.MakeArgString(P));
+  }
+}
+
+// Intel libraries are added in statically by default
+static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
+    const llvm::opt::ArgList &Args) {
+  // without --intel, do not pull in Intel libs
+  if (!Args.hasArg(options::OPT__intel))
+    return;
+
+  // FIXME - Right now this is rather simplistic - just check to see if
+  // -static is passed on the command, if it is, we just pull in the Intel
+  // Library.  If not, we wrap the library with -Bstatic <lib> -Bdynamic
+  // assuming that the rest of the libs are linked in dynamically.  This will
+  // need to be expanded to dynamically evaluate the linker command line
+  // to catch user -Wl additions
+  bool isStatic = Args.hasArg(options::OPT_static);
+  if (!isStatic)
+    CmdArgs.push_back("-Bstatic");
+  CmdArgs.push_back(IntelLibName);
+  if (!isStatic)
+    CmdArgs.push_back("-Bdynamic");
+}
+#endif // INTEL_CUSTOMIZATION
+
 void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                            const InputInfo &Output,
                                            const InputInfoList &Inputs,
@@ -461,6 +506,10 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_u);
 
   ToolChain.AddFilePathLibArgs(Args, CmdArgs);
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel))
+    addIntelLibPaths(CmdArgs, Args, ToolChain);
+#endif // INTEL_CUSTOMIZATION
 
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
@@ -477,6 +526,14 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // The profile runtime also needs access to system libraries.
   getToolChain().addProfileRTLibs(Args, CmdArgs);
 
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel) &&
+      !Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
+    addIntelLib("-lirc", CmdArgs, Args);
+    addIntelLib("-lsvml", CmdArgs, Args);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (D.CCCIsCXX() &&
       !Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     if (ToolChain.ShouldLinkCXXStdlib(Args)) {
@@ -488,6 +545,12 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (OnlyLibstdcxxStatic)
         CmdArgs.push_back("-Bdynamic");
     }
+#if INTEL_CUSTOMIZATION
+    // Add -limf before -lm, it will be linked in the same manner as -lm so
+    // don't add with addIntelLib
+    if (Args.hasArg(options::OPT__intel))
+      CmdArgs.push_back("-limf");
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
   }
   // Silence warnings when linking C code with a C++ '-stdlib' argument.
@@ -881,6 +944,10 @@ static bool isMicroMips(const ArgList &Args) {
 
 static bool isRISCV(llvm::Triple::ArchType Arch) {
   return Arch == llvm::Triple::riscv32 || Arch == llvm::Triple::riscv64;
+}
+
+static bool isMSP430(llvm::Triple::ArchType Arch) {
+  return Arch == llvm::Triple::msp430;
 }
 
 static Multilib makeMultilib(StringRef commonSuffix) {
@@ -1428,6 +1495,26 @@ static void findAndroidArmMultilibs(const Driver &D,
     Result.Multilibs = AndroidArmMultilibs;
 }
 
+static bool findMSP430Multilibs(const Driver &D,
+                                const llvm::Triple &TargetTriple,
+                                StringRef Path, const ArgList &Args,
+                                DetectedMultilibs &Result) {
+  FilterNonExistent NonExistent(Path, "/crtbegin.o", D.getVFS());
+  Multilib MSP430Multilib = makeMultilib("/430");
+  // FIXME: when clang starts to support msp430x ISA additional logic
+  // to select between multilib must be implemented
+  // Multilib MSP430xMultilib = makeMultilib("/large");
+
+  Result.Multilibs.push_back(MSP430Multilib);
+  Result.Multilibs.FilterOut(NonExistent);
+
+  Multilib::flags_list Flags;
+  if (Result.Multilibs.select(Flags, Result.SelectedMultilib))
+    return true;
+
+  return false;
+}
+
 static void findRISCVMultilibs(const Driver &D,
                                const llvm::Triple &TargetTriple, StringRef Path,
                                const ArgList &Args, DetectedMultilibs &Result) {
@@ -1916,6 +2003,9 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
   static const char *const MIPSN32ELTriples[] = {
       "mips64el-linux-gnuabin32", "mipsisa64r6el-linux-gnuabin32"};
 
+  static const char *const MSP430LibDirs[] = {"/lib"};
+  static const char *const MSP430Triples[] = {"msp430-elf"};
+
   static const char *const PPCLibDirs[] = {"/lib32", "/lib"};
   static const char *const PPCTriples[] = {
       "powerpc-linux-gnu", "powerpc-unknown-linux-gnu", "powerpc-linux-gnuspe",
@@ -2145,6 +2235,10 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
     BiarchTripleAliases.append(begin(MIPSN32ELTriples), end(MIPSN32ELTriples));
     BiarchTripleAliases.append(begin(MIPSTriples), end(MIPSTriples));
     break;
+  case llvm::Triple::msp430:
+    LibDirs.append(begin(MSP430LibDirs), end(MSP430LibDirs));
+    TripleAliases.append(begin(MSP430Triples), end(MSP430Triples));
+    break;
   case llvm::Triple::ppc:
     LibDirs.append(begin(PPCLibDirs), end(PPCLibDirs));
     TripleAliases.append(begin(PPCTriples), end(PPCTriples));
@@ -2216,6 +2310,8 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
       return false;
   } else if (isRISCV(TargetArch)) {
     findRISCVMultilibs(D, TargetTriple, Path, Args, Detected);
+  } else if (isMSP430(TargetArch)) {
+    findMSP430Multilibs(D, TargetTriple, Path, Args, Detected);
   } else if (!findBiarchMultilibs(D, TargetTriple, Path, Args,
                                   NeedsBiarchSuffix, Detected)) {
     return false;
@@ -2484,7 +2580,14 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
   case llvm::Triple::mipsel:
   case llvm::Triple::mips64:
   case llvm::Triple::mips64el:
+  case llvm::Triple::msp430:
     return true;
+  case llvm::Triple::sparc:
+  case llvm::Triple::sparcel:
+  case llvm::Triple::sparcv9:
+    if (getTriple().isOSSolaris() || getTriple().isOSOpenBSD())
+      return true;
+    return false;
   default:
     return false;
   }
@@ -2607,7 +2710,7 @@ void Generic_ELF::addClangTargetOptions(const ArgList &DriverArgs,
   bool UseInitArrayDefault =
       getTriple().getArch() == llvm::Triple::aarch64 ||
       getTriple().getArch() == llvm::Triple::aarch64_be ||
-      (getTriple().getOS() == llvm::Triple::FreeBSD &&
+      (getTriple().isOSFreeBSD() &&
        getTriple().getOSMajorVersion() >= 12) ||
       (getTriple().getOS() == llvm::Triple::Linux &&
        ((!GCCInstallation.isValid() || !V.isOlderThan(4, 7, 0)) ||

@@ -280,37 +280,6 @@ void doacross_test_two(int (*v_ptr)[5][4])
   }
 }
 
-// CHECK: define {{.*}}multiloop
-void multiloop(int in, int *arr)
-{
-  // CHECK-NOT: "QUAL.OMP.PRIVATE"(i32* %.omp.ub
-  // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
-  #pragma omp parallel
-  {
-
-    #pragma omp simd
-    for(int i=0;i<16;++i)
-      arr[i] = in;
-
-    int i;
-    #pragma omp simd
-    for(i=0;i<16;++i)
-      arr[i] = in;
-
-    #pragma omp for
-    for(i=0;i<16;++i)
-      arr[i] = in;
-
-    #pragma omp parallel for
-    for(i=0;i<16;++i)
-      arr[i] = in;
-
-    #pragma omp parallel for simd
-    for(i=0;i<16;++i)
-      arr[i] = in;
-  }
-}
-
 // CHECK: !llvm.ident
 // CHECK: ![[LOOP_1]] = distinct !{![[LOOP_1]], ![[UNROLL_4:.*]]}
 // CHECK: ![[UNROLL_4]] = !{!"llvm.loop.unroll.count", i32 4}

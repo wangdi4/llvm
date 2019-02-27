@@ -1,6 +1,6 @@
 //===--- IntelCustDocs.td - Documentation for intel-specific attrs --------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -2100,6 +2100,34 @@ IR:
   !2 =  !{!"on"}
   !3 =  !{!"off"}
 
+  }];
+}
+
+def LongDoubleSizeConfigDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let BugTracker = "CMPLRLLVM-1870";
+  let RegressionTest = "CodeGen/intel/long-double-config-size.c";
+  let Content = [{
+The ``fintel-long-double-size`` CC1 option controls the size of a long-double.
+This is used as a part of the ICC compatibility option /Qlong-double, which on
+Windows sets the compiler to use 80 bit long doubles instead of 64 bit.
+
+This option has 3 valid values: 64, 80 and 128.
+
+When set to 64, long double will be 64 bits and have a 64 bit alignment. 80
+results in the x87 implementation, consistent with the behavior on Linux,
+which is 96-bit width and 32 bit alignment on x86 and 128 bit width and
+alignment on x86_64. This differs from the ICC documented behavior (which states
+128 bit for both with no special consideration for x86), since it would result
+in significant changes to how Clang/LLVM handles x87 doubles.
+
+Finally, when set to 128, the long double type will be a 128 bit size and
+alignment, consistent with the IEEE quad-double implementation.
+
+Note that this option is likely only to be exposed as /Qlong-double for the
+short term, so only 80 and Windows will be used. However, GCC has similar
+functionality to permit setting of these values, so support is left for the
+other two options in case those are useful in the future.
   }];
 }
 

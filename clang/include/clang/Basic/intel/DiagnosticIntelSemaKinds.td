@@ -1,6 +1,6 @@
 //===--- DiagnosticIntelSemaKinds.td - Intel libsema diagnostics ----------===//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -110,9 +110,6 @@ def ext_intel_forward_ref_enum : ExtWarn<
 def warn_switch_into_protected_scope : Warning<
   "jump from switch statement to this case label bypasses variable initialization">,
   InGroup<IntelCompat>;
-// CQ370802 - allows indirect goto to const address if IntelCompat
-def warn_indirect_goto_with_const_expr : Warning<
-  "expr in 'goto *expr' is constant">, InGroup<IntelCompat>;
 // CQ370802 - allows indirect got to any places
 def warn_indirect_goto_in_protected_scope : Warning<
   err_indirect_goto_in_protected_scope.Text>, InGroup<IntelCompat>;
@@ -311,6 +308,18 @@ def err_opencl_attribute_argument_out_of_bounds : Error<
   "inclusive">;
 def err_opencl_power_of_two_in_range : Error<
   "%0 attribute must be a constant power of two between %1 and %2 inclusive">;
+
+def warn_channel_is_used_from_more_than_one_kernel : Warning<
+  "usage of the same channel for %select{reading|writing}0 from different "
+  "kernels is prohibited">, InGroup<FPGAChannelsUsage>, DefaultError;
+def note_channel_usage_already_found_in_kernel : Note<
+  "%select{previous|}0 usage of channel '%1' for "
+  "%select{reading|writing}2 found in the kernel '%3'. See call stack below:">;
+def note_channel_is_used_through : Note<
+  "channel '%0' is used for %select{reading|writing}1 here">;
+def warn_io_channel_is_used_from_autorun_kernel : Warning<
+  "usage of I/O channel '%0' found in autorun kernel '%1'. "
+  "See call stack below:">, InGroup<FPGAChannelsUsage>, DefaultError;
 
 def err_hls_builtin_arg_mismatch : Error<
   "HLS builtin parameter must be %select{"

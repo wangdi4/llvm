@@ -1,9 +1,8 @@
 //===--- Sema.h - Semantic Analysis & AST Building --------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -60,12 +59,64 @@
 #include <string>
 #include <vector>
 
+#if INTEL_CUSTOMIZATION
+namespace clang {
+enum class FPGAChannelAccessKind : unsigned {
+  // Must be listed in the same order as in corresponding channel
+  // diagnostics, see DiagnosticIntelSemaKinds
+  Read = 0,
+  Write = 1,
+  Undefined = 2
+};
+
+struct FPGAChannelDescriptor {
+  const ValueDecl *ChannelDecl = nullptr;
+  bool IsLocalChannel = false;
+  unsigned ArgNo = -1;
+  FPGAChannelAccessKind Kind = FPGAChannelAccessKind::Undefined;
+  std::string Name;
+
+  FPGAChannelDescriptor() = default;
+  FPGAChannelDescriptor(StringRef Name) : Name(Name) {}
+
+  inline bool operator==(const FPGAChannelDescriptor &RHS) const {
+    return Kind == RHS.Kind && IsLocalChannel == RHS.IsLocalChannel &&
+           Name == RHS.Name;
+  }
+
+  inline bool operator!=(const FPGAChannelDescriptor &RHS) const {
+    return !(*this == RHS);
+  }
+};
+}
+#endif // INTEL_CUSTOMIZATION
+
 namespace llvm {
   class APSInt;
   template <typename ValueT> struct DenseMapInfo;
   template <typename ValueT, typename ValueInfoT> class DenseSet;
   class SmallBitVector;
   struct InlineAsmIdentifierInfo;
+#if INTEL_CUSTOMIZATION
+  using clang::FPGAChannelDescriptor;
+  // Provide DenseMapInfo for ChannelDesciptor.
+  template <> struct DenseMapInfo<FPGAChannelDescriptor> {
+    static inline FPGAChannelDescriptor getEmptyKey() {
+      return FPGAChannelDescriptor();
+    }
+    static inline FPGAChannelDescriptor getTombstoneKey() {
+      return FPGAChannelDescriptor("~");
+    }
+    static inline unsigned
+    getHashValue(const FPGAChannelDescriptor &Val) {
+      return DenseMapInfo<StringRef>::getHashValue(Val.Name);
+    }
+    static inline bool isEqual(const FPGAChannelDescriptor &LHS,
+                               const FPGAChannelDescriptor &RHS) {
+      return LHS == RHS;
+    }
+  };
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace clang {
@@ -307,7 +358,51 @@ class Sema {
   }
   bool shouldLinkPossiblyHiddenDecl(LookupResult &Old, const NamedDecl *New);
 
+  void setupImplicitSpecialMemberType(CXXMethodDecl *SpecialMem,
+                                      QualType ResultTy,
+                                      ArrayRef<QualType> Args);
+
 public:
+#if INTEL_CUSTOMIZATION
+  friend void launchOCLFPGAFeaturesAnalysis(const Decl *D, Sema &S);
+
+  using FunctionDeclToCallSitesMap =
+      llvm::MapVector<const FunctionDecl *,
+                      llvm::SmallVector<const CallExpr *, 4>>;
+  using FunctionDeclAndCallSitesPair = FunctionDeclToCallSitesMap::value_type;
+
+  using OCLFPGACallGraphType = llvm::DenseMap<
+      /* Caller = */ const FunctionDecl *,
+      /* Callees = */ FunctionDeclToCallSitesMap>;
+
+  /// Call graph which is used to find indirect uses of channels
+  OCLFPGACallGraphType OCLFPGACallGraph;
+
+  /// Inverted call graph which is used to effectively walk up from callee to
+  /// callers
+  OCLFPGACallGraphType OCLFPGAReverseCallGraph;
+
+  using ChannelToFunctionMapType =
+      llvm::DenseMap<FPGAChannelDescriptor, const FunctionDecl *>;
+
+  using ChannelDescSet =
+      llvm::SetVector<FPGAChannelDescriptor,
+                      llvm::SmallVector<FPGAChannelDescriptor, 16>,
+                      llvm::SmallDenseSet<FPGAChannelDescriptor, 16>>;
+
+  using FunctionToChannelMapType =
+      llvm::DenseMap<const FunctionDecl *, ChannelDescSet>;
+
+  /// Mapping from channel to a kernel which uses this channel. Used to
+  /// determine should we or not emit diagnostic message about inappropriate
+  /// usage of channel.
+  ChannelToFunctionMapType ChannelToKernelMap;
+
+  /// Mapping from function to set of channels used in this function. Used to
+  /// collect all channels used directly or indirectly in each function.
+  FunctionToChannelMapType FunctionToChannelMap;
+#endif // INTEL_CUSTOMIZATION
+
   typedef OpaquePtr<DeclGroupRef> DeclGroupPtrTy;
   typedef OpaquePtr<TemplateName> TemplateTy;
   typedef OpaquePtr<QualType> TypeTy;
@@ -503,6 +598,8 @@ public:
   struct PragmaAttributeGroup {
     /// The location of the push attribute.
     SourceLocation Loc;
+    /// The namespace of this push group.
+    const IdentifierInfo *Namespace;
     SmallVector<PragmaAttributeEntry, 2> Entries;
   };
 
@@ -1369,6 +1466,7 @@ public:
   void PopCompoundScope();
 
   sema::CompoundScopeInfo &getCurCompoundScope() const;
+  bool isCurCompoundStmtAStmtExpr() const;
 
   bool hasAnyUnrecoverableErrorsInThisFunction() const;
 
@@ -1411,6 +1509,10 @@ public:
   QualType BuildVectorType(QualType T, Expr *VecSize, SourceLocation AttrLoc);
   QualType BuildExtVectorType(QualType T, Expr *ArraySize,
                               SourceLocation AttrLoc);
+  QualType BuildAddressSpaceAttr(QualType &T, LangAS ASIdx, Expr *AddrSpace,
+                                 SourceLocation AttrLoc);
+
+  /// Same as above, but constructs the AddressSpace index if not provided.
   QualType BuildAddressSpaceAttr(QualType &T, Expr *AddrSpace,
                                  SourceLocation AttrLoc);
 
@@ -1971,7 +2073,7 @@ public:
   bool CheckVariableDeclaration(VarDecl *NewVD, LookupResult &Previous);
   void CheckVariableDeclarationType(VarDecl *NewVD);
   bool DeduceVariableDeclarationType(VarDecl *VDecl, bool DirectInit,
-                                     Expr *Init);
+                                     Expr *&Init);
   void CheckCompleteVariableDeclaration(VarDecl *VD);
   void CheckCompleteDecompositionDeclaration(DecompositionDecl *DD);
   void MaybeSuggestAddingStaticToDecl(const FunctionDecl *D);
@@ -2463,18 +2565,38 @@ public:
     AMK_ProtocolImplementation,
   };
 
+  /// Describes the kind of priority given to an availability attribute.
+  ///
+  /// The sum of priorities deteremines the final priority of the attribute.
+  /// The final priority determines how the attribute will be merged.
+  /// An attribute with a lower priority will always remove higher priority
+  /// attributes for the specified platform when it is being applied. An
+  /// attribute with a higher priority will not be applied if the declaration
+  /// already has an availability attribute with a lower priority for the
+  /// specified platform. The final prirority values are not expected to match
+  /// the values in this enumeration, but instead should be treated as a plain
+  /// integer value. This enumeration just names the priority weights that are
+  /// used to calculate that final vaue.
+  enum AvailabilityPriority : int {
+    /// The availability attribute was specified explicitly next to the
+    /// declaration.
+    AP_Explicit = 0,
+
+    /// The availability attribute was applied using '#pragma clang attribute'.
+    AP_PragmaClangAttribute = 1,
+
+    /// The availability attribute for a specific platform was inferred from
+    /// an availability attribute for another platform.
+    AP_InferredFromOtherPlatform = 2
+  };
+
   /// Attribute merging methods. Return true if a new attribute was added.
-  AvailabilityAttr *mergeAvailabilityAttr(NamedDecl *D, SourceRange Range,
-                                          IdentifierInfo *Platform,
-                                          bool Implicit,
-                                          VersionTuple Introduced,
-                                          VersionTuple Deprecated,
-                                          VersionTuple Obsoleted,
-                                          bool IsUnavailable,
-                                          StringRef Message,
-                                          bool IsStrict, StringRef Replacement,
-                                          AvailabilityMergeKind AMK,
-                                          unsigned AttrSpellingListIndex);
+  AvailabilityAttr *mergeAvailabilityAttr(
+      NamedDecl *D, SourceRange Range, IdentifierInfo *Platform, bool Implicit,
+      VersionTuple Introduced, VersionTuple Deprecated, VersionTuple Obsoleted,
+      bool IsUnavailable, StringRef Message, bool IsStrict,
+      StringRef Replacement, AvailabilityMergeKind AMK, int Priority,
+      unsigned AttrSpellingListIndex);
   TypeVisibilityAttr *mergeTypeVisibilityAttr(Decl *D, SourceRange Range,
                                        TypeVisibilityAttr::VisibilityType Vis,
                                               unsigned AttrSpellingListIndex);
@@ -2503,6 +2625,12 @@ public:
                                           unsigned AttrSpellingListIndex);
   MinSizeAttr *mergeMinSizeAttr(Decl *D, SourceRange Range,
                                 unsigned AttrSpellingListIndex);
+  NoSpeculativeLoadHardeningAttr *
+  mergeNoSpeculativeLoadHardeningAttr(Decl *D,
+                                      const NoSpeculativeLoadHardeningAttr &AL);
+  SpeculativeLoadHardeningAttr *
+  mergeSpeculativeLoadHardeningAttr(Decl *D,
+                                    const SpeculativeLoadHardeningAttr &AL);
   OptimizeNoneAttr *mergeOptimizeNoneAttr(Decl *D, SourceRange Range,
                                           unsigned AttrSpellingListIndex);
   InternalLinkageAttr *mergeInternalLinkageAttr(Decl *D, const ParsedAttr &AL);
@@ -3769,16 +3897,17 @@ public:
     return MakeFullExpr(Arg, Arg ? Arg->getExprLoc() : SourceLocation());
   }
   FullExprArg MakeFullExpr(Expr *Arg, SourceLocation CC) {
-    return FullExprArg(ActOnFinishFullExpr(Arg, CC).get());
+    return FullExprArg(
+        ActOnFinishFullExpr(Arg, CC, /*DiscardedValue*/ false).get());
   }
   FullExprArg MakeFullDiscardedValueExpr(Expr *Arg) {
     ExprResult FE =
-      ActOnFinishFullExpr(Arg, Arg ? Arg->getExprLoc() : SourceLocation(),
-                          /*DiscardedValue*/ true);
+        ActOnFinishFullExpr(Arg, Arg ? Arg->getExprLoc() : SourceLocation(),
+                            /*DiscardedValue*/ true);
     return FullExprArg(FE.get());
   }
 
-  StmtResult ActOnExprStmt(ExprResult Arg);
+  StmtResult ActOnExprStmt(ExprResult Arg, bool DiscardedValue = true);
   StmtResult ActOnExprStmtError();
 
   StmtResult ActOnNullStmt(SourceLocation SemiLoc,
@@ -4916,7 +5045,7 @@ public:
   ImplicitExceptionSpecification
   ComputeDefaultedCopyCtorExceptionSpec(CXXMethodDecl *MD);
 
-  /// Determine what sort of exception specification a defautled
+  /// Determine what sort of exception specification a defaulted
   /// copy assignment operator of a class will have, and whether the
   /// parameter will be const.
   ImplicitExceptionSpecification
@@ -5301,6 +5430,15 @@ public:
                          SourceRange DirectInitRange,
                          Expr *Initializer);
 
+  /// Determine whether \p FD is an aligned allocation or deallocation
+  /// function that is unavailable.
+  bool isUnavailableAlignedAllocationFunction(const FunctionDecl &FD) const;
+
+  /// Produce diagnostics if \p FD is an aligned allocation or deallocation
+  /// function that is unavailable.
+  void diagnoseUnavailableAlignedAllocation(const FunctionDecl &FD,
+                                            SourceLocation Loc);
+
   bool CheckAllocatedType(QualType AllocType, SourceLocation Loc,
                           SourceRange R);
 
@@ -5430,13 +5568,12 @@ public:
   CreateMaterializeTemporaryExpr(QualType T, Expr *Temporary,
                                  bool BoundToLvalueReference);
 
-  ExprResult ActOnFinishFullExpr(Expr *Expr) {
-    return ActOnFinishFullExpr(Expr, Expr ? Expr->getExprLoc()
-                                          : SourceLocation());
+  ExprResult ActOnFinishFullExpr(Expr *Expr, bool DiscardedValue) {
+    return ActOnFinishFullExpr(
+        Expr, Expr ? Expr->getExprLoc() : SourceLocation(), DiscardedValue);
   }
   ExprResult ActOnFinishFullExpr(Expr *Expr, SourceLocation CC,
-                                 bool DiscardedValue = false,
-                                 bool IsConstexpr = false);
+                                 bool DiscardedValue, bool IsConstexpr = false);
   StmtResult ActOnFinishFullStmt(Stmt *Stmt);
 
   // Marks SS invalid if it represents an incomplete type.
@@ -6445,9 +6582,9 @@ public:
                     const TemplateArgumentListInfo &ExplicitTemplateArgs,
                                                     LookupResult &Previous);
 
-  bool CheckFunctionTemplateSpecialization(FunctionDecl *FD,
-                         TemplateArgumentListInfo *ExplicitTemplateArgs,
-                                           LookupResult &Previous);
+  bool CheckFunctionTemplateSpecialization(
+      FunctionDecl *FD, TemplateArgumentListInfo *ExplicitTemplateArgs,
+      LookupResult &Previous, bool QualifiedFriend = false);
   bool CheckMemberSpecialization(NamedDecl *Member, LookupResult &Previous);
   void CompleteMemberSpecialization(NamedDecl *Member, LookupResult &Previous);
 
@@ -7184,7 +7321,7 @@ public:
   QualType deduceVarTypeFromInitializer(VarDecl *VDecl, DeclarationName Name,
                                         QualType Type, TypeSourceInfo *TSI,
                                         SourceRange Range, bool DirectInit,
-                                        Expr *Init);
+                                        Expr *&Init);
 
   TypeLoc getReturnTypeLoc(FunctionDecl *FD) const;
 
@@ -8595,10 +8732,12 @@ public:
   void ActOnPragmaAttributeAttribute(ParsedAttr &Attribute,
                                      SourceLocation PragmaLoc,
                                      attr::ParsedSubjectMatchRuleSet Rules);
-  void ActOnPragmaAttributeEmptyPush(SourceLocation PragmaLoc);
+  void ActOnPragmaAttributeEmptyPush(SourceLocation PragmaLoc,
+                                     const IdentifierInfo *Namespace);
 
   /// Called on well-formed '\#pragma clang attribute pop'.
-  void ActOnPragmaAttributePop(SourceLocation PragmaLoc);
+  void ActOnPragmaAttributePop(SourceLocation PragmaLoc,
+                               const IdentifierInfo *Namespace);
 
   /// Adds the attributes that have been specified using the
   /// '\#pragma clang attribute push' directives to the given declaration.
@@ -9355,7 +9494,9 @@ public:
       SourceLocation ColonLoc, SourceLocation EndLoc,
       CXXScopeSpec &ReductionIdScopeSpec,
       const DeclarationNameInfo &ReductionId, OpenMPDependClauseKind DepKind,
-      OpenMPLinearClauseKind LinKind, OpenMPMapClauseKind MapTypeModifier,
+      OpenMPLinearClauseKind LinKind,
+      ArrayRef<OpenMPMapModifierKind> MapTypeModifiers,
+      ArrayRef<SourceLocation> MapTypeModifiersLoc,
       OpenMPMapClauseKind MapType, bool IsMapTypeImplicit,
 #if INTEL_CUSTOMIZATION
       bool IsLastprivateConditional, SourceLocation DepLinMapLoc);
@@ -9444,7 +9585,8 @@ public:
                                      SourceLocation EndLoc);
   /// Called on well-formed 'map' clause.
   OMPClause *
-  ActOnOpenMPMapClause(OpenMPMapClauseKind MapTypeModifier,
+  ActOnOpenMPMapClause(ArrayRef<OpenMPMapModifierKind> MapTypeModifiers,
+                       ArrayRef<SourceLocation> MapTypeModifiersLoc,
                        OpenMPMapClauseKind MapType, bool IsMapTypeImplicit,
                        SourceLocation MapLoc, SourceLocation ColonLoc,
                        ArrayRef<Expr *> VarList, SourceLocation StartLoc,
@@ -9554,6 +9696,11 @@ public:
   // type.
   ExprResult DefaultLvalueConversion(Expr *E);
 
+  // DefaultArgumentPromotion (C99 6.5.2.2p6). Used for function calls that
+  // do not have a prototype. Integer promotions are performed on each
+  // argument, and arguments that have type float are promoted to double.
+  ExprResult DefaultArgumentPromotion(Expr *E);
+
   /// If \p E is a prvalue denoting an unmaterialized temporary, materialize
   /// it as an xvalue. In C++98, the result will still be a prvalue, because
   /// we don't have xvalues there.
@@ -9568,15 +9715,6 @@ public:
     VariadicDoesNotApply
   };
 
-#if INTEL_CUSTOMIZATION
-  // cq381613: The declaration is pulled down and additional argument was added.
-  //
-  // DefaultArgumentPromotion (C99 6.5.2.2p6). Used for function calls that
-  // do not have a prototype. Integer promotions are performed on each
-  // argument, and arguments that have type float are promoted to double.
-  ExprResult
-  DefaultArgumentPromotion(Expr *E, VariadicCallType CT = VariadicDoesNotApply);
-#endif // INTEL_CUSTOMIZATION
   VariadicCallType getVariadicCallType(FunctionDecl *FDecl,
                                        const FunctionProtoType *Proto,
                                        Expr *Fn);
@@ -9928,10 +10066,8 @@ public:
 
   /// Type-check an expression that's being passed to an
   /// __unknown_anytype parameter.
-  ExprResult                                                            // INTEL
-  checkUnknownAnyArg(SourceLocation callLoc,                            // INTEL
-                     Expr *result, QualType &paramType,                 // INTEL
-                     VariadicCallType CallType = VariadicDoesNotApply); // INTEL
+  ExprResult checkUnknownAnyArg(SourceLocation callLoc,
+                                Expr *result, QualType &paramType);
 
   // CheckVectorCast - check type constraints for vectors.
   // Since vectors are an extension, there are no C standard reference for this.
@@ -9993,21 +10129,20 @@ public:
   /// \param Method - May be null.
   /// \param [out] ReturnType - The return type of the send.
   /// \return true iff there were any incompatible types.
-  bool CheckMessageArgumentTypes(QualType ReceiverType,
+  bool CheckMessageArgumentTypes(const Expr *Receiver, QualType ReceiverType,
                                  MultiExprArg Args, Selector Sel,
                                  ArrayRef<SourceLocation> SelectorLocs,
                                  ObjCMethodDecl *Method, bool isClassMessage,
-                                 bool isSuperMessage,
-                                 SourceLocation lbrac, SourceLocation rbrac,
-                                 SourceRange RecRange,
+                                 bool isSuperMessage, SourceLocation lbrac,
+                                 SourceLocation rbrac, SourceRange RecRange,
                                  QualType &ReturnType, ExprValueKind &VK);
 
   /// Determine the result of a message send expression based on
   /// the type of the receiver, the method expected to receive the message,
   /// and the form of the message send.
-  QualType getMessageSendResultType(QualType ReceiverType,
-                                    ObjCMethodDecl *Method,
-                                    bool isClassMessage, bool isSuperMessage);
+  QualType getMessageSendResultType(const Expr *Receiver, QualType ReceiverType,
+                                    ObjCMethodDecl *Method, bool isClassMessage,
+                                    bool isSuperMessage);
 
   /// If the given expression involves a message send to a method
   /// with a related result type, emit a note describing what happened.
@@ -10646,6 +10781,11 @@ private:
   bool CheckSystemZBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinGatherScatterScale(unsigned BuiltinID, CallExpr *TheCall);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+  bool CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall);
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
   bool CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckPPCBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
 #if INTEL_CUSTOMIZATION

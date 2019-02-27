@@ -1,9 +1,8 @@
 //===--- SarifDiagnostics.cpp - Sarif Diagnostics for Paths -----*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -257,8 +256,19 @@ static json::Object createResult(const PathDiagnostic &Diag, json::Array &Files,
 static StringRef getRuleDescription(StringRef CheckName) {
   return llvm::StringSwitch<StringRef>(CheckName)
 #define GET_CHECKERS
-#define CHECKER(FULLNAME, CLASS, HELPTEXT)                                     \
+#define CHECKER(FULLNAME, CLASS, HELPTEXT, DOC_URI)                            \
   .Case(FULLNAME, HELPTEXT)
+#include "clang/StaticAnalyzer/Checkers/Checkers.inc"
+#undef CHECKER
+#undef GET_CHECKERS
+      ;
+}
+
+static StringRef getRuleHelpURIStr(StringRef CheckName) {
+  return llvm::StringSwitch<StringRef>(CheckName)
+#define GET_CHECKERS
+#define CHECKER(FULLNAME, CLASS, HELPTEXT, DOC_URI)                            \
+  .Case(FULLNAME, DOC_URI)
 #include "clang/StaticAnalyzer/Checkers/Checkers.inc"
 #undef CHECKER
 #undef GET_CHECKERS
@@ -267,10 +277,16 @@ static StringRef getRuleDescription(StringRef CheckName) {
 
 static json::Object createRule(const PathDiagnostic &Diag) {
   StringRef CheckName = Diag.getCheckName();
-  return json::Object{
+  json::Object Ret{
       {"fullDescription", createMessage(getRuleDescription(CheckName))},
       {"name", createMessage(CheckName)},
       {"id", CheckName}};
+
+  std::string RuleURI = getRuleHelpURIStr(CheckName);
+  if (!RuleURI.empty())
+    Ret["helpUri"] = RuleURI;
+
+  return Ret;
 }
 
 static json::Array createRules(std::vector<const PathDiagnostic *> &Diags,

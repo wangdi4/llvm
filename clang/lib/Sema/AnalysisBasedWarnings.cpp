@@ -1,9 +1,8 @@
 //=- AnalysisBasedWarnings.cpp - Sema warnings based on libAnalysis -*- C++ -*-=//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -35,6 +34,9 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Preprocessor.h"
+#if INTEL_CUSTOMIZATION
+#include "clang/Sema/intel/FPGAAnalyzeChannelsUsage.h"
+#endif // INTEL_CUSTOMIZATION
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/BitVector.h"
@@ -1153,7 +1155,12 @@ namespace {
     bool TraverseDecl(Decl *D) { return true; }
 
     // We analyze lambda bodies separately. Skip them here.
-    bool TraverseLambdaBody(LambdaExpr *LE) { return true; }
+    bool TraverseLambdaExpr(LambdaExpr *LE) {
+      // Traverse the captures, but not the body.
+      for (const auto &C : zip(LE->captures(), LE->capture_inits()))
+        TraverseLambdaCapture(LE, &std::get<0>(C), std::get<1>(C));
+      return true;
+    }
 
   private:
 
@@ -1634,17 +1641,6 @@ class ThreadSafetyReporter : public clang::threadSafety::ThreadSafetyHandler {
     return ONS;
   }
 
-  // Helper functions
-  void warnLockMismatch(unsigned DiagID, StringRef Kind, Name LockName,
-                        SourceLocation Loc) {
-    // Gracefully handle rare cases when the analysis can't get a more
-    // precise source location.
-    if (!Loc.isValid())
-      Loc = FunLocation;
-    PartialDiagnosticAt Warning(Loc, S.PDiag(DiagID) << Kind << LockName);
-    Warnings.emplace_back(std::move(Warning), getNotes());
-  }
-
  public:
   ThreadSafetyReporter(Sema &S, SourceLocation FL, SourceLocation FEL)
     : S(S), FunLocation(FL), FunEndLocation(FEL),
@@ -1673,7 +1669,11 @@ class ThreadSafetyReporter : public clang::threadSafety::ThreadSafetyHandler {
 
   void handleUnmatchedUnlock(StringRef Kind, Name LockName,
                              SourceLocation Loc) override {
-    warnLockMismatch(diag::warn_unlock_but_no_lock, Kind, LockName, Loc);
+    if (Loc.isInvalid())
+      Loc = FunLocation;
+    PartialDiagnosticAt Warning(Loc, S.PDiag(diag::warn_unlock_but_no_lock)
+                                         << Kind << LockName);
+    Warnings.emplace_back(std::move(Warning), getNotes());
   }
 
   void handleIncorrectUnlockKind(StringRef Kind, Name LockName,
@@ -1687,8 +1687,18 @@ class ThreadSafetyReporter : public clang::threadSafety::ThreadSafetyHandler {
     Warnings.emplace_back(std::move(Warning), getNotes());
   }
 
-  void handleDoubleLock(StringRef Kind, Name LockName, SourceLocation Loc) override {
-    warnLockMismatch(diag::warn_double_lock, Kind, LockName, Loc);
+  void handleDoubleLock(StringRef Kind, Name LockName, SourceLocation LocLocked,
+                        SourceLocation Loc) override {
+    if (Loc.isInvalid())
+      Loc = FunLocation;
+    PartialDiagnosticAt Warning(Loc, S.PDiag(diag::warn_double_lock)
+                                         << Kind << LockName);
+    OptionalNotes Notes =
+        LocLocked.isValid()
+            ? getNotes(PartialDiagnosticAt(
+                  LocLocked, S.PDiag(diag::note_locked_here) << Kind))
+            : getNotes();
+    Warnings.emplace_back(std::move(Warning), std::move(Notes));
   }
 
   void handleMutexHeldEndOfScope(StringRef Kind, Name LockName,
@@ -1956,6 +1966,9 @@ clang::sema::AnalysisBasedWarnings::Policy::Policy() {
   enableCheckUnreachable = 0;
   enableThreadSafetyAnalysis = 0;
   enableConsumedAnalysis = 0;
+#if INTEL_CUSTOMIZATION
+  enableFPGAChannelsAnalysis = 0;
+#endif // INTEL_CUSTOMIZATION
 }
 
 static unsigned isEnabled(DiagnosticsEngine &D, unsigned diag) {
@@ -1988,6 +2001,11 @@ clang::sema::AnalysisBasedWarnings::AnalysisBasedWarnings(Sema &s)
 
   DefaultPolicy.enableConsumedAnalysis =
     isEnabled(D, warn_use_in_invalid_state);
+
+#if INTEL_CUSTOMIZATION
+  DefaultPolicy.enableFPGAChannelsAnalysis =
+    isEnabled(D, warn_channel_is_used_from_more_than_one_kernel);
+#endif // INTEL_CUSTOMIZATION
 }
 
 static void flushDiagnostics(Sema &S, const sema::FunctionScopeInfo *fscope) {
@@ -2026,6 +2044,13 @@ AnalysisBasedWarnings::IssueWarnings(sema::AnalysisBasedWarnings::Policy P,
 
   const Stmt *Body = D->getBody();
   assert(Body);
+
+#if INTEL_CUSTOMIZATION
+  if (S.Context.getLangOpts().OpenCL &&
+      S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+    launchOCLFPGAFeaturesAnalysis(D, S);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Construct the analysis context with the specified CFG build options.
   AnalysisDeclContext AC(/* AnalysisDeclContextManager */ nullptr, D);

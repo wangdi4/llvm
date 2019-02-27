@@ -1,9 +1,8 @@
 //===- IdentifierTable.cpp - Hash table for identifier lookup -------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -262,9 +261,9 @@ void IdentifierTable::AddKeywords(const LangOptions &LangOpts) {
     AddKeyword("__declspec", tok::kw___declspec, KEYALL, LangOpts, *this);
 #if INTEL_CUSTOMIZATION
 // CQ#380574: Ability to set various predefines based on gcc version needed.
-  if (LangOpts.IntelCompat && LangOpts.IntelQuad)
+  if (LangOpts.IntelQuad)
     AddKeyword("_Quad", tok::kw___float128, KEYFLOAT128, LangOpts, *this);
-  if (LangOpts.IntelCompat && LangOpts.GNUVersion >= 40400 && LangOpts.GNUMode)
+  if (LangOpts.Float128)
     AddKeyword("__float128", tok::kw___float128, KEYFLOAT128, LangOpts, *this);
 #endif // INTEL_CUSTOMIZATION
 

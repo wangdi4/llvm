@@ -1,9 +1,8 @@
 // RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify -std=c++98 --friend_injection %s -DNODIAG
-// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify --no_friend_injection -std=c++98 %s -DDIAGFUN -DDIAGCLASS
-// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify -std=c++98 --gnu_version=40100 %s -DDIAGFUN -DDIAGCLASS
-// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify -std=c++98 --gnu_version=40099 %s -DDIAGCLASS
-// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify -std=c++98 --gnu_version=40000 %s -DNODIAG
-// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify --gnu_version=40000 -std=c++11 %s -DDIAGFUN -DDIAGCLASS
+// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify -std=c++11 --friend_injection %s -DNODIAG
+
+// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify -std=c++98 %s -DDIAGFUN -DDIAGCLASS
+// RUN: %clang_cc1 -fsyntax-only -fintel-compatibility -verify -std=c++11 %s -DDIAGFUN -DDIAGCLASS
 
 #if NODIAG
 // expected-no-diagnostics

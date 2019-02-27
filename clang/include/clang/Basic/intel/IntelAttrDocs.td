@@ -131,8 +131,8 @@ criteria:
 
 As mentioned above, kernels with the ``autorun`` attribute cannot have any
 arguments and start executing without the host launching them explicitly. As a
-retsult, the offline compiler does not need to generate the logic for
-communication between the host and the kernel. Ommiting this logic reduces
+result, the offline compiler does not need to generate the logic for
+communication between the host and the kernel. Omitting this logic reduces
 utilization and allows the offline compiler to apply additional performance
 optimizations.
 
@@ -155,6 +155,27 @@ the results to one or more channels.
   }
 
 .. _`Intel FPGA SDK for OpenCL Programming Guide`: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
+  }];
+}
+
+def UsesGlobalWorkOffsetDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+The ``uses_global_work_offset`` kernel attribute indicates whether the host is allowed to enqueue
+the kernel with a non-zero global_work_offset argument using the clEnqueueNDRangeKernel API.
+
+A value of ``uses_global_work_offset(0)`` instructs the Intel FPGA SDK for OpenCL Offline
+Compiler to assume that calls to clEnqueueNDRangeKernel will always have a NULL or all zero
+global_work_offset argument. It is recommended to apply the ``uses_global_work_offset(0)`` attribute
+on all kernels that are always enqueued with a zero global_work_offset to allow the offline
+compiler to perform additional optimizations. The host will prevent kernels marked with
+``uses_global_work_offset(0)`` from being enqueued with a non-zero global_work_offset.
+
+A value of ``uses_global_work_offset(1)`` instructs the Intel FPGA SDK for OpenCL Offline
+Compiler to assume that calls to clEnqueueNDRangeKernel may have a non-zero global_work_offset
+argument. The ``uses_global_work_offset(1)`` attribute matches the default behavior
+of the offline compiler. It is recommended to apply the ``uses_global_work_offset(1)``
+attribute only to kernels that are enqueued with non-zero global_work_offset arguments.
   }];
 }
 

@@ -44,6 +44,21 @@ intel_add_file(INTEL_HEADERS
   intel_avx512vlbf16intrin.h
   )
 # end INTEL_FEATURE_ISA_BF16
+# INTEL_FEATURE_ISA_SERIALIZE
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE
+  Intel_Headers/serializeintrin.h
+  )
+# end INTEL_FEATURE_ISA_SERIALIZE
+# end INTEL_CUSTOMIZATION
+
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_ISA_AMX
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX
+  Intel_amxintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX
 # end INTEL_CUSTOMIZATION
 
 set(files
@@ -295,22 +310,22 @@ set(intel_exclude_files
   float.h
 #  htmintrin.h
 #  htmxlintrin.h
-  inttypes.h
-  iso646.h
+#  inttypes.h
+#  iso646.h
   limits.h
   module.modulemap
 #  msa.h
 #  s390intrin.h
-  stdalign.h
-  stdarg.h
-  stdatomic.h
-  stdbool.h
-  stddef.h
-  stdint.h
-  stdnoreturn.h
+#  stdalign.h
+#  stdarg.h
+#  stdatomic.h
+#  stdbool.h
+#  stddef.h
+#  stdint.h
+#  stdnoreturn.h
 # tgmath.h
   unwind.h
-  varargs.h
+#  varargs.h
 # vecintrin.h
   )
 

@@ -83,8 +83,8 @@ void oneA() {
   GoodIter it1;
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(%class.GoodIter* [[ONEA_IT1]]
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[ONEA_I]]
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(%class.GoodIter* [[ONEA_IT1]]
   // Initialize IV
   // CHECK: store {{.*}}[[ONEA_IV]]
   // Update it1

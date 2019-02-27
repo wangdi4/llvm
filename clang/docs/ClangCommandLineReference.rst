@@ -158,7 +158,7 @@ Compile CUDA code for host only.  Has no effect on non-CUDA compilations.
 
 .. option:: --cuda-include-ptx=<arg>, --no-cuda-include-ptx=<arg>
 
-Include PTX for the follwing GPU architecture (e.g. sm\_35) or 'all'. May be specified more than once.
+Include PTX for the following GPU architecture (e.g. sm\_35) or 'all'. May be specified more than once.
 
 .. option:: --cuda-noopt-device-debug, --no-cuda-noopt-device-debug
 
@@ -2604,6 +2604,16 @@ X86
 
 .. option:: -maes, -mno-aes
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AMX
+.. option:: -mamx-bf16, -mno-amx-bf16
+
+.. option:: -mamx-int8, -mno-amx-int8
+
+.. option:: -mamx-tile, -mno-amx-tile
+
+.. end INTEL_FEATURE_ISA_AMX
+.. end INTEL_CUSTOMIZATION
 .. option:: -mavx, -mno-avx
 
 .. option:: -mavx2, -mno-avx2
@@ -2709,6 +2719,12 @@ X86
 .. option:: -mrtm, -mno-rtm
 
 .. option:: -msahf, -mno-sahf
+
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_SERIALIZE
+.. option:: -mserialize, -mno-serialize
+.. end INTEL_FEATURE_ISA_SERIALIZE
+.. end INTEL_CUSTOMIZATION
 
 .. option:: -msgx, -mno-sgx
 

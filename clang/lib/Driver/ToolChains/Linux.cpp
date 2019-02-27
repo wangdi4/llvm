@@ -1,9 +1,8 @@
 //===--- Linux.h - Linux ToolChain Implementations --------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -650,6 +649,24 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
   if (DriverArgs.hasArg(clang::driver::options::OPT_nostdinc))
     return;
+
+#if INTEL_CUSTOMIZATION
+  // Add Intel specific headers
+  if (DriverArgs.hasArg(clang::driver::options::OPT__intel)) {
+    // deploy
+    addSystemInclude(DriverArgs, CC1Args, getDriver().Dir +
+                                          "/../../compiler/include/icx");
+    addSystemInclude(DriverArgs, CC1Args, getDriver().Dir +
+                                          "/../../compiler/include");
+    // IA32ROOT
+    const char * IA32Root = getenv("IA32ROOT");
+    if (IA32Root) {
+      SmallString<128> P(IA32Root);
+      llvm::sys::path::append(P, "include");
+      addSystemInclude(DriverArgs, CC1Args, P);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (!DriverArgs.hasArg(options::OPT_nostdlibinc))
     addSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/local/include");

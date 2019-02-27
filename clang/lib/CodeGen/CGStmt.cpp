@@ -1,9 +1,8 @@
 //===--- CGStmt.cpp - Emit LLVM Code from Statements ----------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -21,7 +20,6 @@
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
@@ -38,15 +36,11 @@ static bool useFrontEndOutlining(CodeGenModule &CGM, const Stmt *S) {
   if (S->getStmtClass() != Stmt::OMPAtomicDirectiveClass)
     return false;
 
-  ASTContext &Ctx = CGM.getContext();
 #if INTEL_FEATURE_CSA
+  ASTContext &Ctx = CGM.getContext();
   if (Ctx.getTargetInfo().getTriple().getArch() == llvm::Triple::csa)
    return true;
 #endif  // INTEL_FEATURE_CSA
-
-  const auto *AD = cast<OMPAtomicDirective>(S);
-  if (Ctx.getTypeSize(AD->getX()->getType()) <= 64)
-    return true;
 
   return false;
 }
@@ -591,6 +585,16 @@ void CodeGenFunction::EmitLabel(const LabelDecl *D) {
   }
 
   EmitBlock(Dest.getBlock());
+
+  // Emit debug info for labels.
+  if (CGDebugInfo *DI = getDebugInfo()) {
+    if (CGM.getCodeGenOpts().getDebugInfo() >=
+        codegenoptions::LimitedDebugInfo) {
+      DI->setLocation(D->getLocation());
+      DI->EmitLabel(D, Builder);
+    }
+  }
+
   incrementProfileCounter(D->getStmt());
 }
 
@@ -1265,7 +1269,7 @@ void CodeGenFunction::EmitReturnOfRValue(RValue RV, QualType Ty) {
 #if INTEL_CUSTOMIZATION
 // Checks the expression is the candidate of the fakeload intrinsic
 bool CodeGenFunction::IsFakeLoadCand(const Expr *RV) {
-  if (RV->getType()->isIncompleteType())
+  if (RV->getType()->isIncompleteType() || RV->getType()->isFunctionType())
     return false;
   if (RV->getStmtClass() == Expr::ArraySubscriptExprClass ||
       RV->getStmtClass() == Expr::MemberExprClass)
@@ -2115,19 +2119,14 @@ llvm::Value* CodeGenFunction::EmitAsmInput(
   // If this can't be a register or memory, i.e., has to be a constant
   // (immediate or symbolic), try to emit it as such.
   if (!Info.allowsRegister() && !Info.allowsMemory()) {
+    if (Info.requiresImmediateConstant()) {
+      llvm::APSInt AsmConst = InputExpr->EvaluateKnownConstInt(getContext());
+      return llvm::ConstantInt::get(getLLVMContext(), AsmConst);
+    }
+
     Expr::EvalResult Result;
     if (InputExpr->EvaluateAsInt(Result, getContext()))
       return llvm::ConstantInt::get(getLLVMContext(), Result.Val.getInt());
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ377377: Constraints "I"|"J" expects an integer constant
-      // expression.
-    else if (getLangOpts().IntelCompat &&
-             InputExpr->getType().isConstQualified() &&
-             InputExpr->getType()->isIntegerType())
-      return EmitScalarExpr(InputExpr);
-#endif //INTEL_CUSTOMIZATION
-    assert(!Info.requiresImmediateConstant() &&
-           "Required-immediate inlineasm arg isn't constant?");
   }
 
   if (Info.allowsRegister() || !Info.allowsMemory())

@@ -68,30 +68,37 @@ _mm256_maskz_cvtne2ps_pbh(__mmask16 __U, __m256 __A, __m256 __B) {
 
 static __inline__ __m128bh __DEFAULT_FN_ATTRS128
 _mm_cvtneps_pbh(__m128 __A) {
-  return (__m128bh)__builtin_ia32_cvtneps2bf16_128((__v4sf) __A);
+  return (__m128bh)__builtin_ia32_cvtneps2bf16_128_mask((__v4sf) __A,
+                                                  (__v8hi)_mm_undefined_si128(),
+                                                  (__mmask8)-1);
 }
+
 static __inline__ __m128bh __DEFAULT_FN_ATTRS128
 _mm_mask_cvtneps_pbh(__m128bh __W, __mmask8 __U, __m128 __A) {
-  return (__m128bh)__builtin_ia32_selectw_128((__mmask8)__U,
-                                              (__v8hi)_mm_cvtneps_pbh(__A),
-                                              (__v8hi)__W);
+  return (__m128bh)__builtin_ia32_cvtneps2bf16_128_mask((__v4sf) __A,
+                                                        (__v8hi)__W,
+                                                        (__mmask8)__U);
 }
+
 static __inline__ __m128bh __DEFAULT_FN_ATTRS128
 _mm_maskz_cvtneps_pbh(__mmask8 __U, __m128 __A) {
-  return (__m128bh)__builtin_ia32_selectw_128((__mmask8)__U,
-                                              (__v8hi)_mm_cvtneps_pbh(__A),
-                                              (__v8hi)_mm_setzero_si128());
+  return (__m128bh)__builtin_ia32_cvtneps2bf16_128_mask((__v4sf) __A,
+                                                    (__v8hi)_mm_setzero_si128(),
+                                                    (__mmask8)__U);
 }
+
 static __inline__ __m128bh __DEFAULT_FN_ATTRS128
 _mm256_cvtneps_pbh(__m256 __A) {
   return (__m128bh)__builtin_ia32_cvtneps2bf16_256((__v8sf)__A);
 }
+
 static __inline__ __m128bh __DEFAULT_FN_ATTRS128
 _mm256_mask_cvtneps_pbh(__m128bh __W, __mmask8 __U, __m256 __A) {
   return (__m128bh)__builtin_ia32_selectw_128((__mmask8)__U,
                                               (__v8hi)_mm256_cvtneps_pbh(__A),
                                               (__v8hi)__W);
 }
+
 static __inline__ __m128bh __DEFAULT_FN_ATTRS128
 _mm256_maskz_cvtneps_pbh(__mmask8 __U, __m256 __A) {
   return (__m128bh)__builtin_ia32_selectw_128((__mmask8)__U,

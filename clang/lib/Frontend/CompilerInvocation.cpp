@@ -1,9 +1,8 @@
 //===- CompilerInvocation.cpp ---------------------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -33,6 +32,7 @@
 #include "clang/Frontend/DependencyOutputOptions.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/FrontendOptions.h"
+#include "clang/Frontend/FrontendPluginRegistry.h"
 #include "clang/Frontend/LangStandard.h"
 #include "clang/Frontend/MigratorOptions.h"
 #include "clang/Frontend/PreprocessorOutputOptions.h"
@@ -924,6 +924,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << S;
   }
   Opts.LTOUnit = Args.hasFlag(OPT_flto_unit, OPT_fno_lto_unit, false);
+  Opts.EnableSplitLTOUnit = Args.hasArg(OPT_fsplit_lto_unit);
   if (Arg *A = Args.getLastArg(OPT_fthinlto_index_EQ)) {
     if (IK.getLanguage() != InputKind::LLVM_IR)
       Diags.Report(diag::err_drv_argument_only_allowed_with)
@@ -1366,6 +1367,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.KeepStaticConsts = Args.hasArg(OPT_fkeep_static_consts);
 
   Opts.SpeculativeLoadHardening = Args.hasArg(OPT_mspeculative_load_hardening);
+
+  Opts.DefaultFunctionAttrs = Args.getAllArgValues(OPT_default_function_attr);
 
   return Success;
 }
@@ -2096,6 +2099,8 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
     Opts.AddVFSOverlayFile(A->getValue());
 
 #if INTEL_CUSTOMIZATION
+  if (const Arg *A = Args.getLastArg(OPT_header_base_path))
+    Opts.HeaderBasePath = A->getValue();
   for (const auto *A : Args.filtered(OPT_ivfsoverlay_lib))
     Opts.AddVFSOverlayLib(A->getValue());
 #endif // INTEL_CUSTOMIZATION
@@ -2263,19 +2268,20 @@ static void FillImfFuncSet(llvm::StringSet<> &ImfFuncSet) {
   static const char *initArr[] = {
     "acos",         "acosf",       "acosl",       "acosdl",      "acosh",
     "acoshf",       "acoshl",      "asin",        "asinf",       "asinl",
-    "asindl",       "asinh",       "asinhf",      "asinhl",      "creal",
-    "crealf",       "creall",      "cimag",       "cimagf",      "cimagl",
-    "cabs",         "cabsf",       "cabsl",       "cacos",       "cacosf",
-    "cacosl",       "cacosh",      "cacoshf",     "cacoshl",     "carg",
-    "cargf",        "cargl",       "casin",       "casinf",      "casinl",
-    "casinh",       "casinhf",     "casinhl",     "catan",       "catanf",
-    "catanl",       "catanh",      "catanhf",     "catanhl",     "conj",
-    "conjf",        "conjl",       "cbrt",        "cbrtf",       "cbrtl",
-    "cdfnorminv",   "cdfnorminvf", "cdfnorm",     "cdfnormf",    "erfcinv",
-    "erfcinvf",     "ceil",        "ceilf",       "ceill",       "cos",
-    "cosf",         "cosl",        "cosld",       "cosh",        "coshf",
-    "coshl",        "trunc",       "truncf",      "truncl",      "round",
-    "roundf",       "roundl",      "exp",         "expl",        "expf",
+    "asindl",       "asinh",       "asinhf",      "asinhl",      "atan2",
+    "atan2f",       "creal",       "crealf",      "creall",      "cimag",
+    "cimagf",       "cimagl",      "cabs",        "cabsf",       "cabsl",
+    "cacos",        "cacosf",      "cacosl",      "cacosh",      "cacoshf",
+    "cacoshl",      "carg",        "cargf",       "cargl",       "casin",
+    "casinf",       "casinl",      "casinh",      "casinhf",     "casinhl",
+    "catan",        "catanf",      "catanl",      "catanh",      "catanhf",
+    "catanhl",      "conj",        "conjf",       "conjl",       "cbrt",
+    "cbrtf",        "cbrtl",       "cdfnorminv",  "cdfnorminvf", "cdfnorm",
+    "cdfnormf",     "erfcinv",     "erfcinvf",    "ceil",        "ceilf",
+    "ceill",        "cos",         "cosd",        "cosf",        "cosl",
+    "cosld",        "cosh",        "coshf",       "coshl",       "trunc",
+    "truncf",       "truncl",      "round",       "roundf",      "roundl",
+    "exp",          "expl",        "expf",        "exp10",       "exp10f",
     "exp2",         "exp2f",       "exp2l",       "expm1",       "expm1f",
     "expm1l",       "fabs",        "fabsf",       "floor",       "floorf",
     "floorl",       "fmod",        "fmodf",       "fmodl",       "gamma",
@@ -2299,82 +2305,33 @@ static void FillImfFuncSet(llvm::StringSet<> &ImfFuncSet) {
     "nextafterl",   "nexttoward",  "nexttowardf", "nexttowardl", "scalb",
     "scalbf",       "scalbl",      "scalbln",     "scalblnf",    "scalblnl",
     "scalbn",       "scalbnf",     "scalbnl",     "significand", "significandf",
-    "significandl", "sin",         "sinf",        "sinl",        "sindl",
-    "sinh",         "sinhf",       "sinhl",       "sincos",      "sincosf",
-    "sincosl",      "sincosd",     "sincosdf",    "sincosdl",    "sqrt",
-    "sqrtf",        "sqrtl",       "tgamma",      "tgammaf",     "tgammal",
-    "y0",           "y0f",         "y0l",         "y1",          "y1f",
-    "y1l",          "yn",          "ynf",         "ynl",         "tan",
-    "tanf",         "tanl",        "tanh",        "tanhf",       "tanhl",
-    "ldexp",        "ldexpf",      "ldexpl",      "modf",        "modff",
-    "modfl",        "copysign",    "copysignf",   "copysignl",   "frexp",
-    "frexpf",       "frexpl",      "ccos",        "ccosf",       "ccosl",
-    "ccosh",        "ccoshf",      "ccoshl",      "sinhcosh",    "sinhcoshf",
-    "sinhcoshl",    "cis",         "cisf",        "cisl",        "cisd",
-    "cisdf",        "cisdl",       "cexp",        "cexpf",       "cexpl",
-    "cexp2",        "cexp2f",      "cexp2l",      "cexp10l",     "clog",
-    "clogf",        "clogl",       "clog10",      "clog10f",     "clog10l",
-    "clog2",        "clog2f",      "clog2l",      "cpow",        "cpowf",
-    "cpowl",        "cproj",       "cprojf",      "cprojl",      "csin",
-    "csinf",        "csinl",       "csinh",       "csinhf",      "csinhl",
-    "csqrt",        "csqrtf",      "csqrtl",      "ctan",        "ctanf",
-    "ctanl",        "ctanh",       "ctanhf",      "ctanhl",      "erf",
-    "erff",         "erfl",        "erfc",        "erfcf",       "erfcl",
-    "erfcx",        "erfcxf",      "erfinv",      "erfinvf",     "erfinvl"
+    "significandl", "sin",         "sind",        "sinf",        "sinl",
+    "sindl",        "sinh",        "sinhf",       "sinhl",       "sincos",
+    "sincosf",      "sincosl",     "sincosd",     "sincosdf",    "sincosdl",
+    "sqrt",         "sqrtf",       "sqrtl",       "tgamma",      "tgammaf",
+    "tgammal",      "y0",          "y0f",         "y0l",         "y1",
+    "y1f",          "y1l",         "yn",          "ynf",         "ynl",
+    "tan",          "tand",        "tanf",        "tanl",        "tanh",
+    "tanhf",        "tanhl",       "ldexp",       "ldexpf",      "ldexpl",
+    "modf",         "modff",       "modfl",       "copysign",    "copysignf",
+    "copysignl",    "frexp",       "frexpf",      "frexpl",      "ccos",
+    "ccosf",        "ccosl",       "ccosh",       "ccoshf",      "ccoshl",
+    "sinhcosh",     "sinhcoshf",   "sinhcoshl",   "cis",         "cisf",
+    "cisl",         "cisd",        "cisdf",       "cisdl",       "cexp",
+    "cexpf",        "cexpl",       "cexp2",       "cexp2f",      "cexp2l",
+    "cexp10l",      "clog",        "clogf",       "clogl",       "clog10",
+    "clog10f",      "clog10l",     "clog2",       "clog2f",      "clog2l",
+    "cpow",         "cpowf",       "cpowl",       "cproj",       "cprojf",
+    "cprojl",       "csin",        "csinf",       "csinl",       "csinh",
+    "csinhf",       "csinhl",      "csqrt",       "csqrtf",      "csqrtl",
+    "ctan",         "ctanf",       "ctanl",       "ctanh",       "ctanhf",
+    "ctanhl",       "erf",         "erff",        "erfl",        "erfc",
+    "erfcf",        "erfcl",       "erfcx",       "erfcxf",      "erfinv",
+    "erfinvf",     "erfinvl"
   };
   for(auto & it : initArr) {
     ImfFuncSet.insert(it);
   }
-}
-
-// Get the appropriate g++ ABI version for this invocation.
-// If the user has specified a non-zero ABI version, return that.
-// If the user has specified an ABI version of 0, return the highest ABI
-// version supported in the current g++ version
-// Otherwise, return the ABI version that is the default in the current
-// g++ version
-static int getGNUFABIVersion(bool hasFABIVersionArg,
-                             int specifiedABIVersion,
-                             int GNUVersion) {
-  int appropriateABIVersion = 0;
-
-  if (hasFABIVersionArg && specifiedABIVersion != 0)
-    return specifiedABIVersion;
-  if (GNUVersion >= 70000)
-    appropriateABIVersion = 11;
-  else if (GNUVersion >= 60100)
-    appropriateABIVersion = 10;
-  else if (GNUVersion >= 50000) // Note GNU doc says 5.2
-    appropriateABIVersion = 9;
-  else if (GNUVersion >= 40900) {
-    if (hasFABIVersionArg)
-      appropriateABIVersion = 8;
-    else
-      appropriateABIVersion = 2;
-  } else if (GNUVersion >= 40800) {
-    if (hasFABIVersionArg)
-      appropriateABIVersion = 7;
-    else
-      appropriateABIVersion = 2;
-  } else if (GNUVersion >= 40700) {
-    if (hasFABIVersionArg)
-      appropriateABIVersion = 6;
-    else
-      appropriateABIVersion = 2;
-  } else if (GNUVersion >= 40600) {
-    if (hasFABIVersionArg)
-      appropriateABIVersion = 5;
-    else
-      appropriateABIVersion = 2;
-  } else if (GNUVersion >= 40500) {
-    if (hasFABIVersionArg)
-      appropriateABIVersion = 4;
-    else
-      appropriateABIVersion = 2;
-  } else
-    appropriateABIVersion = 2;
-
-  return appropriateABIVersion;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2634,39 +2591,27 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
   Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);
-  // CQ371729: Incompatible name mangling.
-  Opts.GNUMangling =
-      Args.hasFlag(OPT_gnu_mangling_for_simd_types,
-                   OPT_no_gnu_mangling_for_simd_types, Opts.GNUMangling);
-  Opts.GNUFABIVersion = getLastArgIntValue(Args, OPT_gnu_fabi_version_EQ,
-                                           Opts.GNUFABIVersion, Diags);
 
-  // CQ382285: Emulate GNU ABI support exactly as icc does it.
-  if (Opts.GNUFABIVersion == 0)
-    Opts.EmulateGNUABIBugs = 0;
-
-  // CQ380574: Ability to set various predefines based on gcc version needed.
-  Opts.GNUVersion = getLastArgIntValue(Args, OPT_gnu_version_EQ,
-                                       40500,
-                                       Diags);
-
-  // cmplrs-417: Get the appropriate FABI version to emulate
-  Opts.GNUFABIVersion = getGNUFABIVersion(Args.hasArg(OPT_gnu_fabi_version_EQ),
-                                          Opts.GNUFABIVersion,
-                                          Opts.GNUVersion);
-
-  Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode &&
-                                     Opts.GNUVersion >= 40400);
+  Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode);
   // CQ376358: Support -ffriend-injection option.
-  // GCC < 4.01.00 supports friend function injections by default.
-  // GCC < 4.00.01 supports friend classes injections by default.
-  // This copied from EDG for better compatibility with icc/gcc.
   Opts.FriendFunctionInject =
-      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
-                   Opts.GNUVersion < 40100 && !Opts.CPlusPlus11);
+      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection, false);
   Opts.FriendClassInject =
-      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
-                   Opts.GNUVersion < 40001 && !Opts.CPlusPlus11);
+      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection, false);
+
+  if (const Arg *A = Args.getLastArg(OPT_fintel_long_double_size_EQ)) {
+    StringRef Value = A->getValue();
+    if (Value == "128")
+      Opts.LongDoubleSize = 128;
+    else if (Value == "80")
+      Opts.LongDoubleSize = 80;
+    else if (Value == "64")
+      Opts.LongDoubleSize = 64;
+    else {
+      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
+                                                << A->getValue();
+    }
+  }
 #endif  // INTEL_CUSTOMIZATION
 
   // -cl-strict-aliasing needs to emit diagnostic in the case where CL > 1.0.
@@ -2812,6 +2757,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   if (Args.hasArg(OPT_fvisibility_global_new_delete_hidden))
     Opts.GlobalAllocationFunctionVisibilityHidden = 1;
+
+  if (Args.hasArg(OPT_fapply_global_visibility_to_externs))
+    Opts.SetVisibilityForExternDecls = 1;
 
   if (Args.hasArg(OPT_ftrapv)) {
     Opts.setSignedOverflowBehavior(LangOptions::SOB_Trapping);
@@ -3191,6 +3139,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         getLastArgIntValue(Args, options::OPT_fopenmp_cuda_blocks_per_sm_EQ,
                            Opts.OpenMPCUDABlocksPerSM, Diags);
   }
+
+  // Prevent auto-widening the representation of loop counters during an
+  // OpenMP collapse clause.
+  Opts.OpenMPOptimisticCollapse =
+      Args.hasArg(options::OPT_fopenmp_optimistic_collapse) ? 1 : 0;
 
   // Get the OpenMP target triples if any.
   if (Arg *A = Args.getLastArg(options::OPT_fopenmp_targets_EQ)) {

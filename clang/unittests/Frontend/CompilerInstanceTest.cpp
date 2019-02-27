@@ -1,9 +1,8 @@
 //===- unittests/Frontend/CompilerInstanceTest.cpp - CI tests -------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -78,6 +77,7 @@ TEST(CompilerInstance, DefaultVFSOverlayFromInvocation) {
 }
 
 #if INTEL_CUSTOMIZATION
+#if !WINDOWS_ONECORE
 static std::string LibPath(const std::string Name = "VfsTestLib") {
   const std::vector<testing::internal::string> &Argvs =
       testing::internal::GetArgvs();
@@ -110,6 +110,7 @@ TEST(CompilerInstance, VFSOverlayLibrary) {
   // CompilerInstance.
   ASSERT_TRUE(Instance.getFileManager().getFile("virtual.file"));
 }
+#endif // !WINDOWS_ONECORE
 #endif // INTEL_CUSTOMIZATION
 
 } // anonymous namespace

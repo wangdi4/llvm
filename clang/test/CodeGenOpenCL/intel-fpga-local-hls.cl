@@ -25,9 +25,11 @@
 //CHECK: [[ANN12:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_fmax:1}
 //CHECK: global_constant13
 //CHECK: [[ANN13:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{optimize_ram_usage:1}
+//CHECK: global_constant14
+//CHECK: [[ANN14:@.str[\.]*[0-9]*]] = {{.*}}{memory:MLAB}{pump:2}
 //CHECK: [[ANN6A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{max_concurrency:4}
 //CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
-//CHECK: @llvm.global.annotations = {{.*}}global_constant1{{.*}}[[ANN2]]{{.*}}global_constant2{{.*}}[[ANN2]]{{.*}}global_constant3{{.*}}[[ANN3]]{{.*}}global_constant4{{.*}}[[ANN3]]{{.*}}global_constant5{{.*}}[[ANN4]]{{.*}}global_constant6{{.*}}[[ANN5]]{{.*}}global_constant7{{.*}}[[ANN6]]{{.*}}global_constant8{{.*}}[[ANN7]]{{.*}}global_constant9{{.*}}[[ANN8]]{{.*}}global_constant10{{.*}}[[ANN9]]{{.*}}global_constant11{{.*}}[[ANN11]]{{.*}}global_constant12{{.*}}[[ANN12]]{{.*}}global_constant13{{.*}}[[ANN13]]
+//CHECK: @llvm.global.annotations = {{.*}}global_constant1{{.*}}[[ANN2]]{{.*}}global_constant2{{.*}}[[ANN2]]{{.*}}global_constant3{{.*}}[[ANN3]]{{.*}}global_constant4{{.*}}[[ANN3]]{{.*}}global_constant5{{.*}}[[ANN4]]{{.*}}global_constant6{{.*}}[[ANN5]]{{.*}}global_constant7{{.*}}[[ANN6]]{{.*}}global_constant8{{.*}}[[ANN7]]{{.*}}global_constant9{{.*}}[[ANN8]]{{.*}}global_constant10{{.*}}[[ANN9]]{{.*}}global_constant11{{.*}}[[ANN11]]{{.*}}global_constant12{{.*}}[[ANN12]]{{.*}}global_constant13{{.*}}[[ANN13]]{{.*}}global_constant14{{.*}}[[ANN14]]
 
 constant int __attribute__((bank_bits(4, 5))) global_constant1 = 0;
 constant int __attribute__((numbanks(4), bank_bits(4, 5))) global_constant2 = 0;
@@ -42,6 +44,7 @@ constant int __attribute__((merge("foo", "depth"))) global_constant10 = 0;
 constant int __attribute__((internal_max_block_ram_depth(32))) global_constant11 = 0;
 constant int __attribute__((optimize_fmax)) global_constant12 = 0;
 constant int __attribute__((optimize_ram_usage)) global_constant13 = 0;
+constant int __attribute__((doublepump, memory("MLAB"))) global_constant14 = 0;
 
 //__attribute__((ihc_component))
 void foo_two() {
@@ -97,6 +100,10 @@ void foo_two() {
   //CHECK: %[[VAR_THIRTEEN1:var_thirteen[0-9]+]] = bitcast{{.*}}var_thirteen
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_THIRTEEN1]],{{.*}}[[ANN10]]
   int __attribute__((merge("bar","width"))) var_thirteen;
+  //CHECK: %[[VAR_FOURTEEN:[0-9]+]] = bitcast{{.*}}var_fourteen
+  //CHECK: %[[VAR_FOURTEEN1:var_fourteen[0-9]+]] = bitcast{{.*}}var_fourteen
+  //CHECK: llvm.var.annotation{{.*}}%[[VAR_FOURTEEN1]],{{.*}}[[ANN14]]
+  int __attribute__((doublepump, memory("MLAB"))) var_fourteen;
 }
 
 struct foo_three{
@@ -113,6 +120,7 @@ struct foo_three{
   int __attribute__((internal_max_block_ram_depth(32))) f11;
   int __attribute__((optimize_fmax)) f12;
   int __attribute__((optimize_ram_usage)) f13;
+  int __attribute__((doublepump, memory("MLAB"))) f14;
 };
 
 void bar() {
@@ -165,5 +173,9 @@ void bar() {
   //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD13]]
   //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN13]]
   s1.f13 = 0;
+  //CHECK: %[[FIELD14:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
+  //CHECK: %[[CAST:.*]] = bitcast{{.*}}%[[FIELD14]]
+  //CHECK: call i8* @llvm.ptr.annotation.p0i8{{.*}}%[[CAST]]{{.*}}[[ANN14]]
+  s1.f14 = 0;
 }
 

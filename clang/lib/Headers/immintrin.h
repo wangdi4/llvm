@@ -381,9 +381,8 @@ _storebe_i64(void * __P, long long __D) {
 #include <fxsrintrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__XSAVE__)
+/* No feature check desired due to internal MSC_VER checks */
 #include <xsaveintrin.h>
-#endif
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__XSAVEOPT__)
 #include <xsaveoptintrin.h>
@@ -441,6 +440,9 @@ _storebe_i64(void * __P, long long __D) {
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__INVPCID__)
 #include <invpcidintrin.h>
 #endif
+
+/* INTEL_CUSTOMIZATION */
+/* end INTEL_CUSTOMIZATION */
 
 #ifdef _MSC_VER
 /* Define the default attributes for these intrinsics */
@@ -529,9 +531,7 @@ extern int _may_i_use_cpu_feature(unsigned __int64);
 
 #endif /* _MSC_VER */
 
-#if !defined(_MSC_VER) || __has_feature(modules)
-#include <svmlintrin.h>
-#endif
+#include <svmlintrin.h>// INTEL
 
 /* Definitions of feature list to be used by feature select intrinsics */
 #define _FEATURE_GENERIC_IA32        (1ULL     )

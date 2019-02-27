@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++11 %s --gnu_version=50000 -S -fintel-compatibility -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -std=c++11 %s -S -fintel-compatibility -emit-llvm -o - | FileCheck %s
 // expected-no-diagnostics
 // REQUIRES: !system-windows
 

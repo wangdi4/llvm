@@ -1,9 +1,8 @@
 //===--- TargetInfo.cpp - Information about Target machine ----------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -35,6 +34,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   NoAsmVariants = false;
   HasLegalHalfType = false;
   HasFloat128 = false;
+  HasFloat16 = false;
   PointerWidth = PointerAlign = 32;
   BoolWidth = BoolAlign = 8;
   IntWidth = IntAlign = 32;
@@ -376,6 +376,32 @@ void TargetInfo::adjust(LangOptions &Opts) {
 #if INTEL_CUSTOMIZATION
   if ((Opts.IntelCompat || Opts.IntelMSCompat) && Opts.Float128)
     HasFloat128 = true;
+
+  switch (Opts.LongDoubleSize) {
+  default:
+    break;
+  case 64:
+    LongDoubleWidth = 64;
+    LongDoubleAlign = 64;
+    LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+    break;
+  case 80:
+    if (getTriple().getArch() == llvm::Triple::x86_64) {
+      LongDoubleWidth = 128;
+      LongDoubleAlign = 128;
+    } else {
+      LongDoubleWidth = 96;
+      LongDoubleAlign = 32;
+    }
+
+    LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
+    break;
+  case 128:
+    LongDoubleWidth = 128;
+    LongDoubleAlign = 128;
+    LongDoubleFormat = &llvm::APFloat::IEEEquad();
+    break;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   if (Opts.NewAlignOverride)
@@ -690,7 +716,9 @@ bool TargetInfo::validateInputConstraint(
       // FIXME: Fail if % is used with the last operand.
       break;
     case 'i': // immediate integer.
+      break;
     case 'n': // immediate integer with a known value.
+      Info.setRequiresImmediate();
       break;
     case 'I':  // Various constant constraints with target-specific meanings.
     case 'J':

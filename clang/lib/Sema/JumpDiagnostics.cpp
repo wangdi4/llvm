@@ -1,9 +1,8 @@
 //===--- JumpDiagnostics.cpp - Protected scope jump analysis ------*- C++ -*-=//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -674,16 +673,6 @@ void JumpScopeChecker::VerifyIndirectJumps() {
     for (SmallVectorImpl<IndirectGotoStmt*>::iterator
            I = IndirectJumps.begin(), E = IndirectJumps.end(); I != E; ++I) {
       IndirectGotoStmt *IG = *I;
-#if INTEL_CUSTOMIZATION
-      // CQ370802: Certain cases of jump-to-label usage are restricted by xmain
-      if (S.getLangOpts().IntelCompat) {
-        Expr *ITarget = IG->getTarget()->IgnoreParens();
-        if (!isa<AddrLabelExpr>(ITarget)) {
-          if (ITarget->isEvaluatable(S.Context))
-            S.Diag(IG->getGotoLoc(), diag::warn_indirect_goto_with_const_expr);
-        }
-      }
-#endif // INTEL_CUSTOMIZATION
       if (CHECK_PERMISSIVE(!LabelAndGotoScopes.count(IG)))
         continue;
       unsigned IGScope = LabelAndGotoScopes[IG];

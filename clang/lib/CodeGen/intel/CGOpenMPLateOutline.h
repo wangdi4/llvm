@@ -22,43 +22,6 @@
 namespace clang {
 namespace CodeGen {
 
-class OMPLateOutlineLexicalScope : public CodeGenFunction::LexicalScope {
-  CodeGenFunction::OMPPrivateScope Remaps;
-public:
-  OMPLateOutlineLexicalScope(
-      CodeGenFunction &CGF, const OMPExecutableDirective &S,
-      OpenMPDirectiveKind CapturedRegion = OMPD_unknown)
-      : CodeGenFunction::LexicalScope(CGF, S.getSourceRange()), Remaps(CGF) {
-
-    for (const auto *C : S.clauses()) {
-      if (const auto *CPI = OMPClauseWithPreInit::get(C)) {
-        if (const auto *PreInit =
-                cast_or_null<DeclStmt>(CPI->getPreInitStmt())) {
-          for (const auto *I : PreInit->decls()) {
-            if (!I->hasAttr<OMPCaptureNoInitAttr>()) {
-              CGF.EmitVarDecl(cast<VarDecl>(*I));
-            } else {
-              CodeGenFunction::AutoVarEmission Emission =
-                  CGF.EmitAutoVarAlloca(cast<VarDecl>(*I));
-              CGF.EmitAutoVarCleanups(Emission);
-            }
-          }
-        }
-      }
-    }
-
-    CGF.RemapForLateOutlining(S, Remaps);
-    (void)Remaps.Privatize();
-  }
-
-  static bool isCapturedVar(CodeGenFunction &CGF, const VarDecl *VD) {
-    return CGF.LambdaCaptureFields.lookup(VD) ||
-           (CGF.CapturedStmtInfo && CGF.CapturedStmtInfo->lookup(VD)) ||
-           (CGF.CurCodeDecl && isa<BlockDecl>(CGF.CurCodeDecl));
-  }
-
-};
-
 enum OMPAtomicClause {
   OMP_read,
   OMP_write,
@@ -80,7 +43,6 @@ class OpenMPLateOutliner {
   using ArraySectionTy = llvm::SmallVector<ArraySectionDataTy, 4>;
 
   // Used temporarily to build a bundle.
-  OpenMPClauseKind CurrentClauseKind;
   StringRef BundleString;
   SmallVector<llvm::Value*, 8> BundleValues;
   void clearBundleTemps() { BundleString = ""; BundleValues.clear(); }
@@ -173,13 +135,14 @@ class OpenMPLateOutliner {
   class ClauseEmissionHelper final {
     llvm::IRBuilderBase::InsertPoint SavedIP;
     OpenMPLateOutliner &O;
+    OpenMPClauseKind CK;
     ClauseStringBuilder CSB;
     bool EmitClause;
 
   public:
-    ClauseEmissionHelper(OpenMPLateOutliner &O, StringRef InitStr = "",
-                         bool EmitClause = true)
-        : O(O), CSB(InitStr), EmitClause(EmitClause) {
+    ClauseEmissionHelper(OpenMPLateOutliner &O, OpenMPClauseKind CK,
+                         StringRef InitStr = "", bool EmitClause = true)
+        : O(O), CK(CK), CSB(InitStr), EmitClause(EmitClause) {
       if (O.insertPointChangeNeeded()) {
         SavedIP = O.CGF.Builder.saveIP();
         O.setInsertPoint();
@@ -189,7 +152,7 @@ class OpenMPLateOutliner {
       if (O.insertPointChangeNeeded())
         O.CGF.Builder.restoreIP(SavedIP);
       if (EmitClause)
-        O.emitClause();
+        O.emitClause(CK);
     }
     ClauseStringBuilder &getBuilder() { return CSB; }
   };
@@ -206,11 +169,12 @@ class OpenMPLateOutliner {
   void addArg(const Expr *E, bool IsRef = false);
 
   void addFenceCalls(bool IsBegin);
-  void getApplicableDirectives(SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
+  void getApplicableDirectives(OpenMPClauseKind CK,
+                               SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
   void startDirectiveIntrinsicSet(StringRef B, StringRef E,
-                                  OpenMPDirectiveKind K = OMPD_unknown);
+                                  OpenMPDirectiveKind K);
   void emitDirective(DirectiveIntrinsicSet &D, StringRef Name);
-  void emitClause();
+  void emitClause(OpenMPClauseKind CK);
   void emitOMPSharedClause(const OMPSharedClause *Cl);
   void emitOMPPrivateClause(const OMPPrivateClause *Cl);
   void emitOMPLastprivateClause(const OMPLastprivateClause *Cl);
@@ -274,7 +238,7 @@ class OpenMPLateOutliner {
   llvm::Value *emitOpenMPCopyAssign(QualType Ty, const Expr *SrcExpr,
                                     const Expr *DstExpr, const Expr *AssignOp);
 
-  bool isUnspecifiedImplicit(const VarDecl *);
+  bool isIgnoredImplicit(const VarDecl *);
   bool isImplicit(const VarDecl *);
   bool isExplicit(const VarDecl *);
   bool alreadyHandled(llvm::Value *);
@@ -342,6 +306,7 @@ public:
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
 
   OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
+  void emitImplicitLoopBounds(const OMPLoopDirective *LD);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
@@ -367,17 +332,77 @@ public:
     // from clauses must be inserted before this point.
     MarkerInstruction = CGF.Builder.CreateCall(RegionEntryDirective, {});
   }
+  static bool isFirstDirectiveInSet(const OMPExecutableDirective &S,
+                                    OpenMPDirectiveKind Kind);
+};
+
+class OMPLateOutlineLexicalScope : public CodeGenFunction::LexicalScope {
+  CodeGenFunction::OMPPrivateScope Remaps;
+public:
+  OMPLateOutlineLexicalScope(CodeGenFunction &CGF,
+                             const OMPExecutableDirective &S,
+                             OpenMPDirectiveKind Kind)
+      : CodeGenFunction::LexicalScope(CGF, S.getSourceRange()), Remaps(CGF) {
+
+    // Only declare variables for the PreInit statements on the first
+    // directive in a multi-directive set.
+    if (!OpenMPLateOutliner::isFirstDirectiveInSet(S, Kind))
+      return;
+
+    for (const auto *C : S.clauses()) {
+      if (const auto *CPI = OMPClauseWithPreInit::get(C)) {
+        if (const auto *PreInit =
+                cast_or_null<DeclStmt>(CPI->getPreInitStmt())) {
+          for (const auto *I : PreInit->decls()) {
+            if (!I->hasAttr<OMPCaptureNoInitAttr>()) {
+              CGF.EmitVarDecl(cast<VarDecl>(*I));
+            } else {
+              CodeGenFunction::AutoVarEmission Emission =
+                  CGF.EmitAutoVarAlloca(cast<VarDecl>(*I));
+              CGF.EmitAutoVarCleanups(Emission);
+            }
+          }
+        }
+      }
+    }
+
+    CGF.RemapForLateOutlining(S, Remaps);
+    (void)Remaps.Privatize();
+  }
+
+  static bool isCapturedVar(CodeGenFunction &CGF, const VarDecl *VD) {
+    return CGF.LambdaCaptureFields.lookup(VD) ||
+           (CGF.CapturedStmtInfo && CGF.CapturedStmtInfo->lookup(VD)) ||
+           (CGF.CurCodeDecl && isa<BlockDecl>(CGF.CurCodeDecl));
+  }
+
 };
 
 class CGLateOutlineOpenMPRegionInfo
     : public CodeGenFunction::CGCapturedStmtInfo {
 public:
-  CGLateOutlineOpenMPRegionInfo(CodeGenFunction::CGCapturedStmtInfo *OldCSI,
+#if INTEL_CUSTOMIZATION
+  CGLateOutlineOpenMPRegionInfo(CodeGenFunction::CGCapturedStmtInfo *CSI,
+                                OpenMPLateOutliner &O,
+                                const OMPExecutableDirective &D,
+                                bool IsHoisted = false)
+#else
+  CGLateOutlineOpenMPRegionInfo(CodeGenFunction::CGCapturedStmtInfo *CSI,
                                 OpenMPLateOutliner &O,
                                 const OMPExecutableDirective &D)
+#endif // INTEL_CUSTOMIZATION
       : CGCapturedStmtInfo(*cast<CapturedStmt>(D.getAssociatedStmt()),
                            CR_OpenMP),
-        OldCSI(OldCSI), Outliner(O), D(D) {}
+        Outliner(O), D(D), HoistedLoopBoundsRegion(IsHoisted) {
+#if INTEL_CUSTOMIZATION
+    if (!IsHoisted && CSI) {
+      // Copy the value from the parent region if not set explicitly.
+      auto *RI = static_cast<CGLateOutlineOpenMPRegionInfo *>(CSI);
+      HoistedLoopBoundsRegion = RI->HoistedLoopBoundsRegion;
+    }
+#endif // INTEL_CUSTOMIZATION
+    OldCSI = CSI;
+  }
 
   /// Emit the captured statement body.
   void EmitBody(CodeGenFunction &CGF, const Stmt *S) override;
@@ -406,6 +431,9 @@ public:
   }
   void recordValueReference(llvm::Value *V) { Outliner.addValueRef(V); }
   void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
+#if INTEL_CUSTOMIZATION
+  bool hasHoistedLoopBounds() const { return HoistedLoopBoundsRegion; }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   bool isLateOutlinedRegion() { return true; }
@@ -416,6 +444,9 @@ private:
   CodeGenFunction::CGCapturedStmtInfo *OldCSI;
   OpenMPLateOutliner &Outliner;
   const OMPExecutableDirective &D;
+#if INTEL_CUSTOMIZATION
+  bool HoistedLoopBoundsRegion = false; // INTEL
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// RAII for emitting code of OpenMP constructs.
@@ -428,12 +459,23 @@ public:
   /// \param CodeGen Code generation sequence for combined directives. Includes
   /// a list of functions used for code generation of implicitly inlined
   /// regions.
+#if INTEL_CUSTOMIZATION
+  LateOutlineOpenMPRegionRAII(CodeGenFunction &CGF, OpenMPLateOutliner &O,
+                              const OMPExecutableDirective &D,
+                              bool IsHoisted = false)
+#else
   LateOutlineOpenMPRegionRAII(CodeGenFunction &CGF, OpenMPLateOutliner &O,
                               const OMPExecutableDirective &D)
+#endif // INTEL_CUSTOMIZATION
       : CGF(CGF), Outliner(O), Dir(D) {
     // Start emission for the construct.
+#if INTEL_CUSTOMIZATION
+    CGF.CapturedStmtInfo = new CGLateOutlineOpenMPRegionInfo(
+        CGF.CapturedStmtInfo, Outliner, D, IsHoisted);
+#else
     CGF.CapturedStmtInfo =
         new CGLateOutlineOpenMPRegionInfo(CGF.CapturedStmtInfo, Outliner, D);
+#endif // INTEL_CUSTOMIZATION
   }
   ~LateOutlineOpenMPRegionRAII() {
     // Restore original CapturedStmtInfo only if we're done with code emission.

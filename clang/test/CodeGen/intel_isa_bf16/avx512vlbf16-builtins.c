@@ -67,21 +67,19 @@ __m512bh test_mm512_mask_cvtne2ps2bf16(__m512bh C, __mmask32 U, __m512 A, __m512
 
 __m128bh test_mm_cvtneps2bf16(__m128 A) {
   // CHECK-LABEL: @test_mm_cvtneps2bf16
-  // CHECK: @llvm.x86.avx512bf16.cvtneps2bf16.128
+  // CHECK: @llvm.x86.avx512bf16.mask.cvtneps2bf16.128
   return _mm_cvtneps_pbh(A);
 }
 
 __m128bh test_mm_mask_cvtneps2bf16(__m128bh C, __mmask8 U, __m128 A) {
   // CHECK-LABEL: @test_mm_mask_cvtneps2bf16
-  // CHECK: @llvm.x86.avx512bf16.cvtneps2bf16.
-  // CHECK: select <8 x i1> %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}}
+  // CHECK: @llvm.x86.avx512bf16.mask.cvtneps2bf16.
   return _mm_mask_cvtneps_pbh(C, U, A);
 }
 
 __m128bh test_mm_maskz_cvtneps2bf16(__m128 A, __mmask8 U) {
   // CHECK-LABEL: @test_mm_maskz_cvtneps2bf16
-  // CHECK: @llvm.x86.avx512bf16.cvtneps2bf16.128
-  // CHECK: select <8 x i1> %{{.*}}, <8 x i16> %{{.*}}, <8 x i16> %{{.*}}
+  // CHECK: @llvm.x86.avx512bf16.mask.cvtneps2bf16.128
   return _mm_maskz_cvtneps_pbh(U, A);
 }
 

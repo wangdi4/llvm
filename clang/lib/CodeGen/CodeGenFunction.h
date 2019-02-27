@@ -1,9 +1,8 @@
 //===-- CodeGenFunction.h - Per-Function state for LLVM CodeGen -*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -48,7 +47,6 @@ class Module;
 class SwitchInst;
 class Twine;
 class Value;
-class CallSite;
 }
 
 namespace clang {
@@ -131,6 +129,7 @@ enum TypeEvaluationKind {
   SANITIZER_CHECK(ShiftOutOfBounds, shift_out_of_bounds, 0)                    \
   SANITIZER_CHECK(SubOverflow, sub_overflow, 0)                                \
   SANITIZER_CHECK(TypeMismatch, type_mismatch, 1)                              \
+  SANITIZER_CHECK(AlignmentAssumption, alignment_assumption, 0)                \
   SANITIZER_CHECK(VLABoundNotPositive, vla_bound_not_positive, 0)
 
 enum SanitizerHandler {
@@ -396,6 +395,9 @@ public:
     virtual void recordValueDefinition(llvm::Value *) {}
     virtual void recordValueReference(llvm::Value *) {}
     virtual void recordValueSuppression(llvm::Value *) {}
+#if INTEL_CUSTOMIZATION
+    virtual bool hasHoistedLoopBounds() const { return false; }
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
     virtual bool isLateOutlinedRegion() { return false; }
@@ -1007,6 +1009,21 @@ public:
       return !VD->isLocalVarDeclOrParm() && CGF.LocalDeclMap.count(VD) > 0;
     }
   };
+#if INTEL_COLLAB
+  void addMappedClause(const OMPClause* C, Address Addr) {
+    auto It = ClauseMap.find(C);
+    if (It == ClauseMap.end())
+      ClauseMap.insert({C, Addr});
+  }
+  llvm::Value *getMappedClause(const OMPClause* C) {
+    auto It = ClauseMap.find(C);
+    if (It == ClauseMap.end())
+      return nullptr;
+    return It->second.getPointer();
+  }
+  typedef llvm::DenseMap<const OMPClause*, Address> ClauseMapTy;
+  ClauseMapTy ClauseMap;
+#endif // INTEL_COLLAB
 
   /// Takes the old cleanup stack size and emits the cleanup blocks
   /// that have been added.
@@ -1970,6 +1987,9 @@ public:
   void EmitLambdaBlockInvokeBody();
   void EmitLambdaDelegatingInvokeBody(const CXXMethodDecl *MD);
   void EmitLambdaStaticInvokeBody(const CXXMethodDecl *MD);
+  void EmitLambdaVLACapture(const VariableArrayType *VAT, LValue LV) {
+    EmitStoreThroughLValue(RValue::get(VLASizeMap[VAT->getSizeExpr()]), LV);
+  }
   void EmitAsanPrologueOrEpilogue(bool Prologue);
 
   /// Emit the unified return block, trying to avoid its emission when
@@ -2756,10 +2776,12 @@ public:
   bool sanitizePerformTypeCheck() const;
 
   /// Emit a check that \p V is the address of storage of the
-  /// appropriate size and alignment for an object of type \p Type.
+  /// appropriate size and alignment for an object of type \p Type
+  /// (or if ArraySize is provided, for an array of that bound).
   void EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc, llvm::Value *V,
                      QualType Type, CharUnits Alignment = CharUnits::Zero(),
-                     SanitizerSet SkippedChecks = SanitizerSet());
+                     SanitizerSet SkippedChecks = SanitizerSet(),
+                     llvm::Value *ArraySize = nullptr);
 
   /// Emit a check that \p Base points into an array object, which
   /// we can access at index \p Index. \p Accessed should be \c false if we
@@ -2771,12 +2793,6 @@ public:
                                        bool isInc, bool isPre);
   ComplexPairTy EmitComplexPrePostIncDec(const UnaryOperator *E, LValue LV,
                                          bool isInc, bool isPre);
-
-  void EmitAlignmentAssumption(llvm::Value *PtrValue, unsigned Alignment,
-                               llvm::Value *OffsetValue = nullptr) {
-    Builder.CreateAlignmentAssumption(CGM.getDataLayout(), PtrValue, Alignment,
-                                      OffsetValue);
-  }
 
   /// Converts Location to a DebugLoc, if debug information is enabled.
   llvm::DebugLoc SourceLocToDebugLoc(SourceLocation Location);
@@ -2941,11 +2957,27 @@ public:
   PeepholeProtection protectFromPeepholes(RValue rvalue);
   void unprotectFromPeepholes(PeepholeProtection protection);
 
-  void EmitAlignmentAssumption(llvm::Value *PtrValue, llvm::Value *Alignment,
-                               llvm::Value *OffsetValue = nullptr) {
-    Builder.CreateAlignmentAssumption(CGM.getDataLayout(), PtrValue, Alignment,
-                                      OffsetValue);
-  }
+  void EmitAlignmentAssumptionCheck(llvm::Value *Ptr, QualType Ty,
+                                    SourceLocation Loc,
+                                    SourceLocation AssumptionLoc,
+                                    llvm::Value *Alignment,
+                                    llvm::Value *OffsetValue,
+                                    llvm::Value *TheCheck,
+                                    llvm::Instruction *Assumption);
+
+  void EmitAlignmentAssumption(llvm::Value *PtrValue, QualType Ty,
+                               SourceLocation Loc, SourceLocation AssumptionLoc,
+                               llvm::Value *Alignment,
+                               llvm::Value *OffsetValue = nullptr);
+
+  void EmitAlignmentAssumption(llvm::Value *PtrValue, QualType Ty,
+                               SourceLocation Loc, SourceLocation AssumptionLoc,
+                               unsigned Alignment,
+                               llvm::Value *OffsetValue = nullptr);
+
+  void EmitAlignmentAssumption(llvm::Value *PtrValue, const Expr *E,
+                               SourceLocation AssumptionLoc, unsigned Alignment,
+                               llvm::Value *OffsetValue = nullptr);
 
   //===--------------------------------------------------------------------===//
   //                             Statement Emission
@@ -3445,12 +3477,26 @@ private:
   void EmitLateOutlineOMPLoopDirective(const OMPLoopDirective &S,
                                        OpenMPDirectiveKind Kind);
 
+#if INTEL_CUSTOMIZATION
+  bool HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
+                                 OpenMPDirectiveKind Kind);
+  const OMPLoopDirective *GetLoopForHoisting(const OMPExecutableDirective &S,
+                                             OpenMPDirectiveKind Kind);
+#endif // INTEL_CUSTOMIZATION
+  void EnsureAddressableClauseExpr(const OMPClause *C);
+  void HoistTeamsClausesIfPossible(const OMPExecutableDirective &S,
+                                   OpenMPDirectiveKind Kind);
   void EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                               OpenMPDirectiveKind Kind);
 
 public:
   void RemapForLateOutlining(const OMPExecutableDirective &D,
                              OMPPrivateScope &PrivScope);
+#if INTEL_CUSTOMIZATION
+  bool HasHoistedLoopBounds() {
+    return CapturedStmtInfo && CapturedStmtInfo->hasHoistedLoopBounds();
+  }
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 public:
 
@@ -3705,7 +3751,6 @@ public:
 
   LValue EmitCXXConstructLValue(const CXXConstructExpr *E);
   LValue EmitCXXBindTemporaryLValue(const CXXBindTemporaryExpr *E);
-  LValue EmitLambdaLValue(const LambdaExpr *E);
   LValue EmitCXXTypeidLValue(const CXXTypeidExpr *E);
   LValue EmitCXXUuidofLValue(const CXXUuidofExpr *E);
 
@@ -3725,11 +3770,10 @@ public:
   /// LLVM arguments and the types they were derived from.
   RValue EmitCall(const CGFunctionInfo &CallInfo, const CGCallee &Callee,
                   ReturnValueSlot ReturnValue, const CallArgList &Args,
-                  llvm::Instruction **callOrInvoke, SourceLocation Loc);
-
+                  llvm::CallBase **callOrInvoke, SourceLocation Loc);
   RValue EmitCall(const CGFunctionInfo &CallInfo, const CGCallee &Callee,
                   ReturnValueSlot ReturnValue, const CallArgList &Args,
-                  llvm::Instruction **callOrInvoke = nullptr) {
+                  llvm::CallBase **callOrInvoke = nullptr) {
     return EmitCall(CallInfo, Callee, ReturnValue, Args, callOrInvoke,
                     SourceLocation());
   }
@@ -3756,14 +3800,14 @@ public:
   SmallVector<llvm::OperandBundleDef, 1>
   getBundlesForFunclet(llvm::Value *Callee);
 
-  llvm::CallSite EmitCallOrInvoke(llvm::Value *Callee,
-                                  ArrayRef<llvm::Value *> Args,
-                                  const Twine &Name = "");
-  llvm::CallSite EmitRuntimeCallOrInvoke(llvm::Value *callee,
-                                         ArrayRef<llvm::Value*> args,
-                                         const Twine &name = "");
-  llvm::CallSite EmitRuntimeCallOrInvoke(llvm::Value *callee,
-                                         const Twine &name = "");
+  llvm::CallBase *EmitCallOrInvoke(llvm::Value *Callee,
+                                   ArrayRef<llvm::Value *> Args,
+                                   const Twine &Name = "");
+  llvm::CallBase *EmitRuntimeCallOrInvoke(llvm::Value *callee,
+                                          ArrayRef<llvm::Value *> args,
+                                          const Twine &name = "");
+  llvm::CallBase *EmitRuntimeCallOrInvoke(llvm::Value *callee,
+                                          const Twine &name = "");
   void EmitNoreturnRuntimeCallOrInvoke(llvm::Value *callee,
                                        ArrayRef<llvm::Value*> args);
 
@@ -3971,6 +4015,11 @@ public:
   llvm::Value *EmitARCRetainAutoreleasedReturnValue(llvm::Value *value);
   llvm::Value *EmitARCUnsafeClaimAutoreleasedReturnValue(llvm::Value *value);
 
+  llvm::Value *EmitObjCAutorelease(llvm::Value *value, llvm::Type *returnType);
+  llvm::Value *EmitObjCRetainNonBlock(llvm::Value *value,
+                                      llvm::Type *returnType);
+  void EmitObjCRelease(llvm::Value *value, ARCPreciseLifetime_t precise);
+
   std::pair<LValue,llvm::Value*>
   EmitARCStoreAutoreleasing(const BinaryOperator *e);
   std::pair<LValue,llvm::Value*>
@@ -4139,8 +4188,6 @@ public:
 
   void EmitCXXThrowExpr(const CXXThrowExpr *E, bool KeepInsertionPoint = true);
 
-  void EmitLambdaExpr(const LambdaExpr *E, AggValueSlot Dest);
-
   RValue EmitAtomicExpr(AtomicExpr *E);
 
   //===--------------------------------------------------------------------===//
@@ -4284,8 +4331,7 @@ public:
                            AbstractCallee AC, unsigned ParmNum);
 
   /// EmitCallArg - Emit a single call argument.
-  void EmitCallArg(CallArgList &args, const Expr *E,   // INTEL
-                   QualType ArgType, bool IsVariadic); // INTEL
+  void EmitCallArg(CallArgList &args, const Expr *E, QualType ArgType);
 
   /// EmitDelegateCallArg - We are performing a delegate call; that
   /// is, the current function is delegating to another one.  Produce
