@@ -227,6 +227,9 @@ void OclThread::Exit(RETURN_TYPE_ENTRY_POINT exitCode)
 /************************************************************************/
 int OclThread::SetAffinity(unsigned char ucAffinity)
 {
+#if defined (WINDOWS_ONECORE)
+    return false;
+#else
     if(!m_running)
     {
         return THREAD_RESULT_FAIL;
@@ -238,6 +241,7 @@ int OclThread::SetAffinity(unsigned char ucAffinity)
         return THREAD_RESULT_FAIL;
     }
 	return THREAD_RESULT_SUCCESS;
+#endif
 }
 
 /************************************************************************

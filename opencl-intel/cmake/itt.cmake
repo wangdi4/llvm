@@ -11,11 +11,11 @@ add_definitions( -DUSE_ITT )
 # platforms. Signalling this setting might achieve effects such as the compiler
 # skipping warnings, or these fixed-install system files not being considered in
 # dependency calculations - see compiler docs.
-include_directories( SYSTEM ${OCL_SOURCE_DIR}/externals/itt/include
-                     ${OCL_SOURCE_DIR}/externals/itt/ittnotify/ )
+include_directories( SYSTEM ${CMAKE_SOURCE_DIR}/externals/itt/include
+                     ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
 
 # ITT libraries directory suffix
-if( WIN32 )
+if( USE_GPA )
     if (BUILD_X64)
         set(GPA_LIB_DIR_SUFFIX x64)
     else()

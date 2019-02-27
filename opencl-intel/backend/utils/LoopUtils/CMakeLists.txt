@@ -24,7 +24,5 @@ add_library(
   ${TARGET_INCLUDE_FILES}
 )
 
-add_dependencies(${TARGET_NAME} metadataapi)
-
 # For a tidy Visual Studio solution layout
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

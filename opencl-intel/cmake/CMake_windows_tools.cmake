@@ -36,8 +36,10 @@ endif()
 add_definitions( -DWIN32 )
 
 # ITT/GPA/VTUNE integration
-add_definitions( -DUSE_GPA )
-include_directories( ${CMAKE_SOURCE_DIR}/externals/gpa/include )
+if (USE_GPA)
+    add_definitions( -DUSE_GPA )
+    include_directories( ${CMAKE_SOURCE_DIR}/externals/gpa/include )
+endif (USE_GPA)
 
 # Linker switches
 if (BUILD_X64)
@@ -77,3 +79,11 @@ set( CMAKE_EXE_LINKER_FLAGS_RELEASE   "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${ADD_L
 set( CMAKE_SHARED_LINKER_FLAGS          ${INIT_LINKER_FLAGS})
 set( CMAKE_SHARED_LINKER_FLAGS_DEBUG   "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}   ${ADD_LINKER_FLAGS_DEBUG}")
 set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
+
+if (UWD_BUILD)
+    set( CMAKE_SYSTEM_VERSION 10.0 )
+    ocl_replace_compiler_option(CMAKE_C_FLAGS_RELEASE "/MD" "/MT")
+    ocl_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "/MD" "/MT")
+    ocl_replace_compiler_option(CMAKE_C_FLAGS_DEBUG "/MDd" "/MTd")
+    ocl_replace_compiler_option(CMAKE_CXX_FLAGS_DEBUG "/MDd" "/MTd")
+endif()

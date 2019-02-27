@@ -126,6 +126,8 @@ loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
                               std::set<Function *> &userFuncs);
   void fillWorkItemPipeBuiltinUsers(Module &m, const OpenclRuntime *rt,
                                     std::set<Function *> &userFuncs);
+  void fillPrintfs(Module &m, const OpenclRuntime *rt,
+                   std::set<Function *> &userFuncs);
   void fillInternalFuncUsers(Module &m, const OpenclRuntime *rt,
                              std::set<Function *> &userFuncs);
   /// Finds all the function which are users of calls to work item functions with non-const

@@ -25,5 +25,3 @@ add_library(${TARGET_NAME}
     ${TARGET_SOURCE_FILES}
 )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
-
-add_dependencies(${TARGET_NAME} metadataapi)

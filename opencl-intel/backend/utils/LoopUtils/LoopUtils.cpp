@@ -212,6 +212,17 @@ void fillWorkItemPipeBuiltinUsers(Module &m, const OpenclRuntime *rt,
   fillFuncUsersSet(pipeFuncs, userFuncs);
 }
 
+void fillPrintfs(Module &m, const OpenclRuntime *rt,
+                 std::set<Function *> &userFuncs) {
+  std::set<Function *> printfFuncs;
+  for (Function &f : m) {
+    StringRef name = f.getName();
+    if (name.equals("printf") || name.equals("opencl_printf"))
+      printfFuncs.insert(&f);
+  }
+  fillFuncUsersSet(printfFuncs, userFuncs);
+}
+
 void collectTIDCallInst(const char *name, IVecVec &tidCalls, Function *F) {
   const unsigned MAX_OCL_NUM_DIM = 3;
   IVec emptyVec;

@@ -33,15 +33,16 @@ using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::ClangFE;
 
 #ifdef _WIN32
-static void AddDriverStorePathToLibrarySearchPath()
+static std::string GetDriverStorePathToLibrary()
 {
-    char dllPath[MAX_PATH];
+    std::string dllPath;
+    dllPath.resize(MAX_PATH);
 #ifdef _M_X64
     LPCTSTR crt_name = "IntelOpenCL64.dll";
 #else //(_M_X64)
     LPCTSTR crt_name = "IntelOpenCL32.dll";
 #endif //(_M_X64)
-    DWORD Length = GetModuleFileName( GetModuleHandle(crt_name), dllPath, MAX_PATH );
+    DWORD Length = GetModuleFileNameA( GetModuleHandle(crt_name), &dllPath[0], MAX_PATH );
 
     for( DWORD l = Length; l > 0; l-- )
     {
@@ -52,7 +53,7 @@ static void AddDriverStorePathToLibrarySearchPath()
         }
     }
 
-    SetDllDirectory((LPCSTR)dllPath);
+    return dllPath;
 }
 #endif // _WIN32
 
@@ -76,14 +77,19 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
 
     INIT_LOGGER_CLIENT(TEXT("FrontEndCompiler"), LL_DEBUG);
 
-#ifdef _WIN32
-    AddDriverStorePathToLibrarySearchPath();
-#endif // _WIN32
-
-    if ( !m_dlModule.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(psModuleName)) )
+    if ( !m_dlModule.Load(GetFullModuleNameForLoad(psModuleName)) )
     {
-        LOG_ERROR(TEXT("Can't find compiler module %s)"), psModuleName);
+#ifdef _WIN32
+        const char* path = (GetDriverStorePathToLibrary() + psModuleName).c_str();
+        if ( !m_dlModule.Load(GetFullModuleNameForLoad(path)) )
+        {
+            LOG_ERROR(TEXT("Can't find frontend library neither %s nor %s)"), psModuleName, path);
+            return CL_COMPILER_NOT_AVAILABLE;
+        }
+#else
+        LOG_ERROR(TEXT("Can't find frontend library %s)"), psModuleName);
         return CL_COMPILER_NOT_AVAILABLE;
+#endif
     }
 
     m_pfnCreateInstance = (fnCreateFECompilerInstance*)m_dlModule.GetFunctionPtrByName("CreateFrontEndInstance");

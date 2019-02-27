@@ -28,10 +28,10 @@ NamedPipeThread::NamedPipeThread()
         DTT_LOG("failed to read the port number from the environment variable, the test will probably fail");
     }
 
-    string pipeNameString("\\\\.\\pipe\\INTEL_OCL_DBG_PIPE" + stringify(GetCurrentProcessId()));
+    wstring pipeNameString(L"\\\\.\\pipe\\INTEL_OCL_DBG_PIPE" + to_wstring(GetCurrentProcessId()));
 
     // Create a pipe to send the data
-    pipe = CreateNamedPipeA(
+    pipe = CreateNamedPipeW(
         pipeNameString.c_str(), // name of the pipe
         PIPE_ACCESS_OUTBOUND,   // 1-way pipe -- send only
         PIPE_TYPE_BYTE,         // send data as a byte stream

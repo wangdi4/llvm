@@ -44,6 +44,7 @@ bool CheckHandleImpl(const char * name, void* expected, void* result, bool bRes)
 bool clCreateContextTest();
 bool clGetPlatformInfoTest();
 bool clGetDeviceInfoTest();
+void clGetKernelSubGroupInfoKHR();
 bool clBuildProgramWithSourceTest();
 bool clCheckJITSaveLoadTest();
 bool clCheckJITSaveTest();

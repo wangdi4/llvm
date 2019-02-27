@@ -2711,6 +2711,46 @@ cl_int CL_API_CALL clGetKernelSubGroupInfo(cl_kernel kernel,
 }
 SET_ALIAS(clGetKernelSubGroupInfo);
 
+cl_int CL_API_CALL clGetKernelSubGroupInfoKHR(cl_kernel kernel,
+                                             cl_device_id device,
+                                             cl_kernel_sub_group_info param_name,
+                                             size_t input_value_size,
+                                             const void* input_value,
+                                             size_t param_value_size,
+                                             void* param_value,
+                                             size_t* param_value_size_ret)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+      ApiLogger apiLogger("clGetKernelSubGroupInfoKHR");
+      apiLogger << "cl_kernel kernel" << kernel
+                << "cl_device_id device" << device
+                << "cl_kernel_sub_group_info param_name" << param_name
+                << "size_t input_value_size" << input_value_size
+                << "const void* input_value" << input_value
+                << "size_t param_value_size" << param_value_size
+                << "void* param_value" << param_value
+                << "size_t* param_value_size_ret" << param_value_size_ret;
+      OutputParamsValueProvider provider(apiLogger);
+      provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
+      // Intentionally call non-KHR version as we want to re-use it's implementation.
+      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelSubGroupInfo(kernel, device, param_name,
+                                                                                 input_value_size, input_value,
+                                                                                 param_value_size, param_value,
+                                                                                 param_value_size_ret));
+    }
+    else
+    {
+        // Intentionally call non-KHR version as we want to re-use it's implementation.
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetKernelSubGroupInfo(kernel, device, param_name,
+                                                                            input_value_size, input_value,
+                                                                            param_value_size, param_value,
+                                                                            param_value_size_ret));
+    }
+}
+SET_ALIAS(clGetKernelSubGroupInfoKHR);
+REGISTER_EXTENSION_FUNCTION(clGetKernelSubGroupInfoKHR, clGetKernelSubGroupInfoKHR);
+
 void* CL_API_CALL
 clMapHostPipeIntelFPGA(cl_mem pipe, cl_map_flags flags,
                        size_t requestedSize, size_t* pMappedSize,

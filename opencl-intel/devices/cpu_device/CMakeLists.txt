@@ -23,15 +23,7 @@ include_directories( BEFORE ${OCL_SOURCE_DIR}/backend/ocl_cpu_backend/export
                             ../common/builtin_kernels
                     )
 
-if(WIN32)
-    include_directories( AFTER
-        ${OCL_SOURCE_DIR}/externals/gpa/include
-        )
-endif(WIN32)
-
-link_directories(   ${TBB_LIB_DIR}
-                    ${OCL_SOURCE_DIR}/externals/gpa/libs/${TAL_LIB_DIR_SUFFIX}
-                )
+link_directories( ${TBB_LIB_DIR} )
 
 if (WIN32)
     add_definitions( -D_WINDOWS )
@@ -85,12 +77,14 @@ endif (WIN32)
 add_opencl_library (${TARGET_NAME} SHARED
     ${TARGET_SOURCES}
 
+    COMPONENTS
+      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+      cl_logger${OPENCL_BINARIES_POSTFIX}
+
     LINK_LIBS
       ${HW_UTILS_PROJ_NAME}
       cl_sys_utils
-      cl_logger${OPENCL_BINARIES_POSTFIX}
       device_commands
-      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
       ${LINK_LIBS}
 
     RC_TEMPLATE DEFAULT)

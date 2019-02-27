@@ -330,13 +330,13 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);
     intel::initializeResolveWICallPass(Registry);
+    intel::initializeResolveBlockToStaticCallPass(Registry);
     intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);
     intel::initializeSmartGVNPass(Registry);
     intel::initializeDeduceMaxWGDimPass(Registry);
     intel::initializeRenderscriptVectorizerPass(Registry);
     intel::initializeSinCosFoldPass(Registry);
-    intel::initializePreLegalizeBoolsPass(Registry);
     intel::initializeOCLAliasAnalysisPass(Registry);
     intel::initializePrintfArgumentsPromotionPass(Registry);
     intel::initializeChannelPipeTransformationPass(Registry);

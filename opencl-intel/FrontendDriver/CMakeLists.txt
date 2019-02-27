@@ -11,6 +11,7 @@ endif()
 
 set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
+set(CCLANG_LIBRARY_VERSION "${LLVM_VERSION_MAJOR}.0")
 
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
@@ -51,10 +52,11 @@ set( INCLUDE_DIRS
 if (WIN32)
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)
 else (WIN32)
-    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
+    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so.${CCLANG_LIBRARY_VERSION})
+    set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
 endif (WIN32)
 
-add_opencl_library (${TARGET_NAME} SHARED
+set(TARGET_SOURCES
     clang_device_info.h
     Compile.cpp
     Compile.h
@@ -72,8 +74,22 @@ add_opencl_library (${TARGET_NAME} SHARED
     SPIRMaterializer.h
     SPIRVMaterializer.cpp
     SPIRVMaterializer.h
+)
 
-    INCLUDE_DIRS ${INCLUDE_DIRS}
+if (WIN32)
+    list( APPEND TARGET_SOURCES fe_driver_main_win32.cpp )
+else (WIN32)
+    list( APPEND TARGET_SOURCES fe_driver_main_linux.cpp )
+endif (WIN32)
+
+add_opencl_library (${TARGET_NAME} SHARED
+    ${TARGET_SOURCES}
+
+    INCLUDE_DIRS
+      ${INCLUDE_DIRS}
+
+    COMPONENTS
+      cl_logger${OPENCL_BINARIES_POSTFIX}
 
     LINK_LIBS
       ${COMMON_CLANG_LIB}
@@ -82,7 +98,6 @@ add_opencl_library (${TARGET_NAME} SHARED
       CLElfLib
       name_mangle
       dynamic_load
-      cl_logger${OPENCL_BINARIES_POSTFIX}
       cl_sys_utils
       # LLVM LIBS
       # Doing so must be done with caution as cclang export all the symbols
@@ -98,12 +113,16 @@ add_opencl_library (${TARGET_NAME} SHARED
     RC_TEMPLATE DEFAULT
 )
 
+if (WIN32)
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:common_clang${BUILD_PLATFORM}.dll")
+endif (WIN32)
+
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} )
 
 if (WIN32)
     set (COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/common_clang${BUILD_PLATFORM}.dll)
 else (WIN32)
-    set (COMMON_CLANG_FILES ${COMMON_CLANG_LIB})
+    set (COMMON_CLANG_FILES ${COMMON_CLANG_LIB} ${COMMON_CLANG_SYMLINK})
 endif (WIN32)
 if (WIN32)
     if (INSTALL_PDBS)
@@ -113,5 +132,6 @@ if (WIN32)
 endif (WIN32)
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )
+
 copy_to (${COMMON_CLANG_FILES} DESTINATION lib)
 install_to (${COMMON_CLANG_FILES} DESTINATION lib COMPONENT ocl-common_clang)

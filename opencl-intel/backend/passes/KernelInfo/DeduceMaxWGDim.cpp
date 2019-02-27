@@ -66,6 +66,7 @@ namespace intel {
     LoopUtils::fillInternalFuncUsers(M, RT, ForbiddenFuncUsers);
 
     LoopUtils::fillWorkItemPipeBuiltinUsers(M, RT, ForbiddenFuncUsers);
+    LoopUtils::fillPrintfs(M, RT, ForbiddenFuncUsers);
 
     // Get all kernels
     CompilationUtils::FunctionSet kernelsFunctionSet;

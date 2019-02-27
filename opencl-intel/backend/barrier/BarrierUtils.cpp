@@ -290,7 +290,7 @@ namespace intel {
       m_barrierFunc =
         createFunctionDeclaration(CompilationUtils::mangledBarrier(), pResult, funcTyArgs);
       m_barrierFunc->setAttributes(m_barrierFunc->getAttributes().addAttribute(
-        m_barrierFunc->getContext(), AttributeList::FunctionIndex, Attribute::NoDuplicate));
+        m_barrierFunc->getContext(), AttributeList::FunctionIndex, Attribute::Convergent));
     }
     if ( !m_localMemFenceValue ) {
       //LocalMemFenceValue is not initialized yet

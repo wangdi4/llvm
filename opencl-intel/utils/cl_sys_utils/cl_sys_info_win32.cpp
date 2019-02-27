@@ -271,11 +271,12 @@ unsigned long Intel::OpenCL::Utils::GetMaxNumaNode()
 ////////////////////////////////////////////////////////////////////
 bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize)
 {
-    if (0 == GetNumaNodeProcessorMask((unsigned char)node, pMask))
+    GROUP_AFFINITY procMask;
+    if (0 == GetNumaNodeProcessorMaskEx((unsigned char)node, &procMask))
     {
         return false;
     }
-
+    *pMask = procMask.Mask;
     unsigned int node_size = 0;
     unsigned long long mask = *pMask;
     while (0 != mask)

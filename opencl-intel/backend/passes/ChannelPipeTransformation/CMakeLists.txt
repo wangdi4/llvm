@@ -20,6 +20,4 @@ add_library(${TARGET_NAME}
 
 target_link_libraries(${TARGET_NAME} clbltpipeinfo)
 
-add_dependencies(${TARGET_NAME} metadataapi)
-
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})

@@ -19,6 +19,7 @@
 #include "Link.h"
 #include "ParseSPIRV.h"
 #include "SPIRMaterializer.h"
+#include "fe_driver_main.h"
 
 #include <Logger.h>
 #include <cl_device_api.h>
@@ -53,15 +54,18 @@ static volatile bool lazyClangCompilerInit =
     true; // the flag must be 'volatile' to prevent caching in a CPU register
 static llvm::sys::Mutex lazyClangCompilerInitMutex;
 
-void ClangCompilerInitialize() {
+bool ClangCompilerInitialize() {
+  bool clangLoadSuccessful = true;
   if (lazyClangCompilerInit) {
     llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
 
     if (lazyClangCompilerInit) {
+      clangLoadSuccessful = LoadCommonClang();
       atexit(ClangCompilerTerminate);
       lazyClangCompilerInit = false;
     }
   }
+  return clangLoadSuccessful;
 }
 
 // ClangFECompiler class implementation
@@ -181,7 +185,10 @@ CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
                        IOCLFECompiler **pFECompiler,
                        Intel::OpenCL::Utils::FrameworkUserLogger *pUserLogger) {
   // Lazy initialization
-  ClangCompilerInitialize();
+  if (!ClangCompilerInitialize())
+  {
+    return CL_COMPILER_NOT_AVAILABLE;
+  }
 
   assert(nullptr != pFECompiler && "Front-end compiler can't be null");
   assert(devInfoSize == sizeof(CLANG_DEV_INFO) && "Ivalid device information");

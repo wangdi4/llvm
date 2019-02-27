@@ -135,7 +135,7 @@ llvm::Pass *createSmartGVNPass(bool);
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass();
 llvm::ModulePass *createDetectRecursionPass();
-llvm::ModulePass *createPreLegalizeBoolsPass();
+llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
 llvm::ModulePass *createChannelsUsageAnalysisPass();
@@ -239,12 +239,12 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                                      // functions
   }
   if (UnrollLoops) {
-    PM->add(llvm::createLoopUnrollPass(OptLevel, 512, 0, 0)); // Unroll small loops
+    PM->add(llvm::createLoopUnrollPass(OptLevel, false, 512, 0, 0)); // Unroll small loops
     // unroll loops with non-constant trip count
     const int thresholdBase = 16;
     if (rtLoopUnrollFactor > 1) {
       const int threshold = thresholdBase * rtLoopUnrollFactor;
-      PM->add(llvm::createLoopUnrollPass(OptLevel,
+      PM->add(llvm::createLoopUnrollPass(OptLevel, false,
                                          threshold, rtLoopUnrollFactor, 0, 1));
     }
   }
@@ -316,6 +316,10 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   PM.add(createFMASplitterPass());
   PM.add(createOclSyncFunctionAttrsPass());
   PM.add(createPrintfArgumentsPromotionPass());
+  if (isOcl20) {
+    // OCL2.0 resolve block to static call
+    PM.add(createResolveBlockToStaticCallPass());
+  }
 
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
@@ -328,8 +332,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(llvm::createInstSimplifyLegacyPass());
   }
 
-  if (isOcl20)
-    PM.add(createSubGroupAdaptationPass());
+  PM.add(createSubGroupAdaptationPass());
 
   if (isOcl20) {
     // Flatten get_{local, global}_linear_id()
@@ -504,13 +507,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
       PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_AFTER,
                                pConfig->GetDumpIRDir()));
     }
-    if (!HasGatherScatter) {
-      // no point to run for older CPU archs
-      if (pConfig->GetCpuId().HasSSE41()) {
-        // Workaround boolean vectors legalization issue.
-        PM.add(createPreLegalizeBoolsPass());
-      }
-    }
 
   }
 #ifdef _DEBUG
@@ -518,7 +514,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
 #endif
 
   // Unroll small loops with unknown trip count.
-  PM.add(llvm::createLoopUnrollPass(OptLevel, 16, 0, 0, 1));
+  PM.add(llvm::createLoopUnrollPass(OptLevel, false, 16, 0, 0, 1));
   // The ShiftZeroUpperBits pass should be added after the vectorizer because
   // the vectorizer may transform scalar shifts into vector shifts, and we want
   // this pass to fix all vector shift in this module.
@@ -697,7 +693,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     }
   }
   if (UnrollLoops && debugType == intel::None) {
-    PM.add(llvm::createLoopUnrollPass(OptLevel, 4, 0, 0)); // Unroll small loops
+    PM.add(llvm::createLoopUnrollPass(OptLevel, false, 4, 0, 0)); // Unroll small loops
   }
 }
 
@@ -720,12 +716,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
   const bool isFpgaEmulator = pConfig->isFpgaEmulator();
 
   // Detect OCL2.0 compilation mode
-  // TODO Remove isOclCPP once OpenCL Optimizer is able to correctly handle
-  // LLVM IR converted from SPIR-V.
-  const bool isOclCPP = CompilationUtils::generatedFromOCLCPP(*pModule);
   const bool isOcl20 = (CompilationUtils::fetchCLVersionFromMetadata(
-                            *pModule) >= OclVersion::CL_VER_2_0) ||
-                       isOclCPP;
+                            *pModule) >= OclVersion::CL_VER_2_0);
   bool UnrollLoops = true;
 
   // Initialize TTI

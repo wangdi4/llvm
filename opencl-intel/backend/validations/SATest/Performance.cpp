@@ -48,10 +48,12 @@ PriorityBooster::PriorityBooster(bool dummy):
     result = SetThreadPriority(GetCurrentThread(),THREAD_PRIORITY_HIGHEST);
     if( !result )
         throw Exception::GeneralException("OS API error:Can't set thread priority");
+#ifndef WINDOWS_ONECORE
+// Affinity is not supported on windows universal platform
     result = SetProcessAffinityMask(GetCurrentProcess(), 2);
     if( !result )
         throw Exception::GeneralException("OS API error:Can't set process affinity");
-    
+#endif
     Sleep(0);
 #else
     // Increase the thread priority to real time

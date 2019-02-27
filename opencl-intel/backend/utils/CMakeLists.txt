@@ -14,6 +14,7 @@ set(TARGET_EXTRA_INCLUDE_FILES
 )
 
 set (TARGET_INCLUDE_FILES
+  BlockUtils.h
   CompilationUtils.h
   CPUDetect.h
   debuggingservicetype.h
@@ -34,6 +35,7 @@ set (TARGET_INCLUDE_FILES
 )
 
 set (TARGET_SOURCE_FILES
+  BlockUtils.cpp
   CompilationUtils.cpp
   CPUDetect.cpp
   debuggingservicetype.cpp
@@ -78,7 +80,5 @@ add_library(${TARGET_NAME} STATIC
 )
 
 target_link_libraries(${TARGET_NAME} name_mangle LLVMSupport)
-
-add_dependencies(${TARGET_NAME} metadataapi)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

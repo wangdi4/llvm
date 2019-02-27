@@ -52,6 +52,7 @@ bool SubGroupAdaptation::runOnModule(Module &M) {
 
   m_pModule = &M;
   m_pLLVMContext = &M.getContext();
+  auto OclVersion = CompilationUtils::fetchCLVersionFromMetadata(M);
   unsigned pointerSizeInBits = M.getDataLayout().getPointerSizeInBits(0);
   assert((32 == pointerSizeInBits || 64 == pointerSizeInBits) &&
          "Unsupported pointer size");
@@ -86,12 +87,16 @@ bool SubGroupAdaptation::runOnModule(Module &M) {
         linid = CastInst::CreateIntegerCast(linid, pFunc->getReturnType(),
                                             false, "cast", entry);
       ReturnInst::Create(*m_pLLVMContext, linid, entry);
-    } else if (CompilationUtils::isGetSubGroupSize(func_name)) {
+    } else if (CompilationUtils::isGetSubGroupSize(func_name) ||
+             ((CompilationUtils::isGetMaxSubGroupSize(func_name)) &&
+                 (OclVersion < OclVersion::CL_VER_2_0))) {
 
       BasicBlock *entry = BasicBlock::Create(*m_pLLVMContext, "entry", pFunc);
 
       // Replace get_sub_group_size() with the following sequence.
       // get_local_size(0) * get_local_size(1) * get_local_size(2)
+      // Replace get_mux_sub_group_size() with the same sequence for OCL 1.2
+      // (OpenCL > 2.0 case follows).
       CallInst *local_size_0 =
           getWICall(entry, "lsz0", CompilationUtils::mangledGetLocalSize(), 0);
       CallInst *local_size_1 =
@@ -112,7 +117,7 @@ bool SubGroupAdaptation::runOnModule(Module &M) {
 
       BasicBlock *entry = BasicBlock::Create(*m_pLLVMContext, "entry", pFunc);
 
-      // Replace get_mux_sub_group_size() with the following sequence.
+      // Replace get_mux_sub_group_size() with the following sequence for OCL > 2.0:
       // get_enqueued_local_size(0) * get_enqueued_local_size(1) *
       // get_enqueued_local_size(2)
       CallInst *enqueued_local_size_0 = getWICall(

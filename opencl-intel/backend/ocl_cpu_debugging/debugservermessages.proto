@@ -1,3 +1,4 @@
+syntax = "proto2";
 //
 // Protobuf definition file for messages to and from the debug server
 //

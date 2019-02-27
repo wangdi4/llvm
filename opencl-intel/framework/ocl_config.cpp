@@ -17,15 +17,18 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-// First device is a default device 
+// First device lib is a default device lib
 #if defined (_WIN32)
     #if defined (_M_X64)
-    static const char* DEFAULT_DEVICES_LIST = "cpu_device64" OPENCL_BINARIES_POSTFIX;
+    static const char* DEFAULT_DEVICES_LIB_LIST =
+                       "cpu_device64" OPENCL_BINARIES_POSTFIX;
     #else //_M_X64
-    static const char* DEFAULT_DEVICES_LIST = "cpu_device32" OPENCL_BINARIES_POSTFIX;
+    static const char* DEFAULT_DEVICES_LIB_LIST =
+                       "cpu_device32" OPENCL_BINARIES_POSTFIX;
     #endif //_M_X64
 #else // _WIN32
-    static const char* DEFAULT_DEVICES_LIST = "cpu_device" OPENCL_BINARIES_POSTFIX;
+    static const char* DEFAULT_DEVICES_LIB_LIST =
+                       "cpu_device" OPENCL_BINARIES_POSTFIX;
 #endif // _WIN32
 
 OCLConfig::OCLConfig()
@@ -47,7 +50,7 @@ string OCLConfig::GetDefaultDevice() const
 vector<string> OCLConfig::GetDevices() const
 {
 	vector<string> vectDevices;
-	string s = m_pConfigFile->Read<string>(CL_CONFIG_DEVICES, DEFAULT_DEVICES_LIST);
+	string s = DEFAULT_DEVICES_LIB_LIST;
 	ConfigFile::tokenize(s, vectDevices);
 	return vectDevices;
 }

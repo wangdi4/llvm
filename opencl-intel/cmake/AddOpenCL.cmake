@@ -29,25 +29,39 @@ else () # Linux
     set(OUTPUT_OS_SUFF "_lin")
 endif (WIN32)
 
+# This macro sets OpenCL libraries version as 'x.y', where 'x' is a major
+# version of LLVM and 'y' is an internally agreed digit.
+macro(set_opencl_version)
+    if( NOT DEFINED OPENCL_LIBRARY_VERSION )
+        if( NOT DEFINED LLVM_PATH_FE )
+            message( FATAL_ERROR "LLVM_PATH_FE is not specified." )
+        endif()
+
+        set(LLVM_PATH ${LLVM_PATH_FE})
+        find_package(LLVM REQUIRED)
+        set( OPENCL_LIBRARY_VERSION "${LLVM_VERSION_MAJOR}.0" )
+    endif( NOT DEFINED OPENCL_LIBRARY_VERSION )
+endmacro(set_opencl_version)
+
 # Define output dirs
 set(OCL_OUTPUT_BINARY_DIR ${OCL_RUNTIME_DIR}/${OUTPUT_ARCH_SUFF})
 set(OCL_OUTPUT_LIBRARY_DIR ${OCL_LIBRARY_DIR}/${OUTPUT_ARCH_SUFF}${OUTPUT_OS_SUFF})
 
-
 # add_opencl_library - binding over add_library for OpenCL needs
-#       name            - defines library name
-#       SHARED / STATIC - defines library type
-#       INCLUDE_DIRS    - defines include directories
-#       LINK_LIBS       - defines libraries to link
-#       RC_TEMPLATE     - defines template for .rc files generation on Windows.
-#                           No .rc file generated if omitted.
-#                           Pass 'default' to use the default one.
+#   name             - defines library name
+#   SHARED / STATIC  - defines library type
+#   INCLUDE_DIRS     - defines include directories
+#   COMPONENTS       - defines shipping OpenCL libraries to link
+#   LINK_LIBS        - defines rest of libraries to link
+#   RC_TEMPLATE      - defines template for .rc files generation on Windows.
+#                      No .rc file generated if omitted.
+#                      Pass 'default' to use the default one.
 
 function(add_opencl_library name)
     cmake_parse_arguments(ARG
         "SHARED;STATIC"
         "RC_TEMPLATE"
-        "INCLUDE_DIRS;LINK_LIBS"
+        "INCLUDE_DIRS;COMPONENTS;LINK_LIBS"
         ${ARGN})
 
     set(sources ${ARG_UNPARSED_ARGUMENTS})
@@ -59,7 +73,7 @@ function(add_opencl_library name)
     if (WIN32 AND ARG_SHARED AND ARG_RC_TEMPLATE)
         string(TOUPPER ${ARG_RC_TEMPLATE} RC_TEMPLATE_UPPERCASE)
         if (${RC_TEMPLATE_UPPERCASE} STREQUAL "DEFAULT")
-            set(rc_template ${OCL_SOURCE_DIR}/rc_template.rc.in) # defalut template
+            set(rc_template ${OCL_SOURCE_DIR}/rc_template.rc.in) # default template
         else (${RC_TEMPLATE_UPPERCASE} STREQUAL "DEFAULT")
             set(rc_template ${ARG_RC_TEMPLATE})                  # custom template
         endif (${RC_TEMPLATE_UPPERCASE} STREQUAL "DEFAULT")
@@ -83,13 +97,17 @@ function(add_opencl_library name)
             LIBRARY_OUTPUT_DIRECTORY_RELEASE ${OCL_OUTPUT_LIBRARY_DIR}
             ARCHIVE_OUTPUT_DIRECTORY_RELEASE ${OCL_OUTPUT_LIBRARY_DIR})
     else (WIN32)
+        # Define OpenCL libraries version
+        set_opencl_version()
+
         set_target_properties(${name} PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
             LIBRARY_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
-            ARCHIVE_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR})
+            ARCHIVE_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
+            SOVERSION ${OPENCL_LIBRARY_VERSION})
     endif (WIN32)
 
-    target_link_libraries(${name} ${ARG_LINK_LIBS})
+    target_link_libraries(${name} ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
 
     # Deals with pdb on Windows
     if (WIN32 AND ARG_SHARED)
@@ -116,14 +134,15 @@ function(add_opencl_library name)
 
 endfunction(add_opencl_library name)
 
-# add_opencl_executable - binding over add_executable for OpenCL needs
-#       name            - defines executable name
-#       INCLUDE_DIRS    - defines include directories
-#       LINK_LIBS       - defines libraries to link
+# add_opencl_executable  - binding over add_executable for OpenCL needs
+#       name             - defines executable name
+#       INCLUDE_DIRS     - defines include directories
+#       COMPONENTS       - defines shipping OpenCL libraries to link
+#       LINK_LIBS        - defines rest of libraries to link
 #
 
 function(add_opencl_executable name)
-    cmake_parse_arguments(ARG "" "" "INCLUDE_DIRS;LINK_LIBS" ${ARGN})
+    cmake_parse_arguments(ARG "" "" "INCLUDE_DIRS;COMPONENTS;LINK_LIBS" ${ARGN})
 
     # TODO: replace with target_include_directories
     include_directories(AFTER ${ARG_INCLUDE_DIRS})
@@ -145,7 +164,7 @@ function(add_opencl_executable name)
             ARCHIVE_OUTPUT_DIRECTORY ${OCL_OUTPUT_BINARY_DIR})
     endif (WIN32)
 
-    target_link_libraries(${name} ${ARG_LINK_LIBS})
+    target_link_libraries(${name} ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
 
     install_to (${name}
                 DESTINATION bin

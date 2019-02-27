@@ -38,12 +38,12 @@ set(OCL_BE_PASSES
     PrepareKernelArgs
     PreventDivCrashes
     RelaxedPass
+    ResolveBlockToStaticCall
     ResolveWICall
     ShiftZeroUpperBits
     SinCosFold
     SmartGVN
     StripIntelIP
-    PreLegalizeBools
     OCLAliasAnalysis
     PrintfArgumentsPromotion
 )

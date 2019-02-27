@@ -14,6 +14,7 @@ option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device"  ON)
 option(INCLUDE_CMRT "Include Common Runtime into Build"  OFF)
 option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of using pre-installed binaries" OFF)
 option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
+option(USE_GPA "Enable GPA support" OFF)
 
 # validation
 # TODO: add 'master' option to disable all kinds of validation
@@ -57,7 +58,6 @@ endif( BUILD_OPENCL_21 )
 
 if( BUILD_FPGA_EMULATOR )
   set( OPENCL_BINARIES_POSTFIX "_emu" )
-
   add_definitions( -DBUILD_FPGA_EMULATOR  )
 endif( BUILD_FPGA_EMULATOR )
 
@@ -69,6 +69,7 @@ add_definitions( -DOPENCL_BINARIES_POSTFIX="${OPENCL_BINARIES_POSTFIX}"
 # define INTEL_CUSTOMIZATION xmain macro
 # TODO: consider to remove from OpenCL CMake scripts
 add_definitions( -DINTEL_CUSTOMIZATION )
+
 if (WIN32)
   # Add definitions that make MSVC much less annoying.
   add_definitions(

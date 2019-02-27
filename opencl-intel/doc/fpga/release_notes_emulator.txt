@@ -267,7 +267,26 @@ release:
 
   - Value of INTELFPGA_CL macro was set to "191".
 
-  - cl_khr_3d_image_writes is no longer supported.
+  - cl_khr_3d_image_writes extension is no longer supported.
+
+  - scheduler_piplining_effort_pct attribute is renamed to
+    scheduler_target_fmax_mhz
+
+  - VOLCANO_CLANG_OPTIONS environment variable was removed.
+    Use -Xclang build option to pass a flag to the frontend compiler
+    invocation.
+
+  - The following #pragmas are supported:
+    - ii_at_most, ii_at_least
+    - min_ii_at_target_fmax
+    - speculated_iterations
+    - disable_loop_pipelining
+    - force_hyperopt, force_no_hyperopt
+
+  - The following attributes are supported:
+    - cluster
+    - stall_enable
+    - stall_latency_enabled, stall_latency_disabled
 
   - General stability improvements.
 
