@@ -12572,6 +12572,33 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(Callee, X);
   }
 
+  case CSA::BI__builtin_csa_lic_init: {
+    Value *X =  Builder.CreateZExtOrTrunc(EmitScalarExpr(E->getArg(0)), Int8Ty);
+    Value *Y =  Builder.CreateZExt(EmitScalarExpr(E->getArg(1)), Int64Ty);
+    Value *Z =  Builder.CreateZExt(EmitScalarExpr(E->getArg(2)), Int64Ty);
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_init);
+    return Builder.CreateCall(Callee, {X, Y, Z});
+  }
+
+  case CSA::BI__builtin_csa_lic_write: {
+    Value *X =  Builder.CreateZExtOrTrunc(EmitScalarExpr(E->getArg(0)),
+                                          Int32Ty);
+    const Expr *PtrArg = E->getArg(1);
+    Value *Y = EmitScalarExpr(PtrArg);
+    llvm::Type *OverloadTy = ConvertType(PtrArg->getType());
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_write, {OverloadTy});
+    return Builder.CreateCall(Callee, {X, Y});
+  }
+
+  case CSA::BI__builtin_csa_lic_read: {
+    const Expr *PtrArg = E->getArg(0);
+    Value *T = EmitScalarExpr(PtrArg);
+    Value *X =  Builder.CreateZExtOrTrunc(EmitScalarExpr(E->getArg(1)),
+                                          Int32Ty);
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_read, T->getType());
+    return Builder.CreateCall(Callee, {X});
+  }
+
   default:
     return nullptr;
   }

@@ -6458,6 +6458,13 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
   if (!IsOffloadEntry)
     return;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // Add "target.entry" attribute to the outlined function.
+  OutlinedFn->addFnAttr("omp.target.entry");
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
   // The target region ID is used by the runtime library to identify the current
   // target region, so it only has to be unique and not necessarily point to
   // anything. It could be the pointer to the outlined function that implements

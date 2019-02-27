@@ -344,4 +344,12 @@ def err_fpga_reg_limitations : Error <
   "non-POD and array types cannot be passed to __builtin_fpga_reg">;
 def err_pragma_loop_invalid_negative_value : Error<
   "invalid value '%0'; must be non-negative">;
+
+#if INTEL_FEATURE_CSA
+// Intel CSA extensions
+def err_csa_builtin_arg_mismatch : Error<
+  "CSA builtin parameter must be %select{"
+  "a scalar or a vector type|an integer}0">;
+#endif // INTEL_FEATURE_CSA
+
 } // end of sema component.

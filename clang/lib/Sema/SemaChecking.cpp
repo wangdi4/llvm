@@ -1586,6 +1586,13 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (CheckFPGABuiltinFunctionCall(BuiltinID, TheCall))
       return ExprError();
     break;
+#if INTEL_FEATURE_CSA
+  case llvm::Triple::csa:
+    //CSA builtins custom typechecking
+    if (CheckCSABuiltinFunctionCall(BuiltinID, TheCall))
+      return ExprError();
+    break;
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
       default:
         break;
@@ -4643,6 +4650,48 @@ static unsigned IntelTypeCoerceSizeCalc(AtomicExpr::AtomicOp p) {
     return 0;
   }
 }
+
+#if INTEL_FEATURE_CSA
+bool Sema::CheckCSABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+  switch (BuiltinID) {
+  default:
+    return false;
+  case CSA::BI__builtin_csa_lic_write: {
+    if (checkArgCount(*this, TheCall, 2))
+      return true;
+    // LIC parameter is a unique identifier for this stream.
+    Expr *LicId = TheCall->getArg(0);
+    if (!LicId->getType()->isIntegerType())
+      return Diag(LicId->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+        << 1;
+    // Second parameter permits an arbitrary basic LLVM type
+    Expr *AnyTypeArg = TheCall->getArg(1);
+    if (!AnyTypeArg || (!AnyTypeArg->getType()->isScalarType() &&
+                        !AnyTypeArg->getType()->isVectorType()))
+      return Diag(AnyTypeArg->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+             << 0;
+    break;
+  }
+  case CSA::BI__builtin_csa_lic_read: {
+    if (checkArgCount(*this, TheCall, 2))
+      return true;
+    // First parameter permits an arbitrary basic LLVM type
+    Expr *AnyTypeArg = TheCall->getArg(0);
+    if (!AnyTypeArg || (!AnyTypeArg->getType()->isScalarType() &&
+                        !AnyTypeArg->getType()->isVectorType()))
+      return Diag(AnyTypeArg->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+        << 0;
+    // LIC parameter is a unique identifier for this stream.
+    Expr *LicId = TheCall->getArg(1);
+    if (!LicId->getType()->isIntegerType())
+      return Diag(LicId->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+        << 1;
+    break;
+  }
+  }
+  return false;
+}
+#endif // INTEL_FEATURE_CSA
 
 bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   bool RequiresSuccess = false;

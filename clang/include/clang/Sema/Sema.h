@@ -10803,6 +10803,9 @@ private:
   bool CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckOpenCLBuiltinFunctionCall(unsigned BuiltinID, CallExpr *Call);
   bool SemaBuiltinVAArgPackChecks(CallExpr *TheCall, unsigned BuiltinID);
+#if INTEL_FEATURE_CSA
+  bool CheckCSABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
 public:

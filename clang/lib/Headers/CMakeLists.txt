@@ -32,6 +32,7 @@ set(INTEL_HEADERS)
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
   Intel_Headers/csa/csaintrin.h
+  Intel_Headers/csa/csastream.h
   Intel_Headers/csa/x86intrin.h
   Intel_Headers/csa/bits/mathinline.h
   )
