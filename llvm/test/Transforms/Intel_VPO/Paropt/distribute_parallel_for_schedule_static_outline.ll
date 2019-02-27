@@ -37,14 +37,13 @@
 ; 'schedule' 33 is kmp_sch_static_chunked
 ; CHECK: [[PHB]]:
 ; CHECK: call void @__kmpc_dist_for_static_init_4({{.*}}, i32 %[[TID:[^,]+]], i32 33, i32* %[[PISLAST:[^,]+]], i32* %[[PLB:[^,]+]], i32* %[[PUB:[^,]+]], i32* %[[PUD:[^,]+]], i32* %[[PST:[^,]+]], i32 1, i32 44)
+; CHECK: %[[UD:.+]] = load i32, i32* %[[PUD]]
 ; CHECK: br label %[[DISPH:[^,]+]]
 
 ; DISPH:
 ; CHECK: [[DISPH]]:
 ; CHECK: %[[UBTMP:.+]] = load i32, i32* %[[PUB]]
-; TODO: check if the comparison must be made not with the original UB, but
-;       with upperD.
-; CHECK: %[[MINP:.+]] = icmp sle i32 %[[UBTMP]], %[[ORIGUB:[^,]+]]
+; CHECK: %[[MINP:.+]] = icmp sle i32 %[[UBTMP]], %[[UD]]
 ; CHECK: br i1 %[[MINP]], label %[[DISPB:[^,]+]], label %[[DISPMINUB:[^,]+]]
 
 ; DISPB:
@@ -56,7 +55,7 @@
 
 ; DISPMINUB:
 ; CHECK: [[DISPMINUB]]:
-; CHECK: store i32 %[[ORIGUB]], i32* %[[PUB]]
+; CHECK: store i32 %[[UD]], i32* %[[PUB]]
 ; CHECK: br label %[[DISPB]]
 
 ; LOOPBODY:

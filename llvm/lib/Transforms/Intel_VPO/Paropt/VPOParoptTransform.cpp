@@ -4231,7 +4231,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   bool DoesNotRequireDispatch =
     (SchedKind == WRNScheduleStatic || SchedKind == WRNScheduleStaticEven);
 
-  if (DoesNotRequireDispatch)
+  if (DoesNotRequireDispatch) {
     // Generate either __kmpc_for_static_init or __kmpc_dist_for_static_init
     // call instruction at the end of the loop's pre-header.
     KmpcInitCI =
@@ -4241,7 +4241,19 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
             Stride, StrideVal,
             IsDistForLoop ? DistChunkVal : ChunkVal,
             IsUnsigned, PHTerm);
-  else {
+
+    if (isa<WRNDistributeParLoopNode>(W) &&
+        VPOParoptUtils::getDistLoopScheduleKind(W) ==
+        WRNScheduleDistributeStaticEven) {
+      // For "distribute parallel for schedule(static, N)" we need to take
+      // minimum between the upper bound and the upper bound of the dist_chunk
+      // returned by __kmpc_dist_for_static_init.  Update UpperBndVal with
+      // the value of upperD returned by the run-time.  It will be used
+      // by genDispatchLoopForStatic() below.
+      PHBuilder.SetInsertPoint(PHTerm);
+      UpperBndVal = PHBuilder.CreateAlignedLoad(UpperD, 4, "static.upperD");
+    }
+  } else {
     // Generate __kmpc_dispatch_init_4{u}/8{u} Call Instruction
 
     // If team distribution is involved, then we need to call initialize
