@@ -921,6 +921,19 @@ class SkylakeServerProc<string Name> : ProcModel<Name, SkylakeServerModel,
 def : SkylakeServerProc<"skylake-avx512">;
 def : SkylakeServerProc<"skx">; // Legacy alias.
 
+#if INTEL_CUSTOMIZATION
+// Fake CPU to represent the intersection between SKX and KNL. Matches
+// icc's -xCOMMON-AVX512. BDW ISA + AVX512F + AVX512CD.
+class CommonAVX512Proc<string Name> : ProcModel<Name, BroadwellModel,
+                                                BDWFeatures.Value, [
+  FeatureAVX512,
+  FeatureCDI,
+  FeatureHasFastGather,
+  FeaturePOPCNTFalseDeps
+]>;
+def : CommonAVX512Proc<"common-avx512">;
+#endif // INTEL_CUSTOMIZATION
+
 def CLXFeatures : ProcessorFeatures<SKXFeatures.Value, [
   FeatureVNNI
 ]>;
