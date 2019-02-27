@@ -1035,7 +1035,7 @@ StmtResult Sema::ProcessStmtAttributes(Stmt *S,
   for (const ParsedAttr &AL : AttrList) {
 #if INTEL_CUSTOMIZATION
     if (Attr *a = ProcessStmtAttribute(*this, S, AL, AttrList,  Range))
-#endif
+#endif // INTEL_CUSTOMIZATION
       Attrs.push_back(a);
   }
 

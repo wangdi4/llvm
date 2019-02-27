@@ -1239,7 +1239,7 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
 
   if (TransformedExpr == LH->getValue() &&
       TransformedLoopExpr == LH->getLoopExprValue())
-#endif
+#endif // INTEL_CUSTOMIZATION
     return LH;
 
     // Generate error if there is a problem with the value.

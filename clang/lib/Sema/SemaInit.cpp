@@ -5547,7 +5547,7 @@ void InitializationSequence::InitializeFrom(Sema &S,
         return;
       }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   //     - If the initializer is (), the object is value-initialized.
   if (Kind.getKind() == InitializationKind::IK_Value ||

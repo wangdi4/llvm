@@ -598,7 +598,7 @@ class Sema;
 
       case BadConversion:
         return 4;
-#endif
+#endif // INTEL_CUSTOMIZATION
       }
 
       llvm_unreachable("Invalid ImplicitConversionSequence::Kind!");
