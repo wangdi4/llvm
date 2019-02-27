@@ -1,9 +1,8 @@
 //===-- ValueObjectChild.cpp ------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -202,12 +201,9 @@ bool ValueObjectChild::UpdateValue() {
         ExecutionContext exe_ctx(
             GetExecutionContextRef().Lock(thread_and_frame_only_if_stopped));
         if (GetCompilerType().GetTypeInfo() & lldb::eTypeHasValue) {
-          if (!is_instance_ptr_base)
-            m_error =
-                m_value.GetValueAsData(&exe_ctx, m_data, 0, GetModule().get());
-          else
-            m_error = m_parent->GetValue().GetValueAsData(&exe_ctx, m_data, 0,
-                                                          GetModule().get());
+          Value &value = is_instance_ptr_base ? m_parent->GetValue() : m_value;
+          m_error =
+              value.GetValueAsData(&exe_ctx, m_data, 0, GetModule().get());
         } else {
           m_error.Clear(); // No value so nothing to read...
         }

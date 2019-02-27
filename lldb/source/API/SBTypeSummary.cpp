@@ -1,10 +1,9 @@
 //===-- SBTypeSummary.cpp -----------------------------------------*- C++
 //-*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -25,7 +24,7 @@ SBTypeSummaryOptions::SBTypeSummaryOptions() {
 SBTypeSummaryOptions::SBTypeSummaryOptions(
     const lldb::SBTypeSummaryOptions &rhs) {
   if (rhs.m_opaque_ap)
-    m_opaque_ap.reset(new TypeSummaryOptions(*rhs.m_opaque_ap.get()));
+    m_opaque_ap.reset(new TypeSummaryOptions(*rhs.m_opaque_ap));
   else
     m_opaque_ap.reset(new TypeSummaryOptions());
 }
@@ -70,11 +69,11 @@ lldb_private::TypeSummaryOptions *SBTypeSummaryOptions::get() {
 }
 
 lldb_private::TypeSummaryOptions &SBTypeSummaryOptions::ref() {
-  return *m_opaque_ap.get();
+  return *m_opaque_ap;
 }
 
 const lldb_private::TypeSummaryOptions &SBTypeSummaryOptions::ref() const {
-  return *m_opaque_ap.get();
+  return *m_opaque_ap;
 }
 
 SBTypeSummaryOptions::SBTypeSummaryOptions(

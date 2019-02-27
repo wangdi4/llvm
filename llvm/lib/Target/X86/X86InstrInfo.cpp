@@ -1,9 +1,8 @@
 //===-- X86InstrInfo.cpp - X86 Instruction Information --------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -1569,6 +1568,28 @@ MachineInstr *X86InstrInfo::commuteInstructionImpl(MachineInstr &MI, bool NewMI,
     WorkingMI.getOperand(3).setImm(Mask ^ Imm);
     return TargetInstrInfo::commuteInstructionImpl(WorkingMI, /*NewMI=*/false,
                                                    OpIdx1, OpIdx2);
+  }
+  case X86::INSERTPSrr:
+  case X86::VINSERTPSrr:
+  case X86::VINSERTPSZrr: {
+    unsigned Imm = MI.getOperand(MI.getNumOperands() - 1).getImm();
+    unsigned ZMask = Imm & 15;
+    unsigned DstIdx = (Imm >> 4) & 3;
+    unsigned SrcIdx = (Imm >> 6) & 3;
+
+    // We can commute insertps if we zero 2 of the elements, the insertion is
+    // "inline" and we don't override the insertion with a zero.
+    if (DstIdx == SrcIdx && (ZMask & (1 << DstIdx)) == 0 &&
+        countPopulation(ZMask) == 2) {
+      unsigned AltIdx = findFirstSet((ZMask | (1 << DstIdx)) ^ 15);
+      assert(AltIdx < 4 && "Illegal insertion index");
+      unsigned AltImm = (AltIdx << 6) | (AltIdx << 4) | ZMask;
+      auto &WorkingMI = cloneIfNew(MI);
+      WorkingMI.getOperand(MI.getNumOperands() - 1).setImm(AltImm);
+      return TargetInstrInfo::commuteInstructionImpl(WorkingMI, /*NewMI=*/false,
+                                                     OpIdx1, OpIdx2);
+    }
+    return nullptr;
   }
   case X86::MOVSDrr:
   case X86::MOVSSrr:
@@ -3455,7 +3476,9 @@ inline static bool isRedundantFlagInstr(const MachineInstr &FlagI,
 
 /// Check whether the definition can be converted
 /// to remove a comparison against zero.
-inline static bool isDefConvertible(const MachineInstr &MI) {
+inline static bool isDefConvertible(const MachineInstr &MI, bool &NoSignFlag) {
+  NoSignFlag = false;
+
   switch (MI.getOpcode()) {
   default: return false;
 
@@ -3520,8 +3543,6 @@ inline static bool isDefConvertible(const MachineInstr &MI) {
   case X86::SHL8r1:    case X86::SHL16r1:  case X86::SHL32r1:case X86::SHL64r1:
   case X86::ANDN32rr:  case X86::ANDN32rm:
   case X86::ANDN64rr:  case X86::ANDN64rm:
-  case X86::BEXTR32rr: case X86::BEXTR64rr:
-  case X86::BEXTR32rm: case X86::BEXTR64rm:
   case X86::BLSI32rr:  case X86::BLSI32rm:
   case X86::BLSI64rr:  case X86::BLSI64rm:
   case X86::BLSMSK32rr:case X86::BLSMSK32rm:
@@ -3539,8 +3560,6 @@ inline static bool isDefConvertible(const MachineInstr &MI) {
   case X86::TZCNT16rr: case X86::TZCNT16rm:
   case X86::TZCNT32rr: case X86::TZCNT32rm:
   case X86::TZCNT64rr: case X86::TZCNT64rm:
-  case X86::BEXTRI32ri:  case X86::BEXTRI32mi:
-  case X86::BEXTRI64ri:  case X86::BEXTRI64mi:
   case X86::BLCFILL32rr: case X86::BLCFILL32rm:
   case X86::BLCFILL64rr: case X86::BLCFILL64rm:
   case X86::BLCI32rr:    case X86::BLCI32rm:
@@ -3559,6 +3578,13 @@ inline static bool isDefConvertible(const MachineInstr &MI) {
   case X86::T1MSKC64rr:  case X86::T1MSKC64rm:
   case X86::TZMSK32rr:   case X86::TZMSK32rm:
   case X86::TZMSK64rr:   case X86::TZMSK64rm:
+    return true;
+  case X86::BEXTR32rr:   case X86::BEXTR64rr:
+  case X86::BEXTR32rm:   case X86::BEXTR64rm:
+  case X86::BEXTRI32ri:  case X86::BEXTRI32mi:
+  case X86::BEXTRI64ri:  case X86::BEXTRI64mi:
+    // BEXTR doesn't update the sign flag so we can't use it.
+    NoSignFlag = true;
     return true;
   }
 }
@@ -3579,12 +3605,12 @@ static X86::CondCode isUseDefConvertible(const MachineInstr &MI) {
   case X86::TZCNT32rr: case X86::TZCNT32rm:
   case X86::TZCNT64rr: case X86::TZCNT64rm:
     return X86::COND_B;
-  case X86::BSF16rr:
-  case X86::BSF16rm:
-  case X86::BSF32rr:
-  case X86::BSF32rm:
-  case X86::BSF64rr:
-  case X86::BSF64rm:
+  case X86::BSF16rr: case X86::BSF16rm:
+  case X86::BSF32rr: case X86::BSF32rm:
+  case X86::BSF64rr: case X86::BSF64rm:
+  case X86::BSR16rr: case X86::BSR16rm:
+  case X86::BSR32rr: case X86::BSR32rm:
+  case X86::BSR64rr: case X86::BSR64rm:
     return X86::COND_E;
   }
 }
@@ -3662,8 +3688,9 @@ bool X86InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, unsigned SrcReg,
   // instruction we can eliminate the compare iff the use sets EFLAGS in the
   // right way.
   bool ShouldUpdateCC = false;
+  bool NoSignFlag = false;
   X86::CondCode NewCC = X86::COND_INVALID;
-  if (IsCmpZero && !isDefConvertible(*MI)) {
+  if (IsCmpZero && !isDefConvertible(*MI, NoSignFlag)) {
     // Scan forward from the use until we hit the use we're looking for or the
     // compare instruction.
     for (MachineBasicBlock::iterator J = MI;; ++J) {
@@ -3782,6 +3809,12 @@ bool X86InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, unsigned SrcReg,
       case X86::COND_O: case X86::COND_NO:
         // CF and OF are used, we can't perform this optimization.
         return false;
+      case X86::COND_S: case X86::COND_NS:
+        // If SF is used, but the instruction doesn't update the SF, then we
+        // can't do the optimization.
+        if (NoSignFlag)
+          return false;
+        break;
       }
 
       // If we're updating the condition code check if we have to reverse the

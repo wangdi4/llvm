@@ -1,10 +1,9 @@
 //===-- PlatformDarwinKernel.cpp -----------------------------------*- C++
 //-*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -111,7 +110,7 @@ PlatformSP PlatformDarwinKernel::CreateInstance(bool force,
 
     // Only accept "unknown" for vendor if the host is Apple and it "unknown"
     // wasn't specified (it was just returned because it was NOT specified)
-    case llvm::Triple::UnknownArch:
+    case llvm::Triple::UnknownVendor:
       create = !arch->TripleVendorWasSpecified();
       break;
     default:
@@ -710,8 +709,7 @@ Status PlatformDarwinKernel::GetSharedModule(
     }
   }
 
-  if (kext_bundle_id.compare("mach_kernel") == 0 &&
-      module_spec.GetUUID().IsValid()) {
+  if (kext_bundle_id == "mach_kernel" && module_spec.GetUUID().IsValid()) {
     // First try all kernel binaries that have a dSYM next to them
     for (auto possible_kernel : m_kernel_binaries_with_dsyms) {
       if (FileSystem::Instance().Exists(possible_kernel)) {
