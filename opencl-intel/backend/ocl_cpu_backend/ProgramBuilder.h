@@ -106,7 +106,7 @@ protected:
 
 private:
     /// @brief Dump stats collected for module if requested
-    void DumpModuleStats(llvm::Module* pModule);
+    void DumpModuleStats(llvm::Module* pModule, bool isEqualizerStats = false);
 
     // base file name for stats
     std::string m_statFileBaseName;
