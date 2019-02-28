@@ -88,7 +88,8 @@ private:
                               const PHINode *Phi, unsigned Symbase);
 
   /// Populates loop liveouts based on SCC phi instructions.
-  void populateLoopSCCPhiLiveouts(const Instruction *SCCInst, unsigned Symbase);
+  void populateLoopSCCPhiLiveouts(const Instruction *SCCInst, unsigned Symbase,
+                                  const IRRegion &IRReg);
 
   /// \brief Populates livein Values from the phi nodes present in the region.
   void populateRegionPhiLiveins(HIRRegionIdentification::iterator RegIt);
