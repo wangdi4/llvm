@@ -556,14 +556,6 @@ public:
                   RunNumber, Name);
         }
 
-        if (DumpStats == DumpStatAfterEachOffload) {
-           auto ProcessName = get_process_name_with_rank();
-           auto FuncName = get_offload_name(Name);
-           std::stringstream SS;
-           SS << ProcessName << "-run" << RunNumber << FuncName;
-           CsaUmrSimulatorDumpStatistics(Context, SS.str().c_str());
-        }
-
         CsaUmrCallInfo CI = { 0 };
         CI.flags = kCsaUmrCallEntryByName;
         CI.graph = Graph;
@@ -575,6 +567,14 @@ public:
         if (E) {
           DP(1, "Error calling CSA graph - %s\n", getUmrErrorStr(E));
           return false;
+        }
+
+        if (DumpStats == DumpStatAfterEachOffload) {
+           auto ProcessName = get_process_name_with_rank();
+           auto FuncName = get_offload_name(Name);
+           std::stringstream SS;
+           SS << ProcessName << "-run" << RunNumber << FuncName;
+           CsaUmrSimulatorDumpStatistics(Context, SS.str().c_str());
         }
 
         if (Verbosity) {
