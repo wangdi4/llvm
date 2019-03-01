@@ -44,6 +44,7 @@
 ; Now we switch to CHECK-NEXT to make sure the analysis passes aren't re-run.
 ; CHECK: Running pass:
 ; CHECK-SAME: dtrans::WeakAlignPass
+; CHECK-NEXT: Running pass: dtrans::MemInitTrimDownPass
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
 ; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass

@@ -23,6 +23,7 @@ add_llvm_library(LLVMIntel_DTransOpt
   DTransOptBaseTest.cpp
   DTransOptUtils.cpp
   DTransPaddedMalloc.cpp
+  MemInitTrimDown.cpp
   PaddedPtrPropagation.cpp
   SOAToAOS.cpp
   SOAToAOSArrays.cpp

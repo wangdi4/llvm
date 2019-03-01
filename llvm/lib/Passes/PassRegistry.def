@@ -64,6 +64,7 @@ MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())   // INTEL
 MODULE_PASS("padded-pointer-prop", PaddedPtrPropPass())          // INTEL
 MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
             dtrans::EliminateROFieldAccessPass())                // INTEL
+MODULE_PASS("dtrans-meminittrimdown", dtrans::MemInitTrimDownPass()) // INTEL
 #if !INTEL_PRODUCT_RELEASE
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 #endif // !INTEL_PRODUCT_RELEASE
