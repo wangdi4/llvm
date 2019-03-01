@@ -260,6 +260,13 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
   if (hasSSE42() || hasSSE4A())
     IsUAMem16Slow = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  if (hasAVXVNNI() || (hasVNNI() && hasVLX()))
+    HasAnyVNNIVL = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
+
   // It's important to keep the MCSubtargetInfo feature bits in sync with
   // target data structure which is shared with MC code emitter, etc.
   if (In64BitMode)

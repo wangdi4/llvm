@@ -170,6 +170,14 @@ def FeatureBF16    : SubtargetFeature<"avx512bf16", "HasBF16", "true",
                            "Support bfloat16 floating point",
                                       [FeatureBWI]>;
 #endif // INTEL_FEATURE_ISA_BF16
+#if INTEL_FEATURE_ISA_AVX_VNNI
+def FeatureVNNIVL     : SubtargetFeature<"vnnivl", "HasAnyVNNIVL", "true",
+                           "Dummy feature to track if either avx512vnni "
+                           "or avxvnni is enabled. Needed by clang.">;
+def FeatureAVXVNNI    : SubtargetFeature<"avxvnni", "HasAVXVNNI", "true",
+                           "Support AVX_VNNI encoding",
+                                      [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                        "Enable AVX-512 Bit Algorithms",

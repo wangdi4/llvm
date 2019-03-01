@@ -67,6 +67,10 @@
 @ISA_AMX:SECRET@
 # end INTEL_FEATURE_ISA_AMX
 
+# INTEL_FEATURE_ISA_AVX_VNNI
+@ISA_AVX_VNNI:SECRET@
+# end INTEL_FEATURE_ISA_AVX_VNNI
+
 # === New ISA features section end ===
 
 # Support for a new target is usually covered by a feature named after
