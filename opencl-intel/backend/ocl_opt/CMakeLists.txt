@@ -28,7 +28,7 @@ set(OCL_BE_PASSES
     LinearIdResolver
     LocalBuffAnalysis
     LocalBuffers
-    Materialize
+    LLVMEqualizer
     OclFunctionAttrs
     PatchCallbackArgs
     PipeIOTransformation

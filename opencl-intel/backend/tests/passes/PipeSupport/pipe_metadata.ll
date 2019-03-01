@@ -36,7 +36,7 @@
 ; ----------------------------------------------------
 ; Compilation command:
 ;   clang -cc1 -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -emit-llvm -cl-std=CL1.2
-;   oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -spir-materializer -channel-pipe-transformation -verify %s -S
+;   oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support -verify %s -S | FileCheck %s
 ; REQUIRES: fpga-emulator

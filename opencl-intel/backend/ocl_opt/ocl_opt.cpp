@@ -325,7 +325,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeBIImportPass(Registry);
     intel::initializeGenericAddressStaticResolutionPass(Registry);
     intel::initializeGenericAddressDynamicResolutionPass(Registry);
-    intel::initializeSpirMaterializerPass(Registry);
+    intel::initializeLLVMEqualizerPass(Registry);
     intel::initializeSubGroupAdaptationPass(Registry);
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);

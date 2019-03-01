@@ -1,7 +1,7 @@
-set(TARGET_NAME Materialize)
+set(TARGET_NAME LLVMEqualizer)
 
-set(TARGET_SOURCE_FILES Materialize.cpp)
-set(TARGET_INCLUDE_FILES Materialize.h)
+set(TARGET_SOURCE_FILES LLVMEqualizer.cpp)
+set(TARGET_INCLUDE_FILES LLVMEqualizer.h)
 
 include_directories(
   ${OCL_SOURCE_DIR}/backend/metadata_api
