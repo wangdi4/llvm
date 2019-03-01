@@ -81,6 +81,14 @@ void GlobalCompilerConfig::LoadConfig()
             intel::Statistic::setCurrentStatType(pEnv);
         }
     }
+    if (const char *pEnv = getenv("VOLCANO_EQUALIZER_DUMP"))
+    {
+        intel::Statistic::enableStats();
+        if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
+        {
+            intel::Statistic::setCurrentStatType(pEnv);
+        }
+    }
 #endif // INTEL_PRODUCT_RELEASE
 
 // INTEL VPO BEGIN
