@@ -245,7 +245,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         static Intel::OpenCL::Utils::OclSpinMutex m_initializationMutex;
 
         // Linux shutdown process
-        static void CL_CALLBACK TerminateProcess();
+        static void CL_CALLBACK TerminateProcess(bool needToDisableAPI);
         static volatile GLOBAL_STATE               gGlobalState;
         static std::set<Intel::OpenCL::Utils::at_exit_dll_callback_fn>   m_at_exit_cbs; // use m_initializationMutex
         static THREAD_LOCAL bool                   m_bIgnoreAtExit;
