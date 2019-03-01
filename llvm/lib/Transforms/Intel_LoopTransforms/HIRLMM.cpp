@@ -568,7 +568,7 @@ bool HIRLMM::canHoistSingleLoad(HLLoop *Lp, RegDDRef *FirstRef,
   DDGraph DDG = HDDA.getGraph(Lp);
 
   for (DDEdge *E : DDG.incoming(LRef)) {
-    if (E->isANTIdep()) {
+    if (E->isANTIdep() || E->isOUTPUTdep()) {
       return false;
     }
   }
