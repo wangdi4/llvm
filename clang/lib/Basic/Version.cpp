@@ -121,17 +121,9 @@ std::string getClangFullVersion() {
 std::string getClangToolFullVersion(StringRef ToolName) {
   std::string buf;
   llvm::raw_string_ostream OS(buf);
-#ifdef CLANG_VENDOR
-  OS << CLANG_VENDOR;
-#endif
-  OS << ToolName << " version " CLANG_VERSION_STRING " "
-     << getClangFullRepositoryVersion();
-
-  // If vendor supplied, include the base LLVM version as well.
-#ifdef CLANG_VENDOR
-  OS << " (based on " << BACKEND_PACKAGE_STRING << ")";
-#endif
-
+#if INTEL_CUSTOMIZATION
+  OS << "icx (ICX) 2019.8.1.0";
+#endif // INTEL_CUSTOMIZATION
   return OS.str();
 }
 
