@@ -385,6 +385,17 @@ public:
 #if INTEL_CUSTOMIZATION
   Instruction *recognizePopcnt(BinaryOperator &I);
   Instruction *OptimizeICmpInstSize(ICmpInst &ICI, Value *Op0, Value *Op1);
+
+  bool hasUnsafeFPMathAttrSet(Instruction &I) {
+    const Function &F = I.getParent()->getParent()->getFunction();
+    if (F.hasFnAttribute("unsafe-fp-math")) {
+      Attribute Attr = F.getFnAttribute("unsafe-fp-math");
+      StringRef Val = Attr.getValueAsString();
+      if (Val == "true")
+        return true;
+   }
+   return false;
+ }
 #endif // INTEL_CUSTOMIZATION
   Instruction *FoldShiftByConstant(Value *Op0, Constant *Op1,
                                    BinaryOperator &I);

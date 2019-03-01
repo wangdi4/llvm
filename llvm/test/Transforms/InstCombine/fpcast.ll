@@ -123,3 +123,23 @@ define half @test_fptrunc_fptrunc(double %V) {
   ret half %t2
 }
 
+define internal fastcc i64 @test9(i64 %x, double %y) unnamed_addr #0 {
+; CHECK-LABEL: @test9(
+; CHECK-NEXT:    entry:
+; CHECK-NEXT:    %0 = call fast double @llvm.rint.f64(double %y)
+; CHECK-NEXT:    %1 = fptosi double %0 to i64
+; CHECK-NEXT:    %conv2 = add i64 %1, %x
+; CHECK: ret i64 %conv2
+
+entry:
+  %conv1 = sitofp i64 %x to double
+  %add1 = fadd fast double %y, %conv1
+  %0 = call fast double @llvm.rint.f64(double %add1)
+  %conv2 = fptosi double %0 to i64
+  ret i64 %conv2
+}
+
+; Function Attrs: nounwind readnone speculatable
+declare double @llvm.rint.f64(double)
+
+attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" "use-soft-float"="false" }

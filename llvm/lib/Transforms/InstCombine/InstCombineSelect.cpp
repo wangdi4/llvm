@@ -1877,6 +1877,42 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
         return replaceInstUsesWith(SI, Fabs);
       }
     }
+
+#if INTEL_CUSTOMIZATION
+//  [CMPLRLLVM-1509] Optimize Round2nearestinteger(fp +int) for invariants.
+//  If the parent function has "unsafe-fp-math" set, then we can
+//  transform ==>
+//
+//   %TrueVal = call fast double @llvm.floor.f64(double %TValOp1)
+//   %FCmpOp1 = fsub fast double %TValOp1, %TrueVal
+//   %FalseVal = call fast double @llvm.ceil.f64(double %TValOp1)
+//   %FCmpOp2 = fsub fast double %FalseVal, %TValOp1
+//   %FCI = fcmp fast olt double %FCmpOp1, %FCmpOp2
+//   %SI = select i1 %cmp, double %TrueVal, double %FalseVal
+//   ret double %SI
+//
+//  into ==>
+//
+//   %0 = call fast double @llvm.rint.f64(double %TValOp1)
+//   ret double %0
+
+    if (hasUnsafeFPMathAttrSet(*FCI)) {
+      Value *TValOp0, *FValOp0;
+      if (match(TrueVal, m_Intrinsic<Intrinsic::floor>(m_Value(TValOp0))) &&
+          match(FalseVal, m_Intrinsic<Intrinsic::ceil>(m_Value(FValOp0))) &&
+          TValOp0 == FValOp0) {
+        Value *FCmpOp0 = FCI->getOperand(0);
+        Value *FCmpOp1 = FCI->getOperand(1);
+        if (Pred == FCmpInst::FCMP_OLT &&
+            match(FCmpOp0, m_FSub(m_Specific(TValOp0), m_Specific(TrueVal))) &&
+            match(FCmpOp1, m_FSub(m_Specific(FalseVal), m_Specific(TValOp0)))) {
+          Value *RInt =
+              Builder.CreateUnaryIntrinsic(Intrinsic::rint, TValOp0, FCI);
+          return replaceInstUsesWith(SI, RInt);
+        }
+      }
+    }
+#endif  // INTEL_CUSTOMIZATION
   }
 
   // See if we are selecting two values based on a comparison of the two values.

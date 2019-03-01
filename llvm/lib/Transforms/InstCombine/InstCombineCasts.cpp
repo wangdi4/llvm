@@ -1754,6 +1754,37 @@ Instruction *InstCombiner::visitFPToSI(FPToSIInst &FI) {
   if (!OpI)
     return commonCastTransforms(FI);
 
+#if INTEL_CUSTOMIZATION
+//  [CMPLRLLVM-1509] Optimize Round2nearestinteger(fp +int) for invariants.
+//  If the parent function has "unsafe-fp-math" set, then we can
+//  transform ==>
+//
+//   %SI = sitofp i64 %u.0 to double
+//   %FAdd = fadd fast double %mean_location.sroa.0.0, %SI
+//   %RInt = call fast double @llvm.rint.f64(double %FAdd)
+//   %FI = fptosi double %RInt to i64
+//
+//  into ==>
+//
+//   %X = call fast double @llvm.rint.f64(double %mean_location.sroa.0.0)
+//   %Y = fptosi double %X to i64
+//   %FI = add i64 %Y, %u.0
+
+  if (hasUnsafeFPMathAttrSet(FI)) {
+    Value *FAddOp0, *SIOp0;
+    if (match(OpI, m_Intrinsic<Intrinsic::rint>(
+                       m_FAdd(m_Value(FAddOp0), m_SIToFP(m_Value(SIOp0))))) ||
+        match(OpI, m_Intrinsic<Intrinsic::rint>(
+                       m_FAdd(m_SIToFP(m_Value(SIOp0)), m_Value(FAddOp0))))) {
+      Value *NewRInt =
+          Builder.CreateUnaryIntrinsic(Intrinsic::rint, FAddOp0, OpI);
+      Value *NewFPToSI =
+          Builder.CreateFPToSI(NewRInt, Type::getInt64Ty(FI.getContext()));
+      return BinaryOperator::CreateAdd(NewFPToSI, SIOp0);
+    }
+  }
+#endif  // INTEL_CUSTOMIZATION
+
   if (Instruction *I = FoldItoFPtoI(FI))
     return I;
 
