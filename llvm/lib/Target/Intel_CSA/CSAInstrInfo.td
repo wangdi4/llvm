@@ -77,6 +77,17 @@ class RegImmOperand<ValueType vt> : Operand<vt>, ComplexPattern<vt,1,"SelectRegI
     let ParserMatchClass = RegImmAsmOperand;
   }
 
+// This version is meant to be used for operations that are agnostic to the
+// actual integer/floating/vector form. It relies on a hack in the typechecking:
+// if you merge {iPTR} and {i32}, you get {i32}... and you get {f32} if you try
+// to merge {f32} with {iPTR}.
+class RegImmOperandUntyped<ValueType vt> : Operand<iPTR>, ComplexPattern<vt,1,"SelectRegImm", [imm, fpimm]> {
+    let OperandType = "OPERAND_REG_IMM";
+    // We need to give TableGen some clues (along with some custom function in
+    // CSAAsmParser) to deal with these particularly flexible operands.
+    let ParserMatchClass = RegImmAsmOperand;
+  }
+
 // Rounding mode operands. These are literal integers underneath, but are
 // printed and parsed as their symbolic names. The default numerically matches
 // the simulator's default value in csa.h. (This is CSA::ROUND_NEAREST.)
@@ -140,6 +151,8 @@ def RCLf32 : RegImmOperand<f32>;
 def RCLi64 : RegImmOperand<i64>;
 def RCLf64 : RegImmOperand<f64>;
 def RCLf32x2 : RegImmOperand<v2f32>;
+def RCL32  : RegImmOperandUntyped<i32>;
+def RCL64  : RegImmOperandUntyped<i64>;
 
 // Memory operands
 class Addr<int numArgs, string funcName, dag opInfo> :
@@ -227,6 +240,8 @@ def Ts64 : CSAOpInfo<i64, 64, "s64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tu64 : CSAOpInfo<i64, 64, "u64", I64, RI64, CI64, RCLi64, i64imm, [HasI64]>;
 def Tf64 : CSAOpInfo<f64, 64, "f64", I64, RI64, CI64, RCLf64, f64imm, [HasF64]>;
 def Tf32x2 : CSAOpInfo<v2f32, 64, "f32x2", I64, RI64, CI64, RCLf32x2, i64imm, []>;
+def T32  : CSAOpInfo<i32, 32,  "32", I32, RI32, CI32, RCL32, i32imm, [HasI32]>;
+def T64  : CSAOpInfo<i64, 64,  "64", I64, RI64, CI64, RCL64, i64imm, [HasI64]>;
 
 
 def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
@@ -1416,10 +1431,14 @@ def MERGE0    : MergeOp< "merge0",  Ti0,  [HasI0],  IIVir>;
 def MERGE1    : MergeOp< "merge1",  Ti1,  [HasI1],  IIVir>;
 def MERGE8    : MergeOp< "merge8",  Ti8,  [HasI8],  IIVir>;
 def MERGE16   : MergeOp< "merge16", Ti16, [HasI16], IIVir>;
-def MERGE32   : MergeOp< "merge32", Ti32, [HasI32], IIVir>;
-def MERGE32f  : MergeOp< "merge32", Tf32, [HasI32], IIVir>;
-def MERGE64   : MergeOp< "merge64", Ti64, [HasI64], IIVir>;
-def MERGE64f  : MergeOp< "merge64", Tf64, [HasI64], IIVir>;
+def MERGE32   : MergeOp< "merge32", T32, [HasI32], IIVir>;
+def MERGE64   : MergeOp< "merge64", T64, [HasI64], IIVir>;
+def : Pat<(f32 (select RCLi1:$sel, RCLf32:$v1, RCLf32:$v0)),
+          (MERGE32 $sel, $v0, $v1)>;
+def : Pat<(f64 (select RCLi1:$sel, RCLf64:$v1, RCLf64:$v0)),
+          (MERGE64 $sel, $v0, $v1)>;
+def : Pat<(v2f32 (select RCLi1:$sel, RCLf32x2:$v1, RCLf32x2:$v0)),
+          (MERGE64 $sel, $v0, $v1)>;
 
 def SWITCH    : GenericOp<"switch">;
 def SWITCH0   : SwitchOp<SWITCH, Ti0,  IIVir>;
