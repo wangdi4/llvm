@@ -457,6 +457,22 @@ bool X86TargetInfo::initFeatureMap(
           FeaturesVec.end())
     Features["mmx"] = true;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  // Enable a fake vnnivl feature if "avxvnni" is enabled or
+  // "avx512vl,avx512vnni" is enabled.
+  auto AVXVNNIIt = Features.find("avxvnni");
+  auto AVX512VLIt = Features.find("avx512vl");
+  auto AVX512VNNIIt = Features.find("avx512vnni");
+  if (((AVXVNNIIt != Features.end() && AVXVNNIIt->getValue()) ||
+       (AVX512VLIt != Features.end() && AVX512VLIt->getValue() &&
+        AVX512VNNIIt != Features.end() && AVX512VNNIIt->getValue())) &&
+      std::find(FeaturesVec.begin(), FeaturesVec.end(), "-vnnivl") ==
+          FeaturesVec.end())
+    Features["vnnivl"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
+
   return true;
 }
 
@@ -527,6 +543,11 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     LLVM_FALLTHROUGH;
   case AVX2:
     Features["avx2"] = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    Features["avxvnni"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case AVX512F:
     Features["avx512f"] = Features["avx512cd"] = Features["avx512er"] =
@@ -734,6 +755,12 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
       Features["amx-tile"] = true;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  else if (Name == "avxvnni") {
+    if (Enabled)
+      setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -882,6 +909,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-tile") {
       HasAMXTILE = true;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    } else if (Feature == "+avxvnni") {
+      HasAVXVNNI = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
@@ -1278,6 +1309,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasAMXBF16)
     Builder.defineMacro("__AMXBF16__");
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  if (HasAVXVNNI)
+    Builder.defineMacro("__AVXVNNI__");
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1495,6 +1530,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+      .Case("avxvnni", HasAVXVNNI)
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)
