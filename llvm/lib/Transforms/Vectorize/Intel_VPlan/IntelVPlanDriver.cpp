@@ -555,6 +555,9 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopAccessLegacyAnalysis>();
   AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   AU.addRequired<OptReportOptionsPass>();
+
+  AU.addPreserved<AndersensAAWrapperPass>();
+  AU.addPreserved<GlobalsAAWrapperPass>();
 }
 
 bool VPlanDriver::runOnFunction(Function &Fn) {

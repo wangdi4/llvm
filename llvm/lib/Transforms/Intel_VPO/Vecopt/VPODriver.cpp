@@ -1,6 +1,6 @@
 //===-- VPODriver.cpp -----------------------------------------------------===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -12,6 +12,9 @@
 // This file implements VPO vectorizer driver pass.
 //
 //===----------------------------------------------------------------------===//
+
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -53,7 +56,7 @@ public:
     initializeVPODirectiveCleanupPass(*PassRegistry::getPassRegistry());
   }
   bool runOnFunction(Function &F) override;
-  //  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 } // namespace
 
@@ -68,10 +71,10 @@ FunctionPass *llvm::createVPODirectiveCleanupPass() {
   return new VPODirectiveCleanup();
 }
 
-#if 0
 void VPODirectiveCleanup::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addPreserved<AndersensAAWrapperPass>();
+  AU.addPreserved<GlobalsAAWrapperPass>();
 }
-#endif
 
 bool VPODirectiveCleanup::runOnFunction(Function &F) {
 

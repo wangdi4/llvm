@@ -17,6 +17,8 @@
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h"
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -360,6 +362,9 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addPreserved<WholeProgramWrapperPass>();
+
+    AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
   }
 
   bool runOnFunction(Function &F) override { return lowerIntrinsics(F); }

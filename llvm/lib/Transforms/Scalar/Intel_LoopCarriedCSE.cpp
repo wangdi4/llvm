@@ -40,7 +40,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
+
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
@@ -440,6 +443,9 @@ public:
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.setPreservesCFG();
+
+    AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
   }
 };
 
@@ -456,6 +462,8 @@ PreservedAnalyses LoopCarriedCSEPass::run(Function &F,
   PreservedAnalyses PA;
   PA.preserve<LoopAnalysis>();
   PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();
   PA.preserveSet<CFGAnalyses>();
   return PA;
 }
