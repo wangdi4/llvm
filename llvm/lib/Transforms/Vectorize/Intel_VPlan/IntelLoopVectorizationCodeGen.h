@@ -363,6 +363,9 @@ public:
   // Get widened base pointer of in-memory private variable
   Value *getVectorPrivateBase(Value *V);
 
+  // Get widened base pointer(s) of in-memory private array variable
+  Value *getVectorPrivateArrayBase(Value *ArrayPriv);
+
   // Get a vector of pointers corresponding to the private variable for each
   // vector lane.
   Value *getVectorPrivatePtrs(Value *ScalarPrivate);

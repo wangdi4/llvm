@@ -1237,8 +1237,16 @@ Value *VPOCodeGen::getVectorPrivatePtrs(Value *ScalarPrivate) {
 
   auto PtrToVec = getVectorPrivateBase(ScalarPrivate);
   auto PtrType = cast<PointerType>(ScalarPrivate->getType());
+
   auto Base = Builder.CreateBitCast(PtrToVec, PtrType, "privaddr");
+
+  // If PtrToVec is of an widened array-type,
+  // e.g., [2 x [NumElts x Ty]],
+  // %privaddr = bitcast [2 x [NumElts x Ty]]* %s.vec to [NumElts x Ty]*
+  // %addr.vec = getelementptr [NumElts x Ty], [NumElts x Ty]* %privaddr,
+  //                                           <2 x i32> <i32 0, i32 1>
   // We will create a vector GEP with scalar base and a vector of indices.
+
   SmallVector<Constant *, 8> Indices;
   // Create a vector of consecutive numbers from zero to VF.
   for (unsigned i = 0; i < VF; ++i) {
@@ -1251,12 +1259,76 @@ Value *VPOCodeGen::getVectorPrivatePtrs(Value *ScalarPrivate) {
   return Builder.CreateGEP(nullptr, Base, Cv);
 }
 
+// This function widens the array 'alloca' by VF. It then returns
+// the vector containing the base address of each private copy
+// %s = alloca [NumElts x Ty]
+//          |
+//          | VF = 2
+//          |
+//          V
+// %s.vec = alloca [2 x [NumElts x Ty]]
+Value *VPOCodeGen::getVectorPrivateArrayBase(Value *ArrayPriv) {
+  assert(Legal->isLoopPrivate(ArrayPriv) && "Loop private value expected");
+
+  assert(isa<ArrayType>(ArrayPriv->getType()->getPointerElementType()) &&
+         "Expected the private variable to be of array type");
+
+  Type *OrigArrTy = ArrayPriv->getType()->getPointerElementType();
+
+  // Create a VF-wide type. If OrigArrTy is [64 x Ty], VecTyForAlloca
+  // is [VF x [64 x Ty]].
+  Type *VecTyForAlloca = ArrayType::get(OrigArrTy, VF);
+
+  // Create a PointerType for this
+  Type *PtrToVecAllocaTy = PointerType::get(
+      VecTyForAlloca,
+      cast<PointerType>(ArrayPriv->getType())->getAddressSpace());
+
+  Value *V = getPtrThruBitCast(ArrayPriv);
+
+  // If we have already created a widened private Array, return it.
+  if (LoopPrivateWidenMap.count(V)) {
+    Value *BitCastPtr = LoopPrivateWidenMap[V];
+    return Builder.CreateBitCast(BitCastPtr, PtrToVecAllocaTy);
+  }
+
+  // Create an alloca in the appropriate block
+  auto OldIP = Builder.saveIP();
+  Function *F = cast<Instruction>(ArrayPriv)->getParent()->getParent();
+  BasicBlock &FirstBB = F->front();
+  Builder.SetInsertPoint(&*FirstBB.getFirstInsertionPt());
+  AllocaInst *WidenedPrivArr = Builder.CreateAlloca(
+      VecTyForAlloca, nullptr, ArrayPriv->getName() + ".vec");
+  WidenedPrivArr->setAlignment(cast<AllocaInst>(ArrayPriv)->getAlignment());
+
+  // Save alloca's result
+  LoopPrivateWidenMap[ArrayPriv] = WidenedPrivArr;
+
+  if (Legal->isCondLastPrivate(ArrayPriv)) {
+    Builder.SetInsertPoint((cast<Instruction>(WidenedPrivArr))->getNextNode());
+    // Create a memory location for last non-zero mask
+    // We save mask as an integer value
+    Type *MaskTy = IntegerType::get(ArrayPriv->getContext(), VF);
+    Value *PtrToMask =
+        Builder.CreateAlloca(MaskTy, nullptr, ArrayPriv->getName() + ".mask");
+    Builder.CreateStore(Constant::getAllOnesValue(MaskTy), PtrToMask);
+    LoopPrivateLastMask[V] = PtrToMask;
+  }
+
+  Builder.restoreIP(OldIP);
+  return WidenedPrivArr;
+}
+
 Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
   assert(Legal->isLoopPrivate(V) && "Loop private value expected");
   bool IsConditional = Legal->isCondLastPrivate(V);
 
   Type *TypeBeforeBitcast = V->getType();
   Type *ValueTy = TypeBeforeBitcast->getPointerElementType();
+
+  if (isa<ArrayType>(ValueTy))
+    return getVectorPrivateArrayBase(V);
+
   Type *NewValueTy = ValueTy->isVectorTy()
                          ? VectorType::get(ValueTy->getScalarType(),
                                            ValueTy->getVectorNumElements() * VF)
