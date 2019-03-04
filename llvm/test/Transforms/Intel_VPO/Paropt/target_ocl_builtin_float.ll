@@ -8,7 +8,7 @@
 ; #include <stdio.h>
 ; #include <mathimf.h>
 ; int main() {
-;   float array[10];
+;   float array[20];
 ;   #pragma omp target map(tofrom:array)
 ;   {
 ;      array[0] = sinf(1.0);
@@ -21,6 +21,8 @@
 ;      array[7] = floorf(2.5);
 ;      array[8] = fabsf(-2.0);
 ;      array[9] = sqrtf(3.0);
+;      array[10] = log2f(3.0);
+;      array[11] = erff(3.0);
 ;   }
 ;   for (int i = 0; i<10; i++)
 ;     printf("array[%d] = %f\n", i, array[i]);
@@ -79,8 +81,16 @@ declare dso_local spir_func float @fabsf(float) #2
 declare dso_local spir_func float @sqrtf(float) #1
 ; CHECK: declare dso_local spir_func float @_Z4sqrtf(float)
 
+; Function Attrs: nounwind
+declare dso_local spir_func float @log2f(float) #1
+; CHECK: declare dso_local spir_func float @_Z4log2f(float)
+
+; Function Attrs: nounwind
+declare dso_local spir_func float @erff(float) #1
+; CHECK: declare dso_local spir_func float @_Z3erff(float)
+
 ; Function Attrs: noinline norecurse optnone uwtable
-define dso_local spir_kernel void @__omp_offloading_fd02_d323ad_main_l46([10 x float] addrspace(1)* %array) #4 {
+define dso_local spir_kernel void @__omp_offloading_fd02_d323ad_main_l46([20 x float] addrspace(1)* %array) #4 {
 newFuncRoot:
   br label %for.end
 
@@ -93,44 +103,52 @@ for.end:                                          ; preds = %newFuncRoot
 DIR.OMP.TARGET.1:                                 ; preds = %for.end
   %call = call spir_func float @sinf(float 1.000000e+00) #0
 ; CHECK: {{.*}}  call spir_func float @_Z3sinf
-  %arrayidx1 = getelementptr inbounds [10 x float], [10 x float] addrspace(1)* %array, i64 0, i64 0
+  %arrayidx1 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 0
   store float %call, float addrspace(1)* %arrayidx1, align 4
   %call2 = call spir_func float @cosf(float 1.000000e+00) #0
 ; CHECK: {{.*}}  call spir_func float @_Z3cosf
-  %arrayidx3 = getelementptr inbounds [10 x float], [10 x float] addrspace(1)* %array, i64 0, i64 1
+  %arrayidx3 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 1
   store float %call2, float addrspace(1)* %arrayidx3, align 4
   %call4 = call spir_func float @tanf(float 1.000000e+00) #0
 ; CHECK: {{.*}}  call spir_func float @_Z3tanf
-  %arrayidx5 = getelementptr inbounds [10 x float], [10 x float] addrspace(1)* %array, i64 0, i64 2
+  %arrayidx5 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 2
   store float %call4, float addrspace(1)* %arrayidx5, align 4
   %call6 = call spir_func float @powf(float 2.000000e+00, float 3.000000e+00) #0
 ; CHECK: {{.*}}  call spir_func float @_Z3powff
-  %arrayidx7 = getelementptr inbounds [10 x float], [10 x float] addrspace(1)* %array, i64 0, i64 3
+  %arrayidx7 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 3
   store float %call6, float addrspace(1)* %arrayidx7, align 4
   %call8 = call spir_func float @expf(float 2.000000e+00) #0
 ; CHECK: {{.*}}  call spir_func float @_Z3expf
-  %arrayidx9 = getelementptr inbounds [10 x float], [10 x float] addrspace(1)* %array, i64 0, i64 4
+  %arrayidx9 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 4
   store float %call8, float addrspace(1)* %arrayidx9, align 4
   %call10 = call spir_func float @logf(float 2.000000e+00) #0
 ; CHECK: {{.*}}  call spir_func float @_Z3logf
-  %arrayidx11 = getelementptr inbounds [10 x float], [10 x float] addrspace(1)* %array, i64 0, i64 5
+  %arrayidx11 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 5
   store float %call10, float addrspace(1)* %arrayidx11, align 4
   %call12 = call spir_func float @ceilf(float 2.500000e+00) #5
 ; CHECK: {{.*}}  call spir_func float @_Z4ceilf
-  %arrayidx13 = getelementptr inbounds [10 x float], [10 x float] addrspace(1)* %array, i64 0, i64 6
+  %arrayidx13 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 6
   store float %call12, float addrspace(1)* %arrayidx13, align 4
   %call14 = call spir_func float @floorf(float 2.500000e+00) #5
 ; CHECK: {{.*}}  call spir_func float @_Z5floorf
-  %arrayidx15 = getelementptr inbounds [10 x float], [10 x float] addrspace(1)* %array, i64 0, i64 7
+  %arrayidx15 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 7
   store float %call14, float addrspace(1)* %arrayidx15, align 4
   %call16 = call spir_func float @fabsf(float -2.000000e+00) #5
 ; CHECK: {{.*}}  call spir_func float @_Z4fabsf
-  %arrayidx17 = getelementptr inbounds [10 x float], [10 x float] addrspace(1)* %array, i64 0, i64 8
+  %arrayidx17 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 8
   store float %call16, float addrspace(1)* %arrayidx17, align 4
   %call18 = call spir_func float @sqrtf(float 3.000000e+00) #0
 ; CHECK: {{.*}}  call spir_func float @_Z4sqrtf
-  %arrayidx19 = getelementptr inbounds [10 x float], [10 x float] addrspace(1)* %array, i64 0, i64 9
+  %arrayidx19 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 9
   store float %call18, float addrspace(1)* %arrayidx19, align 4
+  %call20 = call spir_func float @log2f(float 3.000000e+00) #0
+; CHECK: {{.*}}  call spir_func float @_Z4log2f
+  %arrayidx21 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 10
+  store float %call20, float addrspace(1)* %arrayidx21, align 4
+  %call22 = call spir_func float @erff(float 3.000000e+00) #0
+; CHECK: {{.*}}  call spir_func float @_Z3erff
+  %arrayidx23 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 10
+  store float %call22, float addrspace(1)* %arrayidx23, align 4
   br label %DIR.OMP.END.TARGET.2
 
 DIR.OMP.END.TARGET.2:                             ; preds = %DIR.OMP.TARGET.1
