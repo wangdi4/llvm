@@ -70,8 +70,8 @@ namespace Conformance
     /// Describes single precision floating point capability of the device
     /// Use minimum mandated floating point capability (openCL 1.1 spec)
     static uint64_t gFloatCapabilities =
-        (CL_FP_INF_NAN)             /// 1. Quiet NaNs and INF are supported
-        || CL_FP_ROUND_TO_NEAREST;   /// 2. Round to nearest mode is on
+        (CL_FP_INF_NAN != 0) ||          /// 1. Quiet NaNs and INF are supported
+        (CL_FP_ROUND_TO_NEAREST != 0);   /// 2. Round to nearest mode is on
     /// Round to zero mode is off by default
     static int gIsInRTZMode = 0;
 

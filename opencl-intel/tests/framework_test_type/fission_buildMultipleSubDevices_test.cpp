@@ -24,6 +24,8 @@
 
 #define MAX_SOURCE_SIZE 2048
 
+#pragma GCC diagnostic ignored "-Wmisleading-indentation"
+
 extern cl_device_type gDeviceType;
 
 static volatile unsigned int uiBuildDone = 0;

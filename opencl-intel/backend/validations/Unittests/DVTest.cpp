@@ -213,8 +213,9 @@ TEST(DataVersionTest, DISABLED_find_type_sampler_t) /* CSSD100018373 */
 
     testFindSamplers(source1, samplerIndxs,kernelName);
     EXPECT_EQ(samplerIndxs.size(), (unsigned int)1);
-    if( samplerIndxs.size() == (unsigned int)1 )
+    if( samplerIndxs.size() == (unsigned int)1 ) {
         EXPECT_EQ(samplerIndxs[0], (unsigned int)0);
+    }
 
     // test case: two sampler_t types at positions 1 and 2
     std::string source2 = std::string ("__kernel void ") + kernelName +

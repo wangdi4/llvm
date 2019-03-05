@@ -25,7 +25,7 @@ class TestAutorunProfilerAPI : public OCLFPGABaseFixture {};
 
 TEST_F(TestAutorunProfilerAPI, Basic) {
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-pedantic"
+#pragma GCC diagnostic ignored "-Wpedantic"
   cl_int (*get_profile_data_device) (cl_device_id, cl_program, cl_bool, cl_bool,
                                      cl_bool, size_t, void *, size_t *,
                                      cl_int *);
