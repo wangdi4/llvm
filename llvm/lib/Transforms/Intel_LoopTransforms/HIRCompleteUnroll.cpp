@@ -2108,19 +2108,23 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processGEPRef(
   // simplification of non-consecutive dimensions can be added. For example, we
   // will add up simplificaiton of first and third dimension for A[i1][%t][i2].
   for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
-    auto CE = Ref->getDimensionIndex(I);
+    auto IndexCE = Ref->getDimensionIndex(I);
 
     HasNonZeroDimOrOffsets =
         HasNonZeroDimOrOffsets || Ref->hasNonZeroTrailingStructOffsets(I);
 
-    if (!processCanonExpr(CE, Ref)) {
+    bool CanSimplifyDim = processCanonExpr(IndexCE, Ref);
+    CanSimplifyDim = (processCanonExpr(Ref->getDimensionLower(I), Ref) && CanSimplifyDim);
+    CanSimplifyDim = (processCanonExpr(Ref->getDimensionStride(I), Ref) && CanSimplifyDim);
+
+    if (!CanSimplifyDim) {
       CanSimplify = false;
 
     } else {
       int64_t Val;
 
       // Process based on whether the dimension was already a constant.
-      if (CE->isIntConstant(&Val)) {
+      if (IndexCE->isIntConstant(&Val)) {
         HasNonZeroDimOrOffsets = HasNonZeroDimOrOffsets || (Val != 0);
       } else {
 

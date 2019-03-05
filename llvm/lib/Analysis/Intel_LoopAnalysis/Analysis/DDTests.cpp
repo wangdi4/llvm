@@ -4303,6 +4303,7 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   SmallVector<Subscript, 4> Pair(Pairs);
 
+  // TODO: compare lower and stride of src/dst ref.
   if (SrcRegDDRef) {
     int P = 0;
     for (auto CE = SrcRegDDRef->canon_begin(), E = SrcRegDDRef->canon_end();
