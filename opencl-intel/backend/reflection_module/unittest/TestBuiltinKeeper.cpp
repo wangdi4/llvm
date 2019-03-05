@@ -153,9 +153,10 @@ TEST(VectorizerReference, OldTable){
       //Do the two versions agree on the scalarization property?
       width::V expectedWidth = indexToWidth(colindex);
       PairSW scalarVersion = pKeeper->getVersion(biName, width::SCALAR);
-      if (expectedWidth != width::SCALAR)
+      if (expectedWidth != width::SCALAR) {
         ASSERT_EQ(0==tableProperties[rowindex][0], isNullPair(scalarVersion)) <<
         "in built-in " << biName;
+      }
 
       // Do the two versions agree on the packetizer property?
       // We arbitrary picked four as the destination vector width.
