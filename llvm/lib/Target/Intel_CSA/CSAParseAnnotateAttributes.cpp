@@ -96,6 +96,7 @@ bool CSAParseAnnotateAttributes::runOnModule(Module &M) {
                         << F->getName() << "\n");
     }
   }
+  Annotations->eraseFromParent();
   return true;
 }
 
