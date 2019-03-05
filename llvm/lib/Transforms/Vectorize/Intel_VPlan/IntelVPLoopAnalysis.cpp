@@ -183,6 +183,39 @@ static bool hasLiveInOrConstOperand(const VPInstruction *Instr,
   return getLiveInOrConstOperand(Instr, Loop) != nullptr;
 }
 
+static bool
+allUpdatesAreStores(SmallVectorImpl<VPInstruction *> &UpdateVPInsts) {
+  assert(UpdateVPInsts.size() > 0 &&
+         "No updates for this reduction descriptor.");
+  if (llvm::any_of(UpdateVPInsts, [](VPInstruction *I) {
+        return I->getOpcode() != Instruction::Store;
+      }))
+    return false;
+
+  // All update VPInstructions are stores
+  return true;
+}
+
+// A trivial bitcast VPInstruction is something like below-
+// i32 %vp18288 = bitcast i32 %vp8624
+// These bitcasts are primarily coming from HIR. In order to deconstruct SSA,
+// HIR introduces these bitcast instructions which are translated to HLInsts
+// like: %2 = %4; We will need these bitcasts to reconstruct SSA from HIR and to
+// introduce PHI nodes in HCFG. It is possible to remove them later after HCFG
+// is built in a VPlan-to-VPlan transform maybe.
+static bool isTrivialBitcast(VPInstruction *VPI) {
+  if (VPI->getOpcode() != Instruction::BitCast)
+    return false;
+
+  Type *SrcTy = VPI->getOperand(0)->getType();
+  Type *DestTy = VPI->getType();
+
+  if (SrcTy != DestTy)
+    return false;
+
+  return true;
+}
+
 unsigned VPReduction::getReductionOpcode() const {
   switch (getRecurrenceKind()) {
   case RecurrenceKind::RK_IntegerMinMax:
@@ -495,13 +528,25 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
             ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
             : Reduction->getLoopExitInstr();
 
-    VPInstruction *Final =
-        StartIncluded || Reduction->isMinMax()
-            ? Builder.createReductionFinal(Reduction->getReductionOpcode(),
-                                           Exit)
-            : Builder.createReductionFinal(
-                  Reduction->getReductionOpcode(), Exit,
-                  Reduction->getRecurrenceStartValue(), Reduction->isSigned());
+    VPInstruction *Final;
+    if (StartIncluded || Reduction->isMinMax()) {
+      Final =
+          Builder.createReductionFinal(Reduction->getReductionOpcode(), Exit);
+    } else {
+      // Create a load for Start value if it's a pointer
+      VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
+      if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
+        assert(isa<PointerType>(FinalStartValue->getType()) &&
+               "Expected pointer type here.");
+        FinalStartValue =
+            Builder.createNaryOp(Instruction::Load, Ty, {FinalStartValue});
+      }
+
+      Final =
+          Builder.createReductionFinal(Reduction->getReductionOpcode(), Exit,
+                                       FinalStartValue, Reduction->isSigned());
+    }
+
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
   }
   for (auto &IndPtr : InductionList) {
@@ -684,11 +729,39 @@ void ReductionDescr::checkParentVPLoop(const VPlan *Plan,
 }
 
 bool ReductionDescr::isIncomplete() const {
-  return StartPhi == nullptr || Start == nullptr || RT == nullptr;
+  return StartPhi == nullptr || Start == nullptr || RT == nullptr ||
+         Exit == nullptr;
+}
+
+bool ReductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
+  if (VPEntityImportDescr::isDuplicate(Plan, Loop))
+    return true;
+
+  // Reduction specific checks for duplication.
+  // A single SIMD reduction descriptor can be potentially identified by both
+  // SafeReductionAnalysis (auto-recognized) and explicitly specified in clause.
+  // This duplication is avoided by checking if a reduction entity is already
+  // created for current descriptors StartPhi
+
+  const VPLoopEntityList *LE = Plan->getLoopEntities(Loop);
+
+  if (LE && StartPhi && LE->getReduction(StartPhi))
+    return true;
+
+  // All checks failed.
+  return false;
 }
 
 void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
                                           const VPLoop *Loop) {
+  if (!Exit) {
+    // Explicit reduction descriptors need further analysis to identify Exit
+    // VPInstruction. Auto-recognized reductions don't need this.
+    bool AliasAnalysisSuccess = replaceOrigWithAlias();
+    if (!AliasAnalysisSuccess)
+      return;
+    Exit = getLoopExitVPInstr(Loop);
+  }
   if (StartPhi == nullptr && Exit != nullptr)
     for (auto User : Exit->users())
       if (auto Instr = dyn_cast<VPInstruction>(User))
@@ -699,16 +772,29 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
           break;
         }
   if (StartPhi == nullptr) {
-    // The phi was not found. That means we have an explicit reduction.
-    if (!Start) {
-      // Reduction variable is not used inside the loop. Stop importing.
-      // TODO: This check should be removed after alias analysis replacement is
-      // implemented.
-      setImporting(false);
-      return;
+    // The start PHI could potentially be associated with one of the
+    // LinkedVPVals of the reduction descriptor
+    assert(Start &&
+           "Start is not available to check for PHIs via LinkedVPValues.");
+    for (auto *LVPV : LinkedVPVals) {
+      for (auto *User : LVPV->users()) {
+        if (auto Instr = dyn_cast<VPInstruction>(User))
+          if (isa<VPPHINode>(Instr) &&
+              Loop->contains(cast<VPBlockBase>(Instr->getParent())) &&
+              hasLiveInOrConstOperand(Instr, *Loop) &&
+              Instr->getNumOperandsFrom(Start) > 0) {
+            StartPhi = Instr;
+            break;
+          }
+      }
+      if (StartPhi)
+        break;
     }
+  }
+  if (StartPhi == nullptr) {
+    // The phi was not found. That means we have an explicit reduction.
     assert(isa<VPExternalDef>(Start) && "Reduction is not properly defined");
-    Start = findMemoryUses(Start, Loop);
+    findMemoryUses(Start, Loop);
   } else if (Start == nullptr) {
     Start = getLiveInOrConstOperand(StartPhi, *Loop);
     assert(Start && "Can't identify reduction start value");
@@ -720,16 +806,113 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
 }
 
 void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
+  if (!Importing)
+    return;
+
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
+  VPReduction *VPRed = nullptr;
+
   if (LinkPhi == nullptr)
-    LE->addReduction(StartPhi, Start, Exit, K, FastMathFlags::getFast(), MK, RT,
-                     Signed, AllocaInst, ValidMemOnly);
+    VPRed = LE->addReduction(StartPhi, Start, Exit, K, FastMathFlags::getFast(),
+                             MK, RT, Signed, AllocaInst, ValidMemOnly);
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     bool ForLast = LE->isMinMaxInclusive(*Parent);
-    LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed, ForLast,
-                          AllocaInst, ValidMemOnly);
+    VPRed = LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed,
+                                  ForLast, AllocaInst, ValidMemOnly);
   }
+
+  // Add all linked VPValues collected during Phase 2 analysis
+  for (auto *V : LinkedVPVals)
+    VPRed->addLinkedVPValue(V);
+}
+
+bool ReductionDescr::replaceOrigWithAlias() {
+  auto PerformAliasReplace = [&]() {
+    LLVM_DEBUG(
+        dbgs()
+        << "Reduction descr: Using alias instead of original descriptor.\n");
+    if (!Start)
+      Start = Alias.getValue().Start;
+    // Add updates to linked VPValues before overwriting
+    for (auto *U : UpdateVPInsts)
+      LinkedVPVals.push_back(U);
+    UpdateVPInsts = Alias.getValue().UpdateVPInsts;
+  };
+
+  // Cases where alias to descriptor is needed instead of original descriptor
+  // 1. Original descriptor has no InitVPValue or UpdateVPInsts
+  if (!Start || UpdateVPInsts.empty()) {
+    if (!HasAlias) {
+      LLVM_DEBUG(dbgs() << "Reduction descriptor is not used within the loop "
+                           "and it does not have any valid alias.\n");
+      // Set importing to false to ensure this descriptor is not imported into
+      // VPlan
+      setImporting(false);
+      return false; // Not importing, analysis bailed
+    }
+    PerformAliasReplace();
+  }
+  // 2. Original descriptor has only stores as UpdateVPInsts
+  else if (allUpdatesAreStores(UpdateVPInsts)) {
+    if (HasAlias) {
+      PerformAliasReplace();
+    }
+  }
+
+  return true; // Successful analysis
+}
+
+VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
+  LLVM_DEBUG(dbgs() << "ReductionDescr: Start: "; Start->dump();
+             dbgs() << "\n");
+  for (auto &UVP : UpdateVPInsts) {
+    LLVM_DEBUG(dbgs() << "ReductionDescr: UVP: "; UVP->dump());
+    (void)UVP;
+  }
+
+  VPInstruction *LoopExitVPI = nullptr;
+
+  if (UpdateVPInsts.size() == 1) {
+    if (UpdateVPInsts[0]->getOpcode() != Instruction::Store)
+      LoopExitVPI = UpdateVPInsts[0];
+    else {
+      // In-memory reduction, no more analysis needed
+      return nullptr;
+    }
+  }
+
+  // Case where descriptor has multiple update instructions
+  if (UpdateVPInsts.size() > 1) {
+    if (allUpdatesAreStores(UpdateVPInsts))
+      return nullptr; // In-memory reduction
+
+    // TODO: Multiple valid updates
+    assert(0 && "Multiple valid updates code not fully implemented, unable to "
+                "find test case.");
+  }
+
+  // Live-out analysis tests for LoopExit
+  if (LoopExitVPI) {
+    while (!Loop->isLiveOut(LoopExitVPI) && isTrivialBitcast(LoopExitVPI)) {
+      // Add the bitcast to linked VPVals for safety
+      LinkedVPVals.push_back(LoopExitVPI);
+      LoopExitVPI = dyn_cast<VPInstruction>(
+          LoopExitVPI->getOperand(0)); // Bitcast has only one operand
+      assert(LoopExitVPI && "Input for bitcast is not a VPInstruction.");
+    }
+
+    // If the final loop exit VPI is still not live-out then store the VPI to
+    // linked VPVals and return null, as private memory will be needed to
+    // perform this reduction. Example test -
+    // Transforms/Intel_VPO/Vecopt/hir_simd_descr_vpentities_priv_memory.ll
+    if (!Loop->isLiveOut(LoopExitVPI)) {
+      LinkedVPVals.push_back(LoopExitVPI);
+      LoopExitVPI = nullptr;
+    }
+  }
+
+  return LoopExitVPI;
 }
 
 void PrivateDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {

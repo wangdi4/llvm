@@ -653,7 +653,10 @@ VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
 /// the common information about redcution type, operation, etc. The second list
 /// contains info about concrete statements. We need to iteratate through the
 /// all statements so this iterator goes through both lists, first taking the
-/// HIRSafeRedInfo and then going through its list of statements.
+/// HIRSafeRedInfo and then going through its list of statements. Currently
+/// masked safe reductions are not converted since more analysis is needed in
+/// VPlan HCFG  to correctly capture loop exit instruction. (JIRA:
+/// CMPLRLLVM-9609)
 class ReductionInputIteratorHIR {
   using RecurrenceKind = VPReduction::RecurrenceKind;
   using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
@@ -744,8 +747,13 @@ private:
         // need to investigate whether we need other statements as reductions.
         RedCurrent = RedEnd;
         RedCurrent--;
-        fillReductionKinds();
-        break;
+        if (!isMaskedReduction()) {
+          fillReductionKinds();
+          break;
+        } else {
+          // invalidate iterators for masked reductions
+          RedCurrent = RedEnd = nullptr;
+        }
       }
       ChainCurrent++;
     }
@@ -756,6 +764,16 @@ private:
       Descriptor.HLInst = *RedCurrent;
     else
       Descriptor.clear();
+  }
+
+  bool isMaskedReduction() {
+    if (RedCurrent == RedEnd)
+      return false;
+
+    if (isa<HLIf>((*RedCurrent)->getParent()))
+      return true;
+
+    return false;
   }
 
   void fillReductionKinds() {
@@ -956,8 +974,14 @@ public:
            "SIMD reduction descriptor DDRef is not pointer type.");
     // Get pointee type of descriptor ref
     RType = cast<PointerType>(RType)->getElementType();
-    // TODO: Copy HIRLegality descriptor's UpdateInsts to tmp descriptor
-    // Descriptor.UpdateVPInsts = ExplicitRedCurrent->UpdateInsts;
+    // Translate HIRLegality descriptor's UpdateInstructions to corresponding
+    // VPInstructions
+    for (auto *UpdateInst : CurrValue.UpdateInstructions) {
+      VPValue *UpdateVPInst = Decomposer.getVPValueForNode(UpdateInst);
+      assert(UpdateVPInst && isa<VPInstruction>(UpdateVPInst) &&
+             "Instruction that updates reduction descriptor is not valid.");
+      Descriptor.addUpdateVPInst(cast<VPInstruction>(UpdateVPInst));
+    }
     // Set start value of descriptor (can be null)
     Descriptor.setStart(
         CurrValue.InitValue
@@ -966,9 +990,13 @@ public:
 
     if (HIRVectorizationLegality::DescrValues *Alias =
             CurrValue.getValidAlias()) {
-      // TODO
-      // Descriptor.setAlias(Alias->InitVPValue, Alias->UpdateVPInsts);
-      (void)Alias;
+      VPValue *AliasInit =
+          Decomposer.getVPExternalDefForDDRef(Alias->InitValue);
+      SmallVector<VPInstruction *, 4> AliasUpdates;
+      for (auto *UpdateInst : Alias->UpdateInstructions)
+        AliasUpdates.push_back(
+            cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst)));
+      Descriptor.setAlias(AliasInit, AliasUpdates);
     }
 
     // NOTE: Exit is not set here, it is identified based on some analysis in

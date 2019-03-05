@@ -1538,8 +1538,10 @@ public:
         dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setStart(
         Builder.getOrCreateVPOperand(RD.getRecurrenceStartValue()));
-    Descriptor.setExit(dyn_cast<VPInstruction>(
+    Descriptor.addUpdateVPInst(dyn_cast<VPInstruction>(
         Builder.getOrCreateVPOperand(RD.getLoopExitInstr())));
+    // Exit is not set here, it is determined based on some analyses in Phase 2
+    Descriptor.setExit(nullptr);
     Descriptor.setKind(RD.getRecurrenceKind());
     Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());

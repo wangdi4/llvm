@@ -683,9 +683,16 @@ private:
 };
 
 class VPEntityImportDescr {
+  struct DescrAlias {
+    DescrAlias() = default;
+    VPValue *Start = nullptr;
+    SmallVector<VPInstruction *, 4> UpdateVPInsts;
+  };
+
 protected:
   VPEntityImportDescr()
-      : AllocaInst(nullptr), ValidMemOnly(false), Importing(true){};
+      : AllocaInst(nullptr), ValidMemOnly(false), Importing(true),
+        HasAlias(false){};
 
 public:
   virtual ~VPEntityImportDescr() {}
@@ -700,6 +707,14 @@ public:
   void setValidMemOnly(bool V) { ValidMemOnly = V; }
   void setImporting(bool V) { Importing = V; }
 
+  void setAlias(VPValue *Start, ArrayRef<VPInstruction *> UpdateVPInsts) {
+    DescrAlias NewAlias;
+    NewAlias.Start = Start;
+    NewAlias.UpdateVPInsts.assign(UpdateVPInsts.begin(), UpdateVPInsts.end());
+    Alias = Optional<DescrAlias>(NewAlias);
+    HasAlias = true;
+  }
+
 protected:
   VPValue *findMemoryUses(VPValue *Start, const VPLoop *Loop);
 
@@ -707,10 +722,15 @@ protected:
     AllocaInst = nullptr;
     ValidMemOnly = false;
     Importing = true;
+    Alias.reset();
+    HasAlias = false;
   }
   VPValue *AllocaInst;
   bool ValidMemOnly;
   bool Importing;
+  // NOTE: We assume that a descriptor can have only one valid alias
+  Optional<DescrAlias> Alias;
+  bool HasAlias;
 };
 
 /// Intermediate reduction descriptor. This is a temporary data to keep
@@ -733,6 +753,10 @@ public:
   Type *getRecType() const { return RT; }
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
+  iterator_range<SmallVectorImpl<VPInstruction *>::iterator>
+  getUpdateVPInsts() {
+    return make_range(UpdateVPInsts.begin(), UpdateVPInsts.end());
+  }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
@@ -742,18 +766,21 @@ public:
   void setRecType(Type *V) { RT = V; }
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
+  void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
 
   /// Clear the content.
   void clear() override {
     BaseT::clear();
     StartPhi = nullptr;
     Start = nullptr;
+    UpdateVPInsts.clear();
     Exit = nullptr;
     K = RecurrenceKind::RK_NoRecurrence;
     MK = MinMaxRecurrenceKind::MRK_Invalid;
     RT = nullptr;
     Signed = false;
     LinkPhi = nullptr;
+    LinkedVPVals.clear();
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -765,16 +792,50 @@ public:
   void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
   void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+  /// Check if current reduction descriptor duplicates another that is already
+  /// imported.
+  bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const override;
 
 private:
+  // Some analysis methods used by tryToCompleteByVPlan
+  /// Utility that replaces current descriptor's properties with that from
+  /// alias, if needed. Returns false if analysis bailed which means descriptor
+  /// is not being imported, else returns true.
+  bool replaceOrigWithAlias();
+  /// Utility to get the loop exit VPInstruction for given reduction descriptor
+  /// by analyzing its UpdateVPInsts in light of loop LiveOut analysis. It
+  /// returns nullptr for InMemory reduction.
+  VPInstruction *getLoopExitVPInstr(const VPLoop *Loop);
+
   VPInstruction *StartPhi = nullptr; // TODO: Consider changing to VPPHINode.
   VPValue *Start = nullptr;
+  /// Instruction(s) in VPlan that update the reduction variable
+  SmallVector<VPInstruction *, 4> UpdateVPInsts;
   VPInstruction *Exit = nullptr;
   RecurrenceKind K = RecurrenceKind::RK_NoRecurrence;
   MinMaxRecurrenceKind MK = MinMaxRecurrenceKind::MRK_Invalid;
   Type *RT = nullptr;
   bool Signed = false;
   VPInstruction *LinkPhi = nullptr; // TODO: Consider changing to VPPHINode.
+  /// VPValues that are associated with reduction variable
+  /// NOTE: This list is accessed and populated internally within the descriptor
+  /// object, hence no getters or setters.
+  // Example for reduction with LinkedVPValues:
+  //
+  //  %init = load %red.var
+  //  loop.body:
+  //   %red.phi = phi [ %init, PHBB ], [ %update, loop.body ]
+  //   ...
+  //   %update = add %red.phi, %abc
+  //   store %update, %red.var
+  //   ...
+  //
+  // Here for the reduction descriptor %red.var we initially collect only the
+  // store as its updating instruction. However through alias analysis we find
+  // out the actual PHI and add upate instruction. Before overwriting update
+  // instructions for any analyses, the store is saved in linked VPValues for
+  // later stage analyses or corrections (example would be private memory).
+  SmallVector<VPValue *, 4> LinkedVPVals;
 };
 
 /// Intermediate induction descriptor. Same as ReductionDescr above but for
