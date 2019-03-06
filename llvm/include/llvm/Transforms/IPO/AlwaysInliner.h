@@ -16,6 +16,7 @@
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
 
 namespace llvm {
 
@@ -32,6 +33,7 @@ class AlwaysInlinerPass : public PassInfoMixin<AlwaysInlinerPass> {
 
   // INTEL The inline report
   InlineReport Report; // INTEL
+  InlineReportBuilder MDReport; // INTEL
 
 public:
   AlwaysInlinerPass(bool InsertLifetime = true);
@@ -39,6 +41,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 
   InlineReport& getReport() { return Report; } // INTEL
+  InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
 };
 
 /// Create a legacy pass manager instance of a pass to inline and remove

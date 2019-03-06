@@ -23,6 +23,7 @@ Xmain
    XmainGatekeeperDuties
    IRSuppression
    LoopOptReport
+   InlineReportViaMetadata
    LoopAnalysis/index
    LoopTransforms/index
    VPO/index
@@ -106,6 +107,7 @@ process change requests to them.
    and the implementation used to do so.
 
 :doc:`Loop Optimization Reports <LoopOptReport>`
+:doc:`Interprocedural Optimization Reports <InlineReportViaMetadata>`
    Describes the usage and implementation details of optimization reports
    in xmain.
 

@@ -59,8 +59,8 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
         // FIXME: We really shouldn't be able to fail to inline at this point!
         // We should do something to log or check the inline failures here.
         Changed |=
-            InlineFunction(CS, IFI, &getReport(), &Reason,           // INTEL
-                           /*CalleeAAR=*/nullptr, InsertLifetime);   // INTEL
+            InlineFunction(CS, IFI, &getReport(), &getMDReport(), // INTEL
+                  &Reason, /*CalleeAAR=*/nullptr, InsertLifetime);   // INTEL
 
       // Remember to try and delete this function afterward. This both avoids
       // re-walking the rest of the module and avoids dealing with any iterator
@@ -176,6 +176,7 @@ Pass *llvm::createUnskippableAlwaysInlinerLegacyPass(bool InsertLifetime) {
 InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallSite CS) {
   Function *Callee = CS.getCalledFunction();
 
+  // Only inline direct calls to functions with always-inline attributes
   // that are viable for inlining.
   InlineReason Reason; // INTEL
   if (!Callee)

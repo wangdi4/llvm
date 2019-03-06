@@ -17,6 +17,7 @@
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
 #include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include <utility>
 
@@ -64,6 +65,7 @@ struct LegacyInlinerBase : public CallGraphSCCPass {
   bool removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly = false);
 
   InlineReport& getReport() { return Report; } // INTEL
+  InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
 
   /// This function performs the main work of the pass.  The default of
   /// Inlinter::runOnSCC() calls skipSCC() before calling this method, but
@@ -77,6 +79,7 @@ private:
 
   // INTEL The inline report
   InlineReport Report; // INTEL
+  InlineReportBuilder MDReport; // INTEL
 
 protected:
 #if INTEL_CUSTOMIZATION
@@ -118,12 +121,14 @@ public:
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
 
   InlineReport& getReport() { return Report; } // INTEL
+  InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
 private:
   InlineParams Params;
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
   // INTEL The inline report
   InlineReport Report; // INTEL
+  InlineReportBuilder MDReport; // INTEL
 };
 
 } // end namespace llvm
