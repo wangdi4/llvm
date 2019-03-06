@@ -281,6 +281,10 @@ private:
   void pipelineLoop(MachineBasicBlock *header, CSALoopInfo &DFLoop,
                     unsigned numTokens);
 
+  /// Add buffering to dataflow arcs that bypass a pipelined inner loop, to deal
+  /// with deficiencies in automatic buffer insertion.
+  void bufferPipelinedLoopBypass(MachineLoop *L, unsigned bufferDepth);
+
   /// Map all loops to CSALoopInfo. This does not enter any of the pick or
   /// switch information.
   void prefillLoopInfo(MachineLoop *Loop);

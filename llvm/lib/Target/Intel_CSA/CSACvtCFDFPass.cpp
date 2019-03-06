@@ -738,6 +738,7 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
 
     assert(DFLoop.getNumExits() == 1 &&
       "Can only pipeline loops with single exit blocks");
+    bufferPipelinedLoopBypass(L, numTokens);
     pipelineLoop(L->getHeader(), DFLoop, numTokens);
   }
 
@@ -1045,6 +1046,47 @@ void CSACvtCFDFPass::pipelineLoop(MachineBasicBlock *lphdr, CSALoopInfo &DFLoop,
       .addReg(any->getOperand(0).getReg())
       .setMIFlag(MachineInstr::NonSequential);
   }
+}
+
+void CSACvtCFDFPass::bufferPipelinedLoopBypass(MachineLoop *L, unsigned Depth) {
+  // Find the parent of this block in the control dependence graph.
+  MachineBasicBlock *Header = L->getHeader();
+  ControlDependenceNode *HeaderNode = CDG->getNode(Header);
+  ControlDependenceNode *CDParent = nullptr;
+  for (auto Parent = HeaderNode->parent_begin(), E = HeaderNode->parent_end();
+      Parent != E; ++Parent) {
+    MachineBasicBlock *MBB = (*Parent)->getBlock();
+    if (L->contains(MBB))
+      continue;
+    if (CDParent) {
+      LLVM_DEBUG(dbgs()<< "Too many control dependences for loop header, "
+          "skipping buffering\n");
+      return;
+    }
+    CDParent = *Parent;
+  }
+  assert(CDParent &&
+      "How do we have an inner loop pipeline with nothing outside?");
+  ControlDependenceNode *CDChild = HeaderNode;
+  do {
+    // Get the index of the switch results that corresponds to the bypass of the
+    // loop--the direction *other* than that indicated by the control
+    // dependence.
+    unsigned OpNum = CDParent->isTrueChild(CDChild) ? 0 : 1;
+    for (auto SwitchPair : *GenSwitches[CDParent->getBlock()]) {
+      MachineInstr *Switch = SwitchPair.second;
+      unsigned Reg = Switch->getOperand(OpNum).getReg();
+      if (Reg == CSA::IGN)
+        continue;
+      LMFI->setLICDepth(Reg, Depth);
+      LLVM_DEBUG(dbgs() << "Adding buffering to " << printReg(Reg) <<
+          " since it is bypassing a pipelined loop.\n");
+    }
+
+    // Crawl up the parent chain.
+    CDChild = CDParent;
+    CDParent = *CDParent->parent_begin();
+  } while (CDChild->getNumParents() == 1 && CDParent->getNumParents() != 0);
 }
 
 // Utility function to create a tree of uses. For example, it can create
