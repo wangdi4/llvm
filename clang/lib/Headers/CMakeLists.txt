@@ -59,6 +59,12 @@ intel_add_file(INTEL_HEADERS
   Intel_amxintrin.h
   )
 # end INTEL_FEATURE_ISA_AMX
+# INTEL_FEATURE_ISA_AV_VNNI
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI
+  Intel_Headers/avxvnni/avxvnniintrin.h
+  )
+# end INTEL_FEATURE_ISA_VNNI
 # end INTEL_CUSTOMIZATION
 
 set(files

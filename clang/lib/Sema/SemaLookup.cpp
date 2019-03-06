@@ -1787,7 +1787,7 @@ bool Sema::LookupName(LookupResult &R, Scope *S, bool AllowBuiltinCreation) {
           if (!D)
             D = OrigD;
         }
-#endif
+#endif // INTEL_CUSTOMIZATION
         R.addDecl(D);
 
         // Check whether there are any other declarations with the same name

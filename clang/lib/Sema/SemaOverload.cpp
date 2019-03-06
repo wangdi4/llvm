@@ -3056,7 +3056,7 @@ bool Sema::CheckPointerConversion(Expr *From, QualType ToType,
              ToType->isIntegralOrEnumerationType())
       Kind = CK_IntegralCast;
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
   if (const PointerType *ToPtrType = ToType->getAs<PointerType>()) {
     if (const PointerType *FromPtrType = FromType->getAs<PointerType>()) {
       QualType FromPointeeType = FromPtrType->getPointeeType(),

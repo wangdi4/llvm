@@ -1482,7 +1482,7 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
             : diag::err_downcast_from_inaccessible_base;
     switch (Self.CheckBaseClassAccess(OpRange.getBegin(), SrcType, DestType,
                                       Paths.front(), Diag)) {
-#endif
+#endif // INTEL_CUSTOMIZATION
     case Sema::AR_accessible:
     case Sema::AR_delayed:     // be optimistic
     case Sema::AR_dependent:   // be optimistic
@@ -1494,7 +1494,7 @@ TryStaticDowncast(Sema &Self, CanQualType SrcType, CanQualType DestType,
     // CQ#409860 report warning instead of error in compatibility mode.
       if (Self.getLangOpts().IntelCompat && Self.getLangOpts().IntelMSCompat)
         return TC_Extension;
-#endif
+#endif // INTEL_CUSTOMIZATION
       return TC_Failed;
     }
   }

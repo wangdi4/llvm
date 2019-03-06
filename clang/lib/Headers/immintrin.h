@@ -131,10 +131,22 @@
 #include <avx512vnniintrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_VNNI */
+#if defined(__AVXVNNI__)
+#include <avxvnni/avxvnniintrin.h>
+#else
+/* end INTEL_FEATURE_ISA_AVX_VNNI */
+/* end INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || \
     (defined(__AVX512VL__) && defined(__AVX512VNNI__))
 #include <avx512vlvnniintrin.h>
 #endif
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_VNNI */
+#endif
+/* end INTEL_FEATURE_ISA_AVX_VNNI */
+/* end INTEL_CUSTOMIZATION */
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512DQ__)
 #include <avx512dqintrin.h>

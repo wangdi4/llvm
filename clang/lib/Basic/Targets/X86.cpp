@@ -134,6 +134,18 @@ bool X86TargetInfo::initFeatureMap(
   if (Kind != CK_Lakemont)
     setFeatureEnabledImpl(Features, "x87", true);
 
+#if INTEL_CUSTOMIZATION
+  SmallVector<StringRef, 16> AnonymousCPU1Features;
+#if INTEL_FEATURE_ISA_AMX
+  AnonymousCPU1Features.push_back("amx-tile");
+  AnonymousCPU1Features.push_back("amx-int8");
+  AnonymousCPU1Features.push_back("amx-bf16");
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_SERIALIZE
+  AnonymousCPU1Features.push_back("serialize");
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+  AnonymousCPU1Features.push_back("sse2"); // To avoid unused variable error.
+#endif // INTEL_CUSTOMIZATION
   switch (Kind) {
   case CK_Generic:
   case CK_i386:
@@ -151,6 +163,14 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "mmx", true);
     break;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GLC
+  case CK_Goldencove:
+    for (auto Feature : AnonymousCPU1Features)
+      setFeatureEnabledImpl(Features, Feature, true);
+    LLVM_FALLTHROUGH;
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
   case CK_IcelakeServer:
     setFeatureEnabledImpl(Features, "pconfig", true);
     setFeatureEnabledImpl(Features, "wbnoinvd", true);
@@ -293,12 +313,16 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "avx512vpopcntdq", true);
     LLVM_FALLTHROUGH;
   case CK_KNL:
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "avx512cd", true);
+#if INTEL_CUSTOMIZATION
     setFeatureEnabledImpl(Features, "avx512er", true);
     setFeatureEnabledImpl(Features, "avx512pf", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
     setFeatureEnabledImpl(Features, "prefetchwt1", true);
+    LLVM_FALLTHROUGH;
+  case CK_CommonAVX512:
+    setFeatureEnabledImpl(Features, "avx512cd", true);
+    setFeatureEnabledImpl(Features, "avx512f", true);
+    setFeatureEnabledImpl(Features, "prfchw", true);
+#endif // INTEL_CUSTOMIZATION
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "rdseed", true);
     setFeatureEnabledImpl(Features, "adx", true);
@@ -453,6 +477,22 @@ bool X86TargetInfo::initFeatureMap(
           FeaturesVec.end())
     Features["mmx"] = true;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  // Enable a fake vnnivl feature if "avxvnni" is enabled or
+  // "avx512vl,avx512vnni" is enabled.
+  auto AVXVNNIIt = Features.find("avxvnni");
+  auto AVX512VLIt = Features.find("avx512vl");
+  auto AVX512VNNIIt = Features.find("avx512vnni");
+  if (((AVXVNNIIt != Features.end() && AVXVNNIIt->getValue()) ||
+       (AVX512VLIt != Features.end() && AVX512VLIt->getValue() &&
+        AVX512VNNIIt != Features.end() && AVX512VNNIIt->getValue())) &&
+      std::find(FeaturesVec.begin(), FeaturesVec.end(), "-vnnivl") ==
+          FeaturesVec.end())
+    Features["vnnivl"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
+
   return true;
 }
 
@@ -523,6 +563,11 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     LLVM_FALLTHROUGH;
   case AVX2:
     Features["avx2"] = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    Features["avxvnni"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case AVX512F:
     Features["avx512f"] = Features["avx512cd"] = Features["avx512er"] =
@@ -730,6 +775,12 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
       Features["amx-tile"] = true;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  else if (Name == "avxvnni") {
+    if (Enabled)
+      setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -878,6 +929,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-tile") {
       HasAMXTILE = true;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    } else if (Feature == "+avxvnni") {
+      HasAVXVNNI = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
@@ -1021,11 +1076,20 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Cannonlake:
   case CK_IcelakeClient:
   case CK_IcelakeServer:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GLC
+  case CK_Goldencove:
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
     defineCPUMacros(Builder, "corei7");
     break;
+#if INTEL_CUSTOMIZATION
+  case CK_CommonAVX512:
+    break;
+#endif // INTEL_CUSTOMIZATION
   case CK_KNL:
     defineCPUMacros(Builder, "knl");
     break;
@@ -1270,6 +1334,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasAMXBF16)
     Builder.defineMacro("__AMXBF16__");
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  if (HasAVXVNNI)
+    Builder.defineMacro("__AVXVNNI__");
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1487,6 +1555,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+      .Case("avxvnni", HasAVXVNNI)
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)

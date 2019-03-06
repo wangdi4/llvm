@@ -3733,7 +3733,7 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
       New->getIdentifier()->revertBuiltin();
     return false;
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   Diag(New->getLocation(), diag::err_conflicting_types) << New->getDeclName();
   Diag(OldLocation, PrevDiag) << Old << Old->getType();
@@ -4514,7 +4514,7 @@ Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS, DeclSpec &DS,
          // CQ#370751: Ignore 'inline' attribute for non functions
          getLangOpts().IntelCompat ? diag::warn_inline_non_function :
          diag::err_inline_non_function)
-#endif
+#endif // INTEL_CUSTOMIZATION
         << getLangOpts().CPlusPlus17;
 
   if (DS.isConstexprSpecified()) {
@@ -5984,7 +5984,7 @@ Sema::ActOnTypedefDeclarator(Scope* S, Declarator& D, DeclContext* DC,
          // CQ#370751: Ignore 'inline' attribute for non functions
          getLangOpts().IntelCompat ? diag::warn_inline_non_function :
          diag::err_inline_non_function)
-#endif
+#endif // INTEL_CUSTOMIZATION
         << getLangOpts().CPlusPlus17;
   if (D.getDeclSpec().isConstexprSpecified())
     Diag(D.getDeclSpec().getConstexprSpecLoc(), diag::err_invalid_constexpr)
@@ -7001,7 +7001,7 @@ NamedDecl *Sema::ActOnVariableDeclarator(
 #if INTEL_CUSTOMIZATION
          // CQ#370751: Ignore 'inline' attribute for non functions
            getLangOpts().IntelCompat ? diag::warn_inline_declaration_block_scope :
-#endif
+#endif // INTEL_CUSTOMIZATION
            diag::err_inline_declaration_block_scope) << Name
         << FixItHint::CreateRemoval(D.getDeclSpec().getInlineSpecLoc());
     } else {
@@ -8949,7 +8949,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 #if INTEL_CUSTOMIZATION
              // CQ#370751: Ignore 'inline' attribute for non functions
              getLangOpts().IntelCompat ? diag::warn_inline_declaration_block_scope :
-#endif
+#endif // INTEL_CUSTOMIZATION
              diag::err_inline_declaration_block_scope) << Name
           << FixItHint::CreateRemoval(D.getDeclSpec().getInlineSpecLoc());
       }
@@ -9011,7 +9011,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
           FunctionTemplate->setObjectOfFriendDecl(
               /*PerformFriendInjection=*/true);
         else
-#endif
+#endif // INTEL_CUSTOMIZATION
         FunctionTemplate->setObjectOfFriendDecl();
         FunctionTemplate->setAccess(AS_public);
       }
@@ -9021,7 +9021,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         NewFD->setObjectOfFriendDecl(
             /*PerformFriendInjection=*/true);
       else
-#endif
+#endif // INTEL_CUSTOMIZATION
       NewFD->setObjectOfFriendDecl();
       NewFD->setAccess(AS_public);
     }
@@ -9298,7 +9298,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                     (getLangOpts().IntelCompat && CC == CC_X86RegCall)
                 ? diag::warn_cconv_knr
                 : diag::err_cconv_knr;
-#endif
+#endif // INTEL_CUSTOMIZATION
         Diag(NewFD->getLocation(), DiagID)
             << FunctionType::getNameForCallConv(CC);
       }
@@ -9614,7 +9614,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         NewFD->getStorageClass() == SC_Static)
       RegisterLocallyScopedExternCDecl(NewFD, S);
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Set this FunctionDecl's range up to the right paren.
   NewFD->setRangeEnd(D.getSourceRange().getEnd());
@@ -12917,7 +12917,7 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
          // CQ#370751: Ignore 'inline' attribute for non functions
          getLangOpts().IntelCompat ? diag::warn_inline_non_function :
          diag::err_inline_non_function)
-#endif
+#endif // INTEL_CUSTOMIZATION
         << getLangOpts().CPlusPlus17;
   if (DS.isConstexprSpecified())
     Diag(DS.getConstexprSpecLoc(), diag::err_invalid_constexpr)
@@ -15832,7 +15832,7 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
          // CQ#370751: Ignore 'inline' attribute for non functions
          getLangOpts().IntelCompat ? diag::warn_inline_non_function :
          diag::err_inline_non_function)
-#endif
+#endif // INTEL_CUSTOMIZATION
         << getLangOpts().CPlusPlus17;
   if (DeclSpec::TSCS TSCS = D.getDeclSpec().getThreadStorageClassSpec())
     Diag(D.getDeclSpec().getThreadStorageClassSpecLoc(),
