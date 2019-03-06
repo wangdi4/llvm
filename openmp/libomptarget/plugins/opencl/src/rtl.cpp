@@ -21,10 +21,12 @@
 #include <cstring>
 #include <dlfcn.h>
 #include <fstream>
+#include <sstream>
 #include <gelf.h>
 #include <list>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "omptargetplugin.h"
 
@@ -158,6 +160,63 @@ typedef struct {
   int64_t stride; // The stride of the i-th loop
 } TgtLoopDescTy;
 
+typedef enum {
+  PROFILE_ENABLED = 0x1,
+  PROFILE_UNIT_USEC = 0x2,
+  // more option can be added;
+} ProfileFlagTy;
+
+struct RTLProfileTy {
+  int64_t flags;
+  std::map<std::string, double> data;
+
+  RTLProfileTy() : flags(0), data() {
+    // parse user input
+    const char *env = std::getenv("LIBOMPTARGET_PROFILE");
+    if (env) {
+      std::istringstream env_str(env);
+      std::string token;
+      while (std::getline(env_str, token, ',')) {
+        if (token == "T")
+          flags |= PROFILE_ENABLED;
+        else if (token == "unit_usec")
+          flags |= PROFILE_UNIT_USEC;
+      }
+    }
+  }
+
+  ~RTLProfileTy() {
+    if (flags & PROFILE_ENABLED) {
+      fprintf(stderr, "LIBOMPTARGET_PROFILE:\n");
+      for (const auto &d : data) {
+        const char *unit = "msec"; // msec by default
+        double value = d.second * 1e-6;
+        if (flags & PROFILE_UNIT_USEC) {
+          unit = "usec";
+          value = d.second * 1e-3;
+        }
+        fprintf(stderr, "-- %s: %.3f %s\n", d.first.c_str(), value, unit);
+      }
+    }
+  }
+
+  // for non-event profile
+  void update(const char *name, cl_ulong elapsed) {
+    std::string key(name);
+    data[key] += elapsed;
+  }
+
+  // for event profile
+  void update(const char *name, cl_event event) {
+    cl_ulong begin = 0, end = 0;
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_QUEUED,
+                            sizeof(cl_ulong), &begin, nullptr);
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_COMPLETE,
+                            sizeof(cl_ulong), &end, nullptr);
+    update(name, end - begin);
+  }
+};
+
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
 
@@ -244,6 +303,7 @@ public:
 };
 
 static RTLDeviceInfoTy DeviceInfo;
+static RTLProfileTy profile;
 
 #ifdef __cplusplus
 extern "C" {
@@ -274,8 +334,14 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
     return OFFLOAD_FAIL;
   }
 
+  cl_queue_properties qprops[3] = {0};
+  if (profile.flags & PROFILE_ENABLED) {
+    qprops[0] = CL_QUEUE_PROPERTIES;
+    qprops[1] = CL_QUEUE_PROFILING_ENABLE;
+  }
+
   DeviceInfo.Queues[device_id] = clCreateCommandQueueWithProperties(
-      DeviceInfo.CTX[device_id], DeviceInfo.deviceIDs[device_id], nullptr,
+      DeviceInfo.CTX[device_id], DeviceInfo.deviceIDs[device_id], qprops,
       &status);
   if (status != 0) {
     DP("Error: Failed to create CommandQueue: %d\n", status);
@@ -413,6 +479,27 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 void event_callback_completed(cl_event event, cl_int status, void *data) {
   if (status == CL_SUCCESS) {
     assert(data && "bad task object for the target");
+
+    if (profile.flags & PROFILE_ENABLED) {
+      cl_command_type cmd;
+      const char *event_name;
+      clGetEventInfo(event, CL_EVENT_COMMAND_TYPE, sizeof(cmd), &cmd, nullptr);
+      switch (cmd) {
+      case CL_COMMAND_NDRANGE_KERNEL:
+        event_name = "EXEC-ASYNC";
+        break;
+      case CL_COMMAND_READ_BUFFER:
+        event_name = "DATA-READ-ASYNC";
+        break;
+      case CL_COMMAND_WRITE_BUFFER:
+        event_name = "DATA-WRITE-ASYNC";
+        break;
+      default:
+        event_name = "OTHERS-ASYNC";
+      }
+      profile.update(event_name, event);
+    }
+
     const char *entry = "__kmpc_proxy_task_completed_ooo";
     void (*ptask_completed)(void *) = nullptr;
     *((void **)&ptask_completed) = dlsym(RTLD_DEFAULT, entry);
@@ -438,19 +525,12 @@ void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
   return mem;
 }
 
-int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
-                              int64_t size) {
-  INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
-                     (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
-                     nullptr);
-  return OFFLOAD_SUCCESS;
-}
-
 int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
                                      void *hst_ptr, int64_t size,
                                      void *async_data) {
+  cl_event completed;
+
   if (async_data) {
-    cl_event completed;
     INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
                        (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
                        &completed);
@@ -459,35 +539,44 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
   } else {
     INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
                        (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
-                       nullptr);
+                       &completed);
+    if (profile.flags & PROFILE_ENABLED)
+      profile.update("DATA-WRITE", completed);
+  }
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
+                              int64_t size) {
+  return __tgt_rtl_data_submit_nowait(device_id, tgt_ptr, hst_ptr, size,
+                                      nullptr);
+}
+
+int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
+                                       void *tgt_ptr, int64_t size,
+                                       void *async_data) {
+  cl_event completed;
+
+  if (async_data) {
+    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
+                       &completed);
+    INVOKE_CL_RET_FAIL(clSetEventCallback, completed, CL_COMPLETE,
+                       &event_callback_completed, async_data);
+  } else {
+    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
+                       &completed);
+    if (profile.flags & PROFILE_ENABLED)
+      profile.update("DATA-READ", completed);
   }
   return OFFLOAD_SUCCESS;
 }
 
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                 int64_t size) {
-  INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
-                     (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
-                     nullptr);
-  return OFFLOAD_SUCCESS;
-}
-
-int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
-                                       void *tgt_ptr, int64_t size,
-                                       void *async_data) {
-  if (async_data) {
-    cl_event completed;
-    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
-                       (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
-                       &completed);
-    INVOKE_CL_RET_FAIL(clSetEventCallback, completed, CL_COMPLETE,
-                       &event_callback_completed, async_data);
-  } else {
-    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
-                       (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
-                       nullptr);
-  }
-  return OFFLOAD_SUCCESS;
+  return __tgt_rtl_data_retrieve_nowait(device_id, hst_ptr, tgt_ptr, size,
+                                        nullptr);
 }
 
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
@@ -570,18 +659,26 @@ static inline int32_t run_target_team_nd_region(
      local_work_size[1], local_work_size[2]);
   DP("Work dimension = %u\n", work_dim);
 
-  cl_event complete_event;
+  cl_event event;
   INVOKE_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo.Queues[device_id],
                      *kernel, work_dim, nullptr, global_work_size,
-                     local_work_size, 0, nullptr,
-                     async_data ? &complete_event : nullptr);
+                     local_work_size, 0, nullptr, &event);
 
   DP("Started executing kernel.\n");
 
   if (async_data) {
-    INVOKE_CL_RET_FAIL(clSetEventCallback, complete_event, CL_COMPLETE,
+    INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                        &event_callback_completed, async_data);
   } else {
+    if (profile.flags & PROFILE_ENABLED) {
+      char buf[80];
+      INVOKE_CL_RET_FAIL(clWaitForEvents, 1, &event);
+      INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
+                         sizeof(buf), buf, nullptr);
+      std::string kernel_name("EXEC-");
+      kernel_name += buf;
+      profile.update(kernel_name.c_str(), event);
+    }
     INVOKE_CL_RET_FAIL(clFinish, DeviceInfo.Queues[device_id]);
     DP("Successfully finished kernel execution.\n");
   }
