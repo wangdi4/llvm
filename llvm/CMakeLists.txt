@@ -833,6 +833,16 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX)
 # end INTEL_FEATURE_ISA_AMX
+
+# INTEL_FEATURE_CPU_GLC
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_CPU_GLC)
+# end INTEL_FEATURE_CPU_GLC
+
+# INTEL_FEATURE_ISA_AVX_VNNI
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI)
+# end INTEL_FEATURE_ISA_AVX_NNI
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -1356,6 +1366,19 @@ if (INTEL_CUSTOMIZATION)
   if(DEFINED INTEL_DEPLOY_COMPONENTS)
 
     set(manifest_list)
+
+    if (BUILD_SHARED_LIBS)
+      # CMPLRTOOLS-14831:
+      # If we are building shared libraries, we need to install
+      # LLVM_LIBS.
+      list(APPEND INTEL_DEPLOY_COMPONENTS ${LLVM_LIBS})
+
+      # clang libraries are in CLANG_EXPORTS list.
+      # Hopefully, the extra tools, which are also in the list,
+      # may be safely installed without causing any conflicts.
+      get_property(CLANG_EXPORTS GLOBAL PROPERTY CLANG_EXPORTS)
+      list(APPEND INTEL_DEPLOY_COMPONENTS ${CLANG_EXPORTS})
+    endif()
 
     foreach( comp ${INTEL_DEPLOY_COMPONENTS} )
 

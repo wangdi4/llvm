@@ -67,6 +67,7 @@ MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())   // INTEL
 MODULE_PASS("padded-pointer-prop", PaddedPtrPropPass())          // INTEL
 MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
             dtrans::EliminateROFieldAccessPass())                // INTEL
+MODULE_PASS("dtrans-meminittrimdown", dtrans::MemInitTrimDownPass()) // INTEL
 #if !INTEL_PRODUCT_RELEASE
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 #endif // !INTEL_PRODUCT_RELEASE
@@ -92,6 +93,7 @@ MODULE_PASS("instrprof", InstrProfiling())
 MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false))            // INTEL
+MODULE_PASS("intel-partialinline", IntelPartialInlinePass())            // INTEL
 MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true)) // INTEL
 MODULE_PASS("call-tree-clone", CallTreeCloningPass())                   // INTEL
 MODULE_PASS("ipsccp", IPSCCPPass())

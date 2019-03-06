@@ -264,6 +264,16 @@ createWholeProgramDevirtPass(ModuleSummaryIndex *ExportSummary,
 ModulePass *createGlobalSplitPass();
 
 #if INTEL_CUSTOMIZATION
+/// \brief This pass implements a simple partial inlining for small functions.
+/// This partial inliner will take care of small functions that the compiler
+/// will like to fully inline. The difference between this partial inliner and
+/// the traditional partial inliner is that this pass won't do inlining, just
+/// create a new function that will call the original function and set the
+/// the inlining attributes. The inliner will read the attributes and inline
+/// the new function that calls the original, creating a partial inline
+/// behavior. The traditional partial inliner will actually do inlining.
+ModulePass *createIntelPartialInlineLegacyPass();
+
 /// \brief This pass implements IP Cloning
 ModulePass *createIPCloningLegacyPass(bool AfterInl = false);
 

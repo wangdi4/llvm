@@ -163,7 +163,7 @@ uint64_t CanonExprUtils::getTypeSizeInBits(Type *Ty) const {
 }
 
 uint64_t CanonExprUtils::getTypeSizeInBytes(Type *Ty) const {
-  return getHIRParser().getDataLayout().getTypeStoreSize(Ty);
+  return getHIRParser().getDataLayout().getTypeAllocSize(Ty);
 }
 
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,

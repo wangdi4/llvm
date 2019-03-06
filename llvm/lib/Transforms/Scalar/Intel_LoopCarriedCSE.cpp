@@ -133,12 +133,12 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
     // The flag showing whether a grouping is happened in the iteration
     HasChanged = false;
 
-    for (PHINode &PN : Header->phis()) {
-      if (!PN.hasOneUse()) {
+    for (PHINode &Phi : Header->phis()) {
+      if (!Phi.hasOneUse()) {
         continue;
       }
 
-      BinaryOperator *BOp = dyn_cast<BinaryOperator>(*PN.users().begin());
+      BinaryOperator *BOp = dyn_cast<BinaryOperator>(*Phi.users().begin());
 
       if (!BOp) {
         continue;
@@ -153,10 +153,10 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
         continue;
       }
 
-      bool IsSwappedOrder = P0 == &PN;
-      PHINode *PN2 = IsSwappedOrder ? P1 : P0;
+      bool IsSwappedOrder = P0 == &Phi;
+      PHINode *Phi2 = IsSwappedOrder ? P1 : P0;
 
-      if (!PN2->hasOneUse() || PN2->getParent() != Header) {
+      if (Phi2->getParent() != Header) {
         continue;
       }
 
@@ -165,23 +165,23 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
       Value *PreheaderValue1 = nullptr;
       Value *PreheaderValue2 = nullptr;
 
-      if (PN.getIncomingBlock(0) == LoopLatch) {
-        LatchVal1 = PN.getIncomingValue(0);
-        PreheaderValue1 = PN.getIncomingValue(1);
+      if (Phi.getIncomingBlock(0) == LoopLatch) {
+        LatchVal1 = Phi.getIncomingValue(0);
+        PreheaderValue1 = Phi.getIncomingValue(1);
       } else {
-        LatchVal1 = PN.getIncomingValue(1);
-        PreheaderValue1 = PN.getIncomingValue(0);
+        LatchVal1 = Phi.getIncomingValue(1);
+        PreheaderValue1 = Phi.getIncomingValue(0);
       }
 
-      if (PN2->getIncomingBlock(0) == LoopLatch) {
-        LatchVal2 = PN2->getIncomingValue(0);
-        PreheaderValue2 = PN2->getIncomingValue(1);
+      if (Phi2->getIncomingBlock(0) == LoopLatch) {
+        LatchVal2 = Phi2->getIncomingValue(0);
+        PreheaderValue2 = Phi2->getIncomingValue(1);
       } else {
-        LatchVal2 = PN2->getIncomingValue(1);
-        PreheaderValue2 = PN2->getIncomingValue(0);
+        LatchVal2 = Phi2->getIncomingValue(1);
+        PreheaderValue2 = Phi2->getIncomingValue(0);
       }
 
-      FPMathOperator *FPOp = dyn_cast<FPMathOperator>(*PN.users().begin());
+      FPMathOperator *FPOp = dyn_cast<FPMathOperator>(*Phi.users().begin());
 
       User *MatchedLatchUser = findMatchedLatchUser(
           LatchVal1, LatchVal2, FPOp, OpCode, IsSwappedOrder, LoopLatch, DT);
@@ -195,21 +195,26 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
       Value *V = Builder.CreateBinOp(BOp->getOpcode(), PreheaderValue1,
                                      PreheaderValue2);
 
-      IRBuilder<> PHIBuilder(&PN);
+      IRBuilder<> PHIBuilder(&Phi);
 
-      PHINode *NewPN =
-          PHIBuilder.CreatePHI(PN.getType(), 2, PN.getName() + ".lccse");
-      NewPN->addIncoming(V, Preheader);
-      NewPN->addIncoming(MatchedLatchUser, LoopLatch);
+      PHINode *NewPhi =
+          PHIBuilder.CreatePHI(Phi.getType(), 2, Phi.getName() + ".lccse");
+      NewPhi->addIncoming(V, Preheader);
+      NewPhi->addIncoming(MatchedLatchUser, LoopLatch);
 
-      BOp->replaceAllUsesWith(NewPN);
+      // Check whether Phi2 has one use before we erase BOp below
+      bool CanErasePhi2 = Phi2->hasOneUse();
+
+      BOp->replaceAllUsesWith(NewPhi);
       BOp->eraseFromParent();
 
-      PN.dropAllReferences();
-      PN.eraseFromParent();
+      Phi.dropAllReferences();
+      Phi.eraseFromParent();
 
-      PN2->dropAllReferences();
-      PN2->eraseFromParent();
+      if (CanErasePhi2) {
+        Phi2->dropAllReferences();
+        Phi2->eraseFromParent();
+      }
 
       HasChanged = true;
       Modified = true;

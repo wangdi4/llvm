@@ -689,6 +689,12 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 
     default: // Unknown family 6 CPU, try to guess.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GLC
+      //TODO: detect glc host
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
+
       if (Features & (1 << X86::FEATURE_AVX512VBMI2)) {
         *Type = X86::INTEL_COREI7;
         *Subtype = X86::INTEL_COREI7_ICELAKE_CLIENT;

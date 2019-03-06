@@ -98,7 +98,7 @@ public:
     if (isBoolType(Op->getType())) {
       auto Ty = I.getType();
       auto Zero = getScalarOrVectorConstantInt(Ty, 0, false);
-      auto One = getScalarOrVectorConstantInt(Ty, ~0, false);
+      auto One = getScalarOrVectorConstantInt(Ty, 1, false);
       assert(Zero && One && "Couldn't create constant int");
       auto Sel = SelectInst::Create(Op, One, Zero, "", &I);
       replace(&I, Sel);

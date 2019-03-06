@@ -106,6 +106,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Inlining for complicated address computations"},
     // InlrStackComputations,
     {InlPrtCost, "Callee has key stack computations"},
+    //InlrPreferPartialInline
+    {InlPrtCost, "Preferred for partial inlining"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,
@@ -192,6 +194,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callsite has key switch computations"},
     // NinlrDelayInlineDecision
     {InlPrtSimple, "Inline decision is delayed until link time"},
+    // NinlrPreferPartialInline
+    {InlPrtSimple, "Outlined function from partial inlining"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

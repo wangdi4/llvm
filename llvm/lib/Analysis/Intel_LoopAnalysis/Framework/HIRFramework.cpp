@@ -364,7 +364,9 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   // Highest dimension is intentionally skipped as it doesn't contain
   // information about number of elements.
   for (unsigned I = 1; I < NumDims; ++I) {
-    visit(Ref->getDimensionIndex(I), Ref->getNumDimensionElements(I), Node);
+    if (auto NumElements = Ref->getNumDimensionElements(I)) {
+      visit(Ref->getDimensionIndex(I), NumElements, Node);
+    }
   }
 
   // We try getting the information about number of elements in the highest

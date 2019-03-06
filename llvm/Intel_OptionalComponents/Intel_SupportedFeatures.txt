@@ -67,6 +67,10 @@
 @ISA_AMX:SECRET@
 # end INTEL_FEATURE_ISA_AMX
 
+# INTEL_FEATURE_ISA_AVX_VNNI
+@ISA_AVX_VNNI:SECRET@
+# end INTEL_FEATURE_ISA_AVX_VNNI
+
 # === New ISA features section end ===
 
 # Support for a new target is usually covered by a feature named after
@@ -81,6 +85,13 @@
 # e.g. SW_G2S.
 # === New SW features section begin ===
 # === New SW features section end ===
+
+# === New CPU section begin ===
+# INTEL_FEATURE_CPU_GLC
+@CPU_GLC:SECRET@
+# end INTEL_FEATURE_CPU_GLC
+
+# === New CPU section end ===
 
 # Special software features section currently consist of
 # INTEL_INTERNAL_BUILD feature only.  We may actually represent

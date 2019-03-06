@@ -1276,12 +1276,18 @@ private:
   /// \param [in] LoopRegionExitBB basic block containing top test expression.
   /// \param [in] TeamInitBB       team initialization basic block.
   /// \param [in] TeamExitBB       team exit basic block.
+  /// \param [in] TeamExitBBSplit  split point for TeamExitBB; all instructions
+  ///                              from the beginning of the block up to
+  ///                              and including this instruction must
+  ///                              remain inside the team distribute loop.
+  ///                              If it is nullptr, then all instructions
+  ///                              from TeamExitBB will be outside of the loop.
   Loop *genDispatchLoopForTeamDistirbute(
       Loop *L, Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST,
       AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
       AllocaInst *TeamStride, Value *UpperBndVal, BasicBlock *LoopExitBB,
       BasicBlock *LoopRegionExitBB, BasicBlock *TeamInitBB,
-      BasicBlock *TeamExitBB);
+      BasicBlock *TeamExitBB, Instruction *TeamExitBBSplit);
 
   /// Initialize the incoming array Arg with the constant Idx.
   void initArgArray(SmallVectorImpl<Value *> *Arg, unsigned Idx);

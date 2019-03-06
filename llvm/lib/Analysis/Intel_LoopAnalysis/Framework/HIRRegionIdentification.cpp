@@ -1584,11 +1584,11 @@ static bool foundMatchingLoads(
       auto *StoreUser2 = cast<StoreInst>(User2);
 
       auto *Ptr1 = StoreUser1->getPointerOperand();
-      uint64_t StoreSize =
-          DL.getTypeStoreSize(Ptr1->getType()->getPointerElementType());
+      uint64_t AllocSize =
+          DL.getTypeAllocSize(Ptr1->getType()->getPointerElementType());
 
       if (!haveExpectedDistance(Ptr1, StoreUser2->getPointerOperand(), SE,
-                                StoreSize)) {
+                                AllocSize)) {
         return false;
       }
     } else if (User1->getType() != User2->getType()) {
@@ -1601,7 +1601,7 @@ static bool foundMatchingLoads(
   };
 
   auto *Ptr = LInst->getPointerOperand();
-  uint64_t LoadSize = DL.getTypeStoreSize(LInst->getType());
+  uint64_t LoadSize = DL.getTypeAllocSize(LInst->getType());
 
   for (auto &PrevEntry : CandidateLoads) {
 
@@ -1658,8 +1658,8 @@ foundMatchingStores(const StoreInst *SInst,
   auto *Ptr = SInst->getPointerOperand();
   auto *StoreVal = SInst->getValueOperand();
 
-  uint64_t StoreSize =
-      DL.getTypeStoreSize(Ptr->getType()->getPointerElementType());
+  uint64_t AllocSize =
+      DL.getTypeAllocSize(Ptr->getType()->getPointerElementType());
 
   for (auto *PrevStore : CandidateStores) {
     if (StoreVal != PrevStore->getValueOperand()) {
@@ -1671,7 +1671,7 @@ foundMatchingStores(const StoreInst *SInst,
       continue;
     }
 
-    if (haveExpectedDistance(Ptr, PrevPtr, SE, StoreSize)) {
+    if (haveExpectedDistance(Ptr, PrevPtr, SE, AllocSize)) {
       return true;
     }
   }

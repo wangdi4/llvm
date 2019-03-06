@@ -741,7 +741,7 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If,
     return Level;
   }
 
-  if (NonLinearRef || !Ref->isTerminalRef()) {
+  if (NonLinearRef || Ref->isMemRef()) {
     // Return current level of attachment.
     Level = If->getNodeLevel();
 

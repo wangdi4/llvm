@@ -412,6 +412,11 @@ protected:
   bool HasAMXBF16 = false;
   bool HasAMXINT8 = false;
 #endif // INTEL_FEATURE_ISA_AMX
+
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  bool HasAnyVNNIVL = false;
+  bool HasAVXVNNI = false;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
@@ -728,6 +733,9 @@ public:
   bool hasAMXBF16() const { return HasAMXBF16; }
   bool hasAMXINT8() const { return HasAMXINT8; }
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  bool hasAVXVNNI() const { return HasAVXVNNI; }
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
 

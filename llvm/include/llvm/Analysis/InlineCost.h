@@ -126,6 +126,7 @@ typedef enum {
    InlrDeeplyNestedIfs,
    InlrAddressComputations,
    InlrStackComputations,
+   InlrPreferPartialInline,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -169,6 +170,7 @@ typedef enum {
    NinlrStackComputations,
    NinlrSwitchComputations,
    NinlrDelayInlineDecision,
+   NinlrPreferPartialInline,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 

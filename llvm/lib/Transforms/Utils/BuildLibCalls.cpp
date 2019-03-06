@@ -938,6 +938,18 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNKSt5ctypeIcE13_M_widen_initEv:
     return Changed;
+  case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEPKcmm:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setOnlyAccessesArgMemory(F);
+    return Changed;
+  case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEPKcmm:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setOnlyAccessesArgMemory(F);
+    return Changed;
+  case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEcm:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setOnlyAccessesArgMemory(F);
+    return Changed;
   case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
@@ -1030,7 +1042,15 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEEC1Ev:
     return Changed;
+  case LibFunc_ZNSt13runtime_errorC1EPKc:
+    return Changed;
+  case LibFunc_ZNSt13runtime_errorC1ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE:
+    return Changed;
   case LibFunc_ZNSt13runtime_errorC1ERKSs:
+    return Changed;
+  case LibFunc_ZNSt13runtime_errorC1ERKS_:
+    return Changed;
+  case LibFunc_ZNSt13runtime_errorC2EPKc:
     return Changed;
   case LibFunc_ZNSt13runtime_errorC2ERKSs:
     return Changed;
@@ -1062,6 +1082,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt6localeD1Ev:
     return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7reserveEm:
+    return Changed;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm:
     return Changed;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_:
@@ -1072,7 +1096,19 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm:
     return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc:
+    return Changed;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7seekoffElSt12_Ios_SeekdirSt13_Ios_Openmode:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7seekposESt4fposI11__mbstate_tESt13_Ios_Openmode:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE8overflowEi:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9pbackfailEi:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9underflowEv:
     return Changed;
   case LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_:
     return Changed;
