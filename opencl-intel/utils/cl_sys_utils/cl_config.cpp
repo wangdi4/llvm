@@ -30,20 +30,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 OPENCL_VERSION GetOpenclVerByCpuModel()
 {
-    if(CPUDetect::GetInstance()->isSkylake()   ||
-       CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
-       CPUDetect::GetInstance()->isCannonlake() ||
-       CPUDetect::GetInstance()->isIcelake())
-    {
-        return OPENCL_VERSION_2_1;
-    }
-
-    if(CPUDetect::GetInstance()->isBroadwell())
-    {
-        return OPENCL_VERSION_2_0;
-    }
-
-    return OPENCL_VERSION_1_2;
+    return OPENCL_VERSION_2_1;
 }
 
 }}}
