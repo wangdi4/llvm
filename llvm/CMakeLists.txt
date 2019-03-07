@@ -842,7 +842,7 @@ if(INTEL_CUSTOMIZATION)
 # INTEL_FEATURE_ISA_AVX_VNNI
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI)
-# end INTEL_FEATURE_ISA_AVX_NNI
+# end INTEL_FEATURE_ISA_AVX_VNNI
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
