@@ -612,6 +612,24 @@ private:
   /// already be inserted into the function.
   Value *foldLogicOfFCmps(FCmpInst *LHS, FCmpInst *RHS, bool IsAnd);
 
+#if INTEL_CUSTOMIZATION
+  /// Recognize min/max semantics in (fcmp)&(fcmp) and (fcmp)|(fcmp).
+  Instruction *recognizeFCmpMinMaxIdiom(BinaryOperator &I);
+
+  /// Combines binary operator and 2 fcmp into FP min/max.
+  Instruction *combineAndOrToFcmpMinMax(BinaryOperator &I, Value *A, Value *B,
+                                        Value *C);
+
+  /// Combines trees of OR/AND with fcmp inside into FP min/max semantics.
+  Instruction *combineAndOrTreeToFcmpMinMax(BinaryOperator &I);
+
+  /// Return true when all operands of I are available at insertion point IPt.
+  bool allOperandsAvailable(const Instruction *I, const Instruction *IPt);
+
+  /// Hoist instruction before BinOp and exchange uses of this fcmp
+  /// and use of Op operand in BinOp.
+  bool hoistFcmpAndExchangeUses(Instruction *I1, Value *Op, Instruction *BinOp);
+#endif // INTEL_CUSTOMIZATION
   Value *foldAndOrOfICmpsOfAndWithPow2(ICmpInst *LHS, ICmpInst *RHS,
                                        bool JoinedByAnd, Instruction &CxtI);
   Value *matchSelectFromAndOr(Value *A, Value *B, Value *C, Value *D);
