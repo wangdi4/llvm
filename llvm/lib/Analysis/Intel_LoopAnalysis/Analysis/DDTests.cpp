@@ -2996,20 +2996,46 @@ bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                              const HLLoop *SrcParentLoop,
                              const HLLoop *DstParentLoop) {
 
+  int64_t Coeff1, Coeff2;
+  unsigned BlobIndex1, BlobIndex2;
   LLVM_DEBUG(dbgs() << "\nstarting Banerjee\n");
   ++BanerjeeApplications;
   LLVM_DEBUG(dbgs() << "\n   Src = "; Src->dump());
   const CanonExpr *A0;
   CoefficientInfo ACoeff[MaxPossibleLevels];
+  bool IgnoreIVCoeff[MaxLoopNestLevel];
 
-  if (!collectCoeffInfo(Src, true, A0, SrcParentLoop, DstParentLoop, ACoeff)) {
+  // When test for (=) and coeffs are the same,
+  // e.g. Input DV (= *), [2 * N * i1 + i2]  vs. [2 * N * i1 + i2 + 1]
+  // It can be tested as  [i2] vs. [i2 + 1]
+  // Denominator not equal 1 will not reach this test
+
+  for (unsigned K = 0; K < MaxLoopNestLevel; ++K) {
+    IgnoreIVCoeff[K] = false;
+  }
+
+  for (auto CurIVPair = Src->iv_begin(), E = Src->iv_end(); CurIVPair != E;
+       ++CurIVPair) {
+    unsigned IVLevel = Src->getLevel(CurIVPair);
+    if (InputDV[IVLevel - 1] == DVKind::EQ) {
+      Src->getIVCoeff(CurIVPair, &BlobIndex1, &Coeff1);
+      Dst->getIVCoeff(IVLevel, &BlobIndex2, &Coeff2);
+      if (BlobIndex1 == BlobIndex2 && Coeff1 == Coeff2) {
+        IgnoreIVCoeff[IVLevel - 1] = true;
+      }
+    }
+  }
+
+  if (!collectCoeffInfo(Src, true, A0, SrcParentLoop, DstParentLoop,
+                        IgnoreIVCoeff, ACoeff)) {
     return false;
   }
 
   LLVM_DEBUG(dbgs() << "\n   Dst = "; Dst->dump());
   const CanonExpr *B0;
   CoefficientInfo BCoeff[MaxPossibleLevels];
-  if (!collectCoeffInfo(Dst, false, B0, SrcParentLoop, DstParentLoop, BCoeff)) {
+  if (!collectCoeffInfo(Dst, false, B0, SrcParentLoop, DstParentLoop,
+                        IgnoreIVCoeff, BCoeff)) {
     return false;
   }
 
@@ -3421,6 +3447,7 @@ bool DDTest::collectCoeffInfo(const CanonExpr *Subscript, bool SrcFlag,
                               const CanonExpr *&Constant,
                               const HLLoop *SrcParentLoop,
                               const HLLoop *DstParentLoop,
+                              const bool IgnoreIVCoeff[],
                               CoefficientInfo CI[]) {
 
   const CanonExpr *Zero = getConstantWithType(Subscript->getSrcType(), 0);
@@ -3441,14 +3468,19 @@ bool DDTest::collectCoeffInfo(const CanonExpr *Subscript, bool SrcFlag,
     if (!CE->getIVConstCoeff(CurIVPair)) {
       continue;
     }
+    unsigned IVLevel = CE->getLevel(CurIVPair);
+    if (IgnoreIVCoeff[IVLevel - 1]) {
+      continue;
+    }
+
     if (CE->getIVBlobCoeff(CurIVPair)) {
       return false;
     }
     if (SrcFlag) {
-      L = SrcParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
+      L = SrcParentLoop->getParentLoopAtLevel(IVLevel);
       K = mapSrcLoop(L);
     } else {
-      L = DstParentLoop->getParentLoopAtLevel(CE->getLevel(CurIVPair));
+      L = DstParentLoop->getParentLoopAtLevel(IVLevel);
       K = mapDstLoop(L);
     }
 
