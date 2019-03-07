@@ -414,6 +414,10 @@ isValid(spv::Decoration V) {
     case DecorationInputAttachmentIndex:
     case DecorationAlignment:
     case DecorationMaxByteOffset:
+    case DecorationRegisterINTEL:
+    case DecorationMemoryINTEL:
+    case DecorationNumbanksINTEL:
+    case DecorationBankwidthINTEL:
       return true;
     default:
       return false;
@@ -570,6 +574,7 @@ isValid(spv::Capability V) {
     case CapabilitySubgroupDispatch:
     case CapabilityNamedBarrier:
     case CapabilityPipeStorage:
+    case CapabilityFPGAMemoryAttributesINTEL:
       return true;
     default:
       return false;
