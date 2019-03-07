@@ -1384,8 +1384,14 @@ static bool isSafeDependenceDistance(const DataLayout &DL, ScalarEvolution &SE,
   // The dependence distance can be positive/negative, so we sign extend Dist;
   // The multiplication of the absolute stride in bytes and the
   // backedgeTakenCount is non-negative, so we zero extend Product.
-  if (DistTypeSize > ProductTypeSize)
+#ifdef INTEL_CUSTOMIZATION
+  // 8547: Intel bitfield extensions may cause types that differ in size from
+  // their storage size.
+  if (DistTypeSize > ProductTypeSize ||
+       (Dist.getType()->getPrimitiveSizeInBits() >
+        Product->getType()->getPrimitiveSizeInBits()))
     CastedProduct = SE.getZeroExtendExpr(Product, Dist.getType());
+#endif // INTEL_CUSTOMIZATION
   else
     CastedDist = SE.getNoopOrSignExtend(&Dist, Product->getType());
 
