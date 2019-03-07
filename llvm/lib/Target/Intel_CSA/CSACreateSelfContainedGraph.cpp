@@ -370,6 +370,7 @@ MachineInstr *getNewInst(
       OldInst->getParent()->getParent()->getInfo<CSAMachineFunctionInfo>();
     LMFI->getLICInfo(NewReg) =
       LMFI->getLICInfo(OldInst->getOperand(i).getReg());
+    LMFI->setLICName(OldInst->getOperand(i).getReg(),"","");
     if (OldInst->getOperand(i).isDef())
       MIB.addReg(NewReg,RegState::Define);
     else
@@ -595,19 +596,8 @@ void CSACreateSelfContainedGraph::processForManualCompile(Module &M) {
   // Merge all function bodies into TopMF
   DenseMap<MachineInstr *, MachineFunction *> FunctionList;
   mergeAllFunctions(TopMF,M,FunctionList);
-  bool IsMallocPresent = isMallocPresent(TopMF, M, MMI);
   // Insert trampoline code to connect all internal call sites with callees
   insertTrampolineCode(TopMF,M,FunctionList);
-  // Insert CSAMemInitialize function body if required
-  if (IsMallocPresent) {
-    Function *CSAInitialize = M.getFunction("csa_mem_initialize");
-    if (!CSAInitialize) CSAInitialize = M.getFunction("CsaMemInitialize");
-    assert(CSAInitialize);
-    MachineFunction *InitMF = MMI->getMachineFunction(*CSAInitialize);
-    MachineInstr *NewEntryInst = mergeTwoDataFlowFunctions(TopMF, InitMF);
-    LMFI->addCSAEntryPoint(InitMF, NewEntryInst,
-                           EntryToReturnMap[NewEntryInst]);
-  }
 }
 
 void CSACreateSelfContainedGraph::processForOffloadCompile(Module &M) {

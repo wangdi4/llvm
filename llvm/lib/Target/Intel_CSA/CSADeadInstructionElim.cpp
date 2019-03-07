@@ -24,6 +24,7 @@
 #include "CSATargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Pass.h"
@@ -295,11 +296,23 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
             else
               dead = MRI->use_nodbg_empty(Reg);
             if (dead) {
-              // Replace output to dead LIC with output to %ign
-              LLVM_DEBUG(dbgs() <<
-                         "CSADeadInstructionElim: clean up dead LIC " <<
-                         MO << " from " << MI << '\n');
-              MO.substPhysReg(CSA::IGN, *TRI);
+              if (MI.getOpcode() == CSA::CSA_ENTRY
+                    || MI.getOpcode() == CSA::CSA_CONTINUE) {
+                unsigned movopcode = TII->makeOpcode(
+                                     CSA::Generic::MOV, MRI->getRegClass(Reg));
+                BuildMI(*(MI.getParent()),
+                        std::next(MachineBasicBlock::iterator{&MI}),
+                        MI.getDebugLoc(),
+                        TII->get(movopcode), CSA::IGN)
+                        .addReg(Reg)
+                        .setMIFlag(MachineInstr::NonSequential);
+              } else {
+                // Replace output to dead LIC with output to %ign
+                LLVM_DEBUG(dbgs() <<
+                           "CSADeadInstructionElim: clean up dead LIC " <<
+                           MO << " from " << MI << '\n');
+                MO.substPhysReg(CSA::IGN, *TRI);
+              }
             }
           }
         }
