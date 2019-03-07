@@ -1435,7 +1435,6 @@ RValue CodeGenFunction::EmitHLSMemMasterBuiltin(unsigned BuiltinID,
   CallArgList Args;
   ASTContext &Ctx = getContext();
   const Expr *PtrArg = E->getArg(0);
-  const PointerType *PtrTy = cast<PointerType>(PtrArg->getType().getTypePtr());
 
   Args.add(RValue::get(EmitScalarExpr(PtrArg)), PtrArg->getType());
 
@@ -1461,7 +1460,7 @@ RValue CodeGenFunction::EmitHLSMemMasterBuiltin(unsigned BuiltinID,
              Ctx.getIntTypeForBitwidth(32, /*Signed=*/true));
   }
 
-  llvm::Type *OverloadTy = ConvertTypeForMem(PtrTy->getPointeeType());
+  llvm::Type *OverloadTy = ConvertTypeForMem(PtrArg->getType());
   const CGFunctionInfo &FuncInfo =
       CGM.getTypes().arrangeBuiltinFunctionCall(E->getType(), Args);
   llvm::Function *Func =
