@@ -1032,8 +1032,9 @@ def IntelAnonymousFeaturesList1 : IntelAnonymousFeaturesList<[
 
 #if INTEL_FEATURE_CPU_GLC
 class GoldencoveProc<string Name> : ProcModel<Name, SkylakeServerModel,
-                                              IntelAnonymousFeaturesList1.Value,
-                                              []>;
+                                              // TODO: inherit from Willowcove
+                                              ICLFeatures.Value,
+                                              IntelAnonymousFeaturesList1.Value>;
 def : GoldencoveProc<"goldencove">;
 #endif // INTEL_FEATURE_CPU_GLC
 #endif // INTEL_CUSTOMIZATION
