@@ -4074,7 +4074,17 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     // non-JIT mode.
     const GlobalValue *GV = G->getGlobal();
     if (!GV->hasDLLImportStorageClass()) {
-      unsigned char OpFlags = Subtarget.classifyGlobalFunctionReference(GV);
+#if INTEL_CUSTOMIZATION
+      // According to psABI, PLT stub clobbers XMM8-XMM15.
+      // In SVML calling convention those registers are expected to be callee
+      // saved. Thus we need to prevent lazy binding in SVML.
+      // TODO: Seems like marking them nonlazybind in IR might also work.
+      unsigned char OpFlags;
+      if (Is64Bit && CallConv == CallingConv::SVML && Subtarget.isTargetELF())
+        OpFlags = X86II::MO_GOTPCREL;
+      else
+        OpFlags = Subtarget.classifyGlobalFunctionReference(GV);
+#endif
 
       Callee = DAG.getTargetGlobalAddress(
           GV, dl, getPointerTy(DAG.getDataLayout()), G->getOffset(), OpFlags);
