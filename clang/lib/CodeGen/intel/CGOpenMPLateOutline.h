@@ -248,6 +248,7 @@ class OpenMPLateOutliner {
   enum ImplicitClauseKind {
     ICK_private,
     ICK_firstprivate,
+    ICK_lastprivate,
     ICK_shared,
     ICK_map_tofrom,
     ICK_normalized_iv,

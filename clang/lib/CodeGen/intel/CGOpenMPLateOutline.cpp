@@ -490,6 +490,9 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   case ICK_firstprivate:
     addArg("QUAL.OMP.FIRSTPRIVATE");
     break;
+  case ICK_lastprivate:
+    addArg("QUAL.OMP.LASTPRIVATE");
+    break;
   case ICK_shared:
     addArg("QUAL.OMP.SHARED");
     break;
@@ -1415,8 +1418,12 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
     auto *LoopDir = dyn_cast<OMPLoopDirective>(&D);
     for (auto *E : LoopDir->counters()) {
       auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-      if (CurrentDirectiveKind == OMPD_simd)
-        ImplicitMap.insert(std::make_pair(PVD, ICK_unknown));
+      if (CurrentDirectiveKind == OMPD_simd) {
+        if (CGF.IsPrivateCounter(PVD))
+          ImplicitMap.insert(std::make_pair(PVD, ICK_unknown));
+        else
+          ImplicitMap.insert(std::make_pair(PVD, ICK_lastprivate));
+      }
       else
         ImplicitMap.insert(std::make_pair(PVD, ICK_private));
     }

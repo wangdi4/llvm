@@ -3476,6 +3476,9 @@ private:
 
 #if INTEL_CUSTOMIZATION
 public:
+  bool IsPrivateCounter(const VarDecl *VD) {
+    return VD->isLocalVarDecl() && !LocalDeclMap.count(VD);
+  }
   bool LoopBoundsHaveBeenHoisted(const OMPLoopDirective *LD) {
    return HoistedBoundsLoops.find(LD) != HoistedBoundsLoops.end();
   }
