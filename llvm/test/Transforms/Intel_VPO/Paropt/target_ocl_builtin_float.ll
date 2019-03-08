@@ -171,5 +171,5 @@ attributes #5 = { nounwind readnone }
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{}
-!2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 94cf1187207b474fb38049b467acb1d22cb75b39) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm a2481e423de5a371ce5d12cf6c4d1ec818c6ea5e)"}
+!2 = !{!"clang version 8.0.0"}
 !3 = !{i32 4, i32 200000}

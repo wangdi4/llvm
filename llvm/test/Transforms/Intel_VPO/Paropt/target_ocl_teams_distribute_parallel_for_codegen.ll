@@ -98,7 +98,7 @@ attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !0 = !{i32 0, i32 58, i32 -1942149079, !"_Z3barv", i32 3, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{}
-!3 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 105f3862bb742d6adede6b26d29ed74003e24523) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 57cfb256a12748db8ca9d11b2e97eafa1eac2d98)"}
+!3 = !{!"clang version 8.0.0"}
 !4 = distinct !{i32 0}
 
 ; CHECK: %{{.*}} = call i64 @_Z14get_num_groupsj(i32 0)

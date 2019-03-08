@@ -92,7 +92,7 @@ attributes #3 = { inaccessiblememonly nounwind speculatable }
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 65e8f9d46b54671e271ba934ab45010c98c98cce) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 51273a8de92fb0445c7b7246e3544084bddb21dc)"}
+!1 = !{!"clang version 7.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"long", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

@@ -104,7 +104,7 @@ attributes #2 = { nounwind }
 
 !0 = !{i32 0, i32 46, i32 -1940912277, !"main", i32 4, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 4de874f98beac53aa6cc95e3a73979cdcae1a3d9) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm cef6ba8a9c836ccf7cabc2b5b613d47c0e0143da)"}
+!2 = !{!"clang version 8.0.0"}
 !3 = !{!4, !4, i64 0}
 !4 = !{!"pointer@_ZTSPj", !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}

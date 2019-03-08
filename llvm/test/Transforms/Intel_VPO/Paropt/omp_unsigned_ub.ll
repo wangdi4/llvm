@@ -135,4 +135,4 @@ attributes #1 = { nounwind }
 
 !0 = !{i32 0, i32 58, i32 -673150349, !"_Z16transpose_kernelj", i32 10, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 9.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 476b2b88bcfe2124908c011f2956ec6280237af7) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 0e9ae171673282a45d88858d2c5cfd03205a6e37)"}
+!2 = !{!"clang version 9.0.0"}

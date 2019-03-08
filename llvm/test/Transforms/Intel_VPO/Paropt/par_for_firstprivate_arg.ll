@@ -207,7 +207,7 @@ attributes #6 = { inlinehint nounwind uwtable "correctly-rounded-divide-sqrt-fp-
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang d3502e2096448b81a99df35eb5758566d27dd199) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 450b639077311065dffcf511d635999adc038c9e)"}
+!1 = !{!"clang version 7.0.0"}
 !2 = !{!3, !4, i64 0}
 !3 = !{!"array@_ZTSA12_s", !4, i64 0}
 !4 = !{!"short", !5, i64 0}
