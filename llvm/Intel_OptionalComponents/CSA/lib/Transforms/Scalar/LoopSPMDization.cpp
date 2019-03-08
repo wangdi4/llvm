@@ -223,7 +223,8 @@ Branches to or from an OpenMP structured block are illegal
     std::vector<Instruction *> ReduceVarOrig(r);
     // there is OldInst foreach reduction variable
     std::vector<Instruction *> OldInsts(r);
-    FindReductionVariables(L, SE, ReduceVarExitOrig, ReduceVarOrig);
+    if(!FindReductionVariables(L, SE, ReduceVarExitOrig, ReduceVarOrig))
+      return false;
     // retrieve the minimum number of iterations of the loop in order to assess
     // whether to insert the zero trip count check or not
     int min_iterations = GetMinLoopIterations(L, SE);
@@ -576,15 +577,22 @@ bool LoopSPMDization::FindReductionVariables(
       // or an operation that involves a loop carry dependency
       InductionDescriptor ID;
       if (!InductionDescriptor::isInductionPHI(Phi, L, SE, ID)) {
+        errs() << "\n";
+        errs().changeColor(raw_ostream::BLUE, true);
+        errs() << "!! ERROR: COULD NOT PERFORM SPMDization !!\n";
+        errs().resetColor();
+        errs() << " Detected unsupported loop carried value in a loop marked for SPMDization;"
+               <<" please remove the SPMDization marking"
+               <<" or use one of the supported reduction patterns instead.\n\n";
         Instruction *op = cast<Instruction>(Phi);
         for (auto UA = Phi->user_begin(), EA = Phi->user_end(); UA != EA;) {
           op = cast<Instruction>(*UA++);
         }
         ORE.emit(
                  OptimizationRemark(DEBUG_TYPE, "SPMD Reductions:", op)
-                 <<"Detected unsupported loop carried value in a loop marked"
-                 <<" for SPMDization; please remove the SPMDization marking"
-                 <<" or use one of the supported reduction patterns instead");
+                 << "The unsupported loop carried value in a loop marked"
+                 <<" for SPMDization is");
+        return false;
       }
     }
     r++; // count also the non reduction phis
