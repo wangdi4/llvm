@@ -1,5 +1,6 @@
 // REQUIRES: intel_feature_isa_avx_vnni
 //  RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avxvnni -emit-llvm -o - -Wall -Werror | FileCheck %s
+//  RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avxvnni -target-feature +avx512vl -target-feature +avx512vnni -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 

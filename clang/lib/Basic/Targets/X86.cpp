@@ -1481,6 +1481,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vbmi", true)
       .Case("avx512vbmi2", true)
       .Case("avx512ifma", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+      .Case("avxvnni", true)
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
       .Case("bmi", true)
       .Case("bmi2", true)
       .Case("cldemote", true)
