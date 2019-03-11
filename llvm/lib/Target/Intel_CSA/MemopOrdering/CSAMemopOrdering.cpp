@@ -219,10 +219,6 @@ struct MemopCFG {
     // by construction a dependency can cross at most one backedge given the
     // model used for calculating them.
     const Loop *loop;
-
-    // Determines the original dependency that this phibit refers to that isn't
-    // a phibit.
-    Dep orig_dep() const;
   };
 
   // A phi node for memory ordering tokens.
@@ -1039,55 +1035,46 @@ template <> struct DOTGraphTraits<MemopCFG> : DOTGraphTraits<const MemopCFG> {
 
 bool MemopCFG::Dep::implies(const Dep &that) const {
 
+  // There are three rules for determining whether a Dep A implies a Dep B:
+  //
+  // 1. A and B are both the same memop.
+  // 2. A and B are both phibits in the same node from the same predecessor and
+  //    A->dep implies B->dep.
+  // 3. B is a phibit and A implies something along B's path. For non-cyclic
+  //    code, this means that B indicates a dependence on the same token as A
+  //    but on a subset of A's paths. Around loops, this means that B indicates
+  //    a dependence on a previous iteration's version of the A token, which
+  //    implies B through a lic ordering implicit dependency.
+
   // Do a fast check to see if this and that are the same. If they are, this
-  // does imply that.
+  // implies that by rules (1) and (2).
   if (*this == that)
     return true;
 
-  // If this is not a phibit, it can only imply that if they are the same or if
-  // that refers to this. The equality check has already been tried; just check
-  // the phibit reference condition here.
-  if (type != phibit) {
-    return that.type == phibit and
-           that.node->phibits[that.idx].orig_dep() == *this;
-  }
-
-  // If this is a phibit, it cannot imply a non-phibit.
+  // If that isn't a phibit, it can't be implied by this if they aren't equal.
   if (that.type != phibit)
     return false;
 
-  // Now both Deps have been confirmed to be phibits.
-  const PHIBit &this_phibit = node->phibits[idx];
+  // Now that has been confirmed to be a phibit.
   const PHIBit &that_phibit = that.node->phibits[that.idx];
 
-  // If they are in the same node...
-  if (node == that.node) {
-
-    // This cannot imply that if that's predecessor is not dominated by this'
-    // predecessor.
-    if (not that_phibit.pred->nonstrictly_dominated_by(this_phibit.pred)) {
-      return false;
-    }
-
-    // If it is, though, it is safe to recurse into both phibits.
-    return this_phibit.dep.implies(that_phibit.dep);
+  // If this is also a phibit in the same node, check rule (2). In any case
+  // where the deps are both phibits in the same node from the same predecessor
+  // and rule (3) holds, rule (2) will also hold because this_phibit.dep must
+  // also imply something along that_phibit.dep's path. Therefore if rule (2)
+  // fails in these cases we skip the check for rule (3).
+  if (type == phibit and node == that.node) {
+    const PHIBit &this_phibit = node->phibits[idx];
+    if (this_phibit.pred == that_phibit.pred)
+      return this_phibit.dep.implies(that_phibit.dep);
   }
 
-  // If they are not in the same node, this cannot imply that if this does not
-  // dominate that.
-  if (not that.node->dominated_by(node))
-    return false;
-
-  // If this does dominate that, recurse into that only.
+  // Otherwise, check rule (3).
   return implies(that_phibit.dep);
 }
 
 bool MemopCFG::Dep::strictly_implies(const Dep &that) const {
   return *this != that and implies(that);
-}
-
-MemopCFG::Dep MemopCFG::PHIBit::orig_dep() const {
-  return dep.type == Dep::phibit ? dep.node->phibits[dep.idx].orig_dep() : dep;
 }
 
 // Recursively searches for an intrinsic def for V through phi nodes. PHI nodes
