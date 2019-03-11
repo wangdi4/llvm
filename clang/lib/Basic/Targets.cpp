@@ -571,6 +571,8 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
     switch (Triple.getEnvironment()) {
     case llvm::Triple::IntelFPGA:
       return new SPIR32INTELFpgaTargetInfo(Triple, Opts);
+    case llvm::Triple::IntelEyeQ:
+      return new SPIR32TargetInfo(Triple, Opts);
     case llvm::Triple::UnknownEnvironment:
       return new SPIR32TargetInfo(Triple, Opts);
     default:
@@ -583,6 +585,8 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
     switch (Triple.getEnvironment()) {
     case llvm::Triple::IntelFPGA:
       return new SPIR64INTELFpgaTargetInfo(Triple, Opts);
+    case llvm::Triple::IntelEyeQ:
+      return new SPIR64TargetInfo(Triple, Opts);
     case llvm::Triple::UnknownEnvironment:
       return new SPIR64TargetInfo(Triple, Opts);
     default:
