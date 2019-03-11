@@ -1329,6 +1329,10 @@ private:
   /// For GPU compilation, we must remove such fence instructions because
   /// they are unsupported by SPIRV and OpenCL.  This routine does that.
   bool removeCompilerGeneratedFences(WRegionNode *W);
+
+  /// For the given region \p W, find exit block of the loop
+  /// identified by index \p Idx.
+  BasicBlock *getLoopExitBB(WRegionNode *W, unsigned Idx = 0);
 };
 } /// namespace vpo
 } /// namespace llvm

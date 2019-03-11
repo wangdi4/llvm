@@ -1253,6 +1253,27 @@ bool VPOParoptTransform::paroptTransforms() {
           debugPrintHeader(W, false);
           Changed = regularizeOMPLoop(W, false);
           Changed |= genPrivatizationCode(W);
+          if (W->getWRNLoopInfo().getNormIVSize() != 0) {
+            // Code for SIMD clauses, such as lastprivate, must be inserted
+            // outside of the loop. And this insertion must be coordinated
+            // with code inserted for enclosing regions related to the same
+            // loop. Here we only handle standalone SIMD regions.
+            // Lasprivatization, linearization, etc. will be done for variables
+            // during transformation of the enclosing region in case of
+            // combined OpenMP constructs.
+            //
+            // Standalone SIMD regions will have normalized IV and UB.
+            // Normalized IV and UB are not present for SIMD regions
+            // combined with other loop type regions.
+            //
+            // Note that handling of PRIVATE does not require new code
+            // (except new alloca) outside of the loop, so it can be done
+            // always.
+            auto *LoopExitBB = getLoopExitBB(W);
+            // Last value update must happen in the loop's exit block,
+            // i.e. under a ZTT check, if one was created around the loop.
+            Changed |= genLastPrivatizationCode(W, LoopExitBB);
+          }
           Changed |= clearLaunderIntrinBeforeRegion(W);
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
@@ -2917,20 +2938,40 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   LastprivateClause &LprivClause = W->getLpriv();
   if (!LprivClause.empty()) {
 
+    BasicBlock *EntryBB = W->getEntryBBlock();
+
+    if (isa<WRNVecLoopNode>(W))
+      // Insert privatization code (e.g. allocas, constructor calls)
+      // in a block preceeding the SIMD region's entry block.
+      // We should minimize the code between SIMD entry/exit points
+      // that is not related to the loop itself, otherwise, vectorizer
+      // may complain. Note that the last value copy is still generated
+      // inside the SIMD region - if this is a problem, we should run
+      // sinkSIMDDirectives() for standalone SIMD regions as well.
+      //
+      // FIXME: if there is no parent region that will be outlined, then
+      //        the allocas will remain inside the function body, and
+      //        may not be handled by optimizations (e.g. promote memory
+      //        to register pass). In such case we have to insert allocas
+      //        inside the function's entry block. Moreover, insertion
+      //        of allocas next to the SIMD region is not correct, if
+      //        there is an enclosing loop - such an alloca may cause
+      //        stack saturation.
+      //        This is relevant to WRNWksLoop as well.
+      //
+      // Note that EntryBB points to the new empty block after the call
+      // below.
+      W->setEntryBBlock(SplitBlock(EntryBB, &EntryBB->front(), DT, LI));
+
     W->populateBBSet();
 
     assert(IfLastIterBB && "genLastPrivatizationCode: Null IfLastIterBB.");
 
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
-    BasicBlock *EntryBB = W->getEntryBBlock();
 
     for (LastprivateItem *LprivI : LprivClause.items()) {
       Value *Orig = LprivI->getOrig();
-      /*
-            assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
-                   "genLastPrivatizationCode: Unexpected lastprivate variable");
-      */
       Value *NewPrivInst;
       Instruction *InsertPt = &EntryBB->front();
       if (!ForTask)
@@ -2952,6 +2993,40 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
         genLprivFini(LprivI, IfLastIterBB->getTerminator());
       } else
         genLprivFiniForTaskLoop(LprivI, IfLastIterBB->getTerminator());
+
+      if (isa<WRNVecLoopNode>(W) && LprivI->getIsConditional()) {
+        // For the following case:
+        //   int x = 0;
+        //   #pragma omp simd lastprivate(conditional: x)
+        //   for (...)
+        //     if (cond)
+        //       x = ...;
+        //
+        // We generate IR equivalent to the following code:
+        //   int x = 0;
+        //   int x.lpriv = x;
+        //   #pragma omp simd lastprivate(conditional: x.lpriv)
+        //   for (...)
+        //     if (cond)
+        //       x.lpriv = ...;
+        //   x = x.lpriv;
+        //
+        // Even though OpenMP specification does not seem to explicitly
+        // describe the case, when (cond) is never true, we implement
+        // conditional lastprivates such that the original list item ('x')
+        // keeps it original (before the construct) value, if (cond)
+        // is always false.
+        //
+        // The code below produces 'x.lpriv = x' assignment just reusing
+        // the firstprivatization code.
+        FirstprivateItem FprivI(Orig);
+        FprivI.setNew(NewPrivInst);
+        FprivI.setIsByRef(LprivI->getIsByRef());
+        // We do not care about CopyConstructor of the fake firstprivate
+        // item, because conditional lastprivate may only reference
+        // a scalar variable (potentially, by reference).
+        genFprivInit(&FprivI, EntryBB->getTerminator());
+      }
     }
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet
@@ -3821,6 +3896,30 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
     assert(W->isBBSetEmpty() &&
            "genPrivatizationCode: BBSET should start empty");
+
+    if (isa<WRNVecLoopNode>(W))
+      // Insert privatization code (e.g. allocas, constructor calls)
+      // in a block preceeding the SIMD region's entry block.
+      // We should minimize the code between SIMD entry/exit points
+      // that is not related to the loop itself, otherwise, vectorizer
+      // may complain. Note that the last value copy is still generated
+      // inside the SIMD region - if this is a problem, we should run
+      // sinkSIMDDirectives() for standalone SIMD regions as well.
+      //
+      // FIXME: if there is no parent region that will be outlined, then
+      //        the allocas will remain inside the function body, and
+      //        may not be handled by optimizations (e.g. promote memory
+      //        to register pass). In such case we have to insert allocas
+      //        inside the function's entry block. Moreover, insertion
+      //        of allocas next to the SIMD region is not correct, if
+      //        there is an enclosing loop - such an alloca may cause
+      //        stack saturation.
+      //        This is relevant to WRNWksLoop as well.
+      //
+      // Note that EntryBB points to the new empty block after the call
+      // below.
+      W->setEntryBBlock(SplitBlock(EntryBB, &EntryBB->front(), DT, LI));
+
     W->populateBBSet();
 
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
@@ -6397,6 +6496,15 @@ bool VPOParoptTransform::removeCompilerGeneratedFences(WRegionNode *W) {
     llvm_unreachable("unexpected work region kind");
   }
   return Changed;
+}
+
+BasicBlock *VPOParoptTransform::getLoopExitBB(WRegionNode *W, unsigned Idx) {
+  assert(W->getIsOmpLoop() && "getLoopExitBB: not a loop-type region.");
+  auto *L = W->getWRNLoopInfo().getLoop(Idx);
+  assert(L && "getLoopExitBB: failed to find Loop.");
+  auto *LoopExitBB = WRegionUtils::getOmpExitBlock(L);
+  assert(LoopExitBB && "getLoopExitBB: failed to find the loop's exit block.");
+  return LoopExitBB;
 }
 
 #endif // INTEL_COLLAB
