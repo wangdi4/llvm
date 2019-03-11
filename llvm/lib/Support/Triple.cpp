@@ -246,6 +246,7 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case CoreCLR: return "coreclr";
 #if INTEL_CUSTOMIZATION
   case IntelFPGA: return "intelfpga";
+  case IntelEyeQ: return "inteleyeq";
 #endif // INTEL_CUSTOMIZATION
   case Simulator: return "simulator";
   }
@@ -554,6 +555,7 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
     .StartsWith("coreclr", Triple::CoreCLR)
 #if INTEL_CUSTOMIZATION
     .StartsWith("intelfpga", Triple::IntelFPGA)
+    .StartsWith("inteleyeq", Triple::IntelEyeQ)
 #endif // INTEL_CUSTOMIZATION
     .StartsWith("simulator", Triple::Simulator)
     .Default(Triple::UnknownEnvironment);

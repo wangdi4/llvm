@@ -212,6 +212,7 @@ public:
 
 #if INTEL_CUSTOMIZATION
     IntelFPGA,
+    IntelEyeQ,
 #endif // INTEL_CUSTOMIZATION
     MSVC,
     Itanium,
@@ -569,6 +570,10 @@ public:
 #if INTEL_CUSTOMIZATION
   bool isINTELFPGAEnvironment() const {
     return getEnvironment() == Triple::IntelFPGA;
+  }
+
+  bool isINTELEyeQEnvironment() const {
+    return getEnvironment() == Triple::IntelEyeQ;
   }
 #endif // INTEL_CUSTOMIZATION
 
