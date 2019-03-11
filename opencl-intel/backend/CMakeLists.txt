@@ -28,12 +28,6 @@ set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 
 remove_definitions( -D_UNICODE -DUNICODE )
 
-# Versioning for OclCpuDebugging DLL.
-set(DEBUGGING_DLL_VERSION 7)
-set(DEBUGGING_DLL_NAME OclCpuDebugging)
-add_definitions(-DDEBUGGING_DLL_VERSION=${DEBUGGING_DLL_VERSION})
-add_definitions(-DDEBUGGING_DLL_NAME=${DEBUGGING_DLL_NAME})
-
 #
 # Settings for Linux compilation
 #
