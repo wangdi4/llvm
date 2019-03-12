@@ -4,7 +4,7 @@
 ; REQUIRES: intel_feature_cpu_glc
 
 ; Spot check some features to make sure goldencove is inheriting from ICL
-# TODO: Check WCL features
+; TODO: Check WCL features
 
 ; Check for AVX512F
 define <16 x float> @test_mm512_mask_add_round_ps_current(<16 x float> %a0, <16 x float> %a1, <16 x float> %src, i16 %mask) {
