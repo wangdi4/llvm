@@ -60,6 +60,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
@@ -4418,13 +4419,10 @@ void IntelModRefImpl::collectInstruction(Instruction *I,
       DEBUG_WITH_TYPE("imr-collect-trace", errs()
                                                << "MOD: " << *ValPtr << "\n\n");
     }
-  }
-
-  if (CallSite CS = CallSite(I)) {
+  } else if (CallBase *Call = dyn_cast<CallBase>(I)) {
     // Collect all the values passed
-    int ArgNo = 0;
-    for (CallSite::arg_iterator AI = CS.arg_begin(), AE = CS.arg_end();
-         AI != AE; ++AI, ++ArgNo)
+    for (auto AI = Call->arg_begin(), AE = Call->arg_end(); AI != AE;
+         ++AI)
       if (isInterestingPointer(*AI)) {
         bool Changed = DirectModRef->addRef(*AI);
         if (Changed) {
@@ -4475,16 +4473,16 @@ void IntelModRefImpl::collectValue(Value *V, ModRefMap *DirectModRef,
 IntelModRefImpl::FunctionRecord::BottomReasonsEnum
 IntelModRefImpl::isResolvable(Function *F) const {
   // Check if all call-sites can be resolved.
-  for (inst_iterator I = inst_begin(*F), E = inst_end(*F); I != E; ++I) {
-    if (CallSite CS = CallSite(&(*I))) {
-      const Value *V = CS.getCalledValue();
+  for (auto &I : instructions(F))
+    if (CallBase *Call = dyn_cast<CallBase>(&I)) {
+      const Value *V = Call->getCalledValue();
       if (isa<InlineAsm>(*V)) {
         DEBUG_WITH_TYPE("imr-collect",
                         errs() << F->getName() << ": has inline-asm\n");
         return FunctionRecord::Other;
       }
 
-      if (const Function *Callee = CS.getCalledFunction()) {
+      if (const Function *Callee = Call->getCalledFunction()) {
         if (!isResolvableCallee(Callee)) {
           DEBUG_WITH_TYPE("imr-collect",
                           errs() << F->getName() << ": has unknown call "
@@ -4501,7 +4499,6 @@ IntelModRefImpl::isResolvable(Function *F) const {
         return FunctionRecord::IndirectCall;
       }
     }
-  }
 
   return FunctionRecord::NotBottom;
 }
