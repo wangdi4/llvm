@@ -219,10 +219,8 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   Function *NF = Function::Create(NFTy, F->getLinkage(), F->getAddressSpace(),
                                   F->getName());
   NF->copyAttributesFrom(F);
-
-  // Patch the pointer to LLVM function in debug info descriptor.
-  NF->setSubprogram(F->getSubprogram());
-  F->setSubprogram(nullptr);
+  NF->copyMetadata(F, 0);
+  F->clearMetadata();
 
   LLVM_DEBUG(dbgs() << "ARG PROMOTION:  Promoting to:" << *NF << "\n"
                     << "From: " << *F);
@@ -266,7 +264,8 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           Value *Idx = GetElementPtrInst::Create(
               STy, *AI, Idxs, (*AI)->getName() + "." + Twine(i), Call);
           // TODO: Tell AA about the new values?
-          Args.push_back(new LoadInst(Idx, Idx->getName() + ".val", Call));
+          Args.push_back(new LoadInst(STy->getElementType(i), Idx,
+                                      Idx->getName() + ".val", Call));
           ArgAttrVec.push_back(AttributeSet());
         }
       } else if (!I->use_empty()) {
@@ -302,7 +301,8 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           }
           // Since we're replacing a load make sure we take the alignment
           // of the previous load.
-          LoadInst *newLoad = new LoadInst(V, V->getName() + ".val", Call);
+          LoadInst *newLoad =
+              new LoadInst(OrigLoad->getType(), V, V->getName() + ".val", Call);
           newLoad->setAlignment(OrigLoad->getAlignment());
           // Transfer the AA info too.
           AAMDNodes AAInfo;
@@ -494,6 +494,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     std::advance(I2, ArgIndices.size());
   }
 
+  assert(F->isDeclaration());
   return NF;
 }
 

@@ -4629,7 +4629,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   bool Changed = false;
 
   // Set up Fn Attr for the new function
-  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT);
+  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
   if (hasParentTarget(W))
     NewF->addFnAttr("target.declare", "true");
 

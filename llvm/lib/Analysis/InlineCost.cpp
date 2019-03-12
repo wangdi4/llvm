@@ -87,19 +87,19 @@ static cl::opt<int> InlineThreshold(
     cl::desc("Control the amount of inlining to perform (default = 225)"));
 
 static cl::opt<int> HintThreshold(
-    "inlinehint-threshold", cl::Hidden, cl::init(325),
+    "inlinehint-threshold", cl::Hidden, cl::init(325), cl::ZeroOrMore, 
     cl::desc("Threshold for inlining functions with inline hint"));
 
 static cl::opt<int>
     ColdCallSiteThreshold("inline-cold-callsite-threshold", cl::Hidden,
-                          cl::init(45),
+                          cl::init(45), cl::ZeroOrMore,
                           cl::desc("Threshold for inlining cold callsites"));
 
 // We introduce this threshold to help performance of instrumentation based
 // PGO before we actually hook up inliner with analysis passes such as BPI and
 // BFI.
 static cl::opt<int> ColdThreshold(
-    "inlinecold-threshold", cl::Hidden, cl::init(45),
+    "inlinecold-threshold", cl::Hidden, cl::init(45), cl::ZeroOrMore, 
     cl::desc("Threshold for inlining functions with cold attribute"));
 
 static cl::opt<int>
@@ -113,7 +113,7 @@ static cl::opt<int> LocallyHotCallSiteThreshold(
 
 static cl::opt<int> ColdCallSiteRelFreq(
     "cold-callsite-rel-freq", cl::Hidden, cl::init(2), cl::ZeroOrMore,
-    cl::desc("Maxmimum block frequency, expressed as a percentage of caller's "
+    cl::desc("Maximum block frequency, expressed as a percentage of caller's "
              "entry frequency, for a callsite to be cold in the absence of "
              "profile information."));
 
@@ -124,7 +124,7 @@ static cl::opt<int> HotCallSiteRelFreq(
              "profile information."));
 
 static cl::opt<bool> OptComputeFullInlineCost(
-    "inline-cost-full", cl::Hidden, cl::init(false),
+    "inline-cost-full", cl::Hidden, cl::init(false), cl::ZeroOrMore,
     cl::desc("Compute the full inline cost of a call site even when the cost "
              "exceeds the threshold."));
 
@@ -1335,7 +1335,7 @@ bool CallAnalyzer::simplifyCallSite(Function *F, CallSite CS) {
   // because we have to continually rebuild the argument list even when no
   // simplifications can be performed. Until that is fixed with remapping
   // inside of instsimplify, directly constant fold calls here.
-  if (!canConstantFoldCallTo(CS, F))
+  if (!canConstantFoldCallTo(cast<CallBase>(CS.getInstruction()), F))
     return false;
 
   // Try to re-map the arguments to constants.
@@ -1351,7 +1351,8 @@ bool CallAnalyzer::simplifyCallSite(Function *F, CallSite CS) {
 
     ConstantArgs.push_back(C);
   }
-  if (Constant *C = ConstantFoldCall(CS, F, ConstantArgs)) {
+  if (Constant *C = ConstantFoldCall(cast<CallBase>(CS.getInstruction()), F,
+                                     ConstantArgs)) {
     SimplifiedValues[CS.getInstruction()] = C;
     return true;
   }
@@ -2960,7 +2961,7 @@ bool CallAnalyzer::preferDTransToInlining(CallSite &CS,
 /// blocks to see if all their incoming edges are dead or not.
 void CallAnalyzer::findDeadBlocks(BasicBlock *CurrBB, BasicBlock *NextBB) {
   auto IsEdgeDead = [&](BasicBlock *Pred, BasicBlock *Succ) {
-    // A CFG edge is dead if the predecessor is dead or the predessor has a
+    // A CFG edge is dead if the predecessor is dead or the predecessor has a
     // known successor which is not the one under exam.
     return (DeadBlocks.count(Pred) ||
             (KnownSuccessors[Pred] && KnownSuccessors[Pred] != Succ));
@@ -4225,11 +4226,12 @@ InlineCost llvm::getInlineCost(
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
-    if (isInlineViable(*Callee, Reason))
+    auto IsViable = isInlineViable(*Callee, Reason);
+    if (IsViable)
       return llvm::InlineCost::getAlways("always inline attribute",
                                          InlrAlwaysInline);
     assert(IsNotInlinedReason(Reason));
-    return llvm::InlineCost::getNever("inapplicable always inline attribute",
+    return llvm::InlineCost::getNever(IsViable.message,
                                       Reason);
   }
   if (CS.hasFnAttr(Attribute::AlwaysInlineRecursive)) {
@@ -4307,8 +4309,8 @@ InlineCost llvm::getInlineCost(
     CA.getEarlyExitCost(), CA.getEarlyExitThreshold()); // INTEL
 }
 
-bool llvm::isInlineViable(Function &F, // INTEL
-                          InlineReason& Reason) { // INTEL
+InlineResult llvm::isInlineViable(Function &F, // INTEL
+                                  InlineReason& Reason) { // INTEL
   bool ReturnsTwice = F.hasFnAttribute(Attribute::ReturnsTwice);
   for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
     // Disallow inlining of functions which contain indirect branches or
@@ -4318,14 +4320,19 @@ bool llvm::isInlineViable(Function &F, // INTEL
 #if INTEL_CUSTOMIZATION
       if (isa<IndirectBrInst>(BI->getTerminator())) {
         Reason = NinlrIndirectBranch;
-        return false;
+        return "contains indirect branches";
       }
       if (BI->hasAddressTaken()) {
         Reason = NinlrBlockAddress;
-        return false;
+        return "uses block address";
       }
 #endif // INTEL_CUSTOMIZATION
     } // INTEL
+    if (isa<IndirectBrInst>(BI->getTerminator()))
+      return "contains indirect branches";
+
+    if (BI->hasAddressTaken())
+      return "uses block address";
 
     for (auto &II : *BI) {
       CallSite CS(&II);
@@ -4335,7 +4342,7 @@ bool llvm::isInlineViable(Function &F, // INTEL
       // Disallow recursive calls.
       if (&F == CS.getCalledFunction()) { // INTEL
         Reason = NinlrRecursive; // INTEL
-        return false;
+        return "recursive call";
       } // INTEL
 
       // Disallow calls which expose returns-twice to a function not previously
@@ -4343,7 +4350,7 @@ bool llvm::isInlineViable(Function &F, // INTEL
       if (!ReturnsTwice && CS.isCall() &&
           cast<CallInst>(CS.getInstruction())->canReturnTwice()) { // INTEL
         Reason = NinlrReturnsTwice; // INTEL
-        return false;
+        return "exposes returns-twice attribute";
       } // INTEL
 
       if (CS.getCalledFunction())
@@ -4353,15 +4360,17 @@ bool llvm::isInlineViable(Function &F, // INTEL
         // Disallow inlining of @llvm.icall.branch.funnel because current
         // backend can't separate call targets from call arguments.
         case llvm::Intrinsic::icall_branch_funnel:
+          Reason = NinlrCallsLocalEscape; // INTEL
+          return "disallowed inlining of @llvm.icall.branch.funnel";
         // Disallow inlining functions that call @llvm.localescape. Doing this
         // correctly would require major changes to the inliner.
         case llvm::Intrinsic::localescape:
           Reason = NinlrCallsLocalEscape; // INTEL
-          return false; // INTEL
+          return "disallowed inlining of @llvm.localescape";
         // Disallow inlining of functions that initialize VarArgs with va_start.
         case llvm::Intrinsic::vastart:
           Reason = NinlrVarargs; // INTEL
-          return false;
+          return "contains VarArgs initialized with va_start";
         }
     }
   }

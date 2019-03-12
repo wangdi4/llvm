@@ -1026,7 +1026,8 @@ public:
 
   // Creates new Function and outlines \p W region into it.
   // \p DT DominatorTree is updated accordingly.
-  static Function *genOutlineFunction(const WRegionNode &W, DominatorTree *DT);
+  static Function *genOutlineFunction(const WRegionNode &W, DominatorTree *DT,
+                                      AssumptionCache *AC);
 
   /// @}
 

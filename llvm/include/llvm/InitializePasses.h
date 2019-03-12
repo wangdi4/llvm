@@ -90,9 +90,10 @@ void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeADCELegacyPassPass(PassRegistry&);
 void initializeAddDiscriminatorsLegacyPassPass(PassRegistry&);
-void initializeAddressSanitizerModulePass(PassRegistry&);
-void initializeAddressSanitizerPass(PassRegistry&);
 void initializeAggInlAALegacyPassPass(PassRegistry&); // INTEL
+void initializeModuleAddressSanitizerLegacyPassPass(PassRegistry &);
+void initializeASanGlobalsMetadataWrapperPassPass(PassRegistry &);
+void initializeAddressSanitizerLegacyPassPass(PassRegistry &);
 void initializeAggressiveInstCombinerLegacyPassPass(PassRegistry&);
 void initializeAliasSetPrinterPass(PassRegistry&);
 void initializeAlignmentFromAssumptionsPass(PassRegistry&);
@@ -278,6 +279,7 @@ void initializeLowerAtomicLegacyPassPass(PassRegistry&);
 void initializeLowerEmuTLSPass(PassRegistry&);
 void initializeLowerExpectIntrinsicPass(PassRegistry&);
 void initializeLowerGuardIntrinsicLegacyPassPass(PassRegistry&);
+void initializeLowerWidenableConditionLegacyPassPass(PassRegistry&);
 void initializeLowerSubscriptIntrinsicLegacyPassPass(PassRegistry&); // INTEL
 void initializeLowerIntrinsicsPass(PassRegistry&);
 void initializeLowerInvokeLegacyPassPass(PassRegistry&);

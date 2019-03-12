@@ -3124,7 +3124,8 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
   else {
     std::string baseName = origFunc->getName();
     origFunc->setName(Twine("_replaced_").concat(baseName));
-    newFunc = cast<Function>(M->getOrInsertFunction(baseName, newFuncType, origFunc->getAttributes()));
+    newFunc = cast<Function>((M->getOrInsertFunction(baseName, newFuncType,
+                                     origFunc->getAttributes())).getCallee());
   }
   CI->setCalledFunction(newFunc);
   return true;
@@ -3186,15 +3187,11 @@ bool X86TTIImpl::areInlineCompatible(const Function *Caller,
   const FeatureBitset &CalleeBits =
       TM.getSubtargetImpl(*Callee)->getFeatureBits();
 
-  // FIXME: This is likely too limiting as it will include subtarget features
-  // that we might not care about for inlining, but it is conservatively
-  // correct.
-  return (CallerBits & CalleeBits) == CalleeBits;
+  FeatureBitset RealCallerBits = CallerBits & ~InlineFeatureIgnoreList;
+  FeatureBitset RealCalleeBits = CalleeBits & ~InlineFeatureIgnoreList;
+  return (RealCallerBits & RealCalleeBits) == RealCalleeBits;
 }
 
-#if INTEL_CUSTOMIZATION
-// Will try to upstream this to community, but needed to enable
-// prefer-vector-width=256 on SKX in xmain.
 bool X86TTIImpl::areFunctionArgsABICompatible(
     const Function *Caller, const Function *Callee,
     SmallPtrSetImpl<Argument *> &Args) const {
@@ -3207,19 +3204,16 @@ bool X86TTIImpl::areFunctionArgsABICompatible(
   // FIXME Look at the arguments and only consider 512 bit or larger vectors?
   const TargetMachine &TM = getTLI()->getTargetMachine();
 
-  const X86Subtarget *CallerST =
-      static_cast<const X86Subtarget *>(TM.getSubtargetImpl(*Caller));
-  const X86Subtarget *CalleeST =
-      static_cast<const X86Subtarget *>(TM.getSubtargetImpl(*Callee));
-  return CallerST->useAVX512Regs() == CalleeST->useAVX512Regs();
+  return TM.getSubtarget<X86Subtarget>(*Caller).useAVX512Regs() ==
+         TM.getSubtarget<X86Subtarget>(*Callee).useAVX512Regs();
 }
-#endif
 
 #if INTEL_CUSTOMIZATION
 unsigned X86TTIImpl::getLoopRotationDefaultThreshold(bool OptForSize) const {
   return (ST->getCPU() == "lakemont" && OptForSize) ? 2 : 16;
 }
 #endif // INTEL_CUSTOMIZATION
+
 const X86TTIImpl::TTI::MemCmpExpansionOptions *
 X86TTIImpl::enableMemCmpExpansion(bool IsZeroCmp) const {
   // Only enable vector loads for equality comparison.

@@ -27,12 +27,12 @@
 
 using namespace llvm;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 namespace {
 
 /// Extracting Module out of \p IR unit. Also fills a textual description
 /// of \p IR for use in header when printing.
 Optional<std::pair<const Module *, std::string>> unwrapModule(Any IR) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (any_isa<const Module *>(IR))
     return std::make_pair(any_cast<const Module *>(IR), std::string());
 
@@ -67,28 +67,22 @@ Optional<std::pair<const Module *, std::string>> unwrapModule(Any IR) {
     L->getHeader()->printAsOperand(ss, false);
     return std::make_pair(M, formatv(" (loop: {0})", ss.str()).str());
   }
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
   llvm_unreachable("Unknown IR unit");
 }
 
 void printIR(const Module *M, StringRef Banner, StringRef Extra = StringRef()) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   dbgs() << Banner << Extra << "\n";
   M->print(dbgs(), nullptr, false);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 void printIR(const Function *F, StringRef Banner,
              StringRef Extra = StringRef()) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (!llvm::isFunctionInPrintList(F->getName()))
     return;
   dbgs() << Banner << Extra << "\n" << static_cast<const Value &>(*F);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 void printIR(const LazyCallGraph::SCC *C, StringRef Banner,
              StringRef Extra = StringRef()) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   bool BannerPrinted = false;
   for (const LazyCallGraph::Node &N : *C) {
     const Function &F = N.getFunction();
@@ -100,21 +94,17 @@ void printIR(const LazyCallGraph::SCC *C, StringRef Banner,
       F.print(dbgs());
     }
   }
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 void printIR(const Loop *L, StringRef Banner) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   const Function *F = L->getHeader()->getParent();
   if (!llvm::isFunctionInPrintList(F->getName()))
     return;
   llvm::printLoop(const_cast<Loop &>(*L), dbgs(), Banner);
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 /// Generic IR-printing helper that unpacks a pointer to IRUnit wrapped into
 /// llvm::Any and does actual print job.
 void unwrapAndPrint(Any IR, StringRef Banner, bool ForceModule = false) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (ForceModule) {
     if (auto UnwrappedModule = unwrapModule(IR))
       printIR(UnwrappedModule->first, Banner, UnwrappedModule->second);
@@ -150,10 +140,11 @@ void unwrapAndPrint(Any IR, StringRef Banner, bool ForceModule = false) {
     return;
   }
   llvm_unreachable("Unknown wrapped IR type");
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 } // namespace
+
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 PrintIRInstrumentation::~PrintIRInstrumentation() {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL

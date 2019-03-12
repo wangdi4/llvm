@@ -2103,9 +2103,13 @@ SDValue SelectionDAG::GetDemandedBits(SDValue V, const APInt &Mask) {
     break;
   case ISD::AND: {
     // X & -1 -> X (ignoring bits which aren't demanded).
-    ConstantSDNode *AndVal = isConstOrConstSplat(V.getOperand(1));
-    if (AndVal && Mask.isSubsetOf(AndVal->getAPIntValue()))
-      return V.getOperand(0);
+    // Also handle the case where masked out bits in X are known to be zero.
+    if (ConstantSDNode *RHSC = isConstOrConstSplat(V.getOperand(1))) {
+      const APInt &AndVal = RHSC->getAPIntValue();
+      if (Mask.isSubsetOf(AndVal) ||
+          Mask.isSubsetOf(computeKnownBits(V.getOperand(0)).Zero | AndVal))
+        return V.getOperand(0);
+    }
     break;
   }
   case ISD::ANY_EXTEND: {
@@ -4513,13 +4517,13 @@ static std::pair<APInt, bool> FoldValue(unsigned Opcode, const APInt &C1,
 }
 
 SDValue SelectionDAG::FoldConstantArithmetic(unsigned Opcode, const SDLoc &DL,
-                                             EVT VT, const ConstantSDNode *Cst1,
-                                             const ConstantSDNode *Cst2) {
-  if (Cst1->isOpaque() || Cst2->isOpaque())
+                                             EVT VT, const ConstantSDNode *C1,
+                                             const ConstantSDNode *C2) {
+  if (C1->isOpaque() || C2->isOpaque())
     return SDValue();
 
-  std::pair<APInt, bool> Folded = FoldValue(Opcode, Cst1->getAPIntValue(),
-                                            Cst2->getAPIntValue());
+  std::pair<APInt, bool> Folded = FoldValue(Opcode, C1->getAPIntValue(),
+                                            C2->getAPIntValue());
   if (!Folded.second)
     return SDValue();
   return getConstant(Folded.first, DL, VT);
@@ -4532,16 +4536,16 @@ SDValue SelectionDAG::FoldSymbolOffset(unsigned Opcode, EVT VT,
     return SDValue();
   if (!TLI->isOffsetFoldingLegal(GA))
     return SDValue();
-  const ConstantSDNode *Cst2 = dyn_cast<ConstantSDNode>(N2);
-  if (!Cst2)
+  auto *C2 = dyn_cast<ConstantSDNode>(N2);
+  if (!C2)
     return SDValue();
-  int64_t Offset = Cst2->getSExtValue();
+  int64_t Offset = C2->getSExtValue();
   switch (Opcode) {
   case ISD::ADD: break;
   case ISD::SUB: Offset = -uint64_t(Offset); break;
   default: return SDValue();
   }
-  return getGlobalAddress(GA->getGlobal(), SDLoc(Cst2), VT,
+  return getGlobalAddress(GA->getGlobal(), SDLoc(C2), VT,
                           GA->getOffset() + uint64_t(Offset));
 }
 
@@ -4571,21 +4575,20 @@ bool SelectionDAG::isUndef(unsigned Opcode, ArrayRef<SDValue> Ops) {
 }
 
 SDValue SelectionDAG::FoldConstantArithmetic(unsigned Opcode, const SDLoc &DL,
-                                             EVT VT, SDNode *Cst1,
-                                             SDNode *Cst2) {
+                                             EVT VT, SDNode *N1, SDNode *N2) {
   // If the opcode is a target-specific ISD node, there's nothing we can
   // do here and the operand rules may not line up with the below, so
   // bail early.
   if (Opcode >= ISD::BUILTIN_OP_END)
     return SDValue();
 
-  if (isUndef(Opcode, {SDValue(Cst1, 0), SDValue(Cst2, 0)}))
+  if (isUndef(Opcode, {SDValue(N1, 0), SDValue(N2, 0)}))
     return getUNDEF(VT);
 
   // Handle the case of two scalars.
-  if (const ConstantSDNode *Scalar1 = dyn_cast<ConstantSDNode>(Cst1)) {
-    if (const ConstantSDNode *Scalar2 = dyn_cast<ConstantSDNode>(Cst2)) {
-      SDValue Folded = FoldConstantArithmetic(Opcode, DL, VT, Scalar1, Scalar2);
+  if (auto *C1 = dyn_cast<ConstantSDNode>(N1)) {
+    if (auto *C2 = dyn_cast<ConstantSDNode>(N2)) {
+      SDValue Folded = FoldConstantArithmetic(Opcode, DL, VT, C1, C2);
       assert((!Folded || !VT.isVector()) &&
              "Can't fold vectors ops with scalar operands");
       return Folded;
@@ -4593,19 +4596,19 @@ SDValue SelectionDAG::FoldConstantArithmetic(unsigned Opcode, const SDLoc &DL,
   }
 
   // fold (add Sym, c) -> Sym+c
-  if (GlobalAddressSDNode *GA = dyn_cast<GlobalAddressSDNode>(Cst1))
-    return FoldSymbolOffset(Opcode, VT, GA, Cst2);
+  if (GlobalAddressSDNode *GA = dyn_cast<GlobalAddressSDNode>(N1))
+    return FoldSymbolOffset(Opcode, VT, GA, N2);
   if (TLI->isCommutativeBinOp(Opcode))
-    if (GlobalAddressSDNode *GA = dyn_cast<GlobalAddressSDNode>(Cst2))
-      return FoldSymbolOffset(Opcode, VT, GA, Cst1);
+    if (GlobalAddressSDNode *GA = dyn_cast<GlobalAddressSDNode>(N2))
+      return FoldSymbolOffset(Opcode, VT, GA, N1);
 
   // For vectors, extract each constant element and fold them individually.
   // Either input may be an undef value.
-  auto *BV1 = dyn_cast<BuildVectorSDNode>(Cst1);
-  if (!BV1 && !Cst1->isUndef())
+  auto *BV1 = dyn_cast<BuildVectorSDNode>(N1);
+  if (!BV1 && !N1->isUndef())
     return SDValue();
-  auto *BV2 = dyn_cast<BuildVectorSDNode>(Cst2);
-  if (!BV2 && !Cst2->isUndef())
+  auto *BV2 = dyn_cast<BuildVectorSDNode>(N2);
+  if (!BV2 && !N2->isUndef())
     return SDValue();
   // If both operands are undef, that's handled the same way as scalars.
   if (!BV1 && !BV2)
@@ -6412,32 +6415,6 @@ SDValue SelectionDAG::getAtomic(unsigned Opcode, const SDLoc &dl, EVT MemVT,
   return SDValue(N, 0);
 }
 
-SDValue SelectionDAG::getAtomicCmpSwap(
-    unsigned Opcode, const SDLoc &dl, EVT MemVT, SDVTList VTs, SDValue Chain,
-    SDValue Ptr, SDValue Cmp, SDValue Swp, MachinePointerInfo PtrInfo,
-    unsigned Alignment, AtomicOrdering SuccessOrdering,
-    AtomicOrdering FailureOrdering, SyncScope::ID SSID) {
-  assert(Opcode == ISD::ATOMIC_CMP_SWAP ||
-         Opcode == ISD::ATOMIC_CMP_SWAP_WITH_SUCCESS);
-  assert(Cmp.getValueType() == Swp.getValueType() && "Invalid Atomic Op Types");
-
-  if (Alignment == 0)  // Ensure that codegen never sees alignment 0
-    Alignment = getEVTAlignment(MemVT);
-
-  MachineFunction &MF = getMachineFunction();
-
-  // FIXME: Volatile isn't really correct; we should keep track of atomic
-  // orderings in the memoperand.
-  auto Flags = MachineMemOperand::MOVolatile | MachineMemOperand::MOLoad |
-               MachineMemOperand::MOStore;
-  MachineMemOperand *MMO =
-    MF.getMachineMemOperand(PtrInfo, Flags, MemVT.getStoreSize(), Alignment,
-                            AAMDNodes(), nullptr, SSID, SuccessOrdering,
-                            FailureOrdering);
-
-  return getAtomicCmpSwap(Opcode, dl, MemVT, VTs, Chain, Ptr, Cmp, Swp, MMO);
-}
-
 SDValue SelectionDAG::getAtomicCmpSwap(unsigned Opcode, const SDLoc &dl,
                                        EVT MemVT, SDVTList VTs, SDValue Chain,
                                        SDValue Ptr, SDValue Cmp, SDValue Swp,
@@ -6448,35 +6425,6 @@ SDValue SelectionDAG::getAtomicCmpSwap(unsigned Opcode, const SDLoc &dl,
 
   SDValue Ops[] = {Chain, Ptr, Cmp, Swp};
   return getAtomic(Opcode, dl, MemVT, VTs, Ops, MMO);
-}
-
-SDValue SelectionDAG::getAtomic(unsigned Opcode, const SDLoc &dl, EVT MemVT,
-                                SDValue Chain, SDValue Ptr, SDValue Val,
-                                const Value *PtrVal, unsigned Alignment,
-                                AtomicOrdering Ordering,
-                                SyncScope::ID SSID) {
-  if (Alignment == 0)  // Ensure that codegen never sees alignment 0
-    Alignment = getEVTAlignment(MemVT);
-
-  MachineFunction &MF = getMachineFunction();
-  // An atomic store does not load. An atomic load does not store.
-  // (An atomicrmw obviously both loads and stores.)
-  // For now, atomics are considered to be volatile always, and they are
-  // chained as such.
-  // FIXME: Volatile isn't really correct; we should keep track of atomic
-  // orderings in the memoperand.
-  auto Flags = MachineMemOperand::MOVolatile;
-  if (Opcode != ISD::ATOMIC_STORE)
-    Flags |= MachineMemOperand::MOLoad;
-  if (Opcode != ISD::ATOMIC_LOAD)
-    Flags |= MachineMemOperand::MOStore;
-
-  MachineMemOperand *MMO =
-    MF.getMachineMemOperand(MachinePointerInfo(PtrVal), Flags,
-                            MemVT.getStoreSize(), Alignment, AAMDNodes(),
-                            nullptr, SSID, Ordering);
-
-  return getAtomic(Opcode, dl, MemVT, Chain, Ptr, Val, MMO);
 }
 
 SDValue SelectionDAG::getAtomic(unsigned Opcode, const SDLoc &dl, EVT MemVT,
@@ -8652,9 +8600,9 @@ ConstantFPSDNode *llvm::isConstOrConstSplatFP(SDValue N, bool AllowUndefs) {
   return nullptr;
 }
 
-bool llvm::isNullOrNullSplat(SDValue N) {
+bool llvm::isNullOrNullSplat(SDValue N, bool AllowUndefs) {
   // TODO: may want to use peekThroughBitcast() here.
-  ConstantSDNode *C = isConstOrConstSplat(N);
+  ConstantSDNode *C = isConstOrConstSplat(N, AllowUndefs);
   return C && C->isNullValue();
 }
 
@@ -9001,6 +8949,50 @@ SDValue SelectionDAG::UnrollVectorOp(SDNode *N, unsigned ResNE) {
 
   EVT VecVT = EVT::getVectorVT(*getContext(), EltVT, ResNE);
   return getBuildVector(VecVT, dl, Scalars);
+}
+
+std::pair<SDValue, SDValue> SelectionDAG::UnrollVectorOverflowOp(
+    SDNode *N, unsigned ResNE) {
+  unsigned Opcode = N->getOpcode();
+  assert((Opcode == ISD::UADDO || Opcode == ISD::SADDO ||
+          Opcode == ISD::USUBO || Opcode == ISD::SSUBO ||
+          Opcode == ISD::UMULO || Opcode == ISD::SMULO) &&
+         "Expected an overflow opcode");
+
+  EVT ResVT = N->getValueType(0);
+  EVT OvVT = N->getValueType(1);
+  EVT ResEltVT = ResVT.getVectorElementType();
+  EVT OvEltVT = OvVT.getVectorElementType();
+  SDLoc dl(N);
+
+  // If ResNE is 0, fully unroll the vector op.
+  unsigned NE = ResVT.getVectorNumElements();
+  if (ResNE == 0)
+    ResNE = NE;
+  else if (NE > ResNE)
+    NE = ResNE;
+
+  SmallVector<SDValue, 8> LHSScalars;
+  SmallVector<SDValue, 8> RHSScalars;
+  ExtractVectorElements(N->getOperand(0), LHSScalars, 0, NE);
+  ExtractVectorElements(N->getOperand(1), RHSScalars, 0, NE);
+
+  SDVTList VTs = getVTList(ResEltVT, OvEltVT);
+  SmallVector<SDValue, 8> ResScalars;
+  SmallVector<SDValue, 8> OvScalars;
+  for (unsigned i = 0; i < NE; ++i) {
+    SDValue Res = getNode(Opcode, dl, VTs, LHSScalars[i], RHSScalars[i]);
+    ResScalars.push_back(Res);
+    OvScalars.push_back(SDValue(Res.getNode(), 1));
+  }
+
+  ResScalars.append(ResNE - NE, getUNDEF(ResEltVT));
+  OvScalars.append(ResNE - NE, getUNDEF(OvEltVT));
+
+  EVT NewResVT = EVT::getVectorVT(*getContext(), ResEltVT, ResNE);
+  EVT NewOvVT = EVT::getVectorVT(*getContext(), OvEltVT, ResNE);
+  return std::make_pair(getBuildVector(NewResVT, dl, ResScalars),
+                        getBuildVector(NewOvVT, dl, OvScalars));
 }
 
 bool SelectionDAG::areNonVolatileConsecutiveLoads(LoadSDNode *LD,

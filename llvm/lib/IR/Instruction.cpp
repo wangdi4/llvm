@@ -337,6 +337,7 @@ const char *Instruction::getOpcodeName(unsigned OpCode) {
   case CatchRet: return "catchret";
   case CatchPad: return "catchpad";
   case CatchSwitch: return "catchswitch";
+  case CallBr: return "callbr";
 
   // Standard unary operators...
   case FNeg: return "fneg";
@@ -441,6 +442,10 @@ static bool haveSameSpecialState(const Instruction *I1, const Instruction *I2,
     return CI->getCallingConv() == cast<InvokeInst>(I2)->getCallingConv() &&
            CI->getAttributes() == cast<InvokeInst>(I2)->getAttributes() &&
            CI->hasIdenticalOperandBundleSchema(*cast<InvokeInst>(I2));
+  if (const CallBrInst *CI = dyn_cast<CallBrInst>(I1))
+    return CI->getCallingConv() == cast<CallBrInst>(I2)->getCallingConv() &&
+           CI->getAttributes() == cast<CallBrInst>(I2)->getAttributes() &&
+           CI->hasIdenticalOperandBundleSchema(*cast<CallBrInst>(I2));
   if (const InsertValueInst *IVI = dyn_cast<InsertValueInst>(I1))
     return IVI->getIndices() == cast<InsertValueInst>(I2)->getIndices();
   if (const ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(I1))
@@ -552,6 +557,7 @@ bool Instruction::mayReadFromMemory() const {
     return true;
   case Instruction::Call:
   case Instruction::Invoke:
+  case Instruction::CallBr:
     return !cast<CallBase>(this)->doesNotAccessMemory();
   case Instruction::Store:
     return !cast<StoreInst>(this)->isUnordered();
@@ -571,6 +577,7 @@ bool Instruction::mayWriteToMemory() const {
     return true;
   case Instruction::Call:
   case Instruction::Invoke:
+  case Instruction::CallBr:
     return !cast<CallBase>(this)->onlyReadsMemory();
   case Instruction::Load:
     return !cast<LoadInst>(this)->isUnordered();
@@ -808,8 +815,8 @@ void Instruction::updateProfWeight(uint64_t S, uint64_t T) {
 }
 
 void Instruction::setProfWeight(uint64_t W) {
-  assert((isa<CallInst>(this) || isa<InvokeInst>(this)) &&
-         "Can only set weights for call and invoke instrucitons");
+  assert(isa<CallBase>(this) &&
+         "Can only set weights for call like instructions");
   SmallVector<uint32_t, 1> Weights;
   Weights.push_back(W);
   MDBuilder MDB(getContext());

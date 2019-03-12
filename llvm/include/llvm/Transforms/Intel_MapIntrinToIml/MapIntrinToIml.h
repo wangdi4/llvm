@@ -87,7 +87,7 @@ private:
   /// \brief Generates \p NumRet number of call instructions to the math
   /// function and inserts them into \p Calls. \p Args are the arguments used
   /// for the call instructions.
-  void generateMathLibCalls(unsigned NumRet, Constant *Func,
+  void generateMathLibCalls(unsigned NumRet, FunctionCallee Func,
                             SmallVectorImpl<SmallVector<Value *, 8>> &Args,
                             SmallVectorImpl<Instruction *> &Calls,
                             Instruction **InsertPt);

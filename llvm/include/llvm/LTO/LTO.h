@@ -139,6 +139,7 @@ public:
     using irsymtab::Symbol::getCOFFWeakExternalFallback;
     using irsymtab::Symbol::getSectionName;
     using irsymtab::Symbol::isExecutable;
+    using irsymtab::Symbol::isUsed;
   };
 
   /// A range over the symbols in this InputFile.
@@ -425,6 +426,8 @@ private:
 
   Error runRegularLTO(AddStreamFn AddStream);
   Error runThinLTO(AddStreamFn AddStream, NativeObjectCache Cache);
+
+  Error checkPartiallySplit();
 
   mutable bool CalledGetMaxTasks = false;
 

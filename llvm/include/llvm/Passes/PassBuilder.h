@@ -55,7 +55,7 @@ struct PGOOptions {
 
 /// This class provides access to building LLVM's passes.
 ///
-/// It's members provide the baseline state available to passes during their
+/// Its members provide the baseline state available to passes during their
 /// construction. The \c PassRegistry.def file specifies how to construct all
 /// of the built-in passes, and those may reference these members during
 /// construction.
@@ -279,7 +279,8 @@ public:
   /// require some transformations for semantic reasons, they should explicitly
   /// build them.
   ModulePassManager buildModuleOptimizationPipeline(OptimizationLevel Level,
-                                                    bool DebugLogging = false);
+                                                    bool DebugLogging = false,
+                                                    bool LTOPreLink = false);
 
   /// Build a per-module default optimization pipeline.
   ///
@@ -293,7 +294,8 @@ public:
   /// require some transformations for semantic reasons, they should explicitly
   /// build them.
   ModulePassManager buildPerModuleDefaultPipeline(OptimizationLevel Level,
-                                                  bool DebugLogging = false);
+                                                  bool DebugLogging = false,
+                                                  bool LTOPreLink = false);
 
   /// Build a pre-link, ThinLTO-targeting default optimization pipeline to
   /// a pass manager.

@@ -1205,7 +1205,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   AllocaInst *PrivateBase = genTaskPrivateMapping(W, KmpSharedTy);
 
   // Set up Fn Attr for the new function
-  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT);
+  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
 
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
   CallSite CS(NewCall);

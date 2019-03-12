@@ -73,11 +73,12 @@ CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
 
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
 
-  Constant *FnC = M->getOrInsertFunction("__kmpc_begin", Type::getVoidTy(C),
-                                         PointerType::getUnqual(IdentTy),
-                                         Type::getInt32Ty(C));
+  FunctionCallee FnC = M->getOrInsertFunction("__kmpc_begin",
+                                              Type::getVoidTy(C),
+                                              PointerType::getUnqual(IdentTy),
+                                              Type::getInt32Ty(C));
 
-  Function *FnKmpcBegin = cast<Function>(FnC);
+  Function *FnKmpcBegin = cast<Function>(FnC.getCallee());
 
   FnKmpcBegin->setCallingConv(CallingConv::C);
 
@@ -105,10 +106,10 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
   GlobalVariable *KmpcLoc =
       genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
 
-  Constant *FnC = M->getOrInsertFunction("__kmpc_end", Type::getVoidTy(C),
-                                         PointerType::getUnqual(IdentTy));
+  FunctionCallee FnC = M->getOrInsertFunction("__kmpc_end", Type::getVoidTy(C),
+                                              PointerType::getUnqual(IdentTy));
 
-  Function *FnKmpcEnd = cast<Function>(FnC);
+  Function *FnKmpcEnd = cast<Function>(FnC.getCallee());
 
   FnKmpcEnd->setCallingConv(CallingConv::C);
 
@@ -2581,8 +2582,8 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
 
   // Get the function prototype from the module symbol table. If absent,
   // create and insert it into the symbol table first.
-  Constant *FnC = M->getOrInsertFunction(FnName, FnTy);
-  Function *Fn = cast<Function>(FnC);
+  FunctionCallee FnC = M->getOrInsertFunction(FnName, FnTy);
+  Function *Fn = cast<Function>(FnC.getCallee());
 
   CallInst *Call = genCall(Fn, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
   return Call;
@@ -2637,8 +2638,8 @@ CallInst *VPOParoptUtils::genEmptyCall(Module *M, StringRef FnName,
 
   // Get the function prototype from the module symbol table. If absent,
   // create and insert it into the symbol table first.
-  Constant *FnC = M->getOrInsertFunction(FnName, FnTy);
-  Function *Fn = cast<Function>(FnC);
+  FunctionCallee FnC = M->getOrInsertFunction(FnName, FnTy);
+  Function *Fn = cast<Function>(FnC.getCallee());
 
   CallInst *Call = CallInst::Create(Fn, "", InsertPt);
   return Call;
@@ -3195,10 +3196,11 @@ uint64_t VPOParoptUtils::getMinInt(Type *Ty, bool IsUnsigned) {
 }
 #endif // if 0
 
-Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W, DominatorTree *DT)
-{
+Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
+                                             DominatorTree *DT,
+                                             AssumptionCache *AC) {
   CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
-                   nullptr, nullptr, false, true);
+                   nullptr, nullptr, AC, false, true);
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
   auto *NewFunction = CE.extractCodeRegion();

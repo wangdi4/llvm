@@ -106,7 +106,7 @@ private:
 
   // Identify the "mallopt" function, if it exists on the target being compiled
   // for.
-  Constant *getMalloptFunction(Module &M, const TargetLibraryInfo &TLI);
+  FunctionCallee getMalloptFunction(Module &M, const TargetLibraryInfo &TLI);
 
   // Insert the necessary calls to mallopt.
   void insertMalloptCalls();
@@ -119,7 +119,7 @@ private:
 
   // Handle to mallopt function, which this transformation will be generating
   // calls to.
-  Constant *MalloptFunc = nullptr;
+  FunctionCallee MalloptFunc = nullptr;
 
   // Handle to the program's "main" function found during analysis.
   Function *MainFunc = nullptr;
@@ -145,7 +145,7 @@ bool WeakAlignImpl::run(Module &M, const TargetLibraryInfo &TLI) {
 
 // Get a handle the mallopt() function, if it is available. Otherwise,
 // return nullptr.
-Constant *WeakAlignImpl::getMalloptFunction(Module &M,
+FunctionCallee WeakAlignImpl::getMalloptFunction(Module &M,
                                             const TargetLibraryInfo &TLI) {
   LibFunc MalloptLF;
   bool Found = TLI.getLibFunc("mallopt", MalloptLF);
@@ -164,7 +164,7 @@ Constant *WeakAlignImpl::getMalloptFunction(Module &M,
 
   LLVMContext &Ctx = M.getContext();
   llvm::Type *Int32Ty = IntegerType::getInt32Ty(Ctx);
-  auto *MalloptFunc =
+  FunctionCallee MalloptFunc =
       M.getOrInsertFunction("mallopt", Int32Ty, Int32Ty, Int32Ty);
   if (!MalloptFunc) {
     LLVM_DEBUG(
@@ -445,9 +445,10 @@ void WeakAlignImpl::insertMalloptCalls() {
 }
 
 // Utility function to generate and insert a call to mallopt.
-CallInst *WeakAlignImpl::createMalloptCall(int32_t Param, int32_t Val,
+CallInst *WeakAlignImpl::createMalloptCall(int32_t Param,
+                                           int32_t Val,
                                            Instruction *InsertBefore) {
-  LLVMContext &Ctx = MalloptFunc->getContext();
+  LLVMContext &Ctx = MalloptFunc.getCallee()->getContext();
   llvm::Type *Int32Ty = IntegerType::getInt32Ty(Ctx);
   Value *Params[] = {ConstantInt::get(Int32Ty, Param),
                      ConstantInt::get(Int32Ty, Val)};

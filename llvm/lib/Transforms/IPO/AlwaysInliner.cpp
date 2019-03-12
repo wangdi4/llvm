@@ -176,14 +176,22 @@ Pass *llvm::createUnskippableAlwaysInlinerLegacyPass(bool InsertLifetime) {
 InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallSite CS) {
   Function *Callee = CS.getCalledFunction();
 
-  // Only inline direct calls to functions with always-inline attributes
-  // that are viable for inlining. FIXME: We shouldn't even get here for
-  // declarations.
+  // that are viable for inlining.
   InlineReason Reason; // INTEL
-  if (Callee && !Callee->isDeclaration() &&
-      CS.hasFnAttr(Attribute::AlwaysInline) &&
-      isInlineViable(*Callee, Reason)) // INTEL
-    return InlineCost::getAlways("always inliner", InlrAlwaysInline); // INTEL
+  if (!Callee)
+    return InlineCost::getNever("indirect call", NinlrNotAlwaysInline); // INTEL
 
-  return InlineCost::getNever("always inliner", NinlrNotAlwaysInline); // INTEL
+  // FIXME: We shouldn't even get here for declarations.
+  if (Callee->isDeclaration())
+    return InlineCost::getNever("no definition", NinlrNotAlwaysInline); // INTEL
+
+  if (!CS.hasFnAttr(Attribute::AlwaysInline))
+    return InlineCost::getNever("no alwaysinline attribute",  // INTEL
+                                NinlrNotAlwaysInline); // INTEL
+
+  auto IsViable = isInlineViable(*Callee, Reason);  // INTEL
+  if (!IsViable)
+    return InlineCost::getNever(IsViable.message, NinlrNotAlwaysInline); // INTEL
+
+  return InlineCost::getAlways("always inliner", InlrAlwaysInline); // INTEL
 }

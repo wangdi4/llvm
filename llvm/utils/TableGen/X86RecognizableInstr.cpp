@@ -883,6 +883,7 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   TYPE("RST",                 TYPE_ST)
+  TYPE("RSTi",                TYPE_ST)
   TYPE("i128mem",             TYPE_M)
   TYPE("i256mem",             TYPE_M)
   TYPE("i512mem",             TYPE_M)
@@ -1020,6 +1021,7 @@ OperandEncoding
 RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
                                                 uint8_t OpSize) {
   ENCODING("RST",             ENCODING_FP)
+  ENCODING("RSTi",            ENCODING_FP)
   ENCODING("GR16",            ENCODING_RM)
   ENCODING("GR32",            ENCODING_RM)
   ENCODING("GR32orGR64",      ENCODING_RM)

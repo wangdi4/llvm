@@ -440,7 +440,7 @@ getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// Minimal filter to detect invalid constructs for inlining.
-bool isInlineViable(Function &Callee,                         // INTEL
-                    InlineReportTypes::InlineReason& Reason); // INTEL
+InlineResult isInlineViable(Function &Callee,                         // INTEL
+                            InlineReportTypes::InlineReason& Reason); // INTEL
 }
 #endif

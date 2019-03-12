@@ -720,7 +720,7 @@ bool SequenceChecker::isValidDistance(const VecCEsTy &CEList1,
 
   unsigned Level = Loop->getNestingLevel();
   for (VecCEsTy::const_iterator I1 = CEList1.begin(), I2 = CEList2.begin(),
-                                EI1 = CEList1.end(), EI2 = CEList2.end();
+                                EI1 = CEList1.end();
        I1 != EI1; ++I1, ++I2) {
     const CanonExpr *CE1 = *I1;
     const CanonExpr *CE2 = *I2;

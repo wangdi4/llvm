@@ -161,7 +161,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   bool Changed = false;
 
   // Set up Fn Attr for the new function
-  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT);
+  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
 
   if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
     NewF->addFnAttr("target.declare", "true");

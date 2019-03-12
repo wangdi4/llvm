@@ -258,6 +258,8 @@ public:
 
   bool shouldFavorPostInc() const { return false; }
 
+  bool shouldFavorBackedgeIndex(const Loop *L) const { return false; }
+
   bool isLegalMaskedStore(Type *DataType) { return false; }
 
   bool isLegalMaskedLoad(Type *DataType) { return false; }
