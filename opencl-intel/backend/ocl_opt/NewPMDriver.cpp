@@ -185,7 +185,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   Optional<PGOOptions> P;
   switch (PGOKindFlag) {
     case InstrGen:
-      P = PGOOptions(ProfileFile, "", "", PGOOPtions::IRInstr);
+      P = PGOOptions(ProfileFile, "", "", PGOOptions::IRInstr);
       break;
     case InstrUse:
       P = PGOOptions(ProfileFile, "", ProfileRemappingFile, PGOOptions::IRUse);
