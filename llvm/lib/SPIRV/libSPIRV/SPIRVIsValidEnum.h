@@ -418,6 +418,7 @@ isValid(spv::Decoration V) {
     case DecorationMemoryINTEL:
     case DecorationNumbanksINTEL:
     case DecorationBankwidthINTEL:
+    case DecorationMaxConcurrencyINTEL:
       return true;
     default:
       return false;
