@@ -794,20 +794,20 @@ MachineInstr *CSASeqOpt::lpInitForPickSwitchPair(MachineInstr *pickInstr,
       MachineInstr *initInstr = TII->isInit(&*defI) ? &*defI : &*defInext;
       MachineInstr *movInstr  = TII->isMOV(&*defI) ? &*defI : &*defInext;
       MachineInstr *cmpInstr  = MRI->getVRegDef(
-        movInstr->getOperand(1).getReg()); // could be cmp or mov/not
-      if ((TII->isCmp(cmpInstr) ||
-           (lpcmpInstr &&
-            getSeqOTDef(cmpInstr->getOperand(1)) == lpcmpInstr)) &&
-          initInstr->getOperand(1).isImm() &&
-          (initInstr->getOperand(1).getImm() == 1 ||
-           initInstr->getOperand(1).getImm() == 0)) {
-        backedgeReg = initInstr->getOperand(1).getImm() == 0
-                        ? pickInstr->getOperand(3).getReg()
-                        : pickInstr->getOperand(2).getReg();
-        if (MRI->getVRegDef(switchInstr->getOperand(2).getReg()) == cmpInstr) {
-          result = initInstr;
-        }
+        movInstr->getOperand(1).getReg());
+      // If we expect a specific sequence here, bail if the init isn't that.
+      if (lpcmpInstr && !(lpcmpInstr == cmpInstr ||
+            getSeqOTDef(cmpInstr->getOperand(1)) == lpcmpInstr)) {
+        return nullptr;
       }
+      // If the switch doesn't use the same source as the compare, bail.
+      if (MRI->getVRegDef(switchInstr->getOperand(2).getReg()) != cmpInstr) {
+        return nullptr;
+      }
+      result = initInstr;
+      backedgeReg = initInstr->getOperand(1).getImm() == 0
+                  ? pickInstr->getOperand(3).getReg()
+                  : pickInstr->getOperand(2).getReg();
     }
   }
   return result;
