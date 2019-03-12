@@ -170,15 +170,15 @@ public:
 
         // Blocking built-ins differ from non blocking only by name, so we
         // import a non-blocking function to get a declaration ...
-        NewF = cast<Function>(
+        NewF =
             CompilationUtils::importFunctionDecl(
                 M, PipesModule->getFunction(
-                    CompilationUtils::getPipeName(NonBlockingKind))));
+                    CompilationUtils::getPipeName(NonBlockingKind)));
         // ... and change it's name.
         NewF->setName(CompilationUtils::getPipeName(Kind));
       } else {
-        NewF = cast<Function>(CompilationUtils::importFunctionDecl(
-                                  M, PipesModule->getFunction(NewFName)));
+        NewF = CompilationUtils::importFunctionDecl(
+                                  M, PipesModule->getFunction(NewFName));
       }
     }
 

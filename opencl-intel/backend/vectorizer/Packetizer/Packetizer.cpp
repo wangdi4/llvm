@@ -1771,11 +1771,11 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
                                       oldFnType->isVarArg());
 
   // Find (or create) declaration for newly called function
-  Constant * vectFunctionConst = m_currFunc->getParent()->getOrInsertFunction(
+  FunctionCallee vectFunctionConst = m_currFunc->getParent()->getOrInsertFunction(
       LibFunc->getName(), newFnType, LibFunc->getAttributes());
 
   V_ASSERT(vectFunctionConst && "failed generating function in current module");
-  Function *vectorFunction = dyn_cast<Function>(vectFunctionConst);
+  Function *vectorFunction = dyn_cast<Function>(vectFunctionConst.getCallee());
   V_ASSERT(vectorFunction && "Function type mismatch, caused a constant expression cast!");
 
   // Create new instruction
@@ -2726,10 +2726,10 @@ Function* PacketizeFunction::getTransposeFunc(bool isLoad, VectorType * origVecT
 
   // Find (or create) declaration for newly called function
   using namespace Intel::OpenCL::DeviceBackend;
-  Constant* loadTransposeFunc = CompilationUtils::importFunctionDecl(
+  FunctionCallee loadTransposeFunc = CompilationUtils::importFunctionDecl(
     m_currFunc->getParent(), loadTransposeFuncRT);
   V_ASSERT(loadTransposeFunc && "Failed generating function in current module");
-  Function* transposeFunc = dyn_cast<Function>(loadTransposeFunc);
+  Function* transposeFunc = dyn_cast<Function>(loadTransposeFunc.getCallee());
   V_ASSERT(transposeFunc && "Function type mismatch, caused a constant expression cast!");
 
   return transposeFunc;

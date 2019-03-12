@@ -1368,8 +1368,8 @@ ChannelKind CompilationUtils::getChannelKind(const std::string &Name) {
   return Kind;
 }
 
-Constant *CompilationUtils::importFunctionDecl(Module *Dst,
-                                               const Function *Orig) {
+Function *CompilationUtils::importFunctionDecl(Module *Dst,
+                                                    const Function *Orig) {
   assert(Dst && "Invalid module");
   assert(Orig && "Invalid function");
 
@@ -1401,8 +1401,8 @@ Constant *CompilationUtils::importFunctionDecl(Module *Dst,
                                    NewArgTypes,
                                    Orig->isVarArg());
 
-  return Dst->getOrInsertFunction(
-    Orig->getName(), NewFnType, Orig->getAttributes());
+  return cast<Function>(Dst->getOrInsertFunction(
+    Orig->getName(), NewFnType, Orig->getAttributes()).getCallee());
 }
 
 StringRef CompilationUtils::stripStructNameTrailingDigits(StringRef TyName) {

@@ -254,7 +254,7 @@ namespace intel {
     types.push_back(divisorType);
     FunctionType *intr = FunctionType::get(divisorType, types, false);
     llvm::Module* pModule = divInst->getParent()->getParent()->getParent();
-    Function* divFuncInModule = cast<Function>(pModule->getOrInsertFunction(funcName.c_str(), intr));
+    Function* divFuncInModule = cast<Function>(pModule->getOrInsertFunction(funcName.c_str(), intr).getCallee());
 
     // Create a call
     SmallVector<Value*, 2> args;

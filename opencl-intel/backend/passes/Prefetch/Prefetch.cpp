@@ -1253,7 +1253,7 @@ void Prefetch::insertPF (Instruction *I, Loop *L, int PFType,
   types.push_back(m_i32);
 
   FunctionType *intr = FunctionType::get(m_void, types, false);
-  Constant *new_f = addr->getParent()->getParent()->getParent()->
+  FunctionCallee new_f = addr->getParent()->getParent()->getParent()->
       getOrInsertFunction(m_prefetchIntrinsicName, intr);
 
   CallInst *callInst = CallInst::Create(new_f, ArrayRef<Value*>(args), "", I);
@@ -1817,7 +1817,7 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
 
   Type *voidTy = Type::getVoidTy(context);
   FunctionType *intr = FunctionType::get(voidTy, types, false);
-  Constant *new_f = M->getOrInsertFunction(pfIntrinName, intr);
+  FunctionCallee new_f = M->getOrInsertFunction(pfIntrinName, intr);
 
   CallInst *callInst = CallInst::Create(new_f, ArrayRef<Value*>(args), "", I);
 

@@ -513,7 +513,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @return function declaration Function* (if import succeed) or a
     /// bitcast if a function with the same name, but different type, is
     /// already exist in the \p Dst.
-    static Constant *importFunctionDecl(Module *Dst, const Function *Orig);
+    static Function *importFunctionDecl(Module *Dst, const Function *Orig);
 
     /// Check if at least one of the image types is defined in the module
     static bool isImagesUsed(const Module &M);
@@ -596,8 +596,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       for (auto *BIModule : RTLs) {
         if (auto *F = BIModule->getFunction(Name)) {
-          return cast<Function>(
-              CompilationUtils::importFunctionDecl(&TargetModule, F));
+          return CompilationUtils::importFunctionDecl(&TargetModule, F);
         }
       }
 

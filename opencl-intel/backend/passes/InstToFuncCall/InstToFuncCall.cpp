@@ -57,7 +57,7 @@ namespace intel{
         }
 
         FunctionType *proto = FunctionType::get(inst->getType(), types, false);
-        Constant* new_f = func->getParent()->getOrInsertFunction(funcName, proto);
+        FunctionCallee new_f = func->getParent()->getOrInsertFunction(funcName, proto);
         CallInst* call = CallInst::Create(new_f, ArrayRef<Value*>(args), "call_conv");
         call->setCallingConv(CC);
         llvm::ReplaceInstWithInst(inst->getParent()->getInstList(), II,call);
