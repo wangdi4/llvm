@@ -2417,7 +2417,8 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
         return nullptr;
       }
 
-      ExprResult Init(ParseInitializer());
+      PreferredType.enterVariableInit(Tok.getLocation(), ThisDecl);
+      ExprResult Init = ParseInitializer();
 
       // If this is the only decl in (possibly) range based for statement,
       // our best guess is that the user meant ':' instead of '='.
@@ -3865,7 +3866,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw_channel:
       if (!getLangOpts().OpenCL ||
           !getTargetInfo().getSupportedOpenCLOpts()
-          .isSupported("cl_intel_channels", 100)) {
+          .isSupported("cl_intel_channels", getLangOpts())) {
         // 'channel' is a keyword only for OpenCL with cl_intel_channels
         // extension
         Tok.setKind(tok::identifier);
@@ -3989,19 +3990,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
                                  getLangOpts());
       break;
 
-    // OpenCL access qualifiers:
-    case tok::kw___read_only:
-    case tok::kw___write_only:
-    case tok::kw___read_write:
-      // OpenCL C++ 1.0 s2.2: access qualifiers are reserved keywords.
-      if (Actions.getLangOpts().OpenCLCPlusPlus) {
-        DiagID = diag::err_openclcxx_reserved;
-        PrevSpec = Tok.getIdentifierInfo()->getNameStart();
-        isInvalid = true;
-      }
-      ParseOpenCLQualifiers(DS.getAttributes());
-      break;
-
     // OpenCL address space qualifiers:
     case tok::kw___generic:
 #if INTEL_CUSTOMIZATION
@@ -4022,6 +4010,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw___global:
     case tok::kw___local:
     case tok::kw___constant:
+    // OpenCL access qualifiers:
+    case tok::kw___read_only:
+    case tok::kw___write_only:
+    case tok::kw___read_write:
       ParseOpenCLQualifiers(DS.getAttributes());
       break;
 

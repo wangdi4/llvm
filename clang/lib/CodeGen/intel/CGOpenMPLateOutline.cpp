@@ -1993,6 +1993,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_threadprivate:
   case OMPD_declare_reduction:
   case OMPD_declare_simd:
+  case OMPD_declare_mapper:
   case OMPD_unknown:
     llvm_unreachable("Wrong OpenMP directive");
 

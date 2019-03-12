@@ -5481,7 +5481,9 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
   case CXCursor_StaticAssert:
       return cxstring::createRef("StaticAssert");
   case CXCursor_FriendDecl:
-    return cxstring::createRef("FriendDecl");
+      return cxstring::createRef("FriendDecl");
+  case CXCursor_ConvergentAttr:
+      return cxstring::createRef("attribute(convergent)");
   }
 
   llvm_unreachable("Unhandled CXCursorKind");
@@ -6236,6 +6238,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::Import:
   case Decl::OMPThreadPrivate:
   case Decl::OMPDeclareReduction:
+  case Decl::OMPDeclareMapper:
   case Decl::OMPRequires:
   case Decl::ObjCTypeParam:
   case Decl::BuiltinTemplate:

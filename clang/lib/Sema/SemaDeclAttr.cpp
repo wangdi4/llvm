@@ -717,7 +717,8 @@ static void checkAttrArgsAreCapabilityObjs(Sema &S, Decl *D,
         uint64_t ParamIdxFromOne = ArgValue.getZExtValue();
         uint64_t ParamIdxFromZero = ParamIdxFromOne - 1;
         if (!ArgValue.isStrictlyPositive() || ParamIdxFromOne > NumParams) {
-          S.Diag(AL.getLoc(), diag::err_attribute_argument_out_of_range)
+          S.Diag(AL.getLoc(),
+                 diag::err_attribute_argument_out_of_bounds_extra_info)
               << AL << Idx + 1 << NumParams;
           continue;
         }
@@ -1119,7 +1120,7 @@ static void handlePassObjectSizeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // __builtin_object_size. So, it has the same constraints as that second
   // argument; namely, it must be in the range [0, 3].
   if (Type > 3) {
-    S.Diag(E->getBeginLoc(), diag::err_attribute_argument_outof_range)
+    S.Diag(E->getBeginLoc(), diag::err_attribute_argument_out_of_range)
         << AL << 0 << 3 << E->getSourceRange();
     return;
   }
@@ -4548,7 +4549,7 @@ static void handleInitPriorityAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
   if (prioritynum < 101 || prioritynum > 65535) {
-    S.Diag(AL.getLoc(), diag::err_attribute_argument_outof_range)
+    S.Diag(AL.getLoc(), diag::err_attribute_argument_out_of_range)
         << E->getSourceRange() << AL << 101 << 65535;
     AL.setInvalid();
     return;
@@ -6615,11 +6616,22 @@ static void handleObjCBridgeRelatedAttr(Sema &S, Decl *D,
 
 static void handleObjCDesignatedInitializer(Sema &S, Decl *D,
                                             const ParsedAttr &AL) {
+  DeclContext *Ctx = D->getDeclContext();
+
+  // This attribute can only be applied to methods in interfaces or class
+  // extensions.
+  if (!isa<ObjCInterfaceDecl>(Ctx) &&
+      !(isa<ObjCCategoryDecl>(Ctx) &&
+        cast<ObjCCategoryDecl>(Ctx)->IsClassExtension())) {
+    S.Diag(D->getLocation(), diag::err_designated_init_attr_non_init);
+    return;
+  }
+
   ObjCInterfaceDecl *IFace;
-  if (auto *CatDecl = dyn_cast<ObjCCategoryDecl>(D->getDeclContext()))
+  if (auto *CatDecl = dyn_cast<ObjCCategoryDecl>(Ctx))
     IFace = CatDecl->getClassInterface();
   else
-    IFace = cast<ObjCInterfaceDecl>(D->getDeclContext());
+    IFace = cast<ObjCInterfaceDecl>(Ctx);
 
   if (!IFace)
     return;
@@ -7118,6 +7130,29 @@ static void handleWebAssemblyImportModuleAttr(Sema &S, Decl *D, const ParsedAttr
     return;
 
   FD->addAttr(::new (S.Context) WebAssemblyImportModuleAttr(
+      AL.getRange(), S.Context, Str,
+      AL.getAttributeSpellingListIndex()));
+}
+
+static void handleWebAssemblyImportNameAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (!isFunctionOrMethod(D)) {
+    S.Diag(D->getLocation(), diag::warn_attribute_wrong_decl_type)
+        << "'import_name'" << ExpectedFunction;
+    return;
+  }
+
+  auto *FD = cast<FunctionDecl>(D);
+  if (FD->isThisDeclarationADefinition()) {
+    S.Diag(D->getLocation(), diag::err_alias_is_definition) << FD << 0;
+    return;
+  }
+
+  StringRef Str;
+  SourceLocation ArgLoc;
+  if (!S.checkStringLiteralArgumentAttr(AL, 0, Str, &ArgLoc))
+    return;
+
+  FD->addAttr(::new (S.Context) WebAssemblyImportNameAttr(
       AL.getRange(), S.Context, Str,
       AL.getAttributeSpellingListIndex()));
 }
@@ -7679,7 +7714,9 @@ static void handleOpenCLAccessAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (const auto *PDecl = dyn_cast<ParmVarDecl>(D)) {
     const Type *DeclTy = PDecl->getType().getCanonicalType().getTypePtr();
     if (AL.getName()->getName().find("read_write") != StringRef::npos) {
-      if (S.getLangOpts().OpenCLVersion < 200 || DeclTy->isPipeType()) {
+      if ((!S.getLangOpts().OpenCLCPlusPlus &&
+           S.getLangOpts().OpenCLVersion < 200) ||
+          DeclTy->isPipeType()) {
         S.Diag(AL.getLoc(), diag::err_opencl_invalid_read_write)
             << AL << PDecl->getType() << DeclTy->isImageType();
         D->setInvalidDecl(true);
@@ -7786,6 +7823,53 @@ static void handleObjCExternallyRetainedAttr(Sema &S, Decl *D,
   handleSimpleAttribute<ObjCExternallyRetainedAttr>(S, D, AL);
 }
 
+static void handleFortifyStdLib(Sema &S, Decl *D, const ParsedAttr &AL) {
+  auto *FD = cast<FunctionDecl>(D);
+  unsigned VariantID = Builtin::getFortifiedVariantFunction(FD->getBuiltinID());
+  if (VariantID == 0) {
+    S.Diag(D->getLocation(), diag::err_fortify_std_lib_bad_decl);
+    return;
+  }
+
+  uint32_t BOSType, Flag;
+  if (!checkUInt32Argument(S, AL, AL.getArgAsExpr(0), BOSType, 0, true) ||
+      !checkUInt32Argument(S, AL, AL.getArgAsExpr(1), Flag, 1, true))
+    return;
+
+  if (BOSType > 3) {
+    S.Diag(AL.getArgAsExpr(0)->getBeginLoc(),
+           diag::err_attribute_argument_out_of_range)
+        << AL << 0 << 3;
+    return;
+  }
+
+  D->addAttr(::new (S.getASTContext()) FortifyStdLibAttr(
+      AL.getLoc(), S.getASTContext(), BOSType, Flag,
+      AL.getAttributeSpellingListIndex()));
+}
+
+static void handleMIGServerRoutineAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  // Check that the return type is a `typedef int kern_return_t` or a typedef
+  // around it, because otherwise MIG convention checks make no sense.
+  // BlockDecl doesn't store a return type, so it's annoying to check,
+  // so let's skip it for now.
+  if (!isa<BlockDecl>(D)) {
+    QualType T = getFunctionOrMethodResultType(D);
+    bool IsKernReturnT = false;
+    while (const auto *TT = T->getAs<TypedefType>()) {
+      IsKernReturnT = (TT->getDecl()->getName() == "kern_return_t");
+      T = TT->desugar();
+    }
+    if (!IsKernReturnT || T.getCanonicalType() != S.getASTContext().IntTy) {
+      S.Diag(D->getBeginLoc(),
+             diag::warn_mig_server_routine_does_not_return_kern_return_t);
+      return;
+    }
+  }
+
+  handleSimpleAttribute<MIGServerRoutineAttr>(S, D, AL);
+}
+
 //===----------------------------------------------------------------------===//
 // Top Level Sema Entry Points
 //===----------------------------------------------------------------------===//
@@ -7877,6 +7961,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_WebAssemblyImportModule:
     handleWebAssemblyImportModuleAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_WebAssemblyImportName:
+    handleWebAssemblyImportNameAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IBAction:
     handleSimpleAttribute<IBActionAttr>(S, D, AL);
@@ -8194,6 +8281,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_ObjCRootClass:
     handleSimpleAttribute<ObjCRootClassAttr>(S, D, AL);
+    break;
+  case ParsedAttr::AT_ObjCNonLazyClass:
+    handleSimpleAttribute<ObjCNonLazyClassAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_ObjCSubclassingRestricted:
     handleSimpleAttribute<ObjCSubclassingRestrictedAttr>(S, D, AL);
@@ -8650,6 +8740,14 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_ObjCExternallyRetained:
     handleObjCExternallyRetainedAttr(S, D, AL);
     break;
+
+  case ParsedAttr::AT_FortifyStdLib:
+    handleFortifyStdLib(S, D, AL);
+    break;
+
+  case ParsedAttr::AT_MIGServerRoutine:
+    handleMIGServerRoutineAttr(S, D, AL);
+    break;
   }
 }
 
@@ -8780,6 +8878,17 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       D->setInvalidDecl();
   }
 #endif // INTEL_CUSTOMIZATION
+
+  // Do this check after processing D's attributes because the attribute
+  // objc_method_family can change whether the given method is in the init
+  // family, and it can be applied after objc_designated_initializer. This is a
+  // bit of a hack, but we need it to be compatible with versions of clang that
+  // processed the attribute list in the wrong order.
+  if (D->hasAttr<ObjCDesignatedInitializerAttr>() &&
+      cast<ObjCMethodDecl>(D)->getMethodFamily() != OMF_init) {
+    Diag(D->getLocation(), diag::err_designated_init_attr_non_init);
+    D->dropAttr<ObjCDesignatedInitializerAttr>();
+  }
 }
 
 // Helper for delayed processing TransparentUnion attribute.

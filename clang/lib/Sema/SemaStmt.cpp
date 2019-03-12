@@ -349,10 +349,6 @@ sema::CompoundScopeInfo &Sema::getCurCompoundScope() const {
   return getCurFunction()->CompoundScopes.back();
 }
 
-bool Sema::isCurCompoundStmtAStmtExpr() const {
-  return getCurCompoundScope().IsStmtExpr;
-}
-
 StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
                                    ArrayRef<Stmt *> Elts,
                                    bool isStmtExpr) { //***INTEL
@@ -4030,12 +4026,10 @@ StmtResult Sema::ActOnCXXTryBlock(SourceLocation TryLoc, Stmt *TryBlock,
                                   ArrayRef<Stmt *> Handlers) {
   // Don't report an error if 'try' is used in system headers.
   if (!getLangOpts().CXXExceptions &&
-      !getSourceManager().isInSystemHeader(TryLoc) &&
-      (!getLangOpts().OpenMPIsDevice ||
-       !getLangOpts().OpenMPHostCXXExceptions ||
-       isInOpenMPTargetExecutionDirective() ||
-       isInOpenMPDeclareTargetContext()))
-    Diag(TryLoc, diag::err_exceptions_disabled) << "try";
+      !getSourceManager().isInSystemHeader(TryLoc)) {
+    // Delay error emission for the OpenMP device code.
+    targetDiag(TryLoc, diag::err_exceptions_disabled) << "try";
+  }
 
   // Exceptions aren't allowed in CUDA device code.
   if (getLangOpts().CUDA)

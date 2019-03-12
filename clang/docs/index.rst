@@ -36,6 +36,7 @@ Using Clang as a Compiler
    AttributeReference
    DiagnosticsReference
    CrossCompilation
+   ClangStaticAnalyzer
    ThreadSafetyAnalysis
    AddressSanitizer
    ThreadSanitizer

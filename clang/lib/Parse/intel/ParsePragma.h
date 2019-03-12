@@ -15,18 +15,6 @@ class PragmaInlineHandler: public PragmaHandler {
     explicit PragmaInlineHandler(const char *name) : PragmaHandler(name) {}
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
 };
-// #pragma forceinline
-class PragmaForceInlineHandler: public PragmaHandler {
-  public:
-    explicit PragmaForceInlineHandler() : PragmaHandler("forceinline") {}
-    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
-};
-// #pragma noinline
-class PragmaNoInlineHandler: public PragmaHandler {
-  public:
-    explicit PragmaNoInlineHandler() : PragmaHandler("noinline") {}
-    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
-};
 
 // #pragma block_loop
 class PragmaBlockLoopHandler : public PragmaHandler {

@@ -642,7 +642,7 @@ namespace {
 
     void writeDumpChildren(raw_ostream &OS) const override {
       OS << "    if (SA->is" << getUpperName() << "Expr())\n";
-      OS << "      dumpStmt(SA->get" << getUpperName() << "Expr());\n";
+      OS << "      Visit(SA->get" << getUpperName() << "Expr());\n";
     }
 
     void writeHasChildren(raw_ostream &OS) const override {
@@ -1145,7 +1145,7 @@ namespace {
     void writeDump(raw_ostream &OS) const override {}
 
     void writeDumpChildren(raw_ostream &OS) const override {
-      OS << "    dumpStmt(SA->get" << getUpperName() << "());\n";
+      OS << "    Visit(SA->get" << getUpperName() << "());\n";
     }
 
     void writeHasChildren(raw_ostream &OS) const override { OS << "true"; }
@@ -1235,7 +1235,7 @@ namespace {
       OS << "    for (" << getAttrName() << "Attr::" << getLowerName()
          << "_iterator I = SA->" << getLowerName() << "_begin(), E = SA->"
          << getLowerName() << "_end(); I != E; ++I)\n";
-      OS << "      dumpStmt(*I);\n";
+      OS << "      Visit(*I);\n";
     }
 
     void writeHasChildren(raw_ostream &OS) const override {

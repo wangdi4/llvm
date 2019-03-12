@@ -6290,10 +6290,10 @@ void Sema::AddOverloadCandidate(FunctionDecl *Function,
   // supported is not viable.
   if (getLangOpts().OpenCL) {
     bool HasHalf =
-      getOpenCLOptions().isSupported("cl_khr_fp16", getLangOpts().OpenCLVersion)
+      getOpenCLOptions().isSupported("cl_khr_fp16", getLangOpts())
       && getOpenCLOptions().isEnabled("cl_khr_fp16");
     bool HasDouble =
-      getOpenCLOptions().isSupported("cl_khr_fp64", getLangOpts().OpenCLVersion)
+      getOpenCLOptions().isSupported("cl_khr_fp64", getLangOpts())
       && getOpenCLOptions().isEnabled("cl_khr_fp64");
 
     if ((!HasHalf && Function->getReturnType()->isHalfType()) ||

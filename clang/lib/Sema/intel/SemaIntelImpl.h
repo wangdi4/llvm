@@ -20,7 +20,7 @@ bool Sema::checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
 
   if (Value < AttrType::getMinValue() || Value > AttrType::getMaxValue()) {
     Diag(TmpAttr->getRange().getBegin(),
-         diag::err_attribute_argument_outof_range)
+         diag::err_attribute_argument_out_of_range)
         << TmpAttr << AttrType::getMinValue() << AttrType::getMaxValue()
         << E->getSourceRange();
     return true;

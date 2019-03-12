@@ -51,5 +51,5 @@ void SanityBool() {
 // CHECK: declare void @llvm.intel.hls.mm.master.init.s_struct.Foos(%struct.Foo*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1)
 // CHECK: declare %struct.Foo* @llvm.intel.hls.mm.master.load.s_struct.Foos(%struct.Foo*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1, i32)
 
-// CHECK: declare void @llvm.intel.hls.mm.master.init.i1(i1*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1)
-// CHECK: declare i1* @llvm.intel.hls.mm.master.load.i1(i1*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1, i32)
+// CHECK: declare void @llvm.intel.hls.mm.master.init.i8(i8*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1)
+// CHECK: declare i8* @llvm.intel.hls.mm.master.load.i8(i8*, i32, i1, i32, i32, i32, i32, i32, i32, i32, i1, i32)

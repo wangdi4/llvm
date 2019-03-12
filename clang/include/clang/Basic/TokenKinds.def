@@ -243,10 +243,9 @@ PUNCTUATOR(caretcaret,            "^^")
 //                are enabled.
 //   KEYGNU   - This is a keyword if GNU extensions are enabled
 //   KEYMS    - This is a keyword if Microsoft extensions are enabled
+//   KEYMSCOMPAT - This is a keyword if Microsoft compatibility mode is enabled
 //   KEYNOMS18 - This is a keyword that must never be enabled under
 //               MSVC <= v18.
-//   KEYMSCOMPAT - This is a keyword if Microsoft compatibility mode // INTEL
-//                 is enabled // INTEL
 //   KEYOPENCLC   - This is a keyword in OpenCL C
 //   KEYOPENCLCXX - This is a keyword in OpenCL C++
 //   KEYNOOPENCL  - This is a keyword that is not supported in OpenCL C
@@ -369,7 +368,7 @@ CXX11_KEYWORD(constexpr             , 0)
 CXX11_KEYWORD(decltype              , 0)
 CXX11_KEYWORD(noexcept              , 0)
 CXX11_KEYWORD(nullptr               , 0)
-CXX11_KEYWORD(static_assert         , KEYMSCOMPAT) // INTEL
+CXX11_KEYWORD(static_assert         , KEYMSCOMPAT)
 CXX11_KEYWORD(thread_local          , 0)
 
 // C++2a / concepts TS keywords
@@ -582,9 +581,9 @@ ALIAS("read_only", __read_only      , KEYOPENCLC | KEYOPENCLCXX)
 ALIAS("write_only", __write_only    , KEYOPENCLC | KEYOPENCLCXX)
 ALIAS("read_write", __read_write    , KEYOPENCLC | KEYOPENCLCXX)
 // OpenCL builtins
-KEYWORD(__builtin_astype            , KEYOPENCLC)
+KEYWORD(__builtin_astype            , KEYOPENCLC | KEYOPENCLCXX)
 KEYWORD(vec_step                    , KEYOPENCLC | KEYALTIVEC | KEYZVECTOR)
-#define GENERIC_IMAGE_TYPE(ImgType, Id) KEYWORD(ImgType##_t, KEYOPENCLC)
+#define GENERIC_IMAGE_TYPE(ImgType, Id) KEYWORD(ImgType##_t, KEYOPENCLC | KEYOPENCLCXX)
 #include "clang/Basic/OpenCLImageTypes.def"
 
 // OpenMP Type Traits

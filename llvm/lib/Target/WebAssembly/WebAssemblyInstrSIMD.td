@@ -30,7 +30,7 @@ defm "" : ARGUMENT<V128, v2f64>;
 // Constrained immediate argument types
 foreach SIZE = [8, 16] in
 def ImmI#SIZE : ImmLeaf<i32,
-  "return ((uint64_t)Imm & ((1UL << "#SIZE#") - 1)) == (uint64_t)Imm;"
+  "return -(1 << ("#SIZE#" - 1)) <= Imm && Imm < (1 << ("#SIZE#" - 1));"
 >;
 foreach SIZE = [2, 4, 8, 16, 32] in
 def LaneIdx#SIZE : ImmLeaf<i32, "return 0 <= Imm && Imm < "#SIZE#";">;
@@ -94,7 +94,7 @@ def : StorePatExternSymOffOnly<vec_t, store, !cast<NI>("STORE_"#vec_t)>;
 // Constant: v128.const
 multiclass ConstVec<ValueType vec_t, dag ops, dag pat, string args> {
   let isMoveImm = 1, isReMaterializable = 1,
-    Predicates = [HasSIMD128, HasUnimplementedSIMD128] in
+      Predicates = [HasSIMD128, HasUnimplementedSIMD128] in
   defm CONST_V128_#vec_t : SIMD_I<(outs V128:$dst), ops, (outs), ops,
                                   [(set V128:$dst, (vec_t pat))],
                                   "v128.const\t$dst, "#args,
@@ -125,6 +125,7 @@ defm "" : ConstVec<v8i16,
                      ImmI16:$i0, ImmI16:$i1, ImmI16:$i2, ImmI16:$i3,
                      ImmI16:$i4, ImmI16:$i5, ImmI16:$i6, ImmI16:$i7),
                    "$i0, $i1, $i2, $i3, $i4, $i5, $i6, $i7">;
+let IsCanonical = 1 in
 defm "" : ConstVec<v4i32,
                    (ins vec_i32imm_op:$i0, vec_i32imm_op:$i1,
                         vec_i32imm_op:$i2, vec_i32imm_op:$i3),

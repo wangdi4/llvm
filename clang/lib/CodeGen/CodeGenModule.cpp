@@ -2285,6 +2285,10 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
       if (MustBeEmitted(Global))
         EmitOMPDeclareReduction(DRD);
       return;
+    } else if (auto *DMD = dyn_cast<OMPDeclareMapperDecl>(Global)) {
+      if (MustBeEmitted(Global))
+        EmitOMPDeclareMapper(DMD);
+      return;
     }
   }
 
@@ -2671,8 +2675,7 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
   assert(FD && "Not a FunctionDecl?");
   const auto *DD = FD->getAttr<CPUDispatchAttr>();
   assert(DD && "Not a cpu_dispatch Function?");
-  QualType CanonTy = Context.getCanonicalType(FD->getType());
-  llvm::Type *DeclTy = getTypes().ConvertFunctionType(CanonTy, FD);
+  llvm::Type *DeclTy = getTypes().ConvertType(FD->getType());
 
   if (const auto *CXXFD = dyn_cast<CXXMethodDecl>(FD)) {
     const CGFunctionInfo &FInfo = getTypes().arrangeCXXMethodDeclaration(CXXFD);
@@ -3011,8 +3014,7 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
   // If there was no specific requested type, just convert it now.
   if (!Ty) {
     const auto *FD = cast<FunctionDecl>(GD.getDecl());
-    auto CanonTy = Context.getCanonicalType(FD->getType());
-    Ty = getTypes().ConvertFunctionType(CanonTy, FD);
+    Ty = getTypes().ConvertType(FD->getType());
   }
 
   // Devirtualized destructor calls may come through here instead of via
@@ -3071,7 +3073,7 @@ GetRuntimeFunctionDecl(ASTContext &C, StringRef Name) {
 
 /// CreateRuntimeFunction - Create a new runtime function with the specified
 /// type and name.
-llvm::Constant *
+llvm::FunctionCallee
 CodeGenModule::CreateRuntimeFunction(llvm::FunctionType *FTy, StringRef Name,
                                      llvm::AttributeList ExtraAttrs,
                                      bool Local) {
@@ -3097,15 +3099,7 @@ CodeGenModule::CreateRuntimeFunction(llvm::FunctionType *FTy, StringRef Name,
     }
   }
 
-  return C;
-}
-
-/// CreateBuiltinFunction - Create a new builtin function with the specified
-/// type and name.
-llvm::Constant *
-CodeGenModule::CreateBuiltinFunction(llvm::FunctionType *FTy, StringRef Name,
-                                     llvm::AttributeList ExtraAttrs) {
-  return CreateRuntimeFunction(FTy, Name, ExtraAttrs, true);
+  return {FTy, C};
 }
 
 /// isTypeConstant - Determine whether an object of this type can be emitted
@@ -3332,6 +3326,9 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
   if (AddrSpace != ExpectedAS)
     return getTargetCodeGenInfo().performAddrSpaceCast(*this, GV, AddrSpace,
                                                        ExpectedAS, Ty);
+
+  if (GV->isDeclaration())
+    getTargetCodeGenInfo().setTargetAttributes(D, GV, *this);
 
   return GV;
 }
@@ -3940,7 +3937,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
         // Extern global variables will be registered in the TU where they are
         // defined.
         if (!D->hasExternalStorage())
-          getCUDARuntime().registerDeviceVar(*GV, Flags);
+          getCUDARuntime().registerDeviceVar(D, *GV, Flags);
       } else if (D->hasAttr<CUDASharedAttr>())
         // __shared__ variables are odd. Shadows do get created, but
         // they are not registered with the CUDA runtime, so they
@@ -4113,17 +4110,15 @@ static bool isVarDeclStrongDefinition(const ASTContext &Context,
     }
   }
 
-#if INTEL_CUSTOMIZATION
   // Microsoft's link.exe doesn't support alignments greater than 32 bytes for
   // common symbols, so symbols with greater alignment requirements cannot be
   // common.
-#endif // INTEL_CUSTOMIZATION
   // Other COFF linkers (ld.bfd and LLD) support arbitrary power-of-two
   // alignments for common symbols via the aligncomm directive, so this
   // restriction only applies to MSVC environments.
   if (Context.getTargetInfo().getTriple().isKnownWindowsMSVCEnvironment() &&
-      Context.getTypeAlignIfKnown(D->getType()) > // INTEL
-          Context.toBits(CharUnits::fromQuantity(32))) // INTEL
+      Context.getTypeAlignIfKnown(D->getType()) >
+          Context.toBits(CharUnits::fromQuantity(32)))
     return true;
 
   return false;
@@ -5404,6 +5399,10 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
 
   case Decl::OMPDeclareReduction:
     EmitOMPDeclareReduction(cast<OMPDeclareReductionDecl>(D));
+    break;
+
+  case Decl::OMPDeclareMapper:
+    EmitOMPDeclareMapper(cast<OMPDeclareMapperDecl>(D));
     break;
 
   case Decl::OMPRequires:

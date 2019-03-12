@@ -836,6 +836,7 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::Fusion) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:
+        PrevAttr = nullptr;
         if (Option == LoopHintAttr::LoopCount &&  CategoryState.NumericAttr) {
           SourceLocation OptionLoc = LH->getRange().getBegin();
           SourceLocation PrevOptionLoc =
