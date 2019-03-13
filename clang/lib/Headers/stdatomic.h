@@ -24,10 +24,24 @@
 #ifndef __CLANG_STDATOMIC_H
 #define __CLANG_STDATOMIC_H
 
+/* INTEL_CUSTOMIZATION */
+#ifndef __USE_CLANG_CATOMICS
+#if defined(__INTEL_LLVM_COMPILER) && (__GNUC__ > 0)
+    #define __USE_CLANG_CATOMICS 1
+#else
+    #define __USE_CLANG_CATOMICS 0
+#endif
+#endif
+/* end INTEL_CUSTOMIZATION */
+
+
 /* If we're hosted, fall back to the system's stdatomic.h. FreeBSD, for
  * example, already has a Clang-compatible stdatomic.h header.
  */
-#if __STDC_HOSTED__ && __has_include_next(<stdatomic.h>)
+/* INTEL_CUSTOMIZATION */
+#if  !__USE_CLANG_CATOMICS &&  \
+     __STDC_HOSTED__ && __has_include_next(<stdatomic.h>)
+/* end INTEL_CUSTOMIZATION */
 # include_next <stdatomic.h>
 #else
 
