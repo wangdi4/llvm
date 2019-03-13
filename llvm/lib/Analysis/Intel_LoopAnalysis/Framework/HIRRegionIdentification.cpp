@@ -782,21 +782,30 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
   // unrolled.
   // Also allow them in innermost unknown loops at O3 and above. They may be
   // candidates for predicate optimization.
-  if (!IsInnermostLoop ||
-      (!IsSmallTripLoop && ((OptLevel < 3) || !IsUnknownLoop))) {
-    if (!isa<IntrinsicInst>(CI)) {
-      auto Func = CI.getCalledFunction();
+  // TODO: consider removing this logic allowing user calls at O3 for all loops.
+  if (IsInnermostLoop && (IsSmallTripLoop || (OptLevel > 2 && IsUnknownLoop))) {
+    return visitInstruction(static_cast<const Instruction &>(CI));
+  }
 
-      if (!Func || !RI.TLI.isFunctionVectorizable(Func->getName())) {
-        LLVM_DEBUG(
-            dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
-                      "user calls.\n");
-        return false;
-      }
+  // Allow intrinsic calls.
+  if (isa<IntrinsicInst>(CI)) {
+    return visitInstruction(static_cast<const Instruction &>(CI));
+  }
+
+  auto *Func = CI.getCalledFunction();
+  if (Func) {
+
+    LibFunc LF;
+    // Allow library and vectorizable calls.
+    if ((RI.TLI.getLibFunc(Func->getName(), LF) && RI.TLI.has(LF)) ||
+        RI.TLI.isFunctionVectorizable(Func->getName())) {
+      return visitInstruction(static_cast<const Instruction &>(CI));
     }
   }
 
-  return visitInstruction(static_cast<const Instruction &>(CI));
+  LLVM_DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
+                       "user calls.\n");
+  return false;
 }
 
 bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(

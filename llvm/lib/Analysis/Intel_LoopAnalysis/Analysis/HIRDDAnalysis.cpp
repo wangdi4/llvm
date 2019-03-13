@@ -16,6 +16,7 @@
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -95,6 +96,13 @@ HIRDDAnalysis HIRDDAnalysisPass::run(Function &F, FunctionAnalysisManager &AM) {
   if (auto *AAResult = AM.getCachedResult<StdContainerAA>(F)) {
     AAR->addAAResult(*AAResult);
   }
+
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+  auto &MAM = MAMProxy.getManager();
+  if (auto *AAResult = MAM.getCachedResult<AndersensAA>(*F.getParent())) {
+    AAR->addAAResult(*AAResult);
+  }
+
   if (auto *AAResult = AM.getCachedResult<BasicAA>(F)) {
     AAR->addAAResult(*AAResult);
   }
@@ -146,6 +154,10 @@ bool HIRDDAnalysisWrapperPass::runOnFunction(Function &F) {
   }
 
   if (auto *Pass = getAnalysisIfAvailable<StdContainerAAWrapperPass>()) {
+    AAR->addAAResult(Pass->getResult());
+  }
+
+  if (auto *Pass = getAnalysisIfAvailable<AndersensAAWrapperPass>()) {
     AAR->addAAResult(Pass->getResult());
   }
 
