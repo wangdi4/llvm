@@ -671,6 +671,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZNSt13runtime_errorC1ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE(i8*, i8*)\n"
       "declare void @_ZNSt13runtime_errorC1ERKSs(i8*, i8*)\n"
       "declare void @_ZNSt13runtime_errorC1ERKS_(i8*, i8*)\n"
+      "declare void @_ZNSt13runtime_errorC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE(i8*, i8*)\n"
       "declare void @_ZNSt13runtime_errorC2EPKc(i8*, i8*)\n"
       "declare void @_ZNSt13runtime_errorC2ERKSs(i8*, i8*)\n"
       "declare void @_ZNSt13runtime_errorD0Ev(i8*)\n"

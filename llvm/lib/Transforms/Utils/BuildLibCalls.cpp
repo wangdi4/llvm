@@ -1050,10 +1050,11 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt13runtime_errorC1ERKS_:
     return Changed;
-  case LibFunc_ZNSt13runtime_errorC2EPKc:
+  case LibFunc_ZNSt13runtime_errorC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE:
     return Changed;
   case LibFunc_ZNSt13runtime_errorC2ERKSs:
     return Changed;
+  case LibFunc_ZNSt13runtime_errorC2EPKc:
   case LibFunc_ZNSt13runtime_errorD0Ev:
     return Changed;
   case LibFunc_ZNSt13runtime_errorD1Ev:
