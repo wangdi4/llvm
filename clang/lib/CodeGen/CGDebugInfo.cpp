@@ -576,6 +576,12 @@ void CGDebugInfo::CreateCompileUnit() {
   }
 
   std::string Producer = getClangFullVersion();
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-8597 - GDB makes prologue calculations based on whether the
+  // producer string starts with "clang ", so we add it here if needed.
+  if (Producer.find("clang ") != 0)
+    Producer.insert(0, "clang based ");
+#endif // INTEL_CUSTOMIZATION
 
   // Figure out which version of the ObjC runtime we have.
   unsigned RuntimeVers = 0;
