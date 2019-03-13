@@ -974,6 +974,7 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNParallel:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
+          Changed |= genGEPCapturingLaunderIntrin(W);
           genCodemotionFenceforAggrData(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1003,6 +1004,19 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genDestructorCode(W);
             Changed |= genMultiThreadedCode(W);
           }
+          // The clean-up of launder intrinsics needs to happen after all
+          // clauses have been processed. This is because for i8*, the intrinsic
+          // itself will be a clause operand:
+          //
+          // %1 = getelementpointer, struct* this, 0, 0
+          // %2 = llvm.launder.invariant.group(i8 *%1)
+          // call @llvm.directive.region.entry[..."QUAL.OMP.PRIVATE"(i8* %2)...]
+          //
+          // When clearing the launder, we would replace %2 with %1 in the
+          // clause and the region, and delete %2. The new private operand would
+          // be %1. But since the WRegion is built before the clean-up, it would
+          // still point to the deleted %2 as the private clause operand.
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
         }
         break;
@@ -1012,6 +1026,7 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           regularizeOMPLoop(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           genCodemotionFenceforAggrData(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1095,12 +1110,14 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genDestructorCode(W);
             Changed |= genMultiThreadedCode(W);
           }
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
         }
         break;
       case WRegionNode::WRNTask:
         if (Mode & ParPrepare) {
+          Changed |= genGEPCapturingLaunderIntrin(W);
           genCodemotionFenceforAggrData(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1124,6 +1141,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genRedCodeForTaskGeneric(W);
           Changed |= genCancellationBranchingCode(W);
           Changed |= genTaskCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
         }
         break;
@@ -1131,6 +1149,7 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           regularizeOMPLoop(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           genCodemotionFenceforAggrData(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1153,6 +1172,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genRedCodeForTaskGeneric(W);
           Changed |= genTaskGenericCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                         LBPtr, UBPtr, STPtr);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
         }
@@ -1172,7 +1192,8 @@ bool VPOParoptTransform::paroptTransforms() {
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           // The purpose is to generate place holder for global variable.
-          Changed |= genGlobalPrivatizationCode(W);
+          Changed |= genGlobalPrivatizationLaunderIntrin(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           genCodemotionFenceforAggrData(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
@@ -1181,7 +1202,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
-          Changed |= finalizeGlobalPrivatizationCode(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
         }
         break;
@@ -1198,14 +1219,15 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           // The purpose is to generate place holder for global variable.
-          Changed |= genGlobalPrivatizationCode(W);
+          Changed |= genGlobalPrivatizationLaunderIntrin(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           genCodemotionFenceforAggrData(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
           Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
-          Changed |= finalizeGlobalPrivatizationCode(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
         }
         break;
@@ -1222,13 +1244,16 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
 
       case WRegionNode::WRNVecLoop:
-        if (Mode & ParPrepare)
+        if (Mode & ParPrepare) {
           regularizeOMPLoop(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
+        }
         // Privatization is enabled for SIMD Transform passes
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
           debugPrintHeader(W, false);
           Changed = regularizeOMPLoop(W, false);
           Changed |= genPrivatizationCode(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
           RemovePrivateClauses = false;
@@ -1250,6 +1275,7 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           regularizeOMPLoop(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           genCodemotionFenceforAggrData(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1321,6 +1347,7 @@ bool VPOParoptTransform::paroptTransforms() {
             if (!W->getIsDistribute() && !W->getNowait())
               Changed |= genBarrier(W, false);
           }
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
         }
@@ -2460,8 +2487,11 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
     return;
   }
 
-  assert((isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue) ||
-          isa<LoadInst>(OrigValue)) && "unsupported input Value");
+  assert(
+      (isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue) ||
+       isa<LoadInst>(OrigValue) || isa<BitCastInst>(OrigValue) ||
+       (isa<CallInst>(OrigValue) && isFenceCall(cast<CallInst>(OrigValue)))) &&
+      "unsupported input Value");
 
   ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
 }
@@ -2491,7 +2521,6 @@ void VPOParoptTransform::getItemInfo(Item *I,
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
-  Orig = getRootValueFromFenceCall(Orig);
 
   auto getItemInfoIfArraySection = [I, &ElementType, &NumElements]() -> bool {
     if (ReductionItem *RedI = dyn_cast<ReductionItem>(I))
@@ -2530,7 +2559,6 @@ AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
     Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix) {
 
   assert(OrigValue && "genPrivatizationAlloca: Null input value.");
-  OrigValue = getRootValueFromFenceCall(OrigValue);
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
@@ -2555,7 +2583,6 @@ VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
-  Orig = getRootValueFromFenceCall(Orig);
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
@@ -2862,8 +2889,8 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         createEmptyPrvInitBB(W, PrivInitEntryBB);
         genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
       }
-      LLVM_DEBUG(dbgs() << "genFirstPrivatizationCode: firstprivatized "
-                        << *Orig << "\n");
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": firstprivatized '";
+                 Orig->printAsOperand(dbgs()); dbgs() << "'\n");
     }
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet
@@ -3066,6 +3093,7 @@ void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   IRBuilder<> Builder(EntryBB->getTerminator());
   Value *NewI = Builder.CreateLaunderInvariantGroup(V);
+  NewI->setName(V->getName());
 
   // Replace uses of V with NewI
   for (Instruction * User : Users) {
@@ -3635,6 +3663,149 @@ void VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
   }
 }
 
+// If a clause operand to a data sharing or map clause is a GEP, we need
+// to capture it in an intrinsic to prevent CSE or constant propagation from
+// replacing uses of the original GEP with something else. For example:
+//
+// Class C { int x; void foo() { #pragma omp parallel private(x) {...} } };
+//
+// In this case, the IR for the directive will look like:
+//
+// %x = getelementpointer, this, 0, 0
+// llvm.directive.region.entry(... "QUAL.OMP.PRIVATE" (%x)
+// { ... %x ... } // Use of %x inside the parallel region
+//
+// It is possible for optimizations to replace '%x', which is a zero-offset GEP,
+// with '%this', either inside the directive, or within the region, either of
+// which will break VPO's handling of the clause.
+//
+// Similarly, map section pointer can undergo the following cse optimization:
+//
+// Before early-cse:
+//
+// entry:
+//  %sbox = alloca i32*, align 8
+//  store i32* getelementptr inbounds ([256 x i32],
+//  [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox
+//  %1 = load i32*, i32** %sbox, align 8
+//  %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
+//  br label %DIR.OMP.TARGET.1
+//
+// DIR.OMP.TARGET.1:
+//  %2 = call token @llvm.directive.region.entry() [
+//         "DIR.OMP.TARGET"(),
+//         "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+//         "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox,
+//         i32** %sbox, i64 8),
+//         "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox,
+//         i32* %arrayidx, i64 1024),
+//         ... ]
+//
+// After early-cse:
+//
+// entry:
+//  %sbox = alloca i32*, align 8
+//  store i32* getelementptr inbounds ([256 x i32],
+//  [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox
+//  %1 = load i32*, i32** %sbox, align 8
+//  %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
+//  br label %DIR.OMP.TARGET.1
+//
+// DIR.OMP.TARGET.1:
+//  %2 = call token @llvm.directive.region.entry() [
+//         "DIR.OMP.TARGET"(),
+//         "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+//         "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox, i32** %sbox, i64 8),
+//         "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox,
+//         i32* getelementptr inbounds ([256 x i32],
+//         [256 x i32]* @g_sbox, i32 0, i32 0), i64 1024)
+//         ... ]
+//
+// The solution is to capture and rename the incoming GEPs to inhibit such
+// optimizations. See genRenamePrivatizationImpl for details.
+//
+bool VPOParoptTransform::genGEPCapturingLaunderIntrin(WRegionNode *W) {
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  bool Changed = false;
+
+  SmallPtrSet<GetElementPtrInst *, 16> HandledGEPs;
+
+  auto captureAndRenameIfGEP = [&](Value *Val, Item *It,
+                                   bool CheckAlreadyHandled) {
+    auto *GEP = dyn_cast_or_null<GetElementPtrInst>(Val);
+    if (!GEP)
+      return;
+
+    if (CheckAlreadyHandled && HandledGEPs.find(GEP) != HandledGEPs.end())
+      return;
+
+    if (!Changed) {
+      // Enter here if this is the first GEP being handled.
+      BasicBlock *NewEntryBB =
+          SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+      W->setEntryBBlock(NewEntryBB);
+      W->populateBBSet();
+    }
+
+    genRenamePrivatizationImpl(W, GEP, EntryBB, It);
+    Changed = true;
+    HandledGEPs.insert(GEP);
+  };
+
+  if (W->canHavePrivate()) {
+    PrivateClause const &PrivClause = W->getPriv();
+    for (PrivateItem *PrivI : PrivClause.items())
+      captureAndRenameIfGEP(PrivI->getOrig(), PrivI, false);
+  }
+
+  if (W->canHaveReduction()) {
+    ReductionClause const &RedClause = W->getRed();
+    for (ReductionItem *RedI : RedClause.items())
+      captureAndRenameIfGEP(RedI->getOrig(), RedI, false);
+  }
+
+  if (W->canHaveLinear()) {
+    LinearClause const &LrClause = W->getLinear();
+    for (LinearItem *LrI : LrClause.items())
+      captureAndRenameIfGEP(LrI->getOrig(), LrI, false);
+  }
+
+  if (W->canHaveFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items())
+      captureAndRenameIfGEP(FprivI->getOrig(), FprivI, false);
+  }
+
+  if (W->canHaveLastprivate()) {
+    LastprivateClause const &LprivClause = W->getLpriv();
+    for (LastprivateItem *LprivI : LprivClause.items())
+      captureAndRenameIfGEP(LprivI->getOrig(), LprivI, true);
+  }
+
+  if (W->canHaveMap()) {
+    MapClause const &MpClause = W->getMap();
+    // The capturing also needs to happen for GEPs in SectionPtrs.
+    for (MapItem *MapI : MpClause.items()) {
+      if (MapI->getIsMapChain()) {
+        MapChainTy const &MapChain = MapI->getMapChain();
+        // Iterate through a map chain in reverse order. For example,
+        // for (p1, p2) (p2, p3), handle (p2, p3) before (p1, p2).
+        for (int I = MapChain.size() - 1; I >= 0; --I) {
+          MapAggrTy *Aggr = MapChain[I];
+          captureAndRenameIfGEP(Aggr->getBasePtr(), MapI, false);
+          captureAndRenameIfGEP(Aggr->getSectionPtr(), MapI, true);
+        }
+      }
+
+      captureAndRenameIfGEP(MapI->getOrig(), MapI, true);
+    }
+  }
+
+  if (Changed)
+    W->resetBBSet();
+  return Changed;
+}
+
 bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
   bool Changed = false;
@@ -3671,7 +3842,9 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           (isa<Argument>(Orig) && isTargetCSA()) ||
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-          isa<AllocaInst>(Orig)) {
+          isa<AllocaInst>(Orig) || isa<GetElementPtrInst>(Orig) ||
+          isa<BitCastInst>(Orig) ||
+          (isa<CallInst>(Orig) && isFenceCall(cast<CallInst>(Orig)))) {
         Value *NewPrivInst;
 
         // Insert alloca for privatization right after the BEGIN directive.
@@ -3717,11 +3890,12 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           }
         }
 
-        LLVM_DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig
-                          << "\n");
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": privatized '";
+                   Orig->printAsOperand(dbgs()); dbgs() << "'\n");
       } else
-        LLVM_DEBUG(dbgs() << "genPrivatizationCode: " << *Orig
-                          << " is already private.\n");
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": '";
+                   Orig->printAsOperand(dbgs());
+                   dbgs() << "' is already private.\n");
     }
 
     Changed = true;

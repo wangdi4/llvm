@@ -620,9 +620,9 @@ private:
                                 unsigned &Cnt,
                                 bool hasRuntimeEvaluationCaptureSize);
 
-  /// \brief If the incoming data is global variable, create the stack variable
-  /// and replace the the global variable with the stack variable.
-  bool genGlobalPrivatizationCode(WRegionNode *W);
+  // If the incoming data is global variable, create a stack variable
+  // and replace the the global variable with the stack variable.
+  bool genGlobalPrivatizationLaunderIntrin(WRegionNode *W);
 
   /// \brief Pass the value of the DevicePtr to the outlined function.
   bool genDevicePtrPrivationCode(WRegionNode *W);
@@ -984,11 +984,30 @@ private:
                             SmallSetVector<Instruction *, 8> &LiveOutVals,
                             EquivalenceClasses<Value *> &ECs);
 
-  /// \brief The utility to generate the stack variable to rename the incoming
-  /// value.
+  // For a given Value V, capture it, and rename all its occurrences within
+  // the WRegion W (including the region entry directive).
   Value *genRenamePrivatizationImpl(WRegionNode *W, Value *V,
-                                    BasicBlock *EntryBB, BasicBlock *NextExitBB,
-                                    Item *IT);
+                                    BasicBlock *EntryBB, Item *IT);
+
+  /// If a clause operand to a data sharing or map clause is a GEP, we need
+  /// to capture it in an intrinsic to prevent CSE or constant propagation from
+  /// replacing uses of the original GEP with something else. For example:
+  ///
+  /// Class C { int x; void foo() { #pragma omp parallel private(x) {...} } };
+  ///
+  /// In this case, the IR for the directive will look like:
+  ///
+  /// %x = getelementpointer, this, 0, 0
+  /// llvm.directive.region.entry(... "QUAL.OMP.PRIVATE" (%x)
+  /// { ... %x ... } // Use of %x inside the parallel region
+  ///
+  /// It is possible for optimizations to replace '%x', which is a zero-offset
+  /// GEP, with '%this', either inside the directive, or within the region,
+  /// either of which will break VPO's handling of the clause.
+  ///
+  /// The solution is to capture and rename the incoming GEPs to inhibit such
+  /// optimizations. See genRenamePrivatizationImpl() for details.
+  bool genGEPCapturingLaunderIntrin(WRegionNode *W);
 
   /// \brief Generate the copyprivate code.
   bool genCopyPrivateCode(WRegionNode *W, AllocaInst *IsSingleThread);
@@ -1094,55 +1113,56 @@ private:
   /// \brief Generate the cast i8* for the incoming value BPVal.
   Value *genCastforAddr(Value *BPVal, IRBuilder<> &Builder);
 
-  /// \brief Replace the new generated local variables with global variables
-  /// in the target initialization code.
-  /// Given a global variable in the offloading region, the compiler will
-  /// generate different code for the following two cases.
-  /// case 1: global variable is not in the map clause.
-  /// The compiler generates %aaa stack variable which is initialized with
-  /// the value of @aaa. The base pointer and section pointer arrays are
-  /// initialized with %aaa.
-  ///
-  ///   #pragma omp target
-  ///   {  aaa++; }
-  ///
-  /// ** IR Dump After VPO Paropt Pass ***
-  /// entry:
-  ///   %.offload_baseptrs = alloca [1 x i8*]
-  ///   %.offload_ptrs = alloca [1 x i8*]
-  ///   %aaa = alloca i32
-  ///   %0 = load i32, i32* @aaa
-  ///   store i32 %0, i32* %aaa
-  ///   br label %codeRepl
-  ///
-  /// codeRepl:
-  ///   %1 = bitcast i32* %aaa to i8*
-  ///   %2 = getelementptr inbounds [1 x i8*],
-  ///        [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
-  ///   store i8* %1, i8** %2
-  ///   %3 = getelementptr inbounds [1 x i8*],
-  ///        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
-  ///   %4 = bitcast i32* %aaa to i8*
-  ///   store i8* %4, i8** %3
-  ///
-  /// case 2: global variable is in the map clause
-  /// The compiler initializes the base pointer and section pointer arrays
-  /// with @aaa.
-  ///
-  ///   #pragma omp target map(aaa)
-  ///   {  aaa++; }
-  ///
-  /// ** IR Dump After VPO Paropt Pass ***
-  /// codeRepl:
-  ///   %1 = bitcast i32* @aaa to i8*
-  ///   %2 = getelementptr inbounds [1 x i8*],
-  ///        [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
-  ///   store i8* %1, i8** %2
-  ///   %3 = getelementptr inbounds [1 x i8*],
-  ///        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
-  ///   %4 = bitcast i32* @aaa to i8*
-  ///   store i8* %4, i8** %3
-  bool finalizeGlobalPrivatizationCode(WRegionNode *W);
+  // Replace the new generated local variables with global variables
+  // in the target initialization code.
+  // Given a global variable in the offloading region, the compiler will
+  // generate different code for the following two cases.
+  //
+  // case 1: global variable is not in the map clause.
+  // The compiler generates %aaa stack variable which is initialized with
+  // the value of @aaa. The base pointer and section pointer arrays are
+  // initialized with %aaa.
+  //
+  //   #pragma omp target
+  //   {  aaa++; }
+  //
+  // ** IR Dump After VPO Paropt Pass ***
+  // entry:
+  //   %.offload_baseptrs = alloca [1 x i8*]
+  //   %.offload_ptrs = alloca [1 x i8*]
+  //   %aaa = alloca i32
+  //   %0 = load i32, i32* @aaa
+  //   store i32 %0, i32* %aaa
+  //   br label %codeRepl
+  //
+  // codeRepl:
+  //   %1 = bitcast i32* %aaa to i8*
+  //   %2 = getelementptr inbounds [1 x i8*],
+  //        [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+  //   store i8* %1, i8** %2
+  //   %3 = getelementptr inbounds [1 x i8*],
+  //        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+  //   %4 = bitcast i32* %aaa to i8*
+  //   store i8* %4, i8** %3
+  //
+  // case 2: global variable is in the map clause
+  // The compiler initializes the base pointer and section pointer arrays
+  // with @aaa.
+  //
+  //   #pragma omp target map(aaa)
+  //   {  aaa++; }
+  //
+  // ** IR Dump After VPO Paropt Pass ***
+  // codeRepl:
+  //   %1 = bitcast i32* @aaa to i8*
+  //   %2 = getelementptr inbounds [1 x i8*],
+  //        [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+  //   store i8* %1, i8** %2
+  //   %3 = getelementptr inbounds [1 x i8*],
+  //        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+  //   %4 = bitcast i32* @aaa to i8*
+  //   store i8* %4, i8** %3
+  bool clearLaunderIntrinBeforeRegion(WRegionNode *W);
 
   /// \brief Generate the target intialization code for the pointers based
   /// on the order of the map clause.
@@ -1298,9 +1318,11 @@ private:
                                       WRNScheduleKind &ScheduleKind,
                                       WRNScheduleKind TargetScheduleKind);
 
+#if 0
   /// Return original global variable if the value Orig is the return value
   /// of a fence call.
   static Value *getRootValueFromFenceCall(Value *Orig);
+#endif
 
   /// Clang inserts fence acquire/release instructions for some constructs
   /// (atomic, critical, single, master, barrier and taskwait).

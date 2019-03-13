@@ -867,81 +867,132 @@ void VPOParoptTransform::genOffloadArraysArgument(
   }
 }
 
-// Given a global variable reference in a OMP target construct, the
-// corresponding target outline function needs to pass the address of
-// global variable as one of its arguments. The utility CodeExtractor which
-// is used by the paropt cannot generate such argument since the global
-// variable is live in the module. In order to help the CodeExtractor to
-// achieve this, the following utilty is used to generate place holder for
-// global variable. The later outline function can have corresponding
-// argument for this global variable.
-//
-// %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-//      "QUAL.OMP.FIRSTPRIVATE"(i32* @pvtPtr) ]
-// ===>
-// entry:
-//   %0 = call i8* @llvm.launder.invariant.group.p0i8
-//                  (i8* bitcast (i32* @pvtPtr to i8*))
-//   %1 = bitcast i8* %0 to i32*
-//   br label %entry.split
-// ...
-// %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-//      "QUAL.OMP.FIRSTPRIVATE"(i32* %1) ]
-Value *VPOParoptTransform::genRenamePrivatizationImpl(WRegionNode *W,
-                                                      Value *V,
+/// For a given Value \p V, capture it, and rename all its occurrences within
+/// the WRegion \p W (including the region entry directive).
+///
+/// Before:
+/// \code
+///   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+///        "QUAL.OMP.FIRSTPRIVATE"(i32* @V) ]
+/// \endcode
+///
+/// After:
+/// \code
+///   %0 = bitcast i32* @V to i8*
+///   %1 = call i8* @llvm.launder.invariant.group.p0i8(i8 * %0)
+///   %V1 = bitcast i8* %1 to i32*
+///   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+///        "QUAL.OMP.FIRSTPRIVATE"(i32* %V1) ]
+/// \endcode
+Value *VPOParoptTransform::genRenamePrivatizationImpl(WRegionNode *W, Value *V,
                                                       BasicBlock *EntryBB,
-                                                      BasicBlock *NextExitBB,
                                                       Item *IT) {
   IRBuilder<> Builder(EntryBB->getFirstNonPHI());
   Value *NewPrivInst = Builder.CreateLaunderInvariantGroup(V);
+  NewPrivInst->setName(V->getName());
   genPrivatizationReplacement(W, V, NewPrivInst, IT);
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Captured via launder intrinsic: '";
+             V->printAsOperand(dbgs()); dbgs() << "'.\n");
+
   return NewPrivInst;
 }
 
-// Replace the new generated local variables with global variables
-// in the target initialization code.
-bool VPOParoptTransform::finalizeGlobalPrivatizationCode(WRegionNode *W) {
+/// Remove the launder intrinsics inserted while capturing GEPs by
+/// genGEPCapturingLaunderIntrin(), and renaming globals by
+/// genGlobalPrivatizationLaunderIntrin(). The capturing happens in
+/// vpo-paropt-prepare pass, and the generated intrinsics are later removed
+/// in the vpo-paropt transform pass.
+///
+/// Before:
+/// \code
+/// %1 = bitcast
+///   %0 = bitcast i32* @V to i8*
+///   %1 = call i8* @llvm.launder.invariant.group.p0i8(i8* %0)
+///   %V1 = bitcast i8* %1 to i32*
+///   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+///        "QUAL.OMP.FIRSTPRIVATE"(i32* %V1) ]
+/// \endcode
+///
+/// After:
+/// \code
+///   %0 = bitcast i32* @V to i8*
+///   %V1 = bitcast i8* %0 to i32*
+///   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+///        "QUAL.OMP.FIRSTPRIVATE"(i32* %V1) ]
+/// \endcode
+bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
 
-  // Clean up the fence call and replace the use of its return value
-  // with call's operand.
-  auto propagateGlobals = [&](Value *Orig) {
-    if (!Orig)
-      return;
-    BitCastInst *BI = dyn_cast<BitCastInst>(Orig);
-    if (!BI)
-      return;
-    Value *V = BI->getOperand(0);
+  // Check if Orig is a bitcast, whose operand is a launder intrinsic,
+  // and if so, remove the launder intrinsic.
+  auto removeLaunderIntrinsic = [&](Value *Orig) {
+    BitCastInst *BI = dyn_cast_or_null<BitCastInst>(Orig);
+    // For i8* operands, there is no BitCast, so the clause operand may itself
+    // be a launder intrinsic.
+    Value *V = (BI == nullptr) ? Orig : BI->getOperand(0);
+
     CallInst *CI = dyn_cast<CallInst>(V);
     if (CI && isFenceCall(CI)) {
+      LLVM_DEBUG(dbgs() << "clearLaunderIntrinBeforeRegion: Replacing "
+                           "launder intrinsic '";
+                 CI->printAsOperand(dbgs()); dbgs() << "' with its operand.\n");
+
       CI->replaceAllUsesWith(CI->getOperand(0));
       CI->eraseFromParent();
     }
   };
 
-  MapClause const &MpClause = W->getMap();
-  for (MapItem *MapI : MpClause.items()) {
-    Value *Orig = MapI->getOrig();
-    propagateGlobals(Orig);
-    if (MapI->getIsMapChain()) {
-      MapChainTy const &MapChain = MapI->getMapChain();
-      for (int I = MapChain.size() - 1; I >= 0; --I) {
-        MapAggrTy *Aggr = MapChain[I];
-        Value *SectionPtr = Aggr->getSectionPtr();
-        propagateGlobals(SectionPtr);
-      }
-    }
+  if (W->canHavePrivate()) {
+    PrivateClause const &PrivClause = W->getPriv();
+    for (PrivateItem *PrivI : PrivClause.items())
+      removeLaunderIntrinsic(PrivI->getOrig());
+  }
+
+  if (W->canHaveReduction()) {
+    ReductionClause const &RedClause = W->getRed();
+    for (ReductionItem *RedI : RedClause.items())
+      removeLaunderIntrinsic(RedI->getOrig());
+  }
+
+  if (W->canHaveLinear()) {
+    LinearClause const &LrClause = W->getLinear();
+    for (LinearItem *LrI : LrClause.items())
+      removeLaunderIntrinsic(LrI->getOrig());
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
-    for (FirstprivateItem *FprivI : FprivClause.items()) {
-      Value *Orig = FprivI->getOrig();
-      propagateGlobals(Orig);
+    for (FirstprivateItem *FprivI : FprivClause.items())
+      removeLaunderIntrinsic(FprivI->getOrig());
+  }
+
+  if (W->canHaveLastprivate()) {
+    LastprivateClause const &LprivClause = W->getLpriv();
+    for (LastprivateItem *LprivI : LprivClause.items())
+      removeLaunderIntrinsic(LprivI->getOrig());
+  }
+
+  if (W->canHaveMap()) {
+    MapClause const &MpClause = W->getMap();
+    for (MapItem *MapI : MpClause.items()) {
+      Value *Orig = MapI->getOrig();
+      removeLaunderIntrinsic(Orig);
+      if (MapI->getIsMapChain()) {
+        MapChainTy const &MapChain = MapI->getMapChain();
+        for (int I = MapChain.size() - 1; I >= 0; --I) {
+          MapAggrTy *Aggr = MapChain[I];
+          Value *SectionPtr = Aggr->getSectionPtr();
+          Value *BasePtr = Aggr->getBasePtr();
+          removeLaunderIntrinsic(SectionPtr);
+          removeLaunderIntrinsic(BasePtr);
+        }
+      }
     }
   }
+
   return false;
 }
 
+#if 0
 // Return original global variable if the value Orig is the return value
 // of a fence call.
 Value *VPOParoptTransform::getRootValueFromFenceCall(Value *Orig) {
@@ -960,106 +1011,56 @@ Value *VPOParoptTransform::getRootValueFromFenceCall(Value *Orig) {
   }
   return Orig;
 }
+#endif
 
-// If the incoming data is global variable, Create the stack variable and
-// replace the the global variable with the stack variable.
-bool VPOParoptTransform::genGlobalPrivatizationCode(WRegionNode *W) {
-  MapClause const &MpClause = W->getMap();
+/// If the incoming data is global variable, Create the stack variable and
+/// replace the the global variable with the stack variable.
+///
+/// For a global variable reference in an OpenMP target construct, the
+/// corresponding target outline function needs to pass the address of the
+/// global variable as one of its arguments. The utility CodeExtractor which
+/// is used by paropt, does not generate that argument for global variables.
+/// In order to help the CodeExtractor to achieve this, we rename the uses of
+/// this global variable within the WRegion (including the directive).
+/// The outline function will have an entry for the renamed variable.
+/// This renaming is done using genRenamePrivatizationImpl().
+bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB =
       SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
   W->setEntryBBlock(NewEntryBB);
-  BasicBlock *ExitBB = W->getExitBBlock();
-  BasicBlock *NextExitBB = SplitBlock(ExitBB, ExitBB->getTerminator(), DT, LI);
   bool Changed = false;
 
+  assert(W->canHaveMap() &&
+         "Function called for a WRegion that cannot have a Map clause.");
+  MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
-    Value *Orig = MapI->getOrig();
-    // The map section pointer needs to renamed so that the following cse
-    // optimization can be inhibited.
-    // Before early-cse:
-    //
-    //entry:
-    //  %sbox = alloca i32*, align 8
-    //  store i32* getelementptr inbounds ([256 x i32],
-    //  [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox
-    //  %1 = load i32*, i32** %sbox, align 8
-    //  %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
-    //  br label %DIR.OMP.TARGET.1
-    //
-    //DIR.OMP.TARGET.1:
-    //  %2 = call token @llvm.directive.region.entry() [
-    //         "DIR.OMP.TARGET"(),
-    //         "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    //         "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox,
-    //         i32** %sbox, i64 8),
-    //         "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox,
-    //         i32* %arrayidx, i64 1024),
-    //         ... ]
-    //
-    //After early-cse:
-    //
-    //entry:
-    //  %sbox = alloca i32*, align 8
-    //  store i32* getelementptr inbounds ([256 x i32],
-    //  [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox
-    //  %1 = load i32*, i32** %sbox, align 8
-    //  %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
-    //  br label %DIR.OMP.TARGET.1
-    //
-    //DIR.OMP.TARGET.1:
-    //  %2 = call token @llvm.directive.region.entry() [
-    //         "DIR.OMP.TARGET"(),
-    //         "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    //         "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox, i32** %sbox, i64 8),
-    //         "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox,
-    //         i32* getelementptr inbounds ([256 x i32],
-    //         [256 x i32]* @g_sbox, i32 0, i32 0), i64 1024)
-    //         ... ]
-    // The solution is to rename the value %arrayidx to inbit this early-cse
-    // optimizaiton.
-
-    if (MapI->getIsMapChain()) {
-      MapChainTy const &MapChain = MapI->getMapChain();
-      for (int I = MapChain.size() - 1; I >= 0; --I) {
-        MapAggrTy *Aggr = MapChain[I];
-        Value *SectionPtr = Aggr->getSectionPtr();
-        if (auto *GEP = dyn_cast<GetElementPtrInst>(SectionPtr)) {
-          if (!Changed)
-            W->populateBBSet();
-          genRenamePrivatizationImpl(W, GEP, EntryBB, NextExitBB, MapI);
-          Changed = true;
-        }
-      }
-    }
-    if (!Orig)
+    GlobalVariable *G = dyn_cast_or_null<GlobalVariable>(MapI->getOrig());
+    if (!G)
       continue;
-    GlobalVariable *G = dyn_cast<GlobalVariable>(Orig);
 
-    if (G) {
-      if (!Changed)
-        W->populateBBSet();
-      genRenamePrivatizationImpl(W, G, EntryBB, NextExitBB, MapI);
-      Changed = true;
-    }
+    if (!Changed)
+      W->populateBBSet();
+
+    genRenamePrivatizationImpl(W, G, EntryBB, MapI);
+    Changed = true;
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items()) {
-      Value *Orig = FprivI->getOrig();
-      MapItem *MapI = FprivI->getInMap();
-      if (MapI)
+      if (FprivI->getInMap())
         continue;
 
-      if (GlobalVariable *G = dyn_cast<GlobalVariable>(Orig)) {
-        if (!Changed)
-          W->populateBBSet();
+      GlobalVariable *G = dyn_cast<GlobalVariable>(FprivI->getOrig());
+      if (!G)
+        continue;
 
-        genRenamePrivatizationImpl(W, G, EntryBB, NextExitBB, FprivI);
+      if (!Changed)
+        W->populateBBSet();
 
-        Changed = true;
-      }
+      genRenamePrivatizationImpl(W, G, EntryBB, FprivI);
+      Changed = true;
     }
   }
 

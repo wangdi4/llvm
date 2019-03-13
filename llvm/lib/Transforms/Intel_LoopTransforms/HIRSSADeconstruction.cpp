@@ -834,6 +834,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     bool LiveinCopyInserted = false;
     bool NonPhiFound = false;
     bool ProcessNonPhiLiveouts = false;
+    bool IsSCEVable = SE->isSCEVable(Phi->getType());
 
     constructName(PhiSCC->getRoot(), Name);
 
@@ -852,6 +853,13 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
 
         processLiveouts(SCCPhiInst, PhiSCC, Name.str());
 
+        if (IsSCEVable && !RI->isHeaderPhi(SCCPhiInst)) {
+          // Attach live range type metadata to suppress SCEV traceback.
+          attachMetadata(SCCPhiInst, "", ScalarEvolution::HIRLiveKind::LiveRange);
+          // Tell SCEV to reparse the instruction.
+          SE->forgetValue(SCCPhiInst);
+        }
+
       } else {
 
         if (!NonPhiFound) {
@@ -863,10 +871,12 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
           processLiveouts(SCCInst, PhiSCC, Name.str());
         }
 
-        // Attach live range type metadata to suppress SCEV traceback.
-        attachMetadata(SCCInst, "", ScalarEvolution::HIRLiveKind::LiveRange);
-        // Tell SCEV to reparse the instruction.
-        SE->forgetValue(SCCInst);
+        if (IsSCEVable) {
+          // Attach live range type metadata to suppress SCEV traceback.
+          attachMetadata(SCCInst, "", ScalarEvolution::HIRLiveKind::LiveRange);
+          // Tell SCEV to reparse the instruction.
+          SE->forgetValue(SCCInst);
+        }
       }
     }
 
