@@ -20,8 +20,8 @@
 ; RUN: opt < %s -loop-carried-cse -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-carried-cse" -aa-pipeline="basic-aa" -S 2>&1 < %s | FileCheck %s
 ;
-; CHECK: %1 = add i32 %gepload53, %gepload
-; CHECK: %2 = add i32 %gepload54, %1
+; CHECK: %1 = add i32 %gepload, %gepload53
+; CHECK: %2 = add i32 %1, %gepload54
 ; CHECK: %t42.0.lccse = phi i32 [ %2, %for.body.preheader ], [ %6, %loop.31 ]
 ; CHECK-NOT: %t42.0 = phi i32
 ; CHECK-NOT: %t40.0 = phi i32

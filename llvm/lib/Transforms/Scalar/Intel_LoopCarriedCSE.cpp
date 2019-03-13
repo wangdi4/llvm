@@ -63,7 +63,8 @@ using namespace llvm;
 // Returns user instruction which has opcode \p OpCode and operands \p LatchVal1
 // and \p LatchVal2.
 static User *findMatchedLatchUser(Value *LatchVal1, Value *LatchVal2,
-                                  FPMathOperator *FPOp, unsigned OpCode,
+                                  FPMathOperator *FPOp,
+                                  Instruction::BinaryOps OpCode,
                                   bool IsSwappedOrder, BasicBlock *LoopLatch,
                                   DominatorTree *DT) {
   User *MatchedLatchUser = nullptr;
@@ -90,10 +91,10 @@ static User *findMatchedLatchUser(Value *LatchVal1, Value *LatchVal2,
     Value *V0 = LatchBOp->getOperand(0);
     Value *V1 = LatchBOp->getOperand(1);
 
-    bool LatchIsSwappedOrder = V0 == LatchVal1;
-    Value *LatchUseVal = LatchIsSwappedOrder ? V1 : V0;
+    bool LatchIsSwappedOrder = V0 != LatchVal1;
+    Value *LatchVal2Use = LatchIsSwappedOrder ? V0 : V1;
 
-    if (LatchUseVal != LatchVal2) {
+    if (LatchVal2Use != LatchVal2) {
       continue;
     }
 
@@ -144,7 +145,7 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
         continue;
       }
 
-      unsigned OpCode = BOp->getOpcode();
+      Instruction::BinaryOps OpCode = BOp->getOpcode();
 
       PHINode *P0 = dyn_cast<PHINode>(BOp->getOperand(0));
       PHINode *P1 = dyn_cast<PHINode>(BOp->getOperand(1));
@@ -153,8 +154,8 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
         continue;
       }
 
-      bool IsSwappedOrder = P0 == &Phi;
-      PHINode *Phi2 = IsSwappedOrder ? P1 : P0;
+      bool IsSwappedOrder = P0 != &Phi;
+      PHINode *Phi2 = IsSwappedOrder ? P0 : P1;
 
       if (Phi2->getParent() != Header) {
         continue;
@@ -191,9 +192,13 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
       }
 
       IRBuilder<> Builder(Preheader->getTerminator());
+      Value *V = nullptr;
 
-      Value *V = Builder.CreateBinOp(BOp->getOpcode(), PreheaderValue1,
-                                     PreheaderValue2);
+      if (!IsSwappedOrder) {
+        V = Builder.CreateBinOp(OpCode, PreheaderValue1, PreheaderValue2);
+      } else {
+        V = Builder.CreateBinOp(OpCode, PreheaderValue2, PreheaderValue1);
+      }
 
       IRBuilder<> PHIBuilder(&Phi);
 

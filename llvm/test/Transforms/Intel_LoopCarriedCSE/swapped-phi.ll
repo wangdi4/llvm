@@ -1,4 +1,3 @@
-; Phi node %t34 has been used once while phi node %t36 has been used twice. The grouping can still happen, but we need to keep the information of phi node %36 here.
 ; Source code
 ;
 ;int A[1000];
@@ -12,17 +11,17 @@
 ;#pragma novector
 ;#pragma unroll(0)
 ;  for (i=0; i< n; i++) {
-;    A[i] = B[i]+ C[i];
-;    //we are reusing the addition of B[i+1] + C[i+1] in the next loop iteration
-;    A[m[i]] = B[i+1]+ C[i+1];
-;    D[i] = C[i] + C[i+1];
+;    A[i] = C[i] - B[i];
+;    //we are reusing C[i+1] - B[i+1] in the next loop iteration
+;    A[m[i]] = C[i+1] - B[i+1];
+;    D[i] = C[i+1] - C[i];
 ;   }
 ;}
 ;
 ; RUN: opt < %s -loop-carried-cse -S 2>&1 | FileCheck %s
 ; RUN: opt -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
 ;
-; CHECK: %1 = add i32 %gepload, %gepload48
+; CHECK: %1 = sub i32 %gepload48, %gepload
 ; CHECK: %t36.0 = phi i32
 ; CHECK: %t34.0.lccse = phi i32 [ %1, %for.body.preheader ], [ %4, %loop.28 ]
 ; CHECK-NOT: %t34.0 = phi i32
@@ -60,7 +59,7 @@ loop.28:                                          ; preds = %loop.28, %for.body.
   %t36.0 = phi i32 [ %gepload48, %for.body.preheader ], [ %gepload52, %loop.28 ]
   %t34.0 = phi i32 [ %gepload, %for.body.preheader ], [ %gepload50, %loop.28 ]
   %arrayIdx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %i1.i64.0
-  %1 = add i32 %t34.0, %t36.0
+  %1 = sub i32 %t36.0, %t34.0
   store i32 %1, i32* %arrayIdx, align 4, !tbaa !2
   %2 = add i64 %i1.i64.0, 1
   %arrayIdx49 = getelementptr inbounds [1000 x i32], [1000 x i32]* @B, i64 0, i64 %2
@@ -71,10 +70,10 @@ loop.28:                                          ; preds = %loop.28, %for.body.
   %gepload54 = load i32, i32* %arrayIdx53, align 4, !tbaa !2
   %3 = sext i32 %gepload54 to i64
   %arrayIdx55 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %3
-  %4 = add i32 %gepload50, %gepload52
+  %4 = sub i32 %gepload52, %gepload50
   store i32 %4, i32* %arrayIdx55, align 4, !tbaa !2
   %arrayIdx56 = getelementptr inbounds [1000 x i32], [1000 x i32]* @D, i64 0, i64 %i1.i64.0
-  %5 = add i32 %t36.0, %gepload52
+  %5 = sub i32 %gepload52, %t36.0
   store i32 %5, i32* %arrayIdx56, align 4, !tbaa !2
   %condloop.28 = icmp sle i64 %2, %0
   br i1 %condloop.28, label %loop.28, label %for.end, !llvm.loop !7
@@ -95,4 +94,3 @@ attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-m
 !7 = distinct !{!7, !8, !9}
 !8 = !{!"llvm.loop.vectorize.width", i32 1}
 !9 = !{!"llvm.loop.unroll.disable"}
-
