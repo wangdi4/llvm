@@ -144,7 +144,7 @@ class OMPLoopScope : public CodeGenFunction::RunCleanupsScope {
     }
     (void)PreCondVars.apply(CGF);
 #if INTEL_CUSTOMIZATION
-    if (!CGF.HasHoistedLoopBounds())
+    if (!CGF.LoopBoundsHaveBeenHoisted(&S))
 #endif // INTEL_CUSTOMIZATION
     if (const auto *PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {
       for (const auto *I : PreInits->decls())
@@ -5089,7 +5089,7 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
 }
 
 #if INTEL_CUSTOMIZATION
-bool CodeGenFunction::HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
+void CodeGenFunction::HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
                                                 OpenMPDirectiveKind Kind) {
   // Only hoist when there are spir targets.
   bool HasSpirTarget = false;
@@ -5101,13 +5101,13 @@ bool CodeGenFunction::HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
     }
   }
   if (!HasSpirTarget)
-    return false;
-
-  // Don't hoist if it was already done on outer construct.
-  if (HasHoistedLoopBounds())
-    return false;
+    return;
 
   if (const OMPLoopDirective *LD = GetLoopForHoisting(S, Kind)) {
+    // Don't hoist if it was already done on outer construct.
+    if (LoopBoundsHaveBeenHoisted(LD))
+      return;
+
     if (const auto *PreInits = cast_or_null<DeclStmt>(LD->getPreInits())) {
       for (const auto *I : PreInits->decls())
         EmitVarDecl(cast<VarDecl>(*I));
@@ -5115,9 +5115,8 @@ bool CodeGenFunction::HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
     if (LD->getDirectiveKind() != OMPD_simd)
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(LD->getLowerBoundVariable()));
     EmitOMPHelperVar(*this, cast<DeclRefExpr>(LD->getUpperBoundVariable()));
-    return true;
+    HoistedBoundsLoops.insert(LD);
   }
-  return false;
 }
 
 const OMPLoopDirective *
@@ -5244,7 +5243,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
     }
 
 #if INTEL_CUSTOMIZATION
-    if (!HasHoistedLoopBounds()) {
+    if (!LoopBoundsHaveBeenHoisted(&S)) {
       if (Kind != OMPD_simd)
         EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));

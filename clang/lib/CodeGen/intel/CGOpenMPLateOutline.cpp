@@ -1861,8 +1861,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   OpenMPLateOutliner Outliner(*this, S, Kind);
   OpenMPDirectiveKind CurrentDirectiveKind = Outliner.getCurrentDirectiveKind();
 #if INTEL_CUSTOMIZATION
-  bool HasHoistedLoopBounds =
-    HoistLoopBoundsIfPossible(S, CurrentDirectiveKind);
+  HoistLoopBoundsIfPossible(S, CurrentDirectiveKind);
 #endif // INTEL_CUSTOMIZATION
   HoistTeamsClausesIfPossible(S, CurrentDirectiveKind);
 
@@ -2028,12 +2027,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   Outliner << S.clauses();
   Outliner.insertMarker();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {
-#if INTEL_CUSTOMIZATION
-    LateOutlineOpenMPRegionRAII Region(*this, Outliner, S,
-                                       HasHoistedLoopBounds);
-#else
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
-#endif // INTEL_CUSTOMIZATION
     if (S.getDirectiveKind() != CurrentDirectiveKind) {
       // Unless we've reached the innermost directive, keep going.
       OpenMPDirectiveKind NextKind =
