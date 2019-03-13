@@ -21,6 +21,7 @@
 #include <intel-coi/sink/COIPipeline_sink.h>
 
 #include <algorithm>
+#include <string>
 #include <vector>
 
 #include <assert.h>
