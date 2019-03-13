@@ -274,6 +274,7 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(atomic)
 OPENMP_DIRECTIVE_SPIR_SUBSET(barrier)
 OPENMP_DIRECTIVE_SPIR_SUBSET(parallel_for)
 OPENMP_DIRECTIVE_SPIR_SUBSET(teams_distribute_parallel_for)
+OPENMP_DIRECTIVE_SPIR_SUBSET(teams_distribute_parallel_for_simd)
 #endif // INTEL_CUSTOMIZATION
 
 // OpenMP clauses.
