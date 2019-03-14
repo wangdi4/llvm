@@ -918,10 +918,15 @@ Value *VPOParoptTransform::genRenamePrivatizationImpl(WRegionNode *W, Value *V,
 /// \endcode
 bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
 
+  SmallPtrSet<Value *, 16> HandledVals;
+
   // Check if Orig is a bitcast, whose operand is a launder intrinsic,
   // and if so, remove the launder intrinsic.
-  // Return \b true if replacement happened.
-  auto removeLaunderIntrinsic = [&](Value *Orig) {
+  // Return true if replacement happened.
+  auto removeLaunderIntrinsic = [&](Value *Orig, bool CheckAlreadyHandled) {
+    if (CheckAlreadyHandled && HandledVals.find(Orig) != HandledVals.end())
+      return false;
+
     BitCastInst *BI = dyn_cast_or_null<BitCastInst>(Orig);
     // For i8* operands, there is no BitCast, so the clause operand may itself
     // be a launder intrinsic.
@@ -935,6 +940,7 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
 
       CI->replaceAllUsesWith(CI->getOperand(0));
       CI->eraseFromParent();
+      HandledVals.insert(Orig);
       return true;
     }
     return false;
@@ -945,48 +951,47 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
   if (W->canHavePrivate()) {
     PrivateClause const &PrivClause = W->getPriv();
     for (PrivateItem *PrivI : PrivClause.items())
-      Changed |= removeLaunderIntrinsic(PrivI->getOrig());
+      Changed |= removeLaunderIntrinsic(PrivI->getOrig(), false);
   }
 
   if (W->canHaveReduction()) {
     ReductionClause const &RedClause = W->getRed();
     for (ReductionItem *RedI : RedClause.items())
-      Changed |= removeLaunderIntrinsic(RedI->getOrig());
+      Changed |= removeLaunderIntrinsic(RedI->getOrig(), false);
   }
 
   if (W->canHaveLinear()) {
     LinearClause const &LrClause = W->getLinear();
     for (LinearItem *LrI : LrClause.items())
-      Changed |= removeLaunderIntrinsic(LrI->getOrig());
+      Changed |= removeLaunderIntrinsic(LrI->getOrig(), false);
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items())
-      Changed |= removeLaunderIntrinsic(FprivI->getOrig());
+      Changed |= removeLaunderIntrinsic(FprivI->getOrig(), false);
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause const &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
-      Changed |= removeLaunderIntrinsic(LprivI->getOrig());
+      Changed |= removeLaunderIntrinsic(LprivI->getOrig(), true);
   }
 
   if (W->canHaveMap()) {
     MapClause const &MpClause = W->getMap();
     for (MapItem *MapI : MpClause.items()) {
-      Value *Orig = MapI->getOrig();
-      Changed |= removeLaunderIntrinsic(Orig);
       if (MapI->getIsMapChain()) {
         MapChainTy const &MapChain = MapI->getMapChain();
         for (int I = MapChain.size() - 1; I >= 0; --I) {
           MapAggrTy *Aggr = MapChain[I];
           Value *SectionPtr = Aggr->getSectionPtr();
           Value *BasePtr = Aggr->getBasePtr();
-          Changed |= removeLaunderIntrinsic(SectionPtr);
-          Changed |= removeLaunderIntrinsic(BasePtr);
+          Changed |= removeLaunderIntrinsic(BasePtr, false);
+          Changed |= removeLaunderIntrinsic(SectionPtr, true);
         }
       }
+      Changed |= removeLaunderIntrinsic(MapI->getOrig(), true);
     }
   }
 
