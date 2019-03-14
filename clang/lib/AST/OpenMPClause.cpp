@@ -333,7 +333,7 @@ OMPLastprivateClause *OMPLastprivateClause::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
     SourceLocation EndLoc, ArrayRef<Expr *> VL, ArrayRef<Expr *> SrcExprs,
     ArrayRef<Expr *> DstExprs, ArrayRef<Expr *> AssignmentOps, Stmt *PreInit,
-#if INTEL_CUSTOMIZATION 
+#if INTEL_CUSTOMIZATION
     Expr *PostUpdate, bool IsConditional) {
 #endif // INTEL_CUSTOMIZATION
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(5 * VL.size()));

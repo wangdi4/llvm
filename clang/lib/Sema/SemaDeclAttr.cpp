@@ -5517,7 +5517,7 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
     *CurTy = NewTy;
     return;
   }
-#endif // INTEL CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   // Install the new type.
   if (auto *TD = dyn_cast<TypedefNameDecl>(D))
     TD->setModedTypeSourceInfo(TD->getTypeSourceInfo(), NewTy);
@@ -5536,7 +5536,7 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
 void Sema::HandleModeAttr(const ParsedAttr &AL, QualType *CurTy) {
   handleModeAttr(*this, nullptr, AL, CurTy);
 }
-#endif // INTEL CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 static void handleNoDebugAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   D->addAttr(::new (S.Context)

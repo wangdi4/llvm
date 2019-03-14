@@ -2503,7 +2503,7 @@ static bool HandleSizeof(EvalInfo &Info, SourceLocation Loc,
     auto SizeAndAlign = Info.Ctx.getTypeInfoInChars(Type);
     Size = SizeAndAlign.first.alignTo(SizeAndAlign.second);
   }
-#endif // INTEL_CUSTOMIZATION 
+#endif // INTEL_CUSTOMIZATION
   return true;
 }
 

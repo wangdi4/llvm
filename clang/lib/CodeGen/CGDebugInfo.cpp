@@ -2046,10 +2046,7 @@ void CGDebugInfo::completeClassData(const RecordDecl *RD) {
         // omit the class data if we are not emitting full debug information.
         DebugKind < codegenoptions::FullDebugInfo &&
         CGM.getVTables().isVTableExternal(CXXRD) &&
-#else
-        CGM.getVTableLinkage(CXXRD) ==
-            llvm::GlobalValue::AvailableExternallyLinkage &&
-#endif
+#endif // INTEL_CUSTOMIZATION
         !isClassOrMethodDLLImport(CXXRD))
       return;
 
