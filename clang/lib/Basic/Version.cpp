@@ -129,7 +129,7 @@ std::string getClangFullCPPVersion() {
 std::string getICXVersionString() {
   // FIXME: Currently both the driver and clang have to specify this.
   // We need to specify this once and have both use it instead.
-  return "2019.8.1.0";
+  return "2019.8.2.0";
 }
 
 std::string getXMainFullCPPVersion() {
