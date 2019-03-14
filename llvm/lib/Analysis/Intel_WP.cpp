@@ -345,15 +345,14 @@ bool WholeProgramInfo::resolveCalledValue(
 bool WholeProgramInfo::resolveCallsInRoutine(const TargetLibraryInfo &TLI,
                                              Function *F) {
   bool Resolved = true;
-  for (inst_iterator II = inst_begin(&(*F)), E = inst_end(&(*F));
-       II != E; ++II) {
+  for (auto &II : instructions(F)) {
     // Skip if it is not a call inst
-    if (!isa<CallInst>(&*II) && !isa<InvokeInst>(&*II)) {
+    if (!isa<CallInst>(&II) && !isa<InvokeInst>(&II)) {
       continue;
     }
 
-    CallSite CS = CallSite(&*II);
-    Resolved &= resolveCalledValue(TLI, CS.getCalledValue(), F);
+    CallBase *CS = dyn_cast<CallBase>(&II);
+    Resolved &= resolveCalledValue(TLI, CS->getCalledValue(), F);
     if (!Resolved && !WholeProgramTrace)
       return false;
   }
@@ -423,7 +422,7 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
       errs() << "  Main definition seen \n";
     else
       errs() << "  Main definition not seen \n";
-    errs() << "  FUNCTIONS UNRESOLVED: " << UnresolvedCallsCount << "\n";
+    errs() << "  UNRESOLVED CALLSITES: " << UnresolvedCallsCount << "\n";
     errs() << "  GLOBALS UNRESOLVED: " << unresolved_globals_count << "\n";
     errs() << "  ALIASES UNRESOLVED: " << unresolved_aliases_count << "\n";
 

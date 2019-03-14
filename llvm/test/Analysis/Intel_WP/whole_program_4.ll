@@ -5,7 +5,7 @@
 ; RUN: llvm-lto -exported-symbol=main -whole-program-trace -whole-program-trace-libfuncs -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK:     WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
-; CHECK:      FUNCTIONS UNRESOLVED: 0
+; CHECK:      UNRESOLVED CALLSITES: 0
 ; CHECK:      TOTAL LIBFUNCS: 2
 ; CHECK:      LIBFUNCS FOUND: 2
 ; CHECK-NEXT:       malloc

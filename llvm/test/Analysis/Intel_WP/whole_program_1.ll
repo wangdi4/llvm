@@ -5,7 +5,7 @@
 ; RUN: llvm-as < %s >%t1
 ; RUN: llvm-lto -exported-symbol=main -whole-program-trace -o %t2 %t1 2>&1 | FileCheck %s
 
-; CHECK:   FUNCTIONS UNRESOLVED: 0
+; CHECK:   UNRESOLVED CALLSITES: 0
 ; CHECK:   WHOLE PROGRAM DETECTED
 ; CHECK:   WHOLE PROGRAM SAFE is *NOT* determined:
 ; CHECK:        whole program not read;

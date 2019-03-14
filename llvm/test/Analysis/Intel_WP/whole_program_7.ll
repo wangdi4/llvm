@@ -8,7 +8,7 @@
 ; RUN: llvm-lto -exported-symbol=main -whole-program-trace -whole-program-assume-hidden -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK:     WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
-; CHECK:      FUNCTIONS UNRESOLVED: 0
+; CHECK:      UNRESOLVED CALLSITES: 0
 ; CHECK:      EXTERNAL FUNCTIONS: 0
 ; CHECK:     WHOLE PROGRAM DETECTED
 ; CHECK-NOT: whole program not seen;
