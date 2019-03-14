@@ -317,54 +317,12 @@ bool CSALoopIntrinsicExpander::expandLoop(Loop *L, IntrinsicInst *intr,
                                           BasicBlock *dummy_exit) {
   using namespace std;
 
-  cur_section_begin = cur_section_end = nullptr;
-  cur_loop                            = L;
-
-  {
-    // Temporarily reroute the backedge to a dummy exit to avoid having sections
-    // going across it while determining section extents.
-    TempEdgeRerouter edge_rerouter{L->getLoopLatch(), L->getHeader(),
-                                   dummy_exit, DT, PDT};
-
-    // The section must contain the preheaders and exit blocks of every subloop.
-    for (Loop *const subloop : L->getSubLoops()) {
-      if (not makeSectionInclude(subloop->getLoopPreheader()))
-        return false;
-      SmallVector<BasicBlock *, 2> exits;
-      subloop->getExitBlocks(exits);
-      for (BasicBlock *const exit : exits) {
-        if (not makeSectionInclude(exit))
-          return false;
-      }
-    }
-
-    // It should also contain any blocks with possible memory operations.
-    for (auto block_it = L->block_begin(); block_it != L->block_end();
-         ++block_it) {
-      LLVM_DEBUG(errs() << "Looking at " << (*block_it)->getName() << "\n");
-
-      // Skip any blocks that are already in the section.
-      if (isAlreadyInSection(*block_it)) {
-        LLVM_DEBUG(errs() << " already in section\n");
-        continue;
-      }
-
-      for (const Instruction &instr : **block_it) {
-        if (mayNeedOrdering(&instr)) {
-          LLVM_DEBUG(errs() << " has memory operation:" << instr << "\n");
-          if (not makeSectionInclude(*block_it))
-            return false;
-          break;
-        }
-      }
-    }
-  }
-
   LLVMContext &context = L->getHeader()->getContext();
   Module *module       = L->getHeader()->getParent()->getParent();
 
   // If this is a pipelining intrinsic, it needs to have its own entry and exit
-  // inserted for the prep pass later.
+  // inserted for the prep pass later. We don't need to find a parallel section
+  // for it.
   if (intr->getIntrinsicID() == Intrinsic::csa_pipeline_loop) {
     Instruction *const preheader_terminator =
       L->getLoopPreheader()->getTerminator();
@@ -417,6 +375,49 @@ to see more location information.
     // This is all that is needed for marking pipeline loops.
     ++NumILPLIntrinsicExpansions;
     return true;
+  }
+
+  cur_section_begin = cur_section_end = nullptr;
+  cur_loop                            = L;
+
+  {
+    // Temporarily reroute the backedge to a dummy exit to avoid having sections
+    // going across it while determining section extents.
+    TempEdgeRerouter edge_rerouter{L->getLoopLatch(), L->getHeader(),
+                                   dummy_exit, DT, PDT};
+
+    // The section must contain the preheaders and exit blocks of every subloop.
+    for (Loop *const subloop : L->getSubLoops()) {
+      if (not makeSectionInclude(subloop->getLoopPreheader()))
+        return false;
+      SmallVector<BasicBlock *, 2> exits;
+      subloop->getExitBlocks(exits);
+      for (BasicBlock *const exit : exits) {
+        if (not makeSectionInclude(exit))
+          return false;
+      }
+    }
+
+    // It should also contain any blocks with possible memory operations.
+    for (auto block_it = L->block_begin(); block_it != L->block_end();
+         ++block_it) {
+      LLVM_DEBUG(errs() << "Looking at " << (*block_it)->getName() << "\n");
+
+      // Skip any blocks that are already in the section.
+      if (isAlreadyInSection(*block_it)) {
+        LLVM_DEBUG(errs() << " already in section\n");
+        continue;
+      }
+
+      for (const Instruction &instr : **block_it) {
+        if (mayNeedOrdering(&instr)) {
+          LLVM_DEBUG(errs() << " has memory operation:" << instr << "\n");
+          if (not makeSectionInclude(*block_it))
+            return false;
+          break;
+        }
+      }
+    }
   }
 
   // If this is an SPMDization intrinsic, it needs to have its own entry and
