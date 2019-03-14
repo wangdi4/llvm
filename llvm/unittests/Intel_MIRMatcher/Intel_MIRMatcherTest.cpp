@@ -160,9 +160,6 @@ constexpr mirmatch::OpcodeGroupMatcher<X86::MULSDrm, X86::MULSDrr,
 constexpr mirmatch::OpcodeGroupMatcher<X86::ADDSDrm, X86::ADDSDrr,
                                        X86::ADDSSrm, X86::ADDSSrr>  ADDS{};
 
-MIRMATCHER_REGS(REG_X, REG_Y, REG_AX, REG_AXPY);
-// Define the function to avoid a "not defined" error from gcc 5.n
-void mireg_nop_function_ignored() {}
 } // Close anonymous namespace
 
 // This tests a simple pattern match, whereby the results of a multiply
@@ -271,6 +268,8 @@ TEST(Intel_MIRMatcher, FMAPattern) {
   /////////// Find the match the easy way: with MIRMatcher ///////////////
   using namespace mirmatch;
   mirmatch::MatchResult result;
+
+  MIRMATCHER_REGS(REG_X, REG_Y, REG_AX, REG_AXPY);
 
   // Match pattern 'y = a*x + y'
   // Note that the output of the multiply (REG_AX) is used as input to the add.
@@ -450,8 +449,6 @@ TEST(Intel_MIRMatcher, FindInductionVar) {
 int main(int argc, char *argv[]) {
 
   ::testing::InitGoogleTest(&argc, argv);
-  // use the function to avoid a "not used" error from gcc 5.n
-  mireg_nop_function_ignored();
 
   for (int i = 0; i < argc; ++i) {
     if (std::strcmp(argv[i], "-verbose") == 0)

@@ -71,8 +71,7 @@ public:
                     SMLoc Loc = SMLoc()) override {}
   void EmitGPRel32Value(const MCExpr *Value) override {}
 
-  void EmitInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
-                       bool PrintSchedInfo = false) override {
+  void EmitInstruction(const MCInst &Inst, const MCSubtargetInfo &STI) override {
     // Just stash the MCInst for retrieval later. The list of parsedInsts
     // should correspond to only a single INLINEASM MI.
     parsedInsts.push_back(Inst);
