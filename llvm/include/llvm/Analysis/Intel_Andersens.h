@@ -410,12 +410,16 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // interface used by the AndersensAAResult.
   class IntelModRef {
   public:
-    IntelModRef(AndersensAAResult *AnderAA);
+    IntelModRef(AndersensAAResult *AnderAA, const TargetLibraryInfo &TLI);
     ~IntelModRef();
 
     void runAnalysis(Module &M);
     ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
 
+    // When the AndersenAAResult is moved to a new object, the handle stored
+    // within this class needs to be updated so that calls can be made to query
+    // alias information.
+    void resetAndersenAAResult(AndersensAAResult *AnderAA);
   private:
     // Pointer to implementation idiom
     IntelModRefImpl *Impl;
@@ -454,6 +458,9 @@ public:
 
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
   ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2);
+
+  // Return 'true' if the memory location may escape.
+  bool mayEscape(const MemoryLocation &LocB);
 
   // Chases pointers until we find a (constant global) or not.
   bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal);

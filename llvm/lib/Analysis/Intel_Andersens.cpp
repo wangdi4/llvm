@@ -577,7 +577,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   //VarargNodes.clear();
 
   if (UseIntelModRef) {
-      IMR.reset(new IntelModRef(this));
+      IMR.reset(new IntelModRef(this, TLI));
       IMR->runAnalysis(M);
   }
 
@@ -616,7 +616,10 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       VarargNodes(std::move(Arg.VarargNodes)),
       NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       NonPointerAssignments(std::move(Arg.NonPointerAssignments)),
-      IMR(std::move(Arg.IMR)) {}
+      IMR(std::move(Arg.IMR)) {
+  if (IMR)
+    IMR->resetAndersenAAResult(this);
+}
 
 /*static*/ AndersensAAResult
 AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
@@ -775,6 +778,9 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
   auto *V1 = const_cast<Value *>(LocA.Ptr);
   auto *V2 = const_cast<Value *>(LocB.Ptr);
 
+  if (V1 == V2)
+    return MustAlias;
+
   Node *N1 = &GraphNodes[FindNode(getNode(const_cast<Value*>(V1)))];
   Node *N2 = &GraphNodes[FindNode(getNode(const_cast<Value*>(V2)))];
 
@@ -840,6 +846,21 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
   }
   return AAResultBase::alias(LocA, LocB);
 
+}
+
+bool AndersensAAResult::mayEscape(const MemoryLocation &Loc) {
+  if (ValueNodes.size() == 0)
+    return true;
+
+  auto *V = const_cast<Value *>(Loc.Ptr);
+  Node *N = &GraphNodes[FindNode(getNode(const_cast<Value*>(V)))];
+  if (N == nullptr)
+    return true;
+
+  if (N->PointsTo->test(UniversalSet) || pointsToSetEscapes(N))
+    return true;
+
+  return false;
 }
 
 // Get a printable name for the ModRef result.
@@ -3838,6 +3859,69 @@ void AndersensAAResult::PrintPointsToGraph() const {
 namespace llvm {
 class IntelModRefImpl {
 private:
+    // The following constants are used to define the LibFunc Memory Model for
+    // Mod/Ref computations (multiple values may be bitmask together to define
+    // the memory locations that may be accessed by a call to the library
+    // function.)
+    //
+    // LFMR_UNKNOWN - No information available. May read/write any program
+    // memory.
+    static const unsigned LFMR_UNKNOWN = 0x0;
+
+    // LFMR_NONE - No user visible program memory is read or written, unless
+    // combined with LFMR_GREF or LFMR_GMOD. This is useful for marking cases
+    // where there are no pointer arguments to the function to avoid needing to
+    // analyze the call arguments.
+    static const unsigned LFMR_NONE = 0x01;
+
+    // LFMR_ARGS - Memory directly associated with the function arguments
+    // is read or written and need to be analyzed for potential side effects.
+    static const unsigned LFMR_ARGS = 0x02;
+
+    // LFMR_GREF - May read some location that escapes the analysis in a
+    // non-obvious manner
+    static const unsigned LFMR_GREF = 0x04;
+
+    // LFMR_GMOD - May modify some location that escapes the analysis in a
+    // non-obvious manner
+    static const unsigned LFMR_GMOD = 0x08;
+
+    // LFMR_FMT_CHECK - Indicates the function takes a printf-like formatting
+    // string as an argument that can be analyzed to determine if the printed
+    // elements are read only, or potentially written to via a %n format
+    // specifier.
+    static const unsigned LFMR_FMT_CHECK = 0x10;
+
+    // Helper method to print the LibFunc ModRef model bitmask.
+    static void printLibFuncModel(raw_ostream &OS, unsigned LibFuncModel);
+
+    // Helper to the getModRefInfo function to handle the case where the call is
+    // to a LibFunc.
+    ModRefInfo getLibFuncModRefInfo(LibFunc TheLibFunc, const CallBase *Call,
+                                    const MemoryLocation &Loc);
+
+    // Get the LibFunc ModRef model for a specific LibFunc. Returns LFMR_UNKNOWN
+    // if there is no information available for the library function, or the
+    // function can modify/reference any memory location.
+    unsigned getLibfuncModRefModel(LibFunc &TheLibFunc) const;
+
+    // For Library functions marked with LFMR_FMT_CHECK attribute, get the
+    // argument position of the formatting string
+    unsigned getFormatCheckPosition(LibFunc &TheLibFunc);
+
+    // For printf-like calls, try to find the argument position where variables
+    // can be considered read-only. This requires being able to parse the
+    // format string to determine that there are no %n-like specifiers
+    // present that would allow the modification of memory pointed to by one of
+    // the arguments. Since this is rare, we will just treat all arguments as
+    // potentially modifiable in this case, rather than identifying which
+    // specific argument gets modified. Returns value that is greater than the
+    // number of available arguments if there is not a location that can be
+    // found to assume as read-only. Returns the format string position if a
+    // location is found.
+    unsigned findFormatCheckReadOnlyStart(const CallBase *Call,
+                                          LibFunc TheLibFunc);
+
   // Internal structure used for mapping Values to a ModRefResult
   // enumeration id, to record one of 'Mod', 'Ref', or 'ModRef'.
   struct ModRefMap {
@@ -4175,7 +4259,8 @@ public:
   // the specific methods for points-to only available from Andersens.
   // Also save the pointer as the base class for invoking the base class
   // methods.
-  IntelModRefImpl(AndersensAAResult *Ander) : Ander(Ander) {}
+  IntelModRefImpl(AndersensAAResult *Ander, const TargetLibraryInfo &TLI)
+      : Ander(Ander), TLI(TLI) {}
 
   // Destructor. No memory is allocated with 'new', so nothing to delete.
   ~IntelModRefImpl(){};
@@ -4199,6 +4284,9 @@ private:
   // points-to info.
   AndersensAAResult *Ander;
 
+  // Handle for getting information about library function calls.
+  const TargetLibraryInfo &TLI;
+
   // Pointer for DataLayout for GetUnderlyingObject calls
   const DataLayout *DL;
 
@@ -4207,6 +4295,12 @@ private:
   FunctionRecordMap FunctionInfo;
 
   std::set<DeletionCallbackHandle> Handles;
+
+  // Update the AndersensAA pointer, when the AndersenAA object gets moved.
+  friend class AndersensAAResult::IntelModRef;
+  void resetAndersenAAResult(AndersensAAResult *AnderAA) {
+    Ander = AnderAA;
+  }
 
   // Get a pointer to the FunctionRecord for the specified function, or
   // nullptr if no information is available.
@@ -4889,6 +4983,337 @@ void IntelModRefImpl::print(raw_ostream &O, bool Summary) const {
     (I->second).printFuncMR(O, I->first->getName(), Summary);
 }
 
+// This function stores and retrieves the information about how individual
+// library functions are modeled for the purpose of ModRef information.
+unsigned IntelModRefImpl::getLibfuncModRefModel(LibFunc &TheLibFunc) const {
+  static unsigned *LibFuncModRefAttributes = nullptr;
+  if (!LibFuncModRefAttributes) {
+    // Build the model to be accessed by the LibFunc enumeration value upon the
+    // first access.
+    LibFuncModRefAttributes = new unsigned[NumLibFuncs];
+
+    // Initialize all LibFuncs to the conservative behavior
+    for (unsigned Idx = 0; Idx < NumLibFuncs; ++Idx)
+      LibFuncModRefAttributes[Idx] = LFMR_UNKNOWN;
+
+    // Populate the table for the functions that have models
+    typedef struct {
+      LibFunc LibFuncId;
+      unsigned Mask;
+    } LibFuncDetails;
+    static LibFuncDetails LibFuncModelAttrs[] = {
+        {LibFunc_acos, LFMR_NONE},
+        {LibFunc_acosf, LFMR_NONE},
+        {LibFunc_acosh, LFMR_NONE},
+        {LibFunc_acoshf, LFMR_NONE},
+        {LibFunc_acoshl, LFMR_NONE},
+        {LibFunc_acosl, LFMR_NONE},
+        {LibFunc_asin, LFMR_NONE},
+        {LibFunc_asinf, LFMR_NONE},
+        {LibFunc_asinh, LFMR_NONE},
+        {LibFunc_asinhf, LFMR_NONE},
+        {LibFunc_asinhl, LFMR_NONE},
+        {LibFunc_asinl, LFMR_NONE},
+        {LibFunc_atan, LFMR_NONE},
+        {LibFunc_atanf, LFMR_NONE},
+        {LibFunc_atanh, LFMR_NONE},
+        {LibFunc_atanl, LFMR_NONE},
+        {LibFunc_atan2, LFMR_NONE},
+        {LibFunc_atan2f, LFMR_NONE},
+        {LibFunc_atan2l, LFMR_NONE},
+        {LibFunc_calloc, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_cos, LFMR_NONE},
+        {LibFunc_cosf, LFMR_NONE},
+        {LibFunc_cosl, LFMR_NONE},
+        {LibFunc_cosh, LFMR_NONE},
+        {LibFunc_coshf, LFMR_NONE},
+        {LibFunc_coshl, LFMR_NONE},
+        {LibFunc_ctype_b_loc, LFMR_NONE},
+        {LibFunc_ctype_tolower_loc, LFMR_NONE},
+        {LibFunc_ctype_toupper_loc, LFMR_NONE},
+        {LibFunc_difftime, LFMR_NONE},
+        {LibFunc_dunder_isoc99_fscanf, LFMR_ARGS},
+        {LibFunc_dunder_isoc99_sscanf, LFMR_ARGS},
+        {LibFunc_errno_location, LFMR_GREF},
+        {LibFunc_exit, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_fclose, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_feof, LFMR_ARGS},
+        {LibFunc_fflush, LFMR_ARGS},
+        {LibFunc_fgetc, LFMR_ARGS},
+        {LibFunc_fgetc_unlocked, LFMR_ARGS},
+        {LibFunc_fgets, LFMR_ARGS},
+        {LibFunc_fgets_unlocked, LFMR_ARGS},
+        {LibFunc_fopen, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_fopen64, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_fprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_fputc, LFMR_ARGS},
+        {LibFunc_fread, LFMR_ARGS},
+        {LibFunc_fread_unlocked, LFMR_ARGS},
+        {LibFunc_free, LFMR_ARGS | LFMR_GREF | LFMR_GMOD},
+        {LibFunc_frexp, LFMR_ARGS},
+        {LibFunc_fputs, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_fscanf, LFMR_ARGS},
+        {LibFunc_fseek, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_fseeko64, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_ftell, LFMR_ARGS},
+        {LibFunc_ftello64, LFMR_ARGS},
+        {LibFunc_ftruncate64, LFMR_GREF},
+        {LibFunc_fwrite, LFMR_ARGS},
+        {LibFunc_fwrite_unlocked, LFMR_ARGS},
+        {LibFunc_gettimeofday, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_isalnum, LFMR_NONE},
+        {LibFunc_isalpha, LFMR_NONE},
+        {LibFunc_iscntrl, LFMR_NONE},
+        {LibFunc_isinf, LFMR_NONE},
+        {LibFunc_isnan, LFMR_NONE},
+        {LibFunc_isspace, LFMR_NONE},
+        {LibFunc_isupper, LFMR_NONE},
+        {LibFunc_ldexp, LFMR_NONE},
+        {LibFunc_lseek, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_lseek64, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_malloc, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_memchr, LFMR_ARGS},
+        {LibFunc_memcmp, LFMR_ARGS},
+        {LibFunc_memset, LFMR_ARGS},
+        {LibFunc_modf, LFMR_ARGS},
+        {LibFunc_open64, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_printf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_putchar, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_puts, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_rand, LFMR_GREF},
+        {LibFunc_read, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_realloc, LFMR_ARGS | LFMR_GREF | LFMR_GMOD},
+        {LibFunc_scanf, LFMR_ARGS},
+        {LibFunc_sin, LFMR_NONE},
+        {LibFunc_sinf, LFMR_NONE},
+        {LibFunc_sinh, LFMR_NONE},
+        {LibFunc_sinhf, LFMR_NONE},
+        {LibFunc_sinhl, LFMR_NONE},
+        {LibFunc_sinl, LFMR_NONE},
+        {LibFunc_sleep, LFMR_GREF},
+        {LibFunc_snprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_sprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_sscanf, LFMR_ARGS},
+        {LibFunc_stpcpy, LFMR_ARGS},
+        {LibFunc_strcasecmp, LFMR_ARGS},
+        {LibFunc_strncasecmp, LFMR_ARGS},
+        {LibFunc_strcat, LFMR_ARGS},
+        {LibFunc_strncat, LFMR_ARGS},
+        {LibFunc_strchr, LFMR_ARGS},
+        {LibFunc_strcmp, LFMR_ARGS},
+        {LibFunc_strcpy, LFMR_ARGS},
+        {LibFunc_strcspn, LFMR_ARGS},
+        {LibFunc_strerror, LFMR_NONE},
+        {LibFunc_strrchr, LFMR_ARGS},
+        {LibFunc_strlen, LFMR_ARGS},
+        {LibFunc_strncmp, LFMR_ARGS},
+        {LibFunc_strncpy, LFMR_ARGS},
+        {LibFunc_strspn, LFMR_ARGS},
+        {LibFunc_strstr, LFMR_ARGS},
+        {LibFunc_strtod, LFMR_ARGS},
+        {LibFunc_strtol, LFMR_ARGS},
+        {LibFunc_strtok, LFMR_ARGS},
+        {LibFunc_strtoul, LFMR_ARGS},
+        {LibFunc_tan, LFMR_NONE},
+        {LibFunc_tanh, LFMR_NONE},
+        {LibFunc_time, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_tolower, LFMR_NONE},
+        {LibFunc_toupper, LFMR_NONE},
+        {LibFunc_truncate64, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_under_exit, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_usleep, LFMR_GREF},
+        {LibFunc_vfprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_vprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_vsnprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_vsprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_write, LFMR_ARGS | LFMR_GREF},
+    };
+    unsigned Len = sizeof(LibFuncModelAttrs) / sizeof(LibFuncDetails);
+    for (unsigned Idx = 0; Idx != Len; ++Idx) {
+      LibFunc FuncId = LibFuncModelAttrs[Idx].LibFuncId;
+      assert(LibFuncModRefAttributes[FuncId] == LFMR_UNKNOWN &&
+             "Duplicate table entry");
+      assert(!((LibFuncModelAttrs[Idx].Mask & LFMR_NONE) &&
+               (LibFuncModelAttrs[Idx].Mask & LFMR_ARGS)) &&
+             "Unexpected use of both LFMR_NONE and LFMR_ARGS");
+
+      // Only store the information in the model if the function is present for
+      // the target.
+      if (TLI.has(FuncId))
+        LibFuncModRefAttributes[FuncId] = LibFuncModelAttrs[Idx].Mask;
+    }
+  }
+
+  return LibFuncModRefAttributes[TheLibFunc];
+}
+
+void IntelModRefImpl::printLibFuncModel(raw_ostream &OS,
+                                        unsigned LibFuncModel) {
+  if (LibFuncModel == LFMR_UNKNOWN) {
+    OS << " LFMR_UNKNOWN";
+    return;
+  }
+
+  if (LibFuncModel & LFMR_NONE)
+    OS << " LFMR_NONE";
+  if (LibFuncModel & LFMR_ARGS)
+    OS << " LFMR_ARGS";
+  if (LibFuncModel & LFMR_GREF)
+    OS << " LFMR_GREF";
+  if (LibFuncModel & LFMR_GMOD)
+    OS << " LFMR_GMOD";
+  if (LibFuncModel & LFMR_FMT_CHECK)
+    OS << " LFMR_FMT_CHECK";
+}
+
+unsigned
+IntelModRefImpl::getFormatCheckPosition(LibFunc &TheLibFunc) {
+  typedef struct {
+    LibFunc LibFuncId;
+    unsigned ArgNum;
+  } PrintfStringDetails;
+  static PrintfStringDetails Model[] = {
+      {LibFunc_printf, 0},   {LibFunc_fprintf, 1},  {LibFunc_sprintf, 1},
+      {LibFunc_snprintf, 2}, {LibFunc_vprintf, 0},  {LibFunc_vfprintf, 1},
+      {LibFunc_vsprintf, 1}, {LibFunc_vsnprintf, 2}};
+
+  unsigned Len = sizeof(Model) / sizeof(PrintfStringDetails);
+  for (unsigned Idx = 0; Idx < Len; ++Idx)
+    if (Model[Idx].LibFuncId == TheLibFunc)
+      return Model[Idx].ArgNum;
+
+  llvm_unreachable("Invalid LibFunc");
+}
+
+unsigned IntelModRefImpl::findFormatCheckReadOnlyStart(const CallBase *Call,
+                                                       LibFunc TheLibFunc) {
+  unsigned StringPos = getFormatCheckPosition(TheLibFunc);
+  unsigned ArgCount = Call->getNumArgOperands();
+  unsigned PrintfReadOnlyArgs = ArgCount;
+
+  // Try to analyze the printf formatting string for any %n arguments. If the
+  // string is analyzable, and does not contain %n, then the all the
+  // arguments starting from the format string can be treated as read-only.
+
+  if (ArgCount > StringPos) {
+    const Value *Object =
+        GetUnderlyingObject(Call->getArgOperand(StringPos), *DL);
+    if (auto *GV = dyn_cast<GlobalVariable>(Object)) {
+      // Global variables are always pointer types, check if this is a
+      // constant char array
+      llvm::Type *GVElemType = GV->getType()->getPointerElementType();
+      if (GV->isConstant() && GVElemType->isArrayTy() &&
+          GVElemType->getArrayElementType()->isIntegerTy(8)) {
+        auto Array = dyn_cast<ConstantDataArray>(GV->getInitializer());
+        if (Array && Array->isString()) {
+          StringRef FormatString = Array->getAsString();
+          if (!(FormatString.contains("%n") || FormatString.contains("%hhn") ||
+                FormatString.contains("%hn") || FormatString.contains("%ln") ||
+                FormatString.contains("%lln") || FormatString.contains("%jn") ||
+                FormatString.contains("%zn") || FormatString.contains("%tn") ||
+                FormatString.contains("%Ln")))
+            PrintfReadOnlyArgs = StringPos;
+        }
+      }
+    }
+  }
+
+  return PrintfReadOnlyArgs;
+}
+
+ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
+                                                 const CallBase *Call,
+                                                 const MemoryLocation &Loc) {
+  Function *F = Call->getCalledFunction();
+  unsigned LibFuncModel = getLibfuncModRefModel(TheLibFunc);
+  DEBUG_WITH_TYPE("imr-query", {
+    errs() << "irm-query: LibFunc: " << F->getName();
+    bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
+    bool FunctionReadNone = F->hasFnAttribute(Attribute::ReadNone);
+    errs() << ":: ReadNone:" << FunctionReadNone
+           << " ReadOnly:" << FunctionReadOnly;
+    errs() << " - Model: {";
+    printLibFuncModel(errs(), LibFuncModel);
+    errs() << "}\n";
+  });
+
+  if (LibFuncModel == LFMR_UNKNOWN) {
+    DEBUG_WITH_TYPE("imr-query",
+                    errs() << "No libfunc model: " << F->getName() << "\n");
+    return ModRefInfo::ModRef;
+  }
+
+  ModRefInfo Result = ModRefInfo::NoModRef;
+  bool LocMayEscape = Ander->mayEscape(Loc);
+  if (LocMayEscape) {
+    // For functions marked GMOD/GREF, go conservative since we don't have a
+    // model of what may be accessed.
+    if (LibFuncModel & LFMR_GMOD)
+      Result = unionModRef(Result, ModRefInfo::Mod);
+    if (LibFuncModel & LFMR_GREF)
+      Result = unionModRef(Result, ModRefInfo::Ref);
+    if (Result == ModRefInfo::ModRef) {
+      DEBUG_WITH_TYPE("imr-query",
+                      errs() << "  LibFunc Result=ModRef based on GMod/GRef\n");
+      return Result;
+    }
+  }
+
+  // Analyze the function arguments for Mod/Ref info.
+  unsigned PrintfReadOnlyArgs = std::numeric_limits<unsigned>::max();
+  if (LibFuncModel & LFMR_FMT_CHECK)
+    PrintfReadOnlyArgs = findFormatCheckReadOnlyStart(Call, TheLibFunc);
+
+  if (LibFuncModel & LFMR_ARGS) {
+    bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
+    unsigned FuncArgCount = F->getFunctionType()->getNumParams();
+    unsigned ArgCount = Call->getNumArgOperands();
+    for (unsigned ArgNo = 0; ArgNo < ArgCount; ++ArgNo) {
+      Value *Arg = Call->getArgOperand(ArgNo);
+      if (!Arg->getType()->isPointerTy())
+        continue;
+
+      // Check if the memory location of the argument escapes or aliases
+      // the memory location of interest. If it does, then the memory location
+      // may be modified or referenced.
+      const Value *Object =
+          GetUnderlyingObject(Call->getArgOperand(ArgNo), *DL);
+
+      MemoryLocation Loc2 = MemoryLocation(Object);
+      AliasResult AR = Ander->alias(Loc, Loc2);
+      if (AR == NoAlias)
+        continue;
+
+      Result = unionModRef(Result, ModRefInfo::Ref);
+
+      // If the argument is for a printf-like function after the string
+      // constant that is not using %n, then there is no modification to the
+      // pointer.
+      if (ArgNo >= PrintfReadOnlyArgs)
+        continue;
+
+      // Check if setting Mod can be skipped.
+      if (FunctionReadOnly)
+        continue;
+
+      if (ArgNo < FuncArgCount &&
+          F->hasParamAttribute(ArgNo, Attribute::ReadOnly))
+        continue;
+
+      Result = unionModRef(Result, ModRefInfo::Mod);
+      DEBUG_WITH_TYPE(
+          "imr-query",
+          errs() << "  LibFunc Result=ModRef after checking argument number "
+                 << ArgNo << "\n");
+      return Result;
+    }
+  }
+
+  DEBUG_WITH_TYPE("imr-query", errs() << "  LibFunc Result="
+                                      << getModRefResultStr(Result) << "\n");
+  return Result;
+}
+
 // Check the ModRef sets to see if a specific call will Modify or Reference
 // (or Both) the Location.
 ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
@@ -4919,6 +5344,10 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
     DEBUG_WITH_TYPE("imr-query", errs() << "  Indirect destination\n");
     return ModRefInfo::ModRef;
   }
+
+  LibFunc TheLibFunc;
+  if (F->isDeclaration() && TLI.getLibFunc(*F, TheLibFunc))
+    return getLibFuncModRefInfo(TheLibFunc, Call, Loc);
 
   const FunctionRecord *FR = getFunctionInfo(F);
   if (!FR) {
@@ -4989,8 +5418,9 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
 }
 
 // Constructor of actual implementation object
-AndersensAAResult::IntelModRef::IntelModRef(AndersensAAResult *AnderAA) {
-  Impl = new IntelModRefImpl(AnderAA);
+AndersensAAResult::IntelModRef::IntelModRef(AndersensAAResult *AnderAA,
+                                            const TargetLibraryInfo &TLI) {
+  Impl = new IntelModRefImpl(AnderAA, TLI);
 }
 
 // Destructor of actual implementation object
@@ -5000,6 +5430,12 @@ AndersensAAResult::IntelModRef::~IntelModRef() { delete Impl; }
 void AndersensAAResult::IntelModRef::runAnalysis(Module &M) {
   assert(Impl);
   Impl->runOnModule(M);
+}
+
+void AndersensAAResult::IntelModRef::resetAndersenAAResult(
+    AndersensAAResult *AnderAA) {
+  if (Impl)
+    Impl->resetAndersenAAResult(AnderAA);
 }
 
 // Interface to query for mod/ref information about a memory location.
