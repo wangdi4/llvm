@@ -94,6 +94,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callee is in inline list"},
     // InlrRecProClone
     {InlPrtCost, "Callee is recursive progressive clone"},
+    // InlrHasExtractedRecursiveCall
+    {InlPrtCost, "Callee has extracted recursive call"},
     // InlrSingleLocalCall,
     {InlPrtCost, "Callee has single callsite and local linkage"},
     // InlrSingleBasicBlock,

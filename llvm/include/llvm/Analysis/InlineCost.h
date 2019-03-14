@@ -113,6 +113,7 @@ typedef enum {
    InlrAlwaysInlineRecursive,
    InlrInlineList,
    InlrRecProClone,
+   InlrHasExtractedRecursiveCall,
    InlrSingleLocalCall,
    InlrSingleBasicBlock,
    InlrSingleBasicBlockWithTest,

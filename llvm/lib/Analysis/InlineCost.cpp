@@ -24,6 +24,7 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"  // INTEL
+#include "llvm/Analysis/Intel_PartialInlineAnalysis.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"           // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -41,10 +42,10 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"                   // INTEL
-#include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
 #include "llvm/Support/GenericDomTree.h"            // INTEL
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
 
 using namespace llvm;
 using namespace InlineReportTypes;  // INTEL
@@ -3546,6 +3547,41 @@ static bool preferPartialInlineInlinedClone(Function *Callee) {
 }
 
 //
+// Return 'true' if 'F' calls an outlined function created by Intel partial
+// inlining, which in turn calls 'F'. Such functions are good candidates
+// for inlining.
+//
+
+static bool preferPartialInlineHasExtractedRecursiveCall(Function &F,
+                                                         bool PrepareForLTO) {
+  // Save candidate functions in a SmallPtrSet so that they are not
+  // disqualified once they are inlined.
+  static SmallPtrSet<Function *, 3> Candidates;
+  if (PrepareForLTO || !DTransInlineHeuristics)
+    return false;
+  if (Candidates.count(&F))
+    return true;
+  for (User *U : F.users()) {
+    auto CS1 = dyn_cast<CallBase>(U);
+    if (!CS1)
+      continue;
+    Function *Caller = CS1->getCaller();
+    if (!Caller->hasFnAttribute("prefer-partial-inline-outlined-func"))
+      continue;
+    for (User *V : Caller->users()) {
+      auto CS2 = dyn_cast<CallBase>(V);
+      if (!CS2)
+        continue;
+      if (CS2->getCaller() != &F)
+        continue;
+      Candidates.insert(&F);
+      return true;
+    }
+  }
+  return false;
+}
+
+//
 // Return 'true' if the CallSites of 'Caller' should not be inlined because
 // we are in the 'PrepareForLTO' compile phase and delaying the inlining
 // decision until the link phase will let us more easily decide whether to
@@ -3634,6 +3670,16 @@ static bool preferToDelayInlineDecision(Function *Caller,
     return true;
   }
   return false;
+}
+
+static bool preferToIntelPartialInline(Function &F, bool PrepareForLTO,
+                                       InliningLoopInfoCache &ILIC) {
+  if (!PrepareForLTO || !DTransInlineHeuristics)
+    return false;
+  LoopInfoFuncType GetLoopInfo = [&ILIC](Function &F) -> LoopInfo & {
+    return *(ILIC.getLI(&F));
+  };
+  return isIntelPartialInlineCandidate(&F, GetLoopInfo, PrepareForLTO);
 }
 
 //
@@ -3773,6 +3819,13 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
     *ReasonAddr = NinlrPreferPartialInline;
     return false;
   }
+  if (InlineForXmain &&
+      preferToIntelPartialInline(*(CS.getCalledFunction()), PrepareForLTO,
+      *ILIC)) {
+    *ReasonAddr = NinlrDelayInlineDecision;
+    return false;
+  }
+
 #endif // INTEL_CUSTOMIZATION
 
   // Give out bonuses for the callsite, as the instructions setting them up
@@ -3837,6 +3890,10 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
       if (worthInliningForRecProgressiveClone(&F)) {
         Cost -= InlineConstants::DeepInliningHeuristicBonus;
         YesReasonVector.push_back(InlrRecProClone);
+      }
+      if (preferPartialInlineHasExtractedRecursiveCall(F, PrepareForLTO)) {
+        Cost -= InlineConstants::DeepInliningHeuristicBonus;
+        YesReasonVector.push_back(InlrHasExtractedRecursiveCall);
       }
       if (preferPartialInlineInlinedClone(&F)) {
         YesReasonVector.push_back(InlrPreferPartialInline);
