@@ -49,7 +49,7 @@
 #include "CSAUtils.h"
 using namespace llvm;
 
-#define DEBUG_TYPE "csa-create-scg"
+#define DEBUG_TYPE "csa-create-scg-pass"
 #define REMARK_NAME "csa-create-scg-remark"
 #define PASS_NAME "CSA: Create self contained graphs"
 
