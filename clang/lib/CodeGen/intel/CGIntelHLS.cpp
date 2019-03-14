@@ -1,6 +1,6 @@
 //==--- CodeGenHLS.cpp - HLS-specific Codegen ------------------*- C++ -*---==//
 //
-// Copyright (C) 2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -134,10 +134,10 @@ void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
     Fn->setMetadata("stall_free", llvm::MDNode::get(Context, attrMDArgs));
   }
 
-  if (FD->hasAttr<ClusterAttr>()) {
+  if (const auto *CA = FD->getAttr<ClusterAttr>()) {
     SmallVector<llvm::Metadata *, 2> Args;
-    StringRef Name = FD->getAttr<ClusterAttr>()->getName();
-    int hasName = FD->getAttr<ClusterAttr>()->getHasName();
+    StringRef Name = CA->getName();
+    int hasName = CA->getHasName();
     Args.push_back(llvm::MDString::get(Context, Name));
     Args.push_back(llvm::ConstantAsMetadata::get(
         llvm::ConstantInt::get(Int32Ty, hasName)));
@@ -164,45 +164,36 @@ void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
                                                    Builder.getInt(STFMInt))));
   }
-  if (FD->hasAttr<HLSIIAttr>()) {
-    llvm::APSInt Cycle =
-        FD->getAttr<HLSIIAttr>()->getValue()->EvaluateKnownConstInt(
-            getContext());
+  if (const auto *IIA = FD->getAttr<HLSIIAttr>()) {
+    llvm::APSInt Cycle = IIA->getValue()->EvaluateKnownConstInt( getContext());
     Fn->setMetadata("loop_ii_count",
                     llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
                                                    Builder.getInt(Cycle))));
   }
 
-  if (FD->hasAttr<HLSMinIIAttr>()) {
-    llvm::APSInt Cycle =
-        FD->getAttr<HLSMinIIAttr>()->getValue()->EvaluateKnownConstInt(
-            getContext());
+  if (const auto *MIIA = FD->getAttr<HLSMinIIAttr>()) {
+    llvm::APSInt Cycle = MIIA->getValue()->EvaluateKnownConstInt(getContext());
     Fn->setMetadata("min_ii",
                     llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
                                                    Builder.getInt(Cycle))));
   }
 
-  if (FD->hasAttr<HLSMaxIIAttr>()) {
-    llvm::APSInt Cycle =
-        FD->getAttr<HLSMaxIIAttr>()->getValue()->EvaluateKnownConstInt(
-            getContext());
+  if (const auto *MIIA = FD->getAttr<HLSMaxIIAttr>()) {
+    llvm::APSInt Cycle = MIIA->getValue()->EvaluateKnownConstInt(getContext());
     Fn->setMetadata("max_ii",
                     llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
                                                    Builder.getInt(Cycle))));
   }
 
-  if (FD->hasAttr<HLSMaxInvocationDelayAttr>()) {
-    llvm::APSInt Delay = FD->getAttr<HLSMaxInvocationDelayAttr>()
-                             ->getValue()
-                             ->EvaluateKnownConstInt(getContext());
+  if (const auto *MIDA = FD->getAttr<HLSMaxInvocationDelayAttr>()) {
+    llvm::APSInt Delay = MIDA->getValue()->EvaluateKnownConstInt(getContext());
     Fn->setMetadata("max_invocation_delay",
                     llvm::MDNode::get(Context, llvm::ConstantAsMetadata::get(
                                                    Builder.getInt(Delay))));
   }
 
-  if (FD->hasAttr<HLSForceLoopPipeliningAttr>()) {
-    StringRef ForceLoopPipelining =
-        FD->getAttr<HLSForceLoopPipeliningAttr>()->getForceLoopPipelining();
+  if (const auto *FLPA = FD->getAttr<HLSForceLoopPipeliningAttr>()) {
+    StringRef ForceLoopPipelining = FLPA->getForceLoopPipelining();
     Fn->setMetadata(
         "force_loop_pipelining",
         llvm::MDNode::get(Context,
