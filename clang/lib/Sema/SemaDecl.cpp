@@ -9296,13 +9296,13 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       if (!supportsVariadicCall(CC)) {
         // Windows system headers sometimes accidentally use stdcall without
         // (void) parameters, so we relax this to a warning.
-        int DiagID =
 #if INTEL_CUSTOMIZATION
-            // CQ367576: __regcall CC support
-            (CC == CC_X86StdCall) ||
-                    (getLangOpts().IntelCompat && CC == CC_X86RegCall)
-                ? diag::warn_cconv_knr
-                : diag::err_cconv_knr;
+        int DiagID = diag::err_cconv_knr;
+        if (CC == CC_X86StdCall)
+          DiagID = diag::warn_cconv_knr;
+        if (CC == CC_SpirFunction &&
+            getLangOpts().isIntelCompat(LangOptions::RelaxSpirCCNoProtoDiag))
+          DiagID = diag::warn_cconv_knr;
 #endif // INTEL_CUSTOMIZATION
         Diag(NewFD->getLocation(), DiagID)
             << FunctionType::getNameForCallConv(CC);
