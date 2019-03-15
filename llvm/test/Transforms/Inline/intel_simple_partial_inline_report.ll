@@ -76,7 +76,7 @@
 ; CHECK:   -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining
 
 ; CHECK: COMPILE FUNC: _Z3barP4Node
-; CHECK: -> INLINE: _Z3fooP4Node.1 (25<=225) {{.*}}<<Preferred for partial inlining>>
+; CHECK: -> INLINE: _Z3fooP4Node.1{{.*}}<<Preferred for partial inlining>>
 ; CHECK:      -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining
 
 %struct.Node = type { i32, %struct.Node* }

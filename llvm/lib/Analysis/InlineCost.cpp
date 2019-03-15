@@ -3770,6 +3770,89 @@ static bool preferNotToInlineEHIntoLoop(CallSite CS,
   return hasLoopOptInhibitingEHInstOutsideLoop(CS.getCalledFunction(), ILIC);
 }
 
+//
+// Test a series of special conditions to determine if it is worth inlining
+// if any of them appear. (These have been gathered together into a single
+// function to make an early exit easy to accomplish and save compile time.)
+//
+static void worthInliningUnderSpecialCondition(CallSite CS,
+                                               TargetLibraryInfo &TLI,
+                                               const TargetTransformInfo
+                                                   &CalleeTTI,
+                                               InliningLoopInfoCache &ILIC,
+                                               bool PrepareForLTO,
+                                               bool IsCallerRecursive,
+                                               SmallSet<CallSite, 20>
+                                                   &CallSitesForFusion,
+                                               SmallPtrSetImpl<Function *>
+                                                   &QueuedCallers,
+                                               int &Cost,
+                                               InlineReasonVector
+                                                   &YesReasonVector) {
+  Function *F = CS.getCalledFunction();
+  if (!F)
+    return;
+  if (isDoubleCallSite(F)) {
+    // If there are two calls of the function, the cost of inlining it may
+    // drop, but less dramatically.
+    if (F->hasLocalLinkage() || F->hasLinkOnceODRLinkage()) {
+       if (worthyDoubleInternalCallSite(CS, ILIC)) {
+         Cost -= InlineConstants::SecondToLastCallToStaticBonus;
+         YesReasonVector.push_back(InlrDoubleLocalCall);
+         return;
+       }
+    }
+    if (worthyDoubleExternalCallSite(CS)) {
+      Cost -= InlineConstants::SecondToLastCallToStaticBonus;
+      YesReasonVector.push_back(InlrDoubleNonLocalCall);
+      return;
+    }
+  }
+  if (worthInliningForFusion(CS, CalleeTTI, ILIC, &CallSitesForFusion,
+    PrepareForLTO)) {
+    Cost -= InlineConstants::InliningHeuristicBonus;
+    YesReasonVector.push_back(InlrForFusion);
+    return;
+  }
+  if (worthInliningForDeeplyNestedIfs(CS, ILIC, IsCallerRecursive,
+    PrepareForLTO)) {
+    Cost -= InlineConstants::InliningHeuristicBonus;
+    YesReasonVector.push_back(InlrDeeplyNestedIfs);
+    return;
+  }
+  if (worthInliningForAddressComputations(CS, ILIC, PrepareForLTO)) {
+    Cost -= InlineConstants::InliningHeuristicBonus;
+    YesReasonVector.push_back(InlrAddressComputations);
+    return;
+  }
+  if (worthInliningForStackComputations(F, &TLI, PrepareForLTO)) {
+    Cost -= InlineConstants::InliningHeuristicBonus;
+    YesReasonVector.push_back(InlrStackComputations);
+    return;
+  }
+  if (worthInliningSingleBasicBlockWithStructTest(F, PrepareForLTO,
+      QueuedCallers)) {
+    Cost -= InlineConstants::InliningHeuristicBonus;
+    YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
+    return;
+  }
+  if (worthInliningForRecProgressiveClone(F)) {
+    Cost -= InlineConstants::DeepInliningHeuristicBonus;
+    YesReasonVector.push_back(InlrRecProClone);
+    return;
+  }
+  if (preferPartialInlineHasExtractedRecursiveCall(*F, PrepareForLTO)) {
+    Cost -= InlineConstants::DeepInliningHeuristicBonus;
+    YesReasonVector.push_back(InlrHasExtractedRecursiveCall);
+    return;
+  }
+  if (preferPartialInlineInlinedClone(F)) {
+    Cost -= InlineConstants::DeepInliningHeuristicBonus;
+    YesReasonVector.push_back(InlrPreferPartialInline);
+    return;
+  }
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Analyze a call site for potential inlining.
@@ -3914,56 +3997,9 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
 
   if (InlineForXmain) {
     if (&F == CS.getCalledFunction()) {
-      if (isDoubleCallSite(&F)) {
-        // If there are two calls of the function, the cost of inlining it may
-        // drop, but less dramatically.
-        if (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) {
-           if (worthyDoubleInternalCallSite(CS, *ILIC)) {
-             Cost -= InlineConstants::SecondToLastCallToStaticBonus;
-             YesReasonVector.push_back(InlrDoubleLocalCall);
-           }
-        }
-        else {
-           if (worthyDoubleExternalCallSite(CS)) {
-             Cost -= InlineConstants::SecondToLastCallToStaticBonus;
-             YesReasonVector.push_back(InlrDoubleNonLocalCall);
-           }
-        }
-      }
-      if (worthInliningForFusion(CS, CalleeTTI, *ILIC, CallSitesForFusion,
-                                 PrepareForLTO)) {
-        Cost -= InlineConstants::InliningHeuristicBonus;
-        YesReasonVector.push_back(InlrForFusion);
-      }
-      if (worthInliningForDeeplyNestedIfs(CS, *ILIC, IsCallerRecursive,
-                                          PrepareForLTO)) {
-        Cost -= InlineConstants::InliningHeuristicBonus;
-        YesReasonVector.push_back(InlrDeeplyNestedIfs);
-      }
-      if (worthInliningForAddressComputations(CS, *ILIC, PrepareForLTO)) {
-        Cost -= InlineConstants::InliningHeuristicBonus;
-        YesReasonVector.push_back(InlrAddressComputations);
-      }
-      if (worthInliningForStackComputations(&F, TLI, PrepareForLTO)) {
-        Cost -= InlineConstants::InliningHeuristicBonus;
-        YesReasonVector.push_back(InlrStackComputations);
-      }
-      if (worthInliningSingleBasicBlockWithStructTest(&F, PrepareForLTO,
-          QueuedCallers)) {
-        Cost -= InlineConstants::InliningHeuristicBonus;
-        YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
-      }
-      if (worthInliningForRecProgressiveClone(&F)) {
-        Cost -= InlineConstants::DeepInliningHeuristicBonus;
-        YesReasonVector.push_back(InlrRecProClone);
-      }
-      if (preferPartialInlineHasExtractedRecursiveCall(F, PrepareForLTO)) {
-        Cost -= InlineConstants::DeepInliningHeuristicBonus;
-        YesReasonVector.push_back(InlrHasExtractedRecursiveCall);
-      }
-      if (preferPartialInlineInlinedClone(&F)) {
-        YesReasonVector.push_back(InlrPreferPartialInline);
-      }
+      worthInliningUnderSpecialCondition(CS, *TLI, CalleeTTI, *ILIC,
+        PrepareForLTO, IsCallerRecursive, *CallSitesForFusion, QueuedCallers,
+        Cost, YesReasonVector);
     }
   }
 
