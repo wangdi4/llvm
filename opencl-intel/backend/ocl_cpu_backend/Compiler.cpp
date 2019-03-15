@@ -154,52 +154,40 @@ cl_dev_err_code ProgramBuildResult::GetBuildResult() const
     return m_result;
 }
 
-CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
+CompilerBuildOptions::CompilerBuildOptions(const char* pBuildOpts):
     m_debugInfo(false),
     m_profiling(false),
     m_disableOpt(false),
     m_relaxedMath(false),
     m_denormalsZero(false),
-    m_fpgaEmulator(false),
+    m_uniformWGSize(false),
     m_APFLevel(0)
 {
-    using namespace Intel::MetadataAPI;
+    llvm::StringRef buildOptions(pBuildOpts);
 
-    assert(pModule && "pModule is nullptr!");
+    if (buildOptions.empty())
+      return;
 
-    llvm::Triple triple(pModule->getTargetTriple());
-    if(triple.isINTELFPGAEnvironment())
-    {
-        m_fpgaEmulator = true;
-    }
+     llvm::SmallVector<llvm::StringRef, 8> splittedOptions;
+     buildOptions.split(splittedOptions, " ");
+     for (const auto opt : splittedOptions) {
+       std::string opts = opt.str();
+       if (opt.equals("-profiling"))
+         m_profiling = true;
+       else if (opt.equals("-g"))
+         m_debugInfo = true;
+       else if (opt.equals("-cl-fast-relaxed-math"))
+         m_relaxedMath = true;
+       else if (opt.equals("-cl-opt-disable"))
+         m_disableOpt = true;
+       else if (opt.equals("-cl-denorms-are-zero"))
+         m_denormalsZero = true;
+       else if (opt.equals("-cl-uniform-work-group-size"))
+         m_uniformWGSize = true;
+       else if (opt.compare("-auto-prefetch-level") == 1)
+         opt.substr(opt.find("=") + 1).getAsInteger(10, m_APFLevel);
+     }
 
-    auto compilerOptionsMetadata = ModuleMetadataAPI(pModule).CompilerOptionsList;
-
-    if(!compilerOptionsMetadata.hasValue())
-    {
-        return;
-    }
-
-    for (const auto &parameter : compilerOptionsMetadata) {
-      if (parameter == "-g")
-        m_debugInfo = true;
-      if (parameter == "-profiling")
-        m_profiling = true;
-      if (parameter == "-cl-opt-disable")
-        m_disableOpt = true;
-      if (parameter == "-cl-fast-relaxed-math")
-        m_relaxedMath = true;
-      if (parameter == "-cl-denorms-are-zero")
-        m_denormalsZero = true;
-      if (parameter == "-auto-prefetch-level=0")
-        m_APFLevel = 0;
-      if (parameter == "-auto-prefetch-level=1")
-        m_APFLevel = 1;
-      if (parameter == "-auto-prefetch-level=2")
-        m_APFLevel = 2;
-      if (parameter == "-auto-prefetch-level=3")
-        m_APFLevel = 3;
-    }
 }
 
 bool Compiler::s_globalStateInitialized = false;
@@ -382,6 +370,7 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
 }
 
 llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
+                                     const char* pBuildOptions,
                                      ProgramBuildResult* pResult)
 {
     assert(pModule && "pModule parameter must not be nullptr");
@@ -396,7 +385,10 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
           "Program is not valid for this target", CL_DEV_INVALID_BINARY);
     }
 
-    CompilerBuildOptions buildOptions(pModule);
+    llvm::Triple triple(pModule->getTargetTriple());
+    bool isFpgaEmulator = triple.isINTELFPGAEnvironment();
+
+    CompilerBuildOptions buildOptions(pBuildOptions);
 
     materializeSpirTriple(pModule);
 
@@ -418,7 +410,8 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                             buildOptions.GetProfilingFlag(),
                                             buildOptions.GetDisableOpt(),
                                             buildOptions.GetRelaxedMath(),
-                                            buildOptions.IsFpgaEmulator(),
+                                            buildOptions.GetUniformWGSize(),
+                                            isFpgaEmulator,
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
                                             m_rtLoopUnrollFactor);

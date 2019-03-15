@@ -335,7 +335,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Starting build"));
 
-    cl_dev_err_code ret = m_pBackendCompiler->BuildProgram(pEntry->pProgram, nullptr);
+    cl_dev_err_code ret = m_pBackendCompiler->BuildProgram(pEntry->pProgram, nullptr, options);
 
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Build Done (%d)"), ret);
 

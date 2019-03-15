@@ -205,6 +205,7 @@ Kernel* CPUProgramBuilder::CreateKernel(llvm::Function* pFunc, const std::string
 
 KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                                     llvm::Module* pModule,
+                                    const char* pBuildOpts,
                                     ProgramBuildResult& buildResult) const
 {
     using namespace Intel::MetadataAPI;
@@ -222,6 +223,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         // Create a kernel and kernel JIT properties
         std::unique_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram,
                                                                                pFunc,
+                                                                               pBuildOpts,
                                                                                buildResult));
 
         // get the vector size used to generate the function

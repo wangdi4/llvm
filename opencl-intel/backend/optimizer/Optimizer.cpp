@@ -133,7 +133,7 @@ llvm::ModulePass *createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createSinCosFoldPass();
-llvm::ModulePass *createResolveWICallPass();
+llvm::ModulePass *createResolveWICallPass(bool isUniformWGSize);
 llvm::ModulePass *createDetectRecursionPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
@@ -583,7 +583,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   // The following three passes (AddImplicitArgs/ResolveWICall/LocalBuffer)
   // must run before createBuiltInImportPass!
   PM.add(createAddImplicitArgsPass());
-  PM.add(createResolveWICallPass());
+  PM.add(createResolveWICallPass(pConfig->GetUniformWGSize()));
   PM.add(createLocalBuffersPass(debugType == Native));
   // clang converts OCL's local to global.
   // createLocalBuffersPass changes the local allocation from global to a

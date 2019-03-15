@@ -215,35 +215,6 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
 
   bool success = llvm::ReadSPIRV(*context, inputStream, pModule, errorMsg);
 
-  // Respect build options.
-  // Compiler options layout in llvm metadata is defined by SPIR spec.
-  // For example:
-  // !opencl.compiler.options = !{!11}
-  // !11 = !{!"-cl-fast-relaxed-math", !""-cl-mad-enable"}
-  if (success) {
-    llvm::NamedMDNode *OCLCompOptsMD =
-        pModule->getOrInsertNamedMetadata("opencl.compiler.options");
-    // we do not expect spir-v parser to handle build options
-    assert(OCLCompOptsMD->getNumOperands() == 0 &&
-           "SPIR-V parser is not expected to handle compile options");
-
-    if (OCLCompOptsMD->getNumOperands() == 0) {
-      llvm::SmallVector<llvm::Metadata *, 5> OCLBuildOptions;
-
-      std::vector<std::string> buildOptionsSeparated;
-      std::stringstream optionsStrstream(m_pProgDesc->pszOptions);
-      std::copy(std::istream_iterator<std::string>(optionsStrstream),
-                std::istream_iterator<std::string>(),
-                std::back_inserter(buildOptionsSeparated));
-
-      for (auto option : buildOptionsSeparated) {
-        OCLBuildOptions.push_back(llvm::MDString::get(*context, option));
-      }
-
-      OCLCompOptsMD->addOperand(llvm::MDNode::get(*context, OCLBuildOptions));
-    }
-  }
-
   assert(!verifyModule(*pModule) &&
          "SPIR-V consumer returned a broken module!");
 

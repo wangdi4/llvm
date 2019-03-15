@@ -633,28 +633,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
-  StringRef CompilationUtils::fetchCompilerOption(const Module &M, char const* prefix) {
-    /*
-    Examples of the metadata:
-
-    !opencl.compiler.options = !{!0}
-    !0 = !{!"-cl-std=CL2.0"}
-
-    !opencl.compiler.options = !{!9}
-    !9 = !{!"-cl-fast-relaxed-math", !"-cl-std=CL2.0"}
-    */
-
-    auto options = ModuleMetadataAPI(const_cast<llvm::Module*>(&M)).CompilerOptionsList;
-
-    if(options.hasValue()) {
-      for (StringRef option : options) {
-        if(option.startswith(prefix)) return option;
-      }
-    }
-
-    return StringRef();
-  }
-
 Function *CompilationUtils::AddMoreArgsToFunc(
     Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
     ArrayRef<AttributeSet> NewAttrs, StringRef Prefix) {

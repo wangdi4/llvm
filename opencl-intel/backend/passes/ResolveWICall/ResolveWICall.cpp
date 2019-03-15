@@ -27,13 +27,19 @@
 
 #include <algorithm>
 
-using namespace Intel::OpenCL::DeviceBackend;
+// Add command line to specify work groups size as uniform
+static llvm::cl::opt<bool> OptUniformWGSize(
+    "uniform-wg-size", llvm::cl::init(false),
+    llvm::cl::desc("The flag speficies work groups size as uniform"));
+
 
 extern "C" {
-  ModulePass* createResolveWICallPass() {
-    return new intel::ResolveWICall();
+  ModulePass* createResolveWICallPass(bool isUniformWGSize) {
+    return new intel::ResolveWICall(isUniformWGSize);
   }
 }
+
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
@@ -48,6 +54,9 @@ namespace intel {
     false
     )
 
+    ResolveWICall::ResolveWICall(bool isUniformWG) :
+        ModulePass(ID), m_uniformLocalSize(isUniformWG) {}
+
     bool ResolveWICall::runOnModule(Module &M) {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
@@ -58,13 +67,12 @@ namespace intel {
 
       m_bPrefetchDecl = false;
       m_pStructNDRangeType = nullptr;
+      m_uniformLocalSize |= OptUniformWGSize;
 
       // extended execution flags
       m_ExtExecDecls.clear();
 
       m_oclVersion = CompilationUtils::fetchCLVersionFromMetadata(M);
-      m_nonUniformLocalSize = CompilationUtils::fetchCompilerOption(
-        M, "-cl-uniform-work-group-size").empty() == false;
 
       // Run on all defined function in the module
       for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
@@ -291,7 +299,7 @@ namespace intel {
                                             m_pWorkInfo,
                                             pCall->getArgOperand(0), Builder);
     case ICT_GET_LOCAL_SIZE:
-      return m_IAA->GenerateGetLocalSize(m_nonUniformLocalSize,
+      return m_IAA->GenerateGetLocalSize(m_uniformLocalSize,
                                          m_pWorkInfo, m_pWGId, pCall->getArgOperand(0),
                                          Builder);
     case ICT_GET_ENQUEUED_LOCAL_SIZE:

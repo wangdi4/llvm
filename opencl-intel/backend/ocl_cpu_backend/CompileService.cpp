@@ -108,7 +108,8 @@ void CompileService::ReleaseProgram(ICLDevBackendProgram_* pProgram) const
 }
 
 cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
-                                              const ICLDevBackendOptions* pOptions )
+                                              const ICLDevBackendOptions* pOptions,
+                                              const char* pBuildOpts)
 {
     try
     {
@@ -119,7 +120,7 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
 
         llvm::MutexGuard lock(m_buildLock);
 
-        return GetProgramBuilder()->BuildProgram(static_cast<Program*>(pProgram), pOptions);
+        return GetProgramBuilder()->BuildProgram(static_cast<Program*>(pProgram), pOptions, pBuildOpts);
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {

@@ -38,6 +38,7 @@ public:
             bool profiling,
             bool disableOpt,
             bool relaxedMath,
+            bool uniformWGSize,
             bool fpgaEmulator,
             bool heuristicIR,
             int  APFLevel,
@@ -52,6 +53,7 @@ public:
       m_profiling(profiling),
       m_disableOpt(disableOpt),
       m_relaxedMath(relaxedMath),
+      m_uniformWGSize(uniformWGSize),
       m_fpgaEmulator(fpgaEmulator),
       m_dumpHeuristicIR(heuristicIR),
       m_APFLevel(APFLevel),
@@ -69,6 +71,7 @@ public:
     bool GetDebugInfoFlag() const { return m_debugInfo; }
     bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
+    bool GetUniformWGSize() const { return m_uniformWGSize; }
     bool isFpgaEmulator()   const { return m_fpgaEmulator; }
     int GetRTLoopUnrollFactor() const { return m_rtLoopUnrollFactor; }
     bool GetDumpHeuristicIRFlag() const {return m_dumpHeuristicIR; }
@@ -86,6 +89,7 @@ private:
     bool m_profiling;
     bool m_disableOpt;
     bool m_relaxedMath;
+    bool m_uniformWGSize;
     // Sets whether we are working as fpga emulator
     bool m_fpgaEmulator;
     // Sets whether the vectorize should output heuristic LL IR inputs

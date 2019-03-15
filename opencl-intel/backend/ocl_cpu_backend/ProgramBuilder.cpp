@@ -254,7 +254,8 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
 }
 
 cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
-    const ICLDevBackendOptions* pOptions)
+    const ICLDevBackendOptions* pOptions,
+    const char* pBuildOpts)
 {
     assert(pProgram && "Program parameter must not be nullptr");
     ProgramBuildResult buildResult;
@@ -293,7 +294,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler,
                                                         nullptr);
 
-        pCompiler->BuildProgram( pModule, &buildResult);
+        pCompiler->BuildProgram(pModule, pBuildOpts, &buildResult);
         // ObjectCodeCache structure will be filled by a callback after JIT
         // happens.
         std::unique_ptr<ObjectCodeCache>
@@ -327,6 +328,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
             // L"Start iterating over kernels");
             KernelSet* pKernels = CreateKernels( pProgram,
                                                  pModule,
+                                                 pBuildOpts,
                                                  buildResult);
             // update kernels with RuntimeService
             Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pKernels );
@@ -362,7 +364,7 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
 }
 
 KernelProperties *ProgramBuilder::CreateKernelProperties(
-    const Program *pProgram, Function *func,
+    const Program *pProgram, Function *func, const char* pBuildOpts,
     const ProgramBuildResult &buildResult) const {
   Module *pModule = func->getParent();
 
@@ -517,7 +519,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   barrierBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(barrierBufferSize);
   privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
 
-  CompilerBuildOptions buildOptions(pModule);
+  CompilerBuildOptions buildOptions(pBuildOpts);
   KernelProperties *pProps = new KernelProperties();
 
   // Kernel should keep size of pointer specified inside module
@@ -562,13 +564,9 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   // OpenCL 2.0 related properties
   if (OclVersion::CL_VER_2_0 <=
-          CompilationUtils::fetchCLVersionFromMetadata(*pModule) &&
-      CompilationUtils::fetchCompilerOption(*pModule,
-                                            "-cl-uniform-work-group-size")
-          .empty()) {
-    pProps->SetIsNonUniformWGSizeSupported(true);
-  } else {
-    pProps->SetIsNonUniformWGSizeSupported(false);
+                  CompilationUtils::fetchCLVersionFromMetadata(*pModule)) {
+    bool isNonUniformWGSizeSupported = !buildOptions.GetUniformWGSize();
+    pProps->SetIsNonUniformWGSizeSupported(isNonUniformWGSizeSupported);
   }
 
   // set can unite WG and vectorization dimention
