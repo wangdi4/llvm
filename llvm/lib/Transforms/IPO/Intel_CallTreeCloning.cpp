@@ -83,7 +83,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -1881,8 +1880,8 @@ protected:
       for (BasicBlock &BB : F)
         for (Instruction &I : BB)
           // count direct calls only: support both CallInst and InvokeInst
-          if (auto CS = CallSite(&I))
-            if (!CS.isIndirectCall())
+          if (CallBase *CB = dyn_cast<CallBase>(&I))
+            if (!CB->isIndirectCall())
               ++NumCallInst;
 
     LLVM_DEBUG(dbgs() << "NumCallInst:\t" << NumCallInst << "\n");
