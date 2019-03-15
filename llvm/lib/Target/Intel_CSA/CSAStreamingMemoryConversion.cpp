@@ -46,6 +46,11 @@ static cl::opt<bool> EnableLargerStrides(
   "csa-enable-all-strides", cl::Hidden,
   cl::desc("CSA Specific: enable streaming memory even if stride is not 1"));
 
+static cl::opt<bool> EnableWideLoads(
+  "csa-enable-wide-loads", cl::Hidden,
+  cl::desc("CSA Specific: enable wide loads using sld64x2"),
+  cl::init(false));
+
 static cl::opt<bool> EnableAllLoops(
   "csa-streammem-expensive", cl::Hidden,
   cl::desc("CSA Specific: enable streaming memory even if trip counts are expensive"));
@@ -66,6 +71,16 @@ struct StreamingMemoryDetails {
   Instruction *MemInst;
 };
 
+struct WideLoadDetails {
+  const SCEV *Address;
+
+  CallInst *InOrd;
+  CallInst *OutOrd;
+
+  Type *MemTy;
+  Instruction *MemInst;
+};
+
 class CSAStreamingMemoryImpl {
   DominatorTree &DT;
   LoopInfo &LI;
@@ -78,6 +93,8 @@ class CSAStreamingMemoryImpl {
 
   Optional<StreamingMemoryDetails> getLegalStream(Value *Pointer,
       Instruction *MemInst);
+  Optional<WideLoadDetails> getLegalWideLoad(Value *Pointer,
+      Instruction *MemInst);
   CallInst *getInordEdge(Instruction *MemInst);
   CallInst *getOutordEdge(Instruction *MemInst);
 
@@ -86,6 +103,7 @@ class CSAStreamingMemoryImpl {
 
   void makeStreaming(StreamingMemoryDetails &Details);
   bool attemptWide(StreamingMemoryDetails &A, StreamingMemoryDetails &B);
+  bool attemptWideLoad(WideLoadDetails &A, WideLoadDetails &B);
 
   void reportSuccess(Instruction *MemInst) {
     OptimizationRemark R(DEBUG_TYPE, "StreamingMemory", MemInst);
@@ -355,6 +373,45 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
     Changed = true;
   }
 
+  if (EnableWideLoads) {
+    SmallVector<WideLoadDetails, 8> PossibleWideLoads;
+    for (auto *BB : L->blocks()) {
+      // Skip the block if it is in an inner loop.
+      if (LI.getLoopFor(BB) != L)
+        continue;
+
+      // If we dominate the latch and are not in an inner loop, then we execute
+      // this block the same number of times as the loop latch will exit, except
+      // possibly for if we exit the loop first.
+      if (!DT.dominates(BB, LatchBlock))
+        continue;
+
+      for (auto &I : *BB) {
+        if (auto LI = dyn_cast<LoadInst>(&I)) {
+          auto DetailsWide = getLegalWideLoad(LI->getPointerOperand(), LI);
+          if (!DetailsWide)
+            continue;
+          PossibleWideLoads.push_back(*DetailsWide);
+        }
+      }
+    }
+    // Check for wide load possibilities.
+    int NumWideStreams = PossibleWideLoads.size();
+    for (int i = NumWideStreams - 1; i > 0; i--) {
+      for (int j = 0; j < i; j++) {
+        bool Successful = attemptWideLoad(PossibleWideLoads[i],
+          PossibleWideLoads[j]);
+        if (Successful) {
+          Changed = true;
+          PossibleWideLoads.erase(PossibleWideLoads.begin() + i);
+          PossibleWideLoads.erase(PossibleWideLoads.begin() + j);
+          i--;
+          break;
+        }
+      }
+    }
+  }
+
   // If we replaced some memory accesses, try to delete any PHI nodes in the
   // loop header.
   if (Changed) {
@@ -364,7 +421,6 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
       RecursivelyDeleteDeadPHINode(cast<PHINode>(I));
     }
   }
-
   return Changed;
 }
 
@@ -415,13 +471,11 @@ Optional<StreamingMemoryDetails> CSAStreamingMemoryImpl::getLegalStream(
     Value *Pointer, Instruction *MemInst) {
   const SCEV *S = SE.getSCEV(Pointer);
   Loop *L = LI.getLoopFor(MemInst->getParent());
-
+  LLVM_DEBUG(dbgs() << "Candidate for streaming memory at " << *MemInst << "\n");
   // The SCEV must be an affine add-rec expr within the loop in question.
   const SCEVAddRecExpr *SAddRec = dyn_cast<SCEVAddRecExpr>(S);
   if (!SAddRec || !SAddRec->isAffine() || SAddRec->getLoop() != L)
     return None;
-
-  LLVM_DEBUG(dbgs() << "Candidate for streaming memory at " << *MemInst << "\n");
   LLVM_DEBUG(dbgs() << "Recurrence is " << *S << "\n");
 
   // Get the stride of the streaming memory reference.
@@ -459,6 +513,23 @@ Optional<StreamingMemoryDetails> CSAStreamingMemoryImpl::getLegalStream(
 
   StreamingMemoryDetails Details = { SAddRec->getStart(), StrideVal, InOrd,
     OutOrd, MemTy, MemInst };
+  LLVM_DEBUG(errs() << "Adding to streaming memory list\n");
+  return Details;
+}
+
+Optional<WideLoadDetails> CSAStreamingMemoryImpl::getLegalWideLoad(
+    Value *Pointer, Instruction *MemInst) {
+  const SCEV *S = SE.getSCEV(Pointer);
+  LLVM_DEBUG(dbgs() << "Candidate for wide load at " << *MemInst << "\n");
+  if (!S)
+    return None;
+  LLVM_DEBUG(dbgs() << "Address is " << *S << "\n");
+  Type *MemTy = Pointer->getType()->getPointerElementType();
+  // Get the input and output ordering edges.
+  CallInst *InOrd = getInordEdge(MemInst);
+  CallInst *OutOrd = getOutordEdge(MemInst);
+  WideLoadDetails Details = { S, InOrd, OutOrd, MemTy, MemInst };
+  LLVM_DEBUG(errs() << "Adding to wide load list\n");
   return Details;
 }
 
@@ -673,6 +744,128 @@ void CSAStreamingMemoryImpl::makeStreaming(StreamingMemoryDetails &Details) {
 
   // Clear out any dead stuff from the pointer.
   RecursivelyDeleteTriviallyDeadInstructions(OldPointer);
+}
+
+bool CSAStreamingMemoryImpl::attemptWideLoad(WideLoadDetails &A,
+    WideLoadDetails &B) {
+  // Check that stride, length, and size are all equivalent.
+  LLVM_DEBUG(errs() << "Inside attemptWideLoad for: \n");
+  LLVM_DEBUG(dbgs() << "A: " << *A.MemInst << "\n");
+  LLVM_DEBUG(dbgs() << "B: " << *B.MemInst << "\n");
+
+  if (A.MemTy != B.MemTy)
+    return false;
+  // Are they both loads? (Only sldx2 is supported for now).
+  if (!isa<LoadInst>(A.MemInst) || !isa<LoadInst>(B.MemInst))
+    return false;
+
+  // Find out if one is the base of the other.
+  const SCEV *BaseDiff = SE.getMinusSCEV(A.Address, B.Address);
+  const SCEVConstant *Constant = dyn_cast<SCEVConstant>(BaseDiff);
+  int64_t PtrSize = SE.getDataLayout().getTypeStoreSize(A.MemTy);
+  if (!Constant || abs(Constant->getValue()->getSExtValue()) != PtrSize)
+    return false;
+
+  bool IsALess = Constant->getValue()->isNegative();
+  WideLoadDetails &Lo = IsALess ? A : B;
+  WideLoadDetails &Hi = IsALess ? B : A;
+
+  {
+    OptimizationRemarkAnalysis RLo(DEBUG_TYPE, "StreamingMemory", Lo.MemInst);
+    ORE.emit(RLo << "found candidate for wide load");
+    OptimizationRemarkAnalysis RHi(DEBUG_TYPE, "StreamingMemory", Hi.MemInst);
+    ORE.emit(RHi << "will be paired with this load");
+  }
+
+  // Compute if the input ordering edges are compatible. For compatible, we're
+  // saying that they must both be %ign or both be the same value. Since these
+  // values should end up in the same in alias set anyways, memory ordering is
+  // not likely to create cases where there is a mismatch. Merging the values
+  // if they don't match could well kill any performance gains of streaming
+  // anyways.
+  if (A.InOrd && B.InOrd) {
+    if (A.InOrd->getArgOperand(0) != B.InOrd->getArgOperand(0)) {
+      reportFailure(Lo.MemInst, "memory ordering tokens are not compatible");
+      return false;
+    }
+  } else if (A.InOrd || B.InOrd) {
+    reportFailure(Lo.MemInst, "memory ordering tokens are not compatible");
+    return false;
+  }
+
+  // Compare output ordering edges for compatibility. Essentially the same rules
+  // as above apply, although comparing uses for equivalency is more complex.
+  if (A.OutOrd && B.OutOrd) {
+    if (A.OutOrd->getNumUses() != B.OutOrd->getNumUses()) {
+      reportFailure(Lo.MemInst, "memory ordering tokens are not compatible");
+      return false;
+    }
+    auto UserCmp = [](const Use &U1, const Use &U2) {
+      return (std::less<const User*>{})(U1.getUser(), U2.getUser());
+    };
+    A.OutOrd->sortUseList(UserCmp);
+    B.OutOrd->sortUseList(UserCmp);
+    if (!std::equal(A.OutOrd->user_begin(), A.OutOrd->user_end(),
+                    B.OutOrd->user_begin())) {
+      reportFailure(Lo.MemInst, "memory ordering tokens are not compatible");
+      return false;
+    }
+  } else if (A.OutOrd || B.OutOrd) {
+    reportFailure(Lo.MemInst, "memory ordering tokens are not compatible");
+    return false;
+  }
+
+  // We have cleared all the checks. We can now create the operation.
+  LLVM_DEBUG(dbgs() << "Found wide load\n");
+  LLVM_DEBUG(dbgs() << "Lo: " << *Lo.MemInst << "\n");
+  LLVM_DEBUG(dbgs() << "Hi: " << *Hi.MemInst << "\n");
+
+  // Generate the base and length values for the stream
+  IRBuilder<> Builder(Lo.MemInst);
+  // Set the length to 2
+  Value *Base = Expander.expandCodeFor(Lo.Address,
+      Lo.MemTy->getPointerTo(), Lo.MemInst);
+  Value *Length = Builder.getInt64(2);
+
+  // Construct the wide streaming load.
+  auto LI = dyn_cast<LoadInst>(Lo.MemInst);
+  Value *OldLoPointer = LI->getPointerOperand();
+  Value *OldHiPointer = dyn_cast<LoadInst>(Hi.MemInst)->getPointerOperand();
+  Instruction *NewInst = Builder.CreateIntrinsic(Intrinsic::csa_stream_load_x2,
+      { Lo.MemTy },
+      { Base, Length, Builder.getInt64(1) },
+      nullptr, LI->getName() + ".wideload");
+
+  // Hook up lics for lo and hi.
+  Value *LoResult = Builder.CreateExtractValue(NewInst, 0, Lo.MemInst->getName());
+  Value *HiResult = Builder.CreateExtractValue(NewInst, 1, Hi.MemInst->getName());
+  Lo.MemInst->replaceAllUsesWith(LoResult);
+  Hi.MemInst->replaceAllUsesWith(HiResult);
+
+  LLVM_DEBUG(dbgs() << "Replaced loads with " << *NewInst << "\n");
+  reportSuccess(Lo.MemInst);
+
+  // Adjust the ordering edges to the new instruction.
+  if (Lo.InOrd) {
+    Lo.InOrd->moveBefore(NewInst);
+    Hi.InOrd->eraseFromParent();
+  }
+  if (Lo.OutOrd) {
+    Lo.OutOrd->moveAfter(NewInst);
+    Hi.OutOrd->replaceAllUsesWith(Lo.OutOrd);
+    Hi.OutOrd->eraseFromParent();
+  }
+
+  // Delete the old instructions.
+  Lo.MemInst->eraseFromParent();
+  Lo.MemInst = NewInst;
+  Hi.MemInst->eraseFromParent();
+  Hi.MemInst = nullptr;
+
+  // Clear out any dead stuff from the pointer.
+  RecursivelyDeleteTriviallyDeadInstructions(OldLoPointer);
+  RecursivelyDeleteTriviallyDeadInstructions(OldHiPointer);
+  return true;
 }
 
 bool CSAStreamingMemoryImpl::attemptWide(StreamingMemoryDetails &A,
