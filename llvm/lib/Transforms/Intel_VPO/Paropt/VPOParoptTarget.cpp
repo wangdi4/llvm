@@ -59,6 +59,10 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   if (MpClause.empty())
     return;
 
+  bool ForceMapping =
+      isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
+
   IRBuilder<> Builder(W->getEntryBBlock()->getFirstNonPHI());
 
   for (auto *Item : MpClause.items()) {
@@ -76,7 +80,7 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
       resetValueInIntelClauseGeneric(W, SectionPtr);
 
       if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
-          I != 0)
+          I != 0 && !ForceMapping)
         Builder.CreateStore(SectionPtr, BasePtr);
 
       Value *Size = Aggr->getSize();
@@ -258,12 +262,15 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
           "omp_offload.cont");
       NewCall->removeFromParent();
       NewCall->insertBefore(Term->getParent()->getTerminator());
-    } else if (isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W)) {
+    } else if (isa<WRNTargetDataNode>(W)) {
       NewCall->removeFromParent();
       NewCall->insertAfter(Call);
     } else if (isa<WRNTargetEnterDataNode>(W) ||
-               isa<WRNTargetExitDataNode>(W)) {
-      NewCall->removeFromParent();
+               isa<WRNTargetExitDataNode>(W) ||
+               isa<WRNTargetUpdateNode>(W)) {
+      NewCall->eraseFromParent();
+      // We cannot erase the function right now, because it now contains
+      // the region's entry/exit calls, which we will try to erase later.
       NewF->removeFromParent();
     }
   }
@@ -315,9 +322,10 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
 
   if (MapI->getIsMapTofrom())
     Res = TGT_MAP_TO | TGT_MAP_FROM;
-  else if (MapI->getIsMapTo() || MapI->getInFirstprivate())
+  else if (MapI->getIsMapTo() || MapI->getInFirstprivate() ||
+           MapI->getIsMapUpdateTo())
     Res = TGT_MAP_TO;
-  else if (MapI->getIsMapFrom())
+  else if (MapI->getIsMapFrom() || MapI->getIsMapUpdateFrom())
     Res = TGT_MAP_FROM;
   else if (MapI->getIsMapDelete())
     Res = TGT_MAP_DELETE;
@@ -365,10 +373,14 @@ void VPOParoptTransform::genTgtInformationForPtrs(
   const DataLayout DL = F->getParent()->getDataLayout();
   LLVMContext &C = F->getContext();
 
+  bool ForceMapping =
+      isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
+
   MapClause const &MpClause = W->getMap();
   bool Match = false;
   for (MapItem *MapI : MpClause.items()) {
-    if (!isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W) &&
+    if (!ForceMapping &&
         (MapI->getOrig() != V || !MapI->getOrig()))
       continue;
     Match = true;
@@ -393,19 +405,34 @@ void VPOParoptTransform::genTgtInformationForPtrs(
                 MapChain.size() > 1 ? false : true,
                 I == 0 ? true : false));
         IsFirstExprFlag = false;
+        // FIXME: this has to be fixed. Code generation on the host must not
+        //        depend on the fact that user passed -fopenmp-targets=spirv64
+        //        or not. There are several calls to deviceTriplesHasSPIRV()
+        //        in this file, and they all relate to a single change-set.
+        //        I am not yet sure what is going on here, but basically
+        //        we need to configure map entries for all base and section
+        //        pointers. In case of WRNTargetNode, we may ignore those
+        //        map items that do not end up in the parameter list
+        //        of the outline function, unless they are mapped ALWAYS.
+        //        Right now we iterate through all parameters of the outline
+        //        function, but it looks like we should iterate through
+        //        the map clauses and match them to the parameters:
+        //        if a map item is ALWAYS and it does not match any parameter,
+        //        we must still create a map entry for it.
         if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
-            I == 0)
+            I == 0 && !ForceMapping)
           break;
       }
     } else {
+      assert(!MapI->getIsArraySection() &&
+             "Map with an array section must have a map chain.");
       ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                             DL.getTypeAllocSize(T)));
       MapTypes.push_back(getMapTypeFlag(MapI, !IsFirstExprFlag, true, true));
     }
     IsFirstExprFlag = false;
   }
-  if (deviceTriplesHasSPIRV() && Match == false &&
-      !isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W)) {
+  if (deviceTriplesHasSPIRV() && Match == false && !ForceMapping) {
     for (MapItem *MapI : MpClause.items()) {
       if (MapI->getIsMapChain()) {
         MapChainTy const &MapChain = MapI->getMapChain();
@@ -526,6 +553,45 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   return DummyCLLoopParameterRec;
 }
 
+void VPOParoptTransform::genMapChainsForMapArraySections(
+    WRegionNode *W, Instruction *InsertPt) {
+  LLVMContext &C = F->getContext();
+  MapClause const &MpClause = W->getMap();
+  const auto DL = F->getParent()->getDataLayout();
+
+  for (MapItem *MapI : MpClause.items()) {
+    if (!MapI->getIsArraySection())
+      continue;
+
+    computeArraySectionTypeOffsetSize(*MapI, InsertPt);
+    IRBuilder<> GepBuilder(InsertPt);
+    const ArraySectionInfo &ArrSecInfo = MapI->getArraySectionInfo();
+    auto *BasePtr = MapI->getOrig();
+    if (ArrSecInfo.getBaseIsPointer())
+      BasePtr = GepBuilder.CreateLoad(BasePtr, BasePtr->getName() + ".load");
+
+    auto *ElementTy = ArrSecInfo.getElementType();
+    auto *SectionPtr =
+        GepBuilder.CreateBitCast(BasePtr,
+                                 PointerType::getUnqual(ElementTy),
+                                 BasePtr->getName() + ".cast");
+    SectionPtr = GepBuilder.CreateGEP(SectionPtr, ArrSecInfo.getOffset(),
+                                      SectionPtr->getName() + ".plus.offset");
+
+    auto *NumElements = ArrSecInfo.getSize();
+    NumElements = GepBuilder.CreateSExtOrTrunc(NumElements,
+                                               Type::getInt64Ty(C));
+
+    auto *TypeSize = ConstantInt::get(Type::getInt64Ty(C),
+                                      DL.getTypeAllocSize(ElementTy));
+    auto *Size = GepBuilder.CreateMul(NumElements, TypeSize,
+                                      BasePtr->getName() + ".map.size");
+
+    auto *Chain = new MapAggrTy(BasePtr, SectionPtr, Size);
+    MapI->setMapChainForArraySection(Chain);
+  }
+}
+
 // Generate the initialization code for the directive omp target.
 // Given a program as follows. The compiler creates the four arrays
 // offload_baseptrs, offload_ptrs, offload_sizes and offload_maptypes.
@@ -575,19 +641,26 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
   Info.NumberOfPtrs = Call->getNumArgOperands();
   bool hasRuntimeEvaluationCaptureSize = false;
-  if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
-    Info.NumberOfPtrs = 1;
+  bool ForceMapping =
+      // These regions will not have any real references to the mapped
+      // items, but we still have to notify the runtime about the mappings.
+      isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
+
+  // Transform array sections in maps to map chains to handle
+  // them uniformly.
+  genMapChainsForMapArraySections(W, InsertPt);
 
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
     Info.NumberOfPtrs++;
 
-  if (Info.NumberOfPtrs) {
+  if (Info.NumberOfPtrs || ForceMapping) {
 
     SmallVector<Constant *, 16> ConstSizes;
     SmallVector<uint64_t, 16> MapTypes;
     bool IsFirstExprFlag = true;
 
-    if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
+    if (ForceMapping)
       genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
                                hasRuntimeEvaluationCaptureSize,
                                IsFirstExprFlag);
@@ -745,12 +818,16 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
     SmallVectorImpl<Constant *> &ConstSizes,
     bool hasRuntimeEvaluationCaptureSize, Value *BPVal, bool &Match,
     IRBuilder<> &Builder, unsigned &Cnt) {
+  bool ForceMapping =
+      isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
+
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
-    if (!isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W) &&
+    if (!ForceMapping &&
         (MapI->getOrig() != BPVal || !MapI->getOrig()))
       continue;
-    if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W))
+    if (ForceMapping)
       BPVal = MapI->getOrig();
     Match = true;
     if (MapI->getIsMapChain()) {
@@ -761,16 +838,20 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
             Builder, Aggr->getBasePtr(), Aggr->getSectionPtr(), Aggr->getSize(),
             Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
         if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
-            I == 0)
+            I == 0 && !ForceMapping)
           break;
       }
-    } else
-      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
+    } else {
+      assert(!MapI->getIsArraySection() &&
+             "Map with an array section must have a map chain.");
+      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr,
+                               Info, ConstSizes,
                                Cnt, hasRuntimeEvaluationCaptureSize);
+    }
   }
 
   if (deviceTriplesHasSPIRV() && Match == false &&
-      !isa<WRNTargetEnterDataNode>(W) && !isa<WRNTargetExitDataNode>(W)) {
+      !ForceMapping) {
     for (MapItem *MapI : MpClause.items()) {
       if (MapI->getIsMapChain()) {
         MapChainTy const &MapChain = MapI->getMapChain();
@@ -803,7 +884,8 @@ void VPOParoptTransform::genOffloadArraysInit(
   unsigned Cnt = 0;
   bool Match = false;
 
-  if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W)) {
+  if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W)) {
     genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
                                   hasRuntimeEvaluationCaptureSize, nullptr,
                                   Match, Builder, Cnt);

@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //===----------------- WRegionClause.h - Clauses ----------------*- C++ -*-===//
 //
-//   Copyright (C) 2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -766,9 +766,40 @@ public:
       : Item(nullptr, IK_Map), MapKind(0), InFirstprivate(nullptr) {
     MapChain.push_back(Aggr);
   }
+  ~MapItem() {
+    // If this map clause specifies an array section, we transform
+    // it into a map chain in
+    // VPOParoptTranform::genMapChainsForMapArraySections(), which
+    // dynamically allocates a single map chain element
+    // (see setMapChainForArraySection() below as well).
+    // We have to delete this map chain element here.
+    if (!getIsArraySection())
+      return;
+
+    if (MapChain.size() == 0)
+      return;
+
+    assert(MapChain.size() == 1 &&
+           "Map clause with an array section must contain "
+           "exactly one map chain.");
+    delete MapChain[0];
+  }
 
   const MapChainTy &getMapChain() const { return MapChain; }
         MapChainTy &getMapChain()       { return MapChain; }
+
+  // For map clauses that specify array section we allow
+  // adding a single map chain element that represents
+  // this array section.
+  void setMapChainForArraySection(MapAggrTy *Aggr) {
+    assert(getIsArraySection() &&
+           "Setting map chaing for a map clause, "
+           "which is not an array section.");
+    assert(MapChain.size() == 0 &&
+           "Setting map chain for a map clause with an array section twice.");
+    MapChain.push_back(Aggr);
+  }
+
   bool getIsMapChain() const { return MapChain.size() > 0; }
 
   static unsigned getMapKindFromClauseId(int Id) {
@@ -861,6 +892,8 @@ public:
       OS << ") ";
     }
   }
+
+  static bool classof(const Item *I) { return I->getKind() == IK_Map; }
 };
 
 

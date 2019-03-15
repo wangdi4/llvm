@@ -371,10 +371,18 @@ private:
                                       Type *&DestElementTy);
 
   /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
-  /// ArraySectionInfo of the reduction item \p RI. It may need to emit some
+  /// ArraySectionInfo of the map/reduction item \p CI. It may need to emit some
   /// Instructions, which is done \b before \p InsertPt.
-  void computeArraySecReductionTypeOffsetSize(ReductionItem &RI,
-                                              Instruction *InsertPt);
+  void computeArraySectionTypeOffsetSize(Item &CI, Instruction *InsertPt);
+
+  /// Transform all array sections in \p W region's map clauses
+  /// into map chains. New instructions to compute parameters of
+  /// the corresponding map chains are inserted \b before \p InsertPt.
+  /// After the transformation a map clause with an array section
+  /// will contain a single map chain element, which is dynamically
+  /// allocated by this method. The MapItem destructor is responsible
+  /// for deallocating this map chain element.
+  void genMapChainsForMapArraySections(WRegionNode *W, Instruction *InsertPt);
 
   /// Return the Value to replace the occurrences of the original clause
   /// operand inside the body of the associated WRegion. It may need to emit

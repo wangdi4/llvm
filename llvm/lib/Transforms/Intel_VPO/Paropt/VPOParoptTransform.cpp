@@ -1218,14 +1218,27 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTargetEnterData:
       case WRegionNode::WRNTargetExitData:
+      case WRegionNode::WRNTargetUpdate:
         debugPrintHeader(W, IsPrepare);
-        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+        if (Mode & ParPrepare) {
+          // The purpose is to generate place holder for global variable.
+          //
+          // For WRNTargetEnterData and WRNTargetExitData we may
+          // avoid laundering the global variables that are declared target,
+          // unless they are mapped as ALWAYS.  We do not need to pass
+          // them to the target runtime library, as long as they have
+          // infinite reference count, and will not require data motion.
+          Changed |= genGlobalPrivatizationLaunderIntrin(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
+          genCodemotionFenceforAggrData(W);
+        } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= genTargetOffloadingCode(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
         }
         break;
       case WRegionNode::WRNTargetData:
-      case WRegionNode::WRNTargetUpdate:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           // The purpose is to generate place holder for global variable.
@@ -2166,7 +2179,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
       Instruction *InsertPt = &EntryBB->front();
 
-      computeArraySecReductionTypeOffsetSize(*RedI, InsertPt);
+      computeArraySectionTypeOffsetSize(*RedI, InsertPt);
 
       NewRedInst = genPrivatizationAlloca(RedI, InsertPt, ".red");
       RedI->setNew(NewRedInst);
@@ -2294,19 +2307,32 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
                         DestArrayBegin->getName() + ".plus.offset"); //   (3)
 }
 
-void VPOParoptTransform::computeArraySecReductionTypeOffsetSize(
-    ReductionItem &RI, Instruction *InsertPt) {
+void VPOParoptTransform::computeArraySectionTypeOffsetSize(
+    Item &CI, Instruction *InsertPt) {
 
-  if (!RI.getIsArraySection())
+  bool IsArraySection = false;
+  ArraySectionInfo *ArrSecInfo = nullptr;
+
+  if (auto *RI = dyn_cast<ReductionItem>(&CI)) {
+    IsArraySection = RI->getIsArraySection();
+    ArrSecInfo = &RI->getArraySectionInfo();
+  } else if (auto *MI = dyn_cast<MapItem>(&CI)) {
+    IsArraySection = MI->getIsArraySection();
+    ArrSecInfo = &MI->getArraySectionInfo();
+  } else
+    llvm_unreachable("computeArraySectionTypeOffsetSize: the clause Item "
+                     "must be either ReductionItem or MapItem.");
+
+  if (!IsArraySection)
     return;
 
   IRBuilder<> Builder(InsertPt);
 
-  Value *Orig = RI.getOrig();
-  Type *RITy = Orig->getType();
-  Type *ElemTy = cast<PointerType>(RITy)->getElementType();
+  Value *Orig = CI.getOrig();
+  Type *CITy = Orig->getType();
+  Type *ElemTy = cast<PointerType>(CITy)->getElementType();
 
-  if (RI.getIsByRef())
+  if (CI.getIsByRef())
     // Strip away one pointer for by-refs.
     ElemTy = cast<PointerType>(ElemTy)->getElementType();
 
@@ -2351,8 +2377,7 @@ void VPOParoptTransform::computeArraySecReductionTypeOffsetSize(
   uint64_t ArraySizeTillDim = 1;
   Value *ArrSecSize = Builder.getIntN(PtrSz, 1);
   Value *ArrSecOff = Builder.getIntN(PtrSz, 0);
-  ArraySectionInfo &ArrSecInfo = RI.getArraySectionInfo();
-  const auto &ArraySectionDims = ArrSecInfo.getArraySectionDims();
+  const auto &ArraySectionDims = ArrSecInfo->getArraySectionDims();
   const int NumDims = ArraySectionDims.size();
 
   // We go through the array section dims in the reverse order to go from lower
@@ -2399,14 +2424,14 @@ void VPOParoptTransform::computeArraySecReductionTypeOffsetSize(
   assert(!isa<PointerType>(ElemTy) && !isa<ArrayType>(ElemTy) &&
          "Unexpected array section element type.");
 
-  ArrSecInfo.setSize(ArrSecSize);
-  ArrSecInfo.setOffset(ArrSecOff);
-  ArrSecInfo.setElementType(ElemTy);
-  ArrSecInfo.setBaseIsPointer(BaseIsPointer);
+  ArrSecInfo->setSize(ArrSecSize);
+  ArrSecInfo->setOffset(ArrSecOff);
+  ArrSecInfo->setElementType(ElemTy);
+  ArrSecInfo->setBaseIsPointer(BaseIsPointer);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Operand '";
              Orig->printAsOperand(dbgs()); dbgs() << "':: ";
-             ArrSecInfo.print(dbgs(), false); dbgs() << "\n");
+             ArrSecInfo->print(dbgs(), false); dbgs() << "\n");
 }
 
 Value *

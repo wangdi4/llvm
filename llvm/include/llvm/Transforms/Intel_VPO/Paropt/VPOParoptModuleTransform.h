@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //===--- VPOParoptModuleTranform.h - Paropt Module Transforms ---*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -238,7 +238,11 @@ private:
 
     size_t getSize() const override {
       const auto *Var = cast<GlobalVariable>(getAddress());
-      return Var->getParent()->getDataLayout().getTypeAllocSize(Var->getType());
+      auto *VarType = Var->getType()->getPointerElementType();
+      // Global variables have pointer type always.
+      // For the purpose of the size calculation, we have to
+      // get the pointee's type.
+      return Var->getParent()->getDataLayout().getTypeAllocSize(VarType);
     }
 
     static bool classof(const OffloadEntry *E) {

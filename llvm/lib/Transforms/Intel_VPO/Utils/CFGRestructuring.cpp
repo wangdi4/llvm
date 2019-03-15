@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //===---------- CFGRestructuring.cpp - Restructures CFG *- C++ -*----------===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -98,6 +98,7 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
       if (VPOAnalysisUtils::isIntelDirective(&*I))
         InstructionsToSplit.push_back(&*I);
 
+  BasicBlock *FunctionEntryBB = &(F.getEntryBlock());
   unsigned Counter = 0; // Used to create unique names for newly created BBs
 
   // Go through InstructionsToSplit to split the BBs according to the
@@ -112,12 +113,14 @@ void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
 
     // Get the basic block where this instruction resides in.
     BasicBlock *BB = I->getParent();
+    bool IsFunctionEntry = (BB == FunctionEntryBB);
 
     // Split before I (rules 1a, 2a, 2b).
     // Optimization: skip this if I is BB's first instruction && BB has only
-    // one predecessor.
-    if (!isListEnd && ((I != &(BB->front())) ||
-                       (std::distance(pred_begin(BB), pred_end(BB))>1)))
+    // one predecessor && BB is not FunctionEntryBB.
+    if (IsFunctionEntry ||
+        (!isListEnd && ((I != &(BB->front())) ||
+                        (std::distance(pred_begin(BB), pred_end(BB))>1))))
       splitBB(I, DT, LI, DirString, Counter);
 
     // Split after I (rules 1b, 2a, 2b).
