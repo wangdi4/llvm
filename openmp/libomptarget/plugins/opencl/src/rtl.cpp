@@ -468,6 +468,28 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     }
     entries[i].addr = &kernels[i];
     entries[i].name = name;
+#ifdef OMPTARGET_DEBUG
+    // Show kernel information
+    char kernel_info[80];
+    cl_uint kernel_num_args = 0;
+    cl_int rc;
+    rc = clGetKernelInfo(kernels[i], CL_KERNEL_FUNCTION_NAME,
+                         sizeof(kernel_info), kernel_info, nullptr);
+    if (rc != CL_SUCCESS)
+      continue;
+    rc = clGetKernelInfo(kernels[i], CL_KERNEL_NUM_ARGS,
+                         sizeof(cl_uint), &kernel_num_args, nullptr);
+    if (rc != CL_SUCCESS)
+      continue;
+    DP("Kernel %d: Name = %s, NumArgs = %d\n", i, kernel_info, kernel_num_args);
+    for (unsigned idx = 0; idx < kernel_num_args; idx++) {
+      clGetKernelArgInfo(kernels[i], idx, CL_KERNEL_ARG_TYPE_NAME, 40,
+                         kernel_info, nullptr);
+      clGetKernelArgInfo(kernels[i], idx, CL_KERNEL_ARG_NAME, 40,
+                         &kernel_info[40], nullptr);
+      DP("  Arg %2d: %s %s\n", idx, kernel_info, &kernel_info[40]);
+    }
+#endif // OMPTARGET_DEBUG
   }
 
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[device_id].Table;
@@ -582,6 +604,29 @@ int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   INVOKE_CL_RET_FAIL(clReleaseMemObject, (cl_mem)tgt_ptr);
   return OFFLOAD_SUCCESS;
+}
+
+void *__tgt_rtl_data_sub_alloc(int32_t device_id, void *tgt_ptr, int64_t size,
+                               int64_t offset) {
+  cl_buffer_region region = {(size_t)offset, (size_t)size};
+  cl_int rc;
+
+  if (size < 0) {
+    DP("WARNING: sub-buffer allocation failed with negative size %ld\n", size);
+    return nullptr;
+  } else if (size == 0) {
+    return tgt_ptr; // keep the semantics of device.cpp
+  }
+  cl_mem ret = clCreateSubBuffer((cl_mem)tgt_ptr, CL_MEM_READ_WRITE,
+                                 CL_BUFFER_CREATE_TYPE_REGION, &region, &rc);
+  if (rc != CL_SUCCESS) {
+    DP("Error: sub-buffer allocation failed with error code %d, %s\n", rc,
+       getCLErrorName(rc));
+    return nullptr;
+  }
+  DP("Allocated sub-buffer %p from existing buffer %p, offset %ld, size %ld\n",
+     (void *)ret, tgt_ptr, offset, size);
+  return (void *)ret;
 }
 
 static inline int32_t run_target_team_nd_region(

@@ -171,6 +171,18 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     if (UpdateRefCount)
       ++HT.RefCount;
 
+#if INTEL_COLLAB
+    uintptr_t hp = (uintptr_t)HstPtrBegin;
+    void *subtp = NULL;
+    if (hp == HT.HstPtrBegin && hp + Size == HT.HstPtrEnd)
+      subtp = (void *)HT.TgtPtrBegin;
+    else
+      subtp = RTL->data_sub_alloc(RTLDeviceID, (void *)HT.TgtPtrBegin, Size,
+                                  (uintptr_t)HstPtrBegin - HT.HstPtrBegin);
+    if (subtp) {
+      rc = subtp;
+    } else {
+#endif // INTEL_COLLAB
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists%s with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
         "Size=%ld,%s RefCount=%s\n", (IsImplicit ? " (implicit)" : ""),
@@ -179,6 +191,9 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
         (CONSIDERED_INF(HT.RefCount)) ? "INF" :
             std::to_string(HT.RefCount).c_str());
     rc = (void *)tp;
+#if INTEL_COLLAB
+    }
+#endif // INTEL_COLLAB
   } else if ((lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) && !IsImplicit) {
     // Explicit extension of mapped data - not allowed.
     DP("Explicit extension of mapping is not allowed.\n");
@@ -214,6 +229,18 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     if (HT.RefCount > 1 && UpdateRefCount)
       --HT.RefCount;
 
+#if INTEL_COLLAB
+    uintptr_t hp = (uintptr_t)HstPtrBegin;
+    void *subtp = NULL;
+    if (hp == HT.HstPtrBegin && hp + Size == HT.HstPtrEnd)
+      subtp = (void *)HT.TgtPtrBegin;
+    else
+      subtp = RTL->data_sub_alloc(RTLDeviceID, (void *)HT.TgtPtrBegin, Size,
+                                  (uintptr_t)HstPtrBegin - HT.HstPtrBegin);
+    if (subtp) {
+      rc = subtp;
+    } else {
+#endif
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
         "Size=%ld,%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
@@ -221,6 +248,9 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
         (CONSIDERED_INF(HT.RefCount)) ? "INF" :
             std::to_string(HT.RefCount).c_str());
     rc = (void *)tp;
+#if INTEL_COLLAB
+    }
+#endif // INTEL_COLLAB
   } else {
     IsLast = false;
   }
@@ -346,6 +376,13 @@ int32_t DeviceTy::data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
     return OFFLOAD_FAIL;
   return RTL->data_retrieve_nowait(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
                                    AsyncData);
+}
+
+void *DeviceTy::data_sub_alloc(void *TgtPtrBegin, int64_t Size,
+                               int64_t Offset) {
+  if (!RTL->data_sub_alloc)
+    return NULL;
+  return RTL->data_sub_alloc(RTLDeviceID, TgtPtrBegin, Size, Offset);
 }
 
 int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
