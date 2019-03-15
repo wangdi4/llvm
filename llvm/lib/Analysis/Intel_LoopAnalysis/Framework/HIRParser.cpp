@@ -3007,8 +3007,97 @@ bool HIRParser::isValidGEPOp(const GEPOrSubsOperator *GEPOp,
           !HIRRegionIdentification::containsUnsupportedTy(GEPOp));
 }
 
+// Every GEP or subscript has information about a stride for particular
+// dimension. Adding a gep to an existing chain extends our knowledge of memory
+// configuration - it may add a new dimension or provide a more specific
+// dimension type.
+//
+// Each new gep should either correspond to the existing information or add new
+// information, and new information should not conflict with existing one.
+//
+// Ex.: While parsing subscripts we may conclude some memory is accessed in
+// a 2D manner with a configuration-
+//
+//    [i:stride 40][j:stride 4]
+//
+// and having next operator: %0 = gep [1000 x i32], [1000 x i32]* %p, 0, 0
+// which correspond to 1D access manner with stride info-
+//
+//    [0:stride 4000][0:stride 4]
+//
+// we may not be able to represent access in terms of %p, but rather represent
+// it in terms of %0: (%0)[i:40][j:4].
+//
+// This is because new gep stride of dimension one (4000) conflicts with
+// existing knowledge about the stride (40).
+//
+// However we may still represent it as (%p)[0:4000][i:40][j:4],
+// but we would loose type consistency between dimensions.
+bool HIRParser::isCompatibleGEOpWithChain(
+    const GEPOrSubsOperator *GEPOp, SmallVector<Value *, 8> &StridesV) const {
+  // TODO: handle splitting when strides or LBs do not match for the same rank
+  SmallVector<Value *, 8> CurrentStrides;
+
+  // Collect strides and check if they can be merged with existing strides.
+  auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
+  if (Subs) {
+    // TODO: Check rank of the dimension.
+    CurrentStrides.push_back(Subs->getStride());
+  } else {
+    auto &CU = getCanonExprUtils();
+
+    auto *OffsetTy = Type::getIntNTy(
+        getContext(), CU.getTypeSizeInBits(GEPOp->getType()));
+
+    for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
+      auto *Ty = I.getIndexedType();
+
+      // Collect array dimensions only. Struct offsets may be merged into a
+      // dimension anytime.
+      if (Ty->isStructTy()) {
+        continue;
+      }
+
+      uint64_t Stride = Ty->isSized() ? CU.getTypeSizeInBytes(Ty) : 0;
+      CurrentStrides.push_back(ConstantInt::get(OffsetTy, Stride));
+    }
+  }
+
+  // Having the existing stride information-
+  //   [i32 4, i32 40]
+  //
+  // And information from next GEP-
+  //   [i32 4, i32 40, i32 4000]
+  //
+  // We find a dimension in existing strides that correspond to the first stride
+  // of next GEP. Check that every stride match with existing info and then
+  // add new dimension strides.
+
+  auto GetI = CurrentStrides.rbegin();
+  auto PutI = std::find(StridesV.begin(), StridesV.end(), *GetI);
+
+  auto GetE = CurrentStrides.rend();
+  auto PutE = StridesV.end();
+
+  while (GetI != GetE && PutI != PutE) {
+    if (*GetI != *PutI) {
+      return false;
+    }
+
+    ++GetI;
+    ++PutI;
+  }
+
+  StridesV.insert(PutI, GetI, GetE);
+  return true;
+}
+
 const GEPOrSubsOperator *
 HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
+  // TODO: implement caching for GEP chains.
+
+  SmallVector<Value *, 8> StridesV;
+  isCompatibleGEOpWithChain(GEPOp, StridesV);
 
   while (auto NextGEPOp =
              dyn_cast<GEPOrSubsOperator>(GEPOp->getPointerOperand())) {
@@ -3016,7 +3105,6 @@ HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
       break;
     }
 
-    // TODO: handle splitting when strides or LBs do not match for the same rank
     // TODO: extend ScalarEvolution to support subscripts
 
     // If NextGEPOp's last index is an offset and GEPOp's first index is not
@@ -3039,19 +3127,25 @@ HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
       }
     }
 
+    auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
+    auto *NextSubs = dyn_cast<SubscriptInst>(NextGEPOp);
+
     // Stop trace back if the highest index looks like casted IV: sext(i1).
     // This is a profitability check to form more linear indices.
     // If we trace back, we may have to add offsets to casted IV which will make
     // the index non-linear.
-    if ((!isa<SubscriptInst>(GEPOp) && !isa<SubscriptInst>(NextGEPOp)) ||
-        (isa<SubscriptInst>(GEPOp) && isa<SubscriptInst>(NextGEPOp) &&
-         (cast<SubscriptInst>(GEPOp)->getRank() ==
-          cast<SubscriptInst>(NextGEPOp)->getRank()))) {
-      auto *HighestIndex = getSCEV(const_cast<Value *>(GEPOp->getIndex(0)));
+    if ((!Subs && !NextSubs) ||
+        (Subs && NextSubs && Subs->getRank() == NextSubs->getRank())) {
+      auto *HighestIndex = getSCEV(GEPOp->getIndex(0));
       auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex);
       if (CastSCEV && isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
         break;
       }
+    }
+
+    // Check if the next operator may be merged into current chain.
+    if (!isCompatibleGEOpWithChain(NextGEPOp, StridesV)) {
+      break;
     }
 
     GEPOp = NextGEPOp;

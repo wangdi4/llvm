@@ -404,6 +404,11 @@ class HIRParser {
   /// not-sized.
   unsigned getPointerElementSize(Type *Ty) const;
 
+  /// Check if \p GEPOp is compatible with existing chain represented by \p
+  /// StridesV. If compatible, GEPOp strides will merged into StrideV.
+  bool isCompatibleGEOpWithChain(const GEPOrSubsOperator *GEPOp,
+                                 SmallVector<Value *, 8> &StridesV) const;
+
   // Returns true if it is valid to parse this GEPOrSubsOperator.
   bool isValidGEPOp(const GEPOrSubsOperator *GEPOp,
                     bool SkipLiveRangeCheck = false) const;

@@ -159,7 +159,7 @@ CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
 }
 
 uint64_t CanonExprUtils::getTypeSizeInBits(Type *Ty) const {
-  return getHIRParser().getDataLayout().getTypeSizeInBits(Ty);
+  return getHIRParser().getDataLayout().getTypeAllocSizeInBits(Ty);
 }
 
 uint64_t CanonExprUtils::getTypeSizeInBytes(Type *Ty) const {
