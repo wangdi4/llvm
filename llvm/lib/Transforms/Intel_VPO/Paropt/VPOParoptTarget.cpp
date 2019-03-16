@@ -158,8 +158,6 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   resetValueInPrivateClause(W);
   resetValueInMapClause(W);
 
-  bool Changed = false;
-
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
 
@@ -270,12 +268,10 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     }
   }
 
-  W->resetBBSet(); // Invalidate BBSet after transformations
-
-  Changed = true;
-
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTargetOffloadingCode\n");
-  return Changed;
+
+  W->resetBBSet(); // Invalidate BBSet after transformations
+  return true;
 }
 
 // Set the value in num_teams, thread_limit and num_threads clauses to be empty.
@@ -924,6 +920,7 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
 
   // Check if Orig is a bitcast, whose operand is a launder intrinsic,
   // and if so, remove the launder intrinsic.
+  // Return \b true if replacement happened.
   auto removeLaunderIntrinsic = [&](Value *Orig) {
     BitCastInst *BI = dyn_cast_or_null<BitCastInst>(Orig);
     // For i8* operands, there is no BitCast, so the clause operand may itself
@@ -938,58 +935,63 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
 
       CI->replaceAllUsesWith(CI->getOperand(0));
       CI->eraseFromParent();
+      return true;
     }
+    return false;
   };
+
+  bool Changed = false;
 
   if (W->canHavePrivate()) {
     PrivateClause const &PrivClause = W->getPriv();
     for (PrivateItem *PrivI : PrivClause.items())
-      removeLaunderIntrinsic(PrivI->getOrig());
+      Changed |= removeLaunderIntrinsic(PrivI->getOrig());
   }
 
   if (W->canHaveReduction()) {
     ReductionClause const &RedClause = W->getRed();
     for (ReductionItem *RedI : RedClause.items())
-      removeLaunderIntrinsic(RedI->getOrig());
+      Changed |= removeLaunderIntrinsic(RedI->getOrig());
   }
 
   if (W->canHaveLinear()) {
     LinearClause const &LrClause = W->getLinear();
     for (LinearItem *LrI : LrClause.items())
-      removeLaunderIntrinsic(LrI->getOrig());
+      Changed |= removeLaunderIntrinsic(LrI->getOrig());
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items())
-      removeLaunderIntrinsic(FprivI->getOrig());
+      Changed |= removeLaunderIntrinsic(FprivI->getOrig());
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause const &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
-      removeLaunderIntrinsic(LprivI->getOrig());
+      Changed |= removeLaunderIntrinsic(LprivI->getOrig());
   }
 
   if (W->canHaveMap()) {
     MapClause const &MpClause = W->getMap();
     for (MapItem *MapI : MpClause.items()) {
       Value *Orig = MapI->getOrig();
-      removeLaunderIntrinsic(Orig);
+      Changed |= removeLaunderIntrinsic(Orig);
       if (MapI->getIsMapChain()) {
         MapChainTy const &MapChain = MapI->getMapChain();
         for (int I = MapChain.size() - 1; I >= 0; --I) {
           MapAggrTy *Aggr = MapChain[I];
           Value *SectionPtr = Aggr->getSectionPtr();
           Value *BasePtr = Aggr->getBasePtr();
-          removeLaunderIntrinsic(SectionPtr);
-          removeLaunderIntrinsic(BasePtr);
+          Changed |= removeLaunderIntrinsic(SectionPtr);
+          Changed |= removeLaunderIntrinsic(BasePtr);
         }
       }
     }
   }
 
-  return false;
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
+  return Changed;
 }
 
 #if 0
@@ -1030,6 +1032,7 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
       SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
   W->setEntryBBlock(NewEntryBB);
   bool Changed = false;
+  W->populateBBSet();
 
   assert(W->canHaveMap() &&
          "Function called for a WRegion that cannot have a Map clause.");
@@ -1038,9 +1041,6 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
     GlobalVariable *G = dyn_cast_or_null<GlobalVariable>(MapI->getOrig());
     if (!G)
       continue;
-
-    if (!Changed)
-      W->populateBBSet();
 
     genRenamePrivatizationImpl(W, G, EntryBB, MapI);
     Changed = true;
@@ -1056,24 +1056,20 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
       if (!G)
         continue;
 
-      if (!Changed)
-        W->populateBBSet();
-
       genRenamePrivatizationImpl(W, G, EntryBB, FprivI);
       Changed = true;
     }
   }
 
-  if (Changed)
-    W->resetBBSet();
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
 // Pass the value of the DevicePtr to the outlined function.
 bool VPOParoptTransform::genDevicePtrPrivationCode(WRegionNode *W) {
-  bool Changed = false;
   if (!W->canHaveIsDevicePtr())
-    return Changed;
+    return false;
+  bool Changed = false;
   IsDevicePtrClause &IDevicePtrClause = W->getIsDevicePtr();
   if (!IDevicePtrClause.empty()) {
     W->populateBBSet();
@@ -1095,6 +1091,8 @@ bool VPOParoptTransform::genDevicePtrPrivationCode(WRegionNode *W) {
       IsDevicePtrI->setNew(Load);
     }
   }
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 

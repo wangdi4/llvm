@@ -883,4 +883,25 @@ WRNVecLoopNode *WRegionUtils::getEnclosedSimdForSameLoop(WRegionNode *W,
   return nullptr;
 }
 
+// Return true for WRNs representing stand-alone directives; ie, those
+// that do not have an associated code region.
+bool WRegionUtils::isStandAlone(WRegionNode *W) {
+  assert (W && "Null WRegionNode");
+  switch(W->getWRegionKindID()) {
+    case WRegionNode::WRNBarrier:
+    case WRegionNode::WRNCancel:
+    case WRegionNode::WRNFlush:
+    case WRegionNode::WRNTargetEnterData:
+    case WRegionNode::WRNTargetExitData:
+    case WRegionNode::WRNTargetUpdate:
+    case WRegionNode::WRNTaskwait:
+    case WRegionNode::WRNTaskyield:
+      return true;
+    case WRegionNode::WRNOrdered:
+      // Ordered constructs are stand-alone if they are for doacross
+      return W->getIsDoacross();
+  }
+  return false;
+}
+
 #endif // INTEL_COLLAB

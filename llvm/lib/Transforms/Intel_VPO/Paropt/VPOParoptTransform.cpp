@@ -807,6 +807,7 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
                             DistSchedKind, TeamLB, TeamUB, TeamST);
   }
 
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -975,7 +976,7 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           Changed |= genGEPCapturingLaunderIntrin(W);
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1025,9 +1026,9 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNDistributeParLoop:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          regularizeOMPLoop(W);
+          Changed = regularizeOMPLoop(W);
           Changed |= genGEPCapturingLaunderIntrin(W);
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1118,7 +1119,7 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTask:
         if (Mode & ParPrepare) {
           Changed |= genGEPCapturingLaunderIntrin(W);
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1148,9 +1149,9 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTaskloop:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          regularizeOMPLoop(W);
+          Changed = regularizeOMPLoop(W);
           Changed |= genGEPCapturingLaunderIntrin(W);
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
@@ -1194,7 +1195,7 @@ bool VPOParoptTransform::paroptTransforms() {
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
           Changed |= genGEPCapturingLaunderIntrin(W);
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
@@ -1221,7 +1222,7 @@ bool VPOParoptTransform::paroptTransforms() {
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
           Changed |= genGEPCapturingLaunderIntrin(W);
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
@@ -1245,7 +1246,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
       case WRegionNode::WRNVecLoop:
         if (Mode & ParPrepare) {
-          regularizeOMPLoop(W);
+          Changed = regularizeOMPLoop(W);
           Changed |= genGEPCapturingLaunderIntrin(W);
         }
         // Privatization is enabled for SIMD Transform passes
@@ -1295,9 +1296,9 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNDistribute:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          regularizeOMPLoop(W);
+          Changed = regularizeOMPLoop(W);
           Changed |= genGEPCapturingLaunderIntrin(W);
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -2191,10 +2192,11 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
         W, IdentTy, TidPtrHolder,
         dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
         EndBB->getTerminator(), "");
-    W->resetBBSet(); // Invalidate BBSet after transformations
     Changed = true;
-  }
+  } // if (!RedClause.empty())
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genReductionCode\n");
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -2718,9 +2720,6 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
 //
 bool VPOParoptTransform::genLinearCode(WRegionNode *W,
                                        BasicBlock *LinearFiniBB) {
-
-  assert(W->isBBSetEmpty() && "genLinearCode: BBSET should start empty");
-
   if (!W->canHaveLinear())
     return false;
 
@@ -2832,9 +2831,10 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W,
 
     LLVM_DEBUG(dbgs() << "genLinearCode: generated " << *Orig << "\n");
   }
-  W->resetBBSet(); // Invalidate BBSet
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLinearCode\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -2844,9 +2844,6 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genFirstPrivatizationCode\n");
-
-  assert(W->isBBSetEmpty() &&
-         "genFirstPrivatizationCode: BBSET should start empty");
 
   assert(W->canHaveFirstprivate() &&
          "genFirstPrivatizationCode: WRN doesn't take a firstprivate var");
@@ -2912,29 +2909,26 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       }
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": firstprivatized '";
                  Orig->printAsOperand(dbgs()); dbgs() << "'\n");
-    }
+    } // for
     Changed = true;
-    W->resetBBSet(); // Invalidate BBSet
-  }
+  } // if (!FprivClause.empty())
 
   LLVM_DEBUG(
       dbgs() << "\nExit VPOParoptTransform::genFirstPrivatizationCode\n");
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
 bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
                                                   BasicBlock *IfLastIterBB) {
-  bool Changed = false;
-
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genLastPrivatizationCode\n");
 
-  assert(W->isBBSetEmpty() &&
-         "genLastPrivatizationCode: BBSET should start empty");
-
   if (!W->canHaveLastprivate())
-    return Changed;
+    return false;
 
+  bool Changed = false;
   LastprivateClause &LprivClause = W->getLpriv();
   if (!LprivClause.empty()) {
 
@@ -3029,10 +3023,11 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       }
     }
     Changed = true;
-    W->resetBBSet(); // Invalidate BBSet
-  }
+  } // if (!LprivClause.empty())
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLastPrivatizationCode\n");
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -3076,9 +3071,13 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
   */
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
+// FIXME: The comments are outdated. The intrinsic used to avoid code motion
+//        is now @llvm.launder.invariant.group
+//
 //  Clean up the intrinsic @llvm.invariant.group.barrier and replace the use
 //  of the intrinsic with the its operand.
 //
@@ -3149,22 +3148,23 @@ bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
     Instruction *I = DelIns.pop_back_val();
     I->eraseFromParent();
   }
-  W->resetBBSet();
 
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
 // Replace the occurrences of V within the region with the return value of the
-// intrinsic @llvm.invariant.group.barrier.
-void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
+// intrinsic @llvm.launder.invariant.group.
+bool VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
   // LLVM_DEBUG(dbgs() << "replaceValueWithinRegion: " << *V << "\n");
 
   // Find instructions in W that use V
   SmallVector<Instruction *, 8> Users;
   if (!WRegionUtils::findUsersInRegion(W, V, &Users))
-    return; // Found no applicable uses of V in W's body
+    return false; // Found no applicable uses of V in W's body.
+                  // No transformations happened.
 
-  // Create a new @llvm.invariant.group.barrier for V
+  // Create a new @llvm.launder.invariant.group for V
   BasicBlock *EntryBB = W->getEntryBBlock();
   IRBuilder<> Builder(EntryBB->getTerminator());
   Value *NewI = Builder.CreateLaunderInvariantGroup(V);
@@ -3242,36 +3242,39 @@ void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
       // LLVM_DEBUG(dbgs() << "After Replacement: " << *NewInstr << "\n");
     }
   }
+  return true; // Transformed
 }
 
-// Generate the intrinsic @llvm.invariant.group.barrier for local/global
+// Generate the intrinsic @llvm.launder.invariant.group for local/global
 // variable I.
-void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
-
+bool VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
+  bool Changed = false;
   if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
     Type *AllocaTy = AI->getAllocatedType();
 
     if (!AllocaTy->isSingleValueType())
-      replaceValueWithinRegion(W, I);
+      Changed |= replaceValueWithinRegion(W, I);
 
   } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(I)) {
     Type *Ty = GV->getValueType();
     if (!Ty->isSingleValueType())
-      replaceValueWithinRegion(W, I);
+      Changed |= replaceValueWithinRegion(W, I);
   }
   else {
     Type *Ty = I->getType();
     PointerType *PtrTy = dyn_cast<PointerType>(Ty);
     if (!PtrTy)
-      return;
+      return false;
     Ty = PtrTy->getElementType();
     if (!Ty->isSingleValueType())
-      replaceValueWithinRegion(W, I);
+      Changed |= replaceValueWithinRegion(W, I);
   }
+
+  return Changed;
 }
 
 // Return true if the instuction is a call to
-// @llvm.invariant.group.barrier
+// @llvm.launder.invariant.group
 CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
   if (CallInst *CI = dyn_cast<CallInst>(I))
     if (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID() ==
@@ -3521,6 +3524,7 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
     Changed = true;
   }
 
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -3651,12 +3655,10 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
 
   W->populateBBSet();
   if (!First) {
-    // For the case of #pragma omp parallel for simd, the clang only
-    // needs to generate the bundle omp.iv for the parallel region.
-    if (W->getWRNLoopInfo().getNormIVSize() == 0) {
-      W->resetBBSet();
+    // For the case of #pragma omp parallel for simd, clang only
+    // generates the bundle omp.iv for the parallel for region.
+    if (W->getWRNLoopInfo().getNormIVSize() == 0)
       return false;
-    }
     for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I)
       regularizeOMPLoopImpl(W, I - 1);
   } else {
@@ -3681,61 +3683,63 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
       }
     }
   }
-  W->resetBBSet();
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
-
-  llvm_unreachable("Expect the omp normalized iv to be a stack variable.");
 }
 
-// Generate the intrinsic @llvm.invariant.group.barrier to inhibit the cse
+// Generate the intrinsic @llvm.launder.invariant.group to inhibit the cse
 // for the gep instruction related to array/struture which is marked
 // as private, firstprivate, lastprivate, reduction or shared.
-void VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
+bool VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
+  bool Changed = false;
   W->populateBBSet();
   if (W->canHavePrivate()) {
     PrivateClause &PrivClause = W->getPriv();
     for (PrivateItem *PrivI : PrivClause.items())
-      genFenceIntrinsic(W, PrivI->getOrig());
+      Changed |= genFenceIntrinsic(W, PrivI->getOrig());
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items())
-      genFenceIntrinsic(W, FprivI->getOrig());
+      Changed |= genFenceIntrinsic(W, FprivI->getOrig());
   }
 
   if (W->canHaveShared()) {
     SharedClause &ShaClause = W->getShared();
     for (SharedItem *ShaI : ShaClause.items())
-      genFenceIntrinsic(W, ShaI->getOrig());
+      Changed |= genFenceIntrinsic(W, ShaI->getOrig());
   }
 
   if (W->canHaveReduction()) {
     ReductionClause &RedClause = W->getRed();
     for (ReductionItem *RedI : RedClause.items())
-      genFenceIntrinsic(W, RedI->getOrig());
+      Changed |= genFenceIntrinsic(W, RedI->getOrig());
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
-      genFenceIntrinsic(W, LprivI->getOrig());
+      Changed |= genFenceIntrinsic(W, LprivI->getOrig());
   }
 
   if (W->canHaveMap()) {
     MapClause const &MpClause = W->getMap();
     for (MapItem *MapI : MpClause.items()) {
-      genFenceIntrinsic(W, MapI->getOrig());
+      Changed |= genFenceIntrinsic(W, MapI->getOrig());
       if (!MapI->getIsMapChain())
         continue;
       MapChainTy const &MapChain = MapI->getMapChain();
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
-        genFenceIntrinsic(W, Aggr->getBasePtr());
-        genFenceIntrinsic(W, Aggr->getSectionPtr());
+        Changed |= genFenceIntrinsic(W, Aggr->getBasePtr());
+        Changed |= genFenceIntrinsic(W, Aggr->getSectionPtr());
       }
     }
   }
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
+  return Changed;
 }
 
 // If a clause operand to a data sharing or map clause is a GEP, we need
@@ -3809,52 +3813,53 @@ bool VPOParoptTransform::genGEPCapturingLaunderIntrin(WRegionNode *W) {
                                    bool CheckAlreadyHandled) {
     auto *GEP = dyn_cast_or_null<GetElementPtrInst>(Val);
     if (!GEP)
-      return;
+      return false;
 
     if (CheckAlreadyHandled && HandledGEPs.find(GEP) != HandledGEPs.end())
-      return;
+      return false;
 
     if (!Changed) {
       // Enter here if this is the first GEP being handled.
       BasicBlock *NewEntryBB =
           SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
       W->setEntryBBlock(NewEntryBB);
-      W->populateBBSet();
+      W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
     }
 
     genRenamePrivatizationImpl(W, GEP, EntryBB, It);
-    Changed = true;
     HandledGEPs.insert(GEP);
+    Changed = true;
+    return true;
   };
 
   if (W->canHavePrivate()) {
     PrivateClause const &PrivClause = W->getPriv();
     for (PrivateItem *PrivI : PrivClause.items())
-      captureAndRenameIfGEP(PrivI->getOrig(), PrivI, false);
+      Changed |= captureAndRenameIfGEP(PrivI->getOrig(), PrivI, false);
   }
 
   if (W->canHaveReduction()) {
     ReductionClause const &RedClause = W->getRed();
     for (ReductionItem *RedI : RedClause.items())
-      captureAndRenameIfGEP(RedI->getOrig(), RedI, false);
+      Changed |= captureAndRenameIfGEP(RedI->getOrig(), RedI, false);
   }
 
   if (W->canHaveLinear()) {
     LinearClause const &LrClause = W->getLinear();
     for (LinearItem *LrI : LrClause.items())
-      captureAndRenameIfGEP(LrI->getOrig(), LrI, false);
+      Changed |= captureAndRenameIfGEP(LrI->getOrig(), LrI, false);
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items())
-      captureAndRenameIfGEP(FprivI->getOrig(), FprivI, false);
+      Changed |= captureAndRenameIfGEP(FprivI->getOrig(), FprivI, false);
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause const &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
-      captureAndRenameIfGEP(LprivI->getOrig(), LprivI, true);
+      Changed |= captureAndRenameIfGEP(LprivI->getOrig(), LprivI, true);
   }
 
   if (W->canHaveMap()) {
@@ -3867,17 +3872,16 @@ bool VPOParoptTransform::genGEPCapturingLaunderIntrin(WRegionNode *W) {
         // for (p1, p2) (p2, p3), handle (p2, p3) before (p1, p2).
         for (int I = MapChain.size() - 1; I >= 0; --I) {
           MapAggrTy *Aggr = MapChain[I];
-          captureAndRenameIfGEP(Aggr->getBasePtr(), MapI, false);
-          captureAndRenameIfGEP(Aggr->getSectionPtr(), MapI, true);
+          Changed |= captureAndRenameIfGEP(Aggr->getBasePtr(), MapI, false);
+          Changed |= captureAndRenameIfGEP(Aggr->getSectionPtr(), MapI, true);
         }
       }
 
-      captureAndRenameIfGEP(MapI->getOrig(), MapI, true);
+      Changed |= captureAndRenameIfGEP(MapI->getOrig(), MapI, true);
     }
   }
 
-  if (Changed)
-    W->resetBBSet();
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -3893,9 +3897,6 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   // Process all PrivateItems in the private clause
   PrivateClause &PrivClause = W->getPriv();
   if (!PrivClause.empty()) {
-
-    assert(W->isBBSetEmpty() &&
-           "genPrivatizationCode: BBSET should start empty");
 
     if (isa<WRNVecLoopNode>(W))
       // Insert privatization code (e.g. allocas, constructor calls)
@@ -3995,10 +3996,9 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         LLVM_DEBUG(dbgs() << __FUNCTION__ << ": '";
                    Orig->printAsOperand(dbgs());
                    dbgs() << "' is already private.\n");
-    }
+    } // for
 
     Changed = true;
-    W->resetBBSet(); // Invalidate BBSet after transformations
 
     // After Privatization is done, the SCEV should be re-generated.
     // This should apply to all loop-type constructs; ie, WRNs whose
@@ -4007,8 +4007,10 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         Loop *L = W->getWRNLoopInfo().getLoop();
         SE->forgetLoop(L);
     }
-  }
+  } // if (!PrivClause.empty())
+
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genPrivatizationCode\n");
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -4861,9 +4863,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     ////                   << *TeamInitBB->getParent() << "\n\n");
   }
 
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLoopSchedulingCode\n");
+
   // There are new BBlocks generated, so we need to reset BBSet
   W->resetBBSet();
-  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLoopSchedulingCode\n");
   return true;
 }
 
@@ -4890,16 +4893,12 @@ void VPOParoptTransform::getAllocFromTid(CallInst *Tid) {
 
 bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMultiThreadedCode\n");
-  assert(W->isBBSetEmpty() &&
-         "genMultiThreadedCode: BBSET should start empty");
 
   W->populateBBSet();
 
   // Remove references from num_teams/thread_limit or num_threads
   // clauses so that they do not appear as live-ins for the code extractor.
   resetValueInNumTeamsAndThreadsClause(W);
-
-  bool Changed = false;
 
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
@@ -5069,12 +5068,10 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   // the use-count of MTFn
   // MTFnCI->eraseFromParent();
 
-  W->resetBBSet(); // Invalidate BBSet after transformations
-
-  Changed = true;
-
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMultiThreadedCode\n");
-  return Changed;
+
+  W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
 }
 
 FunctionType *VPOParoptTransform::getKmpcMicroTaskPointerTy() {
@@ -5557,8 +5554,9 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
   DT->changeImmediateDominator(ThenSingleBB->getTerminator()->getSuccessor(0),
                                SingleCI->getParent());
 
-  W->resetBBSet(); // Invalidate BBSet
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genSingleThreadCode\n");
+
+  W->resetBBSet(); // Invalidate BBSet
   return true;  // Changed
 }
 
@@ -5654,9 +5652,6 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtrHolder != nullptr && "TidPtr is null.");
 
-  assert(CriticalNode->isBBSetEmpty() &&
-         "genCriticalCode: BBSET should start empty");
-
   // genKmpcCriticalSection() needs BBSet for error checking only;
   // In the future consider getting rid of this call to populateBBSet.
   CriticalNode->populateBBSet();
@@ -5724,7 +5719,10 @@ bool VPOParoptTransform::genBarrierForFpLpAndLinears(WRegionNode *W) {
       << __FUNCTION__
       << ": Emitting implicit barrier for FP-LP/Linear clause operands.\n");
 
-  return genBarrier(W, false); // Implicit Barrier
+  genBarrier(W, false); // Implicit Barrier
+
+  W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
 }
 
 // Emits an if-then branch using IsLastVal and sets IfLastIterOut to
@@ -5786,6 +5784,8 @@ bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
   LLVM_DEBUG(
       dbgs() << __FUNCTION__
              << ": Emitted if-then branch for checking last iteration.\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -5806,6 +5806,8 @@ bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit,
                                  IsTargetSPIRV);
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -5863,6 +5865,8 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
   assert(CancelCall && "genCancelCode: Failed to emit call");
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genCancelCode\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -5932,6 +5936,8 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "propagateCancellationPointsToIR: Added "
                     << CancellationPoints.size()
                     << " Cancellation Points to: " << *CI << ".\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -5964,8 +5970,6 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
   //    store i32 %1, i32* %cp                                        ; (3)
   //    ...
   for (AllocaInst *CPAlloca : CancellationPointAllocas) {            // (1)
-
-    resetValueInIntelClauseGeneric(W, CPAlloca);
 
     // The only uses of CPAlloca (1) should be in the intrinsic (2) and the
     // store (2).
@@ -6017,6 +6021,7 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
       dbgs()
       << "\nExit VPOParoptTransform::clearCancellationPointAllocasFromIR\n");
 
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -6033,14 +6038,12 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
 
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genCancellationBranchingCode\n");
-  assert(W->isBBSetEmpty() &&
-         "genCancellationBranchingCode: BBSET should start empty");
+
   W->populateBBSet();
 
   Function *F = W->getEntryBBlock()->getParent();
   LLVMContext &C = F->getContext();
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-  bool Changed = false;
 
   // For a loop construct with static [even] scheduling,
   // __kmpc_static_fini(...) call should be made even if the construt is
@@ -6277,16 +6280,14 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
                            "non-barrier cancellation points: [";
                  CancelExitBBForNonBarriers->printAsOperand(dbgs());
                  dbgs() << "] containing '__kmpc_cancel_barrier' call.\n");
-    }
+    } // if
+  } // for
 
-    Changed = true;
-  }
-
-  W->resetBBSet(); // Invalidate BBSet after transformations
   LLVM_DEBUG(
       dbgs() << "\nExit VPOParoptTransform::genCancellationBranchingCode\n");
 
-  return Changed;
+  W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
 }
 
 // Set the values in the private clause to be empty.
@@ -6311,6 +6312,9 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
   if (!V)
     return;
 
+  // The WRegionNode::contains() method requires BBSet to be computed.
+  W->populateBBSet();
+
   SmallVector<Instruction *, 8> IfUses;
   for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
     if (Instruction *User = dyn_cast<Instruction>(*IB))
@@ -6326,6 +6330,9 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
       break;
     }
   }
+
+  // This routine doesn't change the CFG so no need to invalidate the BBSet
+  // before returning.
 }
 
 // Generate the copyprivate code. Here is one example.
@@ -6347,10 +6354,10 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
 //
 bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
                                             AllocaInst *IsSingleThread) {
-  bool Changed = false;
   CopyprivateClause &CprivClause = W->getCpriv();
   if (CprivClause.empty())
-    return Changed;
+    return false;
+
   W->populateBBSet();
   Instruction *InsertPt = W->getExitBBlock()->getTerminator();
   IRBuilder<> Builder(InsertPt);
@@ -6389,8 +6396,9 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   VPOParoptUtils::genKmpcCopyPrivate(
       W, IdentTy, TidPtrHolder, Size, CopyPrivateBase, FnCopyPriv,
       Builder.CreateLoad(IsSingleThread), InsertPt);
-  W->resetBBSet();
-  return Changed;
+
+  W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
 }
 
 // Generate the helper function for copying the copyprivate data.
@@ -6456,7 +6464,6 @@ void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
   W->populateBBSet();
   VPOUtils::genAliasSet(makeArrayRef(W->bbset_begin(), W->bbset_end()), AA,
                         &(F->getParent()->getDataLayout()));
-  W->resetBBSet();
 }
 
 template <typename Range>
@@ -6495,6 +6502,7 @@ bool VPOParoptTransform::removeCompilerGeneratedFences(WRegionNode *W) {
   default:
     llvm_unreachable("unexpected work region kind");
   }
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 

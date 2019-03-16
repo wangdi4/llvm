@@ -90,7 +90,7 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-/// \brief Wrap up the WRN creation now that we have the ExitBB. Perform these
+/// Wrap up the WRN creation now that we have the ExitBB. Perform these
 /// tasks to finalize the WRN construction:
 /// 1. Update the WRN's ExitBB
 /// 2. Some clause operands appear in multiple clauses (eg firstprivate and
@@ -213,20 +213,21 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
   }
 }
 
-/// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
-void WRegionNode::populateBBSet(void) {
+// Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
+bool WRegionNode::populateBBSet(bool Always) {
   BasicBlock *EntryBB = getEntryBBlock();
   BasicBlock *ExitBB = getExitBBlock();
 
   assert(EntryBB && "Missing EntryBB!");
   assert(ExitBB && "Missing ExitBB!");
-  resetBBSet();
-  IntelGeneralUtils::collectBBSet(EntryBB, ExitBB, BBlockSet);
-}
 
-void WRegionNode::populateBBSetIfEmpty(void) {
-  if (isBBSetEmpty())
-    populateBBSet();
+  if (Always || isBBSetEmpty()) {
+    resetBBSet();
+    IntelGeneralUtils::collectBBSet(EntryBB, ExitBB, BBlockSet);
+    return true;
+  }
+
+  return false;
 }
 
 // After CFGRestructuring, the EntryBB should have a single predecessor
@@ -933,7 +934,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
 // Therefore, we should never have to use the code below.
 //
 #if 0
-/// \brief Fill reduction info in ReductionItem \pRI
+/// Fill reduction info in ReductionItem \pRI
 static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
   auto usedInOnlyOnePhiNode = [](Value *V) {
     PHINode *Phi = 0;

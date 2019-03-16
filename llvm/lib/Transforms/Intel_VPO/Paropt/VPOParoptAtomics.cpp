@@ -48,9 +48,6 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
   bool handled;
   assert(AtomicNode != nullptr && "AtomicNode is null.");
 
-  assert(AtomicNode->isBBSetEmpty() &&
-         "handleAtomic: BBSET should start empty");
-
   AtomicNode->populateBBSet();
 
   if (AtomicNode->getBBSetSize() < 3) {

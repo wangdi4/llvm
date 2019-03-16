@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //===--------- WRegionNode.h - W-Region Graph Node --------------*- C++ -*-===//
 //
-//   Copyright (C) 2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -64,7 +64,7 @@ typedef WRContainerTy::const_reverse_iterator wrn_const_reverse_iterator;
 
 class WRNLoopInfo;  // WRegion.h
 
-/// \brief WRegion Node base class
+/// WRegion Node base class
 class WRegionNode {
 
 public:
@@ -76,7 +76,7 @@ public:
   typedef WRegionBBSetTy::const_reverse_iterator bbset_const_reverse_iterator;
 
 private:
-  /// \brief Make class uncopyable.
+  /// Make class uncopyable.
   void operator=(const WRegionNode &) = delete;
 
   /// Unique number associated with this WRegionNode.
@@ -104,7 +104,10 @@ private:
   BasicBlock    *EntryBBlock;
   BasicBlock    *ExitBBlock;
 
-  /// Set containing all the BBs in this WRN
+  /// Set containing all the BBs in this WRN.
+  /// If BBlockSet is not empty, it must be valid. Therefore, any
+  /// transformation that invalidates the BBlockSet must clear it
+  /// so subsequent transformations can recompute the BBlockSet if needed.
   WRegionBBSetTy BBlockSet;
 
   /// Enclosing parent of WRegionNode in CFG.
@@ -116,14 +119,14 @@ private:
   /// Counter used for assigning unique numbers to WRegionNodes.
   static unsigned UniqueNum;
 
-  /// \brief Sets the unique number associated with this WRegionNode.
+  /// Sets the unique number associated with this WRegionNode.
   void setNextNumber() { Number = ++UniqueNum; }
 
 #if INTEL_CUSTOMIZATION
   /// True if the WRN came from HIR; false otherwise
   bool IsFromHIR;
 
-  /// \brief Sets the flag to indicate if WRN came from HIR
+  /// Sets the flag to indicate if WRN came from HIR
   void setIsFromHIR(bool flag) { IsFromHIR = flag; }
 
   /// Used only while parsing clauses. Contains the list of RegDDRefs for the
@@ -131,13 +134,13 @@ private:
   SmallVector<loopopt::RegDDRef*, 4> CurrentBundleDDRefs;
 #endif // INTEL_CUSTOMIZATION
 
-  /// \brief Destroys all objects of this class. Should only be
+  /// Destroys all objects of this class. Should only be
   /// called after code gen.
   static void destroyAll();
 
 protected:
 
-  /// \brief constructors
+  /// constructors
   WRegionNode(unsigned SCID, BasicBlock *BB); // for LLVM IR
 #if INTEL_CUSTOMIZATION
   WRegionNode(unsigned SCID);                 // for HIR only
@@ -147,22 +150,22 @@ protected:
   // copy constructor not needed (at least for now)
   // WRegionNode(const WRegionNode &WRegionNodeObj);
 
-  /// \brief Destroys the object.
+  /// Destroys the object.
   void destroy();
 
-  /// \brief Sets the nesting level of this WRegionNode.
+  /// Sets the nesting level of this WRegionNode.
   void setLevel(int K) { Level = K; }
 
-  /// \brief Sets the entry(first) bblock of this region.
+  /// Sets the entry(first) bblock of this region.
   void setEntryBBlock(BasicBlock *EntryBB) { EntryBBlock = EntryBB; }
 
-  /// \brief Sets the exit(last) bblock of this region.
+  /// Sets the exit(last) bblock of this region.
   void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
 
-  /// \brief Sets the graph parent of this WRegionNode.
+  /// Sets the graph parent of this WRegionNode.
   void setParent(WRegionNode *P) { Parent = P; }
 
-  /// \brief Finish creating the WRN once its ExitBB is found. This routine
+  /// Finish creating the WRN once its ExitBB is found. This routine
   /// calls WRN->setExitBBlock(ExitBB). In addition, if the WRN is a loop
   /// construct, this routine also calls IntelGeneralUtils::getLoopFromLoopInfo
   /// to find the Loop from LoopInfo
@@ -172,25 +175,25 @@ protected:
   // Routines for parsing clauses
   //
 
-  /// \brief Parse a clause in the llvm.intel.directive.qual* representation.
+  /// Parse a clause in the llvm.intel.directive.qual* representation.
   void parseClause(const ClauseSpecifier &ClauseInfo, IntrinsicInst *Call);
 
-  /// \brief Common code to parse a clause, used for both representations:
+  /// Common code to parse a clause, used for both representations:
   /// llvm.intel.directive.qual* and directive.region.entry/exit.
   void parseClause(const ClauseSpecifier &ClauseInfo, const Use *Args,
                    unsigned NumArgs);
 
-  /// \brief Update WRN for clauses with no operands.
+  /// Update WRN for clauses with no operands.
   void handleQual(int ClauseID);
 
-  /// \brief Update WRN for clauses with one operand.
+  /// Update WRN for clauses with one operand.
   void handleQualOpnd(int ClauseID, Value *V);
 
-  /// \brief Update WRN for clauses with operand list.
+  /// Update WRN for clauses with operand list.
   void handleQualOpndList(const Use *Args, unsigned NumArgs,
                           const ClauseSpecifier &ClauseInfo);
 
-  /// \brief Update WRN for clauses from the OperandBundles under the
+  /// Update WRN for clauses from the OperandBundles under the
   /// directive.region.entry/exit representation
   void getClausesFromOperandBundles();
 #if INTEL_CUSTOMIZATION
@@ -201,7 +204,7 @@ protected:
 #endif // INTEL_CUSTOMIZATION
 
 public:
-  /// \brief Functions to check if the WRN allows a given clause type
+  /// Functions to check if the WRN allows a given clause type
   bool canHaveSchedule() const;
   bool canHaveDistSchedule() const;
   bool canHaveShared() const;
@@ -424,46 +427,46 @@ public:
   // Virtual Clone Method
   // virtual WRegionNode *clone() const = 0;
 
-  /// \brief Returns the unique number associated with this WRegionNode.
+  /// Returns the unique number associated with this WRegionNode.
   unsigned getNumber() const { return Number; }
 
-  /// \brief Returns the nesting level of this WRegionNode.
+  /// Returns the nesting level of this WRegionNode.
   unsigned getLevel() const { return Level; }
 
 #if INTEL_CUSTOMIZATION
-  /// \brief Returns the flag that indicates if WRN came from HIR
+  /// Returns the flag that indicates if WRN came from HIR
   bool getIsFromHIR() const { return IsFromHIR; }
 #endif // INTEL_CUSTOMIZATION
 
-  /// \brief Dumps WRegionNode.
+  /// Dumps WRegionNode.
   void dump(unsigned Verbosity=0) const;
 
-  /// \brief Default printer for WRegionNode. The derived WRegion can define
+  /// Default printer for WRegionNode. The derived WRegion can define
   /// its own print() routine to override this one.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      unsigned Verbosity=1) const;
 
-  /// \brief Prints "BEGIN  <DIRECTIVE_NAME> {"
+  /// Prints "BEGIN  <DIRECTIVE_NAME> {"
   void printBegin(formatted_raw_ostream &OS, unsigned Depth) const;
 
-  /// \brief Prints "} END  <DIRECTIVE_NAME>"
+  /// Prints "} END  <DIRECTIVE_NAME>"
   void printEnd(formatted_raw_ostream &OS, unsigned Depth) const;
 
-  /// \brief This virtual function is intended for derived WRNs to print
+  /// This virtual function is intended for derived WRNs to print
   /// additional information specific to the derived WRN not covered by
   /// printBody() below.
   virtual void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                           unsigned Verbosity=1) const {}
 
-  /// \brief Prints content of the WRegionNode.
+  /// Prints content of the WRegionNode.
   void printBody(formatted_raw_ostream &OS, bool PrintChildren, unsigned Depth,
                  unsigned Verbosity=1) const;
 
-  /// \brief Prints content of list-type clauses in the WRN
+  /// Prints content of list-type clauses in the WRN
   void printClauses(formatted_raw_ostream &OS, unsigned Depth,
                     unsigned Verbosity=1) const;
 
-  /// \brief Prints EntryBB, ExitBB, and BBlockSet
+  /// Prints EntryBB, ExitBB, and BBlockSet
   void printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
                         unsigned Verbosity=1) const;
 
@@ -475,24 +478,24 @@ public:
                         unsigned Verbosity=1) const {}
 #endif // INTEL_CUSTOMIZATION
 
-  /// \brief If IsOmpLoop==true, prints loop preheader, header, and latch BBs
+  /// If IsOmpLoop==true, prints loop preheader, header, and latch BBs
   void printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
                    unsigned Verbosity=1) const;
 
-  /// \brief Prints WRegionNode children.
+  /// Prints WRegionNode children.
   void printChildren(formatted_raw_ostream &OS, unsigned Depth,
                      unsigned Verbosity=1) const;
 
-  /// \brief Returns the predecessor bblock of this region.
+  /// Returns the predecessor bblock of this region.
   BasicBlock *getPredBBlock() const;
 
-  /// \brief Returns the successor bblock of this region.
+  /// Returns the successor bblock of this region.
   BasicBlock *getSuccBBlock() const;
 
-  /// \brief Returns the immediate enclosing parent of the WRegionNode.
+  /// Returns the immediate enclosing parent of the WRegionNode.
   WRegionNode *getParent() const { return Parent; }
 
-  /// \brief Children iterator methods
+  /// Children iterator methods
   wrn_iterator         wrn_child_begin() { return Children.begin(); }
   wrn_iterator         wrn_child_end()   { return Children.end(); }
 
@@ -511,37 +514,37 @@ public:
 
   /// Children acess methods
 
-  /// \brief Returns true if it has children.
+  /// Returns true if it has children.
   bool hasChildren() const { return !Children.empty(); }
 
-  /// \brief Returns the number of children.
+  /// Returns the number of children.
   unsigned getNumChildren() const { return Children.size(); }
 
-  /// \brief Returns the Children container (by ref)
+  /// Returns the Children container (by ref)
   WRContainerImpl &getChildren() { return Children ; }
 
-  /// \brief Returns the first child if it exists, otherwise returns null.
+  /// Returns the first child if it exists, otherwise returns null.
   WRegionNode *getFirstChild();
 
-  /// \brief Returns the last child if it exists, otherwise returns null.
+  /// Returns the last child if it exists, otherwise returns null.
   WRegionNode *getLastChild();
 
-  /// \brief Returns an ID for the concrete type of this object.
+  /// Returns an ID for the concrete type of this object.
   ///
   /// This is used to implement the classof checks in LLVM and should't
   /// be used for any other purpose.
   unsigned getWRegionKindID() const { return SubClassID; }
   void setWRegionKindID(unsigned ID) { SubClassID = ID; }
 
-  /// \brief Returns the name for this WRN based on its SubClassID
+  /// Returns the name for this WRN based on its SubClassID
   StringRef getName() const;
 
   // Methods for BBlockSet
 
-  /// \brief Returns the entry(first) bblock of this region.
+  /// Returns the entry(first) bblock of this region.
   BasicBlock *getEntryBBlock() const { return EntryBBlock; }
 
-  /// \brief Returns the exit(last) bblock of this region.
+  /// Returns the exit(last) bblock of this region.
   BasicBlock *getExitBBlock() const { return ExitBBlock; }
 
   /// Basic Block set iterator methods.
@@ -563,23 +566,33 @@ public:
     return make_range(bbset_begin(), bbset_end());
   }
 
+  /// Returns \b true if \p BB is in the BBlockSet.
+  /// Assumes BBlockSet is computed.
   bool contains(BasicBlock *BB) const {
     return is_contained(blocks(), BB);
   }
 
-  /// \brief Returns True if BasicBlockSet is empty.
-  unsigned isBBSetEmpty() const { return BBlockSet.empty(); }
+  /// Returns \b true if BasicBlockSet is empty.
+  bool isBBSetEmpty() const { return BBlockSet.empty(); }
 
-  /// \brief Returns the number of BasicBlocks in BBlockSet.
+  /// Returns the number of BasicBlocks in BBlockSet.
   unsigned getBBSetSize() const { return BBlockSet.size(); }
 
-  /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
-  void populateBBSet();
-  void populateBBSetIfEmpty();
+  /// Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
+  /// If \p Always is false (default), then compute the BBlockSet only if
+  /// it is empty. Otherwise, compute it unconditionally.
+  /// Returns \b true if a new BBlockSet is computed; \b false if no change.
+  bool populateBBSet(bool Always = false);
 
+  /// Clears the BBlockSet. Any transformation that invalidates the BBlockSet
+  /// must clear it so the next transformation doesn't use an outdated set.
   void resetBBSet() { BBlockSet.clear(); }
+  void resetBBSetIfChanged(bool Changed) {
+    if (Changed)
+      BBlockSet.clear();
+  }
 
-  /// \brief Routines to set WRN primary attributes
+  /// Routines to set WRN primary attributes
   void setAttributes(unsigned A) { Attributes = A; }
   void setIsDistribute()         { Attributes |= WRNIsDistribute; }
   void setIsPar()                { Attributes |= WRNIsPar; }
@@ -589,7 +602,7 @@ public:
   void setIsTask()               { Attributes |= WRNIsTask; }
   void setIsTeams()              { Attributes |= WRNIsTeams; }
 
-  /// \brief Routines to get WRN primary attributes
+  /// Routines to get WRN primary attributes
   unsigned getAttributes() const { return Attributes; }
   bool getIsDistribute()   const { return Attributes & WRNIsDistribute; }
   bool getIsPar()          const { return Attributes & WRNIsPar; }
@@ -599,31 +612,31 @@ public:
   bool getIsTask()         const { return Attributes & WRNIsTask; }
   bool getIsTeams()        const { return Attributes & WRNIsTeams; }
 
-  /// \brief Routines to get WRN derived attributes
+  /// Routines to get WRN derived attributes
   bool getIsParLoop()      const { return  getIsPar()  && getIsOmpLoop(); }
   bool getIsParSections()  const { return  getIsPar()  && getIsSections(); }
   bool getIsTaskloop()     const { return  getIsTask() && getIsOmpLoop(); }
   bool getIsWksLoop()      const { return !getIsTask() && getIsOmpLoop(); }
 
-  /// \brief Routine to check if the WRN needs global thread-id during codegen.
+  /// Routine to check if the WRN needs global thread-id during codegen.
   /// Currently only SIMD and FLUSH constructs don't need the thread-id.
   bool needsTID()          const { return SubClassID != WRNVecLoop &&
                                           SubClassID != WRNFlush; }
 
-  /// \brief Routine to check if the WRN needs the BID during codegen.
+  /// Routine to check if the WRN needs the BID during codegen.
   /// The BID is the second parameter in a parallel entry, so this routine
   /// is equivalent to getIsPar() or getIsTeams(). In other words, it is
   /// true only for PARALLEL or TEAMS directives and combined/composite
   /// directives that have the PARALLEL or TEAMS keyword.
   bool needsBID() const { return getIsPar() || getIsTeams(); }
 
-  /// \brief Routines to set/get DirID
+  /// Routines to set/get DirID
   void setDirID(int ID)          { DirID = ID; }
   int  getDirID()          const { return DirID; }
 
   // Derived Class Enumeration
 
-  /// \brief An enumeration to keep track of the concrete subclasses of
+  /// An enumeration to keep track of the concrete subclasses of
   /// WRegionNode
   enum WRegionNodeKind{
                                       // WRNAttribute:
@@ -668,7 +681,7 @@ public:
     WRNTaskyield
   };
 
-  /// \brief WRN primary attributes
+  /// WRN primary attributes
   enum WRNAttributes : uint32_t {
     WRNIsDistribute = 0x00000001,
     WRNIsPar        = 0x00000002,
@@ -744,7 +757,7 @@ private:
                                        ReductionClause &C, int ReductionKind,
                                        bool IsInreduction);
 
-  /// \brief Extract operands from a schedule clause
+  /// Extract operands from a schedule clause
   static void extractScheduleOpndList(ScheduleClause &Sched, const Use *Args,
                                       const ClauseSpecifier &ClauseInfo,
                                       WRNScheduleKind Kind);
