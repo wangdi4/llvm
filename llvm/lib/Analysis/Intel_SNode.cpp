@@ -58,7 +58,7 @@ void SNodeAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
 // creates a new SNode given an incoming SNode type.
 SNode *SNodeAnalysis::genSNode(SNode::SNodeOp SnOp) {
-  SNode *Snode;
+  SNode *Snode = nullptr;
   switch (SnOp) {
   case SNode::SN_BLOCK:
     Snode = new BlockSNode();
@@ -70,6 +70,7 @@ SNode *SNodeAnalysis::genSNode(SNode::SNodeOp SnOp) {
     Snode = new IfThenElseSNode();
     break;
   }
+  assert(Snode && "SNode type unknown");
   Snode->setParentSn(Snode);
   SNodes.push_back(Snode);
   Snode->setSNodeNum(SNodes.size()-1);

@@ -212,7 +212,7 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
   auto BB = BP->getSinglePredecessor();
   for (; BB; BP = BB, BB = BB->getSinglePredecessor()) {
     auto TI = BB->getTerminator();
-    auto BI = dyn_cast<BranchInst>(TI);
+    auto BI = cast<BranchInst>(TI);
     if (BI->getNumSuccessors() != 2)
       continue;
     auto CMI = dyn_cast<ICmpInst>(BI->getCondition());
