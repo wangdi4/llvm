@@ -3389,10 +3389,16 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       Type *DimTy = IndexedTypes[I];
       Type *DimElemTy = IndexedTypes[I + 1];
 
-      // If indexing within struct type
+      // If indexing within a struct type.
       if (DimTy->isStructTy()) {
-        // Do not create new dimension if indexing to a struct type
-        if (Dims.empty() || !DimElemTy->isStructTy()) {
+        // The following *if* decides on should we create a new dimension.
+        if (Dims.empty() || (!DimElemTy->isStructTy() && I != LastIndex)) {
+          // 1) Always create if this is a first dimension parsed;
+          // 2) Do not create if indexing to a struct type;
+          // 3) Do not create if this is a last index as it may be merged into
+          // existing dimension:
+          //  %p1 = gep %struct, %struct* %p, i64 0, i32 0
+          //  ... = gep [4 x [2 x i32]], [4 x [2 x i32]]* %p1, i64 0, i64 0
           Dims.emplace_back();
         }
 
