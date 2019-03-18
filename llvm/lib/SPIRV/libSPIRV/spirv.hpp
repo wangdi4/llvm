@@ -482,6 +482,7 @@ enum LoopControlMask {
     LoopControlDontUnrollMask = 0x00000002,
     LoopControlDependencyInfiniteMask = 0x00000004,
     LoopControlDependencyLengthMask = 0x00000008,
+    LoopControlPartialCountMask = 0x00000100,
 };
 
 enum FunctionControlShift {

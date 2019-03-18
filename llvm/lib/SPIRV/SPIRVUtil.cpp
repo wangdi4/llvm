@@ -1539,9 +1539,13 @@ getLoopControl(const BranchInst *Branch, std::vector<SPIRVWord> &Parameters) {
       std::string S = getMDOperandAsString(Node, 0);
       if (S == "llvm.loop.unroll.disable")
         return spv::LoopControlDontUnrollMask;
-      // TODO Express partial unrolling in SPIRV.
-      if (S == "llvm.loop.unroll.count" || S == "llvm.loop.unroll.full")
+      if (S == "llvm.loop.unroll.full" || S == "llvm.loop.unroll.enable")
         return spv::LoopControlUnrollMask;
+      if (S == "llvm.loop.unroll.count") {
+        size_t I = getMDOperandAsInt(Node, 1);
+        Parameters.push_back(I);
+        return spv::LoopControlPartialCountMask;
+      }
     }
   }
   return spv::LoopControlMaskNone;

@@ -591,6 +591,7 @@ SPIRVToLLVM::setLLVMLoopMetadata(SPIRVLoopMerge* LM, BranchInst* BI) {
   if (!LM)
     return;
   llvm::MDString *Name = nullptr;
+  std::vector<SPIRVWord> LoopControlParameters;
   auto Temp = MDNode::getTemporary(*Context, None);
   auto Self = MDNode::get(*Context, Temp.get());
   Self->replaceOperandWith(0, Self);
@@ -599,18 +600,35 @@ SPIRVToLLVM::setLLVMLoopMetadata(SPIRVLoopMerge* LM, BranchInst* BI) {
     BI->setMetadata("llvm.loop", Self);
     return;
   }
-  else if(LM->getLoopControl() == LoopControlUnrollMask)
-    Name = llvm::MDString::get(*Context, "llvm.loop.unroll.full");
   else if (LM->getLoopControl() == LoopControlDontUnrollMask)
     Name = llvm::MDString::get(*Context, "llvm.loop.unroll.disable");
+  else if (LM->getLoopControl() == LoopControlUnrollMask) {
+    Name = llvm::MDString::get(*Context, "llvm.loop.unroll.enable");
+  }
+  else if (LM->getLoopControl() == LoopControlPartialCountMask) {
+    LoopControlParameters = LM->getLoopControlParameters();
+    Name = llvm::MDString::get(*Context, "llvm.loop.unroll.count");
+    // If unroll factor is set as '1' - disable loop unrolling
+    if (1 == LoopControlParameters[0]) {
+      Name = llvm::MDString::get(*Context, "llvm.loop.unroll.disable");
+      LoopControlParameters.clear();
+    }
+  }
   else
     return;
 
   std::vector<llvm::Metadata *> OpValues(1, Name);
   SmallVector<llvm::Metadata *, 2> Metadata;
   Metadata.push_back(llvm::MDNode::get(*Context, Self));
-  Metadata.push_back(llvm::MDNode::get(*Context, OpValues));
 
+  if (!LoopControlParameters.empty()) {
+    for (auto &I : LoopControlParameters) {
+      OpValues.push_back(ConstantAsMetadata::get(
+            ConstantInt::get(Type::getInt32Ty(*Context), I)));
+    }
+  }
+
+  Metadata.push_back(llvm::MDNode::get(*Context, OpValues));
   llvm::MDNode *Node = llvm::MDNode::get(*Context, Metadata);
   Node->replaceOperandWith(0, Node);
   BI->setMetadata("llvm.loop", Node);
