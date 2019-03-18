@@ -29,6 +29,11 @@
 ;   return 0;
 ; }
 
+; The IR below is manually modified for ceil, floor and fabs:
+;   - For C++, clang will generate calls to ceil, floor, fabs.
+;   - For C, clang will generate calls to llvm.(ceil|floor|fabs).f64
+; We test both forms in one test.
+
 ; ModuleID = '<stdin>'
 source_filename = "target_ocl_builtin_double.cpp"
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -67,14 +72,23 @@ declare dso_local spir_func double @log(double) #1
 
 ; Function Attrs: nounwind readnone
 declare dso_local spir_func double @ceil(double) #2
+
+; Function Attrs: nounwind readnone speculatable
+declare dso_local spir_func double @llvm.ceil.f64(double) #6
 ; CHECK: declare dso_local spir_func double @_Z4ceild(double)
 
 ; Function Attrs: nounwind readnone
 declare dso_local spir_func double @floor(double) #2
+
+; Function Attrs: nounwind readnone speculatable
+declare dso_local spir_func double @llvm.floor.f64(double) #6
 ; CHECK: declare dso_local spir_func double @_Z5floord(double)
 
 ; Function Attrs: nounwind readnone
 declare dso_local spir_func double @fabs(double) #2
+
+; Function Attrs: nounwind readnone speculatable
+declare dso_local spir_func double @llvm.fabs.f64(double) #6
 ; CHECK: declare dso_local spir_func double @_Z4fabsd(double)
 
 ; Function Attrs: nounwind
@@ -125,16 +139,25 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
 ; CHECK: {{.*}} call spir_func double @_Z3logd
   %arrayidx11 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 5
   store double %call10, double addrspace(1)* %arrayidx11, align 8
-  %call12 = call spir_func double @ceil(double 2.500000e+00) #5
+  %call12.1 = call spir_func double @ceil(double 2.500000e+00) #5
+  %call12.2 = call spir_func double @llvm.ceil.f64(double 2.500000e+00)
 ; CHECK: {{.*}} call spir_func double @_Z4ceild
+; CHECK: {{.*}} call spir_func double @_Z4ceild
+  %call12 = fadd double %call12.1, %call12.2
   %arrayidx13 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 6
   store double %call12, double addrspace(1)* %arrayidx13, align 8
-  %call14 = call spir_func double @floor(double 2.500000e+00) #5
+  %call14.1 = call spir_func double @floor(double 2.500000e+00)
+  %call14.2 = call spir_func double @llvm.floor.f64(double 2.500000e+00)
 ; CHECK: {{.*}} call spir_func double @_Z5floord
+; CHECK: {{.*}} call spir_func double @_Z5floord
+  %call14 = fadd double %call14.1, %call14.2
   %arrayidx15 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 7
   store double %call14, double addrspace(1)* %arrayidx15, align 8
-  %call16 = call spir_func double @fabs(double -2.000000e+00) #5
+  %call16.1 = call spir_func double @fabs(double -2.000000e+00)
+  %call16.2 = call spir_func double @llvm.fabs.f64(double -2.000000e+00)
 ; CHECK: {{.*}} call spir_func double @_Z4fabsd
+; CHECK: {{.*}} call spir_func double @_Z4fabsd
+  %call16 = fadd double %call16.1, %call16.2
   %arrayidx17 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 8
   store double %call16, double addrspace(1)* %arrayidx17, align 8
   %call18 = call spir_func double @sqrt(double 3.000000e+00) #0
@@ -161,6 +184,7 @@ attributes #2 = { nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="fal
 attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #4 = { noinline norecurse optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target.declare"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #5 = { nounwind readnone }
+attributes #6 = { nounwind readnone speculatable }
 
 !llvm.module.flags = !{!0}
 !opencl.used.extensions = !{!1}

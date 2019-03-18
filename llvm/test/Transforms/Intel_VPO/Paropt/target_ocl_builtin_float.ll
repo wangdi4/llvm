@@ -29,6 +29,11 @@
 ;   return 0;
 ; }
 
+; The IR below is manually modified for ceilf, floorf and fabsf:
+;   - For C++, clang will generate calls to ceilf, floorf, fabsf.
+;   - For C, clang will generate calls to llvm.(ceil|floor|fabs).f32
+; We test both forms in one test.
+
 ; ModuleID = '<stdin>'
 source_filename = "target_ocl_builtin_float.cpp"
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -67,14 +72,23 @@ declare dso_local spir_func float @logf(float) #1
 
 ; Function Attrs: nounwind readnone
 declare dso_local spir_func float @ceilf(float) #2
+
+; Function Attrs: nounwind readnone speculatable
+declare dso_local spir_func float @llvm.ceil.f32(float) #6
 ; CHECK: declare dso_local spir_func float @_Z4ceilf(float)
 
 ; Function Attrs: nounwind readnone
 declare dso_local spir_func float @floorf(float) #2
+
+; Function Attrs: nounwind readnone speculatable
+declare dso_local spir_func float @llvm.floor.f32(float) #6
 ; CHECK: declare dso_local spir_func float @_Z5floorf(float)
 
 ; Function Attrs: nounwind readnone
 declare dso_local spir_func float @fabsf(float) #2
+
+; Function Attrs: nounwind readnone speculatable
+declare dso_local spir_func float @llvm.fabs.f32(float) #6
 ; CHECK: declare dso_local spir_func float @_Z4fabsf(float)
 
 ; Function Attrs: nounwind
@@ -125,16 +139,25 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
 ; CHECK: {{.*}}  call spir_func float @_Z3logf
   %arrayidx11 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 5
   store float %call10, float addrspace(1)* %arrayidx11, align 4
-  %call12 = call spir_func float @ceilf(float 2.500000e+00) #5
+  %call12.1 = call spir_func float @ceilf(float 2.500000e+00) #5
+  %call12.2 = call spir_func float @llvm.ceil.f32(float 2.500000e+00)
 ; CHECK: {{.*}}  call spir_func float @_Z4ceilf
+; CHECK: {{.*}}  call spir_func float @_Z4ceilf
+  %call12 = fadd float %call12.1, %call12.2
   %arrayidx13 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 6
   store float %call12, float addrspace(1)* %arrayidx13, align 4
-  %call14 = call spir_func float @floorf(float 2.500000e+00) #5
+  %call14.1 = call spir_func float @floorf(float 2.500000e+00)
+  %call14.2 = call spir_func float @llvm.floor.f32(float 2.500000e+00)
 ; CHECK: {{.*}}  call spir_func float @_Z5floorf
+; CHECK: {{.*}}  call spir_func float @_Z5floorf
+  %call14 = fadd float %call14.1, %call14.2
   %arrayidx15 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 7
   store float %call14, float addrspace(1)* %arrayidx15, align 4
-  %call16 = call spir_func float @fabsf(float -2.000000e+00) #5
+  %call16.1 = call spir_func float @fabsf(float -2.000000e+00)
+  %call16.2 = call spir_func float @llvm.fabs.f32(float -2.000000e+00)
 ; CHECK: {{.*}}  call spir_func float @_Z4fabsf
+; CHECK: {{.*}}  call spir_func float @_Z4fabsf
+  %call16 = fadd float %call16.1, %call16.2
   %arrayidx17 = getelementptr inbounds [20 x float], [20 x float] addrspace(1)* %array, i64 0, i64 8
   store float %call16, float addrspace(1)* %arrayidx17, align 4
   %call18 = call spir_func float @sqrtf(float 3.000000e+00) #0
@@ -161,6 +184,7 @@ attributes #2 = { nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="fal
 attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #4 = { noinline norecurse optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target.declare"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #5 = { nounwind readnone }
+attributes #6 = { nounwind readnone speculatable }
 
 !llvm.module.flags = !{!0}
 !opencl.used.extensions = !{!1}
