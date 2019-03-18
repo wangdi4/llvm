@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <cctype>
 #include <cstdio>
 #include <dlfcn.h>
 #include <forward_list>
@@ -54,7 +55,8 @@ static int DebugLevel = 0;
 
 #define NUMBER_OF_DEVICES 1
 #define OFFLOADSECTIONNAME ".omp_offloading.entries"
-#define CSA_CODE_SECTION ".csa.code"
+#define CSA_ASM_SECTION ".csa.code"
+#define CSA_CODE_SECTION ".csa"
 
 // ENVIRONMENT VARIABLES
 
@@ -264,14 +266,31 @@ static const char *getUmrErrorStr(CsaUmrErrors E) {
 }
 #endif // OMPTARGET_DEBUG
 
+// Check if given address that represents an offload entry points to a vISA
+// graph entry. We can determine this by checking the first byte's value. In
+// case of vISA graph entry it is guaranteed to be <9 according to the vISA
+// binary encoding specification. Otherwise it is expected be an printable
+// character.
+static bool isVisaGraphEntry(const char *Entry) {
+  if (*Entry < 9)
+    return true;
+  assert((std::isprint(*Entry) || std::isspace(*Entry)) &&
+         "must be a printable character");
+  return false;
+}
+
 namespace {
 
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
-  // For function entries target address in the offload entry table for CSA
-  // will point to this object. It is a pair of two null-termminated strings
-  // where the first string is the offload entry name, and the second is the
-  // name of file which contains entry's assembly.
+  // For function entries target address in the offload entry table points to
+  // this object. It is a pair of pointers where the first field is an address
+  // of a string containing the offload entry name, and the second field can be
+  // either a vISA graph entry if we are dealing with the binary vISA graph, or
+  // an ascii string with the name of the file containing entry's assembly if
+  // entry is encoded as assembly string.
+  // TODO: We can get rid of the EntryAddr objects once we completely switch to
+  // the binary encoding of CSA graphs.
   using EntryAddr = std::pair<const char *, const char *>;
 
   // Structure which represents an offload entry table for CSA binary.
@@ -299,11 +318,17 @@ class RTLDeviceInfoTy {
           // its address the the entry address.
           DP(2, "Entry[%lu]: name %s\n", I, Entries[I].name);
 
-          const auto *FileName = getEntryFile(Entries[I]);
-          if (!FileName)
-            return false;
+          // Check if we are dealing with assembly string or vISA graph entry.
+          // If it is an assembly, then save it to a temporary file and use
+          // file's name as the entry address.
+          auto *Addr = static_cast<const char *>(Entries[I].addr);
+          if (!isVisaGraphEntry(Addr)) {
+            Addr = getEntryFile(Entries[I]);
+            if (!Addr)
+              return false;
+          }
 
-          Addresses.emplace_front(Entries[I].name, FileName);
+          Addresses.emplace_front(Entries[I].name, Addr);
           Entries[I].addr = &Addresses.front();
         } else
           // It is a data entry. Keep entry address as is. It is supposed to be
@@ -539,11 +564,18 @@ public:
         }
 
         CsaUmrCallInfo CI = {0};
-        CI.flags = kCsaUmrCallEntryByName;
         CI.graph = Graph;
-        CI.entry_name = Name;
         CI.num_inputs = Args.size();
         CI.inputs = reinterpret_cast<const CsaArchValue64 *>(Args.data());
+        if (isVisaGraphEntry(Addr->second)) {
+          // TODO: remove const_cast<>() once CsaUmrCallInfo::entry is changed
+          // to a 'const' pointer.
+          CI.entry = const_cast<CsaArchVisaEntry *>(
+              reinterpret_cast<const CsaArchVisaEntry *>(Addr->second));
+        } else {
+          CI.flags = kCsaUmrCallEntryByName;
+          CI.entry_name = Name;
+        }
 
         auto E = CsaUmrCall(&CI, 0);
         if (E) {
@@ -581,18 +613,32 @@ public:
           }
         }
 
-        DP(5, "Using assembly from \"%s\" for entry \"%s\"\n", Addr->second,
-           Addr->first);
-
-        CsaUmrBoundGraph *Graph = nullptr;
-        auto E = CsaUmrBindGraphFromFile(Context, Addr->second, &Graph);
-        if (E) {
-          DP(1, "Failed to bind CSA graph - %s\n", getUmrErrorStr(E));
-          return nullptr;
+        CsaUmrBoundGraph *BoundGraph = nullptr;
+        if (isVisaGraphEntry(Addr->second)) {
+          auto *VisaGraph = CsaArchVisaGraphFromEntry(
+              reinterpret_cast<const CsaArchVisaEntry *>(Addr->second));
+          DP(1, "Binding vISA graph %p to context %p for entry \"%s\"\n",
+             reinterpret_cast<void *>(VisaGraph),
+             reinterpret_cast<void *>(Context), Addr->first);
+          auto E = CsaUmrBindGraph(Context, VisaGraph, &BoundGraph);
+          if (E) {
+            DP(1, "Failed to bind CSA graph - %s\n", getUmrErrorStr(E));
+            return nullptr;
+          }
+        } else {
+          auto *AsmFile = reinterpret_cast<const char *>(Addr->second);
+          DP(5, "Using assembly from \"%s\" for entry \"%s\"\n", AsmFile,
+             Addr->first);
+          auto E = CsaUmrBindGraphFromFile(Context, AsmFile, &BoundGraph);
+          if (E) {
+            DP(1, "Failed to bind CSA graph from file - %s\n",
+               getUmrErrorStr(E));
+            return nullptr;
+          }
         }
 
-        Graphs[Addr] = Graph;
-        return Graph;
+        Graphs[Addr] = BoundGraph;
+        return BoundGraph;
       }
     };
 
@@ -748,15 +794,12 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
     return false;
   }
 
-  // So far CSA binary is indistinguishable from x86_64 by looking at ELF
-  // machine only. We can slightly enhance this test by checking if given
-  // binary contains CSA code section.
-  if (!Elf.findSection(CSA_CODE_SECTION)) {
-    DP(1, "No CSA code section in the binary\n");
-    return false;
-  }
-
-  return true;
+  // Check if device binary contains CSA assembly/code section.
+  for (const auto *Sec : Elf.getSections())
+    if (Sec->getName() == CSA_ASM_SECTION || Sec->getName() == CSA_CODE_SECTION)
+      return true;
+  DP(1, "No CSA sections in the binary\n");
+  return false;
 }
 
 int32_t __tgt_rtl_number_of_devices() {
