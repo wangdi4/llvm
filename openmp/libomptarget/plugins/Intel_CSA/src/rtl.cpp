@@ -1,6 +1,6 @@
 //===--- plugins/Intel_CSA/src/rtl.cpp - CSA RTLs Implementation - C++ -*--===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -23,6 +23,7 @@
 #include <iomanip>
 #include <link.h>
 #include <list>
+#include <math.h>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -123,10 +124,10 @@ namespace {
 // Represents a dynamic library which is loaded for this target.
 class DynLibTy {
   std::string FileName;
-  void *Handle;
+  void *Handle = nullptr;
 
 public:
-  explicit DynLibTy(const char *Data, size_t Size) : Handle(nullptr) {
+  explicit DynLibTy(const char *Data, size_t Size) {
     // Create temporary file for the dynamic library
     FileName = makeTempFile();
     if (FileName.empty())
