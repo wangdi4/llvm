@@ -668,17 +668,18 @@ static bool shouldSpeculateInstrs(BasicBlock::iterator Begin,
     if (isa<DbgInfoIntrinsic>(I))
       continue;
 
+#if INTEL_CUSTOMIZATION
+    if (isa<FakeloadInst>(I))
+      continue;
+
+    if (auto *SI = dyn_cast<SubscriptInst>(I))
+      if (!SI->hasAllConstantIndices())
+        return false;
+#endif // INTEL_CUSTOMIZATION
+
     switch (I->getOpcode()) {
     default:
       return false;
-#if INTEL_CUSTOMIZATION
-    case Instruction::Call:
-      if (isa<FakeloadInst>(&*I))
-        return true;
-      if (auto *SI = dyn_cast<SubscriptInst>(&*I))
-        return SI->hasAllConstantIndices();
-      return false;
-#endif // INTEL_CUSTOMIZATION
     case Instruction::GetElementPtr:
       // GEPs are cheap if all indices are constant.
       if (!cast<GEPOperator>(I)->hasAllConstantIndices())
