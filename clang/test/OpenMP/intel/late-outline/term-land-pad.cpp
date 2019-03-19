@@ -26,4 +26,22 @@ void foo(float *x)
   //CHECK: [[TLP]]:
   //CHECK: [[TLP20]]:
 }
+
+extern "C" {
+  extern double omp_get_wtime (void);
+}
+
+//CHECK-LABEL: zap
+void zap()
+{
+  //CHECK: call token{{.*}}DIR.OMP.PARALLEL
+  //CHECK: invoke double @omp_get_wtime
+  //CHECK-NEXT: unwind label %[[TLP_Z:terminate.lpad[0-9]*]]
+  //CHECK: region.exit{{.*}}DIR.OMP.END.PARALLEL
+  #pragma omp parallel
+  {
+    omp_get_wtime();
+  }
+  //CHECK: [[TLP_Z]]:
+}
 // end INTEL_COLLAB

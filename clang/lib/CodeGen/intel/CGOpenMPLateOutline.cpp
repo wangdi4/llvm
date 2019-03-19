@@ -1757,8 +1757,10 @@ void CGLateOutlineOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF,
                                              const Stmt *S) {
   if (!CGF.HaveInsertPoint())
     return;
+  CGF.EHStack.pushTerminate();
   auto *CS = cast<CapturedStmt>(S);
   CGF.EmitStmt(CS->getCapturedStmt());
+  CGF.EHStack.popTerminate();
 }
 
 /// Retrieve the value of the context parameter.
