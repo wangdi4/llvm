@@ -3965,7 +3965,8 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
   }
 
   // Use InlineAggressiveInfo to expose uses of global ptrs
-  if (InlineForXmain && AI != nullptr && AI->isCallInstInAggInlList(CS)) {
+  auto CB = cast<CallBase>(CS.getInstruction());
+  if (InlineForXmain && AI != nullptr && AI->isCallInstInAggInlList(*CB)) {
     Cost -= InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
   }
