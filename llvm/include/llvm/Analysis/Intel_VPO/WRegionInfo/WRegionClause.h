@@ -435,6 +435,9 @@ public:
 
   void print(formatted_raw_ostream &OS, bool PrintType = true) const;
   void print(raw_ostream &OS, bool PrintType = true) const;
+
+  // Get tuples from Args and populate the ArraySectionDims
+  void populateArraySectionDims(const Use *Args, unsigned NumArgs);
 };
 
 //
@@ -676,6 +679,7 @@ class UniformItem : public Item
     static bool classof(const Item *I) { return I->getKind() == IK_Uniform; }
 };
 
+// MAP CHAINS
 //  To support an aggregate object in a MAP clause, a chain of triples is used.
 //  Each triple has a Base pointer, a Section pointer, and Size. Two classes
 //  are defined:
@@ -742,16 +746,19 @@ private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
   MapChainTy MapChain;
+  ArraySectionInfo ArrSecInfo;      // For TARGET UPDATE TO/FROM clauses
 
 public:
   enum WRNMapKind {
-    WRNMapNone    = 0x0000,
-    WRNMapTo      = 0x0001,
-    WRNMapFrom    = 0x0002,
-    WRNMapAlways  = 0x0004,
-    WRNMapDelete  = 0x0008,
-    WRNMapAlloc   = 0x0010,
-    WRNMapRelease = 0x0020,
+    WRNMapNone       = 0x0000,
+    WRNMapTo         = 0x0001,
+    WRNMapFrom       = 0x0002,
+    WRNMapAlways     = 0x0004,
+    WRNMapDelete     = 0x0008,
+    WRNMapAlloc      = 0x0010,
+    WRNMapRelease    = 0x0020,
+    WRNMapUpdateTo   = 0x0040,
+    WRNMapUpdateFrom = 0x0080,
   } WRNMapKind;
 
   MapItem(VAR Orig) : Item(Orig, IK_Map), MapKind(0), InFirstprivate(nullptr) {}
@@ -767,9 +774,11 @@ public:
   static unsigned getMapKindFromClauseId(int Id) {
     switch(Id) {
       case QUAL_OMP_TO:
+        return WRNMapUpdateTo;
       case QUAL_OMP_MAP_TO:
         return WRNMapTo;
       case QUAL_OMP_FROM:
+        return WRNMapUpdateFrom;
       case QUAL_OMP_MAP_FROM:
         return WRNMapFrom;
       case QUAL_OMP_MAP_TOFROM:
@@ -807,16 +816,24 @@ public:
   void setIsMapAlways()  { MapKind |= WRNMapAlways; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
 
-  unsigned getMapKind()    const { return MapKind; }
-  bool getIsMapTo()        const { return MapKind & WRNMapTo; }
-  bool getIsMapFrom()      const { return MapKind & WRNMapFrom; }
-  bool getIsMapTofrom() const { return (MapKind & WRNMapFrom) &&
-                                       (MapKind & WRNMapTo); }
-  bool getIsMapAlloc()     const { return MapKind & WRNMapAlloc; }
-  bool getIsMapRelease()   const { return MapKind & WRNMapRelease; }
-  bool getIsMapDelete()    const { return MapKind & WRNMapDelete; }
-  bool getIsMapAlways()    const { return MapKind & WRNMapAlways; }
+  unsigned getMapKind()     const { return MapKind; }
+  bool getIsMapTo()         const { return MapKind & WRNMapTo; }
+  bool getIsMapFrom()       const { return MapKind & WRNMapFrom; }
+  bool getIsMapTofrom()     const { return (MapKind & WRNMapFrom) &&
+                                           (MapKind & WRNMapTo); }
+  bool getIsMapAlloc()      const { return MapKind & WRNMapAlloc; }
+  bool getIsMapRelease()    const { return MapKind & WRNMapRelease; }
+  bool getIsMapDelete()     const { return MapKind & WRNMapDelete; }
+  bool getIsMapAlways()     const { return MapKind & WRNMapAlways; }
+  bool getIsMapUpdateTo()   const { return MapKind & WRNMapUpdateTo; }
+  bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
+
+  ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
+  const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
+  bool getIsArraySection() const {
+    return !ArrSecInfo.getArraySectionDims().empty();
+  };
 
   void print(formatted_raw_ostream &OS, bool PrintType=true) const {
     if (getIsMapChain()) {
@@ -835,6 +852,9 @@ public:
         OS << "> ";
       }
       OS << ") ";
+    } else if (getIsArraySection()) {
+      ArrSecInfo.print(OS, PrintType);
+      OS << " ";
     } else {
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);

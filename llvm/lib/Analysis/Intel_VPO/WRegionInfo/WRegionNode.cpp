@@ -484,7 +484,7 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
   } else if (ClauseNumArgs == 1) {
     // The clause takes one argument only
     assert(NumArgs == 1 && "This clause takes one argument.");
-    Value *V = cast<Value>(Args[0]);
+    Value *V = Args[0];
     handleQualOpnd(ClauseID, V);
   } else {
     // The clause takes a list of arguments
@@ -786,10 +786,23 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
                                   // the MapKind of each list item
 
   if (ClauseInfo.getIsArraySection()) {
-    //TODO: Parse array section arguments.
+    assert ((MapKind == MapItem::WRNMapUpdateTo ||
+             MapKind == MapItem::WRNMapUpdateFrom) &&
+             "Expected Map Chain instead of Array Section in a MAP clause");
+    Value *V = Args[0];
+    C.add(V);
+    MapItem *MI = C.back();
+    MI->setMapKind(MapKind);
+    MI->setIsByRef(ClauseInfo.getIsByRef());
+    ArraySectionInfo &ArrSecInfo = MI->getArraySectionInfo();
+    ArrSecInfo.populateArraySectionDims(Args, NumArgs);
   } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr()) {
     // "AGGRHEAD" or "AGGR" seen: expect 3 arguments: BasePtr, SectionPtr, Size
     assert(NumArgs == 3 && "Malformed MAP:AGGR[HEAD] clause");
+
+    assert (MapKind != MapItem::WRNMapUpdateTo &&
+            MapKind != MapItem::WRNMapUpdateFrom &&
+            "Unexpected Map Chain in a TO/FROM clause");
 
     // Create a MapAggr for the triple: <BasePtr, SectionPtr, Size>.
     Value *BasePtr = (Value *)Args[0];
@@ -814,7 +827,7 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
   else
     // Scalar map items; create a MapItem for each of them
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = cast<Value>(Args[I]);
+      Value *V = Args[I];
       C.add(V);
       MapItem *MI = C.back();
       MI->setMapKind(MapKind);
@@ -832,7 +845,7 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
   }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = cast<Value>(Args[I]);
+      Value *V = Args[I];
       C.add(V);
       DependItem *DI = C.back();
       DI->setIsIn(IsIn);
@@ -882,37 +895,19 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
             "The UNSIGNED modifier is for MIN/MAX reduction only");
 
   if (ClauseInfo.getIsArraySection()) {
-
-    Value *V = cast<Value>(Args[0]);
+    Value *V = Args[0];
     C.add(V);
-
-    assert(isa<ConstantInt>(Args[1]) &&
-           "Non-constant Value for number of array section dimensions.");
-    ConstantInt *CI = cast<ConstantInt>(Args[1]);
-    uint64_t NumDims = CI->getZExtValue();
-
-    assert(NumArgs == 3 * NumDims + 2 &&
-           "Unexpected number of args for array section operand.");
-
     ReductionItem *RI = C.back();
     RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
     RI->setIsUnsigned(IsUnsigned);
     RI->setIsInReduction(IsInReduction);
     RI->setIsByRef(ClauseInfo.getIsByRef());
-
     ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
-
-    for (unsigned I = 0; I < NumDims; ++I) {
-      Value *LB = cast<Value>(Args[3 * I + 2]);
-      Value *SZ = cast<Value>(Args[3 * I + 3]);
-      Value *ST = cast<Value>(Args[3 * I + 4]);
-
-      ArrSecInfo.addDimension(std::make_tuple(LB, SZ, ST));
-    }
+    ArrSecInfo.populateArraySectionDims(Args, NumArgs);
   }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = cast<Value>(Args[I]);
+      Value *V = Args[I];
       C.add(V);
       ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
@@ -1205,7 +1200,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
   case QUAL_OMP_NORMALIZED_IV:
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = cast<Value>(Args[I]);
+      Value *V = Args[I];
       Constant *C = dyn_cast<Constant>(V);
       if (C && C->isNullValue()) {
         // After promoting %.omp.iv into a register, we change all pointers in
@@ -1221,7 +1216,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   case QUAL_OMP_NORMALIZED_UB:
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = cast<Value>(Args[I]);
+      Value *V = Args[I];
       Constant *C = dyn_cast<Constant>(V);
       if (C && C->isNullValue()) {
         assert(I==0 && "malformed NORMALIZED_UB clause");
