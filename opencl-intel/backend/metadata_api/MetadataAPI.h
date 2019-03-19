@@ -77,6 +77,7 @@ struct KernelMetadataAPI {
   typedef NamedHeteroTupleMDList<llvm::Type, int32_t> VecTypeHintTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> VecLenHintTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> MaxGlobalWorkDimTy;
+  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> CanUseGlobalWorkOffsetTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> AutorunTy;
   typedef NamedMDList<int32_t, MDValueGlobalObjectStrategy> NumComputeUnitsTy;
 
@@ -95,6 +96,10 @@ struct KernelMetadataAPI {
         VecTypeHint(Func, "vec_type_hint"),
         VecLenHint(Func, "intel_vec_len_hint"),
         MaxGlobalWorkDim(Func, "max_global_work_dim"),
+        // Attribute tells if kernel can be enqueued
+        // with GlobalWorkOffset parameter, hence the naming
+        CanUseGlobalWorkOffset(Func, "uses_global_work_offset"),
+        //
         Autorun(Func, "autorun"),
         NumComputeUnits(Func, "num_compute_units")
      {
@@ -112,6 +117,7 @@ struct KernelMetadataAPI {
        MDNames.push_back(VecTypeHint.getID());
        MDNames.push_back(VecLenHint.getID());
        MDNames.push_back(MaxGlobalWorkDim.getID());
+       MDNames.push_back(CanUseGlobalWorkOffset.getID());
        MDNames.push_back(Autorun.getID());
        MDNames.push_back(NumComputeUnits.getID());
      }
@@ -132,6 +138,7 @@ struct KernelMetadataAPI {
   VecTypeHintTupleMDListAccessor<VecTypeHintTy> VecTypeHint;
   NamedMDValueAccessor<VecLenHintTy> VecLenHint;
   NamedMDValueAccessor<MaxGlobalWorkDimTy> MaxGlobalWorkDim;
+  NamedMDValueAccessor<CanUseGlobalWorkOffsetTy> CanUseGlobalWorkOffset;
   NamedMDValueAccessor<AutorunTy> Autorun;
   WorkgroupSizeMDAccessor<NumComputeUnitsTy> NumComputeUnits;
 

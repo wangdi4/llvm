@@ -182,6 +182,12 @@ public:
     virtual bool IsTask() const;
 
     /**
+     * @returns true if the specified kernel may use global work offset
+     *  false otherwise
+     */
+    virtual bool CanUseGlobalWorkOffset() const;
+
+    /**
      * @returns true if the specified kernel needs to serialize workgroups
      *  false otherwise
      */
@@ -218,6 +224,7 @@ public:
     void SetTargetDevice(const DeviceMode value) { m_targetDevice = value; }
     void SetNeedSerializeWGs(const bool value) { m_bNeedSerializeWGs = value; }
     void SetIsTask(const bool value) { m_bIsTask = value; }
+    void SetCanUseGlobalWorkOffset(const bool value) { m_bCanUseGlobalWorkOffset = value; }
     void SetIsNonUniformWGSizeSupported(const bool value) { m_bIsNonUniformWGSizeSupported = value; }
     void SetCanUniteWG(const bool value) { m_canUniteWG = value; }
     void SetVerctorizeOnDimention(unsigned int value) { m_verctorizeOnDimention = value; }
@@ -263,6 +270,7 @@ protected:
     bool m_bIsAutorun;
     bool m_bNeedSerializeWGs;
     bool m_bIsTask;
+    bool m_bCanUseGlobalWorkOffset;
     bool m_bIsNonUniformWGSizeSupported;
     bool m_canUniteWG;
     unsigned int m_verctorizeOnDimention;
