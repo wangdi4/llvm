@@ -3708,6 +3708,65 @@ static bool worthInliningForRecProgressiveClone(Function *Callee) {
   return Callee && Callee->hasFnAttribute("prefer-inline-rec-pro-clone");
 }
 
+//
+// Return 'true' if 'I' is an instruction related to exception handling that
+// will inhibit loop optimizations.
+//
+static bool isLoopOptInhibitingEHInst(const Instruction &I) {
+  return isa<LandingPadInst>(&I) || isa<FuncletPadInst>(&I) ||
+    isa<InvokeInst>(&I) || isa<ResumeInst>(&I) ||
+    isa<CatchSwitchInst>(&I) || isa<CatchReturnInst>(&I) ||
+    isa<CleanupReturnInst>(I);
+}
+
+//
+// Return 'true' if 'CSI' is an instruction (representing a call/invoke) in a
+// loop which has no instructions that will inhibit loop optimizations.
+//
+static bool isInNonEHLoop(Instruction &CSI,
+                          InliningLoopInfoCache &ILIC) {
+  LoopInfo *LI = ILIC.getLI(CSI.getFunction());
+  Loop *Loop = LI->getLoopFor(CSI.getParent());
+  if (!Loop)
+    return false;
+  for (const BasicBlock *BB : Loop->blocks())
+    for (const Instruction &I : *BB)
+       if (isLoopOptInhibitingEHInst(I))
+         return false;
+  return true;
+}
+
+//
+// Return 'true' if 'F' has a loop optimization inhibiting exception handling
+// related instruction outside of a loop.
+//
+static bool hasLoopOptInhibitingEHInstOutsideLoop(Function *F,
+                                                  InliningLoopInfoCache &ILIC) {
+  if (!F)
+    return false;
+  LoopInfo *LI = ILIC.getLI(F);
+  for (BasicBlock &BB : *F)
+    if (!LI->getLoopFor(&BB))
+      for (Instruction &I : BB)
+        if (isLoopOptInhibitingEHInst(I))
+          return true;
+   return false;
+}
+
+//
+// Return 'true' if 'CS' should not be inlined because it contains exception
+// handling code and that will inhibit the application of loop optimizations
+// to the loop in which 'CS' appears.
+//
+static bool preferNotToInlineEHIntoLoop(CallSite CS,
+                                        InliningLoopInfoCache &ILIC) {
+  if (!DTransInlineHeuristics)
+    return false;
+  if (!isInNonEHLoop(*(CS.getInstruction()), ILIC))
+    return false;
+  return hasLoopOptInhibitingEHInstOutsideLoop(CS.getCalledFunction(), ILIC);
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Analyze a call site for potential inlining.
@@ -3825,7 +3884,11 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
     *ReasonAddr = NinlrDelayInlineDecision;
     return false;
   }
-
+  if (InlineForXmain &&
+      preferNotToInlineEHIntoLoop(CS, *ILIC)) {
+    *ReasonAddr = NinlrCalleeHasExceptionHandling;
+    return false;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Give out bonuses for the callsite, as the instructions setting them up

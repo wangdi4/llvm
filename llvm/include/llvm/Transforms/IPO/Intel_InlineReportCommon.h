@@ -213,6 +213,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Inline decision is delayed until link time"},
     // NinlrPreferPartialInline
     {InlPrtSimple, "Outlined function from partial inlining"},
+    // NinlrCalleeHasExceptionHandling
+    {InlPrtSimple, "Callee has exception handling"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

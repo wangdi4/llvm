@@ -172,6 +172,7 @@ typedef enum {
    NinlrSwitchComputations,
    NinlrDelayInlineDecision,
    NinlrPreferPartialInline,
+   NinlrCalleeHasExceptionHandling,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
