@@ -112,6 +112,87 @@ static User *findMatchedLatchUser(Value *LatchVal1, Value *LatchVal2,
   return MatchedLatchUser;
 }
 
+static PHINode *findSecondHeaderPhi(BinaryOperator *BOp, PHINode *Phi,
+                                    BasicBlock *Header,
+                                    BinaryOperator *&LastBinOp,
+                                    bool &IsSwappedOrder,
+                                    Value *&ReassociativeOperand) {
+  Instruction::BinaryOps OpCode = BOp->getOpcode();
+
+  Value *Op2 =
+      BOp->getOperand(0) == Phi ? BOp->getOperand(1) : BOp->getOperand(0);
+
+  PHINode *Phi2 = dyn_cast<PHINode>(Op2);
+
+  if (Phi2 && Phi2->getParent() == Header) {
+    IsSwappedOrder = BOp->getOperand(1) == Phi;
+    return Phi2;
+  }
+
+  // The following handles the case when only one Phi node in two operands. We
+  // seach the use in the instruction chain, so that We can handle single use
+  // instruction chains like this-
+  //
+  // t1 = fadd fast phi, t0
+  // t2 = fadd fast t1, t3
+  // t3 = fadd fast phi2, t2
+  //
+  //
+  // It can be reassociated to-
+  //
+  // t1 = fadd fast phi, phi2
+  // t2 = fadd fast t1, t3
+  // t3 = fadd fast t0, t2
+  //
+  // TODO: Extend the logic to handle the chain like this-
+  // t1 = t0 + phi2
+  // t2 = t1 + phi
+  // We need to search the def in the instruction chain
+
+  if (!BOp->isAssociative()) {
+    return nullptr;
+  }
+
+  ReassociativeOperand = Op2;
+
+  while (BOp->hasOneUse()) {
+    LastBinOp = dyn_cast<BinaryOperator>(*BOp->users().begin());
+
+    if (!LastBinOp || !LastBinOp->isAssociative()) {
+      break;
+    }
+
+    if (LastBinOp->getOpcode() != OpCode) {
+      break;
+    }
+
+    Phi2 = LastBinOp->getOperand(0) == BOp
+               ? dyn_cast<PHINode>(LastBinOp->getOperand(1))
+               : dyn_cast<PHINode>(LastBinOp->getOperand(0));
+
+    if (Phi2 && Phi2->getParent() == Header) {
+      return Phi2;
+    }
+
+    BOp = LastBinOp;
+  }
+
+  ReassociativeOperand = nullptr;
+  return nullptr;
+}
+
+// Go through the instruction chains and remove nsw and nuw flags when
+// reassociation happens
+static void removeNoWrapFlags(BinaryOperator *BOp, BinaryOperator *LastBinOp) {
+  while (BOp != LastBinOp) {
+    BOp->setHasNoSignedWrap(false);
+    BOp->setHasNoUnsignedWrap(false);
+    BOp = cast<BinaryOperator>(*BOp->users().begin());
+  }
+  LastBinOp->setHasNoSignedWrap(false);
+  LastBinOp->setHasNoUnsignedWrap(false);
+}
+
 static bool processLoop(Loop *L, DominatorTree *DT) {
   assert(L->empty() && "Only process inner loops.");
 
@@ -147,17 +228,14 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
 
       Instruction::BinaryOps OpCode = BOp->getOpcode();
 
-      PHINode *P0 = dyn_cast<PHINode>(BOp->getOperand(0));
-      PHINode *P1 = dyn_cast<PHINode>(BOp->getOperand(1));
+      Value *ReassociativeOperand = nullptr;
+      BinaryOperator *LastBinOp = nullptr;
+      bool IsSwappedOrder = false;
 
-      if (!P0 || !P1) {
-        continue;
-      }
+      PHINode *Phi2 = findSecondHeaderPhi(BOp, &Phi, Header, LastBinOp,
+                                          IsSwappedOrder, ReassociativeOperand);
 
-      bool IsSwappedOrder = P0 != &Phi;
-      PHINode *Phi2 = IsSwappedOrder ? P0 : P1;
-
-      if (Phi2->getParent() != Header) {
+      if (!Phi2) {
         continue;
       }
 
@@ -209,6 +287,22 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
 
       // Check whether Phi2 has one use before we erase BOp below
       bool CanErasePhi2 = Phi2->hasOneUse();
+
+      if (ReassociativeOperand) {
+        for (auto UserIt = Phi2->user_begin(), EndIt = Phi2->user_end();
+             UserIt != EndIt; ++UserIt) {
+          auto *UserInst = cast<Instruction>(*UserIt);
+          if (UserInst == LastBinOp) {
+            Use &Phi2Use = UserIt.getUse();
+            Phi2Use.set(ReassociativeOperand);
+            break;
+          }
+        }
+
+        if (isa<OverflowingBinaryOperator>(BOp)) {
+          removeNoWrapFlags(BOp, LastBinOp);
+        }
+      }
 
       BOp->replaceAllUsesWith(NewPhi);
       BOp->eraseFromParent();
