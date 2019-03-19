@@ -172,7 +172,18 @@ bool CSAAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
     return false;
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  O << ".module __mod_" << MF.getName();
+  O << ".module __mod_" << MF.getName() << "\n";
+  O << "\t.version 0,6,0\n";
+  // This should probably be replaced by code to handle externs
+  O << "\t.set implicitextern\n";
+  if (not StrictTermination)
+    O << "\t.set relaxed\n";
+  if (ImplicitLicDefs)
+    O << "\t.set implicit\n";
+  if (csa_utils::isAlwaysDataFlowLinkageSet())
+    O << "\t.unit\n";
+  else
+    O << "\t.unit sxu\n";
   OutStreamer->EmitRawText(O.str());
   AsmPrinter::runOnMachineFunction(MF);
   OutStreamer->EmitRawText(".endmodule");
@@ -468,17 +479,6 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
     startCSAAsmString(*OutStreamer);
     O << "\t.text\n";
   }
-  O << "\t.version 0,6,0\n";
-  // This should probably be replaced by code to handle externs
-  O << "\t.set implicitextern\n";
-  if (not StrictTermination)
-    O << "\t.set relaxed\n";
-  if (ImplicitLicDefs)
-    O << "\t.set implicit\n";
-  if (csa_utils::isAlwaysDataFlowLinkageSet())
-    O << "\t.unit\n";
-  else
-    O << "\t.unit sxu\n";
   OutStreamer->EmitRawText(O.str());
 }
 
