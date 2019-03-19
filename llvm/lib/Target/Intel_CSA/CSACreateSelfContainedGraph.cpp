@@ -649,12 +649,34 @@ bool isOMPOffloadCompile(Module &M) {
   }
   return false;
 }
+
+void cleanupInitializerFunctions(Module &M, MachineModuleInfo *MMI) {
+  LLVM_DEBUG(dbgs() << "cleanupInitializerFunctions\n");
+  for (auto &F : M) {
+    bool IsInitializer = F.hasFnAttribute("__csa_attr_initializer");
+    if (!IsInitializer) continue;
+    MachineFunction *MF = MMI->getMachineFunction(F);
+    MachineRegisterInfo *MRI = &(MF->getRegInfo());
+    const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
+    assert(LMFI);
+    MachineInstr *EntryMI = LMFI->getEntryMI();
+    MachineInstr *ReturnMI = LMFI->getReturnMI();
+    unsigned InMemoryLic = LMFI->getInMemoryLic();
+    unsigned OutMemoryLic = LMFI->getOutMemoryLic();
+    MRI->replaceRegWith(InMemoryLic, CSA::IGN);
+    MRI->replaceRegWith(OutMemoryLic, CSA::IGN);
+    EntryMI->RemoveOperand(0);
+    ReturnMI->RemoveOperand(0);
+  }
+}
+
 bool CSACreateSelfContainedGraph::runOnModule(Module &M) {
   MMI = &getAnalysis<MachineModuleInfo>();
   OffloadRegionRoots.clear();
   EntryToReturnMap.clear();
   if (hasUnsupportedCalls(M,MMI))
     report_fatal_error("This module has unsupported calls");
+  cleanupInitializerFunctions(M, MMI);
   IsOpenMPOffload = isOMPOffloadCompile(M);
   if (IsOpenMPOffload)
     processForOffloadCompile(M);
