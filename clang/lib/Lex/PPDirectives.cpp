@@ -2609,7 +2609,17 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   }
 
   llvm::raw_fd_ostream ArgFile(ArgFileDesc, /*shouldClose=*/true);
-  ArgFile << "/I\".\"\n";
+
+  // Add the main source file directory, which is added implicitly to the
+  // includes normally, needs to be done explicitly to compile the generated
+  // source.
+  SourceManager &SM = getSourceManager();
+  if (const FileEntry *MainFile = SM.getFileEntryForID(SM.getMainFileID()))
+    ArgFile << "/I\"" << MainFile->getDir()->getName() << "\"\n";
+
+  // Add includes used in the original source, but remove Intel headers
+  // since the MS compile isn't guaranteed to compile them.  The Intel
+  // headers start with HeaderBasePath.
   auto HSOpts = HeaderInfo.getHeaderSearchOpts();
   for (const auto &Iter : HSOpts.UserEntries) {
     if (HSOpts.HeaderBasePath.empty() ||
