@@ -1,4 +1,5 @@
-//===--------- Intel_PartialInlineAnalysis.h - Utilites for Cloning ----------===//
+//===------------------- Intel_PartialInlineAnalysis.h ------------------===//
+//===----------- Utilities for Intel Partial Inlining Analysis ----------===//
 //
 // Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
 //
@@ -14,8 +15,8 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#ifndef LLVM_TRANSFORM_UTILS_INTEL_PARTIALINLINEANALYSIS_H
-#define LLVM_TRANSFORM_UTILS_INTEL_PARTIALINLINEANALYSIS_H
+#ifndef LLVM_ANALYSIS_INTEL_PARTIALINLINEANALYSIS_H
+#define LLVM_ANALYSIS_INTEL_PARTIALINLINEANALYSIS_H
 
 #include <functional>
 
@@ -36,4 +37,4 @@ bool isIntelPartialInlineCandidate(Function *F,
                                    bool PrepareForLTO);
 } // namespace llvm
 
-#endif // LLVM_TRANSFORM_UTILS_INTEL_PARTIALINLINEANALYSIS_H
+#endif // LLVM_ANALYSIS_INTEL_PARTIALINLINEANALYSIS_H
