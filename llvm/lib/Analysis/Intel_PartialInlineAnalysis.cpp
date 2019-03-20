@@ -18,7 +18,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
@@ -318,14 +317,13 @@ static bool checkFunctionProperties(Function &F) {
   for (User *User : F.users()) {
 
     if (CallInst *Call = dyn_cast<CallInst>(User)) {
-      CallSite CS(Call);
 
       // Make sure is a direct call
-      if (CS.isIndirectCall() || CS.getCalledFunction() != &F)
+      if (Call->isIndirectCall() || Call->getCalledFunction() != &F)
         return false;
 
       // Check the attributes in the callsite
-      const AttributeList &CallAttrs = CS.getAttributes();
+      const AttributeList &CallAttrs = Call->getAttributes();
       if (CheckAttributes(CallAttrs))
         return false;
 

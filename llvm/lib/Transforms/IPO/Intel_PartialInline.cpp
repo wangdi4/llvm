@@ -360,11 +360,8 @@ void FunctionCloner::revertTransformation() {
   if (!Clone || !Original || !Outlined)
     return;
 
-  for (CallInst *Call : CallSites) {
-    CallSite CS(Call);
-
-    CS.setCalledFunction(Original);
-  }
+  for (CallInst *Call : CallSites)
+    Call->setCalledFunction(Original);
 
   Clone->eraseFromParent();
   Outlined->eraseFromParent();
@@ -377,15 +374,13 @@ void FunctionCloner::setCallSites() {
 
   for (CallInst *Call : CallSites) {
 
-    CallSite CS(Call);
-
     // If the caller is the original (recursive call), then don't
     // change the callsite
-    if (CS.getCaller() == Original || CS.getCaller() == Outlined ||
-        CS.getCaller() == Clone)
+    if (Call->getCaller() == Original || Call->getCaller() == Outlined ||
+        Call->getCaller() == Clone)
       continue;
 
-    CS.setCalledFunction(Clone);
+    Call->setCalledFunction(Clone);
   }
 }
 
