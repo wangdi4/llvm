@@ -886,6 +886,98 @@ static BasicBlock *isTrivialLoopExitBlock(Loop *L, BasicBlock *BB) {
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
+static bool isLoopHandledByLoopOpt(Loop *Lp, unsigned SizeThreshold) {
+
+  // Perfect loopnest is only meaningful for single exit loops.
+  if (!Lp->getExitingBlock())
+    return false;
+
+  if (Lp->getNumBlocks() > SizeThreshold)
+    return false;
+
+  // LoopOpt only handles loops with single latch ending in a
+  // conditional branch.
+  auto *Latch = Lp->getLoopLatch();
+  if (!Latch)
+    return false;
+
+  bool IsOuterLoop = !Lp->empty();
+
+  auto *LatchBr = dyn_cast<BranchInst>(Latch->getTerminator());
+  if (!LatchBr)
+    return false;
+
+  // Outer loop may not be rotated yet so this cannot be checked.
+  if (!IsOuterLoop) {
+    if (!LatchBr->isConditional())
+      return false;
+
+    auto *CmpInst = dyn_cast<ICmpInst>(LatchBr->getCondition());
+
+    if (!CmpInst)
+      return false;
+  }
+
+  // Give up if loop has a user call. LoopOpt is not likely to optimize loops
+  // with user calls, especially when it comes to textbook optimizations which
+  // require perfect loopnest. Also, in LTO mode inlining of these calls may
+  // result in LoopOpt skipping this loop.
+  if (IsOuterLoop)
+    for (auto I = Lp->block_begin(), BE = Lp->block_end(); I != BE; ++I)
+      for (auto Inst = (*I)->begin(), E = (*I)->end(); Inst != E; ++Inst)
+        if (isa<CallInst>(Inst) && !isa<IntrinsicInst>(Inst))
+          return false;
+
+  return true;
+}
+
+static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
+                                     Instruction *Inst) {
+  // Let LoopOpt perform unswitching if certain criteria are satisfied.
+  // Unswitching can interfere with LoopOpt's ability to recognize ztt and
+  // form perfect loopnests.
+
+  // Only branches are currently unswitched by loopopt.
+  if (!Inst || !isa<BranchInst>(Inst))
+    return false;
+
+  auto *BB = Inst->getParent();
+  if (!BB->getParent()->isPreLoopOpt())
+    return false;
+
+  // Let unswitching happen for outermost loops.
+  if (!CurLoop->getParentLoop())
+    return false;
+
+  // We need to get the innermost loop for the block as the same bblock
+  // may be traversed for outer loops as well.
+  Loop *InnermostLp = CurLoop->empty() ? CurLoop : LI->getLoopFor(BB);
+
+  // Look for two level loopnest which looks like a perfect loopnest.
+
+  if (!InnermostLp->empty())
+    return false;
+
+  auto *ParentLp = InnermostLp->getParentLoop();
+
+  if (!ParentLp)
+    return false;
+
+  // We are unlikely to perform loop transformations if loop has too many
+  // branches. The number of blocks is used as a simplistic heuristic for number
+  // of branches allowed.
+  if (!isLoopHandledByLoopOpt(InnermostLp, 5))
+    return false;
+
+  unsigned OuterLoopSize = InnermostLp->getNumBlocks() + 5;
+
+  if (!isLoopHandledByLoopOpt(ParentLp, OuterLoopSize))
+    return false;
+
+  return true;
+}
+#endif // INTEL CUSTOMIZATION
 /// We have found that we can unswitch currentLoop when LoopCond == Val to
 /// simplify the loop.  If we decide that this is profitable,
 /// unswitch the loop, reprocess the pieces, then return true.
@@ -910,6 +1002,16 @@ bool LoopUnswitch::UnswitchIfProfitable(Value *LoopCond, Constant *Val,
     return false;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (mayAffectPerfectLoopnest(LI, currentLoop, TI)) {
+    LLVM_DEBUG(dbgs() << "NOT unswitching loop %"
+                      << currentLoop->getHeader()->getName()
+                      << " at non-trivial condition '" << *Val
+                      << "' == " << *LoopCond << "\n"
+                      << ". Unswitching deferred to loopopt.\n");
+    return false;
+  }
+#endif // INTEL CUSTOMIZATION
   UnswitchNontrivialCondition(LoopCond, Val, currentLoop, TI);
   return true;
 }
