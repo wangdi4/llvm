@@ -362,6 +362,11 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
                                                    AllocaInst *UpperBnd,
                                                    AllocaInst *SchedStride) {
   assert(W->getIsOmpLoop() && "genOCLLoopBoundUpdateCode: W is not a loop-type WRN");
+  assert (LowerBnd->getType() == UpperBnd->getType() &&
+          "Expected LowerBnd and UpperBnd to be of same type");
+  assert (LowerBnd->getType() == SchedStride->getType() &&
+          "Expected LowerBnd and SchedStride to be of same type");
+
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L && "genOCLLoopBoundUpdateCode: Expect non-empty loop.");
   Instruction *InsertPt =
@@ -381,14 +386,18 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   setSchedKindForMultiLevelLoops(W, SchedKind, WRNScheduleStaticEven);
 
+  // All operands of math expressions below will be of LBType
+  auto LBType = LB->getType();
+
   Value *Chunk = nullptr;
-  Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LB->getType());
+  Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
   if (SchedKind == WRNScheduleStaticEven) {
     Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumThreads);
     Chunk = Builder.CreateSDiv(ItSpaceRounded, NumThreads);
-  } else if (SchedKind == WRNScheduleStatic)
+  } else if (SchedKind == WRNScheduleStatic) {
     Chunk = W->getSchedule().getChunkExpr();
-  else
+    Chunk = Builder.CreateSExtOrTrunc(Chunk, LBType);
+  } else
     llvm_unreachable(
         "Unsupported loop schedule type in OpenCL based offloading!");
 
@@ -399,13 +408,13 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
                                         IntelGeneralUtils::getSizeTTy(F),
                                         Arg, InsertPt);
-  Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, Chunk->getType());
+  Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
+
   Value *LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
   LB = Builder.CreateAdd(LB, LBDiff);
   Builder.CreateStore(LB, LowerBnd);
 
-  ConstantInt *ValueOne =
-      ConstantInt::get(cast<IntegerType>(Chunk->getType()), 1);
+  ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(LBType), 1);
   Value *Ch = Builder.CreateSub(Chunk, ValueOne);
   Value *NewUB = Builder.CreateAdd(LB, Ch);
 
