@@ -16,7 +16,6 @@
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
@@ -97,7 +96,7 @@ SmallDenseMap<Value *, std::set<Constant *>> ActualConstantValues;
 SmallPtrSet<Value *, 16> InexactFormals;
 
 // Mapping between CallInst and corresponding constant argument set.
-DenseMap<Instruction *, unsigned> CallInstArgumentSetIndexMap;
+DenseMap<CallInst *, unsigned> CallInstArgumentSetIndexMap;
 
 // All constant argument sets for a function that is currently being
 // processed. Each constant argument set is mapped with unique index value.
@@ -108,7 +107,7 @@ SmallDenseMap<unsigned,
 SmallDenseMap<unsigned, Function *> ArgSetIndexClonedFunctionMap;
 
 // List of call-sites that need to be processed for cloning
-std::vector<Instruction*> CurrCallList;
+std::vector<CallInst *> CurrCallList;
 
 // List of all cloned functions
 std::set<Function *> ClonedFunctionList;
@@ -119,13 +118,13 @@ SmallPtrSet<Value *, 16> WorthyFormalsForCloning;
 
 // It is mapping of Callsites of a routine that is currently being processed
 // and all possible argument sets at each CallSite.
-SmallDenseMap<Instruction*, std::vector<
+SmallDenseMap<CallInst *, std::vector<
     std::vector<std::pair<unsigned, Value*>>>> AllCallsArgumentsSets;
 
 // InexactArgsSets means not all possible arguments sets are found at CallSites.
 // List of CallSites with InexactArgsSets for a routine that is currently
 // being processed.
-SmallPtrSet<Instruction*, 8> InexactArgsSetsCallList;
+SmallPtrSet<CallInst *, 8> InexactArgsSetsCallList;
 
 // It is mapping between Special Constants (i.e address of stack location)
 // and corresponding Values that need to be propagated to cloned
@@ -510,12 +509,12 @@ static bool isSpecializationCloningSpecialConst(Value* V, Value* Arg) {
   return true;
 }
 
-// Collect argument-sets at 'CS' of 'F' for arguments that are passes as PHI nodes
-// in 'PhiValues' if possible. It saves argument-sets in "AllCallsArgumentsSets" map.
-// 'CS' is added to "InexactArgsSetsCallList" if it is not possible to collect
-// all possible argument-sets.
+// Collect argument-sets at 'CI' of 'F' for arguments that are passes as PHI
+// nodes in 'PhiValues' if possible. It saves argument-sets in
+// "AllCallsArgumentsSets" map. 'CI' is added to "InexactArgsSetsCallList"
+// if it is not possible to collect all possible argument-sets.
 //
-static void collectArgsSetsForSpecialization(Function &F, CallSite CS,
+static void collectArgsSetsForSpecialization(Function &F, CallInst &CI,
                   SmallPtrSet<Value *, 8>& PhiValues) {
 
   std::vector<
@@ -532,13 +531,13 @@ static void collectArgsSetsForSpecialization(Function &F, CallSite CS,
   }
 
   // Collect argument sets for PHINodes in PhiValues that are passed
-  // as arguments at CS.
+  // as arguments at CI.
   BasicBlock *BB = PHI_I->getParent();
   for (BasicBlock *PredBB : predecessors(BB)) {
     unsigned Position = 0;
     bool Inexact = false;
     ConstantArgs.clear();
-    CallSite::arg_iterator CAI1 = CS.arg_begin();
+    auto CAI1 = CI.arg_begin();
     for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
        AI != E; ++AI, ++CAI1, ++Position) {
 
@@ -570,8 +569,8 @@ static void collectArgsSetsForSpecialization(Function &F, CallSite CS,
         CallArgumentsSets.push_back(ConstantArgs);
     }
     else {
-      if (!InexactArgsSetsCallList.count(CS.getInstruction()))
-        InexactArgsSetsCallList.insert(CS.getInstruction());
+      if (!InexactArgsSetsCallList.count(&CI))
+        InexactArgsSetsCallList.insert(&CI);
     }
   }
 
@@ -585,17 +584,17 @@ static void collectArgsSetsForSpecialization(Function &F, CallSite CS,
     return;
   }
 
-  // Map CallArgumentsSets to CS here.
-  auto &ACallArgs = AllCallsArgumentsSets[CS.getInstruction()];
+  // Map CallArgumentsSets to CI here.
+  auto &ACallArgs = AllCallsArgumentsSets[&CI];
   std::copy(CallArgumentsSets.begin(), CallArgumentsSets.end(),
                    std::back_inserter(ACallArgs));
 
-  CurrCallList.push_back(CS.getInstruction());
+  CurrCallList.push_back(&CI);
 
   // Dump arg sets
   if (IPCloningTrace) {
     errs() << "    Args sets collected \n";
-    if (InexactArgsSetsCallList.count(CS.getInstruction())) {
+    if (InexactArgsSetsCallList.count(&CI)) {
       errs() << "    Inexact args sets found \n";
     }
     for (unsigned index = 0; index < CallArgumentsSets.size(); index++) {
@@ -609,16 +608,17 @@ static void collectArgsSetsForSpecialization(Function &F, CallSite CS,
   }
 }
 
-// Analyze CallSite 'CS' of 'F' and collect argument sets for
+// Analyze CallInst 'CI' of 'F' and collect argument sets for
 // specialization cloning if possible.
 //
-static bool analyzeCallForSpecialization(Function &F, CallSite CS) {
+static bool analyzeCallForSpecialization(Function &F, CallInst &CI) {
   SmallPtrSet<Value *, 8> PhiValues;
 
   // Collect PHINodes that are passed as arguments for cloning
   // if possible.
   PhiValues.clear();
-  if (!collectPHIsForSpecialization(F, CS, PhiValues)) return false;
+  if (!collectPHIsForSpecialization(F, CI, PhiValues))
+    return false;
 
   // Using Loop based heuristics here and remove
   // PHI nodes from PhiValues if not useful in callee.
@@ -628,10 +628,11 @@ static bool analyzeCallForSpecialization(Function &F, CallSite CS) {
     LI = new LoopInfo(DominatorTree(const_cast<Function &>(F)));
     FunctionLoopInfoMap[&F] = LI;
   }
-  if (!applyHeuristicsForSpecialization(F, CS, PhiValues, LI)) return false;
+  if (!applyHeuristicsForSpecialization(F, CI, PhiValues, LI))
+    return false;
 
   // Collect argument sets for specialization.
-  collectArgsSetsForSpecialization(F, CS, PhiValues);
+  collectArgsSetsForSpecialization(F, CI, PhiValues);
   return true;
 }
 
@@ -647,18 +648,20 @@ static void analyzeCallSitesForSpecializationCloning(Function &F) {
   FunctionLoopInfoMap.clear();
   for (User *UR : F.users()) {
 
-    if (!isa<CallInst>(UR)) continue;
-
-    CallSite CS = CallSite(UR);
-    if (!CS || CS.getCalledFunction() != &F)
+    if (!isa<CallInst>(UR))
       continue;
 
-    analyzeCallForSpecialization(F, CS);
+    auto CI = cast<CallInst>(UR);
+    if (CI->getCalledFunction() != &F)
+      continue;
+
+    analyzeCallForSpecialization(F, *CI);
   }
   // All CallSites of 'F' are analyzed. Delete if
   // LoopInfo is computed.
   LoopInfo* LI = FunctionLoopInfoMap[&F];
-  if (!LI) delete LI;
+  if (!LI)
+    delete LI;
 }
 
 // Look at all CallSites of 'F' and collect all constant values
@@ -678,16 +681,16 @@ static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
       FunctionAddressTaken = true;
       continue;
     }
-    CallSite CS = CallSite(UR);
-    Function *Callee = CS.getCalledFunction();
+    auto CI = cast<CallInst>(UR);
+    Function *Callee = CI->getCalledFunction();
     if (Callee != &F) {
       FunctionAddressTaken = true;
       continue;
     }
 
     // Collect constant values for each formal
-    CurrCallList.push_back(CS.getInstruction());
-    CallSite::arg_iterator CAI = CS.arg_begin();
+    CurrCallList.push_back(CI);
+    auto CAI = CI->arg_begin();
     for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
          AI != E; ++AI, ++CAI) {
       collectConstantArgument(&*AI, *CAI, CloneType);
@@ -721,11 +724,11 @@ static void fixRecProgressiveBasisCall(Function &OrigF, Function &NewF) {
   for (; UI != UE;) {
     Use &U = *UI;
     ++UI;
-    CallSite CS(U.getUser());
-    if (CS && (CS.getCalledFunction() == &OrigF)) {
-      if ((CS.getCaller() != &OrigF) && (CS.getCaller() != &NewF)) {
+    auto CB = dyn_cast<CallBase>(U.getUser());
+    if (CB && (CB->getCalledFunction() == &OrigF)) {
+      if ((CB->getCaller() != &OrigF) && (CB->getCaller() != &NewF)) {
         U.set(&NewF);
-        CS.setCalledFunction(&NewF);
+        CB->setCalledFunction(&NewF);
       }
     }
   }
@@ -748,11 +751,11 @@ static void fixRecProgressiveRecCalls(Function &OrigF, Function &PrevF,
   for (; UI != UE;) {
     Use &U = *UI;
     ++UI;
-    CallSite CS(U.getUser());
-    if (CS && (CS.getCalledFunction() == &OrigF)) {
-      if (CS.getCaller() == &PrevF) {
+    auto CB = dyn_cast<CallBase>(U.getUser());
+    if (CB && (CB->getCalledFunction() == &OrigF)) {
+      if (CB->getCaller() == &PrevF) {
         U.set(&NewF);
-        CS.setCalledFunction(&NewF);
+        CB->setCalledFunction(&NewF);
       }
     }
   }
@@ -770,13 +773,12 @@ static void deleteRecProgressiveRecCalls(Function &OrigF, Function &PrevF) {
   for (; UI != UE;) {
     Use &U = *UI;
     ++UI;
-    CallSite CS(U.getUser());
-    if (CS && (CS.getCalledFunction() == &OrigF)) {
-      if (CS.getCaller() == &PrevF) {
-        auto CI = CS.getInstruction();
-        if (!CI->user_empty())
-           CI->replaceAllUsesWith(Constant::getNullValue(CI->getType()));
-        CI->eraseFromParent();
+    auto CB = dyn_cast<CallBase>(U.getUser());
+    if (CB && (CB->getCalledFunction() == &OrigF)) {
+      if (CB->getCaller() == &PrevF) {
+        if (!CB->user_empty())
+           CB->replaceAllUsesWith(Constant::getNullValue(CB->getType()));
+        CB->eraseFromParent();
       }
     }
   }
@@ -922,15 +924,15 @@ static void createRecProgressiveClones(Function &F,
     deleteRecProgressiveRecCalls(F, *LastCloneF);
 }
 
-// Create argument set for CallSites 'CS' of  'F' and save it in
+// Create argument set for CallInst 'CI' of  'F' and save it in
 // 'ConstantArgsSet'
 //
-static void createConstantArgumentsSet(CallSite CS,  Function &F,
+static void createConstantArgumentsSet(CallInst &CI,  Function &F,
          std::vector<std::pair<unsigned, Constant *>>& ConstantArgsSet,
          bool AfterInl) {
 
   unsigned position = 0;
-  CallSite::arg_iterator CAI = CS.arg_begin();
+  auto CAI = CI.arg_begin();
   for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
        AI != E; ++AI, ++CAI, position++) {
 
@@ -1078,15 +1080,13 @@ static bool collectAllConstantArgumentsSets(Function &F, bool AfterInl) {
 
   std::vector<std::pair<unsigned, Constant *>> ConstantArgs;
   for (unsigned i = 0, e = CurrCallList.size(); i != e; ++i) {
-    Instruction* I = CurrCallList[i];
-    CallSite CS = CallSite(I);
-
+    CallInst *CI = CurrCallList[i];
     ConstantArgs.clear();
-    createConstantArgumentsSet(CS, F, ConstantArgs, AfterInl);
+    createConstantArgumentsSet(*CI, F, ConstantArgs, AfterInl);
     if (ConstantArgs.size() == 0)
       continue;
     unsigned index = getConstantArgumentsSetIndex(ConstantArgs);
-    CallInstArgumentSetIndexMap[CS.getInstruction()] = index;
+    CallInstArgumentSetIndexMap[CI] = index;
 
     if (FunctionAllArgumentsSets.size() > IPFunctionCloningLimit) {
       if (IPCloningTrace)
@@ -1119,30 +1119,30 @@ static bool isArgumentConstantAtPosition(
   return false;
 }
 
-// Returns true if it is valid to set callee of callsite 'CS' to 'ClonedFn'.
+// Returns true if it is valid to set callee of callsite 'CI' to 'ClonedFn'.
 // This routine makes sure that same constant argument set of 'ClonedFn'
-// is passed to 'CS'.  'index' is index of constant argument set for
+// is passed to 'CI'.  'index' is index of constant argument set for
 // 'ClonedFn'.
 //
 static bool okayEliminateRecursion(Function *ClonedFn, unsigned index,
-                                   CallSite CS, bool AfterInl) {
+                                   CallInst &CI, bool AfterInl) {
   // Get constant argument set for ClonedFn.
   auto &CArgs = FunctionAllArgumentsSets[index];
 
   unsigned position = 0;
-  CallSite::arg_iterator CAI = CS.arg_begin();
+  auto CAI = CI.arg_begin();
   for (Function::arg_iterator AI = ClonedFn->arg_begin(),
        E = ClonedFn->arg_end(); AI != E; ++AI, ++CAI, position++) {
 
     if (!isArgumentConstantAtPosition(CArgs, position)) {
-      // If argument is not constant in CArgs, then actual argument of CS
+      // If argument is not constant in CArgs, then actual argument of CI
       // should be non-constant.
      if (isConstantArgForCloning(*CAI, FuncPtrsClone))
         return false;
 
     }
     else {
-      // If argument is constant in CArgs, then actual argument of CS
+      // If argument is constant in CArgs, then actual argument of CI
       // should pass through formal.
       if ((&*AI) != (*CAI))
         return false;
@@ -1180,16 +1180,15 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
      II != E; ++II) {
     if (!isa<CallInst>(&*II))
       continue;
-
-    CallSite CS = CallSite(&*II);
-    Function *Callee = CS.getCalledFunction();
+    auto CI = cast<CallInst>(&*II);
+    Function *Callee = CI->getCalledFunction();
     if (Callee == OriginalFn &&
-        okayEliminateRecursion(ClonedFn, index, CS, AfterInl)) {
-      CS.setCalledFunction(ClonedFn);
+        okayEliminateRecursion(ClonedFn, index, *CI, AfterInl)) {
+      CI->setCalledFunction(ClonedFn);
       NumIPCallsCloned++;
 
       if (IPCloningTrace)
-        errs() << " Replaced Cloned call:   " << *CS.getInstruction() << "\n";
+        errs() << " Replaced Cloned call:   " << *CI << "\n";
     }
   }
 }
@@ -1199,18 +1198,17 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
 static void cloneFunction(bool AfterInl) {
   for (unsigned I = 0, E = CurrCallList.size(); I != E; ++I) {
     ValueToValueMapTy VMap;
-    Instruction* CallInst = CurrCallList[I];
-    CallSite CS = CallSite(CallInst);
+    CallInst *CI = CurrCallList[I];
 
     // Skip callsite if  no constant argument set is collected.
-    if (CallInstArgumentSetIndexMap.find(CS.getInstruction()) ==
+    if (CallInstArgumentSetIndexMap.find(CI) ==
         CallInstArgumentSetIndexMap.end()) {
       continue;
     }
-    Function* SrcFn = CS.getCalledFunction();
+    Function* SrcFn = CI->getCalledFunction();
 
     // Get cloned function for constant argument set if it is already there
-    unsigned index = CallInstArgumentSetIndexMap[CS.getInstruction()];
+    unsigned index = CallInstArgumentSetIndexMap[CI];
     Function* NewFn = ArgSetIndexClonedFunctionMap[index];
 
     // Create new clone if it is not there for constant argument set
@@ -1221,12 +1219,12 @@ static void cloneFunction(bool AfterInl) {
       NumIPCloned++;
     }
 
-    CS.setCalledFunction(NewFn);
+    CI->setCalledFunction(NewFn);
     NumIPCallsCloned++;
     eliminateRecursionIfPossible(NewFn, SrcFn, index, AfterInl);
 
     if (IPCloningTrace)
-      errs() << " Cloned call:   " << *CS.getInstruction() << "\n";
+      errs() << " Cloned call:   " << *CI << "\n";
   }
 }
 
@@ -1405,7 +1403,7 @@ static Value* getReplacementValueForArg(Function* NewFn, Value *V,
 // be created.
 //
 static void propagateArgumentsToClonedFunction(Function* NewFn,
-                           unsigned ArgsIndex, Instruction *CallI) {
+                           unsigned ArgsIndex, CallInst *CallI) {
   unsigned Position = 0;
   unsigned Counter = 0;
   Value* Rep;
@@ -1434,19 +1432,19 @@ static void propagateArgumentsToClonedFunction(Function* NewFn,
 }
 
 //
-// Create a new call instruction for a clone of 'CS' and insert it in
-// 'Insert_BB'. Return a CallSite for that new call instruction.
+// Create a new call instruction for a clone of 'CI' and insert it in
+// 'Insert_BB'. Return a CallInst* for that new call instruction.
 // NewCall is created for 'ArgsIndex', which is the index of argument-sets
-// of CS.
+// of CI.
 //
-static CallSite createNewCall(CallSite CS, BasicBlock* Insert_BB,
-                              unsigned ArgsIndex) {
+static CallInst *createNewCall(CallInst &CI, BasicBlock* Insert_BB,
+                               unsigned ArgsIndex) {
 
-  Function* SrcFn = CS.getCalledFunction();
+  Function* SrcFn = CI.getCalledFunction();
 
-  // Get argument-sets at ArgsIndex fpr CS
+  // Get argument-sets at ArgsIndex fpr CI
   std::vector<std::pair<unsigned, Constant *>> ConstantArgs;
-  auto &CallArgsSets = AllCallsArgumentsSets[CS.getInstruction()];
+  auto &CallArgsSets = AllCallsArgumentsSets[&CI];
   auto CArgs = CallArgsSets[ArgsIndex];
 
   // Create ConstantArgs to check if there is already cloned Function
@@ -1468,7 +1466,6 @@ static CallSite createNewCall(CallSite CS, BasicBlock* Insert_BB,
   unsigned Index = getConstantArgumentsSetIndex(ConstantArgs);
   Function* NewFn = ArgSetIndexClonedFunctionMap[Index];
 
-  CallInst *CI = cast<CallInst>(CS.getInstruction());
   ValueToValueMapTy VMap;
   CallInst* New_CI;
   // Create new cloned function for ConstantArgs if it is not already
@@ -1477,20 +1474,18 @@ static CallSite createNewCall(CallSite CS, BasicBlock* Insert_BB,
     NewFn = CloneFunction(SrcFn, VMap);
     ArgSetIndexClonedFunctionMap[Index] = NewFn;
     ClonedFunctionList.insert(NewFn);
-    propagateArgumentsToClonedFunction(NewFn, ArgsIndex,
-                                       cast<Instruction>(CI));
+    propagateArgumentsToClonedFunction(NewFn, ArgsIndex, &CI);
     NumIPCloned++;
   }
-  std::vector<Value*> Args(CI->op_begin(), CI->op_end() - 1);
+  std::vector<Value*> Args(CI.op_begin(), CI.op_end() - 1);
   // NameStr should be "" if return type is void.
   std::string New_Name;
-  New_Name = CI->hasName() ? CI->getName().str() + ".clone.spec.cs" : "";
+  New_Name = CI.hasName() ? CI.getName().str() + ".clone.spec.cs" : "";
   New_CI = CallInst::Create(NewFn, Args, New_Name, Insert_BB);
-  New_CI->setDebugLoc(CI->getDebugLoc());
-  New_CI->setCallingConv(CI->getCallingConv());
-  New_CI->setAttributes(CI->getAttributes());
-  CallSite New_CS = CallSite(New_CI);
-  return New_CS;
+  New_CI->setDebugLoc(CI.getDebugLoc());
+  New_CI->setCallingConv(CI.getCallingConv());
+  New_CI->setAttributes(CI.getAttributes());
+  return New_CI;
 }
 
 //
@@ -1514,10 +1509,10 @@ static void cloneSpecializationFunction(void) {
     NewClonedCalls.clear();
     NewCondStmtBBs.clear();
     NewCondStmts.clear();
-    Instruction *Inst = CurrCallList[I];
+    CallInst *CI = CurrCallList[I];
     if (IPCloningTrace)
-       errs() << "\n Call-Site (Spec): " << *Inst << "\n\n";
-    auto &CallArgsSets = AllCallsArgumentsSets[Inst];
+       errs() << "\n Call-Site (Spec): " << *CI << "\n\n";
+    auto &CallArgsSets = AllCallsArgumentsSets[CI];
 
     if (CallArgsSets.size() == 0)
       continue;
@@ -1528,9 +1523,6 @@ static void cloneSpecializationFunction(void) {
         errs() << "    Giving up: Not enough cases to specialize\n";
       continue;
     }
-    // Get the CallSite to be cloned
-    CallInst *CI = cast<CallInst>(Inst);
-    CallSite CS = CallSite(CI);
     // Split the BasicBlock containing the CallSite, so that the newly
     // generated code with tests and calls goes between the split portions.
     BasicBlock *OrigBB = CI->getParent();
@@ -1576,8 +1568,7 @@ static void cloneSpecializationFunction(void) {
       // Create a cloned call and the BasicBlock that contains it
       BasicBlock* CallBB = BasicBlock::Create(CI->getContext(),
         ".clone.spec.call", OrigBB->getParent(), TailBB);
-      CallSite NewCS = createNewCall(CS, CallBB, J);
-      CallInst *NewCI = cast<CallInst>(NewCS.getInstruction());
+      CallInst *NewCI = createNewCall(*CI, CallBB, J);
       NewClonedCalls.push_back(NewCI);
       NewClonedCallBBs.push_back(CallBB);
       // Connect the cloned call's BasicBlock to its successor
@@ -1623,9 +1614,9 @@ static void cloneSpecializationFunction(void) {
     }
     // If the cloned calls have return values, connect them together with
     // a PHI node.
-    if (!CS->getType()->isVoidTy()) {
+    if (!CI->getType()->isVoidTy()) {
       unsigned CallCount = NewClonedCalls.size();
-      PHINode *RPHI = PHINode::Create(CS->getType(), CallCount,
+      PHINode *RPHI = PHINode::Create(CI->getType(), CallCount,
           ".clone.spec.phi", &TailBB->front());
       for (unsigned J = 0; J < CallCount; J++) {
         RPHI->addIncoming(NewClonedCalls[J], NewClonedCallBBs[J]);

@@ -2203,10 +2203,13 @@ static bool preferCloningToInlining(CallSite CS,
   // inlining is only generic cloning, not cloning with specialization.
   if (!PrepareForLTO) return false;
   Function *Callee = CS.getCalledFunction();
-  if (!Callee) return false;
+  if (!Callee)
+    return false;
   LoopInfo *LI = ILIC.getLI(Callee);
-  if (!LI) return false;
-  if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(CS, LI))
+  if (!LI)
+    return false;
+  auto CB = cast<CallBase>(CS.getInstruction());
+  if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(*CB, LI))
     return true;
   return false;
 }
