@@ -5104,17 +5104,7 @@ void CodeGenFunction::HoistLoopBoundsIfPossible(const OMPExecutableDirective &S,
     return;
 
   if (const OMPLoopDirective *LD = GetLoopForHoisting(S, Kind)) {
-    // Don't hoist if it was already done on outer construct.
-    if (LoopBoundsHaveBeenHoisted(LD))
-      return;
-
-    if (const auto *PreInits = cast_or_null<DeclStmt>(LD->getPreInits())) {
-      for (const auto *I : PreInits->decls())
-        EmitVarDecl(cast<VarDecl>(*I));
-    }
-    if (LD->getDirectiveKind() != OMPD_simd)
-      EmitOMPHelperVar(*this, cast<DeclRefExpr>(LD->getLowerBoundVariable()));
-    EmitOMPHelperVar(*this, cast<DeclRefExpr>(LD->getUpperBoundVariable()));
+    EmitLateOutlineOMPLoopBounds(*LD, Kind, /*WithPreInits=*/true);
     HoistedBoundsLoops.insert(LD);
   }
 }
@@ -5214,6 +5204,26 @@ void CodeGenFunction::HoistTeamsClausesIfPossible(
   EnsureAddressableClauseExpr(Dir->getSingleClause<OMPThreadLimitClause>());
 }
 
+void CodeGenFunction::EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
+                                                   OpenMPDirectiveKind Kind,
+                                                   bool WithPreInits = false) {
+#if INTEL_CUSTOMIZATION
+  if (LoopBoundsHaveBeenHoisted(&S))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
+  if (WithPreInits) {
+    if (const auto *PreInits = cast_or_null<DeclStmt>(S.getPreInits())) {
+      for (const auto *I : PreInits->decls())
+        EmitVarDecl(cast<VarDecl>(*I));
+    }
+  }
+
+  if (Kind != OMPD_simd)
+    EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
+  EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
+}
+
 void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                                              OpenMPDirectiveKind Kind) {
   // Emit the loop iteration variable.
@@ -5242,17 +5252,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
       incrementProfileCounter(&S);
     }
 
-#if INTEL_CUSTOMIZATION
-    if (!LoopBoundsHaveBeenHoisted(&S)) {
-      if (Kind != OMPD_simd)
-        EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
-      EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
-    }
-#else
-    if (Kind != OMPD_simd)
-      EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
-    EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
-#endif // INTEL_CUSTOMIZATION
+    EmitLateOutlineOMPLoopBounds(S, Kind);
 
     // Emit 'then' code.
     {

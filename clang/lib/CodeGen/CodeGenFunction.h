@@ -3492,6 +3492,9 @@ private:
   void EnsureAddressableClauseExpr(const OMPClause *C);
   void HoistTeamsClausesIfPossible(const OMPExecutableDirective &S,
                                    OpenMPDirectiveKind Kind);
+  void EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
+                                    OpenMPDirectiveKind Kind,
+                                    bool WithPreInits);
   void EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
                               OpenMPDirectiveKind Kind);
 
