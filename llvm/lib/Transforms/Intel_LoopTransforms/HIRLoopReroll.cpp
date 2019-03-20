@@ -115,11 +115,13 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+#include "HIRReroll.h"
 
 #include <stack>
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::loopopt::reroll;
 
 #define OPT_SWITCH "hir-loop-reroll"
 #define OPT_DESC "HIR Loop Reroll"
@@ -155,57 +157,88 @@ public:
 
 } // namespace
 
-namespace {
-
-// Hard to estimate the size: not using small vector.
-typedef std::vector<const CanonExpr *> VecCEsTy;
-
-class CEOpSequence {
-  typedef unsigned PositionTy;
-  typedef unsigned OpcodeTy;
-  typedef std::pair<PositionTy, OpcodeTy> PosOpcodeTy;
-  typedef std::vector<PosOpcodeTy> VecOpcodesTy;
-
-  int NumDDRefs;
-
-  void countRefs() { NumDDRefs++; }
-  void add(PositionTy Pos, OpcodeTy Opcode) {
-    Opcodes.emplace_back(Pos, Opcode);
-  }
-
-public:
-  CEOpSequence() : NumDDRefs(0) {}
-
-  VecCEsTy CEList;
-  VecOpcodesTy Opcodes;
-
-  void add(const RegDDRef *Ref) {
-    if (Ref->hasGEPInfo()) {
-      CEList.push_back(Ref->getBaseCE());
-    }
-    for (const CanonExpr *CE :
-         make_range(Ref->canon_begin(), Ref->canon_end())) {
-      CEList.push_back(CE);
-    }
-    countRefs();
-  }
-  void add(const CanonExpr *CE) { CEList.push_back(CE); }
-  unsigned size() const { return CEList.size(); }
-  unsigned opSize() const { return Opcodes.size(); }
-  unsigned numRefs() const { return NumDDRefs; }
-
+namespace llvm {
+namespace loopopt{
+namespace reroll {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printCEs() {
-    for (auto CE : CEList) {
+std::string getOpcodeString(unsigned Opcode) {
+  if ((Opcode == Instruction::Add) || (Opcode == Instruction::FAdd)) {
+    return "  +  ";
+  } else if ((Opcode == Instruction::Sub) || (Opcode == Instruction::FSub)) {
+    return "  -  ";
+  } else if ((Opcode == Instruction::Mul) || (Opcode == Instruction::FMul)) {
+    return "  *  ";
+  } else if (Opcode == Instruction::UDiv) {
+    return "  /u  ";
+  } else if ((Opcode == Instruction::SDiv) || (Opcode == Instruction::FDiv)) {
+    return "  /  ";
+  } else if (Opcode == Instruction::URem) {
+    return "  %u  ";
+  } else if ((Opcode == Instruction::SRem) || (Opcode == Instruction::FRem)) {
+    return "  %  ";
+  } else if (Opcode == Instruction::Shl) {
+    return "  <<  ";
+  } else if ((Opcode == Instruction::LShr) || (Opcode == Instruction::AShr)) {
+    return "  >>  ";
+  } else if (Opcode == Instruction::And) {
+    return "  &&  ";
+  } else if (Opcode == Instruction::Or) {
+    return "  ||  ";
+  } else if (Opcode == Instruction::Xor) {
+    return "  ^  ";
+  } else {
+    return "Other-binary";
+  }
+  return "Non-binary";
+}
+
+LLVM_DUMP_METHOD void dumpOprdOpSequence(const HLInst *HInst,
+                                         const CEOpSequence &Seq,
+                                         bool Detail) {
+  dbgs() << " RefList For Inst ";
+  HInst->dump();
+
+    for (auto CE : Seq.CEList) {
       CE->dump();
-      dbgs() << " ";
+      dbgs() << ", ";
+    }
+
+    dbgs() << "\n";
+
+  if (Detail) {
+    for (auto CE : Seq.CEList) {
+      CE->getSrcType()->dump();
+    }
+    dbgs() << "\n";
+
+    for (auto CE : Seq.CEList) {
+      dbgs() << CE;
+      dbgs() << ", ";
     }
     dbgs() << "\n";
   }
+
+  for (auto P : Seq.Opcodes) {
+    dbgs() << P.first;
+    dbgs() << ": ";
+    dbgs() << getOpcodeString(P.second);
+    dbgs() << ", ";
+  }
+  dbgs() << "\n";
+}
 #endif
 
-  void addOpcodeToSeq(unsigned OpCode) { add(CEList.size(), OpCode); }
-};
+namespace rerollcomparator {
+
+bool blobIndexLess(unsigned BI1, unsigned BI2) { return BI1 < BI2; }
+
+} // namespace rerollcomparator
+
+} // namespace reroll
+} // namespace loopopt
+} // namespace llvm
+
+namespace {
 
 typedef std::vector<const HLNode *> VecNodesTy;
 
@@ -273,35 +306,6 @@ typedef DenseMap<BlobTy, unsigned> LoopInvariantBlobTy; // SCEV, BID
 typedef DenseMap<BlobTy, const HLInst *> TempBlobTyToHInstTy;
 typedef DenseMap<BlobTy, const DDRef *> TempToDDRefTy;
 
-namespace rerollcomparator {
-
-bool blobIndexLess(unsigned BI1, unsigned BI2) { return BI1 < BI2; }
-
-struct BlobDDRefLess {
-  bool operator()(const BlobDDRef *B1, const BlobDDRef *B2) {
-    return blobIndexLess(B1->getBlobIndex(), B2->getBlobIndex());
-  }
-};
-
-struct RegDDRefLess {
-  bool operator()(const RegDDRef *R1, const RegDDRef *R2) {
-    bool IsMemRef1 = R1->isMemRef();
-    bool IsMemRef2 = R2->isMemRef();
-
-    if (IsMemRef1) {
-      return IsMemRef2 ? DDRefUtils::compareMemRef(R1, R2) : false;
-    }
-
-    if (IsMemRef2) {
-      return true;
-    }
-
-    // Neither is MemRef just use symbase
-    return R1->getSymbase() < R2->getSymbase();
-  }
-};
-
-} // namespace rerollcomparator
 
 /// Expands CEOpSequence by tracing defs of a temp.
 /// Maintains covered instructions met during expansion.
@@ -1287,70 +1291,6 @@ bool rewriteLoopBody(unsigned RerollFactor, VecRerollSeedInfoTy &VecSeedInfo,
       .reroll(TempToDDRef);
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-std::string getOpcodeString(unsigned Opcode) {
-  if ((Opcode == Instruction::Add) || (Opcode == Instruction::FAdd)) {
-    return "  +  ";
-  } else if ((Opcode == Instruction::Sub) || (Opcode == Instruction::FSub)) {
-    return "  -  ";
-  } else if ((Opcode == Instruction::Mul) || (Opcode == Instruction::FMul)) {
-    return "  *  ";
-  } else if (Opcode == Instruction::UDiv) {
-    return "  /u  ";
-  } else if ((Opcode == Instruction::SDiv) || (Opcode == Instruction::FDiv)) {
-    return "  /  ";
-  } else if (Opcode == Instruction::URem) {
-    return "  %u  ";
-  } else if ((Opcode == Instruction::SRem) || (Opcode == Instruction::FRem)) {
-    return "  %  ";
-  } else if (Opcode == Instruction::Shl) {
-    return "  <<  ";
-  } else if ((Opcode == Instruction::LShr) || (Opcode == Instruction::AShr)) {
-    return "  >>  ";
-  } else if (Opcode == Instruction::And) {
-    return "  &&  ";
-  } else if (Opcode == Instruction::Or) {
-    return "  ||  ";
-  } else if (Opcode == Instruction::Xor) {
-    return "  ^  ";
-  } else {
-    return "Other-binary";
-  }
-  return "Non-binary";
-}
-
-LLVM_DUMP_METHOD void dumpOprdOpSequence(const HLInst *HInst,
-                                         const CEOpSequence &Seq) {
-  dbgs() << " RefList For Inst ";
-  HInst->dump();
-
-  for (auto CE : Seq.CEList) {
-    CE->dump();
-    dbgs() << ", ";
-  }
-
-  dbgs() << "\n";
-
-  for (auto CE : Seq.CEList) {
-    CE->getSrcType()->dump();
-  }
-  dbgs() << "\n";
-
-  for (auto CE : Seq.CEList) {
-    dbgs() << CE;
-    dbgs() << ", ";
-  }
-  dbgs() << "\n";
-
-  for (auto P : Seq.Opcodes) {
-    dbgs() << P.first;
-    dbgs() << ": ";
-    dbgs() << getOpcodeString(P.second);
-    dbgs() << ", ";
-  }
-  dbgs() << "\n";
-}
-#endif
 
 class SelfSRRerollAnalyzer {
 public:

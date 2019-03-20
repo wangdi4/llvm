@@ -33,6 +33,7 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRLoopBlockingLegacyPassPass(Registry);
   initializeHIRLoopDistributionForMemRecLegacyPassPass(Registry);
   initializeHIRLoopDistributionForLoopNestLegacyPassPass(Registry);
+  initializeHIRLoopRematerializeLegacyPassPass(Registry);
   initializeHIRLoopRerollLegacyPassPass(Registry);
   initializeHIROptReportEmitterWrapperPassPass(Registry);
   initializeHIRCodeGenWrapperPassPass(Registry);

@@ -351,6 +351,7 @@ FUNCTION_PASS("hir-loop-distribute-loopnest", loopopt::HIRLoopDistributionForLoo
 FUNCTION_PASS("hir-loop-distribute-memrec", loopopt::HIRLoopDistributionForMemRecPass())
 FUNCTION_PASS("hir-loop-fusion", loopopt::HIRLoopFusionPass())
 FUNCTION_PASS("hir-loop-interchange", loopopt::HIRLoopInterchangePass())
+FUNCTION_PASS("hir-loop-rematerialize", loopopt::HIRLoopRematerializePass())
 FUNCTION_PASS("hir-loop-reversal", loopopt::HIRLoopReversalPass())
 FUNCTION_PASS("hir-loop-reroll", loopopt::HIRLoopRerollPass())
 FUNCTION_PASS("hir-mv-const-ub", loopopt::HIRMVForConstUBPass())

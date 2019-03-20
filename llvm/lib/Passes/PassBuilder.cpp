@@ -227,6 +227,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusion.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRematerialize.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUB.h"

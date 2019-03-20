@@ -19,6 +19,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRLoopDistributionLoopNest.cpp
         HIRLoopDistributionGraph.cpp
         HIRLoopDistributionPreProcGraph.cpp
+        HIRLoopRematerialize.cpp
         HIRLoopReroll.cpp
         HIROptReportEmitter.cpp
         HIRLoopReversal.cpp

@@ -66,6 +66,10 @@ FunctionPass *createHIRLoopInterchangePass();
 /// Blocking.
 FunctionPass *createHIRLoopBlockingPass();
 
+/// createHIRLoopRematerializePass - This creates a pass that performs Loop
+/// Rematerialize.
+FunctionPass *createHIRLoopRematerializePass();
+
 /// createHIRLoopRerollPass - This creates a pass that performs Loop
 /// Reroll.
 FunctionPass *createHIRLoopRerollPass();

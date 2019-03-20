@@ -43,7 +43,8 @@ class HIRLoopStatistics;
 /// It contains a bunch of member functions which manipulate HLNodes.
 class HLNodeUtils {
 public:
-  typedef std::vector<const HLNode *> VecNodesTy;
+  typedef std::vector<HLNode *> VecNodesTy;
+  typedef std::vector<const HLNode *> ConstVecNodesTy;
 private:
   /// Special deleter is required to call HLNodeUtils private destructor.
   struct HLNodeUtilsDeleter {
@@ -1579,6 +1580,9 @@ public:
   /// Sort the nodes in the increasing order of topological sort number
   /// and remove duplications if-any
   static void sortInTopOrderAndUniq(VecNodesTy &Nodes);
+  /// TODO: Remove once HIRLoopReroll is cleaned up and common parts of
+  ///       reroll and remat are consolidated.
+  static void sortInTopOrderAndUniq(ConstVecNodesTy &Nodes);
 };
 
 } // End namespace loopopt

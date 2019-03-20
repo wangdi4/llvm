@@ -1741,6 +1741,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRLoopDistributionForMemRecPass());
     }
 
+    PM.add(createHIRLoopRematerializePass());
+
     PM.add(createHIRMultiExitLoopRerollPass());
     PM.add(createHIRLoopCollapsePass());
     PM.add(createHIRIdiomRecognitionPass());
