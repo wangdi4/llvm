@@ -494,6 +494,11 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
   }
 }
 
+#if __GNUC__ >= 7
+// The switch ladders below uses implicit fallthrough for compactness.
+// Please note the ordering when adding cases.
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#endif
 
 void WRegionNode::handleQual(int ClauseID) {
   switch (ClauseID) {

@@ -3052,6 +3052,13 @@ bool HLNodeUtils::isKnownNonZero(unsigned BlobIdx, const HLNode *ParentNode) {
   return isKnownPositiveOrNegative(BlobIdx, ParentNode, MinMaxVal);
 }
 
+
+#if __GNUC__ >= 7
+// The switch ladders below uses implicit fallthrough for compactness.
+// Please note the ordering when adding cases.
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#endif
+
 ///  Check if Loop has perfect/near-perfect loop properties
 HLNodeUtils::VALType
 HLNodeUtils::getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,

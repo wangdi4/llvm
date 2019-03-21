@@ -1632,7 +1632,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
   return nullptr;
 }
 
-void CGVisitor::setMetadata(Value *Val, const RegDDRef *Ref) {
+inline void CGVisitor::setMetadata(Value *Val, const RegDDRef *Ref) {
   if (Instruction *Instr = dyn_cast<Instruction>(Val)) {
     setMetadata(Instr, Ref);
   }

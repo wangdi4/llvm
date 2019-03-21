@@ -1345,7 +1345,7 @@ void ParamTform::copyConstantParams(ConstParamVec &ConstParams) const {
   }
 }
 
-ParamIndSet ParamTform::getConstantParamInds() const {
+inline ParamIndSet ParamTform::getConstantParamInds() const {
   ParamIndSet PIS;
   unsigned N = getOutputsSize(); // get number of arguments intcallee
   PIS.resize(N);
