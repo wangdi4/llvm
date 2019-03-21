@@ -62,8 +62,8 @@ else(BUILD_LLVM_FROM_SOURCE )
     profile_rt-shared
     LTO
     LTO_static
-    OptRemarks
-    OptRemarks_static
+    Remarks
+    Remarks_static
   )
 endif(BUILD_LLVM_FROM_SOURCE)
 
