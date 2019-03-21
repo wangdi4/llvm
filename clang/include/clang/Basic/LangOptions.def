@@ -232,6 +232,9 @@ LANGOPT(OpenMPLateOutline , 1, 0, "Outline OpenMP constructs in the back end")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
+#if INTEL_FEATURE_CSA
+LANGOPT(CSAvISA, 1, 0, "[CSA] Customize target IR for binary vISA")
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(OpenMPIsDevice    , 1, 0, "Generate code only for OpenMP target device")
 LANGOPT(OpenMPCUDAMode    , 1, 0, "Generate code for OpenMP pragmas in SIMT/SPMD mode")

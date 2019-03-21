@@ -3084,6 +3084,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Opts.OpenMPLateOutline =
         Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
   Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
+#if INTEL_FEATURE_CSA
+  Opts.CSAvISA = Args.hasArg(OPT_fcsa_visa);
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
   // Check if -fopenmp-simd is specified.
