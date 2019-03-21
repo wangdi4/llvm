@@ -3422,6 +3422,12 @@ Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
       return EmitOverflowCheckedBinOp(op);
     }
   }
+#if INTEL_COLLAB
+  if (CGF.generatingOMPIncrement()) {
+    assert(op.Ty->isUnsignedIntegerType());
+    return Builder.CreateNUWAdd(op.LHS, op.RHS, "add");
+  }
+#endif // INTEL_COLLAB
 
   if (op.Ty->isUnsignedIntegerType() &&
       CGF.SanOpts.has(SanitizerKind::UnsignedIntegerOverflow) &&

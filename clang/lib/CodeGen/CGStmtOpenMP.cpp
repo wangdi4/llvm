@@ -1429,7 +1429,13 @@ void CodeGenFunction::EmitOMPInnerLoop(
 
   // Emit "IV = IV + 1" and a back-edge to the condition block.
   EmitBlock(Continue.getBlock());
-  EmitIgnoredExpr(IncExpr);
+
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMPLateOutline)
+    GenerateOMPIncrement(IncExpr);
+  else
+    EmitIgnoredExpr(IncExpr);
+#endif // INTEL_COLLAB
   PostIncGen(*this);
   BreakContinueStack.pop_back();
   EmitBranch(CondBlock);

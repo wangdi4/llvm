@@ -1521,6 +1521,15 @@ public:
       CGF.TerminateLandingPad = TerminateLandingPad;
     }
   };
+private:
+  bool GenOMPIncrement = false;
+public:
+  bool generatingOMPIncrement() { return GenOMPIncrement; }
+  void GenerateOMPIncrement(const Expr *E) {
+    GenOMPIncrement = true;
+    EmitIgnoredExpr(E);
+    GenOMPIncrement = false;
+  }
 #endif  // INTEL_COLLAB
   /// A scope within which we are constructing the fields of an object which
   /// might use a CXXDefaultInitExpr. This stashes away a 'this' value to use
