@@ -90,7 +90,6 @@ attributes #1 = { nounwind }
 !opencl.used.extensions = !{!2}
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!2}
-!llvm.ident = !{!3}
 
 !0 = !{i32 0, i32 58, i32 -694023166, !"_Z5star1v", i32 2, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
