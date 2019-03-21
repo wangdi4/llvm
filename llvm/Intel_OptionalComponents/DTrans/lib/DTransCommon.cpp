@@ -121,10 +121,10 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   if (EnableSOAToAOS)
     MPM.addPass(dtrans::SOAToAOSPass());
   MPM.addPass(dtrans::WeakAlignPass());
-  if (EnableMemInitTrimDown)
-    MPM.addPass(dtrans::MemInitTrimDownPass());
   if (EnableDeleteFields)
     MPM.addPass(dtrans::DeleteFieldPass());
+  if (EnableMemInitTrimDown)
+    MPM.addPass(dtrans::MemInitTrimDownPass());
   MPM.addPass(dtrans::ReorderFieldsPass());
   MPM.addPass(dtrans::AOSToSOAPass());
   MPM.addPass(dtrans::EliminateROFieldAccessPass());
@@ -146,10 +146,10 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   if (EnableSOAToAOS)
     PM.add(createDTransSOAToAOSWrapperPass());
   PM.add(createDTransWeakAlignWrapperPass());
-  if (EnableMemInitTrimDown)
-    PM.add(createDTransMemInitTrimDownWrapperPass());
   if (EnableDeleteFields)
     PM.add(createDTransDeleteFieldWrapperPass());
+  if (EnableMemInitTrimDown)
+    PM.add(createDTransMemInitTrimDownWrapperPass());
   PM.add(createDTransReorderFieldsWrapperPass());
   PM.add(createDTransAOSToSOAWrapperPass());
   PM.add(createDTransEliminateROFieldAccessWrapperPass());

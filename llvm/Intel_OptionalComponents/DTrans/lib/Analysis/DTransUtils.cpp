@@ -885,6 +885,8 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "dynclone";
   case dtrans::DT_SOAToAOS:
     return "soatoaos";
+  case dtrans::DT_MemInitTrimDown:
+    return "meminittrimdown";
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return "";
@@ -923,6 +925,8 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
     return dtrans::SDDynClone;
   case dtrans::DT_SOAToAOS:
     return dtrans::SDSOAToAOS;
+  case dtrans::DT_MemInitTrimDown:
+    return dtrans::SDMemInitTrimDown;
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return dtrans::NoIssues;

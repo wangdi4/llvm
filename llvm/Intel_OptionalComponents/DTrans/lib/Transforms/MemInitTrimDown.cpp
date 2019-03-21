@@ -17,16 +17,16 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/MemInitTrimDownInfoImpl.h"
 
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 
-
 using namespace llvm;
 
-#define DEBUG_TYPE "dtrans-meminittrimdown"
+#define DTRANS_MEMINITTRIMDOWN "dtrans-meminittrimdown"
 
 namespace {
 
@@ -39,7 +39,7 @@ public:
 
   DTransMemInitTrimDownWrapper() : ModulePass(ID) {
     initializeDTransMemInitTrimDownWrapperPass(
-      *PassRegistry::getPassRegistry());
+        *PassRegistry::getPassRegistry());
   }
 
   bool runOnModule(Module &M) override {
@@ -87,9 +87,13 @@ class MemInitTrimDownImpl {
 
 public:
   MemInitTrimDownImpl(Module &M, const DataLayout &DL,
-               DTransAnalysisInfo &DTInfo, TargetLibraryInfo &TLI)
-      : M(M), DL(DL), DTInfo(DTInfo), TLI(TLI) {};
+                      DTransAnalysisInfo &DTInfo, TargetLibraryInfo &TLI)
+      : M(M), DL(DL), DTInfo(DTInfo), TLI(TLI){};
 
+  ~MemInitTrimDownImpl() {
+    for (auto *CInfo : Candidates)
+      delete CInfo;
+  }
   bool run(void);
 
 private:
@@ -97,20 +101,86 @@ private:
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
   TargetLibraryInfo &TLI;
+
+  constexpr static int MaxNumCandidates = 1;
+  SmallVector<MemInitCandidateInfo *, MaxNumCandidates> Candidates;
+
+  bool gatherCandidateInfo(void);
 };
 
+bool MemInitTrimDownImpl::gatherCandidateInfo(void) {
+
+  DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+    dbgs() << "MemInitTrimDown transformation:";
+    dbgs() << "\n";
+  });
+  // TODO: Consider only SOAToAOS candidates for MemInitTrimDown.
+  for (TypeInfo *TI : DTInfo.type_info_entries()) {
+    std::unique_ptr<MemInitCandidateInfo> CInfo(new MemInitCandidateInfo());
+
+    auto *StInfo = dyn_cast<StructInfo>(TI);
+    if (!StInfo)
+      continue;
+
+    if (!CInfo->isCandidateType(TI->getLLVMType()))
+      continue;
+
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << "  Considering candidate: ";
+      TI->getLLVMType()->print(dbgs(), true, true);
+      dbgs() << "\n";
+    });
+
+    if (DTInfo.testSafetyData(StInfo, dtrans::DT_MemInitTrimDown)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+        dbgs() << "  Failed: safety test for candidate struct.\n";
+      });
+      continue;
+    }
+
+    // TODO: Check SafetyData for candidate field array structs also.
+
+    if (!CInfo->collectMemberFunctions(M)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                      { dbgs() << "  Failed: member function collection.\n"; });
+      continue;
+    }
+
+    if (Candidates.size() >= MaxNumCandidates) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+        dbgs() << "  Failed: Exceeding maximum candidate limit.\n";
+      });
+      return false;
+    }
+    Candidates.push_back(CInfo.release());
+  }
+  if (Candidates.empty()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                    { dbgs() << "  Failed: No candidates found.\n"; });
+    return false;
+  }
+  DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+    dbgs() << "  Possible candidate structs: \n";
+    for (auto *CInfo : Candidates)
+      CInfo->printCandidateInfo();
+  });
+  return true;
+}
 
 bool MemInitTrimDownImpl::run(void) {
+
+  if (!gatherCandidateInfo())
+    return false;
 
   return false;
 }
 
 bool MemInitTrimDownPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                           TargetLibraryInfo &TLI, WholeProgramInfo &WPInfo) {
+                                  TargetLibraryInfo &TLI,
+                                  WholeProgramInfo &WPInfo) {
 
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-  if (!WPInfo.isWholeProgramSafe() ||
-      !WPInfo.isAdvancedOptEnabled(TTIAVX2))
+  if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
     return false;
 
   if (!DTInfo.useDTransAnalysis())

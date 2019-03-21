@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="first;deletefields:one,two;aostosoa:three" -dtrans-nosafetychecks-list="" 2>&1 | FileCheck %s
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="first;deletefields:one,two;aostosoa:three" -dtrans-nosafetychecks-list="" 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="first;deletefields:one,two;aostosoa:three;meminittrimdown:three" -dtrans-nosafetychecks-list="" 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output -debug-only=dtransanalysis -dtrans-nosafetychecks-list="first;deletefields:one,two;aostosoa:three;meminittrimdown:three" -dtrans-nosafetychecks-list="" 2>&1 | FileCheck %s
 
 ; The test checks '-dtrans-nosafetychecks-list=' option functionality. This options allows ignoring safety check violations for types.
 
@@ -26,7 +26,8 @@ define dso_local i32 @main() {
 ; CHECK-NEXT:        Skipping 'first': transform name or types list is missing
 ; CHECK-NEXT:        Skipping 'deletefields:one,two': bad transformation name
 ; CHECK-NEXT:        Adding   'aostosoa:three'
+; CHECK-NEXT:        Adding   'meminittrimdown:three'
 
 ; CHECK:  LLVMType: %struct.three = type { i32, i32 }
 ; CHECK-NEXT:  Name: struct.three
-; CHECK-NEXT:  (will be ignored in  aostosoa)
+; CHECK-NEXT:  (will be ignored in  aostosoa meminittrimdown)

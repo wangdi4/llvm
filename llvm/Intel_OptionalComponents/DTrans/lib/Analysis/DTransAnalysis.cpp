@@ -9676,6 +9676,8 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_DynClone;
         else if (TransformationAndTypes.first == "soatoaos")
           TransName = dtrans::DT_SOAToAOS;
+        else if (TransformationAndTypes.first == "meminittrimdown")
+          TransName = dtrans::DT_MemInitTrimDown;
         else {
           LLVM_DEBUG(dbgs() << "\n\tSkipping \'" << Element
                             << "\': bad transformation name");

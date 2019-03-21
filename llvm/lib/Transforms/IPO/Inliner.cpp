@@ -62,6 +62,7 @@
 #include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Transforms/MemInitTrimDownInfoImpl.h" // INTEL
 #include "Intel_DTrans/Transforms/SOAToAOSExternal.h" // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 #include <algorithm>
@@ -553,6 +554,8 @@ static void collectDtransCallSites(Module &M,
 #if INTEL_INCLUDE_DTRANS
   assert(CallSitesForDTrans && CallSitesForDTrans->empty() &&
          "Inconsistent state of LegacyInlinerBase");
+  // Set of SOAToAOS candidates.
+  SmallPtrSet<StructType*, 4> SOAToAOSCandidates;
   // Suppress inlining for SOAToAOS candidates.
   SmallSet<CallSite, 20> LocalCallSitesForSOAToAOS;
   for (auto *Str : M.getIdentifiedStructTypes()) {
@@ -591,10 +594,49 @@ static void collectDtransCallSites(Module &M,
       dbgs() << " looks like SOAToAOS candidate.\n";
     });
 
+    SOAToAOSCandidates.insert(Str);
     Info.collectCallSites(&LocalCallSitesForSOAToAOS);
   }
   CallSitesForDTrans->insert(LocalCallSitesForSOAToAOS.begin(),
                              LocalCallSitesForSOAToAOS.end());
+
+  SmallSet<CallBase*, 32> MemInitCallSites;
+  // Only SOAToAOS candidates are considered for MemInitTrimDown.
+  for (auto *TI : SOAToAOSCandidates) {
+    dtrans::MemInitCandidateInfo MemInfo;
+    if (!MemInfo.isCandidateType(TI))
+      continue;
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << "MemInitTrimDown transformation";
+      dbgs() << "  Considering candidate: ";
+      TI->print(dbgs(), true, true);
+      dbgs() << "\n";
+    });
+    if (!MemInfo.collectMemberFunctions(M, false)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+        dbgs() << "  Failed: member functions collections.\n";
+      });
+      continue;
+    }
+
+    if (!MemInitCallSites.empty()) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+        dbgs() << "  Failed: More than one candidate struct found.\n";
+      });
+      MemInitCallSites.clear();
+      break;
+    }
+    // Collect CallSites of all member functions of candidate
+    // struct and candidate array field structs.
+    MemInfo.collectCallSites(&MemInitCallSites);
+  }
+  // TODO: Disable Inlining for:
+  //   1. Member functions of candidate struct
+  //   2. Member functions of all candidate array field structs.
+  // for (auto CS : MemInitCallSites)
+  //   CallSitesForDTrans->insert(MemInitCallSites.begin(),
+  //                              MemInitCallSites.end());
+
 #endif // INTEL_INCLUDE_DTRANS
 }
 #endif // INTEL_CUSTOMIZATION
