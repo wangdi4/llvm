@@ -2075,16 +2075,18 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
 void VPOCodeGen::vectorizeExtractElement(Instruction *Inst) {
   ExtractElementInst *ExtrEltInst = cast<ExtractElementInst>(Inst);
   Value *ExtrFrom = getVectorValue(ExtrEltInst->getVectorOperand());
-  Value *IndexVal = ExtrEltInst->getIndexOperand();
+  Value *OrigIndexVal = ExtrEltInst->getIndexOperand();
 
   // In case of an non-const index, we serialize the instruction.
   // We first get the actual index, for the vectorized data using
   // 'add', extract the element using the index and then finally insert it into
   // the narrower sub-vector
-  if (!isa<ConstantInt>(IndexVal)) {
+  if (!isa<ConstantInt>(OrigIndexVal)) {
     Value *WideExtract =
         UndefValue::get(VectorType::get(ExtrEltInst->getType(), VF));
+    Value *IndexValVec = getVectorValue(OrigIndexVal);
     for (unsigned VIdx = 0; VIdx < VF; ++VIdx) {
+      Value *IndexVal = Builder.CreateExtractElement(IndexValVec, VIdx);
       Value *VectorIdx = Builder.CreateAdd(
           ConstantInt::get(IndexVal->getType(), VIdx * VF), IndexVal);
       WideExtract = Builder.CreateInsertElement(
@@ -2094,7 +2096,7 @@ void VPOCodeGen::vectorizeExtractElement(Instruction *Inst) {
     return;
   }
 
-  unsigned Index = cast<ConstantInt>(IndexVal)->getZExtValue();
+  unsigned Index = cast<ConstantInt>(OrigIndexVal)->getZExtValue();
 
   // Extract subvector. The subvector should include VF elements.
   SmallVector<unsigned, 8> ShufMask;
@@ -2153,15 +2155,17 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
   InsertElementInst *InsEltInst = cast<InsertElementInst>(Inst);
   Value *InsertTo = getVectorValue(InsEltInst->getOperand(0));
   Value *NewSubVec = getVectorValue(InsEltInst->getOperand(1));
-  Value *IndexVal = InsEltInst->getOperand(2);
+  Value *OrigIndexVal = InsEltInst->getOperand(2);
 
   // In case of an non-const index, we serialize the instruction.
   // We first get the actual index, for the vectorized data using
   // 'add' and then insert that scalar into the index
 
-  if (!isa<ConstantInt>(IndexVal)) {
+  if (!isa<ConstantInt>(OrigIndexVal)) {
     Value *WideInsert = InsertTo;
+    Value *IndexValVec = getVectorValue(OrigIndexVal);
     for (unsigned VIdx = 0; VIdx < VF; ++VIdx) {
+      Value *IndexVal = Builder.CreateExtractElement(IndexValVec, VIdx);
       Value *VectorIdx = Builder.CreateAdd(
           ConstantInt::get(IndexVal->getType(), VIdx * VF), IndexVal);
       WideInsert = Builder.CreateInsertElement(
@@ -2171,7 +2175,7 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
     return;
   }
 
-  unsigned Index = cast<ConstantInt>(IndexVal)->getZExtValue();
+  unsigned Index = cast<ConstantInt>(OrigIndexVal)->getZExtValue();
   unsigned WideNumElts = InsertTo->getType()->getVectorNumElements();
   unsigned OriginalVL =
       InsEltInst->getOperand(0)->getType()->getVectorNumElements();
