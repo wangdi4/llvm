@@ -1,6 +1,6 @@
 //===----------- Intel_InlineLists.cpp - [No]Inline Lists  ----------------===//
 //
-// Copyright (C) 2017-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,7 +16,6 @@
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/Intel_WP.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
@@ -278,10 +277,10 @@ static bool isCallsiteInList(StringRef Caller, StringRef Callee,
   return false;
 }
 
-static void addForceNoinlineAttr(CallSite &CS, Function *Callee);
+static void addForceNoinlineAttr(CallBase &CB, Function *Callee);
 
 // Add AlwaysInline attribute to callsite.
-static void addForceInlineAttr(CallSite &CS, Function *Callee) {
+static void addForceInlineAttr(CallBase &CB, Function *Callee) {
   // If Callee is noinline and we need to inline some of its calls then
   // noinline attributes goes to callsites from function definition.
   if (!Callee)
@@ -301,19 +300,19 @@ static void addForceInlineAttr(CallSite &CS, Function *Callee) {
           !(II && II->getCalledFunction() == Callee))
         continue;
 
-      CallSite newCS(I->getUser());
-      addForceNoinlineAttr(newCS, Callee);
+      auto NewCB = cast<CallBase>(I->getUser());
+      addForceNoinlineAttr(*NewCB, Callee);
     }
   }
 
-  if (CS.hasFnAttr(Attribute::NoInline)) {
-    CS.removeAttribute(llvm::AttributeList::FunctionIndex, Attribute::NoInline);
+  if (CB.hasFnAttr(Attribute::NoInline)) {
+    CB.removeAttribute(llvm::AttributeList::FunctionIndex, Attribute::NoInline);
   }
-  CS.addAttribute(llvm::AttributeList::FunctionIndex, Attribute::AlwaysInline);
+  CB.addAttribute(llvm::AttributeList::FunctionIndex, Attribute::AlwaysInline);
 }
 
 // Add NoInline attribute to callsite.
-static void addForceNoinlineAttr(CallSite &CS, Function *Callee) {
+static void addForceNoinlineAttr(CallBase &CB, Function *Callee) {
   // If Callee is alwaysinline and we need to not inline some of its calls then
   // alwaysinline attributes goes to callsites from function definition.
   if (!Callee)
@@ -329,16 +328,16 @@ static void addForceNoinlineAttr(CallSite &CS, Function *Callee) {
           !(II && II->getCalledValue() == Callee))
         continue;
 
-      CallSite newCS(I->getUser());
-      addForceInlineAttr(newCS, Callee);
+      auto NewCB = cast<CallBase>(I->getUser());
+      addForceInlineAttr(*NewCB, Callee);
     }
   }
 
-  if (CS.hasFnAttr(Attribute::AlwaysInline)) {
-    CS.removeAttribute(llvm::AttributeList::FunctionIndex,
+  if (CB.hasFnAttr(Attribute::AlwaysInline)) {
+    CB.removeAttribute(llvm::AttributeList::FunctionIndex,
                        Attribute::AlwaysInline);
   }
-  CS.addAttribute(llvm::AttributeList::FunctionIndex, Attribute::NoInline);
+  CB.addAttribute(llvm::AttributeList::FunctionIndex, Attribute::NoInline);
 }
 
 // Add AlwaysInline attribute to function.
@@ -423,7 +422,7 @@ static bool addListAttributesToCallsites(Function &F, InlineListsData &Data) {
             isCallsiteInList(CallerName, CalleeName, LineNum,
                              Data.NoinlineCalleeList, Data.NoinlineCallerList);
 
-        if (CallSite CS = CallSite(&I)) {
+        if (auto CB = dyn_cast<CallBase>(&I)) {
           if (NeedsInlineListAttr && NeedsNoinlineListAttr) {
             // Callsite has both inline and noinline attributes: skip it.
             LLVM_DEBUG(dbgs()
@@ -432,11 +431,11 @@ static bool addListAttributesToCallsites(Function &F, InlineListsData &Data) {
                        << "> since it is in both inline and noinline lists\n");
           } else if (NeedsInlineListAttr) {
             // Assign InlineList attribute to callsite.
-            addForceInlineAttr(CS, CalleeFunc);
+            addForceInlineAttr(*CB, CalleeFunc);
             Changed = true;
           } else if (NeedsNoinlineListAttr) {
             // Assign NoinlineList attribute to callsite.
-            addForceNoinlineAttr(CS, CalleeFunc);
+            addForceNoinlineAttr(*CB, CalleeFunc);
             Changed = true;
           }
         }
