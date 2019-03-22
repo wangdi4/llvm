@@ -984,8 +984,8 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNParallel:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1036,8 +1036,8 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           Changed = regularizeOMPLoop(W);
-          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1127,8 +1127,8 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTask:
         if (Mode & ParPrepare) {
-          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1159,8 +1159,8 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           Changed = regularizeOMPLoop(W);
-          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
@@ -1201,10 +1201,10 @@ bool VPOParoptTransform::paroptTransforms() {
           // functions with target regions from being deleted by LTO.
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
+          Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
-          Changed |= genGEPCapturingLaunderIntrin(W);
-          Changed |= genCodemotionFenceforAggrData(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
@@ -1242,9 +1242,9 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           // The purpose is to generate place holder for global variable.
-          Changed |= genGlobalPrivatizationLaunderIntrin(W);
-          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
+          Changed |= genGlobalPrivatizationLaunderIntrin(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
           improveAliasForOutlinedFunc(W);
@@ -1319,8 +1319,8 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
           Changed = regularizeOMPLoop(W);
-          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -3727,48 +3727,58 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
 bool VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
   bool Changed = false;
   W->populateBBSet();
+
+  SmallPtrSet<Value *, 16> HandledVals;
+  auto genFence = [&](Value *Orig, bool CheckAlreadyHandled) {
+    if (CheckAlreadyHandled && HandledVals.find(Orig) != HandledVals.end())
+      return false;
+
+    HandledVals.insert(Orig);
+    return genFenceIntrinsic(W, Orig);
+  };
+
   if (W->canHavePrivate()) {
     PrivateClause &PrivClause = W->getPriv();
     for (PrivateItem *PrivI : PrivClause.items())
-      Changed |= genFenceIntrinsic(W, PrivI->getOrig());
+      Changed |= genFence(PrivI->getOrig(), false);
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items())
-      Changed |= genFenceIntrinsic(W, FprivI->getOrig());
+      Changed |= genFence(FprivI->getOrig(), false);
   }
 
   if (W->canHaveShared()) {
     SharedClause &ShaClause = W->getShared();
     for (SharedItem *ShaI : ShaClause.items())
-      Changed |= genFenceIntrinsic(W, ShaI->getOrig());
+      Changed |= genFence(ShaI->getOrig(), false);
   }
 
   if (W->canHaveReduction()) {
     ReductionClause &RedClause = W->getRed();
     for (ReductionItem *RedI : RedClause.items())
-      Changed |= genFenceIntrinsic(W, RedI->getOrig());
+      Changed |= genFence(RedI->getOrig(), false);
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
-      Changed |= genFenceIntrinsic(W, LprivI->getOrig());
+      Changed |= genFence(LprivI->getOrig(), true);
   }
 
   if (W->canHaveMap()) {
     MapClause const &MpClause = W->getMap();
     for (MapItem *MapI : MpClause.items()) {
-      Changed |= genFenceIntrinsic(W, MapI->getOrig());
-      if (!MapI->getIsMapChain())
-        continue;
-      MapChainTy const &MapChain = MapI->getMapChain();
-      for (unsigned I = 0; I < MapChain.size(); ++I) {
-        MapAggrTy *Aggr = MapChain[I];
-        Changed |= genFenceIntrinsic(W, Aggr->getBasePtr());
-        Changed |= genFenceIntrinsic(W, Aggr->getSectionPtr());
+      if (MapI->getIsMapChain()) {
+        MapChainTy const &MapChain = MapI->getMapChain();
+        for (unsigned I = 0; I < MapChain.size(); ++I) {
+          MapAggrTy *Aggr = MapChain[I];
+          Changed |= genFence(Aggr->getBasePtr(), false);
+          Changed |= genFence(Aggr->getSectionPtr(), true);
+        }
       }
+      Changed |= genFence(MapI->getOrig(), true);
     }
   }
 

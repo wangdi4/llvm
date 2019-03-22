@@ -1,5 +1,3 @@
-; The test currently fails on Windows.
-; XFAIL: windows
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare  -S | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s
 ;
@@ -23,7 +21,21 @@ target device_triples = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @_Z3foov() #0 {
 entry:
+
+; CHECK: [[ARR_LAUNDER1:%[0-9]+]] = call i8* @llvm.launder.invariant.group.p0i8
+; CHECK-SAME: @arrS
+; CHECK: [[ARR_BITCAST1:%[a-zA-Z._0-9]+]] = bitcast i8* [[ARR_LAUNDER1]] to [100 x i32]*
+; CHECK: [[GEP1:%[0-9]+]] = getelementptr inbounds [100 x i32], [100 x i32]* [[ARR_BITCAST1]], i64 0, i64 42
+; CHECK: {{%[0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"([100 x i32]* [[ARR_BITCAST1]], i32* [[GEP1]], i64 80) ]
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"([100 x i32]* @arrS, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arrS, i64 0, i64 42), i64 80) ]
+
+
+; CHECK: [[ARR_BITCAST2:%[0-9]+]] = bitcast [100 x i32]* [[ARR_BITCAST1]] to i8*
+; CHECK: [[ARR_LAUNDER2:%[0-9]+]] = call i8* @llvm.launder.invariant.group.p0i8
+; CHECK-SAME: [[ARR_BITCAST2]]
+; CHECK: [[ARR_BITCAST3:%[a-zA-Z._0-9]+]] = bitcast i8* [[ARR_LAUNDER2]] to [100 x i32]*
+; CHECK: [[GEP2:%[0-9]+]] = getelementptr inbounds [100 x i32], [100 x i32]* [[ARR_BITCAST3]], i64 0, i64 50
+; CHECK: store i32 3, i32* [[GEP2]], align 8
   store i32 3, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arrS, i64 0, i64 50), align 8, !tbaa !3
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void

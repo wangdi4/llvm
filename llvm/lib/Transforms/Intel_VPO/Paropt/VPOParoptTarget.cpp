@@ -1119,7 +1119,7 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
       SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
   W->setEntryBBlock(NewEntryBB);
   bool Changed = false;
-  W->populateBBSet();
+  W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
 
   assert(W->canHaveMap() &&
          "Function called for a WRegion that cannot have a Map clause.");
