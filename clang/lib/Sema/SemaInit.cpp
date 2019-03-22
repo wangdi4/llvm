@@ -943,19 +943,8 @@ void InitListChecker::CheckImplicitInitList(const InitializedEntity &Entity,
   if (maxElements == 0) {
     if (!VerifyOnly)
       SemaRef.Diag(ParentIList->getInit(Index)->getBeginLoc(),
-#if INTEL_CUSTOMIZATION
-                   // cq371131: Print warning in case of empty records
-                   SemaRef.getLangOpts().IntelCompat &&
-                   !SemaRef.getLangOpts().IntelMSCompat ?
-                       diag::warn_implicit_empty_initializer :
-#endif // INTEL_CUSTOMIZATION
                    diag::err_implicit_empty_initializer);
     ++Index;
-#if INTEL_CUSTOMIZATION
-    // cq371131
-    if (!SemaRef.getLangOpts().IntelCompat ||
-        SemaRef.getLangOpts().IntelMSCompat)
-#endif // INTEL_CUSTOMIZATION
     hadError = true;
     return;
   }
