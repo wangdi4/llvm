@@ -1491,6 +1491,8 @@ void PassManagerBuilder::addVPOPassesPreLoopOpt(
   PM.add(createLCSSAPass());
   PM.add(createVPOCFGRestructuringPass());
   PM.add(createVPlanDriverPass());
+  // Clean up any SIMD directives left behind by VPlan vectorizer
+  PM.add(createVPODirectiveCleanupPass());
 }
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
