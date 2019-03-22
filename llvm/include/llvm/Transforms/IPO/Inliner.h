@@ -89,8 +89,8 @@ protected:
   InliningLoopInfoCache *ILIC; // INTEL
   ProfileSummaryInfo *PSI;
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
-  SmallSet<CallSite, 20> CallSitesForFusion; // INTEL
-  SmallSet<CallSite, 20> CallSitesForDTrans; // INTEL
+  SmallSet<CallBase *, 20> CallSitesForFusion; // INTEL
+  SmallSet<CallBase *, 20> CallSitesForDTrans; // INTEL
 };
 
 /// The inliner pass for the new pass manager.

@@ -550,14 +550,15 @@ static bool InlineHistoryIncludes(
 
 #if INTEL_CUSTOMIZATION
 static void collectDtransCallSites(Module &M,
-                                   SmallSet<CallSite, 20> *CallSitesForDTrans) {
+                                   SmallSet<CallBase *, 20>
+                                       *CallSitesForDTrans) {
 #if INTEL_INCLUDE_DTRANS
   assert(CallSitesForDTrans && CallSitesForDTrans->empty() &&
          "Inconsistent state of LegacyInlinerBase");
   // Set of SOAToAOS candidates.
   SmallPtrSet<StructType*, 4> SOAToAOSCandidates;
   // Suppress inlining for SOAToAOS candidates.
-  SmallSet<CallSite, 20> LocalCallSitesForSOAToAOS;
+  SmallSet<CallBase *, 20> LocalCallSitesForSOAToAOS;
   for (auto *Str : M.getIdentifiedStructTypes()) {
     dtrans::soatoaos::SOAToAOSCFGInfo Info;
     if (!Info.populateLayoutInformation(Str)) {
@@ -691,8 +692,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 InliningLoopInfoCache *ILIC, // INTEL
                 InlineReport& IR,            // INTEL
                 InlineReportBuilder& MDIR,            // INTEL
-                SmallSet<CallSite, 20> *CallSitesForFusion,   // INTEL
-                SmallSet<CallSite, 20> *CallSitesForDTrans) { // INTEL
+                SmallSet<CallBase *, 20> *CallSitesForFusion,   // INTEL
+                SmallSet<CallBase *, 20> *CallSitesForDTrans) { // INTEL
   SmallPtrSet<Function *, 8> SCCFunctions;
   LLVM_DEBUG(dbgs() << "Inliner visiting SCC:");
   for (CallGraphNode *Node : SCC) {
@@ -922,14 +923,14 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
 #if INTEL_CUSTOMIZATION
           for (Value *Ptr : InlineInfo.InlinedCalls) {
-            CallSite NewCS(Ptr);
+            auto CB = cast<CallBase>(Ptr);
             if (IsAlwaysInlineRecursive)
-                NewCS.addAttribute(AttributeList::FunctionIndex,
-                    Attribute::AlwaysInlineRecursive);
+                CB->addAttribute(AttributeList::FunctionIndex,
+                     Attribute::AlwaysInlineRecursive);
             if (IsInlineHintRecursive)
-                NewCS.addAttribute(AttributeList::FunctionIndex,
-                    Attribute::InlineHintRecursive);
-            CallSites.push_back(std::make_pair(NewCS, NewHistoryID));
+                CB->addAttribute(AttributeList::FunctionIndex,
+                     Attribute::InlineHintRecursive);
+            CallSites.push_back(std::make_pair(CallSite(Ptr), NewHistoryID));
           }
 #endif // INTEL_CUSTOMIZATION
         }
@@ -1125,8 +1126,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   bool Changed = false;
   InliningLoopInfoCache* ILIC = new InliningLoopInfoCache(); // INTEL
 
-  SmallSet<CallSite, 20> CallSitesForFusion;  // INTEL
-  SmallSet<CallSite, 20> CallSitesForDTrans;  // INTEL
+  SmallSet<CallBase *, 20> CallSitesForFusion;  // INTEL
+  SmallSet<CallBase *, 20> CallSitesForDTrans;  // INTEL
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
 #if INTEL_CUSTOMIZATION

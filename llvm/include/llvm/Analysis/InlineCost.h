@@ -419,8 +419,8 @@ getInlineCost(CallSite CS, const InlineParams &Params,
               TargetLibraryInfo *TLI,          // INTEL
               InliningLoopInfoCache *ILIC,     // INTEL
               InlineAggressiveInfo *AggI,      // INTEL
-              SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
-              SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
+              SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
+              SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
               ProfileSummaryInfo *PSI,
               OptimizationRemarkEmitter *ORE = nullptr);
 
@@ -437,8 +437,8 @@ getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               TargetLibraryInfo *TLI,                // INTEL
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
-              SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
-              SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
+              SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
+              SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// Minimal filter to detect invalid constructs for inlining.
