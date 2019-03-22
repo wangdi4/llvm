@@ -2938,9 +2938,9 @@ void HIRParser::mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2) {
     IndexCE1->setExtType(IndexCE2->isSExt());
   }
 
-  assert(IndexCE1->getCanonExprUtils().mergeable(IndexCE1, IndexCE2) &&
+  assert(CanonExprUtils::mergeable(IndexCE1, IndexCE2) &&
          "Indices cannot be merged!");
-  IndexCE1->getCanonExprUtils().add(IndexCE1, IndexCE2);
+  CanonExprUtils::add(IndexCE1, IndexCE2);
 }
 
 void HIRParser::populateOffsets(const GEPOrSubsOperator *GEPOp,
@@ -3157,9 +3157,11 @@ HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
 class DimInfo {
   unsigned Rank;
   Value *Stride = nullptr;
-  Value *LB = nullptr;
   Type *Ty = nullptr;
+
   SmallVector<Value *, 4> Indices;
+  SmallVector<Value *, 4> IndicesLB;
+
   SmallVector<Value *, 4> StructOffsets;
 
   bool HasZeroIndex = false;
@@ -3167,9 +3169,6 @@ class DimInfo {
 public:
   Type *getType() const { return Ty; }
   void setType(Type *Ty) { this->Ty = Ty; }
-
-  Value *getLower() const { return LB; }
-  void setLower(Value *LB) { this->LB = LB; }
 
   Value *getStride() const { return Stride; }
   void setStride(Value *Stride) { this->Stride = Stride; }
@@ -3179,28 +3178,52 @@ public:
 
   // Adds an \p Idx to the dimension. Later these indices will be merged into a
   // single CanonExpr.
-  void addIndex(Value *Idx) {
+  // Note: Nullptr LB means that it's zero based.
+  void addIndex(Value *Idx, Value *LB) {
     // Do not collect more than one zero index.
 
-    if (isa<ConstantInt>(Idx) && cast<ConstantInt>(Idx)->isZero()) {
-      if (Indices.size() > 0) {
-        return;
+    if (!LB) {
+      LB = ConstantInt::get(Idx->getType(), 0);
+    }
+
+    if (auto *ConstIdx = dyn_cast<ConstantInt>(Idx)) {
+      APInt ZeroBasedIndex = ConstIdx->getValue();
+
+      auto *ConstLB = dyn_cast_or_null<ConstantInt>(LB);
+      if (ConstLB && !ConstLB->isZero()) {
+        unsigned DiffWidth = std::max(Idx->getType()->getPrimitiveSizeInBits(),
+                                      LB->getType()->getPrimitiveSizeInBits());
+
+        bool SubOverflow = false;
+        ZeroBasedIndex = ZeroBasedIndex.sextOrSelf(DiffWidth).ssub_ov(
+            ConstLB->getValue().sextOrSelf(DiffWidth), SubOverflow);
+        assert(!SubOverflow && "Unexpected (index - lower) overflow");
       }
 
-      HasZeroIndex = true;
-      Indices.push_back(Idx);
-      return;
+      if (ZeroBasedIndex.isNullValue()) {
+        if (Indices.size() > 0) {
+          return;
+        }
+
+        HasZeroIndex = true;
+        Indices.push_back(Idx);
+        IndicesLB.push_back(LB);
+        return;
+      }
     }
 
     if (HasZeroIndex) {
       HasZeroIndex = false;
       Indices.clear();
+      IndicesLB.clear();
     }
 
     Indices.push_back(Idx);
+    IndicesLB.push_back(LB);
   }
 
-  const SmallVectorImpl<Value *> &indices() const { return Indices; }
+  const ArrayRef<Value *> indices() const { return Indices; }
+  const ArrayRef<Value *> indicesLB() const { return IndicesLB; }
 
   SmallVectorImpl<Value *> &offsets() { return StructOffsets; }
 
@@ -3211,7 +3234,10 @@ public:
     Ty->print(OS);
     OS << ")";
     OS << "[";
-    LB->printAsOperand(OS, false);
+    for (auto *IdxLB : IndicesLB) {
+      IdxLB->printAsOperand(OS, false);
+      OS << ",";
+    }
     OS << ":";
     for (auto *Idx : Indices) {
       Idx->printAsOperand(OS, false);
@@ -3398,6 +3424,8 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
     // Process GEP operands in reverse order (from lowest to highest dimension).
     for (int I = LastIndex; I >= 0; --I) {
+      Value *Index = GEPOp->getIndex(I);
+
       Type *DimTy = IndexedTypes[I];
       Type *DimElemTy = IndexedTypes[I + 1];
 
@@ -3426,7 +3454,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
         // reset the stride and append offsets to the same dimension. Later the
         // stride will be set, based on %t0: [0:16].1.0.
         CurDimInfo->setStride(nullptr);
-        CurDimInfo->offsets().push_back(GEPOp->getIndex(I));
+        CurDimInfo->offsets().push_back(Index);
         continue;
       }
 
@@ -3459,13 +3487,10 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
         CurDimInfo->setStride(Stride);
         CurDimInfo->setRank(Rank);
-
-        CurDimInfo->setLower(Subs ? Subs->getLowerBound()
-                                  : ConstantInt::get(OffsetTy, 0));
       }
 
       CurDimInfo->setType(DimTy);
-      CurDimInfo->addIndex(GEPOp->getIndex(I));
+      CurDimInfo->addIndex(Index, Subs ? Subs->getLowerBound() : nullptr);
 
       ++CurDimInfo;
     }
@@ -3481,17 +3506,21 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
   for (auto &DimI : Dims) {
     CanonExpr *IndexCE = nullptr;
+    CanonExpr *LowerCE = nullptr;
 
     bool IsTop = (DimI.indices().size() == 1) && !MergeInHighestDimension &&
                  !RequiresIndexMerging;
 
-    for (auto *IndexV : DimI.indices()) {
-      CanonExpr *TermCE = parse(IndexV, Level, IsTop, OffsetTy);
+    for (const auto &PairV : zip(DimI.indices(), DimI.indicesLB())) {
+      CanonExpr *ICE = parse(std::get<0>(PairV), Level, IsTop, OffsetTy);
+      CanonExpr *LCE = parse(std::get<1>(PairV), Level, IsTop, OffsetTy);
 
       if (IndexCE) {
-        mergeIndexCE(IndexCE, TermCE);
+        mergeIndexCE(IndexCE, ICE);
+        mergeIndexCE(LowerCE, LCE);
       } else {
-        IndexCE = TermCE;
+        IndexCE = ICE;
+        LowerCE = LCE;
       }
     }
 
@@ -3500,6 +3529,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
     if (MergeInHighestDimension) {
       assert(DimI.offsets().empty() && "Can not contain struct offset");
       mergeIndexCE(Ref->getDimensionIndex(Ref->getNumDimensions()), IndexCE);
+      mergeIndexCE(Ref->getDimensionLower(Ref->getNumDimensions()), LowerCE);
       Ref->setDimensionType(Ref->getNumDimensions(), DimI.getType());
       MergeInHighestDimension = false;
       continue;
@@ -3511,10 +3541,9 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       StructOffsets.push_back(cast<ConstantInt>(OffsetV)->getZExtValue());
     }
 
-    CanonExpr *LBCE = parse(DimI.getLower(), Level, true, OffsetTy);
     CanonExpr *StrideCE = parse(DimI.getStride(), Level, true, OffsetTy);
 
-    Ref->addDimensionHighest(IndexCE, StructOffsets, LBCE, StrideCE,
+    Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
                              DimI.getType());
   }
 
