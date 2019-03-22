@@ -468,6 +468,12 @@ Function *FunctionCloner::createClone(
   BasicBlock *ExitBB = &(NewFn->back());
 
   LoopInfo &LI = (GetLoopInfo)(*NewFn);
+
+  if (LI.empty()) {
+    NewFn->eraseFromParent();
+    return nullptr;
+  }
+
   Loop *FirstLoop = nullptr;
 
   BlockFrequencyInfo &BFI = (*GetBFI)(*NewFn);
@@ -489,6 +495,11 @@ Function *FunctionCloner::createClone(
       if (!FirstLoop)
         FirstLoop = LoopBB;
     }
+  }
+
+  if (!FirstLoop) {
+    NewFn->eraseFromParent();
+    return nullptr;
   }
 
   // Fix the basic blocks if there is a single entry and a single exit
