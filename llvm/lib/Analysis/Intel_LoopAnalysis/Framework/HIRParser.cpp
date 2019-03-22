@@ -3155,6 +3155,7 @@ HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
 }
 
 class DimInfo {
+  unsigned Rank;
   Value *Stride = nullptr;
   Value *LB = nullptr;
   Type *Ty = nullptr;
@@ -3172,6 +3173,9 @@ public:
 
   Value *getStride() const { return Stride; }
   void setStride(Value *Stride) { this->Stride = Stride; }
+
+  unsigned getRank() const { return Rank; }
+  void setRank(unsigned Rank) { this->Rank = Rank; }
 
   // Adds an \p Idx to the dimension. Later these indices will be merged into a
   // single CanonExpr.
@@ -3352,16 +3356,24 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
   SmallVector<DimInfo, 8> Dims;
 
-  auto GetStrideV = [&](const SubscriptInst *Subs, Type *DimElemTy) -> Value * {
+  auto GetStrideAndRank = [&](const SubscriptInst *Subs,
+                              Type *DimElemTy) -> std::pair<Value *, unsigned> {
     if (Subs) {
-      return Subs->getStride();
+      return {Subs->getStride(), Subs->getTypeRank()};
     }
 
     auto Stride = DimElemTy->isSized()
                       ? getCanonExprUtils().getTypeSizeInBytes(DimElemTy)
                       : 0;
 
-    return ConstantInt::get(OffsetTy, Stride);
+    unsigned ReturnTypeRank = 0;
+    while (DimElemTy->isArrayTy()) {
+      ++ReturnTypeRank;
+
+      DimElemTy = DimElemTy->getArrayElementType();
+    }
+
+    return {ConstantInt::get(OffsetTy, Stride), ReturnTypeRank};
   };
 
   GEPOrSubsOperator *RestructuredBaseGEPOp = nullptr;
@@ -3420,16 +3432,14 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
       // Find appropriate stride slot.
       if (I == LastIndex && !Dims.empty()) {
-        Value *StrideV = GetStrideV(Subs, DimElemTy);
+        Value *Stride;
+        unsigned Rank;
+
+        std::tie(Stride, Rank) = GetStrideAndRank(Subs, DimElemTy);
 
         CurDimInfo = std::find_if(
-            Dims.begin(), Dims.end(), [StrideV, DimElemTy](DimInfo &DimI) {
-              Type *DimITy = DimI.getType();
-              Type *DimIElemTy = DimITy->isPointerTy()
-                                     ? DimITy->getPointerElementType()
-                                     : DimITy->getArrayElementType();
-
-              return DimI.getStride() == StrideV && DimIElemTy == DimElemTy;
+            Dims.begin(), Dims.end(), [Stride, Rank](DimInfo &DimI) {
+              return DimI.getStride() == Stride && DimI.getRank() == Rank;
             });
       }
 
@@ -3442,7 +3452,14 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       // Populate Stride and LB info if the dimension was created for struct
       // offset.
       if (CurDimInfo->getStride() == nullptr) {
-        CurDimInfo->setStride(GetStrideV(Subs, DimElemTy));
+        Value *Stride;
+        unsigned Rank;
+
+        std::tie(Stride, Rank) = GetStrideAndRank(Subs, DimElemTy);
+
+        CurDimInfo->setStride(Stride);
+        CurDimInfo->setRank(Rank);
+
         CurDimInfo->setLower(Subs ? Subs->getLowerBound()
                                   : ConstantInt::get(OffsetTy, 0));
       }
