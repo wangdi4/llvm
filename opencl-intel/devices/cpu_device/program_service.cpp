@@ -857,6 +857,12 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         stValSize = sizeof(cl_bool);
         break;
     }
+    case CL_DEV_KERNEL_CAN_USE_GLOBAL_WORK_OFFSET:
+    {
+        *(cl_bool*)pValue = (cl_bool)pKernelProps->CanUseGlobalWorkOffset();
+        stValSize = sizeof(cl_bool);
+        break;
+    }
 
     default:
         return CL_DEV_INVALID_VALUE;

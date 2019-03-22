@@ -435,6 +435,12 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     }
   }
 
+  bool canUseGlobalWorkOffset = true;
+  if (kmd.CanUseGlobalWorkOffset.hasValue()) {
+    canUseGlobalWorkOffset = kmd.CanUseGlobalWorkOffset.get();
+    kernelAttributes << "uses_global_Work_offset(" << canUseGlobalWorkOffset << ") ";
+  }
+
   if (kmd.VecLenHint.hasValue()) {
     int32_t VecLen = kmd.VecLenHint.get();
     kernelAttributes << "intel_vec_len_hint(" << VecLen << ") ";
@@ -539,6 +545,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetIsAutorun(isAutorun);
   pProps->SetNeedSerializeWGs(needSerializeWGs);
   pProps->SetIsTask(isTask);
+  pProps->SetCanUseGlobalWorkOffset(canUseGlobalWorkOffset);
   auto kernelAttributesStr = kernelAttributes.str();
   // Remove space at the end
   if (!kernelAttributesStr.empty())

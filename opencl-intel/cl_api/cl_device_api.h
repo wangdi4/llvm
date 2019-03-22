@@ -323,7 +323,8 @@ enum cl_dev_kernel_info
     CL_DEV_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,   //!< Returns the local size that will generate the
                                                     //!< requested number of sub - groups for the kernel.
     CL_DEV_KERNEL_IS_AUTORUN,
-    CL_DEV_KERNEL_IS_TASK
+    CL_DEV_KERNEL_IS_TASK,
+    CL_DEV_KERNEL_CAN_USE_GLOBAL_WORK_OFFSET        //!< Specifies if a kernel can be enqueued with GlobalWorkOffset parameter
 };
 
 /*! \enum cl_dev_partition_prop

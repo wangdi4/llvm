@@ -173,6 +173,12 @@ public:
     virtual bool IsTask() const = 0;
 
     /**
+     * @returns true if the specified kernel may use global work offset
+     *  false otherwise
+     */
+    virtual bool CanUseGlobalWorkOffset() const = 0;
+
+    /**
      * @returns true if the specified kernel needs to serialize workgroups
      *  false otherwise
      */
