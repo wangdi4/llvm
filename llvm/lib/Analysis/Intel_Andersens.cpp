@@ -5225,6 +5225,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
                                                  const CallBase *Call,
                                                  const MemoryLocation &Loc) {
   Function *F = Call->getCalledFunction();
+  assert(F && "getLibFuncModRefInfo used without direct function call");
   unsigned LibFuncModel = getLibfuncModRefModel(TheLibFunc);
   DEBUG_WITH_TYPE("imr-query", {
     errs() << "irm-query: LibFunc: " << F->getName();

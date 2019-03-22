@@ -328,13 +328,14 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   std::map<unsigned, bool> Tarjan2Deleted;
 
   // Current DFS number
-  unsigned DFSNumber;
+  unsigned DFSNumber = 0;
 
   // Work lists.
   WorkList w1, w2;
 
   // "current" and "next" work lists
-  WorkList *CurrWL, *NextWL;
+  WorkList *CurrWL = nullptr;
+  WorkList *NextWL = nullptr;
 
   // Temporary rep storage, used because we can't collapse SCC's in the
   // predecessor graph by uniting the variables permanently, we can only do so
@@ -347,14 +348,14 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // During variable substitution, we create unknowns to represent the unknown
   // value that is a dereference of a variable.  These nodes are known as
   // "ref" nodes (since they represent the value of dereferences).
-  unsigned FirstRefNode;
+  unsigned FirstRefNode = 0;
 
   // During HVN, we create represent address taken nodes as if they were
   // unknown (since HVN, unlike HU, does not evaluate unions).
-  unsigned FirstAdrNode;
+  unsigned FirstAdrNode = 0;
 
   // Current pointer equivalence class number
-  unsigned PEClass;
+  unsigned PEClass = 0;
 
   // Mapping from points-to sets to equivalence classes
   typedef DenseMap<SparseBitVector<> *, unsigned, BitmapKeyInfo> BitVectorMap;
@@ -377,10 +378,10 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   std::vector<int> SDT;
 
   // Whether to use SDT (UniteNodes can use it during solving, but not before)
-  bool SDTActive;
+  bool SDTActive = false;
 
   // Skip doing Andersens Analysis if it finds unexpected Insts.
-  bool SkipAndersensAnalysis;
+  bool SkipAndersensAnalysis = false;
 
   // The data structure to record the static global variable
   // which are not escaped from the current routine.
