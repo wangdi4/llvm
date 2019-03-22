@@ -1522,6 +1522,7 @@ private:
   // that prevent transforming a type.
   bool checkDependentTypeSafety(llvm::Type *Ty) {
     auto *TI = DTInfo->getTypeInfo(Ty);
+    assert(TI && "Expected DTrans to analyze container of dependent type");
     if (DTInfo->testSafetyData(TI, dtrans::DT_AOSToSOADependent))
       return false;
 
@@ -1547,6 +1548,7 @@ private:
   // prevent shrinking the peeling index to 32-bits.
   bool checkDependentTypeSafeForShrinking(Module &M, llvm::Type *Ty) {
     auto *TI = DTInfo->getTypeInfo(Ty);
+    assert(TI && "Expected DTrans to analyze container of dependent type");
     if (DTInfo->testSafetyData(TI, dtrans::DT_AOSToSOADependentIndex32))
       return false;
 

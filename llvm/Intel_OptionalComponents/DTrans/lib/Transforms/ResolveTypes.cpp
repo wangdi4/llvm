@@ -758,6 +758,14 @@ private:
   // mark these fields as being used, which will prevent remapping this type,
   // except to a compatible type that has a matching type for this field.
   void visitGlobalValueInitializer(const Constant *C) {
+    assert(C && "Expected constant");
+
+    // Compatible types only needs to consider initializer constants that
+    // are for arrays or structures.
+    const auto *AggregateConst = dyn_cast<ConstantAggregate>(C);
+    if (!AggregateConst)
+      return;
+
     llvm::Type *Ty = C->getType();
     if (isa<ArrayType>(Ty)) {
       visitGlobalValueInitializer(C->getAggregateElement(0U));
@@ -770,11 +778,9 @@ private:
     if (isTypeOfInterest(Ty)) {
       SmallBitVector &Bits = TypeUseInfoMap[Ty].NonScalarFieldsUsed;
 
-      assert(C->getType()->isAggregateType() &&
-             "Expecting aggregate initializer");
-      unsigned NumElements = C->getType()->getNumContainedTypes();
+      unsigned NumElements = AggregateConst->getType()->getNumContainedTypes();
       for (unsigned I = 0; I < NumElements; ++I) {
-        Type *FieldTy = C->getAggregateElement(I)->getType();
+        Type *FieldTy = AggregateConst->getAggregateElement(I)->getType();
         if (FieldTy->isIntOrIntVectorTy())
           continue;
 
@@ -785,11 +791,11 @@ private:
             DTRT_COMPAT_VERBOSE,
             dbgs() << "DTRT-compat: Global initializer accesses type:\n    "
                    << *Ty << "\n  At index: " << I << "\n  Initializer:\n    "
-                   << *C << "\n");
+                   << *AggregateConst << "\n");
 
         // Update any nested types.
         if (FieldTy->isAggregateType())
-          visitGlobalValueInitializer(C->getAggregateElement(I));
+          visitGlobalValueInitializer(AggregateConst->getAggregateElement(I));
       }
     }
   }
@@ -829,6 +835,7 @@ private:
       Ops.pop_back();
       Type *IndexedTy =
           GetElementPtrInst::getIndexedType(GEP->getSourceElementType(), Ops);
+      assert(IndexedTy && "Invalid indices for GEP!");
 
       // If the GEP isn't indexing a structure, we don't need to track it.
       auto *IndexedStTy = dyn_cast<StructType>(IndexedTy);
