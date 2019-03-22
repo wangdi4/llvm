@@ -1202,17 +1202,27 @@ void OpenMPLateOutliner::emitOMPUseDevicePtrClause(
 }
 
 void OpenMPLateOutliner::emitOMPToClause(const OMPToClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_to);
-  addArg("QUAL.OMP.TO");
-  for (auto *E : Cl->varlists())
+  for (auto *E : Cl->varlists()) {
+    ClauseEmissionHelper CEH(*this, OMPC_to, "QUAL.OMP.TO");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      CSB.setArrSect();
+    addArg(CSB.getString());
     addArg(E);
+  }
 }
 
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_from);
-  addArg("QUAL.OMP.FROM");
-  for (auto *E : Cl->varlists())
+  for (auto *E : Cl->varlists()) {
+    ClauseEmissionHelper CEH(*this, OMPC_from, "QUAL.OMP.FROM");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      CSB.setArrSect();
+    addArg(CSB.getString());
     addArg(E);
+  }
 }
 
 void OpenMPLateOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *Cl) {
