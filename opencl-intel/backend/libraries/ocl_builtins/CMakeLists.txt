@@ -451,7 +451,8 @@ list (APPEND OCL_20_SOURCE_FILES
   cpu-builtin-defines.c
   image_functions.cpp
   extended_execution_functions.cpp
-  )
+  generic_functions.cl
+)
 
 list (APPEND OCL_20_SOURCE_FILES
   pipes.cl
