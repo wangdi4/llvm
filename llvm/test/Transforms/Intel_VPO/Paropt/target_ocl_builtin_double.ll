@@ -23,15 +23,18 @@
 ;      array[9] = sqrt(3.0);
 ;      array[10] = log2(3.0);
 ;      array[11] = erf(3.0);
+;      array[12] = fmax(2.0, 3.0);
+;      array[13] = fmin(2.0, 3.0);
 ;   }
-;   for (int i = 0; i<10; i++)
+;   for (int i = 0; i<14; i++)
 ;     printf("array[%d] = %lf\n", i, array[i]);
 ;   return 0;
 ; }
 
-; The IR below is manually modified for ceil, floor and fabs:
-;   - For C++, clang will generate calls to ceil, floor, fabs.
-;   - For C, clang will generate calls to llvm.(ceil|floor|fabs).f64
+; The IR below is manually modified for ceil, floor, fabs, fmax, fmin:
+;   - For C++, clang will generate calls to ceil, floor, fabs, fmax, fmin.
+;   - For C, clang will generate calls to
+;       llvm.(ceil|floor|fabs|maxnum|minnum).f64
 ; We test both forms in one test.
 
 ; ModuleID = '<stdin>'
@@ -103,6 +106,20 @@ declare dso_local spir_func double @log2(double) #1
 declare dso_local spir_func double @erf(double) #1
 ; CHECK: declare dso_local spir_func double @_Z3erfd(double)
 
+; Function Attrs: nounwind
+declare dso_local spir_func double @fmax(double, double) #1
+
+; Function Attrs: nounwind readnone speculatable
+declare dso_local spir_func double @llvm.maxnum.f64(double, double) #6
+; CHECK: declare dso_local spir_func double @_Z4fmaxdd(double, double)
+
+; Function Attrs: nounwind
+declare dso_local spir_func double @fmin(double, double) #1
+
+; Function Attrs: nounwind readnone speculatable
+declare dso_local spir_func double @llvm.minnum.f64(double, double) #6
+; CHECK: declare dso_local spir_func double @_Z4fmindd(double, double)
+
 ; Function Attrs: noinline norecurse optnone uwtable
 define dso_local spir_kernel void @__omp_offloading_fd02_d323b8_main_l37([20 x double] addrspace(1)* %array) #4 {
 newFuncRoot:
@@ -172,6 +189,20 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
 ; CHECK: {{.*}} call spir_func double @_Z3erfd
   %arrayidx23 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 11
   store double %call22, double addrspace(1)* %arrayidx23, align 8
+  %call24.1 = call spir_func double @fmax(double 2.000000e+00, double 3.000000e+00)
+  %call24.2 = call spir_func double @llvm.maxnum.f64(double 2.000000e+00, double 3.000000e+00)
+; CHECK: {{.*}} call spir_func double @_Z4fmaxdd
+; CHECK: {{.*}} call spir_func double @_Z4fmaxdd
+  %call24 = fadd double %call24.1, %call24.2
+  %arrayidx25 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 12
+  store double %call24, double addrspace(1)* %arrayidx25, align 8
+  %call26.1 = call spir_func double @fmin(double 2.000000e+00, double 3.000000e+00)
+  %call26.2 = call spir_func double @llvm.minnum.f64(double 2.000000e+00, double 3.000000e+00)
+; CHECK: {{.*}} call spir_func double @_Z4fmindd
+; CHECK: {{.*}} call spir_func double @_Z4fmindd
+  %call26 = fadd double %call26.1, %call26.2
+  %arrayidx27 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 13
+  store double %call26, double addrspace(1)* %arrayidx27, align 8
   br label %DIR.OMP.END.TARGET.2
 
 DIR.OMP.END.TARGET.2:                             ; preds = %DIR.OMP.TARGET.1
