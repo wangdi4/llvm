@@ -880,6 +880,7 @@ static void createRecProgressiveClones(Function &F,
   int FormalValue = Start;
   Function *FirstCloneF = nullptr;
   Function *LastCloneF = nullptr;
+  assert(Count > 0 && "Expecting at least one RecProgressive Clone");
   for (unsigned I = 0; I < Count; ++I) {
     ValueToValueMapTy VMap;
     Function *NewF = CloneFunction(&F, VMap);

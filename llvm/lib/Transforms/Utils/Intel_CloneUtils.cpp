@@ -238,7 +238,7 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
   LocalCount = LocalRange / LocalInc;
   if (LocalCount * LocalInc != LocalRange)
     return false;
-  assert((LocalCount >= 0) && "Expecting non-negative range");
+  assert((LocalCount > 0) && "Expecting positive range");
   // Store back the values.
   Start = LocalStart;
   Inc = LocalInc;
