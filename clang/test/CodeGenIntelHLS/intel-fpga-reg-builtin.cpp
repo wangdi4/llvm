@@ -6,6 +6,13 @@ struct st {
 };
 // CHECK: %struct.st = type { i32, float }
 
+struct stnonpod {
+  int x;
+  stnonpod(int a) {
+    x = a;
+  }
+};
+
 union un {
   int a;
   char c[4];
@@ -85,6 +92,14 @@ void foo() {
 // CHECK: %[[APLOAD:[0-9]+]] = load i32*, i32** %ap, align 8
   int *bp = __builtin_fpga_reg(ap);
 // CHECK: %{{[0-9]+}} = call i32* @llvm.fpga.reg.p0i32(i32* %[[APLOAD]])
+
+  struct stnonpod s1(123);
+  struct stnonpod s2 = __builtin_fpga_reg(s1);
+// CHECK: call void @_ZN8stnonpodC1Ei(%struct.stnonpod* %s1, i32 123)
+// CHECK: %[[S1BC1:[0-9]+]] = bitcast %struct.stnonpod* %agg-temp5 to i8*
+// CHECK: %[[S1BC2:[0-9]+]] = bitcast %struct.stnonpod* %s1 to i8*
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[S1BC1]], i8* align 4 %[[S1BC2]], i64 4, i1 false)
+// CHECK: call void @llvm.fpga.reg.struct.p0s_struct.stnonpods(%struct.stnonpod* %s2, %struct.stnonpod* %agg-temp5)
 }
 
 // CHECK: declare i32 @llvm.fpga.reg.i32(i32)

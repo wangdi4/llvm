@@ -5000,6 +5000,34 @@ bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   }
 }
 
+static bool checkFPGARegArgument(Sema &S, QualType ArgType,
+                                 SourceLocation &Loc) {
+
+  // Non-POD classes  are allowed. Each field is checked for illegal type.
+  if (CXXRecordDecl *Record = ArgType->getAsCXXRecordDecl()) {
+    for (auto *FD : Record->fields()) {
+      QualType T = FD->getType();
+      Loc = FD->getLocation();
+      if (const ArrayType *AT = T->getAsArrayTypeUnsafe())
+        T = AT->getElementType();
+      if (checkFPGARegArgument(S, T, Loc))
+        return true;
+    }
+    return false;
+  }
+
+  QualType CanonicalType = ArgType.getCanonicalType();
+
+  if (CanonicalType->isFunctionPointerType() || CanonicalType->isImageType())
+    return true;
+
+  // Check to filter out unintended types. Records are handled above.
+  if (!CanonicalType.isCXX98PODType(S.Context))
+    return true;
+
+  return false;
+}
+
 bool Sema::CheckOpenCLBuiltinFunctionCall(unsigned BuiltinID,
                                           CallExpr *TheCall) {
   if (checkArgCount(*this, TheCall, 1))
@@ -5007,10 +5035,18 @@ bool Sema::CheckOpenCLBuiltinFunctionCall(unsigned BuiltinID,
 
   Expr *Arg = TheCall->getArg(0);
   QualType ArgType = Arg->getType();
-  if (!ArgType.isCXX98PODType(Context) || ArgType.getTypePtr()->isArrayType()) {
-    Diag(TheCall->getBeginLoc(), diag::err_fpga_reg_limitations);
+  SourceLocation Loc;
+
+  if (ArgType.getTypePtr()->isArrayType() ||
+      checkFPGARegArgument(*this, ArgType, Loc)) {
+    Diag(TheCall->getBeginLoc(), diag::err_fpga_reg_limitations)
+        << (ArgType.getTypePtr()->isRecordType() ? 1 : 0) << ArgType
+        << TheCall->getSourceRange();
+    if (ArgType.getTypePtr()->isRecordType())
+      Diag(Loc, diag::illegal_type_declared_here);
     return true;
   }
+
   TheCall->setType(ArgType);
 
   return false;
