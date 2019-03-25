@@ -5681,23 +5681,6 @@ void InitializationSequence::InitializeFrom(Sema &S,
       TryListInitialization(S, Entity, Kind, cast<InitListExpr>(Initializer),
                             *this, TreatUnavailableAsInvalid);
       AddParenthesizedArrayInitStep(DestType);
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#369248: failed to compile gcc header tr1/regex.
-      // Header file tr1/regex has bugs in version prior to GCC 5.0. GCC is able
-      // to compile it, but emits error messages on class instantiation.
-      // Fix for CQ379037: xmain allows casting of StringRef to const char[2].
-    } else if (S.getLangOpts().IntelCompat &&
-               Kind.getKind() != InitializationKind::IK_Direct && Initializer &&
-               !isa<InitListExpr>(Initializer) &&
-               S.CurContext->isDependentContext() &&
-               S.CodeSynthesisContexts.empty() &&
-               (Initializer->getType()->isPointerType() ||
-                Initializer->getType()->isConstantArrayType()) &&
-               !Initializer->getType()->isDependentType() &&
-               !Initializer->getType()->isInstantiationDependentType() &&
-               S.SourceMgr.isInSystemHeader(Initializer->getExprLoc())) {
-      AddArrayInitStep(DestType, /*IsGNUExtension=*/false);
-#endif // INTEL_CUSTOMIZATION
     } else if (DestAT->getElementType()->isCharType())
       SetFailed(FK_ArrayNeedsInitListOrStringLiteral);
     else if (IsWideCharCompatible(DestAT->getElementType(), Context))
