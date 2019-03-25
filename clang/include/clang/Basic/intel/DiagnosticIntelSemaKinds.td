@@ -121,11 +121,6 @@ def ext_intel_array_incomplete_type : Extension<
 def warn_intel_array_incomplete_size : Warning<
   "array with incomplete (unknown) size element %0">,
   InGroup<IntelCompat>;
-// Fix for CQ375472.
-def warn_conditional_ambiguous : Warning<
-  "conditional expression is ambiguous; "
-  "%diff{$ can be converted to $ and vice versa|"
-  "types can be convert to each other}0,1">, InGroup<IntelCompat>;
 // CQ#366312
 def ext_intel_lvalue_cast_not_lengthened: ExtWarn<
   "assignment to lvalue cast that does not lengthen the size of "
