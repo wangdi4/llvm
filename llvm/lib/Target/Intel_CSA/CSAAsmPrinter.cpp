@@ -168,25 +168,28 @@ public:
 
 bool CSAAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   CSAMachineFunctionInfo *LMFI = MF.getInfo<CSAMachineFunctionInfo>();
-  if (LMFI && LMFI->getDoNotEmitAsm())
+  if (LMFI && LMFI->getDoNotEmitAsm() && csa_utils::isAlwaysDataFlowLinkageSet())
     return false;
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  O << ".module __mod_" << MF.getName() << "\n";
-  O << "\t.version 0,6,0\n";
-  // This should probably be replaced by code to handle externs
-  O << "\t.set implicitextern\n";
-  if (not StrictTermination)
-    O << "\t.set relaxed\n";
-  if (ImplicitLicDefs)
-    O << "\t.set implicit\n";
-  if (csa_utils::isAlwaysDataFlowLinkageSet())
-    O << "\t.unit\n";
-  else
-    O << "\t.unit sxu\n";
-  OutStreamer->EmitRawText(O.str());
+  if (csa_utils::createSCG()) {
+    O << ".module __mod_" << MF.getName() << "\n";
+    O << "\t.version 0,6,0\n";
+    // This should probably be replaced by code to handle externs
+    O << "\t.set implicitextern\n";
+    if (not StrictTermination)
+      O << "\t.set relaxed\n";
+    if (ImplicitLicDefs)
+      O << "\t.set implicit\n";
+    if (csa_utils::isAlwaysDataFlowLinkageSet())
+      O << "\t.unit\n";
+    else
+      O << "\t.unit sxu\n";
+    OutStreamer->EmitRawText(O.str());
+  }
   AsmPrinter::runOnMachineFunction(MF);
-  OutStreamer->EmitRawText(".endmodule");
+  if (csa_utils::createSCG())
+    OutStreamer->EmitRawText(".endmodule");
   return false;
 }
 
@@ -478,6 +481,20 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
     OutStreamer->EmitRawText("\t.ascii ");
     startCSAAsmString(*OutStreamer);
     O << "\t.text\n";
+  } 
+  if (!csa_utils::createSCG()) {
+    O << ".module __mod_top\n";
+    O << "\t.version 0,6,0\n";
+    // This should probably be replaced by code to handle externs
+    O << "\t.set implicitextern\n";
+    if (not StrictTermination)
+      O << "\t.set relaxed\n";
+    if (ImplicitLicDefs)
+      O << "\t.set implicit\n";
+    if (csa_utils::isAlwaysDataFlowLinkageSet())
+      O << "\t.unit\n";
+    else
+      O << "\t.unit sxu\n";
   }
   OutStreamer->EmitRawText(O.str());
 }
@@ -486,11 +503,16 @@ void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
 
   if (CSAInstPrinter::WrapCsaAsm()) {
     OutStreamer->AddBlankLine();
+    if (!csa_utils::createSCG())
+      OutStreamer->EmitRawText(".endmodule\n");
     endCSAAsmString(*OutStreamer);
     OutStreamer->AddBlankLine();
     // Add the terminating null for the .csa section.
     OutStreamer->EmitRawText("\t.asciz \"\"");
     OutStreamer->PopSection();
+  } else {
+    if (!csa_utils::createSCG())
+      OutStreamer->EmitRawText(".endmodule\n");
   }
 }
 
