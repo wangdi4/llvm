@@ -392,8 +392,14 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
 
     llvm::Triple triple(pModule->getTargetTriple());
     bool isFpgaEmulator = triple.isINTELFPGAEnvironment();
+    bool isEyeQEmulator = triple.isINTELEyeQEnvironment();
 
     CompilerBuildOptions buildOptions(pBuildOptions);
+    if (isEyeQEmulator)
+    {
+        buildOptions.SetRelaxedMath(false);
+        buildOptions.SetDenormalsZero(true);
+    }
 
     materializeSpirTriple(pModule);
 
@@ -417,6 +423,7 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                             buildOptions.GetRelaxedMath(),
                                             buildOptions.GetUniformWGSize(),
                                             isFpgaEmulator,
+                                            isEyeQEmulator,
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
                                             m_rtLoopUnrollFactor);

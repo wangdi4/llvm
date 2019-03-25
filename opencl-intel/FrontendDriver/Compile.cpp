@@ -210,7 +210,21 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -cl-ext=+cl_khr_3d_image_writes ";
   }
 
-  if (m_sDeviceInfo.bImageSupport) {
+  if (m_pProgDesc->bEyeQEmulator) {
+#if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) ||             \
+    defined(_M_X64)
+    options << " -triple spir64-unknown-unknown-inteleyeq";
+#elif defined(_WIN32) || defined(i386) || defined(__i386__) || defined(__x86__)
+    options << " -triple spir-unknown-unknown-inteleyeq";
+#else
+#error "Can't define target triple: unknown architecture."
+#endif
+    options   << " -cl-denorms-are-zero";
+    optionsEx << " -ffp-contract=off";
+    optionsEx << " -D__INTELEYEQ_CL__";
+    optionsEx << " -U__IMAGE_SUPPORT__";
+  }
+  else if (m_sDeviceInfo.bImageSupport) {
     optionsEx << " -D__IMAGE_SUPPORT__=1";
   }
 

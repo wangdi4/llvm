@@ -123,6 +123,10 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
             + std::to_string(channelDepthEmulationMode);
         m_LLVMOptions += " --remove-fpga-reg --demangle-fpga-pipes";
     }
+    else if (EYEQ_EMU_DEVICE == m_targetDevice)
+    {
+        m_LLVMOptions += " -eyeq-div-crash-behavior";
+    }
 }
 
 void CompilerConfig::LoadDefaults()

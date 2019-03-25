@@ -102,9 +102,18 @@ cl_ulong GetLocalMemorySize(const CPUDeviceConfig &config)
         // fallback to default local memory size
         else
         {
-            localMemSize = (CPU_DEVICE == config.GetDeviceMode())
-                            ? CPU_DEV_LCL_MEM_SIZE
-                            : FPGA_DEV_LCL_MEM_SIZE;
+            switch (config.GetDeviceMode())
+            {
+                case CPU_DEVICE:
+                case EYEQ_EMU_DEVICE:
+                    localMemSize = CPU_DEV_LCL_MEM_SIZE;
+                    break;
+                case FPGA_EMU_DEVICE:
+                    localMemSize = FPGA_DEV_LCL_MEM_SIZE;
+                    break;
+                default:
+                    return CL_DEV_INVALID_VALUE;
+            }
         }
     }
     return localMemSize;
@@ -306,6 +315,12 @@ cl_dev_err_code CPUDevice::Init()
 
     // Enable VTune source level profiling
     GetCPUDevInfo(m_CPUDeviceConfig)->bEnableSourceLevelProfiling = m_CPUDeviceConfig.UseVTune();
+    if (EYEQ_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
+    {
+        GetCPUDevInfo(m_CPUDeviceConfig)->bImageSupport = false;
+        GetCPUDevInfo(m_CPUDeviceConfig)->bDoubleSupport = false;
+    }
+
 
 #ifdef __HARD_TRAPPING__
     m_bUseTrapping = m_CPUDeviceConfig.UseTrapping();
@@ -643,9 +658,18 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                *(cl_device_type*)paramVal = isCPUDeviceMode
-                    ? (cl_device_type)CL_DEVICE_TYPE_CPU
-                    : (cl_device_type)CL_DEVICE_TYPE_ACCELERATOR;
+                switch (m_CPUDeviceConfig.GetDeviceMode())
+                {
+                    case CPU_DEVICE:
+                        *(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_CPU;
+                        break;
+                    case FPGA_EMU_DEVICE:
+                    case EYEQ_EMU_DEVICE:
+                        *(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_ACCELERATOR;
+                        break;
+                    default:
+                        return CL_DEV_INVALID_VALUE;
+                }
             }
             return CL_DEV_SUCCESS;
         }
@@ -660,7 +684,20 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                *(cl_uint*)paramVal = isCPUDeviceMode ? 0x8086 : 4466;
+                switch (m_CPUDeviceConfig.GetDeviceMode())
+                {
+                    case CPU_DEVICE:
+                        *(cl_uint*)paramVal = 0x8086;
+                        break;
+                    case FPGA_EMU_DEVICE:
+                        *(cl_uint*)paramVal = 4466;
+                        break;
+                    case EYEQ_EMU_DEVICE:
+                        *(cl_uint*)paramVal = 1337;
+                        break;
+                    default:
+                        return CL_DEV_INVALID_VALUE;
+                }
             }
             return CL_DEV_SUCCESS;
         }
@@ -804,7 +841,18 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 //if OUT paramVal is NULL it should be ignored
                 if(nullptr != paramVal)
                 {
-                    *(cl_bool*)paramVal = CL_TRUE;
+                    switch (m_CPUDeviceConfig.GetDeviceMode())
+                    {
+                        case CPU_DEVICE:
+                        case FPGA_EMU_DEVICE:
+                            *(cl_bool*)paramVal = CL_TRUE;
+                            break;
+                        case EYEQ_EMU_DEVICE:
+                            *(cl_bool*)paramVal = CL_FALSE;
+                            break;
+                        default:
+                            return CL_DEV_INVALID_VALUE;
+                    }
                 }
                 return CL_DEV_SUCCESS;
             }
@@ -825,7 +873,19 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_SINGLE_FP_CONFIG):
         {
-            cl_device_fp_config fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM;
+            cl_device_fp_config fpConfig = 0;
+            switch (m_CPUDeviceConfig.GetDeviceMode())
+            {
+                case CPU_DEVICE:
+                case FPGA_EMU_DEVICE:
+                    fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM;
+                    break;
+                case EYEQ_EMU_DEVICE:
+                    fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT;
+                    break;
+                default:
+                    return CL_DEV_INVALID_VALUE;
+            }
             *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1027,8 +1087,18 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                *(size_t*)paramVal = isCPUDeviceMode ? CPU_MAX_WORK_GROUP_SIZE
-                                                     : FPGA_MAX_WORK_GROUP_SIZE;
+                switch (m_CPUDeviceConfig.GetDeviceMode())
+                {
+                    case CPU_DEVICE:
+                    case EYEQ_EMU_DEVICE:
+                        *(size_t*)paramVal = CPU_MAX_WORK_GROUP_SIZE;
+                        break;
+                    case FPGA_EMU_DEVICE:
+                        *(size_t*)paramVal = FPGA_MAX_WORK_GROUP_SIZE;
+                        break;
+                    default:
+                        return CL_DEV_INVALID_VALUE;
+                }
             }
             return CL_DEV_SUCCESS;
         }
@@ -1042,15 +1112,19 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(nullptr != paramVal)
             {
-                if (isCPUDeviceMode)
+                switch (m_CPUDeviceConfig.GetDeviceMode())
                 {
-                    MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES,
-                             *pinternalRetunedValueSize);
-                }
-                else
-                {
-                    MEMCPY_S(paramVal, valSize, FPGA_MAX_WORK_ITEM_SIZES,
-                             *pinternalRetunedValueSize);
+                    case CPU_DEVICE:
+                    case EYEQ_EMU_DEVICE:
+                        MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES,
+                                 *pinternalRetunedValueSize);
+                        break;
+                    case FPGA_EMU_DEVICE:
+                        MEMCPY_S(paramVal, valSize, FPGA_MAX_WORK_ITEM_SIZES,
+                                 *pinternalRetunedValueSize);
+                        break;
+                    default:
+                        return CL_DEV_INVALID_VALUE;
                 }
             }
             return CL_DEV_SUCCESS;
@@ -1329,18 +1403,24 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_NAME):
         {
-            const char* name;
-            if (isCPUDeviceMode)
+            const char* name = NULL;
+            switch (m_CPUDeviceConfig.GetDeviceMode())
             {
-                name = CPUDetect::GetInstance()->GetCPUBrandString();
-                if (!strcmp("", name))
-                {
-                    name = "Unknown CPU";
-                }
-            }
-            else
-            {
-                name = "Intel(R) FPGA Emulation Device (preview)";
+                case CPU_DEVICE:
+                    name = CPUDetect::GetInstance()->GetCPUBrandString();
+                    if (!strcmp("", name))
+                    {
+                        name = "Unknown CPU";
+                    }
+                    break;
+                case FPGA_EMU_DEVICE:
+                    name = "Intel(R) FPGA Emulation Device (preview)";
+                    break;
+                case EYEQ_EMU_DEVICE:
+                    name = "Mobileye(R) EyeQ(R) Emulation Device";
+                    break;
+                default:
+                    return CL_DEV_INVALID_VALUE;
             }
 
             *pinternalRetunedValueSize = strlen(name) + 1;
@@ -1372,8 +1452,19 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DEVICE_PROFILE):
         {
-            const char* profile = isCPUDeviceMode ? "FULL_PROFILE"
-                                                  : "EMBEDDED_PROFILE";
+            const char* profile = NULL;
+            switch (m_CPUDeviceConfig.GetDeviceMode())
+            {
+                case CPU_DEVICE:
+                    profile = "FULL_PROFILE";
+                    break;
+                case FPGA_EMU_DEVICE:
+                case EYEQ_EMU_DEVICE:
+                    profile = "EMBEDDED_PROFILE";
+                    break;
+                default:
+                    return CL_DEV_INVALID_VALUE;
+            }
             *pinternalRetunedValueSize = strlen(profile) + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1476,8 +1567,21 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         }
         case( CL_DRIVER_VERSION ):
         {
-            std::string driverVer = isCPUDeviceMode ? GetModuleProductVersion()
-                                                    : "19.1";
+            std::string driverVer;
+            switch (m_CPUDeviceConfig.GetDeviceMode())
+            {
+                case CPU_DEVICE:
+                    driverVer = GetModuleProductVersion();
+                    break;
+                case FPGA_EMU_DEVICE:
+                    driverVer = "19.1";
+                    break;
+                case EYEQ_EMU_DEVICE:
+                    driverVer = "1.0";
+                    break;
+                default:
+                    return CL_DEV_INVALID_VALUE;
+            }
             *pinternalRetunedValueSize = driverVer.length() + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
@@ -1623,18 +1727,24 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             if (nullptr != paramVal)
             {
-                if (isCPUDeviceMode)
+                switch (m_CPUDeviceConfig.GetDeviceMode())
                 {
-                    // This value depends on pipe algorithm limitations,
-                    // max. compute units and max. work-group size.
-                    cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
-                    *(cl_uint*)paramVal = totalPerPipeReservationsLimit /
-                      (GetNumberOfProcessors() * CPU_MAX_WORK_GROUP_SIZE);
-                }
-                else
-                {
-                    // FPGA emulator does not support pipe reservation.
-                    *(cl_uint*)paramVal = 0;
+                    case CPU_DEVICE:
+                    {
+                        // This value depends on pipe algorithm limitations,
+                        // max. compute units and max. work-group size.
+                        cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
+                        *(cl_uint*)paramVal = totalPerPipeReservationsLimit /
+                          (GetNumberOfProcessors() * CPU_MAX_WORK_GROUP_SIZE);
+                        break;
+                    }
+                    case FPGA_EMU_DEVICE:
+                    case EYEQ_EMU_DEVICE:
+                       // FPGA and EyeQ emulators do not support pipe reservation.
+                       *(cl_uint*)paramVal = 0;
+                        break;
+                    default:
+                        return CL_DEV_INVALID_VALUE;
                 }
             }
             return CL_DEV_SUCCESS;
@@ -2652,7 +2762,13 @@ const char* CPUDevice::clDevFEModuleName() const
 
 const void* CPUDevice::clDevFEDeviceInfo() const
 {
-	return GetCPUDevInfo(m_CPUDeviceConfig);
+    struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *dev_info = GetCPUDevInfo(m_CPUDeviceConfig);
+    if (EYEQ_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode())
+    {
+        dev_info->bImageSupport = false;
+        dev_info->bDoubleSupport = false;
+    }
+    return dev_info;
 }
 
 size_t CPUDevice::clDevFEDeviceInfoSize() const
