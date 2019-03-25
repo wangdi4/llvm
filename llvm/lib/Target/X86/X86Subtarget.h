@@ -402,6 +402,11 @@ protected:
   bool HasPCONFIG = false;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+  /// Processor supports ENQCMD instructions
+  bool HasENQCMD = false;
+#endif // INTEL_FEATURE_ISA_ENQCMD
+
 #if INTEL_FEATURE_ISA_ULI
   bool HasULI = false;
 #endif // INTEL_FEATURE_ISA_ULI
@@ -727,6 +732,9 @@ public:
   bool threewayBranchProfitable() const { return ThreewayBranchProfitable; }
   bool hasINVPCID() const { return HasINVPCID; }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+  bool hasENQCMD() const { return HasENQCMD; }
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #if INTEL_FEATURE_ISA_ULI
   bool hasULI() const { return HasULI; }
 #endif // INTEL_FEATURE_ISA_ULI

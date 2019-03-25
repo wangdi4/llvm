@@ -1969,6 +1969,12 @@ bool X86DAGToDAGISel::selectAddr(SDNode *Parent, SDValue N, SDValue &Base,
       Parent->getOpcode() != ISD::INTRINSIC_W_CHAIN && // unaligned loads, fixme
       Parent->getOpcode() != ISD::INTRINSIC_VOID && // nontemporal stores
       Parent->getOpcode() != X86ISD::TLSCALL && // Fixme
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+      Parent->getOpcode() != X86ISD::ENQCMD && // Fixme
+      Parent->getOpcode() != X86ISD::ENQCMDS && // Fixme
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#endif // INTEL_CUSTOMIZATION
       Parent->getOpcode() != X86ISD::EH_SJLJ_SETJMP && // setjmp
       Parent->getOpcode() != X86ISD::EH_SJLJ_LONGJMP) { // longjmp
     unsigned AddrSpace =

@@ -23225,6 +23225,30 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
                          Operation.getValue(1));
     }
 #endif // INTEL_FEATURE_ISA_ULI
+#if INTEL_FEATURE_ISA_ENQCMD
+    case Intrinsic::x86_enqcmd:
+    case Intrinsic::x86_enqcmds: {
+      SDLoc dl(Op);
+      SDValue Chain = Op.getOperand(0);
+      SDVTList VTs = DAG.getVTList(MVT::i32, MVT::Other);
+      unsigned Opcode;
+      switch (IntNo) {
+      default: llvm_unreachable("Impossible intrinsic!");
+      case Intrinsic::x86_enqcmd:
+        Opcode = X86ISD::ENQCMD;
+        break;
+      case Intrinsic::x86_enqcmds:
+        Opcode = X86ISD::ENQCMDS;
+        break;
+      }
+      SDValue Operation = DAG.getNode(Opcode, dl, VTs, Chain, Op.getOperand(2),
+                                      Op.getOperand(3));
+      SDValue SetCC = getSETCC(X86::COND_E, Operation.getValue(0), dl, DAG);
+      SDValue Result = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::i8, SetCC);
+      return DAG.getNode(ISD::MERGE_VALUES, dl, Op->getVTList(), Result,
+                         Operation.getValue(1));
+    }
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #endif // INTEL_CUSTOMIZATION
     }
     return SDValue();
@@ -28097,6 +28121,10 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case X86ISD::UMWAIT:             return "X86ISD::UMWAIT";
   case X86ISD::TPAUSE:             return "X86ISD::TPAUSE";
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+  case X86ISD::ENQCMD:             return "X86ISD:ENQCMD";
+  case X86ISD::ENQCMDS:            return "X86ISD:ENQCMDS";
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #if INTEL_FEATURE_ISA_ULI
   case X86ISD::TESTUI:             return "X86ISD::TESTUI";
 #endif // INTEL_FEATURE_ISA_ULI

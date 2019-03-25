@@ -295,6 +295,10 @@ def FeatureRDPID : SubtargetFeature<"rdpid", "HasRDPID", "true",
 def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
                                       "Wait and pause enhancements">;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+def FeatureENQCMD : SubtargetFeature<"enqcmd", "HasENQCMD", "true",
+                                    "Has ENQCMD instructions">;
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #if INTEL_FEATURE_ISA_ULI
 def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
                                   "Has ULI Instructions">;

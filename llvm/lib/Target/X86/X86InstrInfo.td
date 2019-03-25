@@ -127,6 +127,13 @@ def SDT_X86TCRET : SDTypeProfile<0, 2, [SDTCisPtrTy<0>, SDTCisVT<1, i32>]>;
 
 def SDT_X86MEMBARRIER : SDTypeProfile<0, 0, []>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+def SDT_X86ENQCMD : SDTypeProfile<1, 2, [SDTCisVT<0, i32>,
+                                         SDTCisPtrTy<1>, SDTCisSameAs<1, 2>]>;
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#endif // INTEL_CUSTOMIZATION
+
 def X86MemBarrier : SDNode<"X86ISD::MEMBARRIER", SDT_X86MEMBARRIER,
                             [SDNPHasChain,SDNPSideEffect]>;
 def X86MFence : SDNode<"X86ISD::MFENCE", SDT_X86MEMBARRIER,
@@ -308,6 +315,13 @@ def X86tpause : SDNode<"X86ISD::TPAUSE",
                        [SDNPHasChain, SDNPSideEffect]>;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+def X86enqcmd : SDNode<"X86ISD::ENQCMD", SDT_X86ENQCMD,
+                       [SDNPHasChain, SDNPSideEffect]>;
+def X86enqcmds : SDNode<"X86ISD::ENQCMDS", SDT_X86ENQCMD,
+                       [SDNPHasChain, SDNPSideEffect]>;
+#endif // INTEL_FEATURE_ISA_ENQCMD
+
 #if INTEL_FEATURE_ISA_ULI
 def X86testui : SDNode<"X86ISD::TESTUI",
                        SDTypeProfile<1, 0, [SDTCisVT<0, i32>]>, [SDNPHasChain]>;
@@ -922,6 +936,9 @@ def HasCmpxchg8b : Predicate<"Subtarget->hasCmpxchg8b()">;
 def HasCmpxchg16b: Predicate<"Subtarget->hasCmpxchg16b()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+def HasENQCMD : Predicate<"Subtarget->hasENQCMD()">;
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #if INTEL_FEATURE_ISA_ULI
 def HasULI : Predicate<"Subtarget->hasULI()">;
 #endif // INTEL_FEATURE_ISA_ULI
@@ -2801,6 +2818,39 @@ def : InstAlias<"clzero\t{%eax|eax}", (CLZERO32r)>, Requires<[Not64BitMode]>;
 def : InstAlias<"clzero\t{%rax|rax}", (CLZERO64r)>, Requires<[In64BitMode]>;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+//===----------------------------------------------------------------------===//
+// ENQCMD/S - Enqueue 64-byte command as user with 64-byte write atomicity
+//
+let SchedRW = [WriteStore], Defs = [EFLAGS] in {
+  def ENQCMD16 : I<0xF8, MRMSrcMem, (outs), (ins GR16:$dst, i512mem:$src),
+                 "enqcmd\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmd GR16:$dst, addr:$src))]>,
+                 T8XD, AdSize16, Requires<[HasENQCMD, Not64BitMode]>;
+  def ENQCMD32 : I<0xF8, MRMSrcMem, (outs), (ins GR32:$dst, i512mem:$src),
+                 "enqcmd\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmd GR32:$dst, addr:$src))]>,
+                 T8XD, AdSize32, Requires<[HasENQCMD]>;
+  def ENQCMD64 : I<0xF8, MRMSrcMem, (outs), (ins GR64:$dst, i512mem:$src),
+                 "enqcmd\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmd GR64:$dst, addr:$src))]>,
+                 T8XD, AdSize64, Requires<[HasENQCMD, In64BitMode]>;
+
+  def ENQCMDS16 : I<0xF8, MRMSrcMem, (outs), (ins GR16:$dst, i512mem:$src),
+                 "enqcmds\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmds GR16:$dst, addr:$src))]>,
+                 T8XS, AdSize16, Requires<[HasENQCMD, Not64BitMode]>;
+  def ENQCMDS32 : I<0xF8, MRMSrcMem, (outs), (ins GR32:$dst, i512mem:$src),
+                 "enqcmds\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmds GR32:$dst, addr:$src))]>,
+                 T8XS, AdSize32, Requires<[HasENQCMD]>;
+  def ENQCMDS64 : I<0xF8, MRMSrcMem, (outs), (ins GR64:$dst, i512mem:$src),
+                 "enqcmds\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmds GR64:$dst, addr:$src))]>,
+                 T8XS, AdSize64, Requires<[HasENQCMD, In64BitMode]>;
+}
+#endif // INTEL_FEATURE_ISA_ENQCMD
+
 #if INTEL_FEATURE_ISA_ULI
 //===----------------------------------------------------------------------===//
 // ULI Instructions

@@ -592,6 +592,10 @@ namespace llvm {
       // User level interrupts - testui
       TESTUI,
 #endif // INTEL_FEATURE_ISA_ULI
+
+#if INTEL_FEATURE_ISA_ENQCMD
+      ENQCMD, ENQCMDS,
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #endif // INTEL_CUSTOMIZATION
 
       // Compare and swap.
