@@ -224,10 +224,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return ++prev;
   }
 
-  void CompilationUtils::getImplicitArgs(
-      Function *pFunc, Argument **ppLocalMem, Argument **ppWorkDim,
-      Argument **ppWGId, Argument **ppBaseGlbId, Argument **ppSpecialBuf,
-      Argument **ppRunTimeHandle) {
+  void CompilationUtils::getImplicitArgs(Function *pFunc, Value **ppLocalMem,
+                                         Value **ppWorkDim, Value **ppWGId,
+                                         Value **ppBaseGlbId,
+                                         Value **ppSpecialBuf,
+                                         Value **ppRunTimeHandle) {
 
       assert( pFunc && "Function cannot be null" );
       assert( pFunc->arg_size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
@@ -274,6 +275,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       ++DestI;
       assert(DestI == pFunc->arg_end());
 
+  }
+
+  GlobalVariable *CompilationUtils::getTLSGlobal(Module *pModule,
+                                                 unsigned Idx) {
+    assert(pModule && "Module cannot be null");
+    return pModule->getGlobalVariable(ImplicitArgsUtils::getArgName(Idx));
   }
 
   void CompilationUtils::moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB) {
@@ -358,10 +365,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
   }
 
-  void CompilationUtils::parseKernelArguments(Module* pModule,
-                                              Function* pFunc,
-                                              std::vector<cl_kernel_argument>& /* OUT */ arguments,
-                                              std::vector<unsigned int>&       /* OUT */ memoryArguments) {
+  void CompilationUtils::parseKernelArguments(
+      Module *pModule, Function *pFunc, bool useTLSGlobals,
+      std::vector<cl_kernel_argument> & /* OUT */ arguments,
+      std::vector<unsigned int> & /* OUT */ memoryArguments) {
     // Check maximum number of arguments to kernel
 
     if (KernelList(pModule).empty()) {
@@ -385,7 +392,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     }
     auto kmd = KernelMetadataAPI(pOriginalFunc);
 
-    size_t argsCount = pFunc->arg_size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
+    size_t argsCount = pFunc->arg_size();
+    if (!useTLSGlobals)
+      argsCount -= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
 
     unsigned int localMemCount = 0;
     unsigned int current_offset = 0;

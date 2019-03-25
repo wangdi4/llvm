@@ -374,7 +374,8 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
 }
 
 KernelProperties *ProgramBuilder::CreateKernelProperties(
-    const Program *pProgram, Function *func, const char* pBuildOpts,
+    const Program *pProgram, Function *func,
+    const CompilerBuildOptions &buildOptions,
     const ProgramBuildResult &buildResult) const {
   Module *pModule = func->getParent();
 
@@ -540,7 +541,6 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   barrierBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(barrierBufferSize);
   privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
 
-  CompilerBuildOptions buildOptions(pBuildOpts);
   KernelProperties *pProps = new KernelProperties();
 
   // Kernel should keep size of pointer specified inside module

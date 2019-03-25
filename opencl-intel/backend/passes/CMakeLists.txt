@@ -6,6 +6,7 @@ include_directories(${LLVM_INCLUDE_DIRS}
                     ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(AddImplicitArgs)
+add_subdirectory(AddTLSGlobals)
 add_subdirectory(AutorunReplicator)
 add_subdirectory(ChannelPipeTransformation)
 add_subdirectory(ChannelsUsageAnalysis)

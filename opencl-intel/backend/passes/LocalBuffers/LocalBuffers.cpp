@@ -14,6 +14,7 @@
 
 #include "LocalBuffers.h"
 #include "CompilationUtils.h"
+#include "ImplicitArgsUtils.h"
 #include "InitializePasses.h"
 #include "common_dev_limits.h"
 #include "MetadataAPI.h"
@@ -23,8 +24,8 @@
 
 extern "C"
 {
-  ModulePass* createLocalBuffersPass(bool isNativeDBG) {
-    return new intel::LocalBuffers(isNativeDBG);
+ModulePass *createLocalBuffersPass(bool isNativeDBG, bool useTLSGlobals) {
+  return new intel::LocalBuffers(isNativeDBG, useTLSGlobals);
   }
 }
 
@@ -34,9 +35,10 @@ namespace intel{
 
   char LocalBuffers::ID = 0;
 
-  LocalBuffers::LocalBuffers(bool isNativeDBG) :
-    ModulePass(ID), m_pModule(nullptr), m_pLLVMContext(nullptr),
-    m_localBuffersAnalysis(nullptr), m_isNativeDBG(isNativeDBG) {
+  LocalBuffers::LocalBuffers(bool isNativeDBG, bool useTLSGlobals)
+      : ModulePass(ID), m_pModule(nullptr), m_pLLVMContext(nullptr),
+        m_localBuffersAnalysis(nullptr), m_isNativeDBG(isNativeDBG),
+        m_useTLSGlobals(useTLSGlobals) {
       initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   }
 
@@ -266,7 +268,7 @@ namespace intel{
   }
 
   // Substitutes a pointer to local buffer, with argument passed within kernel parameters
-  void LocalBuffers::parseLocalBuffers(Function *pFunc, Argument *pLocalMem) {
+  void LocalBuffers::parseLocalBuffers(Function *pFunc, Value *pLocalMem) {
 
     LocalBuffAnalysis::TUsedLocals localsSet = m_localBuffersAnalysis->getDirectLocals(pFunc);
     IRBuilder<> builder(*m_pLLVMContext);
@@ -275,6 +277,10 @@ namespace intel{
     // Create code for local buffer
     Instruction *pFirstInst = dyn_cast<Instruction>(pFunc->getEntryBlock().begin());
 
+    if (m_useTLSGlobals) {
+      builder.SetInsertPoint(pFirstInst);
+      pLocalMem = builder.CreateLoad(pLocalMem);
+    }
     // Iterate through local buffers
     for ( LocalBuffAnalysis::TUsedLocals::const_iterator gi = localsSet.begin(),
       ge = localsSet.end(); gi != ge; ++gi ) {
@@ -358,10 +364,15 @@ namespace intel{
 
   void LocalBuffers::runOnFunction(Function *pFunc) {
     // Getting the implicit arguments
-    Argument *pLocalMem = 0;
+    Value *pLocalMem = 0;
 
+    if (m_useTLSGlobals) {
+      pLocalMem = CompilationUtils::getTLSGlobal(
+          m_pModule, ImplicitArgsUtils::IA_SLM_BUFFER);
+    } else {
     CompilationUtils::getImplicitArgs(
         pFunc, &pLocalMem, nullptr, nullptr, nullptr, nullptr, nullptr);
+    }
 
     // Apple LLVM-IR workaround
     // 1.  Pass WI information structure as the next parameter after given function parameters

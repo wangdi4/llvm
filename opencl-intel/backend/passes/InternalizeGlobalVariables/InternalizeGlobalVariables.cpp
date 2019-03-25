@@ -13,9 +13,13 @@
 // License.
 
 #include "InternalizeGlobalVariables.h"
+#include "CompilationUtils.h"
+#include "ImplicitArgsUtils.h"
 #include "OCLPassSupport.h"
+#include "llvm/ADT/SmallSet.h"
 
 using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
 
 extern "C" {
   ModulePass* createInternalizeGlobalVariablesPass() {
@@ -32,8 +36,14 @@ namespace intel {
 
   bool InternalizeGlobalVariables::runOnModule(Module& M) {
     bool Changed = false;
+    SmallSet<Value *, 8> TLSGlobals;
+    for (unsigned I = 0; I < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++I) {
+      GlobalVariable *GV = CompilationUtils::getTLSGlobal(&M, I);
+      TLSGlobals.insert(GV);
+    }
     for (auto &GVar : M.globals()) {
-      if (GVar.hasName() && GVar.getName().startswith("llvm."))
+      if (TLSGlobals.count(&GVar) ||
+          (GVar.hasName() && GVar.getName().startswith("llvm.")))
         continue;
       GVar.setLinkage(GlobalValue::InternalLinkage);
       Changed = true;

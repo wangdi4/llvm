@@ -175,8 +175,8 @@ public:
                                    Builder);
   }
 
-  Value *GenerateGetLocalSize(bool uniformWGSize, Value *WorkInfo, Argument *pWGId, Value *Dimension,
-                                    IRBuilder<> &Builder) {
+  Value *GenerateGetLocalSize(bool uniformWGSize, Value *WorkInfo, Value *pWGId,
+                              Value *Dimension, IRBuilder<> &Builder) {
 
     // The OpenCL 2.0 program can be compiled with the option
     // -cl-uniform-work-group-size.
