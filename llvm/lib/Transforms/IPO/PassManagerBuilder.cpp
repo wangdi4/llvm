@@ -1721,6 +1721,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
         // If VPO is disabled, we don't have to insert ParVec directives.
         if (RunVPOOpt)
           PM.add(createHIRParDirInsertPass());
+
+        PM.add(createHIROptPredicatePass(OptLevel == 3, true));
         PM.add(createHIRRuntimeDDPass());
         PM.add(createHIRMVForConstUBPass());
       }
@@ -1760,7 +1762,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       if (RunLoopOpts == LoopOptMode::Full) {
         PM.add(createHIRUnrollAndJamPass(DisableUnrollLoops));
         PM.add(createHIROptVarPredicatePass());
-        PM.add(createHIROptPredicatePass(OptLevel == 3));
+        PM.add(createHIROptPredicatePass(OptLevel == 3, false));
       }
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));

@@ -104,6 +104,11 @@ static cl::opt<bool> DisablePartialUnswitch("disable-" OPT_SWITCH "-pu",
                                             cl::desc("Disable " OPT_DESC
                                                      " partial unswitch"));
 
+static cl::opt<bool>
+    KeepLoopnestPerfectOption(OPT_SWITCH "-keep-perfect", cl::init(false),
+                              cl::Hidden,
+                              cl::desc(OPT_DESC " keep loopnests perfect"));
+
 namespace {
 
 // Partial Unswitch context
@@ -197,9 +202,10 @@ public:
   static char ID;
 
   HIROptPredicate(HIRFramework &HIRF, HIRDDAnalysis &DDA,
-                  bool EnablePartialUnswitch = true)
-      : HIRF(HIRF), DDA(DDA), EnablePartialUnswitch(EnablePartialUnswitch &&
-                                                    !DisablePartialUnswitch) {}
+                  bool EnablePartialUnswitch, bool KeepLoopnestPerfect)
+      : HIRF(HIRF), DDA(DDA),
+        EnablePartialUnswitch(EnablePartialUnswitch && !DisablePartialUnswitch),
+        KeepLoopnestPerfect(KeepLoopnestPerfect || KeepLoopnestPerfectOption) {}
 
   bool run();
 
@@ -208,6 +214,7 @@ private:
   HIRDDAnalysis &DDA;
 
   bool EnablePartialUnswitch;
+  bool KeepLoopnestPerfect;
 
   struct CandidateLookup;
   class LoopUnswitchNodeMapper;
@@ -580,17 +587,29 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
   // Partial unswitch context
   PUContext PUC;
 
-  bool IsCandidate = TransformLoop;
+  bool IsCandidate = TransformLoop && !If->isUnswitchDisabled();
 
   // Skip candidates that are already at the outer most possible level.
   unsigned Level;
 
   if (IsCandidate) {
+    // Determine target level to unswitch.
     Level = std::max(Pass.getPossibleDefLevel(If, PUC), MinLevel);
-    IsCandidate =
-        (Level < ParentLoop->getNestingLevel()) ? PUC.isPUCandidate() : false;
+
+    if (Level < ParentLoop->getNestingLevel()) {
+      // Check if condition does not depend on both T/F branches at the same
+      // time.
+      IsCandidate = PUC.isPUCandidate();
+    } else {
+      IsCandidate = false;
+    }
   } else {
     Level = ParentLoop->getNestingLevel();
+  }
+
+  if (IsCandidate && Pass.KeepLoopnestPerfect && Level != 0) {
+    // Check if unswitching breaks the existing loopnest perfectness.
+    IsCandidate = If->getParentLoopAtLevel(Level)->getNumChildren() > 1;
   }
 
   if (IsCandidate && PUC.isPURequired()) {
@@ -734,11 +753,14 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If,
   }
 
   for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
-    Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionIndex(I), NonLinearRef));
+    Level = std::max(
+        Level, getPossibleDefLevel(Ref->getDimensionIndex(I), NonLinearRef));
 
     if (HasGEPInfo) {
-      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionLower(I), NonLinearRef));
-      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionStride(I), NonLinearRef));
+      Level = std::max(
+          Level, getPossibleDefLevel(Ref->getDimensionLower(I), NonLinearRef));
+      Level = std::max(
+          Level, getPossibleDefLevel(Ref->getDimensionStride(I), NonLinearRef));
     }
   }
 
@@ -799,7 +821,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
   while (!Candidates.empty()) {
     HoistCandidate &Candidate = Candidates.back();
 
-    const HLIf *PilotIf = Candidate.getIf();
+    HLIf *PilotIf = Candidate.getIf();
 
     IfsAnalyzed++;
 
@@ -817,6 +839,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     if (ThresholdMap[TargetLoop] >= NumPredicateThreshold) {
       LLVM_DEBUG(dbgs() << "Skipped due to NumPredicateThreshold\n");
       Candidates.pop_back();
+      PilotIf->setUnswitchDisabled();
       continue;
     }
 
@@ -925,6 +948,10 @@ void HIROptPredicate::transformCandidate(
     LLVM_DEBUG(dbgs() << "H: ");
     LLVM_DEBUG(Iter->dump());
     LLVM_DEBUG(dbgs() << "\n");
+
+    // Disable further unswitching in case of pass will be called more than
+    // once.
+    Iter->getIf()->setUnswitchDisabled();
 
     // Set HLIfs that will be tracked during the cloning.
     TrackClonedNodes.insert(Iter->getIf());
@@ -1069,6 +1096,9 @@ void HIROptPredicate::transformCandidate(
 
   assert(PivotIf && "should be defined");
 
+  // Allow further unswitching of the top *If* statement.
+  PivotIf->setUnswitchDisabled(false);
+
   // Place TargetLoop and NewElseLoop under PivotIf.
   HLNodeUtils::moveAsFirstThenChild(PivotIf, TargetLoop);
   HLNodeUtils::moveAsFirstElseChild(PivotIf, NewElseLoop);
@@ -1186,7 +1216,8 @@ void HIROptPredicate::addPredicateOptReport(
 PreservedAnalyses HIROptPredicatePass::run(llvm::Function &F,
                                            llvm::FunctionAnalysisManager &AM) {
   HIROptPredicate(AM.getResult<HIRFrameworkAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F), EnablePartialUnswitch)
+                  AM.getResult<HIRDDAnalysisPass>(F), EnablePartialUnswitch,
+                  KeepLoopnestPerfect)
       .run();
 
   return PreservedAnalyses::all();
@@ -1194,12 +1225,15 @@ PreservedAnalyses HIROptPredicatePass::run(llvm::Function &F,
 
 class HIROptPredicateLegacyPass : public HIRTransformPass {
   bool EnablePartialUnswitch;
+  bool KeepLoopnestPerfect;
 
 public:
   static char ID;
 
-  HIROptPredicateLegacyPass(bool EnablePartialUnswitch = true)
-      : HIRTransformPass(ID), EnablePartialUnswitch(EnablePartialUnswitch) {
+  HIROptPredicateLegacyPass(bool EnablePartialUnswitch = true,
+                            bool KeepLoopnestPerfect = false)
+      : HIRTransformPass(ID), EnablePartialUnswitch(EnablePartialUnswitch),
+        KeepLoopnestPerfect(KeepLoopnestPerfect) {
     initializeHIROptPredicateLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -1220,7 +1254,7 @@ public:
 
     return HIROptPredicate(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                            getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                           EnablePartialUnswitch)
+                           EnablePartialUnswitch, KeepLoopnestPerfect)
         .run();
   }
 };
@@ -1234,6 +1268,8 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIROptPredicateLegacyPass, OPT_SWITCH, OPT_DESC, false,
                     false)
 
-FunctionPass *llvm::createHIROptPredicatePass(bool EnablePartialUnswitch) {
-  return new HIROptPredicateLegacyPass(EnablePartialUnswitch);
+FunctionPass *llvm::createHIROptPredicatePass(bool EnablePartialUnswitch,
+                                              bool KeepLoopnestPerfect) {
+  return new HIROptPredicateLegacyPass(EnablePartialUnswitch,
+                                       KeepLoopnestPerfect);
 }

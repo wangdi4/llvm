@@ -66,6 +66,9 @@ private:
   /// Iterator pointing to the begining of else children.
   ChildNodeTy::iterator ElseBegin;
 
+  /// Disables the predicate optimization.
+  bool UnswitchDisabled;
+
   // Branch debug location.
   DebugLoc BranchDbgLoc;
 
@@ -271,6 +274,11 @@ public:
 
   /// Returns true if this is the bottom test of its parent unknown loop.
   bool isUnknownLoopBottomTest() const;
+
+  bool isUnswitchDisabled() const { return UnswitchDisabled; }
+  void setUnswitchDisabled(bool Disabled = true) {
+    UnswitchDisabled = Disabled;
+  }
 };
 
 } // End namespace loopopt
