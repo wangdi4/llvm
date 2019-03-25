@@ -628,6 +628,10 @@ void llvm::getFunctionsToVectorize(
   }
 }
 
+bool llvm::isOpenCLSinCos(StringRef FcnName) {
+  return (FcnName == "_Z6sincosfPf");
+}
+
 bool llvm::isOpenCLReadChannel(StringRef FnName) {
   return (FnName == "__read_pipe_2_bl_fpga");
 }

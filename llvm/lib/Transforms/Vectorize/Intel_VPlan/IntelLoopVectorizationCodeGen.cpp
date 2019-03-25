@@ -2782,6 +2782,79 @@ bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
   return false;
 }
 
+void VPOCodeGen::vectorizeOpenCLSinCos(CallInst *Call, bool isMasked) {
+  // If we encounter a call to OpenCL sincos function, i.e., a call to
+  // _Z6sincosfPf, the code in Intel_SVMLEitter.cpp, currently maps that call to
+  // _Z14sincos_ret2ptrDv<VF>_fPS_S1_ variant. The following code correctly sets
+  // up the input/output arguments for that function.  '_Z6sincosfPf' has the
+  // form,
+  //
+  // %sinVal = call float @_Z6sincosfPf(float %input, float* %cosPtr)
+  // %cosVal = load float, float* %cosPtr
+  //
+  // The following code replaces that function call with
+  // %16 = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float>
+  //                                                       %wide.input,
+  //                                                       <8 x float>*
+  //                                                       %cosPtr.vec,
+  //                                                       <8 x float>*
+  //                                                       %sinPtr.vec)
+  // %wide.sin.InitVal = load <8 x float>, <8 x float>* %SinPtr.vec
+  // %wide.load2 = load <8 x float>, <8 x float>* %cosPtr.vec, align 4
+
+  // TODO: This is a temporary solution to fix performance issues with DPC++
+  // MonteCarlo simulation code. The desirable solution would be to write
+  // separate pre-processing pass that replaces 'SinCos' and other similar
+  // function with their scalar equivalent 'correct' SVML functions (which
+  // haven't been decided yet).  That way the vector code-generation does not
+  // have to shuffle function arguments.
+
+  SmallVector<Value *, 3> VecArgs;
+  SmallVector<Type *, 3> VecArgTys;
+  Value *Arg1 = getVectorValue(Call->getArgOperand(0));
+  Value *CosPtr = Call->getArgOperand(1);
+  // Get the base-pointer for the widened CosPtr, i.e., <8 x float>*.
+  // 'getVectorValue' will itself return <8 x float*>. A call to
+  // getVectorValue() makes sure that we have that in place.
+  if (!LoopPrivateWidenMap.count(CosPtr))
+    getVectorValue(CosPtr);
+
+  Instruction *WideCosPtr = cast<Instruction>(LoopPrivateWidenMap[CosPtr]);
+  Instruction *WideSinPtr = WideCosPtr->clone();
+  WideSinPtr->insertAfter(WideCosPtr);
+  WideSinPtr->setName("sinPtr.vec");
+  VecArgs.push_back(Arg1);
+  VecArgs.push_back(WideCosPtr);
+  VecArgs.push_back(WideSinPtr);
+  VecArgTys.push_back(Arg1->getType());
+  VecArgTys.push_back(WideCosPtr->getType());
+  VecArgTys.push_back(WideSinPtr->getType());
+  Function *VectorF = getOrInsertVectorFunction(
+      Call, VF, VecArgTys, TLI, Intrinsic::not_intrinsic, nullptr, isMasked);
+  CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
+  if (isa<FPMathOperator>(VecCall))
+    VecCall->copyFastMathFlags(Call);
+
+  // Make sure we don't lose attributes at the call site. E.g., IMF
+  // attributes are taken from call sites in MapIntrinToIml to refine
+  // SVML calls for precision.
+  VecCall->setAttributes(Call->getAttributes());
+
+  // Set calling convention for SVML function calls
+  if (isSVMLFunction(TLI, Call->getCalledFunction()->getName(),
+                     VectorF->getName()))
+    VecCall->setCallingConv(CallingConv::SVML);
+
+  Loop *Lp = LI->getLoopFor(Call->getParent());
+  analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
+
+  Value *WideSinLoad = Builder.CreateAlignedLoad(
+      WideSinPtr, cast<AllocaInst>(WideCosPtr)->getAlignment(),
+      "wide.sin.InitVal");
+  WidenMap[Call] = WideSinLoad;
+  WidenMap[CosPtr] = WideCosPtr;
+}
+
 Value* VPOCodeGen::vectorizeOpenCLWriteChannelSrc(CallInst *Call,
                                                   unsigned ArgNum) {
   // For the vector version of __write_pipe we need to get a vector for the
@@ -3058,6 +3131,13 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
 
   // Don't attempt vector function matching for SVML or built-in functions.
   VectorVariant *MatchedVariant = nullptr;
+
+  // OpenCL SinCos, would have a 'nullptr' MatchedVariant
+  if (isOpenCLSinCos(CalledFunc->getName())) {
+    vectorizeOpenCLSinCos(Call, isMasked);
+    return;
+  }
+
   if (!TLI->isFunctionVectorizable(CalledFunc->getName())
       && !isOpenCLReadChannel(CalledFunc->getName())
       && !isOpenCLWriteChannel(CalledFunc->getName())) {

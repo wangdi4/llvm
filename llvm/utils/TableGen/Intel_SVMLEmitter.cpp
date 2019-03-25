@@ -211,6 +211,12 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv8_f\", 8, true},\n";
   OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv16_f\", 16, true},\n";
 
+  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv2_fPS_S1_\", 2, false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv3_fPS_S1_\", 3, false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv4_fPS_S1_\", 4, false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv8_fPS_S1_\", 8, false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv16_fPS_S1_\", 16, false},\n";
+
   OS << "{\"_Z3minii\", \"_Z3minDv4_iS_\", 4, false},\n";
   OS << "{\"_Z3minii\", \"_Z3minDv8_iS_\", 8, false},\n";
   OS << "{\"_Z3minii\", \"_Z3minDv16_iS_\", 16, false},\n";

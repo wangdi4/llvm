@@ -160,6 +160,9 @@ Function* getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
                                     VectorVariant *VecVariant,
                                     bool Masked);
 
+/// \brief Return true if \p FnName is an OpenCL SinCos function
+bool isOpenCLSinCos(StringRef FcnName);
+
 /// \brief Return true if \p FnName is an OpenCL read channel function
 bool isOpenCLReadChannel(StringRef FnName);
 
