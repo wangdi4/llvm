@@ -1063,12 +1063,6 @@ public:
 
     /// List-copy-initialization chose an explicit constructor.
     FK_ExplicitConstructor,
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ#236476: Static variable is referenced in two separate routines
-    // in iclang
-    /// \brief Static variable with label address.
-    FK_StaticLabelAddress
-#endif // INTEL_CUSTOMIZATION
   };
 
 private:

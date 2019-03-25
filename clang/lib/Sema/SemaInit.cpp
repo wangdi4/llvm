@@ -3383,11 +3383,6 @@ bool InitializationSequence::isAmbiguous() const {
   case FK_VariableLengthArrayHasInitializer:
   case FK_PlaceholderType:
   case FK_ExplicitConstructor:
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#236476: Static variable is referenced in two separate routines
-  // in iclang
-  case FK_StaticLabelAddress:
-#endif // INTEL_CUSTOMIZATION
   case FK_AddressOfUnaddressableFunction:
     return false;
 
@@ -5556,29 +5551,6 @@ void InitializationSequence::InitializeFrom(Sema &S,
       TryReferenceInitialization(S, Entity, Kind, Args[0], *this);
     return;
   }
-
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#236476 - Static variable is referenced in two separate routines
-  // in iclang
-  if (S.getLangOpts().IntelCompat && DestType->isAnyPointerType() &&
-      Initializer && isa<AddrLabelExpr>(Initializer->IgnoreParenImpCasts()) &&
-      Entity.getKind() == InitializedEntity::EK_Variable &&
-      cast<VarDecl>(Entity.getDecl())->isStaticLocal()) {
-    // Fix for CQ380936: compiler failed with assertion "it !=
-    // OpaqueRValues.end() && no mapping for opaque value!" on pointer test.
-    // Address of the label should not be stored in static variable inside a
-    // constructor, because constructor overloading produces another one
-    // function with the same static variable.
-    DeclContext *DC = S.getFunctionLevelDeclContext();
-    while (isa<RecordDecl>(DC))
-      DC = DC->getParent();
-    if (auto *CCD = dyn_cast<CXXConstructorDecl>(DC))
-      if (CCD->getType()->getAs<FunctionProtoType>()->isVariadic()) {
-        SetFailed(FK_StaticLabelAddress);
-        return;
-      }
-  }
-#endif // INTEL_CUSTOMIZATION
 
   //     - If the initializer is (), the object is value-initialized.
   if (Kind.getKind() == InitializationKind::IK_Value ||
@@ -8812,21 +8784,6 @@ bool InitializationSequence::Diagnose(Sema &S,
     break;
   }
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#236476: Static variable is referenced in two separate routines
-  // in iclang
-  case FK_StaticLabelAddress:
-    // Fix for CQ#374664: After promotion xmain becomes too strict on
-    // initialization of static variable with label address.
-    // Fix for CQ380936: compiler failed with assertion "it !=
-    // OpaqueRValues.end() && no mapping for opaque value!" on pointer test.
-    // Address of the label should not be stored in static variable inside a
-    // constructor, because constructor overloading produces another one
-    // function with the same static variable.
-    S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
-        << Args[0]->getSourceRange();
-    break;
-#endif // INTEL_CUSTOMIZATION
   }
 
   PrintInitLocationNote(S, Entity);
@@ -8986,13 +8943,6 @@ void InitializationSequence::dump(raw_ostream &OS) const {
       OS << "list copy initialization chose explicit constructor";
       break;
 
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ#236476: Static variable is referenced in two separate routines
-    // in iclang
-    case FK_StaticLabelAddress:
-      OS << "initialization of static variable with label address";
-      break;
-#endif // INTEL_CUSTOMIZATION
     }
     OS << '\n';
     return;

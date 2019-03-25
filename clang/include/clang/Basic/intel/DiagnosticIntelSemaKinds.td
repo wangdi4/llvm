@@ -43,9 +43,6 @@ def warn_lvalue_reference_bind_to_temporary : Warning<
   "%select{non-const|volatile}0 lvalue reference %diff{to type $ cannot bind "
   "to a temporary of type $|cannot bind to incompatible temporary}1,2">,
   InGroup<IntelCompat>;
-// CQ#236476 - static variable is referenced in two separate routines in iclang.
-def err_static_variable_with_label_addr
-    : Error<"cannot initialize static variable with label address">;
 // CQ#375011
 def err_alloc_size_attribute_argument_not_int : Error<
   "'alloc_size' attribute requires integer constant">;
