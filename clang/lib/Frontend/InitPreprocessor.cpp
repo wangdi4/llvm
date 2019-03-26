@@ -1099,6 +1099,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
     auto Arch = TI.getTriple().getArch();
     if (Arch == llvm::Triple::spir || Arch == llvm::Triple::spir64)
+#if INTEL_CUSTOMIZATION
+      if (TI.getTriple().getEnvironment() != llvm::Triple::IntelFPGA)
+#endif // INTEL_CUSTOMIZATION
       Builder.defineMacro("__IMAGE_SUPPORT__");
   }
 

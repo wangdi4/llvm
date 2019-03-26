@@ -186,6 +186,12 @@
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-SPIR
 // CHECK-SPIR: #define __IMAGE_SUPPORT__ 1
 
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 %s -E -dM -o - -x cl -triple spir-unknown-unknown-intelfpga \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FPGA
+// CHECK-INTEL-FPGA-NOT: #define __IMAGE_SUPPORT__ 1
+// end INTEL_CUSTOMIZATION
+
 // RUN: %clang_cc1 %s -E -dM -o - -x hip -triple amdgcn-amd-amdhsa \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-HIP
 // CHECK-HIP-NOT: #define __CUDA_ARCH__
