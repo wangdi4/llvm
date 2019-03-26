@@ -929,6 +929,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+invpcid") {
       HasINVPCID = true;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+    } else if (Feature == "+enqcmd") {
+      HasENQCMD = true;
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #if INTEL_FEATURE_ISA_SERIALIZE
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
@@ -1345,6 +1349,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasINVPCID)
     Builder.defineMacro("__INVPCID__");
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+  if (HasENQCMD)
+    Builder.defineMacro("__ENQCMD__");
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #if INTEL_FEATURE_ISA_SERIALIZE
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
@@ -1519,6 +1527,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("clwb", true)
       .Case("clzero", true)
       .Case("cx16", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+      .Case("enqcmd", true)
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#endif // INTEL_CUSTOMIZATION
       .Case("f16c", true)
       .Case("fma", true)
       .Case("fma4", true)
@@ -1621,6 +1634,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("clzero", HasCLZERO)
       .Case("cx8", HasCX8)
       .Case("cx16", HasCX16)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+      .Case("enqcmd", HasENQCMD)
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#endif // INTEL_CUSTOMIZATION
       .Case("f16c", HasF16C)
       .Case("fma", HasFMA)
       .Case("fma4", XOPLevel >= FMA4)

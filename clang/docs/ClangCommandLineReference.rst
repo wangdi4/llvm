@@ -2664,6 +2664,12 @@ X86
 
 .. option:: -mcx16, -mno-cx16
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_ENQCMD
+.. option:: -menqcmd, -mno-enqcmd
+.. end INTEL_FEATURE_ISA_ENQCMD
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mf16c, -mno-f16c
 
 .. option:: -mfma, -mno-fma
