@@ -2449,8 +2449,8 @@ class VPlan {
 private:
 #if INTEL_CUSTOMIZATION
   LLVMContext *Context = nullptr;
-  VPLoopInfo *VPLInfo = nullptr;
-  VPlanDivergenceAnalysis *VPlanDA = nullptr;
+  std::unique_ptr<VPLoopInfo> VPLInfo;
+  std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -2530,12 +2530,7 @@ public:
   ~VPlan() {
     if (Entry)
       VPBlockBase::deleteCFG(Entry);
-#if INTEL_CUSTOMIZATION
-    if (VPLInfo)
-      delete (VPLInfo);
-    if (VPlanDA)
-      delete VPlanDA;
-#else
+#if !INTEL_CUSTOMIZATION
     for (auto &MapEntry : Value2VPValue)
       delete MapEntry.second;
 #endif
@@ -2545,19 +2540,23 @@ public:
   void execute(struct VPTransformState *State);
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG);
-  VPLoopInfo *getVPLoopInfo() { return VPLInfo; }
+  VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
 
   VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
 
-  const VPLoopInfo *getVPLoopInfo() const { return VPLInfo; }
+  const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
 
-  void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
+  void setVPLoopInfo(std::unique_ptr<VPLoopInfo> VPLI) {
+    VPLInfo = std::move(VPLI);
+  }
 
-  void setVPlanDA(VPlanDivergenceAnalysis *VPDA) { VPlanDA = VPDA; }
+  void setVPlanDA(std::unique_ptr<VPlanDivergenceAnalysis> VPDA) {
+    VPlanDA = std::move(VPDA);
+  }
 
   LLVMContext *getLLVMContext(void) const { return Context; }
 
-  VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA; }
+  VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA.get(); }
 
   VPLoopEntities& getLoopEntities() { return LoopEntities; }
 #endif // INTEL_CUSTOMIZATION
