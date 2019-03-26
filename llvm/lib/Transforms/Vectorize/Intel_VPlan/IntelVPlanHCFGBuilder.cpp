@@ -48,7 +48,7 @@ static cl::opt<bool> DisableUniformRegions(
 
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
-    DisableVPlanDA("disable-vplan-da", cl::init(true), cl::Hidden,
+    DisableVPlanDA("disable-vplan-da", cl::init(false), cl::Hidden,
                    cl::desc("Disable VPlan divergence analysis"));
 
 static cl::opt<bool>

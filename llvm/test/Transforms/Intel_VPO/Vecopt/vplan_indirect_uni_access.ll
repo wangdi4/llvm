@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt %s -VPlanDriver -vplan-force-build -disable-vplan-da=false -disable-vplan-predicator -disable-vplan-codegen -debug 2>&1 | FileCheck %s 
+; RUN: opt %s -VPlanDriver -vplan-force-build -disable-vplan-predicator -disable-vplan-codegen -debug 2>&1 | FileCheck %s 
 ; XFAIL: *
 ; See explanation in vplan_non_affine_uni_loop.ll.
 
