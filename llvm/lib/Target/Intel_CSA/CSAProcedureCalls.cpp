@@ -575,11 +575,34 @@ void CSAProcCallsPass::changeMovConstToGate(unsigned entry_mem_ord_lic) {
   return;
 }
 
+// Cloned from CSACreateSelfContainedGraph.cpp
+void cleanupInitializerFunctions(const Module &M, MachineModuleInfo *MMI) {
+  LLVM_DEBUG(dbgs() << "cleanupInitializerFunctions\n");
+  for (auto &F : M) {
+    bool IsInitializer = F.hasFnAttribute("__csa_attr_initializer");
+    if (!IsInitializer) continue;
+    MachineFunction *MF = MMI->getMachineFunction(F);
+    if (!MF) continue;
+    MachineRegisterInfo *MRI = &(MF->getRegInfo());
+    const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
+    assert(LMFI);
+    MachineInstr *EntryMI = LMFI->getEntryMI();
+    MachineInstr *ReturnMI = LMFI->getReturnMI();
+    unsigned InMemoryLic = LMFI->getInMemoryLic();
+    unsigned OutMemoryLic = LMFI->getOutMemoryLic();
+    MRI->replaceRegWith(InMemoryLic, CSA::IGN);
+    MRI->replaceRegWith(OutMemoryLic, CSA::IGN);
+    EntryMI->RemoveOperand(0);
+    ReturnMI->RemoveOperand(0);
+  }
+}
+
 bool CSAProcCallsPass::runOnMachineFunction(MachineFunction &MF) {
   if (!shouldRunDataflowPass(MF))
     return false;
 
   thisMF = &MF;
+  
   LLVM_DEBUG(errs() << "Entering into CSA Procedure Calls Pass for " << MF.getFunction().getName() << "\n");
   if (ProcCallsPass == 0) return false;
   LMFI   = MF.getInfo<CSAMachineFunctionInfo>();
@@ -609,6 +632,11 @@ bool CSAProcCallsPass::runOnMachineFunction(MachineFunction &MF) {
   }
   MachineInstr *returnMI = addReturnInstruction(entryMI);
   if (!returnMI) report_fatal_error("Return instruction could not be found! Cannot be run on CSA!");
+  
+  MachineModuleInfo &MMI = thisMF->getMMI();
+  const Module *M = MMI.getModule();
+  cleanupInitializerFunctions(*M, &MMI);
+  
   addTrampolineCode(entryMI,returnMI);
   processCallAndContinueInstructions();
 

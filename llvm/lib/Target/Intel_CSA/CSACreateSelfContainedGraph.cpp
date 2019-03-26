@@ -650,6 +650,7 @@ bool isOMPOffloadCompile(Module &M) {
   return false;
 }
 
+// cloned in CSAProcedureCalls.cpp
 void cleanupInitializerFunctions(Module &M, MachineModuleInfo *MMI) {
   LLVM_DEBUG(dbgs() << "cleanupInitializerFunctions\n");
   for (auto &F : M) {
