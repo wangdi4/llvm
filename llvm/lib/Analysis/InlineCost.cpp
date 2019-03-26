@@ -3547,6 +3547,25 @@ static bool preferPartialInlineInlinedClone(Function *Callee) {
 }
 
 //
+// Return 'true' if a Function with the prefer-partial-inline-outlined-func
+// attribute exists in the Module 'M'.
+//
+static bool sawPreferPartialInlineOutlinedFunc(Module *M) {
+  static bool ScannedFunctions = false;
+  static bool SawPreferPartialInlineOutlinedFunc = false;
+  if (ScannedFunctions)
+    return SawPreferPartialInlineOutlinedFunc;
+  for (auto &F :  M->functions())
+    if (F.hasFnAttribute("prefer-partial-inline-outlined-func")) {
+      ScannedFunctions = true;
+      SawPreferPartialInlineOutlinedFunc = true;
+      return true;
+    }
+  ScannedFunctions = true;
+  return false;
+}
+
+//
 // Return 'true' if 'F' calls an outlined function created by Intel partial
 // inlining, which in turn calls 'F'. Such functions are good candidates
 // for inlining.
@@ -3561,6 +3580,8 @@ static bool preferPartialInlineHasExtractedRecursiveCall(Function &F,
     return false;
   if (Candidates.count(&F))
     return true;
+  if (!sawPreferPartialInlineOutlinedFunc(F.getParent()))
+    return false;
   for (User *U : F.users()) {
     auto CS1 = dyn_cast<CallBase>(U);
     if (!CS1)
