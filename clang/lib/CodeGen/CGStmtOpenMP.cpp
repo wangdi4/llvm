@@ -5203,6 +5203,20 @@ void CodeGenFunction::HoistTeamsClausesIfPossible(
   EnsureAddressableClauseExpr(Dir->getSingleClause<OMPNumTeamsClause>());
   EnsureAddressableClauseExpr(Dir->getSingleClause<OMPThreadLimitClause>());
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+static bool UseCSALoopPreCond(CodeGenFunction &CGF, const OMPLoopDirective &S,
+                              OpenMPDirectiveKind Kind) {
+  auto IVExpr = cast<DeclRefExpr>(S.getIterationVariable());
+  if (IVExpr->getType()->isUnsignedIntegerType())
+    return false;
+
+  return (Kind == OMPD_for || Kind == OMPD_parallel_for) &&
+         CGF.getContext().getTargetInfo().getTriple().getArch() ==
+             llvm::Triple::csa;
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitLateOutlineOMPLoopBounds(const OMPLoopDirective &S,
                                                    OpenMPDirectiveKind Kind,
@@ -5243,6 +5257,12 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
     if (ConstantFoldsToSimpleInteger(S.getPreCond(), CondConstant)) {
       if (!CondConstant)
         return;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    } else if (UseCSALoopPreCond(*this, S, Kind)) {
+      // No 'if' block is created for signed types for CSA.
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     } else {
       ThenBlock = createBasicBlock("omp.precond.then");
       ContBlock = createBasicBlock("omp.precond.end");
