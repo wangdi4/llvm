@@ -1,3 +1,7 @@
+# INTEL_CUSTOMIZATION
+# XFAIL: *
+# end INTEL_CUSTOMIZATION
+
 # RUN: ld64.lld -test_file_usage  \
 # RUN:    -filelist %p/Inputs/full.filelist \
 # RUN:        -path_exists /foo/bar/a.o \

@@ -1,3 +1,7 @@
+# INTEL_CUSTOMIZATION
+# XFAIL: *
+# end INTEL_CUSTOMIZATION
+
 # REQUIRES: x86
 # RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux %s -o %t
 

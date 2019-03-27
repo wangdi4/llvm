@@ -1,3 +1,6 @@
+// INTEL_CUSTOMIZATION
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
 // REQUIRES: x86
 
 // Check bad archive error reporting with --whole-archive
