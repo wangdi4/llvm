@@ -2,8 +2,8 @@
 ; structures. For this case, the fields 0 and 2 in %struct.B will be deleted
 ; even if it is enclosed in %struct.A.
 
-; RUN: opt < %s -whole-program-assume -passes="dtrans-deletefield" -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-deletefield -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes="internalize,dtrans-deletefield" -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -internalize -dtrans-deletefield -debug-only=dtrans-deletefield -dtrans-outofboundsok=false -S 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 

@@ -1,5 +1,5 @@
-; RUN: opt < %s -whole-program-assume -passes="dtrans-deletefield" -S 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-deletefield -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -passes="internalize,dtrans-deletefield" -S 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -internalize -dtrans-deletefield -S 2>&1 | FileCheck %s
 
 ; Check that all unused fields are deleted and GEPs are updated.
 ; Fields (A:0) and (A:2) should stay.

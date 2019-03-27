@@ -4,7 +4,7 @@
 ; identify and create remapped types for all the dependent types (__DDT_<name>)
 
 ; Test with legacy pass manager
-; RUN: opt  < %s -whole-program-assume -S -dtrans-optbasetest \
+; RUN: opt  < %s -whole-program-assume -internalize -S -dtrans-optbasetest \
 ; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,\
 ; RUN:struct.test03a,struct.test04a,struct.test05a,struct.test06a,\
 ; RUN:struct.test07a,struct.test08a,struct.test09a,struct.test10a,\
@@ -14,7 +14,7 @@
 ; Test when base class is used without dtrans analysis parameter to
 ; be sure all the types and dependent types are found without relying
 ; on the analysis pass.
-; RUN: opt  < %s -whole-program-assume -S -dtrans-optbasetest \
+; RUN: opt  < %s -whole-program-assume -internalize -S -dtrans-optbasetest \
 ; RUN: -dtrans-optbasetest-typelist=struct.test01a,struct.test02a,\
 ; RUN:struct.test03a,struct.test04a,struct.test05a,struct.test06a,\
 ; RUN:struct.test07a,struct.test08a,struct.test09a,struct.test10a,\

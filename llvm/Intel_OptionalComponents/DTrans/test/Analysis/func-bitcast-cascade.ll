@@ -2,8 +2,8 @@
 ; mismatched argument safety data for cases where it should be pointer
 ; carried.
 
-; RUN: opt < %s -disable-output -whole-program-assume  -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -whole-program-assume -passes="require<dtransanalysis>" -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -internalize -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -passes="internalize,require<dtransanalysis>" -dtrans-print-types 2>&1 | FileCheck %s
 
 ; Test that mismatched argumnet use is carried through pointers when call bitcasts
 ; the structure pointer to a type known not to match
@@ -90,7 +90,7 @@ define void @doSomething03(%struct.test03* %str) {
   %s3 = load %struct.test03.c*, %struct.test03.c** %f3
   ret void
 }
-define void @test03(%struct.test03.123** %pp) {
+define internal void @test03(%struct.test03.123** %pp) {
   %vp = load %struct.test03.123*, %struct.test03.123** %pp
   %f1 = getelementptr %struct.test03.123, %struct.test03.123* %vp, i64 0, i32 0
   %f2 = getelementptr %struct.test03.123, %struct.test03.123* %vp, i64 0, i32 1
