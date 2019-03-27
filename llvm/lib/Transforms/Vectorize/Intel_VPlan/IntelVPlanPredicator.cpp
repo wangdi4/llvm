@@ -82,7 +82,7 @@ static cl::opt<bool> DisablePredicatorOpts(
     cl::desc("Disable optimizations in VPlan Predicator."));
 
 cl::opt<bool> VPlanLoopCFU(
-    "vplan-loop-cfu", cl::init(false), cl::Hidden,
+    "vplan-loop-cfu", cl::init(true), cl::Hidden,
     cl::desc("Perform inner loop control flow uniformity transformation"));
 
 // Returns the first recipe in BB or NULL if empty.

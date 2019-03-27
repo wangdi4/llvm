@@ -1,6 +1,6 @@
 ;
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -vplan-loop-cfu -debug 2>&1 | FileCheck %s
+; RUN: opt -S %s -VPlanDriver -debug 2>&1 | FileCheck %s
 
 ;source code:
 ;void foo(float *a, float *b, int* n) {
