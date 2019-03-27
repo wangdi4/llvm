@@ -29,24 +29,24 @@ using namespace loopopt;
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Namespace
 
-template <class LoopType> class IRHIRLoopAdapter {
+template <class LoopType> class HIRLoopAdapter {
 
 private:
   LoopType *Lp;
 
 public:
-  IRHIRLoopAdapter(LoopType *L) { Lp = L; }
+  HIRLoopAdapter(LoopType *L) { Lp = L; }
 
   bool isInnermost() const {
     llvm_unreachable("LoopType template argument is not supported.");
   }
 };
 
-template <> bool IRHIRLoopAdapter<Loop>::isInnermost() const {
+template <> bool HIRLoopAdapter<Loop>::isInnermost() const {
   return Lp->getSubLoops().empty();
 }
 
-template <> bool IRHIRLoopAdapter<HLLoop>::isInnermost() const {
+template <> bool HIRLoopAdapter<HLLoop>::isInnermost() const {
   return Lp->isInnermost();
 }
 

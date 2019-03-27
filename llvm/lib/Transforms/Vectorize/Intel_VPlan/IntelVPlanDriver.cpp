@@ -13,19 +13,32 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "IntelVPlanDriver.h"
 #include "IntelLoopVectorizationCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
-#include "IntelVPOLoopAdapters.h"
 #include "IntelVPlanCostModel.h"
-#include "IntelVPlanCostModelProprietary.h"
-#include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanPredicator.h"
 #include "IntelVolcanoOpenCL.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/LoopAccessAnalysis.h"
+#include "llvm/Analysis/LoopIterator.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/WithColor.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Vectorize.h"
+#if INTEL_CUSTOMIZATION
+#include "IntelVPlanCostModelProprietary.h"
 #include "VPlanHIR/IntelLoopVectorizationPlannerHIR.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
-#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
@@ -33,37 +46,14 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
-#include "llvm/Analysis/LoopAccessAnalysis.h"
-#include "llvm/Analysis/LoopIterator.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/WithColor.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Utils/LoopSimplify.h"
-#include "llvm/Transforms/Vectorize.h"
+#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "VPlanDriver"
 
 using namespace llvm;
 using namespace llvm::vpo;
-using namespace llvm::loopopt;
-
-namespace llvm {
-class DemandedBits;
-class OptimizationRemarkEmitter;
-} // namespace llvm
-
-// static cl::opt<bool>
-//    DisableVPODirectiveCleanup("disable-vpo-directive-cleanup",
-//    cl::init(false),
-//                               cl::Hidden,
-//                               cl::desc("Disable VPO directive cleanup"));
+using namespace llvm::loopopt; // INTEL
 
 static cl::opt<bool> DisableCodeGen(
     "disable-vplan-codegen", cl::init(false), cl::Hidden,
@@ -96,7 +86,7 @@ static cl::opt<bool>
     EnableNewVPlanPredicator("enable-new-vplan-predicator", cl::init(true),
                              cl::Hidden,
                              cl::desc("Enable New VPlan predicator."));
-#endif
+#endif //INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> VPlanVectCand(
     "vplan-build-vect-candidates", cl::init(0),
@@ -104,148 +94,6 @@ static cl::opt<unsigned> VPlanVectCand(
         "Construct VPlan for vectorization candidates (CG stress testing)"));
 
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
-
-namespace {
-
-// class VPODirectiveCleanup : public FunctionPass {
-// public:
-//  static char ID; // Pass identification, replacement for typeid
-//
-//  VPODirectiveCleanup() : FunctionPass(ID) {
-//    initializeVPODirectiveCleanupPass(*PassRegistry::getPassRegistry());
-//  }
-//  bool runOnFunction(Function &Fn) override;
-//  //  void getAnalysisUsage(AnalysisUsage &AU) const override;
-//};
-
-template <class LoopType> class VPlanDriverBase : public FunctionPass {
-
-protected:
-  // Hold information regarding explicit vectorization in LLVM-IR.
-  WRegionInfo *WR;
-
-  /// Handle to Target Information
-  TargetTransformInfo *TTI;
-  TargetLibraryInfo *TLI;
-  const DataLayout *DL;
-
-  VPlanDriverBase(char &ID) : FunctionPass(ID){};
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-#if INTEL_CUSTOMIZATION
-  bool processFunction(Function &Fn, IRKind IR);
-#else
-  bool processFunction(Function &Fn);
-#endif // INTEL_CUSTOMIZATION
-  // TODO: Try to refactor at least part of it.
-  virtual bool processLoop(LoopType *Lp, Function &Fn,
-                           WRNVecLoopNode *WRLp = 0) = 0;
-
-  // VPlan Driver running modes
-#if INTEL_CUSTOMIZATION
-  bool runStandardMode(Function &Fn, IRKind IR);
-#else
-  bool runStandardMode(Function &Fn);
-#endif // INTEL_CUSTOMIZATION
-  bool runCGStressTestMode(Function &Fn);
-  bool runConstructStressTestMode(Function &Fn);
-
-  // Add remarks to the VPlan loop opt-report for loops created by codegen
-  template <class VPOCodeGenType>
-  void addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
-                           VPOCodeGenType *VCodeGen);
-
-  // TODO: Move isSupported to Legality class.
-  virtual bool isSupported(LoopType *Lp) = 0;
-  virtual void collectAllLoops(SmallVectorImpl<LoopType *> &Loops) = 0;
-
-  // Return true if the given loop is a candidate for VPlan vectorization.
-  // Currently this function is used in the LLVM IR path to generate VPlan
-  // candidates using LoopVectorizationLegality for stress testing the LLVM IR
-  // VPlan implementation.
-  virtual bool isVPlanCandidate(Function &Fn, LoopType *Lp) = 0;
-};
-
-class VPlanDriver : public VPlanDriverBase<Loop> {
-
-private:
-  LoopInfo *LI;
-  ScalarEvolution *SE;
-  DominatorTree *DT;
-  AssumptionCache *AC;
-  AliasAnalysis *AA;
-  DemandedBits *DB;
-  LoopAccessLegacyAnalysis *LAA;
-  OptimizationRemarkEmitter *ORE;
-  LoopOptReportBuilder LORBuilder;
-
-  bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp = 0) override;
-
-  bool isSupported(Loop *Lp) override;
-  void collectAllLoops(SmallVectorImpl<Loop *> &Loops) override;
-  bool isVPlanCandidate(Function &Fn, Loop *Lp) override;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  VPlanDriver() : VPlanDriverBase<Loop>(ID) {
-    initializeVPlanDriverPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  bool runOnFunction(Function &Fn) override;
-};
-
-class VPlanDriverHIR : public VPlanDriverBase<HLLoop> {
-
-private:
-  HIRFramework *HIRF;
-  HIRLoopStatistics *HIRLoopStats;
-  HIRDDAnalysis *DDA;
-  // HIRVectVLSAnalysis *VLS;
-  LoopOptReportBuilder LORBuilder;
-
-  bool processLoop(HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp = 0) override;
-
-  bool isSupported(HLLoop *Lp) override {
-    if (HIRLoopStats->getSelfLoopStatistics(Lp).hasSwitches())
-      return false;
-
-    return true;
-  };
-
-  void collectAllLoops(SmallVectorImpl<HLLoop *> &Loops) override {
-    HIRF->getHLNodeUtils().gatherAllLoops(Loops);
-  };
-
-  bool isVPlanCandidate(Function &Fn, HLLoop *Lp) override {
-    // This function is only used in the LLVM-IR path to generate VPlan
-    // candidates.
-    return false;
-  };
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  VPlanDriverHIR() : VPlanDriverBase(ID) {
-    initializeVPlanDriverHIRPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// \brief Overrides FunctionPass's printer pass to return one which prints
-  /// HIR instead of LLVM IR.
-  FunctionPass *createPrinterPass(raw_ostream &OS,
-                                  const std::string &Banner) const override {
-    return createHIRPrinterPass(OS, Banner);
-  }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-  bool runOnFunction(Function &Fn) override;
-};
-
-} // anonymous namespace
 
 /// Check whether the edge (\p SrcBB, \p DestBB) is a backedge according to LI.
 /// I.e., check if it exists a loop that contains SrcBB and where DestBB is the
@@ -283,25 +131,12 @@ static bool isIrreducibleCFG(Loop *Lp, LoopInfo *LI) {
   return false;
 }
 
-template <class LoopType>
-void VPlanDriverBase<LoopType>::getAnalysisUsage(AnalysisUsage &AU) const {
-
-  // TODO (CMPLRS-44750): Preserve analyses.
-  AU.addRequired<WRegionInfoWrapperPass>();
-  AU.addRequired<TargetTransformInfoWrapperPass>();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-}
-
 #if INTEL_CUSTOMIZATION
 // Common LLVM-IR/HIR high-level implementation to process a function. It gets
 // LLVM-IR-HIR common analyses and choose an execution mode.
-template <class LoopType>
-bool VPlanDriverBase<LoopType>::processFunction(
-    Function &Fn, IRKind IR) {
-#else
-template <class LoopType>
-bool VPlanDriverBase<LoopType>::processFunction(Function &Fn) {
+template <typename Loop>
 #endif // INTEL_CUSTOMIZATION
+bool VPlanDriver::processFunction(Function &Fn) {
 
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
 
@@ -321,24 +156,28 @@ bool VPlanDriverBase<LoopType>::processFunction(Function &Fn) {
 
   bool ModifiedFunc = false;
 
-  // Execution modes
-  if (VPlanVectCand) {
-    ModifiedFunc = runCGStressTestMode(Fn);
-  } else if (!VPlanConstrStressTest) {
+// Execution modes
 #if INTEL_CUSTOMIZATION
-    ModifiedFunc = runStandardMode(Fn, IR);
-#else
+  if (VPlanVectCand)
+    ModifiedFunc = runCGStressTestMode<Loop>(Fn);
+  else if (!VPlanConstrStressTest)
+    ModifiedFunc = runStandardMode<Loop>(Fn);
+  else {
+    ModifiedFunc = runConstructStressTestMode<Loop>(Fn);
+    assert(!ModifiedFunc &&
+           "VPlan Construction stress testing can't modify Function!");
+  }
+#else  // INTEL_CUSTOMIZATION
+  if (VPlanVectCand)
+    ModifiedFunc = runCGStressTestMode<Loop>(Fn);
+  else if (!VPlanConstrStressTest)
     ModifiedFunc = runStandardMode(Fn);
-#endif // INTEL_CUSTOMIZATION
-  } else {
+  else {
     ModifiedFunc = runConstructStressTestMode(Fn);
     assert(!ModifiedFunc &&
            "VPlan Construction stress testing can't modify Function!");
   }
-
-  // TODO: Traverse through all non-vectorized loops and emit corresponding
-  // remark.
-
+#endif // INTEL_CUSTOMIZATION
   return ModifiedFunc;
 }
 
@@ -346,18 +185,18 @@ bool VPlanDriverBase<LoopType>::processFunction(Function &Fn) {
 /// vectorization.
 /// Explicit vectorization: it uses WRegion analysis to collect and vectorize
 /// all the WRNVecLoopNode's.
-template <class LoopType>
 #if INTEL_CUSTOMIZATION
-bool VPlanDriverBase<LoopType>::runStandardMode(
-    Function &Fn, IRKind IR) {
-#else
-bool VPlanDriverBase<LoopType>::runStandardMode(Function &Fn) {
+template <typename Loop>
 #endif // INTEL_CUSTOMIZATION
+bool VPlanDriver::runStandardMode(Function &Fn) {
 
   LLVM_DEBUG(dbgs() << "VD: Stardard Vectorization mode\n");
 
   WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
 #if INTEL_CUSTOMIZATION
+  IRKind IR = IRKind::LLVMIR;
+  if (std::is_same<Loop, HLLoop>::value)
+    IR = IRKind::HIR;
   WR->buildWRGraph(IR);
 #else
   WR->buildWRGraph();
@@ -370,7 +209,7 @@ bool VPlanDriverBase<LoopType>::runStandardMode(Function &Fn) {
   for (auto WRNode : *WRGraph) {
 
     if (WRNVecLoopNode *WRLp = dyn_cast<WRNVecLoopNode>(WRNode)) {
-      LoopType *Lp = WRLp->getTheLoop<LoopType>();
+      Loop *Lp = WRLp->getTheLoop<Loop>();
       //      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
       //      formLCSSARecursively(*Lp, *DT, LI, SE);
 
@@ -396,24 +235,26 @@ bool VPlanDriverBase<LoopType>::runStandardMode(Function &Fn) {
 
 /// Construction Stress Testing Mode: builds the H-CFG for any loop in the
 /// function.
+#if INTEL_CUSTOMIZATION
 /// TODO: WIP for HIR.
-template <class LoopType>
-bool VPlanDriverBase<LoopType>::runConstructStressTestMode(Function &Fn) {
+template <typename Loop>
+#endif //INTEL_CUSTOMIZATION
+bool VPlanDriver::runConstructStressTestMode(Function &Fn) {
 
   LLVM_DEBUG(dbgs() << "VD: VPlan Construction Stress Test mode\n");
 
-  SmallVector<LoopType *, 8> Worklist;
+  SmallVector<Loop *, 8> Worklist;
   collectAllLoops(Worklist);
 
   bool ModifiedFunc = false;
-  for (LoopType *Lp : Worklist) {
-    IRHIRLoopAdapter<LoopType> LpAdapter(Lp);
+  for (Loop *Lp : Worklist) {
+    HIRLoopAdapter<Loop> LpAdapter(Lp);
     // Process only innermost loops if VPlanStressOnlyInnermost is enabled
     if (!VPlanStressOnlyInnermost || LpAdapter.isInnermost()) {
       // simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
       // formLCSSARecursively(*Lp, *DT, LI, SE);
       if (VPlanForceBuild || isSupported(Lp))
-        ModifiedFunc |= processLoop(Lp, Fn);
+        ModifiedFunc |= processLoop(Lp, Fn, nullptr /*No WRegion*/);
     }
   }
 
@@ -424,18 +265,20 @@ bool VPlanDriverBase<LoopType>::runConstructStressTestMode(Function &Fn) {
 /// number of loops marked as vectorizable using LoopVectorize analysis. When
 /// debugging vector CG issues, we can do a binary search to find out the
 /// problem loop by setting VPlanVectCand appropriately.
-template <class LoopType>
-bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
+#if INTEL_CUSTOMIZATION
+template <typename Loop>
+#endif //INTEL_CUSTOMIZATION
+bool VPlanDriver::runCGStressTestMode(Function &Fn) {
 
   LLVM_DEBUG(dbgs() << "VD: VPlan CG Stress Test mode\n");
 
-  SmallVector<LoopType *, 8> Worklist;
+  SmallVector<Loop *, 8> Worklist;
   collectAllLoops(Worklist);
 
   int ModifiedFunc = false;
-  for (LoopType *Lp : Worklist) {
+  for (Loop *Lp : Worklist) {
     if (CandLoopsVectorized < VPlanVectCand && isVPlanCandidate(Fn, Lp)) {
-      ModifiedFunc |= processLoop(Lp, Fn);
+      ModifiedFunc |= processLoop(Lp, Fn, nullptr /* No WRegion */);
     }
   }
 
@@ -444,12 +287,16 @@ bool VPlanDriverBase<LoopType>::runCGStressTestMode(Function &Fn) {
 
 /// Function to add vectorization related remarks for loops created by given
 /// codegen object \p VCodeGen
-template <class LoopType>
+#if INTEL_CUSTOMIZATION
+// TODO: Change VPOCodeGenType. This cannot be used in the open sourcing patches
+template <class VPOCodeGenType, typename Loop>
+#else
 template <class VPOCodeGenType>
-void VPlanDriverBase<LoopType>::addOptReportRemarks(
-    VPlanOptReportBuilder &VPORBuilder, VPOCodeGenType *VCodeGen) {
+#endif //INTEL_CUSTOMIZATION
+void VPlanDriver::addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
+                                      VPOCodeGenType *VCodeGen) {
   // The new vectorized loop is stored in MainLoop
-  LoopType *MainLoop = VCodeGen->getMainLoop();
+  Loop *MainLoop = VCodeGen->getMainLoop();
 
   // Adds remark LOOP WAS VECTORIZED
   VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15300);
@@ -460,7 +307,7 @@ void VPlanDriverBase<LoopType>::addOptReportRemarks(
   // If remainder loop was generated for MainLoop, report that it is currently
   // not vectorized
   if (VCodeGen->getNeedRemainderLoop()) {
-    LoopType *RemLoop = VCodeGen->getRemainderLoop();
+    Loop *RemLoop = VCodeGen->getRemainderLoop();
     VPORBuilder.addRemark(RemLoop, OptReportVerbosity::Medium, 15441, "");
   }
 }
@@ -509,10 +356,16 @@ Pass *llvm::createVPlanDriverPass() { return new VPlanDriver(); }
 
 void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
 
+#if INTEL_CUSTOMIZATION
   // TODO (CMPLRS-44750): We do not preserve LoopInfo as we remove loops, create
   // new loops. Same holds for Scalar Evolution which needs to be computed for
   // newly created loops.
-  VPlanDriverBase::getAnalysisUsage(AU);
+
+  // TODO (CMPLRS-44750): Preserve analyses.
+#endif // INTEL_CUSTOMIZATION
+  AU.addRequired<WRegionInfoWrapperPass>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
 
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
@@ -533,8 +386,10 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   if (skipFunction(Fn))
     return false;
 
+#if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan LLVM-IR Driver for Function: " << Fn.getName()
                     << "\n");
+#endif // INTEL_CUSTOMIZATION
 
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -550,13 +405,21 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   LORBuilder.setup(Fn.getContext(),
                    getAnalysis<OptReportOptionsPass>().getVerbosity());
 
-  bool ModifiedFunc =
-      VPlanDriverBase::processFunction(Fn, LLVMIR);
+  bool ModifiedFunc = processFunction(Fn);
 
   return ModifiedFunc;
 }
 
+namespace llvm {
+namespace vpo {
+
+#if INTEL_CUSTOMIZATION
+template <>
+bool VPlanDriver::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
+                                          WRNVecLoopNode *WRLp) {
+#else
 bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
+#endif // INTEL_CUSTOMIZATION
   PredicatedScalarEvolution PSE(*SE, *Lp);
   VPOVectorizationLegality LVL(Lp, PSE, TLI, TTI, &Fn, LI, DT);
 
@@ -596,7 +459,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   }
 #else
   LVP.buildInitialVPlans();
-#endif
+#endif //INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LVP.printCostModelAnalysisIfRequested();
@@ -620,14 +483,15 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintInit) {
-    VPlan *Plan = LVP.getVPlanForVF(VF); (void)Plan;
+    VPlan *Plan = LVP.getVPlanForVF(VF);
+    (void)Plan;
     assert(Plan && "Unexpected null VPlan");
     errs() << "Print initial VPlan for VF=" << VF << "\n";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     Plan->dump(errs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
-#endif
+#endif //INTEL_CUSTOMIZATION
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
@@ -659,6 +523,16 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   return ModifiedLoop;
 }
 
+#if INTEL_CUSTOMIZATION
+template <>
+bool VPlanDriver::processLoop<vpo::HLLoop>(vpo::HLLoop *Lp, Function &Fn,
+                                           WRNVecLoopNode *WRLp) {
+  auto *Self = static_cast<VPlanDriverHIR *>(this);
+  return Self->processLoop(Lp, Fn, WRLp);
+}
+#endif // INTEL_CUSTOMIZATION
+} // namespace vpo
+} // namespace llvm
 // The interface getUniqueExitBlock() asserts that the loop has dedicated
 // exits. Check that a loop has dedicated exits before the check for unique
 // exit block. This is especially needed when stress testing VPlan builds.
@@ -695,8 +569,14 @@ static bool isSupportedRec(Loop *Lp) {
   return true;
 }
 
+namespace llvm {
+namespace vpo {
 // Return true if this loop is supported in VPlan
-bool VPlanDriver::isSupported(Loop *Lp) {
+#if INTEL_CUSTOMIZATION
+template <> bool VPlanDriver::isSupported<llvm::Loop>(Loop *Lp) {
+#else  // INTEL_CUSTOMIZATION
+  bool VPlanDriver::isSupported(Loop *Lp) {
+#endif // INTEL_CUSTOMIZATION
 
   // When running directly from opt there is no guarantee that the loop is in
   // LCSSA form because we no longer apply this transformation from within
@@ -741,7 +621,19 @@ bool VPlanDriver::isSupported(Loop *Lp) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+template <> bool VPlanDriver::isSupported<vpo::HLLoop>(vpo::HLLoop *Lp) {
+  auto *Self = static_cast<VPlanDriverHIR *>(this);
+  return Self->isSupported(Lp);
+}
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+template <>
+void VPlanDriver::collectAllLoops<llvm::Loop>(SmallVectorImpl<Loop *> &Loops) {
+#else  // INTEL_CUSTOMIZATION
 void VPlanDriver::collectAllLoops(SmallVectorImpl<Loop *> &Loops) {
+#endif // INTEL_CUSTOMIZATION
 
   std::function<void(Loop *)> collectSubLoops = [&](Loop *Lp) {
     Loops.push_back(Lp);
@@ -753,6 +645,18 @@ void VPlanDriver::collectAllLoops(SmallVectorImpl<Loop *> &Loops) {
     collectSubLoops(Lp);
 }
 
+#if INTEL_CUSTOMIZATION
+template <>
+void VPlanDriver::collectAllLoops<vpo::HLLoop>(
+    SmallVectorImpl<vpo::HLLoop *> &Loops) {
+  auto *Self = static_cast<VPlanDriverHIR *>(this);
+  return Self->collectAllLoops(Loops);
+}
+#endif // INTEL_CUSTOMIZATION
+} // namespace vpo
+} // namespace llvm
+
+#if INTEL_CUSTOMIZATION
 INITIALIZE_PASS_BEGIN(VPlanDriverHIR, "VPlanDriverHIR",
                       "VPlan Vectorization Driver HIR", false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
@@ -775,7 +679,9 @@ Pass *llvm::createVPlanDriverHIRPass() { return new VPlanDriverHIR(); }
 
 void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
 
-  VPlanDriverBase::getAnalysisUsage(AU);
+  AU.addRequired<WRegionInfoWrapperPass>();
+  AU.addRequired<TargetTransformInfoWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
 
   // HIR path does not work without setPreservesAll
   AU.setPreservesAll(); // TODO: ?
@@ -806,7 +712,7 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   LORBuilder.setup(Fn.getContext(),
                    getAnalysis<OptReportOptionsPass>().getVerbosity());
 
-  return VPlanDriverBase::processFunction(Fn, HIR);
+  return VPlanDriver::processFunction<loopopt::HLLoop>(Fn);
 }
 
 bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
@@ -815,7 +721,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   assert(WRLp && "WRLp should be non-null!");
 
   HLLoop *HLoop = WRLp->getTheLoop<HLLoop>();
-  (void) HLoop;
+  (void)HLoop;
   assert(HLoop && "Expected HIR Loop.");
   assert(HLoop->getParentRegion() && "Expected parent HLRegion.");
 
@@ -882,14 +788,12 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
 
   LLVM_DEBUG(dbgs() << "VD:\n" << *Plan);
 
-#if INTEL_CUSTOMIZATION
   if (VPlanPrintInit) {
     errs() << "Print initial VPlan for VF=" << VF << "\n";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     Plan->dump(errs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
-#endif
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
@@ -909,7 +813,8 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
       CandLoopsVectorized++;
       LVP.executeBestPlan(&VCodeGen);
       ModifiedLoop = true;
-      addOptReportRemarks<VPOCodeGenHIR>(VPORBuilder, &VCodeGen);
+      VPlanDriver::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
+          VPORBuilder, &VCodeGen);
     }
   }
 
@@ -922,54 +827,46 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   return ModifiedLoop;
 }
 
-// INITIALIZE_PASS_BEGIN(VPODirectiveCleanup, "VPODirectiveCleanup",
-//                      "VPO Directive Cleanup", false, false)
-// INITIALIZE_PASS_END(VPODirectiveCleanup, "VPODirectiveCleanup",
-//                    "VPO Directive Cleanup", false, false)
-//
-// char VPODirectiveCleanup::ID = 0;
-//
-////FunctionPass *llvm::createVPODirectiveCleanupPass() {
-//  return new VPODirectiveCleanup();
-//}
-//
-// void VPODirectiveCleanup::getAnalysisUsage(AnalysisUsage &AU) const {
-//}
-//
-// bool VPODirectiveCleanup::runOnFunction(Function &Fn) {
-//
-//  // Skip if disabled
-//  if (DisableVPODirectiveCleanup) {
-//    return false;
-//  }
-//
-//  // Remove calls to directive intrinsics since the LLVM back end does not
-//  know
-//  // how to translate them.
-//  if (!VPOUtils::stripDirectives(Fn)) {
-//    // If nothing happens, simply return.
-//    return false;
-//  }
-//
-//  // Set up a function pass manager so that we can run some cleanup transforms
-//  // on the LLVM IR after code gen.
-//  Module *Md = Fn.getParent();
-//  legacy::FunctionPassManager FPM(Md);
-//
-//  // It is possible that stripDirectives call
-//  // eliminates all instructions in a basic block except for the branch
-//  // instruction. Use CFG simplify to eliminate them.
-//  FPM.add(createCFGSimplificationPass());
-//  FPM.run(Fn);
-//
-//  return true;
-//}
+bool VPlanDriverHIR::isSupported(HLLoop *Lp) {
+  if (HIRLoopStats->getSelfLoopStatistics(Lp).hasSwitches())
+    return false;
+
+  return true;
+}
+
+void VPlanDriverHIR::collectAllLoops(SmallVectorImpl<HLLoop *> &Loops) {
+  HIRF->getHLNodeUtils().gatherAllLoops(Loops);
+}
+
+bool VPlanDriverHIR::isVPlanCandidate(Function &Fn, HLLoop *Lp) {
+  // This function is only used in the LLVM-IR path to generate VPlan
+  // candidates.
+  return false;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// \brief Overrides FunctionPass's printer pass to return one which prints
+  /// HIR instead of LLVM IR.
+ FunctionPass *VPlanDriverHIR::createPrinterPass(raw_ostream &OS,
+                                  const std::string &Banner) const {
+    return createHIRPrinterPass(OS, Banner);
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // IMPORTANT -- keep this function at the end of the file until VPO and
 // LoopVectorization legality can be merged.
 #undef LoopVectorizationLegality
 #include "llvm/Transforms/Vectorize/LoopVectorizationLegality.h"
+#endif // INTEL_CUSTOMIZATION
+
+namespace llvm {
+namespace vpo {
+#if INTEL_CUSTOMIZATION
+template <>
+bool VPlanDriver::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
+#else // INTEL_CUSTOMIZATION
 bool VPlanDriver::isVPlanCandidate(Function &Fn, Loop *Lp) {
+#endif
   // Only consider inner loops
   if (!Lp->empty())
     return false;
@@ -996,3 +893,14 @@ bool VPlanDriver::isVPlanCandidate(Function &Fn, Loop *Lp) {
 
   return true;
 }
+
+#if INTEL_CUSTOMIZATION
+template <>
+bool VPlanDriver::isVPlanCandidate<vpo::HLLoop>(Function &Fn, vpo::HLLoop *Lp) {
+  auto *Self = static_cast<VPlanDriverHIR *>(this);
+  return Self->isVPlanCandidate(Fn, Lp);
+}
+#endif // INTEL_CUSTOMIZATION
+
+} // namespace vpo
+} // namespace llvm
