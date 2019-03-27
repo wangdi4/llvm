@@ -441,7 +441,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   if (Ref->isRval()) {
     // If memory reference is an RVal, then it corresponds to a load. Create a
     // new load VPInstruction to represent it.
-    assert(cast<PointerType>(MemOpVPI->getBaseType()) &&
+    assert(isa<PointerType>(MemOpVPI->getBaseType()) &&
            "Base type of load is not a pointer.");
     // Result type of load will be element type of the pointer
     MemOpVPI = Builder.createNaryOp(
