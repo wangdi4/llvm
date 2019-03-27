@@ -489,8 +489,42 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DeviceInfo.FuncGblEntries[device_id].Kernels;
   for (unsigned i = 0; i < NumEntries; i++) {
     // Size is 0 means that it is kernel function.
-    if (image->EntriesBegin[i].size != 0)
+    if (image->EntriesBegin[i].size != 0) {
+#if INTEL_CUSTOMIZATION
+      // Allocate buffers for global data and copy data from host to device.
+      // FIXME: this is a temporary for global declare target data,
+      //        until we have support from OpenCL side.
+      //        This will not solve issues for the following case:
+      //          #pragma omp declare target
+      //          int a[100];
+      //          void foo() {
+      //            a[7] = 7;
+      //          }
+      //          #pragma omp end declare target
+      //
+      //          void bar() {
+      //          #pragma omp target
+      //            { foo(); }
+      //          }
+      //
+      //        foo() will have a reference to global 'a', and there
+      //        is currently no way to associate this access with the buffer
+      //        that we allocate here.
+      auto HostAddr = image->EntriesBegin[i].addr;
+      auto Name = image->EntriesBegin[i].name;
+      auto Size = image->EntriesBegin[i].size;
+      cl_mem Buffer = (cl_mem)__tgt_rtl_data_alloc(device_id, Size, HostAddr);
+      __tgt_rtl_data_submit(device_id, Buffer, HostAddr, Size);
+      DP("Global variable allocated: Name = %s, Size = %" PRIu64
+         ", HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
+         Name, (uint64_t)Size, DPxPTR(HostAddr), DPxPTR(Buffer));
+      entries[i].addr = Buffer;
+      entries[i].name = Name;
+      entries[i].size = Size;
+#endif  // INTEL_CUSTOMIZATION
       continue;
+    }
+
     char *name = image->EntriesBegin[i].name;
     kernels[i] = clCreateKernel(program[2], name, &status);
     if (status != 0) {
