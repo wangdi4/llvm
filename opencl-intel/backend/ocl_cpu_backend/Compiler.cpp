@@ -232,8 +232,10 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     }
 #endif
 
-    args.push_back("-override-flat-addr-space=4");
-    args.push_back("-infer-as-rewrite-opencl-bis");
+    if (getenv("ENABLE_INFER_AS")) {
+      args.push_back("-override-flat-addr-space=4");
+      args.push_back("-infer-as-rewrite-opencl-bis");
+    }
 
     // Loops #pragma unroll are unrolled up to -pragma-unroll-threshold, which
     // is set by default to a huge value, and it basically allows to fully
