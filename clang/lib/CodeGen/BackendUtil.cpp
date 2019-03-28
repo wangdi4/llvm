@@ -1420,6 +1420,7 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
     return;
   }
   if (Action == Backend_EmitBC && !CGOpts.PrepareForLTO &&
+      !LOpts.OpenMPLateOutline &&
       !CGOpts.DisableIntelProprietaryOpts) {
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "Bitcode output is only supported with LTO.");
