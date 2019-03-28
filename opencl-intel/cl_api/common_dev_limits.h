@@ -40,6 +40,7 @@ enum {
 // List of supported devices that differs from the a given one in cl.h
 enum DeviceMode {
   CPU_DEVICE      = 0,
-  FPGA_EMU_DEVICE = 1
+  FPGA_EMU_DEVICE = 1,
+  EYEQ_EMU_DEVICE = 2
 };
 #endif // __COMMON_DEV_LIMITES_H__
