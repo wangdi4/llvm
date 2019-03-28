@@ -2,7 +2,6 @@
 // XFAIL: *
 // end INTEL_CUSTOMIZATION
 // REQUIRES: x86
-
 // Check bad archive error reporting with --whole-archive
 // and without it.
 // RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux %s -o %t.o

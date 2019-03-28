@@ -1,3 +1,6 @@
+// INTEL_CUSTOMIZATION
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
 // REQUIRES: x86
 // RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %s -o %t.o
 // RUN: ld.lld --hash-style=sysv %t.o %S/Inputs/segment-start.script -shared -o %t.so

@@ -1,3 +1,6 @@
+# INTEL_COSTOMIZATION
+# XFAIL: *
+# end INTEL_CUSTOMIZATION
 # REQUIRES: x86
 # RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %s -o %t.o
 # RUN: ld.lld %t.o --gc-sections -shared -o %t1

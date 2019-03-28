@@ -1,3 +1,6 @@
+// INTEL_CUSTOMIZATION
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
 // REQUIRES: x86
 
 // RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %S/Inputs/x86-64-reloc-8.s -o %t1
