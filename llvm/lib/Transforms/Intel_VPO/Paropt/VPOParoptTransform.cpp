@@ -1203,10 +1203,11 @@ bool VPOParoptTransform::paroptTransforms() {
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           Changed |= genCodemotionFenceforAggrData(W);
           Changed |= genGEPCapturingLaunderIntrin(W);
-          // The purpose is to generate place holder for global variable.
-          Changed |= genGlobalPrivatizationLaunderIntrin(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
+          // The purpose is to generate place holder for global variable.
+          Changed |= genGlobalPrivatizationLaunderIntrin(W);
           improveAliasForOutlinedFunc(W);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
@@ -1221,6 +1222,11 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetUpdate:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
+          Changed |= genGEPCapturingLaunderIntrin(W);
+          genCodemotionFenceforAggrData(W);
+        } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           // The purpose is to generate place holder for global variable.
           //
           // For WRNTargetEnterData and WRNTargetExitData we may
@@ -1229,10 +1235,6 @@ bool VPOParoptTransform::paroptTransforms() {
           // them to the target runtime library, as long as they have
           // infinite reference count, and will not require data motion.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
-          Changed |= genGEPCapturingLaunderIntrin(W);
-          genCodemotionFenceforAggrData(W);
-        } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
-          Changed = clearCodemotionFenceIntrinsic(W);
           Changed |= genTargetOffloadingCode(W);
           Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
@@ -1241,12 +1243,13 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetData:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          // The purpose is to generate place holder for global variable.
           Changed |= genCodemotionFenceforAggrData(W);
           Changed |= genGEPCapturingLaunderIntrin(W);
-          Changed |= genGlobalPrivatizationLaunderIntrin(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
+          // The purpose is to generate place holder for global variable.
+          Changed |= genGlobalPrivatizationLaunderIntrin(W);
           improveAliasForOutlinedFunc(W);
           Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
@@ -3774,8 +3777,8 @@ bool VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
         MapChainTy const &MapChain = MapI->getMapChain();
         for (unsigned I = 0; I < MapChain.size(); ++I) {
           MapAggrTy *Aggr = MapChain[I];
-          Changed |= genFence(Aggr->getBasePtr(), false);
           Changed |= genFence(Aggr->getSectionPtr(), true);
+          Changed |= genFence(Aggr->getBasePtr(), true);
         }
       }
       Changed |= genFence(MapI->getOrig(), true);
@@ -3916,8 +3919,8 @@ bool VPOParoptTransform::genGEPCapturingLaunderIntrin(WRegionNode *W) {
         // for (p1, p2) (p2, p3), handle (p2, p3) before (p1, p2).
         for (int I = MapChain.size() - 1; I >= 0; --I) {
           MapAggrTy *Aggr = MapChain[I];
-          Changed |= captureAndRenameIfGEP(Aggr->getBasePtr(), MapI, false);
           Changed |= captureAndRenameIfGEP(Aggr->getSectionPtr(), MapI, true);
+          Changed |= captureAndRenameIfGEP(Aggr->getBasePtr(), MapI, true);
         }
       }
 

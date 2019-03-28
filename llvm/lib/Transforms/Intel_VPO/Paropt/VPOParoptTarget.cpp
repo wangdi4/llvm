@@ -965,7 +965,7 @@ void VPOParoptTransform::genOffloadArraysArgument(
 Value *VPOParoptTransform::genRenamePrivatizationImpl(WRegionNode *W, Value *V,
                                                       BasicBlock *EntryBB,
                                                       Item *IT) {
-  IRBuilder<> Builder(EntryBB->getFirstNonPHI());
+  IRBuilder<> Builder(EntryBB->getTerminator());
   Value *NewPrivInst = Builder.CreateLaunderInvariantGroup(V);
   NewPrivInst->setName(V->getName());
   genPrivatizationReplacement(W, V, NewPrivInst, IT);
@@ -1000,14 +1000,18 @@ Value *VPOParoptTransform::genRenamePrivatizationImpl(WRegionNode *W, Value *V,
 /// \endcode
 bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
 
-  SmallPtrSet<Value *, 16> HandledVals;
+  DenseMap<Value *, Value *> RenameMap;
+  bool Changed = false;
 
-  // Check if Orig is a bitcast, whose operand is a launder intrinsic,
-  // and if so, remove the launder intrinsic.
-  // Return true if replacement happened.
+  // Check if Orig is a launder intrinsic, or a bitcast whose operand is a
+  // launder intrinsic, and if so, remove the launder intrinsic.
+  // Return the Value which can be used to replace uses of Orig.
   auto removeLaunderIntrinsic = [&](Value *Orig, bool CheckAlreadyHandled) {
-    if (CheckAlreadyHandled && HandledVals.find(Orig) != HandledVals.end())
-      return false;
+    if (CheckAlreadyHandled) {
+      auto VOrigAndNew = RenameMap.find(Orig);
+      if (VOrigAndNew != RenameMap.end())
+        return VOrigAndNew->second;
+    }
 
     BitCastInst *BI = dyn_cast_or_null<BitCastInst>(Orig);
     // For i8* operands, there is no BitCast, so the clause operand may itself
@@ -1020,60 +1024,75 @@ bool VPOParoptTransform::clearLaunderIntrinBeforeRegion(WRegionNode *W) {
                            "launder intrinsic '";
                  CI->printAsOperand(dbgs()); dbgs() << "' with its operand.\n");
 
-      CI->replaceAllUsesWith(CI->getOperand(0));
+      Value *NewV = CI->getOperand(0);
+      CI->replaceAllUsesWith(NewV);
       CI->eraseFromParent();
-      HandledVals.insert(Orig);
-      return true;
+      RenameMap.insert({V, NewV});
+      Changed = true;
+      if (V == Orig) // If V is Orig, we want to replace uses of Orig with NewV,
+        return NewV; // but not when V is a bitcast on Orig.
     }
-    return false;
+    RenameMap.insert({Orig, Orig});
+    return Orig;
   };
 
-  bool Changed = false;
+  Value *NewV = nullptr;
 
   if (W->canHavePrivate()) {
     PrivateClause const &PrivClause = W->getPriv();
-    for (PrivateItem *PrivI : PrivClause.items())
-      Changed |= removeLaunderIntrinsic(PrivI->getOrig(), false);
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      NewV = removeLaunderIntrinsic(PrivI->getOrig(), false);
+      PrivI->setOrig(NewV);
+    }
   }
 
   if (W->canHaveReduction()) {
     ReductionClause const &RedClause = W->getRed();
-    for (ReductionItem *RedI : RedClause.items())
-      Changed |= removeLaunderIntrinsic(RedI->getOrig(), false);
+    for (ReductionItem *RedI : RedClause.items()) {
+      NewV = removeLaunderIntrinsic(RedI->getOrig(), false);
+      RedI->setOrig(NewV);
+    }
   }
 
   if (W->canHaveLinear()) {
     LinearClause const &LrClause = W->getLinear();
-    for (LinearItem *LrI : LrClause.items())
-      Changed |= removeLaunderIntrinsic(LrI->getOrig(), false);
+    for (LinearItem *LrI : LrClause.items()) {
+      NewV = removeLaunderIntrinsic(LrI->getOrig(), false);
+      LrI->setOrig(NewV);
+    }
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
-    for (FirstprivateItem *FprivI : FprivClause.items())
-      Changed |= removeLaunderIntrinsic(FprivI->getOrig(), false);
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      NewV = removeLaunderIntrinsic(FprivI->getOrig(), false);
+      FprivI->setOrig(NewV);
+    }
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause const &LprivClause = W->getLpriv();
-    for (LastprivateItem *LprivI : LprivClause.items())
-      Changed |= removeLaunderIntrinsic(LprivI->getOrig(), true);
+    for (LastprivateItem *LprivI : LprivClause.items()) {
+      NewV = removeLaunderIntrinsic(LprivI->getOrig(), true);
+      LprivI->setOrig(NewV);
+    }
   }
 
   if (W->canHaveMap()) {
     MapClause const &MpClause = W->getMap();
     for (MapItem *MapI : MpClause.items()) {
       if (MapI->getIsMapChain()) {
-        MapChainTy const &MapChain = MapI->getMapChain();
+        MapChainTy &MapChain = MapI->getMapChain();
         for (int I = MapChain.size() - 1; I >= 0; --I) {
           MapAggrTy *Aggr = MapChain[I];
-          Value *SectionPtr = Aggr->getSectionPtr();
-          Value *BasePtr = Aggr->getBasePtr();
-          Changed |= removeLaunderIntrinsic(BasePtr, false);
-          Changed |= removeLaunderIntrinsic(SectionPtr, true);
+          NewV = removeLaunderIntrinsic(Aggr->getSectionPtr(), true);
+          Aggr->setSectionPtr(NewV);
+          NewV = removeLaunderIntrinsic(Aggr->getBasePtr(), true);
+          Aggr->setBasePtr(NewV);
         }
       }
-      Changed |= removeLaunderIntrinsic(MapI->getOrig(), true);
+      NewV = removeLaunderIntrinsic(MapI->getOrig(), true);
+      MapI->setOrig(NewV);
     }
   }
 
@@ -1111,8 +1130,38 @@ Value *VPOParoptTransform::getRootValueFromFenceCall(Value *Orig) {
 /// is used by paropt, does not generate that argument for global variables.
 /// In order to help the CodeExtractor to achieve this, we rename the uses of
 /// this global variable within the WRegion (including the directive).
-/// The outline function will have an entry for the renamed variable.
+/// The outline function will have an entry for the renamed variable. We do the
+/// renaming for ConstantExpr operands as well.
 /// This renaming is done using genRenamePrivatizationImpl().
+///
+/// Before:
+/// \code
+///  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), ... ,
+///       "QUAL.OMP.MAP.TOFROM:AGGRHEAD"([10 x i16]* @a,
+///       i16* getelementptr inbounds (@a, i64 0, i64 1),
+///       i64 2) ]
+///  .... ; @a is used inside the region.
+/// \endcode
+///
+/// After:
+/// \code
+///  %0 = call i8* @llvm.launder.invariant.group.p0i8(
+///       i8* bitcast (i16* getelementptr inbounds (@a, i64 0, i64 1) to i8*))
+///  %1 = bitcast i8* %0 to i16*
+///  %2 = call i8* @llvm.launder.invariant.group.p0i8(
+///       i8* bitcast (@a to i8*))
+///  %a = bitcast i8* %2 to [10 x i16]*
+///
+///  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), ... ,
+///       "QUAL.OMP.MAP.TOFROM:AGGRHEAD"([10 x i16]* %a,
+///       i16* %1,
+///       i64 2) ]
+/// ... ; %a is used inside the region instead of @a
+/// \endcode
+///
+/// With these changes, CodeExtractor will pass in %a and %1 as parameters of
+/// the outlined function. After that, the renaming will be undone using
+/// clearLaunderIntrinBeforeRegion().
 bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB =
@@ -1123,28 +1172,57 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
 
   assert(W->canHaveMap() &&
          "Function called for a WRegion that cannot have a Map clause.");
-  MapClause const &MpClause = W->getMap();
-  for (MapItem *MapI : MpClause.items()) {
-    GlobalVariable *G = dyn_cast_or_null<GlobalVariable>(MapI->getOrig());
-    if (!G)
-      continue;
 
-    genRenamePrivatizationImpl(W, G, EntryBB, MapI);
+  // Map between Original Value V and the renamed value NewV. If no renaming
+  // happens, The map will have {V, V}.
+  DenseMap<Value *, Value *> RenameMap;
+  auto renameGlobalsAndConstExprs = [&](Value *V, Item *It) {
+    auto VOrigAndNew = RenameMap.find(V);
+    if (VOrigAndNew != RenameMap.end())
+      return VOrigAndNew->second;
+
+    if (!isa<GlobalVariable>(V) && !isa<ConstantExpr>(V)) {
+      RenameMap.insert({V, V});
+      return V;
+    }
+
+    Value *VNew = genRenamePrivatizationImpl(W, V, EntryBB, It);
+    RenameMap.insert({V, VNew});
     Changed = true;
+    return VNew;
+  };
+
+  MapClause &MpClause = W->getMap();
+  Value *VNew = nullptr;
+  // The capturing also needs to happen for Constant EXPRs in SectionPtrs.
+  for (MapItem *MapI : MpClause.items()) {
+    if (MapI->getIsMapChain()) {
+      MapChainTy &MapChain = MapI->getMapChain();
+      // Iterate through a map chain in reverse order. For example,
+      // for (p1, p2) (p2, p3), handle (p2, p3) before (p1, p2).
+      // We can also have things like (p1, p1) (p1, p2) for cases like:
+      //   int (*p1)[10];
+      //   ...
+      //   ... target map(tofrom:p1[0][1]) ...
+      for (int I = MapChain.size() - 1; I >= 0; --I) {
+        MapAggrTy *Aggr = MapChain[I];
+        VNew = renameGlobalsAndConstExprs(Aggr->getSectionPtr(), MapI);
+        Aggr->setSectionPtr(VNew);
+        VNew = renameGlobalsAndConstExprs(Aggr->getBasePtr(), MapI);
+        Aggr->setBasePtr(VNew);
+      }
+    }
+
+    VNew = renameGlobalsAndConstExprs(MapI->getOrig(), MapI);
+    MapI->setOrig(VNew);
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items()) {
-      if (FprivI->getInMap())
-        continue;
 
-      GlobalVariable *G = dyn_cast<GlobalVariable>(FprivI->getOrig());
-      if (!G)
-        continue;
-
-      genRenamePrivatizationImpl(W, G, EntryBB, FprivI);
-      Changed = true;
+      VNew = renameGlobalsAndConstExprs(FprivI->getOrig(), FprivI);
+      FprivI->setOrig(VNew);
     }
   }
 
