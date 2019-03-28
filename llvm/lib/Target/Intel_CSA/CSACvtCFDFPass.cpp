@@ -1305,7 +1305,9 @@ void CSACvtCFDFPass::assignLicForDF() {
           continue;
         // In the case of registers without uses, replace them without ignore
         // instead of switching them to an unused LIC.
-        if (Op.isDef() && MRI->use_empty(Reg))
+        if (Op.isDef() && MRI->use_empty(Reg)
+            && (MI.getOpcode() != CSA::CSA_ENTRY)
+            && (MI.getOpcode() != CSA::CSA_CONTINUE))
           MI.substituteRegister(Reg, CSA::IGN, 0, *TRI);
         else {
           const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
