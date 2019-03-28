@@ -66,7 +66,7 @@ enum FuncField{
   FMDIR_CSs,
   FMDIR_ModuleName,
   FMDIR_IsDead,
-  FMDIR_isDeclaration,
+  FMDIR_IsDeclaration,
   FMDIR_LinkageStr
 };
 }
@@ -85,9 +85,9 @@ class InlineReportBuilder : public CallGraphReport {
   SmallVector<Value *, 20> ActiveInlinedCalls;
 
 public:
-  explicit InlineReportBuilder()
-      : CurrentCallInstr(nullptr), CurrentCallInstReport(nullptr),
-        CurrentCallee(nullptr){};
+  explicit InlineReportBuilder(unsigned MyLevel)
+      : Level(MyLevel), CurrentCallInstr(nullptr),
+        CurrentCallInstReport(nullptr), CurrentCallee(nullptr){};
 
   virtual ~InlineReportBuilder(void) {
     while (!IRCallbackVector.empty()) {
@@ -108,6 +108,7 @@ public:
   // Mark function as dead in its inlining report.
   void setDead(Function *F);
 
+  bool isMDIREnabled() { return Level & BasedOnMetadata; }
   // Create a clone of function inlining report.
   Metadata *cloneInliningReport(Function *F, ValueToValueMapTy &VMap);
   // Update inlining report for the inlined call site.
@@ -116,10 +117,6 @@ public:
   // Add a pair of old and new call sites.  The 'NewCall' is a clone of
   // the 'OldCall' produced by InlineFunction().
   void addActiveCallSitePair(Instruction *OldCall, Instruction *NewCall) {
-    if (!OldCall || !NewCall)
-      return;
-    if (!NewCall->hasMetadata())
-      return;
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
     addCallback(NewCall, NewCall->getMetadata(MDInliningReport::FunctionTag));
@@ -153,8 +150,13 @@ public:
     ActiveOriginalCalls.clear();
     ActiveInlinedCalls.clear();
   }
+  // The level of the inline report
+  unsigned getLevel() { return Level; }
 
 private:
+  /// \brief The Level is specified by the option -inline-report=N.
+  /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
+  unsigned Level;
   // Call instruction which is considered on the current inlining step.
   Instruction *CurrentCallInstr;
   // Metadata inlining report for the current call instruction.
@@ -179,7 +181,8 @@ private:
               LLVMContext &Ctx = MDIR->getContext();
               std::string ReasonStr = "reason: ";
               ReasonStr.append(std::to_string(InlineReportTypes::NinlrDeleted));
-              CSIR->replaceOperandWith(4, llvm::MDString::get(Ctx, ReasonStr));
+              CSIR->replaceOperandWith(MDInliningReport::CSMDIR_InlineReason,
+                                       llvm::MDString::get(Ctx, ReasonStr));
             }
       } else if (isa<Function>(getValPtr())) {
         /// \brief Indicate in the inline report that the function
@@ -189,7 +192,8 @@ private:
             LLVMContext &Ctx = MDIR->getContext();
             std::string IsDeadStr = "isDead: ";
             IsDeadStr.append(std::to_string(true));
-            FIR->replaceOperandWith(4, llvm::MDString::get(Ctx, IsDeadStr));
+            FIR->replaceOperandWith(MDInliningReport::FMDIR_IsDead,
+                                    llvm::MDString::get(Ctx, IsDeadStr));
           }
         }
       }

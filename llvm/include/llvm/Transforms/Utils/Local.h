@@ -32,6 +32,8 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"     // INTEL
 #include <cstdint>
 #include <limits>
 
@@ -470,7 +472,11 @@ unsigned changeToUnreachable(Instruction *I, bool UseLLVMTrap,
 /// InvokeInst is a terminator instruction.  Returns the newly split basic
 /// block.
 BasicBlock *changeToInvokeAndSplitBasicBlock(CallInst *CI,
-                                             BasicBlock *UnwindEdge);
+#if INTEL_CUSTOMIZATION
+                                             BasicBlock *UnwindEdge,
+                                             InlineReport *IR,
+                                             InlineReportBuilder *MDIR);
+#endif // INTEL_CUSTOMIZATION
 
 /// Replace 'BB's terminator with one that does not have an unwind successor
 /// block. Rewrites `invoke` to `call`, etc. Updates any PHIs in unwind

@@ -261,7 +261,7 @@ public:
 
   // \brief Indicate that the Function is dead
   void setDead(Function *F) {
-    if (!Level)
+    if (!isClassicIREnabled())
       return;
     InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
     assert(MapIt != IRFunctionMap.end());
@@ -277,6 +277,11 @@ public:
 
   // The level of the inline report
   unsigned getLevel() { return Level; }
+
+  // \brief Check if classic inline report should be created
+  bool isClassicIREnabled() const {
+    return (Level && !(Level & InlineReportTypes::BasedOnMetadata));
+  }
 
   /// \brief Record the reason a call site is or is not inlined.
   void setReasonNotInlined(const CallSite CS,

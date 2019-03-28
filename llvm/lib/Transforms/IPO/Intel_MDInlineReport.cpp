@@ -23,6 +23,8 @@
 using namespace llvm;
 using namespace MDInliningReport;
 
+#define DEBUG_TYPE "mdinlinereport"
+
 std::string llvm::getLinkageStr(Function *F) {
   std::string LinkageChar =
       (F->hasLocalLinkage()
@@ -215,6 +217,8 @@ void llvm::setMDReasonNotInlined(const CallSite CS, const InlineCost &IC) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
+  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
+         "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string ReasonStr = "reason: ";
   ReasonStr.append(std::to_string(Reason));
@@ -244,8 +248,8 @@ void llvm::setMDReasonNotInlined(const CallSite CS, InlineReason Reason) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  if (!CSIR)
-    return;
+  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
+         "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string ReasonStr = "reason: ";
   ReasonStr.append(std::to_string(Reason));
@@ -261,8 +265,8 @@ void llvm::setMDReasonNotInlined(const CallSite CS, const InlineCost &IC,
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  if (!CSIR)
-    return;
+  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
+         "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string OuterInlineCostStr = "outerInlineCost: ";
   OuterInlineCostStr.append(std::to_string(TotalSecondaryCost));
@@ -277,8 +281,8 @@ void llvm::setMDReasonIsInlined(const CallSite CS, InlineReason Reason) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  if (!CSIR)
-    return;
+  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
+         "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string ReasonStr = "reason: ";
   ReasonStr.append(std::to_string(Reason));
@@ -294,8 +298,8 @@ void llvm::setMDReasonIsInlined(const CallSite CS, const InlineCost &IC) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  if (!CSIR)
-    return;
+  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
+         "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string IsInlinedStr = "isInlined: ";
   IsInlinedStr.append(std::to_string(true));
@@ -318,12 +322,18 @@ void llvm::setMDReasonIsInlined(const CallSite CS, const InlineCost &IC) {
 // In the beginning of the inlining process put all functions and call
 // instructions together with their inlining reports into callback list.
 void InlineReportBuilder::beginFunction(Function *F) {
+  if (!isMDIREnabled())
+    return;
   if (!F)
     return;
-  if (F->getMetadata(FunctionTag)) {
+  if (!F->getMetadata(FunctionTag)) {
     // no inlining report set up.
     return;
   }
+
+  LLVM_DEBUG(dbgs() << "\nMDIR inline: begin function " << F->getName()
+                    << "\n");
+
   std::vector<MDTuple *> CSs;
   for (BasicBlock &BB : *F) {
     for (Instruction &I : BB) {
@@ -331,7 +341,8 @@ void InlineReportBuilder::beginFunction(Function *F) {
       // If this isn't a call it can never be inlined.
       if (!CS)
         continue;
-      addCallback(&I, CS->getMetadata(CallSiteTag));
+      if (auto CSMD = CS->getMetadata(CallSiteTag))
+        addCallback(&I, CSMD);
     }
   }
 
@@ -353,6 +364,8 @@ void InlineReportBuilder::beginFunction(Function *F) {
 // The main goal of beginSCC() and beginFunction() routines is to fill in the
 // list of callbacks which is stored in InlineReportBuilder object.
 void InlineReportBuilder::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
+  if (!isMDIREnabled())
+    return;
   Module &M = CG.getModule();
   NamedMDNode *ModuleInlineReport = M.getNamedMetadata(ModuleTag);
   if (!ModuleInlineReport || ModuleInlineReport->getNumOperands() == 0)
@@ -366,6 +379,8 @@ void InlineReportBuilder::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
 }
 
 void InlineReportBuilder::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
+  if (!isMDIREnabled())
+    return;
   Module &M = CG.getModule();
   NamedMDNode *ModuleInlineReport = M.getNamedMetadata(ModuleTag);
   if (!ModuleInlineReport || ModuleInlineReport->getNumOperands() == 0)
@@ -376,6 +391,8 @@ void InlineReportBuilder::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
 
 // Function set dead
 void InlineReportBuilder::setDead(Function *F) {
+  if (!isMDIREnabled())
+    return;
   Metadata *FMD = F->getMetadata(FunctionTag);
   if (!FMD)
     return;
@@ -414,6 +431,8 @@ cloneInliningReportHelper(LLVMContext &C, Metadata *OldMD,
 // of the callee and attach it to the call site, updating isInlined value.
 Metadata *InlineReportBuilder::cloneInliningReport(Function *F,
                                                    ValueToValueMapTy &VMap) {
+  if (!isMDIREnabled())
+    return nullptr;
   DenseMap<Metadata *, Metadata *> MDMap;
   Metadata *FuncMD = F->getMetadata(FunctionTag);
   if (!FuncMD)
@@ -427,9 +446,8 @@ Metadata *InlineReportBuilder::cloneInliningReport(Function *F,
       continue;
 
     const Instruction *OldI = dyn_cast<Instruction>(InstIt->first);
-    if (!OldI || !isa<CallInst>(OldI))
+    if (!OldI || !isa<CallBase>(OldI))
       continue;
-
     Metadata *OldMetadata = OldI->getMetadata(CallSiteTag);
     if (!OldMetadata)
       continue;
@@ -447,6 +465,8 @@ Metadata *InlineReportBuilder::cloneInliningReport(Function *F,
 
 // Update inlining report of the inlined call site.
 void InlineReportBuilder::updateInliningReport() {
+  if (!isMDIREnabled())
+    return;
   if (!CurrentCallee)
     return;
   if (!CurrentCallInstReport)
@@ -481,6 +501,8 @@ void InlineReportBuilder::updateInliningReport() {
 
 void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
                                                       Function *NewFunction) {
+  if (!isMDIREnabled())
+    return;
   if (OldFunction == NewFunction)
     return;
   Metadata *OldFMD = OldFunction->getMetadata(FunctionTag);

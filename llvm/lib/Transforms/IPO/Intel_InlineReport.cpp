@@ -229,7 +229,7 @@ InlineReportFunction::~InlineReportFunction(void) {
 //
 
 InlineReportFunction *InlineReport::addFunction(Function *F, Module *M) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return nullptr;
   if (!F)
     return nullptr;
@@ -250,7 +250,7 @@ InlineReportFunction *InlineReport::addFunction(Function *F, Module *M) {
 
 InlineReportCallSite *InlineReport::addCallSite(Function *F, CallSite CS,
                                                 Module *M) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return nullptr;
   if (!F )
     return nullptr;
@@ -276,7 +276,7 @@ InlineReportCallSite *InlineReport::addCallSite(Function *F, CallSite CS,
 
 InlineReportCallSite *InlineReport::addNewCallSite(Function *F, CallSite CS,
                                                    Module *M) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return nullptr;
   InlineReportCallSite *IRCS = getCallSite(CS);
   if (IRCS != nullptr)
@@ -285,7 +285,7 @@ InlineReportCallSite *InlineReport::addNewCallSite(Function *F, CallSite CS,
 }
 
 void InlineReport::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   M = &CG.getModule();
   for (CallGraphNode *Node : SCC) {
@@ -295,7 +295,7 @@ void InlineReport::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
 }
 
 void InlineReport::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   M = &CG.getModule();
   for (auto &Node : SCC) {
@@ -333,7 +333,7 @@ void InlineReport::beginFunction(Function *F) {
 }
 
 void InlineReport::endSCC(void) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   makeAllNotCurrent();
 }
@@ -367,7 +367,7 @@ void InlineReport::cloneChildren(
 }
 
 void InlineReport::inlineCallSite() {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   //
   // Get the inline report for the routine being inlined.  We are going
@@ -413,7 +413,7 @@ void InlineReport::inlineCallSite() {
 }
 
 void InlineReport::setReasonIsInlined(const CallSite CS, InlineReason Reason) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   assert(IsInlinedReason(Reason));
   Instruction *NI = CS.getInstruction();
@@ -428,7 +428,7 @@ void InlineReport::setReasonIsInlined(const CallSite CS, InlineReason Reason) {
 
 void InlineReport::setReasonIsInlined(const CallSite CS,
                                       const InlineCost &IC) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   assert(IsInlinedReason(IC.getInlineReason()));
   Instruction *NI = CS.getInstruction();
@@ -445,7 +445,7 @@ void InlineReport::setReasonIsInlined(const CallSite CS,
 
 void InlineReport::setReasonNotInlined(const CallSite CS,
                                        InlineReason Reason) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   assert(IsNotInlinedReason(Reason));
   Instruction *NI = CS.getInstruction();
@@ -460,7 +460,7 @@ void InlineReport::setReasonNotInlined(const CallSite CS,
 
 void InlineReport::setReasonNotInlined(const CallSite CS,
                                        const InlineCost &IC) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   InlineReason Reason = IC.getInlineReason();
   assert(IsNotInlinedReason(Reason));
@@ -480,7 +480,7 @@ void InlineReport::setReasonNotInlined(const CallSite CS,
 
 void InlineReport::setReasonNotInlined(const CallSite CS, const InlineCost &IC,
                                        int TotalSecondaryCost) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   assert(IC.getInlineReason() == NinlrOuterInlining);
   setReasonNotInlined(CS, IC);
@@ -533,13 +533,13 @@ printInlineReportCallSiteVector(const InlineReportCallSiteVector &Vector,
 }
 
 void InlineReportFunction::print(unsigned Level) const {
-  if (!Level)
+  if (!Level || (Level & InlineReportTypes::BasedOnMetadata))
     return;
   printInlineReportCallSiteVector(CallSites, 1, Level);
 }
 
 void InlineReport::print(void) const {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   llvm::errs() << "---- Begin Inlining Report ----\n";
   printOptionValues();
@@ -661,7 +661,7 @@ void InlineReport::makeCurrent(Module *M, Function *F) {
 }
 
 void InlineReport::makeAllNotCurrent(void) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return;
   InlineReportFunctionMap::const_iterator It, E;
   for (It = IRFunctionMap.begin(), E = IRFunctionMap.end(); It != E; ++It) {
@@ -689,7 +689,7 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
 }
 
 InlineReportCallSite *InlineReport::getCallSite(CallSite CS) {
-  if (!Level)
+  if (!isClassicIREnabled())
     return nullptr;
   Instruction *NI = CS.getInstruction();
   InlineReportInstructionCallSiteMap::const_iterator MapItC =

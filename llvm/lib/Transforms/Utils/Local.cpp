@@ -1975,7 +1975,11 @@ static void changeToCall(InvokeInst *II, DomTreeUpdater *DTU = nullptr) {
 }
 
 BasicBlock *llvm::changeToInvokeAndSplitBasicBlock(CallInst *CI,
-                                                   BasicBlock *UnwindEdge) {
+#if INTEL_CUSTOMIZATION
+                                                   BasicBlock *UnwindEdge,
+                                                   InlineReport *IR,
+                                                   InlineReportBuilder *MDIR) {
+#endif // INTEL_CUSTOMIZATION
   BasicBlock *BB = CI->getParent();
 
   // Convert this function call into an invoke instruction.  First, split the
@@ -2002,6 +2006,13 @@ BasicBlock *llvm::changeToInvokeAndSplitBasicBlock(CallInst *CI,
   II->setDebugLoc(CI->getDebugLoc());
   II->setCallingConv(CI->getCallingConv());
   II->setAttributes(CI->getAttributes());
+
+#if INTEL_CUSTOMIZATION
+  if (IR && IR->isClassicIREnabled())
+    IR->updateActiveCallSiteTarget(CI, II);
+  if (MDIR && MDIR->isMDIREnabled())
+    MDIR->updateActiveCallSiteTarget(CI, II);
+#endif // INTEL_CUSTOMIZATION
 
   // Make sure that anything using the call now uses the invoke!  This also
   // updates the CallGraph if present, because it uses a WeakTrackingVH.

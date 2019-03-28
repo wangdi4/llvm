@@ -86,7 +86,9 @@ IRBuilder<> *EscapeEnumerator::Next() {
   SmallVector<Value *, 16> Args;
   for (unsigned I = Calls.size(); I != 0;) {
     CallInst *CI = cast<CallInst>(Calls[--I]);
-    changeToInvokeAndSplitBasicBlock(CI, CleanupBB);
+#if INTEL_CUSTOMIZATION
+    changeToInvokeAndSplitBasicBlock(CI, CleanupBB, nullptr, nullptr);
+#endif // INTEL_CUSTOMIZATION
   }
 
   Builder.SetInsertPoint(RI);

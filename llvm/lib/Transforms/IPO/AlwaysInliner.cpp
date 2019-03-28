@@ -36,7 +36,8 @@ using namespace InlineReportTypes; // INTEL
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
 AlwaysInlinerPass::AlwaysInlinerPass(bool InsertLifetime)
-    : InsertLifetime(InsertLifetime), Report(IntelInlineReportLevel) {}
+    : InsertLifetime(InsertLifetime), Report(IntelInlineReportLevel),
+      MDReport(IntelInlineReportLevel){}
 #endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {

@@ -580,6 +580,7 @@ static Value *getUnwindDestToken(Instruction *EHPad,
 /// nodes in that block with the values specified in InvokeDestPHIValues.
 static BasicBlock *HandleCallsInBlockInlinedThroughInvoke(
     BasicBlock *BB, BasicBlock *UnwindEdge,
+    InlineReport *IR, InlineReportBuilder *MDIR, // INTEL
     UnwindDestMemoTy *FuncletUnwindMap = nullptr) {
   for (BasicBlock::iterator BBI = BB->begin(), E = BB->end(); BBI != E; ) {
     Instruction *I = &*BBI++;
@@ -627,7 +628,7 @@ static BasicBlock *HandleCallsInBlockInlinedThroughInvoke(
 #endif // NDEBUG
     }
 
-    changeToInvokeAndSplitBasicBlock(CI, UnwindEdge);
+    changeToInvokeAndSplitBasicBlock(CI, UnwindEdge, IR, MDIR); // INTEL
     return BB;
   }
   return nullptr;
@@ -640,7 +641,11 @@ static BasicBlock *HandleCallsInBlockInlinedThroughInvoke(
 /// block of the inlined code (the last block is the end of the function),
 /// and InlineCodeInfo is information about the code that got inlined.
 static void HandleInlinedLandingPad(InvokeInst *II, BasicBlock *FirstNewBlock,
-                                    ClonedCodeInfo &InlinedCodeInfo) {
+#if INTEL_CUSTOMIZATION
+                                    ClonedCodeInfo &InlinedCodeInfo,
+                                    InlineReport *IR,
+                                    InlineReportBuilder *MDIR) {
+#endif // INTEL_CUSTOMIZATION
   BasicBlock *InvokeDest = II->getUnwindDest();
 
   Function *Caller = FirstNewBlock->getParent();
@@ -673,7 +678,7 @@ static void HandleInlinedLandingPad(InvokeInst *II, BasicBlock *FirstNewBlock,
        BB != E; ++BB) {
     if (InlinedCodeInfo.ContainsCalls)
       if (BasicBlock *NewBB = HandleCallsInBlockInlinedThroughInvoke(
-              &*BB, Invoke.getOuterResumeDest()))
+              &*BB, Invoke.getOuterResumeDest(), IR, MDIR)) // INTEL
         // Update any PHI nodes in the exceptional block to indicate that there
         // is now a new entry in them.
         Invoke.addIncomingPHIValuesFor(NewBB);
@@ -697,7 +702,10 @@ static void HandleInlinedLandingPad(InvokeInst *II, BasicBlock *FirstNewBlock,
 /// block of the inlined code (the last block is the end of the function),
 /// and InlineCodeInfo is information about the code that got inlined.
 static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
-                               ClonedCodeInfo &InlinedCodeInfo) {
+#if INTEL_CUSTOMIZATION
+                               ClonedCodeInfo &InlinedCodeInfo,
+                               InlineReport *IR, InlineReportBuilder *MDIR) {
+#endif // INTEL_CUSTOMIZATION
   BasicBlock *UnwindDest = II->getUnwindDest();
   Function *Caller = FirstNewBlock->getParent();
 
@@ -810,7 +818,7 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
                             E = Caller->end();
          BB != E; ++BB)
       if (BasicBlock *NewBB = HandleCallsInBlockInlinedThroughInvoke(
-              &*BB, UnwindDest, &FuncletUnwindMap))
+              &*BB, UnwindDest, IR, MDIR, &FuncletUnwindMap)) // INTEL
         // Update any PHI nodes in the exceptional block to indicate that there
         // is now a new entry in them.
         UpdatePHINodes(NewBB);
@@ -1241,7 +1249,8 @@ static void AddAlignmentAssumptions(CallSite CS, InlineFunctionInfo &IFI) {
 static void UpdateIFIWithoutCG(CallSite OrigCS, ValueToValueMapTy &VMap,
                                InlineFunctionInfo &IFI, InlineReport *IR,
                                InlineReportBuilder *MDIR) {
-  if (IFI.CG && (!IR || !IR->getLevel()) && !MDIR)
+  if (IFI.CG && !(IR && IR->isClassicIREnabled()) &&
+      !(MDIR && MDIR->isMDIREnabled()))
     return;
   Function *Caller = OrigCS.getCalledFunction();
   if (!Caller)
@@ -1258,9 +1267,9 @@ static void UpdateIFIWithoutCG(CallSite OrigCS, ValueToValueMapTy &VMap,
       switch (II->getIntrinsicID()) {
       case Intrinsic::vaargpack:
       case Intrinsic::vaargpacklen:
-        if (IR && IR->getLevel())
+        if (IR && IR->isClassicIREnabled())
           IR->addActiveCallSitePair(&I, nullptr);
-        if (MDIR)
+        if (MDIR && MDIR->isMDIREnabled())
           MDIR->addActiveCallSitePair(&I, nullptr);
         continue;
       default:
@@ -1272,9 +1281,9 @@ static void UpdateIFIWithoutCG(CallSite OrigCS, ValueToValueMapTy &VMap,
     Instruction *NewCall = dyn_cast<Instruction>(VMI->second);
     if (!NewCall)
       continue;
-    if (IR && IR->getLevel())
+    if (IR && IR->isClassicIREnabled())
       IR->addActiveCallSitePair(&I, NewCall);
-    if (MDIR)
+    if (MDIR && MDIR->isMDIREnabled())
       MDIR->addActiveCallSitePair(&I, NewCall);
     if (!IFI.CG && !II)
       IFI.InlinedCalls.push_back(NewCall);
@@ -1631,9 +1640,9 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
       CI->getOperandBundlesAsDefs(OpBundles);
       auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles,
         "", CI);
-      if (IR)
+      if (IR && IR->isClassicIREnabled())
         IR->updateActiveCallSiteTarget(CI, NewI);
-      if (MDIR)
+      if (MDIR && MDIR->isMDIREnabled())
         MDIR->updateActiveCallSiteTarget(CI, NewI);
       NewI->takeName(CI);
       NewI->setCallingConv(CI->getCallingConv());
@@ -1657,9 +1666,9 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
       CI->getOperandBundlesAsDefs(OpBundles);
       auto NewI = InvokeInst::Create(CI->getCalledValue(),
         CI->getNormalDest(), CI->getUnwindDest(), Args, OpBundles, "", CI);
-      if (IR)
+      if (IR && IR->isClassicIREnabled())
         IR->updateActiveCallSiteTarget(CI, NewI);
-      if (MDIR)
+      if (MDIR && MDIR->isMDIREnabled())
         MDIR->updateActiveCallSiteTarget(CI, NewI);
       NewI->takeName(CI);
       NewI->setCallingConv(CI->getCallingConv());
@@ -2341,9 +2350,14 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     BasicBlock *UnwindDest = II->getUnwindDest();
     Instruction *FirstNonPHI = UnwindDest->getFirstNonPHI();
     if (isa<LandingPadInst>(FirstNonPHI)) {
-      HandleInlinedLandingPad(II, &*FirstNewBlock, InlinedFunctionInfo);
+#if INTEL_CUSTOMIZATION
+      HandleInlinedLandingPad(II, &*FirstNewBlock, InlinedFunctionInfo, IR,
+                              MDIR);
+#endif // INTEL_CUSTOMIZATION
     } else {
-      HandleInlinedEHPad(II, &*FirstNewBlock, InlinedFunctionInfo);
+#if INTEL_CUSTOMIZATION
+      HandleInlinedEHPad(II, &*FirstNewBlock, InlinedFunctionInfo, IR, MDIR);
+#endif // INTEL_CUSTOMIZATION
     }
   }
 

@@ -114,7 +114,8 @@ public:
   InlinerPass(InlinerPass &&Arg)
       : Params(std::move(Arg.Params)),
         ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)), // INTEL
-        Report(std::move(Arg.Report))                                  // INTEL
+        Report(std::move(Arg.Report)),                                 // INTEL
+        MDReport(std::move(Arg.MDReport))                              // INTEL
   {}                                                                   // INTEL
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,

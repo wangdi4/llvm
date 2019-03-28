@@ -102,6 +102,7 @@ STATISTIC(NumCallerCallersAnalyzed, "Number of caller-callers analyzed");
 ///   16: Print the file for each call site
 ///   32: Print linkage info for each function and call site
 ///   64: Print both early exit and real inlining costs
+///  128: Create metadata-based inline report
 ///
 cl::opt<unsigned>
 IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),
@@ -148,11 +149,12 @@ static cl::opt<bool>
 
 #if INTEL_CUSTOMIZATION
 LegacyInlinerBase::LegacyInlinerBase(char &ID)
-    : CallGraphSCCPass(ID), Report(IntelInlineReportLevel) {}
+    : CallGraphSCCPass(ID), Report(IntelInlineReportLevel),
+      MDReport(IntelInlineReportLevel) {}
 
 LegacyInlinerBase::LegacyInlinerBase(char &ID, bool InsertLifetime)
     : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime),
-      Report(IntelInlineReportLevel) {}
+      Report(IntelInlineReportLevel), MDReport(IntelInlineReportLevel) {}
 #endif // INTEL_CUSTOMIZATION
 
 /// For this class, we declare that we require and preserve the call graph.
@@ -1105,7 +1107,8 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 
 #if INTEL_CUSTOMIZATION
 InlinerPass::InlinerPass(InlineParams Params)
-    : Params(std::move(Params)), Report(IntelInlineReportLevel) {}
+    : Params(std::move(Params)), Report(IntelInlineReportLevel),
+      MDReport(IntelInlineReportLevel) {}
 #endif  // INTEL_CUSTOMIZATION
 
 InlinerPass::~InlinerPass() {
