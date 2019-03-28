@@ -325,6 +325,14 @@ KMPC_ATOMIC_FN_CPT(float8, div, double);
 
 /// TODO: more data types
 
+///
+/// Support for generalized atomics code generation
+///
+
+EXTERN void __kmpc_atomic_load(size_t, void *, void *, int);
+EXTERN void __kmpc_atomic_store(size_t, void *, void *, int);
+EXTERN bool __kmpc_atomic_compare_exchange(size_t, void *, void *, void *, int,
+                                           int);
 
 ///
 /// Other __kmpc_* entries

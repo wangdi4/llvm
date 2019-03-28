@@ -448,6 +448,133 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, mul, *)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, div, /)
 #endif
 
+
+// Needed to use this code due to a compiler issue with casting
+#define KMP_ATOMIC_LOAD_EXPLICIT(dtype, ptr, ret, order)                       \
+  switch (order) {                                                             \
+  case memory_order_relaxed:                                                   \
+    *((dtype *)ret) = atomic_load_explicit((volatile atomic_##dtype *)ptr,     \
+                                           memory_order_relaxed);              \
+    break;                                                                     \
+  case memory_order_acquire:                                                   \
+    *((dtype *)ret) = atomic_load_explicit((volatile atomic_##dtype *)ptr,     \
+                                           memory_order_acquire);              \
+    break;                                                                     \
+  case memory_order_release:                                                   \
+    *((dtype *)ret) = atomic_load_explicit((volatile atomic_##dtype *)ptr,     \
+                                           memory_order_release);              \
+    break;                                                                     \
+  case memory_order_acq_rel:                                                   \
+    *((dtype *)ret) = atomic_load_explicit((volatile atomic_##dtype *)ptr,     \
+                                           memory_order_acq_rel);              \
+    break;                                                                     \
+  case memory_order_seq_cst:                                                   \
+  default:                                                                     \
+    *((dtype *)ret) = atomic_load_explicit((volatile atomic_##dtype *)ptr,     \
+                                           memory_order_seq_cst);              \
+    break;                                                                     \
+  }
+
+EXTERN void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int order) {
+  if (size <= sizeof(uint)) {
+    KMP_ATOMIC_LOAD_EXPLICIT(uint, ptr, ret, order);
+  } else if (size <= sizeof(ulong)) {
+#if KMP_ATOMIC_FIXED8_SUPPORTED
+    KMP_ATOMIC_LOAD_EXPLICIT(ulong, ptr, ret, order);
+#else
+    printf("WARNING: Device does not support 64-bit atomics\n");
+#endif
+  }
+}
+
+#define KMP_ATOMIC_STORE_EXPLICIT(dtype, ptr, val, order)                      \
+  switch (order) {                                                             \
+  case memory_order_relaxed:                                                   \
+    atomic_store_explicit((volatile atomic_##dtype *)ptr, *(dtype *)val,       \
+                          memory_order_relaxed);                               \
+    break;                                                                     \
+  case memory_order_acquire:                                                   \
+    atomic_store_explicit((volatile atomic_##dtype *)ptr, *(dtype *)val,       \
+                          memory_order_acquire);                               \
+    break;                                                                     \
+  case memory_order_release:                                                   \
+    atomic_store_explicit((volatile atomic_##dtype *)ptr, *(dtype *)val,       \
+                          memory_order_release);                               \
+    break;                                                                     \
+  case memory_order_acq_rel:                                                   \
+    atomic_store_explicit((volatile atomic_##dtype *)ptr, *(dtype *)val,       \
+                          memory_order_acq_rel);                               \
+    break;                                                                     \
+  case memory_order_seq_cst:                                                   \
+  default:                                                                     \
+    atomic_store_explicit((volatile atomic_##dtype *)ptr, *(dtype *)val,       \
+                          memory_order_seq_cst);                               \
+    break;                                                                     \
+  }
+
+EXTERN void __kmpc_atomic_store(size_t size, void *ptr, void *val, int order) {
+  if (size <= sizeof(uint)) {
+    KMP_ATOMIC_STORE_EXPLICIT(uint, ptr, val, order);
+  } else if (size <= sizeof(ulong)) {
+#if KMP_ATOMIC_FIXED8_SUPPORTED
+    KMP_ATOMIC_STORE_EXPLICIT(ulong, ptr, val, order);
+#else
+    printf("WARNING: Device does not support 64-bit atomics\n");
+#endif
+  }
+}
+
+// Failure order is set to relaxed as it cannot be stronger than success order.
+#define KMP_ATOMIC_COMPXCHG_EXPLICIT(dtype, ret, ptr, expected, desired,       \
+                                     success_order, failure_order)             \
+  switch (success_order) {                                                     \
+  case memory_order_relaxed:                                                   \
+    ret = atomic_compare_exchange_strong_explicit((atomic_##dtype *)ptr,       \
+        (dtype *)expected, *(dtype *)desired, memory_order_relaxed,            \
+        memory_order_relaxed);                                                 \
+    break;                                                                     \
+  case memory_order_acquire:                                                   \
+    ret = atomic_compare_exchange_strong_explicit((atomic_##dtype *)ptr,       \
+        (dtype *)expected, *(dtype *)desired, memory_order_acquire,            \
+        memory_order_relaxed);                                                 \
+    break;                                                                     \
+  case memory_order_release:                                                   \
+    ret = atomic_compare_exchange_strong_explicit((atomic_##dtype *)ptr,       \
+        (dtype *)expected, *(dtype *)desired, memory_order_release,            \
+        memory_order_relaxed);                                                 \
+    break;                                                                     \
+  case memory_order_acq_rel:                                                   \
+    ret = atomic_compare_exchange_strong_explicit((atomic_##dtype *)ptr,       \
+        (dtype *)expected, *(dtype *)desired, memory_order_acq_rel,            \
+        memory_order_relaxed);                                                 \
+    break;                                                                     \
+  case memory_order_seq_cst:                                                   \
+  default:                                                                     \
+    ret = atomic_compare_exchange_strong_explicit((atomic_##dtype *)ptr,       \
+        (dtype *)expected, *(dtype *)desired, memory_order_seq_cst,            \
+        memory_order_relaxed);                                                 \
+    break;                                                                     \
+  }
+
+EXTERN bool __kmpc_atomic_compare_exchange(size_t size, void *ptr,
+                                           void *expected, void *desired,
+                                           int success_order,
+                                           int failure_order) {
+  bool ret = false;
+  if (size <= sizeof(uint)) {
+    KMP_ATOMIC_COMPXCHG_EXPLICIT(uint, ret, ptr, expected, desired,
+                                 success_order, failure_order);
+  } else if (size <= sizeof(ulong)) {
+#if KMP_ATOMIC_FIXED8_SUPPORTED
+    KMP_ATOMIC_COMPXCHG_EXPLICIT(ulong, ret, ptr, expected, desired,
+                                 success_order, failure_order);
+#else
+    printf("WARNING: Device does not support 64-bit atomics\n");
+#endif
+  }
+  return ret;
+}
+
 ///
 /// Other __kmpc_* entries
 ///
