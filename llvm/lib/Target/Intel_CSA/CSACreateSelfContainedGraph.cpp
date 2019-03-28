@@ -555,7 +555,7 @@ MachineFunction *getManualOffloadFirstRoot(Module &M, MachineModuleInfo *MMI) {
     if (!MF) continue;
     return MF;
   }
-  assert(0 and "No external function found!!");
+  LLVM_DEBUG(errs() << "No external function found\n");
   return nullptr;
 }
 
@@ -587,6 +587,7 @@ void CSACreateSelfContainedGraph::processForManualCompile(Module &M) {
     avoidParamsResultsOverlap(MF);
   }
   MachineFunction *TopMF = getManualOffloadFirstRoot(M,MMI);
+  if (TopMF == nullptr) return;
   // Setting some properties of this MF for use in CSAAsmPrinter
   auto LMFI = TopMF->getInfo<CSAMachineFunctionInfo>();
   LMFI->setDoNotEmitAsm(false);
