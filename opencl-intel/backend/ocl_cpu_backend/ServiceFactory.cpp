@@ -75,7 +75,7 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
         {
             size_t device = pBackendOptions->
               GetIntValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
-            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device)
+            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device && EYEQ_EMU_DEVICE != device)
             {
                 throw Exceptions::DeviceBackendExceptionBase(
                     "Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
@@ -115,7 +115,7 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
         {
             size_t device = pBackendOptions->
               GetIntValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
-            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device)
+            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device && EYEQ_EMU_DEVICE != device)
             {
                 throw Exceptions::DeviceBackendExceptionBase(
                     "Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
@@ -150,7 +150,7 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
         {
             size_t device = pBackendOptions->
               GetIntValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
-            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device)
+            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device && EYEQ_EMU_DEVICE != device)
             {
                 throw Exceptions::DeviceBackendExceptionBase(
                     "Unsupported device", CL_DEV_INVALID_OPERATION_MODE);
@@ -188,7 +188,7 @@ cl_dev_err_code ServiceFactory::GetImageService(
         {
             size_t device = pBackendOptions->
               GetIntValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
-            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device)
+            if (CPU_DEVICE != device && FPGA_EMU_DEVICE != device && EYEQ_EMU_DEVICE != device)
             {
                 throw Exceptions::DeviceBackendExceptionBase(
                     "Unsupported device", CL_DEV_INVALID_OPERATION_MODE);

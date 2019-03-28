@@ -93,6 +93,10 @@ bool CPUDeviceConfig::IsSpirSupported() const
 
 bool CPUDeviceConfig::IsDoubleSupported() const
 {
+    if (EYEQ_EMU_DEVICE == GetDeviceMode())
+    {
+        return false;
+    }
 #if WIN32
     if(CPUDetect::GetInstance()->isBroxton())
         return true;
@@ -139,6 +143,18 @@ const char* CPUDeviceConfig::GetExtensions() const
             m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
             m_extensions += OCL_EXT_INTEL_FPGA_HOST_PIPE " ";
             m_extensions += OCL_EXT_ES_KHR_INT64 " ";
+
+            return m_extensions.c_str();
+        }
+
+        if (EYEQ_EMU_DEVICE == GetDeviceMode())
+        {
+            m_extensions =  OCL_EXT_KHR_ICD " ";
+            m_extensions += OCL_EXT_KHR_GLOBAL_BASE_ATOMICS " ";
+            m_extensions += OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS " ";
+            m_extensions += OCL_EXT_KHR_LOCAL_BASE_ATOMICS " ";
+            m_extensions += OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS " ";
+            m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
 
             return m_extensions.c_str();
         }

@@ -570,6 +570,10 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
             {
                 return FPGA_EMU_DEVICE;
             }
+            if ("eyeq-emu" == strDeviceMode)
+            {
+                return EYEQ_EMU_DEVICE;
+            }
             return CPU_DEVICE;
         }
 

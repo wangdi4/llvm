@@ -87,6 +87,14 @@ public:
     int  GetAPFLevel()      const { return m_APFLevel; }
     bool GetDenormalsZero() const { return m_denormalsZero;}
 
+    void SetDisableOpt(bool disableOpt)       { m_disableOpt = disableOpt; }
+    void SetDebugInfoFlag(bool debugInfo)     { m_debugInfo = debugInfo; }
+    void SetProfilingFlag(bool profiling)     { m_profiling = profiling; }
+    void SetRelaxedMath(bool relaxedMath)     { m_relaxedMath = relaxedMath; }
+    void SetUniformWGSize(bool uniformWGSize) { m_uniformWGSize = uniformWGSize; }
+    void SetAPFLevel(int APFLevel)            { m_APFLevel = APFLevel; }
+    void SetDenormalsZero(bool denormalsZero) { m_denormalsZero = denormalsZero;}
+
 private:
     bool m_debugInfo;
     bool m_profiling;

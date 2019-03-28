@@ -114,6 +114,7 @@ RenderscriptVectorizer::RenderscriptVectorizer() :
             false,
             false,
             false,
+            false,
             0,
             1);
   V_INIT_PRINT;
@@ -256,6 +257,7 @@ extern "C" intel::OptimizerConfig* createRenderscriptConfiguration(int width)
             dumpIROptionBefore,
             dumpIRDir,
             nullptr,
+            false,
             false,
             false,
             false,

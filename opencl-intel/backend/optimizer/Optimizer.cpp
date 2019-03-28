@@ -416,7 +416,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
                             const intel::OptimizerConfig *pConfig,
                             std::vector<std::string> &UndefinedExternals,
                             bool isOcl20, bool isFpgaEmulator,
-                            bool UnrollLoops,
+                            bool isEyeQEmulator, bool UnrollLoops,
                             bool EnableInferAS) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
@@ -485,7 +485,9 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
       PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_BEFORE,
                                pConfig->GetDumpIRDir()));
     }
-    PM.add(createSinCosFoldPass());
+    if (!isEyeQEmulator) {
+      PM.add(createSinCosFoldPass());
+    }
 
     if (!pRtlModuleList.empty()) {
       if (EnableVPlanVecForOpenCL) {
@@ -536,7 +538,9 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   // the vectorizer may transform scalar shifts into vector shifts, and we want
   // this pass to fix all vector shift in this module.
   PM.add(createShiftZeroUpperBitsPass());
-  PM.add(createOptimizeIDivPass());
+  if (!isEyeQEmulator) {
+    PM.add(createOptimizeIDivPass());
+  }
   PM.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits,
   // PreventDivisionCrashes passes to optimize redundancy introduced by those
@@ -731,6 +735,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   if (pConfig->GetDisableOpt() || debugType != intel::None)
     OptLevel = 0;
   const bool isFpgaEmulator = pConfig->isFpgaEmulator();
+  const bool isEyeQEmulator = pConfig->isEyeQEmulator();
 
   // Detect OCL2.0 compilation mode
   const bool isOcl20 = (CompilationUtils::fetchCLVersionFromMetadata(
@@ -761,8 +766,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   populatePassesPostFailCheck(
       m_PostFailCheckPM, pModule, m_pRtlModuleList, OptLevel,
       pConfig, m_undefinedExternalFunctions, isOcl20, isFpgaEmulator,
-      UnrollLoops,
-      EnableInferAS);
+      isEyeQEmulator, UnrollLoops, EnableInferAS);
 }
 
 void Optimizer::Optimize() {
