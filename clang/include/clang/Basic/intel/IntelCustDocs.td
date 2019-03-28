@@ -2152,6 +2152,7 @@ the value of the diagnostic is questionable. For now we'll make it a warning
 which allows it to be quieted with the option -Wno-missing-prototype-for-cc.
 
 .. code-block:: c
+
   void foo();  // unprototyped c function
 
 .. code-block:: console
