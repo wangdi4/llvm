@@ -2930,8 +2930,8 @@ static bool worthInliningForDeeplyNestedIfs(CallBase &CB,
 
 //
 // Return 'true' if 'CB' should not be inlined, because it would be better
-// to perform SOAToAOS on it. 'PrepareForLTO' is true if we are on the compile step
-// of an LTO compilation.
+// to perform SOAToAOS on it. 'PrepareForLTO' is true if we are on the compile
+// step of an LTO compilation.
 //
 bool CallAnalyzer::preferDTransToInlining(CallBase &CB,
                                           bool PrepareForLTO) const {
@@ -3649,10 +3649,10 @@ static bool preferToDelayInlineDecision(Function *Caller,
   // if the 'Caller' should be inlined.
   auto IsDelayInlineCaller = [&TestedGEP](Function *Caller,
                                           bool PrepareForLTO) -> bool {
+    if (!TestedGEP(Caller))
+      return false;
     unsigned MaxSize = PrepareForLTO ? 5 : 3;
     if (Caller->size() > MaxSize)
-      return false;
-    if (!TestedGEP(Caller))
       return false;
     auto EntryBlock = &(Caller->getEntryBlock());
     for (auto &BB : *Caller) {
@@ -3783,9 +3783,12 @@ static bool preferNotToInlineEHIntoLoop(CallBase &CB,
                                         InliningLoopInfoCache &ILIC) {
   if (!DTransInlineHeuristics)
     return false;
+  Function *Callee = CB.getCalledFunction();
+  if (Callee->hasFnAttribute(Attribute::NoUnwind))
+    return false;
   if (!isInNonEHLoop(CB, ILIC))
     return false;
-  return hasLoopOptInhibitingEHInstOutsideLoop(CB.getCalledFunction(), ILIC);
+  return hasLoopOptInhibitingEHInstOutsideLoop(Callee, ILIC);
 }
 
 //
@@ -3942,57 +3945,49 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
   Threshold += (SingleBBBonus + VectorBonus);
 #if INTEL_CUSTOMIZATION
   auto CB = cast<CallBase>(CS.getInstruction());
-  if (InlineForXmain &&
-      preferCloningToInlining(*CB, *ILIC, PrepareForLTO)) {
-    *ReasonAddr = NinlrPreferCloning;
-    return "prefer cloning";
-  }
-  if (InlineForXmain &&
-      preferMultiversioningToInlining(*CB, CalleeTTI, *ILIC, PrepareForLTO)) {
-    *ReasonAddr = NinlrPreferMultiversioning;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferDTransToInlining(*CB, PrepareForLTO)) {
-    *ReasonAddr = NinlrPreferSOAToAOS;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferNotToInlineForStackComputations(*CB, TLI)) {
-    *ReasonAddr = NinlrStackComputations;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferNotToInlineForSwitchComputations(*CB, *ILIC)) {
-    *ReasonAddr = NinlrSwitchComputations;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferNotToInlineForRecProgressiveClone(CB->getCalledFunction())) {
-    *ReasonAddr = NinlrRecursive;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferToDelayInlineDecision(CB->getCaller(), PrepareForLTO,
-      QueuedCallers)) {
-    *ReasonAddr = NinlrDelayInlineDecision;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferPartialInlineOutlinedFunc(CB->getCalledFunction())) {
-    *ReasonAddr = NinlrPreferPartialInline;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferToIntelPartialInline(*(CB->getCalledFunction()), PrepareForLTO,
-      *ILIC)) {
-    *ReasonAddr = NinlrDelayInlineDecision;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferNotToInlineEHIntoLoop(*CB, *ILIC)) {
-    *ReasonAddr = NinlrCalleeHasExceptionHandling;
-    return false;
+  Function *Callee = CB->getCalledFunction();
+  if (Callee && InlineForXmain) {
+    if (preferCloningToInlining(*CB, *ILIC, PrepareForLTO)) {
+      *ReasonAddr = NinlrPreferCloning;
+      return "prefer cloning";
+    }
+    if (preferMultiversioningToInlining(*CB, CalleeTTI, *ILIC, PrepareForLTO)) {
+      *ReasonAddr = NinlrPreferMultiversioning;
+      return false;
+    }
+    if (preferDTransToInlining(*CB, PrepareForLTO)) {
+      *ReasonAddr = NinlrPreferSOAToAOS;
+      return false;
+    }
+    if (preferNotToInlineForStackComputations(*CB, TLI)) {
+      *ReasonAddr = NinlrStackComputations;
+      return false;
+    }
+    if (preferNotToInlineForSwitchComputations(*CB, *ILIC)) {
+      *ReasonAddr = NinlrSwitchComputations;
+      return false;
+    }
+    if (preferNotToInlineForRecProgressiveClone(Callee)) {
+      *ReasonAddr = NinlrRecursive;
+      return false;
+    }
+    if (preferToDelayInlineDecision(CB->getCaller(), PrepareForLTO,
+        QueuedCallers)) {
+      *ReasonAddr = NinlrDelayInlineDecision;
+      return false;
+    }
+    if (preferPartialInlineOutlinedFunc(Callee)) {
+      *ReasonAddr = NinlrPreferPartialInline;
+      return false;
+    }
+    if (preferToIntelPartialInline(*Callee, PrepareForLTO, *ILIC)) {
+      *ReasonAddr = NinlrDelayInlineDecision;
+      return false;
+    }
+    if (preferNotToInlineEHIntoLoop(*CB, *ILIC)) {
+      *ReasonAddr = NinlrCalleeHasExceptionHandling;
+      return false;
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
