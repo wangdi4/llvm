@@ -361,6 +361,9 @@ namespace {
       // VPO Paropt Prepare Passes
       (void) llvm::createVPOParoptPreparePass();
 
+      // VPO Pass to restore clause opreands renamed by the Prepare pass.
+      (void)llvm::createVPORestoreOperandsPass();
+
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();
 

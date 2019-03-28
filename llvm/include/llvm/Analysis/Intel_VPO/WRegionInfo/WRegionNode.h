@@ -103,6 +103,7 @@ private:
   /// Entry and Exit BBs of this WRN
   BasicBlock    *EntryBBlock;
   BasicBlock    *ExitBBlock;
+  Instruction   *EntryDirective;
 
   /// Set containing all the BBs in this WRN.
   /// If BBlockSet is not empty, it must be valid. Therefore, any
@@ -161,6 +162,9 @@ protected:
 
   /// Sets the exit(last) bblock of this region.
   void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
+
+  /// Sets the entry(first) Directive of this region.
+  void setEntryDirective(Instruction *EntryDir) { EntryDirective = EntryDir; }
 
   /// Sets the graph parent of this WRegionNode.
   void setParent(WRegionNode *P) { Parent = P; }
@@ -546,6 +550,9 @@ public:
 
   /// Returns the exit(last) bblock of this region.
   BasicBlock *getExitBBlock() const { return ExitBBlock; }
+
+  /// Returns the entry(first) Directive of this region.
+  Instruction *getEntryDirective() const { return EntryDirective; }
 
   /// Basic Block set iterator methods.
   bbset_iterator bbset_begin() { return BBlockSet.begin(); }

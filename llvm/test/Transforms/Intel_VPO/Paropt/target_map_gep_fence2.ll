@@ -1,5 +1,7 @@
-; RUN: opt < %s  -vpo-cfg-restructuring -vpo-paropt-prepare -early-cse -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,early-cse)' -S | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=PREPR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s -check-prefix=PREPR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -early-cse -vpo-restore-operands -S < %s | FileCheck %s -check-prefix=RESTR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,early-cse,vpo-restore-operands)'  -S | FileCheck %s -check-prefix=RESTR
 ;
 ;
 ; Below is the original C source.
@@ -33,23 +35,8 @@
 ;          "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox, i32* %arrayidx, i64 1024),
 ;          ... ]
 ;
-; After early-cse:
-;
-; entry:
-;   %sbox = alloca i32*, align 8
-;   store i32* getelementptr inbounds ([256 x i32], [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox
-;   br label %DIR.OMP.TARGET.1
-;
-; DIR.OMP.TARGET.1:                                 ; preds = %entry
-;   %2 = call token @llvm.directive.region.entry() [
-;          "DIR.OMP.TARGET"(),
-;          "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-;          "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox, i32** %sbox, i64 8),
-;          "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox, i32* getelementptr inbounds ([256 x i32], [256 x i32]* @g_sbox, i32 0, i32 0), i64 1024)
-;          ... ]
-;
-; The solution is to use llvm.launder.invariant.group to rename the value %arayidx
-; to inhibit the early-cse optimization for this case.
+; Make sure that in prepare pass, %arrayidx and %sbox are renamed, even though %arrayidx has
+; no use inside the region.
 
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
@@ -69,7 +56,23 @@ entry:
   store i32* getelementptr inbounds ([256 x i32], [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox, align 8, !tbaa !3
   %1 = load i32*, i32** %sbox, align 8, !tbaa !3
   %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
-; CHECK: %{{.*}} = call i8* @llvm.launder.invariant.group.
+;
+; Make sure that vpo-paropt-prepare captures %local to a temporary location.
+; PREPR: store i32** %sbox, i32*** [[SADDR:%[a-zA-Z._0-9]+]]
+; PREPR: store i32* %arrayidx, i32** [[AADDR:%[a-zA-Z._0-9]+]]
+; PREPR: call token @llvm.directive.region.entry()
+; And the Value where %local is store is added to the directive in a
+; "QUAL.OMP.OPERAND.ADDR" clause.
+; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(i32** %sbox, i32*** [[SADDR]])
+; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(i32* %arrayidx, i32** [[AADDR]])
+;
+; Make sure that the above renaming is removed after vpo-restore-operands pass.
+; RESTR: call token @llvm.directive.region.entry()
+; RESTR-SAME: "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox, i32** %sbox, i64 8)
+; RESTR-SAME: "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox, i32* getelementptr inbounds ([256 x i32], [256 x i32]* @g_sbox{{.*}}){{.*}})
+; RESTR-NOT: store i32** %sbox, i32*** {{%[a-zA-Z._0-9]+}}
+; RESTR-NOT: store i32* %arrayidx, i32** {{AADDR:%[a-zA-Z._0-9]+}}
+; RESTR-NOT: "QUAL.OMP.OPERAND.ADDR"
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox, i32** %sbox, i64 8), "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox, i32* %arrayidx, i64 1024), "QUAL.OMP.PRIVATE"(i32* %dummy) ]
   %3 = bitcast i32* %dummy to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %3) #2

@@ -1037,8 +1037,7 @@ Value *VPOParoptTransform::genRenamePrivatizationImpl(WRegionNode *W, Value *V,
   return NewPrivInst;
 }
 
-/// Remove the launder intrinsics inserted while capturing GEPs by
-/// genGEPCapturingLaunderIntrin(), and renaming globals by
+/// Remove the launder intrinsics inserted while renaming globals by
 /// genGlobalPrivatizationLaunderIntrin(). The capturing happens in
 /// vpo-paropt-prepare pass, and the generated intrinsics are later removed
 /// in the vpo-paropt transform pass.

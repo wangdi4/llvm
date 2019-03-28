@@ -1,7 +1,9 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s -check-prefix=TFORM
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s -check-prefix=TFORM
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=PREPR
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s -check-prefix=PREPR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -S < %s | FileCheck %s -check-prefix=RESTR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands)'  -S | FileCheck %s -check-prefix=RESTR
 ;
 ; Test src:
 ;
@@ -42,21 +44,21 @@ entry:
   store i32 0, i32* %.omp.lb, align 4
   store i32 9, i32* %.omp.ub, align 4
 
-; Make sure that vpo-paropt-prepare added a launder intrinsic for capturing %y3.
-; PREPR: [[Y_LAUNDER:%[a-zA-Z._0-9]+]] = call i8* @llvm.launder.invariant.group.p0i8(i8* %y3)
-
-; Make sure that only one launder intrinsic is generated even though the
-; variable is in both firstprivate and lastprivate.
+; Make sure that vpo-paropt-prepare stores %y3 to a temporary location
+; PREPR: store i8* %y3, i8** [[YADDR:%[a-zA-Z._0-9]+]]
+;
+; And the Value where %y3 is store is added to the directive in a
+; "QUAL.OMP.OPERAND.ADDR" clause
 ; PREPR: call token @llvm.directive.region.entry()
-; PREPR-SAME: "QUAL.OMP.FIRSTPRIVATE"(i8* [[Y_LAUNDER]])
-; PREPR-SAME: "QUAL.OMP.LASTPRIVATE"(i8* [[Y_LAUNDER]])
-
-; Make sure that the launder intrinsic is removed after vpo-paropt pass.
-; TFORM-NOT: call i8* @llvm.launder.invariant.group
+; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(i8* %y3, i8** [[YADDR]])
+;
+; Make sure that the above renaming is removed after vpo-restore-operands pass.
+; RESTR-NOT: store i8* %y3, i8** {{%[a-zA-Z._0-9]+}}
+; RESTR-NOT: "QUAL.OMP.OPERAND.ADDR"
 
 ; Firstprivate initialization code after transformation pass
-; TFORM: [[Y_NOLAUNDER_LOAD:%[a-zA-Z._0-9]+]] = load i8, i8* %y3
-; TFORM: store i8 [[Y_NOLAUNDER_LOAD]], i8* [[Y_FPLP:%[a-zA-Z._0-9]+]]
+; TFORM: [[Y_LOAD:%[a-zA-Z._0-9]+]] = load i8, i8* %y3
+; TFORM: store i8 [[Y_LOAD]], i8* [[Y_FPLP:%[a-zA-Z._0-9]+]]
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i8* %y3), "QUAL.OMP.LASTPRIVATE"(i8* %y3), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4
@@ -76,9 +78,14 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %x = getelementptr inbounds %struct.my_struct, %struct.my_struct* %this1, i32 0, i32 1
   %5 = load i8, i8* %x, align 2
   store i8 %5, i8* %y3, align 2
-; Check that the y captured by launder in prepare pass is used inside the region.
+; Check that after prepare, uses of %y3 are replaced with a load from YADDR.
+; PREPR: [[YADDR_LOAD:%[a-zA-Z._0-9]+]] = load i8*, i8** [[YADDR]]
 ; PREPR: [[LOAD_X:%[a-zA-Z._0-9]+]] = load i8, i8* %x
-; PREPR: store i8 [[LOAD_X]], i8* [[Y_LAUNDER]]
+; PREPR: store i8 [[LOAD_X]], i8* [[YADDR_LOAD]]
+
+; After restore-operands, %y3 should be used again instead of YADDR_LOAD.
+; RESTR: [[LOAD_X:%[a-zA-Z._0-9]+]] = load i8, i8* %x
+; RESTR: store i8 [[LOAD_X]], i8* %y3
 
 ; Local copy of y is where x is stored after vpo-paropt
 ; TFORM: [[LOAD_X:%[a-zA-Z._0-9]+]] = load i8, i8* %x

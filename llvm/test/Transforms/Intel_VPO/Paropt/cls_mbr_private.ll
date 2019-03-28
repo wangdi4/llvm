@@ -1,7 +1,9 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s -check-prefix=TFORM
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s -check-prefix=TFORM
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=PREPR
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s -check-prefix=PREPR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -S < %s | FileCheck %s -check-prefix=RESTR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands)'  -S | FileCheck %s -check-prefix=RESTR
 ;
 ; Test src:
 ;
@@ -35,15 +37,17 @@ entry:
   store %struct.my_struct* %this, %struct.my_struct** %this.addr, align 8
   %this1 = load %struct.my_struct*, %struct.my_struct** %this.addr, align 8
   %y = getelementptr inbounds %struct.my_struct, %struct.my_struct* %this1, i32 0, i32 0
-; Make sure that vpo-paropt-prepare added a launder intrinsic for capturing %y.
-; PREPR: [[BC1:%[a-zA-Z._0-9]+]] = bitcast i16* %y to i8*
-; PREPR: [[LAUNDER:%[a-zA-Z._0-9]+]] = call i8* @llvm.launder.invariant.group.p0i8(i8* [[BC1]])
-; PREPR: [[Y_LAUNDER:%[a-zA-Z._0-9]+]] = bitcast i8* [[LAUNDER]] to i16*
+; Make sure that vpo-paropt-prepare stores %y to a temporary location
+; PREPR: store i16* %y, i16** [[YADDR:%[a-zA-Z._0-9]+]]
+;
+; And the Value where %y is store is added to the directive in a
+; "QUAL.OMP.OPERAND.ADDR" clause
 ; PREPR: call token @llvm.directive.region.entry()
-; PREPR-SAME: "QUAL.OMP.PRIVATE"(i16* [[Y_LAUNDER]])
-
-; Make sure that the launder intrinsic is removed after vpo-paropt pass.
-; TFORM-NOT: call i8* @llvm.launder.invariant.group
+; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(i16* %y, i16** [[YADDR]])
+;
+; Make sure that the above renaming is removed after vpo-restore-operands pass.
+; RESTR-NOT: store i16* %y, i16** {{%[a-zA-Z._0-9]+}}
+; RESTR-NOT: "QUAL.OMP.OPERAND.ADDR"
   store i32 0, i32* %.omp.lb, align 4
   store i32 9, i32* %.omp.ub, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.PRIVATE"(i16* %y), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
@@ -65,9 +69,10 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %x = getelementptr inbounds %struct.my_struct, %struct.my_struct* %this1, i32 0, i32 1
   %5 = load i16, i16* %x, align 2
   store i16 %5, i16* %y, align 2
-; Check that the y captured by launder in prepare pass is used inside the region.
+; Check that after prepare, uses of %y are replaced with a load from YADDR.
+; PREPR: [[YADDR_LOAD:%[a-zA-Z._0-9]+]] = load i16*, i16** [[YADDR]]
 ; PREPR: [[LOAD_X:%[a-zA-Z._0-9]+]] = load i16, i16* %x
-; PREPR: store i16 [[LOAD_X]], i16* [[Y_LAUNDER]]
+; PREPR: store i16 [[LOAD_X]], i16* [[YADDR_LOAD]]
 
 ; TFORM-DAG: [[LOAD_X:%[a-zA-Z._0-9]+]] = load i16, i16* %x
 ; TFORM-DAG: store i16 [[LOAD_X]], i16* [[Y_PRIV:%[a-zA-Z._0-9]+]]

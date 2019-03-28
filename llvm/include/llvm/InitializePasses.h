@@ -566,6 +566,8 @@ void initializeWRegionInfoAnalysisPass(PassRegistry&);
 void initializeVPOCFGRestructuringPass(PassRegistry&);
 // VPO Paropt Prepare Pass
 void initializeVPOParoptPreparePass(PassRegistry&);
+// VPO Pass to restore operands renamed by VPO Paropt Prepare pass
+void initializeVPORestoreOperandsPass(PassRegistry &);
 // VPO Parallelizer Pass
 void initializeVPOParoptPass(PassRegistry&);
 // VPO Tpv Transformation

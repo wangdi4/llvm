@@ -186,7 +186,6 @@
 #include "llvm/Transforms/Vectorize/LoadStoreVectorizer.h"
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
-
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
@@ -244,18 +243,20 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopReroll.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
 
-// Intel VPO
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+// VPO
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptPrepare.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/Intel_VPO/Utils/CFGRestructuring.h"
-
-#if INTEL_INCLUDE_DTRANS
-#include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_INCLUDE_DTRANS
-#endif // INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Intel_VPO/Utils/VPORestoreOperands.h"
+#endif // INTEL_COLLAB
 
 using namespace llvm;
 

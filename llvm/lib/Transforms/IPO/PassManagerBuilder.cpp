@@ -1564,6 +1564,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
 #endif // INTEL_CUSTOMIZATION
       PM.add(createCFGSimplificationPass());
     }
+    PM.add(createVPORestoreOperandsPass());
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt, OptLevel));
 #if INTEL_CUSTOMIZATION

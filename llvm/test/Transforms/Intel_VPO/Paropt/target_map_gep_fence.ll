@@ -1,5 +1,7 @@
-; RUN: opt < %s -vpo-paropt-prepare -early-cse -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare,early-cse)' -S | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=PREPR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s -check-prefix=PREPR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -early-cse -vpo-restore-operands -S < %s | FileCheck %s -check-prefix=RESTR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,early-cse,vpo-restore-operands)'  -S | FileCheck %s -check-prefix=RESTR
 
 ; Below is the original C source.
 ;
@@ -8,10 +10,12 @@
 ;          early-cse optimizes away %arrayidx1, replacing it with %arrayidx.
 ;          This makes %arrayidx an unexpected live-in to the TARGET region.
 ;
-; Solution: VPO Prepare uses the @llvm.launder.invariant.group* intrinsic
-;          to temporarily rename the GEP's opnd, making the two GEPs unequal,
-;          and thus preventing the optimization. The intrinsic is later removed
-;          in VPO Transform, restoring to the original form.
+; Solution: VPO Prepare uses stores %local to %local.addr. %local.addr is added
+;          to the @llvm.directive.region.entry directive in an operand bundle with
+;          tag "QUAL.OMP.OPERAND.ADDR", and then all uses of %local inside the
+;          region are replaced with a load from %local.addr.
+;          This is later undone in a pass called -vpo-remove-operands, before
+;          VPO Transform, restoring to the original form.
 ;
 ; int main() {
 ;   int local[1];
@@ -33,22 +37,36 @@ entry:
   %local = alloca [1 x i32], align 4
   %0 = bitcast [1 x i32]* %local to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #2
-  %arrayidx = getelementptr inbounds [1 x i32], [1 x i32]* %local, i64 0, i64 0, !intel-tbaa !3
-  store i32 123, i32* %arrayidx, align 4, !tbaa !3
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"([1 x i32]* %local) ]
   br label %DIR.OMP.TARGET.2
 
-; Verify that the intrinsic for renaming is emitted
-; CHECK: %{{.*}} = call i8* @llvm.launder.invariant.group.
+; Make sure that vpo-paropt-prepare captures %local to a temporary location.
+; PREPR: store [1 x i32]* %local, [1 x i32]** [[LADDR:%[a-zA-Z._0-9]+]]
+; PREPR: call token @llvm.directive.region.entry()
+; PREPR-SAME: "QUAL.OMP.MAP.TOFROM"([1 x i32]* %local)
+; And the Value where %local is store is added to the directive in a
+; "QUAL.OMP.OPERAND.ADDR" clause.
+; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"([1 x i32]* %local, [1 x i32]** [[LADDR]])
+;
+; Make sure that the above renaming is removed after vpo-restore-operands pass.
+; RESTR: call token @llvm.directive.region.entry()
+; RESTR-SAME: "QUAL.OMP.MAP.TOFROM"([1 x i32]* %local)
+; RESTR-NOT: store [1 x i32]* %local, [1 x i32]** {{%[a-zA-Z._0-9]+}}
+; RESTR-NOT: "QUAL.OMP.OPERAND.ADDR"
 
 DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
 
-; Verify that %arrayidx1 is still being defined and used.
-; CHECK: %arrayidx1 = getelementptr inbounds
-; CHECK-NEXT: store i32 800, i32* %arrayidx1
+; Check that after prepare, uses of %local are replaced with a load from LADDR.
+; PREPR: [[LADDR_LOAD:%[a-zA-Z._0-9]+]] = load [1 x i32]*, [1 x i32]** [[LADDR]]
+; PREPR: [[GEP1:%[a-zA-Z._0-9]+]] = getelementptr inbounds [1 x i32], [1 x i32]* [[LADDR_LOAD]], i64 0, i64 0
+; PREPR: store i32 800, i32* [[GEP1]]
+
+; Check that after restore, LADDR is removed and %local is used.
+; RESTR: [[GEP2:%[a-zA-Z._0-9]+]] = getelementptr inbounds [1 x i32], [1 x i32]* %local, i64 0, i64 0
+; RESTR: store i32 800, i32* [[GEP2]]
 
   %arrayidx1 = getelementptr inbounds [1 x i32], [1 x i32]* %local, i64 0, i64 0, !intel-tbaa !3
   store i32 800, i32* %arrayidx1, align 4, !tbaa !3

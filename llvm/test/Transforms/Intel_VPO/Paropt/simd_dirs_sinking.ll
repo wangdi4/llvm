@@ -1,4 +1,4 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -simplifycfg -instcombine -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-output -print-before=VPlanDriverHIR 2>&1 | FileCheck %s
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -instcombine -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-output -print-before=VPlanDriverHIR 2>&1 | FileCheck %s
 
 ; VPlanDriverHIR cannot be run via new pass manager.
 

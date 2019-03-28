@@ -127,8 +127,10 @@ MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass(nullptr, nullptr))
 MODULE_PASS("verify", VerifierPass())
 MODULE_PASS("asan-module", ModuleAddressSanitizerPass(false, false, true, false))
 MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
-MODULE_PASS("vpo-paropt", VPOParoptPass())              // INTEL
-MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass()) // INTEL
+#if INTEL_COLLAB
+MODULE_PASS("vpo-paropt", VPOParoptPass())
+MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass())
+#endif // INTEL_COLLAB
 #undef MODULE_PASS
 
 #ifndef CGSCC_ANALYSIS
@@ -198,9 +200,11 @@ FUNCTION_ANALYSIS("hir-dd-analysis", loopopt::HIRDDAnalysisPass())
 FUNCTION_ANALYSIS("hir-safe-reduction-analysis", loopopt::HIRSafeReductionAnalysisPass())
 FUNCTION_ANALYSIS("hir-sparse-array-reduction-analysis", loopopt::HIRSparseArrayReductionAnalysisPass())
 FUNCTION_ANALYSIS("hir-parvec-analysis", loopopt::HIRParVecAnalysisPass())
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 FUNCTION_ANALYSIS("vpo-wrncollection", WRegionCollectionAnalysis())
 FUNCTION_ANALYSIS("vpo-wrninfo", WRegionInfoAnalysis())
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 #ifndef FUNCTION_ALIAS_ANALYSIS
 #define FUNCTION_ALIAS_ANALYSIS(NAME, CREATE_PASS)                             \
@@ -360,13 +364,16 @@ FUNCTION_PASS("hir-scalarrepl-array", loopopt::HIRScalarReplArrayPass())
 FUNCTION_PASS("hir-unroll-and-jam", loopopt::HIRUnrollAndJamPass())
 FUNCTION_PASS("hir-loop-blocking", loopopt::HIRLoopBlockingPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
-FUNCTION_PASS("vpo-cfg-restructuring", VPOCFGRestructuringPass())
-FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
 FUNCTION_PASS("agginlaa", AggInlAAPass())
 FUNCTION_PASS("addsub-reassociate", AddSubReassociatePass())
 FUNCTION_PASS("loop-carried-cse", LoopCarriedCSEPass())
 FUNCTION_PASS("hir-multi-exit-loop-reroll", loopopt::HIRMultiExitLoopRerollPass())
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+FUNCTION_PASS("vpo-cfg-restructuring", VPOCFGRestructuringPass())
+FUNCTION_PASS("vpo-restore-operands", VPORestoreOperandsPass())
+FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
+#endif // INTEL_COLLAB
 FUNCTION_PASS("tsan", ThreadSanitizerPass())
 #undef FUNCTION_PASS
 

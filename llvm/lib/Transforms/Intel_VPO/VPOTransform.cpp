@@ -26,6 +26,7 @@ void llvm::initializeIntel_VPOTransforms(PassRegistry &Registry) {
   initializeVPOParoptPass(Registry);
   initializeVPOParoptTpvPass(Registry);
 
+  initializeVPORestoreOperandsPass(Registry);
   initializeVPOCFGRestructuringPass(Registry);
 }
 

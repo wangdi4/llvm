@@ -193,7 +193,7 @@ public:
   /// matches the construct type based on DirID.
   static WRegionNode *createWRegion(int DirID, BasicBlock *EntryBB,
                                     LoopInfo *LI, unsigned NestingLevel,
-                                    bool IsRegionIntrinsic);
+                                    bool IsRegionIntrinsic, CallInst *Dir);
 
 #if INTEL_CUSTOMIZATION
   /// \brief Similar to createWRegion, but for HIR vectorizer support
@@ -275,16 +275,16 @@ public:
   /// at the region entry directive.
   static bool usedInRegionEntryDirective(WRegionNode *W, Value *I);
 
-  /// \brief Return true if the value \p V is used in the WRN \p W.
+  /// Return true if the value \p V is used in the WRN \p W.
   /// If \p Users is not null, then find all users of \p V in \p W and put them
   /// in \p *Users.
-  /// If \p ExcludeDirective is true, then ignore the instructions for which
-  /// isIntelDirectiveOrClause() is true.
+  /// If \p ExcludeEntryDirective is true, then ignore the region.entry
+  /// directive of \p W.
   ///
   /// Prerequisite: W's BBSet must be populated before calling this util.
   static bool findUsersInRegion(WRegionNode *W, Value *V,
-                                SmallVectorImpl<Instruction *> *Users=nullptr,
-                                bool ExcludeDirective = true);
+                                SmallVectorImpl<Instruction *> *Users = nullptr,
+                                bool ExcludeEntryDirective = true);
 
   /// \brief The utility to create the loop and update the loopinfo.
   static Loop *createLoop(Loop *L, Loop *PL, LoopInfo *LI);
