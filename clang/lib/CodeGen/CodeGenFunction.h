@@ -3853,11 +3853,10 @@ public:
                               llvm::Value *ImplicitParam,
                               QualType ImplicitParamTy, const CallExpr *E,
                               CallArgList *RtlArgs);
-  RValue EmitCXXDestructorCall(const CXXDestructorDecl *DD,
+  RValue EmitCXXDestructorCall(GlobalDecl Dtor,
                                const CGCallee &Callee,
                                llvm::Value *This, llvm::Value *ImplicitParam,
-                               QualType ImplicitParamTy, const CallExpr *E,
-                               StructorType Type);
+                               QualType ImplicitParamTy, const CallExpr *E);
   RValue EmitCXXMemberCallExpr(const CXXMemberCallExpr *E,
                                ReturnValueSlot ReturnValue);
   RValue EmitCXXMemberOrOperatorMemberCallExpr(const CallExpr *CE,
@@ -3888,10 +3887,6 @@ public:
 
   RValue EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                          const CallExpr *E, ReturnValueSlot ReturnValue);
-
-  RValue emitFortifiedStdLibCall(CodeGenFunction &CGF, const CallExpr *CE,
-                                 unsigned BuiltinID, unsigned BOSType,
-                                 unsigned Flag);
 
   RValue emitRotate(const CallExpr *E, bool IsRotateRight);
 

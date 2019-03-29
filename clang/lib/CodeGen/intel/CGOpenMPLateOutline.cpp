@@ -1385,6 +1385,7 @@ void OpenMPLateOutliner::emitOMPDynamicAllocatorsClause(
     const OMPDynamicAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *) {}
+void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   switch (Directive.getDirectiveKind()) {
@@ -1713,14 +1714,12 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
     if (!isAllowedClauseForDirective(CurrentDirectiveKind, ClauseKind))
       continue;
     switch (ClauseKind) {
-    case OMPC_flush:
-      emitOMPFlushClause(cast<OMPFlushClause>(C));
-      break;
 #define OPENMP_CLAUSE(Name, Class)                                             \
   case OMPC_##Name:                                                            \
     emit##Class(cast<Class>(C));                                               \
     break;
 #include "clang/Basic/OpenMPKinds.def"
+    case OMPC_allocate:
     case OMPC_uniform:
     case OMPC_threadprivate:
     case OMPC_unknown:
@@ -2002,6 +2001,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     break;
 
   // These directives are not yet implemented.
+  case OMPD_allocate:
   case OMPD_requires:
     break;
 

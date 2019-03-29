@@ -1,4 +1,4 @@
-; RUN: llc -filetype=obj -thread-model=single -wasm-keep-registers %s -o %t.o
+; RUN: llc -filetype=obj -wasm-keep-registers %s -o %t.o
 ; RUN: obj2yaml %t.o | FileCheck %s
 ; RUN: llvm-objdump -t %t.o | FileCheck --check-prefix=CHECK-SYMS %s
 
@@ -207,6 +207,11 @@ entry:
 ; CHECK-NEXT:         Name:            .data.alias_address
 ; CHECK-NEXT:         Alignment:       3
 ; CHECK-NEXT:         Flags:           [ ]
+; CHECK-NEXT:   - Type:            CUSTOM
+; CHECK-NEXT:     Name:            target_features
+; CHECK-NEXT:     Features:
+; CHECK-NEXT:       - Prefix:          DISALLOWED
+; CHECK-NEXT:         Name:            atomics
 ; CHECK-NEXT: ...
 
 ; CHECK-SYMS: SYMBOL TABLE:

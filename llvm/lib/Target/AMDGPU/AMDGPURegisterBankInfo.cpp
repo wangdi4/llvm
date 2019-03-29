@@ -52,24 +52,6 @@ AMDGPURegisterBankInfo::AMDGPURegisterBankInfo(const TargetRegisterInfo &TRI)
 
 }
 
-static bool isConstant(const MachineOperand &MO, int64_t &C) {
-  const MachineFunction *MF = MO.getParent()->getParent()->getParent();
-  const MachineRegisterInfo &MRI = MF->getRegInfo();
-  const MachineInstr *Def = MRI.getVRegDef(MO.getReg());
-  if (!Def)
-    return false;
-
-  if (Def->getOpcode() == AMDGPU::G_CONSTANT) {
-    C = Def->getOperand(1).getCImm()->getSExtValue();
-    return true;
-  }
-
-  if (Def->getOpcode() == AMDGPU::COPY)
-    return isConstant(Def->getOperand(1), C);
-
-  return false;
-}
-
 unsigned AMDGPURegisterBankInfo::copyCost(const RegisterBank &Dst,
                                           const RegisterBank &Src,
                                           unsigned Size) const {
@@ -308,11 +290,12 @@ AMDGPURegisterBankInfo::getInstrAlternativeMappings(
 void AMDGPURegisterBankInfo::split64BitValueForMapping(
   MachineIRBuilder &B,
   SmallVector<unsigned, 2> &Regs,
+  LLT HalfTy,
   unsigned Reg) const {
-  LLT S32 = LLT::scalar(32);
+  assert(HalfTy.getSizeInBits() == 32);
   MachineRegisterInfo *MRI = B.getMRI();
-  unsigned LoLHS = MRI->createGenericVirtualRegister(S32);
-  unsigned HiLHS = MRI->createGenericVirtualRegister(S32);
+  unsigned LoLHS = MRI->createGenericVirtualRegister(HalfTy);
+  unsigned HiLHS = MRI->createGenericVirtualRegister(HalfTy);
   const RegisterBank *Bank = getRegBank(Reg, *MRI, *TRI);
   MRI->setRegBank(LoLHS, *Bank);
   MRI->setRegBank(HiLHS, *Bank);
@@ -326,6 +309,25 @@ void AMDGPURegisterBankInfo::split64BitValueForMapping(
     .addUse(Reg);
 }
 
+/// Replace the current type each register in \p Regs has with \p NewTy
+static void setRegsToType(MachineRegisterInfo &MRI, ArrayRef<unsigned> Regs,
+                          LLT NewTy) {
+  for (unsigned Reg : Regs) {
+    assert(MRI.getType(Reg).getSizeInBits() == NewTy.getSizeInBits());
+    MRI.setType(Reg, NewTy);
+  }
+}
+
+static LLT getHalfSizedType(LLT Ty) {
+  if (Ty.isVector()) {
+    assert(Ty.getNumElements() % 2 == 0);
+    return LLT::scalarOrVector(Ty.getNumElements() / 2, Ty.getElementType());
+  }
+
+  assert(Ty.getSizeInBits() % 2 == 0);
+  return LLT::scalar(Ty.getSizeInBits() / 2);
+}
+
 void AMDGPURegisterBankInfo::applyMappingImpl(
     const OperandsMapper &OpdMapper) const {
   MachineInstr &MI = OpdMapper.getMI();
@@ -337,6 +339,8 @@ void AMDGPURegisterBankInfo::applyMappingImpl(
     LLT DstTy = MRI.getType(DstReg);
     if (DstTy.getSizeInBits() != 64)
       break;
+
+    LLT HalfTy = getHalfSizedType(DstTy);
 
     SmallVector<unsigned, 2> DefRegs(OpdMapper.getVRegs(0));
     SmallVector<unsigned, 1> Src0Regs(OpdMapper.getVRegs(1));
@@ -357,10 +361,17 @@ void AMDGPURegisterBankInfo::applyMappingImpl(
     }
 
     if (Src1Regs.empty())
-      split64BitValueForMapping(B, Src1Regs, MI.getOperand(2).getReg());
+      split64BitValueForMapping(B, Src1Regs, HalfTy, MI.getOperand(2).getReg());
+    else {
+      setRegsToType(MRI, Src1Regs, HalfTy);
+    }
 
     if (Src2Regs.empty())
-      split64BitValueForMapping(B, Src2Regs, MI.getOperand(3).getReg());
+      split64BitValueForMapping(B, Src2Regs, HalfTy, MI.getOperand(3).getReg());
+    else
+      setRegsToType(MRI, Src2Regs, HalfTy);
+
+    setRegsToType(MRI, DefRegs, HalfTy);
 
     B.buildSelect(DefRegs[0], Src0Regs[0], Src1Regs[0], Src2Regs[0]);
     B.buildSelect(DefRegs[1], Src0Regs[0], Src1Regs[1], Src2Regs[1]);
@@ -375,9 +386,11 @@ void AMDGPURegisterBankInfo::applyMappingImpl(
     // 64-bit and is only available on the SALU, so split into 2 32-bit ops if
     // there is a VGPR input.
     unsigned DstReg = MI.getOperand(0).getReg();
-    if (MRI.getType(DstReg).getSizeInBits() != 64)
+    LLT DstTy = MRI.getType(DstReg);
+    if (DstTy.getSizeInBits() != 64)
       break;
 
+    LLT HalfTy = getHalfSizedType(DstTy);
     SmallVector<unsigned, 2> DefRegs(OpdMapper.getVRegs(0));
     SmallVector<unsigned, 2> Src0Regs(OpdMapper.getVRegs(1));
     SmallVector<unsigned, 2> Src1Regs(OpdMapper.getVRegs(2));
@@ -398,10 +411,16 @@ void AMDGPURegisterBankInfo::applyMappingImpl(
     MachineIRBuilder B(MI);
 
     if (Src0Regs.empty())
-      split64BitValueForMapping(B, Src0Regs, MI.getOperand(1).getReg());
+      split64BitValueForMapping(B, Src0Regs, HalfTy, MI.getOperand(1).getReg());
+    else
+      setRegsToType(MRI, Src0Regs, HalfTy);
 
     if (Src1Regs.empty())
-      split64BitValueForMapping(B, Src1Regs, MI.getOperand(2).getReg());
+      split64BitValueForMapping(B, Src1Regs, HalfTy, MI.getOperand(2).getReg());
+    else
+      setRegsToType(MRI, Src1Regs, HalfTy);
+
+    setRegsToType(MRI, DefRegs, HalfTy);
 
     B.buildInstr(Opc)
       .addDef(DefRegs[0])
@@ -779,42 +798,35 @@ AMDGPURegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
 
 
   case AMDGPU::G_EXTRACT_VECTOR_ELT: {
-    unsigned IdxOp = 2;
-    int64_t Imm;
-    // XXX - Do we really need to fully handle these? The constant case should
-    // be legalized away before RegBankSelect?
-
-    unsigned OutputBankID = isSALUMapping(MI) && isConstant(MI.getOperand(IdxOp), Imm) ?
+    unsigned OutputBankID = isSALUMapping(MI) ?
                             AMDGPU::SGPRRegBankID : AMDGPU::VGPRRegBankID;
-
+    unsigned SrcSize = MRI.getType(MI.getOperand(1).getReg()).getSizeInBits();
+    unsigned IdxSize = MRI.getType(MI.getOperand(2).getReg()).getSizeInBits();
     unsigned IdxBank = getRegBankID(MI.getOperand(2).getReg(), MRI, *TRI);
-    OpdsMapping[0] = AMDGPU::getValueMapping(OutputBankID, MRI.getType(MI.getOperand(0).getReg()).getSizeInBits());
-    OpdsMapping[1] = AMDGPU::getValueMapping(OutputBankID, MRI.getType(MI.getOperand(1).getReg()).getSizeInBits());
+
+    OpdsMapping[0] = AMDGPU::getValueMapping(OutputBankID, SrcSize);
+    OpdsMapping[1] = AMDGPU::getValueMapping(OutputBankID, SrcSize);
 
     // The index can be either if the source vector is VGPR.
-    OpdsMapping[2] = AMDGPU::getValueMapping(IdxBank, MRI.getType(MI.getOperand(2).getReg()).getSizeInBits());
+    OpdsMapping[2] = AMDGPU::getValueMapping(IdxBank, IdxSize);
     break;
   }
   case AMDGPU::G_INSERT_VECTOR_ELT: {
-    // XXX - Do we really need to fully handle these? The constant case should
-    // be legalized away before RegBankSelect?
+    unsigned OutputBankID = isSALUMapping(MI) ?
+      AMDGPU::SGPRRegBankID : AMDGPU::VGPRRegBankID;
 
-    int64_t Imm;
+    unsigned VecSize = MRI.getType(MI.getOperand(0).getReg()).getSizeInBits();
+    unsigned InsertSize = MRI.getType(MI.getOperand(2).getReg()).getSizeInBits();
+    unsigned IdxSize = MRI.getType(MI.getOperand(3).getReg()).getSizeInBits();
+    unsigned InsertEltBank = getRegBankID(MI.getOperand(2).getReg(), MRI, *TRI);
+    unsigned IdxBank = getRegBankID(MI.getOperand(3).getReg(), MRI, *TRI);
 
-    unsigned IdxOp = MI.getOpcode() == AMDGPU::G_EXTRACT_VECTOR_ELT ? 2 : 3;
-    unsigned BankID = isSALUMapping(MI) && isConstant(MI.getOperand(IdxOp), Imm) ?
-                      AMDGPU::SGPRRegBankID : AMDGPU::VGPRRegBankID;
+    OpdsMapping[0] = AMDGPU::getValueMapping(OutputBankID, VecSize);
+    OpdsMapping[1] = AMDGPU::getValueMapping(OutputBankID, VecSize);
+    OpdsMapping[2] = AMDGPU::getValueMapping(InsertEltBank, InsertSize);
 
-
-
-    // TODO: Can do SGPR indexing, which would obviate the need for the
-    // isConstant check.
-    for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
-      unsigned Size = getSizeInBits(MI.getOperand(i).getReg(), MRI, *TRI);
-      OpdsMapping[i] = AMDGPU::getValueMapping(BankID, Size);
-    }
-
-
+    // The index can be either if the source vector is VGPR.
+    OpdsMapping[3] = AMDGPU::getValueMapping(IdxBank, IdxSize);
     break;
   }
   case AMDGPU::G_UNMERGE_VALUES: {

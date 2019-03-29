@@ -1211,7 +1211,7 @@ struct SubstObjCTypeArgsVisitor
 
       // Rebuild object pointer type.
       return Ctx.getObjCObjectPointerType(resultTy);
-      }
+    }
     }
     llvm_unreachable("Unexpected ObjCSubstitutionContext!");
   }
