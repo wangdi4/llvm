@@ -75,6 +75,9 @@
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
+
+using namespace llvm::llvm_intel_wp_analysis;
+
 static cl::opt<bool> ConvertToSubs(
     "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
     cl::desc("Enables conversion of GEPs to subscripts before loopopt"));
@@ -1176,8 +1179,70 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
   // Whole Program Analysis
-  if (EnableWPA)
+  if (EnableWPA) {
     PM.add(createWholeProgramWrapperPassPass());
+    // If whole-program-assume is enabled then we are going to call
+    // the internalization pass.
+    if (AssumeWholeProgram) {
+
+      // The internalization pass does certain checks if a GlobalValue
+      // should be internalized (e.g. is local, DLL export, etc.). The
+      // pass also accepts a helper function that defines extra conditions
+      // on top of the default requirements. If the function returns true
+      // then it means that the GlobalValue should not be internalized, else
+      // if it returns false then internalize it.
+      auto PreserveSymbol = [=](const GlobalValue &GV) {
+
+        // If GlobalValue is "main" or has one definition rule (ODR)
+        // then don't internalize it. The ODR symbols are expected to
+        // be merged with equivalent globals and then be removed. If
+        // these symbols aren't removed then it could cause linking
+        // issues (e.g. undefined symbols).
+        if (GV.getName() == "main" || GV.hasWeakODRLinkage())
+          return true;
+
+        // If the GlobalValue is an alias then we need to make sure that this
+        // alias is OK to internalize.
+        if (const GlobalAlias *Alias = dyn_cast<const GlobalAlias>(&GV)) {
+
+          // Check if the alias has an aliasee and this aliasee is a
+          // GlobalValue
+          const GlobalValue *Glob =
+            dyn_cast<const GlobalValue>(Alias->getAliasee());
+          if (!Glob)
+            return true;
+
+          // Aliasee is a declaration
+          if (Glob->isDeclaration())
+            return true;
+
+          // Aliasee is an external declaration
+          if (Glob->hasAvailableExternallyLinkage())
+            return true;
+
+          // Aliasee is an DLL export
+          if (Glob->hasDLLExportStorageClass())
+            return true;
+
+          // Aliasee is local already
+          if (Glob->hasLocalLinkage())
+            return true;
+
+          // Aliasee is ODR
+          if (Glob->hasWeakODRLinkage())
+            return true;
+
+          // Aliasee is mapped to main
+          if (Glob->getName() == "main")
+            return true;
+        }
+
+        // OK to internalize
+        return false;
+      };
+      PM.add(createInternalizePass(PreserveSymbol));
+    }
+  }
 
   // IP Cloning
   if (EnableIPCloning) {
