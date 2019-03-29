@@ -52,9 +52,6 @@ CreateFrontendBaseAction(CompilerInstance &CI) {
   case DumpTokens:             return llvm::make_unique<DumpTokensAction>();
   case EmitAssembly:           return llvm::make_unique<EmitAssemblyAction>();
   case EmitBC:                 return llvm::make_unique<EmitBCAction>();
-#if INTEL_CUSTOMIZATION
-  case EmitSPIRV:              return llvm::make_unique<EmitSPIRVAction>();
-#endif // INTEL_CUSTOMIZATION
   case EmitHTML:               return llvm::make_unique<HTMLPrintAction>();
   case EmitLLVM:               return llvm::make_unique<EmitLLVMAction>();
   case EmitLLVMOnly:           return llvm::make_unique<EmitLLVMOnlyAction>();

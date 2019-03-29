@@ -22,9 +22,6 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   TransformUtils
-# INTEL_CUSTOMIZATION
-  SPIRVlib
-# end INTEL_CUSTOMIZATION
   )
 
 # INTEL_CUSTOMIZATION

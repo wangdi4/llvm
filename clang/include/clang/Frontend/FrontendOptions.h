@@ -58,11 +58,6 @@ enum ActionKind {
   /// Emit a .bc file.
   EmitBC,
 
-#if INTEL_CUSTOMIZATION
-  /// Emit a .spv file.
-  EmitSPIRV,
-#endif // INTEL_CUSTOMIZATION
-
   /// Translate input source into HTML.
   EmitHTML,
 
