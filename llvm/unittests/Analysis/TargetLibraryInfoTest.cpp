@@ -690,6 +690,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZNSt6localeD1Ev(i8*)\n"
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc(i8*, i32, i8)\n"
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7reserveEm(i8*, i32)\n"
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE8_M_eraseEmm(i8*, i32, i32)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm(i8*, i8*, i32)\n"
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_(i8*, i8*)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm(i8*, i8*, i32)\n"
