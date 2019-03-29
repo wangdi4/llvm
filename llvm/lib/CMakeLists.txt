@@ -23,9 +23,6 @@ add_subdirectory(Target)
 add_subdirectory(AsmParser)
 add_subdirectory(LineEditor)
 add_subdirectory(ProfileData)
-# INTEL_CUSTOMIZATION
-add_subdirectory(SPIRV)
-# end INTEL_CUSTOMIZATION
 add_subdirectory(Passes)
 add_subdirectory(TextAPI)
 add_subdirectory(ToolDrivers)

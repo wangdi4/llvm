@@ -56,7 +56,6 @@ subdirectories =
  verify-uselistorder
 #if INTEL_CUSTOMIZATION
  intelovls-test
- llvm-spirv
 #endif
 
 [component_0]
