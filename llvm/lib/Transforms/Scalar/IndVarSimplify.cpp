@@ -631,8 +631,14 @@ bool IndVarSimplify::rewriteLoopExitValues(Loop *L, SCEVExpander &Rewriter) {
         // Computing the value outside of the loop brings no benefit if it is
         // definitely used inside the loop in a way which can not be optimized
         // away.
-        if (!isa<SCEVConstant>(ExitValue) && hasHardUserWithinLoop(L, Inst))
+#if INTEL_CUSTOMIZATION
+        // CMPLRLLVM-7590. Allow SCEV add expression to be propagated
+        // into the exit value even if DefInst of this exit value has
+        // hard use inside the loop.
+        if ((ExitValue->getSCEVType() >= scMulExpr) &&
+            hasHardUserWithinLoop(L, Inst))
           continue;
+#endif // INTEL_CUSTOMIZATION
 
         bool HighCost = Rewriter.isHighCostExpansion(ExitValue, L, Inst);
         Value *ExitVal = Rewriter.expandCodeFor(ExitValue, PN->getType(), Inst);

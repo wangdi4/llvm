@@ -1,7 +1,9 @@
 ; RUN: opt -S -indvars < %s | FileCheck %s
 
-; Do not rewrite the user outside the loop because we must keep the instruction
-; inside the loop due to store. Rewrite doesn't give us any profit.
+; INTEL_CUSTOMIZATION
+; CMPLRLLVM-7590. Rewrite the user outside the loop
+; if it's SCEV type is less than scMulExpr.
+; end INTEL_CUSTOMIZATION
 define void @f(i32 %length.i.88, i32 %length.i, i8* %tmp12, i32 %tmp10, i8* %tmp8) {
 ; CHECK-LABEL: @f(
 not_zero11.preheader:
@@ -26,8 +28,9 @@ not_zero11:
 
 main.exit.selector:
 ; CHECK-LABEL: main.exit.selector:
-; CHECK:   %tmp22.lcssa = phi i32 [ %tmp22, %not_zero11 ]
-; CHECK:   %tmp24 = icmp slt i32 %tmp22.lcssa, %length.
+; INTEL_CUSTOMIZATION
+; CHECK: %tmp24 = icmp slt i32 %tmp14, %length.i
+; end INTEL_CUSTOMIZATION
   %tmp24 = icmp slt i32 %tmp22, %length.i
   br i1 %tmp24, label %not_zero11.postloop, label %leave
 
