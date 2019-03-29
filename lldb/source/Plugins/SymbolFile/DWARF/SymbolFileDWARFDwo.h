@@ -26,7 +26,7 @@ public:
   GetDWARFCompileUnit(lldb_private::CompileUnit *comp_unit) override;
 
   lldb_private::DWARFExpression::LocationListFormat
-  GetLocationListFormat() const override;
+  GetLocationListFormat() override;
 
   size_t GetObjCMethodDIEOffsets(lldb_private::ConstString class_name,
                                  DIEArray &method_die_offsets) override;
@@ -69,7 +69,7 @@ protected:
       const DWARFDeclContext &die_decl_ctx) override;
 
   lldb::TypeSP FindCompleteObjCDefinitionTypeForDIE(
-      const DWARFDIE &die, const lldb_private::ConstString &type_name,
+      const DWARFDIE &die, lldb_private::ConstString type_name,
       bool must_be_implementation) override;
 
   SymbolFileDWARF *GetBaseSymbolFile();

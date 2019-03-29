@@ -19,9 +19,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Threading.h"
 
-#include "lldb/Utility/Flags.h"
-
-#include "lldb/Core/RangeMap.h"
 #include "lldb/Core/UniqueCStringMap.h"
 #include "lldb/Core/dwarf.h"
 #include "lldb/Expression/DWARFExpression.h"
@@ -29,8 +26,11 @@
 #include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Flags.h"
+#include "lldb/Utility/RangeMap.h"
 #include "lldb/lldb-private.h"
 
+#include "DWARFContext.h"
 #include "DWARFDataExtractor.h"
 #include "DWARFDefines.h"
 #include "DWARFIndex.h"
@@ -50,7 +50,6 @@ class DWARFDebugInfoEntry;
 class DWARFDebugLine;
 class DWARFDebugRangesBase;
 class DWARFDeclContext;
-class DWARFDIECollection;
 class DWARFFormValue;
 class SymbolFileDWARFDebugMap;
 class SymbolFileDWARFDwo;
@@ -170,7 +169,7 @@ public:
                        lldb_private::SymbolContextList &sc_list) override;
 
   uint32_t
-  FindGlobalVariables(const lldb_private::ConstString &name,
+  FindGlobalVariables(lldb_private::ConstString name,
                       const lldb_private::CompilerDeclContext *parent_decl_ctx,
                       uint32_t max_matches,
                       lldb_private::VariableList &variables) override;
@@ -180,7 +179,7 @@ public:
                                lldb_private::VariableList &variables) override;
 
   uint32_t
-  FindFunctions(const lldb_private::ConstString &name,
+  FindFunctions(lldb_private::ConstString name,
                 const lldb_private::CompilerDeclContext *parent_decl_ctx,
                 lldb::FunctionNameType name_type_mask, bool include_inlines,
                 bool append, lldb_private::SymbolContextList &sc_list) override;
@@ -194,7 +193,7 @@ public:
       std::vector<lldb_private::ConstString> &mangled_names) override;
 
   uint32_t
-  FindTypes(const lldb_private::ConstString &name,
+  FindTypes(lldb_private::ConstString name,
             const lldb_private::CompilerDeclContext *parent_decl_ctx,
             bool append, uint32_t max_matches,
             llvm::DenseSet<lldb_private::SymbolFile *> &searched_symbol_files,
@@ -213,7 +212,7 @@ public:
   GetTypeSystemForLanguage(lldb::LanguageType language) override;
 
   lldb_private::CompilerDeclContext FindNamespace(
-      const lldb_private::ConstString &name,
+      lldb_private::ConstString name,
       const lldb_private::CompilerDeclContext *parent_decl_ctx) override;
 
   void PreloadSymbols() override;
@@ -229,24 +228,9 @@ public:
 
   virtual const lldb_private::DWARFDataExtractor &get_debug_abbrev_data();
   virtual const lldb_private::DWARFDataExtractor &get_debug_addr_data();
-  const lldb_private::DWARFDataExtractor &get_debug_aranges_data();
-  const lldb_private::DWARFDataExtractor &get_debug_frame_data();
   virtual const lldb_private::DWARFDataExtractor &get_debug_info_data();
-  const lldb_private::DWARFDataExtractor &get_debug_line_data();
-  const lldb_private::DWARFDataExtractor &get_debug_line_str_data();
-  const lldb_private::DWARFDataExtractor &get_debug_macro_data();
-  const lldb_private::DWARFDataExtractor &get_debug_loc_data();
-  const lldb_private::DWARFDataExtractor &get_debug_loclists_data();
-  const lldb_private::DWARFDataExtractor &get_debug_ranges_data();
-  const lldb_private::DWARFDataExtractor &get_debug_rnglists_data();
   virtual const lldb_private::DWARFDataExtractor &get_debug_str_data();
   virtual const lldb_private::DWARFDataExtractor &get_debug_str_offsets_data();
-  const lldb_private::DWARFDataExtractor &get_debug_types_data();
-  const lldb_private::DWARFDataExtractor &get_apple_names_data();
-  const lldb_private::DWARFDataExtractor &get_apple_types_data();
-  const lldb_private::DWARFDataExtractor &get_apple_namespaces_data();
-  const lldb_private::DWARFDataExtractor &get_apple_objc_data();
-  const lldb_private::DWARFDataExtractor &get_gnu_debugaltlink();
 
   DWARFDebugAbbrev *DebugAbbrev();
 
@@ -259,8 +243,6 @@ public:
   DWARFDebugRangesBase *DebugRanges();
 
   const DWARFDebugRangesBase *DebugRanges() const;
-
-  const lldb_private::DWARFDataExtractor &DebugLocData();
 
   static bool SupportedVersion(uint16_t version);
 
@@ -287,7 +269,7 @@ public:
                                             uint32_t cu_idx);
 
   virtual lldb_private::DWARFExpression::LocationListFormat
-  GetLocationListFormat() const;
+  GetLocationListFormat();
 
   lldb::ModuleSP GetDWOModule(lldb_private::ConstString name);
 
@@ -304,6 +286,7 @@ public:
   virtual std::unique_ptr<SymbolFileDWARFDwo>
   GetDwoSymbolFileForCompileUnit(DWARFUnit &dwarf_cu,
                                  const DWARFDebugInfoEntry &cu_die);
+  lldb_private::DWARFContext &GetDWARFContext();
 
   // For regular SymbolFileDWARF instances the method returns nullptr,
   // for the instances of the subclass SymbolFileDWARFDwo
@@ -394,11 +377,11 @@ protected:
   FindDefinitionTypeForDWARFDeclContext(const DWARFDeclContext &die_decl_ctx);
 
   virtual lldb::TypeSP FindCompleteObjCDefinitionTypeForDIE(
-      const DWARFDIE &die, const lldb_private::ConstString &type_name,
+      const DWARFDIE &die, lldb_private::ConstString type_name,
       bool must_be_implementation);
 
   lldb_private::Symbol *
-  GetObjCClassSymbol(const lldb_private::ConstString &objc_class_name);
+  GetObjCClassSymbol(lldb_private::ConstString objc_class_name);
 
   lldb::TypeSP GetTypeForDIE(const DWARFDIE &die,
                              bool resolve_function_context = false);
@@ -422,7 +405,7 @@ protected:
   bool DIEDeclContextsMatch(const DWARFDIE &die1, const DWARFDIE &die2);
 
   bool ClassContainsSelector(const DWARFDIE &class_die,
-                             const lldb_private::ConstString &selector);
+                             lldb_private::ConstString selector);
 
   bool FixupAddress(lldb_private::Address &addr);
 
@@ -460,28 +443,13 @@ protected:
   llvm::once_flag m_dwp_symfile_once_flag;
   std::unique_ptr<SymbolFileDWARFDwp> m_dwp_symfile;
 
-  lldb_private::DWARFDataExtractor m_dwarf_data;
+  lldb_private::DWARFContext m_context;
 
   DWARFDataSegment m_data_debug_abbrev;
   DWARFDataSegment m_data_debug_addr;
-  DWARFDataSegment m_data_debug_aranges;
-  DWARFDataSegment m_data_debug_frame;
   DWARFDataSegment m_data_debug_info;
-  DWARFDataSegment m_data_debug_line;
-  DWARFDataSegment m_data_debug_line_str;
-  DWARFDataSegment m_data_debug_macro;
-  DWARFDataSegment m_data_debug_loc;
-  DWARFDataSegment m_data_debug_loclists;
-  DWARFDataSegment m_data_debug_ranges;
-  DWARFDataSegment m_data_debug_rnglists;
   DWARFDataSegment m_data_debug_str;
   DWARFDataSegment m_data_debug_str_offsets;
-  DWARFDataSegment m_data_debug_types;
-  DWARFDataSegment m_data_apple_names;
-  DWARFDataSegment m_data_apple_types;
-  DWARFDataSegment m_data_apple_namespaces;
-  DWARFDataSegment m_data_apple_objc;
-  DWARFDataSegment m_data_gnu_debugaltlink;
 
   // The unique pointer items below are generated on demand if and when someone
   // accesses

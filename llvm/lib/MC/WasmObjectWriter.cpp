@@ -250,6 +250,7 @@ class WasmObjectWriter : public MCObjectWriter {
   // section.
   std::vector<WasmCustomSection> CustomSections;
   std::unique_ptr<WasmCustomSection> ProducersSection;
+  std::unique_ptr<WasmCustomSection> TargetFeaturesSection;
   // Relocations for fixing up references in the custom sections.
   DenseMap<const MCSectionWasm *, std::vector<WasmRelocationEntry>>
       CustomSectionsRelocations;
@@ -291,6 +292,7 @@ private:
     DataLocations.clear();
     CustomSections.clear();
     ProducersSection.reset();
+    TargetFeaturesSection.reset();
     CustomSectionsRelocations.clear();
     SignatureIndices.clear();
     Signatures.clear();
@@ -558,12 +560,13 @@ void WasmObjectWriter::recordRelocation(MCAssembler &Asm,
 }
 
 static const MCSymbolWasm *resolveSymbol(const MCSymbolWasm &Symbol) {
-  if (Symbol.isVariable()) {
-    const MCExpr *Expr = Symbol.getVariableValue();
+  const MCSymbolWasm* Ret = &Symbol;
+  while (Ret->isVariable()) {
+    const MCExpr *Expr = Ret->getVariableValue();
     auto *Inner = cast<MCSymbolRefExpr>(Expr);
-    return cast<MCSymbolWasm>(&Inner->getSymbol());
+    Ret = cast<MCSymbolWasm>(&Inner->getSymbol());
   }
-  return &Symbol;
+  return Ret;
 }
 
 // Compute a value to write into the code at the location covered
@@ -1148,7 +1151,6 @@ uint64_t WasmObjectWriter::writeObject(MCAssembler &Asm,
   uint64_t StartOffset = W.OS.tell();
 
   LLVM_DEBUG(dbgs() << "WasmObjectWriter::writeObject\n");
-  MCContext &Ctx = Asm.getContext();
 
   // Collect information from the available symbols.
   SmallVector<WasmFunction, 4> Functions;
@@ -1164,22 +1166,18 @@ uint64_t WasmObjectWriter::writeObject(MCAssembler &Asm,
   // For now, always emit the memory import, since loads and stores are not
   // valid without it. In the future, we could perhaps be more clever and omit
   // it if there are no loads or stores.
-  auto *MemorySym =
-      cast<MCSymbolWasm>(Ctx.getOrCreateSymbol("__linear_memory"));
   wasm::WasmImport MemImport;
-  MemImport.Module = MemorySym->getImportModule();
-  MemImport.Field = MemorySym->getImportName();
+  MemImport.Module = "env";
+  MemImport.Field = "__linear_memory";
   MemImport.Kind = wasm::WASM_EXTERNAL_MEMORY;
   Imports.push_back(MemImport);
 
   // For now, always emit the table section, since indirect calls are not
   // valid without it. In the future, we could perhaps be more clever and omit
   // it if there are no indirect calls.
-  auto *TableSym =
-      cast<MCSymbolWasm>(Ctx.getOrCreateSymbol("__indirect_function_table"));
   wasm::WasmImport TableImport;
-  TableImport.Module = TableSym->getImportModule();
-  TableImport.Field = TableSym->getImportName();
+  TableImport.Module = "env";
+  TableImport.Field = "__indirect_function_table";
   TableImport.Kind = wasm::WASM_EXTERNAL_TABLE;
   TableImport.Table.ElemType = wasm::WASM_TYPE_FUNCREF;
   Imports.push_back(TableImport);
@@ -1258,7 +1256,8 @@ uint64_t WasmObjectWriter::writeObject(MCAssembler &Asm,
       DataSegments.emplace_back();
       WasmDataSegment &Segment = DataSegments.back();
       Segment.Name = SectionName;
-      Segment.InitFlags = Section.getPassive() ? wasm::WASM_SEGMENT_IS_PASSIVE : 0;
+      Segment.InitFlags =
+          Section.getPassive() ? (uint32_t)wasm::WASM_SEGMENT_IS_PASSIVE : 0;
       Segment.Offset = DataSize;
       Segment.Section = &Section;
       addData(Segment.Data, Section);
@@ -1289,9 +1288,14 @@ uint64_t WasmObjectWriter::writeObject(MCAssembler &Asm,
                              Twine(SectionName));
       }
 
-      // Separate out the producers section
+      // Separate out the producers and target features sections
       if (Name == "producers") {
         ProducersSection = llvm::make_unique<WasmCustomSection>(Name, &Section);
+        continue;
+      }
+      if (Name == "target_features") {
+        TargetFeaturesSection =
+            llvm::make_unique<WasmCustomSection>(Name, &Section);
         continue;
       }
 
@@ -1351,7 +1355,7 @@ uint64_t WasmObjectWriter::writeObject(MCAssembler &Asm,
       LLVM_DEBUG(dbgs() << "  -> function index: " << Index << "\n");
 
     } else if (WS.isData()) {
-      if (WS.isTemporary() && !WS.getSize())
+      if (!isInSymtab(WS))
         continue;
 
       if (!WS.isDefined()) {
@@ -1427,12 +1431,12 @@ uint64_t WasmObjectWriter::writeObject(MCAssembler &Asm,
     LLVM_DEBUG(dbgs() << WS.getName() << ": weak alias of '" << *ResolvedSym
                       << "'\n");
 
-    if (WS.isFunction()) {
+    if (ResolvedSym->isFunction()) {
       assert(WasmIndices.count(ResolvedSym) > 0);
       uint32_t WasmIndex = WasmIndices.find(ResolvedSym)->second;
       WasmIndices[&WS] = WasmIndex;
       LLVM_DEBUG(dbgs() << "  -> index:" << WasmIndex << "\n");
-    } else if (WS.isData()) {
+    } else if (ResolvedSym->isData()) {
       assert(DataLocations.count(ResolvedSym) > 0);
       const wasm::WasmDataReference &Ref =
           DataLocations.find(ResolvedSym)->second;
@@ -1561,15 +1565,16 @@ uint64_t WasmObjectWriter::writeObject(MCAssembler &Asm,
       assert(Fixup.getKind() ==
              MCFixup::getKindForSize(is64Bit() ? 8 : 4, false));
       const MCExpr *Expr = Fixup.getValue();
-      auto *Sym = dyn_cast<MCSymbolRefExpr>(Expr);
-      if (!Sym)
+      auto *SymRef = dyn_cast<MCSymbolRefExpr>(Expr);
+      if (!SymRef)
         report_fatal_error("fixups in .init_array should be symbol references");
-      if (Sym->getKind() != MCSymbolRefExpr::VK_WebAssembly_FUNCTION)
-        report_fatal_error("symbols in .init_array should be for functions");
-      if (Sym->getSymbol().getIndex() == InvalidIndex)
+      const auto &TargetSym = cast<const MCSymbolWasm>(SymRef->getSymbol());
+      if (TargetSym.getIndex() == InvalidIndex)
         report_fatal_error("symbols in .init_array should exist in symbtab");
+      if (!TargetSym.isFunction())
+        report_fatal_error("symbols in .init_array should be for functions");
       InitFuncs.push_back(
-          std::make_pair(Priority, Sym->getSymbol().getIndex()));
+          std::make_pair(Priority, TargetSym.getIndex()));
     }
   }
 
@@ -1595,6 +1600,8 @@ uint64_t WasmObjectWriter::writeObject(MCAssembler &Asm,
   writeCustomRelocSections();
   if (ProducersSection)
     writeCustomSection(*ProducersSection, Asm, Layout);
+  if (TargetFeaturesSection)
+    writeCustomSection(*TargetFeaturesSection, Asm, Layout);
 
   // TODO: Translate the .comment section to the output.
   return W.OS.tell() - StartOffset;

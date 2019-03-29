@@ -61,6 +61,7 @@ template <> struct ScalarEnumerationTraits<FormatStyle::LanguageKind> {
     IO.enumCase(Value, "Proto", FormatStyle::LK_Proto);
     IO.enumCase(Value, "TableGen", FormatStyle::LK_TableGen);
     IO.enumCase(Value, "TextProto", FormatStyle::LK_TextProto);
+    IO.enumCase(Value, "CSharp", FormatStyle::LK_CSharp);
   }
 };
 
@@ -103,6 +104,18 @@ template <> struct ScalarEnumerationTraits<FormatStyle::ShortFunctionStyle> {
     IO.enumCase(Value, "Inline", FormatStyle::SFS_Inline);
     IO.enumCase(Value, "InlineOnly", FormatStyle::SFS_InlineOnly);
     IO.enumCase(Value, "Empty", FormatStyle::SFS_Empty);
+  }
+};
+
+template <> struct ScalarEnumerationTraits<FormatStyle::ShortIfStyle> {
+  static void enumeration(IO &IO, FormatStyle::ShortIfStyle &Value) {
+    IO.enumCase(Value, "Never", FormatStyle::SIS_Never);
+    IO.enumCase(Value, "Always", FormatStyle::SIS_Always);
+    IO.enumCase(Value, "WithoutElse", FormatStyle::SIS_WithoutElse);
+
+    // For backward compatibility.
+    IO.enumCase(Value, "false", FormatStyle::SIS_Never);
+    IO.enumCase(Value, "true", FormatStyle::SIS_WithoutElse);
   }
 };
 
@@ -149,8 +162,8 @@ struct ScalarEnumerationTraits<FormatStyle::BreakConstructorInitializersStyle> {
 
 template <>
 struct ScalarEnumerationTraits<FormatStyle::BreakInheritanceListStyle> {
-  static void
-  enumeration(IO &IO, FormatStyle::BreakInheritanceListStyle &Value) {
+  static void enumeration(IO &IO,
+                          FormatStyle::BreakInheritanceListStyle &Value) {
     IO.enumCase(Value, "BeforeColon", FormatStyle::BILS_BeforeColon);
     IO.enumCase(Value, "BeforeComma", FormatStyle::BILS_BeforeComma);
     IO.enumCase(Value, "AfterColon", FormatStyle::BILS_AfterColon);
@@ -162,6 +175,7 @@ struct ScalarEnumerationTraits<FormatStyle::PPDirectiveIndentStyle> {
   static void enumeration(IO &IO, FormatStyle::PPDirectiveIndentStyle &Value) {
     IO.enumCase(Value, "None", FormatStyle::PPDIS_None);
     IO.enumCase(Value, "AfterHash", FormatStyle::PPDIS_AfterHash);
+    IO.enumCase(Value, "BeforeHash", FormatStyle::PPDIS_BeforeHash);
   }
 };
 
@@ -179,7 +193,8 @@ struct ScalarEnumerationTraits<FormatStyle::ReturnTypeBreakingStyle> {
 
 template <>
 struct ScalarEnumerationTraits<FormatStyle::BreakTemplateDeclarationsStyle> {
-  static void enumeration(IO &IO, FormatStyle::BreakTemplateDeclarationsStyle &Value) {
+  static void enumeration(IO &IO,
+                          FormatStyle::BreakTemplateDeclarationsStyle &Value) {
     IO.enumCase(Value, "No", FormatStyle::BTDS_No);
     IO.enumCase(Value, "MultiLine", FormatStyle::BTDS_MultiLine);
     IO.enumCase(Value, "Yes", FormatStyle::BTDS_Yes);
@@ -273,8 +288,8 @@ template <> struct MappingTraits<FormatStyle> {
     IO.mapOptional("Language", Style.Language);
 
     if (IO.outputting()) {
-      StringRef StylesArray[] = {"LLVM",    "Google", "Chromium",
-                                 "Mozilla", "WebKit", "GNU"};
+      StringRef StylesArray[] = {"LLVM",   "Google", "Chromium", "Mozilla",
+                                 "WebKit", "GNU",    "Microsoft"};
       ArrayRef<StringRef> Styles(StylesArray);
       for (size_t i = 0, e = Styles.size(); i < e; ++i) {
         StringRef StyleName(Styles[i]);
@@ -361,10 +376,8 @@ template <> struct MappingTraits<FormatStyle> {
     IO.mapOptional("BreakBeforeBraces", Style.BreakBeforeBraces);
 
     bool BreakBeforeInheritanceComma = false;
-    IO.mapOptional("BreakBeforeInheritanceComma",
-                   BreakBeforeInheritanceComma);
-    IO.mapOptional("BreakInheritanceList",
-                   Style.BreakInheritanceList);
+    IO.mapOptional("BreakBeforeInheritanceComma", BreakBeforeInheritanceComma);
+    IO.mapOptional("BreakInheritanceList", Style.BreakInheritanceList);
     // If BreakBeforeInheritanceComma was specified but
     // BreakInheritance was not, initialize the latter from the
     // former for backwards compatibility.
@@ -618,9 +631,9 @@ static FormatStyle expandPresets(const FormatStyle &Style) {
   return Expanded;
 }
 
-FormatStyle getLLVMStyle() {
+FormatStyle getLLVMStyle(FormatStyle::LanguageKind Language) {
   FormatStyle LLVMStyle;
-  LLVMStyle.Language = FormatStyle::LK_Cpp;
+  LLVMStyle.Language = Language;
   LLVMStyle.AccessModifierOffset = -2;
   LLVMStyle.AlignEscapedNewlines = FormatStyle::ENAS_Right;
   LLVMStyle.AlignAfterOpenBracket = FormatStyle::BAS_Align;
@@ -632,7 +645,7 @@ FormatStyle getLLVMStyle() {
   LLVMStyle.AllowShortFunctionsOnASingleLine = FormatStyle::SFS_All;
   LLVMStyle.AllowShortBlocksOnASingleLine = false;
   LLVMStyle.AllowShortCaseLabelsOnASingleLine = false;
-  LLVMStyle.AllowShortIfStatementsOnASingleLine = false;
+  LLVMStyle.AllowShortIfStatementsOnASingleLine = FormatStyle::SIS_Never;
   LLVMStyle.AllowShortLoopsOnASingleLine = false;
   LLVMStyle.AlwaysBreakAfterReturnType = FormatStyle::RTBS_None;
   LLVMStyle.AlwaysBreakAfterDefinitionReturnType = FormatStyle::DRTBS_None;
@@ -718,6 +731,11 @@ FormatStyle getLLVMStyle() {
   LLVMStyle.StatementMacros.push_back("Q_UNUSED");
   LLVMStyle.StatementMacros.push_back("QT_REQUIRE_VERSION");
 
+  // Defaults that differ when not C++.
+  if (Language == FormatStyle::LK_TableGen) {
+    LLVMStyle.SpacesInContainerLiterals = false;
+  }
+
   return LLVMStyle;
 }
 
@@ -729,12 +747,12 @@ FormatStyle getGoogleStyle(FormatStyle::LanguageKind Language) {
     return GoogleStyle;
   }
 
-  FormatStyle GoogleStyle = getLLVMStyle();
-  GoogleStyle.Language = Language;
+  FormatStyle GoogleStyle = getLLVMStyle(Language);
 
   GoogleStyle.AccessModifierOffset = -1;
   GoogleStyle.AlignEscapedNewlines = FormatStyle::ENAS_Left;
-  GoogleStyle.AllowShortIfStatementsOnASingleLine = true;
+  GoogleStyle.AllowShortIfStatementsOnASingleLine =
+      FormatStyle::SIS_WithoutElse;
   GoogleStyle.AllowShortLoopsOnASingleLine = true;
   GoogleStyle.AlwaysBreakBeforeMultilineStrings = true;
   GoogleStyle.AlwaysBreakTemplateDeclarations = FormatStyle::BTDS_Yes;
@@ -801,7 +819,7 @@ FormatStyle getGoogleStyle(FormatStyle::LanguageKind Language) {
     GoogleStyle.AlignOperands = false;
     GoogleStyle.AlignTrailingComments = false;
     GoogleStyle.AllowShortFunctionsOnASingleLine = FormatStyle::SFS_Empty;
-    GoogleStyle.AllowShortIfStatementsOnASingleLine = false;
+    GoogleStyle.AllowShortIfStatementsOnASingleLine = FormatStyle::SIS_Never;
     GoogleStyle.AlwaysBreakBeforeMultilineStrings = false;
     GoogleStyle.BreakBeforeBinaryOperators = FormatStyle::BOS_NonAssignment;
     GoogleStyle.ColumnLimit = 100;
@@ -843,31 +861,26 @@ FormatStyle getGoogleStyle(FormatStyle::LanguageKind Language) {
 FormatStyle getChromiumStyle(FormatStyle::LanguageKind Language) {
   FormatStyle ChromiumStyle = getGoogleStyle(Language);
   if (Language == FormatStyle::LK_Java) {
-    ChromiumStyle.AllowShortIfStatementsOnASingleLine = true;
+    ChromiumStyle.AllowShortIfStatementsOnASingleLine =
+        FormatStyle::SIS_WithoutElse;
     ChromiumStyle.BreakAfterJavaFieldAnnotations = true;
     ChromiumStyle.ContinuationIndentWidth = 8;
     ChromiumStyle.IndentWidth = 4;
     // See styleguide for import groups:
     // https://chromium.googlesource.com/chromium/src/+/master/styleguide/java/java.md#Import-Order
     ChromiumStyle.JavaImportGroups = {
-        "android",
-        "com",
-        "dalvik",
-        "junit",
-        "org",
-        "com.google.android.apps.chrome",
-        "org.chromium",
-        "java",
-        "javax",
+        "android",      "com",  "dalvik",
+        "junit",        "org",  "com.google.android.apps.chrome",
+        "org.chromium", "java", "javax",
     };
     ChromiumStyle.SortIncludes = true;
   } else if (Language == FormatStyle::LK_JavaScript) {
-    ChromiumStyle.AllowShortIfStatementsOnASingleLine = false;
+    ChromiumStyle.AllowShortIfStatementsOnASingleLine = FormatStyle::SIS_Never;
     ChromiumStyle.AllowShortLoopsOnASingleLine = false;
   } else {
     ChromiumStyle.AllowAllParametersOfDeclarationOnNextLine = false;
     ChromiumStyle.AllowShortFunctionsOnASingleLine = FormatStyle::SFS_Inline;
-    ChromiumStyle.AllowShortIfStatementsOnASingleLine = false;
+    ChromiumStyle.AllowShortIfStatementsOnASingleLine = FormatStyle::SIS_Never;
     ChromiumStyle.AllowShortLoopsOnASingleLine = false;
     ChromiumStyle.BinPackParameters = false;
     ChromiumStyle.DerivePointerAlignment = false;
@@ -939,6 +952,32 @@ FormatStyle getGNUStyle() {
   return Style;
 }
 
+FormatStyle getMicrosoftStyle(FormatStyle::LanguageKind Language) {
+  FormatStyle Style = getLLVMStyle();
+  Style.ColumnLimit = 120;
+  Style.TabWidth = 4;
+  Style.IndentWidth = 4;
+  Style.UseTab = FormatStyle::UT_Never;
+  Style.BreakBeforeBraces = FormatStyle::BS_Custom;
+  Style.BraceWrapping.AfterClass = true;
+  Style.BraceWrapping.AfterControlStatement = true;
+  Style.BraceWrapping.AfterEnum = true;
+  Style.BraceWrapping.AfterFunction = true;
+  Style.BraceWrapping.AfterNamespace = true;
+  Style.BraceWrapping.AfterObjCDeclaration = true;
+  Style.BraceWrapping.AfterStruct = true;
+  Style.BraceWrapping.AfterExternBlock = true;
+  Style.BraceWrapping.BeforeCatch = true;
+  Style.BraceWrapping.BeforeElse = true;
+  Style.PenaltyReturnTypeOnItsOwnLine = 1000;
+  Style.AllowShortFunctionsOnASingleLine = FormatStyle::SFS_None;
+  Style.AllowShortBlocksOnASingleLine = false;
+  Style.AllowShortCaseLabelsOnASingleLine = false;
+  Style.AllowShortIfStatementsOnASingleLine = FormatStyle::SIS_Never;
+  Style.AllowShortLoopsOnASingleLine = false;
+  return Style;
+}
+
 FormatStyle getNoStyle() {
   FormatStyle NoStyle = getLLVMStyle();
   NoStyle.DisableFormat = true;
@@ -950,7 +989,7 @@ FormatStyle getNoStyle() {
 bool getPredefinedStyle(StringRef Name, FormatStyle::LanguageKind Language,
                         FormatStyle *Style) {
   if (Name.equals_lower("llvm")) {
-    *Style = getLLVMStyle();
+    *Style = getLLVMStyle(Language);
   } else if (Name.equals_lower("chromium")) {
     *Style = getChromiumStyle(Language);
   } else if (Name.equals_lower("mozilla")) {
@@ -961,6 +1000,8 @@ bool getPredefinedStyle(StringRef Name, FormatStyle::LanguageKind Language,
     *Style = getWebKitStyle();
   } else if (Name.equals_lower("gnu")) {
     *Style = getGNUStyle();
+  } else if (Name.equals_lower("microsoft")) {
+    *Style = getMicrosoftStyle(Language);
   } else if (Name.equals_lower("none")) {
     *Style = getNoStyle();
   } else {
@@ -1059,9 +1100,7 @@ void FormatStyle::FormatStyleSet::Add(FormatStyle Style) {
   (*Styles)[Style.Language] = std::move(Style);
 }
 
-void FormatStyle::FormatStyleSet::Clear() {
-  Styles.reset();
-}
+void FormatStyle::FormatStyleSet::Clear() { Styles.reset(); }
 
 llvm::Optional<FormatStyle>
 FormatStyle::GetLanguageStyle(FormatStyle::LanguageKind Language) const {
@@ -1791,9 +1830,10 @@ tooling::Replacements sortCppIncludes(const FormatStyle &Style, StringRef Code,
         Code.substr(Prev, (Pos != StringRef::npos ? Pos : Code.size()) - Prev);
 
     StringRef Trimmed = Line.trim();
-    if (Trimmed == "// clang-format off")
+    if (Trimmed == "// clang-format off" || Trimmed == "/* clang-format off */")
       FormattingOff = true;
-    else if (Trimmed == "// clang-format on")
+    else if (Trimmed == "// clang-format on" ||
+             Trimmed == "/* clang-format on */")
       FormattingOff = false;
 
     const bool EmptyLineSkipped =
@@ -1853,8 +1893,7 @@ static unsigned findJavaImportGroup(const FormatStyle &Style,
 static void sortJavaImports(const FormatStyle &Style,
                             const SmallVectorImpl<JavaImportDirective> &Imports,
                             ArrayRef<tooling::Range> Ranges, StringRef FileName,
-                            StringRef Code,
-                            tooling::Replacements &Replaces) {
+                            StringRef Code, tooling::Replacements &Replaces) {
   unsigned ImportsBeginOffset = Imports.front().Offset;
   unsigned ImportsEndOffset =
       Imports.back().Offset + Imports.back().Text.size();
@@ -1961,7 +2000,8 @@ tooling::Replacements sortJavaImports(const FormatStyle &Style, StringRef Code,
       if (Static.contains("static")) {
         IsStatic = true;
       }
-      ImportsInBlock.push_back({Identifier, Line, Prev, AssociatedCommentLines, IsStatic});
+      ImportsInBlock.push_back(
+          {Identifier, Line, Prev, AssociatedCommentLines, IsStatic});
       AssociatedCommentLines.clear();
     } else if (Trimmed.size() > 0 && !ImportsInBlock.empty()) {
       // Associating comments within the imports with the nearest import below
@@ -2090,7 +2130,6 @@ fixCppIncludeInsertions(StringRef Code, const tooling::Replacements &Replaces,
   if (HeaderInsertions.empty() && HeadersToDelete.empty())
     return Replaces;
 
-
   StringRef FileName = Replaces.begin()->getFilePath();
   tooling::HeaderIncludes Includes(FileName, Code, Style.IncludeStyle);
 
@@ -2123,7 +2162,8 @@ fixCppIncludeInsertions(StringRef Code, const tooling::Replacements &Replaces,
       auto Err = Result.add(*Replace);
       if (Err) {
         llvm::consumeError(std::move(Err));
-        unsigned NewOffset = Result.getShiftedCodePosition(Replace->getOffset());
+        unsigned NewOffset =
+            Result.getShiftedCodePosition(Replace->getOffset());
         auto Shifted = tooling::Replacement(FileName, NewOffset, 0,
                                             Replace->getReplacementText());
         Result = Result.merge(tooling::Replacements(Shifted));
@@ -2312,6 +2352,8 @@ static FormatStyle::LanguageKind getLanguageByFileName(StringRef FileName) {
     return FormatStyle::LK_TextProto;
   if (FileName.endswith_lower(".td"))
     return FormatStyle::LK_TableGen;
+  if (FileName.endswith_lower(".cs"))
+    return FormatStyle::LK_CSharp;
   return FormatStyle::LK_Cpp;
 }
 
@@ -2344,8 +2386,7 @@ llvm::Expected<FormatStyle> getStyle(StringRef StyleName, StringRef FileName,
   if (!FS) {
     FS = llvm::vfs::getRealFileSystem().get();
   }
-  FormatStyle Style = getLLVMStyle();
-  Style.Language = guessLanguage(FileName, Code);
+  FormatStyle Style = getLLVMStyle(guessLanguage(FileName, Code));
 
   FormatStyle FallbackStyle = getNoStyle();
   if (!getPredefinedStyle(FallbackStyleName, Style.Language, &FallbackStyle))
