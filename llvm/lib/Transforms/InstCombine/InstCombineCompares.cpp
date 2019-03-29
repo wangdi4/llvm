@@ -1828,6 +1828,12 @@ Instruction *InstCombiner::foldICmpMulConstant(ICmpInst &Cmp,
   if (!match(Mul->getOperand(1), m_APInt(MulC)))
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
+  // Disabling this particular optimization before loopopt as it interferes
+  // with ztt recognition.
+  if (Cmp.getParent()->getParent()->isPreLoopOpt())
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
   // If this is a test of the sign bit and the multiply is sign-preserving with
   // a constant operand, use the multiply LHS operand instead.
   ICmpInst::Predicate Pred = Cmp.getPredicate();
