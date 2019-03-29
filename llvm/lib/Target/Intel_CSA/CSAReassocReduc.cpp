@@ -59,6 +59,12 @@ static cl::opt<MultiplexType> Multiplex{
     clEnumVal(nondeterministic, "multiplex one FMA unit nondeterministically")),
   cl::init(deterministic)};
 
+static cl::opt<bool> EmulateFountains{
+    "csa-no-fountains", cl::Hidden,
+    cl::desc("CSA Specific: Emulate fountain ops as a temporary workaround "
+             "until real scratchpad support is restored."),
+    cl::init(true)};
+
 #define DEBUG_TYPE "csa-reassoc-reduc"
 #define PASS_NAME "CSA: Pipelined Reassociating Reduction Expansion"
 
@@ -304,15 +310,26 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   LLVMContext &ctx = MI.getParent()->getParent()->getFunction().getContext();
   const auto smallfountain = [&](uint64_t bits, uint64_t len,
                                  const Twine &name) {
-    const unsigned scratch = MCP->getConstantPoolIndex(
-      ConstantInt::get(Type::getInt64Ty(ctx), bits), 1);
-    const unsigned res = add_lic(i1_class, name, true);
-    add_instr(CSA::FOUNTAIN1)
-      .addDef(res)
-      .addConstantPoolIndex(scratch)
-      .addImm(len)
-      .addImm(1);
-    return res;
+    if (EmulateFountains) {
+      const unsigned res = add_lic(i1_class, name, true);
+      LMFI->setLICDepth(res, len);
+      for (uint64_t i = 0; i < len; ++i) {
+        const uint64_t bit = bits >> i & 1;
+        add_instr(CSA::INIT1).addDef(res).addImm(bit);
+      }
+      add_instr(CSA::MOV1).addDef(res).addUse(res);
+      return res;
+    } else {
+      const unsigned scratch = MCP->getConstantPoolIndex(
+          ConstantInt::get(Type::getInt64Ty(ctx), bits), 1);
+      const unsigned res = add_lic(i1_class, name, true);
+      add_instr(CSA::FOUNTAIN1)
+          .addDef(res)
+          .addConstantPoolIndex(scratch)
+          .addImm(len)
+          .addImm(1);
+      return res;
+    }
   };
 
   // Look up common opcodes ahead of time.
@@ -375,22 +392,40 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
 
   // If it's some other immediate, use a fountain to reinitialize parts.
   else if (init_is_imm) {
-    SmallVector<Constant *, 10> consts(partred_count, identity);
-    consts.back()          = const_cast<ConstantFP *>(init.getFPImm());
-    const unsigned scratch = MCP->getConstantPoolIndex(
-      ConstantArray::get(ArrayType::get(fp_type, partred_count), consts),
-      lic_size / 8);
-    const unsigned parts_init = add_lic(lic_class, "parts_init", true);
-    add_instr(TII->makeOpcode(CSA::Generic::FOUNTAIN, lic_size))
-      .addDef(parts_init)
-      .addConstantPoolIndex(scratch)
-      .addImm(partred_count)
-      .addImm(1);
-    add_instr(opcode_pick)
-      .addDef(parts)
-      .addUse(parts_pred_ctl)
-      .addUse(parts_init)
-      .addUse(op_to_parts);
+    if (EmulateFountains) {
+      const unsigned parts_init = add_lic(lic_class, "parts_init", true);
+      const unsigned init_opcode =
+          TII->makeOpcode(CSA::Generic::INIT, lic_size);
+      for (int i = 0; i < partred_count - 1; ++i) {
+        add_instr(init_opcode).addDef(parts_init).addFPImm(identity);
+      }
+      add_instr(init_opcode).addDef(parts_init).add(init);
+      add_instr(TII->makeOpcode(CSA::Generic::MOV, lic_size))
+          .addDef(parts_init)
+          .addUse(parts_init);
+      add_instr(opcode_pick)
+          .addDef(parts)
+          .addUse(parts_pred_ctl)
+          .addUse(parts_init)
+          .addUse(op_to_parts);
+    } else {
+      SmallVector<Constant *, 10> consts(partred_count, identity);
+      consts.back() = const_cast<ConstantFP *>(init.getFPImm());
+      const unsigned scratch = MCP->getConstantPoolIndex(
+          ConstantArray::get(ArrayType::get(fp_type, partred_count), consts),
+          lic_size / 8);
+      const unsigned parts_init = add_lic(lic_class, "parts_init", true);
+      add_instr(TII->makeOpcode(CSA::Generic::FOUNTAIN, lic_size))
+          .addDef(parts_init)
+          .addConstantPoolIndex(scratch)
+          .addImm(partred_count)
+          .addImm(1);
+      add_instr(opcode_pick)
+          .addDef(parts)
+          .addUse(parts_pred_ctl)
+          .addUse(parts_init)
+          .addUse(op_to_parts);
+    }
   }
 
   // Otherwise, use a pick to pull in the value from init and inject a 0 to make
