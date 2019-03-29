@@ -1716,6 +1716,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRLoopInterchangePass());
     PM.add(createHIRLoopBlockingPass());
     PM.add(createHIRLoopReversalPass());
+    PM.add(createHIRIdentityMatrixIdiomRecognitionPass());
 
     if (SizeLevel == 0) {
       PM.add(createHIRPreVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));

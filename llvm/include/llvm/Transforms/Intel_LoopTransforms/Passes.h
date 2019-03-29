@@ -149,6 +149,9 @@ FunctionPass *createHIRMultiExitLoopRerollPass();
 
 /// Creates a pass that recognizes parallel loops.
 FunctionPass *createHIRRecognizeParLoopPass();
+
+/// Create pass that recognize identity matrix.
+FunctionPass *createHIRIdentityMatrixIdiomRecognitionPass();
 } // namespace llvm
 
 #endif
