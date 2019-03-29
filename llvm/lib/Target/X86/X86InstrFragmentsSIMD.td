@@ -714,7 +714,7 @@ def sse_load_f64 : ComplexPattern<v2f64, 5, "selectScalarSSELoad", [],
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 def shmem : Operand<v8f16> {
-  let PrintMethod = "printf16mem";
+  let PrintMethod = "printwordmem";
   let MIOperandInfo = (ops ptr_rc, i8imm, ptr_rc_nosp, i32imm, SEGMENT_REG);
   let ParserMatchClass = X86Mem16AsmOperand;
   let OperandType = "OPERAND_MEMORY";

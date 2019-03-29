@@ -3288,6 +3288,12 @@ SDValue X86TargetLowering::LowerFormalArguments(
           RC = &X86::GR32RegClass;
         else if (Is64Bit && RegVT == MVT::i64)
           RC = &X86::GR64RegClass;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+        else if (RegVT == MVT::f16)
+          RC = &X86::FR16XRegClass;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
         else if (RegVT == MVT::f32)
           RC = Subtarget.hasAVX512() ? &X86::FR32XRegClass : &X86::FR32RegClass;
         else if (RegVT == MVT::f64)
@@ -9257,7 +9263,14 @@ X86TargetLowering::LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
       if (NumZero == 0)
         return DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, VT, Item);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      if (EltVT == MVT::i32 ||
+          EltVT == MVT::f16 || EltVT == MVT::f32 || EltVT == MVT::f64 ||
+#else  // INTEL_FEATURE_ISA_FP16
       if (EltVT == MVT::i32 || EltVT == MVT::f32 || EltVT == MVT::f64 ||
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
           (EltVT == MVT::i64 && Subtarget.is64Bit())) {
         assert((VT.is128BitVector() || VT.is256BitVector() ||
                 VT.is512BitVector()) &&
@@ -9266,6 +9279,15 @@ X86TargetLowering::LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
         // Turn it into a MOVL (i.e. movss, movsd, or movd) to a zero vector.
         return getShuffleVectorZeroOrUndef(Item, 0, true, Subtarget, DAG);
       }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      if (EltVT == MVT::i16 && Subtarget.hasFP16()) {
+        Item = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, MVT::v8i16, Item);
+        return Item;
+      }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
       // We can't directly insert an i8 or i16 into a vector, so zero extend
       // it to i32 first.
@@ -16879,7 +16901,16 @@ X86TargetLowering::LowerEXTRACT_VECTOR_ELT(SDValue Op,
 
   MVT VT = Op.getSimpleValueType();
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (VT == MVT::i16) {
+    if (IdxVal == 0 && Subtarget.hasFP16()) {
+      return Op;
+    }
+#else  // INTEL_FEATURE_ISA_FP16
   if (VT.getSizeInBits() == 16) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     // If IdxVal is 0, it's cheaper to do a move instead of a pextrw, unless
     // we're going to zero extend the register or fold the store (SSE41 only).
     if (IdxVal == 0 && !MayFoldIntoZeroExtend(Op) &&
@@ -16926,12 +16957,25 @@ X86TargetLowering::LowerEXTRACT_VECTOR_ELT(SDValue Op,
     return DAG.getNode(ISD::TRUNCATE, dl, VT, Res);
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (VT == MVT::f16 || VT.getSizeInBits() == 32) {
+#else  // INTEL_FEATURE_ISA_FP16
   if (VT.getSizeInBits() == 32) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     if (IdxVal == 0)
       return Op;
 
     // SHUFPS the element to the lowest double word, then movss.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    SmallVector<int, 8> Mask(VecVT.getVectorNumElements(), -1);
+    Mask[0] = static_cast<int>(IdxVal);
+#else  // INTEL_FEATURE_ISA_FP16
     int Mask[4] = { static_cast<int>(IdxVal), -1, -1, -1 };
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     Vec = DAG.getVectorShuffle(VecVT, dl, Vec, DAG.getUNDEF(VecVT), Mask);
     return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, VT, Vec,
                        DAG.getIntPtrConstant(0, dl));
@@ -17055,9 +17099,22 @@ SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
 
   // Transform it so it match pinsr{b,w} which expects a GR32 as its second
   // argument. SSE41 required for pinsrb.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (VT == MVT::v8i16 || (VT == MVT::v8f16 && !Subtarget.hasFP16()) ||
+      (VT == MVT::v16i8 && Subtarget.hasSSE41())) {
+#else  // INTEL_FEATURE_ISA_FP16
   if (VT == MVT::v8i16 || (VT == MVT::v16i8 && Subtarget.hasSSE41())) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     unsigned Opc;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (VT == MVT::v8i16 || VT == MVT::v8f16) {
+#else  // INTEL_FEATURE_ISA_FP16
     if (VT == MVT::v8i16) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       assert(Subtarget.hasSSE2() && "SSE2 required for PINSRW");
       Opc = X86ISD::PINSRW;
     } else {
@@ -17074,7 +17131,14 @@ SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
   }
 
   if (Subtarget.hasSSE41()) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (EltVT == MVT::f32 || (EltVT == MVT::f16 && Subtarget.hasFP16())) {
+#else  // INTEL_FEATURE_ISA_FP16
+
     if (EltVT == MVT::f32) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       // Bits [7:6] of the constant are the source select. This will always be
       //   zero here. The DAG Combiner may combine an extract_elt index into
       //   these bits. For example (insert (extract, 3), 2) could be matched by
@@ -17084,6 +17148,11 @@ SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
       // Bits [3:0] of the constant are the zero mask. The DAG Combiner may
       //   combine either bitwise AND or insert of float 0.0 to set these bits.
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      MVT VecVT = EltVT == MVT::f32 ? MVT::v4f32 : MVT::v8f16;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       bool MinSize = DAG.getMachineFunction().getFunction().hasMinSize();
       if (IdxVal == 0 && (!MinSize || !MayFoldLoad(N1))) {
         // If this is an insertion of 32-bits into the low 32-bits of
@@ -17094,12 +17163,24 @@ SDValue X86TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
         // generate insertps because blendps does not have a 32-bit memory
         // operand form.
         N2 = DAG.getIntPtrConstant(1, dl);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+        N1 = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, VecVT, N1);
+#else  // INTEL_FEATURE_ISA_FP16
         N1 = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, MVT::v4f32, N1);
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
         return DAG.getNode(X86ISD::BLENDI, dl, VT, N0, N1, N2);
       }
       N2 = DAG.getIntPtrConstant(IdxVal << 4, dl);
       // Create this as a scalar to vector..
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      N1 = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, VecVT, N1);
+#else  // INTEL_FEATURE_ISA_FP16
       N1 = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, MVT::v4f32, N1);
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       return DAG.getNode(X86ISD::INSERTPS, dl, VT, N0, N1, N2);
     }
 
@@ -17136,8 +17217,15 @@ static SDValue LowerSCALAR_TO_VECTOR(SDValue Op, const X86Subtarget &Subtarget,
   }
   assert(OpVT.is128BitVector() && "Expected an SSE type!");
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  // Pass through a v4i32 or v8i16 SCALAR_TO_VECTOR as that's what we use in tblgen.
+  if (OpVT == MVT::v4i32 || (OpVT == MVT::v8i16 && Subtarget.hasFP16()))
+#else  // INTEL_FEATURE_ISA_FP16
   // Pass through a v4i32 SCALAR_TO_VECTOR as that's what we use in tblgen.
   if (OpVT == MVT::v4i32)
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return Op;
 
   SDValue AnyExt = DAG.getNode(ISD::ANY_EXTEND, dl, MVT::i32, Op.getOperand(0));
@@ -19869,6 +19957,56 @@ static SDValue LowerVSETCCWithSUBUS(SDValue Op0, SDValue Op1, MVT VT,
                      DAG.getConstant(0, dl, VT));
 }
 
+#if INTEL_CUSTOMIZATION
+static SDValue LowerFPSETCC(unsigned Opc, SDValue Op, MVT VT,
+                            const X86Subtarget &Subtarget, SelectionDAG &DAG) {
+
+  SDValue Op0 = Op.getOperand(0);
+  SDValue Op1 = Op.getOperand(1);
+  SDValue CC = Op.getOperand(2);
+  ISD::CondCode Cond = cast<CondCodeSDNode>(CC)->get();
+  SDLoc dl(Op);
+
+  // In the two cases not handled by SSE compare predicates (SETUEQ/SETONE),
+  // emit two comparisons and a logic op to tie them together.
+  SDValue Cmp;
+  unsigned SSECC = translateX86FSETCC(Cond, Op0, Op1);
+  if (SSECC >= 8 && !Subtarget.hasAVX()) {
+    // LLVM predicate is SETUEQ or SETONE.
+    unsigned CC0, CC1;
+    unsigned CombineOpc;
+    if (Cond == ISD::SETUEQ) {
+      CC0 = 3; // UNORD
+      CC1 = 0; // EQ
+      CombineOpc = X86ISD::FOR;
+    } else {
+      assert(Cond == ISD::SETONE);
+      CC0 = 7; // ORD
+      CC1 = 4; // NEQ
+      CombineOpc = X86ISD::FAND;
+    }
+
+    SDValue Cmp0 =
+        DAG.getNode(Opc, dl, VT, Op0, Op1, DAG.getConstant(CC0, dl, MVT::i8));
+    SDValue Cmp1 =
+        DAG.getNode(Opc, dl, VT, Op0, Op1, DAG.getConstant(CC1, dl, MVT::i8));
+    Cmp = DAG.getNode(CombineOpc, dl, VT, Cmp0, Cmp1);
+  } else {
+    // Handle all other FP comparisons here.
+    Cmp =
+        DAG.getNode(Opc, dl, VT, Op0, Op1, DAG.getConstant(SSECC, dl, MVT::i8));
+  }
+
+  // If this is SSE/AVX CMPP, bitcast the result back to integer to match the
+  // result type of SETCC. The bitcast is expected to be optimized away
+  // during combining/isel.
+  if (Opc == X86ISD::CMPP)
+    Cmp = DAG.getBitcast(Op.getSimpleValueType(), Cmp);
+
+  return Cmp;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
                            SelectionDAG &DAG) {
   SDValue Op0 = Op.getOperand(0);
@@ -19879,15 +20017,24 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
   bool isFP = Op.getOperand(1).getSimpleValueType().isFloatingPoint();
   SDLoc dl(Op);
 
+#if INTEL_CUSTOMIZATION
   if (isFP) {
 #ifndef NDEBUG
     MVT EltVT = Op0.getSimpleValueType().getVectorElementType();
+#if INTEL_FEATURE_ISA_FP16
+    assert(EltVT == MVT::f16 || EltVT == MVT::f32 || EltVT == MVT::f64);
+#else  // INTEL_FEATURE_ISA_FP16
     assert(EltVT == MVT::f32 || EltVT == MVT::f64);
+#endif // INTEL_FEATURE_ISA_FP16
 #endif
 
     unsigned Opc;
     if (Subtarget.hasAVX512() && VT.getVectorElementType() == MVT::i1) {
+#if INTEL_FEATURE_ISA_FP16
+      assert(VT.getVectorNumElements() <= 16 || Subtarget.hasFP16());
+#else  // INTEL_FEATURE_ISA_FP16
       assert(VT.getVectorNumElements() <= 16);
+#endif // INTEL_FEATURE_ISA_FP16
       Opc = X86ISD::CMPM;
     } else {
       Opc = X86ISD::CMPP;
@@ -19897,44 +20044,9 @@ static SDValue LowerVSETCC(SDValue Op, const X86Subtarget &Subtarget,
       VT = Op0.getSimpleValueType();
     }
 
-    // In the two cases not handled by SSE compare predicates (SETUEQ/SETONE),
-    // emit two comparisons and a logic op to tie them together.
-    SDValue Cmp;
-    unsigned SSECC = translateX86FSETCC(Cond, Op0, Op1);
-    if (SSECC >= 8 && !Subtarget.hasAVX()) {
-      // LLVM predicate is SETUEQ or SETONE.
-      unsigned CC0, CC1;
-      unsigned CombineOpc;
-      if (Cond == ISD::SETUEQ) {
-        CC0 = 3; // UNORD
-        CC1 = 0; // EQ
-        CombineOpc = X86ISD::FOR;
-      } else {
-        assert(Cond == ISD::SETONE);
-        CC0 = 7; // ORD
-        CC1 = 4; // NEQ
-        CombineOpc = X86ISD::FAND;
-      }
-
-      SDValue Cmp0 = DAG.getNode(Opc, dl, VT, Op0, Op1,
-                                 DAG.getConstant(CC0, dl, MVT::i8));
-      SDValue Cmp1 = DAG.getNode(Opc, dl, VT, Op0, Op1,
-                                 DAG.getConstant(CC1, dl, MVT::i8));
-      Cmp = DAG.getNode(CombineOpc, dl, VT, Cmp0, Cmp1);
-    } else {
-      // Handle all other FP comparisons here.
-      Cmp = DAG.getNode(Opc, dl, VT, Op0, Op1,
-                        DAG.getConstant(SSECC, dl, MVT::i8));
-    }
-
-    // If this is SSE/AVX CMPP, bitcast the result back to integer to match the
-    // result type of SETCC. The bitcast is expected to be optimized away
-    // during combining/isel.
-    if (Opc == X86ISD::CMPP)
-      Cmp = DAG.getBitcast(Op.getSimpleValueType(), Cmp);
-
-    return Cmp;
+    return LowerFPSETCC(Opc, Op, VT, Subtarget, DAG);
   }
+#endif // INTEL_CUSTOMIZATION
 
   MVT VTOp0 = Op0.getSimpleValueType();
   assert(VTOp0 == Op1.getSimpleValueType() &&
@@ -20286,6 +20398,19 @@ SDValue X86TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   SDLoc dl(Op);
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (Op0.getSimpleValueType() == MVT::f16) {
+    SDValue FSetCC =
+        LowerFPSETCC(X86ISD::FSETCCM, Op, MVT::v1i1, Subtarget, DAG);
+    SDValue Ins = DAG.getNode(ISD::INSERT_SUBVECTOR, dl, MVT::v8i1,
+                              DAG.getConstant(0, dl, MVT::v8i1),
+                              FSetCC, DAG.getIntPtrConstant(0, dl));
+    return DAG.getBitcast(MVT::i8, Ins);
+  }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   SDValue X86CC;
   SDValue EFLAGS = emitFlagsForSetcc(Op0, Op1, CC, dl, DAG, X86CC);
   if (!EFLAGS)
@@ -20472,7 +20597,15 @@ SDValue X86TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   }
 
   // AVX512 fallback is to lower selects of scalar floats to masked moves.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if ((VT == MVT::f64 || VT == MVT::f32 ||
+       (VT == MVT::f16 && Subtarget.hasFP16())) &&
+      Subtarget.hasAVX512()) {
+#else  // INTEL_FEATURE_ISA_FP16
   if ((VT == MVT::f64 || VT == MVT::f32) && Subtarget.hasAVX512()) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     SDValue Cmp = DAG.getNode(ISD::SCALAR_TO_VECTOR, DL, MVT::v1i1, Cond);
     return DAG.getNode(X86ISD::SELECTS, DL, VT, Cmp, Op1, Op2);
   }

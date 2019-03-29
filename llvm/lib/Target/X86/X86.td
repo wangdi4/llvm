@@ -187,9 +187,11 @@ def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                         [FeatureBWI]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
+// FIXME: FP16 scaler inrinsics use the type v8f16, which is supposed to be guarded
+// under condition hasVLX. So we imply it in FeatureFP16 currently.
 def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            "Support 16-bit floating point",
-                           [FeatureBWI]>;
+                           [FeatureBWI, FeatureVLX]>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",

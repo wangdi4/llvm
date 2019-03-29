@@ -56,6 +56,11 @@ class X86FastISel final : public FastISel {
   /// When SSE2 is available, use it for f64 operations.
   bool X86ScalarSSEf64;
   bool X86ScalarSSEf32;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  bool X86ScalarAVXf16;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 public:
   explicit X86FastISel(FunctionLoweringInfo &funcInfo,
@@ -64,6 +69,11 @@ public:
     Subtarget = &funcInfo.MF->getSubtarget<X86Subtarget>();
     X86ScalarSSEf64 = Subtarget->hasSSE2();
     X86ScalarSSEf32 = Subtarget->hasSSE1();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    X86ScalarAVXf16 = Subtarget->hasFP16();
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   }
 
   bool fastSelectInstruction(const Instruction *I) override;
@@ -159,7 +169,14 @@ private:
   /// computed in an SSE register, not on the X87 floating point stack.
   bool isScalarFPTypeInSSEReg(EVT VT) const {
     return (VT == MVT::f64 && X86ScalarSSEf64) || // f64 is when SSE2
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+           (VT == MVT::f32 && X86ScalarSSEf32) || // f32 is when SSE1
+           (VT == MVT::f16 && X86ScalarAVXf16);   // f16 is when AVX512FP16
+#else  // INTEL_FEATURE_ISA_FP16
       (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   }
 
   bool isTypeLegal(Type *Ty, MVT &VT, bool AllowI1 = false);

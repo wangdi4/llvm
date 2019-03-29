@@ -2328,6 +2328,11 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   // FIXME: Hack to recognize cmp<comparison code>{ss,sd,ps,pd}.
   if ((PatchedName.startswith("cmp") || PatchedName.startswith("vcmp")) &&
       (PatchedName.endswith("ss") || PatchedName.endswith("sd") ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+       PatchedName.endswith("sh") || PatchedName.endswith("ph") ||
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
        PatchedName.endswith("ps") || PatchedName.endswith("pd"))) {
     bool IsVCMP = PatchedName[0] == 'v';
     unsigned CCIdx = IsVCMP ? 4 : 3;
@@ -2390,6 +2395,14 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
         PatchedName = IsVCMP ? "vcmpps" : "cmpps";
       else if (PatchedName.endswith("pd"))
         PatchedName = IsVCMP ? "vcmppd" : "cmppd";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      else if (PatchedName.endswith("sh"))
+        PatchedName = IsVCMP ? "vcmpsh" : "cmpsh";
+      else if (PatchedName.endswith("ph"))
+        PatchedName = IsVCMP ? "vcmpph" : "cmpph";
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       else
         llvm_unreachable("Unexpecte suffix!");
 

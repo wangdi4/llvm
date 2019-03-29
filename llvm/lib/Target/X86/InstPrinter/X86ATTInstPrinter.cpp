@@ -152,6 +152,24 @@ bool X86ATTInstPrinter::printVecCompareInstr(const MCInst *MI,
   case X86::VCMPPSZrrib:    case X86::VCMPPSZrribk:
   case X86::VCMPSDZrrb_Int: case X86::VCMPSDZrrb_Intk:
   case X86::VCMPSSZrrb_Int: case X86::VCMPSSZrrb_Intk:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::VCMPPHZ128rmi:  case X86::VCMPPHZ128rri:
+  case X86::VCMPPHZ256rmi:  case X86::VCMPPHZ256rri:
+  case X86::VCMPPHZrmi:     case X86::VCMPPHZrri:
+  case X86::VCMPSHZrm:      case X86::VCMPSHZrr:
+  case X86::VCMPSHZrm_Int:  case X86::VCMPSHZrr_Int:
+  case X86::VCMPPHZ128rmik: case X86::VCMPPHZ128rrik:
+  case X86::VCMPPHZ256rmik: case X86::VCMPPHZ256rrik:
+  case X86::VCMPPHZrmik:    case X86::VCMPPHZrrik:
+  case X86::VCMPSHZrm_Intk: case X86::VCMPSHZrr_Intk:
+  case X86::VCMPPHZ128rmbi: case X86::VCMPPHZ128rmbik:
+  case X86::VCMPPHZ256rmbi: case X86::VCMPPHZ256rmbik:
+  case X86::VCMPPHZrmbi:    case X86::VCMPPHZrmbik:
+  case X86::VCMPPHZrrib:    case X86::VCMPPHZrribk:
+  case X86::VCMPSHZrrb_Int: case X86::VCMPSHZrrb_Intk:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     if (Imm >= 0 && Imm <= 31) {
       OS << '\t';
       printCMPMnemonic(MI, /*IsVCMP*/true, OS);

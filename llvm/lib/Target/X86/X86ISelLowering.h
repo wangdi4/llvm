@@ -1069,7 +1069,14 @@ namespace llvm {
     /// register, not on the X87 floating point stack.
     bool isScalarFPTypeInSSEReg(EVT VT) const {
       return (VT == MVT::f64 && X86ScalarSSEf64) || // f64 is when SSE2
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+             (VT == MVT::f32 && X86ScalarSSEf32) || // f32 is when SSE1
+             (VT == MVT::f16 && X86ScalarAVXf16);   // f16 is when AVX512FP16
+#else // INTEL_FEATURE_ISA_FP16
              (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     }
 
     /// Returns true if it is beneficial to convert a load of a constant
@@ -1217,6 +1224,11 @@ namespace llvm {
     /// When SSE2 is available, use it for f64 operations.
     bool X86ScalarSSEf32;
     bool X86ScalarSSEf64;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    bool X86ScalarAVXf16;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
     /// A list of legal FP immediates.
     std::vector<APFloat> LegalFPImmediates;

@@ -1680,6 +1680,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VCMPPDZ256rri,            X86::VCMPPDZ256rmi,            0 },
   { X86::VCMPPDZrri,               X86::VCMPPDZrmi,               0 },
   { X86::VCMPPDrri,                X86::VCMPPDrmi,                0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  { X86::VCMPPHZ128rri,            X86::VCMPPHZ128rmi,            0 },
+  { X86::VCMPPHZ256rri,            X86::VCMPPHZ256rmi,            0 },
+  { X86::VCMPPHZrri,               X86::VCMPPHZrmi,               0 },
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   { X86::VCMPPSYrri,               X86::VCMPPSYrmi,               0 },
   { X86::VCMPPSZ128rri,            X86::VCMPPSZ128rmi,            0 },
   { X86::VCMPPSZ256rri,            X86::VCMPPSZ256rmi,            0 },
@@ -1689,6 +1696,12 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VCMPSDZrr_Int,            X86::VCMPSDZrm_Int,            TB_NO_REVERSE },
   { X86::VCMPSDrr,                 X86::VCMPSDrm,                 0 },
   { X86::VCMPSDrr_Int,             X86::VCMPSDrm_Int,             TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  { X86::VCMPSHZrr,                X86::VCMPSHZrm,                0 },
+  { X86::VCMPSHZrr_Int,            X86::VCMPSHZrm_Int,            TB_NO_REVERSE },
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   { X86::VCMPSSZrr,                X86::VCMPSSZrm,                0 },
   { X86::VCMPSSZrr_Int,            X86::VCMPSSZrm_Int,            TB_NO_REVERSE },
   { X86::VCMPSSrr,                 X86::VCMPSSrm,                 0 },
@@ -3065,10 +3078,22 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VCMPPDZ128rrik,             X86::VCMPPDZ128rmik,             0 },
   { X86::VCMPPDZ256rrik,             X86::VCMPPDZ256rmik,             0 },
   { X86::VCMPPDZrrik,                X86::VCMPPDZrmik,                0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  { X86::VCMPPHZ128rrik,             X86::VCMPPHZ128rmik,             0 },
+  { X86::VCMPPHZ256rrik,             X86::VCMPPHZ256rmik,             0 },
+  { X86::VCMPPHZrrik,                X86::VCMPPHZrmik,                0 },
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   { X86::VCMPPSZ128rrik,             X86::VCMPPSZ128rmik,             0 },
   { X86::VCMPPSZ256rrik,             X86::VCMPPSZ256rmik,             0 },
   { X86::VCMPPSZrrik,                X86::VCMPPSZrmik,                0 },
   { X86::VCMPSDZrr_Intk,             X86::VCMPSDZrm_Intk,             TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  { X86::VCMPSHZrr_Intk,             X86::VCMPSHZrm_Intk,             TB_NO_REVERSE },
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   { X86::VCMPSSZrr_Intk,             X86::VCMPSSZrm_Intk,             TB_NO_REVERSE },
   { X86::VCVTDQ2PDZ128rrk,           X86::VCVTDQ2PDZ128rmk,           TB_NO_REVERSE },
   { X86::VCVTDQ2PDZ256rrk,           X86::VCVTDQ2PDZ256rmk,           0 },
