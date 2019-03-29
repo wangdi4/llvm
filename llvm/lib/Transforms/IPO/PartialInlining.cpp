@@ -864,10 +864,13 @@ bool PartialInlinerImpl::shouldPartialInline(
 
   Function *Caller = CS.getCaller();
   auto &CalleeTTI = (*GetTTI)(*Callee);
+  bool RemarksEnabled =
+      Callee->getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
+          DEBUG_TYPE);
   InlineCost IC = getInlineCost(CS, getInlineParams(), CalleeTTI,
-                                *GetAssumptionCache, GetBFI, nullptr, // INTEL
-                                ILIC, nullptr, nullptr, nullptr,      // INTEL
-                                PSI, &ORE);                           // INTEL
+                                *GetAssumptionCache, GetBFI, nullptr,  // INTEL
+                                ILIC, nullptr, nullptr, nullptr,       // INTEL
+                                PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
 
   if (IC.isAlways()) {
     ORE.emit([&]() {

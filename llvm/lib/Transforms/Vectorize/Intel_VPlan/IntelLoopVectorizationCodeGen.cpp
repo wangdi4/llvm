@@ -373,7 +373,8 @@ void VPOVectorizationLegality::parseMinMaxReduction(
         if (!TheLoop->isLoopInvariant(Phi))
           MinMaxResultPhi = Phi;
     SmallPtrSet<Instruction *, 4> CastInsts;
-    RecurrenceDescriptor RD(StartV, MinMaxResultPhi, Kind, Mrk,
+    FastMathFlags FMF = FastMathFlags::getFast();
+    RecurrenceDescriptor RD(StartV, MinMaxResultPhi, Kind, FMF, Mrk,
                             nullptr, StartV->getType(), true, CastInsts);
     ExplicitReductions[LoopHeaderPhiNode] = { RD, RedVarPtr };
   }
@@ -415,7 +416,8 @@ void VPOVectorizationLegality::parseBinOpReduction(
     }
     Instruction *Combiner = cast<Instruction>(CombinerV);
     SmallPtrSet<Instruction *, 4> CastInsts;
-    RecurrenceDescriptor RD(StartV, Combiner, Kind,
+    FastMathFlags FMF = FastMathFlags::getFast();
+    RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF,
                             RecurrenceDescriptor::MRK_Invalid, nullptr,
                             ReductionPhi->getType(), true, CastInsts);
     ExplicitReductions[ReductionPhi] = { RD, cast<AllocaInst>(RedVarPtr) };

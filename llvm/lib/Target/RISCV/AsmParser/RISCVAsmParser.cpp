@@ -47,6 +47,7 @@ class RISCVAsmParser : public MCTargetAsmParser {
 
   SMLoc getLoc() const { return getParser().getTok().getLoc(); }
   bool isRV64() const { return getSTI().hasFeature(RISCV::Feature64Bit); }
+  bool isRV32E() const { return getSTI().hasFeature(RISCV::FeatureRV32E); }
 
   RISCVTargetStreamer &getTargetStreamer() {
     MCTargetStreamer &TS = *getParser().getStreamer().getTargetStreamer();
@@ -908,6 +909,20 @@ bool RISCVAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   llvm_unreachable("Unknown match type detected!");
 }
 
+// Attempts to match Name as a register (either using the default name or
+// alternative ABI names), setting RegNo to the matching register. Upon
+// failure, returns true and sets RegNo to 0. If IsRV32E then registers
+// x16-x31 will be rejected.
+static bool matchRegisterNameHelper(bool IsRV32E, unsigned &RegNo,
+                                    StringRef Name) {
+  RegNo = MatchRegisterName(Name);
+  if (RegNo == 0)
+    RegNo = MatchRegisterAltName(Name);
+  if (IsRV32E && RegNo >= RISCV::X16 && RegNo <= RISCV::X31)
+    RegNo = 0;
+  return RegNo == 0;
+}
+
 bool RISCVAsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc,
                                    SMLoc &EndLoc) {
   const AsmToken &Tok = getParser().getTok();
@@ -916,12 +931,11 @@ bool RISCVAsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc,
   RegNo = 0;
   StringRef Name = getLexer().getTok().getIdentifier();
 
-  if (!MatchRegisterName(Name) || !MatchRegisterAltName(Name)) {
-    getParser().Lex(); // Eat identifier token.
-    return false;
-  }
+  if (matchRegisterNameHelper(isRV32E(), RegNo, Name))
+    return Error(StartLoc, "invalid register name");
 
-  return Error(StartLoc, "invalid register name");
+  getParser().Lex(); // Eat identifier token.
+  return false;
 }
 
 OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands,
@@ -944,14 +958,13 @@ OperandMatchResultTy RISCVAsmParser::parseRegister(OperandVector &Operands,
     return MatchOperand_NoMatch;
   case AsmToken::Identifier:
     StringRef Name = getLexer().getTok().getIdentifier();
-    unsigned RegNo = MatchRegisterName(Name);
+    unsigned RegNo;
+    matchRegisterNameHelper(isRV32E(), RegNo, Name);
+
     if (RegNo == 0) {
-      RegNo = MatchRegisterAltName(Name);
-      if (RegNo == 0) {
-        if (HadParens)
-          getLexer().UnLex(Buf[0]);
-        return MatchOperand_NoMatch;
-      }
+      if (HadParens)
+        getLexer().UnLex(Buf[0]);
+      return MatchOperand_NoMatch;
     }
     if (HadParens)
       Operands.push_back(RISCVOperand::createToken("(", FirstS, isRV64()));

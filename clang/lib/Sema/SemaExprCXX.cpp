@@ -750,7 +750,7 @@ ExprResult Sema::BuildCXXThrow(SourceLocation OpLoc, Expr *Ex,
                                bool IsThrownVarInScope) {
   // Don't report an error if 'throw' is used in system headers.
   if (!getLangOpts().CXXExceptions &&
-      !getSourceManager().isInSystemHeader(OpLoc)) {
+      !getSourceManager().isInSystemHeader(OpLoc) && !getLangOpts().CUDA) {
     // Delay error emission for the OpenMP device code.
     targetDiag(OpLoc, diag::err_exceptions_disabled) << "throw";
   }
@@ -2338,8 +2338,7 @@ static bool resolveAllocationOverload(
   case OR_Deleted: {
     if (Diagnose) {
       S.Diag(R.getNameLoc(), diag::err_ovl_deleted_call)
-          << Best->Function->isDeleted() << R.getLookupName()
-          << S.getDeletedOrUnavailableSuffix(Best->Function) << Range;
+          << R.getLookupName() << Range;
       Candidates.NoteCandidates(S, OCD_AllCandidates, Args);
     }
     return true;
@@ -2795,7 +2794,8 @@ void Sema::DeclareGlobalAllocationFunction(DeclarationName Name,
     }
   }
 
-  FunctionProtoType::ExtProtoInfo EPI;
+  FunctionProtoType::ExtProtoInfo EPI(Context.getDefaultCallingConvention(
+      /*IsVariadic=*/false, /*IsCXXMethod=*/false));
 
   QualType BadAllocType;
   bool HasBadAllocExceptionSpec
@@ -3516,8 +3516,7 @@ static bool resolveBuiltinNewDeleteOverload(Sema &S, CallExpr *TheCall,
 
   case OR_Deleted: {
     S.Diag(R.getNameLoc(), diag::err_ovl_deleted_call)
-        << Best->Function->isDeleted() << R.getLookupName()
-        << S.getDeletedOrUnavailableSuffix(Best->Function) << Range;
+        << R.getLookupName() << Range;
     Candidates.NoteCandidates(S, OCD_AllCandidates, Args);
     return true;
   }

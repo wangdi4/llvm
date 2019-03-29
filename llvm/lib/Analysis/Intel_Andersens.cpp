@@ -766,13 +766,14 @@ unsigned AndersensAAResult::getNodeValue(Value &V) {
 //===---------------------------------------------------------------------===//
 
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
-                        const MemoryLocation &LocB)  {
+                                     const MemoryLocation &LocB,
+                                     AAQueryInfo &AAQI)  {
   if (ValueNodes.size() == 0) {
-      return AAResultBase::alias(LocA, LocB);
+      return AAResultBase::alias(LocA, LocB, AAQI);
   }
   NumAliasQuery++; 
   if (NumAliasQuery > MaxAliasQuery) {
-      return AAResultBase::alias(LocA, LocB);
+      return AAResultBase::alias(LocA, LocB, AAQI);
   }
 
   auto *V1 = const_cast<Value *>(LocA.Ptr);
@@ -801,7 +802,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
         errs() << " both of them are Universal \n";
           errs() << " Alias_End \n";
       }
-      return AAResultBase::alias(LocA, LocB);
+      return AAResultBase::alias(LocA, LocB, AAQI);
   }
 
   // Using escape analysis to improve the precision
@@ -828,7 +829,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       errs() << " one of them is Universal and the other one escapes \n";
       errs() << " Alias_End \n";
     }
-    return AAResultBase::alias(LocA, LocB);
+    return AAResultBase::alias(LocA, LocB, AAQI);
   }
   // Check to see if the two pointers are known to not alias. They don't alias
   // if their points-to sets do not intersect.
@@ -844,7 +845,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       errs() << " Can't determine using points-to \n";
       errs() << " Alias_End \n";
   }
-  return AAResultBase::alias(LocA, LocB);
+  return AAResultBase::alias(LocA, LocB, AAQI);
 
 }
 
@@ -888,7 +889,8 @@ static const char *getModRefResultStr(ModRefInfo R) {
 
 ModRefInfo
 AndersensAAResult::getModRefInfo(const CallBase *Call,
-                         const MemoryLocation &LocA) {
+                                 const MemoryLocation &LocA,
+                                 AAQueryInfo &AAQI) {
   if (PrintAndersModRefQueries) {
       errs() << " getModRefInfo_begin\n";
       errs() << "Call:  " << *Call << "\n";
@@ -898,11 +900,11 @@ AndersensAAResult::getModRefInfo(const CallBase *Call,
   // Try to use the collected Mod/Ref sets, if available.
   ModRefInfo R = ModRefInfo::ModRef;
    if (UseIntelModRef && IMR) {
-        R = IMR->getModRefInfo(Call, LocA);
+        R = IMR->getModRefInfo(Call, LocA, AAQI);
    }
 
    if (R != ModRefInfo::NoModRef) {
-       ModRefInfo Others = AAResultBase::getModRefInfo(Call, LocA);
+       ModRefInfo Others = AAResultBase::getModRefInfo(Call, LocA, AAQI);
        R = intersectModRef(R, Others);
    }
 
@@ -915,7 +917,8 @@ AndersensAAResult::getModRefInfo(const CallBase *Call,
 }
 
 ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
-                                            const CallBase *Call2) {
+                                            const CallBase *Call2,
+                                            AAQueryInfo &AAQI) {
   if (PrintAndersModRefQueries) {
       errs() << " getModRefInfo_begin\n";
       errs() << "Call1: " << *Call1 << "\n";
@@ -925,7 +928,7 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
   // Just forward the request along the chain. Note, a downstream analysis
   // may return to the Andersens to check for aliases via the AAChain
   // parameter.
-  ModRefInfo R = AAResultBase::getModRefInfo(Call1, Call2);
+  ModRefInfo R = AAResultBase::getModRefInfo(Call1, Call2, AAQI);
   if (PrintAndersModRefQueries) {
       errs() << "Result: " << getModRefResultStr(R) << "\n";
       errs() << " getModRefInfo_end\n";
@@ -940,15 +943,16 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
 /// return true.
 ///
 bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
+                                               AAQueryInfo &AAQI,
                                                bool OrLocal) {
 
   if (ValueNodes.size() == 0) {
-    return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+    return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
   }
 
   NumPtrQuery++;
   if (NumPtrQuery > MaxPtrQuery) {
-      return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+      return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
   }
   auto *P = const_cast<Value *>(Loc.Ptr);
   Node *N = &GraphNodes[FindNode(getNode(const_cast<Value*>(P)))];
@@ -972,7 +976,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
             errs() << " Points-to can't decide (Invalidated node)\n";
             errs() << " ConstMem_End \n";
         }
-        return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+        return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
     }
 
     if (PrintAndersConstMemQueries) {
@@ -988,7 +992,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
               errs() << " Points-to can't decide \n";
               errs() << " ConstMem_End \n";
           }
-          return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+          return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
       }
     } else {
       if (i != NullObject) {
@@ -996,7 +1000,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
               errs() << " Points-to can't decide \n";
               errs() << " ConstMem_End \n";
           }
-          return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+          return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
       }
     }
   }
@@ -4270,7 +4274,8 @@ public:
   bool runOnModule(Module &M);
 
   // Return the ModRef state for the Location.
-  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
+  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
+                           AAQueryInfo &AAQI);
 
   // Print all the ModRef sets.
   void dump() const;
@@ -5281,7 +5286,8 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
           GetUnderlyingObject(Call->getArgOperand(ArgNo), *DL);
 
       MemoryLocation Loc2 = MemoryLocation(Object);
-      AliasResult AR = Ander->alias(Loc, Loc2);
+      AAQueryInfo AAQIP;
+      AliasResult AR = Ander->alias(Loc, Loc2, AAQIP);
       if (AR == NoAlias)
         continue;
 
@@ -5318,7 +5324,8 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
 // Check the ModRef sets to see if a specific call will Modify or Reference
 // (or Both) the Location.
 ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
-                                          const MemoryLocation &Loc) {
+                                          const MemoryLocation &Loc,
+                                          AAQueryInfo &AAQI) {
   ModRefInfo Result = ModRefInfo::ModRef;
   const Value *Object = GetUnderlyingObject(Loc.Ptr, *DL);
 
@@ -5442,11 +5449,12 @@ void AndersensAAResult::IntelModRef::resetAndersenAAResult(
 // Interface to query for mod/ref information about a memory location.
 ModRefInfo
 AndersensAAResult::IntelModRef::getModRefInfo(const CallBase *Call,
-                                              const MemoryLocation &Loc) {
+                                              const MemoryLocation &Loc,
+                                              AAQueryInfo &AAQI) {
   if (!Impl)
     return ModRefInfo::ModRef;
 
-  return Impl->getModRefInfo(Call, Loc);
+  return Impl->getModRefInfo(Call, Loc, AAQI);
 }
 
 // The following implementation of escape analysis is based

@@ -1215,9 +1215,11 @@ static uint64_t getRawAttributeMask(Attribute::AttrKind Val) {
   case Attribute::ShadowCallStack: return 1ULL << 59;
   case Attribute::SpeculativeLoadHardening:
     return 1ULL << 60;
+  case Attribute::ImmArg:
+    return 1ULL << 61;
 #if INTEL_CUSTOMIZATION
-  case Attribute::AlwaysInlineRecursive: return 1ULL << 61;
-  case Attribute::InlineHintRecursive:   return 1ULL << 62;
+  case Attribute::AlwaysInlineRecursive: return 1ULL << 62;
+  case Attribute::InlineHintRecursive:   return 1ULL << 63;
 #endif // INTEL_CUSTOMIZATION
   case Attribute::Dereferenceable:
     llvm_unreachable("dereferenceable attribute not supported in raw format");
@@ -1455,6 +1457,8 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::WriteOnly;
   case bitc::ATTR_KIND_Z_EXT:
     return Attribute::ZExt;
+  case bitc::ATTR_KIND_IMMARG:
+    return Attribute::ImmArg;
 #if INTEL_CUSTOMIZATION
   case bitc::ATTR_KIND_ALWAYS_INLINE_RECURSIVE:
     return Attribute::AlwaysInlineRecursive;
@@ -5539,14 +5543,11 @@ Error ModuleSummaryIndexBitcodeReader::parseEntireSummary(unsigned ID) {
       // ownership.
       AS->setModulePath(getThisModule()->first());
 
-      GlobalValue::GUID AliaseeGUID =
-          getValueInfoFromValueId(AliaseeID).first.getGUID();
-      auto AliaseeInModule =
-          TheIndex.findSummaryInModule(AliaseeGUID, ModulePath);
+      auto AliaseeVI = getValueInfoFromValueId(AliaseeID).first;
+      auto AliaseeInModule = TheIndex.findSummaryInModule(AliaseeVI, ModulePath);
       if (!AliaseeInModule)
         return error("Alias expects aliasee summary to be parsed");
-      AS->setAliasee(AliaseeInModule);
-      AS->setAliaseeGUID(AliaseeGUID);
+      AS->setAliasee(AliaseeVI, AliaseeInModule);
 
       auto GUID = getValueInfoFromValueId(ValueID);
       AS->setOriginalName(GUID.second);
@@ -5649,12 +5650,9 @@ Error ModuleSummaryIndexBitcodeReader::parseEntireSummary(unsigned ID) {
       LastSeenSummary = AS.get();
       AS->setModulePath(ModuleIdMap[ModuleId]);
 
-      auto AliaseeGUID =
-          getValueInfoFromValueId(AliaseeValueId).first.getGUID();
-      auto AliaseeInModule =
-          TheIndex.findSummaryInModule(AliaseeGUID, AS->modulePath());
-      AS->setAliasee(AliaseeInModule);
-      AS->setAliaseeGUID(AliaseeGUID);
+      auto AliaseeVI = getValueInfoFromValueId(AliaseeValueId).first;
+      auto AliaseeInModule = TheIndex.findSummaryInModule(AliaseeVI, AS->modulePath());
+      AS->setAliasee(AliaseeVI, AliaseeInModule);
 
       ValueInfo VI = getValueInfoFromValueId(ValueID).first;
       LastSeenGUID = VI.getGUID();

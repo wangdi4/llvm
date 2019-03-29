@@ -176,10 +176,10 @@ class VPReduction
   using RDTempl = RecurrenceDescriptorTempl<VPValue, VPInstruction, VPValue *>;
 
 public:
-  VPReduction(VPValue *Start, VPInstruction *Exit, RecurrenceKind K,
+  VPReduction(VPValue *Start, VPInstruction *Exit, RecurrenceKind K, FastMathFlags FMF,
               MinMaxRecurrenceKind MK, Type *RT, bool Signed,
               unsigned char Id = Reduction)
-      : VPLoopEntity(Id), RDTempl(Start, Exit, K, MK, RT, Signed) {}
+      : VPLoopEntity(Id), RDTempl(Start, Exit, K, FMF, MK, RT, Signed) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -194,7 +194,7 @@ class VPIndexReduction : public VPReduction {
 public:
   VPIndexReduction(VPReduction *Parent, VPValue *Start, VPInstruction *Exit,
                    Type *RT, bool Signed, bool ForLast)
-      : VPReduction(Start, Exit, RK_IntegerMinMax,
+      : VPReduction(Start, Exit, RK_IntegerMinMax, FastMathFlags::getFast(),
                     ForLast ? (Signed ? MRK_SIntMax : MRK_UIntMax)
                             : (Signed ? MRK_SIntMin : MRK_UIntMin),
                     RT, Signed, IndexReduction),
@@ -351,7 +351,7 @@ public:
   /// with starting instruction \p Instr, incoming value \p Incoming, exiting
   /// instruction \p Exit and alloca-instruction \p AI.
   void addReduction(VPInstruction *Instr, VPValue *Incoming,
-                    VPInstruction *Exit, RecurrenceKind K,
+                    VPInstruction *Exit, RecurrenceKind K, FastMathFlags FMF,
                     MinMaxRecurrenceKind MK, Type *RT, bool Signed,
                     VPValue *AI = nullptr);
   /// Add index part of min/max+index reduction with parent (min/max) reduction

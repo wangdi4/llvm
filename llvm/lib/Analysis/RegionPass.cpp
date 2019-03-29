@@ -286,9 +286,14 @@ Pass *RegionPass::createPrinterPass(raw_ostream &O,
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
+static std::string getDescription(const Region &R) {
+  return "region";
+}
+
 bool RegionPass::skipRegion(Region &R) const {
   Function &F = *R.getEntry()->getParent();
-  if (!F.getContext().getOptPassGate().shouldRunPass(this, R))
+  OptPassGate &Gate = F.getContext().getOptPassGate();
+  if (Gate.isEnabled() && !Gate.shouldRunPass(this, getDescription(R)))
     return true;
 
   if (F.hasFnAttribute(Attribute::OptimizeNone)) {

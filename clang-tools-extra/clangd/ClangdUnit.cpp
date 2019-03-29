@@ -295,10 +295,12 @@ ParsedAST::build(std::unique_ptr<CompilerInvocation> CI,
     CTContext->setASTContext(&Clang->getASTContext());
     CTContext->setCurrentFile(MainInput.getFile());
     CTFactories.createChecks(CTContext.getPointer(), CTChecks);
+    Preprocessor *PP = &Clang->getPreprocessor();
     for (const auto &Check : CTChecks) {
       // FIXME: the PP callbacks skip the entire preamble.
       // Checks that want to see #includes in the main file do not see them.
       Check->registerPPCallbacks(*Clang);
+      Check->registerPPCallbacks(Clang->getSourceManager(), PP, PP);
       Check->registerMatchers(&CTFinder);
     }
   }
@@ -372,6 +374,10 @@ ParsedAST::build(std::unique_ptr<CompilerInvocation> CI,
   Clang->getPreprocessor().EndSourceFile();
 
   std::vector<Diag> Diags = ASTDiags.take();
+  // Populate diagnostic source.
+  for (auto &D : Diags)
+    D.S =
+        !CTContext->getCheckName(D.ID).empty() ? Diag::ClangTidy : Diag::Clang;
   // Add diagnostics from the preamble, if any.
   if (Preamble)
     Diags.insert(Diags.begin(), Preamble->Diags.begin(), Preamble->Diags.end());
@@ -539,8 +545,11 @@ buildPreamble(PathRef FileName, CompilerInvocation &CI,
   if (BuiltPreamble) {
     vlog("Built preamble of size {0} for file {1}", BuiltPreamble->getSize(),
          FileName);
+    std::vector<Diag> Diags = PreambleDiagnostics.take();
+    for (auto &Diag : Diags)
+      Diag.S = Diag::Clang;
     return std::make_shared<PreambleData>(
-        std::move(*BuiltPreamble), PreambleDiagnostics.take(),
+        std::move(*BuiltPreamble), std::move(Diags),
         SerializedDeclsCollector.takeIncludes(), std::move(StatCache),
         SerializedDeclsCollector.takeCanonicalIncludes());
   } else {

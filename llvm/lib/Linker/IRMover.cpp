@@ -415,6 +415,7 @@ class IRLinker {
 
   DenseSet<GlobalValue *> ValuesToLink;
   std::vector<GlobalValue *> Worklist;
+  std::vector<std::pair<GlobalValue *, Value*>> RAUWWorklist;
 
   void maybeAdd(GlobalValue *GV) {
     if (ValuesToLink.insert(GV).second)
@@ -506,6 +507,14 @@ class IRLinker {
   GlobalVariable *copyGlobalVariableProto(const GlobalVariable *SGVar);
   Function *copyFunctionProto(const Function *SF);
   GlobalValue *copyGlobalAliasProto(const GlobalAlias *SGA);
+
+  /// Perform "replace all uses with" operations. These work items need to be
+  /// performed as part of materialization, but we postpone them to happen after
+  /// materialization is done. The materializer called by ValueMapper is not
+  /// expected to delete constants, as ValueMapper is holding pointers to some
+  /// of them, but constant destruction may be indirectly triggered by RAUW.
+  /// Hence, the need to move this out of the materialization call chain.
+  void flushRAUWWorklist();
 
   /// When importing for ThinLTO, prevent importing of types listed on
   /// the DICompileUnit that we don't need a copy of in the importing
@@ -909,8 +918,8 @@ IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
   // Replace any uses of the two global variables with uses of the new
   // global.
   if (DstGV) {
-    DstGV->replaceAllUsesWith(ConstantExpr::getBitCast(NG, DstGV->getType()));
-    DstGV->eraseFromParent();
+    RAUWWorklist.push_back(
+        std::make_pair(DstGV, ConstantExpr::getBitCast(NG, DstGV->getType())));
   }
 
   return Ret;
@@ -1009,9 +1018,12 @@ Expected<Constant *> IRLinker::linkGlobalValueProto(GlobalValue *SGV,
   }
 
   if (DGV && NewGV != DGV) {
-    DGV->replaceAllUsesWith(
-      ConstantExpr::getPointerBitCastOrAddrSpaceCast(NewGV, DGV->getType()));
-    DGV->eraseFromParent();
+    // Schedule "replace all uses with" to happen after materializing is
+    // done. It is not safe to do it now, since ValueMapper may be holding
+    // pointers to constants that will get deleted if RAUW runs.
+    RAUWWorklist.push_back(std::make_pair(
+        DGV,
+        ConstantExpr::getPointerBitCastOrAddrSpaceCast(NewGV, DGV->getType())));
   }
 
   return C;
@@ -1067,6 +1079,18 @@ Error IRLinker::linkGlobalValueBody(GlobalValue &Dst, GlobalValue &Src) {
   }
   linkAliasBody(cast<GlobalAlias>(Dst), cast<GlobalAlias>(Src));
   return Error::success();
+}
+
+void IRLinker::flushRAUWWorklist() {
+  for (const auto Elem : RAUWWorklist) {
+    GlobalValue *Old;
+    Value *New;
+    std::tie(Old, New) = Elem;
+
+    Old->replaceAllUsesWith(New);
+    Old->eraseFromParent();
+  }
+  RAUWWorklist.clear();
 }
 
 void IRLinker::prepareCompileUnitsForImport() {
@@ -1394,6 +1418,7 @@ Error IRLinker::run() {
     Mapper.mapValue(*GV);
     if (FoundError)
       return std::move(*FoundError);
+    flushRAUWWorklist();
   }
 
   // Note that we are done linking global value bodies. This prevents

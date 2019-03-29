@@ -234,6 +234,7 @@ enum Kind {
   kw_uwtable,
   kw_writeonly,
   kw_zeroext,
+  kw_immarg,
 
   kw_type,
   kw_opaque,
@@ -429,6 +430,7 @@ enum Kind {
   kw_varFlags,
 
   // Unsigned Valued tokens (UIntVal).
+  LabelID,    // 42:
   GlobalID,   // @42
   LocalVarID, // %42
   AttrGrpID,  // #42

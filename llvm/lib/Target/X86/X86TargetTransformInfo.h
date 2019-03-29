@@ -185,6 +185,8 @@ public:
   bool isLegalMaskedStore(Type *DataType);
   bool isLegalMaskedGather(Type *DataType);
   bool isLegalMaskedScatter(Type *DataType);
+  bool isLegalMaskedExpandLoad(Type *DataType);
+  bool isLegalMaskedCompressStore(Type *DataType);
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
   bool adjustCallArgs(CallInst* CI);

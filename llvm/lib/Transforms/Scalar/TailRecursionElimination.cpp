@@ -688,7 +688,7 @@ static bool eliminateRecursiveTailCall(
 
   BB->getInstList().erase(Ret);  // Remove return.
   BB->getInstList().erase(CI);   // Remove call.
-  DTU.insertEdge(BB, OldEntry);
+  DTU.applyUpdates({{DominatorTree::Insert, BB, OldEntry}});
   ++NumEliminated;
   return true;
 }

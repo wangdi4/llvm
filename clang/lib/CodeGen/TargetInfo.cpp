@@ -2268,6 +2268,12 @@ public:
     return static_cast<const X86_64ABIInfo&>(TargetCodeGenInfo::getABIInfo());
   }
 
+  /// Disable tail call on x86-64. The epilogue code before the tail jump blocks
+  /// the autoreleaseRV/retainRV optimization.
+  bool shouldSuppressTailCallsOfRetainAutoreleasedReturnValue() const override {
+    return true;
+  }
+
   int getDwarfEHStackPointer(CodeGen::CodeGenModule &CGM) const override {
     return 7;
   }
@@ -5591,8 +5597,10 @@ public:
   ABIKind getABIKind() const { return Kind; }
 
 private:
-  ABIArgInfo classifyReturnType(QualType RetTy, bool isVariadic) const;
-  ABIArgInfo classifyArgumentType(QualType RetTy, bool isVariadic) const;
+  ABIArgInfo classifyReturnType(QualType RetTy, bool isVariadic,
+                                unsigned functionCallConv) const;
+  ABIArgInfo classifyArgumentType(QualType RetTy, bool isVariadic,
+                                  unsigned functionCallConv) const;
   ABIArgInfo classifyHomogeneousAggregate(QualType Ty, const Type *Base,
                                           uint64_t Members) const;
   ABIArgInfo coerceIllegalVector(QualType Ty) const;
@@ -5601,6 +5609,8 @@ private:
   bool isHomogeneousAggregateBaseType(QualType Ty) const override;
   bool isHomogeneousAggregateSmallEnough(const Type *Ty,
                                          uint64_t Members) const override;
+
+  bool isEffectivelyAAPCS_VFP(unsigned callConvention, bool acceptHalf) const;
 
   void computeInfo(CGFunctionInfo &FI) const override;
 
@@ -5722,11 +5732,13 @@ void WindowsARMTargetCodeGenInfo::setTargetAttributes(
 
 void ARMABIInfo::computeInfo(CGFunctionInfo &FI) const {
   if (!::classifyReturnType(getCXXABI(), FI, *this))
-    FI.getReturnInfo() =
-        classifyReturnType(FI.getReturnType(), FI.isVariadic());
+    FI.getReturnInfo() = classifyReturnType(FI.getReturnType(), FI.isVariadic(),
+                                            FI.getCallingConvention());
 
   for (auto &I : FI.arguments())
-    I.info = classifyArgumentType(I.type, FI.isVariadic());
+    I.info = classifyArgumentType(I.type, FI.isVariadic(),
+                                  FI.getCallingConvention());
+
 
   // Always honor user-specified calling convention.
   if (FI.getCallingConvention() != llvm::CallingConv::C)
@@ -5805,8 +5817,8 @@ ABIArgInfo ARMABIInfo::classifyHomogeneousAggregate(QualType Ty,
   return ABIArgInfo::getDirect(nullptr, 0, nullptr, false);
 }
 
-ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty,
-                                            bool isVariadic) const {
+ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty, bool isVariadic,
+                                            unsigned functionCallConv) const {
   // 6.1.2.1 The following argument types are VFP CPRCs:
   //   A single-precision floating-point type (including promoted
   //   half-precision types); A double-precision floating-point type;
@@ -5814,7 +5826,9 @@ ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty,
   //   with a Base Type of a single- or double-precision floating-point type,
   //   64-bit containerized vectors or 128-bit containerized vectors with one
   //   to four Elements.
-  bool IsEffectivelyAAPCS_VFP = getABIKind() == AAPCS_VFP && !isVariadic;
+  // Variadic functions should always marshal to the base standard.
+  bool IsAAPCS_VFP =
+      !isVariadic && isEffectivelyAAPCS_VFP(functionCallConv, /* AAPCS16 */ false);
 
   Ty = useFirstFieldIfTransparentUnion(Ty);
 
@@ -5827,7 +5841,7 @@ ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty,
   // half type natively, and does not need to interwork with AAPCS code.
   if ((Ty->isFloat16Type() || Ty->isHalfType()) &&
       !getContext().getLangOpts().NativeHalfArgsAndReturns) {
-    llvm::Type *ResType = IsEffectivelyAAPCS_VFP ?
+    llvm::Type *ResType = IsAAPCS_VFP ?
       llvm::Type::getFloatTy(getVMContext()) :
       llvm::Type::getInt32Ty(getVMContext());
     return ABIArgInfo::getDirect(ResType);
@@ -5851,7 +5865,7 @@ ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty,
   if (isEmptyRecord(getContext(), Ty, true))
     return ABIArgInfo::getIgnore();
 
-  if (IsEffectivelyAAPCS_VFP) {
+  if (IsAAPCS_VFP) {
     // Homogeneous Aggregates need to be expanded when we can fit the aggregate
     // into VFP registers.
     const Type *Base = nullptr;
@@ -6008,10 +6022,12 @@ static bool isIntegerLikeType(QualType Ty, ASTContext &Context,
   return true;
 }
 
-ABIArgInfo ARMABIInfo::classifyReturnType(QualType RetTy,
-                                          bool isVariadic) const {
-  bool IsEffectivelyAAPCS_VFP =
-      (getABIKind() == AAPCS_VFP || getABIKind() == AAPCS16_VFP) && !isVariadic;
+ABIArgInfo ARMABIInfo::classifyReturnType(QualType RetTy, bool isVariadic,
+                                          unsigned functionCallConv) const {
+
+  // Variadic functions should always marshal to the base standard.
+  bool IsAAPCS_VFP =
+      !isVariadic && isEffectivelyAAPCS_VFP(functionCallConv, /* AAPCS16 */ true);
 
   if (RetTy->isVoidType())
     return ABIArgInfo::getIgnore();
@@ -6032,7 +6048,7 @@ ABIArgInfo ARMABIInfo::classifyReturnType(QualType RetTy,
   // half type natively, and does not need to interwork with AAPCS code.
   if ((RetTy->isFloat16Type() || RetTy->isHalfType()) &&
       !getContext().getLangOpts().NativeHalfArgsAndReturns) {
-    llvm::Type *ResType = IsEffectivelyAAPCS_VFP ?
+    llvm::Type *ResType = IsAAPCS_VFP ?
       llvm::Type::getFloatTy(getVMContext()) :
       llvm::Type::getInt32Ty(getVMContext());
     return ABIArgInfo::getDirect(ResType);
@@ -6081,7 +6097,7 @@ ABIArgInfo ARMABIInfo::classifyReturnType(QualType RetTy,
     return ABIArgInfo::getIgnore();
 
   // Check for homogeneous aggregates with AAPCS-VFP.
-  if (IsEffectivelyAAPCS_VFP) {
+  if (IsAAPCS_VFP) {
     const Type *Base = nullptr;
     uint64_t Members = 0;
     if (isHomogeneousAggregate(RetTy, Base, Members))
@@ -6186,6 +6202,16 @@ bool ARMABIInfo::isHomogeneousAggregateSmallEnough(const Type *Base,
   return Members <= 4;
 }
 
+bool ARMABIInfo::isEffectivelyAAPCS_VFP(unsigned callConvention,
+                                        bool acceptHalf) const {
+  // Give precedence to user-specified calling conventions.
+  if (callConvention != llvm::CallingConv::C)
+    return (callConvention == llvm::CallingConv::ARM_AAPCS_VFP);
+  else
+    return (getABIKind() == AAPCS_VFP) ||
+           (acceptHalf && (getABIKind() == AAPCS16_VFP));
+}
+
 Address ARMABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
                               QualType Ty) const {
   CharUnits SlotSize = CharUnits::fromQuantity(4);
@@ -6268,9 +6294,55 @@ private:
   static void addNVVMMetadata(llvm::Function *F, StringRef Name, int Operand);
 };
 
+/// Checks if the type is unsupported directly by the current target.
+static bool isUnsupportedType(ASTContext &Context, QualType T) {
+  if (!Context.getTargetInfo().hasFloat16Type() && T->isFloat16Type())
+    return true;
+  if (!Context.getTargetInfo().hasFloat128Type() && T->isFloat128Type())
+    return true;
+  if (!Context.getTargetInfo().hasInt128Type() && T->isIntegerType() &&
+      Context.getTypeSize(T) > 64)
+    return true;
+  if (const auto *AT = T->getAsArrayTypeUnsafe())
+    return isUnsupportedType(Context, AT->getElementType());
+  const auto *RT = T->getAs<RecordType>();
+  if (!RT)
+    return false;
+  const RecordDecl *RD = RT->getDecl();
+
+  // If this is a C++ record, check the bases first.
+  if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD))
+    for (const CXXBaseSpecifier &I : CXXRD->bases())
+      if (isUnsupportedType(Context, I.getType()))
+        return true;
+
+  for (const FieldDecl *I : RD->fields())
+    if (isUnsupportedType(Context, I->getType()))
+      return true;
+  return false;
+}
+
+/// Coerce the given type into an array with maximum allowed size of elements.
+static ABIArgInfo coerceToIntArrayWithLimit(QualType Ty, ASTContext &Context,
+                                            llvm::LLVMContext &LLVMContext,
+                                            unsigned MaxSize) {
+  // Alignment and Size are measured in bits.
+  const uint64_t Size = Context.getTypeSize(Ty);
+  const uint64_t Alignment = Context.getTypeAlign(Ty);
+  const unsigned Div = std::min<unsigned>(MaxSize, Alignment);
+  llvm::Type *IntType = llvm::Type::getIntNTy(LLVMContext, Div);
+  const uint64_t NumElements = (Size + Div - 1) / Div;
+  return ABIArgInfo::getDirect(llvm::ArrayType::get(IntType, NumElements));
+}
+
 ABIArgInfo NVPTXABIInfo::classifyReturnType(QualType RetTy) const {
   if (RetTy->isVoidType())
     return ABIArgInfo::getIgnore();
+
+  if (getContext().getLangOpts().OpenMP &&
+      getContext().getLangOpts().OpenMPIsDevice &&
+      isUnsupportedType(getContext(), RetTy))
+    return coerceToIntArrayWithLimit(RetTy, getContext(), getVMContext(), 64);
 
   // note: this is different from default ABI
   if (!RetTy->isScalarType())
@@ -7797,8 +7869,16 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
 
   const auto *FlatWGS = FD->getAttr<AMDGPUFlatWorkGroupSizeAttr>();
   if (ReqdWGS || FlatWGS) {
-    unsigned Min = FlatWGS ? FlatWGS->getMin() : 0;
-    unsigned Max = FlatWGS ? FlatWGS->getMax() : 0;
+    unsigned Min = 0;
+    unsigned Max = 0;
+    if (FlatWGS) {
+      Min = FlatWGS->getMin()
+                ->EvaluateKnownConstInt(M.getContext())
+                .getExtValue();
+      Max = FlatWGS->getMax()
+                ->EvaluateKnownConstInt(M.getContext())
+                .getExtValue();
+    }
     if (ReqdWGS && Min == 0 && Max == 0)
       Min = Max = ReqdWGS->getXDim() * ReqdWGS->getYDim() * ReqdWGS->getZDim();
 
@@ -7812,8 +7892,12 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
   }
 
   if (const auto *Attr = FD->getAttr<AMDGPUWavesPerEUAttr>()) {
-    unsigned Min = Attr->getMin();
-    unsigned Max = Attr->getMax();
+    unsigned Min =
+        Attr->getMin()->EvaluateKnownConstInt(M.getContext()).getExtValue();
+    unsigned Max = Attr->getMax() ? Attr->getMax()
+                                        ->EvaluateKnownConstInt(M.getContext())
+                                        .getExtValue()
+                                  : 0;
 
     if (Min != 0) {
       assert((Max == 0 || Min <= Max) && "Min must be less than or equal Max");
@@ -7901,7 +7985,7 @@ AMDGPUTargetCodeGenInfo::getLLVMSyncScopeID(SyncScope S,
     Name = "";
     break;
   case SyncScope::OpenCLSubGroup:
-    Name = "subgroup";
+    Name = "wavefront";
   }
   return C.getOrInsertSyncScopeID(Name);
 }

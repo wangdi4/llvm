@@ -265,6 +265,10 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurrenceKind Kind,
   Worklist.push_back(Start);
   VisitedInsts.insert(Start);
 
+  // Start with all flags set because we will intersect this with the reduction
+  // flags from all the reduction operations.
+  FastMathFlags FMF = FastMathFlags::getFast();
+
   // A value in the reduction can be used:
   //  - By the reduction:
   //      - Reduction operation:
@@ -310,6 +314,8 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurrenceKind Kind,
       ReduxDesc = isRecurrenceInstr(Cur, Kind, ReduxDesc, HasFunNoNaNAttr);
       if (!ReduxDesc.isRecurrence())
         return false;
+      if (isa<FPMathOperator>(ReduxDesc.getPatternInst()))
+        FMF &= ReduxDesc.getPatternInst()->getFastMathFlags();
     }
 
     bool IsASelect = isa<SelectInst>(Cur);
@@ -455,7 +461,7 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurrenceKind Kind,
 
   // Save the description of this reduction variable.
   RecurrenceDescriptor RD(
-      RdxStart, ExitInstruction, Kind, ReduxDesc.getMinMaxKind(),
+      RdxStart, ExitInstruction, Kind, FMF, ReduxDesc.getMinMaxKind(),
       ReduxDesc.getUnsafeAlgebraInst(), RecurrenceType, IsSigned, CastInsts);
   RedDes = RD;
 
@@ -563,9 +569,8 @@ RecurrenceDescriptor::isConditionalRdxPattern(
 RecurrenceDescriptor::InstDesc
 RecurrenceDescriptor::isRecurrenceInstr(Instruction *I, RecurrenceKind Kind,
                                         InstDesc &Prev, bool HasFunNoNaNAttr) {
-  bool FP = I->getType()->isFloatingPointTy();
   Instruction *UAI = Prev.getUnsafeAlgebraInst();
-  if (!UAI && FP && !I->isFast())
+  if (!UAI && isa<FPMathOperator>(I) && !I->hasAllowReassoc())
     UAI = I; // Found an unsafe (unvectorizable) algebra instruction.
 
   switch (I->getOpcode()) {

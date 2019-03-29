@@ -388,7 +388,7 @@ public:
   MCSection *getOptReportSection() const { return OptReportSection; }
 #endif  // INTEL_CUSTOMIZATION
 
-  enum Environment { IsMachO, IsELF, IsCOFF, IsWasm };
+  enum Environment { IsMachO, IsELF, IsCOFF, IsWasm, IsXCOFF };
   Environment getObjectFileType() const { return Env; }
 
   bool isPositionIndependent() const { return PositionIndependent; }

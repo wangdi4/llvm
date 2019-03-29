@@ -37,7 +37,7 @@ define <32 x half>@test_int_x86_avx512fp16_add_ph_512_round(<32 x half> %x1, <32
 ; CHECK-NEXT:    vmovdqa64 %zmm2, %zmm0
 ; CHECK-NEXT:    retq
   %mask = bitcast i32 %msk to <32 x i1>
-  %t1 = call <32 x half> @llvm.x86.avx512fp16.add.ph.512(<32 x half> %x1, <32 x half> %x2, i32 2)
+  %t1 = call <32 x half> @llvm.x86.avx512fp16.add.ph.512(<32 x half> %x1, <32 x half> %x2, i32 10)
   %res = select <32 x i1> %mask, <32 x half> %t1, <32 x half> %src
   ret <32 x half> %res
 }

@@ -1290,9 +1290,18 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     auto GetInlineCost = [&](CallSite CS) {
       Function &Callee = *CS.getCalledFunction();
       auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
+      bool RemarksEnabled =
+          Callee.getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
+              DEBUG_TYPE);
+#if INTEL_CUSTOMIZATION
+      Params.ComputeFullInlineCost =
+          (IntelInlineReportLevel & InlineReportOptions::RealCost) != 0;
+#endif // INTEL_CUSTOMIZATION
+
       return getInlineCost(CS, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
                            TLI, ILIC, AggI, &CallSitesForFusion, // INTEL
-                           &CallSitesForDTrans, PSI, &ORE);      // INTEL
+                           &CallSitesForDTrans,                  // INTEL
+                           PSI, RemarksEnabled ? &ORE : nullptr);
     };
 
     // Now process as many calls as we have within this caller in the sequnece.

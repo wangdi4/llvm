@@ -88,6 +88,7 @@ public:
 #if INTEL_CUSTOMIZATION
   RecurrenceKind getRecurrenceKind() const { return Kind; }
   MinMaxRecurrenceKind getMinMaxRecurrenceKind() const { return MinMaxKind; }
+  FastMathFlags getFastMathFlags() { return FMF; }
 
   /// Returns the type of the recurrence. This type can be narrower than the
   /// actual type of the Phi if the recurrence has been type-promoted.
@@ -115,12 +116,16 @@ public:
 protected:
   RecurrenceDescriptorData() = default;
 
-  RecurrenceDescriptorData(RecurrenceKind K, MinMaxRecurrenceKind MK, Type *RT,
-                           bool Signed)
-      : Kind(K), MinMaxKind(MK), RecurrenceType(RT), IsSigned(Signed) {}
+  RecurrenceDescriptorData(RecurrenceKind K, FastMathFlags FMF,
+                           MinMaxRecurrenceKind MK, Type *RT, bool Signed)
+      : Kind(K), FMF(FMF), MinMaxKind(MK), RecurrenceType(RT),
+        IsSigned(Signed) {}
 
   // The kind of the recurrence.
   RecurrenceKind Kind = RK_NoRecurrence;
+  // The fast-math flags on the recurrent instructions.  We propagate these
+  // fast-math flags into the vectorized FP instructions we generate.
+  FastMathFlags FMF;
   // If this a min/max recurrence the kind of recurrence.
   MinMaxRecurrenceKind MinMaxKind = MRK_Invalid;
   // The type of the recurrence.
@@ -142,9 +147,10 @@ protected:
   RecurrenceDescriptorTempl() = default;
 
   RecurrenceDescriptorTempl(ValueTy *Start, InstructionTy *Exit,
-                           RecurrenceKind K, MinMaxRecurrenceKind MK, Type *RT,
-                           bool Signed)
-      : RDData(K, MK, RT, Signed), StartValue(Start), LoopExitInstr(Exit) {}
+                            RecurrenceKind K, FastMathFlags FMF,
+                            MinMaxRecurrenceKind MK, Type *RT, bool Signed)
+      : RDData(K, FMF, MK, RT, Signed), StartValue(Start), LoopExitInstr(Exit) {
+  }
 
   ValueStorageTy StartValue;
   InstructionTy *LoopExitInstr = nullptr;
@@ -164,13 +170,15 @@ public:
   RecurrenceDescriptor() = default;
 
   RecurrenceDescriptor(Value *Start, Instruction *Exit, RecurrenceKind K,
-                       MinMaxRecurrenceKind MK, Instruction *UAI, Type *RT,
-                       bool Signed, SmallPtrSetImpl<Instruction *> &CI)
+                       FastMathFlags FMF, MinMaxRecurrenceKind MK,
+                       Instruction *UAI, Type *RT, bool Signed,
+                       SmallPtrSetImpl<Instruction *> &CI)
 #if INTEL_CUSTOMIZATION
-      : RDTempl(Start, Exit, K, MK, RT, Signed), UnsafeAlgebraInst(UAI) {
+      : RDTempl(Start, Exit, K, FMF, MK, RT, Signed), UnsafeAlgebraInst(UAI) {
 #else
-      : StartValue(Start), LoopExitInstr(Exit), Kind(K), MinMaxKind(MK),
-        UnsafeAlgebraInst(UAI), RecurrenceType(RT), IsSigned(Signed) {
+      : StartValue(Start), LoopExitInstr(Exit), Kind(K), FMF(FMF),
+        MinMaxKind(MK), UnsafeAlgebraInst(UAI), RecurrenceType(RT),
+        IsSigned(Signed) {
 #endif
     CastInsts.insert(CI.begin(), CI.end());
   }
@@ -279,6 +287,8 @@ public:
 
   MinMaxRecurrenceKind getMinMaxRecurrenceKind() { return MinMaxKind; }
 
+  FastMathFlags getFastMathFlags() { return FMF; }
+
   TrackingVH<Value> getRecurrenceStartValue() { return StartValue; }
 
   Instruction *getLoopExitInstr() { return LoopExitInstr; }
@@ -324,6 +334,9 @@ private:
   Instruction *LoopExitInstr = nullptr;
   // The kind of the recurrence.
   RecurrenceKind Kind = RK_NoRecurrence;
+  // The fast-math flags on the recurrent instructions.  We propagate these
+  // fast-math flags into the vectorized FP instructions we generate.
+  FastMathFlags FMF;
   // If this a min/max recurrence the kind of recurrence.
   MinMaxRecurrenceKind MinMaxKind = MRK_Invalid;
 #endif

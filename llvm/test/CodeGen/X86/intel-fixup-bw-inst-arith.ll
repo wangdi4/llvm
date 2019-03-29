@@ -48,13 +48,11 @@ define void @add(i16* %x, i16* %y, i16 %z) {
   ret void
 }
 
-; FIXME: We should use sub with -128 here to get an 8-bit immediate. This has
-; been fixed in community.
 define void @sub(i16* %x, i16* %y, i16 %z) {
 ; CHECK-LABEL: sub:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movw $128, %ax
-; CHECK-NEXT:    addw (%rdi), %ax
+; CHECK-NEXT:    movzwl (%rdi), %eax
+; CHECK-NEXT:    subl $-128, %eax
 ; CHECK-NEXT:    movw %dx, (%rsi)
 ; CHECK-NEXT:    movw %ax, (%rdi)
 ; CHECK-NEXT:    retq

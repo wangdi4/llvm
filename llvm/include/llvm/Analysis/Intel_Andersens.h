@@ -415,7 +415,8 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
     ~IntelModRef();
 
     void runAnalysis(Module &M);
-    ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
+    ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
+                             AAQueryInfo &AAQI);
 
     // When the AndersenAAResult is moved to a new object, the handle stored
     // within this class needs to be updated so that calls can be made to query
@@ -455,16 +456,20 @@ public:
   //------------------------------------------------
   // Implement the AliasAnalysis API
   //
-  AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
+  AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                    AAQueryInfo &AAQI);
 
-  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
-  ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2);
+  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
+                           AAQueryInfo &AAQI);
+  ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,
+                           AAQueryInfo &AAQI);
 
   // Return 'true' if the memory location may escape.
   bool mayEscape(const MemoryLocation &LocB);
 
   // Chases pointers until we find a (constant global) or not.
-  bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal);
+  bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                              bool OrLocal);
   // Returns true if the given value V does not escape from
   // the current routine.
   bool escapes(const Value *V);

@@ -1,4 +1,4 @@
-; RUN: llc -filetype=obj -thread-model=single %s -o - | llvm-readobj -r -s -symbols | FileCheck %s
+; RUN: llc -filetype=obj %s -o - | llvm-readobj -r -s -symbols | FileCheck %s
 
 ; CHECK: Format: WASM
 ; CHECK-NEXT:Arch: wasm32
@@ -129,6 +129,12 @@
 ; CHECK-NEXT:    Size: 77
 ; CHECK-NEXT:    Offset: 1021
 ; CHECK-NEXT:    Name: producers
+; CHECK-NEXT:  }
+; CHECK-NEXT:  Section {
+; CHECK-NEXT:    Type: CUSTOM (0x0)
+; CHECK-NEXT:    Size: 10
+; CHECK-NEXT:    Offset: 1114
+; CHECK-NEXT:    Name: target_features
 ; CHECK-NEXT:  }
 ; CHECK-NEXT:]
 ; CHECK-NEXT:Relocations [

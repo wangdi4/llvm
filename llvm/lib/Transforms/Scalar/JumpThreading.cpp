@@ -1574,7 +1574,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
                       << "' folding undef terminator: " << *BBTerm << '\n');
     BranchInst::Create(BBTerm->getSuccessor(BestSucc), BBTerm);
     BBTerm->eraseFromParent();
-    DTU->applyUpdates(Updates);
+    DTU->applyUpdatesPermissive(Updates);
     return true;
   }
 
@@ -1625,7 +1625,9 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
         unsigned ToKeep = Ret == LazyValueInfo::True ? 0 : 1;
         BasicBlock *ToRemoveSucc = CondBr->getSuccessor(ToRemove);
         ToRemoveSucc->removePredecessor(BB, true);
-        BranchInst::Create(CondBr->getSuccessor(ToKeep), CondBr);
+        BranchInst *UncondBr =
+          BranchInst::Create(CondBr->getSuccessor(ToKeep), CondBr);
+        UncondBr->setDebugLoc(CondBr->getDebugLoc());
         CondBr->eraseFromParent();
         if (CondCmp->use_empty())
           CondCmp->eraseFromParent();
@@ -1642,7 +1644,8 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
             ConstantInt::getFalse(CondCmp->getType());
           ReplaceFoldableUses(CondCmp, CI);
         }
-        DTU->deleteEdgeRelaxed(BB, ToRemoveSucc);
+        DTU->applyUpdatesPermissive(
+            {{DominatorTree::Delete, BB, ToRemoveSucc}});
         return true;
       }
 
@@ -1727,9 +1730,10 @@ bool JumpThreadingPass::ProcessImpliedCondition(BasicBlock *BB) {
       BasicBlock *KeepSucc = BI->getSuccessor(*Implication ? 0 : 1);
       BasicBlock *RemoveSucc = BI->getSuccessor(*Implication ? 1 : 0);
       RemoveSucc->removePredecessor(BB);
-      BranchInst::Create(KeepSucc, BI);
+      BranchInst *UncondBI = BranchInst::Create(KeepSucc, BI);
+      UncondBI->setDebugLoc(BI->getDebugLoc());
       BI->eraseFromParent();
-      DTU->deleteEdgeRelaxed(BB, RemoveSucc);
+      DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, RemoveSucc}});
       return true;
     }
     CurrentBB = CurrentPred;
@@ -2193,7 +2197,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
       Instruction *Term = BB->getTerminator();
       BranchInst::Create(OnlyDest, Term);
       Term->eraseFromParent();
-      DTU->applyUpdates(Updates);
+      DTU->applyUpdatesPermissive(Updates);
 
       // If the condition is now dead due to the removal of the old terminator,
       // erase it.
@@ -2679,28 +2683,26 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   }
 
   // And finally, do it!
-#if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "  Threading edge from '" << PredBB->getName()
                     << "' to '" << SuccBB->getName() << "' with cost: "
                     << JumpThreadCost << ", across blocks:\n    ";
              for (auto BB : RegionBlocks)
                dbgs() << " " << BB->getName();
              dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
-#endif // INTEL_CUSTOMIZATION
 
   if (DTU->hasPendingDomTreeUpdates())
     LVI->disableDT();
   else
     LVI->enableDT();
-#if INTEL_CUSTOMIZATION
   // FIXME: This LVI update is not optimal. Removing the PredBB-->RegionTop
   //   edge can make overdefined values computable in any block in the region,
   //   not just RegionBottom. We can generalize the LVI->threadEdge algorithm
   //   to support larger-than-BB thread regions.
   LVI->threadEdge(PredBB, RegionBottom, SuccBB);
-#endif // INTEL_CUSTOMIZATION
+
   DenseMap<Instruction*, Value*> ValueMapping;
   DenseMap<BasicBlock*, BasicBlock*> BlockMapping;
+  SmallVector<DominatorTree::UpdateType, 20> DTUpdates;
 
   for (auto OldBB : RegionBlocks) {
     BasicBlock *NewBB = BasicBlock::Create(OldBB->getContext(),
@@ -2794,7 +2796,9 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
           }
 
           if (New.isTerminator())
-            DTU->applyUpdates({{DominatorTree::Insert, NewBB, NewDestBB}});
+            // We used to apply DT updates here, which was not correct,
+            // because the updates may be submitted only after IR changes.
+            DTUpdates.push_back({DominatorTree::Insert, NewBB, NewDestBB});
 
           // If we are threading across a loop header, we have to update the
           // LoopHeaders set. To do this precisely, we would need to re-run
@@ -2878,10 +2882,12 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       PredTerm->setSuccessor(i, BlockMapping[RegionTop]);
     }
 
-  DTU->applyUpdates({{DominatorTree::Insert, BlockMapping[RegionBottom],
-                      SuccBB},
-                     {DominatorTree::Insert, PredBB, BlockMapping[RegionTop]},
-                     {DominatorTree::Delete, PredBB, RegionTop}});
+  // Enqueue required DT updates.
+  DTUpdates.append(
+      {{DominatorTree::Insert, BlockMapping[RegionBottom], SuccBB},
+       {DominatorTree::Insert, PredBB, BlockMapping[RegionTop]},
+       {DominatorTree::Delete, PredBB, RegionTop}});
+  DTU->applyUpdatesPermissive(DTUpdates);
 
   // Apply all updates we queued with DTU and get the updated Dominator Tree.
   DominatorTree *DT = &DTU->getDomTree();
@@ -3000,7 +3006,7 @@ BasicBlock *JumpThreadingPass::SplitBlockPreds(BasicBlock *BB,
       BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
   }
 
-  DTU->applyUpdates(Updates);
+  DTU->applyUpdatesPermissive(Updates);
   return NewBBs[0];
 }
 
@@ -3369,7 +3375,7 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
 
   // Remove the unconditional branch at the end of the PredBB block.
   OldPredBranch->eraseFromParent();
-  DTU->applyUpdates(Updates);
+  DTU->applyUpdatesPermissive(Updates);
 
   ++NumDupes;
   return true;
@@ -3405,8 +3411,8 @@ void JumpThreadingPass::UnfoldSelectInstr(BasicBlock *Pred, BasicBlock *BB,
 
   // The select is now dead.
   SI->eraseFromParent();
-  DTU->applyUpdates({{DominatorTree::Insert, NewBB, BB},
-                    {DominatorTree::Insert, Pred, NewBB}});
+  DTU->applyUpdatesPermissive({{DominatorTree::Insert, NewBB, BB},
+                               {DominatorTree::Insert, Pred, NewBB}});
 
   // Update any other PHI nodes in BB.
   for (BasicBlock::iterator BI = BB->begin();
@@ -3583,7 +3589,7 @@ bool JumpThreadingPass::TryToUnfoldSelectInCurrBB(BasicBlock *BB) {
       Updates.push_back({DominatorTree::Delete, BB, Succ});
       Updates.push_back({DominatorTree::Insert, SplitBB, Succ});
     }
-    DTU->applyUpdates(Updates);
+    DTU->applyUpdatesPermissive(Updates);
     return true;
   }
   return false;

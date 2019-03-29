@@ -142,7 +142,7 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
 #endif  // INTEL_CUSTOMIZATION
       BI->eraseFromParent();
       if (DTU)
-        DTU->deleteEdgeRelaxed(BB, OldDest);
+        DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, OldDest}});
       return true;
     }
 
@@ -218,7 +218,8 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
         i = SI->removeCase(i);
         e = SI->case_end();
         if (DTU)
-          DTU->deleteEdgeRelaxed(ParentBB, DefaultDest);
+          DTU->applyUpdatesPermissive(
+              {{DominatorTree::Delete, ParentBB, DefaultDest}});
         continue;
       }
 
@@ -266,7 +267,7 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
       if (DeleteDeadConditions)
         RecursivelyDeleteTriviallyDeadInstructions(Cond, TLI);
       if (DTU)
-        DTU->applyUpdates(Updates, /*ForceRemoveDuplicates*/ true);
+        DTU->applyUpdatesPermissive(Updates);
       return true;
     }
 
@@ -344,7 +345,7 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
       }
 
       if (DTU)
-        DTU->applyUpdates(Updates, /*ForceRemoveDuplicates*/ true);
+        DTU->applyUpdatesPermissive(Updates);
       return true;
     }
   }
@@ -678,7 +679,7 @@ void llvm::RemovePredecessorAndSimplify(BasicBlock *BB, BasicBlock *Pred,
     if (PhiIt != OldPhiIt) PhiIt = &BB->front();
   }
   if (DTU)
-    DTU->deleteEdgeRelaxed(Pred, BB);
+    DTU->applyUpdatesPermissive({{DominatorTree::Delete, Pred, BB}});
 }
 
 /// MergeBasicBlockIntoOnlyPred - DestBB is a block with one predecessor and its
@@ -747,7 +748,7 @@ void llvm::MergeBasicBlockIntoOnlyPred(BasicBlock *DestBB,
            isa<UnreachableInst>(PredBB->getTerminator()) &&
            "The successor list of PredBB isn't empty before "
            "applying corresponding DTU updates.");
-    DTU->applyUpdates(Updates, /*ForceRemoveDuplicates*/ true);
+    DTU->applyUpdatesPermissive(Updates);
     DTU->deleteBB(PredBB);
     // Recalculation of DomTree is needed when updating a forward DomTree and
     // the Entry BB is replaced.
@@ -1089,7 +1090,7 @@ bool llvm::TryToSimplifyUncondBranchFromEmptyBlock(BasicBlock *BB,
                            "applying corresponding DTU updates.");
 
   if (DTU) {
-    DTU->applyUpdates(Updates, /*ForceRemoveDuplicates*/ true);
+    DTU->applyUpdatesPermissive(Updates);
     DTU->deleteBB(BB);
   } else {
     BB->eraseFromParent(); // Delete the old basic block.
@@ -1874,21 +1875,10 @@ bool llvm::replaceAllDbgUsesWith(Instruction &From, Value &To,
         return None;
 
       bool Signed = *Signedness == DIBasicType::Signedness::Signed;
-
-      if (!Signed) {
-        // In the unsigned case, assume that a debugger will initialize the
-        // high bits to 0 and do a no-op conversion.
-        return Identity(DII);
-      } else {
-        // In the signed case, the high bits are given by sign extension, i.e:
-        //   (To >> (ToBits - 1)) * ((2 ^ FromBits) - 1)
-        // Calculate the high bits and OR them together with the low bits.
-        SmallVector<uint64_t, 8> Ops({dwarf::DW_OP_dup, dwarf::DW_OP_constu,
-                                      (ToBits - 1), dwarf::DW_OP_shr,
-                                      dwarf::DW_OP_lit0, dwarf::DW_OP_not,
-                                      dwarf::DW_OP_mul, dwarf::DW_OP_or});
-        return DIExpression::appendToStack(DII.getExpression(), Ops);
-      }
+      dwarf::TypeKind TK = Signed ? dwarf::DW_ATE_signed : dwarf::DW_ATE_unsigned;
+      SmallVector<uint64_t, 8> Ops({dwarf::DW_OP_LLVM_convert, ToBits, TK,
+                                   dwarf::DW_OP_LLVM_convert, FromBits, TK});
+      return DIExpression::appendToStack(DII.getExpression(), Ops);
     };
     return rewriteDebugUsers(From, To, DomPoint, DT, SignOrZeroExt);
   }
@@ -1953,7 +1943,7 @@ unsigned llvm::changeToUnreachable(Instruction *I, bool UseLLVMTrap,
     ++NumInstrsRemoved;
   }
   if (DTU)
-    DTU->applyUpdates(Updates, /*ForceRemoveDuplicates*/ true);
+    DTU->applyUpdatesPermissive(Updates);
   return NumInstrsRemoved;
 }
 
@@ -1981,7 +1971,7 @@ static void changeToCall(InvokeInst *II, DomTreeUpdater *DTU = nullptr) {
   UnwindDestBB->removePredecessor(BB);
   II->eraseFromParent();
   if (DTU)
-    DTU->deleteEdgeRelaxed(BB, UnwindDestBB);
+    DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, UnwindDestBB}});
 }
 
 BasicBlock *llvm::changeToInvokeAndSplitBasicBlock(CallInst *CI,
@@ -2128,7 +2118,8 @@ static bool markAliveBlocks(Function &F,
           UnwindDestBB->removePredecessor(II->getParent());
           II->eraseFromParent();
           if (DTU)
-            DTU->deleteEdgeRelaxed(BB, UnwindDestBB);
+            DTU->applyUpdatesPermissive(
+                {{DominatorTree::Delete, BB, UnwindDestBB}});
         } else
           changeToCall(II, DTU);
         Changed = true;
@@ -2217,7 +2208,7 @@ void llvm::removeUnwindEdge(BasicBlock *BB, DomTreeUpdater *DTU) {
   TI->replaceAllUsesWith(NewTI);
   TI->eraseFromParent();
   if (DTU)
-    DTU->deleteEdgeRelaxed(BB, UnwindDest);
+    DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, UnwindDest}});
 }
 
 /// removeUnreachableBlocks - Remove blocks that are not reachable, even
@@ -2282,7 +2273,7 @@ bool llvm::removeUnreachableBlocks(Function &F, LazyValueInfo *LVI,
   }
 
   if (DTU) {
-    DTU->applyUpdates(Updates, /*ForceRemoveDuplicates*/ true);
+    DTU->applyUpdatesPermissive(Updates);
     bool Deleted = false;
     for (auto *BB : DeadBlockSet) {
       if (DTU->isBBPendingDeletion(BB))

@@ -27,13 +27,13 @@ unsigned int VPInduction::getInductionOpcode() const {
 }
 
 void VPLoopEntities::addReduction(VPInstruction *Instr, VPValue *Incoming,
-                                  VPInstruction *Exit, RecurrenceKind Kind,
+                                  VPInstruction *Exit, RecurrenceKind Kind, FastMathFlags FMF,
                                   MinMaxRecurrenceKind MKind, Type *RedTy,
                                   bool Signed, VPValue *AI) {
 
   assert(Instr && "null instruction");
   VPReduction *Red =
-      new VPReduction(Incoming, Exit, Kind, MKind, RedTy, Signed);
+      new VPReduction(Incoming, Exit, Kind, FMF, MKind, RedTy, Signed);
   ReductionMap[Instr] = std::unique_ptr<VPReduction>(Red);
   createMemDescFor(Red, AI);
 }

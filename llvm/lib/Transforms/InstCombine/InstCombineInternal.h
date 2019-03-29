@@ -499,6 +499,9 @@ private:
   Instruction *transformCallThroughTrampoline(CallBase &Call,
                                               IntrinsicInst &Tramp);
 
+  Instruction *simplifyMaskedStore(IntrinsicInst &II);
+  Instruction *simplifyMaskedScatter(IntrinsicInst &II);
+  
   /// Transform (zext icmp) to bitwise / integer operations in order to
   /// eliminate it.
   ///
@@ -634,6 +637,8 @@ private:
                                        bool JoinedByAnd, Instruction &CxtI);
   Value *matchSelectFromAndOr(Value *A, Value *B, Value *C, Value *D);
   Value *getSelectCondition(Value *A, Value *B);
+
+  Instruction *foldIntrinsicWithOverflowCommon(IntrinsicInst *II);
 
 public:
   /// Inserts an instruction \p New before instruction \p Old

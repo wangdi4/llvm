@@ -610,12 +610,13 @@ enum AttributeKindCodes {
   ATTR_KIND_OPT_FOR_FUZZING = 57,
   ATTR_KIND_SHADOWCALLSTACK = 58,
   ATTR_KIND_SPECULATIVE_LOAD_HARDENING = 59,
+  ATTR_KIND_IMMARG = 60, // Intel
 #if INTEL_CUSTOMIZATION
   // Note: Anything 63/over causes an issue with shifting later on.  The
   // underlying type of this will have to be changed to a larger type if we get
   // above 61 in community.
-  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 60,
-  ATTR_KIND_INLINE_HINT_RECURSIVE = 61,
+  ATTR_KIND_ALWAYS_INLINE_RECURSIVE = 61,
+  ATTR_KIND_INLINE_HINT_RECURSIVE = 62,
 #endif //INTEL_CUSTOMIZATION
 };
 

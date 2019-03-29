@@ -765,11 +765,13 @@ A function definition contains a list of basic blocks, forming the CFG (Control
 Flow Graph) for the function. Each basic block may optionally start with a label
 (giving the basic block a symbol table entry), contains a list of instructions,
 and ends with a :ref:`terminator <terminators>` instruction (such as a branch or
-function return). If an explicit label is not provided, a block is assigned an
-implicit numbered label, using the next value from the same counter as used for
-unnamed temporaries (:ref:`see above<identifiers>`). For example, if a function
-entry block does not have an explicit label, it will be assigned label "%0",
-then the first unnamed temporary in that block will be "%1", etc.
+function return). If an explicit label name is not provided, a block is assigned
+an implicit numbered label, using the next value from the same counter as used
+for unnamed temporaries (:ref:`see above<identifiers>`). For example, if a
+function entry block does not have an explicit label, it will be assigned label
+"%0", then the first unnamed temporary in that block will be "%1", etc. If a
+numeric label is explicitly specified, it must match the numeric label that
+would be used implicitly.
 
 The first basic block in a function is special in two ways: it is
 immediately executed on entrance to the function, and it is not allowed
@@ -1095,10 +1097,11 @@ Currently, only the following parameter attributes are defined:
 
 ``align <n>``
     This indicates that the pointer value may be assumed by the optimizer to
-    have the specified alignment.
+    have the specified alignment.  If the pointer value does not have the
+    specified alignment, behavior is undefined.
 
     Note that this attribute has additional semantics when combined with the
-    ``byval`` attribute.
+    ``byval`` attribute, which are documented there.
 
 .. _noalias:
 
@@ -1200,6 +1203,13 @@ Currently, only the following parameter attributes are defined:
     These constraints also allow LLVM to assume that a ``swifterror`` argument
     does not alias any other memory visible within a function and that a
     ``swifterror`` alloca passed as an argument does not escape.
+
+``immarg``
+    This indicates the parameter is required to be an immediate
+    value. This must be a trivial immediate integer or floating-point
+    constant. Undef or constant expressions are not valid. This is
+    only valid on intrinsic declarations and cannot be applied to a
+    call site or arbitrary function.
 
 .. _gc:
 
@@ -2057,6 +2067,14 @@ as follows:
     targets.
 ``a:<abi>:<pref>``
     This specifies the alignment for an object of aggregate type.
+``F<type><abi>``
+    This specifies the alignment for function pointers.
+    The options for ``<type>`` are:
+
+    * ``i``: The alignment of function pointers is independent of the alignment
+      of functions, and is a multiple of ``<abi>``.
+    * ``n``: The alignment of function pointers is a multiple of the explicit
+      alignment specified on the function, and is a multiple of ``<abi>``.
 ``m:<mangling>``
     If present, specifies that llvm names are mangled in the output. Symbols
     prefixed with the mangling escape character ``\01`` are passed through
@@ -3368,14 +3386,14 @@ basic block in the specified function, and always has an ``i8*`` type.
 Taking the address of the entry block is illegal.
 
 This value only has defined behavior when used as an operand to the
-':ref:`indirectbr <i_indirectbr>`' instruction, or for comparisons
-against null. Pointer equality tests between labels addresses results in
-undefined behavior --- though, again, comparison against null is ok, and
-no label is equal to the null pointer. This may be passed around as an
+':ref:`indirectbr <i_indirectbr>`' or ':ref:`callbr <i_callbr>`'instruction, or
+for comparisons against null. Pointer equality tests between labels addresses
+results in undefined behavior --- though, again, comparison against null is ok,
+and no label is equal to the null pointer. This may be passed around as an
 opaque pointer sized value as long as the bits are not inspected. This
 allows ``ptrtoint`` and arithmetic to be performed on these values so
-long as the original value is reconstituted before the ``indirectbr``
-instruction.
+long as the original value is reconstituted before the ``indirectbr`` or
+``callbr`` instruction.
 
 Finally, some targets may provide defined semantics when using the value
 as the operand to an inline assembly, but that is target specific.
@@ -4741,6 +4759,10 @@ The current supported opcode vocabulary is limited:
   here, respectively) of the variable fragment from the working expression. Note
   that contrary to DW_OP_bit_piece, the offset is describing the location
   within the described source variable.
+- ``DW_OP_LLVM_convert, 16, DW_ATE_signed`` specifies a bit size and encoding
+  (``16`` and ``DW_ATE_signed`` here, respectively) to which the top of the
+  expression stack is to be converted. Maps into a ``DW_OP_convert`` operation
+  that references a base type constructed from the supplied values.
 - ``DW_OP_swap`` swaps top two stack entries.
 - ``DW_OP_xderef`` provides extended dereference mechanism. The entry at the top
   of the stack is treated as an address. The second stack entry is treated as an
@@ -11670,8 +11692,11 @@ Semantics:
 The '``llvm.memcpy.*``' intrinsics copy a block of memory from the
 source location to the destination location, which are not allowed to
 overlap. It copies "len" bytes of memory over. If the argument is known
-to be aligned to some boundary, this can be specified as the fourth
-argument, otherwise it should be set to 0 or 1 (both meaning no alignment).
+to be aligned to some boundary, this can be specified as an attribute on
+the argument.
+
+If "len" is 0, the pointers may be NULL or dangling. However, they must still
+be appropriately aligned.
 
 .. _int_memmove:
 
@@ -11725,8 +11750,11 @@ Semantics:
 The '``llvm.memmove.*``' intrinsics copy a block of memory from the
 source location to the destination location, which may overlap. It
 copies "len" bytes of memory over. If the argument is known to be
-aligned to some boundary, this can be specified as the fourth argument,
-otherwise it should be set to 0 or 1 (both meaning no alignment).
+aligned to some boundary, this can be specified as an attribute on
+the argument.
+
+If "len" is 0, the pointers may be NULL or dangling. However, they must still
+be appropriately aligned.
 
 .. _int_memset:
 
@@ -11776,7 +11804,12 @@ Semantics:
 """"""""""
 
 The '``llvm.memset.*``' intrinsics fill "len" bytes of memory starting
-at the destination location.
+at the destination location. If the argument is known to be
+aligned to some boundary, this can be specified as an attribute on
+the argument.
+
+If "len" is 0, the pointers may be NULL or dangling. However, they must still
+be appropriately aligned.
 
 '``llvm.sqrt.*``' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -12986,13 +13019,14 @@ Syntax:
 """""""
 
 This is an overloaded intrinsic. You can use ``llvm.sadd.with.overflow``
-on any integer bit width.
+on any integer bit width or vectors of integers.
 
 ::
 
       declare {i16, i1} @llvm.sadd.with.overflow.i16(i16 %a, i16 %b)
       declare {i32, i1} @llvm.sadd.with.overflow.i32(i32 %a, i32 %b)
       declare {i64, i1} @llvm.sadd.with.overflow.i64(i64 %a, i64 %b)
+      declare {<4 x i32>, <4 x i1>} @llvm.sadd.with.overflow.v4i32(<4 x i32> %a, <4 x i32> %b)
 
 Overview:
 """""""""
@@ -13036,13 +13070,14 @@ Syntax:
 """""""
 
 This is an overloaded intrinsic. You can use ``llvm.uadd.with.overflow``
-on any integer bit width.
+on any integer bit width or vectors of integers.
 
 ::
 
       declare {i16, i1} @llvm.uadd.with.overflow.i16(i16 %a, i16 %b)
       declare {i32, i1} @llvm.uadd.with.overflow.i32(i32 %a, i32 %b)
       declare {i64, i1} @llvm.uadd.with.overflow.i64(i64 %a, i64 %b)
+      declare {<4 x i32>, <4 x i1>} @llvm.uadd.with.overflow.v4i32(<4 x i32> %a, <4 x i32> %b)
 
 Overview:
 """""""""
@@ -13085,13 +13120,14 @@ Syntax:
 """""""
 
 This is an overloaded intrinsic. You can use ``llvm.ssub.with.overflow``
-on any integer bit width.
+on any integer bit width or vectors of integers.
 
 ::
 
       declare {i16, i1} @llvm.ssub.with.overflow.i16(i16 %a, i16 %b)
       declare {i32, i1} @llvm.ssub.with.overflow.i32(i32 %a, i32 %b)
       declare {i64, i1} @llvm.ssub.with.overflow.i64(i64 %a, i64 %b)
+      declare {<4 x i32>, <4 x i1>} @llvm.ssub.with.overflow.v4i32(<4 x i32> %a, <4 x i32> %b)
 
 Overview:
 """""""""
@@ -13135,13 +13171,14 @@ Syntax:
 """""""
 
 This is an overloaded intrinsic. You can use ``llvm.usub.with.overflow``
-on any integer bit width.
+on any integer bit width or vectors of integers.
 
 ::
 
       declare {i16, i1} @llvm.usub.with.overflow.i16(i16 %a, i16 %b)
       declare {i32, i1} @llvm.usub.with.overflow.i32(i32 %a, i32 %b)
       declare {i64, i1} @llvm.usub.with.overflow.i64(i64 %a, i64 %b)
+      declare {<4 x i32>, <4 x i1>} @llvm.usub.with.overflow.v4i32(<4 x i32> %a, <4 x i32> %b)
 
 Overview:
 """""""""
@@ -13185,13 +13222,14 @@ Syntax:
 """""""
 
 This is an overloaded intrinsic. You can use ``llvm.smul.with.overflow``
-on any integer bit width.
+on any integer bit width or vectors of integers.
 
 ::
 
       declare {i16, i1} @llvm.smul.with.overflow.i16(i16 %a, i16 %b)
       declare {i32, i1} @llvm.smul.with.overflow.i32(i32 %a, i32 %b)
       declare {i64, i1} @llvm.smul.with.overflow.i64(i64 %a, i64 %b)
+      declare {<4 x i32>, <4 x i1>} @llvm.smul.with.overflow.v4i32(<4 x i32> %a, <4 x i32> %b)
 
 Overview:
 """""""""
@@ -13235,13 +13273,14 @@ Syntax:
 """""""
 
 This is an overloaded intrinsic. You can use ``llvm.umul.with.overflow``
-on any integer bit width.
+on any integer bit width or vectors of integers.
 
 ::
 
       declare {i16, i1} @llvm.umul.with.overflow.i16(i16 %a, i16 %b)
       declare {i32, i1} @llvm.umul.with.overflow.i32(i32 %a, i32 %b)
       declare {i64, i1} @llvm.umul.with.overflow.i64(i64 %a, i64 %b)
+      declare {<4 x i32>, <4 x i1>} @llvm.umul.with.overflow.v4i32(<4 x i32> %a, <4 x i32> %b)
 
 Overview:
 """""""""
@@ -16131,8 +16170,7 @@ Arguments:
 """"""""""
 
 The ``llvm.expect`` intrinsic takes two arguments. The first argument is
-a value. The second argument is an expected value, this needs to be a
-constant value, variables are not allowed.
+a value. The second argument is an expected value.
 
 Semantics:
 """"""""""

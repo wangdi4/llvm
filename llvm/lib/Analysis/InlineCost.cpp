@@ -399,6 +399,7 @@ public:
 #if INTEL_CUSTOMIZATION
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
             Params.ComputeFullInlineCost.getValueOr(false) || ORE),
+        EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX),
         TLI(TLI), ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
         CallSitesForDTrans(CSForDTrans),
 #endif // INTEL_CUSTOMIZATION

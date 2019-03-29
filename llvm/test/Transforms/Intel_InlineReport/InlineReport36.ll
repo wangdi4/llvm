@@ -10,17 +10,12 @@
 ; CHECK-NEW: COMPILE FUNC: foo
 ; CHECK-NEW: INLINE: g{{.*}}<<Callee has single callsite and local linkage>>
 ; CHECK-NEW: INLINE: h{{.*}}<<Callee is single basic block>>
-; CHECK-NEW: INLINE: __clang_call_terminate{{.*}}<<Callee is single basic block>>
 ; CHECK-NEW: INLINE: h{{.*}}<<Callee has single callsite and local linkage>>
-; CHECK-NEW: INLINE: __clang_call_terminate{{.*}}<<Callee is single basic block>>
 ; CHECK-NEW: COMPILE FUNC: main
 ; CHECK-NEW: INLINE: foo{{.*}}<<Inlining is profitable>>
 ; CHECK-NEW: INLINE: g{{.*}}<<Callee has single callsite and local linkage>>
 ; CHECK-NEW: INLINE: h{{.*}}<<Callee is single basic block>>
-; CHECK-NEW: INLINE: __clang_call_terminate{{.*}}<<Callee is single basic block>>
 ; CHECK-NEW: INLINE: h{{.*}}<<Callee has single callsite and local linkage>>
-; CHECK-NEW: INLINE: __clang_call_terminate{{.*}}<<Callee is single basic block>>
-; CHECK-NEW: INLINE: __clang_call_terminate{{.*}}<<Callee is single basic block>>
 ; CHECK-NOT: invoke i32 @foo
 ; CHECK-NOT: invoke i32 @g
 ; CHECK-NOT: call i32 @h
