@@ -546,6 +546,10 @@ void BTFDebug::emitCommonHeader() {
 }
 
 void BTFDebug::emitBTFSection() {
+  // Do not emit section if no types and only "" string.
+  if (!TypeEntries.size() && StringTable.getSize() == 1)
+    return;
+
   MCContext &Ctx = OS.getContext();
   OS.SwitchSection(Ctx.getELFSection(".BTF", ELF::SHT_PROGBITS, 0));
 
@@ -578,6 +582,10 @@ void BTFDebug::emitBTFSection() {
 }
 
 void BTFDebug::emitBTFExtSection() {
+  // Do not emit section if empty FuncInfoTable and LineInfoTable.
+  if (!FuncInfoTable.size() && !LineInfoTable.size())
+    return;
+
   MCContext &Ctx = OS.getContext();
   OS.SwitchSection(Ctx.getELFSection(".BTF.ext", ELF::SHT_PROGBITS, 0));
 
@@ -650,12 +658,12 @@ void BTFDebug::beginFunctionImpl(const MachineFunction *MF) {
   std::unordered_map<uint32_t, StringRef> FuncArgNames;
   for (const DINode *DN : SP->getRetainedNodes()) {
     if (const auto *DV = dyn_cast<DILocalVariable>(DN)) {
-      visitTypeEntry(DV->getType().resolve());
-
       // Collect function arguments for subprogram func type.
       uint32_t Arg = DV->getArg();
-      if (Arg)
+      if (Arg) {
+        visitTypeEntry(DV->getType().resolve());
         FuncArgNames[Arg] = DV->getName();
+      }
     }
   }
 
@@ -741,10 +749,15 @@ void BTFDebug::beginInstruction(const MachineInstr *MI) {
 void BTFDebug::endModule() {
   // Collect all types referenced by globals.
   const Module *M = MMI->getModule();
-  for (const DICompileUnit *CUNode : M->debug_compile_units()) {
-    for (const auto *GVE : CUNode->getGlobalVariables()) {
-      DIGlobalVariable *GV = GVE->getVariable();
-      visitTypeEntry(GV->getType().resolve());
+  for (const GlobalVariable &Global : M->globals()) {
+    // Ignore external globals for now.
+    if (!Global.hasInitializer() && Global.hasExternalLinkage())
+      continue;
+
+    SmallVector<DIGlobalVariableExpression *, 1> GVs;
+    Global.getDebugInfo(GVs);
+    for (auto *GVE : GVs) {
+      visitTypeEntry(GVE->getVariable()->getType().resolve());
     }
   }
 

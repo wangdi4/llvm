@@ -21,7 +21,7 @@
 #include "llvm/MC/MCAsmInfo.h"
 using namespace llvm;
 
-#define DEBUG_TYPE "wasm-exception-prepare"
+#define DEBUG_TYPE "wasm-late-eh-prepare"
 
 namespace {
 class WebAssemblyLateEHPrepare final : public MachineFunctionPass {
@@ -132,7 +132,7 @@ bool WebAssemblyLateEHPrepare::removeUnnecessaryUnreachables(
       // another BB that should eventually lead to an unreachable. Delete it
       // because throw itself is a terminator, and also delete successors if
       // any.
-      MBB.erase(std::next(MachineBasicBlock::iterator(MI)), MBB.end());
+      MBB.erase(std::next(MI.getIterator()), MBB.end());
       SmallVector<MachineBasicBlock *, 8> Succs(MBB.succ_begin(),
                                                 MBB.succ_end());
       for (auto *Succ : Succs)
@@ -185,9 +185,12 @@ bool WebAssemblyLateEHPrepare::addCatches(MachineFunction &MF) {
   for (auto &MBB : MF) {
     if (MBB.isEHPad()) {
       Changed = true;
+      auto InsertPos = MBB.begin();
+      if (InsertPos->isEHLabel()) // EH pad starts with an EH label
+        ++InsertPos;
       unsigned DstReg =
           MRI.createVirtualRegister(&WebAssembly::EXCEPT_REFRegClass);
-      BuildMI(MBB, MBB.begin(), MBB.begin()->getDebugLoc(),
+      BuildMI(MBB, InsertPos, MBB.begin()->getDebugLoc(),
               TII.get(WebAssembly::CATCH), DstReg);
     }
   }
@@ -222,18 +225,22 @@ bool WebAssemblyLateEHPrepare::addExceptionExtraction(MachineFunction &MF) {
   const auto &TII = *MF.getSubtarget<WebAssemblySubtarget>().getInstrInfo();
   auto *EHInfo = MF.getWasmEHFuncInfo();
   SmallVector<MachineInstr *, 16> ExtractInstrs;
+  SmallVector<MachineInstr *, 8> ToDelete;
   for (auto &MBB : MF) {
     for (auto &MI : MBB) {
       if (MI.getOpcode() == WebAssembly::EXTRACT_EXCEPTION_I32) {
         if (MI.getOperand(0).isDead())
-          MI.eraseFromParent();
+          ToDelete.push_back(&MI);
         else
           ExtractInstrs.push_back(&MI);
       }
     }
   }
+  bool Changed = !ToDelete.empty() || !ExtractInstrs.empty();
+  for (auto *MI : ToDelete)
+    MI->eraseFromParent();
   if (ExtractInstrs.empty())
-    return false;
+    return Changed;
 
   // Find terminate pads.
   SmallSet<MachineBasicBlock *, 8> TerminatePads;
@@ -251,7 +258,11 @@ bool WebAssemblyLateEHPrepare::addExceptionExtraction(MachineFunction &MF) {
   for (auto *Extract : ExtractInstrs) {
     MachineBasicBlock *EHPad = getMatchingEHPad(Extract);
     assert(EHPad && "No matching EH pad for extract_exception");
-    MachineInstr *Catch = &*EHPad->begin();
+    auto CatchPos = EHPad->begin();
+    if (CatchPos->isEHLabel()) // EH pad starts with an EH label
+      ++CatchPos;
+    MachineInstr *Catch = &*CatchPos;
+
     if (Catch->getNextNode() != Extract)
       EHPad->insert(Catch->getNextNode(), Extract->removeFromParent());
 
@@ -271,7 +282,7 @@ bool WebAssemblyLateEHPrepare::addExceptionExtraction(MachineFunction &MF) {
     // thenbb:
     //   %exn:i32 = extract_exception
     //   ... use exn ...
-    unsigned ExnRefReg = Catch->getOperand(0).getReg();
+    unsigned ExnReg = Catch->getOperand(0).getReg();
     auto *ThenMBB = MF.CreateMachineBasicBlock();
     auto *ElseMBB = MF.CreateMachineBasicBlock();
     MF.insert(std::next(MachineFunction::iterator(EHPad)), ElseMBB);
@@ -286,7 +297,7 @@ bool WebAssemblyLateEHPrepare::addExceptionExtraction(MachineFunction &MF) {
     BuildMI(EHPad, DL, TII.get(WebAssembly::BR_ON_EXN))
         .addMBB(ThenMBB)
         .addExternalSymbol(CPPExnSymbol, WebAssemblyII::MO_SYMBOL_EVENT)
-        .addReg(ExnRefReg);
+        .addReg(ExnReg);
     BuildMI(EHPad, DL, TII.get(WebAssembly::BR)).addMBB(ElseMBB);
 
     // When this is a terminate pad with __clang_call_terminate() call, we don't
@@ -326,7 +337,7 @@ bool WebAssemblyLateEHPrepare::addExceptionExtraction(MachineFunction &MF) {
     } else {
       BuildMI(ElseMBB, DL, TII.get(WebAssembly::RETHROW));
       if (EHInfo->hasEHPadUnwindDest(EHPad))
-        EHInfo->setThrowUnwindDest(ElseMBB, EHInfo->getEHPadUnwindDest(EHPad));
+        ElseMBB->addSuccessor(EHInfo->getEHPadUnwindDest(EHPad));
     }
   }
 
@@ -355,8 +366,10 @@ bool WebAssemblyLateEHPrepare::restoreStackPointer(MachineFunction &MF) {
     // with leaf functions, and we don't restore __stack_pointer in leaf
     // functions anyway.
     auto InsertPos = MBB.begin();
-    if (MBB.begin()->getOpcode() == WebAssembly::CATCH)
-      InsertPos++;
+    if (InsertPos->isEHLabel()) // EH pad starts with an EH label
+      ++InsertPos;
+    if (InsertPos->getOpcode() == WebAssembly::CATCH)
+      ++InsertPos;
     FrameLowering->writeSPToGlobal(WebAssembly::SP32, MF, MBB, InsertPos,
                                    MBB.begin()->getDebugLoc());
   }

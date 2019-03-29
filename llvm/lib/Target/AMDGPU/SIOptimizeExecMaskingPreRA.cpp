@@ -247,9 +247,10 @@ bool SIOptimizeExecMaskingPreRA::runOnMachineFunction(MachineFunction &MF) {
 
       // Skip this if the endpgm has any implicit uses, otherwise we would need
       // to be careful to update / remove them.
+      // S_ENDPGM always has a single imm operand that is not used other than to
+      // end up in the encoding
       MachineInstr &Term = MBB.back();
-      if (Term.getOpcode() != AMDGPU::S_ENDPGM ||
-          Term.getNumOperands() != 0)
+      if (Term.getOpcode() != AMDGPU::S_ENDPGM || Term.getNumOperands() != 1)
         continue;
 
       SmallVector<MachineBasicBlock*, 4> Blocks({&MBB});
@@ -374,8 +375,7 @@ bool SIOptimizeExecMaskingPreRA::runOnMachineFunction(MachineFunction &MF) {
         if (!MRI.reg_empty(Reg))
           LIS->createAndComputeVirtRegInterval(Reg);
       } else {
-        for (MCRegUnitIterator U(Reg, TRI); U.isValid(); ++U)
-          LIS->removeRegUnit(*U);
+        LIS->removeAllRegUnitsForPhysReg(Reg);
       }
     }
   }

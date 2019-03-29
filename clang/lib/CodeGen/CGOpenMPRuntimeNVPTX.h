@@ -386,6 +386,10 @@ public:
   void checkArchForUnifiedAddressing(CodeGenModule &CGM,
                                      const OMPRequiresDecl *D) const override;
 
+  /// Returns default address space for the constant firstprivates, __constant__
+  /// address space by default.
+  unsigned getDefaultFirstprivateAddressSpace() const override;
+
 private:
   /// Track the execution mode when codegening directives within a target
   /// region. The appropriate mode (SPMD/NON-SPMD) is set on entry to the
@@ -461,6 +465,12 @@ private:
     unsigned RegionCounter = 0;
   };
   llvm::SmallVector<GlobalPtrSizeRecsTy, 8> GlobalizedRecords;
+  llvm::GlobalVariable *KernelTeamsReductionPtr = nullptr;
+  /// List of the records with the list of fields for the reductions across the
+  /// teams. Used to build the intermediate buffer for the fast teams
+  /// reductions.
+  /// All the records are gathered into a union `union.type` is created.
+  llvm::SmallVector<const RecordDecl *, 4> TeamsReductions;
   /// Shared pointer for the global memory in the global memory buffer used for
   /// the given kernel.
   llvm::GlobalVariable *KernelStaticGlobalized = nullptr;

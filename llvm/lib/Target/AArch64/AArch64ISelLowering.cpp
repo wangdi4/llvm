@@ -549,6 +549,8 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
 
   // We combine OR nodes for bitfield operations.
   setTargetDAGCombine(ISD::OR);
+  // Try to create BICs for vector ANDs.
+  setTargetDAGCombine(ISD::AND);
 
   // Vector add and sub nodes may conceal a high-half opportunity.
   // Also, try to fold ADD into CSINC/CSINV..
@@ -660,14 +662,9 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
     // elements smaller than i32, so promote the input to i32 first.
     setOperationPromotedToType(ISD::UINT_TO_FP, MVT::v4i8, MVT::v4i32);
     setOperationPromotedToType(ISD::SINT_TO_FP, MVT::v4i8, MVT::v4i32);
-    setOperationPromotedToType(ISD::UINT_TO_FP, MVT::v4i16, MVT::v4i32);
-    setOperationPromotedToType(ISD::SINT_TO_FP, MVT::v4i16, MVT::v4i32);
-    // i8 and i16 vector elements also need promotion to i32 for v8i8 or v8i16
-    // -> v8f16 conversions.
+    // i8 vector elements also need promotion to i32 for v8i8
     setOperationPromotedToType(ISD::SINT_TO_FP, MVT::v8i8, MVT::v8i32);
     setOperationPromotedToType(ISD::UINT_TO_FP, MVT::v8i8, MVT::v8i32);
-    setOperationPromotedToType(ISD::SINT_TO_FP, MVT::v8i16, MVT::v8i32);
-    setOperationPromotedToType(ISD::UINT_TO_FP, MVT::v8i16, MVT::v8i32);
     // Similarly, there is no direct i32 -> f64 vector conversion instruction.
     setOperationAction(ISD::SINT_TO_FP, MVT::v2i32, Custom);
     setOperationAction(ISD::UINT_TO_FP, MVT::v2i32, Custom);
@@ -677,6 +674,20 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
     // conversion happens in two steps: v4i32 -> v4f32 -> v4f16
     setOperationAction(ISD::SINT_TO_FP, MVT::v4i32, Custom);
     setOperationAction(ISD::UINT_TO_FP, MVT::v4i32, Custom);
+
+    if (Subtarget->hasFullFP16()) {
+      setOperationAction(ISD::SINT_TO_FP, MVT::v4i16, Custom);
+      setOperationAction(ISD::UINT_TO_FP, MVT::v4i16, Custom);
+      setOperationAction(ISD::SINT_TO_FP, MVT::v8i16, Custom);
+      setOperationAction(ISD::UINT_TO_FP, MVT::v8i16, Custom);
+    } else {
+      // when AArch64 doesn't have fullfp16 support, promote the input
+      // to i32 first.
+      setOperationPromotedToType(ISD::UINT_TO_FP, MVT::v4i16, MVT::v4i32);
+      setOperationPromotedToType(ISD::SINT_TO_FP, MVT::v4i16, MVT::v4i32);
+      setOperationPromotedToType(ISD::SINT_TO_FP, MVT::v8i16, MVT::v8i32);
+      setOperationPromotedToType(ISD::UINT_TO_FP, MVT::v8i16, MVT::v8i32);
+    }
 
     setOperationAction(ISD::CTLZ,       MVT::v1i64, Expand);
     setOperationAction(ISD::CTLZ,       MVT::v2i64, Expand);
@@ -689,14 +700,16 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::MUL, MVT::v2i64, Custom);
 
     // Vector reductions
-    for (MVT VT : MVT::integer_valuetypes()) {
+    for (MVT VT : { MVT::v8i8, MVT::v4i16, MVT::v2i32,
+                    MVT::v16i8, MVT::v8i16, MVT::v4i32, MVT::v2i64 }) {
       setOperationAction(ISD::VECREDUCE_ADD, VT, Custom);
       setOperationAction(ISD::VECREDUCE_SMAX, VT, Custom);
       setOperationAction(ISD::VECREDUCE_SMIN, VT, Custom);
       setOperationAction(ISD::VECREDUCE_UMAX, VT, Custom);
       setOperationAction(ISD::VECREDUCE_UMIN, VT, Custom);
     }
-    for (MVT VT : MVT::fp_valuetypes()) {
+    for (MVT VT : { MVT::v4f16, MVT::v2f32,
+                    MVT::v8f16, MVT::v4f32, MVT::v2f64 }) {
       setOperationAction(ISD::VECREDUCE_FMAX, VT, Custom);
       setOperationAction(ISD::VECREDUCE_FMIN, VT, Custom);
     }
@@ -739,6 +752,17 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::FROUND, Ty, Legal);
     }
 
+    if (Subtarget->hasFullFP16()) {
+      for (MVT Ty : {MVT::v4f16, MVT::v8f16}) {
+        setOperationAction(ISD::FFLOOR, Ty, Legal);
+        setOperationAction(ISD::FNEARBYINT, Ty, Legal);
+        setOperationAction(ISD::FCEIL, Ty, Legal);
+        setOperationAction(ISD::FRINT, Ty, Legal);
+        setOperationAction(ISD::FTRUNC, Ty, Legal);
+        setOperationAction(ISD::FROUND, Ty, Legal);
+      }
+    }
+
     setTruncStoreAction(MVT::v4i16, MVT::v4i8, Custom);
   }
 
@@ -777,7 +801,6 @@ void AArch64TargetLowering::addTypeForNEON(MVT VT, MVT PromotedBitwiseVT) {
   setOperationAction(ISD::SRA, VT, Custom);
   setOperationAction(ISD::SRL, VT, Custom);
   setOperationAction(ISD::SHL, VT, Custom);
-  setOperationAction(ISD::AND, VT, Custom);
   setOperationAction(ISD::OR, VT, Custom);
   setOperationAction(ISD::SETCC, VT, Custom);
   setOperationAction(ISD::CONCAT_VECTORS, VT, Legal);
@@ -2320,7 +2343,8 @@ SDValue AArch64TargetLowering::LowerFP_ROUND(SDValue Op,
                      SDLoc(Op)).first;
 }
 
-static SDValue LowerVectorFP_TO_INT(SDValue Op, SelectionDAG &DAG) {
+SDValue AArch64TargetLowering::LowerVectorFP_TO_INT(SDValue Op,
+                                                    SelectionDAG &DAG) const {
   // Warning: We maintain cost tables in AArch64TargetTransformInfo.cpp.
   // Any additional optimization in this function should be recorded
   // in the cost tables.
@@ -2328,8 +2352,9 @@ static SDValue LowerVectorFP_TO_INT(SDValue Op, SelectionDAG &DAG) {
   EVT VT = Op.getValueType();
   unsigned NumElts = InVT.getVectorNumElements();
 
-  // f16 vectors are promoted to f32 before a conversion.
-  if (InVT.getVectorElementType() == MVT::f16) {
+  // f16 conversions are promoted to f32 when full fp16 is not supported.
+  if (InVT.getVectorElementType() == MVT::f16 &&
+      !Subtarget->hasFullFP16()) {
     MVT NewVT = MVT::getVectorVT(MVT::f32, NumElts);
     SDLoc dl(Op);
     return DAG.getNode(
@@ -2916,8 +2941,6 @@ SDValue AArch64TargetLowering::LowerOperation(SDValue Op,
     return LowerCTPOP(Op, DAG);
   case ISD::FCOPYSIGN:
     return LowerFCOPYSIGN(Op, DAG);
-  case ISD::AND:
-    return LowerVectorAND(Op, DAG);
   case ISD::OR:
     return LowerVectorOR(Op, DAG);
   case ISD::XOR:
@@ -6898,46 +6921,6 @@ static SDValue tryAdvSIMDModImmFP(unsigned NewOp, SDValue Op, SelectionDAG &DAG,
   return SDValue();
 }
 
-SDValue AArch64TargetLowering::LowerVectorAND(SDValue Op,
-                                              SelectionDAG &DAG) const {
-  SDValue LHS = Op.getOperand(0);
-  EVT VT = Op.getValueType();
-
-  BuildVectorSDNode *BVN =
-      dyn_cast<BuildVectorSDNode>(Op.getOperand(1).getNode());
-  if (!BVN) {
-    // AND commutes, so try swapping the operands.
-    LHS = Op.getOperand(1);
-    BVN = dyn_cast<BuildVectorSDNode>(Op.getOperand(0).getNode());
-  }
-  if (!BVN)
-    return Op;
-
-  APInt DefBits(VT.getSizeInBits(), 0);
-  APInt UndefBits(VT.getSizeInBits(), 0);
-  if (resolveBuildVector(BVN, DefBits, UndefBits)) {
-    SDValue NewOp;
-
-    // We only have BIC vector immediate instruction, which is and-not.
-    DefBits = ~DefBits;
-    if ((NewOp = tryAdvSIMDModImm32(AArch64ISD::BICi, Op, DAG,
-                                    DefBits, &LHS)) ||
-        (NewOp = tryAdvSIMDModImm16(AArch64ISD::BICi, Op, DAG,
-                                    DefBits, &LHS)))
-      return NewOp;
-
-    UndefBits = ~UndefBits;
-    if ((NewOp = tryAdvSIMDModImm32(AArch64ISD::BICi, Op, DAG,
-                                    UndefBits, &LHS)) ||
-        (NewOp = tryAdvSIMDModImm16(AArch64ISD::BICi, Op, DAG,
-                                    UndefBits, &LHS)))
-      return NewOp;
-  }
-
-  // We can always fall back to a non-immediate AND.
-  return Op;
-}
-
 // Specialized code to quickly find if PotentialBVec is a BuildVector that
 // consists of only the same constant int value, returned in reference arg
 // ConstVal
@@ -7779,8 +7762,8 @@ SDValue AArch64TargetLowering::LowerVSETCC(SDValue Op,
 
   // Make v4f16 (only) fcmp operations utilise vector instructions
   // v8f16 support will be a litle more complicated
-  if (LHS.getValueType().getVectorElementType() == MVT::f16) {
-    if (!FullFP16 && LHS.getValueType().getVectorNumElements() == 4) {
+  if (!FullFP16 && LHS.getValueType().getVectorElementType() == MVT::f16) {
+    if (LHS.getValueType().getVectorNumElements() == 4) {
       LHS = DAG.getNode(ISD::FP_EXTEND, dl, MVT::v4f32, LHS);
       RHS = DAG.getNode(ISD::FP_EXTEND, dl, MVT::v4f32, RHS);
       SDValue NewSetcc = DAG.getSetCC(dl, MVT::v4i16, LHS, RHS, CC);
@@ -7790,8 +7773,8 @@ SDValue AArch64TargetLowering::LowerVSETCC(SDValue Op,
       return SDValue();
   }
 
-  assert(LHS.getValueType().getVectorElementType() == MVT::f32 ||
-         LHS.getValueType().getVectorElementType() == MVT::f64);
+  assert((!FullFP16 && LHS.getValueType().getVectorElementType() != MVT::f16) ||
+          LHS.getValueType().getVectorElementType() != MVT::f128);
 
   // Unfortunately, the mapping of LLVM FP CC's onto AArch64 CC's isn't totally
   // clean.  Some of them require two branches to implement.
@@ -9405,6 +9388,46 @@ static SDValue performORCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI,
 
   if (SDValue Res = tryCombineToBSL(N, DCI))
     return Res;
+
+  return SDValue();
+}
+
+static SDValue performANDCombine(SDNode *N,
+                                 TargetLowering::DAGCombinerInfo &DCI) {
+  SelectionDAG &DAG = DCI.DAG;
+  SDValue LHS = N->getOperand(0);
+  EVT VT = N->getValueType(0);
+  if (!VT.isVector() || !DAG.getTargetLoweringInfo().isTypeLegal(VT))
+    return SDValue();
+
+  BuildVectorSDNode *BVN =
+      dyn_cast<BuildVectorSDNode>(N->getOperand(1).getNode());
+  if (!BVN)
+    return SDValue();
+
+  // AND does not accept an immediate, so check if we can use a BIC immediate
+  // instruction instead. We do this here instead of using a (and x, (mvni imm))
+  // pattern in isel, because some immediates may be lowered to the preferred
+  // (and x, (movi imm)) form, even though an mvni representation also exists.
+  APInt DefBits(VT.getSizeInBits(), 0);
+  APInt UndefBits(VT.getSizeInBits(), 0);
+  if (resolveBuildVector(BVN, DefBits, UndefBits)) {
+    SDValue NewOp;
+
+    DefBits = ~DefBits;
+    if ((NewOp = tryAdvSIMDModImm32(AArch64ISD::BICi, SDValue(N, 0), DAG,
+                                    DefBits, &LHS)) ||
+        (NewOp = tryAdvSIMDModImm16(AArch64ISD::BICi, SDValue(N, 0), DAG,
+                                    DefBits, &LHS)))
+      return NewOp;
+
+    UndefBits = ~UndefBits;
+    if ((NewOp = tryAdvSIMDModImm32(AArch64ISD::BICi, SDValue(N, 0), DAG,
+                                    UndefBits, &LHS)) ||
+        (NewOp = tryAdvSIMDModImm16(AArch64ISD::BICi, SDValue(N, 0), DAG,
+                                    UndefBits, &LHS)))
+      return NewOp;
+  }
 
   return SDValue();
 }
@@ -11259,6 +11282,8 @@ SDValue AArch64TargetLowering::PerformDAGCombine(SDNode *N,
     return performFDivCombine(N, DAG, DCI, Subtarget);
   case ISD::OR:
     return performORCombine(N, DCI, Subtarget);
+  case ISD::AND:
+    return performANDCombine(N, DCI);
   case ISD::SRL:
     return performSRLCombine(N, DCI);
   case ISD::INTRINSIC_WO_CHAIN:

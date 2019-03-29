@@ -3888,9 +3888,14 @@ public:
   /// integers as its arguments.
   SDValue expandFixedPointMul(SDNode *Node, SelectionDAG &DAG) const;
 
-  /// Method for building the DAG expansion of ISD::[US]MULO, returning the two
-  /// result values as a pair.
-  std::pair<SDValue, SDValue> expandMULO(SDNode *Node, SelectionDAG &DAG) const;
+  /// Method for building the DAG expansion of ISD::[US]MULO. Returns whether
+  /// expansion was successful and populates the Result and Overflow arguments.
+  bool expandMULO(SDNode *Node, SDValue &Result, SDValue &Overflow,
+                  SelectionDAG &DAG) const;
+
+  /// Expand a VECREDUCE_* into an explicit calculation. If Count is specified,
+  /// only the first Count elements of the vector are used.
+  SDValue expandVecReduce(SDNode *Node, SelectionDAG &DAG) const;
 
   //===--------------------------------------------------------------------===//
   // Instruction Emitting Hooks
