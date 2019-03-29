@@ -185,17 +185,19 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   Optional<PGOOptions> P;
   switch (PGOKindFlag) {
     case InstrGen:
-      P = PGOOptions(ProfileFile, "", "", "", true);
+      P = PGOOptions(ProfileFile, "", "", PGOOptions::IRInstr);
       break;
     case InstrUse:
-      P = PGOOptions("", ProfileFile, "", ProfileRemappingFile, false);
+      P = PGOOptions(ProfileFile, "", ProfileRemappingFile, PGOOptions::IRUse);
       break;
     case SampleUse:
-      P = PGOOptions("", "", ProfileFile, ProfileRemappingFile, false);
+      P = PGOOptions(ProfileFile, "", ProfileRemappingFile,
+                     PGOOptions::SampleUse);
       break;
     case NoPGO:
       if (DebugInfoForProfiling)
-        P = PGOOptions("", "", "", "", false, true);
+        P = PGOOptions("", "", "", PGOOptions::NoAction, PGOOptions::NoCSAction,
+                       true);
       else
         P = None;
   }
