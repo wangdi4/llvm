@@ -4687,6 +4687,7 @@ bool Sema::CheckCSABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     if (!LicId->getType()->isIntegerType())
       return Diag(LicId->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
         << 1;
+    TheCall->setType(AnyTypeArg->getType());
     break;
   }
   }

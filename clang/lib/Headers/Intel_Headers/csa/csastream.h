@@ -36,7 +36,7 @@ namespace csa
     {}
     __attribute__((always_inline))
     T read() {
-      return __builtin_csa_lic_read((T)0, identifier);
+      return __builtin_csa_lic_read(T(), identifier);
     }
     __attribute__((always_inline))
     void write(T val) {
