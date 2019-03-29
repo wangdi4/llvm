@@ -331,11 +331,11 @@ static void addIntelLibPaths(ArgStringList &CmdArgs,
   if (ToolChain.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
     // deploy
     CmdArgs.push_back(Args.MakeArgString("-L" +
-        ToolChain.getDriver().Dir + "/../../compiler/lib/intel64_lin"));
+        ToolChain.getDriver().Dir + "/../compiler/lib/intel64_lin"));
   } else {
     // deploy
     CmdArgs.push_back(Args.MakeArgString("-L" +
-        ToolChain.getDriver().Dir + "/../../compiler/lib/ia32_lin"));
+        ToolChain.getDriver().Dir + "/../compiler/lib/ia32_lin"));
   }
   // IA32ROOT
   const char * IA32Root = getenv("IA32ROOT");
@@ -562,6 +562,15 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
   }
+#if INTEL_CUSTOMIZATION
+  // Add -lm for both C and C++ compilation
+  else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
+           Args.hasArg(options::OPT__intel)) {
+    CmdArgs.push_back("-limf");
+    CmdArgs.push_back("-lm");
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Silence warnings when linking C code with a C++ '-stdlib' argument.
   Args.ClaimAllArgs(options::OPT_stdlib_EQ);
 
