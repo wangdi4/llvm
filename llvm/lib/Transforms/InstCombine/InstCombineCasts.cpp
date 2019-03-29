@@ -1779,7 +1779,7 @@ Instruction *InstCombiner::visitFPToSI(FPToSIInst &FI) {
       Value *NewRInt =
           Builder.CreateUnaryIntrinsic(Intrinsic::rint, FAddOp0, OpI);
       Value *NewFPToSI =
-          Builder.CreateFPToSI(NewRInt, Type::getInt64Ty(FI.getContext()));
+          Builder.CreateFPToSI(NewRInt, SIOp0->getType());
       return BinaryOperator::CreateAdd(NewFPToSI, SIOp0);
     }
   }
