@@ -120,6 +120,7 @@ class CSAAsmPrinter : public AsmPrinter {
   LineReader *reader;
   // To record filename to ID mapping
   bool doInitialization(Module &M) override;
+  bool doFinalization(Module &M) override;
   void emitLineNumberAsDotLoc(const MachineInstr &);
   void emitSrcInText(StringRef filename, unsigned line);
   LineReader *getReader(std::string);
@@ -278,6 +279,19 @@ bool CSAAsmPrinter::doInitialization(Module &M) {
     OutStreamer->AddBlankLine();
   }
 
+  return result;
+}
+
+bool CSAAsmPrinter::doFinalization(Module &M) {
+  if (CSAInstPrinter::WrapCsaAsm()) {
+    OutStreamer->AddBlankLine();
+    if (!csa_utils::createSCG())
+      OutStreamer->EmitRawText(".endmodule\n");
+  } else {
+    if (!csa_utils::createSCG())
+      OutStreamer->EmitRawText(".endmodule\n");
+  }
+  bool result = AsmPrinter::doFinalization(M);
   return result;
 }
 
@@ -500,19 +514,13 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
 }
 
 void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
-
   if (CSAInstPrinter::WrapCsaAsm()) {
     OutStreamer->AddBlankLine();
-    if (!csa_utils::createSCG())
-      OutStreamer->EmitRawText(".endmodule\n");
     endCSAAsmString(*OutStreamer);
     OutStreamer->AddBlankLine();
     // Add the terminating null for the .csa section.
     OutStreamer->EmitRawText("\t.asciz \"\"");
     OutStreamer->PopSection();
-  } else {
-    if (!csa_utils::createSCG())
-      OutStreamer->EmitRawText(".endmodule\n");
   }
 }
 
