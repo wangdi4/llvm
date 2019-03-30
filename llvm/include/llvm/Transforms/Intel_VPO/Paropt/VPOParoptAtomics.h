@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //===-- VPO/Paropt/VPOParoptAtomics.h - Paropt Atomics Class -*- C++ -*-===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -59,6 +59,26 @@ public:
   /// \param [in] IsTargetSPIRV if true don't emit the Ident and Tid parameters
   static bool handleAtomic(WRNAtomicNode *AtomicNode, StructType *IdentTy,
                            Constant *TidPtr, bool IsTargetSPIRV);
+
+  /// Transforms update operation sequence into an atomic update.
+  ///
+  /// This method is made public so that it can be used for transforming
+  /// reduction updates into atomic ones.
+  /// \param [in] W is the WRegionNode for which the KMPC calls are
+  /// to be generated.  It is used for Loc structure initialization,
+  /// and may not be WRNAtomicNode.
+  /// \param [in] BB is a BasicBlock containing update operation sequence.
+  /// Look for examples in handleAtomicUpdate() header comment.
+  /// \param [in] IdentTy is the Loc struct type, needed for KMPC calls.
+  /// \param [in] TidPtr is pointer to the alloca instruction for
+  /// thread ID. Needed for KMPC calls.
+  /// \param [in] IsTargetSPIRV if true don't emit the Ident and Tid parameters.
+  /// \p IdentTy and \p TidPtr may be nullptr, if \p IsTargetSPIRV is true.
+  ///
+  /// \returns Instruction generated for KMPC call.
+  static Instruction *handleAtomicUpdateInBlock(
+      WRegionNode *W, BasicBlock *BB, StructType *IdentTy, Constant *TidPtr,
+      bool IsTargetSPIRV);
 
 private:
   /// \name Private constructors, destructors.
@@ -217,7 +237,7 @@ private:
   /// parameters, as they're not used when lowered to the device RTL.
   /// This function does not emit the atomic call into the IR; InsertPt is just
   /// used to obtain the Bblock where the atomic pragma resides.
-  static CallInst *genAtomicCall(WRNAtomicNode *AtomicNode, StructType *IdentTy,
+  static CallInst *genAtomicCall(WRegionNode *W, StructType *IdentTy,
                                  Constant *TidPtr, Instruction *InsertPt,
                                  StringRef Name, Type *ReturnTy,
                                  ArrayRef<Value *> Args, bool IsTargetSPIRV);

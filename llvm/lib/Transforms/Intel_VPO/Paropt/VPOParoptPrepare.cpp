@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //===------- VPOParoptPrepare.cpp - Paropt Prepare Pass for OpenMP --------===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -63,6 +63,7 @@ INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 #if INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 #endif // INTEL_CUSTOMIZATION
+INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
                     "VPO Paropt Prepare Function Pass", false, false)
 
@@ -89,6 +90,7 @@ void VPOParoptPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
 #if INTEL_CUSTOMIZATION
   AU.addRequired<OptReportOptionsPass>();
 #endif // INTEL_CUSTOMIZATION
+  AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
 }
 
 bool VPOParoptPrepare::runOnFunction(Function &F) {
@@ -108,8 +110,9 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
 #if INTEL_CUSTOMIZATION
   ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
 #endif // INTEL_CUSTOMIZATION
+  auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
-  bool Changed = Impl.runImpl(F, WI);
+  bool Changed = Impl.runImpl(F, WI, ORE);
 
   LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPrepare End: " << F.getName() << "\n");
   LLVM_DEBUG(dbgs() << "\n====== Exit VPO Paropt Prepare ======\n\n");
@@ -117,7 +120,8 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   return Changed;
 }
 
-bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
+bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI,
+                                   OptimizationRemarkEmitter &ORE) {
   bool Changed = false;
 
 #if INTEL_CUSTOMIZATION
@@ -173,7 +177,7 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI) {
 #if INTEL_CUSTOMIZATION
                         ORVerbosity,
 #endif  // INTEL_CUSTOMIZATION
-                        2, PrepareSwitchToOffload);
+                        ORE, 2, PrepareSwitchToOffload);
   Changed = Changed | VP.paroptTransforms();
 
   LLVM_DEBUG(
@@ -204,8 +208,9 @@ PreservedAnalyses VPOParoptPreparePass::run(Function &F,
 #if INTEL_CUSTOMIZATION
   ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();
 #endif // INTEL_CUSTOMIZATION
+  auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 
-  bool Changed = runImpl(F, WI);
+  bool Changed = runImpl(F, WI, ORE);
 
   LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPreparePass End: " << F.getName()
                     << "\n");

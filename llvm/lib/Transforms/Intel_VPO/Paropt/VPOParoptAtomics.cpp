@@ -181,13 +181,11 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   return true;
 }
 
-// Handles generation of KMPC intrinsics for Atomic Update.
-bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
-                                          StructType *IdentTy, Constant *TidPtr,
-                                          bool IsTargetSPIRV) {
-  assert(AtomicNode != nullptr && "AtomicNode is null.");
-  assert(IdentTy != nullptr && "IdentTy is null.");
-  assert(TidPtr != nullptr && "TidPtr is null.");
+bool VPOParoptAtomics::handleAtomicUpdate(
+    WRNAtomicNode *AtomicNode, StructType *IdentTy, Constant *TidPtr,
+    bool IsTargetSPIRV) {
+  assert(AtomicNode && "AtomicNode is null.");
+
   if (AtomicNode->getBBSetSize() != 3) {
     LLVM_DEBUG(dbgs() << __FUNCTION__
                       << ": AtomicNode for Update does not have 3 BBlocks.\n");
@@ -198,6 +196,20 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   // We're interested in only the middle one here.
   BasicBlock *BB = *(AtomicNode->bbset_begin() + 1);
 
+  return handleAtomicUpdateInBlock(AtomicNode, BB, IdentTy, TidPtr,
+                                   IsTargetSPIRV);
+}
+
+// Handles generation of KMPC intrinsics for Atomic Update.
+Instruction *VPOParoptAtomics::handleAtomicUpdateInBlock(
+    WRegionNode *W, BasicBlock *BB, StructType *IdentTy, Constant *TidPtr,
+    bool IsTargetSPIRV) {
+
+  if (!IsTargetSPIRV) {
+    assert(IdentTy && "IdentTy is null.");
+    assert(TidPtr && "TidPtr is null.");
+  }
+
   // We maintain a list of Instructions that will be deleted from BB, when the
   // KMPC call is added.
   SmallVector<Instruction*, ApproxNumInstsToDeleteForUpdate> InstsToDelete;
@@ -207,18 +219,18 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
     LLVM_DEBUG(dbgs() << __FUNCTION__
                       << ": Atomic update BBlock has less than 4"
                       << " Instructions. Returning.\n");
-    return false; // Handle using critical section.
+    return nullptr; // Handle using critical section.
   }
 
   // The last store in the BBlock should be to the atomic operand. In the
   // future, to improve flexibility, the frontend could send in the atomic
   // operand as part of the intrinsic.
   StoreInst *OpndStore = VPOParoptAtomics::getLastStoreInBB(*BB);
-  if (OpndStore == nullptr) {
+  if (!OpndStore) {
     LLVM_DEBUG(
         dbgs() << __FUNCTION__
                << ": Unable to find store to atomic operand. Returning.\n");
-    return false; // Handle using critical section.
+    return nullptr; // Handle using critical section.
   }
 
   // A call to atomic update intrinsic is of form:
@@ -241,19 +253,19 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
       );
 
   if (!UpdateOpFound)
-    return false; // Handle using critical sections.
+    return nullptr; // Handle using critical sections.
 
   removeDuplicateInstsFromList(InstsToDelete);
 
   if (instructionsAreUsedOutsideBB(InstsToDelete, BB))
-    return false; // Handle using critical section.
+    return nullptr; // Handle using critical section.
 
   // At this point, we may need to generate a CastInst for ValueOpnd, in case
   // the types of AtomicOpnd and ValueOpnd are not the same.
   CastInst *ValueOpndCast = genCastForValueOpnd<WRNAtomicUpdate>(
       OpInst, Reversed, AtomicOpnd, ValueOpnd);
 
-  ValueOpnd = ValueOpndCast != nullptr ? ValueOpndCast : ValueOpnd;
+  ValueOpnd = ValueOpndCast ? ValueOpndCast : ValueOpnd;
   // Note that we have not yet inserted this Cast into the IR. We do that only
   // after we find a matching intrinsic.
 
@@ -266,15 +278,15 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   const std::string Name = getAtomicUCIntrinsicName<WRNAtomicUpdate>(
       *OpInst, Reversed, *AtomicOpnd, *ValueOpnd);
   if (Name.empty()) {
-    if (ValueOpndCast != nullptr)
+    if (ValueOpndCast)
       delete ValueOpndCast;
     // No intrinsic found. Handle using critical sections.
-    return false;
+    return nullptr;
   }
 
   // We found the matching intrinsic. So, it's safe to insert ValueOpndCast
   // into the IR.
-  if (ValueOpndCast != nullptr)
+  if (ValueOpndCast)
     ValueOpndCast->insertBefore(AtomicOpndStore);
 
   if (IsTargetSPIRV)
@@ -284,20 +296,21 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   // Next, generate and insert the KMPC call for atomic update. It looks like:
   //     call void __kmpc_atomic_<...>(loc, tid, atomic_opnd, value_opnd)
   CallInst *AtomicCall =
-      genAtomicCall(AtomicNode, IdentTy, TidPtr, OpndStore, Name,
+      genAtomicCall(W, IdentTy, TidPtr, OpndStore, Name,
                     Type::getVoidTy(BB->getParent()->getContext()),
                     {AtomicOpnd, ValueOpnd}, IsTargetSPIRV);
 
-  assert(AtomicCall != nullptr && "Generated Atomic Update call is null.");
+  assert(AtomicCall && "Generated Atomic Update call is null.");
 
   AtomicCall->insertBefore(OpndStore);
+  AtomicCall->setDebugLoc(OpndStore->getDebugLoc());
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic call inserted.\n");
 
   // And finally, delete the instructions that are no longer needed.
   deleteInstructionsInList(InstsToDelete);
 
-  return true;
+  return AtomicCall;
 }
 
 // Handles generation of KMPC intrinsics for Atomic Capture.
@@ -456,7 +469,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
 // Omit the Ident and Tid parameters if IsTargetSPIRV is true.
 // Note that this function does not emit the call, and InsertPt is just
 // used to obtain the Bblock where the atomic pragma resides.
-CallInst *VPOParoptAtomics::genAtomicCall(WRNAtomicNode *AtomicNode,
+CallInst *VPOParoptAtomics::genAtomicCall(WRegionNode *W,
                                           StructType *IdentTy, Constant *TidPtr,
                                           Instruction *InsertPt, StringRef Name,
                                           Type *ReturnTy,
@@ -466,7 +479,7 @@ CallInst *VPOParoptAtomics::genAtomicCall(WRNAtomicNode *AtomicNode,
 
   if (!IsTargetSPIRV) {
     AtomicCall = VPOParoptUtils::genKmpcCallWithTid(
-        AtomicNode, IdentTy, TidPtr, InsertPt, Name, ReturnTy, Args);
+        W, IdentTy, TidPtr, InsertPt, Name, ReturnTy, Args);
     assert(AtomicCall && "Generated KMPC Atomic call is null.");
   } else {
     BasicBlock *B = InsertPt->getParent();

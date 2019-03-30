@@ -172,12 +172,11 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     VPOParoptTransform VP(this, F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                           WI.getSE(), WI.getTargetTransformInfo(),
                           WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
+                          WI.getAliasAnalysis(), Mode,
 #if INTEL_CUSTOMIZATION
-                          WI.getAliasAnalysis(), Mode, ORVerbosity, OptLevel,
-#else
-                          WI.getAliasAnalysis(), Mode, OptLevel,
+                          ORVerbosity,
 #endif // INTEL_CUSTOMIZATION
-                          SwitchToOffload);
+                          WI.getORE(), OptLevel, SwitchToOffload);
     Changed = Changed | VP.paroptTransforms();
 
     LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");

@@ -101,6 +101,7 @@ public:
 #if INTEL_CUSTOMIZATION
                      OptReportVerbosity::Level ORVerbosity,
 #endif  // INTEL_CUSTOMIZATION
+                     OptimizationRemarkEmitter &ORE,
                      unsigned OptLevel = 2, bool SwitchToOffload = false)
       : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
         TLI(TLI), AA(AA), Mode(Mode),
@@ -108,7 +109,7 @@ public:
 #if INTEL_CUSTOMIZATION
         ORVerbosity(ORVerbosity),
 #endif  // INTEL_CUSTOMIZATION
-        OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
+        ORE(ORE), OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
         KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
@@ -171,6 +172,9 @@ private:
   /// Builder for generating remarks using Loop Opt Report framework (under -qopt-report).
   LoopOptReportBuilder LORBuilder;
 #endif  // INTEL_CUSTOMIZATION
+
+  /// Optimization remark emitter.
+  OptimizationRemarkEmitter &ORE;
 
   /// Optimization level.
   unsigned OptLevel;
@@ -397,12 +401,12 @@ private:
                                          Instruction *InsertPt);
 
   /// Generate the reduction initialization code.
-  void genReductionInit(ReductionItem *RedI, Instruction *InsertPt,
-                        DominatorTree *DT);
+  void genReductionInit(WRegionNode *W, ReductionItem *RedI,
+                        Instruction *InsertPt, DominatorTree *DT);
 
   /// Generate the reduction update code.
-  void genReductionFini(ReductionItem *RedI, Value *OldV, Instruction *InsertPt,
-                        DominatorTree *DT);
+  void genReductionFini(WRegionNode *W, ReductionItem *RedI, Value *OldV,
+                        Instruction *InsertPt, DominatorTree *DT);
 
   /// Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
@@ -411,7 +415,7 @@ private:
   Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
 
   /// Generate the reduction code for reduction clause.
-  bool genReductionCode(WRegionNode *W);
+  bool genReductionCode(WRegionNode *W, bool IsTargetSPIRV = false);
 
   /// Prepare the empty basic block for the array
   /// reduction or firstprivate initialization.
@@ -426,14 +430,16 @@ private:
                              Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
 
   /// Generate the reduction update instructions.
-  Value *genReductionScalarFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
-                                Value *Lhs, Type *ScalarTy,
-                                IRBuilder<> &Builder);
+  Instruction *genReductionScalarFini(
+      WRegionNode *W, ReductionItem *RedI,
+      Value *ReductionVar, Value *ReductionValueLoc,
+      Type *ScalarTy, IRBuilder<> &Builder);
 
   /// Generate the reduction initialization/update for array.
-  void genRedAggregateInitOrFini(ReductionItem *RedI, AllocaInst *AI,
-                                 Value *OldV, Instruction *InsertPt,
-                                 bool IsInit, DominatorTree *DT);
+  void genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI,
+                                 AllocaInst *AI, Value *OldV,
+                                 Instruction *InsertPt, bool IsInit,
+                                 DominatorTree *DT);
 
   /// Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,

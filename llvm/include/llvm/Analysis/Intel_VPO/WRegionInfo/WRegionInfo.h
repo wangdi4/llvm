@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //===--------- WRegionInfo.h - Build WRegionInfo Graph --------*-- C++ --*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -18,6 +18,7 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGIONINFO_H
 #define LLVM_ANALYSIS_VPO_WREGIONINFO_H
 
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
@@ -60,6 +61,7 @@ private:
   const TargetLibraryInfo *TLI;
   AliasAnalysis *AA;
   WRegionCollection *WRC;
+  OptimizationRemarkEmitter &ORE;
 
   /// \brief Populates W-Region with WRegionNodes.
   void populateWRegion(WRegion *W, BasicBlock *EntryBB, BasicBlock **ExitBB);
@@ -68,7 +70,7 @@ public:
   WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI, ScalarEvolution *SE,
               const TargetTransformInfo *TTI, AssumptionCache *AC,
               const TargetLibraryInfo *TLI, AliasAnalysis *AA,
-              WRegionCollection *WRC);
+              WRegionCollection *WRC, OptimizationRemarkEmitter &ORE);
 
   void print(raw_ostream &OS) const;
 
@@ -92,6 +94,7 @@ public:
   AssumptionCache *getAssumptionCache() { return AC; }
   const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
   AliasAnalysis *getAliasAnalysis() { return AA; }
+  OptimizationRemarkEmitter &getORE() { return ORE; }
 
   /// WRN Graph iterator methods
   iterator begin() { return getWRGraph()->begin(); }
