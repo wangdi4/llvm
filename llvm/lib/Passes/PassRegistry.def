@@ -94,9 +94,11 @@ MODULE_PASS("instrorderfile", InstrOrderFilePass())
 MODULE_PASS("instrprof", InstrProfiling())
 MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
-MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false))            // INTEL
+MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false,             // INTEL
+                                        /*IFSwitchHeuristic*/ false))   // INTEL
 MODULE_PASS("intel-partialinline", IntelPartialInlinePass())            // INTEL
-MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true)) // INTEL
+MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,  // INTEL
+                                        /*IFSwitchHeuristic*/ false))   // INTEL
 MODULE_PASS("call-tree-clone", CallTreeCloningPass())                   // INTEL
 MODULE_PASS("ipsccp", IPSCCPPass())
 MODULE_PASS("lowertypetests", LowerTypeTestsPass(nullptr, nullptr))

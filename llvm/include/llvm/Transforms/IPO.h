@@ -275,7 +275,8 @@ ModulePass *createGlobalSplitPass();
 ModulePass *createIntelPartialInlineLegacyPass();
 
 /// \brief This pass implements IP Cloning
-ModulePass *createIPCloningLegacyPass(bool AfterInl = false);
+ModulePass *createIPCloningLegacyPass(bool AfterInl = false,
+                                      bool IfSwitchHeuristic = false);
 
 /// \brief This pass parses -[no]inline-list option and assigns corresponding
 /// attributes to callsites (for experimental purposes).

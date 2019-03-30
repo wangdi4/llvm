@@ -80,6 +80,22 @@ static cl::opt<unsigned> IPSpeCloningNumCallSitesLimit(
 static cl::opt<unsigned> IPSpeCloningMinArgSetsLimit(
           "ip-spe-cloning-min-argsets-limit", cl::init(1), cl::ReallyHidden);
 
+// Used to force the enabling of the if-switch heuristics even when they
+// would not normally be enabled.
+static cl::opt<bool> ForceIFSwitchHeuristic(
+          "ip-gen-cloning-force-if-switch-heuristic", cl::init(false),
+          cl::ReallyHidden);
+
+// Do not qualify a routine for cloning under the "if" heuristic unless we
+// see at least this many "if" values that will be made constant.
+static cl::opt<unsigned> IPGenCloningMinIFCount(
+          "ip-gen-cloning-min-if-count", cl::init(6), cl::ReallyHidden);
+
+// Do not qualify a routine for cloning under the "switch" heuristic unless we
+// see at least this many "switch" values that will be made constant.
+static cl::opt<unsigned> IPGenCloningMinSwitchCount(
+          "ip-gen-cloning-min-switch-count", cl::init(6), cl::ReallyHidden);
+
 // It is a mapping between formals of current function that is being processed
 // for cloning and set of possible constant values that can reach from
 // call-sites to the formals.
@@ -1027,13 +1043,18 @@ static void dumpFormalsConstants(Function &F) {
 // For now, no heuristics are applied if AfterInl is false.
 // It returns true if there are any worthy formals.
 //
-static bool findWorthyFormalsForCloning(Function &F, bool AfterInl) {
+static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
+                                        bool IFSwitchHeuristic) {
 
+  SmallPtrSet<Value *, 16> PossiblyWorthyFormalsForCloning;
   WorthyFormalsForCloning.clear();
   // Create Loop Info for routine
   LoopInfo LI{DominatorTree(const_cast<Function &>(F))};
 
   unsigned int f_count = 0;
+  unsigned GlobalIFCount = 0;
+  unsigned GlobalSwitchCount = 0;
+  bool SawPending = false;
   for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
        AI != E; ++AI) {
 
@@ -1050,8 +1071,32 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl) {
       errs() << (f_count - 1) << "\n";
     }
     if (AfterInl) {
-      if (findPotentialConstsAndApplyHeuristics(V, &LI)) {
-        WorthyFormalsForCloning.insert(V);
+      unsigned IFCount = 0;
+      unsigned SwitchCount = 0;
+      if (findPotentialConstsAndApplyHeuristics(F, V, &LI, true,
+                                                IFSwitchHeuristic,
+                                                &IFCount, &SwitchCount)) {
+        if (IFCount + SwitchCount == 0) {
+          // Qualified unconditionally under the loop heuristic.
+          WorthyFormalsForCloning.insert(V);
+          if (IPCloningTrace)
+            errs() << "  Selecting FORMAL_" << (f_count - 1) << "\n";
+        } else {
+          // Qualified under the if-switch heuristic. Mark the formal as
+          // pending for now, and qualify it later if the total number of
+          // "if" and "switch" values that become constant is great enough.
+          SawPending = true;
+          GlobalIFCount += IFCount;
+          GlobalSwitchCount += SwitchCount;
+          PossiblyWorthyFormalsForCloning.insert(V);
+          if (IPCloningTrace) {
+            errs() << "  Pending FORMAL_" << (f_count - 1) << "\n";
+            errs() << "    IFCount " << GlobalIFCount << " <- "
+                   << IFCount << "\n";
+            errs() << "    SwitchCount " << GlobalSwitchCount << " <- "
+                   << SwitchCount << "\n";
+          }
+        }
       }
       else {
         if (IPCloningTrace) {
@@ -1064,6 +1109,23 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl) {
       // No heuristics for IPCloning before Inlining
       WorthyFormalsForCloning.insert(V);
     }
+  }
+  if (GlobalIFCount >= IPGenCloningMinIFCount &&
+      GlobalSwitchCount >= IPGenCloningMinSwitchCount) {
+    // There are enough "if" and "switch" values to qualify the clone under
+    // the if-switch heuristic. Convert the pending formals to qualified.
+    if (IPCloningTrace)
+      errs() << "  Selecting all Pending FORMALs\n";
+    for (Value *W : PossiblyWorthyFormalsForCloning)
+      WorthyFormalsForCloning.insert(W);
+  }
+  else if (SawPending) {
+    if (GlobalIFCount < IPGenCloningMinIFCount)
+      errs() << "  IFCount (" << GlobalIFCount << ") < Limit ("
+             << IPGenCloningMinIFCount << ")\n";
+    if (GlobalSwitchCount < IPGenCloningMinSwitchCount)
+      errs() << "  SwitchCount (" << GlobalSwitchCount << ") < Limit ("
+             << IPGenCloningMinSwitchCount << ")\n";
   }
   // Return false if none of formals is selected.
   if (WorthyFormalsForCloning.size() == 0)
@@ -1663,7 +1725,8 @@ static void clearAllMaps(void) {
 
 // Main routine to analyze all calls and clone functions if profitable.
 //
-static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
+static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
+                                        bool IFSwitchHeuristic) {
   bool FunctionAddressTaken;
 
   if (IPCloningTrace) {
@@ -1767,7 +1830,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
       continue;
     }
 
-    if (!findWorthyFormalsForCloning(F, AfterInl)) {
+    if (!findWorthyFormalsForCloning(F, AfterInl, IFSwitchHeuristic)) {
       if (IPCloningTrace)
         errs() << " Skipping due to Heuristics " << F.getName() << "\n";
       continue;
@@ -1791,10 +1854,10 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl) {
   return false;
 }
 
-static bool runIPCloning(Module &M, bool AfterInl) {
+static bool runIPCloning(Module &M, bool AfterInl, bool IFSwitchHeuristic) {
   bool Change = false;
-
-  Change = analysisCallsCloneFunctions(M, AfterInl);
+  bool IFSwitchHeuristicOn = IFSwitchHeuristic || ForceIFSwitchHeuristic;
+  Change = analysisCallsCloneFunctions(M, AfterInl, IFSwitchHeuristicOn);
   clearAllMaps();
 
   return Change;
@@ -1805,8 +1868,9 @@ namespace {
 struct IPCloningLegacyPass : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  IPCloningLegacyPass(bool AfterInl = false)
-      : ModulePass(ID), AfterInl(AfterInl) {
+  IPCloningLegacyPass(bool AfterInl = false, bool IFSwitchHeuristic = false)
+      : ModulePass(ID), AfterInl(AfterInl),
+        IFSwitchHeuristic(IFSwitchHeuristic) {
     initializeIPCloningLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -1820,14 +1884,18 @@ public:
     if (skipModule(M))
       return false;
 
-    if (IPCloningAfterInl) AfterInl = true;
-    return runIPCloning(M, AfterInl);
+    if (IPCloningAfterInl)
+      AfterInl = true;
+    return runIPCloning(M, AfterInl, IFSwitchHeuristic);
   }
 
 private:
   // This flag helps to decide whether function addresses or other
   // constants need to be considered for cloning.
   bool AfterInl;
+  // If 'true' enable cloning on routines with formals that feed a
+  // sufficient number of if and switch values that will become constant.
+  bool IFSwitchHeuristic;
 };
 }
 
@@ -1835,14 +1903,16 @@ char IPCloningLegacyPass::ID = 0;
 INITIALIZE_PASS(IPCloningLegacyPass, "ip-cloning", "IP Cloning", false, false)
 
 
-ModulePass *llvm::createIPCloningLegacyPass(bool AfterInl) {
-  return new IPCloningLegacyPass(AfterInl);
+ModulePass *llvm::createIPCloningLegacyPass(bool AfterInl,
+                                            bool IFSwitchHeuristic) {
+  return new IPCloningLegacyPass(AfterInl, IFSwitchHeuristic);
 }
 
-IPCloningPass::IPCloningPass(bool AfterInl) : AfterInl(AfterInl) {}
+IPCloningPass::IPCloningPass(bool AfterInl, bool IFSwitchHeuristic)
+  : AfterInl(AfterInl), IFSwitchHeuristic(IFSwitchHeuristic) {}
 
 PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
-  if (!runIPCloning(M, AfterInl))
+  if (!runIPCloning(M, AfterInl, IFSwitchHeuristic))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();

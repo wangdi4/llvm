@@ -1410,7 +1410,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableIPCloning || EnableCallTreeCloning) {
     if (EnableIPCloning)
       // Enable generic IPCloning after Inlining.
-      PM.add(createIPCloningLegacyPass(true));
+#if INTEL_INCLUDE_DTRANS
+      PM.add(createIPCloningLegacyPass(true, EnableDTrans));
+#else
+      PM.add(createIPCloningLegacyPass(true, false));
+#endif // INTEL_INCLUDE_DTRANS
     if (EnableCallTreeCloning)
       // Do function cloning along call trees
       PM.add(createCallTreeCloningPass());

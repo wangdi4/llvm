@@ -1247,7 +1247,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
     if (EnableDTrans)
       MPM.addPass(IPSCCPPass());
 #endif // INTEL_INCLUDE_DTRANS
-    MPM.addPass(IPCloningPass(/*AfterInl*/ false));
+    MPM.addPass(IPCloningPass(/*AfterInl*/ false,
+                              /*IFSwitchHeuristic*/ false));
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1401,7 +1402,13 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
     MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/));
 
   if (EnableIPCloning)
-    MPM.addPass(IPCloningPass(/*AfterInl*/ true));
+#if INTEL_INCLUDE_DTRANS
+    MPM.addPass(IPCloningPass(/*AfterInl*/ true,
+                              /*IFSwitchHeuristic*/ EnableDTrans));
+#else
+    MPM.addPass(IPCloningPass(/*AfterInl*/ true,
+                              /*IFSwitchHeuristic*/ false));
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Garbage collect dead functions.

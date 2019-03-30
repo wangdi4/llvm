@@ -30,7 +30,12 @@ extern bool isConstantArgWorthyForSpecializationClone(Value *Arg);
 extern bool collectPHIsForSpecialization(Function &F, CallBase &CB,
                                        SmallPtrSet<Value *, 8>& PhiValues);
 
-extern bool findPotentialConstsAndApplyHeuristics(Value *V, LoopInfo* LI);
+extern bool findPotentialConstsAndApplyHeuristics(Function &F, Value *V,
+                                                  LoopInfo* LI, bool AfterInl,
+                                                  bool IFSwitchHeuristic,
+                                                  unsigned *IFCount = nullptr,
+                                                  unsigned *SwitchCount
+                                                      = nullptr);
 
 extern bool applyHeuristicsForSpecialization(Function &F, CallBase &CB,
                       SmallPtrSet<Value *, 8>& PhiValues, LoopInfo* LI);

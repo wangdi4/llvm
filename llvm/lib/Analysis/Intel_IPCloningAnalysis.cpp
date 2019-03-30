@@ -168,7 +168,8 @@ static void collectSextZextAsPotentialConstants(Value* V,
                                                 unsigned& NumUsesExplored) {
   for (auto *U : V->users()) {
 
-    if (NumUsesExplored >= IPCloningNumOfFormalUsesExploredLimit) break;
+    if (NumUsesExplored >= IPCloningNumOfFormalUsesExploredLimit)
+      break;
 
     NumUsesExplored++;
 
@@ -197,7 +198,8 @@ static void collectPotentialConstantsAfterCloning(Value *V) {
   for (auto *U : V->users()) {
 
     // Avoid huge lists
-    if (NumUsesExplored >= IPCloningNumOfFormalUsesExploredLimit) break;
+    if (NumUsesExplored >= IPCloningNumOfFormalUsesExploredLimit)
+      break;
 
     NumUsesExplored++;
 
@@ -236,35 +238,19 @@ static bool applyIFHeurstic(Value *User, Value *V) {
 
   if (!IPCloningIFHeuristic)
     return false;
-
-  // Checks if it is ICmpInst
-  auto U = cast<Instruction>(User);
-  if (!isa<ICmpInst>(U))
+  auto ICmp = dyn_cast<ICmpInst>(User);
+  if (!ICmp)
     return false;
-
-  // Checks if it is used by proper BranchInst
-  BasicBlock *BB = U->getParent();
-  if (!BB)
-    return false;
-  auto  *BI = dyn_cast_or_null<BranchInst>(BB->getTerminator());
-  if (!BI || !BI->isConditional())
-    return false;
-
-  // Checks if ICmpInst will become compile-time constant
-  auto *IC = dyn_cast<ICmpInst>(BI->getCondition());
-  if (!IC || IC != U)
-    return false;
-  auto LHS = U->getOperand(0);
-  auto RHS = U->getOperand(1);
-  if ((V == LHS && isa<Constant>(RHS)) ||
-      (V == RHS && isa<Constant>(LHS))) {
+  for (auto *W : ICmp->users()) {
+    auto BI = dyn_cast<BranchInst>(W);
+    if (!BI || !BI->isConditional())
+      continue;
     if (IPCloningTrace) {
-      errs() << "  Used in IF: " << *U << "\n";
+      errs() << "  Used in IF: " << *User << "\n";
       errs() << "      Branch: " << *BI << "\n";
     }
     return true;
   }
-
   return false;
 }
 
@@ -332,6 +318,16 @@ static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo* LI) {
   return true;
 }
 
+//
+// Return 'true' if 'V' has some user that satisfies the loop heuristic test.
+//
+static bool applyLoopHeuristic(Value *V, LoopInfo* LI) {
+  for (User *U : V->users())
+    if (applyLoopHeuristic(U, V, LI))
+      return true;
+  return false;
+}
+
 // Returns true if user 'User' of 'V' satisfies SWITCH related heuristics
 // For now, it returns true if 'User' is switch statement and 'V' is
 // used as condition.
@@ -364,19 +360,22 @@ static bool applySwitchHeuristic(Value *User, Value *V) {
 
 // Returns true if any user of 'V' satisfies any heuristics.
 //
-static bool applyAllHeuristics(Value *V, LoopInfo* LI) {
+static bool applyIFSwitchHeuristics(Function &F, Value *V,
+                                    unsigned &IFCount, unsigned &SwitchCount) {
+  IFCount = 0;
+  SwitchCount = 0;
   for (User *U : V->users()) {
-    if (applyLoopHeuristic(U, V, LI)) {
-      return true;
-    }
-    if (applyIFHeurstic(U, V)) {
-      return true;
-    }
-    if (applySwitchHeuristic(U, V)) {
-      return true;
-    }
+    if (applyIFHeurstic(U, V))
+      ++IFCount;
+    if (applySwitchHeuristic(U, V))
+      ++SwitchCount;
   }
-  return false;
+  if (IPCloningTrace) {
+    if (IFCount || SwitchCount)
+      errs() << "IFSwitch: " << F.getName() << " "
+             << IFCount << " " << SwitchCount << "\n";
+  }
+  return IFCount + SwitchCount > 0;
 }
 
 namespace llvm {
@@ -485,18 +484,33 @@ extern bool collectPHIsForSpecialization(Function &F, CallBase &CB,
 // constants. It returns true if any potential constant satisfies
 // heuristics.
 //
-extern bool findPotentialConstsAndApplyHeuristics(Value *V, LoopInfo* LI) {
-
+extern bool findPotentialConstsAndApplyHeuristics(Function &F, Value *V,
+                                                  LoopInfo* LI, bool AfterInl,
+                                                  bool IFSwitchHeuristic,
+                                                  unsigned *IFCount,
+                                                  unsigned *SwitchCount) {
   PotentialConstValuesAfterCloning.clear();
   collectPotentialConstantsAfterCloning(V);
 
-  // Apply heuristics for all potential constant values
-  for (Value *V1 : PotentialConstValuesAfterCloning) {
-    if (applyAllHeuristics(V1, LI)) {
+  // Apply loop heuristic for all potential constant values
+  for (Value *V1 : PotentialConstValuesAfterCloning)
+    if (applyLoopHeuristic(V1, LI))
       return true;
-    }
+  if (!AfterInl || !IFSwitchHeuristic)
+    return false;
+
+  // Apply if/switch heuristics for all potential constant values
+  bool ReturnValue = false;
+  unsigned LocIFCount = 0;
+  unsigned LocSwitchCount = 0;
+  for (Value *V1 : PotentialConstValuesAfterCloning) {
+    ReturnValue |= applyIFSwitchHeuristics(F, V1, LocIFCount, LocSwitchCount);
+    if (IFCount)
+      *IFCount += LocIFCount;
+    if (SwitchCount)
+      *SwitchCount += LocSwitchCount;
   }
-  return false;
+  return ReturnValue;
 }
 
 // 'PhiValues' are candidate arguments for specialization cloning at 'CB'
@@ -511,10 +525,11 @@ extern bool applyHeuristicsForSpecialization(Function &F, CallBase &CB,
   for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
      AI != E; ++AI, ++CAI1) {
 
-    if (!PhiValues.count(*CAI1)) continue;
+    if (!PhiValues.count(*CAI1))
+      continue;
 
     if ((&*AI)->getType()->isIntegerTy() &&
-        !findPotentialConstsAndApplyHeuristics(&*AI, LI)) {
+        !findPotentialConstsAndApplyHeuristics(F, &*AI, LI, false, false)) {
       PhiValues.erase(*CAI1);
     }
   }
