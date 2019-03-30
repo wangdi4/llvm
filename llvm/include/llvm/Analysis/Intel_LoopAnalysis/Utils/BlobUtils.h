@@ -181,7 +181,8 @@ public:
                              unsigned *NewBlobIndex = nullptr);
 
   /// Returns a new blob created from a constant value.
-  BlobTy createBlob(int64_t Val, Type *Ty, bool Insert = true,
+  /// The default behavior should be to not insert constant blobs into the blob table.
+  BlobTy createBlob(int64_t Val, Type *Ty, bool Insert = false,
                     unsigned *NewBlobIndex = nullptr);
 
   /// Returns a new undef blob.

@@ -1265,6 +1265,10 @@ bool CanonExpr::canMultiplyNumeratorByConstant(int64_t Val) const {
     return true;
   }
 
+  if (isIntConstant()) {
+    return true;
+  }
+
   if (Val == -1) {
     // Can multiply numerator if CE is not a zero extension and if the
     // division is signed.
@@ -1407,6 +1411,8 @@ bool CanonExpr::canConvertToStandAloneBlob() const {
 // to use min/max SCEVs within the HIR. After implementing MIN/MAX operation in
 // RegDDRef this should be changed and asserts should be added.
 bool CanonExpr::convertToStandAloneBlob() {
+  assert(!isIntConstant() && "Attempt to convert constant to blob!");
+
   if (!canConvertToStandAloneBlob()) {
     return false;
   }
@@ -1419,7 +1425,7 @@ bool CanonExpr::convertToStandAloneBlob() {
 
     if (BIt->Coeff != 1) {
       auto CoeffBlob =
-          getBlobUtils().createBlob(BIt->Coeff, getSrcType(), false);
+          getBlobUtils().createBlob(BIt->Coeff, getSrcType());
       CurBlob = getBlobUtils().createMulBlob(CoeffBlob, CurBlob, false);
     }
 
@@ -1433,7 +1439,7 @@ bool CanonExpr::convertToStandAloneBlob() {
   // Add constant part.
   if (!MergedBlob || getConstant() != 0) {
     auto ConstBlob =
-        getBlobUtils().createBlob(getConstant(), getSrcType(), false);
+        getBlobUtils().createBlob(getConstant(), getSrcType());
     if (MergedBlob) {
       MergedBlob = getBlobUtils().createAddBlob(MergedBlob, ConstBlob, false);
     } else {
@@ -1446,7 +1452,7 @@ bool CanonExpr::convertToStandAloneBlob() {
   // Create division for the denominator.
   if (getDenominator() != 1) {
     auto DenomBlob =
-        getBlobUtils().createBlob(getDenominator(), getSrcType(), false);
+        getBlobUtils().createBlob(getDenominator(), getSrcType());
     MergedBlob = getBlobUtils().createUDivBlob(MergedBlob, DenomBlob, false);
   }
 
