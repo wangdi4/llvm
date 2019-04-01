@@ -25,6 +25,7 @@
 
 #include <list>
 #include <queue>
+
 namespace llvm {
 namespace loopopt {
 
@@ -167,10 +168,6 @@ private:
 
   // Note: The BadPath[To|From] sets are subsets of Path[To|From].
 
-  // Maps V to a set of vertices that needs to be moved before V to preserve the
-  // original dependency direction.
-  NodeMapTy ReversedPredecessors;
-
 private:
   // Returns any edge, directed or undirected, that connects \p Node1 and \p
   // Node2. May return nullptr if nodes are not connected.
@@ -277,9 +274,6 @@ private:
   // Run weighted fusion algorithm.
   void weightedFusion();
 
-  void topologicalSortUtil(unsigned Node, SmallVectorImpl<bool> &Visited,
-                           SmallVectorImpl<unsigned> &Stack) const;
-
   void dumpNodeSet(const NodeMapTy &Container) const;
   void dumpNodeRawMap(const NodeMapTy &Map) const;
 
@@ -301,6 +295,7 @@ public:
     return make_range(Vertex.begin(), Vertex.end());
   }
 
+  // Populates the \p SortedFuseNodes with graph nodes in topological order.
   void
   topologicalSort(SmallVectorImpl<const FuseNode *> &SortedFuseNodes) const;
 };
