@@ -1211,7 +1211,6 @@ bool VPOParoptTransform::paroptTransforms() {
           improveAliasForOutlinedFunc(W);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
-          Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
           Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
@@ -1251,7 +1250,6 @@ bool VPOParoptTransform::paroptTransforms() {
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
           improveAliasForOutlinedFunc(W);
-          Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
           Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;

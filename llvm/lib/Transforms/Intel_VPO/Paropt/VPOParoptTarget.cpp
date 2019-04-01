@@ -158,6 +158,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   W->populateBBSet();
 
   resetValueInIntelClauseGeneric(W, W->getIf());
+  resetValueInIntelClauseGeneric(W, W->getDevice());
   resetValueInIsDevicePtrClause(W);
   resetValueInPrivateClause(W);
   resetValueInMapClause(W);
@@ -370,6 +371,12 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     SmallVectorImpl<uint64_t> &MapTypes,
     bool &hasRuntimeEvaluationCaptureSize,
     bool &IsFirstExprFlag) {
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTgtInformationForPtrs:"
+                    << " ConstSizes.size()=" << ConstSizes.size()
+                    << " hasRuntimeEvaluationCaptureSize="
+                    << hasRuntimeEvaluationCaptureSize << "\n");
+
   const DataLayout DL = F->getParent()->getDataLayout();
   LLVMContext &C = F->getContext();
 
@@ -492,6 +499,11 @@ void VPOParoptTransform::genTgtInformationForPtrs(
                                           DL.getTypeAllocSize(T)));
     MapTypes.push_back(TGT_MAP_ND_DESC);
   }
+
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTgtInformationForPtrs:"
+                    << " ConstSizes.size()=" << ConstSizes.size()
+                    << " hasRuntimeEvaluationCaptureSize="
+                    << hasRuntimeEvaluationCaptureSize << "\n");
 }
 
 // Initialize the loop descriptor struct with the loop level
@@ -781,6 +793,16 @@ void VPOParoptTransform::genOffloadArraysInitUtil(
     IRBuilder<> &Builder, Value *BasePtr, Value *SectionPtr, Value *Size,
     TgDataInfo *Info, SmallVectorImpl<Constant *> &ConstSizes, unsigned &Cnt,
     bool hasRuntimeEvaluationCaptureSize) {
+
+  assert(BasePtr && "Unexpected: BasePtr is null");
+  assert(SectionPtr && "Unexpected: SectionPtr is null");
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOffloadArraysInitUtil:"
+                    << " BasePtr=(" << *BasePtr << ") SectionPtr=("
+                    << *SectionPtr << ") Cnt=" << Cnt << " ConstSizes.size()="
+                    << ConstSizes.size() << " hasRuntimeEvaluationCaptureSize="
+                    << hasRuntimeEvaluationCaptureSize << "\n");
+
   Value *NewBPVal, *BP, *P, *S, *SizeValue;
 
   NewBPVal = genCastforAddr(BasePtr, Builder);
@@ -801,14 +823,24 @@ void VPOParoptTransform::genOffloadArraysInitUtil(
         ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
         Info->DataSizes, 0, Cnt);
 
-    if (Size && !dyn_cast<ConstantInt>(Size))
+    LLVM_DEBUG(dbgs() << "genOffloadArraysInitUtil: Size#" << Cnt << " is ");
+
+    if (Size && !dyn_cast<ConstantInt>(Size)) {
+      LLVM_DEBUG(dbgs() << "Nonconstant: ");
       SizeValue = Size;
-    else
+    } else {
+      LLVM_DEBUG(dbgs() << "Constant: ");
       SizeValue = ConstSizes[Cnt];
+    }
+    LLVM_DEBUG(dbgs() << *SizeValue << "\n");
     Builder.CreateStore(
         Builder.CreateSExt(SizeValue, Type::getInt64Ty(C)), S);
   }
   Cnt++;
+
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genOffloadArraysInitUtil:"
+                    << " Cnt=" << Cnt
+                    << " ConstSizes.size()=" << ConstSizes.size() << "\n");
 }
 
 // Generate the target intialization code for the pointers based
@@ -818,6 +850,17 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
     SmallVectorImpl<Constant *> &ConstSizes,
     bool hasRuntimeEvaluationCaptureSize, Value *BPVal, bool &Match,
     IRBuilder<> &Builder, unsigned &Cnt) {
+
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::genOffloadArraysInitForClause:"
+             << " ConstSizes.size()=" << ConstSizes.size() << " Match="
+             << Match << " Cnt=" << Cnt << " hasRuntimeEvaluationCaptureSize="
+             << hasRuntimeEvaluationCaptureSize << " BPVal=(");
+  if (BPVal)
+    LLVM_DEBUG(dbgs() << *BPVal << ")\n");
+  else
+    LLVM_DEBUG(dbgs() << "nullptr)\n");
+
   bool ForceMapping =
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
@@ -870,6 +913,11 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
         break;
     }
   }
+
+  LLVM_DEBUG(
+      dbgs() << "\nExit VPOParoptTransform::genOffloadArraysInitForClause:"
+             << " ConstSizes.size()=" << ConstSizes.size()
+             << " Match=" << Match << " Cnt=" << Cnt << "\n");
 }
 
 // Pass the data to the array of base pointer as well as  array of
@@ -879,6 +927,12 @@ void VPOParoptTransform::genOffloadArraysInit(
     WRegionNode *W, TgDataInfo *Info, CallInst *Call, Instruction *InsertPt,
     SmallVectorImpl<Constant *> &ConstSizes,
     bool hasRuntimeEvaluationCaptureSize) {
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOffloadArraysInit:"
+                    << " ConstSizes.size()=" << ConstSizes.size()
+                    << " hasRuntimeEvaluationCaptureSize="
+                    << hasRuntimeEvaluationCaptureSize << "\n");
+
   Value *BPVal;
   IRBuilder<> Builder(InsertPt);
   unsigned Cnt = 0;
@@ -889,6 +943,8 @@ void VPOParoptTransform::genOffloadArraysInit(
     genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
                                   hasRuntimeEvaluationCaptureSize, nullptr,
                                   Match, Builder, Cnt);
+    LLVM_DEBUG(dbgs() << "\nExit1 VPOParoptTransform::genOffloadArraysInit:"
+                      << " ConstSizes.size()=" << ConstSizes.size() << "\n");
     return;
   }
 
@@ -910,6 +966,9 @@ void VPOParoptTransform::genOffloadArraysInit(
     genOffloadArraysInitUtil(Builder, W->getParLoopNdInfoAlloca(),
                              W->getParLoopNdInfoAlloca(), nullptr, Info,
                              ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
+
+  LLVM_DEBUG(dbgs() << "\nExit2 VPOParoptTransform::genOffloadArraysInit:"
+                    << " ConstSizes.size()=" << ConstSizes.size() << "\n");
 }
 
 // Generate the pointers pointing to the array of base pointer, the
@@ -919,6 +978,9 @@ void VPOParoptTransform::genOffloadArraysArgument(
   IRBuilder<> Builder(InsertPt);
 
   LLVMContext &C = F->getContext();
+
+  LLVM_DEBUG(dbgs() << "\nVPOParoptTransform::genOffloadArraysArgument:"
+                    << " Info->NumberOfPtrs=" << Info->NumberOfPtrs << "\n");
 
   if (Info->NumberOfPtrs) {
     Info->ResBaseDataPtrs = Builder.CreateConstInBoundsGEP2_32(
@@ -1220,40 +1282,16 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items()) {
-
       VNew = renameGlobalsAndConstExprs(FprivI->getOrig(), FprivI);
       FprivI->setOrig(VNew);
     }
   }
 
-  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
-  return Changed;
-}
-
-// Pass the value of the DevicePtr to the outlined function.
-bool VPOParoptTransform::genDevicePtrPrivationCode(WRegionNode *W) {
-  if (!W->canHaveIsDevicePtr())
-    return false;
-  bool Changed = false;
-  IsDevicePtrClause &IDevicePtrClause = W->getIsDevicePtr();
-  if (!IDevicePtrClause.empty()) {
-    W->populateBBSet();
-    BasicBlock *EntryBB = W->getEntryBBlock();
-    BasicBlock *PrivInitEntryBB = nullptr;
-    Changed = true;
-    IRBuilder<> Builder(W->getPredBBlock()->getTerminator());
-    for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
-      Value *Orig = IsDevicePtrI->getOrig();
-      Value *NewPrivInst = genPrivatizationAlloca(
-          IsDevicePtrI, EntryBB->getFirstNonPHI(), ".isdeviceptr");
-      genPrivatizationReplacement(W, Orig, NewPrivInst, IsDevicePtrI);
-      IsDevicePtrI->setNew(NewPrivInst);
-      createEmptyPrvInitBB(W, PrivInitEntryBB);
-      Builder.SetInsertPoint(W->getPredBBlock()->getTerminator());
-      LoadInst *Load = Builder.CreateLoad(IsDevicePtrI->getOrig());
-      Builder.SetInsertPoint(PrivInitEntryBB->getTerminator());
-      Builder.CreateStore(Load, NewPrivInst);
-      IsDevicePtrI->setNew(Load);
+  if (W->canHaveIsDevicePtr()) {
+    IsDevicePtrClause &IsDevPtrClause = W->getIsDevicePtr();
+    for (IsDevicePtrItem *Item : IsDevPtrClause.items()) {
+      VNew = renameGlobalsAndConstExprs(Item->getOrig(), Item);
+      Item->setOrig(VNew);
     }
   }
 

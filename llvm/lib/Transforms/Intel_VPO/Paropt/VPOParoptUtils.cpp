@@ -494,8 +494,8 @@ CallInst *VPOParoptUtils::genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
                                                 Instruction *InsertPt) {
   assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetEnterDataNode>(W)) &&
          "Expected a WRNTargetDataNode or WRNTargetEnterDataNode");
-  Value *DeviceIDPtr = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_begin", DeviceIDPtr, NumArgs,
+  Value *DeviceID = W->getDevice();
+  CallInst *Call= genTgtCall("__tgt_target_data_begin", DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
@@ -514,8 +514,8 @@ CallInst *VPOParoptUtils::genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
                                               Instruction *InsertPt) {
   assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetExitDataNode>(W)) &&
          "Expected a WRNTargetDataNode or WRNTargetExitDataNode");
-  Value *DeviceIDPtr = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_end", DeviceIDPtr, NumArgs,
+  Value *DeviceID = W->getDevice();
+  CallInst *Call= genTgtCall("__tgt_target_data_end", DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
@@ -533,8 +533,8 @@ CallInst *VPOParoptUtils::genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
                                                  Value *ArgsMaptype,
                                                  Instruction *InsertPt) {
   assert(isa<WRNTargetUpdateNode>(W) && "Expected a WRNTargetUpdateNode");
-  Value *DeviceIDPtr = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_update", DeviceIDPtr, NumArgs,
+  Value *DeviceID = W->getDevice();
+  CallInst *Call= genTgtCall("__tgt_target_data_update", DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
@@ -553,8 +553,8 @@ CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *HostAddr,
                                        Value *ArgsMaptype,
                                        Instruction *InsertPt) {
   assert(isa<WRNTargetNode>(W) && "Expected a WRNTargetNode");
-  Value *DeviceIDPtr = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target", DeviceIDPtr, NumArgs, ArgsBase,
+  Value *DeviceID = W->getDevice();
+  CallInst *Call= genTgtCall("__tgt_target", DeviceID, NumArgs, ArgsBase,
                              Args, ArgsSize, ArgsMaptype, InsertPt, HostAddr);
   return Call;
 }
@@ -582,10 +582,10 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
   WRegionNode *WTarget = W->getParent();
   assert(isa<WRNTargetNode>(WTarget) && "Expected parent to be WRNTargetNode");
 
-  Value *DeviceIDPtr    = WTarget->getDevice();
+  Value *DeviceID       = WTarget->getDevice();
   Value *NumTeamsPtr    = W->getNumTeams();
   Value *ThreadLimitPtr = W->getThreadLimit();
-  CallInst *Call= genTgtCall("__tgt_target_teams", DeviceIDPtr, NumArgs,
+  CallInst *Call= genTgtCall("__tgt_target_teams", DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt,
                              HostAddr, NumTeamsPtr, ThreadLimitPtr);
   return Call;
@@ -609,7 +609,7 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
 ///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
 ///   int64_t* args_maptype // array of map attributes for each mapping
 /// \endcode
-CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
+CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceID,
                                      int NumArgsCount, Value *ArgsBase,
                                      Value *Args, Value *ArgsSize,
                                      Value *ArgsMaptype, Instruction *InsertPt,
@@ -629,14 +629,12 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
   Value *ThreadLimit = nullptr;
 
   // First parm: "int64_t device_id"
-  Value *DeviceID;
-  if (DeviceIDPtr == nullptr) {
+  if (DeviceID == nullptr)
     // user did not specify device; default is -1
     DeviceID = ConstantInt::get(Int64Ty, -1);
-  } else if (isa<Constant>(DeviceIDPtr))
-    DeviceID = Builder.CreateSExtOrBitCast(DeviceIDPtr, Int64Ty);
   else {
-    DeviceID = new LoadInst(DeviceIDPtr, "deviceID", InsertPt);
+    assert(!DeviceID->getType()->isPointerTy() &&
+           "DeviceID should not be a pointer");
     DeviceID = Builder.CreateSExtOrBitCast(DeviceID, Int64Ty);
   }
 
@@ -3199,6 +3197,13 @@ uint64_t VPOParoptUtils::getMinInt(Type *Ty, bool IsUnsigned) {
 Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
                                              DominatorTree *DT,
                                              AssumptionCache *AC) {
+#if 0
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": WRN BBSet {\n";
+           formatted_raw_ostream OS(dbgs());
+           W.printEntryExitBB(OS, /*indent*/ 2, /*verbosity*/ 4);
+           dbgs() << "}\n\n");
+#endif
+
   CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
                    nullptr, nullptr, AC, false, true);
   assert(CE.isEligible() && "Region is not eligible for extraction.");
@@ -3208,6 +3213,13 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
   assert(NewFunction->hasOneUse() && "New function should have one use.");
 
   auto *CallSite = cast<CallInst>(NewFunction->user_back());
+
+#if 0
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Call to Outlined Function:\n"
+                    << *CallSite << "\n\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Outlined Function: ============ \n"
+                    << *NewFunction << "\n==============================\n\n");
+#endif
 
   if (EnableOutlineVerification) {
     const auto &DL = CallSite->getModule()->getDataLayout();

@@ -632,9 +632,6 @@ private:
   // and replace the the global variable with the stack variable.
   bool genGlobalPrivatizationLaunderIntrin(WRegionNode *W);
 
-  /// Pass the value of the DevicePtr to the outlined function.
-  bool genDevicePtrPrivationCode(WRegionNode *W);
-
   /// build the CFG for if clause.
   void buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
                            Instruction *&ElseTerm, Instruction *InsertPt);
