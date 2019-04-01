@@ -33,6 +33,7 @@
 #include "Intel_DTrans/Transforms/ReorderFields.h"
 #include "Intel_DTrans/Transforms/ResolveTypes.h"
 #include "Intel_DTrans/Transforms/SOAToAOS.h"
+#include "Intel_DTrans/Transforms/Transpose.h"
 #include "Intel_DTrans/Transforms/WeakAlign.h"
 
 #if !INTEL_PRODUCT_RELEASE
@@ -53,7 +54,7 @@ void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocWrapperPass(PassRegistry&);
 void initializeDTransReorderFieldsWrapperPass(PassRegistry&);
 void initializeDTransResolveTypesWrapperPass(PassRegistry&);
-// Pass for elimination of unreacheble access to field which is only read.
+// Pass for elimination of unreachable access to field which is only read.
 void initializeDTransEliminateROFieldAccessWrapperPass(PassRegistry&);
 void initializePaddedPtrPropWrapperPass(PassRegistry&);
 void initializeDTransDynCloneWrapperPass(PassRegistry&);
@@ -61,6 +62,7 @@ void initializeDTransSOAToAOSWrapperPass(PassRegistry&);
 void initializeDTransAnnotatorCleanerWrapperPass(PassRegistry&);
 void initializeDTransWeakAlignWrapperPass(PassRegistry&);
 void initializeDTransMemInitTrimDownWrapperPass(PassRegistry&);
+void initializeDTransTransposeWrapperPass(PassRegistry&);
 
 #if !INTEL_PRODUCT_RELEASE
 void initializeDTransOptBaseTestWrapperPass(PassRegistry&);

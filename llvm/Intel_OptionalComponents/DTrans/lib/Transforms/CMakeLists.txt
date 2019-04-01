@@ -30,6 +30,7 @@ add_llvm_library(LLVMIntel_DTransOpt
   SOAToAOSCommon.cpp
   SOAToAOSEffects.cpp
   SOAToAOSStruct.cpp
+  Transpose.cpp
   WeakAlign.cpp
 
   ADDITIONAL_HEADER_DIRS
