@@ -282,7 +282,54 @@ bool CSAAsmPrinter::doInitialization(Module &M) {
   return result;
 }
 
+static bool isMathFunc(Function *F, const Module &M) {
+  if (F == M.getFunction("cos")) return true;
+  if (F == M.getFunction("exp")) return true;
+  if (F == M.getFunction("exp2")) return true;
+  if (F == M.getFunction("floor")) return true;
+  if (F == M.getFunction("log")) return true;
+  if (F == M.getFunction("log2")) return true;
+  if (F == M.getFunction("log10")) return true;
+  if (F == M.getFunction("pow")) return true;
+  if (F == M.getFunction("round")) return true;
+  if (F == M.getFunction("sin")) return true;
+  if (F == M.getFunction("sincos")) return true;
+  if (F == M.getFunction("trunc")) return true;
+  if (F == M.getFunction("cosf")) return true;
+  if (F == M.getFunction("expf")) return true;
+  if (F == M.getFunction("exp2f")) return true;
+  if (F == M.getFunction("floorf")) return true;
+  if (F == M.getFunction("logf")) return true;
+  if (F == M.getFunction("log2f")) return true;
+  if (F == M.getFunction("log10f")) return true;
+  if (F == M.getFunction("powf")) return true;
+  if (F == M.getFunction("roundf")) return true;
+  if (F == M.getFunction("sinf")) return true;
+  if (F == M.getFunction("sincosf")) return true;
+  if (F == M.getFunction("truncf")) return true;
+  return false;
+}
+
+// Mark all globals from surviving math lib functions as external
+void markMathLibGlobalsAsExtern(Module &M) {
+  for (auto GVI = M.global_begin(), E = M.global_end(); GVI != E; GVI++) {
+    GlobalVariable *GV = &*GVI;
+    StringRef Name = GV->getName();
+    if (Name.startswith("llvm."))
+      continue;
+    for(Value::use_iterator UI = GVI->use_begin(), UE = GVI->use_end(); UI!=UE; ++UI) {
+      Use &U = *UI;
+      if (Instruction *I = dyn_cast<Instruction>(U.getUser())) {
+        Function *TmpF = I->getParent()->getParent();
+        if (isMathFunc(TmpF,M))
+          GV->setLinkage(llvm::Function::ExternalLinkage);
+      }
+    }
+  }
+}
+
 bool CSAAsmPrinter::doFinalization(Module &M) {
+  markMathLibGlobalsAsExtern(M);
   if (CSAInstPrinter::WrapCsaAsm()) {
     OutStreamer->AddBlankLine();
     if (!csa_utils::createSCG())
