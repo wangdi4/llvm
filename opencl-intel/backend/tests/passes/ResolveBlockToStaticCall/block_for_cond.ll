@@ -26,7 +26,7 @@ define void @block_for_cond(i32 addrspace(1)* %res) #0 !kernel_arg_addr_space !6
 entry:
   %res.addr = alloca i32 addrspace(1)*, align 8
   %multiplier = alloca i32, align 4
-  %kernelBlock = alloca i32 (i32) addrspace(4)*, align 8
+  %kernelBlock = alloca %struct.__opencl_block_literal_generic addrspace(4)*, align 8
   %block = alloca <{ i32, i32, i8 addrspace(4)*, i32 }>, align 8
   %tid = alloca i32, align 4
   %i = alloca i32, align 4
@@ -34,7 +34,7 @@ entry:
   %0 = bitcast i32* %multiplier to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #4
   store i32 3, i32* %multiplier, align 4, !tbaa !17
-  %1 = bitcast i32 (i32) addrspace(4)** %kernelBlock to i8*
+  %1 = bitcast %struct.__opencl_block_literal_generic addrspace(4)** %kernelBlock to i8*
   call void @llvm.lifetime.start.p0i8(i64 8, i8* %1) #4
   %block.size = getelementptr inbounds <{ i32, i32, i8 addrspace(4)*, i32 }>, <{ i32, i32, i8 addrspace(4)*, i32 }>* %block, i32 0, i32 0
   store i32 20, i32* %block.size, align 8
@@ -45,9 +45,9 @@ entry:
   %block.captured = getelementptr inbounds <{ i32, i32, i8 addrspace(4)*, i32 }>, <{ i32, i32, i8 addrspace(4)*, i32 }>* %block, i32 0, i32 3
   %2 = load i32, i32* %multiplier, align 4, !tbaa !17
   store i32 %2, i32* %block.captured, align 8, !tbaa !17
-  %3 = bitcast <{ i32, i32, i8 addrspace(4)*, i32 }>* %block to i32 (i32)*
-  %4 = addrspacecast i32 (i32)* %3 to i32 (i32) addrspace(4)*
-  store i32 (i32) addrspace(4)* %4, i32 (i32) addrspace(4)** %kernelBlock, align 8, !tbaa !19
+  %3 = bitcast <{ i32, i32, i8 addrspace(4)*, i32 }>* %block to %struct.__opencl_block_literal_generic*
+  %4 = addrspacecast %struct.__opencl_block_literal_generic* %3 to %struct.__opencl_block_literal_generic addrspace(4)*
+  store %struct.__opencl_block_literal_generic addrspace(4)* %4, %struct.__opencl_block_literal_generic addrspace(4)** %kernelBlock, align 8, !tbaa !19
   %5 = bitcast i32* %tid to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %5) #4
   %call = call i64 @_Z13get_global_idj(i32 0) #5
@@ -65,10 +65,9 @@ entry:
 
 for.cond:                                         ; preds = %for.inc, %entry
   %9 = load i32, i32* %i, align 4, !tbaa !17
-  %10 = load i32 (i32) addrspace(4)*, i32 (i32) addrspace(4)** %kernelBlock, align 8, !tbaa !19
-  %block.literal = bitcast i32 (i32) addrspace(4)* %10 to %struct.__opencl_block_literal_generic addrspace(4)*
-  %11 = getelementptr inbounds %struct.__opencl_block_literal_generic, %struct.__opencl_block_literal_generic addrspace(4)* %block.literal, i32 0, i32 2
-  %12 = bitcast %struct.__opencl_block_literal_generic addrspace(4)* %block.literal to i8 addrspace(4)*
+  %10 = load %struct.__opencl_block_literal_generic addrspace(4)*, %struct.__opencl_block_literal_generic addrspace(4)** %kernelBlock, align 8, !tbaa !19
+  %11 = getelementptr inbounds %struct.__opencl_block_literal_generic, %struct.__opencl_block_literal_generic addrspace(4)* %10, i32 0, i32 2
+  %12 = bitcast %struct.__opencl_block_literal_generic addrspace(4)* %10 to i8 addrspace(4)*
   %13 = load i8 addrspace(4)*, i8 addrspace(4)* addrspace(4)* %11, align 8
   %14 = addrspacecast i8 addrspace(4)* %13 to i32 (i8 addrspace(4)*, i32)*
 ; CHECK: call i32 @__block_for_cond_block_invoke
@@ -101,7 +100,7 @@ for.inc:                                          ; preds = %for.body
 for.end:                                          ; preds = %for.cond.cleanup
   %20 = bitcast i32* %tid to i8*
   call void @llvm.lifetime.end.p0i8(i64 4, i8* %20) #4
-  %21 = bitcast i32 (i32) addrspace(4)** %kernelBlock to i8*
+  %21 = bitcast %struct.__opencl_block_literal_generic addrspace(4)** %kernelBlock to i8*
   call void @llvm.lifetime.end.p0i8(i64 8, i8* %21) #4
   %22 = bitcast i32* %multiplier to i8*
   call void @llvm.lifetime.end.p0i8(i64 4, i8* %22) #4
@@ -155,7 +154,7 @@ attributes #6 = { convergent }
 !1 = !{i32 2, i32 0}
 !2 = !{}
 !3 = !{!"-cl-std=CL2.0"}
-!4 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang e272dc2059c2545d68f5a501e9bc2cc38138c7d3) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm bf01f1e4d64ee71eb4d0627ef0f9dda9273e65af)"}
+!4 = !{!"icx (ICX) 2019.8.2.0"}
 !5 = !{void (i32 addrspace(1)*)* @block_for_cond}
 !6 = !{i32 1}
 !7 = !{!"none"}

@@ -186,11 +186,11 @@ namespace intel {
       }
       else if(AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
         Type * type = AI->getAllocatedType();
-        // %kernelBlock = alloca i32 (i32)*, align 8
+        // %kernelBlock = alloca %struct.__opencl_block_literal_generic*, align 8
         if (type->isPointerTy()) {
-          Type * functype = cast<PointerType>(type)->getElementType();
-          if(!functype->isFunctionTy())
-            // expected function pointer to be "alloc"-ed
+          Type * structtype = cast<PointerType>(type)->getElementType();
+          if(!structtype->isStructTy())
+            // expected struct pointer to be "alloc"-ed
             break;
           // find single store instruction which writes to the "alloc"-ed variable
           // store i32 (i32)* %1, i32 (i32)** %kernelBlock, align 8
