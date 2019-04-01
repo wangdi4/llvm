@@ -243,11 +243,6 @@ def err_function_needs_feature : Error<
 def err_alias_to_undefined : Error<
   "%select{alias|ifunc}0 must point to a defined "
   "%select{variable or |}1function">;
-// if INTEL_CUSTOMIZATION
-// CQ#368740: warning for compatibility reasons.
-def warn_alias_to_undefined : Warning<err_alias_to_undefined.Text>,
-    InGroup<IntelCompat>;
-// endif //INTEL_CUSTOMIZATION
 def warn_alias_to_weak_alias : Warning<
   "%select{alias|ifunc}2 will always resolve to %0 even if weak definition of "
   "%1 is overridden">,

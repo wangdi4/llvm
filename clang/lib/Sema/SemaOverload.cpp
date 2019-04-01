@@ -9272,30 +9272,6 @@ bool clang::isBetterOverloadCandidate(
     return false;
 
 #if INTEL_CUSTOMIZATION
-  // CQ#368740: disamiguate regular declaration/definition and weak alias
-  if (S.getLangOpts().IntelCompat)
-    if (Cand1.Function && Cand2.Function &&
-        (Cand1.Function->hasAttr<WeakAttr>() ||
-         Cand2.Function->hasAttr<WeakAttr>())) {
-      if (Cand1.Function->hasAttr<WeakAttr>()) {
-        if (Cand2.Function->isThisDeclarationADefinition()) {
-          // prefere regular definition over weak alias
-          return false;
-        } else {
-          // prefere weak alias over declaration
-          return true;
-        }
-      } else {
-        if (Cand1.Function->isThisDeclarationADefinition()) {
-          // prefere regular definition over weak alias
-          return true;
-        } else {
-          // prefere weak alias over declaration
-          return false;
-        }
-      }
-    }
-
   // CQ#376357: GCC in -fpermissive mode allows weird conversions.
   bool CandHasPermissiveConversion1 = hasPermissiveConversion(Cand1);
   bool CandHasPermissiveConversion2 = hasPermissiveConversion(Cand2);

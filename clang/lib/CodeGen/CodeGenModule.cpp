@@ -361,14 +361,7 @@ void CodeGenModule::checkAliases() {
       Diags.Report(Location, diag::err_cyclic_alias) << IsIFunc;
     } else if (GV->isDeclaration()) {
       Error = true;
-#if INTEL_CUSTOMIZATION
-      // CQ#368740: emit warning if alias points to undefined, for compatibility
-      // reasons
-      Diags.Report(Location,
-                   Context.getLangOpts().IntelCompat ?
-                       diag::warn_alias_to_undefined :
-                       diag::err_alias_to_undefined)
-#endif // INTEL_CUSTOMIZATION
+      Diags.Report(Location, diag::err_alias_to_undefined)
           << IsIFunc << IsIFunc;
     } else if (IsIFunc) {
       // Check resolver function type.
