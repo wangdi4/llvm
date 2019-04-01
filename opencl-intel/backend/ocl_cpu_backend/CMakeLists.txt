@@ -113,6 +113,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     Compiler.h
     CompilerConfig.h
     ExecutionService.h
+    EyeQBuiltinLibrary.h
     ImageCallbackLibrary.h
     ImageCallbackManager.h
     ImageCallbackServices.h
@@ -155,6 +156,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     Compiler.cpp
     CompilerConfig.cpp
     ExecutionService.cpp
+    EyeQBuiltinLibrary.cpp
     ImageCallbackLibrary.cpp
     ImageCallbackManager.cpp
     ImageCallbackServices.cpp

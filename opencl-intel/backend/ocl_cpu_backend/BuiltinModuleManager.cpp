@@ -18,6 +18,7 @@
 #include "BuiltinModuleManager.h"
 #include "BuiltinModules.h"
 #include "CPUBuiltinLibrary.h"
+#include "EyeQBuiltinLibrary.h"
 
 void RegisterCPUBIFunctions(void);
 
@@ -59,8 +60,8 @@ BuiltinModuleManager* BuiltinModuleManager::GetInstance()
     return s_pInstance;
 }
 
-// TODO: Make this method re-entrable
-BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::CPUId cpuId)
+template <typename DeviceBuiltinLibrary>
+BuiltinLibrary* BuiltinModuleManager::GetOrLoadDeviceLibrary(Intel::CPUId cpuId)
 {
     DevIdCpuId key = std::make_pair(0, cpuId);
     BuiltinsMap::iterator it = m_BuiltinLibs.find(key);
@@ -69,11 +70,23 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::CPUId cpuId)
         return it->second;
     }
 
-    std::auto_ptr<BuiltinLibrary> pLibrary( new CPUBuiltinLibrary(cpuId) );
+    std::auto_ptr<BuiltinLibrary> pLibrary( new DeviceBuiltinLibrary(cpuId) );
     pLibrary->Load();
 
     m_BuiltinLibs[key] = pLibrary.get();
     return pLibrary.release();
+}
+
+// TODO: Make this method re-entrable
+BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::CPUId cpuId)
+{
+    return GetOrLoadDeviceLibrary<CPUBuiltinLibrary>(cpuId);
+}
+
+// TODO: Make this method re-entrable
+BuiltinLibrary* BuiltinModuleManager::GetOrLoadEyeQLibrary(Intel::CPUId cpuId)
+{
+    return GetOrLoadDeviceLibrary<EyeQBuiltinLibrary>(cpuId);
 }
 
 }}}

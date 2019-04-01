@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2019 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,22 +14,18 @@
 
 #pragma once
 
-#include "BuiltinModules.h"
-#include "cl_dev_backend_api.h"
-#include "CPUDetect.h"
+#include "CPUBuiltinLibrary.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-class CPUBuiltinLibrary : public BuiltinLibrary
+class EyeQBuiltinLibrary : public CPUBuiltinLibrary
 {
 public:
-    CPUBuiltinLibrary(const Intel::CPUId &cpuId, bool useDynamicSvmlLibrary = true) :
-    BuiltinLibrary(cpuId), m_useDynamicSvmlLibrary(useDynamicSvmlLibrary) { }
+    EyeQBuiltinLibrary(const Intel::CPUId &cpuId) :
+    CPUBuiltinLibrary(cpuId, false) { }
+    virtual ~EyeQBuiltinLibrary() { }
 
     virtual void Load();
-
-private:
-    bool m_useDynamicSvmlLibrary;
 };
 
 }}} // namespace
