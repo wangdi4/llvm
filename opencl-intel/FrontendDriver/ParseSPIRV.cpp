@@ -23,7 +23,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Verifier.h>
-#include <llvm/Support/SPIRV.h> // llvm::ReadSPIRV
+#include <LLVMSPIRVLib/LLVMSPIRVLib.h> // llvm::ReadSPIRV
 #include <llvm/Support/SwapByteOrder.h>
 #include <spirv/1.0/spirv.hpp> // spv::MagicNumber
 
@@ -213,7 +213,7 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
                   m_pProgDesc->uiSPIRVContainerSize),
       std::ios_base::in);
 
-  bool success = llvm::ReadSPIRV(*context, inputStream, pModule, errorMsg);
+  bool success = llvm::readSpirv(*context, inputStream, pModule, errorMsg);
 
   assert(!verifyModule(*pModule) &&
          "SPIR-V consumer returned a broken module!");
