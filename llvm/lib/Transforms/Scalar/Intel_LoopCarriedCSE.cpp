@@ -112,20 +112,81 @@ static User *findMatchedLatchUser(Value *LatchVal1, Value *LatchVal2,
   return MatchedLatchUser;
 }
 
-static PHINode *findSecondHeaderPhi(BinaryOperator *BOp, PHINode *Phi,
-                                    BasicBlock *Header,
-                                    BinaryOperator *&LastBinOp,
-                                    bool &IsSwappedOrder,
-                                    Value *&ReassociativeOperand) {
-  Instruction::BinaryOps OpCode = BOp->getOpcode();
+// Transfer the chain like this-
+// t1 = t0 + phi2
+// t3 = t1 + t2
+// t4 = t3 + phi
+//
+// To the following format by searching the def in the instruction chain
+//
+// t1 = phi + phi2
+// t3 = t1 + t2
+// t4 = t3 + t0
+static PHINode *findSecondHeaderPhiInDef(Value *DefBinOp,
+                                         Instruction::BinaryOps OpCode,
+                                         BasicBlock *Header, unsigned Depth,
+                                         BinaryOperator *&LastBinOp) {
+  if (Depth > 3) {
+    return nullptr;
+  }
+
+  LastBinOp = dyn_cast<BinaryOperator>(DefBinOp);
+
+  if (!LastBinOp || !LastBinOp->isAssociative() || !LastBinOp->hasOneUse()) {
+    return nullptr;
+  }
+
+  if (LastBinOp->getOpcode() != OpCode) {
+    return nullptr;
+  }
+
+  Value *Operand1 = LastBinOp->getOperand(0);
+
+  PHINode *CandidatePhi1 = dyn_cast<PHINode>(Operand1);
+
+  if (CandidatePhi1 && CandidatePhi1->getParent() == Header) {
+    return CandidatePhi1;
+  }
+
+  Value *Operand2 = LastBinOp->getOperand(1);
+  PHINode *CandidatePhi2 = dyn_cast<PHINode>(Operand2);
+
+  if (CandidatePhi2 && CandidatePhi2->getParent() == Header) {
+    return CandidatePhi2;
+  }
+
+  PHINode *PhiNode = nullptr;
+
+  PhiNode =
+      findSecondHeaderPhiInDef(Operand1, OpCode, Header, Depth + 1, LastBinOp);
+
+  if (PhiNode) {
+    return PhiNode;
+  }
+
+  PhiNode =
+      findSecondHeaderPhiInDef(Operand2, OpCode, Header, Depth + 1, LastBinOp);
+
+  if (PhiNode) {
+    return PhiNode;
+  }
+
+  return nullptr;
+}
+
+static PHINode *
+findSecondHeaderPhi(PHINode *Phi, BasicBlock *Header, BinaryOperator *&BinOp,
+                    BinaryOperator *&LastBinOp, bool &IsSwappedOrder,
+                    Value *&ReassociativeOperand, Use *&ReassociativeUse) {
+  Instruction::BinaryOps OpCode = BinOp->getOpcode();
 
   Value *Op2 =
-      BOp->getOperand(0) == Phi ? BOp->getOperand(1) : BOp->getOperand(0);
+      BinOp->getOperand(0) == Phi ? BinOp->getOperand(1) : BinOp->getOperand(0);
 
   PHINode *Phi2 = dyn_cast<PHINode>(Op2);
 
   if (Phi2 && Phi2->getParent() == Header) {
-    IsSwappedOrder = BOp->getOperand(1) == Phi;
+    IsSwappedOrder = BinOp->getOperand(1) == Phi;
     return Phi2;
   }
 
@@ -135,28 +196,23 @@ static PHINode *findSecondHeaderPhi(BinaryOperator *BOp, PHINode *Phi,
   //
   // t1 = fadd fast phi, t0
   // t2 = fadd fast t1, t3
-  // t3 = fadd fast phi2, t2
+  // t4 = fadd fast phi2, t2
   //
   //
   // It can be reassociated to-
   //
   // t1 = fadd fast phi, phi2
   // t2 = fadd fast t1, t3
-  // t3 = fadd fast t0, t2
+  // t4 = fadd fast t0, t2
   //
-  // TODO: Extend the logic to handle the chain like this-
-  // t1 = t0 + phi2
-  // t2 = t1 + phi
-  // We need to search the def in the instruction chain
-
-  if (!BOp->isAssociative()) {
+  if (!BinOp->isAssociative()) {
     return nullptr;
   }
 
-  ReassociativeOperand = Op2;
+  BinaryOperator *TempBinOp = BinOp;
 
-  while (BOp->hasOneUse()) {
-    LastBinOp = dyn_cast<BinaryOperator>(*BOp->users().begin());
+  while (TempBinOp->hasOneUse()) {
+    LastBinOp = dyn_cast<BinaryOperator>(*TempBinOp->users().begin());
 
     if (!LastBinOp || !LastBinOp->isAssociative()) {
       break;
@@ -166,28 +222,52 @@ static PHINode *findSecondHeaderPhi(BinaryOperator *BOp, PHINode *Phi,
       break;
     }
 
-    Phi2 = LastBinOp->getOperand(0) == BOp
+    Phi2 = LastBinOp->getOperand(0) == TempBinOp
                ? dyn_cast<PHINode>(LastBinOp->getOperand(1))
                : dyn_cast<PHINode>(LastBinOp->getOperand(0));
 
     if (Phi2 && Phi2->getParent() == Header) {
+      for (auto UserIt = Phi2->user_begin(), EndIt = Phi2->user_end();
+           UserIt != EndIt; ++UserIt) {
+        auto *UserInst = cast<Instruction>(*UserIt);
+        if (UserInst == LastBinOp) {
+          ReassociativeUse = &(UserIt.getUse());
+          break;
+        }
+      }
+
+      ReassociativeOperand = Op2;
       return Phi2;
     }
 
-    BOp = LastBinOp;
+    TempBinOp = LastBinOp;
   }
 
-  ReassociativeOperand = nullptr;
+  Phi2 = findSecondHeaderPhiInDef(Op2, OpCode, Header, 0, LastBinOp);
+
+  if (Phi2) {
+    ReassociativeOperand = LastBinOp->getOperand(0) == Phi2
+                               ? LastBinOp->getOperand(1)
+                               : LastBinOp->getOperand(0);
+    std::swap(LastBinOp, BinOp);
+
+    // Phi only has one user
+    ReassociativeUse = &(Phi->user_begin().getUse());
+
+    return Phi2;
+  }
+
   return nullptr;
 }
 
 // Go through the instruction chains and remove nsw and nuw flags when
 // reassociation happens
-static void removeNoWrapFlags(BinaryOperator *BOp, BinaryOperator *LastBinOp) {
-  while (BOp != LastBinOp) {
-    BOp->setHasNoSignedWrap(false);
-    BOp->setHasNoUnsignedWrap(false);
-    BOp = cast<BinaryOperator>(*BOp->users().begin());
+static void removeNoWrapFlags(BinaryOperator *BinOp,
+                              BinaryOperator *LastBinOp) {
+  while (BinOp != LastBinOp) {
+    BinOp->setHasNoSignedWrap(false);
+    BinOp->setHasNoUnsignedWrap(false);
+    BinOp = cast<BinaryOperator>(*BinOp->users().begin());
   }
   LastBinOp->setHasNoSignedWrap(false);
   LastBinOp->setHasNoUnsignedWrap(false);
@@ -220,20 +300,22 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
         continue;
       }
 
-      BinaryOperator *BOp = dyn_cast<BinaryOperator>(*Phi.users().begin());
+      BinaryOperator *BinOp = dyn_cast<BinaryOperator>(*Phi.users().begin());
 
-      if (!BOp) {
+      if (!BinOp) {
         continue;
       }
 
-      Instruction::BinaryOps OpCode = BOp->getOpcode();
+      Instruction::BinaryOps OpCode = BinOp->getOpcode();
 
       Value *ReassociativeOperand = nullptr;
       BinaryOperator *LastBinOp = nullptr;
       bool IsSwappedOrder = false;
+      Use *ReassociativeUse = nullptr;
 
-      PHINode *Phi2 = findSecondHeaderPhi(BOp, &Phi, Header, LastBinOp,
-                                          IsSwappedOrder, ReassociativeOperand);
+      PHINode *Phi2 =
+          findSecondHeaderPhi(&Phi, Header, BinOp, LastBinOp, IsSwappedOrder,
+                              ReassociativeOperand, ReassociativeUse);
 
       if (!Phi2) {
         continue;
@@ -285,27 +367,19 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
       NewPhi->addIncoming(V, Preheader);
       NewPhi->addIncoming(MatchedLatchUser, LoopLatch);
 
-      // Check whether Phi2 has one use before we erase BOp below
+      // Check whether Phi2 has one use before we erase BinOp below
       bool CanErasePhi2 = Phi2->hasOneUse();
 
       if (ReassociativeOperand) {
-        for (auto UserIt = Phi2->user_begin(), EndIt = Phi2->user_end();
-             UserIt != EndIt; ++UserIt) {
-          auto *UserInst = cast<Instruction>(*UserIt);
-          if (UserInst == LastBinOp) {
-            Use &Phi2Use = UserIt.getUse();
-            Phi2Use.set(ReassociativeOperand);
-            break;
-          }
-        }
+        ReassociativeUse->set(ReassociativeOperand);
 
-        if (isa<OverflowingBinaryOperator>(BOp)) {
-          removeNoWrapFlags(BOp, LastBinOp);
+        if (isa<OverflowingBinaryOperator>(BinOp)) {
+          removeNoWrapFlags(BinOp, LastBinOp);
         }
       }
 
-      BOp->replaceAllUsesWith(NewPhi);
-      BOp->eraseFromParent();
+      BinOp->replaceAllUsesWith(NewPhi);
+      BinOp->eraseFromParent();
 
       Phi.dropAllReferences();
       Phi.eraseFromParent();
