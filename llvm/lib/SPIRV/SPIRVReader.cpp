@@ -1319,12 +1319,12 @@ SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     SPIRVLifetimeStart *LTStart = static_cast<SPIRVLifetimeStart*>(BV);
     IRBuilder<> Builder(BB);
     SPIRVWord Size = LTStart->getSize();
-	ConstantInt *S = nullptr;
+    ConstantInt *S = nullptr;
     if (Size)
       S = Builder.getInt64(Size);
     Value* Var = transValue(LTStart->getObject(), F, BB);
     CallInst *Start = Builder.CreateLifetimeStart(Var, S);
-    return mapValue(BV, Start->getOperand(1));
+    return mapValue(BV, Start);
   }
 
   case OpLifetimeStop: {
@@ -2239,53 +2239,56 @@ void generateIntelFPGAAnnotationForStructMember(
 }
 
 void SPIRVToLLVM::transIntelFPGADecorations(SPIRVValue *BV, Value *V) {
-  if (auto AL = dyn_cast<AllocaInst>(V)) {
-    IRBuilder<> Builder(AL->getParent());
+  if (BV->isVariable()) {
+    if (auto AL = dyn_cast<AllocaInst>(V)) {
+      IRBuilder<> Builder(AL->getParent());
 
-    SPIRVType *ST = BV->getType()->getPointerElementType();
+      assert(BV->getType()->isTypePointer());
+      SPIRVType *ST = BV->getType()->getPointerElementType();
 
-    Type *Int8PtrTyPrivate = Type::getInt8PtrTy(*Context, SPIRAS_Private);
-    IntegerType *Int32Ty = IntegerType::get(*Context, 32);
+      Type *Int8PtrTyPrivate = Type::getInt8PtrTy(*Context, SPIRAS_Private);
+      IntegerType *Int32Ty = IntegerType::get(*Context, 32);
 
-    Value *UndefInt8Ptr = UndefValue::get(Int8PtrTyPrivate);
-    Value *UndefInt32 = UndefValue::get(Int32Ty);
+      Value *UndefInt8Ptr = UndefValue::get(Int8PtrTyPrivate);
+      Value *UndefInt32 = UndefValue::get(Int32Ty);
 
-    if (ST->isTypeStruct()) {
-      SPIRVTypeStruct *STS = static_cast<SPIRVTypeStruct *>(ST);
+      if (ST->isTypeStruct()) {
+        SPIRVTypeStruct *STS = static_cast<SPIRVTypeStruct *>(ST);
 
-      for (SPIRVWord I = 0; I < STS->getMemberCount(); ++I) {
+        for (SPIRVWord I = 0; I < STS->getMemberCount(); ++I) {
+          SmallString<256> AnnotStr;
+          generateIntelFPGAAnnotationForStructMember(ST, I, AnnotStr);
+          if (!AnnotStr.empty()) {
+            auto *GS = Builder.CreateGlobalStringPtr(AnnotStr);
+
+            auto AnnotationFn = llvm::Intrinsic::getDeclaration(
+                M, Intrinsic::ptr_annotation, Int8PtrTyPrivate);
+
+            auto GEP = Builder.CreateConstInBoundsGEP2_32(AL->getAllocatedType(),
+                                                          AL, 0, I);
+
+            llvm::Value *Args[] = {
+                Builder.CreateBitCast(GEP, Int8PtrTyPrivate, GEP->getName()),
+                Builder.CreateBitCast(GS, Int8PtrTyPrivate), UndefInt8Ptr,
+                UndefInt32};
+            Builder.CreateCall(AnnotationFn, Args);
+          }
+        }
+      } else {
         SmallString<256> AnnotStr;
-        generateIntelFPGAAnnotationForStructMember(ST, I, AnnotStr);
+        generateIntelFPGAAnnotation(BV, AnnotStr);
         if (!AnnotStr.empty()) {
           auto *GS = Builder.CreateGlobalStringPtr(AnnotStr);
 
-          auto AnnotationFn = llvm::Intrinsic::getDeclaration(
-              M, Intrinsic::ptr_annotation, Int8PtrTyPrivate);
-
-          auto GEP = Builder.CreateConstInBoundsGEP2_32(AL->getAllocatedType(),
-                                                        AL, 0, I);
+          auto AnnotationFn =
+              llvm::Intrinsic::getDeclaration(M, Intrinsic::var_annotation);
 
           llvm::Value *Args[] = {
-              Builder.CreateBitCast(GEP, Int8PtrTyPrivate, GEP->getName()),
+              Builder.CreateBitCast(V, Int8PtrTyPrivate, V->getName()),
               Builder.CreateBitCast(GS, Int8PtrTyPrivate), UndefInt8Ptr,
               UndefInt32};
           Builder.CreateCall(AnnotationFn, Args);
         }
-      }
-    } else {
-      SmallString<256> AnnotStr;
-      generateIntelFPGAAnnotation(BV, AnnotStr);
-      if (!AnnotStr.empty()) {
-        auto *GS = Builder.CreateGlobalStringPtr(AnnotStr);
-
-        auto AnnotationFn =
-            llvm::Intrinsic::getDeclaration(M, Intrinsic::var_annotation);
-
-        llvm::Value *Args[] = {
-            Builder.CreateBitCast(V, Int8PtrTyPrivate, V->getName()),
-            Builder.CreateBitCast(GS, Int8PtrTyPrivate), UndefInt8Ptr,
-            UndefInt32};
-        Builder.CreateCall(AnnotationFn, Args);
       }
     }
   }
