@@ -2183,6 +2183,26 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
 #endif // INTEL_CUSTOMIZATION
   }
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-8828: If memory reference 'A' is based on a malloc call,
+  // memory reference 'B' is based on a GEP of a structure and the size of
+  // the malloc is too small for the structure, then 'A' and 'B' cannot alias.
+  auto mallocNotAliasingGEPOfStruct=[&](const Value *A, const Value *B){
+    if(isa<CallInst>(A))
+      if (const GEPOperator *GEP = dyn_cast<GEPOperator>(B))
+        if (isa<StructType>(*(GEP->getSourceElementType())))
+          if (isObjectSmallerThan(A, DL.getTypeSizeInBits(
+                      GEP->getSourceElementType()) / 8, DL, TLI, true))
+            return true;
+    return false;
+  };
+
+  if (mallocNotAliasingGEPOfStruct(V1, V2) ||
+      mallocNotAliasingGEPOfStruct(V2, V1))
+    return NoAlias;
+
+#endif // INTEL_CUSTOMIZATION
+
   // If the size of one access is larger than the entire object on the other
   // side, then we know such behavior is undefined and can assume no alias.
   bool NullIsValidLocation = NullPointerIsDefined(&F);

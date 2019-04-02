@@ -116,6 +116,8 @@ static Type *getPromotedType(Type *Ty) {
 // some threshold, the expansion will give up due to performance reason.
 static bool IsGoodStructMemcpy(MemIntrinsic *MI) {
   MDNode *M = MI->getMetadata(LLVMContext::MD_tbaa_struct);
+  const DataLayout &DL = MI->getParent()->getModule()->getDataLayout();
+
   if (!M) {
     return false;
   }
@@ -148,7 +150,11 @@ static bool IsGoodStructMemcpy(MemIntrinsic *MI) {
       return false;
     }
     TotalGoodElem++;
-    if (TotalGoodElem > StructCopySizeThreshold) {
+    // CMPLRLLVM-8813: the heuristic was limiting the number of fields of the
+    // struct to only 2. Now the number of fields can be up to 2*2=4
+    // if the struct is <= 64 bits.
+    if ((TotalGoodElem > StructCopySizeThreshold) &&
+        !(DL.getTypeSizeInBits(SrcSTy) <= 64 && (TotalGoodElem <= (StructCopySizeThreshold * 2)))) {
       return false;
     }
   }
