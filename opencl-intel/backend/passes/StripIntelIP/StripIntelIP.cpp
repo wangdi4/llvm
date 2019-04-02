@@ -127,12 +127,14 @@ bool StripIntelIP::runOnModule(Module &M) {
     FuncsToRemove.push_back(&F);
   }
 
-  // Collection stage 3. Spare only LLVM intrinsic GVs.
-  // Global ctors/dtors is what we care most deeply about
-  // as it is used by MCJIT.
+  // Collection stage 3. Spare only LLVM intrinsic GVs except
+  // llvm.global.annotations since it might have appending global that is going
+  // to be destroyed. Global ctors/dtors is what we care most deeply about as it
+  // is used by MCJIT.
   for (auto &GV : M.globals()) {
     if (GV.hasName() && GV.getName().startswith("llvm."))
-      continue;
+      if (GV.getName() != "llvm.global.annotations")
+        continue;
     GlobalsToRemove.push_back(&GV);
   }
 
@@ -169,6 +171,11 @@ bool StripIntelIP::runOnModule(Module &M) {
       GV->setInitializer(nullptr);
       if (isSafeToDestroyConstant(Init))
         Init->destroyConstant();
+      // We can't destroy the constant and if it's an llvm intrinsic (it can be
+      // only "llvm.global.annotations") - step back and prevent it's following
+      // forced destruction.
+      else if (GV->getName() == "llvm.global.annotations")
+        GlobalsToRemove.erase(&GV);
     }
   }
 
