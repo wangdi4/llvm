@@ -426,17 +426,7 @@ bool CSADataflowCanonicalizationPass::stopPipingLiterals(MachineInstr *MI) {
       // These values depend on LIC availability for consistency. Replacing with
       // a literal changes semantic meaning.
       return false;
-    case CSA::Generic::LAND:
-    case CSA::Generic::LOR:
-      // This helps to suppress warnings.
-      return false;
     case CSA::Generic::PICK:
-      // Return true if control value is an immediate
-      if (use.getOperand(1).isImm())
-        return true;
-      // Don't drop into picks if the control value has an init value.
-      return use.getOperand(1).isReg() &&
-             getDefinition(use.getOperand(1)) != nullptr;
     case CSA::Generic::SWITCH:
     case CSA::Generic::FILTER:
       // Making everything be literal here enables further optimization. Don't
