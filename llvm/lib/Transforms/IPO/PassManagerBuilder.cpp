@@ -1191,14 +1191,15 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       // on top of the default requirements. If the function returns true
       // then it means that the GlobalValue should not be internalized, else
       // if it returns false then internalize it.
-      auto PreserveSymbol = [=](const GlobalValue &GV) {
+      auto PreserveSymbol = [](const GlobalValue &GV) {
 
         // If GlobalValue is "main" or has one definition rule (ODR)
         // then don't internalize it. The ODR symbols are expected to
         // be merged with equivalent globals and then be removed. If
         // these symbols aren't removed then it could cause linking
         // issues (e.g. undefined symbols).
-        if (GV.getName() == "main" || GV.hasWeakODRLinkage())
+        if (GV.hasWeakODRLinkage() ||
+            llvm::WholeProgramInfo::isMainEntryPoint(GV.getName()))
           return true;
 
         // If the GlobalValue is an alias then we need to make sure that this
@@ -1233,7 +1234,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
             return true;
 
           // Aliasee is mapped to main
-          if (Glob->getName() == "main")
+          if (llvm::WholeProgramInfo::isMainEntryPoint(Glob->getName()))
             return true;
         }
 

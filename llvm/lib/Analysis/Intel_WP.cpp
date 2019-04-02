@@ -10,6 +10,7 @@
 // This file does whole-program-analysis using TargetLibraryInfo.
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Constants.h"
@@ -288,6 +289,22 @@ bool WholeProgramInfo::resolveCallsInRoutine(const TargetLibraryInfo &TLI,
   return Resolved;
 }
 
+// Return true if the input StringRef represents any form of
+// main. Else return false.
+bool WholeProgramInfo::isMainEntryPoint(llvm::StringRef GlobName) {
+
+  return llvm::StringSwitch<bool>(GlobName)
+      .Cases("main",
+             "MAIN__",
+             "wmain",
+             "WinMain",
+             "wWinMain",
+             "DllMain",
+             true)
+      .Default(false);
+
+}
+
 bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
                                        const TargetLibraryInfo &TLI) {
   bool all_resolved = true;
@@ -301,7 +318,7 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
   // Walk through all functions to find unresolved calls.
   LibFunc TheLibFunc;
   for (Function &F : M) {
-    if (F.getName() == "main" && !F.isDeclaration()) {
+    if (!F.isDeclaration() && isMainEntryPoint(F.getName())) {
       main_def_seen_in_ir = true;
     }
 

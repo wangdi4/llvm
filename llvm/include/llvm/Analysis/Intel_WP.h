@@ -86,6 +86,10 @@ public:
   // into true or false depending on the result of the analysis
   void foldIntrinsicWholeProgramSafe(Module &M);
 
+  // Return true if the input GlobName is a form of main,
+  // else return false.
+  static bool isMainEntryPoint(llvm::StringRef GlobName);
+
   bool isWholeProgramSafe();
   bool isWholeProgramSeen();
   bool isAdvancedOptEnabled(TargetTransformInfo::AdvancedOptLevel AO);
