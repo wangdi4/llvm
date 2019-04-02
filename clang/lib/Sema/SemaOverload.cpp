@@ -11567,12 +11567,6 @@ Sema::ResolveAddressOfOverloadedFunction(Expr *AddressOfExpr,
       ResolveExceptionSpec(AddressOfExpr->getExprLoc(), FPT);
     FoundResult = *Resolver.getMatchingFunctionAccessPair();
     if (Complain) {
-#if INTEL_CUSTOMIZATION
-      // CQ374728: cannot create a pointer to static member function
-      if (getLangOpts().IntelCompat)
-        CheckAddressOfMemberAccess(AddressOfExpr, FoundResult);
-      else
-#endif // INTEL_CUSTOMIZATION
       if (Resolver.IsStaticMemberFunctionFromBoundPointer())
         Resolver.ComplainIsStaticMemberFunctionFromBoundPointer();
       else
