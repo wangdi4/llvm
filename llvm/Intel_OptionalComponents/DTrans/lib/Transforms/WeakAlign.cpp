@@ -46,7 +46,9 @@ const int32_t WeakAlignEnableValue = 0;
 
 // This constant is used for the mallopt value argument to disable weak
 // alignment mode, by enabling the c99 compliance configuration parameter.
-const int32_t WeakAlignDisableValue = 1;
+// Variable was marked as a comment to prevent "unused variables" compile
+// error. It will be used later.
+// const int32_t WeakAlignDisableValue = 1;
 
 class DTransWeakAlignWrapper : public ModulePass {
 private:

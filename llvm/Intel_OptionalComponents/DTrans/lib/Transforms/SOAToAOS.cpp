@@ -203,7 +203,7 @@ private:
 
       SmallVector<StructType *, MaxNumFieldCandidates> Fields(fields_begin(),
                                                               fields_end());
-      StructMethodTransformation SMT(Impl.DL, *Impl.DTInfo, Impl.TLI, Impl.VMap,
+      StructMethodTransformation SMT(Impl.DL, *Impl.DTInfo, Impl.VMap,
                                      CSInfo, TI,
                                      OrigFunc.getParent()->getContext());
 

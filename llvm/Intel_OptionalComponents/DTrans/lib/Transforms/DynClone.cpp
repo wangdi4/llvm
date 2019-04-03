@@ -1262,7 +1262,7 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
   // ComplexPtrStoreSet depending on PointerOperand. \p ModifiedMem is set to
   // true if allocated memory is modified. \p GEPI will be added to \p
   // ProcessedInst.
-  TrackGEP = [this, &IsSimpleFieldInGlobalStructVar, &TrackGEP, &TrackPHI,
+  TrackGEP = [&TrackGEP, &TrackPHI,
               &ProcessStoreInst](
                  GetElementPtrInst *GEPI, unsigned Depth, bool &ModifiedMem,
                  StoreInstSet &SimplePtrStoreSet,
@@ -1327,7 +1327,7 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
   // \p ComplexPtrStoreSet depending on PointerOperand. \p ModifiedMem is set
   // to true if allocated memory is modified. \p PHI will added to
   // \p ProcessedInst for further processing later.
-  TrackPHI = [this, &TrackPHI, &TrackGEP, &ProcessStoreInst](
+  TrackPHI = [&TrackPHI, &TrackGEP, &ProcessStoreInst](
                  PHINode *PHI, unsigned Depth, bool &ModifiedMem,
                  StoreInstSet &SimplePtrStoreSet,
                  StoreInstSet &ComplexPtrStoreSet, InstSet &ProcessedInst) {
@@ -1364,8 +1364,7 @@ bool DynCloneImpl::trackPointersOfAllocCalls(void) {
   // PointerOperand. \p ModifiedMem is set to true if allocated memory
   // is modified. All tracked instructions will be added to ProcessedInst for
   // further processing.
-  TrackUsesOfVal = [this, &TrackUsesOfVal, &TrackPHI, &TrackGEP,
-                    &IsSimpleFieldInGlobalStructVar,
+  TrackUsesOfVal = [&TrackUsesOfVal, &TrackPHI, &TrackGEP,
                     &ProcessStoreInst](Value *Val, bool &ModifiedMem,
                                        StoreInstSet &SimplePtrStoreSet,
                                        StoreInstSet &ComplexPtrStoreSet,
@@ -2209,7 +2208,7 @@ void DynCloneImpl::transformInitRoutine(void) {
   };
 
   // Generate final condition and "or" with previous condition if available.
-  auto GenerateFinalCond = [this, &GenerateFinalCondWithLIValue](
+  auto GenerateFinalCond = [&GenerateFinalCondWithLIValue](
                                AllocaInst *AI, Value *V,
                                CmpInst::Predicate Pred, Value *PrevCond,
                                ReturnInst *RI) -> Value * {

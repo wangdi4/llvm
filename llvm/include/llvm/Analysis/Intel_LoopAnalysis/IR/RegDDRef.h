@@ -995,7 +995,7 @@ public:
   bool hasIV(unsigned Level) const;
 
   /// Returns the defined at level of the ref.
-  unsigned getDefinedAtLevel() const;
+  unsigned getDefinedAtLevel() const override;
 
   /// Replace any loop-level IV by a given constant integer.
   void replaceIVByConstant(unsigned LoopLevel, int64_t Val);

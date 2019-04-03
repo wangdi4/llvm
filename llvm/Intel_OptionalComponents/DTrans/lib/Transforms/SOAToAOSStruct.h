@@ -1963,11 +1963,11 @@ class StructMethodTransformation {
 public:
   StructMethodTransformation(
       const DataLayout &DL, DTransAnalysisInfo &DTInfo,
-      const TargetLibraryInfo &TLI, ValueToValueMapTy &VMap,
+      ValueToValueMapTy &VMap,
       const CallSiteComparator::CallSitesInfo &CSInfo,
       const StructureMethodAnalysis::TransformationData &InstsToTransform,
       LLVMContext &Context)
-      : DL(DL), DTInfo(DTInfo), TLI(TLI), VMap(VMap), CSInfo(CSInfo),
+      : DL(DL), DTInfo(DTInfo), VMap(VMap), CSInfo(CSInfo),
         InstsToTransform(InstsToTransform), Context(Context) {}
 
   void updateReferences(StructType *OldStruct, StructType *NewArray,
@@ -2183,7 +2183,6 @@ private:
 
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
-  const TargetLibraryInfo &TLI;
   ValueToValueMapTy &VMap;
   const CallSiteComparator::CallSitesInfo &CSInfo;
   const StructureMethodAnalysis::TransformationData &InstsToTransform;

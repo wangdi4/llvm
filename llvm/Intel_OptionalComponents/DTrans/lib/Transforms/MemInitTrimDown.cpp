@@ -88,7 +88,7 @@ class MemInitTrimDownImpl {
 public:
   MemInitTrimDownImpl(Module &M, const DataLayout &DL,
                       DTransAnalysisInfo &DTInfo, TargetLibraryInfo &TLI)
-      : M(M), DL(DL), DTInfo(DTInfo), TLI(TLI){};
+      : M(M), DTInfo(DTInfo) {};
 
   ~MemInitTrimDownImpl() {
     for (auto *CInfo : Candidates)
@@ -98,9 +98,13 @@ public:
 
 private:
   Module &M;
-  const DataLayout &DL;
+  // Variable was marked as a comment to prevent "unused
+  // variables" compile error. It will be used later.
+  // const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
-  TargetLibraryInfo &TLI;
+  // Variable was marked as a comment to prevent "unused
+  // variables" compile error. It will be used later.
+  // TargetLibraryInfo &TLI;
 
   constexpr static int MaxNumCandidates = 1;
   SmallVector<MemInitCandidateInfo *, MaxNumCandidates> Candidates;
