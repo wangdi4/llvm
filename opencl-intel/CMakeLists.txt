@@ -21,6 +21,10 @@ option(USE_GPA "Enable GPA support" OFF)
 option(BACKEND_BUILD_VERIFICATION_LIB "Build back-end validation tools." ON)
 option(ADD_NICE_BE_LIT_TARGETS "Generate cmake targets for launching BE LIT
   tests from each subdirectory separately" ON)
+  option(OPENCL_BE_INCLUDE_TESTS
+  "Generate build targets for OpenCL BE unittest. Defaults to ON.
+  You can use this option to disable the generation of build targets
+  for OpenCL BE LIT tests." ON)
 option(OPENCL_RT_INCLUDE_TESTS
   "Generate build targets for OpenCL RT unittest. Defaults to ON.
   You can use this option to disable the generation of build targets
