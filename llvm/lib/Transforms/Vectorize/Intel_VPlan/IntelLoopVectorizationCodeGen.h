@@ -363,8 +363,8 @@ public:
   // Get widened base pointer of in-memory private variable
   Value *getVectorPrivateBase(Value *V);
 
-  // Get widened base pointer(s) of in-memory private array variable
-  Value *getVectorPrivateArrayBase(Value *ArrayPriv);
+  // Get widened base pointer(s) of in-memory private variable of aggregate-type
+  Value *getVectorPrivateAggregateBase(Value *ArrayPriv);
 
   // Get a vector of pointers corresponding to the private variable for each
   // vector lane.
@@ -709,8 +709,8 @@ private:
   // only simple vectors.
   void widenVectorStore(StoreInst *Inst);
 
-  // Widen a BitCast instruction
-  void vectorizeBitCast(Instruction *Inst);
+  // Widen a BitCast/AddrSpaceCast instructions
+  template <typename CastInstTy> void vectorizeCast(Instruction *Inst);
 
   // Widen ExtractElt instruction - loop re-vectorization.
   void vectorizeExtractElement(Instruction *Inst);
