@@ -121,40 +121,13 @@ void CL::CheckExtensions()
     ASSERT_TRUE(extensions.IsLocalThreadSupported_INTEL())
         << " Expected that cl_intel_exec_by_local_thread is supported on "
         << os;
-
-    ASSERT_TRUE(extensions.IsDX9Supported_INTEL())
-        << " Expected that cl_intel_dx9_media_sharing is supported on " << os;
-
-    ASSERT_TRUE(extensions.IsDX9Supported())
-        << " Expected that cl_khr_dx9_media_sharing is supported on " << os;
-
-    ASSERT_TRUE(extensions.IsDX11Supported())
-        << " Expected that cl_khr_d3d11_sharing is supported on " << os;
-
-    ASSERT_TRUE(extensions.IsGLSupported())
-        << " Expected that cl_khr_gl_sharing is supported on " << os;
-
 #else //LINUX
     ASSERT_TRUE(extensions.IsLocalThreadSupported_INTEL())
         << " Expected that cl_intel_exec_by_local_thread is supported on "
         << os;
 
-    ASSERT_FALSE(extensions.IsDX9Supported_INTEL())
-        << " Expected that cl_intel_dx9_media_sharing is not supported on "
-        << os;
-
-    ASSERT_FALSE(extensions.IsDX9Supported())
-        << " Expected that cl_khr_dx9_media_sharing is not supported on " << os;
-
-    ASSERT_FALSE((bool)extensions.IsDX11Supported())
-        << " Expected that cl_khr_d3d11_sharing is not supported on " << os;
-
-    ASSERT_FALSE(extensions.IsGLSupported())
-        << " Expected that cl_khr_gl_sharing is not supported on " << os;
-
     ASSERT_TRUE(extensions.IsDevicePartitionByNamesSupported_INTEL())
         << " Expected that cl_intel_device_partition_by_names is supported"
            " on " << os;
-
 #endif
 }

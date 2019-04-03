@@ -142,11 +142,6 @@ void death_test_imp( bool supported )
 
 #if (_WIN32)
 
-TEST(FrameworkTestTypeDeathTest, Test_gl_directx_support)
-{
-    death_test(true);
-}
-
 TEST(FrameworkTestTypeDeathTest, Test_gl_directx_not_support)
 {
     death_test(false);
