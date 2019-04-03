@@ -193,6 +193,7 @@ MachineInstr *copyMachineInstr(
   MachineInstr *NewMI = DstMF->CloneMachineInstr(MIToBeCopied);
   MachineBasicBlock *MBB = &*(DstMF->begin());
   MBB->insert(MBB->end(),NewMI);
+  NewMI->dropMemRefs(*DstMF);
   return NewMI;
 }
 
