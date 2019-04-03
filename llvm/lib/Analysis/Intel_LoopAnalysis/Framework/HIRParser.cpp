@@ -3403,6 +3403,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
   };
 
   GEPOrSubsOperator *RestructuredBaseGEPOp = nullptr;
+  unsigned LastNonStructDimIdx = 0;
 
   do {
     auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
@@ -3444,6 +3445,10 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
         CurDimInfo = &Dims.back();
 
+        // Keep the dimension index after a struct offset to indicate the lowest
+        // dimension where next GEP or SUBS index may be merged.
+        LastNonStructDimIdx = std::distance(Dims.begin(), CurDimInfo);
+
         // Reset stride in case it was set by the previous GEP operator.
         // ex.:
         //   %t0 = gep { i8, { i16, i32 } }* %p, 0, 1
@@ -3465,10 +3470,29 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
         std::tie(Stride, Rank) = GetStrideAndRank(Subs, DimElemTy);
 
-        CurDimInfo = std::find_if(
-            Dims.begin(), Dims.end(), [Stride, Rank](DimInfo &DimI) {
-              return DimI.getStride() == Stride && DimI.getRank() == Rank;
-            });
+        // Find the dimension for GEP or SUBS LastIndex.
+        // We should start merging indices only with the tail of existing
+        // dimensions starting from LastNonStructDimIdx.
+        //
+        // ex.: %st.A = type { [1 x [1 x i8]] }
+        //      %p1 = gep [1 x [1 x %st.A]]* %p, 0, a, b
+        //      %p2 = gep %st.A* %p1, 0, 0, c, d
+        //
+        // These GEPs has strides =1 for each index and ranks as following-
+        // %p1=(3 2 1 0) and %p2=(? 2 1 0).
+        //
+        // We should not merge a %p1 dimensions into already parsed %p2
+        // dimensions as they represent different arrays.
+        //
+        // LastNonStructDimIdx would be =3.
+        //   Correct: (%p)[0][a][b].0[c][d]
+        // Incorrect: (%p)[0].0[c + a][d + b]
+
+        CurDimInfo = std::find_if(Dims.begin() + LastNonStructDimIdx,
+                                  Dims.end(), [Stride, Rank](DimInfo &DimI) {
+                                    return DimI.getStride() == Stride &&
+                                           DimI.getRank() == Rank;
+                                  });
       }
 
       // Create dimension if it has unique stride.
