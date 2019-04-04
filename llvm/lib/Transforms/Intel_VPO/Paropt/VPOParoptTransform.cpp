@@ -1179,6 +1179,7 @@ bool VPOParoptTransform::paroptTransforms() {
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           Changed |= renameOperandsUsingStoreThenLoad(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed |= promoteClauseArgumentUses(W);
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
           improveAliasForOutlinedFunc(W);

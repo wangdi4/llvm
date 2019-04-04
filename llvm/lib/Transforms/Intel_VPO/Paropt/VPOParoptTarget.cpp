@@ -1334,4 +1334,108 @@ bool VPOParoptTransform::hasParentTarget(WRegionNode *W) {
 
   return false;
 }
+
+// This function inserts artificial uses for arguments of some clauses
+// of the given region.
+//
+// With O2 clang inserts llvm.lifetime markers, which trigger implicit
+// privatization in CodeExtractor.  For example,
+//   %a = alloca i8
+//   call void @llvm.lifetime.start.p0i8(i64 1, i8* %a)
+//   %0 = call token @llvm.directive.region.entry() [
+//            "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i8* %a) ]
+//   call void @llvm.directive.region.exit(token %0)
+//   call void @llvm.lifetime.end.p0i8(i64 1, i8* %a)
+//
+// Paropt will copy original value of %a to its private version
+// at the beginning of the target region.  The CodeExtractor
+// will shrinkwrap %a into the target region, i.e. it will
+// move the alloca inside the target region, and %a will not
+// be represented as an argument for the outline function.
+//
+// If llvm.lifetime markers are not used (e.g. at O0), CodeExtractor
+// will not shrinkwrap %a into the target region, and it will be
+// represented as an argument for the outline function.
+//
+// If the host and target compilations use different options
+// (e.g. "-fopenmp-targets=x86_64=-O0 -O2"), then this will result
+// in interface mismatch between the outline functions created
+// during the host and target compilation.
+//
+// We try to block CodeExtractor's implicit privatization by
+// inserting artificial uses of %a before the target region.
+//
+// Note that this problem is specific to "omp target", but
+// it exists for any host/target combination.
+//
+// This problem is only related to clauses that result in
+// auto-generation (by Paropt) of new Value references only inside
+// the "omp target" region.  For example, array section size
+// for map clause will be used outside the target region, so
+// CodeExtractor will not be able to shrinkwrap it.
+// To summarize, the problem seems to affect only firstprivate clause.
+//
+// TODO: we probably have to explicitly instruct CodeExtractor
+//       not to auto-privatize some variables.  We may collect
+//       a set of firstprivate values and pass it to the CodeExtractor.
+//
+// The "artitifical use" sequence we emit in this function is easily
+// optimizable by SROA and CSE, so we do not care about explicitly
+// removing these new instructions, when we do not need them any more.
+// At O0 the sequence will appear in the generated code.  If this
+// ever becomes a problem, we need to find a way to delete these
+// artificial uses, generated for "omp parallel for", after
+// we outline "omp target".
+bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
+  assert(isa<WRNTargetNode>(W) &&
+         "promoteClauseArgumentUses called for non-target region.");
+  assert(W->canHaveFirstprivate() &&
+         "promoteClauseArgumentUses: target region "
+         "does not support firstprivate clause?");
+
+  bool Changed = false;
+  AllocaInst *ArtificialAlloca = nullptr;
+  IRBuilder<> Builder(F->getContext());
+
+  auto InsertArtificialUseForValue = [&](Value *V) {
+    // Emit a sequence, which is easily optimizable by
+    // SROA and CSE:
+    //     %promote.uses = alloca i8
+    //     store i8 ptrtoint (type* @G to i8), i8* %promote.uses
+    //
+    // FIXME: to aid further optimization, we have to insert
+    //        the alloca either to the entry block of the parent region
+    //        that will be later outlined, or to the entry block
+    //        of the current Function.  Not all optimizations are able
+    //        to handle allocas appearing in the middle of the Function.
+    if (!ArtificialAlloca)
+      ArtificialAlloca =
+        Builder.CreateAlloca(Builder.getInt8Ty(), nullptr,
+                             "promoted.clause.args");
+
+    auto *Cast = Builder.CreateBitOrPointerCast(V, Builder.getInt8Ty());
+    Builder.CreateStore(Cast, ArtificialAlloca);
+    Changed = true;
+  };
+
+  auto InsertArtificialUseForItem = [&InsertArtificialUseForValue](Item *I) {
+    InsertArtificialUseForValue(I->getOrig());
+  };
+
+  // firstprivate() is the only clause handled for "omp target".
+  if (W->getFpriv().size() != 0) {
+    auto *EntryBB = W->getEntryBBlock();
+    auto *NewEntryBB = SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+    W->setEntryBBlock(NewEntryBB);
+    Builder.SetInsertPoint(EntryBB->getTerminator());
+
+    std::for_each(W->getFpriv().items().begin(),
+                  W->getFpriv().items().end(),
+                  InsertArtificialUseForItem);
+
+    W->resetBBSet();
+  }
+
+  return Changed;
+}
 #endif // INTEL_COLLAB

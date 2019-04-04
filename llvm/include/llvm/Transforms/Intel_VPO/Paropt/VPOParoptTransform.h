@@ -1366,6 +1366,10 @@ private:
   /// For the given region \p W, find exit block of the loop
   /// identified by index \p Idx.
   BasicBlock *getLoopExitBB(WRegionNode *W, unsigned Idx = 0);
+
+  /// Insert artificial uses for arguments of some clauses
+  /// of the given region before the region.
+  bool promoteClauseArgumentUses(WRegionNode *W);
 };
 } /// namespace vpo
 } /// namespace llvm
