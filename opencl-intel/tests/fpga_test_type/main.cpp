@@ -15,6 +15,16 @@
 bool gCaptureMode = false;
 
 int main(int argc, char** argv) {
+  char* pEnvDevice;
+  pEnvDevice = getenv("CL_CONFIG_DEVICES");
+  if (nullptr == pEnvDevice) {
+    std::cout << "No CL_CONFIG_DEVICES specified, considering device as CPU."
+              << std::endl;
+
+    return 0;
+  }
+  else if ("fpga-emu" != std::string(pEnvDevice)) return 0;
+
   CommandLineOption<bool> captureOption("--capture");
 
   for (int i = 1 ; i < argc ; i++) {

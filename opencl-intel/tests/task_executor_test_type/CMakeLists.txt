@@ -14,8 +14,7 @@ include_directories( AFTER
 FIND_SOURCES( )
 CALCULATE_TARGET_SOURCES()
 
-set( TARGET_LIBS cl_sys_utils
-    task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} )
+set( TARGET_LIBS cl_sys_utils task_executor${BUILD_PLATFORM} )
 
 add_ocl_unittest( ${TARGET} SOURCE_FILES ${TARGET_SOURCES}
     LINK_LIBRARIES ${TARGET_LIBS} )

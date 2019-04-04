@@ -27,7 +27,7 @@
 #define PTR_CAST	ThreadTaskExecutor
 #endif
 
-#pragma comment (lib, "cl_logger" OPENCL_BINARIES_POSTFIX ".lib")
+#pragma comment (lib, "cl_logger.lib")
 #pragma comment (lib, "cl_sys_utils.lib")
 
 #include <stdio.h>

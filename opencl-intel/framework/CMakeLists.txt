@@ -46,11 +46,7 @@ add_subdirectory( Execution )
 add_subdirectory( MemoryAllocator )
 
 # set that name of the main output file as a target name
-if (NOT WIN32 OR BUILD_FPGA_EMULATOR)
-    set( TARGET_NAME intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} )
-else (NOT WIN32 OR BUILD_FPGA_EMULATOR)
-    set( TARGET_NAME intelocl${BUILD_PLATFORM} )
-endif (NOT WIN32 OR BUILD_FPGA_EMULATOR)
+set( TARGET_NAME intelocl${BUILD_PLATFORM} )
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
@@ -81,8 +77,8 @@ add_opencl_library (${TARGET_NAME} SHARED
     ${TARGET_SOURCES}
 
     COMPONENTS
-      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
-      cl_logger${OPENCL_BINARIES_POSTFIX}
+      task_executor${BUILD_PLATFORM}
+      cl_logger
 
     LINK_LIBS
       Context
@@ -99,7 +95,7 @@ copy_to (${CONFIG_FILES} DESTINATION lib)
 install_to (${CONFIG_FILES} DESTINATION lib  COMPONENT ocl-config)
 
 if (WIN32)
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}.dll")
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:task_executor${BUILD_PLATFORM}.dll")
     get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
     set_target_properties (${TARGET_NAME} PROPERTIES
         LINK_FLAGS_DEBUG  "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT")
