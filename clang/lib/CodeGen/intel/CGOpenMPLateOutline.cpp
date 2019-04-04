@@ -2071,6 +2071,11 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
           llvm_unreachable("Unexpected next directive kind.");
       }
     }
+    bool IsDeviceTarget = getLangOpts().OpenMPIsDevice &&
+      isOpenMPTargetExecutionDirective(S.getDirectiveKind());
+    if (IsDeviceTarget)
+      CurFn->addFnAttr("contains-openmp-target", "true");
+    CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
     const Stmt *CapturedStmt = S.getInnermostCapturedStmt();
     CapturedStmtInfo->EmitBody(*this, CapturedStmt);
   }

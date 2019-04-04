@@ -1705,6 +1705,12 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   if (getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
     getOpenMPRuntime().emitDeclareSimdFunction(FD, F);
 
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+      inTargetRegion())
+    F->addFnAttr("openmp-target-declare","true");
+#endif // INTEL_COLLAB
+
   if (const auto *CB = FD->getAttr<CallbackAttr>()) {
     // Annotate the callback behavior as metadata:
     //  - The callback callee (as argument number).

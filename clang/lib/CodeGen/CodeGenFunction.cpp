@@ -1571,6 +1571,18 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
+#if INTEL_COLLAB
+  // If we encountered this function within a target region, also treat any
+  // functions encountered during its codegen as if they are within a target
+  // region.
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(FD))
+    Fn->addFnAttr("openmp-target-declare","true");
+
+  CodeGenModule::InTargetRegionRAII ITR(
+      CGM, Fn->hasFnAttribute("openmp-target-declare"));
+#endif // INTEL_COLLAB
+
   // Generate the body of the function.
   PGO.assignRegionCounters(GD, CurFn);
   if (isa<CXXDestructorDecl>(FD))
