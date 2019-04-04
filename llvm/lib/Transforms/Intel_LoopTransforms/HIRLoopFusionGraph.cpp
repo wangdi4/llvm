@@ -1334,7 +1334,7 @@ void FuseGraph::topologicalSort(
   WorkList.reserve(NumNodes);
 
   for (unsigned NodeIdx = 0; NodeIdx < NumNodes; NodeIdx++) {
-    if (Visited[NodeIdx]) {
+    if (Visited[NodeIdx] || Vertex[NodeIdx].isRemoved()) {
       continue;
     }
 
@@ -1367,11 +1367,10 @@ void FuseGraph::topologicalSort(
       if (!UnvisitedPredecessors) {
         WorkList.pop_back();
 
-        const FuseNode &CurNode = Vertex[CurNodeIdx];
-        if (!CurNode.isRemoved() && !Visited[CurNodeIdx]) {
-          SortedFuseNodes.push_back(&CurNode);
-        }
+        assert(!Vertex[CurNodeIdx].isRemoved() && "Adding removed node");
+        SortedFuseNodes.push_back(&Vertex[CurNodeIdx]);
 
+        assert(!Visited[CurNodeIdx] && "Found already visited node");
         Visited[CurNodeIdx] = true;
       }
     }
