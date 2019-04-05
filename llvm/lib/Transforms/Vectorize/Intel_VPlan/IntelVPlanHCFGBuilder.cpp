@@ -703,7 +703,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   // Compute VPLInfo and keep it in VPlan
   VPLoopInfo *VPLInfo = new VPLoopInfo();
   VPLInfo->analyze(VPDomTree);
-  Plan->setVPLoopInfo(std::unique_ptr<VPLoopInfo>(VPLInfo));
+  Plan->setVPLoopInfo(VPLInfo);
   // LLVM_DEBUG(dbgs() << "Loop Info:\n"; LI->print(dbgs()));
   LLVM_DEBUG(dbgs() << "VPLoop Info After buildPlainCFG:\n";
              VPLInfo->print(dbgs()));
@@ -739,9 +739,9 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     // Currently, there is only one instance and no distinction between VFs.
     // i.e., values are either uniform or divergent for all VFs.
     VPLoop *CandidateLoop = *VPLInfo->begin();
-    auto VPDA = make_unique<VPlanDivergenceAnalysis>();
+    auto *VPDA = new VPlanDivergenceAnalysis();
     VPDA->compute(CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
-    Plan->setVPlanDA(std::move(VPDA));
+    Plan->setVPlanDA(VPDA);
   }
 
   if (VPlanPrintPlainCFG) {
