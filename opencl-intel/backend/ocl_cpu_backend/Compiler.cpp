@@ -242,9 +242,10 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     // unroll any loop. Needless to say, this can by suboptimal for x86 when
     // applied to big loops. FPGA device, in opposite, benefits from fully
     // unrolled loops, so most of FPGA workloads unroll every single loop.
+    // Threshold heuristic set so as not to affect the performance negatively
     if (FPGA_EMU_DEVICE == config.TargetDevice())
     {
-        args.push_back("-pragma-unroll-threshold=2048");
+        args.push_back("-pragma-unroll-threshold=3072");
     }
 
     if( config.EnableTiming() && false == config.InfoOutputFile().empty())
