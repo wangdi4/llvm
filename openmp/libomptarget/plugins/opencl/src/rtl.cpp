@@ -157,6 +157,13 @@ typedef struct {
   int64_t stride; // The stride of the i-th loop
 } TgtLoopDescTy;
 
+/// Buffer
+typedef struct {
+  cl_mem base;   // Base buffer this buffer is based on
+  size_t offset; // Offset from the base buffer
+  std::vector<cl_mem> children; // Child buffers
+} TgtBufferTy;
+
 typedef enum {
   PROFILE_ENABLED = 0x1,
   PROFILE_UNIT_USEC = 0x2,
@@ -227,6 +234,7 @@ public:
   std::vector<cl_context> CTX;
   std::vector<cl_command_queue> Queues;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
+  std::vector<std::map<cl_mem, TgtBufferTy> > Buffers;
 
   int64_t flag;
   const int64_t DEVICE_LIMIT_NUM_WORK_GROUPS = 0x1;
@@ -306,6 +314,7 @@ public:
     CTX.resize(numDevices);
     Queues.resize(numDevices);
     FuncGblEntries.resize(numDevices);
+    Buffers.resize(numDevices);
 
     // get device specific information
     for (unsigned i = 0; i < numDevices; i++) {
@@ -513,7 +522,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       auto HostAddr = image->EntriesBegin[i].addr;
       auto Name = image->EntriesBegin[i].name;
       auto Size = image->EntriesBegin[i].size;
-      cl_mem Buffer = (cl_mem)__tgt_rtl_data_alloc(device_id, Size, HostAddr);
+      cl_mem Buffer = (cl_mem)__tgt_rtl_data_alloc_base(device_id, Size,
+                                                        HostAddr, HostAddr);
       __tgt_rtl_data_submit(device_id, Buffer, HostAddr, Size);
       DP("Global variable allocated: Name = %s, Size = %" PRIu64
          ", HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
@@ -612,6 +622,46 @@ void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
   return mem;
 }
 
+// Allocate a base and sub buffer (if necessary) with the given information.
+void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
+                                void *hst_base) {
+  cl_int rc;
+  intptr_t offset = (intptr_t)hst_ptr - (intptr_t)hst_base;
+  if (offset < 0) {
+    DP("Error: Failed to create base buffer due to invalid array section\n");
+    return nullptr;
+  }
+  cl_mem base = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_READ_WRITE,
+                               size + offset, nullptr, &rc);
+  if (rc != CL_SUCCESS) {
+    DP("Error: Failed to create base buffer, %d, %s\n", rc, getCLErrorName(rc));
+    return nullptr;
+  }
+  DP("Created base buffer " DPxMOD " during data alloc\n", DPxPTR(base));
+
+  std::map<cl_mem, TgtBufferTy> &buffers = DeviceInfo.Buffers[device_id];
+  buffers[base] = {base, 0};
+
+  if (offset == 0) {
+    return base;
+  }
+
+  cl_buffer_region region = {(size_t)offset, (size_t)size};
+  cl_mem mem = clCreateSubBuffer(base, CL_MEM_READ_WRITE,
+                                 CL_BUFFER_CREATE_TYPE_REGION, &region, &rc);
+  if (rc != CL_SUCCESS) {
+    DP("Error: Failed to create sub buffer, %d, %s\n", rc, getCLErrorName(rc));
+    return nullptr;
+  }
+  DP("Created sub buffer " DPxMOD " --> " DPxMOD " during data alloc\n",
+     DPxPTR(base), DPxPTR(mem));
+
+  buffers[mem] = {base, (size_t)offset};
+  buffers[base].children.push_back(mem);
+
+  return mem;
+}
+
 int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
                                      void *hst_ptr, int64_t size,
                                      void *async_data) {
@@ -667,30 +717,62 @@ int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
 }
 
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
-  INVOKE_CL_RET_FAIL(clReleaseMemObject, (cl_mem)tgt_ptr);
+  std::map<cl_mem, TgtBufferTy> &buffers = DeviceInfo.Buffers[device_id];
+  TgtBufferTy &buffer = buffers[(cl_mem)tgt_ptr];
+
+  if (buffer.base != tgt_ptr)
+    buffer = buffers[buffer.base];
+
+  // Release child buffers first
+  for (auto child : buffer.children) {
+    INVOKE_CL_RET_FAIL(clReleaseMemObject, child);
+    buffers.erase(child);
+  }
+  INVOKE_CL_RET_FAIL(clReleaseMemObject, buffer.base);
+  buffers.erase(buffer.base);
   return OFFLOAD_SUCCESS;
 }
 
-void *__tgt_rtl_data_sub_alloc(int32_t device_id, void *tgt_ptr, int64_t size,
-                               int64_t offset) {
-  cl_buffer_region region = {(size_t)offset, (size_t)size};
-  cl_int rc;
-
-  if (size < 0) {
-    DP("WARNING: sub-buffer allocation failed with negative size %ld\n", size);
+// Look up or allocate a sub buffer with the given information
+void *__tgt_rtl_data_lookup(int32_t device_id, void *tgt_ptr, int64_t offset) {
+  if (offset < 0) {
+    DP("Error: Data lookup failed due to negative offset\n");
     return nullptr;
-  } else if (size == 0) {
-    return tgt_ptr; // keep the semantics of device.cpp
   }
-  cl_mem ret = clCreateSubBuffer((cl_mem)tgt_ptr, CL_MEM_READ_WRITE,
+  if (offset == 0) {
+    DP("Reusing existing buffer " DPxMOD "\n", DPxPTR(tgt_ptr));
+    return tgt_ptr;
+  }
+  if (DeviceInfo.Buffers[device_id].count((cl_mem)tgt_ptr) == 0) {
+    DP("Error: Data lookup failed with invalid buffer " DPxMOD "\n",
+       DPxPTR(tgt_ptr));
+    return nullptr;
+  }
+
+  cl_int rc;
+  std::map<cl_mem, TgtBufferTy> &buffers = DeviceInfo.Buffers[device_id];
+  TgtBufferTy &buffer = buffers[(cl_mem)tgt_ptr];
+  size_t offset_orig = offset + buffer.offset;
+
+  if (offset_orig == 0) {
+    DP("Reusing existing base buffer " DPxMOD "\n", DPxPTR(buffer.base));
+    return buffer.base;
+  }
+
+  cl_buffer_region region = {offset_orig, 1};
+  cl_mem ret = clCreateSubBuffer(buffer.base, CL_MEM_READ_WRITE,
                                  CL_BUFFER_CREATE_TYPE_REGION, &region, &rc);
   if (rc != CL_SUCCESS) {
-    DP("Error: sub-buffer allocation failed with error code %d, %s\n", rc,
+    DP("Error: Data lookup failed with error code %d, %s\n", rc,
        getCLErrorName(rc));
     return nullptr;
   }
-  DP("Allocated sub-buffer %p from existing buffer %p, offset %ld, size %ld\n",
-     (void *)ret, tgt_ptr, offset, size);
+  DP("Created sub buffer " DPxMOD " --> " DPxMOD " during data lookup\n",
+     DPxPTR(buffer.base), DPxPTR(ret));
+
+  buffers[ret] = {buffer.base, offset_orig};
+  buffers[buffer.base].children.push_back(ret);
+
   return (void *)ret;
 }
 
@@ -704,7 +786,20 @@ static inline int32_t run_target_team_nd_region(
   // set kernel args
   std::vector<void *> ptrs(num_args);
   for (int32_t i = 0; i < num_args; ++i) {
-    ptrs[i] = (void *)((intptr_t)tgt_args[i] + tgt_offsets[i]);
+    if (tgt_offsets[i]) {
+      // Look up the buffer object for the base address
+      if (DeviceInfo.Buffers[device_id].count((cl_mem)tgt_args[i]) == 0) {
+        DP("Error: Cannot find valid buffer information for " DPxMOD "\n",
+           DPxPTR(tgt_args[i]));
+        return OFFLOAD_FAIL;
+      }
+      const TgtBufferTy &buffer =
+          DeviceInfo.Buffers[device_id][(cl_mem)tgt_args[i]];
+      ptrs[i] = (void *)__tgt_rtl_data_lookup(device_id, buffer.base,
+                                              buffer.offset + tgt_offsets[i]);
+    } else {
+      ptrs[i] = tgt_args[i];
+    }
     INVOKE_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(cl_mem), &ptrs[i]);
     DP("Kernel Arg %d set successfully\n", i);
   }
