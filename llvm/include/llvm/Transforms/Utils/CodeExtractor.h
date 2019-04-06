@@ -83,11 +83,19 @@ class Value;
     /// code is extracted, including vastart. If AllowAlloca is true, then
     /// extraction of blocks containing alloca instructions would be possible,
     /// however code extractor won't validate whether extraction is legal.
+#if INTEL_COLLAB
+    /// If AllowEHTypeID is true, the safety check for the llvm.eh.typeid.for
+    /// intrinsic will be skipped. Exceptions thrown out of the region may
+    /// not be caught, which is OK for paropt.
+#endif // INTEL_COLLAB
     CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT = nullptr,
                   bool AggregateArgs = false, BlockFrequencyInfo *BFI = nullptr,
                   BranchProbabilityInfo *BPI = nullptr,
                   AssumptionCache *AC = nullptr,
                   bool AllowVarArgs = false, bool AllowAlloca = false,
+#if INTEL_COLLAB
+                  bool AllowEHTypeID = false,
+#endif // INTEL_COLLAB
                   std::string Suffix = "");
 
     /// Create a code extractor for a loop body.

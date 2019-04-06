@@ -3205,7 +3205,7 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
 #endif
 
   CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
-                   nullptr, nullptr, AC, false, true);
+                   nullptr, nullptr, AC, false, true, true);
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
   auto *NewFunction = CE.extractCodeRegion();

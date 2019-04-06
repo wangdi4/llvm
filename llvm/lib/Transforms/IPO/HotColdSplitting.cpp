@@ -334,6 +334,9 @@ Function *HotColdSplitting::extractColdRegion(const BlockSequence &Region,
   CodeExtractor CE(Region, &DT, /* AggregateArgs */ false, /* BFI */ nullptr,
                    /* BPI */ nullptr, AC, /* AllowVarArgs */ false,
                    /* AllowAlloca */ false,
+#if INTEL_COLLAB
+                   /* AllowEHTypeID */ false,
+#endif // INTEL_COLLAB
                    /* Suffix */ "cold." + std::to_string(Count));
 
   // Perform a simple cost/benefit analysis to decide whether or not to permit
