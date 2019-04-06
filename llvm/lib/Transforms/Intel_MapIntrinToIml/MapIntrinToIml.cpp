@@ -880,6 +880,9 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
   // them again.
   SmallPtrSet<CallInst*, 4> InstToTranslate;
 
+  // Keep track of scalar math function calls to translate
+  SmallPtrSet<CallInst *, 4> ScalarCallsToTranslate;
+
   // Dirty becomes true (LLVM IR is modified) under two circumstances:
   // 1) A candidate vector math call is found and is replaced with an svml
   //    variant.
@@ -904,6 +907,10 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
       StringRef FuncName = CI->getCalledFunction()->getName();
       if (FuncName.startswith("__svml"))
         InstToTranslate.insert(CI);
+    } else if (CI && CI->getCalledFunction()) {
+      std::string FuncName = CI->getCalledFunction()->getName().str();
+      if (is_libm_function(FuncName.c_str()))
+        ScalarCallsToTranslate.insert(CI);
     }
   }
 
@@ -1120,6 +1127,47 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
 
       LLVM_DEBUG(dbgs() << "\n\n");
     }
+  }
+
+  // Legalize scalar math function calls
+  for (auto ScalarCallsIt = ScalarCallsToTranslate.begin();
+       ScalarCallsIt != ScalarCallsToTranslate.end(); ++ScalarCallsIt) {
+    CallInst *ScalarCI = cast<CallInst>(*ScalarCallsIt);
+    LLVM_DEBUG(dbgs() << "ScalarCI: "; ScalarCI->dump());
+    if (X86Target) {
+      // TODO: Can scalar math functions have any prefixes/suffixes?
+      std::string ScalarFuncName =
+          ScalarCI->getCalledFunction()->getName().str();
+
+      ImfAttr *AttrList = nullptr;
+      createImfAttributeList(ScalarCI, &AttrList);
+
+      StringRef VariantFuncName = ScalarFuncName;
+
+      // If iml accuracy interface returns a non-null variant then replace
+      // current scalar function with variant function name.
+      if (const char *VariantFuncStr =
+              get_library_function_name(ScalarFuncName.c_str(), AttrList)) {
+        VariantFuncName = StringRef(VariantFuncStr);
+      }
+
+      deleteAttributeList(&AttrList);
+
+      // Don't perform replacement if variant is same as scalar function
+      if (VariantFuncName.equals(ScalarFuncName))
+        continue;
+
+      LLVM_DEBUG(dbgs() << "Input Scalar Math Function: " << ScalarFuncName
+                        << "\n");
+      LLVM_DEBUG(dbgs() << "Legalized Scalar Math Function: " << VariantFuncName
+                        << "\n");
+
+      FunctionCallee FCache =
+          M->getOrInsertFunction(VariantFuncName, ScalarCI->getFunctionType());
+      ScalarCI->setCalledFunction(FCache);
+      Dirty = true; // LLVM-IR is changed since function call is updated
+    }
+    LLVM_DEBUG(dbgs() << "ScalarCI after legalization: "; ScalarCI->dump());
   }
 
   // Remove the old math library calls since they have been replaced with the
