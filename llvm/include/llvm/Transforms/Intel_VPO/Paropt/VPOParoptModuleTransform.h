@@ -245,6 +245,11 @@ private:
       return Var->getParent()->getDataLayout().getTypeAllocSize(VarType);
     }
 
+    bool isDeclaration() const {
+      const auto *Var = cast<GlobalVariable>(getAddress());
+      return Var->isDeclaration();
+    }
+
     static bool classof(const OffloadEntry *E) {
       return E->getKind() == VarKind;
     }

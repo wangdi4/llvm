@@ -832,6 +832,11 @@ void VPOParoptModuleTransform::genOffloadEntries() {
   Type *Int32Ty = Type::getInt32Ty(C);
 
   for (auto *E : OffloadEntries) {
+    if (auto *Var = dyn_cast<VarEntry>(E))
+      // Emit entry for the variable only if it is a definition.
+      if (Var->isDeclaration())
+        continue;
+
     assert(E && E->getAddress() && "uninitialized offload entry");
 
     StringRef Name = E->getName();
