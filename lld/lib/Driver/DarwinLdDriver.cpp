@@ -55,6 +55,13 @@
 #include <utility>
 #include <vector>
 
+#if INTEL_CUSTOMIZATION
+// Include unistd to support _exit in non-Windows
+// environments.
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
+#include <unistd.h>
+#endif // _MSC_VER && __MINGW32__
+#endif // INTEL_CUSTOMIZATION
 using namespace lld;
 
 namespace {
@@ -1217,9 +1224,23 @@ bool link(llvm::ArrayRef<const char *> args, bool CanExitEarly,
     return false;
   }
 
+#if INTEL_CUSTOMIZATION
+  // The following code is commented out because is from the community and
+  // it will be replaced.
+
   // Call exit() if we can to avoid calling destructors.
+  // if (CanExitEarly)
+  //  exitLld(errorCount() ? 1 : 0);
+
+  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
+  // This is because we want to prevent calling the early exit and use
+  // the destructors. Also, exitLld uses the value passed through the
+  // parameter as an exit value. We need to make sure that the same
+  // exit error is returned when CanExitEarly is triggered.
+  cleanIntelLld();
   if (CanExitEarly)
-    exitLld(errorCount() ? 1 : 0);
+    _exit(errorCount() ? 1 : 0);
+#endif // INTEL_CUSTOMIZATION
 
 
   return true;

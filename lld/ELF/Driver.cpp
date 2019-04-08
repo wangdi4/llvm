@@ -101,11 +101,21 @@ bool elf::link(ArrayRef<const char *> Args, bool CanExitEarly,
 
   Driver->main(Args);
 
+#if INTEL_CUSTOMIZATION
+  // The following code is commented out because is from the community and
+  // it will be replaced.
+
   // Exit immediately if we don't need to return to the caller.
   // This saves time because the overhead of calling destructors
   // for all globally-allocated objects is not negligible.
-  if (CanExitEarly)
-    exitLld(errorCount() ? 1 : 0);
+  // if (CanExitEarly)
+  //  exitLld(errorCount() ? 1 : 0);
+
+  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
+  // This is because we want to prevent calling the early exit and use
+  // destructors.
+  cleanIntelLld();
+#endif // INTEL_CUSTOMIZATION
 
   freeArena();
   return !errorCount();
@@ -758,7 +768,17 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   errorHandler().Verbose = Args.hasArg(OPT_verbose);
   errorHandler().FatalWarnings =
       Args.hasFlag(OPT_fatal_warnings, OPT_no_fatal_warnings, false);
-  ThreadsEnabled = Args.hasFlag(OPT_threads, OPT_no_threads, true);
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-8800: Prevent running LLD in parallel during the testing
+  // process in Windows unless the user specifies it. This is to avoid
+  // exhausting the memory and flaky failures.
+#if defined(_WIN32)
+  if (StringRef(getenv("INTEL_LLD_IN_TEST")) == "1")
+    ThreadsEnabled = Args.hasFlag(OPT_threads, OPT_no_threads, false);
+  else
+#endif // _WIN32
+    ThreadsEnabled = Args.hasFlag(OPT_threads, OPT_no_threads, true);
+#endif // INTEL_CUSTOMIZATION
 
   Config->AllowMultipleDefinition =
       Args.hasFlag(OPT_allow_multiple_definition,

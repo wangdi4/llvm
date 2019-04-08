@@ -72,9 +72,19 @@ bool link(ArrayRef<const char *> Args, bool CanExitEarly, raw_ostream &Diag) {
   Driver = make<LinkerDriver>();
   Driver->link(Args);
 
+#if INTEL_CUSTOMIZATION
+  // The following code is commented out because is from the community and
+  // it will be replaced.
+
   // Call exit() if we can to avoid calling destructors.
-  if (CanExitEarly)
-    exitLld(errorCount() ? 1 : 0);
+  // if (CanExitEarly)
+  //  exitLld(errorCount() ? 1 : 0);
+
+  // CMPLRLLVM-8800: We are going to replace exitLld with cleanIntelLld.
+  // This is because we want to prevent calling the early exit and use
+  // the destructors.
+  cleanIntelLld();
+#endif // INTEL_CUSTOMIZATION
 
   freeArena();
   ObjFile::Instances.clear();
