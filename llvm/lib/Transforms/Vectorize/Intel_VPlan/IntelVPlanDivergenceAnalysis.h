@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===--- IntelVPlanDivergenceAnalysis.h - Divergence Analysis -*- C++ ---*-===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -180,3 +181,4 @@ private:
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
+#endif //INTEL_COLLAB

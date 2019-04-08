@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===------------ IntelVPlanSyncDependenceAnalysis.h -*- C++ -*------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -82,3 +83,4 @@ private:
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_SYNC_DEPENDENCE_ANALYSIS_H
+#endif //INTEL_COLLAB

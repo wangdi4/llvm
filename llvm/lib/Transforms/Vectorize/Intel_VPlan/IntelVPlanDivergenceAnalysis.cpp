@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===----------------- IntelVPlanDivergenceAnalysis.cpp -------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -495,3 +496,4 @@ void VPlanDivergenceAnalysis::compute(VPLoop *CandidateLoop,
 // constructor for the LoopDivergenceAnalysis object then calls compute() to
 // begin DA execution. For VPlan, all of this is done as part of HCFG
 // construction. Thus, those classes are not included in this file.
+#endif //INTEL_COLLAB
