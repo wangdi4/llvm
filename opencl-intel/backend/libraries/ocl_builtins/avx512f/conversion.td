@@ -8,13 +8,13 @@ OclBuiltinImpl avx512_fp2int_i32_rte_v16f32 = OclBuiltinImpl<convert_i32_rte,
                                                    [v16f32], 0, [{
     float16 rounded = _mm512_roundscale_ps($Arg0VarName,
                                 _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT);
-    return as_$ReturnType(_mm512_cvt_roundps_epi32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundps_epi32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 OclBuiltinImpl avx512_fp2int_i32_rte_v8f64 = OclBuiltinImpl<convert_i32_rte,
                                                    [v8f64], 0, [{
     double8 rounded = _mm512_roundscale_pd($Arg0VarName,
                                 _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT);
-    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
   
 /*****************************************************************\
@@ -24,13 +24,13 @@ OclBuiltinImpl avx512_fp2int_i32_rte_v8f64 = OclBuiltinImpl<convert_i32_rte,
 OclBuiltinImpl avx512_convert_i32_rtz_v16f32 = OclBuiltinImpl<convert_i32_rtz, [v16f32], 0, [{
     float16 rounded = _mm512_roundscale_ps($Arg0VarName,
                                            _MM_FROUND_NO_EXC | _MM_FROUND_TO_ZERO);
-    return as_$ReturnType(_mm512_cvt_roundps_epi32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundps_epi32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 OclBuiltinImpl avx512_convert_i32_rtz_v8f64 = OclBuiltinImpl<convert_i32_rtz, [v8f64], 0, [{
     double8 rounded = _mm512_roundscale_pd($Arg0VarName,
                                            _MM_FROUND_NO_EXC | _MM_FROUND_TO_ZERO);
-    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 /*****************************************************************\
@@ -40,13 +40,13 @@ OclBuiltinImpl avx512_convert_i32_rtz_v8f64 = OclBuiltinImpl<convert_i32_rtz, [v
 OclBuiltinImpl avx512_convert_i32_rtp_v16f32 = OclBuiltinImpl<convert_i32_rtp, [v16f32], 0, [{
     float16 rounded = _mm512_roundscale_ps($Arg0VarName,
                                            _MM_FROUND_NO_EXC | _MM_FROUND_TO_POS_INF);
-    return as_$ReturnType(_mm512_cvt_roundps_epi32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundps_epi32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 OclBuiltinImpl avx512_convert_i32_rtp_v8f64 = OclBuiltinImpl<convert_i32_rtp, [v8f64], 0, [{
     double8 rounded = _mm512_roundscale_pd($Arg0VarName,
                                       _MM_FROUND_NO_EXC | _MM_FROUND_TO_POS_INF);
-    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 /*****************************************************************\
@@ -56,13 +56,13 @@ OclBuiltinImpl avx512_convert_i32_rtp_v8f64 = OclBuiltinImpl<convert_i32_rtp, [v
 OclBuiltinImpl avx512_convert_i32_rtn_v16f32 = OclBuiltinImpl<convert_i32_rtn, [v16f32], 0, [{
     float16 rounded = _mm512_roundscale_ps($Arg0VarName,
                                       _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEG_INF);
-    return as_$ReturnType(_mm512_cvt_roundps_epi32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundps_epi32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 OclBuiltinImpl avx512_convert_i32_rtn_v8f64 = OclBuiltinImpl<convert_i32_rtn, [v8f64], 0, [{
     double8 rounded = _mm512_roundscale_pd($Arg0VarName,
                                      _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEG_INF);
-    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 // 32-bit unsign integer output
@@ -74,13 +74,13 @@ OclBuiltinImpl avx512_fp2int_i32_rte_v16f32 = OclBuiltinImpl<convert_u32_rte,
                                                    [v16f32], 0, [{
     float16 rounded = _mm512_roundscale_ps($Arg0VarName,
                                  _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT);
-    return as_$ReturnType(_mm512_cvt_roundps_epu32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundps_epu32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 OclBuiltinImpl avx512_fp2int_i32_rte_v8f64 = OclBuiltinImpl<convert_i32_rte,
                                                    [v8f64], 0, [{
     double8 rounded = _mm512_roundscale_pd($Arg0VarName,
                                  _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT);
-    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundpd_epi32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 /*****************************************************************\
  * convert_uint_rtz:                                              *
@@ -91,14 +91,14 @@ OclBuiltinImpl avx512_convert_u32_rtz_v16f32 = OclBuiltinImpl<convert_u32_rtz,
                                                    [v16f32], 0, [{
     float16 rounded = _mm512_roundscale_ps($Arg0VarName,
                                          _MM_FROUND_NO_EXC | _MM_FROUND_TO_ZERO);
-    return as_$ReturnType(_mm512_cvt_roundps_epu32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundps_epu32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 // convert_intn_rtz double
 OclBuiltinImpl avx512_convert_u32_rtz_fpexpand = OclBuiltinImpl<convert_u32_rtz, [v8f64], 0, [{
     double8 rounded = _mm512_roundscale_pd($Arg0VarName,
                                  _MM_FROUND_NO_EXC | _MM_FROUND_TO_ZERO);
-    return as_$ReturnType(_mm512_cvt_roundpd_epu32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundpd_epu32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 /*****************************************************************\
@@ -111,13 +111,13 @@ OclBuiltinImpl avx512_convert_u32_rtn_v16f32 = OclBuiltinImpl<convert_u32_rtn,
                                                    [v16f32], 0, [{
     float16 rounded = _mm512_roundscale_ps($Arg0VarName,
                                          _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEG_INF);
-    return as_$ReturnType(_mm512_cvt_roundps_epu32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundps_epu32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 OclBuiltinImpl avx512_convert_u32_rtn_fpexpand = OclBuiltinImpl<convert_u32_rtn, [v8f64], 0, [{
     double8 rounded = _mm512_roundscale_pd($Arg0VarName,
                                  _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEG_INF);
-    return as_$ReturnType(_mm512_cvt_roundpd_epu32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundpd_epu32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 /*****************************************************************\
  * convert_uint_rtp:                                              *
@@ -129,13 +129,13 @@ OclBuiltinImpl avx512_convert_u32_rtp_v16f32 = OclBuiltinImpl<convert_u32_rtp,
                                                    [v16f32], 0, [{
     float16 rounded = _mm512_roundscale_ps($Arg0VarName,
                                          _MM_FROUND_NO_EXC | _MM_FROUND_TO_POS_INF);
-    return as_$ReturnType(_mm512_cvt_roundps_epu32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundps_epu32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 OclBuiltinImpl avx512_convert_u32_rtp_fpexpand = OclBuiltinImpl<convert_u32_rtp, [v8f64], 0, [{
     double8 rounded = _mm512_roundscale_pd($Arg0VarName,
                                  _MM_FROUND_NO_EXC | _MM_FROUND_TO_POS_INF);
-    return as_$ReturnType(_mm512_cvt_roundpd_epu32(rounded, _MM_FROUND_NO_EXC | _MM_FROUND_TO_NEAREST_INT));
+    return as_$ReturnType(_mm512_cvt_roundpd_epu32(rounded, _MM_FROUND_TO_NEAREST_INT));
   }]>;
 
 // rtz rounding mode
