@@ -4067,7 +4067,7 @@ static void TryReferenceListInitialization(Sema &S,
                                            InitializationSequence &Sequence,
                                            bool TreatUnavailableAsInvalid) {
   // First, catch C++03 where this isn't possible.
-  if (!S.getLangOpts().CPlusPlus11 && !S.getLangOpts().IntelCompat) { //INTEL
+  if (!S.getLangOpts().CPlusPlus11) {
     Sequence.SetFailed(InitializationSequence::FK_ReferenceBindingToInitList);
     return;
   }
@@ -4215,7 +4215,7 @@ static void TryListInitialization(Sema &S,
   if ((DestType->isRecordType() && !DestType->isAggregateType()) ||
       (S.getLangOpts().CPlusPlus11 &&
        S.isStdInitializerList(DestType, nullptr))) {
-    if (S.getLangOpts().CPlusPlus11 || S.getLangOpts().IntelCompat) { // INTEL
+    if (S.getLangOpts().CPlusPlus11) {
       //   - Otherwise, if the initializer list has no elements and T is a
       //     class type with a default constructor, the object is
       //     value-initialized.
