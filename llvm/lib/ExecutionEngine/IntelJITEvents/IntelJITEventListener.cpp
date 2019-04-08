@@ -141,14 +141,6 @@ void IntelJITEventListener::notifyObjectLoaded(
     uint64_t Addr = *AddrOrErr;
     uint64_t Size = P.second;
 
-#if INTEL_CUSTOMIZATION
-    // CMPLRLLVM-8856
-    // Fix an issue introduced by these commits:
-    //   * a15cff122c43af6b4d13a189bece7a369ab0829e
-    //   * 9304425914af7ddd8f9f8aa9825f9ca2f5180e9e
-    // When identifying an object address we need to specify the object section
-    // to locate the correct line table information below.
-    // This patch wll be upstreamed.
     auto SecOrErr = Sym.getSection();
     if (!SecOrErr) {
       // TODO: Actually report errors helpfully.
@@ -156,8 +148,9 @@ void IntelJITEventListener::notifyObjectLoaded(
       continue;
     }
     object::section_iterator Sec = *SecOrErr;
+    if (Sec == Obj.section_end())
+      continue;
     uint64_t Index = Sec->getIndex();
-#endif // INTEL_CUSTOMIZATION
 
     // Record this address in a local vector
     Functions.push_back((void*)Addr);
@@ -165,12 +158,8 @@ void IntelJITEventListener::notifyObjectLoaded(
     // Build the function loaded notification message
     iJIT_Method_Load FunctionMessage =
       FunctionDescToIntelJITFormat(*Wrapper, Name->data(), Addr, Size);
-#if INTEL_CUSTOMIZATION
-    // CMPLRLLVM-8856
-    // See notes above.
     DILineInfoTable Lines =
       Context->getLineInfoForAddressRange({Addr, Index}, Size);
-#endif // INTEL_CUSTOMIZATION
     DILineInfoTable::iterator Begin = Lines.begin();
     DILineInfoTable::iterator End = Lines.end();
     for (DILineInfoTable::iterator It = Begin; It != End; ++It) {

@@ -174,7 +174,7 @@ bool FunctionPass::skipFunction(const Function &F) const {
   if (Gate.isEnabled() && !Gate.shouldRunPass(this, getDescription(F)))
     return true;
 
-  if (F.hasFnAttribute(Attribute::OptimizeNone)) {
+  if (F.hasOptNone()) {
     LLVM_DEBUG(dbgs() << "Skipping pass '" << getPassName() << "' on function "
                       << F.getName() << "\n");
     return true;
@@ -215,7 +215,7 @@ bool BasicBlockPass::skipBasicBlock(const BasicBlock &BB) const {
   OptPassGate &Gate = F->getContext().getOptPassGate();
   if (Gate.isEnabled() && !Gate.shouldRunPass(this, getDescription(BB)))
     return true;
-  if (F->hasFnAttribute(Attribute::OptimizeNone)) {
+  if (F->hasOptNone()) {
     // Report this only once per function.
     if (&BB == &F->getEntryBlock())
       LLVM_DEBUG(dbgs() << "Skipping pass '" << getPassName()

@@ -542,7 +542,7 @@ void GlobalsAAResult::AnalyzeCallGraph(CallGraph &CG, Module &M) {
         break;
       }
 
-      if (F->isDeclaration() || F->hasFnAttribute(Attribute::OptimizeNone)) {
+      if (F->isDeclaration() || F->hasOptNone()) {
         // Try to get mod/ref behaviour from function attributes.
         if (F->doesNotAccessMemory()) {
           // Can't do better than that!
@@ -595,7 +595,7 @@ void GlobalsAAResult::AnalyzeCallGraph(CallGraph &CG, Module &M) {
       // Don't prove any properties based on the implementation of an optnone
       // function. Function attributes were already used as a best approximation
       // above.
-      if (Node->getFunction()->hasFnAttribute(Attribute::OptimizeNone))
+      if (Node->getFunction()->hasOptNone())
         continue;
 
       for (Instruction &I : instructions(Node->getFunction())) {

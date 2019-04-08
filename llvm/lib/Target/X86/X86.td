@@ -392,6 +392,12 @@ def FeatureERMSB
           "ermsb", "HasERMSB", "true",
           "REP MOVS/STOS are fast">;
 
+// Bulldozer and newer processors can merge CMP/TEST (but not other
+// instructions) with conditional branches.
+def FeatureBranchFusion
+    : SubtargetFeature<"branchfusion", "HasBranchFusion", "true",
+                 "CMP/TEST can be fused with conditional branches">;
+
 // Sandy Bridge and newer processors have many instructions that can be
 // fused with conditional branches and pass through the CPU as a single
 // operation.
@@ -898,7 +904,7 @@ def ProcessorFeatures {
                                                       FeatureSlowSHLD,
                                                       FeatureLAHFSAHF,
                                                       FeatureFast11ByteNOP,
-                                                      FeatureMacroFusion];
+                                                      FeatureBranchFusion];
   list<SubtargetFeature> BdVer1Features = BdVer1InheritableFeatures;
 
   // PileDriver
@@ -948,7 +954,7 @@ def ProcessorFeatures {
                                        FeatureLZCNT,
                                        FeatureFastBEXTR,
                                        FeatureFast15ByteNOP,
-                                       FeatureMacroFusion,
+                                       FeatureBranchFusion,
                                        FeatureMMX,
                                        FeatureMOVBE,
                                        FeatureMWAITX,

@@ -18,7 +18,7 @@ define i32 @foo(i32* nocapture %A, i32 %n) {
 ; Intel implementation generates 'select' instruction instead of 'shuffle'. This divergence should go away once we retire PSLP.
 ; CHECK-NEXT:    [[TMP6:%.*]] = [[dummy:.*]]<4 x i32> [[TMP4]], <4 x i32> [[TMP5]]
 ; end INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP7:%.*]] = add nsw <4 x i32> <i32 9, i32 9, i32 9, i32 9>, [[TMP6]]
+; CHECK-NEXT:    [[TMP7:%.*]] = add nsw <4 x i32> [[TMP6]], <i32 9, i32 9, i32 9, i32 9>
 ; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[A:%.*]] to <4 x i32>*
 ; CHECK-NEXT:    store <4 x i32> [[TMP7]], <4 x i32>* [[TMP8]], align 4
 ; CHECK-NEXT:    ret i32 undef

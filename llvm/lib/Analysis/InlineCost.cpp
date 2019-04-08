@@ -1049,7 +1049,7 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
 
   // Use the OptMinSizeThreshold or OptSizeThreshold knob if they are available
   // and reduce the threshold if the caller has the necessary attribute.
-  if (Caller->optForMinSize()) {
+  if (Caller->hasMinSize()) {
     Threshold = MinIfValid(Threshold, Params.OptMinSizeThreshold);
     // For minsize, we want to disable the single BB bonus and the vector
     // bonuses, but not the last-call-to-static bonus. Inlining the last call to
@@ -1057,12 +1057,12 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
     // call/return instructions.
     SingleBBBonusPercent = 0;
     VectorBonusPercent = 0;
-  } else if (Caller->optForSize())
+  } else if (Caller->hasOptSize())
     Threshold = MinIfValid(Threshold, Params.OptSizeThreshold);
 
   // Adjust the threshold based on inlinehint attribute and profile based
   // hotness information if the caller does not have MinSize attribute.
-  if (!Caller->optForMinSize()) {
+  if (!Caller->hasMinSize()) {
     if (Callee.hasFnAttribute(Attribute::InlineHint) ||    // INTEL
         CS.hasFnAttr(Attribute::InlineHint) ||             // INTEL
         CS.hasFnAttr(Attribute::InlineHintRecursive))      // INTEL
@@ -1077,7 +1077,7 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
     // BlockFrequencyInfo is available.
     BlockFrequencyInfo *CallerBFI = GetBFI ? &((*GetBFI)(*Caller)) : nullptr;
     auto HotCallSiteThreshold = getHotCallSiteThreshold(CS, CallerBFI);
-    if (!Caller->optForSize() && HotCallSiteThreshold) {
+    if (!Caller->hasOptSize() && HotCallSiteThreshold) {
       LLVM_DEBUG(dbgs() << "Hot callsite.\n");
       // FIXME: This should update the threshold only if it exceeds the
       // current threshold, but AutoFDO + ThinLTO currently relies on this
@@ -3935,7 +3935,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
   // INTEL  CQ378383: Tolerate a single "forgivable" condition when optimizing
   // INTEL  for size. In this case, we delay subtracting out the single basic
   // INTEL  block bonus until we see a second branch with multiple targets.
-  bool SeekingForgivable = CS.getCaller()->optForSize(); // INTEL
+  bool SeekingForgivable = CS.getCaller()->hasOptSize(); // INTEL
   bool FoundForgivable = false;                          // INTEL
   bool SubtractedBonus = false;                          // INTEL
   bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false); // INTEL
@@ -4246,7 +4246,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
   // size, we penalise any call sites that perform loops. We do this after all
   // other costs here, so will likely only be dealing with relatively small
   // functions (and hence DT and LI will hopefully be cheap).
-  if (Caller->optForMinSize()) {
+  if (Caller->hasMinSize()) {
     DominatorTree DT(F);
     LoopInfo LI(DT);
     int NumLoops = 0;
@@ -4426,7 +4426,7 @@ InlineCost llvm::getInlineCost(
                                       NinlrMismatchedAttributes); // INTEL
 
   // Don't inline this call if the caller has the optnone attribute.
-  if (Caller->hasFnAttribute(Attribute::OptimizeNone))
+  if (Caller->hasOptNone())
     return llvm::InlineCost::getNever("optnone attribute",  // INTEL
                                       NinlrOptNone);        // INTEL
 

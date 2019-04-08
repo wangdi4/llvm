@@ -221,7 +221,7 @@ void MCStreamer::EmitZeros(uint64_t NumBytes) {
 Expected<unsigned>
 MCStreamer::tryEmitDwarfFileDirective(unsigned FileNo, StringRef Directory,
                                       StringRef Filename,
-                                      MD5::MD5Result *Checksum,
+                                      Optional<MD5::MD5Result> Checksum,
                                       Optional<StringRef> Source,
                                       unsigned CUID) {
   return getContext().getDwarfFile(Directory, Filename, FileNo, Checksum,
@@ -230,7 +230,7 @@ MCStreamer::tryEmitDwarfFileDirective(unsigned FileNo, StringRef Directory,
 
 void MCStreamer::emitDwarfFile0Directive(StringRef Directory,
                                          StringRef Filename,
-                                         MD5::MD5Result *Checksum,
+                                         Optional<MD5::MD5Result> Checksum,
                                          Optional<StringRef> Source,
                                          unsigned CUID) {
   getContext().setMCLineTableRootFile(CUID, Directory, Filename, Checksum,
