@@ -587,13 +587,13 @@ public:
   /// element type here is ExprWithCleanups::Object.
   SmallVector<BlockDecl*, 8> ExprCleanupObjects;
 
-  /// Store a list of either DeclRefExprs or MemberExprs
-  ///  that contain a reference to a variable (constant) that may or may not
-  ///  be odr-used in this Expr, and we won't know until all lvalue-to-rvalue
-  ///  and discarded value conversions have been applied to all subexpressions
-  ///  of the enclosing full expression.  This is cleared at the end of each
-  ///  full expression.
-  llvm::SmallPtrSet<Expr*, 2> MaybeODRUseExprs;
+  /// Store a set of either DeclRefExprs or MemberExprs that contain a reference
+  /// to a variable (constant) that may or may not be odr-used in this Expr, and
+  /// we won't know until all lvalue-to-rvalue and discarded value conversions
+  /// have been applied to all subexpressions of the enclosing full expression.
+  /// This is cleared at the end of each full expression.
+  using MaybeODRUseExprSet = llvm::SmallPtrSet<Expr *, 2>;
+  MaybeODRUseExprSet MaybeODRUseExprs;
 
   std::unique_ptr<sema::FunctionScopeInfo> PreallocatedFunctionScope;
 
@@ -1029,7 +1029,7 @@ public:
     /// context (i.e. the number of TypoExprs created).
     unsigned NumTypos;
 
-    llvm::SmallPtrSet<Expr*, 2> SavedMaybeODRUseExprs;
+    MaybeODRUseExprSet SavedMaybeODRUseExprs;
 
     /// The lambdas that are present within this context, if it
     /// is indeed an unevaluated context.
@@ -1914,11 +1914,11 @@ public:
   ///        expression.
   ///
   /// \param CCC The correction callback, if typo correction is desired.
-  NameClassification
-  ClassifyName(Scope *S, CXXScopeSpec &SS, IdentifierInfo *&Name,
-               SourceLocation NameLoc, const Token &NextToken,
-               bool IsAddressOfOperand,
-               std::unique_ptr<CorrectionCandidateCallback> CCC = nullptr);
+  NameClassification ClassifyName(Scope *S, CXXScopeSpec &SS,
+                                  IdentifierInfo *&Name, SourceLocation NameLoc,
+                                  const Token &NextToken,
+                                  bool IsAddressOfOperand,
+                                  CorrectionCandidateCallback *CCC = nullptr);
 
   /// Describes the detailed kind of a template name. Used in diagnostics.
   enum class TemplateNameKindForDiagnostics {
@@ -2634,13 +2634,6 @@ public:
   bool IsOverload(FunctionDecl *New, FunctionDecl *Old, bool IsForUsingDecl,
                   bool ConsiderCudaAttrs = true);
 
-  /// Checks availability of the function depending on the current
-  /// function context.Inside an unavailable function,unavailability is ignored.
-  ///
-  /// \returns true if \p FD is unavailable and current context is inside
-  /// an available function, false otherwise.
-  bool isFunctionConsideredUnavailable(FunctionDecl *FD);
-
   ImplicitConversionSequence
   TryImplicitConversion(Expr *From, QualType ToType,
                         bool SuppressUserConversions,
@@ -3273,7 +3266,7 @@ private:
   makeTypoCorrectionConsumer(const DeclarationNameInfo &Typo,
                              Sema::LookupNameKind LookupKind, Scope *S,
                              CXXScopeSpec *SS,
-                             std::unique_ptr<CorrectionCandidateCallback> CCC,
+                             CorrectionCandidateCallback &CCC,
                              DeclContext *MemberContext, bool EnteringContext,
                              const ObjCObjectPointerType *OPT,
                              bool ErrorRecovery);
@@ -3357,7 +3350,7 @@ public:
   TypoCorrection CorrectTypo(const DeclarationNameInfo &Typo,
                              Sema::LookupNameKind LookupKind,
                              Scope *S, CXXScopeSpec *SS,
-                             std::unique_ptr<CorrectionCandidateCallback> CCC,
+                             CorrectionCandidateCallback &CCC,
                              CorrectTypoKind Mode,
                              DeclContext *MemberContext = nullptr,
                              bool EnteringContext = false,
@@ -3367,7 +3360,7 @@ public:
   TypoExpr *CorrectTypoDelayed(const DeclarationNameInfo &Typo,
                                Sema::LookupNameKind LookupKind, Scope *S,
                                CXXScopeSpec *SS,
-                               std::unique_ptr<CorrectionCandidateCallback> CCC,
+                               CorrectionCandidateCallback &CCC,
                                TypoDiagnosticGenerator TDG,
                                TypoRecoveryCallback TRC, CorrectTypoKind Mode,
                                DeclContext *MemberContext = nullptr,
@@ -4102,7 +4095,6 @@ public:
                          ObjCInterfaceDecl *ClassReciever = nullptr);
   void NoteDeletedFunction(FunctionDecl *FD);
   void NoteDeletedInheritingConstructor(CXXConstructorDecl *CD);
-  std::string getDeletedOrUnavailableSuffix(const FunctionDecl *FD);
   bool DiagnosePropertyAccessorMismatch(ObjCPropertyDecl *PD,
                                         ObjCMethodDecl *Getter,
                                         SourceLocation Loc);
@@ -4238,7 +4230,7 @@ public:
   ExprResult ActOnIdExpression(
       Scope *S, CXXScopeSpec &SS, SourceLocation TemplateKWLoc,
       UnqualifiedId &Id, bool HasTrailingLParen, bool IsAddressOfOperand,
-      std::unique_ptr<CorrectionCandidateCallback> CCC = nullptr,
+      CorrectionCandidateCallback *CCC = nullptr,
       bool IsInlineAsmIdentifier = false, Token *KeywordReplacement = nullptr);
 
   void DecomposeUnqualifiedId(const UnqualifiedId &Id,
@@ -4248,7 +4240,7 @@ public:
 
   bool
   DiagnoseEmptyLookup(Scope *S, CXXScopeSpec &SS, LookupResult &R,
-                      std::unique_ptr<CorrectionCandidateCallback> CCC,
+                      CorrectionCandidateCallback &CCC,
                       TemplateArgumentListInfo *ExplicitTemplateArgs = nullptr,
                       ArrayRef<Expr *> Args = None, TypoExpr **Out = nullptr);
 
@@ -8781,8 +8773,6 @@ public:
   //
 private:
   void *VarDataSharingAttributesStack;
-  /// omp_allocator_handle_t type.
-  QualType OMPAllocatorHandleT;
   /// Number of nested '#pragma omp declare target' directives.
   unsigned DeclareTargetNestingLevel = 0;
   /// Initialization of data-sharing attributes stack.
@@ -9399,6 +9389,11 @@ public:
       ArrayRef<OpenMPMapModifierKind> MapTypeModifiers,
       ArrayRef<SourceLocation> MapTypeModifiersLoc, OpenMPMapClauseKind MapType,
       bool IsMapTypeImplicit, SourceLocation DepLinMapLoc);
+  /// Called on well-formed 'allocate' clause.
+  OMPClause *
+  ActOnOpenMPAllocateClause(Expr *Allocator, ArrayRef<Expr *> VarList,
+                            SourceLocation StartLoc, SourceLocation ColonLoc,
+                            SourceLocation LParenLoc, SourceLocation EndLoc);
   /// Called on well-formed 'private' clause.
   OMPClause *ActOnOpenMPPrivateClause(ArrayRef<Expr *> VarList,
                                       SourceLocation StartLoc,
@@ -10677,6 +10672,7 @@ private:
 
   ExprResult CheckBuiltinFunctionCall(FunctionDecl *FDecl,
                                       unsigned BuiltinID, CallExpr *TheCall);
+  void checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD, CallExpr *TheCall);
 
   bool CheckARMBuiltinExclusiveCall(unsigned BuiltinID, CallExpr *TheCall,
                                     unsigned MaxWidth);
@@ -11026,6 +11022,15 @@ public:
       Expr *E,
       llvm::function_ref<void(Expr *, RecordDecl *, FieldDecl *, CharUnits)>
           Action);
+
+  /// Describes the reason a calling convention specification was ignored, used
+  /// for diagnostics.
+  enum class CallingConventionIgnoredReason {
+    ForThisTarget = 0,
+    VariadicFunction,
+    ConstructorDestructor,
+    BuiltinFunction
+  };
 };
 
 /// RAII object that enters a new expression evaluation context.

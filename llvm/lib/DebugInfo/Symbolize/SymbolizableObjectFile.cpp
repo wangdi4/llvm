@@ -198,7 +198,10 @@ bool SymbolizableObjectFile::getNameFromSymbolTable(SymbolRef::Type Type,
   const auto &SymbolMap = Type == SymbolRef::ST_Function ? Functions : Objects;
   if (SymbolMap.empty())
     return false;
-  SymbolDesc SD = { Address, Address };
+  SymbolDesc SD = {Address, UINT64_C(-1)};
+  // SymbolDescs are sorted by (Addr,Size), if several SymbolDescs share the
+  // same Addr, pick the one with the largest Size. This helps us avoid symbols
+  // with no size information (Size=0).
   auto SymbolIterator = SymbolMap.upper_bound(SD);
   if (SymbolIterator == SymbolMap.begin())
     return false;
@@ -227,6 +230,11 @@ SymbolizableObjectFile::symbolizeCode(object::SectionedAddress ModuleOffset,
                                       FunctionNameKind FNKind,
                                       bool UseSymbolTable) const {
   DILineInfo LineInfo;
+
+  if (ModuleOffset.SectionIndex == object::SectionedAddress::UndefSection)
+    ModuleOffset.SectionIndex =
+        getModuleSectionIndexForAddress(ModuleOffset.Address);
+
   if (DebugInfoContext) {
     LineInfo = DebugInfoContext->getLineInfoForAddress(
         ModuleOffset, getDILineInfoSpecifier(FNKind));
@@ -247,6 +255,10 @@ DIInliningInfo SymbolizableObjectFile::symbolizeInlinedCode(
     object::SectionedAddress ModuleOffset, FunctionNameKind FNKind,
     bool UseSymbolTable) const {
   DIInliningInfo InlinedContext;
+
+  if (ModuleOffset.SectionIndex == object::SectionedAddress::UndefSection)
+    ModuleOffset.SectionIndex =
+        getModuleSectionIndexForAddress(ModuleOffset.Address);
 
   if (DebugInfoContext)
     InlinedContext = DebugInfoContext->getInliningInfoForAddress(
@@ -275,4 +287,21 @@ DIGlobal SymbolizableObjectFile::symbolizeData(
   getNameFromSymbolTable(SymbolRef::ST_Data, ModuleOffset.Address, Res.Name,
                          Res.Start, Res.Size);
   return Res;
+}
+
+/// Search for the first occurence of specified Address in ObjectFile.
+uint64_t SymbolizableObjectFile::getModuleSectionIndexForAddress(
+    uint64_t Address) const {
+
+  for (SectionRef Sec : Module->sections()) {
+    if (!Sec.isText() || Sec.isVirtual())
+      continue;
+
+    if (Address >= Sec.getAddress() &&
+        Address <= Sec.getAddress() + Sec.getSize()) {
+      return Sec.getIndex();
+    }
+  }
+
+  return object::SectionedAddress::UndefSection;
 }

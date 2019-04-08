@@ -1113,7 +1113,7 @@ static llvm::Constant *constStructWithPadding(CodeGenModule &CGM,
   }
   if (NestedIntact && Values.size() == STy->getNumElements())
     return constant;
-  return llvm::ConstantStruct::getAnon(Values);
+  return llvm::ConstantStruct::getAnon(Values, STy->isPacked());
 }
 
 /// Replace all padding bytes in a given constant with either a pattern byte or
@@ -1457,7 +1457,13 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
 
   Address address = Address::invalid();
   Address AllocaAddr = Address::invalid();
-  if (Ty->isConstantSizeType()) {
+  Address OpenMPLocalAddr =
+      getLangOpts().OpenMP
+          ? CGM.getOpenMPRuntime().getAddressOfLocalVariable(*this, &D)
+          : Address::invalid();
+  if (getLangOpts().OpenMP && OpenMPLocalAddr.isValid()) {
+    address = OpenMPLocalAddr;
+  } else if (Ty->isConstantSizeType()) {
     bool NRVO = getLangOpts().ElideConstructors &&
       D.isNRVOVariable();
 
@@ -1500,14 +1506,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     // unless:
     // - it's an NRVO variable.
     // - we are compiling OpenMP and it's an OpenMP local variable.
-
-    Address OpenMPLocalAddr =
-        getLangOpts().OpenMP
-            ? CGM.getOpenMPRuntime().getAddressOfLocalVariable(*this, &D)
-            : Address::invalid();
-    if (getLangOpts().OpenMP && OpenMPLocalAddr.isValid()) {
-      address = OpenMPLocalAddr;
-    } else if (NRVO) {
+    if (NRVO) {
       // The named return value optimization: allocate this variable in the
       // return slot, so that we can elide the copy when returning this
       // variable (C++0x [class.copy]p34).
@@ -2574,5 +2573,5 @@ void CodeGenModule::EmitOMPDeclareMapper(const OMPDeclareMapperDecl *D,
 }
 
 void CodeGenModule::EmitOMPRequiresDecl(const OMPRequiresDecl *D) {
-  getOpenMPRuntime().checkArchForUnifiedAddressing(*this, D);
+  getOpenMPRuntime().checkArchForUnifiedAddressing(D);
 }

@@ -163,15 +163,19 @@ public:
     lldb::ModuleSP module_sp(new Module());
     module_sp->m_objfile_sp =
         std::make_shared<ObjFilePlugin>(module_sp, std::forward<Args>(args)...);
+    module_sp->m_did_load_objfile.store(true, std::memory_order_relaxed);
 
-    // Once we get the object file, update our module with the object file's
-    // architecture since it might differ in vendor/os if some parts were
-    // unknown.
-    if (ArchSpec arch = module_sp->m_objfile_sp->GetArchitecture()) {
-      module_sp->m_arch = arch;
-      return module_sp;
-    }
-    return nullptr;
+    // Once we get the object file, set module ArchSpec to the one we get from
+    // the object file. If the object file does not have an architecture, we
+    // consider the creation a failure.
+    ArchSpec arch = module_sp->m_objfile_sp->GetArchitecture();
+    if (!arch)
+      return nullptr;
+    module_sp->m_arch = arch;
+
+    // Also copy the object file's FileSpec.
+    module_sp->m_file = module_sp->m_objfile_sp->GetFileSpec();
+    return module_sp;
   }
 
   //------------------------------------------------------------------
@@ -706,7 +710,7 @@ public:
   ///     Returns the unwind table for this module. If this object has no
   ///     associated object file, an empty UnwindTable is returned.
   //------------------------------------------------------------------
-  UnwindTable &GetUnwindTable() { return m_unwind_table; }
+  UnwindTable &GetUnwindTable();
 
   llvm::VersionTuple GetVersion();
 
@@ -1105,8 +1109,9 @@ protected:
   lldb::ObjectFileSP m_objfile_sp; ///< A shared pointer to the object file
                                    ///parser for this module as it may or may
                                    ///not be shared with the SymbolFile
-  UnwindTable m_unwind_table{*this}; ///< Table of FuncUnwinders objects created
-                                     /// for this Module's functions
+  llvm::Optional<UnwindTable> m_unwind_table; ///< Table of FuncUnwinders
+                                              /// objects created for this
+                                              /// Module's functions
   lldb::SymbolVendorUP
       m_symfile_up; ///< A pointer to the symbol vendor for this module.
   std::vector<lldb::SymbolVendorUP>

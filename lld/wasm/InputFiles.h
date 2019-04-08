@@ -96,10 +96,12 @@ public:
   uint32_t calcNewValue(const WasmRelocation &Reloc) const;
   uint32_t calcNewAddend(const WasmRelocation &Reloc) const;
   uint32_t calcExpectedValue(const WasmRelocation &Reloc) const;
+  Symbol *getSymbol(const WasmRelocation &Reloc) const {
+    return Symbols[Reloc.Index];
+  };
 
   const WasmSection *CodeSection = nullptr;
   const WasmSection *DataSection = nullptr;
-  const WasmSection *ProducersSection = nullptr;
 
   // Maps input type indices to output type indices
   std::vector<uint32_t> TypeMap;

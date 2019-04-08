@@ -68,19 +68,20 @@ template <typename... Ts> inline std::string log_args(const Ts &... ts) {
 // #define LLDB_REPRO_INSTR_TRACE
 
 #define LLDB_REGISTER_CONSTRUCTOR(Class, Signature)                            \
-  Register<Class * Signature>(&construct<Class Signature>::doit, "", #Class,   \
+  R.Register<Class * Signature>(&construct<Class Signature>::doit, "", #Class, \
                               #Class, #Signature)
 #define LLDB_REGISTER_METHOD(Result, Class, Method, Signature)                 \
-  Register(                                                                    \
+  R.Register(                                                                  \
       &invoke<Result(Class::*) Signature>::method<(&Class::Method)>::doit,     \
       #Result, #Class, #Method, #Signature)
 #define LLDB_REGISTER_METHOD_CONST(Result, Class, Method, Signature)           \
-  Register(&invoke<Result(Class::*)                                            \
+  R.Register(&invoke<Result(Class::*)                                          \
                        Signature const>::method_const<(&Class::Method)>::doit, \
            #Result, #Class, #Method, #Signature)
 #define LLDB_REGISTER_STATIC_METHOD(Result, Class, Method, Signature)          \
-  Register<Result Signature>(static_cast<Result(*) Signature>(&Class::Method), \
-                             #Result, #Class, #Method, #Signature)
+  R.Register<Result Signature>(                                                \
+      static_cast<Result(*) Signature>(&Class::Method), #Result, #Class,       \
+      #Method, #Signature)
 
 #define LLDB_RECORD_CONSTRUCTOR(Class, Signature, ...)                         \
   LLDB_LOG(GetLogIfAllCategoriesSet(LIBLLDB_LOG_API), "{0} ({1})",             \
@@ -184,7 +185,7 @@ template <typename... Ts> inline std::string log_args(const Ts &... ts) {
   }
 
 #define LLDB_RECORD_RESULT(Result)                                             \
-  sb_recorder ? sb_recorder->RecordResult(Result) : Result;
+  sb_recorder ? sb_recorder->RecordResult(Result) : (Result);
 
 /// The LLDB_RECORD_DUMMY macro is special because it doesn't actually record
 /// anything. It's used to track API boundaries when we cannot record for
@@ -642,13 +643,7 @@ public:
       return;
 
     unsigned id = m_registry.GetID(uintptr_t(f));
-
-#ifndef LLDB_REPRO_INSTR_TRACE
-    LLDB_LOG(GetLogIfAllCategoriesSet(LIBLLDB_LOG_API), "Recording {0}: {1}",
-             id, m_pretty_func);
-#else
-    llvm::errs() << "Recording " << id << ": " << m_pretty_func << "\n";
-#endif
+    Log(id);
 
     m_serializer.SerializeAll(id);
     m_serializer.SerializeAll(args...);
@@ -669,13 +664,7 @@ public:
       return;
 
     unsigned id = m_registry.GetID(uintptr_t(f));
-
-#ifndef LLDB_REPRO_INSTR_TRACE
-    LLDB_LOG(GetLogIfAllCategoriesSet(LIBLLDB_LOG_API), "Recording {0}: {1}",
-             id, m_pretty_func);
-#else
-    llvm::errs() << "Recording " << id << ": " << m_pretty_func << "\n";
-#endif
+    Log(id);
 
     m_serializer.SerializeAll(id);
     m_serializer.SerializeAll(args...);
@@ -686,14 +675,14 @@ public:
   }
 
   /// Record the result of a function call.
-  template <typename Result> Result RecordResult(const Result &r) {
+  template <typename Result> Result RecordResult(Result &&r) {
     UpdateBoundary();
     if (ShouldCapture()) {
       assert(!m_result_recorded);
       m_serializer.SerializeAll(r);
       m_result_recorded = true;
     }
-    return r;
+    return std::forward<Result>(r);
   }
 
 private:
@@ -703,6 +692,7 @@ private:
   }
 
   bool ShouldCapture() { return m_local_boundary; }
+  void Log(unsigned id);
 
   Serializer &m_serializer;
   Registry &m_registry;

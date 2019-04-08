@@ -2568,9 +2568,8 @@ SDValue SelectionDAGLegalize::ExpandBSWAP(SDValue Op, const SDLoc &dl) {
   switch (VT.getSimpleVT().getScalarType().SimpleTy) {
   default: llvm_unreachable("Unhandled Expand type in BSWAP!");
   case MVT::i16:
-    Tmp2 = DAG.getNode(ISD::SHL, dl, VT, Op, DAG.getConstant(8, dl, SHVT));
-    Tmp1 = DAG.getNode(ISD::SRL, dl, VT, Op, DAG.getConstant(8, dl, SHVT));
-    return DAG.getNode(ISD::OR, dl, VT, Tmp1, Tmp2);
+    // Use a rotate by 8. This can be further expanded if necessary.
+    return DAG.getNode(ISD::ROTL, dl, VT, Op, DAG.getConstant(8, dl, SHVT));
   case MVT::i32:
     Tmp4 = DAG.getNode(ISD::SHL, dl, VT, Op, DAG.getConstant(24, dl, SHVT));
     Tmp3 = DAG.getNode(ISD::SHL, dl, VT, Op, DAG.getConstant(8, dl, SHVT));
@@ -3092,7 +3091,8 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     ConstantFPSDNode *CFP = cast<ConstantFPSDNode>(Node);
     // Check to see if this FP immediate is already legal.
     // If this is a legal constant, turn it into a TargetConstantFP node.
-    if (!TLI.isFPImmLegal(CFP->getValueAPF(), Node->getValueType(0)))
+    if (!TLI.isFPImmLegal(CFP->getValueAPF(), Node->getValueType(0),
+                          DAG.getMachineFunction().getFunction().optForSize()))
       Results.push_back(ExpandConstantFP(CFP, true));
     break;
   }

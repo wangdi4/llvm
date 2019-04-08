@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "AArch64ExpandImm.h"
 #include "AArch64ISelLowering.h"
 #include "AArch64CallingConvention.h"
 #include "AArch64MachineFunctionInfo.h"
@@ -612,9 +613,9 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
   setPrefLoopAlignment(STI.getPrefLoopAlignment());
 
   // Only change the limit for entries in a jump table if specified by
-  // the subtarget, but not at the command line.
+  // the sub target, but not at the command line.
   unsigned MaxJT = STI.getMaximumJumpTableSize();
-  if (MaxJT && getMaximumJumpTableSize() == 0)
+  if (MaxJT && getMaximumJumpTableSize() == UINT_MAX)
     setMaximumJumpTableSize(MaxJT);
 
   setHasExtractBitsInsn(true);
@@ -5405,7 +5406,8 @@ bool AArch64TargetLowering::isOffsetFoldingLegal(
   return false;
 }
 
-bool AArch64TargetLowering::isFPImmLegal(const APFloat &Imm, EVT VT) const {
+bool AArch64TargetLowering::isFPImmLegal(const APFloat &Imm, EVT VT,
+                                         bool OptForSize) const {
   bool IsLegal = false;
   // We can materialize #0.0 as fmov $Rd, XZR for 64-bit, 32-bit cases, and
   // 16-bit case when target has full fp16 support.
@@ -5423,9 +5425,18 @@ bool AArch64TargetLowering::isFPImmLegal(const APFloat &Imm, EVT VT) const {
   // If we can not materialize in immediate field for fmov, check if the
   // value can be encoded as the immediate operand of a logical instruction.
   // The immediate value will be created with either MOVZ, MOVN, or ORR.
-  if (!IsLegal && (VT == MVT::f64 || VT == MVT::f32))
-    IsLegal = AArch64_AM::isAnyMOVWMovAlias(ImmInt.getZExtValue(),
-                                            VT.getSizeInBits());
+  if (!IsLegal && (VT == MVT::f64 || VT == MVT::f32)) {
+    // The cost is actually exactly the same for mov+fmov vs. adrp+ldr;
+    // however the mov+fmov sequence is always better because of the reduced
+    // cache pressure. The timings are still the same if you consider
+    // movw+movk+fmov vs. adrp+ldr (it's one instruction longer, but the
+    // movw+movk is fused). So we limit up to 2 instrdduction at most.
+    SmallVector<AArch64_IMM::ImmInsnModel, 4> Insn;
+    AArch64_IMM::expandMOVImm(ImmInt.getZExtValue(), VT.getSizeInBits(),
+			      Insn);
+    unsigned Limit = (OptForSize ? 1 : (Subtarget->hasFuseLiterals() ? 5 : 2));
+    IsLegal = Insn.size() <= Limit;
+  }
 
   LLVM_DEBUG(dbgs() << (IsLegal ? "Legal " : "Illegal ") << VT.getEVTString()
                     << " imm value: "; Imm.dump(););

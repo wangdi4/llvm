@@ -77,15 +77,6 @@ namespace llvm {
       /// Same as call except it adds the NoTrack prefix.
       NT_CALL,
 
-      /// This operation implements the lowering for readcyclecounter.
-      RDTSC_DAG,
-
-      /// X86 Read Time-Stamp Counter and Processor ID.
-      RDTSCP_DAG,
-
-      /// X86 Read Performance Monitoring Counters.
-      RDPMC_DAG,
-
       /// X86 compare and logical compare instructions.
       CMP, COMI, UCOMI,
 
@@ -547,6 +538,12 @@ namespace llvm {
       // indicate whether it is valid in CF.
       RDSEED,
 
+      // Protection keys
+      // RDPKRU - Operand 0 is chain. Operand 1 is value for ECX.
+      // WRPKRU - Operand 0 is chain. Operand 1 is value for EDX. Operand 2 is
+      // value for ECX.
+      RDPKRU, WRPKRU,
+
       // SSE42 string comparisons.
       // These nodes produce 3 results, index, mask, and flags. X86ISelDAGToDAG
       // will emit one or two instructions based on which results are used. If
@@ -966,6 +963,9 @@ namespace llvm {
 
     bool isVectorShiftByScalarCheap(Type *Ty) const override;
 
+    /// Returns true if the opcode is a commutative binary operation.
+    bool isCommutativeBinOp(unsigned Opcode) const override;
+
     /// Return true if it's free to truncate a value of
     /// type Ty1 to type Ty2. e.g. On x86 it's free to truncate a i32 value in
     /// register EAX to i16 by referencing its sub-register AX.
@@ -1011,7 +1011,8 @@ namespace llvm {
     /// Returns true if the target can instruction select the
     /// specified FP immediate natively. If false, the legalizer will
     /// materialize the FP immediate as a load from a constant pool.
-    bool isFPImmLegal(const APFloat &Imm, EVT VT) const override;
+    bool isFPImmLegal(const APFloat &Imm, EVT VT,
+                      bool ForCodeSize) const override;
 
     /// Targets can use this to indicate that they only support *some*
     /// VECTOR_SHUFFLE operations, those with specific masks. By default, if a
