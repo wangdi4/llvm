@@ -51,6 +51,20 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vpo-paropt-target"
 
 // Reset the value in the Map clause to be empty.
+//
+// Do not reset base pointers (including the item's getOrig() pointer),
+// because we want to have explicit references of the mapped pointers
+// inside the region (note that the region entry directive is considered
+// to be inside the region). Outlining of the enclosed regions
+// (e.g. "omp parallel for") may be different for the host and target,
+// thus, explicit references to the mapped pointers may be seen inside
+// the region during the target compilation but not during the host
+// compilation. This may cause interface mismatch between the outlined
+// functions created for the host and a target. Explicit references
+// of the mapped pointers make sure that the code extraction for the mapped
+// pointers is the same.
+// We do want to reset the section pointers and the sizes, because
+// they are not used inside the target region.
 void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   if (!W->canHaveMap())
     return;
@@ -66,22 +80,17 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   IRBuilder<> Builder(W->getEntryBBlock()->getFirstNonPHI());
 
   for (auto *Item : MpClause.items()) {
-    if (Item->getOrig())
-      resetValueInIntelClauseGeneric(W, Item->getOrig());
     if (!Item->getIsMapChain())
       continue;
     MapChainTy const &MapChain = Item->getMapChain();
     for (int I = MapChain.size() - 1; I >= 0; --I) {
       MapAggrTy *Aggr = MapChain[I];
-      Value *BasePtr = Aggr->getBasePtr();
-      if (I != 0)
-        resetValueInIntelClauseGeneric(W, BasePtr);
       Value *SectionPtr = Aggr->getSectionPtr();
       resetValueInIntelClauseGeneric(W, SectionPtr);
 
       if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
           I != 0 && !ForceMapping)
-        Builder.CreateStore(SectionPtr, BasePtr);
+        Builder.CreateStore(SectionPtr, Aggr->getBasePtr());
 
       Value *Size = Aggr->getSize();
       if (!dyn_cast<ConstantInt>(Size))
