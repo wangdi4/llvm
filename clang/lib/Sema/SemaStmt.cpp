@@ -4410,9 +4410,9 @@ ExprResult Sema::ActOnCustomIdExpression(Scope *CurScope,
   ValueDecl *D;
   if (!Lookup.isSingleResult()) {
     std::unique_ptr<clang::CorrectionCandidateCallback> FilterCCC;
+    DeclFilterCCC<ValueDecl> CCC{};
     TypoCorrection Corrected = CorrectTypo(
-        Id, LookupOrdinaryName, CurScope, 0,
-        llvm::make_unique<DeclFilterCCC<ValueDecl>>(), CTK_ErrorRecovery);
+        Id, LookupOrdinaryName, CurScope, 0, CCC, CTK_ErrorRecovery);
     std::string CorrectedStr = Corrected.getAsString(getLangOpts());
     std::string CorrectedQuotedStr = Corrected.getQuoted(getLangOpts());
     if (Lookup.empty()) {

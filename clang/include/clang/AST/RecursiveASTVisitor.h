@@ -2830,7 +2830,6 @@ bool RecursiveASTVisitor<Derived>::TraverseOMPClause(OMPClause *C) {
     break;
 #include "clang/Basic/OpenMPKinds.def"
   case OMPC_threadprivate:
-  case OMPC_allocate:
   case OMPC_uniform:
   case OMPC_unknown:
     break;
@@ -2857,6 +2856,13 @@ template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPAllocatorClause(
     OMPAllocatorClause *C) {
   TRY_TO(TraverseStmt(C->getAllocator()));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPAllocateClause(OMPAllocateClause *C) {
+  TRY_TO(TraverseStmt(C->getAllocator()));
+  TRY_TO(VisitOMPClauseList(C));
   return true;
 }
 

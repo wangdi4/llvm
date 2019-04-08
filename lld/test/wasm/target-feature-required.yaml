@@ -2,13 +2,12 @@
 
 # RUN: wasm-ld --no-entry --features=foo,bar,baz -o - %t1.o | obj2yaml | FileCheck %s --check-prefix SPECIFIED
 
-# RUN: not wasm-ld --no-entry --features=bar,baz,quux -o - %t1.o 2>&1 | FileCheck %s --check-prefix UNSPECIFIED
+# RUN: not wasm-ld --no-entry --features=bar,baz,quux -o /dev/null %t1.o 2>&1 | FileCheck %s --check-prefix UNSPECIFIED
 
 # RUN: wasm-ld --no-entry --no-check-features --features=bar,baz,quux -o - %t1.o | obj2yaml | FileCheck %s --check-prefix UNSPECIFIED-NOCHECK
 
 # RUN: yaml2obj %S/Inputs/require-feature-foo.yaml -o %t.required.o
-# RUN: wasm-ld --no-entry -o %t.required.exe %t1.o %t.required.o
-# RUN: obj2yaml < %t.required.exe | FileCheck %s --check-prefix REQUIRED
+# RUN: wasm-ld --no-entry -o - %t1.o %t.required.o | obj2yaml | FileCheck %s --check-prefix REQUIRED
 
 # RUN: yaml2obj %S/Inputs/disallow-feature-foo.yaml -o %t.disallowed.o
 # RUN: not wasm-ld --no-entry -o /dev/null %t1.o %t.disallowed.o 2>&1 | FileCheck %s --check-prefix DISALLOWED

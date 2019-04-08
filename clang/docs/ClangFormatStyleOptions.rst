@@ -277,6 +277,41 @@ the configuration (without a prefix: ``Auto``).
     int a;     // My comment a      vs.     int a; // My comment a
     int b = 2; // comment  b                int b = 2; // comment about b
 
+**AllowAllArgumentsOnNextLine** (``bool``)
+  If a function call or braced initializer list doesn't fit on a
+  line, allow putting all arguments onto the next line, even if
+  ``BinPackArguments`` is ``false``.
+
+  .. code-block:: c++
+
+    true:
+    callFunction(
+        a, b, c, d);
+
+    false:
+    callFunction(a,
+                 b,
+                 c,
+                 d);
+
+**AllowAllConstructorInitializersOnNextLine** (``bool``)
+  If a constructor definition with a member initializer list doesn't
+  fit on a single line, allow putting all member initializers onto the next
+  line, if ```ConstructorInitializerAllOnOneLineOrOnePerLine``` is true.
+  Note that this parameter has no effect if
+  ```ConstructorInitializerAllOnOneLineOrOnePerLine``` is false.
+
+  .. code-block:: c++
+
+    true:
+    MyClass::MyClass() :
+        member0(0), member1(2) {}
+
+    false:
+    MyClass::MyClass() :
+        member0(0),
+        member1(2) {}
+
 **AllowAllParametersOfDeclarationOnNextLine** (``bool``)
   If the function declaration doesn't fit on a line,
   allow putting all parameters of a function declaration onto
@@ -413,6 +448,45 @@ the configuration (without a prefix: ``Auto``).
        else {
           return;
        }
+
+**AllowShortLambdasOnASingleLine** (``ShortLambdaStyle``)
+  Dependent on the value, ``auto lambda []() { return 0; }`` can be put on a
+  single line.
+
+  Possible values:
+
+  * ``SLS_None`` (in configuration: ``None``)
+    Never merge lambdas into a single line.
+
+  * ``SLS_Empty`` (in configuration: ``Empty``)
+    Only merge empty lambdas.
+
+    .. code-block:: c++
+
+      auto lambda = [](int a) {}
+      auto lambda2 = [](int a) {
+          return a;
+      };
+
+  * ``SLS_Inline`` (in configuration: ``Inline``)
+    Merge lambda into a single line if argument of a function.
+
+    .. code-block:: c++
+
+      auto lambda = [](int a) {
+          return a;
+      };
+      sort(a.begin(), a.end(), ()[] { return x < y; })
+
+  * ``SLS_All`` (in configuration: ``All``)
+    Merge all lambdas fitting on a single line.
+
+    .. code-block:: c++
+
+      auto lambda = [](int a) {}
+      auto lambda2 = [](int a) { return a; };
+
+
 
 **AllowShortLoopsOnASingleLine** (``bool``)
   If ``true``, ``while (true) continue;`` can be put on a single

@@ -569,11 +569,11 @@ KEYWORD(__private                   , KEYOPENCLC | KEYOPENCLCXX)
 // CQ381345: Support tgmath.h usage of generic in all versions of C.
 KEYWORD(__generic                   , KEYNOCXX | KEYOPENCLC | KEYOPENCLCXX)
 #endif //INTEL_CUSTOMIZATION
-ALIAS("global", __global            , KEYOPENCLC)
-ALIAS("local", __local              , KEYOPENCLC)
-ALIAS("constant", __constant        , KEYOPENCLC)
+ALIAS("global", __global            , KEYOPENCLC | KEYOPENCLCXX)
+ALIAS("local", __local              , KEYOPENCLC | KEYOPENCLCXX)
+ALIAS("constant", __constant        , KEYOPENCLC | KEYOPENCLCXX)
 ALIAS("private", __private          , KEYOPENCLC)
-ALIAS("generic", __generic          , KEYOPENCLC)
+ALIAS("generic", __generic          , KEYOPENCLC | KEYOPENCLCXX)
 // OpenCL function qualifiers
 KEYWORD(__kernel                    , KEYOPENCLC | KEYOPENCLCXX)
 ALIAS("kernel", __kernel            , KEYOPENCLC | KEYOPENCLCXX)

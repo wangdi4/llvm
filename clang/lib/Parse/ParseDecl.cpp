@@ -2993,7 +2993,7 @@ Parser::DiagnoseMissingSemiAfterTagDefinition(DeclSpec &DS, AccessSpecifier AS,
       IdentifierInfo *Name = AfterScope.getIdentifierInfo();
       Sema::NameClassification Classification = Actions.ClassifyName(
           getCurScope(), SS, Name, AfterScope.getLocation(), Next,
-          /*IsAddressOfOperand*/false);
+          /*IsAddressOfOperand=*/false, /*CCC=*/nullptr);
       switch (Classification.getKind()) {
       case Sema::NC_Error:
         SkipMalformedDecl();
@@ -4009,6 +4009,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         break;
       };
       LLVM_FALLTHROUGH;
+    case tok::kw_private:
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:
@@ -5002,8 +5003,10 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw___read_only:
   case tok::kw___read_write:
   case tok::kw___write_only:
-
     return true;
+
+  case tok::kw_private:
+    return getLangOpts().OpenCL;
 
   // C11 _Atomic
   case tok::kw__Atomic:
@@ -5207,6 +5210,9 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 #include "clang/Basic/OpenCLImageTypes.def"
 
     return true;
+
+  case tok::kw_private:
+    return getLangOpts().OpenCL;
   }
 }
 
@@ -5413,6 +5419,10 @@ void Parser::ParseTypeQualifierListOpt(
       assert (!getLangOpts().IntelCompat &&
               "OpenCL is not supported in Intel compatibility mode.");
 #endif // INTEL_CUSTOMIZATION 
+    case tok::kw_private:
+      if (!getLangOpts().OpenCL)
+        goto DoneWithTypeQuals;
+      LLVM_FALLTHROUGH;
     case tok::kw___private:
     case tok::kw___global:
     case tok::kw___local:

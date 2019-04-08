@@ -206,6 +206,13 @@ static bool isSplat(ArrayRef<Value *> VL) {
   return true;
 }
 
+/// \returns True if \p I is commutative, handles CmpInst as well as Instruction.
+static bool isCommutative(Instruction *I) {
+  if (auto *IC = dyn_cast<CmpInst>(I))
+    return IC->isCommutative();
+  return I->isCommutative();
+}
+
 /// Checks if the vector of instructions can be represented as a shuffle, like:
 /// %x0 = extractelement <4 x i8> %x, i32 0
 /// %x3 = extractelement <4 x i8> %x, i32 3
@@ -576,7 +583,7 @@ public:
   /// the stored value. Otherwise, the size is the width of the largest loaded
   /// value reaching V. This method is used by the vectorizer to calculate
   /// vectorization factors.
-  unsigned getVectorElementSize(Value *V);
+  unsigned getVectorElementSize(Value *V) const;
 
   /// Compute the minimum type sizes required to represent the entries in a
   /// vectorizable tree.
@@ -599,7 +606,7 @@ public:
 
   /// \returns True if the VectorizableTree is both tiny and not fully
   /// vectorizable. We do not vectorize such trees.
-  bool isTreeTinyAndNotFullyVectorizable();
+  bool isTreeTinyAndNotFullyVectorizable() const;
 
   OptimizationRemarkEmitter *getORE() { return ORE; }
 
@@ -655,12 +662,12 @@ private:
 
   /// \returns the scalarization cost for this type. Scalarization in this
   /// context means the creation of vectors from a group of scalars.
-  int getGatherCost(Type *Ty, const DenseSet<unsigned> &ShuffledIndices);
+  int getGatherCost(Type *Ty, const DenseSet<unsigned> &ShuffledIndices) const;
 
   /// \returns the scalarization cost for this list of values. Assuming that
   /// this subtree gets vectorized, we may need to extract the values from the
   /// roots. This method calculates the cost of extracting the values.
-  int getGatherCost(ArrayRef<Value *> VL);
+  int getGatherCost(ArrayRef<Value *> VL) const;
 
   /// Set the Builder insert point to one after the last instruction in
   /// the bundle
@@ -672,20 +679,14 @@ private:
 
   /// \returns whether the VectorizableTree is fully vectorizable and will
   /// be beneficial even the tree height is tiny.
-  bool isFullyVectorizableTinyTree();
-
-  /// \reorder commutative operands in alt shuffle if they result in
-  ///  vectorized code.
-  void reorderAltShuffleOperands(const InstructionsState &S,
-                                 ArrayRef<Value *> VL,
-                                 SmallVectorImpl<Value *> &Left,
-                                 SmallVectorImpl<Value *> &Right);
+  bool isFullyVectorizableTinyTree() const;
 
   /// \reorder commutative operands to get better probability of
   /// generating vectorized code.
-  void reorderInputsAccordingToOpcode(unsigned Opcode, ArrayRef<Value *> VL,
+  void reorderInputsAccordingToOpcode(const InstructionsState &S,
+                                      ArrayRef<Value *> VL,
                                       SmallVectorImpl<Value *> &Left,
-                                      SmallVectorImpl<Value *> &Right);
+                                      SmallVectorImpl<Value *> &Right) const;
   struct TreeEntry {
     TreeEntry(std::vector<TreeEntry> &Container) : Container(Container) {}
 
@@ -1843,10 +1844,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
     case Instruction::FCmp: {
       // Check that all of the compares have the same predicate.
       CmpInst::Predicate P0 = cast<CmpInst>(VL0)->getPredicate();
+      CmpInst::Predicate SwapP0 = CmpInst::getSwappedPredicate(P0);
       Type *ComparedTy = VL0->getOperand(0)->getType();
       for (unsigned i = 1, e = VL.size(); i < e; ++i) {
         CmpInst *Cmp = cast<CmpInst>(VL[i]);
-        if (Cmp->getPredicate() != P0 ||
+        if ((Cmp->getPredicate() != P0 && Cmp->getPredicate() != SwapP0) ||
             Cmp->getOperand(0)->getType() != ComparedTy) {
           BS.cancelScheduling(VL, VL0);
           newTreeEntry(VL, false, UserTreeIdx, ReuseShuffleIndicies);
@@ -1859,15 +1861,29 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
       newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of compares.\n");
 
-      for (unsigned i = 0, e = VL0->getNumOperands(); i < e; ++i) {
-        ValueList Operands;
-        // Prepare the operand vector.
-        for (Value *j : VL)
-          Operands.push_back(cast<Instruction>(j)->getOperand(i));
-
-        UserTreeIdx.EdgeIdx = i;
-        buildTree_rec(Operands, Depth + 1, UserTreeIdx);
+      ValueList Left, Right;
+      if (cast<CmpInst>(VL0)->isCommutative()) {
+        // Commutative predicate - collect + sort operands of the instructions
+        // so that each side is more likely to have the same opcode.
+        assert(P0 == SwapP0 && "Commutative Predicate mismatch");
+        reorderInputsAccordingToOpcode(S, VL, Left, Right);
+      } else {
+        // Collect operands - commute if it uses the swapped predicate.
+        for (Value *V : VL) {
+          auto *Cmp = cast<CmpInst>(V);
+          Value *LHS = Cmp->getOperand(0);
+          Value *RHS = Cmp->getOperand(1);
+          if (Cmp->getPredicate() != P0)
+            std::swap(LHS, RHS);
+          Left.push_back(LHS);
+          Right.push_back(RHS);
+        }
       }
+
+      UserTreeIdx.EdgeIdx = 0;
+      buildTree_rec(Left, Depth + 1, UserTreeIdx);
+      UserTreeIdx.EdgeIdx = 1;
+      buildTree_rec(Right, Depth + 1, UserTreeIdx);
       return;
     }
     case Instruction::Select:
@@ -1896,7 +1912,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
       // have the same opcode.
       if (isa<BinaryOperator>(VL0) && VL0->isCommutative()) {
         ValueList Left, Right;
-        reorderInputsAccordingToOpcode(S.getOpcode(), VL, Left, Right);
+        reorderInputsAccordingToOpcode(S, VL, Left, Right);
         UserTreeIdx.EdgeIdx = 0;
         buildTree_rec(Left, Depth + 1, UserTreeIdx);
         UserTreeIdx.EdgeIdx = 1;
@@ -2071,7 +2087,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
       // Reorder operands if reordering would enable vectorization.
       if (isa<BinaryOperator>(VL0)) {
         ValueList Left, Right;
-        reorderAltShuffleOperands(S, VL, Left, Right);
+        reorderInputsAccordingToOpcode(S, VL, Left, Right);
         UserTreeIdx.EdgeIdx = 0;
         buildTree_rec(Left, Depth + 1, UserTreeIdx);
         UserTreeIdx.EdgeIdx = 1;
@@ -2561,7 +2577,7 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
   }
 }
 
-bool BoUpSLP::isFullyVectorizableTinyTree() {
+bool BoUpSLP::isFullyVectorizableTinyTree() const {
   LLVM_DEBUG(dbgs() << "SLP: Check whether the tree with height "
                     << VectorizableTree.size() << " is fully vectorizable .\n");
 
@@ -2585,7 +2601,7 @@ bool BoUpSLP::isFullyVectorizableTinyTree() {
   return true;
 }
 
-bool BoUpSLP::isTreeTinyAndNotFullyVectorizable() {
+bool BoUpSLP::isTreeTinyAndNotFullyVectorizable() const {
   // We can vectorize the tree if its size is greater than or equal to the
   // minimum size specified by the MinTreeSize command line option.
   if (VectorizableTree.size() >= MinTreeSize)
@@ -2756,17 +2772,17 @@ int BoUpSLP::getTreeCost() {
 }
 
 int BoUpSLP::getGatherCost(Type *Ty,
-                           const DenseSet<unsigned> &ShuffledIndices) {
+                           const DenseSet<unsigned> &ShuffledIndices) const {
   int Cost = 0;
   for (unsigned i = 0, e = cast<VectorType>(Ty)->getNumElements(); i < e; ++i)
     if (!ShuffledIndices.count(i))
       Cost += TTI->getVectorInstrCost(Instruction::InsertElement, Ty, i);
   if (!ShuffledIndices.empty())
-      Cost += TTI->getShuffleCost(TargetTransformInfo::SK_PermuteSingleSrc, Ty);
+    Cost += TTI->getShuffleCost(TargetTransformInfo::SK_PermuteSingleSrc, Ty);
   return Cost;
 }
 
-int BoUpSLP::getGatherCost(ArrayRef<Value *> VL) {
+int BoUpSLP::getGatherCost(ArrayRef<Value *> VL) const {
   // Find the type of the operands in VL.
   Type *ScalarTy = VL[0]->getType();
   if (StoreInst *SI = dyn_cast<StoreInst>(VL[0]))
@@ -2786,105 +2802,51 @@ int BoUpSLP::getGatherCost(ArrayRef<Value *> VL) {
   return getGatherCost(VecTy, ShuffledElements);
 }
 
-// Reorder commutative operations in alternate shuffle if the resulting vectors
-// are consecutive loads. This would allow us to vectorize the tree.
-// If we have something like-
-// load a[0] - load b[0]
-// load b[1] + load a[1]
-// load a[2] - load b[2]
-// load a[3] + load b[3]
-// Reordering the second load b[1]  load a[1] would allow us to vectorize this
-// code.
-void BoUpSLP::reorderAltShuffleOperands(const InstructionsState &S,
-                                        ArrayRef<Value *> VL,
-                                        SmallVectorImpl<Value *> &Left,
-                                        SmallVectorImpl<Value *> &Right) {
-  // Push left and right operands of binary operation into Left and Right
-  for (Value *V : VL) {
-    auto *I = cast<Instruction>(V);
-    assert(S.isOpcodeOrAlt(I) && "Incorrect instruction in vector");
-    Left.push_back(I->getOperand(0));
-    Right.push_back(I->getOperand(1));
-  }
-
-  // Reorder if we have a commutative operation and consecutive access
-  // are on either side of the alternate instructions.
-  for (unsigned j = 0; j < VL.size() - 1; ++j) {
-    if (LoadInst *L = dyn_cast<LoadInst>(Left[j])) {
-      if (LoadInst *L1 = dyn_cast<LoadInst>(Right[j + 1])) {
-        Instruction *VL1 = cast<Instruction>(VL[j]);
-        Instruction *VL2 = cast<Instruction>(VL[j + 1]);
-        if (VL1->isCommutative() && isConsecutiveAccess(L, L1, *DL, *SE)) {
-          std::swap(Left[j], Right[j]);
-          continue;
-        } else if (VL2->isCommutative() &&
-                   isConsecutiveAccess(L, L1, *DL, *SE)) {
-          std::swap(Left[j + 1], Right[j + 1]);
-          continue;
-        }
-        // else unchanged
-      }
-    }
-    if (LoadInst *L = dyn_cast<LoadInst>(Right[j])) {
-      if (LoadInst *L1 = dyn_cast<LoadInst>(Left[j + 1])) {
-        Instruction *VL1 = cast<Instruction>(VL[j]);
-        Instruction *VL2 = cast<Instruction>(VL[j + 1]);
-        if (VL1->isCommutative() && isConsecutiveAccess(L, L1, *DL, *SE)) {
-          std::swap(Left[j], Right[j]);
-          continue;
-        } else if (VL2->isCommutative() &&
-                   isConsecutiveAccess(L, L1, *DL, *SE)) {
-          std::swap(Left[j + 1], Right[j + 1]);
-          continue;
-        }
-        // else unchanged
-      }
-    }
-  }
-}
-
-// Return true if I should be commuted before adding it's left and right
-// operands to the arrays Left and Right.
+// Return true if the i'th left and right operands can be commuted.
 //
 // The vectorizer is trying to either have all elements one side being
 // instruction with the same opcode to enable further vectorization, or having
 // a splat to lower the vectorizing cost.
-static bool shouldReorderOperands(
-    int i, unsigned Opcode, Instruction &I, ArrayRef<Value *> Left,
-    ArrayRef<Value *> Right, bool AllSameOpcodeLeft, bool AllSameOpcodeRight,
-    bool SplatLeft, bool SplatRight, Value *&VLeft, Value *&VRight) {
-  VLeft = I.getOperand(0);
-  VRight = I.getOperand(1);
+static bool shouldReorderOperands(int i, ArrayRef<Value *> Left,
+                                  ArrayRef<Value *> Right,
+                                  bool AllSameOpcodeLeft,
+                                  bool AllSameOpcodeRight, bool SplatLeft,
+                                  bool SplatRight) {
+  Value *PrevLeft = Left[i - 1];
+  Value *PrevRight = Right[i - 1];
+  Value *CurrLeft = Left[i];
+  Value *CurrRight = Right[i];
+
   // If we have "SplatRight", try to see if commuting is needed to preserve it.
   if (SplatRight) {
-    if (VRight == Right[i - 1])
+    if (CurrRight == PrevRight)
       // Preserve SplatRight
       return false;
-    if (VLeft == Right[i - 1]) {
+    if (CurrLeft == PrevRight) {
       // Commuting would preserve SplatRight, but we don't want to break
       // SplatLeft either, i.e. preserve the original order if possible.
       // (FIXME: why do we care?)
-      if (SplatLeft && VLeft == Left[i - 1])
+      if (SplatLeft && CurrLeft == PrevLeft)
         return false;
       return true;
     }
   }
   // Symmetrically handle Right side.
   if (SplatLeft) {
-    if (VLeft == Left[i - 1])
+    if (CurrLeft == PrevLeft)
       // Preserve SplatLeft
       return false;
-    if (VRight == Left[i - 1])
+    if (CurrRight == PrevLeft)
       return true;
   }
 
-  Instruction *ILeft = dyn_cast<Instruction>(VLeft);
-  Instruction *IRight = dyn_cast<Instruction>(VRight);
+  Instruction *ILeft = dyn_cast<Instruction>(CurrLeft);
+  Instruction *IRight = dyn_cast<Instruction>(CurrRight);
 
   // If we have "AllSameOpcodeRight", try to see if the left operands preserves
   // it and not the right, in this case we want to commute.
   if (AllSameOpcodeRight) {
-    unsigned RightPrevOpcode = cast<Instruction>(Right[i - 1])->getOpcode();
+    unsigned RightPrevOpcode = cast<Instruction>(PrevRight)->getOpcode();
     if (IRight && RightPrevOpcode == IRight->getOpcode())
       // Do not commute, a match on the right preserves AllSameOpcodeRight
       return false;
@@ -2894,14 +2856,14 @@ static bool shouldReorderOperands(
       // AllSameOpcodeLeft, i.e. preserve the original order if possible.
       // (FIXME: why do we care?)
       if (AllSameOpcodeLeft && ILeft &&
-          cast<Instruction>(Left[i - 1])->getOpcode() == ILeft->getOpcode())
+          cast<Instruction>(PrevLeft)->getOpcode() == ILeft->getOpcode())
         return false;
       return true;
     }
   }
   // Symmetrically handle Left side.
   if (AllSameOpcodeLeft) {
-    unsigned LeftPrevOpcode = cast<Instruction>(Left[i - 1])->getOpcode();
+    unsigned LeftPrevOpcode = cast<Instruction>(PrevLeft)->getOpcode();
     if (ILeft && LeftPrevOpcode == ILeft->getOpcode())
       return false;
     if (IRight && LeftPrevOpcode == IRight->getOpcode())
@@ -2910,21 +2872,18 @@ static bool shouldReorderOperands(
   return false;
 }
 
-void BoUpSLP::reorderInputsAccordingToOpcode(unsigned Opcode,
-                                             ArrayRef<Value *> VL,
-                                             SmallVectorImpl<Value *> &Left,
-                                             SmallVectorImpl<Value *> &Right) {
-  if (!VL.empty()) {
-    // Peel the first iteration out of the loop since there's nothing
-    // interesting to do anyway and it simplifies the checks in the loop.
-    auto *I = cast<Instruction>(VL[0]);
-    Value *VLeft = I->getOperand(0);
-    Value *VRight = I->getOperand(1);
-    if (!isa<Instruction>(VRight) && isa<Instruction>(VLeft))
-      // Favor having instruction to the right. FIXME: why?
-      std::swap(VLeft, VRight);
-    Left.push_back(VLeft);
-    Right.push_back(VRight);
+void BoUpSLP::reorderInputsAccordingToOpcode(
+    const InstructionsState &S, ArrayRef<Value *> VL,
+    SmallVectorImpl<Value *> &Left, SmallVectorImpl<Value *> &Right) const {
+  assert(!VL.empty() && Left.empty() && Right.empty() &&
+         "Unexpected instruction/operand lists");
+
+  // Push left and right operands of binary operation into Left and Right
+  for (Value *V : VL) {
+    auto *I = cast<Instruction>(V);
+    assert(S.isOpcodeOrAlt(I) && "Incorrect instruction in vector");
+    Left.push_back(I->getOperand(0));
+    Right.push_back(I->getOperand(1));
   }
 
   // Keep track if we have instructions with all the same opcode on one side.
@@ -2936,22 +2895,13 @@ void BoUpSLP::reorderInputsAccordingToOpcode(unsigned Opcode,
 
   for (unsigned i = 1, e = VL.size(); i != e; ++i) {
     Instruction *I = cast<Instruction>(VL[i]);
-    assert(((I->getOpcode() == Opcode && I->isCommutative()) ||
-            (I->getOpcode() != Opcode && Instruction::isCommutative(Opcode))) &&
-           "Can only process commutative instruction");
     // Commute to favor either a splat or maximizing having the same opcodes on
     // one side.
-    Value *VLeft;
-    Value *VRight;
-    if (shouldReorderOperands(i, Opcode, *I, Left, Right, AllSameOpcodeLeft,
-                              AllSameOpcodeRight, SplatLeft, SplatRight, VLeft,
-                              VRight)) {
-      Left.push_back(VRight);
-      Right.push_back(VLeft);
-    } else {
-      Left.push_back(VLeft);
-      Right.push_back(VRight);
-    }
+    if (isCommutative(I) &&
+        shouldReorderOperands(i, Left, Right, AllSameOpcodeLeft,
+                              AllSameOpcodeRight, SplatLeft, SplatRight))
+      std::swap(Left[i], Right[i]);
+
     // Update Splat* and AllSameOpcode* after the insertion.
     SplatRight = SplatRight && (Right[i - 1] == Right[i]);
     SplatLeft = SplatLeft && (Left[i - 1] == Left[i]);
@@ -2970,11 +2920,11 @@ void BoUpSLP::reorderInputsAccordingToOpcode(unsigned Opcode,
   // Finally check if we can get longer vectorizable chain by reordering
   // without breaking the good operand order detected above.
   // E.g. If we have something like-
-  // load a[0]  load b[0]
-  // load b[1]  load a[1]
-  // load a[2]  load b[2]
-  // load a[3]  load b[3]
-  // Reordering the second load b[1]  load a[1] would allow us to vectorize
+  // load a[0] - load b[0]
+  // load b[1] + load a[1]
+  // load a[2] - load b[2]
+  // load a[3] + load b[3]
+  // Reordering the second load b[1] + load a[1] would allow us to vectorize
   // this code and we still retain AllSameOpcode property.
   // FIXME: This load reordering might break AllSameOpcode in some rare cases
   // such as-
@@ -2986,16 +2936,32 @@ void BoUpSLP::reorderInputsAccordingToOpcode(unsigned Opcode,
     if (LoadInst *L = dyn_cast<LoadInst>(Left[j])) {
       if (LoadInst *L1 = dyn_cast<LoadInst>(Right[j + 1])) {
         if (isConsecutiveAccess(L, L1, *DL, *SE)) {
-          std::swap(Left[j + 1], Right[j + 1]);
-          continue;
+          auto *VL1 = cast<Instruction>(VL[j]);
+          auto *VL2 = cast<Instruction>(VL[j + 1]);
+          if (isCommutative(VL2)) {
+            std::swap(Left[j + 1], Right[j + 1]);
+            continue;
+          }
+          if (isCommutative(VL1)) {
+            std::swap(Left[j], Right[j]);
+            continue;
+          }
         }
       }
     }
     if (LoadInst *L = dyn_cast<LoadInst>(Right[j])) {
       if (LoadInst *L1 = dyn_cast<LoadInst>(Left[j + 1])) {
         if (isConsecutiveAccess(L, L1, *DL, *SE)) {
-          std::swap(Left[j + 1], Right[j + 1]);
-          continue;
+          auto *VL1 = cast<Instruction>(VL[j]);
+          auto *VL2 = cast<Instruction>(VL[j + 1]);
+          if (isCommutative(VL2)) {
+            std::swap(Left[j + 1], Right[j + 1]);
+            continue;
+          }
+          if (isCommutative(VL1)) {
+            std::swap(Left[j], Right[j]);
+            continue;
+          }
         }
       }
     }
@@ -4348,7 +4314,7 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
   BS->ScheduleStart = nullptr;
 }
 
-unsigned BoUpSLP::getVectorElementSize(Value *V) {
+unsigned BoUpSLP::getVectorElementSize(Value *V) const {
   // If V is a store, just return the width of the stored value without
   // traversing the expression tree. This is the common case.
   if (auto *Store = dyn_cast<StoreInst>(V))

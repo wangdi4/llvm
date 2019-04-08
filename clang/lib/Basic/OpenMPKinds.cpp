@@ -106,8 +106,6 @@ const char *clang::getOpenMPClauseName(OpenMPClauseKind Kind) {
     return "uniform";
   case OMPC_threadprivate:
     return "threadprivate or thread local";
-  case OMPC_allocate:
-    return "allocate";
   }
   llvm_unreachable("Invalid OpenMP clause kind");
 }
@@ -184,13 +182,13 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
         .Default(OMPC_ATOMIC_DEFAULT_MEM_ORDER_unknown);
   case OMPC_unknown:
   case OMPC_threadprivate:
-  case OMPC_allocate:
   case OMPC_if:
   case OMPC_final:
   case OMPC_num_threads:
   case OMPC_safelen:
   case OMPC_simdlen:
   case OMPC_allocator:
+  case OMPC_allocate:
   case OMPC_collapse:
   case OMPC_private:
   case OMPC_firstprivate:
@@ -367,13 +365,13 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
     llvm_unreachable("Invalid OpenMP 'atomic_default_mem_order' clause type");
   case OMPC_unknown:
   case OMPC_threadprivate:
-  case OMPC_allocate:
   case OMPC_if:
   case OMPC_final:
   case OMPC_num_threads:
   case OMPC_safelen:
   case OMPC_simdlen:
   case OMPC_allocator:
+  case OMPC_allocate:
   case OMPC_collapse:
   case OMPC_private:
   case OMPC_firstprivate:

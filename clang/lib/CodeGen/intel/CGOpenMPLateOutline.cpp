@@ -1386,6 +1386,7 @@ void OpenMPLateOutliner::emitOMPDynamicAllocatorsClause(
 void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *) {}
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
+void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   switch (Directive.getDirectiveKind()) {
@@ -1719,7 +1720,6 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
     emit##Class(cast<Class>(C));                                               \
     break;
 #include "clang/Basic/OpenMPKinds.def"
-    case OMPC_allocate:
     case OMPC_uniform:
     case OMPC_threadprivate:
     case OMPC_unknown:

@@ -1651,7 +1651,7 @@ bool Parser::ParseOpenMPSimpleVarList(
 ///       thread_limit-clause | priority-clause | grainsize-clause |
 ///       nogroup-clause | num_tasks-clause | hint-clause | to-clause |
 ///       from-clause | is_device_ptr-clause | task_reduction-clause |
-///       in_reduction-clause | allocator-clause
+///       in_reduction-clause | allocator-clause | allocate-clause
 ///
 OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                                      OpenMPClauseKind CKind, bool FirstClause) {
@@ -1797,6 +1797,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_from:
   case OMPC_use_device_ptr:
   case OMPC_is_device_ptr:
+  case OMPC_allocate:
     Clause = ParseOpenMPVarListClause(DKind, CKind, WrongDirective);
     break;
   case OMPC_unknown:
@@ -1805,7 +1806,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch);
     break;
   case OMPC_threadprivate:
-  case OMPC_allocate:
   case OMPC_uniform:
     if (!WrongDirective)
       Diag(Tok, diag::err_omp_unexpected_clause)
@@ -2408,6 +2408,31 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
           ConsumeToken();
       }
     }
+  } else if (Kind == OMPC_allocate) {
+    // Handle optional allocator expression followed by colon delimiter.
+    ColonProtectionRAIIObject ColonRAII(*this);
+    TentativeParsingAction TPA(*this);
+    ExprResult Tail =
+        Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
+    Tail = Actions.ActOnFinishFullExpr(Tail.get(), T.getOpenLocation(),
+                                       /*DiscardedValue=*/false);
+    if (Tail.isUsable()) {
+      if (Tok.is(tok::colon)) {
+        Data.TailExpr = Tail.get();
+        Data.ColonLoc = ConsumeToken();
+        TPA.Commit();
+      } else {
+        // colon not found, no allocator specified, parse only list of
+        // variables.
+        TPA.Revert();
+      }
+    } else {
+      // Parsing was unsuccessfull, revert and skip to the end of clause or
+      // directive.
+      TPA.Revert();
+      SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
+                StopBeforeMatch);
+    }
   }
 
   bool IsComma =
@@ -2520,6 +2545,8 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
 ///       'use_device_ptr' '(' list ')'
 ///    is_device_ptr-clause:
 ///       'is_device_ptr' '(' list ')'
+///    allocate-clause:
+///       'allocate' '(' [ allocator ':' ] list ')'
 ///
 /// For 'linear' clause linear-list may have the following forms:
 ///  list

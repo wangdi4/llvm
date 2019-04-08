@@ -1475,6 +1475,7 @@ bool UnwrappedLineParser::tryToParseLambda() {
       return true;
     }
   }
+  FormatTok->Type = TT_LambdaLBrace;
   LSquare.Type = TT_LambdaLSquare;
   parseChildBlock();
   return true;
@@ -2016,6 +2017,10 @@ bool UnwrappedLineParser::parseEnum() {
   // error and thus assume it is just an identifier.
   if (Style.Language == FormatStyle::LK_JavaScript &&
       FormatTok->isOneOf(tok::colon, tok::question))
+    return false;
+
+  // In protobuf, "enum" can be used as a field name.
+  if (Style.Language == FormatStyle::LK_Proto && FormatTok->is(tok::equal))
     return false;
 
   // Eat up enum class ...

@@ -99,13 +99,15 @@ uint32_t ObjFile::calcNewAddend(const WasmRelocation &Reloc) const {
 uint32_t ObjFile::calcExpectedValue(const WasmRelocation &Reloc) const {
   switch (Reloc.Type) {
   case R_WASM_TABLE_INDEX_I32:
-  case R_WASM_TABLE_INDEX_SLEB: {
+  case R_WASM_TABLE_INDEX_SLEB:
+  case R_WASM_TABLE_INDEX_REL_SLEB: {
     const WasmSymbol &Sym = WasmObj->syms()[Reloc.Index];
     return TableEntries[Sym.Info.ElementIndex];
   }
   case R_WASM_MEMORY_ADDR_SLEB:
   case R_WASM_MEMORY_ADDR_I32:
-  case R_WASM_MEMORY_ADDR_LEB: {
+  case R_WASM_MEMORY_ADDR_LEB:
+  case R_WASM_MEMORY_ADDR_REL_SLEB: {
     const WasmSymbol &Sym = WasmObj->syms()[Reloc.Index];
     if (Sym.isUndefined())
       return 0;
@@ -140,10 +142,12 @@ uint32_t ObjFile::calcNewValue(const WasmRelocation &Reloc) const {
   switch (Reloc.Type) {
   case R_WASM_TABLE_INDEX_I32:
   case R_WASM_TABLE_INDEX_SLEB:
+  case R_WASM_TABLE_INDEX_REL_SLEB:
     return getFunctionSymbol(Reloc.Index)->getTableIndex();
   case R_WASM_MEMORY_ADDR_SLEB:
   case R_WASM_MEMORY_ADDR_I32:
   case R_WASM_MEMORY_ADDR_LEB:
+  case R_WASM_MEMORY_ADDR_REL_SLEB:
     if (auto *Sym = dyn_cast<DefinedData>(getDataSymbol(Reloc.Index)))
       if (Sym->isLive())
         return Sym->getVirtualAddress() + Reloc.Addend;
@@ -152,9 +156,12 @@ uint32_t ObjFile::calcNewValue(const WasmRelocation &Reloc) const {
     return TypeMap[Reloc.Index];
   case R_WASM_FUNCTION_INDEX_LEB:
     return getFunctionSymbol(Reloc.Index)->getFunctionIndex();
-  case R_WASM_GLOBAL_INDEX_LEB:
-    return getGlobalSymbol(Reloc.Index)->getGlobalIndex();
-  case R_WASM_EVENT_INDEX_LEB:
+  case R_WASM_GLOBAL_INDEX_LEB: {
+    const Symbol* Sym = Symbols[Reloc.Index];
+    if (auto GS = dyn_cast<GlobalSymbol>(Sym))
+      return GS->getGlobalIndex();
+    return Sym->getGOTIndex();
+  } case R_WASM_EVENT_INDEX_LEB:
     return getEventSymbol(Reloc.Index)->getEventIndex();
   case R_WASM_FUNCTION_OFFSET_I32:
     if (auto *Sym = dyn_cast<DefinedFunction>(getFunctionSymbol(Reloc.Index))) {

@@ -63,6 +63,10 @@ def SDTX86sahf : SDTypeProfile<1, 1, [SDTCisVT<0, i32>, SDTCisVT<1, i8>]>;
 
 def SDTX86rdrand : SDTypeProfile<2, 0, [SDTCisInt<0>, SDTCisVT<1, i32>]>;
 
+def SDTX86rdpkru : SDTypeProfile<1, 1, [SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
+def SDTX86wrpkru : SDTypeProfile<0, 3, [SDTCisVT<0, i32>, SDTCisVT<1, i32>,
+                                        SDTCisVT<2, i32>]>;
+
 def SDTX86cas : SDTypeProfile<0, 3, [SDTCisPtrTy<0>, SDTCisInt<1>,
                                      SDTCisVT<2, i8>]>;
 def SDTX86caspair : SDTypeProfile<0, 1, [SDTCisPtrTy<0>]>;
@@ -150,6 +154,11 @@ def X86rdrand  : SDNode<"X86ISD::RDRAND",   SDTX86rdrand,
 
 def X86rdseed  : SDNode<"X86ISD::RDSEED",   SDTX86rdrand,
                         [SDNPHasChain, SDNPSideEffect]>;
+
+def X86rdpkru : SDNode<"X86ISD::RDPKRU",    SDTX86rdpkru,
+                       [SDNPHasChain, SDNPSideEffect]>;
+def X86wrpkru : SDNode<"X86ISD::WRPKRU",    SDTX86wrpkru,
+                       [SDNPHasChain, SDNPSideEffect]>;
 
 def X86cas : SDNode<"X86ISD::LCMPXCHG_DAG", SDTX86cas,
                         [SDNPHasChain, SDNPInGlue, SDNPOutGlue, SDNPMayStore,
@@ -610,7 +619,8 @@ def AVX512RCOperand : AsmOperandClass {
 }
 def AVX512RC : Operand<i32> {
   let PrintMethod = "printRoundingControl";
-  let OperandType = "OPERAND_IMMEDIATE";
+  let OperandNamespace = "X86";
+  let OperandType = "OPERAND_ROUNDING_CONTROL";
   let ParserMatchClass = AVX512RCOperand;
 }
 
@@ -915,12 +925,12 @@ def IsNotPIC     : Predicate<"!TM.isPositionIndependent()">;
 // the Function object through the <Target>Subtarget and objections were raised
 // to that (see post-commit review comments for r301750).
 let RecomputePerFunction = 1 in {
-  def OptForSize   : Predicate<"MF->getFunction().optForSize()">;
-  def OptForMinSize : Predicate<"MF->getFunction().optForMinSize()">;
-  def OptForSpeed  : Predicate<"!MF->getFunction().optForSize()">;
+  def OptForSize   : Predicate<"MF->getFunction().hasOptSize()">;
+  def OptForMinSize : Predicate<"MF->getFunction().hasMinSize()">;
+  def OptForSpeed  : Predicate<"!MF->getFunction().hasOptSize()">;
   def UseIncDec : Predicate<"!Subtarget->slowIncDec() || "
-                            "MF->getFunction().optForSize()">;
-  def NoSSE41_Or_OptForSize : Predicate<"MF->getFunction().optForSize() || "
+                            "MF->getFunction().hasOptSize()">;
+  def NoSSE41_Or_OptForSize : Predicate<"MF->getFunction().hasOptSize() || "
                                         "!Subtarget->hasSSE41()">;
 }
 
@@ -1004,6 +1014,19 @@ def relocImm32_su : PatLeaf<(i32 relocImm), [{
     return !shouldAvoidImmediateInstFormsForSize(N);
 }]>;
 
+def i16immSExt8_su : PatLeaf<(i16immSExt8), [{
+    return !shouldAvoidImmediateInstFormsForSize(N);
+}]>;
+def i32immSExt8_su : PatLeaf<(i32immSExt8), [{
+    return !shouldAvoidImmediateInstFormsForSize(N);
+}]>;
+def i64immSExt8_su : PatLeaf<(i64immSExt8), [{
+    return !shouldAvoidImmediateInstFormsForSize(N);
+}]>;
+
+def i64relocImmSExt8_su : PatLeaf<(i64relocImmSExt8), [{
+    return !shouldAvoidImmediateInstFormsForSize(N);
+}]>;
 def i64relocImmSExt32_su : PatLeaf<(i64relocImmSExt32), [{
     return !shouldAvoidImmediateInstFormsForSize(N);
 }]>;
@@ -2633,16 +2656,12 @@ defm LWPVAL64 : lwpval_intr<GR64, int_x86_lwpval64>, VEX_W;
 // MONITORX/MWAITX Instructions
 //
 let SchedRW = [ WriteSystem ] in {
-  let usesCustomInserter = 1 in {
-    def MONITORX : PseudoI<(outs), (ins i32mem:$src1, GR32:$src2, GR32:$src3),
-                           [(int_x86_monitorx addr:$src1, GR32:$src2, GR32:$src3)]>,
-                   Requires<[ HasMWAITX ]>;
-  }
-
-  let Uses = [ EAX, ECX, EDX ] in {
-    def MONITORXrrr : I<0x01, MRM_FA, (outs), (ins), "monitorx", []>,
-                      TB, Requires<[ HasMWAITX ]>;
-  }
+  let Uses = [ EAX, ECX, EDX ] in
+  def MONITORX32rrr : I<0x01, MRM_FA, (outs), (ins), "monitorx", []>,
+                      TB, Requires<[ HasMWAITX, Not64BitMode ]>;
+  let Uses = [ RAX, ECX, EDX ] in
+  def MONITORX64rrr : I<0x01, MRM_FA, (outs), (ins), "monitorx", []>,
+                      TB, Requires<[ HasMWAITX, In64BitMode ]>;
 
   let Uses = [ ECX, EAX, EBX ] in {
     def MWAITXrrr : I<0x01, MRM_FB, (outs), (ins), "mwaitx",
@@ -2656,9 +2675,9 @@ def : InstAlias<"mwaitx\t{%eax, %ecx, %ebx|ebx, ecx, eax}", (MWAITXrrr)>,
 def : InstAlias<"mwaitx\t{%rax, %rcx, %rbx|rbx, rcx, rax}", (MWAITXrrr)>,
       Requires<[ In64BitMode ]>;
 
-def : InstAlias<"monitorx\t{%eax, %ecx, %edx|edx, ecx, eax}", (MONITORXrrr)>,
+def : InstAlias<"monitorx\t{%eax, %ecx, %edx|edx, ecx, eax}", (MONITORX32rrr)>,
       Requires<[ Not64BitMode ]>;
-def : InstAlias<"monitorx\t{%rax, %rcx, %rdx|rdx, rcx, rax}", (MONITORXrrr)>,
+def : InstAlias<"monitorx\t{%rax, %rcx, %rdx|rdx, rcx, rax}", (MONITORX64rrr)>,
       Requires<[ In64BitMode ]>;
 
 //===----------------------------------------------------------------------===//
@@ -2722,17 +2741,15 @@ def MOVDIR64B64 : I<0xF8, MRMSrcMem, (outs), (ins GR64:$dst, i512mem:$src),
 //
 let SchedRW = [WriteSystem] in {
   let Uses = [EAX] in
-  def CLZEROr : I<0x01, MRM_FC, (outs), (ins), "clzero", []>,
-                TB, Requires<[HasCLZERO]>;
-
-  let usesCustomInserter = 1 in {
-  def CLZERO : PseudoI<(outs), (ins i32mem:$src1),
-                       [(int_x86_clzero addr:$src1)]>, Requires<[HasCLZERO]>;
-  }
+  def CLZERO32r : I<0x01, MRM_FC, (outs), (ins), "clzero", []>,
+                  TB, Requires<[HasCLZERO, Not64BitMode]>;
+  let Uses = [RAX] in
+  def CLZERO64r : I<0x01, MRM_FC, (outs), (ins), "clzero", []>,
+                  TB, Requires<[HasCLZERO, In64BitMode]>;
 } // SchedRW
 
-def : InstAlias<"clzero\t{%eax|eax}", (CLZEROr)>, Requires<[Not64BitMode]>;
-def : InstAlias<"clzero\t{%rax|rax}", (CLZEROr)>, Requires<[In64BitMode]>;
+def : InstAlias<"clzero\t{%eax|eax}", (CLZERO32r)>, Requires<[Not64BitMode]>;
+def : InstAlias<"clzero\t{%rax|rax}", (CLZERO64r)>, Requires<[In64BitMode]>;
 
 //===----------------------------------------------------------------------===//
 // Pattern fragments to auto generate TBM instructions.
