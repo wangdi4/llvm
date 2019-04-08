@@ -1910,9 +1910,9 @@ void AndersensAAResult::visitSelectInst(SelectInst &SI) {
 }
 
 void AndersensAAResult::visitVAArg(VAArgInst &I) {
-  llvm_unreachable("vaarg not handled yet!");
-  //CreateConstraint(Constraint::Copy, getNode(I),
-  //                 getVarargNode(I->getParent()->getParent()));
+  if (isPointsToType(I.getType()))
+    CreateConstraint(Constraint::Copy, getNodeValue(I),
+                     getVarargNode(I.getParent()->getParent()));
 }
 
 // Create Constraints for direct calls
