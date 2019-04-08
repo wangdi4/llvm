@@ -1,6 +1,3 @@
-# INTEL_CUSTOMIZATION
-# XFAIL: *
-# end INTEL_CUSTOMIZATION
 # REQUIRES: x86
 # RUN: llvm-mc -triple x86_64-pc-linux -filetype=obj %p/Inputs/protected-function-access.s -o %t2.o
 # RUN: ld.lld %t2.o -o %t2.so -shared

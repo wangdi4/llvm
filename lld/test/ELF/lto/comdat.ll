@@ -1,6 +1,3 @@
-; INTEL_CUSTOMIZATION
-; XFAIL: *
-; end INTEL_CUSTOMIZATION
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
 ; RUN: ld.lld %t.o %t.o -o %t.so -shared

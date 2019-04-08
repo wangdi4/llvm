@@ -1,6 +1,3 @@
-; INTEL_CUSTOMIZATION
-; XFAIL: *
-; end INTEL_CUSTOMIZATION
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
 ; RUN: not ld.lld %t.o -o %t2 2>&1 | FileCheck %s

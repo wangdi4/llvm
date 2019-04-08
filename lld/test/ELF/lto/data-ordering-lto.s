@@ -1,6 +1,3 @@
-# INTEL_CUSTOMIZATION
-# XFAIL: *
-# end INTEL_CUSTOMIZATION
 # REQUIRES: x86
 # RUN: llvm-mc -filetype=obj -triple=x86_64-scei-ps4 %s -o %t.o
 # RUN: llvm-as %p/Inputs/data-ordering-lto.ll -o %t.bc
