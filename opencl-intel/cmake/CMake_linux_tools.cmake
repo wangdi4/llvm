@@ -35,6 +35,11 @@ else (GCC_VERSION VERSION_GREATER 4.9 OR GCC_VERSION VERSION_EQUAL 4.9)
   set (FSTACK_PROTECTOR_C_FLAGS       "-fstack-protector" )
 endif ()
 
+# Additional warning switches for newer GCC.
+if (GCC_VERSION VERSION_GREATER 7.0 OR GCC_VERSION VERSION_EQUAL 7.0)
+  add_definitions(-Wno-implicit-fallthrough -Wno-ignored-attributes -DGCC_VER_7X)
+endif()
+
 set (ADD_COMMON_C_FLAGS         "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option -funsigned-bitfields -Wformat -Wformat-security ${FSTACK_PROTECTOR_C_FLAGS}" )
 
 set (ADD_C_FLAGS                "${ADD_COMMON_C_FLAGS} -std=gnu99" )

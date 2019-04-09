@@ -57,6 +57,7 @@ KernelProperties::KernelProperties():
     m_bIsAutorun(false),
     m_bNeedSerializeWGs(false),
     m_bIsTask(false),
+    m_bCanUseGlobalWorkOffset(true),
     m_bIsNonUniformWGSizeSupported(false),
     m_canUniteWG(false),
     m_verctorizeOnDimention(0),
@@ -110,6 +111,7 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<bool>(&m_bIsAutorun, ost);
     Serializer::SerialPrimitive<bool>(&m_bNeedSerializeWGs, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsTask, ost);
+    Serializer::SerialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ost);
 }
 
 void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -160,6 +162,7 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<bool>(&m_bIsAutorun, ist);
     Serializer::DeserialPrimitive<bool>(&m_bNeedSerializeWGs, ist);
     Serializer::DeserialPrimitive<bool>(&m_bIsTask, ist);
+    Serializer::DeserialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ist);
 }
 
 
@@ -284,6 +287,11 @@ bool KernelProperties::TargetDevice() const
 bool KernelProperties::IsTask() const
 {
     return m_bIsTask;
+}
+
+bool KernelProperties::CanUseGlobalWorkOffset() const
+{
+    return m_bCanUseGlobalWorkOffset;
 }
 
 bool KernelProperties::NeedSerializeWGs() const

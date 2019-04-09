@@ -1,6 +1,6 @@
 //=---- OCLPostVect.cpp -*-C++-*----=//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -53,7 +53,7 @@ bool OCLPostVect::runOnModule(Module &M) {
   for (Function *F : Kernels) {
     auto FMD = KernelInternalMetadataAPI(F);
     Function *ClonedKernel = FMD.VectorizedKernel.get();
-    if (!isKernelVectorized(ClonedKernel)) {
+    if (ClonedKernel && !isKernelVectorized(ClonedKernel)) {
       // unset the metadata of the original kernel wh
       MDValueGlobalObjectStrategy::unset(F, "vectorized_kernel");
       // If the kernel is not vectorized, then the cloned kernel is removed.

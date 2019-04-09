@@ -200,6 +200,11 @@ OclBuiltinImpl sincos_pas_svml_rm = OclBuiltinImpl<sincos_pas_rm, math_shared_f3
 OclBuiltinImpl sincos_las_svml_rm = OclBuiltinImpl<sincos_las_rm, math_shared_f32_types, 0, sincos_svml_rm>;
 OclBuiltinImpl sincos_gas_svml_rm = OclBuiltinImpl<sincos_gas_rm, math_shared_f32_types, 0, sincos_svml_rm>;
 
+// divide_rm
+OclBuiltinImpl divide_svml_rm = OclBuiltinImpl<divide_rm, math_shared_f32_types, 0, [{
+    return __ocl_svml_$Target_div$SVMLSuffix_rm($Arg0VarName, $Arg1VarName);
+  }]>;
+
 // fdim scalar
 // scalar implementation is separate from vector because of select() behaviour
 // In scalar case select uses all bits in mask to check if not zero

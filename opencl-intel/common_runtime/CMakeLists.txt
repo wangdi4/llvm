@@ -15,7 +15,7 @@ else (NOT WIN32)
     )
 endif(NOT WIN32)
 
-set( TARGET_NAME "intelopencl${ADDR}${OPENCL_BINARIES_POSTFIX}" )
+set( TARGET_NAME "intelopencl${ADDR}" )
 
 if ( WIN32 AND ( DEFINED ENV{DXSDK_DIR} ) )
     add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)

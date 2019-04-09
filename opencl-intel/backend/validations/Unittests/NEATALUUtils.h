@@ -162,7 +162,7 @@ namespace Validation {
             // if refMin is INF, min should be INF
             if(Utils::IsInf<dT>(refMin)) {
                 res &= Utils::IsInf<dT>(min);
-            } else
+            } else {
                 // if min is denormal, it should be flashed to zero,
                 // otherwise sub ulps
                 if (refMin==0 || Utils::IsDenorm<dT>(refMin)) {
@@ -181,7 +181,7 @@ namespace Validation {
                 // if refMax is INF, max should be INF
                 if(Utils::IsInf<dT>(refMax)) {
                     res &= Utils::IsInf<dT>(max);
-                } else
+                } else {
                     // if max is denormal, it should be flashed to zero,
                     // otherwise add ulps
                     if (refMax==0 || Utils::IsDenorm<dT>(refMax)) {
@@ -196,6 +196,8 @@ namespace Validation {
                         res &= (fabs(diff2) <= error.getUlpsForMax());
                         res &= !error.isAccurateUlps() || (fabs(diff2) >= (error.getUlpsForMax()-diffLimit));
                     }
+                }
+            }
         }
         return res;
     }

@@ -561,14 +561,15 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
         DeviceMode GetDeviceMode() const
         {
             std::string strDeviceMode =
-#ifdef BUILD_FPGA_EMULATOR
-              m_pConfigFile->Read<string>("CL_CONFIG_DEVICES", "fpga-emu");
-#else
               m_pConfigFile->Read<string>("CL_CONFIG_DEVICES", "cpu");
-#endif // BUILD_FPGA_EMULATOR
+
             if ("fpga-emu" == strDeviceMode)
             {
                 return FPGA_EMU_DEVICE;
+            }
+            if ("eyeq-emu" == strDeviceMode)
+            {
+                return EYEQ_EMU_DEVICE;
             }
             return CPU_DEVICE;
         }

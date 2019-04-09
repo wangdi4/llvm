@@ -170,7 +170,7 @@ namespace intel {
     params.push_back(ConstantInt::get(pInt32Type, dimIdx));
     // Function object
     FunctionType *pFuncType = FunctionType::get(m_pSizeT, argTypes, false);
-    Function *pFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(funcName, pFuncType));
+    Function *pFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(funcName, pFuncType).getCallee());
     assert(pFunc && "Non-function object with the same signature identified in the module");
     // Function call
     CallInst *pCall = CallInst::Create(pFunc, ArrayRef<Value*>(params), "WIcall", pBefore);
@@ -370,8 +370,8 @@ namespace intel {
       //      --- get the new function declaration out of built-in module list.
       Function *LibFunc = FindFunctionInModule(newFuncName);
       assert(LibFunc && "WG builtin is not supported in built-in module");
-      Function *pNewFunc = dyn_cast<Function>(
-        CompilationUtils::importFunctionDecl(m_pModule, LibFunc));
+      Function *pNewFunc =
+        CompilationUtils::importFunctionDecl(m_pModule, LibFunc);
       assert(pNewFunc && "Non-function object with the same signature "
                          "identified in the module");
 
@@ -407,8 +407,8 @@ namespace intel {
         //    --- get the new function declaration out of built-in modules list.
         Function *LibFunc = FindFunctionInModule(finalizeFuncName);
         assert(LibFunc && "WG builtin is not supported in built-in module");
-        Function *pFinalizeFunc = dyn_cast<Function>(
-          CompilationUtils::importFunctionDecl(m_pModule, LibFunc));
+        Function *pFinalizeFunc =
+          CompilationUtils::importFunctionDecl(m_pModule, LibFunc);
         assert(pFinalizeFunc && "Non-function object with the same signature identified in the module");
 
         // c. Create call to finalization function object

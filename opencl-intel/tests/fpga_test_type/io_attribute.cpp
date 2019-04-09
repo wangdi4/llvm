@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#include <numeric>
 
 namespace {
   const int SIZE = 10;

@@ -1706,6 +1706,14 @@ cl_err_code NDRangeKernelCommand::Init()
         }
     }
 
+    // Check for uses_global_work_offset(0) m_pDeviceKernel attribute
+    cl_bool blCanUseGlobalWorkOffset = m_pDeviceKernel->CanUseGlobalWorkOffset();
+
+    if (!blCanUseGlobalWorkOffset && nullptr != m_cpszGlobalWorkOffset)
+    {
+        return CL_INVALID_GLOBAL_OFFSET;
+    }
+
     cl_ulong stImplicitSize = m_pDeviceKernel->GetKernelLocalMemSize();
     stImplicitSize += stTotalLocalSize;
     if ( stImplicitSize > m_pDevice->GetMaxLocalMemorySize() )

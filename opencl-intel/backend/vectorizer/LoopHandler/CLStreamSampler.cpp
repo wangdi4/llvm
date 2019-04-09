@@ -436,12 +436,14 @@ Function *CLStreamSampler::getLibraryFunc(Function *LibFunc) {
   // images are opaque types. So, first check if we have the function,
   // and only if we don't, insert it.
   Constant* funcConst = m_M->getFunction(LibFunc->getName());
-  if (!funcConst) {
+  Function *F = nullptr;
+  if (funcConst) {
+    F = dyn_cast<Function>(funcConst);
+  } else {
     using namespace Intel::OpenCL::DeviceBackend;
-    funcConst = CompilationUtils::importFunctionDecl(m_M, LibFunc);
+    F = CompilationUtils::importFunctionDecl(m_M, LibFunc);
   }
-    
-  Function *F = dyn_cast<Function>(funcConst);
+
   assert(F && "failed to insert declaration");
   return F;
 }

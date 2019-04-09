@@ -33,6 +33,7 @@ enum ECPU {
     CPU_CORE2,
     CPU_PENRYN,
     CPU_COREI7,
+    CPU_LKF,
     CPU_SANDYBRIDGE,
     CPU_HASWELL,
     CPU_KNL,
@@ -121,6 +122,7 @@ public:
         if (Name == "skx") return CPU_SKX;
         if (Name == "core-avx2") return CPU_HASWELL;
         if (Name == "corei7-avx") return CPU_SANDYBRIDGE;
+        if (Name == "lkf") return CPU_LKF;
         if (Name == "corei7") return CPU_COREI7;
         if (Name == "penryn") return CPU_PENRYN;
         if (Name == "core2") return CPU_CORE2;
@@ -143,6 +145,8 @@ public:
             return "core2";
         case CPU_PENRYN:
             return "penryn";
+        case CPU_LKF:
+            return "lkf";
         case CPU_COREI7:
             return "corei7";
         case CPU_SANDYBRIDGE:
@@ -181,6 +185,7 @@ public:
                 return "v8";
             case CPU_PENRYN:
                 return "p8";
+            case CPU_LKF:
             case CPU_COREI7:
                 return "n8";
             case CPU_SANDYBRIDGE:
@@ -206,6 +211,7 @@ public:
             return "u8";
         case CPU_PENRYN:
             return "y8";
+        case CPU_LKF:
         case CPU_COREI7:
             return "h8";
         case CPU_SANDYBRIDGE:

@@ -748,10 +748,10 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   }
 
   // Declare function in current module (if not declared already)
-  Constant *scalarFunctionConstant = m_currFunc->getParent()->getOrInsertFunction(
+  FunctionCallee scalarFunctionConstant = m_currFunc->getParent()->getOrInsertFunction(
       scalarFuncName, funcType, funcAttr);
   V_ASSERT(scalarFunctionConstant && "Failed finding or generating function");
-  Function *scalarFunction = dyn_cast<Function>(scalarFunctionConstant);
+  Function *scalarFunction = dyn_cast<Function>(scalarFunctionConstant.getCallee());
   V_ASSERT(scalarFunction && "Function type mismatch, caused a constant expression cast!");
 
   // Argument vectors, to be filled with scalar values (for generating the scalar CALLs)

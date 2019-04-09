@@ -181,7 +181,7 @@ namespace intel {
       std::vector<Type *> args(1, actPar->getType());
 
       FunctionType * fType = FunctionType::get(m_ret, args, false);
-      func = dyn_cast<Function>(M->getOrInsertFunction(name, fType));
+      func = dyn_cast<Function>(M->getOrInsertFunction(name, fType).getCallee());
       assert(func && "Failed creating function");
     }
 

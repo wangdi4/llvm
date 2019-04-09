@@ -63,7 +63,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     m_bTEActivated(false), m_ppExplicitRootDevices(nullptr),
     m_ppAllDevices(nullptr), m_pDeviceIds(nullptr),
     m_pOriginalDeviceIds(nullptr), m_devTypeMask(0),
-    m_pclContextProperties(nullptr), m_fpgaEmulator(false),
+    m_pclContextProperties(nullptr), m_fpgaEmulator(false), m_eyeqEmulator(false),
     m_pfnNotify(nullptr), m_pUserData(nullptr), m_ulMaxMemAllocSize(0),
     m_MemObjectsHeap(nullptr), m_contextModule(contextModule)
 {
@@ -198,6 +198,10 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     if (FPGA_EMU_DEVICE == pOclConfig->GetDeviceMode())
     {
         m_fpgaEmulator = true;
+    }
+    if (EYEQ_EMU_DEVICE == pOclConfig->GetDeviceMode())
+    {
+        m_eyeqEmulator = true;
     }
 
     m_pfnNotify = pfnNotify;

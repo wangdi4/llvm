@@ -102,6 +102,7 @@ protected:
         bool IsBlock() const { return false;}
         bool IsAutorun() const { return false; }
         bool IsTask() const { return false; }
+        bool CanUseGlobalWorkOffset() const { return true; }
         bool NeedSerializeWGs() const { return false; }
         const char* GetKernelAttributes() const { return attributes; }
     protected:

@@ -1657,3 +1657,9 @@
   float3   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincosf3_rm  (float3 a,  float3* c);
   float4   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincosf4_rm  (float4 a,  float4* c);
   float8   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_sincosf8_rm  (float8 a,  float8* c);
+
+  float   __attribute__((intel_ocl_bicc))  __ocl_svml_shared_divf1_rm  (float  a, float  b);
+  float2  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_divf2_rm  (float2  a, float2  b);
+  float3  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_divf3_rm  (float3  a, float3  b);
+  float4  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_divf4_rm  (float4  a, float4  b);
+  float8  __attribute__((intel_ocl_bicc))  __ocl_svml_shared_divf8_rm  (float8  a, float8  b);

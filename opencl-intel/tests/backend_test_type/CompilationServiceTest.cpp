@@ -143,7 +143,7 @@ TEST_F(BackEndTests_CompilationService, DISABLED_BuildProgramSuccess)
     ret = pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     // call BuildProgram with valid parameters - should success
-    ret = pCompileService->BuildProgram(pProgram, &buildOptions);
+    ret = pCompileService->BuildProgram(pProgram, &buildOptions, "");
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     pCompileService->ReleaseProgram(pProgram);
 
@@ -160,7 +160,7 @@ TEST_F(BackEndTests_CompilationService, DISABLED_BuildProgramSuccess)
     ret = pCompileService->CreateProgram(program2.data(), program2.size(), &pProgram2);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     // call BuildProgram with valid parameters - should success
-    ret = pCompileService->BuildProgram(pProgram2, &buildOptions);
+    ret = pCompileService->BuildProgram(pProgram2, &buildOptions, "");
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     pCompileService->ReleaseProgram(pProgram2);
 
@@ -177,7 +177,7 @@ TEST_F(BackEndTests_CompilationService, DISABLED_BuildProgramSuccess)
     ret = pCompileService->CreateProgram(program3.data(), program3.size(), &pProgram3);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     // call BuildProgram with valid parameters - should success
-    ret = pCompileService->BuildProgram(pProgram3, NULL);
+    ret = pCompileService->BuildProgram(pProgram3, NULL, "");
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     pCompileService->ReleaseProgram(pProgram3);
 
@@ -195,7 +195,7 @@ TEST_F(BackEndTests_CompilationService, DISABLED_BuildProgramSuccess)
     ret = pCompileService->CreateProgram(program4.data(), program4.size(), &pProgram4);
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     // call BuildProgram with valid parameters - should success
-    ret = pCompileService->BuildProgram(pProgram4,NULL);
+    ret = pCompileService->BuildProgram(pProgram4,NULL, "");
     EXPECT_EQ(CL_DEV_SUCCESS, ret);
     pCompileService->ReleaseProgram(pProgram4);
 }
@@ -228,14 +228,14 @@ TEST_F(BackEndTests_CompilationService, BuildProgramFailure)
     ret = pCompileService->CreateProgram(program.data(), program.size(), &pProgram);
     EXPECT_NE(CL_DEV_SUCCESS, ret);
     // call BuildProgram with invalid bitcode - should fail
-    ret = pCompileService->BuildProgram(pProgram, NULL);
+    ret = pCompileService->BuildProgram(pProgram, NULL, "");
     EXPECT_NE(CL_DEV_SUCCESS, ret);
 
 
     //-----------------------------------------------------------------
     // test invalid parameters to the actuall BuildProgram call - NULL in pProgram
     // invalid parameters - should fail with no crash
-    ret = pCompileService->BuildProgram(NULL, NULL);
+    ret = pCompileService->BuildProgram(NULL, NULL, "");
     EXPECT_NE(CL_DEV_SUCCESS, ret);
 }
 

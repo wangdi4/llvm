@@ -72,7 +72,8 @@ public:
      *  CL_DEV_BUILD_ALREADY_COMPLETE - if the program has been already compiled
      */
     cl_dev_err_code BuildProgram( ICLDevBackendProgram_* pProgram,
-                                  const ICLDevBackendOptions* pOptions );
+                                  const ICLDevBackendOptions* pOptions,
+                                  const char* pBuildOpts);
 
     /**
      * Dumps the content of the given code container

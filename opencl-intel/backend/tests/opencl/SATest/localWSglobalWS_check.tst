@@ -1,1 +1,1 @@
-RUN: python %s.py -c %s.cfg
+RUN: python %s.py -b SATest -c %s.cfg

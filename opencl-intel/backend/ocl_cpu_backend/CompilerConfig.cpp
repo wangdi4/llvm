@@ -81,6 +81,14 @@ void GlobalCompilerConfig::LoadConfig()
             intel::Statistic::setCurrentStatType(pEnv);
         }
     }
+    if (const char *pEnv = getenv("VOLCANO_EQUALIZER_DUMP"))
+    {
+        intel::Statistic::enableStats();
+        if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
+        {
+            intel::Statistic::setCurrentStatType(pEnv);
+        }
+    }
 #endif // INTEL_PRODUCT_RELEASE
 
 // INTEL VPO BEGIN
@@ -114,6 +122,10 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         m_LLVMOptions += " --channel-depth-emulation-mode="
             + std::to_string(channelDepthEmulationMode);
         m_LLVMOptions += " --remove-fpga-reg --demangle-fpga-pipes";
+    }
+    else if (EYEQ_EMU_DEVICE == m_targetDevice)
+    {
+        m_LLVMOptions += " -eyeq-div-crash-behavior";
     }
 }
 

@@ -240,6 +240,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Return true if context was created with fpga emulator extension.
         cl_bool IsFPGAEmulator() { return m_fpgaEmulator; }
 
+        // Return true if context was created with EyeQ emulator extension.
+        cl_bool IsEyeQEmulator() { return m_eyeqEmulator; }
+
         // get the device object pointers that associated to the context
         SharedPtr<FissionableDevice>* GetDevices(cl_uint* puiNumDevices);
 
@@ -467,6 +470,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_uint                                 m_uiContextPropCount;
 
         cl_bool                                 m_fpgaEmulator;
+        cl_bool                                 m_eyeqEmulator;
 
         logging_fn                              m_pfnNotify; // notify function's pointer
 

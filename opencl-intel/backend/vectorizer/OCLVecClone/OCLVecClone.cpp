@@ -1,6 +1,6 @@
 //=---- OCLVecClone.cpp - Vector function to loop transform -*- C++ -*----=//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -159,6 +159,9 @@ void OCLVecClone::languageSpecificInitializations(Module &M) {
     auto VecTypeHint = MD.VecTypeHint;
     auto VecLenHint = MD.VecLenHint;
     bool EnableVect = true;
+
+    if (isSimpleFunction(F))
+      EnableVect = false;
 
     // Looks for vector type in metadata.
     if (!VecLenHint.hasValue() && VecTypeHint.hasValue()) {

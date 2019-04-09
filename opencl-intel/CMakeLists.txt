@@ -21,6 +21,10 @@ option(USE_GPA "Enable GPA support" OFF)
 option(BACKEND_BUILD_VERIFICATION_LIB "Build back-end validation tools." ON)
 option(ADD_NICE_BE_LIT_TARGETS "Generate cmake targets for launching BE LIT
   tests from each subdirectory separately" ON)
+  option(OPENCL_BE_INCLUDE_TESTS
+  "Generate build targets for OpenCL BE unittest. Defaults to ON.
+  You can use this option to disable the generation of build targets
+  for OpenCL BE LIT tests." ON)
 option(OPENCL_RT_INCLUDE_TESTS
   "Generate build targets for OpenCL RT unittest. Defaults to ON.
   You can use this option to disable the generation of build targets
@@ -56,13 +60,7 @@ if( BUILD_OPENCL_21 )
   add_definitions( -DBUILD_OPENCL_21 )
 endif( BUILD_OPENCL_21 )
 
-if( BUILD_FPGA_EMULATOR )
-  set( OPENCL_BINARIES_POSTFIX "_emu" )
-  add_definitions( -DBUILD_FPGA_EMULATOR  )
-endif( BUILD_FPGA_EMULATOR )
-
-add_definitions( -DOPENCL_BINARIES_POSTFIX="${OPENCL_BINARIES_POSTFIX}"
-                 -DTBB_BINARIES_POSTFIX="${TBB_BINARIES_POSTFIX}"
+add_definitions( -DTBB_BINARIES_POSTFIX="${TBB_BINARIES_POSTFIX}"
                  -D__TBB_NO_IMPLICIT_LINKAGE=1
                  -DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 
@@ -330,6 +328,13 @@ include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
 # Compiler
 add_subdirectory( FrontendDriver )
+
+# Versioning for OclCpuDebugging DLL.
+set(DEBUGGING_DLL_VERSION 9)
+set(DEBUGGING_DLL_NAME OclCpuDebugging)
+add_definitions(-DDEBUGGING_DLL_VERSION=${DEBUGGING_DLL_VERSION})
+add_definitions(-DDEBUGGING_DLL_NAME=${DEBUGGING_DLL_NAME})
+
 add_subdirectory( backend )
 
 # Framework
@@ -361,6 +366,29 @@ add_lit_target(check-ocl-all
   DEPENDS ${LLVM_LIT_DEPENDS} ${LLVM_ADDITIONAL_TEST_TARGETS}
   ARGS ${LLVM_LIT_EXTRA_ARGS}
   )
+
+set(INTEL_DEPLOY_COMPONENTS
+  ocl-clang_compiler${BUILD_PLATFORM}
+  ocl-OclCpuBackEnd${BUILD_PLATFORM}
+  ocl-builtins
+  ocl-svml
+  ocl-OpenCL
+  ocl-intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+  ocl-config
+  ocl-cpu_device${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+  ocl-task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+  ocl-tbb-ext
+  ocl-common_clang
+  ocl-builtins-shared
+  ocl-cl_logger${OPENCL_BINARIES_POSTFIX}
+  ocl-gdb-plugin
+)
+
+if(WIN32)
+  set(INTEL_DEPLOY_COMPONENTS ${INTEL_DEPLOY_COMPONENTS} ocl-${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION})
+endif(WIN32)
+
+set(SUBSTITUTE_LAYOUT OFF)
 
 # This command is used for creating a fake dependency in order to force
 # another command(s) to execute.

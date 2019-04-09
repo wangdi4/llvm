@@ -186,6 +186,73 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
   }
 
   else if (UseAutoGroupSize) {
+    unsigned int globalWorkSizeYZ = 1;
+    for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
+      if (vectorizeOnDim == i){ //skip the dimension on which we vectorized
+        continue;
+      }
+
+      // Calculate global group size on dimensions Y & Z
+      globalWorkSizeYZ *= UniformImplicitArgs->GlobalSize[i];
+    }
+
+    unsigned int globalWorkSizeX = UniformImplicitArgs->GlobalSize[vectorizeOnDim];
+    unsigned int localSizeUpperLimit = min(globalWorkSizeX,
+          m_pProps->GetMaxWorkGroupSize(maxWorkGroupSize, max_wg_private_size));
+    assert(0 < localSizeUpperLimit &&
+           "clEnqueueNDRangeKernel must fail with CL_OUT_OF_RESOURCES earlier.");
+
+    unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
+    assert(minMultiplyFactor &&
+           (minMultiplyFactor & (minMultiplyFactor - 1)) == 0 &&
+           "minMultiplyFactor assumed to be power of 2 that is not zero!");
+    assert(
+        (!m_pProps->IsVectorizedWithTail() ||
+         GetKernelJIT(0)->GetProps()->GetVectorSize() == minMultiplyFactor) &&
+        "GetMinGroupSizeFactorial is not equal to VectorSize!");
+    unsigned int minMultiplyFactorLog = LOG(minMultiplyFactor);
+
+    const unsigned int globalWorkSize = globalWorkSizeX * globalWorkSizeYZ;
+    // These variables hold the max utility of SIMD and work threads
+    const unsigned int workThreadUtils = UniformImplicitArgs->minWorkGroupNum;
+    const unsigned int simdUtilsLog = minMultiplyFactorLog;
+    // Try to assure (if possible) the local-size is a multiply of vector
+    // width.
+    if (((globalWorkSizeX & (minMultiplyFactor - 1)) == 0) &&
+        (localSizeUpperLimit >= minMultiplyFactor)) {
+      globalWorkSizeX = globalWorkSizeX >> minMultiplyFactorLog;
+      localSizeUpperLimit = localSizeUpperLimit >> minMultiplyFactorLog;
+    } else {
+      // SIMD utility was not satisfied
+      minMultiplyFactor = 1;
+      minMultiplyFactorLog = 0;
+    }
+    unsigned int localSizeMaxLimit = localSizeUpperLimit;
+    const bool isLargeGlobalWGsize =
+        ((workThreadUtils << simdUtilsLog) < globalWorkSize);
+    if (isLargeGlobalWGsize) {
+      if (m_pProps->HasGlobalSyncOperation()) {
+        localSizeMaxLimit = min(localSizeMaxLimit, globalWorkSize/(workThreadUtils << simdUtilsLog));
+      } else {
+        localSizeMaxLimit = min(
+             localSizeMaxLimit,
+             // Calculating lower bound for [sqrt(global/(WT*SIMD))*SIMD]
+             // Starting the search from this number improves the chances to
+             // find a local size that satisfies the "balance" factor.
+             // Optimal balanced local size applies the following:
+             // Let,
+             //   X - local size
+             //   Y - number of work groups = (global size / local size)
+             // Then: (X * workThreadUtils) == (Y << simdUtilsLog)
+             ((unsigned int)sqrt((float)(globalWorkSize/(workThreadUtils << simdUtilsLog)))) << (simdUtilsLog-minMultiplyFactorLog) );
+      }
+    } else {
+      //In this case we have few work-items, try satisfy as much as possible of work threads.
+      const unsigned int workGroupNumMinLimit = (workThreadUtils + (globalWorkSizeYZ-1)) / globalWorkSizeYZ;
+      localSizeMaxLimit = max(1, localSizeMaxLimit / workGroupNumMinLimit);
+    }
+    assert(localSizeMaxLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
+
     // Try hint size, find GCD for each dimension
     if (m_pProps->GetHintWGSize()[0] != 0) {
       for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
@@ -195,7 +262,7 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
       }
     }
     // If we have only one thread for execution
-    else if (1 == numOfComputeUnits) {
+    else if (1 == numOfComputeUnits && globalWorkSize <= localSizeMaxLimit) {
       // Make local size == global size
       auto GlobalSizeBegin = UniformImplicitArgs->GlobalSize;
       auto GlobalSizeEnd =
@@ -217,75 +284,15 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
       //}
 
       // New Heuristic
-      unsigned int globalWorkSizeYZ = 1;
       for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
         if (vectorizeOnDim == i){ //skip the dimension on which we vectorized
           continue;
         }
 
-        // Calculate global group size on dimensions Y & Z
-        globalWorkSizeYZ *= UniformImplicitArgs->GlobalSize[i];
         // Set local group size on dimensions Y & Z to 1
         UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] =
         UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i]  = 1;
       }
-
-      unsigned int globalWorkSizeX = UniformImplicitArgs->GlobalSize[vectorizeOnDim];
-      unsigned int localSizeUpperLimit = min(globalWorkSizeX,
-            m_pProps->GetMaxWorkGroupSize(maxWorkGroupSize, max_wg_private_size));
-      assert(0 < localSizeUpperLimit &&
-             "clEnqueueNDRangeKernel must fail with CL_OUT_OF_RESOURCES earlier.");
-
-      unsigned int minMultiplyFactor = m_pProps->GetMinGroupSizeFactorial();
-      assert(minMultiplyFactor &&
-             (minMultiplyFactor & (minMultiplyFactor - 1)) == 0 &&
-             "minMultiplyFactor assumed to be power of 2 that is not zero!");
-      assert(
-          (!m_pProps->IsVectorizedWithTail() ||
-           GetKernelJIT(0)->GetProps()->GetVectorSize() == minMultiplyFactor) &&
-          "GetMinGroupSizeFactorial is not equal to VectorSize!");
-      unsigned int minMultiplyFactorLog = LOG(minMultiplyFactor);
-
-      const unsigned int globalWorkSize = globalWorkSizeX * globalWorkSizeYZ;
-      // These variables hold the max utility of SIMD and work threads
-      const unsigned int workThreadUtils = UniformImplicitArgs->minWorkGroupNum;
-      const unsigned int simdUtilsLog = minMultiplyFactorLog;
-      // Try to assure (if possible) the local-size is a multiply of vector
-      // width.
-      if (((globalWorkSizeX & (minMultiplyFactor - 1)) == 0) &&
-          (localSizeUpperLimit >= minMultiplyFactor)) {
-        globalWorkSizeX = globalWorkSizeX >> minMultiplyFactorLog;
-        localSizeUpperLimit = localSizeUpperLimit >> minMultiplyFactorLog;
-      } else {
-        // SIMD utility was not satisfied
-        minMultiplyFactor = 1;
-        minMultiplyFactorLog = 0;
-      }
-      unsigned int localSizeMaxLimit = localSizeUpperLimit;
-      const bool isLargeGlobalWGsize =
-          ((workThreadUtils << simdUtilsLog) < globalWorkSize);
-      if (isLargeGlobalWGsize) {
-        if (m_pProps->HasGlobalSyncOperation()) {
-          localSizeMaxLimit = min(localSizeMaxLimit, globalWorkSize/(workThreadUtils << simdUtilsLog));
-        } else {
-          localSizeMaxLimit = min(
-               localSizeMaxLimit,
-               // Calculating lower bound for [sqrt(global/(WT*SIMD))*SIMD]
-               // Starting the search from this number improves the chances to
-               // find a local size that satisfies the "balance" factor.
-               // Optimal balanced local size applies the following:
-               // Let,
-               //   X - local size
-               //   Y - number of work groups = (global size / local size)
-               // Then: (X * workThreadUtils) == (Y << simdUtilsLog)
-               ((unsigned int)sqrt((float)(globalWorkSize/(workThreadUtils << simdUtilsLog)))) << (simdUtilsLog-minMultiplyFactorLog) );
-        }
-      } else {
-        //In this case we have few work-items, try satisfy as much as possible of work threads.
-        const unsigned int workGroupNumMinLimit = (workThreadUtils + (globalWorkSizeYZ-1)) / globalWorkSizeYZ;
-        localSizeMaxLimit = max(1, localSizeMaxLimit / workGroupNumMinLimit);
-      }
-      assert(localSizeMaxLimit <= globalWorkSizeX && "global size in dim X must be upper bound for local size");
       //Search for max local size that satisfies the constraints
       unsigned int newHeuristic = localSizeMaxLimit;
       for (; newHeuristic>1; newHeuristic--) {

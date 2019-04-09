@@ -291,7 +291,7 @@ protected:
 class TestChannelDepthEmulationWithEmptyEnv : public TestChannelDepthEmulation {
 };
 
-enum ChannelDepthMode { STRICT, DEFAULT, IGNOREDEPTH };
+enum ChannelDepthMode { STRICT_MODE, DEFAULT_MODE, IGNOREDEPTH_MODE };
 
 template <ChannelDepthMode mode, bool vpo>
 class TestChannelDepthEmulationEnvHelper : public TestChannelDepthEmulation {
@@ -300,13 +300,13 @@ protected:
 
   void SetUp() override {
     switch (mode) {
-    case STRICT:
+    case STRICT_MODE:
       SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "strict");
       break;
-    case DEFAULT:
+    case DEFAULT_MODE:
       SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "default");
       break;
-    case IGNOREDEPTH:
+    case IGNOREDEPTH_MODE:
       SETENV("CL_CONFIG_CHANNEL_DEPTH_EMULATION_MODE", "ignore-depth");
       break;
     }
@@ -320,17 +320,17 @@ protected:
 };
 
 class TestChannelDepthEmulationWithStrictEnv
-    : public TestChannelDepthEmulationEnvHelper<STRICT, false> {};
+    : public TestChannelDepthEmulationEnvHelper<STRICT_MODE, false> {};
 class TestChannelDepthEmulationWithDefaultEnv
-    : public TestChannelDepthEmulationEnvHelper<DEFAULT, false> {};
+    : public TestChannelDepthEmulationEnvHelper<DEFAULT_MODE, false> {};
 class TestChannelDepthEmulationWithIgnoreDepthEnv
-    : public TestChannelDepthEmulationEnvHelper<IGNOREDEPTH, false> {};
+    : public TestChannelDepthEmulationEnvHelper<IGNOREDEPTH_MODE, false> {};
 class TestChannelDepthEmulationVPOWithStrictEnv
-    : public TestChannelDepthEmulationEnvHelper<STRICT, true> {};
+    : public TestChannelDepthEmulationEnvHelper<STRICT_MODE, true> {};
 class TestChannelDepthEmulationVPOWithDefaultEnv
-    : public TestChannelDepthEmulationEnvHelper<DEFAULT, true> {};
+    : public TestChannelDepthEmulationEnvHelper<DEFAULT_MODE, true> {};
 class TestChannelDepthEmulationVPOWithIgnoreDepthEnv
-    : public TestChannelDepthEmulationEnvHelper<IGNOREDEPTH, true> {};
+    : public TestChannelDepthEmulationEnvHelper<IGNOREDEPTH_MODE, true> {};
 
 TEST_F(TestChannelDepthEmulationWithEmptyEnv, ChannelsWithDepth) {
   std::vector<cl_int> data(129);

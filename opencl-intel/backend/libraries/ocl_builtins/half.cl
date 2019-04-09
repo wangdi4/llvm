@@ -1,3 +1,4 @@
+#ifdef cl_khr_fp16
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
 #define __truncXfYf2__ truncdfhf2
@@ -25,6 +26,6 @@
 half convert_halfd(double d) {
   return as_half(truncdfhf2(as_ulong(d)));
 }
-
-
-
+#else // cl_khr_fp16
+// Do nothing in case of cl_khr_fp16 is not supported on the set platform
+#endif // cl_khr_fp16

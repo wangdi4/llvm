@@ -119,7 +119,7 @@ namespace intel {
     } else {
       std::string newFuncName = getResolvedMangledName(funcName, resolvedSpaces, &originalSpaces);
       FunctionType *pNewFuncType = FunctionType::get(pCallInstr->getType(), argTypes, false);
-      pNewFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(newFuncName, pNewFuncType));
+      pNewFunc = dyn_cast<Function>(m_pModule->getOrInsertFunction(newFuncName, pNewFuncType).getCallee());
     }
     assert(pNewFunc && "Non-function object with the same signature identified in the module");
     pNewFunc->setAttributes(pCallee->getAttributes());

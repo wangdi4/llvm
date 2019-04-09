@@ -12,7 +12,7 @@
 ; Compile options:
 ;   -cc1 -cl-std=CL2.0 -x cl -emit-llvm -debug-info-kind=limited -dwarf-version=4 -O2 -disable-llvm-passes -finclude-default-header %s
 ; Optimizer options:
-;   %oclopt -spir-materializer -verify %s -S
+;   %oclopt -llvm-equalizer -verify %s -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -B-DuplicateCalledKernels -verify %s -S | FileCheck %s
 

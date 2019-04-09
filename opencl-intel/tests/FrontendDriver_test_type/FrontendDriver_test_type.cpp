@@ -56,61 +56,6 @@ TEST_F(ClangCompilerTestType, Test_PlainSpirvConversion)
                                       << "            message: " << pModuleOrError.getError().message() << "\n";
 }
 
-TEST_F(ClangCompilerTestType, Test_ValidSpirvProgramCompileOptions)
-// parse a spir-v program and check output llvm::Module for build options metadata
-{
-    std::vector<std::string> expected_options_vector;
-    expected_options_vector.push_back("-cl-kernel-arg-info");
-    expected_options_vector.push_back("-cl-opt-disable");
-
-    std::string build_options;
-
-    for (auto s : expected_options_vector)
-        build_options += s + " ";
-
-    FESPIRVProgramDescriptor spirvDesc = GetTestFESPIRVProgramDescriptor(build_options.c_str());
-
-    int err = GetFECompiler()->ParseSPIRV(&spirvDesc, &m_binary_result);
-    ASSERT_FALSE(err) << "Could not parse SPIR-V binary.\nThe log:" << m_binary_result->GetErrorLog() << "\n";
-
-    auto pModuleOrError = ExtractModule(m_binary_result);
-
-    ASSERT_TRUE(bool(pModuleOrError)) << "Module LLVM error: " << pModuleOrError.getError().value() << "\n"
-                                      << "            message: " << pModuleOrError.getError().message() << "\n";
-
-    std::unique_ptr<llvm::Module> pModule(std::move(pModuleOrError.get()));
-
-    llvm::NamedMDNode *OCLCompOptsMD = pModule->getNamedMetadata(SPIR_OPTIONS_METADATA);
-    ASSERT_TRUE(OCLCompOptsMD->getNumOperands() == 1) <<
-        "Module does not contain \"" << SPIR_OPTIONS_METADATA << "\" metadata.\n";
-
-    llvm::MDNode* option_node_list = OCLCompOptsMD->getOperand(0);
-    ASSERT_TRUE(option_node_list) << "\"" << SPIR_OPTIONS_METADATA << "\" does not contain a required node.\n";
-
-    ASSERT_EQ(expected_options_vector.size(), option_node_list->getNumOperands())
-        << "Number of options in \"" << SPIR_OPTIONS_METADATA << "\" is unexpected.\n";
-
-    std::vector<std::string> actual_options_vector;
-    for(unsigned i = 0; i < option_node_list->getNumOperands(); ++i)
-    {
-        llvm::MDString* option_name = llvm::dyn_cast<llvm::MDString>(option_node_list->getOperand(i));
-
-        ASSERT_TRUE(option_name) << "\"" << SPIR_OPTIONS_METADATA << "\" contains smth besides the MDStrings.\n";
-
-        auto option_found = std::string(option_name->getString());
-
-        actual_options_vector.push_back(option_found);
-    }
-
-    for(auto expected_option : expected_options_vector)
-    {
-        auto option_found_iter = std::find(actual_options_vector.begin(), actual_options_vector.end(), expected_option);
-
-        ASSERT_FALSE(option_found_iter == actual_options_vector.end())
-            << "Expected option not found in \"" << SPIR_OPTIONS_METADATA << "\" metadata.\n";
-    }
-}
-
 TEST_F(ClangCompilerTestType, Test_RejectInvalidCompileOption)
 // pass an invalid option and see the parsing rejected
 {

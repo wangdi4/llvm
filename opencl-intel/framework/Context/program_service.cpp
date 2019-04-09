@@ -184,6 +184,7 @@ bool CompileTask::Execute()
                                               m_pszHeadersNames,
                                               m_sOptions.c_str(),
                                               m_pProg->GetContext()->IsFPGAEmulator(),
+                                              m_pProg->GetContext()->IsEyeQEmulator(),
                                               pOutBinary.getOutPtr(),
                                               &uiOutBinarySize,
                                               szOutCompileLog.getOutPtr());
@@ -438,6 +439,34 @@ DeviceBuildTask::DeviceBuildTask(_cl_context_int*           context,
 BuildTask(context, pProg, NULL),
 m_pDeviceProgram(pDeviceProgram), m_sOptions(szOptions)
 {
+    if (m_pProg->GetContext()->IsEyeQEmulator())
+    {
+        static const std::string unsafe_math_strs[] = {
+            "-cl-mad-enable",
+            "-cl-no-signed-zeros",
+            "-cl-unsafe-math-optimizations",
+            "-cl-finite-math-only",
+            "-cl-fast-relaxed-math"
+        };
+        for (unsigned int i = 0;
+             i < sizeof(unsafe_math_strs)/sizeof(unsafe_math_strs[0]);
+             ++i)
+        {
+            std::string const &unsafe_math_str = unsafe_math_strs[i];
+            for (std::size_t unsafe_math_str_pos = m_sOptions.find(unsafe_math_str) ;
+                 unsafe_math_str_pos != std::string::npos ;
+                 unsafe_math_str_pos = m_sOptions.find(unsafe_math_str))
+            {
+                m_sOptions.erase(unsafe_math_str_pos, unsafe_math_str.length());
+            }
+        }
+        static const std::string denorms_are_zero = "-cl-denorms-are-zero";
+        if (m_sOptions.find(denorms_are_zero) == std::string::npos)
+        {
+            m_sOptions += " ";
+            m_sOptions += denorms_are_zero;
+        }
+    }
 }
 
 DeviceBuildTask::~DeviceBuildTask()

@@ -16,6 +16,7 @@ bool GetEnv(std::string& result, const std::string& name);
 std::string get_exe_dir(unsigned int pid = 0);
 
 #if defined(_WIN32)
+#define NOMINMAX
 #include <windows.h>
 #define SETENV(NAME,VALUE)      (_putenv_s(NAME,VALUE) == 0)
 #define UNSETENV(NAME)          (_putenv_s(NAME,"") == 0)

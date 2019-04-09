@@ -17,11 +17,11 @@
 ///////////////////////////////////////////////////////////
 
 #pragma comment(lib, "cl_sys_utils.lib")
-#pragma comment(lib, "cl_logger" OPENCL_BINARIES_POSTFIX ".lib")
+#pragma comment(lib, "cl_logger.lib")
 #ifdef _M_X64
-#define TASK_EXECUTOR_LIB_NAME "task_executor64" OPENCL_BINARIES_POSTFIX ".dll"
+#define TASK_EXECUTOR_LIB_NAME "task_executor64.dll"
 #else
-#define TASK_EXECUTOR_LIB_NAME "task_executor32" OPENCL_BINARIES_POSTFIX ".dll"
+#define TASK_EXECUTOR_LIB_NAME "task_executor32.dll"
 #endif
 
 #include "cpu_device.h"

@@ -13872,6 +13872,13 @@
   float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_sincosf8_rm(float8 a, float8 * b);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_h8_sincosf16_rm(float16 a, float16 * b);
 
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_h8_divf1_rm(float  a,  float  b);
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_divf2_rm(float2  a,  float2  b);
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_divf3_rm(float3  a,  float3  b);
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_divf4_rm(float4  a,  float4  b);
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_divf8_rm(float8  a,  float8  b);
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_h8_divf16_rm(float16  a,  float16  b);
+
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_u8_cosf16_rm (float16 a);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_u8_exp10f16_rm (float16 a);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_u8_exp2f16_rm (float16 a);
@@ -13906,6 +13913,13 @@
   float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf8_rm(float8 a, float8 * b);
   float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_sincosf16_rm(float16 a, float16 * b);
 
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_e9_divf1_rm(float  a,  float  b);
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_divf2_rm(float2  a,  float2  b);
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_divf3_rm(float3  a,  float3  b);
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_divf4_rm(float4  a,  float4  b);
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_divf8_rm(float8  a,  float8  b);
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_e9_divf16_rm(float16  a,  float16  b);
+
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_l9_cosf16_rm (float16 a);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_l9_exp10f16_rm (float16 a);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_l9_exp2f16_rm (float16 a);
@@ -13922,6 +13936,13 @@
   float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf4_rm(float4 a, float4 * b);
   float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf8_rm(float8 a, float8 * b);
   float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_sincosf16_rm(float16 a, float16 * b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_l9_divf1_rm(float  a,  float  b);
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_divf2_rm(float2  a,  float2  b);
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_divf3_rm(float3  a,  float3  b);
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_divf4_rm(float4  a,  float4  b);
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_divf8_rm(float8  a,  float8  b);
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_l9_divf16_rm(float16  a,  float16  b);
 
   //////////////////////////////////
   /// KNL

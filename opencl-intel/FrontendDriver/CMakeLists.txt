@@ -89,7 +89,7 @@ add_opencl_library (${TARGET_NAME} SHARED
       ${INCLUDE_DIRS}
 
     COMPONENTS
-      cl_logger${OPENCL_BINARIES_POSTFIX}
+      cl_logger
 
     LINK_LIBS
       ${COMMON_CLANG_LIB}

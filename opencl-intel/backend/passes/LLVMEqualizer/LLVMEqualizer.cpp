@@ -12,7 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "Materialize.h"
+#include "LLVMEqualizer.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
@@ -31,9 +31,6 @@
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 
 #include <algorithm>
-
-// TODO: get better name to this pass.
-// SPIR materialization now happens in front-end.
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -173,15 +170,15 @@ public:
 
         // Blocking built-ins differ from non blocking only by name, so we
         // import a non-blocking function to get a declaration ...
-        NewF = cast<Function>(
+        NewF =
             CompilationUtils::importFunctionDecl(
                 M, PipesModule->getFunction(
-                    CompilationUtils::getPipeName(NonBlockingKind))));
+                    CompilationUtils::getPipeName(NonBlockingKind)));
         // ... and change it's name.
         NewF->setName(CompilationUtils::getPipeName(Kind));
       } else {
-        NewF = cast<Function>(CompilationUtils::importFunctionDecl(
-                                  M, PipesModule->getFunction(NewFName)));
+        NewF = CompilationUtils::importFunctionDecl(
+                                  M, PipesModule->getFunction(NewFName));
       }
     }
 
@@ -334,21 +331,21 @@ static void FormOpenCLKernelsMetadata(Module &M) {
   KernelList(&M).set(kernels);
 }
 
-// SpirMaterializer
+// LLVMEqualizer
 
-char SpirMaterializer::ID = 0;
+char LLVMEqualizer::ID = 0;
 
-OCL_INITIALIZE_PASS_BEGIN(SpirMaterializer, "", "", false, true)
+OCL_INITIALIZE_PASS_BEGIN(LLVMEqualizer, "", "", false, true)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
-OCL_INITIALIZE_PASS_END(SpirMaterializer, "spir-materializer",
+OCL_INITIALIZE_PASS_END(LLVMEqualizer, "llvm-equalizer",
   "Prepares SPIR modules for BE consumption.",
   false, // Not CGF only pass.
   true
 )
 
-SpirMaterializer::SpirMaterializer() : ModulePass(ID) {}
+LLVMEqualizer::LLVMEqualizer() : ModulePass(ID) {}
 
-bool SpirMaterializer::runOnModule(llvm::Module &Module) {
+bool LLVMEqualizer::runOnModule(llvm::Module &Module) {
   bool Ret = false;
 
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
@@ -373,7 +370,7 @@ bool SpirMaterializer::runOnModule(llvm::Module &Module) {
 }
 
 extern "C" {
-llvm::ModulePass *createSpirMaterializer() {
-  return new intel::SpirMaterializer();
+llvm::ModulePass *createLLVMEqualizerPass() {
+  return new intel::LLVMEqualizer();
 }
 }

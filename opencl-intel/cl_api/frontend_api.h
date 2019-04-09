@@ -65,6 +65,8 @@ struct FECompileProgramDescriptor
     const char*     pszOptions;
     // Fpga emulator indicator
     bool            bFpgaEmulator;
+    // EyeQ emulator indicator
+    bool            bEyeQEmulator;
 };
 
 // Link task descriptor, contains FE Linking info

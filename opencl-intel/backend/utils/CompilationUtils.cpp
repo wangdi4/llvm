@@ -633,28 +633,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
-  StringRef CompilationUtils::fetchCompilerOption(const Module &M, char const* prefix) {
-    /*
-    Examples of the metadata:
-
-    !opencl.compiler.options = !{!0}
-    !0 = !{!"-cl-std=CL2.0"}
-
-    !opencl.compiler.options = !{!9}
-    !9 = !{!"-cl-fast-relaxed-math", !"-cl-std=CL2.0"}
-    */
-
-    auto options = ModuleMetadataAPI(const_cast<llvm::Module*>(&M)).CompilerOptionsList;
-
-    if(options.hasValue()) {
-      for (StringRef option : options) {
-        if(option.startswith(prefix)) return option;
-      }
-    }
-
-    return StringRef();
-  }
-
 Function *CompilationUtils::AddMoreArgsToFunc(
     Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
     ArrayRef<AttributeSet> NewAttrs, StringRef Prefix) {
@@ -1368,8 +1346,8 @@ ChannelKind CompilationUtils::getChannelKind(const std::string &Name) {
   return Kind;
 }
 
-Constant *CompilationUtils::importFunctionDecl(Module *Dst,
-                                               const Function *Orig) {
+Function *CompilationUtils::importFunctionDecl(Module *Dst,
+                                                    const Function *Orig) {
   assert(Dst && "Invalid module");
   assert(Orig && "Invalid function");
 
@@ -1401,8 +1379,8 @@ Constant *CompilationUtils::importFunctionDecl(Module *Dst,
                                    NewArgTypes,
                                    Orig->isVarArg());
 
-  return Dst->getOrInsertFunction(
-    Orig->getName(), NewFnType, Orig->getAttributes());
+  return cast<Function>(Dst->getOrInsertFunction(
+    Orig->getName(), NewFnType, Orig->getAttributes()).getCallee());
 }
 
 StringRef CompilationUtils::stripStructNameTrailingDigits(StringRef TyName) {

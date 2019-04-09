@@ -36,7 +36,7 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    ResolveWICall() : ModulePass(ID) {}
+    ResolveWICall(bool isUniformWG = false);
 
     /// @brief Provides name of pass
     virtual llvm::StringRef getPassName() const {
@@ -185,7 +185,7 @@ namespace intel {
     unsigned m_oclVersion;
     // true if a module is compiled with the support of the
     // non-uniform work-group size.
-    bool     m_nonUniformLocalSize;
+    bool     m_uniformLocalSize;
   };
 
 

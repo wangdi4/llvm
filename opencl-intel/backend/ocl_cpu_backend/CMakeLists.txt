@@ -73,7 +73,8 @@ if (WIN32)
     set( CMAKE_ASM_FLAGS /c /nologo /W3 /Zi /errorReport:prompt)
     set( CMAKE_ASM_INCLUDE_DIR_FLAG   /I )
     set( CMAKE_ASM_OUTPUT_NAME_FLAG   /Fo )
-    set( CMAKE_ASM_COMPILER "$(VCInstallDir)bin/x86_amd64/ml64.exe")
+    get_filename_component( CMAKE_ASM_COMPILER_DIR ${CMAKE_CXX_COMPILER} DIRECTORY )
+    set ( CMAKE_ASM_COMPILER "${CMAKE_ASM_COMPILER_DIR}/ml64.exe" )
     set( CMAKE_ASM_LINK_FLAG "/nologo")
 
 endif (WIN32)
@@ -252,8 +253,8 @@ set( BACKEND_PASSES
     Prefetch
     SubGroupAdaptation
     LinearIdResolver
-    Materialize
     ResolveBlockToStaticCall
+    LLVMEqualizer
     PatchCallbackArgs
     SinCosFold
     SmartGVN

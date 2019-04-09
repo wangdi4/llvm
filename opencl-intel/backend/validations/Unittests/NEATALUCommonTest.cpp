@@ -868,8 +868,9 @@ TYPED_TEST(NEATCommonTestOneArg, sign)
         for(uint32_t i = 0; i < this->vectorWidth; ++i) {
             refAccValFloat = RefALU::sign(*x[i].GetAcc<TypeP>());
             EXPECT_TRUE(testVec[i].IsAcc());
-            if (testVec[i].IsAcc())
+            if (testVec[i].IsAcc()) {
                 EXPECT_TRUE(Utils::eq(refAccValFloat, *testVec[i].GetAcc<TypeP>()));
+            }
         }
 
         // Test interval value

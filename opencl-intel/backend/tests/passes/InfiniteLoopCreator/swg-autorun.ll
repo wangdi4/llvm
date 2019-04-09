@@ -13,7 +13,7 @@
 ; ----------------------------------------------------
 ; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; ----------------------------------------------------
-; Opt passes: -spir-materializer
+; Opt passes: -llvm-equalizer
 ; ----------------------------------------------------
 ; Only single work-item (with max_global_work_dim(0) kernel attribute) kernels
 ; should be wrapped by while (true). Check that pass doesn't change the IR

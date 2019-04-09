@@ -136,6 +136,10 @@ bool CPUDetect::isCannonlake()
     return m_cpuArch == CNL;
 }
 
+bool CPUDetect::isLakefield()
+{
+    return m_cpuArch == LKF;
+}
 bool CPUDetect::isIcelake()
 {
     return m_cpuArch == ICL;
@@ -254,6 +258,9 @@ CPUDetect::CPUDetect(void) :
         case 0x706D:// ICL DT-Halo
         case 0x706E:// ICL Mobile
             m_cpuArch = ICL;
+            break;
+        case 0x806A:// LKF
+            m_cpuArch = LKF;
             break;
         case 0x506C:// BXT A stepping?
             m_cpuArch = BXT;

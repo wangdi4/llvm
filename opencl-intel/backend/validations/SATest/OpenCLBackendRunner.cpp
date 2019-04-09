@@ -120,7 +120,7 @@ void OpenCLBackendRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
     if (runConfig->GetValue<bool>(RC_BR_STOP_BEFORE_JIT, false))
       buildProgramOptions.SetStopBeforeJIT();
 
-    cl_int ret = pCompileService->BuildProgram(pProgram, &buildProgramOptions);
+    cl_int ret = pCompileService->BuildProgram(pProgram, &buildProgramOptions, "");
     LLVM_DEBUG(llvm::dbgs() << "Build program finished.\n");
     buildTime.Stop();
 

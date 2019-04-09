@@ -1,5 +1,5 @@
 # Checks SATest will fail with specific error output
-# RUN: python %s.py -c %s.cfg
+# RUN: python %s.py -b SATest -c %s.cfg
 
 import os, subprocess
 from optparse import OptionParser
@@ -15,9 +15,10 @@ if sys.version_info < (2, 7):
 
 parser = OptionParser()
 parser.add_option("-c", dest="config",    default=None)
+parser.add_option("-b", dest="binary",    default=None)
 
 (options, args) = parser.parse_args()
-execstr = "SATest"
+execstr = options.binary
 confstr = "-config=" + options.config
 
 try:

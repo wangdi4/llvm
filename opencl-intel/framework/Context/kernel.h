@@ -115,6 +115,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          GetArgumentOffset() const { return m_sKernelPrototype.m_dispatchBufferProperties.argumentOffset;}
         size_t          GetKernelArgBufferAlignment() const { return m_sKernelPrototype.m_dispatchBufferProperties.alignment;}
         bool            IsTask() const { return m_bIsTask; }
+        bool            CanUseGlobalWorkOffset() const { return m_bCanUseGlobalWorkOffset; }
 
     private:
         bool            CacheRequiredInfo();
@@ -138,6 +139,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_ulong                                m_CL_KERNEL_LOCAL_MEM_SIZE;
         cl_bool                                 m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT;
         cl_bool                                 m_bIsTask;
+        cl_bool                                 m_bCanUseGlobalWorkOffset;
 
         // logger client
         DECLARE_LOGGER_CLIENT;

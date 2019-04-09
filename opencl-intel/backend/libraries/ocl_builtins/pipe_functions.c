@@ -28,6 +28,7 @@
 
 #if __OPENCL_C_VERSION__ >= 200
 
+// TODO : This macro is not defined in spec. It can be removed.
 #define __PIPE_RESERVE_ID_VALID_BIT (1U << 30)
 
 #define ALWAYS_INLINE __attribute__((always_inline))
@@ -228,7 +229,7 @@ reserve_id_t __reserve_read_pipe(read_only pipe uchar pipe_, uint num_packets,
       }
     }
 
-    if (RTOS(retVal) == 0) {
+    if (RTOS(retVal) == RTOS(CLK_NULL_RESERVE_ID)) {
       intel_unlock_pipe_read(p);
     }
     // Else: note, no unlock!  The pipe will be unlocked as part of committing
@@ -291,7 +292,7 @@ reserve_id_t __reserve_write_pipe(write_only pipe uchar pipe_, uint num_packets,
       }
     }
 
-    if (RTOS(retVal) == 0) {
+    if (RTOS(retVal) == RTOS(CLK_NULL_RESERVE_ID)) {
       intel_unlock_pipe_write(p);
     }
     // Otherwise, note: No unlock!  The pipe will be unlocked as part of
@@ -491,7 +492,8 @@ int __write_pipe_2(write_only pipe uchar pipe_, void* data, uint size_of_packet,
 }
 
 bool OVERLOADABLE is_valid_reserve_id(reserve_id_t reserve_id) {
-  return (RTOS(reserve_id) & __PIPE_RESERVE_ID_VALID_BIT) != 0;
+  // Valid bit is 1U << 30. This means all valid id is less than 5U << 28.
+  return RTOS(reserve_id) < (5U << 28);
 }
 
 /////////////////////////////////////////////////////////////////////

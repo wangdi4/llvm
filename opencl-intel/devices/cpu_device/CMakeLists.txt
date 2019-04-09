@@ -5,7 +5,7 @@
 #
 
 # set that name of the main output file as a target name
-set( TARGET_NAME cpu_device${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} )
+set( TARGET_NAME cpu_device${BUILD_PLATFORM} )
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCLDEVICE_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
@@ -78,8 +78,8 @@ add_opencl_library (${TARGET_NAME} SHARED
     ${TARGET_SOURCES}
 
     COMPONENTS
-      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
-      cl_logger${OPENCL_BINARIES_POSTFIX}
+      task_executor${BUILD_PLATFORM}
+      cl_logger
 
     LINK_LIBS
       ${HW_UTILS_PROJ_NAME}

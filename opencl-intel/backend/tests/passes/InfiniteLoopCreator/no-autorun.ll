@@ -5,7 +5,7 @@
 ; ----------------------------------------------------
 ; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
-; Opt passes: -spir-materializer -kernel-analysis
+; Opt passes: -llvm-equalizer -kernel-analysis
 ; ----------------------------------------------------
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -verify %s -S > %t1.ll
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -infinite-loop-creator -verify %s -S > %t2.ll

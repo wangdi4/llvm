@@ -13,7 +13,7 @@
 ; Compile options:
 ;   -cc1 -cc1 -cl-std=CL2.0 -x cl -emit-llvm -triple=spir64-unknown-unknown -debug-info-kind=limited -O0 -D__OPENCL_C_VERSION__=200 -finclude-default-header -disable-O0-optnone
 ; Optimizer options:
-;   %oclopt -spir-materializer -verify %s -S
+;   %oclopt -llvm-equalizer -verify %s -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -generic-addr-static-resolution -verify -S %s | FileCheck %s
 

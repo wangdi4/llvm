@@ -59,6 +59,7 @@ bool clBuildWithCL11option();
 bool clLinkProgramTest();
 bool clCreateKernelTest(openBcFunc pFunc);
 bool clExecutionTest();
+void clGetProgramBuildInfoTest();
 bool clCreateBufferTest();
 bool clCreateSubBufferTest();
 bool clEnqueueRWBuffer();

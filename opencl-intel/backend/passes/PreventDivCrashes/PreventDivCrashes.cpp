@@ -37,6 +37,11 @@ extern "C" {
   }
 }
 
+// Add command line to specify EyeQ device behavior
+static llvm::cl::opt<bool> EyeQDivCrashBehavior(
+    "eyeq-div-crash-behavior", llvm::cl::init(false),
+    llvm::cl::desc("The flag indicates that bad integer divisions (e.g. 1/0) should behave"
+                   "As they would in an EyeQ device"));
 
 namespace intel {
 
@@ -96,6 +101,10 @@ namespace intel {
     //        This prevent division by zero.
     // If one of the above comparisons is true the function replace the divisor with 1, so that we won't crash.
 
+    // For EyeQ devices (for EyeQ bit exactness) return 0 for division by zero
+    // (Replace dividend by 0 in addition to replacing divisor by 1).
+
+
     // Example:
 
     // %div = sdiv i32 %conv2, %conv
@@ -109,6 +118,16 @@ namespace intel {
     // %isDivisorBad        =   or i1 %isIntegerOverflow, %isDivisorZero
     // %newiDvisor          =   select i1 %isDivisorBad, i32 1, i32 %1
     // %div                 =   sdiv i32 %0, %newiDvisor
+
+    // For EyeQ devices will transfer to:
+    // %isDivisorNegOne     =   icmp eq i32 %1, -1
+    // %isDividendMinInt    =   icmp eq i32 %0, -2147483648
+    // %isIntegerOverflow   =   and i1 %isDivisorNegOne, %isDividendMinInt
+    // %isDivisorZero       =   icmp eq i32 %1, 0
+    // %isDivisorBad        =   or i1 %isIntegerOverflow, %isDivisorZero
+    // %newDivisor          =   select i1 %isDivisorBad, i32 1, i32 %1
+    // %newDividend         =   select i1 %isDivisorZero, i32 0, i32 %0
+    // %div                 =   sdiv i32 %newDividend, %newiDvisor
 
     for (unsigned i=0; i< m_divInstuctions.size(); ++i) {
 
@@ -133,14 +152,14 @@ namespace intel {
 
       assert(divisorElemType->isIntegerTy() && "Unexpected divisor element type");
 
+      // Get dividend
+      Value* dividend = divInst->getOperand(DIVIDEND_POSITION);
+
       // Create a false value (or false vector) that will correspond to the divisor type
       Value* isIntegerOverflow = ConstantInt::getFalse(isIntegerOverflowType);
 
       // We need to handle integer overflow only for signed integers
       if ((divInst->getOpcode() == Instruction::SDiv) || (divInst->getOpcode() == Instruction::SRem)) {
-
-        // Get dividend
-        Value* dividend = divInst->getOperand(DIVIDEND_POSITION);
 
         // Create integer -1 and MIN_INT constants (MIN_INT is based on the size of the current int)
         Constant* negOne   = ConstantInt::get(divisorType, -1);                                                              // Creates vector constant if divisorType is vectorType
@@ -173,6 +192,13 @@ namespace intel {
 
       // Replace original divisor
       divInst->setOperand(DIVISOR_POSITION, newDivisor);
+
+      if (EyeQDivCrashBehavior) {
+        // For EyeQ devices: %newDividend = select i1 %isDivisorZero, %zero, %dividend
+        SelectInst* newDividend = SelectInst::Create(isDivisorZero, zero, dividend, "NewDividend", divInst);
+        // Replace original dividend
+        divInst->setOperand(DIVIDEND_POSITION, newDividend);
+      }
     }
 
     return true;
@@ -254,7 +280,7 @@ namespace intel {
     types.push_back(divisorType);
     FunctionType *intr = FunctionType::get(divisorType, types, false);
     llvm::Module* pModule = divInst->getParent()->getParent()->getParent();
-    Function* divFuncInModule = cast<Function>(pModule->getOrInsertFunction(funcName.c_str(), intr));
+    Function* divFuncInModule = cast<Function>(pModule->getOrInsertFunction(funcName.c_str(), intr).getCallee());
 
     // Create a call
     SmallVector<Value*, 2> args;

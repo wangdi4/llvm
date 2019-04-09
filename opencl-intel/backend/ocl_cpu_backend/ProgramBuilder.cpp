@@ -90,11 +90,18 @@ static void BEFatalErrorHandler(void *user_data, const std::string& reason,
  */
 namespace Utils
 {
-static int getFileCount() {
-  static std::atomic<unsigned> fileCount(0);
-  fileCount++;
+static int getEqualizerDumpFileId() {
+  static std::atomic<unsigned> fileId(0);
+  fileId++;
 
-  return fileCount.load(std::memory_order_relaxed);
+  return fileId.load(std::memory_order_relaxed);
+}
+
+static int getVolcanoDumpFileId() {
+  static std::atomic<unsigned> fileId(0);
+  fileId++;
+
+  return fileId.load(std::memory_order_relaxed);
 }
 
 // Returns the memory buffer of the Program object bytecode
@@ -198,16 +205,21 @@ ProgramBuilder::~ProgramBuilder()
 {
 }
 
-void ProgramBuilder::DumpModuleStats(llvm::Module* pModule)
+void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStats)
 {
     if (intel::Statistic::isEnabled() || !m_statFileBaseName.empty())
     {
         // use sequential number to distinguish dumped files
         std::stringstream fileNameBuilder;
-        fileNameBuilder << (Utils::getFileCount());
+        if (isEqualizerStats)
+          fileNameBuilder << (Utils::getEqualizerDumpFileId());
+        else
+          fileNameBuilder << (Utils::getVolcanoDumpFileId());
 
         std::string fileName(m_statFileBaseName);
         fileName += fileNameBuilder.str();
+        if (isEqualizerStats)
+          fileName += "_eq";
         fileName += ".ll";
 
         // if stats are enabled dump module info
@@ -242,7 +254,8 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
 }
 
 cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
-    const ICLDevBackendOptions* pOptions)
+    const ICLDevBackendOptions* pOptions,
+    const char* pBuildOpts)
 {
     assert(pProgram && "Program parameter must not be nullptr");
     ProgramBuildResult buildResult;
@@ -264,14 +277,24 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
             ParseProgram(pProgram);
             pModule = (llvm::Module*)pProgram->GetModule();
         }
-        assert(pModule && "Module parsing has failed without exception. Strage");
+        assert(pModule && "Module parsing has failed without exception. Strange");
+
+#ifndef INTEL_PRODUCT_RELEASE
+        if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS"))
+        {
+            if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
+            {
+                DumpModuleStats(pModule, /*isEqualizerStats = */ true);
+            }
+        }
+#endif // INTEL_PRODUCT_RELEASE
 
         // Handle LLVM ERROR which can occured during build programm
         // Need to do it to eliminate RT hanging when clBuildProgramm failed
         llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler,
                                                         nullptr);
 
-        pCompiler->BuildProgram( pModule, &buildResult);
+        pCompiler->BuildProgram(pModule, pBuildOpts, &buildResult);
         // ObjectCodeCache structure will be filled by a callback after JIT
         // happens.
         std::unique_ptr<ObjectCodeCache>
@@ -289,7 +312,13 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         pProgram->SetRuntimeService(lRuntimeService);
 
         // Dump module stats just before lowering if requested
-        DumpModuleStats(pModule);
+        if (const char *pEnv = getenv("VOLCANO_STATS"))
+        {
+            if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
+            {
+                DumpModuleStats(pModule, /*isEqualizerStats = */ false);
+            }
+        }
 
         PostOptimizationProcessing(pProgram, pModule, pOptions);
         if (!(pOptions && pOptions->
@@ -299,6 +328,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
             // L"Start iterating over kernels");
             KernelSet* pKernels = CreateKernels( pProgram,
                                                  pModule,
+                                                 pBuildOpts,
                                                  buildResult);
             // update kernels with RuntimeService
             Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pKernels );
@@ -334,7 +364,7 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
 }
 
 KernelProperties *ProgramBuilder::CreateKernelProperties(
-    const Program *pProgram, Function *func,
+    const Program *pProgram, Function *func, const char* pBuildOpts,
     const ProgramBuildResult &buildResult) const {
   Module *pModule = func->getParent();
 
@@ -403,6 +433,12 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     if (0 == MaxGlobalWorkDim) {
       isTask = true;
     }
+  }
+
+  bool canUseGlobalWorkOffset = true;
+  if (kmd.CanUseGlobalWorkOffset.hasValue()) {
+    canUseGlobalWorkOffset = kmd.CanUseGlobalWorkOffset.get();
+    kernelAttributes << "uses_global_Work_offset(" << canUseGlobalWorkOffset << ") ";
   }
 
   if (kmd.VecLenHint.hasValue()) {
@@ -489,7 +525,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   barrierBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(barrierBufferSize);
   privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
 
-  CompilerBuildOptions buildOptions(pModule);
+  CompilerBuildOptions buildOptions(pBuildOpts);
   KernelProperties *pProps = new KernelProperties();
 
   // Kernel should keep size of pointer specified inside module
@@ -509,6 +545,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetIsAutorun(isAutorun);
   pProps->SetNeedSerializeWGs(needSerializeWGs);
   pProps->SetIsTask(isTask);
+  pProps->SetCanUseGlobalWorkOffset(canUseGlobalWorkOffset);
   auto kernelAttributesStr = kernelAttributes.str();
   // Remove space at the end
   if (!kernelAttributesStr.empty())
@@ -534,13 +571,9 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   // OpenCL 2.0 related properties
   if (OclVersion::CL_VER_2_0 <=
-          CompilationUtils::fetchCLVersionFromMetadata(*pModule) &&
-      CompilationUtils::fetchCompilerOption(*pModule,
-                                            "-cl-uniform-work-group-size")
-          .empty()) {
-    pProps->SetIsNonUniformWGSizeSupported(true);
-  } else {
-    pProps->SetIsNonUniformWGSizeSupported(false);
+                  CompilationUtils::fetchCLVersionFromMetadata(*pModule)) {
+    bool isNonUniformWGSizeSupported = !buildOptions.GetUniformWGSize();
+    pProps->SetIsNonUniformWGSizeSupported(isNonUniformWGSizeSupported);
   }
 
   // set can unite WG and vectorization dimention

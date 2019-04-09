@@ -154,10 +154,10 @@ void OCLBuiltinPreVectorizationPass::handleScalarSelect(CallInst *CI, std::strin
     std::string fakeFuncName = Mangler::getFakeBuiltinName(funcName);
     Function *origFunc = CI->getCalledFunction();
     V_ASSERT(origFunc && "Unexpected indirect function invocation");
-    Constant * funcConst = m_curModule->getOrInsertFunction(fakeFuncName,
+    FunctionCallee funcConst = m_curModule->getOrInsertFunction(fakeFuncName,
     origFunc->getFunctionType(), origFunc->getAttributes());
     V_ASSERT(funcConst && "failed generating function in current module");
-    Function *fakeFunc = dyn_cast<Function>(funcConst);
+    Function *fakeFunc = dyn_cast<Function>(funcConst.getCallee());
     V_ASSERT(fakeFunc && "Function type mismatch, caused a constant expression cast!");
     CI->setCalledFunction(fakeFunc);
     return;

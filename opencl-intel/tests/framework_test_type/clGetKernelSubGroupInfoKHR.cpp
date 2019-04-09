@@ -94,7 +94,7 @@ void clGetKernelSubGroupInfoKHR()
   // Tests accessibility via clGetExtensionFunctionAddress
   {
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-pedantic"
+#pragma GCC diagnostic ignored "-Wpedantic"
     cl_int (*get_kernel_subgroup_info) (cl_kernel, cl_device_id, cl_kernel_sub_group_info,
                                         size_t, const void*, size_t, void*, size_t*);
 

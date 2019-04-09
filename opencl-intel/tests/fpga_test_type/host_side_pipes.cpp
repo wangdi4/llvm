@@ -95,7 +95,7 @@ void TestHostSidePipes::SetUp() {
   ASSERT_NE(nullptr, m_pipeWrite) << "createPipe failed";
 
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-pedantic"
+#pragma GCC diagnostic ignored "-Wpedantic"
 
   read_pipe_fn = (cl_int(*)(cl_mem, void *))clGetExtensionFunctionAddress(
       "clReadPipeIntelFPGA");

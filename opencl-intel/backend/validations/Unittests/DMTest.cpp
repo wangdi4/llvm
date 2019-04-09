@@ -892,8 +892,9 @@ protected:
             {
                 // hack to 3 element vectors are stored as 4-element
                 // ignore 4th element in store implimicitly in float3
-                if(i%4 != 3)
+                if(i%4 != 3) {
                     EXPECT_EQ ( DataBufF32[i],    baf32.GetElem(i/4, i%4));
+                }
             }
         }
 

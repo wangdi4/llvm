@@ -38,7 +38,9 @@ public:
             bool profiling,
             bool disableOpt,
             bool relaxedMath,
+            bool uniformWGSize,
             bool fpgaEmulator,
+            bool eyeqEmulator,
             bool heuristicIR,
             int  APFLevel,
             int rtLoopUnrollFactor):
@@ -52,7 +54,9 @@ public:
       m_profiling(profiling),
       m_disableOpt(disableOpt),
       m_relaxedMath(relaxedMath),
+      m_uniformWGSize(uniformWGSize),
       m_fpgaEmulator(fpgaEmulator),
+      m_eyeqEmulator(eyeqEmulator),
       m_dumpHeuristicIR(heuristicIR),
       m_APFLevel(APFLevel),
       m_rtLoopUnrollFactor(rtLoopUnrollFactor)
@@ -69,7 +73,9 @@ public:
     bool GetDebugInfoFlag() const { return m_debugInfo; }
     bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
+    bool GetUniformWGSize() const { return m_uniformWGSize; }
     bool isFpgaEmulator()   const { return m_fpgaEmulator; }
+    bool isEyeQEmulator()   const { return m_eyeqEmulator; }
     int GetRTLoopUnrollFactor() const { return m_rtLoopUnrollFactor; }
     bool GetDumpHeuristicIRFlag() const {return m_dumpHeuristicIR; }
     int  GetAPFLevel() const { return m_APFLevel; }
@@ -86,8 +92,11 @@ private:
     bool m_profiling;
     bool m_disableOpt;
     bool m_relaxedMath;
+    bool m_uniformWGSize;
     // Sets whether we are working as fpga emulator
     bool m_fpgaEmulator;
+    // Sets whether we are working as EyeQ emulator
+    bool m_eyeqEmulator;
     // Sets whether the vectorize should output heuristic LL IR inputs
     bool m_dumpHeuristicIR;
     // Auto prefetch disable options

@@ -123,7 +123,7 @@ llvm::ModulePass *createDuplicateCalledKernelsPass();
 llvm::ModulePass *createPatchCallbackArgsPass();
 llvm::ModulePass *createDeduceMaxWGDimPass();
 
-llvm::ModulePass *createSpirMaterializer();
+llvm::ModulePass *createLLVMEqualizerPass();
 llvm::FunctionPass *createPrefetchPassLevel(int level);
 llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
@@ -133,7 +133,7 @@ llvm::ModulePass *createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
 
 llvm::ModulePass *createSinCosFoldPass();
-llvm::ModulePass *createResolveWICallPass();
+llvm::ModulePass *createResolveWICallPass(bool isUniformWGSize);
 llvm::ModulePass *createDetectRecursionPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
@@ -297,7 +297,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        const intel::OptimizerConfig *pConfig,
                                        bool isOcl20,
                                        bool isFpgaEmulator,
-                                       bool UnrollLoops) {
+                                       bool UnrollLoops,
+                                       bool EnableInferAS) {
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
 
@@ -356,13 +357,17 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                              pConfig->GetDumpIRDir()));
   }
 
-  // OCL2.0 add Generic Address Static Resolution pass
+  // OCL2.0 add Generic Address Resolution
   if (isOcl20) {
     // Static resolution of generic address space pointers
     if (OptLevel > 0) {
       PM.add(llvm::createPromoteMemoryToRegisterPass());
     }
-    PM.add(createGenericAddressStaticResolutionPass());
+    if (EnableInferAS) {
+      PM.add(llvm::createInferAddressSpacesPass());
+    } else {
+      PM.add(createGenericAddressStaticResolutionPass());
+    }
   }
 
   PM.add(llvm::createBasicAAWrapperPass());
@@ -411,7 +416,8 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
                             const intel::OptimizerConfig *pConfig,
                             std::vector<std::string> &UndefinedExternals,
                             bool isOcl20, bool isFpgaEmulator,
-                            bool UnrollLoops) {
+                            bool isEyeQEmulator, bool UnrollLoops,
+                            bool EnableInferAS) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
   bool HasGatherScatterPrefetch = pConfig->GetCpuId().HasGatherScatterPrefetch();
@@ -428,15 +434,26 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
   if (isOcl20) {
-    // Repeat static resolution of generic address space pointers after
-    // LLVM IR was optimized
-    PM.add(createGenericAddressStaticResolutionPass());
+    // Repeat resolution of generic address space pointers after LLVM
+    // IR was optimized
+    if (EnableInferAS) {
+      PM.add(llvm::createInferAddressSpacesPass());
+      // Cleanup after InferAddressSpacesPass
+      if (OptLevel > 0) {
+        PM.add(llvm::createCFGSimplificationPass());
+        PM.add(llvm::createSROAPass());
+        PM.add(llvm::createEarlyCSEPass());
+        PM.add(llvm::createPromoteMemoryToRegisterPass());
+        PM.add(llvm::createInstructionCombiningPass());
+      }
+    } else {
+      PM.add(createGenericAddressStaticResolutionPass());
+    }
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
   }
-  // Run the OclFunctionAttrs pass after GenericAddressStaticResolution
+  // Run few more passes after GenericAddressStaticResolution
   PM.add(createOclFunctionAttrsPass());
-
   PM.add(llvm::createUnifyFunctionExitNodesPass());
 
 
@@ -468,7 +485,9 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
       PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_BEFORE,
                                pConfig->GetDumpIRDir()));
     }
-    PM.add(createSinCosFoldPass());
+    if (!isEyeQEmulator) {
+      PM.add(createSinCosFoldPass());
+    }
 
     if (!pRtlModuleList.empty()) {
       if (EnableVPlanVecForOpenCL) {
@@ -519,7 +538,9 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   // the vectorizer may transform scalar shifts into vector shifts, and we want
   // this pass to fix all vector shift in this module.
   PM.add(createShiftZeroUpperBitsPass());
-  PM.add(createOptimizeIDivPass());
+  if (!isEyeQEmulator) {
+    PM.add(createOptimizeIDivPass());
+  }
   PM.add(createPreventDivisionCrashesPass());
   // We need InstructionCombining and GVN passes after ShiftZeroUpperBits,
   // PreventDivisionCrashes passes to optimize redundancy introduced by those
@@ -538,7 +559,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(createProfilingInfoPass());
   }
 
-  if (isOcl20) {
+  if (isOcl20 && !EnableInferAS) {
     // Resolve (dynamically) generic address space pointers which are relevant
     // for correct execution
     PM.add(createGenericAddressDynamicResolutionPass());
@@ -583,7 +604,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   // The following three passes (AddImplicitArgs/ResolveWICall/LocalBuffer)
   // must run before createBuiltInImportPass!
   PM.add(createAddImplicitArgsPass());
-  PM.add(createResolveWICallPass());
+  PM.add(createResolveWICallPass(pConfig->GetUniformWGSize()));
   PM.add(createLocalBuffersPass(debugType == Native));
   // clang converts OCL's local to global.
   // createLocalBuffersPass changes the local allocation from global to a
@@ -714,6 +735,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   if (pConfig->GetDisableOpt() || debugType != intel::None)
     OptLevel = 0;
   const bool isFpgaEmulator = pConfig->isFpgaEmulator();
+  const bool isEyeQEmulator = pConfig->isEyeQEmulator();
 
   // Detect OCL2.0 compilation mode
   const bool isOcl20 = (CompilationUtils::fetchCLVersionFromMetadata(
@@ -731,23 +753,26 @@ Optimizer::Optimizer(llvm::Module *pModule,
   m_PreFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
   m_PostFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
 
+  bool EnableInferAS = getenv("ENABLE_INFER_AS");
+
   // Add passes which will run unconditionally
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
                              OptLevel, pConfig, isOcl20,
-                             isFpgaEmulator, UnrollLoops);
+                             isFpgaEmulator, UnrollLoops,
+                             EnableInferAS);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
   populatePassesPostFailCheck(
       m_PostFailCheckPM, pModule, m_pRtlModuleList, OptLevel,
       pConfig, m_undefinedExternalFunctions, isOcl20, isFpgaEmulator,
-      UnrollLoops);
+      isEyeQEmulator, UnrollLoops, EnableInferAS);
 }
 
 void Optimizer::Optimize() {
   legacy::PassManager materializerPM;
   materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
-  materializerPM.add(createSpirMaterializer());
+  materializerPM.add(createLLVMEqualizerPass());
   materializerPM.run(*m_pModule);
   m_PreFailCheckPM.run(*m_pModule);
 

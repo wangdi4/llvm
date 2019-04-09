@@ -492,11 +492,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ///     global ulong *value)
     static const std::string NAME_CAPTURE_EVENT_PROFILING_INFO;
 
-    /// fetchCompilerOption - if an option with specified prefix exists in
-    /// the module's metadata returns an entire option string (the fist was met),
-    /// Otherwise returns an empty string.
-    static StringRef fetchCompilerOption(const Module &M, char const* prefix);
-
     /// fetchCLVersionFromMetadata - obtain CL version
     /// from "!opencl.ocl.version" named metadata
     static unsigned fetchCLVersionFromMetadata(const Module &M);
@@ -513,7 +508,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @return function declaration Function* (if import succeed) or a
     /// bitcast if a function with the same name, but different type, is
     /// already exist in the \p Dst.
-    static Constant *importFunctionDecl(Module *Dst, const Function *Orig);
+    static Function *importFunctionDecl(Module *Dst, const Function *Orig);
 
     /// Check if at least one of the image types is defined in the module
     static bool isImagesUsed(const Module &M);
@@ -596,8 +591,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       for (auto *BIModule : RTLs) {
         if (auto *F = BIModule->getFunction(Name)) {
-          return cast<Function>(
-              CompilationUtils::importFunctionDecl(&TargetModule, F));
+          return CompilationUtils::importFunctionDecl(&TargetModule, F);
         }
       }
 

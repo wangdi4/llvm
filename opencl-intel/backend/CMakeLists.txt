@@ -28,12 +28,6 @@ set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 
 remove_definitions( -D_UNICODE -DUNICODE )
 
-# Versioning for OclCpuDebugging DLL.
-set(DEBUGGING_DLL_VERSION 7)
-set(DEBUGGING_DLL_NAME OclCpuDebugging)
-add_definitions(-DDEBUGGING_DLL_VERSION=${DEBUGGING_DLL_VERSION})
-add_definitions(-DDEBUGGING_DLL_NAME=${DEBUGGING_DLL_NAME})
-
 #
 # Settings for Linux compilation
 #
@@ -117,6 +111,10 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(stat_summary      "${CMAKE_CURRENT_BINARY_DIR}/stat_summary")
 endif (LLVM_BUILD_OCL_CPU_BACKEND)
 
+if (OPENCL_BE_INCLUDE_TESTS)
+    add_subdirectory(tests)
+endif (OPENCL_BE_INCLUDE_TESTS)
+
 if (BACKEND_BUILD_VERIFICATION_LIB)
     add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")
     add_subdirectory(validations       "${CMAKE_CURRENT_BINARY_DIR}/validations")
@@ -138,6 +136,4 @@ if (BACKEND_BUILD_VERIFICATION_LIB)
     set_target_properties( OCLSamplePlugin PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
     set_target_properties( FMAtest PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
     set_target_properties( tinyxml_STL PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/externals )
-
-    add_subdirectory(tests)
 endif (BACKEND_BUILD_VERIFICATION_LIB)

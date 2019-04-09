@@ -335,7 +335,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Starting build"));
 
-    cl_dev_err_code ret = m_pBackendCompiler->BuildProgram(pEntry->pProgram, nullptr);
+    cl_dev_err_code ret = m_pBackendCompiler->BuildProgram(pEntry->pProgram, nullptr, options);
 
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Build Done (%d)"), ret);
 
@@ -854,6 +854,12 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
     case CL_DEV_KERNEL_IS_TASK:
     {
         *(cl_bool*)pValue = (cl_bool)pKernelProps->IsTask();
+        stValSize = sizeof(cl_bool);
+        break;
+    }
+    case CL_DEV_KERNEL_CAN_USE_GLOBAL_WORK_OFFSET:
+    {
+        *(cl_bool*)pValue = (cl_bool)pKernelProps->CanUseGlobalWorkOffset();
         stValSize = sizeof(cl_bool);
         break;
     }

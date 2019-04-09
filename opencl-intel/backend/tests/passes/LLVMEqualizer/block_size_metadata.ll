@@ -32,7 +32,7 @@
 ; Compilation command:
 ; clang -cc1 -x cl -cl-std=CL2.0 -triple spir64 -emit-llvm -disable-llvm-passes -finclude-default-header set_block_size_metadata.cl -o set_block_size_metadata.ll
 
-; RUN: %oclopt -spir-materializer -verify -S %s | FileCheck %s
+; RUN: %oclopt -llvm-equalizer -verify -S %s | FileCheck %s
 
 ; ModuleID = 'set_block_size_metadata.cl'
 source_filename = "set_block_size_metadata.cl"

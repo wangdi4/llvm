@@ -15,7 +15,7 @@
 ; ----------------------------------------------------
 ; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; ----------------------------------------------------
-; Opt passes: -spir-materializer
+; Opt passes: -llvm-equalizer
 ; ----------------------------------------------------
 ; without -cl-loop-creator there are no ret instructions (or all of them are
 ; unreachable), check that pass doesn't change the ir

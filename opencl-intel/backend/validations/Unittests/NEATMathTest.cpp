@@ -4530,8 +4530,9 @@ public:
                 NEATValue accRes = NEATFunc(aAcc,bAcc);
                 T refVal = RefFunc(RefALU::flush(Arg1Min[idx]), RefALU::flush(Arg2Min[idx]));
                 EXPECT_TRUE(accRes.IsAcc());
-                if (accRes.IsAcc())
+                if (accRes.IsAcc()) {
                     EXPECT_TRUE(refVal == *accRes.GetAcc<T>());
+                }
             }
 
             // Test vector

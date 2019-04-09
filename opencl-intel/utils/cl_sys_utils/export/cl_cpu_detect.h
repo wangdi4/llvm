@@ -65,6 +65,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 #define CPU_ARCHS(modificator) \
       modificator(WST)         \
       modificator(WST_XEON)    \
+      modificator(LKF)         \
       modificator(SNB)         \
       modificator(SNB_XEON)    \
       modificator(IVB)         \
@@ -101,6 +102,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
         bool IsGenuineIntel();
         bool isWestmere();
+        bool isLakefield();
         bool isSandyBridge();
         bool isIvyBridge();
         bool isHaswell();

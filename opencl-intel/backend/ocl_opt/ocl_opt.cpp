@@ -32,6 +32,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/RemarkStreamer.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h"
@@ -325,7 +326,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeBIImportPass(Registry);
     intel::initializeGenericAddressStaticResolutionPass(Registry);
     intel::initializeGenericAddressDynamicResolutionPass(Registry);
-    intel::initializeSpirMaterializerPass(Registry);
+    intel::initializeLLVMEqualizerPass(Registry);
     intel::initializeSubGroupAdaptationPass(Registry);
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);
@@ -595,8 +596,9 @@ int main(int argc, char **argv) {
       errs() << EC.message() << '\n';
       return 1;
     }
-    Context.setDiagnosticsOutputFile(
-        llvm::make_unique<yaml::Output>(OptRemarkFile->os()));
+    Context.setRemarkStreamer(
+        llvm::make_unique<RemarkStreamer>(RemarksFilename,
+                                          OptRemarkFile->os()));
   }
 
   // Load the input module...

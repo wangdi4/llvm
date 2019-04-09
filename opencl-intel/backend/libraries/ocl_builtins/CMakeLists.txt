@@ -451,20 +451,15 @@ list (APPEND OCL_20_SOURCE_FILES
   cpu-builtin-defines.c
   image_functions.cpp
   extended_execution_functions.cpp
-  )
+  generic_functions.cl
+)
 
 list (APPEND OCL_20_SOURCE_FILES
+  half.cl
   pipes.cl
   pipes-info.cl
   pipe_functions.c
 )
-
-if( BUILD_FPGA_EMULATOR )
-    list (APPEND OCL_20_SOURCE_FILES
-      half.cl
-    )
-endif( BUILD_FPGA_EMULATOR )
-
 
 list (APPEND C_SOURCE_FILES
   ${CL_BUILTIN_SOURCE_DIR}/cbk_helper.c

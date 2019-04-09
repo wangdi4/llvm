@@ -20,6 +20,7 @@ add_ocl_unittest(
     io_attribute.cpp
     channel_depth_emulation.cpp
     local_mem_size_attribute.cpp
+    uses_global_work_offset_attribute.cpp
     tbb_num_workers.cpp
     multiple_devices.cpp
     fpga_features.cpp

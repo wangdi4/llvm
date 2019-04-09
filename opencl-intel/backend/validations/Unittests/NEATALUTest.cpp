@@ -498,14 +498,18 @@ TYPED_TEST(NEATAluTyped, fcmp)
             EXPECT_EQ(NEATValue::ACCURATE, trueAns2.GetStatus());
             EXPECT_EQ(NEATValue::ACCURATE, falseAns1.GetStatus());
             EXPECT_EQ(NEATValue::ACCURATE, falseAns2.GetStatus());
-            if(trueAns1.GetStatus() == NEATValue::ACCURATE)
+            if(trueAns1.GetStatus() == NEATValue::ACCURATE) {
                 EXPECT_TRUE(*trueAns1.GetAcc<bool>());
-            if(trueAns2.GetStatus() == NEATValue::ACCURATE)
+            }
+            if(trueAns2.GetStatus() == NEATValue::ACCURATE) {
                 EXPECT_TRUE(*trueAns2.GetAcc<bool>());
-            if(falseAns1.GetStatus() == NEATValue::ACCURATE)
+            }
+            if(falseAns1.GetStatus() == NEATValue::ACCURATE) {
                 EXPECT_FALSE(*falseAns1.GetAcc<bool>());
-            if(falseAns2.GetStatus() == NEATValue::ACCURATE)
+            }
+            if(falseAns2.GetStatus() == NEATValue::ACCURATE) {
                 EXPECT_FALSE(*falseAns2.GetAcc<bool>());
+            }
         }
     }
 
@@ -7315,14 +7319,18 @@ TYPED_TEST(NEATAluTypedMath, atanpi)
         refIntValMax = RefALU::atanpi(SuperT(*intVal.GetMax<TypeP>()));
         refIntValMin = RefALU::atanpi(SuperT(*intVal.GetMin<TypeP>()));
 
-        if(refIntValMin == (SuperT)0.5)
+        if(refIntValMin == (SuperT)0.5) {
             EXPECT_TRUE((*testIntVal.GetMin<TypeP>() == TypeP(0.5)));
-        if(refIntValMax == (SuperT)0.5)
+        }
+        if(refIntValMax == (SuperT)0.5) {
             EXPECT_TRUE((*testIntVal.GetMax<TypeP>() == TypeP(0.5)));
-        if(refIntValMin == (SuperT)-0.5)
+        }
+        if(refIntValMin == (SuperT)-0.5) {
             EXPECT_TRUE((*testIntVal.GetMin<TypeP>() == TypeP(-0.5)));
-        if(refIntValMax == (SuperT)-0.5)
+        }
+        if(refIntValMax == (SuperT)-0.5) {
             EXPECT_TRUE((*testIntVal.GetMax<TypeP>() == TypeP(-0.5)));
+        }
         if((fabs(refIntValMin) != (SuperT)0.5) &&
            (fabs(refIntValMax) != (SuperT)0.5))
         {
@@ -7359,14 +7367,18 @@ TYPED_TEST(NEATAluTypedMath, atanpi)
             refIntValMin = RefALU::atanpi(SuperT(*interval[i].GetMin<TypeP>()));
             refIntValMax = RefALU::atanpi(SuperT(*interval[i].GetMax<TypeP>()));
 
-            if(refIntValMin == (SuperT)0.5)
+            if(refIntValMin == (SuperT)0.5) {
                 EXPECT_TRUE((*testIntVec[i].GetMin<TypeP>() == TypeP(0.5)));
-            if(refIntValMax == (SuperT)0.5)
+            }
+            if(refIntValMax == (SuperT)0.5) {
                 EXPECT_TRUE((*testIntVec[i].GetMax<TypeP>() == TypeP(0.5)));
-            if(refIntValMin == (SuperT)-0.5)
+            }
+            if(refIntValMin == (SuperT)-0.5) {
                 EXPECT_TRUE((*testIntVec[i].GetMin<TypeP>() == TypeP(-0.5)));
-            if(refIntValMax == (SuperT)-0.5)
+            }
+            if(refIntValMax == (SuperT)-0.5) {
                 EXPECT_TRUE((*testIntVec[i].GetMax<TypeP>() == TypeP(-0.5)));
+            }
             if((fabs(refIntValMin) != (SuperT)0.5) &&
                (fabs(refIntValMax) != (SuperT)0.5))
             {

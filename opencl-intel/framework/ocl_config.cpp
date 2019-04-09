@@ -20,15 +20,12 @@ using namespace Intel::OpenCL::Utils;
 // First device lib is a default device lib
 #if defined (_WIN32)
     #if defined (_M_X64)
-    static const char* DEFAULT_DEVICES_LIB_LIST =
-                       "cpu_device64" OPENCL_BINARIES_POSTFIX;
+    static const char* DEFAULT_DEVICES_LIB_LIST = "cpu_device64";
     #else //_M_X64
-    static const char* DEFAULT_DEVICES_LIB_LIST =
-                       "cpu_device32" OPENCL_BINARIES_POSTFIX;
+    static const char* DEFAULT_DEVICES_LIB_LIST = "cpu_device32";
     #endif //_M_X64
 #else // _WIN32
-    static const char* DEFAULT_DEVICES_LIB_LIST =
-                       "cpu_device" OPENCL_BINARIES_POSTFIX;
+    static const char* DEFAULT_DEVICES_LIB_LIST = "cpu_device";
 #endif // _WIN32
 
 OCLConfig::OCLConfig()

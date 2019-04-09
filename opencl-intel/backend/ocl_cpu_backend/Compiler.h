@@ -77,15 +77,23 @@ private:
 class CompilerBuildOptions
 {
 public:
-    CompilerBuildOptions( llvm::Module* pModule);
+    CompilerBuildOptions(const char* pBuildOpts);
 
     bool GetDisableOpt()    const { return m_disableOpt; }
     bool GetDebugInfoFlag() const { return m_debugInfo; }
     bool GetProfilingFlag() const { return m_profiling; }
     bool GetRelaxedMath()   const { return m_relaxedMath; }
+    bool GetUniformWGSize() const { return m_uniformWGSize; }
     int  GetAPFLevel()      const { return m_APFLevel; }
-    bool IsFpgaEmulator()   const { return m_fpgaEmulator; }
     bool GetDenormalsZero() const { return m_denormalsZero;}
+
+    void SetDisableOpt(bool disableOpt)       { m_disableOpt = disableOpt; }
+    void SetDebugInfoFlag(bool debugInfo)     { m_debugInfo = debugInfo; }
+    void SetProfilingFlag(bool profiling)     { m_profiling = profiling; }
+    void SetRelaxedMath(bool relaxedMath)     { m_relaxedMath = relaxedMath; }
+    void SetUniformWGSize(bool uniformWGSize) { m_uniformWGSize = uniformWGSize; }
+    void SetAPFLevel(int APFLevel)            { m_APFLevel = APFLevel; }
+    void SetDenormalsZero(bool denormalsZero) { m_denormalsZero = denormalsZero;}
 
 private:
     bool m_debugInfo;
@@ -93,7 +101,7 @@ private:
     bool m_disableOpt;
     bool m_relaxedMath;
     bool m_denormalsZero;
-    bool m_fpgaEmulator;
+    bool m_uniformWGSize;
     int  m_APFLevel;
 };
 
@@ -157,7 +165,7 @@ public:
     /**
      * Build the given program using the supplied build options
      */
-    llvm::Module* BuildProgram(llvm::Module*,
+    llvm::Module* BuildProgram(llvm::Module*, const char* pBuildOpts,
                                ProgramBuildResult* pResult);
 
     const CPUId &GetCpuId() const { return m_CpuId; }
