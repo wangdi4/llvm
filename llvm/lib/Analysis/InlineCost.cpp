@@ -3547,60 +3547,49 @@ static bool preferPartialInlineInlinedClone(Function *Callee) {
     "prefer-partial-inline-inlined-clone");
 }
 
-//
-// Return 'true' if a Function with the prefer-partial-inline-outlined-func
-// attribute exists in the Module 'M'.
-//
-static bool sawPreferPartialInlineOutlinedFunc(Module *M) {
-  static bool ScannedFunctions = false;
-  static bool SawPreferPartialInlineOutlinedFunc = false;
-  if (ScannedFunctions)
-    return SawPreferPartialInlineOutlinedFunc;
-  for (auto &F :  M->functions())
-    if (F.hasFnAttribute("prefer-partial-inline-outlined-func")) {
-      ScannedFunctions = true;
-      SawPreferPartialInlineOutlinedFunc = true;
-      return true;
-    }
-  ScannedFunctions = true;
-  return false;
-}
-
-//
-// Return 'true' if 'F' calls an outlined function created by Intel partial
-// inlining, which in turn calls 'F'. Such functions are good candidates
-// for inlining.
+// Return 'true' if 'F' calls an Intel partial inlining inlined clone,
+// which calls an Intel partial inlining outlined function, which calls
+// 'F'. (Note that the functions are tested in reverse order, because it
+// is cheaper in compile time to find the callers of a function than it
+// it is to find the callees.
 //
 
 static bool preferPartialInlineHasExtractedRecursiveCall(Function &F,
                                                          bool PrepareForLTO) {
-  // Save candidate functions in a SmallPtrSet so that they are not
-  // disqualified once they are inlined.
   static SmallPtrSet<Function *, 3> Candidates;
+  static bool ScannedFunctions = false;
+  static bool SawPreferPartialInlineOutlinedFunc = false;
   if (PrepareForLTO || !DTransInlineHeuristics)
     return false;
-  if (Candidates.count(&F))
-    return true;
-  if (!sawPreferPartialInlineOutlinedFunc(F.getParent()))
-    return false;
-  for (User *U : F.users()) {
-    auto CS1 = dyn_cast<CallBase>(U);
-    if (!CS1)
-      continue;
-    Function *Caller = CS1->getCaller();
-    if (!Caller->hasFnAttribute("prefer-partial-inline-outlined-func"))
-      continue;
-    for (User *V : Caller->users()) {
-      auto CS2 = dyn_cast<CallBase>(V);
-      if (!CS2)
-        continue;
-      if (CS2->getCaller() != &F)
-        continue;
-      Candidates.insert(&F);
-      return true;
+  if (ScannedFunctions)
+    return SawPreferPartialInlineOutlinedFunc && Candidates.count(&F);
+  Module *M = F.getParent();
+  for (auto &Fx :  M->functions())
+    if (Fx.hasFnAttribute("prefer-partial-inline-outlined-func")) {
+      SawPreferPartialInlineOutlinedFunc = true;
+      for (User *U : Fx.users()) {
+        auto CS1 = dyn_cast<CallBase>(U);
+        if (!CS1)
+          continue;
+        Function *Fy = CS1->getCaller();
+        if (!Fy->hasFnAttribute("prefer-partial-inline-inlined-clone"))
+          continue;
+        for (User *V : Fy->users()) {
+          auto CS2 = dyn_cast<CallBase>(V);
+          if (!CS2)
+            continue;
+          Function *Fz = CS2->getCaller();
+          for (User *W : Fz->users()) {
+            auto CS3 = dyn_cast<CallBase>(W);
+            if (!CS3 || CS3->getCaller() != &Fx)
+              continue;
+            Candidates.insert(Fz);
+          }
+        }
+      }
     }
-  }
-  return false;
+  ScannedFunctions = true;
+  return  SawPreferPartialInlineOutlinedFunc && Candidates.count(&F);
 }
 
 //
@@ -4022,7 +4011,6 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
     Cost -= InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
   }
-
 #endif // INTEL_CUSTOMIZATION
 
   // If this function uses the coldcc calling convention, prefer not to inline
