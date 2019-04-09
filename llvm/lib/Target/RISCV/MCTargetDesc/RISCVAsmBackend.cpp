@@ -16,6 +16,7 @@
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/MC/MCValue.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -32,6 +33,8 @@ bool RISCVAsmBackend::shouldForceRelocation(const MCAssembler &Asm,
   switch ((unsigned)Fixup.getKind()) {
   default:
     break;
+  case RISCV::fixup_riscv_got_hi20:
+    return true;
   case RISCV::fixup_riscv_pcrel_lo12_i:
   case RISCV::fixup_riscv_pcrel_lo12_s:
     // For pcrel_lo12, force a relocation if the target of the corresponding
@@ -46,6 +49,9 @@ bool RISCVAsmBackend::shouldForceRelocation(const MCAssembler &Asm,
     switch ((unsigned)T->getKind()) {
     default:
       llvm_unreachable("Unexpected fixup kind for pcrel_lo12");
+      break;
+    case RISCV::fixup_riscv_got_hi20:
+      ShouldForce = true;
       break;
     case RISCV::fixup_riscv_pcrel_hi20:
       ShouldForce = T->getValue()->findAssociatedFragment() !=
@@ -172,6 +178,8 @@ static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
   switch (Kind) {
   default:
     llvm_unreachable("Unknown fixup kind!");
+  case RISCV::fixup_riscv_got_hi20:
+    llvm_unreachable("Relocation should be unconditionally forced\n");
   case FK_Data_1:
   case FK_Data_2:
   case FK_Data_4:
@@ -179,12 +187,15 @@ static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
     return Value;
   case RISCV::fixup_riscv_lo12_i:
   case RISCV::fixup_riscv_pcrel_lo12_i:
+  case RISCV::fixup_riscv_tprel_lo12_i:
     return Value & 0xfff;
   case RISCV::fixup_riscv_lo12_s:
   case RISCV::fixup_riscv_pcrel_lo12_s:
+  case RISCV::fixup_riscv_tprel_lo12_s:
     return (((Value >> 5) & 0x7f) << 25) | ((Value & 0x1f) << 7);
   case RISCV::fixup_riscv_hi20:
   case RISCV::fixup_riscv_pcrel_hi20:
+  case RISCV::fixup_riscv_tprel_hi20:
     // Add 1 if bit 11 is 1, to compensate for low 12 bits being negative.
     return ((Value + 0x800) >> 12) & 0xfffff;
   case RISCV::fixup_riscv_jal: {
@@ -222,7 +233,8 @@ static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
     Value = (Sbit << 31) | (Mid6 << 25) | (Lo4 << 8) | (Hi1 << 7);
     return Value;
   }
-  case RISCV::fixup_riscv_call: {
+  case RISCV::fixup_riscv_call:
+  case RISCV::fixup_riscv_call_plt: {
     // Jalr will add UpperImm with the sign-extended 12-bit LowerImm,
     // we need to add 0x800ULL before extract upper bits to reflect the
     // effect of the sign extension.
@@ -286,6 +298,57 @@ void RISCVAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
   }
 }
 
+// Linker relaxation may change code size. We have to insert Nops
+// for .align directive when linker relaxation enabled. So then Linker
+// could satisfy alignment by removing Nops.
+// The function return the total Nops Size we need to insert.
+bool RISCVAsmBackend::shouldInsertExtraNopBytesForCodeAlign(
+    const MCAlignFragment &AF, unsigned &Size) {
+  // Calculate Nops Size only when linker relaxation enabled.
+  if (!STI.getFeatureBits()[RISCV::FeatureRelax])
+    return false;
+
+  bool HasStdExtC = STI.getFeatureBits()[RISCV::FeatureStdExtC];
+  unsigned MinNopLen = HasStdExtC ? 2 : 4;
+
+  Size = AF.getAlignment() - MinNopLen;
+  return true;
+}
+
+// We need to insert R_RISCV_ALIGN relocation type to indicate the
+// position of Nops and the total bytes of the Nops have been inserted
+// when linker relaxation enabled.
+// The function insert fixup_riscv_align fixup which eventually will
+// transfer to R_RISCV_ALIGN relocation type.
+bool RISCVAsmBackend::shouldInsertFixupForCodeAlign(MCAssembler &Asm,
+                                                    const MCAsmLayout &Layout,
+                                                    MCAlignFragment &AF) {
+  // Insert the fixup only when linker relaxation enabled.
+  if (!STI.getFeatureBits()[RISCV::FeatureRelax])
+    return false;
+
+  // Calculate total Nops we need to insert.
+  unsigned Count;
+  shouldInsertExtraNopBytesForCodeAlign(AF, Count);
+  // No Nop need to insert, simply return.
+  if (Count == 0)
+    return false;
+
+  MCContext &Ctx = Asm.getContext();
+  const MCExpr *Dummy = MCConstantExpr::create(0, Ctx);
+  // Create fixup_riscv_align fixup.
+  MCFixup Fixup =
+      MCFixup::create(0, Dummy, MCFixupKind(RISCV::fixup_riscv_align), SMLoc());
+
+  uint64_t FixedValue = 0;
+  MCValue NopBytes = MCValue::get(Count);
+
+  Asm.getWriter().recordRelocation(Asm, Layout, &AF, Fixup, NopBytes,
+                                   FixedValue);
+
+  return true;
+}
+
 std::unique_ptr<MCObjectTargetWriter>
 RISCVAsmBackend::createObjectTargetWriter() const {
   return createRISCVELFObjectWriter(OSABI, Is64Bit);
@@ -297,5 +360,5 @@ MCAsmBackend *llvm::createRISCVAsmBackend(const Target &T,
                                           const MCTargetOptions &Options) {
   const Triple &TT = STI.getTargetTriple();
   uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(TT.getOS());
-  return new RISCVAsmBackend(STI, OSABI, TT.isArch64Bit());
+  return new RISCVAsmBackend(STI, OSABI, TT.isArch64Bit(), Options);
 }

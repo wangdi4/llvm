@@ -103,6 +103,7 @@ public:
   ELFKind EKind = ELFNoneKind;
   uint16_t EMachine = llvm::ELF::EM_NONE;
   uint8_t OSABI = 0;
+  uint8_t ABIVersion = 0;
 
   // Cache for toString(). Only toString() should use this member.
   mutable std::string ToStringCache;
@@ -114,14 +115,15 @@ public:
   bool JustSymbols = false;
 
   // On PPC64 we need to keep track of which files contain small code model
-  // relocations. To minimize the chance of a relocation overflow files that do
-  // contain small code model relocations should have their .toc sections sorted
-  // closer to the .got section than files that do not contain any small code
-  // model relocations. Thats because the toc-pointer is defined to point at
-  // .got + 0x8000 and the instructions used with small code model relocations
-  // support immediates in the range [-0x8000, 0x7FFC], making the addressable
-  // range relative to the toc pointer [.got, .got + 0xFFFC].
-  bool PPC64SmallCodeModelRelocs = false;
+  // relocations that access the .toc section. To minimize the chance of a
+  // relocation overflow, files that do contain said relocations should have
+  // their .toc sections sorted closer to the .got section than files that do
+  // not contain any small code model relocations. Thats because the toc-pointer
+  // is defined to point at .got + 0x8000 and the instructions used with small
+  // code model relocations support immediates in the range [-0x8000, 0x7FFC],
+  // making the addressable range relative to the toc pointer
+  // [.got, .got + 0xFFFC].
+  bool PPC64SmallCodeModelTocRelocs = false;
 
   // GroupId is used for --warn-backrefs which is an optional error
   // checking feature. All files within the same --{start,end}-group or
@@ -145,10 +147,10 @@ private:
 
 template <typename ELFT> class ELFFileBase : public InputFile {
 public:
-  typedef typename ELFT::Shdr Elf_Shdr;
-  typedef typename ELFT::Sym Elf_Sym;
-  typedef typename ELFT::Word Elf_Word;
-  typedef typename ELFT::SymRange Elf_Sym_Range;
+  using Elf_Shdr = typename ELFT::Shdr;
+  using Elf_Sym = typename ELFT::Sym;
+  using Elf_Word = typename ELFT::Word;
+  using Elf_Sym_Range = typename ELFT::SymRange;
 
   ELFFileBase(Kind K, MemoryBufferRef M);
   static bool classof(const InputFile *F) { return F->isElf(); }
@@ -159,28 +161,25 @@ public:
 
   StringRef getStringTable() const { return StringTable; }
 
-  uint32_t getSectionIndex(const Elf_Sym &Sym) const;
-
   Elf_Sym_Range getGlobalELFSyms();
   Elf_Sym_Range getELFSyms() const { return ELFSyms; }
 
 protected:
   ArrayRef<Elf_Sym> ELFSyms;
   uint32_t FirstGlobal = 0;
-  ArrayRef<Elf_Word> SymtabSHNDX;
   StringRef StringTable;
   void initSymtab(ArrayRef<Elf_Shdr> Sections, const Elf_Shdr *Symtab);
 };
 
 // .o file.
 template <class ELFT> class ObjFile : public ELFFileBase<ELFT> {
-  typedef ELFFileBase<ELFT> Base;
-  typedef typename ELFT::Rel Elf_Rel;
-  typedef typename ELFT::Rela Elf_Rela;
-  typedef typename ELFT::Sym Elf_Sym;
-  typedef typename ELFT::Shdr Elf_Shdr;
-  typedef typename ELFT::Word Elf_Word;
-  typedef typename ELFT::CGProfile Elf_CGProfile;
+  using Base = ELFFileBase<ELFT>;
+  using Elf_Rel = typename ELFT::Rel;
+  using Elf_Rela = typename ELFT::Rela;
+  using Elf_Sym = typename ELFT::Sym;
+  using Elf_Shdr = typename ELFT::Shdr;
+  using Elf_Word = typename ELFT::Word;
+  using Elf_CGProfile = typename ELFT::CGProfile;
 
   StringRef getShtGroupSignature(ArrayRef<Elf_Shdr> Sections,
                                  const Elf_Shdr &Sec);
@@ -199,6 +198,8 @@ public:
       fatal(toString(this) + ": invalid symbol index");
     return *this->Symbols[SymbolIndex];
   }
+
+  uint32_t getSectionIndex(const Elf_Sym &Sym) const;
 
   template <typename RelT> Symbol &getRelocTargetSym(const RelT &Rel) const {
     uint32_t SymIndex = Rel.getSymbol(Config->IsMips64EL);
@@ -244,6 +245,8 @@ private:
 
   bool shouldMerge(const Elf_Shdr &Sec);
   Symbol *createSymbol(const Elf_Sym *Sym);
+
+  ArrayRef<Elf_Word> SymtabSHNDX;
 
   // .shstrtab contents.
   StringRef SectionStringTable;
@@ -319,19 +322,20 @@ public:
 
 // .so file.
 template <class ELFT> class SharedFile : public ELFFileBase<ELFT> {
-  typedef ELFFileBase<ELFT> Base;
-  typedef typename ELFT::Dyn Elf_Dyn;
-  typedef typename ELFT::Shdr Elf_Shdr;
-  typedef typename ELFT::Sym Elf_Sym;
-  typedef typename ELFT::SymRange Elf_Sym_Range;
-  typedef typename ELFT::Verdef Elf_Verdef;
-  typedef typename ELFT::Versym Elf_Versym;
+  using Base = ELFFileBase<ELFT>;
+  using Elf_Dyn = typename ELFT::Dyn;
+  using Elf_Shdr = typename ELFT::Shdr;
+  using Elf_Sym = typename ELFT::Sym;
+  using Elf_Sym_Range = typename ELFT::SymRange;
+  using Elf_Verdef = typename ELFT::Verdef;
+  using Elf_Versym = typename ELFT::Versym;
 
   const Elf_Shdr *VersymSec = nullptr;
   const Elf_Shdr *VerdefSec = nullptr;
 
 public:
   std::vector<const Elf_Verdef *> Verdefs;
+  std::vector<StringRef> DtNeeded;
   std::string SoName;
 
   static bool classof(const InputFile *F) {
@@ -340,7 +344,7 @@ public:
 
   SharedFile(MemoryBufferRef M, StringRef DefaultSoName);
 
-  void parseSoName();
+  void parseDynamic();
   void parseRest();
   uint32_t getAlignment(ArrayRef<Elf_Shdr> Sections, const Elf_Sym &Sym);
   std::vector<const Elf_Verdef *> parseVerdefs();
@@ -357,6 +361,9 @@ public:
   // Mapping from Elf_Verdef data structures to information about Elf_Vernaux
   // data structures in the output file.
   std::map<const Elf_Verdef *, NeededVer> VerdefMap;
+
+  // Used for --no-allow-shlib-undefined.
+  bool AllNeededIsKnown;
 
   // Used for --as-needed
   bool IsNeeded;

@@ -21,10 +21,12 @@
 #include <cstring>
 #include <dlfcn.h>
 #include <fstream>
+#include <sstream>
 #include <gelf.h>
 #include <list>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "omptargetplugin.h"
 
@@ -137,9 +139,6 @@ static const char *getCLErrorName(int error) {
 #define INVOKE_CL_RET_FAIL(fn, ...) INVOKE_CL_RET(OFFLOAD_FAIL, fn, __VA_ARGS__)
 #define INVOKE_CL_RET_NULL(fn, ...) INVOKE_CL_RET(NULL, fn, __VA_ARGS__)
 
-// TODO: The current implementation only supports one device. It will be
-// extended in the future.
-#define NUMBER_OF_DEVICES 1
 #define OFFLOADSECTIONNAME ".omp_offloading.entries"
 
 //#pragma OPENCL EXTENSION cl_khr_spir : enable
@@ -158,13 +157,70 @@ typedef struct {
   int64_t stride; // The stride of the i-th loop
 } TgtLoopDescTy;
 
+typedef enum {
+  PROFILE_ENABLED = 0x1,
+  PROFILE_UNIT_USEC = 0x2,
+  // more option can be added;
+} ProfileFlagTy;
+
+struct RTLProfileTy {
+  int64_t flags;
+  std::map<std::string, double> data;
+
+  RTLProfileTy() : flags(0), data() {
+    // parse user input
+    const char *env = std::getenv("LIBOMPTARGET_PROFILE");
+    if (env) {
+      std::istringstream env_str(env);
+      std::string token;
+      while (std::getline(env_str, token, ',')) {
+        if (token == "T")
+          flags |= PROFILE_ENABLED;
+        else if (token == "unit_usec")
+          flags |= PROFILE_UNIT_USEC;
+      }
+    }
+  }
+
+  ~RTLProfileTy() {
+    if (flags & PROFILE_ENABLED) {
+      fprintf(stderr, "LIBOMPTARGET_PROFILE:\n");
+      for (const auto &d : data) {
+        const char *unit = "msec"; // msec by default
+        double value = d.second * 1e-6;
+        if (flags & PROFILE_UNIT_USEC) {
+          unit = "usec";
+          value = d.second * 1e-3;
+        }
+        fprintf(stderr, "-- %s: %.3f %s\n", d.first.c_str(), value, unit);
+      }
+    }
+  }
+
+  // for non-event profile
+  void update(const char *name, cl_ulong elapsed) {
+    std::string key(name);
+    data[key] += elapsed;
+  }
+
+  // for event profile
+  void update(const char *name, cl_event event) {
+    cl_ulong begin = 0, end = 0;
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_QUEUED,
+                            sizeof(cl_ulong), &begin, nullptr);
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_COMPLETE,
+                            sizeof(cl_ulong), &end, nullptr);
+    update(name, end - begin);
+  }
+};
+
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
 
 public:
   cl_uint numDevices;
-  cl_platform_id platformId;
   // per device information
+  std::vector<cl_platform_id> platformIDs;
   std::vector<cl_device_id> deviceIDs;
   std::vector<int32_t> maxWorkGroups;
   std::vector<int32_t> maxWorkGroupSize;
@@ -175,12 +231,17 @@ public:
   int64_t flag;
   const int64_t DEVICE_LIMIT_NUM_WORK_GROUPS = 0x1;
 
-  RTLDeviceInfoTy() {
+  RTLDeviceInfoTy() : numDevices(0), flag(0) {
 #ifdef OMPTARGET_DEBUG
     if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
       DebugLevel = std::stoi(envStr);
     }
 #endif // OMPTARGET_DEBUG
+    // set misc. flags
+    const char *env = std::getenv("SIMT");
+    if (!env || std::string(env) != "on") {
+      flag |= DEVICE_LIMIT_NUM_WORK_GROUPS;
+    }
 
     DP("Start initializing OpenCL\n");
     // get available platforms
@@ -189,61 +250,90 @@ public:
     std::vector<cl_platform_id> platformIds(platformIdCount);
     clGetPlatformIDs(platformIdCount, platformIds.data(), nullptr);
 
-    // check version and devices
+    std::vector<cl_device_id> deviceIDTail;
+    std::vector<cl_platform_id> platformIDTail;
+
+    // OpenCL device IDs are stored in a list so that
+    // 1. All device IDs from a single platfrom are stored consecutively.
+    // 2. Device IDs from a platform having at least one GPU device appears
+    //    before any device IDs from a platform having no GPU devices.
     for (cl_platform_id id : platformIds) {
       char buffer[128];
       clGetPlatformInfo(id, CL_PLATFORM_VERSION, 128, buffer, NULL);
       if (strncmp("OpenCL 2", buffer, 8)) {
         continue;
       }
-      DP("Platform version is %s\n", buffer);
 
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_ALL, 0, nullptr, &numDevices);
-      deviceIDs.resize(numDevices);
-      clGetDeviceIDs(id, CL_DEVICE_TYPE_ALL, numDevices, deviceIDs.data(),
+      cl_uint numGPU = 0, numACC = 0, numCPU = 0;
+      char *envStr = getenv("LIBOMPTARGET_DEVICETYPE");
+      if (!envStr || strncmp(envStr, "GPU", 3) == 0)
+        clGetDeviceIDs(id, CL_DEVICE_TYPE_GPU, 0, nullptr, &numGPU);
+      if (!envStr || strncmp(envStr, "ACCELERATOR", 11) == 0)
+        clGetDeviceIDs(id, CL_DEVICE_TYPE_ACCELERATOR, 0, nullptr, &numACC);
+      if (!envStr || strncmp(envStr, "CPU", 3) == 0)
+        clGetDeviceIDs(id, CL_DEVICE_TYPE_CPU, 0, nullptr, &numCPU);
+      cl_uint numCurrDevices = numGPU + numACC + numCPU;
+      if (numCurrDevices == 0)
+        continue;
+
+      DP("Platform %s has %d GPUs, %d ACCELERATORS, %d CPUs\n", buffer, numGPU,
+         numACC, numCPU);
+      std::vector<cl_device_id> currDeviceIDs(numCurrDevices);
+      std::vector<cl_platform_id> currPlatformIDs(numCurrDevices, id);
+      clGetDeviceIDs(id, CL_DEVICE_TYPE_GPU, numGPU, &currDeviceIDs[0],
                      nullptr);
-      DP("Found %d OpenCL devices\n", numDevices);
+      clGetDeviceIDs(id, CL_DEVICE_TYPE_ACCELERATOR, numACC,
+                     &currDeviceIDs[numGPU], nullptr);
+      clGetDeviceIDs(id, CL_DEVICE_TYPE_CPU, numCPU,
+                     &currDeviceIDs[numGPU + numACC], nullptr);
 
-      maxWorkGroups.resize(numDevices);
-      maxWorkGroupSize.resize(numDevices);
-      CTX.resize(numDevices);
-      Queues.resize(numDevices);
-      FuncGblEntries.resize(numDevices);
-      platformId = id;
-
-      // get device specific information
-      for (unsigned i = 0; i < numDevices; i++) {
-        cl_device_id deviceId = deviceIDs[i];
-        clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 128, buffer, nullptr);
-        DP("Device %d: %s\n", i, buffer);
-        clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
-                        &maxWorkGroups[i], nullptr);
-        DP("Maximum number of work groups (compute units) is %d\n",
-           maxWorkGroups[i]);
-        clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
-                        &maxWorkGroupSize[i], nullptr);
-        DP("Maximum work group size is %d\n", maxWorkGroupSize[i]);
-#ifdef OMPTARGET_DEBUG
-        cl_uint addressmode;
-        clGetDeviceInfo(deviceId, CL_DEVICE_ADDRESS_BITS, 4, &addressmode,
-                        nullptr);
-        DP("Addressing mode is %d bit\n", addressmode);
-#endif
+      std::vector<cl_device_id> *dID = &deviceIDs;
+      std::vector<cl_platform_id> *pID = &platformIDs;
+      if (numGPU == 0) {
+        dID = &deviceIDTail;
+        pID = &platformIDTail;
       }
-      // set misc. flags
-      flag = 0LL;
-      const char *env = std::getenv("SIMT");
-      if (!env || std::string(env) != "on") {
-        flag |= DEVICE_LIMIT_NUM_WORK_GROUPS;
-      }
-      // return;
+      dID->insert(dID->end(), currDeviceIDs.begin(), currDeviceIDs.end());
+      pID->insert(pID->end(), currPlatformIDs.begin(), currPlatformIDs.end());
+      numDevices += numCurrDevices;
     }
-    // numDevices = 0;
-    // DP("No OpenCL devices found.\n");
+    deviceIDs.insert(deviceIDs.end(), deviceIDTail.begin(), deviceIDTail.end());
+    platformIDs.insert(platformIDs.end(), platformIDTail.begin(),
+                       platformIDTail.end());
+
+    maxWorkGroups.resize(numDevices);
+    maxWorkGroupSize.resize(numDevices);
+    CTX.resize(numDevices);
+    Queues.resize(numDevices);
+    FuncGblEntries.resize(numDevices);
+
+    // get device specific information
+    for (unsigned i = 0; i < numDevices; i++) {
+      char buffer[128];
+      cl_device_id deviceId = deviceIDs[i];
+      clGetDeviceInfo(deviceId, CL_DEVICE_NAME, 128, buffer, nullptr);
+      DP("Device %d: %s\n", i, buffer);
+      clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
+                      &maxWorkGroups[i], nullptr);
+      DP("Maximum number of work groups (compute units) is %d\n",
+         maxWorkGroups[i]);
+      clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
+                      &maxWorkGroupSize[i], nullptr);
+      DP("Maximum work group size is %d\n", maxWorkGroupSize[i]);
+#ifdef OMPTARGET_DEBUG
+      cl_uint addressmode;
+      clGetDeviceInfo(deviceId, CL_DEVICE_ADDRESS_BITS, 4, &addressmode,
+                      nullptr);
+      DP("Addressing mode is %d bit\n", addressmode);
+#endif
+    }
+    if (numDevices == 0)
+      DP("WARNING: No OpenCL devices found.\n");
   }
 };
 
 static RTLDeviceInfoTy DeviceInfo;
+static RTLProfileTy profile;
 
 #ifdef __cplusplus
 extern "C" {
@@ -263,10 +353,13 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
 
   cl_int status;
   DP("Initialize OpenCL device\n");
+  assert(device_id >= 0 && (cl_uint)device_id < DeviceInfo.numDevices &&
+         "bad device id");
 
   // create context
   cl_context_properties props[] = {
-      CL_CONTEXT_PLATFORM, (cl_context_properties)DeviceInfo.platformId, 0};
+      CL_CONTEXT_PLATFORM,
+      (cl_context_properties)DeviceInfo.platformIDs[device_id], 0};
   DeviceInfo.CTX[device_id] = clCreateContext(
       props, 1, &DeviceInfo.deviceIDs[device_id], nullptr, nullptr, &status);
   if (status != CL_SUCCESS) {
@@ -274,8 +367,14 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
     return OFFLOAD_FAIL;
   }
 
+  cl_queue_properties qprops[3] = {0};
+  if (profile.flags & PROFILE_ENABLED) {
+    qprops[0] = CL_QUEUE_PROPERTIES;
+    qprops[1] = CL_QUEUE_PROFILING_ENABLE;
+  }
+
   DeviceInfo.Queues[device_id] = clCreateCommandQueueWithProperties(
-      DeviceInfo.CTX[device_id], DeviceInfo.deviceIDs[device_id], nullptr,
+      DeviceInfo.CTX[device_id], DeviceInfo.deviceIDs[device_id], qprops,
       &status);
   if (status != 0) {
     DP("Error: Failed to create CommandQueue: %d\n", status);
@@ -290,8 +389,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   DP("Device %d: load binary from " DPxMOD " image\n", device_id,
      DPxPTR(image->ImageStart));
-
-  assert(device_id >= 0 && device_id < NUMBER_OF_DEVICES && "bad device id");
 
   size_t ImageSize = (size_t)image->ImageEnd - (size_t)image->ImageStart;
   size_t NumEntries = (size_t)(image->EntriesEnd - image->EntriesBegin);
@@ -392,8 +489,42 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DeviceInfo.FuncGblEntries[device_id].Kernels;
   for (unsigned i = 0; i < NumEntries; i++) {
     // Size is 0 means that it is kernel function.
-    if (image->EntriesBegin[i].size != 0)
+    if (image->EntriesBegin[i].size != 0) {
+#if INTEL_CUSTOMIZATION
+      // Allocate buffers for global data and copy data from host to device.
+      // FIXME: this is a temporary for global declare target data,
+      //        until we have support from OpenCL side.
+      //        This will not solve issues for the following case:
+      //          #pragma omp declare target
+      //          int a[100];
+      //          void foo() {
+      //            a[7] = 7;
+      //          }
+      //          #pragma omp end declare target
+      //
+      //          void bar() {
+      //          #pragma omp target
+      //            { foo(); }
+      //          }
+      //
+      //        foo() will have a reference to global 'a', and there
+      //        is currently no way to associate this access with the buffer
+      //        that we allocate here.
+      auto HostAddr = image->EntriesBegin[i].addr;
+      auto Name = image->EntriesBegin[i].name;
+      auto Size = image->EntriesBegin[i].size;
+      cl_mem Buffer = (cl_mem)__tgt_rtl_data_alloc(device_id, Size, HostAddr);
+      __tgt_rtl_data_submit(device_id, Buffer, HostAddr, Size);
+      DP("Global variable allocated: Name = %s, Size = %" PRIu64
+         ", HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
+         Name, (uint64_t)Size, DPxPTR(HostAddr), DPxPTR(Buffer));
+      entries[i].addr = Buffer;
+      entries[i].name = Name;
+      entries[i].size = Size;
+#endif  // INTEL_CUSTOMIZATION
       continue;
+    }
+
     char *name = image->EntriesBegin[i].name;
     kernels[i] = clCreateKernel(program[2], name, &status);
     if (status != 0) {
@@ -402,6 +533,28 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     }
     entries[i].addr = &kernels[i];
     entries[i].name = name;
+#ifdef OMPTARGET_DEBUG
+    // Show kernel information
+    char kernel_info[80];
+    cl_uint kernel_num_args = 0;
+    cl_int rc;
+    rc = clGetKernelInfo(kernels[i], CL_KERNEL_FUNCTION_NAME,
+                         sizeof(kernel_info), kernel_info, nullptr);
+    if (rc != CL_SUCCESS)
+      continue;
+    rc = clGetKernelInfo(kernels[i], CL_KERNEL_NUM_ARGS,
+                         sizeof(cl_uint), &kernel_num_args, nullptr);
+    if (rc != CL_SUCCESS)
+      continue;
+    DP("Kernel %d: Name = %s, NumArgs = %d\n", i, kernel_info, kernel_num_args);
+    for (unsigned idx = 0; idx < kernel_num_args; idx++) {
+      clGetKernelArgInfo(kernels[i], idx, CL_KERNEL_ARG_TYPE_NAME, 40,
+                         kernel_info, nullptr);
+      clGetKernelArgInfo(kernels[i], idx, CL_KERNEL_ARG_NAME, 40,
+                         &kernel_info[40], nullptr);
+      DP("  Arg %2d: %s %s\n", idx, kernel_info, &kernel_info[40]);
+    }
+#endif // OMPTARGET_DEBUG
   }
 
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[device_id].Table;
@@ -413,6 +566,27 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 void event_callback_completed(cl_event event, cl_int status, void *data) {
   if (status == CL_SUCCESS) {
     assert(data && "bad task object for the target");
+
+    if (profile.flags & PROFILE_ENABLED) {
+      cl_command_type cmd;
+      const char *event_name;
+      clGetEventInfo(event, CL_EVENT_COMMAND_TYPE, sizeof(cmd), &cmd, nullptr);
+      switch (cmd) {
+      case CL_COMMAND_NDRANGE_KERNEL:
+        event_name = "EXEC-ASYNC";
+        break;
+      case CL_COMMAND_READ_BUFFER:
+        event_name = "DATA-READ-ASYNC";
+        break;
+      case CL_COMMAND_WRITE_BUFFER:
+        event_name = "DATA-WRITE-ASYNC";
+        break;
+      default:
+        event_name = "OTHERS-ASYNC";
+      }
+      profile.update(event_name, event);
+    }
+
     const char *entry = "__kmpc_proxy_task_completed_ooo";
     void (*ptask_completed)(void *) = nullptr;
     *((void **)&ptask_completed) = dlsym(RTLD_DEFAULT, entry);
@@ -438,19 +612,12 @@ void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
   return mem;
 }
 
-int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
-                              int64_t size) {
-  INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
-                     (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
-                     nullptr);
-  return OFFLOAD_SUCCESS;
-}
-
 int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
                                      void *hst_ptr, int64_t size,
                                      void *async_data) {
+  cl_event completed;
+
   if (async_data) {
-    cl_event completed;
     INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
                        (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
                        &completed);
@@ -459,40 +626,72 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
   } else {
     INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
                        (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
-                       nullptr);
+                       &completed);
+    if (profile.flags & PROFILE_ENABLED)
+      profile.update("DATA-WRITE", completed);
+  }
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
+                              int64_t size) {
+  return __tgt_rtl_data_submit_nowait(device_id, tgt_ptr, hst_ptr, size,
+                                      nullptr);
+}
+
+int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
+                                       void *tgt_ptr, int64_t size,
+                                       void *async_data) {
+  cl_event completed;
+
+  if (async_data) {
+    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
+                       &completed);
+    INVOKE_CL_RET_FAIL(clSetEventCallback, completed, CL_COMPLETE,
+                       &event_callback_completed, async_data);
+  } else {
+    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
+                       (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
+                       &completed);
+    if (profile.flags & PROFILE_ENABLED)
+      profile.update("DATA-READ", completed);
   }
   return OFFLOAD_SUCCESS;
 }
 
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                 int64_t size) {
-  INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
-                     (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
-                     nullptr);
-  return OFFLOAD_SUCCESS;
-}
-
-int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
-                                       void *tgt_ptr, int64_t size,
-                                       void *async_data) {
-  if (async_data) {
-    cl_event completed;
-    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
-                       (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
-                       &completed);
-    INVOKE_CL_RET_FAIL(clSetEventCallback, completed, CL_COMPLETE,
-                       &event_callback_completed, async_data);
-  } else {
-    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
-                       (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
-                       nullptr);
-  }
-  return OFFLOAD_SUCCESS;
+  return __tgt_rtl_data_retrieve_nowait(device_id, hst_ptr, tgt_ptr, size,
+                                        nullptr);
 }
 
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   INVOKE_CL_RET_FAIL(clReleaseMemObject, (cl_mem)tgt_ptr);
   return OFFLOAD_SUCCESS;
+}
+
+void *__tgt_rtl_data_sub_alloc(int32_t device_id, void *tgt_ptr, int64_t size,
+                               int64_t offset) {
+  cl_buffer_region region = {(size_t)offset, (size_t)size};
+  cl_int rc;
+
+  if (size < 0) {
+    DP("WARNING: sub-buffer allocation failed with negative size %ld\n", size);
+    return nullptr;
+  } else if (size == 0) {
+    return tgt_ptr; // keep the semantics of device.cpp
+  }
+  cl_mem ret = clCreateSubBuffer((cl_mem)tgt_ptr, CL_MEM_READ_WRITE,
+                                 CL_BUFFER_CREATE_TYPE_REGION, &region, &rc);
+  if (rc != CL_SUCCESS) {
+    DP("Error: sub-buffer allocation failed with error code %d, %s\n", rc,
+       getCLErrorName(rc));
+    return nullptr;
+  }
+  DP("Allocated sub-buffer %p from existing buffer %p, offset %ld, size %ld\n",
+     (void *)ret, tgt_ptr, offset, size);
+  return (void *)ret;
 }
 
 static inline int32_t run_target_team_nd_region(
@@ -570,18 +769,26 @@ static inline int32_t run_target_team_nd_region(
      local_work_size[1], local_work_size[2]);
   DP("Work dimension = %u\n", work_dim);
 
-  cl_event complete_event;
+  cl_event event;
   INVOKE_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo.Queues[device_id],
                      *kernel, work_dim, nullptr, global_work_size,
-                     local_work_size, 0, nullptr,
-                     async_data ? &complete_event : nullptr);
+                     local_work_size, 0, nullptr, &event);
 
   DP("Started executing kernel.\n");
 
   if (async_data) {
-    INVOKE_CL_RET_FAIL(clSetEventCallback, complete_event, CL_COMPLETE,
+    INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                        &event_callback_completed, async_data);
   } else {
+    if (profile.flags & PROFILE_ENABLED) {
+      char buf[80];
+      INVOKE_CL_RET_FAIL(clWaitForEvents, 1, &event);
+      INVOKE_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
+                         sizeof(buf), buf, nullptr);
+      std::string kernel_name("EXEC-");
+      kernel_name += buf;
+      profile.update(kernel_name.c_str(), event);
+    }
     INVOKE_CL_RET_FAIL(clFinish, DeviceInfo.Queues[device_id]);
     DP("Successfully finished kernel execution.\n");
   }

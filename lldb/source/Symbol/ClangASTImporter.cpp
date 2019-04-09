@@ -18,6 +18,8 @@
 #include "clang/AST/DeclObjC.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <memory>
+
 using namespace lldb_private;
 using namespace clang;
 
@@ -765,7 +767,7 @@ void ClangASTImporter::BuildNamespaceMap(const clang::NamespaceDecl *decl) {
 
   NamespaceMapSP new_map;
 
-  new_map.reset(new NamespaceMap);
+  new_map = std::make_shared<NamespaceMap>();
 
   if (context_md->m_map_completer) {
     std::string namespace_string = decl->getDeclName().getAsString();
@@ -935,7 +937,7 @@ void ClangASTImporter::Minion::ImportDefinitionTo(clang::Decl *to,
   }
 }
 
-clang::Decl *ClangASTImporter::Minion::Imported(clang::Decl *from,
+void ClangASTImporter::Minion::Imported(clang::Decl *from,
                                                 clang::Decl *to) {
   ClangASTMetrics::RegisterClangImport();
 
@@ -1094,8 +1096,6 @@ clang::Decl *ClangASTImporter::Minion::Imported(clang::Decl *from,
       }
     }
   }
-
-  return clang::ASTImporter::Imported(from, to);
 }
 
 clang::Decl *ClangASTImporter::Minion::GetOriginalDecl(clang::Decl *To) {

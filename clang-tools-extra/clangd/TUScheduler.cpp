@@ -45,8 +45,8 @@
 #include "Cancellation.h"
 #include "Logger.h"
 #include "Trace.h"
+#include "index/CanonicalIncludes.h"
 #include "clang/Frontend/CompilerInvocation.h"
-#include "clang/Frontend/PCHContainerOperations.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"
@@ -156,7 +156,6 @@ class ASTWorker {
   ASTWorker(PathRef FileName, TUScheduler::ASTCache &LRUCache,
             Semaphore &Barrier, bool RunSync,
             steady_clock::duration UpdateDebounce,
-            std::shared_ptr<PCHContainerOperations> PCHs,
             bool StorePreamblesInMemory, ParsingCallbacks &Callbacks);
 
 public:
@@ -169,7 +168,6 @@ public:
                                 TUScheduler::ASTCache &IdleASTs,
                                 AsyncTaskRunner *Tasks, Semaphore &Barrier,
                                 steady_clock::duration UpdateDebounce,
-                                std::shared_ptr<PCHContainerOperations> PCHs,
                                 bool StorePreamblesInMemory,
                                 ParsingCallbacks &Callbacks);
   ~ASTWorker();
@@ -235,8 +233,6 @@ private:
   const bool StorePreambleInMemory;
   /// Callback invoked when preamble or main file AST is built.
   ParsingCallbacks &Callbacks;
-  /// Helper class required to build the ASTs.
-  const std::shared_ptr<PCHContainerOperations> PCHs;
   /// Only accessed by the worker thread.
   TUStatus Status;
 
@@ -313,12 +309,11 @@ ASTWorkerHandle ASTWorker::create(PathRef FileName,
                                   TUScheduler::ASTCache &IdleASTs,
                                   AsyncTaskRunner *Tasks, Semaphore &Barrier,
                                   steady_clock::duration UpdateDebounce,
-                                  std::shared_ptr<PCHContainerOperations> PCHs,
                                   bool StorePreamblesInMemory,
                                   ParsingCallbacks &Callbacks) {
-  std::shared_ptr<ASTWorker> Worker(new ASTWorker(
-      FileName, IdleASTs, Barrier, /*RunSync=*/!Tasks, UpdateDebounce,
-      std::move(PCHs), StorePreamblesInMemory, Callbacks));
+  std::shared_ptr<ASTWorker> Worker(
+      new ASTWorker(FileName, IdleASTs, Barrier, /*RunSync=*/!Tasks,
+                    UpdateDebounce, StorePreamblesInMemory, Callbacks));
   if (Tasks)
     Tasks->runAsync("worker:" + llvm::sys::path::filename(FileName),
                     [Worker]() { Worker->run(); });
@@ -329,13 +324,11 @@ ASTWorkerHandle ASTWorker::create(PathRef FileName,
 ASTWorker::ASTWorker(PathRef FileName, TUScheduler::ASTCache &LRUCache,
                      Semaphore &Barrier, bool RunSync,
                      steady_clock::duration UpdateDebounce,
-                     std::shared_ptr<PCHContainerOperations> PCHs,
                      bool StorePreamblesInMemory, ParsingCallbacks &Callbacks)
     : IdleASTs(LRUCache), RunSync(RunSync), UpdateDebounce(UpdateDebounce),
       FileName(FileName), StorePreambleInMemory(StorePreamblesInMemory),
-      Callbacks(Callbacks),
-      PCHs(std::move(PCHs)), Status{TUAction(TUAction::Idle, ""),
-                                    TUStatus::BuildDetails()},
+      Callbacks(Callbacks), Status{TUAction(TUAction::Idle, ""),
+                                   TUStatus::BuildDetails()},
       Barrier(Barrier), Done(false) {}
 
 ASTWorker::~ASTWorker() {
@@ -383,10 +376,11 @@ void ASTWorker::update(ParseInputs Inputs, WantDiagnostics WantDiags) {
     std::shared_ptr<const PreambleData> OldPreamble =
         getPossiblyStalePreamble();
     std::shared_ptr<const PreambleData> NewPreamble = buildPreamble(
-        FileName, *Invocation, OldPreamble, OldCommand, Inputs, PCHs,
+        FileName, *Invocation, OldPreamble, OldCommand, Inputs,
         StorePreambleInMemory,
-        [this](ASTContext &Ctx, std::shared_ptr<clang::Preprocessor> PP) {
-          Callbacks.onPreambleAST(FileName, Ctx, std::move(PP));
+        [this](ASTContext &Ctx, std::shared_ptr<clang::Preprocessor> PP,
+               const CanonicalIncludes &CanonIncludes) {
+          Callbacks.onPreambleAST(FileName, Ctx, std::move(PP), CanonIncludes);
         });
 
     bool CanReuseAST = InputsAreTheSame && (OldPreamble == NewPreamble);
@@ -439,7 +433,7 @@ void ASTWorker::update(ParseInputs Inputs, WantDiagnostics WantDiags) {
     llvm::Optional<std::unique_ptr<ParsedAST>> AST = IdleASTs.take(this);
     if (!AST) {
       llvm::Optional<ParsedAST> NewAST =
-          buildAST(FileName, std::move(Invocation), Inputs, NewPreamble, PCHs);
+          buildAST(FileName, std::move(Invocation), Inputs, NewPreamble);
       AST = NewAST ? llvm::make_unique<ParsedAST>(std::move(*NewAST)) : nullptr;
       if (!(*AST)) { // buildAST fails.
         TUStatus::BuildDetails Details;
@@ -487,7 +481,7 @@ void ASTWorker::runWithAST(
           Invocation
               ? buildAST(FileName,
                          llvm::make_unique<CompilerInvocation>(*Invocation),
-                         FileInputs, getPossiblyStalePreamble(), PCHs)
+                         FileInputs, getPossiblyStalePreamble())
               : None;
       AST = NewAST ? llvm::make_unique<ParsedAST>(std::move(*NewAST)) : nullptr;
     }
@@ -788,7 +782,6 @@ TUScheduler::TUScheduler(unsigned AsyncThreadsCount,
                          std::chrono::steady_clock::duration UpdateDebounce,
                          ASTRetentionPolicy RetentionPolicy)
     : StorePreamblesInMemory(StorePreamblesInMemory),
-      PCHOps(std::make_shared<PCHContainerOperations>()),
       Callbacks(Callbacks ? move(Callbacks)
                           : llvm::make_unique<ParsingCallbacks>()),
       Barrier(AsyncThreadsCount),
@@ -828,7 +821,7 @@ void TUScheduler::update(PathRef File, ParseInputs Inputs,
     // Create a new worker to process the AST-related tasks.
     ASTWorkerHandle Worker = ASTWorker::create(
         File, *IdleASTs, WorkerThreads ? WorkerThreads.getPointer() : nullptr,
-        Barrier, UpdateDebounce, PCHOps, StorePreamblesInMemory, *Callbacks);
+        Barrier, UpdateDebounce, StorePreamblesInMemory, *Callbacks);
     FD = std::unique_ptr<FileData>(new FileData{
         Inputs.Contents, Inputs.CompileCommand, std::move(Worker)});
   } else {

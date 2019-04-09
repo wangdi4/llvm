@@ -1,3 +1,13 @@
+if(INTEL_CUSTOMIZATION)
+  # Disable libomptarget tests, as long as they do not have access
+  # to lib[i]omp (e.g. omp.h) and it is not clear how to satisfy
+  # this dependency: lib[i]omp is copied from our pre-built tools location,
+  # and it is not guaranteed that it is copied before LIT testing starts.
+  libomptarget_say("Cannot test with Intel specific OpenMP runtime.")
+  libomptarget_warning_say("The check-libomptarget target will not be available!")
+  return()
+endif(INTEL_CUSTOMIZATION)
+
 # CMakeLists.txt file for unit testing OpenMP offloading runtime library.
 if(NOT OPENMP_TEST_COMPILER_ID STREQUAL "Clang" OR
    OPENMP_TEST_COMPILER_VERSION VERSION_LESS 6.0.0)
@@ -6,7 +16,7 @@ if(NOT OPENMP_TEST_COMPILER_ID STREQUAL "Clang" OR
   return()
 endif()
 
-if(LIBOMPTARGET_CMAKE_BUILD_TYPE MATCHES debug)
+if(LIBOMPTARGET_ENABLE_DEBUG)
   set(LIBOMPTARGET_DEBUG True)
 else()
   set(LIBOMPTARGET_DEBUG False)

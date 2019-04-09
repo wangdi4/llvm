@@ -59,7 +59,6 @@
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Comdat.h"
 #include "llvm/IR/Constant.h"
@@ -79,6 +78,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/RemarkStreamer.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -100,6 +100,7 @@
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/SectionKind.h"
 #include "llvm/Pass.h"
+#include "llvm/Remarks/Remark.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
@@ -142,9 +143,10 @@ static const char *const CodeViewLineTablesGroupDescription =
 
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
-static cl::opt<bool>
-    PrintSchedule("print-schedule", cl::Hidden, cl::init(false),
-                  cl::desc("Print 'sched: [latency:throughput]' in .s output"));
+static cl::opt<bool> EnableRemarksSection(
+    "remarks-section",
+    cl::desc("Emit a section containing remark diagnostics metadata"),
+    cl::init(false));
 
 char AsmPrinter::ID = 0;
 
@@ -746,74 +748,30 @@ void AsmPrinter::EmitFunctionEntryLabel() {
 }
 
 /// emitComments - Pretty-print comments for instructions.
-/// It returns true iff the sched comment was emitted.
-///   Otherwise it returns false.
-static bool emitComments(const MachineInstr &MI, raw_ostream &CommentOS,
-                         AsmPrinter *AP) {
+static void emitComments(const MachineInstr &MI, raw_ostream &CommentOS) {
   const MachineFunction *MF = MI.getMF();
   const TargetInstrInfo *TII = MF->getSubtarget().getInstrInfo();
 
   // Check for spills and reloads
-  int FI;
-
-  const MachineFrameInfo &MFI = MF->getFrameInfo();
-  bool Commented = false;
-
-  auto getSize =
-      [&MFI](const SmallVectorImpl<const MachineMemOperand *> &Accesses) {
-        unsigned Size = 0;
-        for (auto A : Accesses)
-          if (MFI.isSpillSlotObjectIndex(
-                  cast<FixedStackPseudoSourceValue>(A->getPseudoValue())
-                      ->getFrameIndex()))
-            Size += A->getSize();
-        return Size;
-      };
 
   // We assume a single instruction only has a spill or reload, not
   // both.
-  const MachineMemOperand *MMO;
-  SmallVector<const MachineMemOperand *, 2> Accesses;
-  if (TII->isLoadFromStackSlotPostFE(MI, FI)) {
-    if (MFI.isSpillSlotObjectIndex(FI)) {
-      MMO = *MI.memoperands_begin();
-      CommentOS << MMO->getSize() << "-byte Reload";
-      Commented = true;
-    }
-  } else if (TII->hasLoadFromStackSlot(MI, Accesses)) {
-    if (auto Size = getSize(Accesses)) {
-      CommentOS << Size << "-byte Folded Reload";
-      Commented = true;
-    }
-  } else if (TII->isStoreToStackSlotPostFE(MI, FI)) {
-    if (MFI.isSpillSlotObjectIndex(FI)) {
-      MMO = *MI.memoperands_begin();
-      CommentOS << MMO->getSize() << "-byte Spill";
-      Commented = true;
-    }
-  } else if (TII->hasStoreToStackSlot(MI, Accesses)) {
-    if (auto Size = getSize(Accesses)) {
-      CommentOS << Size << "-byte Folded Spill";
-      Commented = true;
-    }
+  Optional<unsigned> Size;
+  if ((Size = MI.getRestoreSize(TII))) {
+    CommentOS << *Size << "-byte Reload\n";
+  } else if ((Size = MI.getFoldedRestoreSize(TII))) {
+    if (*Size)
+      CommentOS << *Size << "-byte Folded Reload\n";
+  } else if ((Size = MI.getSpillSize(TII))) {
+    CommentOS << *Size << "-byte Spill\n";
+  } else if ((Size = MI.getFoldedSpillSize(TII))) {
+    if (*Size)
+      CommentOS << *Size << "-byte Folded Spill\n";
   }
 
   // Check for spill-induced copies
-  if (MI.getAsmPrinterFlag(MachineInstr::ReloadReuse)) {
-    Commented = true;
-    CommentOS << " Reload Reuse";
-  }
-
-  if (Commented) {
-    if (AP->EnablePrintSchedInfo) {
-      // If any comment was added above and we need sched info comment then add
-      // this new comment just after the above comment w/o "\n" between them.
-      CommentOS << " " << MF->getSubtarget().getSchedInfoStr(MI) << "\n";
-      return true;
-    }
-    CommentOS << "\n";
-  }
-  return false;
+  if (MI.getAsmPrinterFlag(MachineInstr::ReloadReuse))
+    CommentOS << " Reload Reuse\n";
 }
 
 /// emitImplicitDef - This method emits the specified machine instruction
@@ -1101,10 +1059,8 @@ void AsmPrinter::EmitFunctionBody() {
         }
       }
 
-      if (isVerbose() && emitComments(MI, OutStreamer->GetCommentOS(), this)) {
-        MachineInstr *MIP = const_cast<MachineInstr *>(&MI);
-        MIP->setAsmPrinterFlag(MachineInstr::NoSchedComment);
-      }
+      if (isVerbose())
+        emitComments(MI, OutStreamer->GetCommentOS());
 
       switch (MI.getOpcode()) {
       case TargetOpcode::CFI_INSTRUCTION:
@@ -1118,6 +1074,7 @@ void AsmPrinter::EmitFunctionBody() {
         OutStreamer->EmitLabel(MI.getOperand(0).getMCSymbol());
         break;
       case TargetOpcode::INLINEASM:
+      case TargetOpcode::INLINEASM_BR:
         EmitInlineAsm(&MI);
         break;
       case TargetOpcode::DBG_VALUE:
@@ -1337,9 +1294,19 @@ void AsmPrinter::emitGlobalIndirectSymbol(Module &M,
   else
     assert(GIS.hasLocalLinkage() && "Invalid alias or ifunc linkage");
 
+  bool IsFunction = GIS.getType()->getPointerElementType()->isFunctionTy();
+
+  // Treat bitcasts of functions as functions also. This is important at least
+  // on WebAssembly where object and function addresses can't alias each other.
+  if (!IsFunction)
+    if (auto *CE = dyn_cast<ConstantExpr>(GIS.getIndirectSymbol()))
+      if (CE->getOpcode() == Instruction::BitCast)
+        IsFunction =
+          CE->getOperand(0)->getType()->getPointerElementType()->isFunctionTy();
+
   // Set the symbol type to function if the alias has a function type.
   // This affects codegen when the aliasee is not a function.
-  if (GIS.getType()->getPointerElementType()->isFunctionTy()) {
+  if (IsFunction) {
     OutStreamer->EmitSymbolAttribute(Name, MCSA_ELF_TypeFunction);
     if (isa<GlobalIFunc>(GIS))
       OutStreamer->EmitSymbolAttribute(Name, MCSA_ELF_TypeIndFunction);
@@ -1369,6 +1336,38 @@ void AsmPrinter::emitGlobalIndirectSymbol(Module &M,
       OutStreamer->emitELFSize(Name, MCConstantExpr::create(Size, OutContext));
     }
   }
+}
+
+void AsmPrinter::emitRemarksSection(Module &M) {
+  RemarkStreamer *RS = M.getContext().getRemarkStreamer();
+  if (!RS)
+    return;
+
+  // Switch to the right section: .remarks/__remarks.
+  MCSection *RemarksSection =
+      OutContext.getObjectFileInfo()->getRemarksSection();
+  OutStreamer->SwitchSection(RemarksSection);
+
+  // Emit the magic number.
+  OutStreamer->EmitBytes(remarks::Magic);
+  // Explicitly emit a '\0'.
+  OutStreamer->EmitIntValue(/*Value=*/0, /*Size=*/1);
+
+  // Emit the version number: little-endian uint64_t.
+  // The version number is located at the offset 0x0 in the section.
+  std::array<char, 8> Version;
+  support::endian::write64le(Version.data(), remarks::Version);
+  OutStreamer->EmitBinaryData(StringRef(Version.data(), Version.size()));
+
+  // Emit the null-terminated absolute path to the remark file.
+  // The path is located at the offset 0x4 in the section.
+  StringRef FilenameRef = RS->getFilename();
+  SmallString<128> Filename = FilenameRef;
+  sys::fs::make_absolute(Filename);
+  assert(!Filename.empty() && "The filename can't be empty.");
+  OutStreamer->EmitBytes(Filename);
+  // Explicitly emit a '\0'.
+  OutStreamer->EmitIntValue(/*Value=*/0, /*Size=*/1);
 }
 
 bool AsmPrinter::doFinalization(Module &M) {
@@ -1401,6 +1400,12 @@ bool AsmPrinter::doFinalization(Module &M) {
     MCSymbol *Name = getSymbol(&F);
     EmitVisibility(Name, V, false);
   }
+
+  // Emit the remarks section contents.
+  // FIXME: Figure out when is the safest time to emit this section. It should
+  // not come after debug info.
+  if (EnableRemarksSection)
+    emitRemarksSection(M);
 
   const TargetLoweringObjectFile &TLOF = getObjFileLowering();
 
@@ -1636,11 +1641,6 @@ void AsmPrinter::SetupMachineFunction(MachineFunction &MF) {
   }
 
   ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
-
-  const TargetSubtargetInfo &STI = MF.getSubtarget();
-  EnablePrintSchedInfo = PrintSchedule.getNumOccurrences()
-                             ? PrintSchedule
-                             : STI.supportPrintSchedInfo();
 }
 
 namespace {
@@ -1913,8 +1913,7 @@ bool AsmPrinter::EmitSpecialLLVMGlobal(const GlobalVariable *GV) {
 }
 
 /// EmitLLVMUsedList - For targets that define a MAI::UsedDirective, mark each
-/// global in the specified llvm.used list for which emitUsedDirectiveFor
-/// is true, as being used with this directive.
+/// global in the specified llvm.used list.
 void AsmPrinter::EmitLLVMUsedList(const ConstantArray *InitList) {
   // Should be an array of 'i8*'.
   for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
@@ -2926,13 +2925,16 @@ void AsmPrinter::EmitBasicBlockStart(const MachineBasicBlock &MBB) const {
 
   // Print the main label for the block.
   if (MBB.pred_empty() ||
-      (isBlockOnlyReachableByFallthrough(&MBB) && !MBB.isEHFuncletEntry())) {
+      (isBlockOnlyReachableByFallthrough(&MBB) && !MBB.isEHFuncletEntry() &&
+       !MBB.hasLabelMustBeEmitted())) {
     if (isVerbose()) {
       // NOTE: Want this comment at start of line, don't emit with AddComment.
       OutStreamer->emitRawComment(" %bb." + Twine(MBB.getNumber()) + ":",
                                   false);
     }
   } else {
+    if (isVerbose() && MBB.hasLabelMustBeEmitted())
+      OutStreamer->AddComment("Label of block must be emitted");
     OutStreamer->EmitLabel(MBB.getSymbol());
   }
 }

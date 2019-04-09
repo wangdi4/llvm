@@ -374,7 +374,7 @@ static bool isRestoreCall(unsigned Opc) {
 }
 
 static inline bool isOptNone(const MachineFunction &MF) {
-    return MF.getFunction().hasFnAttribute(Attribute::OptimizeNone) ||
+    return MF.getFunction().optForNone() ||
            MF.getTarget().getOptLevel() == CodeGenOpt::None;
 }
 
@@ -2101,7 +2101,7 @@ void HexagonFrameLowering::optimizeSpillSlots(MachineFunction &MF,
         }
         if (!Bad) {
           for (auto *Mo : In.memoperands()) {
-            if (!Mo->isVolatile())
+            if (!Mo->isVolatile() && !Mo->isAtomic())
               continue;
             Bad = true;
             break;

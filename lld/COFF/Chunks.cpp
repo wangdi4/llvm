@@ -30,8 +30,8 @@ namespace lld {
 namespace coff {
 
 SectionChunk::SectionChunk(ObjFile *F, const coff_section *H)
-    : Chunk(SectionKind), Repl(this), Header(H), File(F),
-      Relocs(File->getCOFFObj()->getRelocations(Header)) {
+    : Chunk(SectionKind), File(F), Header(H),
+      Relocs(File->getCOFFObj()->getRelocations(Header)), Repl(this) {
   // Initialize SectionName.
   File->getCOFFObj()->getSectionName(Header, SectionName);
 
@@ -44,21 +44,10 @@ SectionChunk::SectionChunk(ObjFile *F, const coff_section *H)
   Live = !Config->DoGC || !isCOMDAT();
 }
 
-// Initialize the RelocTargets vector, to allow redirecting certain relocations
-// to a thunk instead of the actual symbol the relocation's symbol table index
-// indicates.
-void SectionChunk::readRelocTargets() {
-  assert(RelocTargets.empty());
-  RelocTargets.reserve(Relocs.size());
-  for (const coff_relocation &Rel : Relocs)
-    RelocTargets.push_back(File->getSymbol(Rel.SymbolTableIndex));
-}
-
-// Reset RelocTargets to their original targets before thunks were added.
-void SectionChunk::resetRelocTargets() {
-  for (size_t I = 0, E = Relocs.size(); I < E; ++I)
-    RelocTargets[I] = File->getSymbol(Relocs[I].SymbolTableIndex);
-}
+// SectionChunk is one of the most frequently allocated classes, so it is
+// important to keep it as compact as possible. As of this writing, the number
+// below is the size of this class on x64 platforms.
+static_assert(sizeof(SectionChunk) <= 128, "SectionChunk grew unexpectedly");
 
 static void add16(uint8_t *P, int16_t V) { write16le(P, read16le(P) + V); }
 static void add32(uint8_t *P, int32_t V) { write32le(P, read32le(P) + V); }
@@ -367,9 +356,8 @@ void SectionChunk::writeTo(uint8_t *Buf) const {
 
     uint8_t *Off = Buf + OutputSectionOff + Rel.VirtualAddress;
 
-    // Use the potentially remapped Symbol instead of the one that the
-    // relocation points to.
-    auto *Sym = dyn_cast_or_null<Defined>(RelocTargets[I]);
+    auto *Sym =
+        dyn_cast_or_null<Defined>(File->getSymbol(Rel.SymbolTableIndex));
 
     // Get the output section of the symbol for this relocation.  The output
     // section is needed to compute SECREL and SECTION relocations used in debug
@@ -411,7 +399,11 @@ void SectionChunk::writeTo(uint8_t *Buf) const {
 }
 
 void SectionChunk::addAssociative(SectionChunk *Child) {
-  AssocChildren.push_back(Child);
+  // Insert this child at the head of the list.
+  assert(Child->AssocChildren == nullptr &&
+         "associated sections cannot have their own associated children");
+  Child->AssocChildren = AssocChildren;
+  AssocChildren = Child;
 }
 
 static uint8_t getBaserelType(const coff_relocation &Rel) {
@@ -449,9 +441,7 @@ void SectionChunk::getBaserels(std::vector<Baserel> *Res) {
     uint8_t Ty = getBaserelType(Rel);
     if (Ty == IMAGE_REL_BASED_ABSOLUTE)
       continue;
-    // Use the potentially remapped Symbol instead of the one that the
-    // relocation points to.
-    Symbol *Target = RelocTargets[I];
+    Symbol *Target = File->getSymbol(Rel.SymbolTableIndex);
     if (!Target || isa<DefinedAbsolute>(Target))
       continue;
     Res->emplace_back(RVA + Rel.VirtualAddress, Ty);
@@ -594,6 +584,40 @@ ArrayRef<uint8_t> SectionChunk::getContents() const {
   return A;
 }
 
+ArrayRef<uint8_t> SectionChunk::consumeDebugMagic() {
+  assert(isCodeView());
+  return consumeDebugMagic(getContents(), SectionName);
+}
+
+ArrayRef<uint8_t> SectionChunk::consumeDebugMagic(ArrayRef<uint8_t> Data,
+                                                  StringRef SectionName) {
+  if (Data.empty())
+    return {};
+
+  // First 4 bytes are section magic.
+  if (Data.size() < 4)
+    fatal("the section is too short: " + SectionName);
+
+  if (!SectionName.startswith(".debug$"))
+    fatal("invalid section: " + SectionName);
+
+  unsigned Magic = support::endian::read32le(Data.data());
+  unsigned ExpectedMagic = SectionName == ".debug$H"
+                               ? DEBUG_HASHES_SECTION_MAGIC
+                               : DEBUG_SECTION_MAGIC;
+  if (Magic != ExpectedMagic)
+    fatal("section: " + SectionName + " has an invalid magic: " + Twine(Magic));
+  return Data.slice(4);
+}
+
+SectionChunk *SectionChunk::findByName(ArrayRef<SectionChunk *> Sections,
+                                       StringRef Name) {
+  for (SectionChunk *C : Sections)
+    if (C->getSectionName() == Name)
+      return C;
+  return nullptr;
+}
+
 void SectionChunk::replace(SectionChunk *Other) {
   Alignment = std::max(Alignment, Other->Alignment);
   Other->Repl = Repl;
@@ -670,16 +694,36 @@ const uint8_t ArmThunk[] = {
     0xe7, 0x44,             // L1: add  pc, ip
 };
 
-size_t RangeExtensionThunk::getSize() const {
+size_t RangeExtensionThunkARM::getSize() const {
   assert(Config->Machine == ARMNT);
   return sizeof(ArmThunk);
 }
 
-void RangeExtensionThunk::writeTo(uint8_t *Buf) const {
+void RangeExtensionThunkARM::writeTo(uint8_t *Buf) const {
   assert(Config->Machine == ARMNT);
   uint64_t Offset = Target->getRVA() - RVA - 12;
   memcpy(Buf + OutputSectionOff, ArmThunk, sizeof(ArmThunk));
   applyMOV32T(Buf + OutputSectionOff, uint32_t(Offset));
+}
+
+// A position independent ARM64 adrp+add thunk, with a maximum range of
+// +/- 4 GB, which is enough for any PE-COFF.
+const uint8_t Arm64Thunk[] = {
+    0x10, 0x00, 0x00, 0x90, // adrp x16, Dest
+    0x10, 0x02, 0x00, 0x91, // add  x16, x16, :lo12:Dest
+    0x00, 0x02, 0x1f, 0xd6, // br   x16
+};
+
+size_t RangeExtensionThunkARM64::getSize() const {
+  assert(Config->Machine == ARM64);
+  return sizeof(Arm64Thunk);
+}
+
+void RangeExtensionThunkARM64::writeTo(uint8_t *Buf) const {
+  assert(Config->Machine == ARM64);
+  memcpy(Buf + OutputSectionOff, Arm64Thunk, sizeof(Arm64Thunk));
+  applyArm64Addr(Buf + OutputSectionOff + 0, Target->getRVA(), RVA, 12);
+  applyArm64Imm(Buf + OutputSectionOff + 4, Target->getRVA() & 0xfff, 0);
 }
 
 void LocalImportChunk::getBaserels(std::vector<Baserel> *Res) {

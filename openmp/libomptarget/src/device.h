@@ -156,6 +156,7 @@ struct DeviceTy {
                              int64_t Size, void *AsyncData);
   int32_t data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
                                int64_t Size, void *AsyncData);
+  void *data_sub_alloc(void *TgtPtrBegin, int64_t Size, int64_t Offset);
   int32_t run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
                              ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                              int32_t NumTeams, int32_t ThreadLimit,
