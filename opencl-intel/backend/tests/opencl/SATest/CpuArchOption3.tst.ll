@@ -1,4 +1,4 @@
-target triple = "i686-pc-win32"
+target triple = "spir64-unknown-unknown"
 
 declare <8 x float> @llvm.x86.avx.vbroadcastss.256(i8* ) nounwind
 
