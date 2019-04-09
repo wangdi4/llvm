@@ -939,6 +939,9 @@ def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 #if INTEL_FEATURE_ISA_ENQCMD
 def HasENQCMD : Predicate<"Subtarget->hasENQCMD()">;
 #endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_FEATURE_ISA_KEYLOCKER
+def HasKeyLocker : Predicate<"Subtarget->hasKeyLocker()">;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_ULI
 def HasULI : Predicate<"Subtarget->hasULI()">;
 #endif // INTEL_FEATURE_ISA_ULI
@@ -3044,6 +3047,9 @@ include "X86InstrTSX.td"
 include "X86InstrSGX.td"
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+include "Intel_X86InstrKL.td"
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_AMX
 include "Intel_X86InstrAMX.td"
 #endif // INTEL_FEATURE_ISA_AMX

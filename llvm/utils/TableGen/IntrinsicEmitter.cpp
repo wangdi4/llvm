@@ -220,6 +220,10 @@ enum IIT_Info {
   IIT_STRUCT7 = 39,
   IIT_STRUCT8 = 40,
   IIT_F128 = 41
+#if INTEL_CUSTOMIZATION
+  ,
+  IIT_STRUCT9 = 42
+#endif  // INTEL_CUSTOMIZATION
 };
 
 static void EncodeFixedValueType(MVT::SimpleValueType VT,
@@ -378,6 +382,9 @@ static void ComputeFixedEncoding(const CodeGenIntrinsic &Int,
       case 6: TypeSig.push_back(IIT_STRUCT6); break;
       case 7: TypeSig.push_back(IIT_STRUCT7); break;
       case 8: TypeSig.push_back(IIT_STRUCT8); break;
+#if INTEL_CUSTOMIZATION
+      case 9: TypeSig.push_back(IIT_STRUCT9); break;
+#endif  // INTEL_CUSTOMIZATION
       default: llvm_unreachable("Unhandled case in struct");
     }
 

@@ -301,6 +301,11 @@ def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
 def FeatureENQCMD : SubtargetFeature<"enqcmd", "HasENQCMD", "true",
                                     "Has ENQCMD instructions">;
 #endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_FEATURE_ISA_KEYLOCKER
+def FeatureKeyLocker  : SubtargetFeature<"keylocker", "HasKeyLocker", "true",
+                                         "Support KeyLocker Instructions",
+                                         [FeatureSSE2]>;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_ULI
 def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
                                   "Has ULI Instructions">;
