@@ -13,6 +13,7 @@
 
 # OCL Work-Item Breakpoint Command
 
+import inspect
 import traceback
 from threading import Lock
 
@@ -21,10 +22,13 @@ class OCLWIBreakpoint(gdb.Breakpoint):
 
     eval_lock = Lock()
 
-    def __init__(self, location, x, y, z):
+    def __init__(self, location, x, y, z, temporary):
 
         try:
-            super(OCLWIBreakpoint, self).__init__(location)
+            if 'temporary' in dict(inspect.getmembers(gdb.Breakpoint)):
+                super(OCLWIBreakpoint, self).__init__(location, temporary=temporary)
+            else: #old versions of gdb.Breakpoint cannot be temporary
+                super(OCLWIBreakpoint, self).__init__(location)
         except RuntimeError as e:
             ### GDB crashes when asked to set a breakpoint in code that has
             ### been elimited due to dead-code-elimination (if the line number
@@ -83,7 +87,6 @@ class OCLBreakpointCommand(gdb.Command):
     CLASS = gdb.COMMAND_BREAKPOINTS
 
     def __init__(self):
-
         super(OCLBreakpointCommand, self).__init__(
             name=OCLBreakpointCommand.NAME,
             command_class=OCLBreakpointCommand.CLASS)
@@ -92,20 +95,26 @@ class OCLBreakpointCommand(gdb.Command):
     def usage(self):
         """ Returns usage string """
         return "Usage: " + OCLBreakpointCommand.NAME \
-          + " <location> [gid_x [gid_y [gid_z]]\n"
+          + " <location> [gid_x [gid_y [gid_z [temporary]]]\n"
 
     def invoke(self, argument, from_tty):
-        params = argument.rsplit(' ', 3)
-        if len(params) > 4:
+        params = argument.rsplit(' ', 4)
+        max_params = 5
+        if len(params) == max_params and params[4] != 'temporary':
+            params = argument.rsplit(' ', 3)
+            max_params = 4
+        if len(params) > max_params:
             print(self.usage())
             raise gdb.error("Too many parameters to "
                 + OCLBreakpointCommand.NAME + ": " + str(params))
 
         params += [0] * 3
+        params += ['']
         location = params[0]
         gid_x, gid_y, gid_z = params[1:4]
+        temporary = (params[4] == 'temporary') if len(params) >= 5 else False
 
-        b = OCLWIBreakpoint(location, gid_x, gid_y, gid_z)
+        b = OCLWIBreakpoint(location, gid_x, gid_y, gid_z, temporary)
         self.breakpoints.append(b)
 
     def complete(self, text, word):
