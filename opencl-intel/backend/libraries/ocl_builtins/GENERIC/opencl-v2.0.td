@@ -17,7 +17,7 @@ let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32],
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def cos_rm    : OclBuiltin<"cos_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
-//def divide_rm : OclBuiltin<"divide_rm", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 1, 0>;
+def divide_rm : OclBuiltin<"divide_rm", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 1, 0>;
 def exp_rm    : OclBuiltin<"exp_rm",    (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
 def exp2_rm   : OclBuiltin<"exp2_rm",   (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;
 def exp10_rm  : OclBuiltin<"exp10_rm",  (outs gentype:$ret), (ins gentype:$x), [], [], 1, 0>;

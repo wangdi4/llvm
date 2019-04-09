@@ -522,3 +522,6 @@ OclBuiltinImpl tan_svml_rm_expand = OclBuiltinImpl<tan_rm, math_svml_v16f32_expa
 OclBuiltinImpl sincos_pas_svml_rm_expand = OclBuiltinImpl<sincos_pas_rm, math_svml_v16f32_expand, 0, Expand_2Ptr>;
 OclBuiltinImpl sincos_las_svml_rm_expand = OclBuiltinImpl<sincos_las_rm, math_svml_v16f32_expand, 0, Expand_2Ptr>;
 OclBuiltinImpl sincos_gas_svml_rm_expand = OclBuiltinImpl<sincos_gas_rm, math_svml_v16f32_expand, 0, Expand_2Ptr>;
+
+// divide_rm
+OclBuiltinImpl divide_svml_rm_expand = OclBuiltinImpl<divide_rm, math_svml_v16f32_expand, 0, Expand2>;
