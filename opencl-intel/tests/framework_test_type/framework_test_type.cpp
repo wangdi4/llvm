@@ -164,7 +164,7 @@ TEST(FrameworkTestType, Test_clJITLoadTest)
     EXPECT_TRUE(clCheckJITLoadTest());
 }
 
-TEST(FrameworkTestType, Test_clCheckCPUArchForJIT)
+TEST(FrameworkTestType, DISABLED_Test_clCheckCPUArchForJIT)
 {
     // GenerateBinaryFile before clCheckCPUArchForJIT
     // clCheckCPUArchForJIT cannot function w\o calling GenerateBinaryFile
@@ -360,7 +360,7 @@ TEST(FrameworkTestType, Test_TBB)
     EXPECT_TRUE(TBBTest());
 }
 
-TEST(FrameworkTestType, Test_saturated_conversion_NaN_test)
+TEST(FrameworkTestType, DISABLED_Test_saturated_conversion_NaN_test)
 {
     EXPECT_TRUE(saturated_conversion_NaN_test());
 }
@@ -522,7 +522,7 @@ TEST_F(CL, Test_CheckExtensions)
     CheckExtensions();
 }
 
-TEST_F(CL, Test_ZeroLocalSize)
+TEST_F(CL, DISABLED_Test_ZeroLocalSize)
 {
     ZeroLocalSize();
 }

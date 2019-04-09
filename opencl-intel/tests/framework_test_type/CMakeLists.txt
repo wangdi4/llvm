@@ -49,7 +49,7 @@ if (WIN32)
     )
   endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
   # set 8 MB of stack size
-  set_target_properties( ${TARGET} PROPERTIES LINK_FLAGS /STACK:"8388608" )
+  set_target_properties( ${TARGET} PROPERTIES LINK_FLAGS /STACK:"16777216" )
 endif (WIN32)
 
 
