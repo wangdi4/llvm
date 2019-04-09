@@ -24,7 +24,9 @@
 
 #define MAX_SOURCE_SIZE 2048
 
-#pragma GCC diagnostic ignored "-Wmisleading-indentation"
+#ifdef GCC_VER_7X
+  #pragma GCC diagnostic ignored "-Wmisleading-indentation"
+#endif
 
 extern cl_device_type gDeviceType;
 
