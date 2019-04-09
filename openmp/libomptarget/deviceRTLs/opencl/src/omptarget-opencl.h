@@ -196,132 +196,170 @@ EXTERN void __kmpc_barrier();
 EXTERN void __kmpc_atomic_##DATANAME##_##OPTYPE                                \
   (DATATYPE *lhs, DATATYPE rhs)
 
-/// Signature for binary and/or
-#define KMPC_ATOMIC_FN_B(DATANAME, OPTYPE, DATATYPE)                           \
-EXTERN void __kmpc_atomic_##DATANAME##_##OPTYPE##b                             \
-  (DATATYPE *lhs, DATATYPE rhs)
-
 /// Signature for capture atomics
 #define KMPC_ATOMIC_FN_CPT(DATANAME, OPTYPE, DATATYPE)                         \
 EXTERN DATATYPE __kmpc_atomic_##DATANAME##_##OPTYPE##_cpt                      \
   (DATATYPE *lhs, DATATYPE rhs, int flag)
 
-/// Signature for binary and/or capture atomics
-#define KMPC_ATOMIC_FN_B_CPT(DATANAME, OPTYPE, DATATYPE)                       \
-EXTERN DATATYPE __kmpc_atomic_##DATANAME##_##OPTYPE##b_cpt                     \
-  (DATATYPE *lhs, DATATYPE rhs, int flag)
-
 /// 4-byte fixed
 KMPC_ATOMIC_FN(fixed4, add, int);
 KMPC_ATOMIC_FN(fixed4, sub, int);
-KMPC_ATOMIC_FN_B(fixed4, or, int);
+KMPC_ATOMIC_FN(fixed4, orb, int);
 KMPC_ATOMIC_FN(fixed4, xor, int);
-KMPC_ATOMIC_FN_B(fixed4, and, int);
+KMPC_ATOMIC_FN(fixed4, andb, int);
 KMPC_ATOMIC_FN(fixed4, mul, int);
 KMPC_ATOMIC_FN(fixed4, div, int);
 KMPC_ATOMIC_FN(fixed4, shl, int);
 KMPC_ATOMIC_FN(fixed4, shr, int);
+KMPC_ATOMIC_FN(fixed4, min, int);
+KMPC_ATOMIC_FN(fixed4, max, int);
+KMPC_ATOMIC_FN(fixed4, orl, int);
+KMPC_ATOMIC_FN(fixed4, andl, int);
 
 /// 4-byte fixed capture
 KMPC_ATOMIC_FN_CPT(fixed4, add, int);
 KMPC_ATOMIC_FN_CPT(fixed4, sub, int);
-KMPC_ATOMIC_FN_B_CPT(fixed4, or, int);
+KMPC_ATOMIC_FN_CPT(fixed4, orb, int);
 KMPC_ATOMIC_FN_CPT(fixed4, xor, int);
-KMPC_ATOMIC_FN_B_CPT(fixed4, and, int);
+KMPC_ATOMIC_FN_CPT(fixed4, andb, int);
 KMPC_ATOMIC_FN_CPT(fixed4, mul, int);
 KMPC_ATOMIC_FN_CPT(fixed4, div, int);
 KMPC_ATOMIC_FN_CPT(fixed4, shl, int);
 KMPC_ATOMIC_FN_CPT(fixed4, shr, int);
+KMPC_ATOMIC_FN_CPT(fixed4, min, int);
+KMPC_ATOMIC_FN_CPT(fixed4, max, int);
+KMPC_ATOMIC_FN_CPT(fixed4, orl, int);
+KMPC_ATOMIC_FN_CPT(fixed4, andl, int);
 
 /// 4-byte unsigned fixed
 KMPC_ATOMIC_FN(fixed4u, add, uint);
 KMPC_ATOMIC_FN(fixed4u, sub, uint);
-KMPC_ATOMIC_FN_B(fixed4u, or, uint);
+KMPC_ATOMIC_FN(fixed4u, orb, uint);
 KMPC_ATOMIC_FN(fixed4u, xor, uint);
-KMPC_ATOMIC_FN_B(fixed4u, and, uint);
+KMPC_ATOMIC_FN(fixed4u, andb, uint);
 KMPC_ATOMIC_FN(fixed4u, mul, uint);
 KMPC_ATOMIC_FN(fixed4u, div, uint);
 KMPC_ATOMIC_FN(fixed4u, shl, uint);
 KMPC_ATOMIC_FN(fixed4u, shr, uint);
+KMPC_ATOMIC_FN(fixed4u, min, uint);
+KMPC_ATOMIC_FN(fixed4u, max, uint);
+KMPC_ATOMIC_FN(fixed4u, orl, uint);
+KMPC_ATOMIC_FN(fixed4u, andl, uint);
 
 /// 4-byte unsigned fixed capture
 KMPC_ATOMIC_FN_CPT(fixed4u, add, uint);
 KMPC_ATOMIC_FN_CPT(fixed4u, sub, uint);
-KMPC_ATOMIC_FN_B_CPT(fixed4u, or, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, orb, uint);
 KMPC_ATOMIC_FN_CPT(fixed4u, xor, uint);
-KMPC_ATOMIC_FN_B_CPT(fixed4u, and, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, andb, uint);
 KMPC_ATOMIC_FN_CPT(fixed4u, mul, uint);
 KMPC_ATOMIC_FN_CPT(fixed4u, div, uint);
 KMPC_ATOMIC_FN_CPT(fixed4u, shl, uint);
 KMPC_ATOMIC_FN_CPT(fixed4u, shr, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, min, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, max, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, orl, uint);
+KMPC_ATOMIC_FN_CPT(fixed4u, andl, uint);
 
 /// 4-byte float
 KMPC_ATOMIC_FN(float4, add, float);
 KMPC_ATOMIC_FN(float4, sub, float);
 KMPC_ATOMIC_FN(float4, mul, float);
 KMPC_ATOMIC_FN(float4, div, float);
+KMPC_ATOMIC_FN(float4, min, float);
+KMPC_ATOMIC_FN(float4, max, float);
+KMPC_ATOMIC_FN(float4, orl, float);
+KMPC_ATOMIC_FN(float4, andl, float);
 
 /// 4-byte float capture
 KMPC_ATOMIC_FN_CPT(float4, add, float);
 KMPC_ATOMIC_FN_CPT(float4, sub, float);
 KMPC_ATOMIC_FN_CPT(float4, mul, float);
 KMPC_ATOMIC_FN_CPT(float4, div, float);
+KMPC_ATOMIC_FN_CPT(float4, min, float);
+KMPC_ATOMIC_FN_CPT(float4, max, float);
+KMPC_ATOMIC_FN_CPT(float4, orl, float);
+KMPC_ATOMIC_FN_CPT(float4, andl, float);
 
 /// 8-byte fixed
 KMPC_ATOMIC_FN(fixed8, add, long);
 KMPC_ATOMIC_FN(fixed8, sub, long);
-KMPC_ATOMIC_FN_B(fixed8, or, long);
+KMPC_ATOMIC_FN(fixed8, orb, long);
 KMPC_ATOMIC_FN(fixed8, xor, long);
-KMPC_ATOMIC_FN_B(fixed8, and, long);
+KMPC_ATOMIC_FN(fixed8, andb, long);
 KMPC_ATOMIC_FN(fixed8, mul, long);
 KMPC_ATOMIC_FN(fixed8, div, long);
 KMPC_ATOMIC_FN(fixed8, shl, long);
 KMPC_ATOMIC_FN(fixed8, shr, long);
+KMPC_ATOMIC_FN(fixed8, min, long);
+KMPC_ATOMIC_FN(fixed8, max, long);
+KMPC_ATOMIC_FN(fixed8, orl, long);
+KMPC_ATOMIC_FN(fixed8, andl, long);
 
 /// 8-byte fixed capture
 KMPC_ATOMIC_FN_CPT(fixed8, add, long);
 KMPC_ATOMIC_FN_CPT(fixed8, sub, long);
-KMPC_ATOMIC_FN_B_CPT(fixed8, or, long);
+KMPC_ATOMIC_FN_CPT(fixed8, orb, long);
 KMPC_ATOMIC_FN_CPT(fixed8, xor, long);
-KMPC_ATOMIC_FN_B_CPT(fixed8, and, long);
+KMPC_ATOMIC_FN_CPT(fixed8, andb, long);
 KMPC_ATOMIC_FN_CPT(fixed8, mul, long);
 KMPC_ATOMIC_FN_CPT(fixed8, div, long);
 KMPC_ATOMIC_FN_CPT(fixed8, shl, long);
 KMPC_ATOMIC_FN_CPT(fixed8, shr, long);
+KMPC_ATOMIC_FN_CPT(fixed8, min, long);
+KMPC_ATOMIC_FN_CPT(fixed8, max, long);
+KMPC_ATOMIC_FN_CPT(fixed8, orl, long);
+KMPC_ATOMIC_FN_CPT(fixed8, andl, long);
 
 /// 8-byte unsigned fixed
 KMPC_ATOMIC_FN(fixed8u, add, ulong);
 KMPC_ATOMIC_FN(fixed8u, sub, ulong);
-KMPC_ATOMIC_FN_B(fixed8u, or, ulong);
+KMPC_ATOMIC_FN(fixed8u, orb, ulong);
 KMPC_ATOMIC_FN(fixed8u, xor, ulong);
-KMPC_ATOMIC_FN_B(fixed8u, and, ulong);
+KMPC_ATOMIC_FN(fixed8u, andb, ulong);
 KMPC_ATOMIC_FN(fixed8u, mul, ulong);
 KMPC_ATOMIC_FN(fixed8u, div, ulong);
 KMPC_ATOMIC_FN(fixed8u, shl, ulong);
 KMPC_ATOMIC_FN(fixed8u, shr, ulong);
+KMPC_ATOMIC_FN(fixed8u, min, ulong);
+KMPC_ATOMIC_FN(fixed8u, max, ulong);
+KMPC_ATOMIC_FN(fixed8u, orl, ulong);
+KMPC_ATOMIC_FN(fixed8u, andl, ulong);
 
 /// 8-byte unsigned fixed capture
 KMPC_ATOMIC_FN_CPT(fixed8u, add, ulong);
 KMPC_ATOMIC_FN_CPT(fixed8u, sub, ulong);
-KMPC_ATOMIC_FN_B_CPT(fixed8u, or, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, orb, ulong);
 KMPC_ATOMIC_FN_CPT(fixed8u, xor, ulong);
-KMPC_ATOMIC_FN_B_CPT(fixed8u, and, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, andb, ulong);
 KMPC_ATOMIC_FN_CPT(fixed8u, mul, ulong);
 KMPC_ATOMIC_FN_CPT(fixed8u, div, ulong);
 KMPC_ATOMIC_FN_CPT(fixed8u, shl, ulong);
 KMPC_ATOMIC_FN_CPT(fixed8u, shr, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, min, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, max, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, orl, ulong);
+KMPC_ATOMIC_FN_CPT(fixed8u, andl, ulong);
 
 /// 8-byte float
 KMPC_ATOMIC_FN(float8, add, double);
 KMPC_ATOMIC_FN(float8, sub, double);
 KMPC_ATOMIC_FN(float8, mul, double);
 KMPC_ATOMIC_FN(float8, div, double);
+KMPC_ATOMIC_FN(float8, min, double);
+KMPC_ATOMIC_FN(float8, max, double);
+KMPC_ATOMIC_FN(float8, orl, double);
+KMPC_ATOMIC_FN(float8, andl, double);
 
 /// 8-byte float capture
 KMPC_ATOMIC_FN_CPT(float8, add, double);
 KMPC_ATOMIC_FN_CPT(float8, sub, double);
 KMPC_ATOMIC_FN_CPT(float8, mul, double);
 KMPC_ATOMIC_FN_CPT(float8, div, double);
+KMPC_ATOMIC_FN_CPT(float8, min, double);
+KMPC_ATOMIC_FN_CPT(float8, max, double);
+KMPC_ATOMIC_FN_CPT(float8, orl, double);
+KMPC_ATOMIC_FN_CPT(float8, andl, double);
 
 /// TODO: more data types
 
