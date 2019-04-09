@@ -2002,6 +2002,12 @@ def init : Separate<["-"], "init">;
 def install__name : Separate<["-"], "install_name">;
 def iprefix : JoinedOrSeparate<["-"], "iprefix">, Group<clang_i_Group>, Flags<[CC1Option]>,
   HelpText<"Set the -iwithprefix/-iwithprefixbefore prefix">, MetaVarName<"<dir>">;
+//if INTEL_CUSTOMIZATION
+def ipo : Flag<["-"], "ipo">, Alias<flto>,
+  HelpText<"Enable LTO in 'full' mode">;
+def no_ipo : Flag<["-"], "no-ipo">, Alias<fno_lto>,
+  HelpText<"Disable LTO mode (default)">;
+//endif INTEL_CUSTOMIZATION
 def iquote : JoinedOrSeparate<["-"], "iquote">, Group<clang_i_Group>, Flags<[CC1Option]>,
   HelpText<"Add directory to QUOTE include search path">, MetaVarName<"<directory>">;
 def isysroot : JoinedOrSeparate<["-"], "isysroot">, Group<clang_i_Group>, Flags<[CC1Option]>,
