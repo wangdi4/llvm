@@ -20,11 +20,11 @@
 #include "lldb/Interpreter/ScriptInterpreter.h"
 #include "lldb/Utility/Stream.h"
 
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/ConvertUTF.h"
+#include "llvm/Support/Errno.h"
 
 #include <stdio.h>
-
-#include "llvm/ADT/StringSwitch.h"
 
 using namespace lldb_private;
 using namespace lldb;
@@ -39,7 +39,7 @@ void StructuredPythonObject::Dump(Stream &s, bool pretty_print) const {
 
 void PythonObject::Dump(Stream &strm) const {
   if (m_py_obj) {
-    FILE *file = ::tmpfile();
+    FILE *file = llvm::sys::RetryAfterSignal(nullptr, ::tmpfile);
     if (file) {
       ::PyObject_Print(m_py_obj, file, 0);
       const long length = ftell(file);
@@ -77,6 +77,8 @@ PyObjectType PythonObject::GetObjectType() const {
 #endif
   if (PythonByteArray::Check(m_py_obj))
     return PyObjectType::ByteArray;
+  if (PythonBoolean::Check(m_py_obj))
+    return PyObjectType::Boolean;
   if (PythonInteger::Check(m_py_obj))
     return PyObjectType::Integer;
   if (PythonFile::Check(m_py_obj))
@@ -107,7 +109,7 @@ PythonString PythonObject::Str() const {
 PythonObject
 PythonObject::ResolveNameWithDictionary(llvm::StringRef name,
                                         const PythonDictionary &dict) {
-  size_t dot_pos = name.find_first_of('.');
+  size_t dot_pos = name.find('.');
   llvm::StringRef piece = name.substr(0, dot_pos);
   PythonObject result = dict.GetItemForKey(PythonString(piece));
   if (dot_pos == llvm::StringRef::npos) {
@@ -131,7 +133,7 @@ PythonObject PythonObject::ResolveName(llvm::StringRef name) const {
   // refers to the `sys` module, and `name` == "path.append", then it will find
   // the function `sys.path.append`.
 
-  size_t dot_pos = name.find_first_of('.');
+  size_t dot_pos = name.find('.');
   if (dot_pos == llvm::StringRef::npos) {
     // No dots in the name, we should be able to find the value immediately as
     // an attribute of `m_py_obj`.
@@ -178,6 +180,9 @@ StructuredData::ObjectSP PythonObject::CreateStructuredObject() const {
   case PyObjectType::Dictionary:
     return PythonDictionary(PyRefType::Borrowed, m_py_obj)
         .CreateStructuredDictionary();
+  case PyObjectType::Boolean:
+    return PythonBoolean(PyRefType::Borrowed, m_py_obj)
+        .CreateStructuredBoolean();
   case PyObjectType::Integer:
     return PythonInteger(PyRefType::Borrowed, m_py_obj)
         .CreateStructuredInteger();
@@ -522,6 +527,55 @@ void PythonInteger::SetInteger(int64_t value) {
 StructuredData::IntegerSP PythonInteger::CreateStructuredInteger() const {
   StructuredData::IntegerSP result(new StructuredData::Integer);
   result->SetValue(GetInteger());
+  return result;
+}
+
+//----------------------------------------------------------------------
+// PythonBoolean
+//----------------------------------------------------------------------
+
+PythonBoolean::PythonBoolean(PyRefType type, PyObject *py_obj)
+    : PythonObject() {
+  Reset(type, py_obj); // Use "Reset()" to ensure that py_obj is a boolean type
+}
+
+PythonBoolean::PythonBoolean(const PythonBoolean &object)
+    : PythonObject(object) {}
+
+PythonBoolean::PythonBoolean(bool value) {
+  SetValue(value);
+}
+
+bool PythonBoolean::Check(PyObject *py_obj) {
+  return py_obj ? PyBool_Check(py_obj) : false;
+}
+
+void PythonBoolean::Reset(PyRefType type, PyObject *py_obj) {
+  // Grab the desired reference type so that if we end up rejecting `py_obj` it
+  // still gets decremented if necessary.
+  PythonObject result(type, py_obj);
+
+  if (!PythonBoolean::Check(py_obj)) {
+    PythonObject::Reset();
+    return;
+  }
+
+  // Calling PythonObject::Reset(const PythonObject&) will lead to stack
+  // overflow since it calls back into the virtual implementation.
+  PythonObject::Reset(PyRefType::Borrowed, result.get());
+}
+
+bool PythonBoolean::GetValue() const {
+  return m_py_obj ? PyObject_IsTrue(m_py_obj) : false;
+}
+
+void PythonBoolean::SetValue(bool value) {
+  PythonObject::Reset(PyRefType::Owned, PyBool_FromLong(value));
+}
+
+StructuredData::BooleanSP PythonBoolean::CreateStructuredBoolean() const {
+  StructuredData::BooleanSP result(new StructuredData::Boolean);
+  result->SetValue(GetValue());
   return result;
 }
 

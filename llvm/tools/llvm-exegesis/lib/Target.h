@@ -90,6 +90,11 @@ public:
         "fillMemoryOperands() requires getScratchMemoryRegister() > 0");
   }
 
+  // Returns a list of unavailable registers.
+  // Targets can use this to prevent some registers to be automatically selected
+  // for use in snippets.
+  virtual ArrayRef<unsigned> getUnavailableRegisters() const { return {}; }
+
   // Returns the maximum number of bytes a load/store instruction can access at
   // once. This is typically the size of the largest register available on the
   // processor. Note that this only used as a hint to generate independant
@@ -130,7 +135,7 @@ private:
   std::unique_ptr<SnippetGenerator> virtual createUopsSnippetGenerator(
       const LLVMState &State) const;
   std::unique_ptr<BenchmarkRunner> virtual createLatencyBenchmarkRunner(
-      const LLVMState &State) const;
+      const LLVMState &State, InstructionBenchmark::ModeE Mode) const;
   std::unique_ptr<BenchmarkRunner> virtual createUopsBenchmarkRunner(
       const LLVMState &State) const;
 

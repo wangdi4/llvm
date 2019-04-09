@@ -32,13 +32,13 @@ runCodeComplete(ClangdServer &Server, PathRef File, Position Pos,
 llvm::Expected<SignatureHelp> runSignatureHelp(ClangdServer &Server,
                                                PathRef File, Position Pos);
 
-llvm::Expected<std::vector<Location>>
-runFindDefinitions(ClangdServer &Server, PathRef File, Position Pos);
+llvm::Expected<std::vector<LocatedSymbol>>
+runLocateSymbolAt(ClangdServer &Server, PathRef File, Position Pos);
 
 llvm::Expected<std::vector<DocumentHighlight>>
 runFindDocumentHighlights(ClangdServer &Server, PathRef File, Position Pos);
 
-llvm::Expected<std::vector<tooling::Replacement>>
+llvm::Expected<std::vector<TextEdit>>
 runRename(ClangdServer &Server, PathRef File, Position Pos, StringRef NewName);
 
 std::string runDumpAST(ClangdServer &Server, PathRef File);
