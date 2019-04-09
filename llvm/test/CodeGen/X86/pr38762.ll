@@ -36,7 +36,7 @@
 ; CHECK-NOT:  call void @llvm.dbg.value(metadata i32 %mul, metadata !15, metadata !DIExpression()), !dbg !25
 ; CHECK:  %add = or i32 %mul, 1, !dbg !16
 ; CHECK-NOT:  call void @llvm.dbg.value(metadata i32 %add, metadata !15, metadata !DIExpression()), !dbg !25
-; CHECK:  %0 = select i1 %cmp, i32 %add, i32 %foo.0.5, !dbg !16
+; CHECK:  %0 = select i1 %cmp, i32 %add, i32 %foo.0.5, !dbg !16 ;INTEL
 
 ; ModuleID = 'pr38762.cpp'
 source_filename = "pr38762.cpp"

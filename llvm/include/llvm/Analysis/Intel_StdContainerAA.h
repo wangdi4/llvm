@@ -40,9 +40,12 @@ public:
     return false;
   }
 
-  AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
-  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
-  ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2);
+  AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                    AAQueryInfo &AAQI);
+  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
+                           AAQueryInfo &AAQI);
+  ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,
+                           AAQueryInfo &AAQI);
 
 private:
   bool mayAliasInStdContainer(MDNode *M1, MDNode *M2);

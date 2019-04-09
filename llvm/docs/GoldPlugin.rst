@@ -176,10 +176,16 @@ everything is in place for an easy to use LTO build of autotooled projects:
 The environment variable settings may work for non-autotooled projects too,
 but you may need to set the ``LD`` environment variable as well.
 
+.. INTEL_CUSTOMIZATION .*
+
 Licensing
 =========
 
 Gold is licensed under the GPLv3. LLVMgold uses the interface file
-``plugin-api.h`` from gold which means that the resulting ``LLVMgold.so``
-binary is also GPLv3. This can still be used to link non-GPLv3 programs
-just as much as gold could without the plugin.
+``intel-plugin-api.h`` which was derived from the WHOPR documentation rather
+than from the gold file “plugin-api.h”. This means that the resulting
+``LLVMgold.so`` binary is NOT GPLv3, but rather covered under the Apache
+License, and is NOT subject to any of the additional restrictions of the
+GPLv3 License.
+
+.. end INTEL_CUSTOMIZATION .*

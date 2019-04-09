@@ -54,7 +54,7 @@ attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 45e862a703d2635a07052b2d28278561a98f386b) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 069bf6a001f6e385b134d989317ad3ff43833dbb)"}
+!1 = !{!"clang version 7.0.0"}
 ;
 ; CHECK:  %{{.*}} = call i8* @__kmpc_task_reduction_init({{.*}})
 ; CHECK:  %{{.*}} = call i8* @__kmpc_task_reduction_get_th_data({{.*}})

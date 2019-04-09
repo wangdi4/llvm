@@ -1,5 +1,5 @@
-; RUN:  opt -S -o - -whole-program-assume -dtrans-resolvetypes %s | FileCheck %s
-; RUN:  opt -S -o - -whole-program-assume -passes=dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -internalize -dtrans-resolvetypes %s | FileCheck %s
+; RUN:  opt -S -o - -whole-program-assume -passes='internalize,dtrans-resolvetypes' %s | FileCheck %s
 
 ; This test is to verify that a global variable, whose type is a candidate for
 ; compatible type remapping, does not prevent the remapping when a

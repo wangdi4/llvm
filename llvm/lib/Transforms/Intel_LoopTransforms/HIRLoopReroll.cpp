@@ -77,7 +77,30 @@
 //    DO 0 2*N-1
 //       A[i]     = i + b
 //    END DO
-
+//
+//
+// This pass handles certain safe reductions.
+//
+// - Reduction chains originated from floating-point type operations.
+//
+//    BEGIN REGION { }
+//           + DO i1 = 0, 499, 1   <DO_LOOP>
+//           |   %add = %S.013  +  (@A)[0][2 * i1];
+//           |   %S.013 = %add  +  (@A)[0][2 * i1 + 1];
+//           + END LOOP
+//    END REGION
+//
+// - Self safe reduction insts originated from int-type operations
+//    BEGIN REGION { }
+//          + DO i1 = 0, 499, 1   <DO_LOOP>
+//          |   %0 = (@A)[0][2 * i1];
+//          |   %S.013 = %0 + %S.013  +  (@A)[0][2 * i1 + 1];
+//          + END LOOP
+//    END REGION
+//
+// Only ADD(FADD) reductions operations are currently covered.
+// Only temp blob seeds are covered for self reduction insts.
+//
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReroll.h"
 
 #include "llvm/ADT/Statistic.h"
@@ -124,6 +147,7 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
 
     AU.setPreservesAll();
   }
@@ -143,7 +167,11 @@ class CEOpSequence {
   typedef std::vector<PosOpcodeTy> VecOpcodesTy;
 
   int NumDDRefs;
+
   void countRefs() { NumDDRefs++; }
+  void add(PositionTy Pos, OpcodeTy Opcode) {
+    Opcodes.emplace_back(Pos, Opcode);
+  }
 
 public:
   CEOpSequence() : NumDDRefs(0) {}
@@ -161,21 +189,89 @@ public:
     }
     countRefs();
   }
-  void add(PositionTy Pos, OpcodeTy Opcode) {
-    Opcodes.emplace_back(Pos, Opcode);
-  }
+  void add(const CanonExpr *CE) { CEList.push_back(CE); }
   unsigned size() const { return CEList.size(); }
   unsigned opSize() const { return Opcodes.size(); }
   unsigned numRefs() const { return NumDDRefs; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printCEs() {
+    for (auto CE : CEList) {
+      CE->dump();
+      dbgs() << " ";
+    }
+    dbgs() << "\n";
+  }
+#endif
+
+  void addOpcodeToSeq(unsigned OpCode) { add(CEList.size(), OpCode); }
 };
 
-// Hard to estimate the size: not using small vector.
-typedef std::vector<const DDRef *> VecDDRefsTy;
-typedef std::stack<const DDRef *, VecDDRefsTy> StackDDRefsTy;
 typedef std::vector<const HLNode *> VecNodesTy;
+
+///  Information about a seed.
+///  A seed is a starting point where a tracing of CEOpSequence begins.
+///  A seed is usually a DDRef, either MemRef or TempRef.
+///  For example, for a store inst, A[2i] = %t,
+///  LvalDDRef, A[2i], will make a seed.
+///  After all CEs including temps are covered in Lval, the CEOpSequence
+///  extension proceeds to the Rval of store inst.
+///  When a seed is from a self safe reduction instruction,
+///  it can be a SCEV. For example,in S = S + %1 + %2; %1 is a SCEV, as
+///  "S + %1" forms a RValDDRef.
+///  %1 and %2 can be considered as two seeds.
+///  CEOpSequence extension starts from %1 and from %2, respectively.
+///  And two sequences are produced.
+///  RerollSeedInfo maintains pieces of information of a seed.
+///  - DDRef or SCEV
+///  - Set of Instructions encountered during extension of CEOpSequence
+///    of a seed.
+struct RerollSeedInfo {
+  typedef union {
+    // Seed in the form of SCEV, can be from self SR
+    BlobTy SCEVSeed;
+
+    // Seed in the form of DDRef. True for most cases
+    const DDRef *DDRefSeed;
+  } SeedTy;
+
+  RerollSeedInfo(const HLInst *HInst, BlobTy SSeed)
+      : IsSCEV(true), IsFromSelfSR(true), ContainingInst(HInst) {
+    Seed.SCEVSeed = SSeed;
+    TrackedUpwardInsts.push_back(HInst);
+  }
+  RerollSeedInfo(const HLInst *HInst, const DDRef *Ref, bool IsFromSelf = false)
+      : IsSCEV(false), IsFromSelfSR(IsFromSelf), ContainingInst(HInst) {
+    Seed.DDRefSeed = Ref;
+    TrackedUpwardInsts.push_back(HInst);
+  }
+
+  // TODO: Following two member vars are being used only for debugging.
+  // Seed is a form of SCEV due to Self SR
+  bool IsSCEV;
+
+  // Not necessarily IsSCEV == IsFromSelfSR
+  // S = S + %1 + A[2i + 1]; For "A[2i + 1]" being a seed isSCEV = false
+  // and IsFromSelfSR is true. The latter is needed for correct rewriting
+  bool IsFromSelfSR;
+
+  // Due to Self SR, DDRef knows where it is.
+  const HLInst *ContainingInst;
+
+  SeedTy Seed;
+
+  // List of upward HLInsts tracked starting from this seed.
+  // Used for reroll rewriting.
+  VecNodesTy TrackedUpwardInsts;
+};
+
+typedef std::vector<const DDRef *> VecDDRefsTy;
+typedef std::stack<const DDRef *, VecDDRefsTy> TempStackTy;
 typedef std::vector<CEOpSequence> VecCEOpSeqTy;
-typedef std::vector<VecNodesTy> VecVecNodesTy;
+typedef std::vector<RerollSeedInfo> VecRerollSeedInfoTy;
 typedef DenseMap<BlobTy, unsigned> LoopInvariantBlobTy; // SCEV, BID
+typedef DenseMap<BlobTy, const HLInst *> TempBlobTyToHInstTy;
+typedef DenseMap<BlobTy, const DDRef *> TempToDDRefTy;
 
 namespace rerollcomparator {
 
@@ -183,8 +279,7 @@ bool blobIndexLess(unsigned BI1, unsigned BI2) { return BI1 < BI2; }
 
 struct BlobDDRefLess {
   bool operator()(const BlobDDRef *B1, const BlobDDRef *B2) {
-    return blobIndexLess(B1->getSingleCanonExpr()->getSingleBlobIndex(),
-                         B2->getSingleCanonExpr()->getSingleBlobIndex());
+    return blobIndexLess(B1->getBlobIndex(), B2->getBlobIndex());
   }
 };
 
@@ -208,31 +303,86 @@ struct RegDDRefLess {
 
 } // namespace rerollcomparator
 
+/// Expands CEOpSequence by tracing defs of a temp.
+/// Maintains covered instructions met during expansion.
+///
+/// Example:
+/// %n = ...
+/// DO
+///   %1  = B[2*i];       -- (1)
+///   A[2*i] = %n * %1;   -- (2)
+///
+/// END DO
+///
+/// Inst (2) is a Store inst. This function collects
+///  - its LVAL reference, A[2*i]
+///  - its RVAL references
+///     In case temp refs are present, it tracks the instruction defining
+///     that temp. Then adds non-temp DDRefs to list. If another temp ref
+///     is found, this process repeats. If that temp is defined outside the
+///     loop interest (linear at innermost level), the repetition stop.
+///     Thus, for the example code above, %n, B[2*i], are collected.
+/// The final CEOpSequence will be {A[2*i], %n * %1, B[2*i]} and {("*",1)}.
+/// "*" means mul operator at index 1.
 class SequenceBuilder {
-
-  const HLLoop *Loop;
-
-  void processRegDDRef(const RegDDRef *Ref, CEOpSequence &Seq,
-                       StackDDRefsTy &Stack) const;
-  void collectDDRefsFromAStore(const HLInst *HInst, DDGraph &DDG,
-                               CEOpSequence &Seq, VecNodesTy &InstList) const;
-
 public:
-  explicit SequenceBuilder(const HLLoop *Lp) : Loop(Lp) {}
+  explicit SequenceBuilder(const HLLoop *Lp, DDGraph &G, CEOpSequence &Sq,
+                           VecNodesTy &IL)
+      : SequenceBuilder(nullptr, Lp, G, Sq, IL) {}
 
-  bool areRerollSequencesBuilt(HIRDDAnalysis &DDA, VecCEOpSeqTy &VecSeq,
-                               VecVecNodesTy &VecInstList,
-                               VecNodesTy &VecSeeds) const;
+  explicit SequenceBuilder(const TempStackTy *S, const HLLoop *Lp, DDGraph &G,
+                           CEOpSequence &Sq, VecNodesTy &IL)
+      : Loop(Lp), Level(Lp->getNestingLevel()), DDG(G), Seq(Sq), InstList(IL) {
+    if (S) {
+      TempStack = *S;
+    }
+  }
+
+  /// Given a ref, extend CEOpSequence
+  /// and replenish stack as needed.
+  void processRegDDRef(const RegDDRef *Ref);
+
+  /// Track the temp at the top and process RHS of the defining inst.
+  bool trackTemps();
+
+private:
+  void preprocessRvals(const HLInst *DefInst,
+                       SmallVectorImpl<const RegDDRef *> &ChildrenRvals) const {
+    std::copy(DefInst->rval_op_ddref_begin(), DefInst->rval_op_ddref_end(),
+              std::back_inserter(ChildrenRvals));
+
+    std::sort(ChildrenRvals.begin(), ChildrenRvals.end(),
+              rerollcomparator::RegDDRefLess());
+  }
+
+  void processOpcode(const HLInst *DefInst) {
+    // TODO: Predicate handle for icmp/select
+    Seq.addOpcodeToSeq(DefInst->getLLVMInstruction()->getOpcode());
+  }
+
+  TempStackTy TempStack;
+
+  // Loop level where the seed is found
+  const HLLoop *Loop;
+  unsigned Level;
+  DDGraph &DDG;
+
+  // Seq of CEs and OpCodes starting from a seed.
+  // A seed is
+  //  - RVAL DDRef of a store inst
+  //  - Terms that are not reduction variable of a reduction inst. (float add)
+  //  - SCEVs of a self reduction inst. (e.g. (%1*%2) or (%3*%4)
+  CEOpSequence &Seq;
+
+  // List of Insts that are visited for this Seq.
+  VecNodesTy &InstList;
 };
 
-void SequenceBuilder::processRegDDRef(const RegDDRef *Ref, CEOpSequence &Seq,
-                                      StackDDRefsTy &Stack) const {
+void SequenceBuilder::processRegDDRef(const RegDDRef *Ref) {
   if (Ref->isConstant()) {
     Seq.add(Ref);
     return;
   }
-
-  unsigned Level = Loop->getNestingLevel();
 
   if (Ref->isSelfBlob()) {
     if (Ref->getSingleCanonExpr()->isLinearAtLevel(Level)) {
@@ -240,7 +390,7 @@ void SequenceBuilder::processRegDDRef(const RegDDRef *Ref, CEOpSequence &Seq,
       Seq.add(Ref);
     } else if (!Loop->isLiveIn(Ref->getSymbase())) {
       // If Ref is not linear-at-level then push it to stack and return.
-      Stack.push(Ref);
+      TempStack.push(Ref);
     }
     return;
   }
@@ -275,37 +425,15 @@ void SequenceBuilder::processRegDDRef(const RegDDRef *Ref, CEOpSequence &Seq,
   std::sort(Blobs.begin(), Blobs.end(), rerollcomparator::BlobDDRefLess());
 
   for (const DDRef *Blob : Blobs) {
-    Stack.push(Blob);
+    TempStack.push(Blob);
   }
-}
-
-void processOpcode(const HLInst *DefInst, CEOpSequence &Seq) {
-  unsigned Index = Seq.CEList.size();
-  unsigned Opcode = DefInst->getLLVMInstruction()->getOpcode();
-  Seq.add(Index, Opcode);
-}
-
-void sortRvals(const HLInst *DefInst,
-               SmallVectorImpl<const RegDDRef *> &RvalDDRefCopy) {
-  unsigned NumOps = DefInst->getNumOperands();
-  unsigned CopySize = RvalDDRefCopy.size();
-  assert(NumOps == (CopySize + 1));
-  (void)NumOps;
-  (void)CopySize;
-
-  std::copy(DefInst->rval_op_ddref_begin(), DefInst->rval_op_ddref_end(),
-            RvalDDRefCopy.begin());
-
-  std::sort(RvalDDRefCopy.begin(), RvalDDRefCopy.end(),
-            rerollcomparator::RegDDRefLess());
 }
 
 // Ref is a temp ref, either a blob ddref or a self blob
 // Scan DD edges to this ref, which is a flow edge.
-const HLInst *findTempDef(const DDRef *TempRef, DDGraph &DDG,
-                          const HLLoop *Loop) {
+const HLInst *findTempDef(const DDRef *TempRef, DDGraph &DDG, unsigned Level) {
   for (DDEdge *E : DDG.incoming(TempRef)) {
-    if (E->isFLOWdep()) {
+    if (E->isFLOWdep() && E->getDVAtLevel(Level) == DVKind::EQ) {
       DDRef *Src = E->getSrc();
       if (HLInst *DefInst = dyn_cast<HLInst>(Src->getHLDDNode())) {
         return DefInst;
@@ -315,74 +443,42 @@ const HLInst *findTempDef(const DDRef *TempRef, DDGraph &DDG,
   return nullptr;
 }
 
-// Givin a Store instruction, gather all involved DDRefs. For example,
-//
-// %n = ...
-// DO
-//   %1  = B[2*i];       -- (1)
-//   A[2*i] = %n * %1;   -- (2)
-//
-// END DO
-//
-// Inst (2) is a Store inst. This function collects
-//  - its LVAL reference, A[2*i]
-//  - its RVAL references
-//     In case temp refs are present, it tracks the instruction defining
-//     that temp. Then adds non-temp DDRefs to list. If another temp ref
-//     is found, this process repeats. If that temp is defined outside the
-//     loop interest (linear at innermost level), the repetition stop.
-//     Thus, for the example code above, %n, B[2*i], are collected.
-// The final result will be {A[2*i], %n * %1, B[2*i]}
-// "*" in the second entry is actually separately store as (*, 1), meaning
-// "*" operator and the position of the operator after i-th entry in the
-// CE sequence.
-//
-// Output:
-//  CEOpSequence - sequences of CEs involved in a seed store HLInst and
-//                 sequences of operators involved.
-//  InstList: a set of HLInsts from which CEs in CEOpSequence are found.
-void SequenceBuilder::collectDDRefsFromAStore(const HLInst *HInst, DDGraph &DDG,
-                                              CEOpSequence &Seq,
-                                              VecNodesTy &InstList) const {
-  StackDDRefsTy TempTracker;
+bool SequenceBuilder::trackTemps() {
 
-  // Lval of Store is the root
-  SequenceBuilder::processRegDDRef(HInst->getLvalDDRef(), Seq, TempTracker);
-  InstList.push_back(HInst);
-
-  // RHS of Store is the children to push to the stack.
-  // Children ddrefs of a ddref in this context
-  // are ddrefs in the right hand side of the inst which
-  // defines this ddref.
-  // Example:
-  // %m = A[i] + %q; -- (2)
-  //    = %m ..      -- (1)
-  // Child of %m at (1) are A[i] and %q in (2)
-  SequenceBuilder::processRegDDRef(HInst->getRvalDDRef(), Seq, TempTracker);
-
-  while (!TempTracker.empty()) {
-    const DDRef *TempRef = TempTracker.top();
-    TempTracker.pop();
+  while (!TempStack.empty()) {
+    const DDRef *TempRef = TempStack.top();
+    TempStack.pop();
 
     assert(TempRef->isSelfBlob());
 
-    const HLInst *DefInst = findTempDef(TempRef, DDG, Loop);
-    assert(DefInst && "DefInst should exists within the"
-                      "loop when a temp is not loop-invariant");
-    assert(!TempRef->getSingleCanonExpr()->isLinearAtLevel(
-        Loop->getNestingLevel()));
+    const HLInst *DefInst = findTempDef(TempRef, DDG, Level);
+    if (!DefInst) {
+      // DefInst should exists within the
+      // loop when a temp is not loop-invariant. Otherwise, we don't know how
+      // to reroll. Just bail out.
+      //
+      // + DO i1 = 0, %len.18.lcssa + -1, 1
+      //   %cuv = %cuv  + trunc.i32.i1((%bits /u 128));
+      //   %bits = %bits  <<  1;
+      // + END LOOP
+      // %bits --> %bits ANTI (=) (0)
+      return false;
+    }
+    assert(!TempRef->getSingleCanonExpr()->isLinearAtLevel(Level));
     InstList.push_back(DefInst);
-    processOpcode(DefInst, Seq);
+    processOpcode(DefInst);
 
     // Push Def's RHS, no LVAL
-    SmallVector<const RegDDRef *, 4> RvalDDRefCopy(DefInst->getNumOperands() -
-                                                   1);
-    sortRvals(DefInst, RvalDDRefCopy);
+    SmallVector<const RegDDRef *, 4> ChildrenRvalDDRefs;
+    preprocessRvals(DefInst, ChildrenRvalDDRefs);
     for (const RegDDRef *ChildDDRef :
-         make_range(RvalDDRefCopy.begin(), RvalDDRefCopy.end())) {
-      SequenceBuilder::processRegDDRef(ChildDDRef, Seq, TempTracker);
+         make_range(ChildrenRvalDDRefs.begin(), ChildrenRvalDDRefs.end())) {
+      // TODO: Forward typecast in a CE?
+      processRegDDRef(ChildDDRef);
     }
   }
+
+  return true;
 }
 
 class SequenceChecker {
@@ -535,7 +631,7 @@ bool SequenceChecker::isBlobsMathchedForReroll(const CanonExpr *CE1,
     bool Inv1 = Invs.find(BU.getBlob(P1.second)) != Invs.end();
     bool Inv2 = Invs.find(BU.getBlob(P2.second)) != Invs.end();
     if (Inv1 != Inv2) {
-      // Notice this check imposed strict weak ordering
+      // Notice this check imposes strict weak ordering
       // (Inv1, Inv2) = (t, f) returns t
       // (Inv1, Inv2) = (f, t) returns f
       return Inv1;
@@ -624,7 +720,7 @@ bool SequenceChecker::isValidDistance(const VecCEsTy &CEList1,
 
   unsigned Level = Loop->getNestingLevel();
   for (VecCEsTy::const_iterator I1 = CEList1.begin(), I2 = CEList2.begin(),
-                                EI1 = CEList1.end(), EI2 = CEList2.end();
+                                EI1 = CEList1.end();
        I1 != EI1; ++I1, ++I2) {
     const CanonExpr *CE1 = *I1;
     const CanonExpr *CE2 = *I2;
@@ -707,8 +803,6 @@ bool SequenceChecker::isValidDistance(const VecCEsTy &CEList1,
   return true;
 }
 
-// With given II,
-// check congruence among CE sequences.
 bool SequenceChecker::isSequenceMatched(const unsigned II,
                                         const VecCEOpSeqTy &VecSeq) const {
 
@@ -808,6 +902,7 @@ public:
   }
 
   void populateLoopInvariantBlobs(LoopInvariantBlobTy &LoopInvariantBlob) const;
+  void populateMapFromSCEVToBlobDDRef(TempToDDRefTy &TempToDDRef) const;
 
   bool hasNonRerollConformantCEs() const;
 
@@ -844,6 +939,29 @@ void DDRefScavenger::populateLoopInvariantBlobs(
   }
 }
 
+void DDRefScavenger::populateMapFromSCEVToBlobDDRef(
+    TempToDDRefTy &TempToDDRef) const {
+
+  // This Map is only needed for Self SR Inst
+  // Can be done per Self SR Inst to maintain a smaller map
+  auto AddToMap = [&TempToDDRef](const DDRef *Ref) {
+    unsigned Index = Ref->getSelfBlobIndex();
+    const BlobUtils &BU = Ref->getBlobUtils();
+    TempToDDRef[BU.getBlob(Index)] = Ref;
+  };
+
+  for (const RegDDRef *Ref : Refs) {
+    if (Ref->isSelfBlob()) {
+      AddToMap(Ref);
+    } else {
+      for (const BlobDDRef *BRef :
+           make_range(Ref->blob_begin(), Ref->blob_end())) {
+        AddToMap(BRef);
+      }
+    }
+  }
+}
+
 bool DDRefScavenger::hasNonRerollConformantCEs() const {
 
   unsigned Level = Loop->getNestingLevel();
@@ -868,53 +986,305 @@ bool DDRefScavenger::hasNonRerollConformantCEs() const {
   return false;
 }
 
-// Copy an empty loop and rewrite the loop's body
-// with Insts in VecInstList[0] through VecInstList[II - 1].
-// Replace UPPERBOUND, and IV's Coeffs  as calculated
-// by Reroll Factor.
-bool rewriteLoopBody(unsigned RerollFactor, unsigned II, VecNodesTy &VecSeeds) {
+typedef SmallVector<BlobTy, 16> VecSCEVTy;
+typedef struct SelfSRSeedsTy {
+  VecSCEVTy SCEVSeeds;
+  const RegDDRef *MemRef;
+  SelfSRSeedsTy(VecSCEVTy &Seeds, const RegDDRef *MRef)
+      : SCEVSeeds(Seeds), MemRef(MRef) {}
+} SelfSRSeedsTy;
+typedef std::map<const HLInst *, SelfSRSeedsTy> SelfSRToSeedsTy;
 
-  HLLoop *Loop = const_cast<HLLoop *>(VecSeeds[0]->getParentLoop());
-  assert(VecSeeds.size() == RerollFactor * II);
+class RerollRewriterBase {
+protected:
+  RerollRewriterBase(unsigned RF, const VecRerollSeedInfoTy &Info,
+                     HIRSafeReductionAnalysis *SA = nullptr,
+                     unsigned SelfSR = 0)
+      : RerollFactor(RF), VecSeedInfo(Info), SRA(SA), NumSelfSR(SelfSR) {
+    Loop = (VecSeedInfo.front().ContainingInst)->getParentLoop();
 
-  bool IsValid = HIRTransformUtils::multiplyTripCount(Loop, RerollFactor);
-  if (!IsValid) {
-    // We cannot come up with a valid new TC
+    // We are handling only a normalized form already.
+    assert(Loop->isNormalized());
+  }
+
+  /// Update IV const Coeff
+  void updateCEs() {
+    unsigned Level = Loop->getNestingLevel();
+    unsigned RF = RerollFactor;
+
+    ForEach<RegDDRef>::visitRange(
+        Loop->child_begin(), Loop->child_end(), [RF, Level](RegDDRef *Ref) {
+          for (CanonExpr *CE :
+               llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
+            unsigned Index = 0;
+            int64_t Coeff = 0;
+            if (!CE->hasIV(Level)) {
+              continue;
+            }
+            CE->getIVCoeff(Level, &Index, &Coeff);
+            assert(Index == InvalidBlobIndex);
+
+            CE->setIVCoeff(Level, Index, Coeff / static_cast<int64_t>(RF));
+          }
+        });
+  }
+
+  ///  Update redution vars for SR chains (a.k.a non-self-SR,
+  ///  a ChainSR used to denote containing more than one instructions).
+  ///    S1 = SN + ..
+  ///    S2 = S1 + ..
+  ///    ...
+  ///    SN = SN-1+ ..
+  ///  S(N/2) needs to be renamed to SN.
+  ///  Which of the reduction vars are live out needs to be made sure.
+  void updateChainSRs();
+
+  void invalidate() {
+    // Parent loop body doesn't have to be invalidated for DD. DD-analysis knows
+    // outer loops has to be re-computed because inner loops have invalidated.
+    HIRInvalidationUtils::invalidateBody(Loop);
+    HIRInvalidationUtils::invalidateBounds(Loop);
+  }
+
+  unsigned RerollFactor;
+  const VecRerollSeedInfoTy &VecSeedInfo;
+  HLLoop *Loop;
+  HIRSafeReductionAnalysis *SRA;
+  unsigned NumSelfSR;
+
+private:
+  /// Update Reduction Variable for a reduction chain
+  void updateChainSRTemps(const SafeRedInfo *SRInfo);
+};
+
+void RerollRewriterBase::updateChainSRs() {
+  if (!SRA) {
+    return;
+  }
+
+  const SafeRedInfoList &RedInfoList = SRA->getSafeRedInfoList(Loop);
+
+  for (auto &RedInfo : RedInfoList) {
+    if (RedInfo.Chain.size() == 1) {
+      // Skip a self SR. This routine is for update RedTemps of ChainSRs.
+      continue;
+    }
+
+    updateChainSRTemps(&RedInfo);
+  }
+}
+
+void RerollRewriterBase::updateChainSRTemps(const SafeRedInfo *SRInfo) {
+  unsigned LenChain = SRInfo->Chain.size();
+  assert(LenChain % RerollFactor == 0);
+
+  RegDDRef *NewLastRedTemp = const_cast<RegDDRef *>(
+      SRInfo->Chain[LenChain / RerollFactor - 1]->getLvalDDRef());
+
+  assert(SRInfo->Chain.back()->getLvalDDRef()->getSymbase() == SRInfo->Symbase);
+
+  unsigned RedTempIndex =
+      (NewLastRedTemp->getBlobUtils()).findTempBlobIndex(SRInfo->Symbase);
+  NewLastRedTemp->replaceSelfBlobIndex(RedTempIndex);
+}
+
+/// Rewriting by removing insts after the new last inst.
+/// Work when no self SR inst exists.
+class FastRerollRewriter : public RerollRewriterBase {
+public:
+  FastRerollRewriter(unsigned RF, const VecRerollSeedInfoTy &Info,
+                     HIRSafeReductionAnalysis *SA)
+      : RerollRewriterBase(RF, Info, SA, 0){};
+  bool reroll();
+};
+
+bool FastRerollRewriter::reroll() {
+
+  if (!HIRTransformUtils::multiplyTripCount(Loop, RerollFactor)) {
     return false;
   }
 
   // Locate the last inst of the first group
   // Inst at the (II-1) from 0
-  HLNodeUtils::remove(std::next(HLContainerTy::iterator(
-                          const_cast<HLNode *>(VecSeeds[II - 1]))),
-                      std::next(HLContainerTy::iterator(Loop->getLastChild())));
+  unsigned II = VecSeedInfo.size() / RerollFactor;
+  HLNodeUtils::remove(std::next(HLContainerTy::iterator(const_cast<HLInst *>(
+                          VecSeedInfo[II - 1].ContainingInst))),
+                      Loop->child_end());
 
-  // Now update IV const Coeff
-  unsigned Level = Loop->getNestingLevel();
-  ForEach<RegDDRef>::visitRange(
-      Loop->child_begin(), Loop->child_end(),
-      [RerollFactor, Level](RegDDRef *Ref) {
-        for (CanonExpr *CE :
-             llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
-          unsigned Index = 0;
-          int64_t Coeff = 0;
-          if (!CE->hasIV(Level)) {
-            continue;
-          }
-          CE->getIVCoeff(Level, &Index, &Coeff);
-          assert(Index == InvalidBlobIndex);
-
-          CE->setIVCoeff(Level, Index,
-                         Coeff / static_cast<int64_t>(RerollFactor));
-        }
-      });
-
-  // Parent loop body doesn't have to be invalidated for DD. DD-analysis knows
-  // outer loops has to be re-computed because inner loops have invalidated.
-  HIRInvalidationUtils::invalidateBody(Loop);
-  HIRInvalidationUtils::invalidateBounds(Loop);
+  updateChainSRs();
+  updateCEs();
+  invalidate();
 
   return true;
+}
+
+/// More general reroll rewriter. Can handle self SRs.
+class MoveRerollRewriter : public RerollRewriterBase {
+public:
+  MoveRerollRewriter(unsigned RF, const VecRerollSeedInfoTy &Info,
+                     HIRSafeReductionAnalysis *HSRA, unsigned SelfSR,
+                     const SelfSRToSeedsTy *SelfSRSeedInfo)
+      : RerollRewriterBase(RF, Info, HSRA, SelfSR) {
+    SelfSRToSeeds = SelfSRSeedInfo;
+  };
+
+  /// Use UpwardTracked Insts in VecSeedInfo[0] through VecSeedInfo[II - 1].
+  /// Sort and remove duplicates from the insts.
+  /// TempToDDRef is a map from a temp blob to its blob ddref.
+  bool reroll(const TempToDDRefTy &TempToDDRef);
+
+private:
+  const SelfSRToSeedsTy *SelfSRToSeeds;
+
+  /// Rewrite a self SR Inst for rerolling.
+  /// Take as many seeds as (numSeeds / reroll factor) from Seeds,
+  /// and attach those to reduction variable using reduction
+  /// operator.
+  /// numSeeds is the size of the second param passed.
+  HLInst *rewriteSelfSR(HLInst *Inst, const SelfSRSeedsTy &Seeds,
+                        const TempToDDRefTy &TempToDDRef) const;
+};
+
+HLInst *
+MoveRerollRewriter::rewriteSelfSR(HLInst *Inst, const SelfSRSeedsTy &Seeds,
+                                  const TempToDDRefTy &TempToDDRef) const {
+
+  // Take care of only "+" for stability now.
+  // TODO: replace with SelfSRRerollAnalyzer::isSupportedOp
+  //       once the review is done.
+  //       The class has to moved before this method.
+  if (SRA->getSafeRedInfo(Inst)->OpCode != Instruction::Add) {
+    llvm_unreachable("Self Safe Reductions with only add reduction operation "
+                     "is taken care of by reroller.");
+  }
+  assert(std::distance(Inst->rval_op_ddref_begin(),
+                       Inst->rval_op_ddref_end()) == 2);
+
+  // For ADD instructions
+  // Either,
+  // S = S + SCEVSeed(1) + SCEVSeed(2) + ... + SCEVSeed(RF)
+  // Here (S + .. SCEVSeed(RF-1)) makes the First RvalRef, and SCEVSeed(RF)
+  // makes the second RvalRef of ADD instruction.
+  //
+  // OR
+  //
+  // S = S + SCEVSeed(1) + SCEVSeed(2) + ... + SCEVSeed(RF-1) + MemRef
+  // Here (S + .. SCEVSeed(RF-1)) makes the First RvalRef, and MemRef
+  // makes the second RvalRef of ADD instruction.
+  // Each SCEVSeed is stored as a blob.
+
+  CanonExpr *FirstCE = Inst->getLvalDDRef()->getSingleCanonExpr()->clone();
+  unsigned OrigRedSymbase = Inst->getLvalDDRef()->getSymbase();
+
+  // Add First (RF - 1) SCEVSeeds
+  bool MemRefSeen = false;
+  BlobUtils &BU = Inst->getBlobUtils();
+  assert(Seeds.SCEVSeeds.size() % RerollFactor == 0);
+  unsigned NumNewTerms = Seeds.SCEVSeeds.size() / RerollFactor;
+  unsigned I = 0;
+  for (; I < NumNewTerms - 1; I++) {
+    if (!Seeds.SCEVSeeds[I]) {
+      // MemRef should exist.
+      assert(Seeds.MemRef);
+      MemRefSeen = true;
+      continue;
+    }
+
+    FirstCE->addBlob(BU.findOrInsertBlob(Seeds.SCEVSeeds[I]), 1);
+  }
+
+  assert(I == (NumNewTerms - 1));
+
+  BlobTy LastSCEVTerm = Seeds.SCEVSeeds[I];
+  RegDDRef *SecondRef;
+  if (MemRefSeen) {
+    SecondRef = const_cast<RegDDRef *>(Seeds.MemRef);
+
+    // There must be a remaining SCEVSeed at I
+    FirstCE->addBlob(BU.findOrInsertBlob(LastSCEVTerm), 1);
+  } else {
+    if (LastSCEVTerm == nullptr) {
+      SecondRef = const_cast<RegDDRef *>(Seeds.MemRef);
+    } else {
+      // Last SCEVSeed will become a Second Ref
+      // TODO: MappedRef is directly found here since only Temp blob seeds
+      //       are covered. In order to extent to non-temp blob seeds,
+      //       E.G. S = S + (%1*%2) + (%3*%4)
+      //       logic should be extended.
+      const DDRef *MappedRef = TempToDDRef.find(LastSCEVTerm)->second;
+      SecondRef = (Inst->getDDRefUtils())
+                      .createSelfBlobRef(MappedRef->getSelfBlobIndex(),
+                                         MappedRef->getDefinedAtLevel());
+    }
+  }
+
+  DDRefUtils &DU = Inst->getDDRefUtils();
+  RegDDRef *FirstRef = DU.createScalarRegDDRef(
+      NumNewTerms == 1 ? OrigRedSymbase : GenericRvalSymbase, FirstCE);
+
+  RegDDRef *OrigRvalFirst = *(Inst->rval_op_ddref_begin());
+  RegDDRef *OrigRvalSecond = *(std::next(Inst->rval_op_ddref_begin()));
+
+  Inst->replaceOperandDDRef(OrigRvalFirst, FirstRef);
+  Inst->replaceOperandDDRef(OrigRvalSecond, SecondRef);
+
+  return Inst;
+}
+
+bool MoveRerollRewriter::reroll(const TempToDDRefTy &TempToDDRef) {
+
+  if (!HIRTransformUtils::multiplyTripCount(Loop, RerollFactor)) {
+    return false;
+  }
+
+  // II is the number of seeds to be used in the rerolled loop
+  unsigned II = VecSeedInfo.size() / RerollFactor;
+  VecNodesTy NewAllInsts;
+  for (unsigned I = 0; I < II; I++) {
+    NewAllInsts.insert(NewAllInsts.end(),
+                       VecSeedInfo[I].TrackedUpwardInsts.begin(),
+                       VecSeedInfo[I].TrackedUpwardInsts.end());
+  }
+
+  HLNodeUtils::sortInTopOrderAndUniq(NewAllInsts);
+
+  // Should be called before clone. Using SafeRedInfo as Inst a key.
+  updateChainSRs();
+
+  for (auto &Node : NewAllInsts) {
+    HLInst *Inst = const_cast<HLInst *>(cast<HLInst>(Node));
+    SelfSRToSeedsTy::const_iterator It = SelfSRToSeeds->find(Inst);
+    if (It != SelfSRToSeeds->end()) {
+      rewriteSelfSR(Inst, It->second, TempToDDRef);
+    }
+  }
+
+  HLNodeUtils::remove(
+      std::next(const_cast<HLNode *>(NewAllInsts.back())->getIterator()),
+      Loop->child_end());
+  updateCEs();
+  invalidate();
+
+  LLVM_DEBUG(Loop->dump(1));
+
+  return true;
+}
+
+bool rewriteLoopBody(unsigned RerollFactor, VecRerollSeedInfoTy &VecSeedInfo,
+                     HIRSafeReductionAnalysis &SRA,
+                     const SelfSRToSeedsTy &SelfSRToSeeds,
+                     const TempToDDRefTy &TempToDDRef) {
+
+  assert(VecSeedInfo.size() % RerollFactor == 0);
+
+  unsigned NumSelfSRs = SelfSRToSeeds.size();
+  if (NumSelfSRs == 0) {
+    return FastRerollRewriter(RerollFactor, VecSeedInfo, &SRA).reroll();
+  }
+
+  return MoveRerollRewriter(RerollFactor, VecSeedInfo, &SRA, NumSelfSRs,
+                            &SelfSRToSeeds)
+      .reroll(TempToDDRef);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -982,10 +1352,666 @@ LLVM_DUMP_METHOD void dumpOprdOpSequence(const HLInst *HInst,
 }
 #endif
 
-bool SequenceBuilder::areRerollSequencesBuilt(HIRDDAnalysis &DDA,
-                                              VecCEOpSeqTy &VecSeq,
-                                              VecVecNodesTy &VecInstList,
-                                              VecNodesTy &VecSeeds) const {
+class SelfSRRerollAnalyzer {
+public:
+  class SCEVTermsSortAndReassociater {
+  public:
+    SCEVTermsSortAndReassociater(VecSCEVTy &SCEVs, const HLInst *SelfInst,
+                                 const TempBlobTyToHInstTy &Map,
+                                 const BlobUtils &BlobUtil,
+                                 const RegDDRef *MR = nullptr)
+        : SCEVTerms(SCEVs), MaxTopSortNum(SelfInst->getTopSortNum()),
+          MapBlobToDefInst(Map), BU(BlobUtil), MemRef(MR) {}
+
+    // Sort given SCEVTerms using some comparator
+    bool sort() {
+      if (MemRef) {
+        return sortWithMemRef();
+      }
+
+      return sortOnlySCEVs();
+    }
+
+    // TODO: re-associate if a need arises.
+  private:
+    /// Sort reduction terms by the order of top sort number
+    /// of defining def insts of temp Blobs of one SCEV.
+    bool sortOnlySCEVs();
+
+    /// Sort reduction terms by matching MemRefs.
+    /// Used when a Self SR Inst has a MemRef within itself.
+    bool sortWithMemRef();
+    unsigned getMinTopSortNum(BlobTy SCEVTerm);
+
+    /// Input/output of the SCEVTerms.
+    VecSCEVTy &SCEVTerms;
+    const unsigned MaxTopSortNum;
+    const TempBlobTyToHInstTy &MapBlobToDefInst;
+    const BlobUtils &BU;
+    const RegDDRef *MemRef;
+  };
+
+public:
+  SelfSRRerollAnalyzer(const SafeRedInfo *SRI, VecSCEVTy &T)
+      : SelfInst(SRI->Chain[0]), RedSymbase(SRI->Symbase), OpCode(SRI->OpCode),
+        BU(SelfInst->getBlobUtils()),
+        RedBlobIndex(SelfInst->getLvalDDRef()->getSelfBlobIndex()),
+        RedSCEV(BU.getBlob(RedBlobIndex)), SCEVTerms(T), MemRef(nullptr) {}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print() const {
+    dbgs() << "Print from SelfRedSCEVGatherer\n";
+    dbgs() << "RedIndex: " << RedBlobIndex << "\n";
+    dbgs() << "RedSCEV: ";
+    BU.printBlob(dbgs(), RedSCEV);
+    dbgs() << "\n";
+    if (hasMemRef()) {
+      dbgs() << "Has memRef: ", MemRef->dump();
+      dbgs() << "\n";
+    }
+
+    for (auto Blob : SCEVTerms) {
+      if (!Blob) {
+        dbgs() << "nullptr,  ";
+        continue;
+      }
+      BU.printBlob(dbgs(), Blob);
+      dbgs() << ", ";
+    }
+    dbgs() << "\n";
+  }
+#endif
+
+  bool hasMemRef() const { return MemRef != nullptr; }
+  const RegDDRef *getMemRef() const { return MemRef; }
+  bool analyze(const TempBlobTyToHInstTy &MapBlobToDefInst);
+
+  static bool isSupportedOp(const SafeRedInfo *SRInfo) {
+    return isAdd(SRInfo->OpCode);
+  }
+
+private:
+  static bool isAdd(unsigned OpCode) { return (OpCode == Instruction::Add); }
+
+  bool isAdd() const { return isAdd(OpCode); }
+
+  bool gather(unsigned BlobIndex) {
+    const BlobTy Blob = BU.getBlob(BlobIndex);
+
+    if (hasMemRef() && !isa<SCEVUnknown>(Blob)) {
+      // Bail-out if a memref present and other
+      // SCEV terms are not simple temps.
+      // When there is a memref, we expect
+      // all other SCEV terms are temp blobs
+      // that are defined by a load (i.e. store
+      //  %t = A[2*i]
+      //  S = S + %t + A[2*i + 1]
+      //
+      // Otherwise, it is hardly a reroll pattern.
+      // For example,
+      //  S = S + %1*%2 + A[2*i + 1]
+      // is not a reroll pattern for HIR reroll purpose
+      return false;
+    }
+
+    if (isAdd() || isa<SCEVUnknown>(Blob)) {
+      // No further recursion.
+      // If the reduction op is ADD,
+      // we don't gather further recursively.
+      // This function is already called for each CE's blob.
+
+      if (Blob == RedSCEV) {
+        return true;
+      }
+
+      SCEVTerms.push_back(Blob);
+      return true;
+    }
+
+    if (auto ConstSCEV = dyn_cast<SCEVConstant>(Blob)) {
+      // Constant should be picked up here to be
+      // add to comparison of sequences.
+      SCEVTerms.push_back(ConstSCEV);
+
+      return true;
+    }
+
+    if (auto CastSCEV = dyn_cast<SCEVCastExpr>(Blob)) {
+      // We do not go further into cast operator.
+      // This makes casts are added to the sequence,
+      // and later checked.
+      // If casts are stripped off here, casts are not
+      // included into the sequence comparison and
+      // leading to a wrong result.
+      SCEVTerms.push_back(CastSCEV);
+
+      return true;
+    }
+
+    if (auto NArySCEV = dyn_cast<SCEVNAryExpr>(Blob)) {
+
+      // SCEVType should match with reduction OpCode
+      // Currently, only ADD reductions are covered.
+      assert(NArySCEV->getSCEVType() == scAddExpr);
+
+      for (auto ChildBlob :
+           make_range(NArySCEV->op_begin(), NArySCEV->op_end())) {
+        // Nary-SCEV for the first-depth only
+        // If not a reduction var
+        if (ChildBlob == RedSCEV) {
+          continue;
+        }
+
+        SCEVTerms.push_back(ChildBlob);
+      }
+      return true;
+    }
+
+    if (auto UDivSCEV = dyn_cast<SCEVUDivExpr>(Blob)) {
+
+      // SCEVType should match with reduction OpCode
+      // because only the top-level ops used for
+      // delimiting the scev terms.
+      // For now, only ADD reductions are covered,
+      // this part is not hit.
+      assert(OpCode == Instruction::UDiv);
+
+      SCEVTerms.push_back(UDivSCEV->getLHS());
+      SCEVTerms.push_back(UDivSCEV->getRHS());
+      return true;
+    }
+
+    return false;
+  }
+
+  bool gather(const RegDDRef *Ref) {
+
+    assert(Ref->getNumDimensions() == 1);
+
+    const CanonExpr *CE = Ref->getSingleCanonExpr();
+    for (auto Blob : make_range(CE->blob_begin(), CE->blob_end())) {
+      if (Blob.Index == RedBlobIndex) {
+        continue;
+      }
+      if (Blob.Coeff != 1 || !gather(Blob.Index)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Return true when a self SR is not a reroll candidate
+  /// trivially.
+  /// For example,
+  /// DO // no reroll candidate
+  ///   S = S + %a
+  /// END DO
+  /// This routine sees how many SCEVTerms have matching
+  /// def insts. If the counts is less than 2
+  /// the self SR Inst is hardly a reroll candidate.
+  /// DO
+  ///  %a = A[2i]
+  ///  %b = A[2i + 1]
+  ///  S = S + %a + %b // reroll candidate with two
+  ///                  // SCEVTerms %a and %b, which have
+  ///                  // matching def Insts.
+  /// END DO
+  ///
+  /// DO
+  ///  %a = A[2i]
+  ///  S = S + %a + A[2i + 1]  // reroll candidate
+  /// END DO
+  ///
+  /// DO
+  ///  %a = A[4i]
+  ///  %b = A[4i + 1]
+  ///  %c = A[4i + 2]
+  ///  %d = A[4i + 3]
+  ///  S = S + %a*%b + %c*%d  // no reroll candidate
+  ///                         // no matching defs
+  /// END DO
+  /// The example above is actually a valid reroll candidate.
+  /// Current implementation does not handle the case.
+  /// Extensions for handling SCEVs' def@level
+  /// can be added if a need arises.
+  bool isTriviallyNoReroll(const TempBlobTyToHInstTy &MapBlobToDefInst) const {
+
+    unsigned NumSCEVsWithDefs = 0;
+    for (auto &Term : SCEVTerms) {
+      TempBlobTyToHInstTy::const_iterator It = MapBlobToDefInst.find(Term);
+      if (It != MapBlobToDefInst.end() && It->second != SelfInst) {
+        NumSCEVsWithDefs++;
+      }
+    }
+
+    if ((NumSCEVsWithDefs <= 1 && !hasMemRef()) ||
+        (NumSCEVsWithDefs == 0 && hasMemRef())) {
+      // Hardly a reroll pattern
+      return true;
+    }
+
+    return SCEVTerms.size() == 0;
+  }
+
+public:
+  /// gather seed SCEV
+  bool gather() {
+
+    if (!isAdd()) {
+      // bail-out for now.
+      // Some of the downstream logics only works for add.
+      // Upstream logic already bails out in case the reduction op is not
+      // add. However the upstream logic is outside of this class imple.
+      // p = p * -3; "-3" comes into as a Ref
+      return false;
+    }
+
+    // Preprocessing to see if there is a memref.
+    for (const RegDDRef *Ref : make_range(SelfInst->rval_op_ddref_begin(),
+                                          SelfInst->rval_op_ddref_end())) {
+      if (Ref->isMemRef()) {
+        MemRef = Ref;
+        break;
+      }
+    }
+
+    for (const RegDDRef *Ref : make_range(SelfInst->rval_op_ddref_begin(),
+                                          SelfInst->rval_op_ddref_end())) {
+      if (Ref->getSymbase() == RedSymbase || Ref->isMemRef()) {
+        // Reduction variable itself is not a term of interest.
+        continue;
+      }
+
+      if (!gather(Ref)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  void sortAndReassociateTerms(const TempBlobTyToHInstTy &MapBlobToDefInst) {
+    SCEVTermsSortAndReassociater(SCEVTerms, SelfInst, MapBlobToDefInst, BU,
+                                 MemRef)
+        .sort();
+  }
+
+private:
+  const HLInst *SelfInst;
+  const unsigned RedSymbase;
+  const unsigned OpCode;
+  const BlobUtils &BU;
+  const unsigned RedBlobIndex;
+  BlobTy RedSCEV;
+  VecSCEVTy &SCEVTerms;
+  const RegDDRef *MemRef;
+};
+
+bool SelfSRRerollAnalyzer::SCEVTermsSortAndReassociater::sortWithMemRef() {
+  // This is for the case, a memref appears within the Self SR inst itself.
+  // Example:
+  // S = S + %a + %b + A[3i + 1]
+  // Two SCEVs %a and %b must have matching MemRefs
+  // for example,
+  //   %a = A[3i];
+  //   %b = A[3i + 3];
+  // Otherwise, this self SR would not make a valid reroll candidate.
+
+  SmallVector<const RegDDRef *, 16> MemRefs;
+
+  // All SCEVs should be replaceable by one MemRef.
+  // This is a reverse map from MemRef to SCEV.
+  // A MemRef can have NULL SCEV. For example, A[3i + 1]
+  // in the description above has no matching SCEV,
+  // as it appears directly within a self SR inst.
+  DenseMap<const RegDDRef *, BlobTy> MemRefToSCEV;
+
+  for (auto &SCEVTerm : SCEVTerms) {
+    TempBlobTyToHInstTy::const_iterator It = MapBlobToDefInst.find(SCEVTerm);
+    if (It == MapBlobToDefInst.end()) {
+      return false;
+    }
+
+    const HLInst *DefInst = It->second;
+    const RegDDRef *RvalRef = DefInst->getRvalDDRef();
+    if (!RvalRef || !RvalRef->isMemRef()) {
+      // I.E. underlying LLVM inst is not StoreInst
+      return false;
+    }
+    MemRefs.push_back(RvalRef);
+    MemRefToSCEV[RvalRef] = SCEVTerm;
+  }
+  MemRefs.push_back(MemRef);
+
+  // Sort MemRefs
+  std::sort(MemRefs.begin(), MemRefs.end(), DDRefUtils::compareMemRef);
+  SCEVTerms.clear();
+  for (auto &MemRef : MemRefs) {
+    // Intentionally put nullptr for MemRef without Matching SCEV
+    SCEVTerms.push_back(MemRefToSCEV[MemRef]);
+  }
+  return true;
+}
+
+unsigned SelfSRRerollAnalyzer::SCEVTermsSortAndReassociater::getMinTopSortNum(
+    BlobTy SCEVTerm) {
+
+  VecSCEVTy TempBlobs;
+  BU.collectTempBlobs(SCEVTerm, TempBlobs);
+
+  unsigned Min = MaxTopSortNum;
+  for (auto &Temp : TempBlobs) {
+    TempBlobTyToHInstTy::const_iterator It = MapBlobToDefInst.find(Temp);
+    if (It != MapBlobToDefInst.end()) {
+      unsigned TopSortNum = It->second->getTopSortNum();
+      if (TopSortNum < Min) {
+        Min = TopSortNum;
+      }
+    }
+  }
+  return Min;
+}
+
+bool SelfSRRerollAnalyzer::SCEVTermsSortAndReassociater::sortOnlySCEVs() {
+  // Get Min of TopSortNumber of DefInsts of a SCEVTerm
+  // Use the Min values for sorting SCEVTerms
+  // For example, for sorting two SCEV terms (%a*%b) and (%c*%d),
+  // consider definitions of four temps.
+  // %a = ..  -- TopSortNum: 1
+  // %b = ..  -- TopSortNum: 2
+  // %c = ..  -- TopSortNum: 3
+  // %d = ..  -- TopSortNum: 4
+  // Sort (%a*%b) and (%c*%d) by 1 and 3, as 1 and 3 are the mininum of
+  // (1 and 2) and (3 and 4).
+
+  std::sort(SCEVTerms.begin(), SCEVTerms.end(),
+            [this](const BlobTy SCEVTerm1, const BlobTy SCEVTerm2) {
+              return this->getMinTopSortNum(SCEVTerm1) <
+                     this->getMinTopSortNum(SCEVTerm2);
+            });
+
+  return true;
+}
+
+bool SelfSRRerollAnalyzer::analyze(
+    const TempBlobTyToHInstTy &MapBlobToDefInst) {
+  if (!gather()) {
+    return false;
+  }
+
+  if (isTriviallyNoReroll(MapBlobToDefInst)) {
+    return false;
+  }
+
+  sortAndReassociateTerms(MapBlobToDefInst);
+
+  LLVM_DEBUG(dbgs() << "Print after sort and re-asso:\n");
+  LLVM_DEBUG(print());
+
+  return true;
+}
+
+bool extendSeq(const RegDDRef *StartRef, const HLLoop *Loop, DDGraph &DDG,
+               CEOpSequence &Seq, VecNodesTy &InstList) {
+
+  SequenceBuilder Builder(Loop, DDG, Seq, InstList);
+  Builder.processRegDDRef(StartRef);
+  return Builder.trackTemps();
+}
+
+/// RHS of Store is the children to push to the stack.
+/// Children ddrefs of a ddref in this context
+/// are ddrefs in the right hand side of the inst which
+/// defines this ddref.
+/// Example:
+/// %m = A[i] + %q; -- (2)
+///    = %m ..      -- (1)
+/// Child of %m at (1) are A[i] and %q in (2)
+/// Return the number of sequences: 1 if seccessful, otherwise, 0.
+bool buildFromStoreInst(const HLInst *HInst, const HLLoop *Loop, DDGraph &DDG,
+                        VecCEOpSeqTy &VecSeq,
+                        VecRerollSeedInfoTy &VecSeedInfo) {
+  // Lval of Store is the root
+  const RegDDRef *LVal = HInst->getLvalDDRef();
+  VecSeq.push_back(CEOpSequence());
+  VecSeedInfo.push_back(RerollSeedInfo(HInst, LVal));
+  if (!extendSeq(LVal, Loop, DDG, VecSeq.back(),
+                 VecSeedInfo.back().TrackedUpwardInsts)) {
+    return false;
+  }
+
+  const RegDDRef *RVal = HInst->getRvalDDRef();
+
+  if (!extendSeq(RVal, Loop, DDG, VecSeq.back(),
+                 VecSeedInfo.back().TrackedUpwardInsts)) {
+    return false;
+  }
+
+  LLVM_DEBUG(dumpOprdOpSequence(HInst, VecSeq.back()));
+
+  return true;
+}
+
+/// Return a RvalRef, which is NOT a reduction temp.
+/// For example,
+/// given S1 = S2 + A[i], this function returns A[i];
+/// given S1 = S2 + %t, this function returns %t.
+/// S is the reduction temp in the examples above.
+/// Param Inst should be an Instruction in a reduction chain,
+/// Param Chain is the reduction chain Inst belongs to,
+/// and Param Index is the index of Inst in Chain.
+/// For example, for a chain
+///     S1 = S3 + A[i]    // (1)
+///     S2 = S1 + A[i+1]  // (2)
+///     S3 = S2 + A[i+2]  // (3)
+/// (1), (2) and (3) are three insts in a chain, with its indices are 0, 1, and
+/// 2 respectively. getNonReductionRval((1), Chain, 0) will return A[i]. This
+/// function assums the reduction Chain is formed in the way a rotation-right
+/// relationship between Lval reduction temp and Rval temp holds. Lval reduction
+/// temps:(S1, S2, S3)
+///    -- rotation-right -->
+/// Rval reduction temps:(S3, S1, S2)
+/// This function is for a chained safe reductions, NOT for a Self safe
+/// reduction.
+const RegDDRef *getNonReductionRval(const HLInst *Inst,
+                                    const SafeRedChain *Chain, unsigned Index) {
+
+  assert(std::distance(Inst->rval_op_ddref_begin(),
+                       Inst->rval_op_ddref_end()) == 2);
+
+  unsigned NumRedTemps = Chain->size();
+  unsigned RedTempSymbaseAtRval =
+      ((*Chain)[(Index + (NumRedTemps - 1)) % NumRedTemps])
+          ->getLvalDDRef()
+          ->getSymbase();
+
+  // Inspect Inst
+  for (auto RegRef :
+       make_range(Inst->rval_op_ddref_begin(), Inst->rval_op_ddref_end())) {
+    if (RegRef->getSymbase() != RedTempSymbaseAtRval) {
+      return RegRef;
+    }
+  }
+
+  return nullptr;
+}
+
+/// Return true for supported chain reduction operations.
+/// Note that for a self safe reduction we have
+/// separate set of supported operations.
+bool isSupportedOpForChainSR(const SafeRedInfo *SRInfo) {
+  return SRInfo->OpCode == Instruction::FAdd ||
+         SRInfo->OpCode == Instruction::FSub;
+}
+
+bool buildFromChainSRInst(const HLInst *HInst, const HLLoop *Loop,
+                          const SafeRedInfo *SRInfo, DDGraph &DDG,
+                          unsigned NthRedInst, VecCEOpSeqTy &VecSeq,
+                          VecRerollSeedInfoTy &VecSeedInfo) {
+  // For now for stability
+  if (!isSupportedOpForChainSR(SRInfo)) {
+    return false;
+  }
+
+  const RegDDRef *RVal =
+      getNonReductionRval(HInst, &(SRInfo->Chain), NthRedInst);
+  if (!RVal) {
+    return false;
+  }
+
+  VecSeq.push_back(CEOpSequence());
+
+  VecSeedInfo.push_back(RerollSeedInfo(HInst, RVal));
+
+  if (!extendSeq(RVal, Loop, DDG, VecSeq.back(),
+                 VecSeedInfo.back().TrackedUpwardInsts)) {
+    return false;
+  }
+
+  LLVM_DEBUG(dumpOprdOpSequence(HInst, VecSeq.back()));
+  return true;
+}
+
+bool genTempStackAndTrack(const HLInst *HInst, DDGraph DDG, BlobTy SCEVTerm,
+                          const TempToDDRefTy &TempToDDRef,
+                          VecCEOpSeqTy &VecSeq,
+                          VecRerollSeedInfoTy &VecSeedInfo) {
+
+  // Push blobDDRefs within the SCEVTerm into stack
+  VecSCEVTy TempBlobs;
+  (HInst->getBlobUtils()).collectTempBlobs(SCEVTerm, TempBlobs);
+  TempStackTy TempStack;
+  const HLLoop *ParentLoop = HInst->getParentLoop();
+  unsigned Level = ParentLoop->getNestingLevel();
+
+  for (BlobTy TempBlob : TempBlobs) {
+    const DDRef *TempDDRef = TempToDDRef.find(TempBlob)->second;
+    if (!TempDDRef) {
+      LLVM_DEBUG(dbgs() << "Self SR: Temp's blob ddref is not found!\n");
+      return false;
+    }
+
+    if (TempDDRef->getSingleCanonExpr()->isLinearAtLevel(Level)) {
+      continue;
+    }
+    TempStack.push(TempDDRef);
+  }
+
+  if (TempStack.size() == 0) {
+    return false;
+  }
+
+  VecSeedInfo.push_back(RerollSeedInfo(HInst, SCEVTerm));
+  SequenceBuilder Builder(&TempStack, ParentLoop, DDG, VecSeq.back(),
+                          VecSeedInfo.back().TrackedUpwardInsts);
+  if (!Builder.trackTemps()) {
+    return false;
+  }
+
+  LLVM_DEBUG(dbgs() << "\nPrint Seq : ");
+  LLVM_DEBUG(VecSeq.back().printCEs());
+
+  return true;
+}
+
+/// Generate seeds for a self safe reduction instruction.
+/// A SCEV term of a self SR stmt makes a seed.
+/// By definition of reroll, a self SR stmt may have as many as RF SCEV terms.
+/// Return how many SCEV seeds are generated.
+unsigned buildFromSelfSRInst(const HLInst *HInst, const HLLoop *Loop,
+                             const SafeRedInfo *SRInfo, DDGraph &DDG,
+                             const TempToDDRefTy &TempToDDRef,
+                             const TempBlobTyToHInstTy &MapBlobToDefInst,
+                             VecCEOpSeqTy &VecSeq,
+                             VecRerollSeedInfoTy &VecSeedInfo,
+                             SelfSRToSeedsTy &SelfSRToSeeds) {
+
+  if (!SelfSRRerollAnalyzer::isSupportedOp(SRInfo)) {
+    // Bail-out for not for non ADD reduction
+    return 0;
+  }
+
+  VecSCEVTy SCEVTerms;
+  SelfSRRerollAnalyzer SelfTermGathers(SRInfo, SCEVTerms);
+  if (!SelfTermGathers.analyze(MapBlobToDefInst)) {
+    return 0;
+  }
+
+  SelfSRToSeeds.insert(std::make_pair(
+      HInst, SelfSRSeedsTy(SCEVTerms, SelfTermGathers.getMemRef())));
+
+  BlobUtils &BU = HInst->getBlobUtils();
+  CanonExprUtils &CU = HInst->getCanonExprUtils();
+
+  bool HasMemRef = SelfTermGathers.hasMemRef();
+  if (!HasMemRef) {
+    for (BlobTy SCEVTerm : SCEVTerms) {
+      assert(SCEVTerm);
+
+      // Gen CE out of SCEV and add it into VecSeq
+      // TODO: See if the following is enough. Memory reclaim needed?
+      // Preprocess: add SCEVTerm's  into CEList
+      unsigned BlobIndex = BU.findOrInsertBlob(SCEVTerm);
+
+      // TODO: may need exact level
+      // Comp-fail - no-mappedRef
+      // Set the defined level of SCEVTerm correctly
+      CanonExpr *CE =
+          CU.createCanonExpr(SCEVTerm->getType(), Loop->getNestingLevel());
+      CE->addBlob(BlobIndex, 1);
+      VecSeq.push_back(CEOpSequence());
+      VecSeq.back().add(CE);
+
+      // Populate TempStack and Start tracking from this seed
+      if (!genTempStackAndTrack(HInst, DDG, SCEVTerm, TempToDDRef, VecSeq,
+                                VecSeedInfo)) {
+        return 0;
+      }
+    }
+
+    return SCEVTerms.size();
+  }
+
+  // With MemRef as one seed
+  for (BlobTy SCEVTerm : SCEVTerms) {
+    if (SCEVTerm == nullptr) {
+      // This is a MemRef seed without no SCEV
+      // ie. A[i+1] in S = S + %1 + A[i+1]
+      VecSeedInfo.push_back(
+          RerollSeedInfo(HInst, SelfTermGathers.getMemRef(), true));
+      VecSeq.push_back(CEOpSequence());
+
+      VecSeq.back().addOpcodeToSeq(Instruction::Load);
+      VecSeq.back().add(SelfTermGathers.getMemRef());
+
+      continue;
+    }
+
+    // Do not generated CE from SCEVs
+    // Populate TempStack and Start tracking from this seed
+    VecSeq.push_back(CEOpSequence());
+    if (!genTempStackAndTrack(HInst, DDG, SCEVTerm, TempToDDRef, VecSeq,
+                              VecSeedInfo)) {
+      return 0;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "=== VecSeq Size: " << VecSeq.size() << " ====\n");
+  for (auto &Seq :
+       make_range(std::prev(VecSeq.end(), SCEVTerms.size()), VecSeq.end())) {
+    (void)Seq;
+    LLVM_DEBUG(dumpOprdOpSequence(HInst, Seq));
+  }
+
+  return SCEVTerms.size();
+}
+
+bool areRerollSequencesBuilt(const HLLoop *Loop, HIRDDAnalysis &DDA,
+                             HIRSafeReductionAnalysis &SRA,
+                             const TempToDDRefTy &TempToDDRef,
+                             VecCEOpSeqTy &VecSeq,
+                             VecRerollSeedInfoTy &VecSeedInfo,
+                             SelfSRToSeedsTy &SelfSRToSeeds) {
 
   // Map to make sure consumption of all instructions in the loop body
   DenseMap<const HLNode *, bool> InstToOccurrence(128);
@@ -1021,40 +2047,85 @@ bool SequenceBuilder::areRerollSequencesBuilt(HIRDDAnalysis &DDA,
   DDGraph DDG = DDA.getGraph(Loop);
   LLVM_DEBUG(DDG.dump(););
 
+  unsigned NthRedInst = 0;
+  TempBlobTyToHInstTy MapLvalBlobToDefInst;
+  const BlobUtils &BU = Loop->getBlobUtils();
   for (const HLNode &Node :
        make_range(Loop->child_begin(), Loop->child_end())) {
 
     const HLInst *HInst = cast<HLInst>(&Node);
-    const Instruction *Inst = HInst->getLLVMInstruction();
     // TODO: Handle Cmp and Select if needed.
+    const Instruction *Inst = HInst->getLLVMInstruction();
     if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) {
       return false;
     }
-    if (!isa<StoreInst>(Inst)) {
-      continue;
+    bool IsStore = isa<StoreInst>(Inst);
+
+    const RegDDRef *LVal = HInst->getLvalDDRef();
+    if (LVal->isSelfBlob()) {
+      // Build map from TempBlob to HInst map.
+      // HInst's topological sort.
+      // Can we use a blob util? isInstBlob? getTempBlobValue?
+      MapLvalBlobToDefInst[BU.getBlob(LVal->getSelfBlobIndex())] = HInst;
     }
 
     // A store inst is a seed: collected all ddrefs involved
     // in the store.
-    CEOpSequence Seq;
-    VecNodesTy InstList;
-    VecSeeds.push_back(&Node);
-    SequenceBuilder::collectDDRefsFromAStore(HInst, DDG, Seq, InstList);
-    MarkConsumedInsts(InstList);
-    assert(Seq.size() > 0 &&
-           "collectDDRefsFromAStore is not correctly working!");
-    VecSeq.push_back(Seq);
-    VecInstList.push_back(InstList);
+    if (IsStore) {
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    LLVM_DEBUG(dumpOprdOpSequence(HInst, Seq));
-#endif
+      LLVM_DEBUG(dbgs() << "Hitting Store Inst\n");
+      if (!buildFromStoreInst(HInst, Loop, DDG, VecSeq, VecSeedInfo)) {
+        return false;
+      }
+
+      MarkConsumedInsts(VecSeedInfo.back().TrackedUpwardInsts);
+      continue;
+    }
+
+    SRA.computeSafeReductionChains(Loop);
+    const SafeRedInfo *SRInfo = SRA.getSafeRedInfo(HInst);
+
+    if (!SRInfo) {
+      continue;
+    }
+
+    bool IsSelfSR = SRInfo->Chain.size() == 1;
+    if (IsSelfSR) {
+      LLVM_DEBUG(dbgs() << "Hitting Self SR Inst\n");
+
+      unsigned NumSeeds = buildFromSelfSRInst(
+          HInst, Loop, SRInfo, DDG, TempToDDRef, MapLvalBlobToDefInst, VecSeq,
+          VecSeedInfo, SelfSRToSeeds);
+
+      if (NumSeeds == 0) {
+        return false;
+      }
+
+      for (auto &SeedInfo : make_range(std::prev(VecSeedInfo.end(), NumSeeds),
+                                       VecSeedInfo.end())) {
+        MarkConsumedInsts(SeedInfo.TrackedUpwardInsts);
+      }
+    } else {
+      LLVM_DEBUG(dbgs() << "Hitting A SR Inst\n");
+
+      if (!buildFromChainSRInst(HInst, Loop, SRInfo, DDG, NthRedInst, VecSeq,
+                                VecSeedInfo)) {
+        return false;
+      }
+      NthRedInst++;
+
+      MarkConsumedInsts(VecSeedInfo.back().TrackedUpwardInsts);
+    }
   }
 
   if (!AreAllInstsConsumed()) {
     // Some insts in the loop body is not participating in the rerolling
     // pattern.
     LLVM_DEBUG(dbgs() << "Reroll: not all instructions are covered\n");
+    return false;
+  }
+
+  if (VecSeq.size() <= 1) {
     return false;
   }
 
@@ -1092,11 +2163,21 @@ bool isRerollCandidate(const HLLoop *Loop, HIRLoopStatistics &HLS,
   return true;
 }
 
-// See if Loop has defined temps in [child at II, last child]
-bool hasLiveOutTempsToBeRemoved(const VecNodesTy &VecSeeds, unsigned II) {
-  const HLLoop *Loop = VecSeeds[0]->getParentLoop();
+// If any non-safe-reduction-var live-out exists,
+// bail-out.
+// We can check this after rerolling loop if some of the
+// remove lval temps are live-out. For now,
+// we only take care of safe reductions. We don't need to
+// delay this check after reroll.
+bool hasLiveOutTempsToBeRemoved(const HLLoop *Loop,
+                                HIRSafeReductionAnalysis *SRA) {
+  if ((!SRA || (SRA->getSafeRedInfoList(Loop)).size() == 0) &&
+      Loop->hasLiveOutTemps()) {
+    return true;
+  }
+
   for (const HLNode &Node :
-       make_range(std::next(Loop->child_begin(), II), Loop->child_end())) {
+       make_range(Loop->child_begin(), Loop->child_end())) {
     const HLInst *HInst = dyn_cast<HLInst>(&Node);
 
     if (!HInst) {
@@ -1104,7 +2185,9 @@ bool hasLiveOutTempsToBeRemoved(const VecNodesTy &VecSeeds, unsigned II) {
     }
 
     const RegDDRef *Lval = HInst->getLvalDDRef();
-    if (Loop->isLiveOut(Lval->getSymbase())) {
+    unsigned OpCode;
+    if (Loop->isLiveOut(Lval->getSymbase()) &&
+        !SRA->isReductionRef(Lval, OpCode)) {
       return true;
     }
   }
@@ -1121,17 +2204,24 @@ bool hasLiveOutTempsToBeRemoved(const VecNodesTy &VecSeeds, unsigned II) {
 // - Only a Store inst works as a seed.
 // - One store for one reroll instance works.
 bool rerollStraightCodes(HLLoop *Loop, HIRDDAnalysis &DDA,
-                         HIRLoopStatistics &HLS) {
+                         HIRLoopStatistics &HLS,
+                         HIRSafeReductionAnalysis &SRA) {
   DDRefScavenger RefScavenger(Loop);
   if (!isRerollCandidate(Loop, HLS, RefScavenger)) {
     return false;
   }
 
+  // One Seq for a seed. VecSeq is a vector of Seqs from all seeds.
   VecCEOpSeqTy VecSeq;
-  VecVecNodesTy VecInstList;
-  VecNodesTy VecSeeds; // Separately maintained for rewriting
-  SequenceBuilder SeqBuilder(Loop);
-  if (!SeqBuilder.areRerollSequencesBuilt(DDA, VecSeq, VecInstList, VecSeeds)) {
+
+  // One SeedInfo for a seed. VecSeedInfo is a vector of Info of all seeds.
+  VecRerollSeedInfoTy VecSeedInfo;
+
+  TempToDDRefTy TempToDDRef;
+  RefScavenger.populateMapFromSCEVToBlobDDRef(TempToDDRef);
+  SelfSRToSeedsTy SelfSRToSeeds;
+  if (!areRerollSequencesBuilt(Loop, DDA, SRA, TempToDDRef, VecSeq, VecSeedInfo,
+                               SelfSRToSeeds)) {
     return false;
   }
 
@@ -1144,29 +2234,38 @@ bool rerollStraightCodes(HLLoop *Loop, HIRDDAnalysis &DDA,
   std::tie(RerollFactor, InitInterval) = SeqChecker.calcRerollFactor(VecSeq);
 
   if (RerollFactor <= 1) {
+    LLVM_DEBUG(dbgs() << "Reroll Factor is NOT calculated.\n");
     return false;
   }
 
-  if (hasLiveOutTempsToBeRemoved(VecSeeds, InitInterval)) {
+  if (hasLiveOutTempsToBeRemoved(Loop, &SRA)) {
+    LLVM_DEBUG(dbgs() << "Reroll Factor " << RerollFactor
+                      << ". But, Has Live out to be removed. Bail out.\n");
     return false;
   }
 
-  bool IsRerolled = rewriteLoopBody(RerollFactor, InitInterval, VecSeeds);
-  return IsRerolled;
+  LLVM_DEBUG(dbgs() << "Reroll Factor: " << RerollFactor << "\n");
+
+  if (!rewriteLoopBody(RerollFactor, VecSeedInfo, SRA, SelfSRToSeeds,
+                       TempToDDRef)) {
+    return false;
+  }
+
+  return true;
 }
 
 unsigned doLoopReroll(HIRFramework &HIRF, HIRDDAnalysis &DDA,
-                      HIRLoopStatistics &HLS) {
+                      HIRLoopStatistics &HLS, HIRSafeReductionAnalysis &SRA) {
 
   unsigned NumLoopsRerolled = 0;
-  ForEach<HLLoop>::visitRange(HIRF.hir_begin(), HIRF.hir_end(),
-                              [&DDA, &HLS, &NumLoopsRerolled](HLLoop *Loop) {
-                                bool Result =
-                                    rerollStraightCodes(Loop, DDA, HLS);
-                                if (Result) {
-                                  ++NumLoopsRerolled;
-                                }
-                              });
+  ForEach<HLLoop>::visitRange(
+      HIRF.hir_begin(), HIRF.hir_end(),
+      [&DDA, &HLS, &SRA, &NumLoopsRerolled](HLLoop *Loop) {
+        bool Result = rerollStraightCodes(Loop, DDA, HLS, SRA);
+        if (Result) {
+          ++NumLoopsRerolled;
+        }
+      });
 
   return NumLoopsRerolled;
 }
@@ -1179,6 +2278,7 @@ INITIALIZE_PASS_BEGIN(HIRLoopRerollLegacyPass, OPT_SWITCH, OPT_DESC, false,
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRLoopRerollLegacyPass, OPT_SWITCH, OPT_DESC, false, false)
 
 FunctionPass *llvm::createHIRLoopRerollPass() {
@@ -1195,12 +2295,15 @@ bool HIRLoopRerollLegacyPass::runOnFunction(Function &F) {
   auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto &DDA = getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
   auto &HLS = getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  auto &SRA = getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
 
-  LoopsRerolled = doLoopReroll(HIRF, DDA, HLS);
-  if (LoopsRerolled > 0) {
+  unsigned NumRerolled = doLoopReroll(HIRF, DDA, HLS, SRA);
+  LoopsRerolled += NumRerolled;
+  if (NumRerolled > 0) {
     LLVM_DEBUG(dbgs() << "Reroll happend\n");
   }
-  return LoopsRerolled > 0;
+
+  return NumRerolled > 0;
 }
 
 PreservedAnalyses HIRLoopRerollPass::run(llvm::Function &F,
@@ -1211,15 +2314,16 @@ PreservedAnalyses HIRLoopRerollPass::run(llvm::Function &F,
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  bool IsRerolled = doLoopReroll(AM.getResult<HIRFrameworkAnalysis>(F),
-                                 AM.getResult<HIRDDAnalysisPass>(F),
-                                 AM.getResult<HIRLoopStatisticsAnalysis>(F));
-  if (IsRerolled) {
+  unsigned NumRerolled = doLoopReroll(
+      AM.getResult<HIRFrameworkAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
+      AM.getResult<HIRLoopStatisticsAnalysis>(F),
+      AM.getResult<HIRSafeReductionAnalysisPass>(F));
+  LoopsRerolled += NumRerolled;
+  if (NumRerolled > 0) {
     LLVM_DEBUG(dbgs() << "Reroll happend\n");
   }
 
   return PreservedAnalyses::all();
 }
 // TODO: alias info needs to be checked for safety? (In what cases? We don't
-// change
-//       the order of execution.)
+// change the order of execution.)

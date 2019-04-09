@@ -295,8 +295,9 @@ public:
   virtual SPIRVInstruction *addReturnValueInst(SPIRVValue *, SPIRVBasicBlock *);
   virtual SPIRVInstruction *addSelectInst(SPIRVValue *, SPIRVValue *, SPIRVValue *,
       SPIRVBasicBlock *);
-  virtual SPIRVInstruction *addLoopMergeInst(SPIRVId MergeBlock,
-      SPIRVId ContinueTarget, SPIRVWord LoopControl, SPIRVBasicBlock *BB);
+  virtual SPIRVInstruction *addLoopMergeInst(
+      SPIRVId MergeBlock, SPIRVId ContinueTarget, SPIRVWord LoopControl,
+      std::vector<SPIRVWord> LoopControlParameters, SPIRVBasicBlock *BB);
   virtual SPIRVInstruction *addSelectionMergeInst(SPIRVId MergeBlock,
       SPIRVWord SelectionControl, SPIRVBasicBlock *BB);
   virtual SPIRVInstruction *addStoreInst(SPIRVValue *, SPIRVValue *,
@@ -1184,11 +1185,13 @@ SPIRVModuleImpl::addSelectionMergeInst(SPIRVId MergeBlock,
     return addInstruction(new SPIRVSelectionMerge(MergeBlock, SelectionControl, BB), BB);
 }
 
-SPIRVInstruction *
-SPIRVModuleImpl::addLoopMergeInst(SPIRVId MergeBlock, SPIRVId ContinueTarget,
-    SPIRVWord LoopControl, SPIRVBasicBlock *BB) {
-  return addInstruction(new SPIRVLoopMerge(MergeBlock, ContinueTarget,
-      LoopControl, BB), BB);
+SPIRVInstruction *SPIRVModuleImpl::addLoopMergeInst(
+    SPIRVId MergeBlock, SPIRVId ContinueTarget, SPIRVWord LoopControl,
+    std::vector<SPIRVWord> LoopControlParameters, SPIRVBasicBlock *BB) {
+  return addInstruction(
+      new SPIRVLoopMerge(MergeBlock, ContinueTarget, LoopControl,
+                         LoopControlParameters, BB),
+      BB, const_cast<SPIRVInstruction *>(BB->getTerminateInstr()));
 }
 
 SPIRVInstruction *

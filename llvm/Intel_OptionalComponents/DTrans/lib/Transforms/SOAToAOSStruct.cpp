@@ -334,7 +334,7 @@ public:
       return;
 
     StructMethodTransformation SMT(
-        DL, *DTInfo, TLI, VMap, InstsToTransform /* CsllSiteComparator */,
+        DL, *DTInfo, VMap, InstsToTransform /* CallSiteComparator */,
         InstsToTransform /*TransformationData*/, Context);
 
     SMT.updateReferences(S.StrType, NewArray, Arrays, AOSOffset,

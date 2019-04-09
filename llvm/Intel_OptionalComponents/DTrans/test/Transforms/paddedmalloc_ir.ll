@@ -29,7 +29,7 @@ define internal noalias i8* @mallocFunc(i64) {
 ; CHECK-LABEL: @mallocFunc(
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP0:%.*]], 4294967295
 ; CHECK-NEXT:    br i1 [[TMP2:%.*]], label [[TMP3:%.*]], label %MaxBB
-; CHECK-LABEL: <label>:3:
+; CHECK-LABEL: 3:
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* @__Intel_PaddedMallocCounter
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp ult i32 [[TMP4]], 250
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[BBIF:%.*]], label [[BBELSE:%.*]]
@@ -45,7 +45,7 @@ define internal noalias i8* @mallocFunc(i64) {
 ; CHECK-LABEL: BBelse:
 ; CHECK-NEXT:    [[TMP9:%.*]] = tail call noalias i8* @malloc(i64 [[TMP0]])
 ; CHECK-NEXT:    br label [[TMP10]]
-; CHECK-LABEL: <label>:10:
+; CHECK-LABEL: 10:
 ; CHECK-NEXT:    [[TMP11:%.*]] = phi i8* [ [[TMP7]], [[BBIF]] ], [ [[TMP9]], [[BBELSE]] ]
 ; CHECK-NEXT:    ret i8* [[TMP11]]
 

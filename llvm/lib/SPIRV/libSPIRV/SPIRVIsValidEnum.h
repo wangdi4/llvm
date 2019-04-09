@@ -414,6 +414,11 @@ isValid(spv::Decoration V) {
     case DecorationInputAttachmentIndex:
     case DecorationAlignment:
     case DecorationMaxByteOffset:
+    case DecorationRegisterINTEL:
+    case DecorationMemoryINTEL:
+    case DecorationNumbanksINTEL:
+    case DecorationBankwidthINTEL:
+    case DecorationMaxConcurrencyINTEL:
       return true;
     default:
       return false;
@@ -570,6 +575,7 @@ isValid(spv::Capability V) {
     case CapabilitySubgroupDispatch:
     case CapabilityNamedBarrier:
     case CapabilityPipeStorage:
+    case CapabilityFPGAMemoryAttributesINTEL:
       return true;
     default:
       return false;
@@ -941,6 +947,7 @@ isValidLoopControlMask(SPIRVWord Mask) {
   SPIRVWord ValidMask = 0u;
   ValidMask |= LoopControlUnrollMask;
   ValidMask |= LoopControlDontUnrollMask;
+  ValidMask |= LoopControlPartialCountMask;
   ValidMask |= LoopControlDependencyInfiniteMask;
   ValidMask |= LoopControlDependencyLengthMask;
 

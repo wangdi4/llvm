@@ -1102,12 +1102,11 @@ bool HLLoop::isTriangularLoop() const {
 
   for (auto I = ztt_ddref_begin(), E1 = ztt_ddref_end(); I != E1; ++I) {
     const RegDDRef *RRef = *I;
-    for (auto Iter = RRef->canon_begin(), E2 = RRef->canon_end(); Iter != E2;
-         ++Iter) {
-      const CanonExpr *CE = *Iter;
-      if (CE->hasIV()) {
-        return true;
-      }
+
+    assert(RRef->isTerminalRef() && "non-terminal ref not expected in ztt!");
+
+    if (RRef->getSingleCanonExpr()->hasIV()) {
+      return true;
     }
   }
 

@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
 ;
 ;If the two refs in different loops have different loop bounds or strides, we cannot remove the dead store
 ;

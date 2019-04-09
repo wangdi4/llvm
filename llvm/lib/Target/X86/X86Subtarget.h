@@ -88,6 +88,9 @@ protected:
   /// True if the processor supports X87 instructions.
   bool HasX87 = false;
 
+  /// True if the processor supports CMPXCHG8B.
+  bool HasCmpxchg8b = false;
+
   /// True if this processor has NOPL instruction
   /// (generally pentium pro+).
   bool HasNOPL = false;
@@ -294,6 +297,9 @@ protected:
   /// True if the processor supports macrofusion.
   bool HasMacroFusion = false;
 
+  /// True if the processor supports branch fusion.
+  bool HasBranchFusion = false;
+
   /// True if the processor has enhanced REP MOVSB/STOSB.
   bool HasERMSB = false;
 
@@ -396,19 +402,30 @@ protected:
   bool HasPCONFIG = false;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+  bool HasULI = false;
+#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_SERIALIZE
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_TSXLDTRK
+  /// Processor supports TSXLDTRK instruction
+  bool HasTSXLDTRK = false;
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
+
 #if INTEL_FEATURE_ISA_AMX
   /// Processor has AMX support
   bool HasAMXTILE = false;
   bool HasAMXBF16 = false;
   bool HasAMXINT8 = false;
 #endif // INTEL_FEATURE_ISA_AMX
+
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  bool HasAnyVNNIVL = false;
+  bool HasAVXVNNI = false;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
@@ -575,6 +592,7 @@ public:
   void setPICStyle(PICStyles::Style Style)  { PICStyle = Style; }
 
   bool hasX87() const { return HasX87; }
+  bool hasCmpxchg8b() const { return HasCmpxchg8b; }
   bool hasNOPL() const { return HasNOPL; }
   // SSE codegen depends on cmovs, and all SSE1+ processors support them.
   // All 64-bit processors support cmov.
@@ -649,7 +667,7 @@ public:
   int getGatherOverhead() const { return GatherOverhead; }
   int getScatterOverhead() const { return ScatterOverhead; }
   bool hasSSEUnalignedMem() const { return HasSSEUnalignedMem; }
-  bool hasCmpxchg16b() const { return HasCmpxchg16b; }
+  bool hasCmpxchg16b() const { return HasCmpxchg16b && is64Bit(); }
   bool useLeaForSP() const { return UseLeaForSP; }
   bool hasPOPCNTFalseDeps() const { return HasPOPCNTFalseDeps; }
   bool hasLZCNTFalseDeps() const { return HasLZCNTFalseDeps; }
@@ -667,6 +685,7 @@ public:
   bool hasFastBEXTR() const { return HasFastBEXTR; }
   bool hasFastHorizontalOps() const { return HasFastHorizontalOps; }
   bool hasMacroFusion() const { return HasMacroFusion; }
+  bool hasBranchFusion() const { return HasBranchFusion; }
   bool hasERMSB() const { return HasERMSB; }
   bool hasSlowDivide32() const { return HasSlowDivide32; }
   bool hasSlowDivide64() const { return HasSlowDivide64; }
@@ -708,9 +727,15 @@ public:
   bool threewayBranchProfitable() const { return ThreewayBranchProfitable; }
   bool hasINVPCID() const { return HasINVPCID; }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+  bool hasULI() const { return HasULI; }
+#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_SERIALIZE
   bool hasSERIALIZE() const { return HasSERIALIZE; }
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+  bool hasTSXLDTRK() const { return HasTSXLDTRK; }
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
@@ -722,6 +747,9 @@ public:
   bool hasAMXBF16() const { return HasAMXBF16; }
   bool hasAMXINT8() const { return HasAMXINT8; }
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  bool hasAVXVNNI() const { return HasAVXVNNI; }
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
 
@@ -884,10 +912,10 @@ public:
   /// Enable the MachineScheduler pass for all X86 subtargets.
   bool enableMachineScheduler() const override { return true; }
 
-  // TODO: Update the regression tests and return true.
-  bool supportPrintSchedInfo() const override { return false; }
-
   bool enableEarlyIfConversion() const override;
+
+  void getPostRAMutations(std::vector<std::unique_ptr<ScheduleDAGMutation>>
+                              &Mutations) const override;
 
   AntiDepBreakMode getAntiDepBreakMode() const override {
     return TargetSubtargetInfo::ANTIDEP_CRITICAL;

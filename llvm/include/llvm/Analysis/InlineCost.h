@@ -113,6 +113,7 @@ typedef enum {
    InlrAlwaysInlineRecursive,
    InlrInlineList,
    InlrRecProClone,
+   InlrHasExtractedRecursiveCall,
    InlrSingleLocalCall,
    InlrSingleBasicBlock,
    InlrSingleBasicBlockWithTest,
@@ -126,6 +127,7 @@ typedef enum {
    InlrDeeplyNestedIfs,
    InlrAddressComputations,
    InlrStackComputations,
+   InlrPreferPartialInline,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -169,6 +171,8 @@ typedef enum {
    NinlrStackComputations,
    NinlrSwitchComputations,
    NinlrDelayInlineDecision,
+   NinlrPreferPartialInline,
+   NinlrCalleeHasExceptionHandling,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
@@ -415,8 +419,8 @@ getInlineCost(CallSite CS, const InlineParams &Params,
               TargetLibraryInfo *TLI,          // INTEL
               InliningLoopInfoCache *ILIC,     // INTEL
               InlineAggressiveInfo *AggI,      // INTEL
-              SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
-              SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
+              SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
+              SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
               ProfileSummaryInfo *PSI,
               OptimizationRemarkEmitter *ORE = nullptr);
 
@@ -433,12 +437,12 @@ getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               TargetLibraryInfo *TLI,                // INTEL
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
-              SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
-              SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
+              SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
+              SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// Minimal filter to detect invalid constructs for inlining.
-bool isInlineViable(Function &Callee,                         // INTEL
-                    InlineReportTypes::InlineReason& Reason); // INTEL
+InlineResult isInlineViable(Function &Callee,                         // INTEL
+                            InlineReportTypes::InlineReason& Reason); // INTEL
 }
 #endif

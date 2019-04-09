@@ -348,6 +348,12 @@ SPIRVMap<Decoration, SPIRVCapVec>::init() {
   ADD_VEC_INIT(DecorationNoContraction, { CapabilityShader });
   ADD_VEC_INIT(DecorationInputAttachmentIndex, { CapabilityInputAttachment });
   ADD_VEC_INIT(DecorationAlignment, { CapabilityKernel });
+  ADD_VEC_INIT(DecorationRegisterINTEL, { CapabilityFPGAMemoryAttributesINTEL });
+  ADD_VEC_INIT(DecorationMemoryINTEL, { CapabilityFPGAMemoryAttributesINTEL });
+  ADD_VEC_INIT(DecorationNumbanksINTEL, { CapabilityFPGAMemoryAttributesINTEL });
+  ADD_VEC_INIT(DecorationBankwidthINTEL, { CapabilityFPGAMemoryAttributesINTEL });
+  ADD_VEC_INIT(DecorationMaxConcurrencyINTEL,
+               {CapabilityFPGAMemoryAttributesINTEL});
 }
 
 template<> inline void

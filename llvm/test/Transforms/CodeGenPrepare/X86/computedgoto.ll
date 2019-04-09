@@ -319,7 +319,7 @@ define void @nophi(i32* %p) {
 ; CHECK-NEXT:    br label [[INDIRECTGOTO]]
 ; CHECK:       indirectgoto:
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[P]] to i8*
-; CHECK-NEXT:    [[SUNKADDR:%.*]] = getelementptr i8, i8* [[TMP0]], i64 4
+; CHECK-NEXT:    [[SUNKADDR:%.*]] = getelementptr inbounds i8, i8* [[TMP0]], i64 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i8* [[SUNKADDR]] to i32*
 ; CHECK-NEXT:    [[NEWP:%.*]] = load i32, i32* [[TMP1]], align 4
 ; CHECK-NEXT:    [[IDX:%.*]] = sext i32 [[NEWP]] to i64
@@ -346,7 +346,7 @@ define void @nophi(i32* %p) {
 ; SPLIT-SWITCH-CE-NEXT:    br label [[INDIRECTGOTO]]
 ; SPLIT-SWITCH-CE:       indirectgoto:
 ; SPLIT-SWITCH-CE-NEXT:    [[TMP0:%.*]] = bitcast i32* [[P]] to i8*
-; SPLIT-SWITCH-CE-NEXT:    [[SUNKADDR:%.*]] = getelementptr i8, i8* [[TMP0]], i64 4
+; SPLIT-SWITCH-CE-NEXT:    [[SUNKADDR:%.*]] = getelementptr inbounds i8, i8* [[TMP0]], i64 4
 ; SPLIT-SWITCH-CE-NEXT:    [[TMP1:%.*]] = bitcast i8* [[SUNKADDR]] to i32*
 ; SPLIT-SWITCH-CE-NEXT:    [[NEWP:%.*]] = load i32, i32* [[TMP1]], align 4
 ; SPLIT-SWITCH-CE-NEXT:    [[IDX:%.*]] = sext i32 [[NEWP]] to i64

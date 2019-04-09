@@ -1632,7 +1632,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
   return nullptr;
 }
 
-void CGVisitor::setMetadata(Value *Val, const RegDDRef *Ref) {
+inline void CGVisitor::setMetadata(Value *Val, const RegDDRef *Ref) {
   if (Instruction *Instr = dyn_cast<Instruction>(Val)) {
     setMetadata(Instr, Ref);
   }
@@ -1976,21 +1976,35 @@ Value *CGVisitor::sumIV(CanonExpr *CE) {
     llvm_unreachable("No iv in CE");
   }
 
-  Type *Ty = CE->getSrcType();
-  if (Ty->isVectorTy()) {
-    Ty = Ty->getVectorElementType();
-  }
-
-  Value *res = IVPairCG(CE, CurIVPair, Ty);
+  Type *CETy = CE->getSrcType();
+  Type *ScalarCETy = CETy->getScalarType();
+  Value *Res = IVPairCG(CE, CurIVPair, ScalarCETy);
   CurIVPair++;
 
   // accumulate other pairs
   for (auto E = CE->iv_end(); CurIVPair != E; ++CurIVPair) {
-    if (CE->getIVConstCoeff(CurIVPair))
-      res = Builder.CreateAdd(res, IVPairCG(CE, CurIVPair, Ty));
+    if (CE->getIVConstCoeff(CurIVPair)) {
+      Value *TempRes = IVPairCG(CE, CurIVPair, ScalarCETy);
+      bool ResIsVec = Res->getType()->isVectorTy();
+      bool TempResIsVec = TempRes->getType()->isVectorTy();
+
+      // Do a broadcast if needed - we need a broadcast of scalar
+      // value if one of Res/TempRes is a scalar and the other is a
+      // vector.
+      if (ResIsVec ^ TempResIsVec) {
+        assert(CETy->isVectorTy() &&
+               "Unexpected scalar CE type for a vector type IV pair");
+        if (!ResIsVec)
+          Res = Builder.CreateVectorSplat(CETy->getVectorNumElements(), Res);
+        if (!TempResIsVec)
+          TempRes =
+              Builder.CreateVectorSplat(CETy->getVectorNumElements(), TempRes);
+      }
+      Res = Builder.CreateAdd(Res, TempRes);
+    }
   }
 
-  return res;
+  return Res;
 }
 
 Value *CGVisitor::IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt,

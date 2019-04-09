@@ -440,7 +440,7 @@ VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
 
   // At this point, all the VPBasicBlocks have been built and all the
   // VPInstructions have been created for the loop nest. It's time to fix
-  // VPInstructions representing a semi-phi operation.
+  // VPInstructions representing a PHI operation.
   Decomposer.fixPhiNodes();
 
   TopRegion->setExit(ActiveVPBB);

@@ -58,12 +58,8 @@ unsigned BlobUtils::findOrInsertTempBlobIndex(unsigned Symbase) {
 }
 
 unsigned BlobUtils::findOrInsertBlob(BlobTy Blob) {
-  unsigned Symbase = InvalidSymbase;
-  if (isa<SCEVConstant>(Blob)) {
-    Symbase = ConstantSymbase;
-  }
-
-  return getHIRParser().findOrInsertBlob(Blob, Symbase);
+  assert(!isa<SCEVConstant>(Blob) && "constant blob not expected!");
+  return getHIRParser().findOrInsertBlob(Blob, InvalidSymbase);
 }
 
 void BlobUtils::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,

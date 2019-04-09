@@ -890,12 +890,14 @@ raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Node &node) {
   return out << "\n";
 }
 
+#ifndef NDEBUG
 raw_ostream &operator<<(raw_ostream &out, const MemopCFG::Loop &loop) {
   if (loop.nodes.empty())
     return out << "-";
   return out << loop.nodes.front()->topo_num << "-"
              << loop.nodes.back()->topo_num;
 }
+#endif
 
 raw_ostream &operator<<(raw_ostream &out, const MemopCFG &cfg) {
   if (not cfg.nodes.empty()) {

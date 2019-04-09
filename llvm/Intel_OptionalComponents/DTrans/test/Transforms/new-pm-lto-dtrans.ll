@@ -8,7 +8,8 @@
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
 ; RUN:     -enable-dtrans-soatoaos -enable-dtrans-deletefield           \
 ; RUN:     -enable-resolve-types                                        \
-; RUN:     -passes='lto<O2>' -S  %s -enable-npm-dtrans                  \
+; RUN:     -passes='lto<O2>,internalize'  -internalize-public-api-list main \
+; RUN:     -S  %s -enable-npm-dtrans                  \
 ; RUN:     2>&1 \
 ; RUN:     | FileCheck %s
 
@@ -45,6 +46,7 @@
 ; CHECK: Running pass:
 ; CHECK-SAME: dtrans::WeakAlignPass
 ; CHECK-NEXT: Running pass: dtrans::DeleteFieldPass
+; CHECK-NEXT: Running pass: dtrans::MemInitTrimDownPass
 ; CHECK-NEXT: Running pass: dtrans::ReorderFieldsPass
 ; CHECK-NEXT: Running pass: dtrans::AOSToSOAPass
 ; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
@@ -53,7 +55,7 @@
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 
 ; Make sure we get the IR back out without changes when we print the module.
-; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {
+; CHECK-LABEL: define internal void @foo(i32 %n) local_unnamed_addr #0 {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   br label %loop
 ; CHECK:      loop:
@@ -67,7 +69,7 @@
 ; CHECK-NEXT: }
 ;
 ; CHECK-LABEL: define i32 @main() local_unnamed_addr {
-; CHECK-NEXT:    call fastcc void @foo(i32 1)
+; CHECK-NEXT:    call void @foo(i32 1)
 ; CHECK-NEXT:    ret i32 0
 ; CHECK-NEXT:  }
 ;

@@ -766,18 +766,17 @@ class VPInstruction : public VPUser, public VPRecipeBase {
 public:
 #if INTEL_CUSTOMIZATION
   /// VPlan opcodes, extending LLVM IR with idiomatics instructions.
-  // SemiPhi is an experimental mechanism to deal with multiple definitions
-  // coming from HIR, but in a more "relaxed way" (to be defined) than using
-  // proper Phi nodes. At this point, we can find semi-phis at any point of the
-  // VPBasicBlock and even redundant semi-phis blending exactly the same
-  // definitions.
   enum {
       Not = Instruction::OtherOpsEnd + 1,
       AllZeroCheck,
       Pred,
-      SemiPhi,
       SMax,
       UMax,
+      InductionInit,
+      InductionInitStep,
+      InductionFinal,
+      ReductionInit,
+      ReductionFinal,
   };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
@@ -1201,6 +1200,187 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 };
+
+// VPInstruction to initialize vector for induction variable.
+// It's initialized depending on the binary operation,
+// For +/-   : broadcast(start) + step*{0, 1,..,VL -1}
+// For */div : broadcast(start) + pow(step,{0, 1,..,VL -1})
+// Other binary operations are not induction-compatible.
+class VPInductionInit : public VPInstruction {
+public:
+  VPInductionInit(VPValue *Start, VPValue *Step, Instruction::BinaryOps Opc)
+      : VPInstruction(VPInstruction::InductionInit, Start->getBaseType(),
+                      {Start, Step}),
+        BinOpcode(Opc) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::InductionInit;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+
+private:
+  Instruction::BinaryOps BinOpcode;
+};
+
+// VPInstruction to initialize vector for induction step.
+// It's initialized depending on the binary operation,
+// For +/-   : broadcast(step*VL)
+// For */div : broadcast(pow(step,VL))
+// Other binary operations are not induction-compatible.
+class VPInductionInitStep : public VPInstruction {
+public:
+  VPInductionInitStep(VPValue *Step, Instruction::BinaryOps Opcode)
+      : VPInstruction(VPInstruction::InductionInitStep, Step->getBaseType(),
+                      {Step}),
+        BinOpcode(Opcode) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::InductionInitStep;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+
+private:
+  Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+};
+
+// VPInstruction for induction last value calculation.
+// It's calculated depending on the binary operation,
+// For +/-   : lv = start OP step*count
+// For */div : lv = start OP pow(step, count)
+// Other binary operations are not induction-compatible.
+//
+// We should choose the optimal way for that - probably, for mul/div we should
+// prefer scalar calculations in the loop body or extraction from the final
+// vector.
+class VPInductionFinal : public VPInstruction {
+public:
+  VPInductionFinal(VPValue *InducVec)
+      : VPInstruction(VPInstruction::InductionFinal, InducVec->getBaseType(),
+                      {}) {}
+
+  VPInductionFinal(VPValue *Start, VPValue *Count, VPValue *Step,
+                   Instruction::BinaryOps Opcode)
+      : VPInstruction(VPInstruction::InductionFinal, Start->getBaseType(),
+                      {Start, Count, Step}),
+        BinOpcode(Opcode) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::InductionFinal;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+
+private:
+  Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+};
+
+// VPInstruction for reduction initialization.
+// It can be done in two ways and should be aligned with last value
+// calculation  The first way is just broadcast(identity), the second one is
+// to calculate vector of {start_value, identity,...,identity}. The second way
+// is acceptable for some reductions (+,-,*) and allows eliminating one scalar
+// operation during last value calculation. Though, that is ineffective for
+// multiplication, while for summation the movd/movq x86 instructions
+// perfectly fit this way.
+//
+class VPReductionInit : public VPInstruction {
+public:
+  VPReductionInit(VPValue *Identity)
+      : VPInstruction(VPInstruction::ReductionInit, Identity->getBaseType(),
+                      {Identity}) {}
+
+  VPReductionInit(VPValue *Identity, VPValue *StartValue)
+      : VPInstruction(VPInstruction::ReductionInit, Identity->getBaseType(),
+                      {Identity, StartValue}) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ReductionInit;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+};
+
+// VPInstruction for reduction last value calculation.
+// It's calculated depending on the binary operation. A general sequence
+// is generated:
+// v_tmp = shuffle(value,m1) // v_tmp contains the upper half of value
+// v_tmp = value OP v_tmp;
+// v_tmp2 = shuffle(v_tmp, m2) // v_tmp2 contains the upper half of v_tmp1
+// v_tmp2 = v_tmp1 OP v_tmp2;
+// ...
+// res = (is_minmax || optimized_plus) ? vtmp_N : start OP vtp_N;
+// (For minmax and optimized summation (see VPReductionInit) we don't
+// need operation in the last step.)
+//
+// A special way is required for min/max+index reductions. The index
+// part of the reduction has a link to the main, min/max, part and code
+// generation for it requires two values of the main part, the last vector
+// value and the last scalar value. They can be accesses having a link
+// to the main instruction, which is passed as an additional argument to
+// the index part.
+//
+class VPReductionFinal : public VPInstruction {
+public:
+  /// General constructor
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
+                   bool Sign)
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+                      {ReducVec, StartValue}),
+        BinOpcode(BinOp), Signed(Sign) {}
+
+  /// Constructor for optimized summation
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec)
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+                      {ReducVec}),
+        BinOpcode(BinOp), Signed(false) {}
+
+  /// Constructor for index part of min/max+index reduction.
+  VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
+                   bool Sign, VPReductionFinal *MinMax)
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+                      {ReducVec, StartValue, MinMax}),
+        BinOpcode(BinOp), Signed(Sign) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ReductionFinal;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+  unsigned getBinOpcode() const { return BinOpcode; }
+  bool isSigned() const { return Signed; }
+
+private:
+  unsigned BinOpcode;
+  bool Signed;
+};
+
 #endif // INTEL_CUSTOMIZATION
 
 /// A VPPredicateRecipeBase is a pure virtual recipe which supports predicate
@@ -1815,8 +1995,8 @@ public:
   // consideration.
   bool isLegalToHoistInto() { return true; }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS, bool PrintType) const {
     formatted_raw_ostream FOS(OS);
     print(FOS, 0);
@@ -1835,8 +2015,28 @@ public:
   virtual void dump() const = 0;
 
   virtual void dump(raw_ostream &OS, unsigned Indent = 0) const = 0;
-#endif
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Iterators and types to access Successors of a VPBlockBase
+  using SuccType = SmallVector<VPBlockBase *, 2>;
+  using succ_iterator = SuccType::iterator;
+  using succ_const_iterator = SuccType::const_iterator;
+  using succ_reverse_iterator = SuccType::reverse_iterator;
+  using succ_const_reverse_iterator = SuccType::const_reverse_iterator;
+
+  inline succ_iterator succ_begin() { return Successors.begin(); }
+  inline succ_iterator succ_end() { return Successors.end(); }
+  inline succ_const_iterator succ_begin() const { return Successors.begin(); }
+  inline succ_const_iterator succ_end() const { return Successors.end(); }
+  inline succ_reverse_iterator succ_rbegin() { return Successors.rbegin(); }
+  inline succ_reverse_iterator succ_rend() { return Successors.rend(); }
+  inline succ_const_reverse_iterator succ_rbegin() const {
+    return Successors.rbegin();
+  }
+  inline succ_const_reverse_iterator succ_rend() const {
+    return Successors.rend();
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 #if INTEL_CUSTOMIZATION
@@ -2320,6 +2520,7 @@ protected:
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
+  VPLoopEntities LoopEntities;
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
@@ -2332,11 +2533,13 @@ public:
   /// the underlying IR.
   // TODO: To be moved to the Divergence Analysis Infrastructure
   UniformsTy UniformCBVs;
+
   VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
         VPBlockBase *Entry = nullptr)
-      : Context(Context), Entry(Entry), VPLA(VPLA) {}
-#endif
+      : Context(Context), Entry(Entry), VPLA(VPLA), LoopEntities(this) {}
+#else
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
+#endif
 
   ~VPlan() {
     if (Entry)
@@ -2369,6 +2572,8 @@ public:
   LLVMContext *getLLVMContext(void) const { return Context; }
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA; }
+
+  VPLoopEntities& getLoopEntities() { return LoopEntities; }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }
@@ -2439,6 +2644,12 @@ public:
   /// DDR.
   VPExternalDef *getVPExternalDefForDDRef(loopopt::DDRef *DDR) {
     return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
+  }
+
+  /// Retrieve the VPExternalDef for given HIR symbase \p Symbase. If no
+  /// external definition exists then a nullptr is returned.
+  VPExternalDef *getVPExternalDefForSymbase(unsigned Symbase) {
+    return getExternalItemForSymbase(VPExternalDefsHIR, Symbase);
   }
 
   /// Create or retrieve a VPExternalDef for an HIR IV identified by its \p
@@ -2525,6 +2736,20 @@ private:
       // Def is a new external item to be inserted in the map.
       UPtr.reset(new Def(ExtVal));
     return UPtr.get();
+  }
+
+  // Retrieve an external item from \p Table for given HIR symbase \p Symbase.
+  // If no external item is found, then a nullptr is returned
+  template <typename Def>
+  Def *getExternalItemForSymbase(FoldingSet<Def> &Table, unsigned Symbase) {
+    FoldingSetNodeID ID;
+    ID.AddInteger(Symbase);
+    ID.AddInteger(0 /*IVLevel*/);
+    void *IP = nullptr;
+    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+    // No Def found in table
+    return nullptr;
   }
 
   // Create or retrieve an external item from \p Table for given HIR unitary
@@ -2858,6 +3083,11 @@ public:
   /// Returns true if the edge \p FromBlock -> \p ToBlock is a back-edge.
   static bool isBackEdge(const VPBlockBase *FromBlock,
                          const VPBlockBase *ToBlock, const VPLoopInfo *VPLI) {
+
+    if (!isa<VPBasicBlock>(FromBlock) || !isa<VPBasicBlock>(ToBlock))
+      // Back edge can exist only between BBs, not between BB/Region.
+      return false;
+
     assert(FromBlock->getParent() == ToBlock->getParent() &&
            FromBlock->getParent() != nullptr && "Must be in same region");
     const VPLoop *FromLoop = VPLI->getLoopFor(FromBlock);

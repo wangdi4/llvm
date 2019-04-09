@@ -28,8 +28,8 @@
 ; Correct HIR:
 ; BEGIN REGION { }
 ; + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>  <MAX_TC_EST = 1>
-; |   |   + DO i3 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>  <MAX_TC_EST = 1>
+; |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; |   |   + DO i3 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
 ; |   |   |   %11 = (%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 3];
 ; |   |   |   %13 = (%"interp_$Z")[i1 + 2][i2 + 2][i3 + 2];
 ; |   |   |   %add86 = %11  +  %13;
@@ -37,7 +37,7 @@
 ; |   |   + END LOOP
 ; |   |
 ; |   |
-; |   |   + DO i3 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>  <MAX_TC_EST = 1>
+; |   |   + DO i3 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
 ; |   |   |   %21 = (%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2];
 ; |   |   |   %24 = (%"interp_$Z")[i1 + 2][i2 + 2][i3 + 1];
 ; |   |   |   %26 = (%"interp_$Z")[i1 + 2][i2 + 2][i3 + 2];
@@ -51,7 +51,11 @@
 ; END REGION
 
 ; CHECK: BEGIN REGION
+
+; We should not have an estimated trip count of 1.
+; CHECK-NOT: MAX_TC_EST = 1
 ; CHECK-NOT: = &((%"interp_$U")
+
 ; CHECK: END REGION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

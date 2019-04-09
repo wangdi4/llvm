@@ -1,6 +1,6 @@
 //===--------------- SOAToAOSExternal.h - DTransSOAToAOSPass  -------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -215,15 +215,15 @@ public:
   // it should not be too big.
   constexpr static int MaxNumFieldMethodUses = 2;
 
-  void collectCallSites(SmallSet<CallSite, 20> *CallSitesForDtrans) const {
+  void collectCallSites(SmallSet<CallBase *, 20> *CallSitesForDtrans) const {
     for (auto *F : StructMethods)
       for (auto &U : F->uses())
-        CallSitesForDtrans->insert(CallSite(U.getUser()));
+        CallSitesForDtrans->insert(cast<CallBase>(U.getUser()));
 
     for (auto *S : methodsets())
       for (auto *F : *S)
         for (auto &U : F->uses())
-          CallSitesForDtrans->insert(CallSite(U.getUser()));
+          CallSitesForDtrans->insert(cast<CallBase>(U.getUser()));
   }
 
 protected:

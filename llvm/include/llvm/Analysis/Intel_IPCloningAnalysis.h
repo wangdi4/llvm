@@ -1,6 +1,6 @@
 //===------- Intel_IPCloningAnalysis.h - IP CloningAnalysis -*------===//
 //
-// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -27,15 +27,20 @@ extern GetElementPtrInst* getAnyGEPAsIncomingValueForPhi(Value *Phi);
 
 extern bool isConstantArgWorthyForSpecializationClone(Value *Arg);
 
-extern bool collectPHIsForSpecialization(Function &F, CallSite CS,
+extern bool collectPHIsForSpecialization(Function &F, CallBase &CB,
                                        SmallPtrSet<Value *, 8>& PhiValues);
 
-extern bool findPotentialConstsAndApplyHeuristics(Value *V, LoopInfo* LI);
+extern bool findPotentialConstsAndApplyHeuristics(Function &F, Value *V,
+                                                  LoopInfo* LI, bool AfterInl,
+                                                  bool IFSwitchHeuristic,
+                                                  unsigned *IFCount = nullptr,
+                                                  unsigned *SwitchCount
+                                                      = nullptr);
 
-extern bool applyHeuristicsForSpecialization(Function &F, CallSite CS,
+extern bool applyHeuristicsForSpecialization(Function &F, CallBase &CB,
                       SmallPtrSet<Value *, 8>& PhiValues, LoopInfo* LI);
 
-extern bool isCallCandidateForSpecialization(CallSite& CS, LoopInfo* LI);
+extern bool isCallCandidateForSpecialization(CallBase& CB, LoopInfo* LI);
 
 }
 }

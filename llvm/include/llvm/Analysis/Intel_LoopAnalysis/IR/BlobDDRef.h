@@ -126,7 +126,9 @@ public:
   void replaceBlob(unsigned NewIndex);
 
   /// Returns defined at level of the blob.
-  unsigned getDefinedAtLevel() const { return CE->getDefinedAtLevel(); }
+  unsigned getDefinedAtLevel() const override {
+    return CE->getDefinedAtLevel();
+  }
   /// Sets defined at level for the blob.
   void setDefinedAtLevel(unsigned Level) { CE->setDefinedAtLevel(Level); }
 

@@ -41,6 +41,7 @@ class DebugInfoFinder;
 class DominatorTree;
 class Function;
 class InlineReport; // INTEL
+class InlineReportBuilder; // INTEL
 class Instruction;
 class InvokeInst;
 class Loop;
@@ -248,16 +249,19 @@ InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 ///
 InlineResult InlineFunction(CallInst *C, InlineFunctionInfo &IFI,
                             InlineReport *IR,
+                            InlineReportBuilder *MDIR,
                             InlineReportTypes::InlineReason* Reason,
                             AAResults *CalleeAAR = nullptr,
                             bool InsertLifetime = true);
 InlineResult InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
                             InlineReport *IR,
+                            InlineReportBuilder *MDIR,
                             InlineReportTypes::InlineReason* Reason,
                             AAResults *CalleeAAR = nullptr,
                             bool InsertLifetime = true);
 InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
                             InlineReport *IR,
+                            InlineReportBuilder *MDIR,
                             InlineReportTypes::InlineReason* Reason,
                             AAResults *CalleeAAR = nullptr,
                             bool InsertLifetime = true,

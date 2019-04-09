@@ -109,7 +109,7 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   std::vector<Record*> Predicates = Rec->getValueAsListOfDefs("Predicates");
   for (unsigned i = 0, e = Predicates.size(); i != e; ++i) {
     if (Predicates[i]->getName().find("Not64Bit") != Name.npos ||
-	Predicates[i]->getName().find("In32Bit") != Name.npos) {
+        Predicates[i]->getName().find("In32Bit") != Name.npos) {
       Is32Bit = true;
       break;
     }
@@ -851,7 +851,9 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("i8mem",               TYPE_M)
   TYPE("i8imm",               TYPE_IMM)
   TYPE("u8imm",               TYPE_UIMM8)
+  TYPE("i16u8imm",            TYPE_UIMM8)
   TYPE("i32u8imm",            TYPE_UIMM8)
+  TYPE("i64u8imm",            TYPE_UIMM8)
   TYPE("GR8",                 TYPE_R8)
   TYPE("VR128",               TYPE_XMM)
   TYPE("VR128X",              TYPE_XMM)
@@ -883,16 +885,13 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   TYPE("RST",                 TYPE_ST)
+  TYPE("RSTi",                TYPE_ST)
   TYPE("i128mem",             TYPE_M)
   TYPE("i256mem",             TYPE_M)
   TYPE("i512mem",             TYPE_M)
   TYPE("i64i32imm_pcrel",     TYPE_REL)
   TYPE("i16imm_pcrel",        TYPE_REL)
   TYPE("i32imm_pcrel",        TYPE_REL)
-  TYPE("SSECC",               TYPE_IMM3)
-  TYPE("XOPCC",               TYPE_IMM3)
-  TYPE("AVXCC",               TYPE_IMM5)
-  TYPE("AVX512ICC",           TYPE_AVX512ICC)
   TYPE("AVX512RC",            TYPE_IMM)
   TYPE("brtarget32",          TYPE_REL)
   TYPE("brtarget16",          TYPE_REL)
@@ -977,10 +976,6 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
     ENCODING("i16imm",        ENCODING_IW)
   }
   ENCODING("i32i8imm",        ENCODING_IB)
-  ENCODING("SSECC",           ENCODING_IB)
-  ENCODING("XOPCC",           ENCODING_IB)
-  ENCODING("AVXCC",           ENCODING_IB)
-  ENCODING("AVX512ICC",       ENCODING_IB)
   ENCODING("AVX512RC",        ENCODING_IRC)
   ENCODING("i16imm",          ENCODING_Iv)
   ENCODING("i16i8imm",        ENCODING_IB)
@@ -989,7 +984,9 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
   ENCODING("i64i8imm",        ENCODING_IB)
   ENCODING("i8imm",           ENCODING_IB)
   ENCODING("u8imm",           ENCODING_IB)
+  ENCODING("i16u8imm",        ENCODING_IB)
   ENCODING("i32u8imm",        ENCODING_IB)
+  ENCODING("i64u8imm",        ENCODING_IB)
   // This is not a typo.  Instructions like BLENDVPD put
   // register IDs in 8-bit immediates nowadays.
   ENCODING("FR32",            ENCODING_IB)
@@ -1020,6 +1017,7 @@ OperandEncoding
 RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
                                                 uint8_t OpSize) {
   ENCODING("RST",             ENCODING_FP)
+  ENCODING("RSTi",            ENCODING_FP)
   ENCODING("GR16",            ENCODING_RM)
   ENCODING("GR32",            ENCODING_RM)
   ENCODING("GR32orGR64",      ENCODING_RM)
@@ -1224,7 +1222,9 @@ RecognizableInstr::relocationEncodingFromString(const std::string &s,
   ENCODING("i64i8imm",        ENCODING_IB)
   ENCODING("i8imm",           ENCODING_IB)
   ENCODING("u8imm",           ENCODING_IB)
+  ENCODING("i16u8imm",        ENCODING_IB)
   ENCODING("i32u8imm",        ENCODING_IB)
+  ENCODING("i64u8imm",        ENCODING_IB)
   ENCODING("i64i32imm_pcrel", ENCODING_ID)
   ENCODING("i16imm_pcrel",    ENCODING_IW)
   ENCODING("i32imm_pcrel",    ENCODING_ID)

@@ -73,7 +73,7 @@ namespace llvm {
 
 namespace vpo {
 
-/// \brief opencl address space.
+/// opencl address space.
 enum AddressSpace {
   ADDRESS_SPACE_PRIVATE = 0,
   ADDRESS_SPACE_GLOBAL = 1,
@@ -86,13 +86,13 @@ typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 
 class VPOParoptModuleTransform;
 
-/// \brief Provide all functionalities to perform paropt threadization
+/// Provide all functionalities to perform paropt threadization
 /// such as outlining, privatization, loop partitioning, multithreaded
 /// code generation.
 class VPOParoptTransform {
 
 public:
-  /// \brief ParoptTransform object constructor
+  /// ParoptTransform object constructor
   VPOParoptTransform(VPOParoptModuleTransform *MT,
                      Function *F, WRegionInfo *WI, DominatorTree *DT,
                      LoopInfo *LI, ScalarEvolution *SE,
@@ -121,7 +121,7 @@ public:
 #endif  // INTEL_CUSTOMIZATION
       }
 
-  /// \brief Top level interface for parallel and prepare transformation
+  /// Top level interface for parallel and prepare transformation
   bool paroptTransforms();
 
   bool isModeOmpNoCollapse() { return Mode & vpo::OmpNoCollapse; }
@@ -132,83 +132,83 @@ private:
   /// paropt transform is construted from a function pass.
   VPOParoptModuleTransform *MT;
 
-  /// \brief The W-regions in the function F are to be transformed
+  /// The W-regions in the function F are to be transformed
   Function *F;
 
-  /// \brief W-Region information holder
+  /// W-Region information holder
   WRegionInfo *WI;
 
-  /// \brief Get the Dominator Tree for code extractor
+  /// Get the Dominator Tree for code extractor
   DominatorTree *DT;
 
-  /// \brief Get the Loop information for loop candidates
+  /// Get the Loop information for loop candidates
   LoopInfo *LI;
 
-  /// \brief Get the Scalar Evolution information for loop candidates
+  /// Get the Scalar Evolution information for loop candidates
   ScalarEvolution *SE;
 
-  /// \brief Get the Target Tranform information for loop candidates.
+  /// Get the Target Tranform information for loop candidates.
   const TargetTransformInfo *TTI;
 
-  /// \brief Get the assumption cache informtion for loop candidates.
+  /// Get the assumption cache informtion for loop candidates.
   AssumptionCache *AC;
 
-  /// \brief Get the target library information for the loop candidates.
+  /// Get the target library information for the loop candidates.
   const TargetLibraryInfo *TLI;
 
   AliasAnalysis *AA;
 
-  /// \brief Paropt compilation mode
+  /// Paropt compilation mode
   int Mode;
 
-  /// \brief Target triple that we are compiling for.
+  /// Target triple that we are compiling for.
   Triple TargetTriple;
 
 #if INTEL_CUSTOMIZATION
-  /// \brief Verbosity level for generating remarks using Loop Opt Report framework (under -qopt-report).
+  /// Verbosity level for generating remarks using Loop Opt Report framework (under -qopt-report).
   OptReportVerbosity::Level ORVerbosity;
 
-  /// \brief Builder for generating remarks using Loop Opt Report framework (under -qopt-report).
+  /// Builder for generating remarks using Loop Opt Report framework (under -qopt-report).
   LoopOptReportBuilder LORBuilder;
 #endif  // INTEL_CUSTOMIZATION
 
-  /// \brief Optimization level.
+  /// Optimization level.
   unsigned OptLevel;
 
-  /// \brief Offload compilation mode.
+  /// Offload compilation mode.
   bool SwitchToOffload;
 
-  /// \brief Contain all parallel/sync/offload constructs to be transformed
+  /// Contain all parallel/sync/offload constructs to be transformed
   WRegionListTy WRegionList;
 
-  /// \brief Hold the LOC structure type which is need for KMP library
+  /// Hold the LOC structure type which is need for KMP library
   StructType *IdentTy;
 
-  /// \brief Hold the pointer to Tid (thread id) Value
+  /// Hold the pointer to Tid (thread id) Value
   Constant *TidPtrHolder;
 
-  /// \brief Hold the pointer to Bid (binding thread id) Value
+  /// Hold the pointer to Bid (binding thread id) Value
   Constant *BidPtrHolder;
 
-  /// \brief Hold the function type for the function
+  /// Hold the function type for the function
   /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
   FunctionType *KmpcMicroTaskTy;
 
-  /// \brief Hold the function type for the taskloop outlined function in the
+  /// Hold the function type for the taskloop outlined function in the
   /// form of void @RoutineEntry (i32 %tid, %struct.kmp_task_t_with_privates*
   /// %taskt.withprivates)
   PointerType *KmpRoutineEntryPtrTy;
 
-  /// \brief Hold the struct type in the form of %struct.kmp_task_t = type {
+  /// Hold the struct type in the form of %struct.kmp_task_t = type {
   /// i8*, i32 (i32, i8*)*, i32, %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t,
   /// i64, i64, i64, i32}
   StructType *KmpTaskTTy;
 
-  /// \brief Hold the struct type in the form of %struct.kmp_task_t_red_item =
+  /// Hold the struct type in the form of %struct.kmp_task_t_red_item =
   /// type { i8*, i64, i8*, i8*, i8*, i32 }
   StructType *KmpTaskTRedTy;
 
-  /// \brief Hold the struct type as follows.
+  /// Hold the struct type as follows.
   ///           struct kmp_depend_info {
   ///              void* arg_addr;
   ///              size_t arg_size;
@@ -216,7 +216,7 @@ private:
   ///           };
   StructType *KmpTaskDependInfoTy;
 
-  /// \brief Struct that keeps all the information needed to pass to
+  /// Struct that keeps all the information needed to pass to
   /// the runtime library.
   class TgDataInfo {
   public:
@@ -250,20 +250,20 @@ private:
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  /// \brief Returns true if we are compiling for CSA target.
+  /// Returns true if we are compiling for CSA target.
   bool isTargetCSA() const {
      return TargetTriple.getArch() == Triple::csa;
   }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
-  /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
+  /// Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
   /// \param[out] NeedTID : 'true' if any W visited has W->needsTID()==true
   /// \param[out] NeedBID : 'true' if any W visited has W->needsBID()==true
   void gatherWRegionNodeList(bool &NeedTID, bool &NeedBID);
 
-  /// \brief Generate code for private variables
+  /// Generate code for private variables
   bool genPrivatizationCode(WRegionNode *W);
 
   /// Generate code for linear variables.
@@ -280,13 +280,13 @@ private:
   /// var back to the original linear var.
   bool genLinearCode(WRegionNode *W, BasicBlock *IfLastIterBB);
 
-  /// \brief Generate code for firstprivate variables
+  /// Generate code for firstprivate variables
   bool genFirstPrivatizationCode(WRegionNode *W);
 
-  /// \brief Generate code for lastprivate variables
+  /// Generate code for lastprivate variables
   bool genLastPrivatizationCode(WRegionNode *W, BasicBlock *IfLastIterBB);
 
-  /// \brief Generate destructor calls for [first|last]private variables
+  /// Generate destructor calls for [first|last]private variables
   bool genDestructorCode(WRegionNode *W);
 
   /// Extract the type and size of local Alloca to be created to privatize
@@ -328,7 +328,7 @@ private:
   static AllocaInst *genPrivatizationAlloca(Item *I, Instruction *InsertPt,
                                             const Twine &NameSuffix = "");
 
-  /// \brief Replace the variable with the privatized variable
+  /// Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
                                    Value *NewPrivInst, Item *IT);
 
@@ -371,10 +371,18 @@ private:
                                       Type *&DestElementTy);
 
   /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
-  /// ArraySectionInfo of the reduction item \p RI. It may need to emit some
+  /// ArraySectionInfo of the map/reduction item \p CI. It may need to emit some
   /// Instructions, which is done \b before \p InsertPt.
-  void computeArraySecReductionTypeOffsetSize(ReductionItem &RI,
-                                              Instruction *InsertPt);
+  void computeArraySectionTypeOffsetSize(Item &CI, Instruction *InsertPt);
+
+  /// Transform all array sections in \p W region's map clauses
+  /// into map chains. New instructions to compute parameters of
+  /// the corresponding map chains are inserted \b before \p InsertPt.
+  /// After the transformation a map clause with an array section
+  /// will contain a single map chain element, which is dynamically
+  /// allocated by this method. The MapItem destructor is responsible
+  /// for deallocating this map chain element.
+  void genMapChainsForMapArraySections(WRegionNode *W, Instruction *InsertPt);
 
   /// Return the Value to replace the occurrences of the original clause
   /// operand inside the body of the associated WRegion. It may need to emit
@@ -388,67 +396,67 @@ private:
   getArrSecReductionItemReplacementValue(ReductionItem const &RedI,
                                          Instruction *InsertPt);
 
-  /// \brief Generate the reduction initialization code.
+  /// Generate the reduction initialization code.
   void genReductionInit(ReductionItem *RedI, Instruction *InsertPt,
                         DominatorTree *DT);
 
-  /// \brief Generate the reduction update code.
+  /// Generate the reduction update code.
   void genReductionFini(ReductionItem *RedI, Value *OldV, Instruction *InsertPt,
                         DominatorTree *DT);
 
-  /// \brief Generate the reduction initialization code for Min/Max.
+  /// Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
 
-  /// \brief Generate the reduction intialization instructions.
+  /// Generate the reduction intialization instructions.
   Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
 
-  /// \brief Generate the reduction code for reduction clause.
+  /// Generate the reduction code for reduction clause.
   bool genReductionCode(WRegionNode *W);
 
-  /// \brief Prepare the empty basic block for the array
+  /// Prepare the empty basic block for the array
   /// reduction or firstprivate initialization.
   void createEmptyPrvInitBB(WRegionNode *W, BasicBlock *&RedBB);
 
-  /// \brief Prepare the empty basic block for the array
+  /// Prepare the empty basic block for the array
   /// reduction or lastprivate update.
   void createEmptyPrivFiniBB(WRegionNode *W, BasicBlock *&RedEntryBB);
 
-  /// \brief Generate the reduction update instructions for min/max.
+  /// Generate the reduction update instructions for min/max.
   Value* genReductionMinMaxFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
                              Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
 
-  /// \brief Generate the reduction update instructions.
+  /// Generate the reduction update instructions.
   Value *genReductionScalarFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
                                 Value *Lhs, Type *ScalarTy,
                                 IRBuilder<> &Builder);
 
-  /// \brief Generate the reduction initialization/update for array.
+  /// Generate the reduction initialization/update for array.
   void genRedAggregateInitOrFini(ReductionItem *RedI, AllocaInst *AI,
                                  Value *OldV, Instruction *InsertPt,
                                  bool IsInit, DominatorTree *DT);
 
-  /// \brief Generate the reduction fini code for bool and/or.
+  /// Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
                                     Value *Rhs2, Type *ScalarTy,
                                     IRBuilder<> &Builder, bool IsAnd);
   /// @}
 
-  /// \brief Generate the firstprivate initialization code.
+  /// Generate the firstprivate initialization code.
   void genFprivInit(FirstprivateItem *FprivI, Instruction *InsertPt);
 
-  /// \brief Utility for last private update or copyprivate code generation.
+  /// Utility for last private update or copyprivate code generation.
   void genLprivFini(Value *NewV, Value *OldV, Instruction *InsertPt);
   void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
 
-  /// \brief Generate the lastprivate update code for taskloop
+  /// Generate the lastprivate update code for taskloop
   void genLprivFiniForTaskLoop(LastprivateItem *LprivI, Instruction *InsertPt);
 
-  /// \brief Generate loop schdudeling code.
+  /// Generate loop schdudeling code.
   /// \p IsLastVal is an output from this routine and is used to emit
   /// lastprivate code.
   bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal);
 
-  /// \brief Generate the code to replace the variables in the task loop with
+  /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
   bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
                            StructType *&KmpSharedTy, Value *&LBPtr,
@@ -457,81 +465,81 @@ private:
   bool genTaskInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
                        StructType *&KmpSharedTy, Value *&LastIterGep);
 
-  /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
+  /// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
   /// corresponding outlined function
   bool genTaskGenericCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
                           StructType *KmpSharedTy, Value *LBPtr, Value *UBPtr,
                           Value *STPtr, bool isLoop = true);
 
-  /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_omp_task and the
+  /// Generate the call __kmpc_omp_task_alloc, __kmpc_omp_task and the
   /// corresponding outlined function.
   bool genTaskCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
                    StructType *KmpSharedTy);
 
-  /// \brief Generate the call __kmpc_omp_taskwait.
+  /// Generate the call __kmpc_omp_taskwait.
   bool genTaskWaitCode(WRegionNode *W);
 
-  /// \brief Replace the shared variable reference with the thunk field
+  /// Replace the shared variable reference with the thunk field
   /// derefernce
   bool genSharedCodeForTaskGeneric(WRegionNode *W);
 
-  /// \brief Replace the reduction variable reference with the dereference of
+  /// Replace the reduction variable reference with the dereference of
   /// the return pointer __kmpc_task_reduction_get_th_data
   bool genRedCodeForTaskGeneric(WRegionNode *W);
 
-  /// \brief Generate the struct type kmp_task_red_input
+  /// Generate the struct type kmp_task_red_input
   void genTaskTRedType();
 
   /// breif Generate the struct type kmp_depend_info
   void genKmpTaskDependInfo();
 
-  /// \brief Generate the call __kmpc_task_reduction_init and the corresponding
+  /// Generate the call __kmpc_task_reduction_init and the corresponding
   /// preparation.
   void genRedInitForTask(WRegionNode *W, Instruction *InsertBefore);
 
-  /// \brief Generate the initialization code for the depend clause
+  /// Generate the initialization code for the depend clause
   AllocaInst *genDependInitForTask(WRegionNode *W, Instruction *InsertBefore);
 
-  /// \brief The wrapper routine to generate the call __kmpc_omp_task_with_deps
+  /// The wrapper routine to generate the call __kmpc_omp_task_with_deps
   void genTaskDeps(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
                    Value *TaskAlloc, AllocaInst *DummyTaskTDependRec,
                    Instruction *InsertPt, bool IsTaskWait);
 
-  /// \brief Set up the mapping between the variables (firstprivate,
+  /// Set up the mapping between the variables (firstprivate,
   /// lastprivate, reduction and shared) and the counterparts in the thunk.
   AllocaInst *genTaskPrivateMapping(WRegionNode *W, StructType *KmpSharedTy);
 
-  /// \brief Initialize the data in the shared data area inside the thunk
+  /// Initialize the data in the shared data area inside the thunk
   void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,
                                 StructType *KmpSharedTy,
                                 StructType *KmpTaskTTWithPrivatesTy,
                                 Instruction *InsertPt);
 
-  /// \brief Save the loop lower upper bound, upper bound and stride for the use
+  /// Save the loop lower upper bound, upper bound and stride for the use
   /// by the call __kmpc_taskloop
   void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBPtr, Value *&UBPtr,
                                   Value *&STPtr);
 
-  /// \brief Generate the outline function of reduction initilaization
+  /// Generate the outline function of reduction initilaization
   Function *genTaskLoopRedInitFunc(WRegionNode *W, ReductionItem *RedI);
 
-  /// \brief Generate the outline function for the reduction update
+  /// Generate the outline function for the reduction update
   Function *genTaskLoopRedCombFunc(WRegionNode *W, ReductionItem *RedI);
 
-  /// \brief Generate the outline function to set the last iteration
+  /// Generate the outline function to set the last iteration
   //  flag at runtime.
   Function *genLastPrivateTaskDup(WRegionNode *W,
                                   StructType *KmpTaskTTWithPrivatesTy);
 
-  /// \brief Generate the function type void @routine_entry(i32 %tid, i8*)
+  /// Generate the function type void @routine_entry(i32 %tid, i8*)
   void genKmpRoutineEntryT();
 
-  /// \brief Generate the struct type %struct.kmp_task_t = type { i8*, i32 (i32,
+  /// Generate the struct type %struct.kmp_task_t = type { i8*, i32 (i32,
   /// i8*)*, i32, %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t, i64, i64, i64,
   /// i32 }
   void genKmpTaskTRecordDecl();
 
-  /// \brief Generate the struct type kmpc_task_t as well as its private data
+  /// Generate the struct type kmpc_task_t as well as its private data
   /// area. One example is as follows.
   /// %struct.kmp_task_t_with_privates = type { %struct.kmp_task_t,
   /// %struct..kmp_privates.t }
@@ -542,67 +550,67 @@ private:
                                                 StructType *&KmpSharedTy,
                                                 StructType *&KmpPrivatesTy);
 
-  /// \brief Generate the actual parameters in the outlined function
+  /// Generate the actual parameters in the outlined function
   /// for copyin variables.
   void genThreadedEntryActualParmList(WRegionNode *W,
                                       std::vector<Value *>& MTFnArgs);
 
-  /// \brief Generate the formal parameters in the outlined function
+  /// Generate the formal parameters in the outlined function
   /// for copyin variables.
   void genThreadedEntryFormalParmList(WRegionNode *W,
                                       std::vector<Type *>& ParamsTy);
 
-  /// \brief Generate the name of formal parameters in the outlined function
+  /// Generate the name of formal parameters in the outlined function
   /// for copyin variables.
   void fixThreadedEntryFormalParmName(WRegionNode *W,
                                       Function *NFn);
 
-  /// \brief Generate the copy code for the copyin variables.
+  /// Generate the copy code for the copyin variables.
   void genTpvCopyIn(WRegionNode *W,
                     Function *NFn);
 
-  /// \brief Finalize extracted MT-function argument list for runtime
+  /// Finalize extracted MT-function argument list for runtime
   Function *finalizeExtractedMTFunction(WRegionNode *W, Function *Fn,
                                         bool IsTidArg, unsigned int TidArgNo,
                                         bool hasBid = true);
 
-  /// \brief Generate __kmpc_fork_call Instruction after CodeExtractor
+  /// Generate __kmpc_fork_call Instruction after CodeExtractor
   CallInst* genForkCallInst(WRegionNode *W, CallInst *CI);
 
-  /// \brief Reset the expression value in the bundle to be empty.
+  /// Reset the expression value in the bundle to be empty.
   void resetValueInBundle(WRegionNode *W, Value *V);
 
-  /// \brief Reset the expression value of task depend clause to be empty.
+  /// Reset the expression value of task depend clause to be empty.
   void resetValueInTaskDependClause(WRegionNode *W);
 
-  /// \brief Reset the expression value in private clause to be empty.
+  /// Reset the expression value in private clause to be empty.
   void resetValueInPrivateClause(WRegionNode *W);
 
-  /// \brief Reset the expression value in IsDevicePtr clause to be empty.
+  /// Reset the expression value in IsDevicePtr clause to be empty.
   void resetValueInIsDevicePtrClause(WRegionNode *W);
 
   /// Set the value in num_teams, thread_limit and num_threads
   /// clauses to be empty.
   void resetValueInNumTeamsAndThreadsClause(WRegionNode *W);
 
-  /// \brief Reset the value in the Map clause to be empty.
+  /// Reset the value in the Map clause to be empty.
   void resetValueInMapClause(WRegionNode *W);
 
-  /// \brief Reset the expression value of Intel clause to be empty.
+  /// Reset the expression value of Intel clause to be empty.
   void resetValueInIntelClauseGeneric(WRegionNode *W, Value *V);
 
-  /// \brief Generate the code for the directive omp target
+  /// Generate the code for the directive omp target
   bool genTargetOffloadingCode(WRegionNode *W);
 
-  /// \brief Generate the initialization code for the directive omp target
+  /// Generate the initialization code for the directive omp target
   CallInst *genTargetInitCode(WRegionNode *W, CallInst *Call, Value *RegionId,
                               Instruction *InsertPt);
 
-  /// \brief Generate the pointers pointing to the array of base pointer, the
+  /// Generate the pointers pointing to the array of base pointer, the
   /// array of section pointers, the array of sizes, the array of map types.
   void genOffloadArraysArgument(TgDataInfo *Info, Instruction *InsertPt);
 
-  /// \brief Pass the data to the array of base pointer as well as  array of
+  /// Pass the data to the array of base pointer as well as  array of
   /// section pointers. If the flag hasRuntimeEvaluationCaptureSize is true,
   /// the compiler needs to generate the init code for the size array.
   void genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info, CallInst *Call,
@@ -610,7 +618,7 @@ private:
                             SmallVectorImpl<Constant *> &ConstSizes,
                             bool hasRuntimeEvaluationCaptureSize);
 
-  /// \brief Utilities to construct the assignment to the base pointers, section
+  /// Utilities to construct the assignment to the base pointers, section
   /// pointers and size pointers if the flag hasRuntimeEvaluationCaptureSize is
   /// true.
   void genOffloadArraysInitUtil(IRBuilder<> &Builder, Value *BasePtr,
@@ -620,14 +628,11 @@ private:
                                 unsigned &Cnt,
                                 bool hasRuntimeEvaluationCaptureSize);
 
-  /// \brief If the incoming data is global variable, create the stack variable
-  /// and replace the the global variable with the stack variable.
-  bool genGlobalPrivatizationCode(WRegionNode *W);
+  // If the incoming data is global variable, create a stack variable
+  // and replace the the global variable with the stack variable.
+  bool genGlobalPrivatizationLaunderIntrin(WRegionNode *W);
 
-  /// \brief Pass the value of the DevicePtr to the outlined function.
-  bool genDevicePtrPrivationCode(WRegionNode *W);
-
-  /// \brief build the CFG for if clause.
+  /// build the CFG for if clause.
   void buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
                            Instruction *&ElseTerm, Instruction *InsertPt);
 
@@ -653,7 +658,7 @@ private:
   /// Return the defaut map information.
   uint64_t generateDefaultMap();
 
-  /// \brief Generate multithreaded for a given WRegion
+  /// Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
 
   /// Generate code for master/end master construct and update LLVM
@@ -672,27 +677,27 @@ private:
   /// construct.
   bool genDoacrossWaitOrPost(WRNOrderedNode *W);
 
-  /// \brief Generates code for the OpenMP critical construct:
+  /// Generates code for the OpenMP critical construct:
   /// #pragma omp critical [(name)]
   bool genCriticalCode(WRNCriticalNode *CriticalNode);
 
-  /// \brief Return true if the program is compiled at the offload mode.
+  /// Return true if the program is compiled at the offload mode.
   bool hasOffloadCompilation() const {
     return ((Mode & OmpOffload) || SwitchToOffload);
   }
 
-  /// \brief Finds the alloc stack variables where the tid stores.
+  /// Finds the alloc stack variables where the tid stores.
   void getAllocFromTid(CallInst *Tid);
 
-  /// \brief Finds the function pointer type for the function
+  /// Finds the function pointer type for the function
   /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
   FunctionType* getKmpcMicroTaskPointerTy();
 
-  /// \brief The data structure which builds the map between the
+  /// The data structure which builds the map between the
   /// alloc/tid and the uses instruction in the WRegion.
   SmallDenseMap<Instruction *, std::vector<Instruction *> > IdMap;
 
-  /// \brief The data structure that is used to store the alloca or tid call
+  /// The data structure that is used to store the alloca or tid call
   ///  instruction that are used in the WRegion.
   SmallPtrSet<Instruction*, 8> TidAndBidInstructions;
 
@@ -754,12 +759,12 @@ private:
   bool genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
                              BasicBlock *&IfLastIterOut);
 
-  /// \brief Insert a barrier at the end of the construct
+  /// Insert a barrier at the end of the construct
   bool genBarrier(WRegionNode *W, bool IsExplicit, bool IsTargetSPIRV = false);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  /// \brief Forward declarations for helper classes which implement CSA
+  /// Forward declarations for helper classes which implement CSA
   ///  specific privatization for OpenMP constructs.
   class CSAPrivatizer;
   class CSALoopPrivatizer;
@@ -769,43 +774,43 @@ private:
   friend CSAPrivatizer;
   friend CSALoopSplitter;
 
-  /// \brief Transform "omp parallel" work region for CSA target.
+  /// Transform "omp parallel" work region for CSA target.
   bool genCSAParallel(WRegionNode *W);
 
-  /// \brief Transform "omp [parallel] for" work region for CSA target.
+  /// Transform "omp [parallel] for" work region for CSA target.
   /// Returns a pair of boolean values where the first value tells if function
   /// was changed and the second whether work region's directives should be
   /// removed.
   std::pair<bool, bool> genCSALoop(WRegionNode *W);
 
-  /// \brief Transform "omp [parallel] sections" work region for CSA target.
+  /// Transform "omp [parallel] sections" work region for CSA target.
   bool genCSASections(WRegionNode *W);
 
   /// Lower OpenMP runtime library calls.
   bool translateCSAOmpRtlCalls();
 
-  /// \brief Transform "omp single" work region for CSA target.
+  /// Transform "omp single" work region for CSA target.
   bool genCSASingle(WRegionNode *W);
 
-  /// \brief Check whether a given construct is supported in CSA.
+  /// Check whether a given construct is supported in CSA.
   bool isSupportedOnCSA(WRegionNode *W);
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
-  /// \brief Insert a flush call
+  /// Insert a flush call
   bool genFlush(WRegionNode *W);
 
   /// \name Cancellation Specific Functions
   /// {@
 
-  /// \brief Generates code for the OpenMP cancel constructs:
+  /// Generates code for the OpenMP cancel constructs:
   /// \code
   /// #pragma omp cancel [type]
   /// #pragma omp cancellation point [type]
   /// \endcode
   bool genCancelCode(WRNCancelNode *W);
 
-  /// \brief Add any cancellation points within \p W's body, to its
+  /// Add any cancellation points within \p W's body, to its
   /// `region.entry` directive. This is done in the vpo-paropt-prepare pass, and
   /// is later consumed by the vpo-paropt transformation pass.
   ///
@@ -857,7 +862,7 @@ private:
   /// \endcode
   bool clearCancellationPointAllocasFromIR(WRegionNode *W);
 
-  /// \brief Generate branches to jump to the end of a construct from
+  /// Generate branches to jump to the end of a construct from
   /// every cancellation point within the construct.
   ///
   /// For each cancellation point '%x' within the body of W:
@@ -884,12 +889,13 @@ private:
 
   /// @}
 
-  /// \brief Generate the intrinsic @llvm.invariant.group.barrier to inhibit
+  /// Generate the intrinsic @llvm.launder.invariant.group to inhibit
   /// the cse for the gep instruction related to array/struture which is marked
   /// as private, firstprivate, lastprivate, reduction or shared.
-  void genCodemotionFenceforAggrData(WRegionNode *W);
+  /// Return \b true if transformations happened.
+  bool genCodemotionFenceforAggrData(WRegionNode *W);
 
-  /// \brief Clean up the intrinsic @llvm.invariant.group.barrier and replace
+  /// Clean up the intrinsic @llvm.launder.invariant.group and replace
   /// the use of the intrinsic with the its operand.
   bool clearCodemotionFenceIntrinsic(WRegionNode *W);
 
@@ -922,30 +928,32 @@ private:
     TGT_MAP_MEMBER_OF = 0xffff000000000000
   };
 
-  /// \brief Returns the corresponding flag for a given map clause modifier.
+  /// Returns the corresponding flag for a given map clause modifier.
   uint64_t getMapTypeFlag(MapItem *MpI, bool AddPtrFlag,
                          bool AddrIsTargetParamFlag,
                          bool IsFirstComponentFlag);
 
-  /// \brief Replace the occurrences of I within the region with the return
-  /// value of the intrinsic @llvm.invariant.group.barrier
-  void replaceValueWithinRegion(WRegionNode *W, Value *Old);
+  /// Replace the occurrences of I within the region with the return
+  /// value of the intrinsic @llvm.launder.invariant.group
+  /// Return \b true if transformations happened.
+  bool replaceValueWithinRegion(WRegionNode *W, Value *Old);
 
-  /// \brief Generate the intrinsic @llvm.invariant.group.barrier for
-  /// local/global variable I.
-  void genFenceIntrinsic(WRegionNode *W, Value *I);
+  /// Generate the intrinsic @llvm.launder.invariant.group for local/global
+  /// variable \p I if \p I is an aggregate var (ie, !isSingleValueType())
+  /// found within \p W.
+  bool genFenceIntrinsic(WRegionNode *W, Value *I);
 
-  /// \brief If \p I is a call to @llvm.invariant.group.barrier, then return
+  /// If \p I is a call to @llvm.launder.invariant.group, then return
   /// the CallInst*. Otherwise, return nullptr.
   static CallInst* isFenceCall(Instruction *I);
 
-  /// \brief Collect the live-in value for the phis at the loop header.
+  /// Collect the live-in value for the phis at the loop header.
   void wrnUpdateSSAPreprocess(
       Loop *L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
       SmallSetVector<Instruction *, 8> &LiveoutVals,
       EquivalenceClasses<Value *> &ECs);
-  /// \brief Replace the live-in value of the phis at the loop header with
+  /// Replace the live-in value of the phis at the loop header with
   /// the loop carried value.
   void wrnUpdateSSAPreprocessForOuterLoop(
       Loop *L,
@@ -953,60 +961,79 @@ private:
       SmallSetVector<Instruction *, 8> &LiveOutVals,
       EquivalenceClasses<Value *> &ECs);
 
-  /// \brief Update the SSA form in the region using SSA Updater.
+  /// Update the SSA form in the region using SSA Updater.
   void wrnUpdateSSAForLoopRecursively(
       Loop *L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
       SmallSetVector<Instruction *, 8> &LiveOutVals);
 
-  /// \brief Collect the live-in values for the given loop.
+  /// Collect the live-in values for the given loop.
   void wrnCollectLiveInVals(
       Loop &L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
       EquivalenceClasses<Value *> &ECs);
 
-  /// \brief Build the equivalence class for the value a, b if there exists some
+  /// Build the equivalence class for the value a, b if there exists some
   /// phi node e.g. a = phi(b).
   void buildECs(Loop *L, PHINode *PN, EquivalenceClasses<Value *> &ECs);
 
-  /// \brief The utility to build the equivalence class for the value phi.
+  /// The utility to build the equivalence class for the value phi.
   void AnalyzePhisECs(Loop *L, Value *PV, Value *V,
                       EquivalenceClasses<Value *> &ECs,
                       SmallPtrSet<PHINode *, 16> &PhiUsers);
 
-  /// \brief Collect the live-out values for a given loop.
+  /// Collect the live-out values for a given loop.
   void wrnCollectLiveOutVals(Loop &L,
                              SmallSetVector<Instruction *, 8> &LiveOutVals,
                              EquivalenceClasses<Value *> &ECs);
 
-  /// \brief The utility to update the liveout set from the given BB.
+  /// The utility to update the liveout set from the given BB.
   void wrnUpdateLiveOutVals(Loop *L, BasicBlock *BB,
                             SmallSetVector<Instruction *, 8> &LiveOutVals,
                             EquivalenceClasses<Value *> &ECs);
 
-  /// \brief The utility to generate the stack variable to rename the incoming
-  /// value.
+  // For a given Value V, capture it, and rename all its occurrences within
+  // the WRegion W (including the region entry directive).
   Value *genRenamePrivatizationImpl(WRegionNode *W, Value *V,
-                                    BasicBlock *EntryBB, BasicBlock *NextExitBB,
-                                    Item *IT);
+                                    BasicBlock *EntryBB, Item *IT);
 
-  /// \brief Generate the copyprivate code.
+  /// If a clause operand to a data sharing or map clause is a GEP, we need
+  /// to capture it in an intrinsic to prevent CSE or constant propagation from
+  /// replacing uses of the original GEP with something else. For example:
+  ///
+  /// Class C { int x; void foo() { #pragma omp parallel private(x) {...} } };
+  ///
+  /// In this case, the IR for the directive will look like:
+  ///
+  /// %x = getelementpointer, this, 0, 0
+  /// llvm.directive.region.entry(... "QUAL.OMP.PRIVATE" (%x)
+  /// { ... %x ... } // Use of %x inside the parallel region
+  ///
+  /// It is possible for optimizations to replace '%x', which is a zero-offset
+  /// GEP, with '%this', either inside the directive, or within the region,
+  /// either of which will break VPO's handling of the clause.
+  ///
+  /// The solution is to capture and rename the incoming GEPs to inhibit such
+  /// optimizations. See genRenamePrivatizationImpl() for details.
+  bool genGEPCapturingLaunderIntrin(WRegionNode *W);
+
+  /// Generate the copyprivate code.
   bool genCopyPrivateCode(WRegionNode *W, AllocaInst *IsSingleThread);
 
-  /// \brief Generate the helper function for copying the copyprivate data.
+  /// Generate the helper function for copying the copyprivate data.
   Function *genCopyPrivateFunc(WRegionNode *W, StructType *KmpCopyPrivateTy);
 
   /// Return true if the device triple contains spir64 or spir.
   bool deviceTriplesHasSPIRV();
 
-  /// \brief Update the SSA form after the basic block LoopExitBB's successor
+  /// Update the SSA form after the basic block LoopExitBB's successor
   /// is added one more incoming edge.
   void rewriteUsesOfOutInstructions(
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
       SmallSetVector<Instruction *, 8> &LiveOutVals,
       EquivalenceClasses<Value *> &ECs);
 
-  /// \brief Insert local copy of \p V variable inside the region.
+  /// Insert local copy of \p V variable inside the region.
   ///
   /// \p V is an AllocaInst for \p W region's normalized upper bound pointer.
   /// Insert a new AllocaInst at the region's entry block, and copy
@@ -1017,7 +1044,7 @@ private:
   /// it to have non-POD type neither expect it to be By-Ref.
   AllocaInst *genRegionLocalCopy(WRegionNode *W, Value *V);
 
-  /// \brief Move SIMD directives next to the loop associated
+  /// Move SIMD directives next to the loop associated
   /// with the given OpenMP loop region \p W.
   ///
   /// \p W is an OpenMP loop region.  If this method finds
@@ -1037,7 +1064,7 @@ private:
   /// we have to be able to update the region's entry/exit blocks.
   bool sinkSIMDDirectives(WRegionNode *W);
 
-  /// \brief Transform the given OMP loop into the loop as follows.
+  /// Transform the given OMP loop into the loop as follows.
   ///         do {
   ///             %omp.iv = phi(%omp.lb, %omp.inc)
   ///             ...
@@ -1053,7 +1080,7 @@ private:
   /// OMP canonical loop form.
   void regularizeOMPLoopImpl(WRegionNode *W, unsigned I);
 
-  /// \brief Transform the given do-while loop into the canonical form
+  /// Transform the given do-while loop into the canonical form
   /// as follows.
   ///         do {
   ///             %omp.iv = phi(%omp.lb, %omp.inc)
@@ -1063,18 +1090,18 @@ private:
 
   void fixOMPDoWhileLoop(WRegionNode *W, Loop *L);
 
-  /// \brief Utility to transform the given do-while loop loop into the
+  /// Utility to transform the given do-while loop loop into the
   /// canonical do-while loop.
   void fixOmpDoWhileLoopImpl(Loop *L);
 
-  /// \brief Utilty to transform the loop branch predicate from sle/ule to
+  /// Utilty to transform the loop branch predicate from sle/ule to
   /// sgt/ugt in order to faciliate the scev based loop trip count calculation.
   void fixOmpBottomTestExpr(Loop *L);
 
-  /// \brief Replace the use of OldV within region W with the value NewV.
+  /// Replace the use of OldV within region W with the value NewV.
   void replaceUseWithinRegion(WRegionNode *W, Value *OldV, Value *NewV);
 
-  /// \brief Return true if one of the region W's ancestor is OMP target
+  /// Return true if one of the region W's ancestor is OMP target
   /// construct or the function where W lies in has target declare attribute.
   bool hasParentTarget(WRegionNode *W);
 
@@ -1091,60 +1118,61 @@ private:
   ///   };
   AllocaInst *genTgtLoopParameter(WRegionNode *W, WRegionNode *WL);
 
-  /// \brief Generate the cast i8* for the incoming value BPVal.
+  /// Generate the cast i8* for the incoming value BPVal.
   Value *genCastforAddr(Value *BPVal, IRBuilder<> &Builder);
 
-  /// \brief Replace the new generated local variables with global variables
-  /// in the target initialization code.
-  /// Given a global variable in the offloading region, the compiler will
-  /// generate different code for the following two cases.
-  /// case 1: global variable is not in the map clause.
-  /// The compiler generates %aaa stack variable which is initialized with
-  /// the value of @aaa. The base pointer and section pointer arrays are
-  /// initialized with %aaa.
-  ///
-  ///   #pragma omp target
-  ///   {  aaa++; }
-  ///
-  /// ** IR Dump After VPO Paropt Pass ***
-  /// entry:
-  ///   %.offload_baseptrs = alloca [1 x i8*]
-  ///   %.offload_ptrs = alloca [1 x i8*]
-  ///   %aaa = alloca i32
-  ///   %0 = load i32, i32* @aaa
-  ///   store i32 %0, i32* %aaa
-  ///   br label %codeRepl
-  ///
-  /// codeRepl:
-  ///   %1 = bitcast i32* %aaa to i8*
-  ///   %2 = getelementptr inbounds [1 x i8*],
-  ///        [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
-  ///   store i8* %1, i8** %2
-  ///   %3 = getelementptr inbounds [1 x i8*],
-  ///        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
-  ///   %4 = bitcast i32* %aaa to i8*
-  ///   store i8* %4, i8** %3
-  ///
-  /// case 2: global variable is in the map clause
-  /// The compiler initializes the base pointer and section pointer arrays
-  /// with @aaa.
-  ///
-  ///   #pragma omp target map(aaa)
-  ///   {  aaa++; }
-  ///
-  /// ** IR Dump After VPO Paropt Pass ***
-  /// codeRepl:
-  ///   %1 = bitcast i32* @aaa to i8*
-  ///   %2 = getelementptr inbounds [1 x i8*],
-  ///        [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
-  ///   store i8* %1, i8** %2
-  ///   %3 = getelementptr inbounds [1 x i8*],
-  ///        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
-  ///   %4 = bitcast i32* @aaa to i8*
-  ///   store i8* %4, i8** %3
-  bool finalizeGlobalPrivatizationCode(WRegionNode *W);
+  // Replace the new generated local variables with global variables
+  // in the target initialization code.
+  // Given a global variable in the offloading region, the compiler will
+  // generate different code for the following two cases.
+  //
+  // case 1: global variable is not in the map clause.
+  // The compiler generates %aaa stack variable which is initialized with
+  // the value of @aaa. The base pointer and section pointer arrays are
+  // initialized with %aaa.
+  //
+  //   #pragma omp target
+  //   {  aaa++; }
+  //
+  // ** IR Dump After VPO Paropt Pass ***
+  // entry:
+  //   %.offload_baseptrs = alloca [1 x i8*]
+  //   %.offload_ptrs = alloca [1 x i8*]
+  //   %aaa = alloca i32
+  //   %0 = load i32, i32* @aaa
+  //   store i32 %0, i32* %aaa
+  //   br label %codeRepl
+  //
+  // codeRepl:
+  //   %1 = bitcast i32* %aaa to i8*
+  //   %2 = getelementptr inbounds [1 x i8*],
+  //        [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+  //   store i8* %1, i8** %2
+  //   %3 = getelementptr inbounds [1 x i8*],
+  //        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+  //   %4 = bitcast i32* %aaa to i8*
+  //   store i8* %4, i8** %3
+  //
+  // case 2: global variable is in the map clause
+  // The compiler initializes the base pointer and section pointer arrays
+  // with @aaa.
+  //
+  //   #pragma omp target map(aaa)
+  //   {  aaa++; }
+  //
+  // ** IR Dump After VPO Paropt Pass ***
+  // codeRepl:
+  //   %1 = bitcast i32* @aaa to i8*
+  //   %2 = getelementptr inbounds [1 x i8*],
+  //        [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+  //   store i8* %1, i8** %2
+  //   %3 = getelementptr inbounds [1 x i8*],
+  //        [1 x i8*]* %.offload_ptrs, i32 0, i32 0
+  //   %4 = bitcast i32* @aaa to i8*
+  //   store i8* %4, i8** %3
+  bool clearLaunderIntrinBeforeRegion(WRegionNode *W);
 
-  /// \brief Generate the target intialization code for the pointers based
+  /// Generate the target intialization code for the pointers based
   /// on the order of the map clause.
   void genOffloadArraysInitForClause(WRegionNode *W, TgDataInfo *Info,
                                      CallInst *Call, Instruction *InsertPt,
@@ -1153,15 +1181,15 @@ private:
                                      Value *BPVal, bool &Match,
                                      IRBuilder<> &Builder, unsigned &Cnt);
 
-  /// \brief Generate code for OMP taskgroup construct.
+  /// Generate code for OMP taskgroup construct.
   /// #pragma omp taskgroup
   bool genTaskgroupRegion(WRegionNode *W);
 
-  /// \brief Add alias_scope and no_alias metadata to improve the alias
+  /// Add alias_scope and no_alias metadata to improve the alias
   /// results in the outlined function.
   void improveAliasForOutlinedFunc(WRegionNode *W);
 
-  /// \brief Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
+  /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
   /// arguments.
   Function *finalizeKernelFunction(WRegionNode *W, Function *Fn,
@@ -1183,7 +1211,7 @@ private:
   ///  there is only one workgroup.
   bool genOCLParallelLoop(WRegionNode *W);
 
-  /// \brief Generate the placeholders for the loop lower bound and upper bound.
+  /// Generate the placeholders for the loop lower bound and upper bound.
   /// \param [in]  W            OpenMP loop region node.
   /// \param [in]  Idx          dimension number.
   /// \param [out] LowerBnd     stack variable holding the loop's lower bound.
@@ -1200,7 +1228,7 @@ private:
                               AllocaInst *&TeamUpperBnd,
                               AllocaInst *&TeamStride, Value *&UpperBndVal);
 
-  /// \brief Generate the OCL loop bound update code.
+  /// Generate the OCL loop bound update code.
   void genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
                                  AllocaInst *LowerBnd, AllocaInst *UpperBnd,
                                  AllocaInst *SchedStride);
@@ -1276,12 +1304,18 @@ private:
   /// \param [in] LoopRegionExitBB basic block containing top test expression.
   /// \param [in] TeamInitBB       team initialization basic block.
   /// \param [in] TeamExitBB       team exit basic block.
+  /// \param [in] TeamExitBBSplit  split point for TeamExitBB; all instructions
+  ///                              from the beginning of the block up to
+  ///                              and including this instruction must
+  ///                              remain inside the team distribute loop.
+  ///                              If it is nullptr, then all instructions
+  ///                              from TeamExitBB will be outside of the loop.
   Loop *genDispatchLoopForTeamDistirbute(
       Loop *L, Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST,
       AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
       AllocaInst *TeamStride, Value *UpperBndVal, BasicBlock *LoopExitBB,
       BasicBlock *LoopRegionExitBB, BasicBlock *TeamInitBB,
-      BasicBlock *TeamExitBB);
+      BasicBlock *TeamExitBB, Instruction *TeamExitBBSplit);
 
   /// Initialize the incoming array Arg with the constant Idx.
   void initArgArray(SmallVectorImpl<Value *> *Arg, unsigned Idx);
@@ -1292,15 +1326,21 @@ private:
                                       WRNScheduleKind &ScheduleKind,
                                       WRNScheduleKind TargetScheduleKind);
 
+#if 0
   /// Return original global variable if the value Orig is the return value
   /// of a fence call.
   static Value *getRootValueFromFenceCall(Value *Orig);
+#endif
 
   /// Clang inserts fence acquire/release instructions for some constructs
   /// (atomic, critical, single, master, barrier and taskwait).
   /// For GPU compilation, we must remove such fence instructions because
   /// they are unsupported by SPIRV and OpenCL.  This routine does that.
   bool removeCompilerGeneratedFences(WRegionNode *W);
+
+  /// For the given region \p W, find exit block of the loop
+  /// identified by index \p Idx.
+  BasicBlock *getLoopExitBB(WRegionNode *W, unsigned Idx = 0);
 };
 } /// namespace vpo
 } /// namespace llvm

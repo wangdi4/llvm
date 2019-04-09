@@ -217,6 +217,33 @@ If you want to check on the status of in-progress ``xmain-web`` testing, you
 can use the ``amt`` tool on Windows and search for jobs with owner
 ``sys_iclsrc`` that are testing ``xmain-web``.
 
+Resolving Nightly Alloy Build and Lit-test Failures
+---------------------------------------------------
+Unlike the build errors of xmainefi2linux_debug or conflicts after a merge
+from llvm.org, build errors for other compilers and lit test fails caught by
+the nightly ``xmain-web`` testing do not halt the pulldown automation. As a
+result, submitting a fix for any such fail causes silent suspension of the
+automation tool and disrupts the process. To avoid this we should follow any
+one of the following approaches:
+
+#. Wait for the tool to halt for next merge conflict or build issue to commit
+   the fix. This approach is good for a single, non-critical fix. However
+   it may cause delay in the candidate generation process.
+
+#. Halt the tool manually and then commit the fix. This approach eliminates
+   the dependency on the merge conflicts and is good for bulk of fixes.
+
+Manual halting can be done by adding the following statement
+
+::
+
+   HALT notify <comma-separated-list-of-emails-or-users>
+
+to any of the ``<top ws>/merge.status`` or ``<top ws>/build.status`` files. When
+tool finds out the HALT line the very 1st time, it sends email notifications
+to all the listed users (if specified), coordinators and the commit author.
+Once the fix is submitted, these files should be cleared to resume the automation.
+
 JIRA Board For Tracking ``xmain-web`` Testing Status
 ----------------------------------------------------
 For every non-trivial issue in ``xmain-web`` that regular testing reveals,

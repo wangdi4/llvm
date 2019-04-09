@@ -126,6 +126,12 @@ public:
   /// DDRef for %t2 to the DDRef.
   virtual bool isSelfBlob() const = 0;
 
+  /// Returns the index of the blob represented by this self-blob DDRef.
+  unsigned getSelfBlobIndex() const {
+    assert(isSelfBlob() && "DDRef is not a self blob!");
+    return getSingleCanonExpr()->getSingleBlobIndex();
+  }
+
   /// Returns true if the DDRef cannot be decomposed further into simpler
   /// operations. Non-decomposable refs include LHS terminal refs and RHS
   /// unitary blobs.
@@ -152,6 +158,9 @@ public:
   virtual const CanonExpr *getSingleCanonExpr() const = 0;
 
   virtual CanonExpr *getSingleCanonExpr() = 0;
+
+  /// Returns the defined at level of the ref.
+  virtual unsigned getDefinedAtLevel() const = 0;
 
   /// Returns true if this DDRef contains undefined canon expressions.
   virtual bool containsUndef() const = 0;

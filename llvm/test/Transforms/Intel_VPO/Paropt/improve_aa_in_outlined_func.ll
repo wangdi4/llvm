@@ -111,7 +111,7 @@ attributes #2 = { nounwind }
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"PIC Level", i32 2}
-!2 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 7c6feb7b57a1fb6fb93d81865c58ebbd9b8f4401) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 10fdf56ea1f6de596ff5e1e7a34cb9d88ca43968)"}
+!2 = !{!"clang version 7.0.0"}
 !3 = !{!4, !4, i64 0}
 !4 = !{!"int", !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}

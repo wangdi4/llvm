@@ -199,11 +199,11 @@ struct FunctionOutliningMultiRegionInfo {
 
   // Container for outline regions
   struct OutlineRegionInfo {
-    OutlineRegionInfo(SmallVector<BasicBlock *, 8> Region,
+    OutlineRegionInfo(ArrayRef<BasicBlock *> Region,
                       BasicBlock *EntryBlock, BasicBlock *ExitBlock,
                       BasicBlock *ReturnBlock)
-        : Region(Region), EntryBlock(EntryBlock), ExitBlock(ExitBlock),
-          ReturnBlock(ReturnBlock) {}
+        : Region(Region.begin(), Region.end()), EntryBlock(EntryBlock),
+          ExitBlock(ExitBlock), ReturnBlock(ReturnBlock) {}
     SmallVector<BasicBlock *, 8> Region;
     BasicBlock *EntryBlock;
     BasicBlock *ExitBlock;
@@ -217,12 +217,13 @@ struct PartialInlinerImpl {
 
   PartialInlinerImpl(
       std::function<AssumptionCache &(Function &)> *GetAC,
+      function_ref<AssumptionCache *(Function &)> LookupAC,
       std::function<TargetTransformInfo &(Function &)> *GTTI,
       Optional<function_ref<BlockFrequencyInfo &(Function &)>> GBFI,
       InliningLoopInfoCache *InlLoopIC, ProfileSummaryInfo *ProfSI, // INTEL
-      bool RunLTOPartialInline) :                                   // INTEL
-        GetAssumptionCache(GetAC), GetTTI(GTTI), GetBFI(GBFI),      // INTEL
-        ILIC(InlLoopIC), PSI(ProfSI),                               // INTEL
+      bool RunLTOPartialInline)                                     // INTEL
+      : GetAssumptionCache(GetAC), LookupAssumptionCache(LookupAC),
+        GetTTI(GTTI), GetBFI(GBFI), ILIC(InlLoopIC), PSI(ProfSI),   // INTEL
         RunLTOPartialInline(RunLTOPartialInline) {}                 // INTEL
 
   bool run(Module &M);
@@ -243,9 +244,11 @@ struct PartialInlinerImpl {
     // Two constructors, one for single region outlining, the other for
     // multi-region outlining.
     FunctionCloner(Function *F, FunctionOutliningInfo *OI,
-                   OptimizationRemarkEmitter &ORE);
+                   OptimizationRemarkEmitter &ORE,
+                   function_ref<AssumptionCache *(Function &)> LookupAC);
     FunctionCloner(Function *F, FunctionOutliningMultiRegionInfo *OMRI,
-                   OptimizationRemarkEmitter &ORE);
+                   OptimizationRemarkEmitter &ORE,
+                   function_ref<AssumptionCache *(Function &)> LookupAC);
     ~FunctionCloner();
 
     // Prepare for function outlining: making sure there is only
@@ -281,11 +284,13 @@ struct PartialInlinerImpl {
     std::unique_ptr<FunctionOutliningMultiRegionInfo> ClonedOMRI = nullptr;
     std::unique_ptr<BlockFrequencyInfo> ClonedFuncBFI = nullptr;
     OptimizationRemarkEmitter &ORE;
+    function_ref<AssumptionCache *(Function &)> LookupAC;
   };
 
 private:
   int NumPartialInlining = 0;
   std::function<AssumptionCache &(Function &)> *GetAssumptionCache;
+  function_ref<AssumptionCache *(Function &)> LookupAssumptionCache;
   std::function<TargetTransformInfo &(Function &)> *GetTTI;
   Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI;
   InliningLoopInfoCache *ILIC;   // INTEL
@@ -442,6 +447,10 @@ struct PartialInlinerLegacyPass : public ModulePass {
       return ACT->getAssumptionCache(F);
     };
 
+    auto LookupAssumptionCache = [ACT](Function &F) -> AssumptionCache * {
+      return ACT->lookupAssumptionCache(F);
+    };
+
     std::function<TargetTransformInfo &(Function &)> GetTTI =
         [&TTIWP](Function &F) -> TargetTransformInfo & {
       return TTIWP->getTTI(F);
@@ -449,8 +458,9 @@ struct PartialInlinerLegacyPass : public ModulePass {
 
 #if INTEL_CUSTOMIZATION
     auto ILIC = make_unique<InliningLoopInfoCache>();
-    return PartialInlinerImpl(&GetAssumptionCache, &GetTTI, NoneType::None,
-                              ILIC.get(), PSI, RunLTOPartialInline)
+    return PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache,
+                              &GetTTI, NoneType::None, ILIC.get(), PSI,
+                              RunLTOPartialInline)
         .run(M);
 #endif // INTEL_CUSTOMIZATION
   }
@@ -605,7 +615,6 @@ PartialInlinerImpl::computeOutliningColdRegionsInfo(Function *F,
       // assert(ReturnBlock && "ReturnBlock is NULL somehow!");
       FunctionOutliningMultiRegionInfo::OutlineRegionInfo RegInfo(
           DominateVector, DominateVector.front(), ExitBlock, ReturnBlock);
-      RegInfo.Region = DominateVector;
       OutliningInfo->ORI.push_back(RegInfo);
 #ifndef NDEBUG
       if (TracePartialInlining) {
@@ -855,10 +864,13 @@ bool PartialInlinerImpl::shouldPartialInline(
 
   Function *Caller = CS.getCaller();
   auto &CalleeTTI = (*GetTTI)(*Callee);
+  bool RemarksEnabled =
+      Callee->getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
+          DEBUG_TYPE);
   InlineCost IC = getInlineCost(CS, getInlineParams(), CalleeTTI,
-                                *GetAssumptionCache, GetBFI, nullptr, // INTEL
-                                ILIC, nullptr, nullptr, nullptr,      // INTEL
-                                PSI, &ORE);                           // INTEL
+                                *GetAssumptionCache, GetBFI, nullptr,  // INTEL
+                                ILIC, nullptr, nullptr, nullptr,       // INTEL
+                                PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
 
   if (IC.isAlways()) {
     ORE.emit([&]() {
@@ -1054,8 +1066,9 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
 }
 
 PartialInlinerImpl::FunctionCloner::FunctionCloner(
-    Function *F, FunctionOutliningInfo *OI, OptimizationRemarkEmitter &ORE)
-    : OrigFunc(F), ORE(ORE) {
+    Function *F, FunctionOutliningInfo *OI, OptimizationRemarkEmitter &ORE,
+    function_ref<AssumptionCache *(Function &)> LookupAC)
+    : OrigFunc(F), ORE(ORE), LookupAC(LookupAC) {
   ClonedOI = llvm::make_unique<FunctionOutliningInfo>();
 
   // Clone the function, so that we can hack away on it.
@@ -1078,8 +1091,9 @@ PartialInlinerImpl::FunctionCloner::FunctionCloner(
 
 PartialInlinerImpl::FunctionCloner::FunctionCloner(
     Function *F, FunctionOutliningMultiRegionInfo *OI,
-    OptimizationRemarkEmitter &ORE)
-    : OrigFunc(F), ORE(ORE) {
+    OptimizationRemarkEmitter &ORE,
+    function_ref<AssumptionCache *(Function &)> LookupAC)
+    : OrigFunc(F), ORE(ORE), LookupAC(LookupAC) {
   ClonedOMRI = llvm::make_unique<FunctionOutliningMultiRegionInfo>();
 
   // Clone the function, so that we can hack away on it.
@@ -1217,7 +1231,9 @@ bool PartialInlinerImpl::FunctionCloner::doMultiRegionFunctionOutlining() {
     int CurrentOutlinedRegionCost = ComputeRegionCost(RegionInfo.Region);
 
     CodeExtractor CE(RegionInfo.Region, &DT, /*AggregateArgs*/ false,
-                     ClonedFuncBFI.get(), &BPI, /* AllowVarargs */ false);
+                     ClonedFuncBFI.get(), &BPI,
+                     LookupAC(*RegionInfo.EntryBlock->getParent()),
+                     /* AllowVarargs */ false);
 
     CE.findInputsOutputs(Inputs, Outputs, Sinks);
 
@@ -1299,7 +1315,7 @@ PartialInlinerImpl::FunctionCloner::doSingleRegionFunctionOutlining() {
   // Extract the body of the if.
   Function *OutlinedFunc =
       CodeExtractor(ToExtract, &DT, /*AggregateArgs*/ false,
-                    ClonedFuncBFI.get(), &BPI,
+                    ClonedFuncBFI.get(), &BPI, LookupAC(*ClonedFunc),
                     /* AllowVarargs */ true)
           .extractCodeRegion();
 
@@ -1407,7 +1423,7 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function *F) {
     std::unique_ptr<FunctionOutliningMultiRegionInfo> OMRI =
         computeOutliningColdRegionsInfo(F, ORE);
     if (OMRI) {
-      FunctionCloner Cloner(F, OMRI.get(), ORE);
+      FunctionCloner Cloner(F, OMRI.get(), ORE, LookupAssumptionCache);
 
 #ifndef NDEBUG
       if (TracePartialInlining) {
@@ -1440,7 +1456,7 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function *F) {
   if (!OI)
     return {false, nullptr};
 
-  FunctionCloner Cloner(F, OI.get(), ORE);
+  FunctionCloner Cloner(F, OI.get(), ORE, LookupAssumptionCache);
   Cloner.NormalizeReturnBlock();
 
   Function *OutlinedFunction = Cloner.doSingleRegionFunctionOutlining();
@@ -1545,7 +1561,8 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     // We can only forward varargs when we outlined a single region, else we
     // bail on vararg functions.
     InlineReason Reason = NinlrNoReason; // INTEL
-    if (!InlineFunction(CS, IFI, nullptr, &Reason, nullptr, true, // INTEL
+    if (!InlineFunction(CS, IFI, nullptr, nullptr, &Reason, nullptr, // INTEL
+                        true,                                        // INTEL
                         (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first
                                          : nullptr)))
       continue;
@@ -1646,6 +1663,10 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
     return FAM.getResult<AssumptionAnalysis>(F);
   };
 
+  auto LookupAssumptionCache = [&FAM](Function &F) -> AssumptionCache * {
+    return FAM.getCachedResult<AssumptionAnalysis>(F);
+  };
+
   std::function<BlockFrequencyInfo &(Function &)> GetBFI =
       [&FAM](Function &F) -> BlockFrequencyInfo & {
     return FAM.getResult<BlockFrequencyAnalysis>(F);
@@ -1660,8 +1681,8 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
 
 #if INTEL_CUSTOMIZATION
   auto ILIC = make_unique<InliningLoopInfoCache>();
-  if (PartialInlinerImpl(&GetAssumptionCache, &GetTTI, {GetBFI}, ILIC.get(),
-                         PSI, RunLTOPartialInline)
+  if (PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache, &GetTTI,
+                         {GetBFI}, ILIC.get(), PSI, RunLTOPartialInline)
           .run(M))
 #endif // INTEL_CUSTOMIZATION
     return PreservedAnalyses::none();

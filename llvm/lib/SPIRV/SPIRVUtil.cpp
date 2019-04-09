@@ -470,7 +470,7 @@ std::string getPostfixForReturnType(const Type *pRetTy, bool IsSigned) {
 
 Op
 getSPIRVFuncOC(const std::string& S, SmallVectorImpl<std::string> *Dec) {
-  Op OC;
+  Op OC = OpNop;
   SmallVector<StringRef, 2> Postfix;
   std::string Name;
   if (!oclIsBuiltin(S, &Name))
@@ -1509,6 +1509,46 @@ llvm::PointerType* getOCLClkEventPtrType(Module *M) {
 
 llvm::Constant* getOCLNullClkEventPtr(Module *M) {
   return Constant::getNullValue(getOCLClkEventPtrType(M));
+}
+
+bool hasLoopUnrollMetadata(const Module *M) {
+  for (const Function &F : *M) {
+    for (const BasicBlock &BB : F) {
+      const Instruction *Term = BB.getTerminator();
+      if (!Term)
+        continue;
+      if (const MDNode *MD = Term->getMetadata("llvm.loop"))
+        for (const MDOperand &MDOp : MD->operands())
+          if (getMDOperandAsString(dyn_cast<MDNode>(MDOp), 0)
+                  .find("llvm.loop.unroll.") == 0)
+            return true;
+    }
+  }
+  return false;
+}
+
+spv::LoopControlMask
+getLoopControl(const BranchInst *Branch, std::vector<SPIRVWord> &Parameters) {
+  if (!Branch)
+    return spv::LoopControlMaskNone;
+  MDNode *LoopMD = Branch->getMetadata("llvm.loop");
+  if (!LoopMD)
+    return spv::LoopControlMaskNone;
+  for (const MDOperand &MDOp : LoopMD->operands()) {
+    if (MDNode *Node = dyn_cast<MDNode>(MDOp)) {
+      std::string S = getMDOperandAsString(Node, 0);
+      if (S == "llvm.loop.unroll.disable")
+        return spv::LoopControlDontUnrollMask;
+      if (S == "llvm.loop.unroll.full" || S == "llvm.loop.unroll.enable")
+        return spv::LoopControlUnrollMask;
+      if (S == "llvm.loop.unroll.count") {
+        size_t I = getMDOperandAsInt(Node, 1);
+        Parameters.push_back(I);
+        return spv::LoopControlPartialCountMask;
+      }
+    }
+  }
+  return spv::LoopControlMaskNone;
 }
 
 } // namespace SPIRV

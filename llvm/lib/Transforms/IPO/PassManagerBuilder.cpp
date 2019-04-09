@@ -75,6 +75,9 @@
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
+
+using namespace llvm::llvm_intel_wp_analysis;
+
 static cl::opt<bool> ConvertToSubs(
     "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
     cl::desc("Enables conversion of GEPs to subscripts before loopopt"));
@@ -256,6 +259,11 @@ static cl::opt<bool>
 static cl::opt<bool> EnableDTrans("enable-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
+
+// Partial inline simple functions
+static cl::opt<bool>
+    EnableIntelPI("enable-intelpi", cl::init(true), cl::Hidden,
+                    cl::desc("Enable partial inlining for simple functions"));
 #endif // INTEL_INCLUDE_DTRANS
 
 // PGO based function splitting
@@ -331,6 +339,10 @@ cl::opt<bool> FlattenedProfileUsed(
     cl::desc("Indicate the sample profile being used is flattened, i.e., "
              "no inline hierachy exists in the profile. "));
 
+cl::opt<bool> EnableOrderFileInstrumentation(
+    "enable-order-file-instrumentation", cl::init(false), cl::Hidden,
+    cl::desc("Enable order file instrumentation (default = off)"));
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -347,6 +359,8 @@ PassManagerBuilder::PassManagerBuilder() {
     MergeFunctions = false;
     PrepareForLTO = false;
     EnablePGOInstrGen = false;
+    EnablePGOCSInstrGen = false;
+    EnablePGOCSInstrUse = false;
     PGOInstrGen = "";
     PGOInstrUse = "";
     PGOSampleUse = "";
@@ -488,13 +502,19 @@ void PassManagerBuilder::populateFunctionPassManager(
 }
 
 // Do PGO instrumentation generation or use pass as the option specified.
-void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
-  if (!EnablePGOInstrGen && PGOInstrUse.empty() && PGOSampleUse.empty())
+void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
+                                           bool IsCS = false) {
+  if (IsCS) {
+    if (!EnablePGOCSInstrGen && !EnablePGOCSInstrUse)
+      return;
+  } else if (!EnablePGOInstrGen && PGOInstrUse.empty() && PGOSampleUse.empty())
     return;
+
   // Perform the preinline and cleanup passes for O1 and above.
   // And avoid doing them if optimizing for size.
+  // We will not do this inline for context sensitive PGO (when IsCS is true).
   if (OptLevel > 0 && SizeLevel == 0 && !DisablePreInliner &&
-      PGOSampleUse.empty()) {
+      PGOSampleUse.empty() && !IsCS) {
     // Create preinline pass. We construct an InlineParams object and specify
     // the threshold here to avoid the command line options of the regular
     // inliner to influence pre-inlining. The only fields of InlineParams we
@@ -512,22 +532,23 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
     MPM.add(createInstructionCombiningPass()); // Combine silly seq's
     addExtensionsToPM(EP_Peephole, MPM);
   }
-  if (EnablePGOInstrGen) {
-    MPM.add(createPGOInstrumentationGenLegacyPass());
+  if ((EnablePGOInstrGen && !IsCS) || (EnablePGOCSInstrGen && IsCS)) {
+    MPM.add(createPGOInstrumentationGenLegacyPass(IsCS));
     // Add the profile lowering pass.
     InstrProfOptions Options;
     if (!PGOInstrGen.empty())
       Options.InstrProfileOutput = PGOInstrGen;
     Options.DoCounterPromotion = true;
+    Options.UseBFIInPromotion = IsCS;
     MPM.add(createLoopRotatePass());
-    MPM.add(createInstrProfilingLegacyPass(Options));
+    MPM.add(createInstrProfilingLegacyPass(Options, IsCS));
   }
   if (!PGOInstrUse.empty())
-    MPM.add(createPGOInstrumentationUseLegacyPass(PGOInstrUse));
+    MPM.add(createPGOInstrumentationUseLegacyPass(PGOInstrUse, IsCS));
   // Indirect call promotion that promotes intra-module targets only.
   // For ThinLTO this is done earlier due to interactions with globalopt
   // for imported functions. We don't run this at -O0.
-  if (OptLevel > 0)
+  if (OptLevel > 0 && !IsCS)
     MPM.add(
         createPGOIndirectCallPromotionLegacyPass(false, !PGOSampleUse.empty()));
 
@@ -680,7 +701,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   addExtensionsToPM(EP_Peephole, MPM);
 
   if (EnableCHR && OptLevel >= 3 &&
-      (!PGOInstrUse.empty() || !PGOSampleUse.empty()))
+      (!PGOInstrUse.empty() || !PGOSampleUse.empty() || EnablePGOCSInstrGen))
     MPM.add(createControlHeightReductionLegacyPass());
 }
 
@@ -802,11 +823,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createDeadArgEliminationPass()); // Dead argument elimination
 
-  // Split out cold code before inlining. See comment in the new PM
-  // (\ref buildModuleSimplificationPipeline).
-  if (EnableHotColdSplit && DefaultOrPreLinkPipeline)
-    MPM.add(createHotColdSplittingPass());
-
   addInstructionCombiningPass(MPM); // Clean up after IPCP & DAE
   addExtensionsToPM(EP_Peephole, MPM);
   if (EarlyJumpThreading)                         // INTEL
@@ -820,6 +836,11 @@ void PassManagerBuilder::populateModulePassManager(
   // not run it a second time
   if (DefaultOrPreLinkPipeline && !PrepareForThinLTOUsingPGOSampleProfile)
     addPGOInstrPasses(MPM);
+
+  // Create profile COMDAT variables. Lld linker wants to see all variables
+  // before the LTO/ThinLTO link since it needs to resolve symbols/comdats.
+  if (!PerformThinLTO && EnablePGOCSInstrGen)
+    MPM.add(createPGOInstrumentationGenCreateVarLegacyPass(PGOInstrGen));
 
   // We add a module alias analysis pass here. In part due to bugs in the
   // analysis infrastructure this "works" in that the analysis stays alive
@@ -879,6 +900,17 @@ void PassManagerBuilder::populateModulePassManager(
     // globals referenced by available external functions dead
     // and saves running remaining passes on the eliminated functions.
     MPM.add(createEliminateAvailableExternallyPass());
+
+  // CSFDO instrumentation and use pass. Don't invoke this for Prepare pass
+  // for LTO and ThinLTO -- The actual pass will be called after all inlines
+  // are performed.
+  // Need to do this after COMDAT variables have been eliminated,
+  // (i.e. after EliminateAvailableExternallyPass).
+  if (!(PrepareForLTO || PrepareForThinLTO))
+    addPGOInstrPasses(MPM, /* IsCS */ true);
+
+  if (EnableOrderFileInstrumentation)
+    MPM.add(createInstrOrderFilePass());
 
   MPM.add(createReversePostOrderFunctionAttrsPass());
 
@@ -1084,6 +1116,11 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createConstantMergePass());     // Merge dup global constants
   }
 
+  // See comment in the new PM for justification of scheduling splitting at
+  // this stage (\ref buildModuleSimplificationPipeline).
+  if (EnableHotColdSplit && !(PrepareForLTO || PrepareForThinLTO))
+    MPM.add(createHotColdSplittingPass());
+
   if (MergeFunctions)
     MPM.add(createMergeFunctionsPass());
 
@@ -1142,8 +1179,71 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
   // Whole Program Analysis
-  if (EnableWPA)
+  if (EnableWPA) {
     PM.add(createWholeProgramWrapperPassPass());
+    // If whole-program-assume is enabled then we are going to call
+    // the internalization pass.
+    if (AssumeWholeProgram) {
+
+      // The internalization pass does certain checks if a GlobalValue
+      // should be internalized (e.g. is local, DLL export, etc.). The
+      // pass also accepts a helper function that defines extra conditions
+      // on top of the default requirements. If the function returns true
+      // then it means that the GlobalValue should not be internalized, else
+      // if it returns false then internalize it.
+      auto PreserveSymbol = [](const GlobalValue &GV) {
+
+        // If GlobalValue is "main" or has one definition rule (ODR)
+        // then don't internalize it. The ODR symbols are expected to
+        // be merged with equivalent globals and then be removed. If
+        // these symbols aren't removed then it could cause linking
+        // issues (e.g. undefined symbols).
+        if (GV.hasWeakODRLinkage() ||
+            llvm::WholeProgramInfo::isMainEntryPoint(GV.getName()))
+          return true;
+
+        // If the GlobalValue is an alias then we need to make sure that this
+        // alias is OK to internalize.
+        if (const GlobalAlias *Alias = dyn_cast<const GlobalAlias>(&GV)) {
+
+          // Check if the alias has an aliasee and this aliasee is a
+          // GlobalValue
+          const GlobalValue *Glob =
+            dyn_cast<const GlobalValue>(Alias->getAliasee());
+          if (!Glob)
+            return true;
+
+          // Aliasee is a declaration
+          if (Glob->isDeclaration())
+            return true;
+
+          // Aliasee is an external declaration
+          if (Glob->hasAvailableExternallyLinkage())
+            return true;
+
+          // Aliasee is an DLL export
+          if (Glob->hasDLLExportStorageClass())
+            return true;
+
+          // Aliasee is local already
+          if (Glob->hasLocalLinkage())
+            return true;
+
+          // Aliasee is ODR
+          if (Glob->hasWeakODRLinkage())
+            return true;
+
+          // Aliasee is mapped to main
+          if (llvm::WholeProgramInfo::isMainEntryPoint(Glob->getName()))
+            return true;
+        }
+
+        // OK to internalize
+        return false;
+      };
+      PM.add(createInternalizePass(PreserveSymbol));
+    }
+  }
 
   // IP Cloning
   if (EnableIPCloning) {
@@ -1261,6 +1361,17 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addExtensionsToPM(EP_Peephole, PM);
 
 #if INTEL_CUSTOMIZATION
+
+#if INTEL_INCLUDE_DTRANS
+  bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
+#else
+  bool EnableIntelPartialInlining = false;
+#endif // INTEL_INCLUDE_DTRANS
+
+  // Partial inlining for simple functions
+  if (EnableIntelPartialInlining)
+    PM.add(createIntelPartialInlineLegacyPass());
+
   bool RunInliner = Inliner;
   if (RunInliner) {
     PM.add(createInlineListsPass()); // -[no]inline-list parsing
@@ -1286,6 +1397,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   PM.add(createPruneEHPass());   // Remove dead EH info.
 
+  // CSFDO instrumentation and use pass.
+  addPGOInstrPasses(PM, /* IsCS */ true);
+
   // Optimize globals again if we ran the inliner.
   if (RunInliner)
     PM.add(createGlobalOptimizerPass());
@@ -1297,7 +1411,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableIPCloning || EnableCallTreeCloning) {
     if (EnableIPCloning)
       // Enable generic IPCloning after Inlining.
-      PM.add(createIPCloningLegacyPass(true));
+#if INTEL_INCLUDE_DTRANS
+      PM.add(createIPCloningLegacyPass(true, EnableDTrans));
+#else
+      PM.add(createIPCloningLegacyPass(true, false));
+#endif // INTEL_INCLUDE_DTRANS
     if (EnableCallTreeCloning)
       // Do function cloning along call trees
       PM.add(createCallTreeCloningPass());
@@ -1326,6 +1444,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableMultiVersioning)
     PM.add(createMultiVersioningWrapperPass());
 #endif // INTEL_CUSTOMIZATION
+  // LTO provides additional opportunities for tailcall elimination due to
+  // link-time inlining, and visibility of nocapture attribute.
+  PM.add(createTailCallEliminationPass());
 
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.
@@ -1401,6 +1522,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 void PassManagerBuilder::addLateLTOOptimizationPasses(
     legacy::PassManagerBase &PM) {
+  // See comment in the new PM for justification of scheduling splitting at
+  // this stage (\ref buildLTODefaultPipeline).
+  if (EnableHotColdSplit)
+    PM.add(createHotColdSplittingPass());
+
   // Delete basic blocks, which optimization passes may have killed.
   PM.add(createCFGSimplificationPass());
 
@@ -1470,6 +1596,8 @@ void PassManagerBuilder::addVPOPassesPreLoopOpt(
   PM.add(createLCSSAPass());
   PM.add(createVPOCFGRestructuringPass());
   PM.add(createVPlanDriverPass());
+  // Clean up any SIMD directives left behind by VPlan vectorizer
+  PM.add(createVPODirectiveCleanupPass());
 }
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
@@ -1508,8 +1636,8 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   // GVN can perform alloca store forwarding thereby removing alloca loads. This
   // can expose dead alloca stores which can be cleaned up by SROA.
   PM.add(createSROAPass());
-  PM.add(createLoopCarriedCSEPass());
   addInstructionCombiningPass(PM);
+  PM.add(createLoopCarriedCSEPass());
   PM.add(createDeadStoreEliminationPass());
 
   if (OptLevel > 2) {

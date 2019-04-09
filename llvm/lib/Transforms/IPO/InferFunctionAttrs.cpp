@@ -54,7 +54,7 @@ static bool inferAllPrototypeAttributes(Module &M,
   {
     // We only infer things using the prototype and the name; we don't need
     // definitions.
-    if (F.isDeclaration() && !F.hasFnAttribute((Attribute::OptimizeNone)))
+    if (F.isDeclaration() && !F.hasOptNone())
       Changed |= inferLibFuncAttributes(F, TLI);
     if (!F.hasFnAttribute(Attribute::OptimizeNone))
       Changed |= addColdAttrToErrHandleFunc(F);

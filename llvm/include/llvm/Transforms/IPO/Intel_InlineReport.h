@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.h - Implement inlining report ---------*- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,6 +20,7 @@
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportCommon.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <climits>
@@ -29,27 +30,6 @@ namespace llvm {
 class InlineReportCallSite;
 
 typedef std::vector<InlineReportCallSite *> InlineReportCallSiteVector;
-
-namespace InlineReportTypes {
-
-typedef enum {
-  Basic = 1,    // Print basic information like what was inlined
-  Reasons = 2,  // Add reasons for inlining or not inlining
-  SameLine = 4, // Put the reasons and the call site on the same lime
-  LineCol = 8,  // Print the line and column of the call sites
-                //   if we had appropriate source position information
-  File = 16,    // Print the file of the call sites
-  Linkage = 32, // Print linkage info for routines and call sites:
-                //   L: local (F.hasLocalLinkage())
-                //   O: link once ODR (one definition rule)
-                //     (F.hasLinkOnceODRLinkage())
-                //   X: available externally (and generally not emitted)
-                //     (F.hasAvailableExternallyLinkage())
-                //   A: alternate (something other than L, O, or X)
-  RealCost = 64 // Compute both real and early exit inlining costs
-} InlineReportOptions;
-
-}
 
 class InlineReportFunction;
 
@@ -281,7 +261,7 @@ public:
 
   // \brief Indicate that the Function is dead
   void setDead(Function *F) {
-    if (!Level)
+    if (!isClassicIREnabled())
       return;
     InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
     assert(MapIt != IRFunctionMap.end());
@@ -297,6 +277,11 @@ public:
 
   // The level of the inline report
   unsigned getLevel() { return Level; }
+
+  // \brief Check if classic inline report should be created
+  bool isClassicIREnabled() const {
+    return (Level && !(Level & InlineReportTypes::BasedOnMetadata));
+  }
 
   /// \brief Record the reason a call site is or is not inlined.
   void setReasonNotInlined(const CallSite CS,

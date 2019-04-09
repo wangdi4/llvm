@@ -240,7 +240,7 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
     LLVM_DEBUG(dbgs() << " Candidate " << I << " Count=" << Count
                       << "  Target_func: " << Target << "\n");
 
-    if (ICPInvokeOnly && dyn_cast<CallInst>(Inst)) {
+    if (ICPInvokeOnly && isa<CallInst>(Inst)) {
       LLVM_DEBUG(dbgs() << " Not promote: User options.\n");
       ORE.emit([&]() {
         return OptimizationRemarkMissed(DEBUG_TYPE, "UserOptions", Inst)
@@ -248,7 +248,7 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
       });
       break;
     }
-    if (ICPCallOnly && dyn_cast<InvokeInst>(Inst)) {
+    if (ICPCallOnly && isa<InvokeInst>(Inst)) {
       LLVM_DEBUG(dbgs() << " Not promote: User option.\n");
       ORE.emit([&]() {
         return OptimizationRemarkMissed(DEBUG_TYPE, "UserOptions", Inst)
@@ -312,10 +312,10 @@ Instruction *llvm::pgo::promoteIndirectCall(Instruction *Inst,
       promoteCallWithIfThenElse(CallSite(Inst), DirectCallee, BranchWeights);
 
   if (AttachProfToDirectCall) {
-    SmallVector<uint32_t, 1> Weights;
-    Weights.push_back(Count);
     MDBuilder MDB(NewInst->getContext());
-    NewInst->setMetadata(LLVMContext::MD_prof, MDB.createBranchWeights(Weights));
+    NewInst->setMetadata(
+        LLVMContext::MD_prof,
+        MDB.createBranchWeights({static_cast<uint32_t>(Count)}));
   }
 
   using namespace ore;
@@ -395,9 +395,7 @@ static bool promoteIndirectCalls(Module &M, ProfileSummaryInfo *PSI,
   }
   bool Changed = false;
   for (auto &F : M) {
-    if (F.isDeclaration())
-      continue;
-    if (F.hasFnAttribute(Attribute::OptimizeNone))
+    if (F.isDeclaration() || F.hasOptNone())
       continue;
 
     std::unique_ptr<OptimizationRemarkEmitter> OwnedORE;

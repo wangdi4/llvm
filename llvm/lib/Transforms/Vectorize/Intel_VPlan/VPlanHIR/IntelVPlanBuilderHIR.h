@@ -70,24 +70,15 @@ public:
     return VPBuilder::createCmpInst(Pred, LHS, RHS);
   }
 
-  /// Create a semi-phi operation with \p Operands as reaching definitions.
-  VPValue *createSemiPhiOp(Type *BaseTy, ArrayRef<VPValue *> Operands,
-                           loopopt::HLDDNode *DDNode = nullptr) {
-    // TODO: Enable assert, remove 'if' and invoke createPhi in super class for
-    // semi-phis without underlying HIR when VPPhi representation is introduced.
-    // assert(DDNode && "DDNode can't be null.");
-    VPInstruction *NewSemiPhi =
-        createInstruction(VPInstruction::SemiPhi, BaseTy, Operands);
-    if (DDNode)
-      NewSemiPhi->HIR.setUnderlyingNode(DDNode);
-    return NewSemiPhi;
+  VPValue *createPhiInstruction(Type *BaseTy, loopopt::HLDDNode *DDNode) {
+    assert(DDNode && "DDNode can't be null.");
+    VPInstruction *NewPhi = VPBuilder::createPhiInstruction(BaseTy);
+    NewPhi->HIR.setUnderlyingNode(DDNode);
+    return NewPhi;
   }
 
-  /// Create a semi-phi operation with \p Operands as reaching definitions.
-  VPValue *createSemiPhiOp(Type *BaseTy,
-                           std::initializer_list<VPValue *> Operands,
-                           loopopt::HLDDNode *DDNode) {
-    return createSemiPhiOp(BaseTy, ArrayRef<VPValue *>(Operands), DDNode);
+  VPValue *createPhiInstruction(Type *BaseTy) {
+    return VPBuilder::createPhiInstruction(BaseTy);
   }
 
   // Construct VPBranchInst instruction from a \p Goto.

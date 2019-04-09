@@ -450,8 +450,6 @@ DINode *SPIRVToLLVMDbgTran::transFunction(const SPIRVExtInst *DebugInst) {
     Flags |= llvm::DINode::FlagProtected;
   if (SPIRVDebugFlags & SPIRVDebug::FlagIsPrivate)
     Flags |= llvm::DINode::FlagPrivate;
-  if (BM->isEntryPoint(spv::ExecutionModelKernel, Ops[FunctionIdIdx]))
-    Flags |= llvm::DINode::FlagMainSubprogram;
 
   unsigned ScopeLine = Ops[ScopeLineIdx];
 

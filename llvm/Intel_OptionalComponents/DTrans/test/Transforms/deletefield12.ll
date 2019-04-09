@@ -1,5 +1,5 @@
-; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -internalize -internalize-public-api-list main -dtrans-identify-unused-values=false -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt  -whole-program-assume -dtrans-identify-unused-values=false -passes='internalize,dtrans-deletefield' -internalize-public-api-list main -S -o - %s | FileCheck %s
 
 ; This test verifies that the size by which the result of a pointer sub is
 ; divided is correctly updated after field deletion.

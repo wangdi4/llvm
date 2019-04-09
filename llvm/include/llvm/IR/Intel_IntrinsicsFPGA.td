@@ -105,7 +105,7 @@ def int_intel_hls_outstream_tryWrite
 def int_intel_hls_mm_master_init
     : Intrinsic<[],
                 [
-                  LLVMPointerType<llvm_any_ty>, llvm_i32_ty, llvm_i1_ty,
+                  LLVMAnyPointerType<llvm_any_ty>, llvm_i32_ty, llvm_i1_ty,
                   llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty,
                   llvm_i32_ty, llvm_i32_ty, llvm_i32_ty,  llvm_i1_ty
                 ],
@@ -113,9 +113,9 @@ def int_intel_hls_mm_master_init
 /// Signature: void (T*, Size, UseSocket, DWidth, AWidth, ASpace, Latency,
 ///                  MaxBurst, Align, ReadWriteMode, WaitRequest, Index)
 def int_intel_hls_mm_master_load
-    : Intrinsic<[ LLVMPointerType<llvm_any_ty> ],
+    : Intrinsic<[ LLVMAnyPointerType<llvm_any_ty> ],
                 [
-                  LLVMPointerType<LLVMMatchType<0>>, llvm_i32_ty, llvm_i1_ty,
+                  LLVMMatchType<0>, llvm_i32_ty, llvm_i1_ty,
                   llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty,
                   llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty, llvm_i32_ty
                 ],

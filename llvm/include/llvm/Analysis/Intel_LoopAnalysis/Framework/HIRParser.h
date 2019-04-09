@@ -280,6 +280,13 @@ class HIRParser {
   const SCEVUnknown *processTempBlob(const SCEVUnknown *TempBlob, CanonExpr *CE,
                                      unsigned NestingLevel);
 
+  /// Recusively breaks commutative blobs such as (2 + 2 * n) into multiplier 2
+  /// and new blob (1 + n). Returns false if no such multiplier is found. \p
+  /// IsTop is true for the topmost call.
+  bool breakConstantMultiplierCommutativeBlob(BlobTy Blob, int64_t *Multiplier,
+                                              BlobTy *NewBlob,
+                                              bool IsTop = false);
+
   /// Breaks multiplication blobs such as (2 * n) into multiplier 2 and new blob
   /// n, otherwise sets the multiplier to 1. Also returns new or the orignal
   /// blob, as applicable.
@@ -396,6 +403,11 @@ class HIRParser {
   /// to be a pointer type. May return zero if the pointer element type is
   /// not-sized.
   unsigned getPointerElementSize(Type *Ty) const;
+
+  /// Check if \p GEPOp is compatible with existing chain represented by \p
+  /// StridesV. If compatible, GEPOp strides will merged into StrideV.
+  bool isCompatibleGEOpWithChain(const GEPOrSubsOperator *GEPOp,
+                                 SmallVector<Value *, 8> &StridesV) const;
 
   // Returns true if it is valid to parse this GEPOrSubsOperator.
   bool isValidGEPOp(const GEPOrSubsOperator *GEPOp,

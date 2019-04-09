@@ -55,13 +55,13 @@
 ; CHECK-EP-PIPELINE-START-NEXT: Running pass: NoOpModulePass
 ; CHECK-DIS-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}AddDiscriminatorsPass{{.*}}>
 ; CHECK-DIS-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-O-NEXT: Running pass: PassManager<{{.*}}Module{{.*}}>
+; CHECK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-POSTLINK-O-NEXT: Running pass: PGOIndirectCallPromotion
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: PassInstrumentationAnalysis
-; CHECK-O-NEXT: Running pass: PassManager<{{.*}}Module{{.*}}>
-; CHECK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
@@ -99,11 +99,11 @@
 ; CHECK-O-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}LazyCallGraph{{.*}}>
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
+; CHECK-O-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
 ; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
+; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*}}LazyCallGraph::SCC{{.*}}>
 ; CHECK-O-NEXT: Starting CGSCC pass manager run.
 ; CHECK-O-NEXT: Running pass: InlinerPass
-; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*}}LazyCallGraph{{.*}}>
-; CHECK-O-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
 ; CHECK-O3-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-O-NEXT: Running pass: CGSCCToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>

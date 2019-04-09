@@ -69,9 +69,19 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
       InBounds(Info.InBounds), AddressOf(Info.AddressOf),
       Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed),
       Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
-      LowerBounds(Info.LowerBounds), Strides(Info.Strides),
       DimTypes(Info.DimTypes), MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
-      MemDbgLoc(Info.MemDbgLoc) {}
+      MemDbgLoc(Info.MemDbgLoc) {
+
+  for (auto *Lower : Info.LowerBounds) {
+    CanonExpr *LowerClone = Lower->clone();
+    LowerBounds.push_back(LowerClone);
+  }
+
+  for (auto *Stride : Info.Strides) {
+    CanonExpr *StrideClone = Stride->clone();
+    Strides.push_back(StrideClone);
+  }
+}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 
@@ -246,14 +256,19 @@ void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
     }
   }
 
-  // Update base CE.
-  if (hasGEPInfo()) {
+  bool HasGEPInfo = hasGEPInfo();
+
+  if (HasGEPInfo) {
     updateCEDefLevel(getBaseCE(), NewLevel);
   }
 
-  // Update CanonExprs.
-  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    updateCEDefLevel(*I, NewLevel);
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    updateCEDefLevel(getDimensionIndex(I), NewLevel);
+
+    if (HasGEPInfo) {
+      updateCEDefLevel(getDimensionLower(I), NewLevel);
+      updateCEDefLevel(getDimensionStride(I), NewLevel);
+    }
   }
 }
 
@@ -476,18 +491,25 @@ bool RegDDRef::isFakeRval() const {
 }
 
 bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
+
+  bool HasGEPInfo = hasGEPInfo();
+
   // Check the Base CE.
-  if (hasGEPInfo() && !getBaseCE()->isInvariantAtLevel(LoopLevel)) {
+  if (HasGEPInfo && !getBaseCE()->isInvariantAtLevel(LoopLevel)) {
     return false;
   }
 
   // Check canon expr of the ddrefs to see if level exist.
-  for (auto Iter = canon_begin(), End = canon_end(); Iter != End; ++Iter) {
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
 
-    const CanonExpr *Canon = *Iter;
     // Check if CanonExpr is invariant i.e. IV is not present in any form inside
     // the canon expr.
-    if (!Canon->isInvariantAtLevel(LoopLevel)) {
+    if (!getDimensionIndex(I)->isInvariantAtLevel(LoopLevel)) {
+      return false;
+    }
+
+    if (HasGEPInfo && (!getDimensionLower(I)->isInvariantAtLevel(LoopLevel) ||
+                       !getDimensionStride(I)->isInvariantAtLevel(LoopLevel))) {
       return false;
     }
   }
@@ -863,14 +885,25 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
   }
 
   bool Replaced = false;
+  bool HasGEPInfo = hasGEPInfo();
 
-  if (hasGEPInfo() && getBaseCE()->replaceTempBlob(OldIndex, NewIndex)) {
+  if (HasGEPInfo && getBaseCE()->replaceTempBlob(OldIndex, NewIndex)) {
     Replaced = true;
   }
 
-  for (auto CEIt = canon_begin(), EndIt = canon_end(); CEIt != EndIt; ++CEIt) {
-    if ((*CEIt)->replaceTempBlob(OldIndex, NewIndex)) {
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    if (getDimensionIndex(I)->replaceTempBlob(OldIndex, NewIndex)) {
       Replaced = true;
+    }
+
+    if (HasGEPInfo) {
+      if (getDimensionLower(I)->replaceTempBlob(OldIndex, NewIndex)) {
+        Replaced = true;
+      }
+
+      if (getDimensionStride(I)->replaceTempBlob(OldIndex, NewIndex)) {
+        Replaced = true;
+      }
     }
   }
 
@@ -935,11 +968,18 @@ void RegDDRef::removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices,
 void RegDDRef::collectTempBlobIndices(
     SmallVectorImpl<unsigned> &Indices) const {
 
-  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    (*I)->collectTempBlobIndices(Indices, false);
+  bool HasGEPInfo = hasGEPInfo();
+
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    getDimensionIndex(I)->collectTempBlobIndices(Indices, false);
+
+    if (HasGEPInfo) {
+      getDimensionLower(I)->collectTempBlobIndices(Indices, false);
+      getDimensionStride(I)->collectTempBlobIndices(Indices, false);
+    }
   }
 
-  if (hasGEPInfo()) {
+  if (HasGEPInfo) {
     getBaseCE()->collectTempBlobIndices(Indices, false);
   }
 
@@ -1128,11 +1168,18 @@ void RegDDRef::checkDefAtLevelConsistency(
 void RegDDRef::checkBlobAndDefAtLevelConsistency() const {
   SmallVector<unsigned, 8> BlobIndices;
 
-  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    checkDefAtLevelConsistency(*I, BlobIndices);
+  bool HasGEPInfo = hasGEPInfo();
+
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    checkDefAtLevelConsistency(getDimensionIndex(I), BlobIndices);
+
+    if (HasGEPInfo) {
+      checkDefAtLevelConsistency(getDimensionLower(I), BlobIndices);
+      checkDefAtLevelConsistency(getDimensionStride(I), BlobIndices);
+    }
   }
 
-  if (hasGEPInfo()) {
+  if (HasGEPInfo) {
     checkDefAtLevelConsistency(getBaseCE(), BlobIndices);
   }
 
@@ -1154,21 +1201,42 @@ bool RegDDRef::containsUndef() const {
     return CE->containsUndef();
   };
 
-  if (hasGEPInfo() && UndefCanonPredicate(getBaseCE())) {
+  bool HasGEPInfo = hasGEPInfo();
+
+  if (HasGEPInfo && UndefCanonPredicate(getBaseCE())) {
     return true;
   }
 
-  return std::any_of(canon_begin(), canon_end(), UndefCanonPredicate);
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    if (UndefCanonPredicate(getDimensionIndex(I))) {
+      return true;
+    }
+
+    if (HasGEPInfo && (UndefCanonPredicate(getDimensionLower(I)) ||
+                       UndefCanonPredicate(getDimensionStride(I)))) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool RegDDRef::isNonLinear(void) const {
-  if (hasGEPInfo() && getBaseCE()->isNonLinear()) {
+
+  bool HasGEPInfo = hasGEPInfo();
+
+  if (HasGEPInfo && getBaseCE()->isNonLinear()) {
     return true;
   }
 
   // Check each dimension
-  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    if ((*I)->isNonLinear()) {
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    if (getDimensionIndex(I)->isNonLinear()) {
+      return true;
+    }
+
+    if (HasGEPInfo && (getDimensionLower(I)->isNonLinear() ||
+                       getDimensionStride(I)->isNonLinear())) {
       return true;
     }
   }
@@ -1207,11 +1275,34 @@ void RegDDRef::verify() const {
          "RegDDRef should contain at least one CanonExpr!");
 
   auto NodeLevel = getNodeLevel();
-  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    (*I)->verify(NodeLevel);
+
+  bool HasGEPInfo = hasGEPInfo();
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    auto *IndexCE = getDimensionIndex(I);
+
+    IndexCE->verify(NodeLevel);
+
+    if (HasGEPInfo) {
+      assert(IndexCE->getSrcType()->isIntOrIntVectorTy() &&
+             "Subscript should be integer type!");
+
+      auto *LowerCE = getDimensionLower(I);
+      auto *StrideCE = getDimensionStride(I);
+
+      LowerCE->verify(NodeLevel);
+      StrideCE->verify(NodeLevel);
+
+      assert(!LowerCE->hasIV() && "Dimension lower not expected to have IV!");
+      assert(!StrideCE->hasIV() && "Dimension stride not expected to have IV!");
+
+      assert(LowerCE->getSrcType()->isIntegerTy() &&
+             "Lower is not integer type!");
+      assert(StrideCE->getSrcType()->isIntegerTy() &&
+             "Stride is not integer type!");
+    }
   }
 
-  if (hasGEPInfo()) {
+  if (HasGEPInfo) {
     auto CE = getBaseCE();
     (void)CE;
     assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
@@ -1228,10 +1319,6 @@ void RegDDRef::verify() const {
     assert((CE->isSelfBlob() || CE->isStandAloneUndefBlob() || CE->isNull()) &&
            "BaseCE is not a self blob!");
 
-    for (auto CEI = canon_begin(), E = canon_end(); CEI != E; ++CEI) {
-      assert((*CEI)->getSrcType()->isIntOrIntVectorTy() &&
-             "Subscript should be integer type!");
-    }
   } else {
     // assert(isTerminalRef())
     auto CE = getSingleCanonExpr();
@@ -1436,18 +1523,23 @@ bool RegDDRef::hasIV(unsigned Level) const {
 unsigned RegDDRef::getDefinedAtLevel() const {
   unsigned MaxLevel = 0;
 
-  if (hasGEPInfo() && getBaseCE()->isNonLinear()) {
+  bool HasGEPInfo = hasGEPInfo();
+
+  if (HasGEPInfo && getBaseCE()->isNonLinear()) {
     return NonLinearLevel;
   }
 
-  for (auto CEIt = canon_begin(), E = canon_end(); CEIt != E; ++CEIt) {
-    auto CE = *CEIt;
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    MaxLevel = std::max(MaxLevel, getDimensionIndex(I)->getDefinedAtLevel());
 
-    if (CE->isNonLinear()) {
-      return NonLinearLevel;
+    if (HasGEPInfo) {
+      MaxLevel = std::max(MaxLevel, getDimensionLower(I)->getDefinedAtLevel());
+      MaxLevel = std::max(MaxLevel, getDimensionStride(I)->getDefinedAtLevel());
     }
 
-    MaxLevel = std::max(MaxLevel, CE->getDefinedAtLevel());
+    if (MaxLevel == NonLinearLevel) {
+      return NonLinearLevel;
+    }
   }
 
   return MaxLevel;

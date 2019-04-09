@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt %s -VPlanDriver -vplan-force-build -disable-vplan-da=false -disable-vplan-predicator -disable-vplan-codegen -debug 2>&1 | FileCheck %s 
+; RUN: opt %s -VPlanDriver -vplan-force-build -disable-vplan-predicator -disable-vplan-codegen -debug 2>&1 | FileCheck %s 
 ; XFAIL: *
 ; Note: At the moment, we do not build a VPlan for this loop nest since there are multiple loop exit blocks. When -vplan-force-build is thrown, HCFG construction
 ; also asserts for the same reason. For now just mark as XFAIL and once the VPlan is built for such cases this test should pass.

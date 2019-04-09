@@ -1,9 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
-; Verify that decomposer properly materializes the IV semi-phi, IV Next and
+; Verify that decomposer properly materializes the IV phi, IV Next and
 ; bottom test condition.
 
-; CHECK: [[IVPhi:%.*]] = semi-phi i64 0 i64 [[IVNext:%.*]]
+; CHECK: [[IVPhi:%.*]] = phi  [ i64 0, {{BB.*}} ],  [ i64 [[IVNext:%.*]], {{BB.*}} ]
 ; CHECK: [[IVNext]] = add i64 [[IVPhi]] i64 1
 ; CHECK: {{%.*}} = icmp i64 [[IVNext]] i64 1599
 

@@ -52,7 +52,6 @@ namespace llvm {
 
 class APInt;
 class AssumptionCache;
-class CallSite;
 class DataLayout;
 class DominatorTree;
 class GEPOperator;
@@ -385,6 +384,17 @@ public:
 #if INTEL_CUSTOMIZATION
   Instruction *recognizePopcnt(BinaryOperator &I);
   Instruction *OptimizeICmpInstSize(ICmpInst &ICI, Value *Op0, Value *Op1);
+
+  bool hasUnsafeFPMathAttrSet(Instruction &I) {
+    const Function &F = I.getParent()->getParent()->getFunction();
+    if (F.hasFnAttribute("unsafe-fp-math")) {
+      Attribute Attr = F.getFnAttribute("unsafe-fp-math");
+      StringRef Val = Attr.getValueAsString();
+      if (Val == "true")
+        return true;
+   }
+   return false;
+ }
 #endif // INTEL_CUSTOMIZATION
   Instruction *FoldShiftByConstant(Value *Op0, Constant *Op1,
                                    BinaryOperator &I);
@@ -407,6 +417,7 @@ public:
   Instruction *visitSelectInst(SelectInst &SI);
   Instruction *visitCallInst(CallInst &CI);
   Instruction *visitInvokeInst(InvokeInst &II);
+  Instruction *visitCallBrInst(CallBrInst &CBI);
 
   Instruction *SliceUpIllegalIntegerPHI(PHINode &PN);
   Instruction *visitPHINode(PHINode &PN);
@@ -416,6 +427,7 @@ public:
   Instruction *visitFree(CallInst &FI);
   Instruction *visitLoadInst(LoadInst &LI);
   Instruction *visitStoreInst(StoreInst &SI);
+  Instruction *visitAtomicRMWInst(AtomicRMWInst &SI);
   Instruction *visitBranchInst(BranchInst &BI);
   Instruction *visitFenceInst(FenceInst &FI);
   Instruction *visitSwitchInst(SwitchInst &SI);
@@ -481,12 +493,15 @@ private:
                              Instruction &CtxI, Value *&OperationResult,
                              Constant *&OverflowResult);
 
-  Instruction *visitCallSite(CallSite CS);
+  Instruction *visitCallBase(CallBase &Call);
   Instruction *tryOptimizeCall(CallInst *CI);
-  bool transformConstExprCastCall(CallSite CS);
-  Instruction *transformCallThroughTrampoline(CallSite CS,
-                                              IntrinsicInst *Tramp);
+  bool transformConstExprCastCall(CallBase &Call);
+  Instruction *transformCallThroughTrampoline(CallBase &Call,
+                                              IntrinsicInst &Tramp);
 
+  Instruction *simplifyMaskedStore(IntrinsicInst &II);
+  Instruction *simplifyMaskedScatter(IntrinsicInst &II);
+  
   /// Transform (zext icmp) to bitwise / integer operations in order to
   /// eliminate it.
   ///
@@ -600,10 +615,30 @@ private:
   /// already be inserted into the function.
   Value *foldLogicOfFCmps(FCmpInst *LHS, FCmpInst *RHS, bool IsAnd);
 
+#if INTEL_CUSTOMIZATION
+  /// Recognize min/max semantics in (fcmp)&(fcmp) and (fcmp)|(fcmp).
+  Instruction *recognizeFCmpMinMaxIdiom(BinaryOperator &I);
+
+  /// Combines binary operator and 2 fcmp into FP min/max.
+  Instruction *combineAndOrToFcmpMinMax(BinaryOperator &I, Value *A, Value *B,
+                                        Value *C);
+
+  /// Combines trees of OR/AND with fcmp inside into FP min/max semantics.
+  Instruction *combineAndOrTreeToFcmpMinMax(BinaryOperator &I);
+
+  /// Return true when all operands of I are available at insertion point IPt.
+  bool allOperandsAvailable(const Instruction *I, const Instruction *IPt);
+
+  /// Hoist instruction before BinOp and exchange uses of this fcmp
+  /// and use of Op operand in BinOp.
+  bool hoistFcmpAndExchangeUses(Instruction *I1, Value *Op, Instruction *BinOp);
+#endif // INTEL_CUSTOMIZATION
   Value *foldAndOrOfICmpsOfAndWithPow2(ICmpInst *LHS, ICmpInst *RHS,
                                        bool JoinedByAnd, Instruction &CxtI);
   Value *matchSelectFromAndOr(Value *A, Value *B, Value *C, Value *D);
   Value *getSelectCondition(Value *A, Value *B);
+
+  Instruction *foldIntrinsicWithOverflowCommon(IntrinsicInst *II);
 
 public:
   /// Inserts an instruction \p New before instruction \p Old
@@ -815,8 +850,7 @@ private:
 
   Value *simplifyAMDGCNMemoryIntrinsicDemanded(IntrinsicInst *II,
                                                APInt DemandedElts,
-                                               int DmaskIdx = -1,
-                                               int TFCIdx = -1);
+                                               int DmaskIdx = -1);
 
   Value *SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
                                     APInt &UndefElts, unsigned Depth = 0);
@@ -881,8 +915,6 @@ private:
 
   Instruction *foldICmpSelectConstant(ICmpInst &Cmp, SelectInst *Select,
                                       ConstantInt *C);
-  Instruction *foldICmpBitCastConstant(ICmpInst &Cmp, BitCastInst *Bitcast,
-                                       const APInt &C);
   Instruction *foldICmpTruncConstant(ICmpInst &Cmp, TruncInst *Trunc,
                                      const APInt &C);
   Instruction *foldICmpAndConstant(ICmpInst &Cmp, BinaryOperator *And,

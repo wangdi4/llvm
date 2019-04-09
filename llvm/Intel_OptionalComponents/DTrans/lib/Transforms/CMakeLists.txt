@@ -23,12 +23,14 @@ add_llvm_library(LLVMIntel_DTransOpt
   DTransOptBaseTest.cpp
   DTransOptUtils.cpp
   DTransPaddedMalloc.cpp
+  MemInitTrimDown.cpp
   PaddedPtrPropagation.cpp
   SOAToAOS.cpp
   SOAToAOSArrays.cpp
   SOAToAOSCommon.cpp
   SOAToAOSEffects.cpp
   SOAToAOSStruct.cpp
+  Transpose.cpp
   WeakAlign.cpp
 
   ADDITIONAL_HEADER_DIRS

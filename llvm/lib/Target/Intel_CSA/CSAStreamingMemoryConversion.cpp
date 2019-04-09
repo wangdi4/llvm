@@ -268,7 +268,7 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
     return Changed;
 
   // Get the exit block of the loop. Make sure it is dedicated to the loop.
-  Changed |= formDedicatedExitBlocks(L, &DT, &LI, false);
+  Changed |= formDedicatedExitBlocks(L, &DT, &LI, nullptr, false);
   auto *ExitBlock = L->getExitBlock();
   if (!ExitBlock)
     return Changed;

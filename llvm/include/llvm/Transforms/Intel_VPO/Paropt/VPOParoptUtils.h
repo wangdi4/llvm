@@ -154,7 +154,7 @@ public:
   /// otherwise the clause's actual argument value is \p Arg itself.
   /// The method sign-extends or truncates the clause's actual argument
   /// value to type \p Ty using the provided \p Builder.
-  static Value *getByRefClauseArgValueSExt(
+  static Value *getOrLoadClauseArgValueWithSext(
       Value *Arg, Type *Ty, IRBuilder<> &Builder);
 
   /// Generate a call to set `num_threads` for the `parallel` region and
@@ -193,16 +193,25 @@ public:
   /// Generate a call to notify the runtime system that the static
   /// loop scheduling is started.
   /// \code
-  ///   call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid,
-  ///               i32 schedtype, i32* %islast,i32* %lb, i32* %ub, i32* %st,
-  ///               i32 inc, i32 chunk)
+  ///   void __kmpc_dist_for_static_init_4/8[u](
+  ///            ident_t *loc, kmp_int32 gtid,
+  ///            kmp_int32 schedule, kmp_int32 *plastiter,
+  ///            kmp_[u]int32/64 *plower, kmp_[u]int32/64 *pupper,
+  ///            kmp_[u]int32/64 *pupperD,
+  ///            kmp_int32/64 *pstride, kmp_int32/64 incr, kmp_int32/64 chunk)
   /// \endcode
-  static CallInst *genKmpcStaticInit(WRegionNode *W, StructType *IdentTy,
-                                     Value *Tid, Value *SchedType,
-                                     Value *IsLastVal, Value *LB, Value *UB,
-                                     Value *DistUB, Value *ST, Value *Inc,
-                                     Value *Chunk, int Size, bool IsUnsigned,
-                                     Instruction *InsertPt);
+  /// OR
+  /// \code
+  ///   void __kmpc_for_static_init_4/8[u](
+  ///            ident_t *loc, kmp_int32 gtid,
+  ///            kmp_int32 schedule, kmp_int32 *plastiter,
+  ///            kmp_[u]int32/64 *plower, kmp_[u]int32/64 *pupper,
+  ///            kmp_int32/64 *pstride, kmp_int32/64 incr, kmp_int32/64 chunk)
+  /// \endcode
+  static CallInst *genKmpcStaticInit(
+      WRegionNode *W, StructType *IdentTy, Value *Tid,
+      Value *IsLastVal, Value *LB, Value *UB, Value *DistUB, Value *ST,
+      Value *Inc, Value *Chunk, bool IsUnsigned, Instruction *InsertPt);
 
   /// Generate a call to notify the runtime system that the static loop
   /// scheduling is done.
@@ -1017,7 +1026,8 @@ public:
 
   // Creates new Function and outlines \p W region into it.
   // \p DT DominatorTree is updated accordingly.
-  static Function *genOutlineFunction(const WRegionNode &W, DominatorTree *DT);
+  static Function *genOutlineFunction(const WRegionNode &W, DominatorTree *DT,
+                                      AssumptionCache *AC);
 
   /// @}
 

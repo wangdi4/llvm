@@ -357,10 +357,8 @@ bool HIROptVarPredicate::run() {
   LLVM_DEBUG(dbgs() << "Optimization of Variant Predicates Function: "
                     << HIRF.getFunction().getName() << "\n");
 
-  ForPostEach<HLLoop>::visitRange(
-      HIRF.hir_begin(), HIRF.hir_end(), [this](HLLoop *Loop) {
-        processLoop(Loop);
-      });
+  ForPostEach<HLLoop>::visitRange(HIRF.hir_begin(), HIRF.hir_end(),
+                                  [this](HLLoop *Loop) { processLoop(Loop); });
 
   for (HLNode *Node : NodesToInvalidate) {
     if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
@@ -389,7 +387,8 @@ BlobTy HIROptVarPredicate::castBlob(BlobTy Blob, Type *DesiredType,
     return Blob;
   }
 
-  return BU.createCastBlob(Blob, IsSigned, DesiredType, true, &BlobIndex);
+  return BU.createCastBlob(Blob, IsSigned, DesiredType,
+                           !isa<SCEVConstant>(Blob), &BlobIndex);
 }
 
 void HIROptVarPredicate::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
@@ -443,11 +442,15 @@ void HIROptVarPredicate::updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
 
   unsigned MinBlobIndex;
   BlobTy MinBlob;
+  bool BlobsAreConst =
+      isa<SCEVConstant>(UpperBlob) && isa<SCEVConstant>(SplitPointBlob);
 
   if (IsSigned) {
-    MinBlob = BU.createSMinBlob(SplitPointBlob, UpperBlob, true, &MinBlobIndex);
+    MinBlob = BU.createSMinBlob(SplitPointBlob, UpperBlob, !BlobsAreConst,
+                                &MinBlobIndex);
   } else {
-    MinBlob = BU.createUMinBlob(SplitPointBlob, UpperBlob, true, &MinBlobIndex);
+    MinBlob = BU.createUMinBlob(SplitPointBlob, UpperBlob, !BlobsAreConst,
+                                &MinBlobIndex);
   }
 
   MinBlob = castBlob(MinBlob, Loop->getIVType(), IsSigned, MinBlobIndex);
@@ -462,11 +465,15 @@ void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
 
   unsigned MaxBlobIndex;
   BlobTy MaxBlob;
+  bool BlobsAreConst =
+      isa<SCEVConstant>(LowerBlob) && isa<SCEVConstant>(SplitPointBlob);
 
   if (IsSigned) {
-    MaxBlob = BU.createSMaxBlob(SplitPointBlob, LowerBlob, true, &MaxBlobIndex);
+    MaxBlob = BU.createSMaxBlob(SplitPointBlob, LowerBlob, !BlobsAreConst,
+                                &MaxBlobIndex);
   } else {
-    MaxBlob = BU.createUMaxBlob(SplitPointBlob, LowerBlob, true, &MaxBlobIndex);
+    MaxBlob = BU.createUMaxBlob(SplitPointBlob, LowerBlob, !BlobsAreConst,
+                                &MaxBlobIndex);
   }
 
   MaxBlob = castBlob(MaxBlob, Loop->getIVType(), IsSigned, MaxBlobIndex);
@@ -526,12 +533,12 @@ void HIROptVarPredicate::splitLoop(
     const RegDDRef *RHS, const CanonExpr *LowerCE, const CanonExpr *UpperCE,
     const CanonExpr *SplitPoint, bool ShouldInvertCondition) {
 
-  assert(LowerCE->isStandAloneBlob(false) &&
-         "LowerCE should be a stand-alone blob");
-  assert(UpperCE->isStandAloneBlob(false) &&
-         "UpperCE should be a stand-alone blob");
-  assert(SplitPoint->isStandAloneBlob(false) &&
-         "SplitPoint should be a stand-alone blob");
+  assert((LowerCE->isIntConstant() || LowerCE->isStandAloneBlob(false)) &&
+         "LowerCE should be a constant or stand-alone blob");
+  assert((UpperCE->isIntConstant() || UpperCE->isStandAloneBlob(false)) &&
+         "UpperCE should be a constant or stand-alone blob");
+  assert((SplitPoint->isIntConstant() || SplitPoint->isStandAloneBlob(false)) &&
+         "SplitPoint should be a constant or stand-alone blob");
 
   bool IsSigned = CmpInst::isSigned(Pred) || Pred == PredicateTy::ICMP_EQ ||
                   Pred == PredicateTy::ICMP_NE;
@@ -578,12 +585,20 @@ void HIROptVarPredicate::splitLoop(
   HLNodeUtils::remove(Candidate);
   HLNodeUtils::remove(CandidateClone);
 
+  int64_t Val;
+  bool SplitPtIsConst = SplitPoint->isIntConstant(&Val);
   // %b
-  BlobTy SplitPointBlob = BU.getBlob(SplitPoint->getSingleBlobIndex());
+  BlobTy SplitPointBlob = SplitPtIsConst
+                              ? BU.createBlob(Val, SplitPoint->getDestType())
+                              : BU.getBlob(SplitPoint->getSingleBlobIndex());
   // %UB
-  BlobTy UpperBlob = BU.getBlob(UpperCE->getSingleBlobIndex());
+  BlobTy UpperBlob = UpperCE->isIntConstant(&Val)
+                         ? BU.createBlob(Val, UpperCE->getDestType())
+                         : BU.getBlob(UpperCE->getSingleBlobIndex());
   // %LB
-  BlobTy LowerBlob = BU.getBlob(LowerCE->getSingleBlobIndex());
+  BlobTy LowerBlob = LowerCE->isIntConstant(&Val)
+                         ? BU.createBlob(Val, LowerCE->getDestType())
+                         : BU.getBlob(LowerCE->getSingleBlobIndex());
 
   // Clone is required as we will be updating *Loop* upper ref and will be using
   // original ref to make it consistent.
@@ -603,7 +618,8 @@ void HIROptVarPredicate::splitLoop(
 
     // %b + 1
     BlobTy SplitPointPlusBlob = BU.createAddBlob(
-        SplitPointBlob, BU.createBlob(1, SplitPointBlob->getType()));
+        SplitPointBlob, BU.createBlob(1, SplitPointBlob->getType()),
+        !SplitPtIsConst);
 
     updateLoopLowerBound(ThirdLoop, LowerBlob, SplitPointPlusBlob, IsSigned);
 
@@ -619,7 +635,8 @@ void HIROptVarPredicate::splitLoop(
 
   // %b - 1
   BlobTy SplitPointMinusBlob = BU.createMinusBlob(
-      SplitPointBlob, BU.createBlob(1, SplitPointBlob->getType()));
+      SplitPointBlob, BU.createBlob(1, SplitPointBlob->getType()),
+      !SplitPtIsConst);
 
   updateLoopUpperBound(Loop, UpperBlob, SplitPointMinusBlob, IsSigned);
   updateLoopLowerBound(SecondLoop, LowerBlob, SplitPointBlob, IsSigned);
@@ -724,8 +741,8 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
 
   // Blobyfy everything to make it compatible with min/max scev operations.
   // TODO: revisit this part after implementation of MIN/MAX DDRefs.
-  if (!LowerCE->convertToStandAloneBlob() ||
-      !UpperCE->convertToStandAloneBlob()) {
+  if ((!LowerCE->isIntConstant() && !LowerCE->convertToStandAloneBlob()) ||
+      (!UpperCE->isIntConstant() && !UpperCE->convertToStandAloneBlob())) {
     return false;
   }
 
@@ -776,7 +793,8 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
     LLVM_DEBUG(SplitPoint->dump());
     LLVM_DEBUG(dbgs() << "\n");
 
-    if (!SplitPoint->convertToStandAloneBlob()) {
+    if (!SplitPoint->isIntConstant() &&
+        !SplitPoint->convertToStandAloneBlob()) {
       // This is mostly due to IVs in the split point.
       // TODO: implement min/max ddrefs
       LLVM_DEBUG(

@@ -217,10 +217,22 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
   EXPECT_EQ(Triple::UnknownOS, T.getOS());
 
+  T = Triple("spir-unknown-unknown-inteleyeq");
+  EXPECT_EQ(Triple::spir, T.getArch());
+  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+  EXPECT_EQ(Triple::UnknownOS, T.getOS());
+  EXPECT_TRUE(T.isINTELEyeQEnvironment());
+
   T = Triple("spir64-unknown-unknown");
   EXPECT_EQ(Triple::spir64, T.getArch());
   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
   EXPECT_EQ(Triple::UnknownOS, T.getOS());
+
+  T = Triple("spir64-unknown-unknown-inteleyeq");
+  EXPECT_EQ(Triple::spir64, T.getArch());
+  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+  EXPECT_EQ(Triple::UnknownOS, T.getOS());
+  EXPECT_TRUE(T.isINTELEyeQEnvironment());
 
   T = Triple("x86_64-unknown-ananas");
   EXPECT_EQ(Triple::x86_64, T.getArch());
@@ -245,6 +257,12 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
   EXPECT_EQ(Triple::HermitCore, T.getOS());
   EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
+
+  T = Triple("x86_64-unknown-unknown-inteleyeq");
+  EXPECT_EQ(Triple::x86_64, T.getArch());
+  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+  EXPECT_EQ(Triple::UnknownOS, T.getOS());
+  EXPECT_TRUE(T.isINTELEyeQEnvironment());
 
   T = Triple("wasm32-unknown-unknown");
   EXPECT_EQ(Triple::wasm32, T.getArch());
@@ -1258,6 +1276,11 @@ TEST(TripleTest, FileFormat) {
   EXPECT_EQ(Triple::Wasm,
             Triple("wasm64-unknown-wasi-musl-wasm").getObjectFormat());
 
+  EXPECT_EQ(Triple::XCOFF, Triple("powerpc-ibm-aix").getObjectFormat());
+  EXPECT_EQ(Triple::XCOFF, Triple("powerpc64-ibm-aix").getObjectFormat());
+  EXPECT_EQ(Triple::XCOFF, Triple("powerpc---xcoff").getObjectFormat());
+  EXPECT_EQ(Triple::XCOFF, Triple("powerpc64---xcoff").getObjectFormat());
+
   Triple MSVCNormalized(Triple::normalize("i686-pc-windows-msvc-elf"));
   EXPECT_EQ(Triple::ELF, MSVCNormalized.getObjectFormat());
 
@@ -1276,6 +1299,9 @@ TEST(TripleTest, FileFormat) {
 
   T.setObjectFormat(Triple::MachO);
   EXPECT_EQ(Triple::MachO, T.getObjectFormat());
+
+  T.setObjectFormat(Triple::XCOFF);
+  EXPECT_EQ(Triple::XCOFF, T.getObjectFormat());
 }
 
 TEST(TripleTest, NormalizeWindows) {

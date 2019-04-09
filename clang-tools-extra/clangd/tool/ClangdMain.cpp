@@ -9,10 +9,12 @@
 #include "Features.inc"
 #include "ClangdLSPServer.h"
 #include "Path.h"
+#include "Protocol.h"
 #include "Trace.h"
 #include "Transport.h"
 #include "index/Serialization.h"
 #include "clang/Basic/Version.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -31,7 +33,7 @@ namespace clangd {
 static llvm::cl::opt<bool>
     UseDex("use-dex-index",
            llvm::cl::desc("Use experimental Dex dynamic index."),
-           llvm::cl::init(false), llvm::cl::Hidden);
+           llvm::cl::init(true), llvm::cl::Hidden);
 
 static llvm::cl::opt<Path> CompileCommandsDir(
     "compile-commands-dir",
@@ -163,7 +165,7 @@ static llvm::cl::opt<Path> IndexFile(
     "index-file",
     llvm::cl::desc(
         "Index file to build the static index. The file must have been created "
-        "by a compatible clangd-index.\n"
+        "by a compatible clangd-indexer.\n"
         "WARNING: This option is experimental only, and will be removed "
         "eventually. Don't rely on it."),
     llvm::cl::init(""), llvm::cl::Hidden);
@@ -203,15 +205,31 @@ static llvm::cl::opt<bool> EnableFunctionArgSnippets(
 
 static llvm::cl::opt<std::string> ClangTidyChecks(
     "clang-tidy-checks",
-    llvm::cl::desc("List of clang-tidy checks to run (this will override "
-                   ".clang-tidy files)"),
+    llvm::cl::desc(
+        "List of clang-tidy checks to run (this will override "
+        ".clang-tidy files). Only meaningful when -clang-tidy flag is on."),
     llvm::cl::init(""));
+
+static llvm::cl::opt<bool> EnableClangTidy(
+    "clang-tidy",
+    llvm::cl::desc("Enable clang-tidy diagnostics."),
+    llvm::cl::init(false));
 
 static llvm::cl::opt<bool> SuggestMissingIncludes(
     "suggest-missing-includes",
     llvm::cl::desc("Attempts to fix diagnostic errors caused by missing "
                    "includes using index."),
-    llvm::cl::init(false));
+    llvm::cl::init(true));
+
+static llvm::cl::opt<OffsetEncoding> ForceOffsetEncoding(
+    "offset-encoding",
+    llvm::cl::desc("Force the offsetEncoding used for character positions. "
+                   "This bypasses negotiation via client capabilities."),
+    llvm::cl::values(clEnumValN(OffsetEncoding::UTF8, "utf-8",
+                                "Offsets are in UTF-8 bytes"),
+                     clEnumValN(OffsetEncoding::UTF16, "utf-16",
+                                "Offsets are in UTF-16 code units")),
+    llvm::cl::init(OffsetEncoding::UnsupportedEncoding));
 
 namespace {
 
@@ -441,17 +459,24 @@ int main(int argc, char *argv[]) {
   }
 
   // Create an empty clang-tidy option.
-  auto OverrideClangTidyOptions = tidy::ClangTidyOptions::getDefaults();
-  OverrideClangTidyOptions.Checks = ClangTidyChecks;
-  tidy::FileOptionsProvider ClangTidyOptProvider(
-      tidy::ClangTidyGlobalOptions(),
-      /* Default */ tidy::ClangTidyOptions::getDefaults(),
-      /* Override */ OverrideClangTidyOptions, FSProvider.getFileSystem());
-  Opts.ClangTidyOptProvider = &ClangTidyOptProvider;
+  std::unique_ptr<tidy::ClangTidyOptionsProvider> ClangTidyOptProvider;
+  if (EnableClangTidy) {
+    auto OverrideClangTidyOptions = tidy::ClangTidyOptions::getDefaults();
+    OverrideClangTidyOptions.Checks = ClangTidyChecks;
+    ClangTidyOptProvider = llvm::make_unique<tidy::FileOptionsProvider>(
+        tidy::ClangTidyGlobalOptions(),
+        /* Default */ tidy::ClangTidyOptions::getDefaults(),
+        /* Override */ OverrideClangTidyOptions, FSProvider.getFileSystem());
+  }
+  Opts.ClangTidyOptProvider = ClangTidyOptProvider.get();
   Opts.SuggestMissingIncludes = SuggestMissingIncludes;
+  llvm::Optional<OffsetEncoding> OffsetEncodingFromFlag;
+  if (ForceOffsetEncoding != OffsetEncoding::UnsupportedEncoding)
+    OffsetEncodingFromFlag = ForceOffsetEncoding;
   ClangdLSPServer LSPServer(
       *TransportLayer, FSProvider, CCOpts, CompileCommandsDirPath,
-      /*UseDirBasedCDB=*/CompileArgsFrom == FilesystemCompileArgs, Opts);
+      /*UseDirBasedCDB=*/CompileArgsFrom == FilesystemCompileArgs,
+      OffsetEncodingFromFlag, Opts);
   llvm::set_thread_name("clangd.main");
   return LSPServer.run() ? 0
                          : static_cast<int>(ErrorResultCode::NoShutdownRequest);

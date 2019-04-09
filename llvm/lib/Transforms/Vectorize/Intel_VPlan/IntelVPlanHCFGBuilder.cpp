@@ -48,7 +48,7 @@ static cl::opt<bool> DisableUniformRegions(
 
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
-    DisableVPlanDA("disable-vplan-da", cl::init(true), cl::Hidden,
+    DisableVPlanDA("disable-vplan-da", cl::init(false), cl::Hidden,
                    cl::desc("Disable VPlan divergence analysis"));
 
 static cl::opt<bool>
@@ -59,6 +59,10 @@ static cl::opt<bool>
 static cl::opt<bool>
     VPlanPrintHCFG("vplan-print-after-hcfg", cl::init(false),
                    cl::desc("Print plain dump after build VPlan H-CFG."));
+
+static cl::opt<bool>
+    VPlanPrintPlainCFG("vplan-print-plain-cfg", cl::init(false),
+                       cl::desc("Print plain dump after VPlan buildPlainCFG."));
 #endif
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
@@ -738,6 +742,13 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     auto *VPDA = new VPlanDivergenceAnalysis();
     VPDA->compute(CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
     Plan->setVPlanDA(VPDA);
+  }
+
+  if (VPlanPrintPlainCFG) {
+    errs() << "Print after buildPlainCFG\n";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    Plan->dump(errs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif /* INTEL_CUSTOMIZATION */
 

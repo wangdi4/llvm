@@ -8,6 +8,7 @@ add_llvm_library(LLVMInstrumentation
   MemorySanitizer.cpp
   IndirectCallPromotion.cpp
   Instrumentation.cpp
+  InstrOrderFile.cpp
   InstrProfiling.cpp
 # INTEL_CUSTOMIZATION
   Intel_FunctionSplitting.cpp
@@ -16,7 +17,6 @@ add_llvm_library(LLVMInstrumentation
   PGOMemOPSizeOpt.cpp
   SanitizerCoverage.cpp
   ThreadSanitizer.cpp
-  EfficiencySanitizer.cpp
   HWAddressSanitizer.cpp
 
   ADDITIONAL_HEADER_DIRS

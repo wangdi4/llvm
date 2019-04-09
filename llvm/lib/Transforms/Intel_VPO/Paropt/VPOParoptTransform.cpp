@@ -362,6 +362,11 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
                                                    AllocaInst *UpperBnd,
                                                    AllocaInst *SchedStride) {
   assert(W->getIsOmpLoop() && "genOCLLoopBoundUpdateCode: W is not a loop-type WRN");
+  assert (LowerBnd->getType() == UpperBnd->getType() &&
+          "Expected LowerBnd and UpperBnd to be of same type");
+  assert (LowerBnd->getType() == SchedStride->getType() &&
+          "Expected LowerBnd and SchedStride to be of same type");
+
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L && "genOCLLoopBoundUpdateCode: Expect non-empty loop.");
   Instruction *InsertPt =
@@ -381,14 +386,18 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   setSchedKindForMultiLevelLoops(W, SchedKind, WRNScheduleStaticEven);
 
+  // All operands of math expressions below will be of LBType
+  auto LBType = LB->getType();
+
   Value *Chunk = nullptr;
-  Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LB->getType());
+  Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
   if (SchedKind == WRNScheduleStaticEven) {
     Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumThreads);
     Chunk = Builder.CreateSDiv(ItSpaceRounded, NumThreads);
-  } else if (SchedKind == WRNScheduleStatic)
+  } else if (SchedKind == WRNScheduleStatic) {
     Chunk = W->getSchedule().getChunkExpr();
-  else
+    Chunk = Builder.CreateSExtOrTrunc(Chunk, LBType);
+  } else
     llvm_unreachable(
         "Unsupported loop schedule type in OpenCL based offloading!");
 
@@ -399,13 +408,13 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
                                         IntelGeneralUtils::getSizeTTy(F),
                                         Arg, InsertPt);
-  Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, Chunk->getType());
+  Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
+
   Value *LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
   LB = Builder.CreateAdd(LB, LBDiff);
   Builder.CreateStore(LB, LowerBnd);
 
-  ConstantInt *ValueOne =
-      ConstantInt::get(cast<IntegerType>(Chunk->getType()), 1);
+  ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(LBType), 1);
   Value *Ch = Builder.CreateSub(Chunk, ValueOne);
   Value *NewUB = Builder.CreateAdd(LB, Ch);
 
@@ -499,7 +508,7 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
     Loop *OuterLoop = genDispatchLoopForTeamDistirbute(
         L, TeamLB, TeamUB, TeamST, TeamLowerBnd, TeamUpperBnd, TeamStride,
         UpperBndVal, LoopExitBB, LoopRegionExitBB, TeamST->getParent(),
-        LoopExitBB);
+        LoopExitBB, nullptr);
     wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
     wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
                                        ECs);
@@ -512,7 +521,8 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistirbute(
     Loop *L, Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST,
     AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd, AllocaInst *TeamStride,
     Value *UpperBndVal, BasicBlock *LoopExitBB, BasicBlock *LoopRegionExitBB,
-    BasicBlock *TeamInitBB, BasicBlock *TeamExitBB) {
+    BasicBlock *TeamInitBB, BasicBlock *TeamExitBB,
+    Instruction *TeamExitBBSplit) {
 
   //                          |
   //                team.dispatch.header <---------------+
@@ -586,8 +596,11 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistirbute(
   ReplaceInstWithInst(TermInst, TeamTopTestBI);
 
   // Generate dispatch chunk increment BBlock
-  BasicBlock *TeamDispLatchBB =
-      SplitBlock(TeamExitBB, &(TeamExitBB->front()), DT, LI);
+  Instruction *SplitPoint =
+      TeamExitBBSplit ?
+          TeamExitBBSplit->getNextNonDebugInstruction() : &TeamExitBB->front();
+
+  BasicBlock *TeamDispLatchBB = SplitBlock(TeamExitBB, SplitPoint, DT, LI);
 
   TermInst = TeamExitBB->getTerminator();
   TeamExitBB->setName("team.dispatch.inc");
@@ -642,6 +655,7 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistirbute(
 }
 
 // Generate dispatch loop for static chunk.
+// FIXME: get rid of LoopExitBB and StaticInitBB parameters.
 Loop *VPOParoptTransform::genDispatchLoopForStatic(
     Loop *L, LoadInst *LoadLB, LoadInst *LoadUB, AllocaInst *LowerBnd,
     AllocaInst *UpperBnd, Value *UpperBndVal, AllocaInst *SchedStride,
@@ -668,6 +682,11 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
   //   +--------------> dispatch.latch
   //                          |
 
+  // LoadLB is a load instruction producing a value for ZTT generated
+  // around the loop during lowering. Split its block so that
+  // both LoadLB and LoadUB and the ZTT are in a new "dispatch" block.
+  StaticInitBB = LoadLB->getParent();
+
   // Generate dispatch header BBlock
   BasicBlock *DispatchHeaderBB = SplitBlock(StaticInitBB, LoadLB, DT, LI);
   DispatchHeaderBB->setName("dispatch.header");
@@ -680,9 +699,7 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
 
   Instruction *TermInst = DispatchHeaderBB->getTerminator();
 
-  ICmpInst *MinUB;
-
-  MinUB =
+  ICmpInst *MinUB =
       new ICmpInst(TermInst, ICmpInst::ICMP_SLE, TmpUB, UpperBndVal, "ub.min");
 
   StoreInst *NewUB = new StoreInst(UpperBndVal, UpperBnd, false, TermInst);
@@ -699,10 +716,10 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
 
   // Generate dispatch chunk increment BBlock
   BasicBlock *DispatchLatchBB =
-      SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
+      SplitBlock(LoopRegionExitBB, LoopRegionExitBB->getTerminator(), DT, LI);
 
-  TermInst = LoopExitBB->getTerminator();
-  LoopExitBB->setName("dispatch.inc");
+  TermInst = LoopRegionExitBB->getTerminator();
+  LoopRegionExitBB->setName("dispatch.inc");
   IRBuilder<> Builder(TermInst);
 
   // Load Stride value to st.new
@@ -723,15 +740,18 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
 
   DispatchLatchBB->setName("dispatch.latch");
 
+  // DispatchBodyBB ends with the ZTT that was originally in StaticInitBB.
+  // This ZTT controls a branch to either the loop body, or the LoopExitBB.
+  // Reroute the LoopExitBB edge to DispatchLatchBB.
+  // Note that DispatchLatchBB now becomes the only predecessor of LoopExitBB.
   TermInst = DispatchBodyBB->getTerminator();
   TermInst->setSuccessor(1, DispatchLatchBB);
 
   if (DT) {
+    // Some of the new blocks have correct immediate dominators set
+    // by SplitBlock.  We only need to correct it for some.
     DT->changeImmediateDominator(DispatchHeaderBB, StaticInitBB);
-
     DT->changeImmediateDominator(DispatchBodyBB, DispatchHeaderBB);
-    DT->changeImmediateDominator(DispatchMinUBB, DispatchHeaderBB);
-
     DT->changeImmediateDominator(DispatchLatchBB, DispatchBodyBB);
   }
 
@@ -742,7 +762,6 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
                                 LI);
   WRegionUtils::updateBBForLoop(DispatchBodyBB, OuterLoop, L->getParentLoop(),
                                 LI);
-  WRegionUtils::updateBBForLoop(LoopExitBB, OuterLoop, L->getParentLoop(), LI);
   WRegionUtils::updateBBForLoop(LoopRegionExitBB, OuterLoop, L->getParentLoop(),
                                 LI);
   OuterLoop->moveToHeader(DispatchHeaderBB);
@@ -797,6 +816,7 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
                             DistSchedKind, TeamLB, TeamUB, TeamST);
   }
 
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -964,7 +984,8 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNParallel:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -993,6 +1014,19 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genDestructorCode(W);
             Changed |= genMultiThreadedCode(W);
           }
+          // The clean-up of launder intrinsics needs to happen after all
+          // clauses have been processed. This is because for i8*, the intrinsic
+          // itself will be a clause operand:
+          //
+          // %1 = getelementpointer, struct* this, 0, 0
+          // %2 = llvm.launder.invariant.group(i8 *%1)
+          // call @llvm.directive.region.entry[..."QUAL.OMP.PRIVATE"(i8* %2)...]
+          //
+          // When clearing the launder, we would replace %2 with %1 in the
+          // clause and the region, and delete %2. The new private operand would
+          // be %1. But since the WRegion is built before the clean-up, it would
+          // still point to the deleted %2 as the private clause operand.
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
         }
         break;
@@ -1001,8 +1035,9 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNDistributeParLoop:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          regularizeOMPLoop(W);
-          genCodemotionFenceforAggrData(W);
+          Changed = regularizeOMPLoop(W);
+          Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1085,13 +1120,15 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genDestructorCode(W);
             Changed |= genMultiThreadedCode(W);
           }
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
         }
         break;
       case WRegionNode::WRNTask:
         if (Mode & ParPrepare) {
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1114,14 +1151,16 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genRedCodeForTaskGeneric(W);
           Changed |= genCancellationBranchingCode(W);
           Changed |= genTaskCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
         }
         break;
       case WRegionNode::WRNTaskloop:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          regularizeOMPLoop(W);
-          genCodemotionFenceforAggrData(W);
+          Changed = regularizeOMPLoop(W);
+          Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
@@ -1143,6 +1182,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genRedCodeForTaskGeneric(W);
           Changed |= genTaskGenericCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                         LBPtr, UBPtr, STPtr);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
         }
@@ -1161,41 +1201,57 @@ bool VPOParoptTransform::paroptTransforms() {
           // functions with target regions from being deleted by LTO.
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
-          // The purpose is to generate place holder for global variable.
-          Changed |= genGlobalPrivatizationCode(W);
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
+          // The purpose is to generate place holder for global variable.
+          Changed |= genGlobalPrivatizationLaunderIntrin(W);
           improveAliasForOutlinedFunc(W);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
-          Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
-          Changed |= finalizeGlobalPrivatizationCode(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
         }
         break;
       case WRegionNode::WRNTargetEnterData:
       case WRegionNode::WRNTargetExitData:
+      case WRegionNode::WRNTargetUpdate:
         debugPrintHeader(W, IsPrepare);
-        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+        if (Mode & ParPrepare) {
+          Changed |= genGEPCapturingLaunderIntrin(W);
+          genCodemotionFenceforAggrData(W);
+        } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
+          // The purpose is to generate place holder for global variable.
+          //
+          // For WRNTargetEnterData and WRNTargetExitData we may
+          // avoid laundering the global variables that are declared target,
+          // unless they are mapped as ALWAYS.  We do not need to pass
+          // them to the target runtime library, as long as they have
+          // infinite reference count, and will not require data motion.
+          Changed |= genGlobalPrivatizationLaunderIntrin(W);
           Changed |= genTargetOffloadingCode(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
         }
         break;
       case WRegionNode::WRNTargetData:
-      case WRegionNode::WRNTargetUpdate:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          // The purpose is to generate place holder for global variable.
-          Changed |= genGlobalPrivatizationCode(W);
-          genCodemotionFenceforAggrData(W);
+          Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = clearCodemotionFenceIntrinsic(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
+          // The purpose is to generate place holder for global variable.
+          Changed |= genGlobalPrivatizationLaunderIntrin(W);
           improveAliasForOutlinedFunc(W);
-          Changed |= genDevicePtrPrivationCode(W);
           Changed |= genTargetOffloadingCode(W);
-          Changed |= finalizeGlobalPrivatizationCode(W);
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
         }
         break;
@@ -1212,13 +1268,37 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
 
       case WRegionNode::WRNVecLoop:
-        if (Mode & ParPrepare)
-          regularizeOMPLoop(W);
+        if (Mode & ParPrepare) {
+          Changed = regularizeOMPLoop(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
+        }
         // Privatization is enabled for SIMD Transform passes
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
           debugPrintHeader(W, false);
           Changed = regularizeOMPLoop(W, false);
           Changed |= genPrivatizationCode(W);
+          if (W->getWRNLoopInfo().getNormIVSize() != 0) {
+            // Code for SIMD clauses, such as lastprivate, must be inserted
+            // outside of the loop. And this insertion must be coordinated
+            // with code inserted for enclosing regions related to the same
+            // loop. Here we only handle standalone SIMD regions.
+            // Lasprivatization, linearization, etc. will be done for variables
+            // during transformation of the enclosing region in case of
+            // combined OpenMP constructs.
+            //
+            // Standalone SIMD regions will have normalized IV and UB.
+            // Normalized IV and UB are not present for SIMD regions
+            // combined with other loop type regions.
+            //
+            // Note that handling of PRIVATE does not require new code
+            // (except new alloca) outside of the loop, so it can be done
+            // always.
+            auto *LoopExitBB = getLoopExitBB(W);
+            // Last value update must happen in the loop's exit block,
+            // i.e. under a ZTT check, if one was created around the loop.
+            Changed |= genLastPrivatizationCode(W, LoopExitBB);
+          }
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
           RemovePrivateClauses = false;
@@ -1239,8 +1319,9 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNDistribute:
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          regularizeOMPLoop(W);
-          genCodemotionFenceforAggrData(W);
+          Changed = regularizeOMPLoop(W);
+          Changed |= genCodemotionFenceforAggrData(W);
+          Changed |= genGEPCapturingLaunderIntrin(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -1311,6 +1392,7 @@ bool VPOParoptTransform::paroptTransforms() {
             if (!W->getIsDistribute() && !W->getNowait())
               Changed |= genBarrier(W, false);
           }
+          Changed |= clearLaunderIntrinBeforeRegion(W);
           Changed |= sinkSIMDDirectives(W);
           RemoveDirectives = true;
         }
@@ -2098,7 +2180,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
       Instruction *InsertPt = &EntryBB->front();
 
-      computeArraySecReductionTypeOffsetSize(*RedI, InsertPt);
+      computeArraySectionTypeOffsetSize(*RedI, InsertPt);
 
       NewRedInst = genPrivatizationAlloca(RedI, InsertPt, ".red");
       RedI->setNew(NewRedInst);
@@ -2133,10 +2215,11 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
         W, IdentTy, TidPtrHolder,
         dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
         EndBB->getTerminator(), "");
-    W->resetBBSet(); // Invalidate BBSet after transformations
     Changed = true;
-  }
+  } // if (!RedClause.empty())
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genReductionCode\n");
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -2225,19 +2308,32 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
                         DestArrayBegin->getName() + ".plus.offset"); //   (3)
 }
 
-void VPOParoptTransform::computeArraySecReductionTypeOffsetSize(
-    ReductionItem &RI, Instruction *InsertPt) {
+void VPOParoptTransform::computeArraySectionTypeOffsetSize(
+    Item &CI, Instruction *InsertPt) {
 
-  if (!RI.getIsArraySection())
+  bool IsArraySection = false;
+  ArraySectionInfo *ArrSecInfo = nullptr;
+
+  if (auto *RI = dyn_cast<ReductionItem>(&CI)) {
+    IsArraySection = RI->getIsArraySection();
+    ArrSecInfo = &RI->getArraySectionInfo();
+  } else if (auto *MI = dyn_cast<MapItem>(&CI)) {
+    IsArraySection = MI->getIsArraySection();
+    ArrSecInfo = &MI->getArraySectionInfo();
+  } else
+    llvm_unreachable("computeArraySectionTypeOffsetSize: the clause Item "
+                     "must be either ReductionItem or MapItem.");
+
+  if (!IsArraySection)
     return;
 
   IRBuilder<> Builder(InsertPt);
 
-  Value *Orig = RI.getOrig();
-  Type *RITy = Orig->getType();
-  Type *ElemTy = cast<PointerType>(RITy)->getElementType();
+  Value *Orig = CI.getOrig();
+  Type *CITy = Orig->getType();
+  Type *ElemTy = cast<PointerType>(CITy)->getElementType();
 
-  if (RI.getIsByRef())
+  if (CI.getIsByRef())
     // Strip away one pointer for by-refs.
     ElemTy = cast<PointerType>(ElemTy)->getElementType();
 
@@ -2282,8 +2378,7 @@ void VPOParoptTransform::computeArraySecReductionTypeOffsetSize(
   uint64_t ArraySizeTillDim = 1;
   Value *ArrSecSize = Builder.getIntN(PtrSz, 1);
   Value *ArrSecOff = Builder.getIntN(PtrSz, 0);
-  ArraySectionInfo &ArrSecInfo = RI.getArraySectionInfo();
-  const auto &ArraySectionDims = ArrSecInfo.getArraySectionDims();
+  const auto &ArraySectionDims = ArrSecInfo->getArraySectionDims();
   const int NumDims = ArraySectionDims.size();
 
   // We go through the array section dims in the reverse order to go from lower
@@ -2330,14 +2425,14 @@ void VPOParoptTransform::computeArraySecReductionTypeOffsetSize(
   assert(!isa<PointerType>(ElemTy) && !isa<ArrayType>(ElemTy) &&
          "Unexpected array section element type.");
 
-  ArrSecInfo.setSize(ArrSecSize);
-  ArrSecInfo.setOffset(ArrSecOff);
-  ArrSecInfo.setElementType(ElemTy);
-  ArrSecInfo.setBaseIsPointer(BaseIsPointer);
+  ArrSecInfo->setSize(ArrSecSize);
+  ArrSecInfo->setOffset(ArrSecOff);
+  ArrSecInfo->setElementType(ElemTy);
+  ArrSecInfo->setBaseIsPointer(BaseIsPointer);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Operand '";
              Orig->printAsOperand(dbgs()); dbgs() << "':: ";
-             ArrSecInfo.print(dbgs(), false); dbgs() << "\n");
+             ArrSecInfo->print(dbgs(), false); dbgs() << "\n");
 }
 
 Value *
@@ -2450,8 +2545,11 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
     return;
   }
 
-  assert((isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue) ||
-          isa<LoadInst>(OrigValue)) && "unsupported input Value");
+  assert(
+      (isa<Argument>(OrigValue) || isa<GetElementPtrInst>(OrigValue) ||
+       isa<LoadInst>(OrigValue) || isa<BitCastInst>(OrigValue) ||
+       (isa<CallInst>(OrigValue) && isFenceCall(cast<CallInst>(OrigValue)))) &&
+      "unsupported input Value");
 
   ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
 }
@@ -2481,7 +2579,6 @@ void VPOParoptTransform::getItemInfo(Item *I,
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
-  Orig = getRootValueFromFenceCall(Orig);
 
   auto getItemInfoIfArraySection = [I, &ElementType, &NumElements]() -> bool {
     if (ReductionItem *RedI = dyn_cast<ReductionItem>(I))
@@ -2520,7 +2617,6 @@ AllocaInst *VPOParoptTransform::genPrivatizationAlloca(
     Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix) {
 
   assert(OrigValue && "genPrivatizationAlloca: Null input value.");
-  OrigValue = getRootValueFromFenceCall(OrigValue);
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
@@ -2545,7 +2641,6 @@ VPOParoptTransform::genPrivatizationAlloca(Item *I, Instruction *InsertPt,
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
-  Orig = getRootValueFromFenceCall(Orig);
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
@@ -2660,9 +2755,6 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
 //
 bool VPOParoptTransform::genLinearCode(WRegionNode *W,
                                        BasicBlock *LinearFiniBB) {
-
-  assert(W->isBBSetEmpty() && "genLinearCode: BBSET should start empty");
-
   if (!W->canHaveLinear())
     return false;
 
@@ -2774,9 +2866,10 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W,
 
     LLVM_DEBUG(dbgs() << "genLinearCode: generated " << *Orig << "\n");
   }
-  W->resetBBSet(); // Invalidate BBSet
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLinearCode\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -2786,9 +2879,6 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genFirstPrivatizationCode\n");
-
-  assert(W->isBBSetEmpty() &&
-         "genFirstPrivatizationCode: BBSET should start empty");
 
   assert(W->canHaveFirstprivate() &&
          "genFirstPrivatizationCode: WRN doesn't take a firstprivate var");
@@ -2852,33 +2942,55 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         createEmptyPrvInitBB(W, PrivInitEntryBB);
         genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
       }
-      LLVM_DEBUG(dbgs() << "genFirstPrivatizationCode: firstprivatized "
-                        << *Orig << "\n");
-    }
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": firstprivatized '";
+                 Orig->printAsOperand(dbgs()); dbgs() << "'\n");
+    } // for
     Changed = true;
-    W->resetBBSet(); // Invalidate BBSet
-  }
+  } // if (!FprivClause.empty())
 
   LLVM_DEBUG(
       dbgs() << "\nExit VPOParoptTransform::genFirstPrivatizationCode\n");
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
 bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
                                                   BasicBlock *IfLastIterBB) {
-  bool Changed = false;
-
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genLastPrivatizationCode\n");
 
-  assert(W->isBBSetEmpty() &&
-         "genLastPrivatizationCode: BBSET should start empty");
-
   if (!W->canHaveLastprivate())
-    return Changed;
+    return false;
 
+  bool Changed = false;
   LastprivateClause &LprivClause = W->getLpriv();
   if (!LprivClause.empty()) {
+
+    BasicBlock *EntryBB = W->getEntryBBlock();
+
+    if (isa<WRNVecLoopNode>(W))
+      // Insert privatization code (e.g. allocas, constructor calls)
+      // in a block preceeding the SIMD region's entry block.
+      // We should minimize the code between SIMD entry/exit points
+      // that is not related to the loop itself, otherwise, vectorizer
+      // may complain. Note that the last value copy is still generated
+      // inside the SIMD region - if this is a problem, we should run
+      // sinkSIMDDirectives() for standalone SIMD regions as well.
+      //
+      // FIXME: if there is no parent region that will be outlined, then
+      //        the allocas will remain inside the function body, and
+      //        may not be handled by optimizations (e.g. promote memory
+      //        to register pass). In such case we have to insert allocas
+      //        inside the function's entry block. Moreover, insertion
+      //        of allocas next to the SIMD region is not correct, if
+      //        there is an enclosing loop - such an alloca may cause
+      //        stack saturation.
+      //        This is relevant to WRNWksLoop as well.
+      //
+      // Note that EntryBB points to the new empty block after the call
+      // below.
+      W->setEntryBBlock(SplitBlock(EntryBB, &EntryBB->front(), DT, LI));
 
     W->populateBBSet();
 
@@ -2886,14 +2998,9 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
 
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
                    W->getWRegionKindID() == WRegionNode::WRNTask;
-    BasicBlock *EntryBB = W->getEntryBBlock();
 
     for (LastprivateItem *LprivI : LprivClause.items()) {
       Value *Orig = LprivI->getOrig();
-      /*
-            assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
-                   "genLastPrivatizationCode: Unexpected lastprivate variable");
-      */
       Value *NewPrivInst;
       Instruction *InsertPt = &EntryBB->front();
       if (!ForTask)
@@ -2915,12 +3022,47 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
         genLprivFini(LprivI, IfLastIterBB->getTerminator());
       } else
         genLprivFiniForTaskLoop(LprivI, IfLastIterBB->getTerminator());
+
+      if (isa<WRNVecLoopNode>(W) && LprivI->getIsConditional()) {
+        // For the following case:
+        //   int x = 0;
+        //   #pragma omp simd lastprivate(conditional: x)
+        //   for (...)
+        //     if (cond)
+        //       x = ...;
+        //
+        // We generate IR equivalent to the following code:
+        //   int x = 0;
+        //   int x.lpriv = x;
+        //   #pragma omp simd lastprivate(conditional: x.lpriv)
+        //   for (...)
+        //     if (cond)
+        //       x.lpriv = ...;
+        //   x = x.lpriv;
+        //
+        // Even though OpenMP specification does not seem to explicitly
+        // describe the case, when (cond) is never true, we implement
+        // conditional lastprivates such that the original list item ('x')
+        // keeps it original (before the construct) value, if (cond)
+        // is always false.
+        //
+        // The code below produces 'x.lpriv = x' assignment just reusing
+        // the firstprivatization code.
+        FirstprivateItem FprivI(Orig);
+        FprivI.setNew(NewPrivInst);
+        FprivI.setIsByRef(LprivI->getIsByRef());
+        // We do not care about CopyConstructor of the fake firstprivate
+        // item, because conditional lastprivate may only reference
+        // a scalar variable (potentially, by reference).
+        genFprivInit(&FprivI, EntryBB->getTerminator());
+      }
     }
     Changed = true;
-    W->resetBBSet(); // Invalidate BBSet
-  }
+  } // if (!LprivClause.empty())
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLastPrivatizationCode\n");
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -2964,9 +3106,13 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
   */
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
+// FIXME: The comments are outdated. The intrinsic used to avoid code motion
+//        is now @llvm.launder.invariant.group
+//
 //  Clean up the intrinsic @llvm.invariant.group.barrier and replace the use
 //  of the intrinsic with the its operand.
 //
@@ -3037,25 +3183,27 @@ bool VPOParoptTransform::clearCodemotionFenceIntrinsic(WRegionNode *W) {
     Instruction *I = DelIns.pop_back_val();
     I->eraseFromParent();
   }
-  W->resetBBSet();
 
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
 // Replace the occurrences of V within the region with the return value of the
-// intrinsic @llvm.invariant.group.barrier.
-void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
+// intrinsic @llvm.launder.invariant.group.
+bool VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
   // LLVM_DEBUG(dbgs() << "replaceValueWithinRegion: " << *V << "\n");
 
   // Find instructions in W that use V
   SmallVector<Instruction *, 8> Users;
   if (!WRegionUtils::findUsersInRegion(W, V, &Users))
-    return; // Found no applicable uses of V in W's body
+    return false; // Found no applicable uses of V in W's body.
+                  // No transformations happened.
 
-  // Create a new @llvm.invariant.group.barrier for V
+  // Create a new @llvm.launder.invariant.group for V
   BasicBlock *EntryBB = W->getEntryBBlock();
   IRBuilder<> Builder(EntryBB->getTerminator());
   Value *NewI = Builder.CreateLaunderInvariantGroup(V);
+  NewI->setName(V->getName());
 
   // Replace uses of V with NewI
   for (Instruction * User : Users) {
@@ -3129,36 +3277,39 @@ void VPOParoptTransform::replaceValueWithinRegion(WRegionNode *W, Value *V) {
       // LLVM_DEBUG(dbgs() << "After Replacement: " << *NewInstr << "\n");
     }
   }
+  return true; // Transformed
 }
 
-// Generate the intrinsic @llvm.invariant.group.barrier for local/global
+// Generate the intrinsic @llvm.launder.invariant.group for local/global
 // variable I.
-void VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
-
+bool VPOParoptTransform::genFenceIntrinsic(WRegionNode *W, Value *I) {
+  bool Changed = false;
   if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) {
     Type *AllocaTy = AI->getAllocatedType();
 
     if (!AllocaTy->isSingleValueType())
-      replaceValueWithinRegion(W, I);
+      Changed |= replaceValueWithinRegion(W, I);
 
   } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(I)) {
     Type *Ty = GV->getValueType();
     if (!Ty->isSingleValueType())
-      replaceValueWithinRegion(W, I);
+      Changed |= replaceValueWithinRegion(W, I);
   }
   else {
     Type *Ty = I->getType();
     PointerType *PtrTy = dyn_cast<PointerType>(Ty);
     if (!PtrTy)
-      return;
+      return false;
     Ty = PtrTy->getElementType();
     if (!Ty->isSingleValueType())
-      replaceValueWithinRegion(W, I);
+      Changed |= replaceValueWithinRegion(W, I);
   }
+
+  return Changed;
 }
 
 // Return true if the instuction is a call to
-// @llvm.invariant.group.barrier
+// @llvm.launder.invariant.group
 CallInst*  VPOParoptTransform::isFenceCall(Instruction *I) {
   if (CallInst *CI = dyn_cast<CallInst>(I))
     if (CI->getCalledFunction() && CI->getCalledFunction()->getIntrinsicID() ==
@@ -3408,6 +3559,7 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
     Changed = true;
   }
 
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -3538,12 +3690,10 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
 
   W->populateBBSet();
   if (!First) {
-    // For the case of #pragma omp parallel for simd, the clang only
-    // needs to generate the bundle omp.iv for the parallel region.
-    if (W->getWRNLoopInfo().getNormIVSize() == 0) {
-      W->resetBBSet();
+    // For the case of #pragma omp parallel for simd, clang only
+    // generates the bundle omp.iv for the parallel for region.
+    if (W->getWRNLoopInfo().getNormIVSize() == 0)
       return false;
-    }
     for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I)
       regularizeOMPLoopImpl(W, I - 1);
   } else {
@@ -3568,61 +3718,216 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
       }
     }
   }
-  W->resetBBSet();
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
-
-  llvm_unreachable("Expect the omp normalized iv to be a stack variable.");
 }
 
-// Generate the intrinsic @llvm.invariant.group.barrier to inhibit the cse
+// Generate the intrinsic @llvm.launder.invariant.group to inhibit the cse
 // for the gep instruction related to array/struture which is marked
 // as private, firstprivate, lastprivate, reduction or shared.
-void VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
+bool VPOParoptTransform::genCodemotionFenceforAggrData(WRegionNode *W) {
+  bool Changed = false;
   W->populateBBSet();
+
+  SmallPtrSet<Value *, 16> HandledVals;
+  auto genFence = [&](Value *Orig, bool CheckAlreadyHandled) {
+    if (CheckAlreadyHandled && HandledVals.find(Orig) != HandledVals.end())
+      return false;
+
+    HandledVals.insert(Orig);
+    return genFenceIntrinsic(W, Orig);
+  };
+
   if (W->canHavePrivate()) {
     PrivateClause &PrivClause = W->getPriv();
     for (PrivateItem *PrivI : PrivClause.items())
-      genFenceIntrinsic(W, PrivI->getOrig());
+      Changed |= genFence(PrivI->getOrig(), false);
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
     for (FirstprivateItem *FprivI : FprivClause.items())
-      genFenceIntrinsic(W, FprivI->getOrig());
+      Changed |= genFence(FprivI->getOrig(), false);
   }
 
   if (W->canHaveShared()) {
     SharedClause &ShaClause = W->getShared();
     for (SharedItem *ShaI : ShaClause.items())
-      genFenceIntrinsic(W, ShaI->getOrig());
+      Changed |= genFence(ShaI->getOrig(), false);
   }
 
   if (W->canHaveReduction()) {
     ReductionClause &RedClause = W->getRed();
     for (ReductionItem *RedI : RedClause.items())
-      genFenceIntrinsic(W, RedI->getOrig());
+      Changed |= genFence(RedI->getOrig(), false);
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
-      genFenceIntrinsic(W, LprivI->getOrig());
+      Changed |= genFence(LprivI->getOrig(), true);
   }
 
   if (W->canHaveMap()) {
     MapClause const &MpClause = W->getMap();
     for (MapItem *MapI : MpClause.items()) {
-      genFenceIntrinsic(W, MapI->getOrig());
-      if (!MapI->getIsMapChain())
-        continue;
-      MapChainTy const &MapChain = MapI->getMapChain();
-      for (unsigned I = 0; I < MapChain.size(); ++I) {
-        MapAggrTy *Aggr = MapChain[I];
-        genFenceIntrinsic(W, Aggr->getBasePtr());
-        genFenceIntrinsic(W, Aggr->getSectionPtr());
+      if (MapI->getIsMapChain()) {
+        MapChainTy const &MapChain = MapI->getMapChain();
+        for (unsigned I = 0; I < MapChain.size(); ++I) {
+          MapAggrTy *Aggr = MapChain[I];
+          Changed |= genFence(Aggr->getSectionPtr(), true);
+          Changed |= genFence(Aggr->getBasePtr(), true);
+        }
       }
+      Changed |= genFence(MapI->getOrig(), true);
     }
   }
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
+  return Changed;
+}
+
+// If a clause operand to a data sharing or map clause is a GEP, we need
+// to capture it in an intrinsic to prevent CSE or constant propagation from
+// replacing uses of the original GEP with something else. For example:
+//
+// Class C { int x; void foo() { #pragma omp parallel private(x) {...} } };
+//
+// In this case, the IR for the directive will look like:
+//
+// %x = getelementpointer, this, 0, 0
+// llvm.directive.region.entry(... "QUAL.OMP.PRIVATE" (%x)
+// { ... %x ... } // Use of %x inside the parallel region
+//
+// It is possible for optimizations to replace '%x', which is a zero-offset GEP,
+// with '%this', either inside the directive, or within the region, either of
+// which will break VPO's handling of the clause.
+//
+// Similarly, map section pointer can undergo the following cse optimization:
+//
+// Before early-cse:
+//
+// entry:
+//  %sbox = alloca i32*, align 8
+//  store i32* getelementptr inbounds ([256 x i32],
+//  [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox
+//  %1 = load i32*, i32** %sbox, align 8
+//  %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
+//  br label %DIR.OMP.TARGET.1
+//
+// DIR.OMP.TARGET.1:
+//  %2 = call token @llvm.directive.region.entry() [
+//         "DIR.OMP.TARGET"(),
+//         "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+//         "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox,
+//         i32** %sbox, i64 8),
+//         "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox,
+//         i32* %arrayidx, i64 1024),
+//         ... ]
+//
+// After early-cse:
+//
+// entry:
+//  %sbox = alloca i32*, align 8
+//  store i32* getelementptr inbounds ([256 x i32],
+//  [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox
+//  %1 = load i32*, i32** %sbox, align 8
+//  %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
+//  br label %DIR.OMP.TARGET.1
+//
+// DIR.OMP.TARGET.1:
+//  %2 = call token @llvm.directive.region.entry() [
+//         "DIR.OMP.TARGET"(),
+//         "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+//         "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox, i32** %sbox, i64 8),
+//         "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox,
+//         i32* getelementptr inbounds ([256 x i32],
+//         [256 x i32]* @g_sbox, i32 0, i32 0), i64 1024)
+//         ... ]
+//
+// The solution is to capture and rename the incoming GEPs to inhibit such
+// optimizations. See genRenamePrivatizationImpl for details.
+//
+bool VPOParoptTransform::genGEPCapturingLaunderIntrin(WRegionNode *W) {
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  bool Changed = false;
+
+  SmallPtrSet<GetElementPtrInst *, 16> HandledGEPs;
+
+  auto captureAndRenameIfGEP = [&](Value *Val, Item *It,
+                                   bool CheckAlreadyHandled) {
+    auto *GEP = dyn_cast_or_null<GetElementPtrInst>(Val);
+    if (!GEP)
+      return false;
+
+    if (CheckAlreadyHandled && HandledGEPs.find(GEP) != HandledGEPs.end())
+      return false;
+
+    if (!Changed) {
+      // Enter here if this is the first GEP being handled.
+      BasicBlock *NewEntryBB =
+          SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+      W->setEntryBBlock(NewEntryBB);
+      W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
+    }
+
+    genRenamePrivatizationImpl(W, GEP, EntryBB, It);
+    HandledGEPs.insert(GEP);
+    Changed = true;
+    return true;
+  };
+
+  if (W->canHavePrivate()) {
+    PrivateClause const &PrivClause = W->getPriv();
+    for (PrivateItem *PrivI : PrivClause.items())
+      Changed |= captureAndRenameIfGEP(PrivI->getOrig(), PrivI, false);
+  }
+
+  if (W->canHaveReduction()) {
+    ReductionClause const &RedClause = W->getRed();
+    for (ReductionItem *RedI : RedClause.items())
+      Changed |= captureAndRenameIfGEP(RedI->getOrig(), RedI, false);
+  }
+
+  if (W->canHaveLinear()) {
+    LinearClause const &LrClause = W->getLinear();
+    for (LinearItem *LrI : LrClause.items())
+      Changed |= captureAndRenameIfGEP(LrI->getOrig(), LrI, false);
+  }
+
+  if (W->canHaveFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items())
+      Changed |= captureAndRenameIfGEP(FprivI->getOrig(), FprivI, false);
+  }
+
+  if (W->canHaveLastprivate()) {
+    LastprivateClause const &LprivClause = W->getLpriv();
+    for (LastprivateItem *LprivI : LprivClause.items())
+      Changed |= captureAndRenameIfGEP(LprivI->getOrig(), LprivI, true);
+  }
+
+  if (W->canHaveMap()) {
+    MapClause const &MpClause = W->getMap();
+    // The capturing also needs to happen for GEPs in SectionPtrs.
+    for (MapItem *MapI : MpClause.items()) {
+      if (MapI->getIsMapChain()) {
+        MapChainTy const &MapChain = MapI->getMapChain();
+        // Iterate through a map chain in reverse order. For example,
+        // for (p1, p2) (p2, p3), handle (p2, p3) before (p1, p2).
+        for (int I = MapChain.size() - 1; I >= 0; --I) {
+          MapAggrTy *Aggr = MapChain[I];
+          Changed |= captureAndRenameIfGEP(Aggr->getSectionPtr(), MapI, true);
+          Changed |= captureAndRenameIfGEP(Aggr->getBasePtr(), MapI, true);
+        }
+      }
+
+      Changed |= captureAndRenameIfGEP(MapI->getOrig(), MapI, true);
+    }
+  }
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
+  return Changed;
 }
 
 bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
@@ -3638,8 +3943,29 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   PrivateClause &PrivClause = W->getPriv();
   if (!PrivClause.empty()) {
 
-    assert(W->isBBSetEmpty() &&
-           "genPrivatizationCode: BBSET should start empty");
+    if (isa<WRNVecLoopNode>(W))
+      // Insert privatization code (e.g. allocas, constructor calls)
+      // in a block preceeding the SIMD region's entry block.
+      // We should minimize the code between SIMD entry/exit points
+      // that is not related to the loop itself, otherwise, vectorizer
+      // may complain. Note that the last value copy is still generated
+      // inside the SIMD region - if this is a problem, we should run
+      // sinkSIMDDirectives() for standalone SIMD regions as well.
+      //
+      // FIXME: if there is no parent region that will be outlined, then
+      //        the allocas will remain inside the function body, and
+      //        may not be handled by optimizations (e.g. promote memory
+      //        to register pass). In such case we have to insert allocas
+      //        inside the function's entry block. Moreover, insertion
+      //        of allocas next to the SIMD region is not correct, if
+      //        there is an enclosing loop - such an alloca may cause
+      //        stack saturation.
+      //        This is relevant to WRNWksLoop as well.
+      //
+      // Note that EntryBB points to the new empty block after the call
+      // below.
+      W->setEntryBBlock(SplitBlock(EntryBB, &EntryBB->front(), DT, LI));
+
     W->populateBBSet();
 
     bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
@@ -3661,7 +3987,9 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           (isa<Argument>(Orig) && isTargetCSA()) ||
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-          isa<AllocaInst>(Orig)) {
+          isa<AllocaInst>(Orig) || isa<GetElementPtrInst>(Orig) ||
+          isa<BitCastInst>(Orig) ||
+          (isa<CallInst>(Orig) && isFenceCall(cast<CallInst>(Orig)))) {
         Value *NewPrivInst;
 
         // Insert alloca for privatization right after the BEGIN directive.
@@ -3707,15 +4035,15 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           }
         }
 
-        LLVM_DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig
-                          << "\n");
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": privatized '";
+                   Orig->printAsOperand(dbgs()); dbgs() << "'\n");
       } else
-        LLVM_DEBUG(dbgs() << "genPrivatizationCode: " << *Orig
-                          << " is already private.\n");
-    }
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": '";
+                   Orig->printAsOperand(dbgs());
+                   dbgs() << "' is already private.\n");
+    } // for
 
     Changed = true;
-    W->resetBBSet(); // Invalidate BBSet after transformations
 
     // After Privatization is done, the SCEV should be re-generated.
     // This should apply to all loop-type constructs; ie, WRNs whose
@@ -3724,8 +4052,10 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         Loop *L = W->getWRNLoopInfo().getLoop();
         SE->forgetLoop(L);
     }
-  }
+  } // if (!PrivClause.empty())
+
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genPrivatizationCode\n");
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -4035,8 +4365,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   W->populateBBSet();
 
   Loop *L = W->getWRNLoopInfo().getLoop();
-
   assert(L && "genLoopSchedulingCode: Loop not found");
+  // The following assertion guarantees that the loop has
+  // a pre-header and a latch block.
+  assert(L->isLoopSimplifyForm() &&
+         "genLoopSchedulingCode: loop must be in normal form.");
 
   LLVM_DEBUG(dbgs() << "--- Parallel For LoopInfo: \n" << *L);
   LLVM_DEBUG(dbgs() << "--- Loop Preheader: " << *(L->getLoopPreheader())
@@ -4044,32 +4377,20 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   LLVM_DEBUG(dbgs() << "--- Loop Header: " << *(L->getHeader()) << "\n");
   LLVM_DEBUG(dbgs() << "--- Loop Latch: " << *(L->getLoopLatch()) << "\n\n");
 
+  // If there is an ORDERED(n) clause, we consider this a doacross loop,
+  // even though there may be no ordered constructs inside the loop.
   bool IsDoacrossLoop =
-       ((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
-         W->getOrdered() > 0);
-
-  bool IsDistParLoop = isa<WRNDistributeParLoopNode>(W);
+      ((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
+       W->getOrdered() > 0);
   bool IsDistForLoop = isa<WRNDistributeNode>(W);
-
+  bool IsDistParLoop = isa<WRNDistributeParLoopNode>(W);
   bool IsDistChunkedParLoop = false;
 
   LLVMContext &C = F->getContext();
   IntegerType *Int32Ty = Type::getInt32Ty(C);
-  Value *DistChunkVal = ConstantInt::getSigned(Int32Ty, 1);
 
-  WRNScheduleKind DistSchedKind;
 
-#if 0
-  LLVM_DEBUG(dbgs() << "---- Loop Induction: "
-               << *(L->getCanonicalInductionVariable()) << "\n\n");
-  L->dump();
-#endif
-
-  assert(L->isLoopSimplifyForm() && "should follow from addRequired<>");
-
-  ICmpInst *CmpI =
-    WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock());
-  if (CmpI)
+  if (auto *CmpI = WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock()))
     W->getWRNLoopInfo().setZTTBB(CmpI->getParent());
 
   DenseMap<Value *, std::pair<Value *, BasicBlock *>> ValueToLiveinMap;
@@ -4084,84 +4405,63 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   // TBD: handle all loop forms: Top test loop, bottom test loop, with
   // PHI and without PHI nodes as SCEV bails out for many cases
   //
-  const DataLayout &DL = F->getParent()->getDataLayout();
-
   Type *LoopIndexType =
-          WRegionUtils::getOmpCanonicalInductionVariable(L)->
+      WRegionUtils::getOmpCanonicalInductionVariable(L)->
           getIncomingValue(0)->getType();
 
   IntegerType *IndValTy = cast<IntegerType>(LoopIndexType);
   assert(IndValTy->getIntegerBitWidth() >= 32 &&
-         "Omp loop index type width is equal or greater than 32 bit");
+         "Omp loop index type width is less than 32 bit.");
 
-  Value *InitVal = WRegionUtils::getOmpLoopLowerBound(L);
-  assert(isa<Instruction>(L->getLoopPreheader()->getTerminator()) &&
-         "genLoopSchedulingCode: Expect non-empty instruction.");
-  Instruction *InsertPt = cast<Instruction>(
-    L->getLoopPreheader()->getTerminator());
+  Value *LBInitVal = WRegionUtils::getOmpLoopLowerBound(L);
+  Instruction *PHTerm =
+      cast<Instruction>(L->getLoopPreheader()->getTerminator());
+  IRBuilder<> PHBuilder(PHTerm);
 
-  LoadInst *LoadTid = new LoadInst(TidPtrHolder, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  // Insert all new alloca instructions at the region's entry block.
+  // We used to insert them in the loop pre-header block and rely
+  // on the code extractor to hoist them to the entry block of the
+  // outlined function. But this does not work for "omp for" loop,
+  // which is not oulined, so we used to end up with alloca instructions
+  // in the middle of the function body.
+  // FIXME: for regions that are not outlined (e.g. "omp for"),
+  //        we need to insert new alloca instructions in an entry block
+  //        of a parent region that will be outlined, or in the function's
+  //        entry block.
+  IRBuilder<> REBuilder(&(W->getEntryBBlock()->front()));
 
-  // Inserting the alloca of %is.last at InsertPt (=loop preheader) is wrong,
-  // as it may not dominate its use at loop exit, which is reachable from the
-  // ZTTBB above the preheader:
-  //
-  //   DIR.QUAL.LIST.END.2:        ; The ZTT
-  //     %5 = load i32, i32* %.omp.lb.fpriv, align 4, !tbaa !5
-  //     %6 = load i32, i32* %.omp.ub.fpriv, align 4, !tbaa !5
-  //     %cmp6 = icmp ugt i32 %5, %6
-  //     br i1 %cmp6, label %omp.loop.exit, label %omp.inner.for.body.lr.ph
-  //
-  //   omp.inner.for.body.lr.ph:   ; The loop preheader
-  //     %my.tid = load i32, i32* %new.tid.addr, align 4
-  //     %is.last = alloca i32, align 4 ; **ERROR: Doesn't dominate use!
-  //    ...
-  //
-  //   omp.loop.exit:  ; Reachable from the ZTT BB bypassing the preheader
-  //     %11 = load i32, i32* %is.last
-  //     %12 = icmp ne i32 %11, 0
-  //     br i1 %12, label %lastprivate.then, label %lastprivate.done
-  //
-  // The right insertion point for the def of %is.last is W's EntryBB.
-  IsLastVal = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(), "is.last",
-                             &(W->getEntryBBlock()->front()));
+  // Create variables for the loop sharing initialization.
+  // The required variables are LowerBnd, UpperBnd, Stride and UpperD.
+  // The last one is only need for distribute loop.
+  IsLastVal = REBuilder.CreateAlloca(Int32Ty, nullptr, "is.last");
   IsLastVal->setAlignment(4);
+  // Initialize %is.last with zero.
+  REBuilder.CreateAlignedStore(REBuilder.getInt32(0), IsLastVal, 4);
 
-  AllocaInst *LowerBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
-                                        "lower.bnd", InsertPt);
+  AllocaInst *LowerBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "lower.bnd");
   LowerBnd->setAlignment(4);
 
-  AllocaInst *UpperBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
-                                        "upper.bnd", InsertPt);
+  AllocaInst *UpperBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
   UpperBnd->setAlignment(4);
 
-  AllocaInst *Stride = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
-                                      "stride", InsertPt);
+  AllocaInst *Stride = REBuilder.CreateAlloca(IndValTy, nullptr, "stride");
   Stride->setAlignment(4);
 
-  // UpperD is for distribtue loop
-  AllocaInst *UpperD = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
-                                      "upperD", InsertPt);
+  // UpperD is for distribute loop
+  AllocaInst *UpperD = REBuilder.CreateAlloca(IndValTy, nullptr, "upperD");
   UpperD->setAlignment(4);
-
-  // Constant Definitions
-  ConstantInt *ValueZero = ConstantInt::getSigned(Int32Ty, 0);
-  ConstantInt *ValueOne  = ConstantInt::get(IndValTy, 1);
 
   // Get Schedule kind and chunk information from W-Region node
   // Default: static_even.
   WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
+  ConstantInt *SchedType = REBuilder.getInt32(SchedKind);
+  Value *DistChunkVal = REBuilder.getInt32(1);
 
-  ConstantInt *SchedType = ConstantInt::getSigned(Int32Ty, SchedKind);
-
-  if (IsDistParLoop) {
-
+  if (IsDistParLoop || IsDistForLoop) {
     // Get dist_schedule kind and chunk information from W-Region node
     // Default: DistributeStaticEven.
-    DistSchedKind = VPOParoptUtils::getDistLoopScheduleKind(W);
-
-    if (DistSchedKind == WRNScheduleDistributeStatic) {
+    if (VPOParoptUtils::getDistLoopScheduleKind(W) ==
+        WRNScheduleDistributeStatic) {
       DistChunkVal = W->getDistSchedule().getChunkExpr();
 #if 0
       // FIXME: enable this back, when FE starts capturing dist_schedule
@@ -4169,200 +4469,190 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
       if (!isa<Constant>(DistChunkVal)) {
         resetValueInIntelClauseGeneric(W, DistChunkVal);
         DistChunkVal =
-            VPOParoptUtils::cloneInstructions(DistChunkVal, InsertPt);
+            VPOParoptUtils::cloneInstructions(DistChunkVal, PHTerm);
+        PHBuilder.SetInsertPoint(PHTerm);
       }
 #endif
-      IsDistChunkedParLoop = true;
+      IsDistChunkedParLoop = IsDistParLoop;
     }
   }
 
-  AllocaInst *TeamIsLast;
-  AllocaInst *TeamLowerBnd;
-  AllocaInst *TeamUpperBnd;
-  AllocaInst *TeamStride;
-  AllocaInst *TeamUpperD;
+  // Initialize arguments for loop sharing init call.
+  LoadInst *LoadTid = PHBuilder.CreateAlignedLoad(TidPtrHolder, 4, "my.tid");
 
-  if (IsDistChunkedParLoop) {
-    TeamIsLast = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(),
-                                "team.is.last",
-                                &(W->getEntryBBlock()->front()));
-    TeamIsLast->setAlignment(4);
-
-    TeamLowerBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
-                                  "team.lower.bnd", InsertPt);
-    TeamLowerBnd->setAlignment(4);
-
-    TeamUpperBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
-                                  "team.upper.bnd", InsertPt);
-    TeamUpperBnd->setAlignment(4);
-
-    TeamStride = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
-                                "team.stride", InsertPt);
-    TeamStride->setAlignment(4);
-
-    TeamUpperD = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
-                                "team.upperD", InsertPt);
-    TeamUpperD->setAlignment(4);
-
-    StoreInst *Tmp = new StoreInst(ValueZero, TeamIsLast);
-    Tmp->insertAfter(TeamIsLast);
-    Tmp->setAlignment(4);
-  }
-
-  IRBuilder<> B(InsertPt);
-  if (InitVal->getType()->getIntegerBitWidth() !=
+  // Cast the original lower bound value to the type of the induction
+  // variable.
+  if (LBInitVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())
-    InitVal = B.CreateSExtOrTrunc(InitVal, IndValTy);
+    LBInitVal = PHBuilder.CreateSExtOrTrunc(LBInitVal, IndValTy);
 
-  StoreInst *Tmp0 = new StoreInst(InitVal, LowerBnd, false, InsertPt);
-  Tmp0->setAlignment(4);
+  PHBuilder.CreateAlignedStore(LBInitVal, LowerBnd, 4);
 
   Value *UpperBndVal =
-      VPOParoptUtils::computeOmpUpperBound(W, InsertPt, ".for.scheduling");
+      VPOParoptUtils::computeOmpUpperBound(W, PHTerm, ".for.scheduling");
   assert(UpperBndVal &&
          "genLoopSchedulingCode: Expect non-empty loop upper bound");
+  PHBuilder.SetInsertPoint(PHTerm);
 
   if (UpperBndVal->getType()->getIntegerBitWidth() !=
-                              IndValTy->getIntegerBitWidth())
-    UpperBndVal = B.CreateSExtOrTrunc(UpperBndVal, IndValTy);
+      IndValTy->getIntegerBitWidth())
+    UpperBndVal = PHBuilder.CreateSExtOrTrunc(UpperBndVal, IndValTy);
 
-  StoreInst *Tmp1 = new StoreInst(UpperBndVal, UpperBnd, false, InsertPt);
-  Tmp1->setAlignment(4);
+  PHBuilder.CreateAlignedStore(UpperBndVal, UpperBnd, 4);
 
   bool IsNegStride;
   Value *StrideVal = WRegionUtils::getOmpLoopStride(L, IsNegStride);
-  StrideVal = VPOParoptUtils::cloneInstructions(StrideVal, InsertPt);
+  StrideVal = VPOParoptUtils::cloneInstructions(StrideVal, PHTerm);
+  PHBuilder.SetInsertPoint(PHTerm);
 
-  if (IsNegStride) {
-    ConstantInt *Zero = ConstantInt::get(IndValTy, 0);
-    StrideVal = B.CreateSub(Zero, StrideVal);
-  }
+  if (IsNegStride)
+    StrideVal = PHBuilder.CreateSub(ConstantInt::get(IndValTy, 0), StrideVal);
 
   if (StrideVal->getType()->getIntegerBitWidth() !=
       IndValTy->getIntegerBitWidth())
-    StrideVal = B.CreateSExtOrTrunc(StrideVal, IndValTy);
+    StrideVal = PHBuilder.CreateSExtOrTrunc(StrideVal, IndValTy);
 
-  StoreInst *Tmp2 = new StoreInst(StrideVal, Stride, false, InsertPt);
-  Tmp2->setAlignment(4);
-
-  StoreInst *Tmp3 = new StoreInst(UpperBndVal, UpperD, false, InsertPt);
-  Tmp3->setAlignment(4);
-
-  // Insert the initialization of %is.last right after its alloca
-  StoreInst *Tmp4 = new StoreInst(ValueZero, IsLastVal);
-  Tmp4->insertAfter(IsLastVal);
-  Tmp4->setAlignment(4);
+  PHBuilder.CreateAlignedStore(StrideVal, Stride, 4);
+  PHBuilder.CreateAlignedStore(UpperBndVal, UpperD, 4);
 
   ICmpInst* LoopBottomTest = WRegionUtils::getOmpLoopBottomTest(L);
 
   bool IsUnsigned = LoopBottomTest->isUnsigned();
-  int Size = LowerBnd->getType()
-                     ->getPointerElementType()->getIntegerBitWidth();
+  // FIXME: this variable is not needed, because we can always compute
+  //        the size in the routines it is passed to.
+  int Size = IndValTy->getIntegerBitWidth();
 
-  CallInst* KmpcInitCI;
-  CallInst* KmpcFiniCI;
-  CallInst* KmpcNextCI;
-
-  LoadInst *TeamLB;
-  LoadInst *TeamUB;
-  LoadInst *TeamST;
-  LoadInst *TeamUD;
-
-  CallInst* KmpcTeamInitCI;
-
-  Value *ChunkVal = (SchedKind == WRNScheduleStaticEven ||
-                     SchedKind == WRNScheduleOrderedStaticEven) ?
-                                  ValueOne : W->getSchedule().getChunkExpr();
+  Value *ChunkVal =
+      (SchedKind == WRNScheduleStaticEven ||
+       SchedKind == WRNScheduleOrderedStaticEven) ?
+          ConstantInt::get(IndValTy, 1) : W->getSchedule().getChunkExpr();
 
   if (!isa<Constant>(ChunkVal) && !isa<WRNWksLoopNode>(W)) {
     resetValueInIntelClauseGeneric(W, ChunkVal);
-    ChunkVal = VPOParoptUtils::cloneInstructions(ChunkVal, InsertPt);
+    ChunkVal = VPOParoptUtils::cloneInstructions(ChunkVal, PHTerm);
+    PHBuilder.SetInsertPoint(PHTerm);
   }
 
   LLVM_DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");
 
+  AllocaInst *TeamIsLast = nullptr;
+  AllocaInst *TeamLowerBnd = nullptr;
+  AllocaInst *TeamUpperBnd = nullptr;
+  AllocaInst *TeamStride = nullptr;
+  AllocaInst *TeamUpperD = nullptr;
+  CallInst *KmpcTeamInitCI = nullptr;
+  LoadInst *TeamLB = nullptr;
+  LoadInst *TeamUB = nullptr;
+  LoadInst *TeamST = nullptr;
+
   if (IsDistChunkedParLoop) {
-    StoreInst *Tmp0 = new StoreInst(InitVal, TeamLowerBnd, false, InsertPt);
-    Tmp0->setAlignment(4);
+    // Create variables for the team distribution initialization.
+    // Insert alloca instructions in the region's entry block.
+    TeamIsLast = REBuilder.CreateAlloca(Int32Ty, nullptr, "team.is.last");
+    TeamIsLast->setAlignment(4);
+    // Initialize %team.is.last with zero.
+    REBuilder.CreateAlignedStore(REBuilder.getInt32(0), TeamIsLast, 4);
 
-    StoreInst *Tmp1 = new StoreInst(UpperBndVal, TeamUpperBnd, false, InsertPt);
-    Tmp1->setAlignment(4);
+    TeamLowerBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "team.lower.bnd");
+    TeamLowerBnd->setAlignment(4);
 
-    StoreInst *Tmp2 = new StoreInst(StrideVal, TeamStride, false, InsertPt);
-    Tmp2->setAlignment(4);
+    TeamUpperBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "team.upper.bnd");
+    TeamUpperBnd->setAlignment(4);
 
-    StoreInst *Tmp3 = new StoreInst(UpperBndVal, TeamUpperD, false, InsertPt);
-    Tmp3->setAlignment(4);
+    TeamStride = REBuilder.CreateAlloca(IndValTy, nullptr, "team.stride");
+    TeamStride->setAlignment(4);
+
+    TeamUpperD = REBuilder.CreateAlloca(IndValTy, nullptr, "team.upperD");
+    TeamUpperD->setAlignment(4);
+
+    // Initialize arguments for team distribution init call.
+    // Insert store instructions and the call in the loop pre-header block.
+    PHBuilder.CreateAlignedStore(LBInitVal, TeamLowerBnd, 4);
+    PHBuilder.CreateAlignedStore(UpperBndVal, TeamUpperBnd, 4);
+    PHBuilder.CreateAlignedStore(StrideVal, TeamStride, 4);
+    PHBuilder.CreateAlignedStore(UpperBndVal, TeamUpperD, 4);
 
     // Generate __kmpc_team_static_init_4{u}/8{u} Call Instruction
+    // FIXME: we'd better pass the builder instead of the PHTerm.
     KmpcTeamInitCI = VPOParoptUtils::genKmpcTeamStaticInit(W, IdentTy,
                                LoadTid, TeamIsLast, TeamLowerBnd,
                                TeamUpperBnd, TeamStride, StrideVal,
-                               DistChunkVal, Size, IsUnsigned, InsertPt);
+                               DistChunkVal, Size, IsUnsigned, PHTerm);
+    // FIXME: we'd better pass PHBuilder to genKmpcTeamStaticInit,
+    //        and avoid potential PHBuilder invalidation.
+    PHBuilder.SetInsertPoint(PHTerm);
 
-    TeamLB = new LoadInst(TeamLowerBnd, "team.new.lb", InsertPt);
-    TeamLB->setAlignment(4);
+    // If we generate dispatch loop for team distribute, TeamLB
+    // will be the splitting point, where the team dispatch header
+    // will start.
+    TeamLB = PHBuilder.CreateAlignedLoad(TeamLowerBnd, 4, "team.new.lb");
+    TeamUB = PHBuilder.CreateAlignedLoad(TeamUpperBnd, 4, "team.new.ub");
+    TeamST = PHBuilder.CreateAlignedLoad(TeamStride, 4, "team.new.st");
+    auto *TeamUD = PHBuilder.CreateAlignedLoad(TeamUpperBnd, 4, "team.new.ud");
 
-    TeamUB = new LoadInst(TeamUpperBnd, "team.new.ub", InsertPt);
-    TeamUB->setAlignment(4);
-
-    TeamST = new LoadInst(TeamStride, "team.new.st", InsertPt);
-    TeamST->setAlignment(4);
-
-    TeamUD = new LoadInst(TeamUpperBnd, "team.new.ud", InsertPt);
-    TeamUD->setAlignment(4);
-
-    Tmp0 = new StoreInst(TeamLB, LowerBnd, false, InsertPt);
-    Tmp0->setAlignment(4);
-
-    Tmp1 = new StoreInst(TeamUB, UpperBnd, false, InsertPt);
-    Tmp1->setAlignment(4);
-
-    Tmp2 = new StoreInst(TeamST, Stride, false, InsertPt);
-    Tmp2->setAlignment(4);
-
-    Tmp3 = new StoreInst(TeamUB, UpperD, false, InsertPt);
-    Tmp3->setAlignment(4);
-
+    // Store the team bounds as the loop's initial bounds
+    // for further work sharing.
+    PHBuilder.CreateAlignedStore(TeamLB, LowerBnd, 4);
+    PHBuilder.CreateAlignedStore(TeamUB, UpperBnd, 4);
+    PHBuilder.CreateAlignedStore(TeamST, Stride, 4);
+    PHBuilder.CreateAlignedStore(TeamUD, UpperD, 4);
   }
 
-  if (IsDistParLoop && !IsDistChunkedParLoop) {
-    ConstantInt *DistSchedType = ConstantInt::getSigned(Int32Ty, DistSchedKind);
-    // Generate __kmpc_dist_for_static_init_4{u}/8{u} Call Instruction
-    KmpcInitCI = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
-                               LoadTid, DistSchedType, IsLastVal, LowerBnd,
-                               UpperBnd, UpperD, Stride, StrideVal,
-                               DistChunkVal, Size, IsUnsigned, InsertPt);
-  }
-  else if (SchedKind == WRNScheduleStatic ||
-           SchedKind == WRNScheduleStaticEven) {
-    // Generate __kmpc_for_static_init_4{u}/8{u} Call Instruction
-    KmpcInitCI = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
-                               LoadTid, SchedType, IsLastVal, LowerBnd,
-                               UpperBnd, UpperD, Stride, StrideVal, ChunkVal,
-                               Size, IsUnsigned, InsertPt);
-  }
-  else {
-    // Generate __kmpc_dispatch_init_4{u}/8{u} Call Instruction
-    if (IsDistForLoop) {
-      ConstantInt *DistSchedType =
-                     ConstantInt::getSigned(Int32Ty, DistSchedKind);
+  CallInst *KmpcInitCI = nullptr;
+  CallInst *KmpcNextCI = nullptr;
 
-      KmpcInitCI = VPOParoptUtils::genKmpcDispatchInit(W, IdentTy,
-                               LoadTid, DistSchedType, IsLastVal,
-                               InitVal, UpperBndVal, StrideVal,
-                               ChunkVal, Size, IsUnsigned, InsertPt);
+  // Worksharing-loop with ORDERED clause requires dispatching - in this case
+  // the schedule kind will be one of the Ordered.
+  // When scheduling is static or static-even, the dispatching
+  // is not required.  Note that static-even is the default
+  // for distribute-for loops (WRNDistributeNode), which also do not
+  // require dispatching.  Thus, we do not check for distribute-for
+  // loops here, and rely on SchedKind instead.
+  bool DoesNotRequireDispatch =
+    (SchedKind == WRNScheduleStatic || SchedKind == WRNScheduleStaticEven);
+
+  if (DoesNotRequireDispatch) {
+    // Generate either __kmpc_for_static_init or __kmpc_dist_for_static_init
+    // call instruction at the end of the loop's pre-header.
+    KmpcInitCI =
+        VPOParoptUtils::genKmpcStaticInit(
+            W, IdentTy, LoadTid, IsLastVal,
+            LowerBnd, UpperBnd, UpperD,
+            Stride, StrideVal,
+            IsDistForLoop ? DistChunkVal : ChunkVal,
+            IsUnsigned, PHTerm);
+
+    if (isa<WRNDistributeParLoopNode>(W) &&
+        VPOParoptUtils::getDistLoopScheduleKind(W) ==
+        WRNScheduleDistributeStaticEven) {
+      // For "distribute parallel for schedule(static, N)" we need to take
+      // minimum between the upper bound and the upper bound of the dist_chunk
+      // returned by __kmpc_dist_for_static_init.  Update UpperBndVal with
+      // the value of upperD returned by the run-time.  It will be used
+      // by genDispatchLoopForStatic() below.
+      PHBuilder.SetInsertPoint(PHTerm);
+      UpperBndVal = PHBuilder.CreateAlignedLoad(UpperD, 4, "static.upperD");
     }
-    else
-      KmpcInitCI = VPOParoptUtils::genKmpcDispatchInit(W, IdentTy,
-                               LoadTid, SchedType, IsLastVal,
-                               InitVal, UpperBndVal, StrideVal,
-                               ChunkVal, Size, IsUnsigned, InsertPt);
+  } else {
+    // Generate __kmpc_dispatch_init_4{u}/8{u} Call Instruction
+
+    // If team distribution is involved, then we need to call initialize
+    // with the team's bounds.  We could have used TeamLB and TeamUB
+    // here directly, but having the explicit loads makes unit testing
+    // easier.
+    auto *DispInitLB = PHBuilder.CreateAlignedLoad(LowerBnd, 4, "disp.init.lb");
+    auto *DispInitUB = PHBuilder.CreateAlignedLoad(UpperBnd, 4, "disp.init.ub");
+    KmpcInitCI =
+        VPOParoptUtils::genKmpcDispatchInit(W, IdentTy, LoadTid, SchedType,
+                                            IsLastVal, DispInitLB, DispInitUB,
+                                            StrideVal, ChunkVal, Size,
+                                            IsUnsigned, PHTerm);
 
     // Generate __kmpc_dispatch_next_4{u}/8{u} Call Instruction
-    KmpcNextCI = VPOParoptUtils::genKmpcDispatchNext(W, IdentTy,
-                               LoadTid, IsLastVal, LowerBnd,
-                               UpperBnd, Stride, Size, IsUnsigned, InsertPt);
+    KmpcNextCI =
+        VPOParoptUtils::genKmpcDispatchNext(W, IdentTy, LoadTid, IsLastVal,
+                                            LowerBnd, UpperBnd, Stride, Size,
+                                            IsUnsigned, PHTerm);
   }
 
   // Insert doacross_init call for ordered(n)
@@ -4370,93 +4660,155 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     VPOParoptUtils::genKmpcDoacrossInit(W, IdentTy, LoadTid, KmpcInitCI,
                                         W->getOrderedTripCounts());
 
-  LoadInst *LoadLB = new LoadInst(LowerBnd, "lb.new", InsertPt);
-  LoadLB->setAlignment(4);
+  // Update the PHBuilder after the above calls.
+  // FIXME: we should actually pass the builder to these functions.
+  PHBuilder.SetInsertPoint(PHTerm);
 
-  LoadInst *LoadUB = new LoadInst(UpperBnd, "ub.new", InsertPt);
-  LoadUB->setAlignment(4);
+  // Generate zero trip-count check for the bounds computed
+  // by the run-time init call.  The insertion point is
+  // the end of the loop's pre-header block.
 
+  // First, load the bounds initialized with run-time values.
+  // NOTE: LoadLB is used as a split point for dispatch.
+  LoadInst *LoadLB = PHBuilder.CreateAlignedLoad(LowerBnd, 4, "lb.new");
+  LoadInst *LoadUB = PHBuilder.CreateAlignedLoad(UpperBnd, 4, "ub.new");
+
+  // Fixup the induction variable's PHI to take the initial value
+  // from the value of the lower bound returned by the run-time init.
   PHINode *PN = WRegionUtils::getOmpCanonicalInductionVariable(L);
-  //  Value *InitBoundV = PN->getIncomingValueForBlock(L->getLoopPreheader());
   PN->removeIncomingValue(L->getLoopPreheader());
   PN->addIncoming(LoadLB, L->getLoopPreheader());
 
-  //  replaceUseWithinRegion(W, InitBoundV, LoadLB);
-
-  BasicBlock *LoopExitBB = WRegionUtils::getOmpExitBlock(L);
+  // We have the loop's structure intact so far.
+  // Now we start chaging CFG, so it is hard to use IRBuilder below.
+  //
+  // Currently we have the following:
+  //   if (optional_original_ztt) {
+  //   loop_preheader:
+  //     <static init code>
+  //
+  //     do { // loop_header
+  //       <loop body>
+  //     } while (lb < ub);
+  //
+  //   loop_exit_block:
+  //   } // optional
+  //
+  //   region_exit_block:
+  //
+  assert(isa<BranchInst>(PHTerm) && PHTerm->getNumSuccessors() == 1 &&
+         "Expect preheader BB has one exit!");
 
   bool IsLeft;
-  CmpInst::Predicate PD = VPOParoptUtils::computeOmpPredicate(
-                                   WRegionUtils::getOmpPredicate(L, IsLeft));
-  ICmpInst* CompInst;
-  CompInst = new ICmpInst(InsertPt, PD, LoadLB, LoadUB, "");
+  CmpInst::Predicate PD =
+      VPOParoptUtils::computeOmpPredicate(
+          WRegionUtils::getOmpPredicate(L, IsLeft));
+  auto *NewZTTCompInst =
+      PHBuilder.CreateICmp(PD, LoadLB, LoadUB, "omp.ztt");
 
-  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, LoadUB, InsertPt);
+  // Update the loop's predicate to use LoadUB value for the upper
+  // bound.
+  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, LoadUB, PHTerm);
 
-  BranchInst* PreHdrInst = dyn_cast<BranchInst>(InsertPt);
-  assert(PreHdrInst->getNumSuccessors() == 1 &&
-         "Expect preheader BB has one exit!");
+  // Split the loop's exit block to simplify further CFG manipulations.
+  BasicBlock *LoopExitBB = WRegionUtils::getOmpExitBlock(L);
 
   BasicBlock *LoopRegionExitBB =
       SplitBlock(LoopExitBB, LoopExitBB->getFirstNonPHI(), DT, LI);
   LoopRegionExitBB->setName("loop.region.exit");
 
+  // Update the region's exit block pointer, if needed.
   if (LoopExitBB == W->getExitBBlock())
     W->setExitBBlock(LoopRegionExitBB);
 
+  //  auto *NewLoopExitBB = LoopExitBB;
+  //  auto *NewLoopRegionExitBB = LoopRegionExitBB;
+
   std::swap(LoopExitBB, LoopRegionExitBB);
-  Instruction *NewTermInst = BranchInst::Create(PreHdrInst->getSuccessor(0),
-                                                   LoopExitBB, CompInst);
-  ReplaceInstWithInst(InsertPt, NewTermInst);
+  Instruction *NewTermInst =
+      BranchInst::Create(PHTerm->getSuccessor(0), LoopExitBB, NewZTTCompInst);
+  ReplaceInstWithInst(PHTerm, NewTermInst);
 
-  InsertPt = LoopExitBB->getTerminator();
+  if (DT)
+    DT->changeImmediateDominator(LoopExitBB, NewTermInst->getParent());
 
-  if (SchedKind == WRNScheduleStaticEven) {
+  // We have the following now:
+  //   if (optional_original_ztt) {
+  //   loop_preheader:
+  //     <static init code>
+  //     if (new_ztt) {
+  //       do { // loop_header
+  //         <loop body>
+  //       } while (lb < ub);
+  //
+  //     loop_region_exit_block:
+  //       <optional PHIs>
+  //     }
+  //   loop_exit_block:
+  //     <...>
+  //   } // optional
+  //
+  //   region_exit_block:
 
-    BasicBlock *StaticInitBB = KmpcInitCI->getParent();
+  CallInst *KmpcFiniCI = nullptr;
 
-    KmpcFiniCI = VPOParoptUtils::genKmpcStaticFini(W,
-                                        IdentTy, LoadTid, InsertPt);
-    KmpcFiniCI->setCallingConv(CallingConv::C);
+  if (DoesNotRequireDispatch) {
+    if (SchedKind == WRNScheduleStaticEven) {
 
-    // Insert doacross_fini call for ordered(n)
-    if (IsDoacrossLoop)
-      VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid, KmpcFiniCI);
+      // Insert fini call so that it is paired with the static init call.
+      // The LoopExitBB may be split after the fini calls for team
+      // distribution loop.
+      auto *FiniInsertPt = &LoopExitBB->front();
 
-    if (DT)
-      DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
+      KmpcFiniCI =
+          VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid,
+                                            FiniInsertPt);
 
-    wrnUpdateLiveOutVals(L, LoopRegionExitBB, LiveOutVals, ECs);
-    rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
+      // Insert doacross_fini call for ordered(n) after the fini call.
+      if (IsDoacrossLoop)
+        KmpcFiniCI =
+            VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid,
+                                                FiniInsertPt);
 
-  }
-  else if (SchedKind == WRNScheduleStatic) {
+      // Since we inserted a new ZTT branch, we need to update SSA for
+      // values living out of the loop_region_exit_block.
+      wrnUpdateLiveOutVals(L, LoopRegionExitBB, LiveOutVals, ECs);
+      rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
 
-    //// LLVM_DEBUG(dbgs() << "Before Loop Scheduling : "
-    ////              << *(LoopExitBB->getParent()) << "\n\n");
+    } else if (SchedKind == WRNScheduleStatic) {
 
-    BasicBlock *StaticInitBB = KmpcInitCI->getParent();
+      // Insert fini call so that it is paired with the static init call.
+      // The LoopExitBB may be split after the fini calls for team
+      // distribution loop.
+      auto *FiniInsertPt = &LoopExitBB->front();
 
-    KmpcFiniCI = VPOParoptUtils::genKmpcStaticFini(W,
-                                        IdentTy, LoadTid, InsertPt);
-    KmpcFiniCI->setCallingConv(CallingConv::C);
+      KmpcFiniCI =
+          VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid,
+                                            FiniInsertPt);
 
-    // Insert doacross_fini call for ordered(n)
-    if (IsDoacrossLoop)
-      VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid, KmpcFiniCI);
+      // Insert doacross_fini call for ordered(n) after the fini call.
+      if (IsDoacrossLoop)
+        KmpcFiniCI =
+            VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid,
+                                                FiniInsertPt);
 
-    Loop *OuterLoop = genDispatchLoopForStatic(
-        L, LoadLB, LoadUB, LowerBnd, UpperBnd, UpperBndVal, Stride, LoopExitBB,
-        StaticInitBB, LoopRegionExitBB);
-    wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
-    wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
-                                       ECs);
-    rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
+      // Generate a loop to iterate over chunks computed by the run-time.
+      BasicBlock *StaticInitBB = KmpcInitCI->getParent();
+      Loop *OuterLoop = genDispatchLoopForStatic(
+          L, LoadLB, LoadUB, LowerBnd, UpperBnd, UpperBndVal, Stride,
+          LoopExitBB, StaticInitBB, LoopRegionExitBB);
 
-    //// LLVM_DEBUG(dbgs() << "After Loop Scheduling : "
-    ////              << *(LoopExitBB->getParent()) << "\n\n");
-  }
-  else {
+      // Update SSA to account values living out of the loop_region_exit_block
+      // (note that we did not introduce new live outs, even though we added
+      // a dispatch latch block after loop_region_exit_block), and also
+      // the new loop created.
+      wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
+      wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap,
+                                         LiveOutVals, ECs);
+      rewriteUsesOfOutInstructions(ValueToLiveinMap, LiveOutVals, ECs);
+    } else
+      llvm_unreachable("Unexpected scheduling kind.");
+  } else {
     //                |
     //      Disptach Loop HeaderBB <-----------+
     //             lb < ub                     |
@@ -4479,14 +4831,24 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     //        |       |
     //        +-->Loop ExitBB
     //                |
-    KmpcFiniCI = VPOParoptUtils::genKmpcDispatchFini(W,
-                          IdentTy, LoadTid, Size, IsUnsigned, InsertPt);
-    KmpcFiniCI->setCallingConv(CallingConv::C);
+
+    // FIXME: isolate this code into an utility routine.
+    if (isa<WRNWksLoopNode>(W) && W->getOrdered() == 0)
+      // Dispatch fini must be emitted inside the loop,
+      // so that it is executed on every iteration.
+      VPOParoptUtils::genKmpcDispatchFini(W, IdentTy, LoadTid, Size,
+                                          IsUnsigned,
+                                          LoopBottomTest);
+
+    // Insert doacross_fini call for ordered(n)
+    if (IsDoacrossLoop)
+      VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid,
+                                          &LoopExitBB->front());
 
     BasicBlock *DispatchInitBB = KmpcNextCI->getParent();
 
-    BasicBlock *DispatchHeaderBB = SplitBlock(DispatchInitBB,
-                                              KmpcNextCI, DT, LI);
+    BasicBlock *DispatchHeaderBB =
+        SplitBlock(DispatchInitBB, KmpcNextCI, DT, LI);
     DispatchHeaderBB->setName("dispatch.header" + Twine(W->getNumber()));
 
     BasicBlock *DispatchBodyBB = SplitBlock(DispatchHeaderBB, LoadLB, DT, LI);
@@ -4494,34 +4856,25 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
     Instruction *TermInst = DispatchHeaderBB->getTerminator();
 
-    ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE,
-                               KmpcNextCI, ValueZero,
-                              "dispatch.cond" + Twine(W->getNumber()));
+    ICmpInst* CondInst =
+        new ICmpInst(TermInst, ICmpInst::ICMP_NE,
+                     KmpcNextCI, ConstantInt::getSigned(Int32Ty, 0),
+                     "dispatch.cond" + Twine(W->getNumber()));
 
     Instruction *NewTermInst = BranchInst::Create(DispatchBodyBB,
-                                                    LoopExitBB, CondInst);
+                                                  LoopExitBB, CondInst);
     ReplaceInstWithInst(TermInst, NewTermInst);
 
-    BasicBlock *DispatchFiniBB = SplitBlock(LoopExitBB, KmpcFiniCI, DT, LI);
-
-    TermInst = LoopExitBB->getTerminator();
+    TermInst = LoopRegionExitBB->getTerminator();
     TermInst->setSuccessor(0, DispatchHeaderBB);
 
     // Update Dispatch Header BB Branch instruction
     TermInst = DispatchHeaderBB->getTerminator();
-    TermInst->setSuccessor(1, DispatchFiniBB);
-
-    // Insert doacross_fini call for ordered(n)
-    if (IsDoacrossLoop)
-      VPOParoptUtils::genKmpcDoacrossFini(W, IdentTy, LoadTid, KmpcFiniCI);
-
-    KmpcFiniCI->eraseFromParent();
+    TermInst->setSuccessor(1, LoopExitBB);
 
     if (DT) {
       DT->changeImmediateDominator(DispatchHeaderBB, DispatchInitBB);
       DT->changeImmediateDominator(DispatchBodyBB, DispatchHeaderBB);
-
-      //DT->changeImmediateDominator(DispatchFiniBB, DispatchHeaderBB);
 
       DT->changeImmediateDominator(LoopExitBB, DispatchHeaderBB);
     }
@@ -4541,10 +4894,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   }
 
   if (IsDistChunkedParLoop) {
+    // FIXME: clean-up this function's parameters.
     Loop *OuterLoop = genDispatchLoopForTeamDistirbute(
         L, TeamLB, TeamUB, TeamST, TeamLowerBnd, TeamUpperBnd, TeamStride,
         UpperBndVal, LoopExitBB, LoopRegionExitBB, KmpcTeamInitCI->getParent(),
-        KmpcFiniCI->getParent());
+        LoopExitBB, KmpcFiniCI);
     wrnUpdateLiveOutVals(OuterLoop, LoopRegionExitBB, LiveOutVals, ECs);
     wrnUpdateSSAPreprocessForOuterLoop(OuterLoop, ValueToLiveinMap, LiveOutVals,
                                        ECs);
@@ -4554,9 +4908,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
     ////                   << *TeamInitBB->getParent() << "\n\n");
   }
 
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLoopSchedulingCode\n");
+
   // There are new BBlocks generated, so we need to reset BBSet
   W->resetBBSet();
-  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLoopSchedulingCode\n");
   return true;
 }
 
@@ -4583,8 +4938,6 @@ void VPOParoptTransform::getAllocFromTid(CallInst *Tid) {
 
 bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMultiThreadedCode\n");
-  assert(W->isBBSetEmpty() &&
-         "genMultiThreadedCode: BBSET should start empty");
 
   W->populateBBSet();
 
@@ -4592,10 +4945,8 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   // clauses so that they do not appear as live-ins for the code extractor.
   resetValueInNumTeamsAndThreadsClause(W);
 
-  bool Changed = false;
-
   // Set up Fn Attr for the new function
-  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT);
+  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
   if (hasParentTarget(W))
     NewF->addFnAttr("target.declare", "true");
 
@@ -4762,12 +5113,10 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   // the use-count of MTFn
   // MTFnCI->eraseFromParent();
 
-  W->resetBBSet(); // Invalidate BBSet after transformations
-
-  Changed = true;
-
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMultiThreadedCode\n");
-  return Changed;
+
+  W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
 }
 
 FunctionType *VPOParoptTransform::getKmpcMicroTaskPointerTy() {
@@ -5250,8 +5599,9 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
   DT->changeImmediateDominator(ThenSingleBB->getTerminator()->getSuccessor(0),
                                SingleCI->getParent());
 
-  W->resetBBSet(); // Invalidate BBSet
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genSingleThreadCode\n");
+
+  W->resetBBSet(); // Invalidate BBSet
   return true;  // Changed
 }
 
@@ -5347,9 +5697,6 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtrHolder != nullptr && "TidPtr is null.");
 
-  assert(CriticalNode->isBBSetEmpty() &&
-         "genCriticalCode: BBSET should start empty");
-
   // genKmpcCriticalSection() needs BBSet for error checking only;
   // In the future consider getting rid of this call to populateBBSet.
   CriticalNode->populateBBSet();
@@ -5417,7 +5764,10 @@ bool VPOParoptTransform::genBarrierForFpLpAndLinears(WRegionNode *W) {
       << __FUNCTION__
       << ": Emitting implicit barrier for FP-LP/Linear clause operands.\n");
 
-  return genBarrier(W, false); // Implicit Barrier
+  genBarrier(W, false); // Implicit Barrier
+
+  W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
 }
 
 // Emits an if-then branch using IsLastVal and sets IfLastIterOut to
@@ -5479,6 +5829,8 @@ bool VPOParoptTransform::genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
   LLVM_DEBUG(
       dbgs() << __FUNCTION__
              << ": Emitted if-then branch for checking last iteration.\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -5499,6 +5851,8 @@ bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit,
                                  IsTargetSPIRV);
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -5556,6 +5910,8 @@ bool VPOParoptTransform::genCancelCode(WRNCancelNode *W) {
   assert(CancelCall && "genCancelCode: Failed to emit call");
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genCancelCode\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -5625,6 +5981,8 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "propagateCancellationPointsToIR: Added "
                     << CancellationPoints.size()
                     << " Cancellation Points to: " << *CI << ".\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -5657,8 +6015,6 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
   //    store i32 %1, i32* %cp                                        ; (3)
   //    ...
   for (AllocaInst *CPAlloca : CancellationPointAllocas) {            // (1)
-
-    resetValueInIntelClauseGeneric(W, CPAlloca);
 
     // The only uses of CPAlloca (1) should be in the intrinsic (2) and the
     // store (2).
@@ -5710,6 +6066,7 @@ bool VPOParoptTransform::clearCancellationPointAllocasFromIR(WRegionNode *W) {
       dbgs()
       << "\nExit VPOParoptTransform::clearCancellationPointAllocasFromIR\n");
 
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -5726,14 +6083,12 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
 
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genCancellationBranchingCode\n");
-  assert(W->isBBSetEmpty() &&
-         "genCancellationBranchingCode: BBSET should start empty");
+
   W->populateBBSet();
 
   Function *F = W->getEntryBBlock()->getParent();
   LLVMContext &C = F->getContext();
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-  bool Changed = false;
 
   // For a loop construct with static [even] scheduling,
   // __kmpc_static_fini(...) call should be made even if the construt is
@@ -5970,16 +6325,14 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
                            "non-barrier cancellation points: [";
                  CancelExitBBForNonBarriers->printAsOperand(dbgs());
                  dbgs() << "] containing '__kmpc_cancel_barrier' call.\n");
-    }
+    } // if
+  } // for
 
-    Changed = true;
-  }
-
-  W->resetBBSet(); // Invalidate BBSet after transformations
   LLVM_DEBUG(
       dbgs() << "\nExit VPOParoptTransform::genCancellationBranchingCode\n");
 
-  return Changed;
+  W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
 }
 
 // Set the values in the private clause to be empty.
@@ -6004,6 +6357,9 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
   if (!V)
     return;
 
+  // The WRegionNode::contains() method requires BBSet to be computed.
+  W->populateBBSet();
+
   SmallVector<Instruction *, 8> IfUses;
   for (auto IB = V->user_begin(), IE = V->user_end(); IB != IE; ++IB) {
     if (Instruction *User = dyn_cast<Instruction>(*IB))
@@ -6019,6 +6375,9 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
       break;
     }
   }
+
+  // This routine doesn't change the CFG so no need to invalidate the BBSet
+  // before returning.
 }
 
 // Generate the copyprivate code. Here is one example.
@@ -6040,10 +6399,10 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
 //
 bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
                                             AllocaInst *IsSingleThread) {
-  bool Changed = false;
   CopyprivateClause &CprivClause = W->getCpriv();
   if (CprivClause.empty())
-    return Changed;
+    return false;
+
   W->populateBBSet();
   Instruction *InsertPt = W->getExitBBlock()->getTerminator();
   IRBuilder<> Builder(InsertPt);
@@ -6082,8 +6441,9 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   VPOParoptUtils::genKmpcCopyPrivate(
       W, IdentTy, TidPtrHolder, Size, CopyPrivateBase, FnCopyPriv,
       Builder.CreateLoad(IsSingleThread), InsertPt);
-  W->resetBBSet();
-  return Changed;
+
+  W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
 }
 
 // Generate the helper function for copying the copyprivate data.
@@ -6149,7 +6509,6 @@ void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
   W->populateBBSet();
   VPOUtils::genAliasSet(makeArrayRef(W->bbset_begin(), W->bbset_end()), AA,
                         &(F->getParent()->getDataLayout()));
-  W->resetBBSet();
 }
 
 template <typename Range>
@@ -6188,7 +6547,17 @@ bool VPOParoptTransform::removeCompilerGeneratedFences(WRegionNode *W) {
   default:
     llvm_unreachable("unexpected work region kind");
   }
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
+}
+
+BasicBlock *VPOParoptTransform::getLoopExitBB(WRegionNode *W, unsigned Idx) {
+  assert(W->getIsOmpLoop() && "getLoopExitBB: not a loop-type region.");
+  auto *L = W->getWRNLoopInfo().getLoop(Idx);
+  assert(L && "getLoopExitBB: failed to find Loop.");
+  auto *LoopExitBB = WRegionUtils::getOmpExitBlock(L);
+  assert(LoopExitBB && "getLoopExitBB: failed to find the loop's exit block.");
+  return LoopExitBB;
 }
 
 #endif // INTEL_COLLAB

@@ -25,7 +25,7 @@
 ; SUCCESSORS(1):BB5
 
 ; BB5 (BP: NULL) :
-;  i32 %vp58864 = semi-phi i32 0 i32 %vp112
+;  i32 %vp58864 = phi  [ i32 0, BB3 ],  [ i32 %vp112, BB7 ]
 ;  i32 %vp59024 = load i32 %vp34848
 ;  i32 %vp60224 = load i32 %vp54976
 ;  i1 %vp60384 = icmp i32 %vp59024 i32 %vp60224

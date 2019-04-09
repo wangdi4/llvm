@@ -15,8 +15,24 @@
 ; end INTEL_CUSTOMIZATION
 ;
 ; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
+; INTEL CUSTOMIZATION
 ; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -O2 -enable-lv %s 2>&1 \
+; END INTEL CUSTOMIZATION
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O2
+; RUN: llvm-profdata merge %S/Inputs/pass-pipelines.proftext -o %t.profdata
+; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
+; RUN:     -pgo-kind=pgo-instr-use-pipeline -profile-file='%t.profdata' \
+; INTEL CUSTOMIZATION
+; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -O2 -enable-lv %s 2>&1 \
+; END INTEL CUSTOMIZATION
+; RUN:     | FileCheck %s --check-prefix=CHECK-O2 --check-prefix=PGOUSE
+; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
+; RUN:     -pgo-kind=pgo-instr-use-pipeline -profile-file='%t.profdata' \
+; RUN:     -hot-cold-split \
+; INTEL CUSTOMIZATION
+; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -O2 -enable-lv %s 2>&1 \
+; END INTEL CUSTOMIZATION
+; RUN:     | FileCheck %s --check-prefix=CHECK-O2 --check-prefix=PGOUSE --check-prefix=SPLIT
 ;
 ; In the first pipeline there should just be a function pass manager, no other
 ; pass managers.
@@ -38,6 +54,11 @@
 ; Very carefully assert the CGSCC pass pipeline as it is fragile and unusually
 ; susceptible to phase ordering issues.
 ; CHECK-O2: CallGraph Construction
+; PGOUSE: Call Graph SCC Pass Manager
+; PGOUSE:      Function Integration/Inlining
+; PGOUSE: PGOInstrumentationUsePass
+; PGOUSE: PGOIndirectCallPromotion
+; PGOUSE: CallGraph Construction
 ; CHECK-O2-NEXT: Globals Alias Analysis
 ; INTEL -- Added the pass setting [no]inline list attributes
 ; CHECK-O2-NEXT: Set attributes for callsites in [no]inline list
@@ -102,6 +123,7 @@
 ; the runtime unrolling though.
 ; CHECK-O2: Loop Pass Manager
 ; CHECK-O2-NEXT: Loop Invariant Code Motion
+; SPLIT: Hot Cold Splitting
 ; CHECK-O2: FunctionPass Manager
 ; CHECK-O2: Loop Pass Manager
 ; CHECK-O2-NEXT: Loop Sink

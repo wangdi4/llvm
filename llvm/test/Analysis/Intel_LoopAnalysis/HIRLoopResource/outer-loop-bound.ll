@@ -12,7 +12,7 @@
 ; HIR-
 ;  + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ;  |   %t.024 = 0;
-;  |   + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+;  |   + DO i2 = 0, i1 + -1, 1   <DO_LOOP>
 ;  |   |   %t.024.out = %t.024;
 ;  |   |   %0 = (%A)[i2];
 ;  |   |   %1 = (%B)[i2];
@@ -27,7 +27,7 @@
 ; CHECK:    Integer Operations: 2
 ; CHECK:    Integer Operations Cost: 2
 ; CHECK:    Integer Bound
-; CHECK:     + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK:     + DO i2 = 0, i1 + -1, 1   <DO_LOOP>
 ; CHECK:    |   Integer Operations: 6
 ; CHECK:    |   Integer Operations Cost: 6
 ; CHECK:    |   Integer Memory Reads: 2
@@ -46,7 +46,7 @@
 ; TOTAL:    Integer Memory Reads: 2
 ; TOTAL:    Memory Operations Cost: 8
 ; TOTAL:    Memory Bound
-; TOTAL:     + DO i2 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; TOTAL:     + DO i2 = 0, i1 + -1, 1   <DO_LOOP>
 ; TOTAL:    |   Integer Operations: 6
 ; TOTAL:    |   Integer Operations Cost: 6
 ; TOTAL:    |   Integer Memory Reads: 2
@@ -60,21 +60,25 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* nocapture readonly %A, i32* nocapture readonly %B, i32 %n) {
+define void @foo(i32* nocapture readonly %A, i32* nocapture readonly %B, i32 %n) {
 entry:
   %cmp25 = icmp sgt i32 %n, 0
-  br i1 %cmp25, label %for.body3.preheader.preheader, label %for.end10
+  br i1 %cmp25, label %for.outer.preheader, label %for.end10
 
-for.body3.preheader.preheader:                    ; preds = %entry
-  br label %for.body3.preheader
+for.outer.preheader:                    ; preds = %entry
+  br label %for.outer
 
-for.body3.preheader:                              ; preds = %for.body3.preheader.preheader, %for.end
-  %i.026 = phi i32 [ %inc9, %for.end ], [ 0, %for.body3.preheader.preheader ]
+for.outer:                              ; preds = %for.outer.preheader, %for.end
+  %i.026 = phi i32 [ %inc9, %for.end ], [ 0, %for.outer.preheader ]
+  %ztt = icmp eq i32 %i.026, 0
+  br i1 %ztt, label %for.end, label %for.body3.pre
+
+for.body3.pre:
   br label %for.body3
 
-for.body3:                                        ; preds = %for.body3, %for.body3.preheader
-  %indvars.iv = phi i64 [ 0, %for.body3.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %t.024 = phi i32 [ 0, %for.body3.preheader ], [ %add6, %for.body3 ]
+for.body3:                                        ; preds = %for.body3, %for.body3.pre
+  %indvars.iv = phi i64 [ 0, %for.body3.pre ], [ %indvars.iv.next, %for.body3 ]
+  %t.024 = phi i32 [ 0, %for.body3.pre ], [ %add6, %for.body3 ]
   %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
   %0 = load i32, i32* %arrayidx, align 4
   %arrayidx5 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
@@ -83,19 +87,23 @@ for.body3:                                        ; preds = %for.body3, %for.bod
   %add6 = add i32 %add, %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
-  %exitcond = icmp eq i32 %lftr.wideiv, %n
-  br i1 %exitcond, label %for.end, label %for.body3
+  %exitcond = icmp eq i32 %lftr.wideiv, %i.026
+  br i1 %exitcond, label %inner.exit, label %for.body3
 
-for.end:                                          ; preds = %for.body3
+inner.exit:
   %lcssa = phi i32 [ %add6, %for.body3 ]
+  br label %for.end
+
+for.end:                                          ; preds = %for.body3, %for.outer
+  %lcssa.out = phi i32 [ %lcssa, %inner.exit ], [ 0, %for.outer ]
   %inc9 = add nuw nsw i32 %i.026, 1
   %exitcond29 = icmp eq i32 %inc9, %n
-  br i1 %exitcond29, label %for.end10.loopexit, label %for.body3.preheader
+  br i1 %exitcond29, label %for.end10.loopexit, label %for.outer
 
 for.end10.loopexit:                               ; preds = %for.end
+  %lcssa.out.out = phi i32 [ %lcssa.out, %for.end ]
   br label %for.end10
 
 for.end10:                                        ; preds = %for.end10.loopexit, %entry
-  %out = phi i32 [ %lcssa, %for.end10.loopexit ], [ 0, %entry ]
-  ret i32 %out
+  ret void
 }

@@ -133,16 +133,15 @@ static bool checkParentLoopBounds(HLLoop *PostDominatingLoop, HLLoop *PrevLoop,
     return false;
   }
 
-  while (PrevLoop != PostDominatingLoop) {
+  for (; PrevLoop != PostDominatingLoop;
+       LoopLevel--, PostDominatingLoop = PostDominatingLoop->getParentLoop(),
+                    PrevLoop = PrevLoop->getParentLoop()) {
 
     if (!PrevLoop->isDo() || !PostDominatingLoop->isDo()) {
       return false;
     }
 
     if (!PostDominatingRef->hasIV(LoopLevel)) {
-      LoopLevel--;
-      PostDominatingLoop = PostDominatingLoop->getParentLoop();
-      PrevLoop = PrevLoop->getParentLoop();
       continue;
     }
 
@@ -159,10 +158,6 @@ static bool checkParentLoopBounds(HLLoop *PostDominatingLoop, HLLoop *PrevLoop,
         !DDRefUtils::areEqual(PDLoopStrideRef, PrevLoopStrideRef)) {
       return false;
     }
-
-    PostDominatingLoop = PostDominatingLoop->getParentLoop();
-    PrevLoop = PrevLoop->getParentLoop();
-    LoopLevel--;
   }
 
   return true;

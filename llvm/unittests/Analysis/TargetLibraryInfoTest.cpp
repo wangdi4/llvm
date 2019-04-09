@@ -67,7 +67,7 @@ TEST_F(TargetLibraryInfoTest, InvalidProto) {
   for (unsigned FI = 0; FI != LibFunc::NumLibFuncs; ++FI) {
     LibFunc LF = (LibFunc)FI;
     auto *F = cast<Function>(
-        M->getOrInsertFunction(TLI.getName(LF), InvalidFTy));
+        M->getOrInsertFunction(TLI.getName(LF), InvalidFTy).getCallee());
     EXPECT_FALSE(isLibFunc(F, LF));
   }
 }
@@ -507,6 +507,11 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @iprintf(i8*, ...)\n"
       "declare i32 @siprintf(i8*, i8*, ...)\n"
 
+      // __small_printf variants have the same prototype as the non-'i' versions.
+      "declare i32 @__small_fprintf(%struct*, i8*, ...)\n"
+      "declare i32 @__small_printf(i8*, ...)\n"
+      "declare i32 @__small_sprintf(i8*, i8*, ...)\n"
+
       "declare i32 @htonl(i32)\n"
       "declare i16 @htons(i16)\n"
       "declare i32 @ntohl(i32)\n"
@@ -623,6 +628,9 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @_ZNKSs7compareEPKc(i8*, i8*)\n"
       "declare i8* @_ZNKSt13runtime_error4whatEv(i8*)\n"
       "declare void @_ZNKSt5ctypeIcE13_M_widen_initEv(i8*)\n"
+      "declare i32 @_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEPKcmm(i8*, i8*, i32, i32)\n"
+      "declare i32 @_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEPKcmm(i8*, i8*, i32, i32)\n"
+      "declare i32 @_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEcm(i8*, i8, i32)\n"
       "declare i32 @_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc(i8*, i8*)\n"
       "declare i8* @_ZNKSt9bad_alloc4whatEv(i8*)\n"
       "declare i8* @_ZNKSt9exception4whatEv(i8*)\n"
@@ -664,7 +672,12 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @_ZNSt13basic_filebufIcSt11char_traitsIcEE4openEPKcSt13_Ios_Openmode(i8*, i8*, i32)\n"
       "declare i8* @_ZNSt13basic_filebufIcSt11char_traitsIcEE5closeEv(i8*)\n"
       "declare void @_ZNSt13basic_filebufIcSt11char_traitsIcEEC1Ev(i8*)\n"
+      "declare void @_ZNSt13runtime_errorC1EPKc(i8*, i8*)\n"
+      "declare void @_ZNSt13runtime_errorC1ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE(i8*, i8*)\n"
       "declare void @_ZNSt13runtime_errorC1ERKSs(i8*, i8*)\n"
+      "declare void @_ZNSt13runtime_errorC1ERKS_(i8*, i8*)\n"
+      "declare void @_ZNSt13runtime_errorC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE(i8*, i8*)\n"
+      "declare void @_ZNSt13runtime_errorC2EPKc(i8*, i8*)\n"
       "declare void @_ZNSt13runtime_errorC2ERKSs(i8*, i8*)\n"
       "declare void @_ZNSt13runtime_errorD0Ev(i8*)\n"
       "declare void @_ZNSt13runtime_errorD1Ev(i8*)\n"
@@ -680,12 +693,21 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKSsSt13_Ios_Openmode(i8*, i8*, i32)\n"
       "declare void @_ZNSt6localeC1Ev(i8*)\n"
       "declare void @_ZNSt6localeD1Ev(i8*)\n"
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc(i8*, i32, i8)\n"
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7reserveEm(i8*, i32)\n"
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE8_M_eraseEmm(i8*, i32, i32)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm(i8*, i8*, i32)\n"
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_(i8*, i8*)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm(i8*, i8*, i32)\n"
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm(i8*, i32, i32, i8*, i32)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm(i8*, i32, i32, i8*, i32)\n"
+      "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc(i8*, i32, i32, i32, i8)\n"
       "declare void @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm(i8*, i8*, i32, i32)\n"
+      "declare i8* @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7seekoffElSt12_Ios_SeekdirSt13_Ios_Openmode(i8*, i32, i32, i32)\n"
+      "declare i8* @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7seekposESt4fposI11__mbstate_tESt13_Ios_Openmode(i8*, i8*, i32)\n"
+      "declare i32 @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE8overflowEi(i8*, i32)\n"
+      "declare i32 @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9pbackfailEi(i8*, i32)\n"
+      "declare i32 @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9underflowEv(i8*)\n"
       "declare void @_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_(i8*, i8*, i8*)\n"
       "declare void @_ZNSt8__detail15_List_node_base7_M_hookEPS0_(i8*, i8*)\n"
       "declare void @_ZNSt8__detail15_List_node_base9_M_unhookEv(i8*)\n"

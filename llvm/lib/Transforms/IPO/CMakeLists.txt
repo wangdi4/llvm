@@ -20,12 +20,15 @@ add_llvm_library(LLVMipo
   IPO.cpp
   InferFunctionAttrs.cpp
   Intel_InlineReport.cpp   # INTEL
+  Intel_MDInlineReport.cpp   # INTEL
+  Intel_InlineReportCommon.cpp   # INTEL
   InlineSimple.cpp
   Inliner.cpp
   Intel_CallTreeCloning.cpp # INTEL
   Intel_IPCloning.cpp     # INTEL
   Intel_InlineLists.cpp   # INTEL
   Intel_OptimizeDynamicCasts.cpp    # INTEL
+  Intel_PartialInline.cpp           # INTEL
   Internalize.cpp
   LoopExtractor.cpp
   LowerTypeTests.cpp

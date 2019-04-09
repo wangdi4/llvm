@@ -727,13 +727,19 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If,
                                               PUContext &PUC) {
   unsigned Level = 0;
   bool NonLinearRef = false;
+  bool HasGEPInfo = Ref->hasGEPInfo();
 
-  if (!Ref->isTerminalRef()) {
+  if (HasGEPInfo) {
     Level = getPossibleDefLevel(Ref->getBaseCE(), NonLinearRef);
   }
 
-  for (const CanonExpr *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-    Level = std::max(Level, getPossibleDefLevel(CE, NonLinearRef));
+  for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
+    Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionIndex(I), NonLinearRef));
+
+    if (HasGEPInfo) {
+      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionLower(I), NonLinearRef));
+      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionStride(I), NonLinearRef));
+    }
   }
 
   if (If->getNodeLevel() == Level) {
@@ -741,7 +747,7 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If,
     return Level;
   }
 
-  if (NonLinearRef || !Ref->isTerminalRef()) {
+  if (NonLinearRef || Ref->isMemRef()) {
     // Return current level of attachment.
     Level = If->getNodeLevel();
 

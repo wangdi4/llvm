@@ -112,14 +112,12 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
   if (!LI->getType()->isIntegerTy())
     return false;
   // Validate the form of the recursive progression.
-  BinaryOperator *BI = nullptr;
-  ConstantInt *CI = nullptr;
+  AllocaInst *LAV = nullptr;
+  StoreInst *SI = nullptr;
   for (User *U : LI->users()) {
     auto BIT = dyn_cast<BinaryOperator>(U);
     if (!BIT || BIT->getOpcode() != Instruction::Add)
       continue;
-    if (BI)
-      return false;
     auto CIT = dyn_cast<ConstantInt>(BIT->getOperand(0));
     if (CIT) {
       if (BIT->getOperand(1) != LI)
@@ -131,23 +129,24 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
     }
     if (!CIT)
       continue;
-    BI = BIT;
-    CI = CIT;
+    for (User *US : BIT->users()) {
+      auto SIT = dyn_cast<StoreInst>(US);
+      if (!SIT)
+        continue;
+      if (SIT->getValueOperand() != BIT)
+        continue;
+      auto LV = SIT->getPointerOperand();
+      auto LAVV = dyn_cast<AllocaInst>(LV);
+      if (!LAVV)
+        continue;
+      if (LocalInc != 0)
+        return false;
+      LocalInc = CIT->getSExtValue();
+      SI = SIT;
+      LAV = LAVV;
+    }
   }
-  if (!CI)
-    return false;
-  LocalInc = CI->getSExtValue();
-  if (!BI->hasOneUse())
-    return false;
-  User *US = *(BI->user_begin());
-  auto SI = dyn_cast<StoreInst>(US);
-  if (!SI)
-    return false;
-  if (SI->getValueOperand() != BI)
-    return false;
-  auto LV = SI->getPointerOperand();
-  auto LAV = dyn_cast<AllocaInst>(LV);
-  if (!LAV)
+  if (!LocalInc)
     return false;
   Function *F = Arg.getParent();
   CallInst *CLI = nullptr;
@@ -213,7 +212,7 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
   auto BB = BP->getSinglePredecessor();
   for (; BB; BP = BB, BB = BB->getSinglePredecessor()) {
     auto TI = BB->getTerminator();
-    auto BI = dyn_cast<BranchInst>(TI);
+    auto BI = cast<BranchInst>(TI);
     if (BI->getNumSuccessors() != 2)
       continue;
     auto CMI = dyn_cast<ICmpInst>(BI->getCondition());
@@ -239,7 +238,7 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
   LocalCount = LocalRange / LocalInc;
   if (LocalCount * LocalInc != LocalRange)
     return false;
-  assert((LocalCount >= 0) && "Expecting non-negative range");
+  assert((LocalCount > 0) && "Expecting positive range");
   // Store back the values.
   Start = LocalStart;
   Inc = LocalInc;

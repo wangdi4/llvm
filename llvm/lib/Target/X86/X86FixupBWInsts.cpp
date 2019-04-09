@@ -80,7 +80,8 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// destination register of the MachineInstr passed in. It returns true if
   /// that super register is dead just prior to \p OrigMI, and false if not.
   bool getSuperRegDestIfDead(MachineInstr *OrigMI,
-                             unsigned &SuperDestReg) const;
+                             unsigned &SuperDestReg, // INTEL
+                             bool IsMOV = true) const; // INTEL
 
   /// Change the MachineInstr \p MI into the equivalent extending load to 32 bit
   /// register if it is safe to do so.  Return the replacement instruction if
@@ -91,6 +92,18 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// safe to do so.  Return the replacement instruction if OK, otherwise return
   /// nullptr.
   MachineInstr *tryReplaceCopy(MachineInstr *MI) const;
+
+#if INTEL_CUSTOMIZATION
+  /// Change the MachineInstr \p MI into the equivalent 32-bit unop if it is
+  /// safe to do so.  Return the replacement instruction if OK, otherwise return
+  /// nullptr.
+  MachineInstr *tryReplaceUnOp(unsigned NewOpc, MachineInstr *MI) const;
+
+  /// Change the MachineInstr \p MI into the equivalent 32-bit reg/imm if it is
+  /// safe to do so.  Return the replacement instruction if OK, otherwise return
+  /// nullptr.
+  MachineInstr *tryReplaceRegImmOp(unsigned NewOpc, MachineInstr *MI) const;
+#endif // INTEL_CUSTOMIZATION
 
   // Change the MachineInstr \p MI into an eqivalent 32 bit instruction if
   // possible.  Return the replacement instruction if OK, return nullptr
@@ -150,7 +163,7 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
 
   this->MF = &MF;
   TII = MF.getSubtarget<X86Subtarget>().getInstrInfo();
-  OptForSize = MF.getFunction().optForSize();
+  OptForSize = MF.getFunction().hasOptSize();
   MLI = &getAnalysis<MachineLoopInfo>();
   LiveRegs.init(TII->getRegisterInfo());
 
@@ -171,7 +184,8 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
 ///
 /// If so, return that super register in \p SuperDestReg.
 bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
-                                            unsigned &SuperDestReg) const {
+                                            unsigned &SuperDestReg, // INTEL
+                                            bool IsMOV) const { // INTEL
   auto *TRI = &TII->getRegisterInfo();
 
   unsigned OrigDestReg = OrigMI->getOperand(0).getReg();
@@ -202,6 +216,13 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
       return true;
     // Otherwise, we have a little more checking to do.
   }
+
+#if INTEL_CUSTOMIZATION
+  // FIXME: Do the below checks apply to instructions other than MOVs or can
+  // they be modified?
+  if (!IsMOV)
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // If we get here, the super-register destination (or some part of it) is
   // marked as live after the original instruction.
@@ -328,6 +349,75 @@ MachineInstr *FixupBWInstPass::tryReplaceCopy(MachineInstr *MI) const {
   return MIB;
 }
 
+#if INTEL_CUSTOMIZATION
+MachineInstr *FixupBWInstPass::tryReplaceUnOp(unsigned NewOpc,
+                                              MachineInstr *MI) const {
+  auto *TRI = &TII->getRegisterInfo();
+
+  // Make sure the flags output is dead.
+  if (!MI->registerDefIsDead(X86::EFLAGS, TRI))
+    return nullptr;
+
+  // FIXME: Skip checking implicit operands until we have a better understanding
+  // of whether that applies to arithmetic or only moves.
+  unsigned NewReg;
+  if (!getSuperRegDestIfDead(MI, NewReg, /*IsMOV*/false))
+    return nullptr;
+
+  unsigned OldSrcReg = MI->getOperand(1).getReg();
+
+  assert(MI->getOperand(0).getReg() == OldSrcReg && "Expected tied registers");
+
+  // Safe to change the instruction.
+  MachineInstrBuilder MIB =
+      BuildMI(*MF, MI->getDebugLoc(), TII->get(NewOpc), NewReg)
+          .addReg(NewReg, RegState::Undef)
+          .addReg(OldSrcReg, RegState::Implicit);
+
+  // Drop imp-defs/uses that would be redundant with the new def/use.
+  for (auto &Op : MI->implicit_operands()) {
+    if (Op.getReg() != NewReg)
+      MIB.add(Op);
+  }
+
+  return MIB;
+}
+
+MachineInstr *FixupBWInstPass::tryReplaceRegImmOp(unsigned NewOpc,
+                                                  MachineInstr *MI) const {
+  auto *TRI = &TII->getRegisterInfo();
+
+  // Make sure the flags output is dead.
+  if (!MI->registerDefIsDead(X86::EFLAGS, TRI))
+    return nullptr;
+
+  // FIXME: Skip checking implicit operands until we have a better understanding
+  // of whether that applies to arithmetic or only moves.
+  unsigned NewReg;
+  if (!getSuperRegDestIfDead(MI, NewReg, /*IsMOV*/false))
+    return nullptr;
+
+  unsigned OldSrcReg = MI->getOperand(1).getReg();
+
+  assert(MI->getOperand(0).getReg() == OldSrcReg && "Expected tied registers");
+
+  // Safe to change the instruction.
+  MachineInstrBuilder MIB =
+      BuildMI(*MF, MI->getDebugLoc(), TII->get(NewOpc), NewReg)
+          .addReg(NewReg, RegState::Undef)
+          .add(MI->getOperand(2)) // immediate
+          .addReg(OldSrcReg, RegState::Implicit);
+
+  // Drop imp-defs/uses that would be redundant with the new def/use.
+  for (auto &Op : MI->implicit_operands()) {
+    if (Op.getReg() != NewReg)
+      MIB.add(Op);
+  }
+
+  return MIB;
+}
+#endif // INTEL_CUSTOMIZATION
+
 MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
                                                MachineBasicBlock &MBB) const {
   // See if this is an instruction of the type we are currently looking for.
@@ -356,6 +446,35 @@ MachineInstr *FixupBWInstPass::tryReplaceInstr(MachineInstr *MI,
     // perf advantage from eliminating a false dependence on the upper portion
     // of the register.
     return tryReplaceCopy(MI);
+
+#if INTEL_CUSTOMIZATION
+  case X86::DEC16r:
+    return tryReplaceUnOp(X86::DEC32r, MI);
+  case X86::INC16r:
+    return tryReplaceUnOp(X86::INC32r, MI);
+
+  case X86::ADD16ri8:
+    return tryReplaceRegImmOp(X86::ADD32ri8, MI);
+  case X86::SUB16ri8:
+    return tryReplaceRegImmOp(X86::SUB32ri8, MI);
+  case X86::AND16ri8:
+    return tryReplaceRegImmOp(X86::AND32ri8, MI);
+  case X86::OR16ri8:
+    return tryReplaceRegImmOp(X86::OR32ri8, MI);
+  case X86::XOR16ri8:
+    return tryReplaceRegImmOp(X86::XOR32ri8, MI);
+
+  case X86::ADD16ri:
+    return tryReplaceRegImmOp(X86::ADD32ri, MI);
+  case X86::SUB16ri:
+    return tryReplaceRegImmOp(X86::SUB32ri, MI);
+  case X86::AND16ri:
+    return tryReplaceRegImmOp(X86::AND32ri, MI);
+  case X86::OR16ri:
+    return tryReplaceRegImmOp(X86::OR32ri, MI);
+  case X86::XOR16ri:
+    return tryReplaceRegImmOp(X86::XOR32ri, MI);
+#endif // INTEL_CUSTOMIZATION
 
   default:
     // nothing to do here.

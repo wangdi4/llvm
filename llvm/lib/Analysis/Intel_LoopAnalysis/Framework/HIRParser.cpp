@@ -1768,27 +1768,123 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   return BaseTempBlob;
 }
 
+bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
+                                                       int64_t *Multiplier,
+                                                       BlobTy *NewBlob,
+                                                       bool IsTop) {
+
+  if (!IsTop) {
+    if (auto *Const = dyn_cast<SCEVConstant>(Blob)) {
+      *Multiplier = getSCEVConstantValue(Const);
+      *NewBlob = SE.getConstant(Const->getType(), 1, true);
+      return true;
+    }
+  }
+
+  if (auto *MulBlob = dyn_cast<SCEVMulExpr>(Blob)) {
+    // We want to keep UMin blob so it can be recognized by HIR analyses and
+    // transformations.
+    if (isUMinBlob(Blob)) {
+      return false;
+    }
+
+    // If there is a constant, it will be the first operand due to operand
+    // ordering.
+    auto *ConstOp = dyn_cast<SCEVConstant>(MulBlob->getOperand(0));
+
+    if (!ConstOp) {
+      return false;
+    }
+
+    SmallVector<BlobTy, 4> Ops;
+
+    for (auto I = MulBlob->op_begin() + 1, E = MulBlob->op_end(); I != E; ++I) {
+      Ops.push_back(*I);
+    }
+
+    *Multiplier = getSCEVConstantValue(ConstOp);
+    *NewBlob = SE.getMulExpr(Ops, MulBlob->getNoWrapFlags());
+    return true;
+
+  } else if (auto *CommutativeBlob = dyn_cast<SCEVCommutativeExpr>(Blob)) {
+    // The multiplier may be folded into the constant so we have to recurse into
+    // the blob. Ex: (-8 + 8 * %t)
+
+    int64_t LocalMultiplier = 0;
+    SmallVector<BlobTy, 4> Ops;
+    SmallVector<int64_t, 4> OpMultipliers;
+
+    for (auto I = CommutativeBlob->op_begin(), E = CommutativeBlob->op_end();
+         I != E; ++I) {
+
+      BlobTy Op = *I;
+
+      BlobTy NewOp;
+      int64_t OpMultiplier;
+
+      if (!breakConstantMultiplierCommutativeBlob(Op, &OpMultiplier, &NewOp) ||
+          (OpMultiplier == LONG_MIN)) {
+        return false;
+      }
+
+      if (!LocalMultiplier) {
+        LocalMultiplier = std::llabs(OpMultiplier);
+      } else {
+        LocalMultiplier =
+            CanonExprUtils::gcd(LocalMultiplier, std::llabs(OpMultiplier));
+      }
+
+      if (LocalMultiplier == 1) {
+        return false;
+      }
+
+      Ops.push_back(NewOp);
+      OpMultipliers.push_back(OpMultiplier);
+    }
+
+    // If the overall multiplier is less than the original multiplier of the
+    // operand, push it back into the operand.
+    for (unsigned I = 0, Num = Ops.size(); I < Num; ++I) {
+
+      if (LocalMultiplier != OpMultipliers[I]) {
+        auto *UnusedMultiplier = SE.getConstant(
+            Ops[I]->getType(), OpMultipliers[I] / LocalMultiplier, true);
+
+        auto *CommutativeOp = dyn_cast<SCEVCommutativeExpr>(Ops[I]);
+
+        Ops[I] = SE.getMulExpr(Ops[I], UnusedMultiplier,
+                               CommutativeOp ? CommutativeOp->getNoWrapFlags()
+                                             : SCEV::FlagAnyWrap);
+      }
+    }
+
+    *Multiplier = LocalMultiplier;
+
+    switch (CommutativeBlob->getSCEVType()) {
+    case scAddExpr:
+      *NewBlob = SE.getAddExpr(Ops, CommutativeBlob->getNoWrapFlags());
+      break;
+    case scUMaxExpr:
+      *NewBlob = SE.getUMaxExpr(Ops);
+      break;
+    case scSMaxExpr:
+      *NewBlob = SE.getSMaxExpr(Ops);
+      break;
+    default:
+      llvm_unreachable("Unexpected scev type!");
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
 void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
                                             BlobTy *NewBlob) {
 
-  auto *MulSCEV = dyn_cast<SCEVMulExpr>(Blob);
-
-  // We want to keep UMin blob so it can be recognized by HIR analyses and
-  // transformations.
-  if (MulSCEV && !isUMinBlob(Blob)) {
-
-    if (auto ConstSCEV = dyn_cast<SCEVConstant>(MulSCEV->getOperand(0))) {
-      SmallVector<const SCEV *, 4> Ops;
-
-      for (auto I = MulSCEV->op_begin() + 1, E = MulSCEV->op_end(); I != E;
-           ++I) {
-        Ops.push_back(*I);
-      }
-
-      *Multiplier = getSCEVConstantValue(ConstSCEV);
-      *NewBlob = SE.getMulExpr(Ops, MulSCEV->getNoWrapFlags());
-      return;
-    }
+  if (breakConstantMultiplierCommutativeBlob(Blob, Multiplier, NewBlob, true)) {
+    return;
   }
 
   *Multiplier = 1;
@@ -2727,7 +2823,7 @@ unsigned HIRParser::getPointerElementSize(Type *Ty) const {
 
   auto ElTy = cast<PointerType>(Ty)->getElementType();
 
-  return ElTy->isSized() ? getDataLayout().getTypeStoreSize(ElTy) : 0;
+  return ElTy->isSized() ? getCanonExprUtils().getTypeSizeInBytes(ElTy) : 0;
 }
 
 const Value *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
@@ -2805,6 +2901,9 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
 
   auto PhiTy = Phi->getType();
 
+  int64_t OrigDenom = IndexCE->getDenominator();
+  (void)OrigDenom;
+
   // Divide by element size to convert byte offset to number of elements.
   IndexCE->divide(getPointerElementSize(PhiTy));
   // Index is already multiplied by element size as the SCEV form is in bytes so
@@ -2817,6 +2916,9 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
       hasNonGEPAccess(Phi, cast<Instruction>(UpdateVal))) {
     return nullptr;
   }
+
+  assert(IndexCE->getDenominator() <= OrigDenom &&
+         "Could not simplify denominator!");
 
   return IndexCE.release();
 }
@@ -2836,9 +2938,9 @@ void HIRParser::mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2) {
     IndexCE1->setExtType(IndexCE2->isSExt());
   }
 
-  assert(IndexCE1->getCanonExprUtils().mergeable(IndexCE1, IndexCE2) &&
+  assert(CanonExprUtils::mergeable(IndexCE1, IndexCE2) &&
          "Indices cannot be merged!");
-  IndexCE1->getCanonExprUtils().add(IndexCE1, IndexCE2);
+  CanonExprUtils::add(IndexCE1, IndexCE2);
 }
 
 void HIRParser::populateOffsets(const GEPOrSubsOperator *GEPOp,
@@ -2905,8 +3007,97 @@ bool HIRParser::isValidGEPOp(const GEPOrSubsOperator *GEPOp,
           !HIRRegionIdentification::containsUnsupportedTy(GEPOp));
 }
 
+// Every GEP or subscript has information about a stride for particular
+// dimension. Adding a gep to an existing chain extends our knowledge of memory
+// configuration - it may add a new dimension or provide a more specific
+// dimension type.
+//
+// Each new gep should either correspond to the existing information or add new
+// information, and new information should not conflict with existing one.
+//
+// Ex.: While parsing subscripts we may conclude some memory is accessed in
+// a 2D manner with a configuration-
+//
+//    [i:stride 40][j:stride 4]
+//
+// and having next operator: %0 = gep [1000 x i32], [1000 x i32]* %p, 0, 0
+// which correspond to 1D access manner with stride info-
+//
+//    [0:stride 4000][0:stride 4]
+//
+// we may not be able to represent access in terms of %p, but rather represent
+// it in terms of %0: (%0)[i:40][j:4].
+//
+// This is because new gep stride of dimension one (4000) conflicts with
+// existing knowledge about the stride (40).
+//
+// However we may still represent it as (%p)[0:4000][i:40][j:4],
+// but we would loose type consistency between dimensions.
+bool HIRParser::isCompatibleGEOpWithChain(
+    const GEPOrSubsOperator *GEPOp, SmallVector<Value *, 8> &StridesV) const {
+  // TODO: handle splitting when strides or LBs do not match for the same rank
+  SmallVector<Value *, 8> CurrentStrides;
+
+  // Collect strides and check if they can be merged with existing strides.
+  auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
+  if (Subs) {
+    // TODO: Check rank of the dimension.
+    CurrentStrides.push_back(Subs->getStride());
+  } else {
+    auto &CU = getCanonExprUtils();
+
+    auto *OffsetTy = Type::getIntNTy(
+        getContext(), CU.getTypeSizeInBits(GEPOp->getType()));
+
+    for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
+      auto *Ty = I.getIndexedType();
+
+      // Collect array dimensions only. Struct offsets may be merged into a
+      // dimension anytime.
+      if (Ty->isStructTy()) {
+        continue;
+      }
+
+      uint64_t Stride = Ty->isSized() ? CU.getTypeSizeInBytes(Ty) : 0;
+      CurrentStrides.push_back(ConstantInt::get(OffsetTy, Stride));
+    }
+  }
+
+  // Having the existing stride information-
+  //   [i32 4, i32 40]
+  //
+  // And information from next GEP-
+  //   [i32 4, i32 40, i32 4000]
+  //
+  // We find a dimension in existing strides that correspond to the first stride
+  // of next GEP. Check that every stride match with existing info and then
+  // add new dimension strides.
+
+  auto GetI = CurrentStrides.rbegin();
+  auto PutI = std::find(StridesV.begin(), StridesV.end(), *GetI);
+
+  auto GetE = CurrentStrides.rend();
+  auto PutE = StridesV.end();
+
+  while (GetI != GetE && PutI != PutE) {
+    if (*GetI != *PutI) {
+      return false;
+    }
+
+    ++GetI;
+    ++PutI;
+  }
+
+  StridesV.insert(PutI, GetI, GetE);
+  return true;
+}
+
 const GEPOrSubsOperator *
 HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
+  // TODO: implement caching for GEP chains.
+
+  SmallVector<Value *, 8> StridesV;
+  isCompatibleGEOpWithChain(GEPOp, StridesV);
 
   while (auto NextGEPOp =
              dyn_cast<GEPOrSubsOperator>(GEPOp->getPointerOperand())) {
@@ -2914,7 +3105,6 @@ HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
       break;
     }
 
-    // TODO: handle splitting when strides or LBs do not match for the same rank
     // TODO: extend ScalarEvolution to support subscripts
 
     // If NextGEPOp's last index is an offset and GEPOp's first index is not
@@ -2937,19 +3127,25 @@ HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
       }
     }
 
+    auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
+    auto *NextSubs = dyn_cast<SubscriptInst>(NextGEPOp);
+
     // Stop trace back if the highest index looks like casted IV: sext(i1).
     // This is a profitability check to form more linear indices.
     // If we trace back, we may have to add offsets to casted IV which will make
     // the index non-linear.
-    if ((!isa<SubscriptInst>(GEPOp) && !isa<SubscriptInst>(NextGEPOp)) ||
-        (isa<SubscriptInst>(GEPOp) && isa<SubscriptInst>(NextGEPOp) &&
-         (cast<SubscriptInst>(GEPOp)->getRank() ==
-          cast<SubscriptInst>(NextGEPOp)->getRank()))) {
-      auto *HighestIndex = getSCEV(const_cast<Value *>(GEPOp->getIndex(0)));
+    if ((!Subs && !NextSubs) ||
+        (Subs && NextSubs && Subs->getRank() == NextSubs->getRank())) {
+      auto *HighestIndex = getSCEV(GEPOp->getIndex(0));
       auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex);
       if (CastSCEV && isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
         break;
       }
+    }
+
+    // Check if the next operator may be merged into current chain.
+    if (!isCompatibleGEOpWithChain(NextGEPOp, StridesV)) {
+      break;
     }
 
     GEPOp = NextGEPOp;
@@ -2959,10 +3155,13 @@ HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
 }
 
 class DimInfo {
+  unsigned Rank;
   Value *Stride = nullptr;
-  Value *LB = nullptr;
   Type *Ty = nullptr;
+
   SmallVector<Value *, 4> Indices;
+  SmallVector<Value *, 4> IndicesLB;
+
   SmallVector<Value *, 4> StructOffsets;
 
   bool HasZeroIndex = false;
@@ -2971,36 +3170,60 @@ public:
   Type *getType() const { return Ty; }
   void setType(Type *Ty) { this->Ty = Ty; }
 
-  Value *getLower() const { return LB; }
-  void setLower(Value *LB) { this->LB = LB; }
-
   Value *getStride() const { return Stride; }
   void setStride(Value *Stride) { this->Stride = Stride; }
 
+  unsigned getRank() const { return Rank; }
+  void setRank(unsigned Rank) { this->Rank = Rank; }
+
   // Adds an \p Idx to the dimension. Later these indices will be merged into a
   // single CanonExpr.
-  void addIndex(Value *Idx) {
+  // Note: Nullptr LB means that it's zero based.
+  void addIndex(Value *Idx, Value *LB) {
     // Do not collect more than one zero index.
 
-    if (isa<ConstantInt>(Idx) && cast<ConstantInt>(Idx)->isZero()) {
-      if (Indices.size() > 0) {
-        return;
+    if (!LB) {
+      LB = ConstantInt::get(Idx->getType(), 0);
+    }
+
+    if (auto *ConstIdx = dyn_cast<ConstantInt>(Idx)) {
+      APInt ZeroBasedIndex = ConstIdx->getValue();
+
+      auto *ConstLB = dyn_cast_or_null<ConstantInt>(LB);
+      if (ConstLB && !ConstLB->isZero()) {
+        unsigned DiffWidth = std::max(Idx->getType()->getPrimitiveSizeInBits(),
+                                      LB->getType()->getPrimitiveSizeInBits());
+
+        bool SubOverflow = false;
+        ZeroBasedIndex = ZeroBasedIndex.sextOrSelf(DiffWidth).ssub_ov(
+            ConstLB->getValue().sextOrSelf(DiffWidth), SubOverflow);
+        assert(!SubOverflow && "Unexpected (index - lower) overflow");
       }
 
-      HasZeroIndex = true;
-      Indices.push_back(Idx);
-      return;
+      if (ZeroBasedIndex.isNullValue()) {
+        if (Indices.size() > 0) {
+          return;
+        }
+
+        HasZeroIndex = true;
+        Indices.push_back(Idx);
+        IndicesLB.push_back(LB);
+        return;
+      }
     }
 
     if (HasZeroIndex) {
       HasZeroIndex = false;
       Indices.clear();
+      IndicesLB.clear();
     }
 
     Indices.push_back(Idx);
+    IndicesLB.push_back(LB);
   }
 
-  const SmallVectorImpl<Value *> &indices() const { return Indices; }
+  const ArrayRef<Value *> indices() const { return Indices; }
+  const ArrayRef<Value *> indicesLB() const { return IndicesLB; }
 
   SmallVectorImpl<Value *> &offsets() { return StructOffsets; }
 
@@ -3011,7 +3234,10 @@ public:
     Ty->print(OS);
     OS << ")";
     OS << "[";
-    LB->printAsOperand(OS, false);
+    for (auto *IdxLB : IndicesLB) {
+      IdxLB->printAsOperand(OS, false);
+      OS << ",";
+    }
     OS << ":";
     for (auto *Idx : Indices) {
       Idx->printAsOperand(OS, false);
@@ -3156,19 +3382,28 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
   SmallVector<DimInfo, 8> Dims;
 
-  auto GetStrideV = [&](const SubscriptInst *Subs, Type *DimElemTy) -> Value * {
+  auto GetStrideAndRank = [&](const SubscriptInst *Subs,
+                              Type *DimElemTy) -> std::pair<Value *, unsigned> {
     if (Subs) {
-      return Subs->getStride();
+      return {Subs->getStride(), Subs->getTypeRank()};
     }
 
     auto Stride = DimElemTy->isSized()
                       ? getCanonExprUtils().getTypeSizeInBytes(DimElemTy)
                       : 0;
 
-    return ConstantInt::get(OffsetTy, Stride);
+    unsigned ReturnTypeRank = 0;
+    while (DimElemTy->isArrayTy()) {
+      ++ReturnTypeRank;
+
+      DimElemTy = DimElemTy->getArrayElementType();
+    }
+
+    return {ConstantInt::get(OffsetTy, Stride), ReturnTypeRank};
   };
 
   GEPOrSubsOperator *RestructuredBaseGEPOp = nullptr;
+  unsigned LastNonStructDimIdx = 0;
 
   do {
     auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
@@ -3190,17 +3425,29 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
     // Process GEP operands in reverse order (from lowest to highest dimension).
     for (int I = LastIndex; I >= 0; --I) {
+      Value *Index = GEPOp->getIndex(I);
+
       Type *DimTy = IndexedTypes[I];
       Type *DimElemTy = IndexedTypes[I + 1];
 
-      // If indexing within struct type
+      // If indexing within a struct type.
       if (DimTy->isStructTy()) {
-        // Do not create new dimension if indexing to a struct type
-        if (Dims.empty() || !DimElemTy->isStructTy()) {
+        // The following *if* decides on should we create a new dimension.
+        if (Dims.empty() || (!DimElemTy->isStructTy() && I != LastIndex)) {
+          // 1) Always create if this is a first dimension parsed;
+          // 2) Do not create if indexing to a struct type;
+          // 3) Do not create if this is a last index as it may be merged into
+          // existing dimension:
+          //  %p1 = gep %struct, %struct* %p, i64 0, i32 0
+          //  ... = gep [4 x [2 x i32]], [4 x [2 x i32]]* %p1, i64 0, i64 0
           Dims.emplace_back();
         }
 
         CurDimInfo = &Dims.back();
+
+        // Keep the dimension index after a struct offset to indicate the lowest
+        // dimension where next GEP or SUBS index may be merged.
+        LastNonStructDimIdx = std::distance(Dims.begin(), CurDimInfo);
 
         // Reset stride in case it was set by the previous GEP operator.
         // ex.:
@@ -3212,23 +3459,40 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
         // reset the stride and append offsets to the same dimension. Later the
         // stride will be set, based on %t0: [0:16].1.0.
         CurDimInfo->setStride(nullptr);
-        CurDimInfo->offsets().push_back(GEPOp->getIndex(I));
+        CurDimInfo->offsets().push_back(Index);
         continue;
       }
 
       // Find appropriate stride slot.
       if (I == LastIndex && !Dims.empty()) {
-        Value *StrideV = GetStrideV(Subs, DimElemTy);
+        Value *Stride;
+        unsigned Rank;
 
-        CurDimInfo = std::find_if(
-            Dims.begin(), Dims.end(), [StrideV, DimElemTy](DimInfo &DimI) {
-              Type *DimITy = DimI.getType();
-              Type *DimIElemTy = DimITy->isPointerTy()
-                                     ? DimITy->getPointerElementType()
-                                     : DimITy->getArrayElementType();
+        std::tie(Stride, Rank) = GetStrideAndRank(Subs, DimElemTy);
 
-              return DimI.getStride() == StrideV && DimIElemTy == DimElemTy;
-            });
+        // Find the dimension for GEP or SUBS LastIndex.
+        // We should start merging indices only with the tail of existing
+        // dimensions starting from LastNonStructDimIdx.
+        //
+        // ex.: %st.A = type { [1 x [1 x i8]] }
+        //      %p1 = gep [1 x [1 x %st.A]]* %p, 0, a, b
+        //      %p2 = gep %st.A* %p1, 0, 0, c, d
+        //
+        // These GEPs has strides =1 for each index and ranks as following-
+        // %p1=(3 2 1 0) and %p2=(? 2 1 0).
+        //
+        // We should not merge a %p1 dimensions into already parsed %p2
+        // dimensions as they represent different arrays.
+        //
+        // LastNonStructDimIdx would be =3.
+        //   Correct: (%p)[0][a][b].0[c][d]
+        // Incorrect: (%p)[0].0[c + a][d + b]
+
+        CurDimInfo = std::find_if(Dims.begin() + LastNonStructDimIdx,
+                                  Dims.end(), [Stride, Rank](DimInfo &DimI) {
+                                    return DimI.getStride() == Stride &&
+                                           DimI.getRank() == Rank;
+                                  });
       }
 
       // Create dimension if it has unique stride.
@@ -3240,13 +3504,17 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       // Populate Stride and LB info if the dimension was created for struct
       // offset.
       if (CurDimInfo->getStride() == nullptr) {
-        CurDimInfo->setStride(GetStrideV(Subs, DimElemTy));
-        CurDimInfo->setLower(Subs ? Subs->getLowerBound()
-                                  : ConstantInt::get(OffsetTy, 0));
+        Value *Stride;
+        unsigned Rank;
+
+        std::tie(Stride, Rank) = GetStrideAndRank(Subs, DimElemTy);
+
+        CurDimInfo->setStride(Stride);
+        CurDimInfo->setRank(Rank);
       }
 
       CurDimInfo->setType(DimTy);
-      CurDimInfo->addIndex(GEPOp->getIndex(I));
+      CurDimInfo->addIndex(Index, Subs ? Subs->getLowerBound() : nullptr);
 
       ++CurDimInfo;
     }
@@ -3262,17 +3530,21 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
   for (auto &DimI : Dims) {
     CanonExpr *IndexCE = nullptr;
+    CanonExpr *LowerCE = nullptr;
 
     bool IsTop = (DimI.indices().size() == 1) && !MergeInHighestDimension &&
                  !RequiresIndexMerging;
 
-    for (auto *IndexV : DimI.indices()) {
-      CanonExpr *TermCE = parse(IndexV, Level, IsTop, OffsetTy);
+    for (const auto &PairV : zip(DimI.indices(), DimI.indicesLB())) {
+      CanonExpr *ICE = parse(std::get<0>(PairV), Level, IsTop, OffsetTy);
+      CanonExpr *LCE = parse(std::get<1>(PairV), Level, IsTop, OffsetTy);
 
       if (IndexCE) {
-        mergeIndexCE(IndexCE, TermCE);
+        mergeIndexCE(IndexCE, ICE);
+        mergeIndexCE(LowerCE, LCE);
       } else {
-        IndexCE = TermCE;
+        IndexCE = ICE;
+        LowerCE = LCE;
       }
     }
 
@@ -3281,6 +3553,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
     if (MergeInHighestDimension) {
       assert(DimI.offsets().empty() && "Can not contain struct offset");
       mergeIndexCE(Ref->getDimensionIndex(Ref->getNumDimensions()), IndexCE);
+      mergeIndexCE(Ref->getDimensionLower(Ref->getNumDimensions()), LowerCE);
       Ref->setDimensionType(Ref->getNumDimensions(), DimI.getType());
       MergeInHighestDimension = false;
       continue;
@@ -3292,10 +3565,9 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       StructOffsets.push_back(cast<ConstantInt>(OffsetV)->getZExtValue());
     }
 
-    CanonExpr *LBCE = parse(DimI.getLower(), Level, true, OffsetTy);
     CanonExpr *StrideCE = parse(DimI.getStride(), Level, true, OffsetTy);
 
-    Ref->addDimensionHighest(IndexCE, StructOffsets, LBCE, StrideCE,
+    Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
                              DimI.getType());
   }
 

@@ -250,8 +250,6 @@ public:
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// FIXME: \p VF is the single VF that we have VPlan for. That should be changed
-// in the future and the argument won't be required.
 template <typename CostModelTy = VPlanCostModel>
 void printCostModelAnalysisIfRequested(LoopVectorizationPlanner &LVP,
                                        const TargetTransformInfo *TTI,

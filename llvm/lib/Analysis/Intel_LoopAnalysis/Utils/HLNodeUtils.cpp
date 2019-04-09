@@ -3052,6 +3052,13 @@ bool HLNodeUtils::isKnownNonZero(unsigned BlobIdx, const HLNode *ParentNode) {
   return isKnownPositiveOrNegative(BlobIdx, ParentNode, MinMaxVal);
 }
 
+
+#if __GNUC__ >= 7
+// The switch ladders below uses implicit fallthrough for compactness.
+// Please note the ordering when adding cases.
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#endif
+
 ///  Check if Loop has perfect/near-perfect loop properties
 HLNodeUtils::VALType
 HLNodeUtils::getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
@@ -3688,19 +3695,19 @@ bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
 
 class NonUnitStrideMemRefs final : public HLNodeVisitorBase {
 private:
-  unsigned NumNonLinearLRefs;
+  bool HasNonLinearLvalRef;
   unsigned LoopLevel;
 
 public:
   bool HasNonUnitStride;
   NonUnitStrideMemRefs(const HLLoop *Loop)
-      : NumNonLinearLRefs(0), LoopLevel(Loop->getNestingLevel()),
+      : HasNonLinearLvalRef(false), LoopLevel(Loop->getNestingLevel()),
         HasNonUnitStride(false) {}
   void visit(const HLNode *Node) {}
   void visit(const HLDDNode *Node);
   void postVisit(const HLNode *Node) {}
   void postVisit(const HLDDNode *Node) {}
-  bool isDone() const { return (NumNonLinearLRefs > 0); }
+  bool isDone() const { return HasNonLinearLvalRef; }
 };
 
 ///  Make a quick pass here to save compile time:
@@ -3713,20 +3720,24 @@ void NonUnitStrideMemRefs::visit(const HLDDNode *Node) {
       continue;
     }
 
-    const RegDDRef *RegDDRef = *I;
+    const RegDDRef *Ref = *I;
     const CanonExpr *FirstCE = nullptr;
-    bool NonLinearLval = RegDDRef->isLval() && !RegDDRef->isTerminalRef();
+    bool IsLvalMemRef = Ref->isLval() && Ref->isMemRef();
 
-    for (auto Iter = RegDDRef->canon_begin(), E2 = RegDDRef->canon_end();
-         Iter != E2; ++Iter) {
-      const CanonExpr *CE = *Iter;
+    for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
+      const CanonExpr *IndexCE = Ref->getDimensionIndex(I);
       // Give up on Non-linear memref because it prevents Linear Trans
-      if (NonLinearLval && CE->isNonLinear()) {
-        NumNonLinearLRefs++;
-        return;
+      if (IsLvalMemRef) {
+        if (IndexCE->isNonLinear() ||
+            Ref->getDimensionLower(I)->isNonLinear() ||
+            Ref->getDimensionStride(I)->isNonLinear()) {
+          HasNonLinearLvalRef = true;
+          return;
+        }
       }
+
       if (!FirstCE) {
-        FirstCE = CE;
+        FirstCE = IndexCE;
       }
     }
     assert(FirstCE && "Not expecting First CE to be null");
@@ -3776,6 +3787,7 @@ const HLLoop *HLNodeUtils::getLowestCommonAncestorLoop(const HLLoop *Lp1,
 
   // Assuming that most loops in a region belong to the same loopnest and hence
   // will have a common parent, we follow this logic-
+  //
   // 1) Move up the chain for the loop with a greater nesting level.
   // 2) Once the levels are equal, we move up the chain for both loops
   // simultaneously until we discover the common parent.
@@ -4557,4 +4569,16 @@ struct UpdateLoopExitsVisitor final : public HLNodeVisitorBase {
 void HLNodeUtils::updateNumLoopExits(HLNode *Node) {
   UpdateLoopExitsVisitor V;
   HLNodeUtils::visit(V, Node);
+}
+
+void HLNodeUtils::sortInTopOrderAndUniq(VecNodesTy &Nodes) {
+  auto NodeComparator = [](const HLNode *N1, const HLNode *N2) {
+    return N1->getTopSortNum() < N2->getTopSortNum();
+  };
+  std::sort(Nodes.begin(), Nodes.end(), NodeComparator);
+  auto Last = std::unique(Nodes.begin(), Nodes.end(),
+                          [](const HLNode *N1, const HLNode *N2) {
+                          return N1->getTopSortNum() == N2->getTopSortNum();
+                          });
+  Nodes.erase(Last, Nodes.end());
 }

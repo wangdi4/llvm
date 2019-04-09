@@ -27,6 +27,7 @@ add_llvm_library(LLVMAnalysis
   DependenceAnalysis.cpp
   DivergenceAnalysis.cpp
   DomPrinter.cpp
+  DomTreeUpdater.cpp
   DominanceFrontier.cpp
   EHPersonalities.cpp
   GlobalsModRef.cpp
@@ -42,6 +43,7 @@ add_llvm_library(LLVMAnalysis
   Intel_AggInline.cpp
   Intel_Andersens.cpp
   Intel_IPCloningAnalysis.cpp
+  Intel_PartialInlineAnalysis.cpp
   Intel_SNode.cpp
   Intel_StdContainerAA.cpp
   Intel_OptVLS.cpp

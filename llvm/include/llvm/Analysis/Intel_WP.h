@@ -23,6 +23,12 @@
 
 namespace llvm {
 
+namespace llvm_intel_wp_analysis {
+// If it is true, compiler assumes that source files in the current
+// compilation have entire program.
+extern cl::opt<bool> AssumeWholeProgram;
+}
+
 void setWholeProgramRead(bool ProgramRead);
 void setLinkingExecutable(bool LinikingExe);
 
@@ -80,6 +86,10 @@ public:
   // into true or false depending on the result of the analysis
   void foldIntrinsicWholeProgramSafe(Module &M);
 
+  // Return true if the input GlobName is a form of main,
+  // else return false.
+  static bool isMainEntryPoint(llvm::StringRef GlobName);
+
   bool isWholeProgramSafe();
   bool isWholeProgramSeen();
   bool isAdvancedOptEnabled(TargetTransformInfo::AdvancedOptLevel AO);
@@ -90,8 +100,6 @@ public:
   bool resolveCallsInRoutine(const TargetLibraryInfo &TLI, llvm::Function *F);
   bool resolveCalledValue(const TargetLibraryInfo &TLI, const Value *Arg,
                           const Function *Caller);
-  void makeAllLocalToCompilationUnit(Module &M, CallGraph *CG);
-  bool makeInternalize(GlobalValue &GV, const StringSet<> &AlwaysPreserved);
 };
 
 // Analysis pass providing a never-invalidated whole program analysis result.

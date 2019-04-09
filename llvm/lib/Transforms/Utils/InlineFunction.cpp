@@ -65,6 +65,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"  // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"  // INTEL
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -100,19 +101,21 @@ namespace llvm {
 
 InlineResult InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
                             InlineReport *IR,
+                            InlineReportBuilder *MDIR,
                             InlineReason *Reason,
                             AAResults *CalleeAAR,
                             bool InsertLifetime) {
-  return InlineFunction(CallSite(CI), IFI, IR, Reason, CalleeAAR,
+  return InlineFunction(CallSite(CI), IFI, IR, MDIR, Reason, CalleeAAR,
                         InsertLifetime);
 }
 
 InlineResult InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
                             InlineReport *IR,
+                            InlineReportBuilder *MDIR,
                             InlineReason* Reason,
                             AAResults *CalleeAAR,
                             bool InsertLifetime) {
-  return InlineFunction(CallSite(II), IFI, IR, Reason, CalleeAAR,
+  return InlineFunction(CallSite(II), IFI, IR, MDIR, Reason, CalleeAAR,
                         InsertLifetime);
 }
 
@@ -120,16 +123,16 @@ InlineResult InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
                             AAResults *CalleeAAR,
                             bool InsertLifetime) {
   InlineReason Reason = NinlrNoReason;
-  return InlineFunction(CallSite(CI), IFI, nullptr, &Reason, CalleeAAR,
-                        InsertLifetime);
+  return InlineFunction(CallSite(CI), IFI, nullptr, nullptr, &Reason,
+                        CalleeAAR, InsertLifetime);
 }
 
 InlineResult InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
                             AAResults *CalleeAAR,
                             bool InsertLifetime) {
   InlineReason Reason = NinlrNoReason;
-  return InlineFunction(CallSite(II), IFI, nullptr, &Reason, CalleeAAR,
-                        InsertLifetime);
+  return InlineFunction(CallSite(II), IFI, nullptr, nullptr, &Reason,
+                        CalleeAAR, InsertLifetime);
 }
 
 InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
@@ -137,8 +140,8 @@ InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
                             bool InsertLifetime,
                             Function *ForwardVarArgsTo) {
   InlineReason Reason = NinlrNoReason;
-  return InlineFunction(CS, IFI, nullptr, &Reason, CalleeAAR, InsertLifetime,
-                        ForwardVarArgsTo);
+  return InlineFunction(CS, IFI, nullptr, nullptr, &Reason, CalleeAAR,
+                        InsertLifetime, ForwardVarArgsTo);
 }
 
 } // end namespace llvm
@@ -577,6 +580,7 @@ static Value *getUnwindDestToken(Instruction *EHPad,
 /// nodes in that block with the values specified in InvokeDestPHIValues.
 static BasicBlock *HandleCallsInBlockInlinedThroughInvoke(
     BasicBlock *BB, BasicBlock *UnwindEdge,
+    InlineReport *IR, InlineReportBuilder *MDIR, // INTEL
     UnwindDestMemoTy *FuncletUnwindMap = nullptr) {
   for (BasicBlock::iterator BBI = BB->begin(), E = BB->end(); BBI != E; ) {
     Instruction *I = &*BBI++;
@@ -624,7 +628,7 @@ static BasicBlock *HandleCallsInBlockInlinedThroughInvoke(
 #endif // NDEBUG
     }
 
-    changeToInvokeAndSplitBasicBlock(CI, UnwindEdge);
+    changeToInvokeAndSplitBasicBlock(CI, UnwindEdge, IR, MDIR); // INTEL
     return BB;
   }
   return nullptr;
@@ -637,7 +641,11 @@ static BasicBlock *HandleCallsInBlockInlinedThroughInvoke(
 /// block of the inlined code (the last block is the end of the function),
 /// and InlineCodeInfo is information about the code that got inlined.
 static void HandleInlinedLandingPad(InvokeInst *II, BasicBlock *FirstNewBlock,
-                                    ClonedCodeInfo &InlinedCodeInfo) {
+#if INTEL_CUSTOMIZATION
+                                    ClonedCodeInfo &InlinedCodeInfo,
+                                    InlineReport *IR,
+                                    InlineReportBuilder *MDIR) {
+#endif // INTEL_CUSTOMIZATION
   BasicBlock *InvokeDest = II->getUnwindDest();
 
   Function *Caller = FirstNewBlock->getParent();
@@ -670,7 +678,7 @@ static void HandleInlinedLandingPad(InvokeInst *II, BasicBlock *FirstNewBlock,
        BB != E; ++BB) {
     if (InlinedCodeInfo.ContainsCalls)
       if (BasicBlock *NewBB = HandleCallsInBlockInlinedThroughInvoke(
-              &*BB, Invoke.getOuterResumeDest()))
+              &*BB, Invoke.getOuterResumeDest(), IR, MDIR)) // INTEL
         // Update any PHI nodes in the exceptional block to indicate that there
         // is now a new entry in them.
         Invoke.addIncomingPHIValuesFor(NewBB);
@@ -694,7 +702,10 @@ static void HandleInlinedLandingPad(InvokeInst *II, BasicBlock *FirstNewBlock,
 /// block of the inlined code (the last block is the end of the function),
 /// and InlineCodeInfo is information about the code that got inlined.
 static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
-                               ClonedCodeInfo &InlinedCodeInfo) {
+#if INTEL_CUSTOMIZATION
+                               ClonedCodeInfo &InlinedCodeInfo,
+                               InlineReport *IR, InlineReportBuilder *MDIR) {
+#endif // INTEL_CUSTOMIZATION
   BasicBlock *UnwindDest = II->getUnwindDest();
   Function *Caller = FirstNewBlock->getParent();
 
@@ -807,7 +818,7 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
                             E = Caller->end();
          BB != E; ++BB)
       if (BasicBlock *NewBB = HandleCallsInBlockInlinedThroughInvoke(
-              &*BB, UnwindDest, &FuncletUnwindMap))
+              &*BB, UnwindDest, IR, MDIR, &FuncletUnwindMap)) // INTEL
         // Update any PHI nodes in the exceptional block to indicate that there
         // is now a new entry in them.
         UpdatePHINodes(NewBB);
@@ -1236,8 +1247,10 @@ static void AddAlignmentAssumptions(CallSite CS, InlineFunctionInfo &IFI) {
 /// a list of original callsites and inlined callsites for correct transfer
 /// of inline report information.
 static void UpdateIFIWithoutCG(CallSite OrigCS, ValueToValueMapTy &VMap,
-                               InlineFunctionInfo &IFI, InlineReport *IR) {
-  if (IFI.CG && (!IR || !IR->getLevel()))
+                               InlineFunctionInfo &IFI, InlineReport *IR,
+                               InlineReportBuilder *MDIR) {
+  if (IFI.CG && !(IR && IR->isClassicIREnabled()) &&
+      !(MDIR && MDIR->isMDIREnabled()))
     return;
   Function *Caller = OrigCS.getCalledFunction();
   if (!Caller)
@@ -1254,8 +1267,10 @@ static void UpdateIFIWithoutCG(CallSite OrigCS, ValueToValueMapTy &VMap,
       switch (II->getIntrinsicID()) {
       case Intrinsic::vaargpack:
       case Intrinsic::vaargpacklen:
-        if (IR && IR->getLevel())
+        if (IR && IR->isClassicIREnabled())
           IR->addActiveCallSitePair(&I, nullptr);
+        if (MDIR && MDIR->isMDIREnabled())
+          MDIR->addActiveCallSitePair(&I, nullptr);
         continue;
       default:
         break;
@@ -1266,8 +1281,10 @@ static void UpdateIFIWithoutCG(CallSite OrigCS, ValueToValueMapTy &VMap,
     Instruction *NewCall = dyn_cast<Instruction>(VMI->second);
     if (!NewCall)
       continue;
-    if (IR && IR->getLevel())
+    if (IR && IR->isClassicIREnabled())
       IR->addActiveCallSitePair(&I, NewCall);
+    if (MDIR && MDIR->isMDIREnabled())
+      MDIR->addActiveCallSitePair(&I, NewCall);
     if (!IFI.CG && !II)
       IFI.InlinedCalls.push_back(NewCall);
   }
@@ -1566,7 +1583,7 @@ static bool TestVaArgPackAndLen(const Function &F)
 // Handle varargs builtins "llvm.va_arg_pack" and "llvm.va_arg_pack_len".
 //
 static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
-                                  InlineReport *IR)
+                                  InlineReport *IR, InlineReportBuilder *MDIR)
 {
   Function* Caller = CS.getCaller();
   Function* CalledFunc = CS.getCalledFunction();
@@ -1623,8 +1640,10 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
       CI->getOperandBundlesAsDefs(OpBundles);
       auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles,
         "", CI);
-      if (IR)
+      if (IR && IR->isClassicIREnabled())
         IR->updateActiveCallSiteTarget(CI, NewI);
+      if (MDIR && MDIR->isMDIREnabled())
+        MDIR->updateActiveCallSiteTarget(CI, NewI);
       NewI->takeName(CI);
       NewI->setCallingConv(CI->getCallingConv());
       NewI->setAttributes(CI->getAttributes());
@@ -1647,8 +1666,10 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
       CI->getOperandBundlesAsDefs(OpBundles);
       auto NewI = InvokeInst::Create(CI->getCalledValue(),
         CI->getNormalDest(), CI->getUnwindDest(), Args, OpBundles, "", CI);
-      if (IR)
+      if (IR && IR->isClassicIREnabled())
         IR->updateActiveCallSiteTarget(CI, NewI);
+      if (MDIR && MDIR->isMDIREnabled())
+        MDIR->updateActiveCallSiteTarget(CI, NewI);
       NewI->takeName(CI);
       NewI->setCallingConv(CI->getCallingConv());
       NewI->setAttributes(CI->getAttributes());
@@ -1782,13 +1803,18 @@ static void reassignCSAParallelRegionId(IntrinsicInst *Intr) {
 ///
 llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
                                         InlineReport *IR,     // INTEL
-                                        InlineReason* Reason, // INTEL
+                                        InlineReportBuilder *MDIR, // INTEL
+                                        InlineReason *Reason, // INTEL
                                         AAResults *CalleeAAR,
                                         bool InsertLifetime,
                                         Function *ForwardVarArgsTo) {
   Instruction *TheCall = CS.getInstruction();
   assert(TheCall->getParent() && TheCall->getFunction()
          && "Instruction not in function!");
+
+  // FIXME: we don't inline callbr yet.
+  if (isa<CallBrInst>(TheCall))
+    return false;
 
   // If IFI has any state in it, zap it before we fill it in.
   IFI.reset();
@@ -2044,6 +2070,8 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
         Instruction *NewI = nullptr;
         if (isa<CallInst>(I))
           NewI = CallInst::Create(cast<CallInst>(I), OpDefs, I);
+        else if (isa<CallBrInst>(I))
+          NewI = CallBrInst::Create(cast<CallBrInst>(I), OpDefs, I);
         else
           NewI = InvokeInst::Create(cast<InvokeInst>(I), OpDefs, I);
 
@@ -2060,7 +2088,7 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 #if INTEL_CUSTOMIZATION
     if (IFI.CG)
       UpdateCallGraphAfterInlining(CS, FirstNewBlock, VMap, IFI);
-    UpdateIFIWithoutCG(CS, VMap, IFI, IR);
+    UpdateIFIWithoutCG(CS, VMap, IFI, IR, MDIR);
 #endif // INTEL_CUSTOMIZATION
 
     // For 'nodebug' functions, the associated DISubprogram is always null.
@@ -2088,7 +2116,7 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
               (*IFI.GetAssumptionCache)(*Caller).registerAssumption(II);
         }
 
-    HandleVaArgPackAndLen(CS, FirstNewBlock, IR); // INTEL
+    HandleVaArgPackAndLen(CS, FirstNewBlock, IR, MDIR); // INTEL
   }
 
   // If there are any alloca instructions in the block that used to be the entry
@@ -2193,10 +2221,8 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
           // Add VarArgs to existing parameters.
           SmallVector<Value *, 6> Params(CI->arg_operands());
           Params.append(VarArgsToForward.begin(), VarArgsToForward.end());
-          CallInst *NewCI =
-              CallInst::Create(CI->getCalledFunction() ? CI->getCalledFunction()
-                                                       : CI->getCalledValue(),
-                               Params, "", CI);
+          CallInst *NewCI = CallInst::Create(
+              CI->getFunctionType(), CI->getCalledOperand(), Params, "", CI);
           NewCI->setDebugLoc(CI->getDebugLoc());
           NewCI->setAttributes(Attrs);
           NewCI->setCallingConv(CI->getCallingConv());
@@ -2324,9 +2350,14 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     BasicBlock *UnwindDest = II->getUnwindDest();
     Instruction *FirstNonPHI = UnwindDest->getFirstNonPHI();
     if (isa<LandingPadInst>(FirstNonPHI)) {
-      HandleInlinedLandingPad(II, &*FirstNewBlock, InlinedFunctionInfo);
+#if INTEL_CUSTOMIZATION
+      HandleInlinedLandingPad(II, &*FirstNewBlock, InlinedFunctionInfo, IR,
+                              MDIR);
+#endif // INTEL_CUSTOMIZATION
     } else {
-      HandleInlinedEHPad(II, &*FirstNewBlock, InlinedFunctionInfo);
+#if INTEL_CUSTOMIZATION
+      HandleInlinedEHPad(II, &*FirstNewBlock, InlinedFunctionInfo, IR, MDIR);
+#endif // INTEL_CUSTOMIZATION
     }
   }
 
@@ -2362,6 +2393,8 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
         Instruction *NewInst;
         if (CS.isCall())
           NewInst = CallInst::Create(cast<CallInst>(I), OpBundles, I);
+        else if (CS.isCallBr())
+          NewInst = CallBrInst::Create(cast<CallBrInst>(I), OpBundles, I);
         else
           NewInst = InvokeInst::Create(cast<InvokeInst>(I), OpBundles, I);
         NewInst->takeName(I);

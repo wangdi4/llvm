@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 -dtrans-usecrulecompat -whole-program-assume 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes=dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 -dtrans-usecrulecompat -whole-program-assume 2>&1 | FileCheck %s
+; RUN: opt < %s -S -whole-program-assume -internalize -internalize-public-api-list main  -dtrans-aostosoa -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 -dtrans-usecrulecompat 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='internalize,dtrans-aostosoa' -internalize-public-api-list main -dtrans-aostosoa-index32=false -dtrans-aostosoa-heur-override=struct.test01 -dtrans-usecrulecompat -whole-program-assume 2>&1 | FileCheck %s
 
 
 ; This test verifies that function attributes on the function signatures and

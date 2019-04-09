@@ -55,7 +55,7 @@ for.body.i:                                       ; preds = %for.body.i, %for.bo
   store i32 %add12.i, i32* %arrayidx18.i, align 4, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
-  br i1 %exitcond, label %exit, label %for.body.i
+  br i1 %exitcond, label %exit, label %for.body.i, !llvm.loop !10
 
 exit:                                           ; preds = %for.body.i
   ret void
@@ -71,3 +71,6 @@ exit:                                           ; preds = %for.body.i
 !7 = !{!"Simple C/C++ TBAA"}
 !8 = !{!9, !5, i64 0}
 !9 = !{!"array@_ZTSA64_A64_i", !4, i64 0}
+!10 = distinct !{!10, !11}
+!11 = !{!"llvm.loop.unroll.count", i32 4}
+

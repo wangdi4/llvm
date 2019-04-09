@@ -1,5 +1,5 @@
-; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -internalize -internalize-public-api-list main -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -passes='internalize,dtrans-deletefield' -internalize-public-api-list main -S -o - %s | FileCheck %s
 
 ; This test verifies the case of a byte-flattened GEPs with a candidate
 ; for field deletion being passed to a select instruction. We should not

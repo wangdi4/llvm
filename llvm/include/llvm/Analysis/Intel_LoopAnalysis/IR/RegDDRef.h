@@ -836,12 +836,6 @@ public:
   //  CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
   // }
 
-  /// Returns the index of the blob represented by this self-blob DDRef.
-  unsigned getSelfBlobIndex() const {
-    assert(isSelfBlob() && "DDRef is not a self blob!");
-    return getSingleCanonExpr()->getSingleBlobIndex();
-  }
-
   /// Replaces existing self blob index with \p NewIndex.
   void replaceSelfBlobIndex(unsigned NewIndex);
 
@@ -1001,7 +995,7 @@ public:
   bool hasIV(unsigned Level) const;
 
   /// Returns the defined at level of the ref.
-  unsigned getDefinedAtLevel() const;
+  unsigned getDefinedAtLevel() const override;
 
   /// Replace any loop-level IV by a given constant integer.
   void replaceIVByConstant(unsigned LoopLevel, int64_t Val);

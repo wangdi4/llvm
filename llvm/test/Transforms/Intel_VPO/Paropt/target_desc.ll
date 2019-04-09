@@ -35,4 +35,4 @@ attributes #1 = { nounwind }
 !0 = !{i32 0, i32 2052, i32 85986027, !"foo", i32 3, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{i32 7, !"PIC Level", i32 2}
-!3 = !{!"clang version 9.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang b015792c345c5431b4b47918c6cded0dd66ec549) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 645b306bf2aa6eb62bc4ecf7434ebe59665cf8f3)"}
+!3 = !{!"clang version 9.0.0"}

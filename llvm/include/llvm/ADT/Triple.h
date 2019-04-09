@@ -191,7 +191,8 @@ public:
     HermitCore, // HermitCore Unikernel/Multikernel
     Hurd,       // GNU/Hurd
     WASI,       // Experimental WebAssembly OS
-    LastOSType = WASI
+    Emscripten,
+    LastOSType = Emscripten
   };
   enum EnvironmentType {
     UnknownEnvironment,
@@ -212,6 +213,7 @@ public:
 
 #if INTEL_CUSTOMIZATION
     IntelFPGA,
+    IntelEyeQ,
 #endif // INTEL_CUSTOMIZATION
     MSVC,
     Itanium,
@@ -227,6 +229,7 @@ public:
     ELF,
     MachO,
     Wasm,
+    XCOFF,
   };
 
 private:
@@ -422,7 +425,7 @@ public:
     if (LHS[1] != Minor)
       return LHS[1] < Minor;
     if (LHS[2] != Micro)
-      return LHS[1] < Micro;
+      return LHS[2] < Micro;
 
     return false;
   }
@@ -531,40 +534,48 @@ public:
     return getOS() == Triple::Haiku;
   }
 
-  /// Checks if the environment could be MSVC.
-  bool isWindowsMSVCEnvironment() const {
-    return getOS() == Triple::Win32 &&
-           (getEnvironment() == Triple::UnknownEnvironment ||
-            getEnvironment() == Triple::MSVC);
+  /// Tests whether the OS is Windows.
+  bool isOSWindows() const {
+    return getOS() == Triple::Win32;
   }
 
   /// Checks if the environment is MSVC.
   bool isKnownWindowsMSVCEnvironment() const {
 #if INTEL_CUSTOMIZATION
-    return getOS() == Triple::Win32 && (getEnvironment() == Triple::MSVC ||
-                                        getEnvironment() == Triple::IntelFPGA);
+    return isOSWindows() && (getEnvironment() == Triple::MSVC ||
+                             getEnvironment() == Triple::IntelFPGA);
 #endif // INTEL_CUSTOMIZATION
   }
 
+  /// Checks if the environment could be MSVC.
+  bool isWindowsMSVCEnvironment() const {
+    return isKnownWindowsMSVCEnvironment() ||
+           (isOSWindows() && getEnvironment() == Triple::UnknownEnvironment);
+  }
+
   bool isWindowsCoreCLREnvironment() const {
-    return getOS() == Triple::Win32 && getEnvironment() == Triple::CoreCLR;
+    return isOSWindows() && getEnvironment() == Triple::CoreCLR;
   }
 
   bool isWindowsItaniumEnvironment() const {
-    return getOS() == Triple::Win32 && getEnvironment() == Triple::Itanium;
+    return isOSWindows() && getEnvironment() == Triple::Itanium;
   }
 
   bool isWindowsCygwinEnvironment() const {
-    return getOS() == Triple::Win32 && getEnvironment() == Triple::Cygnus;
+    return isOSWindows() && getEnvironment() == Triple::Cygnus;
   }
 
   bool isWindowsGNUEnvironment() const {
-    return getOS() == Triple::Win32 && getEnvironment() == Triple::GNU;
+    return isOSWindows() && getEnvironment() == Triple::GNU;
   }
 
 #if INTEL_CUSTOMIZATION
   bool isINTELFPGAEnvironment() const {
     return getEnvironment() == Triple::IntelFPGA;
+  }
+
+  bool isINTELEyeQEnvironment() const {
+    return getEnvironment() == Triple::IntelEyeQ;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -577,11 +588,6 @@ public:
   bool isOSMSVCRT() const {
     return isWindowsMSVCEnvironment() || isWindowsGNUEnvironment() ||
            isWindowsItaniumEnvironment();
-  }
-
-  /// Tests whether the OS is Windows.
-  bool isOSWindows() const {
-    return getOS() == Triple::Win32;
   }
 
   /// Tests whether the OS is NaCl (Native Client)
@@ -609,11 +615,21 @@ public:
     return getOS() == Triple::WASI;
   }
 
+  /// Tests whether the OS is Emscripten.
+  bool isOSEmscripten() const {
+    return getOS() == Triple::Emscripten;
+  }
+
   /// Tests whether the OS uses glibc.
   bool isOSGlibc() const {
     return (getOS() == Triple::Linux || getOS() == Triple::KFreeBSD ||
             getOS() == Triple::Hurd) &&
            !isAndroid();
+  }
+
+  /// Tests whether the OS is AIX.
+  bool isOSAIX() const {
+    return getOS() == Triple::AIX;
   }
 
   /// Tests whether the OS uses the ELF binary format.
@@ -634,6 +650,11 @@ public:
   /// Tests whether the OS uses the Wasm binary format.
   bool isOSBinFormatWasm() const {
     return getObjectFormat() == Triple::Wasm;
+  }
+
+  /// Tests whether the OS uses the XCOFF binary format.
+  bool isOSBinFormatXCOFF() const {
+    return getObjectFormat() == Triple::XCOFF;
   }
 
   /// Tests whether the target is the PS4 CPU

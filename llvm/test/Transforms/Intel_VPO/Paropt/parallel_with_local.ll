@@ -75,14 +75,14 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !llvm.dbg.intel.emit_class_debug_always = !{!6}
 !llvm.ident = !{!7}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 24bd95b3808b2ed8177f433f71ffd8aad64ee476) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 7352ac6b337ad1c313770a83824301255efca5a2)", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !2)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 7.0.0", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !2)
 !1 = !DIFile(filename: "par_with_local.c", directory: "/export/iusers/gabaabhi/ics/CQ_ws/ompoC/test_20171102/jira_test_files")
 !2 = !{}
 !3 = !{i32 2, !"Dwarf Version", i32 4}
 !4 = !{i32 2, !"Debug Info Version", i32 3}
 !5 = !{i32 1, !"wchar_size", i32 4}
 !6 = !{!"true"}
-!7 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 24bd95b3808b2ed8177f433f71ffd8aad64ee476) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 7352ac6b337ad1c313770a83824301255efca5a2)"}
+!7 = !{!"clang version 7.0.0"}
 !8 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 3, type: !9, isLocal: false, isDefinition: true, scopeLine: 3, isOptimized: false, unit: !0, retainedNodes: !2)
 !9 = !DISubroutineType(types: !10)
 !10 = !{null}

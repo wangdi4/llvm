@@ -35,7 +35,7 @@ protected:
 static StoreInst *getFunctionWithSingleStore(Module *M, StringRef Name) {
   auto &C = M->getContext();
   FunctionType *FTy = FunctionType::get(Type::getVoidTy(C), {});
-  auto *F = cast<Function>(M->getOrInsertFunction(Name, FTy));
+  auto *F = Function::Create(FTy, Function::ExternalLinkage, Name, M);
   auto *BB = BasicBlock::Create(C, "entry", F);
   auto *IntType = Type::getInt32Ty(C);
   auto *PtrType = Type::getInt32PtrTy(C);
@@ -50,7 +50,7 @@ static StoreInst *getFunctionWithSingleStore(Module *M, StringRef Name) {
 static std::pair <StoreInst*, LoadInst*> getFunctionWithLoadStore(Module *M, StringRef Name) {
   auto &C = M->getContext();
   FunctionType *FTy = FunctionType::get(Type::getVoidTy(C), {});
-  auto *F = cast<Function>(M->getOrInsertFunction(Name, FTy));
+  auto *F = cast<Function>(M->getOrInsertFunction(Name, FTy).getCallee());
   auto *BB = BasicBlock::Create(C, "entry", F);
 
   auto *CharType = Type::getInt8Ty(C);
@@ -139,8 +139,9 @@ TEST_F(TBAATest, checkTBAACommutativity) {
   const MemoryLocation Loc1 = MemoryLocation::get(SI);
   const MemoryLocation Loc2 = MemoryLocation::get(LI);
 
-  auto AliasResult1 = TBAA.alias(Loc1, Loc2);
-  auto AliasResult2 = TBAA.alias(Loc2, Loc1);
+  AAQueryInfo AAQIP;
+  auto AliasResult1 = TBAA.alias(Loc1, Loc2, AAQIP);
+  auto AliasResult2 = TBAA.alias(Loc2, Loc1, AAQIP);
 
   EXPECT_EQ(AliasResult1, MayAlias);
   EXPECT_EQ(AliasResult2, MayAlias);

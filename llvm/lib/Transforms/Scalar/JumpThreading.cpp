@@ -23,6 +23,7 @@
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -41,7 +42,6 @@
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DomTreeUpdater.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
@@ -631,6 +631,171 @@ static bool isCountableLoop(const BasicBlock *HeaderBB,
   return false;
 }
 
+bool JumpThreadingPass::SeenEdge(BasicBlockEdge &Edge) {
+  return EdgesSeen.count(std::make_pair(Edge.getStart(), Edge.getEnd())) != 0;
+}
+
+void JumpThreadingPass::MarkEdgeSeen(BasicBlockEdge &Edge) {
+  EdgesSeen.insert(std::make_pair(Edge.getStart(), Edge.getEnd()));
+}
+
+// CI is a compare whose value is not constant. One operand is a phi with
+// def "PhiDef" on incoming edge E.
+// Return:
+// True if the compare is always true on edge E
+// False if the compare is always false on edge E
+// Unknown if we don't know
+// See the comment at this function's use, starting "We have the following"..
+TriState JumpThreadingPass::CmpConstOnEdge(CmpInst *CI, Value *PhiDef,
+                                           BasicBlockEdge &E) {
+  // The value-based evaluation takes care of the case where the operand
+  // is an actual constant. PhiDef is an Instruction from here on.
+  if (!isa<Instruction>(PhiDef))
+    return Unknown;
+  // Detect analysis loops and limit recursion.
+  // We track edges instead of values because a compare result may
+  // reach down to a block through multiple paths.
+  if (EdgesSeen.size() > 2) {
+    LLVM_DEBUG(dbgs() << "Seen too many definitions.");
+    return Unknown;
+  }
+  MarkEdgeSeen(E);
+  LLVM_DEBUG(dbgs() << "Evaluating compare\n"
+                    << *CI << "\nalong edge "
+                    << "(" << E.getStart()->getName() << ","
+                    << E.getEnd()->getName() << ")\n"
+                    << "Def of one operand on the edge: " << PhiDef->getName()
+                    << "\n");
+
+  // True if UseCI and CI are the same compare, except one operand in UseCI is
+  // changed to the Value "PhiDef". The other operand must be exactly the same
+  // Value.
+  // The caller uses this function to find out if UseCI might imply CI on
+  // some path where PhiDef has the same value as CI's operand.
+  auto CmpCongruent = [](CmpInst *CI, CmpInst *UseCI, Value *PhiDef) {
+    return (CI->getPredicate() == UseCI->getPredicate()) &&
+           ((UseCI->getOperand(0) == PhiDef &&
+             UseCI->getOperand(1) == CI->getOperand(1)) ||
+            (UseCI->getOperand(1) == PhiDef &&
+             UseCI->getOperand(0) == CI->getOperand(0)));
+  };
+
+  // 0/1/-1 (as above) if the CmpInst "UseCI" is used in a branch that has one
+  // path that dominates the edge E.
+  auto CmpHasDomBranch = [](CmpInst *UseCI, BasicBlockEdge &E,
+                            DominatorTree &DT) {
+    // We only handle compares that are evaluated and used once.
+    if (!UseCI->hasOneUse())
+      return Unknown;
+    TriState Result = Unknown;
+    auto *BrInst = dyn_cast<BranchInst>(UseCI->user_back());
+    if (BrInst && BrInst->getNumSuccessors() == 2 &&
+        BrInst->getSuccessor(0) != BrInst->getSuccessor(1)) {
+      // UseCI is used in a branch with 2 distinct successors.
+      // We want to prove that flow must pass through one successor of
+      // this branch to get to the edge E, and not the other successor.
+      if (BrInst->getParent() == E.getStart()) {
+        // Easy case: BrInst is the start of E. E is either the true or
+        // false edge of BrInst.
+        Result = BrInst->getSuccessor(0) == E.getEnd() ? True : False;
+      } else {
+        // The branch must dominate the head of our edge.
+        if (!DT.dominates(BrInst->getParent(), E.getStart()))
+          return Unknown;
+        // Check if one edge out of the branch dominates the head of our
+        // target edge. The other successor must not dominate.
+        BasicBlockEdge TrueEdge(BrInst->getParent(), BrInst->getSuccessor(0));
+        BasicBlockEdge FalseEdge(BrInst->getParent(), BrInst->getSuccessor(1));
+        if (DT.dominates(TrueEdge, E.getStart()))
+          Result = True;
+        if (DT.dominates(FalseEdge, E.getStart())) {
+          if (Result != Unknown)
+            Result = Unknown; // both dominate
+          else
+            Result = False;
+        }
+      }
+    }
+
+    LLVM_DEBUG(if (Result != Unknown) dbgs()
+               << (Result == True ? "True" : "False") << " edge of branch\n"
+               << *BrInst << "\nin block " << BrInst->getParent()->getName()
+               << "\ndominates the edge start " << E.getStart()->getName()
+               << " and has a similar test to the compare.\n");
+    return Result;
+  }; // end CmpHasDomBranch()
+
+  // Start here. Search the uses of PhiDef to see if there is a compare that
+  // has a known value on the path through the edge E.
+  DominatorTree &DT = DTU->getDomTree();
+  TriState Result = Unknown;
+  for (auto UIter = PhiDef->use_begin(), EIter = PhiDef->use_end();
+       UIter != EIter;) {
+    Use &U = *UIter++;
+    if (auto *UserCmpI = dyn_cast<CmpInst>(U.getUser())) {
+      if (CmpCongruent(CI, UserCmpI, PhiDef)) {
+        TriState ThisResult = CmpHasDomBranch(UserCmpI, E, DT);
+        // Conflicting results? Return unknown.
+        if (ThisResult != Unknown) {
+          if (Result != Unknown && ThisResult != Result) {
+            LLVM_DEBUG(dbgs() << "Used in different dominating branches.");
+            return Unknown;
+          }
+          Result = ThisResult;
+        }
+      }
+    }
+  }
+
+  // If no result is found and PhiDef is itself defined by a phi, we have this:
+  // %x4 = phi %x2 %x3
+  // ..
+  // %x5 = phi %x4 %x5  ; %x4 is PhiDef
+  // cmp %x5, a         ; CI
+  //
+  // To prove that cmp %x5,a is constant on incoming edge with def %x4, we can
+  // prove that there exists a "cmp %x2,a" and "cmp %x3,a" with constant and
+  // equal values on the path down to the block with "phi %x2 %x3".
+  auto *PhiDefPhi = dyn_cast<PHINode>(PhiDef);
+  if (PhiDefPhi && Result == Unknown) {
+    LLVM_DEBUG(dbgs() << "Definition defined by phi\n" << *PhiDefPhi << "\n");
+    for (unsigned i = 0, e = PhiDefPhi->getNumIncomingValues(); i != e; ++i) {
+      LLVM_DEBUG(dbgs() << "Testing incoming phi value "
+                        << PhiDefPhi->getIncomingValue(i)->getName() << "\n");
+      auto *IncomingInst =
+          dyn_cast<Instruction>(PhiDefPhi->getIncomingValue(i));
+      if (!IncomingInst) {
+        // No cmp on this edge, as the def's not an instruction.
+        LLVM_DEBUG(dbgs() << "Non-instruction def of phi operand\n");
+        return Unknown;
+      }
+      BasicBlockEdge EdgeToPhiDef(PhiDefPhi->getIncomingBlock(i),
+                                  PhiDefPhi->getParent());
+      if (SeenEdge(EdgeToPhiDef)) // avoid loop
+        continue;
+
+      // Call ourselves recursively to check each incoming definition of
+      // PhiDef. At the end of all this, every possible definition of
+      // PhiDef that reaches it, must be used in a compare with a known
+      // and equal value into PhiDef. Therefore CI is constant on all
+      // incoming paths down to PhiDef.
+      TriState ThisResult = CmpConstOnEdge(CI, IncomingInst, EdgeToPhiDef);
+      if (ThisResult == Unknown ||
+          (Result != Unknown && Result != ThisResult)) {
+        LLVM_DEBUG(dbgs() << "No dominating branch edge found for the "
+                          << "value " << IncomingInst->getName() << "\n");
+        return Unknown;
+      }
+      Result = ThisResult;
+    }
+    LLVM_DEBUG(if (Result != Unknown) dbgs()
+               << "Compare has value " << (Result == True ? "true" : "false")
+               << " on all incoming edges of phi.\n");
+  }
+
+  return Result;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// FindLoopHeaders - We do not want jump threading to turn proper loop
@@ -1010,8 +1175,67 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
 
         Value *Res = SimplifyCmpInst(Pred, LHS, RHS, {DL});
         if (!Res) {
-          if (!isa<Constant>(RHS))
+          if (!isa<Constant>(RHS)) { // INTEL
+#ifdef INTEL_CUSTOMIZATION
+            // We have the following layout at this point:
+            //
+            // BB:
+            // PHI = phi ..[PHIDEF,PredBB]..
+            // %c = cmp PHI <predicate> V
+            // br %c, ...
+            //
+            // or the reverse
+            //
+            // BB:
+            // PHI = phi ..[PHIDEF,PredBB]..
+            // %c = cmp V <predicate> PHI
+            // br %c, ...
+            //
+            // PHIDEF is an incoming definition from PredBB that reaches
+            // the phi. It may be defined in PredBB, or somewhere above it.
+            // V is some unknown value.
+            // If we made a similar compare of PHIDEF and V in
+            // an earlier block, and the result is always true/false on the
+            // path down to PredBB, then "cmp PHI V" must also be true/false
+            // on the edge from PredBB to BB. If we come from PredBB to BB,
+            // we don't need to evaluate the compare again in BB.
+            // We can jump-thread PredBB->BB to BB's true/false successor.
+            //
+            // We search the uses of PHIDEF to find out if there exists a
+            // CmpInst with PHIDEF and V, which meets these criteria:
+            // - The compare of PHIDEF and V must be "congruent" to the compare
+            // of PHI and V (same order, same predicate)
+            // - PHIDEF and V do not change value between the compare and
+            // the PredBB edge (this is simply guaranteed by SSA, as the defs
+            // reach the phi)
+            // - "cmp PHIDEF V" is used in a branch, and a true/false edge
+            // from that branch dominates the PredBB->BB edge. This implies
+            // that we must take that side of the branch on the way to
+            // PredBB, and the compare must still be true/false when we reach
+            // the edge PredBB->BB.
+
+            Value *PhiDef = PN->getIncomingValue(i);
+            if (!isa<Instruction>(PhiDef))
+              continue;
+            BasicBlockEdge E(PredBB, BB);
+            EdgesSeen.clear();
+            TriState CmpConst = CmpConstOnEdge(Cmp, PhiDef, E);
+            if (CmpConst == True) {
+              LLVM_DEBUG(dbgs() << Cmp->getName() << " always true on edge "
+                                << "(" << PredBB->getName() << ","
+                                << BB->getName() << ") - can thread\n");
+              Result.push_back(
+                  std::make_pair(ConstantInt::getTrue(Cmp->getType()), PredBB));
+            } else if (CmpConst == False) {
+              LLVM_DEBUG(dbgs() << Cmp->getName() << " always false on edge "
+                                << "(" << PredBB->getName() << ","
+                                << BB->getName() << ") - can thread\n");
+              Result.push_back(std::make_pair(
+                  ConstantInt::getFalse(Cmp->getType()), PredBB));
+            }
+#endif // INTEL_CUSTOMIZATION
             continue;
+          } // INTEL
 
           // getPredicateOnEdge call will make no sense if LHS is defined in BB.
           auto LHSInst = dyn_cast<Instruction>(LHS);
@@ -1314,7 +1538,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
     Condition = IB->getAddress()->stripPointerCasts();
     Preference = WantBlockAddress;
   } else {
-    return false; // Must be an invoke.
+    return false; // Must be an invoke or callbr.
   }
 
   // Run constant folding to see if we can reduce the condition to a simple
@@ -1350,7 +1574,7 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
                       << "' folding undef terminator: " << *BBTerm << '\n');
     BranchInst::Create(BBTerm->getSuccessor(BestSucc), BBTerm);
     BBTerm->eraseFromParent();
-    DTU->applyUpdates(Updates);
+    DTU->applyUpdatesPermissive(Updates);
     return true;
   }
 
@@ -1401,7 +1625,9 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
         unsigned ToKeep = Ret == LazyValueInfo::True ? 0 : 1;
         BasicBlock *ToRemoveSucc = CondBr->getSuccessor(ToRemove);
         ToRemoveSucc->removePredecessor(BB, true);
-        BranchInst::Create(CondBr->getSuccessor(ToKeep), CondBr);
+        BranchInst *UncondBr =
+          BranchInst::Create(CondBr->getSuccessor(ToKeep), CondBr);
+        UncondBr->setDebugLoc(CondBr->getDebugLoc());
         CondBr->eraseFromParent();
         if (CondCmp->use_empty())
           CondCmp->eraseFromParent();
@@ -1418,7 +1644,8 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
             ConstantInt::getFalse(CondCmp->getType());
           ReplaceFoldableUses(CondCmp, CI);
         }
-        DTU->deleteEdgeRelaxed(BB, ToRemoveSucc);
+        DTU->applyUpdatesPermissive(
+            {{DominatorTree::Delete, BB, ToRemoveSucc}});
         return true;
       }
 
@@ -1503,9 +1730,10 @@ bool JumpThreadingPass::ProcessImpliedCondition(BasicBlock *BB) {
       BasicBlock *KeepSucc = BI->getSuccessor(*Implication ? 0 : 1);
       BasicBlock *RemoveSucc = BI->getSuccessor(*Implication ? 1 : 0);
       RemoveSucc->removePredecessor(BB);
-      BranchInst::Create(KeepSucc, BI);
+      BranchInst *UncondBI = BranchInst::Create(KeepSucc, BI);
+      UncondBI->setDebugLoc(BI->getDebugLoc());
       BI->eraseFromParent();
-      DTU->deleteEdgeRelaxed(BB, RemoveSucc);
+      DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, RemoveSucc}});
       return true;
     }
     CurrentBB = CurrentPred;
@@ -1687,7 +1915,9 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LoadI) {
     // Add all the unavailable predecessors to the PredsToSplit list.
     for (BasicBlock *P : predecessors(LoadBB)) {
       // If the predecessor is an indirect goto, we can't split the edge.
-      if (isa<IndirectBrInst>(P->getTerminator()))
+      // Same for CallBr.
+      if (isa<IndirectBrInst>(P->getTerminator()) ||
+          isa<CallBrInst>(P->getTerminator()))
         return false;
 
       if (!AvailablePredSet.count(P))
@@ -1704,11 +1934,11 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LoadI) {
   if (UnavailablePred) {
     assert(UnavailablePred->getTerminator()->getNumSuccessors() == 1 &&
            "Can't handle critical edge here!");
-    LoadInst *NewVal =
-        new LoadInst(LoadedPtr->DoPHITranslation(LoadBB, UnavailablePred),
-                     LoadI->getName() + ".pr", false, LoadI->getAlignment(),
-                     LoadI->getOrdering(), LoadI->getSyncScopeID(),
-                     UnavailablePred->getTerminator());
+    LoadInst *NewVal = new LoadInst(
+        LoadI->getType(), LoadedPtr->DoPHITranslation(LoadBB, UnavailablePred),
+        LoadI->getName() + ".pr", false, LoadI->getAlignment(),
+        LoadI->getOrdering(), LoadI->getSyncScopeID(),
+        UnavailablePred->getTerminator());
     NewVal->setDebugLoc(LoadI->getDebugLoc());
     if (AATags)
       NewVal->setAAMetadata(AATags);
@@ -1917,8 +2147,9 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
     ++PredWithKnownDest;
 
     // If the predecessor ends with an indirect goto, we can't change its
-    // destination.
-    if (isa<IndirectBrInst>(Pred->getTerminator()))
+    // destination. Same for CallBr.
+    if (isa<IndirectBrInst>(Pred->getTerminator()) ||
+        isa<CallBrInst>(Pred->getTerminator()))
       continue;
 
 #if INTEL_CUSTOMIZATION
@@ -1966,7 +2197,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
       Instruction *Term = BB->getTerminator();
       BranchInst::Create(OnlyDest, Term);
       Term->eraseFromParent();
-      DTU->applyUpdates(Updates);
+      DTU->applyUpdatesPermissive(Updates);
 
       // If the condition is now dead due to the removal of the old terminator,
       // erase it.
@@ -2452,28 +2683,26 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   }
 
   // And finally, do it!
-#if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "  Threading edge from '" << PredBB->getName()
                     << "' to '" << SuccBB->getName() << "' with cost: "
                     << JumpThreadCost << ", across blocks:\n    ";
              for (auto BB : RegionBlocks)
                dbgs() << " " << BB->getName();
              dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
-#endif // INTEL_CUSTOMIZATION
 
   if (DTU->hasPendingDomTreeUpdates())
     LVI->disableDT();
   else
     LVI->enableDT();
-#if INTEL_CUSTOMIZATION
   // FIXME: This LVI update is not optimal. Removing the PredBB-->RegionTop
   //   edge can make overdefined values computable in any block in the region,
   //   not just RegionBottom. We can generalize the LVI->threadEdge algorithm
   //   to support larger-than-BB thread regions.
   LVI->threadEdge(PredBB, RegionBottom, SuccBB);
-#endif // INTEL_CUSTOMIZATION
+
   DenseMap<Instruction*, Value*> ValueMapping;
   DenseMap<BasicBlock*, BasicBlock*> BlockMapping;
+  SmallVector<DominatorTree::UpdateType, 20> DTUpdates;
 
   for (auto OldBB : RegionBlocks) {
     BasicBlock *NewBB = BasicBlock::Create(OldBB->getContext(),
@@ -2567,7 +2796,9 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
           }
 
           if (New.isTerminator())
-            DTU->applyUpdates({{DominatorTree::Insert, NewBB, NewDestBB}});
+            // We used to apply DT updates here, which was not correct,
+            // because the updates may be submitted only after IR changes.
+            DTUpdates.push_back({DominatorTree::Insert, NewBB, NewDestBB});
 
           // If we are threading across a loop header, we have to update the
           // LoopHeaders set. To do this precisely, we would need to re-run
@@ -2651,10 +2882,12 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       PredTerm->setSuccessor(i, BlockMapping[RegionTop]);
     }
 
-  DTU->applyUpdates({{DominatorTree::Insert, BlockMapping[RegionBottom],
-                      SuccBB},
-                     {DominatorTree::Insert, PredBB, BlockMapping[RegionTop]},
-                     {DominatorTree::Delete, PredBB, RegionTop}});
+  // Enqueue required DT updates.
+  DTUpdates.append(
+      {{DominatorTree::Insert, BlockMapping[RegionBottom], SuccBB},
+       {DominatorTree::Insert, PredBB, BlockMapping[RegionTop]},
+       {DominatorTree::Delete, PredBB, RegionTop}});
+  DTU->applyUpdatesPermissive(DTUpdates);
 
   // Apply all updates we queued with DTU and get the updated Dominator Tree.
   DominatorTree *DT = &DTU->getDomTree();
@@ -2773,7 +3006,7 @@ BasicBlock *JumpThreadingPass::SplitBlockPreds(BasicBlock *BB,
       BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
   }
 
-  DTU->applyUpdates(Updates);
+  DTU->applyUpdatesPermissive(Updates);
   return NewBBs[0];
 }
 
@@ -3142,7 +3375,7 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
 
   // Remove the unconditional branch at the end of the PredBB block.
   OldPredBranch->eraseFromParent();
-  DTU->applyUpdates(Updates);
+  DTU->applyUpdatesPermissive(Updates);
 
   ++NumDupes;
   return true;
@@ -3178,8 +3411,8 @@ void JumpThreadingPass::UnfoldSelectInstr(BasicBlock *Pred, BasicBlock *BB,
 
   // The select is now dead.
   SI->eraseFromParent();
-  DTU->applyUpdates({{DominatorTree::Insert, NewBB, BB},
-                    {DominatorTree::Insert, Pred, NewBB}});
+  DTU->applyUpdatesPermissive({{DominatorTree::Insert, NewBB, BB},
+                               {DominatorTree::Insert, Pred, NewBB}});
 
   // Update any other PHI nodes in BB.
   for (BasicBlock::iterator BI = BB->begin();
@@ -3356,7 +3589,7 @@ bool JumpThreadingPass::TryToUnfoldSelectInCurrBB(BasicBlock *BB) {
       Updates.push_back({DominatorTree::Delete, BB, Succ});
       Updates.push_back({DominatorTree::Insert, SplitBB, Succ});
     }
-    DTU->applyUpdates(Updates);
+    DTU->applyUpdatesPermissive(Updates);
     return true;
   }
   return false;

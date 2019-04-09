@@ -388,6 +388,11 @@ enum Decoration {
     DecorationPassthroughNV = 5250,
     DecorationViewportRelativeNV = 5252,
     DecorationSecondaryViewportRelativeNV = 5256,
+    DecorationRegisterINTEL = 5825,
+    DecorationMemoryINTEL = 5826,
+    DecorationNumbanksINTEL = 5827,
+    DecorationBankwidthINTEL = 5828,
+    DecorationMaxConcurrencyINTEL = 5829,
     DecorationMax = 0x7fffffff,
 };
 
@@ -477,6 +482,7 @@ enum LoopControlMask {
     LoopControlDontUnrollMask = 0x00000002,
     LoopControlDependencyInfiniteMask = 0x00000004,
     LoopControlDependencyLengthMask = 0x00000008,
+    LoopControlPartialCountMask = 0x00000100,
 };
 
 enum FunctionControlShift {
@@ -653,6 +659,7 @@ enum Capability {
     CapabilitySubgroupBufferBlockIOINTEL = 5569,
     CapabilitySubgroupImageBlockIOINTEL = 5570,
     CapabilitySubgroupImageMediaBlockIOINTEL = 5579,
+    CapabilityFPGAMemoryAttributesINTEL = 5824,
     CapabilityMax = 0x7fffffff,
 };
 

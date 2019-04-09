@@ -129,7 +129,7 @@ FunctionImportGlobalProcessing::getLinkage(const GlobalValue *SGV,
     // definitions upon import, so that they are available for inlining
     // and/or optimization, but are turned into declarations later
     // during the EliminateAvailableExternally pass.
-    if (doImportAsDefinition(SGV) && !dyn_cast<GlobalAlias>(SGV))
+    if (doImportAsDefinition(SGV) && !isa<GlobalAlias>(SGV))
       return GlobalValue::AvailableExternallyLinkage;
     // An imported external declaration stays external.
     return SGV->getLinkage();
@@ -158,7 +158,7 @@ FunctionImportGlobalProcessing::getLinkage(const GlobalValue *SGV,
     // equivalent, so the issue described above for weak_any does not exist,
     // and the definition can be imported. It can be treated similarly
     // to an imported externally visible global value.
-    if (doImportAsDefinition(SGV) && !dyn_cast<GlobalAlias>(SGV))
+    if (doImportAsDefinition(SGV) && !isa<GlobalAlias>(SGV))
       return GlobalValue::AvailableExternallyLinkage;
     else
       return GlobalValue::ExternalLinkage;
@@ -176,7 +176,7 @@ FunctionImportGlobalProcessing::getLinkage(const GlobalValue *SGV,
     // If we are promoting the local to global scope, it is handled
     // similarly to a normal externally visible global.
     if (DoPromote) {
-      if (doImportAsDefinition(SGV) && !dyn_cast<GlobalAlias>(SGV))
+      if (doImportAsDefinition(SGV) && !isa<GlobalAlias>(SGV))
         return GlobalValue::AvailableExternallyLinkage;
       else
         return GlobalValue::ExternalLinkage;
@@ -248,6 +248,8 @@ void FunctionImportGlobalProcessing::processGlobalForThinLTO(GlobalValue &GV) {
   bool DoPromote = false;
   if (GV.hasLocalLinkage() &&
       ((DoPromote = shouldPromoteLocalToGlobal(&GV)) || isPerformingImport())) {
+    // Save the original name string before we rename GV below.
+    auto Name = GV.getName().str();
     // Once we change the name or linkage it is difficult to determine
     // again whether we should promote since shouldPromoteLocalToGlobal needs
     // to locate the summary (based on GUID from name and linkage). Therefore,
@@ -256,6 +258,12 @@ void FunctionImportGlobalProcessing::processGlobalForThinLTO(GlobalValue &GV) {
     GV.setLinkage(getLinkage(&GV, DoPromote));
     if (!GV.hasLocalLinkage())
       GV.setVisibility(GlobalValue::HiddenVisibility);
+
+    // If we are renaming a COMDAT leader, ensure that we record the COMDAT
+    // for later renaming as well. This is required for COFF.
+    if (const auto *C = GV.getComdat())
+      if (C->getName() == Name)
+        RenamedComdats.try_emplace(C, M.getOrInsertComdat(GV.getName()));
   } else
     GV.setLinkage(getLinkage(&GV, /* DoPromote */ false));
 
@@ -280,6 +288,16 @@ void FunctionImportGlobalProcessing::processGlobalsForThinLTO() {
     processGlobalForThinLTO(SF);
   for (GlobalAlias &GA : M.aliases())
     processGlobalForThinLTO(GA);
+
+  // Replace any COMDATS that required renaming (because the COMDAT leader was
+  // promoted and renamed).
+  if (!RenamedComdats.empty())
+    for (auto &GO : M.global_objects())
+      if (auto *C = GO.getComdat()) {
+        auto Replacement = RenamedComdats.find(C);
+        if (Replacement != RenamedComdats.end())
+          GO.setComdat(Replacement->second);
+      }
 }
 
 bool FunctionImportGlobalProcessing::run() {

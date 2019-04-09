@@ -66,6 +66,12 @@ enum ActionType {
   GenExegesis,
 };
 
+namespace llvm {
+/// Storage for TimeRegionsOpt as a global so that backends aren't required to
+/// include CommandLine.h
+bool TimeRegions = false;
+} // end namespace llvm
+
 namespace {
   cl::opt<ActionType>
   Action(cl::desc("Action to perform:"),
@@ -153,6 +159,11 @@ namespace {
   cl::opt<std::string>
   Class("class", cl::desc("Print Enum list for this class"),
         cl::value_desc("class name"), cl::cat(PrintEnumsCat));
+
+cl::opt<bool, true>
+    TimeRegionsOpt("time-regions",
+                   cl::desc("Time regions of tablegens execution"),
+                   cl::location(TimeRegions));
 
 bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   switch (Action) {

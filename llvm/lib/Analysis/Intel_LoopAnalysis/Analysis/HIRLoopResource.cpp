@@ -96,6 +96,12 @@ struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
   LoopResourceInfo *ChildrenLRI;
   SmallSet<unsigned, 8> VersionedLoops;
 
+  // Keeps track of non-linear blobs so we don't account for the same cost
+  // again. Key value is blob index. Mapped values are set of coefficients found
+  // for the blob. For example, if we found (2*%t) where 5 is the blob index of
+  // %t, we will add a mapping of (5 -> 2).
+  DenseMap<unsigned, SmallVector<int64_t, 2>> VisitedNonLinearBlobs;
+
   struct BlobCostEvaluator;
 
   LoopResourceVisitor(HIRLoopResource &HLR, const HLLoop *Lp,
@@ -125,7 +131,7 @@ struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
   unsigned getOperationCost(const HLInst *HInst) const;
 
   /// Evaluates cost of blob.
-  void visit(unsigned BlobIndex);
+  void visit(unsigned BlobIndex, int64_t Coeff, Type *BlobTy);
 
   /// Helper to add cost of cast operation in CE.
   void addCastCost(const CanonExpr *CE);
@@ -133,8 +139,12 @@ struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
   /// Helper to add cost of denominator in CE.
   void addDenominatorCost(const CanonExpr *CE);
 
+  /// Invalidates cached entries of non-linear blobs based on a new temp
+  /// definition.
+  void invalidateNonLinearBlobs(const RegDDRef *LvalTempRef);
+
   /// Evaluates cost of CE.
-  void visit(const CanonExpr *CE);
+  void visit(const CanonExpr *CE, const RegDDRef *Ref);
 
   /// Evaluates cost of Ref;
   void visit(const RegDDRef *Ref);
@@ -148,6 +158,8 @@ struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
 
   void visit(const HLIf *If);
   void visit(const HLLoop *Lp);
+
+  void visit(const HLSwitch *Switch);
 };
 
 struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
@@ -253,11 +265,50 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
   }
 };
 
-void LoopResourceInfo::LoopResourceVisitor::visit(unsigned BlobIndex) {
-  auto Blob = Lp->getBlobUtils().getBlob(BlobIndex);
+void LoopResourceInfo::LoopResourceVisitor::visit(unsigned BlobIndex,
+                                                  int64_t Coeff, Type *BlobTy) {
 
-  BlobCostEvaluator BCE(*this);
-  BCE.visit(Blob);
+  // Ignore coefficient of 1.
+  bool FoundCoeff = (Coeff == 1);
+
+  auto Iter = VisitedNonLinearBlobs.find(BlobIndex);
+
+  if (Iter == VisitedNonLinearBlobs.end()) {
+    auto Blob = Lp->getBlobUtils().getBlob(BlobIndex);
+
+    BlobCostEvaluator BCE(*this);
+    BCE.visit(Blob);
+
+    SmallVector<int64_t, 2> Coeffs;
+
+    if (!FoundCoeff) {
+      Coeffs.push_back(Coeff);
+    }
+
+    VisitedNonLinearBlobs.insert(std::make_pair(BlobIndex, Coeffs));
+
+  } else if (!FoundCoeff) {
+
+    for (auto PrevCoeff : Iter->second) {
+      if (PrevCoeff == Coeff) {
+        FoundCoeff = true;
+        break;
+      }
+    }
+
+    if (!FoundCoeff) {
+      Iter->second.push_back(Coeff);
+    }
+  }
+
+  if (!FoundCoeff) {
+    unsigned Cost =
+        isPowerOf2_64(Coeff)
+            ? getNormalizedCost(TTI.getOperationCost(Instruction::Shl, BlobTy))
+            : getNormalizedCost(TTI.getOperationCost(Instruction::Mul, BlobTy));
+
+    SelfLRI->addIntOps(Cost);
+  }
 }
 
 void LoopResourceInfo::LoopResourceVisitor::addCastCost(const CanonExpr *CE) {
@@ -268,7 +319,21 @@ void LoopResourceInfo::LoopResourceVisitor::addCastCost(const CanonExpr *CE) {
     return;
   }
 
-  unsigned OpCode = CE->isTrunc()
+  bool IsTrunc = CE->isTrunc();
+
+  // If cast is an extension and CE has a single truncated blob, it is most
+  // likely a single '&&' operation in LLVM IR so we ignore the extra cast. For
+  // example- sext.i5.i32(trunc.i32.i5(%t))
+  if (!IsTrunc && CE->isStandAloneBlob(true)) {
+    auto &BU = CE->getBlobUtils();
+    auto *Blob = BU.getBlob(CE->getSingleBlobIndex());
+
+    if (isa<SCEVTruncateExpr>(Blob)) {
+      return;
+    }
+  }
+
+  unsigned OpCode = IsTrunc
                         ? Instruction::Trunc
                         : CE->isSExt() ? Instruction::SExt : Instruction::ZExt;
   unsigned Cost =
@@ -295,7 +360,8 @@ void LoopResourceInfo::LoopResourceVisitor::addDenominatorCost(
   SelfLRI->addIntOps(Cost);
 }
 
-void LoopResourceInfo::LoopResourceVisitor::visit(const CanonExpr *CE) {
+void LoopResourceInfo::LoopResourceVisitor::visit(const CanonExpr *CE,
+                                                  const RegDDRef *Ref) {
   auto SrcTy = CE->getSrcType();
 
   unsigned AddCost =
@@ -306,7 +372,10 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const CanonExpr *CE) {
       getNormalizedCost(TTI.getOperationCost(Instruction::Shl, SrcTy));
 
   bool First = true;
-  bool FoundAdditive = false;
+  bool FoundVariantAdditive = false;
+  bool FoundInvariantAdditive = false;
+
+  unsigned CurLevel = Lp->getNestingLevel();
 
   for (auto IV = CE->iv_begin(), E = CE->iv_end(); IV != E; ++IV) {
     unsigned BlobIndex;
@@ -318,18 +387,31 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const CanonExpr *CE) {
       continue;
     }
 
-    if (Coeff != 1) {
+    bool InvariantIVLevel = (CE->getLevel(IV) != CurLevel);
+
+    if (BlobIndex != InvalidBlobIndex) {
+      // Ignore cost of invariant blobs.
+      if (Ref->findMaxBlobLevel(BlobIndex) == NonLinearLevel) {
+        visit(BlobIndex, Coeff, SrcTy);
+
+      } else if (InvariantIVLevel) {
+        FoundInvariantAdditive = true;
+        continue;
+      }
+
+      SelfLRI->addIntOps(MulCost);
+
+    } else if (InvariantIVLevel) {
+      FoundInvariantAdditive = true;
+      continue;
+
+    } else if (Coeff != 1) {
       isPowerOf2_64(Coeff) ? SelfLRI->addIntOps(ShlCost)
                            : SelfLRI->addIntOps(MulCost);
     }
 
-    if (BlobIndex != InvalidBlobIndex) {
-      visit(BlobIndex);
-      SelfLRI->addIntOps(MulCost);
-    }
-
     if (First) {
-      FoundAdditive = true;
+      FoundVariantAdditive = true;
       First = false;
     } else {
       SelfLRI->addIntOps(AddCost);
@@ -338,31 +420,65 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const CanonExpr *CE) {
 
   First = true;
   for (auto Blob = CE->blob_begin(), E = CE->blob_end(); Blob != E; ++Blob) {
+    // Ignore cost of invariant blobs.
+    if (Ref->findMaxBlobLevel(Blob->Index) != NonLinearLevel) {
+      FoundInvariantAdditive = true;
+      continue;
+    }
+
+    visit(Blob->Index, Blob->Coeff, SrcTy);
+
     if (First) {
-      if (FoundAdditive) {
+      if (FoundVariantAdditive) {
         SelfLRI->addIntOps(AddCost);
       }
-      FoundAdditive = true;
+      FoundVariantAdditive = true;
       First = false;
     } else {
       SelfLRI->addIntOps(AddCost);
     }
+  }
 
-    visit(Blob->Index);
+  if (FoundVariantAdditive) {
+    if (FoundInvariantAdditive) {
+      // Add variant and invariant terms.
+      SelfLRI->addIntOps(AddCost);
 
-    if (Blob->Coeff != 1) {
-      isPowerOf2_64(Blob->Coeff) ? SelfLRI->addIntOps(ShlCost)
-                                 : SelfLRI->addIntOps(MulCost);
+    } else if (CE->getConstant() != 0) {
+      SelfLRI->addIntOps(AddCost);
+    }
+
+    addDenominatorCost(CE);
+
+    addCastCost(CE);
+  }
+}
+
+void LoopResourceInfo::LoopResourceVisitor::invalidateNonLinearBlobs(
+    const RegDDRef *LvalTempRef) {
+  auto &BU = LvalTempRef->getBlobUtils();
+
+  auto TempIndex = LvalTempRef->isSelfBlob()
+                       ? LvalTempRef->getSelfBlobIndex()
+                       : BU.findTempBlobIndex(LvalTempRef->getSymbase());
+
+  if (TempIndex == InvalidBlobIndex) {
+    return;
+  }
+
+  auto TempBlob = BU.getBlob(TempIndex);
+
+  SmallVector<unsigned, 4> InvalidatedBlobs;
+
+  for (auto &BlobCoeffsPair : VisitedNonLinearBlobs) {
+    if (BU.contains(BU.getBlob(BlobCoeffsPair.first), TempBlob)) {
+      InvalidatedBlobs.push_back(BlobCoeffsPair.first);
     }
   }
 
-  if (FoundAdditive && CE->getConstant() != 0) {
-    SelfLRI->addIntOps(AddCost);
+  for (auto Idx : InvalidatedBlobs) {
+    VisitedNonLinearBlobs.erase(Idx);
   }
-
-  addDenominatorCost(CE);
-
-  addCastCost(CE);
 }
 
 void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
@@ -375,33 +491,60 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
     } else {
       IsFloat ? ++SelfLRI->FPMemReads : ++SelfLRI->IntMemReads;
     }
-  }
-  // Ignore temp lvals.
-  else if (Ref->isLval()) {
+  } else if (Ref->isLval()) {
+    invalidateNonLinearBlobs(Ref);
     return;
   }
 
-  bool HasGEPInfo = Ref->hasGEPInfo();
+  unsigned Cost;
   unsigned DimNum = 1;
+  const CanonExpr *CE = nullptr;
+  bool HasGEPInfo = Ref->hasGEPInfo();
+  unsigned CurLevel = Lp->getNestingLevel();
+
+  bool BaseIsNonLinear = (HasGEPInfo && Ref->getBaseCE()->isNonLinear());
+  bool AccountForBase = BaseIsNonLinear;
+  bool HasNonZeroOffset = false;
 
   for (auto CEI = Ref->canon_begin(), CEE = Ref->canon_end(); CEI != CEE;
        ++CEI, ++DimNum) {
-    visit(*CEI);
 
-    if (HasGEPInfo && !(*CEI)->isZero()) {
-      // Add cost for base + offset.
-      unsigned Cost = getNormalizedCost(
-          TTI.getOperationCost(Instruction::Add, (*CEI)->getDestType()));
-      SelfLRI->addIntOps(Cost);
+    CE = *CEI;
 
-      auto Stride = Ref->getDimensionConstStride(DimNum);
+    visit(CE, Ref);
 
-      // Add cost of stride multiplication.
-      Cost = getNormalizedCost(TTI.getOperationCost(
-          isPowerOf2_64(Stride) ? Instruction::Shl : Instruction::Mul,
-          (*CEI)->getDestType()));
-      SelfLRI->addIntOps(Cost);
+    if (HasGEPInfo) {
+      if (!CE->isInvariantAtLevel(CurLevel)) {
+        auto Stride = Ref->getDimensionConstStride(DimNum);
+
+        // Add cost of stride multiplication.
+        if (Stride != 1) {
+          Cost = getNormalizedCost(TTI.getOperationCost(
+              isPowerOf2_64(Stride) ? Instruction::Shl : Instruction::Mul,
+              CE->getDestType()));
+          SelfLRI->addIntOps(Cost);
+        }
+
+        // Add cost for addition of non-linear offset.
+        Cost = getNormalizedCost(
+            TTI.getOperationCost(Instruction::Add, CE->getDestType()));
+        SelfLRI->addIntOps(Cost);
+
+        AccountForBase = false;
+
+      } else if (AccountForBase) {
+        HasNonZeroOffset =
+            HasNonZeroOffset ||
+            (!CE->isZero() || Ref->hasNonZeroTrailingStructOffsets(DimNum));
+      }
     }
+  }
+
+  if (AccountForBase && HasNonZeroOffset) {
+    // Add cost for base + offset.
+    Cost = getNormalizedCost(
+        TTI.getOperationCost(Instruction::Add, CE->getDestType()));
+    SelfLRI->addIntOps(Cost);
   }
 }
 
@@ -424,7 +567,6 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
 
   auto Inst = HInst->getLLVMInstruction();
   auto InstTy = Inst->getType();
-  Type *OpTy = nullptr;
 
   int Cost = LoopResourceInfo::OperationCost::BasicOp;
 
@@ -432,14 +574,17 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
     Cost = TTI.getOperationCost(Inst->getOpcode(), InstTy);
 
   } else if (auto CInst = dyn_cast<CastInst>(Inst)) {
-    OpTy = CInst->getSrcTy();
+    Type *OpTy = CInst->getSrcTy();
     Cost = TTI.getOperationCost(CInst->getOpcode(), InstTy, OpTy);
 
   } else if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) {
+    // Use operand type here as the CmpInst's type is 'i1'.
+    auto *CmpTy = (*HInst->rval_op_ddref_begin())->getDestType();
+
     PredicateTy Pred = HInst->getPredicate();
     Cost = TTI.getOperationCost(
         CmpInst::isIntPredicate(Pred) ? Instruction::ICmp : Instruction::FCmp,
-        InstTy);
+        CmpTy);
 
   } else if (Inst->mayReadOrWriteMemory()) {
     return LoopResourceInfo::OperationCost::MemOp;
@@ -468,11 +613,24 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLInst *HInst) {
     return;
   }
 
+  if (HInst->isIndirectCallInst()) {
+    // Add expensive cost for indirect calls because of misprediction.
+    SelfLRI->addBranchOps(LoopResourceInfo::OperationCost::ExpensiveOp);
+  }
+
   unsigned Cost = getOperationCost(HInst);
   bool IsFP = false;
+  bool IsSelect = false;
 
-  if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) {
+  if (isa<CmpInst>(Inst) || (IsSelect = isa<SelectInst>(Inst))) {
     IsFP = CmpInst::isFPPredicate(HInst->getPredicate());
+
+    if (IsSelect) {
+      unsigned SelectCost =
+          TTI.getOperationCost(Instruction::Select, Inst->getType());
+      SelfLRI->addIntOps(getNormalizedCost(SelectCost));
+    }
+
   } else if (HInst->hasLval()) {
     IsFP = HInst->getLvalDDRef()->getDestType()->isFPOrFPVectorTy();
   }
@@ -507,6 +665,9 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLIf *If) {
   if (!visit(cast<HLDDNode>(If))) {
     return;
   }
+
+  // Add expensive cost for conditional branches because of misprediction.
+  SelfLRI->addBranchOps(LoopResourceInfo::OperationCost::ExpensiveOp);
 
   // TODO: use weighed average of then and else children?
 
@@ -544,11 +705,24 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLLoop *Lp) {
   }
 }
 
+void LoopResourceInfo::LoopResourceVisitor::visit(const HLSwitch *Switch) {
+  // Return if we do not care for this node.
+  if (!visit(cast<HLDDNode>(Switch))) {
+    return;
+  }
+
+  // Add expensive op for branches due to misprediction.
+  // TODO: add more cost?
+  SelfLRI->addBranchOps(LoopResourceInfo::OperationCost::ExpensiveOp);
+}
+
 LoopResourceInfo &LoopResourceInfo::operator+=(const LoopResourceInfo &LRI) {
   IntOps += LRI.IntOps;
   IntOpsCost += LRI.IntOpsCost;
   FPOps += LRI.FPOps;
   FPOpsCost += LRI.FPOpsCost;
+  BranchOps += LRI.BranchOps;
+  BranchOpsCost += LRI.BranchOpsCost;
   IntMemReads += LRI.IntMemReads;
   IntMemWrites += LRI.IntMemWrites;
   FPMemReads += LRI.FPMemReads;
@@ -562,6 +736,8 @@ LoopResourceInfo &LoopResourceInfo::operator*=(unsigned Multiplier) {
   IntOpsCost *= Multiplier;
   FPOps *= Multiplier;
   FPOpsCost *= Multiplier;
+  BranchOps *= Multiplier;
+  BranchOpsCost *= Multiplier;
   IntMemReads *= Multiplier;
   IntMemWrites *= Multiplier;
   FPMemReads *= Multiplier;
@@ -572,15 +748,18 @@ LoopResourceInfo &LoopResourceInfo::operator*=(unsigned Multiplier) {
 
 void LoopResourceInfo::classify() {
 
-  unsigned IntOpsCost = getIntOpsCost();
-  unsigned FPOpsCost = getFPOpsCost();
   unsigned MemOpsCost = getMemOpsCost();
 
-  if (MemOpsCost && (MemOpsCost >= FPOpsCost) && (MemOpsCost >= IntOpsCost)) {
+  if (MemOpsCost && (MemOpsCost >= FPOpsCost) && (MemOpsCost >= IntOpsCost) &&
+      (MemOpsCost >= BranchOpsCost)) {
     Bound = LoopResourceBound::Memory;
 
-  } else if (FPOpsCost && (FPOpsCost >= IntOpsCost)) {
+  } else if (FPOpsCost && (FPOpsCost >= IntOpsCost) &&
+             (FPOpsCost >= BranchOpsCost)) {
     Bound = LoopResourceBound::FP;
+
+  } else if (BranchOpsCost >= IntOpsCost) {
+    Bound = LoopResourceBound::Branch;
 
   } else {
     Bound = LoopResourceBound::Int;
@@ -625,6 +804,15 @@ void LoopResourceInfo::print(formatted_raw_ostream &OS,
     OS << "Floating Point Operations Cost: " << FPOpsCost << "\n";
   }
 
+  if (BranchOps) {
+    Lp->indent(OS, Depth);
+    OS << "Branching(Misprediction) Operations: " << BranchOps << "\n";
+  }
+  if (BranchOpsCost) {
+    Lp->indent(OS, Depth);
+    OS << "Branching(Misprediction) Operations Cost: " << BranchOpsCost << "\n";
+  }
+
   if (IntMemReads) {
     Lp->indent(OS, Depth);
     OS << "Integer Memory Reads: " << IntMemReads << "\n";
@@ -649,6 +837,9 @@ void LoopResourceInfo::print(formatted_raw_ostream &OS,
   }
 
   Lp->indent(OS, Depth);
+  OS << "Total Cost: " << getTotalCost() << "\n";
+
+  Lp->indent(OS, Depth);
 
   switch (Bound) {
   case LoopResourceBound::Memory:
@@ -659,6 +850,9 @@ void LoopResourceInfo::print(formatted_raw_ostream &OS,
     break;
   case LoopResourceBound::FP:
     OS << "Floating Point Bound \n";
+    break;
+  case LoopResourceBound::Branch:
+    OS << "Branch(Misprediction) Bound \n";
     break;
   case LoopResourceBound::Unknown:
     OS << "Unknown Bound \n";

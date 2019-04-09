@@ -320,6 +320,9 @@ public:
   /// corresponding to the SIMD construct. Otherwise, return nullptr.
   static WRNVecLoopNode *getEnclosedSimdForSameLoop(WRegionNode *W,
                                                     unsigned Idx = 0);
+
+  /// Return true if \p W represents a stand-alone directive
+  static bool isStandAlone(WRegionNode *W);
 };
 
 } // End VPO Namespace

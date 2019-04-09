@@ -88,7 +88,7 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 
 !0 = !{i32 0, i32 59, i32 -1943003064, !"main", i32 5, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 846c7b63b34b5c4bd6d402aa32e62c2fc1a2d82d) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm ca757d209056c1d0e941db364122a00aaefc0719)"}
+!2 = !{!"clang version 8.0.0"}
 !3 = !{!4, !4, i64 0}
 !4 = !{!"int", !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}

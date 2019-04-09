@@ -486,28 +486,6 @@ void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
   initPathToInfo(BadPathFrom, BadPathTo);
 }
 
-void FuseGraph::updateReversedPredecessors(unsigned NodeV, unsigned NodeX) {
-  FuseNode &FNodeV = Vertex[NodeV];
-
-  auto &ReversedPredecessorsNodeV = ReversedPredecessors[NodeV];
-  auto &ReversedPredecessorsNodeX = ReversedPredecessors[NodeX];
-
-  ReversedPredecessorsNodeV.insert(ReversedPredecessorsNodeX.begin(),
-                                   ReversedPredecessorsNodeX.end());
-
-  for (unsigned Node : PathTo[NodeX]) {
-    auto &FNode = Vertex[Node];
-    if (FNode.isRemoved()) {
-      continue;
-    }
-
-    if (Node != NodeX &&
-        Vertex[Node].getTopSortNumber() > FNodeV.getTopSortNumber()) {
-      ReversedPredecessorsNodeV.insert(Node);
-    }
-  }
-}
-
 void FuseGraph::updateSlice(unsigned NodeX, NodeMapTy &LocalPathFrom,
                             NodeSetTy &NewPathSources, NodeSetTy &NewPathSinks,
                             NodeMapTy &Preds) {
@@ -808,14 +786,10 @@ void FuseGraph::collapse(FuseEdgeHeap &Heap, unsigned NodeV,
 
     updatePathInfo(NodeV, NodeX);
 
-    updateReversedPredecessors(NodeV, NodeX);
-
     // O(E*V) each update
     updateSuccessors(Heap, NodeV, NodeX, CollapseRange);
     updatePredecessors(Heap, NodeV, NodeX, CollapseRange);
     updateNeighbors(Heap, NodeV, NodeX, CollapseRange);
-
-    ReversedPredecessors.erase(NodeX);
 
     PathFrom.erase(NodeX);
     BadPathFrom.erase(NodeX);
@@ -1254,36 +1228,6 @@ FuseGraph::FuseGraph(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS, DDGraph DDG,
   weightedFusion();
 }
 
-void FuseGraph::topologicalSortUtil(unsigned Node,
-                                    SmallVectorImpl<bool> &Visited,
-                                    SmallVectorImpl<unsigned> &Stack) const {
-  Visited[Node] = true;
-
-  {
-    auto Iter = Successors.find(Node);
-    if (Iter != Successors.end()) {
-      for (unsigned Succ : Iter->second) {
-        if (!Visited[Succ]) {
-          topologicalSortUtil(Succ, Visited, Stack);
-        }
-      }
-    }
-  }
-
-  Stack.push_back(Node);
-
-  {
-    auto Iter = ReversedPredecessors.find(Node);
-    if (Iter != ReversedPredecessors.end()) {
-      for (unsigned Pred : Iter->second) {
-        if (!Visited[Pred]) {
-          topologicalSortUtil(Pred, Visited, Stack);
-        }
-      }
-    }
-  }
-}
-
 FuseGraph FuseGraph::create(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
                             HLNode *ParentNode, HLNodeRangeTy Range) {
   assert(Range.begin()->getParent() == ParentNode &&
@@ -1373,36 +1317,62 @@ void FuseGraph::dump() const {
   DEBUG_FG(dbgs() << "BadPathFrom:\n");
   DEBUG_FG(dumpNodeRawMap(BadPathFrom));
 
-  DEBUG_FG(dbgs() << "ReversedPredecessors:\n");
-  DEBUG_FG(dumpNodeRawMap(ReversedPredecessors));
-
   dbgs() << "\n";
 }
 
 void FuseGraph::topologicalSort(
     SmallVectorImpl<const FuseNode *> &SortedFuseNodes) const {
-  SmallVector<bool, 8> Visited;
-  Visited.resize(Vertex.size(), false);
-  SmallVector<unsigned, 8> Stack;
+  // Do the DFS of predecessors. No need to reverse SortedFuseNodes at the end.
 
-  for (unsigned NodeV = 0, E = Vertex.size(); NodeV < E; ++NodeV) {
-    if (Visited[NodeV]) {
+  // Number of nodes in FuseGraph
+  unsigned NumNodes = Vertex.size();
+
+  SortedFuseNodes.reserve(NumNodes);
+  BitVector Visited(NumNodes);
+
+  SmallVector<unsigned, 8> WorkList;
+  WorkList.reserve(NumNodes);
+
+  for (unsigned NodeIdx = 0; NodeIdx < NumNodes; NodeIdx++) {
+    if (Visited[NodeIdx] || Vertex[NodeIdx].isRemoved()) {
       continue;
     }
 
-    if (Vertex[NodeV].isRemoved()) {
-      Visited[NodeV] = true;
-      continue;
-    }
+    WorkList.push_back(NodeIdx);
 
-    topologicalSortUtil(NodeV, Visited, Stack);
-  }
+    while (!WorkList.empty()) {
+      unsigned CurNodeIdx = WorkList.back();
+      bool UnvisitedPredecessors = false;
 
-  SortedFuseNodes.reserve(Stack.size());
-  while (!Stack.empty()) {
-    auto *Node = &Vertex[Stack.pop_back_val()];
-    if (!Node->isRemoved()) {
-      SortedFuseNodes.push_back(Node);
+      auto PredNodes = Predecessors.find(CurNodeIdx);
+      if (PredNodes != Predecessors.end()) {
+        // Sort predecessors to make the final sequence stable - original order
+        // preserved if no reordering is required.
+        SmallVector<unsigned, 8> SortedPredNodes(PredNodes->second.begin(),
+                                                 PredNodes->second.end());
+
+        // Use std::greater<unsigned>() because we push nodes to the back and
+        // nodes from the back would be handled first.
+        std::sort(SortedPredNodes.begin(), SortedPredNodes.end(),
+                  std::greater<unsigned>());
+
+        for (auto Pred : SortedPredNodes) {
+          if (!Visited[Pred]) {
+            WorkList.push_back(Pred);
+            UnvisitedPredecessors = true;
+          }
+        }
+      }
+
+      if (!UnvisitedPredecessors) {
+        WorkList.pop_back();
+
+        assert(!Vertex[CurNodeIdx].isRemoved() && "Adding removed node");
+        SortedFuseNodes.push_back(&Vertex[CurNodeIdx]);
+
+        assert(!Visited[CurNodeIdx] && "Found already visited node");
+        Visited[CurNodeIdx] = true;
+      }
     }
   }
 }

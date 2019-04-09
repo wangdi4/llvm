@@ -104,27 +104,60 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
-set(LLVM_ALL_PROJECTS "clang;libcxx;libcxxabi;libunwind;lldb;compiler-rt;lld;polly;debuginfo-tests")
+set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;debuginfo-tests;libclc;libcxx;libcxxabi;libunwind;lld;lldb;llgo;openmp;parallel-libs;polly;pstl")
 set(LLVM_ENABLE_PROJECTS "" CACHE STRING
 	"Semicolon-separated list of projects to build (${LLVM_ALL_PROJECTS}), or \"all\".")
 if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
   set( LLVM_ENABLE_PROJECTS ${LLVM_ALL_PROJECTS})
 endif()
-foreach(proj ${LLVM_ENABLE_PROJECTS})
-  set(PROJ_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../${proj}")
-  if(NOT EXISTS "${PROJ_DIR}" OR NOT IS_DIRECTORY "${PROJ_DIR}")
-    message(FATAL_ERROR "LLVM_ENABLE_PROJECTS requests ${proj} but directory not found: ${PROJ_DIR}")
-  endif()
-  string(TOUPPER "${proj}" upper_proj)
-  STRING(REGEX REPLACE "-" "_" upper_proj ${upper_proj})
-  set(LLVM_EXTERNAL_${upper_proj}_SOURCE_DIR   "${CMAKE_CURRENT_SOURCE_DIR}/../${proj}")
-  # There is a widely spread opinion that clang-tools-extra should be merged
-  # into clang. The following simulates it by always enabling clang-tools-extra
-  # when enabling clang.
-  if (proj STREQUAL "clang")
-    set(LLVM_EXTERNAL_CLANG_TOOLS_EXTRA_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../clang-tools-extra")
-  endif()
-endforeach()
+
+# LLVM_ENABLE_PROJECTS_USED is `ON` if the user has ever used the
+# `LLVM_ENABLE_PROJECTS` CMake cache variable.  This exists for
+# several reasons:
+#
+# * As an indicator that the `LLVM_ENABLE_PROJECTS` list is now the single
+# source of truth for which projects to build. This means we will ignore user
+# supplied `LLVM_TOOL_<project>_BUILD` CMake cache variables and overwrite
+# them.
+#
+# * The case where the user previously had `LLVM_ENABLE_PROJECTS` set to a
+# non-empty list but now the user wishes to disable building all other projects
+# by setting `LLVM_ENABLE_PROJECTS` to an empty string. In that case we still
+# need to set the `LLVM_TOOL_${upper_proj}_BUILD` variables so that we disable
+# building all the projects that were previously enabled.
+set(LLVM_ENABLE_PROJECTS_USED OFF CACHE BOOL "")
+mark_as_advanced(LLVM_ENABLE_PROJECTS_USED)
+
+if (LLVM_ENABLE_PROJECTS_USED OR NOT LLVM_ENABLE_PROJECTS STREQUAL "")
+  set(LLVM_ENABLE_PROJECTS_USED ON CACHE BOOL "" FORCE)
+  foreach(proj ${LLVM_ALL_PROJECTS} ${LLVM_EXTERNAL_PROJECTS})
+    string(TOUPPER "${proj}" upper_proj)
+    string(REGEX REPLACE "-" "_" upper_proj ${upper_proj})
+    if ("${proj}" IN_LIST LLVM_ENABLE_PROJECTS)
+      message(STATUS "${proj} project is enabled")
+      set(SHOULD_ENABLE_PROJECT TRUE)
+      set(PROJ_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../${proj}")
+      if(NOT EXISTS "${PROJ_DIR}" OR NOT IS_DIRECTORY "${PROJ_DIR}")
+        message(FATAL_ERROR "LLVM_ENABLE_PROJECTS requests ${proj} but directory not found: ${PROJ_DIR}")
+      endif()
+      set(LLVM_EXTERNAL_${upper_proj}_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../${proj}" CACHE STRING "")
+    else()
+      message(STATUS "${proj} project is disabled")
+      set(SHOULD_ENABLE_PROJECT FALSE)
+    endif()
+    # Force `LLVM_TOOL_${upper_proj}_BUILD` variables to have values that
+    # corresponds with `LLVM_ENABLE_PROJECTS`. This prevents the user setting
+    # `LLVM_TOOL_${upper_proj}_BUILD` variables externally. At some point
+    # we should deprecate allowing users to set these variables by turning them
+    # into normal CMake variables rather than cache variables.
+    set(LLVM_TOOL_${upper_proj}_BUILD
+      ${SHOULD_ENABLE_PROJECT}
+      CACHE
+      BOOL "Whether to build ${upper_proj} as part of LLVM" FORCE
+    )
+  endforeach()
+endif()
+unset(SHOULD_ENABLE_PROJECT)
 
 # Build llvm with ccache if the package is present
 set(LLVM_CCACHE_BUILD OFF CACHE BOOL "Set to ON for a ccache enabled build")
@@ -200,7 +233,7 @@ endif()
 include(VersionFromVCS)
 
 option(LLVM_APPEND_VC_REV
-  "Embed the version control system revision id in LLVM" ON)
+  "Embed the version control system revision in LLVM" ON)
 
 set(PACKAGE_NAME LLVM)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
@@ -353,6 +386,31 @@ option(LLVM_ENABLE_THREADS "Use threads if available." ON)
 
 option(LLVM_ENABLE_ZLIB "Use zlib for compression/decompression if available." ON)
 
+set(LLVM_Z3_INSTALL_DIR "" CACHE STRING "Install directory of the Z3 solver.")
+
+find_package(Z3 4.7.1)
+
+if (LLVM_Z3_INSTALL_DIR)
+  if (NOT Z3_FOUND)
+    message(FATAL_ERROR "Z3 >= 4.7.1 has not been found in LLVM_Z3_INSTALL_DIR: ${LLVM_Z3_INSTALL_DIR}.")
+  endif()
+endif()
+
+set(LLVM_ENABLE_Z3_SOLVER_DEFAULT "${Z3_FOUND}")
+
+option(LLVM_ENABLE_Z3_SOLVER
+  "Enable Support for the Z3 constraint solver in LLVM."
+  ${LLVM_ENABLE_Z3_SOLVER_DEFAULT}
+)
+
+if (LLVM_ENABLE_Z3_SOLVER)
+  if (NOT Z3_FOUND)
+    message(FATAL_ERROR "LLVM_ENABLE_Z3_SOLVER cannot be enabled when Z3 is not available.")
+  endif()
+
+  set(LLVM_WITH_Z3 1)
+endif()
+
 if( LLVM_TARGETS_TO_BUILD STREQUAL "all" )
   set( LLVM_TARGETS_TO_BUILD ${LLVM_ALL_TARGETS} )
 endif()
@@ -392,9 +450,10 @@ option(LLVM_ENABLE_EXPENSIVE_CHECKS "Enable expensive checks" OFF)
 set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
   "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON or FORCE_OFF.")
 
-option(LLVM_FORCE_USE_OLD_HOST_TOOLCHAIN
+option(LLVM_FORCE_USE_OLD_TOOLCHAIN
        "Set to ON to force using an old, unsupported host toolchain." OFF)
-
+option(LLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN
+       "Set to ON to only warn when using a toolchain which is about to be deprecated, instead of emitting an error." OFF)
 option(LLVM_USE_INTEL_JITEVENTS
   "Use Intel JIT API to inform Intel(R) VTune(TM) Amplifier XE 2011 about JIT code"
   OFF)
@@ -543,7 +602,7 @@ if(NOT DEFINED LLVM_DYLIB_COMPONENTS)
 endif()
 option(LLVM_LINK_LLVM_DYLIB "Link tools against the libllvm dynamic library" OFF)
 if(MSVC)
-  option(LLVM_BUILD_LLVM_C_DYLIB "Build LLVM-C.dll (Windows only)" OFF)
+  option(LLVM_BUILD_LLVM_C_DYLIB "Build LLVM-C.dll (Windows only)" ON)
 else()
   option(LLVM_BUILD_LLVM_C_DYLIB "Build libllvm-c re-export library (Darwin only)" OFF)
 endif()
@@ -576,6 +635,12 @@ if (LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE OR
       file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/profiles" LLVM_PROFILE_DATA_DIR)
     endif()
 		file(TO_NATIVE_PATH "${LLVM_PROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_PROFILE_FILE_PATTERN)
+  endif()
+  if(NOT LLVM_CSPROFILE_FILE_PATTERN)
+    if(NOT LLVM_CSPROFILE_DATA_DIR)
+      file(TO_NATIVE_PATH "${LLVM_BINARY_DIR}/csprofiles" LLVM_CSPROFILE_DATA_DIR)
+    endif()
+    file(TO_NATIVE_PATH "${LLVM_CSPROFILE_DATA_DIR}/%${LLVM_PROFILE_MERGE_POOL_SIZE}m.profraw" LLVM_CSPROFILE_FILE_PATTERN)
   endif()
 endif()
 
@@ -814,6 +879,11 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16)
 # end INTEL_FEATURE_ISA_BF16
 
+# INTEL_FEATURE_ISA_ULI
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_ULI)
+# end INTEL_FEATURE_ISA_ULI
+
 # INTEL_FEATURE_ISA_FP16
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16)
@@ -824,10 +894,25 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE)
 # end INTEL_FEATURE_ISA_SERIALIZE
 
+# INTEL_FEATURE_ISA_TSXLDTRK
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_TSXLDTRK)
+# end INTEL_FEATURE_ISA_TSXLDTRK
+
 # INTEL_FEATURE_ISA_AMX
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX)
 # end INTEL_FEATURE_ISA_AMX
+
+# INTEL_FEATURE_CPU_GLC
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_CPU_GLC)
+# end INTEL_FEATURE_CPU_GLC
+
+# INTEL_FEATURE_ISA_AVX_VNNI
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI)
+# end INTEL_FEATURE_ISA_AVX_VNNI
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -999,13 +1084,12 @@ set(LLVM_SRPM_USER_BINARY_SPECFILE ${CMAKE_CURRENT_SOURCE_DIR}/llvm.spec.in
 set(LLVM_SRPM_BINARY_SPECFILE ${CMAKE_CURRENT_BINARY_DIR}/llvm.spec)
 set(LLVM_SRPM_DIR "${CMAKE_CURRENT_BINARY_DIR}/srpm")
 
-# SVN_REVISION and GIT_COMMIT get set by the call to add_version_info_from_vcs.
-# DUMMY_VAR contains a version string which we don't care about.
-add_version_info_from_vcs(DUMMY_VAR)
-if ( SVN_REVISION )
-  set(LLVM_RPM_SPEC_REVISION "r${SVN_REVISION}")
-elseif ( GIT_COMMIT )
-  set (LLVM_RPM_SPEC_REVISION "g${GIT_COMMIT}")
+get_source_info(${CMAKE_CURRENT_SOURCE_DIR} revision repository)
+string(LENGTH "${revision}" revision_length)
+if(revision MATCHES "^[0-9]+$" AND revision_length LESS 40)
+  set(LLVM_RPM_SPEC_REVISION "r${revision}")
+else()
+  set(LLVM_RPM_SPEC_REVISION "${revision}")
 endif()
 
 configure_file(
@@ -1351,6 +1435,19 @@ if (INTEL_CUSTOMIZATION)
   if(DEFINED INTEL_DEPLOY_COMPONENTS)
 
     set(manifest_list)
+
+    if (BUILD_SHARED_LIBS)
+      # CMPLRTOOLS-14831:
+      # If we are building shared libraries, we need to install
+      # LLVM_LIBS.
+      list(APPEND INTEL_DEPLOY_COMPONENTS ${LLVM_LIBS})
+
+      # clang libraries are in CLANG_EXPORTS list.
+      # Hopefully, the extra tools, which are also in the list,
+      # may be safely installed without causing any conflicts.
+      get_property(CLANG_EXPORTS GLOBAL PROPERTY CLANG_EXPORTS)
+      list(APPEND INTEL_DEPLOY_COMPONENTS ${CLANG_EXPORTS})
+    endif()
 
     foreach( comp ${INTEL_DEPLOY_COMPONENTS} )
 

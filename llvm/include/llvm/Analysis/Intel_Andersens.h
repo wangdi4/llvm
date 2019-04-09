@@ -328,13 +328,14 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   std::map<unsigned, bool> Tarjan2Deleted;
 
   // Current DFS number
-  unsigned DFSNumber;
+  unsigned DFSNumber = 0;
 
   // Work lists.
   WorkList w1, w2;
 
   // "current" and "next" work lists
-  WorkList *CurrWL, *NextWL;
+  WorkList *CurrWL = nullptr;
+  WorkList *NextWL = nullptr;
 
   // Temporary rep storage, used because we can't collapse SCC's in the
   // predecessor graph by uniting the variables permanently, we can only do so
@@ -347,14 +348,14 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // During variable substitution, we create unknowns to represent the unknown
   // value that is a dereference of a variable.  These nodes are known as
   // "ref" nodes (since they represent the value of dereferences).
-  unsigned FirstRefNode;
+  unsigned FirstRefNode = 0;
 
   // During HVN, we create represent address taken nodes as if they were
   // unknown (since HVN, unlike HU, does not evaluate unions).
-  unsigned FirstAdrNode;
+  unsigned FirstAdrNode = 0;
 
   // Current pointer equivalence class number
-  unsigned PEClass;
+  unsigned PEClass = 0;
 
   // Mapping from points-to sets to equivalence classes
   typedef DenseMap<SparseBitVector<> *, unsigned, BitmapKeyInfo> BitVectorMap;
@@ -377,10 +378,10 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   std::vector<int> SDT;
 
   // Whether to use SDT (UniteNodes can use it during solving, but not before)
-  bool SDTActive;
+  bool SDTActive = false;
 
   // Skip doing Andersens Analysis if it finds unexpected Insts.
-  bool SkipAndersensAnalysis;
+  bool SkipAndersensAnalysis = false;
 
   // The data structure to record the static global variable
   // which are not escaped from the current routine.
@@ -410,12 +411,17 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // interface used by the AndersensAAResult.
   class IntelModRef {
   public:
-    IntelModRef(AndersensAAResult *AnderAA);
+    IntelModRef(AndersensAAResult *AnderAA, const TargetLibraryInfo &TLI);
     ~IntelModRef();
 
     void runAnalysis(Module &M);
-    ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
+    ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
+                             AAQueryInfo &AAQI);
 
+    // When the AndersenAAResult is moved to a new object, the handle stored
+    // within this class needs to be updated so that calls can be made to query
+    // alias information.
+    void resetAndersenAAResult(AndersensAAResult *AnderAA);
   private:
     // Pointer to implementation idiom
     IntelModRefImpl *Impl;
@@ -450,13 +456,20 @@ public:
   //------------------------------------------------
   // Implement the AliasAnalysis API
   //
-  AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
+  AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
+                    AAQueryInfo &AAQI);
 
-  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
-  ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2);
+  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
+                           AAQueryInfo &AAQI);
+  ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,
+                           AAQueryInfo &AAQI);
+
+  // Return 'true' if the memory location may escape.
+  bool mayEscape(const MemoryLocation &LocB);
 
   // Chases pointers until we find a (constant global) or not.
-  bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal);
+  bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
+                              bool OrLocal);
   // Returns true if the given value V does not escape from
   // the current routine.
   bool escapes(const Value *V);

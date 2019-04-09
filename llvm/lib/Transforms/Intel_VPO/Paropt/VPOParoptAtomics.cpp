@@ -48,9 +48,6 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
   bool handled;
   assert(AtomicNode != nullptr && "AtomicNode is null.");
 
-  assert(AtomicNode->isBBSetEmpty() &&
-         "handleAtomic: BBSET should start empty");
-
   AtomicNode->populateBBSet();
 
   if (AtomicNode->getBBSetSize() < 3) {
@@ -1217,9 +1214,60 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
   // The KMPC intrinsic is different for the two cases, so to differentiate the
   // two in OpToUpdateIntrinsicMap, Opcode for `fdiv` is used for case (1),
   // and op code `udiv` is used for case (2).
-  if (AtomicUpdate && OpCode == Instruction::FDiv && ValueOpndTy == F128) {
-    if (isUIToFPCast(*(Operation.getOperand(Reversed ? 1 : 0))))
-      OpCode = Instruction::UDiv;
+  if (OpCode == Instruction::FDiv && ValueOpndTy == F128 &&
+      isUIToFPCast(*(Operation.getOperand(Reversed ? 1 : 0)))) {
+    OpCode = Instruction::UDiv;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed FDiv to UDiv.\n");
+  }
+
+  // Similarly for multiplication of unsigned ints with F128, we use Mul
+  // instead of FMul.
+  if (OpCode == Instruction::FMul && ValueOpndTy == F128 &&
+      isUIToFPCast(*(Operation.getOperand(Reversed ? 1 : 0)))) {
+    OpCode = Instruction::Mul;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed FMul to Mul.\n");
+  }
+
+  // Division, shift operations on uints may use the same operator as ints.
+  // uint32, uint64 use lshr/udiv instead of ashr/sdiv if both atomic and value
+  // operands are of the same type. Otherwise, sdiv/ashr are used for both int,
+  // uint. To identify the kmpc routines correctly, we need to check if there is
+  // a zext/sext on the atomic operand before the actual sdiv/ashr operation.
+  //
+  // -----------------------------------+---------------------------------------
+  //   int8_t i1; uint8_t u1; uint64_t rhs;
+  //                                    |
+  //   #pragma omp atomic               | #pragma omp atomic
+  //   i1 >>= rhs;                      | u1 >>= rhs;
+  // -----------------------------------+---------------------------------------
+  //               [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.UPDATE"() ]
+  //                                    |
+  //  %25 = load i64, i64* %rhs.addr    | %28 = load i64, i64* %rhs.addr
+  //  %26 = load i8, i8* @i1            | %29 = load i8, i8* @u1
+  //  %conv20 = sext i8 %26 to i32      | %conv22 = zext i8 %29 to i32
+  //  %sh_prom = trunc i64 %25 to i32   | %sh_prom23 = trunc i64 %28 to i32
+  //  %shl.mask = and i32 %sh_prom, 31  | %shl.mask24 = and i32 %sh_prom23, 31
+  //  %shr = ashr i32 %conv20, %shl.mask| %shr25 = ashr i32 %conv22, %shl.mask24
+  //  %conv21 = trunc i32 %shr to i8    | %conv26 = trunc i32 %shr25 to i8
+  //  store i8 %conv21, i8* @i1         | store i8 %conv26, i8* @u1
+  //                                    |
+  //                        [ "DIR.OMP.END.ATOMIC"() ]
+  //                                    |
+
+  if (OpCode == Instruction::SDiv &&
+      (AtomicOpndTy == I8 || AtomicOpndTy == I16 || AtomicOpndTy == I32 ||
+       AtomicOpndTy == I64) &&
+      isa<ZExtInst>(*(Operation.getOperand(Reversed ? 1 : 0)))) {
+    OpCode = Instruction::UDiv;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed SDiv to UDiv.\n");
+  }
+
+  if (OpCode == Instruction::AShr &&
+      (AtomicOpndTy == I8 || AtomicOpndTy == I16 || AtomicOpndTy == I32 ||
+       AtomicOpndTy == I64) &&
+      isa<ZExtInst>(*(Operation.getOperand(Reversed ? 1 : 0)))) {
+    OpCode = Instruction::LShr;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed AShr to LShr.\n");
   }
 
   // Create the key from op code and opnd types, and do the map lookup.
@@ -1227,7 +1275,8 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
   auto MapEntry = MapToUse.find(OpTy);
 
   if (MapEntry == MapToUse.end()) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found.\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found for "
+                      << Instruction::getOpcodeName(OpCode) << ".\n");
     return std::string();
   }
 
@@ -1431,24 +1480,28 @@ const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
         {{Instruction::FAdd, {I8, F128}}, "__kmpc_atomic_fixed1_add_fp"},
         {{Instruction::FSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_fp"},
         {{Instruction::FMul, {I8, F128}}, "__kmpc_atomic_fixed1_mul_fp"},
+        {{Instruction::Mul,  {I8, F128}}, "__kmpc_atomic_fixed1u_mul_fp"},
         {{Instruction::FDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_fp"},
         {{Instruction::UDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_fp"},
         // I16 = I16 op F128
         {{Instruction::FAdd, {I16, F128}}, "__kmpc_atomic_fixed2_add_fp"},
         {{Instruction::FSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_fp"},
         {{Instruction::FMul, {I16, F128}}, "__kmpc_atomic_fixed2_mul_fp"},
+        {{Instruction::Mul,  {I16, F128}}, "__kmpc_atomic_fixed2u_mul_fp"},
         {{Instruction::FDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_fp"},
         {{Instruction::UDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_fp"},
         // I32 = I32 op F128
         {{Instruction::FAdd, {I32, F128}}, "__kmpc_atomic_fixed4_add_fp"},
         {{Instruction::FSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_fp"},
         {{Instruction::FMul, {I32, F128}}, "__kmpc_atomic_fixed4_mul_fp"},
+        {{Instruction::Mul,  {I32, F128}}, "__kmpc_atomic_fixed4u_mul_fp"},
         {{Instruction::FDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_fp"},
         {{Instruction::UDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_fp"},
         // I64 = I64 op F128
         {{Instruction::FAdd, {I64, F128}}, "__kmpc_atomic_fixed8_add_fp"},
         {{Instruction::FSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_fp"},
         {{Instruction::FMul, {I64, F128}}, "__kmpc_atomic_fixed8_mul_fp"},
+        {{Instruction::Mul,  {I64, F128}}, "__kmpc_atomic_fixed8u_mul_fp"},
         {{Instruction::FDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_fp"},
         {{Instruction::UDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_fp"},
         // F32 = F32 op F32
@@ -1614,24 +1667,28 @@ const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
         {{Instruction::FAdd, {I8, F128}}, "__kmpc_atomic_fixed1_add_cpt_fp"},
         {{Instruction::FSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_cpt_fp"},
         {{Instruction::FMul, {I8, F128}}, "__kmpc_atomic_fixed1_mul_cpt_fp"},
+        {{Instruction::Mul,  {I8, F128}}, "__kmpc_atomic_fixed1u_mul_cpt_fp"},
         {{Instruction::FDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_cpt_fp"},
         {{Instruction::UDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_cpt_fp"},
         // I16 = I16 op F128
         {{Instruction::FAdd, {I16, F128}}, "__kmpc_atomic_fixed2_add_cpt_fp"},
         {{Instruction::FSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_cpt_fp"},
         {{Instruction::FMul, {I16, F128}}, "__kmpc_atomic_fixed2_mul_cpt_fp"},
+        {{Instruction::Mul,  {I16, F128}}, "__kmpc_atomic_fixed2u_mul_cpt_fp"},
         {{Instruction::FDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_cpt_fp"},
         {{Instruction::UDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_cpt_fp"},
         // I32 = I32 op F128
         {{Instruction::FAdd, {I32, F128}}, "__kmpc_atomic_fixed4_add_cpt_fp"},
         {{Instruction::FSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_cpt_fp"},
         {{Instruction::FMul, {I32, F128}}, "__kmpc_atomic_fixed4_mul_cpt_fp"},
+        {{Instruction::Mul,  {I32, F128}}, "__kmpc_atomic_fixed4u_mul_cpt_fp"},
         {{Instruction::FDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_cpt_fp"},
         {{Instruction::UDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_cpt_fp"},
         // I64 = I64 op F128
         {{Instruction::FAdd, {I64, F128}}, "__kmpc_atomic_fixed8_add_cpt_fp"},
         {{Instruction::FSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_cpt_fp"},
         {{Instruction::FMul, {I64, F128}}, "__kmpc_atomic_fixed8_mul_cpt_fp"},
+        {{Instruction::Mul,  {I64, F128}}, "__kmpc_atomic_fixed8u_mul_cpt_fp"},
         {{Instruction::FDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_cpt_fp"},
         {{Instruction::UDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_cpt_fp"},
         // F32 = F32 op F32

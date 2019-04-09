@@ -12,7 +12,6 @@
 #include "index/MemIndex.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Frontend/CompilerInvocation.h"
-#include "clang/Frontend/PCHContainerOperations.h"
 #include "clang/Frontend/Utils.h"
 
 namespace clang {
@@ -40,16 +39,15 @@ ParsedAST TestTU::build() const {
   Inputs.Index = ExternalIndex;
   if (Inputs.Index)
     Inputs.Opts.SuggestMissingIncludes = true;
-  auto PCHs = std::make_shared<PCHContainerOperations>();
   auto CI = buildCompilerInvocation(Inputs);
   assert(CI && "Failed to build compilation invocation.");
   auto Preamble =
       buildPreamble(FullFilename, *CI,
                     /*OldPreamble=*/nullptr,
-                    /*OldCompileCommand=*/Inputs.CompileCommand, Inputs, PCHs,
+                    /*OldCompileCommand=*/Inputs.CompileCommand, Inputs,
                     /*StoreInMemory=*/true, /*PreambleCallback=*/nullptr);
   auto AST = buildAST(FullFilename, createInvocationFromCommandLine(Cmd),
-                      Inputs, Preamble, PCHs);
+                      Inputs, Preamble);
   if (!AST.hasValue()) {
     ADD_FAILURE() << "Failed to build code:\n" << Code;
     llvm_unreachable("Failed to build TestTU!");
@@ -59,13 +57,15 @@ ParsedAST TestTU::build() const {
 
 SymbolSlab TestTU::headerSymbols() const {
   auto AST = build();
-  return indexHeaderSymbols(AST.getASTContext(), AST.getPreprocessorPtr());
+  return indexHeaderSymbols(AST.getASTContext(), AST.getPreprocessorPtr(),
+                            AST.getCanonicalIncludes());
 }
 
 std::unique_ptr<SymbolIndex> TestTU::index() const {
   auto AST = build();
   auto Idx = llvm::make_unique<FileIndex>(/*UseDex=*/true);
-  Idx->updatePreamble(Filename, AST.getASTContext(), AST.getPreprocessorPtr());
+  Idx->updatePreamble(Filename, AST.getASTContext(), AST.getPreprocessorPtr(),
+                      AST.getCanonicalIncludes());
   Idx->updateMain(Filename, AST);
   return std::move(Idx);
 }

@@ -24,7 +24,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check decomposed VPInstructions
-; CHECK: i64 [[I1:%vp.*]] = semi-phi i64 0 i64 {{%vp.*}}
+; CHECK: i64 [[I1:%vp.*]] = phi
 ; CHECK-NEXT: float* [[GEP1:%vp.*]] = getelementptr inbounds [1024 x float]* @arr1 i64 0 i64 [[I1]]
 ; CHECK-NEXT: float [[LOAD1:%vp.*]] = load float* [[GEP1]]
 ; CHECK-NEXT: float* [[GEP2:%vp.*]] = getelementptr inbounds [1024 x float]* @arr2 i64 0 i64 [[I1]]

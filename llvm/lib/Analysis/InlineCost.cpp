@@ -24,6 +24,7 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"  // INTEL
+#include "llvm/Analysis/Intel_PartialInlineAnalysis.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"           // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -41,10 +42,10 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"                   // INTEL
-#include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
 #include "llvm/Support/GenericDomTree.h"            // INTEL
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
 
 using namespace llvm;
 using namespace InlineReportTypes;  // INTEL
@@ -87,19 +88,19 @@ static cl::opt<int> InlineThreshold(
     cl::desc("Control the amount of inlining to perform (default = 225)"));
 
 static cl::opt<int> HintThreshold(
-    "inlinehint-threshold", cl::Hidden, cl::init(325),
+    "inlinehint-threshold", cl::Hidden, cl::init(325), cl::ZeroOrMore, 
     cl::desc("Threshold for inlining functions with inline hint"));
 
 static cl::opt<int>
     ColdCallSiteThreshold("inline-cold-callsite-threshold", cl::Hidden,
-                          cl::init(45),
+                          cl::init(45), cl::ZeroOrMore,
                           cl::desc("Threshold for inlining cold callsites"));
 
 // We introduce this threshold to help performance of instrumentation based
 // PGO before we actually hook up inliner with analysis passes such as BPI and
 // BFI.
 static cl::opt<int> ColdThreshold(
-    "inlinecold-threshold", cl::Hidden, cl::init(45),
+    "inlinecold-threshold", cl::Hidden, cl::init(45), cl::ZeroOrMore, 
     cl::desc("Threshold for inlining functions with cold attribute"));
 
 static cl::opt<int>
@@ -113,7 +114,7 @@ static cl::opt<int> LocallyHotCallSiteThreshold(
 
 static cl::opt<int> ColdCallSiteRelFreq(
     "cold-callsite-rel-freq", cl::Hidden, cl::init(2), cl::ZeroOrMore,
-    cl::desc("Maxmimum block frequency, expressed as a percentage of caller's "
+    cl::desc("Maximum block frequency, expressed as a percentage of caller's "
              "entry frequency, for a callsite to be cold in the absence of "
              "profile information."));
 
@@ -124,7 +125,7 @@ static cl::opt<int> HotCallSiteRelFreq(
              "profile information."));
 
 static cl::opt<bool> OptComputeFullInlineCost(
-    "inline-cost-full", cl::Hidden, cl::init(false),
+    "inline-cost-full", cl::Hidden, cl::init(false), cl::ZeroOrMore,
     cl::desc("Compute the full inline cost of a call site even when the cost "
              "exceeds the threshold."));
 
@@ -231,9 +232,9 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   // Aggressive Analysis
   InlineAggressiveInfo *AI;
   // Set of candidate call sites for loop fusion
-  SmallSet<CallSite, 20> *CallSitesForFusion;
+  SmallSet<CallBase *, 20> *CallSitesForFusion;
   // Set of candidate call sites for dtrans.
-  SmallSet<CallSite, 20> *CallSitesForDTrans;
+  SmallSet<CallBase *, 20> *CallSitesForDTrans;
 #endif // INTEL_CUSTOMIZATION
 
   bool IsCallerRecursive;
@@ -377,7 +378,7 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   bool visitCatchReturnInst(CatchReturnInst &RI);
   bool visitUnreachableInst(UnreachableInst &I);
 #if INTEL_CUSTOMIZATION
-  bool preferDTransToInlining(CallSite &CS, bool PrepareForLTO) const;
+  bool preferDTransToInlining(CallBase &CB, bool PrepareForLTO) const;
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -389,8 +390,8 @@ public:
                TargetLibraryInfo *TLI,             // INTEL
                InliningLoopInfoCache *ILIC,        // INTEL
                InlineAggressiveInfo *AI,           // INTEL
-               SmallSet<CallSite, 20> *CSForFusion, // INTEL
-               SmallSet<CallSite, 20> *CSForDTrans, // INTEL
+               SmallSet<CallBase *, 20> *CSForFusion, // INTEL
+               SmallSet<CallBase *, 20> *CSForDTrans, // INTEL
                const InlineParams &Params)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
@@ -398,6 +399,7 @@ public:
 #if INTEL_CUSTOMIZATION
         Cost(0), ComputeFullInlineCost(OptComputeFullInlineCost ||
             Params.ComputeFullInlineCost.getValueOr(false) || ORE),
+        EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX),
         TLI(TLI), ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
         CallSitesForDTrans(CSForDTrans),
 #endif // INTEL_CUSTOMIZATION
@@ -1047,7 +1049,7 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
 
   // Use the OptMinSizeThreshold or OptSizeThreshold knob if they are available
   // and reduce the threshold if the caller has the necessary attribute.
-  if (Caller->optForMinSize()) {
+  if (Caller->hasMinSize()) {
     Threshold = MinIfValid(Threshold, Params.OptMinSizeThreshold);
     // For minsize, we want to disable the single BB bonus and the vector
     // bonuses, but not the last-call-to-static bonus. Inlining the last call to
@@ -1055,12 +1057,12 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
     // call/return instructions.
     SingleBBBonusPercent = 0;
     VectorBonusPercent = 0;
-  } else if (Caller->optForSize())
+  } else if (Caller->hasOptSize())
     Threshold = MinIfValid(Threshold, Params.OptSizeThreshold);
 
   // Adjust the threshold based on inlinehint attribute and profile based
   // hotness information if the caller does not have MinSize attribute.
-  if (!Caller->optForMinSize()) {
+  if (!Caller->hasMinSize()) {
     if (Callee.hasFnAttribute(Attribute::InlineHint) ||    // INTEL
         CS.hasFnAttr(Attribute::InlineHint) ||             // INTEL
         CS.hasFnAttr(Attribute::InlineHintRecursive))      // INTEL
@@ -1075,7 +1077,7 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee, // INTEL
     // BlockFrequencyInfo is available.
     BlockFrequencyInfo *CallerBFI = GetBFI ? &((*GetBFI)(*Caller)) : nullptr;
     auto HotCallSiteThreshold = getHotCallSiteThreshold(CS, CallerBFI);
-    if (!Caller->optForSize() && HotCallSiteThreshold) {
+    if (!Caller->hasOptSize() && HotCallSiteThreshold) {
       LLVM_DEBUG(dbgs() << "Hot callsite.\n");
       // FIXME: This should update the threshold only if it exceeds the
       // current threshold, but AutoFDO + ThinLTO currently relies on this
@@ -1335,7 +1337,7 @@ bool CallAnalyzer::simplifyCallSite(Function *F, CallSite CS) {
   // because we have to continually rebuild the argument list even when no
   // simplifications can be performed. Until that is fixed with remapping
   // inside of instsimplify, directly constant fold calls here.
-  if (!canConstantFoldCallTo(CS, F))
+  if (!canConstantFoldCallTo(cast<CallBase>(CS.getInstruction()), F))
     return false;
 
   // Try to re-map the arguments to constants.
@@ -1351,7 +1353,8 @@ bool CallAnalyzer::simplifyCallSite(Function *F, CallSite CS) {
 
     ConstantArgs.push_back(C);
   }
-  if (Constant *C = ConstantFoldCall(CS, F, ConstantArgs)) {
+  if (Constant *C = ConstantFoldCall(cast<CallBase>(CS.getInstruction()), F,
+                                     ConstantArgs)) {
     SimplifiedValues[CS.getInstruction()] = C;
     return true;
   }
@@ -1956,14 +1959,14 @@ InliningLoopInfoCache::~InliningLoopInfoCache() {
 //  (2) The callee must have a single outer loop
 //  (3) That loop's basic blocks must have a relatively large successor count
 //
-static bool worthyDoubleCallSite1(CallSite &CS, InliningLoopInfoCache &ILIC) {
-   Function *Caller = CS.getCaller();
-   Function *Callee = CS.getCalledFunction();
+static bool worthyDoubleCallSite1(CallBase &CB, InliningLoopInfoCache &ILIC) {
+   Function *Caller = CB.getCaller();
+   Function *Callee = CB.getCalledFunction();
    // Look for 2 calls of the callee in the caller.
    unsigned count = 0;
    for (Use &U : Callee->uses()) {
-      if (auto CS = ImmutableCallSite(U.getUser())) {
-        if (CS.getCaller() == Caller) {
+      if (auto CBB = dyn_cast<CallBase>(U.getUser())) {
+        if (CBB && (CBB->getCaller() == Caller)) {
           if (++count > 2) {
             return false;
           }
@@ -2028,13 +2031,12 @@ static bool boundConstArg(Function *F, Loop *L) {
       continue;
     unsigned ArgNo = Arg->getArgNo();
     for (Use &U : F->uses()) {
-      if (auto CS = ImmutableCallSite(U.getUser())) {
-        if (!CS)
+      if (auto CB = dyn_cast<CallBase>(U.getUser())) {
+        if (!CB)
           return false;
-        if (!CS.isCallee(&U))
+        if (!CB->isCallee(&U))
           return false;
-        auto I = CS.getInstruction();
-        if (!isa<Constant>(I->getOperand(ArgNo)))
+        if (!isa<Constant>(CB->getOperand(ArgNo)))
           return false;
       }
     }
@@ -2067,8 +2069,8 @@ static bool hasConstTripCountArg(Function *F, Loop *L) {
 //  (3) The inner two loops of that nest must have a loop bound that
 //      will be a constant after inlining is applied
 //
-static bool worthyDoubleCallSite2(CallSite &CS, InliningLoopInfoCache& ILIC) {
-  Function *Callee = CS.getCalledFunction();
+static bool worthyDoubleCallSite2(CallBase &CB, InliningLoopInfoCache& ILIC) {
+  Function *Callee = CB.getCalledFunction();
   LoopInfo *LI = ILIC.getLI(Callee);
   return std::distance(LI->begin(), LI->end()) == 1
     && hasConstTripCountArg(Callee, *(LI->begin()));
@@ -2107,18 +2109,18 @@ static cl::opt<bool> NewDoubleCallSiteInliningHeuristics
 //         OR Called function must have a large enough total number
 //           of predecessors
 //
-static bool worthyDoubleCallSite3(CallSite &CS, InliningLoopInfoCache& ILIC) {
+static bool worthyDoubleCallSite3(CallBase &CB, InliningLoopInfoCache& ILIC) {
   if (!NewDoubleCallSiteInliningHeuristics)
     return false;
-  Function *Caller = CS.getCaller();
+  Function *Caller = CB.getCaller();
   LoopInfo *CallerLI = ILIC.getLI(Caller);
-  if (!CallerLI->getLoopFor(CS.getInstruction()->getParent()))
+  if (!CallerLI->getLoopFor(CB.getParent()))
     return false;
-  Function *Callee = CS.getCalledFunction();
+  Function *Callee = CB.getCalledFunction();
   LoopInfo *CalleeLI = ILIC.getLI(Callee);
   if (CalleeLI->begin() == CalleeLI->end())
     return false;
-  if (CS.arg_begin() != CS.arg_end()
+  if (CB.arg_begin() != CB.arg_end()
     && totalBasicBlockPredCount(*Callee)
     < InlineConstants::BigBasicBlockPredCount)
     return false;
@@ -2132,8 +2134,8 @@ static bool isDoubleCallSite(Function *F)
 {
   unsigned int count = 0;
   for (User *U : F->users()) {
-    CallSite Site(U);
-    if (!Site || Site.getCalledFunction() != F)
+    auto CB = dyn_cast<CallBase>(U);
+    if (!CB || CB->getCalledFunction() != F)
       continue;
     if (++count > 2)
       return false;
@@ -2142,18 +2144,18 @@ static bool isDoubleCallSite(Function *F)
 }
 
 //
-// Return 'true' if 'CS' worth inlining, given that it is a double callsite
+// Return 'true' if 'CB' worth inlining, given that it is a double callsite
 // with internal linkage.
 //
-static bool worthyDoubleInternalCallSite(CallSite &CS,
+static bool worthyDoubleInternalCallSite(CallBase &CB,
   InliningLoopInfoCache& ILIC)
 {
-  return worthyDoubleCallSite1(CS, ILIC) || worthyDoubleCallSite2(CS, ILIC) ||
-    worthyDoubleCallSite3(CS, ILIC);
+  return worthyDoubleCallSite1(CB, ILIC) || worthyDoubleCallSite2(CB, ILIC) ||
+    worthyDoubleCallSite3(CB, ILIC);
 }
 
 //
-// Return 'true' if 'CS' worth inlining, given that it is a double callsite
+// Return 'true' if 'CB' worth inlining, given that it is a double callsite
 // with external linkage.
 //
 // The criteria for this heuristic are:
@@ -2162,17 +2164,17 @@ static bool worthyDoubleInternalCallSite(CallSite &CS,
 //   (3) No calls to functions other than the called function
 //       (except intrinsics added by using -g)
 //
-static bool worthyDoubleExternalCallSite(CallSite &CS) {
-  Function *Caller = CS.getCaller();
+static bool worthyDoubleExternalCallSite(CallBase &CB) {
+  Function *Caller = CB.getCaller();
   if (!NewDoubleCallSiteInliningHeuristics)
     return false;
   if (std::distance(Caller->begin(), Caller->end()) != 1)
     return false;
-  Function *Callee = CS.getCalledFunction();
+  Function *Callee = CB.getCalledFunction();
   unsigned int count = 0;
   for (User *U : Caller->users()) {
-    CallSite Site(U);
-    if (Site && Site.getCalledFunction() == Caller)
+    auto CBB = dyn_cast<CallBase>(U);
+    if (CBB && (CBB->getCalledFunction() == Caller))
       return false;
     if (++count > 1)
       return false;
@@ -2181,10 +2183,10 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
     return false;
   for (BasicBlock &BB : *Caller) {
     for (Instruction &I : BB) {
-      CallSite CS(cast<Value>(&I));
-      if (!CS)
+      auto CBB = dyn_cast<CallBase>(cast<Value>(&I));
+      if (!CBB)
         continue;
-      Function *F = CS.getCalledFunction();
+      Function *F = CBB->getCalledFunction();
       if (F != nullptr && F->getName() == "llvm.dbg.value")
         continue;
       if (F != Callee)
@@ -2194,17 +2196,20 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
   return true;
 }
 
-static bool preferCloningToInlining(CallSite CS,
+static bool preferCloningToInlining(CallBase &CB,
                                     InliningLoopInfoCache& ILIC,
                                     bool PrepareForLTO) {
   // We don't need to check this if !PrepareForLTO because cloning after
   // inlining is only generic cloning, not cloning with specialization.
-  if (!PrepareForLTO) return false;
-  Function *Callee = CS.getCalledFunction();
-  if (!Callee) return false;
+  if (!PrepareForLTO)
+    return false;
+  Function *Callee = CB.getCalledFunction();
+  if (!Callee)
+    return false;
   LoopInfo *LI = ILIC.getLI(Callee);
-  if (!LI) return false;
-  if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(CS, LI))
+  if (!LI)
+    return false;
+  if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(CB, LI))
     return true;
   return false;
 }
@@ -2390,11 +2395,11 @@ static bool isLeafFunction(const Function &F) {
 }
 
 //
-// Return 'true' if 'CS' should not be inlined, because it would be better
+// Return 'true' if 'CB' should not be inlined, because it would be better
 // to multiversion it. 'PrepareForLTO' is true if we are on the compile step
 // of an LTO compilation.
 //
-static bool preferMultiversioningToInlining(CallSite CS,
+static bool preferMultiversioningToInlining(CallBase &CB,
                                             const TargetTransformInfo
                                                 &CalleeTTI,
                                             InliningLoopInfoCache &ILIC,
@@ -2417,7 +2422,7 @@ static bool preferMultiversioningToInlining(CallSite CS,
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
   if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
     return false;
-  Function *Callee = CS.getCalledFunction();
+  Function *Callee = CB.getCalledFunction();
   if (!Callee)
     return false;
   if (CalleeFxnPtrSet.find(Callee) != CalleeFxnPtrSet.end())
@@ -2445,7 +2450,7 @@ static bool preferMultiversioningToInlining(CallSite CS,
 
 
 //
-// Return 'true' if 'CS' is worth inlining due to multiple arguments being
+// Return 'true' if 'CB' is worth inlining due to multiple arguments being
 // pointers dereferenced in callee code.
 //
 // The criteria for this heuristic are:
@@ -2455,7 +2460,7 @@ static bool preferMultiversioningToInlining(CallSite CS,
 //   (3) Callee's arguments are pointers dereferenced in the code multiple
 //       times.
 //
-static bool worthInliningForAddressComputations(CallSite &CS,
+static bool worthInliningForAddressComputations(CallBase &CB,
                                                 InliningLoopInfoCache &ILIC,
                                                 bool PrepareForLTO) {
   // Heuristic is enabled if option is unset and it is first inliner run
@@ -2464,8 +2469,8 @@ static bool worthInliningForAddressComputations(CallSite &CS,
       (InliningForAddressComputations != cl::BOU_TRUE))
     return false;
 
-  Function *Callee = CS.getCalledFunction();
-  Function *Caller = CS.getCaller();
+  Function *Callee = CB.getCalledFunction();
+  Function *Caller = CB.getCaller();
 
   if (Caller == Callee) {
     LLVM_DEBUG(llvm::dbgs() << "IC: No inlining for AC: recursive callee.\n");
@@ -2486,7 +2491,7 @@ static bool worthInliningForAddressComputations(CallSite &CS,
     return false;
   }
 
-  Loop *InnerLoop = CallerLI->getLoopFor(CS.getInstruction()->getParent());
+  Loop *InnerLoop = CallerLI->getLoopFor(CB.getParent());
   if (!InnerLoop)
     return false;
 
@@ -2644,13 +2649,13 @@ static cl::opt<cl::boolOrDefault>
 /// 2) Loops inside callee should have constant trip count and have
 ///    no calles inside.
 /// 3) Array accesses inside loops should corespond to callee arguments.
-/// In case we decide that current CS is a candidate for inlining for fusion,
-/// then we store other CS to the same function in the same basic block in
+/// In case we decide that current CB is a candidate for inlining for fusion,
+/// then we store other CB to the same function in the same basic block in
 /// the set of inlining candidates for fusion.
-static bool worthInliningForFusion(CallSite &CS,
+static bool worthInliningForFusion(CallBase &CB,
                                    const TargetTransformInfo &CalleeTTI,
                                    InliningLoopInfoCache &ILIC,
-                                   SmallSet<CallSite, 20> *CallSitesForFusion,
+                                   SmallSet<CallBase *, 20> *CallSitesForFusion,
                                    bool PrepareForLTO) {
 
   if (InliningForFusionHeuristics != cl::BOU_TRUE) {
@@ -2672,25 +2677,25 @@ static bool worthInliningForFusion(CallSite &CS,
   }
 
   // The call site was stored as candidate for inlining for fusion.
-  if (CallSitesForFusion->count(CS)) {
-    CallSitesForFusion->erase(CS);
+  if (CallSitesForFusion->count(&CB)) {
+    CallSitesForFusion->erase(&CB);
     return true;
   }
 
-  Function *Caller = CS.getCaller();
-  Function *Callee = CS.getCalledFunction();
-  BasicBlock *CSBB = CS->getParent();
+  Function *Caller = CB.getCaller();
+  Function *Callee = CB.getCalledFunction();
+  BasicBlock *CSBB = CB.getParent();
 
-  SmallVector<CallSite, 20> LocalCSForFusion;
+  SmallVector<CallBase *, 20> LocalCSForFusion;
   // Check that all call sites in the Caller, that are not to intrinsics, are in
   // the same basic block and are fusion candidates.
   int CSCount = 0;
   for (auto &I : instructions(Caller)) {
-    CallSite LocalCS(&I);
-    if (!LocalCS)
+    auto LocalCB = dyn_cast<CallBase>(&I);
+    if (!LocalCB)
       continue;
 
-    Function *CurrCallee = LocalCS.getCalledFunction();
+    Function *CurrCallee = LocalCB->getCalledFunction();
     if (!CurrCallee) {
       return false;
     }
@@ -2705,7 +2710,7 @@ static bool worthInliningForFusion(CallSite &CS,
       return false;
     }
 
-    LocalCSForFusion.push_back(LocalCS);
+    LocalCSForFusion.push_back(LocalCB);
     CSCount++;
   }
 
@@ -2803,8 +2808,8 @@ static bool worthInliningForFusion(CallSite &CS,
 
   // Store other inlining candidates in a special map.
   if (CallSitesForFusion) {
-    for (auto LocalCS : LocalCSForFusion) {
-      CallSitesForFusion->insert(LocalCS);
+    for (auto LocalCB : LocalCSForFusion) {
+      CallSitesForFusion->insert(LocalCB);
     }
   }
 
@@ -2870,7 +2875,7 @@ static int deepestIfInDomTree(DominatorTree *DT) {
 /// 3) Caller has 'switch' instruction.
 /// 4) Callee has no loops.
 /// 5) Both caller and callee contain depeply nested ifs.
-static bool worthInliningForDeeplyNestedIfs(CallSite &CS,
+static bool worthInliningForDeeplyNestedIfs(CallBase &CB,
                                             InliningLoopInfoCache &ILIC,
                                             bool IsCallerRecursive,
                                             bool PrepareForLTO) {
@@ -2880,8 +2885,8 @@ static bool worthInliningForDeeplyNestedIfs(CallSite &CS,
       (InliningForDeeplyNestedIfs != cl::BOU_TRUE))
     return false;
 
-  Function *Callee = CS.getCalledFunction();
-  Function *Caller = CS.getCaller();
+  Function *Callee = CB.getCalledFunction();
+  Function *Caller = CB.getCaller();
 
   // Recursive callee is not allowed
   if (Caller == Callee)
@@ -2925,11 +2930,11 @@ static bool worthInliningForDeeplyNestedIfs(CallSite &CS,
 }
 
 //
-// Return 'true' if 'CS' should not be inlined, because it would be better
-// to perform SOAToAOS on it. 'PrepareForLTO' is true if we are on the compile step
-// of an LTO compilation.
+// Return 'true' if 'CB' should not be inlined, because it would be better
+// to perform SOAToAOS on it. 'PrepareForLTO' is true if we are on the compile
+// step of an LTO compilation.
 //
-bool CallAnalyzer::preferDTransToInlining(CallSite &CS,
+bool CallAnalyzer::preferDTransToInlining(CallBase &CB,
                                           bool PrepareForLTO) const {
   if (!PrepareForLTO)
     return false;
@@ -2944,7 +2949,7 @@ bool CallAnalyzer::preferDTransToInlining(CallSite &CS,
   }
 
   // The call site was stored as candidate to suppress inlining.
-  if (!CallSitesForDTrans->count(CS))
+  if (!CallSitesForDTrans->count(&CB))
     return false;
 
   return true;
@@ -2960,7 +2965,7 @@ bool CallAnalyzer::preferDTransToInlining(CallSite &CS,
 /// blocks to see if all their incoming edges are dead or not.
 void CallAnalyzer::findDeadBlocks(BasicBlock *CurrBB, BasicBlock *NextBB) {
   auto IsEdgeDead = [&](BasicBlock *Pred, BasicBlock *Succ) {
-    // A CFG edge is dead if the predecessor is dead or the predessor has a
+    // A CFG edge is dead if the predecessor is dead or the predecessor has a
     // known successor which is not the one under exam.
     return (DeadBlocks.count(Pred) ||
             (KnownSuccessors[Pred] && KnownSuccessors[Pred] != Succ));
@@ -3248,12 +3253,11 @@ static bool preferNotToInlineForStackComputations(Function *F,
           auto CI = dyn_cast<CallInst>(V);
           if (!CI)
             return false;
-          auto CS = CallSite(CI);
           // Check the call's arguments.
-          if (CS.arg_size() != 2)
+          if (CI->arg_size() != 2)
             return false;
           // Arg0 should be BitCast(GlobalValue2), where BitCast is optional.
-          auto V0 = CS.arg_begin();
+          auto V0 = CI->arg_begin();
           auto LI = dyn_cast<LoadInst>(V0);
           if (!LI)
             return false;
@@ -3266,7 +3270,7 @@ static bool preferNotToInlineForStackComputations(Function *F,
             return false;
           // Arg1 should be ConstantInt * GlobalValue1, where the multiply
           // is implemented with a shift.
-          auto U = CS.arg_begin() + 1;
+          auto U = CI->arg_begin() + 1;
           auto V1 = dyn_cast<Value>(U);
           if (!V1)
             return false;
@@ -3315,15 +3319,15 @@ static bool preferNotToInlineForStackComputations(Function *F,
 }
 
 //
-// Return 'true' if CallSite CS should not be inlined due to its special
+// Return 'true' if CallBase CB should not be inlined due to its special
 // manipulation of stack instructions. (Note that inhibit calls into
-// CS.getCaller() so that the worthy function looks relatively similar in
+// CB.getCaller() so that the worthy function looks relatively similar in
 // both the compile and link step.
 //
-static bool preferNotToInlineForStackComputations(CallSite CS,
+static bool preferNotToInlineForStackComputations(CallBase &CB,
                                                   TargetLibraryInfo *TLI) {
-   return preferNotToInlineForStackComputations(CS.getCaller(), TLI)
-     || preferNotToInlineForStackComputations(CS.getCalledFunction(), TLI);
+   return preferNotToInlineForStackComputations(CB.getCaller(), TLI)
+     || preferNotToInlineForStackComputations(CB.getCalledFunction(), TLI);
 }
 
 // Minimal number of cases in a switch to qualify for the "prefer not to
@@ -3333,19 +3337,19 @@ static cl::opt<unsigned> MinSwitchCases(
     cl::desc("Min number of switch cases required to trigger heuristic"));
 
 //
-// Return 'true' if the CallSite CS should not be inlined due to having
+// Return 'true' if the CallBase CB should not be inlined due to having
 // a special type of switch statement. (Note: this heuristic uses info
-// only from the Caller, and not from the Callee of CS.)
+// only from the Caller, and not from the Callee of CB.)
 //
-static bool preferNotToInlineForSwitchComputations(CallSite CS,
+static bool preferNotToInlineForSwitchComputations(CallBase &CB,
                                                    InliningLoopInfoCache &ILIC) {
   //
-  // Return 'true' if the called function of the Callsite CS is a small
+  // Return 'true' if the called function of the Callsite CB is a small
   // function whose basic blocks that end in a ReturnInst return the
   // result of an indirect call.
   //
-  auto WorthySwitchCallSite = [] (CallSite CS) -> bool {
-    auto Callee = CS.getCalledFunction();
+  auto WorthySwitchCallSite = [] (CallBase &CB) -> bool {
+    auto Callee = CB.getCalledFunction();
     // Must have the IR for the callee.
     if (!Callee || Callee->isDeclaration())
       return false;
@@ -3365,8 +3369,7 @@ static bool preferNotToInlineForSwitchComputations(CallSite CS,
       if (!ICI)
         return false;
       // Return 'true; if this is an indirect call.
-      CallSite ICS(ICI);
-      if (ICS.getCalledFunction())
+      if (ICI->getCalledFunction())
         return false;
     }
     return ReturnCount > 0;
@@ -3394,7 +3397,7 @@ static bool preferNotToInlineForSwitchComputations(CallSite CS,
     auto CI = dyn_cast<CallInst>(Cond);
     if (!CI)
       return false;
-    if (!WorthySwitchCallSite(CallSite(CI)))
+    if (!WorthySwitchCallSite(*CI))
       return false;
     // The actual arguments to the call should come from the formal arguments
     // to the caller, passed optionally through an all zero index GEP.
@@ -3439,7 +3442,7 @@ static bool preferNotToInlineForSwitchComputations(CallSite CS,
   //
   static Function *WorthyFunction = nullptr;
   static SmallPtrSet<Function *, 32> FunctionsTestedFail;
-  Function *Caller = CS.getCaller();
+  Function *Caller = CB.getCaller();
   if (!DTransInlineHeuristics)
     return false;
   if (WorthyFunction == Caller)
@@ -3462,6 +3465,142 @@ static bool preferNotToInlineForSwitchComputations(CallSite CS,
 //
 static bool preferNotToInlineForRecProgressiveClone(Function *Callee) {
   return Callee && Callee->hasFnAttribute("prefer-noinline-rec-pro-clone");
+}
+
+//
+// Return 'true' if 'Callee' is a function that is preferred to be
+// partially inlined over fully inlined. This function won't be inlined
+// since it is called from the function that is marked as
+// "prefer-partial-inline-inlined-clone". For example:
+//
+// define i1 @foo(%"struct.pov::Object_Struct"*) {
+//  %3 = icmp eq %"struct.pov::Object_Struct"* %0, null
+//  br i1 %3, label %12, label %4
+//
+// ; <label>:4:
+//  %5 = phi %"struct.pov::Object_Struct"* [ %9, %4 ], [ %0, %2 ]
+//  %6 = Some computation
+//  ...
+//  br i1 %11, label %4, label %12
+//
+// ; <label>:12:
+//  %13 = phi i1 [ true, %2 ], [ %6, %4 ]
+//  ret i1 %14
+// }
+//
+// The Intel partial inliner will create the following functions:
+//
+// define i1 @foo.1(%"struct::Object_Struct"*) {
+// ; <label>:2:
+//  %phitmp.loc = alloca i1
+//  %3 = icmp eq %"struct.pov::Object_Struct"* %0, null
+//  br i1 %3, label %6, label %4
+//
+// ; <label>:4:
+//  call void @foo.1.for.body(%"struct.pov::Object_Struct"* %0, i1*phitmp.loc)
+//  %phitmp.reload = load i1, i1* %phitmp.loc
+//  br label %6
+//
+// ; <label>:6:
+//  %7 = phi i1 [ true, %2 ], [ %phitmp.reload, %4 ]
+//  ret i1 %7
+// }
+//
+// define void @foo.1.for.body(%"struct::Object_Struct"*, i1* %phitmp.out) {
+// newFuncRoot:
+//  br label %for.body
+//
+// for.body.for.end_crit_edge.exitStub:
+//  ret void
+//
+// for.body:
+//  %5 = phi %"struct.pov::Object_Struct"* [ %9, %for.body ],
+//                                         [ 0, %newFuncRoot ]
+//  %6 = Some computation
+//  ...
+// %cmp = icmp eq %"struct.pov::Object_Struct"* %Var, null
+//   br i1 %cmp, label %for.body.for.end_crit_edge.exitStub, label %for.body
+// }
+//
+// All the calls to @foo will be replaced with @foo.1. The partial inliner will
+// set the attribute 'prefer-partial-inline-outlined-func' on @foo.1.for.body
+// and 'prefer-partial-inline-inlined-clone' on @foo.1. The inliner will fully
+// inline @foo.1 and won't inline @foo.1.for.body. This creates the partial
+// inlining of @foo based on the argument %1.
+//
+// In the example mentioned above, this function will return true for
+// @foo.1.for.body since it is the function marked as
+// 'prefer-partial-inline-outlined-func'.
+//
+static bool preferPartialInlineOutlinedFunc(Function *Callee) {
+  return Callee && Callee->hasFnAttribute(
+    "prefer-partial-inline-outlined-func");
+}
+
+//
+// Return 'true' if 'Callee' is marked as
+// 'prefer-partial-inline-inlined-clone'. Refer to the example in
+// preferPartialInlineOutlinedFunc. This function will return true for @foo.1.
+//
+static bool preferPartialInlineInlinedClone(Function *Callee) {
+  return Callee && Callee->hasFnAttribute(
+    "prefer-partial-inline-inlined-clone");
+}
+
+//
+// Return 'true' if a Function with the prefer-partial-inline-outlined-func
+// attribute exists in the Module 'M'.
+//
+static bool sawPreferPartialInlineOutlinedFunc(Module *M) {
+  static bool ScannedFunctions = false;
+  static bool SawPreferPartialInlineOutlinedFunc = false;
+  if (ScannedFunctions)
+    return SawPreferPartialInlineOutlinedFunc;
+  for (auto &F :  M->functions())
+    if (F.hasFnAttribute("prefer-partial-inline-outlined-func")) {
+      ScannedFunctions = true;
+      SawPreferPartialInlineOutlinedFunc = true;
+      return true;
+    }
+  ScannedFunctions = true;
+  return false;
+}
+
+//
+// Return 'true' if 'F' calls an outlined function created by Intel partial
+// inlining, which in turn calls 'F'. Such functions are good candidates
+// for inlining.
+//
+
+static bool preferPartialInlineHasExtractedRecursiveCall(Function &F,
+                                                         bool PrepareForLTO) {
+  // Save candidate functions in a SmallPtrSet so that they are not
+  // disqualified once they are inlined.
+  static SmallPtrSet<Function *, 3> Candidates;
+  if (PrepareForLTO || !DTransInlineHeuristics)
+    return false;
+  if (Candidates.count(&F))
+    return true;
+  if (!sawPreferPartialInlineOutlinedFunc(F.getParent()))
+    return false;
+  for (User *U : F.users()) {
+    auto CS1 = dyn_cast<CallBase>(U);
+    if (!CS1)
+      continue;
+    Function *Caller = CS1->getCaller();
+    if (!Caller->hasFnAttribute("prefer-partial-inline-outlined-func"))
+      continue;
+    for (User *V : Caller->users()) {
+      auto CS2 = dyn_cast<CallBase>(V);
+      if (!CS2)
+        continue;
+      if (CS2->getCaller() != &F)
+        continue;
+      Candidates.insert(&F);
+      return true;
+    }
+  }
+  return false;
 }
 
 //
@@ -3511,10 +3650,10 @@ static bool preferToDelayInlineDecision(Function *Caller,
   // if the 'Caller' should be inlined.
   auto IsDelayInlineCaller = [&TestedGEP](Function *Caller,
                                           bool PrepareForLTO) -> bool {
+    if (!TestedGEP(Caller))
+      return false;
     unsigned MaxSize = PrepareForLTO ? 5 : 3;
     if (Caller->size() > MaxSize)
-      return false;
-    if (!TestedGEP(Caller))
       return false;
     auto EntryBlock = &(Caller->getEntryBlock());
     for (auto &BB : *Caller) {
@@ -3555,6 +3694,16 @@ static bool preferToDelayInlineDecision(Function *Caller,
   return false;
 }
 
+static bool preferToIntelPartialInline(Function &F, bool PrepareForLTO,
+                                       InliningLoopInfoCache &ILIC) {
+  if (!PrepareForLTO || !DTransInlineHeuristics)
+    return false;
+  LoopInfoFuncType GetLoopInfo = [&ILIC](Function &F) -> LoopInfo & {
+    return *(ILIC.getLI(&F));
+  };
+  return isIntelPartialInlineCandidate(&F, GetLoopInfo, PrepareForLTO);
+}
+
 //
 // Return 'true' if a CallSite with this 'Callee' should be inlined because
 // it is on the 'QueuedCallers' set. NOTE: We determine whether the 'Callee'
@@ -3566,10 +3715,10 @@ static bool worthInliningSingleBasicBlockWithStructTest(Function *Callee,
                                                         bool PrepareForLTO,
                                                         SmallPtrSetImpl
                                                             <Function *>
-                                                            &QueuedCallers) {
+                                                            *QueuedCallers) {
   if (PrepareForLTO || !DTransInlineHeuristics)
     return false;
-  return QueuedCallers.count(Callee);
+  return QueuedCallers->count(Callee);
 }
 
 //
@@ -3579,6 +3728,151 @@ static bool worthInliningSingleBasicBlockWithStructTest(Function *Callee,
 //
 static bool worthInliningForRecProgressiveClone(Function *Callee) {
   return Callee && Callee->hasFnAttribute("prefer-inline-rec-pro-clone");
+}
+
+//
+// Return 'true' if 'I' is an instruction related to exception handling that
+// will inhibit loop optimizations.
+//
+static bool isLoopOptInhibitingEHInst(const Instruction &I) {
+  return isa<LandingPadInst>(&I) || isa<FuncletPadInst>(&I) ||
+    isa<InvokeInst>(&I) || isa<ResumeInst>(&I) ||
+    isa<CatchSwitchInst>(&I) || isa<CatchReturnInst>(&I) ||
+    isa<CleanupReturnInst>(I);
+}
+
+//
+// Return 'true' if 'CSI' is an instruction (representing a call/invoke) in a
+// loop which has no instructions that will inhibit loop optimizations.
+//
+static bool isInNonEHLoop(Instruction &CSI,
+                          InliningLoopInfoCache &ILIC) {
+  LoopInfo *LI = ILIC.getLI(CSI.getFunction());
+  Loop *Loop = LI->getLoopFor(CSI.getParent());
+  if (!Loop)
+    return false;
+  for (const BasicBlock *BB : Loop->blocks())
+    for (const Instruction &I : *BB)
+       if (isLoopOptInhibitingEHInst(I))
+         return false;
+  return true;
+}
+
+//
+// Return 'true' if 'F' has a loop optimization inhibiting exception handling
+// related instruction outside of a loop.
+//
+static bool hasLoopOptInhibitingEHInstOutsideLoop(Function *F,
+                                                  InliningLoopInfoCache &ILIC) {
+  if (!F)
+    return false;
+  LoopInfo *LI = ILIC.getLI(F);
+  for (BasicBlock &BB : *F)
+    if (!LI->getLoopFor(&BB))
+      for (Instruction &I : BB)
+        if (isLoopOptInhibitingEHInst(I))
+          return true;
+   return false;
+}
+
+//
+// Return 'true' if 'CB' should not be inlined because it contains exception
+// handling code and that will inhibit the application of loop optimizations
+// to the loop in which 'CB' appears.
+//
+static bool preferNotToInlineEHIntoLoop(CallBase &CB,
+                                        InliningLoopInfoCache &ILIC) {
+  if (!DTransInlineHeuristics)
+    return false;
+  Function *Callee = CB.getCalledFunction();
+  if (Callee->hasFnAttribute(Attribute::NoUnwind))
+    return false;
+  if (!isInNonEHLoop(CB, ILIC))
+    return false;
+  return hasLoopOptInhibitingEHInstOutsideLoop(Callee, ILIC);
+}
+
+//
+// Test a series of special conditions to determine if it is worth inlining
+// if any of them appear. (These have been gathered together into a single
+// function to make an early exit easy to accomplish and save compile time.)
+//
+static void worthInliningUnderSpecialCondition(CallBase &CB,
+                                               TargetLibraryInfo &TLI,
+                                               const TargetTransformInfo
+                                                   &CalleeTTI,
+                                               InliningLoopInfoCache &ILIC,
+                                               bool PrepareForLTO,
+                                               bool IsCallerRecursive,
+                                               SmallSet<CallBase *, 20>
+                                                   *CallSitesForFusion,
+                                               SmallPtrSetImpl<Function *>
+                                                   *QueuedCallers,
+                                               int &Cost,
+                                               InlineReasonVector
+                                                   &YesReasonVector) {
+  Function *F = CB.getCalledFunction();
+  if (!F)
+    return;
+  if (isDoubleCallSite(F)) {
+    // If there are two calls of the function, the cost of inlining it may
+    // drop, but less dramatically.
+    if (F->hasLocalLinkage() || F->hasLinkOnceODRLinkage()) {
+       if (worthyDoubleInternalCallSite(CB, ILIC)) {
+         Cost -= InlineConstants::SecondToLastCallToStaticBonus;
+         YesReasonVector.push_back(InlrDoubleLocalCall);
+         return;
+       }
+    }
+    if (worthyDoubleExternalCallSite(CB)) {
+      Cost -= InlineConstants::SecondToLastCallToStaticBonus;
+      YesReasonVector.push_back(InlrDoubleNonLocalCall);
+      return;
+    }
+  }
+  if (worthInliningForFusion(CB, CalleeTTI, ILIC, CallSitesForFusion,
+    PrepareForLTO)) {
+    Cost -= InlineConstants::InliningHeuristicBonus;
+    YesReasonVector.push_back(InlrForFusion);
+    return;
+  }
+  if (worthInliningForDeeplyNestedIfs(CB, ILIC, IsCallerRecursive,
+    PrepareForLTO)) {
+    Cost -= InlineConstants::InliningHeuristicBonus;
+    YesReasonVector.push_back(InlrDeeplyNestedIfs);
+    return;
+  }
+  if (worthInliningForAddressComputations(CB, ILIC, PrepareForLTO)) {
+    Cost -= InlineConstants::InliningHeuristicBonus;
+    YesReasonVector.push_back(InlrAddressComputations);
+    return;
+  }
+  if (worthInliningForStackComputations(F, &TLI, PrepareForLTO)) {
+    Cost -= InlineConstants::InliningHeuristicBonus;
+    YesReasonVector.push_back(InlrStackComputations);
+    return;
+  }
+  if (worthInliningSingleBasicBlockWithStructTest(F, PrepareForLTO,
+      QueuedCallers)) {
+    Cost -= InlineConstants::InliningHeuristicBonus;
+    YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
+    return;
+  }
+  if (worthInliningForRecProgressiveClone(F)) {
+    Cost -= InlineConstants::DeepInliningHeuristicBonus;
+    YesReasonVector.push_back(InlrRecProClone);
+    return;
+  }
+  if (preferPartialInlineHasExtractedRecursiveCall(*F, PrepareForLTO)) {
+    Cost -= InlineConstants::DeepInliningHeuristicBonus;
+    YesReasonVector.push_back(InlrHasExtractedRecursiveCall);
+    return;
+  }
+  if (preferPartialInlineInlinedClone(F)) {
+    Cost -= InlineConstants::DeepInliningHeuristicBonus;
+    YesReasonVector.push_back(InlrPreferPartialInline);
+    return;
+  }
 }
 
 #endif // INTEL_CUSTOMIZATION
@@ -3641,7 +3935,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
   // INTEL  CQ378383: Tolerate a single "forgivable" condition when optimizing
   // INTEL  for size. In this case, we delay subtracting out the single basic
   // INTEL  block bonus until we see a second branch with multiple targets.
-  bool SeekingForgivable = CS.getCaller()->optForSize(); // INTEL
+  bool SeekingForgivable = CS.getCaller()->hasOptSize(); // INTEL
   bool FoundForgivable = false;                          // INTEL
   bool SubtractedBonus = false;                          // INTEL
   bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false); // INTEL
@@ -3651,41 +3945,50 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
   // the rest of the function body.
   Threshold += (SingleBBBonus + VectorBonus);
 #if INTEL_CUSTOMIZATION
-  if (InlineForXmain &&
-      preferCloningToInlining(CS, *ILIC, PrepareForLTO)) {
-    *ReasonAddr = NinlrPreferCloning;
-    return "prefer cloning";
-  }
-  if (InlineForXmain &&
-      preferMultiversioningToInlining(CS, CalleeTTI, *ILIC, PrepareForLTO)) {
-    *ReasonAddr = NinlrPreferMultiversioning;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferDTransToInlining(CS, PrepareForLTO)) {
-    *ReasonAddr = NinlrPreferSOAToAOS;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferNotToInlineForStackComputations(CS, TLI)) {
-    *ReasonAddr = NinlrStackComputations;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferNotToInlineForSwitchComputations(CS, *ILIC)) {
-    *ReasonAddr = NinlrSwitchComputations;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferNotToInlineForRecProgressiveClone(CS.getCalledFunction())) {
-    *ReasonAddr = NinlrRecursive;
-    return false;
-  }
-  if (InlineForXmain &&
-      preferToDelayInlineDecision(CS.getCaller(), PrepareForLTO,
-      QueuedCallers)) {
-    *ReasonAddr = NinlrDelayInlineDecision;
-    return false;
+  auto CB = cast<CallBase>(CS.getInstruction());
+  Function *Callee = CB->getCalledFunction();
+  if (Callee && InlineForXmain) {
+    if (preferCloningToInlining(*CB, *ILIC, PrepareForLTO)) {
+      *ReasonAddr = NinlrPreferCloning;
+      return "prefer cloning";
+    }
+    if (preferMultiversioningToInlining(*CB, CalleeTTI, *ILIC, PrepareForLTO)) {
+      *ReasonAddr = NinlrPreferMultiversioning;
+      return false;
+    }
+    if (preferDTransToInlining(*CB, PrepareForLTO)) {
+      *ReasonAddr = NinlrPreferSOAToAOS;
+      return false;
+    }
+    if (preferNotToInlineForStackComputations(*CB, TLI)) {
+      *ReasonAddr = NinlrStackComputations;
+      return false;
+    }
+    if (preferNotToInlineForSwitchComputations(*CB, *ILIC)) {
+      *ReasonAddr = NinlrSwitchComputations;
+      return false;
+    }
+    if (preferNotToInlineForRecProgressiveClone(Callee)) {
+      *ReasonAddr = NinlrRecursive;
+      return false;
+    }
+    if (preferToDelayInlineDecision(CB->getCaller(), PrepareForLTO,
+        QueuedCallers)) {
+      *ReasonAddr = NinlrDelayInlineDecision;
+      return false;
+    }
+    if (preferPartialInlineOutlinedFunc(Callee)) {
+      *ReasonAddr = NinlrPreferPartialInline;
+      return false;
+    }
+    if (preferToIntelPartialInline(*Callee, PrepareForLTO, *ILIC)) {
+      *ReasonAddr = NinlrDelayInlineDecision;
+      return false;
+    }
+    if (preferNotToInlineEHIntoLoop(*CB, *ILIC)) {
+      *ReasonAddr = NinlrCalleeHasExceptionHandling;
+      return false;
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3694,69 +3997,28 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
   Cost -= getCallsiteCost(CS, DL);
 
 #if INTEL_CUSTOMIZATION
-  Function *Caller = CS.getInstruction()->getFunction();
+  Function *Caller = CB->getFunction();
   // Check if the caller function is recursive itself.
   for (User *U : Caller->users()) {
-    CallSite Site(U);
-    if (!Site)
+    auto CBB = dyn_cast<CallBase>(U);
+    if (!CBB)
       continue;
-    Instruction *I = Site.getInstruction();
-    if (I->getFunction() == Caller) {
+    if (CBB->getFunction() == Caller) {
       IsCallerRecursive = true;
       break;
     }
   }
 
   if (InlineForXmain) {
-    if (&F == CS.getCalledFunction()) {
-      if (isDoubleCallSite(&F)) {
-        // If there are two calls of the function, the cost of inlining it may
-        // drop, but less dramatically.
-        if (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) {
-           if (worthyDoubleInternalCallSite(CS, *ILIC)) {
-             Cost -= InlineConstants::SecondToLastCallToStaticBonus;
-             YesReasonVector.push_back(InlrDoubleLocalCall);
-           }
-        }
-        else {
-           if (worthyDoubleExternalCallSite(CS)) {
-             Cost -= InlineConstants::SecondToLastCallToStaticBonus;
-             YesReasonVector.push_back(InlrDoubleNonLocalCall);
-           }
-        }
-      }
-      if (worthInliningForFusion(CS, CalleeTTI, *ILIC, CallSitesForFusion,
-                                 PrepareForLTO)) {
-        Cost -= InlineConstants::InliningHeuristicBonus;
-        YesReasonVector.push_back(InlrForFusion);
-      }
-      if (worthInliningForDeeplyNestedIfs(CS, *ILIC, IsCallerRecursive,
-                                          PrepareForLTO)) {
-        Cost -= InlineConstants::InliningHeuristicBonus;
-        YesReasonVector.push_back(InlrDeeplyNestedIfs);
-      }
-      if (worthInliningForAddressComputations(CS, *ILIC, PrepareForLTO)) {
-        Cost -= InlineConstants::InliningHeuristicBonus;
-        YesReasonVector.push_back(InlrAddressComputations);
-      }
-      if (worthInliningForStackComputations(&F, TLI, PrepareForLTO)) {
-        Cost -= InlineConstants::InliningHeuristicBonus;
-        YesReasonVector.push_back(InlrStackComputations);
-      }
-      if (worthInliningSingleBasicBlockWithStructTest(&F, PrepareForLTO,
-          QueuedCallers)) {
-        Cost -= InlineConstants::InliningHeuristicBonus;
-        YesReasonVector.push_back(InlrSingleBasicBlockWithStructTest);
-      }
-      if (worthInliningForRecProgressiveClone(&F)) {
-        Cost -= InlineConstants::DeepInliningHeuristicBonus;
-        YesReasonVector.push_back(InlrRecProClone);
-      }
+    if (&F == CB->getCalledFunction()) {
+      worthInliningUnderSpecialCondition(*CB, *TLI, CalleeTTI, *ILIC,
+        PrepareForLTO, IsCallerRecursive, CallSitesForFusion, &QueuedCallers,
+        Cost, YesReasonVector);
     }
   }
 
   // Use InlineAggressiveInfo to expose uses of global ptrs
-  if (InlineForXmain && AI != nullptr && AI->isCallInstInAggInlList(CS)) {
+  if (InlineForXmain && AI != nullptr && AI->isCallInstInAggInlList(*CB)) {
     Cost -= InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
   }
@@ -3790,10 +4052,10 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
 
   // Populate our simplified values by mapping from function arguments to call
   // arguments with known important simplifications.
-  CallSite::arg_iterator CAI = CS.arg_begin();
-  for (Function::arg_iterator FAI = F.arg_begin(), FAE = F.arg_end();
-       FAI != FAE; ++FAI, ++CAI) {
-    assert(CAI != CS.arg_end());
+  auto CAI = CB->arg_begin();                                          // INTEL
+  for (Function::arg_iterator FAI = F.arg_begin(), FAE = F.arg_end();  // INTEL
+       FAI != FAE; ++FAI, ++CAI) {                                     // INTEL
+    assert(CAI != CB->arg_end());                                      // INTEL
     if (Constant *C = dyn_cast<Constant>(CAI))
       SimplifiedValues[&*FAI] = C;
 
@@ -3984,7 +4246,7 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
   // size, we penalise any call sites that perform loops. We do this after all
   // other costs here, so will likely only be dealing with relatively small
   // functions (and hence DT and LI will hopefully be cheap).
-  if (Caller->optForMinSize()) {
+  if (Caller->hasMinSize()) {
     DominatorTree DT(F);
     LoopInfo LI(DT);
     int NumLoops = 0;
@@ -4092,8 +4354,8 @@ InlineCost llvm::getInlineCost(
     TargetLibraryInfo *TLI,      // INTEL
     InliningLoopInfoCache *ILIC, // INTEL
     InlineAggressiveInfo *AI,    // INTEL
-    SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
-    SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
+    SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
+    SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
   return getInlineCost(CS, CS.getCalledFunction(), Params, CalleeTTI,
                        GetAssumptionCache, GetBFI, TLI, ILIC, AI, // INTEL
@@ -4109,8 +4371,8 @@ InlineCost llvm::getInlineCost(
     TargetLibraryInfo *TLI,         // INTEL
     InliningLoopInfoCache *ILIC,    // INTEL
     InlineAggressiveInfo *AI,       // INTEL
-    SmallSet<CallSite, 20> *CallSitesForFusion, // INTEL
-    SmallSet<CallSite, 20> *CallSitesForDTrans, // INTEL
+    SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
+    SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
 
   // Cannot inline indirect calls.
@@ -4137,11 +4399,12 @@ InlineCost llvm::getInlineCost(
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
-    if (isInlineViable(*Callee, Reason))
+    auto IsViable = isInlineViable(*Callee, Reason);
+    if (IsViable)
       return llvm::InlineCost::getAlways("always inline attribute",
                                          InlrAlwaysInline);
     assert(IsNotInlinedReason(Reason));
-    return llvm::InlineCost::getNever("inapplicable always inline attribute",
+    return llvm::InlineCost::getNever(IsViable.message,
                                       Reason);
   }
   if (CS.hasFnAttr(Attribute::AlwaysInlineRecursive)) {
@@ -4163,7 +4426,7 @@ InlineCost llvm::getInlineCost(
                                       NinlrMismatchedAttributes); // INTEL
 
   // Don't inline this call if the caller has the optnone attribute.
-  if (Caller->hasFnAttribute(Attribute::OptimizeNone))
+  if (Caller->hasOptNone())
     return llvm::InlineCost::getNever("optnone attribute",  // INTEL
                                       NinlrOptNone);        // INTEL
 
@@ -4219,8 +4482,8 @@ InlineCost llvm::getInlineCost(
     CA.getEarlyExitCost(), CA.getEarlyExitThreshold()); // INTEL
 }
 
-bool llvm::isInlineViable(Function &F, // INTEL
-                          InlineReason& Reason) { // INTEL
+InlineResult llvm::isInlineViable(Function &F, // INTEL
+                                  InlineReason& Reason) { // INTEL
   bool ReturnsTwice = F.hasFnAttribute(Attribute::ReturnsTwice);
   for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
     // Disallow inlining of functions which contain indirect branches or
@@ -4230,14 +4493,19 @@ bool llvm::isInlineViable(Function &F, // INTEL
 #if INTEL_CUSTOMIZATION
       if (isa<IndirectBrInst>(BI->getTerminator())) {
         Reason = NinlrIndirectBranch;
-        return false;
+        return "contains indirect branches";
       }
       if (BI->hasAddressTaken()) {
         Reason = NinlrBlockAddress;
-        return false;
+        return "uses block address";
       }
 #endif // INTEL_CUSTOMIZATION
     } // INTEL
+    if (isa<IndirectBrInst>(BI->getTerminator()))
+      return "contains indirect branches";
+
+    if (BI->hasAddressTaken())
+      return "uses block address";
 
     for (auto &II : *BI) {
       CallSite CS(&II);
@@ -4247,7 +4515,7 @@ bool llvm::isInlineViable(Function &F, // INTEL
       // Disallow recursive calls.
       if (&F == CS.getCalledFunction()) { // INTEL
         Reason = NinlrRecursive; // INTEL
-        return false;
+        return "recursive call";
       } // INTEL
 
       // Disallow calls which expose returns-twice to a function not previously
@@ -4255,7 +4523,7 @@ bool llvm::isInlineViable(Function &F, // INTEL
       if (!ReturnsTwice && CS.isCall() &&
           cast<CallInst>(CS.getInstruction())->canReturnTwice()) { // INTEL
         Reason = NinlrReturnsTwice; // INTEL
-        return false;
+        return "exposes returns-twice attribute";
       } // INTEL
 
       if (CS.getCalledFunction())
@@ -4265,15 +4533,17 @@ bool llvm::isInlineViable(Function &F, // INTEL
         // Disallow inlining of @llvm.icall.branch.funnel because current
         // backend can't separate call targets from call arguments.
         case llvm::Intrinsic::icall_branch_funnel:
+          Reason = NinlrCallsLocalEscape; // INTEL
+          return "disallowed inlining of @llvm.icall.branch.funnel";
         // Disallow inlining functions that call @llvm.localescape. Doing this
         // correctly would require major changes to the inliner.
         case llvm::Intrinsic::localescape:
           Reason = NinlrCallsLocalEscape; // INTEL
-          return false; // INTEL
+          return "disallowed inlining of @llvm.localescape";
         // Disallow inlining of functions that initialize VarArgs with va_start.
         case llvm::Intrinsic::vastart:
           Reason = NinlrVarargs; // INTEL
-          return false;
+          return "contains VarArgs initialized with va_start";
         }
     }
   }

@@ -306,7 +306,7 @@ MapIntrinToIml::legalizeFunctionTypes(FunctionType *FT,
 }
 
 void MapIntrinToIml::generateMathLibCalls(
-    unsigned NumRet, Constant *Func,
+    unsigned NumRet, FunctionCallee Func,
     SmallVectorImpl<SmallVector<Value *, 8>> &Args,
     SmallVectorImpl<Instruction *> &Calls, Instruction **InsertPt) {
 
@@ -737,7 +737,7 @@ void MapIntrinToIml::scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
                     << ScalarLibFuncName << "'");
 
   FunctionType *FT = FunctionType::get(RetType, FTArgTypes, false);
-  Constant *FCache = M->getOrInsertFunction(ScalarLibFuncName, FT);
+  FunctionCallee FCache = M->getOrInsertFunction(ScalarLibFuncName, FT);
   SmallVector<Value *, 4> CallResults;
 
   for (unsigned I = 0; I < LogicalVL; ++I) {
@@ -979,7 +979,7 @@ bool MapIntrinToIml::runOnFunction(Function &F) {
       // size requirements. This FunctionType is used to create the call
       // to the svml function.
       FT = legalizeFunctionTypes(FT, Args, TargetVL, FuncName);
-      Constant *FCache = M->getOrInsertFunction(VariantFuncNameRef, FT);
+      FunctionCallee FCache = M->getOrInsertFunction(VariantFuncNameRef, FT);
       Instruction *InsertPt = CI;
 
       // WorkList contains the instructions that are the results of math

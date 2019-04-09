@@ -85,16 +85,26 @@ static void propagateConstant(HLLoop *Loop, unsigned TempIndex,
                               int64_t Constant) {
   bool LoopChanged = false;
 
+  auto ReplaceBlobByConstant = [=](CanonExpr *CE, bool &Changed) {
+    if (CE->replaceTempBlobByConstant(TempIndex, Constant)) {
+      CE->simplify(true, true);
+      Changed = true;
+    }
+  };
+
   ForEach<RegDDRef>::visit(Loop, [&](RegDDRef *Ref) {
     if (Ref->isConstant()) {
       return;
     }
 
+    bool HasGEPInfo = Ref->hasGEPInfo();
     bool Changed = false;
-    for (CanonExpr *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-      if (CE->replaceTempBlobByConstant(TempIndex, Constant)) {
-        CE->simplify(true, true);
-        Changed = true;
+    for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
+      ReplaceBlobByConstant(Ref->getDimensionIndex(I), Changed);
+
+      if (HasGEPInfo) {
+        ReplaceBlobByConstant(Ref->getDimensionLower(I), Changed);
+        ReplaceBlobByConstant(Ref->getDimensionStride(I), Changed);
       }
     }
 

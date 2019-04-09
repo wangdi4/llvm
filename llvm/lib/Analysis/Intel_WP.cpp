@@ -10,6 +10,7 @@
 // This file does whole-program-analysis using TargetLibraryInfo.
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Constants.h"
@@ -21,11 +22,16 @@
 #include "llvm/IR/Module.h"
 
 using namespace llvm;
+using namespace llvm::llvm_intel_wp_analysis;
 
+namespace llvm {
+namespace llvm_intel_wp_analysis {
 // If it is true, compiler assumes that source files in the current
 // compilation have entire program.
-static cl::opt<bool> AssumeWholeProgram("whole-program-assume",
-                                        cl::init(false), cl::ReallyHidden);
+cl::opt<bool> AssumeWholeProgram("whole-program-assume",
+                                 cl::init(false), cl::ReallyHidden);
+}
+}
 
 // Flag to get whole program analysis trace.
 static cl::opt<bool> WholeProgramTrace("whole-program-trace",
@@ -154,81 +160,6 @@ WholeProgramInfo::WholeProgramInfo() {
 
 WholeProgramInfo::~WholeProgramInfo() {}
 
-
-// This routine sets linkage of "GV" to Internal except when GV is in
-// "AlwaysPreserved".
-//
-bool WholeProgramInfo::makeInternalize(GlobalValue &GV,
-                                       const StringSet<> &AlwaysPreserved) {
-
-  if (GV.hasLocalLinkage())
-    return false;
-
-  // Not checking for DLLExportStorage, hasAvailableExternallyLinkage,
-  // user supplied preserved symbols, a member of an externally
-  // visible comdat etc since user is asserting that it is WholeProgramAssume.
-  if (GV.isDeclaration() || AlwaysPreserved.count(GV.getName()))
-    return false;
-
-  GV.setVisibility(GlobalValue::DefaultVisibility);
-  GV.setLinkage(GlobalValue::InternalLinkage);
-  return true;
-}
-
-// This routine is called when WholeProgramAssume is true. It sets
-// linkage of all globals to Internal if possible.
-//
-void WholeProgramInfo::makeAllLocalToCompilationUnit(Module &M,
-                                                         CallGraph *CG) {
-
-  // Set of symbols private to the compiler that this pass should not touch.
-  StringSet<> AlwaysPreserved;
-
-  AlwaysPreserved.insert("main");
-
-  // Never internalize the llvm.used symbol.  It is used to implement
-  // attribute((used)).
-  AlwaysPreserved.insert("llvm.used");
-  AlwaysPreserved.insert("llvm.compiler.used");
-
-  // Never internalize anchors used by the machine module info
-  AlwaysPreserved.insert("llvm.global_ctors");
-  AlwaysPreserved.insert("llvm.global_dtors");
-  AlwaysPreserved.insert("llvm.global.annotations");
-
-  // Never internalize symbols code-gen inserts.
-  AlwaysPreserved.insert("__stack_chk_fail");
-  AlwaysPreserved.insert("__stack_chk_guard");
-
-  CallGraphNode *ExternalNode = CG ? CG->getExternalCallingNode() : nullptr;
-
-  for (Function &I : M) {
-    if (!makeInternalize(I, AlwaysPreserved))
-      continue;
-
-    if (ExternalNode)
-      ExternalNode->removeOneAbstractEdgeTo((*CG)[&I]);
-
-    if (WholeProgramTrace)
-      errs() << "    Internalized func " << I.getName() << "\n";
-  }
-  for (auto &GV : M.globals()) {
-    if (!makeInternalize(GV, AlwaysPreserved))
-      continue;
-
-    if (WholeProgramTrace)
-      errs() << "    Internalized gvar " << GV.getName() << "\n";
-  }
-
-  for (auto &GA : M.aliases()) {
-    if (!makeInternalize(GA, AlwaysPreserved))
-      continue;
-
-    if (WholeProgramTrace)
-      errs() << "    Internalized alias " << GA.getName() << "\n";
-  }
-}
-
 // Traverse through the IR and replace the calls to the intrinsic
 // llvm.intel.wholeprogramsafe with true if whole program safe was
 // detected. Else, replace the calls with a false. The intrinsic
@@ -282,7 +213,6 @@ WholeProgramInfo::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
       errs() << "whole-program-assume is enabled ... \n";
 
     Result.WholeProgramSeen = true;
-    Result.makeAllLocalToCompilationUnit(M, CG);
   }
 
   // Remove the uses of the intrinsic
@@ -345,19 +275,34 @@ bool WholeProgramInfo::resolveCalledValue(
 bool WholeProgramInfo::resolveCallsInRoutine(const TargetLibraryInfo &TLI,
                                              Function *F) {
   bool Resolved = true;
-  for (inst_iterator II = inst_begin(&(*F)), E = inst_end(&(*F));
-       II != E; ++II) {
+  for (auto &II : instructions(F)) {
     // Skip if it is not a call inst
-    if (!isa<CallInst>(&*II) && !isa<InvokeInst>(&*II)) {
+    if (!isa<CallInst>(&II) && !isa<InvokeInst>(&II)) {
       continue;
     }
 
-    CallSite CS = CallSite(&*II);
-    Resolved &= resolveCalledValue(TLI, CS.getCalledValue(), F);
+    CallBase *CS = dyn_cast<CallBase>(&II);
+    Resolved &= resolveCalledValue(TLI, CS->getCalledValue(), F);
     if (!Resolved && !WholeProgramTrace)
       return false;
   }
   return Resolved;
+}
+
+// Return true if the input StringRef represents any form of
+// main. Else return false.
+bool WholeProgramInfo::isMainEntryPoint(llvm::StringRef GlobName) {
+
+  return llvm::StringSwitch<bool>(GlobName)
+      .Cases("main",
+             "MAIN__",
+             "wmain",
+             "WinMain",
+             "wWinMain",
+             "DllMain",
+             true)
+      .Default(false);
+
 }
 
 bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
@@ -373,7 +318,7 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
   // Walk through all functions to find unresolved calls.
   LibFunc TheLibFunc;
   for (Function &F : M) {
-    if (F.getName() == "main" && !F.isDeclaration()) {
+    if (!F.isDeclaration() && isMainEntryPoint(F.getName())) {
       main_def_seen_in_ir = true;
     }
 
@@ -423,7 +368,7 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
       errs() << "  Main definition seen \n";
     else
       errs() << "  Main definition not seen \n";
-    errs() << "  FUNCTIONS UNRESOLVED: " << UnresolvedCallsCount << "\n";
+    errs() << "  UNRESOLVED CALLSITES: " << UnresolvedCallsCount << "\n";
     errs() << "  GLOBALS UNRESOLVED: " << unresolved_globals_count << "\n";
     errs() << "  ALIASES UNRESOLVED: " << unresolved_aliases_count << "\n";
 

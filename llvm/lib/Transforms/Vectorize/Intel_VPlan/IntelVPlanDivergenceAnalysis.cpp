@@ -70,7 +70,7 @@ static void getPhis(const VPBlockBase *Block,
   for (const VPRecipeBase &Recipe : PhiBlock->getRecipes()) {
     if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
       unsigned OpCode = VPInst->getOpcode();
-      if (OpCode == Instruction::PHI || OpCode == VPInstruction::SemiPhi)
+      if (OpCode == Instruction::PHI)
         Phis.push_back(VPInst);
     }
   }
@@ -406,7 +406,7 @@ void VPlanDivergenceAnalysis::computeImpl() {
     // community code divergence is the check on opcode instead of doing
     // dyn_cast<PHINode>.
     unsigned OpCode = I.getOpcode();
-    if (OpCode == Instruction::PHI || OpCode == VPInstruction::SemiPhi)
+    if (OpCode == Instruction::PHI)
       DivergentUpd = updatePHINode(I);
     else
       DivergentUpd = updateNormalInstruction(I);

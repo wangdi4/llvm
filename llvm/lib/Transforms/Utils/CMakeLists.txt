@@ -33,7 +33,10 @@ add_llvm_library(LLVMTransformUtils
   Intel_IntrinsicUtils.cpp
   ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
 # end INTEL_COLLAB
-  Intel_VecClone.cpp   # INTEL_CUSTOMIZATION    TODO: VEC to COLLAB
+# INTEL_CUSTOMIZATION
+  Intel_RegionSplitter.cpp
+  Intel_VecClone.cpp                    #TODO: VEC to COLLAB
+#end INTEL_CUSTOMIZATION
   LCSSA.cpp
   LibCallsShrinkWrap.cpp
   Local.cpp

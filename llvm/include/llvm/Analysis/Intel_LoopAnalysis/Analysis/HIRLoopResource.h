@@ -52,12 +52,14 @@ class HIRLoopResource;
 struct LoopResourceInfo {
 private:
   /// Indicates whether loop cost is dominated by memory, FP or int operations.
-  enum LoopResourceBound { Memory, FP, Int, Unknown };
+  enum LoopResourceBound { Memory, FP, Int, Branch, Unknown };
 
   unsigned IntOps;
   unsigned IntOpsCost;
   unsigned FPOps;
   unsigned FPOpsCost;
+  unsigned BranchOps;
+  unsigned BranchOpsCost;
   unsigned IntMemReads;
   unsigned IntMemWrites;
   unsigned FPMemReads;
@@ -66,13 +68,14 @@ private:
 
 public:
   LoopResourceInfo()
-      : IntOps(0), IntOpsCost(0), FPOps(0), FPOpsCost(0), IntMemReads(0),
-        IntMemWrites(0), FPMemReads(0), FPMemWrites(0),
-        Bound(LoopResourceBound::Unknown) {}
+      : IntOps(0), IntOpsCost(0), FPOps(0), FPOpsCost(0), BranchOps(0),
+        BranchOpsCost(0), IntMemReads(0), IntMemWrites(0), FPMemReads(0),
+        FPMemWrites(0), Bound(LoopResourceBound::Unknown) {}
 
   LoopResourceInfo(const LoopResourceInfo &LRI)
       : IntOps(LRI.IntOps), IntOpsCost(LRI.IntOpsCost), FPOps(LRI.FPOps),
-        FPOpsCost(LRI.FPOpsCost), IntMemReads(LRI.IntMemReads),
+        FPOpsCost(LRI.FPOpsCost), BranchOps(LRI.BranchOps),
+        BranchOpsCost(LRI.BranchOpsCost), IntMemReads(LRI.IntMemReads),
         IntMemWrites(LRI.IntMemWrites), FPMemReads(LRI.FPMemReads),
         FPMemWrites(LRI.FPMemWrites), Bound(LRI.Bound) {}
 
@@ -104,6 +107,12 @@ public:
     return OperationCost::MemOp * getNumFPMemOps();
   }
 
+  /// Returns the number of branching operations.
+  unsigned getNumBranchOps() const { return BranchOps; }
+
+  /// Returns the cost of branching (misprediction) operations.
+  unsigned getBranchOpsCost() const { return BranchOpsCost; }
+
   /// Returns the total number of memory references.
   unsigned getNumMemOps() const { return getNumIntMemOps() + getNumFPMemOps(); }
 
@@ -134,7 +143,7 @@ public:
 
   /// Returns the cost of integer, FP and memory operations.
   unsigned getTotalCost() const {
-    return getIntAndFPOpsCost() + getMemOpsCost();
+    return getIntAndFPOpsCost() + getBranchOpsCost() + getMemOpsCost();
   }
 
   /// Returns true if loop resource is memory bound.
@@ -145,6 +154,9 @@ public:
 
   /// Returns true if loop resource is integer operations bound.
   bool isIntBound() const { return (Bound == LoopResourceBound::Int); }
+
+  /// Returns true if loop resource is branching operations bound.
+  bool isBranchBound() const { return (Bound == LoopResourceBound::Branch); }
 
   /// Returns true if loop resource bound cannot be determined.
   bool isUnknownBound() const { return (Bound == LoopResourceBound::Unknown); }
@@ -171,6 +183,12 @@ public:
   void addFPOps(unsigned Cost, unsigned Num = 1) {
     FPOps += Num;
     FPOpsCost += (Cost * Num);
+  }
+
+  /// Adds 1 branch operation with a cost of \p Cost.
+  void addBranchOps(unsigned Cost) {
+    ++BranchOps;
+    BranchOpsCost += Cost;
   }
 
   /// Prints the loop resource.

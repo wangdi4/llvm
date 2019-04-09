@@ -19,7 +19,7 @@
 ;   }
 ; }
 
-; CHECK: [[IVPhi:%.*]] = semi-phi
+; CHECK: [[IVPhi:%.*]] = phi
 ; CHECK: [[ALoad:%.*]] = load i32
 ; CHECK-NEXT: [[MulAF:%.*]] = mul i32 [[ALoad]] i32 {{%.*}}
 ; CHECK-NEXT: [[AddM6:%.*]] = add i32 [[MulAF]] i32 6

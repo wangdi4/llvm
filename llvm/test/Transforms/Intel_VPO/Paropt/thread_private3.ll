@@ -110,7 +110,7 @@ attributes #5 = { noreturn nounwind }
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 45e862a703d2635a07052b2d28278561a98f386b) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm c0facea8ab417a6836d9c5932cd25a22b4456f6a)"}
+!1 = !{!"clang version 7.0.0"}
 !2 = !{!3, !4, i64 0}
 !3 = !{!"struct@_ZTS7t_class", !4, i64 0, !6, i64 4, !7, i64 8, !8, i64 16}
 !4 = !{!"omnipotent char", !5, i64 0}

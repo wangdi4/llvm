@@ -363,6 +363,9 @@ public:
   // Get widened base pointer of in-memory private variable
   Value *getVectorPrivateBase(Value *V);
 
+  // Get widened base pointer(s) of in-memory private variable of aggregate-type
+  Value *getVectorPrivateAggregateBase(Value *ArrayPriv);
+
   // Get a vector of pointers corresponding to the private variable for each
   // vector lane.
   Value *getVectorPrivatePtrs(Value *ScalarPrivate);
@@ -706,8 +709,8 @@ private:
   // only simple vectors.
   void widenVectorStore(StoreInst *Inst);
 
-  // Widen a BitCast instruction
-  void vectorizeBitCast(Instruction *Inst);
+  // Widen a BitCast/AddrSpaceCast instructions
+  template <typename CastInstTy> void vectorizeCast(Instruction *Inst);
 
   // Widen ExtractElt instruction - loop re-vectorization.
   void vectorizeExtractElement(Instruction *Inst);
@@ -731,6 +734,10 @@ private:
   void vectorizePHIInstruction(VPPHINode *VPPhi);
 
   void vectorizeReductionPHI(PHINode *Inst);
+
+  // Vectorize the call to OpenCL SinCos function with the vector-variant from
+  // SVML
+  void vectorizeOpenCLSinCos(CallInst *Call, bool isMasked);
 
   // Vectorize the write channel source argument for an OpenCL write channel
   // call. The source is the data that will be written to the channel.

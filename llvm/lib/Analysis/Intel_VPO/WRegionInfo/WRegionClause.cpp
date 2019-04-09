@@ -175,6 +175,32 @@ void ArraySectionInfo::print(raw_ostream &OS, bool PrintType) const {
   print(FOS, PrintType);
 }
 
+// An N-dimensional array section is represented in the IR as follows:
+//  Args[0] holds the base pointer
+//  Args[1] holds N
+//  Args[2,3,4] hold the <LB:Size:Stride> tuple for dimesion 0
+//  Args[5,6,7] hold the <LB:Size:Stride> tuple for dimesion 1
+//  ...etc.
+// This routine populates ArraySectionDims with the tuples.
+void ArraySectionInfo::populateArraySectionDims(const Use *Args,
+                                                unsigned NumArgs) {
+  assert(isa<ConstantInt>(Args[1]) &&
+         "Non-constant Value for number of array section dimensions.");
+  ConstantInt *CI = cast<ConstantInt>(Args[1]);
+  uint64_t NumDims = CI->getZExtValue();
+
+  assert(NumArgs == 3 * NumDims + 2 &&
+         "Unexpected number of args for array section operand.");
+
+  for (unsigned I = 0; I < NumDims; ++I) {
+    Value *LB = Args[3 * I + 2];
+    Value *SZ = Args[3 * I + 3];
+    Value *ST = Args[3 * I + 4];
+
+    addDimension(std::make_tuple(LB, SZ, ST));
+  }
+}
+
 void printFnPtr(Function *Fn, formatted_raw_ostream &OS, bool PrintType) {
   if (Fn==nullptr)
     OS << "UNSPECIFIED";

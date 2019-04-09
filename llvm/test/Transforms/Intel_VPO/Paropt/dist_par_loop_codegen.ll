@@ -111,7 +111,7 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 5829ac4234e41edd516e7dfcfa453893ec0bf108) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 7a60b2ec3ad471661251ba80a0e52217e39f80ce)"}
+!1 = !{!"clang version 7.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

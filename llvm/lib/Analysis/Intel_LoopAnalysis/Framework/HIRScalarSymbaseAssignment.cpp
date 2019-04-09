@@ -396,14 +396,16 @@ bool HIRScalarSymbaseAssignment::processRegionPhiLivein(
 }
 
 void HIRScalarSymbaseAssignment::populateLoopSCCPhiLiveouts(
-    const Instruction *SCCInst, unsigned Symbase) {
+    const Instruction *SCCInst, unsigned Symbase, const IRRegion &IRReg) {
 
   // We need special logic to mark symbase as live out of the inner loops of the
   // SCC. This is non-trivial to do during parsing as it is not aware of def-use
   // cycle of SCCs. Liveins are handled correctly by the parser using the
   // root/base instruction mechanism.
 
-  if (!isa<PHINode>(SCCInst)) {
+  auto *Phi = dyn_cast<PHINode>(SCCInst);
+
+  if (!Phi) {
     return;
   }
 
@@ -412,16 +414,42 @@ void HIRScalarSymbaseAssignment::populateLoopSCCPhiLiveouts(
   Loop *Lp = LI.getLoopFor(ParentBB);
   assert(Lp && "SCC phi does not have parent loop!");
 
-  // Ignore non-header phis.
-  if (ParentBB != Lp->getHeader()) {
-    return;
-  }
-
   HLLoop *DefLoop = LF.findHLLoop(Lp);
   assert(DefLoop && "SCC phi does not have parent HLLoop!");
 
-  // We found an inner SCC loop, mark symbase as live out of this loop.
-  DefLoop->addLiveOutTemp(Symbase);
+  if (Phi->getNumIncomingValues() == 1) {
+
+    // Since this is a SCC inst, the incoming value has to be an instruction.
+    auto *IncomingInst = cast<Instruction>(traceSingleOperandPhis(Phi, IRReg));
+
+    // Let SCC phi instruction be handled by another call to this function.
+    if (isa<PHINode>(IncomingInst)) {
+      return;
+    }
+
+    Loop *InnerLp = LI.getLoopFor(IncomingInst->getParent());
+    assert(InnerLp && "SCC phi does not have parent loop!");
+    assert(Lp->contains(InnerLp) && "Unexpected loop structure!");
+
+    // Nothing to process.
+    if (Lp == InnerLp) {
+      return;
+    }
+
+    HLLoop *InnerDefLoop = LF.findHLLoop(InnerLp);
+    assert(InnerDefLoop && "SCC phi does not have parent HLLoop!");
+
+    while (InnerDefLoop != DefLoop) {
+      InnerDefLoop->addLiveOutTemp(Symbase);
+      InnerDefLoop = InnerDefLoop->getParentLoop();
+    }
+
+  } else if (ParentBB == Lp->getHeader()) {
+    // Ignore non-header phis.
+
+    // We found an inner SCC loop, mark symbase as live out of this loop.
+    DefLoop->addLiveOutTemp(Symbase);
+  }
 }
 
 void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
@@ -441,7 +469,7 @@ void HIRScalarSymbaseAssignment::populateRegionPhiLiveins(
       if ((*SCCInstIt) != SCCIt->getRoot()) {
         // Assign same symbase to all instructions in the SCC.
         insertTempSymbase(*SCCInstIt, Symbase);
-        populateLoopSCCPhiLiveouts(*SCCInstIt, Symbase);
+        populateLoopSCCPhiLiveouts(*SCCInstIt, Symbase, *RegIt);
       }
 
       if (SCCLiveInProcessed) {

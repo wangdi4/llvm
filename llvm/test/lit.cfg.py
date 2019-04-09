@@ -145,7 +145,7 @@ tools.extend([
     'llvm-isel-fuzzer', 'llvm-opt-fuzzer', 'llvm-lib', 'llvm-link', 'llvm-lto',
     'llvm-lto2', 'llvm-mc', 'llvm-mca', 'llvm-modextract', 'llvm-nm',
     'llvm-objcopy', 'llvm-objdump', 'llvm-pdbutil', 'llvm-profdata',
-    'llvm-ranlib', 'llvm-readelf', 'llvm-readobj', 'llvm-rtdyld', 'llvm-size',
+    'llvm-ranlib', 'llvm-rc', 'llvm-readelf', 'llvm-readobj', 'llvm-rtdyld', 'llvm-size',
     'llvm-split', 'llvm-strings', 'llvm-strip', 'llvm-tblgen', 'llvm-undname',
     # INTEL_CUSTOMIZATION
     'llvm-spirv',

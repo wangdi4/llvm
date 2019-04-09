@@ -159,11 +159,11 @@ CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
 }
 
 uint64_t CanonExprUtils::getTypeSizeInBits(Type *Ty) const {
-  return getHIRParser().getDataLayout().getTypeSizeInBits(Ty);
+  return getHIRParser().getDataLayout().getTypeAllocSizeInBits(Ty);
 }
 
 uint64_t CanonExprUtils::getTypeSizeInBytes(Type *Ty) const {
-  return getHIRParser().getDataLayout().getTypeStoreSize(Ty);
+  return getHIRParser().getDataLayout().getTypeAllocSize(Ty);
 }
 
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
@@ -575,6 +575,7 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
                                           bool RelaxedMode) {
   // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
   // CE2 = C2*B2
+  assert(CE2->getDestType()->isIntegerTy() && "Invalid CE2 type!");
 
   auto ConstCoeff = CE1->getIVConstCoeff(Level);
   if (ConstCoeff == 0) {
@@ -600,7 +601,8 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
 
   if (!Mergeable) {
     // Not meargeable but could be casted to a blob with a correspondent type.
-    Term->castStandAloneBlob(CE1->getSrcType(), IsNSW);
+    // This allows merging into vector type CE.
+    Term->castStandAloneBlob(CE1->getSrcType()->getScalarType(), IsNSW);
   }
 
   // It's safe to change the Term type as CE1 and CE2 are mergeable.

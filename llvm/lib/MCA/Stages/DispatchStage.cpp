@@ -25,6 +25,16 @@
 namespace llvm {
 namespace mca {
 
+DispatchStage::DispatchStage(const MCSubtargetInfo &Subtarget,
+                             const MCRegisterInfo &MRI,
+                             unsigned MaxDispatchWidth, RetireControlUnit &R,
+                             RegisterFile &F)
+    : DispatchWidth(MaxDispatchWidth), AvailableEntries(MaxDispatchWidth),
+      CarryOver(0U), CarriedOver(), STI(Subtarget), RCU(R), PRF(F) {
+  if (!DispatchWidth)
+    DispatchWidth = Subtarget.getSchedModel().IssueWidth;
+}
+
 void DispatchStage::notifyInstructionDispatched(const InstRef &IR,
                                                 ArrayRef<unsigned> UsedRegs,
                                                 unsigned UOps) const {
@@ -59,28 +69,10 @@ bool DispatchStage::checkRCU(const InstRef &IR) const {
 }
 
 bool DispatchStage::canDispatch(const InstRef &IR) const {
-  return checkRCU(IR) && checkPRF(IR) && checkNextStage(IR);
-}
-
-void DispatchStage::updateRAWDependencies(ReadState &RS,
-                                          const MCSubtargetInfo &STI) {
-  SmallVector<WriteRef, 4> DependentWrites;
-
-  // Collect all the dependent writes, and update RS internal state.
-  PRF.addRegisterRead(RS, DependentWrites);
-
-  // We know that this read depends on all the writes in DependentWrites.
-  // For each write, check if we have ReadAdvance information, and use it
-  // to figure out in how many cycles this read becomes available.
-  const ReadDescriptor &RD = RS.getDescriptor();
-  const MCSchedModel &SM = STI.getSchedModel();
-  const MCSchedClassDesc *SC = SM.getSchedClassDesc(RD.SchedClassID);
-  for (WriteRef &WR : DependentWrites) {
-    WriteState &WS = *WR.getWriteState();
-    unsigned WriteResID = WS.getWriteResourceID();
-    int ReadAdvance = STI.getReadAdvanceCycles(SC, RD.UseIndex, WriteResID);
-    WS.addUser(&RS, ReadAdvance);
-  }
+  bool CanDispatch = checkRCU(IR);
+  CanDispatch &= checkPRF(IR);
+  CanDispatch &= checkNextStage(IR);
+  return CanDispatch;
 }
 
 Error DispatchStage::dispatch(InstRef IR) {
@@ -110,6 +102,9 @@ Error DispatchStage::dispatch(InstRef IR) {
     IsEliminated = PRF.tryEliminateMove(IS.getDefs()[0], IS.getUses()[0]);
   }
 
+  if (IS.isMemOp())
+    IS.setCriticalMemDep(IR.getSourceIndex());
+
   // A dependency-breaking instruction doesn't have to wait on the register
   // input operands, and it is often optimized at register renaming stage.
   // Update RAW dependencies if this instruction is not a dependency-breaking
@@ -121,7 +116,7 @@ Error DispatchStage::dispatch(InstRef IR) {
   // eliminated at register renaming stage.
   if (!IsEliminated) {
     for (ReadState &RS : IS.getUses())
-      updateRAWDependencies(RS, STI);
+      PRF.addRegisterRead(RS, STI);
   }
 
   // By default, a dependency-breaking zero-idiom is expected to be optimized

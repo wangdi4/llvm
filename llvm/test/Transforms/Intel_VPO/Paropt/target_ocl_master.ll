@@ -73,4 +73,4 @@ attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 
 !0 = !{i32 0, i32 59, i32 -677974782, !"main", i32 4, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang b97cd1e0ccdf66edc0b2a4aadd0de0874ecd119f) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 12648c238f10db1a5cb798b6bbc1863250ac7949)"}
+!2 = !{!"clang version 8.0.0"}

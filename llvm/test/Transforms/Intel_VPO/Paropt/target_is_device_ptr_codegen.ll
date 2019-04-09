@@ -11,6 +11,17 @@
 ;   }
 ; }
 
+; There must be 4 mapped entries: hh, n, gg, a
+; Verify that their MAP TYPEs are correct
+; FPRIV(hh):   545= 0x221= TGT_MAP_TO | TGT_MAP_TARGET_PARAM | TGT_MAP_IMPLICIT
+; FPRIV(n):    545= 0x221= TGT_MAP_TO | TGT_MAP_TARGET_PARAM | TGT_MAP_IMPLICIT
+; MAPFROM(gg):  34= 0x022= TGT_MAP_FROM | TGT_MAP_TARGET_PARAM
+; IsDevPtr(a): 800= 0x320= TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL |TGT_MAP_IMPLICIT
+; CHECK: @.offload_maptypes = private unnamed_addr constant [4 x i64] [i64 545, i64 545, i64 34, i64 800]
+;
+; Verify that the offload entry has the 4 matching arguments
+; CHECK: call void @__omp_offloading{{.*}}(double* %hh, i32* %n.addr, double* %gg, i32** %a)
+
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64-mic"
 
@@ -84,7 +95,7 @@ attributes #2 = { argmemonly nounwind }
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 128352294dcc96fea1ef64497c471e8e6af14866) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 890cebee945aedbfd9f05ca71a068134d5ba1f6a)"}
+!1 = !{!"clang version 8.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
@@ -94,9 +105,3 @@ attributes #2 = { argmemonly nounwind }
 !8 = !{!9, !9, i64 0}
 !9 = !{!"pointer@_ZTSPi", !4, i64 0}
 !10 = !{i32 0, i32 54, i32 -698850821, !"foo", i32 31, i32 0, i32 0}
-
-; CHECK: [[DEVICE1:%[0-9]+]] = load i32*, i32** @a
-; CHECK: [[DEVICE2:%[0-9]+]] = bitcast i32* [[DEVICE1]] to i8*
-; CHECK: store i8* [[DEVICE2]], i8** %{{[a-zA-Z._0-9]+}}
-
-

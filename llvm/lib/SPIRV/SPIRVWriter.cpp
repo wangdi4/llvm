@@ -65,7 +65,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/Utils.h" // INTEL
+#include "llvm/Transforms/Utils.h" // loop-simplify pass
 
 #include <cstdlib>
 #include <functional>
@@ -831,18 +831,50 @@ SPIRVValue *LLVMToSPIRV::transValueWithoutDecoration(Value *V,
                              Pairs, BB));
   }
 
-  if (auto Branch = dyn_cast<BranchInst>(V)) {
-    if (Branch->isUnconditional())
-      return mapValue(V, BM->addBranchInst(static_cast<SPIRVLabel *>(transValue(
-                                               Branch->getSuccessor(0), BB)),
-                                           BB));
+  if (BranchInst *Branch = dyn_cast<BranchInst>(V)) {
+    SPIRVLabel *SuccessorTrue =
+        static_cast<SPIRVLabel *>(transValue(Branch->getSuccessor(0), BB));
+
+    /// Clang attaches !llvm.loop metadata to "latch" BB. This kind of blocks
+    /// has an edge directed to the loop header. Thus latch BB matching to
+    /// "Continue Target" per the SPIR-V spec. This statement is true only after
+    /// applying the loop-simplify pass to the LLVM module.
+    /// For "for" and "while" loops latch BB is terminated by an
+    /// unconditional branch. Also for this kind of loops "Merge Block" can
+    /// be found as block targeted by false edge of the "Header" BB.
+    /// For "do while" loop the latch is terminated by a conditional branch
+    /// with true edge going to the header and the false edge going out of
+    /// the loop, which corresponds to a "Merge Block" per the SPIR-V spec.
+    std::vector<SPIRVWord> Parameters;
+    spv::LoopControlMask LoopControl = getLoopControl(Branch, Parameters);
+
+    if (Branch->isUnconditional()) {
+      // For "for" and "while" loops llvm.loop metadata is attached to
+      // an unconditional branch instruction.
+      if (LoopControl != spv::LoopControlMaskNone) {
+        // SuccessorTrue is the loop header BB.
+        const SPIRVInstruction *Term = SuccessorTrue->getTerminateInstr();
+        if (Term && Term->getOpCode() == OpBranchConditional) {
+          const auto *Br = static_cast<const SPIRVBranchConditional *>(Term);
+          BM->addLoopMergeInst(Br->getFalseLabel()->getId(), // Merge Block
+                               BB->getId(),                  // Continue Target
+                               LoopControl, Parameters, SuccessorTrue);
+        }
+      }
+      return mapValue(V, BM->addBranchInst(SuccessorTrue, BB));
+    }
+    // For "do-while" loops llvm.loop metadata is attached to a conditional
+    // branch instructions
+    SPIRVLabel *SuccessorFalse =
+        static_cast<SPIRVLabel *>(transValue(Branch->getSuccessor(1), BB));
+    if (LoopControl != spv::LoopControlMaskNone)
+      // SuccessorTrue is the loop header BB.
+      BM->addLoopMergeInst(SuccessorFalse->getId(), // Merge Block
+                           BB->getId(),             // Continue Target
+                           LoopControl, Parameters, SuccessorTrue);
     return mapValue(
-        V,
-        BM->addBranchConditionalInst(
-            transValue(Branch->getCondition(), BB),
-            static_cast<SPIRVLabel *>(transValue(Branch->getSuccessor(0), BB)),
-            static_cast<SPIRVLabel *>(transValue(Branch->getSuccessor(1), BB)),
-            BB));
+        V, BM->addBranchConditionalInst(transValue(Branch->getCondition(), BB),
+                                        SuccessorTrue, SuccessorFalse, BB));
   }
 
   if (auto Phi = dyn_cast<PHINode>(V)) {
@@ -1051,6 +1083,65 @@ SPIRVValue *LLVMToSPIRV::oclTransSpvcCastSampler(CallInst *CI,
   return BV;
 }
 
+std::vector<std::pair<Decoration, std::string>>
+parseAnnotations(StringRef AnnotatedCode) {
+  std::vector<std::pair<Decoration, std::string>> Decorates;
+
+  size_t OpenBracketNum = AnnotatedCode.count('{');
+  size_t CloseBracketNum = AnnotatedCode.count('}');
+  if (OpenBracketNum != CloseBracketNum)
+    return {};
+
+  for (size_t i = 0; i < OpenBracketNum; ++i) {
+    size_t From = AnnotatedCode.find('{');
+    size_t To = AnnotatedCode.find('}', From);
+    StringRef AnnotatedDecoration = AnnotatedCode.substr(From + 1, To - 1);
+    std::pair<StringRef, StringRef> D = AnnotatedDecoration.split(':');
+
+    StringRef F = D.first;
+    Decoration Dec =
+        llvm::StringSwitch<Decoration>(F)
+            .Case("memory", DecorationMemoryINTEL)
+            .Case("register", DecorationRegisterINTEL)
+            .Case("numbanks", DecorationNumbanksINTEL)
+            .Case("bankwidth", DecorationBankwidthINTEL)
+            .Case("max_concurrency", DecorationMaxConcurrencyINTEL);
+
+    Decorates.push_back({Dec, D.second});
+    AnnotatedCode = AnnotatedCode.drop_front(To + 1);
+  }
+  return Decorates;
+}
+
+void addIntelFPGADecorations(
+    SPIRVEntry *E,
+    std::vector<std::pair<Decoration, std::string>> &Decorations) {
+  for (const auto &I : Decorations) {
+    if (I.first == DecorationMemoryINTEL)
+      E->addDecorate(new SPIRVDecorateMemoryINTELAttr(E, I.second));
+    else {
+      SPIRVWord Result = 0;
+      StringRef(I.second).getAsInteger(10, Result);
+      E->addDecorate(I.first, Result);
+    }
+  }
+}
+
+void addIntelFPGADecorationsForStructMember(
+    SPIRVEntry *E, SPIRVWord MemberNumber,
+    std::vector<std::pair<Decoration, std::string>> &Decorations) {
+  for (const auto &I : Decorations) {
+    if (I.first == DecorationMemoryINTEL)
+      E->addMemberDecorate(
+          new SPIRVMemberDecorateMemoryINTELAttr(E, MemberNumber, I.second));
+    else {
+      SPIRVWord Result = 0;
+      StringRef(I.second).getAsInteger(10, Result);
+      E->addMemberDecorate(MemberNumber, I.first, Result);
+    }
+  }
+}
+
 SPIRVValue *LLVMToSPIRV::transIntrinsicInst(IntrinsicInst *II,
                                             SPIRVBasicBlock *BB) {
   auto getMemoryAccess = [](MemIntrinsic *MI) -> std::vector<SPIRVWord> {
@@ -1135,6 +1226,42 @@ SPIRVValue *LLVMToSPIRV::transIntrinsicInst(IntrinsicInst *II,
     return DbgTran->createDebugDeclarePlaceholder(cast<DbgDeclareInst>(II), BB);
   case Intrinsic::dbg_value:
     return DbgTran->createDebugValuePlaceholder(cast<DbgValueInst>(II), BB);
+  case Intrinsic::var_annotation: {
+    BitCastInst *BI = cast<BitCastInst>(II->getArgOperand(0));
+    SPIRVValue *SV = transValue(BI->getOperand(0), BB);
+
+    GetElementPtrInst *GEP = cast<GetElementPtrInst>(II->getArgOperand(1));
+    Constant *C = cast<Constant>(GEP->getOperand(0));
+    StringRef AnnotationString =
+        cast<ConstantDataArray>(C->getOperand(0))->getAsString();
+
+    std::vector<std::pair<Decoration, std::string>> Decorations =
+        parseAnnotations(AnnotationString);
+
+    addIntelFPGADecorations(SV, Decorations);
+    return SV;
+  }
+  case Intrinsic::ptr_annotation: {
+    BitCastInst *BI = dyn_cast<BitCastInst>(II->getArgOperand(0));
+    GetElementPtrInst *GI = dyn_cast<GetElementPtrInst>(BI->getOperand(0));
+    SPIRVType *Ty = transType(GI->getSourceElementType());
+
+    SPIRVWord MemberNumber =
+        dyn_cast<ConstantInt>(GI->getOperand(2))->getZExtValue();
+
+    GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(II->getArgOperand(1));
+    Constant *C = dyn_cast<Constant>(GEP->getOperand(0));
+    StringRef AnnotationString =
+        dyn_cast<ConstantDataArray>(C->getOperand(0))->getAsString();
+
+    std::vector<std::pair<Decoration, std::string>> Decorations =
+        parseAnnotations(AnnotationString);
+
+    addIntelFPGADecorationsForStructMember(Ty, MemberNumber, Decorations);
+
+    II->replaceAllUsesWith(BI);
+    return 0;
+  }
   default:
     // LLVM intrinsic functions shouldn't get to SPIRV, because they
     // would have no definition there.
@@ -1635,6 +1762,8 @@ bool llvm::WriteSPIRV(Module *M, llvm::raw_ostream &OS, std::string &ErrMsg) {
   std::unique_ptr<SPIRVModule> BM(SPIRVModule::createSPIRVModule());
   legacy::PassManager PassMgr;
   addPassesForSPIRV(PassMgr);
+  if (hasLoopUnrollMetadata(M))
+    PassMgr.add(createLoopSimplifyPass());
   PassMgr.add(createLLVMToSPIRV(BM.get()));
   PassMgr.run(*M);
 

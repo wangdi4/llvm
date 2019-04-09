@@ -1,7 +1,7 @@
 ; Test inner loop control flow uniformity for do/while loop without loop index.
 
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -debug 2>&1 | FileCheck %s
+; RUN: opt -S %s -VPlanDriver -debug 2>&1 | FileCheck %s
 
 ; ModuleID = 'case2.c'
 source_filename = "case2.c"

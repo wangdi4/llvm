@@ -118,6 +118,11 @@
 extern "C" {
 #endif // __cplusplus
 
+#if __GNUC__ >= 7
+// The switch ladders in this file use implicit fallthrough for compactness.
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#endif
+
 #if 0
 #if defined GFX
     #if (defined LRB) || (defined AVX3)

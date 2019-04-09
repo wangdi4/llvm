@@ -73,11 +73,12 @@ CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
 
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
 
-  Constant *FnC = M->getOrInsertFunction("__kmpc_begin", Type::getVoidTy(C),
-                                         PointerType::getUnqual(IdentTy),
-                                         Type::getInt32Ty(C));
+  FunctionCallee FnC = M->getOrInsertFunction("__kmpc_begin",
+                                              Type::getVoidTy(C),
+                                              PointerType::getUnqual(IdentTy),
+                                              Type::getInt32Ty(C));
 
-  Function *FnKmpcBegin = cast<Function>(FnC);
+  Function *FnKmpcBegin = cast<Function>(FnC.getCallee());
 
   FnKmpcBegin->setCallingConv(CallingConv::C);
 
@@ -105,10 +106,10 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
   GlobalVariable *KmpcLoc =
       genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, &B, &E);
 
-  Constant *FnC = M->getOrInsertFunction("__kmpc_end", Type::getVoidTy(C),
-                                         PointerType::getUnqual(IdentTy));
+  FunctionCallee FnC = M->getOrInsertFunction("__kmpc_end", Type::getVoidTy(C),
+                                              PointerType::getUnqual(IdentTy));
 
-  Function *FnKmpcEnd = cast<Function>(FnC);
+  Function *FnKmpcEnd = cast<Function>(FnC.getCallee());
 
   FnKmpcEnd->setCallingConv(CallingConv::C);
 
@@ -269,24 +270,21 @@ WRNScheduleKind VPOParoptUtils::getDistLoopScheduleKind(WRegionNode *W)
   return WRNScheduleDistributeStaticEven;
 }
 
-/// \p Arg is a Value from a clause.  It is either a Constant or
-/// a Value of pointer type.  If it is a pointer Value, the method
-/// loads the clause's actual argument value via this pointer,
-/// otherwise the clause's actual argument value is \p Arg itself.
-/// The method sign-extends or truncates the clause's actual argument
-/// value to type \p Ty using the provided \p Builder.
-Value *VPOParoptUtils::getByRefClauseArgValueSExt(
+// Returns Value of a clause argument, which may be passed either
+// via a pointer or as a Constant.
+// The resulting value is casted to the given type.
+Value *VPOParoptUtils::getOrLoadClauseArgValueWithSext(
     Value *Arg, Type *Ty, IRBuilder<> &Builder) {
   if (!Arg)
     return nullptr;
 
-  assert(Ty->isIntegerTy() && "Expected integer type.");
+  assert(Ty && Ty->isIntegerTy() && "Expected integer type.");
 
   if (Arg->getType()->isPointerTy())
     Arg = Builder.CreateLoad(Arg);
-  // FIXME: assert that Arg is a Constant in an else clause
-  //        of the above IF, when FE passes clause's argument
-  //        by reference.
+  else
+    assert(isa<Constant>(Arg) &&
+           "The clause argument must be either pointer or Constant Value.");
 
   return Builder.CreateSExtOrTrunc(Arg, Ty);
 }
@@ -336,12 +334,12 @@ CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
   Type *Int32Ty = Type::getInt32Ty(C);
 
   if (NumTeams)
-    NumTeams = getByRefClauseArgValueSExt(NumTeams, Int32Ty, Builder);
+    NumTeams = getOrLoadClauseArgValueWithSext(NumTeams, Int32Ty, Builder);
   else
     NumTeams = ConstantInt::get(Int32Ty, 0);
 
   if (NumThreads)
-    NumThreads = getByRefClauseArgValueSExt(NumThreads, Int32Ty, Builder);
+    NumThreads = getOrLoadClauseArgValueWithSext(NumThreads, Int32Ty, Builder);
   else
     NumThreads = ConstantInt::get(Int32Ty, 0);
 
@@ -496,8 +494,8 @@ CallInst *VPOParoptUtils::genTgtTargetDataBegin(WRegionNode *W, int NumArgs,
                                                 Instruction *InsertPt) {
   assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetEnterDataNode>(W)) &&
          "Expected a WRNTargetDataNode or WRNTargetEnterDataNode");
-  Value *DeviceIDPtr = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_begin", DeviceIDPtr, NumArgs,
+  Value *DeviceID = W->getDevice();
+  CallInst *Call= genTgtCall("__tgt_target_data_begin", DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
@@ -516,8 +514,8 @@ CallInst *VPOParoptUtils::genTgtTargetDataEnd(WRegionNode *W, int NumArgs,
                                               Instruction *InsertPt) {
   assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetExitDataNode>(W)) &&
          "Expected a WRNTargetDataNode or WRNTargetExitDataNode");
-  Value *DeviceIDPtr = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_end", DeviceIDPtr, NumArgs,
+  Value *DeviceID = W->getDevice();
+  CallInst *Call= genTgtCall("__tgt_target_data_end", DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
@@ -535,8 +533,8 @@ CallInst *VPOParoptUtils::genTgtTargetDataUpdate(WRegionNode *W, int NumArgs,
                                                  Value *ArgsMaptype,
                                                  Instruction *InsertPt) {
   assert(isa<WRNTargetUpdateNode>(W) && "Expected a WRNTargetUpdateNode");
-  Value *DeviceIDPtr = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target_data_update", DeviceIDPtr, NumArgs,
+  Value *DeviceID = W->getDevice();
+  CallInst *Call= genTgtCall("__tgt_target_data_update", DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt);
   return Call;
 }
@@ -555,8 +553,8 @@ CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *HostAddr,
                                        Value *ArgsMaptype,
                                        Instruction *InsertPt) {
   assert(isa<WRNTargetNode>(W) && "Expected a WRNTargetNode");
-  Value *DeviceIDPtr = W->getDevice();
-  CallInst *Call= genTgtCall("__tgt_target", DeviceIDPtr, NumArgs, ArgsBase,
+  Value *DeviceID = W->getDevice();
+  CallInst *Call= genTgtCall("__tgt_target", DeviceID, NumArgs, ArgsBase,
                              Args, ArgsSize, ArgsMaptype, InsertPt, HostAddr);
   return Call;
 }
@@ -584,10 +582,10 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
   WRegionNode *WTarget = W->getParent();
   assert(isa<WRNTargetNode>(WTarget) && "Expected parent to be WRNTargetNode");
 
-  Value *DeviceIDPtr    = WTarget->getDevice();
+  Value *DeviceID       = WTarget->getDevice();
   Value *NumTeamsPtr    = W->getNumTeams();
   Value *ThreadLimitPtr = W->getThreadLimit();
-  CallInst *Call= genTgtCall("__tgt_target_teams", DeviceIDPtr, NumArgs,
+  CallInst *Call= genTgtCall("__tgt_target_teams", DeviceID, NumArgs,
                              ArgsBase, Args, ArgsSize, ArgsMaptype, InsertPt,
                              HostAddr, NumTeamsPtr, ThreadLimitPtr);
   return Call;
@@ -611,7 +609,7 @@ CallInst *VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr,
 ///   int64_t* args_size,   // array of sizes (bytes) of each mapped datum
 ///   int64_t* args_maptype // array of map attributes for each mapping
 /// \endcode
-CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
+CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceID,
                                      int NumArgsCount, Value *ArgsBase,
                                      Value *Args, Value *ArgsSize,
                                      Value *ArgsMaptype, Instruction *InsertPt,
@@ -631,14 +629,12 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
   Value *ThreadLimit = nullptr;
 
   // First parm: "int64_t device_id"
-  Value *DeviceID;
-  if (DeviceIDPtr == nullptr) {
+  if (DeviceID == nullptr)
     // user did not specify device; default is -1
     DeviceID = ConstantInt::get(Int64Ty, -1);
-  } else if (isa<Constant>(DeviceIDPtr))
-    DeviceID = Builder.CreateSExtOrBitCast(DeviceIDPtr, Int64Ty);
   else {
-    DeviceID = new LoadInst(DeviceIDPtr, "deviceID", InsertPt);
+    assert(!DeviceID->getType()->isPointerTy() &&
+           "DeviceID should not be a pointer");
     DeviceID = Builder.CreateSExtOrBitCast(DeviceID, Int64Ty);
   }
 
@@ -659,13 +655,14 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceIDPtr,
       if (NumTeamsPtr == nullptr)
         NumTeams = Builder.getInt32(0);
       else
-        NumTeams = getByRefClauseArgValueSExt(NumTeamsPtr, Int32Ty, Builder);
+        NumTeams =
+            getOrLoadClauseArgValueWithSext(NumTeamsPtr, Int32Ty, Builder);
 
       if (ThreadLimitPtr == nullptr)
         ThreadLimit = Builder.getInt32(0);
       else
         ThreadLimit =
-            getByRefClauseArgValueSExt(ThreadLimitPtr, Int32Ty, Builder);
+            getOrLoadClauseArgValueWithSext(ThreadLimitPtr, Int32Ty, Builder);
     }
   } else {
     // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams
@@ -1349,21 +1346,15 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
 //
 //     call void @__kmpc_for_static_init_8( ... , i64 17)
 //
-CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
-                                            StructType *IdentTy,
-                                            Value *Tid, Value *SchedType,
-                                            Value *IsLastVal, Value *LB,
-                                            Value *UB, Value *DistUB, Value *ST,
-                                            Value *Inc, Value *Chunk,
-                                            int Size, bool IsUnsigned,
-                                            Instruction *InsertPt) {
+CallInst *VPOParoptUtils::genKmpcStaticInit(
+    WRegionNode *W, StructType *IdentTy, Value *Tid,
+    Value *IsLastVal, Value *LB, Value *UB, Value *DistUB, Value *ST,
+    Value *Inc, Value *Chunk, bool IsUnsigned, Instruction *InsertPt) {
+
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
 
   Function *F = B->getParent();
-  Module   *M = F->getParent();
-
-  LLVMContext &C = F->getContext();
 
   int Flags = KMP_IDENT_KMPC;
   GlobalVariable *Loc =
@@ -1371,99 +1362,97 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
 
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
-  bool IsDistChunkedParLoop = false;
+  auto Size = LB->getType()->getPointerElementType()->getIntegerBitWidth();
+  assert((Size == 32 || Size == 64) &&
+         "Invalid plower parameter type in genKmpcStaticInit().");
 
-  if (isa<WRNDistributeParLoopNode>(W))  {
-    WRNScheduleKind DistSchedKind = VPOParoptUtils::getDistLoopScheduleKind(W);
-    if (DistSchedKind == WRNScheduleDistributeStatic)
-      IsDistChunkedParLoop = true;
-  }
+  // Verify type sizes of the other parameters.
+  assert(IsLastVal->getType()->getPointerElementType()->isIntegerTy(32) &&
+         UB->getType()->getPointerElementType()->isIntegerTy(Size) &&
+         DistUB->getType()->getPointerElementType()->isIntegerTy(Size) &&
+         ST->getType()->getPointerElementType()->isIntegerTy(Size) &&
+         Inc->getType()->isIntegerTy(Size) &&
+         "Invalid parameter types in genKmpcStaticInit().");
 
-  Type *Int32Ty = Type::getInt32Ty(C);
-  Type *Int64Ty = Type::getInt64Ty(C);
-
-  Type *IntArgTy = (Size == 32) ? Int32Ty : Int64Ty;
+  LLVMContext &C = F->getContext();
+  auto *Int32Ty = Type::getInt32Ty(C);
+  auto *IntArgTy = (Size == 32) ? Int32Ty : Type::getInt64Ty(C);
 
   // If Chunk's type != IntArgTy, cast it to IntArgTy
   IRBuilder<> Builder(InsertPt);
   Chunk = Builder.CreateSExtOrTrunc(Chunk, IntArgTy, "chunk.cast");
 
-  StringRef FnName;
+  // Call __kmpc_dist_for_static_init only for "distribute parallel for"
+  // without dist_schedule() clause.
+  bool IsDistEvenParLoop =
+      isa<WRNDistributeParLoopNode>(W) &&
+      (VPOParoptUtils::getDistLoopScheduleKind(W) ==
+       WRNScheduleDistributeStaticEven);
 
-  if (IsUnsigned) {
-    if (isa<WRNDistributeParLoopNode>(W) && !IsDistChunkedParLoop)
-      FnName = (Size == 32) ? "__kmpc_dist_for_static_init_4u" :
-                              "__kmpc_dist_for_static_init_8u" ;
-    else
-      FnName = (Size == 32) ? "__kmpc_for_static_init_4u" :
-                              "__kmpc_for_static_init_8u" ;
+  // dist_schedule() is only used for distribute-for loops.
+  // Side note: we will call __kmpc_for_static_init in this case.
+  auto SchedKind =
+      isa<WRNDistributeNode>(W) ?
+          getDistLoopScheduleKind(W) : getLoopScheduleKind(W);
+
+  auto *SchedID = ConstantInt::getSigned(Int32Ty, SchedKind);
+
+  // The name is: __kmpc_[dist_]for_static_init_4/8[u]
+  std::string FnName =
+      (Twine("__kmpc_") +
+       (IsDistEvenParLoop ? Twine("dist_") : Twine("")) +
+       Twine("for_static_init_") + Twine(Size / 8) +
+       (IsUnsigned ? Twine("u") : Twine(""))).str();
+
+  SmallVector<Type *, 10> FnArgTypes;
+
+  if (IsDistEvenParLoop)
+    // void __kmpc_dist_for_static_init_4/8[u](
+    //          ident_t *loc, kmp_int32 gtid,
+    //          kmp_int32 schedule, kmp_int32 *plastiter,
+    //          kmp_[u]int32/64 *plower, kmp_[u]int32/64 *pupper,
+    //          kmp_[u]int32/64 *pupperD, // not used for __kmpc_for_static_init
+    //          kmp_int32/64 *pstride, kmp_int32/64 incr, kmp_int32/64 chunk)
+    FnArgTypes = { PointerType::getUnqual(IdentTy),
+                   Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
+                   PointerType::getUnqual(IntArgTy),
+                   PointerType::getUnqual(IntArgTy),
+                   PointerType::getUnqual(IntArgTy),
+                   PointerType::getUnqual(IntArgTy),
+                   IntArgTy, IntArgTy };
+  else
+    // void __kmpc_for_static_init_4/8[u](
+    //          ident_t *loc, kmp_int32 gtid,
+    //          kmp_int32 schedule, kmp_int32 *plastiter,
+    //          kmp_[u]int32/64 *plower, kmp_[u]int32/64 *pupper,
+    //          kmp_int32/64 *pstride, kmp_int32/64 incr, kmp_int32/64 chunk)
+    FnArgTypes = { PointerType::getUnqual(IdentTy),
+                   Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
+                   PointerType::getUnqual(IntArgTy),
+                   PointerType::getUnqual(IntArgTy),
+                   PointerType::getUnqual(IntArgTy),
+                   IntArgTy, IntArgTy };
+
+  SmallVector<Value *, 10> FnArgs { Loc, Tid, SchedID, IsLastVal, LB, UB };
+
+  if (IsDistEvenParLoop) {
+    FnArgs.push_back(DistUB);
   }
-  else {
-    if (isa<WRNDistributeParLoopNode>(W) && !IsDistChunkedParLoop)
-      FnName = (Size == 32) ? "__kmpc_dist_for_static_init_4" :
-                              "__kmpc_dist_for_static_init_8" ;
-    else
-      FnName = (Size == 32) ? "__kmpc_for_static_init_4" :
-                              "__kmpc_for_static_init_8" ;
-  }
 
-  FunctionType *FnTy;
+  FnArgs.push_back(ST);
+  FnArgs.push_back(Inc);
+  FnArgs.push_back(Chunk);
 
-  if (isa<WRNDistributeParLoopNode>(W) && !IsDistChunkedParLoop) {
-    Type *ParamsTy[] = {PointerType::getUnqual(IdentTy),
-                        Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
-                        PointerType::getUnqual(IntArgTy),
-                        PointerType::getUnqual(IntArgTy),
-                        PointerType::getUnqual(IntArgTy),
-                        PointerType::getUnqual(IntArgTy),
-                        IntArgTy, IntArgTy};
-    FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
-  }
-  else {
-    Type *ParamsTy[] = {PointerType::getUnqual(IdentTy),
-                        Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
-                        PointerType::getUnqual(IntArgTy),
-                        PointerType::getUnqual(IntArgTy),
-                        PointerType::getUnqual(IntArgTy),
-                        IntArgTy, IntArgTy};
-    FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
-  }
-
-  Function *FnStaticInit = M->getFunction(FnName);
-
-  if (!FnStaticInit) {
-    FnStaticInit = Function::Create(FnTy, GlobalValue::ExternalLinkage,
-                                    FnName, M);
-    FnStaticInit->setCallingConv(CallingConv::C);
-  }
-
-  std::vector<Value *> FnStaticInitArgs;
-
-  FnStaticInitArgs.push_back(Loc);
-  FnStaticInitArgs.push_back(Tid);
-  FnStaticInitArgs.push_back(SchedType);
-  FnStaticInitArgs.push_back(IsLastVal);
-  FnStaticInitArgs.push_back(LB);
-  FnStaticInitArgs.push_back(UB);
-
-  if (isa<WRNDistributeParLoopNode>(W) && !IsDistChunkedParLoop)
-    FnStaticInitArgs.push_back(DistUB);
-
-  FnStaticInitArgs.push_back(ST);
-  FnStaticInitArgs.push_back(Inc);
-  FnStaticInitArgs.push_back(Chunk);
-
-  CallInst *StaticInitCall = CallInst::Create(FnStaticInit,
-                                              FnStaticInitArgs, "", InsertPt);
-  StaticInitCall->setCallingConv(CallingConv::C);
-  StaticInitCall->setTailCall(false);
-
-  return StaticInitCall;
+  return genCall(FnName, Type::getVoidTy(C), FnArgs, FnArgTypes, InsertPt);
 }
 
-// This function generates a call to notify the runtime system that the static
-// loop scheduling is done
-//   call void @__kmpc_for_static_fini(%ident_t* %loc, i32 %tid)
+/// This function generates a call to notify the runtime system that the static
+/// loop scheduling is done
+///
+/// \code
+/// call void @__kmpc_for_static_fini(ident_t *loc,
+///                                   kmp_int32 global_tid)
+/// \endcode
 CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
                                             StructType *IdentTy,
                                             Value *Tid,
@@ -1472,40 +1461,25 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
   BasicBlock *E = W->getExitBBlock();
 
   Function *F = B->getParent();
-  Module   *M = F->getParent();
   LLVMContext &C = F->getContext();
 
   int Flags = KMP_IDENT_KMPC;
-
-  Type *IntTy = Type::getInt32Ty(C);
 
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
   LLVM_DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
-  Type *ParamsTy[] = {PointerType::getUnqual(IdentTy), IntTy};
+  // Assert that we used the right type for internally created
+  // thread ID.
+  assert(Tid->getType()->isIntegerTy(32) &&
+         "Thread ID must be 4-byte integer.");
 
-  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
+  SmallVector<Type *, 2> FnArgTypes { PointerType::getUnqual(IdentTy),
+                                      Type::getInt32Ty(C) };
+  SmallVector<Value *, 2> FnArgs { Loc, Tid };
 
-  Function *FnStaticFini = M->getFunction("__kmpc_for_static_fini");
-
-  if (!FnStaticFini) {
-    FnStaticFini = Function::Create(FnTy, GlobalValue::ExternalLinkage,
-                                  "__kmpc_for_static_fini", M);
-    FnStaticFini->setCallingConv(CallingConv::C);
-  }
-
-  std::vector<Value *> FnStaticFiniArgs;
-
-  FnStaticFiniArgs.push_back(Loc);
-  FnStaticFiniArgs.push_back(Tid);
-
-  CallInst *StaticFiniCall = CallInst::Create(FnStaticFini,
-                                              FnStaticFiniArgs, "", InsertPt);
-  StaticFiniCall->setCallingConv(CallingConv::C);
-  StaticFiniCall->setTailCall(false);
-
-  return StaticFiniCall;
+  return genCall("__kmpc_for_static_fini", Type::getVoidTy(C),
+                 FnArgs, FnArgTypes, InsertPt);
 }
 
 // This function generates a call to notify the runtime system that the
@@ -1578,8 +1552,8 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
 
   if (isa<WRNDistributeParLoopNode>(W) && !IsDistChunkedParLoop) {
     Type *ParamsTy[] = {PointerType::getUnqual(IdentTy),
-                        Int32Ty, Int32Ty,
-                        IntArgTy, IntArgTy, IntArgTy, IntArgTy, IntArgTy};
+                        Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
+                        IntArgTy, IntArgTy, IntArgTy, IntArgTy};
     FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
   }
   else {
@@ -2491,17 +2465,15 @@ VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
 //   call void @__kmpc_doacross_fini({ i32, i32, i32, i32, i8* }* @.kmpc_loc,
 //   i32 %my.tid)
 //
-//   The call is inserted \en after \p InsertPt.
 CallInst *VPOParoptUtils::genKmpcDoacrossFini(WRegionNode *W,
                                               StructType *IdentTy, Value *Tid,
                                               Instruction *InsertPt) {
 
   CallInst *Fini = VPOParoptUtils::genKmpcCall(
-      W, IdentTy, InsertPt, "__kmpc_doacross_fini", nullptr, {Tid});
+      W, IdentTy, InsertPt, "__kmpc_doacross_fini", nullptr, {Tid}, true);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross fini call emitted.\n");
 
-  Fini->insertAfter(InsertPt);
   return Fini;
 }
 
@@ -2608,8 +2580,8 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
 
   // Get the function prototype from the module symbol table. If absent,
   // create and insert it into the symbol table first.
-  Constant *FnC = M->getOrInsertFunction(FnName, FnTy);
-  Function *Fn = cast<Function>(FnC);
+  FunctionCallee FnC = M->getOrInsertFunction(FnName, FnTy);
+  Function *Fn = cast<Function>(FnC.getCallee());
 
   CallInst *Call = genCall(Fn, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
   return Call;
@@ -2664,8 +2636,8 @@ CallInst *VPOParoptUtils::genEmptyCall(Module *M, StringRef FnName,
 
   // Get the function prototype from the module symbol table. If absent,
   // create and insert it into the symbol table first.
-  Constant *FnC = M->getOrInsertFunction(FnName, FnTy);
-  Function *Fn = cast<Function>(FnC);
+  FunctionCallee FnC = M->getOrInsertFunction(FnName, FnTy);
+  Function *Fn = cast<Function>(FnC.getCallee());
 
   CallInst *Call = CallInst::Create(Fn, "", InsertPt);
   return Call;
@@ -3222,10 +3194,18 @@ uint64_t VPOParoptUtils::getMinInt(Type *Ty, bool IsUnsigned) {
 }
 #endif // if 0
 
-Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W, DominatorTree *DT)
-{
+Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
+                                             DominatorTree *DT,
+                                             AssumptionCache *AC) {
+#if 0
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": WRN BBSet {\n";
+           formatted_raw_ostream OS(dbgs());
+           W.printEntryExitBB(OS, /*indent*/ 2, /*verbosity*/ 4);
+           dbgs() << "}\n\n");
+#endif
+
   CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
-                   nullptr, nullptr, false, true);
+                   nullptr, nullptr, AC, false, true);
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
   auto *NewFunction = CE.extractCodeRegion();
@@ -3233,6 +3213,13 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W, DominatorTree
   assert(NewFunction->hasOneUse() && "New function should have one use.");
 
   auto *CallSite = cast<CallInst>(NewFunction->user_back());
+
+#if 0
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Call to Outlined Function:\n"
+                    << *CallSite << "\n\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Outlined Function: ============ \n"
+                    << *NewFunction << "\n==============================\n\n");
+#endif
 
   if (EnableOutlineVerification) {
     const auto &DL = CallSite->getModule()->getDataLayout();

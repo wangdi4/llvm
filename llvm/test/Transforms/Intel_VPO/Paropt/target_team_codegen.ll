@@ -26,24 +26,23 @@ define dso_local void @_Z3fooi(i32 %n) #1 {
 entry:
   %n.addr = alloca i32, align 4
   store i32 %n, i32* %n.addr, align 4, !tbaa !2
-  %0 = load i32, i32* %n.addr, align 4, !tbaa !2
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   br label %DIR.OMP.TEAMS.3
 
 DIR.OMP.TEAMS.3:                                  ; preds = %DIR.OMP.TARGET.1
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.NUM_TEAMS"(i32 %0) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.NUM_TEAMS"(i32* %n.addr) ]
   call void @_Z3barv()
   br label %DIR.OMP.END.TEAMS.5
 
 DIR.OMP.END.TEAMS.5:                              ; preds = %DIR.OMP.TEAMS.3
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TEAMS"() ]
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
   br label %DIR.OMP.END.TEAMS.6
 
 DIR.OMP.END.TEAMS.6:                              ; preds = %DIR.OMP.END.TEAMS.5
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }
 
@@ -62,7 +61,7 @@ attributes #2 = { nounwind }
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 6d93f34e605c44d05e5c49346cf267f862c04f87) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm d9be553a568d4f571e0aa893701ea82bc05da651)"}
+!1 = !{!"clang version 8.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

@@ -217,7 +217,9 @@ bool IndVarSimplify::isValidRewrite(Value *FromVal, Value *ToVal) {
 /// Determine the insertion point for this user. By default, insert immediately
 /// before the user. SCEVExpander or LICM will hoist loop invariants out of the
 /// loop. For PHI nodes, there may be multiple uses, so compute the nearest
-/// common dominator for the incoming blocks.
+/// common dominator for the incoming blocks. A nullptr can be returned if no
+/// viable location is found: it may happen if User is a PHI and Def only comes
+/// to this PHI from unreachable blocks.
 static Instruction *getInsertPointForUses(Instruction *User, Value *Def,
                                           DominatorTree *DT, LoopInfo *LI) {
   PHINode *PHI = dyn_cast<PHINode>(User);
@@ -230,6 +232,10 @@ static Instruction *getInsertPointForUses(Instruction *User, Value *Def,
       continue;
 
     BasicBlock *InsertBB = PHI->getIncomingBlock(i);
+
+    if (!DT->isReachableFromEntry(InsertBB))
+      continue;
+
     if (!InsertPt) {
       InsertPt = InsertBB->getTerminator();
       continue;
@@ -237,7 +243,11 @@ static Instruction *getInsertPointForUses(Instruction *User, Value *Def,
     InsertBB = DT->findNearestCommonDominator(InsertPt->getParent(), InsertBB);
     InsertPt = InsertBB->getTerminator();
   }
-  assert(InsertPt && "Missing phi operand");
+
+  // If we have skipped all inputs, it means that Def only comes to Phi from
+  // unreachable blocks.
+  if (!InsertPt)
+    return nullptr;
 
   auto *DefI = dyn_cast<Instruction>(Def);
   if (!DefI)
@@ -621,8 +631,14 @@ bool IndVarSimplify::rewriteLoopExitValues(Loop *L, SCEVExpander &Rewriter) {
         // Computing the value outside of the loop brings no benefit if it is
         // definitely used inside the loop in a way which can not be optimized
         // away.
-        if (!isa<SCEVConstant>(ExitValue) && hasHardUserWithinLoop(L, Inst))
+#if INTEL_CUSTOMIZATION
+        // CMPLRLLVM-7590. Allow SCEV add expression to be propagated
+        // into the exit value even if DefInst of this exit value has
+        // hard use inside the loop.
+        if ((ExitValue->getSCEVType() >= scMulExpr) &&
+            hasHardUserWithinLoop(L, Inst))
           continue;
+#endif // INTEL_CUSTOMIZATION
 
         bool HighCost = Rewriter.isHighCostExpansion(ExitValue, L, Inst);
         Value *ExitVal = Rewriter.expandCodeFor(ExitValue, PN->getType(), Inst);
@@ -1307,10 +1323,12 @@ WidenIV::WidenedRecTy WidenIV::getWideRecurrence(NarrowIVDefUse DU) {
 /// This IV user cannot be widen. Replace this use of the original narrow IV
 /// with a truncation of the new wide IV to isolate and eliminate the narrow IV.
 static void truncateIVUse(NarrowIVDefUse DU, DominatorTree *DT, LoopInfo *LI) {
+  auto *InsertPt = getInsertPointForUses(DU.NarrowUse, DU.NarrowDef, DT, LI);
+  if (!InsertPt)
+    return;
   LLVM_DEBUG(dbgs() << "INDVARS: Truncate IV " << *DU.WideDef << " for user "
                     << *DU.NarrowUse << "\n");
-  IRBuilder<> Builder(
-      getInsertPointForUses(DU.NarrowUse, DU.NarrowDef, DT, LI));
+  IRBuilder<> Builder(InsertPt);
   Value *Trunc = Builder.CreateTrunc(DU.WideDef, DU.NarrowDef->getType());
   DU.NarrowUse->replaceUsesOfWith(DU.NarrowDef, Trunc);
 }
@@ -1347,8 +1365,10 @@ bool WidenIV::widenLoopCompare(NarrowIVDefUse DU) {
   assert(CastWidth <= IVWidth && "Unexpected width while widening compare.");
 
   // Widen the compare instruction.
-  IRBuilder<> Builder(
-      getInsertPointForUses(DU.NarrowUse, DU.NarrowDef, DT, LI));
+  auto *InsertPt = getInsertPointForUses(DU.NarrowUse, DU.NarrowDef, DT, LI);
+  if (!InsertPt)
+    return false;
+  IRBuilder<> Builder(InsertPt);
   DU.NarrowUse->replaceUsesOfWith(DU.NarrowDef, DU.WideDef);
 
   // Widen the other operand of the compare, if necessary.
@@ -2288,7 +2308,8 @@ static Value *genLoopLimit(PHINode *IndVar, const SCEV *IVCount, Loop *L,
            "unit stride pointer IV must be i8*");
 
     IRBuilder<> Builder(L->getLoopPreheader()->getTerminator());
-    return Builder.CreateGEP(nullptr, GEPBase, GEPOffset, "lftr.limit");
+    return Builder.CreateGEP(GEPBase->getType()->getPointerElementType(),
+                             GEPBase, GEPOffset, "lftr.limit");
   } else {
     // In any other case, convert both IVInit and IVCount to integers before
     // comparing. This may result in SCEV expansion of pointers, but in practice
@@ -2327,6 +2348,29 @@ static Value *genLoopLimit(PHINode *IndVar, const SCEV *IVCount, Loop *L,
     // SCEV expression (IVInit) for a pointer type IV value (IndVar).
     Type *LimitTy = IVCount->getType()->isPointerTy() ?
       IndVar->getType() : IVCount->getType();
+#if INTEL_CUSTOMIZATION
+    // ScalarEvolution does not preserve nuw/nsw flags so it is preferrable to
+    // use the original value if the loop limit is the same.
+    Value *OrigCond = BI->getCondition();
+    if (auto *CmpInst = dyn_cast<ICmpInst>(OrigCond)) {
+      auto *Op0 = CmpInst->getOperand(0);
+      auto *Op1 = CmpInst->getOperand(1);
+
+      if (Op0->getType() == LimitTy) {
+        auto *BinOp0 = dyn_cast<OverflowingBinaryOperator>(Op0);
+        auto *BinOp1 = dyn_cast<OverflowingBinaryOperator>(Op1);
+        if (BinOp0 &&
+            (BinOp0->hasNoUnsignedWrap() || BinOp0->hasNoSignedWrap()) &&
+            (SE->getSCEV(Op0) == IVLimit)) {
+          return Op0;
+        } else if (BinOp1 &&
+                  (BinOp1->hasNoUnsignedWrap() || BinOp1->hasNoSignedWrap()) &&
+                  (SE->getSCEV(Op1) == IVLimit)) {
+          return Op1;
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
     return Rewriter.expandCodeFor(IVLimit, LimitTy, BI);
   }
 }

@@ -14,7 +14,7 @@
 
 @global = external global [0 x i64], align 8
 
-define void @widget(i64 %arg, %struct.quux* %arg1) {
+define void @widget(i64 %arg, %struct.quux* %arg1, i64 %tmp6) {
 bb:
   br label %bb2
 
@@ -22,8 +22,6 @@ bb2:                                              ; preds = %bb17, %bb
   %tmp = phi %struct.quux* [ %tmp18, %bb17 ], [ %arg1, %bb ]
   %tmp3 = phi i64 [ %tmp19, %bb17 ], [ %arg, %bb ]
   %tmp4 = icmp ne %struct.quux* %tmp, null
-  %tmp5 = bitcast %struct.quux* %tmp to i8*
-  %tmp6 = call i64 @llvm.objectsize.i64.p0i8(i8* %tmp5, i1 false, i1 false)
   %tmp7 = icmp ugt i64 %tmp6, 7
   %tmp8 = ptrtoint %struct.quux* %tmp to i64
   %tmp9 = and i64 %tmp8, 7
@@ -51,7 +49,3 @@ bb21:                                             ; preds = %bb17, %bb14, %bb13,
   ret void
 }
 
-; Function Attrs: nounwind readnone speculatable
-declare i64 @llvm.objectsize.i64.p0i8(i8*, i1, i1) #0
-
-attributes #0 = { nounwind readnone speculatable }

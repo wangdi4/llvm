@@ -83,7 +83,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -915,6 +914,10 @@ void print_node_set(const std::string &Msg,
   dbgs() << "\n";
 }
 
+#if 0
+// Possibly useful print routines that are not currently being called.
+// FIXME: Either call these routines somewhere useful or remove them.
+
 // Print a SmallVector of DCGNode *
 void print_node_vector(const SmallVectorImpl<DCGNode *> &Nodes) {
   for (const auto X : Nodes)
@@ -942,6 +945,7 @@ void print_value_list(const std::string &Msg,
 
   dbgs() << "\n";
 }
+#endif // 0
 
 #endif // NDEBUG
 
@@ -1341,7 +1345,7 @@ void ParamTform::copyConstantParams(ConstParamVec &ConstParams) const {
   }
 }
 
-ParamIndSet ParamTform::getConstantParamInds() const {
+inline ParamIndSet ParamTform::getConstantParamInds() const {
   ParamIndSet PIS;
   unsigned N = getOutputsSize(); // get number of arguments intcallee
   PIS.resize(N);
@@ -1876,8 +1880,8 @@ protected:
       for (BasicBlock &BB : F)
         for (Instruction &I : BB)
           // count direct calls only: support both CallInst and InvokeInst
-          if (auto CS = CallSite(&I))
-            if (!CS.isIndirectCall())
+          if (CallBase *CB = dyn_cast<CallBase>(&I))
+            if (!CB->isIndirectCall())
               ++NumCallInst;
 
     LLVM_DEBUG(dbgs() << "NumCallInst:\t" << NumCallInst << "\n");

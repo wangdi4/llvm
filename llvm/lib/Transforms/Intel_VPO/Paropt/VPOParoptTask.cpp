@@ -63,8 +63,6 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
   // function __kmpc_task_reduction_get_th_data.
   auto replaceReductionVarInTask = [&](WRegionNode *W,
                                        ReductionClause &RedClause) {
-    assert(W->isBBSetEmpty() &&
-           "genRedCodeForTaskGeneric: BBSET should start empty");
     W->populateBBSet();
     BasicBlock *EntryBB = W->getEntryBBlock();
     BasicBlock *ExitBB = W->getExitBBlock();
@@ -144,8 +142,6 @@ bool VPOParoptTransform::genSharedCodeForTaskGeneric(WRegionNode *W) {
   SharedClause &ShaClause = W->getShared();
   if (!ShaClause.empty()) {
 
-    assert(W->isBBSetEmpty() &&
-           "genSharedCodeForTaskGeneric: BBSET should start empty");
     W->populateBBSet();
 
     for (SharedItem *ShaI : ShaClause.items()) {
@@ -159,10 +155,12 @@ bool VPOParoptTransform::genSharedCodeForTaskGeneric(WRegionNode *W) {
     }
 
     Changed = true;
-    W->resetBBSet(); // Invalidate BBSet after transformations
-  }
+  } // if
+
   LLVM_DEBUG(
       dbgs() << "\nExit VPOParoptTransform::genSharedCodeForTaskGeneric\n");
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
   return Changed;
 }
 
@@ -603,8 +601,9 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     }
   }
 
-  W->resetBBSet();
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskLoopInitCode\n");
+
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 
@@ -1192,20 +1191,16 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskGenericCode\n");
 
-  assert(W->isBBSetEmpty() && "genTaskGenericCode: BBSET should start empty");
-
   W->populateBBSet();
 
   resetValueInIntelClauseGeneric(W, W->getIf());
 
   resetValueInTaskDependClause(W);
 
-  bool Changed = false;
-
   AllocaInst *PrivateBase = genTaskPrivateMapping(W, KmpSharedTy);
 
   // Set up Fn Attr for the new function
-  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT);
+  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
 
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
   CallSite CS(NewCall);
@@ -1232,7 +1227,6 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     MTFnCI->setTailCall();
 
   MTFnCI->setDebugLoc(NewCall->getDebugLoc());
-
 
   if (!NewCall->use_empty())
     NewCall->replaceAllUsesWith(MTFnCI);
@@ -1310,12 +1304,10 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   NewF->eraseFromParent();
   MTFnCI->eraseFromParent();
 
-  W->resetBBSet(); // Invalidate BBSet after transformations
-
-  Changed = true;
-
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskGenericCode\n");
-  return Changed;
+
+  W->resetBBSet(); // Invalidate BBSet after transformations
+  return true;
 }
 
 bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {

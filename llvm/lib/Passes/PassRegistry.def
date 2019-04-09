@@ -32,6 +32,7 @@ MODULE_ANALYSIS("targetlibinfo", TargetLibraryAnalysis())
 MODULE_ANALYSIS("wholeprogram", WholeProgramAnalysis())     // INTEL
 MODULE_ANALYSIS("verify", VerifierAnalysis())
 MODULE_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
+MODULE_ANALYSIS("asan-globals-md", ASanGlobalsMetadataAnalysis())
 #if INTEL_CUSTOMIZATION
 MODULE_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())
 #endif // INTEL_CUSTOMIZATION
@@ -67,6 +68,8 @@ MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())   // INTEL
 MODULE_PASS("padded-pointer-prop", PaddedPtrPropPass())          // INTEL
 MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
             dtrans::EliminateROFieldAccessPass())                // INTEL
+MODULE_PASS("dtrans-meminittrimdown", dtrans::MemInitTrimDownPass()) // INTEL
+MODULE_PASS("dtrans-transpose", dtrans::TransposePass())         // INTEL
 #if !INTEL_PRODUCT_RELEASE
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 #endif // !INTEL_PRODUCT_RELEASE
@@ -88,11 +91,15 @@ MODULE_PASS("globalsplit", GlobalSplitPass())
 MODULE_PASS("hotcoldsplit", HotColdSplittingPass())
 MODULE_PASS("inferattrs", InferFunctionAttrsPass())
 MODULE_PASS("insert-gcov-profiling", GCOVProfilerPass())
+MODULE_PASS("instrorderfile", InstrOrderFilePass())
 MODULE_PASS("instrprof", InstrProfiling())
 MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
-MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false))            // INTEL
-MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true)) // INTEL
+MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false,             // INTEL
+                                        /*IFSwitchHeuristic*/ false))   // INTEL
+MODULE_PASS("intel-partialinline", IntelPartialInlinePass())            // INTEL
+MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,  // INTEL
+                                        /*IFSwitchHeuristic*/ false))   // INTEL
 MODULE_PASS("call-tree-clone", CallTreeCloningPass())                   // INTEL
 MODULE_PASS("ipsccp", IPSCCPPass())
 MODULE_PASS("lowertypetests", LowerTypeTestsPass(nullptr, nullptr))
@@ -117,8 +124,9 @@ MODULE_PASS("sample-profile", SampleProfileLoaderPass())
 MODULE_PASS("strip-dead-prototypes", StripDeadPrototypesPass())
 MODULE_PASS("synthetic-counts-propagation", SyntheticCountsPropagation())
 MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass(nullptr, nullptr))
-MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("verify", VerifierPass())
+MODULE_PASS("asan-module", ModuleAddressSanitizerPass(false, false, true, false))
+MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("vpo-paropt", VPOParoptPass())              // INTEL
 MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass()) // INTEL
 #undef MODULE_PASS
@@ -248,6 +256,7 @@ FUNCTION_PASS("libcalls-shrinkwrap", LibCallsShrinkWrapPass())
 FUNCTION_PASS("loweratomic", LowerAtomicPass())
 FUNCTION_PASS("lower-expect", LowerExpectIntrinsicPass())
 FUNCTION_PASS("lower-guard-intrinsic", LowerGuardIntrinsicPass())
+FUNCTION_PASS("lower-widenable-condition", LowerWidenableConditionPass())
 FUNCTION_PASS("lower-subscript", LowerSubscriptIntrinsicPass()) // INTEL
 FUNCTION_PASS("guard-widening", GuardWideningPass())
 FUNCTION_PASS("gvn", GVN())
@@ -300,10 +309,12 @@ FUNCTION_PASS("verify<domtree>", DominatorTreeVerifierPass())
 FUNCTION_PASS("verify<loops>", LoopVerifierPass())
 FUNCTION_PASS("verify<memoryssa>", MemorySSAVerifierPass())
 FUNCTION_PASS("verify<regions>", RegionInfoVerifierPass())
+FUNCTION_PASS("verify<safepoint-ir>", SafepointIRVerifierPass())
 FUNCTION_PASS("view-cfg", CFGViewerPass())
 FUNCTION_PASS("view-cfg-only", CFGOnlyViewerPass())
 FUNCTION_PASS("transform-warning", WarnMissedTransformationsPass())
-FUNCTION_PASS("msan", MemorySanitizerPass())
+FUNCTION_PASS("asan", AddressSanitizerPass(false, false, false))
+FUNCTION_PASS("msan", MemorySanitizerPass({}))
 
 #if INTEL_CUSTOMIZATION
 FUNCTION_PASS("load-coalescing", LoadCoalescingPass())
@@ -363,8 +374,15 @@ FUNCTION_PASS("tsan", ThreadSanitizerPass())
 #define FUNCTION_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER)
 #endif
 FUNCTION_PASS_WITH_PARAMS("unroll",
-			  [](LoopUnrollOptions Opts) { return LoopUnrollPass(Opts); },
-			  parseLoopUnrollOptions)
+                           [](LoopUnrollOptions Opts) {
+                             return LoopUnrollPass(Opts);
+                           },
+                           parseLoopUnrollOptions)
+FUNCTION_PASS_WITH_PARAMS("msan",
+                           [](MemorySanitizerOptions Opts) {
+                             return MemorySanitizerPass(Opts);
+                           },
+                           parseMSanPassOptions)
 #undef FUNCTION_PASS_WITH_PARAMS
 
 #ifndef LOOP_ANALYSIS

@@ -183,7 +183,9 @@ testing::AssertionResult matchesConditionallyWithCuda(
       "typedef struct cudaStream *cudaStream_t;"
       "int cudaConfigureCall(dim3 gridSize, dim3 blockSize,"
       "                      size_t sharedSize = 0,"
-      "                      cudaStream_t stream = 0);";
+      "                      cudaStream_t stream = 0);"
+      "extern \"C\" unsigned __cudaPushCallConfiguration("
+      "    dim3 gridDim, dim3 blockDim, size_t sharedMem = 0, void *stream = 0);";
 
   bool Found = false, DynamicFound = false;
   MatchFinder Finder;
@@ -230,6 +232,18 @@ template <typename T>
 testing::AssertionResult notMatchesWithCuda(const std::string &Code,
                                     const T &AMatcher) {
   return matchesConditionallyWithCuda(Code, AMatcher, false, "-std=c++11");
+}
+
+template <typename T>
+testing::AssertionResult matchesWithOpenMP(const std::string &Code,
+                                           const T &AMatcher) {
+  return matchesConditionally(Code, AMatcher, true, "-fopenmp=libomp");
+}
+
+template <typename T>
+testing::AssertionResult notMatchesWithOpenMP(const std::string &Code,
+                                              const T &AMatcher) {
+  return matchesConditionally(Code, AMatcher, false, "-fopenmp=libomp");
 }
 
 template <typename T>

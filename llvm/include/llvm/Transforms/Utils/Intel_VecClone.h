@@ -166,8 +166,7 @@ class VecClone : public ModulePass {
 
     /// \brief Check to see if the function is simple enough that a loop does
     /// not need to be inserted into the function.
-    bool isSimpleFunction(Function *Clone, VectorVariant &V,
-                          ReturnInst *Return);
+    bool isSimpleFunction(Function *Func);
 
     /// \brief Inserts the if/else split and mask condition for masked SIMD
     /// functions.

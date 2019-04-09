@@ -17,6 +17,7 @@
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
 #include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include <utility>
 
@@ -64,6 +65,7 @@ struct LegacyInlinerBase : public CallGraphSCCPass {
   bool removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly = false);
 
   InlineReport& getReport() { return Report; } // INTEL
+  InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
 
   /// This function performs the main work of the pass.  The default of
   /// Inlinter::runOnSCC() calls skipSCC() before calling this method, but
@@ -77,6 +79,7 @@ private:
 
   // INTEL The inline report
   InlineReport Report; // INTEL
+  InlineReportBuilder MDReport; // INTEL
 
 protected:
 #if INTEL_CUSTOMIZATION
@@ -86,8 +89,8 @@ protected:
   InliningLoopInfoCache *ILIC; // INTEL
   ProfileSummaryInfo *PSI;
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
-  SmallSet<CallSite, 20> CallSitesForFusion; // INTEL
-  SmallSet<CallSite, 20> CallSitesForDTrans; // INTEL
+  SmallSet<CallBase *, 20> CallSitesForFusion; // INTEL
+  SmallSet<CallBase *, 20> CallSitesForDTrans; // INTEL
 };
 
 /// The inliner pass for the new pass manager.
@@ -111,19 +114,22 @@ public:
   InlinerPass(InlinerPass &&Arg)
       : Params(std::move(Arg.Params)),
         ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)), // INTEL
-        Report(std::move(Arg.Report))                                  // INTEL
+        Report(std::move(Arg.Report)),                                 // INTEL
+        MDReport(std::move(Arg.MDReport))                              // INTEL
   {}                                                                   // INTEL
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
 
   InlineReport& getReport() { return Report; } // INTEL
+  InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
 private:
   InlineParams Params;
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
   // INTEL The inline report
   InlineReport Report; // INTEL
+  InlineReportBuilder MDReport; // INTEL
 };
 
 } // end namespace llvm

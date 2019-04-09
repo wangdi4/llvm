@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //===--- VPOParoptModuleTranform.cpp - Paropt Module Transforms --- C++ -*-===//
 //
-// Copyright (C) 2015-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -47,31 +47,53 @@ static cl::opt<bool> UseOffloadMetadata(
 
 // This table is used to change math function names (left column) to the
 // OCL builtin format (right column).
+//
+// Note that fabs, ceil and floor have corresponding LLVM intrinsics
+// that have the same behavior (e.g. regarding setting errno), so
+// clang will represent them with intrinsic calls, which implies
+// llvm.*.ty mangling.  The intrinsics will be generated only for
+// C; for C++ calls to fabs[f], etc. will be generated as-is.
 std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
     // float:
-    {"sinf",   "_Z3sinf"},
-    {"cosf",   "_Z3cosf"},
-    {"tanf",   "_Z3tanf"},
-    {"expf",   "_Z3expf"},
-    {"logf",   "_Z3logf"},
-    {"log2f",  "_Z4log2f"},
-    {"powf",   "_Z3powff"},
-    {"sqrtf",  "_Z4sqrtf"},
-    {"fabsf",  "_Z4fabsf"},
-    {"ceilf",  "_Z4ceilf"},
-    {"floorf", "_Z5floorf"},
+    {"sinf",                  "_Z3sinf"},
+    {"cosf",                  "_Z3cosf"},
+    {"tanf",                  "_Z3tanf"},
+    {"erff",                  "_Z3erff"},
+    {"expf",                  "_Z3expf"},
+    {"logf",                  "_Z3logf"},
+    {"log2f",                 "_Z4log2f"},
+    {"powf",                  "_Z3powff"},
+    {"sqrtf",                 "_Z4sqrtf"},
+    {"fmaxf",                 "_Z4fmaxff"},
+    {"llvm.maxnum.f32",       "_Z4fmaxff"},
+    {"fminf",                 "_Z4fminff"},
+    {"llvm.minnum.f32",       "_Z4fminff"},
+    {"fabsf",                 "_Z4fabsf"},
+    {"llvm.fabs.f32",         "_Z4fabsf"},
+    {"ceilf",                 "_Z4ceilf"},
+    {"llvm.ceil.f32",         "_Z4ceilf"},
+    {"floorf",                "_Z5floorf"},
+    {"llvm.floor.f32",        "_Z5floorf"},
     // double:
-    {"sin",    "_Z3sind"},
-    {"cos",    "_Z3cosd"},
-    {"tan",    "_Z3tand"},
-    {"exp",    "_Z3expd"},
-    {"log",    "_Z3logd"},
-    {"log2",   "_Z4log2d"},
-    {"pow",    "_Z3powdd"},
-    {"sqrt",   "_Z4sqrtd"},
-    {"fabs",   "_Z4fabsd"},
-    {"ceil",   "_Z4ceild"},
-    {"floor",  "_Z5floord"}};
+    {"sin",                   "_Z3sind"},
+    {"cos",                   "_Z3cosd"},
+    {"tan",                   "_Z3tand"},
+    {"erf",                   "_Z3erfd"},
+    {"exp",                   "_Z3expd"},
+    {"log",                   "_Z3logd"},
+    {"log2",                  "_Z4log2d"},
+    {"pow",                   "_Z3powdd"},
+    {"sqrt",                  "_Z4sqrtd"},
+    {"fmax",                  "_Z4fmaxdd"},
+    {"llvm.maxnum.f64",       "_Z4fmaxdd"},
+    {"fmin",                  "_Z4fmindd"},
+    {"llvm.minnum.f64",       "_Z4fmindd"},
+    {"fabs",                  "_Z4fabsd"},
+    {"llvm.fabs.f64",         "_Z4fabsd"},
+    {"ceil",                  "_Z4ceild"},
+    {"llvm.ceil.f64",         "_Z4ceild"},
+    {"floor",                 "_Z5floord"},
+    {"llvm.floor.f64",        "_Z5floord"}};
 
 // To support the SPIRV target compilation stage of the OpenMP compilation
 // offloading to GPUs, we must translate the name of math functions (left

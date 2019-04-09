@@ -60,6 +60,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
@@ -576,7 +577,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   //VarargNodes.clear();
 
   if (UseIntelModRef) {
-      IMR.reset(new IntelModRef(this));
+      IMR.reset(new IntelModRef(this, TLI));
       IMR->runAnalysis(M);
   }
 
@@ -615,7 +616,10 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       VarargNodes(std::move(Arg.VarargNodes)),
       NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       NonPointerAssignments(std::move(Arg.NonPointerAssignments)),
-      IMR(std::move(Arg.IMR)) {}
+      IMR(std::move(Arg.IMR)) {
+  if (IMR)
+    IMR->resetAndersenAAResult(this);
+}
 
 /*static*/ AndersensAAResult
 AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
@@ -762,17 +766,21 @@ unsigned AndersensAAResult::getNodeValue(Value &V) {
 //===---------------------------------------------------------------------===//
 
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
-                        const MemoryLocation &LocB)  {
+                                     const MemoryLocation &LocB,
+                                     AAQueryInfo &AAQI)  {
   if (ValueNodes.size() == 0) {
-      return AAResultBase::alias(LocA, LocB);
+      return AAResultBase::alias(LocA, LocB, AAQI);
   }
   NumAliasQuery++; 
   if (NumAliasQuery > MaxAliasQuery) {
-      return AAResultBase::alias(LocA, LocB);
+      return AAResultBase::alias(LocA, LocB, AAQI);
   }
 
   auto *V1 = const_cast<Value *>(LocA.Ptr);
   auto *V2 = const_cast<Value *>(LocB.Ptr);
+
+  if (V1 == V2)
+    return MustAlias;
 
   Node *N1 = &GraphNodes[FindNode(getNode(const_cast<Value*>(V1)))];
   Node *N2 = &GraphNodes[FindNode(getNode(const_cast<Value*>(V2)))];
@@ -794,7 +802,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
         errs() << " both of them are Universal \n";
           errs() << " Alias_End \n";
       }
-      return AAResultBase::alias(LocA, LocB);
+      return AAResultBase::alias(LocA, LocB, AAQI);
   }
 
   // Using escape analysis to improve the precision
@@ -821,7 +829,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       errs() << " one of them is Universal and the other one escapes \n";
       errs() << " Alias_End \n";
     }
-    return AAResultBase::alias(LocA, LocB);
+    return AAResultBase::alias(LocA, LocB, AAQI);
   }
   // Check to see if the two pointers are known to not alias. They don't alias
   // if their points-to sets do not intersect.
@@ -837,8 +845,23 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       errs() << " Can't determine using points-to \n";
       errs() << " Alias_End \n";
   }
-  return AAResultBase::alias(LocA, LocB);
+  return AAResultBase::alias(LocA, LocB, AAQI);
 
+}
+
+bool AndersensAAResult::mayEscape(const MemoryLocation &Loc) {
+  if (ValueNodes.size() == 0)
+    return true;
+
+  auto *V = const_cast<Value *>(Loc.Ptr);
+  Node *N = &GraphNodes[FindNode(getNode(const_cast<Value*>(V)))];
+  if (N == nullptr)
+    return true;
+
+  if (N->PointsTo->test(UniversalSet) || pointsToSetEscapes(N))
+    return true;
+
+  return false;
 }
 
 // Get a printable name for the ModRef result.
@@ -866,7 +889,8 @@ static const char *getModRefResultStr(ModRefInfo R) {
 
 ModRefInfo
 AndersensAAResult::getModRefInfo(const CallBase *Call,
-                         const MemoryLocation &LocA) {
+                                 const MemoryLocation &LocA,
+                                 AAQueryInfo &AAQI) {
   if (PrintAndersModRefQueries) {
       errs() << " getModRefInfo_begin\n";
       errs() << "Call:  " << *Call << "\n";
@@ -876,11 +900,11 @@ AndersensAAResult::getModRefInfo(const CallBase *Call,
   // Try to use the collected Mod/Ref sets, if available.
   ModRefInfo R = ModRefInfo::ModRef;
    if (UseIntelModRef && IMR) {
-        R = IMR->getModRefInfo(Call, LocA);
+        R = IMR->getModRefInfo(Call, LocA, AAQI);
    }
 
    if (R != ModRefInfo::NoModRef) {
-       ModRefInfo Others = AAResultBase::getModRefInfo(Call, LocA);
+       ModRefInfo Others = AAResultBase::getModRefInfo(Call, LocA, AAQI);
        R = intersectModRef(R, Others);
    }
 
@@ -893,7 +917,8 @@ AndersensAAResult::getModRefInfo(const CallBase *Call,
 }
 
 ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
-                                            const CallBase *Call2) {
+                                            const CallBase *Call2,
+                                            AAQueryInfo &AAQI) {
   if (PrintAndersModRefQueries) {
       errs() << " getModRefInfo_begin\n";
       errs() << "Call1: " << *Call1 << "\n";
@@ -903,7 +928,7 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
   // Just forward the request along the chain. Note, a downstream analysis
   // may return to the Andersens to check for aliases via the AAChain
   // parameter.
-  ModRefInfo R = AAResultBase::getModRefInfo(Call1, Call2);
+  ModRefInfo R = AAResultBase::getModRefInfo(Call1, Call2, AAQI);
   if (PrintAndersModRefQueries) {
       errs() << "Result: " << getModRefResultStr(R) << "\n";
       errs() << " getModRefInfo_end\n";
@@ -918,15 +943,16 @@ ModRefInfo AndersensAAResult::getModRefInfo(const CallBase *Call1,
 /// return true.
 ///
 bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
+                                               AAQueryInfo &AAQI,
                                                bool OrLocal) {
 
   if (ValueNodes.size() == 0) {
-    return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+    return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
   }
 
   NumPtrQuery++;
   if (NumPtrQuery > MaxPtrQuery) {
-      return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+      return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
   }
   auto *P = const_cast<Value *>(Loc.Ptr);
   Node *N = &GraphNodes[FindNode(getNode(const_cast<Value*>(P)))];
@@ -950,7 +976,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
             errs() << " Points-to can't decide (Invalidated node)\n";
             errs() << " ConstMem_End \n";
         }
-        return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+        return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
     }
 
     if (PrintAndersConstMemQueries) {
@@ -966,7 +992,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
               errs() << " Points-to can't decide \n";
               errs() << " ConstMem_End \n";
           }
-          return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+          return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
       }
     } else {
       if (i != NullObject) {
@@ -974,7 +1000,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
               errs() << " Points-to can't decide \n";
               errs() << " ConstMem_End \n";
           }
-          return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+          return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
       }
     }
   }
@@ -2545,14 +2571,17 @@ void AndersensAAResult::HUValNum(unsigned NodeIndex) {
   // already identified.  These are ref nodes whose non-ref node:
   // 1. Direct node (CQ408486) has already been visited and determined
   // to point to nothing (and thus, a  dereference of it must 
-  // point to nothing)
+  // point to nothing) only when it doesn't have PredEdges (CMPLRLLVM-8837).
   // 2. Any direct node with no predecessor edges in our graph and with no
   // points-to set (since it can't point to anything either, being that it
   // receives no points-to sets and has none).
+  // TODO: This entire condition, which basically improves compile-time, can
+  // be removed after making sure that points-to info is not changed and
+  // there is no significant change in compile-time for big applications.
   if (NodeIndex >= FirstRefNode) {
     unsigned j = VSSCCRep[FindNode(NodeIndex - FirstRefNode)];
     if ((GraphNodes[j].Direct && Node2Visited[j]
-         && !GraphNodes[j].PointerEquivLabel)
+         && !GraphNodes[j].PredEdges && !GraphNodes[j].PointerEquivLabel)
         || (GraphNodes[j].Direct && !GraphNodes[j].PredEdges
             && GraphNodes[j].PointsTo->empty())){
       return;
@@ -3802,13 +3831,13 @@ void AndersensAAResult::PrintPointsToGraph() const {
 
 // Debug_types for Intel ModRef
 //
-// imr 
+// imr
 //   - general trace, and summary of sets collected
 //
 // imr-ir
 //   - dump the IR for the function during collection
 //
-// imr-collect 
+// imr-collect
 //   - print the results of collection
 //
 // imr-collect-trace
@@ -3829,960 +3858,967 @@ void AndersensAAResult::PrintPointsToGraph() const {
 
 /// IntelModRefImpl - This class implements mod/ref set tracking based on
 /// the points-to sets collected for each pointer used in a routine.
-/// 
+///
 /// For each function, mod/ref sets are collected based on each pointer
 /// access. Then using points-to, the sets are expanded to include all
 /// potential aliases. After all routines have been collected, a
 /// propagation will merge information for all routines called.
 namespace llvm {
-  class IntelModRefImpl {
-  private:
+class IntelModRefImpl {
+private:
+    // The following constants are used to define the LibFunc Memory Model for
+    // Mod/Ref computations (multiple values may be bitmask together to define
+    // the memory locations that may be accessed by a call to the library
+    // function.)
+    //
+    // LFMR_UNKNOWN - No information available. May read/write any program
+    // memory.
+    static const unsigned LFMR_UNKNOWN = 0x0;
 
-    // Internal structure used for mapping Values to a ModRefResult
-    // enumeration id, to record one of 'Mod', 'Ref', or 'ModRef'.
-    struct ModRefMap {
+    // LFMR_NONE - No user visible program memory is read or written, unless
+    // combined with LFMR_GREF or LFMR_GMOD. This is useful for marking cases
+    // where there are no pointer arguments to the function to avoid needing to
+    // analyze the call arguments.
+    static const unsigned LFMR_NONE = 0x01;
 
-      // Mapping from the Value object to the ModRefInfo of it.
-      using ValueToMRI = MapVector<Value*, ModRefInfo>;
-      ValueToMRI Map;
+    // LFMR_ARGS - Memory directly associated with the function arguments
+    // is read or written and need to be analyzed for potential side effects.
+    static const unsigned LFMR_ARGS = 0x02;
 
-      // Update the map to include V as a Modified value.
-      // Return true, if this causes a change to the map.
-      bool addMod(const Value *V) {
-        return addModRef(V, ModRefInfo::Mod);
-      }
+    // LFMR_GREF - May read some location that escapes the analysis in a
+    // non-obvious manner
+    static const unsigned LFMR_GREF = 0x04;
 
-      // Update the map to include V as a Referenced value.
-      // Return true, if this causes a change to the map.
-      bool addRef(const Value *V) {
-        return addModRef(V, ModRefInfo::Ref);
-      }
+    // LFMR_GMOD - May modify some location that escapes the analysis in a
+    // non-obvious manner
+    static const unsigned LFMR_GMOD = 0x08;
 
-      // Update the map to include V as a based on the mask value.
-      // Return true, if this causes a change to the map.
-      bool addModRef(const Value *V, ModRefInfo mask = ModRefInfo::ModRef) {
-        auto &Info = Map[const_cast<Value*>(V)];
-        auto Prev = Info;
-        Info = unionModRef(Info, mask);
-        return Prev != Info;
-      }
+    // LFMR_FMT_CHECK - Indicates the function takes a printf-like formatting
+    // string as an argument that can be analyzed to determine if the printed
+    // elements are read only, or potentially written to via a %n format
+    // specifier.
+    static const unsigned LFMR_FMT_CHECK = 0x10;
 
-      // Prune the list of elements that have NoModRef as their value.
-      void removeNoMod() {
-        ValueToMRI Tmp;
-        for (auto I = Map.begin(), E = Map.end(); I != E; ++I) {
-          if (isModOrRefSet(I->second)) {
-            Tmp.insert(*I);
-          }
-        }
-        std::swap(Tmp, Map);
-      }
+    // Helper method to print the LibFunc ModRef model bitmask.
+    static void printLibFuncModel(raw_ostream &OS, unsigned LibFuncModel);
 
-      // Print the elements of the map that have the 'mask' bits set.
-      void printMR(raw_ostream &O, ModRefInfo mask) const {
-        O << "  {\n";
-        for (auto I = Map.begin(), E = Map.end();
-          I != E; ++I) {
-          if (isModOrRefSet(intersectModRef(I->second, mask))) {
-            O << *I->first << "\n";
-          }
-        }
-        O << "  }\n";
-      }
+    // Helper to the getModRefInfo function to handle the case where the call is
+    // to a LibFunc.
+    ModRefInfo getLibFuncModRefInfo(LibFunc TheLibFunc, const CallBase *Call,
+                                    const MemoryLocation &Loc);
+
+    // Get the LibFunc ModRef model for a specific LibFunc. Returns LFMR_UNKNOWN
+    // if there is no information available for the library function, or the
+    // function can modify/reference any memory location.
+    unsigned getLibfuncModRefModel(LibFunc &TheLibFunc) const;
+
+    // For Library functions marked with LFMR_FMT_CHECK attribute, get the
+    // argument position of the formatting string
+    unsigned getFormatCheckPosition(LibFunc &TheLibFunc);
+
+    // For printf-like calls, try to find the argument position where variables
+    // can be considered read-only. This requires being able to parse the
+    // format string to determine that there are no %n-like specifiers
+    // present that would allow the modification of memory pointed to by one of
+    // the arguments. Since this is rare, we will just treat all arguments as
+    // potentially modifiable in this case, rather than identifying which
+    // specific argument gets modified. Returns value that is greater than the
+    // number of available arguments if there is not a location that can be
+    // found to assume as read-only. Returns the format string position if a
+    // location is found.
+    unsigned findFormatCheckReadOnlyStart(const CallBase *Call,
+                                          LibFunc TheLibFunc);
+
+  // Internal structure used for mapping Values to a ModRefResult
+  // enumeration id, to record one of 'Mod', 'Ref', or 'ModRef'.
+  struct ModRefMap {
+
+    // Mapping from the Value object to the ModRefInfo of it.
+    using ValueToMRI = MapVector<Value *, ModRefInfo>;
+    ValueToMRI Map;
+
+    // Update the map to include V as a Modified value.
+    // Return true, if this causes a change to the map.
+    bool addMod(const Value *V) { return addModRef(V, ModRefInfo::Mod); }
+
+    // Update the map to include V as a Referenced value.
+    // Return true, if this causes a change to the map.
+    bool addRef(const Value *V) { return addModRef(V, ModRefInfo::Ref); }
+
+    // Update the map to include V as a based on the mask value.
+    // Return true, if this causes a change to the map.
+    bool addModRef(const Value *V, ModRefInfo mask = ModRefInfo::ModRef) {
+      auto &Info = Map[const_cast<Value *>(V)];
+      auto Prev = Info;
+      Info = unionModRef(Info, mask);
+      return Prev != Info;
+    }
+
+    // Prune the list of elements that have NoModRef as their value.
+    void removeNoMod() {
+      ValueToMRI Tmp;
+      for (auto I = Map.begin(), E = Map.end(); I != E; ++I)
+        if (isModOrRefSet(I->second))
+          Tmp.insert(*I);
+
+      std::swap(Tmp, Map);
+    }
+
+    // Print the elements of the map that have the 'mask' bits set.
+    void printMR(raw_ostream &O, ModRefInfo mask) const {
+      O << "  {\n";
+      for (auto I = Map.begin(), E = Map.end(); I != E; ++I)
+        if (isModOrRefSet(intersectModRef(I->second, mask)))
+          O << *I->first << "\n";
+
+      O << "  }\n";
+    }
+  };
+
+  // Information about a single function.
+  struct FunctionRecord {
+    // The function this record represents.
+    // Used only for debug dumps.
+    Function *F;
+
+    // Information for why a set was set to bottom.
+    // Used only for debug dumps.
+    typedef enum {
+      NotBottom,
+      NotCollected,
+      ExternalCall,
+      IndirectCall,
+      UnknownPointsTo,
+      Propagated,
+      Other,
+      LastBottomReason
+    } BottomReasonsEnum;
+
+    // Get a string that represents the bottom reason.
+    const char *getBottomReasonStr(BottomReasonsEnum Reason) const {
+      static const char *Str[LastBottomReason] = {"",
+                                                  "NotCollected",
+                                                  "ExternalCall",
+                                                  "IndirectCall",
+                                                  "UnknownPointsTo",
+                                                  "Propagated",
+                                                  "Other"};
+
+      assert(Reason >= NotBottom && Reason < LastBottomReason);
+      return Str[Reason];
+    }
+
+    BottomReasonsEnum ModBottomReason;
+    BottomReasonsEnum RefBottomReason;
+
+    /// FunctionEffect - Capture whether or not this function reads
+    /// or writes to known/unknown memory.
+    enum FunctionEffectMask {
+      DoesNotAccessMemory = 0x00, // Equiv to LOC_SET_EMPTY
+      ReadsMemory = 0x01,
+      WritesMemory = 0x02,
+      ReadsNonLocalLoc = 0x04,   // Equiv to Ref(NonLocalLoc)
+      WritesNonLocalLoc = 0x08,  // Equiv to Mod(NonLocalLoc)
+      ReadsUnknownMemory = 0x10, // Equiv to Ref(BOTTOM)
+      WritesUnknownMemory = 0x20 // Equiv to Mod(BOTTOM)
     };
 
-    // Information about a single function.
-    struct FunctionRecord {
-      // The function this record represents.
-      // Used only for debug dumps.
-      Function *F;
+    // Return whether the function effect is known to read any memory
+    bool EffectReadsMemory(FunctionEffectMask E) const {
+      return E & (ReadsMemory | ReadsNonLocalLoc | ReadsUnknownMemory);
+    }
 
-      // Information for why a set was set to bottom.
-      // Used only for debug dumps.
-      typedef enum {
-        NotBottom, NotCollected, ExternalCall, IndirectCall,
-        UnknownPointsTo, Propagated, Other, LastBottomReason
-      } BottomReasonsEnum;
+    // Return whether the function effect is known to write any memory
+    bool EffectWritesMemory(FunctionEffectMask E) const {
+      return E & (WritesMemory | WritesNonLocalLoc | WritesUnknownMemory);
+    }
 
-      // Get a string that represents the bottom reason.
-      const char *getBottomReasonStr(BottomReasonsEnum Reason) const {
-        static const char *Str[LastBottomReason] = {
-          "", "NotCollected", "ExternalCall", "IndirectCall",
-          "UnknownPointsTo", "Propagated", "Other"
-        };
+    FunctionEffectMask getFunctionEffect() const { return FunctionEffect; }
 
-        assert(Reason >= NotBottom && Reason < LastBottomReason);
-        return Str[Reason];
-      }
+    // Update the function effect. If the effect after modification is
+    // bottom, then clear the other bits, and just leave it as bottom.
+    void addFunctionEffect(FunctionEffectMask E) {
+      FunctionEffect = FunctionEffectMask(FunctionEffect | E);
 
-      BottomReasonsEnum ModBottomReason;
-      BottomReasonsEnum RefBottomReason;
+      if (isRefBottom())
+        FunctionEffect = FunctionEffectMask(FunctionEffect & ~ReadsNonLocalLoc);
 
-      /// FunctionEffect - Capture whether or not this function reads 
-      /// or writes to known/unknown memory.
-      enum FunctionEffectMask {
-        DoesNotAccessMemory = 0x00,  // Equiv to LOC_SET_EMPTY
-        ReadsMemory = 0x01,
-        WritesMemory = 0x02,
-        ReadsNonLocalLoc = 0x04,     // Equiv to Ref(NonLocalLoc)
-        WritesNonLocalLoc = 0x08,    // Equiv to Mod(NonLocalLoc)
-        ReadsUnknownMemory = 0x10,   // Equiv to Ref(BOTTOM)
-        WritesUnknownMemory = 0x20   // Equiv to Mod(BOTTOM)
-      };
-
-      // Return whether the function effect is known to read any memory
-      bool EffectReadsMemory(FunctionEffectMask E) const {
-        return E &
-          (ReadsMemory | ReadsNonLocalLoc | ReadsUnknownMemory);
-      }
-
-      // Return whether the function effect is known to write any memory
-      bool EffectWritesMemory(FunctionEffectMask E) const {
-        return E &
-          (WritesMemory | WritesNonLocalLoc | WritesUnknownMemory);
-      }
-
-      FunctionEffectMask getFunctionEffect() const {
-        return FunctionEffect;
-      }
-
-      // Update the function effect. If the effect after modification is
-      // bottom, then clear the other bits, and just leave it as bottom.
-      void addFunctionEffect(FunctionEffectMask E) {
-        FunctionEffect = FunctionEffectMask(FunctionEffect | E);
-
-        if (isRefBottom()) {
-          FunctionEffect =
-            FunctionEffectMask(FunctionEffect & ~ReadsNonLocalLoc);
-        }
-
-        if (isModBottom()) {
-          FunctionEffect =
+      if (isModBottom())
+        FunctionEffect =
             FunctionEffectMask(FunctionEffect & ~WritesNonLocalLoc);
-        }
-      }
-    public:
-      FunctionRecord() : F(nullptr),
-        ModBottomReason(NotBottom), RefBottomReason(NotBottom),
-        FunctionEffect(DoesNotAccessMemory) {}
+    }
 
-      ~FunctionRecord() {}
+  public:
+    FunctionRecord()
+        : F(nullptr), ModBottomReason(NotBottom), RefBottomReason(NotBottom),
+          FunctionEffect(DoesNotAccessMemory) {}
 
-      // Checks if the function is marked as reading memory
-      bool FunctionReadsMemory() const {
-        return EffectReadsMemory(getFunctionEffect());
-      }
+    ~FunctionRecord() {}
 
-      // Checks if the function is marked as writing memory
-      bool FunctionWritesMemory() const {
-        return EffectWritesMemory(getFunctionEffect());
-      }
+    // Checks if the function is marked as reading memory
+    bool FunctionReadsMemory() const {
+      return EffectReadsMemory(getFunctionEffect());
+    }
 
-      // Add the Value to the list of modified locations for this function.
-      // Return true if a change in the sets occurs.
-      bool addMod(const Value *V) {
-        if (isModBottom()) {
-          // No reason to add it if the function is bottom.
-          return false;
-        }
-        bool changed = AndersenModRefInfo.addMod(V);
-        addFunctionEffect(WritesMemory);
-        return changed;
-      }
+    // Checks if the function is marked as writing memory
+    bool FunctionWritesMemory() const {
+      return EffectWritesMemory(getFunctionEffect());
+    }
 
-      // Add the Value to the list of ref'd locations for this function.
-      // Return true if a change in the sets occurs.
-      bool addRef(const Value *V) {
-        if (isRefBottom()) {
-          // No reason to add it if the function is bottom.
-          return false;
-        }
+    // Add the Value to the list of modified locations for this function.
+    // Return true if a change in the sets occurs.
+    bool addMod(const Value *V) {
 
-        bool changed = AndersenModRefInfo.addRef(V);
-        addFunctionEffect(ReadsMemory);
-        return changed;
-      }
+      // No reason to add it if the function is bottom.
+      if (isModBottom())
+        return false;
 
-      bool addModRef(const Value *V, ModRefInfo mask) {
-        if (isModBottom()) {
-          mask = clearMod(mask);
-        }
-        if (isRefBottom()) {
-          mask = clearRef(mask);
-        }
+      bool changed = AndersenModRefInfo.addMod(V);
+      addFunctionEffect(WritesMemory);
+      return changed;
+    }
 
-        if (isNoModRef(mask)) {
-          return false;
-        }
+    // Add the Value to the list of ref'd locations for this function.
+    // Return true if a change in the sets occurs.
+    bool addRef(const Value *V) {
+      // No reason to add it if the function is bottom.
+      if (isRefBottom())
+        return false;
 
-        bool changed = AndersenModRefInfo.addModRef(V, mask);
+      bool changed = AndersenModRefInfo.addRef(V);
+      addFunctionEffect(ReadsMemory);
+      return changed;
+    }
 
-        FunctionEffectMask Effect = FunctionEffectMask(
+    bool addModRef(const Value *V, ModRefInfo mask) {
+      if (isModBottom())
+        mask = clearMod(mask);
+
+      if (isRefBottom())
+        mask = clearRef(mask);
+
+      if (isNoModRef(mask))
+        return false;
+
+      bool changed = AndersenModRefInfo.addModRef(V, mask);
+
+      FunctionEffectMask Effect = FunctionEffectMask(
           (isRefSet(mask) ? ReadsMemory : DoesNotAccessMemory) |
           (isModSet(mask) ? WritesMemory : DoesNotAccessMemory));
-        addFunctionEffect(Effect);
-        return changed;
-      }
-
-      void removeValue(const Value *V) {
-        auto I = AndersenModRefInfo.Map.find(const_cast<Value*>(V));
-        if (I != AndersenModRefInfo.Map.end()) {
-          AndersenModRefInfo.Map.erase(I);
-        }
-      }
-
-      void addModNonLocalLoc() {
-        if (!isModBottom()) {
-          addFunctionEffect(WritesNonLocalLoc);
-        }
-      }
-
-      bool isModNonLocalLoc() const {
-        return getFunctionEffect() & WritesNonLocalLoc;
-      }
-
-      void addRefNonLocalLoc() {
-        if (!isRefBottom()) {
-          addFunctionEffect(ReadsNonLocalLoc);
-        }
-      }
-
-      bool isRefNonLocalLoc() const {
-        return getFunctionEffect() & ReadsNonLocalLoc;
-      }
-
-      void setToBottom(BottomReasonsEnum Reason) {
-        addFunctionEffect(
-          FunctionEffectMask(ReadsUnknownMemory | WritesUnknownMemory));
-        ModBottomReason = Reason;
-        RefBottomReason = Reason;
-        AndersenModRefInfo.Map.clear();
-      }
-
-      void setModBottom(BottomReasonsEnum Reason) {
-        addFunctionEffect(WritesUnknownMemory);
-        ModBottomReason = Reason;
-
-        if (isRefBottom()) {
-          AndersenModRefInfo.Map.clear();
-        }
-        else {
-          for (auto I = AndersenModRefInfo.Map.begin(),
-            E = AndersenModRefInfo.Map.end(); I != E; ++I) {
-              I->second = clearMod(I->second);
-          }
-        }
-      }
-
-      void setRefBottom(BottomReasonsEnum Reason) {
-        addFunctionEffect(ReadsUnknownMemory);
-        RefBottomReason = Reason;
-        if (isModBottom()) {
-          AndersenModRefInfo.Map.clear();
-        }
-        else {
-          for (auto I = AndersenModRefInfo.Map.begin(),
-            E = AndersenModRefInfo.Map.end(); I != E; ++I) {
-            I->second = clearRef(I->second);
-          }
-        }
-      }
-
-      // Check if the mod set is BOTTOM
-      bool isModBottom() const {
-        return getFunctionEffect() & WritesUnknownMemory;
-      }
-
-      // Check if the ref set is BOTTOM
-      bool isRefBottom() const {
-        return getFunctionEffect() & ReadsUnknownMemory;
-      }
-
-      // Check if the Value is already known to be Modified
-      bool mustModify(const Value *V) const {
-        auto I = AndersenModRefInfo.Map.find(const_cast<Value*>(V));
-        if (I == AndersenModRefInfo.Map.end()) {
-          return false;
-        }
-
-        return isModSet(I->second);
-      }
-
-      // Check if the Value is already known to be Referenced
-      bool mustReference(const Value *V) const {
-        auto I = AndersenModRefInfo.Map.find(const_cast<Value*>(V));
-        if (I == AndersenModRefInfo.Map.end()) {
-          return false;
-        }
-
-        return isRefSet(I->second);
-      }
-
-      // Check if the function either Modifies or References the Value.
-      bool haveInfo(const Value *V) const {
-        return !(AndersenModRefInfo.Map.find(const_cast<Value*>(V)) ==
-          AndersenModRefInfo.Map.end());
-      }
-
-      // Get the ModRef information for the specified variable. If no
-      // information is available, return 'ModRef'
-      ModRefInfo getInfo(const Value *V) const {
-        auto I = AndersenModRefInfo.Map.find(const_cast<Value*>(V));
-        if (I == AndersenModRefInfo.Map.end()) {
-          return ModRefInfo::ModRef;
-        }
-
-        return ModRefInfo(I->second);
-      }
-
-      // Print the Mod/Ref sets for the function.
-      void printFuncMR(raw_ostream &O, const StringRef &Name,
-        bool Summary = false) const {
-        O << "PMOD(" << Name << ")";
-        if (isModBottom()) {
-          O << " --> BOTTOM: " <<
-            getBottomReasonStr(ModBottomReason);
-        }
-        if (isModNonLocalLoc()) {
-          O << "  + Non_local_loc";
-        }
-        O << "\n";
-
-        if (!Summary) {
-          AndersenModRefInfo.printMR(O, ModRefInfo::Mod);
-        }
-
-
-        O << "PREF(" << Name << ")";
-        if (isRefBottom()) {
-          O << " --> BOTTOM: " <<
-            getBottomReasonStr(RefBottomReason);
-        }
-        if (isRefNonLocalLoc()) {
-          O << "  + Non_local_loc";
-        }
-
-        O << "\n";
-        if (!Summary) {
-          AndersenModRefInfo.printMR(O, ModRefInfo::Ref);
-        }
-      }
-
-      void dump() const {
-        printFuncMR(llvm::errs(), F->getName(), false);
-      }
-
-    public:
-      // Global effect of the function with regard to reading/writing memory
-      FunctionEffectMask FunctionEffect;
-
-      // Map of Value that are mod/ref'd by this function
-      ModRefMap AndersenModRefInfo;
-    };
-
-    struct DeletionCallbackHandle final : CallbackVH {
-      IntelModRefImpl &IMR;
-
-      DeletionCallbackHandle(IntelModRefImpl &IMR, Value *V) :
-        CallbackVH(V), IMR(IMR) {}
-
-      void deleted() override {
-        Value *V = getValPtr();
-        // Clear the value handle, so that the object can be destroyed.
-        setValPtr(nullptr);
-        IMR.valueDeleted(V);
-      }
-    };
-  public:
-    // Constructor. Save a pointer to the Andersens object for invoking
-    // the specific methods for points-to only available from Andersens.
-    // Also save the pointer as the base class for invoking the base class
-    // methods.
-    IntelModRefImpl(AndersensAAResult *Ander) : Ander(Ander) {}
-
-    // Destructor. No memory is allocated with 'new', so nothing to delete.
-    ~IntelModRefImpl() {};
-
-    // Examine all the functions in the module to build and propagate the
-    // modref sets.
-    bool runOnModule(Module &M);
-
-    // Return the ModRef state for the Location.
-    ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc);
-
-    // Print all the ModRef sets.
-    void dump() const;
-
-    // Print all the ModRef sets to the ostream. If Summary is set, just
-    // report Bottom or NonLocalLoc, instead of the complete sets.
-    void print(raw_ostream &O, bool Summary = false) const;
-
-  private:
-
-    // Handle to Andersesns Alias Analysis object that will provide
-    // points-to info.
-    AndersensAAResult *Ander;
-
-    // Pointer for DataLayout for GetUnderlyingObject calls 
-    const DataLayout *DL;
-
-    // Mapping between Functions and the ModRef sets for them.
-    typedef MapVector<Function*, FunctionRecord> FunctionRecordMap;
-    FunctionRecordMap FunctionInfo;
-
-    std::set<DeletionCallbackHandle> Handles;
-
-    // Get a pointer to the FunctionRecord for the specified function, or
-    // nullptr if no information is available.
-    FunctionRecord *getFunctionInfo(const Function *F) {
-      auto I = FunctionInfo.find(const_cast<Function*>(F));
-      if (I != FunctionInfo.end())
-        return &I->second;
-      return nullptr;
+      addFunctionEffect(Effect);
+      return changed;
     }
 
-    // Build the mod-ref set for the function
-    void collectFunction(Function *F);
-    
-    // Update the DirectModRef set based on the actions of the Instrution
-    void collectInstruction(Instruction *I, ModRefMap *DirectModRef);
+    void removeValue(const Value *V) {
+      auto I = AndersenModRefInfo.Map.find(const_cast<Value *>(V));
+      if (I != AndersenModRefInfo.Map.end())
+        AndersenModRefInfo.Map.erase(I);
+    }
 
-    // Update the DirectModRef set based on the Value, using the specified
-    // mask value for whether to treat the variable as modified or referenced.
-    void collectValue(Value *V, ModRefMap *DirectModRef,
-        ModRefInfo mask = ModRefInfo::ModRef);
+    void addModNonLocalLoc() {
+      if (!isModBottom())
+        addFunctionEffect(WritesNonLocalLoc);
+    }
 
-    // Check if the function contains something that will cause the ModRef
-    // sets to be BOTTOM
-    FunctionRecord::BottomReasonsEnum isResolvable(Function *F) const;
+    bool isModNonLocalLoc() const {
+      return getFunctionEffect() & WritesNonLocalLoc;
+    }
 
-    // Check if a call to specific function can be resolved with ModRef info.
-    bool isResolvableCallee(const Function *F) const;
+    void addRefNonLocalLoc() {
+      if (!isRefBottom())
+        addFunctionEffect(ReadsNonLocalLoc);
+    }
 
-    // Expand the ModRef sets to include aliases.
-    void expandModRefSets(FunctionRecord *FR, ModRefMap *DirectModRef);
+    bool isRefNonLocalLoc() const {
+      return getFunctionEffect() & ReadsNonLocalLoc;
+    }
 
-    // Prune modref sets to just be the set we want to track
-    void pruneModRefSets(FunctionRecord *FR);
+    void setToBottom(BottomReasonsEnum Reason) {
+      addFunctionEffect(
+          FunctionEffectMask(ReadsUnknownMemory | WritesUnknownMemory));
+      ModBottomReason = Reason;
+      RefBottomReason = Reason;
+      AndersenModRefInfo.Map.clear();
+    }
 
-    // Propagate the sets around the call graph.
-    void propagate(Module &M);
+    void setModBottom(BottomReasonsEnum Reason) {
+      addFunctionEffect(WritesUnknownMemory);
+      ModBottomReason = Reason;
 
-    // Build the SCC for propagation
+      if (isRefBottom())
+        AndersenModRefInfo.Map.clear();
+      else
+        for (auto I = AndersenModRefInfo.Map.begin(),
+                  E = AndersenModRefInfo.Map.end();
+             I != E; ++I)
+          I->second = clearMod(I->second);
+    }
 
-    std::unique_ptr<llvm::CallGraph> buildPropagationSCC(Module &M);
+    void setRefBottom(BottomReasonsEnum Reason) {
+      addFunctionEffect(ReadsUnknownMemory);
+      RefBottomReason = Reason;
+      if (isModBottom())
+        AndersenModRefInfo.Map.clear();
+      else
+        for (auto I = AndersenModRefInfo.Map.begin(),
+                  E = AndersenModRefInfo.Map.end();
+             I != E; ++I)
+          I->second = clearRef(I->second);
+    }
 
-    // Combine the ModRef sets of function so they are equivalent to one
-    // another because they are in the same component of the SCC.
-    bool fuseModRefSets(FunctionRecord *FR1, FunctionRecord *FR2);
+    // Check if the mod set is BOTTOM
+    bool isModBottom() const {
+      return getFunctionEffect() & WritesUnknownMemory;
+    }
 
-    // Add the elements from 'Src' to Dest's ModRef Set.
-    bool mergeModRefSets(FunctionRecord *Dest, const FunctionRecord *Src);
+    // Check if the ref set is BOTTOM
+    bool isRefBottom() const {
+      return getFunctionEffect() & ReadsUnknownMemory;
+    }
 
-    // Add Non-Local-Loc to the sets that may access symbols the escape
-    // the compilation unit.
-    void applyNonLocalLocClosure();
-    void applyNonLocalLocClosure(FunctionRecord *FR);
+    // Check if the Value is already known to be Modified
+    bool mustModify(const Value *V) const {
+      auto I = AndersenModRefInfo.Map.find(const_cast<Value *>(V));
+      if (I == AndersenModRefInfo.Map.end())
+        return false;
 
-    void registerHandlers();
-    void valueDeleted(Value *V);
+      return isModSet(I->second);
+    }
 
-    // Check whether Value V is a Global that could escape the compilation
-    // unit.
-    bool isGlobalEscape(const Value *V) const;
+    // Check if the Value is already known to be Referenced
+    bool mustReference(const Value *V) const {
+      auto I = AndersenModRefInfo.Map.find(const_cast<Value *>(V));
+      if (I == AndersenModRefInfo.Map.end())
+        return false;
 
+      return isRefSet(I->second);
+    }
+
+    // Check if the function either Modifies or References the Value.
+    bool haveInfo(const Value *V) const {
+      return !(AndersenModRefInfo.Map.find(const_cast<Value *>(V)) ==
+               AndersenModRefInfo.Map.end());
+    }
+
+    // Get the ModRef information for the specified variable. If no
+    // information is available, return 'ModRef'
+    ModRefInfo getInfo(const Value *V) const {
+      auto I = AndersenModRefInfo.Map.find(const_cast<Value *>(V));
+      if (I == AndersenModRefInfo.Map.end())
+        return ModRefInfo::ModRef;
+
+      return ModRefInfo(I->second);
+    }
+
+    // Print the Mod/Ref sets for the function.
+    void printFuncMR(raw_ostream &O, const StringRef &Name,
+                     bool Summary = false) const {
+      O << "PMOD(" << Name << ")";
+      if (isModBottom())
+        O << " --> BOTTOM: " << getBottomReasonStr(ModBottomReason);
+
+      if (isModNonLocalLoc())
+        O << "  + Non_local_loc";
+
+      O << "\n";
+
+      if (!Summary)
+        AndersenModRefInfo.printMR(O, ModRefInfo::Mod);
+
+      O << "PREF(" << Name << ")";
+      if (isRefBottom())
+        O << " --> BOTTOM: " << getBottomReasonStr(RefBottomReason);
+
+      if (isRefNonLocalLoc())
+        O << "  + Non_local_loc";
+
+      O << "\n";
+      if (!Summary)
+        AndersenModRefInfo.printMR(O, ModRefInfo::Ref);
+    }
+
+    void dump() const { printFuncMR(llvm::errs(), F->getName(), false); }
+
+  public:
+    // Global effect of the function with regard to reading/writing memory
+    FunctionEffectMask FunctionEffect;
+
+    // Map of Value that are mod/ref'd by this function
+    ModRefMap AndersenModRefInfo;
   };
+
+  struct DeletionCallbackHandle final : CallbackVH {
+    IntelModRefImpl &IMR;
+
+    DeletionCallbackHandle(IntelModRefImpl &IMR, Value *V)
+        : CallbackVH(V), IMR(IMR) {}
+
+    void deleted() override {
+      Value *V = getValPtr();
+      // Clear the value handle, so that the object can be destroyed.
+      setValPtr(nullptr);
+      IMR.valueDeleted(V);
+    }
+  };
+
+public:
+  // Constructor. Save a pointer to the Andersens object for invoking
+  // the specific methods for points-to only available from Andersens.
+  // Also save the pointer as the base class for invoking the base class
+  // methods.
+  IntelModRefImpl(AndersensAAResult *Ander, const TargetLibraryInfo &TLI)
+      : Ander(Ander), TLI(TLI) {}
+
+  // Destructor. No memory is allocated with 'new', so nothing to delete.
+  ~IntelModRefImpl(){};
+
+  // Examine all the functions in the module to build and propagate the
+  // modref sets.
+  bool runOnModule(Module &M);
+
+  // Return the ModRef state for the Location.
+  ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
+                           AAQueryInfo &AAQI);
+
+  // Print all the ModRef sets.
+  void dump() const;
+
+  // Print all the ModRef sets to the ostream. If Summary is set, just
+  // report Bottom or NonLocalLoc, instead of the complete sets.
+  void print(raw_ostream &O, bool Summary = false) const;
+
+private:
+  // Handle to Andersens Alias Analysis object that will provide
+  // points-to info.
+  AndersensAAResult *Ander;
+
+  // Handle for getting information about library function calls.
+  const TargetLibraryInfo &TLI;
+
+  // Pointer for DataLayout for GetUnderlyingObject calls
+  const DataLayout *DL;
+
+  // Mapping between Functions and the ModRef sets for them.
+  typedef MapVector<Function *, FunctionRecord> FunctionRecordMap;
+  FunctionRecordMap FunctionInfo;
+
+  std::set<DeletionCallbackHandle> Handles;
+
+  // Update the AndersensAA pointer, when the AndersenAA object gets moved.
+  friend class AndersensAAResult::IntelModRef;
+  void resetAndersenAAResult(AndersensAAResult *AnderAA) {
+    Ander = AnderAA;
+  }
+
+  // Get a pointer to the FunctionRecord for the specified function, or
+  // nullptr if no information is available.
+  FunctionRecord *getFunctionInfo(const Function *F) {
+    auto I = FunctionInfo.find(const_cast<Function *>(F));
+    if (I != FunctionInfo.end())
+      return &I->second;
+    return nullptr;
+  }
+
+  // Build the mod-ref set for the function
+  void collectFunction(Function *F);
+
+  // Update the DirectModRef set based on the actions of the Instruction
+  void collectInstruction(Instruction *I, ModRefMap *DirectModRef);
+
+  // Update the DirectModRef set based on the Value, using the specified
+  // mask value for whether to treat the variable as modified or referenced.
+  void collectValue(Value *V, ModRefMap *DirectModRef,
+                    ModRefInfo mask = ModRefInfo::ModRef);
+
+  // Check if the function contains something that will cause the ModRef
+  // sets to be BOTTOM
+  FunctionRecord::BottomReasonsEnum isResolvable(Function *F) const;
+
+  // Check if a call to specific function can be resolved with ModRef info.
+  bool isResolvableCallee(const Function *F) const;
+
+  // Expand the ModRef sets to include aliases.
+  void expandModRefSets(FunctionRecord *FR, ModRefMap *DirectModRef);
+
+  // Prune modref sets to just be the set we want to track
+  void pruneModRefSets(FunctionRecord *FR);
+
+  // Propagate the sets around the call graph.
+  void propagate(Module &M);
+
+  // Build the SCC for propagation
+
+  std::unique_ptr<llvm::CallGraph> buildPropagationSCC(Module &M);
+
+  // Combine the ModRef sets of function so they are equivalent to one
+  // another because they are in the same component of the SCC.
+  bool fuseModRefSets(FunctionRecord *FR1, FunctionRecord *FR2);
+
+  // Add the elements from 'Src' to Dest's ModRef Set.
+  bool mergeModRefSets(FunctionRecord *Dest, const FunctionRecord *Src);
+
+  // Add Non-Local-Loc to the sets that may access symbols the escape
+  // the compilation unit.
+  void applyNonLocalLocClosure();
+  void applyNonLocalLocClosure(FunctionRecord *FR);
+
+  void registerHandlers();
+  void valueDeleted(Value *V);
+
+  // Check whether Value V is a Global that could escape the compilation
+  // unit.
+  bool isGlobalEscape(const Value *V) const;
+};
 } // namespace llvm
 
+bool IntelModRefImpl::runOnModule(Module &M) {
+  DL = &M.getDataLayout();
 
-bool IntelModRefImpl::runOnModule(Module &M)
-{
-    DL = &M.getDataLayout();
+  DEBUG_WITH_TYPE("imr", errs() << "Beginning IntelModRefImpl\n");
+  DEBUG_WITH_TYPE("imr", errs() << "---------------------\n");
 
-    DEBUG_WITH_TYPE("imr", errs() << "Beginning IntelModRefImpl\n");
-    DEBUG_WITH_TYPE("imr", errs() << "---------------------\n");
+  for (Function &F : M)
+    collectFunction(&F);
 
-    for (Function &F : M) {
-        collectFunction(&F);
-    }
+  DEBUG_WITH_TYPE("imr", errs() << "Before propagate\n");
+  DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
+  DEBUG_WITH_TYPE("imr", dump());
+  DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
 
-    DEBUG_WITH_TYPE("imr", errs() << "Before propagate\n");
-    DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
-    DEBUG_WITH_TYPE("imr", dump());
-    DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
+  propagate(M);
+  registerHandlers();
 
+  DEBUG_WITH_TYPE("imr", errs() << "After propagate\n");
+  DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
+  DEBUG_WITH_TYPE("imr", dump());
+  DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
 
-    propagate(M);
-    registerHandlers();
-
-    DEBUG_WITH_TYPE("imr", errs() << "After propagate\n");
-    DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
-    DEBUG_WITH_TYPE("imr", dump());
-    DEBUG_WITH_TYPE("imr", errs() << "----------------\n");
-
-    return false;
+  return false;
 }
 
 // Helper routine to determine if the Value is a pointer that needs to be
 // considered during modref collection.
 static inline bool isInterestingPointer(Value *V) {
-    return V->getType()->isPointerTy()
-        && !isa<ConstantPointerNull>(V);
+  return V->getType()->isPointerTy() && !isa<ConstantPointerNull>(V);
 }
 
 // Collect pointers (and points-to aliases) for each pointer directly
 // modified or referenced in the routine.
-void IntelModRefImpl::collectFunction(Function *F)
-{
-    DEBUG_WITH_TYPE("imr-ir", F->dump());
+void IntelModRefImpl::collectFunction(Function *F) {
+  DEBUG_WITH_TYPE("imr-ir", F->dump());
 
+  DEBUG_WITH_TYPE("imr-collect",
+                  errs() << "Collecting for: " << F->getName() << "\n");
+
+  // Only run collection on the body of a function.
+  if (F->isDeclaration()) {
+    DEBUG_WITH_TYPE("imr-collect", errs() << "BOTTOM: No function body.\n\n");
+    return;
+  }
+
+  // Don't collect for a weak function, because it may not be
+  // the function linked in.
+  if (!F->hasExactDefinition()) {
     DEBUG_WITH_TYPE("imr-collect",
-        errs() << "Collecting for: " << F->getName() << "\n");
+                    errs() << "BOTTOM: Weak function may be overridden.\n\n");
+    return;
+  }
 
-    // Only run collection on the body of a function.
-    if (F->isDeclaration()) {
-        DEBUG_WITH_TYPE("imr-collect", errs() <<
-            "BOTTOM: No function body.\n\n");
-        return;
-    }
+  DEBUG_WITH_TYPE("imr-ir", F->dump());
 
-    // Don't collect for a weak function, because it may not be
-    // the function linked in.
-    if (!F->hasExactDefinition()) {
-        DEBUG_WITH_TYPE("imr-collect", errs() <<
-            "BOTTOM: Weak function may be overridden.\n\n");
-        return;
-    }
+  DEBUG_WITH_TYPE("imr-collect",
+                  errs() << "Collecting for: " << F->getName() << "\n");
 
-    DEBUG_WITH_TYPE("imr-ir", F->dump());
+  FunctionRecord &FR = FunctionInfo[F];
+  FR.F = F;
 
+  // Check if the function has characteristics that will prevent
+  // knowing mod/ref sets, so that we can give up now if the result is
+  // going to be bottom anyway.
+  FunctionRecord::BottomReasonsEnum Reason = isResolvable(F);
+  if (Reason != FunctionRecord::NotBottom) {
     DEBUG_WITH_TYPE("imr-collect",
-        errs() << "Collecting for: " << F->getName() << "\n");
+                    errs() << "Unable to determine ModRef sets for function: "
+                           << F->getName() << "\n");
 
-    FunctionRecord &FR = FunctionInfo[F];
-    FR.F = F;
+    FR.setToBottom(Reason);
+    return;
+  }
 
-    // Check if the function has characteristics that will prevent
-    // knowing mod/ref sets, so that we can give up now if the result is
-    // going to be bottom anyway.
-    FunctionRecord::BottomReasonsEnum Reason = isResolvable(F);
-    if (Reason != FunctionRecord::NotBottom) {
-        DEBUG_WITH_TYPE("imr-collect", errs() <<
-            "Unable to determine ModRef sets for function: " <<
-            F->getName() << "\n");
+  ModRefMap DirectModRef;
+  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I)
+    collectInstruction(&(*I), &DirectModRef);
 
-        FR.setToBottom(Reason);
-        return;
-    }
+  DEBUG_WITH_TYPE("imr-collect", errs() << "DirectMod:\n");
+  DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(errs(), ModRefInfo::Mod));
+  DEBUG_WITH_TYPE("imr-collect", errs() << "DirectRef:\n");
+  DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(errs(), ModRefInfo::Ref));
 
-    ModRefMap DirectModRef;
-    for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-        collectInstruction(&(*I), &DirectModRef);
-    }
+  // Collect all the aliases of the directly modified Values.
+  expandModRefSets(&FR, &DirectModRef);
 
-    DEBUG_WITH_TYPE("imr-collect", errs() << "DirectMod:\n");
-    DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(errs(), ModRefInfo::Mod));
-    DEBUG_WITH_TYPE("imr-collect", errs() << "DirectRef:\n");
-    DEBUG_WITH_TYPE("imr-collect", DirectModRef.printMR(errs(), ModRefInfo::Ref));
-
-    // Collect all the aliases of the directly modified Values.
-    expandModRefSets(&FR, &DirectModRef);
-
-    // Prune modref sets to just be the set we want to track
-    pruneModRefSets(&FR);
+  // Prune modref sets to just be the set we want to track
+  pruneModRefSets(&FR);
 }
 
 // Collect pointers (and points-to aliases) for each pointer directly
 // modified or referenced in the instruction.
-void IntelModRefImpl::collectInstruction(Instruction *I, ModRefMap *DirectModRef)
-{
-    if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
-        Value *ValOperand = LI->getPointerOperand();
-        bool Changed = DirectModRef->addRef(ValOperand);
-        if (Changed) {
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                "REF: " << *ValOperand << "\n\n");
-        }
+void IntelModRefImpl::collectInstruction(Instruction *I,
+                                         ModRefMap *DirectModRef) {
+  if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
+    Value *ValOperand = LI->getPointerOperand();
+    bool Changed = DirectModRef->addRef(ValOperand);
+    if (Changed) {
+      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace",
+                      errs() << "REF: " << *ValOperand << "\n\n");
     }
-    else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
-        Value *PtrOperand = SI->getPointerOperand();
-        bool Changed = DirectModRef->addMod(PtrOperand);
-        if (Changed) {
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                "MOD: " << *PtrOperand << "\n\n");
-        }
-
-        // Consider the rest of the operands as Loads.
-        Value *ValOperand = SI->getValueOperand();
-        collectValue(ValOperand, DirectModRef, ModRefInfo::Ref);
-        return;
-    }
-    else if (BitCastInst *BC = dyn_cast<BitCastInst>(I)) {
-        Value *ValOperand = BC->getOperand(0);
-        // CQ380767: Skip non-pointer operand in BitCast Inst
-        if (isInterestingPointer(ValOperand)) {
-            bool Changed = DirectModRef->addRef(ValOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                    "REF: " << *ValOperand << "\n\n");
-            }
-        }
-    }
-    else if (AtomicCmpXchgInst *ACX = dyn_cast<AtomicCmpXchgInst>(I)) {
-        Value *ValOperand = ACX->getPointerOperand();
-        bool Changed = DirectModRef->addModRef(ValOperand);
-        if (Changed) {
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                "MODREF: " << *ValOperand << "\n\n");
-        }
-    }
-    else if (AtomicRMWInst *AWMW = dyn_cast<AtomicRMWInst>(I)) {
-        Value *ValOperand = AWMW->getPointerOperand();
-        bool Changed = DirectModRef->addMod(ValOperand);
-        if (Changed) {
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                "MOD: " << *ValOperand << "\n\n");
-        }
-    }
-    else if (isInterestingPointer(I)) {
-        Value *ValPtr = I;
-        bool Changed = DirectModRef->addMod(ValPtr);
-        if (Changed) {
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                "MOD: " << *ValPtr << "\n\n");
-        }
+  } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+    Value *PtrOperand = SI->getPointerOperand();
+    bool Changed = DirectModRef->addMod(PtrOperand);
+    if (Changed) {
+      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace",
+                      errs() << "MOD: " << *PtrOperand << "\n\n");
     }
 
-    if (CallSite CS = CallSite(I)) {
-        // Collect all the values passed
-        int ArgNo = 0;
-        for (CallSite::arg_iterator AI = CS.arg_begin(), AE = CS.arg_end();
-            AI != AE; ++AI, ++ArgNo) {
-            if (isInterestingPointer(*AI)) {
-                bool Changed = DirectModRef->addRef(*AI);
-                if (Changed) {
-                    DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                    DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                        "REF: " << *(*AI) << "\n\n");
-                }
-            }
-        }
+    // Consider the rest of the operands as Loads.
+    Value *ValOperand = SI->getValueOperand();
+    collectValue(ValOperand, DirectModRef, ModRefInfo::Ref);
+    return;
+  } else if (BitCastInst *BC = dyn_cast<BitCastInst>(I)) {
+    Value *ValOperand = BC->getOperand(0);
+    // CQ380767: Skip non-pointer operand in BitCast Inst
+    if (isInterestingPointer(ValOperand)) {
+      bool Changed = DirectModRef->addRef(ValOperand);
+      if (Changed) {
+        DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+        DEBUG_WITH_TYPE("imr-collect-trace",
+                        errs() << "REF: " << *ValOperand << "\n\n");
+      }
     }
+  } else if (AtomicCmpXchgInst *ACX = dyn_cast<AtomicCmpXchgInst>(I)) {
+    Value *ValOperand = ACX->getPointerOperand();
+    bool Changed = DirectModRef->addModRef(ValOperand);
+    if (Changed) {
+      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace",
+                      errs() << "MODREF: " << *ValOperand << "\n\n");
+    }
+  } else if (AtomicRMWInst *AWMW = dyn_cast<AtomicRMWInst>(I)) {
+    Value *ValOperand = AWMW->getPointerOperand();
+    bool Changed = DirectModRef->addMod(ValOperand);
+    if (Changed) {
+      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace",
+                      errs() << "MOD: " << *ValOperand << "\n\n");
+    }
+  } else if (isInterestingPointer(I)) {
+    Value *ValPtr = I;
+    bool Changed = DirectModRef->addMod(ValPtr);
+    if (Changed) {
+      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace", errs()
+                                               << "MOD: " << *ValPtr << "\n\n");
+    }
+  } else if (CallBase *Call = dyn_cast<CallBase>(I)) {
+    // Collect all the values passed
+    for (auto AI = Call->arg_begin(), AE = Call->arg_end(); AI != AE;
+         ++AI)
+      if (isInterestingPointer(*AI)) {
+        bool Changed = DirectModRef->addRef(*AI);
+        if (Changed) {
+          DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+          DEBUG_WITH_TYPE("imr-collect-trace",
+                          errs() << "REF: " << *(*AI) << "\n\n");
+        }
+      }
+  }
 }
 
 // Collect pointers (and points-to aliases) for each pointer directly
 // modified or referenced as a Value sub-expression of an instruction.
 void IntelModRefImpl::collectValue(Value *V, ModRefMap *DirectModRef,
-    ModRefInfo mask)
-{
-    ConstantExpr *CE;
+                                   ModRefInfo mask) {
+  ConstantExpr *CE;
 
-    if ((CE = dyn_cast<ConstantExpr>(V)) &&
-        (CE->getOpcode() == Instruction::Select)) {
-        // cq377680: Handle case where store operand is a SelectInst choosing
-        // between two constant memory pointers:
-        //
-        // Ex:
-        //   store void (i8*)*
-        //     select (i1 icmp eq
-        //         (void (i8*)* inttoptr  (i64 3 to void (i8*)*),
-        //          void (i8*)* @DeleteScriptLimitCallback),
-        //       void (i8*)* @Tcl_Free, 
-        //       void (i8*)* @DeleteScriptLimitCallback),
-        //     void (i8*)** %18
-        Value *ValOperand = CE->getOperand(1);
-        collectValue(ValOperand, DirectModRef, ModRefInfo::Ref);
-        ValOperand = CE->getOperand(2);
-        collectValue(ValOperand, DirectModRef, ModRefInfo::Ref);
+  if ((CE = dyn_cast<ConstantExpr>(V)) &&
+      (CE->getOpcode() == Instruction::Select)) {
+    // cq377680: Handle case where store operand is a SelectInst choosing
+    // between two constant memory pointers:
+    //
+    // Ex:
+    //   store void (i8*)*
+    //     select (i1 icmp eq
+    //         (void (i8*)* inttoptr  (i64 3 to void (i8*)*),
+    //          void (i8*)* @DeleteScriptLimitCallback),
+    //       void (i8*)* @Tcl_Free,
+    //       void (i8*)* @DeleteScriptLimitCallback),
+    //     void (i8*)** %18
+    Value *ValOperand = CE->getOperand(1);
+    collectValue(ValOperand, DirectModRef, ModRefInfo::Ref);
+    ValOperand = CE->getOperand(2);
+    collectValue(ValOperand, DirectModRef, ModRefInfo::Ref);
+  } else if (isInterestingPointer(V)) {
+    bool Changed = DirectModRef->addModRef(V, mask);
+    if (Changed) {
+      DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*V) << "\n");
+      DEBUG_WITH_TYPE("imr-collect-trace", errs() << "MODREF("
+                                                  << getModRefResultStr(mask)
+                                                  << "): " << *V << "\n\n");
     }
-    else if (isInterestingPointer(V)) {
-        bool Changed = DirectModRef->addModRef(V, mask);
-        if (Changed) {
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*V) << "\n");
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                "MODREF(" << getModRefResultStr(mask) << "): " << *V << "\n\n");
-        }
-    }
+  }
 }
-
 
 // Check if there is something about the routine that will cause ModRef
 // sets to always be bottom.
-IntelModRefImpl::FunctionRecord::BottomReasonsEnum IntelModRefImpl::isResolvable(
-    Function *F
-) const
-{
-    // Check if all call-sites can be resolved.
-    for (inst_iterator I = inst_begin(*F), E = inst_end(*F); I != E; ++I) {
-        if (CallSite CS = CallSite(&(*I))) {
-            const Value *V = CS.getCalledValue();
-            if (isa<InlineAsm>(*V)) {
-                DEBUG_WITH_TYPE("imr-collect", 
-                    errs() << F->getName() << ": has inline-asm\n");
-                return FunctionRecord::Other;
-            }
+IntelModRefImpl::FunctionRecord::BottomReasonsEnum
+IntelModRefImpl::isResolvable(Function *F) const {
+  // Check if all call-sites can be resolved.
+  for (auto &I : instructions(F))
+    if (CallBase *Call = dyn_cast<CallBase>(&I)) {
+      const Value *V = Call->getCalledValue();
+      if (isa<InlineAsm>(*V)) {
+        DEBUG_WITH_TYPE("imr-collect",
+                        errs() << F->getName() << ": has inline-asm\n");
+        return FunctionRecord::Other;
+      }
 
-            if (const Function *Callee = CS.getCalledFunction()) {
-                if (!isResolvableCallee(Callee)) {
-                    DEBUG_WITH_TYPE("imr-collect", 
-                        errs() << F->getName() << ": has unknown call " <<
-                        (Callee ? Callee->getName() : "<null>") << "\n");
-                    return FunctionRecord::ExternalCall;
-                }
-            }
-            else {
-                // Indirect call. go conservative for now.
-                // TODO: check if all callsites known.
-                DEBUG_WITH_TYPE("imr-collect", errs() << F->getName() <<
-                    ": has Indirect call: " << *V << "\n");
-                return FunctionRecord::IndirectCall;
-            }
+      if (const Function *Callee = Call->getCalledFunction()) {
+        if (!isResolvableCallee(Callee)) {
+          DEBUG_WITH_TYPE("imr-collect",
+                          errs() << F->getName() << ": has unknown call "
+                                 << (Callee ? Callee->getName() : "<null>")
+                                 << "\n");
+          return FunctionRecord::ExternalCall;
         }
+      } else {
+        // Indirect call. go conservative for now.
+        // TODO: check if all callsites known.
+        DEBUG_WITH_TYPE("imr-collect", errs() << F->getName()
+                                              << ": has Indirect call: " << *V
+                                              << "\n");
+        return FunctionRecord::IndirectCall;
+      }
     }
 
-    return FunctionRecord::NotBottom;
+  return FunctionRecord::NotBottom;
 }
 
 // Check if a call to specific function can be resolved with ModRef info.
-bool IntelModRefImpl::isResolvableCallee(const Function *F) const
-{
-    if (!F) {
-        return false;
-    }
-
-    // If calling a weak definition function, we cannot know that a
-    // definition in this compilation unit will not be overridden,
-    // so treat the call as unresolvable.
-    if (!F->hasExactDefinition()) {
-        return false;
-    }
-
-    // if we have the body of the function, we will resolve it during
-    // propagation, so treat the call as resolvable.
-    if (F->isDeclaration() == false) {
-        return true;
-    }
-
-    // If the function does not touch memory, then any calls to it do not
-    // matter.
-    if (Ander->getModRefBehavior(F) == FMRB_DoesNotAccessMemory) {
-        return true;
-    }
-
-    // treat some llvm intrinsics as not-modifying memory.
-    switch (F->getIntrinsicID()) {
-    default: break;
-    case Intrinsic::lifetime_start:
-    case Intrinsic::lifetime_end:
-        return true;
-    }
-
-    // We will not be able to resolve any information about the function call.
+bool IntelModRefImpl::isResolvableCallee(const Function *F) const {
+  if (!F)
     return false;
+
+  // If calling a weak definition function, we cannot know that a
+  // definition in this compilation unit will not be overridden,
+  // so treat the call as unresolvable.
+  if (!F->hasExactDefinition())
+    return false;
+
+  // if we have the body of the function, we will resolve it during
+  // propagation, so treat the call as resolvable.
+  if (F->isDeclaration() == false)
+    return true;
+
+  // If the function does not touch memory, then any calls to it do not
+  // matter.
+  if (Ander->getModRefBehavior(F) == FMRB_DoesNotAccessMemory)
+    return true;
+
+  // treat some llvm intrinsics as not-modifying memory.
+  switch (F->getIntrinsicID()) {
+  default:
+    break;
+  case Intrinsic::lifetime_start:
+  case Intrinsic::lifetime_end:
+    return true;
+  }
+
+  // We will not be able to resolve any information about the function call.
+  return false;
 }
 
 // Extend the Mod/Ref sets based on the points-to information for the items
 // in the DirectModRef set.
-void IntelModRefImpl::expandModRefSets(
-    FunctionRecord *FR,
-    ModRefMap *DirectModRef
-)
-{
-    std::vector<llvm::Value*> PtVec;
+void IntelModRefImpl::expandModRefSets(FunctionRecord *FR,
+                                       ModRefMap *DirectModRef) {
+  std::vector<llvm::Value *> PtVec;
 
-    for (auto I = DirectModRef->Map.begin(), E = DirectModRef->Map.end();
-        I != E; ++I) {
-        PtVec.clear();
-        DEBUG_WITH_TYPE("imr-collect-exp",
-            errs() << "Processing aliases for: ");
-        DEBUG_WITH_TYPE("imr-collect-exp", Ander->printValueNode(I->first));
-        DEBUG_WITH_TYPE("imr-collect-exp", errs() << "\n");
+  for (auto I = DirectModRef->Map.begin(), E = DirectModRef->Map.end(); I != E;
+       ++I) {
+    PtVec.clear();
+    DEBUG_WITH_TYPE("imr-collect-exp", errs() << "Processing aliases for: ");
+    DEBUG_WITH_TYPE("imr-collect-exp", Ander->printValueNode(I->first));
+    DEBUG_WITH_TYPE("imr-collect-exp", errs() << "\n");
 
-        const Value *V = I->first;
-        unsigned PtsToResult = Ander->getPointsToSet(V, PtVec);
-        if (PtsToResult == AndersensAAResult::PointsToBottom) {
-            DEBUG_WITH_TYPE("imr-collect-exp", errs() << FR->F->getName() <<
-                ": No Pts to set for: " << *(I->first) << "\n");
-            FR->setToBottom(FunctionRecord::UnknownPointsTo);
-            return;
-        }
-
-        if (PtsToResult & AndersensAAResult::PointsToNonLocalLoc) {
-            DEBUG_WITH_TYPE("imr-collect-exp", errs() << FR->F->getName() <<
-                ": Getting Non-local-loc due to " << *(I->first) << "\n");
-            if (isModSet(I->second)) {
-                FR->addModNonLocalLoc();
-            }
-            if (isRefSet(I->second)) {
-                FR->addRefNonLocalLoc();
-            }
-        }
-
-        for (auto I2 = PtVec.begin(), E2 = PtVec.end(); I2 != E2; ++I2) {
-            if (isModSet(I->second)) {
-                if (!FR->mustModify(*I2)) {
-                    DEBUG_WITH_TYPE("imr-collect-exp",
-                        errs() << "  : add mod ");
-                    DEBUG_WITH_TYPE("imr-collect-exp",
-                        Ander->printValueNode(*I2));
-                    DEBUG_WITH_TYPE("imr-collect-exp", errs() << "\n");
-                }
-                FR->addMod(*I2);
-            }
-            if (isRefSet(I->second)) {
-                if (!FR->mustReference(*I2)) {
-                    DEBUG_WITH_TYPE("imr-collect-exp",
-                        errs() << "  : add ref ");
-                    DEBUG_WITH_TYPE("imr-collect-exp",
-                        Ander->printValueNode(*I2));
-                    DEBUG_WITH_TYPE("imr-collect-exp", errs() << "\n");
-                }
-
-                FR->addRef(*I2);
-            }
-        }
+    const Value *V = I->first;
+    unsigned PtsToResult = Ander->getPointsToSet(V, PtVec);
+    if (PtsToResult == AndersensAAResult::PointsToBottom) {
+      DEBUG_WITH_TYPE("imr-collect-exp",
+                      errs() << FR->F->getName()
+                             << ": No Pts to set for: " << *(I->first) << "\n");
+      FR->setToBottom(FunctionRecord::UnknownPointsTo);
+      return;
     }
+
+    if (PtsToResult & AndersensAAResult::PointsToNonLocalLoc) {
+      DEBUG_WITH_TYPE("imr-collect-exp",
+                      errs() << FR->F->getName()
+                             << ": Getting Non-local-loc due to " << *(I->first)
+                             << "\n");
+      if (isModSet(I->second))
+        FR->addModNonLocalLoc();
+
+      if (isRefSet(I->second))
+        FR->addRefNonLocalLoc();
+    }
+
+    for (auto I2 = PtVec.begin(), E2 = PtVec.end(); I2 != E2; ++I2) {
+      if (isModSet(I->second)) {
+        if (!FR->mustModify(*I2)) {
+          DEBUG_WITH_TYPE("imr-collect-exp", errs() << "  : add mod ");
+          DEBUG_WITH_TYPE("imr-collect-exp", Ander->printValueNode(*I2));
+          DEBUG_WITH_TYPE("imr-collect-exp", errs() << "\n");
+        }
+        FR->addMod(*I2);
+      }
+      if (isRefSet(I->second)) {
+        if (!FR->mustReference(*I2)) {
+          DEBUG_WITH_TYPE("imr-collect-exp", errs() << "  : add ref ");
+          DEBUG_WITH_TYPE("imr-collect-exp", Ander->printValueNode(*I2));
+          DEBUG_WITH_TYPE("imr-collect-exp", errs() << "\n");
+        }
+
+        FR->addRef(*I2);
+      }
+    }
+  }
 }
 
 // Prune the modref sets.
 // In this version, we are going to limit the sets to GlobalVars, and let
 // the on-demand testing of the other AAs handle everything else.
-void IntelModRefImpl::pruneModRefSets(FunctionRecord *FR)
-{
-  for (auto I = FR->AndersenModRefInfo.Map.begin(), E = FR->AndersenModRefInfo.Map.end();
-    I != E; ++I) {
-    if (!isa<GlobalValue>(I->first)) {
-      // Set the other items are NoModRef so that the removeNoMod call can
-      // eliminate them all at once.
+void IntelModRefImpl::pruneModRefSets(FunctionRecord *FR) {
+  for (auto I = FR->AndersenModRefInfo.Map.begin(),
+            E = FR->AndersenModRefInfo.Map.end();
+       I != E; ++I)
+    // Set the other items to NoModRef so that the removeNoMod call can
+    // eliminate them all at once.
+    if (!isa<GlobalValue>(I->first))
       I->second = ModRefInfo::NoModRef;
-    }
-  }
 
   FR->AndersenModRefInfo.removeNoMod();
 }
 
 // Propagate the Mod/Ref sets around the call graph.
-void IntelModRefImpl::propagate(Module &M)
-{
-    auto G = buildPropagationSCC(M);
-    unsigned sccNum = 0;
-    (void)sccNum;
+void IntelModRefImpl::propagate(Module &M) {
+  auto G = buildPropagationSCC(M);
+  unsigned sccNum = 0;
+  (void)sccNum;
 
-    for (auto I = scc_begin(G.get()); !I.isAtEnd(); ++I) {
-        const std::vector<CallGraphNode *> &SCC = *I;
-        assert(!SCC.empty() && "SCC with no functions?");
+  for (auto I = scc_begin(G.get()); !I.isAtEnd(); ++I) {
+    const std::vector<CallGraphNode *> &SCC = *I;
+    assert(!SCC.empty() && "SCC with no functions?");
 
-        // For each function of the SCC, merge in the information about
-        // all the callees to this routine's function record.
-        for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
-            for (CallGraphNode::iterator CI = SCC[i]->begin(),
-                E = SCC[i]->end(); CI != E; ++CI) {
+    // For each function of the SCC, merge in the information about
+    // all the callees to this routine's function record.
+    for (unsigned i = 0, e = SCC.size(); i != e; ++i)
+      for (CallGraphNode::iterator CI = SCC[i]->begin(), E = SCC[i]->end();
+           CI != E; ++CI) {
 
-                DEBUG_WITH_TYPE("imr-propagate",
-                    errs() << "\nSCC #" << ++sccNum << " : ");
+        DEBUG_WITH_TYPE("imr-propagate", errs()
+                                             << "\nSCC #" << ++sccNum << " : ");
 
-                Function *F = SCC[i]->getFunction();
-                DEBUG_WITH_TYPE("imr-propagate", errs() << "Propagate for " <<
-                    (F ? F->getName() : "external node") << ", ");
+        Function *F = SCC[i]->getFunction();
+        DEBUG_WITH_TYPE("imr-propagate",
+                        errs() << "Propagate for "
+                               << (F ? F->getName() : "external node") << ", ");
 
-                if (!F) {
-                    continue;
-                }
+        if (!F)
+          continue;
 
-                FunctionRecord *FR = getFunctionInfo(F);
-                if (FR) {
-                    assert(CI->second && "Expected valid CallGraph");
-                    if (Function *Callee = CI->second->getFunction()) {
-                        FunctionRecord *CalleeFR = getFunctionInfo(Callee);
-                        if (CalleeFR) {
-                            mergeModRefSets(FR, CalleeFR);
-                        }
-                    }
-                    else {
-                        // We should have already gone BOTTOM for unresolved
-                        // indirect calls.
-                        assert(FR->isModBottom());
-                    }
-                }
-            }
+        FunctionRecord *FR = getFunctionInfo(F);
+        if (FR) {
+          assert(CI->second && "Expected valid CallGraph");
+          if (Function *Callee = CI->second->getFunction()) {
+            FunctionRecord *CalleeFR = getFunctionInfo(Callee);
+            if (CalleeFR)
+              mergeModRefSets(FR, CalleeFR);
+
+          } else {
+            // We should have already gone BOTTOM for unresolved
+            // indirect calls.
+            assert(FR->isModBottom());
+          }
         }
+      }
 
-        // If there were multiple functions for this SCC, combine all the routines
-        // of the SCC together so they are all equivalent.
-        if (SCC.size() > 1) {
+    // If there were multiple functions for this SCC, combine all the routines
+    // of the SCC together so they are all equivalent.
+    if (SCC.size() > 1) {
 
-            // Check if ModRef sets are available for all functions
-            // of the SCC. If not, set all routines of the SCC to BOTTOM.
-            // Otherwise, fuse-all the sets together to make them contain all
-            // the mod-ref items of the SCC.
-            bool SetToBottom = false;
-            auto I = SCC.begin();
-            for (auto E = SCC.end(); I != E; ++I) {
-                Function* CurF = (*I)->getFunction();
-                FunctionRecord *CurFR = getFunctionInfo(CurF);
-                if (!CurFR) {
-                    SetToBottom = true;
-                    break;
-                }
-            }
-
-            if (SetToBottom) {
-                auto I = SCC.begin();
-                for (auto E = SCC.end(); I != E; ++I) {
-                    Function* CurF = (*I)->getFunction();
-                    FunctionRecord *CurFR = getFunctionInfo(CurF);
-                    if (CurFR &&
-                        !(CurFR->isModBottom() || CurFR->isRefBottom())) {
-
-                        CurFR->setToBottom(FunctionRecord::Propagated);
-                    }
-                }
-            }
-            else {
-                bool changed = true;
-                Function *First_Fn = SCC[0]->getFunction();
-                FunctionRecord *First_FR = getFunctionInfo(First_Fn);
-            
-                while (changed) {
-                    changed = false;
-                    FunctionRecord *PrevFR = First_FR;
-                    auto I = SCC.begin();
-
-                    ++I;
-                    for (auto E = SCC.end(); I != E; ++I) {
-                        Function* CurF = (*I)->getFunction();
-                        FunctionRecord *CurFR = getFunctionInfo(CurF);
-                        assert(CurFR);
-
-                        changed = fuseModRefSets(PrevFR, CurFR);
-                        PrevFR = CurFR;
-                    }
-                }
-            }
+      // Check if ModRef sets are available for all functions
+      // of the SCC. If not, set all routines of the SCC to BOTTOM.
+      // Otherwise, fuse-all the sets together to make them contain all
+      // the mod-ref items of the SCC.
+      bool SetToBottom = false;
+      auto I = SCC.begin();
+      for (auto E = SCC.end(); I != E; ++I) {
+        Function *CurF = (*I)->getFunction();
+        FunctionRecord *CurFR = getFunctionInfo(CurF);
+        if (!CurFR) {
+          SetToBottom = true;
+          break;
         }
+      }
+
+      if (SetToBottom) {
+        auto I = SCC.begin();
+        for (auto E = SCC.end(); I != E; ++I) {
+          Function *CurF = (*I)->getFunction();
+          FunctionRecord *CurFR = getFunctionInfo(CurF);
+          if (CurFR && !(CurFR->isModBottom() || CurFR->isRefBottom()))
+            CurFR->setToBottom(FunctionRecord::Propagated);
+        }
+      } else {
+        bool changed = true;
+        Function *First_Fn = SCC[0]->getFunction();
+        FunctionRecord *First_FR = getFunctionInfo(First_Fn);
+
+        while (changed) {
+          changed = false;
+          FunctionRecord *PrevFR = First_FR;
+          auto I = SCC.begin();
+
+          ++I;
+          for (auto E = SCC.end(); I != E; ++I) {
+            Function *CurF = (*I)->getFunction();
+            FunctionRecord *CurFR = getFunctionInfo(CurF);
+            assert(CurFR);
+
+            changed = fuseModRefSets(PrevFR, CurFR);
+            PrevFR = CurFR;
+          }
+        }
+      }
     }
+  }
 
-    applyNonLocalLocClosure();
+  applyNonLocalLocClosure();
 }
 
 // Create callbacks for all tracked values so that the sets can be updated
 // if a function or variable is deleted from the program.
-void IntelModRefImpl::registerHandlers()
-{
-  std::set<Value*> Tracked;
+void IntelModRefImpl::registerHandlers() {
+  std::set<Value *> Tracked;
   for (auto I = FunctionInfo.begin(), E = FunctionInfo.end(); I != E; ++I) {
     Tracked.insert(I->first);
 
     for (auto SI = I->second.AndersenModRefInfo.Map.begin(),
-      SE = I->second.AndersenModRefInfo.Map.end(); SI != SE; ++SI) {
+              SE = I->second.AndersenModRefInfo.Map.end();
+         SI != SE; ++SI)
       Tracked.insert(SI->first);
-    }
   }
 
   for (auto I = Tracked.begin(), E = Tracked.end(); I != E; ++I) {
@@ -4790,318 +4826,638 @@ void IntelModRefImpl::registerHandlers()
   }
 }
 
-void IntelModRefImpl::valueDeleted(Value *V)
-{
-  if (auto *F = dyn_cast<Function>(V)) {
+void IntelModRefImpl::valueDeleted(Value *V) {
+  if (auto *F = dyn_cast<Function>(V))
     FunctionInfo.erase(F);
-  }
 
-  if (GlobalValue *GV = dyn_cast<GlobalValue>(V)) {
+  if (GlobalValue *GV = dyn_cast<GlobalValue>(V))
     // Remove the GlobalValue from all the ModRef sets.
-    for (auto FI = FunctionInfo.begin(), FE = FunctionInfo.end();
-      FI != FE; ++FI) {
+    for (auto FI = FunctionInfo.begin(), FE = FunctionInfo.end(); FI != FE;
+         ++FI) {
       FunctionRecord *FR = &(FI->second);
       FR->removeValue(GV);
     }
-  }
 }
 
 // Get a SCC graph for use in propagating Mod/Ref sets from callees to callers
-std::unique_ptr<llvm::CallGraph> IntelModRefImpl::buildPropagationSCC(Module &M)
-{
-    std::unique_ptr<llvm::CallGraph> G;
-    G.reset(new llvm::CallGraph(M));
+std::unique_ptr<llvm::CallGraph>
+IntelModRefImpl::buildPropagationSCC(Module &M) {
+  std::unique_ptr<llvm::CallGraph> G;
+  G.reset(new llvm::CallGraph(M));
 
-    // TODO: Add arcs for indirect function calls.
-    return G;
+  // TODO: Add arcs for indirect function calls.
+  return G;
 }
-
-
 
 // Combine ModRef sets of FR1 and FR2, such that they are equivalent following
 // this call.
-bool IntelModRefImpl::fuseModRefSets(FunctionRecord *FR1, FunctionRecord *FR2)
-{
-    bool changed = false;
-    changed |= mergeModRefSets(FR1, FR2);
-    changed |= mergeModRefSets(FR2, FR1);
-    return changed;
+bool IntelModRefImpl::fuseModRefSets(FunctionRecord *FR1, FunctionRecord *FR2) {
+  bool changed = false;
+  changed |= mergeModRefSets(FR1, FR2);
+  changed |= mergeModRefSets(FR2, FR1);
+  return changed;
 }
 
 // Merge the contents of the Src ModRef set to the Dest ModRef set.
 bool IntelModRefImpl::mergeModRefSets(FunctionRecord *Dest,
-    const FunctionRecord *Src)
-{
-    bool changed = false;
-    ModRefInfo MergeMask = ModRefInfo::ModRef;
+                                      const FunctionRecord *Src) {
+  bool changed = false;
+  ModRefInfo MergeMask = ModRefInfo::ModRef;
 
-    DEBUG_WITH_TYPE("imr-propagate-all", errs() << "Merge-2: " <<
-        Src->F->getName() << " into " << Dest->F->getName() << "\n");
-    DEBUG_WITH_TYPE("imr-propagate-all", errs() << "Before  merge:\n");
-    DEBUG_WITH_TYPE("imr-propagate-all",
-        Src->printFuncMR(errs(), Src->F->getName()));
-    DEBUG_WITH_TYPE("imr-propagate-all", 
-        Dest->printFuncMR(errs(), Dest->F->getName()));
-    DEBUG_WITH_TYPE("imr-propagate-all", errs() << "=====================\n");
+  DEBUG_WITH_TYPE("imr-propagate-all",
+                  errs() << "Merge-2: " << Src->F->getName() << " into "
+                         << Dest->F->getName() << "\n");
+  DEBUG_WITH_TYPE("imr-propagate-all", errs() << "Before  merge:\n");
+  DEBUG_WITH_TYPE("imr-propagate-all",
+                  Src->printFuncMR(errs(), Src->F->getName()));
+  DEBUG_WITH_TYPE("imr-propagate-all",
+                  Dest->printFuncMR(errs(), Dest->F->getName()));
+  DEBUG_WITH_TYPE("imr-propagate-all", errs() << "=====================\n");
 
-    if (Src->isModBottom()) {
-        if (!Dest->isModBottom()) {
-            Dest->setModBottom(FunctionRecord::Propagated);
-            changed = true;
-        }
-
-        MergeMask = clearMod(MergeMask);
+  if (Src->isModBottom()) {
+    if (!Dest->isModBottom()) {
+      Dest->setModBottom(FunctionRecord::Propagated);
+      changed = true;
     }
 
-    if (Src->isRefBottom()) {
-        if (!Dest->isRefBottom()) {
-            Dest->setRefBottom(FunctionRecord::Propagated);
-            changed = true;
-        }
+    MergeMask = clearMod(MergeMask);
+  }
 
-        MergeMask = clearRef(ModRefInfo::Ref);
+  if (Src->isRefBottom()) {
+    if (!Dest->isRefBottom()) {
+      Dest->setRefBottom(FunctionRecord::Propagated);
+      changed = true;
     }
 
-    if (isNoModRef(MergeMask)) {
-        // Both Mod and Ref have gone bottom, no need to merge individual
-        // elements. 
+    MergeMask = clearRef(ModRefInfo::Ref);
+  }
 
-        DEBUG_WITH_TYPE("imr-propagate-all", errs() << "After merge:\n");
-        DEBUG_WITH_TYPE("imr-propagate-all",
-            Dest->printFuncMR(errs(), Dest->F->getName()));
-        DEBUG_WITH_TYPE("imr-propagate-all",
-            errs() << "--------------------\n");
-
-        return changed;
-    }
-
-    if (Src->isModNonLocalLoc()) {
-        if (!Dest->isModNonLocalLoc()) {
-            Dest->addModNonLocalLoc();
-            changed = true;
-        }
-    }
-
-    if (Src->isRefNonLocalLoc()) {
-        if (!Dest->isRefNonLocalLoc()) {
-            Dest->addRefNonLocalLoc();
-            changed = true;
-        }
-    }
-
-    for (auto I = Src->AndersenModRefInfo.Map.begin(), E = Src->AndersenModRefInfo.Map.end();
-        I != E; ++I) {
-        ModRefInfo Intersection = intersectModRef(I->second, MergeMask);
-        if (!isNoModRef(Intersection)) {
-            changed |= Dest->addModRef(I->first, Intersection);
-        }
-    }
+  if (isNoModRef(MergeMask)) {
+    // Both Mod and Ref have gone bottom, no need to merge individual
+    // elements.
 
     DEBUG_WITH_TYPE("imr-propagate-all", errs() << "After merge:\n");
     DEBUG_WITH_TYPE("imr-propagate-all",
-        Dest->printFuncMR(errs(), Dest->F->getName()));
+                    Dest->printFuncMR(errs(), Dest->F->getName()));
     DEBUG_WITH_TYPE("imr-propagate-all", errs() << "--------------------\n");
 
     return changed;
+  }
+
+  if (Src->isModNonLocalLoc() && !Dest->isModNonLocalLoc()) {
+    Dest->addModNonLocalLoc();
+    changed = true;
+  }
+
+  if (Src->isRefNonLocalLoc() && !Dest->isRefNonLocalLoc()) {
+    Dest->addRefNonLocalLoc();
+    changed = true;
+  }
+
+  for (auto I = Src->AndersenModRefInfo.Map.begin(),
+            E = Src->AndersenModRefInfo.Map.end();
+       I != E; ++I) {
+    ModRefInfo Intersection = intersectModRef(I->second, MergeMask);
+    if (!isNoModRef(Intersection))
+      changed |= Dest->addModRef(I->first, Intersection);
+  }
+
+  DEBUG_WITH_TYPE("imr-propagate-all", errs() << "After merge:\n");
+  DEBUG_WITH_TYPE("imr-propagate-all",
+                  Dest->printFuncMR(errs(), Dest->F->getName()));
+  DEBUG_WITH_TYPE("imr-propagate-all", errs() << "--------------------\n");
+
+  return changed;
 }
 
 // Walk over all the mod/ref sets for all the functions, and add the
 // non_local_loc set to anything that contains a global variable that could
 // be accessed outside of the compilation scope.
-void IntelModRefImpl::applyNonLocalLocClosure()
-{
-    for (auto I = FunctionInfo.begin(), E = FunctionInfo.end(); I != E; ++I) {
-        applyNonLocalLocClosure(&(I->second));
-    }
+void IntelModRefImpl::applyNonLocalLocClosure() {
+  for (auto I = FunctionInfo.begin(), E = FunctionInfo.end(); I != E; ++I)
+    applyNonLocalLocClosure(&(I->second));
 }
 
 // Add non-local loc if the function accesses a global variable that may
 // escape the compilation scope.
-void IntelModRefImpl::applyNonLocalLocClosure(FunctionRecord *FR)
-{
-    bool ModContainsNLL = FR->isModNonLocalLoc();
-    bool RefContainsNLL = FR->isRefNonLocalLoc();
+void IntelModRefImpl::applyNonLocalLocClosure(FunctionRecord *FR) {
+  bool ModContainsNLL = FR->isModNonLocalLoc();
+  bool RefContainsNLL = FR->isRefNonLocalLoc();
 
-    for (auto I = FR->AndersenModRefInfo.Map.begin(), 
-      E = FR->AndersenModRefInfo.Map.end(); I != E; ++I) {
-        if (ModContainsNLL && RefContainsNLL) {
-            break;
-        }
+  for (auto I = FR->AndersenModRefInfo.Map.begin(),
+            E = FR->AndersenModRefInfo.Map.end();
+       I != E; ++I) {
+    if (ModContainsNLL && RefContainsNLL)
+      break;
 
-        if (isGlobalEscape(I->first)) {
-            if (!ModContainsNLL && isModSet(I->second)) {
-                FR->addModNonLocalLoc();
-                ModContainsNLL = true;
+    if (isGlobalEscape(I->first)) {
+      if (!ModContainsNLL && isModSet(I->second)) {
+        FR->addModNonLocalLoc();
+        ModContainsNLL = true;
 
-                DEBUG_WITH_TYPE("imr-propagate", errs() << 
-                  "Closure: Adding NonLocalLoc to MOD set of: " <<
-                  FR->F->getName() << "\n");
-            }
-            if (!RefContainsNLL && isRefSet(I->second)) {
-                FR->addRefNonLocalLoc();
-                RefContainsNLL = true;
+        DEBUG_WITH_TYPE("imr-propagate",
+                        errs() << "Closure: Adding NonLocalLoc to MOD set of: "
+                               << FR->F->getName() << "\n");
+      }
+      if (!RefContainsNLL && isRefSet(I->second)) {
+        FR->addRefNonLocalLoc();
+        RefContainsNLL = true;
 
-                DEBUG_WITH_TYPE("imr-propagate", errs() << 
-                  "Closure: Adding NonLocalLoc to REF set of: " <<
-                  FR->F->getName() << "\n");
-            }
-        }
+        DEBUG_WITH_TYPE("imr-propagate",
+                        errs() << "Closure: Adding NonLocalLoc to REF set of: "
+                               << FR->F->getName() << "\n");
+      }
     }
+  }
 }
 
 // Check if the global variable may escape.
-bool IntelModRefImpl::isGlobalEscape(const Value *V) const
-{
-    if (const GlobalValue *GV = dyn_cast<GlobalValue>(V)) {
-        // If the symbol is visible outside the compilation unit, treat the
-        // function as accesing a non-local-loc
-        if (GV->hasExternalLinkage()) {
-            return true;
+bool IntelModRefImpl::isGlobalEscape(const Value *V) const {
+  if (const GlobalValue *GV = dyn_cast<GlobalValue>(V))
+    // If the symbol is visible outside the compilation unit, treat the
+    // function as accessing a non-local-loc
+    if (GV->hasExternalLinkage())
+      return true;
+
+  return false;
+}
+
+void IntelModRefImpl::dump() const { print(errs()); }
+
+void IntelModRefImpl::print(raw_ostream &O, bool Summary) const {
+  for (FunctionRecordMap::const_iterator I = FunctionInfo.begin(),
+                                         E = FunctionInfo.end();
+       I != E; ++I)
+    (I->second).printFuncMR(O, I->first->getName(), Summary);
+}
+
+// This function stores and retrieves the information about how individual
+// library functions are modeled for the purpose of ModRef information.
+unsigned IntelModRefImpl::getLibfuncModRefModel(LibFunc &TheLibFunc) const {
+  static unsigned *LibFuncModRefAttributes = nullptr;
+  if (!LibFuncModRefAttributes) {
+    // Build the model to be accessed by the LibFunc enumeration value upon the
+    // first access.
+    LibFuncModRefAttributes = new unsigned[NumLibFuncs];
+
+    // Initialize all LibFuncs to the conservative behavior
+    for (unsigned Idx = 0; Idx < NumLibFuncs; ++Idx)
+      LibFuncModRefAttributes[Idx] = LFMR_UNKNOWN;
+
+    // Populate the table for the functions that have models
+    typedef struct {
+      LibFunc LibFuncId;
+      unsigned Mask;
+    } LibFuncDetails;
+    static LibFuncDetails LibFuncModelAttrs[] = {
+        {LibFunc_acos, LFMR_NONE},
+        {LibFunc_acosf, LFMR_NONE},
+        {LibFunc_acosh, LFMR_NONE},
+        {LibFunc_acoshf, LFMR_NONE},
+        {LibFunc_acoshl, LFMR_NONE},
+        {LibFunc_acosl, LFMR_NONE},
+        {LibFunc_asin, LFMR_NONE},
+        {LibFunc_asinf, LFMR_NONE},
+        {LibFunc_asinh, LFMR_NONE},
+        {LibFunc_asinhf, LFMR_NONE},
+        {LibFunc_asinhl, LFMR_NONE},
+        {LibFunc_asinl, LFMR_NONE},
+        {LibFunc_atan, LFMR_NONE},
+        {LibFunc_atanf, LFMR_NONE},
+        {LibFunc_atanh, LFMR_NONE},
+        {LibFunc_atanl, LFMR_NONE},
+        {LibFunc_atan2, LFMR_NONE},
+        {LibFunc_atan2f, LFMR_NONE},
+        {LibFunc_atan2l, LFMR_NONE},
+        {LibFunc_calloc, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_cos, LFMR_NONE},
+        {LibFunc_cosf, LFMR_NONE},
+        {LibFunc_cosl, LFMR_NONE},
+        {LibFunc_cosh, LFMR_NONE},
+        {LibFunc_coshf, LFMR_NONE},
+        {LibFunc_coshl, LFMR_NONE},
+        {LibFunc_ctype_b_loc, LFMR_NONE},
+        {LibFunc_ctype_tolower_loc, LFMR_NONE},
+        {LibFunc_ctype_toupper_loc, LFMR_NONE},
+        {LibFunc_difftime, LFMR_NONE},
+        {LibFunc_dunder_isoc99_fscanf, LFMR_ARGS},
+        {LibFunc_dunder_isoc99_sscanf, LFMR_ARGS},
+        {LibFunc_errno_location, LFMR_GREF},
+        {LibFunc_exit, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_fclose, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_feof, LFMR_ARGS},
+        {LibFunc_fflush, LFMR_ARGS},
+        {LibFunc_fgetc, LFMR_ARGS},
+        {LibFunc_fgetc_unlocked, LFMR_ARGS},
+        {LibFunc_fgets, LFMR_ARGS},
+        {LibFunc_fgets_unlocked, LFMR_ARGS},
+        {LibFunc_fopen, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_fopen64, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_fprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_fputc, LFMR_ARGS},
+        {LibFunc_fread, LFMR_ARGS},
+        {LibFunc_fread_unlocked, LFMR_ARGS},
+        {LibFunc_free, LFMR_ARGS | LFMR_GREF | LFMR_GMOD},
+        {LibFunc_frexp, LFMR_ARGS},
+        {LibFunc_fputs, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_fscanf, LFMR_ARGS},
+        {LibFunc_fseek, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_fseeko64, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_ftell, LFMR_ARGS},
+        {LibFunc_ftello64, LFMR_ARGS},
+        {LibFunc_ftruncate64, LFMR_GREF},
+        {LibFunc_fwrite, LFMR_ARGS},
+        {LibFunc_fwrite_unlocked, LFMR_ARGS},
+        {LibFunc_gettimeofday, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_isalnum, LFMR_NONE},
+        {LibFunc_isalpha, LFMR_NONE},
+        {LibFunc_iscntrl, LFMR_NONE},
+        {LibFunc_isinf, LFMR_NONE},
+        {LibFunc_isnan, LFMR_NONE},
+        {LibFunc_isspace, LFMR_NONE},
+        {LibFunc_isupper, LFMR_NONE},
+        {LibFunc_ldexp, LFMR_NONE},
+        {LibFunc_lseek, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_lseek64, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_malloc, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_memchr, LFMR_ARGS},
+        {LibFunc_memcmp, LFMR_ARGS},
+        {LibFunc_memset, LFMR_ARGS},
+        {LibFunc_modf, LFMR_ARGS},
+        {LibFunc_open64, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_printf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_putchar, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_puts, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_rand, LFMR_GREF},
+        {LibFunc_read, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_realloc, LFMR_ARGS | LFMR_GREF | LFMR_GMOD},
+        {LibFunc_scanf, LFMR_ARGS},
+        {LibFunc_sin, LFMR_NONE},
+        {LibFunc_sinf, LFMR_NONE},
+        {LibFunc_sinh, LFMR_NONE},
+        {LibFunc_sinhf, LFMR_NONE},
+        {LibFunc_sinhl, LFMR_NONE},
+        {LibFunc_sinl, LFMR_NONE},
+        {LibFunc_sleep, LFMR_GREF},
+        {LibFunc_snprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_sprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_sscanf, LFMR_ARGS},
+        {LibFunc_stpcpy, LFMR_ARGS},
+        {LibFunc_strcasecmp, LFMR_ARGS},
+        {LibFunc_strncasecmp, LFMR_ARGS},
+        {LibFunc_strcat, LFMR_ARGS},
+        {LibFunc_strncat, LFMR_ARGS},
+        {LibFunc_strchr, LFMR_ARGS},
+        {LibFunc_strcmp, LFMR_ARGS},
+        {LibFunc_strcpy, LFMR_ARGS},
+        {LibFunc_strcspn, LFMR_ARGS},
+        {LibFunc_strerror, LFMR_NONE},
+        {LibFunc_strrchr, LFMR_ARGS},
+        {LibFunc_strlen, LFMR_ARGS},
+        {LibFunc_strncmp, LFMR_ARGS},
+        {LibFunc_strncpy, LFMR_ARGS},
+        {LibFunc_strspn, LFMR_ARGS},
+        {LibFunc_strstr, LFMR_ARGS},
+        {LibFunc_strtod, LFMR_ARGS},
+        {LibFunc_strtol, LFMR_ARGS},
+        {LibFunc_strtok, LFMR_ARGS},
+        {LibFunc_strtoul, LFMR_ARGS},
+        {LibFunc_tan, LFMR_NONE},
+        {LibFunc_tanh, LFMR_NONE},
+        {LibFunc_time, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_tolower, LFMR_NONE},
+        {LibFunc_toupper, LFMR_NONE},
+        {LibFunc_truncate64, LFMR_ARGS | LFMR_GREF},
+        {LibFunc_under_exit, LFMR_GREF | LFMR_GMOD},
+        {LibFunc_usleep, LFMR_GREF},
+        {LibFunc_vfprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_vprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_vsnprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_vsprintf, LFMR_ARGS | LFMR_FMT_CHECK},
+        {LibFunc_write, LFMR_ARGS | LFMR_GREF},
+    };
+    unsigned Len = sizeof(LibFuncModelAttrs) / sizeof(LibFuncDetails);
+    for (unsigned Idx = 0; Idx != Len; ++Idx) {
+      LibFunc FuncId = LibFuncModelAttrs[Idx].LibFuncId;
+      assert(LibFuncModRefAttributes[FuncId] == LFMR_UNKNOWN &&
+             "Duplicate table entry");
+      assert(!((LibFuncModelAttrs[Idx].Mask & LFMR_NONE) &&
+               (LibFuncModelAttrs[Idx].Mask & LFMR_ARGS)) &&
+             "Unexpected use of both LFMR_NONE and LFMR_ARGS");
+
+      // Only store the information in the model if the function is present for
+      // the target.
+      if (TLI.has(FuncId))
+        LibFuncModRefAttributes[FuncId] = LibFuncModelAttrs[Idx].Mask;
+    }
+  }
+
+  return LibFuncModRefAttributes[TheLibFunc];
+}
+
+void IntelModRefImpl::printLibFuncModel(raw_ostream &OS,
+                                        unsigned LibFuncModel) {
+  if (LibFuncModel == LFMR_UNKNOWN) {
+    OS << " LFMR_UNKNOWN";
+    return;
+  }
+
+  if (LibFuncModel & LFMR_NONE)
+    OS << " LFMR_NONE";
+  if (LibFuncModel & LFMR_ARGS)
+    OS << " LFMR_ARGS";
+  if (LibFuncModel & LFMR_GREF)
+    OS << " LFMR_GREF";
+  if (LibFuncModel & LFMR_GMOD)
+    OS << " LFMR_GMOD";
+  if (LibFuncModel & LFMR_FMT_CHECK)
+    OS << " LFMR_FMT_CHECK";
+}
+
+unsigned
+IntelModRefImpl::getFormatCheckPosition(LibFunc &TheLibFunc) {
+  typedef struct {
+    LibFunc LibFuncId;
+    unsigned ArgNum;
+  } PrintfStringDetails;
+  static PrintfStringDetails Model[] = {
+      {LibFunc_printf, 0},   {LibFunc_fprintf, 1},  {LibFunc_sprintf, 1},
+      {LibFunc_snprintf, 2}, {LibFunc_vprintf, 0},  {LibFunc_vfprintf, 1},
+      {LibFunc_vsprintf, 1}, {LibFunc_vsnprintf, 2}};
+
+  unsigned Len = sizeof(Model) / sizeof(PrintfStringDetails);
+  for (unsigned Idx = 0; Idx < Len; ++Idx)
+    if (Model[Idx].LibFuncId == TheLibFunc)
+      return Model[Idx].ArgNum;
+
+  llvm_unreachable("Invalid LibFunc");
+}
+
+unsigned IntelModRefImpl::findFormatCheckReadOnlyStart(const CallBase *Call,
+                                                       LibFunc TheLibFunc) {
+  unsigned StringPos = getFormatCheckPosition(TheLibFunc);
+  unsigned ArgCount = Call->getNumArgOperands();
+  unsigned PrintfReadOnlyArgs = ArgCount;
+
+  // Try to analyze the printf formatting string for any %n arguments. If the
+  // string is analyzable, and does not contain %n, then the all the
+  // arguments starting from the format string can be treated as read-only.
+
+  if (ArgCount > StringPos) {
+    const Value *Object =
+        GetUnderlyingObject(Call->getArgOperand(StringPos), *DL);
+    if (auto *GV = dyn_cast<GlobalVariable>(Object)) {
+      // Global variables are always pointer types, check if this is a
+      // constant char array
+      llvm::Type *GVElemType = GV->getType()->getPointerElementType();
+      if (GV->isConstant() && GVElemType->isArrayTy() &&
+          GVElemType->getArrayElementType()->isIntegerTy(8)) {
+        auto Array = dyn_cast<ConstantDataArray>(GV->getInitializer());
+        if (Array && Array->isString()) {
+          StringRef FormatString = Array->getAsString();
+          if (!(FormatString.contains("%n") || FormatString.contains("%hhn") ||
+                FormatString.contains("%hn") || FormatString.contains("%ln") ||
+                FormatString.contains("%lln") || FormatString.contains("%jn") ||
+                FormatString.contains("%zn") || FormatString.contains("%tn") ||
+                FormatString.contains("%Ln")))
+            PrintfReadOnlyArgs = StringPos;
         }
+      }
     }
+  }
 
-    return false;
+  return PrintfReadOnlyArgs;
 }
 
-void IntelModRefImpl::dump() const
-{
-    print(errs());
-}
+ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
+                                                 const CallBase *Call,
+                                                 const MemoryLocation &Loc) {
+  Function *F = Call->getCalledFunction();
+  assert(F && "getLibFuncModRefInfo used without direct function call");
+  unsigned LibFuncModel = getLibfuncModRefModel(TheLibFunc);
+  DEBUG_WITH_TYPE("imr-query", {
+    errs() << "irm-query: LibFunc: " << F->getName();
+    bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
+    bool FunctionReadNone = F->hasFnAttribute(Attribute::ReadNone);
+    errs() << ":: ReadNone:" << FunctionReadNone
+           << " ReadOnly:" << FunctionReadOnly;
+    errs() << " - Model: {";
+    printLibFuncModel(errs(), LibFuncModel);
+    errs() << "}\n";
+  });
 
-void IntelModRefImpl::print(raw_ostream &O, bool Summary) const
-{
-    for (FunctionRecordMap::const_iterator I = FunctionInfo.begin(),
-        E = FunctionInfo.end(); I != E; ++I) {
-        (I->second).printFuncMR(O, I->first->getName(), Summary);
+  if (LibFuncModel == LFMR_UNKNOWN) {
+    DEBUG_WITH_TYPE("imr-query",
+                    errs() << "No libfunc model: " << F->getName() << "\n");
+    return ModRefInfo::ModRef;
+  }
+
+  ModRefInfo Result = ModRefInfo::NoModRef;
+  bool LocMayEscape = Ander->mayEscape(Loc);
+  if (LocMayEscape) {
+    // For functions marked GMOD/GREF, go conservative since we don't have a
+    // model of what may be accessed.
+    if (LibFuncModel & LFMR_GMOD)
+      Result = unionModRef(Result, ModRefInfo::Mod);
+    if (LibFuncModel & LFMR_GREF)
+      Result = unionModRef(Result, ModRefInfo::Ref);
+    if (Result == ModRefInfo::ModRef) {
+      DEBUG_WITH_TYPE("imr-query",
+                      errs() << "  LibFunc Result=ModRef based on GMod/GRef\n");
+      return Result;
     }
-}
+  }
 
+  // Analyze the function arguments for Mod/Ref info.
+  unsigned PrintfReadOnlyArgs = std::numeric_limits<unsigned>::max();
+  if (LibFuncModel & LFMR_FMT_CHECK)
+    PrintfReadOnlyArgs = findFormatCheckReadOnlyStart(Call, TheLibFunc);
+
+  if (LibFuncModel & LFMR_ARGS) {
+    bool FunctionReadOnly = F->hasFnAttribute(Attribute::ReadOnly);
+    unsigned FuncArgCount = F->getFunctionType()->getNumParams();
+    unsigned ArgCount = Call->getNumArgOperands();
+    for (unsigned ArgNo = 0; ArgNo < ArgCount; ++ArgNo) {
+      Value *Arg = Call->getArgOperand(ArgNo);
+      if (!Arg->getType()->isPointerTy())
+        continue;
+
+      // Check if the memory location of the argument escapes or aliases
+      // the memory location of interest. If it does, then the memory location
+      // may be modified or referenced.
+      const Value *Object =
+          GetUnderlyingObject(Call->getArgOperand(ArgNo), *DL);
+
+      MemoryLocation Loc2 = MemoryLocation(Object);
+      AAQueryInfo AAQIP;
+      AliasResult AR = Ander->alias(Loc, Loc2, AAQIP);
+      if (AR == NoAlias)
+        continue;
+
+      Result = unionModRef(Result, ModRefInfo::Ref);
+
+      // If the argument is for a printf-like function after the string
+      // constant that is not using %n, then there is no modification to the
+      // pointer.
+      if (ArgNo >= PrintfReadOnlyArgs)
+        continue;
+
+      // Check if setting Mod can be skipped.
+      if (FunctionReadOnly)
+        continue;
+
+      if (ArgNo < FuncArgCount &&
+          F->hasParamAttribute(ArgNo, Attribute::ReadOnly))
+        continue;
+
+      Result = unionModRef(Result, ModRefInfo::Mod);
+      DEBUG_WITH_TYPE(
+          "imr-query",
+          errs() << "  LibFunc Result=ModRef after checking argument number "
+                 << ArgNo << "\n");
+      return Result;
+    }
+  }
+
+  DEBUG_WITH_TYPE("imr-query", errs() << "  LibFunc Result="
+                                      << getModRefResultStr(Result) << "\n");
+  return Result;
+}
 
 // Check the ModRef sets to see if a specific call will Modify or Reference
 // (or Both) the Location.
 ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
-    const MemoryLocation &Loc)
-{
-    ModRefInfo Result = ModRefInfo::ModRef;
-    const Value *Object = GetUnderlyingObject(Loc.Ptr, *DL);
+                                          const MemoryLocation &Loc,
+                                          AAQueryInfo &AAQI) {
+  ModRefInfo Result = ModRefInfo::ModRef;
+  const Value *Object = GetUnderlyingObject(Loc.Ptr, *DL);
 
-    DEBUG_WITH_TYPE("imr-query", errs() << "IntelModRefImpl::getModRefInfo(" <<
-        (Call->getCalledFunction() ? Call->getCalledFunction()->getName() :
-        "<indirect>")
-        << ", ");
+  DEBUG_WITH_TYPE("imr-query",
+                  errs() << "IntelModRefImpl::getModRefInfo("
+                         << (Call->getCalledFunction()
+                                 ? Call->getCalledFunction()->getName()
+                                 : "<indirect>")
+                         << ", ");
 
-    if (Object == nullptr) {
-        DEBUG_WITH_TYPE("imr-query",
-            errs() << "  Could not get underlying object\n");
-        return ModRefInfo::ModRef;
-    }
-
-    DEBUG_WITH_TYPE("imr-query", errs() << *Object);
-    DEBUG_WITH_TYPE("imr-query", errs() <<
-      (isa<GlobalValue>(Object) ? "[global]" : ""));
-    DEBUG_WITH_TYPE("imr-query", errs() << ")\n");
-
-    const Function *F = Call->getCalledFunction();
-    if (!F) {
-        DEBUG_WITH_TYPE("imr-query", errs() << "  Indirect destination\n");
-        return ModRefInfo::ModRef;
-    }
-
-    const FunctionRecord *FR = getFunctionInfo(F);
-    if (!FR) {
-        DEBUG_WITH_TYPE("imr-query", errs() << "  Unknown function\n");
-        return ModRefInfo::ModRef;
-    }
-
-    if (FR->isModBottom() || FR->isRefBottom()) {
-        DEBUG_WITH_TYPE("imr-query", errs() << "  Function is BOTTOM\n");
-        return ModRefInfo::ModRef;
-    }
-
-    // Clear the bits to form a minimum status, if possible.
-    if (!FR->FunctionReadsMemory()) {
-        Result = clearRef(Result);
-    }
-    if (!FR->FunctionWritesMemory()) {
-        Result = clearMod(Result);
-    }
-    
-    if (!isa<GlobalValue>(Object)) {
-      DEBUG_WITH_TYPE("imr-query", errs() <<
-        "  Only handling GlobalValue objects in this version\n");
-      return ModRefInfo::ModRef;
-    }
-
-    bool Known = FR->haveInfo(Object);
-    if (Known) {
-        // Return the computed value based on the points-to
-        // propagation.
-        ModRefInfo Result = FR->getInfo(Object);
-        DEBUG_WITH_TYPE("imr-query",
-            errs() << "  Result=" << getModRefResultStr(Result) << "\n");
-        return Result;
-    }
-
-    // If the value is not in the list, and we know all the locations
-    // accessible by the function. The Object must not be
-    // accessed by the routine.
-    if (!(FR->isModNonLocalLoc() || FR->isRefNonLocalLoc())) {
-            DEBUG_WITH_TYPE("imr-query", errs() << "  Result=" << 
-                getModRefResultStr(ModRefInfo::NoModRef) << "\n");
-        return ModRefInfo::NoModRef;
-    }
-
-    if (const GlobalValue *GV = dyn_cast<GlobalValue>(Object)) {
-        // The Global variable is not in the list of modified
-        // or referenced locations, but the function can
-        // read/write some unknown memory locations.
-        // If we know the globals accessed from this function
-        // or one if its call, and the Object  P is not one
-        // of them, and the Object does not escape the
-        // compilation module, then it will not be accessed
-        // as a non_local_loc, so we can so NoModRef.
-        if (GV->isDiscardableIfUnused()) {
-            DEBUG_WITH_TYPE("imr-query", errs() << "  Result=" <<
-                getModRefResultStr(ModRefInfo::NoModRef) << "\n");
-            return ModRefInfo::NoModRef;
-        }
-    }        
-
-    DEBUG_WITH_TYPE("imr-query",
-        errs() << "  Result=" <<
-        getModRefResultStr(Result) << "\n");
-    return Result;
-}
-
-// Constructor of actual implementation object
-AndersensAAResult::IntelModRef::IntelModRef(AndersensAAResult *AnderAA)
-{
-  Impl = new IntelModRefImpl(AnderAA);
-}
-
-// Destructor of actual implementation object
-AndersensAAResult::IntelModRef::~IntelModRef()
-{
-  delete Impl;
-}
-
-// Interface method to run the mod/ref set collection
-void AndersensAAResult::IntelModRef::runAnalysis(Module &M)
-{
-  assert(Impl);
-  Impl->runOnModule(M);
-
-}
-
-// Interface to query for mod/ref information about a memory location.
-ModRefInfo AndersensAAResult::IntelModRef::getModRefInfo(
-  const CallBase *Call, const MemoryLocation &Loc)
-{
-  if (!Impl) {
+  if (Object == nullptr) {
+    DEBUG_WITH_TYPE("imr-query", errs()
+                                     << "  Could not get underlying object\n");
     return ModRefInfo::ModRef;
   }
 
-  return Impl->getModRefInfo(Call, Loc);
+  DEBUG_WITH_TYPE("imr-query", errs() << *Object);
+  DEBUG_WITH_TYPE("imr-query",
+                  errs() << (isa<GlobalValue>(Object) ? "[global]" : ""));
+  DEBUG_WITH_TYPE("imr-query", errs() << ")\n");
+
+  const Function *F = Call->getCalledFunction();
+  if (!F) {
+    DEBUG_WITH_TYPE("imr-query", errs() << "  Indirect destination\n");
+    return ModRefInfo::ModRef;
+  }
+
+  LibFunc TheLibFunc;
+  if (F->isDeclaration() && TLI.getLibFunc(*F, TheLibFunc))
+    return getLibFuncModRefInfo(TheLibFunc, Call, Loc);
+
+  const FunctionRecord *FR = getFunctionInfo(F);
+  if (!FR) {
+    DEBUG_WITH_TYPE("imr-query", errs() << "  Unknown function\n");
+    return ModRefInfo::ModRef;
+  }
+
+  if (FR->isModBottom() || FR->isRefBottom()) {
+    DEBUG_WITH_TYPE("imr-query", errs() << "  Function is BOTTOM\n");
+    return ModRefInfo::ModRef;
+  }
+
+  // Clear the bits to form a minimum status, if possible.
+  if (!FR->FunctionReadsMemory())
+    Result = clearRef(Result);
+
+  if (!FR->FunctionWritesMemory())
+    Result = clearMod(Result);
+
+  if (!isa<GlobalValue>(Object)) {
+    DEBUG_WITH_TYPE(
+        "imr-query",
+        errs() << "  Only handling GlobalValue objects in this version\n");
+    return ModRefInfo::ModRef;
+  }
+
+  bool Known = FR->haveInfo(Object);
+  if (Known) {
+    // Return the computed value based on the points-to
+    // propagation.
+    ModRefInfo Result = FR->getInfo(Object);
+    DEBUG_WITH_TYPE("imr-query", errs() << "  Result="
+                                        << getModRefResultStr(Result) << "\n");
+    return Result;
+  }
+
+  // If the value is not in the list, and we know all the locations
+  // accessible by the function. The Object must not be
+  // accessed by the routine.
+  if (!(FR->isModNonLocalLoc() || FR->isRefNonLocalLoc())) {
+    DEBUG_WITH_TYPE("imr-query",
+                    errs() << "  Result="
+                           << getModRefResultStr(ModRefInfo::NoModRef) << "\n");
+    return ModRefInfo::NoModRef;
+  }
+
+  if (const GlobalValue *GV = dyn_cast<GlobalValue>(Object)) {
+    // The Global variable is not in the list of modified
+    // or referenced locations, but the function can
+    // read/write some unknown memory locations.
+    // If we know the globals accessed from this function
+    // or one if its call, and the Object  P is not one
+    // of them, and the Object does not escape the
+    // compilation module, then it will not be accessed
+    // as a non_local_loc, so we can so NoModRef.
+    if (GV->isDiscardableIfUnused()) {
+      DEBUG_WITH_TYPE("imr-query",
+                      errs()
+                          << "  Result="
+                          << getModRefResultStr(ModRefInfo::NoModRef) << "\n");
+      return ModRefInfo::NoModRef;
+    }
+  }
+
+  DEBUG_WITH_TYPE("imr-query",
+                  errs() << "  Result=" << getModRefResultStr(Result) << "\n");
+  return Result;
+}
+
+// Constructor of actual implementation object
+AndersensAAResult::IntelModRef::IntelModRef(AndersensAAResult *AnderAA,
+                                            const TargetLibraryInfo &TLI) {
+  Impl = new IntelModRefImpl(AnderAA, TLI);
+}
+
+// Destructor of actual implementation object
+AndersensAAResult::IntelModRef::~IntelModRef() { delete Impl; }
+
+// Interface method to run the mod/ref set collection
+void AndersensAAResult::IntelModRef::runAnalysis(Module &M) {
+  assert(Impl);
+  Impl->runOnModule(M);
+}
+
+void AndersensAAResult::IntelModRef::resetAndersenAAResult(
+    AndersensAAResult *AnderAA) {
+  if (Impl)
+    Impl->resetAndersenAAResult(AnderAA);
+}
+
+// Interface to query for mod/ref information about a memory location.
+ModRefInfo
+AndersensAAResult::IntelModRef::getModRefInfo(const CallBase *Call,
+                                              const MemoryLocation &Loc,
+                                              AAQueryInfo &AAQI) {
+  if (!Impl)
+    return ModRefInfo::ModRef;
+
+  return Impl->getModRefInfo(Call, Loc, AAQI);
 }
 
 // The following implementation of escape analysis is based

@@ -16,6 +16,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CodeMetrics.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -27,7 +28,6 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/DomTreeUpdater.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -598,9 +598,8 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
     for (BasicBlock *ExitPred : ExitPreds) {
       // We only need to split loop exit edges.
       Loop *PredLoop = LI->getLoopFor(ExitPred);
-      if (!PredLoop || PredLoop->contains(Exit))
-        continue;
-      if (isa<IndirectBrInst>(ExitPred->getTerminator()))
+      if (!PredLoop || PredLoop->contains(Exit) ||
+          ExitPred->getTerminator()->isIndirectTerminator())
         continue;
       SplitLatchEdge |= L->getLoopLatch() == ExitPred;
       BasicBlock *ExitSplit = SplitCriticalEdge(
@@ -668,17 +667,18 @@ static bool shouldSpeculateInstrs(BasicBlock::iterator Begin,
     if (isa<DbgInfoIntrinsic>(I))
       continue;
 
+#if INTEL_CUSTOMIZATION
+    if (isa<FakeloadInst>(I))
+      continue;
+
+    if (auto *SI = dyn_cast<SubscriptInst>(I))
+      if (!SI->hasAllConstantIndices())
+        return false;
+#endif // INTEL_CUSTOMIZATION
+
     switch (I->getOpcode()) {
     default:
       return false;
-#if INTEL_CUSTOMIZATION
-    case Instruction::Call:
-      if (isa<FakeloadInst>(&*I))
-        return true;
-      if (auto *SI = dyn_cast<SubscriptInst>(&*I))
-        return SI->hasAllConstantIndices();
-      return false;
-#endif // INTEL_CUSTOMIZATION
     case Instruction::GetElementPtr:
       // GEPs are cheap if all indices are constant.
       if (!cast<GEPOperator>(I)->hasAllConstantIndices())

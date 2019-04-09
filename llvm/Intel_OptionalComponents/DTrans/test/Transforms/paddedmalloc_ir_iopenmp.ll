@@ -71,7 +71,7 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK-NEXT: [[TMP2:%.*]] = icmp ult i64 [[TMP0:%.*]], 4294967295
 ; CHECK-NEXT: br i1 [[TMP2:%.*]], label [[TMP3:%.*]], label %MaxBB
 ;
-; CHECK-LABEL: <label>:3:
+; CHECK-LABEL: 3:
 ; CHECK-NEXT:   [[TMP4:%.*]] = load atomic i32, i32* @__Intel_PaddedMallocCounter seq_cst, align 4
 ; CHECK-NEXT:   [[TMP5:%.*]] = icmp ult i32 [[TMP4]], 250
 ; CHECK-NEXT:   br i1 [[TMP5]], label %BBif, label %BBelse
@@ -90,7 +90,7 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK-NEXT:   [[TMP10:%.*]] = tail call noalias i8* @malloc(i64 [[TMP0:%.*]])
 ; CHECK-NEXT:   br label [[TMP11:%.*]]
 ;
-; CHECK-LABEL: ; <label>:11:
+; CHECK-LABEL: 11:
 ; CHECK-NEXT:   [[TMP12:%.*]] = phi i8* [ [[TMP8:%.*]], %BBif ], [ [[TMP10:%.*]], %BBelse ]
 ; CHECK-NEXT:   ret i8* [[TMP12:%.*]]
 ; CHECK: }

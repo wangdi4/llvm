@@ -1,5 +1,3 @@
-; The test currently fails on Windows.
-; XFAIL: windows
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare  -S | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s
 ;
@@ -23,7 +21,15 @@ target device_triples = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @_Z3foov() #0 {
 entry:
+
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"([100 x i32]* @arrS, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arrS, i64 0, i64 42), i64 80) ]
+
+
+; CHECK: [[ARR_LAUNDER:%[0-9]+]] = call i8* @llvm.launder.invariant.group.p0i8
+; CHECK-SAME: @arrS
+; CHECK: [[ARR_BITCAST:%[a-zA-Z._0-9]+]] = bitcast i8* [[ARR_LAUNDER]] to [100 x i32]*
+; CHECK: [[GEP:%[0-9]+]] = getelementptr inbounds [100 x i32], [100 x i32]* [[ARR_BITCAST]], i64 0, i64 50
+; CHECK: store i32 3, i32* [[GEP]], align 8
   store i32 3, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arrS, i64 0, i64 50), align 8, !tbaa !3
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
@@ -44,7 +50,7 @@ attributes #1 = { nounwind }
 
 !0 = !{i32 0, i32 59, i32 -1938125551, !"_Z3foov", i32 5, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang bd018301a7dc67cf16070a769ab95677d0b37161) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 4afa184bc2a40d4c45421960f6f60bab770d02eb)"}
+!2 = !{!"clang version 8.0.0"}
 !3 = !{!4, !5, i64 0}
 !4 = !{!"array@_ZTSA100_i", !5, i64 0}
 !5 = !{!"int", !6, i64 0}

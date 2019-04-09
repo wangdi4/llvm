@@ -40,9 +40,10 @@ static cl::opt<bool> EnableStdContainerAlias("enable-std-container-alias",
                                              cl::init(true));
 
 AliasResult StdContainerAAResult::alias(const MemoryLocation &LocA,
-                                        const MemoryLocation &LocB) {
+                                        const MemoryLocation &LocB,
+                                        AAQueryInfo &AAQI) {
   if (!EnableStdContainerAlias)
-    return AAResultBase::alias(LocA, LocB);
+    return AAResultBase::alias(LocA, LocB, AAQI);
 
   MDNode *M1, *M2;
   M1 = LocA.AATags.StdContainerPtr;
@@ -57,7 +58,7 @@ AliasResult StdContainerAAResult::alias(const MemoryLocation &LocA,
   if (!mayAliasInStdContainer(M1, M2))
     return NoAlias;
 
-  return AAResultBase::alias(LocA, LocB);
+  return AAResultBase::alias(LocA, LocB, AAQI);
 }
 
 bool StdContainerAAResult::mayAliasInStdContainer(MDNode *M1, MDNode *M2) {
@@ -72,13 +73,15 @@ bool StdContainerAAResult::mayAliasInStdContainer(MDNode *M1, MDNode *M2) {
 }
 
 ModRefInfo StdContainerAAResult::getModRefInfo(const CallBase *Call,
-                                               const MemoryLocation &Loc) {
-  return AAResultBase::getModRefInfo(Call, Loc);
+                                               const MemoryLocation &Loc,
+                                               AAQueryInfo &AAQI) {
+  return AAResultBase::getModRefInfo(Call, Loc, AAQI);
 }
 
 ModRefInfo StdContainerAAResult::getModRefInfo(const CallBase *Call1,
-                                               const CallBase *Call2) {
-  return AAResultBase::getModRefInfo(Call1, Call2);
+                                               const CallBase *Call2,
+                                               AAQueryInfo &AAQI) {
+  return AAResultBase::getModRefInfo(Call1, Call2, AAQI);
 }
 
 char StdContainerAA::PassID;

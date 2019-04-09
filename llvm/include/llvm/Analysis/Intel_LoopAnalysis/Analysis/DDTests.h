@@ -813,7 +813,8 @@ class DDTest {
   /// Returns false if coeficients cannot be collected.
   bool collectCoeffInfo(const CanonExpr *Subscript, bool SrcFlag,
                         const CanonExpr *&Constant, const HLLoop *SrcLoop,
-                        const HLLoop *DstLoop, CoefficientInfo CI[]);
+                        const HLLoop *DstLoop, const bool IgnoreIVCoeff[],
+                        CoefficientInfo CI[]);
 
   ///  New CE are always constructed for member functions here for  arith.
   ///  operations

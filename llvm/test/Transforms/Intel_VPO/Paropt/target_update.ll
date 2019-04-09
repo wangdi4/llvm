@@ -51,7 +51,7 @@ attributes #1 = { nounwind }
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 6.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 5fb22dcb1ff2599bd251d38d3c16953af5722c55) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 6db40cd4803360ab8f404aa60e1e4f36a54739ac)"}
+!1 = !{!"clang version 6.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

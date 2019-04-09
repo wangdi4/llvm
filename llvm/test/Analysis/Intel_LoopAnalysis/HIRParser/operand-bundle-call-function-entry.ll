@@ -1,4 +1,3 @@
-; INTEL_FEATURE_CSA
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
 
@@ -8,10 +7,7 @@
 ; CHECK-NOT: alloca
 ; CHECK: %0 = @llvm.directive.region.entry(); [ DIR.OMP.PARALLEL.LOOP(),  QUAL.OMP.PRIVATE(&((%i)[0])),  QUAL.OMP.SHARED(&((%ip.addr)[0])) ]
 
-source_filename = "csa_offload.cpp"
 target datalayout = "e-m:e-i64:64-n32:64"
-target triple = "csa"
-target device_triples = "csa"
 
 ; Function Attrs: norecurse nounwind
 define weak void @__omp_offloading_8098d6ff_765331__Z5loop1Pii_l20(i64 %n, i32* %ip) {
@@ -52,4 +48,3 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-; end INTEL_FEATURE_CSA

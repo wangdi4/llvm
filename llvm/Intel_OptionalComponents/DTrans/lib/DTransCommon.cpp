@@ -1,6 +1,6 @@
 //===----------------- DTransCommon.cpp - Shared DTrans code --------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -27,6 +27,11 @@ using namespace llvm;
 // by not adding the transformation passes.
 static cl::opt<unsigned> DTransMemLayoutLevel("dtrans-mem-layout-level",
                                               cl::init(2), cl::ReallyHidden);
+
+// Initial Memory allocation Trim down transformation.
+static cl::opt<bool> EnableMemInitTrimDown("enable-dtrans-meminittrimdown",
+                                    cl::init(true), cl::Hidden,
+                                    cl::desc("Enable DTrans MemInitTrimDown"));
 
 // SOA-to-AOS transformation.
 static cl::opt<bool> EnableSOAToAOS("enable-dtrans-soatoaos", cl::init(true),
@@ -98,6 +103,8 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransDynCloneWrapperPass(PR);
   initializeDTransAnnotatorCleanerWrapperPass(PR);
   initializeDTransWeakAlignWrapperPass(PR);
+  initializeDTransMemInitTrimDownWrapperPass(PR);
+  initializeDTransTransposeWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOptBaseTestWrapperPass(PR);
@@ -117,6 +124,8 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   MPM.addPass(dtrans::WeakAlignPass());
   if (EnableDeleteFields)
     MPM.addPass(dtrans::DeleteFieldPass());
+  if (EnableMemInitTrimDown)
+    MPM.addPass(dtrans::MemInitTrimDownPass());
   MPM.addPass(dtrans::ReorderFieldsPass());
   MPM.addPass(dtrans::AOSToSOAPass());
   MPM.addPass(dtrans::EliminateROFieldAccessPass());
@@ -140,6 +149,8 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   PM.add(createDTransWeakAlignWrapperPass());
   if (EnableDeleteFields)
     PM.add(createDTransDeleteFieldWrapperPass());
+  if (EnableMemInitTrimDown)
+    PM.add(createDTransMemInitTrimDownWrapperPass());
   PM.add(createDTransReorderFieldsWrapperPass());
   PM.add(createDTransAOSToSOAWrapperPass());
   PM.add(createDTransEliminateROFieldAccessWrapperPass());
@@ -192,6 +203,8 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransAnalysisWrapperPass();
   (void)llvm::createDTransDynCloneWrapperPass();
   (void)llvm::createDTransWeakAlignWrapperPass();
+  (void)llvm::createDTransMemInitTrimDownWrapperPass();
+  (void)llvm::createDTransTransposeWrapperPass();
 
 #if !INTEL_PRODUCT_RELEASE
   (void)llvm::createDTransOptBaseTestWrapperPass();

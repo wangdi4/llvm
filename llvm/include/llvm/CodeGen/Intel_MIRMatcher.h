@@ -424,6 +424,12 @@ struct IsOperandMatcher<RegisterMatcher<LocalId>> : std::true_type { };
 
 constexpr RegisterMatcher<0> AnyRegister{};
 
+// Defining a `constexpr` object of this type should produce no code but also
+// no compiler warning (because of the non-trivial constructor).
+struct nop_struct {
+  constexpr nop_struct() { }
+};
+
 // MSVC workaround to force expansion variadic arguments before invoking macro.
 #define MIRMATCHER_EXPAND_MACRO(x) x
 
@@ -448,26 +454,27 @@ constexpr RegisterMatcher<0> AnyRegister{};
 // allows for very different expansions (see below).
 #define MIRMATCHER_REGS_IMP(R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11,     \
                             R12, R13, R14, R15, R16, R17, R18, R19, R20, ...) \
-  MIRMATCHER_COND_DECL_REG(1, R1, MIRMATCHER_2_ARGS R1); \
-  MIRMATCHER_COND_DECL_REG(2, R2, MIRMATCHER_2_ARGS R2); \
-  MIRMATCHER_COND_DECL_REG(3, R3, MIRMATCHER_2_ARGS R3); \
-  MIRMATCHER_COND_DECL_REG(4, R4, MIRMATCHER_2_ARGS R4); \
-  MIRMATCHER_COND_DECL_REG(5, R5, MIRMATCHER_2_ARGS R5); \
-  MIRMATCHER_COND_DECL_REG(6, R6, MIRMATCHER_2_ARGS R6); \
-  MIRMATCHER_COND_DECL_REG(7, R7, MIRMATCHER_2_ARGS R7); \
-  MIRMATCHER_COND_DECL_REG(8, R8, MIRMATCHER_2_ARGS R8); \
-  MIRMATCHER_COND_DECL_REG(9, R9, MIRMATCHER_2_ARGS R9); \
-  MIRMATCHER_COND_DECL_REG(10, R10, MIRMATCHER_2_ARGS R10); \
-  MIRMATCHER_COND_DECL_REG(11, R11, MIRMATCHER_2_ARGS R11); \
-  MIRMATCHER_COND_DECL_REG(12, R12, MIRMATCHER_2_ARGS R12); \
-  MIRMATCHER_COND_DECL_REG(13, R13, MIRMATCHER_2_ARGS R13); \
-  MIRMATCHER_COND_DECL_REG(14, R14, MIRMATCHER_2_ARGS R14); \
-  MIRMATCHER_COND_DECL_REG(15, R15, MIRMATCHER_2_ARGS R15); \
-  MIRMATCHER_COND_DECL_REG(16, R16, MIRMATCHER_2_ARGS R16); \
-  MIRMATCHER_COND_DECL_REG(17, R17, MIRMATCHER_2_ARGS R17); \
-  MIRMATCHER_COND_DECL_REG(18, R18, MIRMATCHER_2_ARGS R18); \
-  MIRMATCHER_COND_DECL_REG(19, R19, MIRMATCHER_2_ARGS R19); \
-  MIRMATCHER_COND_DECL_REG(20, R20, MIRMATCHER_2_ARGS R20)
+  MIRMATCHER_COND_DECL_REG(1, R1, MIRMATCHER_2_ARGS R1) \
+  MIRMATCHER_COND_DECL_REG(2, R2, MIRMATCHER_2_ARGS R2) \
+  MIRMATCHER_COND_DECL_REG(3, R3, MIRMATCHER_2_ARGS R3) \
+  MIRMATCHER_COND_DECL_REG(4, R4, MIRMATCHER_2_ARGS R4) \
+  MIRMATCHER_COND_DECL_REG(5, R5, MIRMATCHER_2_ARGS R5) \
+  MIRMATCHER_COND_DECL_REG(6, R6, MIRMATCHER_2_ARGS R6) \
+  MIRMATCHER_COND_DECL_REG(7, R7, MIRMATCHER_2_ARGS R7) \
+  MIRMATCHER_COND_DECL_REG(8, R8, MIRMATCHER_2_ARGS R8) \
+  MIRMATCHER_COND_DECL_REG(9, R9, MIRMATCHER_2_ARGS R9) \
+  MIRMATCHER_COND_DECL_REG(10, R10, MIRMATCHER_2_ARGS R10) \
+  MIRMATCHER_COND_DECL_REG(11, R11, MIRMATCHER_2_ARGS R11) \
+  MIRMATCHER_COND_DECL_REG(12, R12, MIRMATCHER_2_ARGS R12) \
+  MIRMATCHER_COND_DECL_REG(13, R13, MIRMATCHER_2_ARGS R13) \
+  MIRMATCHER_COND_DECL_REG(14, R14, MIRMATCHER_2_ARGS R14) \
+  MIRMATCHER_COND_DECL_REG(15, R15, MIRMATCHER_2_ARGS R15) \
+  MIRMATCHER_COND_DECL_REG(16, R16, MIRMATCHER_2_ARGS R16) \
+  MIRMATCHER_COND_DECL_REG(17, R17, MIRMATCHER_2_ARGS R17) \
+  MIRMATCHER_COND_DECL_REG(18, R18, MIRMATCHER_2_ARGS R18) \
+  MIRMATCHER_COND_DECL_REG(19, R19, MIRMATCHER_2_ARGS R19) \
+  MIRMATCHER_COND_DECL_REG(20, R20, MIRMATCHER_2_ARGS R20) \
+  static constexpr llvm::mirmatch::nop_struct mirreg_empty_decl ## __LINE__ {}
 
 // If invoked with parenthesis, generates two arguments, else not expanded.
 #define MIRMATCHER_2_ARGS() 1, 2
@@ -481,14 +488,12 @@ constexpr RegisterMatcher<0> AnyRegister{};
 // Expand to 3rd argument of argument list.
 #define MIRMATCHER_3RD_ARG(x, y, M, ...) M
 
-// Expand to a declaration of an unused function. This definition is
-// idempotent, so it can appear any number of times without causing
-// a syntax error.
-#define MIRMATCHER_NOP(N, R) extern void mireg_nop_function_ignored()
+// Expand to nothing.
+#define MIRMATCHER_NOP(N, R)
 
 // Expand to the definition of a register matcher with local ID 'N' and name
 // 'R'.
-#define MIRMATCHER_DECL_REG(N, R) constexpr llvm::mirmatch::RegisterMatcher<N> R{}
+#define MIRMATCHER_DECL_REG(N, R) constexpr llvm::mirmatch::RegisterMatcher<N> R{};
 
 template <class T, T val>
 struct LiteralMatcher {

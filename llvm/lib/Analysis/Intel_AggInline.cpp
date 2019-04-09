@@ -1,6 +1,6 @@
 //===------- Intel_AggInline.cpp - Aggressive Inline Analysis -*------===//
 //
-// Copyright (C) 2016-2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -26,13 +26,13 @@
 
 using namespace llvm;
 
-// Trace option for Aggressive Inline Analysis.  
+// Trace option for Aggressive Inline Analysis.
 //
 static cl::opt<bool> InlineAggressiveTrace("inline-agg-trace",
                                         cl::init(false), cl::ReallyHidden);
 
 // Maximum number of callsites marked by this analysis. If it exceeds
-// this threshold, this analysis is disabled. 
+// this threshold, this analysis is disabled.
 //
 static cl::opt<unsigned> InlineAggressiveCSLimit("inline-agg-callsites-limit",
                                         cl::init(25), cl::ReallyHidden);
@@ -98,36 +98,36 @@ bool InlineAggressiveInfo::isAggInlineOccured(void) {
 // Mark 'CS' as Inlined-Call by inserting 'CS' into AggInlCalls if
 // it is already not there.
 //
-void InlineAggressiveInfo::setAggInlInfoForCallSite(CallSite CS) {
-  if (isCallInstInAggInlList(CS))
+void InlineAggressiveInfo::setAggInlInfoForCallSite(CallBase &CB) {
+  if (isCallInstInAggInlList(CB))
     return;
-  AggInlCalls.push_back(CS.getInstruction());
+  AggInlCalls.push_back(&CB);
 }
 
 // Returns true if 'CS' is marked as inlined-call i.e 'CS' is in
 // AggInlCall.
 //
-bool InlineAggressiveInfo::isCallInstInAggInlList(CallSite CS) {
+bool InlineAggressiveInfo::isCallInstInAggInlList(CallBase &CB) {
   for (unsigned i = 0, e = AggInlCalls.size(); i != e; ++i) {
-    if (AggInlCalls[i] == CS.getInstruction()) 
+    if (AggInlCalls[i] == &CB)
       return true;
   }
   return false;
 }
 
 // Returns true if there are no calls to user defined routines in
-// callee of 'CS'. This function is used to prove that formals of 
+// callee of 'CS'. This function is used to prove that formals of
 // a routine are not escaped to any other user defined routines.
 //
-static bool noCallsToUserDefinedRoutinesInCallee(CallSite CS) {
-  Function *F = CS.getCalledFunction();
-  if (!F) 
+static bool noCallsToUserDefinedRoutinesInCallee(CallBase &CB) {
+  Function *F = CB.getCalledFunction();
+  if (!F)
     return false;
   for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
-    CallSite CS(cast<Value>(&*II));
-    if (!CS)
+    auto CB = dyn_cast<CallBase>(&*II);
+    if (!CB)
       continue;
-    Function *Callee = CS.getCalledFunction();
+    Function *Callee = CB->getCalledFunction();
     if (!Callee || !Callee->isDeclaration()) {
       return false;
     }
@@ -143,8 +143,8 @@ bool InlineAggressiveInfo::setAggInlineInfoForAllCallSites(Function *F) {
     if (!isa<CallInst>(UR)) {
       return false;
     }
-    CallSite CS1(cast<CallInst>(UR));
-    setAggInlInfoForCallSite(CS1);
+    auto CB1 = cast<CallBase>(UR);
+    setAggInlInfoForCallSite(*CB1);
   }
   return true;
 }
@@ -152,11 +152,11 @@ bool InlineAggressiveInfo::setAggInlineInfoForAllCallSites(Function *F) {
 // Mark 'CS' as aggressive-inlined-calls and all callsites of callee of
 // 'CS' as aggressive-inlined-calls.
 //
-bool InlineAggressiveInfo::setAggInlineInfo(CallSite CS)
+bool InlineAggressiveInfo::setAggInlineInfo(CallBase &CB)
 {
-  setAggInlInfoForCallSite(CS);
-  Function * Callee = CS.getCalledFunction();
-  if (!Callee) 
+  setAggInlInfoForCallSite(CB);
+  Function *Callee = CB.getCalledFunction();
+  if (!Callee)
     return false;
   return setAggInlineInfoForAllCallSites(Callee);
 
@@ -164,9 +164,9 @@ bool InlineAggressiveInfo::setAggInlineInfo(CallSite CS)
 
 // Propagate AggInfo from callsites to called functions recursively.
 //
-bool InlineAggressiveInfo::propagateAggInlineInfoCall(CallSite CS) {
+bool InlineAggressiveInfo::propagateAggInlineInfoCall(CallBase &CB) {
 
-  Function *Callee = CS.getCalledFunction();
+  Function *Callee = CB.getCalledFunction();
 
   if (!Callee || Callee->isDeclaration()) {
     return false;
@@ -175,15 +175,15 @@ bool InlineAggressiveInfo::propagateAggInlineInfoCall(CallSite CS) {
   for (inst_iterator II = inst_begin(Callee), E = inst_end(Callee);
        II != E; ++II) {
 
-    CallSite CS1(cast<Value>(&*II));
-    if (!CS1)
+    auto CB1 = dyn_cast<CallBase>(&*II);
+    if (!CB1)
       continue;
-    if (propagateAggInlineInfoCall(CS1)) {
-      setAggInlineInfo(CS1);
+    if (propagateAggInlineInfoCall(*CB1)) {
+      setAggInlineInfo(*CB1);
       DoInline = true;
     }
   }
-  if (isCallInstInAggInlList(CS)) 
+  if (isCallInstInAggInlList(CB))
    DoInline = true;
 
   return DoInline;
@@ -194,29 +194,29 @@ bool InlineAggressiveInfo::propagateAggInlineInfoCall(CallSite CS) {
 //
 bool InlineAggressiveInfo::propagateAggInlineInfo(Function *F) {
   for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
-    CallSite CS(cast<Value>(&*II));
-    if (!CS)
+    auto CB = dyn_cast<CallBase>(&*II);
+    if (!CB)
       continue;
-    if (propagateAggInlineInfoCall(CS))
-      setAggInlineInfo(CS);
+    if (propagateAggInlineInfoCall(*CB))
+      setAggInlineInfo(*CB);
   }
 
   // Check a limit on number of callsites that marked as inlined-calls.
-  if (AggInlCalls.size() > InlineAggressiveCSLimit) 
-    return false; 
+  if (AggInlCalls.size() > InlineAggressiveCSLimit)
+    return false;
 
   // Disable Aggressive analysis if any callsite is marked as both NoInline
   // and aggressive-inlined-call.
   for (unsigned i = 0, e = AggInlCalls.size(); i != e; ++i) {
-    CallSite CS(AggInlCalls[i]);
-    if (CS.isNoInline())
+    auto CB = cast<CallBase>(AggInlCalls[i]);
+    if (CB->isNoInline())
       return false;
   }
 
   return true;
 }
 
-// Returns true if 'CI' is a malloc call and it is allocating more 
+// Returns true if 'CI' is a malloc call and it is allocating more
 // than 'InlineAggressiveMallocLimit' bytes.
 //
 static bool isMallocAllocatingHugeMemory(const CallInst *CI) {
@@ -237,7 +237,7 @@ static bool isMallocAllocatingHugeMemory(const CallInst *CI) {
 // Returns true if 'SI' store instruction is saving 'V' in formal
 // argument of current routine.
 //
-//   Ex:   
+//   Ex:
 //      LBM_allocateGrid(double** %ptr)
 //      store i8* %V, i8** %ptr
 //
@@ -251,23 +251,23 @@ static bool isValueSavedInArg(Value *V, StoreInst *SI) {
     return false;
   return true;
 }
- 
+
 // Returns true if return address of malloc is saved in formal argument
 // of current routine and not escaped to other places.
-// Example for allowed case: 
+// Example for allowed case:
 //
 //      LBM_allocateGrid(double** %ptr)
 //      %call = call noalias i8* @malloc()
 //      %0 = bitcast double** %ptr to i8**
 //      store i8* %call, i8** %0
 //      %tobool = icmp eq i8* %call, null
-//      %add.ptr = getelementptr inbounds i8, i8* %call, i64 
+//      %add.ptr = getelementptr inbounds i8, i8* %call, i64
 //      %1 = bitcast double** %ptr to i8**
 //      store i8* %add.ptr, i8** %1
 //
-static bool isMallocAddressSavedInArg(Function &F, CallSite CS) {
+static bool isMallocAddressSavedInArg(Function &F, CallBase &CB) {
 
-  // Just limit to single formal pointer parameter for now 
+  // Just limit to single formal pointer parameter for now
   FunctionType *FTy = F.getFunctionType();
   if (!FTy->getReturnType()->isVoidTy())
     return false;
@@ -276,7 +276,7 @@ static bool isMallocAddressSavedInArg(Function &F, CallSite CS) {
   if (!FTy->getParamType(0)->isPointerTy())
     return false;
 
-  Value* V = CS.getInstruction();
+  Value* V = &CB;
 
   bool malloc_saved_in_arg = false;
   for (Use &U : V->uses()) {
@@ -293,7 +293,7 @@ static bool isMallocAddressSavedInArg(Function &F, CallSite CS) {
         return false;
       }
       if (StoreInst *SI = dyn_cast<StoreInst>(*GEPI->user_begin())) {
-        if (isValueSavedInArg(GEPI, SI)) 
+        if (isValueSavedInArg(GEPI, SI))
           malloc_saved_in_arg = true;
         else
           return false;
@@ -302,7 +302,7 @@ static bool isMallocAddressSavedInArg(Function &F, CallSite CS) {
         return false;
     } else  if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
       // store i8* %call, i8** %0
-      if (isValueSavedInArg(V, SI)) 
+      if (isValueSavedInArg(V, SI))
         malloc_saved_in_arg = true;
       else
         return false;
@@ -331,15 +331,15 @@ static bool collectMemoryAllocatedGlobVarsUsingAllocRtn(
     if (!isa<CallInst>(UR)) {
       return false;
     }
-    CallSite CS1(cast<Instruction>(UR));
-    if (!CS1.isCallee(&U))
+    auto CB1 = dyn_cast<CallBase>(UR);
+    if (!CB1->isCallee(&U))
       return false;
 
-    Value *glob = CS1.getArgument(0);
-    if (Operator::getOpcode(glob) == Instruction::BitCast)
-      glob = cast<Operator>(glob)->getOperand(0);;
+    Value *Glob = *(CB1->arg_begin());
+    if (Operator::getOpcode(Glob) == Instruction::BitCast)
+      Glob = cast<Operator>(Glob)->getOperand(0);;
 
-    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(glob)) {
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Glob)) {
       Globals.push_back(GV);
     }
     else {
@@ -357,7 +357,7 @@ static bool collectMemoryAllocatedGlobVarsUsingAllocRtn(
 //        Ex:
 //             LBM_allocateGrid(@srcGrid))
 //
-//             %0 = load @srcGrid, 
+//             %0 = load @srcGrid,
 //             %arraydecay = getelementptr %0, i64 0,
 //             LBM_initializeGrid(double* %arraydecay)
 //
@@ -400,23 +400,23 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
       assert(U1 && "Expecting use");
 
       if (CallInst *CI2 = dyn_cast<CallInst>(U1)) {
-        CallSite CS1(CI2);
+        auto CB1 = cast<CallBase>(CI2);
         // Mark callsite as aggressive-inlined-call only if callee
         // doesn't have any calls to user defined routines so that
         // we can ignore propagating formals to other calls in Callee.
         //
-        if (!noCallsToUserDefinedRoutinesInCallee(CS1)) {
+        if (!noCallsToUserDefinedRoutinesInCallee(*CB1)) {
           if (InlineAggressiveTrace) {
             errs() << " Skipped AggInl ... global may be escaped in callee\n";
-            errs() << "      " << *CS1.getInstruction() << "\n";
+            errs() << "      " << CB1 << "\n";
           }
-          return false; 
+          return false;
         }
         if (InlineAggressiveTrace) {
           errs() << "AggInl:  Marking callsite for inline  \n";
-          errs() << "      " << *CS1.getInstruction() << "\n";
+          errs() << "      " << CB1 << "\n";
         }
-        setAggInlInfoForCallSite(CS1);
+        setAggInlInfoForCallSite(*CB1);
         continue;
       }
 
@@ -437,19 +437,19 @@ bool InlineAggressiveInfo::trackUsesofAllocatedGlobalVariables(
           // %arraydecay8 = getelementptr %7, i64 0
           // LBM_initializeSpecialCellsForChannel(double* %arraydecay8)
           // LBM_initializeSpecialCellsForLDC(double* %arraydecay8)
-          CallSite CS1(CI2);
-          if (!noCallsToUserDefinedRoutinesInCallee(CS1)) {
+          auto CB1 = cast<CallBase>(CI2);
+          if (!noCallsToUserDefinedRoutinesInCallee(*CB1)) {
             if (InlineAggressiveTrace) {
               errs() << " Skipped AggInl ...global may be escaped in callee\n";
-              errs() << "      " << *CS1.getInstruction() << "\n";
+              errs() << "      " << CB1 << "\n";
             }
             return false;
           }
           if (InlineAggressiveTrace) {
             errs() << "AggInl:  Marking callsite for inline  \n";
-            errs() << "      " << *CS1.getInstruction() << "\n";
+            errs() << "      " << CB1 << "\n";
           }
-          setAggInlInfoForCallSite(CS1);
+          setAggInlInfoForCallSite(*CB1);
         } else if (Operator::getOpcode(U2) == Instruction::Load) {
           for (User *U3 : U2->users()) {
             if (Operator::getOpcode(U3) != Instruction::Store) {
@@ -488,10 +488,10 @@ InlineAggressiveInfo InlineAggressiveInfo::runImpl(Module &M,
     }
     return Result;
   }
-  Result.analyzeModule(M); 
+  Result.analyzeModule(M);
   return Result;
 }
- 
+
 bool InlineAggressiveInfo::analyzeModule(Module &M) {
 
   Function *AllocRtn = nullptr;
@@ -540,8 +540,8 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
         continue;
       }
 
-      CallSite CS = CallSite(&*II);
-      if (isMallocAddressSavedInArg(F, CS)) {
+      auto CB = cast<CallBase>(&*II);
+      if (isMallocAddressSavedInArg(F, *CB)) {
         if (AllocRtn != nullptr) {
           if (InlineAggressiveTrace) {
             errs() << " Skipped AggInl ... Found more than 1 malloc routine";
@@ -562,7 +562,7 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
   }
   if (InlineAggressiveTrace)
     errs() << " Total inst: " << TotalInstCount << "\n";
-    
+
   if (AllocRtn == nullptr) {
     if (InlineAggressiveTrace) {
       errs() << " Skipped AggInl ... No malloc routine found";
@@ -595,7 +595,7 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
   if (InlineAggressiveTrace) {
     errs() << "AggInl:  collected globals \n";
     for (unsigned i = 0, e = AllocatedGlobals.size(); i != e; ++i) {
-      errs() << "      " << *AllocatedGlobals[i] << "\n"; 
+      errs() << "      " << *AllocatedGlobals[i] << "\n";
     }
   }
 
@@ -618,7 +618,7 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
   if (InlineAggressiveTrace) {
     errs() << "AggInl:  All CallSites marked for inline after propagation\n";
     for (unsigned i = 0, e = AggInlCalls.size(); i != e; ++i) {
-      errs() << "      " << *AggInlCalls[i]  << "\n"; 
+      errs() << "      " << *AggInlCalls[i]  << "\n";
     }
   }
 
@@ -636,12 +636,12 @@ void InlineAggressiveWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 
 char InlineAggAnalysis::PassID;
 
-// Provide a definition for the static class member used to identify passes. 
+// Provide a definition for the static class member used to identify passes.
 AnalysisKey InlineAggAnalysis::Key;
 
 InlineAggressiveInfo InlineAggAnalysis::run(Module &M,
                                 AnalysisManager<Module> &AM) {
-  
+
   return InlineAggressiveInfo::runImpl(M,
                               AM.getResult<WholeProgramAnalysis>(M));
 }

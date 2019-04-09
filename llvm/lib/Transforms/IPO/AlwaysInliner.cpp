@@ -36,7 +36,8 @@ using namespace InlineReportTypes; // INTEL
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
 AlwaysInlinerPass::AlwaysInlinerPass(bool InsertLifetime)
-    : InsertLifetime(InsertLifetime), Report(IntelInlineReportLevel) {}
+    : InsertLifetime(InsertLifetime), Report(IntelInlineReportLevel),
+      MDReport(IntelInlineReportLevel){}
 #endif // INTEL_CUSTOMIZATION
 
 PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
@@ -59,8 +60,8 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
         // FIXME: We really shouldn't be able to fail to inline at this point!
         // We should do something to log or check the inline failures here.
         Changed |=
-            InlineFunction(CS, IFI, &getReport(), &Reason,           // INTEL
-                           /*CalleeAAR=*/nullptr, InsertLifetime);   // INTEL
+            InlineFunction(CS, IFI, &getReport(), &getMDReport(), // INTEL
+                  &Reason, /*CalleeAAR=*/nullptr, InsertLifetime);   // INTEL
 
       // Remember to try and delete this function afterward. This both avoids
       // re-walking the rest of the module and avoids dealing with any iterator
@@ -139,7 +140,7 @@ public:
   bool skipSCC(CallGraphSCC &SCC) const override { return false; }
 };
 #endif // INTEL_CUSTOMIZATION
-} // namespace
+}
 
 char AlwaysInlinerLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(AlwaysInlinerLegacyPass, "always-inline",
@@ -177,13 +178,22 @@ InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallSite CS) {
   Function *Callee = CS.getCalledFunction();
 
   // Only inline direct calls to functions with always-inline attributes
-  // that are viable for inlining. FIXME: We shouldn't even get here for
-  // declarations.
+  // that are viable for inlining.
   InlineReason Reason; // INTEL
-  if (Callee && !Callee->isDeclaration() &&
-      CS.hasFnAttr(Attribute::AlwaysInline) &&
-      isInlineViable(*Callee, Reason)) // INTEL
-    return InlineCost::getAlways("always inliner", InlrAlwaysInline); // INTEL
+  if (!Callee)
+    return InlineCost::getNever("indirect call", NinlrNotAlwaysInline); // INTEL
 
-  return InlineCost::getNever("always inliner", NinlrNotAlwaysInline); // INTEL
+  // FIXME: We shouldn't even get here for declarations.
+  if (Callee->isDeclaration())
+    return InlineCost::getNever("no definition", NinlrNotAlwaysInline); // INTEL
+
+  if (!CS.hasFnAttr(Attribute::AlwaysInline))
+    return InlineCost::getNever("no alwaysinline attribute",  // INTEL
+                                NinlrNotAlwaysInline); // INTEL
+
+  auto IsViable = isInlineViable(*Callee, Reason);  // INTEL
+  if (!IsViable)
+    return InlineCost::getNever(IsViable.message, NinlrNotAlwaysInline); // INTEL
+
+  return InlineCost::getAlways("always inliner", InlrAlwaysInline); // INTEL
 }

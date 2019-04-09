@@ -742,10 +742,6 @@ void UpdateDDRefForLoopPermutation::updateDDRef(HLDDNode *Node,
       CanonExpr *CE = *Iter;
       updateCE(CE, InnermostNestingLevel, OutmostNestingLevel, NewLoopLevels);
     }
-    if (RegRef->hasGEPInfo()) {
-      updateCE(RegRef->getBaseCE(), InnermostNestingLevel, OutmostNestingLevel,
-               NewLoopLevels);
-    }
   }
 }
 

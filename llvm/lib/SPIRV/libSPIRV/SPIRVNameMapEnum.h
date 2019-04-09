@@ -346,6 +346,11 @@ SPIRVMap<Decoration, std::string>::init() {
   add(DecorationMaxByteOffset, "MaxByteOffset");
   add(DecorationNoSignedWrap, "NoSignedWrap");
   add(DecorationNoUnsignedWrap, "NoUnsignedWrap");
+  add(DecorationRegisterINTEL, "RegisterINTEL");
+  add(DecorationMemoryINTEL, "MemoryINTEL");
+  add(DecorationNumbanksINTEL, "NumbanksINTEL");
+  add(DecorationBankwidthINTEL, "BankwidthINTEL");
+  add(DecorationMaxConcurrencyINTEL, "MaxConcurrencyINTEL");
 }
 SPIRV_DEF_NAMEMAP(Decoration, SPIRVDecorationNameMap)
 
@@ -484,6 +489,7 @@ SPIRVMap<Capability, std::string>::init() {
   add(CapabilitySubgroupBufferBlockIOINTEL, "SubgroupBufferBlockIOINTEL");
   add(CapabilitySubgroupImageBlockIOINTEL, "SubgroupImageBlockIOINTEL");
   add(CapabilitySubgroupImageMediaBlockIOINTEL, "SubgroupImageMediaBlockIOINTEL");
+  add(CapabilityFPGAMemoryAttributesINTEL, "FPGAMemoryAttributesINTEL");
 }
 SPIRV_DEF_NAMEMAP(Capability, SPIRVCapabilityNameMap)
 

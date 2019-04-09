@@ -2329,6 +2329,10 @@ const char *LLVMIntrinsicCopyOverloadedName(unsigned ID,
   return strdup(Str.c_str());
 }
 
+unsigned LLVMLookupIntrinsicID(const char *Name, size_t NameLen) {
+  return Function::lookupIntrinsicID({Name, NameLen});
+}
+
 LLVMBool LLVMIntrinsicIsOverloaded(unsigned ID) {
   auto IID = llvm_map_to_intrinsic_id(ID);
   return llvm::Intrinsic::isOverloaded(IID);
@@ -2461,6 +2465,71 @@ LLVMValueRef LLVMGetPreviousParam(LLVMValueRef Arg) {
 void LLVMSetParamAlignment(LLVMValueRef Arg, unsigned align) {
   Argument *A = unwrap<Argument>(Arg);
   A->addAttr(Attribute::getWithAlignment(A->getContext(), align));
+}
+
+/*--.. Operations on ifuncs ................................................--*/
+
+LLVMValueRef LLVMAddGlobalIFunc(LLVMModuleRef M,
+                                const char *Name, size_t NameLen,
+                                LLVMTypeRef Ty, unsigned AddrSpace,
+                                LLVMValueRef Resolver) {
+  return wrap(GlobalIFunc::create(unwrap(Ty), AddrSpace,
+                                  GlobalValue::ExternalLinkage,
+                                  StringRef(Name, NameLen),
+                                  unwrap<Constant>(Resolver), unwrap(M)));
+}
+
+LLVMValueRef LLVMGetNamedGlobalIFunc(LLVMModuleRef M,
+                                     const char *Name, size_t NameLen) {
+  return wrap(unwrap(M)->getNamedIFunc(StringRef(Name, NameLen)));
+}
+
+LLVMValueRef LLVMGetFirstGlobalIFunc(LLVMModuleRef M) {
+  Module *Mod = unwrap(M);
+  Module::ifunc_iterator I = Mod->ifunc_begin();
+  if (I == Mod->ifunc_end())
+    return nullptr;
+  return wrap(&*I);
+}
+
+LLVMValueRef LLVMGetLastGlobalIFunc(LLVMModuleRef M) {
+  Module *Mod = unwrap(M);
+  Module::ifunc_iterator I = Mod->ifunc_end();
+  if (I == Mod->ifunc_begin())
+    return nullptr;
+  return wrap(&*--I);
+}
+
+LLVMValueRef LLVMGetNextGlobalIFunc(LLVMValueRef IFunc) {
+  GlobalIFunc *GIF = unwrap<GlobalIFunc>(IFunc);
+  Module::ifunc_iterator I(GIF);
+  if (++I == GIF->getParent()->ifunc_end())
+    return nullptr;
+  return wrap(&*I);
+}
+
+LLVMValueRef LLVMGetPreviousGlobalIFunc(LLVMValueRef IFunc) {
+  GlobalIFunc *GIF = unwrap<GlobalIFunc>(IFunc);
+  Module::ifunc_iterator I(GIF);
+  if (I == GIF->getParent()->ifunc_begin())
+    return nullptr;
+  return wrap(&*--I);
+}
+
+LLVMValueRef LLVMGetGlobalIFuncResolver(LLVMValueRef IFunc) {
+  return wrap(unwrap<GlobalIFunc>(IFunc)->getResolver());
+}
+
+void LLVMSetGlobalIFuncResolver(LLVMValueRef IFunc, LLVMValueRef Resolver) {
+  unwrap<GlobalIFunc>(IFunc)->setResolver(unwrap<Constant>(Resolver));
+}
+
+void LLVMEraseGlobalIFunc(LLVMValueRef IFunc) {
+  unwrap<GlobalIFunc>(IFunc)->eraseFromParent();
+}
+
+void LLVMRemoveGlobalIFunc(LLVMValueRef IFunc) {
+  unwrap<GlobalIFunc>(IFunc)->removeFromParent();
 }
 
 /*--.. Operations on basic blocks ..........................................--*/

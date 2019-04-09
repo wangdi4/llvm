@@ -281,7 +281,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   const StringRef base_name = LMFI->getLICName(result.getReg());
   const auto add_lic = [&](
     const TargetRegisterClass *RC, const Twine &name,
-    bool ignore_on_exit = false
+    bool ignore_on_exit
   ) {
     const unsigned lic = LMFI->allocateLIC(
       RC, base_name.empty() ? name : base_name + "." + name
@@ -348,7 +348,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
     init_is_imm and init.getFPImm()->isExactlyValue(identity->getValueAPF());
 
   // The partial reduction lic, with initial values.
-  const unsigned parts = add_lic(lic_class, "parts");
+  const unsigned parts = add_lic(lic_class, "parts", false);
   LMFI->setLICDepth(parts, partred_count);
   for (int i = 0; i < partred_count - 1; ++i) {
     add_instr(TII->getInitOpcode(lic_class)).addDef(parts).addFPImm(identity);
@@ -360,10 +360,10 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   }
 
   // Add logic for moving values to and from parts.
-  const unsigned parts_pred_ctl = add_lic(i1_class,  "parts_pred_ctl");
-  const unsigned parts_to_op    = add_lic(lic_class, "parts_to_op");
-  const unsigned parts_to_clpsr = add_lic(lic_class, "parts_to_clpsr");
-  const unsigned op_to_parts    = add_lic(lic_class, "op_to_parts");
+  const unsigned parts_pred_ctl = add_lic(i1_class,  "parts_pred_ctl", false);
+  const unsigned parts_to_op    = add_lic(lic_class, "parts_to_op", false);
+  const unsigned parts_to_clpsr = add_lic(lic_class, "parts_to_clpsr", false);
+  const unsigned op_to_parts    = add_lic(lic_class, "op_to_parts", false);
   add_instr(CSA::REPLICATE1)
     .addDef(parts_pred_ctl)
     .add(pred)
@@ -433,8 +433,8 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   else {
     const unsigned parts_init_pred = smallfountain(
       n_ones(partred_count - 1) << 1, partred_count, "parts_init_pred");
-    const unsigned parts_init        = add_lic(lic_class, "parts_init");
-    const unsigned parts_pred_picker = add_lic(i1_class,  "parts_pred_picker");
+    const unsigned parts_init        = add_lic(lic_class, "parts_init", false);
+    const unsigned parts_pred_picker = add_lic(i1_class,  "parts_pred_picker", false);
     add_instr(opcode_pick)
       .addDef(parts_init)
       .addUse(parts_init_pred)
@@ -487,11 +487,11 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
                   internal_count + partred_count, "clpsr_picker");
   const unsigned clpsr_switcher =
     smallfountain(n_ones(internal_count), internal_count + 1, "clpsr_switcher");
-  const unsigned clpsr_in    = add_lic(lic_class, "clpsr_in");
-  const unsigned clpsr_left  = add_lic(lic_class, "clpsr_left");
-  const unsigned clpsr_right = add_lic(lic_class, "clpsr_right");
-  const unsigned clpsr_out   = add_lic(lic_class, "clpsr_out");
-  const unsigned clpsr_back  = add_lic(lic_class, "clpsr_back");
+  const unsigned clpsr_in    = add_lic(lic_class, "clpsr_in", false);
+  const unsigned clpsr_left  = add_lic(lic_class, "clpsr_left", false);
+  const unsigned clpsr_right = add_lic(lic_class, "clpsr_right", false);
+  const unsigned clpsr_out   = add_lic(lic_class, "clpsr_out", false);
+  const unsigned clpsr_back  = add_lic(lic_class, "clpsr_back", false);
   LMFI->addLICAttribute(clpsr_back, "csasim_backedge");
   add_instr(opcode_pick)
     .addDef(clpsr_in)
@@ -517,10 +517,10 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
 
   // If multiplexing is enabled, insert the multiplexing code here.
   if (Multiplex != none) {
-    const unsigned op_pred_ctl = add_lic(i1_class,  "op_pred_ctl");
-    const unsigned op_left     = add_lic(lic_class, "op_left");
-    const unsigned op_right    = add_lic(lic_class, "op_right");
-    const unsigned op_out      = add_lic(lic_class, "op_out");
+    const unsigned op_pred_ctl = add_lic(i1_class,  "op_pred_ctl", false);
+    const unsigned op_left     = add_lic(lic_class, "op_left", false);
+    const unsigned op_right    = add_lic(lic_class, "op_right", false);
+    const unsigned op_out      = add_lic(lic_class, "op_out", false);
 
     // For deterministic multiplexing, drive both inputs off of a replicate1.
     // For nondeterministic multiplexing, drive both off of a pickany on the
@@ -556,7 +556,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
         .addUse(op_pred_ctl)
         .addUse(clpsr_left)
         .add(MI.getOperand(3));
-      const unsigned op_not_as_left = add_lic(lic_class, "op_not_as_left");
+      const unsigned op_not_as_left = add_lic(lic_class, "op_not_as_left", false);
       add_instr(opcode_pick)
         .addDef(op_not_as_left)
         .addUse(op_pred_ctl)
@@ -586,7 +586,7 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
     // input (which is really the right one for SUBs - the conventions here are
     // FMA-based) needs a negation there.
     else if (gen_opcode == CSA::Generic::SREDSUB) {
-      const unsigned op_neg = add_lic(lic_class, "op_neg");
+      const unsigned op_neg = add_lic(lic_class, "op_neg", false);
       add_instr(
         TII->makeOpcode(CSA::Generic::NEG, lic_size, CSA::VARIANT_FLOAT))
         .addDef(op_neg)

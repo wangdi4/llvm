@@ -64,7 +64,7 @@ attributes #1 = { nounwind }
 
 !0 = !{i32 0, i32 47, i32 -1941798063, !"_Z3fooP2S1", i32 8, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 1204ea834c6c1403298b9f5f46f16bed5d501177) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 94fa66c878a426f6012bbd7fbcda6947da3f2b96)"}
+!2 = !{!"clang version 8.0.0"}
 !3 = !{!4, !4, i64 0}
 !4 = !{!"unspecified pointer", !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}

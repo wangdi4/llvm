@@ -1,5 +1,5 @@
-;RUN: opt -whole-program-assume -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
-;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="padded-pointer-prop" < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -internalize -disable-output -padded-pointer-prop -padded-pointer-info < %s 2>&1 | FileCheck %s
+;RUN: opt -whole-program-assume -disable-output -padded-pointer-info -passes="internalize,padded-pointer-prop" < %s 2>&1 | FileCheck %s
 
 ; Checks merging of the padding of function arguments
 

@@ -236,9 +236,6 @@ public:
   virtual bool run() {
     bool Changed = false;
 
-    assert(W->isBBSetEmpty() &&
-           "CSAPrivatizer: BBSET should start empty");
-
     W->populateBBSet();
 
     // Generate privatization code for all flavors of private variables.
@@ -272,7 +269,7 @@ public:
     registerizeAllocas();
 
     // Invalidate BBSet after transformation
-    W->resetBBSet();
+    W->resetBBSetIfChanged(Changed);
 
     // SCEV should be regenerated after privatization.
     if (Changed && W->getIsOmpLoop() && SE)
@@ -571,38 +568,37 @@ public:
   bool run() override {
     bool Changed = false;
 
-    assert(W->isBBSetEmpty() &&
-           "CSASectionsPrivatizer: BBSET should start empty");
-
     W->populateBBSet();
 
     // For sections construct we need to privatizations for each section.
     for (auto SecW : reverse(W->getChildren())) {
-      assert(SecW->isBBSetEmpty() &&
-             "CSASectionsPrivatizer: BBSET should start empty");
+      bool SecChanged = false;
+
       SecW->populateBBSet();
       cleanupPrivateItems(W);
       if (!W->getPriv().empty()) {
         for (auto *I : W->getPriv().items())
           genPrivVar(I, SecW);
-        Changed = true;
+        SecChanged = true;
       }
       if (!W->getFpriv().empty()) {
         for (auto *I : W->getFpriv().items())
           genFPrivVar(I, SecW);
-        Changed = true;
+        SecChanged = true;
       }
       if (!W->getLpriv().empty()) {
         for (auto *I : W->getLpriv().items())
           genLPrivVar(I, SecW);
-        Changed = true;
+        SecChanged = true;
       }
       if (!W->getRed().empty()) {
         for (auto *I : W->getRed().items())
           genRedVar(I, SecW);
-        Changed = true;
+        SecChanged = true;
       }
-      SecW->resetBBSet();
+      SecW->resetBBSetIfChanged(SecChanged);
+
+      Changed |= SecChanged;
     }
 
     // Gen copyout code for lastprivate variables.
@@ -616,7 +612,7 @@ public:
     registerizeAllocas();
 
     // Invalidate BBSet after transformations
-    W->resetBBSet();
+    W->resetBBSetIfChanged(Changed);
 
     return Changed;
   }
@@ -1350,7 +1346,6 @@ private:
       Tail = SplitBlock(Tail, Tail->getTerminator(), PT.DT, PT.LI);
     Tail->setName("omp.clone.tail");
 
-    assert(W->isBBSetEmpty() && "CSALoopSplitter: BBSET should start empty");
     W->populateBBSet();
 
     // Reserve enough space to avoid any reallocation during cloning.

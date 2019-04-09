@@ -163,7 +163,7 @@ attributes #2 = { inaccessiblememonly nounwind speculatable }
 !0 = !{i32 0, i32 58, i32 -1939105753, !"Compute", i32 11, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{}
-!3 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 105f3862bb742d6adede6b26d29ed74003e24523) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm 57cfb256a12748db8ca9d11b2e97eafa1eac2d98)"}
+!3 = !{!"clang version 8.0.0"}
 !4 = distinct !{i32 0}
 
 ; CHECK: %{{.*}} = call i64 @_Z14get_local_sizej(i32 0)

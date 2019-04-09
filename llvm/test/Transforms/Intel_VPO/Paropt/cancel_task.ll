@@ -119,7 +119,7 @@ attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 6.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 0b4a517eb9d8148972ed8a9ef18c3616c05891fc) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm eefefe01e911bc883323be6e5e7f2861cb19904c)"}
+!1 = !{!"clang version 6.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

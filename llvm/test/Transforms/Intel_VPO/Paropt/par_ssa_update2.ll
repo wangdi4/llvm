@@ -199,7 +199,7 @@ attributes #2 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="fals
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang d994486418c412dd7b00883e9dc3ab0dca7ef5cc) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm a906203570ebfcefb84b457380cbedd20f8b9abf)"}
+!1 = !{!"clang version 7.0.0"}
 !2 = !{!3, !9, i64 48}
 !3 = !{!"struct@_ZTS6Thermo", !4, i64 0, !4, i64 4, !4, i64 8, !7, i64 16, !8, i64 24, !8, i64 32, !8, i64 40, !9, i64 48, !9, i64 56, !9, i64 64, !9, i64 72, !9, i64 80, !9, i64 88, !9, i64 96, !9, i64 104, !10, i64 112, !9, i64 120}
 !4 = !{!"int", !5, i64 0}

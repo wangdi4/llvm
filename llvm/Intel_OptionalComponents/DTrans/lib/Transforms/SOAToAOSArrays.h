@@ -352,7 +352,7 @@ private:
     auto *Alloc = D;
 
     if (D->Kind == Dep::DK_Function)
-      for (auto *A : *D->Args)
+      for (auto *A : *D->Args) {
         if (A->Kind == Dep::DK_Alloc) {
           // Single alloc is permitted.
           if (Alloc->Kind == Dep::DK_Alloc)
@@ -360,6 +360,7 @@ private:
           Alloc = A;
         } else if (!isDependentOnIntegerFieldsOnly(A, S))
           return false;
+      }
 
     if (Alloc->Kind != Dep::DK_Alloc)
       return false;

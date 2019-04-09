@@ -53,6 +53,16 @@ static bool hasSinCosPiStret(const Triple &T) {
   return true;
 }
 
+static bool hasBcmp(const Triple &TT) {
+  // Posix removed support from bcmp() in 2001, but the glibc and several
+  // implementations of the libc still have it.
+  if (TT.isOSLinux())
+    return TT.isGNUEnvironment() || TT.isMusl();
+  // Both NetBSD and OpenBSD are planning to remove the function. Windows does
+  // not have it.
+  return TT.isOSFreeBSD() || TT.isOSSolaris() || TT.isOSDarwin();
+}
+
 /// Initialize the set of available library functions based on the specified
 /// target triple. This should be carefully written so that a missing target
 /// triple gets a sane set of defaults.
@@ -145,6 +155,9 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_sincospif_stret);
   }
 
+  if (!hasBcmp(T))
+    TLI.setUnavailable(LibFunc_bcmp);
+
   if (T.isMacOSX() && T.getArch() == Triple::x86 &&
       !T.isMacOSXVersionLT(10, 7)) {
     // x86-32 OSX has a scheme where fwrite and fputs (and some other functions
@@ -156,33 +169,82 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setAvailableWithName(LibFunc_fputs, "fputs$UNIX2003");
   }
 
-  // iprintf and friends are only available on XCore and TCE.
-  if (T.getArch() != Triple::xcore && T.getArch() != Triple::tce) {
+  // iprintf and friends are only available on XCore, TCE, and Emscripten.
+  if (T.getArch() != Triple::xcore && T.getArch() != Triple::tce &&
+      T.getOS() != Triple::Emscripten) {
     TLI.setUnavailable(LibFunc_iprintf);
     TLI.setUnavailable(LibFunc_siprintf);
     TLI.setUnavailable(LibFunc_fiprintf);
   }
 
+  // __small_printf and friends are only available on Emscripten.
+  if (T.getOS() != Triple::Emscripten) {
+    TLI.setUnavailable(LibFunc_small_printf);
+    TLI.setUnavailable(LibFunc_small_sprintf);
+    TLI.setUnavailable(LibFunc_small_fprintf);
+  }
+
   if (T.isOSWindows() && !T.isOSCygMing()) {
-    // Win32 does not support long double
+    // XXX: The earliest documentation available at the moment is for VS2015/VC19:
+    // https://docs.microsoft.com/en-us/cpp/c-runtime-library/floating-point-support?view=vs-2015
+    // XXX: In order to use an MSVCRT older than VC19,
+    // the specific library version must be explicit in the target triple,
+    // e.g., x86_64-pc-windows-msvc18.
+    bool hasPartialC99 = true;
+    if (T.isKnownWindowsMSVCEnvironment()) {
+      unsigned Major, Minor, Micro;
+      T.getEnvironmentVersion(Major, Minor, Micro);
+      hasPartialC99 = (Major == 0 || Major >= 19);
+    }
+
+    // Latest targets support C89 math functions, in part.
+    bool isARM = (T.getArch() == Triple::aarch64 ||
+                  T.getArch() == Triple::arm);
+    bool hasPartialFloat = (isARM ||
+                            T.getArch() == Triple::x86_64);
+
+    // Win32 does not support float C89 math functions, in general.
+    if (!hasPartialFloat) {
+      TLI.setUnavailable(LibFunc_acosf);
+      TLI.setUnavailable(LibFunc_asinf);
+      TLI.setUnavailable(LibFunc_atan2f);
+      TLI.setUnavailable(LibFunc_atanf);
+      TLI.setUnavailable(LibFunc_ceilf);
+      TLI.setUnavailable(LibFunc_cosf);
+      TLI.setUnavailable(LibFunc_coshf);
+      TLI.setUnavailable(LibFunc_expf);
+      TLI.setUnavailable(LibFunc_floorf);
+      TLI.setUnavailable(LibFunc_fmodf);
+      TLI.setUnavailable(LibFunc_log10f);
+      TLI.setUnavailable(LibFunc_logf);
+      TLI.setUnavailable(LibFunc_modff);
+      TLI.setUnavailable(LibFunc_powf);
+      TLI.setUnavailable(LibFunc_sinf);
+      TLI.setUnavailable(LibFunc_sinhf);
+      TLI.setUnavailable(LibFunc_sqrtf);
+      TLI.setUnavailable(LibFunc_tanf);
+      TLI.setUnavailable(LibFunc_tanhf);
+    }
+    if (!isARM)
+      TLI.setUnavailable(LibFunc_fabsf);
+    TLI.setUnavailable(LibFunc_frexpf);
+    TLI.setUnavailable(LibFunc_ldexpf);
+
+    // Win32 does not support long double C89 math functions.
     TLI.setUnavailable(LibFunc_acosl);
     TLI.setUnavailable(LibFunc_asinl);
-    TLI.setUnavailable(LibFunc_atanl);
     TLI.setUnavailable(LibFunc_atan2l);
+    TLI.setUnavailable(LibFunc_atanl);
     TLI.setUnavailable(LibFunc_ceill);
-    TLI.setUnavailable(LibFunc_copysignl);
     TLI.setUnavailable(LibFunc_cosl);
     TLI.setUnavailable(LibFunc_coshl);
     TLI.setUnavailable(LibFunc_expl);
-    TLI.setUnavailable(LibFunc_fabsf); // Win32 and Win64 both lack fabsf
     TLI.setUnavailable(LibFunc_fabsl);
     TLI.setUnavailable(LibFunc_floorl);
-    TLI.setUnavailable(LibFunc_fmaxl);
-    TLI.setUnavailable(LibFunc_fminl);
     TLI.setUnavailable(LibFunc_fmodl);
     TLI.setUnavailable(LibFunc_frexpl);
-    TLI.setUnavailable(LibFunc_ldexpf);
     TLI.setUnavailable(LibFunc_ldexpl);
+    TLI.setUnavailable(LibFunc_log10l);
     TLI.setUnavailable(LibFunc_logl);
     TLI.setUnavailable(LibFunc_modfl);
     TLI.setUnavailable(LibFunc_powl);
@@ -192,81 +254,66 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_tanl);
     TLI.setUnavailable(LibFunc_tanhl);
 
-    // Win32 only has C89 math
-    TLI.setUnavailable(LibFunc_acosh);
-    TLI.setUnavailable(LibFunc_acoshf);
-    TLI.setUnavailable(LibFunc_acoshl);
-    TLI.setUnavailable(LibFunc_asinh);
-    TLI.setUnavailable(LibFunc_asinhf);
-    TLI.setUnavailable(LibFunc_asinhl);
-    TLI.setUnavailable(LibFunc_atanh);
-    TLI.setUnavailable(LibFunc_atanhf);
-    TLI.setUnavailable(LibFunc_atanhl);
-    TLI.setUnavailable(LibFunc_cabs);
-    TLI.setUnavailable(LibFunc_cabsf);
-    TLI.setUnavailable(LibFunc_cabsl);
-    TLI.setUnavailable(LibFunc_cbrt);
-    TLI.setUnavailable(LibFunc_cbrtf);
-    TLI.setUnavailable(LibFunc_cbrtl);
-    TLI.setUnavailable(LibFunc_exp2);
-    TLI.setUnavailable(LibFunc_exp2f);
-    TLI.setUnavailable(LibFunc_exp2l);
-    TLI.setUnavailable(LibFunc_expm1);
-    TLI.setUnavailable(LibFunc_expm1f);
-    TLI.setUnavailable(LibFunc_expm1l);
-    TLI.setUnavailable(LibFunc_log2);
-    TLI.setUnavailable(LibFunc_log2f);
-    TLI.setUnavailable(LibFunc_log2l);
-    TLI.setUnavailable(LibFunc_log1p);
-    TLI.setUnavailable(LibFunc_log1pf);
-    TLI.setUnavailable(LibFunc_log1pl);
-    TLI.setUnavailable(LibFunc_logb);
-    TLI.setUnavailable(LibFunc_logbf);
-    TLI.setUnavailable(LibFunc_logbl);
-    TLI.setUnavailable(LibFunc_nearbyint);
-    TLI.setUnavailable(LibFunc_nearbyintf);
-    TLI.setUnavailable(LibFunc_nearbyintl);
-    TLI.setUnavailable(LibFunc_rint);
-    TLI.setUnavailable(LibFunc_rintf);
-    TLI.setUnavailable(LibFunc_rintl);
-    TLI.setUnavailable(LibFunc_round);
-    TLI.setUnavailable(LibFunc_roundf);
-    TLI.setUnavailable(LibFunc_roundl);
-    TLI.setUnavailable(LibFunc_trunc);
-    TLI.setUnavailable(LibFunc_truncf);
-    TLI.setUnavailable(LibFunc_truncl);
-
-    // Win32 provides some C99 math with mangled names
-    TLI.setAvailableWithName(LibFunc_copysign, "_copysign");
-
-    if (T.getArch() == Triple::x86) {
-      // Win32 on x86 implements single-precision math functions as macros
-      TLI.setUnavailable(LibFunc_acosf);
-      TLI.setUnavailable(LibFunc_asinf);
-      TLI.setUnavailable(LibFunc_atanf);
-      TLI.setUnavailable(LibFunc_atan2f);
-      TLI.setUnavailable(LibFunc_ceilf);
-      TLI.setUnavailable(LibFunc_copysignf);
-      TLI.setUnavailable(LibFunc_cosf);
-      TLI.setUnavailable(LibFunc_coshf);
-      TLI.setUnavailable(LibFunc_expf);
-      TLI.setUnavailable(LibFunc_floorf);
-      TLI.setUnavailable(LibFunc_fminf);
+    // Win32 does not fully support C99 math functions.
+    if (!hasPartialC99) {
+      TLI.setUnavailable(LibFunc_acosh);
+      TLI.setUnavailable(LibFunc_acoshf);
+      TLI.setUnavailable(LibFunc_asinh);
+      TLI.setUnavailable(LibFunc_asinhf);
+      TLI.setUnavailable(LibFunc_atanh);
+      TLI.setUnavailable(LibFunc_atanhf);
+      TLI.setAvailableWithName(LibFunc_cabs, "_cabs");
+      TLI.setUnavailable(LibFunc_cabsf);
+      TLI.setUnavailable(LibFunc_cbrt);
+      TLI.setUnavailable(LibFunc_cbrtf);
+      TLI.setAvailableWithName(LibFunc_copysign, "_copysign");
+      TLI.setAvailableWithName(LibFunc_copysignf, "_copysignf");
+      TLI.setUnavailable(LibFunc_exp2);
+      TLI.setUnavailable(LibFunc_exp2f);
+      TLI.setUnavailable(LibFunc_expm1);
+      TLI.setUnavailable(LibFunc_expm1f);
+      TLI.setUnavailable(LibFunc_fmax);
       TLI.setUnavailable(LibFunc_fmaxf);
-      TLI.setUnavailable(LibFunc_fmodf);
-      TLI.setUnavailable(LibFunc_logf);
-      TLI.setUnavailable(LibFunc_log10f);
-      TLI.setUnavailable(LibFunc_modff);
-      TLI.setUnavailable(LibFunc_powf);
-      TLI.setUnavailable(LibFunc_sinf);
-      TLI.setUnavailable(LibFunc_sinhf);
-      TLI.setUnavailable(LibFunc_sqrtf);
-      TLI.setUnavailable(LibFunc_tanf);
-      TLI.setUnavailable(LibFunc_tanhf);
+      TLI.setUnavailable(LibFunc_fmin);
+      TLI.setUnavailable(LibFunc_fminf);
+      TLI.setUnavailable(LibFunc_log1p);
+      TLI.setUnavailable(LibFunc_log1pf);
+      TLI.setUnavailable(LibFunc_log2);
+      TLI.setUnavailable(LibFunc_log2f);
+      TLI.setAvailableWithName(LibFunc_logb, "_logb");
+      if (hasPartialFloat)
+        TLI.setAvailableWithName(LibFunc_logbf, "_logbf");
+      else
+        TLI.setUnavailable(LibFunc_logbf);
+      TLI.setUnavailable(LibFunc_rint);
+      TLI.setUnavailable(LibFunc_rintf);
+      TLI.setUnavailable(LibFunc_round);
+      TLI.setUnavailable(LibFunc_roundf);
+      TLI.setUnavailable(LibFunc_trunc);
+      TLI.setUnavailable(LibFunc_truncf);
     }
 
-    // Win32 does *not* provide these functions, but they are
-    // generally available on POSIX-compliant systems:
+    // Win32 does not support long double C99 math functions.
+    TLI.setUnavailable(LibFunc_acoshl);
+    TLI.setUnavailable(LibFunc_asinhl);
+    TLI.setUnavailable(LibFunc_atanhl);
+    TLI.setUnavailable(LibFunc_cabsl);
+    TLI.setUnavailable(LibFunc_cbrtl);
+    TLI.setUnavailable(LibFunc_copysignl);
+    TLI.setUnavailable(LibFunc_exp2l);
+    TLI.setUnavailable(LibFunc_expm1l);
+    TLI.setUnavailable(LibFunc_fmaxl);
+    TLI.setUnavailable(LibFunc_fminl);
+    TLI.setUnavailable(LibFunc_log1pl);
+    TLI.setUnavailable(LibFunc_log2l);
+    TLI.setUnavailable(LibFunc_logbl);
+    TLI.setUnavailable(LibFunc_nearbyintl);
+    TLI.setUnavailable(LibFunc_rintl);
+    TLI.setUnavailable(LibFunc_roundl);
+    TLI.setUnavailable(LibFunc_truncl);
+
+    // Win32 does not support these functions, but
+    // they are generally available on POSIX-compliant systems.
     TLI.setUnavailable(LibFunc_access);
     TLI.setUnavailable(LibFunc_bcmp);
     TLI.setUnavailable(LibFunc_bcopy);
@@ -321,13 +368,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_utime);
     TLI.setUnavailable(LibFunc_utimes);
     TLI.setUnavailable(LibFunc_write);
-
-    // Win32 does *not* provide provide these functions, but they are
-    // specified by C99:
-    TLI.setUnavailable(LibFunc_atoll);
-    TLI.setUnavailable(LibFunc_frexpf);
-    TLI.setUnavailable(LibFunc_llabs);
-
 #if INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_cxa_pure_virtual);
     TLI.setUnavailable(LibFunc_fxstat);
@@ -413,6 +453,9 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZNKSs7compareEPKc);
     TLI.setUnavailable(LibFunc_ZNKSt13runtime_error4whatEv);
     TLI.setUnavailable(LibFunc_ZNKSt5ctypeIcE13_M_widen_initEv);
+    TLI.setUnavailable(LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEPKcmm);
+    TLI.setUnavailable(LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEcm);
+    TLI.setUnavailable(LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEPKcmm);
     TLI.setUnavailable(LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc);
     TLI.setUnavailable(LibFunc_ZNKSt9bad_alloc4whatEv);
     TLI.setUnavailable(LibFunc_ZNKSt9exception4whatEv);
@@ -454,7 +497,12 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEE4openEPKcSt13_Ios_Openmode);
     TLI.setUnavailable(LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEE5closeEv);
     TLI.setUnavailable(LibFunc_ZNSt13basic_filebufIcSt11char_traitsIcEEC1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt13runtime_errorC1EPKc);
+    TLI.setUnavailable(LibFunc_ZNSt13runtime_errorC1ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE);
     TLI.setUnavailable(LibFunc_ZNSt13runtime_errorC1ERKSs);
+    TLI.setUnavailable(LibFunc_ZNSt13runtime_errorC1ERKS_);
+    TLI.setUnavailable(LibFunc_ZNSt13runtime_errorC2EPKc);
+    TLI.setUnavailable(LibFunc_ZNSt13runtime_errorC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE);
     TLI.setUnavailable(LibFunc_ZNSt13runtime_errorC2ERKSs);
     TLI.setUnavailable(LibFunc_ZNSt13runtime_errorD0Ev);
     TLI.setUnavailable(LibFunc_ZNSt13runtime_errorD1Ev);
@@ -470,12 +518,21 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZNSt15basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKSsSt13_Ios_Openmode);
     TLI.setUnavailable(LibFunc_ZNSt6localeC1Ev);
     TLI.setUnavailable(LibFunc_ZNSt6localeD1Ev);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7reserveEm);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE8_M_eraseEmm);
     TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm);
     TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_assignERKS4_);
     TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm);
     TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm);
     TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc);
     TLI.setUnavailable(LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7seekoffElSt12_Ios_SeekdirSt13_Ios_Openmode);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7seekposESt4fposI11__mbstate_tESt13_Ios_Openmode);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE8overflowEi);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9pbackfailEi);
+    TLI.setUnavailable(LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9underflowEv);
     TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_);
     TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base7_M_hookEPS0_);
     TLI.setUnavailable(LibFunc_ZNSt8__detail15_List_node_base9_M_unhookEv);
@@ -924,6 +981,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_stat:
   case LibFunc_statvfs:
   case LibFunc_siprintf:
+  case LibFunc_small_sprintf:
   case LibFunc_sprintf:
     return (NumParams >= 2 && FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
@@ -1021,6 +1079,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_getenv:
   case LibFunc_getpwnam:
   case LibFunc_iprintf:
+  case LibFunc_small_printf:
   case LibFunc_pclose:
   case LibFunc_perror:
   case LibFunc_printf:
@@ -1100,6 +1159,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isPointerTy());
   case LibFunc_fscanf:
   case LibFunc_fiprintf:
+  case LibFunc_small_fprintf:
   case LibFunc_fprintf:
     return (NumParams >= 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -1950,6 +2010,26 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
 
+  case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE4findEPKcmm:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEPKcmm:
+    return (NumParams == 4 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5rfindEcm:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
   case LibFunc_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7compareEPKc:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() && // this pointer
@@ -2167,7 +2247,32 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
 
+  case LibFunc_ZNSt13runtime_errorC1EPKc:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSt13runtime_errorC1ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
   case LibFunc_ZNSt13runtime_errorC1ERKSs:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSt13runtime_errorC1ERKS_:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSt13runtime_errorC2EPKc:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_ZNSt13runtime_errorC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE:
     return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() && // this pointer
             FTy.getParamType(1)->isPointerTy());
@@ -2249,6 +2354,23 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
 
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEmc:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE7reserveEm:
+    return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE8_M_eraseEmm:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_appendEPKcm:
     return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() && // this pointer
@@ -2282,6 +2404,13 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(3)->isPointerTy() &&
             FTy.getParamType(4)->isIntegerTy());
 
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc:
+    return (NumParams == 5 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy() &&
+            FTy.getParamType(4)->isIntegerTy());
 
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm:
     return (NumParams = 4 && FTy.getReturnType()->isVoidTy() &&
@@ -2289,6 +2418,33 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy() &&
             FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7seekoffElSt12_Ios_SeekdirSt13_Ios_Openmode:
+    return (NumParams == 4 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7seekposESt4fposI11__mbstate_tESt13_Ios_Openmode:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE8overflowEi:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9pbackfailEi:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() && // this pointer
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9underflowEv:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());  // this pointer
 
   case LibFunc_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_:
     return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&

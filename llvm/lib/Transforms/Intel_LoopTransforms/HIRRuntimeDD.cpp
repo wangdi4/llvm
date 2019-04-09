@@ -349,12 +349,18 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
   // We will be replacing every IV inside a RegDDRef: a[i+j+k][j][k]. So we have
   // to check all canon expressions against UB of every loop in loopnest.
   // We skip loops if its IV is absent.
-  for (auto I = Lower->canon_begin(), E = Lower->canon_end(); E != I; ++I) {
-    const CanonExpr *CE = *I;
+  for (unsigned I = 1, NumDims = Lower->getNumDimensions(); I <= NumDims; ++I) {
+    const CanonExpr *CE = Lower->getDimensionIndex(I);
+    auto *LowerCE = Lower->getDimensionLower(I);
+    auto *StrideCE = Lower->getDimensionStride(I);
 
-    if (CE->isNonLinear() || CE->containsUndef()) {
+    if (CE->isNonLinear() || CE->containsUndef() || LowerCE->isNonLinear() ||
+        LowerCE->containsUndef() || StrideCE->isNonLinear() ||
+        StrideCE->containsUndef()) {
       return NON_LINEAR_SUBS;
     }
+
+    // TODO: Account for the sign of dimension stride.
 
     for (const HLLoop *LoopI = InnermostLoop,
                       *LoopE = OuterLoop->getParentLoop();

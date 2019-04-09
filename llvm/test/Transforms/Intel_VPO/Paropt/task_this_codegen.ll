@@ -413,7 +413,7 @@ attributes #5 = { builtin }
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 13f24ababc1fe2fcaa37978f111e0842a0d7679f) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm f150001ff16ada8bfe88d5717d0cc28a667adc82)"}
+!1 = !{!"clang version 7.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"pointer@_ZTSPx", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

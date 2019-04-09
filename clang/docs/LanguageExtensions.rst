@@ -2376,6 +2376,78 @@ Which compiles to (on X86-32):
           movl    %gs:(%eax), %eax
           ret
 
+PowerPC Language Extensions
+------------------------------
+
+Set the Floating Point Rounding Mode
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+PowerPC64/PowerPC64le supports the builtin function ``__builtin_setrnd`` to set
+the floating point rounding mode. This function will use the least significant
+two bits of integer argument to set the floating point rounding mode.
+
+.. code-block:: c++
+
+  double __builtin_setrnd(int mode);
+
+The effective values for mode are:
+
+    - 0 - round to nearest
+    - 1 - round to zero
+    - 2 - round to +infinity
+    - 3 - round to -infinity
+
+Note that the mode argument will modulo 4, so if the int argument is greater 
+than 3, it will only use the least significant two bits of the mode. 
+Namely, ``__builtin_setrnd(102))`` is equal to ``__builtin_setrnd(2)``.
+
+PowerPC Language Extensions
+------------------------------
+
+Set the Floating Point Rounding Mode
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+PowerPC64/PowerPC64le supports the builtin function ``__builtin_setrnd`` to set
+the floating point rounding mode. This function will use the least significant
+two bits of integer argument to set the floating point rounding mode.
+
+.. code-block:: c++
+
+  double __builtin_setrnd(int mode);
+
+The effective values for mode are:
+
+    - 0 - round to nearest
+    - 1 - round to zero
+    - 2 - round to +infinity
+    - 3 - round to -infinity
+
+Note that the mode argument will modulo 4, so if the integer argument is greater
+than 3, it will only use the least significant two bits of the mode. 
+Namely, ``__builtin_setrnd(102))`` is equal to ``__builtin_setrnd(2)``.
+
+PowerPC Language Extensions
+------------------------------
+
+Set the Floating Point Rounding Mode
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+PowerPC64/PowerPC64le supports the builtin function ``__builtin_setrnd`` to set
+the floating point rounding mode. This function will use the least significant
+two bits of integer argument to set the floating point rounding mode.
+
+.. code-block:: c++
+
+  double __builtin_setrnd(int mode);
+
+The effective values for mode are:
+
+    - 0 - round to nearest
+    - 1 - round to zero
+    - 2 - round to +infinity
+    - 3 - round to -infinity
+
+Note that the mode argument will modulo 4, so if the integer argument is greater
+than 3, it will only use the least significant two bits of the mode. 
+Namely, ``__builtin_setrnd(102))`` is equal to ``__builtin_setrnd(2)``.
+
 Extensions for Static Analysis
 ==============================
 
@@ -2922,3 +2994,29 @@ Specifying Linker Options on ELF Targets
 The ``#pragma comment(lib, ...)`` directive is supported on all ELF targets.
 The second parameter is the library name (without the traditional Unix prefix of
 ``lib``).  This allows you to provide an implicit link of dependent libraries.
+
+Evaluating Object Size Dynamically
+==================================
+
+Clang supports the builtin ``__builtin_dynamic_object_size``, the semantics are
+the same as GCC's ``__builtin_object_size`` (which Clang also supports), but
+``__builtin_dynamic_object_size`` can evaluate the object's size at runtime.
+``__builtin_dynamic_object_size`` is meant to be used as a drop-in replacement
+for ``__builtin_object_size`` in libraries that support it.
+
+For instance, here is a program that ``__builtin_dynamic_object_size`` will make
+safer:
+
+.. code-block:: c
+
+  void copy_into_buffer(size_t size) {
+    char* buffer = malloc(size);
+    strlcpy(buffer, "some string", strlen("some string"));
+    // Previous line preprocesses to:
+    // __builtin___strlcpy_chk(buffer, "some string", strlen("some string"), __builtin_object_size(buffer, 0))
+  }
+
+Since the size of ``buffer`` can't be known at compile time, Clang will fold
+``__builtin_object_size(buffer, 0)`` into ``-1``. However, if this was written
+as ``__builtin_dynamic_object_size(buffer, 0)``, Clang will fold it into
+``size``, providing some extra runtime safety.

@@ -1539,9 +1539,7 @@ void VecClone::insertDirectiveIntrinsics(Module &M, Function *Clone,
   LLVM_DEBUG(Clone->dump());
 }
 
-bool VecClone::isSimpleFunction(Function *Clone, VectorVariant &V,
-                                ReturnInst *ReturnOnly)
-{
+bool VecClone::isSimpleFunction(Function *Func) {
   // For really simple functions, there is no need to go through the process
   // of inserting a loop.
 
@@ -1555,7 +1553,10 @@ bool VecClone::isSimpleFunction(Function *Clone, VectorVariant &V,
   // clone the function and return. It's possible that we could have some code
   // inside of a vector function that modifies global memory. Let that case go
   // through.
-  if (ReturnOnly && Clone->getReturnType()->isVoidTy()) {
+  Function::iterator EntryBlock = Func->begin();
+  BasicBlock::iterator FirstInst = EntryBlock->begin();
+  ReturnInst *ReturnOnly = dyn_cast<ReturnInst>(FirstInst);
+  if (ReturnOnly && Func->getReturnType()->isVoidTy()) {
     return true;
   }
 
@@ -1723,12 +1724,9 @@ bool VecClone::runOnModule(Module &M) {
       LLVM_DEBUG(F.dump());
       Function *Clone = CloneFunction(F, Variant);
       Function::iterator EntryBlock = Clone->begin();
-      BasicBlock::iterator FirstInst = EntryBlock->begin();
-      ReturnInst *ReturnOnly = dyn_cast<ReturnInst>(FirstInst);
 
-      if (isSimpleFunction(Clone, Variant, ReturnOnly)) {
+      if (isSimpleFunction(Clone))
         continue;
-      }
 
       BasicBlock *LoopBlock = splitEntryIntoLoop(Clone, Variant, &*EntryBlock);
       BasicBlock *ReturnBlock = splitLoopIntoReturn(Clone, &Clone->back());

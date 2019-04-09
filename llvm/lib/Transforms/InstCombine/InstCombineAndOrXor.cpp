@@ -1258,6 +1258,52 @@ Value *InstCombiner::foldLogicOfFCmps(FCmpInst *LHS, FCmpInst *RHS, bool IsAnd) 
   return nullptr;
 }
 
+/// This a limited reassociation for a special case (see above) where we are
+/// checking if two values are either both NAN (unordered) or not-NAN (ordered).
+/// This could be handled more generally in '-reassociation', but it seems like
+/// an unlikely pattern for a large number of logic ops and fcmps.
+static Instruction *reassociateFCmps(BinaryOperator &BO,
+                                     InstCombiner::BuilderTy &Builder) {
+  Instruction::BinaryOps Opcode = BO.getOpcode();
+  assert((Opcode == Instruction::And || Opcode == Instruction::Or) &&
+         "Expecting and/or op for fcmp transform");
+
+  // There are 4 commuted variants of the pattern. Canonicalize operands of this
+  // logic op so an fcmp is operand 0 and a matching logic op is operand 1.
+  Value *Op0 = BO.getOperand(0), *Op1 = BO.getOperand(1), *X;
+  FCmpInst::Predicate Pred;
+  if (match(Op1, m_FCmp(Pred, m_Value(), m_AnyZeroFP())))
+    std::swap(Op0, Op1);
+
+  // Match inner binop and the predicate for combining 2 NAN checks into 1.
+  BinaryOperator *BO1;
+  FCmpInst::Predicate NanPred = Opcode == Instruction::And ? FCmpInst::FCMP_ORD
+                                                           : FCmpInst::FCMP_UNO;
+  if (!match(Op0, m_FCmp(Pred, m_Value(X), m_AnyZeroFP())) || Pred != NanPred ||
+      !match(Op1, m_BinOp(BO1)) || BO1->getOpcode() != Opcode)
+    return nullptr;
+
+  // The inner logic op must have a matching fcmp operand.
+  Value *BO10 = BO1->getOperand(0), *BO11 = BO1->getOperand(1), *Y;
+  if (!match(BO10, m_FCmp(Pred, m_Value(Y), m_AnyZeroFP())) ||
+      Pred != NanPred || X->getType() != Y->getType())
+    std::swap(BO10, BO11);
+
+  if (!match(BO10, m_FCmp(Pred, m_Value(Y), m_AnyZeroFP())) ||
+      Pred != NanPred || X->getType() != Y->getType())
+    return nullptr;
+
+  // and (fcmp ord X, 0), (and (fcmp ord Y, 0), Z) --> and (fcmp ord X, Y), Z
+  // or  (fcmp uno X, 0), (or  (fcmp uno Y, 0), Z) --> or  (fcmp uno X, Y), Z
+  Value *NewFCmp = Builder.CreateFCmp(Pred, X, Y);
+  if (auto *NewFCmpInst = dyn_cast<FCmpInst>(NewFCmp)) {
+    // Intersect FMF from the 2 source fcmps.
+    NewFCmpInst->copyIRFlags(Op0);
+    NewFCmpInst->andIRFlags(BO10);
+  }
+  return BinaryOperator::Create(Opcode, NewFCmp, BO11);
+}
+
 /// Match De Morgan's Laws:
 /// (~A & ~B) == (~(A | B))
 /// (~A | ~B) == (~(A & B))
@@ -1618,6 +1664,7 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
     if (BinaryOperator *Op0I = dyn_cast<BinaryOperator>(Op0)) {
       // ((C1 OP zext(X)) & C2) -> zext((C1-X) & C2) if C2 fits in the bitwidth
       // of X and OP behaves well when given trunc(C1) and X.
+      // TODO: Do this for vectors by using m_APInt isntead of m_ConstantInt.
       switch (Op0I->getOpcode()) {
       default:
         break;
@@ -1628,7 +1675,10 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
       case Instruction::Sub:
         Value *X;
         ConstantInt *C1;
-        if (match(Op0I, m_c_BinOp(m_ZExt(m_Value(X)), m_ConstantInt(C1)))) {
+        // TODO: The one use restrictions could be relaxed a little if the AND
+        // is going to be removed.
+        if (match(Op0I, m_OneUse(m_c_BinOp(m_OneUse(m_ZExt(m_Value(X))),
+                                           m_ConstantInt(C1))))) {
           if (AndRHSMask.isIntN(X->getType()->getScalarSizeInBits())) {
             auto *TruncC1 = ConstantExpr::getTrunc(C1, X->getType());
             Value *BinOp;
@@ -1746,6 +1796,9 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
       if (Value *Res = foldLogicOfFCmps(LHS, RHS, true))
         return replaceInstUsesWith(I, Res);
 
+  if (Instruction *FoldedFCmps = reassociateFCmps(I, Builder))
+    return FoldedFCmps;
+
   if (Instruction *CastedAnd = foldCastedBitwiseLogic(I))
     return CastedAnd;
 
@@ -1757,6 +1810,11 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
   if (match(Op1, m_OneUse(m_SExt(m_Value(A)))) &&
       A->getType()->isIntOrIntVectorTy(1))
     return SelectInst::Create(A, Op0, Constant::getNullValue(I.getType()));
+
+#if INTEL_CUSTOMIZATION
+  if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
+    return X;
+#endif // INTEL_CUSTOMIZATION
 
   return nullptr;
 }
@@ -1819,14 +1877,18 @@ static Instruction *matchRotate(Instruction &Or) {
 
   // First, find an or'd pair of opposite shifts with the same shifted operand:
   // or (lshr ShVal, ShAmt0), (shl ShVal, ShAmt1)
-  Value *Or0 = Or.getOperand(0), *Or1 = Or.getOperand(1);
+  BinaryOperator *Or0, *Or1;
+  if (!match(Or.getOperand(0), m_BinOp(Or0)) ||
+      !match(Or.getOperand(1), m_BinOp(Or1)))
+    return nullptr;
+
   Value *ShVal, *ShAmt0, *ShAmt1;
   if (!match(Or0, m_OneUse(m_LogicalShift(m_Value(ShVal), m_Value(ShAmt0)))) ||
       !match(Or1, m_OneUse(m_LogicalShift(m_Specific(ShVal), m_Value(ShAmt1)))))
     return nullptr;
 
-  auto ShiftOpcode0 = cast<BinaryOperator>(Or0)->getOpcode();
-  auto ShiftOpcode1 = cast<BinaryOperator>(Or1)->getOpcode();
+  BinaryOperator::BinaryOps ShiftOpcode0 = Or0->getOpcode();
+  BinaryOperator::BinaryOps ShiftOpcode1 = Or1->getOpcode();
   if (ShiftOpcode0 == ShiftOpcode1)
     return nullptr;
 
@@ -2411,6 +2473,9 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
       if (Value *Res = foldLogicOfFCmps(LHS, RHS, false))
         return replaceInstUsesWith(I, Res);
 
+  if (Instruction *FoldedFCmps = reassociateFCmps(I, Builder))
+    return FoldedFCmps;
+
   if (Instruction *CastedOr = foldCastedBitwiseLogic(I))
     return CastedOr;
 
@@ -2448,6 +2513,11 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
       return SelectInst::Create(X, orTrue, orFalse);
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (Instruction *X = recognizeFCmpMinMaxIdiom(I))
+    return X;
+#endif // INTEL_CUSTOMIZATION
 
   return nullptr;
 }
@@ -2981,3 +3051,243 @@ Instruction *InstCombiner::visitXor(BinaryOperator &I) {
 
   return nullptr;
 }
+
+#if INTEL_CUSTOMIZATION
+/// Returns true if binary operation has FP min/max semantics:
+/// Example:
+///  %cmp = fcmp nnan olt float %c, %a     <== %c is a common operand
+///  %cmp1 = fcmp nnan olt float %c, %b    <== %c is a common operand
+///  %0 = or i1 %cmp, %cmp1
+/// Both fcmp instructions should have nnan flag set.
+/// Also 2 fcmp should have identical or swapped predicates
+/// (if common operand is not in the same place) and
+/// predicate should not be commutative, i.e. there should be inequality.
+static bool binOpMatchesFcmpMinMaxIdiom(Value *UOp0, Value *UOp1, Value *&A,
+                                        Value *&B, Value *&C) {
+  FCmpInst::Predicate Pred1;
+  FCmpInst::Predicate Pred2;
+
+  if ((match(UOp0, m_OneUse(m_FCmp(Pred1, m_Value(C), m_Value(A)))) &&
+       match(UOp1, m_OneUse(m_FCmp(Pred2, m_Specific(C), m_Value(B))))) ||
+      (match(UOp0, m_OneUse(m_FCmp(Pred1, m_Value(A), m_Value(C)))) &&
+       match(UOp1, m_OneUse(m_FCmp(Pred2, m_Value(B), m_Specific(C)))))) {
+    FCmpInst *Fcmp1 = cast<FCmpInst>(UOp0);
+    FCmpInst *Fcmp2 = cast<FCmpInst>(UOp1);
+    return Pred1 == Pred2 && !Fcmp1->isCommutative() && Fcmp1->hasNoNaNs() &&
+           Fcmp2->hasNoNaNs();
+  }
+
+  if ((match(UOp0, m_OneUse(m_FCmp(Pred1, m_Value(C), m_Value(A)))) &&
+       match(UOp1, m_OneUse(m_FCmp(Pred2, m_Value(B), m_Specific(C))))) ||
+      (match(UOp0, m_OneUse(m_FCmp(Pred1, m_Value(A), m_Value(C)))) &&
+       match(UOp1, m_OneUse(m_FCmp(Pred2, m_Specific(C), m_Value(B)))))) {
+    FCmpInst *Fcmp1 = cast<FCmpInst>(UOp0);
+    FCmpInst *Fcmp2 = cast<FCmpInst>(UOp1);
+    return Pred1 == CmpInst::getSwappedPredicate(Pred2) &&
+           !Fcmp1->isCommutative() && Fcmp1->hasNoNaNs() && Fcmp2->hasNoNaNs();
+  }
+
+  return false;
+}
+
+/// Combines binary operator and 2 fcmp into FP min/max.
+/// Example:
+/// (c < a || c < b ) => c < max(a,b)
+///
+///  %cmp = fcmp nnan olt float %c, %a
+///  %cmp1 = fcmp nnan olt float %c, %b
+///  %res = or i1 %cmp, %cmp1
+///  =>
+///  %cmp = fcmp nnan oge float %a, %b
+///  %0 = select i1 %cmp, float %a, float %b
+///  %res = fcmp nnan olt float %c, %0
+Instruction *InstCombiner::combineAndOrToFcmpMinMax(BinaryOperator &I, Value *A,
+                                                    Value *B, Value *C) {
+  Value *UOp0 = I.getOperand(0);
+  Value *UOp1 = I.getOperand(1);
+
+  FCmpInst *Fcmp1 = cast<FCmpInst>(UOp0);
+  FCmpInst *Fcmp2 = cast<FCmpInst>(UOp1);
+
+  // This routine tries to put common operand (C) on the LHS
+  auto canonicalizeWithRespectToC = [C](FCmpInst *Fcmp) {
+    if (Fcmp->getOperand(0) == C)
+      return;
+    Fcmp->swapOperands();
+  };
+
+  canonicalizeWithRespectToC(Fcmp1);
+  canonicalizeWithRespectToC(Fcmp2);
+
+  auto combineToMinMax = [A, B, C, Fcmp1, Fcmp2, &I,
+                          this](FCmpInst::Predicate Pred) {
+    // create min/max logic
+    Fcmp1->setOperand(0, A);
+    Fcmp1->setOperand(1, B);
+    Fcmp1->setPredicate(Pred);
+    Fcmp1->moveBefore(&I);
+    Instruction *SI = InsertNewInstWith(SelectInst::Create(Fcmp1, A, B), I);
+    // fix second fcmp.
+    Fcmp2->setOperand(0, C);
+    Fcmp2->setOperand(1, SI);
+    Fcmp2->moveBefore(&I);
+    // or/and instruction is dead and will be erased
+    return replaceInstUsesWith(I, Fcmp2);
+  };
+
+  FCmpInst::Predicate MaybeSwappedPred = Fcmp2->getPredicate();
+
+  auto combineToMin = [&combineToMinMax, MaybeSwappedPred]() {
+    FCmpInst::Predicate MinMaxPred = FCmpInst::isOrdered(MaybeSwappedPred)
+                                         ? FCmpInst::FCMP_OLE
+                                         : FCmpInst::FCMP_ULE;
+    return combineToMinMax(MinMaxPred);
+  };
+
+  auto combineToMax = [&combineToMinMax, MaybeSwappedPred]() {
+    FCmpInst::Predicate MinMaxPred = FCmpInst::isOrdered(MaybeSwappedPred)
+                                         ? FCmpInst::FCMP_OGE
+                                         : FCmpInst::FCMP_UGE;
+    return combineToMinMax(MinMaxPred);
+  };
+
+  if (I.getOpcode() == Instruction::Or) {
+    if (ufmax_pred_ty::match(MaybeSwappedPred) ||
+        ofmax_pred_ty::match(MaybeSwappedPred))
+      return combineToMin();
+    else if (ufmin_pred_ty::match(MaybeSwappedPred) ||
+             ofmin_pred_ty::match(MaybeSwappedPred))
+      return combineToMax();
+  } else if (I.getOpcode() == Instruction::And) {
+    if (ufmax_pred_ty::match(MaybeSwappedPred) ||
+        ofmax_pred_ty::match(MaybeSwappedPred))
+      return combineToMax();
+    else if (ufmin_pred_ty::match(MaybeSwappedPred) ||
+             ofmin_pred_ty::match(MaybeSwappedPred))
+      return combineToMin();
+  }
+  llvm_unreachable("Unknown Opcode or Predicate!");
+}
+
+// Return true when all operands of I are available at insertion point IPt.
+bool InstCombiner::allOperandsAvailable(const Instruction *I,
+                                        const Instruction *IPt) {
+  for (const Use &Op : I->operands())
+    if (const auto *DefInst = dyn_cast<Instruction>(&Op))
+      if (!DT.dominates(DefInst, IPt))
+        return false;
+  return true;
+}
+
+/// Based on associative property of OR/AND, group 2 fcmp together by
+/// hoisting the latest fcmp up and exchanging use of this fcmp
+/// and use of Op operand in BinOp.
+/// Example:
+///  %cmp = fcmp nnan ogt float %c, %a
+///  %or.cond39 = or i1 %d, %cmp           <== BinOp, Op(%d)
+///  %cmp3 = fcmp nnan ogt float %c, %b    <== I1
+///  %res = or i1 %or.cond39, %cmp3
+///  =>
+///  %cmp = fcmp nnan ogt float %c, %a
+///  %cmp3 = fcmp nnan ogt float %c, %b    <== hoisted
+///  %or.cond39 = or i1 %cmp3, %cmp        <== %d and %cmp3 exchanged
+///  %res = or i1 %or.cond39, %d           <== %d and %cmp3 exchanged
+bool InstCombiner::hoistFcmpAndExchangeUses(Instruction *I1, Value *Op,
+                                            Instruction *BinOp) {
+  bool Changed = false;
+  if (I1->hasOneUse() && allOperandsAvailable(I1, BinOp)) {
+    I1->moveBefore(BinOp);
+
+    Use &U1 = *I1->use_begin();
+    U1.set(Op);
+    if (BinOp->getOperand(0) == Op)
+      BinOp->setOperand(0, I1);
+    if (BinOp->getOperand(1) == Op)
+      BinOp->setOperand(1, I1);
+    Changed = true;
+  }
+  return Changed;
+}
+
+/// This function tries to combine trees of OR/AND operations
+/// into FP min/max semantics.
+///
+///      OR            OR            OR
+///     /  \          /  \          /  \
+///    OR   C   =>   OR   B   =>   min  B
+///   /  \          /  \           max
+///  A    B        A    C          A,C
+///
+/// In order to combine A and C into min/max semantics
+/// we first reassociate comparisons and then do conversion.
+/// Currently depth of the tree is limited by 2, i.e. we don't
+/// go deeper if the tree is more complicated than above.
+Instruction *InstCombiner::combineAndOrTreeToFcmpMinMax(BinaryOperator &I) {
+  auto combineNestedLogicalOps = [&I, this](Value *OpBin,
+                                            Value *OpFcmp) -> Instruction * {
+    BinaryOperator *NestedBinOp = cast<BinaryOperator>(OpBin);
+    // nested binary operator should be exactly the same,
+    // i.e. (A | B) & C is skipped
+    if (NestedBinOp->getOpcode() == I.getOpcode()) {
+      Instruction *IFcmp = cast<Instruction>(OpFcmp);
+      Value *Op0 = NestedBinOp->getOperand(0);
+      Value *Op1 = NestedBinOp->getOperand(1);
+      Value *A = nullptr, *B = nullptr, *C = nullptr;
+
+      // 1. Check if there is a match with any of the nested comparisons.
+      // 2. If there is a match, try to reassociate logical operations.
+      // 3. If reassociation was successful, do min/max conversion.
+      if (binOpMatchesFcmpMinMaxIdiom(Op0, IFcmp, A, B, C)) {
+        if (hoistFcmpAndExchangeUses(IFcmp, Op1, NestedBinOp)) {
+          combineAndOrToFcmpMinMax(*NestedBinOp, A, B, C);
+          return &I;
+        }
+      } else if (binOpMatchesFcmpMinMaxIdiom(Op1, IFcmp, A, B, C)) {
+        if (hoistFcmpAndExchangeUses(IFcmp, Op0, NestedBinOp)) {
+          combineAndOrToFcmpMinMax(*NestedBinOp, A, B, C);
+          return &I;
+        }
+      }
+    }
+    return nullptr;
+  };
+
+  Value *UOp0 = I.getOperand(0);
+  Value *UOp1 = I.getOperand(1);
+  FCmpInst::Predicate Pred;
+  Value *A, *B, *C, *D;
+  // one of the operands is OR/AND, second is FCMP
+  if ((match(UOp0, m_OneUse(m_Or(m_Value(A), m_Value(B)))) &&
+       match(UOp1, m_OneUse(m_FCmp(Pred, m_Value(C), m_Value(D))))) ||
+      (match(UOp0, m_OneUse(m_And(m_Value(A), m_Value(B)))) &&
+       match(UOp1, m_OneUse(m_FCmp(Pred, m_Value(C), m_Value(D))))))
+    return combineNestedLogicalOps(UOp0, UOp1);
+  else if ((match(UOp1, m_OneUse(m_Or(m_Value(A), m_Value(B)))) &&
+            match(UOp0, m_OneUse(m_FCmp(Pred, m_Value(C), m_Value(D))))) ||
+           (match(UOp1, m_OneUse(m_And(m_Value(A), m_Value(B)))) &&
+            match(UOp0, m_OneUse(m_FCmp(Pred, m_Value(C), m_Value(D))))))
+    return combineNestedLogicalOps(UOp1, UOp0);
+
+  return nullptr;
+}
+
+/// Recognize min/max semantics in (fcmp)&(fcmp) and (fcmp)|(fcmp).
+///
+/// Example:
+///  (c < a || c < b ) => c < max(a,b)
+///
+/// Additionally it is able to combine trees of OR/AND.
+/// Example:
+///  (c > a | d < e) | c > b  =>
+///  (c > a | c > b) | d < e  =>
+///  c > min(a,b) | d < e
+Instruction *InstCombiner::recognizeFCmpMinMaxIdiom(BinaryOperator &I) {
+  Value *UOp0 = I.getOperand(0);
+  Value *UOp1 = I.getOperand(1);
+  Value *A = nullptr, *B = nullptr, *C = nullptr;
+  if (binOpMatchesFcmpMinMaxIdiom(UOp0, UOp1, A, B, C))
+    return combineAndOrToFcmpMinMax(I, A, B, C);
+
+  return combineAndOrTreeToFcmpMinMax(I);
+}
+#endif // INTEL_CUSTOMIZATION

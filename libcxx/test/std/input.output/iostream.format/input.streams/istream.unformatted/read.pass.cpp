@@ -12,6 +12,7 @@
 
 #include <istream>
 #include <cassert>
+#include "test_macros.h"
 
 template <class CharT>
 struct testbuf
@@ -37,7 +38,7 @@ public:
     CharT* egptr() const {return base::egptr();}
 };
 
-int main()
+int main(int, char**)
 {
     {
         testbuf<char> sb(" 123456789");
@@ -77,4 +78,40 @@ int main()
         assert( is.fail());
         assert(is.gcount() == 0);
     }
+#ifndef TEST_HAS_NO_EXCEPTIONS
+    {
+        testbuf<char> sb;
+        std::basic_istream<char> is(&sb);
+        is.exceptions(std::ios_base::eofbit);
+        char s[10];
+        bool threw = false;
+        try {
+            is.read(s, 5);
+        } catch (std::ios_base::failure&) {
+            threw = true;
+        }
+        assert(threw);
+        assert(!is.bad());
+        assert( is.eof());
+        assert( is.fail());
+    }
+    {
+        testbuf<wchar_t> sb;
+        std::basic_istream<wchar_t> is(&sb);
+        is.exceptions(std::ios_base::eofbit);
+        wchar_t s[10];
+        bool threw = false;
+        try {
+            is.read(s, 5);
+        } catch (std::ios_base::failure&) {
+            threw = true;
+        }
+        assert(threw);
+        assert(!is.bad());
+        assert( is.eof());
+        assert( is.fail());
+    }
+#endif
+
+    return 0;
 }

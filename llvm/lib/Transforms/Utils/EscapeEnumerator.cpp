@@ -18,7 +18,7 @@
 #include "llvm/IR/Module.h"
 using namespace llvm;
 
-static Constant *getDefaultPersonalityFn(Module *M) {
+static FunctionCallee getDefaultPersonalityFn(Module *M) {
   LLVMContext &C = M->getContext();
   Triple T(M->getTargetTriple());
   EHPersonality Pers = getDefaultEHPersonality(T);
@@ -68,8 +68,8 @@ IRBuilder<> *EscapeEnumerator::Next() {
   BasicBlock *CleanupBB = BasicBlock::Create(C, CleanupBBName, &F);
   Type *ExnTy = StructType::get(Type::getInt8PtrTy(C), Type::getInt32Ty(C));
   if (!F.hasPersonalityFn()) {
-    Constant *PersFn = getDefaultPersonalityFn(F.getParent());
-    F.setPersonalityFn(PersFn);
+    FunctionCallee PersFn = getDefaultPersonalityFn(F.getParent());
+    F.setPersonalityFn(cast<Constant>(PersFn.getCallee()));
   }
 
   if (isScopedEHPersonality(classifyEHPersonality(F.getPersonalityFn()))) {
@@ -86,7 +86,9 @@ IRBuilder<> *EscapeEnumerator::Next() {
   SmallVector<Value *, 16> Args;
   for (unsigned I = Calls.size(); I != 0;) {
     CallInst *CI = cast<CallInst>(Calls[--I]);
-    changeToInvokeAndSplitBasicBlock(CI, CleanupBB);
+#if INTEL_CUSTOMIZATION
+    changeToInvokeAndSplitBasicBlock(CI, CleanupBB, nullptr, nullptr);
+#endif // INTEL_CUSTOMIZATION
   }
 
   Builder.SetInsertPoint(RI);

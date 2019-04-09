@@ -77,6 +77,14 @@ namespace {
 struct TempInfo {
 private:
   HLInst *DefInst;
+
+  // Keeps track of single definition of the rval which makes the temp
+  // unsubstitutible. This only applies to liveout copies. In some cases, we can
+  // reorder instructions and still substitute the temp.
+  HLInst *SingleRvalDefInst;
+
+  HLLoop *DefLoop;
+
   // Stores single use site of load temps.
   // Stores the lexically last use of liveout copy that was substituted. This is
   // needed for correctly updating loop liveout set.
@@ -95,12 +103,18 @@ private:
 
 public:
   TempInfo(HLInst *DefInst)
-      : DefInst(DefInst), UseRef(nullptr), IsSubstitutable(true),
-        IsValid(true) {}
+      : DefInst(DefInst), SingleRvalDefInst(nullptr),
+        DefLoop(DefInst->getLexicalParentLoop()), UseRef(nullptr),
+        IsSubstitutable(true), IsValid(true) {}
 
   HLInst *getDefInst() const { return DefInst; }
 
-  HLLoop *getLoop() const { return getDefInst()->getLexicalParentLoop(); }
+  HLInst *getSingleRvalDefInst() const { return SingleRvalDefInst; }
+  bool hasSingleRvalDefInst() const { return getSingleRvalDefInst(); }
+
+  bool setSingleRvalDefInst(HLInst *RvalDefInst);
+
+  HLLoop *getDefLoop() const { return DefLoop; }
 
   const RegDDRef *getDDRef() const { return DefInst->getLvalDDRef(); }
   const RegDDRef *getRvalDDRef() const { return DefInst->getRvalDDRef(); }
@@ -140,19 +154,6 @@ public:
     return getLastUseRef() ? getLastUseRef()->getLexicalParentLoop() : nullptr;
   }
 
-  // Replaces liveout temp by its copy in the Node represented by \p UseRef. It
-  // is also replaced in the lval temp ref of the node, if applicable.
-  void substituteInUseNode(RegDDRef *UseRef);
-
-  void addInnerLoopUse(RegDDRef *Use) {
-    assert(!isLoad() && "Attempt to add inner loop uses for load temp!");
-    InnerLoopUses.push_back(Use);
-  }
-
-  // Substitutes or invalidates temp for the stored inner loop uses. \p
-  // InvalidatingLoop indicates the loopnest where temp is invalid.
-  void processInnerLoopUses(HLLoop *InvalidatingLoop);
-
   unsigned getBlobIndex() const { return getDDRef()->getSelfBlobIndex(); }
   unsigned getRvalBlobIndex() const {
     assert(!isLoad() && "Attempt to access load temp's rval blob index!");
@@ -166,7 +167,56 @@ public:
     assert(!isLoad() && "Attempt to access load temp's rval symbase!");
     return DefInst->getBlobUtils().getTempBlobSymbase(getRvalBlobIndex());
   }
+
+  // Replaces liveout temp by its copy in the Node represented by \p UseRef. It
+  // is also replaced in the lval temp ref of the node, if applicable.
+  void substituteInUseNode(RegDDRef *UseRef);
+
+  void addInnerLoopUse(RegDDRef *Use) {
+    assert(!isLoad() && "Attempt to add inner loop uses for load temp!");
+    InnerLoopUses.push_back(Use);
+  }
+
+  // Substitutes or invalidates temp for the stored inner loop uses. \p
+  // InvalidatingLoop indicates the loopnest where temp is invalid.
+  void processInnerLoopUses(HLLoop *InvalidatingLoop);
+
+  // Tries to move \p UseNode before single rval definition of temp so temp can
+  // be substituted. Returns true/false based on whether it is successful in
+  // moving the node.
+  bool movedUseBeforeRvalDef(HLDDNode *UseNode);
 };
+
+bool TempInfo::setSingleRvalDefInst(HLInst *RvalDefInst) {
+  assert(!isLoad() && "Attempt to add rval definition for load temp!");
+
+  // Temp is already non-substitutible.
+  if (!isSubstitutable()) {
+    return false;
+  }
+
+  if (SingleRvalDefInst) {
+    // Give up on reordering instructions if we found more than one definition
+    // or rval.
+    SingleRvalDefInst = nullptr;
+    return false;
+  }
+
+  auto *ParLp = getDefLoop();
+
+  // Do not handle loop liveout temps.
+  if (ParLp->isLiveOut(getSymbase())) {
+    return false;
+  }
+
+  // Restrict to innermost loops for now.
+  if (!ParLp->isInnermost() || (RvalDefInst->getLexicalParentLoop() != ParLp)) {
+    return false;
+  }
+
+  SingleRvalDefInst = RvalDefInst;
+  return true;
+}
 
 void TempInfo::substituteInUseRef() {
   assert(isLoad() && "Attempt to access use ref for copy temp!");
@@ -231,7 +281,7 @@ void TempInfo::substituteInUseNode(RegDDRef *UseRef) {
   }
 
   // Replace lval symbase by rval symbase as livein.
-  auto *DefLoop = getLoop();
+  auto *DefLoop = getDefLoop();
   auto *UseLoop = isa<HLLoop>(UseNode) ? cast<HLLoop>(UseNode)
                                        : UseRef->getLexicalParentLoop();
   unsigned RvalSymbase = getRvalSymbase();
@@ -285,7 +335,7 @@ void TempInfo::processInnerLoopUses(HLLoop *InvalidatingLoop) {
     //   END DO
     // END DO
 
-    HLLoop *DefLoop = getLoop();
+    HLLoop *DefLoop = getDefLoop();
 
     for (auto UseRef : InnerLoopUses) {
       HLLoop *UseLoop = UseRef->getLexicalParentLoop();
@@ -309,6 +359,99 @@ void TempInfo::processInnerLoopUses(HLLoop *InvalidatingLoop) {
   }
 
   InnerLoopUses.clear();
+}
+
+bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
+  assert(hasSingleRvalDefInst() && "Temp does not contain rval def!");
+
+  auto *UseInst = dyn_cast<HLInst>(UseNode);
+
+  if (!UseInst || UseInst->isCallInst()) {
+    return false;
+  }
+
+  // Do not move memrefs.
+  for (auto *Ref :
+       make_range(UseInst->op_ddref_begin(), UseInst->op_ddref_end())) {
+    if (Ref->isMemRef()) {
+      return false;
+    }
+  }
+
+  auto *RvalDefInst = getSingleRvalDefInst();
+
+  if (RvalDefInst->getParent() != UseInst->getParent()) {
+    return false;
+  }
+
+  auto &BU = UseInst->getBlobUtils();
+  auto *UseLvalRef = UseInst->getLvalDDRef();
+
+  unsigned UseLvalBlobIndex = InvalidBlobIndex;
+
+  if (UseLvalRef && UseLvalRef->isTerminalRef()) {
+
+    UseLvalBlobIndex = UseLvalRef->isSelfBlob()
+                           ? UseLvalRef->getSelfBlobIndex()
+                           : BU.findTempBlobIndex(UseLvalRef->getSymbase());
+
+    // Illegal to move if lval of UseInst is used by rval def inst.
+    for (auto *Ref : make_range(RvalDefInst->op_ddref_begin(),
+                                RvalDefInst->op_ddref_end())) {
+      if (Ref->usesTempBlob(UseLvalBlobIndex)) {
+        return false;
+      }
+    }
+  }
+
+  // Check if intermediate nodes prevent reordering.
+  for (auto *PrevNode = UseInst->getPrevNode(); PrevNode != RvalDefInst;
+       PrevNode = PrevNode->getPrevNode()) {
+
+    if (!PrevNode) {
+      return false;
+    }
+
+    auto *Inst = dyn_cast<HLInst>(PrevNode);
+
+    // Do not move across non-insts.
+    if (!Inst) {
+      return false;
+    }
+
+    // Illegal to move if lval of UseInst is used by an intermediate inst.
+    if (UseLvalBlobIndex != InvalidBlobIndex) {
+      for (auto *Ref :
+           make_range(Inst->op_ddref_begin(), Inst->op_ddref_end())) {
+        if (Ref->usesTempBlob(UseLvalBlobIndex)) {
+          return false;
+        }
+      }
+    }
+
+    auto *LvalRef = Inst->getLvalDDRef();
+
+    if (!LvalRef || !LvalRef->isTerminalRef()) {
+      continue;
+    }
+
+    unsigned LvalBlobIndex = LvalRef->isSelfBlob()
+                                 ? LvalRef->getSelfBlobIndex()
+                                 : BU.findTempBlobIndex(LvalRef->getSymbase());
+
+    if (LvalBlobIndex != InvalidBlobIndex) {
+      // Illegal to move if lval of an intermediate inst is used by UseInst.
+      for (auto *Ref :
+           make_range(UseInst->op_ddref_begin(), UseInst->op_ddref_end())) {
+        if (Ref->usesTempBlob(LvalBlobIndex)) {
+          return false;
+        }
+      }
+    }
+  }
+
+  HLNodeUtils::moveBefore(RvalDefInst, UseInst);
+  return true;
 }
 
 // Visitor class which populates/updates/substitutes temps.
@@ -339,6 +482,9 @@ private:
 
   /// Eliminates temps which have been successfully substituted.
   void eliminateSubstitutedTemps(HLRegion *Reg);
+
+  /// Processes a use found for liveout temp \p Temp.
+  void processLiveoutTempUse(TempInfo &Temp, RegDDRef *UseRef);
 
 public:
   TempSubstituter(HIRFramework *HIRF)
@@ -386,6 +532,40 @@ FunctionPass *llvm::createHIRTempCleanupPass() {
   return new HIRTempCleanupLegacyPass();
 }
 
+void TempSubstituter::processLiveoutTempUse(TempInfo &Temp, RegDDRef *UseRef) {
+
+  if (!Temp.isSubstitutable()) {
+    Temp.markInvalid();
+    return;
+  }
+
+  auto *Node = UseRef->getHLDDNode();
+  if (Temp.hasSingleRvalDefInst()) {
+    if (!Temp.movedUseBeforeRvalDef(Node)) {
+      // If reordering is unsuccessful, make the temp invalid.
+      Temp.markInvalid();
+      return;
+    }
+
+  } else {
+    HLLoop *ParentLoop;
+
+    if (isa<HLLoop>(Node) ||
+        ((ParentLoop = Node->getLexicalParentLoop()) &&
+         !Node->getHLNodeUtils().contains(ParentLoop, Temp.getDefInst()))) {
+      // Inner loop uses are handled when either the temp is marked as
+      // non-substitutable or after traversing the region.
+      Temp.addInnerLoopUse(UseRef);
+      return;
+    }
+  }
+
+  Temp.substituteInUseNode(UseRef);
+
+  // Store as last use ref to update liveouts correctly.
+  Temp.setLastUseRef(UseRef);
+}
+
 void TempSubstituter::visit(HLDDNode *Node) {
 
   for (auto RefIt = Node->ddref_begin(), E = Node->ddref_end(); RefIt != E;
@@ -426,35 +606,14 @@ void TempSubstituter::visit(HLDDNode *Node) {
         // 5) The use is inside a different loop.
         if (Temp.getUseRef() || !Temp.isSubstitutable() ||
             !(IsSelfBlob || IsSelfPointer) || isa<HLLoop>(Node) ||
-            (Node->getLexicalParentLoop() != Temp.getLoop())) {
+            (Node->getLexicalParentLoop() != Temp.getDefLoop())) {
           Temp.markInvalid();
 
         } else {
           Temp.setUseRef(Ref);
         }
       } else {
-
-        if (!Temp.isSubstitutable()) {
-          Temp.markInvalid();
-
-        } else {
-          HLLoop *ParentLoop;
-
-          if (isa<HLLoop>(Node) ||
-              ((ParentLoop = Node->getLexicalParentLoop()) &&
-               !Node->getHLNodeUtils().contains(ParentLoop,
-                                                Temp.getDefInst()))) {
-            // Inner loop uses are handled when either the temp is marked as
-            // non-substitutable or after traversing the region.
-            Temp.addInnerLoopUse(Ref);
-            continue;
-          }
-
-          Temp.substituteInUseNode(Ref);
-
-          // Store as last use ref to update liveouts correctly.
-          Temp.setLastUseRef(Ref);
-        }
+        processLiveoutTempUse(Temp, Ref);
       }
       // Self blob has been fully processed.
       if (IsSelfBlob) {
@@ -501,17 +660,21 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
     if ((LvalBlobIndex != InvalidBlobIndex) &&
         Temp.getRvalDDRef()->usesTempBlob(LvalBlobIndex)) {
 
-      Temp.markNonSubstitutable();
+      if (Temp.isLoad()) {
+        Temp.markNonSubstitutable();
 
-      if (!Temp.isLoad()) {
+        // This call gives us the chance to substitute by reordering
+        // instructions.
+      } else if (!Temp.setSingleRvalDefInst(HInst)) {
 
+        Temp.markNonSubstitutable();
         Temp.processInnerLoopUses(HInst->getLexicalParentLoop());
 
         // Add rval temp as loop liveout based on performed substitutions.
         auto TempRef = Temp.getDDRef();
 
         if (auto LastUseLoop = Temp.getLastUseLoop()) {
-          auto TempLoop = Temp.getLoop();
+          auto TempLoop = Temp.getDefLoop();
           auto LCALoop =
               HLNodeUtils::getLowestCommonAncestorLoop(LastUseLoop, TempLoop);
 
@@ -649,7 +812,7 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
 
       unsigned Symbase = Temp.getSymbase();
       unsigned NewSymbase = Temp.getRvalSymbase();
-      HLLoop *ParentLoop = Temp.getLoop();
+      HLLoop *ParentLoop = Temp.getDefLoop();
       HLLoop *LCALoop = nullptr;
       bool SkipLiveouts = false;
 

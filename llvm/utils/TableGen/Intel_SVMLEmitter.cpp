@@ -54,11 +54,6 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   unsigned MaxVL = 64;
 
 #if INTEL_CUSTOMIZATION
-  unsigned MinSinglePrecVL = 2;
-  unsigned MaxSinglePrecVL = MaxVL;
-  unsigned MinDoublePrecVL = 2;
-  unsigned MaxDoublePrecVL = MaxVL;
-#else
   // Community version only allows direct translation to legal svml calls. E.g.,
   // there is no such function as __svml_sinf32 and calls such as this must be
   // legalized by breaking them into two __svml_sinf16, or four __svml_sinf8
@@ -66,6 +61,11 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   // Thus, these min/max values for single/double precision svml variants
   // specify the ranges of vector lengths for which the loop vectorizer can
   // emit svml calls.
+  unsigned MinSinglePrecVL = 2;
+  unsigned MaxSinglePrecVL = MaxVL;
+  unsigned MinDoublePrecVL = 2;
+  unsigned MaxDoublePrecVL = MaxVL;
+#else
   unsigned MinSinglePrecVL = 4;
   unsigned MaxSinglePrecVL = 16;
   unsigned MinDoublePrecVL = 2;
@@ -211,6 +211,12 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv8_f\", 8, true},\n";
   OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv16_f\", 16, true},\n";
 
+  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv2_fPS_S1_\", 2, false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv3_fPS_S1_\", 3, false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv4_fPS_S1_\", 4, false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv8_fPS_S1_\", 8, false},\n";
+  OS << "{\"_Z6sincosfPf\", \"_Z14sincos_ret2ptrDv16_fPS_S1_\", 16, false},\n";
+
   OS << "{\"_Z3minii\", \"_Z3minDv4_iS_\", 4, false},\n";
   OS << "{\"_Z3minii\", \"_Z3minDv8_iS_\", 8, false},\n";
   OS << "{\"_Z3minii\", \"_Z3minDv16_iS_\", 16, false},\n";
@@ -242,6 +248,36 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "{\"_Z3maxff\", \"_Z3maxDv4_fS_\", 4, true},\n";
   OS << "{\"_Z3maxff\", \"_Z3maxDv8_fS_\", 8, true},\n";
   OS << "{\"_Z3maxff\", \"_Z3maxDv16_fS_\", 16, true},\n";
+
+  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv2_fS_\", 2, false},\n";
+  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv3_fS_\", 3, false},\n";
+  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv4_fS_\", 4, false},\n";
+  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv8_fS_\", 8, false},\n";
+  OS << "{\"_Z4fmaxff\", \"_Z4fmaxDv16_fS_\", 16, false},\n";
+
+  OS << "{\"_Z3logf\", \"_Z3logDv2_f\", 2, false},\n";
+  OS << "{\"_Z3logf\", \"_Z3logDv3_f\", 3, false},\n";
+  OS << "{\"_Z3logf\", \"_Z3logDv4_f\", 4, false},\n";
+  OS << "{\"_Z3logf\", \"_Z3logDv8_f\", 8, false},\n";
+  OS << "{\"_Z3logf\", \"_Z3logDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z3expf\", \"_Z3expDv2_f\", 2, false},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv3_f\", 3, false},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv4_f\", 4, false},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv8_f\", 8, false},\n";
+  OS << "{\"_Z3expf\", \"_Z3expDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv2_f\", 2, false},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv3_f\", 3, false},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv4_f\", 4, false},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv8_f\", 8, false},\n";
+  OS << "{\"_Z4sqrtf\", \"_Z4sqrtDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z3madfff\", \"_Z3madDv2_fS_S_\", 2, false},\n";
+  OS << "{\"_Z3madfff\", \"_Z3madDv3_fS_S_\", 3, false},\n";
+  OS << "{\"_Z3madfff\", \"_Z3madDv4_fS_S_\", 4, false},\n";
+  OS << "{\"_Z3madfff\", \"_Z3madDv8_fS_S_\", 8, false},\n";
+  OS << "{\"_Z3madfff\", \"_Z3madDv16_fS_S_\", 16, false},\n";
 
   OS << "#endif // GET_SVML_VARIANTS\n\n";
 }

@@ -637,7 +637,7 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
 }
 
 // Return true if given memory reference is uniform.
-bool HandledCheck::isUniform(const RegDDRef *Ref) const {
+inline bool HandledCheck::isUniform(const RegDDRef *Ref) const {
   assert(Ref->isMemRef() && "Given RegDDRef is not memory reference.");
   return Ref->isStructurallyInvariantAtLevel(LoopLevel);
 }

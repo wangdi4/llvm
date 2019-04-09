@@ -5529,7 +5529,8 @@ public:
       // or (3) the value is an i8 and the aliased pointer type has an i8 at
       // element zero, this is a bad store.
       auto *ValTy = ValOperand->getType();
-      if (!isa<ConstantPointerNull>(ValOperand) && !isPartialPtrStore(I) &&
+      if (!isa<ConstantPointerNull>(ValOperand) &&
+          (!I || !isPartialPtrStore(I)) &&
           !(ValTy->isIntegerTy(8) &&
             dtrans::isElementZeroAccess(PtrLPI.getDominantAggregateTy(),
                                         ValTy->getPointerTo()))) {
@@ -9675,6 +9676,8 @@ void DTransAnalysisInfo::parseIgnoreList() {
           TransName = dtrans::DT_DynClone;
         else if (TransformationAndTypes.first == "soatoaos")
           TransName = dtrans::DT_SOAToAOS;
+        else if (TransformationAndTypes.first == "meminittrimdown")
+          TransName = dtrans::DT_MemInitTrimDown;
         else {
           LLVM_DEBUG(dbgs() << "\n\tSkipping \'" << Element
                             << "\': bad transformation name");

@@ -640,6 +640,11 @@ private:
     visitTerminator(II);
   }
 
+  void visitCallBrInst    (CallBrInst &CBI) {
+    visitCallSite(&CBI);
+    visitTerminator(CBI);
+  }
+
   void visitCallSite      (CallSite CS);
   void visitResumeInst    (ResumeInst &I) { /*returns void*/ }
   void visitUnreachableInst(UnreachableInst &I) { /*returns void*/ }
@@ -732,6 +737,13 @@ void SCCPSolver::getFeasibleSuccessors(Instruction &TI,
 
     // If we didn't find our destination in the IBR successor list, then we
     // have undefined behavior. Its ok to assume no successor is executable.
+    return;
+  }
+
+  // In case of callbr, we pessimistically assume that all successors are
+  // feasible.
+  if (isa<CallBrInst>(&TI)) {
+    Succs.assign(TI.getNumSuccessors(), true);
     return;
   }
 
@@ -1233,7 +1245,7 @@ CallOverdefined:
     // Otherwise, if we have a single return value case, and if the function is
     // a declaration, maybe we can constant fold it.
     if (F && F->isDeclaration() && !I->getType()->isStructTy() &&
-        canConstantFoldCallTo(CS, F)) {
+        canConstantFoldCallTo(cast<CallBase>(CS.getInstruction()), F)) {
       SmallVector<Constant*, 8> Operands;
       for (CallSite::arg_iterator AI = CS.arg_begin(), E = CS.arg_end();
            AI != E; ++AI) {
@@ -1254,7 +1266,8 @@ CallOverdefined:
 
       // If we can constant fold this, mark the result of the call as a
       // constant.
-      if (Constant *C = ConstantFoldCall(CS, F, Operands, TLI)) {
+      if (Constant *C = ConstantFoldCall(cast<CallBase>(CS.getInstruction()), F,
+                                         Operands, TLI)) {
         // call -> undef.
         if (isa<UndefValue>(C))
           return;
@@ -1599,6 +1612,7 @@ bool SCCPSolver::ResolvedUndefsIn(Function &F) {
         return true;
       case Instruction::Call:
       case Instruction::Invoke:
+      case Instruction::CallBr:
         // There are two reasons a call can have an undef result
         // 1. It could be tracked.
         // 2. It could be constant-foldable.

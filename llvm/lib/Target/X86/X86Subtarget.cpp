@@ -14,6 +14,7 @@
 
 #include "X86CallLowering.h"
 #include "X86LegalizerInfo.h"
+#include "X86MacroFusion.h"
 #include "X86RegisterBankInfo.h"
 #include "X86Subtarget.h"
 #include "MCTargetDesc/X86BaseInfo.h"
@@ -260,6 +261,13 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
   if (hasSSE42() || hasSSE4A())
     IsUAMem16Slow = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  if (hasAVXVNNI() || (hasVNNI() && hasVLX()))
+    HasAnyVNNIVL = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
+
   // It's important to keep the MCSubtargetInfo feature bits in sync with
   // target data structure which is shared with MC code emitter, etc.
   if (In64BitMode)
@@ -365,4 +373,9 @@ const RegisterBankInfo *X86Subtarget::getRegBankInfo() const {
 
 bool X86Subtarget::enableEarlyIfConversion() const {
   return hasCMov() && X86EarlyIfConv;
+}
+
+void X86Subtarget::getPostRAMutations(
+    std::vector<std::unique_ptr<ScheduleDAGMutation>> &Mutations) const {
+  Mutations.push_back(createX86MacroFusionDAGMutation());
 }

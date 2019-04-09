@@ -120,6 +120,9 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -139,6 +142,15 @@
 #define DEBUG_TYPE "infer-address-spaces"
 
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+static const unsigned UninitializedAddressSpace =
+    std::numeric_limits<unsigned>::max();
+
+static cl::opt<unsigned> OverrideFlatAS("override-flat-addr-space",
+                                        cl::init(UninitializedAddressSpace));
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_COLLAB
 namespace {
 
@@ -177,16 +189,23 @@ bool InferAddressSpacesLegacyPass::runOnFunction(Function &F) {
 
   const TargetTransformInfo &TTI =
       getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  return InferAddrSpaces(TTI, TTI.getFlatAddressSpace(), F);
+
+#if INTEL_CUSTOMIZATION
+  unsigned FlatAS = OverrideFlatAS != UninitializedAddressSpace
+                    ? OverrideFlatAS
+                    : TTI.getFlatAddressSpace();
+  return InferAddrSpaces(TTI, FlatAS, F);
+#endif // INTEL_CUSTOMIZATION
 }
 
 FunctionPass *llvm::createInferAddressSpacesPass() {
   return new InferAddressSpacesLegacyPass();
 }
 #else
+#if !INTEL_CUSTOMIZATION
 static const unsigned UninitializedAddressSpace =
     std::numeric_limits<unsigned>::max();
-
+#endif // INTEL_CUSTOMIZATION
 namespace {
 
 using ValueToAddrSpaceMapTy = DenseMap<const Value *, unsigned>;
@@ -269,13 +288,17 @@ static bool isAddressExpression(const Value &V) {
   if (!isa<Operator>(V))
     return false;
 
-  switch (cast<Operator>(V).getOpcode()) {
+  const Operator &Op = cast<Operator>(V);
+  switch (Op.getOpcode()) {
   case Instruction::PHI:
+    assert(Op.getType()->isPointerTy());
+    return true;
   case Instruction::BitCast:
   case Instruction::AddrSpaceCast:
   case Instruction::GetElementPtr:
-  case Instruction::Select:
     return true;
+  case Instruction::Select:
+    return Op.getType()->isPointerTy();
   default:
     return false;
   }
@@ -672,7 +695,11 @@ bool InferAddressSpaces::runOnFunction(Function &F) {
 
   const TargetTransformInfo &TTI =
       getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  FlatAddrSpace = TTI.getFlatAddressSpace();
+#if INTEL_CUSTOMIZATION
+  FlatAddrSpace = OverrideFlatAS != UninitializedAddressSpace
+                  ? OverrideFlatAS
+                  : TTI.getFlatAddressSpace();
+#endif // INTEL_CUSTOMIZATION
   if (FlatAddrSpace == UninitializedAddressSpace)
     return false;
 

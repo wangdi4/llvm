@@ -911,7 +911,7 @@ bool X86TTIImpl::isTargetSpecificShuffleMask(
 
   return IsAlternateLaneVectorMask;
 }
-#endif // INTEL_CUSTOMIZATIONw
+#endif // INTEL_CUSTOMIZATION
 
 int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,
                                Type *SubTp) {
@@ -2933,6 +2933,110 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
     return SplitFactor * getGSVectorCost(Opcode, SplitSrcTy, Ptr, Alignment,
                                          AddressSpace);
   }
+#if INTEL_CUSTOMIZATION
+  static const CostTblEntry SKXScatterDTbl[] = {
+    { ISD::MSCATTER, MVT::v4i32, 5 }, // vpscatterdd xmm version.
+    { ISD::MSCATTER, MVT::v8i32, 8 }, // vpscatterdd ymm version.
+    { ISD::MSCATTER, MVT::v16i32, 16 }, // vpscatterdd zmm version.
+
+    { ISD::MSCATTER, MVT::v4f32, 5 }, // vpscatterdps xmm version.
+    { ISD::MSCATTER, MVT::v8f32, 8 }, // vpscatterdps ymm version.
+    { ISD::MSCATTER, MVT::v16f32, 16 }, // vpscatterdps zmm version.
+
+    { ISD::MSCATTER, MVT::v2i64, 3 }, // vpscatterdq xmm version.
+    { ISD::MSCATTER, MVT::v4i64, 4 }, // vpscatterdq ymm version.
+    { ISD::MSCATTER, MVT::v8i64, 8 }, // vpscatterdq zmm version.
+
+    { ISD::MSCATTER, MVT::v2f64, 3 }, // vpscatterdpd xmm version.
+    { ISD::MSCATTER, MVT::v4f64, 4 }, // vpscatterdpd ymm version.
+    { ISD::MSCATTER, MVT::v8f64, 8 }, // vpscatterdpd zmm version.
+  };
+
+  static const CostTblEntry SKXScatterQTbl[] = {
+    { ISD::MSCATTER, MVT::v2i32, 4 }, // vpscatterqd xmm version.
+    { ISD::MSCATTER, MVT::v4i32, 4 }, // vpscatterqd ymm version.
+    { ISD::MSCATTER, MVT::v8i32, 2 }, // vpscatterqd zmm version.
+
+    { ISD::MSCATTER, MVT::v2f32, 4 }, // vpscatterqps xmm version.
+    { ISD::MSCATTER, MVT::v4f32, 4 }, // vpscatterqps ymm version.
+    { ISD::MSCATTER, MVT::v8f32, 2 }, // vpscatterqps zmm version.
+
+    { ISD::MSCATTER, MVT::v2i64, 3 }, // vpscatterqq xmm version.
+    { ISD::MSCATTER, MVT::v4i64, 4 }, // vpscatterqq ymm version.
+    { ISD::MSCATTER, MVT::v8i64, 8 }, // vpscatterqq zmm version.
+
+    { ISD::MSCATTER, MVT::v2f64, 3 }, // vpscatterqpd xmm version.
+    { ISD::MSCATTER, MVT::v4f64, 4 }, // vpscatterqpd ymm version.
+    { ISD::MSCATTER, MVT::v8f64, 8 }, // vpscatterqpd zmm version.
+  };
+
+  static const CostTblEntry SKXGatherDTbl[] = {
+    { ISD::MGATHER, MVT::v4i32, 2 }, // vpgatherdd xmm version.
+    { ISD::MGATHER, MVT::v8i32, 4 }, // vpgatherdd ymm version.
+    { ISD::MGATHER, MVT::v16i32, 10 }, // vpgatherdd zmm version.
+
+    { ISD::MGATHER, MVT::v4f32, 2 }, // vpgatherdps xmm version.
+    { ISD::MGATHER, MVT::v8f32, 4 }, // vpgatherdps ymm version.
+    { ISD::MGATHER, MVT::v16f32, 10 }, // vpgatherdps zmm version.
+
+    { ISD::MGATHER, MVT::v2i64, 3 }, // vpgatherdq xmm version.
+    { ISD::MGATHER, MVT::v4i64, 3 }, // vpgatherdq ymm version.
+    { ISD::MGATHER, MVT::v8i64, 4 }, // vpgatherdq zmm version.
+
+    { ISD::MGATHER, MVT::v2f64, 3 }, // vpgatherdpd xmm version.
+    { ISD::MGATHER, MVT::v4f64, 3 }, // vpgatherdpd ymm version.
+    { ISD::MGATHER, MVT::v8f64, 4 }, // vpgatherdpd zmm version.
+  };
+
+  static const CostTblEntry SKXGatherQTbl[] = {
+    { ISD::MGATHER, MVT::v2i32, 3 }, // vpgatherqd xmm version.
+    { ISD::MGATHER, MVT::v4i32, 3 }, // vpgatherqd ymm version.
+    { ISD::MGATHER, MVT::v8i32, 4 }, // vpgatherqd zmm version.
+
+    { ISD::MGATHER, MVT::v2f32, 3 }, // vpgatherqps xmm version.
+    { ISD::MGATHER, MVT::v4f32, 3 }, // vpgatherqps ymm version.
+    { ISD::MGATHER, MVT::v8f32, 4 }, // vpgatherqps zmm version.
+
+    { ISD::MGATHER, MVT::v2i64, 3 }, // vpgatherqq xmm version.
+    { ISD::MGATHER, MVT::v4i64, 3 }, // vpgatherqq ymm version.
+    { ISD::MGATHER, MVT::v8i64, 4 }, // vpgatherqq zmm version.
+
+    { ISD::MGATHER, MVT::v2f64, 3 }, // vpgatherqpd xmm version.
+    { ISD::MGATHER, MVT::v4f64, 3 }, // vpgatherqpd ymm version.
+    { ISD::MGATHER, MVT::v8f64, 4 }, // vpgatherqpd zmm version.
+  };
+
+  // Assume that VLX defines Skylake-X processor, which might not be
+  // the case for future processors that can have different TPT or LAT
+  // values for gather or scatter instructions.
+  if (ST->hasVLX()) {
+    if (Opcode == Instruction::Store) {
+      const CostTblEntry *Entry = nullptr;
+      if (IndexSize == 32 &&
+          (Entry =
+               CostTableLookup(SKXScatterDTbl, ISD::MSCATTER, SrcLT.second))) {
+        return Entry->Cost;
+      }
+      if (IndexSize == 64 &&
+          (Entry =
+               CostTableLookup(SKXScatterQTbl, ISD::MSCATTER, SrcLT.second))) {
+        return Entry->Cost;
+      }
+    }
+
+    if (Opcode == Instruction::Load) {
+      const CostTblEntry *Entry = nullptr;
+      if (IndexSize == 32 && (Entry = CostTableLookup(
+                                  SKXGatherDTbl, ISD::MGATHER, SrcLT.second))) {
+        return Entry->Cost;
+      }
+      if (IndexSize == 64 && (Entry = CostTableLookup(
+                                  SKXGatherQTbl, ISD::MGATHER, SrcLT.second))) {
+        return Entry->Cost;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // The gather / scatter cost is given by Intel architects. It is a rough
   // number since we are looking at one instruction in a time.
@@ -2951,9 +3055,11 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
 /// Alignment - Alignment for one element.
 /// AddressSpace - pointer[s] address space.
 ///
-int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *SrcVTy,
+#if INTEL_CUSTOMIZATION
+int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
                                 bool VariableMask, unsigned Alignment,
                                 unsigned AddressSpace) {
+#endif // INTEL_CUSTOMIZATION
   unsigned VF = SrcVTy->getVectorNumElements();
 
   int MaskUnpackCost = 0;
@@ -2973,6 +3079,13 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *SrcVTy,
                                           Alignment, AddressSpace);
 
   int InsertExtractCost = 0;
+#if INTEL_CUSTOMIZATION
+  // The cost to extract bases from the Ptr vector.
+  for (unsigned i = 0; i < VF; ++i)
+    InsertExtractCost +=
+        getVectorInstrCost(Instruction::ExtractElement, PtrTy, i);
+#endif // INTEL_CUSTOMIZATION
+
   if (Opcode == Instruction::Load)
     for (unsigned i = 0; i < VF; ++i)
       // Add the cost of inserting each scalar load into the vector
@@ -3013,8 +3126,10 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
     Scalarize = true;
 
   if (Scalarize)
-    return getGSScalarCost(Opcode, SrcVTy, VariableMask, Alignment,
-                           AddressSpace);
+#if INTEL_CUSTOMIZATION
+    return getGSScalarCost(Opcode, VectorType::get(PtrTy, VF), SrcVTy,
+                           VariableMask, Alignment, AddressSpace);
+#endif // INTEL_CUSTOMIZATION
 
   return getGSVectorCost(Opcode, SrcVTy, Ptr, Alignment, AddressSpace);
 }
@@ -3031,23 +3146,62 @@ bool X86TTIImpl::isLSRCostLess(TargetTransformInfo::LSRCost &C1,
 }
 
 bool X86TTIImpl::canMacroFuseCmp() {
-  return ST->hasMacroFusion();
+  return ST->hasMacroFusion() || ST->hasBranchFusion();
 }
 
 bool X86TTIImpl::isLegalMaskedLoad(Type *DataTy) {
+  if (!ST->hasAVX())
+    return false;
+
   // The backend can't handle a single element vector.
   if (isa<VectorType>(DataTy) && DataTy->getVectorNumElements() == 1)
     return false;
   Type *ScalarTy = DataTy->getScalarType();
-  int DataWidth = isa<PointerType>(ScalarTy) ?
-    DL.getPointerSizeInBits() : ScalarTy->getPrimitiveSizeInBits();
 
-  return ((DataWidth == 32 || DataWidth == 64) && ST->hasAVX()) ||
-         ((DataWidth == 8 || DataWidth == 16) && ST->hasBWI());
+  if (ScalarTy->isPointerTy())
+    return true;
+
+  if (ScalarTy->isFloatTy() || ScalarTy->isDoubleTy())
+    return true;
+
+  if (!ScalarTy->isIntegerTy())
+    return false;
+
+  unsigned IntWidth = ScalarTy->getIntegerBitWidth();
+  return IntWidth == 32 || IntWidth == 64 ||
+         ((IntWidth == 8 || IntWidth == 16) && ST->hasBWI());
 }
 
 bool X86TTIImpl::isLegalMaskedStore(Type *DataType) {
   return isLegalMaskedLoad(DataType);
+}
+
+bool X86TTIImpl::isLegalMaskedExpandLoad(Type *DataTy) {
+  if (!isa<VectorType>(DataTy))
+    return false;
+
+  if (!ST->hasAVX512())
+    return false;
+
+  // The backend can't handle a single element vector.
+  if (DataTy->getVectorNumElements() == 1)
+    return false;
+
+  Type *ScalarTy = DataTy->getVectorElementType();
+
+  if (ScalarTy->isFloatTy() || ScalarTy->isDoubleTy())
+    return true;
+
+  if (!ScalarTy->isIntegerTy())
+    return false;
+
+  unsigned IntWidth = ScalarTy->getIntegerBitWidth();
+  return IntWidth == 32 || IntWidth == 64 ||
+         ((IntWidth == 8 || IntWidth == 16) && ST->hasVBMI2());
+}
+
+bool X86TTIImpl::isLegalMaskedCompressStore(Type *DataTy) {
+  return isLegalMaskedExpandLoad(DataTy);
 }
 
 #if INTEL_CUSTOMIZATION
@@ -3124,7 +3278,8 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
   else {
     std::string baseName = origFunc->getName();
     origFunc->setName(Twine("_replaced_").concat(baseName));
-    newFunc = cast<Function>(M->getOrInsertFunction(baseName, newFuncType, origFunc->getAttributes()));
+    newFunc = cast<Function>((M->getOrInsertFunction(baseName, newFuncType,
+                                     origFunc->getAttributes())).getCallee());
   }
   CI->setCalledFunction(newFunc);
   return true;
@@ -3132,6 +3287,12 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
 #endif // INTEL_CUSTOMIZATION
 
 bool X86TTIImpl::isLegalMaskedGather(Type *DataTy) {
+  // Some CPUs have better gather performance than others.
+  // TODO: Remove the explicit ST->hasAVX512()?, That would mean we would only
+  // enable gather with a -march.
+  if (!(ST->hasAVX512() || (ST->hasFastGather() && ST->hasAVX2())))
+    return false;
+
   // This function is called now in two cases: from the Loop Vectorizer
   // and from the Scalarizer.
   // When the Loop Vectorizer asks about legality of the feature,
@@ -3150,14 +3311,17 @@ bool X86TTIImpl::isLegalMaskedGather(Type *DataTy) {
       return false;
   }
   Type *ScalarTy = DataTy->getScalarType();
-  int DataWidth = isa<PointerType>(ScalarTy) ?
-    DL.getPointerSizeInBits() : ScalarTy->getPrimitiveSizeInBits();
+  if (ScalarTy->isPointerTy())
+    return true;
 
-  // Some CPUs have better gather performance than others.
-  // TODO: Remove the explicit ST->hasAVX512()?, That would mean we would only
-  // enable gather with a -march.
-  return (DataWidth == 32 || DataWidth == 64) &&
-         (ST->hasAVX512() || (ST->hasFastGather() && ST->hasAVX2()));
+  if (ScalarTy->isFloatTy() || ScalarTy->isDoubleTy())
+    return true;
+
+  if (!ScalarTy->isIntegerTy())
+    return false;
+
+  unsigned IntWidth = ScalarTy->getIntegerBitWidth();
+  return IntWidth == 32 || IntWidth == 64;
 }
 
 bool X86TTIImpl::isLegalMaskedScatter(Type *DataType) {
@@ -3186,15 +3350,11 @@ bool X86TTIImpl::areInlineCompatible(const Function *Caller,
   const FeatureBitset &CalleeBits =
       TM.getSubtargetImpl(*Callee)->getFeatureBits();
 
-  // FIXME: This is likely too limiting as it will include subtarget features
-  // that we might not care about for inlining, but it is conservatively
-  // correct.
-  return (CallerBits & CalleeBits) == CalleeBits;
+  FeatureBitset RealCallerBits = CallerBits & ~InlineFeatureIgnoreList;
+  FeatureBitset RealCalleeBits = CalleeBits & ~InlineFeatureIgnoreList;
+  return (RealCallerBits & RealCalleeBits) == RealCalleeBits;
 }
 
-#if INTEL_CUSTOMIZATION
-// Will try to upstream this to community, but needed to enable
-// prefer-vector-width=256 on SKX in xmain.
 bool X86TTIImpl::areFunctionArgsABICompatible(
     const Function *Caller, const Function *Callee,
     SmallPtrSetImpl<Argument *> &Args) const {
@@ -3207,19 +3367,16 @@ bool X86TTIImpl::areFunctionArgsABICompatible(
   // FIXME Look at the arguments and only consider 512 bit or larger vectors?
   const TargetMachine &TM = getTLI()->getTargetMachine();
 
-  const X86Subtarget *CallerST =
-      static_cast<const X86Subtarget *>(TM.getSubtargetImpl(*Caller));
-  const X86Subtarget *CalleeST =
-      static_cast<const X86Subtarget *>(TM.getSubtargetImpl(*Callee));
-  return CallerST->useAVX512Regs() == CalleeST->useAVX512Regs();
+  return TM.getSubtarget<X86Subtarget>(*Caller).useAVX512Regs() ==
+         TM.getSubtarget<X86Subtarget>(*Callee).useAVX512Regs();
 }
-#endif
 
 #if INTEL_CUSTOMIZATION
 unsigned X86TTIImpl::getLoopRotationDefaultThreshold(bool OptForSize) const {
   return (ST->getCPU() == "lakemont" && OptForSize) ? 2 : 16;
 }
 #endif // INTEL_CUSTOMIZATION
+
 const X86TTIImpl::TTI::MemCmpExpansionOptions *
 X86TTIImpl::enableMemCmpExpansion(bool IsZeroCmp) const {
   // Only enable vector loads for equality comparison.

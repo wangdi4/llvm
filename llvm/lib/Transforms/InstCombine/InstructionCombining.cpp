@@ -933,8 +933,8 @@ Instruction *InstCombiner::foldOpIntoPhi(Instruction &I, PHINode *PN) {
 
     // If the InVal is an invoke at the end of the pred block, then we can't
     // insert a computation after it without breaking the edge.
-    if (InvokeInst *II = dyn_cast<InvokeInst>(InVal))
-      if (II->getParent() == NonConstBB)
+    if (isa<InvokeInst>(InVal))
+      if (cast<Instruction>(InVal)->getParent() == NonConstBB)
         return nullptr;
 
     // If the incoming non-constant value is in I's block, we will remove one
@@ -1387,7 +1387,8 @@ Instruction *InstCombiner::foldVectorBinop(BinaryOperator &Inst) {
   if (match(LHS, m_ShuffleVector(m_Value(L0), m_Value(L1), m_Constant(Mask))) &&
       match(RHS, m_ShuffleVector(m_Value(R0), m_Value(R1), m_Specific(Mask))) &&
       LHS->hasOneUse() && RHS->hasOneUse() &&
-      cast<ShuffleVectorInst>(LHS)->isConcat()) {
+      cast<ShuffleVectorInst>(LHS)->isConcat() &&
+      cast<ShuffleVectorInst>(RHS)->isConcat()) {
     // This transform does not have the speculative execution constraint as
     // below because the shuffle is a concatenation. The new binops are
     // operating on exactly the same elements as the existing binop.
@@ -1424,6 +1425,30 @@ Instruction *InstCombiner::foldVectorBinop(BinaryOperator &Inst) {
       (LHS->hasOneUse() || RHS->hasOneUse() || LHS == RHS)) {
     // Op(shuffle(V1, Mask), shuffle(V2, Mask)) -> shuffle(Op(V1, V2), Mask)
     return createBinOpShuffle(V1, V2, Mask);
+  }
+
+  // If both arguments of a commutative binop are select-shuffles that use the
+  // same mask with commuted operands, the shuffles are unnecessary.
+  if (Inst.isCommutative() &&
+      match(LHS, m_ShuffleVector(m_Value(V1), m_Value(V2), m_Constant(Mask))) &&
+      match(RHS, m_ShuffleVector(m_Specific(V2), m_Specific(V1),
+                                 m_Specific(Mask)))) {
+    auto *LShuf = cast<ShuffleVectorInst>(LHS);
+    auto *RShuf = cast<ShuffleVectorInst>(RHS);
+    // TODO: Allow shuffles that contain undefs in the mask?
+    //       That is legal, but it reduces undef knowledge.
+    // TODO: Allow arbitrary shuffles by shuffling after binop?
+    //       That might be legal, but we have to deal with poison.
+    if (LShuf->isSelect() && !LShuf->getMask()->containsUndefElement() &&
+        RShuf->isSelect() && !RShuf->getMask()->containsUndefElement()) {
+      // Example:
+      // LHS = shuffle V1, V2, <0, 5, 6, 3>
+      // RHS = shuffle V2, V1, <0, 5, 6, 3>
+      // LHS + RHS --> (V10+V20, V21+V11, V22+V12, V13+V23) --> V1 + V2
+      Instruction *NewBO = BinaryOperator::Create(Opcode, V1, V2);
+      NewBO->copyIRFlags(&Inst);
+      return NewBO;
+    }
   }
 
   // If one argument is a shuffle within one vector and the other is a constant,
@@ -1604,6 +1629,23 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   Type *GEPEltType = GEP.getSourceElementType();
   if (Value *V = SimplifyGEPInst(GEPEltType, Ops, SQ.getWithInstruction(&GEP)))
     return replaceInstUsesWith(GEP, V);
+
+  // For vector geps, use the generic demanded vector support.
+  if (GEP.getType()->isVectorTy()) {
+    auto VWidth = GEP.getType()->getVectorNumElements();
+    APInt UndefElts(VWidth, 0);
+    APInt AllOnesEltMask(APInt::getAllOnesValue(VWidth));
+    if (Value *V = SimplifyDemandedVectorElts(&GEP, AllOnesEltMask,
+                                              UndefElts)) {
+      if (V != &GEP)
+        return replaceInstUsesWith(GEP, V);
+      return &GEP;
+    }
+
+    // TODO: 1) Scalarize splat operands, 2) scalarize entire instruction if
+    // possible (decide on canonical form for pointer broadcast), 3) exploit
+    // undef elements to decrease demanded bits  
+  }
 
   Value *PtrOp = GEP.getOperand(0);
 
@@ -1812,9 +1854,9 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
             // put NewSrc at same location as %src
             Builder.SetInsertPoint(cast<Instruction>(PtrOp));
             auto *NewSrc = cast<GetElementPtrInst>(
-                Builder.CreateGEP(SO0, GO1, Src->getName()));
+                Builder.CreateGEP(GEPEltType, SO0, GO1, Src->getName()));
             NewSrc->setIsInBounds(Src->isInBounds());
-            auto *NewGEP = GetElementPtrInst::Create(nullptr, NewSrc, {SO1});
+            auto *NewGEP = GetElementPtrInst::Create(GEPEltType, NewSrc, {SO1});
             NewGEP->setIsInBounds(GEP.isInBounds());
             return NewGEP;
           }
@@ -1946,6 +1988,8 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 
   if (StrippedPtr != PtrOp) {
     bool HasZeroPointerIndex = false;
+    Type *StrippedPtrEltTy = StrippedPtrTy->getElementType();
+
     if (auto *C = dyn_cast<ConstantInt>(GEP.getOperand(1)))
       HasZeroPointerIndex = C->isZero();
 
@@ -1959,11 +2003,11 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     if (HasZeroPointerIndex) {
       if (auto *CATy = dyn_cast<ArrayType>(GEPEltType)) {
         // GEP (bitcast i8* X to [0 x i8]*), i32 0, ... ?
-        if (CATy->getElementType() == StrippedPtrTy->getElementType()) {
+        if (CATy->getElementType() == StrippedPtrEltTy) {
           // -> GEP i8* X, ...
           SmallVector<Value*, 8> Idx(GEP.idx_begin()+1, GEP.idx_end());
           GetElementPtrInst *Res = GetElementPtrInst::Create(
-              StrippedPtrTy->getElementType(), StrippedPtr, Idx, GEP.getName());
+              StrippedPtrEltTy, StrippedPtr, Idx, GEP.getName());
           Res->setIsInBounds(GEP.isInBounds());
           if (StrippedPtrTy->getAddressSpace() == GEP.getAddressSpace())
             return Res;
@@ -1976,7 +2020,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
           return new AddrSpaceCastInst(Builder.Insert(Res), GEPType);
         }
 
-        if (auto *XATy = dyn_cast<ArrayType>(StrippedPtrTy->getElementType())) {
+        if (auto *XATy = dyn_cast<ArrayType>(StrippedPtrEltTy)) {
           // GEP (bitcast [10 x i8]* X to [0 x i8]*), i32 0, ... ?
           if (CATy->getElementType() == XATy->getElementType()) {
             // -> GEP [10 x i8]* X, i32 0, ...
@@ -1999,11 +2043,12 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
             // %0 = GEP [10 x i8] addrspace(1)* X, ...
             // addrspacecast i8 addrspace(1)* %0 to i8*
             SmallVector<Value*, 8> Idx(GEP.idx_begin(), GEP.idx_end());
-            Value *NewGEP = GEP.isInBounds()
-                                ? Builder.CreateInBoundsGEP(
-                                      nullptr, StrippedPtr, Idx, GEP.getName())
-                                : Builder.CreateGEP(nullptr, StrippedPtr, Idx,
-                                                    GEP.getName());
+            Value *NewGEP =
+                GEP.isInBounds()
+                    ? Builder.CreateInBoundsGEP(StrippedPtrEltTy, StrippedPtr,
+                                                Idx, GEP.getName())
+                    : Builder.CreateGEP(StrippedPtrEltTy, StrippedPtr, Idx,
+                                        GEP.getName());
             return new AddrSpaceCastInst(NewGEP, GEPType);
           }
         }
@@ -2012,17 +2057,17 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       // Transform things like:
       // %t = getelementptr i32* bitcast ([2 x i32]* %str to i32*), i32 %V
       // into:  %t1 = getelementptr [2 x i32]* %str, i32 0, i32 %V; bitcast
-      Type *SrcEltTy = StrippedPtrTy->getElementType();
-      if (SrcEltTy->isArrayTy() &&
-          DL.getTypeAllocSize(SrcEltTy->getArrayElementType()) ==
+      if (StrippedPtrEltTy->isArrayTy() &&
+          DL.getTypeAllocSize(StrippedPtrEltTy->getArrayElementType()) ==
               DL.getTypeAllocSize(GEPEltType)) {
         Type *IdxType = DL.getIndexType(GEPType);
         Value *Idx[2] = { Constant::getNullValue(IdxType), GEP.getOperand(1) };
         Value *NewGEP =
             GEP.isInBounds()
-                ? Builder.CreateInBoundsGEP(nullptr, StrippedPtr, Idx,
+                ? Builder.CreateInBoundsGEP(StrippedPtrEltTy, StrippedPtr, Idx,
                                             GEP.getName())
-                : Builder.CreateGEP(nullptr, StrippedPtr, Idx, GEP.getName());
+                : Builder.CreateGEP(StrippedPtrEltTy, StrippedPtr, Idx,
+                                    GEP.getName());
 
         // V and GEP are both pointer types --> BitCast
         return CastInst::CreatePointerBitCastOrAddrSpaceCast(NewGEP, GEPType);
@@ -2032,11 +2077,11 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       // %V = mul i64 %N, 4
       // %t = getelementptr i8* bitcast (i32* %arr to i8*), i32 %V
       // into:  %t1 = getelementptr i32* %arr, i32 %N; bitcast
-      if (GEPEltType->isSized() && SrcEltTy->isSized()) {
+      if (GEPEltType->isSized() && StrippedPtrEltTy->isSized()) {
         // Check that changing the type amounts to dividing the index by a scale
         // factor.
         uint64_t ResSize = DL.getTypeAllocSize(GEPEltType);
-        uint64_t SrcSize = DL.getTypeAllocSize(SrcEltTy);
+        uint64_t SrcSize = DL.getTypeAllocSize(StrippedPtrEltTy);
         if (ResSize && SrcSize % ResSize == 0) {
           Value *Idx = GEP.getOperand(1);
           unsigned BitWidth = Idx->getType()->getPrimitiveSizeInBits();
@@ -2055,9 +2100,9 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
             // GEP may not be "inbounds".
             Value *NewGEP =
                 GEP.isInBounds() && NSW
-                    ? Builder.CreateInBoundsGEP(nullptr, StrippedPtr, NewIdx,
-                                                GEP.getName())
-                    : Builder.CreateGEP(nullptr, StrippedPtr, NewIdx,
+                    ? Builder.CreateInBoundsGEP(StrippedPtrEltTy, StrippedPtr,
+                                                NewIdx, GEP.getName())
+                    : Builder.CreateGEP(StrippedPtrEltTy, StrippedPtr, NewIdx,
                                         GEP.getName());
 
             // The NewGEP must be pointer typed, so must the old one -> BitCast
@@ -2071,13 +2116,13 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       // getelementptr i8* bitcast ([100 x double]* X to i8*), i32 %tmp
       //   (where tmp = 8*tmp2) into:
       // getelementptr [100 x double]* %arr, i32 0, i32 %tmp2; bitcast
-      if (GEPEltType->isSized() && SrcEltTy->isSized() &&
-          SrcEltTy->isArrayTy()) {
+      if (GEPEltType->isSized() && StrippedPtrEltTy->isSized() &&
+          StrippedPtrEltTy->isArrayTy()) {
         // Check that changing to the array element type amounts to dividing the
         // index by a scale factor.
         uint64_t ResSize = DL.getTypeAllocSize(GEPEltType);
         uint64_t ArrayEltSize =
-            DL.getTypeAllocSize(SrcEltTy->getArrayElementType());
+            DL.getTypeAllocSize(StrippedPtrEltTy->getArrayElementType());
         if (ResSize && ArrayEltSize % ResSize == 0) {
           Value *Idx = GEP.getOperand(1);
           unsigned BitWidth = Idx->getType()->getPrimitiveSizeInBits();
@@ -2097,11 +2142,12 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
             Type *IndTy = DL.getIndexType(GEPType);
             Value *Off[2] = {Constant::getNullValue(IndTy), NewIdx};
 
-            Value *NewGEP = GEP.isInBounds() && NSW
-                                ? Builder.CreateInBoundsGEP(
-                                      SrcEltTy, StrippedPtr, Off, GEP.getName())
-                                : Builder.CreateGEP(SrcEltTy, StrippedPtr, Off,
-                                                    GEP.getName());
+            Value *NewGEP =
+                GEP.isInBounds() && NSW
+                    ? Builder.CreateInBoundsGEP(StrippedPtrEltTy, StrippedPtr,
+                                                Off, GEP.getName())
+                    : Builder.CreateGEP(StrippedPtrEltTy, StrippedPtr, Off,
+                                        GEP.getName());
             // The NewGEP must be pointer typed, so must the old one -> BitCast
             return CastInst::CreatePointerBitCastOrAddrSpaceCast(NewGEP,
                                                                  GEPType);
@@ -2149,8 +2195,8 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       // constructing an AddrSpaceCastInst
       Value *NGEP =
           GEP.isInBounds()
-              ? Builder.CreateInBoundsGEP(nullptr, SrcOp, {Ops[1], Ops[2]})
-              : Builder.CreateGEP(nullptr, SrcOp, {Ops[1], Ops[2]});
+              ? Builder.CreateInBoundsGEP(SrcEltType, SrcOp, {Ops[1], Ops[2]})
+              : Builder.CreateGEP(SrcEltType, SrcOp, {Ops[1], Ops[2]});
       NGEP->takeName(&GEP);
 
       // Preserve GEP address space to satisfy users
@@ -2197,8 +2243,8 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       if (FindElementAtOffset(SrcType, Offset.getSExtValue(), NewIndices)) {
         Value *NGEP =
             GEP.isInBounds()
-                ? Builder.CreateInBoundsGEP(nullptr, SrcOp, NewIndices)
-                : Builder.CreateGEP(nullptr, SrcOp, NewIndices);
+                ? Builder.CreateInBoundsGEP(SrcEltType, SrcOp, NewIndices)
+                : Builder.CreateGEP(SrcEltType, SrcOp, NewIndices);
 
         if (NGEP->getType() == GEPType)
           return replaceInstUsesWith(GEP, NGEP);
@@ -2224,7 +2270,8 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
         APInt AllocSize(IdxWidth, DL.getTypeAllocSize(AI->getAllocatedType()));
         if (BasePtrOffset.ule(AllocSize)) {
           return GetElementPtrInst::CreateInBounds(
-              PtrOp, makeArrayRef(Ops).slice(1), GEP.getName());
+              GEP.getSourceElementType(), PtrOp, makeArrayRef(Ops).slice(1),
+              GEP.getName());
         }
       }
     }
@@ -2361,8 +2408,8 @@ Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
 
       if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
         if (II->getIntrinsicID() == Intrinsic::objectsize) {
-          ConstantInt *Result = lowerObjectSizeCall(II, DL, &TLI,
-                                                    /*MustSucceed=*/true);
+          Value *Result =
+              lowerObjectSizeCall(II, DL, &TLI, /*MustSucceed=*/true);
           replaceInstUsesWith(*I, Result);
           eraseInstFromFunction(*I);
           Users[i] = nullptr; // Skip examining in the next loop.
@@ -2752,7 +2799,7 @@ Instruction *InstCombiner::visitExtractValueInst(ExtractValueInst &EV) {
       Builder.SetInsertPoint(L);
       Value *GEP = Builder.CreateInBoundsGEP(L->getType(),
                                              L->getPointerOperand(), Indices);
-      Instruction *NL = Builder.CreateLoad(GEP);
+      Instruction *NL = Builder.CreateLoad(EV.getType(), GEP);
       // Whatever aliasing information we had for the orignal load must also
       // hold for the smaller load, so propagate the annotations.
       AAMDNodes Nodes;
@@ -3160,13 +3207,35 @@ static bool TryToSinkInstruction(Instruction *I, BasicBlock *DestBlock) {
   ++NumSunkInst;
 
   // Also sink all related debug uses from the source basic block. Otherwise we
-  // get debug use before the def.
-  SmallVector<DbgVariableIntrinsic *, 1> DbgUsers;
+  // get debug use before the def. Attempt to salvage debug uses first, to
+  // maximise the range variables have location for. If we cannot salvage, then
+  // mark the location undef: we know it was supposed to receive a new location
+  // here, but that computation has been sunk.
+  SmallVector<DbgVariableIntrinsic *, 2> DbgUsers;
   findDbgUsers(DbgUsers, I);
-  for (auto *DII : DbgUsers) {
+  for (auto *DII : reverse(DbgUsers)) {
     if (DII->getParent() == SrcBlock) {
-      DII->moveBefore(&*InsertPos);
-      LLVM_DEBUG(dbgs() << "SINK: " << *DII << '\n');
+      // dbg.value is in the same basic block as the sunk inst, see if we can
+      // salvage it. Clone a new copy of the instruction: on success we need
+      // both salvaged and unsalvaged copies.
+      SmallVector<DbgVariableIntrinsic *, 1> TmpUser{
+          cast<DbgVariableIntrinsic>(DII->clone())};
+
+      if (!salvageDebugInfoForDbgValues(*I, TmpUser)) {
+        // We are unable to salvage: sink the cloned dbg.value, and mark the
+        // original as undef, terminating any earlier variable location.
+        LLVM_DEBUG(dbgs() << "SINK: " << *DII << '\n');
+        TmpUser[0]->insertBefore(&*InsertPos);
+        Value *Undef = UndefValue::get(I->getType());
+        DII->setOperand(0, MetadataAsValue::get(DII->getContext(),
+                                                ValueAsMetadata::get(Undef)));
+      } else {
+        // We successfully salvaged: place the salvaged dbg.value in the
+        // original location, and move the unmodified dbg.value to sink with
+        // the sunk inst.
+        TmpUser[0]->insertBefore(DII);
+        DII->moveBefore(&*InsertPos);
+      }
     }
   }
   return true;
@@ -3361,7 +3430,8 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
       if (isInstructionTriviallyDead(Inst, TLI)) {
         ++NumDeadInst;
         LLVM_DEBUG(dbgs() << "IC: DCE: " << *Inst << '\n');
-        salvageDebugInfo(*Inst);
+        if (!salvageDebugInfo(*Inst))
+          replaceDbgUsesWithUndef(Inst);
         Inst->eraseFromParent();
         MadeIRChange = true;
         continue;
@@ -3506,9 +3576,9 @@ static bool combineInstructionsOverFunction(
 
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
-    InstCombiner IC(Worklist, Builder, F.optForMinSize(),     // INTEL
-                    ExpensiveCombines, TypeLoweringOpts,      // INTEL
-                    AA, AC, TLI, DT, ORE, DL, LI);            // INTEL
+    InstCombiner IC(Worklist, Builder, F.hasMinSize(),     // INTEL
+                    ExpensiveCombines, TypeLoweringOpts,   // INTEL
+                    AA, AC, TLI, DT, ORE, DL, LI);         // INTEL
     IC.MaxArraySizeForCombine = MaxArraySize;
 
     if (!IC.run())

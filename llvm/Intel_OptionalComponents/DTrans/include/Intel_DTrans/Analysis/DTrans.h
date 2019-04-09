@@ -413,6 +413,16 @@ const SafetyData SDSOAToAOS =
     GlobalArray | HasFnPtr | HasZeroSizedArray |
     BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
 
+const SafetyData SDMemInitTrimDown =
+    BadCasting | BadPtrManipulation |
+    VolatileData | MismatchedElementAccess | WholeStructureReference |
+    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+    NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
+    GlobalArray | HasFnPtr | HasZeroSizedArray |
+    BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+
 //
 // TODO: Update the list each time we add a new safety conditions check for a
 // new transformation pass.
@@ -430,7 +440,8 @@ const Transform DT_AOSToSOADependentIndex32 = 0x0040;
 const Transform DT_ElimROFieldAccess = 0x0080;
 const Transform DT_DynClone = 0x0100;
 const Transform DT_SOAToAOS = 0x0200;
-const Transform DT_Last = 0x0400;
+const Transform DT_MemInitTrimDown = 0x0400;
+const Transform DT_Last = 0x0800;
 const Transform DT_Legal = 0x07ff;
 
 /// A three value enum that indicates whether for a particular Type of
