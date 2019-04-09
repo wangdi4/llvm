@@ -608,7 +608,7 @@ bool SequenceChecker::isBlobsMathchedForReroll(const CanonExpr *CE1,
   // numBlobs and Blob coeffs are compared.
 
   unsigned NumBlobs = CE1->numBlobs();
-  if (CE1->numBlobs() != NumBlobs) {
+  if (CE2->numBlobs() != NumBlobs) {
     return false;
   }
 
