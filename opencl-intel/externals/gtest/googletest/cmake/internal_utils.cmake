@@ -84,6 +84,14 @@ macro(config_compiler_and_linker)
       # BigObj required for tests.
       set(cxx_base_flags "${cxx_base_flags} -bigobj")
     endif()
+    # Intel
+    # We see build failures with -WX starting with VS 2015 due to TR1 usage.
+    # Documented way to silence the warning is by adding the macro below
+    # Problem is only with gtest builds.  Other builds use -WX-
+    if (MSVC_VERSION GREATER 1900)  #1900 is Visual Studio 2015
+      set(cxx_base_flags "${cxx_base_flags} -D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING")
+    endif()
+    # End Intel changes
 
     set(cxx_base_flags "${cxx_base_flags} -D_UNICODE -DUNICODE -DWIN32 -D_WIN32")
     set(cxx_base_flags "${cxx_base_flags} -DSTRICT -DWIN32_LEAN_AND_MEAN")
