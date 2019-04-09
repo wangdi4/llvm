@@ -1219,39 +1219,53 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetEnterData:
       case WRegionNode::WRNTargetExitData:
       case WRegionNode::WRNTargetUpdate:
+        // These constructs do not have to be transformed during
+        // the target compilation, hence, hasOffloadCompilation()
+        // check below.
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          Changed |= genGEPCapturingLaunderIntrin(W);
-          genCodemotionFenceforAggrData(W);
+          if (!hasOffloadCompilation()) {
+            Changed |= genGEPCapturingLaunderIntrin(W);
+            genCodemotionFenceforAggrData(W);
+          }
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
-          Changed = clearCodemotionFenceIntrinsic(W);
-          Changed |= clearLaunderIntrinBeforeRegion(W);
-          // The purpose is to generate place holder for global variable.
-          //
-          // For WRNTargetEnterData and WRNTargetExitData we may
-          // avoid laundering the global variables that are declared target,
-          // unless they are mapped as ALWAYS.  We do not need to pass
-          // them to the target runtime library, as long as they have
-          // infinite reference count, and will not require data motion.
-          Changed |= genGlobalPrivatizationLaunderIntrin(W);
-          Changed |= genTargetOffloadingCode(W);
-          Changed |= clearLaunderIntrinBeforeRegion(W);
+          if (!hasOffloadCompilation()) {
+            Changed = clearCodemotionFenceIntrinsic(W);
+            Changed |= clearLaunderIntrinBeforeRegion(W);
+            // The purpose is to generate place holder for global variable.
+            //
+            // For WRNTargetEnterData and WRNTargetExitData we may
+            // avoid laundering the global variables that are declared target,
+            // unless they are mapped as ALWAYS.  We do not need to pass
+            // them to the target runtime library, as long as they have
+            // infinite reference count, and will not require data motion.
+            Changed |= genGlobalPrivatizationLaunderIntrin(W);
+            Changed |= genTargetOffloadingCode(W);
+            Changed |= clearLaunderIntrinBeforeRegion(W);
+          }
           RemoveDirectives = true;
         }
         break;
       case WRegionNode::WRNTargetData:
+        // This construct does not have to be transformed during
+        // the target compilation, hence, hasOffloadCompilation()
+        // check below.
         debugPrintHeader(W, IsPrepare);
         if (Mode & ParPrepare) {
-          Changed |= genCodemotionFenceforAggrData(W);
-          Changed |= genGEPCapturingLaunderIntrin(W);
+          if (!hasOffloadCompilation()) {
+            Changed |= genCodemotionFenceforAggrData(W);
+            Changed |= genGEPCapturingLaunderIntrin(W);
+          }
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
-          Changed = clearCodemotionFenceIntrinsic(W);
-          Changed |= clearLaunderIntrinBeforeRegion(W);
-          // The purpose is to generate place holder for global variable.
-          Changed |= genGlobalPrivatizationLaunderIntrin(W);
-          improveAliasForOutlinedFunc(W);
-          Changed |= genTargetOffloadingCode(W);
-          Changed |= clearLaunderIntrinBeforeRegion(W);
+          if (!hasOffloadCompilation()) {
+            Changed = clearCodemotionFenceIntrinsic(W);
+            Changed |= clearLaunderIntrinBeforeRegion(W);
+            // The purpose is to generate place holder for global variable.
+            Changed |= genGlobalPrivatizationLaunderIntrin(W);
+            improveAliasForOutlinedFunc(W);
+            Changed |= genTargetOffloadingCode(W);
+            Changed |= clearLaunderIntrinBeforeRegion(W);
+          }
           RemoveDirectives = true;
         }
         break;
