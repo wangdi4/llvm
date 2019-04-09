@@ -194,6 +194,11 @@ OclBuiltinImpl sincos_pas_svml_rm_not_shared = OclBuiltinImpl<sincos_pas_rm, [v1
 OclBuiltinImpl sincos_las_svml_rm_not_shared = OclBuiltinImpl<sincos_las_rm, [v16f32], 0, sincos_svml_rm>;
 OclBuiltinImpl sincos_gas_svml_rm_not_shared = OclBuiltinImpl<sincos_gas_rm, [v16f32], 0, sincos_svml_rm>;
 
+// divide_rm
+OclBuiltinImpl divide_svml_rm_not_shared = OclBuiltinImpl<divide_rm, [v16f32], 0, [{
+    return __ocl_svml_$Target_div$SVMLSuffix_rm($Arg0VarName, $Arg1VarName);
+  }]>;
+
 // intel_movemask scalar
 OclBuiltinImpl intel_scalar_movemask_impl = OclBuiltinImpl<intel_movemask, [v1i8,  v1i16, v1i32, v1i64], 0, [{
     return $Arg0VarName != 0;

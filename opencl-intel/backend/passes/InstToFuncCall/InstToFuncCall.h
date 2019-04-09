@@ -17,6 +17,7 @@
 #include <llvm/Pass.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Operator.h>
 #include <map>
 #include <iostream>
 
@@ -148,12 +149,27 @@ namespace intel{
             m_Lookup[Instruction::FPToUI] = FPToUI_Lookup;
             m_Lookup[Instruction::FPToSI] = FPToSI_Lookup;
             m_Lookup[Instruction::FPTrunc] = FPTrunc_Lookup;
+
+            Type2ValueLookup FDiv_Lookup;
+            FDiv_Lookup[std::make_pair(Float,Float)] = std::make_pair("_Z9divide_rmff", CallingConv::C);
+            FDiv_Lookup[std::make_pair(v2xFloat,v2xFloat)] = std::make_pair("_Z9divide_rmDv2_fS_", CallingConv::C);
+            FDiv_Lookup[std::make_pair(v3xFloat,v3xFloat)] = std::make_pair("_Z9divide_rmDv3_fS_", CallingConv::C);
+            FDiv_Lookup[std::make_pair(v4xFloat,v4xFloat)] = std::make_pair("_Z9divide_rmDv4_fS_", CallingConv::C);
+            FDiv_Lookup[std::make_pair(v8xFloat,v8xFloat)] = std::make_pair("_Z9divide_rmDv8_fS_", CallingConv::C);
+            FDiv_Lookup[std::make_pair(v16xFloat,v16xFloat)] = std::make_pair("_Z9divide_rmDv16_fS_", CallingConv::C);
+            m_LookupFastMath[Instruction::FDiv] = FDiv_Lookup;
         }
 
         const LookupValue *operator [](const Instruction &inst) const {
-            Opcode2T2VLookup::const_iterator iter = m_Lookup.find(inst.getOpcode());
-            if (iter == m_Lookup.end()) {
-                return 0;
+            Opcode2T2VLookup::const_iterator iter;
+            if (isa<FPMathOperator>(inst) && inst.isFast()) {
+                iter = m_LookupFastMath.find(inst.getOpcode());
+                if (iter == m_LookupFastMath.end())
+                    return 0;
+            } else {
+                iter = m_Lookup.find(inst.getOpcode());
+                if (iter == m_Lookup.end())
+                    return 0;
             }
 
             const Type2ValueLookup &Lookup2 = ( *iter ).second;
@@ -188,11 +204,16 @@ namespace intel{
             Float = 3,
             Double = 4,
             Half = 5,
-            v16xInteger64 = 6,
-            v16xFloat = 7,
-            v16xDouble = 8
+            v2xFloat = 6,
+            v3xFloat = 7,
+            v4xFloat = 8,
+            v8xFloat = 9,
+            v16xInteger64 = 10,
+            v16xFloat = 11,
+            v16xDouble = 12
         };
         Opcode2T2VLookup m_Lookup;
+        Opcode2T2VLookup m_LookupFastMath;
 
         static TypeInfo getTypeInfo(Type *type)
         {
@@ -215,10 +236,22 @@ namespace intel{
             if (type->isVectorTy())
             {
                 VectorType *vt = cast<VectorType>(type);
-                if (vt->getNumElements() != 16) return Unknown;
                 Type *et = vt->getElementType();
+                int num = vt->getNumElements();
                 if (et->isFloatTy())
-                    return v16xFloat;
+                {
+                    if (num == 2)
+                        return v2xFloat;
+                    else if (num == 3)
+                        return v3xFloat;
+                    else if (num == 4)
+                        return v4xFloat;
+                    else if (num == 8)
+                        return v8xFloat;
+                    else if (num == 16)
+                        return v16xFloat;
+                }
+                if (num != 16) return Unknown;
                 if (et->isDoubleTy())
                     return v16xDouble;
                 if (IntegerType * it = dyn_cast<IntegerType>(et))

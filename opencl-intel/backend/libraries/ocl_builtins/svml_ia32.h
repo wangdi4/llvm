@@ -13823,6 +13823,28 @@
 
 
   /****************************************************************************/
+  // Fast relaxed math functions
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_n8_divf1_rm(float  a,  float  b);
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_n8_divf2_rm(float2  a,  float2  b);
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_n8_divf3_rm(float3  a,  float3  b);
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_n8_divf4_rm(float4  a,  float4  b);
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_n8_divf8_rm(float8  a,  float8  b);
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_n8_divf16_rm(float16  a,  float16  b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_g9_divf1_rm(float  a,  float  b);
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_g9_divf2_rm(float2  a,  float2  b);
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_g9_divf3_rm(float3  a,  float3  b);
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_g9_divf4_rm(float4  a,  float4  b);
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_g9_divf8_rm(float8  a,  float8  b);
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_g9_divf16_rm(float16  a,  float16  b);
+
+  float __attribute__((intel_ocl_bicc))  __ocl_svml_s9_divf1_rm(float  a,  float  b);
+  float2 __attribute__((intel_ocl_bicc))  __ocl_svml_s9_divf2_rm(float2  a,  float2  b);
+  float3 __attribute__((intel_ocl_bicc))  __ocl_svml_s9_divf3_rm(float3  a,  float3  b);
+  float4 __attribute__((intel_ocl_bicc))  __ocl_svml_s9_divf4_rm(float4  a,  float4  b);
+  float8 __attribute__((intel_ocl_bicc))  __ocl_svml_s9_divf8_rm(float8  a,  float8  b);
+  float16 __attribute__((intel_ocl_bicc))  __ocl_svml_s9_divf16_rm(float16  a,  float16  b);
+
   // Fast relaxed math functions float16
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_n8_cosf16_rm (float16 a);
   float16 __attribute__((intel_ocl_bicc)) __ocl_svml_n8_exp10f16_rm (float16 a);
