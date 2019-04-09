@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -emit-llvm %s -o - -fintel-compatibility \
-// RUN:            -triple i686-linux-gnu | FileCheck %s
+// RUN:            -triple i686-linux-gnu | FileCheck %s --check-prefixes CHECK,CHECK-32
 // RUN: %clang_cc1 -emit-llvm %s -o - -fintel-compatibility \
-// RUN:            -triple x86_64-linux-gnu | FileCheck %s
+// RUN:            -triple x86_64-linux-gnu | FileCheck %s --check-prefixes CHECK,CHECK-64
 
 // ==-- Rotate Left Intrinsics -----------------------------------------------==
 //
@@ -29,9 +29,12 @@ unsigned int test_rotl(unsigned int value, int shift) {
 unsigned long test_lrotl(unsigned long value, int shift) {
   return _lrotl(value, shift);
 }
-// CHECK: i{{32|64}} @test_lrotl
-// CHECK:   [[R:%.*]] = call i32 @llvm.fshl.i32(i32 [[X:%.*]], i32 [[X]], i32 [[Y:%.*]])
-// CHECK:   ret i{{32|64}} %{{[0-9a-z]+}}
+// CHECK-32: i32 @test_lrotl
+// CHECK-32:   [[R:%.*]] = call i32 @llvm.fshl.i32(i32 [[X:%.*]], i32 [[X]], i32 [[Y:%.*]])
+// CHECK-32:   ret i32 [[R]]
+// CHECK-64: i64 @test_lrotl
+// CHECK-64:   [[R:%.*]] = call i64 @llvm.fshl.i64(i64 [[X:%.*]], i64 [[X]], i64 [[Y:%.*]])
+// CHECK-64:   ret i64 [[R]]
 
 unsigned __int64 test_rotl64(unsigned __int64 value, int shift) {
   return _rotl64(value, shift);
@@ -66,9 +69,12 @@ unsigned int test_rotr(unsigned int value, int shift) {
 unsigned long test_lrotr(unsigned long value, int shift) {
   return _lrotr(value, shift);
 }
-// CHECK: i{{32|64}} @test_lrotr
-// CHECK:   [[R:%.*]] = call i32 @llvm.fshr.i32(i32 [[X:%.*]], i32 [[X]], i32 [[Y:%.*]])
-// CHECK:   ret i{{32|64}} %{{[0-9a-z]+}}
+// CHECK-32: i32 @test_lrotr
+// CHECK-32:   [[R:%.*]] = call i32 @llvm.fshr.i32(i32 [[X:%.*]], i32 [[X]], i32 [[Y:%.*]])
+// CHECK-32:   ret i32 [[R]]
+// CHECK-64: i64 @test_lrotr
+// CHECK-64:   [[R:%.*]] = call i64 @llvm.fshr.i64(i64 [[X:%.*]], i64 [[X]], i64 [[Y:%.*]])
+// CHECK-64:   ret i64 [[R]]
 
 unsigned __int64 test_rotr64(unsigned __int64 value, int shift) {
   return _rotr64(value, shift);

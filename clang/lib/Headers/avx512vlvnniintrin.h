@@ -25,6 +25,14 @@
 #error "Never use <avx512vlvnniintrin.h> directly; include <immintrin.h> instead."
 #endif
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_VNNI */
+#ifdef __AVXVNNIINTRIN_H
+#error "avx512vlintrin.h and avxvnniintrin.h should never be included together."
+#endif
+/* end INTEL_FEATURE_ISA_AVX_VNNI */
+/* end INTEL_CUSTOMIZATION */
+
 #ifndef __AVX512VLVNNIINTRIN_H
 #define __AVX512VLVNNIINTRIN_H
 

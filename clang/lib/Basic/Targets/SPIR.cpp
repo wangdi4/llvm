@@ -66,7 +66,6 @@ SPIR64INTELFpgaTargetInfo::getTargetBuiltins() const {
 
 static void defineFPGA(MacroBuilder &Builder) {
   Builder.defineMacro("__fpga_reg", "__builtin_fpga_reg");
-  Builder.defineMacro("INTELFPGA_CL", "191");
 }
 
 void SPIR32INTELFpgaTargetInfo::getTargetDefines(

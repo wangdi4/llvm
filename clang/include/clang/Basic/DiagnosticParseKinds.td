@@ -1164,8 +1164,6 @@ def err_opencl_logical_exclusive_or : Error<
 // OpenCL C++.
 def err_openclcxx_virtual_function : Error<
   "virtual functions are not supported in OpenCL C++">;
-def err_openclcxx_reserved : Error<
-  "'%0' is a reserved keyword in OpenCL C++">;
 
 // OpenMP support.
 def warn_pragma_omp_ignored : Warning<
@@ -1200,7 +1198,7 @@ def err_omp_decl_in_declare_simd : Error<
 def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<
-  "incorrect map type modifier, expected 'always' or 'close'">;
+  "incorrect map type modifier, expected 'always', 'close', or 'mapper'">;
 // if INTEL_CUSTOMIZATION
 def err_omp_unknown_lastprivate_modifier : Error<
   "incorrect lastprivate modifier, expected 'conditional'">;
@@ -1217,6 +1215,10 @@ def err_omp_declare_target_unexpected_clause: Error<
   "unexpected '%0' clause, only 'to' or 'link' clauses expected">;
 def err_omp_expected_clause: Error<
   "expected at least one clause on '#pragma omp %0' directive">;
+def err_omp_mapper_illegal_identifier : Error<
+  "illegal OpenMP user-defined mapper identifier">;
+def err_omp_mapper_expected_declarator : Error<
+  "expected declarator on 'omp declare mapper' directive">;
 
 // Pragma loop support.
 def err_pragma_loop_missing_argument : Error<

@@ -134,6 +134,24 @@ bool X86TargetInfo::initFeatureMap(
   if (Kind != CK_Lakemont)
     setFeatureEnabledImpl(Features, "x87", true);
 
+  // Enable cmpxchg8 for i586 and greater CPUs. Include generic for backwards
+  // compatibility.
+  if (Kind >= CK_i586 || Kind == CK_Generic)
+    setFeatureEnabledImpl(Features, "cx8", true);
+
+#if INTEL_CUSTOMIZATION
+  SmallVector<StringRef, 16> AnonymousCPU1Features;
+#if INTEL_FEATURE_ISA_AMX
+  AnonymousCPU1Features.push_back("amx-tile");
+  AnonymousCPU1Features.push_back("amx-int8");
+  AnonymousCPU1Features.push_back("amx-bf16");
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_SERIALIZE
+  AnonymousCPU1Features.push_back("serialize");
+#endif // INTEL_FEATURE_ISA_SERIALIZE
+  AnonymousCPU1Features.push_back("sse2"); // To avoid unused variable error.
+#endif // INTEL_CUSTOMIZATION
+
   switch (Kind) {
   case CK_Generic:
   case CK_i386:
@@ -141,6 +159,7 @@ bool X86TargetInfo::initFeatureMap(
   case CK_i586:
   case CK_Pentium:
   case CK_PentiumPro:
+  case CK_i686:
   case CK_Lakemont:
     break;
 
@@ -151,6 +170,14 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "mmx", true);
     break;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GLC
+  case CK_Goldencove:
+    for (auto Feature : AnonymousCPU1Features)
+      setFeatureEnabledImpl(Features, Feature, true);
+    LLVM_FALLTHROUGH;
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
   case CK_IcelakeServer:
     setFeatureEnabledImpl(Features, "pconfig", true);
     setFeatureEnabledImpl(Features, "wbnoinvd", true);
@@ -233,11 +260,12 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "ssse3", true);
     setFeatureEnabledImpl(Features, "sahf", true);
     LLVM_FALLTHROUGH;
+  case CK_Nocona:
+    setFeatureEnabledImpl(Features, "cx16", true);
+    LLVM_FALLTHROUGH;
   case CK_Yonah:
   case CK_Prescott:
-  case CK_Nocona:
     setFeatureEnabledImpl(Features, "sse3", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
     LLVM_FALLTHROUGH;
   case CK_PentiumM:
   case CK_Pentium4:
@@ -293,12 +321,16 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "avx512vpopcntdq", true);
     LLVM_FALLTHROUGH;
   case CK_KNL:
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "avx512cd", true);
+#if INTEL_CUSTOMIZATION
     setFeatureEnabledImpl(Features, "avx512er", true);
     setFeatureEnabledImpl(Features, "avx512pf", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
     setFeatureEnabledImpl(Features, "prefetchwt1", true);
+    LLVM_FALLTHROUGH;
+  case CK_CommonAVX512:
+    setFeatureEnabledImpl(Features, "avx512cd", true);
+    setFeatureEnabledImpl(Features, "avx512f", true);
+    setFeatureEnabledImpl(Features, "prfchw", true);
+#endif // INTEL_CUSTOMIZATION
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "rdseed", true);
     setFeatureEnabledImpl(Features, "adx", true);
@@ -366,6 +398,11 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "sahf", true);
     break;
 
+  case CK_ZNVER2:
+    setFeatureEnabledImpl(Features, "clwb", true);
+    setFeatureEnabledImpl(Features, "rdpid", true);
+    setFeatureEnabledImpl(Features, "wbnoinvd", true);
+    LLVM_FALLTHROUGH;
   case CK_ZNVER1:
     setFeatureEnabledImpl(Features, "adx", true);
     setFeatureEnabledImpl(Features, "aes", true);
@@ -434,24 +471,37 @@ bool X86TargetInfo::initFeatureMap(
   // Enable popcnt if sse4.2 is enabled and popcnt is not explicitly disabled.
   auto I = Features.find("sse4.2");
   if (I != Features.end() && I->getValue() &&
-      std::find(FeaturesVec.begin(), FeaturesVec.end(), "-popcnt") ==
-          FeaturesVec.end())
+      llvm::find(FeaturesVec, "-popcnt") == FeaturesVec.end())
     Features["popcnt"] = true;
 
   // Enable prfchw if 3DNow! is enabled and prfchw is not explicitly disabled.
   I = Features.find("3dnow");
   if (I != Features.end() && I->getValue() &&
-      std::find(FeaturesVec.begin(), FeaturesVec.end(), "-prfchw") ==
-          FeaturesVec.end())
+      llvm::find(FeaturesVec, "-prfchw") == FeaturesVec.end())
     Features["prfchw"] = true;
 
   // Additionally, if SSE is enabled and mmx is not explicitly disabled,
   // then enable MMX.
   I = Features.find("sse");
   if (I != Features.end() && I->getValue() &&
-      std::find(FeaturesVec.begin(), FeaturesVec.end(), "-mmx") ==
-          FeaturesVec.end())
+      llvm::find(FeaturesVec, "-mmx") == FeaturesVec.end())
     Features["mmx"] = true;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  // Enable a fake vnnivl feature if "avxvnni" is enabled or
+  // "avx512vl,avx512vnni" is enabled.
+  auto AVXVNNIIt = Features.find("avxvnni");
+  auto AVX512VLIt = Features.find("avx512vl");
+  auto AVX512VNNIIt = Features.find("avx512vnni");
+  if (((AVXVNNIIt != Features.end() && AVXVNNIIt->getValue()) ||
+       (AVX512VLIt != Features.end() && AVX512VLIt->getValue() &&
+        AVX512VNNIIt != Features.end() && AVX512VNNIIt->getValue())) &&
+      std::find(FeaturesVec.begin(), FeaturesVec.end(), "-vnnivl") ==
+          FeaturesVec.end())
+    Features["vnnivl"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
 
   return true;
 }
@@ -523,6 +573,11 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     LLVM_FALLTHROUGH;
   case AVX2:
     Features["avx2"] = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    Features["avxvnni"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case AVX512F:
     Features["avx512f"] = Features["avx512cd"] = Features["avx512er"] =
@@ -730,6 +785,12 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
       Features["amx-tile"] = true;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  else if (Name == "avxvnni") {
+    if (Enabled)
+      setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -819,6 +880,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasMOVBE = true;
     } else if (Feature == "+sgx") {
       HasSGX = true;
+    } else if (Feature == "+cx8") {
+      HasCX8 = true;
     } else if (Feature == "+cx16") {
       HasCX16 = true;
     } else if (Feature == "+fxsr") {
@@ -870,6 +933,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+    } else if (Feature == "+tsxldtrk") {
+      HasTSXLDTRK = true;
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
     } else if (Feature == "+amx-bf16") {
       HasAMXBF16 = true;
@@ -878,6 +945,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-tile") {
       HasAMXTILE = true;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    } else if (Feature == "+avxvnni") {
+      HasAVXVNNI = true;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
@@ -926,6 +997,9 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 /// definitions for this particular subtarget.
 void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
                                      MacroBuilder &Builder) const {
+  // Inline assembly supports X86 flag outputs. 
+  Builder.defineMacro("__GCC_ASM_FLAG_OUTPUTS__");
+
   std::string CodeModel = getTargetOpts().CodeModel;
   if (CodeModel == "default")
     CodeModel = "small";
@@ -979,6 +1053,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__tune_pentium2__");
     LLVM_FALLTHROUGH;
   case CK_PentiumPro:
+  case CK_i686:
     defineCPUMacros(Builder, "i686");
     defineCPUMacros(Builder, "pentiumpro");
     break;
@@ -1021,11 +1096,20 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Cannonlake:
   case CK_IcelakeClient:
   case CK_IcelakeServer:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GLC
+  case CK_Goldencove:
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
     defineCPUMacros(Builder, "corei7");
     break;
+#if INTEL_CUSTOMIZATION
+  case CK_CommonAVX512:
+    break;
+#endif // INTEL_CUSTOMIZATION
   case CK_KNL:
     defineCPUMacros(Builder, "knl");
     break;
@@ -1088,6 +1172,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     break;
   case CK_ZNVER1:
     defineCPUMacros(Builder, "znver1");
+    break;
+  case CK_ZNVER2:
+    defineCPUMacros(Builder, "znver2");
     break;
   case CK_Geode:
     defineCPUMacros(Builder, "geode");
@@ -1262,6 +1349,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+  if (HasTSXLDTRK)
+    Builder.defineMacro("__TSXLDTRK__");
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
   if (HasAMXTILE)
     Builder.defineMacro("__AMXTILE__");
@@ -1270,6 +1361,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasAMXBF16)
     Builder.defineMacro("__AMXBF16__");
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  if (HasAVXVNNI)
+    Builder.defineMacro("__AVXVNNI__");
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1359,14 +1454,14 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     break;
   }
 
-  if (CPU >= CK_i486) {
+  if (CPU >= CK_i486 || CPU == CK_Generic) {
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1");
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2");
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4");
   }
-  if (CPU >= CK_i586)
+  if (HasCX8)
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8");
-  if (HasCX16)
+  if (HasCX16 && getTriple().getArch() == llvm::Triple::x86_64)
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_16");
 
   if (HasFloat128)
@@ -1375,7 +1470,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_CUSTOMIZATION
   if (getTriple().getEnvironment() == llvm::Triple::IntelFPGA) {
     Builder.defineMacro("__fpga_reg", "__builtin_fpga_reg");
-    Builder.defineMacro("INTELFPGA_CL", "191");
   }
 #endif // INTEL_CUSTOMIZATION
 }
@@ -1413,6 +1507,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vbmi", true)
       .Case("avx512vbmi2", true)
       .Case("avx512ifma", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+      .Case("avxvnni", true)
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
       .Case("bmi", true)
       .Case("bmi2", true)
       .Case("cldemote", true)
@@ -1451,6 +1550,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_SERIALIZE
       .Case("serialize", true)
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+      .Case("tsxldtrk", true)
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
       .Case("sgx", true)
       .Case("sha", true)
@@ -1487,6 +1589,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+      .Case("avxvnni", HasAVXVNNI)
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)
@@ -1514,6 +1619,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("clflushopt", HasCLFLUSHOPT)
       .Case("clwb", HasCLWB)
       .Case("clzero", HasCLZERO)
+      .Case("cx8", HasCX8)
       .Case("cx16", HasCX16)
       .Case("f16c", HasF16C)
       .Case("fma", HasFMA)
@@ -1549,6 +1655,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_SERIALIZE
       .Case("serialize", HasSERIALIZE)
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+      .Case("tsxldtrk", HasTSXLDTRK)
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
       .Case("sgx", HasSGX)
       .Case("sha", HasSHA)
@@ -1665,18 +1774,6 @@ void X86TargetInfo::getCPUSpecificCPUDispatchFeatures(
   WholeList.split(Features, ',', /*MaxSplit=*/-1, /*KeepEmpty=*/false);
 }
 
-std::string X86TargetInfo::getCPUKindCanonicalName(CPUKind Kind) const {
-  switch (Kind) {
-  case CK_Generic:
-    return "";
-#define PROC(ENUM, STRING, IS64BIT)                                            \
-  case CK_##ENUM:                                                              \
-    return STRING;
-#include "clang/Basic/X86Target.def"
-  }
-  llvm_unreachable("Invalid CPUKind");
-}
-
 // We can't use a generic validation scheme for the cpus accepted here
 // versus subtarget cpus accepted in the target attribute because the
 // variables intitialized by the runtime only support the below currently
@@ -1690,6 +1787,40 @@ bool X86TargetInfo::validateCpuIs(StringRef FeatureStr) const {
 #define X86_CPU_SUBTYPE_COMPAT(ARCHNAME, ENUM, STR) .Case(STR, true)
 #include "llvm/Support/X86TargetParser.def"
       .Default(false);
+}
+
+static unsigned matchAsmCCConstraint(const char *&Name) {
+  auto RV = llvm::StringSwitch<unsigned>(Name)
+                .Case("@cca", 4)
+                .Case("@ccae", 5)
+                .Case("@ccb", 4)
+                .Case("@ccbe", 5)
+                .Case("@ccc", 4)
+                .Case("@cce", 4)
+                .Case("@ccz", 4)
+                .Case("@ccg", 4)
+                .Case("@ccge", 5)
+                .Case("@ccl", 4)
+                .Case("@ccle", 5)
+                .Case("@ccna", 5)
+                .Case("@ccnae", 6)
+                .Case("@ccnb", 5)
+                .Case("@ccnbe", 6)
+                .Case("@ccnc", 5)
+                .Case("@ccne", 5)
+                .Case("@ccnz", 5)
+                .Case("@ccng", 5)
+                .Case("@ccnge", 6)
+                .Case("@ccnl", 5)
+                .Case("@ccnle", 6)
+                .Case("@ccno", 5)
+                .Case("@ccnp", 5)
+                .Case("@ccns", 5)
+                .Case("@cco", 4)
+                .Case("@ccp", 4)
+                .Case("@ccs", 4)
+                .Default(0);
+  return RV;
 }
 
 bool X86TargetInfo::validateAsmConstraint(
@@ -1774,6 +1905,14 @@ bool X86TargetInfo::validateAsmConstraint(
   case 'C': // SSE floating point constant.
   case 'G': // x87 floating point constant.
     return true;
+  case '@':
+    // CC condition changes.
+    if (auto Len = matchAsmCCConstraint(Name)) {
+      Name += Len - 1;
+      Info.setAllowsRegister();
+      return true;
+    }
+    return false;
   }
 }
 
@@ -1845,6 +1984,13 @@ bool X86TargetInfo::validateOperandSize(StringRef Constraint,
 
 std::string X86TargetInfo::convertConstraint(const char *&Constraint) const {
   switch (*Constraint) {
+  case '@':
+    if (auto Len = matchAsmCCConstraint(Constraint)) {
+      std::string Converted = "{" + std::string(Constraint, Len) + "}";
+      Constraint += Len - 1;
+      return Converted;
+    }
+    return std::string(1, *Constraint);
   case 'a':
     return std::string("{ax}");
   case 'b':
@@ -1907,10 +2053,9 @@ void X86TargetInfo::fillValidCPUList(SmallVectorImpl<StringRef> &Values) const {
 #define PROC(ENUM, STRING, IS64BIT)                                            \
   if (IS64BIT || getTriple().getArch() == llvm::Triple::x86)                   \
     Values.emplace_back(STRING);
-  // Go through CPUKind checking to ensure that the alias is de-aliased and
-  // 64 bit-ness is checked.
+  // For aliases we need to lookup the CPUKind to check get the 64-bit ness.
 #define PROC_ALIAS(ENUM, ALIAS)                                                \
-  if (checkCPUKind(getCPUKind(ALIAS)))                                         \
+  if (checkCPUKind(CK_##ENUM))                                                      \
     Values.emplace_back(ALIAS);
 #include "clang/Basic/X86Target.def"
 }

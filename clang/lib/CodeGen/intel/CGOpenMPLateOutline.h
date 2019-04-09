@@ -231,6 +231,8 @@ class OpenMPLateOutliner {
   void emitOMPDynamicAllocatorsClause(const OMPDynamicAllocatorsClause *);
   void
   emitOMPAtomicDefaultMemOrderClause(const OMPAtomicDefaultMemOrderClause *);
+  void emitOMPAllocatorClause(const OMPAllocatorClause *);
+  void emitOMPAllocateClause(const OMPAllocateClause *);
 
   llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv);
   llvm::Value *emitOpenMPDestructor(QualType Ty);
@@ -248,6 +250,7 @@ class OpenMPLateOutliner {
   enum ImplicitClauseKind {
     ICK_private,
     ICK_firstprivate,
+    ICK_lastprivate,
     ICK_shared,
     ICK_map_tofrom,
     ICK_normalized_iv,
@@ -381,28 +384,12 @@ public:
 class CGLateOutlineOpenMPRegionInfo
     : public CodeGenFunction::CGCapturedStmtInfo {
 public:
-#if INTEL_CUSTOMIZATION
-  CGLateOutlineOpenMPRegionInfo(CodeGenFunction::CGCapturedStmtInfo *CSI,
-                                OpenMPLateOutliner &O,
-                                const OMPExecutableDirective &D,
-                                bool IsHoisted = false)
-#else
   CGLateOutlineOpenMPRegionInfo(CodeGenFunction::CGCapturedStmtInfo *CSI,
                                 OpenMPLateOutliner &O,
                                 const OMPExecutableDirective &D)
-#endif // INTEL_CUSTOMIZATION
       : CGCapturedStmtInfo(*cast<CapturedStmt>(D.getAssociatedStmt()),
                            CR_OpenMP),
-        Outliner(O), D(D), HoistedLoopBoundsRegion(IsHoisted) {
-#if INTEL_CUSTOMIZATION
-    if (!IsHoisted && CSI) {
-      // Copy the value from the parent region if not set explicitly.
-      auto *RI = static_cast<CGLateOutlineOpenMPRegionInfo *>(CSI);
-      HoistedLoopBoundsRegion = RI->HoistedLoopBoundsRegion;
-    }
-#endif // INTEL_CUSTOMIZATION
-    OldCSI = CSI;
-  }
+        OldCSI(CSI), Outliner(O), D(D) {}
 
   /// Emit the captured statement body.
   void EmitBody(CodeGenFunction &CGF, const Stmt *S) override;
@@ -431,9 +418,6 @@ public:
   }
   void recordValueReference(llvm::Value *V) { Outliner.addValueRef(V); }
   void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
-#if INTEL_CUSTOMIZATION
-  bool hasHoistedLoopBounds() const { return HoistedLoopBoundsRegion; }
-#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   bool isLateOutlinedRegion() { return true; }
@@ -444,9 +428,6 @@ private:
   CodeGenFunction::CGCapturedStmtInfo *OldCSI;
   OpenMPLateOutliner &Outliner;
   const OMPExecutableDirective &D;
-#if INTEL_CUSTOMIZATION
-  bool HoistedLoopBoundsRegion = false; // INTEL
-#endif // INTEL_CUSTOMIZATION
 };
 
 /// RAII for emitting code of OpenMP constructs.
@@ -459,23 +440,12 @@ public:
   /// \param CodeGen Code generation sequence for combined directives. Includes
   /// a list of functions used for code generation of implicitly inlined
   /// regions.
-#if INTEL_CUSTOMIZATION
-  LateOutlineOpenMPRegionRAII(CodeGenFunction &CGF, OpenMPLateOutliner &O,
-                              const OMPExecutableDirective &D,
-                              bool IsHoisted = false)
-#else
   LateOutlineOpenMPRegionRAII(CodeGenFunction &CGF, OpenMPLateOutliner &O,
                               const OMPExecutableDirective &D)
-#endif // INTEL_CUSTOMIZATION
       : CGF(CGF), Outliner(O), Dir(D) {
     // Start emission for the construct.
-#if INTEL_CUSTOMIZATION
-    CGF.CapturedStmtInfo = new CGLateOutlineOpenMPRegionInfo(
-        CGF.CapturedStmtInfo, Outliner, D, IsHoisted);
-#else
     CGF.CapturedStmtInfo =
         new CGLateOutlineOpenMPRegionInfo(CGF.CapturedStmtInfo, Outliner, D);
-#endif // INTEL_CUSTOMIZATION
   }
   ~LateOutlineOpenMPRegionRAII() {
     // Restore original CapturedStmtInfo only if we're done with code emission.

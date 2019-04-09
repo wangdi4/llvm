@@ -490,6 +490,9 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   case ICK_firstprivate:
     addArg("QUAL.OMP.FIRSTPRIVATE");
     break;
+  case ICK_lastprivate:
+    addArg("QUAL.OMP.LASTPRIVATE");
+    break;
   case ICK_shared:
     addArg("QUAL.OMP.SHARED");
     break;
@@ -1199,17 +1202,27 @@ void OpenMPLateOutliner::emitOMPUseDevicePtrClause(
 }
 
 void OpenMPLateOutliner::emitOMPToClause(const OMPToClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_to);
-  addArg("QUAL.OMP.TO");
-  for (auto *E : Cl->varlists())
+  for (auto *E : Cl->varlists()) {
+    ClauseEmissionHelper CEH(*this, OMPC_to, "QUAL.OMP.TO");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      CSB.setArrSect();
+    addArg(CSB.getString());
     addArg(E);
+  }
 }
 
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_from);
-  addArg("QUAL.OMP.FROM");
-  for (auto *E : Cl->varlists())
+  for (auto *E : Cl->varlists()) {
+    ClauseEmissionHelper CEH(*this, OMPC_from, "QUAL.OMP.FROM");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      CSB.setArrSect();
+    addArg(CSB.getString());
     addArg(E);
+  }
 }
 
 void OpenMPLateOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *Cl) {
@@ -1372,6 +1385,8 @@ void OpenMPLateOutliner::emitOMPDynamicAllocatorsClause(
     const OMPDynamicAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *) {}
+void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
+void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   switch (Directive.getDirectiveKind()) {
@@ -1415,8 +1430,12 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
     auto *LoopDir = dyn_cast<OMPLoopDirective>(&D);
     for (auto *E : LoopDir->counters()) {
       auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-      if (CurrentDirectiveKind == OMPD_simd)
-        ImplicitMap.insert(std::make_pair(PVD, ICK_unknown));
+      if (CurrentDirectiveKind == OMPD_simd) {
+        if (CGF.IsPrivateCounter(PVD))
+          ImplicitMap.insert(std::make_pair(PVD, ICK_unknown));
+        else
+          ImplicitMap.insert(std::make_pair(PVD, ICK_lastprivate));
+      }
       else
         ImplicitMap.insert(std::make_pair(PVD, ICK_private));
     }
@@ -1696,9 +1715,6 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
     if (!isAllowedClauseForDirective(CurrentDirectiveKind, ClauseKind))
       continue;
     switch (ClauseKind) {
-    case OMPC_flush:
-      emitOMPFlushClause(cast<OMPFlushClause>(C));
-      break;
 #define OPENMP_CLAUSE(Name, Class)                                             \
   case OMPC_##Name:                                                            \
     emit##Class(cast<Class>(C));                                               \
@@ -1750,8 +1766,10 @@ void CGLateOutlineOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF,
                                              const Stmt *S) {
   if (!CGF.HaveInsertPoint())
     return;
+  CGF.EHStack.pushTerminate();
   auto *CS = cast<CapturedStmt>(S);
   CGF.EmitStmt(CS->getCapturedStmt());
+  CGF.EHStack.popTerminate();
 }
 
 /// Retrieve the value of the context parameter.
@@ -1861,8 +1879,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   OpenMPLateOutliner Outliner(*this, S, Kind);
   OpenMPDirectiveKind CurrentDirectiveKind = Outliner.getCurrentDirectiveKind();
 #if INTEL_CUSTOMIZATION
-  bool HasHoistedLoopBounds =
-    HoistLoopBoundsIfPossible(S, CurrentDirectiveKind);
+  HoistLoopBoundsIfPossible(S, CurrentDirectiveKind);
 #endif // INTEL_CUSTOMIZATION
   HoistTeamsClausesIfPossible(S, CurrentDirectiveKind);
 
@@ -1984,6 +2001,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     break;
 
   // These directives are not yet implemented.
+  case OMPD_allocate:
   case OMPD_requires:
     break;
 
@@ -1993,6 +2011,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_threadprivate:
   case OMPD_declare_reduction:
   case OMPD_declare_simd:
+  case OMPD_declare_mapper:
   case OMPD_unknown:
     llvm_unreachable("Wrong OpenMP directive");
 
@@ -2027,12 +2046,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   Outliner << S.clauses();
   Outliner.insertMarker();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {
-#if INTEL_CUSTOMIZATION
-    LateOutlineOpenMPRegionRAII Region(*this, Outliner, S,
-                                       HasHoistedLoopBounds);
-#else
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
-#endif // INTEL_CUSTOMIZATION
     if (S.getDirectiveKind() != CurrentDirectiveKind) {
       // Unless we've reached the innermost directive, keep going.
       OpenMPDirectiveKind NextKind =

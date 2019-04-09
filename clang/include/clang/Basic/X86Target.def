@@ -66,7 +66,7 @@ PROC(PentiumMMX, "pentium-mmx", PROC_32_BIT)
 /// i686-generation processors, P6 / Pentium M microarchitecture based.
 //@{
 PROC(PentiumPro, "pentiumpro", PROC_32_BIT)
-PROC_ALIAS(PentiumPro, "i686")
+PROC(i686, "i686", PROC_32_BIT)
 PROC(Pentium2, "pentium2", PROC_32_BIT)
 PROC(Pentium3, "pentium3", PROC_32_BIT)
 PROC_ALIAS(Pentium3, "pentium3m")
@@ -144,6 +144,12 @@ PROC_ALIAS(Haswell, "core-avx2")
 /// Broadwell microarchitecture based processors.
 PROC_WITH_FEAT(Broadwell, "broadwell", PROC_64_BIT, FEATURE_AVX2)
 
+#if INTEL_CUSTOMIZATION
+/// \name CommonAVX512
+/// Intersection of SKX and KNL.
+PROC(CommonAVX512, "common-avx512", PROC_64_BIT)
+#endif // INTEL_CUSTOMIZATION
+
 /// \name Skylake Client
 /// Skylake client microarchitecture based processors.
 PROC_WITH_FEAT(SkylakeClient, "skylake", PROC_64_BIT, FEATURE_AVX2)
@@ -168,6 +174,14 @@ PROC(IcelakeClient, "icelake-client", PROC_64_BIT)
 /// \name Icelake Server
 /// Icelake server microarchitecture based processors.
 PROC(IcelakeServer, "icelake-server", PROC_64_BIT)
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GLC
+/// \name Goldencove
+/// Goldencove microarchitecture based processors.
+PROC(Goldencove, "goldencove", PROC_64_BIT)
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
 
 /// \name Knights Landing
 /// Knights Landing processor.
@@ -236,6 +250,7 @@ PROC_WITH_FEAT(BDVER4, "bdver4", PROC_64_BIT, FEATURE_AVX2)
 /// Zen architecture processors.
 //@{
 PROC_WITH_FEAT(ZNVER1, "znver1", PROC_64_BIT, FEATURE_AVX2)
+PROC_WITH_FEAT(ZNVER2, "znver2", PROC_64_BIT, FEATURE_AVX2)
 //@}
 
 /// This specification is deprecated and will be removed in the future.

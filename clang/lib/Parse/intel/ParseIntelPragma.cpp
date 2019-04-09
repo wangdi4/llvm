@@ -70,7 +70,7 @@ bool Parser::HandlePragmaIntelInline(SourceRange &Range,
 }
 
 StmtResult Parser::ParsePragmaInline(StmtVector &Stmts,
-                                     AllowedConstructsKind Allowed,
+                                     ParsedStmtContext StmtCtx,
                                      SourceLocation *TrailingElseLoc,
                                      ParsedAttributesWithRange &Attrs) {
   // Create temporary attribute list.
@@ -101,7 +101,7 @@ StmtResult Parser::ParsePragmaInline(StmtVector &Stmts,
   MaybeParseCXX11Attributes(Attrs);
 
   StmtResult S = ParseStatementOrDeclarationAfterAttributes(
-      Stmts, Allowed, TrailingElseLoc, Attrs);
+      Stmts, StmtCtx, TrailingElseLoc, Attrs);
 
   Attrs.takeAllFrom(TempAttrs);
   return S;
@@ -212,7 +212,7 @@ bool Parser::HandlePragmaBlockLoop(ArgsVector *ArgExprs) {
 }
 
 StmtResult Parser::ParsePragmaBlockLoop(StmtVector &Stmts,
-                                        AllowedConstructsKind Allowed,
+                                        ParsedStmtContext StmtCtx,
                                         SourceLocation *TrailingElseLoc,
                                         ParsedAttributesWithRange &Attrs) {
   // Create temporary attribute list.
@@ -242,7 +242,7 @@ StmtResult Parser::ParsePragmaBlockLoop(StmtVector &Stmts,
   MaybeParseCXX11Attributes(Attrs);
 
   StmtResult S = ParseStatementOrDeclarationAfterAttributes(
-      Stmts, Allowed, TrailingElseLoc, Attrs);
+      Stmts, StmtCtx, TrailingElseLoc, Attrs);
 
   Attrs.takeAllFrom(TempAttrs);
   return S;

@@ -16,6 +16,7 @@
 #include "Symbols.h"
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Memory.h"
+#include "lld/Common/Threads.h"
 #include "lld/Common/Timer.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
@@ -159,27 +160,18 @@ public:
 // PartialSection represents a group of chunks that contribute to an
 // OutputSection. Collating a collection of PartialSections of same name and
 // characteristics constitutes the OutputSection.
-class PartialSection {
+class PartialSectionKey {
 public:
-  PartialSection(StringRef N, uint32_t Chars)
-      : Name(N), Characteristics(Chars) {}
   StringRef Name;
   unsigned Characteristics;
-  std::vector<Chunk *> Chunks;
 
-  bool operator<(const PartialSection &Other) const {
+  bool operator<(const PartialSectionKey &Other) const {
     int C = Name.compare(Other.Name);
     if (C == 1)
       return false;
     if (C == 0)
       return Characteristics < Other.Characteristics;
     return true;
-  }
-};
-
-struct PartialLess {
-  bool operator()(PartialSection *L, PartialSection *R) const {
-    return *L < *R;
   }
 };
 
@@ -197,7 +189,6 @@ private:
   void locateImportTables();
   void createExportTable();
   void mergeSections();
-  void readRelocTargets();
   void removeUnusedSections();
   void assignAddresses();
   void finalizeAddresses();
@@ -234,7 +225,7 @@ private:
   uint32_t getSizeOfInitializedData();
 
   std::unique_ptr<FileOutputBuffer> &Buffer;
-  std::set<PartialSection *, PartialLess> PartialSections;
+  std::map<PartialSectionKey, PartialSection *> PartialSections;
   std::vector<OutputSection *> OutputSections;
   std::vector<char> Strtab;
   std::vector<llvm::object::coff_symbol16> OutputSymtab;
@@ -312,6 +303,9 @@ void OutputSection::merge(OutputSection *Other) {
     C->setOutputSection(this);
   Chunks.insert(Chunks.end(), Other->Chunks.begin(), Other->Chunks.end());
   Other->Chunks.clear();
+  ContribSections.insert(ContribSections.end(), Other->ContribSections.begin(),
+                         Other->ContribSections.end());
+  Other->ContribSections.clear();
 }
 
 // Write the section header to a given buffer.
@@ -329,22 +323,41 @@ void OutputSection::writeHeaderTo(uint8_t *Buf) {
   }
 }
 
+void OutputSection::addContributingPartialSection(PartialSection *Sec) {
+  ContribSections.push_back(Sec);
+}
+
 } // namespace coff
 } // namespace lld
 
 // Check whether the target address S is in range from a relocation
 // of type RelType at address P.
 static bool isInRange(uint16_t RelType, uint64_t S, uint64_t P, int Margin) {
-  assert(Config->Machine == ARMNT);
-  int64_t Diff = AbsoluteDifference(S, P + 4) + Margin;
-  switch (RelType) {
-  case IMAGE_REL_ARM_BRANCH20T:
-    return isInt<21>(Diff);
-  case IMAGE_REL_ARM_BRANCH24T:
-  case IMAGE_REL_ARM_BLX23T:
-    return isInt<25>(Diff);
-  default:
-    return true;
+  if (Config->Machine == ARMNT) {
+    int64_t Diff = AbsoluteDifference(S, P + 4) + Margin;
+    switch (RelType) {
+    case IMAGE_REL_ARM_BRANCH20T:
+      return isInt<21>(Diff);
+    case IMAGE_REL_ARM_BRANCH24T:
+    case IMAGE_REL_ARM_BLX23T:
+      return isInt<25>(Diff);
+    default:
+      return true;
+    }
+  } else if (Config->Machine == ARM64) {
+    int64_t Diff = AbsoluteDifference(S, P) + Margin;
+    switch (RelType) {
+    case IMAGE_REL_ARM64_BRANCH26:
+      return isInt<28>(Diff);
+    case IMAGE_REL_ARM64_BRANCH19:
+      return isInt<21>(Diff);
+    case IMAGE_REL_ARM64_BRANCH14:
+      return isInt<16>(Diff);
+    default:
+      return true;
+    }
+  } else {
+    llvm_unreachable("Unexpected architecture");
   }
 }
 
@@ -356,7 +369,17 @@ getThunk(DenseMap<uint64_t, Defined *> &LastThunks, Defined *Target, uint64_t P,
   Defined *&LastThunk = LastThunks[Target->getRVA()];
   if (LastThunk && isInRange(Type, LastThunk->getRVA(), P, Margin))
     return {LastThunk, false};
-  RangeExtensionThunk *C = make<RangeExtensionThunk>(Target);
+  Chunk *C;
+  switch (Config->Machine) {
+  case ARMNT:
+    C = make<RangeExtensionThunkARM>(Target);
+    break;
+  case ARM64:
+    C = make<RangeExtensionThunkARM64>(Target);
+    break;
+  default:
+    llvm_unreachable("Unexpected architecture");
+  }
   Defined *D = make<DefinedSynthetic>("", C);
   LastThunk = D;
   return {D, true};
@@ -373,14 +396,15 @@ getThunk(DenseMap<uint64_t, Defined *> &LastThunks, Defined *Target, uint64_t P,
 // After adding thunks, we verify that all relocations are in range (with
 // no extra margin requirements). If this failed, we restart (throwing away
 // the previously created thunks) and retry with a wider margin.
-static bool createThunks(std::vector<Chunk *> &Chunks, int Margin) {
+static bool createThunks(OutputSection *OS, int Margin) {
   bool AddressesChanged = false;
   DenseMap<uint64_t, Defined *> LastThunks;
+  DenseMap<std::pair<ObjFile *, Defined *>, uint32_t> ThunkSymtabIndices;
   size_t ThunksSize = 0;
   // Recheck Chunks.size() each iteration, since we can insert more
   // elements into it.
-  for (size_t I = 0; I != Chunks.size(); ++I) {
-    SectionChunk *SC = dyn_cast_or_null<SectionChunk>(Chunks[I]);
+  for (size_t I = 0; I != OS->Chunks.size(); ++I) {
+    SectionChunk *SC = dyn_cast_or_null<SectionChunk>(OS->Chunks[I]);
     if (!SC)
       continue;
     size_t ThunkInsertionSpot = I + 1;
@@ -389,9 +413,13 @@ static bool createThunks(std::vector<Chunk *> &Chunks, int Margin) {
     // Offset this by the size of the new thunks added so far, to make the
     // estimate slightly better.
     size_t ThunkInsertionRVA = SC->getRVA() + SC->getSize() + ThunksSize;
-    for (size_t J = 0, E = SC->Relocs.size(); J < E; ++J) {
-      const coff_relocation &Rel = SC->Relocs[J];
-      Symbol *&RelocTarget = SC->RelocTargets[J];
+    ObjFile *File = SC->File;
+    std::vector<std::pair<uint32_t, uint32_t>> RelocReplacements;
+    ArrayRef<coff_relocation> OriginalRelocs =
+        File->getCOFFObj()->getRelocations(SC->Header);
+    for (size_t J = 0, E = OriginalRelocs.size(); J < E; ++J) {
+      const coff_relocation &Rel = OriginalRelocs[J];
+      Symbol *RelocTarget = File->getSymbol(Rel.SymbolTableIndex);
 
       // The estimate of the source address P should be pretty accurate,
       // but we don't know whether the target Symbol address should be
@@ -417,14 +445,51 @@ static bool createThunks(std::vector<Chunk *> &Chunks, int Margin) {
         Chunk *ThunkChunk = Thunk->getChunk();
         ThunkChunk->setRVA(
             ThunkInsertionRVA); // Estimate of where it will be located.
-        Chunks.insert(Chunks.begin() + ThunkInsertionSpot, ThunkChunk);
+        ThunkChunk->setOutputSection(OS);
+        OS->Chunks.insert(OS->Chunks.begin() + ThunkInsertionSpot, ThunkChunk);
         ThunkInsertionSpot++;
         ThunksSize += ThunkChunk->getSize();
         ThunkInsertionRVA += ThunkChunk->getSize();
         AddressesChanged = true;
       }
-      RelocTarget = Thunk;
+
+      // To redirect the relocation, add a symbol to the parent object file's
+      // symbol table, and replace the relocation symbol table index with the
+      // new index.
+      auto Insertion = ThunkSymtabIndices.insert({{File, Thunk}, ~0U});
+      uint32_t &ThunkSymbolIndex = Insertion.first->second;
+      if (Insertion.second)
+        ThunkSymbolIndex = File->addRangeThunkSymbol(Thunk);
+      RelocReplacements.push_back({J, ThunkSymbolIndex});
     }
+
+    // Get a writable copy of this section's relocations so they can be
+    // modified. If the relocations point into the object file, allocate new
+    // memory. Otherwise, this must be previously allocated memory that can be
+    // modified in place.
+    MutableArrayRef<coff_relocation> NewRelocs;
+    if (OriginalRelocs.data() == SC->Relocs.data()) {
+      NewRelocs = makeMutableArrayRef(
+          BAlloc.Allocate<coff_relocation>(OriginalRelocs.size()),
+          OriginalRelocs.size());
+    } else {
+      NewRelocs = makeMutableArrayRef(
+          const_cast<coff_relocation *>(SC->Relocs.data()), SC->Relocs.size());
+    }
+
+    // Copy each relocation, but replace the symbol table indices which need
+    // thunks.
+    auto NextReplacement = RelocReplacements.begin();
+    auto EndReplacement = RelocReplacements.end();
+    for (size_t I = 0, E = OriginalRelocs.size(); I != E; ++I) {
+      NewRelocs[I] = OriginalRelocs[I];
+      if (NextReplacement != EndReplacement && NextReplacement->first == I) {
+        NewRelocs[I].SymbolTableIndex = NextReplacement->second;
+        ++NextReplacement;
+      }
+    }
+
+    SC->Relocs = makeArrayRef(NewRelocs.data(), NewRelocs.size());
   }
   return AddressesChanged;
 }
@@ -438,7 +503,7 @@ static bool verifyRanges(const std::vector<Chunk *> Chunks) {
 
     for (size_t J = 0, E = SC->Relocs.size(); J < E; ++J) {
       const coff_relocation &Rel = SC->Relocs[J];
-      Symbol *RelocTarget = SC->RelocTargets[J];
+      Symbol *RelocTarget = SC->File->getSymbol(Rel.SymbolTableIndex);
 
       Defined *Sym = dyn_cast_or_null<Defined>(RelocTarget);
       if (!Sym)
@@ -457,7 +522,7 @@ static bool verifyRanges(const std::vector<Chunk *> Chunks) {
 // Assign addresses and add thunks if necessary.
 void Writer::finalizeAddresses() {
   assignAddresses();
-  if (Config->Machine != ARMNT)
+  if (Config->Machine != ARMNT && Config->Machine != ARM64)
     return;
 
   size_t OrigNumChunks = 0;
@@ -494,11 +559,8 @@ void Writer::finalizeAddresses() {
       // If the previous pass didn't work out, reset everything back to the
       // original conditions before retrying with a wider margin. This should
       // ideally never happen under real circumstances.
-      for (OutputSection *Sec : OutputSections) {
+      for (OutputSection *Sec : OutputSections)
         Sec->Chunks = Sec->OrigChunks;
-        for (Chunk *C : Sec->Chunks)
-          C->resetRelocTargets();
-      }
       Margin *= 2;
     }
 
@@ -506,7 +568,7 @@ void Writer::finalizeAddresses() {
     // to avoid things going out of range due to the added thunks.
     bool AddressesChanged = false;
     for (OutputSection *Sec : OutputSections)
-      AddressesChanged |= createThunks(Sec->Chunks, Margin);
+      AddressesChanged |= createThunks(Sec, Margin);
     // If the verification above thought we needed thunks, we should have
     // added some.
     assert(AddressesChanged);
@@ -529,7 +591,6 @@ void Writer::run() {
   appendImportThunks();
   createExportTable();
   mergeSections();
-  readRelocTargets();
   removeUnusedSections();
   finalizeAddresses();
   removeEmptySections();
@@ -602,7 +663,8 @@ bool Writer::fixGnuImportChunks() {
 
   // Make sure all .idata$* section chunks are mapped as RDATA in order to
   // be sorted into the same sections as our own synthesized .idata chunks.
-  for (PartialSection *PSec : PartialSections) {
+  for (auto It : PartialSections) {
+    PartialSection *PSec = It.second;
     if (!PSec->Name.startswith(".idata"))
       continue;
     if (PSec->Characteristics == RDATA)
@@ -616,7 +678,8 @@ bool Writer::fixGnuImportChunks() {
   bool HasIdata = false;
   // Sort all .idata$* chunks, grouping chunks from the same library,
   // with alphabetical ordering of the object fils within a library.
-  for (PartialSection *PSec : PartialSections) {
+  for (auto It : PartialSections) {
+    PartialSection *PSec = It.second;
     if (!PSec->Name.startswith(".idata"))
       continue;
 
@@ -747,8 +810,8 @@ void Writer::createSections() {
 
   // Process an /order option.
   if (!Config->Order.empty())
-    for (PartialSection *PSec : PartialSections)
-      sortBySectionOrder(PSec->Chunks);
+    for (auto It : PartialSections)
+      sortBySectionOrder(It.second->Chunks);
 
   if (HasIdata)
     locateImportTables();
@@ -757,7 +820,8 @@ void Writer::createSections() {
   // '$' and all following characters in input section names are
   // discarded when determining output section. So, .text$foo
   // contributes to .text, for example. See PE/COFF spec 3.2.
-  for (PartialSection *PSec : PartialSections) {
+  for (auto It : PartialSections) {
+    PartialSection *PSec = It.second;
     StringRef Name = getOutputSectionName(PSec->Name);
     uint32_t OutChars = PSec->Characteristics;
 
@@ -776,6 +840,8 @@ void Writer::createSections() {
     OutputSection *Sec = CreateSection(Name, OutChars);
     for (Chunk *C : PSec->Chunks)
       Sec->addChunk(C);
+
+    Sec->addContributingPartialSection(PSec);
   }
 
   // Finally, move some output sections to the end.
@@ -1064,13 +1130,6 @@ void Writer::mergeSections() {
   }
 }
 
-// Visits all sections to initialize their relocation targets.
-void Writer::readRelocTargets() {
-  for (OutputSection *Sec : OutputSections)
-    for_each(parallel::par, Sec->Chunks.begin(), Sec->Chunks.end(),
-             [&](Chunk *C) { C->readRelocTargets(); });
-}
-
 // Visits all sections to assign incremental, non-overlapping RVAs and
 // file offsets.
 void Writer::assignAddresses() {
@@ -1088,7 +1147,18 @@ void Writer::assignAddresses() {
       addBaserels();
     uint64_t RawSize = 0, VirtualSize = 0;
     Sec->Header.VirtualAddress = RVA;
+
+    // If /FUNCTIONPADMIN is used, functions are padded in order to create a
+    // hotpatchable image.
+    const bool IsCodeSection =
+        (Sec->Header.Characteristics & IMAGE_SCN_CNT_CODE) &&
+        (Sec->Header.Characteristics & IMAGE_SCN_MEM_READ) &&
+        (Sec->Header.Characteristics & IMAGE_SCN_MEM_EXECUTE);
+    uint32_t Padding = IsCodeSection ? Config->FunctionPadMin : 0;
+
     for (Chunk *C : Sec->Chunks) {
+      if (Padding && C->isHotPatchable())
+        VirtualSize += Padding;
       VirtualSize = alignTo(VirtualSize, C->Alignment);
       C->setRVA(RVA + VirtualSize);
       C->OutputSectionOff = VirtualSize;
@@ -1350,19 +1420,47 @@ static void addSymbolToRVASet(SymbolRVASet &RVASet, Defined *S) {
 // symbol in an executable section.
 static void maybeAddAddressTakenFunction(SymbolRVASet &AddressTakenSyms,
                                          Symbol *S) {
-  auto *D = dyn_cast_or_null<DefinedCOFF>(S);
-
-  // Ignore undefined symbols and references to non-functions (e.g. globals and
-  // labels).
-  if (!D ||
-      D->getCOFFSymbol().getComplexType() != COFF::IMAGE_SYM_DTYPE_FUNCTION)
+  if (!S)
     return;
 
-  // Mark the symbol as address taken if it's in an executable section.
-  Chunk *RefChunk = D->getChunk();
-  OutputSection *OS = RefChunk ? RefChunk->getOutputSection() : nullptr;
-  if (OS && OS->Header.Characteristics & IMAGE_SCN_MEM_EXECUTE)
-    addSymbolToRVASet(AddressTakenSyms, D);
+  switch (S->kind()) {
+  case Symbol::DefinedLocalImportKind:
+  case Symbol::DefinedImportDataKind:
+    // Defines an __imp_ pointer, so it is data, so it is ignored.
+    break;
+  case Symbol::DefinedCommonKind:
+    // Common is always data, so it is ignored.
+    break;
+  case Symbol::DefinedAbsoluteKind:
+  case Symbol::DefinedSyntheticKind:
+    // Absolute is never code, synthetic generally isn't and usually isn't
+    // determinable.
+    break;
+  case Symbol::LazyKind:
+  case Symbol::UndefinedKind:
+    // Undefined symbols resolve to zero, so they don't have an RVA. Lazy
+    // symbols shouldn't have relocations.
+    break;
+
+  case Symbol::DefinedImportThunkKind:
+    // Thunks are always code, include them.
+    addSymbolToRVASet(AddressTakenSyms, cast<Defined>(S));
+    break;
+
+  case Symbol::DefinedRegularKind: {
+    // This is a regular, defined, symbol from a COFF file. Mark the symbol as
+    // address taken if the symbol type is function and it's in an executable
+    // section.
+    auto *D = cast<DefinedRegular>(S);
+    if (D->getCOFFSymbol().getComplexType() == COFF::IMAGE_SYM_DTYPE_FUNCTION) {
+      Chunk *RefChunk = D->getChunk();
+      OutputSection *OS = RefChunk ? RefChunk->getOutputSection() : nullptr;
+      if (OS && OS->Header.Characteristics & IMAGE_SCN_MEM_EXECUTE)
+        addSymbolToRVASet(AddressTakenSyms, D);
+    }
+    break;
+  }
+  }
 }
 
 // Visit all relocations from all section contributions of this object file and
@@ -1573,8 +1671,7 @@ void Writer::writeSections() {
     // ADD instructions).
     if (Sec->Header.Characteristics & IMAGE_SCN_CNT_CODE)
       memset(SecBuf, 0xCC, Sec->getRawSize());
-    for_each(parallel::par, Sec->Chunks.begin(), Sec->Chunks.end(),
-             [&](Chunk *C) { C->writeTo(SecBuf); });
+    parallelForEach(Sec->Chunks, [&](Chunk *C) { C->writeTo(SecBuf); });
   }
 }
 
@@ -1642,14 +1739,16 @@ void Writer::sortExceptionTable() {
   uint8_t *End = BufAddr(LastPdata) + LastPdata->getSize();
   if (Config->Machine == AMD64) {
     struct Entry { ulittle32_t Begin, End, Unwind; };
-    sort(parallel::par, (Entry *)Begin, (Entry *)End,
-         [](const Entry &A, const Entry &B) { return A.Begin < B.Begin; });
+    parallelSort(
+        MutableArrayRef<Entry>((Entry *)Begin, (Entry *)End),
+        [](const Entry &A, const Entry &B) { return A.Begin < B.Begin; });
     return;
   }
   if (Config->Machine == ARMNT || Config->Machine == ARM64) {
     struct Entry { ulittle32_t Begin, Unwind; };
-    sort(parallel::par, (Entry *)Begin, (Entry *)End,
-         [](const Entry &A, const Entry &B) { return A.Begin < B.Begin; });
+    parallelSort(
+        MutableArrayRef<Entry>((Entry *)Begin, (Entry *)End),
+        [](const Entry &A, const Entry &B) { return A.Begin < B.Begin; });
     return;
   }
   errs() << "warning: don't know how to handle .pdata.\n";
@@ -1745,19 +1844,16 @@ void Writer::addBaserelBlocks(std::vector<Baserel> &V) {
 
 PartialSection *Writer::createPartialSection(StringRef Name,
                                              uint32_t OutChars) {
-  PartialSection *PSec = findPartialSection(Name, OutChars);
+  PartialSection *&PSec = PartialSections[{Name, OutChars}];
   if (PSec)
     return PSec;
   PSec = make<PartialSection>(Name, OutChars);
-  PartialSections.insert(PSec);
   return PSec;
 }
 
 PartialSection *Writer::findPartialSection(StringRef Name, uint32_t OutChars) {
-  auto It = find_if(PartialSections, [&](PartialSection *P) {
-    return P->Name == Name && P->Characteristics == OutChars;
-  });
+  auto It = PartialSections.find({Name, OutChars});
   if (It != PartialSections.end())
-    return *It;
+    return It->second;
   return nullptr;
 }

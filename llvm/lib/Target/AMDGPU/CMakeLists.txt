@@ -6,8 +6,6 @@ tablegen(LLVM AMDGPUGenCallingConv.inc -gen-callingconv)
 tablegen(LLVM AMDGPUGenDAGISel.inc -gen-dag-isel)
 tablegen(LLVM AMDGPUGenDisassemblerTables.inc -gen-disassembler)
 tablegen(LLVM AMDGPUGenInstrInfo.inc -gen-instr-info)
-tablegen(LLVM AMDGPUGenIntrinsicEnums.inc -gen-tgt-intrinsic-enums)
-tablegen(LLVM AMDGPUGenIntrinsicImpl.inc -gen-tgt-intrinsic-impl)
 tablegen(LLVM AMDGPUGenMCCodeEmitter.inc -gen-emitter)
 tablegen(LLVM AMDGPUGenMCPseudoLowering.inc -gen-pseudo-lowering)
 tablegen(LLVM AMDGPUGenRegisterBank.inc -gen-register-bank)
@@ -94,11 +92,10 @@ add_llvm_target(AMDGPUCodeGen
   R600RegisterInfo.cpp
   SIAddIMGInit.cpp
   SIAnnotateControlFlow.cpp
-  SIDebuggerInsertNops.cpp
   SIFixSGPRCopies.cpp
   SIFixupVectorISel.cpp
   SIFixVGPRCopies.cpp
-  SIFixWWMLiveness.cpp
+  SIPreAllocateWWMRegs.cpp
   SIFoldOperands.cpp
   SIFormMemoryClauses.cpp
   SIFrameLowering.cpp

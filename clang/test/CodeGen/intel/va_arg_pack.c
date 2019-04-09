@@ -22,8 +22,8 @@ static __forceinline int myprintf(const char* format, ...) {
   // LIN: [[FOO2:%[0-9]]] = load i32, i32* %foo2
   int r = printf("myprintf:");
   // Ensure called with no additional args.
-  // WIN: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* [[MyPrintFStr]], i32 0, i32 0))
-  // LIN: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* [[MyPrintFStr]], i32 0, i32 0))
+  // WIN: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* [[MyPrintFStr]], i64 0, i64 0))
+  // LIN: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* [[MyPrintFStr]], i64 0, i64 0))
   if (r < 0) return r;
   int s = printf(format, __builtin_va_arg_pack());
   // printf should be called with the values of foo and foo2.

@@ -135,8 +135,9 @@ void ArgValues() {
   __builtin_intel_hls_instream_read(&f, 99, "str", 0, 4, true, true, false, true, nullptr, nullptr, nullptr);
 
   // ReadyLatency Arg:
-  // expected-error@+1 {{HLS builtin parameter must be a non-negative integer constant}}
   __builtin_intel_hls_instream_read((Foo *)0, 1, 99, -1, 4, true, true, false, true, nullptr, nullptr, nullptr);
+  // expected-error@+1 {{HLS builtin parameter must be a non-negative integer constant, 0 or -1}}
+  __builtin_intel_hls_instream_read((Foo *)0, 1, 99, -2, 4, true, true, false, true, nullptr, nullptr, nullptr);
   // expected-error@+1 {{argument to '__builtin_intel_hls_instream_read' must be a constant integer}}
   __builtin_intel_hls_instream_read((Foo *)0, 1, 99, temp, 4, true, true, false, true, nullptr, nullptr, nullptr);
 

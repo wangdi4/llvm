@@ -131,10 +131,22 @@
 #include <avx512vnniintrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_VNNI */
+#if defined(__AVXVNNI__)
+#include <avxvnni/avxvnniintrin.h>
+#else
+/* end INTEL_FEATURE_ISA_AVX_VNNI */
+/* end INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || \
     (defined(__AVX512VL__) && defined(__AVX512VNNI__))
 #include <avx512vlvnniintrin.h>
 #endif
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_VNNI */
+#endif
+/* end INTEL_FEATURE_ISA_AVX_VNNI */
+/* end INTEL_CUSTOMIZATION */
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512DQ__)
 #include <avx512dqintrin.h>
@@ -196,6 +208,19 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_BF16 */
+/*
+ * TODO: when BF16 is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules) || ...
+ */
+#if defined(__AVX512BF16__)
+#include <intel_avx512bf16intrin.h>
+#endif
+
+#if (defined(__AVX512VL__) && defined(__AVX512BF16__))
+#include <intel_avx512vlbf16intrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_BF16 */
 /* end INTEL_CUSTOMIZATION */
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__PKU__)
@@ -243,18 +268,6 @@ _rdrand64_step(unsigned long long *__p)
 }
 #endif
 #endif /* __RDRND__ */
-
-/* __bit_scan_forward */
-static __inline__ int __attribute__((__always_inline__, __nodebug__))
-_bit_scan_forward(int __A) {
-  return __builtin_ctz(__A);
-}
-
-/* __bit_scan_reverse */
-static __inline__ int __attribute__((__always_inline__, __nodebug__))
-_bit_scan_reverse(int __A) {
-  return 31 - __builtin_clz(__A);
-}
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__FSGSBASE__)
 #ifdef __x86_64__
@@ -442,6 +455,35 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_SERIALIZE */
+/*
+ * TODO: when SERIALIZE is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules)
+ */
+#if defined(__SERIALIZE__)
+#include <serializeintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_SERIALIZE */
+
+/* INTEL_FEATURE_ISA_TSXLDTRK */
+/*
+ * TODO: when TSXLDTRK is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules)
+ */
+#if defined(__TSXLDTRK__)
+#include <tsxldtrkintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_TSXLDTRK */
+
+/* INTEL_FEATURE_ISA_AMX */
+/*
+ * TODO: when AMX is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules) || ...
+ */
+#if defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+#include <Intel_amxintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AMX */
 /* end INTEL_CUSTOMIZATION */
 
 #ifdef _MSC_VER

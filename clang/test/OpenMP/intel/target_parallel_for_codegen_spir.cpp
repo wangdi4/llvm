@@ -233,3 +233,42 @@ void foo4(int n) {
   // CHECK: directive.region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   // CHECK: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
 }
+
+// CHECK-LABEL: foo5
+void foo5(double *qq, int nq) {
+
+  // Checks hoisting of outer loop but not inner loop.
+
+  // CHECK: [[I:%i.*]] = alloca i32,
+  // CHECK: [[K:%k.*]] = alloca i32,
+  int i,k;
+  // CHECK: [[OMP_LB:%.omp.lb.*]] = alloca i32,
+  // CHECK: [[OMP_UB:%.omp.ub.*]] = alloca i32,
+  // CHECK: [[OMP_IV:%.omp.iv.*]] = alloca i32,
+
+  // CHECK: store i32 0, i32* [[OMP_LB]],
+  // CHECK: store i32 1023, i32* [[OMP_UB]],
+
+  // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "DIR.OMP.TARGET"()
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_UB]]),
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[K]]
+  // CHECK: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "DIR.OMP.TEAMS"()
+  // CHECK: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "DIR.OMP.DISTRIBUTE.PARLOOP"()
+  #pragma omp target teams distribute parallel for map(qq[:0])
+  for(k=0; k<1024; k++)
+  {
+    // CHECK: [[T3:%[0-9]+]] = call token @llvm.directive.region.entry()
+    // CHECK-SAME: "DIR.OMP.SIMD"()
+    #pragma omp simd
+    for(i=0; i<nq; i++)
+      qq[k*nq + i] = 0.0;
+  // CHECK: directive.region.exit(token [[T3]]) [ "DIR.OMP.END.SIMD"
+  }
+  // CHECK: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
+  // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  // CHECK: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+}

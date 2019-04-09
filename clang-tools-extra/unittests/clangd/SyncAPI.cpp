@@ -84,10 +84,10 @@ llvm::Expected<SignatureHelp> runSignatureHelp(ClangdServer &Server,
   return std::move(*Result);
 }
 
-llvm::Expected<std::vector<Location>>
-runFindDefinitions(ClangdServer &Server, PathRef File, Position Pos) {
-  llvm::Optional<llvm::Expected<std::vector<Location>>> Result;
-  Server.findDefinitions(File, Pos, capture(Result));
+llvm::Expected<std::vector<LocatedSymbol>>
+runLocateSymbolAt(ClangdServer &Server, PathRef File, Position Pos) {
+  llvm::Optional<llvm::Expected<std::vector<LocatedSymbol>>> Result;
+  Server.locateSymbolAt(File, Pos, capture(Result));
   return std::move(*Result);
 }
 
@@ -98,10 +98,10 @@ runFindDocumentHighlights(ClangdServer &Server, PathRef File, Position Pos) {
   return std::move(*Result);
 }
 
-llvm::Expected<std::vector<tooling::Replacement>>
-runRename(ClangdServer &Server, PathRef File, Position Pos,
-          llvm::StringRef NewName) {
-  llvm::Optional<llvm::Expected<std::vector<tooling::Replacement>>> Result;
+llvm::Expected<std::vector<TextEdit>> runRename(ClangdServer &Server,
+                                                PathRef File, Position Pos,
+                                                llvm::StringRef NewName) {
+  llvm::Optional<llvm::Expected<std::vector<TextEdit>>> Result;
   Server.rename(File, Pos, NewName, capture(Result));
   return std::move(*Result);
 }

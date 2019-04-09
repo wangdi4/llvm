@@ -379,7 +379,7 @@ CGDebugInfo::computeChecksum(FileID FID, SmallString<32> &Checksum) const {
 
   SourceManager &SM = CGM.getContext().getSourceManager();
   bool Invalid;
-  llvm::MemoryBuffer *MemBuffer = SM.getBuffer(FID, &Invalid);
+  const llvm::MemoryBuffer *MemBuffer = SM.getBuffer(FID, &Invalid);
   if (Invalid)
     return None;
 
@@ -457,8 +457,8 @@ CGDebugInfo::createFile(StringRef FileName,
     for (; CurDirIt != CurDirE && *CurDirIt == *FileIt; ++CurDirIt, ++FileIt)
       llvm::sys::path::append(DirBuf, *CurDirIt);
     if (std::distance(llvm::sys::path::begin(CurDir), CurDirIt) == 1) {
-      // The common prefix only the root; stripping it would cause
-      // LLVM diagnostic locations to be more confusing.
+      // Don't strip the common prefix if it is only the root "/"
+      // since that would make LLVM diagnostic locations confusing.
       Dir = {};
       File = RemappedFile;
     } else {
@@ -576,6 +576,12 @@ void CGDebugInfo::CreateCompileUnit() {
   }
 
   std::string Producer = getClangFullVersion();
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-8597 - GDB makes prologue calculations based on whether the
+  // producer string starts with "clang ", so we add it here if needed.
+  if (Producer.find("clang ") != 0)
+    Producer.insert(0, "clang based ");
+#endif // INTEL_CUSTOMIZATION
 
   // Figure out which version of the ObjC runtime we have.
   unsigned RuntimeVers = 0;
@@ -1740,31 +1746,37 @@ CGDebugInfo::CollectTemplateParams(const TemplateParameterList *TPList,
       QualType T = TA.getParamTypeForDecl().getDesugaredType(CGM.getContext());
       llvm::DIType *TTy = getOrCreateType(T, Unit);
       llvm::Constant *V = nullptr;
-      const CXXMethodDecl *MD;
-      // Variable pointer template parameters have a value that is the address
-      // of the variable.
-      if (const auto *VD = dyn_cast<VarDecl>(D))
-        V = CGM.GetAddrOfGlobalVar(VD);
-      // Member function pointers have special support for building them, though
-      // this is currently unsupported in LLVM CodeGen.
-      else if ((MD = dyn_cast<CXXMethodDecl>(D)) && MD->isInstance())
-        V = CGM.getCXXABI().EmitMemberFunctionPointer(MD);
-      else if (const auto *FD = dyn_cast<FunctionDecl>(D))
-        V = CGM.GetAddrOfFunction(FD);
-      // Member data pointers have special handling too to compute the fixed
-      // offset within the object.
-      else if (const auto *MPT = dyn_cast<MemberPointerType>(T.getTypePtr())) {
-        // These five lines (& possibly the above member function pointer
-        // handling) might be able to be refactored to use similar code in
-        // CodeGenModule::getMemberPointerConstant
-        uint64_t fieldOffset = CGM.getContext().getFieldOffset(D);
-        CharUnits chars =
-            CGM.getContext().toCharUnitsFromBits((int64_t)fieldOffset);
-        V = CGM.getCXXABI().EmitMemberDataPointer(MPT, chars);
+      // Skip retrieve the value if that template parameter has cuda device
+      // attribute, i.e. that value is not available at the host side.
+      if (!CGM.getLangOpts().CUDA || CGM.getLangOpts().CUDAIsDevice ||
+          !D->hasAttr<CUDADeviceAttr>()) {
+        const CXXMethodDecl *MD;
+        // Variable pointer template parameters have a value that is the address
+        // of the variable.
+        if (const auto *VD = dyn_cast<VarDecl>(D))
+          V = CGM.GetAddrOfGlobalVar(VD);
+        // Member function pointers have special support for building them,
+        // though this is currently unsupported in LLVM CodeGen.
+        else if ((MD = dyn_cast<CXXMethodDecl>(D)) && MD->isInstance())
+          V = CGM.getCXXABI().EmitMemberFunctionPointer(MD);
+        else if (const auto *FD = dyn_cast<FunctionDecl>(D))
+          V = CGM.GetAddrOfFunction(FD);
+        // Member data pointers have special handling too to compute the fixed
+        // offset within the object.
+        else if (const auto *MPT =
+                     dyn_cast<MemberPointerType>(T.getTypePtr())) {
+          // These five lines (& possibly the above member function pointer
+          // handling) might be able to be refactored to use similar code in
+          // CodeGenModule::getMemberPointerConstant
+          uint64_t fieldOffset = CGM.getContext().getFieldOffset(D);
+          CharUnits chars =
+              CGM.getContext().toCharUnitsFromBits((int64_t)fieldOffset);
+          V = CGM.getCXXABI().EmitMemberDataPointer(MPT, chars);
+        }
+        V = V->stripPointerCasts();
       }
       TemplateParams.push_back(DBuilder.createTemplateValueParameter(
-          TheCU, Name, TTy,
-          cast_or_null<llvm::Constant>(V->stripPointerCasts())));
+          TheCU, Name, TTy, cast_or_null<llvm::Constant>(V)));
     } break;
     case TemplateArgument::NullPtr: {
       QualType T = TA.getNullPtrType();
@@ -2040,10 +2052,7 @@ void CGDebugInfo::completeClassData(const RecordDecl *RD) {
         // omit the class data if we are not emitting full debug information.
         DebugKind < codegenoptions::FullDebugInfo &&
         CGM.getVTables().isVTableExternal(CXXRD) &&
-#else
-        CGM.getVTableLinkage(CXXRD) ==
-            llvm::GlobalValue::AvailableExternallyLinkage &&
-#endif
+#endif // INTEL_CUSTOMIZATION
         !isClassOrMethodDLLImport(CXXRD))
       return;
 
@@ -2321,7 +2330,14 @@ CGDebugInfo::getOrCreateModuleRef(ExternalASTSource::ASTSourceDescriptor Mod,
   }
 
   bool IsRootModule = M ? !M->Parent : true;
-  if (CreateSkeletonCU && IsRootModule) {
+  // When a module name is specified as -fmodule-name, that module gets a
+  // clang::Module object, but it won't actually be built or imported; it will
+  // be textual.
+  if (CreateSkeletonCU && IsRootModule && Mod.getASTFile().empty() && M)
+    assert(StringRef(M->Name).startswith(CGM.getLangOpts().ModuleName) &&
+           "clang module without ASTFile must be specified by -fmodule-name");
+
+  if (CreateSkeletonCU && IsRootModule && !Mod.getASTFile().empty()) {
     // PCH files don't have a signature field in the control block,
     // but LLVM detects skeleton CUs by looking for a non-zero DWO id.
     // We use the lower 64 bits for debug info.
@@ -2338,6 +2354,7 @@ CGDebugInfo::getOrCreateModuleRef(ExternalASTSource::ASTSourceDescriptor Mod,
                           Signature);
     DIB.finalize();
   }
+
   llvm::DIModule *Parent =
       IsRootModule ? nullptr
                    : getOrCreateModuleRef(
@@ -3083,6 +3100,8 @@ llvm::DICompositeType *CGDebugInfo::CreateLimitedType(const RecordType *Ty) {
     // Record if a C++ record is trivial type.
     if (CXXRD->isTrivial())
       Flags |= llvm::DINode::FlagTrivial;
+    else
+      Flags |= llvm::DINode::FlagNonTrivial;
   }
 
   llvm::DICompositeType *RealDecl = DBuilder.createReplaceableCompositeType(
@@ -4299,6 +4318,14 @@ void CGDebugInfo::EmitGlobalVariable(llvm::GlobalVariable *Var,
     SmallVector<int64_t, 4> Expr;
     unsigned AddressSpace =
         CGM.getContext().getTargetAddressSpace(D->getType());
+    if (CGM.getLangOpts().CUDA && CGM.getLangOpts().CUDAIsDevice) {
+      if (D->hasAttr<CUDASharedAttr>())
+        AddressSpace =
+            CGM.getContext().getTargetAddressSpace(LangAS::cuda_shared);
+      else if (D->hasAttr<CUDAConstantAttr>())
+        AddressSpace =
+            CGM.getContext().getTargetAddressSpace(LangAS::cuda_constant);
+    }
     AppendAddressSpaceXDeref(AddressSpace, Expr);
 
     GVE = DBuilder.createGlobalVariableExpression(

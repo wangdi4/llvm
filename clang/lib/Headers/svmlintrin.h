@@ -28,14 +28,14 @@
 #ifndef __SVMLINTRIN_H
 #define __SVMLINTRIN_H
 
-/* Define the default attributes for the functions in this file. */
-#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
-
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
 #if defined(__XMMINTRIN_H) && defined(__EMMINTRIN_H)
+
+/* Define the default attributes for the functions in this section. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("sse2"), __min_vector_width__(128)))
 
 extern __m128 __svml_acoshf4(__m128);
 
@@ -709,7 +709,7 @@ _mm_tan_pd(__m128d __a)
   return __svml_tan2(__a);
 }
 
-extern __m128i __svml_divi4(__m128i, __m128i);
+extern __v4si __svml_idiv4(__v4si, __v4si);
 
 /// Divide packed 32-bit integers in a by packed elements in b, and store the
 /// truncated results in dst.
@@ -717,10 +717,10 @@ extern __m128i __svml_divi4(__m128i, __m128i);
 static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_idiv_epi32(__m128i __a, __m128i __b)
 {
-  return __svml_divi4(__a, __b);
+  return (__m128i)__svml_idiv4((__v4si)__a, (__v4si)__b);
 }
 
-extern __m128i __svml_remi4(__m128i, __m128i);
+extern __v4si __svml_irem4(__v4si, __v4si);
 
 /// Divide packed 32-bit integers in a by packed elements in b, and store the
 ///    remainders as packed 32-bit integers in dst.
@@ -728,10 +728,10 @@ extern __m128i __svml_remi4(__m128i, __m128i);
 static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_irem_epi32(__m128i __a, __m128i __b)
 {
-  return __svml_remi4(__a, __b);
+  return (__m128i)__svml_irem4((__v4si)__a, (__v4si)__b);
 }
 
-extern __m128i __svml_divu4(__m128i, __m128i);
+extern __v4su __svml_udiv4(__v4su, __v4su);
 
 /// Divide packed unsigned 32-bit integers in a by packed elements in b, and
 ///    store the truncated results in dst.
@@ -739,10 +739,10 @@ extern __m128i __svml_divu4(__m128i, __m128i);
 static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_udiv_epi32(__m128i __a, __m128i __b)
 {
-  return __svml_divu4(__a, __b);
+  return (__m128i)__svml_udiv4((__v4su)__a, (__v4su)__b);
 }
 
-extern __m128i __svml_remu4(__m128i, __m128i);
+extern __v4su __svml_urem4(__v4su, __v4su);
 
 /// Divide packed unsigned 32-bit integers in a by packed elements in b, and
 ///    store the remainders as packed unsigned 32-bit integers in dst.
@@ -750,12 +750,17 @@ extern __m128i __svml_remu4(__m128i, __m128i);
 static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_urem_epi32(__m128i __a, __m128i __b)
 {
-  return __svml_remu4(__a, __b);
+  return (__m128i)__svml_urem4((__v4su)__a, (__v4su)__b);
 }
+
+#undef __DEFAULT_FN_ATTRS
 
 #endif // defined(__XMMINTRIN_H) && defined(__EMMINTRIN_H)
 
 #if defined(__SMMINTRIN_H)
+
+/* Define the default attributes for the functions in this section. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("sse4.1"), __min_vector_width__(128)))
 
 /// Round the packed single-precision (32-bit) floating-point elements in a up
 ///    to an integer value, and store the results as packed single-precision
@@ -821,9 +826,14 @@ _mm_urem_epi32(__m128i __a, __m128i __b)
 ///
 #define _mm_trunc_pd(X)       _mm_round_pd((X), _MM_FROUND_TRUNC)
 
+#undef __DEFAULT_FN_ATTRS
+
 #endif // defined(__SMMINTRIN_H)
 
 #if defined(__AVXINTRIN_H)
+
+/* Define the default attributes for the functions in this section. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("avx"), __min_vector_width__(256)))
 
 extern __m256 __svml_acoshf8(__m256);
 
@@ -1560,9 +1570,63 @@ _mm256_erfinv_pd(__m256d __a)
 ///
 #define _mm256_trunc_pd(X)       _mm256_round_pd((X), _MM_FROUND_TRUNC)
 
+#undef __DEFAULT_FN_ATTRS
+
 #endif // defined(__AVXINTRIN_H)
 
+#if defined(__AVX2INTRIN_H)
+
+/* Define the default attributes for the functions in this section. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("avx2"), __min_vector_width__(256)))
+
+extern __v8si __svml_idiv8(__v8si, __v8si);
+
+/// Divide packed 32-bit integers in a by packed elements in b, and store the
+///    truncated results in dst.
+static __inline__ __m256i __DEFAULT_FN_ATTRS
+_mm256_div_epi32(__m256i __a, __m256i __b)
+{
+  return (__m256i)__svml_idiv8((__v8si)__a, (__v8si)__b);
+}
+
+extern __v8si __svml_irem8(__v8si, __v8si);
+
+/// Divide packed 32-bit integers in a by packed elements in b, and store the
+///    remainders as packed 32-bit integers in dst.
+static __inline__ __m256i __DEFAULT_FN_ATTRS
+_mm256_rem_epi32(__m256i __a, __m256i __b)
+{
+  return (__m256i)__svml_irem8((__v8si)__a, (__v8si)__b);
+}
+
+extern __v8su __svml_udiv8(__v8su, __v8su);
+
+/// Divide packed unsigned 32-bit integers in a by packed elements in b, and
+///    store the truncated results in dst.
+static __inline__ __m256i __DEFAULT_FN_ATTRS
+_mm256_div_epu32(__m256i __a, __m256i __b)
+{
+  return (__m256i)__svml_udiv8((__v8su)__a, (__v8su)__b);
+}
+
+extern __v8su __svml_urem8(__v8su, __v8su);
+
+/// Divide packed unsigned 32-bit integers in a by packed elements in b, and
+///    store the remainders as packed unsigned 32-bit integers in dst.
+static __inline__ __m256i __DEFAULT_FN_ATTRS
+_mm256_rem_epu32(__m256i __a, __m256i __b)
+{
+  return (__m256i)__svml_urem8((__v8su)__a, (__v8su)__b);
+}
+
+#undef __DEFAULT_FN_ATTRS
+
+#endif // defined(__AVX2INTRIN_H)
+
 #if defined(__AVX512FINTRIN_H)
+
+/* Define the default attributes for the functions in this section. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("avx512f"), __min_vector_width__(512)))
 
 extern __m512 __svml_acoshf16(__m512);
 
@@ -2110,52 +2174,52 @@ _mm512_trunc_pd(__m512d __a)
   return __svml_trunc8(__a);
 }
 
-extern __m512i __svml_divi16(__m512i, __m512i);
+extern __v16si __svml_idiv16(__v16si, __v16si);
 
 /// Divide packed 32-bit integers in a by packed elements in b, and store the
 ///    truncated results in dst.
 static __inline__ __m512i __DEFAULT_FN_ATTRS
 _mm512_div_epi32(__m512i __a, __m512i __b)
 {
-  return __svml_divi16(__a, __b);
+  return (__m512i)__svml_idiv16((__v16si)__a, (__v16si)__b);
 }
 
-extern __m512i __svml_remi16(__m512i, __m512i);
+extern __v16si __svml_irem16(__v16si, __v16si);
 
 /// Divide packed 32-bit integers in a by packed elements in b, and store the
 ///    remainders as packed 32-bit integers in dst.
 static __inline__ __m512i __DEFAULT_FN_ATTRS
 _mm512_rem_epi32(__m512i __a, __m512i __b)
 {
-  return __svml_remi16(__a, __b);
+  return (__m512i)__svml_irem16((__v16si)__a, (__v16si)__b);
 }
 
-extern __m512i __svml_divu16(__m512i, __m512i);
+extern __v16su __svml_udiv16(__v16su, __v16su);
 
 /// Divide packed unsigned 32-bit integers in a by packed elements in b, and
 ///    store the truncated results in dst.
 static __inline__ __m512i __DEFAULT_FN_ATTRS
 _mm512_div_epu32(__m512i __a, __m512i __b)
 {
-  return __svml_divu16(__a, __b);
+  return (__m512i)__svml_udiv16((__v16su)__a, (__v16su)__b);
 }
 
-extern __m512i __svml_remu16(__m512i, __m512i);
+extern __v16su __svml_urem16(__v16su, __v16su);
 
 /// Divide packed unsigned 32-bit integers in a by packed elements in b, and
 ///    store the remainders as packed unsigned 32-bit integers in dst.
 static __inline__ __m512i __DEFAULT_FN_ATTRS
 _mm512_rem_epu32(__m512i __a, __m512i __b)
 {
-  return __svml_remu16(__a, __b);
+  return (__m512i)__svml_urem16((__v16su)__a, (__v16su)__b);
 }
+
+#undef __DEFAULT_FN_ATTRS
 
 #endif // defined(__AVX512FINTRIN_H)
 
 #if defined(__cplusplus)
 } // extern "C"
 #endif
-
-#undef __DEFAULT_FN_ATTRS
 
 #endif /* __SVMLINTRIN_H */

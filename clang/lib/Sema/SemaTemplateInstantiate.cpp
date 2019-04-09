@@ -25,6 +25,7 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
 #include "clang/Sema/TemplateInstCallback.h"
+#include "llvm/Support/TimeProfiler.h"
 
 using namespace clang;
 using namespace sema;
@@ -1239,7 +1240,7 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
 
   if (TransformedExpr == LH->getValue() &&
       TransformedLoopExpr == LH->getLoopExprValue())
-#endif
+#endif // INTEL_CUSTOMIZATION
     return LH;
 
     // Generate error if there is a problem with the value.
@@ -2093,6 +2094,11 @@ Sema::InstantiateClass(SourceLocation PointOfInstantiation,
                                 Instantiation->getInstantiatedFromMemberClass(),
                                      Pattern, PatternDef, TSK, Complain))
     return true;
+
+  llvm::TimeTraceScope TimeScope("InstantiateClass", [&]() {
+    return Instantiation->getQualifiedNameAsString();
+  });
+
   Pattern = PatternDef;
 
   // Record the point of instantiation.

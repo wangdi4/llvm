@@ -18,6 +18,7 @@
 #include "GlobalCompilationDatabase.h"
 #include "Protocol.h"
 #include "TUScheduler.h"
+#include "XRefs.h"
 #include "index/Background.h"
 #include "index/FileIndex.h"
 #include "index/Index.h"
@@ -35,8 +36,6 @@
 #include <utility>
 
 namespace clang {
-class PCHContainerOperations;
-
 namespace clangd {
 
 // FIXME: find a better name.
@@ -167,9 +166,9 @@ public:
   /// called for tracked files.
   void signatureHelp(PathRef File, Position Pos, Callback<SignatureHelp> CB);
 
-  /// Get definition of symbol at a specified \p Line and \p Column in \p File.
-  void findDefinitions(PathRef File, Position Pos,
-                       Callback<std::vector<Location>> CB);
+  /// Find declaration/definition locations of symbol at a specified position.
+  void locateSymbolAt(PathRef File, Position Pos,
+                      Callback<std::vector<LocatedSymbol>> CB);
 
   /// Helper function that returns a path to the corresponding source file when
   /// given a header file and vice versa.
@@ -182,6 +181,11 @@ public:
   /// Get code hover for a given position.
   void findHover(PathRef File, Position Pos,
                  Callback<llvm::Optional<Hover>> CB);
+
+  /// Get information about type hierarchy for a given position.
+  void typeHierarchy(PathRef File, Position Pos, int Resolve,
+                     TypeHierarchyDirection Direction,
+                     Callback<llvm::Optional<TypeHierarchyItem>> CB);
 
   /// Retrieve the top symbols from the workspace matching a query.
   void workspaceSymbols(StringRef Query, int Limit,
@@ -211,10 +215,10 @@ public:
   /// Rename all occurrences of the symbol at the \p Pos in \p File to
   /// \p NewName.
   void rename(PathRef File, Position Pos, llvm::StringRef NewName,
-              Callback<std::vector<tooling::Replacement>> CB);
+              Callback<std::vector<TextEdit>> CB);
 
   struct TweakRef {
-    TweakID ID;        /// ID to pass for applyTweak.
+    std::string ID;    /// ID to pass for applyTweak.
     std::string Title; /// A single-line message to show in the UI.
   };
   /// Enumerate the code tweaks available to the user at a specified point.
@@ -222,7 +226,7 @@ public:
                        Callback<std::vector<TweakRef>> CB);
 
   /// Apply the code tweak with a specified \p ID.
-  void applyTweak(PathRef File, Range Sel, TweakID ID,
+  void applyTweak(PathRef File, Range Sel, StringRef ID,
                   Callback<tooling::Replacements> CB);
 
   /// Only for testing purposes.
@@ -294,7 +298,6 @@ private:
   mutable std::mutex CachedCompletionFuzzyFindRequestMutex;
 
   llvm::Optional<std::string> WorkspaceRoot;
-  std::shared_ptr<PCHContainerOperations> PCHs;
   // WorkScheduler has to be the last member, because its destructor has to be
   // called before all other members to stop the worker thread that references
   // ClangdServer.

@@ -836,6 +836,7 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::Fusion) {
       switch (LH->getState()) {
       case LoopHintAttr::Numeric:
+        PrevAttr = nullptr;
         if (Option == LoopHintAttr::LoopCount &&  CategoryState.NumericAttr) {
           SourceLocation OptionLoc = LH->getRange().getBegin();
           SourceLocation PrevOptionLoc =
@@ -1035,7 +1036,7 @@ StmtResult Sema::ProcessStmtAttributes(Stmt *S,
   for (const ParsedAttr &AL : AttrList) {
 #if INTEL_CUSTOMIZATION
     if (Attr *a = ProcessStmtAttribute(*this, S, AL, AttrList,  Range))
-#endif
+#endif // INTEL_CUSTOMIZATION
       Attrs.push_back(a);
   }
 

@@ -613,6 +613,8 @@ def arcmt_migrate : Flag<["-"], "arcmt-migrate">,
 
 def opt_record_file : Separate<["-"], "opt-record-file">,
   HelpText<"File name to use for YAML optimization record output">;
+def opt_record_passes : Separate<["-"], "opt-record-passes">,
+  HelpText<"Only record remark information for passes whose names match the given regular expression">;
 
 def print_stats : Flag<["-"], "print-stats">,
   HelpText<"Print performance metrics and statistics">;
@@ -820,10 +822,10 @@ def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=
   HelpText<"Name of the file for communication between front-end and driver.">;
 def header_base_path : JoinedOrSeparate<["-"], "header-base-path">,
                        MetaVarName<"<directory>">;
-// if INTEL_FEATURE_CSA
+// INTEL_FEATURE_CSA
 def fcsa_visa : Flag<["-"], "fcsa-visa">,
   HelpText<"[CSA] Customize target IR for binary vISA">;
-// endif INTEL_FEATURE_CSA
+// end INTEL_FEATURE_CSA
 // endif INTEL_CUSTOMIZATION
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall,regcall">;
@@ -915,8 +917,14 @@ def fopenmp_is_device : Flag<["-"], "fopenmp-is-device">,
 def fopenmp_host_ir_file_path : Separate<["-"], "fopenmp-host-ir-file-path">,
   HelpText<"Path to the IR file produced by the frontend for the host.">;
 
-} // let Flags = [CC1Option]
+//===----------------------------------------------------------------------===//
+// SYCL Options
+//===----------------------------------------------------------------------===//
 
+def fsycl_is_device : Flag<["-"], "fsycl-is-device">,
+  HelpText<"Generate code for SYCL device.">;
+
+} // let Flags = [CC1Option]
 
 //===----------------------------------------------------------------------===//
 // cc1as-only Options

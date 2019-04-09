@@ -750,12 +750,10 @@ ExprResult Sema::BuildCXXThrow(SourceLocation OpLoc, Expr *Ex,
                                bool IsThrownVarInScope) {
   // Don't report an error if 'throw' is used in system headers.
   if (!getLangOpts().CXXExceptions &&
-      !getSourceManager().isInSystemHeader(OpLoc) &&
-      (!getLangOpts().OpenMPIsDevice ||
-       !getLangOpts().OpenMPHostCXXExceptions ||
-       isInOpenMPTargetExecutionDirective() ||
-       isInOpenMPDeclareTargetContext()))
-    Diag(OpLoc, diag::err_exceptions_disabled) << "throw";
+      !getSourceManager().isInSystemHeader(OpLoc) && !getLangOpts().CUDA) {
+    // Delay error emission for the OpenMP device code.
+    targetDiag(OpLoc, diag::err_exceptions_disabled) << "throw";
+  }
 
   // Exceptions aren't allowed in CUDA device code.
   if (getLangOpts().CUDA)
@@ -2363,8 +2361,7 @@ static bool resolveAllocationOverload(
   case OR_Deleted: {
     if (Diagnose) {
       S.Diag(R.getNameLoc(), diag::err_ovl_deleted_call)
-          << Best->Function->isDeleted() << R.getLookupName()
-          << S.getDeletedOrUnavailableSuffix(Best->Function) << Range;
+          << R.getLookupName() << Range;
       Candidates.NoteCandidates(S, OCD_AllCandidates, Args);
     }
     return true;
@@ -2820,7 +2817,8 @@ void Sema::DeclareGlobalAllocationFunction(DeclarationName Name,
     }
   }
 
-  FunctionProtoType::ExtProtoInfo EPI;
+  FunctionProtoType::ExtProtoInfo EPI(Context.getDefaultCallingConvention(
+      /*IsVariadic=*/false, /*IsCXXMethod=*/false));
 
   QualType BadAllocType;
   bool HasBadAllocExceptionSpec
@@ -3541,8 +3539,7 @@ static bool resolveBuiltinNewDeleteOverload(Sema &S, CallExpr *TheCall,
 
   case OR_Deleted: {
     S.Diag(R.getNameLoc(), diag::err_ovl_deleted_call)
-        << Best->Function->isDeleted() << R.getLookupName()
-        << S.getDeletedOrUnavailableSuffix(Best->Function) << Range;
+        << R.getLookupName() << Range;
     Candidates.NoteCandidates(S, OCD_AllCandidates, Args);
     return true;
   }
@@ -3722,16 +3719,6 @@ Sema::IsStringLiteralToNonConstPointerConversion(Expr *From, QualType ToType) {
   // be converted to an rvalue of type "pointer to char"; a wide
   // string literal can be converted to an rvalue of type "pointer
   // to wchar_t" (C++ 4.2p2).
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ375389: cannot convert wchar_t type in conditional expression.
-  if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat)
-    if (auto *CondOp =
-            dyn_cast<AbstractConditionalOperator>(From->IgnoreParens()))
-      return IsStringLiteralToNonConstPointerConversion(
-                 CondOp->getTrueExpr()->IgnoreParenImpCasts(), ToType) ||
-             IsStringLiteralToNonConstPointerConversion(
-                 CondOp->getFalseExpr()->IgnoreParenImpCasts(), ToType);
-#endif // INTEL_CUSTOMIZATION
   if (StringLiteral *StrLit = dyn_cast<StringLiteral>(From->IgnoreParens()))
     if (const PointerType *ToPtrType = ToType->getAs<PointerType>())
       if (const BuiltinType *ToPointeeType
@@ -5875,14 +5862,6 @@ QualType Sema::CXXCheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
       return QualType();
 
     //   If both can be converted, [...] the program is ill-formed.
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ375472: Allow ambigous conversions in conditional expression.
-    if (HaveL2R && HaveR2L && getLangOpts().IntelCompat) {
-      Diag(QuestionLoc, diag::warn_conditional_ambiguous)
-          << LTy << RTy << LHS.get()->getSourceRange()
-          << RHS.get()->getSourceRange();
-    } else
-#endif // INTEL_CUSTOMIZATION
     if (HaveL2R && HaveR2L) {
       Diag(QuestionLoc, diag::err_conditional_ambiguous)
         << LTy << RTy << LHS.get()->getSourceRange() << RHS.get()->getSourceRange();

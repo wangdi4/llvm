@@ -46,6 +46,7 @@ add_clang_library(clangDaemon
   Protocol.cpp
   Quality.cpp
   RIFF.cpp
+  Selection.cpp
   SourceCode.cpp
   Threading.cpp
   Trace.cpp
@@ -61,9 +62,13 @@ add_clang_library(clangDaemon
   index/IndexAction.cpp
   index/MemIndex.cpp
   index/Merge.cpp
-  index/SymbolID.cpp
+  index/Ref.cpp
   index/Serialization.cpp
+  index/Symbol.cpp
   index/SymbolCollector.cpp
+  index/SymbolID.cpp
+  index/SymbolLocation.cpp
+  index/SymbolOrigin.cpp
   index/YAMLSerialization.cpp
 
   index/dex/Dex.cpp
@@ -111,7 +116,8 @@ add_clang_library(clangDaemon
   )
 
 add_subdirectory(refactor/tweaks)
-if( LLVM_LIB_FUZZING_ENGINE OR LLVM_USE_SANITIZE_COVERAGE )
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+  # FIXME: Make fuzzer not use linux-specific APIs, build it everywhere.
   add_subdirectory(fuzzer)
 endif()
 add_subdirectory(tool)

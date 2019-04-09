@@ -19,7 +19,7 @@ void foo() {
   int e = __builtin_fpga_reg( __builtin_fpga_reg( a+b ));
   float f = 3.4f;
   int g = __builtin_fpga_reg((int)f);
-  int *h = __builtin_fpga_reg(intArr); // expected-error{{non-POD and array types cannot be passed to __builtin_fpga_reg}}
+  int *h = __builtin_fpga_reg(intArr); // expected-error{{Illegal argument of type 'int [10]'  to __builtin_fpga_reg}}
   struct st i = {1, 5.0f};
   struct st ii = __builtin_fpga_reg(i);
   int *ap = &a;

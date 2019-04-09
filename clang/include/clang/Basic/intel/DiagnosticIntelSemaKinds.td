@@ -43,9 +43,6 @@ def warn_lvalue_reference_bind_to_temporary : Warning<
   "%select{non-const|volatile}0 lvalue reference %diff{to type $ cannot bind "
   "to a temporary of type $|cannot bind to incompatible temporary}1,2">,
   InGroup<IntelCompat>;
-// CQ#236476 - static variable is referenced in two separate routines in iclang.
-def err_static_variable_with_label_addr
-    : Error<"cannot initialize static variable with label address">;
 // CQ#375011
 def err_alloc_size_attribute_argument_not_int : Error<
   "'alloc_size' attribute requires integer constant">;
@@ -121,11 +118,6 @@ def ext_intel_array_incomplete_type : Extension<
 def warn_intel_array_incomplete_size : Warning<
   "array with incomplete (unknown) size element %0">,
   InGroup<IntelCompat>;
-// Fix for CQ375472.
-def warn_conditional_ambiguous : Warning<
-  "conditional expression is ambiguous; "
-  "%diff{$ can be converted to $ and vice versa|"
-  "types can be convert to each other}0,1">, InGroup<IntelCompat>;
 // CQ#366312
 def ext_intel_lvalue_cast_not_lengthened: ExtWarn<
   "assignment to lvalue cast that does not lengthen the size of "
@@ -332,7 +324,9 @@ def err_hls_builtin_arg_mismatch : Error<
   "|a power of two integer between 8 and 1024"
   "|an integer between 1 and 64 inclusive"
   "|an integer between 1 and 1024 inclusive"
-  "|a pointer to an integer}0">;
+  "|a pointer to an integer"
+  "|a non-negative integer constant, 0 or -1}0">;
+
 def err_hls_builtin_without_fhls : Error <
   "HLS builtin can only be used when the HLS flag is present on the command "
   "line invocation">;
@@ -341,7 +335,9 @@ def err_ap_int_type : Error <
 def err_ap_int_bad_size : Error <
   "%select{signed|unsigned|}0 __ap_int must have a size of at least %select{2|1|1}0">;
 def err_fpga_reg_limitations : Error <
-  "non-POD and array types cannot be passed to __builtin_fpga_reg">;
+  "Illegal %select{argument of type %1 |field in argument}0 to __builtin_fpga_reg.">;
+def illegal_type_declared_here : Note<
+  "Field with illegal type declared here">;
 def err_pragma_loop_invalid_negative_value : Error<
   "invalid value '%0'; must be non-negative">;
 

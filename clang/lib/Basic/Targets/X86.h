@@ -86,6 +86,7 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasMPX = false;
   bool HasSHSTK = false;
   bool HasSGX = false;
+  bool HasCX8 = false;
   bool HasCX16 = false;
   bool HasFXSR = false;
   bool HasXSAVE = false;
@@ -114,11 +115,17 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_SERIALIZE
   bool HasSERIALIZE = false;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_TSXLDTRK
+  bool HasTSXLDTRK = false;
+#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
   bool HasAMXTILE = false;
   bool HasAMXINT8 = false;
   bool HasAMXBF16 = false;
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  bool HasAVXVNNI = false;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 protected:
   /// Enumeration of all of the X86 CPUs supported by Clang.
@@ -134,8 +141,6 @@ protected:
   bool checkCPUKind(CPUKind Kind) const;
 
   CPUKind getCPUKind(StringRef CPU) const;
-
-  std::string getCPUKindCanonicalName(CPUKind Kind) const;
 
   enum FPMathKind { FP_Default, FP_SSE, FP_387 } FPMath = FP_Default;
 
@@ -212,7 +217,7 @@ public:
                                   StringRef Expression) const override {
     StringRef::iterator I, E;
     for (I = Constraint.begin(), E = Constraint.end(); I != E; ++I) {
-      if (isalpha(*I))
+      if (isalpha(*I) || *I == '@')
         break;
     }
     if (I == E)
@@ -360,9 +365,8 @@ public:
          (1 << TargetInfo::LongDouble));
 
     // x86-32 has atomics up to 8 bytes
-    // FIXME: Check that we actually have cmpxchg8b before setting
-    // MaxAtomicInlineWidth. (cmpxchg8b is an i586 instruction.)
-    MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 64;
+    MaxAtomicPromoteWidth = 64;
+    MaxAtomicInlineWidth = 32;
   }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
@@ -396,6 +400,11 @@ public:
     }
 
     return X86TargetInfo::validateOperandSize(Constraint, Size);
+  }
+
+  void setMaxAtomicWidth() override {
+    if (hasFeature("cx8"))
+      MaxAtomicInlineWidth = 64;
   }
 
   ArrayRef<Builtin::Info> getTargetBuiltins() const override;

@@ -19,6 +19,9 @@ def IntelCompat : DiagGroup<"intel-compat">;
 // not planned for clang/llvm trunk. CQ#367312.
 def IntelMSCompat : DiagGroup<"intel-ms-compat">;
 
+// A warning group for warnings if '#pragma ivdep' is used for FPGA emulator.
+def IvdepFPGAUsage : DiagGroup<"ivdep-usage">;
+
 // Warning group for err_access_dtor_vbase error that we converted to a warning.
 // CQ#376362.
 def PrivateVBaseDtor : DiagGroup<"private-vbase-dtor">;

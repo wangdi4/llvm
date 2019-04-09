@@ -106,9 +106,13 @@ int ARMTTIImpl::getIntImmCost(unsigned Opcode, unsigned Idx, const APInt &Imm,
       Idx == 1)
     return 0;
 
-  if (Opcode == Instruction::And)
-      // Conversion to BIC is free, and means we can use ~Imm instead.
-      return std::min(getIntImmCost(Imm, Ty), getIntImmCost(~Imm, Ty));
+  if (Opcode == Instruction::And) {
+    // UXTB/UXTH
+    if (Imm == 255 || Imm == 65535)
+      return 0;
+    // Conversion to BIC is free, and means we can use ~Imm instead.
+    return std::min(getIntImmCost(Imm, Ty), getIntImmCost(~Imm, Ty));
+  }
 
   if (Opcode == Instruction::Add)
     // Conversion to SUB is free, and means we can use -Imm instead.
@@ -598,7 +602,7 @@ void ARMTTIImpl::getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
   // Disable loop unrolling for Oz and Os.
   UP.OptSizeThreshold = 0;
   UP.PartialOptSizeThreshold = 0;
-  if (L->getHeader()->getParent()->optForSize())
+  if (L->getHeader()->getParent()->hasOptSize())
     return;
 
   // Only enable on Thumb-2 targets.

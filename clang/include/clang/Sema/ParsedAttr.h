@@ -658,6 +658,7 @@ public:
 
 class AttributePool {
   friend class AttributeFactory;
+  friend class ParsedAttributes;
   AttributeFactory &Factory;
   llvm::TinyPtrVector<ParsedAttr *> Attrs;
 
@@ -889,6 +890,13 @@ public:
     addAll(attrs.begin(), attrs.end());
     attrs.clearListOnly();
     pool.takeAllFrom(attrs.pool);
+  }
+
+  void takeOneFrom(ParsedAttributes &Attrs, ParsedAttr *PA) {
+    Attrs.getPool().remove(PA);
+    Attrs.remove(PA);
+    getPool().add(PA);
+    addAtEnd(PA);
   }
 
   void clear() {

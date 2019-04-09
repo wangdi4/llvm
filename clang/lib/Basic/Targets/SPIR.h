@@ -41,7 +41,8 @@ public:
            "SPIR target must use unknown OS");
 #if INTEL_CUSTOMIZATION
     assert((getTriple().getEnvironment() == llvm::Triple::UnknownEnvironment ||
-            getTriple().getEnvironment() == llvm::Triple::IntelFPGA) &&
+            getTriple().getEnvironment() == llvm::Triple::IntelFPGA ||
+            getTriple().getEnvironment() == llvm::Triple::IntelEyeQ) &&
            "SPIR target must use unknown environment type");
 #endif // INTEL_CUSTOMIZATION
     TLSSupported = false;

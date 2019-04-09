@@ -144,16 +144,43 @@ static StringInitFailureKind IsStringInit(Expr *init, QualType declType,
 static void updateStringLiteralType(Expr *E, QualType Ty) {
   while (true) {
     E->setType(Ty);
-    if (isa<StringLiteral>(E) || isa<ObjCEncodeExpr>(E))
+    E->setValueKind(VK_RValue);
+    if (isa<StringLiteral>(E) || isa<ObjCEncodeExpr>(E)) {
       break;
-    else if (ParenExpr *PE = dyn_cast<ParenExpr>(E))
+    } else if (ParenExpr *PE = dyn_cast<ParenExpr>(E)) {
       E = PE->getSubExpr();
-    else if (UnaryOperator *UO = dyn_cast<UnaryOperator>(E))
+    } else if (UnaryOperator *UO = dyn_cast<UnaryOperator>(E)) {
+      assert(UO->getOpcode() == UO_Extension);
       E = UO->getSubExpr();
-    else if (GenericSelectionExpr *GSE = dyn_cast<GenericSelectionExpr>(E))
+    } else if (GenericSelectionExpr *GSE = dyn_cast<GenericSelectionExpr>(E)) {
       E = GSE->getResultExpr();
-    else
+    } else if (ChooseExpr *CE = dyn_cast<ChooseExpr>(E)) {
+      E = CE->getChosenSubExpr();
+    } else {
       llvm_unreachable("unexpected expr in string literal init");
+    }
+  }
+}
+
+/// Fix a compound literal initializing an array so it's correctly marked
+/// as an rvalue.
+static void updateGNUCompoundLiteralRValue(Expr *E) {
+  while (true) {
+    E->setValueKind(VK_RValue);
+    if (isa<CompoundLiteralExpr>(E)) {
+      break;
+    } else if (ParenExpr *PE = dyn_cast<ParenExpr>(E)) {
+      E = PE->getSubExpr();
+    } else if (UnaryOperator *UO = dyn_cast<UnaryOperator>(E)) {
+      assert(UO->getOpcode() == UO_Extension);
+      E = UO->getSubExpr();
+    } else if (GenericSelectionExpr *GSE = dyn_cast<GenericSelectionExpr>(E)) {
+      E = GSE->getResultExpr();
+    } else if (ChooseExpr *CE = dyn_cast<ChooseExpr>(E)) {
+      E = CE->getChosenSubExpr();
+    } else {
+      llvm_unreachable("unexpected expr in array compound literal init");
+    }
   }
 }
 
@@ -916,19 +943,8 @@ void InitListChecker::CheckImplicitInitList(const InitializedEntity &Entity,
   if (maxElements == 0) {
     if (!VerifyOnly)
       SemaRef.Diag(ParentIList->getInit(Index)->getBeginLoc(),
-#if INTEL_CUSTOMIZATION
-                   // cq371131: Print warning in case of empty records
-                   SemaRef.getLangOpts().IntelCompat &&
-                   !SemaRef.getLangOpts().IntelMSCompat ?
-                       diag::warn_implicit_empty_initializer :
-#endif // INTEL_CUSTOMIZATION
                    diag::err_implicit_empty_initializer);
     ++Index;
-#if INTEL_CUSTOMIZATION
-    // cq371131
-    if (!SemaRef.getLangOpts().IntelCompat ||
-        SemaRef.getLangOpts().IntelMSCompat)
-#endif // INTEL_CUSTOMIZATION
     hadError = true;
     return;
   }
@@ -1712,33 +1728,19 @@ void InitListChecker::CheckArrayType(const InitializedEntity &Entity,
 
   // Check for the special-case of initializing an array with a string.
   if (Index < IList->getNumInits()) {
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ#408063 skip array to pointer decay conversion for array
-    // initialization for aggregate initializers.
-    Expr *Init = IList->getInit(Index);
-    // Bypass array to pointer decay cast if any.
-    if (SemaRef.getLangOpts().IntelCompat &&
-        SemaRef.getLangOpts().IntelMSCompat) {
-      while (auto *CE = dyn_cast<CastExpr>(Init))
-        if (CE->getCastKind() == CK_NoOp ||
-            CE->getCastKind() == CK_ArrayToPointerDecay)
-          Init = CE->getSubExpr();
-        else
-          break;
-    }
-    if (IsStringInit(Init, arrayType, SemaRef.Context) == SIF_None) {
+    if (IsStringInit(IList->getInit(Index), arrayType, SemaRef.Context) ==
+        SIF_None) {
       // We place the string literal directly into the resulting
       // initializer list. This is the only place where the structure
       // of the structured initializer list doesn't match exactly,
       // because doing so would involve allocating one character
       // constant for each string.
       if (!VerifyOnly) {
-        CheckStringInit(Init, DeclType, arrayType, SemaRef);
+        CheckStringInit(IList->getInit(Index), DeclType, arrayType, SemaRef);
         UpdateStructuredListElement(StructuredList, StructuredIndex,
-                                    Init);
+                                    IList->getInit(Index));
         StructuredList->resizeInits(SemaRef.Context, StructuredIndex);
       }
-#endif // INTEL_CUSTOMIZATION
       ++Index;
       return;
     }
@@ -2216,7 +2218,7 @@ namespace {
 
 // Callback to only accept typo corrections that are for field members of
 // the given struct or union.
-class FieldInitializerValidatorCCC : public CorrectionCandidateCallback {
+class FieldInitializerValidatorCCC final : public CorrectionCandidateCallback {
  public:
   explicit FieldInitializerValidatorCCC(RecordDecl *RD)
       : Record(RD) {}
@@ -2224,6 +2226,10 @@ class FieldInitializerValidatorCCC : public CorrectionCandidateCallback {
   bool ValidateCandidate(const TypoCorrection &candidate) override {
     FieldDecl *FD = candidate.getCorrectionDeclAs<FieldDecl>();
     return FD && FD->getDeclContext()->getRedeclContext()->Equals(Record);
+  }
+
+  std::unique_ptr<CorrectionCandidateCallback> clone() override {
+    return llvm::make_unique<FieldInitializerValidatorCCC>(*this);
   }
 
  private:
@@ -2428,10 +2434,10 @@ InitListChecker::CheckDesignatedInitializer(const InitializedEntity &Entity,
 
         // Name lookup didn't find anything.
         // Determine whether this was a typo for another field name.
+        FieldInitializerValidatorCCC CCC(RT->getDecl());
         if (TypoCorrection Corrected = SemaRef.CorrectTypo(
                 DeclarationNameInfo(FieldName, D->getFieldLoc()),
-                Sema::LookupMemberName, /*Scope=*/nullptr, /*SS=*/nullptr,
-                llvm::make_unique<FieldInitializerValidatorCCC>(RT->getDecl()),
+                Sema::LookupMemberName, /*Scope=*/nullptr, /*SS=*/nullptr, CCC,
                 Sema::CTK_ErrorRecovery, RT->getDecl())) {
           SemaRef.diagnoseTypo(
               Corrected,
@@ -3356,11 +3362,6 @@ bool InitializationSequence::isAmbiguous() const {
   case FK_VariableLengthArrayHasInitializer:
   case FK_PlaceholderType:
   case FK_ExplicitConstructor:
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#236476: Static variable is referenced in two separate routines
-  // in iclang
-  case FK_StaticLabelAddress:
-#endif // INTEL_CUSTOMIZATION
   case FK_AddressOfUnaddressableFunction:
     return false;
 
@@ -4738,19 +4739,23 @@ static void TryReferenceInitializationCore(Sema &S,
     //   applied.
     // Postpone address space conversions to after the temporary materialization
     // conversion to allow creating temporaries in the alloca address space.
-    auto AS1 = T1Quals.getAddressSpace();
-    auto AS2 = T2Quals.getAddressSpace();
-    T1Quals.removeAddressSpace();
-    T2Quals.removeAddressSpace();
-    QualType cv1T4 = S.Context.getQualifiedType(cv2T2, T1Quals);
-    if (T1Quals != T2Quals)
+    auto T1QualsIgnoreAS = T1Quals;
+    auto T2QualsIgnoreAS = T2Quals;
+    if (T1Quals.getAddressSpace() != T2Quals.getAddressSpace()) {
+      T1QualsIgnoreAS.removeAddressSpace();
+      T2QualsIgnoreAS.removeAddressSpace();
+    }
+    QualType cv1T4 = S.Context.getQualifiedType(cv2T2, T1QualsIgnoreAS);
+    if (T1QualsIgnoreAS != T2QualsIgnoreAS)
       Sequence.AddQualificationConversionStep(cv1T4, ValueKind);
     Sequence.AddReferenceBindingStep(cv1T4, ValueKind == VK_RValue);
     ValueKind = isLValueRef ? VK_LValue : VK_XValue;
-    if (AS1 != AS2) {
-      T1Quals.addAddressSpace(AS1);
-      QualType cv1AST4 = S.Context.getQualifiedType(cv2T2, T1Quals);
-      Sequence.AddQualificationConversionStep(cv1AST4, ValueKind);
+    // Add addr space conversion if required.
+    if (T1Quals.getAddressSpace() != T2Quals.getAddressSpace()) {
+      auto T4Quals = cv1T4.getQualifiers();
+      T4Quals.addAddressSpace(T1Quals.getAddressSpace());
+      QualType cv1T4WithAS = S.Context.getQualifiedType(T2, T4Quals);
+      Sequence.AddQualificationConversionStep(cv1T4WithAS, ValueKind);
     }
 
     //   In any case, the reference is bound to the resulting glvalue (or to
@@ -4797,7 +4802,15 @@ static void TryReferenceInitializationCore(Sema &S,
   //        copy-initialization (8.5). The reference is then bound to the
   //        temporary. [...]
 
-  InitializedEntity TempEntity = InitializedEntity::InitializeTemporary(cv1T1);
+  // Ignore address space of reference type at this point and perform address
+  // space conversion after the reference binding step.
+  QualType cv1T1IgnoreAS =
+      T1Quals.hasAddressSpace()
+          ? S.Context.getQualifiedType(T1, T1Quals.withoutAddressSpace())
+          : cv1T1;
+
+  InitializedEntity TempEntity =
+      InitializedEntity::InitializeTemporary(cv1T1IgnoreAS);
 
   // FIXME: Why do we use an implicit conversion here rather than trying
   // copy-initialization?
@@ -4832,8 +4845,9 @@ static void TryReferenceInitializationCore(Sema &S,
   //        than, cv2; otherwise, the program is ill-formed.
   unsigned T1CVRQuals = T1Quals.getCVRQualifiers();
   unsigned T2CVRQuals = T2Quals.getCVRQualifiers();
-  if (RefRelationship == Sema::Ref_Related &&
-      (T1CVRQuals | T2CVRQuals) != T1CVRQuals) {
+  if ((RefRelationship == Sema::Ref_Related &&
+       (T1CVRQuals | T2CVRQuals) != T1CVRQuals) ||
+      !T1Quals.isAddressSpaceSupersetOf(T2Quals)) {
     Sequence.SetFailed(InitializationSequence::FK_ReferenceInitDropsQualifiers);
     return;
   }
@@ -4847,7 +4861,11 @@ static void TryReferenceInitializationCore(Sema &S,
     return;
   }
 
-  Sequence.AddReferenceBindingStep(cv1T1, /*bindingTemporary=*/true);
+  Sequence.AddReferenceBindingStep(cv1T1IgnoreAS, /*bindingTemporary=*/true);
+
+  if (T1Quals.hasAddressSpace())
+    Sequence.AddQualificationConversionStep(cv1T1, isLValueRef ? VK_LValue
+                                                               : VK_XValue);
 }
 
 /// Attempt character array initialization from a string literal
@@ -5526,29 +5544,6 @@ void InitializationSequence::InitializeFrom(Sema &S,
     return;
   }
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#236476 - Static variable is referenced in two separate routines
-  // in iclang
-  if (S.getLangOpts().IntelCompat && DestType->isAnyPointerType() &&
-      Initializer && isa<AddrLabelExpr>(Initializer->IgnoreParenImpCasts()) &&
-      Entity.getKind() == InitializedEntity::EK_Variable &&
-      cast<VarDecl>(Entity.getDecl())->isStaticLocal()) {
-    // Fix for CQ380936: compiler failed with assertion "it !=
-    // OpaqueRValues.end() && no mapping for opaque value!" on pointer test.
-    // Address of the label should not be stored in static variable inside a
-    // constructor, because constructor overloading produces another one
-    // function with the same static variable.
-    DeclContext *DC = S.getFunctionLevelDeclContext();
-    while (isa<RecordDecl>(DC))
-      DC = DC->getParent();
-    if (auto *CCD = dyn_cast<CXXConstructorDecl>(DC))
-      if (CCD->getType()->getAs<FunctionProtoType>()->isVariadic()) {
-        SetFailed(FK_StaticLabelAddress);
-        return;
-      }
-  }
-#endif
-
   //     - If the initializer is (), the object is value-initialized.
   if (Kind.getKind() == InitializationKind::IK_Value ||
       (Kind.getKind() == InitializationKind::IK_Direct && Args.empty())) {
@@ -5630,8 +5625,7 @@ void InitializationSequence::InitializeFrom(Sema &S,
     // array from a compound literal that creates an array of the same
     // type, so long as the initializer has no side effects.
     if (!S.getLangOpts().CPlusPlus && Initializer &&
-        (isa<ConstantExpr>(Initializer->IgnoreParens()) ||
-         isa<CompoundLiteralExpr>(Initializer->IgnoreParens())) &&
+        isa<CompoundLiteralExpr>(Initializer->IgnoreParens()) &&
         Initializer->getType()->isArrayType()) {
       const ArrayType *SourceAT
         = Context.getAsArrayType(Initializer->getType());
@@ -5651,23 +5645,6 @@ void InitializationSequence::InitializeFrom(Sema &S,
       TryListInitialization(S, Entity, Kind, cast<InitListExpr>(Initializer),
                             *this, TreatUnavailableAsInvalid);
       AddParenthesizedArrayInitStep(DestType);
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#369248: failed to compile gcc header tr1/regex.
-      // Header file tr1/regex has bugs in version prior to GCC 5.0. GCC is able
-      // to compile it, but emits error messages on class instantiation.
-      // Fix for CQ379037: xmain allows casting of StringRef to const char[2].
-    } else if (S.getLangOpts().IntelCompat &&
-               Kind.getKind() != InitializationKind::IK_Direct && Initializer &&
-               !isa<InitListExpr>(Initializer) &&
-               S.CurContext->isDependentContext() &&
-               S.CodeSynthesisContexts.empty() &&
-               (Initializer->getType()->isPointerType() ||
-                Initializer->getType()->isConstantArrayType()) &&
-               !Initializer->getType()->isDependentType() &&
-               !Initializer->getType()->isInstantiationDependentType() &&
-               S.SourceMgr.isInSystemHeader(Initializer->getExprLoc())) {
-      AddArrayInitStep(DestType, /*IsGNUExtension=*/false);
-#endif // INTEL_CUSTOMIZATION
     } else if (DestAT->getElementType()->isCharType())
       SetFailed(FK_ArrayNeedsInitListOrStringLiteral);
     else if (IsWideCharCompatible(DestAT->getElementType(), Context))
@@ -7384,9 +7361,19 @@ ExprResult Sema::TemporaryMaterializationConversion(Expr *E) {
 ExprResult Sema::PerformQualificationConversion(Expr *E, QualType Ty,
                                                 ExprValueKind VK,
                                                 CheckedConversionKind CCK) {
-  CastKind CK = (Ty.getAddressSpace() != E->getType().getAddressSpace())
-                    ? CK_AddressSpaceConversion
-                    : CK_NoOp;
+
+  CastKind CK = CK_NoOp;
+
+  if (VK == VK_RValue) {
+    auto PointeeTy = Ty->getPointeeType();
+    auto ExprPointeeTy = E->getType()->getPointeeType();
+    if (!PointeeTy.isNull() &&
+        PointeeTy.getAddressSpace() != ExprPointeeTy.getAddressSpace())
+      CK = CK_AddressSpaceConversion;
+  } else if (Ty.getAddressSpace() != E->getType().getAddressSpace()) {
+    CK = CK_AddressSpaceConversion;
+  }
+
   return ImpCastExprToType(E, Ty, CK, VK, /*BasePath=*/nullptr, CCK);
 }
 
@@ -8080,6 +8067,7 @@ ExprResult InitializationSequence::Perform(Sema &S,
       S.Diag(Kind.getLocation(), diag::ext_array_init_copy)
         << Step->Type << CurInit.get()->getType()
         << CurInit.get()->getSourceRange();
+      updateGNUCompoundLiteralRValue(CurInit.get());
       LLVM_FALLTHROUGH;
     case SK_ArrayInit:
       // If the destination type is an incomplete array type, update the
@@ -8579,6 +8567,7 @@ bool InitializationSequence::Diagnose(Sema &S,
   case FK_ReferenceInitFailed:
     S.Diag(Kind.getLocation(), diag::err_reference_bind_failed)
       << DestType.getNonReferenceType()
+      << DestType.getNonReferenceType()->isIncompleteType()
       << OnlyArg->isLValue()
       << OnlyArg->getType()
       << Args[0]->getSourceRange();
@@ -8719,7 +8708,7 @@ bool InitializationSequence::Diagnose(Sema &S,
           = FailedCandidateSet.BestViableFunction(S, Kind.getLocation(), Best);
         if (Ovl != OR_Deleted) {
           S.Diag(Kind.getLocation(), diag::err_ovl_deleted_init)
-            << true << DestType << ArgsRange;
+              << DestType << ArgsRange;
           llvm_unreachable("Inconsistent overload resolution?");
           break;
         }
@@ -8733,7 +8722,7 @@ bool InitializationSequence::Diagnose(Sema &S,
             << DestType << ArgsRange;
         else
           S.Diag(Kind.getLocation(), diag::err_ovl_deleted_init)
-            << true << DestType << ArgsRange;
+              << DestType << ArgsRange;
 
         S.NoteDeletedFunction(Best->Function);
         break;
@@ -8797,21 +8786,6 @@ bool InitializationSequence::Diagnose(Sema &S,
     break;
   }
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#236476: Static variable is referenced in two separate routines
-  // in iclang
-  case FK_StaticLabelAddress:
-    // Fix for CQ#374664: After promotion xmain becomes too strict on
-    // initialization of static variable with label address.
-    // Fix for CQ380936: compiler failed with assertion "it !=
-    // OpaqueRValues.end() && no mapping for opaque value!" on pointer test.
-    // Address of the label should not be stored in static variable inside a
-    // constructor, because constructor overloading produces another one
-    // function with the same static variable.
-    S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
-        << Args[0]->getSourceRange();
-    break;
-#endif // INTEL_CUSTOMIZATION
   }
 
   PrintInitLocationNote(S, Entity);
@@ -8971,13 +8945,6 @@ void InitializationSequence::dump(raw_ostream &OS) const {
       OS << "list copy initialization chose explicit constructor";
       break;
 
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ#236476: Static variable is referenced in two separate routines
-    // in iclang
-    case FK_StaticLabelAddress:
-      OS << "initialization of static variable with label address";
-      break;
-#endif // INTEL_CUSTOMIZATION
     }
     OS << '\n';
     return;

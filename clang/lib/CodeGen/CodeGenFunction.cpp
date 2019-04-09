@@ -2486,7 +2486,7 @@ void CodeGenFunction::EmitAlignmentAssumption(llvm::Value *PtrValue,
                           OffsetValue);
 }
 
-llvm::Value *CodeGenFunction::EmitAnnotationCall(llvm::Value *AnnotationFn,
+llvm::Value *CodeGenFunction::EmitAnnotationCall(llvm::Function *AnnotationFn,
                                                  llvm::Value *AnnotatedVal,
                                                  StringRef AnnotationStr,
                                                  SourceLocation Location) {
@@ -2514,7 +2514,7 @@ Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
   assert(D->hasAttr<AnnotateAttr>() && "no annotate attribute");
   llvm::Value *V = Addr.getPointer();
   llvm::Type *VTy = V->getType();
-  llvm::Value *F = CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation,
+  llvm::Function *F = CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation,
                                     CGM.Int8PtrTy);
 
   for (const auto *I : D->specific_attrs<AnnotateAttr>()) {
@@ -2536,13 +2536,8 @@ Address CodeGenFunction::EmitHLSFieldAnnotations(const FieldDecl *D,
                                                  StringRef AnnotStr) {
   llvm::Value *V = Addr.getPointer();
   llvm::Type *VTy = V->getType();
-  llvm::Value *F =
-      CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, CGM.Int8PtrTy);
-  // FIXME Always emit the cast inst so we can differentiate between
-  // annotation on the first field of a struct and annotation on the struct
-  // itself.
-  if (VTy != CGM.Int8PtrTy)
-    V = Builder.CreateBitCast(V, CGM.Int8PtrTy);
+  llvm::Function *F =
+      CGM.getIntrinsic(llvm::Intrinsic::ptr_annotation, VTy);
   V = EmitAnnotationCall(F, V, AnnotStr, D->getLocation());
   V = Builder.CreateBitCast(V, VTy);
   return Address(V, Addr.getAlignment());

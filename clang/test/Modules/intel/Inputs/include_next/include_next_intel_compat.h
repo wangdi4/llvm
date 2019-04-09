@@ -5,7 +5,7 @@
 #ifndef INCLUDE_NEXT_INTEL_COMPAT_H
 #define INCLUDE_NEXT_INTEL_COMPAT_H
 #ifdef OK
-#include_next <include_next_intel_compat.h> // expected-warning {{#include_next with absolute path}}
+#include_next <include_next_intel_compat.h> // expected-warning {{#include_next in file found relative to primary source file or found by absolute path}}
 #else
 #include_next <include_next_intel_compat.h> // expected-error{{'include_next_intel_compat.h' file not found}}
 #endif // OK

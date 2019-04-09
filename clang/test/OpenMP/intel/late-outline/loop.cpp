@@ -243,4 +243,32 @@ void doacross_test_two(int (*v_ptr)[5][4])
     }
   }
 }
+
+void i_inc_test_call(unsigned i);
+//CHECK-LABEL: nuw_incr_test
+void nuw_incr_test(unsigned n1, int ldf, int* buf)
+{
+  //CHECK: [[OMPIV:%.omp.iv[0-9]*]] = alloca i32,
+  //CHECK: [[JJ:%j[0-9]*]] = alloca i32,
+
+  //CHECK: "DIR.OMP.PARALLEL.LOOP"()
+  #pragma omp parallel for
+  for (unsigned r = 0; r < n1; ++r) {
+     i_inc_test_call(r);
+  }
+  //CHECK: {{call|invoke}}{{.*}}i_inc_test_call
+  // Expect 'add nuw' for this increment.
+  //CHECK: [[LL:%[0-9]+]] = load i32, i32* [[OMPIV]]
+  //CHECK: [[ADD:%add[0-9]*]] = add nuw i32 [[LL]], 1
+  //CHECK: store i32 [[ADD]], i32* [[OMPIV]]
+  //CHECK: "DIR.OMP.END.PARALLEL.LOOP"()
+
+  // Just check that this increment is not affected.
+  unsigned int j = 0;
+  j = j + 1;
+  //CHECK: store i32 0, i32* [[JJ]]
+  //CHECK: [[L2:%[0-9]+]] = load i32, i32* [[JJ]]
+  //CHECK: [[A2:%add[0-9]*]] = add i32 [[L2]], 1
+  //CHECK: store i32 [[A2]], i32* [[JJ]]
+}
 // end INTEL_COLLAB

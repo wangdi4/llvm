@@ -2131,6 +2131,48 @@ other two options in case those are useful in the future.
   }];
 }
 
+def RelaxSpirCCNoProtoDiagDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker = "CMPLRLLVM-8625";
+  let RegressionTest = "Sema/intel/spircc_noproto_error.c";
+  let Owner = "mprice1";
+  let Content = [{
+This change relaxes the 'function with no prototype cannot use the X calling
+convention' diagnostic from an error to a warning. This diagnostic is
+triggered for unprototyped function declarations for calling conventions that
+do not support variadic calls.
+
+When offloading, code is compiled twice, once for the host (where the
+diagnostic usually doesn't apply) and once for the target where
+CC_SpirFunction is the default. While the diagnostic is technically valid it
+isn't ideal that the code compiles okay on the host but fails during the
+target compilation. Since the target compile might not even use this function
+the value of the diagnostic is questionable. For now we'll make it a warning
+which allows it to be quieted with the option -Wno-missing-prototype-for-cc.
+
+.. code-block:: c
+
+  void foo();  // unprototyped c function
+
+.. code-block:: console
+
+  $ clang -cc1 -triple spir64 t.c
+  t.c:1:6: error: function with no prototype cannot use the spir_function calling convention
+  void foo();
+       ^
+
+  $ clang -cc1 -triple spir64 -fintel-compatibility t.c
+  t.c:1:6: warning: function with no prototype cannot use the spir_function calling convention
+  void foo();
+       ^
+  1 warning generated.
+
+  $ clang -cc1 -triple spir64 -fintel-compatibility -Wno-missing-prototype-for-cc t.c
+  $
+  }];
+}
+
 def GlobalDocumentation {
   code Intro =[{..
   -------------------------------------------------------------------
