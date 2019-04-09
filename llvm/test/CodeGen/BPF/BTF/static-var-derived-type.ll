@@ -98,12 +98,6 @@ define dso_local i64 @foo() local_unnamed_addr #0 !dbg !27 {
 ; CHECK-NEXT:        .long   15
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   82                      # BTF_KIND_DATASEC(id = 17)
-; CHECK-NEXT:        .long   251658241               # 0xf000001
-; CHECK-NEXT:        .long   0
-; CHECK-NEXT:        .long   16
-; CHECK-NEXT:        .long   v4
-; CHECK-NEXT:        .long   8
-; CHECK-NEXT:        .long   90                      # BTF_KIND_DATASEC(id = 18)
 ; CHECK-NEXT:        .long   251658243               # 0xf000003
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   7
@@ -114,6 +108,12 @@ define dso_local i64 @foo() local_unnamed_addr #0 !dbg !27 {
 ; CHECK-NEXT:        .long   8
 ; CHECK-NEXT:        .long   14
 ; CHECK-NEXT:        .long   v3
+; CHECK-NEXT:        .long   8
+; CHECK-NEXT:        .long   87                      # BTF_KIND_DATASEC(id = 18)
+; CHECK-NEXT:        .long   251658241               # 0xf000001
+; CHECK-NEXT:        .long   0
+; CHECK-NEXT:        .long   16
+; CHECK-NEXT:        .long   v4
 ; CHECK-NEXT:        .long   8
 ; CHECK-NEXT:        .byte   0                       # string offset=0
 ; CHECK-NEXT:        .ascii  ".text"                 # string offset=1
@@ -136,9 +136,9 @@ define dso_local i64 @foo() local_unnamed_addr #0 !dbg !27 {
 ; CHECK-NEXT:        .byte   0
 ; CHECK-NEXT:        .ascii  "v4"                    # string offset=79
 ; CHECK-NEXT:        .byte   0
-; CHECK-NEXT:        .ascii  ".rodata"               # string offset=82
+; CHECK-NEXT:        .ascii  ".bss"                  # string offset=82
 ; CHECK-NEXT:        .byte   0
-; CHECK-NEXT:        .ascii  ".bss"                  # string offset=90
+; CHECK-NEXT:        .ascii  ".rodata"               # string offset=87
 ; CHECK-NEXT:        .byte   0
 
 attributes #0 = { norecurse nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }

@@ -869,7 +869,7 @@ X86InstrInfo::convertToThreeAddress(MachineFunction::iterator &MFI,
   bool Is8BitOp = false;
   unsigned MIOpc = MI.getOpcode();
   switch (MIOpc) {
-  default: return nullptr;
+  default: llvm_unreachable("Unreachable!");
   case X86::SHL64ri: {
     assert(MI.getNumOperands() >= 3 && "Unknown shift instruction!");
     unsigned ShAmt = getTruncatedShiftCount(MI, 2);
@@ -1453,7 +1453,7 @@ MachineInstr *X86InstrInfo::commuteInstructionImpl(MachineInstr &MI, bool NewMI,
   case X86::VBLENDPDrri:
   case X86::VBLENDPSrri:
     // If we're optimizing for size, try to use MOVSD/MOVSS.
-    if (MI.getParent()->getParent()->getFunction().optForSize()) {
+    if (MI.getParent()->getParent()->getFunction().hasOptSize()) {
       unsigned Mask, Opc;
       switch (MI.getOpcode()) {
       default: llvm_unreachable("Unreachable!");
@@ -4083,6 +4083,20 @@ static bool expandNOVLXStore(MachineInstrBuilder &MIB,
 
   return true;
 }
+
+static bool expandSHXDROT(MachineInstrBuilder &MIB, const MCInstrDesc &Desc) {
+  MIB->setDesc(Desc);
+  int64_t ShiftAmt = MIB->getOperand(2).getImm();
+  // Temporarily remove the immediate so we can add another source register.
+  MIB->RemoveOperand(2);
+  // Add the register. Don't copy the kill flag if there is one.
+  MIB.addReg(MIB->getOperand(1).getReg(),
+             getUndefRegState(MIB->getOperand(1).isUndef()));
+  // Add back the immediate.
+  MIB.addImm(ShiftAmt);
+  return true;
+}
+
 bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   bool HasAVX = Subtarget.hasAVX();
   MachineInstrBuilder MIB(*MI.getParent()->getParent(), MI);
@@ -4237,6 +4251,10 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case X86::XOR64_FP:
   case X86::XOR32_FP:
     return expandXorFP(MIB, *this);
+  case X86::SHLDROT32ri: return expandSHXDROT(MIB, get(X86::SHLD32rri8));
+  case X86::SHLDROT64ri: return expandSHXDROT(MIB, get(X86::SHLD64rri8));
+  case X86::SHRDROT32ri: return expandSHXDROT(MIB, get(X86::SHRD32rri8));
+  case X86::SHRDROT64ri: return expandSHXDROT(MIB, get(X86::SHRD64rri8));
   case X86::ADD8rr_DB:    MIB->setDesc(get(X86::OR8rr));    break;
   case X86::ADD16rr_DB:   MIB->setDesc(get(X86::OR16rr));   break;
   case X86::ADD32rr_DB:   MIB->setDesc(get(X86::OR32rr));   break;
@@ -4802,14 +4820,14 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   // For CPUs that favor the register form of a call or push,
   // do not fold loads into calls or pushes, unless optimizing for size
   // aggressively.
-  if (isSlowTwoMemOps && !MF.getFunction().optForMinSize() &&
+  if (isSlowTwoMemOps && !MF.getFunction().hasMinSize() &&
       (MI.getOpcode() == X86::CALL32r || MI.getOpcode() == X86::CALL64r ||
        MI.getOpcode() == X86::PUSH16r || MI.getOpcode() == X86::PUSH32r ||
        MI.getOpcode() == X86::PUSH64r))
     return nullptr;
 
   // Avoid partial and undef register update stalls unless optimizing for size.
-  if (!MF.getFunction().optForSize() &&
+  if (!MF.getFunction().hasOptSize() &&
       (hasPartialRegUpdate(MI.getOpcode(), Subtarget, /*ForLoadFold*/true) ||
        shouldPreventUndefRegUpdateMemFold(MF, MI)))
     return nullptr;
@@ -4977,7 +4995,7 @@ X86InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
     return nullptr;
 
   // Avoid partial and undef register update stalls unless optimizing for size.
-  if (!MF.getFunction().optForSize() &&
+  if (!MF.getFunction().hasOptSize() &&
       (hasPartialRegUpdate(MI.getOpcode(), Subtarget, /*ForLoadFold*/true) ||
        shouldPreventUndefRegUpdateMemFold(MF, MI)))
     return nullptr;
@@ -5177,7 +5195,7 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   if (NoFusing) return nullptr;
 
   // Avoid partial and undef register update stalls unless optimizing for size.
-  if (!MF.getFunction().optForSize() &&
+  if (!MF.getFunction().hasOptSize() &&
       (hasPartialRegUpdate(MI.getOpcode(), Subtarget, /*ForLoadFold*/true) ||
        shouldPreventUndefRegUpdateMemFold(MF, MI)))
     return nullptr;

@@ -18,10 +18,12 @@ add_llvm_library(LLVMObject
   Object.cpp
   ObjectFile.cpp
   RecordStreamer.cpp
+  RelocationResolver.cpp
   SymbolicFile.cpp
   SymbolSize.cpp
   WasmObjectFile.cpp
   WindowsResource.cpp
+  XCOFFObjectFile.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Object

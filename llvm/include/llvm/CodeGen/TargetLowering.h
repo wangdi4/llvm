@@ -953,12 +953,10 @@ public:
   /// getEstimatedNumberOfCaseClusters() in BasicTTIImpl.
   virtual bool isSuitableForJumpTable(const SwitchInst *SI, uint64_t NumCases,
                                       uint64_t Range) const {
-    const bool OptForSize = SI->getParent()->getParent()->optForSize();
+    const bool OptForSize = SI->getParent()->getParent()->hasOptSize();
     const unsigned MinDensity = getMinimumJumpTableDensity(OptForSize);
     const unsigned MaxJumpTableSize =
-        OptForSize || getMaximumJumpTableSize() == 0
-            ? UINT_MAX
-            : getMaximumJumpTableSize();
+        OptForSize ? UINT_MAX : getMaximumJumpTableSize();
     // Check whether a range of clusters is dense enough for a jump table.
     if (Range <= MaxJumpTableSize &&
         (NumCases * 100 >= Range * MinDensity)) {
