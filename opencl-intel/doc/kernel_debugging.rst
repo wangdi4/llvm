@@ -162,13 +162,16 @@ The plugin extends the GDB* commands syntax to make the work with conditional
 breakpoints on work-items easier. This feature is available only if GDB* was
 configured using Python*.
 
-``ocl-break-workitem`` *location* *work-item*
+``ocl-break-workitem`` *location* *work-item* *[temporary]*
 
     Set a breakpoint at the given *location*, which can specify a function name,
     a line number, or an address of an instruction.
 
     The *work-item* specifies a work-item number in the 3D NDRange, where the
     number of each range is separated by a space. For example, 0 0 0.
+
+    The *temporary* keyword will set a temporary breakpoint for the requested
+    line and will stop just once (similar to GDB's tbreak command).
 
 To enable OpenCL(TM) work-item breakpoints the ``libintelocl.so-gdb.py`` file
 should be sourced from a GDB* session.
