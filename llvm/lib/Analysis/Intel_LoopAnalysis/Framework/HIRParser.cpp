@@ -1768,34 +1768,19 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
   return BaseTempBlob;
 }
 
-bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
-                                                       int64_t *Multiplier,
-                                                       BlobTy *NewBlob,
-                                                       bool IsTop) {
+bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
+                                               int64_t *Multiplier,
+                                               BlobTy *NewBlob) {
 
-  if (!IsTop) {
-    if (auto *Const = dyn_cast<SCEVConstant>(Blob)) {
-      *Multiplier = getSCEVConstantValue(Const);
-      *NewBlob = SE.getConstant(Const->getType(), 1, true);
-      return true;
-    }
+  // We want to keep UMin blob so it can be recognized by HIR analyses and
+  // transformations.
+  if (isUMinBlob(MulBlob)) {
+    return false;
   }
 
-  if (auto *MulBlob = dyn_cast<SCEVMulExpr>(Blob)) {
-    // We want to keep UMin blob so it can be recognized by HIR analyses and
-    // transformations.
-    if (isUMinBlob(Blob)) {
-      return false;
-    }
-
-    // If there is a constant, it will be the first operand due to operand
-    // ordering.
-    auto *ConstOp = dyn_cast<SCEVConstant>(MulBlob->getOperand(0));
-
-    if (!ConstOp) {
-      return false;
-    }
-
+  // If there is a constant, it will be the first operand due to operand
+  // ordering.
+  if (auto *ConstOp = dyn_cast<SCEVConstant>(MulBlob->getOperand(0))) {
     SmallVector<BlobTy, 4> Ops;
 
     for (auto I = MulBlob->op_begin() + 1, E = MulBlob->op_end(); I != E; ++I) {
@@ -1805,79 +1790,145 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
     *Multiplier = getSCEVConstantValue(ConstOp);
     *NewBlob = SE.getMulExpr(Ops, MulBlob->getNoWrapFlags());
     return true;
-
-  } else if (auto *CommutativeBlob = dyn_cast<SCEVCommutativeExpr>(Blob)) {
-    // The multiplier may be folded into the constant so we have to recurse into
-    // the blob. Ex: (-8 + 8 * %t)
-
-    int64_t LocalMultiplier = 0;
-    SmallVector<BlobTy, 4> Ops;
-    SmallVector<int64_t, 4> OpMultipliers;
-
-    for (auto I = CommutativeBlob->op_begin(), E = CommutativeBlob->op_end();
-         I != E; ++I) {
-
-      BlobTy Op = *I;
-
-      BlobTy NewOp;
-      int64_t OpMultiplier;
-
-      if (!breakConstantMultiplierCommutativeBlob(Op, &OpMultiplier, &NewOp) ||
-          (OpMultiplier == LONG_MIN)) {
-        return false;
-      }
-
-      if (!LocalMultiplier) {
-        LocalMultiplier = std::llabs(OpMultiplier);
-      } else {
-        LocalMultiplier =
-            CanonExprUtils::gcd(LocalMultiplier, std::llabs(OpMultiplier));
-      }
-
-      if (LocalMultiplier == 1) {
-        return false;
-      }
-
-      Ops.push_back(NewOp);
-      OpMultipliers.push_back(OpMultiplier);
-    }
-
-    // If the overall multiplier is less than the original multiplier of the
-    // operand, push it back into the operand.
-    for (unsigned I = 0, Num = Ops.size(); I < Num; ++I) {
-
-      if (LocalMultiplier != OpMultipliers[I]) {
-        auto *UnusedMultiplier = SE.getConstant(
-            Ops[I]->getType(), OpMultipliers[I] / LocalMultiplier, true);
-
-        auto *CommutativeOp = dyn_cast<SCEVCommutativeExpr>(Ops[I]);
-
-        Ops[I] = SE.getMulExpr(Ops[I], UnusedMultiplier,
-                               CommutativeOp ? CommutativeOp->getNoWrapFlags()
-                                             : SCEV::FlagAnyWrap);
-      }
-    }
-
-    *Multiplier = LocalMultiplier;
-
-    switch (CommutativeBlob->getSCEVType()) {
-    case scAddExpr:
-      *NewBlob = SE.getAddExpr(Ops, CommutativeBlob->getNoWrapFlags());
-      break;
-    case scUMaxExpr:
-      *NewBlob = SE.getUMaxExpr(Ops);
-      break;
-    case scSMaxExpr:
-      *NewBlob = SE.getSMaxExpr(Ops);
-      break;
-    default:
-      llvm_unreachable("Unexpected scev type!");
-    }
-
-    return true;
   }
 
-  return false;
+  // We can extract the multiplier from individual operands and multiply them.
+  // For example, 2 can be extracted from the 2nd operand of mul below-
+  // (zext(%t1) * (2 * %t2 + 2* %t3))
+
+  int64_t LocalMultiplier = 1;
+  SmallVector<BlobTy, 4> Ops;
+  bool FoundMultiplier = false;
+
+  for (auto I = MulBlob->op_begin(), E = MulBlob->op_end(); I != E; ++I) {
+    BlobTy Op = *I;
+
+    int64_t OpMultiplier;
+    BlobTy NewOp;
+
+    if (!breakConstantMultiplierCommutativeBlob(Op, &OpMultiplier, &NewOp)) {
+      Ops.push_back(Op);
+      continue;
+    }
+
+    APInt LocalMul(64, LocalMultiplier, true);
+    APInt OpMul(64, OpMultiplier, true);
+
+    bool Overflow;
+    LocalMul = LocalMul.smul_ov(OpMul, Overflow);
+
+    if (Overflow) {
+      Ops.push_back(Op);
+      continue;
+    }
+
+    FoundMultiplier = true;
+    LocalMultiplier = LocalMul.getSExtValue();
+    Ops.push_back(NewOp);
+  }
+
+  if (!FoundMultiplier) {
+    return false;
+  }
+
+  *Multiplier = LocalMultiplier;
+  *NewBlob = SE.getMulExpr(Ops, MulBlob->getNoWrapFlags());
+  return true;
+}
+
+bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
+                                                       int64_t *Multiplier,
+                                                       BlobTy *NewBlob,
+                                                       bool IsTop) {
+
+  if (auto *Const = dyn_cast<SCEVConstant>(Blob)) {
+    if (!IsTop) {
+      *Multiplier = getSCEVConstantValue(Const);
+      *NewBlob = SE.getConstant(Const->getType(), 1, true);
+      return true;
+    }
+
+    return false;
+  }
+
+  if (auto *MulBlob = dyn_cast<SCEVMulExpr>(Blob)) {
+    return breakConstantMultiplierMulBlob(MulBlob, Multiplier, NewBlob);
+  }
+
+  auto *CommutativeBlob = dyn_cast<SCEVCommutativeExpr>(Blob);
+
+  if (!CommutativeBlob) {
+    return false;
+  }
+
+  // The multiplier may be folded into the constant so we have to recurse into
+  // the blob. Ex: (-8 + 8 * %t)
+
+  int64_t LocalMultiplier = 0;
+  SmallVector<BlobTy, 4> Ops;
+  SmallVector<int64_t, 4> OpMultipliers;
+
+  for (auto I = CommutativeBlob->op_begin(), E = CommutativeBlob->op_end();
+       I != E; ++I) {
+
+    BlobTy Op = *I;
+
+    BlobTy NewOp;
+    int64_t OpMultiplier;
+
+    if (!breakConstantMultiplierCommutativeBlob(Op, &OpMultiplier, &NewOp) ||
+        (OpMultiplier == LONG_MIN)) {
+      return false;
+    }
+
+    if (!LocalMultiplier) {
+      LocalMultiplier = std::llabs(OpMultiplier);
+    } else {
+      LocalMultiplier =
+          CanonExprUtils::gcd(LocalMultiplier, std::llabs(OpMultiplier));
+    }
+
+    if (LocalMultiplier == 1) {
+      return false;
+    }
+
+    Ops.push_back(NewOp);
+    OpMultipliers.push_back(OpMultiplier);
+  }
+
+  // If the overall multiplier is less than the original multiplier of the
+  // operand, push it back into the operand.
+  for (unsigned I = 0, Num = Ops.size(); I < Num; ++I) {
+
+    if (LocalMultiplier != OpMultipliers[I]) {
+      auto *UnusedMultiplier = SE.getConstant(
+          Ops[I]->getType(), OpMultipliers[I] / LocalMultiplier, true);
+
+      auto *CommutativeOp = dyn_cast<SCEVCommutativeExpr>(Ops[I]);
+
+      Ops[I] = SE.getMulExpr(Ops[I], UnusedMultiplier,
+                             CommutativeOp ? CommutativeOp->getNoWrapFlags()
+                                           : SCEV::FlagAnyWrap);
+    }
+  }
+
+  *Multiplier = LocalMultiplier;
+
+  switch (CommutativeBlob->getSCEVType()) {
+  case scAddExpr:
+    *NewBlob = SE.getAddExpr(Ops, CommutativeBlob->getNoWrapFlags());
+    break;
+  case scUMaxExpr:
+    *NewBlob = SE.getUMaxExpr(Ops);
+    break;
+  case scSMaxExpr:
+    *NewBlob = SE.getSMaxExpr(Ops);
+    break;
+  default:
+    llvm_unreachable("Unexpected scev type!");
+  }
+
+  return true;
 }
 
 void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
@@ -3046,8 +3097,8 @@ bool HIRParser::isCompatibleGEOpWithChain(
   } else {
     auto &CU = getCanonExprUtils();
 
-    auto *OffsetTy = Type::getIntNTy(
-        getContext(), CU.getTypeSizeInBits(GEPOp->getType()));
+    auto *OffsetTy =
+        Type::getIntNTy(getContext(), CU.getTypeSizeInBits(GEPOp->getType()));
 
     for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
       auto *Ty = I.getIndexedType();
