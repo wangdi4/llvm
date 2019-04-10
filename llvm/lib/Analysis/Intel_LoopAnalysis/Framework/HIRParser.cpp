@@ -3066,162 +3066,31 @@ bool HIRParser::isValidGEPOp(const GEPOrSubsOperator *GEPOp,
           !HIRRegionIdentification::containsUnsupportedTy(GEPOp));
 }
 
-// Every GEP or subscript has information about a stride for particular
-// dimension. Adding a gep to an existing chain extends our knowledge of memory
-// configuration - it may add a new dimension or provide a more specific
-// dimension type.
+// Populates \p IndexedTypes vector with types being indexed by the \p GEPOp.
+// ex.:
+//   -- gep [10 x { i8, float }]* %p, 0, i, 1
 //
-// Each new gep should either correspond to the existing information or add new
-// information, and new information should not conflict with existing one.
+//   { [10 x { i8, float }]*,
+//     [10 x { i8, float }],
+//           { i8, float },
+//                 float
+//   }
 //
-// Ex.: While parsing subscripts we may conclude some memory is accessed in
-// a 2D manner with a configuration-
-//
-//    [i:stride 40][j:stride 4]
-//
-// and having next operator: %0 = gep [1000 x i32], [1000 x i32]* %p, 0, 0
-// which correspond to 1D access manner with stride info-
-//
-//    [0:stride 4000][0:stride 4]
-//
-// we may not be able to represent access in terms of %p, but rather represent
-// it in terms of %0: (%0)[i:40][j:4].
-//
-// This is because new gep stride of dimension one (4000) conflicts with
-// existing knowledge about the stride (40).
-//
-// However we may still represent it as (%p)[0:4000][i:40][j:4],
-// but we would loose type consistency between dimensions.
-bool HIRParser::isCompatibleGEOpWithChain(
-    const GEPOrSubsOperator *GEPOp, SmallVector<Value *, 8> &StridesV) const {
-  // TODO: handle splitting when strides or LBs do not match for the same rank
-  SmallVector<Value *, 8> CurrentStrides;
-
-  // Collect strides and check if they can be merged with existing strides.
-  auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
-  if (Subs) {
-    // TODO: Check rank of the dimension.
-    CurrentStrides.push_back(Subs->getStride());
-  } else {
-    auto &CU = getCanonExprUtils();
-
-    auto *OffsetTy =
-        Type::getIntNTy(getContext(), CU.getTypeSizeInBits(GEPOp->getType()));
-
-    for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
-      auto *Ty = I.getIndexedType();
-
-      // Collect array dimensions only. Struct offsets may be merged into a
-      // dimension anytime.
-      if (Ty->isStructTy()) {
-        continue;
-      }
-
-      uint64_t Stride = Ty->isSized() ? CU.getTypeSizeInBytes(Ty) : 0;
-      CurrentStrides.push_back(ConstantInt::get(OffsetTy, Stride));
-    }
+// Note: the pointer operand type is always added as a first element.
+static void populateIndexedTypes(const GEPOperator *GEPOp,
+                                 SmallVectorImpl<Type *> &IndexedTypes) {
+  IndexedTypes.push_back(GEPOp->getPointerOperandType());
+  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
+    IndexedTypes.push_back(I.getIndexedType());
   }
-
-  // Having the existing stride information-
-  //   [i32 4, i32 40]
-  //
-  // And information from next GEP-
-  //   [i32 4, i32 40, i32 4000]
-  //
-  // We find a dimension in existing strides that correspond to the first stride
-  // of next GEP. Check that every stride match with existing info and then
-  // add new dimension strides.
-
-  auto GetI = CurrentStrides.rbegin();
-  auto PutI = std::find(StridesV.begin(), StridesV.end(), *GetI);
-
-  auto GetE = CurrentStrides.rend();
-  auto PutE = StridesV.end();
-
-  while (GetI != GetE && PutI != PutE) {
-    if (*GetI != *PutI) {
-      return false;
-    }
-
-    ++GetI;
-    ++PutI;
-  }
-
-  StridesV.insert(PutI, GetI, GetE);
-  return true;
-}
-
-const GEPOrSubsOperator *
-HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
-  // TODO: implement caching for GEP chains.
-
-  SmallVector<Value *, 8> StridesV;
-  isCompatibleGEOpWithChain(GEPOp, StridesV);
-
-  while (auto NextGEPOp =
-             dyn_cast<GEPOrSubsOperator>(GEPOp->getPointerOperand())) {
-    if (!isValidGEPOp(NextGEPOp)) {
-      break;
-    }
-
-    // TODO: extend ScalarEvolution to support subscripts
-
-    // If NextGEPOp's last index is an offset and GEPOp's first index is not
-    // zero then we have an unconventional structure access and the GEPs cannot
-    // be merged. For example-
-    //
-    // %struct.IspComplex = type { float, float }
-    //
-    // %53 = getelementptr inbounds %struct.IspComplex, %struct.IspComplex* %P,
-    // i64 %i, i32 0
-    // %add.ptr.i.i = getelementptr inbounds float, float* %53, i64 %j
-    //
-    // In the above example the first GEP references a float field in the
-    // structure but the second GEP treats it as a floating point array whose
-    // %j'th element is being accessed.
-    if (representsStructOffset(NextGEPOp)) {
-      auto ConstOp = dyn_cast<ConstantInt>(GEPOp->getIndex(0));
-      if (!ConstOp || !ConstOp->isZero()) {
-        break;
-      }
-    }
-
-    auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
-    auto *NextSubs = dyn_cast<SubscriptInst>(NextGEPOp);
-
-    // Stop trace back if the highest index looks like casted IV: sext(i1).
-    // This is a profitability check to form more linear indices.
-    // If we trace back, we may have to add offsets to casted IV which will make
-    // the index non-linear.
-    if ((!Subs && !NextSubs) ||
-        (Subs && NextSubs && Subs->getRank() == NextSubs->getRank())) {
-      auto *HighestIndex = getSCEV(GEPOp->getIndex(0));
-      auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex);
-      if (CastSCEV && isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
-        break;
-      }
-    }
-
-    // Check if the next operator may be merged into current chain.
-    if (!isCompatibleGEOpWithChain(NextGEPOp, StridesV)) {
-      break;
-    }
-
-    GEPOp = NextGEPOp;
-  }
-
-  return GEPOp;
 }
 
 class DimInfo {
-  unsigned Rank;
-  Value *Stride = nullptr;
   Type *Ty = nullptr;
+  Value *Stride = nullptr;
 
   SmallVector<Value *, 4> Indices;
   SmallVector<Value *, 4> IndicesLB;
-
-  SmallVector<Value *, 4> StructOffsets;
 
   bool HasZeroIndex = false;
 
@@ -3231,9 +3100,6 @@ public:
 
   Value *getStride() const { return Stride; }
   void setStride(Value *Stride) { this->Stride = Stride; }
-
-  unsigned getRank() const { return Rank; }
-  void setRank(unsigned Rank) { this->Rank = Rank; }
 
   // Adds an \p Idx to the dimension. Later these indices will be merged into a
   // single CanonExpr.
@@ -3281,10 +3147,26 @@ public:
     IndicesLB.push_back(LB);
   }
 
+  void clear() {
+    Ty = nullptr;
+    Stride = nullptr;
+    Indices.clear();
+    IndicesLB.clear();
+  }
+
+  bool isDefined() const {
+    assert((!Stride == Indices.empty()) &&
+           "Indices found in not populated dimension");
+    return Stride;
+  }
+
+  bool isZero() const {
+    assert(isDefined() && "Expected a populated dimension");
+    return HasZeroIndex;
+  }
+
   const ArrayRef<Value *> indices() const { return Indices; }
   const ArrayRef<Value *> indicesLB() const { return IndicesLB; }
-
-  SmallVectorImpl<Value *> &offsets() { return StructOffsets; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD
@@ -3305,55 +3187,183 @@ public:
     OS << ":";
     Stride->printAsOperand(OS, false);
     OS << "]";
-    for (auto *Offset : StructOffsets) {
-      OS << ".";
-      Offset->printAsOperand(OS, false);
-    }
+  }
+
+  LLVM_DUMP_METHOD
+  void dump() const {
+    print(dbgs());
+    dbgs() << "\n";
   }
 #endif
 };
 
+// Represents information about single array object that contains information
+// about dimensions, indices and optional struct offsets for that array.
+class ArrayInfo {
+  unsigned MinRank = -1;
+
+  SmallVector<DimInfo, 2> Dimensions;
+  SmallVector<unsigned, 4> StructOffsets;
+
+public:
+  using iterator = decltype(Dimensions)::const_iterator;
+
+  SmallVectorImpl<unsigned> &offsets() { return StructOffsets; }
+  const SmallVectorImpl<unsigned> &offsets() const { return StructOffsets; }
+
+  DimInfo &getOrCreate(unsigned Idx) {
+    if (Dimensions.size() <= Idx) {
+      Dimensions.resize(Idx + 1);
+    }
+
+    MinRank = std::min(MinRank, Idx);
+
+    return Dimensions[Idx];
+  }
+
+  void pop_back() {
+    Dimensions.pop_back();
+  }
+
+  const DimInfo &getDim(unsigned Idx) const {
+    assert(Idx >= getMinRank() && Idx <= getMaxRank() && "Invalid rank");
+    return Dimensions[Idx];
+  }
+
+  const DimInfo &getHighestDim() const { return Dimensions[getMaxRank()]; }
+  const DimInfo &getLowestDim() const { return Dimensions[getMinRank()]; }
+
+  unsigned getMinRank() const { return MinRank; }
+  unsigned getMaxRank() const { return Dimensions.size() - 1; }
+
+  iterator begin() const { return Dimensions.begin(); }
+  iterator end() const { return Dimensions.end(); }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-LLVM_DUMP_METHOD static void
-dumpDimsInfo(const SmallVectorImpl<DimInfo> &Dims) {
-  for (auto &Dim : reverse(Dims)) {
-    Dim.print(dbgs());
-    dbgs() << " | ";
+  LLVM_DUMP_METHOD
+  void print(raw_ostream &OS) const {
+    for (auto &Dim : reverse(Dimensions)) {
+      Dim.print(dbgs());
+      dbgs() << " | ";
+    }
+
+    for (auto Offset : StructOffsets) {
+      OS << "." << Offset;
+    }
   }
-  dbgs() << "\n";
-}
+
+  LLVM_DUMP_METHOD
+  void dump() const {
+    print(dbgs());
+    dbgs() << "\n";
+  }
 #endif
+};
 
-// Populates \p IndexedTypes vector with types being indexed by the \p GEPOp.
-// ex.:
-//   -- gep [10 x { i8, float }]* %p, 0, i, 1
-//
-//   { [10 x { i8, float }]*,
-//     [10 x { i8, float }],
-//           { i8, float },
-//                 float
-//   }
-//
-//   -- subs [10 x { i8, float }]* %p, 0
-//
-//   { [10 x { i8, float }]*,
-//     [10 x { i8, float }]
-//   }
-//
-// Note: the pointer operand type is always added as a first element.
-static void populateIndexedTypes(const GEPOrSubsOperator *GEPOp,
-                                 SmallVectorImpl<Type *> &IndexedTypes) {
-  IndexedTypes.push_back(GEPOp->getPointerOperandType());
+class HIRParser::GEPChain {
+  const GEPOrSubsOperator *Base;
+  IntegerType *OffsetTy;
+  std::list<ArrayInfo> Arrays;
 
-  if (auto *Subs = dyn_cast<SubscriptInst>(GEPOp)) {
-    IndexedTypes.push_back(
-        Subs->getPointerOperandType()->getPointerElementType());
-    return;
+  SmallVector<GEPOperator *, 1> RestructuredGeps;
+
+  // Extend the current chain with the next \p GEPOp.
+  // Returns false if next gep or subs operator is not compatible with current
+  // chain.
+  bool extend(const HIRParser &Parser, const GEPOrSubsOperator *GEPOp);
+
+  void setBase(const GEPOrSubsOperator *BaseOp) { Base = BaseOp; }
+
+  std::list<ArrayInfo> parseGEPOp(const SubscriptInst *GEPOp);
+  std::list<ArrayInfo> parseGEPOp(const HIRParser &Parser,
+                                  const GEPOperator *GEPOp);
+
+  // Returns [ArrayInfo] representation for the \p GEPOp;
+  std::list<ArrayInfo> parseGEPOp(const HIRParser &Parser,
+                                  const GEPOrSubsOperator *GEPOp) {
+    auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
+    if (Subs) {
+      return parseGEPOp(Subs);
+    }
+
+    return parseGEPOp(Parser, cast<GEPOperator>(GEPOp));
   }
 
-  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
-    IndexedTypes.push_back(I.getIndexedType());
+  // Return true if next information about indices may be merged into a single
+  // chain.
+  bool isCompatible(const ArrayInfo &NextAI) const;
+
+public:
+  using iterator = decltype(Arrays)::const_iterator;
+
+  IntegerType *getOffsetTy() const { return OffsetTy; }
+
+  GEPChain(const HIRParser &Parser, const GEPOrSubsOperator *GEPOp);
+  ~GEPChain() {
+    for (auto *V : RestructuredGeps) {
+      V->deleteValue();
+    }
   }
+
+  const GEPOrSubsOperator *getBase() const { return Base; }
+
+  iterator begin() const { return Arrays.begin(); }
+  iterator end() const { return Arrays.end(); }
+
+  const ArrayInfo &front() const { return Arrays.front(); }
+  const ArrayInfo &back() const { return Arrays.back(); }
+};
+
+HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
+                              const GEPOrSubsOperator *GEPOp) {
+  OffsetTy = Type::getIntNTy(
+      Parser.getContext(),
+      Parser.getDataLayout().getTypeSizeInBits(GEPOp->getType()));
+
+  extend(Parser, GEPOp);
+  setBase(GEPOp);
+
+  while (const GEPOrSubsOperator *NextGEPOp =
+             dyn_cast<GEPOrSubsOperator>(GEPOp->getPointerOperand())) {
+
+    if (!Parser.isValidGEPOp(NextGEPOp)) {
+      break;
+    }
+
+    auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
+    auto *NextSubs = dyn_cast<SubscriptInst>(NextGEPOp);
+
+    // Stop trace back if the highest index looks like casted IV: sext(i1).
+    // This is a profitability check to form more linear indices.
+    // If we trace back, we may have to add offsets to casted IV which will make
+    // the index non-linear.
+    if ((!Subs && !NextSubs) ||
+        (Subs && NextSubs && Subs->getRank() == NextSubs->getRank())) {
+      auto *HighestIndex = Parser.getSCEV(GEPOp->getIndex(0));
+      auto CastSCEV = dyn_cast<SCEVCastExpr>(HighestIndex);
+      if (CastSCEV && isa<SCEVAddRecExpr>(CastSCEV->getOperand())) {
+        break;
+      }
+    }
+
+    if (!extend(Parser, NextGEPOp)) {
+      break;
+    }
+
+    GEPOp = NextGEPOp;
+    setBase(GEPOp);
+  }
+}
+
+std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
+  ArrayInfo Arr;
+
+  DimInfo &Dim = Arr.getOrCreate(Sub->getTypeRank());
+  Dim.setType(Sub->getType());
+  Dim.setStride(Sub->getStride());
+  Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
+
+  return { Arr };
 }
 
 /// This function returns restructured one-past-the-end GEPOperator if
@@ -3362,8 +3372,8 @@ static void populateIndexedTypes(const GEPOrSubsOperator *GEPOp,
 /// For a global pointer of type *[10 x i32], given a reference to one past the
 /// end element like &A[0][10], optimizer can turn it into equivalent &A[1][0].
 /// This is problematic for DD so we reverts it into the original form.
-static GEPOrSubsOperator *
-restructureOnePastTheEndGEP(const GEPOrSubsOperator *GEPOrSubsOp) {
+static GEPOperator *
+restructureOnePastTheEndGEP(const GEPOperator *GEPOrSubsOp) {
 
   // As far as I know, this restructuring only happens with constant gep exprs.
   // Assuming this for GEP instructions might not be correct.
@@ -3407,8 +3417,201 @@ restructureOnePastTheEndGEP(const GEPOrSubsOperator *GEPOrSubsOp) {
 
   IRBuilder<NoFolder> Builder(ArrTy->getContext());
 
-  return cast<GEPOrSubsOperator>(Builder.CreateGEP(
+  return cast<GEPOperator>(Builder.CreateGEP(
       const_cast<Value *>(GEPOp->getPointerOperand()), Indices));
+}
+
+std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const HIRParser &Parser,
+                                                     const GEPOperator *GEPOp) {
+  assert(GEPOp->getNumIndices() > 0 && "Corrupted GEP operator");
+
+  std::list<ArrayInfo> Output = { ArrayInfo() };
+
+  GEPOperator *RestructuredGep = restructureOnePastTheEndGEP(GEPOp);
+  if (RestructuredGep) {
+    RestructuredGeps.push_back(RestructuredGep);
+    GEPOp = RestructuredGep;
+  }
+
+  SmallVector<Type *, 8> IndexedTypes;
+  populateIndexedTypes(GEPOp, IndexedTypes);
+
+  bool CreateNewArray = false;
+  ArrayInfo *Arr = &Output.back();
+
+  auto GetTypeRank = [](Type *DimElemTy) {
+    unsigned TypeRank = 0;
+    while (DimElemTy->isArrayTy()) {
+      ++TypeRank;
+      DimElemTy = DimElemTy->getArrayElementType();
+    }
+    return TypeRank;
+  };
+
+  unsigned Rank = GetTypeRank(IndexedTypes[1]);
+
+  for (unsigned I = 0, N = GEPOp->getNumIndices(); I < N; ++I) {
+    Value *Index = *(GEPOp->idx_begin() + I);
+
+    Type *DimTy = IndexedTypes[I];
+    Type *DimElemTy = IndexedTypes[I + 1];
+
+    if (DimTy->isStructTy()) {
+      CreateNewArray = true;
+      Arr->offsets().push_back(cast<ConstantInt>(Index)->getZExtValue());
+      continue;
+    }
+
+    if (CreateNewArray) {
+      // Create dimension for index coming just after struct offset.
+      Output.push_back({});
+      Arr = &Output.back();
+
+      // Calculate maximum rank of the next array.
+      Rank = GetTypeRank(DimElemTy);
+
+      CreateNewArray = false;
+    }
+
+    auto &Dim = Arr->getOrCreate(Rank);
+    Dim.setType(DimTy);
+    Dim.addIndex(Index, nullptr);
+
+    auto Stride = DimElemTy->isSized()
+                      ? Parser.getCanonExprUtils().getTypeSizeInBytes(DimElemTy)
+                      : 0;
+
+    Dim.setStride(ConstantInt::get(OffsetTy, Stride));
+
+    --Rank;
+  }
+
+  return Output;
+}
+
+// Every GEP or subscript has information about a stride for particular
+// dimension. Adding a gep to an existing chain extends our knowledge of memory
+// configuration - it may add a new dimension or provide a more specific
+// dimension type.
+//
+// Each new gep should either correspond to the existing information or add new
+// information, and new information should not conflict with existing one.
+//
+// Ex.: While parsing subscripts we may conclude some memory is accessed in
+// a 2D manner with a configuration-
+//
+//    [i:stride 40][j:stride 4]
+//
+// and having next operator: %0 = gep [1000 x i32], [1000 x i32]* %p, 0, 0
+// which correspond to 1D access manner with stride info-
+//
+//    [0:stride 4000][0:stride 4]
+//
+// we may not be able to represent access in terms of %p, but rather represent
+// it in terms of %0: (%0)[i:40][j:4].
+//
+// This is because new gep stride of dimension one (4000) conflicts with
+// existing knowledge about the stride (40).
+//
+// However we may still represent it as (%p)[0:4000][i:40][j:4],
+// but we would loose type consistency between dimensions.
+bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
+  const ArrayInfo &CurArr = Arrays.front();
+
+  // If NextArr has a struct offset and current first first index is not
+  // zero then we have an unconventional structure access and the GEPs cannot
+  // be merged. For example-
+  //
+  // %struct.IspComplex = type { float, float }
+  //
+  // %53 = gep %struct.IspComplex, %struct.IspComplex* %P, i64 %i, i32 0
+  // %add.ptr.i.i = gep float, float* %53, i64 %j
+  //
+  // In the above example the first GEP references a float field in the
+  // structure but the second GEP treats it as a floating point array whose
+  // %j'th element is being accessed.
+  if (!NextArr.offsets().empty()) {
+    return CurArr.getHighestDim().isZero();
+  }
+
+  // Check that strides match for existing ranks.
+  long MaxCommonRank = std::min(NextArr.getMaxRank(), CurArr.getMaxRank());
+  long MinCommonRank = std::max(NextArr.getMinRank(), CurArr.getMinRank());
+  for (long Rank = MaxCommonRank; Rank >= MinCommonRank; --Rank) {
+    auto *S1 = CurArr.getDim(Rank).getStride();
+    auto *S2 = NextArr.getDim(Rank).getStride();
+
+    if (!S1 || !S2) {
+      continue;
+    }
+
+    if (S1 != S2) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Parses the \p GEPOp and updates chain state if GEPOp is compatible.
+bool HIRParser::GEPChain::extend(const HIRParser &Parser,
+                                 const GEPOrSubsOperator *GEPOp) {
+  std::list<ArrayInfo> NextArrays = parseGEPOp(Parser, GEPOp);
+
+  if (Arrays.empty()) {
+    Arrays = std::move(NextArrays);
+    return true;
+  }
+
+  ArrayInfo &NextArr = NextArrays.back();
+
+  if (!isCompatible(NextArr)) {
+    return false;
+  }
+
+  ArrayInfo &CurArr = Arrays.front();
+
+  // Merge common ranks of the next array info.
+  if (!NextArr.offsets().empty()) {
+    // May drop existing dimension info and only use struct offsets.
+    if (CurArr.getMaxRank() == CurArr.getMinRank()) {
+      // Means CurArr contains only one dimension.
+
+      // Append CurArr struct offsets
+      NextArr.offsets().append(CurArr.offsets().begin(),
+                               CurArr.offsets().end());
+      CurArr.offsets().clear();
+    }
+
+    CurArr.pop_back();
+  } else {
+    for (unsigned I = NextArr.getMinRank(), E = NextArr.getMaxRank(); I <= E;
+         ++I) {
+      auto &CurDim = CurArr.getOrCreate(I);
+      auto &NextDim = NextArr.getDim(I);
+
+      CurDim.setType(NextDim.getType());
+      CurDim.setStride(NextDim.getStride());
+
+      for (auto Idx : zip(NextDim.indices(), NextDim.indicesLB())) {
+        CurDim.addIndex(std::get<0>(Idx), std::get<1>(Idx));
+      }
+    }
+
+    // Remove merged array info.
+    NextArrays.pop_back();
+  }
+
+  Arrays.splice(Arrays.begin(), NextArrays);
+
+  return true;
+}
+
+const GEPOrSubsOperator *
+HIRParser::getBaseGEPOp(const GEPOrSubsOperator *GEPOp) const {
+  // TODO: implement caching for GEP chains.
+
+  return GEPChain(*this, GEPOp).getBase();
 }
 
 // Consider the following sequence of GEPs-
@@ -3433,205 +3636,64 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
                                       unsigned Level,
                                       bool RequiresIndexMerging) {
 
-  const GEPOrSubsOperator *BaseGEPOp = getBaseGEPOp(GEPOp);
-
-  bool IsBaseGEPOp = false;
-  auto *OffsetTy = Type::getIntNTy(
-      getContext(), getDataLayout().getTypeSizeInBits(GEPOp->getType()));
-
-  SmallVector<DimInfo, 8> Dims;
-
-  auto GetStrideAndRank = [&](const SubscriptInst *Subs,
-                              Type *DimElemTy) -> std::pair<Value *, unsigned> {
-    if (Subs) {
-      return {Subs->getStride(), Subs->getTypeRank()};
-    }
-
-    auto Stride = DimElemTy->isSized()
-                      ? getCanonExprUtils().getTypeSizeInBytes(DimElemTy)
-                      : 0;
-
-    unsigned ReturnTypeRank = 0;
-    while (DimElemTy->isArrayTy()) {
-      ++ReturnTypeRank;
-
-      DimElemTy = DimElemTy->getArrayElementType();
-    }
-
-    return {ConstantInt::get(OffsetTy, Stride), ReturnTypeRank};
-  };
-
-  GEPOrSubsOperator *RestructuredBaseGEPOp = nullptr;
-  unsigned LastNonStructDimIdx = 0;
-
-  do {
-    auto *Subs = dyn_cast<SubscriptInst>(GEPOp);
-
-    IsBaseGEPOp = (GEPOp == BaseGEPOp);
-
-    if (IsBaseGEPOp &&
-        (RestructuredBaseGEPOp = restructureOnePastTheEndGEP(GEPOp))) {
-      GEPOp = RestructuredBaseGEPOp;
-    }
-
-    SmallVector<Type *, 8> IndexedTypes;
-    populateIndexedTypes(GEPOp, IndexedTypes);
-
-    // Ignore base pointer operand.
-    int LastIndex = GEPOp->getNumIndices() - 1;
-
-    auto CurDimInfo = Dims.end();
-
-    // Process GEP operands in reverse order (from lowest to highest dimension).
-    for (int I = LastIndex; I >= 0; --I) {
-      Value *Index = GEPOp->getIndex(I);
-
-      Type *DimTy = IndexedTypes[I];
-      Type *DimElemTy = IndexedTypes[I + 1];
-
-      // If indexing within a struct type.
-      if (DimTy->isStructTy()) {
-        // The following *if* decides on should we create a new dimension.
-        if (Dims.empty() || (!DimElemTy->isStructTy() && I != LastIndex)) {
-          // 1) Always create if this is a first dimension parsed;
-          // 2) Do not create if indexing to a struct type;
-          // 3) Do not create if this is a last index as it may be merged into
-          // existing dimension:
-          //  %p1 = gep %struct, %struct* %p, i64 0, i32 0
-          //  ... = gep [4 x [2 x i32]], [4 x [2 x i32]]* %p1, i64 0, i64 0
-          Dims.emplace_back();
-        }
-
-        CurDimInfo = &Dims.back();
-
-        // Keep the dimension index after a struct offset to indicate the lowest
-        // dimension where next GEP or SUBS index may be merged.
-        LastNonStructDimIdx = std::distance(Dims.begin(), CurDimInfo);
-
-        // Reset stride in case it was set by the previous GEP operator.
-        // ex.:
-        //   %t0 = gep { i8, { i16, i32 } }* %p, 0, 1
-        //   %t1 = gep { i16, i32 }* %t0, 0, 0
-        //
-        // We parse in reverse order: %t1, %t0. After processing %t1 we end up
-        // with a dimension [0:8].0, where 8 is stride. When we move to %t0 we
-        // reset the stride and append offsets to the same dimension. Later the
-        // stride will be set, based on %t0: [0:16].1.0.
-        CurDimInfo->setStride(nullptr);
-        CurDimInfo->offsets().push_back(Index);
-        continue;
-      }
-
-      // Find appropriate stride slot.
-      if (I == LastIndex && !Dims.empty()) {
-        Value *Stride;
-        unsigned Rank;
-
-        std::tie(Stride, Rank) = GetStrideAndRank(Subs, DimElemTy);
-
-        // Find the dimension for GEP or SUBS LastIndex.
-        // We should start merging indices only with the tail of existing
-        // dimensions starting from LastNonStructDimIdx.
-        //
-        // ex.: %st.A = type { [1 x [1 x i8]] }
-        //      %p1 = gep [1 x [1 x %st.A]]* %p, 0, a, b
-        //      %p2 = gep %st.A* %p1, 0, 0, c, d
-        //
-        // These GEPs has strides =1 for each index and ranks as following-
-        // %p1=(3 2 1 0) and %p2=(? 2 1 0).
-        //
-        // We should not merge a %p1 dimensions into already parsed %p2
-        // dimensions as they represent different arrays.
-        //
-        // LastNonStructDimIdx would be =3.
-        //   Correct: (%p)[0][a][b].0[c][d]
-        // Incorrect: (%p)[0].0[c + a][d + b]
-
-        CurDimInfo = std::find_if(Dims.begin() + LastNonStructDimIdx,
-                                  Dims.end(), [Stride, Rank](DimInfo &DimI) {
-                                    return DimI.getStride() == Stride &&
-                                           DimI.getRank() == Rank;
-                                  });
-      }
-
-      // Create dimension if it has unique stride.
-      if (CurDimInfo == Dims.end()) {
-        Dims.emplace_back();
-        CurDimInfo = &Dims.back();
-      }
-
-      // Populate Stride and LB info if the dimension was created for struct
-      // offset.
-      if (CurDimInfo->getStride() == nullptr) {
-        Value *Stride;
-        unsigned Rank;
-
-        std::tie(Stride, Rank) = GetStrideAndRank(Subs, DimElemTy);
-
-        CurDimInfo->setStride(Stride);
-        CurDimInfo->setRank(Rank);
-      }
-
-      CurDimInfo->setType(DimTy);
-      CurDimInfo->addIndex(Index, Subs ? Subs->getLowerBound() : nullptr);
-
-      ++CurDimInfo;
-    }
-
-  } while (!IsBaseGEPOp &&
-           (GEPOp = cast<GEPOrSubsOperator>(GEPOp->getPointerOperand())));
+  GEPChain Chain(*this, GEPOp);
+  auto *OffsetTy = Chain.getOffsetTy();
 
   // If Ref has existing dimensions we may have to start from merging in the
   // highest dimension, but only if the first dimension we just parsed does not
   // contain struct offsets.
   bool MergeInHighestDimension =
-      (Ref->getNumDimensions() != 0) && Dims.front().offsets().empty();
+      (Ref->getNumDimensions() != 0) && Chain.back().offsets().empty();
 
-  for (auto &DimI : Dims) {
-    CanonExpr *IndexCE = nullptr;
-    CanonExpr *LowerCE = nullptr;
+  for (auto &Arr : reverse(Chain)) {
 
-    bool IsTop = (DimI.indices().size() == 1) && !MergeInHighestDimension &&
-                 !RequiresIndexMerging;
-
-    for (const auto &PairV : zip(DimI.indices(), DimI.indicesLB())) {
-      CanonExpr *ICE = parse(std::get<0>(PairV), Level, IsTop, OffsetTy);
-      CanonExpr *LCE = parse(std::get<1>(PairV), Level, IsTop, OffsetTy);
-
-      if (IndexCE) {
-        mergeIndexCE(IndexCE, ICE);
-        mergeIndexCE(LowerCE, LCE);
-      } else {
-        IndexCE = ICE;
-        LowerCE = LCE;
+    for (auto &Dim : Arr) {
+      if (!Dim.isDefined()) {
+        continue;
       }
+
+      CanonExpr *IndexCE = nullptr;
+      CanonExpr *LowerCE = nullptr;
+
+      bool IsTop = (Dim.indices().size() == 1) && !MergeInHighestDimension &&
+                   !RequiresIndexMerging;
+
+      for (const auto &PairV : zip(Dim.indices(), Dim.indicesLB())) {
+        std::unique_ptr<CanonExpr> ICE(
+            parse(std::get<0>(PairV), Level, IsTop, OffsetTy));
+        std::unique_ptr<CanonExpr> LCE(
+            parse(std::get<1>(PairV), Level, IsTop, OffsetTy));
+
+        if (IndexCE) {
+          mergeIndexCE(IndexCE, ICE.get());
+          mergeIndexCE(LowerCE, LCE.get());
+        } else {
+          IndexCE = ICE.release();
+          LowerCE = LCE.release();
+        }
+      }
+
+      // Merge into highest dimension as requested, but only if there are no
+      // struct offsets.
+      if (MergeInHighestDimension) {
+        assert(Arr.offsets().empty() && "Can not contain struct offset");
+        mergeIndexCE(Ref->getDimensionIndex(Ref->getNumDimensions()), IndexCE);
+        mergeIndexCE(Ref->getDimensionLower(Ref->getNumDimensions()), LowerCE);
+        Ref->setDimensionType(Ref->getNumDimensions(), Dim.getType());
+        MergeInHighestDimension = false;
+        continue;
+      }
+
+      CanonExpr *StrideCE = parse(Dim.getStride(), Level, true, OffsetTy);
+
+      ArrayRef<unsigned> StructOffsets;
+      if (&Dim == &Arr.getLowestDim()) {
+        StructOffsets = Arr.offsets();
+      }
+
+      Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
+                               Dim.getType());
     }
-
-    // Merge into highest dimension as requested, but only if there are no
-    // struct offsets.
-    if (MergeInHighestDimension) {
-      assert(DimI.offsets().empty() && "Can not contain struct offset");
-      mergeIndexCE(Ref->getDimensionIndex(Ref->getNumDimensions()), IndexCE);
-      mergeIndexCE(Ref->getDimensionLower(Ref->getNumDimensions()), LowerCE);
-      Ref->setDimensionType(Ref->getNumDimensions(), DimI.getType());
-      MergeInHighestDimension = false;
-      continue;
-    }
-
-    SmallVector<unsigned, 8> StructOffsets;
-    StructOffsets.reserve(DimI.offsets().size());
-    for (Value *OffsetV : llvm::reverse(DimI.offsets())) {
-      StructOffsets.push_back(cast<ConstantInt>(OffsetV)->getZExtValue());
-    }
-
-    CanonExpr *StrideCE = parse(DimI.getStride(), Level, true, OffsetTy);
-
-    Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
-                             DimI.getType());
-  }
-
-  if (RestructuredBaseGEPOp) {
-    RestructuredBaseGEPOp->deleteValue();
   }
 }
 

@@ -156,6 +156,10 @@ class HIRParser {
   /// processed/discarded at the end of phase2.
   SmallVector<HLInst *, 4> DistributePoints;
 
+  /// Represents information about dimensions of a single chain of GEP
+  /// operators and Subscripts instructions.
+  class GEPChain;
+
   /// BlobProcessor - Performs necessary processing for a blob being added to a
   /// CanonExpr.
   class BlobProcessor;
