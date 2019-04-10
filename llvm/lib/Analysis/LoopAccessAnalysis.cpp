@@ -1378,20 +1378,14 @@ static bool isSafeDependenceDistance(const DataLayout &DL, ScalarEvolution &SE,
 
   const SCEV *CastedDist = &Dist;
   const SCEV *CastedProduct = Product;
-  uint64_t DistTypeSize = DL.getTypeAllocSize(Dist.getType());
-  uint64_t ProductTypeSize = DL.getTypeAllocSize(Product->getType());
+  uint64_t DistTypeSize = SE.getTypeSizeInBits(Dist.getType());         // INTEL
+  uint64_t ProductTypeSize = SE.getTypeSizeInBits(Product->getType());  // INTEL
 
   // The dependence distance can be positive/negative, so we sign extend Dist;
   // The multiplication of the absolute stride in bytes and the
   // backedgeTakenCount is non-negative, so we zero extend Product.
-#ifdef INTEL_CUSTOMIZATION
-  // 8547: Intel bitfield extensions may cause types that differ in size from
-  // their storage size.
-  if (DistTypeSize > ProductTypeSize ||
-       (Dist.getType()->getPrimitiveSizeInBits() >
-        Product->getType()->getPrimitiveSizeInBits()))
+  if (DistTypeSize > ProductTypeSize)
     CastedProduct = SE.getZeroExtendExpr(Product, Dist.getType());
-#endif // INTEL_CUSTOMIZATION
   else
     CastedDist = SE.getNoopOrSignExtend(&Dist, Product->getType());
 
