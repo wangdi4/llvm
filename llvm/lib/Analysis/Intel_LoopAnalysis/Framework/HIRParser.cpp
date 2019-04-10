@@ -2938,8 +2938,16 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
 
   // Create index as {0,+,stride}
   auto InitSCEV = SE.getConstant(StrideTy, 0);
+  auto *Lp = LI.getLoopFor(Phi->getParent());
+
+  // Stride can be variant in some weird cases when AddRec was formed using
+  // control flow analysis. Refer to parser test- variant-addrec-stride.ll
+  if (!SE.isLoopInvariant(StrideSCEV, Lp)) {
+    return nullptr;
+  }
+
   auto IndexSCEV =
-      SE.getAddRecExpr(InitSCEV, StrideSCEV, LI.getLoopFor(Phi->getParent()),
+      SE.getAddRecExpr(InitSCEV, StrideSCEV, Lp,
                        cast<SCEVAddRecExpr>(PhiSCEV)->getNoWrapFlags());
 
   std::unique_ptr<CanonExpr> IndexCE(
