@@ -173,6 +173,28 @@ static cl::opt<unsigned> HugeFunctionLoopCount(
     "inlining-huge-loop-count", cl::init(11), cl::ReallyHidden,
     cl::desc("Function with this many loops or more may be huge"));
 
+// Options to set the minimum number of formal arguments, the length of the
+// formal argument series, the length of matching arguments in the sub-series,
+// and the minimum number of callsites for the "dummy args" inlining
+// heuristic.
+
+static cl::opt<unsigned> DummyArgsMinArgCount(
+    "inlining-dummy-args-min-arg-count", cl::init(8), cl::ReallyHidden,
+    cl::desc("Minimum number of args for dummy-args function"));
+
+static cl::opt<unsigned> DummyArgsMinSeriesLength(
+    "inlining-dummy-args-min-series-length", cl::init(5), cl::ReallyHidden,
+    cl::desc("Minimum length of series for dummy-args function"));
+
+static cl::opt<unsigned> DummyArgsMinSeriesMatch(
+    "inlining-dummy-args-min-series-match", cl::init(4), cl::ReallyHidden,
+    cl::desc("Minimum matching length in series for dummy-args function"));
+
+static cl::opt<unsigned> DummyArgsMinCallsiteCount(
+    "inlining-dummy-args-min-callsite-count", cl::init(5),
+    cl::ReallyHidden,
+    cl::desc("Minimum callsite count for dummy-args function"));
+
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -3593,6 +3615,95 @@ static bool preferPartialInlineHasExtractedRecursiveCall(Function &F,
 }
 
 //
+// Return 'true' if 'F' should be inlined because it is qualified by
+// the "dummy args" inlining heuristic, This heuristic qualifies
+// functions:
+//   (1) That have at least 'DummyArgsMinArgCount' formal arguments.
+//   (2) Have a series of formal arguments which are pointers to integers
+//       with at least DummyArgsMinSeriesLength arguments in the series.
+//   (3) Have at least 'DummyArgsMinCallsiteCount' callsites.
+//   (4) All but one of these callsites has a sub-series of matching actual
+//       arguments corresponding to the formal arguments in the series in (2),
+//       where the sub-series has a length of at least
+//       'DummyArgsMinSeriesMatch'.
+// For example:
+//    int foo(int, float, int*, int*, int*, int*, int*, int)
+// has 8 arguments, and a series of 5 int* arguments. Let's say it has
+// the following callsites:
+//    foo(2, 4.0, &myres1, &dummy, &dummy, &dummy, &dummy, 0);
+//    foo(3, 5.0, &myres2, &temp, &temp, &temp, &temp, 0);
+//    foo(4, 7.0, &myres3, &dummy, &dummy, &dummy, &dummy, 0);
+//    foo(2, 5.0, &myres4, &dummy1, &dummy1, &dummy1, &dummy1, 0);
+//    foo(6, 6.0, &myres5, &fred, &george, &mildred, 0);
+// All but one of these callsites (the last) have a series of 4 int*
+// arguments with the same value.  So 'foo' qualifies for inlining
+// under this heuristic. (Note that the idea of matching parameters
+// being an indicator of the use of dummy args is only a heuristic.)
+//
+static bool worthInliningFunctionPassedDummyArgs(Function &F,
+                                                 bool PrepareForLTO) {
+  assert(DummyArgsMinSeriesLength <= DummyArgsMinArgCount &&
+      "Series length must not exceed minimum arg count");
+  assert(DummyArgsMinSeriesMatch <= DummyArgsMinSeriesLength &&
+      "Series match must not exceed series length");
+  static SmallPtrSet<Function *, 3> FunctionsTestedPass;
+  if (PrepareForLTO || !DTransInlineHeuristics)
+    return false;
+  if (FunctionsTestedPass.count(&F))
+    return true;
+  if (F.arg_size() < DummyArgsMinArgCount)
+    return false;
+  // Find the series length.
+  unsigned PtrToIntSeriesArgCount = 0;
+  unsigned PtrToIntFirstArgNo = 0;
+  for (auto &Arg : F.args()) {
+    Type *Ty = Arg.getType();
+    if (Ty->isPointerTy() && Ty->getPointerElementType()->isIntegerTy()) {
+      if (PtrToIntSeriesArgCount == 0)
+        PtrToIntFirstArgNo = Arg.getArgNo();
+      if (++PtrToIntSeriesArgCount >= DummyArgsMinSeriesLength)
+        break;
+    } else
+      PtrToIntSeriesArgCount = 0;
+  }
+  if (PtrToIntSeriesArgCount < DummyArgsMinSeriesLength)
+    return false;
+  // Find number of callsites and the length of the series match within the
+  // series.
+  unsigned CallSiteCount = 0;
+  unsigned BadCallSiteCount = 0;
+  for (User *U : F.users()) {
+    auto CS = dyn_cast<CallBase>(U);
+    if (!CS)
+      continue;
+    ++CallSiteCount;
+    unsigned E = PtrToIntFirstArgNo + PtrToIntSeriesArgCount;
+    if (E > CS->getNumArgOperands() - 1)
+      return false;
+    unsigned MaxMatchCount = 0;
+    unsigned SeriesCount = 0;
+    Value *LastV = CS->getArgOperand(PtrToIntFirstArgNo);
+    for (unsigned I = PtrToIntFirstArgNo + 1; I <= E; ++I) {
+      Value *V = CS->getArgOperand(I);
+      if (V == LastV) {
+        if (++SeriesCount > MaxMatchCount)
+          MaxMatchCount = SeriesCount;
+      } else
+        SeriesCount = 0;
+      LastV = V;
+    }
+    if (MaxMatchCount < (DummyArgsMinSeriesMatch - 1) &&
+        (++BadCallSiteCount > 1))
+      return false;
+  }
+  if (CallSiteCount < DummyArgsMinCallsiteCount)
+    return false;
+  // Store the qualified function.
+  FunctionsTestedPass.insert(&F);
+  return true;
+}
+
+//
 // Return 'true' if the CallSites of 'Caller' should not be inlined because
 // we are in the 'PrepareForLTO' compile phase and delaying the inlining
 // decision until the link phase will let us more easily decide whether to
@@ -3781,6 +3892,7 @@ static bool preferNotToInlineEHIntoLoop(CallBase &CB,
   return hasLoopOptInhibitingEHInstOutsideLoop(Callee, ILIC);
 }
 
+
 //
 // Test a series of special conditions to determine if it is worth inlining
 // if any of them appear. (These have been gathered together into a single
@@ -3860,6 +3972,11 @@ static void worthInliningUnderSpecialCondition(CallBase &CB,
   if (preferPartialInlineInlinedClone(F)) {
     Cost -= InlineConstants::DeepInliningHeuristicBonus;
     YesReasonVector.push_back(InlrPreferPartialInline);
+    return;
+  }
+  if (worthInliningFunctionPassedDummyArgs(*F, PrepareForLTO)) {
+    Cost -= InlineConstants::DeepInliningHeuristicBonus;
+    YesReasonVector.push_back(InlrPassedDummyArgs);
     return;
   }
 }
