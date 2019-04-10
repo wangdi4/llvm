@@ -3,7 +3,7 @@
 // RUN:  | FileCheck %s
 
 // CHECK: constant {{.*}} c"{{[1-9][0-9]*[\.][0-9]+[\.][0-9]+}}
-// CHECK-SAME: (icx {{[0-9\.]+}})
+// CHECK-SAME: (icx {{.*}})
 
 // CHECK-LABEL: foo
 int foo()

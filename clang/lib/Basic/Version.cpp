@@ -14,6 +14,7 @@
 #include "clang/Basic/LLVM.h"
 #include "clang/Config/config.h"
 #include "llvm/Support/raw_ostream.h"
+#include "clang/Basic/intel/versparm.h" // INTEL
 #include <cstdlib>
 #include <cstring>
 
@@ -127,9 +128,7 @@ std::string getClangFullCPPVersion() {
 
 #if INTEL_CUSTOMIZATION
 std::string getICXVersionString() {
-  // FIXME: Currently both the driver and clang have to specify this.
-  // We need to specify this once and have both use it instead.
-  return "2019.8.2.0";
+  return XMAIN_VERSION_STRING;
 }
 
 std::string getXMainFullCPPVersion() {
