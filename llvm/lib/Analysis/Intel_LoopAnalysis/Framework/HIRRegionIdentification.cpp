@@ -1805,6 +1805,10 @@ void HIRRegionIdentification::formRegionsForLoopMaterialization(
       continue;
     }
 
+    if (!DT.isReachableFromEntry(&BB)) {
+      continue;
+    }
+
     if (!isLoopMaterializationCandidate(BB, SE)) {
       continue;
     }
