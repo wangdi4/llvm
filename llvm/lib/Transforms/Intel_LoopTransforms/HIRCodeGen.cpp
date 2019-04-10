@@ -1560,7 +1560,7 @@ BasicBlock *CGVisitor::getBBlockForLabel(HLLabel *L) {
     return InternalLabels[L];
 
   BasicBlock *LabelBB =
-      BasicBlock::Create(F.getContext(), "hir." + L->getName(), &F);
+      BasicBlock::Create(F.getContext(), "hir.L." + Twine(L->getNumber()), &F);
   InternalLabels[L] = LabelBB;
   return LabelBB;
 }

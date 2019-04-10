@@ -24,52 +24,59 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-
-void HLLabel::makeNameUnique() {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  bool is_uniq = (SrcBBlock != nullptr); // Treat BasicBlock name as unique
+void HLLabel::makeNameUnique() {
+  bool IsUnique = (SrcBBlock != nullptr); // Treat BasicBlock name as unique
   do {
-    if (!is_uniq) {
-      raw_svector_ostream(Name) << "." << getNumber();
+    if (!IsUnique) {
+      raw_svector_ostream(DebugName) << "." << getNumber();
     }
 
-    is_uniq = getHLNodeUtils().LabelNames.insert(Name).second;
-  } while (!is_uniq);
+    IsUnique = getHLNodeUtils().LabelNames.insert(DebugName).second;
+  } while (!IsUnique);
+}
+
+void HLLabel::setDebugName(StringRef Name, const BasicBlock *SrcBB) {
+  raw_svector_ostream OS(DebugName);
+  if (Name.empty()) {
+    printBBlockName(OS, *SrcBB);
+  } else {
+    OS << Name;
+  }
+  makeNameUnique();
+}
+#endif
+
+StringRef HLLabel::getDebugName() const {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (SrcBBlock && DebugName.empty()) {
+    const_cast<HLLabel *>(this)->setDebugName({}, SrcBBlock);
+  }
+
+  return DebugName;
+#else
+  return {};
 #endif
 }
 
 HLLabel::HLLabel(HLNodeUtils &HNU, BasicBlock *SrcBB)
     : HLNode(HNU, HLNode::HLLabelVal), SrcBBlock(SrcBB) {
   assert(SrcBB != nullptr && "SrcBB must not be NULL");
-
-  {
-    raw_svector_ostream OS(this->Name);
-    printBBlockName(OS, *SrcBB);
-  }
-
-  makeNameUnique();
+  // Do not call setDebugName() here as it may be expensive.
+  // The name for BasicBlock labels will be initialized in getDebugName().
 }
 
 HLLabel::HLLabel(HLNodeUtils &HNU, const Twine &Name)
     : HLNode(HNU, HLNode::HLLabelVal), SrcBBlock(nullptr) {
-
-  {
-    raw_svector_ostream OS(this->Name);
-    Name.print(OS);
-  }
-
-  makeNameUnique();
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  setDebugName(Name.str(), nullptr);
+#endif
 }
 
 HLLabel::HLLabel(const HLLabel &LabelObj)
-    : HLNode(LabelObj), SrcBBlock(nullptr), Name(LabelObj.Name) {
-
-  makeNameUnique();
-}
-
-HLLabel::~HLLabel() {
+    : HLNode(LabelObj), SrcBBlock(nullptr) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  getHLNodeUtils().LabelNames.erase(getName());
+  setDebugName(LabelObj.DebugName, LabelObj.SrcBBlock);
 #endif
 }
 
@@ -106,7 +113,7 @@ void HLLabel::print(formatted_raw_ostream &OS, unsigned Depth,
   }
  
   indent(OS, Depth);
-  OS << getName() << ":\n";
+  OS << getDebugName() << ":\n";
 #endif // !INTEL_PRODUCT_RELEASE
 }
 

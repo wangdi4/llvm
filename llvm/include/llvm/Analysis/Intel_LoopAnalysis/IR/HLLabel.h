@@ -31,15 +31,19 @@ namespace loopopt {
 class HLLabel final : public HLNode {
 private:
   BasicBlock *SrcBBlock;
-  SmallString<32> Name;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  SmallString<32> DebugName;
 
   /// Updates Name to make it unique across HLLabels
   void makeNameUnique();
+  void setDebugName(StringRef Name, const BasicBlock *SrcBB);
+#endif
 
 protected:
   explicit HLLabel(HLNodeUtils &HNU, BasicBlock *SrcBB);
   explicit HLLabel(HLNodeUtils &HNU, const Twine &Name);
-  virtual ~HLLabel() override;
+  virtual ~HLLabel() override {};
 
   /// Copy constructor used by cloning.
   HLLabel(const HLLabel &LabelObj);
@@ -69,8 +73,8 @@ public:
     return Node->getHLNodeClassID() == HLNode::HLLabelVal;
   }
 
-  /// Returns Unique Label name.
-  StringRef getName() const { return StringRef(Name); }
+  // Returns label name for printing purpose.
+  StringRef getDebugName() const;
 
   /// clone() - Create a copy of 'this' HLLabel that is identical in all
   /// ways except the following:
