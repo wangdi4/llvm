@@ -20,58 +20,27 @@ For Windows the described problem will be fixed by delay loading of libraries.
 Implementation details
 ======================
 
-Versioning is set as 'x.y' via SOVERSION, where 'x' equals LLVM_VERSION_MAJOR
-and 'y' is an internal agreed digit (originally it is a number of the following
-release). All the deliverable libraries must follow this rule. SOVERSION
-mechanism creates a symbolic link to a library as well with the same name but
-versioning postfix dropped.
+Versioning is set as 'yy.major.mm.minor' via SOVERSION, where 'major' equals
+'LLVM_VERSION_MAJOR - 1' (latest LLVM release version), 'yy', 'mm' - monthly
+release date and 'minor' is internally agreed digit (for now it's '0'). All the
+deliverable libraries must follow this rule. SOVERSION mechanism creates a
+symbolic link to a library as well with the same name but versioning postfix
+dropped.
 
-Driver version reported follows the same rule, until we decide to make a public
-release. In that case it must be changed on the release branch to be aligned
-with an external (marketing) version of the release. For now it's agreed to be
-set as 'year.#release'. One can see details in the table below.
+Driver version reported follows the same rule.
 
 
 Example
 =======
 
-                     | Library version | Driver version
--------------------------------------------------------
-FPGA emu development |       8.0       |      8.0
--------------------------------------------------------
-CPU development      |       8.1       |      8.1
--------------------------------------------------------
-FPGA emu release     |       8.0       |      19.0
--------------------------------------------------------
-CPU release          |       8.1       |      19.1
--------------------------------------------------------
+Lets look as an example to upcoming April 2019 release.
 
-As an example let's see evolution of intelocl library.
+                     |  Library version    |  Driver version
+--------------------------------------------------------------
+Apr 17 release       |  2019.8.4.0         |  2019.8.4.0
+--------------------------------------------------------------
 
-1. Regular development
-----------------------
-libintelocl.so -> libintelocl.so.8.0
-libintelocl.so.8.0
+So in library directory we see:
 
-Driver version is reported as 8.0.
-
-2. FPGA emulator release
-------------------------
-libintelocl.so -> libintelocl.so.8.0
-libintelocl.so.8.0
-
-Driver version is reported as 19.0
-
-3. Regular development
-----------------------
-libintelocl.so -> libintelocl.so.8.1
-libintelocl.so.8.1
-
-Driver version is reported as 8.1.
-
-4. CPU compiler release
------------------------
-libintelocl.so -> libintelocl.so.8.1
-libintelocl.so.8.1
-
-Driver version is reported as 19.1.
+libintelocl.so -> libintelocl.so.2019.8.4.0
+libintelocl.so.2019.8.4.0

@@ -1,4 +1,5 @@
 set(TARGET_NAME OclBackendUtils)
+set_opencl_version()
 
 add_subdirectory(LoopUtils)
 set(TARGET_EXTRA_SOURCE_FILES 
