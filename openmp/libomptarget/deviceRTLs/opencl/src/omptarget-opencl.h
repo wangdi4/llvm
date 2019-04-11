@@ -28,6 +28,10 @@
 #define KMP_FALSE 0
 #define KMP_UNSPECIFIED -1
 
+#define KMP_LOCK_BUSY 1
+#define KMP_LOCK_FREE 0
+#define KMP_PAUSE() // We don't have any candidates for this.
+
 ///
 /// Device information
 ///
@@ -112,6 +116,8 @@ typedef struct kmp_global_state {
   kmp_barrier_t g_barrier;              // global barrier
 } kmp_global_state_t;
 
+typedef int kmp_critical_name[8];
+
 
 ///
 /// Utility functions
@@ -177,6 +183,34 @@ INLINE size_t __kmp_get_num_groups() {
     return ret;
   ret *= get_num_groups(2);
   return (work_dim == 3) ? ret : 1;
+}
+
+
+/// Acquire lock
+INLINE void __kmp_acquire_lock(atomic_uint *lock) {
+  if (get_sub_group_size() > 1) {
+    printf("Not acquring lock due to multiple sub group members\n");
+    return;
+  }
+  volatile atomic_uint *lck = (volatile atomic_uint *)lock;
+  uint expected = KMP_LOCK_FREE;
+  while (atomic_load_explicit(lck, memory_order_relaxed) != KMP_LOCK_FREE ||
+      !atomic_compare_exchange_strong_explicit(lck, &expected, KMP_LOCK_BUSY,
+                                               memory_order_acquire,
+                                               memory_order_relaxed)) {
+    expected = KMP_LOCK_FREE;
+    KMP_PAUSE();
+  }
+}
+
+/// Release lock
+INLINE void __kmp_release_lock(atomic_uint *lock) {
+  if (get_sub_group_size() > 1) {
+    printf("Not releasing lock due to multiple sub group members\n");
+    return;
+  }
+  volatile atomic_uint *lck = (volatile atomic_uint *)lock;
+  atomic_store_explicit(lck, KMP_LOCK_FREE, memory_order_release);
 }
 
 
@@ -371,6 +405,15 @@ EXTERN void __kmpc_atomic_load(size_t, void *, void *, int);
 EXTERN void __kmpc_atomic_store(size_t, void *, void *, int);
 EXTERN bool __kmpc_atomic_compare_exchange(size_t, void *, void *, void *, int,
                                            int);
+
+
+///
+/// Support for critical section
+///
+
+EXTERN void __kmpc_critical(kmp_critical_name *);
+EXTERN void __kmpc_end_critical(kmp_critical_name *);
+
 
 ///
 /// Other __kmpc_* entries

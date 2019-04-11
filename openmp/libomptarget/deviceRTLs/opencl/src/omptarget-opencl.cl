@@ -729,6 +729,21 @@ EXTERN bool __kmpc_atomic_compare_exchange(size_t size, void *ptr,
   return ret;
 }
 
+
+///
+/// Support for critical section
+///
+
+// Requires correctly initialized "*name" (=0).
+EXTERN void __kmpc_critical(kmp_critical_name *name) {
+  __kmp_acquire_lock((atomic_uint *)name);
+}
+
+EXTERN void __kmpc_end_critical(kmp_critical_name *name) {
+  __kmp_release_lock((atomic_uint *)name);
+}
+
+
 ///
 /// Other __kmpc_* entries
 ///
