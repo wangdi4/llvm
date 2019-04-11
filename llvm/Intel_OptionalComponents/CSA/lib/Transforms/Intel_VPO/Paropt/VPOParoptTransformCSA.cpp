@@ -1813,16 +1813,3 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
   }
   return Changed;
 }
-
-template <typename Range>
-static bool removeFirstFence(Range &&R, AtomicOrdering AO) {
-  for (auto &I : R)
-    if (auto *Fence = dyn_cast<FenceInst>(&I)) {
-      if (Fence->getOrdering() == AO) {
-        Fence->eraseFromParent();
-        return true;
-      }
-      break;
-    }
-  return false;
-}
