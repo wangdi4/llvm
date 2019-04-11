@@ -1354,7 +1354,7 @@ private:
       Tail = SplitBlock(Tail, Tail->getTerminator(), PT.DT, PT.LI);
     Tail->setName("omp.clone.tail");
 
-    W->populateBBSet();
+    W->populateBBSet(true);
 
     // Reserve enough space to avoid any reallocation during cloning.
     Workers.reserve(NumWorkers);
