@@ -215,6 +215,11 @@ static bool isFrameLoadOpcode(int Opcode, unsigned &MemBytes) {
     return true;
   case X86::MOV16rm:
   case X86::KMOVWkm:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::VMOVSHZrm:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     MemBytes = 2;
     return true;
   case X86::MOV32rm:
@@ -305,6 +310,11 @@ static bool isFrameStoreOpcode(int Opcode, unsigned &MemBytes) {
     return true;
   case X86::MOV16mr:
   case X86::KMOVWmk:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::VMOVSHZmr:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     MemBytes = 2;
     return true;
   case X86::MOV32mr:
@@ -2869,6 +2879,14 @@ static unsigned getLoadStoreRegOpcode(unsigned Reg,
   case 2:
     if (X86::VK16RegClass.hasSubClassEq(RC))
       return load ? X86::KMOVWkm : X86::KMOVWmk;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (X86::FR16XRegClass.hasSubClassEq(RC)) {
+      assert(STI.hasFP16());
+      return load ? X86::VMOVSHZrm : X86::VMOVSHZmr;
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     assert(X86::GR16RegClass.hasSubClassEq(RC) && "Unknown 2-byte regclass");
     return load ? X86::MOV16rm : X86::MOV16mr;
   case 4:

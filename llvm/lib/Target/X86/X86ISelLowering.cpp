@@ -1709,7 +1709,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::FP_TO_SINT,         MVT::v8i16, Legal);
       setOperationAction(ISD::FP_TO_UINT,         MVT::v8i16, Legal);
 
-      setOperationPromotedToType(ISD::VECTOR_SHUFFLE, MVT::v8f16, MVT::v8i16);
+      setOperationAction(ISD::VECTOR_SHUFFLE,     MVT::v8f16, Custom);
       setOperationPromotedToType(ISD::VECTOR_SHUFFLE, MVT::v16f16, MVT::v16i16);
 
       // INSERT_VECTOR_ELT v8f16 extended to VECTOR_SHUFFLE
@@ -4625,6 +4625,11 @@ static bool isTargetShuffle(unsigned Opcode) {
   case X86ISD::MOVDDUP:
   case X86ISD::MOVSS:
   case X86ISD::MOVSD:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86ISD::MOVSH:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86ISD::UNPCKL:
   case X86ISD::UNPCKH:
   case X86ISD::VBROADCAST:
@@ -6403,6 +6408,11 @@ static bool getTargetShuffleMask(SDNode *N, MVT VT, bool AllowSentinelZero,
     break;
   case X86ISD::MOVSS:
   case X86ISD::MOVSD:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86ISD::MOVSH:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     assert(N->getOperand(0).getValueType() == VT && "Unexpected value type");
     assert(N->getOperand(1).getValueType() == VT && "Unexpected value type");
     DecodeScalarMoveMask(NumElems, /* IsLoad */ false, Mask);
@@ -7558,7 +7568,14 @@ static SDValue EltsFromConsecutiveLoads(EVT VT, ArrayRef<SDValue> Elts,
 
   // VZEXT_LOAD - consecutive 32/64-bit load/undefs followed by zeros/undefs.
   if (IsConsecutiveLoad && FirstLoadedElt == 0 &&
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      ((LoadSize == 16 && Subtarget.hasFP16()) || LoadSize == 32 ||
+       LoadSize == 64) &&
+#else // INTEL_FEATURE_ISA_FP16
       (LoadSize == 32 || LoadSize == 64) &&
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       ((VT.is128BitVector() || VT.is256BitVector() || VT.is512BitVector()))) {
     MVT VecSVT = VT.isFloatingPoint() ? MVT::getFloatingPointVT(LoadSize)
                                       : MVT::getIntegerVT(LoadSize);
@@ -11963,11 +11980,28 @@ static SDValue lowerShuffleAsElementInsertion(
     if (!VT.is128BitVector())
       return SDValue();
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    // Otherwise, use MOVSD, MOVSS or MOVSH.
+    unsigned MovOpc = 0;
+    if (EltVT == MVT::f16) {
+      MovOpc = X86ISD::MOVSH;
+    } else if (EltVT == MVT::f32) {
+      MovOpc = X86ISD::MOVSS;
+    } else if (EltVT == MVT::f64) {
+      MovOpc = X86ISD::MOVSD;
+    }
+    assert((MovOpc != 0) &&
+           "Unsupported floating point element type to handle!");
+    return DAG.getNode(MovOpc, DL, ExtVT, V1, V2);
+#else // INTEL_FEATURE_ISA_FP16
     // Otherwise, use MOVSD or MOVSS.
     assert((EltVT == MVT::f32 || EltVT == MVT::f64) &&
            "Only two types of floating point element types to handle!");
     return DAG.getNode(EltVT == MVT::f32 ? X86ISD::MOVSS : X86ISD::MOVSD, DL,
                        ExtVT, V1, V2);
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   }
 
   // This lowering only works for the low element with floating point vectors.
@@ -13724,6 +13758,37 @@ static SDValue lowerV8I16Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                               Mask, Subtarget, DAG);
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+/// Lower 8-lane 16-bit floating point shuffles.
+static SDValue lowerV8F16Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
+                                 const APInt &Zeroable, SDValue V1, SDValue V2,
+                                 const X86Subtarget &Subtarget,
+                                 SelectionDAG &DAG) {
+  assert(V1.getSimpleValueType() == MVT::v8f16 && "Bad operand type!");
+  assert(V2.getSimpleValueType() == MVT::v8f16 && "Bad operand type!");
+  assert(Mask.size() == 8 && "Unexpected mask size for v8 shuffle!");
+  int NumV2Elements = count_if(Mask, [](int M) { return M >= 8; });
+
+  if (NumV2Elements == 0) {
+    // Check for being able to broadcast a single element.
+    if (SDValue Broadcast = lowerShuffleAsBroadcast(DL, MVT::v8f16, V1, V2,
+                                                    Mask, Subtarget, DAG))
+      return Broadcast;
+  }
+  if (NumV2Elements == 1 && Mask[0] >= 8)
+    if (SDValue V = lowerShuffleAsElementInsertion(DL, MVT::v8f16, V1, V2, Mask,
+                                                   Zeroable, Subtarget, DAG))
+      return V;
+
+  V1 = DAG.getBitcast(MVT::v8i16, V1);
+  V2 = DAG.getBitcast(MVT::v8i16, V2);
+  return DAG.getBitcast(MVT::v8f16,
+                        DAG.getVectorShuffle(MVT::v8i16, DL, V1, V2, Mask));
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
 /// Check whether a compaction lowering can be done by dropping even
 /// elements and compute how many times even elements must be dropped.
 ///
@@ -14134,6 +14199,12 @@ static SDValue lower128BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
     return lowerV4F32Shuffle(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
   case MVT::v8i16:
     return lowerV8I16Shuffle(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case MVT::v8f16:
+    return lowerV8F16Shuffle(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case MVT::v16i8:
     return lowerV16I8Shuffle(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
 
@@ -17242,7 +17313,8 @@ static SDValue LowerSCALAR_TO_VECTOR(SDValue Op, const X86Subtarget &Subtarget,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  // Pass through a v4i32 or v8i16 SCALAR_TO_VECTOR as that's what we use in tblgen.
+  // Pass through a v4i32 or v8i16 SCALAR_TO_VECTOR as that's what we use in
+  // tblgen.
   if (OpVT == MVT::v4i32 || (OpVT == MVT::v8i16 && Subtarget.hasFP16()))
 #else  // INTEL_FEATURE_ISA_FP16
   // Pass through a v4i32 SCALAR_TO_VECTOR as that's what we use in tblgen.
@@ -28282,6 +28354,11 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case X86ISD::MOVSLDUP:           return "X86ISD::MOVSLDUP";
   case X86ISD::MOVSD:              return "X86ISD::MOVSD";
   case X86ISD::MOVSS:              return "X86ISD::MOVSS";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86ISD::MOVSH:              return "X86ISD::MOVSH";
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86ISD::UNPCKL:             return "X86ISD::UNPCKL";
   case X86ISD::UNPCKH:             return "X86ISD::UNPCKH";
   case X86ISD::VBROADCAST:         return "X86ISD::VBROADCAST";
@@ -31652,6 +31729,16 @@ static bool matchBinaryShuffle(MVT MaskVT, ArrayRef<int> Mask,
       SrcVT = DstVT = MVT::v4f32;
       return true;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (isTargetShuffleEquivalent(Mask, {8, 1, 2, 3, 4, 5, 6, 7}) &&
+        Subtarget.hasFP16()) {
+      Shuffle = X86ISD::MOVSH;
+      SrcVT = DstVT = MVT::v8f16;
+      return true;
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Attempt to match against either an unary or binary PACKSS/PACKUS shuffle.
@@ -32921,6 +33008,11 @@ static SDValue combineTargetShuffle(SDValue N, SelectionDAG &DAG,
     assert(Mask.size() == 4);
     break;
   case X86ISD::MOVSD:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86ISD::MOVSH:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86ISD::MOVSS: {
     SDValue N0 = N.getOperand(0);
     SDValue N1 = N.getOperand(1);
@@ -43462,6 +43554,11 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
   case X86ISD::MOVDDUP:
   case X86ISD::MOVSS:
   case X86ISD::MOVSD:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86ISD::MOVSH:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86ISD::VBROADCAST:
   case X86ISD::VPPERM:
   case X86ISD::VPERMI:

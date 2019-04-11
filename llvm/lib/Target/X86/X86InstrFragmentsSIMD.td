@@ -365,6 +365,11 @@ def X86Movsldup : SDNode<"X86ISD::MOVSLDUP", SDTShuff1Op>;
 
 def X86Movsd : SDNode<"X86ISD::MOVSD", SDTShuff2OpFP>;
 def X86Movss : SDNode<"X86ISD::MOVSS", SDTShuff2OpFP>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def X86Movsh : SDNode<"X86ISD::MOVSH", SDTShuff2OpFP>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 def X86Movlhps : SDNode<"X86ISD::MOVLHPS", SDTShuff2OpFP>;
 def X86Movhlps : SDNode<"X86ISD::MOVHLPS", SDTShuff2OpFP>;
@@ -979,6 +984,13 @@ def vzmovl_v4i32 : PatFrag<(ops node:$src),
 def vzload_v2i64 : PatFrag<(ops node:$src),
                            (bitconvert (v2i64 (X86vzload node:$src)))>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def fp16imm0 : PatLeaf<(f16 fpimm), [{
+  return N->isExactlyValue(+0.0);
+}]>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 def fp32imm0 : PatLeaf<(f32 fpimm), [{
   return N->isExactlyValue(+0.0);

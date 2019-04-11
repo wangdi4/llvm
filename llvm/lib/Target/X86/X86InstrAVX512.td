@@ -4003,7 +4003,13 @@ def : InstAlias<"vmovd\t{$src, $dst|$dst, $src}",
                 (VMOVPQIto64Zrr GR64:$dst, VR128X:$src), 0>;
 
 //===----------------------------------------------------------------------===//
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+// AVX-512  MOVSH, MOVSS, MOVSD
+#else // INTEL_FEATURE_ISA_FP16
 // AVX-512  MOVSS, MOVSD
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 
 multiclass avx512_move_scalar<string asm, SDNode OpNode,
@@ -4067,6 +4073,12 @@ defm VMOVSSZ : avx512_move_scalar<"vmovss", X86Movss, f32x_info>,
 defm VMOVSDZ : avx512_move_scalar<"vmovsd", X86Movsd, f64x_info>,
                                   VEX_LIG, XD, VEX_W, EVEX_CD8<64, CD8VT1>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+defm VMOVSHZ : avx512_move_scalar<"vmovsh", X86Movsh, f16x_info>,
+                                  VEX_LIG, T_MAP5XS, EVEX_CD8<16, CD8VT1>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 multiclass avx512_move_scalar_lowering<string InstrStr, SDNode OpNode,
                                        PatLeaf ZeroFP, X86VectorVTInfo _> {
@@ -4235,9 +4247,22 @@ def : Pat<(_.info128.VT (masked_load addr:$srcAddr, Mask128,
                       addr:$srcAddr)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+defm : avx512_move_scalar_lowering<"VMOVSHZ", X86Movsh, fp16imm0, v8f16x_info>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 defm : avx512_move_scalar_lowering<"VMOVSSZ", X86Movss, fp32imm0, v4f32x_info>;
 defm : avx512_move_scalar_lowering<"VMOVSDZ", X86Movsd, fp64imm0, v2f64x_info>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+defm : avx512_store_scalar_lowering<"VMOVSHZ", avx512vl_f16_info,
+                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32>;
+defm : avx512_store_scalar_lowering_subreg<"VMOVSHZ", avx512vl_f16_info,
+                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32, sub_32bit>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 defm : avx512_store_scalar_lowering<"VMOVSSZ", avx512vl_f32_info,
                    (v16i1 (bitconvert (i16 (trunc (and GR32:$mask, (i32 1)))))), GR32>;
 defm : avx512_store_scalar_lowering_subreg<"VMOVSSZ", avx512vl_f32_info,
@@ -4245,6 +4270,17 @@ defm : avx512_store_scalar_lowering_subreg<"VMOVSSZ", avx512vl_f32_info,
 defm : avx512_store_scalar_lowering_subreg<"VMOVSDZ", avx512vl_f64_info,
                    (v8i1 (bitconvert (i8 (and GR8:$mask, (i8 1))))), GR8, sub_8bit>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+defm : avx512_store_scalar_lowering_subreg2<"VMOVSHZ", avx512vl_f16_info,
+                   (v32i1 (insert_subvector
+                           (v32i1 immAllZerosV),
+                           (v8i1 (bitconvert (and GR8:$mask, (i8 1)))),
+                           (iPTR 0))),
+                   (v8i1 (bitconvert (and GR8:$mask, (i8 1)))),
+                   GR8, sub_8bit>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 defm : avx512_store_scalar_lowering_subreg2<"VMOVSSZ", avx512vl_f32_info,
                    (v16i1 (insert_subvector
                            (v16i1 immAllZerosV),
@@ -4270,6 +4306,14 @@ defm : avx512_store_scalar_lowering_subreg2<"VMOVSDZ", avx512vl_f64_info,
                           (v8i1 (bitconvert (i8 (and GR8:$mask, (i8 1))))),
                           (iPTR 0))), GR8, sub_8bit>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+defm : avx512_load_scalar_lowering<"VMOVSHZ", avx512vl_f16_info,
+                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32>;
+defm : avx512_load_scalar_lowering_subreg<"VMOVSHZ", avx512vl_f16_info,
+                   (v32i1 (bitconvert (and GR32:$mask, (i32 1)))), GR32, sub_32bit>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 defm : avx512_load_scalar_lowering<"VMOVSSZ", avx512vl_f32_info,
                    (v16i1 (bitconvert (i16 (trunc (and GR32:$mask, (i32 1)))))), GR32>;
 defm : avx512_load_scalar_lowering_subreg<"VMOVSSZ", avx512vl_f32_info,
@@ -4277,6 +4321,17 @@ defm : avx512_load_scalar_lowering_subreg<"VMOVSSZ", avx512vl_f32_info,
 defm : avx512_load_scalar_lowering_subreg<"VMOVSDZ", avx512vl_f64_info,
                    (v8i1 (bitconvert (i8 (and GR8:$mask, (i8 1))))), GR8, sub_8bit>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+defm : avx512_load_scalar_lowering_subreg2<"VMOVSHZ", avx512vl_f16_info,
+                   (v32i1 (insert_subvector
+                           (v32i1 immAllZerosV),
+                           (v8i1 (bitconvert (and GR8:$mask, (i8 1)))),
+                           (iPTR 0))),
+                   (v8i1 (bitconvert (and GR8:$mask, (i8 1)))),
+                   GR8, sub_8bit>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 defm : avx512_load_scalar_lowering_subreg2<"VMOVSSZ", avx512vl_f32_info,
                    (v16i1 (insert_subvector
                            (v16i1 immAllZerosV),
@@ -4302,6 +4357,20 @@ defm : avx512_load_scalar_lowering_subreg2<"VMOVSDZ", avx512vl_f64_info,
                           (v8i1 (bitconvert (i8 (and GR8:$mask, (i8 1))))),
                           (iPTR 0))), GR8, sub_8bit>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def : Pat<(f16 (X86selects VK1WM:$mask, (f16 FR16X:$src1), (f16 FR16X:$src2))),
+          (COPY_TO_REGCLASS (v8f16 (VMOVSHZrrk
+           (v8f16 (COPY_TO_REGCLASS FR16X:$src2, VR128X)),
+           VK1WM:$mask, (v8f16 (IMPLICIT_DEF)),
+           (v8f16 (COPY_TO_REGCLASS FR16X:$src1, VR128X)))), FR16X)>;
+
+def : Pat<(f16 (X86selects VK1WM:$mask, (f16 FR16X:$src1), fp16imm0)),
+          (COPY_TO_REGCLASS (v8f16 (VMOVSHZrrkz VK1WM:$mask, (v8f16 (IMPLICIT_DEF)),
+           (v8f16 (COPY_TO_REGCLASS FR16X:$src1, VR128X)))), FR16X)>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
 def : Pat<(f32 (X86selects VK1WM:$mask, (f32 FR32X:$src1), (f32 FR32X:$src2))),
           (COPY_TO_REGCLASS (v4f32 (VMOVSSZrrk
            (v4f32 (COPY_TO_REGCLASS FR32X:$src2, VR128X)),
@@ -4323,6 +4392,37 @@ def : Pat<(f64 (X86selects VK1WM:$mask, (f64 FR64X:$src1), fpimm0)),
            (v2f64 (COPY_TO_REGCLASS FR64X:$src1, VR128X)))), FR64X)>;
 
 let hasSideEffects = 0, isCodeGenOnly = 1, ForceDisassemble = 1 in {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  let Predicates = [HasFP16] in {
+    def VMOVSHZrr_REV: AVX512<0x11, MRMDestReg, (outs VR128X:$dst),
+        (ins VR128X:$src1, VR128X:$src2),
+        "vmovsh\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+        []>, T_MAP5XS, EVEX_4V, VEX_LIG,
+        FoldGenData<"VMOVSHZrr">,
+        Sched<[SchedWriteFShuffle.XMM]>;
+
+    let Constraints = "$src0 = $dst" in
+    def VMOVSHZrrk_REV: AVX512<0x11, MRMDestReg, (outs VR128X:$dst),
+        (ins f16x_info.RC:$src0, f16x_info.KRCWM:$mask,
+         VR128X:$src1, VR128X:$src2),
+        "vmovsh\t{$src2, $src1, $dst {${mask}}|"#
+          "$dst {${mask}}, $src1, $src2}",
+        []>, T_MAP5XS, EVEX_K, EVEX_4V, VEX_LIG,
+        FoldGenData<"VMOVSHZrrk">,
+        Sched<[SchedWriteFShuffle.XMM]>;
+
+    def VMOVSHZrrkz_REV: AVX512<0x11, MRMDestReg, (outs VR128X:$dst),
+        (ins f16x_info.KRCWM:$mask, VR128X:$src1, VR128X:$src2),
+        "vmovsh\t{$src2, $src1, $dst {${mask}} {z}|"#
+          "$dst {${mask}} {z}, $src1, $src2}",
+        []>, EVEX_KZ, T_MAP5XS, EVEX_4V, VEX_LIG,
+        FoldGenData<"VMOVSHZrrkz">,
+        Sched<[SchedWriteFShuffle.XMM]>;
+  }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
   def VMOVSSZrr_REV: AVX512<0x11, MRMDestReg, (outs VR128X:$dst),
                            (ins VR128X:$src1, VR128X:$src2),
                            "vmovss\t{$src2, $src1, $dst|$dst, $src1, $src2}",
@@ -4375,6 +4475,20 @@ let hasSideEffects = 0, isCodeGenOnly = 1, ForceDisassemble = 1 in {
                               Sched<[SchedWriteFShuffle.XMM]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def : InstAlias<"vmovsh.s\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                (VMOVSHZrr_REV VR128X:$dst, VR128X:$src1, VR128X:$src2), 0>;
+def : InstAlias<"vmovsh.s\t{$src2, $src1, $dst {${mask}}|"#
+                             "$dst {${mask}}, $src1, $src2}",
+                (VMOVSHZrrk_REV VR128X:$dst, VK1WM:$mask,
+                                VR128X:$src1, VR128X:$src2), 0>;
+def : InstAlias<"vmovsh.s\t{$src2, $src1, $dst {${mask}} {z}|"#
+                             "$dst {${mask}} {z}, $src1, $src2}",
+                (VMOVSHZrrkz_REV VR128X:$dst, VK1WM:$mask,
+                                 VR128X:$src1, VR128X:$src2), 0>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 def : InstAlias<"vmovss.s\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                 (VMOVSSZrr_REV VR128X:$dst, VR128X:$src1, VR128X:$src2), 0>;
 def : InstAlias<"vmovss.s\t{$src2, $src1, $dst {${mask}}|"#
@@ -4529,6 +4643,19 @@ let Predicates = [HasAVX512] in {
                    addr:$dst),
             (VMOVSSZmr addr:$dst, (COPY_TO_REGCLASS (v4f32 VR128X:$src), FR32X))>;
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+let Predicates = [HasFP16] in {
+  def : Pat<(v8f16 (X86vzmovl (v8f16 (scalar_to_vector (loadf16 addr:$src))))),
+            (COPY_TO_REGCLASS (VMOVSHZrm addr:$src), VR128X)>;
+  def : Pat<(v8f16 (X86vzmovl (loadv8f16 addr:$src))),
+            (COPY_TO_REGCLASS (VMOVSHZrm addr:$src), VR128X)>;
+  def : Pat<(v8f16 (X86vzload addr:$src)),
+            (COPY_TO_REGCLASS (VMOVSHZrm addr:$src), VR128X)>;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 let ExeDomain = SSEPackedInt, SchedRW = [SchedWriteVecLogic.XMM] in {
 def VMOVZPQILo2PQIZrr : AVX512XSI<0x7E, MRMSrcReg, (outs VR128X:$dst),
@@ -12819,4 +12946,59 @@ defm VDPBF16PS : avx512_dpbf16ps_sizes<0x52, "vdpbf16ps", X86dpbf16ps,
                                        avx512vl_f32_info, avx512vl_i32_info,
                                        HasBF16>, T8XS, EVEX_CD8<32, CD8VF>;
 #endif // INTEL_FEATURE_ISA_BF16
+#if INTEL_FEATURE_ISA_FP16
+
+//===----------------------------------------------------------------------===//
+// AVX512FP16
+//===----------------------------------------------------------------------===//
+
+let Predicates = [HasFP16] in {
+// Move word ( r/m16) to Packed word
+def VMOVW2SHrr : AVX512<0x6E, MRMSrcReg, (outs VR128X:$dst), (ins GR32:$src),
+                      "vmovw\t{$src, $dst|$dst, $src}", []>, T_MAP5PD, EVEX;
+def VMOVWrm : AVX512<0x6E, MRMSrcMem, (outs VR128X:$dst), (ins i16mem:$src),
+                      "vmovw\t{$src, $dst|$dst, $src}",
+                      [(set VR128X:$dst,
+                        (v8i16 (scalar_to_vector (loadi16 addr:$src))))]>,
+                      T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
+
+// Move word to Single scalar
+let isCodeGenOnly = 1 in
+  def VMOVW2SHrm : AVX512<0x6E, MRMSrcMem, (outs FR16X:$dst), (ins i16mem:$src),
+                      "vmovw\t{$src, $dst|$dst, $src}",
+                      [(set FR16X:$dst, (bitconvert (loadi16 addr:$src)))]>,
+                      T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
+
+def : Pat<(v8i16 (scalar_to_vector (i16 GR16:$src))),
+          (VMOVW2SHrr (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit))>;
+
+// Move word from xmm register to r/m16
+def VMOVSH2Wrr  : AVX512<0x7E, MRMDestReg, (outs GR32:$dst), (ins VR128X:$src),
+                       "vmovw\t{$src, $dst|$dst, $src}", []>, T_MAP5PD, EVEX;
+def VMOVWmr  : AVX512<0x7E, MRMDestMem, (outs),
+                       (ins i16mem:$dst, VR128X:$src),
+                       "vmovw\t{$src, $dst|$dst, $src}",
+                       [(store (i16 (extractelt (v8i16 VR128X:$src),
+                                     (iPTR 0))), addr:$dst)]>,
+                       T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
+
+// Move Scalar Single to word
+let isCodeGenOnly = 1 in
+def VMOVSH2Wmr  : AVX512<0x7E, MRMDestMem, (outs),
+                      (ins i16mem:$dst, FR16X:$src),
+                      "vmovw\t{$src, $dst|$dst, $src}",
+                      [(store (i16 (bitconvert FR16X:$src)), addr:$dst)]>,
+                      T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
+
+def : Pat<(i16 (extractelt (v8i16 VR128X:$src), (iPTR 0))),
+          (i16 (EXTRACT_SUBREG (VMOVSH2Wrr VR128X:$src), sub_16bit))>;
+}
+
+// Allow "vmovw" to use GR64
+def VMOVW64toSHrr : AVX512<0x6E, MRMSrcReg, (outs VR128X:$dst), (ins GR64:$src),
+                   "vmovw\t{$src, $dst|$dst, $src}", []>, T_MAP5PD, EVEX, VEX_W;
+def VMOVSHtoW64rr : AVX512<0x7E, MRMDestReg, (outs GR64:$dst), (ins VR128X:$src),
+                   "vmovw\t{$src, $dst|$dst, $src}", []>, T_MAP5PD, EVEX, VEX_W;
+
+#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION

@@ -140,6 +140,19 @@ define half @add_sh(half %i, half %j, half* %x.ptr) nounwind readnone {
   ret half %r
 }
 
+define half @sub_sh(half %i, half %j, half* %x.ptr) nounwind readnone {
+; CHECK-LABEL: sub_sh:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vmovsh (%rdi), %xmm2
+; CHECK-NEXT:    vsubsh %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    vsubsh %xmm0, %xmm2, %xmm0
+; CHECK-NEXT:    retq
+  %x = load half, half* %x.ptr
+  %y = fsub  half %i, %j
+  %r = fsub  half %x, %y
+  ret half %r
+}
+
 define half @sub_sh_2(half %i, half %j, half* %x.ptr) nounwind readnone {
 ; CHECK-LABEL: sub_sh_2:
 ; CHECK:       ## %bb.0:
@@ -161,6 +174,19 @@ define half @mul_sh(half %i, half %j, half* %x.ptr) nounwind readnone {
   %x = load half, half* %x.ptr
   %y = fmul  half %i, %j
   %r = fmul  half %x, %y
+  ret half %r
+}
+
+define half @div_sh(half %i, half %j, half* %x.ptr) nounwind readnone {
+; CHECK-LABEL: div_sh:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    vmovsh (%rdi), %xmm2
+; CHECK-NEXT:    vdivsh %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    vdivsh %xmm0, %xmm2, %xmm0
+; CHECK-NEXT:    retq
+  %x = load half, half* %x.ptr
+  %y = fdiv  half %i, %j
+  %r = fdiv  half %x, %y
   ret half %r
 }
 

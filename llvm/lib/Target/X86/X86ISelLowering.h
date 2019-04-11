@@ -390,6 +390,11 @@ namespace llvm {
       MOVHLPS,
       MOVSD,
       MOVSS,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      MOVSH,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       UNPCKL,
       UNPCKH,
       VPERMILPV,
