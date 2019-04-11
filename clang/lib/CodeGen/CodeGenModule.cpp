@@ -3669,6 +3669,28 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
       break;
     }
     Out << '}';
+    if (const DeclaratorDecl *DD = dyn_cast<DeclaratorDecl>(D)) {
+      QualType ElementTy = DD->getType();
+      Out << "{sizeinfo:";
+      // D can't be of type FunctionDecl (no attribute memory for a
+      // function declaration).
+      if (ElementTy->isConstantArrayType())
+        Out << getContext()
+                   .getTypeSizeInChars(
+                       getContext().getBaseElementType(ElementTy))
+                   .getQuantity();
+      else
+        Out << getContext().getTypeSizeInChars(ElementTy).getQuantity();
+      // Add to Out the dimenstion of the array.
+      while (const auto *AT = getContext().getAsArrayType(ElementTy)) {
+        // Expecting only constant array types, assert otherwise.
+        const auto *CAT = cast<ConstantArrayType>(AT);
+        Out << ",";
+        Out << CAT->getSize();
+        ElementTy = CAT->getElementType();
+      }
+      Out << '}';
+    }
   }
   if (D->hasAttr<SinglePumpAttr>())
     Out << "{pump:1}";

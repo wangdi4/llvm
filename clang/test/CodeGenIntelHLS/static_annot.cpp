@@ -1,17 +1,17 @@
 //RUN: %clang_cc1 -fhls -emit-llvm -o - %s | FileCheck %s
 //RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -o %t %s
 
-//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:foo:depth}
-//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{merge:bar:width}
-//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:4}{bank_bits:4,5}
-//CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numbanks:4}{bank_bits:5,4}
-//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{numreadports:2}{numwriteports:3}
+//CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{merge:foo:depth}
+//CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{merge:bar:width}
+//CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:4}{bank_bits:4,5}
+//CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numbanks:4}{bank_bits:5,4}
+//CHECK: [[ANN5:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{numreadports:2}{numwriteports:3}
 //CHECK: [[ANN6:@.str[\.]*[0-9]*]] = {{.*}}{register:1}
-//CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}
-//CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{bankwidth:4}
-//CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:1}
-//CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{pump:2}
-
+//CHECK: [[ANN7:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}
+//CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{bankwidth:4}
+//CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{pump:1}
+//CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{pump:2}
+//CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,5}{merge:bar:width}
 
 //CHECK: @llvm.global.annotations
 
@@ -60,7 +60,7 @@ void foo_two() {
   static int __attribute__((doublepump)) var_thirteen;
 }
 
-//CHECK-SAME: cfo{{.*}}[[ANN2]]{{.*}}i32 117
+//CHECK-SAME: cfo{{.*}}[[ANN11]]{{.*}}i32 117
 
 // 1.
 //CHECK-SAME: evar_one{{.*}}[[ANN1]]{{.*}}i32 67
@@ -110,7 +110,7 @@ int foo_one() {
          evar_eight+evar_nine+evar_ten+evar_eleven+evar_twelve+evar_thirteen;
 }
 
-//CHECK-SAME: afoo{{.*}}[[ANN2]]{{.*}}i32 114
+//CHECK-SAME: afoo{{.*}}[[ANN11]]{{.*}}i32 114
 static int __attribute__((merge("bar", "width"))) afoo[5];
 __attribute__((ihc_component))
 void width_manual(int *rdata) {

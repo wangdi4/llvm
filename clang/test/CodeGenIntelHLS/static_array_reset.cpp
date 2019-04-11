@@ -4,7 +4,7 @@
 //CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:2}
 //CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:0}
 //CHECK: [[ANN3:@.str[\.]*[0-9]*]] = {{.*}}{staticreset:1}
-//CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{staticreset:1}
+//CHECK: [[ANN4:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,8}{staticreset:1}
 
 //CHECK: @llvm.global.annotations
 
