@@ -261,7 +261,9 @@
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
 #include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #endif // INTEL_COLLAB
-
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
+#endif //INTEL_CUSTOMIZATION
 using namespace llvm;
 
 static cl::opt<unsigned> MaxDevirtIterations("pm-max-devirt-iterations",

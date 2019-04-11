@@ -1,4 +1,4 @@
-//===-- VPODriver.cpp -----------------------------------------------------===//
+//===-- VPODirectiveCleanup.cpp-----------------------------------------------------===//
 //
 //   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
@@ -13,71 +13,45 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
+#define DEBUG_TYPE "VPODirectiveCleanup"
+
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
-
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Scalar.h"
-
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/VPO/VPOPasses.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVectVLSAnalysis.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Support/CommandLine.h"
 
-#define DEBUG_TYPE "VPODriver"
+using namespace llvm;
+using namespace llvm::vpo;
 
 static cl::opt<bool>
     DisableVPODirectiveCleanup("disable-vpo-directive-cleanup", cl::init(false),
                                cl::Hidden,
                                cl::desc("Disable VPO directive cleanup"));
 
-using namespace llvm;
-using namespace llvm::vpo;
-
-namespace {
-class VPODirectiveCleanup : public FunctionPass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  VPODirectiveCleanup() : FunctionPass(ID) {
-    initializeVPODirectiveCleanupPass(*PassRegistry::getPassRegistry());
-  }
-  bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-};
-} // namespace
-
-INITIALIZE_PASS_BEGIN(VPODirectiveCleanup, "VPODirectiveCleanup",
-                      "VPO Directive Cleanup", false, false)
-INITIALIZE_PASS_END(VPODirectiveCleanup, "VPODirectiveCleanup",
-                    "VPO Directive Cleanup", false, false)
-
-char VPODirectiveCleanup::ID = 0;
-
-FunctionPass *llvm::createVPODirectiveCleanupPass() {
-  return new VPODirectiveCleanup();
-}
 
 void VPODirectiveCleanup::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
 }
 
-bool VPODirectiveCleanup::runOnFunction(Function &F) {
+bool VPODirectiveCleanup::runOnFunction(Function &F) { return Impl.runImpl(F); }
 
+PreservedAnalyses VPODirectiveCleanupPass::run(Function &F,
+                                               FunctionAnalysisManager &AM) {
+  if (!runImpl(F))
+    return PreservedAnalyses::all();
+
+  PreservedAnalyses PA;
+  PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();
+  return PA;
+}
+
+bool VPODirectiveCleanupPass::runImpl(Function &F) {
   // Skip if disabled
   if (DisableVPODirectiveCleanup) {
     return false;
@@ -90,6 +64,8 @@ bool VPODirectiveCleanup::runOnFunction(Function &F) {
     return false;
   }
 
+  // TODO : The following piece of code still uses legacy pass manager
+  // This needs to be changed
   // Set up a function pass manager so that we can run some cleanup transforms
   // on the LLVM IR after code gen.
   Module *M = F.getParent();
@@ -104,4 +80,13 @@ bool VPODirectiveCleanup::runOnFunction(Function &F) {
   return true;
 }
 
+INITIALIZE_PASS_BEGIN(VPODirectiveCleanup, "VPODirectiveCleanup",
+                      "VPO Directive Cleanup", false, false)
+INITIALIZE_PASS_END(VPODirectiveCleanup, "VPODirectiveCleanup",
+                    "VPO Directive Cleanup", false, false)
 
+char VPODirectiveCleanup::ID = 0;
+
+FunctionPass *llvm::createVPODirectiveCleanupPass() {
+  return new VPODirectiveCleanup();
+}
