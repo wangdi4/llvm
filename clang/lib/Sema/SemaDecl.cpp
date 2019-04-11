@@ -16205,21 +16205,9 @@ bool Sema::CheckNontrivialField(FieldDecl *FD) {
 
         Diag(FD->getLocation(), getLangOpts().CPlusPlus11 ?
                diag::warn_cxx98_compat_nontrivial_union_or_anon_struct_member :
-#if INTEL_CUSTOMIZATION
-                // CQ#364709 - allow union or anonymous struct member have
-                // non-trivial field in IntelMSCompat mode.
-                getLangOpts().IntelMSCompat
-                    ? diag::warn_intel_nontrivial_union_or_anon_struct_member
-                    :
-#endif // INTEL_CUSTOMIZATION
                diag::err_illegal_union_or_anon_struct_member)
           << FD->getParent()->isUnion() << FD->getDeclName() << member;
         DiagnoseNontrivial(RDecl, member);
-#if INTEL_CUSTOMIZATION
-        // CQ#364709 - return false in IntelMSCompat mode.
-        if (getLangOpts().IntelMSCompat)
-          return false;
-#endif // INTEL_CUSTOMIZATION
         return !getLangOpts().CPlusPlus11;
       }
     }

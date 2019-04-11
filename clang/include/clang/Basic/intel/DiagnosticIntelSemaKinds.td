@@ -31,11 +31,6 @@ def warn_access_dtor_vbase :
     Warning<"inherited virtual base class %1 has "
     "%select{private|protected}2 destructor">,
     AccessControl, InGroup<PrivateVBaseDtor>;
-def warn_intel_nontrivial_union_or_anon_struct_member : Warning<
-  "%select{anonymous struct|union}0 member %1 has a non-trivial "
-  "%select{constructor|copy constructor|move constructor|copy assignment "
-  "operator|move assignment operator|destructor}2">,
-  InGroup<IntelCompat>;
 def warn_lvalue_reference_bind_to_initlist : Warning<
   "%select{non-const|volatile}0 lvalue reference to type %1 cannot bind to an "
   "initializer list temporary">, InGroup<IntelCompat>;
