@@ -251,6 +251,40 @@ void foo1()
   }
 }
 
+// ALL-LABEL: foo2
+void foo2(int s, int *a)
+{
+  int i;
+  int size = s;
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET.DATA"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TARGET"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET.DATA"
+  #pragma omp target data map(a[0:size])
+  #pragma omp target teams distribute parallel for shared(size)
+  for (i = 0; i < size; ++i) {
+  }
+
+  int dt;
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET.ENTER.DATA"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"
+  #pragma omp target enter data map(to:dt)
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET.UPDATE
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET.UPDATE"
+  #pragma omp target update from(dt)
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET.EXIT.DATA"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET.EXIT.DATA"
+  #pragma omp target exit data map(from:dt)
+}
+
 struct ios_base {
   typedef void (*event_callback) (ios_base& __b);
   struct _Callback_list {

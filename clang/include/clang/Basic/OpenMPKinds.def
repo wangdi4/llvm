@@ -285,6 +285,10 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(barrier)
 OPENMP_DIRECTIVE_SPIR_SUBSET(parallel_for)
 OPENMP_DIRECTIVE_SPIR_SUBSET(teams_distribute_parallel_for)
 OPENMP_DIRECTIVE_SPIR_SUBSET(teams_distribute_parallel_for_simd)
+OPENMP_DIRECTIVE_SPIR_SUBSET(target_data)
+OPENMP_DIRECTIVE_SPIR_SUBSET(target_update)
+OPENMP_DIRECTIVE_SPIR_SUBSET(target_enter_data)
+OPENMP_DIRECTIVE_SPIR_SUBSET(target_exit_data)
 #endif // INTEL_CUSTOMIZATION
 
 // OpenMP clauses.
