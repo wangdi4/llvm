@@ -4697,6 +4697,19 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
       Worklist.insert(AI);
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // Add alloca instructions from all other blocks besides entry.
+  for (auto &BB : F) {
+    if (&BB == &EntryBB)
+      continue;
+    for (auto &I : BB)
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(&I))
+        Worklist.insert(AI);
+  }
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
   bool Changed = false;
   // A set of deleted alloca instruction pointers which should be removed from
   // the list of promotable allocas.
