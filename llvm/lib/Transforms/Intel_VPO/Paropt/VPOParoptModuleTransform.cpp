@@ -367,14 +367,41 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   std::vector<Function *> DeadFunctions;
 
   for (Function &F : M) {
-    if (!VPOAnalysisUtils::mayHaveOpenmpDirective(F))
+    // IsFETargetDeclare == true means that F has the
+    //     "openmp-target-declare" attribute; i.e.,
+    //     The FE found that it was
+    //        (1) inside a DECLARE TARGET construct, or
+    //        (2) called from a TARGET region, or
+    //        (3) called recursively by another function with this attribute.
+    //
+    // IsBETargetDeclare == true means that F has the
+    //     "target.declare" attribute; i.e., it was emitted by the BE
+    //     for the target device, as a result of outlining a TARGET region.
+    //
+    // If F has neither of these attributes, then it is not needed by the
+    // target device and we remove it here.
+    bool IsFETargetDeclare = F.getAttributes().hasAttribute(
+        AttributeList::FunctionIndex, "openmp-target-declare");
+    bool IsBETargetDeclare = F.getAttributes().hasAttribute(
+        AttributeList::FunctionIndex, "target.declare");
+    // unused for now
+    // bool HasTargetConstruct = F.getAttributes().hasAttribute(
+    //     AttributeList::FunctionIndex, "contains-openmp-target");
+
+    if (IsFETargetDeclare) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
+                        << ": IsFETargetDeclare == true\n");
       continue;
-    if (!F.getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                        "target.declare")) {
+    }
+
+    if (!IsBETargetDeclare) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Remove " << F.getName() << "\n");
       DeadFunctions.push_back(&F);
       if (!F.isDeclaration())
         F.deleteBody();
     } else {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
+                        << ": IsBETargetDeclare == true\n");
 #if INTEL_CUSTOMIZATION
       // This is a workaround for resolving the incompatibility issue
       // between the xmain compiler and IGC compiler. The IGC compiler
