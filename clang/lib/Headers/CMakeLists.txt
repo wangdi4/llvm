@@ -48,6 +48,13 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/enqcmdintrin.h
   )
 # end INTEL_FEATURE_ISA_ENQCMD
+# INTEL_FEATURE_ISA_VP2INTERSECT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_VP2INTERSECT
+  Intel_Headers/avx512vp2intersectintrin.h
+  Intel_Headers/avx512vlvp2intersectintrin.h
+  )
+# end INTEL_FEATURE_ISA_VP2INTERSECT
 # INTEL_FEATURE_ISA_SERIALIZE
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE
