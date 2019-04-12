@@ -593,6 +593,9 @@ namespace llvm {
       UMWAIT, TPAUSE,
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+      VP2INTERSECT,
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #if INTEL_FEATURE_ISA_ULI
       // User level interrupts - testui
       TESTUI,

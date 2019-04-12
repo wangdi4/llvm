@@ -440,45 +440,22 @@ enum OperandEncoding {
 };
 #undef ENUM_ENTRY
 
-// Semantic interpretations of instruction operands.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-#define TYPES                                                                  \
-  ENUM_ENTRY(TYPE_NONE,       "")                                              \
-  ENUM_ENTRY(TYPE_REL,        "immediate address")                             \
-  ENUM_ENTRY(TYPE_R8,         "1-byte register operand")                       \
-  ENUM_ENTRY(TYPE_R16,        "2-byte")                                        \
-  ENUM_ENTRY(TYPE_R32,        "4-byte")                                        \
-  ENUM_ENTRY(TYPE_R64,        "8-byte")                                        \
-  ENUM_ENTRY(TYPE_IMM,        "immediate operand")                             \
-  ENUM_ENTRY(TYPE_UIMM8,      "1-byte unsigned immediate operand")             \
-  ENUM_ENTRY(TYPE_M,          "Memory operand")                                \
-  ENUM_ENTRY(TYPE_MVSIBX,     "Memory operand using XMM index")                \
-  ENUM_ENTRY(TYPE_MVSIBY,     "Memory operand using YMM index")                \
-  ENUM_ENTRY(TYPE_MVSIBZ,     "Memory operand using ZMM index")                \
-  ENUM_ENTRY(TYPE_SRCIDX,     "memory at source index")                        \
-  ENUM_ENTRY(TYPE_DSTIDX,     "memory at destination index")                   \
-  ENUM_ENTRY(TYPE_MOFFS,      "memory offset (relative to segment base)")      \
-  ENUM_ENTRY(TYPE_ST,         "Position on the floating-point stack")          \
-  ENUM_ENTRY(TYPE_MM64,       "8-byte MMX register")                           \
-  ENUM_ENTRY(TYPE_XMM,        "16-byte")                                       \
-  ENUM_ENTRY(TYPE_YMM,        "32-byte")                                       \
-  ENUM_ENTRY(TYPE_ZMM,        "64-byte")                                       \
-  ENUM_ENTRY(TYPE_VK,         "mask register")                                 \
-  ENUM_ENTRY(TYPE_SEGMENTREG, "Segment register operand")                      \
-  ENUM_ENTRY(TYPE_DEBUGREG,   "Debug register operand")                        \
-  ENUM_ENTRY(TYPE_CONTROLREG, "Control register operand")                      \
-  ENUM_ENTRY(TYPE_BNDR,       "MPX bounds register")                           \
-                                                                               \
-  ENUM_ENTRY(TYPE_Rv,         "Register operand of operand size")              \
-  ENUM_ENTRY(TYPE_RELv,       "Immediate address of operand size")             \
-  ENUM_ENTRY(TYPE_DUP0,       "Duplicate of operand 0")                        \
-  ENUM_ENTRY(TYPE_DUP1,       "operand 1")                                     \
-  ENUM_ENTRY(TYPE_DUP2,       "operand 2")                                     \
-  ENUM_ENTRY(TYPE_DUP3,       "operand 3")                                     \
-  ENUM_ENTRY(TYPE_DUP4,       "operand 4")                                     \
-  ENUM_ENTRY(TYPE_TMM,        "tile")
+#define XTM_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM,        "tile")
 #else // INTEL_FEATURE_ISA_AMX
+#define XTM_ENUM_ENTRY
+#endif // INTEL_FEATURE_ISA_AMX
+
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+#define VP2_ENUM_ENTRY ENUM_ENTRY(TYPE_VK_PAIR,    "mask register pair")
+#else // INTEL_FEATURE_ISA_VP2INTERSECT
+#define VP2_ENUM_ENTRY
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#endif // INTEL_CUSTOMIZATION
+
+// Semantic interpretations of instruction operands.
+#if INTEL_CUSTOMIZATION
 #define TYPES                                                                  \
   ENUM_ENTRY(TYPE_NONE,       "")                                              \
   ENUM_ENTRY(TYPE_REL,        "immediate address")                             \
@@ -504,6 +481,8 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_YMM,        "32-byte")                                       \
   ENUM_ENTRY(TYPE_ZMM,        "64-byte")                                       \
   ENUM_ENTRY(TYPE_VK,         "mask register")                                 \
+  VP2_ENUM_ENTRY                                                               \
+  XTM_ENUM_ENTRY                                                               \
   ENUM_ENTRY(TYPE_SEGMENTREG, "Segment register operand")                      \
   ENUM_ENTRY(TYPE_DEBUGREG,   "Debug register operand")                        \
   ENUM_ENTRY(TYPE_CONTROLREG, "Control register operand")                      \
@@ -516,7 +495,6 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_DUP2,       "operand 2")                                     \
   ENUM_ENTRY(TYPE_DUP3,       "operand 3")                                     \
   ENUM_ENTRY(TYPE_DUP4,       "operand 4")
-#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
 #define ENUM_ENTRY(n, d) n,

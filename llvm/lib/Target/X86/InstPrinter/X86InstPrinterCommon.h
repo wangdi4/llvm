@@ -33,6 +33,11 @@ public:
 protected:
   void printInstFlags(const MCInst *MI, raw_ostream &O);
   void printOptionalSegReg(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+  void printVKPair(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm

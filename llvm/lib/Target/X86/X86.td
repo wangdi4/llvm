@@ -186,6 +186,12 @@ def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                        "Enable AVX-512 Bit Algorithms",
                         [FeatureBWI]>;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+def FeatureVP2INTERSECT  : SubtargetFeature<"avx512vp2intersect",
+                                            "HasVP2INTERSECT", "true",
+                                            "Enable AVX-512 vp2intersect",
+                                            [FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #if INTEL_FEATURE_ISA_FP16
 // FIXME: FP16 scaler inrinsics use the type v8f16, which is supposed to be guarded
 // under condition hasVLX. So we imply it in FeatureFP16 currently.

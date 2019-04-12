@@ -369,7 +369,13 @@ protected:
 
   /// Processor has AVX-512 Bit Algorithms instructions
   bool HasBITALG = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+  /// Processor has AVX-512 vp2intersect instructions
+  bool HasVP2INTERSECT = false;
 
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#endif // INTEL_CUSTOMIZATION
   /// Processor supports MPX - Memory Protection Extensions
   bool HasMPX = false;
 
@@ -722,6 +728,9 @@ public:
 #if INTEL_FEATURE_ISA_BF16
   bool hasBF16() const { return HasBF16; }
 #endif // INTEL_FEATURE_ISA_BF16
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+  bool hasVP2INTERSECT() const { return HasVP2INTERSECT; }
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #endif // INTEL_CUSTOMIZATION
   bool hasBITALG() const { return HasBITALG; }
   bool hasMPX() const { return HasMPX; }
