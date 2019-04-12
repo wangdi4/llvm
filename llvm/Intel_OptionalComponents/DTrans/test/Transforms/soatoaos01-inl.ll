@@ -30,7 +30,9 @@
 ; CHECK-NINL: INLINE{{.*}}_ZN1FC2Ev
 
 
-; This test check essential layout requirements and simple CFG properties. See comments inlined.
+; This test checks essential layout requirements and simple CFG properties.
+; See comments inlined. It also checks compiler doesn't fail (CMPLRSLLVM-8929)
+; when member functions are used in non-CallInsts.
 
 ; struct Mem {
 ;   virtual void *allocate() = 0;
@@ -87,6 +89,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 %struct.Arr1 = type { %struct.Arr.base.3, [4 x i8] }
 %struct.Arr.base.3 = type <{ %struct.Mem*, i32, [4 x i8], float**, i32 }>
 %struct.Arr.2 = type <{ %struct.Mem*, i32, [4 x i8], float**, i32, [4 x i8] }>
+
+; Use of _ZN3ArrIPiEC2EiP3Mem is not CallInst.
+@_ZN3ArrIPiEC1EiP3Mem = dso_local unnamed_addr alias void (%struct.Arr*, i32, %struct.Mem*), void (%struct.Arr*, i32, %struct.Mem*)* @_ZN3ArrIPiEC2EiP3Mem
 
 define i32 @main() personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
