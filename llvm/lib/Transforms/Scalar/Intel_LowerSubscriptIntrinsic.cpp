@@ -93,8 +93,6 @@ LowerSubscriptIntrinsicPass::run(Function &M, FunctionAnalysisManager &FM) {
   // PA.preserve<AAManager>();    depends on other analyses.
   // PA.preserve<MemorySSAAnalysis>(); depends on GlobalsAA.
   // PA.preserve<BasicAA>();      done in later patch.
-  // PA.preserve<GlobalsAA>();    done in later patch.
-  // PA.preserve<AndersensAA>();  done in later patch.
   // PA.preserve<InlineAggAnalysis>(); postponed, very specific.
   // PA.preserve<ScalarEvolutionAnalysis>(); postponed.
   // PA.preserve<DependenceAnalysis>(); postponed.
@@ -102,6 +100,8 @@ LowerSubscriptIntrinsicPass::run(Function &M, FunctionAnalysisManager &FM) {
   // PA.preserve<SCEVAA>(); postponed.
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<WholeProgramAnalysis>();
+  PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();
   return PA;
 }
 

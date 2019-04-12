@@ -659,7 +659,6 @@ PreservedAnalyses LoadCoalescingPass::run(Function &F,
 
   if (Changed) {
     PreservedAnalyses PA;
-    // TODO: Fix the preserve analysis
     PA.preserve<GlobalsAA>();
     PA.preserve<AndersensAA>();
     PA.preserveSet<CFGAnalyses>();

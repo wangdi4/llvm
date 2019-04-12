@@ -1,10 +1,15 @@
-; RUN: opt -std-link-opts -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -std-link-opts -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details < %s 2>&1 | FileCheck %s ---check-prefixes="CHECK,AA"
+; RUN: opt -std-link-opts -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details -enable-andersen=false < %s 2>&1 | FileCheck %s ---check-prefixes="CHECK,NOAA"
 
 ; This test is checking that Andersen's AA results are available for the loopopt.
 ;
 ; Loopopt is a function pass while the Andersen's AA is a module analysis.
 ; We should carefully preserve module level AA results because they are
 ; expensive to re-compute and it's very easy to unintentionally invalidate them.
+;
+; The test is written with the assumption that no analysis except Andersen's AA
+; are able to resolve dependencies between %a and %b. If other analysis improve
+; the test may become not indicative.
 ;
 ; Function: foo
 ;
@@ -26,17 +31,24 @@
 ;     END REGION
 
 ; CHECK-LABEL: Function: foo
-; CHECK: float* %b
+
+; CHECK: float* %b)[
 ; CHECK-SAME: {sb:[[SB:.*]]}
-; CHECK: float* %a
-; CHECK-NOT: {sb:[[SB]]}
+
+; CHECK: float* %a)[
+; AA-NOT: {sb:[[SB]]}
+; NOAA-SAME: {sb:[[SB]]}
 
 ; CHECK-LABEL: Function: bar
-; CHECK: float* %a
+
+; CHECK: float* %a)[
 ; CHECK-SAME: {sb:[[SB:.*]]}
-; CHECK: float* %b
-; CHECK-NOT: {sb:[[SB]]}
-; CHECK: float* %a
+
+; CHECK: float* %b)[
+; AA-NOT: {sb:[[SB]]}
+; NOAA-SAME: {sb:[[SB]]}
+
+; CHECK: float* %a)[
 ; CHECK-SAME: {sb:[[SB]]}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
