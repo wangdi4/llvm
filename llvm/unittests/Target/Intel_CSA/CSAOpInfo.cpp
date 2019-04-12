@@ -47,7 +47,7 @@ TEST(CSAOpInfo, GENERIC_INVERTIBLE) {
   std::unique_ptr<TargetMachine> TM = createTargetMachine();
   ASSERT_TRUE(TM);
   std::unique_ptr<CSAInstrInfo> II = createInstrInfo(TM.get());
-  for (auto opcode = 0; opcode < CSA::INSTRUCTION_LIST_END; opcode++) {
+  for (unsigned opcode = 0; opcode < CSA::INSTRUCTION_LIST_END; opcode++) {
     auto generic = II->getGenericOpcode(opcode);
     if (generic == CSA::Generic::INVALID_OP)
       continue;
