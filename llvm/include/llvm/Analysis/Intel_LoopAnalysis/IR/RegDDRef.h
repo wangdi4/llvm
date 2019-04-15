@@ -404,12 +404,11 @@ public:
   }
 
   /// Returns the blob index of the base pointer.
-  unsigned getBasePtrBlobIndex() const {
-    assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
-    return getBaseCE()->getSingleBlobIndex();
-  }
+  /// InvalidBlobIndex is returned if base pointer is undef or null.
+  unsigned getBasePtrBlobIndex() const;
 
   /// Returns the symbase of the base pointer.
+  /// ConstantSymbase is returned if base pointer is undef or null.
   unsigned getBasePtrSymbase() const;
 
   /// Sets the canonical form of the subscript base.
