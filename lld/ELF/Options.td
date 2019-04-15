@@ -203,6 +203,11 @@ defm image_base: Eq<"image-base", "Set the base address">;
 defm init: Eq<"init", "Specify an initializer function">,
   MetaVarName<"<symbol>">;
 
+// INTEL_CUSTOMIZATION
+// Option for -plugin-opt=fintel-advanced-optim
+def plugin_opt_intel_advanced_optim: F<"plugin-opt=fintel-advanced-optim">;
+// END INTEL_CUSTOMIZATION
+
 defm just_symbols: Eq<"just-symbols", "Just link symbols">;
 
 defm keep_unique: Eq<"keep-unique", "Do not fold this symbol during ICF">;

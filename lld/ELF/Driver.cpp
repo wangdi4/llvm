@@ -922,6 +922,12 @@ void LinkerDriver::readConfigs(opt::InputArgList &Args) {
   Config->ZText = getZFlag(Args, "text", "notext", true);
   Config->ZWxneeded = hasZOption(Args, "wxneeded");
 
+#if INTEL_CUSTOMIZATION
+  // Handle -plugin-opt=fintel-advanced-optim
+  if (Args.hasArg(OPT_plugin_opt_intel_advanced_optim))
+    Config->IntelAdvancedOptim = true;
+#endif // INTEL_CUSTOMIZATION
+
   // Parse LTO options.
   if (auto *Arg = Args.getLastArg(OPT_plugin_opt_mcpu_eq))
     parseClangOption(Saver.save("-mcpu=" + StringRef(Arg->getValue())),
