@@ -966,20 +966,38 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
     StringRef SymbolName =
         GlobalValue::dropLLVMManglingEscape(Res.second.IRName);
 
+    bool LinkerAddedSymbol = isLinkerAddedSymbol(SymbolName);
+
     // The only symbols that should be external are main, runtime
-    // library calls and library functions (LibFuncs).
+    // library calls, library functions (LibFuncs) or special symbols
+    // added by the linker.
     bool HiddenSymbol = !((Res.second.VisibleOutsideSummary ||
         Res.second.Partition != GlobalResolution::RegularLTO) &&
         SymbolName != "main" &&
         (Res.second.Libcall == GlobalResolution::LibcallKind::NotLibcall ||
-         Res.second.Libcall == GlobalResolution::LibcallKind::UnknownLibcall));
+         Res.second.Libcall == GlobalResolution::LibcallKind::UnknownLibcall))
+        || LinkerAddedSymbol;
+
+    bool IsLibFunc = (Res.second.Libcall ==
+                         GlobalResolution::LibcallKind::LibFunc ||
+                      Res.second.Libcall ==
+                         GlobalResolution::LibcallKind::RuntimeLibcall);
 
     if (!HiddenSymbol)
       storeVisibleSymbols(SymbolName);
 
     AllSymbolsHidden &= HiddenSymbol;
 
-    AllResolved &= Res.second.ResolvedByLinker;
+    // CMPLRLLVM-656: LLD does two symbol resolution passes: one before LTO
+    // and another after LTO. The first pass will resolve only those symbols
+    // from the user input files. The second pass resolves the symbols from the
+    // libraries. During the LTO process, the symbols from libraries will be
+    // marked as unresolved, but is OK to treat them as resolved since they are
+    // libfuncs. Also, if a symbol is marked as HiddenSymbol then it means
+    // that it can be a libfunc with IR or is a linker added symbol. We will
+    // treat those symbols as resolved.
+    AllResolved &= (Res.second.ResolvedByLinker
+                    || IsLibFunc || HiddenSymbol);
 #endif // INTEL_CUSTOMIZATION
   }
   setWholeProgramRead(AllResolved); // INTEL

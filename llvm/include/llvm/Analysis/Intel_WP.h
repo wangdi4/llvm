@@ -29,6 +29,10 @@ namespace llvm_intel_wp_analysis {
 extern cl::opt<bool> AssumeWholeProgram;
 }
 
+// Return true if the symbol is a special symbol added by
+// the linker, else return false.
+bool isLinkerAddedSymbol(llvm::StringRef SymbolName);
+
 void setWholeProgramRead(bool ProgramRead);
 void setLinkingExecutable(bool LinikingExe);
 

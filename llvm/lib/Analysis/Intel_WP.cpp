@@ -99,6 +99,17 @@ void llvm::setLinkingExecutable(bool LinkingExe) {
   LinkingExecutable = LinkingExe;
 }
 
+// Return true if the symbol is a special symbol added by
+// the linker, else return false.
+bool llvm::isLinkerAddedSymbol(llvm::StringRef SymbolName) {
+  return llvm::StringSwitch<bool>(SymbolName)
+      .Cases("__ehdr_start",
+             "__executable_start",
+             "__dso_handle",
+             true)
+      .Default(false);
+}
+
 // Store if all symbols have hidden visibility. Called during LTO
 // symbols resolution.
 void llvm::setVisibilityHidden(bool AllSymbolsHidden) {

@@ -1195,13 +1195,14 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       // if it returns false then internalize it.
       auto PreserveSymbol = [](const GlobalValue &GV) {
 
-        // If GlobalValue is "main" or has one definition rule (ODR)
-        // then don't internalize it. The ODR symbols are expected to
-        // be merged with equivalent globals and then be removed. If
-        // these symbols aren't removed then it could cause linking
-        // issues (e.g. undefined symbols).
+        // If GlobalValue is "main", has one definition rule (ODR) or
+        // is a special symbol added by the linker then don't internalize
+        // it. The ODR symbols are expected to be merged with equivalent
+        // globals and then be removed. If these symbols aren't removed
+        // then it could cause linking issues (e.g. undefined symbols).
         if (GV.hasWeakODRLinkage() ||
-            llvm::WholeProgramInfo::isMainEntryPoint(GV.getName()))
+            llvm::WholeProgramInfo::isMainEntryPoint(GV.getName()) ||
+            llvm::isLinkerAddedSymbol(GV.getName()))
           return true;
 
         // If the GlobalValue is an alias then we need to make sure that this
@@ -1233,6 +1234,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
           // Aliasee is ODR
           if (Glob->hasWeakODRLinkage())
+            return true;
+
+          // Aliasee is mapped to a linker added symbol
+          if (llvm::isLinkerAddedSymbol(Glob->getName()))
             return true;
 
           // Aliasee is mapped to main
