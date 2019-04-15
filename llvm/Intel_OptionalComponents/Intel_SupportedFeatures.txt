@@ -48,7 +48,7 @@
 # New ISA features usually use ISA_ prefix, e.g. ISA_VNNI.
 # === New ISA features section begin ===
 # INTEL_FEATURE_ISA_BF16
-@ISA_BF16:SECRET@
+@ISA_BF16:SHARED@
 # end INTEL_FEATURE_ISA_BF16
 
 # INTEL_FEATURE_ISA_ENQCMD
