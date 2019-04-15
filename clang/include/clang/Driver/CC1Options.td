@@ -738,6 +738,10 @@ def fno_const_strings : Flag<["-"], "fno-const-strings">,
   HelpText<"Don't use a const qualified type for string literals in C and ObjC">;
 def fno_bitfield_type_align : Flag<["-"], "fno-bitfield-type-align">,
   HelpText<"Ignore bit-field types when aligning structures">;
+// if INTEL_CUSTOMIZATION
+def fopencl_force_vector_abi : Flag<["-"], "fopencl-force-vector-abi">,
+  HelpText<"Disable vector to scalar coercion for OpenCL">;
+// endif INTEL_CUSTOMIZATION
 def ffake_address_space_map : Flag<["-"], "ffake-address-space-map">,
   HelpText<"Use a fake address space map; OpenCL testing purposes only">;
 def faddress_space_map_mangling_EQ : Joined<["-"], "faddress-space-map-mangling=">, MetaVarName<"<yes|no|target>">,

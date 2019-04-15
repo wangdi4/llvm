@@ -2943,6 +2943,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.FastRelaxedMath = Args.hasArg(OPT_cl_fast_relaxed_math);
   Opts.HexagonQdsp6Compat = Args.hasArg(OPT_mqdsp6_compat);
   Opts.FakeAddressSpaceMap = Args.hasArg(OPT_ffake_address_space_map);
+#if INTEL_CUSTOMIZATION
+  Opts.OpenCLForceVectorABI = Args.hasArg(OPT_fopencl_force_vector_abi);
+#endif // INTEL_CUSTOMIZATION
   Opts.ParseUnknownAnytype = Args.hasArg(OPT_funknown_anytype);
   Opts.DebuggerSupport = Args.hasArg(OPT_fdebugger_support);
   Opts.DebuggerCastResultToId = Args.hasArg(OPT_fdebugger_cast_result_to_id);
