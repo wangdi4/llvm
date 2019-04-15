@@ -4220,10 +4220,6 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
           Context, *this, cast<VarDecl>(D),
           CodeGenOpts.NoCommon ||
               (getLangOpts().IntelCompat && getLangOpts().CPlusPlus)))
-#else
-  if (!getLangOpts().CPlusPlus && isa<VarDecl>(D) &&
-      !isVarDeclStrongDefinition(Context, *this, cast<VarDecl>(D),
-                                 CodeGenOpts.NoCommon))
 #endif // INTEL_CUSTOMIZATION
     return llvm::GlobalVariable::CommonLinkage;
 
@@ -5673,7 +5669,7 @@ void CodeGenModule::EmitTargetMetadata() {
 }
 
 #if INTEL_CUSTOMIZATION
-/// \brief Emits metadata in TheModule with the given Name and Value.
+/// Emits metadata in TheModule with the given Name and Value.
 static void AddLLVMDbgMetadata(llvm::Module &TheModule, StringRef Name,
                                StringRef Value) {
   if (Name.empty() || Value.empty())

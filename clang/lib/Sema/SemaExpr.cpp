@@ -13537,7 +13537,7 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
       /* Don't suppress conversion warning for ! 2.3 */
       suppressDiag = true;
     }
-#endif  /* INTEL_CUSTOMIZATION */
+#endif  // INTEL_CUSTOMIZATION
       if (Context.getLangOpts().CPlusPlus) {
         // C++03 [expr.unary.op]p8, C++0x [expr.unary.op]p9:
         // operand contextually converted to bool.
@@ -13580,7 +13580,7 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
       /* Suppress the float-to-bool conversion warnings. */
       Input.get()->setIsCondition();
     }
-#endif  /* INTEL_CUSTOMIZATION */
+#endif // INTEL_CUSTOMIZATION
 
     break;
     } //INTEL

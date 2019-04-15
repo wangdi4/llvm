@@ -441,7 +441,7 @@ static llvm::Value *EmitOverflowIntrinsic(CodeGenFunction &CGF,
 }
 
 #if INTEL_CUSTOMIZATION
-/// \brief Evaluate argument of the call as constant int, checking its value's
+/// Evaluate argument of the call as constant int, checking its value's
 /// constraints.
 ///
 /// \arg CGF The current codegen function.
@@ -2242,7 +2242,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         Builder.CreateCall(FnExpect, {ArgValue, ExpectedValue}, "expval");
     return RValue::get(Result);
   }
-#if defined(INTEL_CUSTOMIZATION)
+#if INTEL_CUSTOMIZATION
   // CQ#373129 - support for __assume_aligned builtin.
   case Builtin::BI__assume_aligned:
     if (!getLangOpts().IntelCompat)
@@ -2364,11 +2364,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                                     llvm::ConstantInt::get(Int32Ty, 0),
                                     /*DefaultForMissing=*/
                                     llvm::ConstantInt::get(Int32Ty, 3));
-#else
-    RW = (E->getNumArgs() > 1) ? EmitScalarExpr(E->getArg(1)) :
-      llvm::ConstantInt::get(Int32Ty, 0);
-    Locality = (E->getNumArgs() > 2) ? EmitScalarExpr(E->getArg(2)) :
-      llvm::ConstantInt::get(Int32Ty, 3);
 #endif // INTEL_CUSTOMIZATION
     Value *Data = llvm::ConstantInt::get(Int32Ty, 1);
     Function *F = CGM.getIntrinsic(Intrinsic::prefetch);
@@ -2477,8 +2472,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     CmpInst::Predicate Pred = (BuiltinID == Builtin::BI__builtin_isinf
                            || BuiltinID == Builtin::BI__builtin_isinff
                            || BuiltinID == Builtin::BI__builtin_isinfl)
-#else
-    CmpInst::Predicate Pred = (BuiltinID == Builtin::BI__builtin_isinf)
 #endif   // INTEL_CUSTOMIZATION
                                   ? CmpInst::FCMP_OEQ
                                   : CmpInst::FCMP_ONE;

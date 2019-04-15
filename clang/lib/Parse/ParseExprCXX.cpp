@@ -511,8 +511,6 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         // CQ#375523 - gimagereader application failed with error:
         // use 'template' keyword to treat 'value' as a dependent template name.
         if (getLangOpts().MicrosoftExt || getLangOpts().IntelCompat)
-#else
-        if (getLangOpts().MicrosoftExt)
 #endif // INTEL_CUSTOMIZATION
           DiagID = diag::warn_missing_dependent_template_keyword;
 

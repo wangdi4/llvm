@@ -759,7 +759,7 @@ void Sema::DiagnoseUnknownTypeName(IdentifierInfo *&II,
     if (getLangOpts().isIntelCompat(LangOptions::AllowMissingTypename)) {
       DiagID = diag::ext_typename_missing;
     } else
-#endif // INTEL_COMPATIBILITY
+#endif // INTEL_CUSTOMIZATION
     if (getLangOpts().MSVCCompat && isMicrosoftMissingTypename(SS, S))
       DiagID = diag::ext_typename_missing;
 
@@ -2043,7 +2043,7 @@ NamedDecl *Sema::LazilyCreateBuiltin(IdentifierInfo *II, unsigned ID,
 }
 
 #if INTEL_CUSTOMIZATION
-/// \brief Filter out any previous declarations that are library-defined builtin
+/// Filter out any previous declarations that are library-defined builtin
 /// functions like 'malloc' or 'exp'.
 static void filterPredefinedLibBuiltins(ASTContext &Context,
                                         LookupResult &Previous) {
@@ -3430,7 +3430,7 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
         New->setType(Old->getType());
         NewQType = Old->getType();
       } else if (ResQT.isNull()) {
-#endif // INTEL_COMPATIBILITY
+#endif // INTEL_CUSTOMIZATION
         if (New->isCXXClassMember() && New->isOutOfLine())
           Diag(New->getLocation(), diag::err_member_def_does_not_match_ret_type)
               << New << New->getReturnTypeSourceRange();
@@ -9374,13 +9374,9 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
         HasExplicitTemplateArgs = false;
       } else {
-#if !INTEL_CUSTOMIZATION
-        // Fix for CQ374168: Regression (assertion failure) on
-        // cfe_iclangCpp/nlu1_8)
         assert((isFunctionTemplateSpecialization ||
                 D.getDeclSpec().isFriendSpecified()) &&
                "should have a 'template<>' for this decl");
-#endif // INTEL_CUSTOMIZATION
         // "friend void foo<>(int);" is an implicit specialization decl.
         isFunctionTemplateSpecialization = true;
       }
@@ -10862,14 +10858,12 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     T = Context.getCanonicalType(FD->getType());
   }
 
-#if !INTEL_CUSTOMIZATION
-  if (getLangOpts().GNUMode && !getLangOpts().CPlusPlus) {
+#if INTEL_CUSTOMIZATION
+  if ((getLangOpts().GNUMode && !getLangOpts().CPlusPlus) ||
+      getLangOpts().IntelCompat) {
     // In C with GNU extensions we allow main() to have non-integer return
     // type, but we should warn about the extension, and we disable the
     // implicit-return-zero rule.
-#else
-  if ((getLangOpts().GNUMode && !getLangOpts().CPlusPlus) ||
-      getLangOpts().IntelCompat) {
     // The same should be done in IntelCompat mode as well.
     // See CQ#364427 for details.
 #endif  // INTEL_CUSTOMIZATION
@@ -15408,8 +15402,6 @@ CreateNewDecl:
           else
             DiagID = diag::err_forward_ref_enum;
         }
-#else
-          DiagID = diag::err_forward_ref_enum;
 #endif // INTEL_CUSTOMIZATION
         Diag(Loc, DiagID);
       }

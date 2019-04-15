@@ -2131,7 +2131,7 @@ QualType Sema::BuildWritePipeType(QualType T, SourceLocation Loc) {
 }
 
 #if INTEL_CUSTOMIZATION
-/// \brief Build a Channel type.
+/// Build a Channel type.
 ///
 /// \param T The type to which we'll be building a Channel.
 ///
@@ -2146,7 +2146,7 @@ QualType Sema::BuildChannelType(QualType T, SourceLocation Loc) {
   return Context.getChannelType(T);
 }
 
-/// \brief Build an Arbitrary Precision Integer type.
+/// Build an Arbitrary Precision Integer type.
 ///
 /// \param T The underlying type for the ArbPrecInt
 ///
@@ -5610,9 +5610,6 @@ namespace {
       assert(DS.getTypeSpecType() == DeclSpec::TST_underlyingType ||
              DS.getTypeSpecType() == DeclSpec::TST_bases ||
              DS.getTypeSpecType() == DeclSpec::TST_directBases);
-#else
-      // FIXME: This holds only because we only have one unary transform.
-      assert(DS.getTypeSpecType() == DeclSpec::TST_underlyingType);
 #endif // INTEL_CUSTOMIZATION
       TL.setKWLoc(DS.getTypeSpecTypeLoc());
       TL.setParensRange(DS.getTypeofParensRange());

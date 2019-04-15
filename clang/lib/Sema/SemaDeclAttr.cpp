@@ -5005,9 +5005,6 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     D->addAttr(::new (S.Context) AlignedAttr(
         AL.getRange(), S.Context, true, nullptr, /*IsOffsetExpr=*/true,
         /*Offset=*/nullptr, AL.getAttributeSpellingListIndex()));
-#else
-    D->addAttr(::new (S.Context) AlignedAttr(AL.getRange(), S.Context,
-               true, nullptr, AL.getAttributeSpellingListIndex()));
 #endif // INTEL_CUSTOMIZATION
     return;
   }
@@ -5040,9 +5037,6 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   S.AddAlignedAttr(AL.getRange(), D, E, Offset,
                    AL.getAttributeSpellingListIndex(),
                    AL.isPackExpansion());
-#else
-  S.AddAlignedAttr(AL.getRange(), D, E, AL.getAttributeSpellingListIndex(),
-                   AL.isPackExpansion());
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -5052,10 +5046,6 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
                           unsigned SpellingListIndex, bool IsPackExpansion) {
   AlignedAttr TmpAttr(AttrRange, Context, true, E, /*IsOffsetExpr=*/true,
                       Offset, SpellingListIndex);
-#else
-void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                          unsigned SpellingListIndex, bool IsPackExpansion) {
-  AlignedAttr TmpAttr(AttrRange, Context, true, E, SpellingListIndex);
 #endif // INTEL_CUSTOMIZATION
   SourceLocation AttrLoc = AttrRange.getBegin();
 
@@ -5193,9 +5183,6 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
   AlignedAttr *AA = ::new (Context)
       AlignedAttr(AttrRange, Context, true, ICE.get(), /*IsOffsetExpr=*/true,
                   ICEOffset.get(), SpellingListIndex);
-#else
-  AlignedAttr *AA = ::new (Context) AlignedAttr(AttrRange, Context, true,
-                                                ICE.get(), SpellingListIndex);
 #endif // INTEL_CUSTOMIZATION
   AA->setPackExpansion(IsPackExpansion);
   D->addAttr(AA);
@@ -5211,9 +5198,6 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *TS,
   AlignedAttr *AA = ::new (Context)
       AlignedAttr(AttrRange, Context, false, TS, /*IsOffsetExpr=*/true,
                   /*Offset=*/nullptr, SpellingListIndex);
-#else
-  AlignedAttr *AA = ::new (Context) AlignedAttr(AttrRange, Context, false, TS,
-                                                SpellingListIndex);
 #endif // INTEL_CUSTOMIZATION
   AA->setPackExpansion(IsPackExpansion);
   D->addAttr(AA);

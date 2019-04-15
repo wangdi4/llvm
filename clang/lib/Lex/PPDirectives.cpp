@@ -47,7 +47,8 @@
 #include <new>
 #include <string>
 #include <utility>
-#if INTEL_CUSTOMIZATION && defined(_WIN32)
+#if INTEL_CUSTOMIZATION
+#ifdef _WIN32
 #include "clang/Lex/HeaderSearchOptions.h"
 #include "clang/Lex/PreprocessorOptions.h"
 #include "llvm/Support/Program.h"
@@ -55,6 +56,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
@@ -1138,7 +1140,7 @@ void Preprocessor::HandleLineDirective() {
     if (getLangOpts().IntelCompat)
       Diag(StrTok, diag::warn_pp_line_invalid_filename);
     else
-#endif // INTEL_CUSTOMZIATION
+#endif // INTEL_CUSTOMIZATION
     Diag(StrTok, diag::err_pp_line_invalid_filename);
     DiscardUntilEndOfDirective();
     return;
@@ -1384,8 +1386,6 @@ void Preprocessor::HandleIdentSCCSDirective(Token &Tok) {
     if (getLangOpts().IntelCompat)
       Diag(StrTok, diag::warn_pp_malformed_ident);
     else
-#else
-    Diag(StrTok, diag::err_pp_malformed_ident);
 #endif // INTEL_CUSTOMIZATION
     if (StrTok.isNot(tok::eod))
       DiscardUntilEndOfDirective();
@@ -2145,7 +2145,8 @@ void Preprocessor::HandleMicrosoftImportDirective(Token &Tok) {
   DiscardUntilEndOfDirective();
 }
 
-#if INTEL_CUSTOMIZATION && defined(_WIN32)
+#if INTEL_CUSTOMIZATION
+#ifdef _WIN32
 
 // Look up Subkey in HKEY_CLASSES_ROOT.  If found copy the value to the buffer
 // pointed to by Result and return true.  The result should be limited to
@@ -2616,17 +2617,20 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
     EnterSourceFile(FID, /*Dir=*/nullptr, FilenameTok.getLocation());
   }
 }
-#endif // INTEL_CUSTOMIZATION && defined(_WIN32)
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
 
 /// HandleImportDirective - Implements \#import.
 ///
 void Preprocessor::HandleImportDirective(SourceLocation HashLoc,
                                          Token &ImportTok) {
   if (!LangOpts.ObjC) {  // #import is standard for ObjC.
-#if INTEL_CUSTOMIZATION && defined(_WIN32)
+#if INTEL_CUSTOMIZATION
+#ifdef _WIN32
     if (LangOpts.IntelMSCompat)
       return HandleMicrosoftImportIntelDirective(HashLoc, ImportTok);
-#endif // INTEL_CUSTOMIZATION && defined(_WIN32)
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
     if (LangOpts.MSVCCompat)
       return HandleMicrosoftImportDirective(ImportTok);
     Diag(ImportTok, diag::ext_pp_import_directive);

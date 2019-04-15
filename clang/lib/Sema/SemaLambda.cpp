@@ -1428,9 +1428,6 @@ static ExprResult performLambdaVarCaptureInitialization(
                               ? ImplicitCaptureLoc
                               : Loc),
       Var);
-#else
-  ExprResult RefResult = S.BuildDeclarationNameExpr(
-      CXXScopeSpec(), DeclarationNameInfo(Var->getDeclName(), Loc), Var);
 #endif // INTEL_CUSTOMIZATION
   if (RefResult.isInvalid())
     return ExprError();

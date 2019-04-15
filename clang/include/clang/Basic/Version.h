@@ -26,7 +26,7 @@
 #define GNU_MAKE_VERSION_STRING2(X) #X
 
 #ifdef __GNUC_PATCHLEVEL__
-/// \brief A string that describes the gnu version number, e.g., "1.0".
+/// A string that describes the gnu version number, e.g., "1.0".
 #define GNU_MAKE_VERSION_STRING(X,Y,Z) GNU_MAKE_VERSION_STRING2(X.Y.Z)
 #define GNU_VERSION_STRING \
   GNU_MAKE_VERSION_STRING(__GNUC__,__GNUC_MINOR__, __GNUC_PATCHLEVEL__)

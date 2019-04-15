@@ -679,8 +679,6 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
     case 'I':
 #if INTEL_CUSTOMIZATION
       if (!isLong && !isLongLong && !isFloat && !isFloat128) {
-#else
-      if (PP.getLangOpts().MicrosoftExt) {
 #endif  // INTEL_CUSTOMIZATION
         if (isLong || isLongLong || MicrosoftInteger)
           break;
