@@ -2226,7 +2226,10 @@ private:
     } else if (isa<ExtractValueInst>(V)) {
       // FIXME: Also analyze extract value instructions.
     }
-
+    else if (isa<ExtractElementInst>(V)) {
+      // FIXME: Also analyze extract element instructions when an instruction
+      // visitor is created for them.
+    }
     // If there were no unresolved dependencies, mark the info as analyzed.
     if (!Info.isPartialAnalysis())
       Info.setAnalyzed();
@@ -2867,13 +2870,14 @@ private:
     assert(isa<GlobalVariable>(V) || isa<Argument>(V) || isa<AllocaInst>(V) ||
            isa<LoadInst>(V) || isa<CallInst>(V) || isa<GetElementPtrInst>(V) ||
            isa<Constant>(V) || isa<GEPOperator>(V) || isa<InvokeInst>(V) ||
-           isa<ExtractValueInst>(V));
+           isa<ExtractValueInst>(V) || isa<ExtractElementInst>(V));
 
-    // Note that ExtractValueInst and InvokeInst are not handled by the main
-    // instruction visitor, so they will cause UnhandledUse safety conditions
-    // to be set. They are added to the assert here to prevent it from firing
-    // while compiling programs that we do not expect to be able to optimize.
-    // Additional implementation would be necessary to handle these correctly.
+    // Note that ExtractValueInst, ExtractElementInst and InvokeInst are not
+    // handled by the main instruction visitor, so they will cause UnhandledUse
+    // safety conditions to be set. They are added to the assert here to prevent
+    // it from firing while compiling programs that we do not expect to be able
+    // to optimize. Additional implementation would be necessary to handle these
+    // correctly.
 
     return false;
   }

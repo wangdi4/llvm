@@ -135,6 +135,13 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
     return ArrayType::get(ReplTy, SrcTy->getArrayNumElements());
   }
 
+  if (SrcTy->isVectorTy()) {
+    Type *ReplTy = computeReplacementType(SrcTy->getVectorElementType());
+    if (!ReplTy)
+      return nullptr;
+    return VectorType::get(ReplTy, SrcTy->getVectorNumElements());
+  }
+
   if (auto *FunctionTy = dyn_cast<FunctionType>(SrcTy)) {
     SmallVector<Type *, 8> DataTypes;
 
