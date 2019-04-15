@@ -10164,16 +10164,6 @@ public:
   };
 
 #if INTEL_CUSTOMIZATION
-  enum ReferenceInitStatus {
-    RIS_Allowed = 0,
-    RIS_Extension,
-    RIS_Forbidden
-  };
-
-  ReferenceInitStatus
-  GetReferenceInitStatus(Expr *Init, bool isLValueRef, QualType T,
-                         Qualifiers Quals,
-                         Sema::ReferenceCompareResult RefRelationships);
   QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
                                    SourceLocation Loc, bool IsCompAssign,
                                    bool IsShift = false);
