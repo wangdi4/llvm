@@ -382,40 +382,26 @@ void DiagnosticsEngine::setSeverity(diag::kind Diag, diag::Severity Map,
 
 bool DiagnosticsEngine::setSeverityForGroup(diag::Flavor Flavor,
                                             StringRef Group, diag::Severity Map,
-                                            SourceLocation Loc, // INTEL
-                                            bool IgnoreIgnored) { // INTEL
+                                            SourceLocation Loc) {
   // Get the diagnostics in this group.
   SmallVector<diag::kind, 256> GroupDiags;
   if (Diags->getDiagnosticsInGroup(Flavor, Group, GroupDiags))
     return true;
 
   // Set the mapping.
-#if INTEL_CUSTOMIZATION
-  for (diag::kind Diag : GroupDiags) {
-    // If requested (which happens in IntelCompat mode at the moment), don't
-    // transform "ignored" warnings into errors. This is what GCC does and so
-    // should we. CQ#374963.
-    if (IgnoreIgnored && (Map == diag::Severity::Error)) {
-      DiagnosticMapping &Info = GetCurDiagState()->getOrAddMapping(Diag);
-      if (Info.getSeverity() != diag::Severity::Ignored)
-        setSeverity(Diag, Map, Loc);
-    } else
-      setSeverity(Diag, Map, Loc);
-  }
-#endif // INTEL_CUSTOMIZATION
+  for (diag::kind Diag : GroupDiags)
+    setSeverity(Diag, Map, Loc);
 
   return false;
 }
 
-bool DiagnosticsEngine::setDiagnosticGroupWarningAsError( // INTEL
-    StringRef Group, bool Enabled, // INTEL
-    bool IgnoreIgnored) {          // INTEL
+bool DiagnosticsEngine::setDiagnosticGroupWarningAsError(StringRef Group,
+                                                         bool Enabled) {
   // If we are enabling this feature, just set the diagnostic mappings to map to
   // errors.
   if (Enabled)
     return setSeverityForGroup(diag::Flavor::WarningOrError, Group,
-                               diag::Severity::Error, // INTEL
-                               SourceLocation(), IgnoreIgnored); // INTEL
+                               diag::Severity::Error);
 
   // Otherwise, we want to set the diagnostic mapping's "no Werror" bit, and
   // potentially downgrade anything already mapped to be a warning.

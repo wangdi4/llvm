@@ -1827,9 +1827,7 @@ bool ASTUnit::Reparse(std::shared_ptr<PCHContainerOperations> PCHContainerOps,
   // Clear out the diagnostics state.
   FileMgr.reset();
   getDiagnostics().Reset();
-  ProcessWarningOptions(getDiagnostics(),                         // INTEL
-                        Invocation->getDiagnosticOpts(),          // INTEL
-                        LangOpts ? LangOpts->IntelCompat : true); // INTEL
+  ProcessWarningOptions(getDiagnostics(), Invocation->getDiagnosticOpts());
   if (OverrideMainBuffer)
     getDiagnostics().setNumWarnings(NumWarningsInPreamble);
 
@@ -2163,8 +2161,7 @@ void ASTUnit::CodeComplete(
   CaptureDroppedDiagnostics Capture(true,
                                     Clang->getDiagnostics(),
                                     &StoredDiagnostics, nullptr);
-  ProcessWarningOptions(Diag, Inv.getDiagnosticOpts(), // INTEL
-                        LangOpts.IntelCompat); // INTEL
+  ProcessWarningOptions(Diag, Inv.getDiagnosticOpts());
   
   // Create the target instance.
   Clang->setTarget(TargetInfo::CreateTargetInfo(
