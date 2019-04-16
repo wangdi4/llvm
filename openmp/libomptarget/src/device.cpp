@@ -177,7 +177,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     if (hp == HT.HstPtrBegin && hp + Size == HT.HstPtrEnd)
       subtp = (void *)HT.TgtPtrBegin;
     else
-      subtp = RTL->data_sub_alloc(RTLDeviceID, (void *)HT.TgtPtrBegin, Size,
+      subtp = data_sub_alloc((void *)HT.TgtPtrBegin, Size,
                                   (uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     if (subtp) {
       rc = subtp;
@@ -235,7 +235,7 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     if (hp == HT.HstPtrBegin && hp + Size == HT.HstPtrEnd)
       subtp = (void *)HT.TgtPtrBegin;
     else
-      subtp = RTL->data_sub_alloc(RTLDeviceID, (void *)HT.TgtPtrBegin, Size,
+      subtp = data_sub_alloc((void *)HT.TgtPtrBegin, Size,
                                   (uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     if (subtp) {
       rc = subtp;
