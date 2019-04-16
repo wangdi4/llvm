@@ -1327,12 +1327,12 @@ static bool isPermissivePointerConversion(QualType FromType,
   if (FromType->isIntegralOrEnumerationType() && ToType->isEnumeralType())
     return true;
 
-  // Any pointer to any integral type.
-  if (FromType->isPointerType() && ToType->isIntegralOrEnumerationType())
+  // Any pointer to any integral (but not enum) type.
+  if (FromType->isPointerType() && ToType->isIntegralType(Context))
     return true;
 
   // Any integral type to any pointer.
-  if (FromType->isIntegralOrEnumerationType() && ToType->isPointerType())
+  if (FromType->isIntegralType(Context) && ToType->isPointerType())
     return true;
 
   // Only pointer cases left.
@@ -1342,9 +1342,48 @@ static bool isPermissivePointerConversion(QualType FromType,
   QualType FromPointeeType = FromType->getAs<PointerType>()->getPointeeType();
   QualType ToPointeeType = ToType->getAs<PointerType>()->getPointeeType();
 
-  // It seems that GCC only allow conversion between pointer to compatible types
-  // but ICC allows almost anything except for conversion from pointer to one
-  // struct to pointer to another struct.
+  if (FromPointeeType->isPointerType() && ToPointeeType->isPointerType())
+    return isPermissivePointerConversion(FromPointeeType, ToPointeeType, Context);
+
+  // If the ToType is const-qualified and the FromType is not,
+  // a temporary is created, so disallow this conversion.
+  if (ToType.isConstQualified() && !FromType.isConstQualified())
+    return false;
+
+  // Either from a void* type or to a void* type
+  if (ToPointeeType->isVoidType() || FromPointeeType->isVoidType())
+    return true;
+
+  // Conversion from one function pointer to another
+  if (ToPointeeType->isFunctionType() && FromPointeeType->isFunctionType())
+    return true;
+
+  if (FromPointeeType->isCharType() && ToPointeeType->isIntegralType(Context))
+    return false;
+
+  if (FromPointeeType->isCharType() && ToPointeeType->isCharType())
+    return true;
+
+  if (ToPointeeType->isIntegralType(Context) &&
+      FromPointeeType->isIntegralType(Context)) {
+    const bool FromSigned = FromPointeeType->isSignedIntegerOrEnumerationType();
+    const unsigned FromWidth = Context.getIntWidth(FromPointeeType);
+    const bool ToSigned = ToPointeeType->isSignedIntegerOrEnumerationType();
+    const unsigned ToWidth = Context.getIntWidth(ToPointeeType);
+    // gcc allows a conversion from a pointer-to-a-wider integral type to
+    // a pointer-to-a-narrower integral type
+    //
+    // And gcc allows conversion from a pointer-to-a-signed type to
+    // a pointer-to-an-unsigned type
+    if (ToWidth >= FromWidth || (!ToSigned && FromSigned))
+      return true;
+  }
+
+  // Allow the conversion only if the types are compatible
+  if (!Context.typesAreCompatible(ToPointeeType, FromPointeeType))
+    return false;
+
+  // Allow the conversion if either is not a pointer-to-struct type
   if (!FromPointeeType->isRecordType() || !ToPointeeType->isRecordType())
     return true;
 

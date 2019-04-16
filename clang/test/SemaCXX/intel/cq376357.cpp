@@ -46,7 +46,7 @@ template<class T1, class T2>
 T1 fx(T2 t) {
   T1 a = t; // initialization
   // expected-warning@-1{{illegal implicit type conversion from 'void *' to 'int *' allowed in -fpermissive mode}}
-  // expected-warning@-2{{illegal implicit type conversion from 'long *' to 'int *' allowed in -fpermissive mode}}
+  // expected-error@-2{{cannot initialize a variable of type 'int *' with an lvalue of type 'long *'}}
   // expected-warning@-3{{illegal implicit type conversion from 'unsigned int *' to 'int *' allowed in -fpermissive mode}}
   // expected-warning@-4{{illegal implicit type conversion from 'int (**)(char, char)' to 'void (**)(int)' allowed in -fpermissive mode}}
   // expected-warning@-5{{illegal implicit type conversion from 'int (*)(char, char)' to 'void (*)(int)' allowed in -fpermissive mode}}
@@ -55,7 +55,7 @@ T1 fx(T2 t) {
   // expected-warning@-8{{illegal implicit type conversion from 'int' to 'E' allowed in -fpermissive mode}}
   a = t; // assignment
   // expected-warning@-1{{illegal implicit type conversion from 'void *' to 'int *' allowed in -fpermissive mode}}
-  // expected-warning@-2{{illegal implicit type conversion from 'long *' to 'int *' allowed in -fpermissive mode}}
+
   // expected-warning@-3{{illegal implicit type conversion from 'unsigned int *' to 'int *' allowed in -fpermissive mode}}
   // expected-warning@-4{{illegal implicit type conversion from 'int (**)(char, char)' to 'void (**)(int)' allowed in -fpermissive mode}}
   // expected-warning@-5{{illegal implicit type conversion from 'int (*)(char, char)' to 'void (*)(int)' allowed in -fpermissive mode}}
@@ -65,16 +65,18 @@ T1 fx(T2 t) {
   void foo(T1);
   foo(t); // pass as a parameter
   // expected-warning@-1{{illegal implicit type conversion from 'void *' to 'int *' allowed in -fpermissive mode}}
-  // expected-warning@-2{{illegal implicit type conversion from 'long *' to 'int *' allowed in -fpermissive mode}}
+ 
   // expected-warning@-3{{illegal implicit type conversion from 'unsigned int *' to 'int *' allowed in -fpermissive mode}}
   // expected-warning@-4{{illegal implicit type conversion from 'int (**)(char, char)' to 'void (**)(int)' allowed in -fpermissive mode}}
   // expected-warning@-5{{illegal implicit type conversion from 'int (*)(char, char)' to 'void (*)(int)' allowed in -fpermissive mode}}
   // expected-warning@-6{{illegal implicit type conversion from 'short *' to 'char' allowed in -fpermissive mode}}
   // expected-warning@-7{{illegal implicit type conversion from 'short' to 'int *' allowed in -fpermissive mode}}
   // expected-warning@-8{{illegal implicit type conversion from 'int' to 'E' allowed in -fpermissive mode}}
+  // expected-error@-9{{cannot initialize a parameter of type 'int *' with an lvalue of type 'long *'}}
+  // expected-note@-11{{passing argument to parameter here}}
   return t; // return by value
   // expected-warning@-1{{illegal implicit type conversion from 'void *' to 'int *' allowed in -fpermissive mode}}
-  // expected-warning@-2{{illegal implicit type conversion from 'long *' to 'int *' allowed in -fpermissive mode}}
+  // expected-error@-2{{cannot initialize return object of type 'int *' with an lvalue of type 'long *'}}
   // expected-warning@-3{{illegal implicit type conversion from 'unsigned int *' to 'int *' allowed in -fpermissive mode}}
   // expected-warning@-4{{illegal implicit type conversion from 'int (**)(char, char)' to 'void (**)(int)' allowed in -fpermissive mode}}
   // expected-warning@-5{{illegal implicit type conversion from 'int (*)(char, char)' to 'void (*)(int)' allowed in -fpermissive mode}}
@@ -92,7 +94,7 @@ int* f5(unsigned* pu) {
   // expected-warning@-1{{illegal implicit type conversion from 'unsigned int *' to 'int *' allowed in -fpermissive mode}}
 }
 int* f5_test(unsigned* pu) {
-  fx<int*, long*>(0); // ICC only
+  fx<int*, long*>(0);
   // expected-note@-1{{in instantiation of function template specialization 'fx<int *, long *>' requested here}}
   return fx<int*, unsigned*>(pu);
   // expected-note@-1{{in instantiation of function template specialization 'fx<int *, unsigned int *>' requested here}}
@@ -127,9 +129,11 @@ enum E {
 };
 int* f8(int) {
   char* p = e1;
-  // expected-warning@-1{{illegal implicit type conversion from 'E' to 'char *' allowed in -fpermissive mode}}
-  return p + e1;
-  // expected-warning@-1{{illegal implicit type conversion from 'char *' to 'int *' allowed in -fpermissive mode}}
+  // expected-error@-1{{cannot initialize a variable of type 'char *' with an rvalue of type 'E'}}
+  char a = 'a';
+  char *q = &a;
+  return q;
+  // expected-error@-1{{cannot initialize return object of type 'int *' with an lvalue of type 'char *'}}
 }
 
 struct A {
