@@ -36,6 +36,24 @@ static cl::opt<bool> PrintCandidates("dtrans-transpose-print-candidates",
 
 namespace {
 
+// Maximum rank for a Fortran array.
+const uint32_t FortranMaxRank = 9;
+
+// Argument positions for parameters to subscript intrinsic call.
+const unsigned RankOpNum = 0;
+const unsigned LBOpNum = 1;
+const unsigned StrideOpNum = 2;
+const unsigned PtrOpNum = 3;
+
+// Type to store a Function and an argument number
+using FuncArgPosPair = std::pair<Function *, unsigned int>;
+using FuncArgPosPairSet = SmallSet<FuncArgPosPair, 8>;
+using FuncArgPosPairSetIter = SmallSet<FuncArgPosPair, 8>::const_iterator;
+
+// Type to store a collection of CallInst pointers.
+using CallInstSet = SmallPtrSet<CallInst *, 16>;
+using CallInstSetIter = CallInstSet::const_iterator;
+
 // Helper routine to check if a CallInst is to llvm.intel.subscript.
 bool isSubscriptIntrinsicCall(const CallInst &CI) {
   const Function *F = CI.getCalledFunction();
@@ -70,8 +88,48 @@ Optional<unsigned int> getArgumentPosition(const CallInst &CI,
   return Pos;
 }
 
-// Maximum rank for a Fortran array.
-const uint32_t FortranMaxRank = 9;
+// Check for arguments of a subscript intrinsic call for the expected values.
+// The intrinsic call is declared as:
+//    declare <ty>* @llvm.intel.subscript...(i8 <rank>, <ty> <lb>,
+//                                           <ty> <stride>, <ty>* <base>,
+//                                           <ty> <index>)
+//
+// Return 'true' if call has the expected values for the Base, and Rank.
+// If the LowerBound and Stride parameters are supplied, also check those.
+//
+bool isValidUseOfSubscriptCall(
+    const CallInst &CI, const Value &Base, uint32_t ArrayRank, uint32_t Rank,
+    Optional<uint64_t> LowerBound = Optional<uint64_t>(),
+    Optional<uint64_t> Stride = Optional<uint64_t>()) {
+  DEBUG_WITH_TYPE(DEBUG_ANALYSIS, {
+    dbgs().indent((ArrayRank - Rank) * 2 + 4);
+    dbgs() << "Checking call: " << CI << "\n";
+  });
+
+  if (!isSubscriptIntrinsicCall(CI))
+    return false;
+
+  if (CI.getArgOperand(PtrOpNum) != &Base)
+    return false;
+
+  auto RankVal = dyn_cast<ConstantInt>(CI.getArgOperand(RankOpNum));
+  if (!RankVal || RankVal->getLimitedValue() != Rank)
+    return false;
+
+  if (LowerBound) {
+    auto LBVal = dyn_cast<ConstantInt>(CI.getArgOperand(LBOpNum));
+    if (!LBVal || LBVal->getLimitedValue() != *LowerBound)
+      return false;
+  }
+
+  if (Stride) {
+    auto StrideVal = dyn_cast<ConstantInt>(CI.getArgOperand(StrideOpNum));
+    if (!StrideVal || StrideVal->getLimitedValue() != *Stride)
+      return false;
+  }
+
+  return true;
+}
 
 // This class is used to collect information about a single field address that
 // points to one of the dope vector fields. This is used during dope vector
@@ -316,11 +374,115 @@ public:
     return nullptr;
   }
 
+  // Check whether information is available about the stride for the specified
+  // dimension.
+  bool hasStrideField(uint32_t Dim) const {
+    if (StrideAddr.size() <= Dim)
+      return false;
+    return StrideAddr[Dim].hasFieldAddr();
+  }
+
+  // Get the stride field information for the specified dimension.
+  const DopeVectorFieldUse &getStrideField(uint32_t Dim) const {
+    assert(hasStrideField(Dim) && "Invalid request");
+    return StrideAddr[Dim];
+  }
+
   Value *getExtent(uint32_t Dim) {
     assert(ExtentAddr.size() > Dim && "Invalid dimension");
     if (ExtentAddr[Dim].hasFieldAddr())
       return ExtentAddr[Dim].getSingleValue();
     return nullptr;
+  }
+
+  // Check if any field of the dope vector may be written.
+  bool checkMayBeModified() const {
+    if (!IsValid)
+      return true;
+
+    if (PtrAddr.getIsBottom() || ElementSizeAddr.getIsBottom() ||
+        CodimAddr.getIsBottom() || FlagsAddr.getIsBottom() ||
+        DimensionsAddr.getIsBottom())
+      return true;
+
+    if (PtrAddr.getIsWritten() || ElementSizeAddr.getIsWritten() ||
+        CodimAddr.getIsWritten() || FlagsAddr.getIsWritten() ||
+        DimensionsAddr.getIsWritten())
+      return true;
+
+    for (const auto &Field : LowerBoundAddr)
+      if (Field.getIsBottom() || Field.getIsWritten())
+        return true;
+
+    for (const auto &Field : StrideAddr)
+      if (Field.getIsBottom() || Field.getIsWritten())
+        return true;
+
+    for (const auto &Field : ExtentAddr)
+      if (Field.getIsBottom() || Field.getIsWritten())
+        return true;
+
+    return false;
+  }
+
+  // Populate \p ValueSet with all the objects that hold the value for the
+  // specific dope vector field in \p Field. This set contains all the LoadInst
+  // instructions that were identified as loading the value of the field, and
+  // all the PHI node and SelectInst instructions the value gets moved to.
+  // Returns 'false' if a PHI/Select gets a value that did not originate from a
+  // load of the field. Otherwise, returns 'true'.
+  bool getAllValuesHoldingFieldValue(const DopeVectorFieldUse &Field,
+                                     SmallPtrSetImpl<Value *> &ValueSet) const {
+    // Prime a worklist with all the direct loads of the field.
+    SmallVector<Value *, 16> Worklist;
+    llvm::copy(Field.loads(), std::back_inserter(Worklist));
+
+    // Populate the set of objects containing the value loaded.
+    while (!Worklist.empty()) {
+      Value *V = Worklist.back();
+      Worklist.pop_back();
+      if (!ValueSet.insert(V).second)
+        continue;
+
+      for (auto *U : V->users())
+        if ((isa<SelectInst>(U) || isa<PHINode>(U)) && !ValueSet.count(U))
+          Worklist.push_back(U);
+    }
+
+    // Verify all the source nodes for PHI nodes and select instructions
+    // originate from the field load (or another PHI/select).
+    SmallVector<Value *, 4> IncomingVals;
+    for (auto *V : ValueSet) {
+      IncomingVals.clear();
+      if (auto *Sel = dyn_cast<SelectInst>(V)) {
+        IncomingVals.push_back(Sel->getTrueValue());
+        IncomingVals.push_back(Sel->getFalseValue());
+      } else if (auto *PHI = dyn_cast<PHINode>(V)) {
+        for (Value *Val : PHI->incoming_values())
+          IncomingVals.push_back(Val);
+      }
+
+      for (auto *ValIn : IncomingVals)
+        if (!ValueSet.count(ValIn)) {
+          DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                          dbgs() << "Failed during check of:\n"
+                                 << *V
+                                 << "\nExpected PHI/select source to also be "
+                                    "in field value set: "
+                                 << *ValIn << "\n");
+          return false;
+        }
+    }
+
+    return true;
+  }
+
+  // Get the number of calls the dope vector is passed to
+  uint64_t getNumberCalledFunctions() const { return FuncsWithDVParam.size(); }
+
+  // Accessor for the set of calls taking dope vector as parameter.
+  iterator_range<FuncArgPosPairSetIter> funcsWithDVParam() const {
+    return iterator_range<FuncArgPosPairSetIter>(FuncsWithDVParam);
   }
 
   // Walk the uses of the dope vector object to collect information about all
@@ -423,8 +585,13 @@ public:
           return;
         }
 
-        // Note the function for later analysis.
+        // Save the function for later analysis.
         FuncsWithDVParam.insert({F, *ArgPos});
+      } else if (isa<StoreInst>(DVUser)) {
+        // TODO: Check if it is being stored to an uplevel var. For now, set
+        // invalid.
+        setInvalid();
+        return;
       } else {
         DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
                         dbgs() << "Unsupported use of dope vector object\n"
@@ -828,7 +995,7 @@ private:
   // Set of functions that take a dope vector parameter that need to be
   // checked to ensure there is no modification to the dope vector within
   // the function. Pair is: { Function, Argument position }
-  SmallSet<std::pair<Function *, unsigned int>, 8> FuncsWithDVParam;
+  FuncArgPosPairSet FuncsWithDVParam;
 };
 
 // This is the class that manages the analysis and transformation
@@ -857,6 +1024,7 @@ public:
 
     DopeVectorInstances.clear();
     SubscriptCalls.clear();
+    DVSubscriptCalls.clear();
   }
 
   // This function analyzes a candidate to check whether all uses of the
@@ -976,7 +1144,21 @@ public:
       }
     }
 
-    // TODO: Analysis of the dope vectors passed to functions will go here.
+    if (IsValid) {
+      // Analyze all the functions that the dope vector was passed to. Collate
+      // them to a single set in case the function was called multiple times.
+      FuncArgPosPairSet FuncsWithDopeVector;
+      for (DopeVectorAnalyzer *DVA : DopeVectorInstances) {
+        auto Range = DVA->funcsWithDVParam();
+        FuncsWithDopeVector.insert(Range.begin(), Range.end());
+      }
+
+      for (auto &FuncPos : FuncsWithDopeVector)
+        if (!analyzeDopeVectorCallArgument(*FuncPos.first, FuncPos.second)) {
+          IsValid = false;
+          break;
+        }
+    }
 
     LLVM_DEBUG(dbgs() << "Candidate " << (IsValid ? "PASSED" : "FAILED")
                       << " safety tests: " << GV->getName() << "\n");
@@ -1001,7 +1183,8 @@ public:
         IsValidUseForRank = [this, &IsValidUseForRank](const CallInst &Call,
                                                        const Value &Ptr,
                                                        uint32_t Rank) -> bool {
-      if (!isValidUseOfSubscriptCall(Call, Ptr, Rank, 1, Strides[Rank]))
+      if (!isValidUseOfSubscriptCall(Call, Ptr, ArrayRank, Rank, 1,
+                                     Strides[Rank]))
         return false;
 
       // Verify the subscript result is only fed to another subscript call. In
@@ -1024,49 +1207,6 @@ public:
     // result is fed to. Note, subscript call rank parameter value starts at 0,
     // not 1.
     return IsValidUseForRank(CI, BasePtr, ArrayRank - 1);
-  }
-
-  // Check for arguments of a subscript intrinsic call for the expected values.
-  // The intrinsic call is declared as:
-  //    declare <ty>* @llvm.intel.subscript...(i8 <rank>, <ty> <lb>,
-  //                                           <ty> <stride>, <ty>* <base>,
-  //                                           <ty> <index>)
-  //
-  // Return 'true' if call has the expected values for the Base, Rank,
-  // LowerBound and Stride parameters.
-  //
-  bool isValidUseOfSubscriptCall(const CallInst &CI, const Value &Base,
-                                 uint32_t Rank, uint64_t LowerBound,
-                                 uint64_t Stride) {
-    const unsigned RankOpNum = 0;
-    const unsigned LBOpNum = 1;
-    const unsigned StrideOpNum = 2;
-    const unsigned PtrOpNum = 3;
-
-    DEBUG_WITH_TYPE(DEBUG_ANALYSIS, {
-      dbgs().indent((ArrayRank - Rank) * 2 + 4);
-      dbgs() << "Checking call: " << CI << "\n";
-    });
-
-    if (!isSubscriptIntrinsicCall(CI))
-      return false;
-
-    if (CI.getArgOperand(PtrOpNum) != &Base)
-      return false;
-
-    auto RankVal = dyn_cast<ConstantInt>(CI.getArgOperand(RankOpNum));
-    if (!RankVal || RankVal->getLimitedValue() != Rank)
-      return false;
-
-    auto LBVal = dyn_cast<ConstantInt>(CI.getArgOperand(LBOpNum));
-    if (!LBVal || LBVal->getLimitedValue() != LowerBound)
-      return false;
-
-    auto StrideVal = dyn_cast<ConstantInt>(CI.getArgOperand(StrideOpNum));
-    if (!StrideVal || StrideVal->getLimitedValue() != Stride)
-      return false;
-
-    return true;
   }
 
   // The only supported use of storing the address of the array's base pointer
@@ -1248,6 +1388,192 @@ public:
     return true;
   }
 
+  // A dope vector passed to a function is allowed to have the following uses:
+  // - Load the fields of the dope vector object. (No field writes allowed).
+  // - The loaded fields are also checked to be sure the array does not escape
+  //   and the stride value used for the accesses comes from the dope vector.
+  // - Store the address of the dope vector into an uplevel variable, and
+  //   pass the uplevel variable to another function.
+  bool analyzeDopeVectorCallArgument(Function &F, unsigned int ArgPos) {
+    DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                    dbgs() << "  Checking use of dope vector in function: "
+                           << F.getName() << " Arg#: " << ArgPos << "\n");
+    if (F.isDeclaration()) {
+      DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                      dbgs() << "IR not available for function: " << F.getName()
+                             << "\n");
+      return false;
+    }
+
+    assert(ArgPos < F.arg_size() && "Invalid argument position");
+    auto Args = F.arg_begin();
+    std::advance(Args, ArgPos);
+    Argument *FormalArg = &(*Args);
+
+    // Collect all the uses of the dope vector in the function.
+    DopeVectorAnalyzer DVA(FormalArg);
+    DVA.analyze(/*ForCreation = */ false);
+    DEBUG_WITH_TYPE(DEBUG_DOPE_VECTORS, {
+      dbgs() << "Analysis of dope vector used in function: " << F.getName()
+             << "\n";
+      DVA.dump();
+    });
+
+    // Verify that the dope vector fields are not written.
+    if (DVA.checkMayBeModified()) {
+      DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                      dbgs() << "Dope vector fields modified in function: "
+                             << F.getName() << "\n");
+      return false;
+    }
+
+    // Check that the DV object was not forwarded to another function call. We
+    // could allow this by analyzing all the uses within that function,
+    // but we currently do not.
+    if (DVA.getNumberCalledFunctions()) {
+      DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                      dbgs()
+                          << "Dope vector passed to another function within: "
+                          << F.getName() << "\n");
+      return false;
+    }
+
+    // Check that the array pointer does not escape to another memory location.
+    // This call will also collect the set of subscript calls that use the array
+    // pointer from the dope vector.
+    CallInstSet SubscriptCalls;
+    if (!checkArrayPointerUses(DVA, SubscriptCalls)) {
+      DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                      dbgs() << "Array pointer address may escape from: "
+                             << F.getName() << "\n");
+      return false;
+    }
+
+    if (!SubscriptCalls.empty()) {
+      // Check the stride value used in the subscript calls.
+      if (!checkSubscriptStrideValues(DVA, SubscriptCalls)) {
+        DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                        dbgs() << "Subscript call with unsupported stride in: "
+                               << F.getName() << "\n");
+        return false;
+      }
+
+      // Save the set of subscript calls that use the dope vector for
+      // profitability analysis.
+      DVSubscriptCalls.insert(SubscriptCalls.begin(), SubscriptCalls.end());
+    }
+
+    // TODO: Analyze uses of uplevel variables
+
+    return true;
+  }
+
+  // Check if the uses of the pointer address field results in a load
+  // instruction that may result in the address of the array pointer being used
+  // for something other than a supported subscript call. Return 'true' if all
+  // the uses are supported.
+  // This function also collects the set of subscript calls taking the address
+  // of the array pointer into \p SubscriptCalls.
+  bool checkArrayPointerUses(const DopeVectorAnalyzer &DVA,
+                             CallInstSet &SubscriptCalls) {
+    // Get a set of Value objects that hold the address of the array pointer.
+    SmallPtrSet<Value *, 8> ArrayPtrValues;
+    const DopeVectorFieldUse &PtrAddr = DVA.getPtrAddrField();
+    if (!DVA.getAllValuesHoldingFieldValue(PtrAddr, ArrayPtrValues)) {
+      DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                      dbgs() << "Unsupported use of array pointer address:\n");
+      return false;
+    }
+
+    // Now check all uses of the address to be sure they are only used to move
+    // the address to another var (Select or PhiNode), or are used in a
+    // subscript intrinsic call.
+    for (auto *ArrPtr : ArrayPtrValues) {
+      DEBUG_WITH_TYPE(DEBUG_ANALYSIS, dbgs() << "  Uses: " << *ArrPtr << "\n");
+      for (auto *PtrUser : ArrPtr->users()) {
+        if (isa<SelectInst>(PtrUser) || isa<PHINode>(PtrUser)) {
+          continue;
+        } else if (auto *CI = dyn_cast<CallInst>(PtrUser)) {
+          if (!isValidUseOfSubscriptCall(*CI, *ArrPtr, ArrayRank,
+                                         ArrayRank - 1)) {
+            dbgs() << "Array address: " << *ArrPtr
+                   << " not in subscript call: " << *CI << "\n";
+            return false;
+          }
+
+          SubscriptCalls.insert(CI);
+        } else {
+          DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                          dbgs()
+                              << "Unsupported use of array pointer address:\n"
+                              << *PtrUser << "\n");
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  // Check that the subscript calls are using stride values from the dope
+  // vector. This should always be true, until dope vector constant
+  // propagation is implemented, in which case this transform needs to occur
+  // first. Otherwise, this check will invalidate candidates that have
+  // had constants substituted into the subscript calls.
+  bool checkSubscriptStrideValues(const DopeVectorAnalyzer &DVA,
+                                  const CallInstSet &SubscriptCalls) {
+    SmallVector<SmallPtrSet<Value *, 4>, FortranMaxRank> StrideLoads;
+
+    // Function to check one subscript call, and recurse to checks subscript
+    // calls that use the result to verify the stride to the call is a member of
+    // \p StrideLoads.
+    std::function<bool(const SmallVectorImpl<SmallPtrSet<Value *, 4>> &,
+                       const CallInst &, uint32_t)>
+        CheckCall =
+            [&CheckCall](
+                const SmallVectorImpl<SmallPtrSet<Value *, 4>> &StrideLoads,
+                const CallInst &CI, uint32_t Rank) -> bool {
+      if (!isSubscriptIntrinsicCall(CI))
+        return false;
+
+      Value *StrideOp = CI.getArgOperand(StrideOpNum);
+      if (!StrideLoads[Rank].count(StrideOp))
+        return false;
+
+      if (Rank == 0)
+        return true;
+
+      for (auto *UU : CI.users())
+        if (auto *CI2 = dyn_cast<CallInst>(UU))
+          if (!CheckCall(StrideLoads, *CI2, Rank - 1))
+            return false;
+
+      return true;
+    };
+
+    // For each dimension of the variable, get the set of objects that hold the
+    // value for the stride loaded from the dope vector object
+    for (unsigned Dim = 0; Dim < ArrayRank; ++Dim) {
+      if (!DVA.hasStrideField(Dim))
+        return false;
+
+      const DopeVectorFieldUse &StrideField = DVA.getStrideField(Dim);
+      StrideLoads.push_back(SmallPtrSet<Value *, 4>());
+      auto &LoadSet = StrideLoads.back();
+      bool Valid = DVA.getAllValuesHoldingFieldValue(StrideField, LoadSet);
+      if (!Valid)
+        return false;
+    }
+
+    // Check all the subscript calls to ensure the stride value comes from the
+    // dope vector.
+    for (auto *Call : SubscriptCalls)
+      if (!CheckCall(StrideLoads, *Call, ArrayRank - 1))
+        return false;
+
+    return true;
+  }
+
   // Transform the strides in the subscript calls and dope vector creation, if
   // the candidate is valid for being transposed.
   bool transform() {
@@ -1320,7 +1646,13 @@ private:
   // result of this instruction is fed to the subscript call of the next lower
   // rank, so we only need to store the initial call to get to all the others
   // for computing profitability and transposing the stride values.
-  SmallPtrSet<CallInst *, 16> SubscriptCalls;
+  CallInstSet SubscriptCalls;
+
+  // Set of calls to the subscript intrinsic that access the candidate via a
+  // dope vector. These calls should be analyzed for profitability but do not
+  // need to be transformed because they take their parameters from the dope
+  // vector.
+  CallInstSet DVSubscriptCalls;
 
   // Set of dope vector objects that were directly created from the global
   // variable.
