@@ -108,6 +108,15 @@ static cl::opt<bool> UseLIRCodeSizeHeurs(
              "with -Os/-Oz"),
     cl::init(true), cl::Hidden);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+static cl::opt<bool>
+    DisableMemCalls("lir-disable-mem-calls",
+                    cl::desc("Do not create memset/memcpy calls"),
+                    cl::init(false), cl::Hidden);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 class LoopIdiomRecognize {
@@ -580,6 +589,12 @@ bool LoopIdiomRecognize::runOnLoopBlock(
 /// See if this store(s) can be promoted to a memset.
 bool LoopIdiomRecognize::processLoopStores(SmallVectorImpl<StoreInst *> &SL,
                                            const SCEV *BECount, ForMemset For) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  if (DisableMemCalls)
+    return false;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   // Try to find consecutive stores that can be transformed into memsets.
   SetVector<StoreInst *> Heads, Tails;
   SmallDenseMap<StoreInst *, StoreInst *> ConsecutiveChain;
@@ -970,6 +985,12 @@ bool LoopIdiomRecognize::processLoopStridedStore(
 /// for (i) A[i] = B[i];
 bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
                                                     const SCEV *BECount) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  if (DisableMemCalls)
+    return false;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   assert(SI->isUnordered() && "Expected only non-volatile non-ordered stores.");
 
   Value *StorePtr = SI->getPointerOperand();
