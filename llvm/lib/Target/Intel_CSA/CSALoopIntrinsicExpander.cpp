@@ -544,11 +544,16 @@ Re-run with -g to see more location information.
   region_entry->setOperand(
     0, ConstantInt::get(IntegerType::get(context, 32), region_token));
 
-  // The csa.parallel.region.exit intrinsic goes at the beginning of each exit.
+  // The csa.parallel.region.exit intrinsic goes at the first merge point after
+  // all the exits.
   SmallVector<BasicBlock *, 2> exits;
   L->getExitBlocks(exits);
-  for (BasicBlock *const exit : exits) {
-    IRBuilder<>{exit->getFirstNonPHI()}.CreateCall(
+  if (!exits.empty()) {
+    BasicBlock *CommonPostDom = exits[0];
+    for (BasicBlock *Exit : exits)
+      CommonPostDom = PDT->findNearestCommonDominator(Exit, CommonPostDom);
+    assert(CommonPostDom && "Multiple exits with no common postdom?");
+    IRBuilder<>{CommonPostDom->getFirstNonPHI()}.CreateCall(
       Intrinsic::getDeclaration(module, Intrinsic::csa_parallel_region_exit),
       region_entry);
   }
