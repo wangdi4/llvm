@@ -8,11 +8,11 @@ if (WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${TBB_BINARIES_OUTPUT_SRC_DIR} ${TBB_BINARIES_OUTPUT_DIR}
         COMMENT "Copying tbb libraries from ${TBB_BINARIES_OUTPUT_SRC_DIR} to ${TBB_BINARIES_OUTPUT_DIR}")
 
-    install_to (${TBB_BINARIES_OUTPUT_DIR} DESTINATION lib COMPONENT ocl-tbb-ext)
+    install_to (${TBB_BINARIES_OUTPUT_DIR} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-tbb-ext)
 else (WIN32)
     copy_to (${CMAKE_CURRENT_SOURCE_DIR}/bin/${OS}${ADDR}_${CMAKE_BUILD_TYPE}/ DESTINATION lib)
     install_to (${CMAKE_CURRENT_SOURCE_DIR}/bin/${OS}${ADDR}_${CMAKE_BUILD_TYPE}/
-                DESTINATION lib
+                DESTINATION lib/${OUTPUT_ARCH_SUFF}
                 COMPONENT ocl-tbb-ext)
 endif (WIN32)
 
