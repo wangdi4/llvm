@@ -92,7 +92,7 @@ add_opencl_library (${TARGET_NAME} SHARED
     RC_TEMPLATE DEFAULT)
 
 copy_to (${CONFIG_FILES} DESTINATION lib)
-install_to (${CONFIG_FILES} DESTINATION lib  COMPONENT ocl-config)
+install_to (${CONFIG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-config)
 
 if (WIN32)
     set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:task_executor${BUILD_PLATFORM}.dll")
