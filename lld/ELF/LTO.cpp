@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/Analysis/Intel_WP.h" // INTEL
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -207,6 +208,11 @@ void BitcodeCompiler::add(BitcodeFile &F) {
     // (with --wrap) symbols because otherwise LTO would inline them while
     // their values are still not final.
     R.LinkerRedefined = !Sym->CanInline;
+
+#if INTEL_CUSTOMIZATION
+    // Mark that the symbol was resolved by the Linker
+    R.ResolvedByLinker = !ObjSym.isUndefined();
+#endif // INTEL_CUSTOMIZATION
   }
   checkError(LTOObj->add(std::move(F.Obj), Resols));
 }
@@ -242,6 +248,12 @@ std::vector<InputFile *> BitcodeCompiler::compile() {
                         [&](size_t Task, std::unique_ptr<MemoryBuffer> MB) {
                           Files[Task] = std::move(MB);
                         }));
+
+#if INTEL_CUSTOMIZATION
+  // Linking for an executable
+  if (!Config->Relocatable)
+    llvm::setLinkingExecutable(true);
+#endif // INTEL_CUSTOMIZATION
 
   checkError(LTOObj->run(
       [&](size_t Task) {

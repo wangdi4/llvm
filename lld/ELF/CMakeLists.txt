@@ -44,6 +44,9 @@ add_lld_library(lldELF
   Target.cpp
   Thunks.cpp
   Writer.cpp
+# INTEL_CUSTOMIZATION
+  ${LLVM_MAIN_SRC_DIR}/lib/Analysis/Intel_WP_utils.cpp
+# end INTEL_CUSTOMIZATION
 
   LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
