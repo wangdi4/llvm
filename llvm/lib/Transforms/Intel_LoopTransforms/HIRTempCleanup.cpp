@@ -406,18 +406,9 @@ bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
   unsigned UseLvalBlobIndex = InvalidBlobIndex;
 
   if (UseLvalRef && UseLvalRef->isTerminalRef()) {
-
     UseLvalBlobIndex = UseLvalRef->isSelfBlob()
                            ? UseLvalRef->getSelfBlobIndex()
                            : BU.findTempBlobIndex(UseLvalRef->getSymbase());
-
-    // Illegal to move if lval of UseInst is used by rval def inst.
-    for (auto *Ref : make_range(RvalDefInst->op_ddref_begin(),
-                                RvalDefInst->op_ddref_end())) {
-      if (Ref->usesTempBlob(UseLvalBlobIndex)) {
-        return false;
-      }
-    }
   }
 
   // Check if intermediate nodes prevent reordering.
