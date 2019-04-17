@@ -419,6 +419,8 @@ isValid(spv::Decoration V) {
     case DecorationNumbanksINTEL:
     case DecorationBankwidthINTEL:
     case DecorationMaxConcurrencyINTEL:
+    case DecorationSinglepumpINTEL:
+    case DecorationDoublepumpINTEL:
       return true;
     default:
       return false;
