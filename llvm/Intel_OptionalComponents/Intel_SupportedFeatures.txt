@@ -85,6 +85,13 @@
 
 # === New ISA features section end ===
 
+# INTEL_FEATURE_BIENDIAN
+# New Biendian feature
+# === New Biendian feature section begin ===
+@BIENDIAN:SECRET@
+# === New Biendian feature section end ===
+# end INTEL_FEATURE_BIENDIAN
+
 # Support for a new target is usually covered by a feature named after
 # the target name, e.g. NIOS.
 # === New targets section begin ===
