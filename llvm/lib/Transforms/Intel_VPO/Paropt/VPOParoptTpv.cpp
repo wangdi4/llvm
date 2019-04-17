@@ -344,8 +344,8 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
       F, AI, IdentTy, TidV, V, SizeV, TpvGV);
 
   TC->insertBefore(AI);
-  BuilderElse.CreateStore(TC, TpvPtrRef);
-
+  IRBuilder<> BuilderStore(AI);
+  BuilderStore.CreateStore(TC, TpvPtrRef);
 }
 
 // Return the threadprivate local global pointer dereferece.
