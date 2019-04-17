@@ -872,8 +872,6 @@ public:
                                                                 FR_Invalid};
     unsigned int FieldNum;
     switch (RankFieldType) {
-    default:
-      llvm_unreachable("Invalid FieldType value");
     case DVR_Extent:
       FieldNum = 0;
       break;
@@ -1690,7 +1688,9 @@ private:
 // when beneficial.
 class TransposeImpl {
 public:
-  TransposeImpl(std::function<LoopInfo &(Function &)> &GetLI) : GetLI(GetLI) {}
+  TransposeImpl(std::function<LoopInfo &(Function &)> &GetLI) : GetLI(GetLI) {
+    (void)this->GetLI;
+  }
 
   bool run(Module &M) {
     const DataLayout &DL = M.getDataLayout();

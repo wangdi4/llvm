@@ -212,9 +212,6 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
           if (OVLSOp[(i + 1) % 2]->IsKindUndefined())
             Op[(i + 1) % 2] = UndefValue::get(Op[i]->getType());
         } break;
-        default:
-          InvalidOperands = true;
-          break;
         }
       }
       (void)InvalidOperands;

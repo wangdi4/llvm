@@ -157,6 +157,9 @@ void HIRVectVLSAnalysis::getVLSMemrefs(VectVLSContext &VectContext,
     // FIXME: These 'new' operations in the loop are expensive and unnecessary.
     // The OVLSMemrefVector type should be changed to store objects rather than
     // pointers.
+    // FIXME 2: Create a Memref with the appropriate AccessType, while creating
+    // the MEmref below. Currently the Memref is created with Unknown AccessType
+    // and updated in setStridedAccess().
     HIRVLSClientMemref *Mrf = new HIRVLSClientMemref(Ref, &VectContext);
     if (!Mrf->setStridedAccess()) {
       // TODO: Try indexed
