@@ -398,8 +398,6 @@ if(WIN32)
   set(INTEL_DEPLOY_COMPONENTS ${INTEL_DEPLOY_COMPONENTS} ocl-${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION})
 endif(WIN32)
 
-set(SUBSTITUTE_LAYOUT OFF)
-
 # This command is used for creating a fake dependency in order to force
 # another command(s) to execute.
 # Its output is never produced as a result thus each other
