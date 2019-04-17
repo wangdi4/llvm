@@ -606,16 +606,6 @@ RegDDRef *HLLoop::removeStrideDDRef() {
   return TRef;
 }
 
-const Loop *HLLoop::removeLLVMLoop() {
-  auto OrigLoop = getLLVMLoop();
-
-  if (OrigLoop) {
-    setLLVMLoop(nullptr);
-  }
-
-  return OrigLoop;
-}
-
 void HLLoop::setZtt(HLIf *ZttIf) {
   assert(!hasZtt() && "Attempt to overwrite ztt, use removeZtt instead!");
 

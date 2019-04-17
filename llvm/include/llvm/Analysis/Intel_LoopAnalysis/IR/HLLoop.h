@@ -149,6 +149,7 @@ protected:
 
   friend class HLNodeUtils;
   friend class HIRParser;         // accesses ZTT
+  friend class HIRLoopFormation;  // set ZTT and IVType
   friend class HIRTransformUtils; // For compile-time, allow permuteLoopNests()
                                   // to modify HLLoop internals.
 
@@ -201,6 +202,9 @@ protected:
   /// Return true if the specified directive is attached to the loop.
   bool hasDirective(int DirectiveID) const;
 
+  /// Returns underlying LLVM loop.
+  const Loop *getLLVMLoop() const { return OrigLoop; }
+
 public:
   /// Prints preheader of loop.
   void printPreheader(formatted_raw_ostream &OS, unsigned Depth,
@@ -225,9 +229,6 @@ public:
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
 
-  /// Returns underlying LLVM loop.
-  const Loop *getLLVMLoop() const { return OrigLoop; }
-
   /// Returns the underlying type of the loop IV.
   Type *getIVType() const { return IVType; }
   /// Sets the underlying type of the loop IV.
@@ -247,9 +248,6 @@ public:
   /// Removes and returns the Ztt for HLLoop if it exists, else returns
   /// nullptr.
   HLIf *removeZtt();
-
-  /// Removes and returns the OrigLoop
-  const Loop *removeLLVMLoop();
 
   /// Creates a Ztt for HLLoop. IsOverwrite flag
   /// indicates to overwrite existing Ztt or not.

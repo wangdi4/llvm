@@ -864,7 +864,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   // process for vectorization
   VPlanOptReportBuilder VPORBuilder(LORBuilder);
 
-  VPlanVLSAnalysisHIR VLSA(DDA, Lp->getLLVMLoop()->getHeader()->getContext());
+  VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext());
   // TODO: No Legal for HIR.
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, nullptr /*Legal*/,
                                   DDA, &VLSA);

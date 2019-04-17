@@ -449,7 +449,7 @@ void DDWalk::visit(HLDDNode *Node) {
 ParVecInfo::ParVecInfo(AnalysisMode Mode, HLLoop *HLoop)
     : HLoop(HLoop), Mode(Mode), ParType(Analyzing), VecType(Analyzing),
       InnerUnknownLoop(nullptr), Switch(nullptr) {
-  setLoc(HLoop->getLLVMLoop()->getStartLoc());
+  setLoc(HLoop->getDebugLoc());
 }
 
 void ParVecInfo::emitDiag() {
@@ -548,7 +548,7 @@ void ParVecInfo::print(raw_ostream &OS, bool WithLoop) const {
   if (WithLoop) {
     printIndent(OS, false);
     OS << "LoopNode(" << HLoop->getNumber() << ") @ ";
-    auto LoopLoc = HLoop->getLLVMLoop()->getStartLoc();
+    auto LoopLoc = HLoop->getDebugLoc();
     if (LoopLoc) {
       LoopLoc.print(OS);
     }

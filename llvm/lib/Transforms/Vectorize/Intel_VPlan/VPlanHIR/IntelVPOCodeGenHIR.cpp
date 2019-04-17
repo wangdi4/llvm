@@ -1379,8 +1379,7 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
   unsigned Stages = Log2_32(VF);
   unsigned MaskElems = VF / 2;
   const RegDDRef *LastVal = VecRef;
-  const Loop *Lp = HLLp->getLLVMLoop();
-  LLVMContext &Context = Lp->getHeader()->getContext();
+  LLVMContext &Context = HLLp->getHLNodeUtils().getContext();
   for (unsigned i = 0; i < Stages; i++) {
     SmallVector<Constant *, 16> ShuffleMask;
     unsigned MaskElemVal = MaskElems;
