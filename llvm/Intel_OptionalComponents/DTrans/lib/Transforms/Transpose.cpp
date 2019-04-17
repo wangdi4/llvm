@@ -54,6 +54,12 @@ using FuncArgPosPairSetIter = SmallSet<FuncArgPosPair, 8>::const_iterator;
 using CallInstSet = SmallPtrSet<CallInst *, 16>;
 using CallInstSetIter = CallInstSet::const_iterator;
 
+// An uplevel variable is a structure type that holds values or pointers of
+// variables in the parent routine of nested routines. This type is to describe
+// an uplevel use of a specific dope vector.  It consists of a variable and the
+// field number of the structure containing the dope vector.
+using UpevelDVField = std::pair<Value *, uint64_t>;
+
 // Helper routine to check if a CallInst is to llvm.intel.subscript.
 bool isSubscriptIntrinsicCall(const CallInst &CI) {
   const Function *F = CI.getCalledFunction();
@@ -67,7 +73,7 @@ Optional<uint64_t> getConstGEPIndex(const GetElementPtrInst &GEP,
   auto FieldIndex = dyn_cast<ConstantInt>(GEP.getOperand(OpNum));
   if (FieldIndex)
     return Optional<uint64_t>(FieldIndex->getLimitedValue());
-  return Optional<uint64_t>();
+  return None;
 }
 
 // Helper routine to get the argument index corresponding to \p Val within the
@@ -80,7 +86,7 @@ Optional<unsigned int> getArgumentPosition(const CallInst &CI,
   for (unsigned int ArgNum = 0; ArgNum < ArgCount; ++ArgNum)
     if (CI.getArgOperand(ArgNum) == Val) {
       if (Pos)
-        return Optional<unsigned int>();
+        return None;
 
       Pos = ArgNum;
     }
@@ -97,10 +103,10 @@ Optional<unsigned int> getArgumentPosition(const CallInst &CI,
 // Return 'true' if call has the expected values for the Base, and Rank.
 // If the LowerBound and Stride parameters are supplied, also check those.
 //
-bool isValidUseOfSubscriptCall(
-    const CallInst &CI, const Value &Base, uint32_t ArrayRank, uint32_t Rank,
-    Optional<uint64_t> LowerBound = Optional<uint64_t>(),
-    Optional<uint64_t> Stride = Optional<uint64_t>()) {
+bool isValidUseOfSubscriptCall(const CallInst &CI, const Value &Base,
+                               uint32_t ArrayRank, uint32_t Rank,
+                               Optional<uint64_t> LowerBound = None,
+                               Optional<uint64_t> Stride = None) {
   DEBUG_WITH_TYPE(DEBUG_ANALYSIS, {
     dbgs().indent((ArrayRank - Rank) * 2 + 4);
     dbgs() << "Checking call: " << CI << "\n";
@@ -129,6 +135,35 @@ bool isValidUseOfSubscriptCall(
   }
 
   return true;
+}
+
+// Helper routine to check whether a variable type is a type for an
+// uplevel variable.
+bool isUplevelVarType(Type *Ty) {
+  // For now, just check the type of the variable as being named
+  // "%uplevel_type[.#]" In the future, the front-end should provide some
+  // metadata indicator that a variable is an uplevel.
+  auto *StTy = dyn_cast<StructType>(Ty);
+  if (!StTy || !StTy->hasName())
+    return false;
+
+  StringRef TypeName = StTy->getName();
+  // Strip a '.' and any characters that follow it from the name.
+  TypeName = TypeName.take_until([](char C) { return C == '.'; });
+  if (TypeName != "uplevel_type")
+    return false;
+
+  return true;
+}
+
+// Helper function to check whether \p V is a GEP that corresponds to a field
+// within an uplevel type.
+bool isFieldInUplevelTypeVar(Value *V) {
+  auto *GEP = dyn_cast<GetElementPtrInst>(V);
+  if (!GEP)
+    return false;
+  return isUplevelVarType(
+      GEP->getPointerOperand()->getType()->getPointerElementType());
 }
 
 // This class is used to collect information about a single field address that
@@ -395,6 +430,9 @@ public:
     return nullptr;
   }
 
+  // Accessor for uplevel variable.
+  UpevelDVField getUplevelVar() const { return Uplevel; }
+
   // Check if any field of the dope vector may be written.
   bool checkMayBeModified() const {
     if (!IsValid)
@@ -587,9 +625,31 @@ public:
 
         // Save the function for later analysis.
         FuncsWithDVParam.insert({F, *ArgPos});
-      } else if (isa<StoreInst>(DVUser)) {
-        // TODO: Check if it is being stored to an uplevel var. For now, set
-        // invalid.
+      } else if (auto *SI = dyn_cast<StoreInst>(DVUser)) {
+        // Check if the store is saving the dope vector object into an uplevel
+        // var. Save the variable and field number for later analysis. (The
+        // dope vector should only ever need to be stored to a single uplevel,
+        // but make sure we didn't see one yet.)
+        if (SI->getValueOperand() == DVObject) {
+          Value *PtrOp = SI->getPointerOperand();
+          if (isFieldInUplevelTypeVar(PtrOp) && Uplevel.first == nullptr) {
+            DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                            dbgs() << "Dope vector needs uplevel analysis: "
+                                   << *SI << "\n");
+            auto PtrGEP = cast<GetElementPtrInst>(PtrOp);
+            auto Idx0 = getConstGEPIndex(*PtrGEP, 1);
+            auto Idx1 = getConstGEPIndex(*PtrGEP, 2);
+            if (Idx0 && Idx1 && *Idx0 == 0) {
+              Uplevel = UpevelDVField(PtrGEP->getPointerOperand(), *Idx1);
+              continue;
+            }
+          }
+        }
+
+        DEBUG_WITH_TYPE(
+            DEBUG_ANALYSIS,
+            dbgs() << "Unsupported StoreInst using dope vector object\n"
+                   << *DVUser << "\n");
         setInvalid();
         return;
       } else {
@@ -994,6 +1054,13 @@ private:
   // checked to ensure there is no modification to the dope vector within
   // the function. Pair is: { Function, Argument position }
   FuncArgPosPairSet FuncsWithDVParam;
+
+  // Uplevel variable corresponding to this dope vector. We only expect a single
+  // uplevel variable to be created for the dope vector being analyzed, because
+  // even if there are multiple routines contained within the routine that
+  // created the dope vector, the same uplevel variable is passed to all of
+  // them.
+  UpevelDVField Uplevel;
 };
 
 // This is the class that manages the analysis and transformation
@@ -1395,7 +1462,7 @@ public:
   bool analyzeDopeVectorCallArgument(Function &F, unsigned int ArgPos) {
     DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
                     dbgs() << "  Checking use of dope vector in function: "
-                           << F.getName() << " Arg#: " << ArgPos << "\n");
+                           << F.getName() << " Arg: " << ArgPos << "\n");
     if (F.isDeclaration()) {
       DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
                       dbgs() << "IR not available for function: " << F.getName()
@@ -1410,10 +1477,20 @@ public:
 
     // Collect all the uses of the dope vector in the function.
     DopeVectorAnalyzer DVA(FormalArg);
+    return analyzeDVUseInFunction(F, FormalArg);
+  }
+
+  // This checks the use of a dope vector in a function to verify the fields are
+  // not modified and the address of the array does not escape. The dope vector
+  // object can either be one that was passed directly into Function \p F or it
+  // can be a GEP field from an uplevel variable. Returns 'true' if uses are
+  // safe.
+  bool analyzeDVUseInFunction(const Function &F, Value *DVObject) {
+    DopeVectorAnalyzer DVA(DVObject);
     DVA.analyze(/*ForCreation = */ false);
     DEBUG_WITH_TYPE(DEBUG_DOPE_VECTORS, {
-      dbgs() << "Analysis of dope vector used in function: " << F.getName()
-             << "\n";
+      dbgs() << "\nDope vector collection for function: " << F.getName() << "\n"
+             << *DVObject << "\n";
       DVA.dump();
     });
 
@@ -1461,7 +1538,148 @@ public:
       DVSubscriptCalls.insert(SubscriptCalls.begin(), SubscriptCalls.end());
     }
 
-    // TODO: Analyze uses of uplevel variables
+    // If there was a store of the dope vector into an uplevel variable, check
+    // the uses of the uplevel variable.
+    UpevelDVField Uplevel = DVA.getUplevelVar();
+    if (Uplevel.first) {
+      if (!analyzeUplevelVar(F, Uplevel, DVObject))
+        return false;
+    }
+
+    return true;
+  }
+
+  // This checks the uses of an uplevel variable for safety. Safe uses are:
+  // - If \p DVObject is non-null, we are analyzing the function that
+  //   initialized the uplevel var. In this case the dope vector member of the
+  //   uplevel can be written. Otherwise, writes are not allowed.
+  // - If the dope vector object is loaded from the uplevel variable, the uses
+  //   of the dope vector are checked to ensure the dope vector fields are not
+  //   modified.
+  // - If the uplevel variable is passed in a function call, a recursive call
+  //   will be made to this routine to check the usage of the uplevel in the
+  //   called function.
+  bool analyzeUplevelVar(const Function &F, UpevelDVField &Uplevel,
+                         Value *DVObject) {
+    Value *Var = Uplevel.first;
+    uint64_t FieldNum = Uplevel.second;
+
+    DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                    dbgs() << "\nChecking use of uplevel variable in function: "
+                           << F.getName() << " Field: " << FieldNum << "\n");
+
+    // If the function makes use of the uplevel, then we expect there should be
+    // an Instruction that is a GEP which gets the address of the DV field from
+    // the uplevel variable. Collect all these GEPs into this vector for
+    // analysis.
+    SmallVector<GetElementPtrInst *, 4> DVFieldAddresses;
+
+    // The uplevel variable may be passed to another function, collect the set
+    // of {Function*, argument pos} pairs for functions that take this uplevel
+    // as a parameter.
+    FuncArgPosPairSet FuncsWithUplevelParams;
+
+    for (auto *U : Var->users()) {
+      auto *I = dyn_cast<Instruction>(U);
+      assert(I && "Expected instruction\n");
+
+      DEBUG_WITH_TYPE(DEBUG_ANALYSIS, dbgs()
+                                          << "Upevel var use: " << *I << "\n");
+
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(I)) {
+        if (GEP->getNumIndices() == 2) {
+          auto Idx0 = getConstGEPIndex(*GEP, 1);
+          auto Idx1 = getConstGEPIndex(*GEP, 2);
+          if (Idx0 && Idx1 && *Idx0 == 0) {
+            // Ignore uses of other uplevel fields.
+            if (*Idx1 != FieldNum)
+              continue;
+
+            DVFieldAddresses.push_back(GEP);
+            continue;
+          }
+        }
+        DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                        dbgs() << "Unsupported usage of uplevel var:\n"
+                               << *I << "\n");
+        return false;
+      } else if (auto *CI = dyn_cast<CallInst>(I)) {
+        Function *F = CI->getCalledFunction();
+        if (!F) {
+          DEBUG_WITH_TYPE(
+              DEBUG_ANALYSIS,
+              dbgs() << "Uplevel var passed in indirect function call:\n"
+                     << *CI << "\n");
+          return false;
+        }
+        Optional<unsigned int> ArgPos = getArgumentPosition(*CI, Var);
+        if (!ArgPos) {
+          DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                          dbgs() << "Uplevel var argument not unique in call:\n"
+                                 << *CI << "\n");
+          return false;
+        }
+        FuncsWithUplevelParams.insert(FuncArgPosPair(F, *ArgPos));
+      } else {
+        DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                        dbgs() << "Unsupported usage of uplevel var:\n"
+                               << *I << "\n");
+
+        return false;
+      }
+    }
+
+    // Check the usage for all the GEPs that get the address of the dope vector
+    // variable.
+    // If the dope vector pointer field is loaded, check that all uses of the
+    // dope vector are safe. If the dope vector pointer field is stored, check
+    // that it is the write we expected that is initializing the uplevel.
+    for (auto *DVFieldAddr : DVFieldAddresses)
+      for (auto *U : DVFieldAddr->users()) {
+        auto *I = dyn_cast<Instruction>(U);
+        assert(I && "Expected instruction\n");
+
+        if (auto *LI = dyn_cast<LoadInst>(I)) {
+          analyzeDVUseInFunction(F, LI);
+        } else if (auto *SI = dyn_cast<StoreInst>(I)) {
+          // The only store we expect to the DV field is the dope vector object
+          // currently being analyzed.
+          if (!DVObject || SI->getValueOperand() != DVObject) {
+            DEBUG_WITH_TYPE(
+                DEBUG_ANALYSIS,
+                dbgs()
+                    << "Store into uplevel var dope vector field no allowed\n");
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
+
+    // Check all the functions that take the uplevel variable.
+    for (auto &FuncArg : FuncsWithUplevelParams)
+      if (!analyzeUplevelCallArg(*FuncArg.first, FuncArg.second, FieldNum))
+        return false;
+
+    return true;
+  }
+
+  // Check a called function for usage of the uplevel variable for safety.
+  bool analyzeUplevelCallArg(Function &F, uint64_t ArgPos, uint64_t FieldNum) {
+    if (F.isDeclaration())
+      return false;
+
+    assert(ArgPos < F.arg_size() && "Invalid argument position");
+    auto Args = F.arg_begin();
+    std::advance(Args, ArgPos);
+    Argument *FormalArg = &(*Args);
+
+    // Check the called function for its use of the uplevel passed in. We do
+    // not allow the called function to store a new dope vector into the field,
+    // so pass 'nullptr' for the DVObject.
+    UpevelDVField LocalUplevel(FormalArg, FieldNum);
+    if (!analyzeUplevelVar(F, LocalUplevel, nullptr))
+      return false;
 
     return true;
   }
