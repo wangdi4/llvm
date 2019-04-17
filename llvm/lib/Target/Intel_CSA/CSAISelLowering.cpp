@@ -594,6 +594,18 @@ SDValue CSATargetLowering::LowerJumpTable(SDValue Op, SelectionDAG &DAG) const {
                      getPointerTy(DAG.getDataLayout()), Result);
 }
 
+// Memory ordering already takes into account the ordering requirements, so we
+// can lower atomic loads/stores to regular loads/stores. However, the
+// MachineMemOperand retains the ordering information, which we need to drop to
+// be able to use regular load/store nodes.
+static MachineMemOperand *dropAtomicInfo(SelectionDAG &DAG,
+    MachineMemOperand *Src) {
+  MachineFunction &MF = DAG.getMachineFunction();
+  return MF.getMachineMemOperand(Src->getPointerInfo(), Src->getFlags(),
+      Src->getSize(), Src->getBaseAlignment(), Src->getAAInfo(),
+      Src->getRanges());
+}
+
 SDValue CSATargetLowering::LowerAtomicLoad(SDValue Op,
                                            SelectionDAG &DAG) const {
   AtomicSDNode *AL = cast<AtomicSDNode>(Op);
@@ -606,7 +618,7 @@ SDValue CSATargetLowering::LowerAtomicLoad(SDValue Op,
 
   SDLoc DL(Op);
   return DAG.getLoad(AL->getMemoryVT(), DL, AL->getChain(), AL->getBasePtr(),
-                     AL->getMemOperand());
+                     dropAtomicInfo(DAG, AL->getMemOperand()));
 }
 
 SDValue CSATargetLowering::LowerAtomicStore(SDValue Op,
@@ -619,7 +631,7 @@ SDValue CSATargetLowering::LowerAtomicStore(SDValue Op,
 
   SDLoc DL(Op);
   return DAG.getStore(AS->getChain(), DL, AS->getVal(), AS->getBasePtr(),
-                      AS->getMemOperand());
+                      dropAtomicInfo(DAG, AS->getMemOperand()));
 }
 
 SDValue CSATargetLowering::LowerMUL_LOHI(SDValue Op, SelectionDAG &DAG) const {
