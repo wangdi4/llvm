@@ -51,6 +51,15 @@ public:
 
   bool needsStructuredCFG() const { return true; }
   /// @}
+
+  /// \name Vector TTI Implementations
+  /// @{
+
+  unsigned getNumberOfRegisters(bool Vector);
+  unsigned getRegisterBitWidth(bool Vector) const;
+  unsigned getMinVectorRegisterBitWidth() const { return 64; }
+  int getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index, Type *SubTp);
+  /// @}
 };
 
 } // end namespace llvm

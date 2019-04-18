@@ -31,6 +31,32 @@ using namespace llvm;
 //
 //===----------------------------------------------------------------------===//
 
+unsigned CSATTIImpl::getNumberOfRegisters(bool Vector) {
+  // We don't have any registers. This metric is used to work out how many
+  // things we can use in a loop, so we'll instead use the number of vector
+  // units we can simultaneously handle as an approximation.
+  return 256;
+}
+
+unsigned CSATTIImpl::getRegisterBitWidth(bool Vector) const {
+  return 64;
+}
+
+int CSATTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,
+                               Type *SubTp) {
+  // Most inputs to the vector operations allow for any swizzle, and are
+  // therefore free.
+  switch (Kind) {
+  case TTI::SK_Select:
+  case TTI::SK_Transpose:
+  case TTI::SK_PermuteSingleSrc:
+  case TTI::SK_Broadcast:
+    return 0;
+  default:
+    return 1;
+  }
+}
+
 bool CSATTIImpl::areInlineCompatible(const Function *Caller,
                                      const Function *Callee) const {
   const TargetMachine &TM = getTLI()->getTargetMachine();
