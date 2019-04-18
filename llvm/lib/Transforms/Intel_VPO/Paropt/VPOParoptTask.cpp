@@ -613,10 +613,16 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
                                                       StructType *KmpSharedTy) {
   SmallVector<Value *, 4> Indices;
 
-  assert(W->getEntryBBlock()->getSinglePredecessor() &&
-         "Single pre-task block not created.");
-  Instruction *InsertPt =
-      W->getEntryBBlock()->getSinglePredecessor()->getTerminator();
+  BasicBlock *EntryPredecessor = W->getEntryBBlock()->getSinglePredecessor();
+  assert(EntryPredecessor && "Single pre-task block not created.");
+
+  // Split the predecessor BBlock before inserting code in it. This is
+  // needed because the predecessor itself might be an entry/exit BBlock
+  // of another WRegion, in which case inserting code in it would deform
+  // that WRegion.
+  EntryPredecessor = SplitBlock(EntryPredecessor,
+                                &*(EntryPredecessor->getTerminator()), DT, LI);
+  Instruction *InsertPt = EntryPredecessor->getTerminator();
   IRBuilder<> Builder(InsertPt);
   AllocaInst *TaskSharedBase =
       Builder.CreateAlloca(KmpSharedTy, nullptr, "taskt.shared.agg");
