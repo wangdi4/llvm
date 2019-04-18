@@ -15,8 +15,8 @@
 /// CFG Builder'.
 ///
 //===----------------------------------------------------------------------===//
-
 #include "IntelVPlanHCFGBuilder.h"
+#include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"
@@ -35,10 +35,8 @@ static cl::opt<bool> DisableNonLoopSubRegions(
     "disable-vplan-subregions", cl::init(false), cl::Hidden,
     cl::desc("Disable construction of non-loop subregions in VPlan"));
 
-static cl::opt<bool> LoopMassagingEnabled(
-    "vplan-enable-loop-massaging",
-    cl::init(false), // TODO: vplan-disable-loop-massaging
-    cl::Hidden,
+cl::opt<bool> LoopMassagingEnabled(
+    "vplan-enable-loop-massaging", cl::init(true), cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
 static cl::opt<bool> DisableUniformRegions(
@@ -158,144 +156,506 @@ void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
   }
 }
 
+// The merge loop exit transformation is applied to the inner loops of a loop
+// nest. It consists of the mergeLoopExits function and six support functions
+// (getBlocksExitBlock, updateBlocksPhiNode, moveExitBlocksPhiNode,
+// removeBlockFromVPPhiNode, allPredsInLoop, hasVPPhiNode, getFirstNonPhiVPInst,
+// updatePhiNodeInLoopHeader).
+//
+// The algorithm has three steps:
+// 1. A new loop latch is created. All the side exits are redirected to the new
+// loop latch. The new loop latch is followed by a number of cascaded ifs (if it
+// is needed). The cascaded ifs redirect the control-flow to the right exit
+// block.
+// 2. For each exit block (other than the exit block of the loop latch), a new
+// intermediate block (Intermediate_BB) is generated. The new blocks are
+// connected with the corresponding exiting block(s) and the new loop latch. For
+// each Intermediate_BB, a new incoming value (ExitID) is added in the phi node
+// of the new loop latch.
+// 3. The cascaded ifs are emitted (if it is needed).
+//
+// The following examples show how merge loop exits transformation works on
+// different test cases:
+//
+// CASE 1: The inner loop has one side exit. Therefore, a Intermediate_BB is
+// generated for the side exit that lands on BB4. The Intermediate_BB is
+// connected with the new loop latch. Since there is only one side exit, one
+// cascaded if block is emitted.
+// -------------------------------------------
+//  FROM                        TO
+// -------------------------------------------
+//
+// -->BB1           ----------->BB1
+// |   | \          |          /   \
+// |   |  \         |         /     \
+// ---BB2  BB4  =>  |       BB2     Intermediate_BB
+//     |            |          \    /
+//     |            |  ExitID=0 \  / ExitID=1
+//    BB3           --------NEW_LOOP_LATCH
+//                                |
+//                                |
+//                        CASCADED_IF_BLOCK
+//                          (if ExitID==1)
+//                             F / \ T
+//                              /   \
+//            (LatchExitBlock)BB3   BB4
+//
+// CASE 2: The inner loop has one side exit which lands on the same exit block
+// as the loop latch. If the exiting block is the loop header, then we create an
+// Intermediate_BB. This is needed for emitting correct masks. For any other
+// basic block, we just redirect the exiting edge to the new loop latch. In this
+// case, the cascaded if blocks are not needed.
+// -------------------------------------------
+//  FROM                        TO
+// -------------------------------------------
+//
+// -->BB1                       BB1
+// |   | \                       | \
+// |   |  \                      |  \
+// |  BB2  \                    BB2  \
+// |   | \  |                    | \  \
+// |   |  \ |    =>              |  \  Intermediate_BB
+// ---BB3  ||                   BB3  | /
+//     |  //                     |  / /
+//     | //                      | / /
+//    BB4                   NEW_LOOP_LATCH
+//
+// CASE 3: The inner loop has two side exits that land on the same exit block.
+// Therefore, the control flow for BB1 and BB2 should be redirected on the same
+// exit block. For this reason, one Intermediate_BB is emitted.
+// -------------------------------------------
+//  FROM                          TO
+// -------------------------------------------
+//
+// -->BB1             ----------->BB1
+// |   | \            |            | \
+// |   |  \           |            |  \
+// |  BB2  \      =>  |           BB2  \
+// |   | \  \         |            | \  \
+// |   |  BB4         |            |  Intermediate_BB
+// ---BB3             |           BB3   /
+//     |              |            |   /
+//     |              |   ExitID=0 |  / ExitID=1
+//    BB5             --------NEW_LOOP_LATCH
+//                                |
+//                                |
+//                        CASCADED_IF_BLOCK
+//                          (if ExitID==1)
+//                             F / \ T
+//                              /   \
+//            (LatchExitBlock)BB5   BB4
+//
+// CASE 4: The inner loop has two side exits. Therefore, two Intermediate_BBs
+// and two cascaded ifs are created.
+// -------------------------------------------
+//  FROM                          TO
+// -------------------------------------------
+//
+// -->BB1             ----------->BB1--------------------------
+// |   | \            |            |                          |
+// |   |  \           |            |                          |
+// |  BB2  BB4    =>  |           BB2                         |
+// |   | \            |            | \                        |
+// |   |  \           |            |  \                       V
+// |   |   BB5        |            | Intermediate_BB2  Intermediate_BB1
+// ---BB3             |           BB3 ExitID=1             ExitID=2
+//     |              |            |   /                      |
+//     |              |   ExitID=0 |  /                       |
+//    BB6             --------NEW_LOOP_LATCH<------------------
+//                                |
+//                                |
+//                        CASCADED_IF_BLOCK(HEAD)
+//                          (if ExitID==2)
+//                             F /    \ T
+//                              /      \
+//                          IFBLOCK    BB4
+//                      (if ExitID==2)
+//                         F /   \ T
+//                          /     \
+//        (LatchExitBlock)BB6     BB5
+
+// Returns the exit block of a block.
+static VPBlockBase *getBlocksExitBlock(VPBlockBase *ExitingBlock, VPLoop *VPL) {
+  for (VPBlockBase *SuccBlock : ExitingBlock->getSuccessors()) {
+    if (!VPL->contains(SuccBlock))
+      return SuccBlock;
+  }
+  return nullptr;
+}
+
+// Replaces incoming block in all phi nodes of the PhiBlock.
+static void updateBlocksPhiNode(VPBasicBlock *PhiBlock,
+                                VPBasicBlock *PrevIncomingBlock,
+                                VPBasicBlock *NewLIncomingBlock) {
+  for (auto it = PhiBlock->begin(); it != PhiBlock->end(); ++it) {
+    if (VPPHINode *VPPhi = dyn_cast<VPPHINode>(&*it)) {
+      for (const auto *PBlk : VPPhi->blocks())
+        if (PBlk == PrevIncomingBlock) {
+          int Idx = VPPhi->getBlockIndex(PrevIncomingBlock);
+          VPPhi->setIncomingBlock(Idx, NewLIncomingBlock);
+        }
+    } else
+      break;
+  }
+}
+
+// Move exit block's phi node to another block (new loop latch or intermediate
+// block or cascaded if block). This is needed because the predecessors of the
+// exit block change after disconnecting it from the exiting block. Thus, we
+// might need to move the phi node of the exit block to the new loop latch or
+// the intermediate block or the cascaded if block.
+static void moveExitBlocksPhiNode(VPBasicBlock *ExitBlock,
+                                  VPBasicBlock *NewBlock) {
+  auto itNext = ExitBlock->begin();
+  for (auto it = ExitBlock->begin(); it != ExitBlock->end(); it = itNext) {
+    itNext = it;
+    ++itNext;
+    if (VPPHINode *ExitBlockVPPhi = dyn_cast<VPPHINode>(&*it)) {
+      ExitBlock->removeRecipe(ExitBlockVPPhi);
+      if (NewBlock->empty())
+        NewBlock->addRecipe(ExitBlockVPPhi);
+      else if (isa<VPPHINode>(&*NewBlock->begin()))
+        NewBlock->addRecipeAfter(ExitBlockVPPhi, &*NewBlock->begin());
+      else
+        NewBlock->addRecipe(ExitBlockVPPhi, &*NewBlock->begin());
+    } else
+      break;
+  }
+}
+
+// Removes a basic block from VPPHINode.
+static void removeBlockFromVPPhiNode(VPBasicBlock *ExitingBlock,
+                                     VPBasicBlock *ExitBlock) {
+  auto itNext = ExitBlock->begin();
+  for (auto it = ExitBlock->begin(); it != ExitBlock->end(); it = itNext) {
+    itNext = it;
+    ++itNext;
+    if (VPPHINode *ExitBlockVPPhi = dyn_cast<VPPHINode>(&*it))
+      ExitBlockVPPhi->removeIncomingValue(ExitingBlock);
+    else
+      break;
+  }
+}
+
+// Checks if all the predecessors belong of an exit blocks are in the current
+// loop.
+static bool allPredsInLoop(VPBlockBase *ExitBlock, VPLoop *VPL) {
+  for (auto Pred : ExitBlock->getPredecessors())
+    if (!(VPL->contains(Pred)))
+      return false;
+  return true;
+}
+
+// Checks if a basic block has a VPPHINode.
+static bool hasVPPhiNode(VPBasicBlock *VPBB) {
+  if ((!VPBB->empty()) && (isa<VPPHINode>(*VPBB->begin())))
+    return true;
+  return false;
+}
+
+// Returns the first instruction of a basic block that is not a phi node.
+static VPInstruction *getFirstNonPhiVPInst(VPBasicBlock *LoopHeader) {
+  VPInstruction *NonPhiVPInst = nullptr;
+  for (auto It = LoopHeader->begin(); It != LoopHeader->end(); ++It) {
+    if (!isa<VPPHINode>(It)) {
+      NonPhiVPInst = dyn_cast<VPInstruction>(It);
+      break;
+    }
+  }
+  return NonPhiVPInst;
+}
+
+// Adds a new phi node in the loop header for the backedge from the new loop
+// latch.
+static VPPHINode *updatePhiNodeInLoopHeader(VPBasicBlock *LoopHeader,
+                                            VPBasicBlock *NewLoopLatch,
+                                            VPPHINode *NewLatchVPPhi,
+                                            VPlan *Plan) {
+
+  // Find the location where we should emit the new phi node.
+  VPInstruction *NonPhiVPInst = getFirstNonPhiVPInst(LoopHeader);
+  Type *Ty = Type::getInt32Ty(*Plan->getLLVMContext());
+  VPPHINode *NewVPPhi = new VPPHINode(Ty);
+  // Add the NewVPPhi before the first non phi instruction. If the basic-block
+  // is empty or there are only phi instructions in it, then the NewVPPhi will
+  // be added at the end of the basic block.
+  LoopHeader->addRecipe(NewVPPhi, NonPhiVPInst);
+
+  // Get the predecessors of the loop header and add them in the new phi node of
+  // the loop header.
+  auto &LoopHeaderPreds = LoopHeader->getPredecessors();
+  unsigned PhiValue = 0;
+  assert(LoopHeaderPreds.size() <= 2 &&
+         "The loop header can have up to 2 predecessors!");
+  for (unsigned i = 0; i < LoopHeaderPreds.size(); i++) {
+    if (LoopHeaderPreds[i] == NewLoopLatch)
+      NewVPPhi->addIncoming(NewLatchVPPhi, NewLoopLatch);
+    else {
+      VPBasicBlock *Pred = dyn_cast<VPBasicBlock>(LoopHeaderPreds[i]);
+      VPConstant *PhiValueConst =
+          Plan->getVPConstant(ConstantInt::get(NewVPPhi->getType(), PhiValue));
+      NewVPPhi->addIncoming(PhiValueConst, Pred);
+      PhiValue++;
+    }
+  }
+  return NewVPPhi;
+}
+
 void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
 
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
+  // Apply simplification to subloops.
+  for (auto VPSL : VPL->getSubLoops())
+    mergeLoopExits(VPSL);
+
+  // Check if the loop has multiple exits. Merge loop exits transformation is
+  // only applied in the inner loops of a loop nest.
+  VPLoop *ParentLoop = VPL->getParentLoop();
+  SmallVector<VPBlockBase *, 2> ExitingBlocks;
+  VPL->getExitingBlocks(ExitingBlocks);
+  if ((ExitingBlocks.size() < 2) || ParentLoop == nullptr)
+    return;
+
+  // The merge loop exits transformation kicks-in.
+
+  LLVM_DEBUG(dbgs() << "Before merge loop exits transformation.\n");
+  LLVM_DEBUG(Plan->dump());
+
   SmallVector<VPBlockBase *, 2> ExitBlocks;
   VPL->getUniqueExitBlocks(ExitBlocks);
+  unsigned ExitID = 0;
+  // ExitBlockIDPairs and ExitExitingBlocksMap are used for generating the
+  // cascaded if blocks.
+  SmallVector<std::pair<VPBlockBase *, VPConstant *>, 2> ExitBlockIDPairs;
+  SmallDenseMap<VPBlockBase *, VPBlockBase *> ExitExitingBlocksMap;
+  VPBasicBlock *OrigLoopLatch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
+  VPBasicBlock *LoopHeader = dyn_cast<VPBasicBlock>(VPL->getHeader());
+  VPBlockBase *LatchExitBlock =
+      (OrigLoopLatch->getSuccessors()[0] == LoopHeader)
+          ? OrigLoopLatch->getSuccessors()[1]
+          : OrigLoopLatch->getSuccessors()[0];
 
-  // Apply simplification to subloops
-  for (auto VPSL : VPL->getSubLoops()) {
-    mergeLoopExits(VPSL);
-  }
+  // Step 1 : Creates a new loop latch and fills it with all the necessary
+  // instructions.
+  VPBasicBlock *NewLoopLatch =
+      new VPBasicBlock(VPlanUtils::createUniqueName("NewLoopLatch"));
+  VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch, Plan);
+  VPL->addBasicBlockToLoop(NewLoopLatch, *VPLInfo);
+  // Remove the original loop latch from the blocks of the phi node of the loop
+  // header.
+  updateBlocksPhiNode(LoopHeader, OrigLoopLatch, NewLoopLatch);
+  // Add a VPPHINode at the top of the new latch. This phi node shows whether
+  // the control-flow reaches the new loop latch from the original loop latch or
+  // one of the intermediate blocks or one of the exiting blocks.
+  Type *Ty = Type::getInt32Ty(*Plan->getLLVMContext());
+  VPBuilder VPBldr;
+  VPBldr.setInsertPoint(NewLoopLatch);
+  VPPHINode *VPPhi = cast<VPPHINode>(VPBldr.createPhiInstruction(Ty));
+  VPInstruction *OldCondBit =
+      dyn_cast<VPInstruction>(NewLoopLatch->getCondBit());
+  // This phi node is a marker of the backedge. It shows if the backedge is
+  // taken.
+  VPPHINode *VPPhiMarker =
+      cast<VPPHINode>(VPBldr.createPhiInstruction(OldCondBit->getType()));
+  VPPhiMarker->addIncoming(OldCondBit, cast<VPBasicBlock>(OrigLoopLatch));
+  // Update the condbit.
+  VPConstant *ZeroConst =
+      Plan->getVPConstant(ConstantInt::get(VPPhi->getType(), 0));
+  VPConstant *ZeroConst2 =
+      Plan->getVPConstant(ConstantInt::get(OldCondBit->getType(), 0));
+  VPInstruction *Cond = new VPCmpInst(VPPhi, ZeroConst, CmpInst::ICMP_EQ);
+  NewLoopLatch->addRecipeAfter(Cond, VPPhiMarker);
+  VPInstruction *NewCondBit =
+      cast<VPInstruction>(VPBldr.createAnd(Cond, VPPhiMarker));
+  NewLoopLatch->setCondBit(NewCondBit, Plan);
+  VPlanDivergenceAnalysis *VPlanDA = Plan->getVPlanDA();
+  VPlanDA->markDivergent(*NewCondBit);
+  // Add the original loop latch in the NewLoopLatch's phi node.
+  VPPHINode *NewLoopHeaderPhiNode =
+      updatePhiNodeInLoopHeader(LoopHeader, NewLoopLatch, VPPhi, Plan);
+  VPPhi->addIncoming(NewLoopHeaderPhiNode, cast<VPBasicBlock>(OrigLoopLatch));
 
-  // If Exit-Blocks count is less than 2, then there is nothing to do.
-  if (ExitBlocks.size() < 2) {
-    return;
-  }
+  // This is needed for the generation of cascaded if blocks.
+  VPConstant *ExitIDConst = Plan->getVPConstant(ConstantInt::get(Ty, ExitID));
+  ExitBlockIDPairs.push_back(std::make_pair(LatchExitBlock, ExitIDConst));
 
-  DenseMap<VPBlockBase *, VPBlockBase *> Exitting2ExitBlock;
-  unsigned ExitCounter = 0;
-  VPBlockBase *CascadedExit = nullptr;
+  // Step 2: Disconnects the exit blocks from the exiting blocks. If it is
+  // needed, an intermediate basic block is created. Otherwise, the exiting
+  // blocks are connected with the new loop latch.
+  SmallPtrSet<VPBlockBase *, 2> VisitedBlocks;
+  SmallDenseMap<VPBlockBase *, VPBasicBlock *> ExitBlockNewBlockMap;
+  bool phiIsMovedToNewLoopLatch = false;
+  // For each exit block (apart from the new loop latch), a new basic block is
+  // created and the ExitID is emitted.
+  for (VPBlockBase *ExitingBlock : ExitingBlocks) {
 
-  // This function generates the new merged multiple to single exit epilog.
-  // This epilog is composed of cascading ifs directing the exit path for
-  // each of the loop exiting options.
-  // A new Phi recipe is added to the focal exit point indicating which
-  // exiting path was taken, then compare statements for the cascading
-  // if-blocks are generated to direct the flow to the respective exit path.
-  // This function is invoked to build the cascading ifs iteratively from the
-  // last cascading if to the first cascading if in the single exit focal point.
-  //
-  // The following tow variables are used to save data between consecutive calls
-  // of the function. PhiRecipe - holds the phi recipe after being generated at
-  // the first call. ExittingBlocks - holds the list of exitting-blocks.
-  VPPhiValueRecipe *PhiRecipe = nullptr;
-  SmallVector<VPBlockBase *, 4> ExittingBlocks;
+    if (ExitingBlock == OrigLoopLatch)
+      continue;
 
-  auto CreateCascadedExit =
-      [&](VPBlockBase *LastCascadedExitBlock, VPBlockBase *ExittingBlock,
-          VPBlockBase *ExitBlock, unsigned ExitID) -> VPBlockBase * {
+    VPBlockBase *ExitBlock = getBlocksExitBlock(ExitingBlock, VPL);
+    assert(ExitBlock != nullptr && "Exiting block should have an exit block!");
 
-    if (ExitID == 1) {
-      PhiRecipe = new VPPhiValueRecipe();
-      PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID),
-                                  ExittingBlock);
-      ExittingBlocks.clear();
-      ExittingBlocks.push_back(ExittingBlock);
-      return ExitBlock;
-    }
+    // This check is for case 2. In this case, we create a new intermediate
+    // basic block only if the exiting block is the loop header. This is needed
+    // for correct insertion of phis to make the loop exit condition live
+    // through back edge. For any other basic block, we just have to redirect
+    // the exiting block to the new loop latch.
+    if (ExitBlock == LatchExitBlock) {
+      VPBasicBlock *NewExitingBB = nullptr;
+      if (ExitingBlock == LoopHeader) {
+        NewExitingBB =
+            new VPBasicBlock(VPlanUtils::createUniqueName("IntermediateBB"));
+        VPL->addBasicBlockToLoop(NewExitingBB, *VPLInfo);
+        VPRegionBlock *Parent = LoopHeader->getParent();
+        NewExitingBB->setParent(Parent);
+        Parent->setSize(Parent->getSize() + 1);
+        VPBlockUtils::movePredecessor(LoopHeader, ExitBlock, NewExitingBB);
+        NewExitingBB->appendSuccessor(NewLoopLatch);
+        NewLoopLatch->appendPredecessor(NewExitingBB);
+        // Replace the exiting block with the new exiting block in the exit
+        // block's phi node.
+        if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock)) &&
+            allPredsInLoop(ExitBlock, VPL))
+          updateBlocksPhiNode(cast<VPBasicBlock>(ExitBlock),
+                              cast<VPBasicBlock>(ExitingBlock), NewExitingBB);
+      } else {
+        VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewLoopLatch);
+        NewExitingBB = cast<VPBasicBlock>(ExitingBlock);
+      }
+      ExitID++;
+      VPConstant *ExitIDConst =
+          Plan->getVPConstant(ConstantInt::get(Ty, ExitID));
+      VPPhi->addIncoming(ExitIDConst, NewExitingBB);
+      VPPhiMarker->addIncoming(ZeroConst2, NewExitingBB);
 
-    ExittingBlocks.push_back(ExittingBlock);
-    PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID), ExittingBlock);
-
-    VPBasicBlock *NewCascadedExit =
-        new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-    llvm_unreachable("Fix CBR");
-    VPInstruction *CBR =
-        // new VPCmpInst(PhiRecipe, VPConstantRecipe(ExitID));
-        nullptr; // FIXME: This should be fixed once recipes are replaced by
-                 // VPInstructions
-    VPRegionBlock *Parent = ExitBlock->getParent();
-    NewCascadedExit->setParent(Parent);
-    Parent->setSize(Parent->getSize() + 1);
-    VPBlockUtils::connectBlocks(NewCascadedExit, CBR, ExitBlock,
-                                LastCascadedExitBlock, Plan);
-    // Add NewBlock to VPLoopInfo
-    if (VPLoop *Loop = VPLInfo->getLoopFor(ExitBlock)) {
-      Loop->addBasicBlockToLoop(NewCascadedExit, *VPLInfo);
-    }
-    if (ExitID == ExitBlocks.size())
-      NewCascadedExit->appendRecipe(PhiRecipe);
-    NewCascadedExit->appendRecipe(CBR);
-
-    if (ExitID < ExitBlocks.size())
-      return NewCascadedExit;
-
-    for (auto ExittingBlock : ExittingBlocks) {
-      VPBlockUtils::movePredecessor(
-          ExittingBlock, Exitting2ExitBlock[ExittingBlock], NewCascadedExit);
-    }
-
-    return NewCascadedExit;
-  };
-
-  // This function handles the dominance and post-dominance required updates
-  // after the above cascading-exits transformation.
-  auto FixDominance = [&](VPBlockBase *LastCascadedExitBlock) -> void {
-
-    VPBlockBase *NCD = nullptr;
-    for (auto Pred : LastCascadedExitBlock->getPredecessors()) {
-      if (!NCD) {
-        NCD = Pred;
+      // The VPPHINode of the exit block should be moved in the new loop latch
+      // if all the predecessors are in the loop. If not, then we remove the
+      // exiting block from the basic blocks of the VPPHINode. If more than one
+      // blocks of the loop land on the same exit block, then one of them is
+      // replaced with new loop latch in the phi node's list and the others are
+      // removed from the phi node's list.
+      if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock)) &&
+          !phiIsMovedToNewLoopLatch) {
+        if (allPredsInLoop(ExitBlock, VPL)) {
+          if (VisitedBlocks.count(ExitBlock)) {
+            // Remove the exiting block from the exit block's phi node.
+            removeBlockFromVPPhiNode(cast<VPBasicBlock>(ExitingBlock),
+                                     cast<VPBasicBlock>(ExitBlock));
+          } else {
+            // Move the phi node of the exit block to the new loop latch.
+            moveExitBlocksPhiNode(cast<VPBasicBlock>(ExitBlock), NewLoopLatch);
+            phiIsMovedToNewLoopLatch = true;
+          }
+        } else
+          updateBlocksPhiNode(cast<VPBasicBlock>(ExitBlock),
+                              cast<VPBasicBlock>(ExitingBlock), NewExitingBB);
+      }
+    } else {
+      // This check ensures that only one Intermediate_BB is created (case 3) in
+      // case more than one exiting blocks land on the same exit block.
+      if (VisitedBlocks.count(ExitBlock)) {
+        VPBasicBlock *NBB = ExitBlockNewBlockMap[ExitBlock];
+        VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NBB);
+        if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock)))
+          removeBlockFromVPPhiNode(cast<VPBasicBlock>(ExitingBlock),
+                                   cast<VPBasicBlock>(ExitBlock));
         continue;
       }
-      NCD = VPDomTree.findNearestCommonDominator(NCD, Pred);
+
+      VPBasicBlock *NewBlock =
+          new VPBasicBlock(VPlanUtils::createUniqueName("IntermediateBB"));
+      VPRegionBlock *Parent = ExitingBlock->getParent();
+      NewBlock->setParent(Parent);
+      Parent->setSize(Parent->getSize() + 1);
+      VPL->addBasicBlockToLoop(NewBlock, *VPLInfo);
+      // Remove ExitBlock from ExitingBlock's successors and add a new
+      // intermediate block to its successors. ExitBlock's predecessor will be
+      // updated after emitting cascaded if blocks.
+      VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewBlock);
+      NewBlock->appendSuccessor(NewLoopLatch);
+      NewLoopLatch->appendPredecessor(NewBlock);
+
+      if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock)))
+        if (allPredsInLoop(ExitBlock, VPL))
+          moveExitBlocksPhiNode(cast<VPBasicBlock>(ExitBlock), NewBlock);
+
+      // Add ExitID and update NewLoopLatch's phi node.
+      ExitID++;
+      VPConstant *ExitIDConst =
+          Plan->getVPConstant(ConstantInt::get(Ty, ExitID));
+      VPPhi->addIncoming(ExitIDConst, cast<VPBasicBlock>(NewBlock));
+      VPPhiMarker->addIncoming(ZeroConst2, cast<VPBasicBlock>(NewBlock));
+      ExitBlockIDPairs.push_back(std::make_pair(ExitBlock, ExitIDConst));
+      ExitExitingBlocksMap[ExitBlock] = ExitingBlock;
+      ExitBlockNewBlockMap[ExitBlock] = NewBlock;
     }
+    VisitedBlocks.insert(ExitBlock);
+  }
 
-    // Update dom information
-    VPBlockBase *CascadedExit = nullptr;
-    VPBlockBase *NextCascadedExit = LastCascadedExitBlock;
-    for (unsigned i = 0; i < ExitBlocks.size() - 1; ++i) {
-      CascadedExit = NextCascadedExit;
-      NCD = VPDomTree.addNewBlock(CascadedExit, NCD /*IDom*/)->getBlock();
-      VPDomTree.changeImmediateDominator(CascadedExit->getSuccessors()[0], NCD);
-      NextCascadedExit = CascadedExit->getSuccessors()[1];
-    }
-    VPDomTree.changeImmediateDominator(NextCascadedExit, NCD);
+  // Step 3 : Creates cascaded if blocks. The head of the cascaded if blocks is
+  // emitted after the new loop latch. The cascaded if blocks are not emitted
+  // in case 2.
+  if (ExitBlocks.size() > 1) {
+    VPBasicBlock *IfBlock =
+        new VPBasicBlock(VPlanUtils::createUniqueName("IfBlock"));
+    VPRegionBlock *Parent = LatchExitBlock->getParent();
+    IfBlock->setParent(Parent);
+    Parent->setSize(Parent->getSize() + 1);
+    ParentLoop->addBasicBlockToLoop(IfBlock, *VPLInfo);
+    // Update the predecessors of the IfBlock.
+    VPBlockUtils::movePredecessor(NewLoopLatch, LatchExitBlock, IfBlock);
 
-    // Update post-dom information
-    // CascadedExit contains the last cascaded if.
-    for (unsigned i = 0; i < ExitBlocks.size() - 1; ++i) {
-      VPBlockBase *NCPD = VPPostDomTree.findNearestCommonDominator(
-          CascadedExit->getSuccessors()[0], CascadedExit->getSuccessors()[1]);
-      VPPostDomTree.addNewBlock(CascadedExit, NCPD);
-      CascadedExit = CascadedExit->getSinglePredecessor();
-    }
-
-    for (auto Pred : LastCascadedExitBlock->getPredecessors()) {
-      VPPostDomTree.changeImmediateDominator(Pred, LastCascadedExitBlock);
-    }
-
-    VPPostDomTree.updateDFSNumbers();
-    VPDomTree.updateDFSNumbers();
-  };
-
-  for (VPBlockBase *Exit : ExitBlocks) {
-    ++ExitCounter;
-    for (VPBlockBase *Pred : Exit->getPredecessors()) {
-      // check if Pred is an exitting block. if not continue.
-      if (!VPL->contains(Pred) || Exitting2ExitBlock[Pred])
-        continue;
-      Exitting2ExitBlock[Pred] = Exit;
-      CascadedExit = CreateCascadedExit(CascadedExit, Pred, Exit, ExitCounter);
+    for (int i = 1, end = ExitBlockIDPairs.size(); i != end; ++i) {
+      const auto &Pair = ExitBlockIDPairs[i];
+      VPBlockBase *ExitBlock = Pair.first;
+      VPConstant *ExitID = Pair.second;
+      VPInstruction *CondBr = new VPCmpInst(VPPhi, ExitID, CmpInst::ICMP_EQ);
+      IfBlock->appendRecipe(CondBr);
+      VPBasicBlock *NextIfBlock = nullptr;
+      // Emit cascaded if blocks.
+      if (i != end - 1) {
+        NextIfBlock = new VPBasicBlock(VPlanUtils::createUniqueName("IfBlock"));
+        NextIfBlock->setParent(Parent);
+        Parent->setSize(Parent->getSize() + 1);
+        ParentLoop->addBasicBlockToLoop(NextIfBlock, *VPLInfo);
+      } else {
+        // The current NextIfBlock is the LatchExitBlock.
+        NextIfBlock = cast<VPBasicBlock>(ExitBlockIDPairs[0].first);
+        if (hasVPPhiNode(cast<VPBasicBlock>(LatchExitBlock)))
+          updateBlocksPhiNode(cast<VPBasicBlock>(LatchExitBlock),
+                              cast<VPBasicBlock>(OrigLoopLatch), IfBlock);
+      }
+      // Update the successors of the IfBlock.
+      IfBlock->setTwoSuccessors(CondBr, ExitBlock, NextIfBlock, Plan);
+      // Update the predecessor of the NextIfBlock.
+      NextIfBlock->appendPredecessor(IfBlock);
+      // Add IfBlock in ExitBlock's predecessors.
+      ExitBlock->appendPredecessor(IfBlock);
+      // If all the predecessors of the exit block are in the loop, then the phi
+      // node is moved in the if block. If not, then we replace the ExitingBlock
+      // with the IfBlock in exit block's phi node.
+      if (hasVPPhiNode(cast<VPBasicBlock>(ExitBlock))) {
+        VPBlockBase *ExitingBlock = ExitExitingBlocksMap[ExitBlock];
+        updateBlocksPhiNode(cast<VPBasicBlock>(ExitBlock),
+                            cast<VPBasicBlock>(ExitingBlock), IfBlock);
+      }
+      IfBlock = NextIfBlock;
     }
   }
-  // FixDominance(CascadedExit);
 
-  LLVM_DEBUG(Plan->setName("LVP: Plain CFG for VF=4\n"); dbgs() << *Plan);
-  FixDominance(CascadedExit);
+  VPRegionBlock *CurrentLoopRegion =
+      cast<VPRegionBlock>(VPL->getHeader()->getParent());
+  VPDomTree.recalculate(*CurrentLoopRegion);
+  VPPostDomTree.recalculate(*CurrentLoopRegion);
+
+  VPRegionBlock *ParentLoopRegion =
+      cast<VPRegionBlock>(ParentLoop->getHeader()->getParent());
+  VPDomTree.recalculate(*ParentLoopRegion);
+  VPPostDomTree.recalculate(*ParentLoopRegion);
+
+  LLVM_DEBUG(dbgs() << "After merge loop exits transformation.\n");
+  LLVM_DEBUG(Plan->dump());
 }
 
 #if INTEL_CUSTOMIZATION

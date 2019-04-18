@@ -18,6 +18,7 @@
 #include "IntelVPOLoopAdapters.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanCostModelProprietary.h"
+#include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanPredicator.h"
 #include "IntelVolcanoOpenCL.h"
@@ -689,13 +690,11 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   return ModifiedLoop;
 }
 
-// Auxiliary function that checks only loop-specific constraints. Generic loop
-// nest constraints are in 'isSupported' function.
-static bool isSupportedRec(Loop *Lp) {
+// The interface getUniqueExitBlock() asserts that the loop has dedicated
+// exits. Check that a loop has dedicated exits before the check for unique
+// exit block. This is especially needed when stress testing VPlan builds.
+static bool hasDedicadedAndUniqueExits(Loop *Lp) {
 
-  // The interface getUniqueExitBlock() asserts that the loop has dedicated
-  // exits. Check that a loop has dedicated exits before the check for unique
-  // exit block. This is especially needed when stress testing VPlan builds.
   if (!Lp->hasDedicatedExits()) {
     LLVM_DEBUG(dbgs() << "VD: loop form "
                       << "(" << Lp->getName()
@@ -709,6 +708,15 @@ static bool isSupportedRec(Loop *Lp) {
                       << ") is not supported: multiple exit blocks.\n");
     return false;
   }
+  return true;
+}
+
+// Auxiliary function that checks only loop-specific constraints. Generic loop
+// nest constraints are in 'isSupported' function.
+static bool isSupportedRec(Loop *Lp) {
+
+  if (!LoopMassagingEnabled && !hasDedicadedAndUniqueExits(Lp))
+    return false;
 
   for (Loop *SubLoop : Lp->getSubLoops()) {
     if (!isSupportedRec(SubLoop))
@@ -731,6 +739,9 @@ bool VPlanDriver::isSupported(Loop *Lp) {
   if (!VPlanConstrStressTest)
     assert(Lp->isRecursivelyLCSSAForm(*DT, *LI) &&
            "Loop is not in LCSSA form!");
+
+  if (!hasDedicadedAndUniqueExits(Lp))
+    return false;
 
   // Check for loop specific constraints
   if (!isSupportedRec(Lp)) {

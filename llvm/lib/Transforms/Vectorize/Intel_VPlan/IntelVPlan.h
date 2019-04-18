@@ -1058,6 +1058,15 @@ public:
     VPBBUsers[Idx] = Block;
   }
 
+  /// Remove a block from the phi node.
+  void removeIncomingValue(const VPBasicBlock *Block) {
+    unsigned Idx = getBlockIndex(Block);
+    assert(Idx <= VPBBUsers.size() && "Index is out of range");
+    auto it = VPBBUsers.begin();
+    std::advance(it, Idx);
+    VPBBUsers.erase(it);
+  }
+
   /// Return index for a given \p Block.
   int getBlockIndex(const VPBasicBlock *Block) const {
     auto It = llvm::find(make_range(block_begin(), block_end()), Block);

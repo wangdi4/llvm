@@ -3251,6 +3251,14 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = V;
     return;
   }
+  case Instruction::ICmp: {
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Value *B = getVectorValue(VPInst->getOperand(1));
+    auto *Cmp = cast<VPCmpInst>(VPInst);
+    Value *V = Builder.CreateICmp(Cmp->getPredicate(), A, B);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
   default:
     llvm_unreachable("Unexpected VPInstruction");
   }

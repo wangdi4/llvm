@@ -26,6 +26,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
+extern cl::opt<bool> LoopMassagingEnabled;
+
 namespace llvm {
 class ScalarEvolution;
 class Loop;
