@@ -29,12 +29,23 @@ namespace llvm_intel_wp_analysis {
 extern cl::opt<bool> AssumeWholeProgram;
 }
 
+// Linker utilities functions
+
 // Return true if the symbol is a special symbol added by
 // the linker, else return false.
 bool isLinkerAddedSymbol(llvm::StringRef SymbolName);
 
+// Set true if the linker resolved all symbols, else set false.
 void setWholeProgramRead(bool ProgramRead);
+
+// Return true if the linker resolved all symbols, else return false.
+bool getWholeProgramRead();
+
+// Set if the linker is generating an executable.
 void setLinkingExecutable(bool LinikingExe);
+
+// Return true if the linker is creating an executable, else return false.
+bool getLinkingExecutable();
 
 // Set if the LTO process found that all symbols
 // have hidden visibility
@@ -70,6 +81,14 @@ private:
   // Return true if all symbols have hidden visibility, else
   // return false.
   bool isWholeProgramHidden();
+
+  // Return true if all symbols were resolved by the linker,
+  // else return false.
+  bool isWholeProgramRead();
+
+  // Return true if the linker is linking an executable, else
+  // return false.
+  bool isLinkedAsExecutable();
 
   // Compute the values of IsAdvancedOptEnabled[].
   void computeIsAdvancedOptEnabled(Module &M,

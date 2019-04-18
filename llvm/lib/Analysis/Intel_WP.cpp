@@ -62,15 +62,6 @@ static cl::opt<bool> AssumeWholeProgramHidden("whole-program-assume-hidden",
 static cl::opt<bool> AssumeWholeProgramExecutable(
     "whole-program-assume-executable", cl::init(false), cl::ReallyHidden);
 
-// This flag will be set to true after the whole program has been read i.e. the
-// linker was able to resolve each function symbol to either one of linked
-// modules or dynamic libraries.
-static bool WholeProgramRead = false;
-
-// This flag will be set to true by linker plugin when the linker is linking an
-// exectubale.
-static bool LinkingExecutable = false;
-
 // True if the LTO process finds that all symbols are inside the LTO unit.
 // The only symbols that will be treated as externals are main and those
 // that are in the RuntimeLibcalls table.
@@ -91,25 +82,6 @@ INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
 
-void llvm::setWholeProgramRead(bool ProgramRead) {
-  WholeProgramRead = ProgramRead;
-}
-
-void llvm::setLinkingExecutable(bool LinkingExe) {
-  LinkingExecutable = LinkingExe;
-}
-
-// Return true if the symbol is a special symbol added by
-// the linker, else return false.
-bool llvm::isLinkerAddedSymbol(llvm::StringRef SymbolName) {
-  return llvm::StringSwitch<bool>(SymbolName)
-      .Cases("__ehdr_start",
-             "__executable_start",
-             "__dso_handle",
-             true)
-      .Default(false);
-}
-
 // Store if all symbols have hidden visibility. Called during LTO
 // symbols resolution.
 void llvm::setVisibilityHidden(bool AllSymbolsHidden) {
@@ -122,15 +94,6 @@ void llvm::storeVisibleSymbols(StringRef SymbolName) {
   if (WholeProgramTrace)
     VisibleSymbolsVector.insert(SymbolName);
 }
-
-static bool IsWholeProgramRead() {
-  return WholeProgramRead || AssumeWholeProgramRead;
-}
-
-static bool IsLinkedAsExecutable() {
-  return LinkingExecutable || AssumeWholeProgramExecutable;
-}
-
 
 char WholeProgramWrapperPass::ID = 0;
 
@@ -450,8 +413,8 @@ void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
         errs() <<  "  WHOLE PROGRAM NOT DETECTED \n";
     }
 
-    WholeProgramSafe = isWholeProgramSeen() && IsWholeProgramRead()
-                       && IsLinkedAsExecutable();
+    WholeProgramSafe = isWholeProgramSeen() && isWholeProgramRead()
+                       && isLinkedAsExecutable();
     if (WholeProgramTrace) {
       if (WholeProgramSafe) {
         errs() <<  "  WHOLE PROGRAM SAFE is determined\n";
@@ -459,9 +422,9 @@ void WholeProgramInfo::wholeProgramAllExternsAreIntrins(Module &M,
         errs() <<  "  WHOLE PROGRAM SAFE is *NOT* determined:\n";
         if (!isWholeProgramSeen())
           errs() <<  "    whole program not seen;\n";
-        if (!IsWholeProgramRead())
+        if (!isWholeProgramRead())
           errs() <<  "    whole program not read;\n";
-        if (!IsLinkedAsExecutable())
+        if (!isLinkedAsExecutable())
           errs() <<  "    not linking an executable;\n";
       }
     }
@@ -520,6 +483,19 @@ bool WholeProgramInfo::isWholeProgramHidden(void) {
 
   return HiddenVisibility;
 }
+
+// Return true if the linker finds that all symbols were resolved or
+// the assumption flag for whole program read was turned on.
+bool WholeProgramInfo::isWholeProgramRead() {
+  return getWholeProgramRead() || AssumeWholeProgramRead;
+}
+
+// Return true if the linker is generating an executable or the
+// assumption flag for executable was turned on.
+bool WholeProgramInfo::isLinkedAsExecutable() {
+  return getLinkingExecutable() || AssumeWholeProgramExecutable;
+}
+
 char WholeProgramAnalysis::PassID;
 
 // Provide a definition for the static class member used to identify passes.
