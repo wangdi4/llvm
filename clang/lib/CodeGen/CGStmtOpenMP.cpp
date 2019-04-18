@@ -5346,6 +5346,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
       }
       Outliner << S.clauses();
       Outliner.insertMarker();
+      Outliner.emitVLAExpressions();
 
       EmitIgnoredExpr(S.getInit());
       // while (idx <= UB) { BODY; ++idx; }
