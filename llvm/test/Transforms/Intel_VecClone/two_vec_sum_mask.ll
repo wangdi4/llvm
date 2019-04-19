@@ -1,6 +1,7 @@
 ; Do a sanity check on the structure of the LLVM that VecClone produces for the masked variant.
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
+; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; Begin non-masked variant checking
 
