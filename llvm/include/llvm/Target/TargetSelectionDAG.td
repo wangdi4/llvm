@@ -904,6 +904,14 @@ def extloadvi32 : PatFrag<(ops node:$ptr), (extload node:$ptr)> {
   let IsLoad = 1;
   let ScalarMemoryVT = i32;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def extloadvf16 : PatFrag<(ops node:$ptr), (extload node:$ptr)> {
+  let IsLoad = 1;
+  let ScalarMemoryVT = f16;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 def extloadvf32 : PatFrag<(ops node:$ptr), (extload node:$ptr)> {
   let IsLoad = 1;
   let ScalarMemoryVT = f32;

@@ -1854,6 +1854,24 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setTruncStoreAction(MVT::v8i16,   MVT::v8i8,  Legal);
     }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (Subtarget.hasFP16()) {
+      // vcvt[u]dq2ph v4i32/64 -> v4f16, v2i32/64 -> v2f16
+      setOperationAction(ISD::SINT_TO_FP,    MVT::v2f16, Custom);
+      setOperationAction(ISD::UINT_TO_FP,    MVT::v2f16, Custom);
+      setOperationAction(ISD::SINT_TO_FP,    MVT::v4f16, Custom);
+      setOperationAction(ISD::UINT_TO_FP,    MVT::v4f16, Custom);
+      // vcvtps2phx v4f32 -> v4f16, v2f32 -> v2f16
+      setOperationAction(ISD::FP_ROUND,      MVT::v2f16, Custom);
+      setOperationAction(ISD::FP_ROUND,      MVT::v4f16, Custom);
+      // vcvtph2psx v4f16 -> v4f32, v2f16 -> v2f32
+      setOperationAction(ISD::FP_EXTEND,     MVT::v2f16, Custom);
+      setOperationAction(ISD::FP_EXTEND,     MVT::v4f16, Custom);
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
     if (Subtarget.hasVBMI2()) {
       // TODO: Make these legal even without VLX?
       for (auto VT : { MVT::v8i16,  MVT::v4i32, MVT::v2i64,
@@ -19206,11 +19224,32 @@ SDValue X86TargetLowering::LowerFP_TO_INT(SDValue Op, SelectionDAG &DAG) const {
   llvm_unreachable("Expected FP_TO_INTHelper to handle all remaining cases.");
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+static SDValue LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG,
+                              const X86Subtarget &Subtarget) {
+#else // INTEL_FEATURE_ISA_FP16
 static SDValue LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   SDLoc DL(Op);
   MVT VT = Op.getSimpleValueType();
   SDValue In = Op.getOperand(0);
   MVT SVT = In.getSimpleValueType();
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (Subtarget.hasFP16() && Subtarget.hasVLX() && SVT == MVT::v4f16)
+    return DAG.getNode(X86ISD::VFPEXT, DL, VT,
+                       DAG.getNode(ISD::CONCAT_VECTORS, DL, MVT::v8f16,
+                                   In, DAG.getUNDEF(SVT)));
+  if (Subtarget.hasFP16() && Subtarget.hasVLX() && SVT == MVT::v2f16)
+    return DAG.getNode(X86ISD::VFPEXT, DL, VT,
+                       DAG.getNode(ISD::CONCAT_VECTORS, DL, MVT::v8f16,
+                                   In, DAG.getUNDEF(SVT), DAG.getUNDEF(SVT),
+                                   DAG.getUNDEF(SVT)));
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   assert(SVT == MVT::v2f32 && "Only customize MVT::v2f32 type legalization!");
 
@@ -27299,7 +27338,13 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
     return LowerEXTEND_VECTOR_INREG(Op, Subtarget, DAG);
   case ISD::FP_TO_SINT:
   case ISD::FP_TO_UINT:         return LowerFP_TO_INT(Op, DAG);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case ISD::FP_EXTEND:          return LowerFP_EXTEND(Op, DAG, Subtarget);
+#else // INTEL_FEATURE_ISA_FP16
   case ISD::FP_EXTEND:          return LowerFP_EXTEND(Op, DAG);
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case ISD::LOAD:               return LowerLoad(Op, Subtarget, DAG);
   case ISD::STORE:              return LowerStore(Op, Subtarget, DAG);
   case ISD::FADD:
@@ -27895,17 +27940,42 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
   case ISD::SINT_TO_FP: {
     assert(Subtarget.hasDQI() && Subtarget.hasVLX() && "Requires AVX512DQVL!");
     SDValue Src = N->getOperand(0);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    EVT VT = N->getSimpleValueType(0).getVectorElementType();
+    EVT NewVT = VT == MVT::f16 ? MVT::v8f16 : MVT::v4f32;
+    if (N->getValueType(0) == MVT::v2f16 && Src.getValueType() == MVT::v2i32)
+      Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4i32,
+                        Src, DAG.getUNDEF(MVT::v2i32));
+    if (!isTypeLegal(Src.getValueType()))
+      return;
+#else // INTEL_FEATURE_ISA_FP16
+    EVT NewVT = MVT::v4f32;
     if (N->getValueType(0) != MVT::v2f32 || Src.getValueType() != MVT::v2i64)
       return;
-    Results.push_back(DAG.getNode(X86ISD::CVTSI2P, dl, MVT::v4f32, Src));
+#endif // INTEL_FEATURE_ISA_FP16
+    Results.push_back(DAG.getNode(X86ISD::CVTSI2P, dl, NewVT, Src));
+#endif // INTEL_CUSTOMIZATION
     return;
   }
   case ISD::UINT_TO_FP: {
     assert(Subtarget.hasSSE2() && "Requires at least SSE2!");
     EVT VT = N->getValueType(0);
+#if INTEL_CUSTOMIZATION
+    SDValue Src = N->getOperand(0);
+#if INTEL_FEATURE_ISA_FP16
+    if (VT.getVectorElementType() == MVT::f16
+        && Subtarget.hasFP16() && Subtarget.hasVLX()) {
+      if (N->getValueType(0) == MVT::v2f16 && Src.getValueType() == MVT::v2i32)
+        Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4i32,
+                          Src, DAG.getUNDEF(MVT::v2i32));
+      Results.push_back(DAG.getNode(X86ISD::CVTUI2P, dl, MVT::v8f16, Src));
+      return;
+    }
+#endif // INTEL_FEATURE_ISA_FP16
     if (VT != MVT::v2f32)
       return;
-    SDValue Src = N->getOperand(0);
+#endif // INTEL_CUSTOMIZATION
     EVT SrcVT = Src.getValueType();
     if (Subtarget.hasDQI() && Subtarget.hasVLX() && SrcVT == MVT::v2i64) {
       Results.push_back(DAG.getNode(X86ISD::CVTUI2P, dl, MVT::v4f32, Src));
@@ -27925,10 +27995,22 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     return;
   }
   case ISD::FP_ROUND: {
-    if (!isTypeLegal(N->getOperand(0).getValueType()))
-        return;
-    SDValue V = DAG.getNode(X86ISD::VFPROUND, dl, MVT::v4f32, N->getOperand(0));
-    Results.push_back(V);
+#if INTEL_CUSTOMIZATION
+    SDValue Src = N->getOperand(0);
+#if INTEL_FEATURE_ISA_FP16
+    EVT VT = N->getValueType(0);
+    EVT NewVT = VT.getVectorElementType() == MVT::f16 ? MVT::v8f16
+                                                      : MVT::v4f32;
+    if (VT == MVT::v2f16 && Src.getValueType() == MVT::v2f32)
+      Src = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4f32,
+                        Src, DAG.getUNDEF(MVT::v2f32));
+#else // INTEL_FEATURE_ISA_FP16
+    EVT NewVT = MVT::v4f32;
+#endif // INTEL_FEATURE_ISA_FP16
+    if (!isTypeLegal(Src.getValueType()))
+      return;
+    Results.push_back(DAG.getNode(X86ISD::VFPROUND, dl, NewVT, Src));
+#endif // INTEL_CUSTOMIZATION
     return;
   }
   case ISD::FP_EXTEND: {
@@ -27936,6 +28018,17 @@ void X86TargetLowering::ReplaceNodeResults(SDNode *N,
     // No other ValueType for FP_EXTEND should reach this point.
     assert(N->getValueType(0) == MVT::v2f32 &&
            "Do not know how to legalize this Node");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (Subtarget.hasFP16() && Subtarget.hasVLX()) {
+      SDValue Src = N->getOperand(0);
+      SDValue V = DAG.getNode(ISD::FP_EXTEND, dl, MVT::v4f32,
+                              DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4f16,
+                                          Src, DAG.getUNDEF(MVT::v2f16)));
+      Results.push_back(V);
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return;
   }
   case ISD::INTRINSIC_W_CHAIN: {
@@ -42248,7 +42341,14 @@ static SDValue combineUIntToFP(SDNode *N, SelectionDAG &DAG,
   // UINT_TO_FP(vXi1) -> SINT_TO_FP(ZEXT(vXi1 to vXi32))
   // UINT_TO_FP(vXi8) -> SINT_TO_FP(ZEXT(vXi8 to vXi32))
   // UINT_TO_FP(vXi16) -> SINT_TO_FP(ZEXT(vXi16 to vXi32))
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (InVT.isVector() && InVT.getScalarSizeInBits() < 32 &&
+      VT.getScalarType() != MVT::f16) {
+#else // INTEL_FEATURE_ISA_FP16
   if (InVT.isVector() && InVT.getScalarSizeInBits() < 32) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     SDLoc dl(N);
     EVT DstVT = EVT::getVectorVT(*DAG.getContext(), MVT::i32,
                                  InVT.getVectorNumElements());
@@ -42282,7 +42382,14 @@ static SDValue combineSIntToFP(SDNode *N, SelectionDAG &DAG,
   // SINT_TO_FP(vXi1) -> SINT_TO_FP(SEXT(vXi1 to vXi32))
   // SINT_TO_FP(vXi8) -> SINT_TO_FP(SEXT(vXi8 to vXi32))
   // SINT_TO_FP(vXi16) -> SINT_TO_FP(SEXT(vXi16 to vXi32))
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (InVT.isVector() && InVT.getScalarSizeInBits() < 32 &&
+      VT.getScalarType() != MVT::f16) {
+#else // INTEL_FEATURE_ISA_FP16
   if (InVT.isVector() && InVT.getScalarSizeInBits() < 32) {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     SDLoc dl(N);
     EVT DstVT = EVT::getVectorVT(*DAG.getContext(), MVT::i32,
                                  InVT.getVectorNumElements());

@@ -1691,32 +1691,20 @@ let Predicates = [HasAVX, NoVLX] in {
 // XMM only
 def VCVTPD2PSrr : VPDI<0x5A, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                        "cvtpd2ps\t{$src, $dst|$dst, $src}",
-                       [(set VR128:$dst, (X86vfpround (v2f64 VR128:$src)))]>,
+                       [(set VR128:$dst, (v4f32 (X86vfpround (v2f64 VR128:$src))))]>, // INTEL
                        VEX, Sched<[WriteCvtPD2PS]>, VEX_WIG;
 def VCVTPD2PSrm : VPDI<0x5A, MRMSrcMem, (outs VR128:$dst), (ins f128mem:$src),
                        "cvtpd2ps{x}\t{$src, $dst|$dst, $src}",
-                       [(set VR128:$dst, (X86vfpround (loadv2f64 addr:$src)))]>,
+                       [(set VR128:$dst, (v4f32 (X86vfpround (loadv2f64 addr:$src))))]>, // INTEL
                        VEX, Sched<[WriteCvtPD2PS.Folded]>, VEX_WIG;
 
 def VCVTPD2PSYrr : VPDI<0x5A, MRMSrcReg, (outs VR128:$dst), (ins VR256:$src),
                         "cvtpd2ps\t{$src, $dst|$dst, $src}",
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-                        [(set VR128:$dst, (v4f32 (X86vfpround VR256:$src)))]>,
-#else // INTEL_FEATURE_ISA_FP16
-                        [(set VR128:$dst, (X86vfpround VR256:$src))]>,
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
+                        [(set VR128:$dst, (v4f32 (X86vfpround VR256:$src)))]>, // INTEL
                         VEX, VEX_L, Sched<[WriteCvtPD2PSY]>, VEX_WIG;
 def VCVTPD2PSYrm : VPDI<0x5A, MRMSrcMem, (outs VR128:$dst), (ins f256mem:$src),
                         "cvtpd2ps{y}\t{$src, $dst|$dst, $src}",
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-                        [(set VR128:$dst, (v4f32 (X86vfpround (loadv4f64 addr:$src))))]>,
-#else // INTEL_FEATURE_ISA_FP16
-                        [(set VR128:$dst, (X86vfpround (loadv4f64 addr:$src)))]>,
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
+                        [(set VR128:$dst, (v4f32 (X86vfpround (loadv4f64 addr:$src))))]>, // INTEL
                         VEX, VEX_L, Sched<[WriteCvtPD2PSY.Folded]>, VEX_WIG;
 } // Predicates = [HasAVX, NoVLX]
 
@@ -1727,11 +1715,11 @@ def : InstAlias<"vcvtpd2psy\t{$src, $dst|$dst, $src}",
 
 def CVTPD2PSrr : PDI<0x5A, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
                      "cvtpd2ps\t{$src, $dst|$dst, $src}",
-                     [(set VR128:$dst, (X86vfpround (v2f64 VR128:$src)))]>,
+                     [(set VR128:$dst, (v4f32 (X86vfpround (v2f64 VR128:$src))))]>, // INTEL
                      Sched<[WriteCvtPD2PS]>;
 def CVTPD2PSrm : PDI<0x5A, MRMSrcMem, (outs VR128:$dst), (ins f128mem:$src),
                      "cvtpd2ps\t{$src, $dst|$dst, $src}",
-                     [(set VR128:$dst, (X86vfpround (memopv2f64 addr:$src)))]>,
+                     [(set VR128:$dst, (v4f32 (X86vfpround (memopv2f64 addr:$src))))]>, // INTEL
                      Sched<[WriteCvtPD2PS.Folded]>;
 
 let Predicates = [HasAVX, NoVLX] in {
