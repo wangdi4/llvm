@@ -38,6 +38,9 @@ static cl::opt<bool> EnableSOAToAOS("enable-dtrans-soatoaos", cl::init(true),
                                     cl::Hidden,
                                     cl::desc("Enable DTrans SOAToAOS"));
 
+static cl::opt<bool> EnableTranspose("enable-dtrans-transpose", cl::init(false),
+                                     cl::Hidden,
+                                     cl::desc("Enable DTrans Transpose"));
 // Delete fields transformation.
 static cl::opt<bool> EnableDeleteFields("enable-dtrans-deletefield",
                                         cl::init(true), cl::Hidden,
@@ -119,6 +122,8 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
   if (EnableResolveTypes)
     MPM.addPass(dtrans::ResolveTypesPass());
 
+  if (EnableTranspose)
+    MPM.addPass(dtrans::TransposePass());
   if (EnableSOAToAOS)
     MPM.addPass(dtrans::SOAToAOSPass());
   MPM.addPass(dtrans::WeakAlignPass());
@@ -144,6 +149,8 @@ void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
   if (EnableResolveTypes)
     PM.add(createDTransResolveTypesWrapperPass());
 
+  if (EnableTranspose)
+    PM.add(createDTransTransposeWrapperPass());
   if (EnableSOAToAOS)
     PM.add(createDTransSOAToAOSWrapperPass());
   PM.add(createDTransWeakAlignWrapperPass());

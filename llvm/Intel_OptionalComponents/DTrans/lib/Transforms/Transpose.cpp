@@ -15,8 +15,9 @@
 #include "Intel_DTrans/Transforms/Transpose.h"
 #include "Intel_DTrans/DTransCommon.h"
 
-#include "llvm/Analysis/Intel_WP.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Pass.h"
+#include <numeric>
 
 using namespace llvm;
 
@@ -28,11 +29,39 @@ using namespace llvm;
 // Trace messages about the dope vector object analysis
 #define DEBUG_DOPE_VECTORS "dtrans-transpose-dopevectors"
 
+// Trace messages about the IR transformation
+#define DEBUG_TRANSFORM "dtrans-transpose-transform"
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Print the list of candidates identified and their analysis result.
 static cl::opt<bool> PrintCandidates("dtrans-transpose-print-candidates",
                                      cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// Command line option to override the profitability heuristics, and enable a
+// specific transpose transformation to occur, subject to the variable passing
+// the safety checks.
+//
+// The argument format is: <varname>,Dim(N-1)Index,...,Dim(1)Index,Dim(0)Index
+//
+// There is one integer index argument for each dimension of the array, which
+// represents the dimension to take the stride from when doing the transpose.
+//
+// Additional variables can be supplied using a separator of ';'.
+//
+// For a 3 dimensional array, the default ordering corresponds to "2,1,0", which
+// corresponds to subscript calls of the form:
+//   %t1 = call @llvm.intel.subscript(2, 1, 324, @block, %idx2) ; stride = 324
+//   %t2 = call @llvm.intel.subscript(1, 1, 36, %t1, %idx1) ; stride = 36
+//   %t3 = call @llvm.intel.subscript(0, 1, 4, %t2, %idx0) ; stride = 4
+//
+// This option can be used to modify the ordering as follows:
+//     -dtrans-transpose-override=block,0,1,2;tetra,2,0,1
+// This would transpose the 1st and 3rd strides for 'block' (give dimension 2
+// the stride value of dimension 0, and vice-versa) and transpose the 2nd and
+// 3rd strides for 'tetra'
+static cl::opt<std::string> TransposeOverride("dtrans-transpose-override",
+                                              cl::ReallyHidden);
 
 namespace {
 
@@ -423,6 +452,19 @@ public:
     return StrideAddr[Dim];
   }
 
+  // Get all the store instructions for the stride field for the specified
+  // dimension.
+  iterator_range<DopeVectorFieldUse::StoreInstSetIter>
+  getStrideStores(uint32_t Dim) const {
+    assert(StrideAddr.size() > Dim && "Invalid dimension");
+    if (StrideAddr[Dim].hasFieldAddr())
+      return StrideAddr[Dim].stores();
+
+    // Return an empty set iterator range, if the field wasn't collected.
+    return iterator_range<DopeVectorFieldUse::StoreInstSetIter>(
+        DopeVectorFieldUse::StoreInstSet());
+  }
+
   Value *getExtent(uint32_t Dim) {
     assert(ExtentAddr.size() > Dim && "Invalid dimension");
     if (ExtentAddr[Dim].hasFieldAddr())
@@ -531,6 +573,11 @@ public:
   // When it is not set, it is allowed to only identify a subset of the Value
   // objects holding field addresses.
   void analyze(bool ForCreation) {
+    DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                    dbgs() << "\nChecking "
+                           << (ForCreation ? "construction" : "use")
+                           << " of dope vector: " << *DVObject << "\n");
+
     // Assume valid, until proven otherwise.
     IsValid = true;
 
@@ -540,8 +587,8 @@ public:
     GetElementPtrInst *LowerBoundBase = nullptr;
 
     for (auto *DVUser : DVObject->users()) {
-      DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
-                      dbgs() << "Check dope vector user: " << *DVUser << "\n");
+      DEBUG_WITH_TYPE(DEBUG_ANALYSIS, dbgs()
+                                          << "  DV user: " << *DVUser << "\n");
       if (auto *GEP = dyn_cast<GetElementPtrInst>(DVUser)) {
         // Find which of the fields this GEP is the address of.
         // Note: We expect the field addresses to only be seen at most one
@@ -1071,7 +1118,8 @@ public:
                      uint64_t ArrayLength, uint64_t ElementSize,
                      llvm::Type *ElementType)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
-        ElementSize(ElementSize), ElementType(ElementType), IsValid(false) {
+        ElementSize(ElementSize), ElementType(ElementType), IsValid(false),
+        IsProfitable(false) {
     assert(ArrayRank > 0 && ArrayRank <= FortranMaxRank && "Invalid Rank");
     uint64_t Stride = ElementSize;
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum) {
@@ -1081,6 +1129,15 @@ public:
   }
 
   ~TransposeCandidate() { cleanup(); }
+
+  // getters and setters for class.
+  StringRef getName() const { return GV->getName(); }
+  uint32_t getArrayRank() const { return ArrayRank; }
+  void setIsProfitable(bool Val) { IsProfitable = Val; }
+  void setTransposition(ArrayRef<uint32_t> A) {
+    assert(A.size() == ArrayRank && "Invalid rank description");
+    std::copy(A.begin(), A.end(), std::back_inserter(Transposition));
+  }
 
   // Clean up memory allocated during analysis of the candidate.
   void cleanup() {
@@ -1111,7 +1168,7 @@ public:
   //
   bool analyze(const DataLayout &DL) {
     DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
-                    dbgs() << "Analyzing variable: " << *GV << "\n");
+                    dbgs() << "\nAnalyzing variable: " << *GV << "\n");
 
     // Check all the direct uses of the global. This loop will also collect
     // the functions that take a dope vector which need to be checked.
@@ -1793,7 +1850,7 @@ public:
   // Transform the strides in the subscript calls and dope vector creation, if
   // the candidate is valid for being transposed.
   bool transform() {
-    if (!IsValid)
+    if (!IsValid || !IsProfitable)
       return false;
 
     LLVM_DEBUG(dbgs() << "Transforming candidate:" << GV->getName() << "\n");
@@ -1822,6 +1879,7 @@ public:
         OS << " " << Transposition[RankNum];
     OS << "\n";
     OS << "IsValid      : " << (IsValid ? "true" : "false") << "\n";
+    OS << "IsProfitable : " << (IsProfitable ? "true" : "false") << "\n";
     OS << "--------------\n";
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1845,7 +1903,10 @@ private:
 
   // This vector stores the stride values used when operating on the complete
   // array. For this optimization, we do not support cases where a sub-object is
-  // passed to a function as a portion of the array.
+  // passed to a function as a portion of the array. Strides are stored in the
+  // vector so that the dimension can be used as the index value into the
+  // vector. i.e. a 9x9 array of integers would store {4,36}, since Rank 0 uses
+  // a stride of 4 and Rank 1 uses a stride of 36.
   SmallVector<uint64_t, FortranMaxRank> Strides;
 
   // This vector stores the transpose index that will be used to access the
@@ -1878,12 +1939,94 @@ private:
   // transpose.
   bool IsValid;
 
+  // Indicates whether the analysis determined the candidate should be
+  // transposed.
+  bool IsProfitable;
+
   // This function will swap the strides used for indexing into the array. These
   // need to be changed for subscript operators that directly index into the
   // global variable, and for the setup of the dope vectors used when passing
   // the global variable to another function.
   void transposeStrides() {
-    // TODO: transformation of uses goes here.
+    assert(!Transposition.empty() && "New indices should have been set.");
+
+    for (auto *Call : SubscriptCalls)
+      transposeSubscriptCall(*Call, /*TransposeStrides=*/true);
+
+    for (auto *Call : DVSubscriptCalls)
+      transposeSubscriptCall(*Call, /*TransposeStrides=*/false);
+
+    for (auto *DV : DopeVectorInstances)
+      transposeDopeVector(*DV);
+  }
+
+  // This takes a subscript call for the highest Rank, whose result is fed to a
+  // subscript call of the next lower rank, and updates the subscript call to
+  // change the Rank parameter to reflect the transposed ordering. When \p
+  // TranspoeStrides is 'true', the call is using constant values for the stride
+  // parameter which also need to be updated.
+  void transposeSubscriptCall(CallInst &CI, bool TransposeStrides) {
+
+    // Lambda to process one subscript call, and recurse to subscript calls that
+    // use the result.
+    std::function<void(CallInst &, unsigned, bool)> ProcessSubscriptCall =
+        [this, &ProcessSubscriptCall](CallInst &CI, unsigned Rank,
+                                      bool TransposeStrides) -> void {
+      assert(isSubscriptIntrinsicCall(CI) && "Expect subscript intrinsic");
+
+      // Check if this index is being transposed from its original rank.
+      unsigned TransposeIdx = Transposition[Rank];
+      if (TransposeIdx != Rank) {
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "Before: " << CI << "\n");
+        if (TransposeStrides) {
+          assert(isa<Constant>(CI.getArgOperand(StrideOpNum)) &&
+                 "Subscript call expect to have constant stride");
+
+          uint64_t NewStride = Strides[TransposeIdx];
+          auto *NewStrideConst = ConstantInt::get(
+              CI.getArgOperand(StrideOpNum)->getType(), NewStride);
+          CI.setArgOperand(StrideOpNum, NewStrideConst);
+        }
+
+        // Modify the 'Rank' field because loop opt expects the stride
+        // values decrease as the Rank decreases.
+        CI.setArgOperand(
+            RankOpNum, ConstantInt::get(CI.getArgOperand(RankOpNum)->getType(),
+                                        TransposeIdx));
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << CI << "\n");
+      }
+
+      if (Rank != 0)
+        for (auto *UU : CI.users()) {
+          assert(isa<CallInst>(UU) && "Expected intrinsic subscript call");
+          auto *CI2 = cast<CallInst>(UU);
+          ProcessSubscriptCall(*CI2, Rank - 1, TransposeStrides);
+        }
+    };
+
+    ProcessSubscriptCall(CI, ArrayRank - 1, TransposeStrides);
+  }
+
+  // Modify the value stored into the stride fields of the dope vector.
+  void transposeDopeVector(DopeVectorAnalyzer &DV) {
+
+    for (unsigned Rank = 0; Rank < ArrayRank; ++Rank) {
+      unsigned TransposeIdx = Transposition[Rank];
+      // Check if this index is being transposed from its original rank.
+      if (TransposeIdx == Rank)
+        continue;
+      uint64_t NewStride = Strides[TransposeIdx];
+
+      auto StrideStores = DV.getStrideStores(Rank);
+      for (auto *SI : StrideStores) {
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "Before: " << *SI << "\n");
+
+        auto *NewStrideConst =
+            ConstantInt::get(SI->getOperand(0)->getType(), NewStride);
+        SI->setOperand(0, NewStrideConst);
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << *SI << "\n");
+      }
+    }
   }
 };
 
@@ -1914,6 +2057,11 @@ public:
     const DataLayout &DL = M.getDataLayout();
 
     IdentifyCandidates(M);
+
+    // Look for any candidates that should be marked as profitable based on
+    // command line flags.
+    if (!TransposeOverride.empty())
+      parseOverrideFlag();
 
     bool ValidCandidate = false;
     for (auto &Cand : Candidates) {
@@ -1987,6 +2135,41 @@ private:
         TransposeCandidate Candidate(&GV, Dimensions, Length, ElemSize,
                                      ElemType);
         Candidates.push_back(Candidate);
+      }
+    }
+  }
+
+  // Parse the command line override flag that specifies a transpose ordering
+  // for a variable.
+  void parseOverrideFlag() {
+    SmallVector<StringRef, 4> CandStrings;
+    SmallVector<StringRef, 4> FieldStrings;
+    SplitString(TransposeOverride, CandStrings, ";");
+    for (auto &Arg : CandStrings) {
+      SplitString(Arg, FieldStrings, ",");
+      StringRef Name = FieldStrings[0];
+      for (auto &Cand : Candidates) {
+        if (Cand.getName() == Name) {
+          uint32_t Ranks = FieldStrings.size() - 1;
+          SmallVector<uint32_t, FortranMaxRank> TransposeVector;
+          for (unsigned Idx = 1; Idx <= Ranks; ++Idx)
+            TransposeVector.push_back(std::stoi(FieldStrings[Idx]));
+
+          // Validate the index values as having one value per rank.
+          SmallVector<uint32_t, FortranMaxRank> Tmp;
+          Tmp.resize(Cand.getArrayRank());
+          std::iota(Tmp.begin(), Tmp.end(), 0);
+          if (!std::is_permutation(Tmp.begin(), Tmp.end(),
+                                   TransposeVector.begin())) {
+            LLVM_DEBUG(dbgs() << "Invalid rank description: " << Arg << "\n");
+            continue;
+          }
+
+          // Transposition wants the vector to be indexed by the Rank ID.
+          std::reverse(TransposeVector.begin(), TransposeVector.end());
+          Cand.setTransposition(TransposeVector);
+          Cand.setIsProfitable(true);
+        }
       }
     }
   }
