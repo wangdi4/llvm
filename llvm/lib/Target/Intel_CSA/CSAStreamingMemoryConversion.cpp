@@ -21,6 +21,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -713,6 +714,7 @@ void CSAStreamingMemoryImpl::makeStreaming(StreamingMemoryDetails &Details) {
   // Generate the base and length values for the stream
   Instruction *DeloopedIP = L->getLoopPreheader()->getTerminator();
   IRBuilder<> Builder(DeloopedIP);
+  Builder.SetCurrentDebugLocation(Details.MemInst->getDebugLoc());
   Value *Base = Expander.expandCodeFor(Details.Base,
       Details.MemTy->getPointerTo(), DeloopedIP);
   Value *Length = Expander.expandCodeFor(ExecCount, Builder.getInt64Ty(),
@@ -988,6 +990,9 @@ bool CSAStreamingMemoryImpl::attemptWide(StreamingMemoryDetails &A,
   // Generate the base and length values for the stream
   Instruction *DeloopedIP = L->getLoopPreheader()->getTerminator();
   IRBuilder<> Builder(DeloopedIP);
+  Builder.SetCurrentDebugLocation(DILocation::getMergedLocation(
+    Lo.MemInst->getDebugLoc().get(),
+    Hi.MemInst->getDebugLoc().get()));
   Value *Base = Expander.expandCodeFor(Lo.Base,
       Lo.MemTy->getPointerTo(), DeloopedIP);
   Value *Length = Expander.expandCodeFor(ExecCount, Builder.getInt64Ty(),
