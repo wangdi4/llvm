@@ -258,6 +258,7 @@ void VPlanPredicator::createOrPropagatePredicates(VPBlockBase *CurrBlock,
 #endif // INTEL_CUSTOMIZATION
   // Logically OR all incoming predicates by building the Predicate Tree.
   VPValue *Predicate = genPredicateTree(IncomingPredicates);
+  assert(Predicate && "No predicate generated from Predicate Tree."); // INTEL
 
   // Now update the block's predicate with the new one.
   CurrBlock->setPredicate(Predicate);

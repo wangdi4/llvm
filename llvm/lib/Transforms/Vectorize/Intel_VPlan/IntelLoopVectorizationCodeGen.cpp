@@ -892,7 +892,9 @@ PHINode *VPOCodeGen::createInductionVariable(Loop *L, Value *Start, Value *End,
   Induction->addIncoming(Next, Latch);
   // Create the compare.
   Value *ICmp = Builder.CreateICmpEQ(Next, End);
-  Builder.CreateCondBr(ICmp, L->getExitBlock(), Header);
+  BasicBlock *Exit = L->getExitBlock();
+  assert(Exit && "Exit block not found for loop.");
+  Builder.CreateCondBr(ICmp, Exit, Header);
 
   // Now we have two terminators. Remove the old one from the block.
   Latch->getTerminator()->eraseFromParent();
@@ -2806,6 +2808,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(CallInst *Call, bool isMasked) {
   VecArgTys.push_back(WideSinPtr->getType());
   Function *VectorF = getOrInsertVectorFunction(
       Call, VF, VecArgTys, TLI, Intrinsic::not_intrinsic, nullptr, isMasked);
+  assert(VectorF && "Vector function not created.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
   if (isa<FPMathOperator>(VecCall))
     VecCall->copyFastMathFlags(Call);
@@ -2816,8 +2819,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(CallInst *Call, bool isMasked) {
   VecCall->setAttributes(Call->getAttributes());
 
   // Set calling convention for SVML function calls
-  if (isSVMLFunction(TLI, Call->getCalledFunction()->getName(),
-                     VectorF->getName()))
+  Function *CalledFunc = Call->getCalledFunction();
+  assert(CalledFunc && "Unexpected null call function.");
+  if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
     VecCall->setCallingConv(CallingConv::SVML);
 
   Loop *Lp = LI->getLoopFor(Call->getParent());
