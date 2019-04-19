@@ -185,7 +185,7 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
     if (FPGA_EMU_DEVICE == m_deviceMode)
     {
         m_vPlatformVersionStr +=
-          " Intel(R) FPGA SDK for OpenCL(TM), Version 19.1";
+          " Intel(R) FPGA SDK for OpenCL(TM), Version 19.2";
     }
     else
     {
