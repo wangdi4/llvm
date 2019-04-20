@@ -56,19 +56,30 @@ IR. The algorithm proceeds as follows:
 
   1. **Loops pre-header massaging**: splits loop pre-header VPBasicBlock's when
      one of the following conditions is met:
-    
+
      * Pre-header has multiple predecessors.
      * Pre-header is header of another loop.
 
-  #. **Multiple-exit-to-single-exit loop massaging**: Saher's TODO. Please, add
-     reference if documentation is in another file.
+  #. **Multiple-exit-to-single-exit loop massaging**: This transformation
+     removes the side exits of the inner loop by doing the following:
+     * For each exit block, a new intermediate basic block is created. The
+       exiting block is disconnected from the exit block and is connected as
+       predecessor to the new intermediate block.
+     * All the intermediate blocks and the original loop latch are landing to a
+       new loop latch. In the new loop latch, the back edge is taken if the new
+       loop latch is reached from the original loop latch and the old back-edge
+       condition is true. Otherwise, the control is transferred to the loop
+       exit.
+     * To preserve the old control flow, several cascaded if blocks are emitted
+       after the new loop latch. Each cascaded if block redirects the control
+       flow to the right exit block.
 
   #. **Inner loop non-uniform control flow massaging**: Matt's TODO. Please,
      add reference if documentation is in another file.
 
   #. **Loop single exit massaging**: splits loops single exit VPBasicBlock when
      one of the following conditions is met:
-     
+
      * Loop exit has multiple successors.
      * Loop exit is preheader of another loop.
 
