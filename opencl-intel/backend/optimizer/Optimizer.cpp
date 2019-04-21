@@ -614,6 +614,12 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(createCLWGLoopCreatorPass());
   }
 
+  // Clean up scalar kernel after WGLoop for native subgroups.
+  if (debugType == intel::None) {
+    PM.add(llvm::createDeadCodeEliminationPass()); // Delete dead instructions
+    PM.add(llvm::createCFGSimplificationPass());   // Simplify CFG
+  }
+
   if (isFpgaEmulator) {
     PM.add(createInfiniteLoopCreatorPass());
   }
