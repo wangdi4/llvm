@@ -79,21 +79,15 @@ using FuncArgPosPair = std::pair<Function *, unsigned int>;
 using FuncArgPosPairSet = SmallSet<FuncArgPosPair, 8>;
 using FuncArgPosPairSetIter = SmallSet<FuncArgPosPair, 8>::const_iterator;
 
-// Type to store a collection of CallInst pointers.
-using CallInstSet = SmallPtrSet<CallInst *, 16>;
-using CallInstSetIter = CallInstSet::const_iterator;
+// Type to store a collection of SubscriptInst pointers.
+using SubscriptInstSet = SmallPtrSet<SubscriptInst *, 16>;
+using SubscriptInstSetIter = SubscriptInstSet::const_iterator;
 
 // An uplevel variable is a structure type that holds values or pointers of
 // variables in the parent routine of nested routines. This type is to describe
 // an uplevel use of a specific dope vector.  It consists of a variable and the
 // field number of the structure containing the dope vector.
 using UpevelDVField = std::pair<Value *, uint64_t>;
-
-// Helper routine to check if a CallInst is to llvm.intel.subscript.
-bool isSubscriptIntrinsicCall(const CallInst &CI) {
-  const Function *F = CI.getCalledFunction();
-  return F && F->getIntrinsicID() == Intrinsic::intel_subscript;
-}
 
 // Helper routine for checking and getting a constant integer from a GEP
 // operand. If the value is not a constant, returns an empty object.
@@ -132,33 +126,30 @@ Optional<unsigned int> getArgumentPosition(const CallInst &CI,
 // Return 'true' if call has the expected values for the Base, and Rank.
 // If the LowerBound and Stride parameters are supplied, also check those.
 //
-bool isValidUseOfSubscriptCall(const CallInst &CI, const Value &Base,
+bool isValidUseOfSubscriptCall(const SubscriptInst &Subs, const Value &Base,
                                uint32_t ArrayRank, uint32_t Rank,
                                Optional<uint64_t> LowerBound = None,
                                Optional<uint64_t> Stride = None) {
   DEBUG_WITH_TYPE(DEBUG_ANALYSIS, {
     dbgs().indent((ArrayRank - Rank) * 2 + 4);
-    dbgs() << "Checking call: " << CI << "\n";
+    dbgs() << "Checking call: " << Subs << "\n";
   });
 
-  if (!isSubscriptIntrinsicCall(CI))
+  if (Subs.getArgOperand(PtrOpNum) != &Base)
     return false;
 
-  if (CI.getArgOperand(PtrOpNum) != &Base)
-    return false;
-
-  auto RankVal = dyn_cast<ConstantInt>(CI.getArgOperand(RankOpNum));
-  if (!RankVal || RankVal->getLimitedValue() != Rank)
+  unsigned RankParam = Subs.getRank();
+  if (RankParam != Rank)
     return false;
 
   if (LowerBound) {
-    auto LBVal = dyn_cast<ConstantInt>(CI.getArgOperand(LBOpNum));
+    auto LBVal = dyn_cast<ConstantInt>(Subs.getLowerBound());
     if (!LBVal || LBVal->getLimitedValue() != *LowerBound)
       return false;
   }
 
   if (Stride) {
-    auto StrideVal = dyn_cast<ConstantInt>(CI.getArgOperand(StrideOpNum));
+    auto StrideVal = dyn_cast<ConstantInt>(Subs.getStride());
     if (!StrideVal || StrideVal->getLimitedValue() != *Stride)
       return false;
   }
@@ -1053,21 +1044,17 @@ public:
 
   Value *findPerDimensionArrayFieldPtr(GetElementPtrInst &FieldGEP,
                                        unsigned Dimension) {
-    const unsigned IndexParamPos = 4;
-
     // Find the address element
     Instruction *Addr = nullptr;
     for (auto *U : FieldGEP.users()) {
-      if (auto *CI = dyn_cast<CallInst>(U)) {
-        if (!isSubscriptIntrinsicCall(*CI))
-          return nullptr;
-        auto *IdxVal = dyn_cast<ConstantInt>(CI->getArgOperand(IndexParamPos));
+      if (auto *Subs = dyn_cast<SubscriptInst>(U)) {
+        auto *IdxVal = dyn_cast<ConstantInt>(Subs->getIndex());
         if (!IdxVal)
           return nullptr;
         if (IdxVal->getLimitedValue() == Dimension) {
           if (Addr)
             return nullptr;
-          Addr = CI;
+          Addr = Subs;
         }
       } else {
         return nullptr;
@@ -1209,29 +1196,19 @@ public:
                    << I->getParent()->getParent()->getName() << "\n";
         });
 
-        if (auto *CI = dyn_cast<CallInst>(GepOpUser)) {
-          // Check that the call is to llvm.intel.subscript.
-          //
-          // This could be extended in the future to allow the address to be
-          // passed without a dope vector, but that is not needed for the case
-          // of interest, at the moment.
-          if (!isSubscriptIntrinsicCall(*CI)) {
-            DEBUG_WITH_TYPE(
-                DEBUG_ANALYSIS,
-                dbgs() << "  Invalid: Call with pointer address may only be "
-                          "subscript intrinsic call\n");
-
-            IsValid = false;
-            break;
-          }
-
+        // Check that the call is to llvm.intel.subscript.
+        //
+        // This could be extended in the future to allow other CallInst that
+        // take the address without a dope vector, but that is not needed for
+        // the case of interest, at the moment.
+        if (auto *Subs = dyn_cast<SubscriptInst>(GepOpUser)) {
           // The global variable should only be accessed with a subscript call
           // that uses the rank of the variable, and the array should only be
           // using default values for the lower bound and stride, rather than a
           // user defined value for the lower bound. It should not be required
           // for the transform, but it avoids cases such as:
           //     integer :: my_array(2:10, 9, 11:19)
-          if (!isValidUseOfSubscriptForGlobal(*CI, *GepOp)) {
+          if (!isValidUseOfSubscriptForGlobal(*Subs, *GepOp)) {
             DEBUG_WITH_TYPE(
                 DEBUG_ANALYSIS,
                 dbgs() << "  Invalid: Subscript call values not supported\n");
@@ -1242,7 +1219,7 @@ public:
 
           // Save the subscript call because we will need this for computing
           // profitability and transforming the arguments later.
-          SubscriptCalls.insert(CI);
+          SubscriptCalls.insert(Subs);
         } else if (auto *SI = dyn_cast<StoreInst>(GepOpUser)) {
           // The only case the address of the variable may be saved is into a
           // dope vector, check that case here.
@@ -1291,21 +1268,21 @@ public:
     return IsValid;
   }
 
-  // Check that \p CI is a supported subscript call on the global array base
+  // Check that \p Subs is a supported subscript call on the global array base
   // address \p BasePtr. For a global variable, we expect the subscript call to
   // contain the constant values for the lower bound and stride that represent
   // the full array, and a lower bound index of 1.
-  bool isValidUseOfSubscriptForGlobal(const CallInst &CI,
+  bool isValidUseOfSubscriptForGlobal(const SubscriptInst &Subs,
                                       const Value &BasePtr) {
 
     // Helper that checks constants for one subscript call, and recurse if
     // there are more ranks to check.
-    std::function<bool(const CallInst &, const Value &, uint32_t)>
+    std::function<bool(const SubscriptInst &, const Value &, uint32_t)>
 
-        IsValidUseForRank = [this, &IsValidUseForRank](const CallInst &Call,
-                                                       const Value &Ptr,
-                                                       uint32_t Rank) -> bool {
-      if (!isValidUseOfSubscriptCall(Call, Ptr, ArrayRank, Rank, 1,
+        IsValidUseForRank = [this, &IsValidUseForRank](
+                                const SubscriptInst &SubsPtr, const Value &Ptr,
+                                uint32_t Rank) -> bool {
+      if (!isValidUseOfSubscriptCall(SubsPtr, Ptr, ArrayRank, Rank, 1,
                                      Strides[Rank]))
         return false;
 
@@ -1313,12 +1290,12 @@ public:
       // the future this could be extended to support PHI nodes/select
       // instructions, but for now that is not needed.
       if (Rank > 0) {
-        for (const auto *U : Call.users()) {
-          const auto *CI = dyn_cast<CallInst>(U);
-          if (!CI)
+        for (const auto *U : SubsPtr.users()) {
+          const auto *Subs2 = dyn_cast<SubscriptInst>(U);
+          if (!Subs2)
             return false;
 
-          if (!IsValidUseForRank(*CI, Call, Rank - 1))
+          if (!IsValidUseForRank(*Subs2, SubsPtr, Rank - 1))
             return false;
         }
       }
@@ -1328,7 +1305,7 @@ public:
     // Check the use of this subscript call, and all the subscript calls the
     // result is fed to. Note, subscript call rank parameter value starts at 0,
     // not 1.
-    return IsValidUseForRank(CI, BasePtr, ArrayRank - 1);
+    return IsValidUseForRank(Subs, BasePtr, ArrayRank - 1);
   }
 
   // The only supported use of storing the address of the array's base pointer
@@ -1573,7 +1550,7 @@ public:
     // Check that the array pointer does not escape to another memory location.
     // This call will also collect the set of subscript calls that use the array
     // pointer from the dope vector.
-    CallInstSet SubscriptCalls;
+    SubscriptInstSet SubscriptCalls;
     if (!checkArrayPointerUses(DVA, SubscriptCalls)) {
       DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
                       dbgs() << "Array pointer address may escape from: "
@@ -1748,7 +1725,7 @@ public:
   // This function also collects the set of subscript calls taking the address
   // of the array pointer into \p SubscriptCalls.
   bool checkArrayPointerUses(const DopeVectorAnalyzer &DVA,
-                             CallInstSet &SubscriptCalls) {
+                             SubscriptInstSet &SubscriptCalls) {
     // Get a set of Value objects that hold the address of the array pointer.
     SmallPtrSet<Value *, 8> ArrayPtrValues;
     const DopeVectorFieldUse &PtrAddr = DVA.getPtrAddrField();
@@ -1766,15 +1743,17 @@ public:
       for (auto *PtrUser : ArrPtr->users()) {
         if (isa<SelectInst>(PtrUser) || isa<PHINode>(PtrUser)) {
           continue;
-        } else if (auto *CI = dyn_cast<CallInst>(PtrUser)) {
-          if (!isValidUseOfSubscriptCall(*CI, *ArrPtr, ArrayRank,
+        } else if (auto *Subs = dyn_cast<SubscriptInst>(PtrUser)) {
+          if (!isValidUseOfSubscriptCall(*Subs, *ArrPtr, ArrayRank,
                                          ArrayRank - 1)) {
-            dbgs() << "Array address: " << *ArrPtr
-                   << " not in subscript call: " << *CI << "\n";
+            DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
+                            dbgs()
+                                << "Array address: " << *ArrPtr
+                                << " not in subscript call: " << *Subs << "\n");
             return false;
           }
 
-          SubscriptCalls.insert(CI);
+          SubscriptCalls.insert(Subs);
         } else {
           DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
                           dbgs()
@@ -1794,31 +1773,28 @@ public:
   // first. Otherwise, this check will invalidate candidates that have
   // had constants substituted into the subscript calls.
   bool checkSubscriptStrideValues(const DopeVectorAnalyzer &DVA,
-                                  const CallInstSet &SubscriptCalls) {
+                                  const SubscriptInstSet &SubscriptCalls) {
     SmallVector<SmallPtrSet<Value *, 4>, FortranMaxRank> StrideLoads;
 
     // Function to check one subscript call, and recurse to checks subscript
     // calls that use the result to verify the stride to the call is a member of
     // \p StrideLoads.
     std::function<bool(const SmallVectorImpl<SmallPtrSet<Value *, 4>> &,
-                       const CallInst &, uint32_t)>
-        CheckCall =
-            [&CheckCall](
-                const SmallVectorImpl<SmallPtrSet<Value *, 4>> &StrideLoads,
-                const CallInst &CI, uint32_t Rank) -> bool {
-      if (!isSubscriptIntrinsicCall(CI))
-        return false;
-
-      Value *StrideOp = CI.getArgOperand(StrideOpNum);
+                       const SubscriptInst &, uint32_t)>
+        CheckCall;
+    CheckCall = [&CheckCall](
+                    const SmallVectorImpl<SmallPtrSet<Value *, 4>> &StrideLoads,
+                    const SubscriptInst &Subs, uint32_t Rank) -> bool {
+      Value *StrideOp = Subs.getStride();
       if (!StrideLoads[Rank].count(StrideOp))
         return false;
 
       if (Rank == 0)
         return true;
 
-      for (auto *UU : CI.users())
-        if (auto *CI2 = dyn_cast<CallInst>(UU))
-          if (!CheckCall(StrideLoads, *CI2, Rank - 1))
+      for (auto *UU : Subs.users())
+        if (auto *Subs2 = dyn_cast<SubscriptInst>(UU))
+          if (!CheckCall(StrideLoads, *Subs2, Rank - 1))
             return false;
 
       return true;
@@ -1840,8 +1816,8 @@ public:
 
     // Check all the subscript calls to ensure the stride value comes from the
     // dope vector.
-    for (auto *Call : SubscriptCalls)
-      if (!CheckCall(StrideLoads, *Call, ArrayRank - 1))
+    for (auto *Subs : SubscriptCalls)
+      if (!CheckCall(StrideLoads, *Subs, ArrayRank - 1))
         return false;
 
     return true;
@@ -1923,13 +1899,13 @@ private:
   // result of this instruction is fed to the subscript call of the next lower
   // rank, so we only need to store the initial call to get to all the others
   // for computing profitability and transposing the stride values.
-  CallInstSet SubscriptCalls;
+  SubscriptInstSet SubscriptCalls;
 
   // Set of calls to the subscript intrinsic that access the candidate via a
   // dope vector. These calls should be analyzed for profitability but do not
   // need to be transformed because they take their parameters from the dope
   // vector.
-  CallInstSet DVSubscriptCalls;
+  SubscriptInstSet DVSubscriptCalls;
 
   // Set of dope vector objects that were directly created from the global
   // variable.
@@ -1965,46 +1941,45 @@ private:
   // change the Rank parameter to reflect the transposed ordering. When \p
   // TranspoeStrides is 'true', the call is using constant values for the stride
   // parameter which also need to be updated.
-  void transposeSubscriptCall(CallInst &CI, bool TransposeStrides) {
+  void transposeSubscriptCall(SubscriptInst &Subs, bool TransposeStrides) {
 
     // Lambda to process one subscript call, and recurse to subscript calls that
     // use the result.
-    std::function<void(CallInst &, unsigned, bool)> ProcessSubscriptCall =
-        [this, &ProcessSubscriptCall](CallInst &CI, unsigned Rank,
+    std::function<void(SubscriptInst &, unsigned, bool)> ProcessSubscriptCall =
+        [this, &ProcessSubscriptCall](SubscriptInst &Subs, unsigned Rank,
                                       bool TransposeStrides) -> void {
-      assert(isSubscriptIntrinsicCall(CI) && "Expect subscript intrinsic");
-
       // Check if this index is being transposed from its original rank.
       unsigned TransposeIdx = Transposition[Rank];
       if (TransposeIdx != Rank) {
-        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "Before: " << CI << "\n");
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "Before: " << Subs << "\n");
         if (TransposeStrides) {
-          assert(isa<Constant>(CI.getArgOperand(StrideOpNum)) &&
+          assert(isa<Constant>(Subs.getArgOperand(StrideOpNum)) &&
                  "Subscript call expect to have constant stride");
 
           uint64_t NewStride = Strides[TransposeIdx];
           auto *NewStrideConst = ConstantInt::get(
-              CI.getArgOperand(StrideOpNum)->getType(), NewStride);
-          CI.setArgOperand(StrideOpNum, NewStrideConst);
+              Subs.getArgOperand(StrideOpNum)->getType(), NewStride);
+          Subs.setArgOperand(StrideOpNum, NewStrideConst);
         }
 
         // Modify the 'Rank' field because loop opt expects the stride
         // values decrease as the Rank decreases.
-        CI.setArgOperand(
-            RankOpNum, ConstantInt::get(CI.getArgOperand(RankOpNum)->getType(),
-                                        TransposeIdx));
-        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << CI << "\n");
+        Subs.setArgOperand(
+            RankOpNum,
+            ConstantInt::get(Subs.getArgOperand(RankOpNum)->getType(),
+                             TransposeIdx));
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << Subs << "\n");
       }
 
       if (Rank != 0)
-        for (auto *UU : CI.users()) {
-          assert(isa<CallInst>(UU) && "Expected intrinsic subscript call");
-          auto *CI2 = cast<CallInst>(UU);
-          ProcessSubscriptCall(*CI2, Rank - 1, TransposeStrides);
+        for (auto *UU : Subs.users()) {
+          assert(isa<SubscriptInst>(UU) && "Expected intrinsic subscript call");
+          auto *Subs2 = cast<SubscriptInst>(UU);
+          ProcessSubscriptCall(*Subs2, Rank - 1, TransposeStrides);
         }
     };
 
-    ProcessSubscriptCall(CI, ArrayRank - 1, TransposeStrides);
+    ProcessSubscriptCall(Subs, ArrayRank - 1, TransposeStrides);
   }
 
   // Modify the value stored into the stride fields of the dope vector.
