@@ -65,7 +65,10 @@ static bool isMemberPointer(StringView MangledName, bool &Error) {
   // If it starts with a number, then 6 indicates a non-member function
   // pointer, and 8 indicates a member function pointer.
   if (startsWithDigit(MangledName)) {
-    assert(MangledName[0] == '6' || MangledName[0] == '8');
+    if (MangledName[0] != '6' && MangledName[0] != '8') {
+      Error = true;
+      return false;
+    }
     return (MangledName[0] == '8');
   }
 
@@ -75,7 +78,10 @@ static bool isMemberPointer(StringView MangledName, bool &Error) {
   MangledName.consumeFront('I'); // restrict
   MangledName.consumeFront('F'); // unaligned
 
-  assert(!MangledName.empty());
+  if (MangledName.empty()) {
+    Error = true;
+    return false;
+  }
 
   // The next value should be either ABCD (non-member) or QRST (member).
   switch (MangledName.front()) {
@@ -270,6 +276,10 @@ Demangler::demangleSpecialTableSymbolNode(StringView &MangledName,
   SpecialTableSymbolNode *STSN = Arena.alloc<SpecialTableSymbolNode>();
   STSN->Name = QN;
   bool IsMember = false;
+  if (MangledName.empty()) {
+    Error = true;
+    return nullptr;
+  }
   char Front = MangledName.popFront();
   if (Front != '6' && Front != '7') {
     Error = true;
@@ -378,11 +388,11 @@ FunctionSymbolNode *Demangler::demangleInitFiniStub(StringView &MangledName,
   if (MangledName.consumeFront('?'))
     IsKnownStaticDataMember = true;
 
-  QualifiedNameNode *QN = demangleFullyQualifiedSymbolName(MangledName);
+  SymbolNode *Symbol = demangleDeclarator(MangledName);
+  if (Error)
+    return nullptr;
 
-  SymbolNode *Symbol = demangleEncodedSymbol(MangledName, QN);
   FunctionSymbolNode *FSN = nullptr;
-  Symbol->Name = QN;
 
   if (Symbol->kind() == NodeKind::VariableSymbol) {
     DSIN->Variable = static_cast<VariableSymbolNode *>(Symbol);
@@ -400,7 +410,8 @@ FunctionSymbolNode *Demangler::demangleInitFiniStub(StringView &MangledName,
     }
 
     FSN = demangleFunctionEncoding(MangledName);
-    FSN->Name = synthesizeQualifiedName(Arena, DSIN);
+    if (FSN)
+      FSN->Name = synthesizeQualifiedName(Arena, DSIN);
   } else {
     if (IsKnownStaticDataMember) {
       // This was supposed to be a static data member, but we got a function.
@@ -474,7 +485,7 @@ Demangler::demangleFunctionIdentifierCode(StringView &MangledName) {
   if (MangledName.consumeFront("__"))
     return demangleFunctionIdentifierCode(
         MangledName, FunctionIdentifierCodeGroup::DoubleUnder);
-  else if (MangledName.consumeFront("_"))
+  if (MangledName.consumeFront("_"))
     return demangleFunctionIdentifierCode(MangledName,
                                           FunctionIdentifierCodeGroup::Under);
   return demangleFunctionIdentifierCode(MangledName,
@@ -500,16 +511,22 @@ LiteralOperatorIdentifierNode *
 Demangler::demangleLiteralOperatorIdentifier(StringView &MangledName) {
   LiteralOperatorIdentifierNode *N =
       Arena.alloc<LiteralOperatorIdentifierNode>();
-  N->Name = demangleSimpleString(MangledName, false);
+  N->Name = demangleSimpleString(MangledName, /*Memorize=*/false);
   return N;
 }
 
-static IntrinsicFunctionKind
-translateIntrinsicFunctionCode(char CH, FunctionIdentifierCodeGroup Group) {
+IntrinsicFunctionKind
+Demangler::translateIntrinsicFunctionCode(char CH,
+                                          FunctionIdentifierCodeGroup Group) {
+  using IFK = IntrinsicFunctionKind;
+  if (!(CH >= '0' && CH <= '9') && !(CH >= 'A' && CH <= 'Z')) {
+    Error = true;
+    return IFK::None;
+  }
+
   // Not all ? identifiers are intrinsics *functions*.  This function only maps
   // operator codes for the special functions, all others are handled elsewhere,
   // hence the IFK::None entries in the table.
-  using IFK = IntrinsicFunctionKind;
   static IFK Basic[36] = {
       IFK::None,             // ?0 # Foo::Foo()
       IFK::None,             // ?1 # Foo::~Foo()
@@ -641,7 +658,10 @@ translateIntrinsicFunctionCode(char CH, FunctionIdentifierCodeGroup Group) {
 IdentifierNode *
 Demangler::demangleFunctionIdentifierCode(StringView &MangledName,
                                           FunctionIdentifierCodeGroup Group) {
-  assert(!MangledName.empty());
+  if (MangledName.empty()) {
+    Error = true;
+    return nullptr;
+  }
   switch (Group) {
   case FunctionIdentifierCodeGroup::Basic:
     switch (char CH = MangledName.popFront()) {
@@ -669,11 +689,16 @@ Demangler::demangleFunctionIdentifierCode(StringView &MangledName,
   }
   // No Mangling Yet:      Spaceship,                    // operator<=>
 
-  return nullptr;
+  DEMANGLE_UNREACHABLE;
 }
 
 SymbolNode *Demangler::demangleEncodedSymbol(StringView &MangledName,
                                              QualifiedNameNode *Name) {
+  if (MangledName.empty()) {
+    Error = true;
+    return nullptr;
+  }
+
   // Read a variable.
   switch (MangledName.front()) {
   case '0':
@@ -684,8 +709,6 @@ SymbolNode *Demangler::demangleEncodedSymbol(StringView &MangledName,
     StorageClass SC = demangleVariableStorageClass(MangledName);
     return demangleVariableEncoding(MangledName, SC);
   }
-  case '8':
-    return nullptr;
   }
   FunctionSymbolNode *FSN = demangleFunctionEncoding(MangledName);
 
@@ -693,9 +716,34 @@ SymbolNode *Demangler::demangleEncodedSymbol(StringView &MangledName,
   if (UQN->kind() == NodeKind::ConversionOperatorIdentifier) {
     ConversionOperatorIdentifierNode *COIN =
         static_cast<ConversionOperatorIdentifierNode *>(UQN);
-    COIN->TargetType = FSN->Signature->ReturnType;
+    if (FSN)
+      COIN->TargetType = FSN->Signature->ReturnType;
   }
   return FSN;
+}
+
+SymbolNode *Demangler::demangleDeclarator(StringView &MangledName) {
+  // What follows is a main symbol name. This may include namespaces or class
+  // back references.
+  QualifiedNameNode *QN = demangleFullyQualifiedSymbolName(MangledName);
+  if (Error)
+    return nullptr;
+
+  SymbolNode *Symbol = demangleEncodedSymbol(MangledName, QN);
+  if (Error)
+    return nullptr;
+  Symbol->Name = QN;
+
+  IdentifierNode *UQN = QN->getUnqualifiedIdentifier();
+  if (UQN->kind() == NodeKind::ConversionOperatorIdentifier) {
+    ConversionOperatorIdentifierNode *COIN =
+        static_cast<ConversionOperatorIdentifierNode *>(UQN);
+    if (!COIN->TargetType) {
+      Error = true;
+      return nullptr;
+    }
+  }
+  return Symbol;
 }
 
 // Parser entry point.
@@ -722,21 +770,7 @@ SymbolNode *Demangler::parse(StringView &MangledName) {
   if (SymbolNode *SI = demangleSpecialIntrinsic(MangledName))
     return SI;
 
-  // What follows is a main symbol name. This may include namespaces or class
-  // back references.
-  QualifiedNameNode *QN = demangleFullyQualifiedSymbolName(MangledName);
-  if (Error)
-    return nullptr;
-
-  SymbolNode *Symbol = demangleEncodedSymbol(MangledName, QN);
-  if (Symbol) {
-    Symbol->Name = QN;
-  }
-
-  if (Error)
-    return nullptr;
-
-  return Symbol;
+  return demangleDeclarator(MangledName);
 }
 
 TagTypeNode *Demangler::parseTagUniqueName(StringView &MangledName) {
@@ -762,6 +796,9 @@ VariableSymbolNode *Demangler::demangleVariableEncoding(StringView &MangledName,
 
   VSN->Type = demangleType(MangledName, QualifierMangleMode::Drop);
   VSN->SC = SC;
+
+  if (Error)
+    return nullptr;
 
   // <variable-type> ::= <type> <cvr-qualifiers>
   //                 ::= <type> <pointee-cvr-qualifiers> # pointers, references
@@ -910,8 +947,18 @@ Demangler::demangleTemplateInstantiationName(StringView &MangledName,
   if (Error)
     return nullptr;
 
-  if (NBB & NBB_Template)
+  if (NBB & NBB_Template) {
+    // NBB_Template is only set for types and non-leaf names ("a::" in "a::b").
+    // Structors and conversion operators only makes sense in a leaf name, so
+    // reject them in NBB_Template contexts.
+    if (Identifier->kind() == NodeKind::ConversionOperatorIdentifier ||
+        Identifier->kind() == NodeKind::StructorIdentifier) {
+      Error = true;
+      return nullptr;
+    }
+
     memorizeIdentifier(Identifier);
+  }
 
   return Identifier;
 }
@@ -1359,7 +1406,8 @@ Demangler::demangleLocallyScopedNamePiece(StringView &MangledName) {
 // Parses a type name in the form of A@B@C@@ which represents C::B::A.
 QualifiedNameNode *
 Demangler::demangleFullyQualifiedTypeName(StringView &MangledName) {
-  IdentifierNode *Identifier = demangleUnqualifiedTypeName(MangledName, true);
+  IdentifierNode *Identifier =
+      demangleUnqualifiedTypeName(MangledName, /*Memorize=*/true);
   if (Error)
     return nullptr;
   assert(Identifier);
@@ -1428,7 +1476,7 @@ Demangler::demangleUnqualifiedSymbolName(StringView &MangledName,
     return demangleTemplateInstantiationName(MangledName, NBB);
   if (MangledName.startsWith('?'))
     return demangleFunctionIdentifierCode(MangledName);
-  return demangleSimpleName(MangledName, (NBB & NBB_Simple) != 0);
+  return demangleSimpleName(MangledName, /*Memorize=*/(NBB & NBB_Simple) != 0);
 }
 
 IdentifierNode *Demangler::demangleNameScopePiece(StringView &MangledName) {
@@ -1444,7 +1492,7 @@ IdentifierNode *Demangler::demangleNameScopePiece(StringView &MangledName) {
   if (startsWithLocalScopePattern(MangledName))
     return demangleLocallyScopedNamePiece(MangledName);
 
-  return demangleSimpleName(MangledName, true);
+  return demangleSimpleName(MangledName, /*Memorize=*/true);
 }
 
 static NodeArrayNode *nodeListToNodeArray(ArenaAllocator &Arena, NodeList *Head,
@@ -1551,7 +1599,8 @@ FuncClass Demangler::demangleFunctionClass(StringView &MangledName) {
     FuncClass VFlag = FC_VirtualThisAdjust;
     if (MangledName.consumeFront('R'))
       VFlag = FuncClass(VFlag | FC_VirtualThisAdjustEx);
-
+    if (MangledName.empty())
+      break;
     switch (MangledName.popFront()) {
     case '0':
       return FuncClass(FC_Private | FC_Virtual | VFlag);
@@ -1574,6 +1623,11 @@ FuncClass Demangler::demangleFunctionClass(StringView &MangledName) {
 }
 
 CallingConv Demangler::demangleCallingConvention(StringView &MangledName) {
+  if (MangledName.empty()) {
+    Error = true;
+    return CallingConv::None;
+  }
+
   switch (MangledName.popFront()) {
   case 'A':
   case 'B':
@@ -1624,6 +1678,10 @@ StorageClass Demangler::demangleVariableStorageClass(StringView &MangledName) {
 
 std::pair<Qualifiers, bool>
 Demangler::demangleQualifiers(StringView &MangledName) {
+  if (MangledName.empty()) {
+    Error = true;
+    return std::make_pair(Q_None, false);
+  }
 
   switch (MangledName.popFront()) {
   // Member qualifiers
@@ -1660,6 +1718,11 @@ TypeNode *Demangler::demangleType(StringView &MangledName,
   } else if (QMM == QualifierMangleMode::Result) {
     if (MangledName.consumeFront('?'))
       std::tie(Quals, IsMember) = demangleQualifiers(MangledName);
+  }
+
+  if (MangledName.empty()) {
+    Error = true;
+    return nullptr;
   }
 
   TypeNode *Ty = nullptr;
@@ -1736,6 +1799,11 @@ Demangler::demangleFunctionEncoding(StringView &MangledName) {
   if (MangledName.consumeFront("$$J0"))
     ExtraFlags = FC_ExternC;
 
+  if (MangledName.empty()) {
+    Error = true;
+    return nullptr;
+  }
+
   FuncClass FC = demangleFunctionClass(MangledName);
   FC = FuncClass(ExtraFlags | FC);
 
@@ -1763,6 +1831,10 @@ Demangler::demangleFunctionEncoding(StringView &MangledName) {
     bool HasThisQuals = !(FC & (FC_Global | FC_Static));
     FSN = demangleFunctionType(MangledName, HasThisQuals);
   }
+
+  if (Error)
+    return nullptr;
+
   if (TTN) {
     *static_cast<FunctionSignatureNode *>(TTN) = *FSN;
     FSN = TTN;
@@ -1779,7 +1851,7 @@ CustomTypeNode *Demangler::demangleCustomType(StringView &MangledName) {
   MangledName.popFront();
 
   CustomTypeNode *CTN = Arena.alloc<CustomTypeNode>();
-  CTN->Identifier = demangleUnqualifiedTypeName(MangledName, true);
+  CTN->Identifier = demangleUnqualifiedTypeName(MangledName, /*Memorize=*/true);
   if (!MangledName.consumeFront('@'))
     Error = true;
   if (Error)
@@ -1859,7 +1931,7 @@ TagTypeNode *Demangler::demangleClassType(StringView &MangledName) {
     TT = Arena.alloc<TagTypeNode>(TagKind::Class);
     break;
   case 'W':
-    if (MangledName.popFront() != '4') {
+    if (!MangledName.consumeFront('4')) {
       Error = true;
       return nullptr;
     }
@@ -1903,6 +1975,8 @@ PointerTypeNode *Demangler::demangleMemberPointerType(StringView &MangledName) {
   Qualifiers ExtQuals = demanglePointerExtQualifiers(MangledName);
   Pointer->Quals = Qualifiers(Pointer->Quals | ExtQuals);
 
+  // isMemberPointer() only returns true if there is at least one character
+  // after the qualifiers.
   if (MangledName.consumeFront("8")) {
     Pointer->ClassParent = demangleFullyQualifiedTypeName(MangledName);
     Pointer->Pointee = demangleFunctionType(MangledName, true);
@@ -1910,11 +1984,12 @@ PointerTypeNode *Demangler::demangleMemberPointerType(StringView &MangledName) {
     Qualifiers PointeeQuals = Q_None;
     bool IsMember = false;
     std::tie(PointeeQuals, IsMember) = demangleQualifiers(MangledName);
-    assert(IsMember);
+    assert(IsMember || Error);
     Pointer->ClassParent = demangleFullyQualifiedTypeName(MangledName);
 
     Pointer->Pointee = demangleType(MangledName, QualifierMangleMode::Drop);
-    Pointer->Pointee->Quals = PointeeQuals;
+    if (Pointer->Pointee)
+      Pointer->Pointee->Quals = PointeeQuals;
   }
 
   return Pointer;
@@ -1981,7 +2056,7 @@ NodeArrayNode *
 Demangler::demangleFunctionParameterList(StringView &MangledName) {
   // Empty parameter list.
   if (MangledName.consumeFront('X'))
-    return {};
+    return nullptr;
 
   NodeList *Head = Arena.alloc<NodeList>();
   NodeList **Current = &Head;
@@ -1994,7 +2069,7 @@ Demangler::demangleFunctionParameterList(StringView &MangledName) {
       size_t N = MangledName[0] - '0';
       if (N >= Backrefs.FunctionParamCount) {
         Error = true;
-        return {};
+        return nullptr;
       }
       MangledName = MangledName.dropFront();
 
@@ -2025,7 +2100,7 @@ Demangler::demangleFunctionParameterList(StringView &MangledName) {
   }
 
   if (Error)
-    return {};
+    return nullptr;
 
   NodeArrayNode *NA = nodeListToNodeArray(Arena, Head, Count);
   // A non-empty parameter list is terminated by either 'Z' (variadic) parameter
@@ -2041,7 +2116,7 @@ Demangler::demangleFunctionParameterList(StringView &MangledName) {
   }
 
   Error = true;
-  return {};
+  return nullptr;
 }
 
 NodeArrayNode *
@@ -2089,6 +2164,8 @@ Demangler::demangleTemplateParameterList(StringView &MangledName) {
       SymbolNode *S = nullptr;
       if (MangledName.startsWith('?')) {
         S = parse(MangledName);
+        if (Error)
+          return nullptr;
         memorizeIdentifier(S->Name->getUnqualifiedIdentifier());
       }
 

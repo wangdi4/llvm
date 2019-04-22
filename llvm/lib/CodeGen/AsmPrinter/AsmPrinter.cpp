@@ -259,6 +259,9 @@ bool AsmPrinter::doInitialization(Module &M) {
   const_cast<TargetLoweringObjectFile&>(getObjFileLowering())
     .Initialize(OutContext, TM);
 
+  const_cast<TargetLoweringObjectFile &>(getObjFileLowering())
+      .getModuleMetadata(M);
+
   OutStreamer->InitSections(false);
 
   // Emit the version-min deployment target directive if needed.
@@ -1231,7 +1234,7 @@ static bool isGOTEquivalentCandidate(const GlobalVariable *GV,
   // GlobalVariable or Function, i.e., as GlobalValue.
   if (!GV->hasGlobalUnnamedAddr() || !GV->hasInitializer() ||
       !GV->isConstant() || !GV->isDiscardableIfUnused() ||
-      !dyn_cast<GlobalValue>(GV->getOperand(0)))
+      !isa<GlobalValue>(GV->getOperand(0)))
     return false;
 
   // To be a got equivalent, at least one of its users need to be a constant

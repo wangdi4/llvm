@@ -236,8 +236,6 @@ bool SymbolCollector::shouldCollectSymbol(const NamedDecl &ND,
                                           const ASTContext &ASTCtx,
                                           const Options &Opts,
                                           bool IsMainFileOnly) {
-  if (ND.isImplicit())
-    return false;
   // Skip anonymous declarations, e.g (anonymous enum/class/struct).
   if (ND.getDeclName().isEmpty())
     return false;
@@ -287,6 +285,11 @@ bool SymbolCollector::handleDeclOccurence(
   assert(ASTCtx && PP.get() && "ASTContext and Preprocessor must be set.");
   assert(CompletionAllocator && CompletionTUInfo);
   assert(ASTNode.OrigD);
+  // Indexing API puts cannonical decl into D, which might not have a valid
+  // source location for implicit/built-in decls. Fallback to original decl in
+  // such cases.
+  if (D->getLocation().isInvalid())
+    D = ASTNode.OrigD;
   // If OrigD is an declaration associated with a friend declaration and it's
   // not a definition, skip it. Note that OrigD is the occurrence that the
   // collector is currently visiting.
@@ -328,7 +331,9 @@ bool SymbolCollector::handleDeclOccurence(
   // then no public declaration was visible, so assume it's main-file only.
   bool IsMainFileOnly =
       SM.isWrittenInMainFile(SM.getExpansionLoc(ND->getBeginLoc()));
-  if (!shouldCollectSymbol(*ND, *ASTCtx, Opts, IsMainFileOnly))
+  // In C, printf is a redecl of an implicit builtin! So check OrigD instead.
+  if (ASTNode.OrigD->isImplicit() ||
+      !shouldCollectSymbol(*ND, *ASTCtx, Opts, IsMainFileOnly))
     return true;
   // Do not store references to main-file symbols.
   if (CollectRef && !IsMainFileOnly && !isa<NamespaceDecl>(ND) &&
@@ -524,9 +529,11 @@ const Symbol *SymbolCollector::addDeclaration(const NamedDecl &ND, SymbolID ID,
   Symbol S;
   S.ID = std::move(ID);
   std::string QName = printQualifiedName(ND);
-  std::tie(S.Scope, S.Name) = splitQualifiedName(QName);
   // FIXME: this returns foo:bar: for objective-C methods, we prefer only foo:
   // for consistency with CodeCompletionString and a clean name/signature split.
+  std::tie(S.Scope, S.Name) = splitQualifiedName(QName);
+  std::string TemplateSpecializationArgs = printTemplateSpecializationArgs(ND);
+  S.TemplateSpecializationArgs = TemplateSpecializationArgs;
 
   // We collect main-file symbols, but do not use them for code completion.
   if (!IsMainFileOnly && isIndexedForCodeCompletion(ND, Ctx))
@@ -538,6 +545,7 @@ const Symbol *SymbolCollector::addDeclaration(const NamedDecl &ND, SymbolID ID,
   S.SymInfo = index::getSymbolInfo(&ND);
   std::string FileURI;
   auto Loc = findNameLoc(&ND);
+  assert(Loc.isValid() && "Invalid source location for NamedDecl");
   // FIXME: use the result to filter out symbols.
   shouldIndexFile(SM, SM.getFileID(Loc), Opts, &FilesToIndexCache);
   if (auto DeclLoc =
