@@ -292,6 +292,7 @@ namespace {
 
 #if INTEL_CUSTOMIZATION
       (void)llvm::createLoadCoalescingPass();
+      (void)llvm::createMathLibraryFunctionsReplacementPass();
       (void) llvm::createSNodeAnalysisPass();
       (void) llvm::createLoopOptMarkerLegacyPass();
       // HIR passes

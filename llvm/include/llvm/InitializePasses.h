@@ -582,6 +582,7 @@ void initializeVPOParoptTpvPass(PassRegistry&);
 
 #if INTEL_CUSTOMIZATION
 void initializeLoadCoalescingLegacyPassPass(PassRegistry &);
+void initializeMathLibraryFunctionsReplacementLegacyPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 
 } // end namespace llvm
