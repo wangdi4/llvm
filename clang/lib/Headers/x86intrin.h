@@ -10,7 +10,10 @@
 #ifndef __X86INTRIN_H
 #define __X86INTRIN_H
 
-#include <ia32intrin.h>
+/* INTEL_CUSTOMIZATION */
+/* Moved to immintrin.h */
+/*#include <ia32intrin.h>*/
+/* end INTEL_CUSTOMIZATION */
 
 #include <immintrin.h>
 

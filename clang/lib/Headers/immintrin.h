@@ -10,6 +10,10 @@
 #ifndef __IMMINTRIN_H
 #define __IMMINTRIN_H
 
+/* INTEL_CUSTOMIZATION */
+#include <ia32intrin.h>
+/* end INTEL_CUSTOMIZATION */
+
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__MMX__)
 #include <mmintrin.h>
 #endif
