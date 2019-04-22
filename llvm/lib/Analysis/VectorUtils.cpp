@@ -695,6 +695,26 @@ bool llvm::isSVMLFunction(TargetLibraryInfo *TLI, StringRef FnName,
   return TLI->isFunctionVectorizable(FnName) && VFnName.startswith("__svml_");
 }
 
+template <typename CastInstTy> Value *llvm::getPtrThruCast(Value *Ptr) {
+  while (isa<CastInstTy>(Ptr)) {
+    CastInstTy *CastPtr = cast<CastInstTy>(Ptr);
+    Type *DestTy = CastPtr->getType();
+    Type *SrcTy = CastPtr->getSrcTy();
+    if (!isa<PointerType>(DestTy) || !isa<PointerType>(SrcTy))
+      break;
+    Type *Pointee1Ty = cast<PointerType>(DestTy)->getPointerElementType();
+    Type *Pointee2Ty = cast<PointerType>(SrcTy)->getPointerElementType();
+    const DataLayout &DL = CastPtr->getModule()->getDataLayout();
+    if (DL.getTypeSizeInBits(Pointee1Ty) != DL.getTypeSizeInBits(Pointee2Ty))
+      break;
+    Ptr = CastPtr->getOperand(0);
+  }
+  return Ptr;
+}
+
+template Value *llvm::getPtrThruCast<BitCastInst>(Value *Ptr);
+template Value *llvm::getPtrThruCast<AddrSpaceCastInst>(Value *Ptr);
+
 Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
                                           SmallVectorImpl<Type*> &ArgTys,
                                           TargetLibraryInfo *TLI,

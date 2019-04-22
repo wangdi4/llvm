@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlan.h"
+#include "IntelLoopVectorizationLegality.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"

@@ -17,6 +17,7 @@
 
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelLoopVectorizationCodeGen.h"
+#include "IntelLoopVectorizationLegality.h"
 #include "IntelNewVPlanPredicator.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanHCFGBuilder.h"

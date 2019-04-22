@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationCodeGen.h"
+#include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPOLoopAdapters.h"
 #include "IntelVPlanCostModel.h"
