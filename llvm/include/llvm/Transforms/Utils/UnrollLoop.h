@@ -25,11 +25,13 @@ namespace llvm {
 
 class AssumptionCache;
 class BasicBlock;
+class BlockFrequencyInfo;
 class DependenceInfo;
 class DominatorTree;
 class Loop;
 class LoopInfo;
 class MDNode;
+class ProfileSummaryInfo;
 class OptimizationRemarkEmitter;
 class ScalarEvolution;
 
@@ -68,6 +70,7 @@ LoopUnrollResult UnrollLoop(Loop *L, unsigned Count, unsigned TripCount,
                             bool AllowExpensiveTripCount, bool PreserveCondBr,
                             bool PreserveOnlyFirst, unsigned TripMultiple,
                             unsigned PeelCount, bool UnrollRemainder,
+                            bool ForgetAllSCEV,
                             LoopInfo *LI, ScalarEvolution *SE,
                             DominatorTree *DT, AssumptionCache *AC,
                             const LoopOptReportBuilder &LORBuilder, // INTEL
@@ -77,6 +80,7 @@ LoopUnrollResult UnrollLoop(Loop *L, unsigned Count, unsigned TripCount,
 bool UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
                                 bool AllowExpensiveTripCount,
                                 bool UseEpilogRemainder, bool UnrollRemainder,
+                                bool ForgetAllSCEV,
                                 LoopInfo *LI, ScalarEvolution *SE,
                                 DominatorTree *DT, AssumptionCache *AC,
                                 const LoopOptReportBuilder &LORBuilder, // INTEL
@@ -123,7 +127,8 @@ void simplifyLoopAfterUnroll(Loop *L, bool SimplifyIVs, LoopInfo *LI,
 MDNode *GetUnrollMetadata(MDNode *LoopID, StringRef Name);
 
 TargetTransformInfo::UnrollingPreferences gatherUnrollingPreferences(
-    Loop *L, ScalarEvolution &SE, const TargetTransformInfo &TTI, int OptLevel,
+    Loop *L, ScalarEvolution &SE, const TargetTransformInfo &TTI,
+    BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI, int OptLevel,
     Optional<unsigned> UserThreshold, Optional<unsigned> UserCount,
     Optional<bool> UserAllowPartial, Optional<bool> UserRuntime,
     Optional<bool> UserUpperBound, Optional<bool> UserAllowPeeling);

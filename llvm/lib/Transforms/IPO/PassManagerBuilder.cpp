@@ -343,6 +343,12 @@ cl::opt<bool> EnableOrderFileInstrumentation(
     "enable-order-file-instrumentation", cl::init(false), cl::Hidden,
     cl::desc("Enable order file instrumentation (default = off)"));
 
+cl::opt<bool> ForgetSCEVInLoopUnroll(
+    "forget-scev-loop-unroll", cl::init(false), cl::Hidden,
+    cl::desc("Forget everything in SCEV when doing LoopUnroll, instead of just"
+             " the current top-most loop. This is somtimes preferred to reduce"
+             " compile time."));
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -354,6 +360,7 @@ PassManagerBuilder::PassManagerBuilder() {
     RerollLoops = RunLoopRerolling;
     NewGVN = RunNewGVN;
     DisableGVNLoadPRE = false;
+    ForgetAllSCEVInLoopUnroll = ForgetSCEVInLoopUnroll;
     VerifyInput = false;
     VerifyOutput = false;
     MergeFunctions = false;
@@ -646,7 +653,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
   if (!isLoopOptEnabled()) // INTEL
     MPM.add(createSimpleLoopUnrollPass(OptLevel,  // INTEL
-                                     DisableUnrollLoops)); // Unroll small loops
+                                     DisableUnrollLoops, // Unroll small loops
+                                     ForgetAllSCEVInLoopUnroll));
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   MPM.add(createLoopSPMDizationPass());
@@ -1082,7 +1090,8 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (!PrepareForLTO || !isLoopOptEnabled()) // INTEL
   MPM.add(createLoopUnrollPass(OptLevel,
-                               DisableUnrollLoops)); // Unroll small loops
+                               DisableUnrollLoops, // Unroll small loops
+                               ForgetAllSCEVInLoopUnroll));
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1483,14 +1492,16 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
   if (!isLoopOptEnabled())
     PM.add(createSimpleLoopUnrollPass(OptLevel,
-                                    DisableUnrollLoops)); // Unroll small loops
+                                    DisableUnrollLoops, // Unroll small loops
+                                    ForgetAllSCEVInLoopUnroll));
   addLoopOptAndAssociatedVPOPasses(PM);
   if (EnableLV)
     PM.add(createLoopVectorizePass(true, !LoopVectorize));
 #endif  // INTEL_CUSTOMIZATION
 
   // The vectorizer may have significantly shortened a loop body; unroll again.
-  PM.add(createLoopUnrollPass(OptLevel, DisableUnrollLoops));
+  PM.add(createLoopUnrollPass(OptLevel, DisableUnrollLoops,
+                              ForgetAllSCEVInLoopUnroll));
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA

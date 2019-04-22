@@ -713,26 +713,11 @@ def sse_load_f64 : ComplexPattern<v2f64, 5, "selectScalarSSELoad", [],
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-def shmem : Operand<v8f16> {
-  let PrintMethod = "printwordmem";
-  let MIOperandInfo = (ops ptr_rc, i8imm, ptr_rc_nosp, i32imm, SEGMENT_REG);
-  let ParserMatchClass = X86Mem16AsmOperand;
-  let OperandType = "OPERAND_MEMORY";
-}
+def shmem : X86MemOperand<"printwordmem", X86Mem16AsmOperand>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-def ssmem : Operand<v4f32> {
-  let PrintMethod = "printdwordmem";
-  let MIOperandInfo = (ops ptr_rc, i8imm, ptr_rc_nosp, i32imm, SEGMENT_REG);
-  let ParserMatchClass = X86Mem32AsmOperand;
-  let OperandType = "OPERAND_MEMORY";
-}
-def sdmem : Operand<v2f64> {
-  let PrintMethod = "printqwordmem";
-  let MIOperandInfo = (ops ptr_rc, i8imm, ptr_rc_nosp, i32imm, SEGMENT_REG);
-  let ParserMatchClass = X86Mem64AsmOperand;
-  let OperandType = "OPERAND_MEMORY";
-}
+def ssmem : X86MemOperand<"printdwordmem", X86Mem32AsmOperand>;
+def sdmem : X86MemOperand<"printqwordmem", X86Mem64AsmOperand>;
 
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments

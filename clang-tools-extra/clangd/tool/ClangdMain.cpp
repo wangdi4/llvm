@@ -6,8 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Features.inc"
 #include "ClangdLSPServer.h"
+#include "CodeComplete.h"
+#include "Features.inc"
 #include "Path.h"
 #include "Protocol.h"
 #include "Trace.h"
@@ -154,6 +155,20 @@ static llvm::cl::opt<bool> ShowOrigins(
     "debug-origin", llvm::cl::desc("Show origins of completion items"),
     llvm::cl::init(CodeCompleteOptions().ShowOrigins), llvm::cl::Hidden);
 
+static llvm::cl::opt<CodeCompleteOptions::IncludeInsertion> HeaderInsertion(
+    "header-insertion",
+    llvm::cl::desc("Add #include directives when accepting code completions"),
+    llvm::cl::init(CodeCompleteOptions().InsertIncludes),
+    llvm::cl::values(
+        clEnumValN(CodeCompleteOptions::IWYU, "iwyu",
+                   "Include what you use. "
+                   "Insert the owning header for top-level symbols, unless the "
+                   "header is already directly included or the symbol is "
+                   "forward-declared."),
+        clEnumValN(
+            CodeCompleteOptions::NeverInsert, "never",
+            "Never insert #include directives as part of code completion")));
+
 static llvm::cl::opt<bool> HeaderInsertionDecorators(
     "header-insertion-decorators",
     llvm::cl::desc("Prepend a circular dot or space before the completion "
@@ -213,7 +228,7 @@ static llvm::cl::opt<std::string> ClangTidyChecks(
 static llvm::cl::opt<bool> EnableClangTidy(
     "clang-tidy",
     llvm::cl::desc("Enable clang-tidy diagnostics."),
-    llvm::cl::init(false));
+    llvm::cl::init(true));
 
 static llvm::cl::opt<bool> SuggestMissingIncludes(
     "suggest-missing-includes",
@@ -230,6 +245,14 @@ static llvm::cl::opt<OffsetEncoding> ForceOffsetEncoding(
                      clEnumValN(OffsetEncoding::UTF16, "utf-16",
                                 "Offsets are in UTF-16 code units")),
     llvm::cl::init(OffsetEncoding::UnsupportedEncoding));
+
+static llvm::cl::opt<bool> AllowFallbackCompletion(
+    "allow-fallback-completion",
+    llvm::cl::desc(
+        "Allow falling back to code completion without compiling files (using "
+        "identifiers and symbol indexes), when file cannot be built or the "
+        "build is not ready."),
+    llvm::cl::init(false));
 
 namespace {
 
@@ -430,6 +453,7 @@ int main(int argc, char *argv[]) {
   CCOpts.Limit = LimitResults;
   CCOpts.BundleOverloads = CompletionStyle != Detailed;
   CCOpts.ShowOrigins = ShowOrigins;
+  CCOpts.InsertIncludes = HeaderInsertion;
   if (!HeaderInsertionDecorators) {
     CCOpts.IncludeIndicator.Insert.clear();
     CCOpts.IncludeIndicator.NoInsert.clear();
@@ -437,6 +461,7 @@ int main(int argc, char *argv[]) {
   CCOpts.SpeculativeIndexRequest = Opts.StaticIndex;
   CCOpts.EnableFunctionArgSnippets = EnableFunctionArgSnippets;
   CCOpts.AllScopes = AllScopesCompletion;
+  CCOpts.AllowFallback = AllowFallbackCompletion;
 
   RealFileSystemProvider FSProvider;
   // Initialize and run ClangdLSPServer.

@@ -292,6 +292,9 @@ bool AsmPrinter::doInitialization(Module &M) {
   const_cast<TargetLoweringObjectFile&>(getObjFileLowering())
     .Initialize(OutContext, TM);
 
+  const_cast<TargetLoweringObjectFile &>(getObjFileLowering())
+      .getModuleMetadata(M);
+
   OutStreamer->InitSections(false);
 
   // Emit the version-min deployment target directive if needed.

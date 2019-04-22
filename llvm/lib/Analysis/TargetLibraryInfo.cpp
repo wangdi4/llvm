@@ -3175,52 +3175,14 @@ void TargetLibraryInfoImpl::addVectorizableFunctions(ArrayRef<VecDesc> Fns) {
 void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     enum VectorLibrary VecLib) {
   switch (VecLib) {
-#if INTEL_CUSTOMIZATION
-  // The Intel customization here is to add the 'Masked' argument to all the
-  // VecLib function definitions.
   case Accelerate: {
     const VecDesc VecFuncs[] = {
-        // Floating-Point Arithmetic and Auxiliary Functions
-        {"ceilf", "vceilf", 4, false},
-        {"fabsf", "vfabsf", 4, false},
-        {"llvm.fabs.f32", "vfabsf", 4, false},
-        {"floorf", "vfloorf", 4, false},
-        {"sqrtf", "vsqrtf", 4, false},
-        {"llvm.sqrt.f32", "vsqrtf", 4, false},
-
-        // Exponential and Logarithmic Functions
-        {"expf", "vexpf", 4, false},
-        {"llvm.exp.f32", "vexpf", 4, false},
-        {"expm1f", "vexpm1f", 4, false},
-        {"logf", "vlogf", 4, false},
-        {"llvm.log.f32", "vlogf", 4, false},
-        {"log1pf", "vlog1pf", 4, false},
-        {"log10f", "vlog10f", 4, false},
-        {"llvm.log10.f32", "vlog10f", 4, false},
-        {"logbf", "vlogbf", 4, false},
-
-        // Trigonometric Functions
-        {"sinf", "vsinf", 4, false},
-        {"llvm.sin.f32", "vsinf", 4, false},
-        {"cosf", "vcosf", 4, false},
-        {"llvm.cos.f32", "vcosf", 4, false},
-        {"tanf", "vtanf", 4, false},
-        {"asinf", "vasinf", 4, false},
-        {"acosf", "vacosf", 4, false},
-        {"atanf", "vatanf", 4, false},
-
-        // Hyperbolic Functions
-        {"sinhf", "vsinhf", 4, false},
-        {"coshf", "vcoshf", 4, false},
-        {"tanhf", "vtanhf", 4, false},
-        {"asinhf", "vasinhf", 4, false},
-        {"acoshf", "vacoshf", 4, false},
-        {"atanhf", "vatanhf", 4, false},
+    #define TLI_DEFINE_ACCELERATE_VECFUNCS
+    #include "llvm/Analysis/VecFuncs.def"
     };
     addVectorizableFunctions(VecFuncs);
     break;
   }
-#endif // INTEL_CUSTOMIZATION
   case SVML: {
     const VecDesc VecFuncs[] = {
 #if INTEL_CUSTOMIZATION
@@ -3260,9 +3222,8 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName) const {
   // assume that both the masked and non-masked variants are vectorizable as
   // long as lower_bound says so.
 #endif
-  std::vector<VecDesc>::const_iterator I = std::lower_bound(
-      VectorDescs.begin(), VectorDescs.end(), funcName,
-      compareWithScalarFnName);
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, funcName, compareWithScalarFnName);
   return I != VectorDescs.end() && StringRef(I->ScalarFnName) == funcName;
 }
 
@@ -3272,8 +3233,8 @@ StringRef TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
   F = sanitizeFunctionName(F);
   if (F.empty())
     return F;
-  std::vector<VecDesc>::const_iterator I = std::lower_bound(
-      VectorDescs.begin(), VectorDescs.end(), F, compareWithScalarFnName);
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, F, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == F) {
     if (I->VectorizationFactor == VF && I->Masked == Masked) // INTEL
       return I->VectorFnName;
@@ -3288,8 +3249,8 @@ StringRef TargetLibraryInfoImpl::getScalarizedFunction(StringRef F,
   if (F.empty())
     return F;
 
-  std::vector<VecDesc>::const_iterator I = std::lower_bound(
-      ScalarDescs.begin(), ScalarDescs.end(), F, compareWithVectorFnName);
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(ScalarDescs, F, compareWithVectorFnName);
   if (I == VectorDescs.end() || StringRef(I->VectorFnName) != F)
     return StringRef();
   VF = I->VectorizationFactor;

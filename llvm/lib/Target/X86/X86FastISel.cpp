@@ -1498,8 +1498,8 @@ bool X86FastISel::X86SelectCmp(const Instruction *I) {
 
   // FCMP_OEQ and FCMP_UNE cannot be checked with a single instruction.
   static const uint16_t SETFOpcTable[2][3] = {
-    { X86::SETEr,  X86::SETNPr, X86::AND8rr },
-    { X86::SETNEr, X86::SETPr,  X86::OR8rr  }
+    { X86::COND_E,  X86::COND_NP, X86::AND8rr },
+    { X86::COND_NE, X86::COND_P,  X86::OR8rr  }
   };
   const uint16_t *SETFOpc = nullptr;
   switch (Predicate) {
@@ -1515,10 +1515,10 @@ bool X86FastISel::X86SelectCmp(const Instruction *I) {
 
     unsigned FlagReg1 = createResultReg(&X86::GR8RegClass);
     unsigned FlagReg2 = createResultReg(&X86::GR8RegClass);
-    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(SETFOpc[0]),
-            FlagReg1);
-    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(SETFOpc[1]),
-            FlagReg2);
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::SETCCr),
+            FlagReg1).addImm(SETFOpc[0]);
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::SETCCr),
+            FlagReg2).addImm(SETFOpc[1]);
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(SETFOpc[2]),
             ResultReg).addReg(FlagReg1).addReg(FlagReg2);
     updateValueMap(I, ResultReg);
@@ -1529,7 +1529,6 @@ bool X86FastISel::X86SelectCmp(const Instruction *I) {
   bool SwapArgs;
   std::tie(CC, SwapArgs) = X86::getX86ConditionCode(Predicate);
   assert(CC <= X86::LAST_VALID_COND && "Unexpected condition code.");
-  unsigned Opc = X86::getSETFromCond(CC);
 
   if (SwapArgs)
     std::swap(LHS, RHS);
@@ -1538,7 +1537,8 @@ bool X86FastISel::X86SelectCmp(const Instruction *I) {
   if (!X86FastEmitCompare(LHS, RHS, VT, I->getDebugLoc()))
     return false;
 
-  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(Opc), ResultReg);
+  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::SETCCr),
+          ResultReg).addImm(CC);
   updateValueMap(I, ResultReg);
   return true;
 }
@@ -1708,11 +1708,9 @@ bool X86FastISel::X86SelectBranch(const Instruction *I) {
       }
 
       bool SwapArgs;
-      unsigned BranchOpc;
       std::tie(CC, SwapArgs) = X86::getX86ConditionCode(Predicate);
       assert(CC <= X86::LAST_VALID_COND && "Unexpected condition code.");
 
-      BranchOpc = X86::GetCondBranchFromCond(CC);
       if (SwapArgs)
         std::swap(CmpLHS, CmpRHS);
 
@@ -1720,14 +1718,14 @@ bool X86FastISel::X86SelectBranch(const Instruction *I) {
       if (!X86FastEmitCompare(CmpLHS, CmpRHS, VT, CI->getDebugLoc()))
         return false;
 
-      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(BranchOpc))
-        .addMBB(TrueMBB);
+      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::JCC_1))
+        .addMBB(TrueMBB).addImm(CC);
 
       // X86 requires a second branch to handle UNE (and OEQ, which is mapped
       // to UNE above).
       if (NeedExtraBranch) {
-        BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::JP_1))
-          .addMBB(TrueMBB);
+        BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::JCC_1))
+          .addMBB(TrueMBB).addImm(X86::COND_P);
       }
 
       finishCondBranch(BI->getParent(), TrueMBB, FalseMBB);
@@ -1754,14 +1752,14 @@ bool X86FastISel::X86SelectBranch(const Instruction *I) {
         BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(TestOpc))
           .addReg(OpReg).addImm(1);
 
-        unsigned JmpOpc = X86::JNE_1;
+        unsigned JmpCond = X86::COND_NE;
         if (FuncInfo.MBB->isLayoutSuccessor(TrueMBB)) {
           std::swap(TrueMBB, FalseMBB);
-          JmpOpc = X86::JE_1;
+          JmpCond = X86::COND_E;
         }
 
-        BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(JmpOpc))
-          .addMBB(TrueMBB);
+        BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::JCC_1))
+          .addMBB(TrueMBB).addImm(JmpCond);
 
         finishCondBranch(BI->getParent(), TrueMBB, FalseMBB);
         return true;
@@ -1774,10 +1772,8 @@ bool X86FastISel::X86SelectBranch(const Instruction *I) {
     if (TmpReg == 0)
       return false;
 
-    unsigned BranchOpc = X86::GetCondBranchFromCond(CC);
-
-    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(BranchOpc))
-      .addMBB(TrueMBB);
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::JCC_1))
+      .addMBB(TrueMBB).addImm(CC);
     finishCondBranch(BI->getParent(), TrueMBB, FalseMBB);
     return true;
   }
@@ -1801,8 +1797,8 @@ bool X86FastISel::X86SelectBranch(const Instruction *I) {
   BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::TEST8ri))
       .addReg(OpReg)
       .addImm(1);
-  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::JNE_1))
-    .addMBB(TrueMBB);
+  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::JCC_1))
+    .addMBB(TrueMBB).addImm(X86::COND_NE);
   finishCondBranch(BI->getParent(), TrueMBB, FalseMBB);
   return true;
 }
@@ -2065,8 +2061,8 @@ bool X86FastISel::X86FastEmitCMoveSelect(MVT RetVT, const Instruction *I) {
 
     // FCMP_OEQ and FCMP_UNE cannot be checked with a single instruction.
     static const uint16_t SETFOpcTable[2][3] = {
-      { X86::SETNPr, X86::SETEr , X86::TEST8rr },
-      { X86::SETPr,  X86::SETNEr, X86::OR8rr   }
+      { X86::COND_NP, X86::COND_E,  X86::TEST8rr },
+      { X86::COND_P,  X86::COND_NE, X86::OR8rr   }
     };
     const uint16_t *SETFOpc = nullptr;
     switch (Predicate) {
@@ -2098,10 +2094,10 @@ bool X86FastISel::X86FastEmitCMoveSelect(MVT RetVT, const Instruction *I) {
     if (SETFOpc) {
       unsigned FlagReg1 = createResultReg(&X86::GR8RegClass);
       unsigned FlagReg2 = createResultReg(&X86::GR8RegClass);
-      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(SETFOpc[0]),
-              FlagReg1);
-      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(SETFOpc[1]),
-              FlagReg2);
+      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::SETCCr),
+              FlagReg1).addImm(SETFOpc[0]);
+      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::SETCCr),
+              FlagReg2).addImm(SETFOpc[1]);
       auto const &II = TII.get(SETFOpc[2]);
       if (II.getNumDefs()) {
         unsigned TmpReg = createResultReg(&X86::GR8RegClass);
@@ -2162,9 +2158,9 @@ bool X86FastISel::X86FastEmitCMoveSelect(MVT RetVT, const Instruction *I) {
     return false;
 
   const TargetRegisterInfo &TRI = *Subtarget->getRegisterInfo();
-  unsigned Opc = X86::getCMovFromCond(CC, TRI.getRegSizeInBits(*RC)/8);
-  unsigned ResultReg = fastEmitInst_rr(Opc, RC, RHSReg, RHSIsKill,
-                                       LHSReg, LHSIsKill);
+  unsigned Opc = X86::getCMovOpcode(TRI.getRegSizeInBits(*RC)/8);
+  unsigned ResultReg = fastEmitInst_rri(Opc, RC, RHSReg, RHSIsKill,
+                                        LHSReg, LHSIsKill, CC);
   updateValueMap(I, ResultReg);
   return true;
 }
@@ -2952,21 +2948,21 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
         isCommutativeIntrinsic(II))
       std::swap(LHS, RHS);
 
-    unsigned BaseOpc, CondOpc;
+    unsigned BaseOpc, CondCode;
     switch (II->getIntrinsicID()) {
     default: llvm_unreachable("Unexpected intrinsic!");
     case Intrinsic::sadd_with_overflow:
-      BaseOpc = ISD::ADD; CondOpc = X86::SETOr; break;
+      BaseOpc = ISD::ADD; CondCode = X86::COND_O; break;
     case Intrinsic::uadd_with_overflow:
-      BaseOpc = ISD::ADD; CondOpc = X86::SETBr; break;
+      BaseOpc = ISD::ADD; CondCode = X86::COND_B; break;
     case Intrinsic::ssub_with_overflow:
-      BaseOpc = ISD::SUB; CondOpc = X86::SETOr; break;
+      BaseOpc = ISD::SUB; CondCode = X86::COND_O; break;
     case Intrinsic::usub_with_overflow:
-      BaseOpc = ISD::SUB; CondOpc = X86::SETBr; break;
+      BaseOpc = ISD::SUB; CondCode = X86::COND_B; break;
     case Intrinsic::smul_with_overflow:
-      BaseOpc = X86ISD::SMUL; CondOpc = X86::SETOr; break;
+      BaseOpc = X86ISD::SMUL; CondCode = X86::COND_O; break;
     case Intrinsic::umul_with_overflow:
-      BaseOpc = X86ISD::UMUL; CondOpc = X86::SETOr; break;
+      BaseOpc = X86ISD::UMUL; CondCode = X86::COND_O; break;
     }
 
     unsigned LHSReg = getRegForValue(LHS);
@@ -2983,7 +2979,7 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       };
 
       if (CI->isOne() && (BaseOpc == ISD::ADD || BaseOpc == ISD::SUB) &&
-          CondOpc == X86::SETOr) {
+          CondCode == X86::COND_O) {
         // We can use INC/DEC.
         ResultReg = createResultReg(TLI.getRegClassFor(VT));
         bool IsDec = BaseOpc == ISD::SUB;
@@ -3042,8 +3038,8 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     // Assign to a GPR since the overflow return value is lowered to a SETcc.
     unsigned ResultReg2 = createResultReg(&X86::GR8RegClass);
     assert((ResultReg+1) == ResultReg2 && "Nonconsecutive result registers.");
-    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(CondOpc),
-            ResultReg2);
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::SETCCr),
+            ResultReg2).addImm(CondCode);
 
     updateValueMap(II, ResultReg, 2);
     return true;
