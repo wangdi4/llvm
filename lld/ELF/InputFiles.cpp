@@ -43,7 +43,7 @@ std::vector<BinaryFile *> elf::BinaryFiles;
 std::vector<BitcodeFile *> elf::BitcodeFiles;
 std::vector<LazyObjFile *> elf::LazyObjFiles;
 std::vector<InputFile *> elf::ObjectFiles;
-std::vector<InputFile *> elf::SharedFiles;
+std::vector<SharedFile *> elf::SharedFiles;
 
 std::unique_ptr<TarWriter> elf::Tar;
 
@@ -241,45 +241,46 @@ std::string lld::toString(const InputFile *F) {
   return F->ToStringCache;
 }
 
-template <class ELFT>
-ELFFileBase<ELFT>::ELFFileBase(Kind K, MemoryBufferRef MB) : InputFile(K, MB) {
+ELFFileBase::ELFFileBase(Kind K, MemoryBufferRef MB) : InputFile(K, MB) {}
+
+template <class ELFT> void ELFFileBase::parseHeader() {
   if (ELFT::TargetEndianness == support::little)
     EKind = ELFT::Is64Bits ? ELF64LEKind : ELF32LEKind;
   else
     EKind = ELFT::Is64Bits ? ELF64BEKind : ELF32BEKind;
 
-  EMachine = getObj().getHeader()->e_machine;
-  OSABI = getObj().getHeader()->e_ident[llvm::ELF::EI_OSABI];
-  ABIVersion = getObj().getHeader()->e_ident[llvm::ELF::EI_ABIVERSION];
+  EMachine = getObj<ELFT>().getHeader()->e_machine;
+  OSABI = getObj<ELFT>().getHeader()->e_ident[llvm::ELF::EI_OSABI];
+  ABIVersion = getObj<ELFT>().getHeader()->e_ident[llvm::ELF::EI_ABIVERSION];
 }
 
 template <class ELFT>
-typename ELFT::SymRange ELFFileBase<ELFT>::getGlobalELFSyms() {
-  return makeArrayRef(ELFSyms.begin() + FirstGlobal, ELFSyms.end());
-}
-
-template <class ELFT>
-void ELFFileBase<ELFT>::initSymtab(ArrayRef<Elf_Shdr> Sections,
-                                   const Elf_Shdr *Symtab) {
+void ELFFileBase::initSymtab(ArrayRef<typename ELFT::Shdr> Sections,
+                             const typename ELFT::Shdr *Symtab) {
   FirstGlobal = Symtab->sh_info;
-  ELFSyms = CHECK(getObj().symbols(Symtab), this);
+  ArrayRef<typename ELFT::Sym> ELFSyms =
+      CHECK(getObj<ELFT>().symbols(Symtab), this);
   if (FirstGlobal == 0 || FirstGlobal > ELFSyms.size())
     fatal(toString(this) + ": invalid sh_info in symbol table");
+  this->ELFSyms = reinterpret_cast<const void *>(ELFSyms.data());
+  this->NumELFSyms = ELFSyms.size();
 
   StringTable =
-      CHECK(getObj().getStringTableForSymtab(*Symtab, Sections), this);
+      CHECK(getObj<ELFT>().getStringTableForSymtab(*Symtab, Sections), this);
 }
 
 template <class ELFT>
 ObjFile<ELFT>::ObjFile(MemoryBufferRef M, StringRef ArchiveName)
-    : ELFFileBase<ELFT>(Base::ObjKind, M) {
+    : ELFFileBase(ObjKind, M) {
+  parseHeader<ELFT>();
   this->ArchiveName = ArchiveName;
 }
 
 template <class ELFT>
 uint32_t ObjFile<ELFT>::getSectionIndex(const Elf_Sym &Sym) const {
-  return CHECK(this->getObj().getSectionIndex(&Sym, this->ELFSyms, SymtabSHNDX),
-               this);
+  return CHECK(
+      this->getObj().getSectionIndex(&Sym, getELFSyms<ELFT>(), ShndxTable),
+      this);
 }
 
 template <class ELFT> ArrayRef<Symbol *> ObjFile<ELFT>::getLocalSymbols() {
@@ -312,12 +313,12 @@ StringRef ObjFile<ELFT>::getShtGroupSignature(ArrayRef<Elf_Shdr> Sections,
                                               const Elf_Shdr &Sec) {
   // Group signatures are stored as symbol names in object files.
   // sh_info contains a symbol index, so we fetch a symbol and read its name.
-  if (this->ELFSyms.empty())
-    this->initSymtab(
+  if (this->getELFSyms<ELFT>().empty())
+    this->initSymtab<ELFT>(
         Sections, CHECK(object::getSection<ELFT>(Sections, Sec.sh_link), this));
 
   const Elf_Sym *Sym =
-      CHECK(object::getSymbol<ELFT>(this->ELFSyms, Sec.sh_info), this);
+      CHECK(object::getSymbol<ELFT>(this->getELFSyms<ELFT>(), Sec.sh_info), this);
   StringRef Signature = CHECK(Sym->getName(this->StringTable), this);
 
   // As a special case, if a symbol is a section symbol and has no name,
@@ -392,7 +393,7 @@ template <class ELFT> void ObjFile<ELFT>::initializeJustSymbols() {
   for (const Elf_Shdr &Sec : ObjSections) {
     if (Sec.sh_type != SHT_SYMTAB)
       continue;
-    this->initSymtab(ObjSections, &Sec);
+    this->initSymtab<ELFT>(ObjSections, &Sec);
     return;
   }
 }
@@ -475,10 +476,10 @@ void ObjFile<ELFT>::initializeSections(
       break;
     }
     case SHT_SYMTAB:
-      this->initSymtab(ObjSections, &Sec);
+      this->initSymtab<ELFT>(ObjSections, &Sec);
       break;
     case SHT_SYMTAB_SHNDX:
-      this->SymtabSHNDX = CHECK(Obj.getSHNDXTable(Sec, ObjSections), this);
+      ShndxTable = CHECK(Obj.getSHNDXTable(Sec, ObjSections), this);
       break;
     case SHT_STRTAB:
     case SHT_NULL:
@@ -678,12 +679,12 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(const Elf_Shdr &Sec) {
     }
 
     if (Sec.sh_type == SHT_RELA) {
-      ArrayRef<Elf_Rela> Rels = CHECK(this->getObj().relas(&Sec), this);
+      ArrayRef<Elf_Rela> Rels = CHECK(getObj().relas(&Sec), this);
       Target->FirstRelocation = Rels.begin();
       Target->NumRelocations = Rels.size();
       Target->AreRelocsRela = true;
     } else {
-      ArrayRef<Elf_Rel> Rels = CHECK(this->getObj().rels(&Sec), this);
+      ArrayRef<Elf_Rel> Rels = CHECK(getObj().rels(&Sec), this);
       Target->FirstRelocation = Rels.begin();
       Target->NumRelocations = Rels.size();
       Target->AreRelocsRela = false;
@@ -771,19 +772,19 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(const Elf_Shdr &Sec) {
 
 template <class ELFT>
 StringRef ObjFile<ELFT>::getSectionName(const Elf_Shdr &Sec) {
-  return CHECK(this->getObj().getSectionName(&Sec, SectionStringTable), this);
+  return CHECK(getObj().getSectionName(&Sec, SectionStringTable), this);
 }
 
 template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
-  this->Symbols.reserve(this->ELFSyms.size());
-  for (const Elf_Sym &Sym : this->ELFSyms)
+  this->Symbols.reserve(this->getELFSyms<ELFT>().size());
+  for (const Elf_Sym &Sym : this->getELFSyms<ELFT>())
     this->Symbols.push_back(createSymbol(&Sym));
 }
 
 template <class ELFT> Symbol *ObjFile<ELFT>::createSymbol(const Elf_Sym *Sym) {
   int Binding = Sym->getBinding();
 
-  uint32_t SecIdx = this->getSectionIndex(*Sym);
+  uint32_t SecIdx = getSectionIndex(*Sym);
   if (SecIdx >= this->Sections.size())
     fatal(toString(this) + ": invalid section index: " + Twine(SecIdx));
 
@@ -868,17 +869,84 @@ InputFile *ArchiveFile::fetch(const Archive::Symbol &Sym) {
   return File;
 }
 
-template <class ELFT>
-SharedFile<ELFT>::SharedFile(MemoryBufferRef M, StringRef DefaultSoName)
-    : ELFFileBase<ELFT>(Base::SharedKind, M), SoName(DefaultSoName),
+unsigned SharedFile::VernauxNum;
+
+SharedFile::SharedFile(MemoryBufferRef M, StringRef DefaultSoName)
+    : ELFFileBase(SharedKind, M), SoName(DefaultSoName),
       IsNeeded(!Config->AsNeeded) {}
 
-// Partially parse the shared object file so that we can call
-// getSoName on this object.
-template <class ELFT> void SharedFile<ELFT>::parseDynamic() {
+// Parse the version definitions in the object file if present, and return a
+// vector whose nth element contains a pointer to the Elf_Verdef for version
+// identifier n. Version identifiers that are not definitions map to nullptr.
+template <typename ELFT>
+static std::vector<const void *> parseVerdefs(const uint8_t *Base,
+                                              const typename ELFT::Shdr *Sec) {
+  if (!Sec)
+    return {};
+
+  // We cannot determine the largest verdef identifier without inspecting
+  // every Elf_Verdef, but both bfd and gold assign verdef identifiers
+  // sequentially starting from 1, so we predict that the largest identifier
+  // will be VerdefCount.
+  unsigned VerdefCount = Sec->sh_info;
+  std::vector<const void *> Verdefs(VerdefCount + 1);
+
+  // Build the Verdefs array by following the chain of Elf_Verdef objects
+  // from the start of the .gnu.version_d section.
+  const uint8_t *Verdef = Base + Sec->sh_offset;
+  for (unsigned I = 0; I != VerdefCount; ++I) {
+    auto *CurVerdef = reinterpret_cast<const typename ELFT::Verdef *>(Verdef);
+    Verdef += CurVerdef->vd_next;
+    unsigned VerdefIndex = CurVerdef->vd_ndx;
+    Verdefs.resize(VerdefIndex + 1);
+    Verdefs[VerdefIndex] = CurVerdef;
+  }
+  return Verdefs;
+}
+
+// We do not usually care about alignments of data in shared object
+// files because the loader takes care of it. However, if we promote a
+// DSO symbol to point to .bss due to copy relocation, we need to keep
+// the original alignment requirements. We infer it in this function.
+template <typename ELFT>
+static uint64_t getAlignment(ArrayRef<typename ELFT::Shdr> Sections,
+                             const typename ELFT::Sym &Sym) {
+  uint64_t Ret = UINT64_MAX;
+  if (Sym.st_value)
+    Ret = 1ULL << countTrailingZeros((uint64_t)Sym.st_value);
+  if (0 < Sym.st_shndx && Sym.st_shndx < Sections.size())
+    Ret = std::min<uint64_t>(Ret, Sections[Sym.st_shndx].sh_addralign);
+  return (Ret > UINT32_MAX) ? 0 : Ret;
+}
+
+// Fully parse the shared object file.
+//
+// This function parses symbol versions. If a DSO has version information,
+// the file has a ".gnu.version_d" section which contains symbol version
+// definitions. Each symbol is associated to one version through a table in
+// ".gnu.version" section. That table is a parallel array for the symbol
+// table, and each table entry contains an index in ".gnu.version_d".
+//
+// The special index 0 is reserved for VERF_NDX_LOCAL and 1 is for
+// VER_NDX_GLOBAL. There's no table entry for these special versions in
+// ".gnu.version_d".
+//
+// The file format for symbol versioning is perhaps a bit more complicated
+// than necessary, but you can easily understand the code if you wrap your
+// head around the data structure described above.
+template <class ELFT> void SharedFile::parse() {
+  using Elf_Dyn = typename ELFT::Dyn;
+  using Elf_Shdr = typename ELFT::Shdr;
+  using Elf_Sym = typename ELFT::Sym;
+  using Elf_Verdef = typename ELFT::Verdef;
+  using Elf_Versym = typename ELFT::Versym;
+
   ArrayRef<Elf_Dyn> DynamicTags;
-  const ELFFile<ELFT> Obj = this->getObj();
+  const ELFFile<ELFT> Obj = this->getObj<ELFT>();
   ArrayRef<Elf_Shdr> Sections = CHECK(Obj.sections(), this);
+
+  const Elf_Shdr *VersymSec = nullptr;
+  const Elf_Shdr *VerdefSec = nullptr;
 
   // Search for .dynsym, .dynamic, .symtab, .gnu.version and .gnu.version_d.
   for (const Elf_Shdr &Sec : Sections) {
@@ -886,23 +954,25 @@ template <class ELFT> void SharedFile<ELFT>::parseDynamic() {
     default:
       continue;
     case SHT_DYNSYM:
-      this->initSymtab(Sections, &Sec);
+      this->initSymtab<ELFT>(Sections, &Sec);
       break;
     case SHT_DYNAMIC:
       DynamicTags =
           CHECK(Obj.template getSectionContentsAsArray<Elf_Dyn>(&Sec), this);
       break;
     case SHT_GNU_versym:
-      this->VersymSec = &Sec;
+      VersymSec = &Sec;
       break;
     case SHT_GNU_verdef:
-      this->VerdefSec = &Sec;
+      VerdefSec = &Sec;
       break;
     }
   }
 
-  if (this->VersymSec && this->ELFSyms.empty())
+  if (VersymSec && this->getELFSyms<ELFT>().empty()) {
     error("SHT_GNU_versym should be associated with symbol table");
+    return;
+  }
 
   // Search for a DT_SONAME tag to initialize this->SoName.
   for (const Elf_Dyn &Dyn : DynamicTags) {
@@ -918,90 +988,37 @@ template <class ELFT> void SharedFile<ELFT>::parseDynamic() {
       SoName = this->StringTable.data() + Val;
     }
   }
-}
 
-// Parses ".gnu.version" section which is a parallel array for the symbol table.
-// If a given file doesn't have ".gnu.version" section, returns VER_NDX_GLOBAL.
-template <class ELFT> std::vector<uint32_t> SharedFile<ELFT>::parseVersyms() {
-  size_t Size = this->ELFSyms.size() - this->FirstGlobal;
-  if (!VersymSec)
-    return std::vector<uint32_t>(Size, VER_NDX_GLOBAL);
+  // DSOs are uniquified not by filename but by soname.
+  DenseMap<StringRef, SharedFile *>::iterator It;
+  bool WasInserted;
+  std::tie(It, WasInserted) = Symtab->SoNames.try_emplace(SoName, this);
 
-  const char *Base = this->MB.getBuffer().data();
-  const Elf_Versym *Versym =
-      reinterpret_cast<const Elf_Versym *>(Base + VersymSec->sh_offset) +
-      this->FirstGlobal;
+  // If a DSO appears more than once on the command line with and without
+  // --as-needed, --no-as-needed takes precedence over --as-needed because a
+  // user can add an extra DSO with --no-as-needed to force it to be added to
+  // the dependency list.
+  It->second->IsNeeded |= IsNeeded;
+  if (!WasInserted)
+    return;
 
-  std::vector<uint32_t> Ret(Size);
-  for (size_t I = 0; I < Size; ++I)
-    Ret[I] = Versym[I].vs_index;
-  return Ret;
-}
+  SharedFiles.push_back(this);
 
-// Parse the version definitions in the object file if present. Returns a vector
-// whose nth element contains a pointer to the Elf_Verdef for version identifier
-// n. Version identifiers that are not definitions map to nullptr.
-template <class ELFT>
-std::vector<const typename ELFT::Verdef *> SharedFile<ELFT>::parseVerdefs() {
-  if (!VerdefSec)
-    return {};
+  Verdefs = parseVerdefs<ELFT>(Obj.base(), VerdefSec);
 
-  // We cannot determine the largest verdef identifier without inspecting
-  // every Elf_Verdef, but both bfd and gold assign verdef identifiers
-  // sequentially starting from 1, so we predict that the largest identifier
-  // will be VerdefCount.
-  unsigned VerdefCount = VerdefSec->sh_info;
-  std::vector<const Elf_Verdef *> Verdefs(VerdefCount + 1);
-
-  // Build the Verdefs array by following the chain of Elf_Verdef objects
-  // from the start of the .gnu.version_d section.
-  const char *Base = this->MB.getBuffer().data();
-  const char *Verdef = Base + VerdefSec->sh_offset;
-  for (unsigned I = 0; I != VerdefCount; ++I) {
-    auto *CurVerdef = reinterpret_cast<const Elf_Verdef *>(Verdef);
-    Verdef += CurVerdef->vd_next;
-    unsigned VerdefIndex = CurVerdef->vd_ndx;
-    Verdefs.resize(VerdefIndex + 1);
-    Verdefs[VerdefIndex] = CurVerdef;
+  // Parse ".gnu.version" section which is a parallel array for the symbol
+  // table. If a given file doesn't have a ".gnu.version" section, we use
+  // VER_NDX_GLOBAL.
+  size_t Size = this->getELFSyms<ELFT>().size() - this->FirstGlobal;
+  std::vector<uint32_t> Versyms(Size, VER_NDX_GLOBAL);
+  if (VersymSec) {
+    ArrayRef<Elf_Versym> Versym =
+        CHECK(Obj.template getSectionContentsAsArray<Elf_Versym>(VersymSec),
+              this)
+            .slice(FirstGlobal);
+    for (size_t I = 0; I < Size; ++I)
+      Versyms[I] = Versym[I].vs_index;
   }
-
-  return Verdefs;
-}
-
-// We do not usually care about alignments of data in shared object
-// files because the loader takes care of it. However, if we promote a
-// DSO symbol to point to .bss due to copy relocation, we need to keep
-// the original alignment requirements. We infer it in this function.
-template <class ELFT>
-uint32_t SharedFile<ELFT>::getAlignment(ArrayRef<Elf_Shdr> Sections,
-                                        const Elf_Sym &Sym) {
-  uint64_t Ret = UINT64_MAX;
-  if (Sym.st_value)
-    Ret = 1ULL << countTrailingZeros((uint64_t)Sym.st_value);
-  if (0 < Sym.st_shndx && Sym.st_shndx < Sections.size())
-    Ret = std::min<uint64_t>(Ret, Sections[Sym.st_shndx].sh_addralign);
-  return (Ret > UINT32_MAX) ? 0 : Ret;
-}
-
-// Fully parse the shared object file. This must be called after parseDynamic().
-//
-// This function parses symbol versions. If a DSO has version information,
-// the file has a ".gnu.version_d" section which contains symbol version
-// definitions. Each symbol is associated to one version through a table in
-// ".gnu.version" section. That table is a parallel array for the symbol
-// table, and each table entry contains an index in ".gnu.version_d".
-//
-// The special index 0 is reserved for VERF_NDX_LOCAL and 1 is for
-// VER_NDX_GLOBAL. There's no table entry for these special versions in
-// ".gnu.version_d".
-//
-// The file format for symbol versioning is perhaps a bit more complicated
-// than necessary, but you can easily understand the code if you wrap your
-// head around the data structure described above.
-template <class ELFT> void SharedFile<ELFT>::parseRest() {
-  Verdefs = parseVerdefs();                       // parse .gnu.version_d
-  std::vector<uint32_t> Versyms = parseVersyms(); // parse .gnu.version
-  ArrayRef<Elf_Shdr> Sections = CHECK(this->getObj().sections(), this);
 
   // System libraries can have a lot of symbols with versions. Using a
   // fixed buffer for computing the versions name (foo@ver) can save a
@@ -1009,7 +1026,7 @@ template <class ELFT> void SharedFile<ELFT>::parseRest() {
   SmallString<0> VersionedNameBuffer;
 
   // Add symbols to the symbol table.
-  ArrayRef<Elf_Sym> Syms = this->getGlobalELFSyms();
+  ArrayRef<Elf_Sym> Syms = this->getGlobalELFSyms<ELFT>();
   for (size_t I = 0; I < Syms.size(); ++I) {
     const Elf_Sym &Sym = Syms[I];
 
@@ -1040,9 +1057,10 @@ template <class ELFT> void SharedFile<ELFT>::parseRest() {
         Name == "_gp_disp")
       continue;
 
-    uint64_t Alignment = getAlignment(Sections, Sym);
+    uint64_t Alignment = getAlignment<ELFT>(Sections, Sym);
     if (!(Versyms[I] & VERSYM_HIDDEN))
-      Symtab->addShared(Name, *this, Sym, Alignment, Idx);
+      Symtab->addShared(Name, Sym.getBinding(), Sym.st_other, Sym.getType(),
+                        Sym.st_value, Sym.st_size, Alignment, Idx, this);
 
     // Also add the symbol with the versioned name to handle undefined symbols
     // with explicit versions.
@@ -1057,10 +1075,13 @@ template <class ELFT> void SharedFile<ELFT>::parseRest() {
     }
 
     StringRef VerName =
-        this->StringTable.data() + Verdefs[Idx]->getAux()->vda_name;
+        this->StringTable.data() +
+        reinterpret_cast<const Elf_Verdef *>(Verdefs[Idx])->getAux()->vda_name;
     VersionedNameBuffer.clear();
     Name = (Name + "@" + VerName).toStringRef(VersionedNameBuffer);
-    Symtab->addShared(Saver.save(Name), *this, Sym, Alignment, Idx);
+    Symtab->addShared(Saver.save(Name), Sym.getBinding(), Sym.st_other,
+                      Sym.getType(), Sym.st_value, Sym.st_size, Alignment, Idx,
+                      this);
   }
 }
 
@@ -1256,18 +1277,24 @@ InputFile *elf::createObjectFile(MemoryBufferRef MB, StringRef ArchiveName,
 }
 
 InputFile *elf::createSharedFile(MemoryBufferRef MB, StringRef DefaultSoName) {
+  auto *F = make<SharedFile>(MB, DefaultSoName);
   switch (getELFKind(MB, "")) {
   case ELF32LEKind:
-    return make<SharedFile<ELF32LE>>(MB, DefaultSoName);
+    F->parseHeader<ELF32LE>();
+    break;
   case ELF32BEKind:
-    return make<SharedFile<ELF32BE>>(MB, DefaultSoName);
+    F->parseHeader<ELF32BE>();
+    break;
   case ELF64LEKind:
-    return make<SharedFile<ELF64LE>>(MB, DefaultSoName);
+    F->parseHeader<ELF64LE>();
+    break;
   case ELF64BEKind:
-    return make<SharedFile<ELF64BE>>(MB, DefaultSoName);
+    F->parseHeader<ELF64BE>();
+    break;
   default:
     llvm_unreachable("getELFKind");
   }
+  return F;
 }
 
 MemoryBufferRef LazyObjFile::getBuffer() {
@@ -1347,17 +1374,12 @@ template void LazyObjFile::parse<ELF32BE>();
 template void LazyObjFile::parse<ELF64LE>();
 template void LazyObjFile::parse<ELF64BE>();
 
-template class elf::ELFFileBase<ELF32LE>;
-template class elf::ELFFileBase<ELF32BE>;
-template class elf::ELFFileBase<ELF64LE>;
-template class elf::ELFFileBase<ELF64BE>;
-
 template class elf::ObjFile<ELF32LE>;
 template class elf::ObjFile<ELF32BE>;
 template class elf::ObjFile<ELF64LE>;
 template class elf::ObjFile<ELF64BE>;
 
-template class elf::SharedFile<ELF32LE>;
-template class elf::SharedFile<ELF32BE>;
-template class elf::SharedFile<ELF64LE>;
-template class elf::SharedFile<ELF64BE>;
+template void SharedFile::parse<ELF32LE>();
+template void SharedFile::parse<ELF32BE>();
+template void SharedFile::parse<ELF64LE>();
+template void SharedFile::parse<ELF64BE>();
