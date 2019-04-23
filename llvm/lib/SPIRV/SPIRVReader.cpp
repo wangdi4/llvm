@@ -602,9 +602,8 @@ SPIRVToLLVM::setLLVMLoopMetadata(SPIRVLoopMerge* LM, BranchInst* BI) {
   }
   else if (LM->getLoopControl() == LoopControlDontUnrollMask)
     Name = llvm::MDString::get(*Context, "llvm.loop.unroll.disable");
-  else if (LM->getLoopControl() == LoopControlUnrollMask) {
+  else if (LM->getLoopControl() == LoopControlUnrollMask)
     Name = llvm::MDString::get(*Context, "llvm.loop.unroll.enable");
-  }
   else if (LM->getLoopControl() == LoopControlPartialCountMask) {
     LoopControlParameters = LM->getLoopControlParameters();
     Name = llvm::MDString::get(*Context, "llvm.loop.unroll.count");
@@ -613,6 +612,20 @@ SPIRVToLLVM::setLLVMLoopMetadata(SPIRVLoopMerge* LM, BranchInst* BI) {
       Name = llvm::MDString::get(*Context, "llvm.loop.unroll.disable");
       LoopControlParameters.clear();
     }
+  }
+  else if (LM->getLoopControl() == LoopControlDependencyInfiniteMask)
+    Name = llvm::MDString::get(*Context, "llvm.loop.ivdep.enable");
+  else if (LM->getLoopControl() == LoopControlDependencyLengthMask) {
+    LoopControlParameters = LM->getLoopControlParameters();
+    Name = llvm::MDString::get(*Context, "llvm.loop.ivdep.safelen");
+  }
+  else if (LM->getLoopControl() == LoopControlInitiationIntervalINTEL) {
+     LoopControlParameters = LM->getLoopControlParameters();
+     Name = llvm::MDString::get(*Context, "llvm.loop.ii.count");
+  }
+  else if (LM->getLoopControl() == LoopControlMaxConcurrencyLoopINTEL) {
+     LoopControlParameters = LM->getLoopControlParameters();
+     Name = llvm::MDString::get(*Context, "llvm.loop.max_concurrency.count");
   }
   else
     return;

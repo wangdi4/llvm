@@ -485,6 +485,8 @@ enum LoopControlMask {
     LoopControlDependencyInfiniteMask = 0x00000004,
     LoopControlDependencyLengthMask = 0x00000008,
     LoopControlPartialCountMask = 0x00000100,
+    LoopControlInitiationIntervalINTEL = 5889,
+    LoopControlMaxConcurrencyLoopINTEL = 5890,
 };
 
 enum FunctionControlShift {
@@ -662,6 +664,7 @@ enum Capability {
     CapabilitySubgroupImageBlockIOINTEL = 5570,
     CapabilitySubgroupImageMediaBlockIOINTEL = 5579,
     CapabilityFPGAMemoryAttributesINTEL = 5824,
+    CapabilityFPGALoopControlsINTEL = 5888,
     CapabilityMax = 0x7fffffff,
 };
 

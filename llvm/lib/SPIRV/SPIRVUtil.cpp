@@ -1546,9 +1546,25 @@ getLoopControl(const BranchInst *Branch, std::vector<SPIRVWord> &Parameters) {
         Parameters.push_back(I);
         return spv::LoopControlPartialCountMask;
       }
+      if (S == "llvm.loop.ivdep.enable")
+        return spv::LoopControlDependencyInfiniteMask;
+      if (S == "llvm.loop.ivdep.safelen") {
+        size_t I = getMDOperandAsInt(Node, 1);
+        Parameters.push_back(I);
+        return spv::LoopControlDependencyLengthMask;
+      }
+      if (S == "llvm.loop.ii.count") {
+        size_t I = getMDOperandAsInt(Node, 1);
+        Parameters.push_back(I);
+        return spv::LoopControlInitiationIntervalINTEL;
+      }
+      if (S == "llvm.loop.max_concurrency.count") {
+        size_t I = getMDOperandAsInt(Node, 1);
+        Parameters.push_back(I);
+        return spv::LoopControlMaxConcurrencyLoopINTEL;
+      }
     }
   }
   return spv::LoopControlMaskNone;
 }
-
 } // namespace SPIRV

@@ -492,6 +492,7 @@ SPIRVMap<Capability, std::string>::init() {
   add(CapabilitySubgroupImageBlockIOINTEL, "SubgroupImageBlockIOINTEL");
   add(CapabilitySubgroupImageMediaBlockIOINTEL, "SubgroupImageMediaBlockIOINTEL");
   add(CapabilityFPGAMemoryAttributesINTEL, "FPGAMemoryAttributesINTEL");
+  add(CapabilityFPGALoopControlsINTEL, "FPGALoopControlsINTEL");
 }
 SPIRV_DEF_NAMEMAP(Capability, SPIRVCapabilityNameMap)
 
