@@ -468,6 +468,6 @@ void CPUDetect::GetCPUInfo()
     }
     else
     {
-        strcpy(m_szCPUBrandString, "");
+        m_szCPUBrandString = STRDUP("");
     }
 }
