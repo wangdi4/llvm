@@ -1,7 +1,7 @@
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 
-; Check that foo is NOT inlined into bar 5 times, in accord with the "dummy
+; Check that foo is NOT inlined into bar, in accord with the "dummy
 ; args" heuristic, because it does not have enough callsites.
 
 ; CHECK-OLD: COMPILE FUNC: foo
@@ -9,10 +9,6 @@
 ; CHECK-OLD-NOT: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
 ; CHECK: define{{.*}}@foo
 ; CHECK: define{{.*}}@bar
-; CHECK: call i32 @foo
-; CHECK: call i32 @foo
-; CHECK: call i32 @foo
-; CHECK: call i32 @foo
 ; CHECK-NEW: COMPILE FUNC: foo
 ; CHECK-NEW: COMPILE FUNC: bar
 ; CHECK-NEW-NOT: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>

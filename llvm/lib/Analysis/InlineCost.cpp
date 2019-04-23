@@ -3640,6 +3640,9 @@ static bool preferPartialInlineHasExtractedRecursiveCall(Function &F,
 // under this heuristic. (Note that the idea of matching parameters
 // being an indicator of the use of dummy args is only a heuristic.)
 //
+// Note: This function heuristic is now qualified by a callsite specific
+// heuristic below.
+//
 static bool worthInliningFunctionPassedDummyArgs(Function &F,
                                                  bool PrepareForLTO) {
   assert(DummyArgsMinSeriesLength <= DummyArgsMinArgCount &&
@@ -3701,6 +3704,22 @@ static bool worthInliningFunctionPassedDummyArgs(Function &F,
   // Store the qualified function.
   FunctionsTestedPass.insert(&F);
   return true;
+}
+
+//
+// Return 'true' if 'CB' should be inlined because its callee qualifies under
+// "dummy args" inlining heuristic explained above, and 'CB' itself is used
+// in a switch instruction.
+//
+static bool worthInliningCallSitePassedDummyArgs(CallBase &CB,
+                                                 bool PrepareForLTO) {
+  Function *Callee = CB.getCalledFunction();
+  if (!worthInliningFunctionPassedDummyArgs(*Callee, PrepareForLTO))
+    return false;
+  for (User *U : CB.users())
+    if (dyn_cast<SwitchInst>(U))
+      return true;
+  return false;
 }
 
 //
@@ -3974,7 +3993,7 @@ static void worthInliningUnderSpecialCondition(CallBase &CB,
     YesReasonVector.push_back(InlrPreferPartialInline);
     return;
   }
-  if (worthInliningFunctionPassedDummyArgs(*F, PrepareForLTO)) {
+  if (worthInliningCallSitePassedDummyArgs(CB, PrepareForLTO)) {
     Cost -= InlineConstants::DeepInliningHeuristicBonus;
     YesReasonVector.push_back(InlrPassedDummyArgs);
     return;

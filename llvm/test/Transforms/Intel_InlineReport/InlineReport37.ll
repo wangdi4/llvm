@@ -1,25 +1,16 @@
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 
-; Check that foo is inlined into bar 5 times, in accord with the "dummy
+; Check that foo is inlined into bar once, in accord with the "dummy
 ; args" heuristic.
 
 ; CHECK-OLD: COMPILE FUNC: foo
 ; CHECK-OLD: COMPILE FUNC: bar
 ; CHECK-OLD: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
-; CHECK-OLD: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
-; CHECK-OLD: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
-; CHECK-OLD: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
-; CHECK-OLD: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
 ; CHECK: define{{.*}}@foo
 ; CHECK: define{{.*}}@bar
-; CHECK-NOT: call i32 @foo
 ; CHECK-NEW: COMPILE FUNC: foo
 ; CHECK-NEW: COMPILE FUNC: bar
-; CHECK-NEW: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
-; CHECK-NEW: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
-; CHECK-NEW: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
-; CHECK-NEW: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
 ; CHECK-NEW: INLINE: foo{{.*}}<<Callee has callsites with dummy args>>
 
 define dso_local i32 @foo(i32 %arg1, i32 %arg2, i32* %arg3, i32* %arg4, i32* %arg5, i32* %arg6, i32* %arg7, i32 %arg8) #0 {
@@ -67,5 +58,11 @@ entry:
   %add5 = add nsw i32 %add3, %call4
   %call6 = call i32 @foo(i32 2, i32 4, i32* nonnull %forfake, i32* nonnull %forreal, i32* nonnull %forreal, i32* nonnull %forfake, i32* nonnull %dummy, i32 5)
   %add7 = add nsw i32 %add5, %call6
+  switch i32 %call1, label %bad [
+    i32 0, label %good
+  ]
+bad:
+  ret i32 %add5
+good:
   ret i32 %add7
 }

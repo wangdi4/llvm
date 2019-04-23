@@ -1,10 +1,8 @@
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 
-; Check that foo is NOT inlined into bar, in accord with the "dummy
-; args" heuristic, because it does not have enough callsites with a
-; sufficiently long sub-series of matching arguments. (Include an alternating
-; pattern of two dummy values in one callsite.)
+; Check that foo is NOT inlined into bar , in accord with the "dummy
+; args" heuristic, because its callsites do not feed a switch statement.
 
 ; CHECK-OLD: COMPILE FUNC: foo
 ; CHECK-OLD: COMPILE FUNC: bar
@@ -40,7 +38,6 @@ if.end:                                           ; preds = %if.then, %entry
 define dso_local i32 @bar() local_unnamed_addr #1 {
 entry:
   %dummy = alloca i32, align 4
-  %silly = alloca i32, align 4
   %temp = alloca i32, align 4
   %forreal = alloca i32, align 4
   %forfake = alloca i32, align 4
@@ -57,7 +54,7 @@ entry:
   %add = add nsw i32 %call, %call1
   %call2 = call i32 @foo(i32 2, i32 4, i32* nonnull %forreal, i32* nonnull %temp, i32* nonnull %temp, i32* nonnull %temp, i32* nonnull %temp, i32 5)
   %add3 = add nsw i32 %add, %call2
-  %call4 = call i32 @foo(i32 2, i32 4, i32* nonnull %forfake, i32* nonnull %dummy, i32* nonnull %dummy, i32* nonnull %silly, i32* nonnull %silly, i32 5)
+  %call4 = call i32 @foo(i32 2, i32 4, i32* nonnull %forfake, i32* nonnull %dummy, i32* nonnull %dummy, i32* nonnull %dummy, i32* nonnull %dummy, i32 5)
   %add5 = add nsw i32 %add3, %call4
   %call6 = call i32 @foo(i32 2, i32 4, i32* nonnull %forfake, i32* nonnull %forreal, i32* nonnull %forreal, i32* nonnull %forfake, i32* nonnull %dummy, i32 5)
   %add7 = add nsw i32 %add5, %call6
