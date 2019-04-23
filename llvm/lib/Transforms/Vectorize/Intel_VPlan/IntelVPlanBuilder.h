@@ -150,37 +150,36 @@ public:
   // Create a VPInstruction with \p LHS and \p RHS as operands and Add opcode.
   // For now, no no-wrap flags are used since they cannot be modeled in VPlan.
   VPValue *createAdd(VPValue *LHS, VPValue *RHS) {
-    return createInstruction(Instruction::BinaryOps::Add, LHS->getBaseType(),
+    return createInstruction(Instruction::BinaryOps::Add, LHS->getType(),
                              {LHS, RHS});
   }
 
   VPValue *createAllZeroCheck(VPValue *Operand) {
-    return createInstruction(VPInstruction::AllZeroCheck,
-                             Operand->getBaseType(), {Operand});
+    return createInstruction(VPInstruction::AllZeroCheck, Operand->getType(),
+                             {Operand});
   }
 
   VPValue *createAnd(VPValue *LHS, VPValue *RHS) {
-    return createInstruction(Instruction::BinaryOps::And, LHS->getBaseType(),
+    return createInstruction(Instruction::BinaryOps::And, LHS->getType(),
                              {LHS, RHS});
   }
 
   VPValue *createNot(VPValue *Operand) {
-    return createInstruction(VPInstruction::Not, Operand->getBaseType(),
-                             {Operand});
+    return createInstruction(VPInstruction::Not, Operand->getType(), {Operand});
   }
 
   VPValue *createOr(VPValue *LHS, VPValue *RHS) {
-    return createInstruction(Instruction::BinaryOps::Or, LHS->getBaseType(),
+    return createInstruction(Instruction::BinaryOps::Or, LHS->getType(),
                              {LHS, RHS});
   }
 
   VPValue *createPred(VPValue *Operand) {
-    return createInstruction(VPInstruction::Pred, Operand->getBaseType(),
+    return createInstruction(VPInstruction::Pred, Operand->getType(),
                              {Operand});
   }
 
   VPValue *createSelect(VPValue *Mask, VPValue *Tval, VPValue *Fval) {
-    return createInstruction(Instruction::Select, Tval->getBaseType(),
+    return createInstruction(Instruction::Select, Tval->getType(),
                              {Mask, Tval, Fval});
   }
 #else

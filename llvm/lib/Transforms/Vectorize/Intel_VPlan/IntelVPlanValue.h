@@ -143,13 +143,11 @@ public:
 #if INTEL_CUSTOMIZATION
   virtual ~VPValue() {}
   // FIXME: To be replaced by a proper VPType.
-  virtual Type *getType() const { return getBaseType(); }
+  Type *getType() const { return BaseTy; }
 
   // FIXME: Remove this when the cost model issues are resolved (see comments
   // for VPInstruction::getCMType())
   virtual Type *getCMType() const { return nullptr; }
-
-  Type *getBaseType() const { return BaseTy; }
 #endif
 
   /// \return an ID for the concrete type of this object.
@@ -163,8 +161,7 @@ public:
   virtual
 #endif
 void printAsOperand(raw_ostream &OS) const {
-      OS << *getBaseType() << " %vp"
-         << (unsigned short)(unsigned long long)this;
+    OS << *getType() << " %vp" << (unsigned short)(unsigned long long)this;
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -412,7 +409,7 @@ public:
     if (UnderlyingVal)
       UnderlyingVal->printAsOperand(OS);
     else {
-      getBaseType()->print(OS);
+      getType()->print(OS);
       OS << " ";
       HIROperand->print(OS);
     }

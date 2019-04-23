@@ -983,7 +983,7 @@ void VPInstruction::print(raw_ostream &O) const {
     case Instruction::Trunc:
     case Instruction::FPTrunc:
       O << " to ";
-      getBaseType()->print(O);
+      getType()->print(O);
     }
   }
 #endif // INTEL_CUSTOMIZATION

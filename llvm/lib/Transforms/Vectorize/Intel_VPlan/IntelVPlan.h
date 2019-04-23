@@ -844,14 +844,6 @@ public:
 
   unsigned getOpcode() const { return Opcode; }
 #if INTEL_CUSTOMIZATION
-  // FIXME: To be replaced by a proper VPType.
-  virtual Type *getType() const override {
-    if (getBaseType())
-      return getBaseType();
-
-    return getCMType();
-  }
-
   // FIXME: Temporary workaround for TTI problems that make the cost
   // modeling incorrect. The getCMType() returns nullptr in case the underlying
   // instruction is not set and this makes the cost of this instruction
@@ -911,7 +903,7 @@ public:
   /// Operands \p LHS and \p RHS must not have conflicting base types.
   VPCmpInst(VPValue *LHS, VPValue *RHS, Predicate Pred)
       : VPInstruction(inferOpcodeFromPredicate(Pred),
-                      CmpInst::makeCmpResultType(LHS->getBaseType()),
+                      CmpInst::makeCmpResultType(LHS->getType()),
                       ArrayRef<VPValue *>({LHS, RHS})),
         Pred(Pred) {}
 
@@ -1218,7 +1210,7 @@ public:
 class VPInductionInit : public VPInstruction {
 public:
   VPInductionInit(VPValue *Start, VPValue *Step, Instruction::BinaryOps Opc)
-      : VPInstruction(VPInstruction::InductionInit, Start->getBaseType(),
+      : VPInstruction(VPInstruction::InductionInit, Start->getType(),
                       {Start, Step}),
         BinOpcode(Opc) {}
 
@@ -1246,7 +1238,7 @@ private:
 class VPInductionInitStep : public VPInstruction {
 public:
   VPInductionInitStep(VPValue *Step, Instruction::BinaryOps Opcode)
-      : VPInstruction(VPInstruction::InductionInitStep, Step->getBaseType(),
+      : VPInstruction(VPInstruction::InductionInitStep, Step->getType(),
                       {Step}),
         BinOpcode(Opcode) {}
 
@@ -1277,12 +1269,12 @@ private:
 class VPInductionFinal : public VPInstruction {
 public:
   VPInductionFinal(VPValue *InducVec, VPValue *Start)
-      : VPInstruction(VPInstruction::InductionFinal, InducVec->getBaseType(),
+      : VPInstruction(VPInstruction::InductionFinal, InducVec->getType(),
                       {InducVec, Start}) {}
 
   VPInductionFinal(VPValue *Start, VPValue *Count, VPValue *Step,
                    Instruction::BinaryOps Opcode)
-      : VPInstruction(VPInstruction::InductionFinal, Start->getBaseType(),
+      : VPInstruction(VPInstruction::InductionFinal, Start->getType(),
                       {Start, Count, Step}),
         BinOpcode(Opcode) {}
 
@@ -1314,11 +1306,11 @@ private:
 class VPReductionInit : public VPInstruction {
 public:
   VPReductionInit(VPValue *Identity)
-      : VPInstruction(VPInstruction::ReductionInit, Identity->getBaseType(),
+      : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
                       {Identity}) {}
 
   VPReductionInit(VPValue *Identity, VPValue *StartValue)
-      : VPInstruction(VPInstruction::ReductionInit, Identity->getBaseType(),
+      : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
                       {Identity, StartValue}) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1356,20 +1348,20 @@ public:
   /// General constructor
   VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
                    bool Sign)
-      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
                       {ReducVec, StartValue}),
         BinOpcode(BinOp), Signed(Sign) {}
 
   /// Constructor for optimized summation
   VPReductionFinal(unsigned BinOp, VPValue *ReducVec)
-      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
                       {ReducVec}),
         BinOpcode(BinOp), Signed(false) {}
 
   /// Constructor for index part of min/max+index reduction.
   VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
                    bool Sign, VPReductionFinal *MinMax)
-      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
                       {ReducVec, StartValue, MinMax}),
         BinOpcode(BinOp), Signed(Sign) {}
 
