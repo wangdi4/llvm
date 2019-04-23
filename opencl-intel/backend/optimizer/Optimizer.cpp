@@ -239,12 +239,13 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                                      // functions
   }
   if (UnrollLoops) {
-    PM->add(llvm::createLoopUnrollPass(OptLevel, false, 512, 0, 0)); // Unroll small loops
+    // Unroll small loops
+    PM->add(llvm::createLoopUnrollPass(OptLevel, false, false, 512, 0, 0));
     // unroll loops with non-constant trip count
     const int thresholdBase = 16;
     if (rtLoopUnrollFactor > 1) {
       const int threshold = thresholdBase * rtLoopUnrollFactor;
-      PM->add(llvm::createLoopUnrollPass(OptLevel, false,
+      PM->add(llvm::createLoopUnrollPass(OptLevel, false, false,
                                          threshold, rtLoopUnrollFactor, 0, 1));
     }
   }
@@ -533,7 +534,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
 #endif
 
   // Unroll small loops with unknown trip count.
-  PM.add(llvm::createLoopUnrollPass(OptLevel, false, 16, 0, 0, 1));
+  PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
   // The ShiftZeroUpperBits pass should be added after the vectorizer because
   // the vectorizer may transform scalar shifts into vector shifts, and we want
   // this pass to fix all vector shift in this module.
@@ -714,7 +715,8 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     }
   }
   if (UnrollLoops && debugType == intel::None) {
-    PM.add(llvm::createLoopUnrollPass(OptLevel, false, 4, 0, 0)); // Unroll small loops
+    // Unroll small loops
+    PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 4, 0, 0));
   }
 }
 
