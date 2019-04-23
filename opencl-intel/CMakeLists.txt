@@ -376,14 +376,14 @@ set(INTEL_DEPLOY_COMPONENTS
   ocl-builtins
   ocl-svml
   ocl-OpenCL
-  ocl-intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+  ocl-intelocl${BUILD_PLATFORM}
   ocl-config
-  ocl-cpu_device${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
-  ocl-task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+  ocl-cpu_device${BUILD_PLATFORM}
+  ocl-task_executor${BUILD_PLATFORM}
   ocl-tbb-ext
   ocl-common_clang
   ocl-builtins-shared
-  ocl-cl_logger${OPENCL_BINARIES_POSTFIX}
+  ocl-cl_logger
   ocl-gdb-plugin
 )
 
