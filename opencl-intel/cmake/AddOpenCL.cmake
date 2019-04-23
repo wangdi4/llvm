@@ -23,12 +23,6 @@ else () # x64
     set(OUTPUT_ARCH_SUFF "intel64")
 endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 
-if (WIN32)
-    set(OUTPUT_OS_SUFF "_win")
-else () # Linux
-    set(OUTPUT_OS_SUFF "_lin")
-endif (WIN32)
-
 # This macro sets OpenCL libraries version as 'x.y', where 'x' is a major
 # version of LLVM and 'y' is an internally agreed digit.
 macro(set_opencl_version)
@@ -54,7 +48,7 @@ endmacro(set_opencl_version)
 
 # Define output dirs
 set(OCL_OUTPUT_BINARY_DIR ${OCL_RUNTIME_DIR}/${OUTPUT_ARCH_SUFF})
-set(OCL_OUTPUT_LIBRARY_DIR ${OCL_LIBRARY_DIR}/${OUTPUT_ARCH_SUFF}${OUTPUT_OS_SUFF})
+set(OCL_OUTPUT_LIBRARY_DIR ${OCL_LIBRARY_DIR}/${OUTPUT_ARCH_SUFF})
 
 # add_opencl_library - binding over add_library for OpenCL needs
 #   name             - defines library name
