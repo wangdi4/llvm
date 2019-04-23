@@ -7897,10 +7897,6 @@ def err_defaulted_copy_assign_not_ref : Error<
 def err_incorrect_defaulted_exception_spec : Error<
   "exception specification of explicitly defaulted "
   "%sub{select_special_member_kind}0 does not match the calculated one">;
-// if INTEL_CUSTOMIZATION
-def warn_incorrect_defaulted_exception_spec : Warning<
-  err_incorrect_defaulted_exception_spec.Text>, InGroup<IntelCompat>;
-// endif // INTEL_CUSTOMIZATION
 def err_incorrect_defaulted_constexpr : Error<
   "defaulted definition of %sub{select_special_member_kind}0 "
   "is not constexpr">;
