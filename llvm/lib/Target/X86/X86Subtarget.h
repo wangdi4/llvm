@@ -407,6 +407,10 @@ protected:
   bool HasENQCMD = false;
 #endif // INTEL_FEATURE_ISA_ENQCMD
 
+#if INTEL_FEATURE_ISA_KEYLOCKER
+  /// Processor support Keylocker instructions
+  bool HasKeyLocker = false;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_ULI
   bool HasULI = false;
 #endif // INTEL_FEATURE_ISA_ULI
@@ -735,6 +739,9 @@ public:
 #if INTEL_FEATURE_ISA_ENQCMD
   bool hasENQCMD() const { return HasENQCMD; }
 #endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_FEATURE_ISA_KEYLOCKER
+  bool hasKeyLocker() const { return HasKeyLocker; }
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_ULI
   bool hasULI() const { return HasULI; }
 #endif // INTEL_FEATURE_ISA_ULI

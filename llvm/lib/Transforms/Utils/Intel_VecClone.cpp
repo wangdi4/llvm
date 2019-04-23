@@ -649,7 +649,7 @@ Instruction* VecClone::expandVectorParameters(
 
           StoreUser = dyn_cast<StoreInst>(*UserIt);
 
-          if (StoreUser) {
+          if (StoreUser && !Mask) {
             // For non-mask parameters, find the initial store of the parameter
             // to an alloca instruction. Map this alloca to the vector bitcast
             // created above so that we can update the old scalar references.

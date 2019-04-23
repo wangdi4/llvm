@@ -2214,6 +2214,10 @@ void generateIntelFPGAAnnotation(const SPIRVEntry *E,
     Out << "{numbanks:" << Result << '}';
   if (E->hasDecorate(DecorationMaxConcurrencyINTEL, 0, &Result))
     Out << "{max_concurrency:" << Result << '}';
+  if (E->hasDecorate(DecorationSinglepumpINTEL))
+    Out << "{pump:1}";
+  if (E->hasDecorate(DecorationDoublepumpINTEL))
+    Out << "{pump:2}";
 }
 
 void generateIntelFPGAAnnotationForStructMember(
@@ -2236,6 +2240,10 @@ void generateIntelFPGAAnnotationForStructMember(
   if (E->hasMemberDecorate(DecorationMaxConcurrencyINTEL, 0, MemberNumber,
                            &Result))
     Out << "{max_concurrency:" << Result << '}';
+  if (E->hasMemberDecorate(DecorationSinglepumpINTEL, 0, MemberNumber))
+    Out << "{pump:1}";
+  if (E->hasMemberDecorate(DecorationDoublepumpINTEL, 0, MemberNumber))
+    Out << "{pump:2}";
 }
 
 void SPIRVToLLVM::transIntelFPGADecorations(SPIRVValue *BV, Value *V) {

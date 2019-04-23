@@ -78,8 +78,8 @@ OVLSMemref::OVLSMemref(OVLSMemrefKind K, OVLSType T,
   Id = MemrefId++;
 
   if (AccType.isUnknown()) {
-    OVLSDebug(OVLSdbgs() << "#" << Id << " ");
-    assert("Invalid AccType!!");
+    OVLSDebug(OVLSdbgs() << "#" << Id
+                         << " .Created an OVLSMemref of Unknown AccesType.");
   }
 }
 
@@ -579,7 +579,7 @@ public:
         } else if (Src != Op1 && isa<OVLSUndef>(Op2))
           Op2 = Src;
         else if (Src != Op1 && Src != Op2)
-          assert("Invalid number of operands for OVLSShuffle!!!");
+          llvm_unreachable("Invalid number of operands for OVLSShuffle!!!");
 
         if (Src == Op1)
           IntShuffleMask[MaskIndex++] = BR.getBitIndex() / ElemSize;
@@ -1485,7 +1485,7 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
                                GraphNodeToOVLSMemrefMap &NodeToMemrefMap) {
   int64_t Stride = 0;
   if (!Group.hasAConstStride(Stride))
-    assert("Group with a variable stride is not supported!!!");
+    llvm_unreachable("Group with a variable stride is not supported!!!");
 
   // If it's not a group of gathers that means it's a group of scatters.
   bool GroupOfGathers = false;

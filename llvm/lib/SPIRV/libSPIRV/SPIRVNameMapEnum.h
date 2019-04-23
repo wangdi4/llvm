@@ -351,6 +351,8 @@ SPIRVMap<Decoration, std::string>::init() {
   add(DecorationNumbanksINTEL, "NumbanksINTEL");
   add(DecorationBankwidthINTEL, "BankwidthINTEL");
   add(DecorationMaxConcurrencyINTEL, "MaxConcurrencyINTEL");
+  add(DecorationSinglepumpINTEL, "SinglepumpINTEL");
+  add(DecorationDoublepumpINTEL, "DoublepumpINTEL");
 }
 SPIRV_DEF_NAMEMAP(Decoration, SPIRVDecorationNameMap)
 
