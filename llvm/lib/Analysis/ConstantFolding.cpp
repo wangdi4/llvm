@@ -1362,6 +1362,19 @@ llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
   return C;
 }
 
+#if INTEL_CUSTOMIZATION
+// FIXME: We should have a more general interface for the imf attributes.
+static bool hasAnyImfFnAttr(const CallBase *Call) {
+  for (const Attribute &Attr : Call->getAttributes().getFnAttributes()) {
+    if (!Attr.isStringAttribute())
+      continue;
+    if (Attr.getKindAsString().startswith("imf-"))
+      return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 //  Constant Folding for Calls
 //
@@ -1369,6 +1382,12 @@ llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
 bool llvm::canConstantFoldCallTo(const CallBase *Call, const Function *F) {
   if (Call->isNoBuiltin() || Call->isStrictFP())
     return false;
+#if INTEL_CUSTOMIZATION
+  // FIXME: Check to see if the called function is an imf candidate.
+  // Don't constant fold calls that have imf attributes.
+  if (hasAnyImfFnAttr(Call))
+    return false;
+#endif // INTEL_CUSTOMIZATION
   switch (F->getIntrinsicID()) {
   case Intrinsic::fabs:
   case Intrinsic::minnum:
