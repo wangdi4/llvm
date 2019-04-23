@@ -30,8 +30,8 @@ namespace llvm_intel_wp_analysis {
 // compilation have entire program.
 cl::opt<bool> AssumeWholeProgram("whole-program-assume",
                                  cl::init(false), cl::ReallyHidden);
-}
-}
+} // llvm_intel_wp_analysis
+} // llvm
 
 // Flag to get whole program analysis trace.
 static cl::opt<bool> WholeProgramTrace("whole-program-trace",
@@ -62,17 +62,6 @@ static cl::opt<bool> AssumeWholeProgramHidden("whole-program-assume-hidden",
 static cl::opt<bool> AssumeWholeProgramExecutable(
     "whole-program-assume-executable", cl::init(false), cl::ReallyHidden);
 
-// True if the LTO process finds that all symbols are inside the LTO unit.
-// The only symbols that will be treated as externals are main and those
-// that are in the RuntimeLibcalls table.
-static bool HiddenVisibility = false;
-
-// SetVector for storing the symbols that are visible to regular objects.
-// These symbols might have IR in the summary section, but the LTO
-// visibility analysis found that there might be a none-LTO unit that
-// are accessing them.
-static SetVector<StringRef> VisibleSymbolsVector;
-
 #define DEBUG_TYPE  "wholeprogramanalysis"
 
 INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
@@ -81,19 +70,6 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
                 "Whole program analysis", false, false)
-
-// Store if all symbols have hidden visibility. Called during LTO
-// symbols resolution.
-void llvm::setVisibilityHidden(bool AllSymbolsHidden) {
-  HiddenVisibility = AllSymbolsHidden;
-}
-
-// Store the input symbol name in the VisibleSymbolsVector. These
-// symbols will be printed during the whole program analysis trace.
-void llvm::storeVisibleSymbols(StringRef SymbolName) {
-  if (WholeProgramTrace)
-    VisibleSymbolsVector.insert(SymbolName);
-}
 
 char WholeProgramWrapperPass::ID = 0;
 
@@ -263,22 +239,6 @@ bool WholeProgramInfo::resolveCallsInRoutine(const TargetLibraryInfo &TLI,
   return Resolved;
 }
 
-// Return true if the input StringRef represents any form of
-// main. Else return false.
-bool WholeProgramInfo::isMainEntryPoint(llvm::StringRef GlobName) {
-
-  return llvm::StringSwitch<bool>(GlobName)
-      .Cases("main",
-             "MAIN__",
-             "wmain",
-             "WinMain",
-             "wWinMain",
-             "DllMain",
-             true)
-      .Default(false);
-
-}
-
 bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
                                        const TargetLibraryInfo &TLI) {
   bool all_resolved = true;
@@ -292,7 +252,7 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
   // Walk through all functions to find unresolved calls.
   LibFunc TheLibFunc;
   for (Function &F : M) {
-    if (!F.isDeclaration() && isMainEntryPoint(F.getName())) {
+    if (!F.isDeclaration() && WPUtils.isMainEntryPoint(F.getName())) {
       main_def_seen_in_ir = true;
     }
 
@@ -365,10 +325,7 @@ bool WholeProgramInfo::resolveAllLibFunctions(Module &M,
     }
 
     // Print those symbols that are visible outside the LTO unit
-    errs() << "  VISIBLE OUTSIDE LTO: " << VisibleSymbolsVector.size() << "\n";
-    for (StringRef SymbolName : VisibleSymbolsVector) {
-      errs() << "      " << SymbolName << "\n";
-    }
+    WPUtils.dumpVisibleSymbols();
   }
 
   // Print only the libfuncs
@@ -481,19 +438,19 @@ bool WholeProgramInfo::isWholeProgramHidden(void) {
   if (AssumeWholeProgramHidden)
     return true;
 
-  return HiddenVisibility;
+  return WPUtils.getHiddenVisibility();
 }
 
 // Return true if the linker finds that all symbols were resolved or
 // the assumption flag for whole program read was turned on.
 bool WholeProgramInfo::isWholeProgramRead() {
-  return getWholeProgramRead() || AssumeWholeProgramRead;
+  return WPUtils.getWholeProgramRead() || AssumeWholeProgramRead;
 }
 
 // Return true if the linker is generating an executable or the
 // assumption flag for executable was turned on.
 bool WholeProgramInfo::isLinkedAsExecutable() {
-  return getLinkingExecutable() || AssumeWholeProgramExecutable;
+  return WPUtils.getLinkingExecutable() || AssumeWholeProgramExecutable;
 }
 
 char WholeProgramAnalysis::PassID;

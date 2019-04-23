@@ -99,6 +99,9 @@ add_llvm_library(LLVMSupport
   Hashing.cpp
   InitLLVM.cpp
   IntEqClasses.cpp
+# INTEL_CUSTOMIZATION
+  Intel_WP_utils.cpp
+# end INTEL_CUSTOMIZATION
   IntervalMap.cpp
   ItaniumManglingCanonicalizer.cpp
   JamCRC.cpp

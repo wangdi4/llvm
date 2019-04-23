@@ -966,7 +966,7 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
     StringRef SymbolName =
         GlobalValue::dropLLVMManglingEscape(Res.second.IRName);
 
-    bool LinkerAddedSymbol = isLinkerAddedSymbol(SymbolName);
+    bool LinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
 
     // The only symbols that should be external are main, runtime
     // library calls, library functions (LibFuncs) or special symbols
@@ -984,7 +984,7 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
                          GlobalResolution::LibcallKind::RuntimeLibcall);
 
     if (!HiddenSymbol)
-      storeVisibleSymbols(SymbolName);
+      WPUtils.storeVisibleSymbols(SymbolName);
 
     AllSymbolsHidden &= HiddenSymbol;
 
@@ -1000,8 +1000,8 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
                     || IsLibFunc || HiddenSymbol);
 #endif // INTEL_CUSTOMIZATION
   }
-  setWholeProgramRead(AllResolved); // INTEL
-  setVisibilityHidden(AllSymbolsHidden); // INTEL
+  WPUtils.setWholeProgramRead(AllResolved); // INTEL
+  WPUtils.setVisibilityHidden(AllSymbolsHidden); // INTEL
 
   auto isPrevailing = [&](GlobalValue::GUID G) {
     auto It = GUIDPrevailingResolutions.find(G);

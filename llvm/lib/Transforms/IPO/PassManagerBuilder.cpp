@@ -1210,8 +1210,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
         // globals and then be removed. If these symbols aren't removed
         // then it could cause linking issues (e.g. undefined symbols).
         if (GV.hasWeakODRLinkage() ||
-            llvm::WholeProgramInfo::isMainEntryPoint(GV.getName()) ||
-            llvm::isLinkerAddedSymbol(GV.getName()))
+            WPUtils.isMainEntryPoint(GV.getName()) ||
+            WPUtils.isLinkerAddedSymbol(GV.getName()))
           return true;
 
         // If the GlobalValue is an alias then we need to make sure that this
@@ -1246,11 +1246,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
             return true;
 
           // Aliasee is mapped to a linker added symbol
-          if (llvm::isLinkerAddedSymbol(Glob->getName()))
+          if (WPUtils.isLinkerAddedSymbol(Glob->getName()))
             return true;
 
           // Aliasee is mapped to main
-          if (llvm::WholeProgramInfo::isMainEntryPoint(Glob->getName()))
+          if (WPUtils.isMainEntryPoint(Glob->getName()))
             return true;
         }
 

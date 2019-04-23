@@ -19,6 +19,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Support/Intel_WP_utils.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
@@ -27,32 +28,11 @@ namespace llvm_intel_wp_analysis {
 // If it is true, compiler assumes that source files in the current
 // compilation have entire program.
 extern cl::opt<bool> AssumeWholeProgram;
-}
+} // llvm_intel_wp_analysis
 
-// Linker utilities functions
-
-// Return true if the symbol is a special symbol added by
-// the linker, else return false.
-bool isLinkerAddedSymbol(llvm::StringRef SymbolName);
-
-// Set true if the linker resolved all symbols, else set false.
-void setWholeProgramRead(bool ProgramRead);
-
-// Return true if the linker resolved all symbols, else return false.
-bool getWholeProgramRead();
-
+// TODO: This function will be removed after cleaning LLD
 // Set if the linker is generating an executable.
 void setLinkingExecutable(bool LinikingExe);
-
-// Return true if the linker is creating an executable, else return false.
-bool getLinkingExecutable();
-
-// Set if the LTO process found that all symbols
-// have hidden visibility
-void setVisibilityHidden(bool AllSymbolsHidden);
-
-// Store the symbols that are visible outside the LTO unit
-void storeVisibleSymbols(StringRef SymbolName);
 
 // It handles actual analysis and results of whole program analysis.
 class WholeProgramInfo {
