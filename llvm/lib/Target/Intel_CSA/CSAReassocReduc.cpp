@@ -311,13 +311,21 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   const auto smallfountain = [&](uint64_t bits, uint64_t len,
                                  const Twine &name) {
     if (EmulateFountains) {
+      // To keep the fountain-replacement loops saturated and avoid late tools
+      // problems, repeat small sequences ceil(9/len) times so that there are at
+      // least 9 values circulating around the loop.
+      const unsigned reps = 8 / len + 1;
       const unsigned res = add_lic(i1_class, name, true);
-      LMFI->setLICDepth(res, len);
-      for (uint64_t i = 0; i < len; ++i) {
-        const uint64_t bit = bits >> i & 1;
-        add_instr(CSA::INIT1).addDef(res).addImm(bit);
+      const unsigned lthack = add_lic(i1_class, name + ".lthack", true);
+      LMFI->setLICDepth(lthack, reps * len);
+      add_instr(CSA::MOV1).addDef(lthack).addUse(res);
+      for (unsigned r = 0; r < reps; ++r) {
+        for (uint64_t i = 0; i < len; ++i) {
+          const uint64_t bit = bits >> i & 1;
+          add_instr(CSA::INIT1).addDef(lthack).addImm(bit);
+        }
       }
-      add_instr(CSA::MOV1).addDef(res).addUse(res);
+      add_instr(CSA::MOV1).addDef(res).addUse(lthack);
       return res;
     } else {
       const unsigned scratch = MCP->getConstantPoolIndex(
@@ -394,15 +402,20 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
   else if (init_is_imm) {
     if (EmulateFountains) {
       const unsigned parts_init = add_lic(lic_class, "parts_init", true);
+      const unsigned lthack = add_lic(lic_class, "parts_init.lthack", true);
+      LMFI->setLICDepth(lthack, partred_count);
+      add_instr(TII->makeOpcode(CSA::Generic::MOV, lic_size))
+          .addDef(lthack)
+          .addUse(parts_init);
       const unsigned init_opcode =
           TII->makeOpcode(CSA::Generic::INIT, lic_size);
       for (int i = 0; i < partred_count - 1; ++i) {
-        add_instr(init_opcode).addDef(parts_init).addFPImm(identity);
+        add_instr(init_opcode).addDef(lthack).addFPImm(identity);
       }
-      add_instr(init_opcode).addDef(parts_init).add(init);
+      add_instr(init_opcode).addDef(lthack).add(init);
       add_instr(TII->makeOpcode(CSA::Generic::MOV, lic_size))
           .addDef(parts_init)
-          .addUse(parts_init);
+          .addUse(lthack);
       add_instr(opcode_pick)
           .addDef(parts)
           .addUse(parts_pred_ctl)
