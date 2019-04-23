@@ -1,6 +1,6 @@
 ; INTEL - Disabling loopopt as it affects pass pipeline.
 ; INTEL - Enable loop vectorizer as it is needed.
-; RUN: opt < %s -loopopt=false -disable-loop-unrolling -debug-only=loop-vectorize -O3 -enable-lv -S 2>&1 | FileCheck %s
+; RUN: opt < %s -loopopt=0 -disable-loop-unrolling -debug-only=loop-vectorize -O3 -enable-lv -S 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ; We want to make sure that we don't even try to vectorize loops again
 ; The vectorizer used to mark the un-vectorized loop only as already vectorized

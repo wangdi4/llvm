@@ -3,8 +3,8 @@
 ; INTEL - Disable Load Coalescing.
 ; INTEL - Disabling loopopt as it affects pass pipeline.
 ; INTEL - Enable loop vectorizer as it is needed.
-; RUN: opt < %s  -O3 -enable-lv -loopopt=false -enable-load-coalescing=false -mcpu=knl -S | FileCheck %s -check-prefix=AVX512
-; RUN: opt < %s -O3 -enable-lv -loopopt=false -enable-load-coalescing=false -mcpu=knl -force-vector-width=2 -S | FileCheck %s -check-prefix=FVW2
+; RUN: opt < %s  -O3 -enable-lv -loopopt=0 -enable-load-coalescing=false -mcpu=knl -S | FileCheck %s -check-prefix=AVX512
+; RUN: opt < %s -O3 -enable-lv -loopopt=0 -enable-load-coalescing=false -mcpu=knl -force-vector-width=2 -S | FileCheck %s -check-prefix=FVW2
 
 ; With a force-vector-width, it is sometimes more profitable to generate
 ; scalarized and predicated stores instead of masked scatter.

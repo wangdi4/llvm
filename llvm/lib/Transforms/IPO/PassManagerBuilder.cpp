@@ -203,8 +203,16 @@ static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
                                        cl::Hidden,
                                        cl::desc("Enable VPlan Driver"));
 // INTEL - HIR passes
-static cl::opt<bool> RunLoopOpts("loopopt", cl::init(true), cl::Hidden,
-                                 cl::desc("Runs loop optimization passes"));
+enum class LoopOptMode { None, LightWeight, Full };
+static cl::opt<LoopOptMode> RunLoopOpts(
+    "loopopt", cl::init(LoopOptMode::Full), cl::Hidden, cl::ValueOptional,
+    cl::desc("Runs loop optimization passes"),
+    cl::values(clEnumValN(LoopOptMode::None, "0", "Disable loopopt passes"),
+               clEnumValN(LoopOptMode::LightWeight, "1",
+                          "Enable lightweight loopopt(minimal passes)"),
+               clEnumValN(LoopOptMode::Full, "2", "Enable all loopopt passes"),
+               // Value assumed when just -loopopt is specified.
+               clEnumValN(LoopOptMode::Full, "", "")));
 
 static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only",
     cl::init(false), cl::Hidden,
@@ -1626,8 +1634,8 @@ void PassManagerBuilder::addVPOPassesPreLoopOpt(
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
   if (!DisableIntelProprietaryOpts &&
-      (RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
-      !PerformThinLTO)
+      ((RunLoopOpts != LoopOptMode::None) || RunLoopOptFrameworkOnly) &&
+      (OptLevel >= 2) && !PerformThinLTO)
     return true;
 
   return false;
@@ -1700,58 +1708,67 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRTempCleanupPass());
 
   if (!RunLoopOptFrameworkOnly) {
-#if INTEL_CUSTOMIZATION
     if (vpo::UseOmpRegionsInLoopoptFlag)
       PM.add(createHIRRecognizeParLoopPass());
-#endif  // INTEL_CUSTOMIZATION
 
     PM.add(createHIRPropagateCastedIVPass());
+
     if (OptLevel > 2) {
-      PM.add(createHIRLoopConcatenationPass());
-      PM.add(createHIRSymbolicTripCountCompleteUnrollLegacyPass());
+      if (RunLoopOpts == LoopOptMode::Full) {
+        PM.add(createHIRLoopConcatenationPass());
+        PM.add(createHIRSymbolicTripCountCompleteUnrollLegacyPass());
+      }
       PM.add(createHIRArrayTransposePass());
     }
 
-    PM.add(createHIRDeadStoreEliminationPass());
+    if (RunLoopOpts == LoopOptMode::Full) {
+      PM.add(createHIRDeadStoreEliminationPass());
 
-    // TODO: refine cost model for individual transformations for code size.
-    if (SizeLevel == 0) {
-      // If VPO is disabled, we don't have to insert ParVec directives.
-      if (RunVPOOpt)
-        PM.add(createHIRParDirInsertPass());
-      PM.add(createHIRRuntimeDDPass());
-      PM.add(createHIRMVForConstUBPass());
+      // TODO: refine cost model for individual transformations for code size.
+      if (SizeLevel == 0) {
+        // If VPO is disabled, we don't have to insert ParVec directives.
+        if (RunVPOOpt)
+          PM.add(createHIRParDirInsertPass());
+        PM.add(createHIRRuntimeDDPass());
+        PM.add(createHIRMVForConstUBPass());
+      }
+
+      PM.add(createHIRLoopDistributionForLoopNestPass());
+      PM.add(createHIRLoopInterchangePass());
+      PM.add(createHIRLoopBlockingPass());
+      PM.add(createHIRLoopReversalPass());
+      PM.add(createHIRIdentityMatrixIdiomRecognitionPass());
     }
-
-    PM.add(createHIRLoopDistributionForLoopNestPass());
-    PM.add(createHIRLoopInterchangePass());
-    PM.add(createHIRLoopBlockingPass());
-    PM.add(createHIRLoopReversalPass());
-    PM.add(createHIRIdentityMatrixIdiomRecognitionPass());
 
     if (SizeLevel == 0) {
       PM.add(createHIRPreVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));
     }
 
-    PM.add(createHIRLMMPass());
-    PM.add(createHIRLastValueComputationPass());
-    PM.add(createHIRLoopRerollPass());
+    if (RunLoopOpts == LoopOptMode::Full)
+      PM.add(createHIRLMMPass());
 
-    if (SizeLevel == 0) {
-      PM.add(createHIRLoopDistributionForMemRecPass());
+    PM.add(createHIRLastValueComputationPass());
+
+    if (RunLoopOpts == LoopOptMode::Full) {
+      PM.add(createHIRLoopRerollPass());
+
+      if (SizeLevel == 0) {
+        PM.add(createHIRLoopDistributionForMemRecPass());
+      }
+
+      PM.add(createHIRLoopRematerializePass());
+      PM.add(createHIRMultiExitLoopRerollPass());
+      PM.add(createHIRLoopCollapsePass());
+      PM.add(createHIRIdiomRecognitionPass());
+      PM.add(createHIRLoopFusionPass());
     }
 
-    PM.add(createHIRLoopRematerializePass());
-
-    PM.add(createHIRMultiExitLoopRerollPass());
-    PM.add(createHIRLoopCollapsePass());
-    PM.add(createHIRIdiomRecognitionPass());
-    PM.add(createHIRLoopFusionPass());
-
     if (SizeLevel == 0) {
-      PM.add(createHIRUnrollAndJamPass(DisableUnrollLoops));
-      PM.add(createHIROptVarPredicatePass());
-      PM.add(createHIROptPredicatePass(OptLevel == 3));
+      if (RunLoopOpts == LoopOptMode::Full) {
+        PM.add(createHIRUnrollAndJamPass(DisableUnrollLoops));
+        PM.add(createHIROptVarPredicatePass());
+        PM.add(createHIROptPredicatePass(OptLevel == 3));
+      }
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
         if (EnableVPlanDriverHIR) {
@@ -1763,7 +1780,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRGeneralUnrollPass(DisableUnrollLoops));
     }
 
-    PM.add(createHIRScalarReplArrayPass());
+    if (RunLoopOpts == LoopOptMode::Full)
+      PM.add(createHIRScalarReplArrayPass());
   }
 
   if (IntelOptReportEmitter == OptReportOptions::HIR)
@@ -1775,7 +1793,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 }
 
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
-     legacy::PassManagerBase &PM) const {
+    legacy::PassManagerBase &PM) const {
   // We should never get here if proprietary options are disabled,
   // but it's a release-mode feature so we can't just assert.
   if (DisableIntelProprietaryOpts)
