@@ -838,14 +838,8 @@ void Sema::PushNamespaceVisibilityAttr(const VisibilityAttr *Attr,
 }
 
 void Sema::PopPragmaVisibility(bool IsNamespaceEnd, SourceLocation EndLoc) {
-#if INTEL_CUSTOMIZATION
-  // CQ#374277: emit a warning, not an error in IntelCompat mode.
-  unsigned PragmaPopMismatchDiagId =
-      getLangOpts().IntelCompat ? diag::warn_pragma_pop_visibility_mismatch
-                                : diag::err_pragma_pop_visibility_mismatch;
-#endif // INTEL_CUSTOMIZATION
   if (!VisContext) {
-    Diag(EndLoc, PragmaPopMismatchDiagId); // INTEL
+    Diag(EndLoc, diag::err_pragma_pop_visibility_mismatch);
     return;
   }
 
@@ -865,7 +859,7 @@ void Sema::PopPragmaVisibility(bool IsNamespaceEnd, SourceLocation EndLoc) {
       StartsWithPragma = Back->first != NoVisibility;
     } while (StartsWithPragma);
   } else if (!StartsWithPragma && !IsNamespaceEnd) {
-    Diag(EndLoc, PragmaPopMismatchDiagId); // INTEL
+    Diag(EndLoc, diag::err_pragma_pop_visibility_mismatch);
     Diag(Back->second, diag::note_surrounding_namespace_starts_here);
     return;
   }
