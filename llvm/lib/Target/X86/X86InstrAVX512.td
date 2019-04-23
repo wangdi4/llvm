@@ -2162,6 +2162,7 @@ let Predicates = [HasAVX512] in {
 #if INTEL_FEATURE_ISA_FP16
 let Predicates = [HasFP16], ExeDomain = SSEPackedSingle in
   defm VCMPSHZ : avx512_cmp_scalar<f16x_info, X86cmpms, X86cmpmsSAE,
+                                   X86cmpms_su, X86cmpmsSAE_su,
                                    SchedWriteFCmp.Scl>, AVX512XSIi8Base, TA;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
