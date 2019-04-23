@@ -172,7 +172,6 @@ private:
     VPDecomposerHIR &Decomposer;
 
     // Helper functions.
-    VPValue *createOrGetVPDefFor(const loopopt::DDEdge *Edge);
     VPConstant *decomposeNonIntConstBlob(const SCEVUnknown *Blob);
     VPValue *decomposeStandAloneBlob(const SCEVUnknown *Blob);
     VPValue *decomposeNAryOp(const SCEVNAryExpr *Blob, unsigned OpCode);
