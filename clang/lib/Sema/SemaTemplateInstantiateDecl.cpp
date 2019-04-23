@@ -86,20 +86,8 @@ static void instantiateDependentAlignedAttr(
     EnterExpressionEvaluationContext Unevaluated(
         S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
     ExprResult Result = S.SubstExpr(Aligned->getAlignmentExpr(), TemplateArgs);
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ368132: __declspec (align) in icc can take more than one argument.
-    ExprResult OffsetResult;
-    if (Aligned->getOffsetExpr())
-      OffsetResult = S.SubstExpr(Aligned->getOffsetExpr(), TemplateArgs);
-    if (!OffsetResult.isInvalid())
-#endif // INTEL_CUSTOMIZATION
     if (!Result.isInvalid())
       S.AddAlignedAttr(Aligned->getLocation(), New, Result.getAs<Expr>(),
-#if INTEL_CUSTOMIZATION
-                       // Fix for CQ368132: __declspec (align) in icc can take
-                       // more than one argument.
-                       OffsetResult.getAs<Expr>(),
-#endif // INTEL_CUSTOMIZATION
                        Aligned->getSpellingListIndex(), IsPackExpansion);
   } else {
     TypeSourceInfo *Result = S.SubstType(Aligned->getAlignmentType(),
