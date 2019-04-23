@@ -746,7 +746,7 @@ void VPDecomposerHIR::createVPOperandsForMasterVPInst(
 // definition if such definition happens outside of the outermost loop
 // represented in VPlan. Otherwise, return a VPInstruction representing the
 // definition.
-void VPDecomposerHIR::createOrGetVPDefsForUse(
+void VPDecomposerHIR::getOrCreateVPDefsForUse(
     DDRef *UseDDR, SmallVectorImpl<VPValue *> &VPDefs) {
 
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
@@ -1241,7 +1241,7 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
   SmallVector<VPValue *, 2> VPDefs;
   if (BlobNumReachDefs == 1) {
     // Single definition.
-    Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
+    Decomposer.getOrCreateVPDefsForUse(DDR, VPDefs);
     assert(VPDefs.size() == 1 && "Expected single definition.");
     return VPDefs.front();
   } else {
@@ -1249,7 +1249,7 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     // might not have been created yet. They will be set by fixPhiNodes.
     // Map the corresponding Instruction to <VPBasicBlock, Symbase> in
     // PhisToFix if not found.
-    Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
+    Decomposer.getOrCreateVPDefsForUse(DDR, VPDefs);
     Type *BaseTy = VPDefs.front()->getBaseType();
 
     // Build the key pair to look-up PhisToFix map

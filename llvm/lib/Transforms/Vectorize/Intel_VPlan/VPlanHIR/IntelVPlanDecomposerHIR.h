@@ -140,7 +140,7 @@ private:
                                       ArrayRef<VPValue *> VPOperands);
   void createVPOperandsForMasterVPInst(loopopt::HLNode *Node,
                                        SmallVectorImpl<VPValue *> &VPOperands);
-  void createOrGetVPDefsForUse(loopopt::DDRef *UseDDR,
+  void getOrCreateVPDefsForUse(loopopt::DDRef *UseDDR,
                                SmallVectorImpl<VPValue *> &VPDefs);
 
   // Methods to decompose complex HIR.

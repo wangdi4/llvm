@@ -109,7 +109,7 @@ private:
   /// Utility to create VPInstructions out of a HLNode.
   VPDecomposerHIR Decomposer;
 
-  VPBasicBlock *createOrGetVPBB(HLNode *HNode = nullptr);
+  VPBasicBlock *getOrCreateVPBB(HLNode *HNode = nullptr);
   void connectVPBBtoPreds(VPBasicBlock *VPBB);
   void updateActiveVPBB(HLNode *HNode = nullptr, bool IsPredecessor = true);
 
@@ -145,7 +145,7 @@ public:
 /// Retrieve an existing VPBasicBlock for \p HNode. It there is no existing
 /// VPBasicBlock, a new VPBasicBlock is created and mapped to \p HNode. If \p
 /// HNode is null, the new VPBasicBlock is not mapped to any HLNode.
-VPBasicBlock *PlainCFGBuilderHIR::createOrGetVPBB(HLNode *HNode) {
+VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
 
   // Auxiliary function that creates an empty VPBasicBlock, set its parent to
   // TopRegion and increases TopRegion's size.
@@ -200,7 +200,7 @@ void PlainCFGBuilderHIR::connectVPBBtoPreds(VPBasicBlock *VPBB) {
 // of the (future) subsequent active VPBasicBlock's.
 void PlainCFGBuilderHIR::updateActiveVPBB(HLNode *HNode, bool IsPredecessor) {
   if (!ActiveVPBB) {
-    ActiveVPBB = createOrGetVPBB(HNode);
+    ActiveVPBB = getOrCreateVPBB(HNode);
     connectVPBBtoPreds(ActiveVPBB);
 
     if (IsPredecessor)
@@ -250,7 +250,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
     // multi-exit loop in the loop nest.
     assert(!MultiExitLandingPad && "Only one multi-exit loops is supported!");
     // Create a new landing pad for all the multiple exits.
-    MultiExitLandingPad = createOrGetVPBB();
+    MultiExitLandingPad = getOrCreateVPBB();
   }
 
   // Force creation of a new VPBB for loop H.
@@ -413,7 +413,7 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
   } else {
     assert(Label && "Label can't be null!");
     // Goto inside the loop. Create (or get) a new VPBB for HLLabel
-    LabelVPBB = createOrGetVPBB(Label);
+    LabelVPBB = getOrCreateVPBB(Label);
   }
 
   // Connect to HLGoto's VPBB to HLLabel's VPBB.

@@ -1327,7 +1327,7 @@ private:
   // Auxiliary functions
   void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
   void fixPhiNodes();
-  VPBasicBlock *createOrGetVPBB(BasicBlock *BB);
+  VPBasicBlock *getOrCreateVPBB(BasicBlock *BB);
   bool isExternalDef(Value *Val) const;
   // Check whether Val has uses outside the vectorized loop and create
   // VPExternalUse-s for NewVPInst accordingly.
@@ -1344,7 +1344,7 @@ public:
   void
   convertEntityDescriptors(LoopVectorizationLegality *Legal,
                            VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts);
-  VPValue *createOrGetVPOperand(Value *IROp);
+  VPValue *getOrCreateVPOperand(Value *IRVal);
 };
 } // anonymous namespace
 
@@ -1353,7 +1353,7 @@ void PlainCFGBuilder::setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB) {
   SmallVector<VPBlockBase *, 8> VPBBPreds;
   // Collect VPBB predecessors.
   for (BasicBlock *Pred : predecessors(BB))
-    VPBBPreds.push_back(createOrGetVPBB(Pred));
+    VPBBPreds.push_back(getOrCreateVPBB(Pred));
 
   VPBB->setPredecessors(VPBBPreds);
 }
@@ -1383,11 +1383,11 @@ public:
     Descriptor.clear();
     const RecurrenceDescriptor &RD = CurValue.second;
     Descriptor.setStartPhi(
-        dyn_cast<VPInstruction>(Builder.createOrGetVPOperand(CurValue.first)));
+        dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setStart(
-        Builder.createOrGetVPOperand(RD.getRecurrenceStartValue()));
+        Builder.getOrCreateVPOperand(RD.getRecurrenceStartValue()));
     Descriptor.setExit(dyn_cast<VPInstruction>(
-        Builder.createOrGetVPOperand(RD.getLoopExitInstr())));
+        Builder.getOrCreateVPOperand(RD.getLoopExitInstr())));
     Descriptor.setKind(RD.getRecurrenceKind());
     Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
@@ -1406,17 +1406,17 @@ public:
     Descriptor.clear();
     const RecurrenceDescriptor &RD = CurValue.second.first;
     Descriptor.setStartPhi(
-        dyn_cast<VPInstruction>(Builder.createOrGetVPOperand(CurValue.first)));
+        dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setStart(
-        Builder.createOrGetVPOperand(RD.getRecurrenceStartValue()));
+        Builder.getOrCreateVPOperand(RD.getRecurrenceStartValue()));
     Descriptor.setExit(dyn_cast<VPInstruction>(
-        Builder.createOrGetVPOperand(RD.getLoopExitInstr())));
+        Builder.getOrCreateVPOperand(RD.getLoopExitInstr())));
     Descriptor.setKind(RD.getRecurrenceKind());
     Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
     Descriptor.setSigned(RD.isSigned());
     Descriptor.setAllocaInst(
-        Builder.createOrGetVPOperand(CurValue.second.second));
+        Builder.getOrCreateVPOperand(CurValue.second.second));
     Descriptor.setLinkPhi(nullptr);
   }
 };
@@ -1428,7 +1428,7 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const InMemoryReductionList::value_type &CurValue) {
     Descriptor.clear();
-    VPValue *AllocaInst = Builder.createOrGetVPOperand(CurValue.first);
+    VPValue *AllocaInst = Builder.getOrCreateVPOperand(CurValue.first);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(AllocaInst);
     Descriptor.setExit(nullptr);
@@ -1451,9 +1451,9 @@ public:
     Descriptor.clear();
     const InductionDescriptor &ID = CurValue.second;
     Descriptor.setStartPhi(dyn_cast<VPInstruction>(
-        Builder.createOrGetVPOperand(CurValue.first)));
+        Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setKind(ID.getKind());
-    Descriptor.setStart(Builder.createOrGetVPOperand(ID.getStartValue()));
+    Descriptor.setStart(Builder.getOrCreateVPOperand(ID.getStartValue()));
     const SCEV *Step = ID.getStep();
     Value *V = nullptr;
     if (auto UndefStep = dyn_cast<SCEVUnknown>(Step))
@@ -1461,10 +1461,10 @@ public:
     else if (auto ConstStep = dyn_cast<SCEVConstant>(Step))
       V = ConstStep->getValue();
     assert(V && "Unknown scev kind");
-    Descriptor.setStep(Builder.createOrGetVPOperand(V));
+    Descriptor.setStep(Builder.getOrCreateVPOperand(V));
     if (ID.getInductionBinOp()) {
       Descriptor.setInductionBinOp(dyn_cast<VPInstruction>(
-          Builder.createOrGetVPOperand(ID.getInductionBinOp())));
+          Builder.getOrCreateVPOperand(ID.getInductionBinOp())));
       Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
     } else {
       Type *IndTy = Descriptor.getStartPhi()->getType();
@@ -1487,7 +1487,7 @@ public:
                   const LinearListTy::value_type &CurValue) {
     Descriptor.clear();
     Descriptor.setStartPhi(nullptr);
-    Descriptor.setStart(Builder.createOrGetVPOperand(CurValue.first));
+    Descriptor.setStart(Builder.getOrCreateVPOperand(CurValue.first));
 
     Type *IndTy = CurValue.first->getType();
     assert(IndTy->isPointerTy() &&
@@ -1507,7 +1507,7 @@ public:
       Descriptor.setKind(InductionDescriptor::IK_FpInduction);
     }
     Value *Cstep = ConstantInt::get(StepTy, CurValue.second);
-    Descriptor.setStep(Builder.createOrGetVPOperand(Cstep));
+    Descriptor.setStep(Builder.getOrCreateVPOperand(Cstep));
 
     Descriptor.setInductionBinOp(nullptr);
     Descriptor.setBinOpcode(Instruction::Add);
@@ -1625,20 +1625,20 @@ void PlainCFGBuilder::fixPhiNodes() {
            "Expected VPInstruction with no operands.");
 
     for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I)
-      VPPhi->addIncoming(createOrGetVPOperand(Phi->getIncomingValue(I)),
-                         createOrGetVPBB(Phi->getIncomingBlock(I)));
+      VPPhi->addIncoming(getOrCreateVPOperand(Phi->getIncomingValue(I)),
+                         getOrCreateVPBB(Phi->getIncomingBlock(I)));
 #else
     assert(isa<VPInstruction>(VPVal) && "Expected VPInstruction for phi node.");
     auto *VPPhi = cast<VPInstruction>(VPVal);
     for (Value *Op : Phi->operands())
-      VPPhi->addOperand(createOrGetVPOperand(Op));
+      VPPhi->addOperand(getOrCreateVPOperand(Op));
 #endif // INTEL_CUSTOMIZATION
   }
 }
 
-// Create a new empty VPBasicBlock for an incomming BasicBlock or retrieve an
+// Create a new empty VPBasicBlock for an incoming BasicBlock or retrieve an
 // existing one if it was already created.
-VPBasicBlock *PlainCFGBuilder::createOrGetVPBB(BasicBlock *BB) {
+VPBasicBlock *PlainCFGBuilder::getOrCreateVPBB(BasicBlock *BB) {
 
   VPBasicBlock *VPBB;
   auto BlockIt = BB2VPBB.find(BB);
@@ -1703,17 +1703,17 @@ void PlainCFGBuilder::addExternalUses(Value *Val, VPValue *NewVPInst) {
 // operand \p IROp. This function must only be used to create/retrieve VPValues
 // for *Instruction's operands* and not to create regular VPInstruction's. For
 // the latter, please, look at 'createVPInstructionsForVPBB'.
-VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
+VPValue *PlainCFGBuilder::getOrCreateVPOperand(Value *IRVal) {
 #if INTEL_CUSTOMIZATION
   // Constant operand
-  if (Constant *IRConst = dyn_cast<Constant>(IROp))
+  if (Constant *IRConst = dyn_cast<Constant>(IRVal))
     return Plan->getVPConstant(IRConst);
 
-  if (MetadataAsValue *MDAsValue = dyn_cast<MetadataAsValue>(IROp))
+  if (MetadataAsValue *MDAsValue = dyn_cast<MetadataAsValue>(IRVal))
     return Plan->getVPMetadataAsValue(MDAsValue);
 #endif
 
-  auto VPValIt = IRDef2VPValue.find(IROp);
+  auto VPValIt = IRDef2VPValue.find(IRVal);
   if (VPValIt != IRDef2VPValue.end())
     // Operand has an associated VPInstruction or VPValue that was previously
     // created.
@@ -1731,12 +1731,12 @@ VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
   // For now, we use VPValue to represent A and B and classify both as external
   // definitions. We may introduce specific VPValue subclasses for them in the
   // future.
-  assert(isExternalDef(IROp) && "Expected external definition as operand.");
+  assert(isExternalDef(IRVal) && "Expected external definition as operand.");
 
   // A and B: Create VPValue and add it to the pool of external definitions and
   // to the Value->VPValue map.
-  VPExternalDef *ExtDef = Plan->getVPExternalDef(IROp);
-  IRDef2VPValue[IROp] = ExtDef;
+  VPExternalDef *ExtDef = Plan->getVPExternalDef(IRVal);
+  IRDef2VPValue[IRVal] = ExtDef;
   return ExtDef;
 }
 
@@ -1759,7 +1759,7 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       // Branch instruction is not explicitly represented in VPlan but we need
       // to represent its condition bit when it's conditional.
       if (Br->isConditional())
-        createOrGetVPOperand(Br->getCondition());
+        getOrCreateVPOperand(Br->getCondition());
 
       // Skip the rest of the Instruction processing for Branch instructions.
       continue;
@@ -1782,7 +1782,7 @@ void PlainCFGBuilder::createVPInstructionsForVPBB(VPBasicBlock *VPBB,
       // new VPInstruction.
       SmallVector<VPValue *, 4> VPOperands;
       for (Value *Op : Inst->operands())
-        VPOperands.push_back(createOrGetVPOperand(Op));
+        VPOperands.push_back(getOrCreateVPOperand(Op));
 
 #if INTEL_CUSTOMIZATION
       if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {
@@ -1831,10 +1831,10 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
   BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
   assert((PreheaderBB->getTerminator()->getNumSuccessors() == 1) &&
          "Unexpected loop preheader");
-  VPBasicBlock *PreheaderVPBB = createOrGetVPBB(PreheaderBB);
+  VPBasicBlock *PreheaderVPBB = getOrCreateVPBB(PreheaderBB);
   // Create empty VPBB for Loop H so that we can link PH->H. H's VPInstructions
   // will be created during RPO traversal.
-  VPBlockBase *HeaderVPBB = createOrGetVPBB(TheLoop->getHeader());
+  VPBlockBase *HeaderVPBB = getOrCreateVPBB(TheLoop->getHeader());
   // Preheader's predecessors will be set during the loop RPO traversal below.
   PreheaderVPBB->setOneSuccessor(HeaderVPBB);
 
@@ -1844,7 +1844,7 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
   for (BasicBlock *BB : RPO) {
     // Create or retrieve the VPBasicBlock for this BB and create its
     // VPInstructions.
-    VPBasicBlock *VPBB = createOrGetVPBB(BB);
+    VPBasicBlock *VPBB = getOrCreateVPBB(BB);
     createVPInstructionsForVPBB(VPBB, BB);
 
     // Set VPBB successors. We create empty VPBBs for successors if they don't
@@ -1855,15 +1855,15 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
     unsigned NumSuccs = TI->getNumSuccessors();
 
     if (NumSuccs == 1) {
-      VPBasicBlock *SuccVPBB = createOrGetVPBB(TI->getSuccessor(0));
+      VPBasicBlock *SuccVPBB = getOrCreateVPBB(TI->getSuccessor(0));
       assert(SuccVPBB && "VPBB Successor not found");
       VPBB->setOneSuccessor(SuccVPBB);
       VPBB->setCBlock(BB);
       VPBB->setTBlock(TI->getSuccessor(0));
     } else if (NumSuccs == 2) {
-      VPBasicBlock *SuccVPBB0 = createOrGetVPBB(TI->getSuccessor(0));
+      VPBasicBlock *SuccVPBB0 = getOrCreateVPBB(TI->getSuccessor(0));
       assert(SuccVPBB0 && "Successor 0 not found");
-      VPBasicBlock *SuccVPBB1 = createOrGetVPBB(TI->getSuccessor(1));
+      VPBasicBlock *SuccVPBB1 = getOrCreateVPBB(TI->getSuccessor(1));
       assert(SuccVPBB1 && "Successor 1 not found");
 
       // Set VPBB's condition bit.
