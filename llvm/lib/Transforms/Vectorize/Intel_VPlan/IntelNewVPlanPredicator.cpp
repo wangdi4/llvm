@@ -176,8 +176,10 @@ void VPlanPredicator::createOrPropagatePredicates(VPBlockBase *CurrBlock,
     VPPHINode *VPPhi = dyn_cast<VPPHINode>(Ingredient);
     if (VPPhi)
       VPPhi->setBlend(BlendPhi);
-    else
+    else {
       FirstNonPHIInst = dyn_cast<VPInstruction>(Ingredient);
+      break;
+    }
   }
 
   // TODO - the PHIs need to be the first instructions in a block. For now,

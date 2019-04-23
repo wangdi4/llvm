@@ -1459,8 +1459,11 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
       OrigLoop->hasLoopInvariantOperands(cast<Instruction>(V));
 
     Value *VectorValue = nullptr;
+    IRBuilder<>::InsertPointGuard Guard(Builder);
     if (IsUniform) {
       Value *ScalarValue = ScalarMap[V][0];
+      assert(isa<Instruction>(ScalarValue) && "Expected instruction for scalar value");
+      Builder.SetInsertPoint((cast<Instruction>(ScalarValue))->getNextNode());
       if (ScalarValue->getType()->isVectorTy()) {
         VectorValue =
             replicateVector(ScalarValue, VF, Builder,
@@ -1471,11 +1474,16 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
       SmallVector<Value *, 8> Parts;
       for (unsigned Lane = 0; Lane < VF; ++Lane)
         Parts.push_back(ScalarMap[V][Lane]);
+      Value *ScalarValue = ScalarMap[V][VF-1];
+      assert(isa<Instruction>(ScalarValue) && "Expected instruction for scalar value");
+      Builder.SetInsertPoint((cast<Instruction>(ScalarValue))->getNextNode());
       VectorValue = joinVectors(Parts, Builder);
     } else {
       VectorValue = UndefValue::get(VectorType::get(V->getType(), VF));
       for (unsigned Lane = 0; Lane < VF; ++Lane) {
         Value *ScalarValue = ScalarMap[V][Lane];
+        assert(isa<Instruction>(ScalarValue) && "Expected instruction for scalar value");
+        Builder.SetInsertPoint((cast<Instruction>(ScalarValue))->getNextNode());
         VectorValue = Builder.CreateInsertElement(VectorValue, ScalarValue,
                                                   Builder.getInt32(Lane));
       }

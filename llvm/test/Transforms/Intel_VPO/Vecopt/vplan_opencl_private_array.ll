@@ -10,8 +10,8 @@
 ; CHECK: call void @llvm.lifetime.start.p0i8(i64 256, i8* nonnull [[E1]]) #4
 ; CHECK: call void @llvm.lifetime.start.p0i8(i64 256, i8* nonnull [[E2]]) #4
 ; CHECK: [[DATA:%.*]] = load <16 x i8>, <16 x i8> addrspace(1)* %src, align 16, !tbaa !17
-; CHECK: [[V_GEP:%.*]] = getelementptr inbounds [16 x <16 x i8>], <2 x [16 x <16 x i8>]*> [[PRIV_BASE_PTR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
 ; CHECK: [[R_VAL:%.*]] = shufflevector <16 x i8> [[DATA]], <16 x i8> undef, <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK: [[V_GEP:%.*]] = getelementptr inbounds [16 x <16 x i8>], <2 x [16 x <16 x i8>]*> [[PRIV_BASE_PTR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
 ; CHECK: %6 = bitcast <2 x <16 x i8>*> [[V_GEP]] to <2 x i8*>
 ; CHECK: [[VEC_BASE_PTR:%.*]] = shufflevector <2 x i8*> %6, <2 x i8*> undef, <32 x i32> <i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
 ; CHECK:  [[ELEM_BASE_PTR:%.*]] = getelementptr i8, <32 x i8*> [[VEC_BASE_PTR]], <32 x i64> <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15, i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>
