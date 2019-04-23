@@ -595,6 +595,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, NWPA, New);
       continue;
     }
+    const MaxReplicatesAttr *MRA = dyn_cast<MaxReplicatesAttr>(TmplAttr);
+    if (MRA) {
+      instantiateDependentOneConstantValueAttr<MaxReplicatesAttr>(
+        *this, TemplateArgs, MRA, New);
+      continue;
+    }
     const StaticArrayResetAttr *SARA = dyn_cast<StaticArrayResetAttr>(TmplAttr);
     if (SARA) {
       instantiateDependentOneConstantValueAttr<StaticArrayResetAttr>(

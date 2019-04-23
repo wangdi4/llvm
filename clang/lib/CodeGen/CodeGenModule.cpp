@@ -3718,6 +3718,13 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
         NWPA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NWPA->getSpelling() << ':' << NWPAInt << '}';
   }
+  if (const auto *MRA = D->getAttr<MaxReplicatesAttr>()) {
+    llvm::APSInt MRAInt =
+      MRA->getValue()->EvaluateKnownConstInt(getContext());
+    Out << '{' << MRA->getSpelling() << ':' << MRAInt << '}';
+  }
+  if (D->hasAttr<SimpleDualPortAttr>())
+    Out << "{simple_dual_port:1}";
   if (const auto *IMDA = D->getAttr<InternalMaxBlockRamDepthAttr>()) {
     llvm::APSInt IMDAInt =
         IMDA->getInternalMaxBlockRamDepth()->EvaluateKnownConstInt(

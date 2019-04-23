@@ -1,6 +1,6 @@
 //==--- SemaIntelImpl.h - Definitions of Intel Sema templates. -*- C++ -*---==//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -42,6 +42,7 @@ void Sema::AddOneConstantValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
 
   if (NumReadPortsAttr::classof(&TmpAttr) ||
       NumWritePortsAttr::classof(&TmpAttr) ||
+      MaxReplicatesAttr::classof(&TmpAttr) ||
       (MaxConcurrencyAttr::classof(&TmpAttr) && isa<VarDecl>(D))) {
     if (!D->hasAttr<MemoryAttr>())
       D->addAttr(MemoryAttr::CreateImplicit(Context, MemoryAttr::Default));

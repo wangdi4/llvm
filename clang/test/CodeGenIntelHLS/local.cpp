@@ -53,7 +53,9 @@ const int __attribute__((__memory__("MLAB"))) global_const5 = 0;
 const int __attribute__((__memory__("BLOCK_RAM"))) global_const6 = 0;
 const int __attribute__((bank_bits(4, 5))) global_const7 = 0;
 const int __attribute__((numbanks(4), bank_bits(4, 5))) global_const8 = 0;
+// expected-warning@+1{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
 const int __attribute__((numports_readonly_writeonly(2, 3))) global_const9 = 0;
+// expected-warning@+1{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
 const int __attribute__((numreadports(2), numwriteports(3))) global_const10 = 0;
 const int __attribute__((internal_max_block_ram_depth(32))) global_const11 = 0;
 const int __attribute__((__bankwidth__(4))) global_const12 = 0;
