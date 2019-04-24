@@ -662,8 +662,6 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   if (DriverArgs.hasArg(clang::driver::options::OPT__intel)) {
     // deploy
     addSystemInclude(DriverArgs, CC1Args, getDriver().Dir +
-                                          "/../compiler/include/icx");
-    addSystemInclude(DriverArgs, CC1Args, getDriver().Dir +
                                           "/../compiler/include");
     // IA32ROOT
     const char * IA32Root = getenv("IA32ROOT");
