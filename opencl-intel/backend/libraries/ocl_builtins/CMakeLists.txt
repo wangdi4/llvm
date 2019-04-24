@@ -360,7 +360,7 @@ function( install_svml ARCH )
   endif()
 
   copy_to (${SVML_DLL} DESTINATION lib)
-  install_to (${SVML_DLL} DESTINATION lib COMPONENT ocl-svml)
+  install_to (${SVML_DLL} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-svml)
 
 endfunction( install_svml )
 
@@ -439,7 +439,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
      set (INSTALL_LIST ${INSTALL_LIST} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
   endif (PREBUILD_IMAGE_LIBRARY)
 
-  install_to (${INSTALL_LIST} DESTINATION lib COMPONENT ocl-builtins)
+  install_to (${INSTALL_LIST} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-builtins)
 
 endfunction( create_target)
 

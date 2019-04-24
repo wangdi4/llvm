@@ -5,13 +5,6 @@ else (BUILD_X64)
     set(BIN_OUTPUT_DIR_SUFFIX win32)
 endif (BUILD_X64)
 
-# C Compiler
-if (DEFINED INTEL_COMPILER)
-    set( CMAKE_C_COMPILER "icl" )
-else ()
-    set( CMAKE_C_COMPILER "cl" )
-endif (DEFINED INTEL_COMPILER)
-
 # Microsoft Assembler setup - use private rules
 if (BUILD_X64)
     set( CMAKE_ASM_COMPILER            ml64 ) #OLD changed due to issues in TFW (didn't find asm compiler on win 64
@@ -53,8 +46,6 @@ set (ADD_LINKER_FLAGS_RELEASE "/OPT:REF /OPT:ICF /NODEFAULTLIB:LIBCMTD /NODEFAUL
 
 # setup
 set (CMAKE_CXX_COMPILER ${CMAKE_C_COMPILER} )
-enable_language( C )
-enable_language( CXX )
 
 # remove /INCREMENTAL:YES option from DEBUG Linker switches
 string( REPLACE /INCREMENTAL:YES "" CMAKE_EXE_LINKER_FLAGS_DEBUG    ${CMAKE_EXE_LINKER_FLAGS_DEBUG} )

@@ -35,6 +35,13 @@ option(OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
+# Due to some reason, CMAKE_SIZEOF_VOID_P is empty until enable_language is
+# called
+enable_language(C)
+enable_language(CXX)
+if (NOT WIN32)
+  enable_language(ASM)
+endif (NOT WIN32)
 
 include(CheckCXXCompilerFlag)
 

@@ -18,9 +18,9 @@ set(OCL_TESTS_BINARY_DIR ${OCL_BINARY_DIR}/tests)
 
 # Define architecture and OS suffix for output dirs
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set(OUTPUT_ARCH_SUFF "ia32")
+    set(OUTPUT_ARCH_SUFF "x86")
 else () # x64
-    set(OUTPUT_ARCH_SUFF "intel64")
+    set(OUTPUT_ARCH_SUFF "x64")
 endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 
 # This macro sets OpenCL libraries version as 'x.y', where 'x' is a major
@@ -121,18 +121,18 @@ function(add_opencl_library name)
             LINK_FLAGS_DEBUG "/PDBSTRIPPED:${PDB_NAME}")
 
         install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}_stripped.pdb
-                    DESTINATION lib
+                    DESTINATION lib/${OUTPUT_ARCH_SUFF}
                     COMPONENT ocl-${name})
 
         if (INSTALL_PDBS)
             install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}.pdb
-                        DESTINATION lib
+                        DESTINATION lib/${OUTPUT_ARCH_SUFF}
                         COMPONENT ocl-${name})
         endif (INSTALL_PDBS)
     endif (WIN32 AND ARG_SHARED)
 
     install_to (${name}
-                DESTINATION lib
+                DESTINATION lib/${OUTPUT_ARCH_SUFF}
                 COMPONENT ocl-${name})
 
 endfunction(add_opencl_library name)
