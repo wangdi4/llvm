@@ -19,7 +19,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Analysis/Intel_WP.h" // INTEL
+#include "llvm/Support/Intel_WP_utils.h" // INTEL
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -252,7 +252,7 @@ std::vector<InputFile *> BitcodeCompiler::compile() {
 #if INTEL_CUSTOMIZATION
   // Linking for an executable
   if (!Config->Relocatable)
-    llvm::setLinkingExecutable(true);
+    WPUtils.setLinkingExecutable(true);
 #endif // INTEL_CUSTOMIZATION
 
   checkError(LTOObj->run(
