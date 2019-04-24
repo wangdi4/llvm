@@ -186,6 +186,8 @@ class OpenMPLateOutliner {
   void emitOMPReductionClauseCommon(const RedClause *Cl, StringRef QualName);
   void emitOMPReductionClause(const OMPReductionClause *Cl);
   void emitOMPOrderedClause(const OMPOrderedClause *C);
+  void buildMapQualifier(OpenMPLateOutliner::ClauseStringBuilder &CSB,
+                         const OMPMapClause *C);
   void emitOMPMapClause(const OMPMapClause *Cl);
   void emitOMPScheduleClause(const OMPScheduleClause *C);
   void emitOMPFirstprivateClause(const OMPFirstprivateClause *Cl);

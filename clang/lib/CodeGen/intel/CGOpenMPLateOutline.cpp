@@ -1301,11 +1301,12 @@ void OpenMPLateOutliner::emitOMPHintClause(const OMPHintClause *Cl) {
   addArg(CGF.EmitScalarExpr(Cl->getHint()));
 }
 
-static void getQualString(SmallString<32> &Op, const OMPMapClause *C) {
-  Op += "QUAL.OMP.MAP.";
+void OpenMPLateOutliner::buildMapQualifier(ClauseStringBuilder &CSB,
+                                           const OMPMapClause *C) {
+  CSB.add("QUAL.OMP.MAP.");
   for (unsigned I = 0; I < OMPMapClause::NumberOfModifiers; ++I) {
     if (C->getMapTypeModifier(I) == OMPC_MAP_MODIFIER_always) {
-      Op += "ALWAYS.";
+      CSB.add("ALWAYS.");
       break;
     } else if (C->getMapTypeModifier(I) == OMPC_MAP_MODIFIER_unknown)
       break;
@@ -1314,23 +1315,23 @@ static void getQualString(SmallString<32> &Op, const OMPMapClause *C) {
   }
   switch (C->getMapType()) {
   case OMPC_MAP_alloc:
-    Op += "ALLOC";
+    CSB.add("ALLOC");
     break;
   case OMPC_MAP_to:
-    Op += "TO";
+    CSB.add("TO");
     break;
   case OMPC_MAP_from:
-    Op += "FROM";
+    CSB.add("FROM");
     break;
   case OMPC_MAP_tofrom:
   case OMPC_MAP_unknown:
-    Op += "TOFROM";
+    CSB.add("TOFROM");
     break;
   case OMPC_MAP_delete:
-    Op += "DELETE";
+    CSB.add("DELETE");
     break;
   case OMPC_MAP_release:
-    Op += "RELEASE";
+    CSB.add("RELEASE");
     break;
   }
 }
@@ -1349,18 +1350,18 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
     if (Info.size() == 1 && Info[0].Base == Info[0].Pointer) {
       // This is the simple non-aggregate case.
       ClauseEmissionHelper CEH(*this, OMPC_map);
-      SmallString<32> Op;
-      getQualString(Op, C);
-      addArg(Op);
+      ClauseStringBuilder &CSB = CEH.getBuilder();
+      buildMapQualifier(CSB, C);
+      addArg(CSB.getString());
       addArg(Info[0].Base);
       continue;
     }
     for (auto I = Info.begin(), E = Info.end(); I != E; ++I) {
       ClauseEmissionHelper CEH(*this, OMPC_map);
-      SmallString<32> Op;
-      getQualString(Op, C);
-      Op += (I == Info.begin()) ? ":AGGRHEAD" : ":AGGR";
-      addArg(Op);
+      ClauseStringBuilder &CSB = CEH.getBuilder();
+      buildMapQualifier(CSB, C);
+      CSB.add(I == Info.begin() ? ":AGGRHEAD" : ":AGGR");
+      addArg(CSB.getString());
       addArg(I->Base);
       addArg(I->Pointer);
       addArg(I->Size);

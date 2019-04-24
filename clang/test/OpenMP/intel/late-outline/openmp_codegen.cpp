@@ -529,4 +529,24 @@ int main(int argc, char **argv) {
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 
+#pragma omp declare target
+int a[100];
+#pragma omp end declare target
+
+extern void modify_array_on_target();
+
+//CHECK-LABEL: enter_exit_data
+void enter_exit_data() {
+  //CHECK: "DIR.OMP.TARGET.ENTER.DATA"
+  //CHECK-SAME: QUAL.OMP.MAP.ALWAYS.TO
+  //CHECK: "DIR.OMP.END.TARGET.ENTER.DATA"
+  #pragma omp target enter data map(always,to: a[7:17])
+  //CHECK: call{{.*}}modify_array_on_target
+  modify_array_on_target();
+  //CHECK: "DIR.OMP.TARGET.EXIT.DATA"
+  //CHECK-SAME: QUAL.OMP.MAP.ALWAYS.FROM:AGGRHEAD
+  //CHECK: "DIR.OMP.END.TARGET.EXIT.DATA"
+  #pragma omp target exit data map(always,from: a[9:13])
+}
+
 // end INTEL_COLLAB
