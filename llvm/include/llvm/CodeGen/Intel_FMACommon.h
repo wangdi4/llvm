@@ -1,6 +1,6 @@
 //====-- Intel_X86FMACommon.h - Fused Multiply Add optimization -----------====
 //
-//      Copyright (c) 2018 Intel Corporation.
+//      Copyright (c) 2016-2019 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -19,8 +19,8 @@
 // Vyacheslav Klochkov (vyacheslav.n.klochkov@intel.com)
 //
 
-#ifndef LLVM_LIB_TARGET_X86_X86FMACOMMON_H
-#define LLVM_LIB_TARGET_X86_X86FMACOMMON_H
+#ifndef LLVM_CODEGEN_INTEL_FMACOMMON_H
+#define LLVM_CODEGEN_INTEL_FMACOMMON_H
 
 namespace llvm {
 
@@ -1492,4 +1492,4 @@ class FMASPToSPMatcher {
 
 } // End llvm namespace
 
-#endif // LLVM_LIB_TARGET_X86_X86FMACOMMON_H
+#endif // LLVM_CODEGEN_INTEL_FMACOMMON_H

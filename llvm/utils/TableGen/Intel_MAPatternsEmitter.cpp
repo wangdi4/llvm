@@ -1,5 +1,5 @@
 //
-//      Copyright (c) 2018 Intel Corporation.
+//      Copyright (c) 2016-2019 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -8,8 +8,6 @@
 // agreement or nondisclosure agreement with Intel Corp.
 // and may not be copied or disclosed except in accordance
 // with the terms of that agreement.
-//
-// static char cvs_id[] = "$Id$";
 //
 // This tablegen backend is responsible for emitting efficient MUL/ADD/FMA
 // patterns for the target code generator. The main purpose of having this
@@ -34,7 +32,7 @@ using namespace llvm;
 #define DEBUG_TYPE "x86-global-ma"
 #include "llvm/Support/Debug.h"
 
-#include "../../lib/Target/X86/Intel_X86FMACommon.h"
+#include "llvm/CodeGen/Intel_FMACommon.h"
 
 namespace {
 
@@ -856,7 +854,7 @@ MAPatternsEmitter::emitX86Patterns(raw_ostream &OS,
      << SPsStorage.size() <<"\n//\n";
   OS << "// Number of shapes:                                   "
      << NumShapes << "\n\n\n";
-  OS << "Dags.resize(" << NumShapes << ");\n\n";
+  OS << "Dags.reserve(" << NumShapes << ");\n\n";
 
   // 6. Print the SHAPEs and DAGs to the auto-generated include file.
   unsigned DagInd = 0;
@@ -886,8 +884,7 @@ MAPatternsEmitter::emitX86Patterns(raw_ostream &OS,
     }
 
     // Close the group.
-    OS << "};\nDags[" << ShapeInd << "] = new FMAPatternsSet(DagsSet"
-       << ShapeInd << ", " << NumDagsInGroup << ");\n\n";
+    OS << "};\nDags.emplace_back(DagsSet" << ShapeInd << ");\n\n";
   }
 }
 
