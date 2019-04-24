@@ -1509,9 +1509,7 @@ public:
     std::advance(Args, ArgPos);
     Argument *FormalArg = &(*Args);
 
-    // Collect all the uses of the dope vector in the function.
-    DopeVectorAnalyzer DVA(FormalArg);
-    return analyzeDVUseInFunction(F, FormalArg);
+    return analyzeDopeVectorUseInFunction(F, FormalArg);
   }
 
   // This checks the use of a dope vector in a function to verify the fields are
@@ -1519,7 +1517,7 @@ public:
   // object can either be one that was passed directly into Function \p F or it
   // can be a GEP field from an uplevel variable. Returns 'true' if uses are
   // safe.
-  bool analyzeDVUseInFunction(const Function &F, Value *DVObject) {
+  bool analyzeDopeVectorUseInFunction(const Function &F, Value *DVObject) {
     DopeVectorAnalyzer DVA(DVObject);
     DVA.analyze(/*ForCreation = */ false);
     DEBUG_WITH_TYPE(DEBUG_DOPE_VECTORS, {
@@ -1674,7 +1672,7 @@ public:
         assert(I && "Expected instruction\n");
 
         if (auto *LI = dyn_cast<LoadInst>(I)) {
-          analyzeDVUseInFunction(F, LI);
+          analyzeDopeVectorUseInFunction(F, LI);
         } else if (auto *SI = dyn_cast<StoreInst>(I)) {
           // The only store we expect to the DV field is the dope vector object
           // currently being analyzed.
