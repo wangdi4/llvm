@@ -17,8 +17,8 @@ TEST(FrameworkTestType, ConfigEnvSize)
     env = "8GB";
     expected = 8LL * 1024 * 1024 * 1024;
   } else {
-    env = "4GB";
-    expected = 4LL * 1024 * 1024 * 1024;
+    env = "3GB";
+    expected = 3LL * 1024 * 1024 * 1024;
   }
 
   SETENV("CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE", env);

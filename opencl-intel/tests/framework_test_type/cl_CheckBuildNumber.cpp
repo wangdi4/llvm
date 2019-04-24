@@ -26,6 +26,7 @@
 #include <string.h>
 #include "test_utils.h"
 #include <stdio.h>
+#include <time.h>
 
 extern cl_device_type gDeviceType;
 
@@ -42,48 +43,52 @@ bool cl_CheckBuildNumber() {
         iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
         CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
-        char Buffer[1024];
-        iRet = clGetDeviceInfo(device, CL_DRIVER_VERSION, 1024, Buffer, nullptr);
+        std::string DriverVersion(120, '\0');
+        iRet = clGetDeviceInfo(device, CL_DRIVER_VERSION, 120,
+                &DriverVersion[0], nullptr);
         CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
-        Buffer[1024 - 1] = 0;
-        cout << "CL_DRIVER_VERSION: " << Buffer << '\n';
+        cout << "CL_DRIVER_VERSION: " << DriverVersion << '\n';
 
-        // The expected string in Buffer should be 'YYYY.L.MM.0',
-        // where YYYY - current year, L - latest LLVM release version,
+        // The expected string in Buffer should be 'YYYY.L{1,}.MM.0',
+        // where YYYY - current year, L{1,} - latest LLVM release version,
         // MM - current month (single digit until September) and 0 - internally
         // agreed digit.
         // We can't validate latest LLVM release version from here as well as
         // hardcoded '0', so let's validate build year YYYY and build month MM.
         // For Apr 2019 YYYY should be '2019' and MM '4'.
 
+        std::vector<std::string> tokens = tokenize(DriverVersion, ".");
+
+        std::string Year = tokens[0];
         // Check for 'YYYY' string:
-        for (int i = 0; i != 4; ++i) {
-            if (!isdigit(Buffer[i])) {
+        for (int i = 0; i < 4; ++i) {
+            if (!isdigit(Year[i])) {
                 CheckException("YYYY", true, false);
             }
         }
-        // Year can't be less that the current one (2019)
-        char Year[4];
-        Year[0] = Buffer[0];
-        Year[1] = Buffer[1];
-        Year[2] = Buffer[2];
-        Year[3] = Buffer[3];
-        int Val = atoi(Year);
-        CheckException("Year", Val >= 2019, true);
+
+        // Year can't be less that the current one
+        time_t Time = time(NULL);
+        struct tm *CurrentTime = localtime(&Time);
+        unsigned int CurrentYear = CurrentTime->tm_year + 1900;
+        unsigned int Val = atoi(Year.c_str());
+        CheckException("Year", Val >= CurrentYear, true);
+
+        // LLVM version shouldn't be empty
+        std::string LLVMVersion = tokens[1];
+        if (!LLVMVersion.size()) {
+            CheckException("LLVM Version shouldn't be empty", true, false);
+        }
 
         // Check for 'MM' string:
-        char Month[2];
-        int i = 0;
-        while (isdigit(Buffer[7 + i])) {
-          Month[0] = Buffer[7 + i];
-          ++i;
-        }
-        Val = atoi(Month);
+        std::string Month = tokens[2];
+        Val = atoi(Month.c_str());
         CheckException("Month", Val <= 12, true);
 
-        if (Buffer[11]) {
-            CheckException("Zero symbol was expected here", true, false);
+        if (strcmp(tokens[3].c_str(), "0")) {
+            CheckException("Zero symbol was expected in the end "
+                    "of driver version", true, false);
         }
     }
     catch (const std::exception&)
