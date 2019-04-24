@@ -162,11 +162,9 @@ public:
   /// \brief Returns scalar's symbase if it exists, else returns 0.
   unsigned getScalarSymbase(const Value *Scalar, const IRRegion &IRReg);
 
-  /// Handles specific loop liveout case when the Phi is located in multi-exit
-  /// loop's exit block. This is a public interface because it is also used by
-  /// HIRParser.
-  void handleMultiExitLoopLiveoutPhi(const PHINode *Phi,
-                                     unsigned Symbase) const;
+  /// Handles specific loop liveout case when the Phi is located in loop's exit
+  /// block. This is a public interface because it is also used by HIRParser.
+  void handleLoopExitLiveoutPhi(const PHINode *Phi, unsigned Symbase) const;
 };
 
 } // End namespace loopopt

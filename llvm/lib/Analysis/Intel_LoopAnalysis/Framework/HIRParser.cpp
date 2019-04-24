@@ -1697,8 +1697,7 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
 
   } else if (SE.getHIRMetadata(BaseInst,
                                ScalarEvolution::HIRLiveKind::LiveIn)) {
-    ScalarSA.handleMultiExitLoopLiveoutPhi(dyn_cast<PHINode>(BaseInst),
-                                           Symbase);
+    ScalarSA.handleLoopExitLiveoutPhi(dyn_cast<PHINode>(BaseInst), Symbase);
   }
 
   // Loop livein/liveouts are processed per use (except for the special cases
