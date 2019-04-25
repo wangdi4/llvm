@@ -1,10 +1,9 @@
-#if INTEL_COLLAB // -*- C++ -*-
-//===--- omptarget-opencl.h - header for the OpenCL device RTL ----*- C -*-===//
+#if INTEL_COLLAB
+//===--- omptarget-opencl.h - header for the OpenCL device RTL ------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.txt for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -117,6 +116,12 @@ typedef struct kmp_global_state {
 } kmp_global_state_t;
 
 typedef int kmp_critical_name[8];
+
+
+///
+/// Global data
+///
+EXTERN kmp_global_state_t gstate;
 
 
 ///

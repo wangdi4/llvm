@@ -1,10 +1,9 @@
 # INTEL_COLLAB
 ##===----------------------------------------------------------------------===##
 #
-#                     The LLVM Compiler Infrastructure
-#
-# This file is dual licensed under the MIT and the University of Illinois Open
-# Source Licenses. See LICENSE.txt for details.
+# Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 #
 ##===----------------------------------------------------------------------===##
 #
@@ -15,30 +14,54 @@
 if(LIBOMPTARGET_DEP_OPENCL_FOUND)
   libomptarget_say("Building OpenCL offloading device RTL.")
 
-  # For now, there is only one source file.
-  # FIXME: SPIRV tool (spirv-link) is required to build RTL with multiple sources.
   set(opencl_inc src/omptarget-opencl.h)
-  set(opencl_src src/omptarget-opencl.cl)
-  get_filename_component(opencl_src_abs ${opencl_src} ABSOLUTE)
-
+  set(opencl_src
+    src/abi.cl
+    src/abi-atomic.cl
+    src/api.cl
+    src/omptarget-opencl.cl
+  )
+  set(opencl_device_rtl_bc ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.bc)
   set(opencl_device_rtl ${LIBOMPTARGET_LIBRARY_DIR}/libomptarget-opencl.a)
-
-  set(opencl_flags
+  set(opencl_flags_spirv
     -cc1 -emit-spirv -triple spir64-unknown-unknown -cl-std=CL2.0
-    -include opencl-c.h -D INTEL_COLLAB=1 -o ${opencl_device_rtl}
+    -include opencl-c.h -D INTEL_COLLAB=1
   )
 
   add_custom_target(omptarget-opencl ALL DEPENDS ${opencl_device_rtl})
 
-  # Use the build tree's clang which can emit SPIRV.
+  # Generate LLVM IR and SPIR-V from the OpenCL code
+  set(bc_all "")
+  foreach(src ${opencl_src})
+    get_filename_component(cl_src ${src} ABSOLUTE)
+    get_filename_component(filename ${src} NAME_WE)
+    add_custom_command(
+      OUTPUT ${filename}.spv ${filename}.bc
+      COMMAND clang ${opencl_flags_spirv} -o ${filename}.spv ${cl_src}
+      COMMAND llvm-spirv -r -o ${filename}.bc ${filename}.spv
+      DEPENDS ${cl_src} ${opencl_inc} clang llvm-spirv
+      VERBATIM
+    )
+    list(APPEND bc_all ${filename}.bc)
+  endforeach()
+
+  # Generate LLVM IR for the device RTL.
   add_custom_command(
-    OUTPUT ${opencl_device_rtl}
-    COMMAND clang ${opencl_flags} ${opencl_src_abs}
-    DEPENDS ${opencl_src} ${opencl_inc} clang
+    OUTPUT ${opencl_device_rtl_bc}
+    COMMAND llvm-link -o ${opencl_device_rtl_bc} ${bc_all}
+    DEPENDS ${bc_all} llvm-link
     VERBATIM
   )
 
-  install(FILES ${opencl_device_rtl}
+  # Generate SPIR-V for the device RTL.
+  add_custom_command(
+    OUTPUT ${opencl_device_rtl}
+    COMMAND llvm-spirv -o ${opencl_device_rtl} ${opencl_device_rtl_bc}
+    DEPENDS ${opencl_device_rtl_bc} llvm-spirv
+    VERBATIM
+  )
+
+  install(FILES ${opencl_device_rtl} ${opencl_device_rtl_bc}
     COMPONENT omptarget-opencl-rtl
     DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX}
   )
