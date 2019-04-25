@@ -575,7 +575,10 @@ void OpenMPLateOutliner::addImplicitClauses() {
       continue;
     if (VarDefs.find(VD) != VarDefs.end()) {
       // Defined in the region
-      if (VD->getStorageDuration() == SD_Static) {
+      if (!VD->getType()->isConstantSizeType()) {
+        // An alloca inserted inside the region cannot be used on a clause.
+        continue;
+      } else if (VD->getStorageDuration() == SD_Static) {
         if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared))
           emitImplicit(VD, ICK_shared);
       } else {

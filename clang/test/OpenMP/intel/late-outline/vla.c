@@ -63,4 +63,25 @@ void vla_test(int k, int nz)
   //CHECK: store i32 72, i32* [[AI1]], align 4
   rhsX[2][k] = 72;
 }
+
+//CHECK-LABEL: vla_test_two
+void vla_test_two(int m)
+{
+  int i;
+  //CHECK: "DIR.OMP.PARALLEL.LOOP"()
+  #pragma omp parallel for
+  for (i = 0; i < m; i++) {
+    int d[m][m];
+    //CHECK: [[VLA:%vla.*]] = alloca i32, i64
+    d[i][i] = i*3;
+    //CHECK: DIR.OMP.PARALLEL
+    //CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[VLA]])
+    #pragma omp parallel
+    {
+           d[3][i] = i;
+    }
+    //CHECK: DIR.OMP.END.PARALLEL
+  }
+  //CHECK: "DIR.OMP.END.PARALLEL.LOOP"()
+}
 // end INTEL_COLLAB
