@@ -890,8 +890,18 @@ PHINode *VPOCodeGen::createInductionVariable(Loop *L, Value *Start, Value *End,
   Value *Next = Builder.CreateAdd(Induction, Step, "index.next");
   Induction->addIncoming(Start, L->getLoopPreheader());
   Induction->addIncoming(Next, Latch);
-  // Create the compare.
-  Value *ICmp = Builder.CreateICmpEQ(Next, End);
+
+  // Create the compare. Special case for 1-trip count vector loop by checking
+  // for End == Step and start value of zero. We rely on later optimizations to
+  // cleanup the loop. TODO: Consider modifying the vector code generation to
+  // avoid the vector loop altogether for such cases.
+  Value *ICmp;
+  ConstantInt *ConstStart = dyn_cast<ConstantInt>(Start);
+  if (End == Step && ConstStart && ConstStart->isZero())
+    ICmp = Builder.getInt1(true);
+  else
+    ICmp = Builder.CreateICmpEQ(Next, End);
+
   BasicBlock *Exit = L->getExitBlock();
   assert(Exit && "Exit block not found for loop.");
   Builder.CreateCondBr(ICmp, Exit, Header);
@@ -2437,8 +2447,7 @@ void VPOCodeGen::createVectorIntOrFpInductionPHI(const InductionDescriptor &ID,
   auto *LoopVectorLatch = VecLp->getLoopLatch();
   assert(LoopVectorLatch && "Unexpected null vector loop latch");
   auto *Br = cast<BranchInst>(LoopVectorLatch->getTerminator());
-  auto *ICmp = cast<Instruction>(Br->getCondition());
-  LastInduction->moveBefore(ICmp);
+  LastInduction->moveBefore(Br);
   LastInduction->setName("vec.ind.next");
 
   cast<PHINode>(VectorInd)->addIncoming(SteppedStart, LoopVectorPreHeader);
