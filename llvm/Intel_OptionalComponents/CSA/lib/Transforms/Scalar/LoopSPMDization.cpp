@@ -583,7 +583,8 @@ bool LoopSPMDization::FindReductionVariables(
         errs().resetColor();
         errs() << " Detected unsupported loop carried value in a loop marked for SPMDization;"
                <<" please remove the SPMDization marking"
-               <<" or use one of the supported reduction patterns instead.\n\n";
+               <<" or, if this is a reduction, add –mllvm –csa-omp-paropt-loop-splitting"
+               <<" along with the OpenMP reduction clause to detect more reduction patterns \n\n";
         Instruction *op = cast<Instruction>(Phi);
         for (auto UA = Phi->user_begin(), EA = Phi->user_end(); UA != EA;) {
           op = cast<Instruction>(*UA++);
