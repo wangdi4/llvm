@@ -249,6 +249,13 @@ namespace llvm {
       // AVX-512 reciprocal approximations with a little more precision.
       RSQRT14, RSQRT14S, RCP14, RCP14S,
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      // AVX-512-FP16 scalar reciprocal approximations
+      FRSQRTS, FRCPS,
+
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       // Thread Local Storage.
       TLSADDR,
 
