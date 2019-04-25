@@ -291,6 +291,23 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
 // INTEL VPO END
 }
 
+static bool getDebugFlagFromMetadata(llvm::Module *M) {
+  if (llvm::NamedMDNode *CompileOptsNamed =
+      M->getNamedMetadata("opencl.compiler.options")) {
+
+    llvm::MDTupleTypedArrayWrapper<llvm::MDString>
+        CompileOpts(cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
+
+    for (llvm::MDString *Opt : CompileOpts) {
+      if (Opt->getString() == "-g") {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        llvm::Module *M,
                                        SmallVector<Module*, 2> & pRtlModuleList,
@@ -301,7 +318,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        bool UnrollLoops,
                                        bool EnableInferAS) {
   DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
+                              getDebugFlagFromMetadata(M));
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
@@ -425,7 +443,8 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
   DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
+                              getDebugFlagFromMetadata(M));
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
@@ -728,7 +747,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
     : m_pModule(pModule), m_pRtlModuleList(pRtlModuleList) {
 
   DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag());
+      getDebuggingServiceType(pConfig->GetDebugInfoFlag() ||
+                              getDebugFlagFromMetadata(pModule));
 
   TargetMachine* targetMachine = pConfig->GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
