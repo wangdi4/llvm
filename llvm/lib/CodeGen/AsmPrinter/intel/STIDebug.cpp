@@ -4203,9 +4203,9 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
   // this compilation unit, so we don't emit debug information for them
   // If we did, relocation against these symbols would fail.
   // See (DPD200375706) for more information.
+  assert(pFunc && "LLVM subprogram has no LLVM function");
   if (pFunc->hasAvailableExternallyLinkage())
     return nullptr;
-  assert(pFunc && "LLVM subprogram has no LLVM function");
 
   // Check if a symbol has already been created for this subprogram.
   //

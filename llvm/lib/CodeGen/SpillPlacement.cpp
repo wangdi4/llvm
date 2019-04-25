@@ -262,8 +262,9 @@ bool SpillPlacement::runOnMachineFunction(MachineFunction &mf) {
 #if INTEL_CUSTOMIZATION
     // Find indirect jumps that are in a nested loop and that loop in turn
     // contains some nested loops.
-    if (JT && !JT->empty() && loops->getLoopDepth(&I) > 1 &&
-        !loops->getLoopFor(&I)->getSubLoops().empty()) {
+    auto *LoopFor = loops->getLoopFor(&I);
+    if (JT && !JT->empty() && loops->getLoopDepth(&I) > 1 && LoopFor &&
+        !LoopFor->getSubLoops().empty()) {
       MachineBasicBlock::const_iterator T = I.getFirstTerminator();
       if (T != I.end() && T->isIndirectBranch())
         for (const MachineOperand &Op : T->operands()) {
