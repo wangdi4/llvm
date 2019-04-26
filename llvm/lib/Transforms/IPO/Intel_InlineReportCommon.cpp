@@ -22,3 +22,25 @@ using namespace llvm;
 void llvm::printIndentCount(unsigned indentCount) {
   llvm::errs().indent(indentCount * 3);
 }
+
+StringRef llvm::getOpStr(Metadata *Node, StringRef Front) {
+  assert(Node && "Empty metadata");
+  MDString *StrMD = nullptr;
+  MDNode *StrNode = dyn_cast<MDNode>(Node);
+  if (StrNode)
+    StrMD = cast<MDString>(StrNode->getOperand(0));
+  else
+    StrMD = cast<MDString>(Node);
+
+  StringRef Res = StrMD->getString();
+  Res.consume_front(Front);
+  return Res;
+}
+
+void llvm::getOpVal(Metadata *Node, StringRef Front, int64_t *Val) {
+  assert(Val && "Empty value storage");
+  StringRef Res = getOpStr(Node, Front);
+  assert(!Res.empty() && "Incomplete inlining report metadata");
+  Res.getAsInteger(10, *Val);
+}
+

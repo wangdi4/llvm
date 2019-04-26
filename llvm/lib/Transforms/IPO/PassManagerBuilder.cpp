@@ -54,7 +54,10 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 
@@ -724,6 +727,8 @@ void PassManagerBuilder::populateModulePassManager(
   // is handled separately, so just check this is not the ThinLTO post-link.
   bool DefaultOrPreLinkPipeline = !PerformThinLTO;
 
+  if (Inliner)                                                // INTEL
+      MPM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
   if (!PGOSampleUse.empty()) {
     MPM.add(createPruneEHPass());
@@ -1172,6 +1177,8 @@ void PassManagerBuilder::populateModulePassManager(
 }
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
+  if (Inliner)                                                  // INTEL
+      PM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
   // Load sample profile before running the LTO optimization pipeline.
   if (!PGOSampleUse.empty()) {
     PM.add(createPruneEHPass());
@@ -1627,6 +1634,12 @@ bool PassManagerBuilder::isLoopOptEnabled() const {
     return true;
 
   return false;
+}
+
+llvm::InlineReportBuilder *PassManagerBuilder::getMDInlineReport() const {
+  if (!Inliner)
+    return nullptr;
+  return &(static_cast<LegacyInlinerBase *>(Inliner)->getMDReport());
 }
 
 void PassManagerBuilder::addLoopOptCleanupPasses(

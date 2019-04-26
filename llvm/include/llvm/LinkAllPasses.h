@@ -48,6 +48,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h" // INTEL
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
@@ -109,6 +110,7 @@ namespace {
       (void) llvm::createStdContainerOptPass();
       (void) llvm::createStdContainerAAWrapperPass();
       (void) llvm::createInlineListsPass();
+      (void) llvm::createInlineReportSetupPass();
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createRemoveRegionDirectivesLegacyPass();

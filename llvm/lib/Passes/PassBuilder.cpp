@@ -87,6 +87,7 @@
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
 #include "llvm/Transforms/IPO/Intel_PartialInline.h" // INTEL
@@ -756,6 +757,14 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   bool LoadSampleProfile =
       HasSampleProfile &&
       !(FlattenedProfileUsed && Phase == ThinLTOPhase::PostLink);
+#ifdef INTEL_CUSTOMIZATION
+  InlineParams IP = getInlineParamsFromOptLevel(Level);
+  if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
+      PGOOpt->Action == PGOOptions::SampleUse)
+    IP.HotCallSiteThreshold = 0;
+  InlinerPass InlPass(IP);
+  MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
+#endif // INTEL_CUSTOMIZATION
 
   // During the ThinLTO backend phase we perform early indirect call promotion
   // here, before globalopt. Otherwise imported available_externally functions
@@ -896,11 +905,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // into the callers so that our optimizations can reflect that.
   // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
   // because it makes profile annotation in the backend inaccurate.
-  InlineParams IP = getInlineParamsFromOptLevel(Level);
-  if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
-      PGOOpt->Action == PGOOptions::SampleUse)
-    IP.HotCallSiteThreshold = 0;
-  MainCGPipeline.addPass(InlinerPass(IP));
+  MainCGPipeline.addPass(std::move(InlPass)); // INTEL
 
   // Now deduce any function attributes based in the current code.
   MainCGPipeline.addPass(PostOrderFunctionAttrsPass());
@@ -1235,7 +1240,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
                                      ModuleSummaryIndex *ExportSummary) {
   assert(Level != O0 && "Must request optimizations for the default pipeline!");
   ModulePassManager MPM(DebugLogging);
-
+#if INTEL_CUSTOMIZATION
+  InlinerPass InlPass(getInlineParamsFromOptLevel(Level));
+  MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
+#endif // INTEL_CUSTOMIZATION
   if (PGOOpt && PGOOpt->Action == PGOOptions::SampleUse) {
     // Load sample profile before running the LTO optimization pipeline.
     MPM.addPass(SampleProfileLoaderPass(PGOOpt->ProfileFile,
@@ -1399,14 +1407,13 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   if (EnableInlineAggAnalysis) {
     MPM.addPass(RequireAnalysisPass<InlineAggAnalysis, Module>());
   }
-#endif // INTEL_CUSTOMIZATION
   // Note: historically, the PruneEH pass was run first to deduce nounwind and
   // generally clean up exception handling overhead. It isn't clear this is
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
   // Run the inliner now.
-  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
-      InlinerPass(getInlineParamsFromOptLevel(Level))));
+  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(InlPass)));
+#endif // INTEL_CUSTOMIZATION
 
   // Optimize globals again after we ran the inliner.
   MPM.addPass(GlobalOptPass());

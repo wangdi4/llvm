@@ -230,6 +230,11 @@ static_assert(sizeof(InlineReasonText) ==
 
 // Print indent
 void printIndentCount(unsigned indentCount);
+// Get string value from metadata consuming 'Front' of the MDString
+StringRef getOpStr(Metadata *Node, StringRef Front);
+// Get integer value from metadata consuming 'Front' of the MDString
+void getOpVal(Metadata *Node, StringRef Front, int64_t *Val);
+
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INTEL_INLINEREPORTCOMMON_H

@@ -21,6 +21,7 @@ add_llvm_library(LLVMipo
   InferFunctionAttrs.cpp
   Intel_InlineReport.cpp   # INTEL
   Intel_MDInlineReport.cpp   # INTEL
+  Intel_InlineReportSetup.cpp # INTEL
   Intel_InlineReportCommon.cpp   # INTEL
   InlineSimple.cpp
   Inliner.cpp

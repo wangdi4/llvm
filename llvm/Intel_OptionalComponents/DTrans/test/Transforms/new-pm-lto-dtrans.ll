@@ -18,6 +18,7 @@
 ; CHECK-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-NEXT: Running pass: PassManager<{{.*}}Module
 ; CHECK-NEXT: Starting llvm::Module pass manager run.
+; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: GlobalDCEPass
 ; CHECK-NEXT: IPSCCPPass
 ; CHECK: Running analysis: TargetLibraryAnalysis

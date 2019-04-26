@@ -745,9 +745,17 @@ void Instruction::copyMetadata(const Instruction &SrcInst,
   // new one.
   SmallVector<std::pair<unsigned, MDNode *>, 4> TheMDs;
   SrcInst.getAllMetadataOtherThanDebugLoc(TheMDs);
+#if INTEL_CUSTOMIZATION
+  // Do not copy inline report metadata pointer from one instruction to
+  // another, it should be unique.
+  auto MDIR = SrcInst.getMetadata("intel.callsite.inlining.report");
+#endif // INTEL_CUSTOMIZATION
   for (const auto &MD : TheMDs) {
     if (WL.empty() || WLS.count(MD.first))
-      setMetadata(MD.first, MD.second);
+#if INTEL_CUSTOMIZATION
+      if (MD.second != MDIR)
+        setMetadata(MD.first, MD.second);
+#endif // INTEL_CUSTOMIZATION
   }
   if (WL.empty() || WLS.count(LLVMContext::MD_dbg))
     setDebugLoc(SrcInst.getDebugLoc());
