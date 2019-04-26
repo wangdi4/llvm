@@ -1394,6 +1394,8 @@ bool VPOParoptTransform::paroptTransforms() {
           AllocaInst *IsSingleThread = nullptr;
           Changed = genSingleThreadCode(W, IsSingleThread);
           Changed |= genCopyPrivateCode(W, IsSingleThread);
+          Changed |= genPrivatizationCode(W);
+          Changed |= genFirstPrivatizationCode(W);
           // Changed |= genDestructorCode(W);
           if (!W->getNowait())
             Changed |= genBarrier(W, false);
