@@ -4987,6 +4987,11 @@ void Sema::AddAlignValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
 }
 
 static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368132: __declspec (align) in icc can take more than one
+  // argument.
+  if (!S.getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
   // check the attribute arguments.
   if (AL.getNumArgs() > 1) {
     S.Diag(AL.getLoc(), diag::err_attribute_wrong_number_arguments) << AL << 1;
@@ -4994,8 +4999,13 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
   if (AL.getNumArgs() == 0) {
-    D->addAttr(::new (S.Context) AlignedAttr(AL.getRange(), S.Context,
-               true, nullptr, AL.getAttributeSpellingListIndex()));
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ368132: __declspec (align) in icc can take more than one
+    // argument.
+    D->addAttr(::new (S.Context) AlignedAttr(
+        AL.getRange(), S.Context, true, nullptr, /*IsOffsetExpr=*/true,
+        /*Offset=*/nullptr, AL.getAttributeSpellingListIndex()));
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 
@@ -5009,13 +5019,34 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!AL.isPackExpansion() && S.DiagnoseUnexpandedParameterPack(E))
     return;
 
-  S.AddAlignedAttr(AL.getRange(), D, E, AL.getAttributeSpellingListIndex(),
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368132: __declspec (align) in icc can take more than one
+  // argument.
+  Expr *Offset = nullptr;
+  if (E && S.getLangOpts().IntelCompat && AL.getNumArgs() > 1) {
+    Offset = AL.getArgAsExpr(1);
+    if (AL.isPackExpansion() && !Offset->containsUnexpandedParameterPack()) {
+      S.Diag(AL.getEllipsisLoc(),
+             diag::err_pack_expansion_without_parameter_packs);
+      return;
+    }
+
+    if (!AL.isPackExpansion() && S.DiagnoseUnexpandedParameterPack(Offset))
+      return;
+  }
+  S.AddAlignedAttr(AL.getRange(), D, E, Offset,
+                   AL.getAttributeSpellingListIndex(),
                    AL.isPackExpansion());
+#endif // INTEL_CUSTOMIZATION
 }
 
-void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
+#if INTEL_CUSTOMIZATION
+// Fix for CQ368132: __declspec (align) in icc can take more than one argument.
+void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
                           unsigned SpellingListIndex, bool IsPackExpansion) {
-  AlignedAttr TmpAttr(AttrRange, Context, true, E, SpellingListIndex);
+  AlignedAttr TmpAttr(AttrRange, Context, true, E, /*IsOffsetExpr=*/true,
+                      Offset, SpellingListIndex);
+#endif // INTEL_CUSTOMIZATION
   SourceLocation AttrLoc = AttrRange.getBegin();
 
   // C++11 alignas(...) and C11 _Alignas(...) have additional requirements.
@@ -5073,6 +5104,18 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
     D->addAttr(AA);
     return;
   }
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368132: __declspec (align) in icc can take more than one
+  // argument.
+  if (getLangOpts().IntelCompat && Offset &&
+      (Offset->isTypeDependent() || Offset->isValueDependent())) {
+    // Save dependent expressions in the AST to be instantiated.
+    AlignedAttr *AA = ::new (Context) AlignedAttr(TmpAttr);
+    AA->setPackExpansion(IsPackExpansion);
+    D->addAttr(AA);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // FIXME: Cache the number on the AL object?
   llvm::APSInt Alignment;
@@ -5082,6 +5125,19 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
         /*AllowFold*/ false);
   if (ICE.isInvalid())
     return;
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368132: __declspec (align) in icc can take more than one
+  // argument.
+  ExprResult ICEOffset;
+  if (getLangOpts().IntelCompat && Offset) {
+    llvm::APSInt OffsetVal(32);
+    ICEOffset = VerifyIntegerConstantExpression(
+        Offset, &OffsetVal, diag::err_aligned_attribute_argument_not_int,
+        /*AllowFold*/ false);
+    if (ICEOffset.isInvalid())
+      return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   uint64_t AlignVal = Alignment.getZExtValue();
 
@@ -5121,8 +5177,13 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
     }
   }
 
-  AlignedAttr *AA = ::new (Context) AlignedAttr(AttrRange, Context, true,
-                                                ICE.get(), SpellingListIndex);
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368132: __declspec (align) in icc can take more than one
+  // argument.
+  AlignedAttr *AA = ::new (Context)
+      AlignedAttr(AttrRange, Context, true, ICE.get(), /*IsOffsetExpr=*/true,
+                  ICEOffset.get(), SpellingListIndex);
+#endif // INTEL_CUSTOMIZATION
   AA->setPackExpansion(IsPackExpansion);
   D->addAttr(AA);
 }
@@ -5131,8 +5192,13 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *TS,
                           unsigned SpellingListIndex, bool IsPackExpansion) {
   // FIXME: Cache the number on the AL object if non-dependent?
   // FIXME: Perform checking of type validity
-  AlignedAttr *AA = ::new (Context) AlignedAttr(AttrRange, Context, false, TS,
-                                                SpellingListIndex);
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368132: __declspec (align) in icc can take more than one
+  // argument.
+  AlignedAttr *AA = ::new (Context)
+      AlignedAttr(AttrRange, Context, false, TS, /*IsOffsetExpr=*/true,
+                  /*Offset=*/nullptr, SpellingListIndex);
+#endif // INTEL_CUSTOMIZATION
   AA->setPackExpansion(IsPackExpansion);
   D->addAttr(AA);
 }

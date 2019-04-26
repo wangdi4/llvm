@@ -8815,6 +8815,9 @@ public:
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
 #if INTEL_CUSTOMIZATION
 // Fix for CQ368132: __declspec (align) in icc can take more than one argument.
+  void AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
+                      unsigned SpellingListIndex, bool IsPackExpansion);
+
   void AddSchedulerTargetFmaxMHzAttr(SourceRange AttrRange, Decl *D,
                                            Expr *E, unsigned SpellingListIndex);
   void AddInternalMaxBlockRamDepthAttr(SourceRange AttrRange, Decl *D, Expr *E,
@@ -8831,8 +8834,6 @@ public:
   void AddBankBitsAttr(SourceRange AttrRange, Decl *D, Expr **Exprs,
                        unsigned Size, unsigned SpellingListIndex);
 #endif // INTEL_CUSTOMIZATION
-  void AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                      unsigned SpellingListIndex, bool IsPackExpansion);
   void AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *T,
                       unsigned SpellingListIndex, bool IsPackExpansion);
 
