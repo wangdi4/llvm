@@ -1,13 +1,11 @@
-; This test checks that whole program seen and safe weren't achieved because
-; the definition for @sub is missing in the IR. Whole program read is still
-; achieved since @sub is being resolved by the linker
+; This test checks that whole program wasn't achieved because the
+; definition for @sub is missing in the IR. Whole program read isn't
+; achieved because there is no definition for @sub.
 
 ; RUN: opt %s -o %t.bc
-; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %t2.o \
-; RUN:          -filetype=obj
-; RUN: ld.lld -e main --lto-O2 \
+; RUN: not ld.lld -e main --lto-O2 \
 ; RUN:    -mllvm -whole-program-trace \
-; RUN:    -mllvm -whole-program-assume-executable %t.bc %t2.o -o %t \
+; RUN:    -mllvm -whole-program-assume-executable %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s
 
 ; CHECK:   Main definition seen
@@ -19,7 +17,7 @@
 ; CHECK:   WHOLE PROGRAM NOT DETECTED
 ; CHECK:   WHOLE PROGRAM SAFE is *NOT* determined:
 ; CHECK:       whole program not seen;
-; CHECK-NOT:       whole program not read;
+; CHECK:       whole program not read;
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -201,6 +201,14 @@ void BitcodeCompiler::add(BitcodeFile &F) {
         // no File defined.
         !(DR->Section == nullptr && (!Sym->File || Sym->File->isElf()));
 
+#if INTEL_CUSTOMIZATION
+    // Mark that the symbol was resolved by the Linker if:
+    //   * Sym->isDefined = defined in the whole linking process of bitcode
+    //                      files and normal object files
+    //   * Sym->isLazy = defined in an archive but not used
+    //   * Sym->isShared = defined in a shared library and used
+    R.ResolvedByLinker = Sym->isDefined() || Sym->isLazy() || Sym->isShared();
+#endif // INTEL_CUSTOMIZATION
     if (R.Prevailing)
       undefine(Sym);
 
@@ -209,10 +217,6 @@ void BitcodeCompiler::add(BitcodeFile &F) {
     // their values are still not final.
     R.LinkerRedefined = !Sym->CanInline;
 
-#if INTEL_CUSTOMIZATION
-    // Mark that the symbol was resolved by the Linker
-    R.ResolvedByLinker = !ObjSym.isUndefined();
-#endif // INTEL_CUSTOMIZATION
   }
   checkError(LTOObj->add(std::move(F.Obj), Resols));
 }
