@@ -72,7 +72,7 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
     : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), Plan(Plan), Legal(Legal) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
-  Verifier = new VPlanVerifier(Lp, LI, DL);
+  Verifier = make_unique<VPlanVerifier>(Lp, LI, DL);
   assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
          "Inconsistent Loop information");
 }
