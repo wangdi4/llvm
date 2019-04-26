@@ -2911,11 +2911,12 @@ let SchedRW = [WriteStore], Defs = [EFLAGS] in {
 // ULI Instructions
 //
 let Predicates = [HasULI, In64BitMode] in {
-  def UIRET : I<0x01, MRM_EC, (outs), (ins), "uiret", []>, XS;
+  def UIRET : I<0x01, MRM_EC, (outs), (ins), "uiret",
+               [(int_x86_uiret)]>, XS;
   def CLUI : I<0x01, MRM_EE, (outs), (ins), "clui",
-               [(int_x86_clearui)]>, XS;
+               [(int_x86_clui)]>, XS;
   def STUI : I<0x01, MRM_EF, (outs), (ins), "stui",
-               [(int_x86_setui)]>, XS;
+               [(int_x86_stui)]>, XS;
 
   def SENDUIPI : I<0xC7, MRM6r, (outs), (ins GR64:$arg), "senduipi\t$arg",
                    [(int_x86_senduipi GR64:$arg)]>, XS;

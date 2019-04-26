@@ -4979,9 +4979,11 @@ let TargetPrefix = "x86" in {
 // ULI - User Level Interrupt
 
 let TargetPrefix = "x86" in {
-  def int_x86_clearui : GCCBuiltin<"__builtin_ia32_clearui">,
+  def int_x86_uiret : GCCBuiltin<"__builtin_ia32_uiret">,
               Intrinsic<[], [], []>;
-  def int_x86_setui : GCCBuiltin<"__builtin_ia32_setui">,
+  def int_x86_clui : GCCBuiltin<"__builtin_ia32_clui">,
+              Intrinsic<[], [], []>;
+  def int_x86_stui : GCCBuiltin<"__builtin_ia32_stui">,
               Intrinsic<[], [], []>;
   def int_x86_testui : GCCBuiltin<"__builtin_ia32_testui">,
               Intrinsic<[llvm_i8_ty], [], []>;
