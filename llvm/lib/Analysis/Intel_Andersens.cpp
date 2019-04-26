@@ -1819,22 +1819,28 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
       CreateConstraint(Constraint::Store, getNode(SI.getOperand(1)),
                        getNode(SI.getOperand(0)));
     }
-  }
-  // CMPLRLLVM-8888: Analysis shouldn't ignore non-pointer store
-  // instructions. For now, conservatively assume it is storing
-  // unknown pointer.
-  //  Ex:
-  //    %0 = bitcast i8* %call to %struct.S*
-  //    %int = ptrtoint %struct.S* %0 to i64
-  //    %ptr1 = bitcast %struct.S** %q to i64*
-  //    store i64 %int, i64* %ptr1, align 8
-  //
-  // TODO: Analysis needs to be improved to compute more accurate
-  // points-to info by analyzing the non-pointer value that is being
-  // stored.
-  if (!isPointsToType(SI.getOperand(0)->getType()))
+  } else {
+    // CMPLRLLVM-8888: Analysis shouldn't ignore non-pointer store
+    // instructions. For now, conservatively assume it is storing
+    // unknown pointer.
+    //  Ex:
+    //    %0 = bitcast i8* %call to %struct.S*
+    //    %int = ptrtoint %struct.S* %0 to i64
+    //    %ptr1 = bitcast %struct.S** %q to i64*
+    //    store i64 %int, i64* %ptr1, align 8
+    //
+    // TODO: Analysis needs to be improved to compute more accurate
+    // points-to info by analyzing the non-pointer value that is being
+    // stored.
+    //
+    // CMPLRLLVM-9064: Non-pointer loads/stores of global variables are
+    // collected in NonPointerAssignments. Loads/Stores in
+    // NonPointerAssignments are treated as pointers by Analysis.
+    // Go conservative only if non-pointer store instruction is not
+    // in  NonPointerAssignments.
     CreateConstraint(Constraint::Store, getNode(SI.getOperand(1)),
                      UniversalSet);
+  }
 }
 
 void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
