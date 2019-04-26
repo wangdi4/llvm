@@ -58,7 +58,7 @@ protected:
   VPDominatorTree VPDomTree;
   VPPostDominatorTree VPPostDomTree;
 
-  VPlan *Plan;
+  VPlan *Plan = nullptr;
 
   /// VPlan verifier utility.
   VPlanVerifier *Verifier = nullptr;

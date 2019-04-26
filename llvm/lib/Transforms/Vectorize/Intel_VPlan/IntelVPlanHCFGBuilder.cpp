@@ -1293,9 +1293,9 @@ namespace {
 class PlainCFGBuilder {
 private:
   /// Outermost loop of the input loop nest.
-  Loop *TheLoop;
+  Loop *TheLoop = nullptr;
 
-  LoopInfo *LI;
+  LoopInfo *LI = nullptr;
   // TODO: This should be removed together with the UniformCBVs set.
   LoopVectorizationLegality *Legal;
 
@@ -1305,7 +1305,7 @@ private:
   // Number of VPBasicBlocks in TopRegion.
   unsigned TopRegionSize = 0;
 
-  VPlan *Plan;
+  VPlan *Plan = nullptr;
 
   // Builder of the VPlan instruction-level representation.
   VPBuilder VPIRBuilder;

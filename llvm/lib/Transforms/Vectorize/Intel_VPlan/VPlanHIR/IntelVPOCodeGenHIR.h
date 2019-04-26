@@ -381,7 +381,7 @@ private:
 
   // The loop for which it is safe to hoist the reduction initializer and sink
   // reduction last value compute instructions.
-  HLLoop *RednHoistLp;
+  HLLoop *RednHoistLp = nullptr;
 
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;
