@@ -1044,7 +1044,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   // Build Top Region enclosing the plain CFG
   VPRegionBlock *TopRegion = buildPlainCFG(CvtVec);
 
-  // Collecte divergence information
+  // Collect divergence information
   collectUniforms(TopRegion);
 
   // Set Top Region as VPlan Entry
