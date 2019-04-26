@@ -29,7 +29,7 @@ __m512 foo(__m512 a, float f0, double d0)
   //CHECK: call void @otherfunc() [[ATTR6:#[0-9]+]]
   otherfunc();
 
-  //CHECK: call <16 x float> @__svml_exp2f16(<16 x float> {{.*}}) [[ATTR7:#[0-9]+]]
+  //CHECK: call svml_cc <16 x float> @__svml_exp2f16(<16 x float> {{.*}}) [[ATTR7:#[0-9]+]]
   return _mm512_exp2_ps(a);
 }
 
@@ -41,4 +41,4 @@ __m512 foo(__m512 a, float f0, double d0)
 //CHECK: attributes [[ATTR5]] = {{{.*}}"imf-absolute-error"="0.00001"
 //CHECK-SAME: "imf-precision"="high"
 //CHECK: attributes [[ATTR6]] = {{{.*}}"imf-precision"="high"
-//CHECK: attributes [[ATTR7]] = {{{.*}}"imf-precision"="high"
+//CHECK-NOT: attributes [[ATTR7]] = {{{.*}}"imf-precision"="high"

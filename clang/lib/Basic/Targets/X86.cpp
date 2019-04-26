@@ -23,6 +23,17 @@ namespace clang {
 namespace targets {
 
 const Builtin::Info BuiltinInfoX86[] = {
+#if INTEL_CUSTOMIZATION
+#define BUILTIN(ID, TYPE, ATTRS)                                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+#define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
+#define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
+  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+
+#include "clang/Basic/Intel_BuiltinsSVML.def"
+#endif // INTEL_CUSTOMIZATION
+
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
   {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
 #define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \

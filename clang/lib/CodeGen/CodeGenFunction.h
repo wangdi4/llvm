@@ -3976,6 +3976,10 @@ public:
   RValue EmitHLSStreamBuiltin(unsigned BuiltinID, const CallExpr *E);
   RValue EmitHLSMemMasterBuiltin(unsigned BuiltinID, const CallExpr *E,
                                  ReturnValueSlot ReturnValue);
+
+  llvm::Value *EmitSVMLBuiltinExpr(unsigned BuiltinID, const char *LibCallName,
+                                   unsigned Modifier, const CallExpr *E,
+                                   ArrayRef<llvm::Value *> Ops);
 #endif // INTEL_CUSTOMIZATION
 
   llvm::Value *EmitCommonNeonBuiltinExpr(unsigned BuiltinID,

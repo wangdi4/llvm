@@ -1104,6 +1104,12 @@ public:
   CreateRuntimeFunction(llvm::FunctionType *Ty, StringRef Name,
                         llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
                         bool Local = false);
+#if INTEL_CUSTOMIZATION
+  llvm::FunctionCallee
+  CreateSVMLFunction(llvm::FunctionType *Ty, StringRef Name,
+                     llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
+                     bool Local = false);
+#endif // INTEL_CUSTOMIZATION
 
   /// Create a new runtime global variable with the specified type and name.
   llvm::Constant *CreateRuntimeVariable(llvm::Type *Ty,

@@ -1,0 +1,206 @@
+//===--- Intel_BuiltinsSVML.def - SVML Builtin functions --------*- C++ -*-===//
+//
+// Copyright (C) 2019 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the SVML builtin function database.  Users of
+// this file must define the BUILTIN macro to make use of this information.
+//
+//===----------------------------------------------------------------------===//
+
+// The format of this database matches clang/Basic/Builtins.def.
+
+#if defined(BUILTIN) && !defined(TARGET_BUILTIN)
+#   define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE) BUILTIN(ID, TYPE, ATTRS)
+#endif
+
+// SSE1 FP
+TARGET_BUILTIN(__builtin_svml_acoshf4,   "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_acosf4,    "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_asinhf4,   "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_asinf4,    "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_atan2f4,   "V4fV4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_atanhf4,   "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_atanf4,    "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_cbrtf4,    "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_coshf4,    "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_cosf4,     "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_erfcf4,    "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_erfinvf4,  "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_erff4,     "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_exp2f4,    "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_expf4,     "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_invcbrtf4, "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_invsqrtf4, "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_log10f4,   "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_log2f4,    "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_logf4,     "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_powf4,     "V4fV4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_sinhf4,    "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_sinf4,     "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_tanhf4,    "V4fV4f", "nV:128:", "sse")
+TARGET_BUILTIN(__builtin_svml_tanf4,     "V4fV4f", "nV:128:", "sse")
+
+//FIXME: The backend doesn't support this properly yet.
+//TARGET_BUILTIN(__builtin_svml_sincosf4, "V4fV4f*V4f", "nV:128:", "sse")
+
+// SSE2 FP
+TARGET_BUILTIN(__builtin_svml_acosh2,   "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_acos2,    "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_asinh2,   "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_asin2,    "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_atan22,   "V2dV2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_atanh2,   "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_atan2,    "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_cbrt2,    "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_cosh2,    "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_cos2,     "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_erfc2,    "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_erfinv2,  "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_erf2,     "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_exp22,    "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_exp2,     "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_invcbrt2, "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_invsqrt2, "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_log102,   "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_log22,    "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_log2,     "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_pow2,     "V2dV2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_sinh2,    "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_sin2,     "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_tanh2,    "V2dV2d", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_tan2,     "V2dV2d", "nV:128:", "sse2")
+
+//FIXME: The backend doesn't support this properly yet.
+//TARGET_BUILTIN(__builtin_svml_sincos2, "V2dV2d*V2d", "nV:128:", "sse2")
+
+// AVX single precision
+TARGET_BUILTIN(__builtin_svml_acoshf8,   "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_acosf8,    "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_asinhf8,   "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_asinf8,    "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_atan2f8,   "V8fV8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_atanhf8,   "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_atanf8,    "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_cbrtf8,    "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_coshf8,    "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_cosf8,     "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_erfcf8,    "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_erfinvf8,  "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_erff8,     "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_exp2f8,    "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_expf8,     "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_invcbrtf8, "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_invsqrtf8, "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_log10f8,   "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_log2f8,    "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_logf8,     "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_powf8,     "V8fV8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_sinhf8,    "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_sinf8,     "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_tanhf8,    "V8fV8f", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_tanf8,     "V8fV8f", "nV:256:", "avx")
+
+// AVX double precision
+TARGET_BUILTIN(__builtin_svml_acosh4,   "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_acos4,    "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_asinh4,   "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_asin4,    "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_atan24,   "V4dV4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_atanh4,   "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_atan4,    "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_cbrt4,    "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_cosh4,    "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_cos4,     "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_erfc4,    "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_erfinv4,  "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_erf4,     "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_exp24,    "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_exp4,     "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_invcbrt4, "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_invsqrt4, "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_log104,   "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_log24,    "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_log4,     "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_pow4,     "V4dV4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_sinh4,    "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_sin4,     "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_tanh4,    "V4dV4d", "nV:256:", "avx")
+TARGET_BUILTIN(__builtin_svml_tan4,     "V4dV4d", "nV:256:", "avx")
+
+// AVX512 single precision
+TARGET_BUILTIN(__builtin_svml_acoshf16,   "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_acosf16,    "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_asinhf16,   "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_asinf16,    "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_atan2f16,   "V16fV16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_atanhf16,   "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_atanf16,    "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_cbrtf16,    "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_coshf16,    "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_cosf16,     "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_erfcf16,    "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_erfinvf16,  "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_erff16,     "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_exp2f16,    "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_expf16,     "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_invcbrtf16, "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_invsqrtf16, "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_log10f16,   "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_log2f16,    "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_logf16,     "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_powf16,     "V16fV16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_sinhf16,    "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_sinf16,     "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_tanhf16,    "V16fV16f", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_tanf16,     "V16fV16f", "nV:512:", "avx512f")
+
+// AVX512 double precision
+TARGET_BUILTIN(__builtin_svml_acosh8,   "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_acos8,    "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_asinh8,   "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_asin8,    "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_atan28,   "V8dV8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_atanh8,   "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_atan8,    "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_cbrt8,    "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_cosh8,    "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_cos8,     "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_erfc8,    "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_erfinv8,  "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_erf8,     "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_exp28,    "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_exp8,     "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_invcbrt8, "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_invsqrt8, "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_log108,   "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_log28,    "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_log8,     "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_pow8,     "V8dV8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_sinh8,    "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_sin8,     "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_tanh8,    "V8dV8d", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_tan8,     "V8dV8d", "nV:512:", "avx512f")
+
+// Integer
+TARGET_BUILTIN(__builtin_svml_idiv4,  "V4iV4iV4i", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_irem4,  "V4iV4iV4i", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_udiv4,  "V4UiV4UiV4Ui", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_urem4,  "V4UiV4UiV4Ui", "nV:128:", "sse2")
+TARGET_BUILTIN(__builtin_svml_idiv8,  "V8iV8iV8i", "nV:256:", "avx2")
+TARGET_BUILTIN(__builtin_svml_irem8,  "V8iV8iV8i", "nV:256:", "avx2")
+TARGET_BUILTIN(__builtin_svml_udiv8,  "V8UiV8UiV8Ui", "nV:256:", "avx2")
+TARGET_BUILTIN(__builtin_svml_urem8,  "V8UiV8UiV8Ui", "nV:256:", "avx2")
+TARGET_BUILTIN(__builtin_svml_idiv16, "V16iV16iV16i", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_irem16, "V16iV16iV16i", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_udiv16, "V16UiV16UiV16Ui", "nV:512:", "avx512f")
+TARGET_BUILTIN(__builtin_svml_urem16, "V16UiV16UiV16Ui", "nV:512:", "avx512f")
+
+#undef BUILTIN
+#undef TARGET_BUILTIN

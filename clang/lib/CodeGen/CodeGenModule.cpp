@@ -3113,6 +3113,24 @@ CodeGenModule::CreateRuntimeFunction(llvm::FunctionType *FTy, StringRef Name,
   return {FTy, C};
 }
 
+#if INTEL_CUSTOMIZATION
+/// CreateSVMLFunction - Create a new SVML function with the specified
+/// type and name.
+llvm::FunctionCallee
+CodeGenModule::CreateSVMLFunction(llvm::FunctionType *FTy, StringRef Name,
+                                  llvm::AttributeList ExtraAttrs,
+                                  bool Local) {
+  llvm::FunctionCallee FC = CreateRuntimeFunction(FTy, Name, ExtraAttrs, Local);
+
+  // Change the calling convention to SVML.
+  if (auto *F = dyn_cast<llvm::Function>(FC.getCallee()))
+    if (F->empty())
+      F->setCallingConv(llvm::CallingConv::SVML);
+
+  return FC;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// isTypeConstant - Determine whether an object of this type can be emitted
 /// as a constant.
 ///

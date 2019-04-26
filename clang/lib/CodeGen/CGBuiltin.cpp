@@ -6495,6 +6495,266 @@ RValue CodeGenFunction::EmitFPGARegBuiltin(unsigned BuiltinID,
 
   return RValue::get(Builder.CreateCall(Func, Args));
 }
+
+enum {
+  SVMLTwoRets = (1 << 0),
+};
+
+namespace {
+struct SVMLBuiltinInfo {
+  const char *LibCallName;
+  unsigned BuiltinID;
+  unsigned TypeModifier;
+
+  bool operator<(unsigned RHSBuiltinID) const {
+    return BuiltinID < RHSBuiltinID;
+  }
+  bool operator<(const SVMLBuiltinInfo &TE) const {
+    return BuiltinID < TE.BuiltinID;
+  }
+};
+} // end anonymous namespace
+
+#define SVMLMAP0(Name) \
+  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, 0 }
+#define SVMLMAP1(Name, Modifier) \
+  { "__svml_" #Name, clang::X86::BI__builtin_svml_ ## Name, Modifier }
+
+static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
+  // SSE1 FP
+  SVMLMAP0(acoshf4),
+  SVMLMAP0(acosf4),
+  SVMLMAP0(asinhf4),
+  SVMLMAP0(asinf4),
+  SVMLMAP0(atan2f4),
+  SVMLMAP0(atanhf4),
+  SVMLMAP0(atanf4),
+  SVMLMAP0(cbrtf4),
+  SVMLMAP0(coshf4),
+  SVMLMAP0(cosf4),
+  SVMLMAP0(erfcf4),
+  SVMLMAP0(erfinvf4),
+  SVMLMAP0(erff4),
+  SVMLMAP0(exp2f4),
+  SVMLMAP0(expf4),
+  SVMLMAP0(invcbrtf4),
+  SVMLMAP0(invsqrtf4),
+  SVMLMAP0(log10f4),
+  SVMLMAP0(log2f4),
+  SVMLMAP0(logf4),
+  SVMLMAP0(powf4),
+  SVMLMAP0(sinhf4),
+  SVMLMAP0(sinf4),
+  SVMLMAP0(tanhf4),
+  SVMLMAP0(tanf4),
+  // FIXME: The backend can't handle this yet.
+  //SVMLMAP1(sincosf4, SVMLTwoRets),
+  // SSE2 FP
+  SVMLMAP0(acosh2),
+  SVMLMAP0(acos2),
+  SVMLMAP0(asinh2),
+  SVMLMAP0(asin2),
+  SVMLMAP0(atan22),
+  SVMLMAP0(atanh2),
+  SVMLMAP0(atan2),
+  SVMLMAP0(cbrt2),
+  SVMLMAP0(cosh2),
+  SVMLMAP0(cos2),
+  SVMLMAP0(erfc2),
+  SVMLMAP0(erfinv2),
+  SVMLMAP0(erf2),
+  SVMLMAP0(exp22),
+  SVMLMAP0(exp2),
+  SVMLMAP0(invcbrt2),
+  SVMLMAP0(invsqrt2),
+  SVMLMAP0(log102),
+  SVMLMAP0(log22),
+  SVMLMAP0(log2),
+  SVMLMAP0(pow2),
+  SVMLMAP0(sinh2),
+  SVMLMAP0(sin2),
+  SVMLMAP0(tanh2),
+  SVMLMAP0(tan2),
+  // FIXME: The backend can't handle this yet.
+  //SVMLMAP1(sincos2, SVMLTwoRets),
+  // AVX single precision
+  SVMLMAP0(acoshf8),
+  SVMLMAP0(acosf8),
+  SVMLMAP0(asinhf8),
+  SVMLMAP0(asinf8),
+  SVMLMAP0(atan2f8),
+  SVMLMAP0(atanhf8),
+  SVMLMAP0(atanf8),
+  SVMLMAP0(cbrtf8),
+  SVMLMAP0(coshf8),
+  SVMLMAP0(cosf8),
+  SVMLMAP0(erfcf8),
+  SVMLMAP0(erfinvf8),
+  SVMLMAP0(erff8),
+  SVMLMAP0(exp2f8),
+  SVMLMAP0(expf8),
+  SVMLMAP0(invcbrtf8),
+  SVMLMAP0(invsqrtf8),
+  SVMLMAP0(log10f8),
+  SVMLMAP0(log2f8),
+  SVMLMAP0(logf8),
+  SVMLMAP0(powf8),
+  SVMLMAP0(sinhf8),
+  SVMLMAP0(sinf8),
+  SVMLMAP0(tanhf8),
+  SVMLMAP0(tanf8),
+  // AVX double precision
+  SVMLMAP0(acosh4),
+  SVMLMAP0(acos4),
+  SVMLMAP0(asinh4),
+  SVMLMAP0(asin4),
+  SVMLMAP0(atan24),
+  SVMLMAP0(atanh4),
+  SVMLMAP0(atan4),
+  SVMLMAP0(cbrt4),
+  SVMLMAP0(cosh4),
+  SVMLMAP0(cos4),
+  SVMLMAP0(erfc4),
+  SVMLMAP0(erfinv4),
+  SVMLMAP0(erf4),
+  SVMLMAP0(exp24),
+  SVMLMAP0(exp4),
+  SVMLMAP0(invcbrt4),
+  SVMLMAP0(invsqrt4),
+  SVMLMAP0(log104),
+  SVMLMAP0(log24),
+  SVMLMAP0(log4),
+  SVMLMAP0(pow4),
+  SVMLMAP0(sinh4),
+  SVMLMAP0(sin4),
+  SVMLMAP0(tanh4),
+  SVMLMAP0(tan4),
+  // AVX512F single precision
+  SVMLMAP0(acoshf16),
+  SVMLMAP0(acosf16),
+  SVMLMAP0(asinhf16),
+  SVMLMAP0(asinf16),
+  SVMLMAP0(atan2f16),
+  SVMLMAP0(atanhf16),
+  SVMLMAP0(atanf16),
+  SVMLMAP0(cbrtf16),
+  SVMLMAP0(coshf16),
+  SVMLMAP0(cosf16),
+  SVMLMAP0(erfcf16),
+  SVMLMAP0(erfinvf16),
+  SVMLMAP0(erff16),
+  SVMLMAP0(exp2f16),
+  SVMLMAP0(expf16),
+  SVMLMAP0(invcbrtf16),
+  SVMLMAP0(invsqrtf16),
+  SVMLMAP0(log10f16),
+  SVMLMAP0(log2f16),
+  SVMLMAP0(logf16),
+  SVMLMAP0(powf16),
+  SVMLMAP0(sinhf16),
+  SVMLMAP0(sinf16),
+  SVMLMAP0(tanhf16),
+  SVMLMAP0(tanf16),
+  // AVX512F double precision
+  SVMLMAP0(acosh8),
+  SVMLMAP0(acos8),
+  SVMLMAP0(asinh8),
+  SVMLMAP0(asin8),
+  SVMLMAP0(atan28),
+  SVMLMAP0(atanh8),
+  SVMLMAP0(atan8),
+  SVMLMAP0(cbrt8),
+  SVMLMAP0(cosh8),
+  SVMLMAP0(cos8),
+  SVMLMAP0(erfc8),
+  SVMLMAP0(erfinv8),
+  SVMLMAP0(erf8),
+  SVMLMAP0(exp28),
+  SVMLMAP0(exp8),
+  SVMLMAP0(invcbrt8),
+  SVMLMAP0(invsqrt8),
+  SVMLMAP0(log108),
+  SVMLMAP0(log28),
+  SVMLMAP0(log8),
+  SVMLMAP0(pow8),
+  SVMLMAP0(sinh8),
+  SVMLMAP0(sin8),
+  SVMLMAP0(tanh8),
+  SVMLMAP0(tan8),
+  // SSE2 Int
+  SVMLMAP0(idiv4),
+  SVMLMAP0(irem4),
+  SVMLMAP0(udiv4),
+  SVMLMAP0(urem4),
+  // AVX2 Int
+  SVMLMAP0(idiv8),
+  SVMLMAP0(irem8),
+  SVMLMAP0(udiv8),
+  SVMLMAP0(urem8),
+  // AVX512 Int
+  SVMLMAP0(idiv16),
+  SVMLMAP0(irem16),
+  SVMLMAP0(udiv16),
+  SVMLMAP0(urem16),
+};
+
+static const SVMLBuiltinInfo *
+findSVMLBuiltinInMap(unsigned BuiltinID) {
+#ifndef NDEBUG
+  static bool MapProvenSorted = false;
+  if (!MapProvenSorted) {
+    assert(std::is_sorted(std::begin(SIMDBuiltinMap),
+                          std::end(SIMDBuiltinMap)));
+    MapProvenSorted = true;
+  }
+#endif
+
+  const SVMLBuiltinInfo *Builtin =
+      std::lower_bound(std::begin(SIMDBuiltinMap), std::end(SIMDBuiltinMap),
+                       BuiltinID);
+
+  if (Builtin != std::end(SIMDBuiltinMap) && Builtin->BuiltinID == BuiltinID)
+    return Builtin;
+
+  return nullptr;
+}
+
+Value *CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
+                                            const char *LibCallName,
+                                            unsigned Modifier,
+                                            const CallExpr *E,
+                                            ArrayRef<llvm::Value *> Ops) {
+  llvm::Type *RetTy = ConvertType(E->getType());
+  Value *RetPtr = nullptr;
+  if (Modifier & SVMLTwoRets) {
+    RetTy = llvm::StructType::get(RetTy, RetTy);
+    RetPtr = Ops[0];
+    Ops = Ops.drop_front();
+  }
+
+  SmallVector<llvm::Type *, 3> Tys;
+  for (int i = 0, e = Ops.size(); i != e; ++i)
+    Tys.push_back(Ops[i]->getType());
+
+  llvm::FunctionType *FTy =
+      llvm::FunctionType::get(RetTy, Tys, /*Variadic*/false);
+
+  llvm::FunctionCallee Func =
+      CGM.CreateSVMLFunction(FTy, LibCallName);
+
+  llvm::CallInst *Call = Builder.CreateCall(Func, Ops);
+  Call->setCallingConv(llvm::CallingConv::SVML);
+
+  llvm::Value *Res = Call;
+  if (Modifier & SVMLTwoRets) {
+    Builder.CreateDefaultAlignedStore(Builder.CreateExtractValue(Res, 1),
+                                      RetPtr);
+    Res = Builder.CreateExtractValue(Res, 0);
+  }
+
+  return Res;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 Value *CodeGenFunction::EmitARMBuiltinExpr(unsigned BuiltinID,
@@ -10507,6 +10767,13 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     assert(IsConst && "Constant arg isn't actually constant?"); (void)IsConst;
     Ops.push_back(llvm::ConstantInt::get(getLLVMContext(), Result));
   }
+
+#if INTEL_CUSTOMIZATION
+  const SVMLBuiltinInfo *Builtin = findSVMLBuiltinInMap(BuiltinID);
+  if (Builtin)
+    return EmitSVMLBuiltinExpr(Builtin->BuiltinID, Builtin->LibCallName,
+                               Builtin->TypeModifier, E, Ops);
+#endif // INTEL_CUSTOMIZATION
 
   // These exist so that the builtin that takes an immediate can be bounds
   // checked by clang to avoid passing bad immediates to the backend. Since

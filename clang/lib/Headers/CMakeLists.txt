@@ -25,7 +25,9 @@
 # it will be copied without special handling for Intel_Headers directory.
 #
 # For more examples, please, read Intel_Headers/README.txt.
-set(INTEL_HEADERS)
+set(INTEL_HEADERS
+  Intel_Headers/svmlintrin.h
+  )
 # INTEL_FEATURE_CSA
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_CSA
@@ -203,9 +205,6 @@ set(files
   __stddef_max_align_t.h
   stdint.h
   stdnoreturn.h
-# INTEL_CUSTOMIZATION
-  svmlintrin.h
-# end INTEL_CUSTOMIZATION
   tbmintrin.h
   tgmath.h
   tmmintrin.h
