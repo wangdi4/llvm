@@ -36,15 +36,7 @@ private:
   const RegDDRef *Ref;
 
   unsigned getLoopLevel() const { return LoopLevel; }
-  const DDGraph getDDGraph() const {
-    const HLNode *Node = getInstruction()->HIR.getUnderlyingNode();
-    assert(Node && "Expected underlying HLNode!");
-    const HLLoop *Loop = Node->getParentLoop();
-    const DDGraph &DDG = Loop->getParentLoop()
-                             ? DDA->getGraph(Loop->getParentLoop())
-                             : DDA->getGraph(Loop->getParentRegion());
-    return DDG;
-  }
+  const DDGraph getDDGraph() const;
 
 public:
   explicit VPVLSClientMemrefHIR(const OVLSAccessType &AccTy, const OVLSType &Ty,
