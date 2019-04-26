@@ -120,6 +120,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_ENQCMD
   bool HasENQCMD = false;
 #endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_FEATURE_ISA_ULI
+  bool HasULI = false;
+#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_KEYLOCKER
   bool HasKeyLocker = false;
 #endif // INTEL_FEATURE_ISA_KEYLOCKER

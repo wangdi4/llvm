@@ -474,6 +474,16 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_VP2INTERSECT */
 
+/* INTEL_FEATURE_ISA_ULI */
+/*
+ * TODO: when ULI is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules)
+ */
+#if defined(__ULI__)
+#include <uliintrin.h>
+#endif
+
+/* end INTEL_FEATURE_ISA_ULI */
 /* INTEL_FEATURE_ISA_SERIALIZE */
 /*
  * TODO: when SERIALIZE is public change the #if checks below to also check:

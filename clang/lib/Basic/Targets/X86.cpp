@@ -963,6 +963,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+enqcmd") {
       HasENQCMD = true;
 #endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_FEATURE_ISA_ULI
+    } else if (Feature == "+uli") {
+      HasULI = true;
+#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_SERIALIZE
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
@@ -1394,6 +1398,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasENQCMD)
     Builder.defineMacro("__ENQCMD__");
 #endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_FEATURE_ISA_ULI
+  if (HasULI)
+    Builder.defineMacro("__ULI__");
+#endif // INTEL_FEATURE_ISA_ULI
 #if INTEL_FEATURE_ISA_SERIALIZE
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
@@ -1628,6 +1636,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("sse4.2", true)
       .Case("sse4a", true)
       .Case("tbm", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+      .Case("uli", true)
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
       .Case("vaes", true)
       .Case("vpclmulqdq", true)
       .Case("wbnoinvd", true)
@@ -1747,6 +1760,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("sse4.2", SSELevel >= SSE42)
       .Case("sse4a", XOPLevel >= SSE4A)
       .Case("tbm", HasTBM)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+      .Case("uli", HasULI)
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
       .Case("vaes", HasVAES)
       .Case("vpclmulqdq", HasVPCLMULQDQ)
       .Case("wbnoinvd", HasWBNOINVD)

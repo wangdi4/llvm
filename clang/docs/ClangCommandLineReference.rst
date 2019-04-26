@@ -2762,6 +2762,12 @@ X86
 
 .. option:: -mtbm, -mno-tbm
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_ULI
+.. option:: -muli, -mno-uli
+.. end INTEL_FEATURE_ISA_ULI
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mvaes, -mno-vaes
 
 .. option:: -mvpclmulqdq, -mno-vpclmulqdq
