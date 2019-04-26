@@ -50,7 +50,6 @@ add_llvm_library(LLVMAnalysis
   Intel_OptVLSClientUtils.cpp
   Intel_VectorVariant.cpp
   Intel_WP.cpp
-  Intel_WP_utils.cpp
   Intel_XmainOptLevelPass.cpp
   Intel_MemRefAnalysis.cpp
 # end INTEL_CUSTOMIZATION

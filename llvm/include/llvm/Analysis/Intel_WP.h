@@ -30,10 +30,6 @@ namespace llvm_intel_wp_analysis {
 extern cl::opt<bool> AssumeWholeProgram;
 } // llvm_intel_wp_analysis
 
-// TODO: This function will be removed after cleaning LLD
-// Set if the linker is generating an executable.
-void setLinkingExecutable(bool LinikingExe);
-
 // It handles actual analysis and results of whole program analysis.
 class WholeProgramInfo {
 private:
