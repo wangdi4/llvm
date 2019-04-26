@@ -2007,10 +2007,6 @@ static void handleCPUSpecificAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleCommonAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ375398: 'common' attribute is not supported in C++
-  if (!S.getLangOpts().IntelCompat)
-#endif // INTEL_CUSTOMIZATION
   if (S.LangOpts.CPlusPlus) {
     S.Diag(AL.getLoc(), diag::err_attribute_not_supported_in_lang)
         << AL << AttributeLangSupport::Cpp;
