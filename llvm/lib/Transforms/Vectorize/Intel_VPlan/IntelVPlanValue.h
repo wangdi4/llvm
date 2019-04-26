@@ -82,9 +82,10 @@ private:
 
   SmallVector<VPUser *, 1> Users;
 
-protected:
   // Hold the underlying Val, if any, attached to this VPValue.
   Value *UnderlyingVal;
+
+protected:
 
 #if INTEL_CUSTOMIZATION
   VPValue(const unsigned char SC, Type *BaseTy, Value *UV = nullptr)
@@ -339,9 +340,9 @@ protected:
   /// is similar to getValue() but hides the cast when we are working with
   /// VPConstant pointers.
   Constant *getConstant() const {
-    assert(isa<Constant>(UnderlyingVal) &&
+    assert(isa<Constant>(getUnderlyingValue()) &&
            "Expected Constant as underlying Value.");
-    return cast<Constant>(UnderlyingVal);
+    return cast<Constant>(getUnderlyingValue());
   }
 
 public:
@@ -350,7 +351,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
-    UnderlyingVal->printAsOperand(OS);
+    getUnderlyingValue()->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
   void dump() const override { dump(errs()); }
@@ -406,8 +407,8 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const {
-    if (UnderlyingVal)
-      UnderlyingVal->printAsOperand(OS);
+    if (getUnderlyingValue())
+      getUnderlyingValue()->printAsOperand(OS);
     else {
       getType()->print(OS);
       OS << " ";
@@ -484,9 +485,9 @@ protected:
 
   /// Return the underlying MetadataAsValue.
   MetadataAsValue *getMetadataAsValue() {
-    assert(isa<MetadataAsValue>(UnderlyingVal) &&
+    assert(isa<MetadataAsValue>(getUnderlyingValue()) &&
            "Expected MetadataAsValue as underlying Value.");
-    return cast<MetadataAsValue>(UnderlyingVal);
+    return cast<MetadataAsValue>(getUnderlyingValue());
   }
 
   /// Return the Metadata of the underlying MetadataAsValue.
@@ -498,15 +499,15 @@ public:
 
   // Structural comparators.
   bool operator==(const VPMetadataAsValue &C) const {
-    return UnderlyingVal == C.UnderlyingVal;
+    return getUnderlyingValue() == C.getUnderlyingValue();
   };
   bool operator<(const VPMetadataAsValue &C) const {
-    return UnderlyingVal < C.UnderlyingVal;
+    return getUnderlyingValue() < C.getUnderlyingValue();
   };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
-    UnderlyingVal->printAsOperand(OS);
+    getUnderlyingValue()->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
   void dump() const override { dump(errs()); }

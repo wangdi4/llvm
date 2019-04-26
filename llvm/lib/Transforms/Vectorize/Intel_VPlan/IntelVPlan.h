@@ -803,14 +803,14 @@ protected:
   /// getValue() but it hides the cast when we are working with VPInstruction
   /// pointers.
   Instruction *getInstruction() const {
-    assert((!UnderlyingVal || isa<Instruction>(UnderlyingVal)) &&
+    assert((!getUnderlyingValue() || isa<Instruction>(getUnderlyingValue())) &&
            "Expected Instruction as underlying Value.");
-    return cast_or_null<Instruction>(UnderlyingVal);
+    return cast_or_null<Instruction>(getUnderlyingValue());
   }
 
   /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
   /// not coming from the underlying IR.
-  bool isNew() const { return UnderlyingVal == nullptr && !HIR.isSet(); }
+  bool isNew() const { return getUnderlyingValue() == nullptr && !HIR.isSet(); }
 #endif
 
 public:
@@ -850,8 +850,8 @@ public:
   // undefined (i.e. 0). Non-null return value causes calculation by TTI with
   // incorrect result.
   virtual Type *getCMType() const override {
-    if (UnderlyingVal)
-      return UnderlyingVal->getType();
+    if (getUnderlyingValue())
+      return getUnderlyingValue()->getType();
 
     if (!HIR.isMaster())
       return nullptr;
