@@ -521,6 +521,7 @@ private:
   /// `false` for (1)).
   /// \param AtomicOpnd is the operand `x` in (1), and `y` in (2).
   /// \param ValueOpnd is `expr` in (1) and (2).
+  /// \param [in] IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
   /// \returns Intrinsic name for the operation, if found, otherwise an empty
   /// string.
@@ -528,7 +529,8 @@ private:
             AtomicCaptureKind CaptureKind = CaptureUnknown>
   static const std::string
   getAtomicUCIntrinsicName(const Instruction &Operation, bool Reversed,
-                           const Value &AtomicOpnd, const Value &ValueOpnd);
+                           const Value &AtomicOpnd, const Value &ValueOpnd,
+                           bool IsTargetSPIRV);
 
   /// \brief Returns the intrinsic name for the atomic capture operation
   /// for the given operation and operands.
@@ -547,13 +549,14 @@ private:
   /// such as `x = expr - x`.
   /// \param [in] AtomicOpnd is `x`.
   /// \param [in] ValueOpnd is `expr`.
+  /// \param [in] IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
   /// \returns Intrinsic name for the operation, if found, otherwise an empty
   /// string.
   static const std::string getAtomicCaptureIntrinsicName(
       AtomicCaptureKind CaptureKind, const BasicBlock *BB,
       const Instruction *Operation, bool Reversed, const Value *AtomicOpnd,
-      const Value *ValueOpnd);
+      const Value *ValueOpnd, bool IsTargetSPIRV);
 
   /// \brief Adjusts \p IntrinsicName for non-X86 architectures.
   /// The function looks for the substring '_a16' in \p IntrinsicName, removes

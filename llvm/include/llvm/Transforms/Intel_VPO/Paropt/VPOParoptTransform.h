@@ -261,6 +261,13 @@ private:
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
 
+  /// Returns true if we are compiling for SPIRV target.
+  bool isTargetSPIRV() const {
+    return
+        VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
+        hasOffloadCompilation();
+  }
+
   /// Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
   /// \param[out] NeedTID : 'true' if any W visited has W->needsTID()==true
@@ -405,7 +412,9 @@ private:
                         Instruction *InsertPt, DominatorTree *DT);
 
   /// Generate the reduction update code.
-  void genReductionFini(WRegionNode *W, ReductionItem *RedI, Value *OldV,
+  /// Returns true iff critical section is required around the generated
+  /// reduction update code.
+  bool genReductionFini(WRegionNode *W, ReductionItem *RedI, Value *OldV,
                         Instruction *InsertPt, DominatorTree *DT);
 
   /// Generate the reduction initialization code for Min/Max.
@@ -430,13 +439,18 @@ private:
                              Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
 
   /// Generate the reduction update instructions.
-  Instruction *genReductionScalarFini(
+  /// Returns true iff critical section is required around the generated
+  /// reduction update code.
+  bool genReductionScalarFini(
       WRegionNode *W, ReductionItem *RedI,
       Value *ReductionVar, Value *ReductionValueLoc,
       Type *ScalarTy, IRBuilder<> &Builder);
 
   /// Generate the reduction initialization/update for array.
-  void genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI,
+  /// Returns true iff critical section is required around the generated
+  /// reduction update code. The method always returns false, when
+  /// IsInit is true.
+  bool genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI,
                                  AllocaInst *AI, Value *OldV,
                                  Instruction *InsertPt, bool IsInit,
                                  DominatorTree *DT);

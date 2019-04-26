@@ -20,10 +20,11 @@
 ; CHECK-DAG: BXOR reduction update of type i32 made atomic
 ; FIXME: we need runtime support for these reduction operations OR
 ;        we have to encode compare-exchange loop in IR.
-; CHECK-DAG: AND reduction update of type i32 cannot be done atomically
-; CHECK-DAG: OR reduction update of type i32 cannot be done atomically
-; CHECK-DAG: MIN reduction update of type i32 cannot be done atomically
-; CHECK-DAG: MAX reduction update of type i32 cannot be done atomically
+; CHECK-DAG: AND reduction update of type i32 cannot be done using atomic API
+; CHECK-DAG: OR reduction update of type i32 cannot be done using atomic API
+; CHECK-DAG: MIN reduction update of type i32 cannot be done using atomic API
+; CHECK-DAG: MAX reduction update of type i32 cannot be done using atomic API
+; CHECK: Critical section was generated for reduction update(s)
 
 ; CHECK: define dso_local spir_kernel void @__omp_offloading_
 ; CHECK-DAG: call void @__kmpc_atomic_fixed4_add

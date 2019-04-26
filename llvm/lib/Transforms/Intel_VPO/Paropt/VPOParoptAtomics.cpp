@@ -41,6 +41,10 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-atomics"
 
+cl::opt<bool> Enable64BitOpenCLAtomics(
+  "vpo-paropt-enable-64bit-opencl-atomics", cl::Hidden, cl::init(false),
+  cl::desc("Enables usage of 64-bit atomic OpenCL RTL API."));
+
 // Main driver for handling a WRNAtomicNode.
 bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
                                     StructType *IdentTy, Constant *TidPtr,
@@ -82,7 +86,8 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
            "Handling of AtomicNode failed, but Critical Section is not yet "
            "supported for GPU offloading.\n");
     handled =
-        VPOParoptUtils::genKmpcCriticalSection(AtomicNode, IdentTy, TidPtr);
+        VPOParoptUtils::genKmpcCriticalSection(AtomicNode, IdentTy, TidPtr,
+                                               IsTargetSPIRV);
   }
   assert(handled == true && "Handling of AtomicNode failed.\n");
 
@@ -276,7 +281,7 @@ Instruction *VPOParoptAtomics::handleAtomicUpdateInBlock(
                     << "\n");
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Value Opnd: " << *ValueOpnd << "\n");
   const std::string Name = getAtomicUCIntrinsicName<WRNAtomicUpdate>(
-      *OpInst, Reversed, *AtomicOpnd, *ValueOpnd);
+      *OpInst, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
   if (Name.empty()) {
     if (ValueOpndCast)
       delete ValueOpndCast;
@@ -401,7 +406,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   assert(CaptureOpnd->getType()->isPointerTy() && "Unexpected CaptureOpnd.");
 
   const std::string Name = getAtomicCaptureIntrinsicName(
-      CaptureKind, BB, OpInst, Reversed, AtomicOpnd, ValueOpnd);
+      CaptureKind, BB, OpInst, Reversed, AtomicOpnd, ValueOpnd, IsTargetSPIRV);
   if (Name.empty()) {
     if (ValueOpndCast != nullptr)
       delete ValueOpndCast;
@@ -1184,7 +1189,7 @@ template <WRNAtomicKind AtomicKind,
           VPOParoptAtomics::AtomicCaptureKind CaptureKind>
 const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
     const Instruction &Operation, bool Reversed, const Value &AtomicOpnd,
-    const Value &ValueOpnd) {
+    const Value &ValueOpnd, bool IsTargetSPIRV) {
 
   assert((AtomicKind == WRNAtomicUpdate || ((AtomicKind == WRNAtomicCapture) &&
                                             (CaptureKind == CaptureBeforeOp ||
@@ -1199,6 +1204,20 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
   assert(AtomicOpndType != nullptr && "AtomicOpndType is null");
   assert(ValueOpndType != nullptr && "ValueOpndType is null");
 
+  unsigned OpCode = Operation.getOpcode();
+
+  if (IsTargetSPIRV &&
+      !Enable64BitOpenCLAtomics &&
+      (AtomicOpndType->getScalarSizeInBits() > 32 ||
+       ValueOpndType->getScalarSizeInBits() > 32)) {
+    // If 64-bit OpenCL atomics are not supported,
+    // then we have to use critical section.
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found for "
+               << Instruction::getOpcodeName(OpCode) << ".\n");
+
+    return std::string();
+  }
+
   const bool AtomicUpdate = (AtomicKind == WRNAtomicUpdate);
   auto &MapToUse = AtomicUpdate ? (Reversed ? ReversedOpToUpdateIntrinsicMap
                                             : OpToUpdateIntrinsicMap)
@@ -1211,7 +1230,6 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
   const AtomicOperandTy ValueOpndTy = {ValueOpndType->getTypeID(),
                                        ValueOpndType->getPrimitiveSizeInBits()};
 
-  unsigned OpCode = Operation.getOpcode();
   // Special case for atomic update:
   // For the case: x = x/v, when x is an integer or unsigned, and y is
   // float128, the IR looks like:
@@ -1303,7 +1321,7 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
 const std::string VPOParoptAtomics::getAtomicCaptureIntrinsicName(
     AtomicCaptureKind CaptureKind, const BasicBlock *BB,
     const Instruction *Operation, bool Reversed, const Value *AtomicOpnd,
-    const Value *ValueOpnd) {
+    const Value *ValueOpnd, bool IsTargetSPIRV) {
 
   assert(CaptureKind != CaptureUnknown && "Unknown capture operation.");
   assert(BB != nullptr && "BB is null.");
@@ -1324,11 +1342,11 @@ const std::string VPOParoptAtomics::getAtomicCaptureIntrinsicName(
 
   case CaptureBeforeOp:
     return getAtomicUCIntrinsicName<WRNAtomicCapture, CaptureBeforeOp>(
-        *Operation, Reversed, *AtomicOpnd, *ValueOpnd);
+        *Operation, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
 
   case CaptureAfterOp:
     return getAtomicUCIntrinsicName<WRNAtomicCapture, CaptureAfterOp>(
-        *Operation, Reversed, *AtomicOpnd, *ValueOpnd);
+        *Operation, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
   default:
     llvm_unreachable("Unknown capture kind in getAtomicCaptureIntrinsicName.");
   }

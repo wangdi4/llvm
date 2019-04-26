@@ -34,8 +34,9 @@
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include <string>
 
@@ -2034,7 +2035,8 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
 // `__kmpc_end_critical` after `EndInst`.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                             Constant *TidPtr,
-                                            const StringRef &LockNameSuffix) {
+                                            bool IsTargetSPIRV,
+                                            const StringRef LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -2078,14 +2080,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   assert(EndInst != nullptr && "EndInst is null.");
 
   return genKmpcCriticalSection(W, IdentTy, TidPtr, BeginInst, EndInst,
-                                LockNameSuffix);
-}
-
-// Wraps the above function for case when the caller does not provide a lock
-// name suffix, and uses a default lock name suffix.
-bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            Constant *TidPtr) {
-  return genKmpcCriticalSection(W, IdentTy, TidPtr, "");
+                                IsTargetSPIRV, LockNameSuffix);
 }
 
 // Generates a KMPC call to IntrinsicName with Tid obtained using TidPtr.
@@ -2683,7 +2678,8 @@ SmallString<64> VPOParoptUtils::getKmpcCriticalLockNamePrefix(WRegionNode *W) {
 // Returns the lock variable to be used in KMPC critical calls.
 GlobalVariable *
 VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
-                                       const StringRef &LockNameSuffix) {
+                                       const StringRef LockNameSuffix,
+                                       bool IsTargetSPIRV) {
 
   assert(W != nullptr && "WRegionNode is null.");
 
@@ -2718,8 +2714,15 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
   // Otherwise, Create a new lock object. CommonLinkage is used so that multiple
   // lock variables with the same name (across modules) get merged into a single
   // one at link time.
+  //
+  // Note that the lock variable must be declared as __global for OpenCL.
   GV = new GlobalVariable(*M, LockVarTy, false, GlobalValue::CommonLinkage,
-                          ConstantAggregateZero::get(LockVarTy), LockName);
+                          ConstantAggregateZero::get(LockVarTy), LockName,
+                          nullptr,
+                          GlobalValue::ThreadLocalMode::NotThreadLocal,
+                          IsTargetSPIRV ?
+                              vpo::ADDRESS_SPACE_GLOBAL :
+                              vpo::ADDRESS_SPACE_PRIVATE);
 
   assert(GV != nullptr && "Unable to generate Kmpc critical lock var.");
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock var generated: " << *GV
@@ -2731,7 +2734,8 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
 // Generates a critical section around Instructions `begin` and `end`.
 bool VPOParoptUtils::genKmpcCriticalSectionImpl(
     WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
-    Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar) {
+    Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar,
+    bool IsTargetSPIRV) {
 
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
@@ -2740,17 +2744,41 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
   assert(EndInst != nullptr && "EndInst is null.");
   assert(LockVar != nullptr && "LockVar is null.");
 
-  CallInst *BeginCritical =
-      genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, "__kmpc_critical",
-                         nullptr, {LockVar});
+  auto *RetTy = Type::getVoidTy(BeginInst->getContext());
+
+  StringRef BeginName = "__kmpc_critical";
+  CallInst *BeginCritical = nullptr;
+  Value *Arg = LockVar;
+
+  if (IsTargetSPIRV)
+    // OpenCL version of __kmpc_critical takes a generic address space
+    // pointer argument.
+    Arg = VPOParoptUtils::genAddrSpaceCast(Arg, BeginInst,
+                                           vpo::ADDRESS_SPACE_GENERIC);
+
+  if (IsTargetSPIRV)
+    BeginCritical =
+        genCall(BeginInst->getModule(), BeginName, RetTy, { Arg });
+  else
+    BeginCritical =
+        genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName,
+                           RetTy, { Arg });
+
   assert(BeginCritical != nullptr && "Could not call __kmpc_critical");
 
   if (BeginCritical == nullptr)
       return false;
 
-  CallInst *EndCritical =
-      genKmpcCallWithTid(W, IdentTy, TidPtr, EndInst, "__kmpc_end_critical",
-                         nullptr, {LockVar});
+  StringRef EndName = "__kmpc_end_critical";
+  CallInst *EndCritical = nullptr;
+
+  if (IsTargetSPIRV)
+    EndCritical = genCall(EndInst->getModule(), EndName, RetTy, { Arg });
+  else
+    EndCritical =
+        genKmpcCallWithTid(W, IdentTy, TidPtr, EndInst, "__kmpc_end_critical",
+                           RetTy, { Arg });
+
   assert(EndCritical != nullptr && "Could not call __kmpc_end_critical");
 
   if (BeginCritical == nullptr)
@@ -2774,7 +2802,8 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                             Constant *TidPtr,
                                             Instruction *BeginInst,
                                             Instruction *EndInst,
-                                            const StringRef &LockNameSuffix) {
+                                            bool IsTargetSPIRV,
+                                            const StringRef LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -2782,11 +2811,12 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   assert(EndInst != nullptr && "EndInst is null.");
 
   // Generate the Lock object for critical section.
-  GlobalVariable *Lock = genKmpcCriticalLockVar(W, LockNameSuffix);
+  GlobalVariable *Lock =
+      genKmpcCriticalLockVar(W, LockNameSuffix, IsTargetSPIRV);
   assert(Lock != nullptr && "Could not create critical section lock variable.");
 
   return genKmpcCriticalSectionImpl(W, IdentTy, TidPtr, BeginInst, EndInst,
-                                    Lock);
+                                    Lock, IsTargetSPIRV);
 }
 
 // Generates and inserts a 'kmpc_cancel[lationpoint]' CallInst.

@@ -1722,7 +1722,7 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
 }
 
 // Generate the reduction update instructions.
-Instruction *VPOParoptTransform::genReductionScalarFini(
+bool VPOParoptTransform::genReductionScalarFini(
     WRegionNode *W, ReductionItem *RedI,
     Value *ReductionVar, Value *ReductionValueLoc,
     Type *ScalarTy, IRBuilder<> &Builder) {
@@ -1777,26 +1777,22 @@ Instruction *VPOParoptTransform::genReductionScalarFini(
         VPOParoptAtomics::handleAtomicUpdateInBlock(W, Tmp0->getParent(),
                                                     nullptr, nullptr, true);
 
-    if (!AtomicCall) {
-      OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
-      R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
-          ore::NV("Type", ScalarTy) << " cannot be done atomically";
-      ORE.emit(R);
-
-      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": WARNING: atomicity of reduction update "
-                 "cannot be guaranteed.\n");
-    } else {
+    if (AtomicCall) {
       OptimizationRemark R(DEBUG_TYPE, "ReductionAtomic", AtomicCall);
       R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
         ore::NV("Type", ScalarTy) << " made atomic";
       ORE.emit(R);
 
-      Tmp0 = AtomicCall;
+      return false;
     }
+
+    OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
+    R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
+        ore::NV("Type", ScalarTy) << " cannot be done using atomic API";
+    ORE.emit(R);
   }
 
-  return Tmp0;
+  return true;
 }
 
 // Generate the reduction update code.
@@ -1830,7 +1826,7 @@ Instruction *VPOParoptTransform::genReductionScalarFini(
 //   @.kmpc_loc.0.0.4, i32 %my.tid31, [8 x i32]* @.gomp_critical_user_.var)
 //   br label %DIR.QUAL.LIST.END.2.exitStub
 //
-void VPOParoptTransform::genReductionFini(WRegionNode *W,
+bool VPOParoptTransform::genReductionFini(WRegionNode *W,
                                           ReductionItem *RedI, Value *OldV,
                                           Instruction *InsertPt,
                                           DominatorTree *DT) {
@@ -1844,17 +1840,23 @@ void VPOParoptTransform::genReductionFini(WRegionNode *W,
     OldV = Builder.CreateLoad(OldV);
   }
 
+  bool NeedsKmpcCritical = false;
+
   if (RedI->getIsArraySection() ||
       NewAI->getAllocatedType()->isArrayTy())
-    genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT);
+    NeedsKmpcCritical |=
+        genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT);
   else {
     assert(VPOUtils::canBeRegisterized(NewAI->getAllocatedType(),
                                        NewAI->getModule()->getDataLayout()) &&
            "genReductionFini: Expect incoming scalar type.");
     Type *ScalarTy = NewAI->getAllocatedType()->getScalarType();
 
-    genReductionScalarFini(W, RedI, OldV, NewAI, ScalarTy, Builder);
+    NeedsKmpcCritical |=
+        genReductionScalarFini(W, RedI, OldV, NewAI, ScalarTy, Builder);
   }
+
+  return NeedsKmpcCritical;
 }
 
 // Generate the reduction initialization/update for array.
@@ -1934,13 +1936,14 @@ void VPOParoptTransform::genReductionFini(WRegionNode *W,
 //   @.kmpc_loc.0.0.5, i32 %my.tid85, [8 x i32]* @.gomp_critical_user_.var)
 //   br label %DIR.QUAL.LIST.END.2.exitStub
 //
-void VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
+bool VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
                                                    ReductionItem *RedI,
                                                    AllocaInst *AI, Value *OldV,
                                                    Instruction *InsertPt,
                                                    bool IsInit,
                                                    DominatorTree *DT) {
 
+  bool NeedsKmpcCritical = false;
   IRBuilder<> Builder(InsertPt);
   auto EntryBB = Builder.GetInsertBlock();
 
@@ -1993,8 +1996,9 @@ void VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
     Value *V = genReductionScalarInit(RedI, DestElementTy);
     Builder.CreateStore(V, DestElementPHI);
   } else {
-    genReductionScalarFini(W, RedI, DestElementPHI, SrcElementPHI,
-                           DestElementTy, Builder);
+    NeedsKmpcCritical |=
+        genReductionScalarFini(W, RedI, DestElementPHI, SrcElementPHI,
+                               DestElementTy, Builder);
   }
 
   auto DestElementNext =
@@ -2015,6 +2019,8 @@ void VPOParoptTransform::genRedAggregateInitOrFini(WRegionNode *W,
     DT->changeImmediateDominator(BodyBB, EntryBB);
     DT->changeImmediateDominator(DoneBB, EntryBB);
   }
+
+  return NeedsKmpcCritical;
 }
 
 // Generate the firstprivate initialization code.
@@ -2177,6 +2183,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W, bool IsTargetSPIRV) {
 
     W->populateBBSet();
 
+    bool NeedsKmpcCritical = false;
     BasicBlock *RedInitEntryBB = nullptr;
     BasicBlock *RedUpdateEntryBB = nullptr;
     createEmptyPrivFiniBB(W, RedUpdateEntryBB);
@@ -2205,12 +2212,13 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W, bool IsTargetSPIRV) {
 
       BasicBlock *BeginBB;
       createEmptyPrivFiniBB(W, BeginBB);
-      genReductionFini(W, RedI, RedI->getOrig(), BeginBB->getTerminator(), DT);
+      NeedsKmpcCritical |= genReductionFini(W, RedI, RedI->getOrig(),
+                                            BeginBB->getTerminator(), DT);
 
       LLVM_DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
 
-    if (!IsTargetSPIRV) {
+    if (NeedsKmpcCritical) {
       // Wrap the reduction fini code inside a critical region.
       // EndBB is created to be used as the insertion point for end_critical().
       //
@@ -2227,7 +2235,11 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W, bool IsTargetSPIRV) {
       VPOParoptUtils::genKmpcCriticalSection(
           W, IdentTy, TidPtrHolder,
           dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
-          EndBB->getTerminator(), "");
+          EndBB->getTerminator(), isTargetSPIRV(), ".reduction");
+
+      OptimizationRemark R(DEBUG_TYPE, "Reduction", &EntryBB->front());
+      R << "Critical section was generated for reduction update(s)";
+      ORE.emit(R);
     }
 
     Changed = true;
@@ -5480,9 +5492,11 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   bool CriticalCallsInserted =
       LockNameSuffix.empty()
           ? VPOParoptUtils::genKmpcCriticalSection(CriticalNode, IdentTy,
-                                                   TidPtrHolder)
+                                                   TidPtrHolder,
+                                                   isTargetSPIRV())
           : VPOParoptUtils::genKmpcCriticalSection(
-                CriticalNode, IdentTy, TidPtrHolder, LockNameSuffix);
+                CriticalNode, IdentTy, TidPtrHolder, isTargetSPIRV(),
+                LockNameSuffix);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Handling of Critical Node: "
                     << (CriticalCallsInserted ? "Successful" : "Failed")
