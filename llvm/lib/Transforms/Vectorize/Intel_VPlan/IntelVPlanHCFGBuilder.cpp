@@ -152,7 +152,7 @@ void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
   //    - has multiple predecessors (it's a potential exit of another region).
   //    - is loop H of another loop.
   if (!WRLp || !PH->getSinglePredecessor() || VPLInfo->isLoopHeader(PH)) {
-    VPBlockUtils::splitBlock(PH, VPLInfo, VPDomTree, VPPostDomTree, Plan);
+    VPBlockUtils::splitBlock(PH, VPLInfo, VPDomTree, VPPostDomTree);
   }
 
   // Apply simplification to subloops
@@ -483,7 +483,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   // instructions.
   VPBasicBlock *NewLoopLatch =
       new VPBasicBlock(VPlanUtils::createUniqueName("NewLoopLatch"));
-  OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch, Plan);
+  OrigLoopLatch->moveConditionalEOBTo(NewLoopLatch);
   VPBlockUtils::insertBlockAfter(NewLoopLatch, OrigLoopLatch);
   VPL->addBasicBlockToLoop(NewLoopLatch, *VPLInfo);
   // Remove the original loop latch from the blocks of the phi node of the loop
@@ -683,7 +683,7 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
                               cast<VPBasicBlock>(OrigLoopLatch), IfBlock);
       }
       // Update the successors of the IfBlock.
-      IfBlock->setTwoSuccessors(CondBr, ExitBlock, NextIfBlock, Plan);
+      IfBlock->setTwoSuccessors(CondBr, ExitBlock, NextIfBlock);
       // Update the predecessor of the NextIfBlock.
       NextIfBlock->appendPredecessor(IfBlock);
       // Add IfBlock in ExitBlock's predecessors.
@@ -757,7 +757,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   // Create new loop latch
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
   VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
-      OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree, Plan);
+      OrigLoopLatch, VPLInfo, VPDomTree, VPPostDomTree);
 
   // Update the control-flow for the ExitingBlock, the NewLoopLatch and the
   // ExitBlock.
@@ -860,7 +860,7 @@ void VPlanHCFGBuilder::splitLoopsExit(VPLoop *VPL) {
   if (!PotentialH ||
       (VPLInfo->isLoopHeader(PotentialH) &&
        VPLInfo->getLoopFor(PotentialH)->getLoopPreheader() == Exit))
-    VPBlockUtils::splitBlock(Exit, VPLInfo, VPDomTree, VPPostDomTree, Plan);
+    VPBlockUtils::splitBlock(Exit, VPLInfo, VPDomTree, VPPostDomTree);
 
   // Apply simplification to subloops
   for (auto VPSL : VPL->getSubLoops()) {
@@ -903,7 +903,7 @@ void VPlanHCFGBuilder::simplifyNonLoopRegions() {
       // TODO: skip single basic block loops?
       if (CurrentBlock->getNumPredecessors() > 1) {
         VPBlockUtils::splitBlock(CurrentBlock, Plan->getVPLoopInfo(), VPDomTree,
-                                 VPPostDomTree, Plan);
+                                 VPPostDomTree);
       }
 
       // TODO: WIP. The code below has to be revisited. It will enable the
@@ -2143,7 +2143,7 @@ VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
              "Missing condition bit in IRDef2VPValue!");
       VPValue *VPCondBit = IRDef2VPValue[BrCond];
 #endif
-      VPBB->setTwoSuccessors(VPCondBit, SuccVPBB0, SuccVPBB1, Plan);
+      VPBB->setTwoSuccessors(VPCondBit, SuccVPBB0, SuccVPBB1);
 
       VPBB->setCBlock(BB);
       VPBB->setTBlock(TI->getSuccessor(0));

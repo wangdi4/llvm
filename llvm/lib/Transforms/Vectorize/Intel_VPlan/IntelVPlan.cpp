@@ -99,11 +99,10 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
 VPBasicBlock *VPBlockUtils::splitBlock(VPBlockBase *Block,
                                        VPLoopInfo *VPLInfo,
                                        VPDominatorTree &DomTree,
-                                       VPPostDominatorTree &PostDomTree,
-                                       VPlan *Plan) {
+                                       VPPostDominatorTree &PostDomTree) {
   VPBasicBlock *NewBlock = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
   if (isa<VPBasicBlock>(Block))
-    cast<VPBasicBlock>(Block)->moveConditionalEOBTo(NewBlock, Plan);
+    cast<VPBasicBlock>(Block)->moveConditionalEOBTo(NewBlock);
   insertBlockAfter(NewBlock, Block);
 
   // Add NewBlock to VPLoopInfo
@@ -208,10 +207,9 @@ VPBlockBase *VPBlockBase::getAncestorWithPredecessors() {
 }
 
 void VPBlockBase::setTwoSuccessors(VPValue *ConditionV, VPBlockBase *IfTrue,
-                                   VPBlockBase *IfFalse, VPlan *Plan) {
+                                   VPBlockBase *IfFalse) {
   assert(Successors.empty() && "Setting two successors when others exist.");
   setCondBit(ConditionV);
-  Plan->setCondBitUser(ConditionV, this);
   appendSuccessor(IfTrue);
   appendSuccessor(IfFalse);
 }
@@ -484,18 +482,16 @@ void VPRegionBlock::execute(VPTransformState *State) {
 
 #if INTEL_CUSTOMIZATION
 // TODO: Please, remove this interface once C/T/F blocks have been removed.
-void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan) {
+void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB) {
   // Set CondBit in NewBlock. Note that we are only setting the
   // successor selector pointer. The CondBit is kept in its
   // original VPBB recipe list.
   if (getNumSuccessors() > 1) {
     assert(getCondBit() && "Missing CondBit");
     ToBB->setCondBit(getCondBit());
-    Plan->setCondBitUser(getCondBit(), ToBB);
     ToBB->setCBlock(CBlock);
     ToBB->setTBlock(TBlock);
     ToBB->setFBlock(FBlock);
-    Plan->removeCondBitUser(getCondBit(), this);
     setCondBit(nullptr);
     CBlock = TBlock = FBlock = nullptr;
   }

@@ -83,13 +83,13 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
     VPPostDominatorTree *PDT = SubLoopRegion->getPDT();
 
     VPBasicBlock *RegionEntryBlock =
-        VPBlockUtils::splitBlock(SubLoopHeader, VPLI, *DT, *PDT, Plan);
+        VPBlockUtils::splitBlock(SubLoopHeader, VPLI, *DT, *PDT);
 
     VPBasicBlock *NewLoopHeader =
-        VPBlockUtils::splitBlock(RegionEntryBlock, VPLI, *DT, *PDT, Plan);
+        VPBlockUtils::splitBlock(RegionEntryBlock, VPLI, *DT, *PDT);
 
     VPBasicBlock *NewLoopLatch =
-        VPBlockUtils::splitBlock(SubLoopLatch, VPLI, *DT, *PDT, Plan);
+        VPBlockUtils::splitBlock(SubLoopLatch, VPLI, *DT, *PDT);
 
     // Note: SubLoopLatch becomes the mask region exit
     VPBasicBlock *RegionExitBlock = SubLoopLatch;
@@ -182,14 +182,12 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoopRegion *LoopRegion) {
       if (!BackEdgeIsFalseSucc)
         NewCondBit = Builder.createNot(NewCondBit);
       NewLoopLatch->setCondBit(NewCondBit);
-      Plan->setCondBitUser(NewCondBit, NewLoopLatch);
     }
 #endif // VPlanPredicator
 
     LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
     SubLoopHeader->addRecipe(LoopBodyMask);
     RegionEntryBlock->setCondBit(LoopBodyMask);
-    Plan->setCondBitUser(LoopBodyMask, RegionEntryBlock);
 
     // Connect region entry/exit blocks so that predicate can be propagated
     // along mask=false path. i.e., this edge skips the loop body.
