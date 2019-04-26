@@ -114,6 +114,9 @@ public:
   /// \brief Predicate all unique non-scalar VPlans
   void predicate(void);
 
+  template <typename CostModelTy = VPlanCostModel>
+  void printCostModelAnalysisIfRequested();
+
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
   // void executeBestPlan(InnerLoopVectorizer &LB);

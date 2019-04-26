@@ -102,12 +102,6 @@ static cl::opt<unsigned> VPlanVectCand(
     cl::desc(
         "Construct VPlan for vectorization candidates (CG stress testing)"));
 
-static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
-    "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
-    cl::ZeroOrMore,
-    cl::desc("Print detailed VPlan Cost Model Analysis report for the given "
-             "VF. For testing/debug purposes only."));
-
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
 
 namespace {
@@ -249,33 +243,6 @@ public:
 
   bool runOnFunction(Function &Fn) override;
 };
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-template <typename CostModelTy = VPlanCostModel>
-void printCostModelAnalysisIfRequested(LoopVectorizationPlanner &LVP,
-                                       const TargetTransformInfo *TTI,
-                                       const DataLayout *DL,
-                                       VPlanVLSAnalysis *VLSA) {
-  for (unsigned VFRequested : VPlanCostModelPrintAnalysisForVF) {
-    if (!LVP.hasVPlanForVF(VFRequested)) {
-      errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
-      continue;
-    }
-    VPlan *Plan = LVP.getVPlanForVF(VFRequested);
-#if INTEL_CUSTOMIZATION
-    CostModelTy CM(Plan, VFRequested, TTI, DL, VLSA);
-#else
-    CostModelTy CM(Plan, VFRequested, TTI, DL);
-#endif // INTEL_CUSTOMIZATION
-
-    // If different stages in VPlanDriver were proper passes under pass manager
-    // control it would have been opt's output stream (via "-o" switch). As it
-    // is not so, just pass stdout so that we would not be required to redirect
-    // stderr to Filecheck.
-    CM.print(outs());
-  }
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // anonymous namespace
 
@@ -631,7 +598,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 #endif
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostModelAnalysisIfRequested(LVP, TTI, DL, &VLSA);
+  LVP.printCostModelAnalysisIfRequested();
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // VPlan Predicator
@@ -887,8 +854,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(LVP, TTI, DL,
-                                                               &VLSA);
+  LVP.printCostModelAnalysisIfRequested<VPlanCostModelProprietary>();
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // VPlan construction stress test ends here.
