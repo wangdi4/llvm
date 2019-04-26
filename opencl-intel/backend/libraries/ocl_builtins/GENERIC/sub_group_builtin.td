@@ -1,0 +1,75 @@
+//
+// Sub group functions and their vectorized versions
+//
+let NeedForwardDecl = 1 in {
+  let Types = [ v1i32,  v4i32,  v8i32,  v16i32 ],
+  Attrs = [OVERLOADABLE] in {
+    def sub_group_all  : OclBuiltin<"sub_group_all",  (outs gentype:$ret), (ins gentype:$predicate), [], [], 1, 0>;
+    def sub_group_any  : OclBuiltin<"sub_group_any",  (outs gentype:$ret), (ins gentype:$predicate), [], [], 1, 0>;
+  }
+
+  let Types = [ v1i32, v4i32, v8i32, v16i32,
+                v1u32, v4u32, v8u32, v16u32,
+                v1i64, v4i64, v8i64, v16i64,
+                v1u64, v4u64, v8u64, v16u64,
+                v1f32, v4f32, v8f32, v16f32,
+                v1f64, v4f64, v8f64, v16f64 ],
+      Attrs = [OVERLOADABLE] in {
+        def sub_group_broadcast           : OclBuiltin<"sub_group_broadcast",           (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id), [], [], 1, 0>;
+        def sub_group_reduce_add          : OclBuiltin<"sub_group_reduce_add",          (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+        def sub_group_reduce_min          : OclBuiltin<"sub_group_reduce_min",          (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+        def sub_group_reduce_max          : OclBuiltin<"sub_group_reduce_max",          (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+        def sub_group_scan_exclusive_add  : OclBuiltin<"sub_group_scan_exclusive_add",  (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+        def sub_group_scan_exclusive_min  : OclBuiltin<"sub_group_scan_exclusive_min",  (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+        def sub_group_scan_exclusive_max  : OclBuiltin<"sub_group_scan_exclusive_max",  (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+        def sub_group_scan_inclusive_add  : OclBuiltin<"sub_group_scan_inclusive_add",  (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+        def sub_group_scan_inclusive_min  : OclBuiltin<"sub_group_scan_inclusive_min",  (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+        def sub_group_scan_inclusive_max  : OclBuiltin<"sub_group_scan_inclusive_max",  (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
+      }
+
+  let Types = [ v1i32, v4i32, v8i32, v16i32,
+                v1u32, v4u32, v8u32, v16u32,
+                v1i64, v4i64, v8i64, v16i64,
+                v1u64, v4u64, v8u64, v16u64,
+                v1f32, v4f32, v8f32, v16f32,
+                v1f64, v4f64, v8f64, v16f64 ],
+      Attrs = [OVERLOADABLE] in {
+        def sub_group_shuffle : OclBuiltin<"intel_sub_group_shuffle", (outs gentype:$ret), (ins gentype:$data, u32gentype:$sub_group_local_id), [], [], 1, 0>;
+      }
+}
+
+//
+// Vectorizer table for scalar and vectorized versions of sub group functions
+//
+foreach func_name = [ "sub_group_all", "sub_group_any" ] in {
+  def func_name#_cell1  : MapCell<!cast<OclBuiltin>(func_name), v1i32>;
+  def func_name#_cell4  : MapCell<!cast<OclBuiltin>(func_name), v4i32>;
+  def func_name#_cell8  : MapCell<!cast<OclBuiltin>(func_name), v8i32>;
+  def func_name#_cell16 : MapCell<!cast<OclBuiltin>(func_name), v16i32>;
+  def func_name#_vectorized : MapRow<[
+    !cast<MapCell>(func_name#"_cell1"),  //scalar
+    nullCell,                            //v2
+    !cast<MapCell>(func_name#"_cell4"),  //v4
+    !cast<MapCell>(func_name#"_cell8"),  //v8
+    !cast<MapCell>(func_name#"_cell16"), //16
+    nullCell],                           //3
+    0,1>;          //not scalarizable, packetizable
+}
+foreach func_name = [ "sub_group_broadcast", "sub_group_reduce_add", "sub_group_reduce_min", "sub_group_reduce_max",
+                      "sub_group_scan_exclusive_add", "sub_group_scan_exclusive_min", "sub_group_scan_exclusive_max",
+                      "sub_group_scan_inclusive_add", "sub_group_scan_inclusive_min", "sub_group_scan_inclusive_max"] in {
+  foreach base_type = [ "i32", "u32", "i64", "u64", "f32", "f64" ] in {
+    def func_name#_#base_type#_cell1  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v1"#base_type)>;
+    def func_name#_#base_type#_cell4  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v4"#base_type)>;
+    def func_name#_#base_type#_cell8  : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v8"#base_type)>;
+    def func_name#_#base_type#_cell16 : MapCell<!cast<OclBuiltin>(func_name), !cast<OclType>("v16"#base_type)>;
+    def func_name#_#base_type#_vectorized : MapRow<[
+    !cast<MapCell>(func_name#_#base_type#"_cell1"),  //scalar
+    nullCell,
+    !cast<MapCell>(func_name#_#base_type#"_cell4"),  //v4
+    !cast<MapCell>(func_name#_#base_type#"_cell8"),  //v8
+    !cast<MapCell>(func_name#_#base_type#"_cell16"), //16
+    nullCell],
+    0,1>;          //not scalarizable, packetizable
+  }
+}
