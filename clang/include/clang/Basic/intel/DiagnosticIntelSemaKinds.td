@@ -78,15 +78,6 @@ def ext_intel_redefinition_extern_inline : ExtWarn<
   InGroup<IntelCompat>;
 def err_recursive_attribute_expected : Error<
   "recursive keyword expected after a pragma inline directive">;
-// CQ#369830 - static declaration of functions is treated differently.
-def ext_intel_static_non_static : Extension<
-  "redeclaring non-static %0 as static is an Intel extension">,
-  InGroup<IntelCompat>;
-def ext_intel_non_static_static : Extension<
-  "redeclaring static %0 as non-static is an Intel extension">,
-  InGroup<IntelCompat>;
-def ext_intel_static_block_func : Extension<
-  "static functions inside blocks are Intel extension">, InGroup<IntelCompat>;
 // CQ#364598, CQ#374878.
 def ext_intel_elaborated_type_refers_to_typedef : ExtWarn<
   "elaborated type refers to a typedef">, InGroup<IntelCompat>;

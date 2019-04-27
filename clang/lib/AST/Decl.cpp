@@ -1448,10 +1448,7 @@ LinkageInfo LinkageComputer::getLVForDecl(const NamedDecl *D,
   // static can follow an extern, so we can have two decls with different
   // linkages.
   const LangOptions &Opts = D->getASTContext().getLangOpts();
-#if INTEL_CUSTOMIZATION
-  // CQ#369830 - static declarations are treated differently.
-  if (!Opts.CPlusPlus || Opts.MicrosoftExt || Opts.IntelCompat)
-#endif // INTEL_CUSTOMIZATION
+  if (!Opts.CPlusPlus || Opts.MicrosoftExt)
     return LV;
 
   // We have just computed the linkage for this decl. By induction we know
