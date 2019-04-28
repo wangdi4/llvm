@@ -15,6 +15,15 @@
 
 include "llvm/TableGen/SearchableTable.td"
 
+// Class specifying the available MUL/ADD/FMA operations,
+// used by MAPatternsEmitter table-gen/backend.
+class MAOperation<bits<2> val> {
+  int Index = val;
+}
+def MAOperationADD : MAOperation<0>; // ADD: A + B
+def MAOperationMUL : MAOperation<1>; // MUL: A * B
+def MAOperationFMA : MAOperation<2>; // FMA: A * B + C
+
 // Generic operations
 // For now, this just declares generic opcodes.  In the long run, we may want
 // to have things like operands, type signatures

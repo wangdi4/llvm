@@ -318,6 +318,14 @@ public:
     TargetPassConfig::addIRPasses();
   }
 
+  void addAdvancedPatternMatchingOpts() override {
+    // Do Fused-Multiply-Add transformations.
+    addPass(createCSAGlobalFMAPass());
+
+    // Pass call onto parent
+    TargetPassConfig::addAdvancedPatternMatchingOpts();
+  }
+
 }; // class CSAPassConfig
 
 } // namespace

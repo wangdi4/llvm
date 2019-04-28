@@ -16,6 +16,7 @@ tablegen(LLVM CSAGenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM CSAGenAsmWriter.inc -gen-asm-writer)
 tablegen(LLVM CSAGenDAGISel.inc -gen-dag-isel)
 tablegen(LLVM CSAGenCallingConv.inc -gen-callingconv)
+tablegen(LLVM CSAGenMAPatterns.inc -gen-ma-patterns)
 tablegen(LLVM CSAGenSubtargetInfo.inc -gen-subtarget)
 add_public_tablegen_target(CSACommonTableGen)
 
@@ -29,6 +30,7 @@ add_llvm_target(CSACodeGen
   CSADataflowVerifier.cpp
   CSADeadInstructionElim.cpp
   CSAExpandInlineAsm.cpp
+  CSAFMA.cpp
   CSAFortranIntrinsics.cpp
   CSAFrameLowering.cpp
   CSAIROpt.cpp
