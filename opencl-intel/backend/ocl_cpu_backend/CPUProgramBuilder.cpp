@@ -105,6 +105,10 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     const char* objStart = pCache->getCachedObject()->getBuffer().data();
     pWriter->AddSection(g_objSectionName, objStart, objSize);
 
+    // fill the Version section
+    unsigned int currentVersion = OCL_CACHED_BINARY_VERSION;
+    pWriter->AddSection(g_objVerSectionName, (char*)&currentVersion, sizeof(unsigned int));
+
     // get the binary
     size_t binarySize = pWriter->GetBinarySize();
     std::vector<char> pBinaryBlob(binarySize);

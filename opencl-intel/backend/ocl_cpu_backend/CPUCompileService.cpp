@@ -91,6 +91,20 @@ CPUCompileService::CheckProgramBinary(const void *pBinary,
     valid = cpuId.Is64BitOS() ? (headerBit == CLElfLib::EM_X86_64)
                               : (headerBit == CLElfLib::EM_860);
 
+    // Check version of binary.
+    // If binary doesn't contain section with version - return CL_INVALID_BINARY.
+    const void* binaryVersion = reader.GetSectionData(Intel::OpenCL::ELFUtils::g_objVerSectionName);
+    if (binaryVersion == nullptr) {
+        return CL_DEV_INVALID_BINARY;
+    }
+
+    // Check does cached binary have up-to-date version. If not - return CL_INVALID_BINARY
+    // So there's no backward compatibility between cached binaries with
+    // different versions.
+    if (*((unsigned int*)binaryVersion) != (unsigned int)OCL_CACHED_BINARY_VERSION) {
+        return CL_DEV_INVALID_BINARY;
+    }
+
     // check maximum supported instruction
     // get maximum supported instruction from ELF header
     CLElfLib::E_EH_FLAGS headerFlag = static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
