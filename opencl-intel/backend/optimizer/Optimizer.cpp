@@ -511,6 +511,11 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
 
     if (!pRtlModuleList.empty()) {
       if (EnableVPlanVecForOpenCL) {
+
+        // Replace 'div' and 'rem' instructions with calls to optimized library
+        // functions
+        PM.add(createMathLibraryFunctionsReplacementPass());
+
         // Merge returns : this pass ensures that the function has at most one
         // return instruction.
         PM.add(createUnifyFunctionExitNodesPass());
