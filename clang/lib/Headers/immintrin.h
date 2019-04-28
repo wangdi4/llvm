@@ -198,6 +198,21 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_FP16 */
+/*
+ * FIXME: _Float16 type is legal only when HW support float16 operation.
+ * We use __AVX512FP16__ to identify if float16 is supported or not, so
+ * when float16 is not supported, the related header is not included.
+ *
+ */
+#if defined(__AVX512FP16__)
+#include <avx512fp16intrin.h>
+#endif
+
+#if defined(__AVX512FP16__) && defined(__AVX512VL__)
+#include <avx512vlfp16intrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_FP16 */
 /* INTEL_FEATURE_ISA_BF16 */
 /*
  * TODO: when BF16 is public change the #if checks below to also check:

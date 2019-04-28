@@ -593,8 +593,11 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
                         Features["avx512vbmi2"] = false;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_VP2INTERSECT
-    Features["avx512vp2intersect"] = false;
+                        Features["avx512vp2intersect"] = false;
 #endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#if INTEL_FEATURE_ISA_FP16
+                        Features["avx512fp16"] = false;
+#endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_BF16
                         Features["avx512bf16"] = false;
 #endif // INTEL_FEATURE_ISA_BF16
@@ -744,6 +747,9 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_BF16
              Name == "avx512bf16" ||
 #endif // INTEL_FEATURE_ISA_BF16
+#if INTEL_FEATURE_ISA_FP16
+             Name == "avx512fp16" ||
+#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
              Name == "avx512vnni" || Name == "avx512vbmi2") {
     if (Enabled)
@@ -752,6 +758,11 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     if ((Name.startswith("avx512vbmi") || Name == "avx512bitalg") && Enabled)
       Features["avx512bw"] = true;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    // Enable BW and VL if AVX512FP16 is being enabled.
+    if (Name == "avx512fp16" && Enabled)
+      Features["avx512bw"] = Features["avx512vl"] = true;
+#endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_BF16
     if (Name == "avx512bf16" && Enabled)
       Features["avx512bw"] = Features["avx512vl"] = true;
@@ -760,7 +771,18 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     // Also disable VBMI/VBMI2/BITALG if BWI is being disabled.
     if (Name == "avx512bw" && !Enabled)
       Features["avx512vbmi"] = Features["avx512vbmi2"] =
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      Features["avx512fp16"] =
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       Features["avx512bitalg"] = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    if (Name == "avx512vl" && !Enabled)
+      Features["avx512fp16"] = false;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   } else if (Name == "fma") {
     if (Enabled)
       setSSELevel(Features, AVX, Enabled);
@@ -872,6 +894,13 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 #endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+avx512er") {
       HasAVX512ER = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    } else if (Feature == "+avx512fp16") {
+      HasAVX512FP16 = true;
+      HasFloat16 = true;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+avx512pf") {
       HasAVX512PF = true;
     } else if (Feature == "+avx512dq") {
@@ -1318,6 +1347,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #endif // INTEL_CUSTOMIZATION
   if (HasAVX512ER)
     Builder.defineMacro("__AVX512ER__");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  if (HasAVX512FP16)
+    Builder.defineMacro("__AVX512FP16__");
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   if (HasAVX512PF)
     Builder.defineMacro("__AVX512PF__");
   if (HasAVX512DQ)
@@ -1556,6 +1591,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #endif // INTEL_FEATURE_ISA_BF16
 #endif // INTEL_CUSTOMIZATION
       .Case("avx512er", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      .Case("avx512fp16", true)
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       .Case("avx512pf", true)
       .Case("avx512dq", true)
       .Case("avx512bitalg", true)
@@ -1680,6 +1720,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #endif // INTEL_FEATURE_ISA_BF16
 #endif // INTEL_CUSTOMIZATION
       .Case("avx512er", HasAVX512ER)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      .Case("avx512fp16", HasAVX512FP16)
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       .Case("avx512pf", HasAVX512PF)
       .Case("avx512dq", HasAVX512DQ)
       .Case("avx512bitalg", HasAVX512BITALG)
