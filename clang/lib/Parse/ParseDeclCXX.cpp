@@ -2891,11 +2891,6 @@ Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
         ParseCXXNonStaticMemberInitializer(ThisDecl);
     } else if (HasStaticInitializer) {
       // Normal initializer.
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ374121: Xmain cannot find suitable existing template
-      // declaration.
-      Sema::ParsingFieldDeclsRAII GuardRAII(Actions, ThisDecl);
-#endif // INTEL_CUSTOMIZATION
       ExprResult Init = ParseCXXMemberInitializer(
           ThisDecl, DeclaratorInfo.isDeclarationOfFunction(), EqualLoc);
 
