@@ -190,9 +190,9 @@ HLSwitch::case_child_rbegin_internal(unsigned CaseNum) {
   if (CaseNum == 0) {
     return Children.rbegin();
   } else if (CaseNum == getNumCases()) {
-    return DefaultCaseBegin.getReverse();
+    return ++DefaultCaseBegin.getReverse();
   } else {
-    return CaseBegin[CaseNum].getReverse();
+    return ++CaseBegin[CaseNum].getReverse();
   }
 }
 
@@ -204,9 +204,9 @@ HLSwitch::case_child_rbegin_internal(unsigned CaseNum) const {
 HLSwitch::reverse_case_child_iterator
 HLSwitch::case_child_rend_internal(unsigned CaseNum) {
   if (CaseNum == 0) {
-    return DefaultCaseBegin.getReverse();
+    return ++DefaultCaseBegin.getReverse();
   } else {
-    return CaseBegin[CaseNum - 1].getReverse();
+    return ++CaseBegin[CaseNum - 1].getReverse();
   }
 }
 
