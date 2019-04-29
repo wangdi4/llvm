@@ -2496,9 +2496,8 @@ protected:
   DenseMap<Constant *, std::unique_ptr<VPConstant>> VPConstants;
 
   /// Holds all the external definitions representing an underlying Value
-  /// in this VPlan. The key is the underlying Value that uniquely identifies
-  /// each external definition.
-  DenseMap<Value *, std::unique_ptr<VPExternalDef>> VPExternalDefs;
+  /// in this VPlan. CFGBuilder ensures these are unique.
+  SmallVector<std::unique_ptr<VPExternalDef>, 16> VPExternalDefs;
 
   /// Holds all the external definitions representing an HIR underlying entity
   /// in this VPlan. The hash is based on the underlying HIR information that
@@ -2659,7 +2658,8 @@ public:
 
   /// Create or retrieve a VPExternalDef for a given Value \p ExtVal.
   VPExternalDef *getVPExternalDef(Value *ExtDef) {
-    return getExternalItem(VPExternalDefs, ExtDef);
+    VPExternalDefs.emplace_back(new VPExternalDef(ExtDef));
+    return VPExternalDefs.back().get();
   }
 
   /// Create or retrieve a VPExternalDef for a given non-decomposable DDRef \p

@@ -1161,14 +1161,8 @@ void VPlan::verifyVPConstants() const {
 
 void VPlan::verifyVPExternalDefs() const {
   SmallPtrSet<const Value *, 16> ValueSet;
-  for (const auto &Pair : VPExternalDefs) {
-    const Value *KeyVal = Pair.first;
-    assert(!isa<Constant>(KeyVal) && !isa<MetadataAsValue>(KeyVal) &&
-           "Unexpected underlying IR for external definition!");
-    assert(KeyVal == Pair.second->getUnderlyingValue() &&
-           "Value key and VPExternalDef's underlying Value must be the same!");
-    // Checking that an element is repeated in a map is unnecessary but it
-    // will catch bugs if the data structure is changed in the future.
+  for (const auto &Def : VPExternalDefs) {
+    const Value *KeyVal = Def->getUnderlyingValue();
     assert(!ValueSet.count(KeyVal) && "Repeated VPExternalDef!");
     ValueSet.insert(KeyVal);
   }
@@ -1284,7 +1278,7 @@ void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
   if (!VPExternalDefs.empty()) {
     OS << "External defs:\n";
     for (auto DI = VPExternalDefs.begin(); DI != VPExternalDefs.end(); DI++)
-      OS << *(DI->second) << "\n";
+      OS << *(*DI) << "\n";
   }
   if (!VPExternalDefsHIR.empty()) {
     OS << "External defs:\n";
