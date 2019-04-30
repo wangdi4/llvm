@@ -3197,11 +3197,11 @@ public:
 };
 
 // Represents information about single array object that contains information
-// about dimensions, indices and optional struct offsets for that array.
+// about dimensions and optional struct offsets for that array.
 class ArrayInfo {
   unsigned MinRank = -1;
 
-  SmallVector<DimInfo, 2> Dimensions;
+  SmallVector<DimInfo, 4> Dimensions;
   SmallVector<unsigned, 4> StructOffsets;
 
 public:
@@ -3259,6 +3259,22 @@ public:
 #endif
 };
 
+// A chain of GEP operators and Subscript intrinsics that may be
+// parsed as a single RegDDRef.
+//
+// It organizes information on indices in groups that correspond to the
+// same arrays. Struct offsets are stored as trailing offsets to the arrays.
+//
+// Assume a reference: (%p)[A].0[B][C].1.2[D]
+//                         |---||--------||-|
+//
+// During parsing, each |--| block was represented by ArrayInfo, where each
+// ArrayInfo was built of Dimensions and Offsets-
+//
+//   Dims: {[r:0,s:100,i:A,lb:0]}                     Offsets: {0}
+//   Dims: {[r:1,s:10,i:B,lb:0], [r:0,s:1,i:C,lb:0]}  Offsets: {1, 2}
+//   Dims: {[r:0,s:1,i:D,lb:0]}                       Offsets: {}
+//
 class HIRParser::GEPChain {
   const GEPOrSubsOperator *Base;
   IntegerType *OffsetTy;
@@ -3496,13 +3512,19 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const HIRParser &Parser,
 // Each new gep should either correspond to the existing information or add new
 // information, and new information should not conflict with existing one.
 //
-// Ex.: While parsing subscripts we may conclude some memory is accessed in
+// Ex.: assume the following chain-
+//
+//    %0 = gep [1000 x i32], [1000 x i32]* %p, 0, 0
+//    %1 = subs %0, r:1, s:40, i
+//    %2 = subs %1, r:0, s:4, j
+//
+// While parsing first two subscripts we may conclude some memory is accessed in
 // a 2D manner with a configuration-
 //
 //    [i:stride 40][j:stride 4]
 //
-// and having next operator: %0 = gep [1000 x i32], [1000 x i32]* %p, 0, 0
-// which correspond to 1D access manner with stride info-
+// and having next operator: %0, which correspond to 1D access manner with
+// stride info-
 //
 //    [0:stride 4000][0:stride 4]
 //
@@ -3534,15 +3556,30 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
   }
 
   // Check that strides match for existing ranks.
-  long MaxCommonRank = std::min(NextArr.getMaxRank(), CurArr.getMaxRank());
-  long MinCommonRank = std::max(NextArr.getMinRank(), CurArr.getMinRank());
-  for (long Rank = MaxCommonRank; Rank >= MinCommonRank; --Rank) {
+  // Note: it's possible that NextArr will not share any ranks with CurArr.
+  // For example it happens in the chain of subscripts-
+  //   %0 = subs %p, r:1, s1, i1
+  //   %1 = subs %0, r:0, s2, i2
+  // %0 subscript will not share any ranks with existing information.
+  unsigned MaxCommonRank = std::min(NextArr.getMaxRank(), CurArr.getMaxRank());
+  unsigned MinCommonRank = std::max(NextArr.getMinRank(), CurArr.getMinRank());
+  for (auto Rank = MinCommonRank; Rank <= MaxCommonRank; ++Rank) {
     auto *S1 = CurArr.getDim(Rank).getStride();
     auto *S2 = NextArr.getDim(Rank).getStride();
 
-    if (!S1 || !S2) {
+    // Skip gaps in current array info.
+    if (!S1) {
+      // Example chain for (%p)[a+x][b][c+y]:
+      //   %0 = gep [10 x [10 x i8]]* %p, a, b, c
+      //   %1 = subs %0, r:2, 100, x
+      //   %2 = subs %1, r:0, 1, y
+      //
+      // This condition is true when %2 and %1 are already parsed into CurrArr
+      // and %0 is in NextArr.
       continue;
     }
+
+    assert(S2 && "Unexpected stride gaps in NextArr");
 
     if (S1 != S2) {
       return false;
@@ -3570,11 +3607,42 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
 
   ArrayInfo &CurArr = Arrays.front();
 
-  // Merge common ranks of the next array info.
+  // Merging of NextArr into CurArr-
   if (!NextArr.offsets().empty()) {
-    // May drop existing dimension info and only use struct offsets.
+    // ex.: (%p)[0][a].1[b]
+    //
+    // %struct = type { i32, [4 x i8] }
+    // %0 = gep [10 x %struct]* %p, 0, a, 1
+    // %1 = gep [4 x i8]*, %0, 0, b
+    //
+    // NextArr: [s:80,i:0][s:8,i:a].1   // NextArr contain offsets.
+    // CurArr:  [s:4,i:0][s:1,i:b]
+    //
+    // Note: NextArr with struct offsets would be compatible only if the first
+    // subscript of CurArr is zero.
+    //
+    // In this case we just need to drop highest dimension of CurrArr and
+    // attach NextArr to the CurArr-
+    //
+    // CurArr:  [s:80,i:0][s:8,i:a].1[s:1,i:b]
+    //
+
+    // If CurArr contains a single dimension we don't want to loose existing
+    // information about its struct offsets.
     if (CurArr.getMaxRank() == CurArr.getMinRank()) {
-      // Means CurArr contains only one dimension.
+      // ex.: (%p)[0][a].1.5
+      //
+      // %struct = type { i32, %another_struct }
+      // %0 = gep [10 x %struct]* %p, 0, a, 1
+      // %1 = gep %another_struct*, %0, 0, 5
+      //
+      // NextArr: [s:80,i:0][s:8,i:a].1
+      // CurArr:  [s:4,i:0].5
+      //
+      // In that case we copy existing offsets from CurArr to NextArr and
+      // attach NextArr to the CurArr-
+      //
+      // CurArr:  [s:80,i:0][s:8,i:a].1.5
 
       // Append CurArr struct offsets
       NextArr.offsets().append(CurArr.offsets().begin(),
@@ -3584,6 +3652,20 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
 
     CurArr.pop_back();
   } else {
+    // Both CurrArr and NextArr have information about the same array.
+    // We need to merge dimensions of NextArr into CurArr.
+    //
+    // ex.: (%p)[a+x][b][c+y]:
+    // %0 = gep [10 x [10 x i8]]* %p, a, b, c
+    // %1 = subs %0, r:2, 100, x
+    // %2 = subs %1, r:0, 1, y
+    //
+    // Assume we already parsed %2, %1 and %0 is next operator.
+    //
+    // Ranks:        2          1        0
+    // NextArr: [s:100,i:a][s:10,i:b][s:1,i:c]
+    // CurArr:  [s:100,i:x]          [s:1,i:y]
+
     for (unsigned I = NextArr.getMinRank(), E = NextArr.getMaxRank(); I <= E;
          ++I) {
       auto &CurDim = CurArr.getOrCreate(I);
