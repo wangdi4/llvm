@@ -90,9 +90,6 @@ int32_t __tgt_rtl_run_target_team_region(int32_t ID, void *Entry, void **Args,
 void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HostPtr,
                                 void *HostBase);
 
-// Look up the target address for the given address and offset.
-void *__tgt_rtl_data_lookup(int32_t ID, void *TargetPtr, int64_t Offset);
-
 // Unlike __tgt_rtl_run_target_team_region, a loop descriptor for
 // multi-dimensional loop is passed to this function.
 int32_t __tgt_rtl_run_target_team_nd_region(int32_t ID, void *Entry,

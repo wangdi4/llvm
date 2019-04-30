@@ -42,7 +42,6 @@ struct RTLInfoTy {
   typedef int32_t(data_retrieve_nowait_ty)(int32_t, void *, void *, int64_t,
                                            void *);
   typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *);
-  typedef void *(data_lookup_ty)(int32_t, void *, int64_t);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
   typedef int32_t(run_team_nd_region_nowait_ty)(int32_t, void *, void **,
@@ -82,7 +81,6 @@ struct RTLInfoTy {
   data_submit_nowait_ty *data_submit_nowait;
   data_retrieve_nowait_ty *data_retrieve_nowait;
   data_alloc_base_ty *data_alloc_base;
-  data_lookup_ty *data_lookup;
   run_team_nd_region_ty *run_team_nd_region;
   run_team_nd_region_nowait_ty *run_team_nd_region_nowait;
   run_region_nowait_ty *run_region_nowait;
@@ -108,8 +106,7 @@ struct RTLInfoTy {
         load_binary(0), data_alloc(0), data_submit(0), data_retrieve(0),
 #if INTEL_COLLAB
         data_delete(0), run_region(0), run_team_region(0),
-        data_submit_nowait(0), data_retrieve_nowait(0),
-        data_alloc_base(0), data_lookup(0),
+        data_submit_nowait(0), data_retrieve_nowait(0), data_alloc_base(0),
         run_team_nd_region(0), run_team_nd_region_nowait(0),
         run_region_nowait(0), run_team_region_nowait(0), isUsed(false),
 #else
@@ -138,7 +135,6 @@ struct RTLInfoTy {
     data_submit_nowait = r.data_submit_nowait;
     data_retrieve_nowait = r.data_retrieve_nowait;
     data_alloc_base = r.data_alloc_base;
-    data_lookup = r.data_lookup;
     run_team_nd_region = r.run_team_nd_region;
     run_team_nd_region_nowait = r.run_team_nd_region_nowait;
     run_region_nowait = r.run_region_nowait;
