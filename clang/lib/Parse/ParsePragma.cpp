@@ -236,6 +236,11 @@ struct PragmaMaxConcurrencyHandler : public PragmaHandler {
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
                     Token &Tok);
 };
+struct PragmaMaxInterleavingHandler : public PragmaHandler {
+  PragmaMaxInterleavingHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
+                    Token &Tok);
+};
 struct PragmaIVDepHandler : public PragmaHandler {
   PragmaIVDepHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
@@ -433,6 +438,9 @@ void Parser::initializePragmaHandlers() {
     MaxConcurrencyHandler =
         llvm::make_unique<PragmaMaxConcurrencyHandler>("max_concurrency");
     PP.AddPragmaHandler(MaxConcurrencyHandler.get());
+    MaxInterleavingHandler =
+        llvm::make_unique<PragmaMaxInterleavingHandler>("max_interleaving");
+    PP.AddPragmaHandler(MaxInterleavingHandler.get());
     IIAtMostHandler = llvm::make_unique<PragmaHLSConstArgHandler>("ii_at_most");
     PP.AddPragmaHandler(IIAtMostHandler.get());
     IIAtLeastHandler =
@@ -601,6 +609,8 @@ void Parser::resetPragmaHandlers() {
     IIHandler.reset();
     PP.RemovePragmaHandler(MaxConcurrencyHandler.get());
     MaxConcurrencyHandler.reset();
+    PP.RemovePragmaHandler(MaxInterleavingHandler.get());
+    MaxInterleavingHandler.reset();
     PP.RemovePragmaHandler(IIAtMostHandler.get());
     IIAtMostHandler.reset();
     PP.RemovePragmaHandler(IIAtLeastHandler.get());
@@ -3377,6 +3387,53 @@ void PragmaMaxConcurrencyHandler::HandlePragma(Preprocessor &PP,
     return;
   }
 
+  // Generate the hint token.
+  auto TokenArray = llvm::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false);
+}
+
+/// Handle the max_interleaving pragma.
+///  #pragma max_interleaving [(]hint-val[)]
+///
+///  hint-val:
+///    constant-expression
+///
+/// This pragma is used to limit the degree of interleaving on a
+/// loop in a component. The degree of interleaving of a loop is the maximum
+/// number of invocations of its containing loop that may be executing the loop
+/// at any given time.
+///
+void PragmaMaxInterleavingHandler::HandlePragma(Preprocessor &PP,
+                                                PragmaIntroducerKind Introducer,
+                                                Token &Tok) {
+  Token PragmaName = Tok;
+  PP.Lex(Tok);
+  if (Tok.is(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_value)
+        << "max_interleaving";
+    return;
+  }
+  // #pragma max_interleaving <N>
+  // Read '(' if it exists.
+  bool ValueInParens = Tok.is(tok::l_paren);
+  if (ValueInParens)
+    PP.Lex(Tok);
+  auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
+  Token Option;
+  Option.startToken();
+  if (ParseLoopHintValue(PP, Tok, PragmaName, Option, ValueInParens, *Info))
+    return;
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "max_interleaving";
+    return;
+  }
   // Generate the hint token.
   auto TokenArray = llvm::make_unique<Token[]>(1);
   TokenArray[0].startToken();

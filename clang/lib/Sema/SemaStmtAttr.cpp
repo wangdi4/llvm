@@ -88,6 +88,8 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   bool PragmaII = PragmaNameLoc->Ident->getName() == "ii";
   bool PragmaMaxConcurrency =
       PragmaNameLoc->Ident->getName() == "max_concurrency";
+  bool PragmaMaxInterleaving =
+      PragmaNameLoc->Ident->getName() == "max_interleaving";
   bool PragmaIVDep = PragmaNameLoc->Ident->getName() == "ivdep";
   bool PragmaIIAtMost = PragmaNameLoc->Ident->getName() == "ii_at_most";
   bool PragmaIIAtLeast = PragmaNameLoc->Ident->getName() == "ii_at_least";
@@ -148,6 +150,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
             .Case("loop_coalesce", "#pragma loop_coalesce")
             .Case("ii", "#pragma ii")
             .Case("max_concurrency", "#pragma max_concurrency")
+            .Case("max_interleaving", "#pragma max_interleaving")
             .Case("ivdep", "#pragma ivdep")
             .Case("ii_at_most", "pragma il_at_most")
             .Case("ii_at_least", "pragma il_at_least")
@@ -232,6 +235,9 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     State = LoopHintAttr::Numeric;
   } else if (PragmaMaxConcurrency) {
     Option = LoopHintAttr::MaxConcurrency;
+    State = LoopHintAttr::Numeric;
+  } else if (PragmaMaxInterleaving) {
+    Option = LoopHintAttr::MaxInterleaving;
     State = LoopHintAttr::Numeric;
   } else if (PragmaIVDep) {
     if (ValueExpr && ArrayExpr) {
@@ -632,6 +638,7 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // IVDepBack
                    {nullptr, nullptr}, // LoopCoalesce
                    {nullptr, nullptr}, // MaxConcurrency
+                   {nullptr, nullptr}, // MaxInterleaving
                    {nullptr, nullptr}, // SpeculatedIterations
                    {nullptr, nullptr}, // DisableLoopPipelining
                    {nullptr, nullptr}, // ForceHyperopt
@@ -668,6 +675,7 @@ CheckForIncompatibleAttributes(Sema &S,
       IVDepBack,
       LoopCoalesce,
       MaxConcurrency,
+      MaxInterleaving,
       SpeculatedIterations,
       DisableLoopPipelining,
       ForceHyperopt,
@@ -708,6 +716,9 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::MaxConcurrency:
       Category = MaxConcurrency;
+      break;
+    case LoopHintAttr::MaxInterleaving:
+      Category = MaxInterleaving;
       break;
     case LoopHintAttr::SpeculatedIterations:
       Category = SpeculatedIterations;
@@ -828,6 +839,7 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::DisableLoopPipelining ||
                Option == LoopHintAttr::LoopCoalesce ||
                Option == LoopHintAttr::MaxConcurrency ||
+               Option == LoopHintAttr::MaxInterleaving ||
                Option == LoopHintAttr::VectorizeAlways ||
                Option == LoopHintAttr::LoopCount ||
                Option == LoopHintAttr::LoopCountMin ||
@@ -913,13 +925,16 @@ CheckForIncompatibleAttributes(Sema &S,
          HintAttrs[IVDep].NumericAttr != nullptr ||
          HintAttrs[IVDep].StateAttr != nullptr ||
          HintAttrs[ForceHyperopt].StateAttr != nullptr ||
-         HintAttrs[MaxConcurrency].NumericAttr != nullptr)) {
+         HintAttrs[MaxConcurrency].NumericAttr != nullptr ||
+         HintAttrs[MaxInterleaving].NumericAttr != nullptr)) {
 
       const LoopHintAttr *PrevAttr = IVDepAttr;
       if (HintAttrs[II].NumericAttr)
         PrevAttr = HintAttrs[II].NumericAttr;
       else if (HintAttrs[MaxConcurrency].NumericAttr)
         PrevAttr = HintAttrs[MaxConcurrency].NumericAttr;
+      else if (HintAttrs[MaxInterleaving].NumericAttr)
+        PrevAttr = HintAttrs[MaxInterleaving].NumericAttr;
       else if (HintAttrs[IVDep].NumericAttr)
         PrevAttr = HintAttrs[IVDep].NumericAttr;
       else if (HintAttrs[IVDep].StateAttr)
@@ -934,6 +949,7 @@ CheckForIncompatibleAttributes(Sema &S,
               << LH->getDiagnosticName(Policy);
     } else if (HintAttrs[DisableLoopPipelining].StateAttr != nullptr &&
                (Category == II || Category == MaxConcurrency ||
+                Category == MaxInterleaving ||
                 Category == SpeculatedIterations || Category == ForceHyperopt ||
                 (Category == Unroll && (IVDepAttr || CategoryState.StateAttr ||
                                         CategoryState.NumericAttr)))) {

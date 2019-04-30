@@ -1989,6 +1989,7 @@ private:  //***INTEL
   std::unique_ptr<PragmaHandler> IIHandler;
   std::unique_ptr<PragmaHandler> IVDepHandler;
   std::unique_ptr<PragmaHandler> MaxConcurrencyHandler;
+  std::unique_ptr<PragmaHandler> MaxInterleavingHandler;
   std::unique_ptr<PragmaHandler> IIAtMostHandler;
   std::unique_ptr<PragmaHandler> IIAtLeastHandler;
   std::unique_ptr<PragmaHandler> MinIIAtTargetFmaxHandler;

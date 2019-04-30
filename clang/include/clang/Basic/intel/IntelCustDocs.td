@@ -960,6 +960,58 @@ IR:
   }];
 }
 
+def PragmaMaxInterleavingDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker="CMPLRLLVM-9099";
+  let Owner = "achikin";
+  let Content = [{
+The ``max_interleaving`` pragma instructs the compiler to restrict the maximum number
+of interleaved invocations executing the loop to a limit specified on the integral parameter.
+
+Syntax:
+
+.. code-block:: text
+
+  #pragma max_interleaving [<constant-int>]
+
+Example:
+
+.. code-block:: c
+
+  void foo() {
+    for(int i=0;i<8;++i) {
+        #pragma max_interleaving(1)
+        for(int j=0;j<8;++j) {}
+    }
+  }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump -o - -fintel-compatibility t.c
+
+.. code-block:: text
+
+  AttributedStmt 0xf47e1c8 <<invalid sloc>, line:4:31>
+  |-LoopHintAttr 0xf47e1a0 <line:3:17, col:36> Implicit max_interleaving MaxInterleaving Numeric
+  | |-IntegerLiteral 0xf47dfb8 <col:34> 'int' 1
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - -fintel-compatibility t.c
+
+.. code-block:: llvm
+
+  br label %for.cond1, !llvm.loop !2
+
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.max_interleaving.count", i32 1}
+  }];
+}
+
 def HLSPragmaDocs : Documentation {
   let Category = DocCatIntelHLS;
   let BugTracker = "CMPLRLLVM-5584";

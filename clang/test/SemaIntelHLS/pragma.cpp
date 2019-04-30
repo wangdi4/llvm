@@ -80,6 +80,21 @@ void foo_max_concurrency()
   for (int i=0;i<32;++i) {}
 }
 
+//CHECK: FunctionDecl{{.*}}foo_max_interleaving
+void foo_max_interleaving()
+{
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}MaxInterleaving Numeric
+  //CHECK-NEXT: IntegerLiteral{{.*}}1
+  #pragma max_interleaving 1
+  for (int i=0;i<32;++i) {}
+  #pragma max_interleaving // expected-warning {{expected value}}
+  for (int i=0;i<32;++i) {}
+  #pragma max_interleaving 4
+  #pragma max_interleaving 8 // expected-error {{duplicate directives}}
+  for (int i=0;i<32;++i) {}
+}
+
 struct IV_S {
   int arr1[10];
 } ivs[20];

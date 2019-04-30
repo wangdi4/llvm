@@ -44,6 +44,16 @@ void foo_max_concurrency()
   for (int i=0;i<32;++i) { bar(i); }
 }
 
+//CHECK-LABEL: foo_max_interleaving
+void foo_max_interleaving()
+{
+  //CHECK: br{{.*}}!llvm.loop [[MAXI1:![0-9]+]]
+  for (int j=0;j<32;++j) {
+    #pragma max_interleaving 1
+    for (int i=0;i<32;++i) { bar(i); }
+  }
+}
+
 //CHECK-LABEL: foo_ii_at_most
 void foo_ii_at_most()
 {
@@ -199,6 +209,8 @@ void foo_ivdep(int select)
 //CHECK: [[II1A]] = !{!"llvm.loop.ii.count", i32 4}
 //CHECK: [[MAXC1]] = distinct !{[[MAXC1]], [[MAXC1A:![0-9]+]]}
 //CHECK: [[MAXC1A]] = !{!"llvm.loop.max_concurrency.count", i32 4}
+//CHECK: [[MAXI1]] = distinct !{[[MAXI1]], [[MAXI1A:![0-9]+]]}
+//CHECK: [[MAXI1A]] = !{!"llvm.loop.max_interleaving.count", i32 1}
 //CHECK: [[IIMOST1]] = distinct !{[[IIMOST1]], [[IIMOST1A:![0-9]+]]}
 //CHECK: [[IIMOST1A]] = !{!"llvm.loop.intel.ii.at.most.count", i32 4}
 //CHECK: [[IILEAST1]] = distinct !{[[IILEAST1]], [[IILEAST1A:![0-9]+]]}
