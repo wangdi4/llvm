@@ -65,35 +65,48 @@ public:
 
 private:
   bool doIdentityMatrixIdiomRecognition(HLLoop *OuterLoop, HLLoop *InnerLoop);
-  bool isLegal(HLLoop *InnerLoop, RegDDRef *&TRef, RegDDRef *&FRef);
+  bool isLegal(HLLoop *InnerLoop, RegDDRef *&TRef, RegDDRef *&FRef,
+               HLInst *&SelectHInst) const;
 };
 } // namespace
 
+// Check whether the inner loop has the pattern like this -
+//
+//  %. = (i1 == i2) ? 1.000000e+00 : 0.000000e+00;
+// (@A)[0][i1][i2] = %.;
+//
+// and return the true and false Refs and SelectHInst.
 bool HIRIdentityMatrixIdiomRecognition::isLegal(HLLoop *InnerLoop,
                                                 RegDDRef *&TRef,
-                                                RegDDRef *&FRef) {
+                                                RegDDRef *&FRef,
+                                                HLInst *&SelectHInst) const {
   if (InnerLoop->getNumChildren() != 2) {
     return false;
   }
 
-  auto FirstInst = dyn_cast<HLInst>(InnerLoop->getFirstChild());
-  auto Inst = FirstInst ? FirstInst->getLLVMInstruction() : nullptr;
+  SelectHInst = dyn_cast<HLInst>(InnerLoop->getFirstChild());
+  auto Inst = SelectHInst ? SelectHInst->getLLVMInstruction() : nullptr;
 
   if (!(Inst && isa<SelectInst>(Inst))) {
     return false;
   }
 
   // Check: comparison is != or ==
-  const HLPredicate Pred = FirstInst->getPredicate();
+  const HLPredicate Pred = SelectHInst->getPredicate();
   if (!(Pred == CmpInst::ICMP_NE || Pred == CmpInst::ICMP_EQ)) {
     return false;
   }
 
-  RegDDRef *TmpRef = FirstInst->getOperandDDRef(0);
-  RegDDRef *LHSRef = FirstInst->getOperandDDRef(1);
-  RegDDRef *RHSRef = FirstInst->getOperandDDRef(2);
-  RegDDRef *TrueRef = FirstInst->getOperandDDRef(3);
-  RegDDRef *FalseRef = FirstInst->getOperandDDRef(4);
+  RegDDRef *TmpRef = SelectHInst->getOperandDDRef(0);
+
+  if (!TmpRef->isTerminalRef()) {
+    return false;
+  }
+
+  RegDDRef *LHSRef = SelectHInst->getOperandDDRef(1);
+  RegDDRef *RHSRef = SelectHInst->getOperandDDRef(2);
+  RegDDRef *TrueRef = SelectHInst->getOperandDDRef(3);
+  RegDDRef *FalseRef = SelectHInst->getOperandDDRef(4);
 
   if (Pred == CmpInst::ICMP_NE) {
     std::swap(TrueRef, FalseRef);
@@ -158,26 +171,30 @@ bool HIRIdentityMatrixIdiomRecognition::isLegal(HLLoop *InnerLoop,
     }
   }
 
-  FirstInst->removeOperandDDRef(3);
-  FirstInst->removeOperandDDRef(4);
   TRef = TrueRef;
   FRef = FalseRef;
+
   return true;
 }
 
 bool HIRIdentityMatrixIdiomRecognition::doIdentityMatrixIdiomRecognition(
     HLLoop *OuterLoop, HLLoop *InnerLoop) {
-  unsigned InnerLevel = InnerLoop->getNestingLevel();
-  unsigned OuterLevel = InnerLevel - 1;
-
   RegDDRef *TrueRef = nullptr;
   RegDDRef *FalseRef = nullptr;
+  HLInst *SelectHInst = nullptr;
 
-  if (!isLegal(InnerLoop, TrueRef, FalseRef)) {
+  if (!isLegal(InnerLoop, TrueRef, FalseRef, SelectHInst)) {
     return false;
   }
 
-  HLNodeUtils::remove(InnerLoop->getFirstChild());
+  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(InnerLoop);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
+      OuterLoop);
+
+  SelectHInst->removeOperandDDRef(3);
+  SelectHInst->removeOperandDDRef(4);
+
+  HLNodeUtils::remove(SelectHInst);
 
   HLInst *HInst = cast<HLInst>(InnerLoop->getLastChild());
   HInst->setRvalDDRef(FalseRef);
@@ -191,14 +208,14 @@ bool HIRIdentityMatrixIdiomRecognition::doIdentityMatrixIdiomRecognition(
 
   auto I = LvalDDRef->canon_begin();
 
+  unsigned InnerLevel = InnerLoop->getNestingLevel();
+  unsigned OuterLevel = InnerLevel - 1;
+
   (*I)->setIVCoeff(OuterLevel, 0, 1);
   (*I)->removeIV(InnerLevel);
 
   HLNodeUtils::insertAfter(OuterLoop, DiagonalLoop);
 
-  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(InnerLoop);
-  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
-      OuterLoop);
   return true;
 }
 
