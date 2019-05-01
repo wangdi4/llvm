@@ -683,13 +683,10 @@ private:
   /// \param [out]    MapTypes        array of map types.
   /// \param [out]    hasRuntimeEvaluationCaptureSize
   ///                 size cannot be determined at compile time.
-  /// \param [in,out] IsFirstExprFlag flag to indicate whether it is the
-  ///                 first pointer.
   void genTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 SmallVectorImpl<uint64_t> &MapTypes,
-                                bool &hasRuntimeEvaluationCaptureSize,
-                                bool &IsFirstExprFlag);
+                                bool &hasRuntimeEvaluationCaptureSize);
 
   /// Return the map modifiers for the firstprivate.
   uint64_t getMapModifiersForFirstPrivate();
@@ -1054,7 +1051,7 @@ private:
   };
 
   /// Returns the corresponding flag for a given map clause modifier.
-  uint64_t getMapTypeFlag(MapItem *MpI, bool AddPtrFlag,
+  uint64_t getMapTypeFlag(MapItem *MpI,
                          bool AddrIsTargetParamFlag,
                          bool IsFirstComponentFlag);
 

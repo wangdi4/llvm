@@ -70,11 +70,6 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   MapClause const &MpClause = W->getMap();
   if (MpClause.empty())
     return;
-
-  bool ForceMapping =
-      isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
-      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
-
   IRBuilder<> Builder(W->getEntryBBlock()->getFirstNonPHI());
 
   for (auto *Item : MpClause.items()) {
@@ -85,11 +80,6 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
       MapAggrTy *Aggr = MapChain[I];
       Value *SectionPtr = Aggr->getSectionPtr();
       resetValueInOmpClauseGeneric(W, SectionPtr);
-
-      if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
-          I != 0 && !ForceMapping)
-        Builder.CreateStore(SectionPtr, Aggr->getBasePtr());
-
       Value *Size = Aggr->getSize();
       if (!dyn_cast<ConstantInt>(Size))
         resetValueInOmpClauseGeneric(W, Size);
@@ -636,7 +626,7 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
 }
 
 // Returns the corresponding flag for a given map clause modifier.
-uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
+uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
                                             bool AddrIsTargetParamFlag,
                                             bool IsFirstComponentFlag) {
   uint64_t Res = 0u;
@@ -669,7 +659,7 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI, bool AddrPtrFlag,
   // the entry of function getMapTypeFlag, it returns TGT_MAP_TARGET_PARAM.
   if (AddrIsTargetParamFlag)
     Res |= TGT_MAP_TARGET_PARAM;
-  else if (AddrPtrFlag)
+  else
     Res |= TGT_MAP_PTR_AND_OBJ | getMemberOfFlag();
 
   return Res;
@@ -691,8 +681,7 @@ uint64_t VPOParoptTransform::generateDefaultMap() {
 void VPOParoptTransform::genTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
-    bool &hasRuntimeEvaluationCaptureSize,
-    bool &IsFirstExprFlag) {
+    bool &hasRuntimeEvaluationCaptureSize) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTgtInformationForPtrs:"
                     << " ConstSizes.size()=" << ConstSizes.size()
@@ -707,12 +696,10 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
 
   MapClause const &MpClause = W->getMap();
-  bool Match = false;
   for (MapItem *MapI : MpClause.items()) {
     if (!ForceMapping &&
         (MapI->getOrig() != V || !MapI->getOrig()))
       continue;
-    Match = true;
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
       MapChainTy const &MapChain = MapI->getMapChain();
@@ -730,64 +717,16 @@ void VPOParoptTransform::genTgtInformationForPtrs(
                                                 ConstValue->getSExtValue()));
         }
         MapTypes.push_back(
-            getMapTypeFlag(MapI, !IsFirstExprFlag,
+            getMapTypeFlag(MapI,
                 MapChain.size() > 1 ? false : true,
                 I == 0 ? true : false));
-        IsFirstExprFlag = false;
-        // FIXME: this has to be fixed. Code generation on the host must not
-        //        depend on the fact that user passed -fopenmp-targets=spirv64
-        //        or not. There are several calls to deviceTriplesHasSPIRV()
-        //        in this file, and they all relate to a single change-set.
-        //        I am not yet sure what is going on here, but basically
-        //        we need to configure map entries for all base and section
-        //        pointers. In case of WRNTargetNode, we may ignore those
-        //        map items that do not end up in the parameter list
-        //        of the outline function, unless they are mapped ALWAYS.
-        //        Right now we iterate through all parameters of the outline
-        //        function, but it looks like we should iterate through
-        //        the map clauses and match them to the parameters:
-        //        if a map item is ALWAYS and it does not match any parameter,
-        //        we must still create a map entry for it.
-        if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
-            I == 0 && !ForceMapping)
-          break;
       }
     } else {
       assert(!MapI->getIsArraySection() &&
              "Map with an array section must have a map chain.");
       ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                             DL.getTypeAllocSize(T)));
-      MapTypes.push_back(getMapTypeFlag(MapI, !IsFirstExprFlag, true, true));
-    }
-    IsFirstExprFlag = false;
-  }
-  if (deviceTriplesHasSPIRV() && Match == false && !ForceMapping) {
-    for (MapItem *MapI : MpClause.items()) {
-      if (MapI->getIsMapChain()) {
-        MapChainTy const &MapChain = MapI->getMapChain();
-        for (unsigned I = 1; I < MapChain.size(); ++I) {
-          MapAggrTy *Aggr = MapChain[I];
-          if (Aggr->getSectionPtr() != V)
-            continue;
-          auto ConstValue = dyn_cast<ConstantInt>(Aggr->getSize());
-          if (!ConstValue) {
-            hasRuntimeEvaluationCaptureSize = true;
-            Type *T = MapI->getOrig()->getType()->getPointerElementType();
-            ConstSizes.push_back(ConstantInt::get(
-              Type::getInt64Ty(C), DL.getTypeAllocSize(T)));
-          } else {
-            // Sign extend the constant to signed 64-bit integer.
-            // This is the format of arg_sizes passed to __tgt_target.
-            ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                                  ConstValue->getSExtValue()));
-          }
-          MapTypes.push_back(
-            getMapTypeFlag(MapI, !IsFirstExprFlag,
-            true,
-            I == 0 ? true : false));
-          IsFirstExprFlag = false;
-        }
-      }
+      MapTypes.push_back(getMapTypeFlag(MapI, true, true));
     }
   }
 
@@ -994,23 +933,19 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
     SmallVector<Constant *, 16> ConstSizes;
     SmallVector<uint64_t, 16> MapTypes;
-    bool IsFirstExprFlag = true;
 
     if (ForceMapping)
       genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
-                               hasRuntimeEvaluationCaptureSize,
-                               IsFirstExprFlag);
+                               hasRuntimeEvaluationCaptureSize);
     else {
       for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
         genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes,
-                                 hasRuntimeEvaluationCaptureSize,
-                                 IsFirstExprFlag);
+                                 hasRuntimeEvaluationCaptureSize);
       }
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
         genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
-                                 MapTypes, hasRuntimeEvaluationCaptureSize,
-                                 IsFirstExprFlag);
+                                 MapTypes, hasRuntimeEvaluationCaptureSize);
     }
 
     Info.NumberOfPtrs = MapTypes.size();
@@ -1207,9 +1142,6 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
         genOffloadArraysInitUtil(
             Builder, Aggr->getBasePtr(), Aggr->getSectionPtr(), Aggr->getSize(),
             Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
-        if (deviceTriplesHasSPIRV() && MapChain.size() > 1 &&
-            I == 0 && !ForceMapping)
-          break;
       }
     } else {
       assert(!MapI->getIsArraySection() &&
@@ -1217,27 +1149,6 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
       genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr,
                                Info, ConstSizes,
                                Cnt, hasRuntimeEvaluationCaptureSize);
-    }
-  }
-
-  if (deviceTriplesHasSPIRV() && Match == false &&
-      !ForceMapping) {
-    for (MapItem *MapI : MpClause.items()) {
-      if (MapI->getIsMapChain()) {
-        MapChainTy const &MapChain = MapI->getMapChain();
-        for (unsigned I = 1; I < MapChain.size(); ++I) {
-          MapAggrTy *Aggr = MapChain[I];
-          if (Aggr->getSectionPtr() != BPVal)
-            continue;
-          genOffloadArraysInitUtil(
-            Builder, Aggr->getSectionPtr(), Aggr->getSectionPtr(), Aggr->getSize(),
-            Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
-          Match = true;
-          break;
-        }
-      }
-      if (Match)
-        break;
     }
   }
 
@@ -1275,6 +1186,15 @@ void VPOParoptTransform::genOffloadArraysInit(
     return;
   }
 
+  // FIXME: this code partly duplicates genTargetInitCode().
+  //        Code in genOffloadArraysInitForClause() partly duplicates
+  //        genTgtInformationForPtr(). We walk through the same list
+  //        of arguments and create offload data structures in one place,
+  //        while generating dynamic initialization in another place.
+  //        This is a potential source of issues, since the data
+  //        structures and the initializations must be properly ordered.
+  //        We'd better have all the information in some structure,
+  //        e.g. TgDataInfo, and just process it here.
   for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
     BPVal = Call->getArgOperand(II);
 
@@ -1283,9 +1203,7 @@ void VPOParoptTransform::genOffloadArraysInit(
                                   hasRuntimeEvaluationCaptureSize, BPVal, Match,
                                   Builder, Cnt);
 
-    // For target data don't add BPVals that don't match the map clauses.
-    // They should not be sent to the __tgt_target_data_* runtime.
-    if (!Match && !isa<WRNTargetDataNode>(W))
+    if (!Match)
       genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
                                Cnt, hasRuntimeEvaluationCaptureSize);
   }

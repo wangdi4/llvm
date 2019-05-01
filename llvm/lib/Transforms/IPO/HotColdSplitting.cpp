@@ -336,6 +336,7 @@ Function *HotColdSplitting::extractColdRegion(const BlockSequence &Region,
                    /* AllowAlloca */ false,
 #if INTEL_COLLAB
                    /* AllowEHTypeID */ false,
+                   /* OrderedArgs */ nullptr,
 #endif // INTEL_COLLAB
                    /* Suffix */ "cold." + std::to_string(Count));
 

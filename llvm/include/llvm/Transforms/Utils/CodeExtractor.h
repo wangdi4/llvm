@@ -19,6 +19,9 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include <limits>
+#if INTEL_COLLAB
+#include <utility>
+#endif // INTEL_COLLAB
 
 namespace llvm {
 
@@ -67,6 +70,18 @@ class Value;
     unsigned NumExitBlocks = std::numeric_limits<unsigned>::max();
     Type *RetTy;
 
+#if INTEL_COLLAB
+    // If there is an associated "omp target" directive for this sequence of
+    // basic blocks then keep track of the order in which mapped variables
+    // appear in the map clause.
+  public:
+    using ArgWithAlways = std::pair<Value *, unsigned>;
+    using OrderedArgs = SetVector<ArgWithAlways>;
+
+  private:
+    const OrderedArgs *TgtClauseArgs = nullptr;
+#endif // INTEL_COLLAB
+
     // Suffix to use when creating extracted function (appended to the original
     // function name + "."). If empty, the default is to use the entry block
     // label, if non-empty, otherwise "extracted".
@@ -95,6 +110,7 @@ class Value;
                   bool AllowVarArgs = false, bool AllowAlloca = false,
 #if INTEL_COLLAB
                   bool AllowEHTypeID = false,
+                  const OrderedArgs *TgtClauseArgs = nullptr,
 #endif // INTEL_COLLAB
                   std::string Suffix = "");
 

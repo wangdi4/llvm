@@ -55,10 +55,10 @@ entry:
 
 ; Check that the captured size expression is sent in to an outlined
 ; function for the target construct.
-; CHECK: call void [[OUTLINE_FUNCTION:@__omp_offloading.+foo.+]](i64* [[SIZE_ADDR]], double** {{.+}}, double* %vla)
+; CHECK: call void [[OUTLINE_FUNCTION:@__omp_offloading.+foo.+]](double** {{.+}}, i64* [[SIZE_ADDR]], double* %vla)
 ; Check that inside the outlined function, the captured size is loaded
 ; and used in allocating a local VLA for %vla
-; CHECK: define internal void [[OUTLINE_FUNCTION]](i64* [[SIZE_ADDR_ARG:[^ ]+]], double** {{.*}}, double* {{.+}})
+; CHECK: define internal void [[OUTLINE_FUNCTION]](double** {{.*}}, i64* [[SIZE_ADDR_ARG:[^ ]+]], double* {{.+}})
 ; CHECK: [[VLA_SIZE_VAL:[^ ]+]] = load i64, i64* [[SIZE_ADDR_ARG]]
 ; CHECK: {{.+}} = alloca double, i64 [[VLA_SIZE_VAL]]
 
