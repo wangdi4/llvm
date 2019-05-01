@@ -273,6 +273,7 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AllowVarArgs, bool AllowAlloca,
 #if INTEL_COLLAB
                              bool AllowEHTypeID,
+                             const OrderedArgs *TgtClauseArgs,
 #endif // INTEL_COLLAB
                              std::string Suffix)
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
@@ -280,10 +281,10 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
                                      AllowEHTypeID)),
+      TgtClauseArgs(TgtClauseArgs),
 #else // INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
 #endif // INTEL_COLLAB
-
       Suffix(Suffix) {}
 
 CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
@@ -1478,6 +1479,38 @@ Function *CodeExtractor::extractCodeRegion() {
 
   // Find inputs to, outputs from the code region.
   findInputsOutputs(inputs, outputs, SinkingCands);
+
+#if INTEL_COLLAB
+  // Reorder inputs to match the order in which the arguments appear in the
+  // associated "omp target" clause. Arguments appearing in the clause but not
+  // captured by the CodeExtractor will be optimized away unless they have the
+  // "ALWAYS" attribute. If there is no target directive, TgtClauseArgs will be
+  // NULL, so the inputs ValueSet is left untouched.
+  if (TgtClauseArgs) {
+#ifndef NDEBUG
+    // Check whether the CodeExtractor captured an argument which does not
+    // appear in the list of arguments coming from the map/fp clause
+    auto InputInClause = [this](Value *V) {
+      return any_of(this->TgtClauseArgs->begin(), this->TgtClauseArgs->end(),
+                    [V](const ArgWithAlways &P) { return P.first == V; });
+    };
+    assert(all_of(inputs, InputInClause) &&
+           "CodeExtractor captured out-of-clause argument.");
+#endif // NDEBUG
+
+    ValueSet OrderedInputs;
+    for (const auto &I : *TgtClauseArgs) {
+      if (I.second) {
+        OrderedInputs.insert(I.first);
+      } else if (any_of(inputs.begin(), inputs.end(),
+                        [I](Value *V) { return V == I.first; })) {
+        OrderedInputs.insert(I.first);
+      }
+    }
+
+    inputs = OrderedInputs;
+  }
+#endif // INTEL_COLLAB
 
   // Now sink all instructions which only have non-phi uses inside the region
   for (auto *II : SinkingCands)

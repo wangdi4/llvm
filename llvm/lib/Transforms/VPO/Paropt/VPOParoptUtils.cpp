@@ -3329,8 +3329,34 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
            dbgs() << "}\n\n");
 #endif
 
+  // If the function we are outlining is associated with a "omp target"
+  // construct, then the generated IR may be different for the host and the
+  // device. This may cause trouble because the CodeExtractor infers the
+  // arguments of the outlined function based on the order in which these
+  // variables appear inside the function body (in IR representation). Different
+  // codegen schemes on different devices may result in IR code where the order
+  // of appearance is different. In order to enforce a consistent interface, we
+  // pass to the CodeExtractor a vector of arguments in the order they appear in
+  // the target clause. This order will be enforced across all devices.
+  // Arguments include mapped and firstprivate variables both explicitly
+  // appearing in the target clause and implicitly included by the compiler.
+  CodeExtractor::OrderedArgs TgtClauseArgs;
+
+  if (W.getIsTarget()) {
+    // Get mapped arguments
+    for (auto *Item : W.getMap().items()) {
+      TgtClauseArgs.insert(
+          std::make_pair(Item->getOrig(), Item->getIsMapAlways()));
+    }
+    // Get firstprivate arguments
+    for (auto *Item : W.getFpriv().items()) {
+      TgtClauseArgs.insert(std::make_pair(Item->getOrig(), false));
+    }
+  }
+
   CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
-                   nullptr, nullptr, AC, false, true, true);
+                   nullptr, nullptr, AC, false, true, true,
+                   W.getIsTarget() ? &TgtClauseArgs : nullptr);
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
   auto *NewFunction = CE.extractCodeRegion();
