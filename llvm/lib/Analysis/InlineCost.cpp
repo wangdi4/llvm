@@ -3911,6 +3911,100 @@ static bool preferNotToInlineEHIntoLoop(CallBase &CB,
   return hasLoopOptInhibitingEHInstOutsideLoop(Callee, ILIC);
 }
 
+//
+// Minimum number of uses all of the special array struct args must have to
+// qualify a callee for inlining by the "array struct args" inline heuristic.
+//
+static cl::opt<unsigned> ArrayStructArgMinUses(
+    "inline-for-array-struct-arg-min-uses", cl::Hidden, cl::init(16),
+    cl::desc("Min number of uses for array-struct-arg heuristic"));
+
+//
+// Minimum number of args in the caller of a callsite to qualify a callsite
+// for inlining by the "array struct args" inline heuristic.
+//
+static cl::opt<unsigned> ArrayStructArgMinCallerArgs(
+    "inline-for-array-struct-arg-min-caller-args", cl::Hidden, cl::init(6),
+    cl::desc("Min number of caller args for array-struct-arg heuristic"));
+
+//
+// Return 'true' if 'Arg' is a special "array struct arg". We are looking for
+// an Argument whose type is a pointer to a structure each of whose fields is
+// an single dimension array of ints or floats. Also, the lengths of the arrays
+// are all the same.
+//
+static bool isSpecialArrayStructArg(Argument &Arg) {
+  llvm::Type *Ty = Arg.getType();
+  if (!Ty->isPointerTy())
+    return false;
+  llvm::Type *TyE = Ty->getPointerElementType();
+  auto TyS = dyn_cast<StructType>(TyE);
+  if (!TyS)
+    return false;
+  uint64_t ECount = 0;
+  for (unsigned I = 0; I < TyS->getNumElements(); ++I) {
+    llvm::Type *TyF = TyS->getElementType(I);
+    auto TyFA = dyn_cast<ArrayType>(TyF);
+    if (!TyFA)
+      return false;
+    uint64_t NE = TyFA->getNumElements();
+    if (ECount == 0)
+      ECount = NE;
+    else if (ECount != NE)
+      return false;
+    llvm::Type *TyFAE = TyFA->getElementType();
+    if (!TyFAE->isIntegerTy() && !TyFAE->isFloatingPointTy())
+      return false;
+  }
+  return true;
+}
+
+//
+// Return 'true' if 'CB' qualifies for inlining under the "array struct args"
+// inline heuristic. The heuristic is slightly different, depending on the
+// value of 'PrepareForLTO'.
+//
+// First, we qualify the callee. We add up the number of uses of each special
+// "array struct arg". To qualify there must be at least ArrayStructArgMinUses.
+//
+// All callsites with this callee are qualified in the 'PrepareForLTO' phase.
+// In the '!PrepareForLTO' phase, we also check if the caller has at least
+// ArrayStructArgMinCallerArgs args.
+//
+// NOTE: As in other specialized heuristics described above, we scan all of
+// the functions once and memorize the first such candidate to save compile
+// time.
+//
+static bool worthInliningForArrayStructArgs(CallBase &CB,
+                                            bool PrepareForLTO) {
+  static bool ScannedFunctions = false;
+  static Function *WorthyCallee = nullptr;
+  if (!DTransInlineHeuristics)
+    return false;
+  if (!ScannedFunctions) {
+    Module *M = CB.getParent()->getParent()->getParent();
+    for (auto &F :  M->functions()) {
+      unsigned Count = 0;
+      for (auto &Arg : F.args())
+        if (isSpecialArrayStructArg(Arg))
+          Count += std::distance(Arg.use_begin(), Arg.use_end());
+      if (Count >= ArrayStructArgMinUses) {
+        WorthyCallee = &F;
+        break;
+      }
+    }
+    ScannedFunctions = true;
+  }
+  Function *Callee = CB.getCalledFunction();
+  if (Callee != WorthyCallee)
+    return false;
+  if (PrepareForLTO)
+    return true;
+  Function *Caller = CB.getCaller();
+  auto AB = Caller->arg_begin();
+  auto AE = Caller->arg_end();
+  return std::distance(AB, AE) >= ArrayStructArgMinCallerArgs;
+}
 
 //
 // Test a series of special conditions to determine if it is worth inlining
@@ -3997,6 +4091,10 @@ static void worthInliningUnderSpecialCondition(CallBase &CB,
     Cost -= InlineConstants::DeepInliningHeuristicBonus;
     YesReasonVector.push_back(InlrPassedDummyArgs);
     return;
+  }
+  if (worthInliningForArrayStructArgs(CB, PrepareForLTO)) {
+    Cost -= InlineConstants::DeepInliningHeuristicBonus;
+    YesReasonVector.push_back(InlrArrayStructArgs);
   }
 }
 

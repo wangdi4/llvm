@@ -129,6 +129,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Preferred for partial inlining"},
     // InlrPassedDummyArgs
     {InlPrtCost, "Callee has callsites with dummy args"},
+    // InlrArrayStructArgs
+    {InlPrtCost, "Callee has callsites with array struct args"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,
