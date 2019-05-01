@@ -93,9 +93,29 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
 
   LLVMContext &CTX = F.getContext();
   Module *M = F.getParent();
-
   unsigned licNum = 0;
   SmallVector<Instruction *, 4> toDelete;
+  const auto errorMessage = [](StringRef msg1, StringRef msg2,
+                          Instruction *inst, Instruction *use) {
+                        errs() << "\n";
+                        errs().changeColor(raw_ostream::RED, true);
+                        errs() << msg1;
+                        errs().resetColor();
+                        const DebugLoc &loc1 = inst->getDebugLoc();
+                        if (loc1) {
+                          errs() << msg2;
+                          loc1.print(errs());
+                        }
+                        if(use) {
+                          const DebugLoc &loc2 = use->getDebugLoc();
+                          if (loc2) {
+                            errs() << "\nwas detected at \n";
+                            loc2.print(errs());
+                          }
+                        }
+                        errs() << "\n";
+                        report_fatal_error(""); //to exit the compilation
+                 };
   for (auto &BB : F) {
     for (auto &I : BB) {
       auto intrinsic = dyn_cast<IntrinsicInst>(&I);
@@ -108,22 +128,32 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
       for (auto user : intrinsic->users()) {
         if (auto useIntrinsic = dyn_cast<IntrinsicInst>(user)) {
           if (useIntrinsic->getIntrinsicID() == Intrinsic::csa_lic_write) {
-            if (write)
-              report_fatal_error("Can only have one write for a LIC queue");
+            if (write) {
+              errorMessage("!! ERROR: Can only have one write for a LIC queue !!\n",
+                           "\n The extra write for stream:\n",
+                           intrinsic, useIntrinsic);
+            }
             write = useIntrinsic;
             continue;
           }
           if (useIntrinsic->getIntrinsicID() == Intrinsic::csa_lic_read) {
-            if (read)
-              report_fatal_error("Can only have one read for a LIC queue");
+            if (read) {
+              errorMessage("!! ERROR: Can only have one read for a LIC queue !!\n",
+                           "\n The extra read for stream:\n",
+                           intrinsic, useIntrinsic);
+            }
             read = useIntrinsic;
             continue;
           }
         }
-        report_fatal_error("LIC streams can only have writes/reads");
+        errorMessage("!! ERROR: LIC streams can only have writes/reads !!\n",
+                     "\n The non write/read for stream:\n",
+                     intrinsic, dyn_cast<Instruction>(user));
       }
-      if(!write || !read)
-        report_fatal_error("LIC streams must have one write and one read");
+      if(!write || !read) {
+        errorMessage("!! ERROR: LIC streams must have one write and one read !!\n",
+                     "", intrinsic, nullptr);
+      }
       auto licID = ConstantInt::get(IntegerType::getInt32Ty(CTX), licNum++);
       CallInst::Create(
           Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_init),
