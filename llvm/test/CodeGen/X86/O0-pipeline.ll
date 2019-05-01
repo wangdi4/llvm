@@ -19,6 +19,7 @@
 ; CHECK-NEXT:   ModulePass Manager
 ; CHECK-NEXT:     Pre-ISel Intrinsic Lowering
 ; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       MapIntrinToIml
 ; CHECK-NEXT:       Expand Atomic instructions
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)

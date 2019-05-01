@@ -54,7 +54,6 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
-#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
@@ -194,10 +193,6 @@ static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(true),
 static cl::opt<bool> RunVecClone("enable-vec-clone",
   cl::init(false), cl::Hidden,
   cl::desc("Run Vector Function Cloning"));
-
-static cl::opt<bool> RunMapIntrinToIml("enable-iml-trans",
-  cl::init(true), cl::Hidden,
-  cl::desc("Map vectorized math intrinsic calls to svml/libm."));
 
 static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
                                        cl::Hidden,
@@ -1161,13 +1156,6 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createCFGSimplificationPass());
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
-
-#if INTEL_CUSTOMIZATION
-  // This pass translates vector math intrinsics to svml/libm calls.
-  if (RunMapIntrinToIml) {
-    MPM.add(createMapIntrinToImlPass());
-  }
-#endif // INTEL_CUSTOMIZATION
 
   if (PrepareForLTO) {
     MPM.add(createCanonicalizeAliasesPass());

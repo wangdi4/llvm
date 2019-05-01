@@ -12,7 +12,7 @@ define <2 x double> @svml_cc_v2i1(<2 x double> %x, <2 x i64> %mask) {
 ; SSE-NEXT:    pcmpeqd %xmm1, %xmm2
 ; SSE-NEXT:    pshufd {{.*#+}} xmm1 = xmm2[1,0,3,2]
 ; SSE-NEXT:    pand %xmm2, %xmm1
-; SSE-NEXT:    callq *__svml_v2f64_v2i1@GOTPCREL(%rip)
+; SSE-NEXT:    callq *mysvml_v2f64_v2i1@GOTPCREL(%rip)
 ; SSE-NEXT:    popq %rax
 ; SSE-NEXT:    .cfi_def_cfa_offset 8
 ; SSE-NEXT:    retq
@@ -23,12 +23,12 @@ define <2 x double> @svml_cc_v2i1(<2 x double> %x, <2 x i64> %mask) {
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
 ; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpcmpeqq %xmm2, %xmm1, %xmm1
-; CHECK-NEXT:    callq *__svml_v2f64_v2i1@GOTPCREL(%rip)
+; CHECK-NEXT:    callq *mysvml_v2f64_v2i1@GOTPCREL(%rip)
 ; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    retq
   %m = icmp eq <2 x i64> %mask, zeroinitializer
-  %res = call svml_cc <2 x double> @__svml_v2f64_v2i1(<2 x double> %x, <2 x i1> %m)
+  %res = call svml_cc <2 x double> @mysvml_v2f64_v2i1(<2 x double> %x, <2 x i1> %m)
   ret <2 x double> %res
 }
 
@@ -39,7 +39,7 @@ define <4 x float> @svml_cc_v4i1(<4 x float> %x, <4 x i32> %mask) {
 ; SSE-NEXT:    .cfi_def_cfa_offset 16
 ; SSE-NEXT:    pxor %xmm2, %xmm2
 ; SSE-NEXT:    pcmpeqd %xmm2, %xmm1
-; SSE-NEXT:    callq *__svml_v4f32_v4i1@GOTPCREL(%rip)
+; SSE-NEXT:    callq *mysvml_v4f32_v4i1@GOTPCREL(%rip)
 ; SSE-NEXT:    popq %rax
 ; SSE-NEXT:    .cfi_def_cfa_offset 8
 ; SSE-NEXT:    retq
@@ -50,14 +50,14 @@ define <4 x float> @svml_cc_v4i1(<4 x float> %x, <4 x i32> %mask) {
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
 ; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpcmpeqd %xmm2, %xmm1, %xmm1
-; CHECK-NEXT:    callq *__svml_v4f32_v4i1@GOTPCREL(%rip)
+; CHECK-NEXT:    callq *mysvml_v4f32_v4i1@GOTPCREL(%rip)
 ; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    retq
   %m = icmp eq <4 x i32> %mask, zeroinitializer
-  %res = call svml_cc <4 x float> @__svml_v4f32_v4i1(<4 x float> %x, <4 x i1> %m)
+  %res = call svml_cc <4 x float> @mysvml_v4f32_v4i1(<4 x float> %x, <4 x i1> %m)
   ret <4 x float> %res
 }
 
-declare <2 x double> @__svml_v2f64_v2i1(<2 x double>, <2 x i1>)
-declare <4 x float> @__svml_v4f32_v4i1(<4 x float>, <4 x i1>)
+declare <2 x double> @mysvml_v2f64_v2i1(<2 x double>, <2 x i1>)
+declare <4 x float> @mysvml_v4f32_v4i1(<4 x float>, <4 x i1>)
