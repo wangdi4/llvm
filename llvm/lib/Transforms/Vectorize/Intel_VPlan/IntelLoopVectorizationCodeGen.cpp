@@ -2163,8 +2163,11 @@ void VPOCodeGen::vectorizeInsertElement(Instruction *Inst) {
       Value *IndexVal = Builder.CreateExtractElement(IndexValVec, VIdx);
       Value *VectorIdx = Builder.CreateAdd(
           ConstantInt::get(IndexVal->getType(), VIdx * VF), IndexVal);
+      // The scalar value to be inserted maybe vectorized. Get its scalar value
+      // for current lane.
       WideInsert = Builder.CreateInsertElement(
-          WideInsert, InsEltInst->getOperand(1), VectorIdx);
+          WideInsert, getScalarValue(InsEltInst->getOperand(1), VIdx),
+          VectorIdx);
     }
     WidenMap[Inst] = WideInsert;
     return;

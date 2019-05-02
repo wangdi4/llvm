@@ -20,6 +20,16 @@
 ;  }
 ;}
 ;
+;void setElement2(float4* vec, float val, int i) {
+;  int v_i = val, retVal=0;
+;  #pragma omp simd
+;  for (int i = 1; i < 1024; i++) {
+;    float4 t = vec[i];
+;    t[v_i%4] = i;
+;    vec[i] = t;
+;  }
+;}
+;
 ;float getElement(float4* vec, float val, int i) {
 ;  int v_i = val;
 ;  float retVal = 0;
@@ -44,6 +54,18 @@
 ; CHECK-VF2-NEXT:  [[VARIDX2:%.*]] = extractelement <2 x i32> [[VARIDXVEC]], i64 1
 ; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 2, [[VARIDX2]]
 ; CHECK-VF2-NEXT:  [[RES2:%.*]] = insertelement <8 x float> [[RES1]], float [[E2:%.*]], i32 [[OFF2]]
+
+; Check the correct sequence for 'insertelement' with non-const index and loop variant scalar value to be inserted
+; CHECK-LABEL:@setElement2
+; CHECK-VF2:       [[INSERTVAL:%.*]] = sitofp <2 x i32> [[IV:%.*]] to <2 x float>
+; CHECK-VF2-NEXT:  [[E1:%.*]] = extractelement <2 x float> [[INSERTVAL]], i32 1
+; CHECK-VF2-NEXT:  [[E2:%.*]] = extractelement <2 x float> [[INSERTVAL]], i32 0
+; CHECK-VF2:       [[VARIDX1:%.*]] = extractelement <2 x i32> [[VARIDXVEC:%.*]], i64 0
+; CHECK-VF2-NEXT:  [[OFF1:%.*]] = add i32 0, [[VARIDX1]]
+; CHECK-VF2-NEXT:  [[RES1:%.*]] = insertelement <8 x float> [[VEC:%.*]], float [[E2]], i32 [[OFF1]]
+; CHECK-VF2-NEXT:  [[VARIDX2:%.*]] = extractelement <2 x i32> [[VARIDXVEC]], i64 1
+; CHECK-VF2-NEXT:  [[OFF2:%.*]] = add i32 2, [[VARIDX2]]
+; CHECK-VF2-NEXT:  [[RES2:%.*]] = insertelement <8 x float> [[RES1]], float [[E1]], i32 [[OFF2]]
 
 ; Check the correct sequence for 'extractelement' with non-const index
 ; CHECK-LABEL:@_Z10getElementPDv4_ffi
@@ -134,6 +156,44 @@ declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+
+; Function Attrs: nounwind uwtable
+define dso_local void @setElement2(<4 x float>* nocapture %vec, float %val, i32 %i) local_unnamed_addr #0 {
+omp.inner.for.body.lr.ph:
+  %conv = fptosi float %val to i32
+  %t.priv = alloca <4 x float>, align 16
+  br label %DIR.OMP.SIMD.1
+
+DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(<4 x float>* %t.priv) ]
+  br label %DIR.OMP.SIMD.2
+
+DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
+  %1 = bitcast <4 x float>* %t.priv to i8*
+  %rem = srem i32 %conv, 4
+  br label %omp.inner.for.body
+
+omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.2
+  %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.2 ]
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  call void @llvm.lifetime.start.p0i8(i64 16, i8* nonnull %1) #2
+  %arrayidx = getelementptr inbounds <4 x float>, <4 x float>* %vec, i64 %indvars.iv.next
+  %2 = load <4 x float>, <4 x float>* %arrayidx, align 16, !tbaa !2
+  %3 = trunc i64 %indvars.iv.next to i32
+  %conv3 = sitofp i32 %3 to float
+  %vecins = insertelement <4 x float> %2, float %conv3, i32 %rem
+  store <4 x float> %vecins, <4 x float>* %arrayidx, align 16, !tbaa !2
+  call void @llvm.lifetime.end.p0i8(i64 16, i8* nonnull %1) #2
+  %exitcond = icmp eq i64 %indvars.iv.next, 1023
+  br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
+
+DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  br label %DIR.OMP.END.SIMD.3
+
+DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
+  ret void
+}
 
 ; Function Attrs: nounwind uwtable
 define dso_local float @_Z10getElementPDv4_ffi(<4 x float>* nocapture readonly %vec, float %val, i32 %i) local_unnamed_addr #0 {
