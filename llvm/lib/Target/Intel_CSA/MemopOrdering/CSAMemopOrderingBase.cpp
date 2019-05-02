@@ -46,6 +46,7 @@ bool CSAMemopOrderingBase::runOnFunction(Function &F) {
   InordIntr         = Intrinsic::getDeclaration(Mod, Intrinsic::csa_inord);
   OutordIntr        = Intrinsic::getDeclaration(Mod, Intrinsic::csa_outord);
   All0Intr          = Intrinsic::getDeclaration(Mod, Intrinsic::csa_all0);
+  PrefetchIntr      = nullptr;
 
   MemEntry =
     CallInst::Create(Intrinsic::getDeclaration(Mod, Intrinsic::csa_mementry),
@@ -54,6 +55,8 @@ bool CSAMemopOrderingBase::runOnFunction(Function &F) {
   order(F);
 
   deleteParallelIntrinsics(F);
+
+  expandDataGatedPrefetches(F);
 
   return true;
 }
@@ -146,6 +149,107 @@ void CSAMemopOrderingBase::deleteParallelIntrinsics(Function &F) {
       } else {
         ++IIt;
       }
+    }
+  }
+}
+
+Value *CSAMemopOrderingBase::toMemOrdValue(Value *V, Instruction *Where) {
+
+  // If the value is a constant, just return <none>.
+  if (isa<Constant>(V))
+    return NoneVal;
+
+  // Otherwise, get its type. If it's already the right type, no conversion is
+  // needed.
+  const Type *const Ty = V->getType();
+  if (Ty == MemordType)
+    return V;
+
+  // Otherwise, check if it's already an integer type. If it is, just truncate
+  // it.
+  if (Ty->isIntegerTy()) {
+    return CastInst::Create(Instruction::Trunc, V, MemordType, "", Where);
+  }
+
+  // Otherwise, check if it's a pointer type. If it is, convert it with
+  // ptrtoint.
+  if (Ty->isPointerTy()) {
+    return CastInst::Create(Instruction::PtrToInt, V, MemordType, "", Where);
+  }
+
+  // Otherwise, check if it's an aggregate type. If it is, convert its elements
+  // and all0 those together.
+  if (Ty->isAggregateType()) {
+    SmallVector<Value *, 4> All0Inputs;
+
+    if (const auto ArrayTy = dyn_cast<ArrayType>(Ty)) {
+      for (int Idx = 0, IdxE = ArrayTy->getNumElements(); Idx != IdxE; ++Idx) {
+        Value *const EV = ExtractValueInst::Create(V, Idx, "", Where);
+        All0Inputs.push_back(toMemOrdValue(EV, Where));
+      }
+    } else if (const auto StructTy = dyn_cast<StructType>(Ty)) {
+      for (int Idx = 0, IdxE = StructTy->getNumElements(); Idx != IdxE; ++Idx) {
+        Value *const EV = ExtractValueInst::Create(V, Idx, "", Where);
+        All0Inputs.push_back(toMemOrdValue(EV, Where));
+      }
+    } else
+      llvm_unreachable("Are you sure this is an aggregate type?");
+
+    return createAll0(All0Inputs, Where);
+  }
+
+  // Otherwise, bitcast it to an appropriately-sized integer and keep going.
+  Type *const IntTy =
+    Type::getIntNTy(Ty->getContext(), Ty->getPrimitiveSizeInBits());
+  Value *const Bitcasted =
+    CastInst::Create(Instruction::BitCast, V, IntTy, "", Where);
+  return toMemOrdValue(Bitcasted, Where);
+}
+
+void CSAMemopOrderingBase::expandDataGatedPrefetches(Function &F) {
+  using std::begin;
+  using std::end;
+  using std::next;
+  for (BasicBlock &BB : F) {
+    for (auto II = begin(BB); II != end(BB); ++II) {
+      const auto DGPrefetch = dyn_cast<IntrinsicInst>(&*II);
+      if (not DGPrefetch)
+        continue;
+      if (DGPrefetch->getIntrinsicID() != Intrinsic::csa_gated_prefetch)
+        continue;
+
+      // Convert the <gate> argument to an ordering signal.
+      Value *const Gate =
+          toMemOrdValue(DGPrefetch->getArgOperand(0), DGPrefetch);
+
+      // Pull out the prefetch declaration if it hasn't been already for this
+      // function.
+      if (not PrefetchIntr) {
+        PrefetchIntr =
+          Intrinsic::getDeclaration(F.getParent(), Intrinsic::prefetch);
+      }
+
+      // Construct the prefetch arguments. These are the same as the data-gated
+      // ones, but with the first argument dropped and a 1 added to the end to
+      // indicate a data prefetch.
+      SmallVector<Value *, 4> PrefetchArgs(next(DGPrefetch->arg_begin()),
+                                           DGPrefetch->arg_end());
+      PrefetchArgs.push_back(
+        ConstantInt::get(PrefetchIntr->getFunctionType()->getParamType(3), 1));
+
+      // Create the prefetch call.
+      Instruction *const Prefetch =
+        CallInst::Create(PrefetchIntr, PrefetchArgs, "", DGPrefetch);
+      Prefetch->setDebugLoc(DGPrefetch->getDebugLoc());
+
+      // Add the ordering edge. The iterator is updated to point at the outord
+      // call so it can be advanced to the next instruction in the next
+      // iteration.
+      Value *const OutOrd = createOrderingEdges(Prefetch, Gate);
+      II                  = cast<Instruction>(OutOrd)->getIterator();
+
+      // Now the original call is no longer needed; delete it.
+      DGPrefetch->eraseFromParent();
     }
   }
 }

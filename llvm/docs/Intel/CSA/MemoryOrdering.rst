@@ -381,3 +381,88 @@ CSAMemopOrdering
 ================
 
 [ A section on the real memory ordering pass, to be written later ]
+
+Data-Gated Prefetches
+=====================
+
+Along with normal prefetch operations, the compiler provides data-gated
+prefetches that are triggered on the availability of particular data values
+rather than ordering tokens in order to support element-wise prefetching for
+streaming memory operations. This section describes the intrinsic used to
+represent these.
+
+``llvm.csa.gated.prefetch``
+--------------------------------
+
+Syntax:
+~~~~~~~
+
+.. code-block:: llvm
+
+   declare void @llvm.csa.gated.prefetch.<type>(<type> <gate>, i8* <address>, i32 <rw>, i32 <locality>)
+
+Overview:
+~~~~~~~~~
+
+The data gated prefetch intrinsic is used to specify a prefetch operation
+triggered by the availability of particular data values.
+
+Arguments:
+~~~~~~~~~~
+
+The arguments of ``llvm.csa.gated.prefetch`` are identical to those of
+``llvm.prefetch`` except that:
+
+- The ``gate`` parameter has been added to the front of the list to specify the
+  values used to control when the prefetch triggers.
+- The ``cache type`` parameter has been removed since CSA lacks traditional
+  instruction prefetching. This operation will always perform a data prefetch.
+
+Semantics:
+~~~~~~~~~~
+
+This intrinsic issues a prefetch when the value of ``gate`` is available. It's
+implemented via a semi-trivial expansion at the end of the memory ordering pass
+that replaces this intrinsic with ``llvm.prefetch`` and attaches ``gate`` to its
+input ordering edge by adapting it to ``i1``. For most types this is just done
+with a combination of truncs, bitcasts, and ptrtoints:
+
+.. code-block:: llvm
+
+   call void @llvm.csa.gated.prefetch.v2f32(<2 x float> %gate, i8* %addr, i32 0, i32 3)
+
+   ; v expands to v
+
+   %cast = bitcast <2 x float> %gate to i64
+   %trunc = trunc i64 %cast to i1
+   call void @llvm.csa.inord(i1 %trunc)
+   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+   %outord = call i1 @llvm.csa.outord()
+
+   ; v generates as v
+
+   ; prefetch addr, %ign, gate, MEMLEVEL_T0
+
+For aggregate types (arrays and structs), the elements are converted to ``i1``
+individually and combined together with ``all0`` so that the prefetch is issued
+when all of the elements are available:
+
+.. code-block:: llvm
+
+   call void @llvm.csa.gated.prefetch.sl_i1i32s({i1, i32} %gate, i8* %addr, i32 0, i32 3)
+
+   ; v expands to v
+
+   %v0 = extractvalue {i1, i32} %gate, 0
+   %v1 = extractvalue {i1, i32} %gate, 1
+   %trunc = trunc i32 %v1 to i1
+   %all = call i1 (...) @llvm.csa.all0(i1 %v0, i1 %trunc)
+   call void @llvm.csa.inord(i1 %all)
+   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+   %outord = call i1 @llvm.csa.outord()
+
+   ; v generates as v
+
+   ; .lic .i0 gate
+   ; all0 gate, gate.0, gate.1
+   ; prefetch addr, %ign, gate, MEMLEVEL_T0

@@ -145,6 +145,11 @@ def int_csa_all0 :
     Intrinsic<[llvm_i1_ty], [llvm_vararg_ty],
               [IntrNoMem] /* , "llvm.csa.all0" */>;
 
+// Data-gated prefetches.
+def int_csa_gated_prefetch :
+    Intrinsic<[], [llvm_any_ty, llvm_ptr_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrInaccessibleMemOrArgMemOnly, ReadOnly<1>, NoCapture<1>]>;
+
 // LIC Queues intrinsics
 def int_csa_lic_init :
     Intrinsic<[llvm_i32_ty], [llvm_i8_ty, llvm_i64_ty, llvm_i64_ty],
