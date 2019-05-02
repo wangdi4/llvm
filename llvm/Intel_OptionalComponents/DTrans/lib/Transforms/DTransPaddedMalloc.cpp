@@ -651,14 +651,6 @@ bool dtrans::PaddedMallocPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
     LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Padded malloc disabled\n");
     return false;
   }
-  else {
-    auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-    if (!WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
-      PaddedMallocData.destroyGlobalsInfo(M);
-      LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: does not pass AVX2 test\n");
-      return false;
-    }
-  }
 
   // Check if the module requires runtime safety checks
   SmallPtrSet<Function *, 16> Funcs;
