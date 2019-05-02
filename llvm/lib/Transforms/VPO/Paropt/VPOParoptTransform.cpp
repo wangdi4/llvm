@@ -2921,14 +2921,39 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
   FirstprivateClause &FprivClause = W->getFpriv();
   if (!FprivClause.empty()) {
-    W->populateBBSet();
+    auto *RegPredBlock = W->getEntryBBlock();
+    W->setEntryBBlock(SplitBlock(RegPredBlock, &RegPredBlock->front(), DT, LI));
+    // Force BBSet rebuild due to the entry block change.
+    W->populateBBSet(true);
     BasicBlock *EntryBB = W->getEntryBBlock();
     BasicBlock *ExitBB = W->getExitBBlock();
     BasicBlock *PrivInitEntryBB = nullptr;
-    Value *NewPrivInst = nullptr;
     bool ForTask = W->getIsTask();
 
     for (FirstprivateItem *FprivI : FprivClause.items()) {
+
+      if (FprivI->getInMap())
+        // For some reason clang may put a variable both into map() and
+        // firstprivate clause, e.g.:
+        // void foo(int n) {
+        //   #pragma omp target map(from:n)
+        //   #pragma omp teams num_teams(n)
+        //   ...
+        // }
+        //
+        // The generated region will look like this:
+        // %0 = call token @llvm.directive.region.entry() [
+        //          "DIR.OMP.TARGET"(),
+        //          "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+        //          "QUAL.OMP.MAP.FROM"(i32* %n.addr),
+        //          "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr) ]
+        //
+        // We do not need to generate any special code for firstprivate()
+        // clause, as long as all the data movement will be handled
+        // by the map() processing.
+        continue;
+
+      Value *NewPrivInst = nullptr;
       Value *Orig = FprivI->getOrig();
 
       // assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
@@ -2937,31 +2962,27 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
       LastprivateItem *LprivI = FprivI->getInLastprivate();
 
       if (!LprivI) {
-        Value *ValueToReplace = Orig;
-
-        if (W->getIsTarget()) {
-          MapItem *MapI = FprivI->getInMap();
-          if (MapI)
-            ValueToReplace = MapI->getOrig();
-        }
-
         Instruction *InsertPt = EntryBB->getFirstNonPHI();
         NewPrivInst = genPrivatizationAlloca(FprivI, InsertPt, ".fpriv");
         FprivI->setNewOnTaskStack(NewPrivInst);
 
         Value *ReplacementVal = getClauseItemReplacementValue(FprivI, InsertPt);
-        genPrivatizationReplacement(W, ValueToReplace, ReplacementVal, FprivI);
+        genPrivatizationReplacement(W, Orig, ReplacementVal, FprivI);
 
-        // For task firstprivate, and target-mapped variables with "from",
-        // copy the data from the task entry object to the task's local
-        // stack copy, and back again when the task region ends.
-        if (ForTask || (W->getIsTarget() && FprivI->getInMap() &&
-                        FprivI->getInMap()->getIsMapFrom())) {
-          Value *OutsideVal = ForTask ? FprivI->getNew() : FprivI->getOrig();
+        // For task firstprivate, copy the data from the task entry object
+        // to the task's local stack copy, and back again
+        // when the task region ends.
+
+        if (ForTask) {
+          Value *OutsideVal = ForTask ? FprivI->getNew() : Orig;
           VPOParoptUtils::genCopyByAddr(
               NewPrivInst, OutsideVal, EntryBB->getTerminator(),
               FprivI->getCopyConstructor(), FprivI->getIsByRef());
 
+          // TODO: it is not clear why this write-out is needed.
+          //       This seems to copy data back to the task structure,
+          //       but there is no way to access this copy after the task
+          //       completes.
           VPOParoptUtils::genCopyByAddr(
               OutsideVal, NewPrivInst, ExitBB->getTerminator(),
               FprivI->getCopyConstructor(), FprivI->getIsByRef());
@@ -2976,7 +2997,40 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
       if (!ForTask) {
         createEmptyPrvInitBB(W, PrivInitEntryBB);
-        genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
+        if (!NewPrivInst ||
+            // Note that NewPrivInst will be nullptr, if the variable
+            // is also lastprivate.
+            FprivI->getIsByRef() ||
+            !NewPrivInst->getType()->isPointerTy() ||
+            !NewPrivInst->getType()->getPointerElementType()->isPointerTy())
+          genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
+        else {
+          // If the firstprivate() item is a pointer to pointer,
+          // then we can avoid double dereference and pass the
+          // pointee's value directly.  This is not an optimization.
+          // We have to do this for targets that return opaque
+          // objects to libomptarget vs actual target pointers.
+          // Let's consider the following example:
+          // double *out = &x;
+          // #pragma omp target data map(tofrom:out[0:1])
+          // #pragma omp target firstprivate(out)
+          //
+          // "target data" will map 'out' as PTR_AND_OBJ, and libomptarget
+          // will store the target counterpart of 'out' pointer into
+          // the shadow location.  "target" code will load
+          // the value of 'out' from the shadow location, but this may be
+          // an opaque pointer, which does not make sense inside
+          // the target code. By passing 'out' to the target region
+          // "by value" we guarantee that it is mapped to the target
+          // object created by "target data".
+          // We also avoid an extra dereference, which is profitable.
+          IRBuilder<> PredBuilder(RegPredBlock->getTerminator());
+          auto *Load = PredBuilder.CreateLoad(Orig);
+          IRBuilder<> RegBuilder(PrivInitEntryBB->getTerminator());
+          RegBuilder.CreateStore(Load, FprivI->getNew());
+
+          FprivI->setOrig(Load);
+        }
       }
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": firstprivatized '";
                  Orig->printAsOperand(dbgs()); dbgs() << "'\n");
