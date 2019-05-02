@@ -63,6 +63,11 @@ static cl::opt<bool>
                  cl::desc("CSA Specific: Coalesce all csa malloc calls"),
                  cl::init(true));
 
+static cl::opt<bool>
+  CsaMemInitIsExtern("csa-csameminit-is-extern", cl::Hidden,
+                 cl::desc("CSA Specific: Mark CsaMemInitialize as extern"),
+                 cl::init(false));
+
 #define DEBUG_TYPE "csa-replace-alloca"
 #define REMARK_NAME "csa-replace-alloca-remark"
 #define PASS_DESC                                                              \
@@ -148,10 +153,10 @@ void CSAReplaceAllocaWithMalloc::coalesceMallocs(Function &F, Function *CSAMallo
   LLVMContext &Context = F.getContext();
   int BitWidth = CSAMalloc->arg_begin()->getType()->getIntegerBitWidth();
   Value *SizeV = llvm::ConstantInt::get(Context, llvm::APInt(BitWidth, Size, true));
+  Size = dyn_cast<ConstantInt>(FirstCSAMallocInst->getOperand(0))->getSExtValue();
   FirstCSAMallocInst->setOperand(0, SizeV);
 
   // Replace other csa_alloc's with GEP with proper offsets
-  Size = 0;
   for (BasicBlock &BB : F)
     for (auto II = std::begin(BB), E = std::end(BB); II != E;) {
       Instruction *I = &*II;
@@ -160,8 +165,8 @@ void CSAReplaceAllocaWithMalloc::coalesceMallocs(Function &F, Function *CSAMallo
         if (CI == FirstCSAMallocInst) continue;
 	if (CI->isInlineAsm()) continue;
         if (CI->getCalledFunction() == CSAMalloc) {
-          Size += dyn_cast<ConstantInt>(CI->getOperand(0))->getSExtValue();
           Value *Offset = llvm::ConstantInt::get(Context, llvm::APInt(32, Size, true));
+          Size += dyn_cast<ConstantInt>(CI->getOperand(0))->getSExtValue();
           Value *NewGEP = IRBuilder<>{CI}
                           .CreateGEP(cast<PointerType>(FirstCSAMallocInst->getType())->getElementType(), 
                                                        FirstCSAMallocInst, Offset, "tmp");
@@ -265,6 +270,7 @@ static void removeCSAMemoryFunctionsFromUsedList(Module &M, Function *CSAMalloc,
 // Function to delete all csa_mem* functions if needed
 static void deleteCSAMemoryFunctions(Function *CSAMalloc,
                                      Function *CSAFree, Function *CSAInitialize) {
+  if (!CSAMalloc->use_empty()) return;
   if (CSAMalloc)     { CSAMalloc->eraseFromParent(); }
   if (CSAFree)       { CSAFree->eraseFromParent(); }
   if (CSAInitialize) { CSAInitialize->eraseFromParent(); }
@@ -445,6 +451,8 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
     LLVM_DEBUG(errs() << "Data flow linkage not set\n");
     removeCSAMemoryFunctionsFromUsedList(M,CSAMalloc,CSAFree,CSAInitialize);
     deleteCSAMemoryFunctions(CSAMalloc,CSAFree,CSAInitialize);
+    if (CsaMemInitIsExtern && CSAInitialize)
+      CSAInitialize->setLinkage(llvm::Function::ExternalLinkage);
     return false;
   }
   bool IsAllocaPresent = isAllocaPresent(M);
@@ -452,6 +460,8 @@ bool CSAReplaceAllocaWithMalloc::runOnModule(Module &M) {
     LLVM_DEBUG(errs() << "No stack allocations found. No need to run this pass\n");
     removeCSAMemoryFunctionsFromUsedList(M,CSAMalloc,CSAFree,CSAInitialize);
     deleteCSAMemoryFunctions(CSAMalloc,CSAFree,CSAInitialize);
+    if (CsaMemInitIsExtern && CSAInitialize)
+      CSAInitialize->setLinkage(llvm::Function::ExternalLinkage);
     return false;
   }
   if (!CSAMalloc || CSAMalloc->isDeclaration())
