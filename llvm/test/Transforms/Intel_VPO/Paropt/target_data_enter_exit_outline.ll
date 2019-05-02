@@ -1,9 +1,5 @@
-; This fails on Windows, because the map chain's section pointer becomes invalid
-; after genGEPCapturingLaunderIntrin and we try to access it in
-; genCodemotionFenceforAggrData.
-; XFAIL: *
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
 ; Original code:
 ; #pragma omp declare target
@@ -22,8 +18,8 @@
 ; CHECK-DAG: @[[MAPTYPE1:.+]] = {{.*}} constant {{.*}} [i64 38]
 ; CHECK-DAG: @[[SIZE2:.+]] = {{.*}} constant {{.*}} [i64 68]
 ; CHECK-DAG: @[[MAPTYPE2:.+]] = {{.*}} constant {{.*}} [i64 37]
+; CHECK-DAG: %[[GEP1:.+]] = {{.*}}getelementptr {{.*}} @a, i64 0, i64 7
 ; CHECK-DAG: %[[A1:.+]] = bitcast i8*{{.*}}@a
-; CHECK-DAG: %[[GEP1:.+]] = getelementptr {{.*}} %[[A1]], i64 0, i64 7
 ; CHECK-DAG: %[[CAST1_1:.+]] = bitcast {{.*}} %[[A1]] to i8*
 ; CHECK-DAG: store i8* %[[CAST1_1]]
 ; CHECK-DAG: %[[CAST1_2:.+]] = bitcast i32* %[[GEP1]] to i8*
@@ -32,8 +28,8 @@
 ; CHECK-DAG: call void @__tgt_target_data_begin(i64 -1, i32 1, {{.*}}@[[SIZE2]]{{.*}}@[[MAPTYPE2]]
 
 ; Verify that the descriptor for 'a' is passed to __tgt_target_data_exit
+; CHECK-DAG: %[[GEP2:.+]] = {{.*}}getelementptr {{.*}} @a, i64 0, i64 9
 ; CHECK-DAG: %[[A2:.+]] = bitcast i8*{{.*}}@a
-; CHECK-DAG: %[[GEP2:.+]] = getelementptr {{.*}} %[[A2]], i64 0, i64 9
 ; CHECK-DAG: %[[CAST2_1:.+]] = bitcast {{.*}} %[[A2]] to i8*
 ; CHECK-DAG: store i8* %[[CAST2_1]]
 ; CHECK-DAG: %[[CAST2_2:.+]] = bitcast i32* %[[GEP2]] to i8*

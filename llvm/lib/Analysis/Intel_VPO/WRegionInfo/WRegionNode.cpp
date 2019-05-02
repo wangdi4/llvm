@@ -69,6 +69,7 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
 // constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
     : SubClassID(SCID), Attributes(0), EntryBBlock(BB) {
+  setEntryDirective(nullptr);
   setNextNumber();
   setParent(nullptr);
   setExitBBlock(nullptr);
@@ -84,6 +85,7 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   setNextNumber();
   setParent(nullptr);
   setEntryBBlock(nullptr);
+  setEntryDirective(nullptr);
   setExitBBlock(nullptr);
   resetBBSet();
   setIsFromHIR(true);

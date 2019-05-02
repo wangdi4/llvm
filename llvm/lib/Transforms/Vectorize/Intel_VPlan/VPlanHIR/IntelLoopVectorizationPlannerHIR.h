@@ -27,7 +27,11 @@
 extern cl::opt<uint64_t> VPlanDefaultEstTripHIR;
 
 namespace llvm {
+namespace llopopt {
+class HIRSafeReductionAnalysis;
+}
 namespace vpo {
+using namespace loopopt;
 
 class LoopVectorizationPlannerHIR : public LoopVectorizationPlanner {
 private:
@@ -35,7 +39,9 @@ private:
   HLLoop *TheLoop;
 
   /// HIR DDGraph that contains DD information for the incoming loop nest.
-  loopopt::HIRDDAnalysis *DDA;
+  HIRDDAnalysis *DDA;
+
+  HIRVectorizationLegality *HIRLegality;
 
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
@@ -50,7 +56,7 @@ private:
     // Build hierarchical CFG
     const DDGraph &DDG = DDA->getGraph(TheLoop);
 
-    VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, Legal, DDG);
+    VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
     HCFGBuilder.buildHierarchicalCFG();
 
     return SharedPlan;
@@ -61,11 +67,11 @@ public:
                               const TargetLibraryInfo *TLI,
                               const TargetTransformInfo *TTI,
                               const DataLayout *DL,
-                              VPOVectorizationLegality *Legal,
+                              HIRVectorizationLegality *HIRLegal,
                               HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA)
       : LoopVectorizationPlanner(WRL, nullptr, nullptr, nullptr, TLI, TTI, DL,
-                                 nullptr, Legal, VLSA), 
-        TheLoop(Lp), DDA(DDA) {
+                                 nullptr, nullptr, VLSA),
+        TheLoop(Lp), DDA(DDA), HIRLegality(HIRLegal) {
     VPLA = std::make_shared<VPLoopAnalysisHIR>(VPlanDefaultEstTripHIR);
   }
 

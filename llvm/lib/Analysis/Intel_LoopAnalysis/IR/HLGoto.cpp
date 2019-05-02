@@ -69,7 +69,7 @@ void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << "goto ";
 
   if (TargetLabel) {
-    OS << TargetLabel->getName();
+    OS << TargetLabel->getDebugName();
   } else {
     HLLabel::printBBlockName(OS, *TargetBBlock);
   }

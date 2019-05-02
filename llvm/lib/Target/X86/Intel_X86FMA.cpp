@@ -29,6 +29,7 @@
 #include "X86InstrBuilder.h"
 #include "X86InstrInfo.h"
 #include "X86Subtarget.h"
+#include "llvm/CodeGen/Intel_FMACommon.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -39,7 +40,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
-#include "Intel_X86FMACommon.h"
+
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-global-fma"
@@ -96,20 +97,12 @@ class FMAPerfDesc;
 class FMAPatterns {
 private:
   /// Represents a set of FMA patterns that all have the same SHAPE.
-  struct FMAPatternsSet {
-    const uint64_t *Dags;
-    unsigned NumDags;
-
-    /// Initializes a set of patterns using the given reference to an array
-    /// \p Dags and the size of the array \p NumDags.
-    FMAPatternsSet(const uint64_t *Dags, unsigned NumDags)
-        : Dags(Dags), NumDags(NumDags) {}
-  };
+  using FMAPatternsSet = ArrayRef<uint64_t>;
 
   /// All FMA patterns are stored as a vector of references to groups of Dags
   /// where each of the groups has the same SHAPE.
   /// It is also supposed that the groups of Dags are sorted by the SHAPE.
-  std::vector<FMAPatternsSet *> Dags;
+  std::vector<FMAPatternsSet> Dags;
 
   /// Returns the number of shapes (i.e. the number of Dag/pattern sets).
   unsigned getNumShapes() const { return Dags.size(); }
@@ -122,18 +115,14 @@ private:
 
   /// Returns a set of 64-bit encoded DAGs for the given \p Shape.
   /// If such set cannot be found then nullptr is returned.
-  FMAPatternsSet *getDagsForShape(uint64_t Shape);
+  const FMAPatternsSet *getDagsForShape(uint64_t Shape);
 
   /// Returns a sum of product generated for 64-bit int encoded DAG
   /// \p EncodedDag.
   FMAExprSP *acquireSP(uint64_t EncodedDag);
 
 public:
-  FMAPatterns(){};
-  ~FMAPatterns(void) {
-    for (auto D : Dags)
-      delete D;
-  }
+  FMAPatterns() {}
 
   /// Initialize the patterns storage.
   /// Currently it is assumed that there is only one set of patterns for
@@ -1214,7 +1203,7 @@ public:
   }
 };
 
-/// This class represents an FMA term associated with a load from memmory.
+/// This class represents an FMA term associated with a load from memory.
 class FMAMemoryTerm : public FMATerm {
 private:
   /// A reference to machine instruction having a memory operand usually
@@ -1644,10 +1633,8 @@ FMAExpr::FMAExpr(MVT VT, const MachineInstr *MI, FMARegisterTerm *ResultTerm,
 }
 
 void FMAExpr::putExprToExprSet(std::set<const FMAExpr *> &ExprSet) const {
-  if (ExprSet.find(this) != ExprSet.end())
+  if (!ExprSet.insert(this).second)
     return;
-
-  ExprSet.insert(this);
   for (auto Opnd : Operands)
     if (Opnd->isFMA())
       Opnd->castToExpr()->putExprToExprSet(ExprSet);
@@ -2296,15 +2283,13 @@ FMARegisterTerm *FMABasicBlock::createRegisterTerm(MVT VT,
 
   // If there is a term created for this machine operand (or identical to it)
   // then just return the existing term. Otherwise, create a new term.
-  FMARegisterTerm *Term = RegisterToFMARegisterTerm[Reg];
-  if (!Term) {
-    Term = new FMARegisterTerm(VT, Reg, RegisterToFMARegisterTerm.size() +
-                                            MIToFMAMemoryTerm.size());
-    RegisterToFMARegisterTerm[Reg] = Term;
-  }
+  auto It = RegisterToFMARegisterTerm.insert({Reg, nullptr}).first;
+  if (!It->second)
+    It->second = new FMARegisterTerm(
+        VT, Reg, RegisterToFMARegisterTerm.size() + MIToFMAMemoryTerm.size());
   if (MO.isKill())
-    Term->setIsEverKilled();
-  return Term;
+    It->second->setIsEverKilled();
+  return It->second;
 }
 
 FMATerm *FMABasicBlock::createRegisterOrSpecialTerm(MVT VT,
@@ -2748,38 +2733,36 @@ bool X86GlobalFMA::optParsedBasicBlock(FMABasicBlock &FMABB,
 }
 
 FMAExprSP *FMAPatterns::acquireSP(uint64_t EncodedDag) {
-  FMAExprSP *SP = EncodedDagToSPMap[EncodedDag];
-
-  if (!SP) {
-    SP = new FMAExprSP();
-    SP->initForEncodedDag(EncodedDag);
-    EncodedDagToSPMap[EncodedDag] = SP;
+  auto It = EncodedDagToSPMap.insert({EncodedDag, nullptr}).first;
+  if (!It->second) {
+    It->second = new FMAExprSP();
+    It->second->initForEncodedDag(EncodedDag);
   }
-
-  return SP;
+  return It->second;
 }
 
-FMAPatterns::FMAPatternsSet *FMAPatterns::getDagsForShape(uint64_t Shape) {
+const FMAPatterns::FMAPatternsSet *
+FMAPatterns::getDagsForShape(uint64_t Shape) {
   unsigned First = 0, Last = getNumShapes() - 1;
 
   // If the passed 'Shape' is bigger than the biggest available shape in
   // the storage, then just exit early and skip the binary search.
-  FMAExprSP *SP = acquireSP(Dags[Last]->Dags[0]);
+  FMAExprSP *SP = acquireSP(Dags[Last].front());
   if (Shape > SP->Shape)
     return nullptr;
   if (Shape == SP->Shape)
-    return Dags[Last];
+    return &Dags[Last];
 
   while (First < Last) {
     // Check the SHAPE of a set of DAGs in the middle of the search scope.
     unsigned Middle = (First + Last) / 2;
-    SP = acquireSP(Dags[Middle]->Dags[0]);
+    SP = acquireSP(Dags[Middle].front());
     uint64_t CurShape = SP->Shape;
 
     // If the searched SHAPE is found, then return the whole set of DAGs having
     // the same SHAPE.
     if (Shape == CurShape)
-      return Dags[Middle];
+      return &Dags[Middle];
 
     // Halve the search scope and continue the binary search.
     if (Shape < CurShape)
@@ -2793,7 +2776,7 @@ FMAPatterns::FMAPatternsSet *FMAPatterns::getDagsForShape(uint64_t Shape) {
 
 FMADag *FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
 
-  FMAPatternsSet *DagsSet = getDagsForShape(SP.Shape);
+  const FMAPatternsSet *DagsSet = getDagsForShape(SP.Shape);
   if (!DagsSet)
     return nullptr;
 
@@ -2802,9 +2785,7 @@ FMADag *FMAPatterns::getDagForBestSPMatch(const FMAExprSP &SP) {
 
   // Find the best DAG for the given SP.
   FMADagCommon *BestDag = nullptr;
-  for (unsigned i = 0; i < DagsSet->NumDags; i++) {
-    uint64_t Dag64 = DagsSet->Dags[i];
-
+  for (auto Dag64 : *DagsSet) {
     // FIXME: TermONE in C position is not yet supported, e.g. (A*B+1). Fix it.
     FMADag Dag(Dag64);
 

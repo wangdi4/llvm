@@ -370,6 +370,7 @@ public:
   /// \param W WRegionNode for the OpenMP construct.
   /// \param IdentTy is needed to obtain the Loc struct for the KMPC calls.
   /// \param TidPtr is the AllocaInst for ThreadId, needed for the KMPC calls.
+  /// \param IsTargetSPIRV is true, iff compilation is for SPIRV target.
   /// \param LockNameSuffix will be used as suffix in the name of the lock
   /// variable used for the critical section. (The prefix is determined based
   /// on the architecture and the kind of WRegionNode \p W).
@@ -387,17 +388,8 @@ public:
   /// `__kmpc_end_critical` are successfully inserted, \b false otherwise.
   static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                      Constant *TidPtr,
-                                     const StringRef &LockNameSuffix);
-
-  /// Identical to the function above, but uses a default suffix for
-  /// the name of the lock variable to be used for the critical section.
-  /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
-  /// const StringRef &) for more details.
-  ///
-  /// \returns `true` if the calls to `__kmpc_critical` and
-  /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
-  static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                     Constant *TidPtr);
+                                     bool IsTargetSPIRV,
+                                     const StringRef LockNameSuffix = "");
 
   /// Generate a critical section around Instructions \p BeginInst and \p
   /// EndInst. The function emits calls to `__kmpc_critical` \b before \p
@@ -416,20 +408,22 @@ public:
   /// `__kmpc_critical` is inserted.
   /// \param EndInst is the Instruction \b after which the call to
   /// `__kmpc_end_critical` is inserted.
+  /// \param IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
   /// Note: Other Instructions, aside from the `__kmpc_critical` and
   /// `__kmpc_end_critical` calls, which are needed for the KMPC calls,
   /// are also inserted into the IR. \see genKmpcCallWithTid() for details.
   ///
   /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
-  /// const StringRef &) for examples of the KMPC critical calls.
+  /// const StringRef) for examples of the KMPC critical calls.
   ///
   /// \returns `true` if the calls to `__kmpc_critical` and
   /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
   static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                      Constant *TidPtr, Instruction *BeginInst,
                                      Instruction *EndInst,
-                                     const StringRef &LockNameSuffix);
+                                     bool IsTargetSPIRV,
+                                     const StringRef LockNameSuffix);
 
   /// Generate a call to query if the current thread is master thread or a
   /// call to end_master for the team of threadsi. Emitted call:
@@ -638,6 +632,15 @@ public:
   static CallInst *addOperandBundlesInCall(
       CallInst *CI,
       ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
+
+  /// Creates a clone of \p CI without any operand bundles whose tags match an
+  /// entry in \p OpBundlesToRemove. Replaces all uses of the original \p CI
+  /// with the new Instruction created.
+  /// \returns the created CallInst, if it created one, \p CI otherwise (when \p
+  /// OpBundlesToRemove is empty, or has no matching bundle on \p CI).
+  static CallInst *
+  removeOperandBundlesFromCall(CallInst *CI,
+                               ArrayRef<StringRef> OpBundlesToRemove);
 
   /// Clone the instructions and insert them before \p InsertPt.
   static Value *cloneInstructions(Value *V, Instruction *InsertPt);
@@ -956,8 +959,7 @@ public:
   //    %11 = call i64 @_Z14get_local_sizej(i32 0)
   ///      where the value 0 is the dimension number.
   //  \endcode
-  static CallInst *genOCLGenericCall(StringRef FnName,
-                                     Type *RetType,
+  static CallInst *genOCLGenericCall(StringRef FnName, Type *RetType,
                                      ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
 
@@ -1055,14 +1057,17 @@ private:
   /// \p LockNameSuffix will be used as suffix in the name of the lock
   /// variable used for the critical section. (The prefix is determined based
   /// on the architecture and the kind of WRegionNode \W).
+  /// \p IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
   /// \returns The lock variable for the critical section to be generated.
   static GlobalVariable *
-  genKmpcCriticalLockVar(WRegionNode *W, const StringRef &LockNameSuffix);
+  genKmpcCriticalLockVar(WRegionNode *W, const StringRef LockNameSuffix,
+                         bool IsTargetSPIRV);
 
   /// Handles generation of a critical section around \p BeginInst and \p
-  /// EndInst. The function needs a lock variable \p LockVar, which is generated
-  /// by genKmpcCriticalLockVar().
+  /// EndInst. The function needs a lock variable \p LockVar, which is
+  /// generated by genKmpcCriticalLockVar().
+  /// \p IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
   /// \see genKmpcCriticalSection() functions for more details. They are the
   /// public functions which invokes this private helper.
@@ -1073,7 +1078,8 @@ private:
                                          Constant *TidPtr,
                                          Instruction *BeginInst,
                                          Instruction *EndInst,
-                                         GlobalVariable *LockVar);
+                                         GlobalVariable *LockVar,
+                                         bool IsTargetSPIRV);
 
   /// Generate a call to `__kmpc_[end_]taskgroup`.
   /// \code

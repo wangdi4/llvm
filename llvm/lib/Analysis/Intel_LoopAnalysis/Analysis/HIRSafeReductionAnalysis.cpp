@@ -171,7 +171,7 @@ void HIRSafeReductionAnalysis::computeSafeReductionChains(const HLLoop *Loop) {
 const SafeRedInfoList &
 HIRSafeReductionAnalysis::getSafeRedInfoList(const HLLoop *Loop) {
 
-  assert(Loop->isInnermost() && "SafeReduction supports only innermost loop");
+//  assert(Loop->isInnermost() && "SafeReduction supports only innermost loop");
   SafeRedInfoList &SRCL = SafeReductionMap[Loop];
   return SRCL;
 }

@@ -1039,6 +1039,7 @@ void HIROptPredicate::transformCandidate(
     }
 
     HLIf *ClonedIf = CloneMapper.getMapped(If);
+    assert(ClonedIf && "Can not get mapped If");
     if (C.PUC.IsUpdatedInElseBranch) {
       // Place original HLIf block
       HLNodeUtils::insertAsFirstThenChildren(ClonedIf, &ThenContainer);

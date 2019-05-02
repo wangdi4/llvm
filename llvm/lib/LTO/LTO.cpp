@@ -65,6 +65,12 @@ cl::opt<bool> EnableLTOInternalization(
     "enable-lto-internalization", cl::init(true), cl::Hidden,
     cl::desc("Enable global value internalization in LTO"));
 
+#if INTEL_CUSTOMIZATION
+/// Trace the result of whole program read analysis
+cl::opt<bool> WholeProgramReadTrace("whole-program-read-trace",
+    cl::init(false), cl::ReallyHidden);
+#endif // INTEL_CUSTOMIZATION
+
 // Computes a unique hash for the Module considering the current list of
 // export/import and other global analysis results.
 // The hash is produced in \p Key.
@@ -940,11 +946,18 @@ Error LTO::checkPartiallySplit() {
 }
 
 Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
-  bool AllResolved = true; // INTEL
-  bool AllSymbolsHidden = true; // INTEL
   // Compute "dead" symbols, we don't want to import/export these!
   DenseSet<GlobalValue::GUID> GUIDPreservedSymbols;
   DenseMap<GlobalValue::GUID, PrevailingType> GUIDPrevailingResolutions;
+#if INTEL_CUSTOMIZATION
+  if (WholeProgramReadTrace)
+    dbgs() << "WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ\n";
+  bool AllResolved = true;
+  bool AllSymbolsHidden = true;
+  bool MainFound = false;
+  unsigned SymbolsResolved = 0;
+  unsigned SymbolsUnresolved = 0;
+#endif // INTEL_CUSTOMIZATION
   for (auto &Res : GlobalResolutions) {
     // Normally resolution have IR name of symbol. We can do nothing here
     // otherwise. See comments in GlobalResolution struct for more details.
@@ -966,25 +979,72 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
     StringRef SymbolName =
         GlobalValue::dropLLVMManglingEscape(Res.second.IRName);
 
-    // The only symbols that should be external are main, runtime
-    // library calls and library functions (LibFuncs).
-    bool HiddenSymbol = !((Res.second.VisibleOutsideSummary ||
+    bool IsLinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
+
+    bool IsMain = WPUtils.isMainEntryPoint(SymbolName);
+    MainFound |= IsMain;
+
+    bool IsNotExternalSymbol = !(Res.second.VisibleOutsideSummary ||
         Res.second.Partition != GlobalResolution::RegularLTO) &&
-        SymbolName != "main" &&
-        (Res.second.Libcall == GlobalResolution::LibcallKind::NotLibcall ||
-         Res.second.Libcall == GlobalResolution::LibcallKind::UnknownLibcall));
+        !IsMain;
 
-    if (!HiddenSymbol)
-      storeVisibleSymbols(SymbolName);
+    bool IsLibFunc = (Res.second.Libcall ==
+                         GlobalResolution::LibcallKind::LibFunc ||
+                      Res.second.Libcall ==
+                         GlobalResolution::LibcallKind::RuntimeLibcall);
 
-    AllSymbolsHidden &= HiddenSymbol;
+    // A whole program hidden symbol will be one or more of the following:
+    //   * is main (or one of it's form)
+    //   * is not external (internalized symbol and is not main)
+    //   * is a library function
+    //   * is a linker added symbol (will be treated as libfunc)
+    bool IsWPHiddenSymbol = IsNotExternalSymbol || IsLinkerAddedSymbol ||
+                         IsLibFunc || IsMain;
+
+    // The only symbols that should be external are main, runtime
+    // library calls, library functions (LibFuncs) or special symbols
+    // added by the linker.
+    if (!IsWPHiddenSymbol) {
+      WPUtils.storeVisibleSymbols(SymbolName);
+    }
+
+    // NOTE: The hidden symbols aren't part of the whole program read,
+    // they are part of the visibility analysis. This analysis checks that
+    // all data is inside the compilation unit.
+    AllSymbolsHidden &= IsWPHiddenSymbol;
 
     AllResolved &= Res.second.ResolvedByLinker;
+
+    if (WholeProgramReadTrace) {
+      dbgs() << "SYMBOL NAME: " << SymbolName << "\n";
+      dbgs() << "  RESULT:";
+      dbgs() << (IsMain ? " MAIN |" : "");
+      dbgs() << (IsLinkerAddedSymbol ? " LINKER ADDED SYMBOL |" : "");
+      dbgs() << (Res.second.ResolvedByLinker ? "" : " NOT") <<
+                " RESOLVED BY LINKER \n\n";
+
+      if (Res.second.ResolvedByLinker)
+        SymbolsResolved++;
+      else
+        SymbolsUnresolved++;
+    }
 #endif // INTEL_CUSTOMIZATION
   }
-  setWholeProgramRead(AllResolved); // INTEL
-  setVisibilityHidden(AllSymbolsHidden); // INTEL
+#if INTEL_CUSTOMIZATION
+  if (WholeProgramReadTrace) {
+    dbgs() << "SYMBOLS RESOLVED BY LINKER: " << SymbolsResolved << "\n";
+    dbgs() << "SYMBOLS NOT RESOLVED BY LINKER: " << SymbolsUnresolved << "\n";
+    dbgs() << "WHOLE PROGRAM READ " << ((AllResolved && MainFound) ?
+              "" : "NOT ") << "ACHIEVED\n";
+  }
+  // Whole program read: all symbols were resolved by the linker and main
+  //                     was found
+  WPUtils.setWholeProgramRead(AllResolved && MainFound);
 
+  // Hidden Visibility: All functions are in one module and were internalized or
+  //                    are libfuncs
+  WPUtils.setVisibilityHidden(AllSymbolsHidden);
+#endif // INTEL_CUSTOMIZATION
   auto isPrevailing = [&](GlobalValue::GUID G) {
     auto It = GUIDPrevailingResolutions.find(G);
     if (It == GUIDPrevailingResolutions.end())

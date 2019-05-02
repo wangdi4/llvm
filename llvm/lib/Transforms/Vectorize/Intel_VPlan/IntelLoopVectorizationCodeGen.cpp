@@ -890,9 +890,21 @@ PHINode *VPOCodeGen::createInductionVariable(Loop *L, Value *Start, Value *End,
   Value *Next = Builder.CreateAdd(Induction, Step, "index.next");
   Induction->addIncoming(Start, L->getLoopPreheader());
   Induction->addIncoming(Next, Latch);
-  // Create the compare.
-  Value *ICmp = Builder.CreateICmpEQ(Next, End);
-  Builder.CreateCondBr(ICmp, L->getExitBlock(), Header);
+
+  // Create the compare. Special case for 1-trip count vector loop by checking
+  // for End == Step and start value of zero. We rely on later optimizations to
+  // cleanup the loop. TODO: Consider modifying the vector code generation to
+  // avoid the vector loop altogether for such cases.
+  Value *ICmp;
+  ConstantInt *ConstStart = dyn_cast<ConstantInt>(Start);
+  if (End == Step && ConstStart && ConstStart->isZero())
+    ICmp = Builder.getInt1(true);
+  else
+    ICmp = Builder.CreateICmpEQ(Next, End);
+
+  BasicBlock *Exit = L->getExitBlock();
+  assert(Exit && "Exit block not found for loop.");
+  Builder.CreateCondBr(ICmp, Exit, Header);
 
   // Now we have two terminators. Remove the old one from the block.
   Latch->getTerminator()->eraseFromParent();
@@ -1457,8 +1469,11 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
       OrigLoop->hasLoopInvariantOperands(cast<Instruction>(V));
 
     Value *VectorValue = nullptr;
+    IRBuilder<>::InsertPointGuard Guard(Builder);
     if (IsUniform) {
       Value *ScalarValue = ScalarMap[V][0];
+      assert(isa<Instruction>(ScalarValue) && "Expected instruction for scalar value");
+      Builder.SetInsertPoint((cast<Instruction>(ScalarValue))->getNextNode());
       if (ScalarValue->getType()->isVectorTy()) {
         VectorValue =
             replicateVector(ScalarValue, VF, Builder,
@@ -1469,11 +1484,16 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
       SmallVector<Value *, 8> Parts;
       for (unsigned Lane = 0; Lane < VF; ++Lane)
         Parts.push_back(ScalarMap[V][Lane]);
+      Value *ScalarValue = ScalarMap[V][VF-1];
+      assert(isa<Instruction>(ScalarValue) && "Expected instruction for scalar value");
+      Builder.SetInsertPoint((cast<Instruction>(ScalarValue))->getNextNode());
       VectorValue = joinVectors(Parts, Builder);
     } else {
       VectorValue = UndefValue::get(VectorType::get(V->getType(), VF));
       for (unsigned Lane = 0; Lane < VF; ++Lane) {
         Value *ScalarValue = ScalarMap[V][Lane];
+        assert(isa<Instruction>(ScalarValue) && "Expected instruction for scalar value");
+        Builder.SetInsertPoint((cast<Instruction>(ScalarValue))->getNextNode());
         VectorValue = Builder.CreateInsertElement(VectorValue, ScalarValue,
                                                   Builder.getInt32(Lane));
       }
@@ -2427,8 +2447,7 @@ void VPOCodeGen::createVectorIntOrFpInductionPHI(const InductionDescriptor &ID,
   auto *LoopVectorLatch = VecLp->getLoopLatch();
   assert(LoopVectorLatch && "Unexpected null vector loop latch");
   auto *Br = cast<BranchInst>(LoopVectorLatch->getTerminator());
-  auto *ICmp = cast<Instruction>(Br->getCondition());
-  LastInduction->moveBefore(ICmp);
+  LastInduction->moveBefore(Br);
   LastInduction->setName("vec.ind.next");
 
   cast<PHINode>(VectorInd)->addIncoming(SteppedStart, LoopVectorPreHeader);
@@ -2806,6 +2825,7 @@ void VPOCodeGen::vectorizeOpenCLSinCos(CallInst *Call, bool isMasked) {
   VecArgTys.push_back(WideSinPtr->getType());
   Function *VectorF = getOrInsertVectorFunction(
       Call, VF, VecArgTys, TLI, Intrinsic::not_intrinsic, nullptr, isMasked);
+  assert(VectorF && "Vector function not created.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
   if (isa<FPMathOperator>(VecCall))
     VecCall->copyFastMathFlags(Call);
@@ -2816,8 +2836,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(CallInst *Call, bool isMasked) {
   VecCall->setAttributes(Call->getAttributes());
 
   // Set calling convention for SVML function calls
-  if (isSVMLFunction(TLI, Call->getCalledFunction()->getName(),
-                     VectorF->getName()))
+  Function *CalledFunc = Call->getCalledFunction();
+  assert(CalledFunc && "Unexpected null call function.");
+  if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
     VecCall->setCallingConv(CallingConv::SVML);
 
   Loop *Lp = LI->getLoopFor(Call->getParent());
@@ -3236,6 +3257,14 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     Value *A = getVectorValue(VPInst->getOperand(1));
     Value *B = getVectorValue(VPInst->getOperand(2));
     Value *V = Builder.CreateSelect(M, A, B);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
+  case Instruction::ICmp: {
+    Value *A = getVectorValue(VPInst->getOperand(0));
+    Value *B = getVectorValue(VPInst->getOperand(1));
+    auto *Cmp = cast<VPCmpInst>(VPInst);
+    Value *V = Builder.CreateICmp(Cmp->getPredicate(), A, B);
     VPWidenMap[VPInst] = V;
     return;
   }

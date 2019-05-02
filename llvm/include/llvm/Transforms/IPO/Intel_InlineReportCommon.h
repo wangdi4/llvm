@@ -127,6 +127,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callee has key stack computations"},
     // InlrPreferPartialInline
     {InlPrtCost, "Preferred for partial inlining"},
+    // InlrPassedDummyArgs
+    {InlPrtCost, "Callee has callsites with dummy args"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,

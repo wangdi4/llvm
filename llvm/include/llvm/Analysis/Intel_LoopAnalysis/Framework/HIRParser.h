@@ -156,6 +156,10 @@ class HIRParser {
   /// processed/discarded at the end of phase2.
   SmallVector<HLInst *, 4> DistributePoints;
 
+  /// Represents information about dimensions of a single chain of GEP
+  /// operators and Subscripts instructions.
+  class GEPChain;
+
   /// BlobProcessor - Performs necessary processing for a blob being added to a
   /// CanonExpr.
   class BlobProcessor;
@@ -279,6 +283,11 @@ class HIRParser {
   /// marking livein temps.
   const SCEVUnknown *processTempBlob(const SCEVUnknown *TempBlob, CanonExpr *CE,
                                      unsigned NestingLevel);
+
+  /// Recusively breaks mul blobs such as (2 * n) into multiplier 2 and new blob
+  /// n. Returns false if no such multiplier is found.
+  bool breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
+                                      int64_t *Multiplier, BlobTy *NewBlob);
 
   /// Recusively breaks commutative blobs such as (2 + 2 * n) into multiplier 2
   /// and new blob (1 + n). Returns false if no such multiplier is found. \p

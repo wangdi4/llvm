@@ -26,6 +26,7 @@
 #include <vector>
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
+#include <type_traits>
 
 using HVAR = llvm::loopopt::RegDDRef *;
 using HEXPR = llvm::loopopt::RegDDRef *;
@@ -46,6 +47,13 @@ extern void printFnPtr(Function *Fn, formatted_raw_ostream &OS,
 typedef Value* VAR;
 typedef Value* EXPR;
 typedef Function* RDECL;
+#if INTEL_CUSTOMIZATION
+enum IRKind { LLVMIR, HIR };
+template <IRKind IR>
+    using VarType = typename std::conditional<IR == HIR, HVAR, VAR>::type;
+template <IRKind IR>
+    using ExprType = typename std::conditional<IR == HIR, HEXPR, EXPR>::type;
+#endif // INTEL_CUSTOMIZATION
 
 // Tables used for debug printing
 extern std::unordered_map<int, StringRef> WRNDefaultName;
@@ -156,7 +164,7 @@ class Item
     ItemKind getKind()      const { return Kind;           }
 #if INTEL_CUSTOMIZATION
     void setHOrig(HVAR V)         { HOrigItem = V;         }
-    HVAR getHOrig()         const { return HOrigItem;      }
+    template <IRKind IR = LLVMIR> VarType<IR> getOrig() const;
 #endif // INTEL_CUSTOMIZATION
 
     void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
@@ -648,7 +656,7 @@ class LinearItem : public Item
     EXPR getStep() const { return Step; }
 #if INTEL_CUSTOMIZATION
     void setHStep(HEXPR S) { HStep = S; }
-    HEXPR getHStep() const { return HStep; }
+    template <IRKind IR = LLVMIR> ExprType<IR> getStep() const;
 #endif // INTEL_CUSTOMIZATION
 
     // Specialized print() to output the stride as well

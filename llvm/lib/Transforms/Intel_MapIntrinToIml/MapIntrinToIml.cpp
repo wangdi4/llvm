@@ -49,7 +49,9 @@ static cl::opt<bool> RunSvmlStressMode(
     "svml-trans-stress-mode", cl::init(false), cl::Hidden,
     cl::desc("Scalarize svml calls."));
 
-MapIntrinToIml::MapIntrinToIml() : FunctionPass(ID) {}
+MapIntrinToIml::MapIntrinToIml() : FunctionPass(ID) {
+  initializeMapIntrinToImlPass(*PassRegistry::getPassRegistry());
+}
 
 // The idea of this pass is simple and involves these steps:
 // 1) Find svml calls.

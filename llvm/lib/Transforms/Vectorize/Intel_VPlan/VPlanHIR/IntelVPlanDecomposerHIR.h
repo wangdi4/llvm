@@ -14,12 +14,13 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANDECOMPOSERHIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANDECOMPOSERHIR_H
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "IntelVPlanBuilderHIR.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 namespace llvm {
 namespace loopopt {
-class HLLoop;
 class CanonExpr;
 class DDGraph;
 class DDEdge;
@@ -32,6 +33,31 @@ namespace vpo {
 // Main class to create VPInstructions out of HLNodes during the VPlan plain
 // CFG construction.
 class VPDecomposerHIR {
+public:
+  class VPInductionHIR {
+    // VPInstruction that incerements the induction.
+    VPInstruction *UpdateInstr;
+    // Step of induction.
+    VPValue *Step;
+    // Incoming (starting) value of induction. Can be null, in that case the
+    // initial value can be obtained from the phi that uses the UpdateInstr.
+    VPValue *Start;
+
+  public:
+    explicit VPInductionHIR(VPInstruction *Instr, VPValue *Stride,
+                            VPValue *Incoming)
+        : UpdateInstr(Instr), Step(Stride), Start(Incoming) {}
+
+    VPInductionHIR() = delete;
+
+    VPInstruction *getUpdateInstr() { return UpdateInstr; }
+    VPValue *getStep() { return Step; }
+    VPValue *getStart() { return Start; }
+  };
+  typedef SmallVector<std::unique_ptr<VPInductionHIR>, 2> VPInductionHIRList;
+  typedef DenseMap<const loopopt::HLLoop *, std::unique_ptr<VPInductionHIRList>>
+      VPLoopInductionsHIRMap;
+
 private:
   /// The VPlan we are working on.
   VPlan *Plan;
@@ -51,7 +77,10 @@ private:
   /// Map HLLoop to the VPPHI instruction representing its IV in VPlan.
   SmallDenseMap<loopopt::HLLoop *, VPPHINode *> HLLp2IVPhi;
 
-  // A map to track empty VPPhi nodes that are added during decomposition. We
+  // Holds lists of induction descriptors, grouped by HLLoop.
+  VPLoopInductionsHIRMap Inductions;
+
+   // A map to track empty VPPhi nodes that are added during decomposition. We
   // know that there can be only one unique PHI node per VPBasicBlock for a
   // given Symbase (corresponding to the sink DDRef). Currently we are also
   // storing the sink DDRef that triggered the placement of this VPPhi node, but
@@ -100,7 +129,7 @@ private:
                       PhiNodePassData::VPValMap &IncomingVPVals,
                       SmallVectorImpl<PhiNodePassData> &Worklist);
 
-  // Methods to create VPInstructions out of an HLNode.
+ // Methods to create VPInstructions out of an HLNode.
   bool isExternalDef(loopopt::DDRef *UseDDR);
   unsigned getNumReachingDefinitions(loopopt::DDRef *UseDDR);
   void setMasterForDecomposedVPIs(VPInstruction *MasterVPI,
@@ -112,7 +141,7 @@ private:
                                       ArrayRef<VPValue *> VPOperands);
   void createVPOperandsForMasterVPInst(loopopt::HLNode *Node,
                                        SmallVectorImpl<VPValue *> &VPOperands);
-  void createOrGetVPDefsForUse(loopopt::DDRef *UseDDR,
+  void getOrCreateVPDefsForUse(loopopt::DDRef *UseDDR,
                                SmallVectorImpl<VPValue *> &VPDefs);
 
   // Methods to decompose complex HIR.
@@ -144,7 +173,6 @@ private:
     VPDecomposerHIR &Decomposer;
 
     // Helper functions.
-    VPValue *createOrGetVPDefFor(const loopopt::DDEdge *Edge);
     VPConstant *decomposeNonIntConstBlob(const SCEVUnknown *Blob);
     VPValue *decomposeStandAloneBlob(const SCEVUnknown *Blob);
     VPValue *decomposeNAryOp(const SCEVNAryExpr *Blob, unsigned OpCode);
@@ -199,6 +227,19 @@ public:
 
   /// Add operands to empty VPPHINodes added during decomposition.
   void fixPhiNodes();
+
+  VPValue *getVPValueForNode(const loopopt::HLNode *Node);
+
+  /// Return requested VPConstant, for components that don't have VPlan
+  /// reference.
+  VPConstant *getVPValueForConst(Constant *CVal) const {
+    return Plan->getVPConstant(CVal);
+  }
+
+  /// Return indcution list.
+  VPInductionHIRList &getInductions(const loopopt::HLLoop *L) {
+    return *(Inductions[L]);
+  }
 };
 
 } // namespace vpo

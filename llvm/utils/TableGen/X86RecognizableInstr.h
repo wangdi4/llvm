@@ -101,24 +101,27 @@ namespace X86Local {
     RawFrmDstSrc  = 6,
     RawFrmImm8    = 7,
     RawFrmImm16   = 8,
+    AddCCFrm      = 9,
     MRMDestMem     = 32,
     MRMSrcMem      = 33,
     MRMSrcMem4VOp3 = 34,
     MRMSrcMemOp4   = 35,
+    MRMSrcMemCC    = 36,
 #if INTEL_CUSTOMIZATION
-    MRMSrcMemFSIB  = 36,
+    MRMSrcMemFSIB  = 37,
 #endif // INTEL_CUSTOMIZATION
-    MRMXm = 39,
+    MRMXmCC = 38, MRMXm = 39,
     MRM0m = 40, MRM1m = 41, MRM2m = 42, MRM3m = 43,
     MRM4m = 44, MRM5m = 45, MRM6m = 46, MRM7m = 47,
     MRMDestReg     = 48,
     MRMSrcReg      = 49,
     MRMSrcReg4VOp3 = 50,
     MRMSrcRegOp4   = 51,
+    MRMSrcRegCC    = 52,
 #if INTEL_CUSTOMIZATION
-    MRMr0 = 54,
+    MRMr0 = 53,
 #endif // INTEL_CUSTOMIZATION
-    MRMXr = 55,
+    MRMXrCC = 54, MRMXr = 55,
     MRM0r = 56, MRM1r = 57, MRM2r = 58, MRM3r = 59,
     MRM4r = 60, MRM5r = 61, MRM6r = 62, MRM7r = 63,
 #define MAP(from, to) MRM_##from = to,
@@ -151,10 +154,6 @@ namespace X86Local {
 
   enum {
     AdSize16 = 1, AdSize32 = 2, AdSize64 = 3
-  };
-
-  enum {
-    VEX_W0 = 0, VEX_W1 = 1, VEX_WIG = 2, VEX_W1X = 3
   };
 }
 
@@ -189,8 +188,10 @@ private:
   bool HasREX_WPrefix;
   /// The hasVEX_4V field from the record
   bool HasVEX_4V;
-  /// The VEX_WPrefix field from the record
-  uint8_t VEX_WPrefix;
+  /// The HasVEX_WPrefix field from the record
+  bool HasVEX_W;
+  /// The IgnoresVEX_W field from the record
+  bool IgnoresVEX_W;
   /// Inferred from the operands; indicates whether the L bit in the VEX prefix is set
   bool HasVEX_LPrefix;
   /// The ignoreVEX_L field from the record

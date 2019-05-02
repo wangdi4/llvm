@@ -1,7 +1,7 @@
 #if INTEL_COLLAB
 //===------- WRegionInfo.cpp - Build WRegion Graph ---------*- C++ -*------===//
 //
-//   Copyright (C) 2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -44,8 +44,9 @@ WRegionInfo WRegionInfoAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
   auto *AC   = WRC.getAssumptionCache();
   auto *TLI  = WRC.getTargetLibraryInfo();
   auto *AA   = WRC.getAliasAnalysis();
+  auto &ORE  = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 
-  WRegionInfo WRI(&F, DT, LI, SE, TTI, AC, TLI, AA, &WRC);
+  WRegionInfo WRI(&F, DT, LI, SE, TTI, AC, TLI, AA, &WRC, ORE);
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionInfoAnalysis::run: " << F.getName()
                     << "\n");
@@ -55,6 +56,7 @@ WRegionInfo WRegionInfoAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
 INITIALIZE_PASS_BEGIN(WRegionInfoWrapperPass, "vpo-wrninfo",
                       "VPO Work-Region Information", false, true)
 INITIALIZE_PASS_DEPENDENCY(WRegionCollectionWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(WRegionInfoWrapperPass, "vpo-wrninfo",
                     "VPO Work-Region Information", false, true)
 
@@ -72,6 +74,7 @@ WRegionInfoWrapperPass::WRegionInfoWrapperPass() : FunctionPass(ID) {
 void WRegionInfoWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<WRegionCollectionWrapperPass>();
+  AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
 }
 
 bool WRegionInfoWrapperPass::runOnFunction(Function &F) {
@@ -86,8 +89,9 @@ bool WRegionInfoWrapperPass::runOnFunction(Function &F) {
   auto *AC   = WRC.getAssumptionCache();
   auto *TLI  = WRC.getTargetLibraryInfo();
   auto *AA   = WRC.getAliasAnalysis();
+  auto &ORE  = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
-  WRI.reset(new WRegionInfo(&F, DT, LI, SE, TTI, AC, TLI, AA, &WRC));
+  WRI.reset(new WRegionInfo(&F, DT, LI, SE, TTI, AC, TLI, AA, &WRC, ORE));
 
   LLVM_DEBUG(dbgs() << "\n}EXIT WRegionInfoWrapperPass::runOnFunction: "
                     << F.getName() << "\n");
@@ -99,12 +103,13 @@ void WRegionInfoWrapperPass::releaseMemory() { WRI.reset(); }
 WRegionInfo::WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI,
                          ScalarEvolution *SE, const TargetTransformInfo *TTI,
                          AssumptionCache *AC, const TargetLibraryInfo *TLI,
-                         AliasAnalysis *AA, WRegionCollection *WRC)
+                         AliasAnalysis *AA, WRegionCollection *WRC,
+                         OptimizationRemarkEmitter &ORE)
     : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), AA(AA),
-      WRC(WRC) {}
+      WRC(WRC), ORE(ORE) {}
 
 #if INTEL_CUSTOMIZATION
-void WRegionInfo::buildWRGraph(WRegionCollection::InputIRKind IR) {
+void WRegionInfo::buildWRGraph(IRKind IR) {
 #else
 void WRegionInfo::buildWRGraph() {
 #endif // INTEL_CUSTOMIZATION

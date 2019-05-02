@@ -188,8 +188,8 @@ protected:
   // Creates reduction code for the given var.
   void genRedVar(ReductionItem *I, WRegionNode *W) {
     genPrivItem(I, W, ".red");
-    PT.genReductionInit(I, getInitInsPt(), DT);
-    PT.genReductionFini(I, I->getOrig(), getFiniInsPt(), DT);
+    PT.genReductionInit(W, I, getInitInsPt(), DT);
+    PT.genReductionFini(W, I, I->getOrig(), getFiniInsPt(), DT);
   }
 
   // Adds value to the list of candidates for registerization if it is an alloca

@@ -7677,6 +7677,7 @@ struct SLPVectorizer : public FunctionPass {
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<AAResultsWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
     AU.setPreservesCFG();
   }
 };
@@ -7702,6 +7703,7 @@ PreservedAnalyses SLPVectorizerPass::run(Function &F, FunctionAnalysisManager &A
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<AAManager>();
   PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>(); // INTEL
   return PA;
 }
 

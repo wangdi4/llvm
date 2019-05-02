@@ -380,8 +380,24 @@ bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
 
   auto *RvalDefInst = getSingleRvalDefInst();
 
-  if (RvalDefInst->getParent() != UseInst->getParent()) {
+  auto *Parent = RvalDefInst->getParent();
+  if (Parent != UseInst->getParent()) {
     return false;
+  }
+
+  // Only handle cases where both insts are in the same case of If/Switch
+  // parent.
+  if (auto *IfParent = dyn_cast<HLIf>(Parent)) {
+    if (IfParent->isThenChild(RvalDefInst) != IfParent->isThenChild(UseInst)) {
+      return false;
+    }
+  }
+
+  if (auto *SwitchParent = dyn_cast<HLSwitch>(Parent)) {
+    if (SwitchParent->getChildCaseNum(RvalDefInst) !=
+        SwitchParent->getChildCaseNum(UseInst)) {
+      return false;
+    }
   }
 
   auto &BU = UseInst->getBlobUtils();
@@ -390,27 +406,15 @@ bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
   unsigned UseLvalBlobIndex = InvalidBlobIndex;
 
   if (UseLvalRef && UseLvalRef->isTerminalRef()) {
-
     UseLvalBlobIndex = UseLvalRef->isSelfBlob()
                            ? UseLvalRef->getSelfBlobIndex()
                            : BU.findTempBlobIndex(UseLvalRef->getSymbase());
-
-    // Illegal to move if lval of UseInst is used by rval def inst.
-    for (auto *Ref : make_range(RvalDefInst->op_ddref_begin(),
-                                RvalDefInst->op_ddref_end())) {
-      if (Ref->usesTempBlob(UseLvalBlobIndex)) {
-        return false;
-      }
-    }
   }
 
   // Check if intermediate nodes prevent reordering.
-  for (auto *PrevNode = UseInst->getPrevNode(); PrevNode != RvalDefInst;
-       PrevNode = PrevNode->getPrevNode()) {
-
-    if (!PrevNode) {
-      return false;
-    }
+  for (auto *PrevNode = UseInst->getPrevNode(),
+            *EndNode = RvalDefInst->getPrevNode();
+       PrevNode != EndNode; PrevNode = PrevNode->getPrevNode()) {
 
     auto *Inst = dyn_cast<HLInst>(PrevNode);
 

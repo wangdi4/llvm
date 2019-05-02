@@ -173,6 +173,28 @@ static cl::opt<unsigned> HugeFunctionLoopCount(
     "inlining-huge-loop-count", cl::init(11), cl::ReallyHidden,
     cl::desc("Function with this many loops or more may be huge"));
 
+// Options to set the minimum number of formal arguments, the length of the
+// formal argument series, the length of matching arguments in the sub-series,
+// and the minimum number of callsites for the "dummy args" inlining
+// heuristic.
+
+static cl::opt<unsigned> DummyArgsMinArgCount(
+    "inlining-dummy-args-min-arg-count", cl::init(8), cl::ReallyHidden,
+    cl::desc("Minimum number of args for dummy-args function"));
+
+static cl::opt<unsigned> DummyArgsMinSeriesLength(
+    "inlining-dummy-args-min-series-length", cl::init(5), cl::ReallyHidden,
+    cl::desc("Minimum length of series for dummy-args function"));
+
+static cl::opt<unsigned> DummyArgsMinSeriesMatch(
+    "inlining-dummy-args-min-series-match", cl::init(4), cl::ReallyHidden,
+    cl::desc("Minimum matching length in series for dummy-args function"));
+
+static cl::opt<unsigned> DummyArgsMinCallsiteCount(
+    "inlining-dummy-args-min-callsite-count", cl::init(5),
+    cl::ReallyHidden,
+    cl::desc("Minimum callsite count for dummy-args function"));
+
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -3547,59 +3569,156 @@ static bool preferPartialInlineInlinedClone(Function *Callee) {
     "prefer-partial-inline-inlined-clone");
 }
 
-//
-// Return 'true' if a Function with the prefer-partial-inline-outlined-func
-// attribute exists in the Module 'M'.
-//
-static bool sawPreferPartialInlineOutlinedFunc(Module *M) {
-  static bool ScannedFunctions = false;
-  static bool SawPreferPartialInlineOutlinedFunc = false;
-  if (ScannedFunctions)
-    return SawPreferPartialInlineOutlinedFunc;
-  for (auto &F :  M->functions())
-    if (F.hasFnAttribute("prefer-partial-inline-outlined-func")) {
-      ScannedFunctions = true;
-      SawPreferPartialInlineOutlinedFunc = true;
-      return true;
-    }
-  ScannedFunctions = true;
-  return false;
-}
-
-//
-// Return 'true' if 'F' calls an outlined function created by Intel partial
-// inlining, which in turn calls 'F'. Such functions are good candidates
-// for inlining.
+// Return 'true' if 'F' calls an Intel partial inlining inlined clone,
+// which calls an Intel partial inlining outlined function, which calls
+// 'F'. (Note that the functions are tested in reverse order, because it
+// is cheaper in compile time to find the callers of a function than it
+// it is to find the callees.
 //
 
 static bool preferPartialInlineHasExtractedRecursiveCall(Function &F,
                                                          bool PrepareForLTO) {
-  // Save candidate functions in a SmallPtrSet so that they are not
-  // disqualified once they are inlined.
   static SmallPtrSet<Function *, 3> Candidates;
+  static bool ScannedFunctions = false;
+  static bool SawPreferPartialInlineOutlinedFunc = false;
   if (PrepareForLTO || !DTransInlineHeuristics)
     return false;
-  if (Candidates.count(&F))
-    return true;
-  if (!sawPreferPartialInlineOutlinedFunc(F.getParent()))
-    return false;
-  for (User *U : F.users()) {
-    auto CS1 = dyn_cast<CallBase>(U);
-    if (!CS1)
-      continue;
-    Function *Caller = CS1->getCaller();
-    if (!Caller->hasFnAttribute("prefer-partial-inline-outlined-func"))
-      continue;
-    for (User *V : Caller->users()) {
-      auto CS2 = dyn_cast<CallBase>(V);
-      if (!CS2)
-        continue;
-      if (CS2->getCaller() != &F)
-        continue;
-      Candidates.insert(&F);
-      return true;
+  if (ScannedFunctions)
+    return SawPreferPartialInlineOutlinedFunc && Candidates.count(&F);
+  Module *M = F.getParent();
+  for (auto &Fx :  M->functions())
+    if (Fx.hasFnAttribute("prefer-partial-inline-outlined-func")) {
+      SawPreferPartialInlineOutlinedFunc = true;
+      for (User *U : Fx.users()) {
+        auto CS1 = dyn_cast<CallBase>(U);
+        if (!CS1)
+          continue;
+        Function *Fy = CS1->getCaller();
+        if (!Fy->hasFnAttribute("prefer-partial-inline-inlined-clone"))
+          continue;
+        for (User *V : Fy->users()) {
+          auto CS2 = dyn_cast<CallBase>(V);
+          if (!CS2)
+            continue;
+          Function *Fz = CS2->getCaller();
+          for (User *W : Fz->users()) {
+            auto CS3 = dyn_cast<CallBase>(W);
+            if (!CS3 || CS3->getCaller() != &Fx)
+              continue;
+            Candidates.insert(Fz);
+          }
+        }
+      }
     }
+  ScannedFunctions = true;
+  return  SawPreferPartialInlineOutlinedFunc && Candidates.count(&F);
+}
+
+//
+// Return 'true' if 'F' should be inlined because it is qualified by
+// the "dummy args" inlining heuristic, This heuristic qualifies
+// functions:
+//   (1) That have at least 'DummyArgsMinArgCount' formal arguments.
+//   (2) Have a series of formal arguments which are pointers to integers
+//       with at least DummyArgsMinSeriesLength arguments in the series.
+//   (3) Have at least 'DummyArgsMinCallsiteCount' callsites.
+//   (4) All but one of these callsites has a sub-series of matching actual
+//       arguments corresponding to the formal arguments in the series in (2),
+//       where the sub-series has a length of at least
+//       'DummyArgsMinSeriesMatch'.
+// For example:
+//    int foo(int, float, int*, int*, int*, int*, int*, int)
+// has 8 arguments, and a series of 5 int* arguments. Let's say it has
+// the following callsites:
+//    foo(2, 4.0, &myres1, &dummy, &dummy, &dummy, &dummy, 0);
+//    foo(3, 5.0, &myres2, &temp, &temp, &temp, &temp, 0);
+//    foo(4, 7.0, &myres3, &dummy, &dummy, &dummy, &dummy, 0);
+//    foo(2, 5.0, &myres4, &dummy1, &dummy1, &dummy1, &dummy1, 0);
+//    foo(6, 6.0, &myres5, &fred, &george, &mildred, 0);
+// All but one of these callsites (the last) have a series of 4 int*
+// arguments with the same value.  So 'foo' qualifies for inlining
+// under this heuristic. (Note that the idea of matching parameters
+// being an indicator of the use of dummy args is only a heuristic.)
+//
+// Note: This function heuristic is now qualified by a callsite specific
+// heuristic below.
+//
+static bool worthInliningFunctionPassedDummyArgs(Function &F,
+                                                 bool PrepareForLTO) {
+  assert(DummyArgsMinSeriesLength <= DummyArgsMinArgCount &&
+      "Series length must not exceed minimum arg count");
+  assert(DummyArgsMinSeriesMatch <= DummyArgsMinSeriesLength &&
+      "Series match must not exceed series length");
+  static SmallPtrSet<Function *, 3> FunctionsTestedPass;
+  if (PrepareForLTO || !DTransInlineHeuristics)
+    return false;
+  if (FunctionsTestedPass.count(&F))
+    return true;
+  if (F.arg_size() < DummyArgsMinArgCount)
+    return false;
+  // Find the series length.
+  unsigned PtrToIntSeriesArgCount = 0;
+  unsigned PtrToIntFirstArgNo = 0;
+  for (auto &Arg : F.args()) {
+    Type *Ty = Arg.getType();
+    if (Ty->isPointerTy() && Ty->getPointerElementType()->isIntegerTy()) {
+      if (PtrToIntSeriesArgCount == 0)
+        PtrToIntFirstArgNo = Arg.getArgNo();
+      if (++PtrToIntSeriesArgCount >= DummyArgsMinSeriesLength)
+        break;
+    } else
+      PtrToIntSeriesArgCount = 0;
   }
+  if (PtrToIntSeriesArgCount < DummyArgsMinSeriesLength)
+    return false;
+  // Find number of callsites and the length of the series match within the
+  // series.
+  unsigned CallSiteCount = 0;
+  unsigned BadCallSiteCount = 0;
+  for (User *U : F.users()) {
+    auto CS = dyn_cast<CallBase>(U);
+    if (!CS)
+      continue;
+    ++CallSiteCount;
+    unsigned E = PtrToIntFirstArgNo + PtrToIntSeriesArgCount;
+    if (E > CS->getNumArgOperands() - 1)
+      return false;
+    unsigned MaxMatchCount = 0;
+    unsigned SeriesCount = 0;
+    Value *LastV = CS->getArgOperand(PtrToIntFirstArgNo);
+    for (unsigned I = PtrToIntFirstArgNo + 1; I <= E; ++I) {
+      Value *V = CS->getArgOperand(I);
+      if (V == LastV) {
+        if (++SeriesCount > MaxMatchCount)
+          MaxMatchCount = SeriesCount;
+      } else
+        SeriesCount = 0;
+      LastV = V;
+    }
+    if (MaxMatchCount < (DummyArgsMinSeriesMatch - 1) &&
+        (++BadCallSiteCount > 1))
+      return false;
+  }
+  if (CallSiteCount < DummyArgsMinCallsiteCount)
+    return false;
+  // Store the qualified function.
+  FunctionsTestedPass.insert(&F);
+  return true;
+}
+
+//
+// Return 'true' if 'CB' should be inlined because its callee qualifies under
+// "dummy args" inlining heuristic explained above, and 'CB' itself is used
+// in a switch instruction.
+//
+static bool worthInliningCallSitePassedDummyArgs(CallBase &CB,
+                                                 bool PrepareForLTO) {
+  Function *Callee = CB.getCalledFunction();
+  if (!worthInliningFunctionPassedDummyArgs(*Callee, PrepareForLTO))
+    return false;
+  for (User *U : CB.users())
+    if (dyn_cast<SwitchInst>(U))
+      return true;
   return false;
 }
 
@@ -3792,6 +3911,7 @@ static bool preferNotToInlineEHIntoLoop(CallBase &CB,
   return hasLoopOptInhibitingEHInstOutsideLoop(Callee, ILIC);
 }
 
+
 //
 // Test a series of special conditions to determine if it is worth inlining
 // if any of them appear. (These have been gathered together into a single
@@ -3871,6 +3991,11 @@ static void worthInliningUnderSpecialCondition(CallBase &CB,
   if (preferPartialInlineInlinedClone(F)) {
     Cost -= InlineConstants::DeepInliningHeuristicBonus;
     YesReasonVector.push_back(InlrPreferPartialInline);
+    return;
+  }
+  if (worthInliningCallSitePassedDummyArgs(CB, PrepareForLTO)) {
+    Cost -= InlineConstants::DeepInliningHeuristicBonus;
+    YesReasonVector.push_back(InlrPassedDummyArgs);
     return;
   }
 }
@@ -4022,7 +4147,6 @@ InlineResult CallAnalyzer::analyzeCall(CallSite CS,
     Cost -= InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
   }
-
 #endif // INTEL_CUSTOMIZATION
 
   // If this function uses the coldcc calling convention, prefer not to inline

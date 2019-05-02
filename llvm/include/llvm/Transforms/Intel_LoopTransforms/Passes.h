@@ -66,6 +66,10 @@ FunctionPass *createHIRLoopInterchangePass();
 /// Blocking.
 FunctionPass *createHIRLoopBlockingPass();
 
+/// createHIRLoopRematerializePass - This creates a pass that performs Loop
+/// Rematerialize.
+FunctionPass *createHIRLoopRematerializePass();
+
 /// createHIRLoopRerollPass - This creates a pass that performs Loop
 /// Reroll.
 FunctionPass *createHIRLoopRerollPass();
@@ -149,6 +153,9 @@ FunctionPass *createHIRMultiExitLoopRerollPass();
 
 /// Creates a pass that recognizes parallel loops.
 FunctionPass *createHIRRecognizeParLoopPass();
+
+/// Create pass that recognize identity matrix.
+FunctionPass *createHIRIdentityMatrixIdiomRecognitionPass();
 } // namespace llvm
 
 #endif

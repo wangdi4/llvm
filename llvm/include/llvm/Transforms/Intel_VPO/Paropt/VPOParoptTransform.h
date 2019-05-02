@@ -101,6 +101,7 @@ public:
 #if INTEL_CUSTOMIZATION
                      OptReportVerbosity::Level ORVerbosity,
 #endif  // INTEL_CUSTOMIZATION
+                     OptimizationRemarkEmitter &ORE,
                      unsigned OptLevel = 2, bool SwitchToOffload = false)
       : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
         TLI(TLI), AA(AA), Mode(Mode),
@@ -108,7 +109,7 @@ public:
 #if INTEL_CUSTOMIZATION
         ORVerbosity(ORVerbosity),
 #endif  // INTEL_CUSTOMIZATION
-        OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
+        ORE(ORE), OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
         KmpTaskTTy(nullptr), KmpTaskTRedTy(nullptr),
@@ -171,6 +172,9 @@ private:
   /// Builder for generating remarks using Loop Opt Report framework (under -qopt-report).
   LoopOptReportBuilder LORBuilder;
 #endif  // INTEL_CUSTOMIZATION
+
+  /// Optimization remark emitter.
+  OptimizationRemarkEmitter &ORE;
 
   /// Optimization level.
   unsigned OptLevel;
@@ -256,6 +260,13 @@ private:
   }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
+
+  /// Returns true if we are compiling for SPIRV target.
+  bool isTargetSPIRV() const {
+    return
+        VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
+        hasOffloadCompilation();
+  }
 
   /// Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
@@ -397,12 +408,14 @@ private:
                                          Instruction *InsertPt);
 
   /// Generate the reduction initialization code.
-  void genReductionInit(ReductionItem *RedI, Instruction *InsertPt,
-                        DominatorTree *DT);
+  void genReductionInit(WRegionNode *W, ReductionItem *RedI,
+                        Instruction *InsertPt, DominatorTree *DT);
 
   /// Generate the reduction update code.
-  void genReductionFini(ReductionItem *RedI, Value *OldV, Instruction *InsertPt,
-                        DominatorTree *DT);
+  /// Returns true iff critical section is required around the generated
+  /// reduction update code.
+  bool genReductionFini(WRegionNode *W, ReductionItem *RedI, Value *OldV,
+                        Instruction *InsertPt, DominatorTree *DT);
 
   /// Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
@@ -411,7 +424,7 @@ private:
   Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
 
   /// Generate the reduction code for reduction clause.
-  bool genReductionCode(WRegionNode *W);
+  bool genReductionCode(WRegionNode *W, bool IsTargetSPIRV = false);
 
   /// Prepare the empty basic block for the array
   /// reduction or firstprivate initialization.
@@ -426,14 +439,21 @@ private:
                              Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
 
   /// Generate the reduction update instructions.
-  Value *genReductionScalarFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
-                                Value *Lhs, Type *ScalarTy,
-                                IRBuilder<> &Builder);
+  /// Returns true iff critical section is required around the generated
+  /// reduction update code.
+  bool genReductionScalarFini(
+      WRegionNode *W, ReductionItem *RedI,
+      Value *ReductionVar, Value *ReductionValueLoc,
+      Type *ScalarTy, IRBuilder<> &Builder);
 
   /// Generate the reduction initialization/update for array.
-  void genRedAggregateInitOrFini(ReductionItem *RedI, AllocaInst *AI,
-                                 Value *OldV, Instruction *InsertPt,
-                                 bool IsInit, DominatorTree *DT);
+  /// Returns true iff critical section is required around the generated
+  /// reduction update code. The method always returns false, when
+  /// IsInit is true.
+  bool genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI,
+                                 AllocaInst *AI, Value *OldV,
+                                 Instruction *InsertPt, bool IsInit,
+                                 DominatorTree *DT);
 
   /// Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
@@ -889,11 +909,45 @@ private:
 
   /// @}
 
-  /// Generate the intrinsic @llvm.launder.invariant.group to inhibit
-  /// the cse for the gep instruction related to array/struture which is marked
-  /// as private, firstprivate, lastprivate, reduction or shared.
-  /// Return \b true if transformations happened.
-  bool genCodemotionFenceforAggrData(WRegionNode *W);
+  /// Rename operands of various clauses by replacing them with a
+  /// store-then-load, and adding operand-address pair to the entry directive.
+  /// This renaming is done to prevent CSE/Instcombine transformations which
+  /// break OpenMP semantics by combining/recomputing bitcasts/GEPs across
+  /// region boundaries.
+  /// This renaming is done for operands to private, firstprivate, lastprivate,
+  /// reduction, shared, and map clauses.
+  ///
+  /// This renaming is done in the vpo-paropt-prepare phase, and is undone
+  /// in the vpo-paropt-restore phase beofore the vpo-paropt transformation
+  /// pass.
+  ///
+  /// The IR before and after this renaming looks like:
+  ///
+  /// \code
+  ///            Before                   |            After
+  ///          ---------------------------+---------------------------
+  ///                                     |   store i32* %y, i32** %y.addr
+  ///                                     |
+  ///   %1 = begin_region[... %y...]      |   %1 = begin_region[... %y...
+  ///                                     |        "QUAL.OMP.OPERAND.ADDR"
+  ///                                     |         (i32* %y,i32** %y.addr)]
+  ///                                     |
+  ///                                     |   %y1 = load i32*, i32** %y.addr
+  ///                                     |
+  ///   ...                               |   ...
+  ///   <%y used inside the region>       |   <%y1 used inside the region>
+  ///                                     |
+  ///                                     |
+  ///   end_region(%1)                    |   end_region(%1)
+  /// \endcode
+  ///
+  /// In the region, `%y1` is used to replace all uses of `$y`. If there is no
+  /// use of `%y` inside the region, then the load `%y` is not emitted.
+  /// The operand-addr pair in the auxiliary clause `QUAL.OMP.OPERAND.ADDR` is
+  /// used to undo the renaming in the VPORestoreOperandsPass.
+  /// \see VPOUtils::restoreOperands() for details on how the renaming is
+  /// undone and the original operands are restored.
+  bool renameOperandsUsingStoreThenLoad(WRegionNode *W);
 
   /// Clean up the intrinsic @llvm.launder.invariant.group and replace
   /// the use of the intrinsic with the its operand.
@@ -933,15 +987,26 @@ private:
                          bool AddrIsTargetParamFlag,
                          bool IsFirstComponentFlag);
 
-  /// Replace the occurrences of I within the region with the return
-  /// value of the intrinsic @llvm.launder.invariant.group
-  /// Return \b true if transformations happened.
-  bool replaceValueWithinRegion(WRegionNode *W, Value *Old);
-
-  /// Generate the intrinsic @llvm.launder.invariant.group for local/global
-  /// variable \p I if \p I is an aggregate var (ie, !isSingleValueType())
-  /// found within \p W.
-  bool genFenceIntrinsic(WRegionNode *W, Value *I);
+  /// Create a pointer, store address of \p V to the pointer, and replace uses
+  /// of \p V with a load from that pointer.
+  ///
+  /// \code
+  ///   %v = alloca i32
+  ///   ...
+  ///   %v.addr = alloca i32*
+  ///   ...
+  ///   store i32* %v, i32** %v.addr
+  ///   ; <InsertPtForStore>
+  ///   %0 = llvm.region.entry() [... "PRIVATE" (i32* %v) ]
+  ///   %v1 = load i32*, i32** %v.addr
+  ///   ...
+  ///   ; Replace uses of %v with %v1
+  ///   ...
+  /// \endcode
+  ///
+  /// \returns the pointer where \p V is stored (`%v.addr` above).
+  static Value *replaceWithStoreThenLoad(WRegionNode *W, Value *V,
+                                         Instruction *InsertPtForStore);
 
   /// If \p I is a call to @llvm.launder.invariant.group, then return
   /// the CallInst*. Otherwise, return nullptr.
@@ -996,26 +1061,6 @@ private:
   // the WRegion W (including the region entry directive).
   Value *genRenamePrivatizationImpl(WRegionNode *W, Value *V,
                                     BasicBlock *EntryBB, Item *IT);
-
-  /// If a clause operand to a data sharing or map clause is a GEP, we need
-  /// to capture it in an intrinsic to prevent CSE or constant propagation from
-  /// replacing uses of the original GEP with something else. For example:
-  ///
-  /// Class C { int x; void foo() { #pragma omp parallel private(x) {...} } };
-  ///
-  /// In this case, the IR for the directive will look like:
-  ///
-  /// %x = getelementpointer, this, 0, 0
-  /// llvm.directive.region.entry(... "QUAL.OMP.PRIVATE" (%x)
-  /// { ... %x ... } // Use of %x inside the parallel region
-  ///
-  /// It is possible for optimizations to replace '%x', which is a zero-offset
-  /// GEP, with '%this', either inside the directive, or within the region,
-  /// either of which will break VPO's handling of the clause.
-  ///
-  /// The solution is to capture and rename the incoming GEPs to inhibit such
-  /// optimizations. See genRenamePrivatizationImpl() for details.
-  bool genGEPCapturingLaunderIntrin(WRegionNode *W);
 
   /// Generate the copyprivate code.
   bool genCopyPrivateCode(WRegionNode *W, AllocaInst *IsSingleThread);
@@ -1341,6 +1386,10 @@ private:
   /// For the given region \p W, find exit block of the loop
   /// identified by index \p Idx.
   BasicBlock *getLoopExitBB(WRegionNode *W, unsigned Idx = 0);
+
+  /// Insert artificial uses for arguments of some clauses
+  /// of the given region before the region.
+  bool promoteClauseArgumentUses(WRegionNode *W);
 };
 } /// namespace vpo
 } /// namespace llvm

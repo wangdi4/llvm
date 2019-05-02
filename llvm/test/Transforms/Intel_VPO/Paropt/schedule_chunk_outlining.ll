@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
 ; The test checks that schedule/dist_schedule chunk value is passed
 ; by pointer to the outlined routines.
@@ -17,10 +17,10 @@
 ;   }
 ; }
 
-; CHECK: define internal void @_Z21parallel_for_schedulei.DIR.OMP.PARALLEL.LOOP.1({{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}})
+; CHECK: define internal void @_Z21parallel_for_schedulei.DIR.OMP.PARALLEL.LOOP.1.split({{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}})
 ; FIXME: the third parameter must be pointer, when we fix handling
 ;        of dist_schedule's chunk size.
-; CHECK: define internal void @_Z32distribute_parallel_for_schedulei.DIR.OMP.DISTRIBUTE.PARLOOP.1({{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}})
+; CHECK: define internal void @_Z32distribute_parallel_for_schedulei.DIR.OMP.DISTRIBUTE.PARLOOP.1.split({{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}})
 
 ; ModuleID = 'test.cpp'
 source_filename = "test.cpp"

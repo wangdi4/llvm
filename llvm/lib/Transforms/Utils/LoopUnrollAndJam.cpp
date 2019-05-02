@@ -206,7 +206,8 @@ LoopUnrollResult llvm::UnrollAndJamLoop(
 #endif  // INTEL_CUSTOMIZATION
     if (!UnrollRuntimeLoopRemainder(L, Count, /*AllowExpensiveTripCount*/ false,
                                     /*UseEpilogRemainder*/ true,
-                                    UnrollRemainder, LI, SE, DT, AC, // INTEL
+                                    UnrollRemainder, /*ForgetAllSCEV*/ false,
+                                    LI, SE, DT, AC, // INTEL
                                     LORBuilder,                      // INTEL
                                     true, EpilogueLoop)) {           // INTEL
       LLVM_DEBUG(dbgs() << "Won't unroll-and-jam; remainder loop could not be "

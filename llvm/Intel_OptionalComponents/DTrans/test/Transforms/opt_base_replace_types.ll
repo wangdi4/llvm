@@ -9,7 +9,7 @@
 ; RUN:struct.test03a,struct.test04a,struct.test05a,struct.test06a,\
 ; RUN:struct.test07a,struct.test08a,struct.test09a,struct.test10a,\
 ; RUN:struct.test11a,struct.test12a,struct.test13a,struct.test14a,\
-; RUN:struct.test15a 2>&1 | FileCheck %s
+; RUN:struct.test15a,struct.test16a 2>&1 | FileCheck %s
 
 ; Test when base class is used without dtrans analysis parameter to
 ; be sure all the types and dependent types are found without relying
@@ -19,7 +19,7 @@
 ; RUN:struct.test03a,struct.test04a,struct.test05a,struct.test06a,\
 ; RUN:struct.test07a,struct.test08a,struct.test09a,struct.test10a,\
 ; RUN:struct.test11a,struct.test12a,struct.test13a,struct.test14a,\
-; RUN:struct.test15a -dtrans-optbasetest-use-analysis=false 2>&1 | FileCheck %s
+; RUN:struct.test15a,struct.test16a -dtrans-optbasetest-use-analysis=false 2>&1 | FileCheck %s
 
 ; CHECK: %__DTT_struct.test01a = type { i32, i32, i32 }
 ; CHECK: %__DDT_struct.test02b = type { i32, %__DTT_struct.test02a* }
@@ -48,6 +48,8 @@
 ; CHECK: %__DTT_struct.test14a = type { i32, i32, i32 }
 ; CHECK: %__DDT_struct.test15b = type { i32, %__DTT_struct.test15a* (i8, [16 x %__DTT_struct.test15a*])* }
 ; CHECK: %__DTT_struct.test15a = type { i32, i32, i32 }
+; CHECK: %__DDT_struct.test16b = type { <2 x %__DTT_struct.test16a*> }
+; CHECK: %__DTT_struct.test16a = type { i32, i32, i32 }
 
 ; Test with just converting a type without other types referencing it.
 %struct.test01a = type { i32, i32, i32 }
@@ -201,3 +203,18 @@ define void @test15() {
 }
 ; CHECK: define internal void @test15() {
 ; CHECK: %local = alloca %__DDT_struct.test15b
+
+; Test to verify that vector types containing pointers to a structure
+; type being converted get remapped to a new type.
+%struct.test16a = type { i32, i32, i32}
+%struct.test16b = type { <2 x %struct.test16a*> }
+define void @test16() {
+  %local1 = alloca %struct.test16b*
+  %local2 = alloca <2 x %struct.test16a*>
+  %ins = insertelement <2 x %struct.test16a*> undef, %struct.test16a* undef, i32 0
+  ret void;
+}
+; CHECK: define internal void @test16() {
+; CHECK: %local1 = alloca %__DDT_struct.test16b*
+; CHECK: %local2 = alloca <2 x %__DTT_struct.test16a*>
+; CHECK: %ins = insertelement <2 x %__DTT_struct.test16a*> undef, %__DTT_struct.test16a* undef, i32 0

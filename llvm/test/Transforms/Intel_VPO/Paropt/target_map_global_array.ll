@@ -1,7 +1,10 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare  -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=PREPR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s -check-prefix=PREPR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -early-cse -vpo-restore-operands -S < %s | FileCheck %s -check-prefix=RESTR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,early-cse,vpo-restore-operands)'  -S | FileCheck %s -check-prefix=RESTR
 ;
-; Check whether the compiler generates the call llvm.launder.invariant.group for map global array in vpo-paropt prepare pass.
+; Check that prepare pass generates a load-of-store for arrS.
+; And vpo-paropt-restore undoes it.
 ;
 ; int arrS[100];
 ; void foo()
@@ -25,11 +28,22 @@ entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"([100 x i32]* @arrS, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arrS, i64 0, i64 42), i64 80) ]
 
 
-; CHECK: [[ARR_LAUNDER:%[0-9]+]] = call i8* @llvm.launder.invariant.group.p0i8
-; CHECK-SAME: @arrS
-; CHECK: [[ARR_BITCAST:%[a-zA-Z._0-9]+]] = bitcast i8* [[ARR_LAUNDER]] to [100 x i32]*
-; CHECK: [[GEP:%[0-9]+]] = getelementptr inbounds [100 x i32], [100 x i32]* [[ARR_BITCAST]], i64 0, i64 50
-; CHECK: store i32 3, i32* [[GEP]], align 8
+; PREPR: store [100 x i32]* @arrS, [100 x i32]** [[AADDR:%[a-zA-Z._0-9]+]]
+; PREPR: call token @llvm.directive.region.entry()
+; PREPR-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"([100 x i32]* @arrS
+; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"([100 x i32]* @arrS, [100 x i32]** [[AADDR]])
+; PREPR: [[A_RENAMED:%[a-zA-Z._0-9]+]] = load [100 x i32]*, [100 x i32]** [[AADDR]]
+; PREPR: [[GEP1:%[a-zA-Z._0-9]+]] = getelementptr inbounds [100 x i32], [100 x i32]* [[A_RENAMED]], i64 0, i64 50
+; PREPR: store i32 3, i32* [[GEP1]], align 8
+
+; Check that after -vpo-restore-operands, the original use of arrS inside the GEP is restored.
+; RESTR-NOT: store [100 x i32]* @arrS, [100 x i32]** {{%[a-zA-Z._0-9]+}}
+; RESTR: call token @llvm.directive.region.entry()
+; RESTR-SAME: "QUAL.OMP.MAP.TOFROM:AGGRHEAD"([100 x i32]* @arrS{{.*}})
+; RESTR-NOT: "QUAL.OMP.OPERAND.ADDR"
+; RESTR: [[GEP2:%[a-zA-Z._0-9]+]] = getelementptr inbounds [100 x i32], [100 x i32]* @arrS, i64 0, i64 50
+; RESTR: store i32 3, i32* [[GEP2]], align 8
+
   store i32 3, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @arrS, i64 0, i64 50), align 8, !tbaa !3
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret void
@@ -56,5 +70,3 @@ attributes #1 = { nounwind }
 !5 = !{!"int", !6, i64 0}
 !6 = !{!"omnipotent char", !7, i64 0}
 !7 = !{!"Simple C++ TBAA"}
-;
-; CHECK: llvm.launder.invariant.group.p0i8

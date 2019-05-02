@@ -501,6 +501,7 @@ void initializeHIRLoopInterchangeLegacyPassPass(PassRegistry&);
 void initializeHIRLoopBlockingLegacyPassPass(PassRegistry&);
 void initializeHIRLoopDistributionForMemRecLegacyPassPass(PassRegistry&);
 void initializeHIRLoopDistributionForLoopNestLegacyPassPass(PassRegistry&);
+void initializeHIRLoopRematerializeLegacyPassPass(PassRegistry&);
 void initializeHIRLoopRerollLegacyPassPass(PassRegistry&);
 void initializeHIRGeneralUnrollLegacyPassPass(PassRegistry&);
 void initializeHIRUnrollAndJamLegacyPassPass(PassRegistry&);
@@ -524,6 +525,7 @@ void initializeHIRLastValueComputationLegacyPassPass(PassRegistry&);
 void initializeHIRPropagateCastedIVLegacyPassPass(PassRegistry&);
 void initializeHIRMultiExitLoopRerollLegacyPassPass(PassRegistry&);
 void initializeHIRRecognizeParLoopPass(PassRegistry&);
+void initializeHIRIdentityMatrixIdiomRecognitionLegacyPassPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
@@ -566,6 +568,8 @@ void initializeWRegionInfoAnalysisPass(PassRegistry&);
 void initializeVPOCFGRestructuringPass(PassRegistry&);
 // VPO Paropt Prepare Pass
 void initializeVPOParoptPreparePass(PassRegistry&);
+// VPO Pass to restore operands renamed by VPO Paropt Prepare pass
+void initializeVPORestoreOperandsPass(PassRegistry &);
 // VPO Parallelizer Pass
 void initializeVPOParoptPass(PassRegistry&);
 // VPO Tpv Transformation

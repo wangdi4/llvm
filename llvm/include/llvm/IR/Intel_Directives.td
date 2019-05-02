@@ -2,7 +2,7 @@
 //==- Intel_Directives.td - Defines all parallelization and -*- tablegen -*-==//
 //                          vectorization directives and clauses.
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -260,6 +260,7 @@ def "QUAL.OMP.NAME" : Clause;
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
 def "QUAL.OMP.NORMALIZED.UB" : Clause;
 def "QUAL.OMP.CANCELLATION.POINTS" : Clause;
+def "QUAL.OMP.OPERAND.ADDR" : Clause;
 def "QUAL.OMP.OFFLOAD.ENTRY.IDX" : Clause;
 // INTEL_CUSTOMIZATION
 def "QUAL.PRAGMA.ARRAY" : Clause;

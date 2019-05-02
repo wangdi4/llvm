@@ -390,6 +390,11 @@ namespace llvm {
       MOVHLPS,
       MOVSD,
       MOVSS,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      MOVSH,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
       UNPCKL,
       UNPCKH,
       VPERMILPV,
@@ -592,6 +597,10 @@ namespace llvm {
       // User level interrupts - testui
       TESTUI,
 #endif // INTEL_FEATURE_ISA_ULI
+
+#if INTEL_FEATURE_ISA_ENQCMD
+      ENQCMD, ENQCMDS,
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #endif // INTEL_CUSTOMIZATION
 
       // Compare and swap.
@@ -626,16 +635,22 @@ namespace llvm {
       FILD,
       FILD_FLAG,
 
+      /// This instruction implements a fp->int store from FP stack
+      /// slots. This corresponds to the fist instruction. It takes a
+      /// chain operand, value to store, address, and glue. The memory VT
+      /// specifies the type to store as.
+      FIST,
+
       /// This instruction implements an extending load to FP stack slots.
       /// This corresponds to the X86::FLD32m / X86::FLD64m. It takes a chain
       /// operand, and ptr to load from. The memory VT specifies the type to
       /// load from.
       FLD,
 
-      /// This instruction implements a truncating store to FP stack
+      /// This instruction implements a truncating store from FP stack
       /// slots. This corresponds to the X86::FST32m / X86::FST64m. It takes a
-      /// chain operand, value to store, and address. The memory VT specifies
-      /// the type to store as.
+      /// chain operand, value to store, address, and glue. The memory VT
+      /// specifies the type to store as.
       FST,
 
       /// This instruction grabs the address of the next argument
@@ -1065,7 +1080,14 @@ namespace llvm {
     /// register, not on the X87 floating point stack.
     bool isScalarFPTypeInSSEReg(EVT VT) const {
       return (VT == MVT::f64 && X86ScalarSSEf64) || // f64 is when SSE2
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+             (VT == MVT::f32 && X86ScalarSSEf32) || // f32 is when SSE1
+             (VT == MVT::f16 && X86ScalarAVXf16);   // f16 is when AVX512FP16
+#else // INTEL_FEATURE_ISA_FP16
              (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     }
 
     /// Returns true if it is beneficial to convert a load of a constant
@@ -1213,6 +1235,11 @@ namespace llvm {
     /// When SSE2 is available, use it for f64 operations.
     bool X86ScalarSSEf32;
     bool X86ScalarSSEf64;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    bool X86ScalarAVXf16;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
     /// A list of legal FP immediates.
     std::vector<APFloat> LegalFPImmediates;

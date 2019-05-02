@@ -4,7 +4,7 @@ set(INTEL_SOURCE_FILES_TO_BUILD)
 intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   COMPLEMENT LLVM_OPTIONAL_SOURCES
 # Add custom Intel files below.  Files listed here will be included in
-# INTEL_CUSTOMIZATION build.
+# the INTEL_CUSTOMIZATION build.
   )
 
 # INTEL_FEATURE_CSA
@@ -33,6 +33,7 @@ add_llvm_library(LLVMIntel_VPOTransforms
   VPOTransform.cpp
 
   Utils/CFGRestructuring.cpp
+  Utils/VPORestoreOperands.cpp
   Utils/MultiVersioning.cpp
   Utils/ParSecTrans.cpp
 # Utils/IntrinsicUtils.cpp // moved to Transforms/Utils/CMakeLists.txt

@@ -4775,9 +4775,9 @@ void STIDebugImpl::collectModuleInfo() {
 
 void STIDebugImpl::collectRoutineInfo() {
   typedef MachineFunction::VariableDbgInfo VariableDbgInfo;
-  typedef DbgValueHistoryMap::InstrRanges InstrRanges;
+  typedef DbgValueHistoryMap::Entries Entries;
   typedef DbgValueHistoryMap::InlinedEntity InlinedEntity;
-  typedef std::pair<InlinedEntity, InstrRanges> VariableHistoryInfo;
+  typedef std::pair<InlinedEntity, Entries> VariableHistoryInfo;
 
   STISymbolVariable *variable;
 
@@ -4815,8 +4815,8 @@ void STIDebugImpl::collectRoutineInfo() {
   }
 
   for (const VariableHistoryInfo &info : _valueHistory) {
-    InlinedEntity                          IV     = info.first;
-    const DbgValueHistoryMap::InstrRanges &Ranges = info.second;
+    InlinedEntity                          IV  = info.first;
+    const DbgValueHistoryMap::Entries &Entries = info.second;
 
     // FIXME: We do not know how to emit inlined variables.
     // Skip inlined variables.
@@ -4826,7 +4826,7 @@ void STIDebugImpl::collectRoutineInfo() {
     if (processed.count(IV))
       continue;
 
-    if (Ranges.empty())
+    if (Entries.empty())
       continue;
 
     // Ignore this variable if we can't identify the scope it belongs to.
@@ -4838,7 +4838,7 @@ void STIDebugImpl::collectRoutineInfo() {
     if (!scope)
       continue;
 
-    const MachineInstr *MInsn = Ranges.front().first;
+    const MachineInstr *MInsn = Entries.front().getInstr();
     variable = createSymbolVariableFromDbgValue(Var, MInsn);
     if (!variable)
       continue;

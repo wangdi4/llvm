@@ -153,7 +153,9 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
                                     SmallVectorImpl<unsigned> &TripCounts) {
   Loop->removeLoopMetadata("llvm.loop.intel.loopcount");
 
-  if (TripCounts.size() == 1 && TripCounts[0] == 0) {
+  // Do nothing if no valid trip count specified.
+  if (std::all_of(std::begin(TripCounts), std::end(TripCounts),
+                  [](unsigned TC) { return TC == 0; })) {
     return;
   }
 

@@ -128,6 +128,7 @@ typedef enum {
    InlrAddressComputations,
    InlrStackComputations,
    InlrPreferPartialInline,
+   InlrPassedDummyArgs,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason

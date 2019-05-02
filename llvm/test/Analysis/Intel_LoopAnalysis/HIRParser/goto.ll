@@ -49,25 +49,25 @@
 
 ; then block contains only a jump to the hir version of L2
 ; CHECK-CG: then.[[IF_NUM]]:
-; CHECK-CG-NEXT: br label %hir.L2
+; CHECK-CG-NEXT: br label %hir.L.34
 
 ; which contains ld/st to a[0][i1]
-; CHECK-CG: hir.L2:
+; CHECK-CG: hir.L.34:
 ; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
 ; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
-; and a jump to hir version of L2.63
-; CHECK-CG: br label %hir.L2.63
+; and a jump to hir version of L.41
+; CHECK-CG: br label %hir.L.41
 
 ; look for the i1 == 2 condition
 ; CHECK-CG: %hir.cmp.[[IF_NUM2:[0-9]+]] = icmp eq i32 {{.*}}, 2
 ; CHECK-CG-NEXT: br i1 %hir.cmp.[[IF_NUM2]]
 
-; then block contains only a jump to the hir version of L2.63
+; then block contains only a jump to the hir version of L.63
 ; CHECK-CG: then.[[IF_NUM2]]:
-; CHECK-CG-NEXT: br label %hir.L2.63
+; CHECK-CG-NEXT: br label %hir.L.41
 
 ; which also contains ld/st to a[0][i1]
-; CHECK-CG: hir.L2.63:
+; CHECK-CG: hir.L.41:
 ; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
 ; CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i64 0,
 ; and ivupdate and loop end

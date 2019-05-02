@@ -1098,16 +1098,26 @@ parseAnnotations(StringRef AnnotatedCode) {
     StringRef AnnotatedDecoration = AnnotatedCode.substr(From + 1, To - 1);
     std::pair<StringRef, StringRef> D = AnnotatedDecoration.split(':');
 
-    StringRef F = D.first;
-    Decoration Dec =
-        llvm::StringSwitch<Decoration>(F)
-            .Case("memory", DecorationMemoryINTEL)
-            .Case("register", DecorationRegisterINTEL)
-            .Case("numbanks", DecorationNumbanksINTEL)
-            .Case("bankwidth", DecorationBankwidthINTEL)
-            .Case("max_concurrency", DecorationMaxConcurrencyINTEL);
+    StringRef F = D.first, S = D.second;
+    StringRef Value;
+    Decoration Dec;
+    if (F == "pump") {
+      Dec = llvm::StringSwitch<Decoration>(S)
+              .Case("1", DecorationSinglepumpINTEL)
+              .Case("2", DecorationDoublepumpINTEL);
+      Value = "1";
+    }
+    else {
+      Dec = llvm::StringSwitch<Decoration>(F)
+              .Case("memory", DecorationMemoryINTEL)
+              .Case("register", DecorationRegisterINTEL)
+              .Case("numbanks", DecorationNumbanksINTEL)
+              .Case("bankwidth", DecorationBankwidthINTEL)
+              .Case("max_concurrency", DecorationMaxConcurrencyINTEL);
+      Value = S;
+    }
 
-    Decorates.push_back({Dec, D.second});
+    Decorates.push_back({Dec, Value});
     AnnotatedCode = AnnotatedCode.drop_front(To + 1);
   }
   return Decorates;
@@ -1227,8 +1237,12 @@ SPIRVValue *LLVMToSPIRV::transIntrinsicInst(IntrinsicInst *II,
   case Intrinsic::dbg_value:
     return DbgTran->createDebugValuePlaceholder(cast<DbgValueInst>(II), BB);
   case Intrinsic::var_annotation: {
-    BitCastInst *BI = cast<BitCastInst>(II->getArgOperand(0));
-    SPIRVValue *SV = transValue(BI->getOperand(0), BB);
+    SPIRVValue *SV;
+    if (auto *BI = dyn_cast<BitCastInst>(II->getArgOperand(0))) {
+      SV = transValue(BI->getOperand(0), BB);
+    } else {
+      SV = transValue(II->getOperand(0), BB);
+    }
 
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(II->getArgOperand(1));
     Constant *C = cast<Constant>(GEP->getOperand(0));
@@ -1242,8 +1256,12 @@ SPIRVValue *LLVMToSPIRV::transIntrinsicInst(IntrinsicInst *II,
     return SV;
   }
   case Intrinsic::ptr_annotation: {
-    BitCastInst *BI = dyn_cast<BitCastInst>(II->getArgOperand(0));
-    GetElementPtrInst *GI = dyn_cast<GetElementPtrInst>(BI->getOperand(0));
+    GetElementPtrInst *GI;
+    if (auto *BI = dyn_cast<BitCastInst>(II->getArgOperand(0))) {
+      GI = dyn_cast<GetElementPtrInst>(BI->getOperand(0));
+    } else {
+      GI = dyn_cast<GetElementPtrInst>(II->getOperand(0));
+    }
     SPIRVType *Ty = transType(GI->getSourceElementType());
 
     SPIRVWord MemberNumber =
@@ -1259,7 +1277,7 @@ SPIRVValue *LLVMToSPIRV::transIntrinsicInst(IntrinsicInst *II,
 
     addIntelFPGADecorationsForStructMember(Ty, MemberNumber, Decorations);
 
-    II->replaceAllUsesWith(BI);
+    II->replaceAllUsesWith(II->getOperand(0));
     return 0;
   }
   default:

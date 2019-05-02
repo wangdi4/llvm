@@ -261,14 +261,15 @@ unsigned HIRScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar,
   return getOrAssignScalarSymbaseImpl(Scalar, IRReg, false, nullptr);
 }
 
-void HIRScalarSymbaseAssignment::handleMultiExitLoopLiveoutPhi(
+void HIRScalarSymbaseAssignment::handleLoopExitLiveoutPhi(
     const PHINode *Phi, unsigned Symbase) const {
 
   // Checks if phi is in the loop exit bblock. The deconstructed definition
-  // lies inside the loop which makes it liveout of the loop. This is only
-  // possible for multi-exit loops. For single-exit loops, liveout values
-  // are used in single-operand phis which are optimized away. For
-  // example-
+  // lies inside the loop which makes it liveout of the loop. This most likely
+  // happens for multi-exit loops but can also happen for single-exit loops if
+  // the single opternd phi operand is not an instruction.
+  //
+  // Example-
   //
   // loop:
   //    %t1.in = 0                    <<< deconstructed definition
@@ -286,10 +287,6 @@ void HIRScalarSymbaseAssignment::handleMultiExitLoopLiveoutPhi(
   }
 
   unsigned NumOperands = Phi->getNumIncomingValues();
-
-  if (NumOperands == 1) {
-    return;
-  }
 
   auto *DefLp = LI.getLoopFor(Phi->getParent());
 
@@ -341,7 +338,7 @@ void HIRScalarSymbaseAssignment::populateLoopLiveouts(const Instruction *Inst,
     DefLoop = DefLoop->getParentLoop();
   }
 
-  handleMultiExitLoopLiveoutPhi(dyn_cast<PHINode>(Inst), Symbase);
+  handleLoopExitLiveoutPhi(dyn_cast<PHINode>(Inst), Symbase);
 }
 
 void HIRScalarSymbaseAssignment::populateRegionLiveouts(

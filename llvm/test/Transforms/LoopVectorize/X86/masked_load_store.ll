@@ -2,9 +2,9 @@
 ; INTEL - Disabling loopopt as it affects pass pipeline.
 ; INTEL - Enable loop vectorizer as it is needed.
 ; INTEL - Disabling load Coalescing.
-; RUN: opt < %s  -O3 -enable-lv -loopopt=false -enable-load-coalescing=false -mcpu=corei7-avx -S | FileCheck %s -check-prefix=AVX -check-prefix=AVX1
-; RUN: opt < %s  -O3 -enable-lv -loopopt=false -enable-load-coalescing=false -mcpu=core-avx2 -S | FileCheck %s -check-prefix=AVX -check-prefix=AVX2
-; RUN: opt < %s  -O3 -enable-lv -loopopt=false -enable-load-coalescing=false -mcpu=knl -S | FileCheck %s -check-prefix=AVX512
+; RUN: opt < %s  -O3 -enable-lv -loopopt=0 -enable-load-coalescing=false -mcpu=corei7-avx -S | FileCheck %s -check-prefix=AVX -check-prefix=AVX1
+; RUN: opt < %s  -O3 -enable-lv -loopopt=0 -enable-load-coalescing=false -mcpu=core-avx2 -S | FileCheck %s -check-prefix=AVX -check-prefix=AVX2
+; RUN: opt < %s  -O3 -enable-lv -loopopt=0 -enable-load-coalescing=false -mcpu=knl -S | FileCheck %s -check-prefix=AVX512
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc_linux"

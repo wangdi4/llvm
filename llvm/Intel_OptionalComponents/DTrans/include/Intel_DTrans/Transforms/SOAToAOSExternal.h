@@ -218,12 +218,12 @@ public:
   void collectCallSites(SmallSet<CallBase *, 20> *CallSitesForDtrans) const {
     for (auto *F : StructMethods)
       for (auto &U : F->uses())
-        CallSitesForDtrans->insert(cast<CallBase>(U.getUser()));
+        CallSitesForDtrans->insert(dyn_cast<CallBase>(U.getUser()));
 
     for (auto *S : methodsets())
       for (auto *F : *S)
         for (auto &U : F->uses())
-          CallSitesForDtrans->insert(cast<CallBase>(U.getUser()));
+          CallSitesForDtrans->insert(dyn_cast<CallBase>(U.getUser()));
   }
 
 protected:

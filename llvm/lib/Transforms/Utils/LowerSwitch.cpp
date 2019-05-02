@@ -17,6 +17,8 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/GlobalsModRef.h" // INTEL
+#include "llvm/Analysis/Intel_Andersens.h" // INTEL
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -63,9 +65,8 @@ static bool IsInRanges(const IntRange &R,
   // Find the first range whose High field is >= R.High,
   // then check if the Low field is <= R.Low. If so, we
   // have a Range that covers R.
-  auto I = std::lower_bound(
-      Ranges.begin(), Ranges.end(), R,
-      [](const IntRange &A, const IntRange &B) { return A.High < B.High; });
+  auto I = llvm::lower_bound(
+      Ranges, R, [](IntRange A, IntRange B) { return A.High < B.High; });
   return I != Ranges.end() && I->Low <= R.Low;
 }
 
@@ -94,6 +95,11 @@ namespace {
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<LazyValueInfoWrapperPass>();
+#if INTEL_CUSTOMIZATION
+
+      AU.addPreserved<GlobalsAAWrapperPass>();
+      AU.addPreserved<AndersensAAWrapperPass>();
+#endif // INTEL_CUSTOMIZATION
     }
 
     struct CaseRange {

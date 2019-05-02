@@ -48,8 +48,12 @@
 # New ISA features usually use ISA_ prefix, e.g. ISA_VNNI.
 # === New ISA features section begin ===
 # INTEL_FEATURE_ISA_BF16
-@ISA_BF16:SECRET@
+@ISA_BF16:SHARED@
 # end INTEL_FEATURE_ISA_BF16
+
+# INTEL_FEATURE_ISA_ENQCMD
+@ISA_ENQCMD:SECRET@
+# end INTEL_FEATURE_ISA_ENQCMD
 
 # INTEL_FEATURE_ISA_ULI
 @ISA_ULI:SECRET@
@@ -71,11 +75,22 @@
 @ISA_AMX:SECRET@
 # end INTEL_FEATURE_ISA_AMX
 
+# INTEL_FEATURE_ISA_KEYLOCKER
+@ISA_KEYLOCKER:SECRET@
+# end INTEL_FEATURE_ISA_KEYLOCKER
+
 # INTEL_FEATURE_ISA_AVX_VNNI
 @ISA_AVX_VNNI:SECRET@
 # end INTEL_FEATURE_ISA_AVX_VNNI
 
 # === New ISA features section end ===
+
+# INTEL_FEATURE_BIENDIAN
+# New Biendian feature
+# === New Biendian feature section begin ===
+@BIENDIAN:SECRET@
+# === New Biendian feature section end ===
+# end INTEL_FEATURE_BIENDIAN
 
 # Support for a new target is usually covered by a feature named after
 # the target name, e.g. NIOS.

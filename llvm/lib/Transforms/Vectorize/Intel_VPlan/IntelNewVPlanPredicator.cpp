@@ -176,8 +176,10 @@ void VPlanPredicator::createOrPropagatePredicates(VPBlockBase *CurrBlock,
     VPPHINode *VPPhi = dyn_cast<VPPHINode>(Ingredient);
     if (VPPhi)
       VPPhi->setBlend(BlendPhi);
-    else
+    else {
       FirstNonPHIInst = dyn_cast<VPInstruction>(Ingredient);
+      break;
+    }
   }
 
   // TODO - the PHIs need to be the first instructions in a block. For now,
@@ -258,6 +260,7 @@ void VPlanPredicator::createOrPropagatePredicates(VPBlockBase *CurrBlock,
 #endif // INTEL_CUSTOMIZATION
   // Logically OR all incoming predicates by building the Predicate Tree.
   VPValue *Predicate = genPredicateTree(IncomingPredicates);
+  assert(Predicate && "No predicate generated from Predicate Tree."); // INTEL
 
   // Now update the block's predicate with the new one.
   CurrBlock->setPredicate(Predicate);

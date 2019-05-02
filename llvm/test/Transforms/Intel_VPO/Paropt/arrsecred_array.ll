@@ -1,5 +1,5 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
 ;
 ; Test src:
 ;
@@ -44,6 +44,7 @@ entry:
 ; CHECK-NOT: call token @llvm.directive.region.exit()
 ; Check for array section reduction local copy preparation
 ; CHECK-DAG: %[[LOCAL_MINUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i32, i32* %[[LOCAL:[a-zA-Z._0-9]+]], i64 -20
+; CHECK-DAG: %[[LOCAL_MINUS_OFFSET_CAST:[a-zA-Z._0-9]+]] = bitcast i32* %[[LOCAL_MINUS_OFFSET]] to [3 x [4 x [5 x i32]]]*
 ; Zero-trip test for reduction array initialization
 ; CHECK-DAG: %[[LOCAL_END:[0-9]+]] = getelementptr i32, i32* %[[LOCAL]], i64 40
 ; CHECK-DAG: %{{[a-zA-Z._0-9]+}} = icmp eq i32* %[[LOCAL]], %[[LOCAL_END]]
@@ -83,8 +84,7 @@ for.body4:                                        ; preds = %for.cond2
   %7 = load i32, i32* %k, align 4
   %idxprom = sext i32 %7 to i64
 ; Check for the replacement of original @_Z1y with "%y_local - offset".
-; Bitcast is from the code-motion fence introduced by the prepare pass.
-; CHECK-DAG: %{{[0-9]+}} = bitcast i32* %[[LOCAL_MINUS_OFFSET]] to i8*
+; CHECK-DAG: %{{[0-9]+}} = getelementptr inbounds [3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* %[[LOCAL_MINUS_OFFSET_CAST]], i64 0, i64 1, i64 2
   %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* getelementptr inbounds ([3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* @_Z1y, i64 0, i64 1, i64 2), i64 0, i64 %idxprom
   %8 = load i32, i32* %arrayidx, align 4
   %add5 = add nsw i32 %8, 1

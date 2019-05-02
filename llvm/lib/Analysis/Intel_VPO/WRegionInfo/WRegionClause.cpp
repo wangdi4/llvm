@@ -207,7 +207,13 @@ void printFnPtr(Function *Fn, formatted_raw_ostream &OS, bool PrintType) {
   else
     Fn->printAsOperand(OS, PrintType);
 }
+#if INTEL_CUSTOMIZATION
+template <> VarType<LLVMIR> Item::getOrig<LLVMIR>() const { return OrigItem; }
+template <> VarType<HIR> Item::getOrig<HIR>() const { return HOrigItem; }
 
+template <> ExprType<LLVMIR> LinearItem::getStep<LLVMIR>() const {return Step;}
+template <> ExprType<HIR> LinearItem::getStep<HIR>() const { return HStep; }
+#endif // INTEL_CUSTOMIZATION
 } // End namespace vpo
 
 } // End namespace llvm

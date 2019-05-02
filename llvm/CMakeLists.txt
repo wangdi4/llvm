@@ -430,8 +430,6 @@ else()
   option(LLVM_ENABLE_MODULE_DEBUGGING "Compile with -gmodules." OFF)
   option(LLVM_ENABLE_LOCAL_SUBMODULE_VISIBILITY "Compile with -fmodules-local-submodule-visibility." ON)
 endif()
-option(LLVM_ENABLE_CXX1Y "Compile with C++1y enabled." OFF)
-option(LLVM_ENABLE_CXX1Z "Compile with C++1z enabled." OFF)
 option(LLVM_ENABLE_LIBCXX "Use libc++ if available." OFF)
 option(LLVM_ENABLE_LLD "Use lld as C and C++ linker." OFF)
 option(LLVM_ENABLE_PEDANTIC "Compile with pedantic enabled." ON)
@@ -879,6 +877,11 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16)
 # end INTEL_FEATURE_ISA_BF16
 
+# INTEL_FEATURE_ISA_ENQCMD
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_ENQCMD)
+# end INTEL_FEATURE_ISA_ENQCMD
+
 # INTEL_FEATURE_ISA_ULI
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_ULI)
@@ -903,6 +906,11 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX)
 # end INTEL_FEATURE_ISA_AMX
+
+# INTEL_FEATURE_ISA_KEYLOCKER
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER)
+# end INTEL_FEATURE_ISA_KEYLOCKER
 
 # INTEL_FEATURE_CPU_GLC
       list(APPEND features_enabled_by_default

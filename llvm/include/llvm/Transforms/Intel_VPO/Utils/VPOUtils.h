@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //=======-- VPOUtils.h - Class definitions for VPO utilites -*- C++ -*-=======//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -90,12 +90,20 @@ public:
   static void CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
                                LoopInfo *LI = nullptr);
 
+  // Restore the clause operands by undoing the renaming done in the prepare
+  // pass.
+  static bool restoreOperands(Function &F);
+
   /// If \p ValWithCasts is a CastInst, or a chain of CastInsts, the function
   /// recursively gets its operand until it encounters a non-CastInst. All
   /// CastInsts seen in this process are added to \p SeenCastInsts.
   /// \returns The base Value obtained after traversing all Casts.
   static Value *stripCasts(Value *ValWithCasts,
                            SmallVectorImpl<Instruction *> &SeenCastInsts);
+
+  /// Return \b true if \p V is a pointer cast, address space cast, or
+  /// zero-offset GEP; \b false otherwise.
+  static bool isPointerCastOrZeroOffsetGEP(Value *V);
 
   /// Remove calls to directive intrinsics from WRegionNode \p WRN.
   /// By default, the util removes the directive intrinsic calls from the

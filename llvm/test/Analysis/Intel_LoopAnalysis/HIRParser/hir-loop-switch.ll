@@ -31,10 +31,10 @@
 
 ;CHECK-CG: [[SWITCH_NAME]].default:
 ;CHECK-CG: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str2, i64 0, i64 0))
-;CHECK-CG: br label %hir.for.inc
+;CHECK-CG: br label %hir.L.15
 
 ; Check loop backedge
-;CHECK-CG: hir.for.inc:
+;CHECK-CG: hir.L.15:
 ;CHECK-CG: br i1 %condloop.[[LOOP_NUM]], label %loop.[[LOOP_NUM]], label %afterloop.[[LOOP_NUM]]
 
 ; case0 and case1 jump to a merge block before jumping to the backedge
@@ -48,7 +48,7 @@
 ; Check the merge block of case0 and case1 leading to the backedge
 ;CHECK-CG: [[SWITCH_NAME]].end:
 ;CHECK-CG: call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str1, i64 0, i64 0))
-;CHECK-CG: br label %hir.for.inc
+;CHECK-CG: br label %hir.L.15
 
 
 

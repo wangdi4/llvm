@@ -84,7 +84,12 @@ AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
 /// Test whether a block is valid for extraction.
 static bool isBlockValidForExtraction(const BasicBlock &BB,
                                       const SetVector<BasicBlock *> &Result,
+#if INTEL_COLLAB
+                                      bool AllowVarArgs, bool AllowAlloca,
+                                      bool AllowEHTypeID) {
+#else
                                       bool AllowVarArgs, bool AllowAlloca) {
+#endif // INTEL_COLLAB
   // taking the address of a basic block moved to another function is illegal
   if (BB.hasAddressTaken())
     return false;
@@ -182,8 +187,19 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
 
         // Currently, we miscompile outlined copies of eh_typid_for. There are
         // proposals for fixing this in llvm.org/PR39545.
+#if INTEL_COLLAB
+        if (IID == Intrinsic::eh_typeid_for) {
+          // PR39545 is an inconsistency in catching EH thrown out of the
+          // region. For outlined OMP regions, this is UB anyway.
+          if (AllowEHTypeID)
+            continue;
+          else
+            return false;
+        }
+#else
         if (IID == Intrinsic::eh_typeid_for)
           return false;
+#endif // INTEL_COLLAB
       }
     }
   }
@@ -194,7 +210,12 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
 /// Build a set of blocks to extract if the input blocks are viable.
 static SetVector<BasicBlock *>
 buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
+#if INTEL_COLLAB
+                        bool AllowVarArgs, bool AllowAlloca,
+                        bool AllowEHTypeID) {
+#else
                         bool AllowVarArgs, bool AllowAlloca) {
+#endif // INTEL_COLLAB
   assert(!BBs.empty() && "The set of blocks to extract must be non-empty");
   SetVector<BasicBlock *> Result;
 
@@ -209,8 +230,16 @@ buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
       llvm_unreachable("Repeated basic blocks in extraction input");
   }
 
+  LLVM_DEBUG(dbgs() << "Region front block: " << Result.front()->getName()
+                    << '\n');
+
   for (auto *BB : Result) {
+#if INTEL_COLLAB
+    if (!isBlockValidForExtraction(*BB, Result, AllowVarArgs, AllowAlloca,
+                                   AllowEHTypeID))
+#else
     if (!isBlockValidForExtraction(*BB, Result, AllowVarArgs, AllowAlloca))
+#endif // INTEL_COLLAB
       return {};
 
     // Make sure that the first block is not a landing pad.
@@ -226,9 +255,11 @@ buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
     // the subgraph which is being extracted.
     for (auto *PBB : predecessors(BB))
       if (!Result.count(PBB)) {
-        LLVM_DEBUG(
-            dbgs() << "No blocks in this region may have entries from "
-                      "outside the region except for the first block!\n");
+        LLVM_DEBUG(dbgs() << "No blocks in this region may have entries from "
+                             "outside the region except for the first block!\n"
+                          << "Problematic source BB: " << BB->getName() << "\n"
+                          << "Problematic destination BB: " << PBB->getName()
+                          << "\n");
         return {};
       }
   }
@@ -240,10 +271,19 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AggregateArgs, BlockFrequencyInfo *BFI,
                              BranchProbabilityInfo *BPI, AssumptionCache *AC,
                              bool AllowVarArgs, bool AllowAlloca,
+#if INTEL_COLLAB
+                             bool AllowEHTypeID,
+#endif // INTEL_COLLAB
                              std::string Suffix)
     : DT(DT), AggregateArgs(AggregateArgs || AggregateArgsOpt), BFI(BFI),
       BPI(BPI), AC(AC), AllowVarArgs(AllowVarArgs),
+#if INTEL_COLLAB
+      Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
+                                     AllowEHTypeID)),
+#else
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
+#endif // INTEL_COLLAB
+
       Suffix(Suffix) {}
 
 CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
@@ -254,7 +294,12 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
       BPI(BPI), AC(AC), AllowVarArgs(false),
       Blocks(buildExtractionBlockSet(L.getBlocks(), &DT,
                                      /* AllowVarArgs */ false,
+#if INTEL_COLLAB
+                                     /* AllowAlloca */ false,
+                                     /* AllowEHTypeID */ false)),
+#else
                                      /* AllowAlloca */ false)),
+#endif // INTEL_COLLAB
       Suffix(Suffix) {}
 
 /// definedInRegion - Return true if the specified value is defined in the

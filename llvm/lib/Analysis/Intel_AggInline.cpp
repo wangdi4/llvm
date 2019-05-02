@@ -331,7 +331,7 @@ static bool collectMemoryAllocatedGlobVarsUsingAllocRtn(
     if (!isa<CallInst>(UR)) {
       return false;
     }
-    auto CB1 = dyn_cast<CallBase>(UR);
+    auto CB1 = cast<CallBase>(UR);
     if (!CB1->isCallee(&U))
       return false;
 

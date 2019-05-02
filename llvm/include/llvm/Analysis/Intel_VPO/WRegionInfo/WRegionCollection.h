@@ -113,12 +113,6 @@ private:
   }
 
 public:
-#if INTEL_CUSTOMIZATION
-  enum InputIRKind{
-    LLVMIR,
-    HIR
-  };
-#endif // INTEL_CUSTOMIZATION
   friend class WRegionNode;
 
   WRegionCollection(Function *F, DominatorTree *DT, LoopInfo *LI,
@@ -137,7 +131,7 @@ public:
   /// Entry point for on-demand call to build the WRGraph.
 #if INTEL_CUSTOMIZATION
   /// If IR==HIR, it walks the HIR; else, it walks the LLVM IR
-  void buildWRGraph(InputIRKind IR = LLVMIR);
+  void buildWRGraph(IRKind IR = LLVMIR);
 #else
   void buildWRGraph();
 #endif // INTEL_CUSTOMIZATION

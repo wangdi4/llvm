@@ -87,8 +87,17 @@ class X86SchedWriteWidths<X86FoldableSchedWrite sScl,
 }
 
 // Multiclass that wraps X86SchedWriteWidths for each fp vector type.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+class X86SchedWriteSizes<X86SchedWriteWidths sPH,
+                         X86SchedWriteWidths sPS,
+                         X86SchedWriteWidths sPD> {
+  X86SchedWriteWidths PH = sPH;
+#else // INTEL_FEATURE_ISA_FP16
 class X86SchedWriteSizes<X86SchedWriteWidths sPS,
                          X86SchedWriteWidths sPD> {
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   X86SchedWriteWidths PS = sPS;
   X86SchedWriteWidths PD = sPD;
 }
@@ -163,7 +172,6 @@ defm WritePOPCNT : X86SchedWritePair; // Bit population count.
 defm WriteLZCNT : X86SchedWritePair; // Leading zero count.
 defm WriteTZCNT : X86SchedWritePair; // Trailing zero count.
 defm WriteCMOV  : X86SchedWritePair; // Conditional move.
-defm WriteCMOV2 : X86SchedWritePair; // Conditional (CF + ZF flag) move.
 def  WriteFCMOV : SchedWrite; // X87 conditional move.
 def  WriteSETCC : SchedWrite; // Set register based on condition code.
 def  WriteSETCCStore : SchedWrite;
@@ -649,6 +657,24 @@ def SchedWriteVarBlend
                        WriteVarBlendY, WriteVarBlendZ>;
 
 // Vector size wrappers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+// FIXME: Copy it from PS here, we may refine them later
+def SchedWriteFAddSizes
+ : X86SchedWriteSizes<SchedWriteFAdd, SchedWriteFAdd, SchedWriteFAdd64>;
+def SchedWriteFCmpSizes
+ : X86SchedWriteSizes<SchedWriteFCmp, SchedWriteFCmp, SchedWriteFCmp64>;
+def SchedWriteFMulSizes
+ : X86SchedWriteSizes<SchedWriteFMul, SchedWriteFMul, SchedWriteFMul64>;
+def SchedWriteFDivSizes
+ : X86SchedWriteSizes<SchedWriteFDiv, SchedWriteFDiv, SchedWriteFDiv64>;
+def SchedWriteFSqrtSizes
+ : X86SchedWriteSizes<SchedWriteFSqrt, SchedWriteFSqrt, SchedWriteFSqrt64>;
+def SchedWriteFLogicSizes
+ : X86SchedWriteSizes<SchedWriteFLogic, SchedWriteFLogic, SchedWriteFLogic>;
+def SchedWriteFShuffleSizes
+ : X86SchedWriteSizes<SchedWriteFShuffle, SchedWriteFShuffle, SchedWriteFShuffle>;
+#else // INTEL_FEATURE_ISA_FP16
 def SchedWriteFAddSizes
  : X86SchedWriteSizes<SchedWriteFAdd, SchedWriteFAdd64>;
 def SchedWriteFCmpSizes
@@ -663,6 +689,8 @@ def SchedWriteFLogicSizes
  : X86SchedWriteSizes<SchedWriteFLogic, SchedWriteFLogic>;
 def SchedWriteFShuffleSizes
  : X86SchedWriteSizes<SchedWriteFShuffle, SchedWriteFShuffle>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Generic Processor Scheduler Models.

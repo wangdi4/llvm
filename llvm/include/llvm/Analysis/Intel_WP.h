@@ -19,6 +19,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Support/Intel_WP_utils.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
@@ -27,17 +28,7 @@ namespace llvm_intel_wp_analysis {
 // If it is true, compiler assumes that source files in the current
 // compilation have entire program.
 extern cl::opt<bool> AssumeWholeProgram;
-}
-
-void setWholeProgramRead(bool ProgramRead);
-void setLinkingExecutable(bool LinikingExe);
-
-// Set if the LTO process found that all symbols
-// have hidden visibility
-void setVisibilityHidden(bool AllSymbolsHidden);
-
-// Store the symbols that are visible outside the LTO unit
-void storeVisibleSymbols(StringRef SymbolName);
+} // llvm_intel_wp_analysis
 
 // It handles actual analysis and results of whole program analysis.
 class WholeProgramInfo {
@@ -66,6 +57,14 @@ private:
   // Return true if all symbols have hidden visibility, else
   // return false.
   bool isWholeProgramHidden();
+
+  // Return true if all symbols were resolved by the linker,
+  // else return false.
+  bool isWholeProgramRead();
+
+  // Return true if the linker is linking an executable, else
+  // return false.
+  bool isLinkedAsExecutable();
 
   // Compute the values of IsAdvancedOptEnabled[].
   void computeIsAdvancedOptEnabled(Module &M,

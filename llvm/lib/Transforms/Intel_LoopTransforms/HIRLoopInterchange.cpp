@@ -239,7 +239,8 @@ bool isInterchangingNearPerfectProfitable(const HLLoop *OutermostLoop,
   // avoid aggressive interchange.
   // Scan TC from innermost's parent loop to outermost loop.
   const HLLoop *ParentLp = InnermostLoop->getParentLoop();
-  for (const HLLoop *Lp = ParentLp; Lp != OutermostLoop->getParentLoop();
+  const HLLoop *OutParentLp = OutermostLoop->getParentLoop();
+  for (const HLLoop *Lp = ParentLp; Lp != OutParentLp;
        Lp = Lp->getParentLoop()) {
     uint64_t TripCount = -1;
     if (Lp->isConstTripLoop(&TripCount) &&

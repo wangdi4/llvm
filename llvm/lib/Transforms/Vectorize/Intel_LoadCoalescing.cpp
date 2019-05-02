@@ -659,8 +659,8 @@ PreservedAnalyses LoadCoalescingPass::run(Function &F,
 
   if (Changed) {
     PreservedAnalyses PA;
-    // TODO: Fix the preserve analysis
-    // PA.preserve<GlobalsAA>();
+    PA.preserve<GlobalsAA>();
+    PA.preserve<AndersensAA>();
     PA.preserveSet<CFGAnalyses>();
     return PA;
   }
@@ -685,6 +685,7 @@ void LoadCoalescingLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
+  AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<AAResultsWrapperPass>();
 }
 

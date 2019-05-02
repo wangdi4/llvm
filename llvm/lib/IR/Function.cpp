@@ -688,6 +688,10 @@ enum IIT_Info {
   IIT_STRUCT7 = 39,
   IIT_STRUCT8 = 40,
   IIT_F128 = 41
+#if INTEL_CUSTOMIZATION
+  ,
+  IIT_STRUCT9 = 42
+#endif  // INTEL_CUSTOMIZATION
 };
 
 static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
@@ -839,6 +843,9 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
   case IIT_EMPTYSTRUCT:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Struct, 0));
     return;
+#if INTEL_CUSTOMIZATION
+  case IIT_STRUCT9: ++StructElts; LLVM_FALLTHROUGH;
+#endif  // INTEL_CUSTOMIZATION
   case IIT_STRUCT8: ++StructElts; LLVM_FALLTHROUGH;
   case IIT_STRUCT7: ++StructElts; LLVM_FALLTHROUGH;
   case IIT_STRUCT6: ++StructElts; LLVM_FALLTHROUGH;

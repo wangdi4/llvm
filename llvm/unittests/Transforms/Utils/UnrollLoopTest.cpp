@@ -76,7 +76,8 @@ while.end:                                        ; preds = %while.cond
   LORBuilder.setup(F->getContext(), OptReportVerbosity::None);
 #endif  // INTEL_CUSTOMIZATION
 
-  bool ret = UnrollRuntimeLoopRemainder(L, 4, true, false, false, &LI, &SE, &DT, &AC, // INTEL
+  bool ret = UnrollRuntimeLoopRemainder(L, 4, true, false, false, false, &LI,
+                                        &SE, &DT, &AC, // INTEL
                                         LORBuilder, // INTEL
                                         PreserveLCSSA); // INTEL
   EXPECT_FALSE(ret);

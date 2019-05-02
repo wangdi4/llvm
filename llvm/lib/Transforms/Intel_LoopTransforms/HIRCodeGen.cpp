@@ -23,6 +23,9 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
 
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -391,6 +394,9 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<HIRFrameworkWrapperPass>();
+
+    AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
   }
 };
 
@@ -414,7 +420,14 @@ PreservedAnalyses HIRCodeGenPass::run(Function &F,
                                 AM.getResult<HIRFrameworkAnalysis>(F))
                          .run();
 
-  return Transformed ? PreservedAnalyses::none() : PreservedAnalyses::all();
+  if (!Transformed) {
+    return PreservedAnalyses::all();
+  }
+
+  PreservedAnalyses PA;
+  PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();
+  return PA;
 }
 
 bool HIRCodeGen::run() {
@@ -1547,7 +1560,7 @@ BasicBlock *CGVisitor::getBBlockForLabel(HLLabel *L) {
     return InternalLabels[L];
 
   BasicBlock *LabelBB =
-      BasicBlock::Create(F.getContext(), "hir." + L->getName(), &F);
+      BasicBlock::Create(F.getContext(), "hir.L." + Twine(L->getNumber()), &F);
   InternalLabels[L] = LabelBB;
   return LabelBB;
 }

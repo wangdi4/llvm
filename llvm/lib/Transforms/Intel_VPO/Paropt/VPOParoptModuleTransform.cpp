@@ -172,12 +172,11 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     VPOParoptTransform VP(this, F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                           WI.getSE(), WI.getTargetTransformInfo(),
                           WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
+                          WI.getAliasAnalysis(), Mode,
 #if INTEL_CUSTOMIZATION
-                          WI.getAliasAnalysis(), Mode, ORVerbosity, OptLevel,
-#else
-                          WI.getAliasAnalysis(), Mode, OptLevel,
+                          ORVerbosity,
 #endif // INTEL_CUSTOMIZATION
-                          SwitchToOffload);
+                          WI.getORE(), OptLevel, SwitchToOffload);
     Changed = Changed | VP.paroptTransforms();
 
     LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");
@@ -367,14 +366,41 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   std::vector<Function *> DeadFunctions;
 
   for (Function &F : M) {
-    if (!VPOAnalysisUtils::mayHaveOpenmpDirective(F))
+    // IsFETargetDeclare == true means that F has the
+    //     "openmp-target-declare" attribute; i.e.,
+    //     The FE found that it was
+    //        (1) inside a DECLARE TARGET construct, or
+    //        (2) called from a TARGET region, or
+    //        (3) called recursively by another function with this attribute.
+    //
+    // IsBETargetDeclare == true means that F has the
+    //     "target.declare" attribute; i.e., it was emitted by the BE
+    //     for the target device, as a result of outlining a TARGET region.
+    //
+    // If F has neither of these attributes, then it is not needed by the
+    // target device and we remove it here.
+    bool IsFETargetDeclare = F.getAttributes().hasAttribute(
+        AttributeList::FunctionIndex, "openmp-target-declare");
+    bool IsBETargetDeclare = F.getAttributes().hasAttribute(
+        AttributeList::FunctionIndex, "target.declare");
+    // unused for now
+    // bool HasTargetConstruct = F.getAttributes().hasAttribute(
+    //     AttributeList::FunctionIndex, "contains-openmp-target");
+
+    if (IsFETargetDeclare) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
+                        << ": IsFETargetDeclare == true\n");
       continue;
-    if (!F.getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                        "target.declare")) {
+    }
+
+    if (!IsBETargetDeclare) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Remove " << F.getName() << "\n");
       DeadFunctions.push_back(&F);
       if (!F.isDeclaration())
         F.deleteBody();
     } else {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
+                        << ": IsBETargetDeclare == true\n");
 #if INTEL_CUSTOMIZATION
       // This is a workaround for resolving the incompatibility issue
       // between the xmain compiler and IGC compiler. The IGC compiler
@@ -805,6 +831,11 @@ void VPOParoptModuleTransform::genOffloadEntries() {
   Type *Int32Ty = Type::getInt32Ty(C);
 
   for (auto *E : OffloadEntries) {
+    if (auto *Var = dyn_cast<VarEntry>(E))
+      // Emit entry for the variable only if it is a definition.
+      if (Var->isDeclaration())
+        continue;
+
     assert(E && E->getAddress() && "uninitialized offload entry");
 
     StringRef Name = E->getName();

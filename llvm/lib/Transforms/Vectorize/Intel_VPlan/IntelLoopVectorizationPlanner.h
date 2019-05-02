@@ -21,6 +21,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionClause.h"
 #else
 #include "VPlan.h"
 #endif
@@ -69,7 +70,7 @@ public:
                            VPlanVLSAnalysis *VLSA)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
         LI(LI), SE(SE), DT(DT), VLSA(VLSA) {
-    VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip);
+    VPLA = std::make_shared<VPLoopAnalysis>(SE, VPlanDefaultEstTrip, LI);
   }
 
   void setUseNewPredicator() { UseNewPredicator = true; }
@@ -100,8 +101,10 @@ public:
 
   /// Feed information from explicit clauses to the loop Legality.
   /// This information is necessary for initial loop analysis in the CodeGen.
-  static void EnterExplicitData(WRNVecLoopNode *WRLp,
-                                VPOVectorizationLegality &Legality);
+#if INTEL_CUSTOMIZATION
+  template <class VPOVectorizationLegality>
+#endif
+  static void EnterExplicitData(WRNVecLoopNode *WRLp, VPOVectorizationLegality &Legal);
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor.

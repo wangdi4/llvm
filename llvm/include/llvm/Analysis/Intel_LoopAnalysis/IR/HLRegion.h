@@ -173,6 +173,11 @@ public:
   /// Returns true if this one region was created for the entire function.
   bool isFunctionLevel() const { return IRReg.isFunctionLevel(); }
 
+  /// Returns true if this region was created for loop materialization.
+  bool isLoopMaterializationCandidate() const {
+    return IRReg.isLoopMaterializationCandidate();
+  }
+
   /// Children iterator methods
   child_iterator child_begin() { return Children.begin(); }
   const_child_iterator child_begin() const { return Children.begin(); }

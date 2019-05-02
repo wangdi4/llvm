@@ -131,6 +131,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
@@ -1934,6 +1935,7 @@ PreservedAnalyses AddSubReassociatePass::run(Function &F,
     PreservedAnalyses PA;
     PA.preserveSet<CFGAnalyses>();
     PA.preserve<GlobalsAA>();
+    PA.preserve<AndersensAA>();
     return PA;
   }
 
@@ -1955,6 +1957,7 @@ void AddSubReassociateLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.setPreservesCFG();
   AU.addPreserved<GlobalsAAWrapperPass>();
+  AU.addPreserved<AndersensAAWrapperPass>();
 }
 
 INITIALIZE_PASS_BEGIN(AddSubReassociateLegacyPass, "addsub-reassoc",

@@ -844,14 +844,6 @@ public:
 
   unsigned getOpcode() const { return Opcode; }
 #if INTEL_CUSTOMIZATION
-  // FIXME: To be replaced by a proper VPType.
-  virtual Type *getType() const override {
-    if (getBaseType())
-      return getBaseType();
-
-    return getCMType();
-  }
-
   // FIXME: Temporary workaround for TTI problems that make the cost
   // modeling incorrect. The getCMType() returns nullptr in case the underlying
   // instruction is not set and this makes the cost of this instruction
@@ -911,7 +903,7 @@ public:
   /// Operands \p LHS and \p RHS must not have conflicting base types.
   VPCmpInst(VPValue *LHS, VPValue *RHS, Predicate Pred)
       : VPInstruction(inferOpcodeFromPredicate(Pred),
-                      CmpInst::makeCmpResultType(LHS->getBaseType()),
+                      CmpInst::makeCmpResultType(LHS->getType()),
                       ArrayRef<VPValue *>({LHS, RHS})),
         Pred(Pred) {}
 
@@ -1056,6 +1048,15 @@ public:
   void setIncomingBlock(const unsigned Idx, VPBasicBlock *Block) {
     assert(Block && "VPPHI node got a null basic block");
     VPBBUsers[Idx] = Block;
+  }
+
+  /// Remove a block from the phi node.
+  void removeIncomingValue(const VPBasicBlock *Block) {
+    unsigned Idx = getBlockIndex(Block);
+    assert(Idx <= VPBBUsers.size() && "Index is out of range");
+    auto it = VPBBUsers.begin();
+    std::advance(it, Idx);
+    VPBBUsers.erase(it);
   }
 
   /// Return index for a given \p Block.
@@ -1209,7 +1210,7 @@ public:
 class VPInductionInit : public VPInstruction {
 public:
   VPInductionInit(VPValue *Start, VPValue *Step, Instruction::BinaryOps Opc)
-      : VPInstruction(VPInstruction::InductionInit, Start->getBaseType(),
+      : VPInstruction(VPInstruction::InductionInit, Start->getType(),
                       {Start, Step}),
         BinOpcode(Opc) {}
 
@@ -1237,7 +1238,7 @@ private:
 class VPInductionInitStep : public VPInstruction {
 public:
   VPInductionInitStep(VPValue *Step, Instruction::BinaryOps Opcode)
-      : VPInstruction(VPInstruction::InductionInitStep, Step->getBaseType(),
+      : VPInstruction(VPInstruction::InductionInitStep, Step->getType(),
                       {Step}),
         BinOpcode(Opcode) {}
 
@@ -1267,13 +1268,13 @@ private:
 // vector.
 class VPInductionFinal : public VPInstruction {
 public:
-  VPInductionFinal(VPValue *InducVec)
-      : VPInstruction(VPInstruction::InductionFinal, InducVec->getBaseType(),
-                      {}) {}
+  VPInductionFinal(VPValue *InducVec, VPValue *Start)
+      : VPInstruction(VPInstruction::InductionFinal, InducVec->getType(),
+                      {InducVec, Start}) {}
 
   VPInductionFinal(VPValue *Start, VPValue *Count, VPValue *Step,
                    Instruction::BinaryOps Opcode)
-      : VPInstruction(VPInstruction::InductionFinal, Start->getBaseType(),
+      : VPInstruction(VPInstruction::InductionFinal, Start->getType(),
                       {Start, Count, Step}),
         BinOpcode(Opcode) {}
 
@@ -1305,11 +1306,11 @@ private:
 class VPReductionInit : public VPInstruction {
 public:
   VPReductionInit(VPValue *Identity)
-      : VPInstruction(VPInstruction::ReductionInit, Identity->getBaseType(),
+      : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
                       {Identity}) {}
 
   VPReductionInit(VPValue *Identity, VPValue *StartValue)
-      : VPInstruction(VPInstruction::ReductionInit, Identity->getBaseType(),
+      : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
                       {Identity, StartValue}) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1347,20 +1348,20 @@ public:
   /// General constructor
   VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
                    bool Sign)
-      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
                       {ReducVec, StartValue}),
         BinOpcode(BinOp), Signed(Sign) {}
 
   /// Constructor for optimized summation
   VPReductionFinal(unsigned BinOp, VPValue *ReducVec)
-      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
                       {ReducVec}),
         BinOpcode(BinOp), Signed(false) {}
 
   /// Constructor for index part of min/max+index reduction.
   VPReductionFinal(unsigned BinOp, VPValue *ReducVec, VPValue *StartValue,
                    bool Sign, VPReductionFinal *MinMax)
-      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getBaseType(),
+      : VPInstruction(VPInstruction::ReductionFinal, ReducVec->getType(),
                       {ReducVec, StartValue, MinMax}),
         BinOpcode(BinOp), Signed(Sign) {}
 
@@ -2271,7 +2272,7 @@ public:
   bool hasFalseEdge() { return CBlock && FBlock; }
 
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
-  BasicBlock *getOriginalBB() { return OriginalBB; }
+  BasicBlock *getOriginalBB() const { return OriginalBB; }
 
   // Pair of incoming edge mask and predecessor basic block. This
   // information is used to convert phis to select blends.
@@ -2520,7 +2521,7 @@ protected:
 
   std::shared_ptr<VPLoopAnalysisBase> VPLA;
 
-  VPLoopEntities LoopEntities;
+  DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 #else
   /// Holds a mapping between Values and their corresponding VPValue inside
   /// VPlan.
@@ -2536,10 +2537,9 @@ public:
 
   VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
         VPBlockBase *Entry = nullptr)
-      : Context(Context), Entry(Entry), VPLA(VPLA), LoopEntities(this) {}
-#else
-  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
+      : Context(Context), Entry(Entry), VPLA(VPLA) {}
 #endif
+  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
 
   ~VPlan() {
     if (Entry)
@@ -2573,7 +2573,29 @@ public:
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA; }
 
-  VPLoopEntities& getLoopEntities() { return LoopEntities; }
+  /// Return an existing or newly created LoopEntities for the loop \p L.
+  VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
+    // Sanity check
+    VPBlockBase *HeaderBB = L->getHeader(); (void)HeaderBB;
+    assert(VPLInfo->getLoopFor(HeaderBB) == L &&
+           "the loop does not exist in VPlan");
+
+    std::unique_ptr<VPLoopEntityList> &Ptr = LoopEntities[L];
+    if (!Ptr) {
+      VPLoopEntityList *E = new VPLoopEntityList(this);
+      Ptr.reset(E);
+    }
+    return Ptr.get();
+  }
+
+  /// Return LoopEntities list for the loop \p L. The nullptr is returned if
+  /// the descriptors were not created for the loop.
+  const VPLoopEntityList* getLoopEntities(const VPLoop* L) const {
+    auto Iter = LoopEntities.find(L);
+    if (Iter == LoopEntities.end())
+      return nullptr;
+    return Iter->second.get();
+  }
 #endif // INTEL_CUSTOMIZATION
 
   VPBlockBase *getEntry() { return Entry; }

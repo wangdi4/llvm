@@ -2226,7 +2226,10 @@ private:
     } else if (isa<ExtractValueInst>(V)) {
       // FIXME: Also analyze extract value instructions.
     }
-
+    else if (isa<ExtractElementInst>(V)) {
+      // FIXME: Also analyze extract element instructions when an instruction
+      // visitor is created for them.
+    }
     // If there were no unresolved dependencies, mark the info as analyzed.
     if (!Info.isPartialAnalysis())
       Info.setAnalyzed();
@@ -2867,13 +2870,14 @@ private:
     assert(isa<GlobalVariable>(V) || isa<Argument>(V) || isa<AllocaInst>(V) ||
            isa<LoadInst>(V) || isa<CallInst>(V) || isa<GetElementPtrInst>(V) ||
            isa<Constant>(V) || isa<GEPOperator>(V) || isa<InvokeInst>(V) ||
-           isa<ExtractValueInst>(V));
+           isa<ExtractValueInst>(V) || isa<ExtractElementInst>(V));
 
-    // Note that ExtractValueInst and InvokeInst are not handled by the main
-    // instruction visitor, so they will cause UnhandledUse safety conditions
-    // to be set. They are added to the assert here to prevent it from firing
-    // while compiling programs that we do not expect to be able to optimize.
-    // Additional implementation would be necessary to handle these correctly.
+    // Note that ExtractValueInst, ExtractElementInst and InvokeInst are not
+    // handled by the main instruction visitor, so they will cause UnhandledUse
+    // safety conditions to be set. They are added to the assert here to prevent
+    // it from firing while compiling programs that we do not expect to be able
+    // to optimize. Additional implementation would be necessary to handle these
+    // correctly.
 
     return false;
   }
@@ -5288,6 +5292,20 @@ public:
   }
 
   void visitBitCastOperator(BitCastOperator *I) {
+
+    // Returns true if Ty is related to vector type.
+    auto IsRelatedToVectorType = [](llvm::Type *Ty) {
+      llvm::Type *BaseTy = Ty;
+
+      // For pointers, see what they point to.
+      while (BaseTy->isPointerTy())
+        BaseTy = cast<PointerType>(BaseTy)->getElementType();
+
+      if (BaseTy->isVectorTy())
+        return true;
+      return false;
+    };
+
     llvm::Type *DestTy = I->getDestTy();
     llvm::Value *SrcVal = I->getOperand(0);
 
@@ -5334,6 +5352,16 @@ public:
       setValueTypeInfoSafetyData(SrcVal, dtrans::BadCasting);
       return;
     }
+    // CMPLRLLVM-8956: Handle vector types conservatively for now.
+    // TODO: Analysis and transformations need to be improved for
+    // vector instructions and types.
+    if (IsRelatedToVectorType(DestTy)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                        << "pointer cast to vector type:\n"
+                        << "  " << *I << "\n");
+      setValueTypeInfoSafetyData(SrcVal, dtrans::BadCasting);
+      return;
+    }
 
     // Get the dominant aggregate type to which the source operand points.
     // Usually the value will only alias to one aggregate type. However, if
@@ -5350,6 +5378,16 @@ public:
       // In the case of multiple nested element zero types, there may be
       // more than one safe element pointee.
       for (auto &PointeePair : ElementPointees) {
+        // CMPLRLLVM-8956: Handle vector types conservatively for now.
+        // TODO: Analysis and transformations need to be improved for
+        // vector instructions and types.
+        if (IsRelatedToVectorType(PointeePair.first)) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
+                            << "vector pointer cast to type of interest:\n"
+                            << "  " << *I << "\n");
+          setValueTypeInfoSafetyData(I, dtrans::BadCasting);
+          return;
+        }
         dtrans::TypeInfo *ParentTI =
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
         llvm::Type *ElemTy;

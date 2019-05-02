@@ -127,6 +127,13 @@ def SDT_X86TCRET : SDTypeProfile<0, 2, [SDTCisPtrTy<0>, SDTCisVT<1, i32>]>;
 
 def SDT_X86MEMBARRIER : SDTypeProfile<0, 0, []>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+def SDT_X86ENQCMD : SDTypeProfile<1, 2, [SDTCisVT<0, i32>,
+                                         SDTCisPtrTy<1>, SDTCisSameAs<1, 2>]>;
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#endif // INTEL_CUSTOMIZATION
+
 def X86MemBarrier : SDNode<"X86ISD::MEMBARRIER", SDT_X86MEMBARRIER,
                             [SDNPHasChain,SDNPSideEffect]>;
 def X86MFence : SDNode<"X86ISD::MFENCE", SDT_X86MEMBARRIER,
@@ -308,6 +315,13 @@ def X86tpause : SDNode<"X86ISD::TPAUSE",
                        [SDNPHasChain, SDNPSideEffect]>;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+def X86enqcmd : SDNode<"X86ISD::ENQCMD", SDT_X86ENQCMD,
+                       [SDNPHasChain, SDNPSideEffect]>;
+def X86enqcmds : SDNode<"X86ISD::ENQCMDS", SDT_X86ENQCMD,
+                       [SDNPHasChain, SDNPSideEffect]>;
+#endif // INTEL_FEATURE_ISA_ENQCMD
+
 #if INTEL_FEATURE_ISA_ULI
 def X86testui : SDNode<"X86ISD::TESTUI",
                        SDTypeProfile<1, 0, [SDTCisVT<0, i32>]>, [SDNPHasChain]>;
@@ -613,6 +627,12 @@ def offset64_32 : X86MemOffsOperand<i64imm, "printMemOffs32",
                                     X86MemOffs64_32AsmOperand>;
 def offset64_64 : X86MemOffsOperand<i64imm, "printMemOffs64",
                                     X86MemOffs64_64AsmOperand>;
+
+def ccode : Operand<i8> {
+  let PrintMethod = "printCondCode";
+  let OperandNamespace = "X86";
+  let OperandType = "OPERAND_COND_CODE";
+}
 
 class ImmSExtAsmOperandClass : AsmOperandClass {
   let SuperClasses = [ImmAsmOperand];
@@ -922,6 +942,12 @@ def HasCmpxchg8b : Predicate<"Subtarget->hasCmpxchg8b()">;
 def HasCmpxchg16b: Predicate<"Subtarget->hasCmpxchg16b()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+def HasENQCMD : Predicate<"Subtarget->hasENQCMD()">;
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_FEATURE_ISA_KEYLOCKER
+def HasKeyLocker : Predicate<"Subtarget->hasKeyLocker()">;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_ULI
 def HasULI : Predicate<"Subtarget->hasULI()">;
 #endif // INTEL_FEATURE_ISA_ULI
@@ -1000,22 +1026,22 @@ include "X86InstrFormats.td"
 
 // X86 specific condition code. These correspond to CondCode in
 // X86InstrInfo.h. They must be kept in synch.
-def X86_COND_A   : PatLeaf<(i8 0)>;  // alt. COND_NBE
-def X86_COND_AE  : PatLeaf<(i8 1)>;  // alt. COND_NC
+def X86_COND_O   : PatLeaf<(i8 0)>;
+def X86_COND_NO  : PatLeaf<(i8 1)>;
 def X86_COND_B   : PatLeaf<(i8 2)>;  // alt. COND_C
-def X86_COND_BE  : PatLeaf<(i8 3)>;  // alt. COND_NA
+def X86_COND_AE  : PatLeaf<(i8 3)>;  // alt. COND_NC
 def X86_COND_E   : PatLeaf<(i8 4)>;  // alt. COND_Z
-def X86_COND_G   : PatLeaf<(i8 5)>;  // alt. COND_NLE
-def X86_COND_GE  : PatLeaf<(i8 6)>;  // alt. COND_NL
-def X86_COND_L   : PatLeaf<(i8 7)>;  // alt. COND_NGE
-def X86_COND_LE  : PatLeaf<(i8 8)>;  // alt. COND_NG
-def X86_COND_NE  : PatLeaf<(i8 9)>;  // alt. COND_NZ
-def X86_COND_NO  : PatLeaf<(i8 10)>;
+def X86_COND_NE  : PatLeaf<(i8 5)>;  // alt. COND_NZ
+def X86_COND_BE  : PatLeaf<(i8 6)>;  // alt. COND_NA
+def X86_COND_A   : PatLeaf<(i8 7)>;  // alt. COND_NBE
+def X86_COND_S   : PatLeaf<(i8 8)>;
+def X86_COND_NS  : PatLeaf<(i8 9)>;
+def X86_COND_P   : PatLeaf<(i8 10)>; // alt. COND_PE
 def X86_COND_NP  : PatLeaf<(i8 11)>; // alt. COND_PO
-def X86_COND_NS  : PatLeaf<(i8 12)>;
-def X86_COND_O   : PatLeaf<(i8 13)>;
-def X86_COND_P   : PatLeaf<(i8 14)>; // alt. COND_PE
-def X86_COND_S   : PatLeaf<(i8 15)>;
+def X86_COND_L   : PatLeaf<(i8 12)>; // alt. COND_NGE
+def X86_COND_GE  : PatLeaf<(i8 13)>; // alt. COND_NL
+def X86_COND_LE  : PatLeaf<(i8 14)>; // alt. COND_NG
+def X86_COND_G   : PatLeaf<(i8 15)>; // alt. COND_NLE
 
 def i16immSExt8  : ImmLeaf<i16, [{ return isInt<8>(Imm); }]>;
 def i32immSExt8  : ImmLeaf<i32, [{ return isInt<8>(Imm); }]>;
@@ -1164,7 +1190,19 @@ def extloadi32i16  : PatFrag<(ops node:$ptr), (i32 (extloadi16 node:$ptr))>;
 def extloadi64i1   : PatFrag<(ops node:$ptr), (i64 (extloadi1 node:$ptr))>;
 def extloadi64i8   : PatFrag<(ops node:$ptr), (i64 (extloadi8 node:$ptr))>;
 def extloadi64i16  : PatFrag<(ops node:$ptr), (i64 (extloadi16 node:$ptr))>;
-def extloadi64i32  : PatFrag<(ops node:$ptr), (i64 (extloadi32 node:$ptr))>;
+
+// We can treat an i8/i16 extending load to i64 as a 32 bit load if its known
+// to be 4 byte aligned or better.
+def extloadi64i32  : PatFrag<(ops node:$ptr), (i64 (unindexedload node:$ptr)), [{
+  LoadSDNode *LD = cast<LoadSDNode>(N);
+  ISD::LoadExtType ExtType = LD->getExtensionType();
+  if (ExtType != ISD::EXTLOAD)
+    return false;
+  if (LD->getMemoryVT() == MVT::i32)
+    return true;
+
+  return LD->getAlignment() >= 4 && !LD->isVolatile();
+}]>;
 
 
 // An 'and' node with a single use.
@@ -2801,6 +2839,39 @@ def : InstAlias<"clzero\t{%eax|eax}", (CLZERO32r)>, Requires<[Not64BitMode]>;
 def : InstAlias<"clzero\t{%rax|rax}", (CLZERO64r)>, Requires<[In64BitMode]>;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+//===----------------------------------------------------------------------===//
+// ENQCMD/S - Enqueue 64-byte command as user with 64-byte write atomicity
+//
+let SchedRW = [WriteStore], Defs = [EFLAGS] in {
+  def ENQCMD16 : I<0xF8, MRMSrcMem, (outs), (ins GR16:$dst, i512mem:$src),
+                 "enqcmd\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmd GR16:$dst, addr:$src))]>,
+                 T8XD, AdSize16, Requires<[HasENQCMD, Not64BitMode]>;
+  def ENQCMD32 : I<0xF8, MRMSrcMem, (outs), (ins GR32:$dst, i512mem:$src),
+                 "enqcmd\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmd GR32:$dst, addr:$src))]>,
+                 T8XD, AdSize32, Requires<[HasENQCMD]>;
+  def ENQCMD64 : I<0xF8, MRMSrcMem, (outs), (ins GR64:$dst, i512mem:$src),
+                 "enqcmd\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmd GR64:$dst, addr:$src))]>,
+                 T8XD, AdSize64, Requires<[HasENQCMD, In64BitMode]>;
+
+  def ENQCMDS16 : I<0xF8, MRMSrcMem, (outs), (ins GR16:$dst, i512mem:$src),
+                 "enqcmds\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmds GR16:$dst, addr:$src))]>,
+                 T8XS, AdSize16, Requires<[HasENQCMD, Not64BitMode]>;
+  def ENQCMDS32 : I<0xF8, MRMSrcMem, (outs), (ins GR32:$dst, i512mem:$src),
+                 "enqcmds\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmds GR32:$dst, addr:$src))]>,
+                 T8XS, AdSize32, Requires<[HasENQCMD]>;
+  def ENQCMDS64 : I<0xF8, MRMSrcMem, (outs), (ins GR64:$dst, i512mem:$src),
+                 "enqcmds\t{$src, $dst|$dst, $src}",
+                 [(set EFLAGS, (X86enqcmds GR64:$dst, addr:$src))]>,
+                 T8XS, AdSize64, Requires<[HasENQCMD, In64BitMode]>;
+}
+#endif // INTEL_FEATURE_ISA_ENQCMD
+
 #if INTEL_FEATURE_ISA_ULI
 //===----------------------------------------------------------------------===//
 // ULI Instructions
@@ -2994,6 +3065,9 @@ include "X86InstrTSX.td"
 include "X86InstrSGX.td"
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+include "Intel_X86InstrKL.td"
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_AMX
 include "Intel_X86InstrAMX.td"
 #endif // INTEL_FEATURE_ISA_AMX

@@ -564,9 +564,9 @@ static bool canProfitablyUnrollMultiExitLoop(
 bool llvm::UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
                                       bool AllowExpensiveTripCount,
                                       bool UseEpilogRemainder,
-                                      bool UnrollRemainder, LoopInfo *LI,
-                                      ScalarEvolution *SE, DominatorTree *DT,
-                                      AssumptionCache *AC,              // INTEL
+                                      bool UnrollRemainder, bool ForgetAllSCEV,
+                                      LoopInfo *LI, ScalarEvolution *SE, 
+                                      DominatorTree *DT, AssumptionCache *AC,
                                       const LoopOptReportBuilder &LORB, // INTEL
                                       bool PreserveLCSSA,               // INTEL
                                       Loop **ResultLoop) {
@@ -977,9 +977,10 @@ bool llvm::UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
                    /*Force*/ false, /*AllowRuntime*/ false,
                    /*AllowExpensiveTripCount*/ false, /*PreserveCondBr*/ true,
                    /*PreserveOnlyFirst*/ false, /*TripMultiple*/ 1,
-                   /*PeelCount*/ 0, /*UnrollRemainder*/ false, LI, SE, DT, AC,
+                   /*PeelCount*/ 0, /*UnrollRemainder*/ false, ForgetAllSCEV,
+                   LI, SE, DT, AC, // INTEL
                    LORB, // INTEL
-                   /*ORE*/ nullptr, PreserveLCSSA);
+                   /*ORE*/ nullptr, PreserveLCSSA); // INTEL
   }
 
   if (ResultLoop && UnrollResult != LoopUnrollResult::FullyUnrolled)

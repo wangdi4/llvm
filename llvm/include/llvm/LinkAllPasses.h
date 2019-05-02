@@ -317,6 +317,7 @@ namespace {
       (void) llvm::createHIRVecDirInsertPass();
       (void) llvm::createHIRLoopDistributionForMemRecPass();
       (void) llvm::createHIRLoopDistributionForLoopNestPass();
+      (void) llvm::createHIRLoopRematerializePass();
       (void) llvm::createHIRLoopRerollPass();
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRLMMPass();
@@ -334,6 +335,7 @@ namespace {
       (void) llvm::createHIRLastValueComputationPass();
       (void) llvm::createHIRPropagateCastedIVPass();
       (void) llvm::createHIRMultiExitLoopRerollPass();
+      (void) llvm::createHIRIdentityMatrixIdiomRecognitionPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
@@ -360,6 +362,9 @@ namespace {
   #if INTEL_COLLAB
       // VPO Paropt Prepare Passes
       (void) llvm::createVPOParoptPreparePass();
+
+      // VPO Pass to restore clause opreands renamed by the Prepare pass.
+      (void)llvm::createVPORestoreOperandsPass();
 
       // VPO Parallelizer Passes
       (void) llvm::createVPOParoptPass();

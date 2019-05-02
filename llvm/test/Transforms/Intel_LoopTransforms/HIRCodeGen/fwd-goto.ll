@@ -40,7 +40,7 @@
 
 ;Block contains only a jump to hir version of alter bblock
 ;CHECK: [[T_BLOCK]]:
-;CHECK-NEXT: br label %hir.alter
+;CHECK-NEXT: br label %hir.L.31
 
 ;Alter bblock will contain decrement of out
 ;CHECK: add{{.*}}, -1

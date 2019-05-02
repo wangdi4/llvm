@@ -1,4 +1,5 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 ;
 ; It tests the OMP code generation for is_device_ptr clause.
 ; extern double hh,gg;
@@ -17,10 +18,10 @@
 ; FPRIV(n):    545= 0x221= TGT_MAP_TO | TGT_MAP_TARGET_PARAM | TGT_MAP_IMPLICIT
 ; MAPFROM(gg):  34= 0x022= TGT_MAP_FROM | TGT_MAP_TARGET_PARAM
 ; IsDevPtr(a): 800= 0x320= TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL |TGT_MAP_IMPLICIT
-; CHECK: @.offload_maptypes = private unnamed_addr constant [4 x i64] [i64 545, i64 545, i64 34, i64 800]
+; CHECK: @.offload_maptypes = private unnamed_addr constant [4 x i64] [i64 34, i64 545, i64 545, i64 800]
 ;
 ; Verify that the offload entry has the 4 matching arguments
-; CHECK: call void @__omp_offloading{{.*}}(double* %hh, i32* %n.addr, double* %gg, i32** %a)
+; CHECK: call void @__omp_offloading{{.*}}(double* %gg, double* %hh, i32* %n.addr, i32** %a)
 
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64-mic"

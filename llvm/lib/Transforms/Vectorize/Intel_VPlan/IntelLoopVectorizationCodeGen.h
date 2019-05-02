@@ -73,6 +73,10 @@ public:
   /// induction descriptor.
   typedef MapVector<PHINode *, InductionDescriptor> InductionList;
 
+  /// Linear list contains explicit linear specifications, mapping linear values
+  /// and their strides.
+  typedef DenseMap<Value *, int> LinearListTy;
+
   /// Returns the Induction variable.
   PHINode *getInduction() { return Induction; }
 
@@ -187,8 +191,8 @@ private:
   SmallPtrSet<Value *, 8> LastPrivates;
   SmallPtrSet<Value *, 8> CondLastPrivates;
 
-  /// Map of linear values and linear step
-  DenseMap<Value *, int> Linears;
+  /// List of explicit linears.
+  LinearListTy  Linears;
 
   /// Map of pointer values and stride
   DenseMap<Value *, int> PtrStrides;
@@ -271,7 +275,7 @@ public:
                         Value **NewScal = nullptr);
 
   // Return pointer to Linears map
-  DenseMap<Value *, int> *getLinears() {
+  LinearListTy *getLinears() {
     return &Linears;
   }
 
@@ -581,7 +585,7 @@ private:
   Loop *OrigLoop;
 
   /// Vectorized loop
-  Loop *NewLoop;
+  Loop *NewLoop = nullptr;
 
   /// A wrapper around ScalarEvolution used to add runtime SCEV checks. Applies
   /// dynamic knowledge to simplify SCEV expressions and converts them to a
@@ -679,7 +683,7 @@ private:
 
   // Pointer to current transformation state - used to obtain VPBasicBlock to
   // BasicBlock mapping.
-  struct VPTransformState *State;
+  struct VPTransformState *State = nullptr;
 
   // Widen the load of a linear value. We do a scalar load and generate a vector
   // value using the linear \p Step 

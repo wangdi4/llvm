@@ -1,5 +1,5 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
 ;
 ; Test src:
 ;
@@ -43,7 +43,8 @@ entry:
 ; CHECK-NOT: call token @llvm.directive.region.exit()
 ; Check for array section reduction local copy preparation
 ; CHECK-DAG: %[[LOCAL_MINUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i32, i32* %[[LOCAL:[a-zA-Z._0-9]+]], i64 -30
-; CHECK-DAG: store i32* %[[LOCAL_MINUS_OFFSET]], i32** %[[LOCAL_MINUS_OFFSET_REF:[a-zA-Z._0-9]+]]
+; CHECK-DAG: %[[LOCAL_MINUS_OFFSET_CAST:[a-zA-Z._0-9]+]] = bitcast i32* %[[LOCAL_MINUS_OFFSET]] to [3 x [4 x [5 x i32]]]*
+; CHECK-DAG: store [3 x [4 x [5 x i32]]]* %[[LOCAL_MINUS_OFFSET_CAST]], [3 x [4 x [5 x i32]]]** %[[LOCAL_MINUS_OFFSET_REF:[a-zA-Z._0-9]+]]
 
 ; Zero-trip test for reduction array initialization
 ; CHECK-DAG: %[[LOCAL_END:[0-9]+]] = getelementptr i32, i32* %[[LOCAL]], i64 5
@@ -82,7 +83,7 @@ for.cond2:                                        ; preds = %for.inc, %for.body
 
 for.body4:                                        ; preds = %for.cond2
 ; Check for the replacement of original %y_Arr_ref.addr with LOCAL_MINUS_OFFSET_REF.
-; CHECK-DAG: %[[LOAD_LOCAL_REF:[a-zA-Z._0-9]+]] = load [3 x [4 x [5 x i32]]]*, i32** %[[LOCAL_MINUS_OFFSET_REF]]
+; CHECK-DAG: %[[LOAD_LOCAL_REF:[a-zA-Z._0-9]+]] = load [3 x [4 x [5 x i32]]]*, [3 x [4 x [5 x i32]]]** %[[LOCAL_MINUS_OFFSET_REF]]
 ; CHECK-DAG: %{{[a-zA-Z._0-9]+}} = getelementptr inbounds [3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* %[[LOAD_LOCAL_REF]], i64 0, i64 1
   %8 = load [3 x [4 x [5 x i32]]]*, [3 x [4 x [5 x i32]]]** %y_Arr_ref.addr, align 8
   %arrayidx = getelementptr inbounds [3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* %8, i64 0, i64 1

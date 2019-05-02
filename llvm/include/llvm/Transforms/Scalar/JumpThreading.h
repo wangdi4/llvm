@@ -91,10 +91,6 @@ using PredValueInfoTy = SmallVector<std::pair<Constant *, BasicBlock *>, 8>;
 // to find.
 enum ConstantPreference { WantInteger, WantBlockAddress };
 
-#ifdef INTEL_CUSTOMIZATION
-enum TriState { Unknown = -1, False = 0, True = 1 };
-#endif // INTEL_CUSTOMIZATION
-
 } // end namespace jumpthreading
 
 /// This pass performs 'jump threading', which looks at blocks that have
@@ -148,10 +144,6 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   // threading across loop headers.
   DenseMap<BasicBlock*, int> BlockThreadCount;
   static const int MaxThreadsPerBlock = 10;
-
-  // Track edges that we've seen in the compare analysis.
-  SmallSet<std::pair<const BasicBlock *, const BasicBlock *>, 4> EdgesSeen;
-
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -218,15 +210,11 @@ private:
   BasicBlock *SplitBlockPreds(BasicBlock *BB, ArrayRef<BasicBlock *> Preds,
                               const char *Suffix);
 #if INTEL_CUSTOMIZATION
-  void UpdateRegionBlockFreqAndEdgeWeight(
-      BasicBlock *PredBB, BasicBlock *SuccBB,
-      const jumpthreading::ThreadRegionInfo &RegionInfo,
-      const SmallVectorImpl<BasicBlock *> &RegionBlocks,
-      DenseMap<BasicBlock *, BasicBlock *> &BlockMapping);
-  bool SeenEdge(BasicBlockEdge &Edge);
-  void MarkEdgeSeen(BasicBlockEdge &Edge);
-  jumpthreading::TriState CmpConstOnEdge(CmpInst *CI, Value *PhiDef,
-                                         BasicBlockEdge &E);
+    void UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
+                       BasicBlock *SuccBB,
+                       const jumpthreading::ThreadRegionInfo &RegionInfo,
+                       const SmallVectorImpl<BasicBlock*> &RegionBlocks,
+                       DenseMap<BasicBlock*, BasicBlock*> &BlockMapping);
 #endif // INTEL_CUSTOMIZATION
   /// Check if the block has profile metadata for its outgoing edges.
   bool doesBlockHaveProfileData(BasicBlock *BB);

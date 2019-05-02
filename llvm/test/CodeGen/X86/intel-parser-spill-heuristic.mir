@@ -350,7 +350,7 @@ body:             |
     undef %65.sub_32bit:gr64_with_sub_8bit = COPY $edi
     %57:gr32 = MOV32rm $rip, 1, $noreg, @a + 4, $noreg :: (dereferenceable load 4 from `i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @a, i64 0, i64 1)`, !tbaa !2)
     TEST32rr %57, %57, implicit-def $eflags
-    JE_1 %bb.23, implicit killed $eflags
+    JCC_1 %bb.23, 4, implicit killed $eflags
     JMP_1 %bb.1
   
   bb.1.while.cond3.preheader.preheader:
@@ -365,14 +365,14 @@ body:             |
     %55:gr64_nosp = MOVSX64rr32 %66.sub_32bit
     CMP32mi8 $noreg, 4, %55, @a, $noreg, 0, implicit-def $eflags :: (load 4 from %ir.arrayidx2, !tbaa !2)
     undef %65.sub_32bit:gr64_with_sub_8bit = COPY %57
-    JE_1 %bb.23, implicit killed $eflags
+    JCC_1 %bb.23, 4, implicit killed $eflags
     JMP_1 %bb.3
   
   bb.3.while.cond3.preheader:
     successors: %bb.2(0x40000000), %bb.6(0x40000000)
   
     CMP32rr %57, %65.sub_32bit, implicit-def $eflags
-    JE_1 %bb.2, implicit killed $eflags
+    JCC_1 %bb.2, 4, implicit killed $eflags
     JMP_1 %bb.6
   
   bb.4.while.cond3.loopexit.loopexit:
@@ -383,14 +383,14 @@ body:             |
     successors: %bb.2(0x04000000), %bb.6(0x7c000000)
   
     CMP32rr %57, %65.sub_32bit, implicit-def $eflags
-    JE_1 %bb.2, implicit killed $eflags
+    JCC_1 %bb.2, 4, implicit killed $eflags
     JMP_1 %bb.6
   
   bb.6.while.body5:
     successors: %bb.8(0x3e000002), %bb.7(0x41fffffe)
   
     CMP32ri8 %57, 36, implicit-def $eflags
-    JA_1 %bb.8, implicit killed $eflags
+    JCC_1 %bb.8, 7, implicit killed $eflags
   
   bb.7.while.body5:
     successors: %bb.13(0x00dca8f1), %bb.8(0x783e0f8b), %bb.14(0x00dca8f1), %bb.11(0x00dca8f1), %bb.16(0x00dca8f1), %bb.17(0x00dca8f1), %bb.18(0x00dca8f1), %bb.19(0x00dca8f1), %bb.20(0x00dca8f1), %bb.21(0x00dca8f1)
@@ -403,7 +403,7 @@ body:             |
   
     %57:gr32 = nsw ADD32ri8 %57, 1, implicit-def dead $eflags
     CMP32rr %66.sub_32bit, %65.sub_32bit, implicit-def $eflags
-    JL_1 %bb.10, implicit killed $eflags
+    JCC_1 %bb.10, 12, implicit killed $eflags
   
   bb.9.while.cond22.preheader:
     successors: %bb.5(0x80000000)
@@ -423,7 +423,7 @@ body:             |
     successors: %bb.12(0x40000000), %bb.15(0x40000000)
   
     CMP32rr %66.sub_32bit, %65.sub_32bit, implicit-def $eflags
-    JGE_1 %bb.15, implicit killed $eflags
+    JCC_1 %bb.15, 13, implicit killed $eflags
     JMP_1 %bb.12
   
   bb.12.while.body10.preheader:
@@ -434,7 +434,7 @@ body:             |
     %17:gr64 = nsw SUB64rr %17, %30, implicit-def dead $eflags
     %18:gr64_nosp = COPY %17
     %18:gr64_nosp = AND64ri8 %18, -4, implicit-def $eflags
-    JE_1 %bb.26, implicit killed $eflags
+    JCC_1 %bb.26, 4, implicit killed $eflags
     JMP_1 %bb.24
   
   bb.13.sw.bb:
@@ -497,7 +497,7 @@ body:             |
     %66:gr64_nosp = nsw ADD64ri8 %66, 1, implicit-def dead $eflags
     CMP64rr %66, %65, implicit-def $eflags
     %65:gr64_with_sub_8bit = LEA64r %65, 1, $noreg, -1, $noreg
-    JL_1 %bb.22, implicit killed $eflags
+    JCC_1 %bb.22, 12, implicit killed $eflags
     JMP_1 %bb.4
   
   bb.23.cleanup:
@@ -517,14 +517,14 @@ body:             |
     MOVUPSmr %25, 4, %67, -4, $noreg, %43 :: (store 16 into %ir.uglygep281282, align 4, !tbaa !2)
     %67:gr64_nosp = nuw ADD64ri8 %67, 4, implicit-def dead $eflags
     CMP64rr %67, %24, implicit-def $eflags
-    JBE_1 %bb.25, implicit killed $eflags
+    JCC_1 %bb.25, 6, implicit killed $eflags
     JMP_1 %bb.26
   
   bb.26.ifmerge.20:
     successors: %bb.27(0x40000000), %bb.15(0x40000000)
   
     CMP64rr %18, %17, implicit-def $eflags
-    JAE_1 %bb.15, implicit killed $eflags
+    JCC_1 %bb.15, 3, implicit killed $eflags
     JMP_1 %bb.27
   
   bb.27.then.21:
@@ -541,7 +541,7 @@ body:             |
     MOV32mr %30, 4, %18, @a, $noreg, %46 :: (store 4 into %ir.16, !tbaa !2)
     %18:gr64_nosp = ADD64ri8 %18, 1, implicit-def dead $eflags
     CMP64rr %18, %17, implicit-def $eflags
-    JB_1 %bb.28, implicit killed $eflags
+    JCC_1 %bb.28, 2, implicit killed $eflags
     JMP_1 %bb.15
 
 ...

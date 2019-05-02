@@ -25,9 +25,12 @@
 
 using namespace llvm;
 
+extern cl::opt<bool> LoopEntityImportEnabled;
+
 namespace llvm {
 
 class ScalarEvolution;
+class LoopInfo;
 
 namespace vpo {
 
@@ -36,7 +39,9 @@ class IntelVPlanUtils;
 class VPLoop;
 class VPlan;
 class VPValue;
+class VPConstant;
 class VPInstruction;
+class VPBlockBase;
 
 class VPLoopAnalysisBase {
 protected:
@@ -80,6 +85,8 @@ protected:
 public:
   explicit VPLoopAnalysisBase(const TripCountTy DefaultTripCount)
       : DefaultTripCount(DefaultTripCount) {}
+
+  virtual ~VPLoopAnalysisBase(){}
 
   void computeTripCount(const VPLoopRegion *Lp) { computeTripCountImpl(Lp); }
 
@@ -136,23 +143,24 @@ public:
     if (TripCount < getMinTripCountFor(Lp))
       setMinTripCountFor(Lp, TripCount);
   }
+
+  void setTripCountsFromPragma(const VPLoopRegion *Lp, uint64_t MinTripCount,
+                               uint64_t MaxTripCount, uint64_t AvgTripCount);
 };
 
 class VPLoopAnalysis : public VPLoopAnalysisBase {
 private:
   ScalarEvolution *SE;
+  LoopInfo *LI;
   // TODO: templatizing of getSmallConstantMaxTripCount() is required to support
   // VPLoop.
-  void computeTripCountImpl(const VPLoopRegion *Lp) final {
-    setMaxTripCountFor(Lp, DefaultTripCount);
-    setEstimatedTripCountFor(Lp, DefaultTripCount);
-    setMinTripCountFor(Lp, DefaultTripCount);
-  }
+
+  void computeTripCountImpl(const VPLoopRegion *Lp) final;
 
 public:
   explicit VPLoopAnalysis(ScalarEvolution *SE,
-                          const TripCountTy DefaultTripCount)
-      : VPLoopAnalysisBase(DefaultTripCount), SE(SE) {}
+                          const TripCountTy DefaultTripCount, LoopInfo *LI)
+      : VPLoopAnalysisBase(DefaultTripCount), SE(SE), LI(LI) {}
 };
 
 /// Base class for loop entities
@@ -161,12 +169,34 @@ public:
   enum { Reduction, IndexReduction, Induction, Private };
   unsigned char getID() const { return SubclassID; }
 
+  virtual ~VPLoopEntity() = 0;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { dump(errs()); }
+  virtual void dump(raw_ostream &OS) const = 0;
+#endif
+
+  void setIsMemOnly(bool V) { IsMemOnly = V; }
+  bool getIsMemOnly() const { return IsMemOnly; }
+
+  const SmallVectorImpl<VPValue *> &getLinkedVPValues() const {
+    return LinkedVPValues;
+  }
+  void addLinkedVPValue(VPValue *Val) {
+    if (Val != nullptr)
+      LinkedVPValues.push_back(Val);
+  }
+
 protected:
   // No need for public constructor.
-  explicit VPLoopEntity(unsigned char Id) : SubclassID(Id){};
+  explicit VPLoopEntity(unsigned char Id, bool IsMem)
+      : IsMemOnly(IsMem), SubclassID(Id){};
+
+  bool IsMemOnly;
 
 private:
   const unsigned char SubclassID;
+  SmallVector<VPValue *, 2> LinkedVPValues;
 };
 
 /// Recurrence descriptor
@@ -176,15 +206,19 @@ class VPReduction
   using RDTempl = RecurrenceDescriptorTempl<VPValue, VPInstruction, VPValue *>;
 
 public:
-  VPReduction(VPValue *Start, VPInstruction *Exit, RecurrenceKind K, FastMathFlags FMF,
-              MinMaxRecurrenceKind MK, Type *RT, bool Signed,
-              unsigned char Id = Reduction)
-      : VPLoopEntity(Id), RDTempl(Start, Exit, K, FMF, MK, RT, Signed) {}
+  VPReduction(VPValue *Start, VPInstruction *Exit, RecurrenceKind K,
+              FastMathFlags FMF, MinMaxRecurrenceKind MK, Type *RT, bool Signed,
+              bool IsMemOnly = false, unsigned char Id = Reduction)
+      : VPLoopEntity(Id, IsMemOnly),
+        RDTempl(Start, Exit, K, FMF, MK, RT, Signed) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
     return V->getID() == Reduction;
   }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  virtual void dump(raw_ostream &OS) const;
+#endif
 };
 
 /// Descriptor of the index part of min/max+index reduction.
@@ -192,12 +226,13 @@ public:
 /// descriptor.
 class VPIndexReduction : public VPReduction {
 public:
-  VPIndexReduction(VPReduction *Parent, VPValue *Start, VPInstruction *Exit,
-                   Type *RT, bool Signed, bool ForLast)
+  VPIndexReduction(const VPReduction *Parent, VPValue *Start,
+                   VPInstruction *Exit, Type *RT, bool Signed, bool ForLast,
+                   bool IsMemOnly = false)
       : VPReduction(Start, Exit, RK_IntegerMinMax, FastMathFlags::getFast(),
                     ForLast ? (Signed ? MRK_SIntMax : MRK_UIntMax)
                             : (Signed ? MRK_SIntMin : MRK_UIntMin),
-                    RT, Signed, IndexReduction),
+                    RT, Signed, IsMemOnly, IndexReduction),
         ParentRed(Parent) {
     assert((Parent && Parent->getMinMaxRecurrenceKind() != MRK_Invalid) &&
            "Incorrect parent reduction");
@@ -209,7 +244,9 @@ public:
   static inline bool classof(const VPLoopEntity *V) {
     return V->getID() == IndexReduction;
   }
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
 private:
   // Parent reduction, either min or max.
   const VPReduction *ParentRed;
@@ -219,14 +256,14 @@ private:
 class VPInduction
     : public VPLoopEntity,
       public InductionDescriptorTempl<VPValue, VPInstruction, VPValue *> {
-  friend class VPLoopEntities;
+  friend class VPLoopEntityList;
   void setNeedCloseForm(bool Val) { NeedCloseForm = Val; }
 
 public:
   VPInduction(VPValue *Start, InductionKind K, VPValue *Step,
-              VPInstruction *InductionBinOp,
+              VPInstruction *InductionBinOp, bool IsMemOnly = false,
               unsigned int Opc = Instruction::BinaryOpsEnd)
-      : VPLoopEntity(Induction),
+      : VPLoopEntity(Induction, IsMemOnly),
         InductionDescriptorTempl(Start, K, InductionBinOp), Step(Step),
         BinOpcode(Opc) {
     assert((getInductionBinOp() || BinOpcode != Instruction::BinaryOpsEnd) &&
@@ -266,7 +303,9 @@ public:
   static inline bool classof(const VPLoopEntity *V) {
     return V->getID() == Induction;
   }
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
 private:
   const VPValue *Step;
   unsigned int BinOpcode; // Explicitly set opcode.
@@ -284,8 +323,9 @@ class VPPrivate : public VPLoopEntity {
   VPInstruction *AssignInst;
 
 public:
-  VPPrivate(VPInstruction *Inst, bool Conditional, bool Explicit)
-      : VPLoopEntity(Private), IsConditional(Conditional),
+  VPPrivate(VPInstruction *Inst, bool Conditional, bool Explicit,
+            bool IsMemOnly = false)
+      : VPLoopEntity(Private, IsMemOnly), IsConditional(Conditional),
         IsExplicit(Explicit), AssignInst(Inst) {}
 
   bool isConditional() const { return IsConditional; }
@@ -295,17 +335,20 @@ public:
   static inline bool classof(const VPLoopEntity *V) {
     return V->getID() == Private;
   }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const override;
+#endif
 };
 
 /// Complimentary class that describes memory locations of the loop entities.
 /// The VPLoopEntity is linked with this descriptor through its ExitingValue
 /// field.
-class VPInMemoryEntity {
+class VPLoopEntityMemoryDescriptor {
 public:
-  VPInMemoryEntity(const VPValue *AllocaInst) : MemoryPtr(AllocaInst) {}
+  VPLoopEntityMemoryDescriptor(VPValue *AllocaInst) : MemoryPtr(AllocaInst) {}
 
   /// Return memory address of this var.
-  const VPValue *getMemoryPtr() const { return MemoryPtr; }
+  VPValue *getMemoryPtr() const { return MemoryPtr; }
 
   /// Sometime keeping an entity in memory is unnecessary, i.e. when it's
   /// address is not escaping either to a function call or through a pointer.
@@ -321,16 +364,18 @@ public:
   /// is at least one unit-stride load/store to that memory (in case of
   /// private array), or the memory is a scalar structure.
   bool isProfitableSOA() const { return ProfitableSOA; }
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const;
+#endif
 private:
-  friend class VPLoopEntities;
+  friend class VPLoopEntityList;
   // Interface for analyzer to set the bits.
   void setCanRegisterize(bool Val) { CanRegisterize = Val; }
   void setSafeSOA(bool Val) { SafeSOA = Val; }
   void setProfitableSOA(bool Val) { ProfitableSOA = Val; }
 
   // Allocation instruction.
-  const VPValue *MemoryPtr;
+  VPValue *MemoryPtr;
 
   bool CanRegisterize = false;
   bool SafeSOA = false;
@@ -341,7 +386,7 @@ private:
 /// privates. This is a proxy for data classified by legalization analysis, to
 /// be able to operate in terms of VPValue. It encapsulates also some additional
 /// analysis that can be done on VPLoop body.
-class VPLoopEntities {
+class VPLoopEntityList {
   using RecurrenceKind = VPReduction::RecurrenceKind;
   using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using InductionKind = VPInduction::InductionKind;
@@ -350,66 +395,97 @@ public:
   /// Add reduction described by \p K, \p MK, and \p Signed,
   /// with starting instruction \p Instr, incoming value \p Incoming, exiting
   /// instruction \p Exit and alloca-instruction \p AI.
-  void addReduction(VPInstruction *Instr, VPValue *Incoming,
+  VPReduction *addReduction(VPInstruction *Instr, VPValue *Incoming,
                     VPInstruction *Exit, RecurrenceKind K, FastMathFlags FMF,
                     MinMaxRecurrenceKind MK, Type *RT, bool Signed,
-                    VPValue *AI = nullptr);
+                    VPValue *AI = nullptr, bool ValidMemOnly = false);
   /// Add index part of min/max+index reduction with parent (min/max) reduction
   /// \p Parent, starting instruction \pInstr, incoming value \p Incoming,
   /// exiting instruction \p Exit, \p Signed data type \p RT, and
   /// alloca-instruction \p AI. The \p ForLast flag indicates whether we need
   /// the last index or the first one.
-  void addIndexReduction(VPInstruction *Instr, VPReduction *Parent,
-                         VPValue *Incoming, VPInstruction *Exit, Type *RT,
-                         bool Signed, bool ForLast, VPValue *AI = nullptr);
+  VPIndexReduction *addIndexReduction(VPInstruction *Instr,
+                                      const VPReduction *Parent,
+                                      VPValue *Incoming, VPInstruction *Exit,
+                                      Type *RT, bool Signed, bool ForLast,
+                                      VPValue *AI = nullptr,
+                                      bool ValidMemOnly = false);
 
   /// Add induction of kind \p K, with opcode \p Opc or binary operation
   /// \p InductionBinOp, starting instruction \pStart, incoming value
   /// \p Incoming, stride \p Step, and alloca-instruction \p AI.
-  void addInduction(VPInstruction *Start, VPValue *Incoming, InductionKind K,
-                    VPValue *Step, VPInstruction *InductionBinOp,
-                    unsigned int Opc, VPValue *AI = nullptr);
+  VPInduction *addInduction(VPInstruction *Start, VPValue *Incoming,
+                            InductionKind K, VPValue *Step,
+                            VPInstruction *InductionBinOp, unsigned int Opc,
+                            VPValue *AI = nullptr, bool ValidMemOnly = false);
 
   /// Add private for instruction \p Assign, which is \p Conditional and
   /// \p Explicit, and alloca-instruction \p AI.
-  void addPrivate(VPInstruction *Assign, bool isConditional, bool Explicit,
-                  VPValue *AI = nullptr);
+  VPPrivate *addPrivate(VPInstruction *Assign, bool isConditional,
+                        bool Explicit, VPValue *AI = nullptr,
+                        bool ValidMemOnly = false);
 
-  /// Return reduction descriptor if instruction \p Instr is used in
-  /// calculations of reduction. Not only starting phis are mapped, the
-  /// instructions inside loop body should check this for proper masking of
-  /// reduction operations.
-  VPReduction *getReduction(const VPInstruction *Instr) const {
-    return find(ReductionMap, Instr);
+  /// Final stage of importing data from IR. Go through all imported descriptors
+  /// and check/create links to VPInstructions.
+  void finalizeImport(void);
+
+  /// Return reduction descriptor if \p VPVal is used in calculations of
+  /// reduction. Not only starting phis are mapped, the instructions inside loop
+  /// body should check this for proper masking of reduction operations.
+  const VPReduction *getReduction(const VPValue *VPVal) const {
+    return find(ReductionMap, VPVal);
   }
 
-  /// Return induction descriptor by \p Instr.
-  VPInduction *getInduction(const VPInstruction *Instr) const {
-    return find(InductionMap, Instr);
+  /// Return induction descriptor by \p VPVal. Shows whether VPVal is used in
+  /// calculations of induction.
+  const VPInduction *getInduction(const VPValue *VPVal) const {
+    return find(InductionMap, VPVal);
   }
 
-  /// Return private descriptor by instruction.
-  VPPrivate *getPrivate(const VPInstruction *Instr) const {
-    return find(PrivateMap, Instr);
+  /// Return private descriptor by \p VPVal.
+  const VPPrivate *getPrivate(const VPValue *VPVal) const {
+    return find(PrivateMap, VPVal);
   }
 
   /// Get descriptor for an entity's memory.
-  VPInMemoryEntity *getMemoryDescriptor(VPLoopEntity *E);
+  const VPLoopEntityMemoryDescriptor *
+  getMemoryDescriptor(const VPLoopEntity *E) const {
+    auto It = MemoryDescriptors.find(E);
+    if (It != MemoryDescriptors.end())
+      return It->second.get();
+    return nullptr;
+  }
 
-  /// Entities lists
-  typedef DenseMap<const VPInstruction *, std::unique_ptr<VPReduction>> VPReductionMap;
-  typedef DenseMap<const VPInstruction *, std::unique_ptr<VPInduction>> VPInductionMap;
-  typedef DenseMap<const VPInstruction *, std::unique_ptr<VPPrivate>> VPPrivateMap;
+  /// Get descriptor for a memory descriptor by its alloca instruction.
+  const VPLoopEntityMemoryDescriptor *
+  getMemoryDescriptor(const VPValue *AI) const {
+    auto It = MemInstructions.find(AI);
+    if (It != MemInstructions.end())
+      return It->second;
+    return nullptr;
+  }
+
+  /// Entities lists. We need a predictable way of iterating through lists so
+  /// the init/fini code is generated always the same for the same loops.
+  typedef SmallVector<std::unique_ptr<VPReduction>, 4> VPReductionList;
+  typedef SmallVector<std::unique_ptr<VPInduction>, 4> VPInductionList;
+  typedef SmallVector<std::unique_ptr<VPPrivate>, 4> VPPrivateList;
+
+  /// Mapping of VPValues to entities. Created after entities lists are formed
+  /// to ensure correct masking.
+  typedef DenseMap<const VPValue *, const VPReduction *> VPReductionMap;
+  typedef DenseMap<const VPValue *, const VPInduction *> VPInductionMap;
+  typedef DenseMap<const VPValue *, const VPPrivate *> VPPrivateMap;
 
   /// Iterators to iterate through entities lists.
-  VPInductionMap::iterator inductionsBegin();
-  VPInductionMap::iterator inductionsEnd();
+  VPInductionList::iterator inductionsBegin();
+  VPInductionList::iterator inductionsEnd();
 
-  VPReductionMap::iterator reductionsBegin();
-  VPReductionMap::iterator reductionsEnd();
+  VPReductionList::iterator reductionsBegin();
+  VPReductionList::iterator reductionsEnd();
 
-  VPPrivateMap::iterator privatesBegin();
-  VPPrivateMap::iterator privatesEnd();
+  VPPrivateList::iterator privatesBegin();
+  VPPrivateList::iterator privatesEnd();
 
   VPIndexReduction *getMinMaxIndex(const VPReduction *Red) {
     MinMaxIndexTy::const_iterator It = MinMaxIndexes.find(Red);
@@ -418,35 +494,332 @@ public:
     return nullptr;
   }
 
-  VPLoopEntities(VPlan *P) : Plan(P) {}
+  VPLoopEntityList(VPlan *P) : Plan(P) {}
 
-  VPValue *getReductionIdentiy(const VPReduction *Red) const;
-
+  VPValue *getReductionIdentity(const VPReduction *Red) const;
+  static bool isMinMaxInclusive(const VPReduction &Red);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS, const VPBlockBase *LoopHeader = nullptr) const;
+  void dump() const { dump(errs()); }
+#endif
 private:
   VPlan *Plan;
+
+  VPReductionList ReductionList;
+  VPInductionList InductionList;
+  VPPrivateList PrivateList;
 
   VPReductionMap ReductionMap;
   VPInductionMap InductionMap;
   VPPrivateMap PrivateMap;
 
-  // Mapping of VPLoopEntity to VPInMemoryEntity.
-  typedef DenseMap<VPLoopEntity *, std::unique_ptr<VPInMemoryEntity>> MemDescrTy;
+  // Mapping of VPLoopEntity to VPLoopEntityMemoryDescriptor.
+  typedef DenseMap<VPLoopEntity *,
+                   std::unique_ptr<VPLoopEntityMemoryDescriptor>>
+      MemDescrTy;
   MemDescrTy MemoryDescriptors;
 
+  // Mapping alloca instructions to memory descriptors.
+  typedef DenseMap<VPValue *, VPLoopEntityMemoryDescriptor *> MemInstDescrMapTy;
+  MemInstDescrMapTy MemInstructions;
+
   // MinMax reduction to index reduction
-  typedef DenseMap<VPReduction *, VPIndexReduction *> MinMaxIndexTy;
+  typedef DenseMap<const VPReduction *, VPIndexReduction *> MinMaxIndexTy;
   MinMaxIndexTy MinMaxIndexes;
 
-  // Find an item in the map defined as T<K, std::unique_ptr<item>>
+  // Find an item in the map defined as T<K,item>
   template <typename T, class K>
-  typename T::mapped_type::element_type *find(T &Map, K Key) const {
+  typename T::mapped_type find(T &Map, K Key) const {
     typename T::const_iterator It = Map.find(Key);
     if (It != Map.end())
-      return It->second.get();
+      return It->second;
     return nullptr;
   }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  template <class T>
+  void dumpList(const char *Header, const T &List, raw_ostream &OS) const {
+    OS << Header;
+    for (auto &Item : List) {
+      Item.get()->dump(OS);
+      const VPLoopEntityMemoryDescriptor *Mem =
+          getMemoryDescriptor(Item.get());
+      if (Mem) {
+        OS << " Memory: ";
+        Mem->dump(OS);
+      }
+      OS << "\n";
+    }
+  }
+#endif
+
   void createMemDescFor(VPLoopEntity *E, VPValue *AI);
+
+  template <class T, class M> void linkValue(M &Map, T *Descr, VPValue *Val) {
+    if (Val && !isa<VPConstant>(Val)) {
+      auto Iter = Map.find(Val); (void)Iter;
+      assert((Iter == Map.end() || Iter->second == Descr) &&
+             "Inconsistensy in VPValue->Descriptor mapping");
+      Map[Val] = Descr;
+      Descr->addLinkedVPValue(Val);
+    }
+  }
+
 };
+
+class VPEntityImportDescr {
+protected:
+  VPEntityImportDescr()
+      : AllocaInst(nullptr), ValidMemOnly(false), Importing(true){};
+
+public:
+  virtual bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const;
+
+  VPValue *getAllocaInst() const { return AllocaInst; }
+  bool getValidMemOnly() const { return ValidMemOnly; }
+  bool getImporting() const { return Importing; }
+
+  void setAllocaInst(VPValue *V) { AllocaInst = V; }
+  void setValidMemOnly(bool V) { ValidMemOnly = V; }
+  void setImporting(bool V) { Importing = V; }
+
+protected:
+  VPValue *findMemoryUses(VPValue *Start, const VPLoop *Loop);
+
+  virtual void clear() {
+    AllocaInst = nullptr;
+    ValidMemOnly = false;
+    Importing = true;
+  }
+  VPValue *AllocaInst;
+  bool ValidMemOnly;
+  bool Importing;
+};
+
+/// Intermediate reduction descriptor. This is a temporary data to keep
+/// descriptors between two stages, gathering and importing. We can't use final
+/// descriptors for that purpose as they require some consistency but in some
+/// cases it can be obtained only after some analysis, at the second stage of
+/// importing.
+class ReductionDescr : public VPEntityImportDescr {
+  using RecurrenceKind = VPReduction::RecurrenceKind;
+  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
+  using BaseT = VPEntityImportDescr;
+public:
+  ReductionDescr() {clear();}
+
+  VPInstruction *getStartPhi() const { return StartPhi; }
+  VPValue *getStart() const { return Start; }
+  VPInstruction *getExit() const { return Exit; }
+  RecurrenceKind getKind() const { return K; }
+  MinMaxRecurrenceKind getMinMaxKind() const { return MK; }
+  Type *getRecType() const { return RT; }
+  bool getSigned() const { return Signed; }
+  VPInstruction *getLinkPhi() const { return LinkPhi; }
+
+  void setStartPhi(VPInstruction *V) { StartPhi = V; }
+  void setStart(VPValue *V) { Start = V; }
+  void setExit(VPInstruction *V) { Exit = V; }
+  void setKind(RecurrenceKind V) { K = V; }
+  void setMinMaxKind(MinMaxRecurrenceKind V) { MK = V; }
+  void setRecType(Type *V) { RT = V; }
+  void setSigned(bool V) { Signed = V; }
+  void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
+
+  /// Clear the content.
+  void clear() override {
+    BaseT::clear();
+    StartPhi = nullptr;
+    Start = nullptr;
+    Exit = nullptr;
+    K = RecurrenceKind::RK_NoRecurrence;
+    MK = MinMaxRecurrenceKind::MRK_Invalid;
+    RT = nullptr;
+    Signed = false;
+    LinkPhi = nullptr;
+  }
+  /// Check for that all non-null VPInstructions in the descriptor are in the \p
+  /// Loop.
+  void checkParentVPLoop(const VPlan *Plan, const VPLoop *Loop) const;
+
+  /// Return true if not all data is completed.
+  bool isIncomplete() const;
+  /// Attemp to fix incomplete data using VPlan and VPLoop.
+  void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
+  /// Pass the data to VPlan
+  void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+
+private:
+  VPInstruction *StartPhi = nullptr; // TODO: Consider changing to VPPHINode.
+  VPValue *Start = nullptr;
+  VPInstruction *Exit = nullptr;
+  RecurrenceKind K = RecurrenceKind::RK_NoRecurrence;
+  MinMaxRecurrenceKind MK = MinMaxRecurrenceKind::MRK_Invalid;
+  Type *RT = nullptr;
+  bool Signed = false;
+  VPInstruction *LinkPhi = nullptr; // TODO: Consider changing to VPPHINode.
+};
+
+/// Intermediate induction descriptor. Same as ReductionDescr above but for
+/// inductions.
+class InductionDescr : public VPEntityImportDescr {
+  using InductionKind = VPInduction::InductionKind;
+  using BaseT = VPEntityImportDescr;
+
+public:
+  InductionDescr() { clear(); }
+
+  VPInstruction *getStartPhi() const { return StartPhi; }
+  InductionKind getKind() const { return K; }
+  VPValue *getStart() const { return Start; }
+  VPValue *getStep() const { return Step; }
+  VPInstruction *getInductionBinOp() const { return InductionBinOp; }
+  unsigned getBinOpcode() const { return BinOpcode; }
+
+  void setStartPhi(VPInstruction *V) { StartPhi = V; }
+  void setKind(InductionKind V) { K = V; }
+  void setStart(VPValue *V) { Start = V; }
+  void setStep(VPValue *V) { Step = V; }
+  void setInductionBinOp(VPInstruction *V) { InductionBinOp = V; }
+  void setBinOpcode(unsigned V) { BinOpcode = V; }
+
+  /// Clear the content.
+  void clear() override {
+    BaseT::clear();
+    StartPhi = nullptr;
+    K = InductionKind::IK_NoInduction;
+    Start = nullptr;
+    Step = nullptr;
+    InductionBinOp = nullptr;
+    BinOpcode = Instruction::BinaryOpsEnd;
+  }
+  /// Check for all non-null VPInstructions in the descriptor are in the \p
+  /// Loop.
+  void checkParentVPLoop(const VPlan *Plan, const VPLoop *Loop) const;
+
+  /// Return true if not all data is completed.
+  bool isIncomplete() const;
+  /// Attemp to fix incomplete data using VPlan and VPLoop.
+  void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
+  /// Pass the data to VPlan
+  void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+
+private:
+  VPInstruction *StartPhi = nullptr;
+  InductionKind K = InductionKind::IK_NoInduction;
+  VPValue *Start = nullptr;
+  VPValue *Step = nullptr;
+  VPInstruction *InductionBinOp =nullptr;
+  unsigned BinOpcode = Instruction::BinaryOpsEnd;
+};
+
+// Base class for loop entities converter. Used to create a list of converters
+// during first conversion phase. Those converters are then used at the second
+// conversion phase. This class is needed due to implementation of converters
+// is templatized. But we can't have templatized virtual functions, we can have
+// a virtual function in templatized class.
+class VPLoopEntitiesConverterBase {
+public:
+  enum C_Kind { C_Unknown = 0, C_Templ, C_Final };
+  explicit VPLoopEntitiesConverterBase(C_Kind K) : Kind(K) {}
+  VPLoopEntitiesConverterBase(const VPLoopEntitiesConverterBase &) = delete;
+
+  virtual ~VPLoopEntitiesConverterBase() {}
+  C_Kind getKind() const { return Kind; }
+
+private:
+  C_Kind Kind;
+};
+
+// Base abstract converter template class with virtual function.
+template <class MapperT>
+class VPLoopEntitiesConverterTempl : public VPLoopEntitiesConverterBase {
+public:
+  explicit VPLoopEntitiesConverterTempl(C_Kind K)
+      : VPLoopEntitiesConverterBase(K) {}
+  VPLoopEntitiesConverterTempl(const VPLoopEntitiesConverterTempl &) = delete;
+
+  virtual void passToVPlan(VPlan *Plan, MapperT &M) = 0;
+
+  static bool classof(const VPLoopEntitiesConverterBase *B) {
+    return B->getKind() != C_Unknown;
+  }
+};
+
+/// Loop entities converter. Consists of two passes. On the first pass, using
+/// externally created iterator, goes through the input sequence and creates a
+/// list of converted entities. This pass is called for each loop encountered in
+/// underlying IR on which VPlan is built. During the second pass, all gathered
+/// entities are passed into VPlan grouping by VPLoop-s.
+///  Template parameters:
+///    IteratorT - input iterator.
+///    LoopT - underlying IR loop class.
+///    MapperT - object to map underlying IR loop to VPLoop.
+template <class DescrT, class LoopT, class MapperT>
+class VPLoopEntitiesConverter : public VPLoopEntitiesConverterTempl<MapperT> {
+  typedef SmallVector<DescrT, 2> DescrList;
+  typedef std::pair<LoopT *, DescrList> LoopListItemT;
+  typedef SmallVector<LoopListItemT, 2> LoopListT;
+
+public:
+  explicit VPLoopEntitiesConverter(VPlan *P)
+      : VPLoopEntitiesConverterTempl<MapperT>(
+            VPLoopEntitiesConverterBase::C_Final),
+        Plan(P) {}
+  VPLoopEntitiesConverter(const VPLoopEntitiesConverter &) = delete;
+
+  static bool classof(const VPLoopEntitiesConverterBase *B) {
+    return B->getKind() == VPLoopEntitiesConverterBase::C_Final;
+  }
+
+  /// Gathering pass.
+  template<typename... OtherItersT>
+  void createDescrList(LoopT *Loop, OtherItersT&... Args) {
+    LoopList.emplace_back(Loop, DescrList());
+    DescrList &Lst = LoopList.back().second;
+    processIterators(Lst, Args...);
+  }
+
+  /// Sending pass.
+  void passToVPlan(VPlan *Plan, MapperT &M) override {
+    for (auto &LLItem : LoopList) {
+      const VPLoop *Loop = M[LLItem.first];
+      assert(Loop != nullptr && "Can't find corresponding VPLoop");
+      for (auto &Descr : LLItem.second) {
+        if (Descr.isDuplicate(Plan, Loop))
+          continue; // Skip duplication
+        Descr.checkParentVPLoop(Plan, Loop);
+        if (Descr.isIncomplete())
+          Descr.tryToCompleteByVPlan(Plan, Loop);
+        Descr.passToVPlan(Plan, Loop);
+      }
+    }
+  }
+
+private:
+  template <typename FirstIteratorT, typename... OtherItersT>
+  static void processIterators(DescrList &Lst, FirstIteratorT &FirstIter,
+                               OtherItersT &... Args) {
+    processIterators(Lst, FirstIter);
+    processIterators(Lst, Args...);
+  }
+
+  template <typename IteratorT>
+  static void processIterators(DescrList &Lst, IteratorT &Iterator) {
+    auto &ValRange = Iterator.first;
+    auto &ConverterFunc = Iterator.second;
+    for (auto &Iter : ValRange) {
+      Lst.push_back(DescrT());
+      auto &Item = Lst.back();
+      ConverterFunc(Item, Iter);
+    }
+  }
+
+  void processIterators(DescrList &Lst) {}
+
+  VPlan *Plan;
+  LoopListT LoopList;
+};
+
 } // namespace vpo
 } // namespace llvm
 

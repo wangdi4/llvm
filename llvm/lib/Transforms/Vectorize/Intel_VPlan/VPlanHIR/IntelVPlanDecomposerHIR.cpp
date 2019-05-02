@@ -49,7 +49,7 @@ VPValue *VPDecomposerHIR::combineDecompDefs(VPValue *LHS, VPValue *RHS,
     return LHS;
 
   auto *NewVPI = cast<VPInstruction>(
-      Builder.createNaryOp(OpCode, {LHS, RHS}, LHS->getBaseType()));
+      Builder.createNaryOp(OpCode, {LHS, RHS}, LHS->getType()));
   return NewVPI;
 }
 
@@ -93,7 +93,7 @@ VPValue *VPDecomposerHIR::decomposeCanonExprConv(CanonExpr *CE, VPValue *Src) {
 // Create a VPInstruction for the conversion from \p Src's type to \p DestTy.
 VPValue *VPDecomposerHIR::decomposeBlobImplicitConv(VPValue *Src,
                                                     Type *DestTy) {
-  Type *SrcTy = Src->getBaseType();
+  Type *SrcTy = Src->getType();
   if (SrcTy == DestTy)
     return Src;
 
@@ -200,7 +200,7 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
     // the VPlan pool.
     VPIndVar = Plan->getVPExternalDefForIV(IVLevel, Ty);
 
-  auto IVTy = VPIndVar->getBaseType();
+  auto IVTy = VPIndVar->getType();
 
   // Add a conversion for VPIndVar if its type does not match canon expr
   // type specified in Ty. We mimic the code from HIR CG here.
@@ -433,12 +433,12 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   if (Ref->isRval()) {
     // If memory reference is an RVal, then it corresponds to a load. Create a
     // new load VPInstruction to represent it.
-    assert(isa<PointerType>(MemOpVPI->getBaseType()) &&
+    assert(isa<PointerType>(MemOpVPI->getType()) &&
            "Base type of load is not a pointer.");
     // Result type of load will be element type of the pointer
     MemOpVPI = Builder.createNaryOp(
         Instruction::Load, {MemOpVPI},
-        cast<PointerType>(MemOpVPI->getBaseType())->getElementType());
+        cast<PointerType>(MemOpVPI->getType())->getElementType());
 
     // FIXME: This special-casing for loads that are HLInst is becoming more
     // complicated than expected since we also have to special-case
@@ -563,6 +563,15 @@ void VPDecomposerHIR::setMasterForDecomposedVPIs(
   }
 }
 
+VPValue *VPDecomposerHIR::getVPValueForNode(const loopopt::HLNode *Node) {
+  if (auto DDNode = dyn_cast<HLDDNode>(Node)) {
+    auto VPValIt = HLDef2VPValue.find(DDNode);
+    if (VPValIt != HLDef2VPValue.end())
+      return VPValIt->second;
+  }
+  return nullptr;
+}
+
 // Create VPInstruction for \p Node and insert it in VPBuilder's insertion
 // point. If \p Node is an HLIf, we create VPCmpInsts to handle multiple
 // predicates. HLLoop are not expected.
@@ -609,9 +618,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
           Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
       // Set underlying DDNode for the select VPInstruction since it's the
       // master VPInstruction
-      NewVPInst = cast<VPInstruction>(
-          Builder.createNaryOp(Instruction::Select, {Pred, TVal, FVal},
-                               TVal->getBaseType(), DDNode));
+      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+          Instruction::Select, {Pred, TVal, FVal}, TVal->getType(), DDNode));
     } else if (isa<LoadInst>(LLVMInst)) {
       // No-op behavior for load nodes since the VPInstruction is already added
       // by decomposeMemoryOp. Check comments in decomposeMemoryOp definition
@@ -737,7 +745,7 @@ void VPDecomposerHIR::createVPOperandsForMasterVPInst(
 // definition if such definition happens outside of the outermost loop
 // represented in VPlan. Otherwise, return a VPInstruction representing the
 // definition.
-void VPDecomposerHIR::createOrGetVPDefsForUse(
+void VPDecomposerHIR::getOrCreateVPDefsForUse(
     DDRef *UseDDR, SmallVectorImpl<VPValue *> &VPDefs) {
 
   assert(UseDDR->isRval() && "DDRef must be an RValue!");
@@ -796,7 +804,7 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   VPBuilder::InsertPointGuard Guard(Builder);
   Builder.setInsertPoint(LpH, LpH->begin());
   // Base type for the VPPHINode is obtained from IVStart
-  Type *BaseTy = IVStart->getBaseType();
+  Type *BaseTy = IVStart->getType();
   VPPHINode *IndVPPhi =
       cast<VPPHINode>(Builder.createPhiInstruction(BaseTy, HLp));
   IndVPPhi->addIncoming(IVStart, LpPH);
@@ -837,12 +845,23 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   assert(HLp->getStrideCanonExpr()->isOne() &&
          "Expected positive unit-stride HLLoop.");
   Builder.setInsertPoint(LpLatch);
-  auto *IVNext = cast<VPInstruction>(Builder.createAdd(
-      IndVPPhi,
-      Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1)), HLp));
+  VPConstant *One =
+      Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1));
+  auto *IVNext = cast<VPInstruction>(Builder.createAdd(IndVPPhi, One, HLp));
 
   // Add IVNext to induction PHI.
   IndVPPhi->addIncoming(IVNext, LpLatch);
+
+  // Add to the induction descriptors. Push it at the beginning as main
+  // induction.
+  std::unique_ptr<VPInductionHIRList> &IndList = Inductions[HLp];
+  if (!IndList)
+    IndList.reset(new VPInductionHIRList);
+  IndList->insert(
+      IndList->begin(),
+      llvm::make_unique<VPInductionHIR>(
+          IVNext, One,
+          Plan->getVPConstant(Constant::getNullValue(HLp->getIVType()))));
 
   // Create VPValue for bottom test condition. If decomposition is needed:
   //   1) decompose UB operand. Decomposed VPInstructions are inserted into the
@@ -1223,7 +1242,7 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
   SmallVector<VPValue *, 2> VPDefs;
   if (BlobNumReachDefs == 1) {
     // Single definition.
-    Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
+    Decomposer.getOrCreateVPDefsForUse(DDR, VPDefs);
     assert(VPDefs.size() == 1 && "Expected single definition.");
     return VPDefs.front();
   } else {
@@ -1231,8 +1250,8 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::decomposeStandAloneBlob(
     // might not have been created yet. They will be set by fixPhiNodes.
     // Map the corresponding Instruction to <VPBasicBlock, Symbase> in
     // PhisToFix if not found.
-    Decomposer.createOrGetVPDefsForUse(DDR, VPDefs);
-    Type *BaseTy = VPDefs.front()->getBaseType();
+    Decomposer.getOrCreateVPDefsForUse(DDR, VPDefs);
+    Type *BaseTy = VPDefs.front()->getType();
 
     // Build the key pair to look-up PhisToFix map
     PhiFixMapKey VPBBSymPair =

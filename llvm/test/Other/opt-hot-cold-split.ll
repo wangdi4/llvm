@@ -4,10 +4,6 @@
 ; RUN: opt -mtriple=x86_64-- -Os -hot-cold-split=true -passes='lto<Os>' -debug-pass-manager < %s -o /dev/null 2>&1 | FileCheck %s -check-prefix=LTO-POSTLINK-Os
 ; RUN: opt -mtriple=x86_64-- -Os -hot-cold-split=true -passes='thinlto<Os>' -debug-pass-manager < %s -o /dev/null 2>&1 | FileCheck %s -check-prefix=THINLTO-POSTLINK-Os
 
-; INTEL CUSTOMIZATION: This test fails in xmain.  JR CMPLRS-49716
-; XFAIL: *
-; END INTEL CUSTOMIZATION
-
 ; REQUIRES: asserts
 
 ; Splitting should occur late.

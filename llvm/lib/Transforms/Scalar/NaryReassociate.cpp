@@ -79,6 +79,8 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/GlobalsModRef.h" // INTEL
+#include "llvm/Analysis/Intel_Andersens.h" // INTEL
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -139,6 +141,11 @@ public:
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.setPreservesCFG();
+#if INTEL_CUSTOMIZATION
+
+    AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
+#endif // INTEL_CUSTOMIZATION
   }
 
 private:
@@ -190,6 +197,10 @@ PreservedAnalyses NaryReassociatePass::run(Function &F,
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<ScalarEvolutionAnalysis>();
+#if INTEL_CUSTOMIZATION
+  PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();
+#endif // INTEL_CUSTOMIZATION
   return PA;
 }
 

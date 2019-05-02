@@ -22,7 +22,6 @@
 ; CHECK-Agg-NEXT: Running analysis: AndersensAA
 ; CHECK-Agg-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-Agg-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}IndirectCallConvPass
-; CHECK-Agg-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-Agg-NEXT: Running pass: RequireAnalysisPass<{{.*}}InlineAggAnalysis
 ; CHECK-Agg-NEXT: Running analysis: InlineAggAnalysis
 ; CHECK-Agg: Running pass: AggInlAAPass

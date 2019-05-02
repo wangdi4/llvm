@@ -40,7 +40,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
+
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
@@ -62,13 +65,10 @@ using namespace llvm;
 
 // Returns user instruction which has opcode \p OpCode and operands \p LatchVal1
 // and \p LatchVal2.
-static User *findMatchedLatchUser(Value *LatchVal1, Value *LatchVal2,
-                                  FPMathOperator *FPOp,
-                                  Instruction::BinaryOps OpCode,
-                                  bool IsSwappedOrder, BasicBlock *LoopLatch,
-                                  DominatorTree *DT) {
-  User *MatchedLatchUser = nullptr;
-
+static BinaryOperator *
+findMatchedLatchBinOp(Value *LatchVal1, Value *LatchVal2, FPMathOperator *FPOp,
+                      Instruction::BinaryOps OpCode, bool IsSwappedOrder,
+                      BasicBlock *LoopLatch, DominatorTree *DT) {
   for (User *U : LatchVal1->users()) {
     BinaryOperator *LatchBOp = dyn_cast<BinaryOperator>(U);
 
@@ -106,10 +106,10 @@ static User *findMatchedLatchUser(Value *LatchVal1, Value *LatchVal2,
       continue;
     }
 
-    MatchedLatchUser = U;
-    break;
+    return LatchBOp;
   }
-  return MatchedLatchUser;
+
+  return nullptr;
 }
 
 // Transfer the chain like this-
@@ -344,11 +344,37 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
 
       FPMathOperator *FPOp = dyn_cast<FPMathOperator>(*Phi.users().begin());
 
-      User *MatchedLatchUser = findMatchedLatchUser(
+      BinaryOperator *LatchBinOp = findMatchedLatchBinOp(
           LatchVal1, LatchVal2, FPOp, OpCode, IsSwappedOrder, LoopLatch, DT);
 
-      if (!MatchedLatchUser) {
+      if (!LatchBinOp) {
         continue;
+      }
+
+      if (ReassociativeOperand) {
+
+        if (LatchBinOp == LastBinOp) {
+          continue;
+        }
+
+        bool IsLatchBinOpInChain = false;
+
+        BinaryOperator *TempBinOp = BinOp;
+
+        do {
+
+          if (TempBinOp == LatchBinOp) {
+            IsLatchBinOpInChain = true;
+            break;
+          }
+
+          TempBinOp = cast<BinaryOperator>(*TempBinOp->users().begin());
+
+        } while (TempBinOp != LastBinOp);
+
+        if (IsLatchBinOpInChain) {
+          continue;
+        }
       }
 
       IRBuilder<> Builder(Preheader->getTerminator());
@@ -365,7 +391,7 @@ static bool processLoop(Loop *L, DominatorTree *DT) {
       PHINode *NewPhi =
           PHIBuilder.CreatePHI(Phi.getType(), 2, Phi.getName() + ".lccse");
       NewPhi->addIncoming(V, Preheader);
-      NewPhi->addIncoming(MatchedLatchUser, LoopLatch);
+      NewPhi->addIncoming(LatchBinOp, LoopLatch);
 
       // Check whether Phi2 has one use before we erase BinOp below
       bool CanErasePhi2 = Phi2->hasOneUse();
@@ -440,6 +466,9 @@ public:
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.setPreservesCFG();
+
+    AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
   }
 };
 
@@ -456,6 +485,8 @@ PreservedAnalyses LoopCarriedCSEPass::run(Function &F,
   PreservedAnalyses PA;
   PA.preserve<LoopAnalysis>();
   PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<GlobalsAA>();
+  PA.preserve<AndersensAA>();
   PA.preserveSet<CFGAnalyses>();
   return PA;
 }

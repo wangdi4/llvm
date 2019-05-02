@@ -203,8 +203,16 @@ static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
                                        cl::Hidden,
                                        cl::desc("Enable VPlan Driver"));
 // INTEL - HIR passes
-static cl::opt<bool> RunLoopOpts("loopopt", cl::init(true), cl::Hidden,
-                                 cl::desc("Runs loop optimization passes"));
+enum class LoopOptMode { None, LightWeight, Full };
+static cl::opt<LoopOptMode> RunLoopOpts(
+    "loopopt", cl::init(LoopOptMode::Full), cl::Hidden, cl::ValueOptional,
+    cl::desc("Runs loop optimization passes"),
+    cl::values(clEnumValN(LoopOptMode::None, "0", "Disable loopopt passes"),
+               clEnumValN(LoopOptMode::LightWeight, "1",
+                          "Enable lightweight loopopt(minimal passes)"),
+               clEnumValN(LoopOptMode::Full, "2", "Enable all loopopt passes"),
+               // Value assumed when just -loopopt is specified.
+               clEnumValN(LoopOptMode::Full, "", "")));
 
 static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only",
     cl::init(false), cl::Hidden,
@@ -343,6 +351,12 @@ cl::opt<bool> EnableOrderFileInstrumentation(
     "enable-order-file-instrumentation", cl::init(false), cl::Hidden,
     cl::desc("Enable order file instrumentation (default = off)"));
 
+cl::opt<bool> ForgetSCEVInLoopUnroll(
+    "forget-scev-loop-unroll", cl::init(false), cl::Hidden,
+    cl::desc("Forget everything in SCEV when doing LoopUnroll, instead of just"
+             " the current top-most loop. This is somtimes preferred to reduce"
+             " compile time."));
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -354,6 +368,7 @@ PassManagerBuilder::PassManagerBuilder() {
     RerollLoops = RunLoopRerolling;
     NewGVN = RunNewGVN;
     DisableGVNLoadPRE = false;
+    ForgetAllSCEVInLoopUnroll = ForgetSCEVInLoopUnroll;
     VerifyInput = false;
     VerifyOutput = false;
     MergeFunctions = false;
@@ -480,12 +495,14 @@ void PassManagerBuilder::populateFunctionPassManager(
       // and exit the loop directly, leaving the increment BB without any
       // predecessor, while its successor is still part of the WRN. This causes
       // code extractor later to assert ("No blocks in this region may have
-      // entries from outside the region"). [This affects ompoC/fmt7bc-1.c.]
+      // entries from outside the region").
       // CFGSimplify removes the dead code in the increment BB, fixing this.
-      //
       // NOTE: It is important to do this after VPOParoptPrepare. Otherwise,
       // CFGSimplify could modify the IR and prevent codegen of Openmp
       // constructs transformed in the Prepare pass, such as ATOMIC.
+#if INTEL_CUSTOMIZATION
+      // [This affects ompoC/fmt7bc-1.c.]
+#endif // INTEL_CUSTOMIZATION
       FPM.add(createCFGSimplificationPass());
     }
   }
@@ -644,7 +661,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
   if (!isLoopOptEnabled()) // INTEL
     MPM.add(createSimpleLoopUnrollPass(OptLevel,  // INTEL
-                                     DisableUnrollLoops)); // Unroll small loops
+                                     DisableUnrollLoops, // Unroll small loops
+                                     ForgetAllSCEVInLoopUnroll));
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   MPM.add(createLoopSPMDizationPass());
@@ -1080,7 +1098,8 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (!PrepareForLTO || !isLoopOptEnabled()) // INTEL
   MPM.add(createLoopUnrollPass(OptLevel,
-                               DisableUnrollLoops)); // Unroll small loops
+                               DisableUnrollLoops, // Unroll small loops
+                               ForgetAllSCEVInLoopUnroll));
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1193,13 +1212,14 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       // if it returns false then internalize it.
       auto PreserveSymbol = [](const GlobalValue &GV) {
 
-        // If GlobalValue is "main" or has one definition rule (ODR)
-        // then don't internalize it. The ODR symbols are expected to
-        // be merged with equivalent globals and then be removed. If
-        // these symbols aren't removed then it could cause linking
-        // issues (e.g. undefined symbols).
+        // If GlobalValue is "main", has one definition rule (ODR) or
+        // is a special symbol added by the linker then don't internalize
+        // it. The ODR symbols are expected to be merged with equivalent
+        // globals and then be removed. If these symbols aren't removed
+        // then it could cause linking issues (e.g. undefined symbols).
         if (GV.hasWeakODRLinkage() ||
-            llvm::WholeProgramInfo::isMainEntryPoint(GV.getName()))
+            WPUtils.isMainEntryPoint(GV.getName()) ||
+            WPUtils.isLinkerAddedSymbol(GV.getName()))
           return true;
 
         // If the GlobalValue is an alias then we need to make sure that this
@@ -1233,8 +1253,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
           if (Glob->hasWeakODRLinkage())
             return true;
 
+          // Aliasee is mapped to a linker added symbol
+          if (WPUtils.isLinkerAddedSymbol(Glob->getName()))
+            return true;
+
           // Aliasee is mapped to main
-          if (llvm::WholeProgramInfo::isMainEntryPoint(Glob->getName()))
+          if (WPUtils.isMainEntryPoint(Glob->getName()))
             return true;
         }
 
@@ -1452,6 +1476,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.
 
+#if INTEL_CUSTOMIZATION
+  if (EnableAndersen)
+    PM.add(createAndersensAAWrapperPass());
+#endif // INTEL_CUSTOMIZATION
+
   PM.add(createLICMPass());                 // Hoist loop invariants.
   PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
   PM.add(NewGVN ? createNewGVNPass()
@@ -1471,14 +1500,16 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
   if (!isLoopOptEnabled())
     PM.add(createSimpleLoopUnrollPass(OptLevel,
-                                    DisableUnrollLoops)); // Unroll small loops
+                                    DisableUnrollLoops, // Unroll small loops
+                                    ForgetAllSCEVInLoopUnroll));
   addLoopOptAndAssociatedVPOPasses(PM);
   if (EnableLV)
     PM.add(createLoopVectorizePass(true, !LoopVectorize));
 #endif  // INTEL_CUSTOMIZATION
 
   // The vectorizer may have significantly shortened a loop body; unroll again.
-  PM.add(createLoopUnrollPass(OptLevel, DisableUnrollLoops));
+  PM.add(createLoopUnrollPass(OptLevel, DisableUnrollLoops,
+                              ForgetAllSCEVInLoopUnroll));
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1564,6 +1595,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
 #endif // INTEL_CUSTOMIZATION
       PM.add(createCFGSimplificationPass());
     }
+    PM.add(createVPORestoreOperandsPass());
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt, OptLevel));
 #if INTEL_CUSTOMIZATION
@@ -1602,8 +1634,8 @@ void PassManagerBuilder::addVPOPassesPreLoopOpt(
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
   if (!DisableIntelProprietaryOpts &&
-      (RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
-      !PerformThinLTO)
+      ((RunLoopOpts != LoopOptMode::None) || RunLoopOptFrameworkOnly) &&
+      (OptLevel >= 2) && !PerformThinLTO)
     return true;
 
   return false;
@@ -1676,55 +1708,67 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRTempCleanupPass());
 
   if (!RunLoopOptFrameworkOnly) {
-#if INTEL_CUSTOMIZATION
     if (vpo::UseOmpRegionsInLoopoptFlag)
       PM.add(createHIRRecognizeParLoopPass());
-#endif  // INTEL_CUSTOMIZATION
 
     PM.add(createHIRPropagateCastedIVPass());
+
     if (OptLevel > 2) {
-      PM.add(createHIRLoopConcatenationPass());
-      PM.add(createHIRSymbolicTripCountCompleteUnrollLegacyPass());
+      if (RunLoopOpts == LoopOptMode::Full) {
+        PM.add(createHIRLoopConcatenationPass());
+        PM.add(createHIRSymbolicTripCountCompleteUnrollLegacyPass());
+      }
       PM.add(createHIRArrayTransposePass());
     }
 
-    PM.add(createHIRDeadStoreEliminationPass());
+    if (RunLoopOpts == LoopOptMode::Full) {
+      PM.add(createHIRDeadStoreEliminationPass());
 
-    // TODO: refine cost model for individual transformations for code size.
-    if (SizeLevel == 0) {
-      // If VPO is disabled, we don't have to insert ParVec directives.
-      if (RunVPOOpt)
-        PM.add(createHIRParDirInsertPass());
-      PM.add(createHIRRuntimeDDPass());
-      PM.add(createHIRMVForConstUBPass());
+      // TODO: refine cost model for individual transformations for code size.
+      if (SizeLevel == 0) {
+        // If VPO is disabled, we don't have to insert ParVec directives.
+        if (RunVPOOpt)
+          PM.add(createHIRParDirInsertPass());
+        PM.add(createHIRRuntimeDDPass());
+        PM.add(createHIRMVForConstUBPass());
+      }
+
+      PM.add(createHIRLoopDistributionForLoopNestPass());
+      PM.add(createHIRLoopInterchangePass());
+      PM.add(createHIRLoopBlockingPass());
+      PM.add(createHIRLoopReversalPass());
+      PM.add(createHIRIdentityMatrixIdiomRecognitionPass());
     }
-
-    PM.add(createHIRLoopDistributionForLoopNestPass());
-    PM.add(createHIRLoopInterchangePass());
-    PM.add(createHIRLoopBlockingPass());
-    PM.add(createHIRLoopReversalPass());
 
     if (SizeLevel == 0) {
       PM.add(createHIRPreVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));
     }
 
-    PM.add(createHIRLMMPass());
-    PM.add(createHIRLastValueComputationPass());
-    PM.add(createHIRLoopRerollPass());
+    if (RunLoopOpts == LoopOptMode::Full)
+      PM.add(createHIRLMMPass());
 
-    if (SizeLevel == 0) {
-      PM.add(createHIRLoopDistributionForMemRecPass());
+    PM.add(createHIRLastValueComputationPass());
+
+    if (RunLoopOpts == LoopOptMode::Full) {
+      PM.add(createHIRLoopRerollPass());
+
+      if (SizeLevel == 0) {
+        PM.add(createHIRLoopDistributionForMemRecPass());
+      }
+
+      PM.add(createHIRLoopRematerializePass());
+      PM.add(createHIRMultiExitLoopRerollPass());
+      PM.add(createHIRLoopCollapsePass());
+      PM.add(createHIRIdiomRecognitionPass());
+      PM.add(createHIRLoopFusionPass());
     }
 
-    PM.add(createHIRMultiExitLoopRerollPass());
-    PM.add(createHIRLoopCollapsePass());
-    PM.add(createHIRIdiomRecognitionPass());
-    PM.add(createHIRLoopFusionPass());
-
     if (SizeLevel == 0) {
-      PM.add(createHIRUnrollAndJamPass(DisableUnrollLoops));
-      PM.add(createHIROptVarPredicatePass());
-      PM.add(createHIROptPredicatePass(OptLevel == 3));
+      if (RunLoopOpts == LoopOptMode::Full) {
+        PM.add(createHIRUnrollAndJamPass(DisableUnrollLoops));
+        PM.add(createHIROptVarPredicatePass());
+        PM.add(createHIROptPredicatePass(OptLevel == 3));
+      }
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
         if (EnableVPlanDriverHIR) {
@@ -1736,7 +1780,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRGeneralUnrollPass(DisableUnrollLoops));
     }
 
-    PM.add(createHIRScalarReplArrayPass());
+    if (RunLoopOpts == LoopOptMode::Full)
+      PM.add(createHIRScalarReplArrayPass());
   }
 
   if (IntelOptReportEmitter == OptReportOptions::HIR)
@@ -1748,7 +1793,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 }
 
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
-     legacy::PassManagerBase &PM) const {
+    legacy::PassManagerBase &PM) const {
   // We should never get here if proprietary options are disabled,
   // but it's a release-mode feature so we can't just assert.
   if (DisableIntelProprietaryOpts)

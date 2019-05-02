@@ -4,17 +4,17 @@
 
 declare <32 x half> @llvm.x86.avx512fp16.add.ph.512(<32 x half>, <32 x half>, i32)
 
-define <32 x half>@test_int_x86_avx512fp16_add_ph_512(<32 x half> %src, <32 x half> %x1, <32 x half> %x2, i32 %msk, <32 x half>* %ptr) {
+define <32 x half> @test_int_x86_avx512fp16_add_ph_512(<32 x half> %src, <32 x half> %x1, <32 x half> %x2, i32 %msk, <32 x half>* %ptr) {
 ; CHECK-LABEL: test_int_x86_avx512fp16_add_ph_512:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    kmovd	%edi, %k1
-; CHECK-NEXT:    vaddph	%zmm2, %zmm1, %zmm3
-; CHECK-NEXT:    vaddph	%zmm2, %zmm1, %zmm0 {%k1}
-; CHECK-NEXT:    vaddph	%zmm0, %zmm3, %zmm0
-; CHECK-NEXT:    vaddph	%zmm2, %zmm1, %zmm2 {%k1} {z}
-; CHECK-NEXT:    vaddph	(%rsi), %zmm1, %zmm1 {%k1} {z}
-; CHECK-NEXT:    vaddph	%zmm1, %zmm2, %zmm1
-; CHECK-NEXT:    vaddph	%zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    kmovd %edi, %k1
+; CHECK-NEXT:    vaddph %zmm2, %zmm1, %zmm3
+; CHECK-NEXT:    vaddph %zmm2, %zmm1, %zmm0 {%k1}
+; CHECK-NEXT:    vaddph %zmm0, %zmm3, %zmm0
+; CHECK-NEXT:    vaddph %zmm2, %zmm1, %zmm2 {%k1} {z}
+; CHECK-NEXT:    vaddph (%rsi), %zmm1, %zmm1 {%k1} {z}
+; CHECK-NEXT:    vaddph %zmm1, %zmm2, %zmm1
+; CHECK-NEXT:    vaddph %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
   %mask = bitcast i32 %msk to <32 x i1>
   %val = load <32 x half>, <32 x half>* %ptr
@@ -29,7 +29,7 @@ define <32 x half>@test_int_x86_avx512fp16_add_ph_512(<32 x half> %src, <32 x ha
   ret <32 x half> %res
 }
 
-define <32 x half>@test_int_x86_avx512fp16_add_ph_512_round(<32 x half> %x1, <32 x half> %x2, <32 x half> %src, i32 %msk, <32 x half>* %ptr) {
+define <32 x half> @test_int_x86_avx512fp16_add_ph_512_round(<32 x half> %x1, <32 x half> %x2, <32 x half> %src, i32 %msk, <32 x half>* %ptr) {
 ; CHECK-LABEL: test_int_x86_avx512fp16_add_ph_512_round:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    kmovd %edi, %k1
@@ -40,4 +40,184 @@ define <32 x half>@test_int_x86_avx512fp16_add_ph_512_round(<32 x half> %x1, <32
   %t1 = call <32 x half> @llvm.x86.avx512fp16.add.ph.512(<32 x half> %x1, <32 x half> %x2, i32 10)
   %res = select <32 x i1> %mask, <32 x half> %t1, <32 x half> %src
   ret <32 x half> %res
+}
+
+declare <32 x half> @llvm.x86.avx512fp16.sub.ph.512(<32 x half>, <32 x half>, i32)
+
+define <32 x half> @test_int_x86_avx512fp16_sub_ph_512(<32 x half> %src, <32 x half> %x1, <32 x half> %x2, i32 %msk, <32 x half>* %ptr) {
+; CHECK-LABEL: test_int_x86_avx512fp16_sub_ph_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %edi, %k1
+; CHECK-NEXT:    vsubph %zmm2, %zmm1, %zmm3
+; CHECK-NEXT:    vsubph %zmm2, %zmm1, %zmm0 {%k1}
+; CHECK-NEXT:    vsubph %zmm0, %zmm3, %zmm0
+; CHECK-NEXT:    vsubph %zmm2, %zmm1, %zmm2 {%k1} {z}
+; CHECK-NEXT:    vsubph (%rsi), %zmm1, %zmm1 {%k1} {z}
+; CHECK-NEXT:    vsubph %zmm1, %zmm2, %zmm1
+; CHECK-NEXT:    vsubph %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %mask = bitcast i32 %msk to <32 x i1>
+  %val = load <32 x half>, <32 x half>* %ptr
+  %res0 = call <32 x half> @llvm.x86.avx512fp16.sub.ph.512(<32 x half> %x1, <32 x half> %x2, i32 4)
+  %res1 = select <32 x i1> %mask, <32 x half> %res0, <32 x half> %src
+  %res2 = select <32 x i1> %mask, <32 x half> %res0, <32 x half> zeroinitializer
+  %t3 = call <32 x half> @llvm.x86.avx512fp16.sub.ph.512(<32 x half> %x1, <32 x half> %val, i32 4)
+  %res3 = select <32 x i1> %mask, <32 x half> %t3, <32 x half> zeroinitializer
+  %res4  =  fsub <32 x half> %res0 , %res1
+  %res5  =  fsub <32 x half> %res2 , %res3
+  %res   =  fsub <32 x half> %res4 , %res5
+  ret <32 x half> %res
+}
+
+define <32 x half> @test_int_x86_avx512fp16_sub_ph_512_round(<32 x half> %x1, <32 x half> %x2, <32 x half> %src, i32 %msk, <32 x half>* %ptr) {
+; CHECK-LABEL: test_int_x86_avx512fp16_sub_ph_512_round:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %edi, %k1
+; CHECK-NEXT:    vsubph {ru-sae}, %zmm1, %zmm0, %zmm2 {%k1}
+; CHECK-NEXT:    vmovdqa64 %zmm2, %zmm0
+; CHECK-NEXT:    retq
+  %mask = bitcast i32 %msk to <32 x i1>
+  %t1 = call <32 x half> @llvm.x86.avx512fp16.sub.ph.512(<32 x half> %x1, <32 x half> %x2, i32 10)
+  %res = select <32 x i1> %mask, <32 x half> %t1, <32 x half> %src
+  ret <32 x half> %res
+}
+
+declare <32 x half> @llvm.x86.avx512fp16.mul.ph.512(<32 x half>, <32 x half>, i32)
+
+define <32 x half> @test_int_x86_avx512fp16_mul_ph_512(<32 x half> %src, <32 x half> %x1, <32 x half> %x2, i32 %msk, <32 x half>* %ptr) {
+; CHECK-LABEL: test_int_x86_avx512fp16_mul_ph_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %edi, %k1
+; CHECK-NEXT:    vmulph %zmm2, %zmm1, %zmm3
+; CHECK-NEXT:    vmulph %zmm2, %zmm1, %zmm0 {%k1}
+; CHECK-NEXT:    vmulph %zmm0, %zmm3, %zmm0
+; CHECK-NEXT:    vmulph %zmm2, %zmm1, %zmm2 {%k1} {z}
+; CHECK-NEXT:    vmulph (%rsi), %zmm1, %zmm1 {%k1} {z}
+; CHECK-NEXT:    vmulph %zmm1, %zmm2, %zmm1
+; CHECK-NEXT:    vmulph %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %mask = bitcast i32 %msk to <32 x i1>
+  %val = load <32 x half>, <32 x half>* %ptr
+  %res0 = call <32 x half> @llvm.x86.avx512fp16.mul.ph.512(<32 x half> %x1, <32 x half> %x2, i32 4)
+  %res1 = select <32 x i1> %mask, <32 x half> %res0, <32 x half> %src
+  %res2 = select <32 x i1> %mask, <32 x half> %res0, <32 x half> zeroinitializer
+  %t3 = call <32 x half> @llvm.x86.avx512fp16.mul.ph.512(<32 x half> %x1, <32 x half> %val, i32 4)
+  %res3 = select <32 x i1> %mask, <32 x half> %t3, <32 x half> zeroinitializer
+  %res4  =  fmul <32 x half> %res0 , %res1
+  %res5  =  fmul <32 x half> %res2 , %res3
+  %res   =  fmul <32 x half> %res4 , %res5
+  ret <32 x half> %res
+}
+
+define <32 x half> @test_int_x86_avx512fp16_mul_ph_512_round(<32 x half> %x1, <32 x half> %x2, <32 x half> %src, i32 %msk, <32 x half>* %ptr) {
+; CHECK-LABEL: test_int_x86_avx512fp16_mul_ph_512_round:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %edi, %k1
+; CHECK-NEXT:    vmulph {ru-sae}, %zmm1, %zmm0, %zmm2 {%k1}
+; CHECK-NEXT:    vmovdqa64 %zmm2, %zmm0
+; CHECK-NEXT:    retq
+  %mask = bitcast i32 %msk to <32 x i1>
+  %t1 = call <32 x half> @llvm.x86.avx512fp16.mul.ph.512(<32 x half> %x1, <32 x half> %x2, i32 10)
+  %res = select <32 x i1> %mask, <32 x half> %t1, <32 x half> %src
+  ret <32 x half> %res
+}
+
+declare <32 x half> @llvm.x86.avx512fp16.div.ph.512(<32 x half>, <32 x half>, i32)
+
+define <32 x half> @test_int_x86_avx512fp16_div_ph_512(<32 x half> %src, <32 x half> %x1, <32 x half> %x2, i32 %msk, <32 x half>* %ptr) {
+; CHECK-LABEL: test_int_x86_avx512fp16_div_ph_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %edi, %k1
+; CHECK-NEXT:    vdivph %zmm2, %zmm1, %zmm3
+; CHECK-NEXT:    vdivph %zmm2, %zmm1, %zmm0 {%k1}
+; CHECK-NEXT:    vdivph %zmm0, %zmm3, %zmm0
+; CHECK-NEXT:    vdivph %zmm2, %zmm1, %zmm2 {%k1} {z}
+; CHECK-NEXT:    vdivph (%rsi), %zmm1, %zmm1 {%k1} {z}
+; CHECK-NEXT:    vdivph %zmm1, %zmm2, %zmm1
+; CHECK-NEXT:    vdivph %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %mask = bitcast i32 %msk to <32 x i1>
+  %val = load <32 x half>, <32 x half>* %ptr
+  %res0 = call <32 x half> @llvm.x86.avx512fp16.div.ph.512(<32 x half> %x1, <32 x half> %x2, i32 4)
+  %res1 = select <32 x i1> %mask, <32 x half> %res0, <32 x half> %src
+  %res2 = select <32 x i1> %mask, <32 x half> %res0, <32 x half> zeroinitializer
+  %t3 = call <32 x half> @llvm.x86.avx512fp16.div.ph.512(<32 x half> %x1, <32 x half> %val, i32 4)
+  %res3 = select <32 x i1> %mask, <32 x half> %t3, <32 x half> zeroinitializer
+  %res4  =  fdiv <32 x half> %res0 , %res1
+  %res5  =  fdiv <32 x half> %res2 , %res3
+  %res   =  fdiv <32 x half> %res4 , %res5
+  ret <32 x half> %res
+}
+
+define <32 x half> @test_int_x86_avx512fp16_div_ph_512_round(<32 x half> %x1, <32 x half> %x2, <32 x half> %src, i32 %msk, <32 x half>* %ptr) {
+; CHECK-LABEL: test_int_x86_avx512fp16_div_ph_512_round:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %edi, %k1
+; CHECK-NEXT:    vdivph {ru-sae}, %zmm1, %zmm0, %zmm2 {%k1}
+; CHECK-NEXT:    vmovdqa64 %zmm2, %zmm0
+; CHECK-NEXT:    retq
+  %mask = bitcast i32 %msk to <32 x i1>
+  %t1 = call <32 x half> @llvm.x86.avx512fp16.div.ph.512(<32 x half> %x1, <32 x half> %x2, i32 10)
+  %res = select <32 x i1> %mask, <32 x half> %t1, <32 x half> %src
+  ret <32 x half> %res
+}
+
+declare <32 x half> @llvm.x86.avx512fp16.min.ph.512(<32 x half>, <32 x half>, i32)
+
+define <32 x half> @test_min_ph(<32 x half> %x1, <32 x half> %x2) {
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vminph  %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %res0 = fcmp olt <32 x half> %x1, %x2
+  %res1 = select <32 x i1> %res0, <32 x half> %x1, <32 x half> %x2
+  ret  <32 x half> %res1
+}
+
+define <32 x half> @test_int_x86_avx512fp16_min_ph_512_sae(<32 x half> %x1, <32 x half> %x2) {
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vminph  {sae}, %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %res0 = call <32 x half> @llvm.x86.avx512fp16.min.ph.512(<32 x half> %x1, <32 x half> %x2, i32 8)
+  ret <32 x half> %res0
+}
+
+define <32 x half> @test_int_x86_avx512fp16_maskz_min_ph_512_sae(<32 x half> %x1, <32 x half> %x2, i32 %msk) {
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %edi, %k1
+; CHECK-NEXT:    vminph  {sae}, %zmm1, %zmm0, %zmm0 {%k1} {z}
+; CHECK-NEXT:    retq
+  %mask = bitcast i32 %msk to <32 x i1>
+  %res0 = call <32 x half> @llvm.x86.avx512fp16.min.ph.512(<32 x half> %x1, <32 x half> %x2, i32 8)
+  %res1 = select <32 x i1> %mask, <32 x half> %res0, <32 x half> zeroinitializer
+  ret <32 x half> %res1
+}
+
+declare <32 x half> @llvm.x86.avx512fp16.max.ph.512(<32 x half>, <32 x half>, i32)
+
+define <32 x half> @test_max_ph(<32 x half> %x1, <32 x half> %x2) {
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmaxph  %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %res0 = fcmp ogt <32 x half> %x1, %x2
+  %res1 = select <32 x i1> %res0, <32 x half> %x1, <32 x half> %x2
+  ret  <32 x half> %res1
+}
+
+define <32 x half> @test_int_x86_avx512fp16_max_ph_512_sae(<32 x half> %x1, <32 x half> %x2) {
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmaxph  {sae}, %zmm1, %zmm0, %zmm0
+; CHECK-NEXT:    retq
+  %res0 = call <32 x half> @llvm.x86.avx512fp16.max.ph.512(<32 x half> %x1, <32 x half> %x2, i32 8)
+  ret <32 x half> %res0
+}
+
+define <32 x half> @test_int_x86_avx512fp16_maskz_max_ph_512_sae(<32 x half> %x1, <32 x half> %x2, i32 %msk) {
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %edi, %k1
+; CHECK-NEXT:    vmaxph  {sae}, %zmm1, %zmm0, %zmm0 {%k1} {z}
+; CHECK-NEXT:    retq
+  %mask = bitcast i32 %msk to <32 x i1>
+  %res0 = call <32 x half> @llvm.x86.avx512fp16.max.ph.512(<32 x half> %x1, <32 x half> %x2, i32 8)
+  %res1 = select <32 x i1> %mask, <32 x half> %res0, <32 x half> zeroinitializer
+  ret <32 x half> %res1
 }

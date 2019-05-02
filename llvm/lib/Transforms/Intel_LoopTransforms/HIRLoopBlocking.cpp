@@ -747,13 +747,11 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
                   const SmallVectorImpl<HLLoop *> &CurLoopNests) {
 
   unsigned OutermostLevel = CurLoopNests.front()->getNestingLevel();
-  unsigned InnermostLevel = CurLoopNests.back()->getNestingLevel();
-  unsigned DestLevel = 0;
 
   // Find the level where min blob is used as Loop UB
-  auto FindUseMinLevel = [&LoopPermutation](unsigned OrigDefLevel) {
+  auto FindUseMinLevel = [&LoopPermutation, OutermostLevel](unsigned OrigDefLevel) {
     unsigned OrigUseLevel = OrigDefLevel + 1;
-    unsigned DestLevel = 0;
+    unsigned DestLevel = OutermostLevel - 1;
     for (auto OrigLp : LoopPermutation) {
       DestLevel++;
       if (OrigLp->getNestingLevel() == OrigUseLevel) {
@@ -763,6 +761,14 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
     llvm_unreachable("Stripmined loop is not found after permutation.");
   };
 
+  // Adjust index
+  auto GetIndex = [OutermostLevel](unsigned Level) {
+    return Level - OutermostLevel;
+  };
+
+  unsigned InnermostLevel = CurLoopNests.back()->getNestingLevel();
+  unsigned DestLevel = OutermostLevel - 1;
+
   for (auto LpWithDef : LoopPermutation) {
 
     DestLevel++;
@@ -771,7 +777,7 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
       continue;
     }
 
-    HLLoop *LpDest = CurLoopNests[DestLevel - 1];
+    HLLoop *LpDest = CurLoopNests[GetIndex(DestLevel)];
     unsigned OrigLevel = LpWithDef->getNestingLevel();
     assert(DestLevel <= OrigLevel);
 
@@ -794,7 +800,7 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
     unsigned DefMinLevel = DestLevel;
     unsigned UseMinLevel = FindUseMinLevel(OrigLevel);
     // Update Def@level of Loop UB with min blob
-    CurLoopNests[UseMinLevel - 1]
+    CurLoopNests[GetIndex(UseMinLevel)]
         ->getUpperDDRef()
         ->getSingleCanonExpr()
         ->setDefinedAtLevel(DefMinLevel);
@@ -806,13 +812,13 @@ void hoistMinDefs(const LoopSetTy &ByStripLoops,
     LLVM_DEBUG(dbgs() << "MinSB: " << MinSB << " DefMinLevel: " << DefMinLevel
                       << " UseMinLevel: " << UseMinLevel << "\n");
     for (unsigned I = DefMinLevel + 1; I <= UseMinLevel; I++) {
-      CurLoopNests[I - 1]->addLiveInTemp(MinSB);
+      CurLoopNests[GetIndex(I)]->addLiveInTemp(MinSB);
     }
     for (unsigned I = OutermostLevel; I <= DefMinLevel; I++) {
-      CurLoopNests[I - 1]->removeLiveInTemp(MinSB);
+      CurLoopNests[GetIndex(I)]->removeLiveInTemp(MinSB);
     }
     for (unsigned I = UseMinLevel + 1; I <= InnermostLevel; I++) {
-      CurLoopNests[I - 1]->removeLiveInTemp(MinSB);
+      CurLoopNests[GetIndex(I)]->removeLiveInTemp(MinSB);
     }
   }
 }

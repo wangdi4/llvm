@@ -131,8 +131,12 @@ public:
     return m_MIFunc.getSubtarget().getRegisterInfo(); }
   MachineBasicBlock* BB()      const { return m_BB; }
   MachineRegisterInfo& MRI()   const { return m_MIFunc.getRegInfo(); }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump()                  const { m_BB->dump(); }
-  void dump(StringRef s)       const { dbgs() << '\n' << s << '\n'; m_BB->dump(); }
+#else
+  void dump()                  const { }
+#endif
+  void dump(StringRef s)       const { dbgs() << '\n' << s << '\n'; dump(); }
 
   int createVirtualRegister(const TargetRegisterClass *regClass) {
     return MRI().createVirtualRegister(regClass);
@@ -451,8 +455,13 @@ int main(int argc, char *argv[]) {
   ::testing::InitGoogleTest(&argc, argv);
 
   for (int i = 0; i < argc; ++i) {
-    if (std::strcmp(argv[i], "-verbose") == 0)
+    if (std::strcmp(argv[i], "-verbose") == 0) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       ++verbose;
+#else
+      std::cerr << "-verbose flag ignored for non-debug builds" << std::endl;
+#endif
+    }
   }
 
   if (initTargetMachine())

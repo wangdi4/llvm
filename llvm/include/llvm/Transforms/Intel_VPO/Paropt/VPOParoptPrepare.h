@@ -1,7 +1,7 @@
 #if INTEL_COLLAB // -*- C++ -*-
 //===--- VPOParoptPrepare.h --- Paropt Prepare Class Support -*- C++ --*---===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -27,6 +27,7 @@
 #ifndef LLVM_TRANSFORMS_VPO_PAROPT_PREPARE_H
 #define LLVM_TRANSFORMS_VPO_PAROPT_PREPARE_H
 
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
@@ -57,7 +58,8 @@ public:
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
-  bool runImpl(Function &F, vpo::WRegionInfo &WI);
+  bool runImpl(Function &F, vpo::WRegionInfo &WI,
+               OptimizationRemarkEmitter &ORE);
 
 private:
 

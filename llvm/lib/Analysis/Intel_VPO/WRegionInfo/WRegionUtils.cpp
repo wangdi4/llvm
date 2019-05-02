@@ -67,7 +67,7 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
       W = WRegionUtils::createWRegionHIR(DirID, H, S.size(), IsRegion, Call);
     else
 #endif // INTEL_CUSTOMIZATION
-    W = WRegionUtils::createWRegion(DirID, BB, LI, S.size(), IsRegion);
+    W = WRegionUtils::createWRegion(DirID, BB, LI, S.size(), IsRegion, Call);
     if (W) {
       // The intrinsic represents a BEGIN directive.
       // W points to the WRN created for it.
@@ -149,7 +149,8 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
 /// the clause info from the OperandBundles and update WRN accordingly.
 WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
                                          LoopInfo *LI, unsigned NestingLevel,
-                                         bool IsRegionIntrinsic) {
+                                         bool IsRegionIntrinsic,
+                                         CallInst *Dir) {
   WRegionNode *W = nullptr;
 
   switch(DirID) {
@@ -265,6 +266,7 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
   if (W) {
     W->setLevel(NestingLevel);
     W->setDirID(DirID);
+    W->setEntryDirective(Dir);
     if (IsRegionIntrinsic) {
       W->getClausesFromOperandBundles();
     }
@@ -673,12 +675,12 @@ bool WRegionUtils::usedInRegionEntryDirective(WRegionNode *W, Value *I) {
 //
 // Prerequisite: W's BBSet must be populated before calling this util.
 bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
-                       SmallVectorImpl<Instruction *> *Users,
-                       bool ExcludeDirective) {
+                                     SmallVectorImpl<Instruction *> *Users,
+                                     bool ExcludeEntryDirective) {
   bool Found = false;
   for (User *U : V->users()) {
     if (Instruction *I = dyn_cast<Instruction>(U)) {
-      if (ExcludeDirective && VPOAnalysisUtils::isIntelDirectiveOrClause(I))
+      if (ExcludeEntryDirective && I == W->getEntryDirective())
         continue;
       if (W->contains(I->getParent())) {
         // LLVM_DEBUG(dbgs() << "findUsersInRegion ("<< *V <<") in ("<< *I
@@ -701,7 +703,8 @@ bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
       //
       // Recursively call findUsersInRegion() to find all Instructions in \p W
       // that use the ConstantExpr and add such Instructions to \p *Users.
-      if (WRegionUtils::findUsersInRegion(W, CE, Users, ExcludeDirective)) {
+      if (WRegionUtils::findUsersInRegion(W, CE, Users,
+                                          ExcludeEntryDirective)) {
         if (Users == nullptr)
           return true; // no need to find more users
         Found = true;

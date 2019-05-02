@@ -187,9 +187,11 @@ def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                         [FeatureBWI]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
+// FIXME: FP16 scaler inrinsics use the type v8f16, which is supposed to be guarded
+// under condition hasVLX. So we imply it in FeatureFP16 currently.
 def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            "Support 16-bit floating point",
-                           [FeatureBWI]>;
+                           [FeatureBWI, FeatureVLX]>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",
@@ -295,6 +297,15 @@ def FeatureRDPID : SubtargetFeature<"rdpid", "HasRDPID", "true",
 def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
                                       "Wait and pause enhancements">;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+def FeatureENQCMD : SubtargetFeature<"enqcmd", "HasENQCMD", "true",
+                                    "Has ENQCMD instructions">;
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_FEATURE_ISA_KEYLOCKER
+def FeatureKeyLocker  : SubtargetFeature<"keylocker", "HasKeyLocker", "true",
+                                         "Support KeyLocker Instructions",
+                                         [FeatureSSE2]>;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_ULI
 def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
                                   "Has ULI Instructions">;
