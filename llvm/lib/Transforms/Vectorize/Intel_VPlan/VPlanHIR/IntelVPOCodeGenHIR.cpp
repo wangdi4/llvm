@@ -2038,6 +2038,8 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
   const HLInst *Node = INode;
   auto CurInst = INode->getLLVMInstruction();
   SmallVector<RegDDRef *, 6> WideOps;
+  SmallVector<RegDDRef *, 1> CallArgs;
+  bool AnalyzeArgs = false;
 
   if (!Mask)
     Mask = CurMaskValue;
@@ -2167,7 +2169,6 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
     if (!Fn->getReturnType()->isVoidTy()) {
       ArgOffset = 1;
     }
-    SmallVector<RegDDRef *, 1> CallArgs;
     SmallVector<Type *, 1> ArgTys;
     for (unsigned i = ArgOffset; i < WideOps.size(); i++) {
       CallArgs.push_back(WideOps[i]);
@@ -2206,7 +2207,7 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
     }
 
     if (FnName.find("sincos") != StringRef::npos) {
-      analyzeCallArgMemoryReferences(INode, WideInst, CallArgs);
+      AnalyzeArgs = true;
     }
 
     if (ArgOffset) {
@@ -2230,6 +2231,13 @@ HLInst *VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
   }
 
   addInst(WideInst, Mask);
+
+  // We need to hook up WideInst before we call analyzeCallArgMemoryReferences
+  // as getConstStrideAtLevel expects a ref whose stride is being checked to be
+  // attached to HIR.
+  if (AnalyzeArgs)
+    analyzeCallArgMemoryReferences(INode, WideInst, CallArgs);
+
   return WideInst;
 }
 
