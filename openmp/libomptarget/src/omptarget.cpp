@@ -697,8 +697,13 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
       TgtBaseOffset = 0;
     } else if (arg_types[i] & OMP_TGT_MAPTYPE_PRIVATE) {
       // Allocate memory for (first-)private array
+#if INTEL_COLLAB
+      TgtPtrBegin = Device.data_alloc_base(arg_sizes[i], HstPtrBegin,
+                                           HstPtrBase);
+#else
       TgtPtrBegin = Device.RTL->data_alloc(Device.RTLDeviceID,
           arg_sizes[i], HstPtrBegin);
+#endif // INTEL_COLLAB
       if (!TgtPtrBegin) {
         DP ("Data allocation for %sprivate array " DPxMOD " failed, "
             "abort target.\n",
@@ -709,12 +714,21 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
       fpArrays.push_back(TgtPtrBegin);
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
 #ifdef OMPTARGET_DEBUG
+#if INTEL_COLLAB
+      DP("Allocated %" PRId64 " bytes of target memory at " DPxMOD " for "
+          "%sprivate array " DPxMOD " - pushing target argument (Begin: " DPxMOD
+          ", Offset: %" PRId64 ")\n",
+          arg_sizes[i], DPxPTR(TgtPtrBegin),
+          (arg_types[i] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
+          DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBegin), TgtBaseOffset);
+#else
       void *TgtPtrBase = (void *)((intptr_t)TgtPtrBegin + TgtBaseOffset);
       DP("Allocated %" PRId64 " bytes of target memory at " DPxMOD " for "
           "%sprivate array " DPxMOD " - pushing target argument " DPxMOD "\n",
           arg_sizes[i], DPxPTR(TgtPtrBegin),
           (arg_types[i] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
           DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBase));
+#endif // INTEL_COLLAB
 #endif
       // If first-private, copy data from host
       if (arg_types[i] & OMP_TGT_MAPTYPE_TO) {
@@ -736,9 +750,15 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
           false);
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
 #ifdef OMPTARGET_DEBUG
+#if INTEL_COLLAB
+      DP("Obtained target argument (Begin: " DPxMOD ", Offset: %" PRId64
+         ") from host pointer " DPxMOD "\n", DPxPTR(TgtPtrBegin), TgtBaseOffset,
+         DPxPTR(HstPtrBegin));
+#else
       void *TgtPtrBase = (void *)((intptr_t)TgtPtrBegin + TgtBaseOffset);
       DP("Obtained target argument " DPxMOD " from host pointer " DPxMOD "\n",
           DPxPTR(TgtPtrBase), DPxPTR(HstPtrBegin));
+#endif // INTEL_COLLAB
 #endif
     }
     tgtArgsPositions[i] = tgt_args.size();
