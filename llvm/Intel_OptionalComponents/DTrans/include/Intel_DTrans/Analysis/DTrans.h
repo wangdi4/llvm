@@ -920,39 +920,39 @@ private:
   SmallVector<MemfuncRegion, 2> Regions;
 };
 
-/// Determine whether the specified CallSite is a call to allocation function,
+/// Determine whether the specified \p Call is a call to allocation function,
 /// and if so what kind of allocation function it is and the size of the
 /// allocation.
-AllocKind getAllocFnKind(ImmutableCallSite CS, const TargetLibraryInfo &TLI);
+AllocKind getAllocFnKind(const CallBase *Call, const TargetLibraryInfo &TLI);
 
 /// Get the indices of size and count arguments for the allocation call.
 /// AllocCountInd is used for calloc allocations.  For all other allocation
 /// kinds it will be set to -1U
-void getAllocSizeArgs(AllocKind Kind, ImmutableCallSite CS,
+void getAllocSizeArgs(AllocKind Kind, const CallBase *Call,
                       unsigned &AllocSizeInd, unsigned &AllocCountInd,
                       const TargetLibraryInfo &TLI);
 
 /// Collects all special arguments for malloc-like call.
 /// Elements are added to OutputSet.
 /// Realloc-like functions have pointer argument returned in OutputSet.
-void collectSpecialAllocArgs(AllocKind Kind, ImmutableCallSite CS,
+void collectSpecialAllocArgs(AllocKind Kind, const CallBase *Call,
                              SmallPtrSet<const Value *, 3> &OutputSet,
                              const TargetLibraryInfo &TLI);
 
-/// Determine whether or not the specified CallSite is a call to the free-like
+/// Determine whether or not the specified \p Call is a call to the free-like
 /// library function.
-bool isFreeFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI);
+bool isFreeFn(const CallBase *Call, const TargetLibraryInfo &TLI);
 
-/// Determine whether or not the specified CallSite is a call to the
+/// Determine whether or not the specified \p Call is a call to the
 /// delete-like library function.
-bool isDeleteFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI);
+bool isDeleteFn(const CallBase *Call, const TargetLibraryInfo &TLI);
 
-/// Returns the index of pointer argument for CS.
-void getFreePtrArg(FreeKind Kind, ImmutableCallSite CS, unsigned &PtrArgInd,
+/// Returns the index of pointer argument for \p Call.
+void getFreePtrArg(FreeKind Kind, const CallBase *Call, unsigned &PtrArgInd,
                    const TargetLibraryInfo &TLI);
 
 /// Collects all special arguments for free-like call.
-void collectSpecialFreeArgs(FreeKind Kind, ImmutableCallSite CS,
+void collectSpecialFreeArgs(FreeKind Kind, const CallBase *Call,
                             SmallPtrSetImpl<const Value *> &OutputSet,
                             const TargetLibraryInfo &TLI);
 

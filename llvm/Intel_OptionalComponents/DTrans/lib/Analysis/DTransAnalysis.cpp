@@ -1006,8 +1006,8 @@ int DTransAllocAnalyzer::skipTestSuccessor(BranchInst *BI) const {
     return -1;
   if (isa<Argument>(V))
     return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
-  if (auto CS = CallSite(V))
-    if (auto Kind = dtrans::getAllocFnKind(CS, TLI))
+  if (auto *Call = dyn_cast<CallBase>(V))
+    if (auto Kind = dtrans::getAllocFnKind(Call, TLI))
       if (Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New)
         return ICI->getPredicate() == ICmpInst::ICMP_EQ ? 0 : 1;
   return -1;
@@ -1098,12 +1098,12 @@ bool DTransAllocAnalyzer::mallocBasedGEPChain(GetElementPtrInst *GV,
     return false;
 
   Value *BasePtr = V->getPointerOperand();
-  if (auto CS = CallSite(BasePtr)) {
-    auto Kind = dtrans::getAllocFnKind(CS, TLI);
+  if (auto *Call = dyn_cast<CallBase>(BasePtr)) {
+    auto Kind = dtrans::getAllocFnKind(Call, TLI);
     if (Kind != dtrans::AK_Malloc && Kind != dtrans::AK_New)
       return false;
     *GBV = V;
-    *GCI = CS;
+    *GCI = CallSite(BasePtr);
     return true;
   }
   return false;
@@ -1249,8 +1249,8 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
   if (isVisitedBlock(BB))
     return false;
   VisitedBlocks.insert(BB);
-  if (auto CS = ImmutableCallSite(RV)) {
-    auto Kind = dtrans::getAllocFnKind(CS, TLI);
+  if (const auto *Call = dyn_cast<CallBase>(RV)) {
+    auto Kind = dtrans::getAllocFnKind(Call, TLI);
     return Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New;
   }
   if (auto *PI = dyn_cast<PHINode>(RV)) {
@@ -1424,8 +1424,8 @@ bool DTransAllocAnalyzer::analyzeForIndirectStatus(ImmutableCallSite CS,
 bool DTransAllocAnalyzer::hasFreeCall(BasicBlock *BB) const {
   for (auto BI = BB->rbegin(), BE = BB->rend(); BI != BE;) {
     Instruction *I = &*BI++;
-    if (auto CS = CallSite(I))
-      if (dtrans::isFreeFn(CS, TLI))
+    if (auto *Call = dyn_cast<CallBase>(I))
+      if (dtrans::isFreeFn(Call, TLI))
         return true;
   }
   return false;
@@ -1445,19 +1445,19 @@ void DTransAllocAnalyzer::populateAllocDeallocTable(const Module &M) {
   // TODO: compute closure.
   for (auto &F : M.getFunctionList()) {
     // Find some call/invoke of F.
-    ImmutableCallSite CS;
+    const CallBase *Call = nullptr;
     for (auto &U : F.uses())
-      if (auto Tmp = ImmutableCallSite(U.getUser())) {
-        CS = Tmp;
+      if (const auto *Tmp = dyn_cast<CallBase>(U.getUser())) {
+        Call = Tmp;
         break;
       }
 
     // No calls/invokes.
-    if (!CS)
+    if (!Call)
       continue;
 
     // Deal with free.
-    if (dtrans::isFreeFn(CS, TLI)) {
+    if (dtrans::isFreeFn(Call, TLI)) {
       // Check all functions, calling free function F.
       for (auto &U : F.uses())
         if (ImmutableCallSite(U.getUser())) {
@@ -1471,7 +1471,7 @@ void DTransAllocAnalyzer::populateAllocDeallocTable(const Module &M) {
     }
 
     // Deal with malloc/new
-    auto Kind = dtrans::getAllocFnKind(CS, TLI);
+    auto Kind = dtrans::getAllocFnKind(Call, TLI);
     if (Kind == dtrans::AK_Malloc || Kind == dtrans::AK_New) {
       // Check all functions, calling malloc/new function F.
       for (auto &U : F.uses())
@@ -2269,10 +2269,10 @@ private:
   }
 
   CallSite getCallSiteIfAlloc(Value *V) {
-    if (auto CS = CallSite(V)) {
-      if (dtrans::getAllocFnKind(CS, TLI) != dtrans::AK_NotAlloc ||
-          DTAA.isMallocPostDom(CS))
-        return CS;
+    if (auto *Call = dyn_cast<CallBase>(V)) {
+      if (dtrans::getAllocFnKind(Call, TLI) != dtrans::AK_NotAlloc ||
+          DTAA.isMallocPostDom(CallSite(Call)))
+        return CallSite(Call);
     }
     return CallSite();
   }
@@ -5155,49 +5155,50 @@ public:
     }
   }
 
-  void visitCallSite(CallSite CS) {
+  void visitCallBase(CallBase &Call) {
     SmallPtrSet<const Value *, 3> SpecialArguments;
 
     // If the called function is a known allocation function, we need to
     // analyze the allocation.
-    auto AllocKind = dtrans::getAllocFnKind(CS, TLI);
-    if (AllocKind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(CS))
+    auto AllocKind = dtrans::getAllocFnKind(&Call, TLI);
+    if (AllocKind == dtrans::AK_NotAlloc &&
+        DTAA.isMallocPostDom(CallSite(&Call)))
       AllocKind = dtrans::AK_UserMalloc;
     if (AllocKind != dtrans::AK_NotAlloc) {
-      analyzeAllocationCall(CS, AllocKind);
-      collectSpecialAllocArgs(AllocKind, CS, SpecialArguments, TLI);
+      analyzeAllocationCall(CallSite(&Call), AllocKind);
+      collectSpecialAllocArgs(AllocKind, &Call, SpecialArguments, TLI);
     }
 
     // If this is a call to the "free" lib function,  the call is safe, but
     // we analyze the instruction for the purpose of capturing the argument
     // TypeInfo, which will be needed by some of the transformations when
     // rewriting allocations and frees.
-    auto FreeKind = dtrans::isFreeFn(CS, TLI)
-                        ? (dtrans::isDeleteFn(CS, TLI) ? dtrans::FK_Delete
-                                                       : dtrans::FK_Free)
+    auto FreeKind = dtrans::isFreeFn(&Call, TLI)
+                        ? (dtrans::isDeleteFn(&Call, TLI) ? dtrans::FK_Delete
+                                                         : dtrans::FK_Free)
                         : dtrans::FK_NotFree;
 
-    if (FreeKind == dtrans::FK_NotFree && DTAA.isFreePostDom(CS))
+    if (FreeKind == dtrans::FK_NotFree && DTAA.isFreePostDom(CallSite(&Call)))
       FreeKind = dtrans::FK_UserFree;
 
     if (FreeKind != dtrans::FK_NotFree) {
-      analyzeFreeCall(CS, FreeKind);
-      collectSpecialFreeArgs(FreeKind, CS, SpecialArguments, TLI);
+      analyzeFreeCall(CallSite(&Call), FreeKind);
+      collectSpecialFreeArgs(FreeKind, &Call, SpecialArguments, TLI);
     }
 
     // Do not check and potentially set the mismatched arg safety condition on
     // the 'this' pointer argument of a bitcast call created by
     // devirtualization. The devirtualizer has already proven the argument type
     // is the correct type for the member function.
-    if (CS.getInstruction()->getMetadata("_Intel.Devirt.Call") &&
-      CS.arg_size() >= 1)
-      SpecialArguments.insert(CS.getArgument(0));
+    if (Call.getMetadata("_Intel.Devirt.Call") && Call.arg_size() >= 1)
+      SpecialArguments.insert(Call.getArgOperand(0));
 
     // If the Function wasn't found, then there is a possibility
     // that it is inside a BitCast. In this case we need
     // to strip the pointer casting from the Value and then
     // access the Function.
-    Function *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+    Function *F =
+        dyn_cast<Function>(Call.getCalledValue()->stripPointerCasts());
 
     // For all other calls, if a pointer to an aggregate type is passed as an
     // argument to a function in a form other than its dominant type, the
@@ -5207,7 +5208,7 @@ public:
     bool IsFnLocal = F ? !F->isDeclaration() : false;
 
     // Mark structures returned by non-local functions as system types.
-    auto *RetTy = CS.getType();
+    auto *RetTy = Call.getType();
     if (DTInfo.isTypeOfInterest(RetTy) && AllocKind == dtrans::AK_NotAlloc) {
       if (!IsFnLocal) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
@@ -5215,23 +5216,23 @@ public:
                           << "\n");
         setBaseTypeInfoSafetyData(RetTy, dtrans::SystemObject);
       }
-      if (CS.isInvoke()) {
+      if (isa<InvokeInst>(&Call)) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
                           << "struct (or pointer to struct) returned from "
                              "function invoke:\n "
-                          << *CS.getInstruction() << "\n");
+                          << Call << "\n");
         setBaseTypeInfoSafetyData(RetTy, dtrans::HasCppHandling);
       }
     }
 
-    if (SpecialArguments.size() == CS.arg_size())
+    if (SpecialArguments.size() == Call.arg_size())
       return;
 
     // Check for BitCast functions
-    if (F && isa<ConstantExpr>(CS.getCalledValue())) {
+    if (F && isa<ConstantExpr>(Call.getCalledValue())) {
       // Account for layout in registers and on stack.
       if (!typesMayBeCRuleCompatible(
-              CS.getCalledValue()->getType()->getPointerElementType(),
+              Call.getCalledValue()->getType()->getPointerElementType(),
               // Do not need to compare pointees types
               // here.
               F->getType()->getPointerElementType(), true)) {
@@ -5240,32 +5241,33 @@ public:
               dbgs()
               << "dtrans-safety: Mismatched argument use -- bitcast "
                  "function arguments mismatch with layout incompatibility:\n  "
-              << *CS.getInstruction());
+              << Call);
           setValueTypeInfoSafetyDataWithCascading(&Arg,
                                                   dtrans::MismatchedArgUse);
         }
 
-        for (Value *Arg : CS.args()) {
+        for (Value *Arg : Call.args()) {
           LLVM_DEBUG(
               dbgs()
               << "dtrans-safety: Mismatched argument use -- bitcast "
                  "function arguments mismatch with layout incompatibility:\n  "
-              << *CS.getInstruction());
+              << Call);
           setValueTypeInfoSafetyDataWithCascading(Arg,
                                                   dtrans::MismatchedArgUse);
         }
       } else {
-        for (auto Pair : zip(F->args(), CS.args()))
+        for (auto Pair : zip(F->args(), Call.args()))
           if (!SpecialArguments.count(std::get<1>(Pair)))
-            checkArgTypeMismatch(CS, F, &std::get<0>(Pair), std::get<1>(Pair));
+            checkArgTypeMismatch(CallSite(&Call), F, &std::get<0>(Pair),
+                                 std::get<1>(Pair));
 
-        // Do not care about F->arg_size() > CS.arg_size(),
+        // Do not care about F->arg_size() > Call.arg_size(),
         // it should be marked in the true-branch, or it is UB.
-        if (F->arg_size() < CS.arg_size())
+        if (F->arg_size() < Call.arg_size())
           for (Value *Arg :
-               make_range(CS.arg_begin() + F->arg_size(), CS.arg_end()))
+               make_range(Call.arg_begin() + F->arg_size(), Call.arg_end()))
             if (!SpecialArguments.count(Arg))
-              checkArgTypeMismatch(CS, F, nullptr, Arg);
+              checkArgTypeMismatch(CallSite(&Call), F, nullptr, Arg);
       }
     }
 
@@ -5273,17 +5275,17 @@ public:
     // address taken external call.  In this case, the indirect call must
     // be treated like an external call for the purpose of generating
     // the AddressTaken safety check.
-    bool HasICMatch = hasICMatch(CS);
+    bool HasICMatch = hasICMatch(CallSite(&Call));
 
     unsigned NextArgNo = 0;
-    for (Value *Arg : CS.args()) {
+    for (Value *Arg : Call.args()) {
       // Keep track of the argument index we're working with.
       unsigned ArgNo = NextArgNo++;
 
       if (!isValueOfInterest(Arg) || SpecialArguments.count(Arg))
         continue;
 
-      visitCallArgument(CS, F, HasICMatch, Arg, ArgNo);
+      visitCallArgument(CallSite(&Call), F, HasICMatch, Arg, ArgNo);
     }
   }
 
@@ -7353,7 +7355,7 @@ private:
     // is currently no guarantee to know which argument contains the TypeInfo.
     if (FK == dtrans::FK_Free || FK == dtrans::FK_Delete) {
       unsigned PtrArgInd = -1U;
-      getFreePtrArg(FK, CS, PtrArgInd, TLI);
+      getFreePtrArg(FK, cast<CallBase>(CS.getInstruction()), PtrArgInd, TLI);
       Value *Arg = CS.getArgument(PtrArgInd);
 
       LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
@@ -7381,7 +7383,8 @@ private:
   // Return true if the CallSite CS is to a suitably identified alloc
   // function.
   bool isSafeStoreForSingleAllocFunction(CallSite CS) {
-    return dtrans::getAllocFnKind(CS, TLI) != dtrans::AK_NotAlloc ||
+    return dtrans::getAllocFnKind(cast<CallBase>(CS.getInstruction()), TLI) !=
+               dtrans::AK_NotAlloc ||
            DTAA.isMallocPostDom(CS);
   }
 
@@ -7736,7 +7739,8 @@ private:
     uint64_t ElementSize = DL.getTypeAllocSize(Ty->getElementType());
     unsigned AllocSizeInd = 0;
     unsigned AllocCountInd = 0;
-    getAllocSizeArgs(Kind, CS, AllocSizeInd, AllocCountInd, TLI);
+    getAllocSizeArgs(Kind, cast<CallBase>(CS.getInstruction()), AllocSizeInd,
+                     AllocCountInd, TLI);
 
     auto *AllocSizeVal = CS.getArgOperand(AllocSizeInd);
     auto *AllocCountVal =

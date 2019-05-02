@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSEffects.cpp - Part of SOAToAOSPass ----------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -244,10 +244,10 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
     if (Info) {
       if (Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) {
         auto AK = cast<AllocCallInfo>(Info)->getAllocKind();
-        collectSpecialAllocArgs(AK, ImmutableCallSite(I), Args, TLI);
+        collectSpecialAllocArgs(AK, cast<CallBase>(I), Args, TLI);
       } else if (Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
         auto FK = cast<FreeCallInfo>(Info)->getFreeKind();
-        collectSpecialFreeArgs(FK, ImmutableCallSite(I), Args, TLI);
+        collectSpecialFreeArgs(FK, cast<CallBase>(I), Args, TLI);
       } else {
         Rep = Dep::mkBottom(DM);
         break;
@@ -259,9 +259,9 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
     bool isDummyFuncWithPtr =
         dtrans::isDummyFuncWithThisAndPtrArgs(ImmutableCallSite(I), TLI);
     if (isDummyFuncWithInt) {
-      collectSpecialAllocArgs(AK_UserMalloc, ImmutableCallSite(I), Args, TLI);
+      collectSpecialAllocArgs(AK_UserMalloc, cast<CallBase>(I), Args, TLI);
     } else if (isDummyFuncWithPtr) {
-      collectSpecialFreeArgs(FK_UserFree, ImmutableCallSite(I), Args, TLI);
+      collectSpecialFreeArgs(FK_UserFree, cast<CallBase>(I), Args, TLI);
     }
 
     Dep::Container Special;

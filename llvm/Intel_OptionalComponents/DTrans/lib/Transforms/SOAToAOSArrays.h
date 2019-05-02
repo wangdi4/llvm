@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSArrays.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1251,7 +1251,7 @@ public:
           } else
             Val->mutateType(NewBaseType);
         }
-      } else if (auto CS = CallSite(NewI)) {
+      } else if (auto *Call = dyn_cast<CallBase>(NewI)) {
         auto *Info = DTInfo.getCallInfo(NewI);
         bool isDummyFunc =
             dtrans::isDummyFuncWithThisAndIntArgs(ImmutableCallSite(NewI), TLI);
@@ -1265,9 +1265,10 @@ public:
         unsigned S2 = -1U;
         auto AllocKind =
             isDummyFunc ? AK_UserMalloc : cast<AllocCallInfo>(Info)->getAllocKind();
-        getAllocSizeArgs(AllocKind, CS, S1, S2, TLI);
+        getAllocSizeArgs(AllocKind, Call, S1, S2, TLI);
         assert((S1 == -1U) != (S2 == -1U) && "Unexpected allocation routine");
-        auto *OldSize = S1 == -1U ? CS.getArgument(S2) : CS.getArgument(S1);
+        auto *OldSize =
+            S1 == -1U ? Call->getArgOperand(S2) : Call->getArgOperand(S1);
         Builder.SetInsertPoint(NewI);
         // Allocation size is multiplied by NumArrays to reserve sufficient
         // space in AOS.
@@ -1277,7 +1278,7 @@ public:
                                             "nsz"),
                 ConstantInt::get(Builder.getIntPtrTy(DL, 0), NumArrays), "nsz"),
             OldSize->getType(), "nsz");
-        CS.getInstruction()->replaceUsesOfWith(OldSize, NewSize);
+        Call->replaceUsesOfWith(OldSize, NewSize);
       } else
         llvm_unreachable("Unexpected instruction encountered.");
     }

@@ -466,7 +466,7 @@ bool dtrans::PaddedMallocPass::isValidType(GetElementPtrInst *ElemInst) {
   return false;
 }
 
-// If the BasicBlock contains a malloc CallSite, then apply the padded
+// If the BasicBlock contains a malloc call, then apply the padded
 // malloc optimization.
 bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
                                                 GlobalVariable *GlobalCounter,
@@ -476,18 +476,18 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
   // Traverse the instructions in the BasicBlock
   for (Instruction &Inst : BB) {
 
-    CallSite CS = CallSite(&Inst);
-    if (!CS.isCall() && !CS.isInvoke())
+    CallBase *Call = dyn_cast<CallBase>(&Inst);
+    if (!Call)
       continue;
 
-    // Check that the instruction is a call site to malloc
-    if (dtrans::getAllocFnKind(CS, TLInfo) != dtrans::AK_Malloc) {
+    // Check that the instruction is a call to malloc
+    if (dtrans::getAllocFnKind(Call, TLInfo) != dtrans::AK_Malloc) {
       continue;
     }
 
     // The input value to the malloc must always
     // be an integer
-    Value *InputVal = CS.getArgument(0);
+    Value *InputVal = Call->getArgOperand(0);
     Type *IntType = InputVal->getType();
     if (!IntType->isIntegerTy())
       continue;
@@ -575,7 +575,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
     unsigned BitWidthSize = InputVal->getType()->getIntegerBitWidth();
     Value *PMSizeVal = Builder.getIntN(BitWidthSize, DTransPaddedMallocSize);
     Value *NewSize = Builder.CreateAdd(InputVal, PMSizeVal);
-    CS.setArgument(0, NewSize);
+    Call->setArgOperand(0, NewSize);
     Value *MallocMod = Builder.Insert(mallocCallMod);
     // Increase the global variable
     if (UseOpenMP)

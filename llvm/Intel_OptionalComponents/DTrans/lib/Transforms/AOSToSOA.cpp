@@ -1932,7 +1932,8 @@ private:
     SOAAddrAsI8Ptr->insertBefore(FreeCall);
 
     unsigned PtrArgInd = -1U;
-    getFreePtrArg(CInfo->getFreeKind(), CallSite(FreeCall), PtrArgInd, TLI);
+    getFreePtrArg(CInfo->getFreeKind(), cast<CallInst>(FreeCall), PtrArgInd,
+                  TLI);
 
     LLVM_DEBUG(dbgs() << "Updating free call:\n  "
                       << *FreeCall->getOperand(PtrArgInd) << "\n  " << *FreeCall

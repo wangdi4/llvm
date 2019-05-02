@@ -273,7 +273,7 @@ public:
 
     SmallPtrSet<const Value *, 3> Args;
     collectSpecialAllocArgs(cast<AllocCallInfo>(Info)->getAllocKind(),
-                            ImmutableCallSite(AllocCall), Args, TLI);
+                            cast<CallBase>(AllocCall), Args, TLI);
     assert(Args.size() == 1 && "Unsupported allocation function");
     if (auto *C = dyn_cast<Constant>(*Args.begin()))
       if (C->getUniqueInteger().getLimitedValue() == Size)
@@ -343,16 +343,16 @@ public:
   static bool isFreedPtr(const DTransAnalysisInfo &DTInfo,
                          const TargetLibraryInfo &TLI, const Use &U) {
 
-    ImmutableCallSite CS(U.getUser());
-    if (!CS)
+    const auto *Call = dyn_cast<CallBase>(U.getUser());
+    if (!Call)
       return false;
 
-    auto *Info = DTInfo.getCallInfo(CS.getInstruction());
+    auto *Info = DTInfo.getCallInfo(Call);
     if (!Info || Info->getCallInfoKind() != dtrans::CallInfo::CIK_Free)
       return false;
 
     SmallPtrSet<const Value *, 3> Args;
-    collectSpecialFreeArgs(cast<FreeCallInfo>(Info)->getFreeKind(), CS, Args,
+    collectSpecialFreeArgs(cast<FreeCallInfo>(Info)->getFreeKind(), Call, Args,
                            TLI);
     if (Args.size() != 1 || *Args.begin() != U.get())
       return false;
@@ -1047,14 +1047,14 @@ private:
     SmallPtrSet<const Value *, 3> Args;
     bool Alloc = false;
     if (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
-      collectSpecialFreeArgs(cast<FreeCallInfo>(Info)->getFreeKind(), CS1, Args,
-                             TLI);
+      collectSpecialFreeArgs(cast<FreeCallInfo>(Info)->getFreeKind(),
+                             cast<CallBase>(CS1.getInstruction()), Args, TLI);
       assert(Args.size() == 1 && "Unexpected deallocation function");
 
       Alloc = false;
     } else if (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) {
-      collectSpecialAllocArgs(cast<AllocCallInfo>(Info)->getAllocKind(), CS1,
-                              Args, TLI);
+      collectSpecialAllocArgs(cast<AllocCallInfo>(Info)->getAllocKind(),
+                             cast<CallBase>(CS1.getInstruction()), Args, TLI);
 
       assert(Args.size() == 1 && "Unexpected allocation function");
       Alloc = true;
@@ -1680,7 +1680,7 @@ private:
             if (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
               unsigned PtrArgInd = -1U;
               getFreePtrArg(cast<FreeCallInfo>(Info)->getFreeKind(),
-                            ImmutableCallSite(&I), PtrArgInd, TLI);
+                cast<CallBase>(&I), PtrArgInd, TLI);
 
               if (FreePtrInd == -1U)
                 FreePtrInd = PtrArgInd;
