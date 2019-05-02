@@ -946,6 +946,56 @@ private:
   /// undone and the original operands are restored.
   bool renameOperandsUsingStoreThenLoad(WRegionNode *W);
 
+  /// For non-pointer values which will be used directly inside the outlined
+  /// region for \p W, rename them using store-then-load, and mark the pointer
+  /// where they are stored, as shared on the region's directive. This is done
+  /// because the OpenMP runtime only accepts pointer arguments for the outlined
+  /// functions, so we need to pass these values in by-reference. For example:
+  ///
+  /// Consider the following IR example. Assume that `%vla` was in a private
+  /// clause on the directive for W before vpo-paropt transformation pass, like
+  /// this:
+  ///
+  /// \code
+  ///   %size.val = load i32, i32* %size
+  ///   %vla = alloca i32, i32 %size.val
+  ///   call @llvm.region.entry("DIR.OMP.PRIVATE"..."QUAL.OMP.PRIVATE"(i32* vla)
+  /// \endcode
+  ///
+  /// Suppose `%vla.private` is the local copy created for `%vla` after handling
+  /// the clause in genPrivatizationCode(). Calling this function makes the
+  /// following changes:
+  ///
+  /// \code
+  ///       Before                      |     After
+  ///  ---------------------------------+------------------------------------
+  ///  %size.val = load i32, i32* %size |     %size.val = load i32, i32* %size
+  ///  %vla = alloca i32, i32 %size.val |     %vla = alloca i32, i32 %size.val
+  ///  ...                              |     ...
+  ///                                   |
+  ///                                   |     %size2 = alloca i32
+  ///                                   |     store i32 %size.val, i32* size2
+  ///                                   |
+  ///  <EntryBB>:                       |   <EntryBB>:
+  ///                                   |     %size.val2 = load i32, i32* size2
+  ///  ...                              |     ...
+  ///  %vla.private = alloca i32,       |     %vla.private = alloca i32,
+  ///                 i32 %size.val     |                    i32 %size.val2
+  ///                                   |
+  ///                        <entry directive for W>
+  ///  (..."DIR.OMP.PARALLEL"...)       |     (..."DIR.OMP.PARALLEL"...
+  ///                                   | ;    "QUAL.OMP.SHARED" (i32* size2))
+  ///                                   |
+  ///                                   | ; Note: `%size2` is implicitly added
+  ///                                   | ; as a shared clause item in the
+  ///                                   | ; WRegionNode W, but the directive in
+  ///                                   | ; the IR is not modified.
+  /// \endcode
+  ///
+  /// \see WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion() for
+  /// more details.
+  bool captureAndAddCollectedNonPointerValuesToSharedClause(WRegionNode *W);
+
   /// Clean up the intrinsic @llvm.launder.invariant.group and replace
   /// the use of the intrinsic with the its operand.
   bool clearCodemotionFenceIntrinsic(WRegionNode *W);
@@ -994,16 +1044,28 @@ private:
   ///   ...
   ///   store i32* %v, i32** %v.addr
   ///   ; <InsertPtForStore>
-  ///   %0 = llvm.region.entry() [... "PRIVATE" (i32* %v) ]
-  ///   %v1 = load i32*, i32** %v.addr
+  ///
+  ///   +- <EntryBB>:
+  ///   | ...
+  ///   | %0 = llvm.region.entry() [... "PRIVATE" (i32* %v) ]
+  ///   | ...
+  ///   | %v1 = load i32*, i32** %v.addr
+  ///   +-
   ///   ...
   ///   ; Replace uses of %v with %v1
   ///   ...
   /// \endcode
   ///
+  /// If \p InsertLoadInBeginningOfEntryBB is \b true, the load `%v1` is
+  /// inserted in the beginning on EntryBB (BBlock containing `%0`), and the
+  /// use of `%v` in `%0` is also replaced with `%v1`. Otherwise, by default,
+  /// `v1` is inserted at the end of EntryBB.
+  ///
   /// \returns the pointer where \p V is stored (`%v.addr` above).
-  static Value *replaceWithStoreThenLoad(WRegionNode *W, Value *V,
-                                         Instruction *InsertPtForStore);
+  static Value *
+  replaceWithStoreThenLoad(WRegionNode *W, Value *V,
+                           Instruction *InsertPtForStore,
+                           bool InsertLoadInBeginningOfEntryBB = false);
 
   /// If \p I is a call to @llvm.launder.invariant.group, then return
   /// the CallInst*. Otherwise, return nullptr.

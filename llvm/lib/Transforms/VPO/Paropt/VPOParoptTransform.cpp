@@ -986,6 +986,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
+          WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
           if (isTargetCSA()) {
@@ -1007,6 +1008,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genReductionCode(W);
             Changed |= genCancellationBranchingCode(W);
             Changed |= genDestructorCode(W);
+            Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
             Changed |= genMultiThreadedCode(W);
           }
           RemoveDirectives = true;
@@ -1023,6 +1025,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
+          WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
           Changed |= regularizeOMPLoop(W, false);
           improveAliasForOutlinedFunc(W);
 
@@ -1099,6 +1102,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genReductionCode(W);
             Changed |= genCancellationBranchingCode(W);
             Changed |= genDestructorCode(W);
+            Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
             Changed |= genMultiThreadedCode(W);
           }
           Changed |= sinkSIMDDirectives(W);
@@ -3209,16 +3213,22 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
 //   ...
 //   store i32* %v, i32** %v.addr             ; (2)
 //           ; <InsertPtForStore>
-//   %0 = llvm.region.entry() [... "PRIVATE" (i32* %v) ]
-//   %v1 = load i32*, i32** %v.addr           ; (3)
+//
+//   +- <EntryBB>:
+//   | ...
+//   | %0 = llvm.region.entry() [... "PRIVATE" (i32* %v) ]
+//   | ...
+//   | %v1 = load i32*, i32** %v.addr          ; (3)
+//   +-
 //   ... Replace uses of %v with %v1
-Value *
-VPOParoptTransform::replaceWithStoreThenLoad(WRegionNode *W, Value *V,
-                                             Instruction *InsertPtForStore) {
+Value *VPOParoptTransform::replaceWithStoreThenLoad(
+    WRegionNode *W, Value *V, Instruction *InsertPtForStore,
+    bool InsertLoadInBeginningOfEntryBB) {
 
   // Find instructions in W that use V
   SmallVector<Instruction *, 8> Users;
-  WRegionUtils::findUsersInRegion(W, V, &Users);
+  WRegionUtils::findUsersInRegion(W, V, &Users,
+                                  !InsertLoadInBeginningOfEntryBB);
 
   Instruction *AllocaInsertPt =
       W->getEntryBBlock()->getParent()->getEntryBlock().getTerminator();
@@ -3229,12 +3239,19 @@ VPOParoptTransform::replaceWithStoreThenLoad(WRegionNode *W, Value *V,
   IRBuilder<> StoreBuilder(InsertPtForStore);
   StoreBuilder.CreateStore(V, VAddr); //                  (2)
 
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Stored '"; V->printAsOperand(dbgs());
+             dbgs() << "' to '"; VAddr->printAsOperand(dbgs());
+             dbgs() << "'.\n";);
+
   if (Users.empty())
     return VAddr; // Nothing to replace inside the region. Just capture the
                   // address of V to VAddr and return it.
 
   BasicBlock *EntryBB = W->getEntryBBlock();
-  IRBuilder<> BuilderInner(EntryBB->getTerminator());
+  Instruction *InsertPtForLoad = InsertLoadInBeginningOfEntryBB
+                                     ? EntryBB->getFirstNonPHI()
+                                     : EntryBB->getTerminator();
+  IRBuilder<> BuilderInner(InsertPtForLoad);
   LoadInst *VRenamed = BuilderInner.CreateLoad(VAddr); // (3)
   VRenamed->setName(V->getName());
 
@@ -3259,6 +3276,9 @@ VPOParoptTransform::replaceWithStoreThenLoad(WRegionNode *W, Value *V,
       NewInstr->replaceUsesOfWith(V, VRenamed);
     }
   }
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Loaded '";
+             VAddr->printAsOperand(dbgs()); dbgs() << "' into '";
+             VRenamed->printAsOperand(dbgs()); dbgs() << "'.\n";);
   return VAddr;
 }
 
@@ -3676,6 +3696,76 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
   return true;
 }
 
+//       Before                       |     After
+//  ----------------------------------+------------------------------------
+//  %size.val = load i32, i32* %size (1)    %size.val = load i32, i32* %size
+//  %vla = alloca i32, i32 %size.val  |     %vla = alloca i32, i32 %size.val
+//  ...                               |     ...
+//                                    |
+//  <OldEntryBB>:                     |  <OldEntryBB>:
+//                                    |
+//                                   (2)    %size2 = alloca i32
+//                                   (3)    store i32 %size.val, i32* size2
+//                                    |
+//                                    |   <NewEntryBB>:
+//                                   (4)    %size.val2 = load i32, i32* size2
+//  ...                               |     ...
+//  %vla.private = alloca i32,        |     %vla.private = alloca i32,
+//                 i32 %size.val     (5)                   i32 %size.val2
+//                                    |
+//                        <entry directive for W>
+//  (..."DIR.OMP.PARALLEL"...)        |     (..."DIR.OMP.PARALLEL"...
+//                                   (6) ;   "QUAL.OMP.SHARED" (i32* size2))
+//                                    |
+//                                    |  ; Note: `%size2` is added as shared to
+//                                    |  ; W, but the directive is not modified
+//
+bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
+    WRegionNode *W) {
+
+  if (!W->needsOutlining())
+    return false;
+
+  if (!isa<WRNParallelNode>(W) && !isa<WRNParallelLoopNode>(W) &&
+      !isa<WRNParallelSectionsNode>(W))
+    // TODO: Remove this to enable the function for all outlined WRNs.
+    return false;
+
+  const auto &DirectlyUsedNonPointerVals = W->getDirectlyUsedNonPointerValues();
+  if (DirectlyUsedNonPointerVals.empty())
+    return false;
+
+  bool Changed = false;
+  SharedClause &ShrClause = W->getShared();
+
+  // Insert an empty BBlock before EntryBB of W to insert the capturing code.
+  BasicBlock *OldEntryBB = W->getEntryBBlock();
+  BasicBlock *NewEntryBB =
+      SplitBlock(OldEntryBB, OldEntryBB->getFirstNonPHI(), DT, LI);
+  Instruction *InsertStoreBefore = OldEntryBB->getTerminator();
+
+  W->setEntryBBlock(NewEntryBB);
+  W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
+
+  for (Value *ValToCapture : DirectlyUsedNonPointerVals) { //           (1)
+    // Make the changes (2), (3), (4), (5)
+    Value *CapturedValAddr = //                                         (2)
+        replaceWithStoreThenLoad(W, ValToCapture, InsertStoreBefore,
+                                 true); // Insert (4) in beginning of NewEntryBB
+    if (!CapturedValAddr)
+      continue;
+
+    WRegionUtils::addToClause(ShrClause, CapturedValAddr); //           (6)
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Added implicit shared clause for: '";
+               CapturedValAddr->printAsOperand(dbgs()); dbgs() << "'\n");
+    Changed = true;
+  }
+
+  W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
+  return Changed;
+}
+
 // Rename operands of various clauses by replacing them with a
 // store-then-load.
 bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
@@ -3732,6 +3822,12 @@ bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
     LastprivateClause &LprivClause = W->getLpriv();
     for (LastprivateItem *LprivI : LprivClause.items())
       Changed |= rename(LprivI->getOrig(), true);
+  }
+
+  if (W->canHaveLinear()) {
+    LinearClause &LrClause = W->getLinear();
+    for (LinearItem *LrI : LrClause.items())
+      Changed |= rename(LrI->getOrig(), true);
   }
 
   if (W->canHaveMap()) {

@@ -1503,6 +1503,24 @@ bool WRegionNode::canHaveCancellationPoints() const {
   return false;
 }
 
+// Return true if the construct needs to be outlined for OpenMP runtime.
+bool WRegionNode::needsOutlining() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNDistributeParLoop:
+  case WRNTask:
+  case WRNTaskloop:
+  case WRNTeams:
+  case WRNTarget:
+    return true;
+  }
+  return false;
+}
+
 StringRef WRegionNode::getName() const {
   // good return llvm::vpo::WRNName[getWRegionKindID()];
   return WRNName[getWRegionKindID()];

@@ -133,8 +133,11 @@ class WRegionUtils {
   typedef WRContainerTy::iterator WrnIter;
 
 private:
-  /// \brief Do not allow instantiation.
-  // WRegionNodeUtils() LLVM_DELETED_FUNCTION;
+  /// \name Deleted constructor and destructor to disable instantiation.
+  /// @{
+  WRegionUtils() = delete;
+  ~WRegionUtils() = delete;
+  /// @}
 
   /// \brief Destroys all nodes
   static void destroyAll();
@@ -320,6 +323,48 @@ public:
 
   /// Return true if \p W represents a stand-alone directive
   static bool isStandAlone(WRegionNode *W);
+
+  /// Add \p V as a new ClauseItem in the Clause \p C.
+  template <typename T> static void addToClause(Clause<T> &C, Value *V) {
+    C.add(V);
+  }
+
+  /// Collect non-pointer, non-constant values that will be used directly
+  /// inside the outlined region created for \p W. These include:
+  ///
+  /// a) Linear clause step:
+  /// \code
+  ///   %step.val = load i32, i32* %step
+  ///   "DIR.OMP.PARALLEL.LOOP" ..."QUAL.OMP.LINEAR" (i32* %y, i32 %step.val)
+  /// \endcode
+  ///
+  /// b) Non-constant size of an array alloca (like C99 VLAs):
+  /// \code
+  ///   %vla.size = load i32, i32* %size
+  ///   %y.vla = alloca i32, i32 %vla.size
+  ///   "DIR.OMP.PARALLEL" ..."QUAL.OMP.PRIVATE" (i32* %y.vla)
+  /// \endcode
+  ///
+  /// c) Array section bound expressions:
+  /// \code
+  ///   "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT"(
+  ///     [10 x i32]* %y, i64 1, i64 %lb.val, i64 %size.val, i64 1)
+  /// \endcode
+  ///
+  /// The values `%step.val`, `%vla.size`, `%lb.val` and `%size.val` are of
+  /// non-pointer types (i32/i64 here), and will be used directly inside the
+  /// outlined function created for the construct \p W. However, the OpenMP
+  /// runtime only accepts outline functions with pointer arguments. So,
+  /// these values need to be collected and passed into the outlined function
+  /// by reference.
+  ///
+  /// This function collects all these values and puts them in a vector in \p W.
+  ///
+  /// VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause()
+  /// is then used to capture these collected values into pointers, and mark the
+  /// pointers as shared, which causes them to be passed in to the outlined
+  /// function by reference.
+  static void collectNonPointerValuesToBeUsedInOutlinedRegion(WRegionNode *W);
 };
 
 } // End VPO Namespace

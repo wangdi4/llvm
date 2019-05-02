@@ -205,7 +205,8 @@ protected:
 #endif // INTEL_CUSTOMIZATION
 
 public:
-  /// Functions to check if the WRN allows a given clause type
+  /// \name Functions to check if the WRN allows a given clause type.
+  /// @{
   bool canHaveSchedule() const;
   bool canHaveDistSchedule() const;
   bool canHaveShared() const;
@@ -226,6 +227,11 @@ public:
   bool canHaveAligned() const;
   bool canHaveFlush() const;
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
+  /// @}
+
+  /// Returns `true` if the construct needs to be outlined into a separate
+  /// function which is accepted by the OpenMP runtime.
+  bool needsOutlining() const;
 
   // Below are virtual functions to get/set clause and other information of
   // the WRN. They should never be called; calling them indicates intention
@@ -371,6 +377,13 @@ public:
   }
   virtual void addCancellationPointAlloca(AllocaInst *V) {
     WRNERROR("CANCELLATION_POINT_ALLOCAS");
+  }
+  virtual const SmallVectorImpl<Value *> &
+  getDirectlyUsedNonPointerValues() const {
+    WRNERROR("DIRECTLY_USED_NON_POINTER_VALUES");
+  }
+  virtual void addDirectlyUsedNonPointerValue(Value *V) {
+    WRNERROR("DIRECTLY_USED_NON_POINTER_VALUES");
   }
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual void setSafelen(int N)                {WRNERROR(QUAL_OMP_SAFELEN);  }

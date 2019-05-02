@@ -904,4 +904,95 @@ bool WRegionUtils::isStandAlone(WRegionNode *W) {
   return false;
 }
 
+// For WRegions that need outlining, collect non-pointer values that
+// will be used inside the outlined function once it is created.
+void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
+    WRegionNode *W) {
+
+  if (!W->needsOutlining())
+    return;
+
+  if (!isa<WRNParallelNode>(W) && !isa<WRNParallelLoopNode>(W) &&
+      !isa<WRNParallelSectionsNode>(W))
+    // TODO: Remove this to enable the function for all outlined WRNs.
+    return;
+
+  SmallSet<Value *, 16> AlreadyCollected;
+
+  auto collectIfNonPointerNonConstant = [&](Value *V) {
+    if (!V || isa<Constant>(V) || isa<PointerType>(V->getType()))
+      return;
+
+    if (AlreadyCollected.find(V) != AlreadyCollected.end())
+      return;
+
+    W->addDirectlyUsedNonPointerValue(V);
+  };
+
+  auto collectSizeIfVLA = [&](Value *V) {
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(V))
+      if (AI->isArrayAllocation())
+        collectIfNonPointerNonConstant(AI->getArraySize());
+  };
+
+  auto collectArraySectionBounds = [&](const ArraySectionInfo &ASI) {
+    const auto &ArrSecDims = ASI.getArraySectionDims();
+    for (auto &Dim : ArrSecDims) {
+      collectIfNonPointerNonConstant(std::get<0>(Dim)); // lb
+      collectIfNonPointerNonConstant(std::get<1>(Dim)); // size
+      collectIfNonPointerNonConstant(std::get<2>(Dim)); // stride
+    }
+  };
+
+  if (W->canHavePrivate()) {
+    PrivateClause &PrivClause = W->getPriv();
+    for (PrivateItem *PrivI : PrivClause.items())
+      collectSizeIfVLA(PrivI->getOrig());
+  }
+
+  if (W->canHaveFirstprivate()) {
+    FirstprivateClause &FprivClause = W->getFpriv();
+    for (FirstprivateItem *FprivI : FprivClause.items())
+      collectSizeIfVLA(FprivI->getOrig());
+  }
+
+  if (W->canHaveReduction()) {
+    ReductionClause &RedClause = W->getRed();
+    for (ReductionItem *RedI : RedClause.items())
+      if (RedI->getIsArraySection())
+        collectArraySectionBounds(RedI->getArraySectionInfo());
+      else
+        collectSizeIfVLA(RedI->getOrig());
+  }
+
+  if (W->canHaveLastprivate()) {
+    LastprivateClause &LprivClause = W->getLpriv();
+    for (LastprivateItem *LprivI : LprivClause.items())
+      collectSizeIfVLA(LprivI->getOrig());
+  }
+
+  if (W->canHaveLinear()) {
+    LinearClause &LrClause = W->getLinear();
+    for (LinearItem *LrI : LrClause.items())
+      collectIfNonPointerNonConstant(LrI->getStep());
+  }
+
+  LLVM_DEBUG(
+      const auto &CollectedVals = W->getDirectlyUsedNonPointerValues();
+      if (CollectedVals.empty()) {
+        dbgs() << __FUNCTION__
+               << ": No non-pointer values to be passed into the outlined "
+                  "region.\n";
+      } else {
+        dbgs()
+            << __FUNCTION__
+            << ": Non-pointer values to be passed into the outlined region: '";
+        for (const Value *V : CollectedVals) {
+          V->printAsOperand(dbgs());
+          dbgs() << " ";
+        }
+        dbgs() << "'\n";
+      });
+}
+
 #endif // INTEL_COLLAB

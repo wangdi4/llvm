@@ -145,6 +145,9 @@ private:
   WRNProcBindKind ProcBind;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
+  /// Values such as linear step, array section bounds, which will be
+  /// used directly inside the outlined function created for the WRegion.
+  SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 
 public:
   WRNParallelNode(BasicBlock *BB);
@@ -175,6 +178,12 @@ public:
   }
   void addCancellationPointAlloca(AllocaInst *I) {
     CancellationPointAllocas.push_back(I);
+  }
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+    return DirectlyUsedNonPointerValues;
+  }
+  void addDirectlyUsedNonPointerValue(Value *V) {
+    DirectlyUsedNonPointerValues.push_back(V);
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -210,6 +219,9 @@ private:
   SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
+  /// Values such as linear step, array section bounds, which will be
+  /// used directly inside the outlined function created for the WRegion.
+  SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 #if INTEL_CUSTOMIZATION
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
@@ -267,6 +279,12 @@ public:
   void addCancellationPointAlloca(AllocaInst *I) {
     CancellationPointAllocas.push_back(I);
   }
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+    return DirectlyUsedNonPointerValues;
+  }
+  void addDirectlyUsedNonPointerValue(Value *V) {
+    DirectlyUsedNonPointerValues.push_back(V);
+  }
 
 #if INTEL_CUSTOMIZATION
   loopopt::HLNode *getEntryHLNode() const { return EntryHLNode; }
@@ -304,6 +322,9 @@ private:
   WRNLoopInfo WRNLI;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
+  /// Values such as linear step, array section bounds, which will be
+  /// used directly inside the outlined function created for the WRegion.
+  SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 
 public:
   WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *L);
@@ -336,6 +357,12 @@ public:
   }
   void addCancellationPointAlloca(AllocaInst *I) {
     CancellationPointAllocas.push_back(I);
+  }
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+    return DirectlyUsedNonPointerValues;
+  }
+  void addDirectlyUsedNonPointerValue(Value *V) {
+    DirectlyUsedNonPointerValues.push_back(V);
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
