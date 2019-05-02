@@ -21,14 +21,13 @@
 #include "clang/Basic/Visibility.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
-#include <string>
-#include <vector>
 #if INTEL_CUSTOMIZATION
-// CQ381541: support for IMF attributes
-#include "llvm/ADT/StringSet.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSwitch.h"
 #include <array>
 #endif // INTEL_CUSTOMIZATION
+#include <string>
+#include <vector>
 
 namespace clang {
 
@@ -81,7 +80,6 @@ public:
   typedef llvm::StringMap<IMFAttrMap> IMFAttrFuncMap;
   IMFAttrMap ImfAttrMap;
   IMFAttrFuncMap ImfAttrFuncMap;
-  llvm::StringSet<> ImfFuncSet;
 #include "clang/AST/IntelCust.inc"
 #endif // INTEL_CUSTOMIZATION
 

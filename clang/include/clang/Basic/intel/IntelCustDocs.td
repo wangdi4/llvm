@@ -1354,6 +1354,62 @@ Where:
   }];
 }
 
+def IMFAttributesDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker = "CMPLRLLVM-5052";
+  let Owner = "mprice1";
+  let Content = [{
+This is support to attach IMF attributes specified by the user to the
+applicable LLVM functions.  They have this form:
+
+  -fimf-{kind}[=value[:funclist]]
+
+For example, for this user option:
+
+  -fimf-precision:low:sinf,expr2 -fimf-absolute-error=0.0001:sinf,cosf
+
+The driver sends the following single option to clang:
+
+  "-mGLOB_imf_attr=precision:low:sinf,expr2 absolute-error:0.0001:sinf,cosf"
+
+When a funclist is used, the attributes are applied only to functions with
+the exact name specified.  When there is no funclist the attribute is applied
+to all functions.
+
+Example:
+
+.. code-block:: c
+
+  extern double cos(double), sin(double);
+  extern void otherfunc(void);
+
+  void foo(double d0) {
+    (void)cos(d0); // prec=low
+    (void)sin(d0); // prec=high abs-error=0.00001
+    otherfunc();   // prec=high
+  }
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -ffreestanding -fintel-compatibility "-mGLOB_imf_attr=precision:high precision:low:cos absolute-error:0.00001:sin" -emit-llvm -o - imf.c
+
+.. code-block:: llvm
+
+  %0 = load double, double* %d0.addr, align 8
+  %call = call double @cos(double %0) #4
+  %1 = load double, double* %d0.addr, align 8
+  %call1 = call double @sin(double %1) #5
+  call void @otherfunc() #6
+
+  attributes #4 = { nobuiltin "imf-precision"="low" }
+  attributes #5 = { nobuiltin "imf-absolute-error"="0.00001" "imf-precision"="high" }
+  attributes #6 = { nobuiltin "imf-precision"="high" }
+  }];
+}
+
 def PredeclareAlignValTDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";
