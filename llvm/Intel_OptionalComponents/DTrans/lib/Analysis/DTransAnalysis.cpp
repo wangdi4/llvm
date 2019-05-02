@@ -7957,7 +7957,11 @@ private:
       } else {
         LLVM_DEBUG(dbgs() << "dtrans-fsv: " << *(SInfo->getLLVMType()) << " ["
                           << FieldNum << "] <MULTIPLE>\n");
-
+        DEBUG_WITH_TYPE(DTRANS_FSAF, {
+          if (!FInfo.isBottomAllocFunction())
+            dbgs() << "dtrans-fsaf: " << *(SInfo->getLLVMType()) << " ["
+                   << FieldNum << "] <BOTTOM>\n";
+        });
         FInfo.setBottomAllocFunction();
         FInfo.setMultipleValue();
         markAllFieldsMultipleValue(DTInfo.getTypeInfo(FInfo.getLLVMType()));
@@ -8761,8 +8765,8 @@ private:
         if (!isa<ConstantPointerNull>(ConstVal)) {
           DEBUG_WITH_TYPE(DTRANS_FSAF, {
             if (!FI.isBottomAllocFunction())
-              dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " [" << I
-                     << "] <BOTTOM>\n";
+              dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
+                     << I << "] <BOTTOM>\n";
           });
           FI.setBottomAllocFunction();
         }
@@ -8799,6 +8803,11 @@ private:
         if (IsNullValue)
           FI.processNewSingleValue(Constant::getNullValue(FI.getLLVMType()));
         else {
+          DEBUG_WITH_TYPE(DTRANS_FSAF, {
+            if (!FI.isBottomAllocFunction())
+              dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
+                     << Count << "] <BOTTOM>\n";
+          });
           FI.setBottomAllocFunction();
           FI.setMultipleValue();
         }
@@ -9889,8 +9898,14 @@ bool DTransAnalysisInfo::analyzeModule(
         // Mark the field as 'Bottom alloc function' if safety conditions are
         // not met. In case of DTransOutOfBoundsOK == false we set 'Bottom alloc
         // function' only to the fields marked as address taken (if any).
-        if (SD_FSAF || (IsInBounds && StInfo->getField(I).isAddressTaken()))
+        if (SD_FSAF || (IsInBounds && StInfo->getField(I).isAddressTaken())) {
+          DEBUG_WITH_TYPE(DTRANS_FSAF, {
+            if (!StInfo->getField(I).isBottomAllocFunction())
+              dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
+                     << I << "] <BOTTOM>\n";
+          });
           StInfo->getField(I).setBottomAllocFunction();
+        }
       }
     }
   }
@@ -9902,6 +9917,11 @@ bool DTransAnalysisInfo::analyzeModule(
       for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
         if (StInfo->getField(I).getLLVMType()->isAggregateType()) {
           StInfo->getField(I).setMultipleValue();
+          DEBUG_WITH_TYPE(DTRANS_FSAF, {
+            if (!StInfo->getField(I).isBottomAllocFunction())
+              dbgs() << "dtrans-fsaf: " << *(StInfo->getLLVMType()) << " ["
+                     << I << "] <BOTTOM>\n";
+          });
           StInfo->getField(I).setBottomAllocFunction();
         }
   }
