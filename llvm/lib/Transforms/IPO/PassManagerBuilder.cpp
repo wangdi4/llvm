@@ -67,8 +67,8 @@
 #endif //INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/VPOPasses.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #endif // INTEL_COLLAB
 
 using namespace llvm;

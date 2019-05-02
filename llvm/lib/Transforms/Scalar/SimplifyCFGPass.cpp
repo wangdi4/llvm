@@ -28,7 +28,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
 #if INTEL_COLLAB
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #endif // INTEL_COLLAB
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Transforms/Utils/Local.h"

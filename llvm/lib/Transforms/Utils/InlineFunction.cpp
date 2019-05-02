@@ -28,7 +28,7 @@
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #if INTEL_COLLAB
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #endif // INTEL_COLLAB
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Transforms/Utils/Local.h"

@@ -75,8 +75,8 @@
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h"
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionPasses.h"
+#include "llvm/Transforms/VPO/VPOPasses.h"
 #endif // INTEL_COLLAB
 
 #include <cstdlib>

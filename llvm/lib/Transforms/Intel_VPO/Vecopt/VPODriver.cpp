@@ -27,8 +27,8 @@
 #include "llvm/Transforms/Scalar.h"
 
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"

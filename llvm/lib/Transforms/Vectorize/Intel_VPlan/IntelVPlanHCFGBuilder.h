@@ -24,7 +24,7 @@
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 
 extern cl::opt<bool> LoopMassagingEnabled;
 

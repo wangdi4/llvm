@@ -21,7 +21,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelVPlanVLSAnalysis.h"
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionClause.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionClause.h"
 #else
 #include "VPlan.h"
 #endif

@@ -31,7 +31,7 @@ add_llvm_library(LLVMTransformUtils
 # INTEL_COLLAB
   Intel_GeneralUtils.cpp
   Intel_IntrinsicUtils.cpp
-  ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
+  ../VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
 # end INTEL_COLLAB
 # INTEL_CUSTOMIZATION
   Intel_RegionSplitter.cpp

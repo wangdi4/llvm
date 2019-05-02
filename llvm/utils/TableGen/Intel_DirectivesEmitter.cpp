@@ -1,14 +1,8 @@
 #if INTEL_COLLAB
 //
-//      Copyright (c) 2016 Intel Corporation.
-//      All rights reserved.
-//
-//        INTEL CORPORATION PROPRIETARY INFORMATION
-//
-// This software is supplied under the terms of a license
-// agreement or nondisclosure agreement with Intel Corp.
-// and may not be copied or disclosed except in accordance
-// with the terms of that agreement.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 // ===--------------------------------------------------------------------=== //
 ///

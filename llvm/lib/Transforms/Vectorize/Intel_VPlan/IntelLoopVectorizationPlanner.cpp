@@ -22,7 +22,7 @@
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanPredicator.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanIdioms.h"

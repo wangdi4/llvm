@@ -55,8 +55,8 @@ add_llvm_library(LLVMAnalysis
 # end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
   Intel_Directives.cpp
-  Intel_VPO/Utils/IntrinsicUtils.cpp             # TODO: Move to lib/Analysis
-  Intel_VPO/Utils/OpenMPDirectivesAndClauses.cpp # TODO: Move to lib/Analysis
+  VPO/Utils/IntrinsicUtils.cpp             # TODO: Move to lib/Analysis
+  VPO/Utils/OpenMPDirectivesAndClauses.cpp # TODO: Move to lib/Analysis
 # end INTEL_COLLAB
   Interval.cpp
   IntervalPartition.cpp
@@ -130,5 +130,5 @@ add_llvm_library(LLVMAnalysis
 add_subdirectory(Intel_LoopAnalysis)  #INTEL_CUSTOMIZATION
 add_subdirectory(Intel_OptReport)     #INTEL_CUSTOMIZATION
 # INTEL_COLLAB
-add_subdirectory(Intel_VPO)
+add_subdirectory(VPO)
 # end INTEL_COLLAB
