@@ -35,7 +35,7 @@
 
 #include "elf.h"
 #include "omptargetplugin.h"
-#include "umr.h"
+#include "csa/umr.h"
 
 #ifdef OMPTARGET_DEBUG
 static int DebugLevel = 0;

@@ -26,7 +26,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
       libomptarget_say("Building ${tmachine_name} offloading plugin.")
 
       include_directories(${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR})
-      include_directories($ENV{CSABASE_ROOT}/include/csa)
+      include_directories($ENV{CSABASE_ROOT}/include)
 
       add_library("omptarget.rtl.${tmachine_libname}" SHARED
         ${CMAKE_CURRENT_SOURCE_DIR}/src/rtl.cpp)
