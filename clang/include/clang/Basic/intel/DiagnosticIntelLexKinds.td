@@ -19,10 +19,6 @@ let Component = "Lex", CategoryName = "Lexical or Preprocessor Issue" in {
 def warn_unterminated_block_comment : Warning<
   err_unterminated_block_comment.Text>, InGroup<Comment>;
 
-// CQ#369184
-def err_decimal_ext_unsupported : Error<
-  "GNU decimal type extension not supported">;
-
 // CQ#372653.
 def warn_pp_malformed_ident :
   Warning<"invalid #ident directive will be ignored">,

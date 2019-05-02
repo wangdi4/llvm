@@ -7725,14 +7725,6 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       attr.setUsedAsTypeAttr();
       break;
 #if INTEL_CUSTOMIZATION
-    // CQ380256: 'mode' attribute ignored when parsing type
-    case ParsedAttr::AT_Mode:
-      if (state.getDeclarator().getContext() ==
-          DeclaratorContext::TypeNameContext) {
-        state.getSema().HandleModeAttr(attr, &type);
-        attr.setUsedAsTypeAttr();
-      }
-      break;
     case ParsedAttr::AT_ArbPrecInt:
       HandleArbPrecIntAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();

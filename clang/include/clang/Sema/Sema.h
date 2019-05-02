@@ -2103,7 +2103,6 @@ private:
 public:
   void CheckCastAlign(Expr *Op, QualType T, SourceRange TRange);
   void handleTagNumbering(const TagDecl *Tag, Scope *TagScope);
-  void HandleModeAttr(const ParsedAttr &Attr, QualType *CurTy); // INTEL
   void setTagNameForLinkagePurposes(TagDecl *TagFromDeclSpec,
                                     TypedefNameDecl *NewTD);
   void CheckTypedefForVariablyModifiedType(Scope *S, TypedefNameDecl *D);
@@ -8859,9 +8858,7 @@ public:
 
   /// AddModeAttr - Adds a mode attribute to a particular declaration.
   void AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
-                   unsigned SpellingListIndex,   // INTEL
-                   bool InInstantiation = false, // INTEL
-                   QualType *CurTy = nullptr);   // INTEL
+                   unsigned SpellingListIndex, bool InInstantiation = false);
 
   void AddParameterABIAttr(SourceRange AttrRange, Decl *D,
                            ParameterABI ABI, unsigned SpellingListIndex);
