@@ -839,11 +839,6 @@ def gnu_permissive : Flag<["-"], "gnu-permissive">,
 // CQ380574: Ability to set various predefines based on gcc version needed.
 def gnu_version_EQ : Joined<["--"], "gnu_version=">,
   HelpText<"Emulate GNU C++ version">;
-// CQ376358: Support -ffriend-injection option.
-def friend_injection : Flag<["--"], "friend_injection">,
-  HelpText<"Inject friend functions into the enclosing namespace.">;
-def no_friend_injection : Flag<["--"], "no_friend_injection">,
-  HelpText<"Do not inject friend functions into the enclosing namespace.">;
 // IMF attributes support (CQ381541)
 def fintel_imf_attr_EQ : Joined<["-"], "mGLOB_imf_attr=">;
 def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,

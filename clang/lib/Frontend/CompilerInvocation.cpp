@@ -2575,11 +2575,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);
 
   Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode);
-  // CQ376358: Support -ffriend-injection option.
-  Opts.FriendFunctionInject =
-      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection, false);
-  Opts.FriendClassInject =
-      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection, false);
 
   if (const Arg *A = Args.getLastArg(OPT_fintel_long_double_size_EQ)) {
     StringRef Value = A->getValue();

@@ -14705,9 +14705,7 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
   //
   // Also update the scope-based lookup if the target context's
   // lookup context is in lexical scope.
-  if (!CurContext->isDependentContext() ||                      // INTEL
-      (LangOpts.IntelCompat && LangOpts.FriendFunctionInject && // INTEL
-       !isa<FunctionTemplateDecl>(ND))) {                       // INTEL
+  if (!CurContext->isDependentContext()) {
     DC = DC->getRedeclContext();
     DC->makeDeclVisibleInContext(ND);
     if (Scope *EnclosingScope = getScopeForDeclContext(S, DC))

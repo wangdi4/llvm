@@ -105,9 +105,6 @@ LANGOPT(Restrict         , 1, 0,
 LANGOPT(GnuPermissive   , 1, 0, "Turns on GNU -fpermissive mode")
 // Fix for CQ380574: Ability to set various predefines based on gcc version
 // needed.
-// CQ376358: Support -ffriend-injection option
-LANGOPT(FriendFunctionInject, 1, 0, "Inject friend functions into the enclosing namespace")
-LANGOPT(FriendClassInject, 1, 0, "Inject friend classes into the enclosing namespace")
 LANGOPT(LongDoubleSize, 8, 0, "Set the size for LongDouble")
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(MSVCCompat        , 1, 0, "Microsoft Visual C++ full compatibility mode")

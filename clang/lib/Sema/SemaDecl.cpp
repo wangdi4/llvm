@@ -8835,23 +8835,9 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
     if (isFriend) {
       if (FunctionTemplate) {
-#if INTEL_CUSTOMIZATION
-        // CQ376358: Support -ffriend-injection option
-        if (getLangOpts().IntelCompat && getLangOpts().FriendFunctionInject)
-          FunctionTemplate->setObjectOfFriendDecl(
-              /*PerformFriendInjection=*/true);
-        else
-#endif // INTEL_CUSTOMIZATION
         FunctionTemplate->setObjectOfFriendDecl();
         FunctionTemplate->setAccess(AS_public);
       }
-#if INTEL_CUSTOMIZATION
-      // CQ376358: Support -ffriend-injection option
-      if (getLangOpts().IntelCompat && getLangOpts().FriendFunctionInject)
-        NewFD->setObjectOfFriendDecl(
-            /*PerformFriendInjection=*/true);
-      else
-#endif // INTEL_CUSTOMIZATION
       NewFD->setObjectOfFriendDecl();
       NewFD->setAccess(AS_public);
     }
@@ -15355,10 +15341,7 @@ CreateNewDecl:
   // declaration so we always pass true to setObjectOfFriendDecl to make
   // the tag name visible.
   if (TUK == TUK_Friend)
-    New->setObjectOfFriendDecl(             // INTEL
-        getLangOpts().MSVCCompat ||         // INTEL
-        (getLangOpts().IntelCompat &&       // INTEL
-         getLangOpts().FriendClassInject)); // INTEL
+    New->setObjectOfFriendDecl(getLangOpts().MSVCCompat);
 
   // Set the access specifier.
   if (!Invalid && SearchDC->isRecord())
