@@ -3210,8 +3210,6 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
     // CQ#374273 - allow '#pragma unroll = N' spelling.
     bool ValueWithEqual = PP.getLangOpts().IntelCompat && Tok.is(tok::equal);
     if (ValueInParens || ValueWithEqual)
-#else
-    if (ValueInParens)
 #endif // INTEL_CUSTOMIZATION
       PP.Lex(Tok);
 

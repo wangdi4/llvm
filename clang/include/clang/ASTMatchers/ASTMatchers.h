@@ -5664,8 +5664,6 @@ extern const AstTypeMatcher<TemplateSpecializationType>
 #if INTEL_CUSTOMIZATION
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
 ///   matches "__underlying_type(T)", "__bases(T)" and "__direct_bases(T)"
-#else
-///   matches "__underlying_type(T)"
 #endif // INTEL_CUSTOMIZATION
 extern const AstTypeMatcher<UnaryTransformType> unaryTransformType;
 

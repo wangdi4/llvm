@@ -12,6 +12,7 @@
 
 #include "Plugins/Process/Utility/LinuxProcMaps.h"
 #include "lldb/Utility/LLDBAssert.h"
+#include "lldb/Utility/Log.h"
 
 // C includes
 // C++ includes
@@ -22,21 +23,6 @@
 
 using namespace lldb_private;
 using namespace minidump;
-
-const Header *ParseHeader(llvm::ArrayRef<uint8_t> &data) {
-  const Header *header = nullptr;
-  Status error = consumeObject(data, header);
-
-  uint32_t signature = header->Signature;
-  uint32_t version = header->Version & 0x0000ffff;
-  // the high 16 bits of the version field are implementation specific
-
-  if (error.Fail() || signature != Header::MagicSignature ||
-      version != Header::MagicVersion)
-    return nullptr;
-
-  return header;
-}
 
 llvm::Expected<MinidumpParser>
 MinidumpParser::Create(const lldb::DataBufferSP &data_sp) {
@@ -62,17 +48,9 @@ llvm::ArrayRef<uint8_t> MinidumpParser::GetStream(StreamType stream_type) {
       .getValueOr(llvm::ArrayRef<uint8_t>());
 }
 
-llvm::Optional<std::string> MinidumpParser::GetMinidumpString(uint32_t rva) {
-  auto arr_ref = m_data_sp->GetData();
-  if (rva > arr_ref.size())
-    return llvm::None;
-  arr_ref = arr_ref.drop_front(rva);
-  return parseMinidumpString(arr_ref);
-}
-
-UUID MinidumpParser::GetModuleUUID(const MinidumpModule *module) {
+UUID MinidumpParser::GetModuleUUID(const minidump::Module *module) {
   auto cv_record =
-      GetData().slice(module->CV_record.RVA, module->CV_record.DataSize);
+      GetData().slice(module->CvRecord.RVA, module->CvRecord.DataSize);
 
   // Read the CV record signature
   const llvm::support::ulittle32_t *signature = nullptr;
@@ -88,40 +66,23 @@ UUID MinidumpParser::GetModuleUUID(const MinidumpModule *module) {
     Status error = consumeObject(cv_record, pdb70_uuid);
     if (error.Fail())
       return UUID();
-    // If the age field is not zero, then include the entire pdb70_uuid struct
-    if (pdb70_uuid->Age != 0)
-      return UUID::fromData(pdb70_uuid, sizeof(*pdb70_uuid));
 
-    // Many times UUIDs are all zeroes. This can cause more than one module
-    // to claim it has a valid UUID of all zeroes and causes the files to all
-    // merge into the first module that claims this valid zero UUID.
-    bool all_zeroes = true;
-    for (size_t i = 0; all_zeroes && i < sizeof(pdb70_uuid->Uuid); ++i)
-      all_zeroes = pdb70_uuid->Uuid[i] == 0;
-    if (all_zeroes)
-      return UUID();
-    
-    if (GetArchitecture().GetTriple().getVendor() == llvm::Triple::Apple) {
-      // Breakpad incorrectly byte swaps the first 32 bit and next 2 16 bit
-      // values in the UUID field. Undo this so we can match things up
-      // with our symbol files
-      uint8_t apple_uuid[16];
-      // Byte swap the first 32 bits
-      apple_uuid[0] = pdb70_uuid->Uuid[3];
-      apple_uuid[1] = pdb70_uuid->Uuid[2];
-      apple_uuid[2] = pdb70_uuid->Uuid[1];
-      apple_uuid[3] = pdb70_uuid->Uuid[0];
-      // Byte swap the next 16 bit value
-      apple_uuid[4] = pdb70_uuid->Uuid[5];
-      apple_uuid[5] = pdb70_uuid->Uuid[4];
-      // Byte swap the next 16 bit value
-      apple_uuid[6] = pdb70_uuid->Uuid[7];
-      apple_uuid[7] = pdb70_uuid->Uuid[6];
-      for (size_t i = 8; i < sizeof(pdb70_uuid->Uuid); ++i)
-        apple_uuid[i] = pdb70_uuid->Uuid[i];
-      return UUID::fromData(apple_uuid, sizeof(apple_uuid));
+    CvRecordPdb70 swapped;
+    if (!GetArchitecture().GetTriple().isOSBinFormatELF()) {
+      // LLDB's UUID class treats the data as a sequence of bytes, but breakpad
+      // interprets it as a sequence of little-endian fields, which it converts
+      // to big-endian when converting to text. Swap the bytes to big endian so
+      // that the string representation comes out right.
+      swapped = *pdb70_uuid;
+      llvm::sys::swapByteOrder(swapped.Uuid.Data1);
+      llvm::sys::swapByteOrder(swapped.Uuid.Data2);
+      llvm::sys::swapByteOrder(swapped.Uuid.Data3);
+      llvm::sys::swapByteOrder(swapped.Age);
+      pdb70_uuid = &swapped;
     }
-    return UUID::fromData(pdb70_uuid->Uuid, sizeof(pdb70_uuid->Uuid));
+    if (pdb70_uuid->Age != 0)
+      return UUID::fromOptionalData(pdb70_uuid, sizeof(*pdb70_uuid));
+    return UUID::fromOptionalData(&pdb70_uuid->Uuid, sizeof(pdb70_uuid->Uuid));
   } else if (cv_signature == CvSignature::ElfBuildId)
     return UUID::fromOptionalData(cv_record);
 
@@ -180,29 +141,19 @@ MinidumpParser::GetThreadContextWow64(const MinidumpThread &td) {
   // stored in the first slot of the 64-bit TEB (wow64teb.Reserved1[0]).
 }
 
-const SystemInfo *MinidumpParser::GetSystemInfo() {
-  llvm::ArrayRef<uint8_t> data = GetStream(StreamType::SystemInfo);
-
-  if (data.size() == 0)
-    return nullptr;
-  const SystemInfo *system_info;
-
-  Status error = consumeObject(data, system_info);
-  if (error.Fail())
-    return nullptr;
-
-  return system_info;
-}
-
 ArchSpec MinidumpParser::GetArchitecture() {
   if (m_arch.IsValid())
     return m_arch;
 
   // Set the architecture in m_arch
-  const SystemInfo *system_info = GetSystemInfo();
+  llvm::Expected<const SystemInfo &> system_info = m_file->getSystemInfo();
 
-  if (!system_info)
+  if (!system_info) {
+    LLDB_LOG_ERROR(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_PROCESS),
+                   system_info.takeError(),
+                   "Failed to read SystemInfo stream: {0}");
     return m_arch;
+  }
 
   // TODO what to do about big endiand flavors of arm ?
   // TODO set the arm subarch stuff if the minidump has info about it
@@ -253,13 +204,17 @@ ArchSpec MinidumpParser::GetArchitecture() {
     break;
   default: {
     triple.setOS(llvm::Triple::OSType::UnknownOS);
-    std::string csd_version;
-    if (auto s = GetMinidumpString(system_info->CSDVersionRVA))
-      csd_version = *s;
-    if (csd_version.find("Linux") != std::string::npos)
-      triple.setOS(llvm::Triple::OSType::Linux);
-    break;
+    auto ExpectedCSD = m_file->getString(system_info->CSDVersionRVA);
+    if (!ExpectedCSD) {
+      LLDB_LOG_ERROR(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_PROCESS),
+                     ExpectedCSD.takeError(),
+                     "Failed to CSD Version string: {0}");
+    } else {
+      if (ExpectedCSD->find("Linux") != std::string::npos)
+        triple.setOS(llvm::Triple::OSType::Linux);
     }
+    break;
+  }
   }
   m_arch.SetTriple(triple);
   return m_arch;
@@ -297,41 +252,47 @@ llvm::Optional<lldb::pid_t> MinidumpParser::GetPid() {
   return llvm::None;
 }
 
-llvm::ArrayRef<MinidumpModule> MinidumpParser::GetModuleList() {
-  llvm::ArrayRef<uint8_t> data = GetStream(StreamType::ModuleList);
+llvm::ArrayRef<minidump::Module> MinidumpParser::GetModuleList() {
+  auto ExpectedModules = GetMinidumpFile().getModuleList();
+  if (ExpectedModules)
+    return *ExpectedModules;
 
-  if (data.size() == 0)
-    return {};
-
-  return MinidumpModule::ParseModuleList(data);
+  LLDB_LOG_ERROR(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_MODULES),
+                 ExpectedModules.takeError(),
+                 "Failed to read module list: {0}");
+  return {};
 }
 
-std::vector<const MinidumpModule *> MinidumpParser::GetFilteredModuleList() {
-  llvm::ArrayRef<MinidumpModule> modules = GetModuleList();
+std::vector<const minidump::Module *> MinidumpParser::GetFilteredModuleList() {
+  Log *log = GetLogIfAnyCategoriesSet(LIBLLDB_LOG_MODULES);
+  auto ExpectedModules = GetMinidumpFile().getModuleList();
+  if (!ExpectedModules) {
+    LLDB_LOG_ERROR(log, ExpectedModules.takeError(),
+                   "Failed to read module list: {0}");
+    return {};
+  }
+
   // map module_name -> filtered_modules index
   typedef llvm::StringMap<size_t> MapType;
   MapType module_name_to_filtered_index;
 
-  std::vector<const MinidumpModule *> filtered_modules;
-  
-  llvm::Optional<std::string> name;
-  std::string module_name;
+  std::vector<const minidump::Module *> filtered_modules;
 
-  for (const auto &module : modules) {
-    name = GetMinidumpString(module.module_name_rva);
-    
-    if (!name)
+  for (const auto &module : *ExpectedModules) {
+    auto ExpectedName = m_file->getString(module.ModuleNameRVA);
+    if (!ExpectedName) {
+      LLDB_LOG_ERROR(log, ExpectedName.takeError(),
+                     "Failed to module name: {0}");
       continue;
-    
-    module_name = name.getValue();
-    
+    }
+
     MapType::iterator iter;
     bool inserted;
     // See if we have inserted this module aready into filtered_modules. If we
     // haven't insert an entry into module_name_to_filtered_index with the
     // index where we will insert it if it isn't in the vector already.
     std::tie(iter, inserted) = module_name_to_filtered_index.try_emplace(
-        module_name, filtered_modules.size());
+        *ExpectedName, filtered_modules.size());
 
     if (inserted) {
       // This module has not been seen yet, insert it into filtered_modules at
@@ -343,7 +304,7 @@ std::vector<const MinidumpModule *> MinidumpParser::GetFilteredModuleList() {
       // times when they are mapped discontiguously, so find the module with
       // the lowest "base_of_image" and use that as the filtered module.
       auto dup_module = filtered_modules[iter->second];
-      if (module.base_of_image < dup_module->base_of_image)
+      if (module.BaseOfImage < dup_module->BaseOfImage)
         filtered_modules[iter->second] = &module;
     }
   }

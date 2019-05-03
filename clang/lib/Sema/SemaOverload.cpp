@@ -4714,12 +4714,7 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
   //     -- Otherwise, the reference shall be an lvalue reference to a
   //        non-volatile const type (i.e., cv1 shall be const), or the reference
   //        shall be an rvalue reference.
-#if INTEL_CUSTOMIZATION
-  // CQ#364712: let non-const lvalue references bind to temporaries.
-  auto InitStatus = S.GetReferenceInitStatus(
-      Init, !isRValRef, T1, T1.getQualifiers(), RefRelationship);
-  if (InitStatus == Sema::RIS_Forbidden)
-#endif // INTEL_CUSTOMIZATION
+  if (!isRValRef && (!T1.isConstQualified() || T1.isVolatileQualified()))
     return ICS;
 
   //       -- If the initializer expression
@@ -4756,11 +4751,6 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
     ICS.Standard.ObjCLifetimeConversionBinding = ObjCLifetimeConversion;
     ICS.Standard.CopyConstructor = nullptr;
     ICS.Standard.DeprecatedStringLiteralToCharPtr = false;
-#if INTEL_CUSTOMIZATION
-    // Mark this conversion permissive for correct overloading resolution.
-    if (InitStatus == Sema::RIS_Extension)
-      ICS.setPermissive();
-#endif // INTEL_CUSTOMIZATION
     return ICS;
   }
 
@@ -11567,12 +11557,6 @@ Sema::ResolveAddressOfOverloadedFunction(Expr *AddressOfExpr,
       ResolveExceptionSpec(AddressOfExpr->getExprLoc(), FPT);
     FoundResult = *Resolver.getMatchingFunctionAccessPair();
     if (Complain) {
-#if INTEL_CUSTOMIZATION
-      // CQ374728: cannot create a pointer to static member function
-      if (getLangOpts().IntelCompat)
-        CheckAddressOfMemberAccess(AddressOfExpr, FoundResult);
-      else
-#endif // INTEL_CUSTOMIZATION
       if (Resolver.IsStaticMemberFunctionFromBoundPointer())
         Resolver.ComplainIsStaticMemberFunctionFromBoundPointer();
       else

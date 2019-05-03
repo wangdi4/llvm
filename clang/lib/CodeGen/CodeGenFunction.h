@@ -1500,6 +1500,57 @@ public:
   };
 #endif  // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
+  // Expressions saved in the VLASizeMap cannot be reused inside regions
+  // that will be late-outlined. This saves and restores the map and
+  // provides the mechanism to re-emit the expressions in each region.
+  // Since codegen expects these to be emitted on declaration of a variable
+  // with variably modified type, we need to re-emit before processing the
+  // body of the region.  Currently we just re-emit all expressions seen
+  // so far, potentially emitting expressions we won't need in the region.
+  // If this turns out to be a problem we'll need to implement some
+  // mechanism to determine with are needed, or regenerate them on demand
+  // during codegen.
+  class VLASizeMapHandler {
+    CodeGenFunction &CGF;
+    llvm::DenseMap<const Expr*, llvm::Value*> SavedVLASizeMap;
+    llvm::DenseMap<const Expr*, std::pair<llvm::Value*, CharUnits>> AddressMap;
+  public:
+    VLASizeMapHandler(CodeGenFunction &CGF)
+     : CGF(CGF) {
+      SavedVLASizeMap = CGF.VLASizeMap;
+      // Outside the region save value in a temp.
+      for (auto &V : CGF.VLASizeMap) {
+        const Expr *E = V.first;
+        llvm::APSInt ConstLength;
+        if (E->isIntegerConstantExpr(ConstLength, CGF.getContext()))
+          continue;
+
+        Address A =
+            CGF.CreateMemTemp(CGF.getContext().getSizeType(), "omp.vla.tmp");
+        LValue LV = CGF.MakeAddrLValue(A, CGF.getContext().getSizeType());
+        RValue RV = RValue::get(V.second);
+        CGF.EmitStoreThroughLValue(RV, LV, /*isInit=*/true);
+        AddressMap[V.first] = {A.getPointer(), A.getAlignment()};
+      }
+    }
+    void EmitVLAExpressions() {
+      // Inside the region load the temp and record it so it appears in a
+      // clause.
+      for (auto &Z : AddressMap) {
+        const Expr *E = Z.first;
+        llvm::Value *V = Z.second.first;
+        CharUnits Align = Z.second.second;
+        Address A(V, Align);
+        CGF.VLASizeMap[E] = CGF.Builder.CreateLoad(A);
+        if (CGF.CapturedStmtInfo)
+          CGF.CapturedStmtInfo->recordValueReference(
+              cast<llvm::LoadInst>(CGF.VLASizeMap[E])->getPointerOperand());
+      }
+    }
+    ~VLASizeMapHandler() {
+      CGF.VLASizeMap = SavedVLASizeMap;
+    }
+  };
   // Save and clear the TerminateLandingPad on entry to each OpenMP region.
   // This will ensure we have one for each OpenMP region when it is outlined.
   class OMPTerminateLandingPadHandler {

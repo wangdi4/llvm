@@ -112,6 +112,12 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasPTWRITE = false;
   bool HasINVPCID = false;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+  bool HasENQCMD = false;
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#if INTEL_FEATURE_ISA_KEYLOCKER
+  bool HasKeyLocker = false;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
 #if INTEL_FEATURE_ISA_SERIALIZE
   bool HasSERIALIZE = false;
 #endif // INTEL_FEATURE_ISA_SERIALIZE

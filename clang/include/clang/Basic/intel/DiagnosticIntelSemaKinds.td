@@ -31,11 +31,6 @@ def warn_access_dtor_vbase :
     Warning<"inherited virtual base class %1 has "
     "%select{private|protected}2 destructor">,
     AccessControl, InGroup<PrivateVBaseDtor>;
-def warn_intel_nontrivial_union_or_anon_struct_member : Warning<
-  "%select{anonymous struct|union}0 member %1 has a non-trivial "
-  "%select{constructor|copy constructor|move constructor|copy assignment "
-  "operator|move assignment operator|destructor}2">,
-  InGroup<IntelCompat>;
 def warn_lvalue_reference_bind_to_initlist : Warning<
   "%select{non-const|volatile}0 lvalue reference to type %1 cannot bind to an "
   "initializer list temporary">, InGroup<IntelCompat>;
@@ -83,15 +78,6 @@ def ext_intel_redefinition_extern_inline : ExtWarn<
   InGroup<IntelCompat>;
 def err_recursive_attribute_expected : Error<
   "recursive keyword expected after a pragma inline directive">;
-// CQ#369830 - static declaration of functions is treated differently.
-def ext_intel_static_non_static : Extension<
-  "redeclaring non-static %0 as static is an Intel extension">,
-  InGroup<IntelCompat>;
-def ext_intel_non_static_static : Extension<
-  "redeclaring static %0 as non-static is an Intel extension">,
-  InGroup<IntelCompat>;
-def ext_intel_static_block_func : Extension<
-  "static functions inside blocks are Intel extension">, InGroup<IntelCompat>;
 // CQ#364598, CQ#374878.
 def ext_intel_elaborated_type_refers_to_typedef : ExtWarn<
   "elaborated type refers to a typedef">, InGroup<IntelCompat>;
@@ -214,6 +200,9 @@ def err_hls_force_loop_pipelining_invalid : Error<
   "%0 attribute argument must be 'on' or 'off'">;
 def err_hls_force_loop_pipelining_conflict : Error<
   "%0 and 'hls_force_loop_pipelining(off)' attributes are not compatible">;
+def warn_attribute_deprecated : Warning<
+  "attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead">,
+  InGroup<IgnoredAttributes>;
 
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<

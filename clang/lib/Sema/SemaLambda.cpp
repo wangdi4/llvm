@@ -1419,19 +1419,8 @@ static ExprResult performLambdaVarCaptureInitialization(
   // C++ [expr.prim.lambda]p12:
   //   An entity captured by a lambda-expression is odr-used (3.2) in
   //   the scope containing the lambda-expression.
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ374573: Source correlation for lambda captured values.
-  ExprResult RefResult = S.BuildDeclarationNameExpr(
-      CXXScopeSpec(),
-      DeclarationNameInfo(Var->getDeclName(),
-                          (IsImplicitCapture && S.getLangOpts().IntelCompat)
-                              ? ImplicitCaptureLoc
-                              : Loc),
-      Var);
-#else
   ExprResult RefResult = S.BuildDeclarationNameExpr(
       CXXScopeSpec(), DeclarationNameInfo(Var->getDeclName(), Loc), Var);
-#endif // INTEL_CUSTOMIZATION
   if (RefResult.isInvalid())
     return ExprError();
   Expr *Ref = RefResult.get();

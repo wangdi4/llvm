@@ -62,19 +62,19 @@ void bar(int if_val, int num_threads_val) {
   // proc_bind
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[PB1_ADDR]])
-  // CHECK-SAME: "QUAL.OMP.PROCBIND.MASTER"
+  // CHECK-SAME: "QUAL.OMP.PROC_BIND.MASTER"
   #pragma omp parallel private(pb1) proc_bind(master)
   { foo(); }
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[PB2_ADDR]])
-  // CHECK-SAME: "QUAL.OMP.PROCBIND.CLOSE"
+  // CHECK-SAME: "QUAL.OMP.PROC_BIND.CLOSE"
   #pragma omp parallel private(pb2) proc_bind(close)
   { foo(); }
 
   // CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[PB3_ADDR]])
-  // CHECK-SAME: "QUAL.OMP.PROCBIND.SPREAD"
+  // CHECK-SAME: "QUAL.OMP.PROC_BIND.SPREAD"
   #pragma omp parallel private(pb3) proc_bind(spread)
   { foo(); }
 

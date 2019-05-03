@@ -6809,14 +6809,8 @@ void Sema::CheckExplicitlyDefaultedMemberExceptionSpec(
     Context.getFunctionType(Context.VoidTy, None, EPI));
 
   // Ensure that it matches.
-#if INTEL_CUSTOMIZATION
-  // CQ#381833: in IntelCompat mode incorrect defaulted exception specification
-  // causes a warning.
   CheckEquivalentExceptionSpec(
-    PDiag(getLangOpts().IntelCompat
-              ? diag::warn_incorrect_defaulted_exception_spec
-              : diag::err_incorrect_defaulted_exception_spec)
-#endif // INTEL_CUSTOMIZATION
+    PDiag(diag::err_incorrect_defaulted_exception_spec)
       << getSpecialMember(MD), PDiag(),
     ImplicitType, SourceLocation(),
     SpecifiedType, MD->getLocation());

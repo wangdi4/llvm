@@ -63,6 +63,9 @@ class OpenMPLateOutliner {
   // Save and restore the TerminateLandingPad.
   CodeGenFunction::OMPTerminateLandingPadHandler TLPH;
 
+  // Handle reprocessing VLASizeMap expressions.
+  CodeGenFunction::VLASizeMapHandler VSMH;
+
   // For region entry/exit implementation
   llvm::Function *RegionEntryDirective = nullptr;
   llvm::Function *RegionExitDirective = nullptr;
@@ -183,6 +186,8 @@ class OpenMPLateOutliner {
   void emitOMPReductionClauseCommon(const RedClause *Cl, StringRef QualName);
   void emitOMPReductionClause(const OMPReductionClause *Cl);
   void emitOMPOrderedClause(const OMPOrderedClause *C);
+  void buildMapQualifier(OpenMPLateOutliner::ClauseStringBuilder &CSB,
+                         const OMPMapClause *C);
   void emitOMPMapClause(const OMPMapClause *Cl);
   void emitOMPScheduleClause(const OMPScheduleClause *C);
   void emitOMPFirstprivateClause(const OMPFirstprivateClause *Cl);
@@ -247,6 +252,8 @@ class OpenMPLateOutliner {
   void addImplicitClauses();
   void addRefsToOuter();
 
+  bool needsVLAExprEmission();
+
   enum ImplicitClauseKind {
     ICK_private,
     ICK_firstprivate,
@@ -307,6 +314,10 @@ public:
   void emitOMPParallelSectionsDirective();
   void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
+  void emitVLAExpressions() {
+    if (needsVLAExprEmission())
+      VSMH.EmitVLAExpressions();
+  }
 
   OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicitLoopBounds(const OMPLoopDirective *LD);
@@ -446,6 +457,8 @@ public:
     // Start emission for the construct.
     CGF.CapturedStmtInfo =
         new CGLateOutlineOpenMPRegionInfo(CGF.CapturedStmtInfo, Outliner, D);
+    // If region is going to be outlined, re-emit the VLAExpressions.
+    O.emitVLAExpressions();
   }
   ~LateOutlineOpenMPRegionRAII() {
     // Restore original CapturedStmtInfo only if we're done with code emission.

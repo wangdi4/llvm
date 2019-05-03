@@ -2169,7 +2169,7 @@ static void emitClangAttrTypeArgList(RecordKeeper &Records, raw_ostream &OS) {
 #if INTEL_CUSTOMIZATION
     // Since we are namespacing everything, we have to allow
     // for multiple spellings in different namespaces. This will sometimes cause
-    // duplicate cases, but this is required for attributes that don't 
+    // duplicate cases, but this is required for attributes that don't
     // explicitly specify CXX11 gnu:: mode AND GNU modes.
     // For example, "__attribute__((availability))" is GNU::availability,
     // but should also be available as [[gnu::availabillity]].
@@ -2182,10 +2182,6 @@ static void emitClangAttrTypeArgList(RecordKeeper &Records, raw_ostream &OS) {
       // by "gnu::"
       if (S.variety() == "GNU")
         OS << ".Case(\"" << "CXX11::gnu::"<< S.name() <<"\", true)\n";
-#else
-    // All these spellings take a single type argument.
-    forEachUniqueSpelling(*Attr, [&](const FlattenedSpelling &S) {
-      OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
 #endif // INTEL_CUSTOMIZATION
     });
   }
@@ -2206,7 +2202,7 @@ static void emitClangAttrArgContextList(RecordKeeper &Records, raw_ostream &OS) 
 #if INTEL_CUSTOMIZATION
     // Since we are namespacing everything, we have to allow
     // for multiple spellings in different namespaces. This will sometimes cause
-    // duplicate cases, but this is required for attributes that don't 
+    // duplicate cases, but this is required for attributes that don't
     // explicitly specify CXX11 gnu:: mode AND GNU modes.
     // For example, "__attribute__((availability))" is GNU::availability,
     // but should also be available as [[gnu::availabillity]].
@@ -2219,10 +2215,6 @@ static void emitClangAttrArgContextList(RecordKeeper &Records, raw_ostream &OS) 
       // by "gnu::"
       if (S.variety() == "GNU")
         OS << ".Case(\"" << "CXX11::gnu::"<< S.name() <<"\", true)\n";
-#else
-    // All these spellings take are parsed unevaluated.
-    forEachUniqueSpelling(Attr, [&](const FlattenedSpelling &S) {
-      OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
 #endif // INTEL_CUSTOMIZATION
     });
   }
@@ -2282,7 +2274,7 @@ static void emitClangAttrIdentifierArgList(RecordKeeper &Records, raw_ostream &O
 #if INTEL_CUSTOMIZATION
     // Since we are namespacing everything, we have to allow
     // for multiple spellings in different namespaces. This will sometimes cause
-    // duplicate cases, but this is required for attributes that don't 
+    // duplicate cases, but this is required for attributes that don't
     // explicitly specify CXX11 gnu:: mode AND GNU modes.
     // For example, "__attribute__((availability))" is GNU::availability,
     // but should also be available as [[gnu::availabillity]].
@@ -2295,9 +2287,6 @@ static void emitClangAttrIdentifierArgList(RecordKeeper &Records, raw_ostream &O
       // by "gnu::"
       if (S.variety() == "GNU")
         OS << ".Case(\"" << "CXX11::gnu::"<< S.name() <<"\", true)\n";
-#else
-    forEachUniqueSpelling(*Attr, [&](const FlattenedSpelling &S) {
-      OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
 #endif // INTEL_CUSTOMIZATION
     });
   }

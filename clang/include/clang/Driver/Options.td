@@ -2002,6 +2002,12 @@ def init : Separate<["-"], "init">;
 def install__name : Separate<["-"], "install_name">;
 def iprefix : JoinedOrSeparate<["-"], "iprefix">, Group<clang_i_Group>, Flags<[CC1Option]>,
   HelpText<"Set the -iwithprefix/-iwithprefixbefore prefix">, MetaVarName<"<dir>">;
+//if INTEL_CUSTOMIZATION
+def ipo : Flag<["-"], "ipo">, Alias<flto>,
+  HelpText<"Enable LTO in 'full' mode">;
+def no_ipo : Flag<["-"], "no-ipo">, Alias<fno_lto>,
+  HelpText<"Disable LTO mode (default)">;
+//endif INTEL_CUSTOMIZATION
 def iquote : JoinedOrSeparate<["-"], "iquote">, Group<clang_i_Group>, Flags<[CC1Option]>,
   HelpText<"Add directory to QUOTE include search path">, MetaVarName<"<directory>">;
 def isysroot : JoinedOrSeparate<["-"], "isysroot">, Group<clang_i_Group>, Flags<[CC1Option]>,
@@ -2960,6 +2966,12 @@ def mclzero : Flag<["-"], "mclzero">, Group<m_x86_Features_Group>;
 def mno_clzero : Flag<["-"], "mno-clzero">, Group<m_x86_Features_Group>;
 def mcx16 : Flag<["-"], "mcx16">, Group<m_x86_Features_Group>;
 def mno_cx16 : Flag<["-"], "mno-cx16">, Group<m_x86_Features_Group>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+def menqcmd : Flag<["-"], "menqcmd">, Group<m_x86_Features_Group>;
+def mno_enqcmd : Flag<["-"], "mno-enqcmd">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#endif // INTEL_CUSTOMIZATION
 def mf16c : Flag<["-"], "mf16c">, Group<m_x86_Features_Group>;
 def mno_f16c : Flag<["-"], "mno-f16c">, Group<m_x86_Features_Group>;
 def mfma : Flag<["-"], "mfma">, Group<m_x86_Features_Group>;
@@ -2974,6 +2986,12 @@ def minvpcid : Flag<["-"], "minvpcid">, Group<m_x86_Features_Group>;
 def mno_invpcid : Flag<["-"], "mno-invpcid">, Group<m_x86_Features_Group>;
 def mgfni : Flag<["-"], "mgfni">, Group<m_x86_Features_Group>;
 def mno_gfni : Flag<["-"], "mno-gfni">, Group<m_x86_Features_Group>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+def mkeylocker : Flag<["-"], "mkeylocker">, Group<m_x86_Features_Group>;
+def mno_keylocker : Flag<["-"], "mno-keylocker">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
 def mlwp : Flag<["-"], "mlwp">, Group<m_x86_Features_Group>;
 def mno_lwp : Flag<["-"], "mno-lwp">, Group<m_x86_Features_Group>;
 def mlzcnt : Flag<["-"], "mlzcnt">, Group<m_x86_Features_Group>;

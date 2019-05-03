@@ -4067,7 +4067,7 @@ static void TryReferenceListInitialization(Sema &S,
                                            InitializationSequence &Sequence,
                                            bool TreatUnavailableAsInvalid) {
   // First, catch C++03 where this isn't possible.
-  if (!S.getLangOpts().CPlusPlus11 && !S.getLangOpts().IntelCompat) { //INTEL
+  if (!S.getLangOpts().CPlusPlus11) {
     Sequence.SetFailed(InitializationSequence::FK_ReferenceBindingToInitList);
     return;
   }
@@ -4215,7 +4215,7 @@ static void TryListInitialization(Sema &S,
   if ((DestType->isRecordType() && !DestType->isAggregateType()) ||
       (S.getLangOpts().CPlusPlus11 &&
        S.isStdInitializerList(DestType, nullptr))) {
-    if (S.getLangOpts().CPlusPlus11 || S.getLangOpts().IntelCompat) { // INTEL
+    if (S.getLangOpts().CPlusPlus11) {
       //   - Otherwise, if the initializer list has no elements and T is a
       //     class type with a default constructor, the object is
       //     value-initialized.
@@ -4552,29 +4552,6 @@ static bool isNonReferenceableGLValue(Expr *E) {
   return E->refersToBitField() || E->refersToVectorElement();
 }
 
-#if INTEL_CUSTOMIZATION
-Sema::ReferenceInitStatus
-Sema::GetReferenceInitStatus(Expr *Init, bool isLValueRef, QualType T,
-                             Qualifiers Quals,
-                             Sema::ReferenceCompareResult RefRelationships) {
-  // Const non-volatile lvalue references and rvalue references are allowed.
-  if (!isLValueRef || (!Quals.hasVolatile() && Quals.hasConst()))
-    return Sema::RIS_Allowed;
-
-  // Everything else is an Intel MSVC compatibility extensions for C++.
-  if (!(getLangOpts().IntelMSCompat && getLangOpts().CPlusPlus))
-    return Sema::RIS_Forbidden;
-
-  // Non-const lvalue reference can be bound to the result of "new" statement
-  // or to temporary of compatible class type without dropping qualifiers.
-  if ((RefRelationships >= Sema::Ref_Related && T->isRecordType()) ||
-      isa<CXXNewExpr>(Init))
-    return Sema::RIS_Extension;
-
-  return Sema::RIS_Forbidden;
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// Reference initialization without resolving overloaded functions.
 static void TryReferenceInitializationCore(Sema &S,
                                            const InitializedEntity &Entity,
@@ -4660,12 +4637,7 @@ static void TryReferenceInitializationCore(Sema &S,
   //     - Otherwise, the reference shall be an lvalue reference to a
   //       non-volatile const type (i.e., cv1 shall be const), or the reference
   //       shall be an rvalue reference.
-#if INTEL_CUSTOMIZATION
-  auto InitStatus = S.GetReferenceInitStatus(Initializer, isLValueRef, T1,
-                                             T1Quals, RefRelationship);
-  // CQ#364712 - allow non-const lvalue reference bind to temporary.
-  if (InitStatus == Sema::RIS_Forbidden) {
-#endif // INTEL_CUSTOMIZATION
+  if (isLValueRef && !(T1Quals.hasConst() && !T1Quals.hasVolatile())) {
     if (S.Context.getCanonicalType(T2) == S.Context.OverloadTy)
       Sequence.SetFailed(InitializationSequence::FK_AddressOfOverloadFailed);
     else if (ConvOvlResult && !Sequence.getFailedCandidateSet().empty())
@@ -7638,25 +7610,6 @@ ExprResult InitializationSequence::Perform(Sema &S,
     case SK_BindReferenceToTemporary: {
       // Make sure the "temporary" is actually an rvalue.
       assert(CurInit.get()->isRValue() && "not a temporary");
-
-#if INTEL_CUSTOMIZATION
-      // CQ#364712 - allow non-const lvalue reference bind to temporary.
-      if (Entity.getType()->isLValueReferenceType() &&
-          (!DestType.isConstQualified() || DestType.isVolatileQualified())) {
-        // If it is non-const non-volatile lvalue reference and FailureKind was
-        // not set, we should emit a warning.
-        if (isa<InitListExpr>(Args[0]))
-          S.Diag(Kind.getLocation(),
-                 diag::warn_lvalue_reference_bind_to_initlist)
-              << DestType.isVolatileQualified() << DestType
-              << Args[0]->getSourceRange();
-        else
-          S.Diag(Kind.getLocation(),
-                 diag::warn_lvalue_reference_bind_to_temporary)
-              << DestType.isVolatileQualified() << DestType
-              << Args[0]->getType() << Args[0]->getSourceRange();
-      }
-#endif // INTEL_CUSTOMIZATION
 
       // Check exception specifications
       if (S.CheckExceptionSpecCompatibility(CurInit.get(), DestType))

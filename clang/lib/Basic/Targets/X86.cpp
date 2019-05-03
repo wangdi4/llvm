@@ -552,6 +552,11 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
   case SSE2:
     Features["sse2"] = Features["pclmul"] = Features["aes"] = Features["sha"] =
         Features["gfni"] = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+    Features["keylocker"] = false;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case SSE3:
     Features["sse3"] = false;
@@ -689,6 +694,13 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     setMMXLevel(Features, AMD3DNow, Enabled);
   } else if (Name == "3dnowa") {
     setMMXLevel(Features, AMD3DNowAthlon, Enabled);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+  } else if (Name == "keylocker") {
+    if (Enabled)
+      setSSELevel(Features, SSE2, Enabled);
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
   } else if (Name == "aes") {
     if (Enabled)
       setSSELevel(Features, SSE2, Enabled);
@@ -912,6 +924,12 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasCLDEMOTE = true;
     } else if (Feature == "+rdpid") {
       HasRDPID = true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+    } else if (Feature == "+keylocker") {
+      HasKeyLocker = true;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+retpoline-external-thunk") {
       HasRetpolineExternalThunk = true;
     } else if (Feature == "+sahf") {
@@ -929,6 +947,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+invpcid") {
       HasINVPCID = true;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+    } else if (Feature == "+enqcmd") {
+      HasENQCMD = true;
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #if INTEL_FEATURE_ISA_SERIALIZE
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
@@ -1328,6 +1350,12 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__PREFETCHWT1__");
   if (HasCLZERO)
     Builder.defineMacro("__CLZERO__");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+  if (HasKeyLocker)
+    Builder.defineMacro("__KEYLOCKER__");
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
   if (HasRDPID)
     Builder.defineMacro("__RDPID__");
   if (HasCLDEMOTE)
@@ -1345,6 +1373,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasINVPCID)
     Builder.defineMacro("__INVPCID__");
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+  if (HasENQCMD)
+    Builder.defineMacro("__ENQCMD__");
+#endif // INTEL_FEATURE_ISA_ENQCMD
 #if INTEL_FEATURE_ISA_SERIALIZE
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
@@ -1519,6 +1551,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("clwb", true)
       .Case("clzero", true)
       .Case("cx16", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+      .Case("enqcmd", true)
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#endif // INTEL_CUSTOMIZATION
       .Case("f16c", true)
       .Case("fma", true)
       .Case("fma4", true)
@@ -1526,6 +1563,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("fxsr", true)
       .Case("gfni", true)
       .Case("invpcid", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+      .Case("keylocker", true)
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
       .Case("lwp", true)
       .Case("lzcnt", true)
       .Case("mmx", true)
@@ -1621,6 +1663,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("clzero", HasCLZERO)
       .Case("cx8", HasCX8)
       .Case("cx16", HasCX16)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+      .Case("enqcmd", HasENQCMD)
+#endif // INTEL_FEATURE_ISA_ENQCMD
+#endif // INTEL_CUSTOMIZATION
       .Case("f16c", HasF16C)
       .Case("fma", HasFMA)
       .Case("fma4", XOPLevel >= FMA4)
@@ -1628,6 +1675,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("fxsr", HasFXSR)
       .Case("gfni", HasGFNI)
       .Case("invpcid", HasINVPCID)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+      .Case("keylocker", HasKeyLocker)
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
       .Case("lwp", HasLWP)
       .Case("lzcnt", HasLZCNT)
       .Case("mm3dnow", MMX3DNowLevel >= AMD3DNow)

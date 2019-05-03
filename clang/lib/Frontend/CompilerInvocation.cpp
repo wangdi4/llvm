@@ -2851,13 +2851,18 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Args.hasFlag(OPT_fdouble_square_bracket_attributes,
                    OPT_fno_double_square_bracket_attributes, Opts.CPlusPlus11);
 
+  Opts.CPlusPlusModules = Opts.CPlusPlus2a;
   Opts.ModulesTS = Args.hasArg(OPT_fmodules_ts);
-  Opts.Modules = Args.hasArg(OPT_fmodules) || Opts.ModulesTS;
+  Opts.Modules =
+      Args.hasArg(OPT_fmodules) || Opts.ModulesTS || Opts.CPlusPlusModules;
   Opts.ModulesStrictDeclUse = Args.hasArg(OPT_fmodules_strict_decluse);
   Opts.ModulesDeclUse =
       Args.hasArg(OPT_fmodules_decluse) || Opts.ModulesStrictDeclUse;
+  // FIXME: We only need this in C++ modules / Modules TS if we might textually
+  // enter a different module (eg, when building a header unit).
   Opts.ModulesLocalVisibility =
-      Args.hasArg(OPT_fmodules_local_submodule_visibility) || Opts.ModulesTS;
+      Args.hasArg(OPT_fmodules_local_submodule_visibility) || Opts.ModulesTS ||
+      Opts.CPlusPlusModules;
   Opts.ModulesCodegen = Args.hasArg(OPT_fmodules_codegen);
   Opts.ModulesDebugInfo = Args.hasArg(OPT_fmodules_debuginfo);
   Opts.ModulesSearchAll = Opts.Modules &&
@@ -2943,6 +2948,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.FastRelaxedMath = Args.hasArg(OPT_cl_fast_relaxed_math);
   Opts.HexagonQdsp6Compat = Args.hasArg(OPT_mqdsp6_compat);
   Opts.FakeAddressSpaceMap = Args.hasArg(OPT_ffake_address_space_map);
+#if INTEL_CUSTOMIZATION
+  Opts.OpenCLForceVectorABI = Args.hasArg(OPT_fopencl_force_vector_abi);
+#endif // INTEL_CUSTOMIZATION
   Opts.ParseUnknownAnytype = Args.hasArg(OPT_funknown_anytype);
   Opts.DebuggerSupport = Args.hasArg(OPT_fdebugger_support);
   Opts.DebuggerCastResultToId = Args.hasArg(OPT_fdebugger_cast_result_to_id);

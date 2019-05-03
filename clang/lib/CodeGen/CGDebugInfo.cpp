@@ -1980,6 +1980,20 @@ llvm::DIType *CGDebugInfo::getOrCreateStandaloneType(QualType D,
   return T;
 }
 
+void CGDebugInfo::addHeapAllocSiteMetadata(llvm::Instruction *CI,
+                                           QualType D,
+                                           SourceLocation Loc) {
+  llvm::MDNode *node;
+  if (D.getTypePtr()->isVoidPointerType()) {
+    node = llvm::MDNode::get(CGM.getLLVMContext(), None);
+  } else {
+    QualType PointeeTy = D.getTypePtr()->getPointeeType();
+    node = getOrCreateType(PointeeTy, getOrCreateFile(Loc));
+  }
+
+  CI->setMetadata("heapallocsite", node);
+}
+
 void CGDebugInfo::completeType(const EnumDecl *ED) {
   if (DebugKind <= codegenoptions::DebugLineTablesOnly)
     return;
@@ -3097,10 +3111,8 @@ llvm::DICompositeType *CGDebugInfo::CreateLimitedType(const RecordType *Ty) {
     else
       Flags |= llvm::DINode::FlagTypePassByValue;
 
-    // Record if a C++ record is trivial type.
-    if (CXXRD->isTrivial())
-      Flags |= llvm::DINode::FlagTrivial;
-    else
+    // Record if a C++ record is non-trivial type.
+    if (!CXXRD->isTrivial())
       Flags |= llvm::DINode::FlagNonTrivial;
   }
 

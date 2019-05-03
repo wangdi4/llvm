@@ -148,6 +148,12 @@ def : CLFlag<"Oy">, Alias<_SLASH_O>, AliasArgs<["y"]>,
 def : CLFlag<"Oy-">, Alias<_SLASH_O>, AliasArgs<["y-"]>,
   HelpText<"Disable frame pointer omission (x86 only, default)">;
 
+//if INTEL_CUSTOMIZATION
+def _SLASH_Qipo :CLFlag<"Qipo">, Alias<flto>,
+  HelpText<"Enable LTO in 'full' mode">;
+def _SLASH_Qipo_ :CLFlag<"Qipo-">, Alias<fno_lto>,
+  HelpText<"Disable LTO mode (default)">;
+//endif INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
 def _SLASH_Qvec : CLFlag<"Qvec">,
@@ -404,7 +410,7 @@ def _SLASH_d2 : CLJoined<"d2">;
 def _SLASH_doc : CLJoined<"doc">;
 def _SLASH_FA_joined : CLJoined<"FA">;
 def _SLASH_favor : CLJoined<"favor">;
-def _SLASH_F : CLFlag<"F">;
+def _SLASH_F : CLJoinedOrSeparate<"F">;
 def _SLASH_Fm : CLJoined<"Fm">;
 def _SLASH_Fr : CLJoined<"Fr">;
 def _SLASH_FR : CLJoined<"FR">;

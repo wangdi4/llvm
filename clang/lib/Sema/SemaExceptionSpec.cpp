@@ -295,22 +295,6 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
     return false;
   }
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ376225: allow user to define it's own 'operator new' if needed.
-  // Update implicit declaration to make it compatible with the new one.
-  if (getLangOpts().IntelCompat && IsOperatorNew && Old->isImplicit() &&
-      !New->isImplicit()) {
-    const FunctionProtoType *NewProto =
-        New->getType()->castAs<FunctionProtoType>();
-    const FunctionProtoType *OldProto =
-        Old->getType()->castAs<FunctionProtoType>();
-    Old->setType(Context.getFunctionType(OldProto->getReturnType(),
-                                         OldProto->getParamTypes(),
-                                         NewProto->getExtProtoInfo()));
-    return false;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // Check the types as written: they must match before any exception
   // specification adjustment is applied.
   if (!CheckEquivalentExceptionSpecImpl(
@@ -405,14 +389,6 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
     // when declaring a replaceable global allocation function.
     DiagID = diag::ext_missing_exception_specification;
     ReturnValueOnError = false;
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#381827: allow missing exception specification in system header.
-  } else if (getLangOpts().IntelCompat &&
-             MissingExceptionSpecification &&
-             SourceMgr.isInSystemHeader(New->getLocation())) {
-    // No error/waring because it is system header so user cannot fix it.
-    return false;
-#endif // INTEL_CUSTOMIZATION
   } else {
     DiagID = diag::err_missing_exception_specification;
     ReturnValueOnError = true;

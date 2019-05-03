@@ -721,16 +721,14 @@ public:
   /// take affect. It can be null if we are setting the state from command-line.
   bool setSeverityForGroup(diag::Flavor Flavor, StringRef Group,
                            diag::Severity Map,
-                           SourceLocation Loc = SourceLocation(), // INTEL
-                           bool IgnoreIgnored = false); // INTEL
+                           SourceLocation Loc = SourceLocation());
 
   /// Set the warning-as-error flag for the given diagnostic group.
   ///
   /// This function always only operates on the current diagnostic state.
   ///
   /// \returns True if the given group is unknown, false otherwise.
-  bool setDiagnosticGroupWarningAsError(StringRef Group, bool Enabled, // INTEL
-                                        bool IgnoreIgnored); // INTEL
+  bool setDiagnosticGroupWarningAsError(StringRef Group, bool Enabled);
 
   /// Set the error-as-fatal flag for the given diagnostic group.
   ///
@@ -1590,8 +1588,7 @@ const char ToggleHighlight = 127;
 /// warning options specified on the command line.
 void ProcessWarningOptions(DiagnosticsEngine &Diags,
                            const DiagnosticOptions &Opts,
-                           bool ReportDiags = true, // INTEL
-                           bool IgnoreIgnored = false); // INTEL
+                           bool ReportDiags = true);
 
 } // namespace clang
 

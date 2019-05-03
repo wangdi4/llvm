@@ -1953,6 +1953,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
   // Non-Solaris is much simpler - most systems just go with "/usr".
   if (SysRoot.empty() && TargetTriple.getOS() == llvm::Triple::Linux) {
     // Yet, still look for RHEL devtoolsets.
+    Prefixes.push_back("/opt/rh/devtoolset-8/root/usr");
     Prefixes.push_back("/opt/rh/devtoolset-7/root/usr");
     Prefixes.push_back("/opt/rh/devtoolset-6/root/usr");
     Prefixes.push_back("/opt/rh/devtoolset-4/root/usr");
@@ -2630,7 +2631,8 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
   case llvm::Triple::sparc:
   case llvm::Triple::sparcel:
   case llvm::Triple::sparcv9:
-    if (getTriple().isOSSolaris() || getTriple().isOSOpenBSD())
+    if (getTriple().isOSFreeBSD() || getTriple().isOSOpenBSD() ||
+        getTriple().isOSSolaris())
       return true;
     return false;
   default:

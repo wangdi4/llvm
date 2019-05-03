@@ -662,8 +662,6 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   if (DriverArgs.hasArg(clang::driver::options::OPT__intel)) {
     // deploy
     addSystemInclude(DriverArgs, CC1Args, getDriver().Dir +
-                                          "/../compiler/include/icx");
-    addSystemInclude(DriverArgs, CC1Args, getDriver().Dir +
                                           "/../compiler/include");
     // IA32ROOT
     const char * IA32Root = getenv("IA32ROOT");
@@ -1021,6 +1019,8 @@ SanitizerMask Linux::getSupportedSanitizers() const {
                          getTriple().getArch() == llvm::Triple::thumbeb;
   SanitizerMask Res = ToolChain::getSupportedSanitizers();
   Res |= SanitizerKind::Address;
+  Res |= SanitizerKind::PointerCompare;
+  Res |= SanitizerKind::PointerSubtract;
   Res |= SanitizerKind::Fuzzer;
   Res |= SanitizerKind::FuzzerNoLink;
   Res |= SanitizerKind::KernelAddress;

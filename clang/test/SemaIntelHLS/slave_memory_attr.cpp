@@ -70,7 +70,7 @@ void foo5(slave_arg __attribute__((doublepump)) int *i_par1)
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
-void foo6(slave_arg __attribute__((numports_readonly_writeonly(4,4)))
+void foo6(slave_arg __attribute__((numports_readonly_writeonly(4,4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
           int *i_par1)
 {}
 // CHECK: FunctionDecl{{.*}}foo6
@@ -102,7 +102,7 @@ void foo7(slave_arg __attribute__((bank_bits(1,2,3))) int *i_par1)
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
-void foo8(slave_arg __attribute__((numreadports(2))) int *i_par1)
+void foo8(slave_arg __attribute__((numreadports(2))) int *i_par1) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
 {}
 // CHECK: FunctionDecl{{.*}}foo8
 // CHECK: ParmVarDecl{{.*}}i_par1
@@ -114,7 +114,7 @@ void foo8(slave_arg __attribute__((numreadports(2))) int *i_par1)
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
-void foo9(slave_arg __attribute__((numwriteports(4))) int *i_par1)
+void foo9(slave_arg __attribute__((numwriteports(4))) int *i_par1) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
 {}
 // CHECK: FunctionDecl{{.*}}foo9
 // CHECK: ParmVarDecl{{.*}}i_par1
@@ -283,21 +283,21 @@ void bar5c(
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar6a(
-  not_slave_arg1 __attribute__((numports_readonly_writeonly(4,4)))
+  not_slave_arg1 __attribute__((numports_readonly_writeonly(4,4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   int *i) {}
 
 // expected-error@+4{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar6b(
-  not_slave_arg2 __attribute__((numports_readonly_writeonly(4,4)))
+  not_slave_arg2 __attribute__((numports_readonly_writeonly(4,4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   int *i) {}
 
 // expected-error@+4{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar6c(
-  not_slave_arg3 __attribute__((numports_readonly_writeonly(4,4)))
+  not_slave_arg3 __attribute__((numports_readonly_writeonly(4,4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   int *i) {}
 
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
@@ -321,37 +321,37 @@ void bar7c(
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar8a(
-  not_slave_arg1 __attribute__((numreadports(4)))
+  not_slave_arg1 __attribute__((numreadports(4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   int *i) {}
 
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar8b(
-  not_slave_arg2 __attribute__((numreadports(4)))
+  not_slave_arg2 __attribute__((numreadports(4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   int *i) {}
 
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar8c(
-  not_slave_arg3 __attribute__((numreadports(4)))
+  not_slave_arg3 __attribute__((numreadports(4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   int *i) {}
 
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar9a(
-  not_slave_arg1 __attribute__((numwriteports(2)))
+  not_slave_arg1 __attribute__((numwriteports(2))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   int *i) {}
 
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar9b(
-  not_slave_arg2 __attribute__((numwriteports(2)))
+  not_slave_arg2 __attribute__((numwriteports(2))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   int *i) {}
 
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar9c(
-  not_slave_arg3 __attribute__((numwriteports(2)))
+  not_slave_arg3 __attribute__((numwriteports(2))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   int *i) {}
 
 // expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
@@ -414,8 +414,8 @@ void bar12c(
 __attribute__((ihc_component))
 void bar11(
   not_slave_arg3 __attribute__((numbanks(4)))
-                 __attribute__((numreadports(4)))
-                 __attribute__((numwriteports(4)))
+                 __attribute__((numreadports(4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
+                 __attribute__((numwriteports(4))) //expected-warning{{attributes numreadports/numwriteports/numports_readonly_writeonly are deprecated, use max_replicates attribute instead}}
   int *i) {}
 
 // expected-error@+3{{only applies to constant variables, local variables, static variables, and non-static data members}}

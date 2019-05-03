@@ -1705,6 +1705,12 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   if (getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
     getOpenMPRuntime().emitDeclareSimdFunction(FD, F);
 
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+      inTargetRegion())
+    F->addFnAttr("openmp-target-declare","true");
+#endif // INTEL_COLLAB
+
   if (const auto *CB = FD->getAttr<CallbackAttr>()) {
     // Annotate the callback behavior as metadata:
     //  - The callback callee (as argument number).
@@ -3663,6 +3669,28 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
       break;
     }
     Out << '}';
+    if (const DeclaratorDecl *DD = dyn_cast<DeclaratorDecl>(D)) {
+      QualType ElementTy = DD->getType();
+      Out << "{sizeinfo:";
+      // D can't be of type FunctionDecl (no attribute memory for a
+      // function declaration).
+      if (ElementTy->isConstantArrayType())
+        Out << getContext()
+                   .getTypeSizeInChars(
+                       getContext().getBaseElementType(ElementTy))
+                   .getQuantity();
+      else
+        Out << getContext().getTypeSizeInChars(ElementTy).getQuantity();
+      // Add to Out the dimenstion of the array.
+      while (const auto *AT = getContext().getAsArrayType(ElementTy)) {
+        // Expecting only constant array types, assert otherwise.
+        const auto *CAT = cast<ConstantArrayType>(AT);
+        Out << ",";
+        Out << CAT->getSize();
+        ElementTy = CAT->getElementType();
+      }
+      Out << '}';
+    }
   }
   if (D->hasAttr<SinglePumpAttr>())
     Out << "{pump:1}";
@@ -3690,6 +3718,13 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
         NWPA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << NWPA->getSpelling() << ':' << NWPAInt << '}';
   }
+  if (const auto *MRA = D->getAttr<MaxReplicatesAttr>()) {
+    llvm::APSInt MRAInt =
+      MRA->getValue()->EvaluateKnownConstInt(getContext());
+    Out << '{' << MRA->getSpelling() << ':' << MRAInt << '}';
+  }
+  if (D->hasAttr<SimpleDualPortAttr>())
+    Out << "{simple_dual_port:1}";
   if (const auto *IMDA = D->getAttr<InternalMaxBlockRamDepthAttr>()) {
     llvm::APSInt IMDAInt =
         IMDA->getInternalMaxBlockRamDepth()->EvaluateKnownConstInt(
@@ -3983,32 +4018,6 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
       !llvm::GlobalVariable::isWeakLinkage(Linkage))
     Linkage = llvm::GlobalValue::InternalLinkage;
 
-#if INTEL_CUSTOMIZATION
-  // CQ#369830 - static declarations are treated differently.
-  // In case of "external - internal" linkage conflict, set external linkage if
-  // variable has ever been declared without storage class in C.
-  const LangOptions &Opts = getLangOpts();
-  if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC)) {
-    const VarDecl *FirstDecl = D->getCanonicalDecl();
-    StorageClass OldStorageClass = FirstDecl->getStorageClass();
-    // Iterate through all redeclarations until a declaration without storage
-    // class is found.
-    for (const VarDecl *Redecl : FirstDecl->redecls())
-      if (Redecl->getStorageClass() == SC_None) {
-        OldStorageClass = SC_None;
-        break;
-      }
-    // Check for linkage conflict.
-    if ((D->getLinkageInternal() == InternalLinkage) !=
-        (OldStorageClass == SC_Static)) {
-      Linkage = (OldStorageClass == SC_None || D->getStorageClass() == SC_None)
-                    ? InitExpr
-                        ? llvm::GlobalValue::ExternalLinkage
-                        : llvm::GlobalValue::CommonLinkage
-                    : llvm::GlobalValue::InternalLinkage;
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
   GV->setLinkage(Linkage);
   if (D->hasAttr<DLLImportAttr>())
     GV->setDLLStorageClass(llvm::GlobalVariable::DLLImportStorageClass);
@@ -4192,10 +4201,6 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
           Context, *this, cast<VarDecl>(D),
           CodeGenOpts.NoCommon ||
               (getLangOpts().IntelCompat && getLangOpts().CPlusPlus)))
-#else
-  if (!getLangOpts().CPlusPlus && isa<VarDecl>(D) &&
-      !isVarDeclStrongDefinition(Context, *this, cast<VarDecl>(D),
-                                 CodeGenOpts.NoCommon))
 #endif // INTEL_CUSTOMIZATION
     return llvm::GlobalVariable::CommonLinkage;
 
@@ -5645,7 +5650,7 @@ void CodeGenModule::EmitTargetMetadata() {
 }
 
 #if INTEL_CUSTOMIZATION
-/// \brief Emits metadata in TheModule with the given Name and Value.
+/// Emits metadata in TheModule with the given Name and Value.
 static void AddLLVMDbgMetadata(llvm::Module &TheModule, StringRef Name,
                                StringRef Value) {
   if (Name.empty() || Value.empty())

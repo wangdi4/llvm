@@ -1839,6 +1839,189 @@ IR:
   }];
 }
 
+def AttributeMaxReplicateDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-8810";
+  let RegressionTest = "SemaIntelHLS/local.cpp, CodeGenIntelHLS/local.cpp, SemaOpenCL/intel-fpga-local-hls.cl, CodeGenOpenCL/intel-fpga-local-hls.cl";
+  let Owner = "zahiraam";
+  let Content = [{
+This attribute is applied to variables (local, statics, constants ...) in both
+OpenCL and HLS. It specifies the maximum number of replicates the compiler is
+allowed to make for the associated variable. This attributes infers
+an attribute memory:default and can't be applied with register, numreadports or
+numwriteports attributes.
+This attribute replaces the deprecated numreadports / numwriteports attributes.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((max_replicates(n)))
+
+  where n is a non-negative integer constant greater than 1.
+
+Example:
+
+.. code-block:: c++
+
+   const int __attribute__((max_replicates(2))) gc = 0;
+
+   void foo () { int __attribute__((max_replicates(2))) lc; }
+
+   struct st { int __attribute__((max_replicates(2))) f1; };
+
+   static st s1;
+   void bar() {
+     s1.f1 = 0;
+   }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp # HLS
+  $ clang -cc1 -triple spir-unknown-unknown-intelfpga -ast-dump t.cl # OpenCL
+
+.. code-block:: text
+
+   -VarDecl 0x1cfcadd4ef8 <t.cpp:1:1, col:51> col:46 gc 'const int' cinit
+    |-IntegerLiteral 0x1cfcadd5018 <col:51> 'int' 0
+    |-MemoryAttr 0x1cfcadd4f78 <<invalid sloc>> Implicit Default
+    `-MaxReplicatesAttr 0x1cfcadd4fb8 <col:26, col:42>
+      `-ConstantExpr 0x1cfcadd4f60 <col:41> 'int'
+        `-IntegerLiteral 0x1cfcadd4eb8 <col:41> 'int' 2
+
+   `-VarDecl 0x1cfcb1d94c8 <col:3, col:42> col:42 lc 'int'
+     |-MemoryAttr 0x1cfcb1d9548 <<invalid sloc>> Implicit Default
+     `-MaxReplicatesAttr 0x1cfcb1d9588 <col:22, col:38>
+       `-ConstantExpr 0x1cfcb1d9530 <col:37> 'int'
+         `-IntegerLiteral 0x1cfcb1d9488 <col:37> 'int' 2
+
+    -FieldDecl 0x1cfcb1d97b8 <line:9:3, col:42> col:42 referenced f1 'int'
+     |-MemoryAttr 0x1cfcb1d9828 <<invalid sloc>> Implicit Default
+     `-MaxReplicatesAttr 0x1cfcb1d9868 <col:22, col:38>
+       `-ConstantExpr 0x1cfcb1d9810 <col:37> 'int'
+         `-IntegerLiteral 0x1cfcb1d9778 <col:37> 'int' 2
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp # HLS
+  $ clang -cc1 -triple spir-unknown-unknown-intelfpga -emit-llvm -o - t.cl  # OpenCL
+
+.. code-block:: llvm
+
+  @.str = private unnamed_addr constant [47 x i8] c"{memory:DEFAULT}{sizeinfo:4}{max_replicates:2}\00", section "llvm.metadata"
+  @.str.1 = private unnamed_addr constant [6 x i8] c"t.cpp\00", section "llvm.metadata"
+
+  define dso_local void @"?foo@@YAXXZ"() #0 {
+  entry:
+    %lc = alloca i32, align 4
+    %lc1 = bitcast i32* %lc to i8*
+    call void @llvm.var.annotation(i8* %lc1, i8* getelementptr inbounds ([47 x i8], [47 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 5)
+    ret void
+    }
+
+    define dso_local void @"?bar@@YAXXZ"() #0 {
+    entry:
+      %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @s1, i32 0, i32 0), i8* getelementptr inbounds ([47 x i8], [47 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 9)
+      store i32 0, i32* %0, align 4
+      ret void
+    }
+  }];
+}
+
+def SimpleDualPortDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker = "CMPLRLLVM-8810";
+  let RegressionTest = "SemaIntelHLS/local.cpp, CodeGenIntelHLS/local.cpp, SemaOpenCL/intel-fpga-local-hls.cl, CodeGenOpenCL/intel-fpga-local-hls.cl";
+  let Owner = "zahiraam";
+  let Content = [{
+This attribute applies to the same variables (local, statics, constants ...) that
+the memory attribute applies to in both OpenCl and HLS. It allows the user to
+control the memory associated with the variable, requesting that the memory is
+simple with dual port configuration mode. This attribute infers an attribute
+memory:default and can't be applied with register attribute.
+
+Syntax:
+
+.. code-block:: text
+
+  __attribute__((simple_dual_port))
+
+Example:
+
+.. code-block:: c++
+
+   const int __attribute__((simple_dual_port)) gc = 0;
+
+   void foo ()
+   {
+     int __attribute__((simple_dual_port)) lc;
+   }
+
+   struct st {
+     int __attribute__((simple_dual_port)) f1;
+   };
+
+   static st s1;
+   void bar() {
+     s1.f1 = 0;
+   }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.cpp # HLS
+  $ clang -cc1 -triple spir-unknown-unknown-intelfpga -ast-dump t.cl # OpenCL
+
+.. code-block:: text
+
+   -VarDecl 0x244738c7030 <t.cpp:1:1, col:50> col:45 gc 'const int' cinit
+    |-IntegerLiteral 0x244738c7130 <col:50> 'int' 0
+    |-MemoryAttr 0x244738c7098 <<invalid sloc>> Implicit Default
+    `-SimpleDualPortAttr 0x244738c70d8 <col:26>
+
+   `-VarDecl 0x24473d212a0 <col:3, col:41> col:41 lc 'int'
+     |-MemoryAttr 0x24473d21308 <<invalid sloc>> Implicit Default
+     `-SimpleDualPortAttr 0x24473d21348 <col:22>
+
+   -FieldDecl 0x24473d21550 <line:9:3, col:41> col:41 referenced f1 'int'
+    |-MemoryAttr 0x24473d215a8 <<invalid sloc>> Implicit Default
+    `-SimpleDualPortAttr 0x24473d215e8 <col:22>
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp # HLS
+  $ clang -cc1 -triple spir-unknown-unknown-intelfpga -emit-llvm -o - t.cl  # OpenCL
+
+.. code-block:: llvm
+
+   @.str = private unnamed_addr constant [49 x i8] c"{memory:DEFAULT}{sizeinfo:4}{simple_dual_port:1}\00", section "llvm.metadata"
+   @.str.1 = private unnamed_addr constant [6 x i8] c"t.cpp\00", section "llvm.metadata"
+
+   define dso_local void @"?foo@@YAXXZ"() #0 {
+   entry:
+     %lc = alloca i32, align 4
+     %lc1 = bitcast i32* %lc to i8*
+     call void @llvm.var.annotation(i8* %lc1, i8* getelementptr inbounds ([49 x i8], [49 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 5)
+     ret void
+     }
+
+     define dso_local void @"?bar@@YAXXZ"() #0 {
+     entry:
+       %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @s1, i32 0, i32 0), i8* getelementptr inbounds ([49 x i8], [49 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 9)
+       store i32 0, i32* %0, align 4
+       ret void
+     }
+
+  }];
+}
+
 def AttributeHLSIIDocs : Documentation {
   let Category = DocCatIntelHLS;
   let BugTracker = "CMPLRLLVM-7080";

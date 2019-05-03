@@ -575,7 +575,10 @@ void OpenMPLateOutliner::addImplicitClauses() {
       continue;
     if (VarDefs.find(VD) != VarDefs.end()) {
       // Defined in the region
-      if (VD->getStorageDuration() == SD_Static) {
+      if (!VD->getType()->isConstantSizeType()) {
+        // An alloca inserted inside the region cannot be used on a clause.
+        continue;
+      } else if (VD->getStorageDuration() == SD_Static) {
         if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared))
           emitImplicit(VD, ICK_shared);
       } else {
@@ -1043,13 +1046,13 @@ void OpenMPLateOutliner::emitOMPProcBindClause(const OMPProcBindClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_proc_bind);
   switch (Cl->getProcBindKind()) {
   case OMPC_PROC_BIND_master:
-    addArg("QUAL.OMP.PROCBIND.MASTER");
+    addArg("QUAL.OMP.PROC_BIND.MASTER");
     break;
   case OMPC_PROC_BIND_close:
-    addArg("QUAL.OMP.PROCBIND.CLOSE");
+    addArg("QUAL.OMP.PROC_BIND.CLOSE");
     break;
   case OMPC_PROC_BIND_spread:
-    addArg("QUAL.OMP.PROCBIND.SPREAD");
+    addArg("QUAL.OMP.PROC_BIND.SPREAD");
     break;
   case OMPC_PROC_BIND_unknown:
     llvm_unreachable("Unknown proc_bind clause");
@@ -1301,11 +1304,12 @@ void OpenMPLateOutliner::emitOMPHintClause(const OMPHintClause *Cl) {
   addArg(CGF.EmitScalarExpr(Cl->getHint()));
 }
 
-static void getQualString(SmallString<32> &Op, const OMPMapClause *C) {
-  Op += "QUAL.OMP.MAP.";
+void OpenMPLateOutliner::buildMapQualifier(ClauseStringBuilder &CSB,
+                                           const OMPMapClause *C) {
+  CSB.add("QUAL.OMP.MAP.");
   for (unsigned I = 0; I < OMPMapClause::NumberOfModifiers; ++I) {
     if (C->getMapTypeModifier(I) == OMPC_MAP_MODIFIER_always) {
-      Op += "ALWAYS.";
+      CSB.add("ALWAYS.");
       break;
     } else if (C->getMapTypeModifier(I) == OMPC_MAP_MODIFIER_unknown)
       break;
@@ -1314,23 +1318,23 @@ static void getQualString(SmallString<32> &Op, const OMPMapClause *C) {
   }
   switch (C->getMapType()) {
   case OMPC_MAP_alloc:
-    Op += "ALLOC";
+    CSB.add("ALLOC");
     break;
   case OMPC_MAP_to:
-    Op += "TO";
+    CSB.add("TO");
     break;
   case OMPC_MAP_from:
-    Op += "FROM";
+    CSB.add("FROM");
     break;
   case OMPC_MAP_tofrom:
   case OMPC_MAP_unknown:
-    Op += "TOFROM";
+    CSB.add("TOFROM");
     break;
   case OMPC_MAP_delete:
-    Op += "DELETE";
+    CSB.add("DELETE");
     break;
   case OMPC_MAP_release:
-    Op += "RELEASE";
+    CSB.add("RELEASE");
     break;
   }
 }
@@ -1349,18 +1353,18 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
     if (Info.size() == 1 && Info[0].Base == Info[0].Pointer) {
       // This is the simple non-aggregate case.
       ClauseEmissionHelper CEH(*this, OMPC_map);
-      SmallString<32> Op;
-      getQualString(Op, C);
-      addArg(Op);
+      ClauseStringBuilder &CSB = CEH.getBuilder();
+      buildMapQualifier(CSB, C);
+      addArg(CSB.getString());
       addArg(Info[0].Base);
       continue;
     }
     for (auto I = Info.begin(), E = Info.end(); I != E; ++I) {
       ClauseEmissionHelper CEH(*this, OMPC_map);
-      SmallString<32> Op;
-      getQualString(Op, C);
-      Op += (I == Info.begin()) ? ":AGGRHEAD" : ":AGGR";
-      addArg(Op);
+      ClauseStringBuilder &CSB = CEH.getBuilder();
+      buildMapQualifier(CSB, C);
+      CSB.add(I == Info.begin() ? ":AGGRHEAD" : ":AGGR");
+      addArg(CSB.getString());
       addArg(I->Base);
       addArg(I->Pointer);
       addArg(I->Size);
@@ -1412,7 +1416,7 @@ void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
 OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
                                        const OMPExecutableDirective &D,
                                        OpenMPDirectiveKind Kind)
-    : CGF(CGF), C(CGF.CGM.getLLVMContext()), TLPH(CGF), Directive(D),
+    : CGF(CGF), C(CGF.CGM.getLLVMContext()), TLPH(CGF), VSMH(CGF), Directive(D),
       CurrentDirectiveKind(Kind) {
   // Set an attribute indicating that the routine may have OpenMP directives
   // (represented with llvm intrinsics) in the LLVM IR
@@ -1761,6 +1765,73 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   }
 }
 
+bool OpenMPLateOutliner::needsVLAExprEmission() {
+  // This is required, at least, when outlining the region. I tried to
+  // choose a conservative set that return false.
+  switch (CurrentDirectiveKind) {
+  case OMPD_target:
+  case OMPD_target_teams:
+  case OMPD_target_parallel:
+  case OMPD_target_simd:
+  case OMPD_target_parallel_for:
+  case OMPD_target_parallel_for_simd:
+  case OMPD_target_teams_distribute:
+  case OMPD_target_teams_distribute_simd:
+  case OMPD_target_teams_distribute_parallel_for:
+  case OMPD_target_teams_distribute_parallel_for_simd:
+  case OMPD_parallel:
+  case OMPD_for:
+  case OMPD_parallel_for:
+  case OMPD_parallel_sections:
+  case OMPD_for_simd:
+  case OMPD_parallel_for_simd:
+  case OMPD_task:
+  case OMPD_simd:
+  case OMPD_sections:
+  case OMPD_taskgroup:
+  case OMPD_teams:
+  case OMPD_target_data:
+  case OMPD_target_exit_data:
+  case OMPD_target_enter_data:
+  case OMPD_distribute:
+  case OMPD_distribute_simd:
+  case OMPD_distribute_parallel_for:
+  case OMPD_distribute_parallel_for_simd:
+  case OMPD_teams_distribute:
+  case OMPD_teams_distribute_simd:
+  case OMPD_teams_distribute_parallel_for:
+  case OMPD_teams_distribute_parallel_for_simd:
+  case OMPD_target_update:
+  case OMPD_taskloop:
+  case OMPD_taskloop_simd:
+    return true;
+  case OMPD_cancel:
+  case OMPD_cancellation_point:
+  case OMPD_ordered:
+  case OMPD_threadprivate:
+  case OMPD_allocate:
+  case OMPD_section:
+  case OMPD_single:
+  case OMPD_master:
+  case OMPD_critical:
+  case OMPD_taskyield:
+  case OMPD_barrier:
+  case OMPD_taskwait:
+  case OMPD_atomic:
+  case OMPD_flush:
+  case OMPD_declare_simd:
+  case OMPD_declare_target:
+  case OMPD_end_declare_target:
+  case OMPD_declare_reduction:
+  case OMPD_declare_mapper:
+  case OMPD_requires:
+    return false;
+  case OMPD_unknown:
+    llvm_unreachable("Unexpected directive.");
+  }
+  return true;
+}
+
 /// Emit the captured statement body.
 void CGLateOutlineOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF,
                                              const Stmt *S) {
@@ -2071,6 +2142,11 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
           llvm_unreachable("Unexpected next directive kind.");
       }
     }
+    bool IsDeviceTarget = getLangOpts().OpenMPIsDevice &&
+      isOpenMPTargetExecutionDirective(S.getDirectiveKind());
+    if (IsDeviceTarget)
+      CurFn->addFnAttr("contains-openmp-target", "true");
+    CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
     const Stmt *CapturedStmt = S.getInnermostCapturedStmt();
     CapturedStmtInfo->EmitBody(*this, CapturedStmt);
   }

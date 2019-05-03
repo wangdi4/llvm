@@ -625,8 +625,7 @@ public:
   createDiagnostics(DiagnosticOptions *Opts,
                     DiagnosticConsumer *Client = nullptr,
                     bool ShouldOwnClient = true,
-                    const CodeGenOptions *CodeGenOpts = nullptr, // INTEL
-                    bool IntelCompat = false); // INTEL
+                    const CodeGenOptions *CodeGenOpts = nullptr);
 
   /// Create the file manager and replace any existing one with it.
   ///

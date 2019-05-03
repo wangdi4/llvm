@@ -1729,8 +1729,10 @@ private:
                                TypeDiagnoser *Diagnoser);
 
   struct ModuleScope {
+    SourceLocation BeginLoc;
     clang::Module *Module = nullptr;
     bool ModuleInterface = false;
+    bool ImplicitGlobalModuleFragment = false;
     VisibleModuleSet OuterVisibleModules;
   };
   /// The modules we're currently parsing.
@@ -2261,24 +2263,43 @@ public:
   enum class ModuleDeclKind {
     Interface,      ///< 'export module X;'
     Implementation, ///< 'module X;'
-    Partition,      ///< 'module partition X;'
   };
 
   /// The parser has processed a module-declaration that begins the definition
   /// of a module interface or implementation.
   DeclGroupPtrTy ActOnModuleDecl(SourceLocation StartLoc,
                                  SourceLocation ModuleLoc, ModuleDeclKind MDK,
-                                 ModuleIdPath Path);
+                                 ModuleIdPath Path, bool IsFirstDecl);
+
+  /// The parser has processed a global-module-fragment declaration that begins
+  /// the definition of the global module fragment of the current module unit.
+  /// \param ModuleLoc The location of the 'module' keyword.
+  DeclGroupPtrTy ActOnGlobalModuleFragmentDecl(SourceLocation ModuleLoc);
+
+  /// The parser has processed a private-module-fragment declaration that begins
+  /// the definition of the private module fragment of the current module unit.
+  /// \param ModuleLoc The location of the 'module' keyword.
+  /// \param PrivateLoc The location of the 'private' keyword.
+  DeclGroupPtrTy ActOnPrivateModuleFragmentDecl(SourceLocation ModuleLoc,
+                                                SourceLocation PrivateLoc) {
+    // FIXME
+    return DeclGroupPtrTy();
+  }
 
   /// The parser has processed a module import declaration.
   ///
-  /// \param AtLoc The location of the '@' symbol, if any.
-  ///
+  /// \param StartLoc The location of the first token in the declaration. This
+  ///        could be the location of an '@', 'export', or 'import'.
+  /// \param ExportLoc The location of the 'export' keyword, if any.
   /// \param ImportLoc The location of the 'import' keyword.
-  ///
   /// \param Path The module access path.
-  DeclResult ActOnModuleImport(SourceLocation AtLoc, SourceLocation ImportLoc,
-                               ModuleIdPath Path);
+  DeclResult ActOnModuleImport(SourceLocation StartLoc,
+                               SourceLocation ExportLoc,
+                               SourceLocation ImportLoc, ModuleIdPath Path);
+  DeclResult ActOnModuleImport(SourceLocation StartLoc,
+                               SourceLocation ExportLoc,
+                               SourceLocation ImportLoc, Module *M,
+                               ModuleIdPath Path = {});
 
   /// The parser has processed a module import translated from a
   /// #include or similar preprocessing directive.
@@ -3411,39 +3432,6 @@ public:
     }
   };
   friend class ParsingTemplateArgRAII;
-
-  // Fix for CQ374121: Xmain cannot find suitable existing template declaration.
-  llvm::DenseSet<NamedDecl *> ParsingFieldDecls;
-  class ParsingFieldDeclsRAII {
-  private:
-    Sema &S;
-    NamedDecl *ParsingFD;
-
-  public:
-    ParsingFieldDeclsRAII(Sema &S, NamedDecl *ParsingFD)
-        : S(S), ParsingFD(ParsingFD) {
-      if (S.getLangOpts().IntelCompat && ParsingFD) {
-        S.ParsingFieldDecls.insert(ParsingFD);
-        for (auto IR = S.IdResolver.begin(ParsingFD->getDeclName()),
-                  E = S.IdResolver.end();
-             IR != E; ++IR) {
-          if ((*IR) == ParsingFD) {
-            S.IdResolver.RemoveDecl(ParsingFD);
-            S.getCurScope()->RemoveDecl(ParsingFD);
-            break;
-          }
-        }
-      }
-    }
-    ~ParsingFieldDeclsRAII() {
-      if (S.getLangOpts().IntelCompat && ParsingFD) {
-        S.ParsingFieldDecls.erase(S.ParsingFieldDecls.find(ParsingFD));
-        S.IdResolver.AddDecl(ParsingFD);
-        S.getCurScope()->AddDecl(ParsingFD);
-      }
-    }
-  };
-  friend class ParsingFieldDeclsRAII;
 #endif // INTEL_CUSTOMIZATION
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;
 
@@ -8298,17 +8286,19 @@ public:
       const SourceLocation *ProtoLocs, SourceLocation EndProtoLoc,
       const ParsedAttributesView &AttrList);
 
-  Decl *ActOnStartClassImplementation(
-                    SourceLocation AtClassImplLoc,
-                    IdentifierInfo *ClassName, SourceLocation ClassLoc,
-                    IdentifierInfo *SuperClassname,
-                    SourceLocation SuperClassLoc);
+  Decl *ActOnStartClassImplementation(SourceLocation AtClassImplLoc,
+                                      IdentifierInfo *ClassName,
+                                      SourceLocation ClassLoc,
+                                      IdentifierInfo *SuperClassname,
+                                      SourceLocation SuperClassLoc,
+                                      const ParsedAttributesView &AttrList);
 
   Decl *ActOnStartCategoryImplementation(SourceLocation AtCatImplLoc,
                                          IdentifierInfo *ClassName,
                                          SourceLocation ClassLoc,
                                          IdentifierInfo *CatName,
-                                         SourceLocation CatLoc);
+                                         SourceLocation CatLoc,
+                                         const ParsedAttributesView &AttrList);
 
   DeclGroupPtrTy ActOnFinishObjCImplementation(Decl *ObjCImpDecl,
                                                ArrayRef<Decl *> Decls);
@@ -10142,16 +10132,6 @@ public:
   };
 
 #if INTEL_CUSTOMIZATION
-  enum ReferenceInitStatus {
-    RIS_Allowed = 0,
-    RIS_Extension,
-    RIS_Forbidden
-  };
-
-  ReferenceInitStatus
-  GetReferenceInitStatus(Expr *Init, bool isLValueRef, QualType T,
-                         Qualifiers Quals,
-                         Sema::ReferenceCompareResult RefRelationships);
   QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
                                    SourceLocation Loc, bool IsCompAssign,
                                    bool IsShift = false);

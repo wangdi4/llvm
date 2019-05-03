@@ -1872,9 +1872,7 @@ const char *Lexer::LexUDSuffix(Token &Result, const char *CurPtr,
 #if INTEL_CUSTOMIZATION
         //CQ#374374: in IntelCompat mode print a warning instead an error.
         Diag(CurPtr, (getLangOpts().MSVCCompat || getLangOpts().IntelCompat)
-#else
-        Diag(CurPtr, getLangOpts().MSVCCompat
-#endif
+#endif // INTEL_CUSTOMIZATION
                          ? diag::ext_ms_reserved_user_defined_literal
                          : diag::ext_reserved_user_defined_literal)
           << FixItHint::CreateInsertion(getSourceLocation(CurPtr), " ");

@@ -331,6 +331,11 @@ private:
   // translation unit has any target code.
   bool HasTargetCode = false;
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  /// Non-zero if emitting code from a target region, including functions
+  /// called from other functions in the region.
+  unsigned int InTargetRegion = 0;
+#endif // INTEL_COLLAB
 
   // A set of references that have only been seen via a weakref so far. This is
   // used to remove the weak of the reference if we ever see a direct reference
@@ -1027,6 +1032,29 @@ public:
   void generateHLSAnnotation(const Decl *D, llvm::SmallString<256> &AnnotStr);
   void addGlobalHLSAnnotation(const VarDecl *VD, llvm::GlobalValue *GV);
 #endif  // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  class InTargetRegionRAII {
+    CodeGenModule &CGM;
+    bool Entered;
+  public:
+    InTargetRegionRAII(CodeGenModule &CGM, bool ShouldEnter)
+        : CGM(CGM), Entered(ShouldEnter) {
+      if (Entered)
+        CGM.enterTargetRegion();
+    }
+    ~InTargetRegionRAII() {
+      if (Entered)
+        CGM.exitTargetRegion();
+    }
+  };
+  void enterTargetRegion() { ++InTargetRegion; }
+  void exitTargetRegion() {
+    assert(InTargetRegion != 0 && "mismatched target region enter/exit");
+    --InTargetRegion;
+  }
+  bool inTargetRegion() { return InTargetRegion > 0; }
+#endif // INTEL_COLLAB
+
   /// Given a builtin id for a function like "__builtin_fabsf", return a
   /// Function* for "fabsf".
   llvm::Constant *getBuiltinLibFunction(const FunctionDecl *FD,

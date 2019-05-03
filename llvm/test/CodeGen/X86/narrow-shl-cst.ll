@@ -66,7 +66,7 @@ define i64 @test6(i64 %x) nounwind {
 ; CHECK-LABEL: test6:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movq %rdi, %rax
-; CHECK-NEXT:    andq $-65536, %rax # imm = 0xFFFF0000
+; CHECK-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
 ; CHECK-NEXT:    shlq $32, %rax
 ; CHECK-NEXT:    retq
   %and = shl i64 %x, 32
@@ -152,9 +152,8 @@ define i32 @test12(i32 %x, i32* %y) nounwind {
 define i64 @test13(i64 %x, i64* %y) nounwind {
 ; CHECK-LABEL: test13:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movq %rdi, %rax
-; CHECK-NEXT:    andl $127, %eax
-; CHECK-NEXT:    addq %rax, %rax
+; CHECK-NEXT:    addl %edi, %edi
+; CHECK-NEXT:    movzbl %dil, %eax
 ; CHECK-NEXT:    movq %rax, (%rsi)
 ; CHECK-NEXT:    retq
   %and = shl i64 %x, 1

@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
   // CHECK: [[ARGCREF_ADDR:%.+]] = alloca i32*,
   // CHECK: [[Z_ADDR:%.+]] = alloca i32,
   // CHECK: [[ZARR_ADDR:%.+]] = alloca [20 x i32],
-  // CHECK: [[N1_ADDR:%.+]] = alloca i64,
+  // CHECK: [[N1_ADDR:%n1.*]] = alloca i64,
   // CHECK: [[N2_ADDR:%.+]] = alloca i64,
   // CHECK: [[N3_ADDR:%.+]] = alloca i64,
   // CHECK: [[N4_ADDR:%.+]] = alloca i64,
@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
   // CHECK: [[N7_ADDR:%.+]] = alloca i64,
   // CHECK: [[N8_ADDR:%.+]] = alloca i64,
   // CHECK: [[N9_ADDR:%.+]] = alloca i64,
-  // CHECK: [[N10_ADDR:%.+]] = alloca i64,
+  // CHECK: [[N10_ADDR:%n10.*]] = alloca i64,
   // CHECK: [[A_ADDR:%a.*]] = alloca i32*,
   // CHECK: [[B_ADDR:%b.*]] = alloca i32*,
   // CHECK: call i8* @llvm.stacksave()
@@ -312,7 +312,8 @@ int main(int argc, char **argv) {
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET"()
 // CHECK-SAME: "QUAL.OMP.DEVICE"(i32 4),
 // CHECK-SAME: "QUAL.OMP.IS_DEVICE_PTR"(i32** [[A_ADDR]], i32** [[B_ADDR]]),
-// CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR"(), "QUAL.OMP.NOWAIT"() ]
+// CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR"()
+// CHECK-SAME: "QUAL.OMP.NOWAIT"()
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
     #pragma omp target device(4) is_device_ptr(a,b) \
                        defaultmap(tofrom:scalar) nowait
@@ -527,5 +528,25 @@ int main(int argc, char **argv) {
 // CHECK-NEXT: store [10 x %struct.S2]* %{{.+}}, [10 x %struct.S2]** %
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
+
+#pragma omp declare target
+int a[100];
+#pragma omp end declare target
+
+extern void modify_array_on_target();
+
+//CHECK-LABEL: enter_exit_data
+void enter_exit_data() {
+  //CHECK: "DIR.OMP.TARGET.ENTER.DATA"
+  //CHECK-SAME: QUAL.OMP.MAP.ALWAYS.TO
+  //CHECK: "DIR.OMP.END.TARGET.ENTER.DATA"
+  #pragma omp target enter data map(always,to: a[7:17])
+  //CHECK: call{{.*}}modify_array_on_target
+  modify_array_on_target();
+  //CHECK: "DIR.OMP.TARGET.EXIT.DATA"
+  //CHECK-SAME: QUAL.OMP.MAP.ALWAYS.FROM:AGGRHEAD
+  //CHECK: "DIR.OMP.END.TARGET.EXIT.DATA"
+  #pragma omp target exit data map(always,from: a[9:13])
+}
 
 // end INTEL_COLLAB

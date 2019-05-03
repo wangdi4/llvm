@@ -3568,6 +3568,10 @@ static bool checkRegisterAttrCompatibility(Sema &S, Decl *D,
     InCompat = true;
   if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
     InCompat = true;
+  if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
+    InCompat = true;
+  if (checkAttrMutualExclusion<SimpleDualPortAttr>(S, D, Attr))
+    InCompat = true;
 
   if (checkAttrMutualExclusion<OptimizeFMaxAttr>(S, D, Attr))
     InCompat = true;
@@ -3589,17 +3593,21 @@ static void handleRegisterAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   handleSimpleAttribute<RegisterAttr>(S, D, Attr);
 }
 
-/// Handle the numreadports, numwriteports, max_concurrency, and
-/// static_array_reset attributes.  These require a single constant value.
-/// numreadports,numwriteports: must be greater than zero.
-/// max_concurrency: must be greater than or equal to zero.
-/// static_array_reset: must be 0 or 1.
-/// These are incompatible with the register attribute.
+/// Handle the numreadports and numwriteports attributes.
+/// These require a single constant value that must be greater
+/// than zero. They are incompatible with the register and
+/// max_replicate(N) attributes.
 template <typename AttrType>
 static void handleOneConstantValueAttr(Sema &S, Decl *D,
                                        const ParsedAttr &Attr) {
+  // The attributes NumReadPorts/NumWritePorts will eventually be
+  // replaced by max_replicates attribute. Warn the user.
+  S.Diag(Attr.getLoc(), diag::warn_attribute_deprecated) << Attr;
   checkForDuplicateAttribute<AttrType>(S, D, Attr);
   if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
     return;
 
   S.AddOneConstantValueAttr<AttrType>(Attr.getRange(), D, Attr.getArgAsExpr(0),
@@ -3625,20 +3633,71 @@ static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
 
 /// Handle the numports_readonly_writeonly attribute.
 /// This requires two constant values greater than zero.
-/// This is incompatible with the register attribute.
+/// This is incompatible with the register and max_replicate attributes.
 /// This generates a NumReadPortsAttr and a NumWritePortsAttr instead of
 /// its own attribute.
 static void handleNumPortsReadOnlyWriteOnlyAttr(Sema &S, Decl *D,
                                                 const ParsedAttr &Attr) {
+  // This attribute will eventually be replaced by max_replicates attribute.
+  // Warn the user.
+  S.Diag(Attr.getLoc(), diag::warn_attribute_deprecated) << Attr;
   checkForDuplicateAttribute<NumReadPortsAttr>(S, D, Attr);
   checkForDuplicateAttribute<NumWritePortsAttr>(S, D, Attr);
   if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<MaxReplicatesAttr>(S, D, Attr))
     return;
 
   S.AddOneConstantValueAttr<NumReadPortsAttr>(Attr.getRange(), D,
                                               Attr.getArgAsExpr(0), 0);
   S.AddOneConstantValueAttr<NumWritePortsAttr>(Attr.getRange(), D,
                                                Attr.getArgAsExpr(1), 0);
+}
+
+/// Handle the static_array_reset attribute.
+/// This attribute requires a single constant value that must be 0 or 1.
+/// It is incompatible with the register attribute.
+static void handleStaticArrayResetAttr(Sema &S, Decl *D,
+                                       const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<StaticArrayResetAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+    return;
+
+  S.AddOneConstantValueAttr<StaticArrayResetAttr>(Attr.getRange(), D, Attr.getArgAsExpr(0),
+                                                  Attr.getAttributeSpellingListIndex());
+}
+
+static void handleSimpleDualPortAttr(Sema &S, Decl *D,
+                                     const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<SimpleDualPortAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+    return;
+
+  if (!D->hasAttr<MemoryAttr>())
+    D->addAttr(MemoryAttr::CreateImplicit(S.Context, MemoryAttr::Default));
+
+  D->addAttr(::new (S.Context)
+    SimpleDualPortAttr(Attr.getRange(), S.Context, 0));
+}
+
+static void handleMaxReplicatesAttr(Sema &S, Decl *D,
+                                    const ParsedAttr &Attr) {
+  checkForDuplicateAttribute<MaxReplicatesAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<RegisterAttr>(S, D, Attr))
+    return;
+
+  if (checkAttrMutualExclusion<NumReadPortsAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<NumWritePortsAttr>(S, D, Attr))
+    return;
+  if (checkAttrMutualExclusion<NumPortsReadOnlyWriteOnlyAttr>(S, D, Attr))
+    return;
+
+  S.AddOneConstantValueAttr<MaxReplicatesAttr>(Attr.getRange(), D, Attr.getArgAsExpr(0),
+                                               Attr.getAttributeSpellingListIndex());
 }
 
 /// Handle the merge attribute.
@@ -5005,9 +5064,6 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     D->addAttr(::new (S.Context) AlignedAttr(
         AL.getRange(), S.Context, true, nullptr, /*IsOffsetExpr=*/true,
         /*Offset=*/nullptr, AL.getAttributeSpellingListIndex()));
-#else
-    D->addAttr(::new (S.Context) AlignedAttr(AL.getRange(), S.Context,
-               true, nullptr, AL.getAttributeSpellingListIndex()));
 #endif // INTEL_CUSTOMIZATION
     return;
   }
@@ -5040,9 +5096,6 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   S.AddAlignedAttr(AL.getRange(), D, E, Offset,
                    AL.getAttributeSpellingListIndex(),
                    AL.isPackExpansion());
-#else
-  S.AddAlignedAttr(AL.getRange(), D, E, AL.getAttributeSpellingListIndex(),
-                   AL.isPackExpansion());
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -5052,10 +5105,6 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
                           unsigned SpellingListIndex, bool IsPackExpansion) {
   AlignedAttr TmpAttr(AttrRange, Context, true, E, /*IsOffsetExpr=*/true,
                       Offset, SpellingListIndex);
-#else
-void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
-                          unsigned SpellingListIndex, bool IsPackExpansion) {
-  AlignedAttr TmpAttr(AttrRange, Context, true, E, SpellingListIndex);
 #endif // INTEL_CUSTOMIZATION
   SourceLocation AttrLoc = AttrRange.getBegin();
 
@@ -5193,9 +5242,6 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
   AlignedAttr *AA = ::new (Context)
       AlignedAttr(AttrRange, Context, true, ICE.get(), /*IsOffsetExpr=*/true,
                   ICEOffset.get(), SpellingListIndex);
-#else
-  AlignedAttr *AA = ::new (Context) AlignedAttr(AttrRange, Context, true,
-                                                ICE.get(), SpellingListIndex);
 #endif // INTEL_CUSTOMIZATION
   AA->setPackExpansion(IsPackExpansion);
   D->addAttr(AA);
@@ -5211,9 +5257,6 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *TS,
   AlignedAttr *AA = ::new (Context)
       AlignedAttr(AttrRange, Context, false, TS, /*IsOffsetExpr=*/true,
                   /*Offset=*/nullptr, SpellingListIndex);
-#else
-  AlignedAttr *AA = ::new (Context) AlignedAttr(AttrRange, Context, false, TS,
-                                                SpellingListIndex);
 #endif // INTEL_CUSTOMIZATION
   AA->setPackExpansion(IsPackExpansion);
   D->addAttr(AA);
@@ -8742,6 +8785,12 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_NumPortsReadOnlyWriteOnly:
     handleNumPortsReadOnlyWriteOnlyAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_MaxReplicates:
+    handleMaxReplicatesAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SimpleDualPort:
+    handleSimpleDualPortAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_Merge:
     handleMergeAttr(S, D, AL);
     break;
@@ -8749,7 +8798,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleBankBitsAttr(S, D, AL);
     break;
   case ParsedAttr::AT_StaticArrayReset:
-    handleOneConstantValueAttr<StaticArrayResetAttr>(S, D, AL);
+    handleStaticArrayResetAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Component:
     handleComponentAttr(S, D, AL);

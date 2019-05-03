@@ -12193,13 +12193,6 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
       }
 
       OverloadExpr *Ovl = cast<OverloadExpr>(E);
-#if INTEL_CUSTOMIZATION
-      // CQ374728: cannot create a pointer to static member function
-      if (getLangOpts().IntelCompat && !Ovl->hasExplicitTemplateArgs())
-        if (auto *UME = dyn_cast<UnresolvedMemberExpr>(Ovl))
-          if (!UME->isImplicitAccess())
-            return Context.OverloadTy; // static member function access
-#endif                                 // INTEL_CUSTOMIZATION
       if (isa<UnresolvedMemberExpr>(Ovl))
         if (!ResolveSingleFunctionTemplateSpecialization(Ovl)) {
           Diag(OpLoc, diag::err_invalid_form_pointer_member_function)
@@ -13544,7 +13537,7 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
       /* Don't suppress conversion warning for ! 2.3 */
       suppressDiag = true;
     }
-#endif  /* INTEL_CUSTOMIZATION */
+#endif  // INTEL_CUSTOMIZATION
       if (Context.getLangOpts().CPlusPlus) {
         // C++03 [expr.unary.op]p8, C++0x [expr.unary.op]p9:
         // operand contextually converted to bool.
@@ -13587,7 +13580,7 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
       /* Suppress the float-to-bool conversion warnings. */
       Input.get()->setIsCondition();
     }
-#endif  /* INTEL_CUSTOMIZATION */
+#endif // INTEL_CUSTOMIZATION
 
     break;
     } //INTEL

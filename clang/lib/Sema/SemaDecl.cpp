@@ -759,7 +759,7 @@ void Sema::DiagnoseUnknownTypeName(IdentifierInfo *&II,
     if (getLangOpts().isIntelCompat(LangOptions::AllowMissingTypename)) {
       DiagID = diag::ext_typename_missing;
     } else
-#endif // INTEL_COMPATIBILITY
+#endif // INTEL_CUSTOMIZATION
     if (getLangOpts().MSVCCompat && isMicrosoftMissingTypename(SS, S))
       DiagID = diag::ext_typename_missing;
 
@@ -2043,7 +2043,7 @@ NamedDecl *Sema::LazilyCreateBuiltin(IdentifierInfo *II, unsigned ID,
 }
 
 #if INTEL_CUSTOMIZATION
-/// \brief Filter out any previous declarations that are library-defined builtin
+/// Filter out any previous declarations that are library-defined builtin
 /// functions like 'malloc' or 'exp'.
 static void filterPredefinedLibBuiltins(ASTContext &Context,
                                         LookupResult &Previous) {
@@ -3143,12 +3143,6 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     if (getLangOpts().MicrosoftExt) {
       Diag(New->getLocation(), diag::ext_static_non_static) << New;
       Diag(OldLocation, PrevDiag);
-#if INTEL_CUSTOMIZATION
-    // CQ#369830 - static declarations are treated differently.
-    } else if (getLangOpts().IntelCompat) {
-      Diag(New->getLocation(), diag::ext_intel_static_non_static) << New;
-      Diag(OldLocation, PrevDiag);
-#endif // INTEL_CUSTOMIZATION
     } else {
       Diag(New->getLocation(), diag::err_static_non_static) << New;
       Diag(OldLocation, PrevDiag);
@@ -3430,7 +3424,7 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
         New->setType(Old->getType());
         NewQType = Old->getType();
       } else if (ResQT.isNull()) {
-#endif // INTEL_COMPATIBILITY
+#endif // INTEL_CUSTOMIZATION
         if (New->isCXXClassMember() && New->isOutOfLine())
           Diag(New->getLocation(), diag::err_member_def_does_not_match_ret_type)
               << New << New->getReturnTypeSourceRange();
@@ -4126,13 +4120,6 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
       Diag(New->getLocation(), diag::ext_static_non_static)
           << New->getDeclName();
       Diag(OldLocation, PrevDiag);
-#if INTEL_CUSTOMIZATION
-    // CQ#369830 - static declarations are treated differently.
-    } else if (getLangOpts().IntelCompat) {
-      Diag(New->getLocation(), diag::ext_intel_static_non_static)
-          << New->getDeclName();
-      Diag(OldLocation, PrevDiag);
-#endif // INTEL_CUSTOMIZATION
     } else {
       Diag(New->getLocation(), diag::err_static_non_static)
           << New->getDeclName();
@@ -4154,20 +4141,9 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
   else if (New->getCanonicalDecl()->getStorageClass() != SC_Static &&
            !New->isStaticDataMember() &&
            Old->getCanonicalDecl()->getStorageClass() == SC_Static) {
-#if INTEL_CUSTOMIZATION
-    // CQ#369830 - static declarations are treated differently.
-    if (getLangOpts().IntelCompat) {
-      Diag(New->getLocation(), diag::ext_intel_non_static_static)
-          << New->getDeclName();
-      Diag(OldLocation, PrevDiag);
-    } else {
-#endif // INTEL_CUSTOMIZATION
     Diag(New->getLocation(), diag::err_non_static_static) << New->getDeclName();
     Diag(OldLocation, PrevDiag);
     return New->setInvalidDecl();
-#if INTEL_CUSTOMIZATION
-    }
-#endif // INTEL_CUSTOMIZATION
   }
 
   // Check if extern is followed by non-extern and vice-versa.
@@ -8323,14 +8299,6 @@ static StorageClass getFunctionStorageClass(Sema &SemaRef, Declarator &D) {
       //   block scope shall have no explicit storage-class specifier
       //   other than extern
       // See also (C++ [dcl.stc]p4).
-#if INTEL_CUSTOMIZATION
-      // CQ#369830 - static declarations are treated differently.
-      if (SemaRef.getLangOpts().IntelCompat) {
-        SemaRef.Diag(D.getDeclSpec().getStorageClassSpecLoc(),
-                     diag::ext_intel_static_block_func);
-        return SC_Static;
-      }
-#endif // INTEL_CUSTOMIZATION
       SemaRef.Diag(D.getDeclSpec().getStorageClassSpecLoc(),
                    diag::err_static_block_func);
       break;
@@ -9374,13 +9342,9 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
         HasExplicitTemplateArgs = false;
       } else {
-#if !INTEL_CUSTOMIZATION
-        // Fix for CQ374168: Regression (assertion failure) on
-        // cfe_iclangCpp/nlu1_8)
         assert((isFunctionTemplateSpecialization ||
                 D.getDeclSpec().isFriendSpecified()) &&
                "should have a 'template<>' for this decl");
-#endif // INTEL_CUSTOMIZATION
         // "friend void foo<>(int);" is an implicit specialization decl.
         isFunctionTemplateSpecialization = true;
       }
@@ -9635,20 +9599,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   if (NewFD->isFirstDecl() && !NewFD->isInvalidDecl() &&
       isIncompleteDeclExternC(*this, NewFD))
     RegisterLocallyScopedExternCDecl(NewFD, S);
-#if INTEL_CUSTOMIZATION
-  else {
-    // CQ#369830 - static declarations are treated differently.
-    // If it is a locally-scoped static declaration of a function, make it
-    // visible for lookup in C.
-    const LangOptions &Opts = getLangOpts();
-    bool isLocalDecl =
-      NewFD->getLexicalDeclContext()->getRedeclContext()->isFunctionOrMethod();
-    if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC) &&
-        NewFD->isFirstDecl() && !NewFD->isInvalidDecl() && isLocalDecl &&
-        NewFD->getStorageClass() == SC_Static)
-      RegisterLocallyScopedExternCDecl(NewFD, S);
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // Set this FunctionDecl's range up to the right paren.
   NewFD->setRangeEnd(D.getSourceRange().getEnd());
@@ -10862,14 +10812,12 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     T = Context.getCanonicalType(FD->getType());
   }
 
-#if !INTEL_CUSTOMIZATION
-  if (getLangOpts().GNUMode && !getLangOpts().CPlusPlus) {
+#if INTEL_CUSTOMIZATION
+  if ((getLangOpts().GNUMode && !getLangOpts().CPlusPlus) ||
+      getLangOpts().IntelCompat) {
     // In C with GNU extensions we allow main() to have non-integer return
     // type, but we should warn about the extension, and we disable the
     // implicit-return-zero rule.
-#else
-  if ((getLangOpts().GNUMode && !getLangOpts().CPlusPlus) ||
-      getLangOpts().IntelCompat) {
     // The same should be done in IntelCompat mode as well.
     // See CQ#364427 for details.
 #endif  // INTEL_CUSTOMIZATION
@@ -15408,8 +15356,6 @@ CreateNewDecl:
           else
             DiagID = diag::err_forward_ref_enum;
         }
-#else
-          DiagID = diag::err_forward_ref_enum;
 #endif // INTEL_CUSTOMIZATION
         Diag(Loc, DiagID);
       }
@@ -16205,21 +16151,9 @@ bool Sema::CheckNontrivialField(FieldDecl *FD) {
 
         Diag(FD->getLocation(), getLangOpts().CPlusPlus11 ?
                diag::warn_cxx98_compat_nontrivial_union_or_anon_struct_member :
-#if INTEL_CUSTOMIZATION
-                // CQ#364709 - allow union or anonymous struct member have
-                // non-trivial field in IntelMSCompat mode.
-                getLangOpts().IntelMSCompat
-                    ? diag::warn_intel_nontrivial_union_or_anon_struct_member
-                    :
-#endif // INTEL_CUSTOMIZATION
                diag::err_illegal_union_or_anon_struct_member)
           << FD->getParent()->isUnion() << FD->getDeclName() << member;
         DiagnoseNontrivial(RDecl, member);
-#if INTEL_CUSTOMIZATION
-        // CQ#364709 - return false in IntelMSCompat mode.
-        if (getLangOpts().IntelMSCompat)
-          return false;
-#endif // INTEL_CUSTOMIZATION
         return !getLangOpts().CPlusPlus11;
       }
     }
@@ -17620,12 +17554,44 @@ static void checkModuleImportContext(Sema &S, Module *M,
   }
 }
 
-Sema::DeclGroupPtrTy Sema::ActOnModuleDecl(SourceLocation StartLoc,
-                                           SourceLocation ModuleLoc,
-                                           ModuleDeclKind MDK,
-                                           ModuleIdPath Path) {
-  assert(getLangOpts().ModulesTS &&
-         "should only have module decl in modules TS");
+Sema::DeclGroupPtrTy
+Sema::ActOnGlobalModuleFragmentDecl(SourceLocation ModuleLoc) {
+  if (!ModuleScopes.empty() &&
+      ModuleScopes.back().Module->Kind == Module::GlobalModuleFragment) {
+    // Under -std=c++2a -fmodules-ts, we can find an explicit 'module;' after
+    // already implicitly entering the global module fragment. That's OK.
+    assert(getLangOpts().CPlusPlusModules && getLangOpts().ModulesTS &&
+           "unexpectedly encountered multiple global module fragment decls");
+    ModuleScopes.back().BeginLoc = ModuleLoc;
+    return nullptr;
+  }
+
+  // We start in the global module; all those declarations are implicitly
+  // module-private (though they do not have module linkage).
+  auto &Map = PP.getHeaderSearchInfo().getModuleMap();
+  auto *GlobalModule = Map.createGlobalModuleForInterfaceUnit(ModuleLoc);
+  assert(GlobalModule && "module creation should not fail");
+
+  // Enter the scope of the global module.
+  ModuleScopes.push_back({});
+  ModuleScopes.back().BeginLoc = ModuleLoc;
+  ModuleScopes.back().Module = GlobalModule;
+  VisibleModules.setVisible(GlobalModule, ModuleLoc);
+
+  // All declarations created from now on are owned by the global module.
+  auto *TU = Context.getTranslationUnitDecl();
+  TU->setModuleOwnershipKind(Decl::ModuleOwnershipKind::Visible);
+  TU->setLocalOwningModule(GlobalModule);
+
+  // FIXME: Consider creating an explicit representation of this declaration.
+  return nullptr;
+}
+
+Sema::DeclGroupPtrTy
+Sema::ActOnModuleDecl(SourceLocation StartLoc, SourceLocation ModuleLoc,
+                      ModuleDeclKind MDK, ModuleIdPath Path, bool IsFirstDecl) {
+  assert((getLangOpts().ModulesTS || getLangOpts().CPlusPlusModules) &&
+         "should only have module decl in Modules TS or C++20");
 
   // A module implementation unit requires that we are not compiling a module
   // of any kind. A module interface unit requires that we are not compiling a
@@ -17655,17 +17621,38 @@ Sema::DeclGroupPtrTy Sema::ActOnModuleDecl(SourceLocation StartLoc,
     return nullptr;
   }
 
-  assert(ModuleScopes.size() == 1 && "expected to be at global module scope");
+  assert(ModuleScopes.size() <= 1 && "expected to be at global module scope");
 
   // FIXME: Most of this work should be done by the preprocessor rather than
   // here, in order to support macro import.
 
   // Only one module-declaration is permitted per source file.
-  if (ModuleScopes.back().Module->Kind == Module::ModuleInterfaceUnit) {
+  if (!ModuleScopes.empty() &&
+      ModuleScopes.back().Module->Kind == Module::ModuleInterfaceUnit) {
     Diag(ModuleLoc, diag::err_module_redeclaration);
     Diag(VisibleModules.getImportLoc(ModuleScopes.back().Module),
          diag::note_prev_module_declaration);
     return nullptr;
+  }
+
+  // Find the global module fragment we're adopting into this module, if any.
+  Module *GlobalModuleFragment = nullptr;
+  if (!ModuleScopes.empty() &&
+      ModuleScopes.back().Module->Kind == Module::GlobalModuleFragment)
+    GlobalModuleFragment = ModuleScopes.back().Module;
+
+  // In C++20, the module-declaration must be the first declaration if there
+  // is no global module fragment.
+  if (getLangOpts().CPlusPlusModules && !IsFirstDecl && !GlobalModuleFragment) {
+    Diag(ModuleLoc, diag::err_module_decl_not_at_start);
+    SourceLocation BeginLoc =
+        ModuleScopes.empty()
+            ? SourceMgr.getLocForStartOfFile(SourceMgr.getMainFileID())
+            : ModuleScopes.back().BeginLoc;
+    if (BeginLoc.isValid()) {
+      Diag(BeginLoc, diag::note_global_module_introducer_missing)
+          << FixItHint::CreateInsertion(BeginLoc, "module;\n");
+    }
   }
 
   // Flatten the dots in a module name. Unlike Clang's hierarchical module map
@@ -17709,14 +17696,10 @@ Sema::DeclGroupPtrTy Sema::ActOnModuleDecl(SourceLocation StartLoc,
 
     // Create a Module for the module that we're defining.
     Mod = Map.createModuleForInterfaceUnit(ModuleLoc, ModuleName,
-                                           ModuleScopes.front().Module);
+                                           GlobalModuleFragment);
     assert(Mod && "module creation should not fail");
     break;
   }
-
-  case ModuleDeclKind::Partition:
-    // FIXME: Check we are in a submodule of the named module.
-    return nullptr;
 
   case ModuleDeclKind::Implementation:
     std::pair<IdentifierInfo *, SourceLocation> ModuleNameLoc(
@@ -17728,12 +17711,19 @@ Sema::DeclGroupPtrTy Sema::ActOnModuleDecl(SourceLocation StartLoc,
       Diag(ModuleLoc, diag::err_module_not_defined) << ModuleName;
       // Create an empty module interface unit for error recovery.
       Mod = Map.createModuleForInterfaceUnit(ModuleLoc, ModuleName,
-                                             ModuleScopes.front().Module);
+                                             GlobalModuleFragment);
     }
     break;
   }
 
-  // Switch from the global module to the named module.
+  if (!GlobalModuleFragment) {
+    ModuleScopes.push_back({});
+    if (getLangOpts().ModulesLocalVisibility)
+      ModuleScopes.back().OuterVisibleModules = std::move(VisibleModules);
+  }
+
+  // Switch from the global module fragment (if any) to the named module.
+  ModuleScopes.back().BeginLoc = StartLoc;
   ModuleScopes.back().Module = Mod;
   ModuleScopes.back().ModuleInterface = MDK != ModuleDeclKind::Implementation;
   VisibleModules.setVisible(Mod, ModuleLoc);
@@ -17750,6 +17740,7 @@ Sema::DeclGroupPtrTy Sema::ActOnModuleDecl(SourceLocation StartLoc,
 }
 
 DeclResult Sema::ActOnModuleImport(SourceLocation StartLoc,
+                                   SourceLocation ExportLoc,
                                    SourceLocation ImportLoc,
                                    ModuleIdPath Path) {
   // Flatten the module path for a Modules TS module name.
@@ -17771,6 +17762,13 @@ DeclResult Sema::ActOnModuleImport(SourceLocation StartLoc,
   if (!Mod)
     return true;
 
+  return ActOnModuleImport(StartLoc, ExportLoc, ImportLoc, Mod, Path);
+}
+
+DeclResult Sema::ActOnModuleImport(SourceLocation StartLoc,
+                                   SourceLocation ExportLoc,
+                                   SourceLocation ImportLoc,
+                                   Module *Mod, ModuleIdPath Path) {
   VisibleModules.setVisible(Mod, ImportLoc);
 
   checkModuleImportContext(*this, Mod, ImportLoc, CurContext);
@@ -17780,12 +17778,15 @@ DeclResult Sema::ActOnModuleImport(SourceLocation StartLoc,
   // silently ignoring the import.
   // Import-from-implementation is valid in the Modules TS. FIXME: Should we
   // warn on a redundant import of the current module?
+  // FIXME: Import of a module from an implementation partition of the same
+  // module is permitted.
   if (Mod->getTopLevelModuleName() == getLangOpts().CurrentModule &&
-      (getLangOpts().isCompilingModule() || !getLangOpts().ModulesTS))
+      (getLangOpts().isCompilingModule() || !getLangOpts().ModulesTS)) {
     Diag(ImportLoc, getLangOpts().isCompilingModule()
                         ? diag::err_module_self_import
                         : diag::err_module_import_in_implementation)
         << Mod->getFullModuleName() << getLangOpts().CurrentModule;
+  }
 
   SmallVector<SourceLocation, 2> IdentifierLocs;
   Module *ModCheck = Mod;
@@ -17799,16 +17800,30 @@ DeclResult Sema::ActOnModuleImport(SourceLocation StartLoc,
     IdentifierLocs.push_back(Path[I].second);
   }
 
+  // If this was a header import, pad out with dummy locations.
+  // FIXME: Pass in and use the location of the header-name token in this case.
+  if (Path.empty()) {
+    for (; ModCheck; ModCheck = ModCheck->Parent) {
+      IdentifierLocs.push_back(SourceLocation());
+    }
+  }
+
   ImportDecl *Import = ImportDecl::Create(Context, CurContext, StartLoc,
                                           Mod, IdentifierLocs);
-  if (!ModuleScopes.empty())
-    Context.addModuleInitializer(ModuleScopes.back().Module, Import);
   CurContext->addDecl(Import);
 
+  // Sequence initialization of the imported module before that of the current
+  // module, if any.
+  if (!ModuleScopes.empty())
+    Context.addModuleInitializer(ModuleScopes.back().Module, Import);
+
   // Re-export the module if needed.
-  if (Import->isExported() &&
-      !ModuleScopes.empty() && ModuleScopes.back().ModuleInterface)
-    getCurrentModule()->Exports.emplace_back(Mod, false);
+  if (!ModuleScopes.empty() && ModuleScopes.back().ModuleInterface) {
+    if (ExportLoc.isValid() || Import->isExported())
+      getCurrentModule()->Exports.emplace_back(Mod, false);
+  } else if (ExportLoc.isValid()) {
+    Diag(ExportLoc, diag::err_export_not_in_module_interface);
+  }
 
   return Import;
 }

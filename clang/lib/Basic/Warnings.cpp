@@ -42,8 +42,7 @@ static void EmitUnknownDiagWarning(DiagnosticsEngine &Diags,
 
 void clang::ProcessWarningOptions(DiagnosticsEngine &Diags,
                                   const DiagnosticOptions &Opts,
-                                  bool ReportDiags, // INTEL
-                                  bool IgnoreIgnored) { // INTEL
+                                  bool ReportDiags) {
   Diags.setSuppressSystemWarnings(true);  // Default to -Wno-system-headers
   Diags.setIgnoreAllWarnings(Opts.IgnoreWarnings);
   Diags.setShowOverloads(Opts.getShowOverloads());
@@ -151,8 +150,7 @@ void clang::ProcessWarningOptions(DiagnosticsEngine &Diags,
 
         if (SetDiagnostic) {
           // Set the warning as error flag for this specifier.
-          Diags.setDiagnosticGroupWarningAsError(Specifier, isPositive, // INTEL
-                                                 IgnoreIgnored); // INTEL
+          Diags.setDiagnosticGroupWarningAsError(Specifier, isPositive);
         } else if (DiagIDs->getDiagnosticsInGroup(Flavor, Specifier, _Diags)) {
           EmitUnknownDiagWarning(Diags, Flavor, "-Werror=", Specifier);
         }

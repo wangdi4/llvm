@@ -1,5 +1,3 @@
-// INTEL: Marked with XFAIL until CORC-2366 is fixed.
-// XFAIL: *
 // RUN: %clang_cc1 %s -emit-llvm -o - -O0 -ffake-address-space-map -triple i686-pc-darwin | FileCheck -enable-var-scope -check-prefixes=COM,X86 %s
 // RUN: %clang_cc1 %s -emit-llvm -o - -O0 -triple amdgcn | FileCheck -enable-var-scope -check-prefixes=COM,AMDGCN %s
 // RUN: %clang_cc1 %s -emit-llvm -o - -cl-std=CL2.0 -O0 -triple amdgcn | FileCheck -enable-var-scope -check-prefixes=COM,AMDGCN,AMDGCN20 %s

@@ -51,23 +51,23 @@ int foo0b(slave_arg __attribute__((memory("MLAB")))
 //CHECK: [[MFOO0A]] =
 //CHECK-SAME: !{!"",
 //CHECK-SAME: !"",
-//CHECK-SAME: !"{memory:MLAB}",
-//CHECK-SAME: !"{memory:BLOCK_RAM}",
-//CHECK-SAME: !"{memory:DEFAULT}{numbanks:4}",
-//CHECK-SAME: !"{memory:DEFAULT}{bankwidth:4}",
-//CHECK-SAME: !"{memory:DEFAULT}{pump:1}",
-//CHECK-SAME: !"{memory:DEFAULT}{pump:2}",
-//CHECK-SAME: !"{memory:DEFAULT}{numreadports:4}{numwriteports:8}",
-//CHECK-SAME: !"{memory:DEFAULT}{numbanks:8}{bank_bits:4,3,2}",
-//CHECK-SAME: !"{memory:DEFAULT}{numreadports:4}",
-//CHECK-SAME: !"{memory:DEFAULT}{numwriteports:4}",
-//CHECK-SAME: !"{memory:DEFAULT}{optimize_fmax:1}",
-//CHECK-SAME: !"{memory:DEFAULT}{optimize_ram_usage:1}",
-//CHECK-SAME: !"{memory:DEFAULT}{internal_max_block_ram_depth:32}"}
+//CHECK-SAME: !"{memory:MLAB}{sizeinfo:8}",
+//CHECK-SAME: !"{memory:BLOCK_RAM}{sizeinfo:8}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{numbanks:4}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{bankwidth:4}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{pump:1}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{pump:2}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{numreadports:4}{numwriteports:8}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{numbanks:8}{bank_bits:4,3,2}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{numreadports:4}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{numwriteports:4}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{optimize_fmax:1}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{optimize_ram_usage:1}",
+//CHECK-SAME: !"{memory:DEFAULT}{sizeinfo:8}{internal_max_block_ram_depth:32}"}
 
 //CHECK: [[CFOO1A]] = !{!"_Z5foo0bPi", i32 undef}
 //CHECK: [[ATFOO1A]] = !{!"mm_slave"}
-//CHECK: [[MFOO1A]] = !{!"{memory:MLAB}{pump:1}{bankwidth:4}{numbanks:8}
+//CHECK: [[MFOO1A]] = !{!"{memory:MLAB}{sizeinfo:8}{pump:1}{bankwidth:4}{numbanks:8}
 //CHECK-SAME: {numreadports:4}{numwriteports:2}
 //CHECK-SAME: {internal_max_block_ram_depth:64}{bank_bits:4,3,2}"
 //CHECK: [[LMSFOO1A]] = !{i32 32}

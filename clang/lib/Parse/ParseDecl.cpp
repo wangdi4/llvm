@@ -387,9 +387,6 @@ unsigned Parser::ParseAttributeArgsCommon(
     bool IsIdentifierArg =
         attributeHasIdentifierArg(*AttrName, Syntax, ScopeName) ||
                            attributeHasVariadicIdentifierArg(*AttrName);
-#else
-    bool IsIdentifierArg = attributeHasIdentifierArg(*AttrName) ||
-                           attributeHasVariadicIdentifierArg(*AttrName);
 #endif // INTEL_CUSTOMIZATION
     ParsedAttr::Kind AttrKind =
         ParsedAttr::getKind(AttrName, ScopeName, Syntax);
@@ -421,16 +418,12 @@ unsigned Parser::ParseAttributeArgsCommon(
       if (Tok.is(tok::identifier) &&
 #if INTEL_CUSTOMIZATION
           attributeHasVariadicIdentifierArg(*AttrName)) {
-#else
-          attributeHasVariadicIdentifierArg(*AttrName)) {
-#endif
+#endif // INTEL_CUSTOMIZATION
         ArgExprs.push_back(ParseIdentifierLoc());
       } else {
 #if INTEL_CUSTOMIZATION
         bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
                                                    ScopeName);
-#else
-        bool Uneval = attributeParsedArgsUnevaluated(*AttrName);
 #endif // INTEL_CUSTOMIZATION
         EnterExpressionEvaluationContext Unevaluated(
             Actions,
@@ -496,8 +489,6 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     return;
 #if INTEL_CUSTOMIZATION
   } else if (attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName)) {
-#else
-  } else if (attributeIsTypeArgAttr(*AttrName)) {
 #endif // INTEL_CUSTOMIZATION
     ParseAttributeWithTypeArg(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
                               ScopeLoc, Syntax);
@@ -5418,7 +5409,7 @@ void Parser::ParseTypeQualifierListOpt(
       // CQ381345: OpenCL is not supported in Intel compatibility mode.
       assert (!getLangOpts().IntelCompat &&
               "OpenCL is not supported in Intel compatibility mode.");
-#endif // INTEL_CUSTOMIZATION 
+#endif // INTEL_CUSTOMIZATION
     case tok::kw_private:
       if (!getLangOpts().OpenCL)
         goto DoneWithTypeQuals;

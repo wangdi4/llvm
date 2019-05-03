@@ -1497,7 +1497,7 @@ namespace {
 void Sema::CheckForLoopConditionalStatement(Expr *Second,
                                         Expr *Third, Stmt *Body) {
     Sema &S = *this;
-#endif // INTEL_CUTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
     // Condition is empty
     if (!Second) return;
@@ -1544,7 +1544,7 @@ void Sema::CheckForLoopConditionalStatement(Expr *Second,
   }
 #if INTEL_CUSTOMIZATION
 namespace {
-#endif // INTEL_CUTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   // If Statement is an incemement or decrement, return true and sets the
   // variables Increment and DRE.
   bool ProcessIterationStmt(Sema &S, Stmt* Statement, bool &Increment,
@@ -1761,9 +1761,6 @@ StmtResult Sema::ActOnForStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
   if (!Second.get().first)
 #if INTEL_CUSTOMIZATION
     CheckForLoopConditionalStatement(Second.get().second, third.get(), Body);
-#else
-    CheckForLoopConditionalStatement(*this, Second.get().second, third.get(),
-                                     Body);
 #endif  // INTEL_CUSTOMIZATION
   CheckForRedundantIteration(*this, third.get(), Body);
 

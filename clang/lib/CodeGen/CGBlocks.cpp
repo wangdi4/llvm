@@ -1148,7 +1148,16 @@ llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
       // reference is nested.
       DeclRefExpr declRef(getContext(), const_cast<VarDecl *>(variable),
                           /*RefersToEnclosingVariableOrCapture*/ CI.isNested(),
-                          type, VK_LValue, SourceLocation());
+#if INTEL_CUSTOMIZATION
+                          type, VK_LValue,
+      // Any instructions generated from the initialization of captured
+      // variables should use the source correlation for the block.
+                          blockInfo.getBlockExpr()->getBeginLoc());
+      // Marking the variable as used is necessary to avoid an assertion in
+      // CGExpr.cpp routine EmitDeclRefLValue() which occurs after adding the
+      // source correlation above.
+      const_cast<VarDecl *>(variable)->markUsed(getContext());
+#endif
 
       ImplicitCastExpr l2r(ImplicitCastExpr::OnStack, type, CK_LValueToRValue,
                            &declRef, VK_RValue);

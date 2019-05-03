@@ -83,7 +83,7 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
     *AllocaAddr = Alloca;
   llvm::Value *V = Alloca.getPointer();
 #if INTEL_COLLAB
-  if (CapturedStmtInfo)
+  if (CapturedStmtInfo && !ArraySize)
     CapturedStmtInfo->recordValueDefinition(V);
 #endif // INTEL_COLLAB
   // Alloca always returns a pointer in alloca address space, which may

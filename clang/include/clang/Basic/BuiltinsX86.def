@@ -266,6 +266,8 @@ TARGET_BUILTIN(__builtin_ia32_paddusw128, "V8sV8sV8s", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_psubusb128, "V16cV16cV16c", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_psubusw128, "V8sV8sV8s", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_pmulhw128, "V8sV8sV8s", "ncV:128:", "sse2")
+TARGET_BUILTIN(__builtin_ia32_pavgb128, "V16cV16cV16c", "ncV:128:", "sse2")
+TARGET_BUILTIN(__builtin_ia32_pavgw128, "V8sV8sV8s", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_pmaxub128, "V16cV16cV16c", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_pmaxsw128, "V8sV8sV8s", "ncV:128:", "sse2")
 TARGET_BUILTIN(__builtin_ia32_pminub128, "V16cV16cV16c", "ncV:128:", "sse2")
@@ -577,6 +579,8 @@ TARGET_BUILTIN(__builtin_ia32_paddusw256, "V16sV16sV16s", "ncV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_psubusb256, "V32cV32cV32c", "ncV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_psubusw256, "V16sV16sV16s", "ncV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_palignr256, "V32cV32cV32cIi", "ncV:256:", "avx2")
+TARGET_BUILTIN(__builtin_ia32_pavgb256, "V32cV32cV32c", "ncV:256:", "avx2")
+TARGET_BUILTIN(__builtin_ia32_pavgw256, "V16sV16sV16s", "ncV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_pblendvb256, "V32cV32cV32cV32c", "ncV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_pblendw256, "V16sV16sV16sIi", "ncV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_phaddw256, "V16sV16sV16s", "ncV:256:", "avx2")
@@ -1074,6 +1078,8 @@ TARGET_BUILTIN(__builtin_ia32_paddsb512, "V64cV64cV64c", "ncV:512:", "avx512bw")
 TARGET_BUILTIN(__builtin_ia32_paddsw512, "V32sV32sV32s", "ncV:512:", "avx512bw")
 TARGET_BUILTIN(__builtin_ia32_paddusb512, "V64cV64cV64c", "ncV:512:", "avx512bw")
 TARGET_BUILTIN(__builtin_ia32_paddusw512, "V32sV32sV32s", "ncV:512:", "avx512bw")
+TARGET_BUILTIN(__builtin_ia32_pavgb512, "V64cV64cV64c", "ncV:512:", "avx512bw")
+TARGET_BUILTIN(__builtin_ia32_pavgw512, "V32sV32sV32s", "ncV:512:", "avx512bw")
 TARGET_BUILTIN(__builtin_ia32_pmaxsb512, "V64cV64cV64c", "ncV:512:", "avx512bw")
 TARGET_BUILTIN(__builtin_ia32_pmaxsw512, "V32sV32sV32s", "ncV:512:", "avx512bw")
 TARGET_BUILTIN(__builtin_ia32_pmaxub512, "V64cV64cV64c", "ncV:512:", "avx512bw")
@@ -1918,6 +1924,33 @@ TARGET_BUILTIN(__builtin_ia32_ptwrite32, "vUi", "n", "ptwrite")
 TARGET_BUILTIN(__builtin_ia32_invpcid, "vUiv*", "nc", "invpcid")
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ENQCMD
+// ENQCMD
+TARGET_BUILTIN(__builtin_ia32_enqcmd, "Ucv*vC*", "n", "enqcmd")
+TARGET_BUILTIN(__builtin_ia32_enqcmds, "Ucv*vC*", "n", "enqcmd")
+#endif // INTEL_FEATURE_ISA_ENQCMD
+
+#if INTEL_FEATURE_ISA_KEYLOCKER
+// KEYLOCKER
+TARGET_BUILTIN(__builtin_ia32_loadiwkey, "vUiV2LLiV2LLiV2LLi", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_encodekey128,
+               "UiUiV2LLiV2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_encodekey256,
+               "UiUiV2LLiV2LLiV2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesenc128kl, "V2LLiV2LLivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesenc256kl, "V2LLiV2LLivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesdec128kl, "V2LLiV2LLivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesdec256kl, "V2LLiV2LLivC*", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesencwide128kl,
+               "UcvC*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLi", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesencwide256kl,
+               "UcvC*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLi", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesdecwide128kl,
+               "UcvC*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLi", "nV:128:", "keylocker")
+TARGET_BUILTIN(__builtin_ia32_aesdecwide256kl,
+               "UcvC*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLi*V2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLiV2LLi", "nV:128:", "keylocker")
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+
 #if INTEL_FEATURE_ISA_SERIALIZE
 // SERIALIZE
 TARGET_BUILTIN(__builtin_ia32_serialize, "v", "n", "serialize")

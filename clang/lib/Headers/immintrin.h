@@ -1,28 +1,18 @@
 /*===---- immintrin.h - Intel intrinsics -----------------------------------===
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+ * See https://llvm.org/LICENSE.txt for license information.
+ * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  *
  *===-----------------------------------------------------------------------===
  */
 
 #ifndef __IMMINTRIN_H
 #define __IMMINTRIN_H
+
+/* INTEL_CUSTOMIZATION */
+#include <ia32intrin.h>
+/* end INTEL_CUSTOMIZATION */
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__MMX__)
 #include <mmintrin.h>
@@ -455,6 +445,16 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_ENQCMD */
+/*
+ * TODO: when ENQCMD is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules)
+ */
+#if defined(__ENQCMD__)
+#include <enqcmdintrin.h>
+#endif
+
+/* end INTEL_FEATURE_ISA_ENQCMD */
 /* INTEL_FEATURE_ISA_SERIALIZE */
 /*
  * TODO: when SERIALIZE is public change the #if checks below to also check:
@@ -484,6 +484,16 @@ _storebe_i64(void * __P, long long __D) {
 #include <Intel_amxintrin.h>
 #endif
 /* end INTEL_FEATURE_ISA_AMX */
+
+/* INTEL_FEATURE_ISA_KEYLOCKER */
+/*
+ * TODO: when KeyLocker is public change the #if checks below to also check:
+ *        !defined(_MSC_VER) || __has_feature(modules) || ...
+ */
+#if defined(__KEYLOCKER__)
+#include <keylockerintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_KEYLOCKER */
 /* end INTEL_CUSTOMIZATION */
 
 #ifdef _MSC_VER
