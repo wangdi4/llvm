@@ -217,6 +217,12 @@ struct RTLProfileTy {
   }
 };
 
+/// Data for handling asynchronous calls.
+struct AsyncEventTy {
+  void (*handler)(void *); // Handler for the event
+  void *arg;               // Argument to the handler
+};
+
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
 
@@ -570,7 +576,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
 void event_callback_completed(cl_event event, cl_int status, void *data) {
   if (status == CL_SUCCESS) {
-    assert(data && "bad task object for the target");
+
+    AsyncEventTy *async_event = (AsyncEventTy *)data;
+    if (!async_event->handler || !async_event->arg) {
+      DP("Error: Invalid asynchronous offloading event\n");
+      return;
+    }
 
     if (profile.flags & PROFILE_ENABLED) {
       cl_command_type cmd;
@@ -592,15 +603,12 @@ void event_callback_completed(cl_event event, cl_int status, void *data) {
       profile.update(event_name, event);
     }
 
-    const char *entry = "__kmpc_proxy_task_completed_ooo";
-    void (*ptask_completed)(void *) = nullptr;
-    *((void **)&ptask_completed) = dlsym(RTLD_DEFAULT, entry);
-    if (ptask_completed) {
-      DP("Calling %s(task=%p)\n", entry, data);
-      ptask_completed(data);
-    } else {
-      DP("Error: Cannot find the entry, %s.\n", entry);
-    }
+    // Libomptarget is responsible for defining the handler and argument.
+    DP("Calling asynchronous offloading event handler " DPxMOD
+       " with argument " DPxMOD "\n", DPxPTR(async_event->handler),
+       DPxPTR(async_event->arg));
+    async_event->handler(async_event->arg);
+
   } else {
     DP("Error: Failed to complete asynchronous offloading.\n");
   }
@@ -637,16 +645,23 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
 
 int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
                                      void *hst_ptr, int64_t size,
-                                     void *async_data) {
+                                     void *async_event) {
   cl_command_queue queue = DeviceInfo.Queues[device_id];
   cl_device_id id = DeviceInfo.deviceIDs[device_id];
 #if USE_SVM_MEMCPY
   cl_event event;
-  if (async_data) {
+  if (async_event) {
     INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, tgt_ptr, hst_ptr,
                        size, 0, nullptr, &event);
-    INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
+    if (((AsyncEventTy *)async_event)->handler) {
+      // Add event handler if necessary.
+      INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_event);
+    } else {
+      // Make sure all queued commands finish before the next one starts.
+      INVOKE_CL_RET_FAIL(clEnqueueBarrierWithWaitList, queue, 0, nullptr,
+                         nullptr);
+    }
   } else {
     INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
                        size, 0, nullptr, &event);
@@ -681,16 +696,23 @@ int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
 
 int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
                                        void *tgt_ptr, int64_t size,
-                                       void *async_data) {
+                                       void *async_event) {
   cl_command_queue queue = DeviceInfo.Queues[device_id];
   cl_device_id id = DeviceInfo.deviceIDs[device_id];
 #if USE_SVM_MEMCPY
   cl_event event;
-  if (async_data) {
+  if (async_event) {
     INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, hst_ptr, tgt_ptr,
                        size, 0, nullptr, &event);
-    INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
+    if (((AsyncEventTy *)async_event)->handler) {
+      // Add event handler if necessary.
+      INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_event);
+    } else {
+      // Make sure all queued commands finish before the next one starts.
+      INVOKE_CL_RET_FAIL(clEnqueueBarrierWithWaitList, queue, 0, nullptr,
+                         nullptr);
+    }
   } else {
     INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
                        size, 0, nullptr, &event);
@@ -736,7 +758,7 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
 static inline int32_t run_target_team_nd_region(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
-    int32_t thread_limit, void *loop_desc, void *async_data) {
+    int32_t thread_limit, void *loop_desc, void *async_event) {
 
   cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
 
@@ -815,9 +837,16 @@ static inline int32_t run_target_team_nd_region(
 
   DP("Started executing kernel.\n");
 
-  if (async_data) {
-    INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
+  if (async_event) {
+    if (((AsyncEventTy *)async_event)->handler) {
+      // Add event handler if necessary.
+      INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_event);
+    } else {
+      // Make sure all queued commands finish before the next one starts.
+      INVOKE_CL_RET_FAIL(clEnqueueBarrierWithWaitList,
+                         DeviceInfo.Queues[device_id], 0, nullptr, nullptr);
+    }
   } else {
     if (profile.flags & PROFILE_ENABLED) {
       char buf[80];
@@ -848,28 +877,28 @@ __tgt_rtl_run_target_team_nd_region(int32_t device_id, void *tgt_entry_ptr,
 int32_t __tgt_rtl_run_target_team_nd_region_nowait(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
-    int32_t thread_limit, void *loop_desc, void *async_data) {
+    int32_t thread_limit, void *loop_desc, void *async_event) {
   return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
                                    tgt_offsets, num_args, num_teams,
-                                   thread_limit, loop_desc, async_data);
+                                   thread_limit, loop_desc, async_event);
 }
 
 int32_t __tgt_rtl_run_target_team_region_nowait(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
-    int32_t thread_limit, uint64_t loop_tripcount, void *async_data) {
+    int32_t thread_limit, uint64_t loop_tripcount, void *async_event) {
   return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
                                    tgt_offsets, arg_num, team_num, thread_limit,
-                                   nullptr, async_data);
+                                   nullptr, async_event);
 }
 
 int32_t __tgt_rtl_run_target_region_nowait(int32_t device_id,
                                            void *tgt_entry_ptr, void **tgt_args,
                                            ptrdiff_t *tgt_offsets,
-                                           int32_t arg_num, void *async_data) {
+                                           int32_t arg_num, void *async_event) {
   return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
                                    tgt_offsets, arg_num, 1, 0, nullptr,
-                                   async_data);
+                                   async_event);
 }
 
 int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
