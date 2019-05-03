@@ -38,15 +38,40 @@ Expected<std::string> MinidumpFile::getString(size_t Offset) const {
     return "";
 
   Offset += sizeof(support::ulittle32_t);
-  auto ExpectedData = getDataSliceAs<UTF16>(getData(), Offset, Size);
+  auto ExpectedData =
+      getDataSliceAs<support::ulittle16_t>(getData(), Offset, Size);
   if (!ExpectedData)
     return ExpectedData.takeError();
 
+  SmallVector<UTF16, 32> WStr(Size);
+  copy(*ExpectedData, WStr.begin());
+
   std::string Result;
-  if (!convertUTF16ToUTF8String(*ExpectedData, Result))
+  if (!convertUTF16ToUTF8String(WStr, Result))
     return createError("String decoding failed");
 
   return Result;
+}
+
+Expected<ArrayRef<Module>> MinidumpFile::getModuleList() const {
+  auto OptionalStream = getRawStream(StreamType::ModuleList);
+  if (!OptionalStream)
+    return createError("No such stream");
+  auto ExpectedSize =
+      getDataSliceAs<support::ulittle32_t>(*OptionalStream, 0, 1);
+  if (!ExpectedSize)
+    return ExpectedSize.takeError();
+
+  size_t ListSize = ExpectedSize.get()[0];
+
+  size_t ListOffset = 4;
+  // Some producers insert additional padding bytes to align the module list to
+  // 8-byte boundary. Check for that by comparing the module list size with the
+  // overall stream size.
+  if (ListOffset + sizeof(Module) * ListSize < OptionalStream->size())
+    ListOffset = 8;
+
+  return getDataSliceAs<Module>(*OptionalStream, ListOffset, ListSize);
 }
 
 Expected<ArrayRef<uint8_t>>

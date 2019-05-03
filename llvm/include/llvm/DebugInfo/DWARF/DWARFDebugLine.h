@@ -206,9 +206,9 @@ public:
 
     void reset();
 
-    static bool orderByLowPC(const Sequence &LHS, const Sequence &RHS) {
-      return std::tie(LHS.SectionIndex, LHS.LowPC) <
-             std::tie(RHS.SectionIndex, RHS.LowPC);
+    static bool orderByHighPC(const Sequence &LHS, const Sequence &RHS) {
+      return std::tie(LHS.SectionIndex, LHS.HighPC) <
+             std::tie(RHS.SectionIndex, RHS.HighPC);
     }
 
     bool isValid() const {
@@ -351,13 +351,10 @@ private:
     ParsingState(struct LineTable *LT);
 
     void resetRowAndSequence();
-    void appendRowToMatrix(uint32_t Offset);
+    void appendRowToMatrix();
 
     /// Line table we're currently parsing.
     struct LineTable *LineTable;
-    /// The row number that starts at zero for the prologue, and increases for
-    /// each row added to the matrix.
-    unsigned RowNumber = 0;
     struct Row Row;
     struct Sequence Sequence;
   };
