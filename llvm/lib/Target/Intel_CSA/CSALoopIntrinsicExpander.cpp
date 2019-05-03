@@ -552,10 +552,15 @@ Re-run with -g to see more location information.
     BasicBlock *CommonPostDom = exits[0];
     for (BasicBlock *Exit : exits)
       CommonPostDom = PDT->findNearestCommonDominator(Exit, CommonPostDom);
-    assert(CommonPostDom && "Multiple exits with no common postdom?");
-    IRBuilder<>{CommonPostDom->getFirstNonPHI()}.CreateCall(
-      Intrinsic::getDeclaration(module, Intrinsic::csa_parallel_region_exit),
-      region_entry);
+    if (CommonPostDom) {
+      IRBuilder<>{CommonPostDom->getFirstNonPHI()}.CreateCall(
+        Intrinsic::getDeclaration(module, Intrinsic::csa_parallel_region_exit),
+        region_entry);
+    } else {
+      for (BasicBlock * Exit : exits)
+        IRBuilder<>{Exit->getFirstNonPHI()}.CreateIntrinsic(
+          Intrinsic::csa_parallel_region_exit, {}, region_entry);
+    }
   }
 
   // The csa.parallel.section.entry instrinsic goes before the first memory
