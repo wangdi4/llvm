@@ -26,6 +26,7 @@
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Intel_WP_utils.h" // INTEL
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
@@ -98,6 +99,29 @@ void BitcodeCompiler::add(BitcodeFile &F) {
     // Once IRObjectFile is fixed to report only one symbol this hack can
     // be removed.
     R.Prevailing = !ObjSym.isUndefined() && Sym->getFile() == &F;
+#if INTEL_CUSTOMIZATION
+    bool DefinitionFound = false;
+
+    // If a symbol is undefined then we need to check if it a weak symbol. A
+    // weak symbol might not have a definition but it will be replaced with
+    // the strong symbol that it is mapped to. This is important in Windows
+    // because lib CTR replaces ISO C++ functions with MS version (e.g.
+    // putenv - > _putenv).
+    if (Undefined *CurrSym = dyn_cast<Undefined>(Sym)) {
+      Defined *AliasSym = CurrSym->getWeakAlias();
+      if (AliasSym)
+        DefinitionFound = true;
+    }
+    // Check if the symbol was defined or was marked as lazy symbol. A lazy
+    // symbol is a symbol whose definition was found in a library but it
+    // isn't used.
+    else {
+      DefinitionFound = isa<Defined>(Sym) || isa<Lazy>(Sym);
+    }
+
+    // Mark that the symbol was resolved by the Linker
+    R.ResolvedByLinker = DefinitionFound;
+#endif // INTEL_CUSTOMIZATION
     R.VisibleToRegularObj = Sym->IsUsedInRegularObj;
     if (R.Prevailing)
       undefine(Sym);
@@ -122,6 +146,13 @@ std::vector<StringRef> BitcodeCompiler::compile() {
           Files[Task] = std::move(MB);
         }));
 
+#if INTEL_CUSTOMIZATION
+  // Linking for an executable
+  // TODO: Whole program can be achieved when linking a DLL and
+  // main will be included in it. This will be added later.
+  if (!Config->DLL)
+    WPUtils.setLinkingExecutable(true);
+#endif // INTEL_CUSTOMIZATION
   checkError(LTOObj->run(
       [&](size_t Task) {
         return llvm::make_unique<lto::NativeObjectStream>(
