@@ -858,13 +858,8 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
     llvm_unreachable("Master VPInstruction with unexpected HLDDNode.");
   }
 
-  // VPInstruction with invalid or no HIR (new).
-  LLVM_DEBUG(
-      dbgs()
-      << "TODO: Generate new HIR for VPInstruction with invalid or no HIR: "
-      << *this << "\n");
-  llvm_unreachable("VPInstruction with invalid HIR shouldn't be generated at "
-                   "this point in VPlan.");
+  // New predicator generates VPInstructions with no HIR. Widen the same.
+  CG->widenNode(this);
 }
 #endif
 

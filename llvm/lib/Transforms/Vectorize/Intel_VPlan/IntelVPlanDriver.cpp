@@ -876,6 +876,11 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   // Send explicit data from WRLoop to the Legality.
   LVP.EnterExplicitData(WRLp, HIRVecLegal);
 
+  // Setup the use of new predicator in the planner if user has not disabled
+  // the same.
+  if (EnableNewVPlanPredicator)
+    LVP.setUseNewPredicator();
+
   if (!LVP.buildInitialVPlans(&Fn.getContext())) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;

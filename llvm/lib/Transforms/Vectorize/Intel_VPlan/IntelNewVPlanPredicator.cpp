@@ -348,6 +348,9 @@ void VPlanPredicator::predicate(void) {
   VPBlockBase *PH = (*VPLI->begin())->getLoopPreheader();
   assert(PH && "Unexpected null pre-header!");
   VPLoopRegion *EntryLoopR = cast<VPLoopRegion>(PH->getParent());
+  const VPLoop *VPL = EntryLoopR->getVPLoop();
+  SmallVector<VPBlockBase *, 4> Exits;
+  VPL->getExitBlocks(Exits);
 
   // Transform inner loop control to become uniform.
   if (VPlanLoopCFU) {
@@ -362,7 +365,8 @@ void VPlanPredicator::predicate(void) {
   predicateRegionRec(cast<VPRegionBlock>(Plan.getEntry()));
 
   // Linearlize the blocks with Region.
-  linearizeRegionRec(cast<VPRegionBlock>(Plan.getEntry()));
+  if (Exits.size() == 1) // INTEL - search loops need linearization suppressed
+    linearizeRegionRec(cast<VPRegionBlock>(Plan.getEntry()));
 #if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan after predication and linearization\n");
   LLVM_DEBUG(Plan.setName("Predicator: After predication\n"));

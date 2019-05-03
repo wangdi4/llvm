@@ -15,7 +15,7 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 < %s -S 2>&1 | FileCheck %s
 
-; Generated HIR for the code above is following:
+; Generated HIR for the code is expected to look like:
 ;
 ;<0>       BEGIN REGION { modified }
 ;<46>            + DO i1 = 0, 40, 1   <DO_LOOP>
@@ -26,11 +26,11 @@
 ;<52>            |      %tgu = (i1)/u4;
 ;<54>            |      if (0 <u 4 * %tgu)
 ;<54>            |      {
-;<53>            |         + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 10> <nounroll>
+;<53>            |         + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 10> <nounroll> <novectorize>
 ;<56>            |         |   %wide.cmp. = i2 + <i32 0, i32 1, i32 2, i32 3> + 1 >u 1;
-;<57>            |         |   %IfFPred = %wide.cmp.  ^  -1;
-;<58>            |         |   %.vec = (<4 x i32>*)(%yarrrr)[0][i2 + <i32 0, i32 1, i32 2, i32 3> + -1]; Mask = @{%wide.cmp.}
-;<59>            |         |   (<4 x i32>*)(%ar)[0][i1 + 1] = %.vec; Mask = @{%wide.cmp.}
+;<57>            |         |   %.vec = (<4 x i32>*)(%yarrrr)[0][i2 + <i32 0, i32 1, i32 2, i32 3> + -1]; Mask = @{%wide.cmp.}
+;<58>            |         |   (<4 x i32>*)(%ar)[0][i1 + 1] = %.vec; Mask = @{%wide.cmp.}
+;<59>            |         |   %.vec3 = %wide.cmp.  ^  -1;
 ;<53>            |         + END LOOP
 ;<54>            |      }
 ;<47>            |      
@@ -52,10 +52,9 @@
 ; Check HIR
 ; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4   <DO_LOOP>
 ; CHECK-NEXT: [[Mask:%.*]] = i2 + <i32 0, i32 1, i32 2, i32 3> + 1 >u 1;
-; CHECK-NEXT: [[IfFPred:%.*]] = [[Mask]] ^ -1;
-; CHECK-NEXT: [[Load:%.*]] = (<4 x i32>*)({{%.*}})[0][i2 + <i32 0, i32 1, i32 2, i32 3> + -1]; Mask = @{[[Mask]]}
+; CHECK: [[Load:%.*]] = (<4 x i32>*)({{%.*}})[0][i2 + <i32 0, i32 1, i32 2, i32 3> + -1]; Mask = @{[[Mask]]}
 ; CHECK-NEXT: (<4 x i32>*)({{%.*}})[0][i1 + 1] = [[Load]]; Mask = @{[[Mask]]}
-; CHECK-NEXT: END LOOP
+; CHECK: END LOOP
 
 ; Check LLVM-IR
 ; CHECK: [[CmpInst:%.*]] = icmp ugt <4 x i32> {{%.*}}, <i32 1, i32 1, i32 1, i32 1>

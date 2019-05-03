@@ -85,14 +85,13 @@ static bool canSpeculate(const RegDDRef *Ref) {
 }
 
 // Expect following sequence of instructions in latch block:
+//    ..
 //    BlockPredicate
 //    add
 //    cmp
 bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
   unsigned NumAdds = 0;
-  for (const VPRecipeBase &Recipe : Block->getRecipes()) {
-    if (isa<const VPBlockPredicateRecipe>(&Recipe))
-      continue;
+  for (const VPRecipeBase &Recipe : Block->getNonPredicateRecipes()) {
     if (const auto Inst = dyn_cast<VPInstruction>(&Recipe)) {
       if (Inst->getOpcode() == Instruction::Add) {
         ++NumAdds;
@@ -228,15 +227,13 @@ bool VPlanIdioms::isSafeBlockForSearchLoop(const VPBasicBlock *Block) {
 // This function is more important for what CG can handle, rather then for
 // vectorization legality.
 bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
-  for (const VPRecipeBase &Recipe : Block->getRecipes()) {
+  for (const VPRecipeBase &Recipe : Block->getNonPredicateRecipes()) {
     if (!isa<const VPInstruction>(&Recipe))
       continue;
     const auto Inst = cast<const VPInstruction>(&Recipe);
 
-    // Ignore instruction used to mark the block predicate and for setting
-    // up uniform inner loop control flow.
-    if (Inst->getOpcode() == VPInstruction::AllZeroCheck ||
-        Inst->getOpcode() == VPInstruction::Pred)
+    // Ignore instruction used for setting up uniform inner loop control flow.
+    if (Inst->getOpcode() == VPInstruction::AllZeroCheck)
       continue;
 
     if (isa<const VPBranchInst>(Inst) ||

@@ -232,11 +232,8 @@ RegDDRef *NestedBlobCG::codegenStandAloneBlob(const SCEV *SC) {
   const BlobDDRef *BDDR = RDDR->getBlobDDRef(BlobIndex);
   assert(BDDR != nullptr && "BlobDDRef not found!");
 
-  RegDDRef *WideRef;
-
-  if (auto WInst = ACG->getWideInst(BDDR->getSymbase())) {
-    WideRef = WInst->getLvalDDRef();
-  } else {
+  RegDDRef *WideRef = ACG->getWideRef(BDDR->getSymbase());
+  if (!WideRef) {
     WideRef = DDRU.createScalarRegDDRef(BDDR->getSymbase(),
                                         BDDR->getSingleCanonExpr()->clone());
     WideRef = ACG->widenRef(WideRef, ACG->getVF());
@@ -1153,6 +1150,19 @@ bool VPOCodeGenHIR::isReductionRef(const RegDDRef *Ref, unsigned &Opcode) {
   return SRA->isReductionRef(Ref, Opcode);
 }
 
+static void setRefAlignment(Type *ScalRefTy, RegDDRef *WideRef) {
+  // When the original ref does not have alignment information
+  // LLVM defaults to the ABI alignment for the ref's type. During widening,
+  // we need to set the widened ref's alignment to the ABI alignment for
+  // the scalar ref's type for such cases.
+  unsigned Alignment = WideRef->getAlignment();
+  if (!Alignment) {
+    auto DL = WideRef->getDDRefUtils().getDataLayout();
+    Alignment = DL.getABITypeAlignment(ScalRefTy);
+    WideRef->setAlignment(Alignment);
+  }
+}
+
 RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
                                   bool InterLeaveAccess) {
   RegDDRef *WideRef;
@@ -1166,9 +1176,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   if (Ref->isTerminalRef()) {
     unsigned RedOpCode;
 
-    if (WidenMap.find(Ref->getSymbase()) != WidenMap.end()) {
-      auto WInst = WidenMap[Ref->getSymbase()];
-      WideRef = WInst->getLvalDDRef()->clone();
+    if ((WideRef = getWideRef(Ref->getSymbase()))) {
+      WideRef = WideRef->clone();
 
       auto CE = WideRef->getSingleCanonExpr();
       CE->setDestType(VecRefDestTy);
@@ -1224,16 +1233,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
       }
     } else {
       WideRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
-      // When the original scalar ref does not have alignment information
-      // LLVM defaults to the ABI alignment for the ref's type. During widening,
-      // we need to set the widened ref's alignment to the ABI alignment for
-      // the scalar ref's type for such cases.
-      unsigned Alignment = Ref->getAlignment();
-      if (!Alignment) {
-        auto DL = Ref->getDDRefUtils().getDataLayout();
-        Alignment = DL.getABITypeAlignment(RefDestTy);
-        WideRef->setAlignment(Alignment);
-      }
+      setRefAlignment(RefDestTy, WideRef);
     }
   }
 
@@ -1317,9 +1317,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
 
       // A temp blob not widened before is a loop invariant - it will be
       // broadcast in HIRCG when needed.
-      if (WidenMap.find(OldSymbase) != WidenMap.end()) {
-        auto WInst1 = WidenMap[OldSymbase];
-        auto WRef = WInst1->getLvalDDRef();
+      if (auto *WRef = getWideRef(OldSymbase)) {
         AuxRefs.push_back(WRef);
         CE->replaceBlob(BI, WRef->getSingleCanonExpr()->getSingleBlobIndex());
       }
@@ -1825,8 +1823,8 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(const HLInst *INode,
 HLInst *VPOCodeGenHIR::createCTTZCall(RegDDRef *Ref, const Twine &Name) {
   assert(Ref && "Ref is expected for this assignment.");
 
-  HLNodeUtils &HNU = Ref->getHLDDNode()->getHLNodeUtils();
-  DDRefUtils &DDRU = Ref->getHLDDNode()->getDDRefUtils();
+  HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+  DDRefUtils &DDRU = OrigLoop->getDDRefUtils();
   // It's necessary to bitcast mask to integer, otherwise it's not possible to
   // use it in cttz instruction.
   Type *RefTy = Ref->getDestType();
@@ -2270,13 +2268,12 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
     return;
 
   // Insert in WidenMap
-  WidenMap[ScalSymbase] = WideInst;
+  auto *VecRef = WideInst->getLvalDDRef();
+  WidenMap[ScalSymbase] = VecRef;
 
   // Generate any necessary code to handle loop liveout/reduction
   if (!MainLoop->isLiveOut(ScalSymbase))
     return;
-
-  auto VecRef = WideInst->getLvalDDRef();
 
   // Add the ref as a live-out for each loop up to and including the hoist loop.
   HLLoop *ThisLoop = MainLoop;
@@ -2352,4 +2349,58 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
   }
 #endif // INTEL_INCLUDE_DTRANS
 }
+
+RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
+  RegDDRef *WideRef = nullptr;
+
+  // If the DDREF has a widened counterpart, return the same.
+  if ((WideRef = getWideRefForVPVal(VPVal)))
+    return WideRef->clone();
+
+  // TODO - Support for generating widened REF for VPVal will be added in
+  // subsequent patches that enable VPValue based code generation.
+  llvm_unreachable("Failed to find widened DDRef for VPVal");
+}
+
+HLInst *VPOCodeGenHIR::widenNode(const VPInstruction *VPInst) {
+  HLInst *WInst = nullptr;
+  HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+  RegDDRef *Mask = CurMaskValue;
+
+  LLVM_DEBUG(dbgs() << "Vectorizing: ");
+  LLVM_DEBUG(VPInst->dump());
+
+  SmallVector<RegDDRef *, 6> WideOps;
+  for (const VPValue *Operand : VPInst->operands()) {
+    RegDDRef *WideRef = widenRef(Operand, getVF());
+    WideOps.push_back(WideRef);
+  }
+
+  switch (VPInst->getOpcode()) {
+  case Instruction::And:
+  case Instruction::Or:
+    WInst = HNU.createBinaryHLInst(VPInst->getOpcode(), WideOps[0], WideOps[1],
+                                   ".vec");
+    break;
+
+  case VPInstruction::Not:
+    WInst = HNU.createNot(WideOps[0], ".vec");
+    break;
+
+  case VPInstruction::Pred:
+    // Pred instruction is only used to mark the current block predicate. Simply
+    // set the current mask value.
+    setCurMaskValue(WideOps[0]);
+    return nullptr;
+
+  default:
+    LLVM_DEBUG(VPInst->dump());
+    llvm_unreachable("Unexpected VPInstruction opcode");
+  }
+
+  addInst(WInst, Mask);
+  addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+  return WInst;
+}
+
 } // end namespace llvm

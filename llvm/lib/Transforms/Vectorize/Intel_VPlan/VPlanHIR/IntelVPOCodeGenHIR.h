@@ -9,7 +9,7 @@
 //
 //   Source file:
 //   ------------
-//   VPOCodeGenHIR.h -- HIR Vector Code generation from VPlan
+//   IntelVPOCodeGenHIR.h -- HIR Vector Code generation from VPlan
 //
 //===----------------------------------------------------------------------===//
 
@@ -40,6 +40,7 @@ namespace vpo {
 class WRNVecLoopNode;
 class VPlan;
 class VPlanVLSAnalysis;
+class VPInstruction;
 
 // VPOCodeGenHIR generates vector code by widening of scalars into
 // appropriate length vectors.
@@ -113,6 +114,8 @@ public:
                     const OVLSGroup *Group = nullptr,
                     int64_t InterleaveFactor = 0, int64_t InterleaveIndex = 0,
                     const HLInst *GrpStartInst = nullptr);
+
+  HLInst *widenNode(const VPInstruction *VPInst);
 
   // Widen an interleaved memory access - operands correspond to operands of
   // WidenNode.
@@ -206,13 +209,13 @@ public:
   HLInst *widenNonMaskedUniformStore(const HLInst *Inst);
 
   // Add WideVal as the widened vector value corresponding  to VPVal
-  void addVPValueWideRefMapping(VPValue *VPVal, RegDDRef *WideVal) {
+  void addVPValueWideRefMapping(const VPValue *VPVal, RegDDRef *WideVal) {
     VPValWideRefMap[VPVal] = WideVal;
   }
 
   // Return the widened vector value corresponding to VPVal if found
   // in VPValWideRefMap, return null otherwise.
-  RegDDRef *getWideRefForVPVal(VPValue *VPVal) const {
+  RegDDRef *getWideRefForVPVal(const VPValue *VPVal) const {
     auto Itr = VPValWideRefMap.find(VPVal);
     if (Itr != VPValWideRefMap.end())
       return Itr->second;
@@ -276,9 +279,9 @@ public:
 
   void setCurMaskValue(RegDDRef *V) { CurMaskValue = V; }
 
-  // Return widened instruction if Symbase is in WidenMap, return nullptr
+  // Return widened ref if Symbase is in WidenMap, return nullptr
   // otherwise.
-  HLInst *getWideInst(unsigned Symbase) const {
+  RegDDRef *getWideRef(unsigned Symbase) const {
     auto Itr = WidenMap.find(Symbase);
     if (Itr != WidenMap.end())
       return Itr->second;
@@ -297,6 +300,11 @@ public:
   // stride reference.
   RegDDRef *widenRef(const RegDDRef *Ref, unsigned VF,
                      bool InterleaveAccess = false);
+
+  // Return the widened DDRef corresponding to VPVal - when we enable full
+  // VPValue based codegen, this function will generate the widened DDRef
+  // if one is not found.
+  RegDDRef *widenRef(const VPValue *VPVal, unsigned VF);
 
   // Delete intel intrinsic directives before and after the loop.
   void eraseLoopIntrins();
@@ -364,9 +372,9 @@ private:
 
   LoopOptReportBuilder &LORBuilder;
 
-  // Map of DDRef symbase and widened HLInst
-  DenseMap<unsigned, HLInst *> WidenMap;
-  DenseMap<VPValue *, RegDDRef *> VPValWideRefMap;
+  // Map of DDRef symbase and widened ref
+  DenseMap<unsigned, RegDDRef *> WidenMap;
+  DenseMap<const VPValue *, RegDDRef *> VPValWideRefMap;
 
   // Map of SCEV expression and widened DDRef.
   DenseMap<const SCEV *, RegDDRef *> SCEVWideRefMap;

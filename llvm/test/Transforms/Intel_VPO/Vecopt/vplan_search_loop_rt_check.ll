@@ -44,7 +44,7 @@
 ; CHECK:          |   %intmask = bitcast.<4 x i1>.i4(%wide.cmp.);
 ; CHECK:          |   if (%intmask != 0)
 ; CHECK:          |   {
-; CHECK:          |      %IfFPred = %wide.cmp.  ^  -1;
+; CHECK:          |      %{{.*}} = %wide.cmp.  ^  -1;
 ; CHECK:          |      goto bb3;
 ; CHECK:          |   }
 ; CHECK:          + END LOOP

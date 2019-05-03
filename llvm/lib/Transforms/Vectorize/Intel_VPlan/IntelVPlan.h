@@ -2257,6 +2257,31 @@ public:
   const RecipeListTy &getRecipes() const { return Recipes; }
   RecipeListTy &getRecipes() { return Recipes; }
 #if INTEL_CUSTOMIZATION
+  /// Returns a range that iterates over non predicator related recipes
+  /// in the VPBasicBlock.
+  iterator_range<const_iterator> getNonPredicateRecipes() const {
+    // New predicator uses VPInstructions to generate the block predicate.
+    // Skip instructions until block-predicate instruction is seen if the block
+    // has a predicate.
+    bool SkipUntilPred = getPredicate() != nullptr;
+    const_iterator It = begin();
+    const_iterator ItEnd = end();
+
+    for (; It != ItEnd; ++It) {
+      if (isa<const VPBlockPredicateRecipe>(It))
+        continue;
+      if (SkipUntilPred)
+        if (const auto *Inst = dyn_cast<VPInstruction>(It)) {
+          if (Inst->getOpcode() == VPInstruction::Pred)
+            SkipUntilPred = false;
+          continue;
+        }
+
+      break;
+    }
+
+    return make_range(It, ItEnd);
+  }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void dump(raw_ostream &OS, unsigned Indent = 0) const;
