@@ -22,7 +22,11 @@
 
 namespace llvm {
 
+class DominatorTree;
+
 namespace dtrans {
+
+using MemInitDominatorTreeType = std::function<DominatorTree &(Function &)>;
 
 /// Pass to perform Initial Memory Allocation Trim Down optimization.
 class MemInitTrimDownPass : public PassInfoMixin<MemInitTrimDownPass> {
@@ -31,7 +35,7 @@ public:
 
   // This is used to share the core implementation with the legacy pass.
   bool runImpl(Module &M, DTransAnalysisInfo &Info, TargetLibraryInfo &TLI,
-               WholeProgramInfo &WPInfo);
+               WholeProgramInfo &WPInfo, MemInitDominatorTreeType &GetDT);
 };
 
 } // namespace dtrans

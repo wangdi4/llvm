@@ -41,6 +41,26 @@ inline StructType *getClassType(const Function *F) {
   return nullptr;
 }
 
+// Returns true if Ty is pointer to pointer to a function.
+inline bool isPtrToVFTable(Type *Ty) {
+  Type *ETy = nullptr;
+  if (auto *PPETy = dyn_cast<PointerType>(Ty))
+    if (auto *PETy = dyn_cast<PointerType>(PPETy->getElementType()))
+      ETy = PETy->getElementType();
+  if (!ETy || !ETy->isFunctionTy())
+    return false;
+  return true;
+}
+
+// Returns field type of DTy struct if it has only one field.
+inline Type *getMemInitSimpleBaseType(Type *DTy) {
+  assert(isa<StructType>(DTy) && "Expected StructType");
+  StructType *STy = cast<StructType>(DTy);
+  if (STy->getNumElements() != 1)
+    return nullptr;
+  return STy->getElementType(0);
+}
+
 // This is used to collect candidate for MemInitTrimDown and
 // maintain information related to the candidate.
 class MemInitCandidateInfo {
@@ -77,6 +97,31 @@ public:
   using VectorMethodSetTy = SmallPtrSet<Function *, MaxNumVectorMethods>;
   using VectorFieldTypeSetTy = SmallPtrSet<Type *, 2>;
 
+  // Returns MemInterfaceType.
+  inline StructType *getMemInterfaceType() { return MemInterfaceType; }
+
+  // Returns array element type of candidate field at FI index.
+  inline Type *getFieldElemTy(int32_t FI) { return CandidateFieldElemTy[FI]; }
+
+  // Returns true if DTy is class type of any candidate fields.
+  inline bool isCandidateFieldDerivedTy(Type *DTy) {
+    return CandidateFieldDerivedTy.count(DTy);
+  }
+
+  // Iterator for candidate field positions.
+  typedef FieldPositionTy::const_iterator f_const_iterator;
+  inline iterator_range<f_const_iterator> candidate_fields() {
+    return make_range(CandidateFieldPositions.begin(),
+                      CandidateFieldPositions.end());
+  }
+
+  // Member function iterator for given candidate field position FI.
+  typedef VectorMethodSetTy::const_iterator m_const_iterator;
+  inline iterator_range<m_const_iterator> member_functions(int32_t FI) {
+    return make_range(CandidateFieldMemberFuncs[FI].begin(),
+                      CandidateFieldMemberFuncs[FI].end());
+  }
+
 private:
   // Candidate struct.
   StructType *SType = nullptr;
@@ -103,9 +148,16 @@ private:
   //                                      i16**, %"MemoryManager"* }
   DenseMap<int32_t, VectorFieldTypeSetTy> CandidateFieldTypeSets;
 
+  // List of class types of candidate vector fields.
+  SmallPtrSet<Type *, 4> CandidateFieldDerivedTy;
+
   // Mapping between vector candidate class position and set of
   // methods of the vector class.
   DenseMap<int32_t, VectorMethodSetTy> CandidateFieldMemberFuncs;
+
+  // Mapping between candidate vector field location and type of array
+  // element of the vector.
+  DenseMap<int32_t, Type *> CandidateFieldElemTy;
 };
 
 // Returns true if given type is candidate for MemInitTrimDown.
@@ -160,25 +212,16 @@ bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
     return true;
   };
 
-  // Returns true if 'PTy' is pointer to pointer to a function.
-  auto IsPtrToVFTable = [&GetPointeeType](Type *PTy) -> bool {
-    auto *ETy = GetPointeeType(GetPointeeType(PTy));
-    if (!ETy || !ETy->isFunctionTy())
-      return false;
-    return true;
-  };
-
   // Returns true if 'Ty' is a struct that doesn't have any real data
   // except vftable.
   // Ex:
   //      %"MemoryManager" = type { i32 (...)** }
   //
-  auto IsStructWithNoRealData = [this, &IsPtrToVFTable,
-                                 &GetValidStructTy](Type *Ty) -> bool {
+  auto IsStructWithNoRealData = [this, &GetValidStructTy](Type *Ty) -> bool {
     auto *STy = GetValidStructTy(Ty);
     if (!STy || STy->getNumElements() > 1)
       return false;
-    if (STy->getNumElements() == 1 && !IsPtrToVFTable(STy->getElementType(0)))
+    if (STy->getNumElements() == 1 && !isPtrToVFTable(STy->getElementType(0)))
       return false;
     if (!MemInterfaceType)
       MemInterfaceType = STy;
@@ -192,9 +235,9 @@ bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
   // Ex:
   //  %"ValueVectorOf.6" = type { i8, i32, i32, %"IC_Fld"**, %"MemoryManager"* }
   //
-  auto IsVectorLikeClass = [&GetValidStructTy, &IsPotentialPaddingField,
-                            &GetPointeeType, &IsStructWithNoRealData,
-                            &IsPtrToVFTable](Type *Ty) -> bool {
+  auto IsVectorLikeClass =
+      [&GetValidStructTy, &IsPotentialPaddingField, &GetPointeeType,
+       &IsStructWithNoRealData](Type *Ty, Type **ElemTy) -> bool {
     auto *STy = GetValidStructTy(Ty);
     if (!STy)
       return false;
@@ -204,10 +247,11 @@ bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
     unsigned NumFlags = 0;
     unsigned NumNoDataPointers = 0;
     unsigned NumVtablePtr = 0;
+    *ElemTy = nullptr;
     for (auto *ETy : STy->elements()) {
       if (IsPotentialPaddingField(ETy))
         continue;
-      if (IsPtrToVFTable(ETy)) {
+      if (isPtrToVFTable(ETy)) {
         NumVtablePtr++;
         continue;
       }
@@ -232,6 +276,7 @@ bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
       // be converted to "struct that has pointer to data".
       if (GetPointeeType(PTy) || GetValidStructTy(PTy)) {
         NumDataPointers++;
+        *ElemTy = PTy;
         continue;
       }
       return false;
@@ -301,11 +346,14 @@ bool MemInitCandidateInfo::isCandidateType(Type *Ty) {
     if (auto *BaseTy = GetBaseClassOfSimpleDerivedClass(VTy)) {
       VTy = BaseTy;
     }
-    if (!IsVectorLikeClass(VTy))
+    Type *VecElemTy;
+    if (!IsVectorLikeClass(VTy, &VecElemTy))
       return false;
 
     CandidateFieldPositions.push_back(Pos);
     CandidateFieldTypeSets[Pos].insert(DerivedTy);
+    CandidateFieldDerivedTy.insert(DerivedTy);
+    CandidateFieldElemTy[Pos] = VecElemTy;
     if (VTy != DerivedTy)
       CandidateFieldTypeSets[Pos].insert(VTy);
   }
