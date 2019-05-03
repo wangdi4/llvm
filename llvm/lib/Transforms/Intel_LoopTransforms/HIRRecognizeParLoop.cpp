@@ -29,7 +29,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
 
-#include "llvm/Analysis/Intel_Directives.h"
+#include "llvm/Analysis/Directives.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"

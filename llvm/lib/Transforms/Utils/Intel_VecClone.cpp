@@ -144,7 +144,7 @@
 // also serves to canonicalize the input IR to the loop vectorizer.
 
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
-#include "llvm/Analysis/Intel_Directives.h"
+#include "llvm/Analysis/Directives.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -158,8 +158,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#include "llvm/Transforms/Utils/GeneralUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include <map>
 #include <set>
 #include <string>
@@ -1455,7 +1455,7 @@ CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
   // Insert vectorlength directive
   Constant *VL =
       ConstantInt::get(Type::getInt32Ty(Clone->getContext()), V.getVlen());
-  DirectiveStrMap[IntelIntrinsicUtils::getClauseString(QUAL_OMP_SIMDLEN)]
+  DirectiveStrMap[IntrinsicUtils::getClauseString(QUAL_OMP_SIMDLEN)]
       .push_back(VL);
 
   // Add directives for linear and vector parameters. Vector parameters can be
@@ -1484,7 +1484,7 @@ CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
   }
 
   if (!LinearVars.empty()) {
-    DirectiveStrMap[IntelIntrinsicUtils::getClauseString(QUAL_OMP_LINEAR)] =
+    DirectiveStrMap[IntrinsicUtils::getClauseString(QUAL_OMP_LINEAR)] =
         LinearVars;
   }
 
@@ -1493,17 +1493,17 @@ CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
     PrivateVars.push_back(AllocaVal);
 
   if (!PrivateVars.empty()) {
-    DirectiveStrMap[IntelIntrinsicUtils::getClauseString(QUAL_OMP_PRIVATE)] =
+    DirectiveStrMap[IntrinsicUtils::getClauseString(QUAL_OMP_PRIVATE)] =
         PrivateVars;
   }
 
   if (!UniformVars.empty()) {
-    DirectiveStrMap[IntelIntrinsicUtils::getClauseString(QUAL_OMP_UNIFORM)] =
+    DirectiveStrMap[IntrinsicUtils::getClauseString(QUAL_OMP_UNIFORM)] =
         UniformVars;
   }
 
   CallInst *SIMDBeginCall =
-      IntelIntrinsicUtils::createSimdDirectiveBegin(M, DirectiveStrMap);
+      IntrinsicUtils::createSimdDirectiveBegin(M, DirectiveStrMap);
   SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
   EntryBlock->splitBasicBlock(SIMDBeginCall, "simd.begin.region");
   return SIMDBeginCall;
@@ -1524,7 +1524,7 @@ void VecClone::insertEndRegion(Module &M, Function *Clone,
   BranchInst::Create(ReturnBlock, EndDirectiveBlock);
 
   CallInst *SIMDEndCall =
-      IntelIntrinsicUtils::createSimdDirectiveEnd(M, EntryDirCall);
+      IntrinsicUtils::createSimdDirectiveEnd(M, EntryDirCall);
   SIMDEndCall->insertBefore(EndDirectiveBlock->getTerminator());
 }
 
@@ -1602,12 +1602,12 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
   // go to a vector of i1 values for the mask. I suppose this would be one
   // positive reason to use vector of i1.
   if (CompareTy->isIntegerTy()) {
-    Zero = IntelGeneralUtils::getConstantValue(CompareTy, Clone->getContext(),
+    Zero = GeneralUtils::getConstantValue(CompareTy, Clone->getContext(),
                                                0);
     MaskCmp = new ICmpInst(LoopBlock->getTerminator(), CmpInst::ICMP_NE,
                            MaskLoad, Zero, "mask.cond");
   } else if (CompareTy->isFloatingPointTy()) {
-    Zero = IntelGeneralUtils::getConstantValue(CompareTy, Clone->getContext(),
+    Zero = GeneralUtils::getConstantValue(CompareTy, Clone->getContext(),
                                                0.0);
     MaskCmp = new FCmpInst(LoopBlock->getTerminator(), CmpInst::FCMP_UNE,
                            MaskLoad, Zero, "mask.cond");

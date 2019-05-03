@@ -1,5 +1,5 @@
 #if INTEL_COLLAB
-//===------ Intel_GeneralUtils.cpp - General set of utilities for VPO -----===//
+//===--------- GeneralUtils.cpp - General set of utilities for VPO --------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,7 +13,7 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
+#include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallSite.h"
@@ -32,17 +32,16 @@ cl::opt<bool> Usei1MaskForSimdFunctions(
 #endif // INTEL_CUSTOMIZATION
 
 template Constant *
-IntelGeneralUtils::getConstantValue<int>(Type *Ty, LLVMContext &Context,
-                                         int Val);
-template Constant *
-IntelGeneralUtils::getConstantValue<float>(Type *Ty, LLVMContext &Context,
-                                           float Val);
-template Constant *
-IntelGeneralUtils::getConstantValue<double>(Type *Ty, LLVMContext &Context,
-                                            double Val);
+GeneralUtils::getConstantValue<int>(Type *Ty, LLVMContext &Context, int Val);
+template Constant *GeneralUtils::getConstantValue<float>(Type *Ty,
+                                                         LLVMContext &Context,
+                                                         float Val);
+template Constant *GeneralUtils::getConstantValue<double>(Type *Ty,
+                                                          LLVMContext &Context,
+                                                          double Val);
 template <typename T>
-Constant *IntelGeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
-                                              T Val) {
+Constant *GeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
+                                         T Val) {
   Constant *ConstVal = nullptr;
 
   if (Ty->isIntegerTy()) {
@@ -56,9 +55,8 @@ Constant *IntelGeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
   return ConstVal;
 }
 
-Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI, DominatorTree *DT,
-                                             BasicBlock *BB,
-                                             BasicBlock *ExitBB) {
+Loop *GeneralUtils::getLoopFromLoopInfo(LoopInfo *LI, DominatorTree *DT,
+                                        BasicBlock *BB, BasicBlock *ExitBB) {
   Loop *Lp = nullptr;
 
   // If DFS reached the region's ExitBB, go back
@@ -99,8 +97,8 @@ Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI, DominatorTree *DT,
 
 /// \brief This function ensures that EntryBB is the first item in BBSet and
 /// ExitBB is the last item in BBSet.
-void IntelGeneralUtils::collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
-                                     SmallVectorImpl<BasicBlock *> &BBSet) {
+void GeneralUtils::collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
+                                SmallVectorImpl<BasicBlock *> &BBSet) {
 
   assert(EntryBB && "no EntryBB");
   assert(ExitBB && "no ExitBB");
@@ -134,8 +132,8 @@ void IntelGeneralUtils::collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
 
 // Breaks up the instruction recursively for all the constant expression
 // operands.
-void IntelGeneralUtils::breakExpressions(Instruction *Inst,
-                                  SmallVectorImpl<Instruction *> *NewInstArr) {
+void GeneralUtils::breakExpressions(
+    Instruction *Inst, SmallVectorImpl<Instruction *> *NewInstArr) {
   if (DbgDeclareInst *DbgDclInst = dyn_cast<DbgDeclareInst>(Inst)) {
     // For DbgDeclareInst, the operand is a metadata that might
     // contain a constant expression.
@@ -167,43 +165,39 @@ void IntelGeneralUtils::breakExpressions(Instruction *Inst,
 
 // Breaks up the instruction recursively for the gvien constant
 // expression operand.
-void IntelGeneralUtils::breakExpressionsHelper(ConstantExpr* Expr,
-                                  unsigned OperandIndex, Instruction* User,
-                                  SmallVectorImpl<Instruction *> *NewInstArr) {
-    // Create a new instruction, and insert it at the appropriate point.
-    Instruction* NewInst = Expr->getAsInstruction();
-    NewInst->setDebugLoc(User->getDebugLoc());
-    if (NewInstArr != nullptr)
-      NewInstArr->push_back(NewInst);
+void GeneralUtils::breakExpressionsHelper(
+    ConstantExpr *Expr, unsigned OperandIndex, Instruction *User,
+    SmallVectorImpl<Instruction *> *NewInstArr) {
+  // Create a new instruction, and insert it at the appropriate point.
+  Instruction *NewInst = Expr->getAsInstruction();
+  NewInst->setDebugLoc(User->getDebugLoc());
+  if (NewInstArr != nullptr)
+    NewInstArr->push_back(NewInst);
 
-    if( PHINode* Phi = dyn_cast<PHINode>(User) )
-    {
-      NewInst->insertBefore(Phi->getIncomingBlock(OperandIndex)->getTerminator());
-      User->setOperand(OperandIndex, NewInst);
-    }
-    else if (isa<DbgInfoIntrinsic>(User))
-      NewInst->insertBefore(User);
-    else
-    {
-      NewInst->insertBefore(User);
-      User->replaceUsesOfWith(Expr, NewInst);
-    }
-    if( Expr->use_empty() )
-      Expr->destroyConstant();
-    // Thew new instruction may itself reference constant expressions.
-    // So, recursively process all of its arguments.
-    for( unsigned I = 0; I < NewInst->getNumOperands(); ++I )
-    {
-      Value* Op = NewInst->getOperand(I);
-      ConstantExpr* InnerExpr = dyn_cast<ConstantExpr>(Op);
-      if( InnerExpr )
-        breakExpressionsHelper(InnerExpr, I, NewInst, NewInstArr);
-    }
+  if (PHINode *Phi = dyn_cast<PHINode>(User)) {
+    NewInst->insertBefore(Phi->getIncomingBlock(OperandIndex)->getTerminator());
+    User->setOperand(OperandIndex, NewInst);
+  } else if (isa<DbgInfoIntrinsic>(User))
+    NewInst->insertBefore(User);
+  else {
+    NewInst->insertBefore(User);
+    User->replaceUsesOfWith(Expr, NewInst);
+  }
+  if (Expr->use_empty())
+    Expr->destroyConstant();
+  // Thew new instruction may itself reference constant expressions.
+  // So, recursively process all of its arguments.
+  for (unsigned I = 0; I < NewInst->getNumOperands(); ++I) {
+    Value *Op = NewInst->getOperand(I);
+    ConstantExpr *InnerExpr = dyn_cast<ConstantExpr>(Op);
+    if (InnerExpr)
+      breakExpressionsHelper(InnerExpr, I, NewInst, NewInstArr);
+  }
 }
 
 // Checks instruction I has unique next instruction or not.
 // If I is terminator instruction, checks whether it has unique succ BB.
-bool IntelGeneralUtils::hasNextUniqueInstruction(Instruction *I) {
+bool GeneralUtils::hasNextUniqueInstruction(Instruction *I) {
   if (!I->isTerminator())
     return true;
 
@@ -213,7 +207,7 @@ bool IntelGeneralUtils::hasNextUniqueInstruction(Instruction *I) {
 
 // Returns I's next unique instruciton, which could be in the same
 // basic block or the first instruciotn of the unique succ BB.
-Instruction* IntelGeneralUtils::nextUniqueInstruction(Instruction *I) {
+Instruction *GeneralUtils::nextUniqueInstruction(Instruction *I) {
   assert(hasNextUniqueInstruction(I) &&
          "first check if there is a next instruction!");
 
@@ -292,14 +286,14 @@ static bool analyzeEscapeAux(const Value *V,
 }
 
 // Returns true if the value V escapes.
-bool IntelGeneralUtils::isEscaped(const Value *V) {
+bool GeneralUtils::isEscaped(const Value *V) {
   SmallPtrSet<const PHINode *, 16> PhiUsers;
   return analyzeEscapeAux(V, PhiUsers);
 }
 #endif // INTEL_CUSTOMIZATION
 
 // Return the size_t type for 32/64 bit architecture
-Type *IntelGeneralUtils::getSizeTTy(Module *M) {
+Type *GeneralUtils::getSizeTTy(Module *M) {
   LLVMContext &C = M->getContext();
 
   IntegerType *IntTy;
@@ -312,7 +306,7 @@ Type *IntelGeneralUtils::getSizeTTy(Module *M) {
   return IntTy;
 }
 
-Type *IntelGeneralUtils::getSizeTTy(Function *F) {
+Type *GeneralUtils::getSizeTTy(Function *F) {
   return getSizeTTy(F->getParent());
 }
 #endif // INTEL_COLLAB

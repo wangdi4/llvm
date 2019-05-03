@@ -34,7 +34,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
 
-add_llvm_library(LLVMIntel_VPOTransforms
+add_llvm_library(LLVMVPOTransforms
   VPOTransform.cpp
 
   Utils/CFGRestructuring.cpp
@@ -61,6 +61,6 @@ add_llvm_library(LLVMIntel_VPOTransforms
   Paropt/VPOParoptUtils.cpp
 )
 
-add_dependencies(LLVMIntel_VPOTransforms intrinsics_gen intel_directives_gen)
+add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen)
 
 # end INTEL_COLLAB

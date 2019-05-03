@@ -1,5 +1,5 @@
 #if INTEL_COLLAB // -*- C++ -*-
-//===--------- Intel_GeneralUtils.h - Class definition -*- C++ -*----------===//
+//===------------ GeneralUtils.h - Class definition -*- C++ -*-------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,8 +12,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORM_UTILS_INTEL_GENERALUTILS_H
-#define LLVM_TRANSFORM_UTILS_INTEL_GENERALUTILS_H
+#ifndef LLVM_TRANSFORM_UTILS_GENERALUTILS_H
+#define LLVM_TRANSFORM_UTILS_GENERALUTILS_H
 
 #include "llvm/ADT/SmallVector.h"
 
@@ -37,7 +37,7 @@ class Module;
 
 /// \brief This class provides a set of general utility functions that can be
 /// used for a variety of purposes.
-class IntelGeneralUtils {
+class GeneralUtils {
 
 public:
 
@@ -90,5 +90,5 @@ public:
 
 } // end llvm namespace
 
-#endif // LLVM_TRANSFORM_UTILS_INTEL_GENERALUTILS_H
+#endif // LLVM_TRANSFORM_UTILS_GENERALUTILS_H
 #endif // INTEL_COLLAB

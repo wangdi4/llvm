@@ -18,7 +18,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Analysis/Intel_Directives.h"
+#include "llvm/Analysis/Directives.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 
 #define DEBUG_TYPE "vpo-utils"
@@ -137,15 +137,15 @@ StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I, bool doClauses){
 }
 
 StringRef VPOAnalysisUtils::getDirectiveString(int Id) {
-  assert(IntelDirectives::DirectiveStrings.count(Id) &&
+  assert(Directives::DirectiveStrings.count(Id) &&
          "Can't find a string for directive id");
-  return IntelDirectives::DirectiveStrings[Id];
+  return Directives::DirectiveStrings[Id];
 }
 
 StringRef VPOAnalysisUtils::getClauseString(int Id) {
-  assert(IntelDirectives::ClauseStrings.count(Id) &&
+  assert(Directives::ClauseStrings.count(Id) &&
          "Can't find a string for clause id");
-  return IntelDirectives::ClauseStrings[Id];
+  return Directives::ClauseStrings[Id];
 }
 
 StringRef VPOAnalysisUtils::getDirectiveName(int Id) {
@@ -177,16 +177,16 @@ StringRef VPOAnalysisUtils::getReductionOpName(int Id) {
 }
 
 bool VPOAnalysisUtils::isOpenMPDirective(StringRef DirFullName) {
-  return IntelDirectives::DirectiveIDs.count(DirFullName);
+  return Directives::DirectiveIDs.count(DirFullName);
 }
 
 bool VPOAnalysisUtils::isOpenMPClause(StringRef ClauseFullName) {
-  return IntelDirectives::ClauseIDs.count(ClauseFullName);
+  return Directives::ClauseIDs.count(ClauseFullName);
 }
 
 int VPOAnalysisUtils::getDirectiveID(StringRef DirFullName) {
   if (VPOAnalysisUtils::isOpenMPDirective(DirFullName))
-    return IntelDirectives::DirectiveIDs[DirFullName];
+    return Directives::DirectiveIDs[DirFullName];
   else
     return -1;
 }
@@ -200,7 +200,7 @@ int VPOAnalysisUtils::getDirectiveID(Instruction *I)
 int VPOAnalysisUtils::getClauseID(StringRef ClauseFullName) {
   assert(VPOAnalysisUtils::isOpenMPClause(ClauseFullName) &&
          "Clause string not found");
-  return IntelDirectives::ClauseIDs[ClauseFullName];
+  return Directives::ClauseIDs[ClauseFullName];
 }
 
 bool VPOAnalysisUtils::isBeginDirective(int DirID) {

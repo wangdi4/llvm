@@ -49,7 +49,7 @@ add_tablegen(llvm-tblgen LLVM
   InstrDocsEmitter.cpp
   IntrinsicEmitter.cpp
 # INTEL_COLLAB
-  Intel_DirectivesEmitter.cpp
+  DirectivesEmitter.cpp
 # end INTEL_COLLAB
   Intel_LibmvecEmitter.cpp    # INTEL_CUSTOMIZATION
   Intel_MAPatternsEmitter.cpp # INTEL_CUSTOMIZATION

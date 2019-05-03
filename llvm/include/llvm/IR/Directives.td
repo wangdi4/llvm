@@ -1,5 +1,5 @@
 // INTEL_COLLAB   -*- tablegen -*-
-//==- Intel_Directives.td - Defines all parallelization and -*- tablegen -*-==//
+//==---- Directives.td - Defines all parallelization and -*- tablegen -*----==//
 //                          vectorization directives and clauses.
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

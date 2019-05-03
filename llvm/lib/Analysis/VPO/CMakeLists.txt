@@ -9,7 +9,7 @@
 #    Configures build for project.
 #
 
-add_llvm_library(LLVMIntel_VPOAnalysis
+add_llvm_library(LLVMVPOAnalysis
   VPOAnalysis.cpp
   Utils/GeneralUtils.cpp
   # Utils/IntrinsicUtils.cpp             # Moved to lib/Analysis/CMakeLists.txt
@@ -24,6 +24,6 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   WRegionInfo/WRegionInfoAnalysis.cpp
 )
 
-add_dependencies(LLVMIntel_VPOAnalysis intrinsics_gen intel_directives_gen)
+add_dependencies(LLVMVPOAnalysis intrinsics_gen directives_gen)
 
 # end INTEL_COLLAB

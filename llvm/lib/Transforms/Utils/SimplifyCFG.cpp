@@ -66,7 +66,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #if INTEL_COLLAB
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #endif //INTEL_COLLAB
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -1317,7 +1317,7 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
 
 #if INTEL_COLLAB
     // Do not hoist llvm intrinsics that represent OpenMP directives.
-    if (IntelIntrinsicUtils::isIntelDirective(I1))
+    if (IntrinsicUtils::isIntelDirective(I1))
       return Changed;
 #endif //INTEL_COLLAB
 
@@ -2169,7 +2169,7 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
       return false; // Don't clone large BB's.
 
 #if INTEL_COLLAB
-    if (IntelIntrinsicUtils::isIntelDirective(&I))
+    if (IntrinsicUtils::isIntelDirective(&I))
       return false;
 #endif // INTEL_COLLAB
 

@@ -394,7 +394,7 @@ void VPOParoptTpvLegacy::processTpv(Value *V,
 
   while (!RewriteCons.empty()) {
     Instruction *I = RewriteCons.pop_back_val();
-    IntelGeneralUtils::breakExpressions(I);
+    GeneralUtils::breakExpressions(I);
   }
 
   for (auto IB = V->user_begin(), IE = V->user_end();

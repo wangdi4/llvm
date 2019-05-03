@@ -23,7 +23,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include <tuple>
 

@@ -136,7 +136,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB, DominatorTree *DT) {
     LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
-    Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, DT, EntryBB, ExitBB);
+    Loop *Lp = GeneralUtils::getLoopFromLoopInfo(LI, DT, EntryBB, ExitBB);
 
     // Do not assert for loop-type constructs when Lp==NULL because transforms
     // before Paropt may have optimized away the loop.
@@ -222,7 +222,7 @@ bool WRegionNode::populateBBSet(bool Always) {
 
   if (Always || isBBSetEmpty()) {
     resetBBSet();
-    IntelGeneralUtils::collectBBSet(EntryBB, ExitBB, BBlockSet);
+    GeneralUtils::collectBBSet(EntryBB, ExitBB, BBlockSet);
     return true;
   }
 

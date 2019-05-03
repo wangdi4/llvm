@@ -15,7 +15,7 @@
 
 using namespace llvm;
 
-void llvm::initializeIntel_VPOTransforms(PassRegistry &Registry) {
+void llvm::initializeVPOTransforms(PassRegistry &Registry) {
 #if INTEL_CUSTOMIZATION
   initializeVPODirectiveCleanupPass(Registry);
 #endif // INTEL_CUSTOMIZATION

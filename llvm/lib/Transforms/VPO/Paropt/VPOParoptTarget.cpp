@@ -39,8 +39,8 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
 
-#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#include "llvm/Transforms/Utils/GeneralUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 
 using namespace llvm;
 using namespace llvm::vpo;

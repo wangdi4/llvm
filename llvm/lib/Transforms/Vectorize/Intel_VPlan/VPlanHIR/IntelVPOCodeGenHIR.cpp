@@ -32,7 +32,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
-#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
+#include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
 #if INTEL_INCLUDE_DTRANS

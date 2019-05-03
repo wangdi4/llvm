@@ -15,7 +15,7 @@
 
 using namespace llvm;
 
-void llvm::initializeIntel_VPOAnalysis(PassRegistry &Registry) {
+void llvm::initializeVPOAnalysis(PassRegistry &Registry) {
   initializeWRegionCollectionWrapperPassPass(Registry);
   initializeWRegionInfoWrapperPassPass(Registry);
 }

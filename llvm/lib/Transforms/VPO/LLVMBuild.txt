@@ -20,18 +20,18 @@
 
 [component_0]
 type = Library
-name = Intel_VPOTransforms
+name = VPOTransforms
 parent = Transforms
-library_name = Intel_VPOTransforms
+library_name = VPOTransforms
 
 ; INTEL_CUSTOMIZATION
 
 ;Intel_Loop* and IntelOptReport libs are needed by Vecopt only, not Paropt
-required_libraries = Analysis Core Scalar Support TransformUtils Intel_VPOAnalysis Intel_LoopAnalysis Intel_LoopTransforms Intel_OptReport
+required_libraries = Analysis Core Scalar Support TransformUtils VPOAnalysis Intel_LoopAnalysis Intel_LoopTransforms Intel_OptReport
 
 ; else
 
-;UNCOMMENT;required_libraries = Analysis Core Scalar Support TransformUtils Intel_VPOAnalysis
+;UNCOMMENT;required_libraries = Analysis Core Scalar Support TransformUtils VPOAnalysis
 
 ; end INTEL_CUSTOMIZATION
 

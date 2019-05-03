@@ -15,7 +15,7 @@
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
-#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
+#include "llvm/Transforms/Utils/GeneralUtils.h"
 
 using namespace llvm;
 using namespace llvm::vpo;

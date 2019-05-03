@@ -13,7 +13,7 @@ add_llvm_library(LLVMPasses
   DEPENDS
   intrinsics_gen
 # INTEL_COLLAB
-  intel_directives_gen
+  directives_gen
 # end INTEL_COLLAB
   )
 

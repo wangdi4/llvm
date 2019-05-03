@@ -1,5 +1,5 @@
 #if INTEL_COLLAB // -*- C++ -*-
-//===-------- Intel_IntrinsicUtils.h - Class definition -*- C++ -*---------===//
+//===----------- IntrinsicUtils.h - Class definition -*- C++ -*------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,16 +14,17 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#ifndef LLVM_TRANSFORM_UTILS_INTEL_INTRINSICUTILS_H
-#define LLVM_TRANSFORM_UTILS_INTEL_INTRINSICUTILS_H
+#ifndef LLVM_TRANSFORM_UTILS_INTRINSICUTILS_H
+#define LLVM_TRANSFORM_UTILS_INTRINSICUTILS_H
 
 namespace llvm {
 
 /// \brief This class provides a set of utility functions that operate on
 /// intrinsics introduced by OpenMP/SIMD directives.
-class IntelIntrinsicUtils {
+class IntrinsicUtils {
 
 public:
+#if INTEL_CUSTOMIZATION
   /// \brief Return a call to the llvm.directive.region.entry() intrinsic for
   /// SIMD.
   static CallInst *createSimdDirectiveBegin(
@@ -33,12 +34,6 @@ public:
   /// \brief Return a call to the llvm.directive.region.exit() intrinsic for
   /// SIMD.
   static CallInst *createSimdDirectiveEnd(Module &M, CallInst *DirCall);
-
-  /// \brief Returns strings corresponding to OpenMP directives.
-  static StringRef getDirectiveString(int Id);
-
-  /// \brief Returns strings corresponding to OpenMP clauses.
-  static StringRef getClauseString(int Id);
 
   /// \brief Private utility function used to encode a StringRef as a
   /// Metadata Value. This Value is then used by the createDirective*
@@ -56,6 +51,13 @@ public:
     StringRef Str(getClauseString(Id));
     return cast<MetadataAsValue>(createMetadataAsValueFromString(M, Str));
   }
+#endif // INTEL_CUSTOMIZATION
+
+  /// \brief Returns strings corresponding to OpenMP directives.
+  static StringRef getDirectiveString(int Id);
+
+  /// \brief Returns strings corresponding to OpenMP clauses.
+  static StringRef getClauseString(int Id);
 
   /// \brief Return true if the instruction is an llvm.intel.directive*()
   /// intrinsic call
@@ -64,5 +66,5 @@ public:
 
 } // namespace llvm
 
-#endif // LLVM_TRANSFORM_UTILS_INTEL_INTRINSICUTILS_H
+#endif // LLVM_TRANSFORM_UTILS_INTRINSICUTILS_H
 #endif // INTEL_COLLAB

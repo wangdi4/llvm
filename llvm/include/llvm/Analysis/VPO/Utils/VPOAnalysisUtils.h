@@ -24,7 +24,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Analysis/Intel_Directives.h"
+#include "llvm/Analysis/Directives.h"
 #include <unordered_map>
 
 namespace llvm {

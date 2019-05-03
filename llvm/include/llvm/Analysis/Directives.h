@@ -1,5 +1,5 @@
 #if INTEL_COLLAB // -*- C++ -*-
-//===---------- Intel_Directives.h - Class definition -*- C++ -*-----------===//
+//===------------- Directives.h - Class definition -*- C++ -*--------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,8 +13,8 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#ifndef LLVM_TRANSFORM_UTILS_INTEL_DIRECTIVES_H
-#define LLVM_TRANSFORM_UTILS_INTEL_DIRECTIVES_H
+#ifndef LLVM_ANALYSIS_DIRECTIVES_H
+#define LLVM_ANALYSIS_DIRECTIVES_H
 
 
 #include "llvm/Support/Debug.h"
@@ -28,19 +28,19 @@ namespace llvm {
 
 typedef enum OMP_DIRECTIVES {
 #define GET_DIRECTIVES_ENUM_VALUES
-#include "llvm/IR/Intel_Directives.gen"
+#include "llvm/IR/Directives.gen"
 #undef GET_DIRECTIVES_ENUM_VALUES
   DIR_QUAL_LIST_END // must be last; marks end of directives
 } OMP_DIRECTIVES;
 
 typedef enum OMP_CLAUSES {
 #define GET_CLAUSES_ENUM_VALUES
-#include "llvm/IR/Intel_Directives.gen"
+#include "llvm/IR/Directives.gen"
 #undef GET_CLAUSES_ENUM_VALUES
   QUAL_LIST_END     // must be last; marks end of clauses
 } OMP_CLAUSES;
 
-class IntelDirectives {
+class Directives {
 
 public:
 // Map OMP_DIRECTIVES to StringRefs
@@ -59,5 +59,5 @@ static StringMap<int> ClauseIDs;
 
 } // end llvm namespace
 
-#endif // LLVM_TRANSFORM_UTILS_INTEL_DIRECTIVES_H
+#endif // LLVM_ANALYSIS_DIRECTIVES_H
 #endif // INTEL_COLLAB

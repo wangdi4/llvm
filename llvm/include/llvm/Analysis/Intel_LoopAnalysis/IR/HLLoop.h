@@ -18,7 +18,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 
-#include "llvm/Analysis/Intel_Directives.h"
+#include "llvm/Analysis/Directives.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLIf.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"

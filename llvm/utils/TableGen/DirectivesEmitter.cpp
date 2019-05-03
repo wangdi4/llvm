@@ -25,7 +25,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "IntelDirectives"
+#define DEBUG_TYPE "Directives"
 #include "llvm/Support/Debug.h"
 
 namespace {

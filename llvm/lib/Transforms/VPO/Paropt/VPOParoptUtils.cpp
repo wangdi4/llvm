@@ -1154,18 +1154,18 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 
   auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), W->getTaskFlag());
   auto *KmpTaskTWithPrivatesTySize =
-      ConstantInt::get(IntelGeneralUtils::getSizeTTy(F),
+      ConstantInt::get(GeneralUtils::getSizeTTy(F),
                        KmpTaskTTWithPrivatesTySz);
   auto *SharedsSize =
-      ConstantInt::get(IntelGeneralUtils::getSizeTTy(F), KmpSharedTySz);
+      ConstantInt::get(GeneralUtils::getSizeTTy(F), KmpSharedTySz);
   IRBuilder<> Builder(InsertPt);
   Value *AllocArgs[] = {
       Loc,         Builder.CreateLoad(TidPtr),
       TaskFlags,   KmpTaskTWithPrivatesTySize,
       SharedsSize, Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy)};
   Type *TypeParams[] = {Loc->getType(),      Type::getInt32Ty(C),
-                        Type::getInt32Ty(C), IntelGeneralUtils::getSizeTTy(F),
-                        IntelGeneralUtils::getSizeTTy(F), KmpRoutineEntryPtrTy};
+                        Type::getInt32Ty(C), GeneralUtils::getSizeTTy(F),
+                        GeneralUtils::getSizeTTy(F), KmpRoutineEntryPtrTy};
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 

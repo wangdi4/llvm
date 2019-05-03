@@ -1,5 +1,5 @@
 #if INTEL_COLLAB
-//==- Intel_IntrinsicUtils.cpp - Utilities for directives-based intrinsics -==//
+//==---- IntrinsicUtils.cpp - Utilities for directives-based intrinsics ----==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -24,17 +24,18 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
-#include "llvm/Analysis/Intel_Directives.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#include "llvm/Analysis/Directives.h"
 
 #define DEBUG_TYPE "IntrinsicUtils"
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
 // Private utility function used by the functions that create the calls
 // to the directive intrinsics.
-Value *IntelIntrinsicUtils::createMetadataAsValueFromString(Module &M,
-                                                            StringRef Str) {
+Value *IntrinsicUtils::createMetadataAsValueFromString(Module &M,
+                                                       StringRef Str) {
   MDString *MDStringPtr = MDString::get(M.getContext(), Str);
   MDNode *MDNodePtr = MDNode::get(M.getContext(), MDStringPtr);
   return llvm::MetadataAsValue::get(M.getContext(), MDNodePtr);
@@ -42,7 +43,7 @@ Value *IntelIntrinsicUtils::createMetadataAsValueFromString(Module &M,
 
 // This function generates calls to llvm.directive.region.entry() for SIMD and
 // inserts the operand bundles of the directive clauses
-CallInst *IntelIntrinsicUtils::createSimdDirectiveBegin(
+CallInst *IntrinsicUtils::createSimdDirectiveBegin(
     Module &M,
     SmallDenseMap<StringRef, SmallVector<Value *, 4>> &DirectiveStrMap) {
 
@@ -57,7 +58,7 @@ CallInst *IntelIntrinsicUtils::createSimdDirectiveBegin(
 
   SmallVector<llvm::Value *, 1> OpBundleVal;
   llvm::OperandBundleDef OpBundle(
-      IntelIntrinsicUtils::getDirectiveString(DIR_OMP_SIMD), OpBundleVal);
+      IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD), OpBundleVal);
   IntrinOpBundle.push_back(OpBundle);
 
   for (SmallDenseMap<StringRef, SmallVector<Value *, 4>>::iterator
@@ -77,8 +78,8 @@ CallInst *IntelIntrinsicUtils::createSimdDirectiveBegin(
 
 // This function generates calls to llvm.directive.region.exit() for SIMD and
 // inserts the operand bundles of the directive clauses
-CallInst *IntelIntrinsicUtils::createSimdDirectiveEnd(Module &M,
-                                                      CallInst *EntryDirCall) {
+CallInst *IntrinsicUtils::createSimdDirectiveEnd(Module &M,
+                                                 CallInst *EntryDirCall) {
 
   Function *DirIntrin =
       Intrinsic::getDeclaration(&M, Intrinsic::directive_region_exit);
@@ -91,7 +92,7 @@ CallInst *IntelIntrinsicUtils::createSimdDirectiveEnd(Module &M,
 
   SmallVector<llvm::Value *, 1> OpBundleVal1;
   llvm::OperandBundleDef OpBundle1(
-      IntelIntrinsicUtils::getDirectiveString(DIR_OMP_END_SIMD), OpBundleVal1);
+      IntrinsicUtils::getDirectiveString(DIR_OMP_END_SIMD), OpBundleVal1);
   IntrinOpBundle.push_back(OpBundle1);
 
   SmallVector<llvm::Value *, 1> Arg;
@@ -100,20 +101,21 @@ CallInst *IntelIntrinsicUtils::createSimdDirectiveEnd(Module &M,
   CallInst *DirCall = CallInst::Create(DirIntrin, Arg, IntrinOpBundle);
   return DirCall;
 }
+#endif // INTEL_CUSTOMIZATION
 
-StringRef IntelIntrinsicUtils::getDirectiveString(int Id) {
-  assert(IntelDirectives::DirectiveStrings.count(Id) &&
+StringRef IntrinsicUtils::getDirectiveString(int Id) {
+  assert(Directives::DirectiveStrings.count(Id) &&
          "Can't find a string for directive id");
-  return IntelDirectives::DirectiveStrings[Id];
+  return Directives::DirectiveStrings[Id];
 }
 
-StringRef IntelIntrinsicUtils::getClauseString(int Id) {
-  assert(IntelDirectives::ClauseStrings.count(Id) &&
+StringRef IntrinsicUtils::getClauseString(int Id) {
+  assert(Directives::ClauseStrings.count(Id) &&
          "Can't find a string for clause id");
-  return IntelDirectives::ClauseStrings[Id];
+  return Directives::ClauseStrings[Id];
 }
 
-bool IntelIntrinsicUtils::isIntelDirective(Instruction *I) {
+bool IntrinsicUtils::isIntelDirective(Instruction *I) {
   if (I == nullptr)
     return false;
   IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
@@ -131,7 +133,7 @@ bool IntelIntrinsicUtils::isIntelDirective(Instruction *I) {
         // First operand bundle has the directive name
         OperandBundleUse BU = Call->getOperandBundleAt(0);
         // Check if the TagName corresponds to an OpenMP directive name
-        return IntelDirectives::DirectiveIDs.count(BU.getTagName());
+        return Directives::DirectiveIDs.count(BU.getTagName());
       }
   }
   return false;

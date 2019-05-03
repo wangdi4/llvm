@@ -28,7 +28,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/BasicBlock.h"
 
-#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
+#include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionClause.h"
 
@@ -168,7 +168,7 @@ protected:
 
   /// Finish creating the WRN once its ExitBB is found. This routine
   /// calls WRN->setExitBBlock(ExitBB). In addition, if the WRN is a loop
-  /// construct, this routine also calls IntelGeneralUtils::getLoopFromLoopInfo
+  /// construct, this routine also calls GeneralUtils::getLoopFromLoopInfo
   /// to find the Loop from LoopInfo
   void finalize(BasicBlock *ExitBB, DominatorTree *DT);
 

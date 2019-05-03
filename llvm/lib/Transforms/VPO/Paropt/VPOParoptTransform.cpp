@@ -64,8 +64,8 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
 
-#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#include "llvm/Transforms/Utils/GeneralUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopRotationUtils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 
@@ -267,7 +267,7 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   // and the return value is greater than 0.
   CallInst *NumGroupsCall =
       VPOParoptUtils::genOCLGenericCall("_Z14get_num_groupsj",
-                                        IntelGeneralUtils::getSizeTTy(F),
+                                        GeneralUtils::getSizeTTy(F),
                                         Arg, InsertPt);
   Value *LB = Builder.CreateLoad(LowerBnd);
   Value *UB = Builder.CreateLoad(UpperBnd);
@@ -304,7 +304,7 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   // and the return value is non-negative.
   CallInst *GroupIdCall =
       VPOParoptUtils::genOCLGenericCall("_Z12get_group_idj",
-                                        IntelGeneralUtils::getSizeTTy(F),
+                                        GeneralUtils::getSizeTTy(F),
                                         Arg, InsertPt);
   Value *GroupId = Builder.CreateZExtOrTrunc(GroupIdCall, ItSpaceType);
 
@@ -373,7 +373,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   initArgArray(&Arg, Idx);
   CallInst *LocalSize =
       VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
-                                        IntelGeneralUtils::getSizeTTy(F),
+                                        GeneralUtils::getSizeTTy(F),
                                         Arg, InsertPt);
   Value *LB = Builder.CreateLoad(LowerBnd);
   Value *UB = Builder.CreateLoad(UpperBnd);
@@ -403,7 +403,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   CallInst *LocalId =
       VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
-                                        IntelGeneralUtils::getSizeTTy(F),
+                                        GeneralUtils::getSizeTTy(F),
                                         Arg, InsertPt);
   Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
@@ -2720,7 +2720,7 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
     if (isa<GlobalVariable>(PrivValue)) {
       // If PrivValue is a global, its uses could be in ConstantExprs
       SmallVector<Instruction *, 2> NewInstArr;
-      IntelGeneralUtils::breakExpressions(UI, &NewInstArr);
+      GeneralUtils::breakExpressions(UI, &NewInstArr);
       for (Instruction *NewInstr : NewInstArr) {
         NewInstr->replaceUsesOfWith(PrivValue, NewPrivValue);
       }
@@ -3273,7 +3273,7 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
     // The solution is to access the ConstantExpr as instruction(s) in order to
     // do the replacement. NewInstArr below keeps such instruction(s).
     SmallVector<Instruction *, 2> NewInstArr;
-    IntelGeneralUtils::breakExpressions(User, &NewInstArr);
+    GeneralUtils::breakExpressions(User, &NewInstArr);
     for (Instruction *NewInstr : NewInstArr) {
       NewInstr->replaceUsesOfWith(V, VRenamed);
     }
@@ -4947,8 +4947,8 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   MTFnCI->takeName(NewCall);
   BasicBlock *MTFnBB = MTFnCI->getParent();
 
-  if (IntelGeneralUtils::hasNextUniqueInstruction(MTFnCI)) {
-    Instruction* NextI = IntelGeneralUtils::nextUniqueInstruction(MTFnCI);
+  if (GeneralUtils::hasNextUniqueInstruction(MTFnCI)) {
+    Instruction* NextI = GeneralUtils::nextUniqueInstruction(MTFnCI);
     SplitBlock(MTFnBB, NextI, DT, LI);
   }
 
@@ -6120,10 +6120,10 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
     //    +-----------------------+
     BasicBlock *OrgBB = CancellationPoint->getParent();
 
-    assert(IntelGeneralUtils::hasNextUniqueInstruction(CancellationPoint) &&
+    assert(GeneralUtils::hasNextUniqueInstruction(CancellationPoint) &&
            "genCancellationBranchingCode: Cannot find successor of "
            "Cancellation Point");
-    auto *NextI = IntelGeneralUtils::nextUniqueInstruction(CancellationPoint);
+    auto *NextI = GeneralUtils::nextUniqueInstruction(CancellationPoint);
 
     auto *CondInst = new ICmpInst(NextI, ICmpInst::ICMP_NE, CancellationPoint,
                                   ValueZero, "cancel.check");

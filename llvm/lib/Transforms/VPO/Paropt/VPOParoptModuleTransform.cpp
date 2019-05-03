@@ -460,7 +460,7 @@ StructType *VPOParoptModuleTransform::getTgOffloadEntryTy() {
     return TgOffloadEntryTy;
 
   Type *TyArgs[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
-                    IntelGeneralUtils::getSizeTTy(&M), Type::getInt32Ty(C),
+                    GeneralUtils::getSizeTTy(&M), Type::getInt32Ty(C),
                     Type::getInt32Ty(C)};
   TgOffloadEntryTy =
       StructType::get(C, TyArgs, /* "struct.__tgt_offload_entry"*/false);
@@ -824,7 +824,7 @@ void VPOParoptModuleTransform::genOffloadEntries() {
     return;
 
   Type *VoidStarTy = Type::getInt8PtrTy(C);
-  Type *SizeTy = IntelGeneralUtils::getSizeTTy(&M);
+  Type *SizeTy = GeneralUtils::getSizeTTy(&M);
   Type *Int32Ty = Type::getInt32Ty(C);
 
   for (auto *E : OffloadEntries) {

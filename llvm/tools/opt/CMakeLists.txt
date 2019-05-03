@@ -26,8 +26,8 @@ set(LLVM_LINK_COMPONENTS
   Intel_OptReport
 # end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
-  Intel_VPOAnalysis
-  Intel_VPOTransforms
+  VPOAnalysis
+  VPOTransforms
 # end INTEL_COLLAB
   )
 
