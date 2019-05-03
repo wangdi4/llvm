@@ -22,6 +22,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 
 #include <iterator>
@@ -79,6 +80,10 @@ public:
   StringRef getPassName() const override {
     return "CSA Pipelined Reassociating Reduction Expansion";
   }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<MachineOptimizationRemarkEmitterPass>();
+    MachineFunctionPass::getAnalysisUsage(AU);
+  }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
 
@@ -87,6 +92,7 @@ private:
   CSAMachineFunctionInfo *LMFI;
   MachineRegisterInfo *MRI;
   MachineConstantPool *MCP;
+  MachineOptimizationRemarkEmitter *ORE;
 
   // Determines whether a MachineInstr is eligible for conversion. This is the
   // case if it is a floating-point reduction (integer reductions are already
@@ -136,6 +142,7 @@ bool llvm::willRunCSAReassocReduc(const MachineFunction &MF) {
 char CSAReassocReduc::ID = 0;
 
 INITIALIZE_PASS_BEGIN(CSAReassocReduc, DEBUG_TYPE, PASS_NAME, false, false)
+INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
 INITIALIZE_PASS_END(CSAReassocReduc, DEBUG_TYPE, PASS_NAME, false, false)
 
 MachineFunctionPass *llvm::createCSAReassocReducPass() {
@@ -150,6 +157,7 @@ bool CSAReassocReduc::runOnMachineFunction(MachineFunction &MF) {
   LMFI = MF.getInfo<CSAMachineFunctionInfo>();
   MRI  = &MF.getRegInfo();
   MCP  = MF.getConstantPool();
+  ORE  = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
 
   // Skip if willRunCSAReassocReduc determines that the pass shouldn't be run.
   if (not willRunCSAReassocReduc(MF))
@@ -640,6 +648,9 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
 
   // The expanded reduction is now complete. Delete the original reduction
   // instruction.
+  MachineOptimizationRemark Remark{
+    DEBUG_TYPE, "CSAReassocReduc: ", MI.getDebugLoc(), MI.getParent()};
+  ORE->emit(Remark << " reduction optimized using pipelined expansion");
   MI.eraseFromParent();
   ++ReducsExpanded;
   return ins_pos;

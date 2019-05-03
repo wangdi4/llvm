@@ -553,10 +553,11 @@ void CSASeqOpt::SequenceReduction(CSASSANode *switchNode, CSASSANode *addNode,
     // if (redOp != CSA::INVALID_OPCODE)
     assert(redOp != CSA::INVALID_OPCODE);
     MachineInstr *redInstr;
+    const DebugLoc DL = addNode->minstr->getDebugLoc();
     if (TII->isFMA(addNode->minstr)) {
       // two input reduction besides init
       redInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-                         lhdrPickNode->minstr, DebugLoc(), TII->get(redOp),
+                         lhdrPickNode->minstr, DL, TII->get(redOp),
                          switchOutReg)
                    . // result
                  addReg(backedgeReg, RegState::Define)
@@ -571,7 +572,7 @@ void CSASeqOpt::SequenceReduction(CSASSANode *switchNode, CSASSANode *addNode,
     } else {
       // normal one input reduciton besides init
       redInstr = BuildMI(*lhdrPickNode->minstr->getParent(),
-                         lhdrPickNode->minstr, DebugLoc(), TII->get(redOp),
+                         lhdrPickNode->minstr, DL, TII->get(redOp),
                          switchOutReg)
                    . // result
                  addReg(backedgeReg, RegState::Define)
