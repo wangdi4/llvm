@@ -206,12 +206,16 @@ private:
                          SmallSet<unsigned, 32> &TempRefSet,
                          LoopOptReportBuilder &LORBuilder);
 
+  HLLoop *getOuterLoopCandidateForSingleLoad(HLLoop *Lp, RegDDRef *Ref,
+                                             MemRefGroup &MRG);
+
   void setLinear(DDRef *TmpRef);
 
   void clearWorkingSetMemory(void) { MRC.clear(); }
 
   // *** Utility functions ***
-  HLInst *createLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const;
+  HLInst *createLoadInPreheader(HLLoop *InnermostLp, RegDDRef *Ref,
+                                HLLoop *OuterLp) const;
 
   void createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
                              bool NeedLoadInPrehdr) const;

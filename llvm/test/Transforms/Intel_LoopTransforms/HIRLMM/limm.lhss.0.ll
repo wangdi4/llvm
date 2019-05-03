@@ -4,31 +4,31 @@
 ;
 ;[LLIMM Analysis]
 ;MemRefCollection, entries: 25
-;  (@px)[0][25 * i1] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 1] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 2] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 3] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 4] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 5] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 6] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 7] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 8] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 9] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 10] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 11] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 12] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 13] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 14] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 15] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 16] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 17] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 18] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 19] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 20] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 21] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 22] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 23] {  R  W  } 1W : 1R  legal 
-;  (@px)[0][25 * i1 + 24] {  R  W  } 1W : 1R  legal 
+;  (@px)[0][25 * i1] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 1] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 2] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 3] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 4] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 5] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 6] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 7] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 8] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 9] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 10] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 11] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 12] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 13] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 14] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 15] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 16] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 17] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 18] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 19] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 20] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 21] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 22] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 23] {  R  W  } 1W : 1R  legal
+;  (@px)[0][25 * i1 + 24] {  R  W  } 1W : 1R  legal
 ;
 ; LIMM's Opportunity:
 ; - LILH:   (0)
@@ -124,8 +124,8 @@
 ; CHECK:           + END LOOP
 ; CHECK:   END REGION
 ;
-; *** 
-;          
+; ***
+;
 ; CHECK: Function
 ; CHECK: matmul
 ;

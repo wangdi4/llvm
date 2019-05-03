@@ -661,6 +661,108 @@ bool HIRLMM::isLoadNeededInPrehder(HLLoop *Lp, MemRefGroup &MRG) {
   llvm_unreachable("Not expect control to reach here\n");
 }
 
+// Check all the LHS MemRef within the parent loop equals to the LoadRef and
+// skip checking the current loop
+class LvalMemRefChecker final : public HLNodeVisitorBase {
+private:
+  HLNode *SkipNode;
+  RegDDRef *LoadRef;
+  bool IsLegal;
+
+public:
+  LvalMemRefChecker(HLNode *SkipNode, RegDDRef *LoadRef)
+      : SkipNode(SkipNode), LoadRef(LoadRef), IsLegal(true) {}
+
+  void visit(HLDDNode *Node) {
+    for (auto It = Node->ddref_begin(), ItE = Node->ddref_end(); It != ItE;
+         ++It) {
+      preventsHoisting(*It);
+    }
+  }
+
+  void visit(HLNode *Node) {}
+
+  void postVisit(HLNode *Node) {}
+
+  bool skipRecursion(HLNode *Node) { return Node == SkipNode; }
+
+  bool isLegal() const { return IsLegal; }
+
+  void preventsHoisting(RegDDRef *Ref);
+};
+
+void LvalMemRefChecker::preventsHoisting(RegDDRef *Ref) {
+  if (!Ref->isMemRef()) {
+    return;
+  }
+
+  if (!Ref->isLval()) {
+    return;
+  }
+
+  if (Ref->getSymbase() != LoadRef->getSymbase()) {
+    return;
+  }
+
+  int64_t Distance;
+
+  if (!DDRefUtils::getConstByteDistance(Ref, LoadRef, &Distance)) {
+    IsLegal = false;
+    return;
+  }
+
+  uint64_t Dist = std::abs(Distance);
+
+  if (Dist < LoadRef->getDestTypeSizeInBytes()) {
+    IsLegal = false;
+    return;
+  }
+}
+
+HLLoop *HIRLMM::getOuterLoopCandidateForSingleLoad(HLLoop *Lp, RegDDRef *Ref,
+                                                   MemRefGroup &MRG) {
+  if (MRG.getSize() != 1 || !Ref->isRval()) {
+    return Lp;
+  }
+
+  HLLoop *ParentLp = nullptr;
+
+  for (unsigned ParentLevel = Lp->getNestingLevel() - 1; ParentLevel > 0;
+       Lp = ParentLp, --ParentLevel) {
+    if (Lp->hasZtt()) {
+      break;
+    }
+
+    ParentLp = dyn_cast<HLLoop>(Lp->getParent());
+
+    if (!ParentLp) {
+      break;
+    }
+
+    if (!Ref->isStructurallyInvariantAtLevel(ParentLevel)) {
+      break;
+    }
+
+    const LoopStatistics &LS = HLS.getSelfLoopStatistics(ParentLp);
+
+    if (LS.hasCallsWithUnsafeSideEffects()) {
+      break;
+    }
+
+    LvalMemRefChecker Checker(Lp, Ref);
+    HLNodeUtils::visitRange(Checker, ParentLp->getFirstChild(),
+                            ParentLp->getLastChild());
+
+    if (!Checker.isLegal()) {
+      break;
+    }
+
+    Lp = ParentLp;
+  }
+
+  return Lp;
+}
+
 bool HIRLMM::hoistedSingleLoad(HLLoop *Lp, RegDDRef *LoadRef, MemRefGroup &MRG,
                                SmallSet<unsigned, 32> &TempRefSet,
                                LoopOptReportBuilder &LORBuilder) {
@@ -689,6 +791,7 @@ bool HIRLMM::hoistedSingleLoad(HLLoop *Lp, RegDDRef *LoadRef, MemRefGroup &MRG,
 
   LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                             "Load hoisted out of the loop");
+
   return true;
 }
 
@@ -756,6 +859,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG,
   LoopOptReportBuilder &LORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
+  HLLoop *OuterLp = getOuterLoopCandidateForSingleLoad(Lp, FirstRef, MRG);
+
   // Hoist a Load or a Store without replacing a temp
   if (hoistedSingleLoad(Lp, FirstRef, MRG, TempRefSet, LORBuilder) ||
       sinkedSingleStore(Lp, FirstRef, MRG, TempRefSet, LORBuilder)) {
@@ -769,7 +874,7 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG,
     LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                               "Load hoisted out of the loop");
 
-    LoadInPrehdr = createLoadInPreheader(Lp, FirstRef);
+    LoadInPrehdr = createLoadInPreheader(Lp, FirstRef, OuterLp);
 
     TmpDDRef = LoadInPrehdr->getLvalDDRef();
   }
@@ -881,6 +986,16 @@ void HIRLMM::handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
   // LLVM_DEBUG(Lp->dump(););
 }
 
+static void insertInPreheader(HLLoop *Lp, HLInst *LoadInPrehdr,
+                              RegDDRef *RvalRef) {
+  // Insert the new Load as a last node into Loop's Prehdr
+  HLNodeUtils::insertAsLastPreheaderNode(Lp, LoadInPrehdr);
+
+  // Call updateDefLevel() for the newly-created load
+  RvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
+  return;
+}
+
 // Check if a LoadInst (E.g. t0 = A[0]) exists in Preheader
 // . YES: obtain the HLInst*
 // . NO:  create a new LoadInst in preheader
@@ -892,25 +1007,30 @@ void HIRLMM::handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
 // - Mark the new Temp as linear, defined at level = looplevel -1
 // - Call updateDefLevel() for the Rval of the new load
 //
-HLInst *HIRLMM::createLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
+HLInst *HIRLMM::createLoadInPreheader(HLLoop *InnermostLp, RegDDRef *Ref,
+                                      HLLoop *OuterLp) const{
   // Debug: Examine the Loop
-  // LLVM_DEBUG(Lp->dump(););
+  // LLVM_DEBUG(InnermostLp->dump(););
 
   auto RvalRef = Ref->clone();
   HLInst *LoadInPrehdr = HNU.createLoad(RvalRef, LIMMTempName);
 
-  // Insert the new Load as a last node into Loop's Prehdr
-  HLNodeUtils::insertAsLastPreheaderNode(Lp, LoadInPrehdr);
-
-  // Mark as Loop's LiveIn Temp
   RegDDRef *TmpRef = LoadInPrehdr->getLvalDDRef();
-  Lp->addLiveInTemp(TmpRef->getSymbase());
+  unsigned TmpSB = TmpRef->getSymbase();
 
-  // Call updateDefLevel() for the newly-created load
-  RvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
+  insertInPreheader(OuterLp, LoadInPrehdr, RvalRef);
+
+  unsigned OuterLpLevel = OuterLp->getNestingLevel();
+  unsigned Level = InnermostLp->getNestingLevel();
+
+  while (Level >= OuterLpLevel) {
+    InnermostLp->addLiveInTemp(TmpSB);
+    InnermostLp = InnermostLp->getParentLoop();
+    Level--;
+  }
 
   // Debug: Examine the Loop, notice the temp in prehdr
-  // LLVM_DEBUG(Lp->dump(););
+  // LLVM_DEBUG(InnermostLp->dump(););
 
   return LoadInPrehdr;
 }
