@@ -252,7 +252,7 @@ InlineReportCallSite *InlineReport::addCallSite(Function *F, CallSite CS,
                                                 Module *M) {
   if (!isClassicIREnabled())
     return nullptr;
-  if (!F )
+  if (!F)
     return nullptr;
   Instruction *I = CS.getInstruction();
   DebugLoc DLoc = CS.getInstruction()->getDebugLoc();
