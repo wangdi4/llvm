@@ -1,6 +1,6 @@
 //===---------------- Intel_PaddedPtrPropagation.cpp ----------------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -105,7 +105,6 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/Intel_WP.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -529,10 +528,10 @@ void PaddedPtrPropImpl::propagateInFunction(
     int ResPadding = -1;
     int UseCnt = 0;
     for (auto *CI : F->users()) {
-      CallSite CS(CI);
-      auto Caller = CS.getParent()->getParent();
+      auto *Call = cast<CallBase>(CI);
+      auto Caller = Call->getParent()->getParent();
       auto &CFPInfo = getFuncPadInfo(Caller);
-      auto *CSArg = CS.getArgOperand(P->getArgNo());
+      auto *CSArg = Call->getArgOperand(P->getArgNo());
       int PaddingAtCallSite = CFPInfo.getPaddingForValue(CSArg);
 
       // Initialize the ResultPadding by the padding value from the first call
@@ -622,8 +621,8 @@ void PaddedPtrPropImpl::propagateInFunction(
       // The propagation reached a call site, that means that the callee
       // has at least one potentially padded argument.
       // Thus the callee must be added to the impacted functions set.
-      CallSite CS(Inst);
-      auto *Callee = CS.getCalledFunction();
+      auto *Call = cast<CallBase>(Inst);
+      auto *Callee = Call->getCalledFunction();
       if (!Callee)
         continue;
 
@@ -652,14 +651,14 @@ void PaddedPtrPropImpl::propagateInFunction(
         // adding of all the callers to the impacted function set.
         // In addition, set padding for Values returned by this function.
         for (auto *U : F->users()) {
-          CallSite CS(U);
-          if (!CS.getInstruction())
+          auto *Call = dyn_cast<CallBase>(U);
+          if (!Call)
             continue;
 
-          auto Caller = CS.getParent()->getParent();
+          auto Caller = Call->getParent()->getParent();
           ImpactedFns.insert(Caller);
           auto &CPInfo = getFuncPadInfo(Caller);
-          CPInfo.setPaddingForValue(CS.getInstruction(), P);
+          CPInfo.setPaddingForValue(Call, P);
         }
       }
       continue;
@@ -924,8 +923,8 @@ bool PaddedPtrPropImpl::transform(WholeProgramInfo &WPInfo) {
 
   for (auto AFunc : Annotations) {
     for (auto U : AFunc->users()) {
-      CallSite CS(U);
-      Function *Caller = CS.getParent()->getParent();
+      CallInst *Call = cast<CallInst>(U);
+      Function *Caller = Call->getParent()->getParent();
 
       int Padding;
       if (!isPaddedMarkUpAnnotation(U, Padding))

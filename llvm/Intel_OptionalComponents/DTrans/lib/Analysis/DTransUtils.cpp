@@ -967,9 +967,9 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
 }
 
 // Check that function only throws an exception.
-bool dtrans::isDummyFuncWithUnreachable(ImmutableCallSite CS,
+bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
                                         const TargetLibraryInfo &TLI) {
-  auto *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+  auto *F = dyn_cast<Function>(Call->getCalledValue()->stripPointerCasts());
   if (!F)
     return false;
   if (F->size() != 1)
@@ -1019,29 +1019,29 @@ bool dtrans::isDummyFuncWithUnreachable(ImmutableCallSite CS,
          CallExThrowFound;
 }
 
-bool dtrans::isDummyFuncWithThisAndIntArgs(ImmutableCallSite CS,
+bool dtrans::isDummyFuncWithThisAndIntArgs(const CallBase *Call,
                                            const TargetLibraryInfo &TLI) {
-  if (!isDummyFuncWithUnreachable(CS, TLI))
+  if (!isDummyFuncWithUnreachable(Call, TLI))
     return false;
 
-  if (CS.arg_size() != 2)
+  if (Call->arg_size() != 2)
     return false;
 
-  Type *ZeroArgType = CS.getArgument(0)->getType();
-  Type *FirstArgType = CS.getArgument(1)->getType();
+  Type *ZeroArgType = Call->getArgOperand(0)->getType();
+  Type *FirstArgType = Call->getArgOperand(1)->getType();
   return (ZeroArgType->isPointerTy() &&
           ZeroArgType->getPointerElementType()->isStructTy() &&
           FirstArgType->isIntegerTy());
 }
 
-bool dtrans::isDummyFuncWithThisAndPtrArgs(ImmutableCallSite CS,
+bool dtrans::isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
                                            const TargetLibraryInfo &TLI) {
-  if (!isDummyFuncWithUnreachable(CS, TLI))
+  if (!isDummyFuncWithUnreachable(Call, TLI))
     return false;
-  if (CS.arg_size() != 2)
+  if (Call->arg_size() != 2)
     return false;
-  Type *ZeroArgType = CS.getArgument(0)->getType();
-  Type *FirstArgType = CS.getArgument(1)->getType();
+  Type *ZeroArgType = Call->getArgOperand(0)->getType();
+  Type *FirstArgType = Call->getArgOperand(1)->getType();
   return (ZeroArgType->isPointerTy() &&
           ZeroArgType->getPointerElementType()->isStructTy() &&
           FirstArgType->isPointerTy());

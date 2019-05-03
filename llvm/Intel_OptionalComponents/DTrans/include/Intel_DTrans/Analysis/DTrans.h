@@ -1020,15 +1020,15 @@ bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
 
 /// Check if the called function has only one basic block that ends with
 /// 'unreachable' instruction.
-bool isDummyFuncWithUnreachable(ImmutableCallSite CS,
+bool isDummyFuncWithUnreachable(const CallBase *Call,
                                 const TargetLibraryInfo &TLI);
 /// Check if the called function has two arguments ('this' pointer and an
 /// integer size) and is dummy.
-bool isDummyFuncWithThisAndIntArgs(ImmutableCallSite CS,
+bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
                                    const TargetLibraryInfo &TLI);
 /// Check if the called function has two arguments ('this' pointer and a
 /// pointer) and is dummy.
-bool isDummyFuncWithThisAndPtrArgs(ImmutableCallSite CS,
+bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
                                    const TargetLibraryInfo &TLI);
 
 // This template function is to support dumping a collection of items in

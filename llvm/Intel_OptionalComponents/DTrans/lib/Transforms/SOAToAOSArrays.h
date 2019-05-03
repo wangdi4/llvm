@@ -1253,8 +1253,7 @@ public:
         }
       } else if (auto *Call = dyn_cast<CallBase>(NewI)) {
         auto *Info = DTInfo.getCallInfo(NewI);
-        bool isDummyFunc =
-            dtrans::isDummyFuncWithThisAndIntArgs(ImmutableCallSite(NewI), TLI);
+        bool isDummyFunc = dtrans::isDummyFuncWithThisAndIntArgs(Call, TLI);
         assert(
             ((Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) ||
              isDummyFunc) &&

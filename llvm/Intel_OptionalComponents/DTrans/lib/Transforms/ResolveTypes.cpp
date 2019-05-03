@@ -434,8 +434,8 @@ public:
   // Here we look for bitcasts of the called value and attempt to record any
   // implicit casts between types, either the return type or a parameter type,
   // that results from this function bitcast.
-  void visitCallSite(CallSite CS) {
-    if (auto *Cast = dyn_cast<BitCastOperator>(CS.getCalledValue())) {
+  void visitCallBase(CallBase &Call) {
+    if (auto *Cast = dyn_cast<BitCastOperator>(Call.getCalledValue())) {
       auto referencesTypeOfInterest = [&](Type *Ty) {
         auto *BaseTy = Ty;
         while (BaseTy->isPointerTy())
@@ -495,7 +495,7 @@ public:
                               SrcFnTy->getParamType(Idx), /*IsCall=*/true);
           DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
                           dbgs() << "DTRT-compt: visiting call with bitcast"
-                                 << *(CS.getInstruction()) << "\n");
+                                 << Call << "\n");
         }
       }
     }

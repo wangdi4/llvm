@@ -849,8 +849,8 @@ public:
   void populateAllocDeallocTable(const Module &M);
   bool isMallocWithStoredMMPtr(const Function *F);
   bool isFreeWithStoredMMPtr(const Function *F);
-  bool isUserAllocOrDummyFunc(ImmutableCallSite CS);
-  bool isUserFreeOrDummyFunc(ImmutableCallSite CS);
+  bool isUserAllocOrDummyFunc(const CallBase *Call);
+  bool isUserFreeOrDummyFunc(const CallBase *Call);
 
 private:
   typedef PointerIntPair<StructType *, 1, bool> PtrBoolPair;
@@ -1626,22 +1626,20 @@ bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
 
   // Return 'true' if 'V' is a malloc-like call within the 'Callee'.
   auto IsMallocCall = [this](const Function *Callee, Value *V) -> bool {
-    // Check if V represents an ImmutableCallSite with the right number
-    // of arguments.
-    ImmutableCallSite CS(V);
-    if (!CS)
+    // Check if V represents a call with the right number of arguments.
+    const auto *Call = dyn_cast<CallBase>(V);
+    if (!Call)
       return false;
-    if (CS.arg_size() != 2)
+    if (Call->arg_size() != 2)
       return false;
-    // Check that the arguments of the ImmutableCallSite come from
-    // the appropriate Callee arguments. We expect the size argument to
-    // be adjusted by 8.
-    auto MMArg = dyn_cast<Argument>(CS.getArgument(0));
+    // Check that the arguments of the call come from the appropriate Callee
+    // arguments. We expect the size argument to be adjusted by 8.
+    auto MMArg = dyn_cast<Argument>(Call->getArgOperand(0));
     if (!MMArg)
       return false;
     if (MMArg != (Callee->arg_begin() + 1))
       return false;
-    auto BIA = dyn_cast<BinaryOperator>(CS.getArgument(1));
+    auto BIA = dyn_cast<BinaryOperator>(Call->getArgOperand(1));
     if (!BIA || BIA->getOpcode() != Instruction::Add)
       return false;
     Value *W = nullptr;
@@ -1664,7 +1662,7 @@ bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
       return false;
     // Check that Function being called is a malloc function or dummy function
     // with unreachable.
-    return isUserAllocOrDummyFunc(CS);
+    return isUserAllocOrDummyFunc(Call);
   };
 
   // Check the expected types of the Callee's arguments.
@@ -1858,15 +1856,14 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
   // Return 'true' if 'V' is a free-like call within the 'Callee'.
   auto IsFreeCall = [this](const Function *Callee,
                            const Instruction *I) -> bool {
-    // Check if I represents an ImmutableCallSite with the right number
-    // of arguments.
-    ImmutableCallSite CS(I);
-    if (!CS)
+    // Check if 'I' represents a call with the right number of arguments.
+    const auto *Call = dyn_cast<CallBase>(I);
+    if (!Call)
       return false;
-    if (CS.arg_size() != 2)
+    if (Call->arg_size() != 2)
       return false;
     // The zeroth argument should load an I8* value.
-    auto LI = dyn_cast<LoadInst>(CS.getArgument(0));
+    auto LI = dyn_cast<LoadInst>(Call->getArgOperand(0));
     if (!LI)
       return false;
     if (!LI->getPointerOperandType()->getPointerElementType()->isPointerTy())
@@ -1877,7 +1874,7 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
     if (BCI->getSrcTy() != Int8PtrTy)
       return false;
     Value *W = BCI->getOperand(0);
-    if (CS.getArgument(1) != W)
+    if (Call->getArgOperand(1) != W)
       return false;
     auto GEPI = dyn_cast<GetElementPtrInst>(W);
     if (!GEPI)
@@ -1895,7 +1892,7 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
       return false;
     if (ConstInt->getSExtValue() != -8)
       return false;
-    return isUserFreeOrDummyFunc(CS);
+    return isUserFreeOrDummyFunc(Call);
   };
 
   // Check the expected types of the Callee's arguments.
@@ -1958,15 +1955,16 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
 
 // Returns true if the called function is user-defined malloc or dummy
 // function.
-bool DTransAllocAnalyzer::isUserAllocOrDummyFunc(ImmutableCallSite CS) {
-  return (dtrans::isDummyFuncWithThisAndIntArgs(CS, TLI) ||
-          isMallocPostDom(CS));
+bool DTransAllocAnalyzer::isUserAllocOrDummyFunc(const CallBase *Call) {
+  return (dtrans::isDummyFuncWithThisAndIntArgs(Call, TLI) ||
+          isMallocPostDom(ImmutableCallSite(Call)));
 }
 
 // Returns true if the called function is user-defined free or dummy
 // function.
-bool DTransAllocAnalyzer::isUserFreeOrDummyFunc(ImmutableCallSite CS) {
-  return (dtrans::isDummyFuncWithThisAndPtrArgs(CS, TLI) || isFreePostDom(CS));
+bool DTransAllocAnalyzer::isUserFreeOrDummyFunc(const CallBase *Call) {
+  return (dtrans::isDummyFuncWithThisAndPtrArgs(Call, TLI) ||
+          isFreePostDom(ImmutableCallSite(Call)));
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -7701,8 +7699,8 @@ private:
         continue;
       // If the incoming value is a result of a non-returning function,
       // then skip it.
-      if (auto CS = ImmutableCallSite(ValIn))
-        if (dtrans::isDummyFuncWithUnreachable(CS, TLI))
+      if (const auto *Call = dyn_cast<CallBase>(ValIn))
+        if (dtrans::isDummyFuncWithUnreachable(Call, TLI))
           continue;
       LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValIn);
       if (!ValLPI.canPointToType(DomTy->getPointerElementType())) {
