@@ -26,6 +26,9 @@ set( BACKEND_VALIDATION_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/validation )
 
 set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 
+# Version of cached binary
+add_definitions(-DOCL_CACHED_BINARY_VERSION=1)
+
 remove_definitions( -D_UNICODE -DUNICODE )
 
 #

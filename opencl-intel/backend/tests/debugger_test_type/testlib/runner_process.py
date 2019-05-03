@@ -8,6 +8,7 @@ import unittest
 from StringIO import StringIO
 
 from multiprocessing import JoinableQueue, Queue, Process
+from Queue import Empty
 from testlib.common import TestSuiteNotFoundException, logi
 from testlib.debuggertestcase import DebuggerTestCase
 from testlib.timelimited import timelimited, TimeLimitExpired
@@ -145,7 +146,7 @@ class RunnerProcess(Process):
                     return
 
                 # grab the next testcase from the work queue
-                self.test_name = self.config.testcase_queue.get()
+                self.test_name = self.config.testcase_queue.get(timeout=5)
                 test_path = os.path.join(self.config.test_dir, self.test_name)
 
                 # build the suite
@@ -167,6 +168,8 @@ class RunnerProcess(Process):
             except KeyboardInterrupt:
                 details = "(aborted)"
                 return
+            except Empty:
+                details = "(empty queue)"
             except Exception as e:
                 details = "Exception " + str(e) + "\n" + traceback.format_exc()
             except:

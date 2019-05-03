@@ -35,6 +35,13 @@ option(OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
+# Due to some reason, CMAKE_SIZEOF_VOID_P is empty until enable_language is
+# called
+enable_language(C)
+enable_language(CXX)
+if (NOT WIN32)
+  enable_language(ASM)
+endif (NOT WIN32)
 
 include(CheckCXXCompilerFlag)
 
@@ -176,12 +183,16 @@ elseif ( REVISION_ID MATCHES "-r[0-9]*" ) # Review ID
   set( GIT_REVISION $ENV{RELEASE_BRANCH} )
 endif()
 
-# MAJOR and MINOR version aligned with 15.40 branch because currently
-# we are delivering cpu bundle from master.
-# As soon as we will deliver cpu buncle from release branch to vpg
-# revert this change. CSSD100021694.
-set( PRODUCTVER_MAJOR 7 )
-set( PRODUCTVER_MINOR 6 )
+# Align OpenCL version to release date
+string(TIMESTAMP PRODUCTVER_MAJOR "%Y")
+string(TIMESTAMP PRODUCTVER_MINOR "%m")
+
+# Make month number single digit
+string(FIND ${PRODUCTVER_MINOR} "0" ZERO_POS)
+if(${ZERO_POS} STREQUAL "0")
+  string(SUBSTRING ${PRODUCTVER_MINOR} 1 1 PRODUCTVER_MINOR)
+endif(ZERO_POS)
+set(PRODUCTVER_MINOR "${PRODUCTVER_MINOR}.0")
 
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 set(BUILDVER_16_BIT_MINOR "$ENV{BUILDDATE}")
@@ -211,7 +222,6 @@ file(WRITE ${OCL_BINARY_DIR}/buildversion.h.txt
 #define PRODUCTVERSION_MINOR ${PRODUCTVER_MINOR}\n
 #define BUILDVERSION16BIT_MAJOR ${BUILDVER_16_BIT_MAJOR}\n
 #define BUILDVERSION16BIT_MINOR ${BUILDVER_16_BIT_MINOR}\n
-#define VERSIONSTRING \"${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define IOCVERSIONSTRING \"1.6.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n
 #define KBVERSIONSTRING \"1.4.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\"\n")
 # --------------
@@ -373,14 +383,14 @@ set(INTEL_DEPLOY_COMPONENTS
   ocl-builtins
   ocl-svml
   ocl-OpenCL
-  ocl-intelocl${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+  ocl-intelocl${BUILD_PLATFORM}
   ocl-config
-  ocl-cpu_device${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
-  ocl-task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+  ocl-cpu_device${BUILD_PLATFORM}
+  ocl-task_executor${BUILD_PLATFORM}
   ocl-tbb-ext
   ocl-common_clang
   ocl-builtins-shared
-  ocl-cl_logger${OPENCL_BINARIES_POSTFIX}
+  ocl-cl_logger
   ocl-gdb-plugin
 )
 

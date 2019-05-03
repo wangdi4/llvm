@@ -1571,10 +1571,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             switch (m_CPUDeviceConfig.GetDeviceMode())
             {
                 case CPU_DEVICE:
-                    driverVer = GetModuleProductVersion();
-                    break;
                 case FPGA_EMU_DEVICE:
-                    driverVer = "19.1";
+                    driverVer = GetModuleProductVersion();
                     break;
                 case EYEQ_EMU_DEVICE:
                     driverVer = "1.0";

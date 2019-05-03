@@ -886,6 +886,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     }
 
     const size_t*    pWGSize = m_pImplicitArgs->WGCount;
+    assert(pWGSize && "pWGSize must be non zero pointer");
     unsigned int i;
     for (i = 0; i < cmdParams->work_dim; ++i)
     {

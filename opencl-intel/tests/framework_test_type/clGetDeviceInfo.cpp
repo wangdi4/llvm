@@ -19,12 +19,6 @@ bool clGetDeviceInfoTest()
 	cl_uint uiMaxComputeUnits;
 	size_t size_ret = 0;
 
-  const char * desiredDriverVerStr = "7.6.0.0";
-  if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
-  {
-    desiredDriverVerStr = "19.1";
-  }
-
 	cl_platform_id platform = 0;
 
 	iRes = clGetPlatformIDs(1, &platform, NULL);
@@ -60,15 +54,11 @@ bool clGetDeviceInfoTest()
 
   // CL_DRIVER_VERSION
   // return driver version
-  // it's set as hardcoded "7.6.0.0" plus a build date,
+  // it's set as hardcoded number, see more in doc/library_versioning.rst
   // shall be fixed when it's changed
   char buffer[1024];
   iRes = clGetDeviceInfo(devices[0], CL_DRIVER_VERSION, sizeof(buffer), buffer, nullptr);
   bResult &= Check("CL_DRIVER_VERSION, all OK", CL_SUCCESS, iRes);
-  if (CL_SUCCEEDED(iRes))
-  {
-    bResult &= (0 == strstr("CL_DRIVER_VERSION", desiredDriverVerStr));
-  }
 
 	// CL_DEVICE_TYPE
 	// all OK

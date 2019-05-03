@@ -466,4 +466,8 @@ void CPUDetect::GetCPUInfo()
             m_eCPUBrand = BRAND_UNKNOWN;
         }
     }
+    else
+    {
+        m_szCPUBrandString = STRDUP("");
+    }
 }

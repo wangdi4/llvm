@@ -1103,19 +1103,19 @@ cl_ulong Context::GetMaxMemAllocSize()
         return m_ulMaxMemAllocSize;
     }
 
-    LOG_DEBUG(TEXT("%s"), TEXT("Enter GetDeviceMaxMemAllocSize"));
+    LOG_DEBUG(TEXT("%s"), TEXT("Enter GetMaxMemAllocSize"));
 
-    cl_ulong ulMemAllocSize = 0;
+    cl_ulong ulGlobalMemSize = 0;
 
     for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
     {
-        cl_err_code clErr = m_ppAllDevices[ui]->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &ulMemAllocSize, nullptr);
+        cl_err_code clErr = m_ppAllDevices[ui]->GetInfo(CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(cl_ulong), &ulGlobalMemSize, nullptr);
         if (CL_FAILED(clErr))
         {
             continue;
         }
-        m_ulMaxMemAllocSize = (0 == m_ulMaxMemAllocSize) ? ulMemAllocSize :
-                                    (ulMemAllocSize < m_ulMaxMemAllocSize) ? ulMemAllocSize : m_ulMaxMemAllocSize;
+        m_ulMaxMemAllocSize = (0 == m_ulMaxMemAllocSize) ? ulGlobalMemSize :
+                                    (ulGlobalMemSize < m_ulMaxMemAllocSize) ? ulGlobalMemSize : m_ulMaxMemAllocSize;
     }
 
     return m_ulMaxMemAllocSize;

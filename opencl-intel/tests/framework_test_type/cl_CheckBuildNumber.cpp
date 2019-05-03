@@ -26,6 +26,7 @@
 #include <string.h>
 #include "test_utils.h"
 #include <stdio.h>
+#include <time.h>
 
 extern cl_device_type gDeviceType;
 
@@ -42,48 +43,53 @@ bool cl_CheckBuildNumber() {
         iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
         CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
-        char Buffer[1024];
-        iRet = clGetDeviceInfo(device, CL_DRIVER_VERSION, 1024, Buffer, nullptr);
+        std::string DriverVersion(120, '\0');
+        iRet = clGetDeviceInfo(device, CL_DRIVER_VERSION, 120,
+                &DriverVersion[0], nullptr);
         CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
-        Buffer[1024 - 1] = 0;
-        cout << "CL_DRIVER_VERSION: " << Buffer << '\n';
+        cout << "CL_DRIVER_VERSION: " << DriverVersion << '\n';
 
-        // The expected string in Buffer should be 'XX.Y.Z.MMDD'.
-        // Let's validate build date 'MMDD' only
-        // For Aug-03 MMDD should be 0803
+        // The expected string in Buffer should be 'YYYY.L{1,}.MM.0',
+        // where YYYY - current year, L{1,} - latest LLVM release version,
+        // MM - current month (single digit until September) and 0 - internally
+        // agreed digit.
+        // We can't validate latest LLVM release version from here as well as
+        // hardcoded '0', so let's validate build year YYYY and build month MM.
+        // For Apr 2019 YYYY should be '2019' and MM '4'.
 
-        // 2. Check for 'MMDD' string:
-        const char *S = strrchr(Buffer, '.');
-        if (!S) {
-            CheckException("'.' symbol is missed", true, false);
-        }
-        S++;
-        int i = 0;
-        while (i < 4) {
-            if (!isdigit(S[i])) {
-                // Only digits are allowed
-                CheckException("MMDD", true, false);
+        std::vector<std::string> tokens = tokenize(DriverVersion, ".");
+
+        std::string Year = tokens[0];
+        // Check for 'YYYY' string:
+        for (int i = 0; i < 4; ++i) {
+            if (!isdigit(Year[i])) {
+                CheckException("YYYY", true, false);
             }
-            i++;
-        }
-        if (S[i]) {
-            CheckException("Zero symbol was expected here", true, false);
         }
 
-        // First two symbols can not be more than 12 (Month):
-        char Date[3];
-        Date[0] = S[0];
-        Date[1] = S[1];
-        Date[2] = 0;
-        int Val = atoi(Date);
+        // Year can't be less that the current one
+        time_t Time = time(NULL);
+        struct tm *CurrentTime = localtime(&Time);
+        unsigned int CurrentYear = CurrentTime->tm_year + 1900;
+        unsigned int Val = atoi(Year.c_str());
+        CheckException("Year", Val >= CurrentYear, true);
+
+        // LLVM version shouldn't be empty
+        std::string LLVMVersion = tokens[1];
+        if (!LLVMVersion.size()) {
+            CheckException("LLVM Version shouldn't be empty", true, false);
+        }
+
+        // Check for 'MM' string:
+        std::string Month = tokens[2];
+        Val = atoi(Month.c_str());
         CheckException("Month", Val <= 12, true);
 
-        // Next two symbols can not be more than 31 (Day):
-        Date[0] = S[2];
-        Date[1] = S[3];
-        Val = atoi(Date);
-        CheckException("Day", Val <= 31, true);
+        if (strcmp(tokens[3].c_str(), "0")) {
+            CheckException("Zero symbol was expected in the end "
+                    "of driver version", true, false);
+        }
     }
     catch (const std::exception&)
     {

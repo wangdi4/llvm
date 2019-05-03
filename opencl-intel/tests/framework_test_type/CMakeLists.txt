@@ -108,4 +108,10 @@ add_custom_command( TARGET ${TARGET}
   VERBATIM
 )
 
+add_ocl_unittest_artifacts(
+  FILES
+    cached_binary_without_section.bin
+    cached_binary_with_wrong_version.bin
+)
+
 add_dependencies( ${TARGET} clang_compiler${BUILD_PLATFORM} )

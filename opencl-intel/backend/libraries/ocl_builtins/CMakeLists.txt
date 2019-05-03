@@ -160,7 +160,7 @@ endforeach( LLVM_INCLUDE_DIR_ITEM)
 set (CLANG_CL_COMMON_COMPILER_FLAGS
   -cc1 -triple ${DEVICE_TRIPLE} -emit-llvm-bc -fwrapv -O3 -disable-intel-proprietary-opts
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${CCLANG_INCLUDE_DIRS} -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl-c.h
-  -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200
+  -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200 -fopencl-force-vector-abi
   -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -mstackrealign -ffp-contract=fast
   -cl-ext=+cl_khr_fp16
   )
@@ -360,7 +360,7 @@ function( install_svml ARCH )
   endif()
 
   copy_to (${SVML_DLL} DESTINATION lib)
-  install_to (${SVML_DLL} DESTINATION lib COMPONENT ocl-svml)
+  install_to (${SVML_DLL} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-svml)
 
 endfunction( install_svml )
 
@@ -439,7 +439,7 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
      set (INSTALL_LIST ${INSTALL_LIST} ${BUILTINS_OUTPUT_DIR}/${OUTPUT_OCL_IMAGE_CALLBACK_OBJ})
   endif (PREBUILD_IMAGE_LIBRARY)
 
-  install_to (${INSTALL_LIST} DESTINATION lib COMPONENT ocl-builtins)
+  install_to (${INSTALL_LIST} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-builtins)
 
 endfunction( create_target)
 

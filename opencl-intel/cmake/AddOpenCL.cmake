@@ -18,34 +18,37 @@ set(OCL_TESTS_BINARY_DIR ${OCL_BINARY_DIR}/tests)
 
 # Define architecture and OS suffix for output dirs
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set(OUTPUT_ARCH_SUFF "ia32")
+    set(OUTPUT_ARCH_SUFF "x86")
 else () # x64
-    set(OUTPUT_ARCH_SUFF "intel64")
+    set(OUTPUT_ARCH_SUFF "x64")
 endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-
-if (WIN32)
-    set(OUTPUT_OS_SUFF "_win")
-else () # Linux
-    set(OUTPUT_OS_SUFF "_lin")
-endif (WIN32)
 
 # This macro sets OpenCL libraries version as 'x.y', where 'x' is a major
 # version of LLVM and 'y' is an internally agreed digit.
 macro(set_opencl_version)
-    if( NOT DEFINED OPENCL_LIBRARY_VERSION )
+    if( NOT DEFINED VERSIONSTRING )
         if( NOT DEFINED LLVM_PATH_FE )
             message( FATAL_ERROR "LLVM_PATH_FE is not specified." )
         endif()
 
         set(LLVM_PATH ${LLVM_PATH_FE})
         find_package(LLVM REQUIRED)
-        set( OPENCL_LIBRARY_VERSION "${LLVM_VERSION_MAJOR}.0" )
-    endif( NOT DEFINED OPENCL_LIBRARY_VERSION )
+        math(EXPR LLVM_RELEASE_VER "${LLVM_VERSION_MAJOR} - 1")
+        set(VERSIONSTRING "${PRODUCTVER_MAJOR}.${LLVM_RELEASE_VER}.${PRODUCTVER_MINOR}")
+        add_definitions(-DVERSIONSTRING="${VERSIONSTRING}")
+        file(WRITE ${OCL_BINARY_DIR}/driverversion.h.txt
+        "#ifndef VERSIONSTRIN\n
+            #define VERSIONSTRING \"${VERSIONSTRING}\"\n
+        #endif\n")
+        execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        ${OCL_BINARY_DIR}/driverversion.h.txt
+                        ${OCL_BINARY_DIR}/driverversion.h)
+    endif( NOT DEFINED VERSIONSTRING )
 endmacro(set_opencl_version)
 
 # Define output dirs
 set(OCL_OUTPUT_BINARY_DIR ${OCL_RUNTIME_DIR}/${OUTPUT_ARCH_SUFF})
-set(OCL_OUTPUT_LIBRARY_DIR ${OCL_LIBRARY_DIR}/${OUTPUT_ARCH_SUFF}${OUTPUT_OS_SUFF})
+set(OCL_OUTPUT_LIBRARY_DIR ${OCL_LIBRARY_DIR}/${OUTPUT_ARCH_SUFF})
 
 # add_opencl_library - binding over add_library for OpenCL needs
 #   name             - defines library name
@@ -104,7 +107,7 @@ function(add_opencl_library name)
             RUNTIME_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
             LIBRARY_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
             ARCHIVE_OUTPUT_DIRECTORY ${OCL_OUTPUT_LIBRARY_DIR}
-            SOVERSION ${OPENCL_LIBRARY_VERSION})
+            SOVERSION ${VERSIONSTRING})
     endif (WIN32)
 
     target_link_libraries(${name} ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
@@ -118,18 +121,18 @@ function(add_opencl_library name)
             LINK_FLAGS_DEBUG "/PDBSTRIPPED:${PDB_NAME}")
 
         install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}_stripped.pdb
-                    DESTINATION lib
+                    DESTINATION lib/${OUTPUT_ARCH_SUFF}
                     COMPONENT ocl-${name})
 
         if (INSTALL_PDBS)
             install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}.pdb
-                        DESTINATION lib
+                        DESTINATION lib/${OUTPUT_ARCH_SUFF}
                         COMPONENT ocl-${name})
         endif (INSTALL_PDBS)
     endif (WIN32 AND ARG_SHARED)
 
     install_to (${name}
-                DESTINATION lib
+                DESTINATION lib/${OUTPUT_ARCH_SUFF}
                 COMPONENT ocl-${name})
 
 endfunction(add_opencl_library name)

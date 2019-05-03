@@ -28,6 +28,7 @@ extern const char* g_metaSectionName;
 extern const char* g_irSectionName;
 extern const char* g_optSectionName;
 extern const char* g_objSectionName;
+extern const char* g_objVerSectionName;
 
 class CacheBinaryReader
 {

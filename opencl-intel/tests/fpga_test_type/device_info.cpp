@@ -49,7 +49,6 @@ TEST_F(TestInfo, Device) {
     checkDevice(device, CL_DEVICE_NAME,             "Intel(R) FPGA Emulation Device (preview)");
     checkDevice(device, CL_DEVICE_VENDOR,           "Intel(R) Corporation");
     checkDevice(device, CL_DEVICE_OPENCL_C_VERSION, "OpenCL C 1.0 ");
-    checkDevice(device, CL_DRIVER_VERSION,          "19.1");
     checkDevice(device, CL_DEVICE_EXTENSIONS,
         "cl_khr_icd cl_khr_byte_addressable_store cl_intel_fpga_host_pipe cles_khr_int64 ");
 

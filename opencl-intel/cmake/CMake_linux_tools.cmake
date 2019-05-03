@@ -1,9 +1,4 @@
 # Options common to all projects.
-message(STATUS "** ** ** Enable Languages ** ** **")
-
-enable_language( C )
-enable_language( CXX )
-enable_language( ASM )
 
 if(BUILD_X64)
   set(ARCH_BIT -m64 )

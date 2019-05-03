@@ -24,6 +24,7 @@ const char* g_metaSectionName = ".ocl.meta";
 const char* g_irSectionName   = ".ocl.ir";
 const char* g_optSectionName  = ".ocl.opt";
 const char* g_objSectionName  = ".ocl.obj";
+const char* g_objVerSectionName  = ".ocl.ver";
 
 CacheBinaryReader::CacheBinaryReader(const void* pBlob, size_t size)
 {
