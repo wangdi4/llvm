@@ -1109,6 +1109,8 @@ public:
   CreateSVMLFunction(llvm::FunctionType *Ty, StringRef Name,
                      llvm::AttributeList ExtraAttrs = llvm::AttributeList(),
                      bool Local = false);
+
+  void ConstructSVMLCallAttributes(StringRef Name, llvm::AttributeList &List);
 #endif // INTEL_CUSTOMIZATION
 
   /// Create a new runtime global variable with the specified type and name.

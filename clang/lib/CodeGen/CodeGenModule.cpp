@@ -3129,6 +3129,17 @@ CodeGenModule::CreateSVMLFunction(llvm::FunctionType *FTy, StringRef Name,
 
   return FC;
 }
+
+void
+CodeGenModule::ConstructSVMLCallAttributes(StringRef Name,
+                                           llvm::AttributeList &AttrList) {
+  llvm::AttrBuilder FuncAttrs;
+  ConstructDefaultFnAttrList(Name, /*HasOptNone*/false,
+                             /*AttrOnCallSite*/true, FuncAttrs);
+  AttrList = llvm::AttributeList::get(getLLVMContext(),
+                                      llvm::AttributeList::FunctionIndex,
+                                      FuncAttrs);
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// isTypeConstant - Determine whether an object of this type can be emitted
