@@ -103,19 +103,23 @@ public:
   // Propagate metadata from memory references in the group to the new DDRef.
   void propagateMetadata(const OVLSGroup *Group, RegDDRef *NewRef);
 
-  // Widen the given instruction to a vector instruction using VF
+  // Widen the given VPInstruction to a vector instruction using VF
   // as the vector length. The given Mask value overrides the
   // current mask value if non-null. Group is non-null if Inst is part of a
   // VLS group and in such a case InterleaveFactor specifies the memory access
   // interleaving factor, InterleaveIndex specifies the index of the current
   // memory access reference in the group, and GrpStartInst specifies the HLInst
   // corresponding to the lowest memory address access in the group.
-  HLInst *widenNode(const HLInst *Inst, RegDDRef *Mask = nullptr,
-                    const OVLSGroup *Group = nullptr,
-                    int64_t InterleaveFactor = 0, int64_t InterleaveIndex = 0,
-                    const HLInst *GrpStartInst = nullptr);
+  void widenNode(const VPInstruction *VPInst, RegDDRef *Mask = nullptr,
+                 const OVLSGroup *Group = nullptr, int64_t InterleaveFactor = 0,
+                 int64_t InterleaveIndex = 0,
+                 const HLInst *GrpStartInst = nullptr);
 
-  HLInst *widenNode(const VPInstruction *VPInst);
+  // Given the function being called and the widened operands, generate and
+  // return the widened call. The call arguments are returned in CallRegs
+  // if they need to be analyzed for stride information.
+  HLInst *widenCall(const HLInst *INode, SmallVectorImpl<RegDDRef *> &WideOps,
+                    RegDDRef *Mask, SmallVectorImpl<RegDDRef *> &CallRegs);
 
   // Widen an interleaved memory access - operands correspond to operands of
   // WidenNode.
@@ -443,6 +447,14 @@ private:
   // PredIt found in the HLIf node. VF is used as vector length.
   HLInst *widenPred(const HLIf *HIf, HLIf::const_pred_iterator PredIt,
                     RegDDRef *Mask);
+
+  // Widen the given instruction to a vector instruction using VF
+  // as the vector length. This interface is used by the public
+  // interface when a VPInstruction has a valid underlying HLInst.
+  void widenNode(const HLInst *Inst, RegDDRef *Mask = nullptr,
+                 const OVLSGroup *Group = nullptr, int64_t InterleaveFactor = 0,
+                 int64_t InterleaveIndex = 0,
+                 const HLInst *GrpStartInst = nullptr);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.

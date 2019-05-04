@@ -713,41 +713,15 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   //     (rule to be refined), and
   //  3) the decomposed VPInstructions have more than one use.
 
-  HLInst *WInst;
+  const OVLSGroup *Group = nullptr;
+  const HLInst *GrpStartInst = nullptr;
+  int64_t InterleaveFactor = 0, InterleaveIndex = 0;
 
-  if (HIR.isDecomposed() && HIR.isValid()) {
-    // Skip decomposed VPInstruction with valid HIR. They will be codegen'ed by
-    // its master VPInstruction.
-    LLVM_DEBUG(dbgs() << "Skipping decomposed VPInstruction with valid HIR:"
-                      << *this << "\n");
-    return;
-  }
-
-  if (auto Branch = dyn_cast<VPBranchInst>(this)) {
-    assert(Branch->getHLGoto() && "For HIR VPBranchInst must have HLGoto.");
-    const HLGoto *HGoto = Branch->getHLGoto();
-    assert(CG->isSearchLoop() && HGoto->isEarlyExit(CG->getOrigLoop()) &&
-           "Only early exit gotos expected!");
-    // FIXME: Temporary support for last value computation of live-outs in the
-    // early exit branch. 'createNonLinearLiveOutsForEE' introduces the last
-    // value computation instructions before the goto instruction for the
-    // reaching definitions of the live-outs.
-    CG->handleNonLinearEarlyExitLiveOuts(HGoto);
-
-    CG->addInst(HGoto->clone(), nullptr);
-    return;
-  }
-
-  if (HIR.isValid()) {
-    // Master VPInstruction with valid HIR.
-    assert(HIR.isMaster() && "VPInstruction with valid HIR must be a Master "
-                             "VPInstruction at this point.");
+  // Compute group information if we have a valid master instruction
+  if (HIR.isMaster() && HIR.isValid()) {
     HLNode *HNode = HIR.getUnderlyingNode();
-    if (auto *Inst = dyn_cast<HLInst>(HNode)) {
+    if (isa<HLInst>(HNode)) {
       unsigned Opcode = getOpcode();
-      const OVLSGroup *Group = nullptr;
-      const HLInst *GrpStartInst = nullptr;
-      int64_t InterleaveFactor = 0, InterleaveIndex = 0;
 
       if (Opcode == Instruction::Load || Opcode == Instruction::Store) {
         VPlanVLSAnalysis *VLSA = CG->getVLS();
@@ -832,34 +806,11 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
             Group = nullptr;
         }
       }
-
-      CG->widenNode(Inst, nullptr, Group, InterleaveFactor, InterleaveIndex,
-                    GrpStartInst);
-      return;
     }
-    if (auto *HIf = dyn_cast<HLIf>(HNode)) {
-      // We generate a compare instruction from the IF predicate. The VPValue
-      // corresponding to this instruction gets used as the condition bit
-      // value for the conditional branch. We need a mapping between this
-      // VPValue and the widened value so that we can generate code for the
-      // predicate recipes.
-      WInst = CG->widenIfNode(HIf, nullptr);
-      CG->addVPValueWideRefMapping(this, WInst->getOperandDDRef(0));
-      return;
-    }
-    if (isa<HLLoop>(HNode)) {
-      // Master VPInstructions with an attached HLLoop are IV-related or bottom
-      // test instructions that don't have explicit instruction representation
-      // in HIR. This information will be updated directly when processing the
-      // HLLoop construct.
-      return;
-    }
-
-    llvm_unreachable("Master VPInstruction with unexpected HLDDNode.");
   }
 
-  // New predicator generates VPInstructions with no HIR. Widen the same.
-  CG->widenNode(this);
+  CG->widenNode(this, nullptr, Group, InterleaveFactor, InterleaveIndex,
+                GrpStartInst);
 }
 #endif
 

@@ -600,6 +600,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPlanVLSAnalysisHIR;
   friend class VPlanVerifier;
   friend class VPOCodeGen;
+  friend class VPOCodeGenHIR;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
