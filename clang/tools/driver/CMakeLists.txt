@@ -19,10 +19,12 @@ set( LLVM_LINK_COMPONENTS
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
-  Intel_VPOAnalysis
-  Intel_VPOTransforms
   Intel_OptReport
 # end INTEL_CUSTOMIZATION
+# INTEL_COLLAB
+  VPOAnalysis
+  VPOTransforms
+# end INTEL_COLLAB
   )
 
 option(CLANG_PLUGIN_SUPPORT "Build clang with plugin support" ON)
