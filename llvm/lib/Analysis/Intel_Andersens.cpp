@@ -1747,12 +1747,11 @@ void AndersensAAResult::visitShuffleVectorInst(ShuffleVectorInst &AI) {
     }
 }
 
+// CMPLRLLVM-9114: Return type of Landingpad instruction can be struct
+// type that can have pointers. Non-pointer landingpad instruction
+// shouldn't be ignored.
 void AndersensAAResult::visitLandingPadInst(LandingPadInst &AI) {
-  if (!isPointsToType(AI.getType())) {
-      return;
-  }
   CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
-
 }
 
 void AndersensAAResult::visitAtomicCmpXchgInst(AtomicCmpXchgInst &AI) {
