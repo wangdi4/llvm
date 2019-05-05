@@ -3617,11 +3617,6 @@ def err_param_default_argument_references_this : Error<
 def err_param_default_argument_nonfunc : Error<
   "default arguments can only be specified for parameters in a function "
   "declaration">;
-// if INTEL_CUSTOMIZATION
-// CQ375240
-def warn_param_default_argument_nonfunc : Warning<
-  err_param_default_argument_nonfunc.Text>, InGroup<IntelCompat>;
-// endif //INTEL_CUSTOMIZATION
 def err_param_default_argument_template_redecl : Error<
   "default arguments cannot be added to a function template that has already "
   "been declared">;

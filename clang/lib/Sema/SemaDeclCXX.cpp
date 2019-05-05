@@ -408,24 +408,9 @@ void Sema::CheckExtraCXXDefaultArguments(Declarator &D) {
                              Toks->back().getLocation());
           else
             SR = UnparsedDefaultArgLocs[Param];
-#if INTEL_CUSTOMIZATION
-          // CQ375240
-          if (getLangOpts().IntelCompat)
-            Diag(Param->getLocation(),
-                 diag::warn_param_default_argument_nonfunc) << SR;
-          else
-#endif // INTEL_CUSTOMIZATION
           Diag(Param->getLocation(), diag::err_param_default_argument_nonfunc)
             << SR;
         } else if (Param->getDefaultArg()) {
-#if INTEL_CUSTOMIZATION
-          // CQ375240
-          if (getLangOpts().IntelCompat)
-            Diag(Param->getLocation(),
-                 diag::warn_param_default_argument_nonfunc)
-              << Param->getDefaultArg()->getSourceRange();
-          else
-#endif // INTEL_CUSTOMIZATION
           Diag(Param->getLocation(), diag::err_param_default_argument_nonfunc)
             << Param->getDefaultArg()->getSourceRange();
           Param->setDefaultArg(nullptr);
