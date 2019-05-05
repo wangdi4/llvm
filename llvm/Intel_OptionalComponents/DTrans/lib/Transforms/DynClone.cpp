@@ -630,7 +630,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
       return false;
 
     for (auto *C : FI.values()) {
-      ConstantInt *CurrC = dyn_cast<ConstantInt>(C);
+      ConstantInt *CurrC = cast<ConstantInt>(C);
       int64_t Const = CurrC->getSExtValue();
       if (MaxC)
         Const = std::max(Const, MaxC->getSExtValue());
@@ -793,7 +793,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
                      << "    Indirect Call ... Skip DynClone :" << *CI << "\n");
           return false;
         }
-        Function *Callee = dyn_cast<Function>(CalledValue->stripPointerCasts());
+        Function *Callee = cast<Function>(CalledValue->stripPointerCasts());
         // Collecting all uses of routines that are marked with
         // AddressTaken. Use info of AddressTaken functions are not
         // properly updated after IPSCCP. So, we can't get all CallSites
@@ -3124,7 +3124,7 @@ bool DynCloneImpl::createCallGraphClone(void) {
         continue;
       CallInst *CI = cast<CallInst>(&Inst);
       Value *CalledValue = CI->getCalledValue();
-      Function *Callee = dyn_cast<Function>(CalledValue->stripPointerCasts());
+      Function *Callee = cast<Function>(CalledValue->stripPointerCasts());
       if (!ClonedFunctionList.count(Callee))
         continue;
       Function *NewCallee = CloningMap[Callee];
