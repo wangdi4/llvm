@@ -12717,6 +12717,21 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(Callee, {X});
   }
 
+  case CSA::BI__builtin_csa_gated_prefetch: {
+    Value *const Gate    = EmitScalarExpr(E->getArg(0));
+    Value *const Address = Builder.CreatePointerCast(
+      EmitScalarExpr(E->getArg(1)), Builder.getInt8PtrTy());
+    Value *const RW = (E->getNumArgs() > 2)
+                        ? EmitScalarExpr(E->getArg(2))
+                        : llvm::ConstantInt::get(Int32Ty, 0);
+    Value *const Locality = (E->getNumArgs() > 3)
+                              ? EmitScalarExpr(E->getArg(3))
+                              : llvm::ConstantInt::get(Int32Ty, 3);
+    Value *const F =
+      CGM.getIntrinsic(Intrinsic::csa_gated_prefetch, Gate->getType());
+    return Builder.CreateCall(F, {Gate, Address, RW, Locality});
+  }
+
   default:
     return nullptr;
   }

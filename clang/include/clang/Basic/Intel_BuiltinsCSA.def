@@ -49,5 +49,9 @@ BUILTIN(__builtin_csa_lic_init, "iIiILiILi", "n")
 BUILTIN(__builtin_csa_lic_write, "v.", "nt")
 BUILTIN(__builtin_csa_lic_read, "d.", "nt")
 
+// Data-gated prefetch
+
+BUILTIN(__builtin_csa_gated_prefetch, "v.", "ntc")
+
 #undef BUILTIN
 #endif // INTEL_FEATURE_CSA

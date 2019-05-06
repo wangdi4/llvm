@@ -4759,6 +4759,44 @@ bool Sema::CheckCSABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     TheCall->setType(AnyTypeArg->getType());
     break;
   }
+  case CSA::BI__builtin_csa_gated_prefetch: {
+
+    // __builtin_csa_gated_prefetch should have at most 4 arguments.
+    if (TheCall->getNumArgs() > 4) {
+      return Diag(TheCall->getEndLoc(),
+                  diag::err_typecheck_call_too_many_args_at_most)
+             << 0 << 4 << TheCall->getNumArgs() << TheCall->getSourceRange();
+    }
+
+    // ...and at least 2.
+    if (TheCall->getNumArgs() < 2) {
+      return Diag(TheCall->getEndLoc(), diag::err_typecheck_call_too_few_args)
+             << 0 << 2 << TheCall->getNumArgs() << TheCall->getSourceRange();
+    }
+
+    // Argument 0 can be pretty much anything, but it is currently limited to a
+    // non-aggregate type.
+    // TODO: Is there a easy way of generating a value for this for aggregate
+    // types?
+    if (!TheCall->getArg(0)->getType()->isScalarType() &&
+        !TheCall->getArg(0)->getType()->isVectorType()) {
+      return Diag(TheCall->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+             << 0 << TheCall->getArg(0)->getSourceRange();
+    }
+
+    // Argument 1 needs to be a pointer.
+    if (!TheCall->getArg(1)->getType()->isPointerType()) {
+      return Diag(TheCall->getBeginLoc(), diag::err_csa_builtin_arg_mismatch)
+             << 2 << TheCall->getArg(1)->getSourceRange();
+    }
+
+    // Arguments 2 and 3, if present, need to be constants in the right range.
+    for (unsigned I = 2; I < TheCall->getNumArgs(); ++I) {
+      if (SemaBuiltinConstantArgRange(TheCall, I, 0, I == 2 ? 1 : 3))
+        return true;
+    }
+    break;
+  }
   }
   return false;
 }
