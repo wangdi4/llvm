@@ -255,15 +255,6 @@ def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
 // CSA Instructions.
 //===----------------------------------------------------------------------===//
 
-def XPHI : Instruction {
-  let Namespace = "CSA";
-  let OutOperandList = (outs);
-  let InOperandList = (ins variable_ops);
-  let AsmString = "XPHI";
-  let isCodeGenOnly = 1;
-  let isPseudo = 1;
-}
-
 // These are target-independent nodes, but have target-specific formats.
 def SDT_CSACall         : SDTypeProfile<0, -1, [SDTCisVT<0, iPTR>]>;
 def SDT_CSACallDF       : SDTypeProfile<0, -1, [SDTCisVT<0, iPTR>]>;
@@ -346,7 +337,7 @@ def TRAMPOLINE_START : PseudoInstCSA<
     (ins),
     ".trampoline_start",
     []>;
-    
+
 def TRAMPOLINE_END : PseudoInstCSA<
     (outs),
     (ins),
@@ -371,13 +362,12 @@ def CSA_ENTRYPSEUDO : PseudoInstCSA<
 
 class CSAGetValOp<GenericOp gen, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<gen, oi,
-    (outs oi.RC:$val),
+  PseudoInstCSA<(outs oi.RC:$val),
     (ins CI0:$link),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$val, $link"),
     [(set oi.VT:$val, (CSAGetVal CI0:$link))],
     !listconcat(preds,oi.Preds), itin> {
-      let OpInfo = oi; let hasSideEffects = 1;
+      let GenOp = gen; let OpInfo = oi; let hasSideEffects = 1;
     }
 
 def CSA_GETVAL         : GenericOp<"get_val">;
@@ -567,9 +557,9 @@ class ShAdd<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<gen, oi,
     (outs oi.RC:$dst),
-    (ins oi.RCL:$op1, RCLi8:$op2, oi.RCL:$op3),
+    (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, $op3"),
-    [(set oi.RC:$dst, (outer (inner oi.RCL:$op1, RCLi8:$op2), oi.RCL:$op3))],
+    [(set oi.RC:$dst, (outer (inner oi.RCL:$op1, oi.RCL:$op2), oi.RCL:$op3))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 // 'fma' is a pattern already defined by LLVM.
