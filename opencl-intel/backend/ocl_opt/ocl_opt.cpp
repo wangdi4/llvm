@@ -552,8 +552,8 @@ int main(int argc, char **argv) {
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
-  initializeIntel_VPOAnalysis(Registry);
-  initializeIntel_VPOTransforms(Registry);
+  initializeVPOAnalysis(Registry);
+  initializeVPOTransforms(Registry);
 #if INTEL_INCLUDE_DTRANS
   initializeDTransAnalysisWrapperPass(Registry);
 #endif // INTEL_INCLUDE_DTRANS
