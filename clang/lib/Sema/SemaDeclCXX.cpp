@@ -13522,12 +13522,6 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
       }
     }
 
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ#372133: overloaded operator's parameter.
-    if (!ClassOrEnumParam && getLangOpts().IntelCompat &&
-        FnDecl->isTemplateInstantiation())
-      return true;
-#endif // INTEL_CUSTOMIZATION
     if (!ClassOrEnumParam)
       return Diag(FnDecl->getLocation(),
                   diag::err_operator_overload_needs_class_or_enum)
