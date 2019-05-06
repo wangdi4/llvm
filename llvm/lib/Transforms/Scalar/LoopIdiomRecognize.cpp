@@ -113,7 +113,7 @@ static cl::opt<bool> UseLIRCodeSizeHeurs(
 static cl::opt<bool>
     DisableMemCalls("lir-disable-mem-calls",
                     cl::desc("Do not create memset/memcpy calls"),
-                    cl::init(false), cl::Hidden);
+                    cl::init(false), cl::Hidden, cl::ZeroOrMore);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
