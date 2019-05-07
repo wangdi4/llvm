@@ -24,14 +24,15 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 
 class TargetLibraryInfo;
 class Function;
 class Instruction;
+class CallBase;
 class Type;
 class StructType;
 class PointerType;
