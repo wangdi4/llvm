@@ -96,7 +96,8 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
   unsigned licNum = 0;
   SmallVector<Instruction *, 4> toDelete;
   const auto errorMessage = [](StringRef msg1, StringRef msg2,
-                          Instruction *inst, Instruction *use) {
+                               Instruction *inst, Instruction *use,
+                               StringRef msg3, Instruction *first) {
                         errs() << "\n";
                         errs().changeColor(raw_ostream::RED, true);
                         errs() << msg1;
@@ -111,6 +112,13 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
                           if (loc2) {
                             errs() << "\nwas detected at \n";
                             loc2.print(errs());
+                          }
+                        }
+                        if(first) {
+                          const DebugLoc &loc3 = first->getDebugLoc();
+                          if (loc3) {
+                            errs() << msg3;
+                            loc3.print(errs());
                           }
                         }
                         errs() << "\n";
@@ -131,7 +139,8 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
             if (write) {
               errorMessage("!! ERROR: Can only have one write for a LIC queue !!\n",
                            "\n The extra write for stream:\n",
-                           intrinsic, useIntrinsic);
+                           intrinsic, useIntrinsic,
+                           "\n The first write is at: \n", write);
             }
             write = useIntrinsic;
             continue;
@@ -140,19 +149,34 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
             if (read) {
               errorMessage("!! ERROR: Can only have one read for a LIC queue !!\n",
                            "\n The extra read for stream:\n",
-                           intrinsic, useIntrinsic);
+                           intrinsic, useIntrinsic,
+                           "\n The first read is at: \n", read);
             }
             read = useIntrinsic;
             continue;
           }
         }
-        errorMessage("!! ERROR: LIC streams can only have writes/reads !!\n",
-                     "\n The non write/read for stream:\n",
-                     intrinsic, dyn_cast<Instruction>(user));
+        errs() << "\n";
+        errs().changeColor(raw_ostream::RED, true);
+        if(dyn_cast<CallInst>(user)) {
+          errs() << "!! ERROR: LIC streams are used by a call.";
+          errs() << " Add __attribute__((always_inline)) to the function definition\n";
+        }
+        else if(dyn_cast<SelectInst>(user)) {
+          errs() << "!! ERROR: LIC streams are used by a select instruction\n";
+          errs() << " Add the option -mllvm -disable-hir-opt-var-predicate \n";
+        }
+        else if(dyn_cast<StoreInst>(user)) {
+          errs() << "!! ERROR: LIC streams are used by a store instruction\n";
+          errs() << " Add the option -mllvm -hir-complete-unroll-loop-trip-threshold=256 \n";
+        }
+        errorMessage("LIC streams can only have writes/reads !!\n",
+                     "\n The illegal use for stream:\n",
+                     intrinsic, dyn_cast<Instruction>(user), "", nullptr);
       }
       if(!write || !read) {
         errorMessage("!! ERROR: LIC streams must have one write and one read !!\n",
-                     "", intrinsic, nullptr);
+                     "", intrinsic, nullptr, "", nullptr);
       }
       auto licID = ConstantInt::get(IntegerType::getInt32Ty(CTX), licNum++);
       CallInst::Create(
