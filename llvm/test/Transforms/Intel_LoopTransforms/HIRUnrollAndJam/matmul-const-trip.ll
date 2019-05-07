@@ -18,8 +18,10 @@
 
 ; CHECK: Function
 
-; CHECK: + DO i1 = 0, 24, 1   <DO_LOOP>
-; CHECK: |   + DO i2 = 0, 24, 1   <DO_LOOP>
+; unroll & jam disabling pragma should be added to each loop which has been transformed.
+
+; CHECK: + DO i1 = 0, 24, 1   <DO_LOOP> <nounroll and jam>
+; CHECK: |   + DO i2 = 0, 24, 1   <DO_LOOP> <nounroll and jam>
 ; CHECK: |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
 
 ; CHECK: |   |   + END LOOP

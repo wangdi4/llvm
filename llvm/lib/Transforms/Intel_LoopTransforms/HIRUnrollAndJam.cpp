@@ -1045,6 +1045,8 @@ void HIRUnrollAndJam::unrollCandidates(HLLoop *Lp) {
       if (LoopUJInfo.UnrollFactor > 1) {
         LoopMapTy LoopMap;
 
+        LoopUJInfo.Lp->markDoNotUnrollAndJam();
+
         unrollLoopImpl(LoopUJInfo.Lp, LoopUJInfo.UnrollFactor, &LoopMap);
         replaceLoops(LoopMap);
         LoopsUnrolledAndJammed++;

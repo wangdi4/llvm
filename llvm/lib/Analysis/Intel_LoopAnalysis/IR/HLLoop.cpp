@@ -1209,6 +1209,15 @@ void HLLoop::markDoNotUnroll() {
       MDNode::get(Context, MDString::get(Context, "llvm.loop.unroll.disable")));
 }
 
+void HLLoop::markDoNotUnrollAndJam() {
+  removeLoopMetadata("llvm.loop.unroll_and_jam.enable");
+  removeLoopMetadata("llvm.loop.unroll_and_jam.count");
+
+  LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
+  addLoopMetadata(MDNode::get(
+      Context, MDString::get(Context, "llvm.loop.unroll_and_jam.disable")));
+}
+
 bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {
 
   if (isUnknown()) {
