@@ -5612,6 +5612,20 @@ let TargetPrefix = "x86" in {
                   [ llvm_v8f16_ty, llvm_v8f16_ty, llvm_v8f16_ty, llvm_i8_ty,
                     llvm_i32_ty ],
                   [ IntrNoMem, ImmArg<4> ]>;
+
+  def int_x86_avx512fp16_vfmadd_ph_512
+      : Intrinsic<[ llvm_v32f16_ty ],
+                  [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
+                  [ IntrNoMem, ImmArg<3> ]>;
+  // TODO: Can we use 2 vfmadds+shufflevector?
+  def int_x86_avx512fp16_vfmaddsub_ph_512
+      : Intrinsic<[ llvm_v32f16_ty ],
+                  [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
+                  [ IntrNoMem, ImmArg<3> ]>;
+  def int_x86_avx512fp16_vfmadd_f16
+      : Intrinsic<[ llvm_half_ty ],
+                  [ llvm_half_ty, llvm_half_ty, llvm_half_ty, llvm_i32_ty ],
+                  [ IntrNoMem, ImmArg<3> ]>;
 }
 #endif // INTEL_FEATURE_ISA_FP16
 
