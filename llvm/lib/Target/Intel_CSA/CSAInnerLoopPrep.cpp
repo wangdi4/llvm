@@ -74,7 +74,7 @@ static cl::opt<ILPLSelectionMode> SelectionMode(
     clEnumVal(both,
               "use both specified and auto-discovered pipelining candidates"),
     clEnumVal(disabled, "disable inner loop pipelining")),
-  cl::init(ILPLSelectionMode::both));
+  cl::init(ILPLSelectionMode::manual));
 
 static cl::opt<int> DefaultDegreeOfPipeliningParallelism(
   "csa-ilpl-tokens", cl::Hidden,
