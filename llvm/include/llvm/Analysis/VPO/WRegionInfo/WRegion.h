@@ -544,6 +544,7 @@ private:
   bool Nowait;
   bool DefaultmapTofromScalar;        // defaultmap(tofrom:scalar)
   int OffloadEntryIdx;
+  SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -571,6 +572,12 @@ public:
   bool getNowait() const { return Nowait; }
   bool getDefaultmapTofromScalar() const { return DefaultmapTofromScalar; }
   int getOffloadEntryIdx() const { return OffloadEntryIdx; }
+  const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
+    return DirectlyUsedNonPointerValues;
+  }
+  void addDirectlyUsedNonPointerValue(Value *V) {
+    DirectlyUsedNonPointerValues.push_back(V);
+  }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;

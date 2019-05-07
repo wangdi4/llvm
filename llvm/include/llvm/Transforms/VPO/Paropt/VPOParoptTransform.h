@@ -992,6 +992,8 @@ private:
   ///                                   | ; the IR is not modified.
   /// \endcode
   ///
+  /// If \p W is for a target construct, `QUAL.OMP.MAP.TO` is used instead of
+  /// `QUAL.OMP.SHARED` for `%size2`.
   /// \see WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion() for
   /// more details.
   bool captureAndAddCollectedNonPointerValuesToSharedClause(WRegionNode *W);

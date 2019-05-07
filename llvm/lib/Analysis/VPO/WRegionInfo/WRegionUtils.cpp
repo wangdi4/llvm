@@ -913,7 +913,7 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     return;
 
   if (!isa<WRNParallelNode>(W) && !isa<WRNParallelLoopNode>(W) &&
-      !isa<WRNParallelSectionsNode>(W))
+      !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W))
     // TODO: Remove this to enable the function for all outlined WRNs.
     return;
 

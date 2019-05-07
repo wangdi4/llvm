@@ -1184,9 +1184,11 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= promoteClauseArgumentUses(W);
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
+          WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
           improveAliasForOutlinedFunc(W);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
+          Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
           Changed |= genTargetOffloadingCode(W);
           Changed |= clearLaunderIntrinBeforeRegion(W);
           RemoveDirectives = true;
@@ -3727,7 +3729,7 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
     return false;
 
   if (!isa<WRNParallelNode>(W) && !isa<WRNParallelLoopNode>(W) &&
-      !isa<WRNParallelSectionsNode>(W))
+      !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W))
     // TODO: Remove this to enable the function for all outlined WRNs.
     return false;
 
@@ -3736,7 +3738,6 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
     return false;
 
   bool Changed = false;
-  SharedClause &ShrClause = W->getShared();
 
   // Insert an empty BBlock before EntryBB of W to insert the capturing code.
   BasicBlock *OldEntryBB = W->getEntryBBlock();
@@ -3755,9 +3756,18 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
     if (!CapturedValAddr)
       continue;
 
-    WRegionUtils::addToClause(ShrClause, CapturedValAddr); //           (6)
+    // We mark the pointer CapturedValAddr as 'shared' for non-target
+    // constructs, and 'map(to)' for targets.
+    if (!isa<WRNTargetNode>(W)) {
+      SharedClause &ShrClause = W->getShared();
+      WRegionUtils::addToClause(ShrClause, CapturedValAddr); //         (6)
+    } else {
+      MapClause &MpClause = W->getMap();
+      WRegionUtils::addToClause(MpClause, CapturedValAddr);
+      MpClause.back()->setIsMapTo();
+    }
     LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Added implicit shared clause for: '";
+                      << ": Added implicit shared/map(to) clause for: '";
                CapturedValAddr->printAsOperand(dbgs()); dbgs() << "'\n");
     Changed = true;
   }
