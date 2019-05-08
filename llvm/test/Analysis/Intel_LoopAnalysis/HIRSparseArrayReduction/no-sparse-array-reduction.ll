@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec | opt -analyze -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis 
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir-sparse-array-reduction-analysis>" -hir-cost-model-throttling=0 -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
 
-; None of the following loop has sparse array reduction of our interest and should pass sparse array reduction silently. First loop used to cause a stability issue.
+; The loop does not have sparse array reduction of our interest and should pass sparse array reduction silently.
 
 ;          BEGIN REGION { }
 ;                + DO i1 = 0, %0 + -1, 1   <DO_LOOP>
@@ -51,11 +51,3 @@ for.body:
 cleanup.loopexit15:                                          
   ret void
 }
-
-attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="false" "use-soft-float"="false" }
-
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"icx (ICX) dev.8.x.0"}
