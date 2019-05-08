@@ -91,11 +91,11 @@ protected:
   Type *ValueType;
 
 #if INTEL_COLLAB
-  // INTEL - This needs to be two less than it is in the community version to
+  // This needs to be two less than it is in the community version to
   // account for the ThreadPrivate bit and TargetDeclare bit.  See also
   // the comment at the SubClassData declaration.
   static const unsigned GlobalValueSubClassDataBits = 15;
-#else
+#else // INTEL_COLLAB
   static const unsigned GlobalValueSubClassDataBits = 17;
 #endif // INTEL_COLLAB
 

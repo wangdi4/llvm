@@ -31,7 +31,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Intel_InferAddressSpacesUtils.h"
+#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 
 #include "llvm/PassAnalysisSupport.h"
 

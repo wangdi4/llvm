@@ -2543,7 +2543,7 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 #if INTEL_COLLAB
   if (!VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) &&
       Returns.size() == 1 && std::distance(FirstNewBlock, Caller->end()) == 1) {
-#else
+#else // INTEL_COLLAB
   if (Returns.size() == 1 && std::distance(FirstNewBlock, Caller->end()) == 1) {
 #endif // INTEL_COLLAB
     // Move all of the instructions right before the call.

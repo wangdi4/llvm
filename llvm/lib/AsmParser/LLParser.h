@@ -331,7 +331,7 @@ namespace llvm {
 #if INTEL_COLLAB
                      GlobalVariable::UnnamedAddr UnnamedAddr,
                      bool IsThreadPrivate, bool IsTargetDeclare);
-#else
+#else // INTEL_COLLAB
                      GlobalVariable::UnnamedAddr UnnamedAddr);
 #endif // INTEL_COLLAB
     bool parseIndirectSymbol(const std::string &Name, LocTy NameLoc,
@@ -342,7 +342,7 @@ namespace llvm {
                              GlobalVariable::UnnamedAddr UnnamedAddr,
                              bool IsThreadPrivate,
                              bool IsTargetDeclare);
-#else
+#else // INTEL_COLLAB
                              GlobalVariable::UnnamedAddr UnnamedAddr);
 #endif // INTEL_COLLAB
     bool parseComdat();

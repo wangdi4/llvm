@@ -946,7 +946,7 @@ static bool getDecodedTargetDeclare(unsigned Val) {
   return getDecodedUnsignedToBool(Val);
 }
 
-#else
+#else // INTEL_COLLAB
 static bool getDecodedDSOLocal(unsigned Val) {
   switch(Val) {
   default: // Map unknown values to preemptable.
@@ -2925,7 +2925,7 @@ Error BitcodeReader::parseGlobalVarRecord(ArrayRef<uint64_t> Record) {
 #if INTEL_COLLAB
   // dllstorageclass, comdat, attributes, preemption specifier,
   // thread_private, target_declare] (name in VST)
-#else
+#else // INTEL_COLLAB
   // dllstorageclass, comdat, attributes, preemption specifier] (name in VST)
 #endif // INTEL_COLLAB
   // v2: [strtab_offset, strtab_size, v1]

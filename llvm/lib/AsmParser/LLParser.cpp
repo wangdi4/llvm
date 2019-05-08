@@ -598,7 +598,7 @@ bool LLParser::ParseUnnamedGlobal() {
   return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,
                              DLLStorageClass, DSOLocal, TLM, UnnamedAddr,
                              IsThreadPrivate, IsTargetDeclare);
-#else
+#else // INTEL_COLLAB
     return ParseGlobal(Name, NameLoc, Linkage, HasLinkage, Visibility,
                        DLLStorageClass, DSOLocal, TLM, UnnamedAddr);
   return parseIndirectSymbol(Name, NameLoc, Linkage, Visibility,

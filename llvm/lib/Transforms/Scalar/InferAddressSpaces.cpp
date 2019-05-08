@@ -9,7 +9,7 @@
 #if INTEL_COLLAB
 // This file implements the generic address space propagation. It can be applied
 // to CUDA as well as OpenCL programs.
-#else
+#else // INTEL_COLLAB
 // CUDA C/C++ includes memory space designation as variable type qualifers (such
 // as __global__ and __shared__). Knowing the space of a memory access allows
 // CUDA compilers to emit faster PTX loads and stores. For example, a load from
@@ -129,7 +129,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #if INTEL_COLLAB
-#include "llvm/Transforms/Utils/Intel_InferAddressSpacesUtils.h"
+#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 #endif // INTEL_COLLAB
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -143,10 +143,10 @@
 
 using namespace llvm;
 
-#if INTEL_CUSTOMIZATION
 static const unsigned UninitializedAddressSpace =
     std::numeric_limits<unsigned>::max();
 
+#if INTEL_CUSTOMIZATION
 static cl::opt<unsigned> OverrideFlatAS("override-flat-addr-space",
                                         cl::init(UninitializedAddressSpace));
 #endif // INTEL_CUSTOMIZATION
@@ -190,22 +190,18 @@ bool InferAddressSpacesLegacyPass::runOnFunction(Function &F) {
   const TargetTransformInfo &TTI =
       getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
 
+  unsigned FlatAS = TTI.getFlatAddressSpace();
 #if INTEL_CUSTOMIZATION
-  unsigned FlatAS = OverrideFlatAS != UninitializedAddressSpace
-                    ? OverrideFlatAS
-                    : TTI.getFlatAddressSpace();
-  return InferAddrSpaces(TTI, FlatAS, F);
+  if (OverrideFlatAS != UninitializedAddressSpace)
+    FlatAS = OverrideFlatAS;
 #endif // INTEL_CUSTOMIZATION
+  return InferAddrSpaces(TTI, FlatAS, F);
 }
 
 FunctionPass *llvm::createInferAddressSpacesPass() {
   return new InferAddressSpacesLegacyPass();
 }
-#else
-#if !INTEL_CUSTOMIZATION
-static const unsigned UninitializedAddressSpace =
-    std::numeric_limits<unsigned>::max();
-#endif // INTEL_CUSTOMIZATION
+#else // INTEL_COLLAB
 namespace {
 
 using ValueToAddrSpaceMapTy = DenseMap<const Value *, unsigned>;

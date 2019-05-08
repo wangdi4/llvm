@@ -356,7 +356,7 @@ Assume that this is existing community code:
     bar(123);
   #if INTEL_COLLAB
     // Removed call to bar(789) because ...
-  #else
+  #else // INTEL_COLLAB
     bar(789);
   #endif // INTEL_COLLAB
   }
@@ -369,7 +369,7 @@ Assume that this is existing community code:
   void foo() {
   #if INTEL_COLLAB
     bar(123, x);
-  #else
+  #else // INTEL_COLLAB
     bar(123);
   #endif // INTEL_COLLAB
     bar(789);

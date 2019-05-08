@@ -25,7 +25,7 @@ add_llvm_library(LLVMTransformUtils
   InstructionNamer.cpp
   IntegerDivision.cpp
 # INTEL_COLLAB
-  Intel_InferAddressSpacesUtils.cpp
+  InferAddressSpacesUtils.cpp
 # end INTEL_COLLAB
   Intel_CloneUtils.cpp # INTEL_CUSTOMIZATION
 # INTEL_COLLAB

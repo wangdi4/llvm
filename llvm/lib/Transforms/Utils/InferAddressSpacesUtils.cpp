@@ -1,5 +1,5 @@
 #if INTEL_COLLAB
-//===----------------- Intel_InferAddressSpaceUtils.cpp -------------------===//
+//===-------------------- InferAddressSpaceUtils.cpp ----------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -89,7 +89,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Utils/Intel_InferAddressSpacesUtils.h"
+#include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"

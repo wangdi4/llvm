@@ -1,5 +1,5 @@
 #if INTEL_COLLAB //  -*- C++ -*-
-//===- Intel_InferAddressSpacesUtils.h - Utilities for addrspace-*- C++ -*-===//
+//===---- InferAddressSpacesUtils.h - Utilities for addrspace-*- C++ -*----===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -25,5 +25,5 @@ bool InferAddrSpaces(const TargetTransformInfo &TTI, unsigned addrSpace,
 
 } // namespace llvm
 
-#endif
+#endif // LLVM_TRANSFORMS_UTILS_INFERADDRESSSPACESUTILS_H
 #endif // INTEL_COLLAB

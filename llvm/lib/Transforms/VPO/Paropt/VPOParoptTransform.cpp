@@ -831,7 +831,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
   BasicBlock::iterator I = F->getEntryBlock().begin();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Following two variables are used when generating remarks using
   // Loop Opt Report framework (under -qopt-report).
   LoopInfo *ORLinfo = nullptr;
