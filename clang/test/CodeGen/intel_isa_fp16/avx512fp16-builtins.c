@@ -41,6 +41,7 @@ __m512h test_mm512_undefined_ph() {
   // CHECK: ret <32 x half> zeroinitializer
   return _mm512_undefined_ph();
 }
+
 __m512h test_mm512_set1_ph(_Float16 h)
 {
   // CHECK-LABEL: @test_mm512_set1_ph
@@ -1204,4 +1205,90 @@ __mmask8 test_mm_mask_cmp_sh_mask(__mmask8 __M, __m128h __X, __m128h __Y) {
   // CHECK-LABEL: @test_mm_mask_cmp_sh_mask
   // CHECK: @llvm.x86.avx512fp16.mask.cmp.sh
   return _mm_mask_cmp_sh_mask(__M, __X, __Y, 5);
+}
+
+// VMOVSH
+
+__m128h test_mm_load_sh(void const * A) {
+  // CHECK-LABEL: test_mm_load_sh
+  // CHECK: load half, half* %{{.*}}, align 1{{$}}
+  return _mm_load_sh(A);
+}
+
+__m128h test_mm_mask_load_sh(__m128h __A, __mmask8 __U, const void * __W)
+{
+  // CHECK-LABEL: @test_mm_mask_load_sh
+  // CHECK: %{{.*}} = call <8 x half> @llvm.masked.load.v8f16.p0v8f16(<8 x half>* %{{.*}}, i32 1, <8 x i1> %{{.*}}, <8 x half> %{{.*}})
+  return _mm_mask_load_sh (__A, __U, __W);
+}
+
+__m128h test_mm_maskz_load_sh(__mmask8 __U, const void * __W)
+{
+  // CHECK-LABEL: @test_mm_maskz_load_sh
+  // CHECK: %{{.*}} = call <8 x half> @llvm.masked.load.v8f16.p0v8f16(<8 x half>* %{{.*}}, i32 1, <8 x i1> %{{.*}}, <8 x half> %{{.*}})
+  return _mm_maskz_load_sh (__U, __W);
+}
+
+void test_mm_store_sh(void * A, __m128h B) {
+  // CHECK-LABEL: test_mm_store_sh
+  // CHECK: extractelement <8 x half> %{{.*}}, i32 0
+  // CHECK: store half %{{.*}}, half* %{{.*}}, align 1{{$}}
+  _mm_store_sh(A, B);
+}
+
+void test_mm_mask_store_sh(void * __P, __mmask8 __U, __m128h __A)
+{
+  // CHECK-LABEL: @test_mm_mask_store_sh
+  // CHECK: call void @llvm.masked.store.v8f16.p0v8f16(<8 x half> %{{.*}}, <8 x half>* %{{.*}}, i32 1, <8 x i1> %{{.*}}) 
+  _mm_mask_store_sh(__P, __U, __A);
+}
+
+__m128h test_mm_move_sh(__m128h A, __m128h B) {
+  // CHECK-LABEL: test_mm_move_sh
+  // CHECK: extractelement <8 x half> %{{.*}}, i32 0
+  // CHECK: insertelement <8 x half> %{{.*}}, half %{{.*}}, i32 0
+  return _mm_move_sh(A, B);
+}
+
+__m128h test_mm_mask_move_sh (__m128h __W, __mmask8 __U, __m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: @test_mm_mask_move_sh
+  // CHECK: [[EXT:%.*]] = extractelement <8 x half> %{{.*}}, i32 0
+  // CHECK: insertelement <8 x half> %{{.*}}, half [[EXT]], i32 0
+  // CHECK: [[A:%.*]] = extractelement <8 x half> [[VEC:%.*]], i64 0
+  // CHECK-NEXT: [[B:%.*]] = extractelement <8 x half> %{{.*}}, i64 0
+  // CHECK-NEXT: bitcast i8 %{{.*}} to <8 x i1>
+  // CHECK-NEXT: extractelement <8 x i1> %{{.*}}, i64 0
+  // CHECK-NEXT: [[SEL:%.*]] = select i1 %{{.*}}, half [[A]], half [[B]]
+  // CHECK-NEXT: insertelement <8 x half> [[VEC]], half [[SEL]], i64 0
+  return _mm_mask_move_sh ( __W,  __U,  __A,  __B);
+}
+
+__m128h test_mm_maskz_move_sh (__mmask8 __U, __m128h __A, __m128h __B)
+{
+  // CHECK-LABEL: @test_mm_maskz_move_sh
+  // CHECK: [[EXT:%.*]] = extractelement <8 x half> %{{.*}}, i32 0
+  // CHECK: insertelement <8 x half> %{{.*}}, half [[EXT]], i32 0
+  // CHECK: [[A:%.*]] = extractelement <8 x half> [[VEC:%.*]], i64 0
+  // CHECK-NEXT: [[B:%.*]] = extractelement <8 x half> %{{.*}}, i64 0
+  // CHECK-NEXT: bitcast i8 %{{.*}} to <8 x i1>
+  // CHECK-NEXT: extractelement <8 x i1> %{{.*}}, i64 0
+  // CHECK-NEXT: [[SEL:%.*]] = select i1 %{{.*}}, half [[A]], half [[B]]
+  // CHECK-NEXT: insertelement <8 x half> [[VEC]], half [[SEL]], i64 0
+  return _mm_maskz_move_sh (__U, __A, __B);
+}
+
+short test_mm_cvtsi128_si16(__m128i A) {
+  // CHECK-LABEL: test_mm_cvtsi128_si16
+  // CHECK: extractelement <8 x i16> %{{.*}}, i32 0
+  return _mm_cvtsi128_si16(A);
+}
+
+__m128i test_mm_cvtsi16_si128(short A) {
+  // CHECK-LABEL: test_mm_cvtsi16_si128
+  // CHECK: insertelement <8 x i16> undef, i16 %{{.*}}, i32 0
+  // CHECK: insertelement <8 x i16> %{{.*}}, i16 0, i32 1
+  // CHECK: insertelement <8 x i16> %{{.*}}, i16 0, i32 2
+  // CHECK: insertelement <8 x i16> %{{.*}}, i16 0, i32 3
+  return _mm_cvtsi16_si128(A);
 }

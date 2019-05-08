@@ -1901,6 +1901,8 @@ TARGET_BUILTIN(__builtin_ia32_cmpph512_mask, "UiV32gV32gIiUiIi", "ncV:512:", "av
 TARGET_BUILTIN(__builtin_ia32_cmpph256_mask, "UsV16gV16gIiUs", "ncV:256:", "avx512fp16,avx512vl")
 TARGET_BUILTIN(__builtin_ia32_cmpph128_mask, "UcV8gV8gIiUc", "ncV:128:", "avx512fp16,avx512vl")
 TARGET_BUILTIN(__builtin_ia32_cmpsh_mask, "UcV8gV8gIiUcIi", "ncV:128:", "avx512fp16")
+TARGET_BUILTIN(__builtin_ia32_loadsh128_mask, "V8gV8g*V8gUc", "nV:128:", "avx512fp16")
+TARGET_BUILTIN(__builtin_ia32_storesh128_mask, "vV8g*V8gUc", "nV:128:", "avx512fp16")
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 // generic select intrinsics

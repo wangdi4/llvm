@@ -735,6 +735,85 @@ _mm_maskz_max_sh(__mmask8 __U,__m128h __A, __m128h __B) {
                                       (__v8hf)(__m128)(Y), (int)(P), \
                                       (__mmask8)(M), \
                                       _MM_FROUND_CUR_DIRECTION)
+// loads with vmovsh:
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_load_sh(void const *__dp)
+{
+  struct __mm_load_sh_struct {
+    _Float16 __u;
+  } __attribute__((__packed__, __may_alias__));
+  _Float16 __u = ((struct __mm_load_sh_struct*)__dp)->__u;
+  return (__m128h){ __u, 0, 0, 0, 0, 0, 0, 0 };
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_mask_load_sh (__m128h __W, __mmask8 __U, const void* __A)
+{
+  __m128h src = (__v8hf) __builtin_shufflevector((__v8hf) __W,
+                                                 (__v8hf)_mm_setzero_ph(),
+                                                 0, 8, 8, 8, 8, 8, 8, 8);
+
+  return (__m128h) __builtin_ia32_loadsh128_mask ((__v8hf *) __A, src, __U & 1);
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_maskz_load_sh (__mmask8 __U, const void* __A)
+{
+  return (__m128h) __builtin_ia32_loadsh128_mask ((__v8hf *) __A,
+                                                  (__v8hf) _mm_setzero_ph(),
+                                                  __U & 1);
+}
+
+// stores with vmovsh:
+static __inline__ void __DEFAULT_FN_ATTRS128
+_mm_store_sh(void *__dp, __m128h __a)
+{
+  struct __mm_store_sh_struct {
+    _Float16 __u;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __mm_store_sh_struct*)__dp)->__u = __a[0];
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS128
+_mm_mask_store_sh (void * __W, __mmask8 __U, __m128h __A)
+{
+  __builtin_ia32_storesh128_mask ((__v8hf *)__W, __A, __U & 1);
+}
+
+// moves with vmovsh:
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_move_sh(__m128h __a, __m128h __b)
+{
+  __a[0] = __b[0];
+  return __a;
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_mask_move_sh (__m128h __W, __mmask8 __U, __m128h __A, __m128h __B)
+{
+  return __builtin_ia32_selectsh_128(__U, _mm_move_sh(__A, __B), __W);
+}
+
+static __inline__ __m128h __DEFAULT_FN_ATTRS128
+_mm_maskz_move_sh (__mmask8 __U, __m128h __A, __m128h __B)
+{
+  return __builtin_ia32_selectsh_128(__U, _mm_move_sh(__A, __B),
+                                     _mm_setzero_ph());
+}
+
+// vmovw:
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_cvtsi16_si128(short __a)
+{
+  return (__m128i)(__v8hi){ __a, 0, 0, 0, 0, 0, 0, 0 };
+}
+
+static __inline__ short __DEFAULT_FN_ATTRS128
+_mm_cvtsi128_si16(__m128i __a)
+{
+  __v8hi __b = (__v8hi)__a;
+  return __b[0];
+}
 #undef __DEFAULT_FN_ATTRS128
 #undef __DEFAULT_FN_ATTRS256
 #undef __DEFAULT_FN_ATTRS512
