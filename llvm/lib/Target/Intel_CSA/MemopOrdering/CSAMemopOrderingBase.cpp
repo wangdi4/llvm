@@ -61,6 +61,17 @@ bool CSAMemopOrderingBase::runOnFunction(Function &F) {
   return true;
 }
 
+static bool isOrderableIntrinsic(Intrinsic::ID ID) {
+  switch (ID) {
+  case Intrinsic::prefetch:
+  case Intrinsic::csa_pipeline_depth_token_take:
+  case Intrinsic::csa_pipeline_depth_token_return:
+    return true;
+  default:
+    return false;
+  }
+}
+
 bool CSAMemopOrderingBase::needsOrderingEdges(Instruction &I) const {
 
   switch (I.getOpcode()) {
@@ -70,7 +81,7 @@ bool CSAMemopOrderingBase::needsOrderingEdges(Instruction &I) const {
   case Instruction::Call: {
     const auto CI = cast<CallInst>(&I);
     if (const auto II = dyn_cast<IntrinsicInst>(CI))
-      return II->getIntrinsicID() == Intrinsic::prefetch;
+      return isOrderableIntrinsic(II->getIntrinsicID());
     return not CI->isInlineAsm();
   }
 

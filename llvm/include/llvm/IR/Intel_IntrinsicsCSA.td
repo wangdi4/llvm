@@ -190,5 +190,17 @@ def int_csa_stream_store : Intrinsic<[],
     [llvm_any_ty, LLVMPointerType<LLVMMatchType<0>>, llvm_i64_ty, llvm_i64_ty],
     [IntrArgMemOnly, NoCapture<1>, WriteOnly<1>, IntrConvergent], "",
     [SDNPMemOperand]>;
+
+// These are internal intrinsics not suitable for insertion by programmers.
+// llvm.csa.pipeline.depth.token.take
+def int_csa_pipeline_depth_token_take :
+    Intrinsic<[llvm_ptr_ty], [llvm_ptr_ty, llvm_i32_ty, llvm_i32_ty],
+    [IntrInaccessibleMemOrArgMemOnly]>;
+
+// llvm.csa.pipeline.depth.token.return
+def int_csa_pipeline_depth_token_return :
+    Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty],
+    [IntrInaccessibleMemOrArgMemOnly]>;
+
 }
 #endif // INTEL_FEATURE_CSA

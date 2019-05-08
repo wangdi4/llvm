@@ -897,6 +897,16 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       {ORD},
       {{OPND, 3}, {OPND, 4}, {OPND, 5}, {OPND, 2}, LEVEL, ORD}
     },
+    {
+      Intrinsic::csa_pipeline_depth_token_take, CSA::Generic::LD, -1,
+      {{OPND, 0}, ORD},
+      {{OPND, 2}, {OPND, 3}, {OPND, 4}, ORD}
+    },
+    {
+      Intrinsic::csa_pipeline_depth_token_return, CSA::Generic::LD, -1,
+      {ORD},
+      {{OPND, 2}, {OPND, 3}, ORD}
+    },
   };
 
   SDNode *const MemopNode       = Op.getNode();
@@ -924,7 +934,9 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   const unsigned SDOpcode = MemopNode->getOpcode();
   decltype(begin(MemopISDTable)) FoundMemop;
 
-  if (SDOpcode == ISD::INTRINSIC_W_CHAIN) {
+  const bool IsIntrinsic =
+    (SDOpcode == ISD::INTRINSIC_W_CHAIN || SDOpcode == ISD::INTRINSIC_VOID);
+  if (IsIntrinsic) {
     unsigned ID = cast<ConstantSDNode>(Op->getOperand(1))->getLimitedValue();
     FoundMemop = find_if(MemopIntrinsicTable, [ID](const MemopRec &R) {
       return R.SDOpcode == ID;
@@ -943,9 +955,18 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   SmallVector<SDValue, 4> Opnds;
   for (const OpndSource &S : CurRec.uses) {
     switch (S.type) {
-    case OPND:
-      Opnds.push_back(MemopNode->getOperand(S.idx));
-      break;
+    case OPND: {
+      SDValue InOp = MemopNode->getOperand(S.idx);
+
+      // If any inputs are constants, they should be lowered to target
+      // constants.
+      if (const auto CInOp = dyn_cast<ConstantSDNode>(InOp.getNode())) {
+        InOp = DAG.getTargetConstant(CInOp->getAPIntValue(), SDLoc{InOp},
+                                     InOp.getValueType());
+      }
+
+      Opnds.push_back(InOp);
+    } break;
     case ORD:
       Opnds.push_back(Inord);
       break;
@@ -962,12 +983,32 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
 
   // Figure out what the opcode is going to be.
   unsigned Opcode;
-  if (SDOpcode == ISD::PREFETCH) {
-    const bool Write =
-      cast<ConstantSDNode>(MemopNode->getOperand(2))->getLimitedValue();
-    Opcode = Write ? CSA::PREFETCHW : CSA::PREFETCH;
-  } else if (SDOpcode == ISD::ATOMIC_FENCE) {
-    Opcode = CSA::FENCE;
+  if (CurRec.sizeIdx < 0) {
+    if (IsIntrinsic) {
+      switch (CurRec.SDOpcode) {
+      case Intrinsic::csa_pipeline_depth_token_take:
+        Opcode = CSA::CSA_PIPELINE_DEPTH_TOKEN_TAKE;
+        break;
+      case Intrinsic::csa_pipeline_depth_token_return:
+        Opcode = CSA::CSA_PIPELINE_DEPTH_TOKEN_RETURN;
+        break;
+      default:
+        llvm_unreachable("Add cases here for non-generic intrinsic memops");
+      }
+    } else {
+      switch (SDOpcode) {
+      case ISD::PREFETCH: {
+        const bool Write =
+          cast<ConstantSDNode>(MemopNode->getOperand(2))->getLimitedValue();
+        Opcode = Write ? CSA::PREFETCHW : CSA::PREFETCH;
+      } break;
+      case ISD::ATOMIC_FENCE:
+        Opcode = CSA::FENCE;
+        break;
+      default:
+        llvm_unreachable("Add cases here for non-generic memops");
+      }
+    }
   } else {
     const CSAInstrInfo *const TII = Subtarget.getInstrInfo();
     const EVT VT =
@@ -1201,6 +1242,8 @@ SDValue CSATargetLowering::LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const {
   case Intrinsic::csa_stream_load:
   case Intrinsic::csa_stream_load_x2:
   case Intrinsic::csa_stream_store:
+  case Intrinsic::csa_pipeline_depth_token_take:
+  case Intrinsic::csa_pipeline_depth_token_return:
     return LowerMemop(Op, DAG);
   default:
     break;

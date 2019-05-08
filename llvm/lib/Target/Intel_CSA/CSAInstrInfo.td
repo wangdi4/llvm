@@ -2052,6 +2052,24 @@ def CSA_PIPELINEABLE_LOOP : PseudoInstCSA<
     "# .csa_pipelineable_loop_marker\t$md",
     [ (int_csa_pipelineable_loop_marker (i64 imm:$md)) ]>;
 
+// This pseudo-op appears at the start of a loop that has
+// parallel directive (__builtin_csa_parallel_depth_limited_loop() or
+// #pragma omp parallel for dataflow(pipeline(depth))).
+def CSA_PIPELINE_DEPTH_TOKEN_TAKE : PseudoInstCSA<
+    (outs I64:$token, MemOrdDef:$outord),
+    (ins ADDR_R:$token_pool, I32:$framesize, I32:$depth, MemOrdUse:$inord),
+    "# .csa_pipeline_depth_token_take",
+    []>;
+
+// This pseudo-op appears at the end of a loop that has
+// parallel directive (__builtin_csa_parallel_depth_limited_loop() or
+// #pragma omp parallel for dataflow(pipeline(depth))).
+def CSA_PIPELINE_DEPTH_TOKEN_RETURN : PseudoInstCSA<
+    (outs MemOrdDef:$outord),
+    (ins ADDR_R:$token_pool, I64:$token, MemOrdUse:$inord),
+    "# .csa_pipeline_depth_token_return",
+    []>;
+
 // Arbitrary immediate support
 def : Pat<(i1 imm:$imm),    (MOV1 imm:$imm)>;
 def : Pat<(i8 imm:$imm),    (MOV8 imm:$imm)>;
