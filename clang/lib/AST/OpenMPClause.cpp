@@ -68,6 +68,12 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
     return static_cast<const OMPThreadLimitClause *>(C);
   case OMPC_device:
     return static_cast<const OMPDeviceClause *>(C);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case OMPC_dataflow:
+    return static_cast<const OMPDataflowClause *>(C);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   case OMPC_default:
   case OMPC_proc_bind:
   case OMPC_final:
@@ -189,6 +195,11 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
   case OMPC_atomic_default_mem_order:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case OMPC_dataflow:
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     break;
   }
 
@@ -1099,6 +1110,38 @@ void OMPClausePrinter::VisitOMPNumThreadsClause(OMPNumThreadsClause *Node) {
   Node->getNumThreads()->printPretty(OS, nullptr, Policy, 0);
   OS << ")";
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+void OMPClausePrinter::VisitOMPDataflowClause(OMPDataflowClause *Node) {
+  bool printComma = false;
+
+  OS << "dataflow(";
+  if (auto *E = Node->getStaticChunkSize()) {
+    OS << "static(";
+    E->printPretty(OS, nullptr, Policy);
+    OS << ")";
+    printComma = true;
+  }
+  if (auto *E = Node->getNumWorkersNum()) {
+    if (printComma)
+      OS << ", ";
+    OS << "num_workers(";
+    E->printPretty(OS, nullptr, Policy);
+    OS << ")";
+    printComma = true;
+  }
+  if (auto *E = Node->getPipelineDepth()) {
+    if (printComma)
+      OS << ", ";
+    OS << "pipeline(";
+    E->printPretty(OS, nullptr, Policy);
+    OS << ")";
+  }
+  OS << ")";
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 void OMPClausePrinter::VisitOMPSafelenClause(OMPSafelenClause *Node) {
   OS << "safelen(";

@@ -180,6 +180,16 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   .Case(#Name, OMPC_ATOMIC_DEFAULT_MEM_ORDER_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_ATOMIC_DEFAULT_MEM_ORDER_unknown);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case OMPC_dataflow:
+     return llvm::StringSwitch<unsigned>(Str)
+#define OPENMP_DATAFLOW_MODIFIER(Name)       \
+  .Case(#Name, OMPC_DATAFLOW_MODIFIER_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_DATAFLOW_MODIFIER_unknown);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
@@ -363,6 +373,20 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
 }
     llvm_unreachable("Invalid OpenMP 'atomic_default_mem_order' clause type");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case OMPC_dataflow:
+    switch (Type) {
+    case OMPC_DATAFLOW_MODIFIER_unknown:
+      return "unknown";
+#define OPENMP_DATAFLOW_MODIFIER(Name)                                \
+    case OMPC_DATAFLOW_MODIFIER_##Name:                               \
+      return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+}
+    llvm_unreachable("Invalid OpenMP 'dataflow' clause type");
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:

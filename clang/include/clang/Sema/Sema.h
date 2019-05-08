@@ -9467,6 +9467,16 @@ public:
                                          SourceLocation StartLoc,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  /// Called on well-formed 'dataflow' clause.
+  OMPClause *ActOnOpenMPDataflowClause(Expr *StaticSize,
+                                       Expr *NumWorkersNum,
+                                       Expr *PipelineDepth,
+                                       SourceLocation StartLoc,
+                                       SourceLocation EndLoc);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   /// Called on well-formed 'safelen' clause.
   OMPClause *ActOnOpenMPSafelenClause(Expr *Length,
                                       SourceLocation StartLoc,

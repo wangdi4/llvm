@@ -1215,10 +1215,15 @@ def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<
   "incorrect map type modifier, expected 'always', 'close', or 'mapper'">;
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def err_omp_unknown_lastprivate_modifier : Error<
   "incorrect lastprivate modifier, expected 'conditional'">;
-// endif INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+def err_omp_unknown_dataflow_modifier : Error<"unexpected 'dataflow' modifier, expected 'static', 'num_workers' or 'pipeline'">;
+def err_omp_conflicting_dataflow_num_workers_modifier: Error<"'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause">;
+def note_omp_conflicting_dataflow_num_workers_modifier: Note<"conflicting entry is here">;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 def err_omp_map_type_missing : Error<
   "missing map type">;
 def err_omp_map_type_modifier_missing : Error<

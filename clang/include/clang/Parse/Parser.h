@@ -2996,6 +2996,17 @@ private:
   ///
   OMPClause *ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
                                       OpenMPClauseKind Kind, bool ParseOnly);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  /// Parses clause with the list of variables of a kind \a Kind.
+  ///
+  /// \param Kind Kind of current clause.
+  /// \param ParseOnly true to skip the clause's semantic actions and return
+  /// nullptr.
+  ///
+  OMPClause *ParseOpenMPDataflowClause(OpenMPClauseKind Kind, bool ParseOnly);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 public:
   /// Parses simple expression in parens for single-expression clauses of OpenMP

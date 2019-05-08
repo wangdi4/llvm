@@ -1028,6 +1028,28 @@ void OpenMPLateOutliner::emitOMPNumThreadsClause(
   addArg(CGF.EmitScalarExpr(Cl->getNumThreads()));
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+void OpenMPLateOutliner::emitOMPDataflowClause(const OMPDataflowClause *Cl) {
+  if (auto *E = Cl->getStaticChunkSize()) {
+    ClauseEmissionHelper CEH(*this, OMPC_dataflow);
+    addArg("QUAL.OMP.SCHEDULE.STATIC");
+    addArg(CGF.EmitScalarExpr(E));
+  }
+  if (auto *E = Cl->getNumWorkersNum()) {
+    ClauseEmissionHelper CEH(*this, OMPC_dataflow);
+    addArg("QUAL.OMP.NUM_THREADS");
+    addArg(CGF.EmitScalarExpr(E));
+  }
+  if (auto *E = Cl->getPipelineDepth()) {
+    ClauseEmissionHelper CEH(*this, OMPC_dataflow);
+    addArg("QUAL.OMP.PIPELINE");
+    addArg(CGF.EmitScalarExpr(E));
+  }
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 void OpenMPLateOutliner::emitOMPDefaultClause(const OMPDefaultClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_default);
   switch (Cl->getDefaultKind()) {

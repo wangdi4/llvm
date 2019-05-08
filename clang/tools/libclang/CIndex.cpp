@@ -2167,6 +2167,17 @@ void OMPClauseEnqueue::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
   Visitor->AddStmt(C->getNumThreads());
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+void OMPClauseEnqueue::VisitOMPDataflowClause(const OMPDataflowClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Visitor->AddStmt(C->getStaticChunkSize());
+  Visitor->AddStmt(C->getNumWorkersNum());
+  Visitor->AddStmt(C->getPipelineDepth());
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 void OMPClauseEnqueue::VisitOMPSafelenClause(const OMPSafelenClause *C) {
   Visitor->AddStmt(C->getSafelen());
 }

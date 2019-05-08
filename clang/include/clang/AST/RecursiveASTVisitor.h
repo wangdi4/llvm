@@ -2891,6 +2891,20 @@ RecursiveASTVisitor<Derived>::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+template <typename Derived>
+bool
+RecursiveASTVisitor<Derived>::VisitOMPDataflowClause(OMPDataflowClause *C) {
+  TRY_TO(VisitOMPClauseWithPreInit(C));
+  TRY_TO(TraverseStmt(C->getStaticChunkSize()));
+  TRY_TO(TraverseStmt(C->getNumWorkersNum()));
+  TRY_TO(TraverseStmt(C->getPipelineDepth()));
+  return true;
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPSafelenClause(OMPSafelenClause *C) {
   TRY_TO(TraverseStmt(C->getSafelen()));

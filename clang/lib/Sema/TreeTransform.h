@@ -1574,6 +1574,24 @@ public:
                                                  LParenLoc, EndLoc);
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  /// Build a new OpenMP 'dataflow' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPDataflowClause(Expr *StaticChunkSize,
+                                      Expr *NumWorkersNum,
+                                      Expr *PipelineDepth,
+                                      SourceLocation StartLoc,
+                                      SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPDataflowClause(StaticChunkSize, NumWorkersNum,
+                                               PipelineDepth, StartLoc,
+                                               EndLoc);
+  }
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
   /// Build a new OpenMP 'safelen' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -8570,6 +8588,24 @@ TreeTransform<Derived>::TransformOMPNumThreadsClause(OMPNumThreadsClause *C) {
   return getDerived().RebuildOMPNumThreadsClause(
       NumThreads.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPDataflowClause(OMPDataflowClause *C) {
+  ExprResult StaticChunkSize = getDerived().TransformExpr(C->getStaticChunkSize());
+  ExprResult NumWorkersNum = getDerived().TransformExpr(C->getNumWorkersNum());
+  ExprResult PipelineDepth = getDerived().TransformExpr(C->getPipelineDepth());
+  if (StaticChunkSize.isInvalid() && NumWorkersNum.isInvalid() &&
+      PipelineDepth.isInvalid())
+    return nullptr;
+  return getDerived().RebuildOMPDataflowClause(
+      StaticChunkSize.get(), NumWorkersNum.get(), PipelineDepth.get(),
+      C->getBeginLoc(), C->getEndLoc());
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 template <typename Derived>
 OMPClause *

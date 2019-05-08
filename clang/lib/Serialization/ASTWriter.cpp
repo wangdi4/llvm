@@ -6604,6 +6604,17 @@ void OMPClauseWriter::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
   Record.AddSourceLocation(C->getLParenLoc());
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+void OMPClauseWriter::VisitOMPDataflowClause(OMPDataflowClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Record.AddStmt(C->getStaticChunkSize());
+  Record.AddStmt(C->getNumWorkersNum());
+  Record.AddStmt(C->getPipelineDepth());
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 void OMPClauseWriter::VisitOMPSafelenClause(OMPSafelenClause *C) {
   Record.AddStmt(C->getSafelen());
   Record.AddSourceLocation(C->getLParenLoc());

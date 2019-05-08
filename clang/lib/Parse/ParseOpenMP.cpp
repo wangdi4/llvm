@@ -1177,6 +1177,21 @@ void Parser::skipUnsupportedTargetDirectives() {
     }
   }
 }
+
+#if INTEL_FEATURE_CSA
+static void checkDataflowClauseCompatibility(Parser &P,
+                                             OMPClause *DataflowClause,
+                                             OMPClause *NumThreadsClause) {
+  if (!DataflowClause || !NumThreadsClause)
+    return;
+  if (cast<OMPDataflowClause>(DataflowClause)->getNumWorkersNum()) {
+    P.Diag(DataflowClause->getBeginLoc(),
+           diag::err_omp_conflicting_dataflow_num_workers_modifier);
+    P.Diag(NumThreadsClause->getBeginLoc(),
+           diag::note_omp_conflicting_dataflow_num_workers_modifier);
+  }
+}
+#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
 /// Parsing of declarative or executable OpenMP directives.
@@ -1490,6 +1505,18 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
       OMPClause *Clause =
           ParseOpenMPClause(DKind, CKind, !FirstClauses[CKind].getInt());
       FirstClauses[CKind].setInt(true);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+      if (CKind == OMPC_dataflow || CKind == OMPC_num_threads) {
+        OMPClause *DataflowClause = CKind == OMPC_dataflow ? Clause :
+             FirstClauses[OMPC_dataflow].getPointer();
+        OMPClause *NumThreadsClause = CKind == OMPC_num_threads ? Clause :
+             FirstClauses[OMPC_num_threads].getPointer();
+        checkDataflowClauseCompatibility(*this, DataflowClause,
+                                         NumThreadsClause);
+      }
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
       if (Clause) {
         FirstClauses[CKind].setPointer(Clause);
         Clauses.push_back(Clause);
@@ -1652,6 +1679,11 @@ bool Parser::ParseOpenMPSimpleVarList(
 ///       nogroup-clause | num_tasks-clause | hint-clause | to-clause |
 ///       from-clause | is_device_ptr-clause | task_reduction-clause |
 ///       in_reduction-clause | allocator-clause | allocate-clause
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+///       | dataflow-clause
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 ///
 OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                                      OpenMPClauseKind CKind, bool FirstClause) {
@@ -1681,6 +1713,11 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_num_tasks:
   case OMPC_hint:
   case OMPC_allocator:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case OMPC_dataflow:
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     // OpenMP [2.5, Restrictions]
     //  At most one num_threads clause can appear on the directive.
     // OpenMP [2.8.1, simd construct, Restrictions]
@@ -1703,6 +1740,12 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     // At most one num_tasks clause can appear on the directive.
     // OpenMP [2.11.3, allocate Directive, Restrictions]
     // At most one allocator clause can appear on the directive.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    // Modeling this after similar clauses
+    // At most one dataflow clause can appear on the directive.
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     if (!FirstClause) {
       Diag(Tok, diag::err_omp_more_one_clause)
           << getOpenMPDirectiveName(DKind) << getOpenMPClauseName(CKind) << 0;
@@ -1711,6 +1754,17 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 
     if (CKind == OMPC_ordered && PP.LookAhead(/*N=*/0).isNot(tok::l_paren))
       Clause = ParseOpenMPClause(CKind, WrongDirective);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    else if (CKind == OMPC_dataflow)
+      if (getTargetInfo().getTriple().getArch() != llvm::Triple::csa) {
+        Diag(Tok, diag::warn_omp_extra_tokens_at_eol)
+            << getOpenMPDirectiveName(DKind);
+        SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch);
+      } else
+        Clause = ParseOpenMPDataflowClause(CKind, WrongDirective);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     else
       Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
     break;
@@ -2576,3 +2630,58 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
 #endif // INTEL_CUSTOMIZATION
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+OMPClause *Parser::ParseOpenMPDataflowClause(OpenMPClauseKind Kind,
+                                             bool ParseOnly) {
+  SourceLocation Loc = ConsumeToken();
+  SourceLocation DelimLoc;
+  // Parse '('.
+  BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
+  if (T.expectAndConsume(diag::err_expected_lparen_after,
+                         getOpenMPClauseName(Kind)))
+    return nullptr;
+
+  SmallVector<ExprResult, OMPC_DATAFLOW_MODIFIER_last> Val;
+  Val.resize(OMPC_DATAFLOW_MODIFIER_last);
+  do {
+    auto KindModifier = static_cast<OpenMPDataflowClauseModifier>(
+                          getOpenMPSimpleClauseType(Kind, Tok.isAnnotation() ?
+                                                    "" : PP.getSpelling(Tok)));
+    StringRef ModifierId = Tok.is(tok::identifier) ? PP.getSpelling(Tok) : "";
+    if (KindModifier != OMPC_DATAFLOW_MODIFIER_unknown) {
+      // Parse 'modifier'
+      if (Tok.isNot(tok::r_paren) && Tok.isNot(tok::comma) &&
+          Tok.isNot(tok::annot_pragma_openmp_end))
+        ConsumeAnyToken();
+      SourceLocation DummyLoc;
+      Val[KindModifier] = ParseOpenMPParensExpr(ModifierId, DummyLoc);
+    } else {
+      Diag(Tok, diag::err_omp_unknown_dataflow_modifier);
+      SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
+                StopBeforeMatch);
+    }
+    if (Tok.is(tok::comma))
+      ConsumeToken();
+  } while (Tok.isNot(tok::r_paren) && Tok.isNot(tok::annot_pragma_openmp_end));
+
+  SourceLocation RLoc = Tok.getLocation();
+  if (!T.consumeClose())
+    RLoc = T.getCloseLocation();
+
+  if (Val[OMPC_DATAFLOW_MODIFIER_static].isInvalid() &&
+      Val[OMPC_DATAFLOW_MODIFIER_num_workers].isInvalid() &&
+      Val[OMPC_DATAFLOW_MODIFIER_pipeline].isInvalid())
+    return nullptr;
+
+  if (ParseOnly)
+    return nullptr;
+
+  return Actions.ActOnOpenMPDataflowClause(
+                                  Val[OMPC_DATAFLOW_MODIFIER_static].get(),
+                                  Val[OMPC_DATAFLOW_MODIFIER_num_workers].get(),
+                                  Val[OMPC_DATAFLOW_MODIFIER_pipeline].get(),
+                                  Loc, RLoc);
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
