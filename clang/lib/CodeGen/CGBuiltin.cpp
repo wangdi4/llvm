@@ -12643,6 +12643,13 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_cmpps256:
   case X86::BI__builtin_ia32_cmppd:
   case X86::BI__builtin_ia32_cmppd256:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_cmpph128_mask:
+  case X86::BI__builtin_ia32_cmpph256_mask:
+  case X86::BI__builtin_ia32_cmpph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cmpps128_mask:
   case X86::BI__builtin_ia32_cmpps256_mask:
   case X86::BI__builtin_ia32_cmpps512_mask:
@@ -12702,6 +12709,13 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     // Builtins without the _mask suffix return a vector of integers
     // of the same width as the input vectors
     switch (BuiltinID) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    case X86::BI__builtin_ia32_cmpph512_mask:
+    case X86::BI__builtin_ia32_cmpph256_mask:
+    case X86::BI__builtin_ia32_cmpph128_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     case X86::BI__builtin_ia32_cmpps512_mask:
     case X86::BI__builtin_ia32_cmppd512_mask:
     case X86::BI__builtin_ia32_cmpps128_mask:
