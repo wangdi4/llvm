@@ -6348,17 +6348,6 @@ bool ASTContext::isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const {
          !VD->getFirstDecl()->isOutOfLine() && VD->getFirstDecl()->hasInit();
 }
 
-#if INTEL_CUSTOMIZATION
-// Fix for CQ#371078: linkfail when static const/constexpr is used as a field of
-// a structure.
-bool ASTContext::isIntelStaticDataMemberInlineDefinition(
-    const VarDecl *VD) const {
-  return getLangOpts().IntelCompat && VD->isStaticDataMember() &&
-         VD->getType()->isIntegralOrEnumerationType() && VD->isFirstDecl() &&
-         !VD->isOutOfLine() && VD->hasInit();
-}
-#endif // INTEL_CUSTOMIZATION
-
 ASTContext::InlineVariableDefinitionKind
 ASTContext::getInlineVariableDefinitionKind(const VarDecl *VD) const {
   if (!VD->isInline())
@@ -10051,13 +10040,6 @@ static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
   if (Context.isMSStaticDataMemberInlineDefinition(VD))
     return GVA_DiscardableODR;
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#371078: linkfail when static const/constexpr is used as a field
-  // of a structure.
-  if (Context.isIntelStaticDataMemberInlineDefinition(VD))
-    return GVA_DiscardableODR;
-#endif // INTEL_CUSTOMIZATION
-
   // Most non-template variables have strong linkage; inline variables are
   // linkonce_odr or (occasionally, for compatibility) weak_odr.
   GVALinkage StrongLinkage;
@@ -10215,11 +10197,6 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     return true;
 
   if (VD->isThisDeclarationADefinition() == VarDecl::DeclarationOnly &&
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#371078: linkfail when static const/constexpr is used as a
-      // field of a structure.
-      !isIntelStaticDataMemberInlineDefinition(VD) &&
-#endif // INTEL_CUSTOMIZATION
       !isMSStaticDataMemberInlineDefinition(VD))
     return false;
 

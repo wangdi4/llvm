@@ -2947,14 +2947,6 @@ public:
   /// which is treated as a definition for MSVC compatibility.
   bool isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const;
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#371078: linkfail when static const/constexpr is used as a field
-  // of a structure.
-  /// Returns true if this is an inline-initialized static data member
-  /// which is treated as a definition for Intel compatibility.
-  bool isIntelStaticDataMemberInlineDefinition(const VarDecl *VD) const;
-#endif // INTEL_CUSTOMIZATION
-
   enum class InlineVariableDefinitionKind {
     /// Not an inline variable.
     None,

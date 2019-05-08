@@ -2325,11 +2325,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
     const auto *VD = cast<VarDecl>(Global);
     assert(VD->isFileVarDecl() && "Cannot emit local var decl as global.");
     if (VD->isThisDeclarationADefinition() != VarDecl::Definition &&
-#if INTEL_CUSTOMIZATION
-        // Fix for CQ#371078: linkfail when static const/constexpr is used as a
-        // field of a structure.
-        !Context.isIntelStaticDataMemberInlineDefinition(VD) &&
-#endif // INTEL_CUSTOMIZATION
         !Context.isMSStaticDataMemberInlineDefinition(VD)) {
       if (LangOpts.OpenMP) {
         // Emit declaration of the must-be-emitted declare target variable.
@@ -3268,13 +3263,6 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
       EmitGlobalVarDefinition(D);
     }
 
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ#371078: linkfail when static const/constexpr is used as a
-    // field of a structure.
-    if (getContext().isIntelStaticDataMemberInlineDefinition(D)) {
-      EmitGlobalVarDefinition(D);
-    }
-#endif // INTEL_CUSTOMIZATION
     // Emit section information for extern variables.
     if (D->hasExternalStorage()) {
       if (const SectionAttr *SA = D->getAttr<SectionAttr>())
