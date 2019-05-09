@@ -2919,12 +2919,6 @@ public:
   void InitBuiltinTypes(const TargetInfo &Target,
                         const TargetInfo *AuxTarget = nullptr);
 
-#if INTEL_CUSTOMIZATION
-  /// Determines whether NamedDecl is a library-defined builtin function
-  /// without '__builtin_' prefix.
-  bool IsPredefinedLibBuiltin(const NamedDecl *ND) const;
-#endif // INTEL_CUSTOMIZATION
-
 private:
   void InitBuiltinType(CanQualType &R, BuiltinType::Kind K);
 

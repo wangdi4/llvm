@@ -2057,26 +2057,6 @@ NamedDecl *Sema::LazilyCreateBuiltin(IdentifierInfo *II, unsigned ID,
   return New;
 }
 
-#if INTEL_CUSTOMIZATION
-/// Filter out any previous declarations that are library-defined builtin
-/// functions like 'malloc' or 'exp'.
-static void filterPredefinedLibBuiltins(ASTContext &Context,
-                                        LookupResult &Previous) {
-  // Empty sets are not interesting.
-  if (Previous.empty())
-    return;
-
-  LookupResult::Filter Filter = Previous.makeFilter();
-  while (Filter.hasNext())
-    // If it's a library-defined builtin function, filter it out.
-    // Later we make sure that this builtin never appears on name lookup.
-    if (Context.IsPredefinedLibBuiltin(Filter.next()))
-      Filter.erase();
-
-  Filter.done();
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// Typedef declarations don't have linkage, but they still denote the same
 /// entity if their types are the same.
 /// FIXME: This is notionally doing the same thing as ASTReaderDecl's
@@ -7885,12 +7865,6 @@ bool Sema::CheckVariableDeclaration(VarDecl *NewVD, LookupResult &Previous) {
   if (Previous.empty() &&
       checkForConflictWithNonVisibleExternC(*this, NewVD, Previous))
     Previous.setShadowed();
-
-#if INTEL_CUSTOMIZATION
-  // CQ#368318 - filter out built-in functions without '__builtin_' prefix.
-  if (getLangOpts().IntelCompat)
-    filterPredefinedLibBuiltins(Context, Previous);
-#endif // INTEL_CUSTOMIZATION
 
   if (!Previous.empty()) {
     MergeVarDecl(NewVD, Previous);
