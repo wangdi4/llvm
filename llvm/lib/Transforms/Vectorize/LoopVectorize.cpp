@@ -83,6 +83,7 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h" // INTEL
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -7533,6 +7534,15 @@ bool LoopVectorizePass::processLoop(Loop *L) {
     // Mark the loop as already vectorized to avoid vectorizing again.
     Hints.setAlreadyVectorized();
   }
+
+#if INTEL_CUSTOMIZATION
+  // Create a new LoopID by propagating all metadata nodes of remainder loop
+  // except optreport nodes
+  MDNode *RemainderLoopWithoutOptReport =
+      LoopOptReport::eraseOptReportFromLoopID(L->getLoopID(),
+                                              L->getLoopID()->getContext());
+  L->setLoopID(RemainderLoopWithoutOptReport);
+#endif
 
   LLVM_DEBUG(verifyFunction(*L->getHeader()->getParent()));
   return true;
