@@ -4203,12 +4203,6 @@ Sema::BuildBaseInitializer(QualType BaseType, TypeSourceInfo *BaseTInfo,
   //   mem-initializer-list can initialize a base class using any
   //   name that denotes that base class type.
   bool Dependent = BaseType->isDependentType() || Init->isTypeDependent();
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ375134: do not try to perform base constructor search in
-  // templates until real instantiation.
-  if (getLangOpts().IntelCompat)
-    Dependent = Dependent || ClassDecl->isDependentType();
-#endif // INTEL_CUSTOMIZATION
 
   SourceRange InitRange = Init->getSourceRange();
   if (EllipsisLoc.isValid()) {
