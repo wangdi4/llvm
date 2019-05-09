@@ -29,6 +29,19 @@
 #include <stdint.h>
 #include <csaintrin.h>
 
+// Utility function to convert a float to a __m64f, leaving the top part undefined.
+// This is a temporary work-around for a compiler issue.
+static __m64f _mm64_castss_ps (float value)
+{
+  union
+  {
+    __m64f v;
+    float f;
+  };
+  f = value;
+  return v;
+}
+
 // Top level class to be used in programs
 // with complex arithmetic
 class ComplexFloat
@@ -42,11 +55,18 @@ public:
 
   ComplexFloat(__m64f v) : m_value(v) { }
 
+  /// Allow implicit conversion to the underlying data type, to make it easy to use
+  /// ComplexFloat types with intrinsics.
+  operator  __m64f() const { return m_value; }
+
   float real() const { return m_value[0]; }
   float imag() const { return m_value[1]; }
 
   friend float real(ComplexFloat cf) { return cf.real(); }
   friend float imag(ComplexFloat cf) { return cf.imag(); }
+
+  void real(float r) { m_value[0] = r; }
+  void imag(float i) { m_value[1] = i; }
 
   ComplexFloat getConj() const {
     // Flip the imaginary sign bit.
@@ -107,6 +127,18 @@ public:
     return _mm64_mul_ps(cj.m_value, _mm64_pack_ps(rcpNorm, 0.0f),
                         _MM_DISABLE_NONE, _MM_SWIZZLE_NONE,
                         _MM_SWIZZLE_BCAST_LOW);
+  }
+
+  /// Perform a fused-multiply-add, equivalent to a * b + c.
+  // :TODO: Ideally the compiler would have a peephole enabling it to do this itself, but until that
+  // is added use an explicit method instead.
+  friend ComplexFloat fma(ComplexFloat a, ComplexFloat b, ComplexFloat c)
+  {
+    // return a * b + c;
+    const auto t = _mm64_fmas_ps(a.m_value, b.m_value, c.m_value, _MM_DISABLE_NONE,
+                                 _MM_SWIZZLE_BCAST_HIGH, _MM_SWIZZLE_INTERCHANGE);
+    return _mm64_fmas_ps(a.m_value, b.m_value, t, _MM_DISABLE_NONE,
+                         _MM_SWIZZLE_BCAST_LOW, _MM_SWIZZLE_NONE);
   }
 
   // Given (a + bi) * (c + di):
