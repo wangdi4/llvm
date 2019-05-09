@@ -203,7 +203,7 @@ static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
 // INTEL - HIR passes
 enum class LoopOptMode { None, LightWeight, Full };
 static cl::opt<LoopOptMode> RunLoopOpts(
-    "loopopt", cl::init(LoopOptMode::Full), cl::Hidden, cl::ValueOptional,
+    "loopopt", cl::init(LoopOptMode::None), cl::Hidden, cl::ValueOptional,
     cl::desc("Runs loop optimization passes"),
     cl::values(clEnumValN(LoopOptMode::None, "0", "Disable loopopt passes"),
                clEnumValN(LoopOptMode::LightWeight, "1",

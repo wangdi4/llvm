@@ -1,6 +1,6 @@
 ; Verify that SIMD directives are cleaned up before loop-opt passes even if VPlan fails to vectorize the SIMD loop.
 
-; RUN: opt -O3 -print-after=VPlanDriver -print-before=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -O3 -loopopt -print-after=VPlanDriver -print-before=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that VPlan didn't vectorize loop (SIMD directive will be present)
 ; CHECK-LABEL: IR Dump After VPlan Vectorization Driver

@@ -1,7 +1,7 @@
 ; Verify that HIR is run in LTO mode
 
 ; RUN: llvm-as < %s > %t1
-; RUN: llvm-lto -debug-pass=Arguments %t1 2>&1 | FileCheck %s
+; RUN: llvm-lto -loopopt -debug-pass=Arguments %t1 2>&1 | FileCheck %s
 
 ; CHECK: -hir-framework
 

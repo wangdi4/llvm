@@ -1,4 +1,4 @@
-; RUN: opt -O2 -hir-print-after-all < %s 2>&1 | FileCheck %s
+; RUN: opt -loopopt -O2 -hir-print-after-all < %s 2>&1 | FileCheck %s
 
 ; CHECK: HIR SSA Deconstruction
 
