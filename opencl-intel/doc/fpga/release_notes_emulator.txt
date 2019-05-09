@@ -266,6 +266,13 @@ release:
     libstdc++ (GCC 5.x or higher). RedHat* 7.x or CentOS* 7.x are no
     longer supported.
 
+  - ICD library was renamed from libintelocl_emu.so to libintelocl.so.
+    ICD entry located in /etc/OpenCL/vendors or in the Windows
+    registry must be updated according to the new name.
+
+  - Shared libraries on Linux* now have a version suffix. Symbolic
+    links are provided for compatibility with previous releases.
+
   - New diagnostic for 'pragma ivdep' usage in the emulation flow.
 
   - Enabled printf format warnings.
