@@ -22,7 +22,6 @@ REQUIREMENTS
 ================================================================================
 The supported operating systems are:
   - Ubuntu* 16.04 (64-bit)
-  - RedHat* 7.x or CentOS* 7.x (64-bit)
   - Windows* 7, 8.1, 10 (64-bit)
 
 The supported hardware is:
@@ -262,6 +261,10 @@ CHANGELOG
 ================================================================================
 Changes from the Intel(R) FPGA SDK for OpenCL(TM) software technology 19.1
 release:
+
+  - Shared libraries on Linux* now require a newer version of
+    libstdc++ (GCC 5.x or higher). RedHat* 7.x or CentOS* 7.x are no
+    longer supported.
 
   - New diagnostic for 'pragma ivdep' usage in the emulation flow.
 
