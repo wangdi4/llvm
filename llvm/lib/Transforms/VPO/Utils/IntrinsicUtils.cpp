@@ -309,7 +309,9 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
 
   return MemcpyBuilder.CreateMemCpy(Dest, Align, Src, Align, Size);
 }
+#if INTEL_CUSTOMIZATION
 
+// Alias scope is an optimization
 using ScopeSetType = SmallSetVector<Metadata *, 8>;
 
 void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
@@ -329,10 +331,8 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
 
   collectMemReferences(BBs, MemoryInsns);
 
-#if INTEL_CUSTOMIZATION
   // CMPLRS-51441 [VPO][SPEC OMP 2012] spec_omp2012/367 times out at
   // compile time in VPOUtils::genAliasSet()
-#endif // INTEL_CUSTOMIZATION
   // Set the memory reference thresold to force the function
   // genAliasSet to give up once the number of reference exceeds the threshold.
   if (MemoryInsns.size() > RefsThreshold)
@@ -570,4 +570,5 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
 
   calculateClique(MemoryInsns, BM);
 }
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB

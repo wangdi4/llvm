@@ -1001,7 +1001,9 @@ bool VPOParoptTransform::paroptTransforms() {
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
           if (!IsTargetSPIRV) {
+#if INTEL_CUSTOMIZATION
             improveAliasForOutlinedFunc(W);
+#endif  // INTEL_CUSTOMIZATION
             // Privatization is enabled for both Prepare and Transform passes
             Changed |= genPrivatizationCode(W);
             Changed |= genFirstPrivatizationCode(W);
@@ -1027,7 +1029,9 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= clearCancellationPointAllocasFromIR(W);
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
           Changed |= regularizeOMPLoop(W, false);
+#if INTEL_CUSTOMIZATION
           improveAliasForOutlinedFunc(W);
+#endif  // INTEL_CUSTOMIZATION
 
           // For the case of target parallel for (OpenCL), the compiler
           // constructs a loop parameter before the target region.
@@ -1117,7 +1121,9 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
           debugPrintHeader(W, false);
+#if INTEL_CUSTOMIZATION
           improveAliasForOutlinedFunc(W);
+#endif  // INTEL_CUSTOMIZATION
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
           Value *LastIterGep;
@@ -1144,7 +1150,9 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= regularizeOMPLoop(W, false);
+#if INTEL_CUSTOMIZATION
           improveAliasForOutlinedFunc(W);
+#endif  // INTEL_CUSTOMIZATION
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
           Value *LBPtr, *UBPtr, *STPtr, *LastIterGep;
@@ -1185,7 +1193,9 @@ bool VPOParoptTransform::paroptTransforms() {
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
+#if INTEL_CUSTOMIZATION
           improveAliasForOutlinedFunc(W);
+#endif  // INTEL_CUSTOMIZATION
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= captureAndAddCollectedNonPointerValuesToSharedClause(W);
@@ -1232,7 +1242,9 @@ bool VPOParoptTransform::paroptTransforms() {
           if (!hasOffloadCompilation()) {
             // The purpose is to generate place holder for global variable.
             Changed |= genGlobalPrivatizationLaunderIntrin(W);
+#if INTEL_CUSTOMIZATION
             improveAliasForOutlinedFunc(W);
+#endif  // INTEL_CUSTOMIZATION
             Changed |= genTargetOffloadingCode(W);
             Changed |= clearLaunderIntrinBeforeRegion(W);
           }
@@ -6447,6 +6459,7 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
 
   return FnCopyPriv;
 }
+#if INTEL_CUSTOMIZATION
 
 // Add alias_scope and no_alias metadata to improve the alias
 // results in the outlined function.
@@ -6457,6 +6470,7 @@ void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
   VPOUtils::genAliasSet(makeArrayRef(W->bbset_begin(), W->bbset_end()), AA,
                         &(F->getParent()->getDataLayout()));
 }
+#endif  // INTEL_CUSTOMIZATION
 
 template <typename Range>
 static bool removeFirstFence(Range &&R, AtomicOrdering AO) {

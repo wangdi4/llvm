@@ -133,10 +133,12 @@ public:
   /// invalid metadata when present in the extracted function, causing
   /// verification failure with `-fiopenmp -O0 -g`.
   static void stripDebugInfoInstrinsics(Function &F);
+#if INTEL_CUSTOMIZATION
 
   /// Generate the alias_scope and no_alias metadata for the incoming BBs.
   static void genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
                           const DataLayout *DL);
+#endif  // INTEL_CUSTOMIZATION
 
   /// Generate a memcpy call with the destination argument \p D and the source
   /// argument \p S at the end of basic block \p BB.

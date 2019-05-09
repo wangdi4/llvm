@@ -1290,10 +1290,12 @@ private:
   /// Generate code for OMP taskgroup construct.
   /// #pragma omp taskgroup
   bool genTaskgroupRegion(WRegionNode *W);
+#if INTEL_CUSTOMIZATION
 
   /// Add alias_scope and no_alias metadata to improve the alias
   /// results in the outlined function.
   void improveAliasForOutlinedFunc(WRegionNode *W);
+#endif  // INTEL_CUSTOMIZATION
 
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
