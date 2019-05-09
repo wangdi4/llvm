@@ -383,11 +383,10 @@ bool dtrans::PaddedMallocPass::insideParallelRegion(
   for (User *User : Fn->users()) {
 
     if (Instruction *Inst = dyn_cast<Instruction>(User)) {
-      CallSite CS = CallSite(Inst);
-      if (!CS.isCall() && !CS.isInvoke())
+      if (!isa<CallInst>(Inst) && !isa<InvokeInst>(Inst))
         continue;
 
-      Function *Caller = CS.getCaller();
+      Function *Caller = cast<CallBase>(Inst)->getCaller();
 
       if (isOutlineFunction(Caller)) {
         return true;

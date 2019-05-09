@@ -444,7 +444,7 @@ bool SOAToAOSTransformImpl::CandidateSideEffectsInfo::populateSideEffects(
       if (ToCombine) {
         if (!F->hasOneUse())
           return FALSE("combined array method does not have 1 use.");
-        if (!ImmutableCallSite(F->use_begin()->getUser()))
+        if (!isa<CallBase>(F->use_begin()->getUser()))
           return FALSE(
               "combined array method is referenced not in call/invoke.");
       }
