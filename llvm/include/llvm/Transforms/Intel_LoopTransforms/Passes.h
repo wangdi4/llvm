@@ -62,6 +62,10 @@ FunctionPass *createHIRLoopDistributionForLoopNestPass();
 /// Interchange.
 FunctionPass *createHIRLoopInterchangePass();
 
+/// createHIRGenerateMKLCAllPass - This creates a pass that performs MKL call
+/// generation.
+FunctionPass *createHIRGenerateMKLCallPass();
+
 /// createHIRLoopBlockingPass - This creates a pass that performs Loop
 /// Blocking.
 FunctionPass *createHIRLoopBlockingPass();
