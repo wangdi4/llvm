@@ -22807,6 +22807,45 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
       // Swap Src1 and Src2 in the node creation
       return DAG.getNode(IntrData->Opc0, dl, VT,Src2, Src1);
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    case FMA_OP_MASKZ:
+    case FMA_OP_MASK: {
+      SDValue Src1 = Op.getOperand(1);
+      SDValue Src2 = Op.getOperand(2);
+      SDValue Src3 = Op.getOperand(3);
+      SDValue Mask = Op.getOperand(4);
+      MVT VT = Op.getSimpleValueType();
+      SDValue PassThru = Src1;
+
+      // set PassThru element
+      if (IntrData->Type == FMA_OP_MASKZ)
+        PassThru = getZeroVector(VT, Subtarget, DAG, dl);
+      else
+        PassThru = Src1;
+
+      // We add rounding mode to the Node when
+      //   - RC Opcode is specified and
+      //   - RC is not "current direction".
+      unsigned IntrWithRoundingModeOpcode = IntrData->Opc1;
+      if (IntrWithRoundingModeOpcode != 0) {
+        SDValue Rnd = Op.getOperand(5);
+        unsigned RC = 0;
+        if (isRoundModeSAEToX(Rnd, RC))
+          return getVectorMaskingNode(
+              DAG.getNode(IntrWithRoundingModeOpcode, dl, Op.getValueType(),
+                          Src1, Src2, Src3, DAG.getTargetConstant(RC, dl,
+                                                                  MVT::i32)),
+              Mask, PassThru, Subtarget, DAG);
+        if (!isRoundModeCurDirection(Rnd))
+          return SDValue();
+      }
+      return getVectorMaskingNode(DAG.getNode(IntrData->Opc0, dl, VT,
+                                              Src1, Src2, Src3),
+                                  Mask, PassThru, Subtarget, DAG);
+    }
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     case IFMA_OP:
       // NOTE: We need to swizzle the operands to pass the multiply operands
       // first.
@@ -28777,6 +28816,26 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case X86ISD::FNMSUB_RND:         return "X86ISD::FNMSUB_RND";
   case X86ISD::FMADDSUB_RND:       return "X86ISD::FMADDSUB_RND";
   case X86ISD::FMSUBADD_RND:       return "X86ISD::FMSUBADD_RND";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86ISD::VFMADDC:            return "X86ISD::VFMADDC";
+  case X86ISD::VFMADDC_RND:        return "X86ISD::VFMADDC_RND";
+  case X86ISD::VFCMADDC:           return "X86ISD::VFCMADDC";
+  case X86ISD::VFCMADDC_RND:       return "X86ISD::VFCMADDC_RND";
+  case X86ISD::VFMULC:             return "X86ISD::VFMULC";
+  case X86ISD::VFMULC_RND:         return "X86ISD::VFMULC_RND";
+  case X86ISD::VFCMULC:            return "X86ISD::VFCMULC";
+  case X86ISD::VFCMULC_RND:        return "X86ISD::VFCMULC_RND";
+  case X86ISD::VFMULCSH:           return "X86ISD::VFMULCSH";
+  case X86ISD::VFMULCSH_RND:       return "X86ISD::VFMULCSH_RND";
+  case X86ISD::VFCMULCSH:          return "X86ISD::VFCMULCSH";
+  case X86ISD::VFCMULCSH_RND:      return "X86ISD::VFCMULCSH_RND";
+  case X86ISD::VFMADDCSH:          return "X86ISD::VFMADDCSH";
+  case X86ISD::VFMADDCSH_RND:      return "X86ISD::VFMADDCSH_RND";
+  case X86ISD::VFCMADDCSH:         return "X86ISD::VFCMADDCSH";
+  case X86ISD::VFCMADDCSH_RND:     return "X86ISD::VFCMADDCSH_RND";
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86ISD::VPMADD52H:          return "X86ISD::VPMADD52H";
   case X86ISD::VPMADD52L:          return "X86ISD::VPMADD52L";
   case X86ISD::VRNDSCALE:          return "X86ISD::VRNDSCALE";

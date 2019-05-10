@@ -491,6 +491,23 @@ namespace llvm {
       FMADDSUB_RND,
       FMSUBADD_RND,
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+      // AVX-512-FP16 complex addition and multiplication
+      VFMADDC, VFMADDC_RND,
+      VFCMADDC, VFCMADDC_RND,
+
+      VFMULC, VFMULC_RND,
+      VFCMULC, VFCMULC_RND,
+
+      VFMADDCSH, VFMADDCSH_RND,
+      VFCMADDCSH, VFCMADDCSH_RND,
+
+      VFMULCSH, VFMULCSH_RND,
+      VFCMULCSH, VFCMULCSH_RND,
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
       // Compress and expand.
       COMPRESS,
       EXPAND,
