@@ -233,14 +233,12 @@ void foo1()
     }
   }
 
-  //expected-warning@+1 {{OpenMP directive 'parallel' ignored for target}}
   #pragma omp parallel
   {
     //expected-warning@+1 {{OpenMP directive 'critical' ignored for target}}
     #pragma omp critical
     {
     }
-    //expected-warning@+1 {{OpenMP directive 'single' ignored for target}}
     #pragma omp single
     {
     }
@@ -303,4 +301,179 @@ void execute_offload () {
 //TARG-SPIR: DIR.OMP.END.TARGET
    #pragma omp target
        int ibase = 3;
+}
+
+void hp_func(int);
+
+// ALL-LABEL: hp_bar
+void hp_bar(int M, int N)
+{
+  int x = 0;
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TEAMS"
+  //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.DISTRIBUTE"
+  #pragma omp target
+  #pragma omp teams distribute
+  for (int i = 0; i < N; ++i)
+  {
+    int myV = 0;
+    //ALL: [[P0:%[0-9]+]] = call token @llvm.directive.region.entry()
+    //ALL-SAME:"DIR.OMP.PARALLEL"
+    #pragma omp parallel
+    {
+      //ALL: [[M0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.MASTER"
+      #pragma omp master
+      hp_func(111);
+      //ALL: region.exit(token [[M0]]) [ "DIR.OMP.END.MASTER"
+
+      //ALL: [[S0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.SINGLE"
+      #pragma omp single
+      hp_func(222);
+      //ALL: region.exit(token [[S0]]) [ "DIR.OMP.END.SINGLE"
+
+      //ALL: [[F0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.LOOP"
+      #pragma omp for
+      for (int ii=0;ii<M;++ii) { }
+      //ALL: region.exit(token [[F0]]) [ "DIR.OMP.END.LOOP"
+
+      //ALL: [[F0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.LOOP"
+      //ALL: [[S0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.SIMD"
+      #pragma omp for simd
+      for (int ii=0;ii<M;++ii) { }
+      //ALL: region.exit(token [[S0]]) [ "DIR.OMP.END.SIMD"
+      //ALL: region.exit(token [[F0]]) [ "DIR.OMP.END.LOOP"
+
+      hp_func(333);
+
+      //ALL: [[B0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.BARRIER"
+      #pragma omp barrier
+      //ALL: region.exit(token [[B0]]) [ "DIR.OMP.END.BARRIER"
+
+      hp_func(444);
+
+      //ALL: [[A0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.ATOMIC"
+      //ALL: region.exit(token [[A0]]) [ "DIR.OMP.END.ATOMIC"
+      #pragma omp atomic
+      myV += x;
+    }
+    //ALL: region.exit(token [[P0]]) [ "DIR.OMP.END.PARALLEL"
+
+    hp_func(555);
+
+    //ALL: [[P0:%[0-9]+]] = call token @llvm.directive.region.entry()
+    //ALL-SAME:"DIR.OMP.PARALLEL.LOOP"
+    #pragma omp parallel for
+    for (int ii=0;ii<M;++ii) { }
+    //ALL: region.exit(token [[P0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
+
+    //ALL: [[P0:%[0-9]+]] = call token @llvm.directive.region.entry()
+    //ALL-SAME:"DIR.OMP.PARALLEL.LOOP"
+    //ALL: [[S0:%[0-9]+]] = call token @llvm.directive.region.entry()
+    //ALL-SAME:"DIR.OMP.SIMD"
+    #pragma omp parallel for simd
+    for (int ii=0;ii<M;++ii) { }
+    //ALL: region.exit(token [[S0]]) [ "DIR.OMP.END.SIMD"
+    //ALL: region.exit(token [[P0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
+  }
+  //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TEAMS"
+  //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.DISTRIBUTE.PARLOOP"
+  #pragma omp target
+  #pragma omp teams distribute parallel for
+  for (int i = 0; i < N; ++i)
+  {
+    int myV = 0;
+
+    //ALL: [[P0:%[0-9]+]] = call token @llvm.directive.region.entry()
+    //ALL-SAME:"DIR.OMP.PARALLEL"
+    #pragma omp parallel
+    {
+      //ALL: [[S0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.SINGLE"
+      #pragma omp single
+      hp_func(222);
+      //ALL: region.exit(token [[S0]]) [ "DIR.OMP.END.SINGLE"
+
+      //ALL: [[F0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.LOOP"
+      #pragma omp for
+      for (int ii=0;ii<M;++ii) { }
+      //ALL: region.exit(token [[F0]]) [ "DIR.OMP.END.LOOP"
+
+      //ALL: [[F0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.LOOP"
+      //ALL: [[S0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.SIMD"
+      #pragma omp for simd
+      for (int ii=0;ii<M;++ii) { }
+      //ALL: region.exit(token [[S0]]) [ "DIR.OMP.END.SIMD"
+      //ALL: region.exit(token [[F0]]) [ "DIR.OMP.END.LOOP"
+
+      hp_func(333);
+
+      //ALL: [[A0:%[0-9]+]] = call token @llvm.directive.region.entry()
+      //ALL-SAME:"DIR.OMP.ATOMIC"
+      //ALL: region.exit(token [[A0]]) [ "DIR.OMP.END.ATOMIC"
+      #pragma omp atomic
+      myV += x;
+    }
+    //ALL: region.exit(token [[P0]]) [ "DIR.OMP.END.PARALLEL"
+
+    hp_func(555);
+
+    //ALL: [[L0:%[0-9]+]] = call token @llvm.directive.region.entry()
+    //ALL-SAME:"DIR.OMP.PARALLEL.LOOP"
+    #pragma omp parallel for
+    for (int ii=0;ii<M;++ii) { }
+    //ALL: region.exit(token [[L0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
+
+    //ALL: [[L0:%[0-9]+]] = call token @llvm.directive.region.entry()
+    //ALL-SAME:"DIR.OMP.PARALLEL.LOOP"
+    //ALL: [[S0:%[0-9]+]] = call token @llvm.directive.region.entry()
+    //ALL-SAME:"DIR.OMP.SIMD"
+    #pragma omp parallel for simd
+    for (int ii=0;ii<M;++ii) { }
+    //ALL: region.exit(token [[S0]]) [ "DIR.OMP.END.SIMD"
+    //ALL: region.exit(token [[L0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
+  }
+  //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TARGET"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.TEAMS"
+  //ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.DISTRIBUTE.PARLOOP"
+  //ALL: [[S0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.SIMD"
+  #pragma omp target
+  #pragma omp teams distribute parallel for simd
+  for (int i = 0; i < N; ++i)
+  {
+    hp_func(i);
+  }
+  //ALL: region.exit(token [[S0]]) [ "DIR.OMP.END.SIMD"
+  //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
 }
