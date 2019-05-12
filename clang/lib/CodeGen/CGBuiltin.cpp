@@ -11373,12 +11373,25 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_cvtdq2ps512_mask:
   case X86::BI__builtin_ia32_cvtqq2ps512_mask:
   case X86::BI__builtin_ia32_cvtqq2pd512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcvtw2ph512_mask:
+  case X86::BI__builtin_ia32_vcvtdq2ph512_mask:
+  case X86::BI__builtin_ia32_vcvtqq2ph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return EmitX86ConvertIntToFp(*this, Ops, /*IsSigned*/true);
   case X86::BI__builtin_ia32_cvtudq2ps512_mask:
   case X86::BI__builtin_ia32_cvtuqq2ps512_mask:
   case X86::BI__builtin_ia32_cvtuqq2pd512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vcvtuw2ph512_mask:
+  case X86::BI__builtin_ia32_vcvtudq2ph512_mask:
+  case X86::BI__builtin_ia32_vcvtuqq2ph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return EmitX86ConvertIntToFp(*this, Ops, /*IsSigned*/false);
-
   case X86::BI__builtin_ia32_vfmaddss3:
   case X86::BI__builtin_ia32_vfmaddsd3:
 #if INTEL_CUSTOMIZATION
