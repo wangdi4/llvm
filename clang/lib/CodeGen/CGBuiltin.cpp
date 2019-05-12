@@ -10357,6 +10357,25 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
   Intrinsic::ID IID = Intrinsic::not_intrinsic;
   switch (BuiltinID) {
   default: break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmsubph512_mask3:
+    Subtract = true;
+    LLVM_FALLTHROUGH;
+  case clang::X86::BI__builtin_ia32_vfmaddph512_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddph512_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddph512_mask3:
+    IID = llvm::Intrinsic::x86_avx512fp16_vfmadd_ph_512; break;
+  case clang::X86::BI__builtin_ia32_vfmsubaddph512_mask3:
+    Subtract = true;
+    LLVM_FALLTHROUGH;
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_mask:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_maskz:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_mask3:
+    IID = llvm::Intrinsic::x86_avx512fp16_vfmaddsub_ph_512;
+    break;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmsubps512_mask3:
     Subtract = true;
     LLVM_FALLTHROUGH;
@@ -10424,22 +10443,54 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
   // Handle any required masking.
   Value *MaskFalseVal = nullptr;
   switch (BuiltinID) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmaddph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmaddps512_mask:
   case clang::X86::BI__builtin_ia32_vfmaddpd512_mask:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmaddsubps512_mask:
   case clang::X86::BI__builtin_ia32_vfmaddsubpd512_mask:
     MaskFalseVal = Ops[0];
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmaddph512_maskz:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmaddps512_maskz:
   case clang::X86::BI__builtin_ia32_vfmaddpd512_maskz:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_maskz:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmaddsubps512_maskz:
   case clang::X86::BI__builtin_ia32_vfmaddsubpd512_maskz:
     MaskFalseVal = Constant::getNullValue(Ops[0]->getType());
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmsubph512_mask3:
+  case clang::X86::BI__builtin_ia32_vfmaddph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmsubps512_mask3:
   case clang::X86::BI__builtin_ia32_vfmaddps512_mask3:
   case clang::X86::BI__builtin_ia32_vfmsubpd512_mask3:
   case clang::X86::BI__builtin_ia32_vfmaddpd512_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case clang::X86::BI__builtin_ia32_vfmsubaddph512_mask3:
+  case clang::X86::BI__builtin_ia32_vfmaddsubph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case clang::X86::BI__builtin_ia32_vfmsubaddps512_mask3:
   case clang::X86::BI__builtin_ia32_vfmaddsubps512_mask3:
   case clang::X86::BI__builtin_ia32_vfmsubaddpd512_mask3:
@@ -10470,9 +10521,30 @@ EmitScalarFMAExpr(CodeGenFunction &CGF, MutableArrayRef<Value *> Ops,
   Ops[2] = CGF.Builder.CreateExtractElement(Ops[2], (uint64_t)0);
   Value *Res;
   if (Rnd != 4) {
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    Intrinsic::ID IID;
+
+    switch (Ops[0]->getType()->getPrimitiveSizeInBits()) {
+    case 16:
+      IID = Intrinsic::x86_avx512fp16_vfmadd_f16;
+      break;
+    case 32:
+      IID = Intrinsic::x86_avx512_vfmadd_f32;
+      break;
+    case 64:
+      IID = Intrinsic::x86_avx512_vfmadd_f64;
+      break;
+    default: llvm_unreachable("Unexpected size");
+    }
+#else // INTEL_FEATURE_ISA_FP16
     Intrinsic::ID IID = Ops[0]->getType()->getPrimitiveSizeInBits() == 32 ?
                         Intrinsic::x86_avx512_vfmadd_f32 :
                         Intrinsic::x86_avx512_vfmadd_f64;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
     Res = CGF.Builder.CreateCall(CGF.CGM.getIntrinsic(IID),
                                  {Ops[0], Ops[1], Ops[2], Ops[4]});
   } else {
@@ -11029,6 +11101,11 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
 
   case X86::BI__builtin_ia32_vfmaddss3:
   case X86::BI__builtin_ia32_vfmaddsd3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsh3_mask:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddss3_mask:
   case X86::BI__builtin_ia32_vfmaddsd3_mask:
     return EmitScalarFMAExpr(*this, Ops, Ops[0]);
@@ -11036,20 +11113,52 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vfmaddsd:
     return EmitScalarFMAExpr(*this, Ops,
                              Constant::getNullValue(Ops[0]->getType()));
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsh3_maskz:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddss3_maskz:
   case X86::BI__builtin_ia32_vfmaddsd3_maskz:
     return EmitScalarFMAExpr(*this, Ops, Ops[0], /*ZeroMask*/true);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsh3_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddss3_mask3:
   case X86::BI__builtin_ia32_vfmaddsd3_mask3:
     return EmitScalarFMAExpr(*this, Ops, Ops[2], /*ZeroMask*/false, 2);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmsubsh3_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmsubss3_mask3:
   case X86::BI__builtin_ia32_vfmsubsd3_mask3:
     return EmitScalarFMAExpr(*this, Ops, Ops[2], /*ZeroMask*/false, 2,
                              /*NegAcc*/true);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddph:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddps:
   case X86::BI__builtin_ia32_vfmaddpd:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddph256:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddps256:
   case X86::BI__builtin_ia32_vfmaddpd256:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddph512_mask:
+  case X86::BI__builtin_ia32_vfmaddph512_maskz:
+  case X86::BI__builtin_ia32_vfmaddph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddps512_mask:
   case X86::BI__builtin_ia32_vfmaddps512_maskz:
   case X86::BI__builtin_ia32_vfmaddps512_mask3:
@@ -11058,11 +11167,34 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vfmaddpd512_maskz:
   case X86::BI__builtin_ia32_vfmaddpd512_mask3:
   case X86::BI__builtin_ia32_vfmsubpd512_mask3:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmsubph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
     return EmitX86FMAExpr(*this, Ops, BuiltinID, /*IsAddSub*/false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsubph:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddsubps:
   case X86::BI__builtin_ia32_vfmaddsubpd:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsubph256:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddsubps256:
   case X86::BI__builtin_ia32_vfmaddsubpd256:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  case X86::BI__builtin_ia32_vfmaddsubph512_mask:
+  case X86::BI__builtin_ia32_vfmaddsubph512_maskz:
+  case X86::BI__builtin_ia32_vfmaddsubph512_mask3:
+  case X86::BI__builtin_ia32_vfmsubaddph512_mask3:
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddsubps512_mask:
   case X86::BI__builtin_ia32_vfmaddsubps512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubps512_mask3:
