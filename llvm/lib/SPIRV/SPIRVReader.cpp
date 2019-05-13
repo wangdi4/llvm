@@ -1285,8 +1285,11 @@ SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     auto BR = static_cast<SPIRVBranch *>(BV);
     auto BI = BranchInst::Create(
         dyn_cast<BasicBlock>(transValue(BR->getTargetLabel(), F, BB)), BB);
-    if (auto LM = static_cast<SPIRVLoopMerge *>(BR->getPrevious()))
+    auto Prev = BR->getPrevious();
+    if (Prev && Prev->getOpCode() == OpLoopMerge) {
+      auto LM = static_cast<SPIRVLoopMerge *>(Prev);
       setLLVMLoopMetadata(LM, BI);
+    }
     return mapValue(BV, BI);
   }
 
@@ -1296,8 +1299,11 @@ SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         dyn_cast<BasicBlock>(transValue(BR->getTrueLabel(), F, BB)),
         dyn_cast<BasicBlock>(transValue(BR->getFalseLabel(), F, BB)),
         transValue(BR->getCondition(), F, BB), BB);
-    if (auto LM = static_cast<SPIRVLoopMerge *>(BR->getPrevious()))
+    auto Prev = BR->getPrevious();
+    if (Prev && Prev->getOpCode() == OpLoopMerge) {
+      auto LM = static_cast<SPIRVLoopMerge *>(Prev);
       setLLVMLoopMetadata(LM, BC);
+    }
     return mapValue(BV, BC);
   }
 
