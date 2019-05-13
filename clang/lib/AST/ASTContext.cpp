@@ -9933,21 +9933,6 @@ static GVALinkage adjustGVALinkageForAttributes(const ASTContext &Context,
     if (L == GVA_DiscardableODR || L == GVA_Internal)
       return GVA_StrongODR;
   }
-#if INTEL_CUSTOMIZATION
-  else if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
-    // CQ#369830 - static declarations are treated differently.
-    //   In C language for a function that has ever been declared static,
-    //   set internal linkage.
-    // CQ#382093 - static + __declspec(dllimport) cause error in BE.
-    //   Don't affect functions with dllimport/dllexport attributes.
-    const LangOptions &Opts = Context.getLangOpts();
-    if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC)) {
-      for (const FunctionDecl *Prev = FD; Prev; Prev = Prev->getPreviousDecl())
-        if (Prev->getStorageClass() == SC_Static)
-          return GVA_Internal;
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
   return L;
 }
 
