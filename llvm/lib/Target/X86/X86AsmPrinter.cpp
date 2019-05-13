@@ -302,6 +302,7 @@ void X86AsmPrinter::PrintLeaMemReference(const MachineInstr *MI, unsigned OpNo,
   case MachineOperand::MO_GlobalAddress:
   case MachineOperand::MO_ConstantPoolIndex:
     PrintSymbolOperand(DispSpec, O);
+    break;
   }
 
   if (Modifier && strcmp(Modifier, "H") == 0)

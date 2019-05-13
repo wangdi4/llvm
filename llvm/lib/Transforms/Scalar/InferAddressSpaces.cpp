@@ -156,11 +156,13 @@ namespace {
 
 /// InferAddressSpaces
 class InferAddressSpacesLegacyPass : public FunctionPass {
-
+  unsigned FlatAS;
 public:
   static char ID;
 
-  InferAddressSpacesLegacyPass() : FunctionPass(ID) {}
+  InferAddressSpacesLegacyPass()
+      : FunctionPass(ID), FlatAS(UninitializedAddressSpace) {}
+  InferAddressSpacesLegacyPass(unsigned AS) : FunctionPass(ID), FlatAS(AS) {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
@@ -198,8 +200,8 @@ bool InferAddressSpacesLegacyPass::runOnFunction(Function &F) {
   return InferAddrSpaces(TTI, FlatAS, F);
 }
 
-FunctionPass *llvm::createInferAddressSpacesPass() {
-  return new InferAddressSpacesLegacyPass();
+FunctionPass *llvm::createInferAddressSpacesPass(unsigned AddressSpace) {
+  return new InferAddressSpacesLegacyPass(AddressSpace);
 }
 #else // INTEL_COLLAB
 namespace {
@@ -215,7 +217,9 @@ class InferAddressSpaces : public FunctionPass {
 public:
   static char ID;
 
-  InferAddressSpaces() : FunctionPass(ID) {}
+  InferAddressSpaces() :
+    FunctionPass(ID), FlatAddrSpace(UninitializedAddressSpace) {}
+  InferAddressSpaces(unsigned AS) : FunctionPass(ID), FlatAddrSpace(AS) {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
@@ -691,13 +695,17 @@ bool InferAddressSpaces::runOnFunction(Function &F) {
 
   const TargetTransformInfo &TTI =
       getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+
 #if INTEL_CUSTOMIZATION
-  FlatAddrSpace = OverrideFlatAS != UninitializedAddressSpace
-                  ? OverrideFlatAS
-                  : TTI.getFlatAddressSpace();
+  if (OverrideFlatAS != UninitializedAddressSpace)
+    FlatAddrSpace = OverrideFlatAS;
 #endif // INTEL_CUSTOMIZATION
-  if (FlatAddrSpace == UninitializedAddressSpace)
-    return false;
+
+  if (FlatAddrSpace == UninitializedAddressSpace) {
+    FlatAddrSpace = TTI.getFlatAddressSpace();
+    if (FlatAddrSpace == UninitializedAddressSpace)
+      return false;
+  }
 
   // Collects all flat address expressions in postorder.
   std::vector<WeakTrackingVH> Postorder = collectFlatAddressExpressions(F);
@@ -1089,7 +1097,7 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
   return true;
 }
 
-FunctionPass *llvm::createInferAddressSpacesPass() {
-  return new InferAddressSpaces();
+FunctionPass *llvm::createInferAddressSpacesPass(unsigned AddressSpace) {
+  return new InferAddressSpaces(AddressSpace);
 }
 #endif // INTEL_COLLAB

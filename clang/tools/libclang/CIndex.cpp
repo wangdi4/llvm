@@ -171,7 +171,6 @@ CXSourceRange cxloc::translateSourceRange(const SourceManager &SM,
 static SourceRange getRawCursorExtent(CXCursor C);
 static SourceRange getFullCursorExtent(CXCursor C, SourceManager &SrcMgr);
 
-
 RangeComparisonResult CursorVisitor::CompareRegionOfInterest(SourceRange R) {
   return RangeCompare(AU->getSourceManager(), R, RegionOfInterest);
 }
@@ -2480,7 +2479,7 @@ void EnqueueVisitor::VisitCXXNewExpr(const CXXNewExpr *E) {
   // Enqueue the initializer , if any.
   AddStmt(E->getInitializer());
   // Enqueue the array size, if any.
-  AddStmt(E->getArraySize());
+  AddStmt(E->getArraySize().getValueOr(nullptr));
   // Enqueue the allocated type.
   AddTypeLoc(E->getAllocatedTypeSourceInfo());
   // Enqueue the placement arguments.
@@ -8723,8 +8722,8 @@ void clang::setThreadBackgroundPriority() {
   if (getenv("LIBCLANG_BGPRIO_DISABLE"))
     return;
 
-#ifdef USE_DARWIN_THREADS
-  setpriority(PRIO_DARWIN_THREAD, 0, PRIO_DARWIN_BG);
+#if LLVM_ENABLE_THREADS
+  llvm::set_thread_priority(llvm::ThreadPriority::Background);
 #endif
 }
 

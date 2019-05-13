@@ -863,7 +863,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         llvm::setMDReasonNotInlined(CS, NinlrDeleted); // INTEL
         // Update the call graph by deleting the edge from Callee to Caller.
         setInlineRemark(CS, "trivially dead");
-        CG[Caller]->removeCallEdgeFor(CS);
+        CG[Caller]->removeCallEdgeFor(*cast<CallBase>(CS.getInstruction()));
         Instr->eraseFromParent();
         ++NumCallsDeleted;
       } else {
@@ -1297,14 +1297,15 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           Callee.getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
               DEBUG_TYPE);
 #if INTEL_CUSTOMIZATION
-      Params.ComputeFullInlineCost =
-          (IntelInlineReportLevel & InlineReportOptions::RealCost) != 0;
+      if (IntelInlineReportLevel & InlineReportOptions::RealCost)
+        Params.ComputeFullInlineCost = true;
 #endif // INTEL_CUSTOMIZATION
 
-      return getInlineCost(CS, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
-                           TLI, ILIC, AggI, &CallSitesForFusion, // INTEL
-                           &CallSitesForDTrans,                  // INTEL
-                           PSI, RemarksEnabled ? &ORE : nullptr);
+      return getInlineCost(cast<CallBase>(*CS.getInstruction()), Params,
+                           CalleeTTI, GetAssumptionCache, {GetBFI}, // INTEL
+                           TLI, ILIC, AggI, &CallSitesForFusion,    // INTEL
+                           &CallSitesForDTrans, PSI,                // INTEL
+                           RemarksEnabled ? &ORE : nullptr);
     };
 
     // Now process as many calls as we have within this caller in the sequnece.

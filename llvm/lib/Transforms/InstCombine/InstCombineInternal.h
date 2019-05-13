@@ -504,7 +504,9 @@ private:
   Instruction *transformCallThroughTrampoline(CallBase &Call,
                                               IntrinsicInst &Tramp);
 
+  Value *simplifyMaskedLoad(IntrinsicInst &II);
   Instruction *simplifyMaskedStore(IntrinsicInst &II);
+  Instruction *simplifyMaskedGather(IntrinsicInst &II);
   Instruction *simplifyMaskedScatter(IntrinsicInst &II);
   
   /// Transform (zext icmp) to bitwise / integer operations in order to
@@ -699,6 +701,16 @@ public:
     Constant *Struct = ConstantStruct::get(ST, V);
     return InsertValueInst::Create(Struct, Result, 0);
   }
+
+  /// Create and insert the idiom we use to indicate a block is unreachable
+  /// without having to rewrite the CFG from within InstCombine.
+  void CreateNonTerminatorUnreachable(Instruction *InsertAt) {
+    auto &Ctx = InsertAt->getContext();
+    new StoreInst(ConstantInt::getTrue(Ctx),
+                  UndefValue::get(Type::getInt1PtrTy(Ctx)),
+                  InsertAt);
+  }
+
 
   /// Combiner aware instruction erasure.
   ///

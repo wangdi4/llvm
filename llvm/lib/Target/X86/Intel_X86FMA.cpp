@@ -3689,7 +3689,7 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   // Put GPReg to XMM.
   unsigned R128 = MRI->createVirtualRegister(&X86::VR128RegClass);
   if (IsF32 || !ST->is64Bit()) {
-    Opc = HasAVX512 ? X86::VMOVDI2SSZrr : X86::VMOVDI2SSrr;
+    Opc = HasAVX512 ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
         .addReg(GPReg, RegState::Kill);
   } else {

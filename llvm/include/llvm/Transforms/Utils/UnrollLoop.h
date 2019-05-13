@@ -65,17 +65,26 @@ enum class LoopUnrollResult {
   FullyUnrolled
 };
 
-LoopUnrollResult UnrollLoop(Loop *L, unsigned Count, unsigned TripCount,
-                            bool Force, bool AllowRuntime,
-                            bool AllowExpensiveTripCount, bool PreserveCondBr,
-                            bool PreserveOnlyFirst, unsigned TripMultiple,
-                            unsigned PeelCount, bool UnrollRemainder,
-                            bool ForgetAllSCEV,
-                            LoopInfo *LI, ScalarEvolution *SE,
-                            DominatorTree *DT, AssumptionCache *AC,
+struct UnrollLoopOptions {
+  unsigned Count;
+  unsigned TripCount;
+  bool Force;
+  bool AllowRuntime;
+  bool AllowExpensiveTripCount;
+  bool PreserveCondBr;
+  bool PreserveOnlyFirst;
+  unsigned TripMultiple;
+  unsigned PeelCount;
+  bool UnrollRemainder;
+  bool ForgetAllSCEV;
+};
+
+LoopUnrollResult UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
+                            ScalarEvolution *SE, DominatorTree *DT,
+                            AssumptionCache *AC,                    // INTEL
                             const LoopOptReportBuilder &LORBuilder, // INTEL
-                            OptimizationRemarkEmitter *ORE, bool PreserveLCSSA,
-                            Loop **RemainderLoop = nullptr);
+                            OptimizationRemarkEmitter *ORE,         // INTEL
+                            bool PreserveLCSSA, Loop **RemainderLoop = nullptr);
 
 bool UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
                                 bool AllowExpensiveTripCount,

@@ -146,6 +146,7 @@ public:
   bool DisableUnrollLoops;
   bool SLPVectorize;
   bool LoopVectorize;
+  bool LoopsInterleaved;
   bool RerollLoops;
   bool NewGVN;
   bool DisableGVNLoadPRE;
@@ -157,6 +158,8 @@ public:
   bool PrepareForThinLTO;
   bool PerformThinLTO;
   bool DivergentTarget;
+  unsigned LicmMssaOptCap;
+  unsigned LicmMssaNoAccForPromotionCap;
 
 #if INTEL_CUSTOMIZATION
   bool DisableIntelProprietaryOpts;
