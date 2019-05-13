@@ -2790,7 +2790,7 @@ public:
                                SourceRange TypeIdParens,
                                QualType AllocatedType,
                                TypeSourceInfo *AllocatedTypeInfo,
-                               Expr *ArraySize,
+                               Optional<Expr *> ArraySize,
                                SourceRange DirectInitRange,
                                Expr *Initializer) {
     return getSema().BuildCXXNew(StartLoc, UseGlobal,
@@ -10596,9 +10596,16 @@ TreeTransform<Derived>::TransformCXXNewExpr(CXXNewExpr *E) {
     return ExprError();
 
   // Transform the size of the array we're allocating (if any).
-  ExprResult ArraySize = getDerived().TransformExpr(E->getArraySize());
-  if (ArraySize.isInvalid())
-    return ExprError();
+  Optional<Expr *> ArraySize;
+  if (Optional<Expr *> OldArraySize = E->getArraySize()) {
+    ExprResult NewArraySize;
+    if (*OldArraySize) {
+      NewArraySize = getDerived().TransformExpr(*OldArraySize);
+      if (NewArraySize.isInvalid())
+        return ExprError();
+    }
+    ArraySize = NewArraySize.get();
+  }
 
   // Transform the placement arguments (if any).
   bool ArgumentChanged = false;
@@ -10635,7 +10642,7 @@ TreeTransform<Derived>::TransformCXXNewExpr(CXXNewExpr *E) {
 
   if (!getDerived().AlwaysRebuild() &&
       AllocTypeInfo == E->getAllocatedTypeSourceInfo() &&
-      ArraySize.get() == E->getArraySize() &&
+      ArraySize == E->getArraySize() &&
       NewInit.get() == OldInit &&
       OperatorNew == E->getOperatorNew() &&
       OperatorDelete == E->getOperatorDelete() &&
@@ -10662,7 +10669,7 @@ TreeTransform<Derived>::TransformCXXNewExpr(CXXNewExpr *E) {
   }
 
   QualType AllocType = AllocTypeInfo->getType();
-  if (!ArraySize.get()) {
+  if (!ArraySize) {
     // If no array size was specified, but the new expression was
     // instantiated with an array type (e.g., "new T" where T is
     // instantiated with "int[4]"), extract the outer bound from the
@@ -10690,7 +10697,7 @@ TreeTransform<Derived>::TransformCXXNewExpr(CXXNewExpr *E) {
       E->getBeginLoc(), E->isGlobalNew(),
       /*FIXME:*/ E->getBeginLoc(), PlacementArgs,
       /*FIXME:*/ E->getBeginLoc(), E->getTypeIdParens(), AllocType,
-      AllocTypeInfo, ArraySize.get(), E->getDirectInitRange(), NewInit.get());
+      AllocTypeInfo, ArraySize, E->getDirectInitRange(), NewInit.get());
 }
 
 template<typename Derived>

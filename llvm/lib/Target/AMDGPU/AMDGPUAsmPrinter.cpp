@@ -295,6 +295,12 @@ void AMDGPUAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
 
 bool AMDGPUAsmPrinter::doFinalization(Module &M) {
   CallGraphResourceInfo.clear();
+
+  if (AMDGPU::isGFX10(*getGlobalSTI())) {
+    OutStreamer->SwitchSection(getObjFileLowering().getTextSection());
+    getTargetStreamer()->EmitCodeEnd();
+  }
+
   return AsmPrinter::doFinalization(M);
 }
 
@@ -622,6 +628,7 @@ AMDGPUAsmPrinter::SIFunctionResourceInfo AMDGPUAsmPrinter::analyzeResourceUsage(
         case AMDGPU::SRC_SHARED_LIMIT:
         case AMDGPU::SRC_PRIVATE_BASE:
         case AMDGPU::SRC_PRIVATE_LIMIT:
+        case AMDGPU::SGPR_NULL:
           continue;
 
         case AMDGPU::SRC_POPS_EXITING_WAVE_ID:
@@ -927,6 +934,11 @@ void AMDGPUAsmPrinter::getSIProgramInfo(SIProgramInfo &ProgInfo,
               1ULL << ScratchAlignShift) >>
       ScratchAlignShift;
 
+  if (getIsaVersion(getGlobalSTI()->getCPU()).Major >= 10) {
+    ProgInfo.WgpMode = STM.isCuModeEnabled() ? 0 : 1;
+    ProgInfo.MemOrdered = 1;
+  }
+
   ProgInfo.ComputePGMRSrc1 =
       S_00B848_VGPRS(ProgInfo.VGPRBlocks) |
       S_00B848_SGPRS(ProgInfo.SGPRBlocks) |
@@ -935,7 +947,9 @@ void AMDGPUAsmPrinter::getSIProgramInfo(SIProgramInfo &ProgInfo,
       S_00B848_PRIV(ProgInfo.Priv) |
       S_00B848_DX10_CLAMP(ProgInfo.DX10Clamp) |
       S_00B848_DEBUG_MODE(ProgInfo.DebugMode) |
-      S_00B848_IEEE_MODE(ProgInfo.IEEEMode);
+      S_00B848_IEEE_MODE(ProgInfo.IEEEMode) |
+      S_00B848_WGP_MODE(ProgInfo.WgpMode) |
+      S_00B848_MEM_ORDERED(ProgInfo.MemOrdered);
 
   // 0 = X, 1 = XY, 2 = XYZ
   unsigned TIDIGCompCnt = 0;
@@ -1076,7 +1090,7 @@ void AMDGPUAsmPrinter::getAmdKernelCode(amd_kernel_code_t &Out,
   Out.compute_pgm_resource_registers =
       CurrentProgramInfo.ComputePGMRSrc1 |
       (CurrentProgramInfo.ComputePGMRSrc2 << 32);
-  Out.code_properties = AMD_CODE_PROPERTY_IS_PTR64;
+  Out.code_properties |= AMD_CODE_PROPERTY_IS_PTR64;
 
   if (CurrentProgramInfo.DynamicCallStack)
     Out.code_properties |= AMD_CODE_PROPERTY_IS_DYNAMIC_CALLSTACK;

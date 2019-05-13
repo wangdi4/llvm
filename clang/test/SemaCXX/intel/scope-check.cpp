@@ -286,7 +286,7 @@ namespace test_recovery {
   // Test that jump scope checking recovers when there are unspecified errors
   // in the function declaration or body.
 
-  void test(nexist, int c) { // expected-warning {{type specifier missing, defaults to 'int'}}
+  void test(nexist, int c) { // expected-error {{unknown type name 'nexist'}}
     nexist_fn(); // expected-error {{}}
     goto nexist_label; // expected-error {{use of undeclared label}}
     goto a0; // expected-warning {{jump from this goto statement to its label is a Microsoft extension}}

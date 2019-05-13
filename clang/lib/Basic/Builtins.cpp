@@ -95,13 +95,15 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   bool OclCUnsupported = !LangOpts.OpenCL &&
                          (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES);
   bool OpenMPUnsupported = !LangOpts.OpenMP && BuiltinInfo.Langs == OMP_LANG;
+  bool CPlusPlusUnsupported =
+      !LangOpts.CPlusPlus && BuiltinInfo.Langs == CXX_LANG;
 #if INTEL_CUSTOMIZATION
   // First parameter should be exactly the return statement from community.
   return CheckIntelBuiltinSupported(
       (!BuiltinsUnsupported && !MathBuiltinsUnsupported && !OclCUnsupported &&
        !OclC1Unsupported && !OclC2Unsupported && !OpenMPUnsupported &&
-       !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported),
-      BuiltinInfo, LangOpts);
+       !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported &&
+       !CPlusPlusUnsupported), BuiltinInfo, LangOpts);
 #endif // INTEL_CUSTOMIZATION
 }
 

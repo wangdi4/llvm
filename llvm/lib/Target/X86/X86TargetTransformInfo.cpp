@@ -2401,7 +2401,7 @@ int X86TTIImpl::getAddressComputationCost(Type *Ty, ScalarEvolution *SE,
   // likely result in more instructions compared to scalar code where the
   // computation can more often be merged into the index mode. The resulting
   // extra micro-ops can significantly decrease throughput.
-  unsigned NumVectorInstToHideOverhead = 10;
+  const unsigned NumVectorInstToHideOverhead = 10;
 
   // Cost modeling of Strided Access Computation is hidden by the indexing
   // modes of X86 regardless of the stride value. We dont believe that there
@@ -2486,6 +2486,48 @@ int X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, Type *ValTy,
 
     if (ST->hasSSE42())
       if (const auto *Entry = CostTableLookup(SSE42CostTblNoPairWise, ISD, MTy))
+        return LT.first * Entry->Cost;
+  }
+
+  static const CostTblEntry AVX2BoolReduction[] = {
+    { ISD::AND,  MVT::v16i16,  2 }, // vpmovmskb + cmp
+    { ISD::AND,  MVT::v32i8,   2 }, // vpmovmskb + cmp
+    { ISD::OR,   MVT::v16i16,  2 }, // vpmovmskb + cmp
+    { ISD::OR,   MVT::v32i8,   2 }, // vpmovmskb + cmp
+  };
+
+  static const CostTblEntry AVX1BoolReduction[] = {
+    { ISD::AND,  MVT::v4i64,   2 }, // vmovmskpd + cmp
+    { ISD::AND,  MVT::v8i32,   2 }, // vmovmskps + cmp
+    { ISD::AND,  MVT::v16i16,  4 }, // vextractf128 + vpand + vpmovmskb + cmp
+    { ISD::AND,  MVT::v32i8,   4 }, // vextractf128 + vpand + vpmovmskb + cmp
+    { ISD::OR,   MVT::v4i64,   2 }, // vmovmskpd + cmp
+    { ISD::OR,   MVT::v8i32,   2 }, // vmovmskps + cmp
+    { ISD::OR,   MVT::v16i16,  4 }, // vextractf128 + vpor + vpmovmskb + cmp
+    { ISD::OR,   MVT::v32i8,   4 }, // vextractf128 + vpor + vpmovmskb + cmp
+  };
+
+  static const CostTblEntry SSE2BoolReduction[] = {
+    { ISD::AND,  MVT::v2i64,   2 }, // movmskpd + cmp
+    { ISD::AND,  MVT::v4i32,   2 }, // movmskps + cmp
+    { ISD::AND,  MVT::v8i16,   2 }, // pmovmskb + cmp
+    { ISD::AND,  MVT::v16i8,   2 }, // pmovmskb + cmp
+    { ISD::OR,   MVT::v2i64,   2 }, // movmskpd + cmp
+    { ISD::OR,   MVT::v4i32,   2 }, // movmskps + cmp
+    { ISD::OR,   MVT::v8i16,   2 }, // pmovmskb + cmp
+    { ISD::OR,   MVT::v16i8,   2 }, // pmovmskb + cmp
+  };
+
+  // Handle bool allof/anyof patterns.
+  if (ValTy->getVectorElementType()->isIntegerTy(1)) {
+    if (ST->hasAVX2())
+      if (const auto *Entry = CostTableLookup(AVX2BoolReduction, ISD, MTy))
+        return LT.first * Entry->Cost;
+    if (ST->hasAVX())
+      if (const auto *Entry = CostTableLookup(AVX1BoolReduction, ISD, MTy))
+        return LT.first * Entry->Cost;
+    if (ST->hasSSE2())
+      if (const auto *Entry = CostTableLookup(SSE2BoolReduction, ISD, MTy))
         return LT.first * Entry->Cost;
   }
 

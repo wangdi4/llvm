@@ -1109,7 +1109,7 @@ NamedDecl *Sema::ActOnNonTypeTemplateParameter(Scope *S, Declarator &D,
     if (DS.isVirtualSpecified())
       EmitDiag(DS.getVirtualSpecLoc());
 
-    if (DS.isExplicitSpecified())
+    if (DS.hasExplicitSpecifier())
       EmitDiag(DS.getExplicitSpecLoc());
 
     if (DS.isNoreturnSpecified())
@@ -1789,8 +1789,8 @@ struct ConvertConstructorToDeductionGuideTransform {
       return nullptr;
     TypeSourceInfo *NewTInfo = TLB.getTypeSourceInfo(SemaRef.Context, NewType);
 
-    return buildDeductionGuide(TemplateParams, CD->isExplicit(), NewTInfo,
-                               CD->getBeginLoc(), CD->getLocation(),
+    return buildDeductionGuide(TemplateParams, CD->getExplicitSpecifier(),
+                               NewTInfo, CD->getBeginLoc(), CD->getLocation(),
                                CD->getEndLoc());
   }
 
@@ -1819,8 +1819,8 @@ struct ConvertConstructorToDeductionGuideTransform {
       Params.push_back(NewParam);
     }
 
-    return buildDeductionGuide(Template->getTemplateParameters(), false, TSI,
-                               Loc, Loc, Loc);
+    return buildDeductionGuide(Template->getTemplateParameters(),
+                               ExplicitSpecifier(), TSI, Loc, Loc, Loc);
   }
 
 private:
@@ -1970,7 +1970,7 @@ private:
   }
 
   NamedDecl *buildDeductionGuide(TemplateParameterList *TemplateParams,
-                                 bool Explicit, TypeSourceInfo *TInfo,
+                                 ExplicitSpecifier ES, TypeSourceInfo *TInfo,
                                  SourceLocation LocStart, SourceLocation Loc,
                                  SourceLocation LocEnd) {
     DeclarationNameInfo Name(DeductionGuideName, Loc);
@@ -1979,8 +1979,8 @@ private:
 
     // Build the implicit deduction guide template.
     auto *Guide =
-        CXXDeductionGuideDecl::Create(SemaRef.Context, DC, LocStart, Explicit,
-                                      Name, TInfo->getType(), TInfo, LocEnd);
+        CXXDeductionGuideDecl::Create(SemaRef.Context, DC, LocStart, ES, Name,
+                                      TInfo->getType(), TInfo, LocEnd);
     Guide->setImplicit();
     Guide->setParams(Params);
 
@@ -3926,13 +3926,6 @@ DeclResult Sema::ActOnVarTemplateSpecialization(
              Specialization->isOutOfLine()) {
     Specialization->setAccess(VarTemplate->getAccess());
   }
-
-  // Link instantiations of static data members back to the template from
-  // which they were instantiated.
-  if (Specialization->isStaticDataMember())
-    Specialization->setInstantiationOfStaticDataMember(
-        VarTemplate->getTemplatedDecl(),
-        Specialization->getSpecializationKind());
 
   return Specialization;
 }
@@ -8634,6 +8627,29 @@ static bool CheckExplicitInstantiationScope(Sema &S, NamedDecl *D,
   return false;
 }
 
+/// Common checks for whether an explicit instantiation of \p D is valid.
+static bool CheckExplicitInstantiation(Sema &S, NamedDecl *D,
+                                       SourceLocation InstLoc,
+                                       bool WasQualifiedName,
+                                       TemplateSpecializationKind TSK) {
+  // C++ [temp.explicit]p13:
+  //   An explicit instantiation declaration shall not name a specialization of
+  //   a template with internal linkage.
+  if (TSK == TSK_ExplicitInstantiationDeclaration &&
+      D->getFormalLinkage() == InternalLinkage) {
+    S.Diag(InstLoc, diag::err_explicit_instantiation_internal_linkage) << D;
+    return true;
+  }
+
+  // C++11 [temp.explicit]p3: [DR 275]
+  //   An explicit instantiation shall appear in an enclosing namespace of its
+  //   template.
+  if (CheckExplicitInstantiationScope(S, D, InstLoc, WasQualifiedName))
+    return true;
+
+  return false;
+}
+
 /// Determine whether the given scope specifier has a template-id in it.
 static bool ScopeSpecifierHasTemplateId(const CXXScopeSpec &SS) {
   if (!SS.isSet())
@@ -8724,8 +8740,10 @@ DeclResult Sema::ActOnExplicitInstantiation(
                                        ? TSK_ExplicitInstantiationDefinition
                                        : TSK_ExplicitInstantiationDeclaration;
 
-  if (TSK == TSK_ExplicitInstantiationDeclaration) {
-    // Check for dllexport class template instantiation declarations.
+  if (TSK == TSK_ExplicitInstantiationDeclaration &&
+      !Context.getTargetInfo().getTriple().isWindowsGNUEnvironment()) {
+    // Check for dllexport class template instantiation declarations,
+    // except for MinGW mode.
     for (const ParsedAttr &AL : Attr) {
       if (AL.getKind() == ParsedAttr::AT_DLLExport) {
         Diag(ExternLoc,
@@ -8785,13 +8803,21 @@ DeclResult Sema::ActOnExplicitInstantiation(
   TemplateSpecializationKind PrevDecl_TSK
     = PrevDecl ? PrevDecl->getTemplateSpecializationKind() : TSK_Undeclared;
 
-  // C++0x [temp.explicit]p2:
-  //   [...] An explicit instantiation shall appear in an enclosing
-  //   namespace of its template. [...]
-  //
-  // This is C++ DR 275.
-  if (CheckExplicitInstantiationScope(*this, ClassTemplate, TemplateNameLoc,
-                                      SS.isSet()))
+  if (TSK == TSK_ExplicitInstantiationDefinition && PrevDecl != nullptr &&
+      Context.getTargetInfo().getTriple().isWindowsGNUEnvironment()) {
+    // Check for dllexport class template instantiation definitions in MinGW
+    // mode, if a previous declaration of the instantiation was seen.
+    for (const ParsedAttr &AL : Attr) {
+      if (AL.getKind() == ParsedAttr::AT_DLLExport) {
+        Diag(AL.getLoc(),
+             diag::warn_attribute_dllexport_explicit_instantiation_def);
+        break;
+      }
+    }
+  }
+
+  if (CheckExplicitInstantiation(*this, ClassTemplate, TemplateNameLoc,
+                                 SS.isSet(), TSK))
     return true;
 
   ClassTemplateSpecializationDecl *Specialization = nullptr;
@@ -8946,6 +8972,14 @@ DeclResult Sema::ActOnExplicitInstantiation(
       dllExportImportClassTemplateSpecialization(*this, Def);
     }
 
+    // In MinGW mode, export the template instantiation if the declaration
+    // was marked dllexport.
+    if (PrevDecl_TSK == TSK_ExplicitInstantiationDeclaration &&
+        Context.getTargetInfo().getTriple().isWindowsGNUEnvironment() &&
+        PrevDecl->hasAttr<DLLExportAttr>()) {
+      dllExportImportClassTemplateSpecialization(*this, Def);
+    }
+
     // Set the template specialization kind. Make sure it is set before
     // instantiating the members which will trigger ASTConsumer callbacks.
     Specialization->setTemplateSpecializationKind(TSK);
@@ -9014,12 +9048,7 @@ Sema::ActOnExplicitInstantiation(Scope *S, SourceLocation ExternLoc,
     = ExternLoc.isInvalid()? TSK_ExplicitInstantiationDefinition
                            : TSK_ExplicitInstantiationDeclaration;
 
-  // C++0x [temp.explicit]p2:
-  //   [...] An explicit instantiation shall appear in an enclosing
-  //   namespace of its template. [...]
-  //
-  // This is C++ DR 275.
-  CheckExplicitInstantiationScope(*this, Record, NameLoc, true);
+  CheckExplicitInstantiation(*this, Record, NameLoc, true, TSK);
 
   // Verify that it is okay to explicitly instantiate here.
   CXXRecordDecl *PrevDecl
@@ -9177,7 +9206,7 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
 
     if (!PrevTemplate) {
       if (!Prev || !Prev->isStaticDataMember()) {
-        // We expect to see a data data member here.
+        // We expect to see a static data member here.
         Diag(D.getIdentifierLoc(), diag::err_explicit_instantiation_not_known)
             << Name;
         for (LookupResult::iterator P = Previous.begin(), PEnd = Previous.end();
@@ -9250,8 +9279,7 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
            diag::ext_explicit_instantiation_without_qualified_id)
         << Prev << D.getCXXScopeSpec().getRange();
 
-    // Check the scope of this explicit instantiation.
-    CheckExplicitInstantiationScope(*this, Prev, D.getIdentifierLoc(), true);
+    CheckExplicitInstantiation(*this, Prev, D.getIdentifierLoc(), true, TSK);
 
     // Verify that it is okay to explicitly instantiate here.
     TemplateSpecializationKind PrevTSK = Prev->getTemplateSpecializationKind();
@@ -9426,6 +9454,20 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
       return (Decl*) nullptr;
   }
 
+  // HACK: libc++ has a bug where it attempts to explicitly instantiate the
+  // functions
+  //     valarray<size_t>::valarray(size_t) and
+  //     valarray<size_t>::~valarray()
+  // that it declared to have internal linkage with the internal_linkage
+  // attribute. Ignore the explicit instantiation declaration in this case.
+  if (Specialization->hasAttr<InternalLinkageAttr>() &&
+      TSK == TSK_ExplicitInstantiationDeclaration) {
+    if (auto *RD = dyn_cast<CXXRecordDecl>(Specialization->getDeclContext()))
+      if (RD->getIdentifier() && RD->getIdentifier()->isStr("valarray") &&
+          RD->isInStdNamespace())
+        return (Decl*) nullptr;
+  }
+
   ProcessDeclAttributeList(S, Specialization, D.getDeclSpec().getAttributes());
 
   // In MSVC mode, dllimported explicit instantiation definitions are treated as
@@ -9459,11 +9501,11 @@ DeclResult Sema::ActOnExplicitInstantiation(Scope *S,
          diag::ext_explicit_instantiation_without_qualified_id)
     << Specialization << D.getCXXScopeSpec().getRange();
 
-  CheckExplicitInstantiationScope(*this,
-                   FunTmpl? (NamedDecl *)FunTmpl
-                          : Specialization->getInstantiatedFromMemberFunction(),
-                                  D.getIdentifierLoc(),
-                                  D.getCXXScopeSpec().isSet());
+  CheckExplicitInstantiation(
+      *this,
+      FunTmpl ? (NamedDecl *)FunTmpl
+              : Specialization->getInstantiatedFromMemberFunction(),
+      D.getIdentifierLoc(), D.getCXXScopeSpec().isSet(), TSK);
 
   // FIXME: Create some kind of ExplicitInstantiationDecl here.
   return (Decl*) nullptr;
