@@ -103,6 +103,55 @@ namespace vpo {
 class VPOParoptUtils {
 
 public:
+  /// \name Utilities for getting/creating named StructTypes.
+  /// @{
+
+  /// If module \p M has a StructType of name \p Name, and element types \p
+  /// ElementTypes, return it. Assert if a struct with matching name, but
+  /// different element types is found. Return `nullptr` otherwise.
+  static StructType *
+  getStructTypeWithNameAndElementsFromModule(Module *M, StringRef Name,
+                                             ArrayRef<Type *> ElementTypes);
+
+  /// If in the module of \p F, a StructType with name \p Name and types \p
+  /// ElementTypes exists, then return it, otherwise create that struct and
+  /// return it.
+  static StructType *getOrCreateStructType(Function *F, StringRef Name,
+                                           ArrayRef<Type *> ElementTypes);
+
+  /// Find any existing ident_t (LOC) struct in the module of \p F, and if
+  /// found, return it. If not, create an ident_t struct and return it.
+  ///
+  /// The format is based on OpenMP KMP library
+  ///
+  /// \code
+  /// typedef struct {
+  ///   kmp_int32 reserved_1;   // might be used in Fortran
+  ///   kmp_int32 flags;        // also f.flags; KMP_IDENT_xxx flags;
+  ///                           // KMP_IDENT_KMPC identifies this union member
+  ///   kmp_int32 reserved_2;   // not really used in Fortran any more
+  ///   kmp_int32 reserved_3;   // source[4] in Fortran, do not use for C++
+  ///   char      *psource;
+  /// } ident_t;
+  /// \endcode
+  ///
+  /// The bits that the flags field can hold are defined as KMP_IDENT_* before.
+  ///
+  /// Note: We need to look for exising IdentTy structs in the module before
+  /// creating new ones. This is because if don't, then different Types are
+  /// created for each function encountered. For example, consider a module with
+  /// two functions `foo1()` and `foo2()`. When handling foo1(), a named struct
+  /// type `ident_t` would be created and used for generating function
+  /// declarations and calls for KMPC routines such as
+  /// `__kmpc_global_thread_num(ident_t*)`. When it comes to handling `foo2()`,
+  /// a new named IdentTy would be created, say `ident_t.0`, but when trying to
+  /// emit a call to `__kmpc_global_thread_num`, there would be a type mismatch
+  /// between the expected argument type in the declaration (ident_t *) and
+  /// actual type of the argument (ident_t.0 *).
+  static StructType *getIdentStructType(Function *F);
+
+  /// @}
+
   /// Generate OpenMP runtime `__kmpc_begin(&loc, flags)` initialization code.
   /// The generated runtime routine call is invoked (only once) right after
   /// entering the main function.

@@ -99,18 +99,18 @@ DIR.OMP.END.PARALLEL.EXIT:
 ; CHECK-LABEL: define i32 @main() {
 ; CHECK:   [[TMP1:%.*]] = alloca i32
 ; CHECK:   store i32 0, i32* [[TMP1:%.*]]
-; CHECK:   %tid.val = tail call i32 @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.4)
+; CHECK:   %tid.val = tail call i32 @__kmpc_global_thread_num(%__struct.ident_t* @.kmpc_loc.0.0.4)
 ; CHECK:   %2 = alloca i32
 ; CHECK:   store i32 %tid.val, i32* %2
 ; CHECK:   br label %codeRepl
 ;
 ; CHECK-LABEL: codeRepl:                                         ; preds = %0
-; CHECK:   %fork.test = tail call i32 @__kmpc_ok_to_fork({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.2)
+; CHECK:   %fork.test = tail call i32 @__kmpc_ok_to_fork(%__struct.ident_t* @.kmpc_loc.0.0.2)
 ; CHECK:   %fork.test2 = icmp ne i32 %fork.test, 0
 ; CHECK:   br i1 %fork.test2, label %if.then.fork.1, label %if.else.call.1
 ;
 ; CHECK-LABEL: if.then.fork.1:                                   ; preds = %codeRepl
-; CHECK:   call void ({ i32, i32, i32, i32, i8* }*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0, i32 0, void (i32*, i32*, ...)* bitcast (void (i32*, i32*)* @main..split to void (i32*, i32*, ...)*))
+; CHECK:   call void (%__struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%__struct.ident_t* @.kmpc_loc.0.0, i32 0, void (i32*, i32*, ...)* bitcast (void (i32*, i32*)* @main..split to void (i32*, i32*, ...)*))
 ; CHECK:   br label %codeRepl.split
 ;
 ; CHECK-LABEL: if.else.call.1:                                   ; preds = %codeRepl

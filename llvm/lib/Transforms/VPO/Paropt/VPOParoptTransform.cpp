@@ -838,36 +838,7 @@ bool VPOParoptTransform::paroptTransforms() {
   // Setup Anchor Instuction Point
   Instruction *AI = &*I;
 
-  //
-  // Create the LOC structure. The format is based on OpenMP KMP library
-  //
-  // typedef struct {
-  //   kmp_int32 reserved_1;   // might be used in Fortran
-  //   kmp_int32 flags;        // also f.flags; KMP_IDENT_xxx flags;
-  //                           // KMP_IDENT_KMPC identifies this union member
-  //   kmp_int32 reserved_2;   // not really used in Fortran any more
-  //   kmp_int32 reserved_3;   // source[4] in Fortran, do not use for C++
-  //   char      *psource;
-  // } ident_t;
-  //
-  // The bits that the flags field can hold are defined as KMP_IDENT_* before.
-  //
-  // Note: IdentTy needs to be an anonymous struct. This is because if we use
-  // a named struct type, then different Types are created for each function
-  // encountered. For example, consider a module with two functions `foo1()`
-  // and `foo2()`. When handling foo1(), a named struct type `ident_t` would
-  // be created and used for generating function declarations and calls for
-  // KMPC routines such as `__kmpc_global_thread_num(ident_t*)`. When it comes
-  // to handling `foo2()`, a new named IdentTy would be created, say
-  // `ident_t.0`, but when trying to emit a call to `__kmpc_global_thread_num`,
-  // there would be a type mismatch between the expected argument type in the
-  // declaration (ident_t *) and actual type of the argument (ident_t.0 *).
-  IdentTy = StructType::get(C, {Type::getInt32Ty(C),   // reserved_1
-                                Type::getInt32Ty(C),   // flags
-                                Type::getInt32Ty(C),   // reserved_2
-                                Type::getInt32Ty(C),   // reserved_3
-                                Type::getInt8PtrTy(C)} // *psource
-                            );
+  IdentTy = VPOParoptUtils::getIdentStructType(F);
 
   StringRef S = F->getName();
 
@@ -6352,18 +6323,18 @@ void VPOParoptTransform::resetValueInIntelClauseGeneric(WRegionNode *W,
 // Generate the copyprivate code. Here is one example.
 // #pragma omp single copyprivate ( a,b )
 // LLVM IR output:
-//     %copyprivate.agg.5 = alloca %struct.kmp_copy_privates.t, align 8
-//     %14 = bitcast %struct.kmp_copy_privates.t* %copyprivate.agg.5 to i8**
+//     %copyprivate.agg.5 = alloca %__struct.kmp_copy_privates_t, align 8
+//     %14 = bitcast %__struct.kmp_copy_privates_t* %copyprivate.agg.5 to i8**
 //     store i8* %.0, i8** %14, align 8
-//     %15 = getelementptr inbounds %struct.kmp_copy_privates.t,
-//           %struct.kmp_copy_privates.t* %copyprivate.agg.5, i64 0, i32 1
+//     %15 = getelementptr inbounds %__struct.kmp_copy_privates_t,
+//           %__struct.kmp_copy_privates_t* %copyprivate.agg.5, i64 0, i32 1
 //     store float* %b.fpriv, float** %15, align 8
 //     %16 = load i32, i32* %tid, align 4
-//     %17 = bitcast %struct.kmp_copy_privates.t* %copyprivate.agg.5 to i8*
+//     %17 = bitcast %__struct.kmp_copy_privates_t* %copyprivate.agg.5 to i8*
 //     call void @__kmpc_copyprivate({ i32, i32, i32, i32, i8* }*
 //          nonnull @.kmpc_loc.0.0.16, i32 %16, i32 16, i8* nonnull %17,
-//          i8* bitcast (void (%struct.kmp_copy_privates.t*,
-//          %struct.kmp_copy_privates.t*)* @test_copy_priv_5 to i8*), i32 %13)
+//          i8* bitcast (void (%__struct.kmp_copy_privates_t*,
+//          %__struct.kmp_copy_privates_t*)* @test_copy_priv_5 to i8*), i32 %13)
 //          #11
 //
 bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
@@ -6383,9 +6354,9 @@ bool VPOParoptTransform::genCopyPrivateCode(WRegionNode *W,
   }
 
   LLVMContext &C = F->getContext();
-  StructType *KmpCopyPrivateTy = StructType::get(
+  StructType *KmpCopyPrivateTy = StructType::create(
       C, makeArrayRef(KmpCopyPrivatesVars.begin(), KmpCopyPrivatesVars.end()),
-      /* struct.kmp_copy_privates.t */false);
+      "__struct.kmp_copy_privates_t", false);
 
   AllocaInst *CopyPrivateBase = Builder.CreateAlloca(
       KmpCopyPrivateTy, nullptr, "copyprivate.agg." + Twine(W->getNumber()));
@@ -6451,15 +6422,16 @@ Function *VPOParoptTransform::genCopyPrivateFunc(WRegionNode *W,
   CopyprivateClause &CprivClause = W->getCpriv();
   SmallVector<Value *, 4> Indices;
   for (CopyprivateItem *CprivI : CprivClause.items()) {
+    StringRef OrigName = CprivI->getOrig()->getName();
     Indices.clear();
     Indices.push_back(Builder.getInt32(0));
     Indices.push_back(Builder.getInt32(cnt++));
-    Value *SrcGep =
-        Builder.CreateInBoundsGEP(KmpCopyPrivateTy, SrcArg, Indices);
-    Value *DstGep =
-        Builder.CreateInBoundsGEP(KmpCopyPrivateTy, DstArg, Indices);
-    LoadInst *SrcLoad = Builder.CreateLoad(SrcGep);
-    LoadInst *DstLoad = Builder.CreateLoad(DstGep);
+    Value *SrcGep = Builder.CreateInBoundsGEP(KmpCopyPrivateTy, SrcArg, Indices,
+                                              OrigName + ".src.gep");
+    Value *DstGep = Builder.CreateInBoundsGEP(KmpCopyPrivateTy, DstArg, Indices,
+                                              OrigName + ".dst.gep");
+    LoadInst *SrcLoad = Builder.CreateLoad(SrcGep, OrigName + ".src");
+    LoadInst *DstLoad = Builder.CreateLoad(DstGep, OrigName + ".dst");
     Value *NewCopyPrivInst =
         genPrivatizationAlloca(CprivI, EntryBB->getTerminator(), ".cp.priv");
     genLprivFini(NewCopyPrivInst, DstLoad, EntryBB->getTerminator());

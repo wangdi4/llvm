@@ -73,7 +73,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCELLATION.POINT"(), "QUAL.OMP.CANCEL.LOOP"() ]
   call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.CANCELLATION.POINT"() ]
 ; #pragma omp cancellationpoint
-; CHECK: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
+; CHECK: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
 ; CHECK: [[CHECK1:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL1]], 0
 ; CHECK: br i1 [[CHECK1]], label %[[FOREXITLABEL:[a-zA-Z._0-9]+split]], label %{{[a-zA-Z._0-9]+}}
 
@@ -82,7 +82,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %12 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCEL"(), "QUAL.OMP.CANCEL.LOOP"() ]
   call void @llvm.directive.region.exit(token %12) [ "DIR.OMP.END.CANCEL"() ]
 ; #pragma omp cancel
-; CHECK: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancel({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
+; CHECK: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancel({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
 ; CHECK: [[CHECK2:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL2]], 0
 ; CHECK: br i1 [[CHECK2]], label %[[FOREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
 

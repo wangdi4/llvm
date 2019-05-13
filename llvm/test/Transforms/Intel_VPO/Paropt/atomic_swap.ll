@@ -38,7 +38,7 @@ entry:
 
 ; CHECK: %[[EXPR:[0-9]+]] = load double, double* @e, align 8
 ; CHECK-NEXT: %[[EXPRCAST:conv[0-9]*]] = fptosi double %[[EXPR]] to i16
-; CHECK:  %[[RET:[0-9]+]] = call i16 @__kmpc_atomic_fixed2_swp({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, i16 %[[EXPRCAST]])
+; CHECK:  %[[RET:[0-9]+]] = call i16 @__kmpc_atomic_fixed2_swp({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, i16 %[[EXPRCAST]])
 ; CHECK-NEXT: %[[RETCAST:[a-zA-Z._0-9]+]] = sext i16 %[[RET]] to i64
 ; CHECK-NEXT: store i64 %[[RETCAST]], i64* @v
 

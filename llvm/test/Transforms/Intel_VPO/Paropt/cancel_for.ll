@@ -51,7 +51,7 @@ entry:
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* @i), "QUAL.OMP.SHARED"(i32* @j), "QUAL.OMP.SHARED"(i32* @y), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.stride), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last) ]
 ; #pragma omp parallel
-; TFORM: %{{[a-zA-Z._0-9]+}} = tail call i32 @__kmpc_ok_to_fork({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}})
+; TFORM: %{{[a-zA-Z._0-9]+}} = tail call i32 @__kmpc_ok_to_fork({{[^,]+}})
 
   %1 = load i32, i32* @i, align 4, !tbaa !2
   %inc = add nsw i32 %1, 1
@@ -60,7 +60,7 @@ entry:
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.BARRIER"() ]
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.BARRIER"() ]
 ; #pragma omp barrier (should still be kmpc_barrier, not kmpc_cancel_barrier)
-; ALL: call void @__kmpc_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
+; ALL: call void @__kmpc_barrier({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}})
 
   %3 = bitcast i32* %.omp.iv to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %3) #1
@@ -98,7 +98,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %13 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCELLATION.POINT"(), "QUAL.OMP.CANCEL.LOOP"() ]
   call void @llvm.directive.region.exit(token %13) [ "DIR.OMP.END.CANCELLATION.POINT"() ]
 ; #pragma omp cancellationpoint
-; ALL: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
+; ALL: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
 ; PREPR-NEXT: store i32 [[CANCEL1]], i32* [[CP1ALLOCA]]
 ; TFORM: [[CHECK1:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL1]], 0
 ; TFORM: br i1 [[CHECK1]], label %[[FOREXITLABEL:[a-zA-Z._0-9]+_crit_edge]], label %{{[a-zA-Z._0-9]+}}
@@ -108,7 +108,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %15 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCEL"(), "QUAL.OMP.CANCEL.LOOP"(), "QUAL.OMP.IF"(i32 0) ]
   call void @llvm.directive.region.exit(token %15) [ "DIR.OMP.END.CANCEL"() ]
 ; #pragma omp cancel
-; ALL: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancel({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
+; ALL: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancel({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 2)
 ; PREPR-NEXT: store i32 [[CANCEL2]], i32* [[CP2ALLOCA]]
 ; TFORM: [[CHECK2:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL2]], 0
 ; TFORM: br i1 [[CHECK2]], label %[[FOREXITLABEL]], label %{{[a-zA-Z._0-9]+}}

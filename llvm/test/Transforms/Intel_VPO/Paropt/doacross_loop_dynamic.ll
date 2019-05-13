@@ -48,27 +48,28 @@ entry:
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.ORDERED"(i32 2, i32 4, i32 2), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SCHEDULE.DYNAMIC"(i32 1), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
 ; #pragma omp for ordered(2) schedule(dynamic)
-; TFORM: %[[INITVEC:[a-zA-Z._0-9]+]] = alloca { i64, i64, i64 }, i32 2
+; TFORM: [[DIM_STRTY:%[a-zA-Z._0-9]+]] = type { i64, i64, i64 }
+; TFORM: %[[INITVEC:[a-zA-Z._0-9]+]] = alloca [[DIM_STRTY]], i32 2
 
-; TFORM-NEXT: %[[L1:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[INITVEC]], i32 0
-; TFORM-NEXT: %[[L1LB:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L1]], i32 0, i32 0
+; TFORM-NEXT: %[[L1:[0-9]+]] = getelementptr inbounds [[DIM_STRTY]], [[DIM_STRTY]]* %[[INITVEC]], i32 0
+; TFORM-NEXT: %[[L1LB:[0-9]+]] = getelementptr inbounds [[DIM_STRTY]], [[DIM_STRTY]]* %[[L1]], i32 0, i32 0
 ; TFORM-NEXT: store i64 0, i64* %[[L1LB]]
-; TFORM-NEXT: %[[L1UB:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L1]], i32 0, i32 1
+; TFORM-NEXT: %[[L1UB:[0-9]+]] = getelementptr inbounds [[DIM_STRTY]], [[DIM_STRTY]]* %[[L1]], i32 0, i32 1
 ; TFORM-NEXT: store i64 4, i64* %[[L1UB]]
-; TFORM-NEXT: %[[L1ST:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L1]], i32 0, i32 2
+; TFORM-NEXT: %[[L1ST:[0-9]+]] = getelementptr inbounds [[DIM_STRTY]], [[DIM_STRTY]]* %[[L1]], i32 0, i32 2
 ; TFORM-NEXT: store i64 1, i64* %[[L1ST]]
 
-; TFORM-NEXT: %[[L2:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[INITVEC]], i32 1
-; TFORM-NEXT: %[[L2LB:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L2]], i32 0, i32 0
+; TFORM-NEXT: %[[L2:[0-9]+]] = getelementptr inbounds [[DIM_STRTY]], [[DIM_STRTY]]* %[[INITVEC]], i32 1
+; TFORM-NEXT: %[[L2LB:[0-9]+]] = getelementptr inbounds [[DIM_STRTY]], [[DIM_STRTY]]* %[[L2]], i32 0, i32 0
 ; TFORM-NEXT: store i64 0, i64* %[[L2LB]]
-; TFORM-NEXT: %[[L2UB:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L2]], i32 0, i32 1
+; TFORM-NEXT: %[[L2UB:[0-9]+]] = getelementptr inbounds [[DIM_STRTY]], [[DIM_STRTY]]* %[[L2]], i32 0, i32 1
 ; TFORM-NEXT: store i64 2, i64* %[[L2UB]]
-; TFORM-NEXT: %[[L2ST:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[L2]], i32 0, i32 2
+; TFORM-NEXT: %[[L2ST:[0-9]+]] = getelementptr inbounds [[DIM_STRTY]], [[DIM_STRTY]]* %[[L2]], i32 0, i32 2
 ; TFORM-NEXT: store i64 1, i64* %[[L2ST]]
 
-; TFORM-NEXT: %[[INITVECI8:[0-9]+]] = bitcast { i64, i64, i64 }* %[[INITVEC]] to i8*
-; TFORM-NEXT: call void @__kmpc_doacross_init({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID:[a-zA-Z._0-9]*]], i32 2, i8* %[[INITVECI8]])
-; TFORM-NEXT:  call void @__kmpc_dispatch_init_4({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID]], i32 35, i32 %{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 1, i32 1)
+; TFORM-NEXT: %[[INITVECI8:[0-9]+]] = bitcast [[DIM_STRTY]]* %[[INITVEC]] to i8*
+; TFORM-NEXT: call void @__kmpc_doacross_init({{[^,]+}}, i32 %[[TID:[a-zA-Z._0-9]*]], i32 2, i8* %[[INITVECI8]])
+; TFORM-NEXT:  call void @__kmpc_dispatch_init_4({{[^,]+}}, i32 %[[TID]], i32 35, i32 %{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 1, i32 1)
 
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4
@@ -120,7 +121,7 @@ for.body:                                         ; preds = %for.cond
 ; ALL: store i64 %[[S1E2]], i64* %[[S1GEP2]]
 
 ; ALL: %[[SINK1VECI8:[a-zA-Z._0-9]+]] = bitcast i64* %[[SINK1VEC]] to i8*
-; ALL: call void @__kmpc_doacross_wait({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %[[SINK1VECI8]])
+; ALL: call void @__kmpc_doacross_wait({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %[[SINK1VECI8]])
 
 
 ; ALL: %[[SINK2VEC:[a-zA-Z._0-9]+]] = alloca i64, i32 2
@@ -133,7 +134,7 @@ for.body:                                         ; preds = %for.cond
 ; ALL: store i64 %[[S2E2]], i64* %[[S2GEP2]]
 
 ; ALL: %[[SINK2VECI8:[a-zA-Z._0-9]+]] = bitcast i64* %[[SINK2VEC]] to i8*
-; ALL: call void @__kmpc_doacross_wait({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %[[SINK2VECI8]])
+; ALL: call void @__kmpc_doacross_wait({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %[[SINK2VECI8]])
   call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.ORDERED"() ]
 
 
@@ -182,7 +183,7 @@ for.body:                                         ; preds = %for.cond
 ; ALL: store i64 %[[SRCE2]], i64* %[[SRCGEP2]]
 
 ; ALL: %[[SOURCEVECI8:[a-zA-Z._0-9]+]] = bitcast i64* %[[SOURCEVEC]] to i8*
-; ALL: call void @__kmpc_doacross_post({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %[[SOURCEVECI8]])
+; ALL: call void @__kmpc_doacross_post({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %[[SOURCEVECI8]])
 
   call void @llvm.directive.region.exit(token %24) [ "DIR.OMP.END.ORDERED"() ]
   br label %for.inc
@@ -210,7 +211,7 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.LOOP"() ]
-; TFORM: call void @__kmpc_doacross_fini({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %[[TID]])
+; TFORM: call void @__kmpc_doacross_fini({{[^,]+}}, i32 %[[TID]])
   ret void
 }
 

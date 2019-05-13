@@ -12,7 +12,7 @@ entry:
   br label %DIR.OMP.BARRIER.1
 
 ; CHECK-NOT: %{{[0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.BARRIER"() ]
-; CHECK: call void @__kmpc_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
+; CHECK: call void @__kmpc_barrier({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}})
 ; CHECK-NOT: call void @llvm.directive.region.exit(token %{{[0-9]+}}) [ "DIR.OMP.END.BARRIER"() ]
 
 DIR.OMP.BARRIER.1:                                ; preds = %entry

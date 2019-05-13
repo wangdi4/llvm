@@ -48,8 +48,8 @@ entry:
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.ORDERED"(i32 2, i32 4, i32 2), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SCHEDULE.STATIC"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
 ; #pragma omp for ordered(2) schedule(static)
-; TFORM: call void @__kmpc_doacross_init({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %[[TID:[a-zA-Z._0-9]+]], i32 2, i8* %{{[a-zA-Z._0-9]+}})
-; TFORM-NEXT:  call void @__kmpc_for_static_init_4({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %[[TID]], i32 34, i32* %is.last, i32* %lower.bnd, i32* %upper.bnd, i32* %stride, i32 1, i32 1)
+; TFORM: call void @__kmpc_doacross_init({{[^,]+}}, i32 %[[TID:[a-zA-Z._0-9]+]], i32 2, i8* %{{[a-zA-Z._0-9]+}})
+; TFORM-NEXT:  call void @__kmpc_for_static_init_4({{[^,]+}}, i32 %[[TID]], i32 34, i32* %is.last, i32* %lower.bnd, i32* %upper.bnd, i32* %stride, i32 1, i32 1)
 
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4
@@ -92,8 +92,8 @@ for.body:                                         ; preds = %for.cond
   %div10 = sdiv i32 %sub9, 1
   %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.DEPEND.SINK"(i32 %div, i32 %div5), "QUAL.OMP.DEPEND.SINK"(i32 %div7, i32 %div10) ]
   call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.ORDERED"() ]
-; ALL: call void @__kmpc_doacross_wait({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %{{[a-zA-Z._0-9]+}})
-; ALL: call void @__kmpc_doacross_wait({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %{{[a-zA-Z._0-9]+}})
+; ALL: call void @__kmpc_doacross_wait({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %{{[a-zA-Z._0-9]+}})
+; ALL: call void @__kmpc_doacross_wait({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %{{[a-zA-Z._0-9]+}})
   %11 = load [5 x [4 x i32]]*, [5 x [4 x i32]]** %v_ptr.addr, align 8
   %12 = load i32, i32* %i, align 4
   %sub11 = sub nsw i32 %12, 1
@@ -129,7 +129,7 @@ for.body:                                         ; preds = %for.cond
   %sub27 = sub nsw i32 %23, 2
   %div28 = sdiv i32 %sub27, 1
   %24 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.DEPEND.SOURCE"(i32 %div26, i32 %div28) ]
-; ALL: call void @__kmpc_doacross_post({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %{{[a-zA-Z._0-9]+}})
+; ALL: call void @__kmpc_doacross_post({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %{{[a-zA-Z._0-9]+}})
   call void @llvm.directive.region.exit(token %24) [ "DIR.OMP.END.ORDERED"() ]
   br label %for.inc
 
@@ -156,8 +156,8 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.LOOP"() ]
-;TFORM: call void @__kmpc_for_static_fini({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %[[TID]])
-;TFORM-NEXT: call void @__kmpc_doacross_fini({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %[[TID]])
+;TFORM: call void @__kmpc_for_static_fini({{[^,]+}}, i32 %[[TID]])
+;TFORM-NEXT: call void @__kmpc_doacross_fini({{[^,]+}}, i32 %[[TID]])
   ret void
 }
 

@@ -56,6 +56,65 @@ static cl::opt<bool> StrictOutlineVerification(
 
 static const unsigned StackAdjustedAlignment = 16;
 
+// If module M has a StructType of name Name, and element types ElementTypes,
+// return it.
+StructType *VPOParoptUtils::getStructTypeWithNameAndElementsFromModule(
+    Module *M, StringRef Name, ArrayRef<Type *> ElementTypes) {
+
+  assert(M && "Null module pointer.");
+  assert(!Name.empty() && "Empty struct name.");
+  assert(!ElementTypes.empty() && "Empty element types array.");
+
+  StructType *StructTypeWithMatchingName = M->getTypeByName(Name);
+  if (!StructTypeWithMatchingName)
+    return nullptr;
+
+  if (StructTypeWithMatchingName->elements().equals(ElementTypes))
+    return StructTypeWithMatchingName;
+
+  llvm_unreachable("Struct type with matching name has different elements.");
+}
+
+// If in the module of F, a StructType with name Name and types
+// ElementTypes exists, then return it, otherwise create that struct and
+// return it.
+StructType *
+VPOParoptUtils::getOrCreateStructType(Function *F, StringRef Name,
+                                      ArrayRef<Type *> ElementTypes) {
+
+  assert(F && "Null function pointer.");
+  assert(!Name.empty() && "Empty struct name.");
+  assert(!ElementTypes.empty() && "Empty element types array.");
+
+  LLVMContext &C = F->getContext();
+  Module *M = F->getParent();
+
+  StructType *ExistingStructType =
+      getStructTypeWithNameAndElementsFromModule(M, Name, ElementTypes);
+
+  if (ExistingStructType)
+    return ExistingStructType;
+
+  return StructType::create(C, ElementTypes, Name, false);
+}
+
+// Find any existing ident_t (LOC) struct in the module of F, and if found,
+// return it. If not, create an ident_t struct and return it.
+StructType *VPOParoptUtils::getIdentStructType(Function *F) {
+
+  assert(F && "Null function pointer.");
+
+  LLVMContext &C = F->getContext();
+  Type *IdentTyArgs[] = {Type::getInt32Ty(C),    // reserved_1
+                         Type::getInt32Ty(C),    // flags
+                         Type::getInt32Ty(C),    // reserved_2
+                         Type::getInt32Ty(C),    // reserved_3
+                         Type::getInt8PtrTy(C)}; // *psource
+
+  return VPOParoptUtils::getOrCreateStructType(F, "__struct.ident_t",
+                                               IdentTyArgs);
+}
+
 // This function generates a runtime library call to __kmpc_begin(&loc, 0)
 CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
                                            StructType *IdentTy) {
@@ -1765,11 +1824,7 @@ CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
   LLVMContext &C = F->getContext();
 
   if (!IdentTy)
-    IdentTy = StructType::get(C, {Type::getInt32Ty(C),
-                                  Type::getInt32Ty(C),
-                                  Type::getInt32Ty(C),
-                                  Type::getInt32Ty(C),
-                                  Type::getInt8PtrTy(C)});
+    IdentTy = VPOParoptUtils::getIdentStructType(F);
 
   BasicBlock &B = F->getEntryBlock();
   BasicBlock &E = B;
@@ -2388,7 +2443,6 @@ VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
 
   IRBuilder<> Builder(InsertPt);
 
-  LLVMContext &C = Builder.getContext();
   Type *Int64Ty = Builder.getInt64Ty();
   Value *Zero = Builder.getInt32(0);
   Value *One = Builder.getInt32(1);
@@ -2404,7 +2458,9 @@ VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
 
   // The dims vector needs a struct for each loop in the nest. The struct has 3
   // i64s, which should contain lb, ub and stride respectively.
-  StructType *DimsVecTy = StructType::get(C, {Int64Ty, Int64Ty, Int64Ty});
+  StructType *DimsVecTy = VPOParoptUtils::getOrCreateStructType(
+      InsertPt->getParent()->getParent(), "__struct.kmp_dim",
+      {Int64Ty, Int64Ty, Int64Ty});
 
   // (1) Create alloca for an array of size NumLoops of the struct.
   AllocaInst *DimsVec =

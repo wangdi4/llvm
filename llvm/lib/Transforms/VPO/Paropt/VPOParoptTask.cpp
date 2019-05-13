@@ -195,8 +195,9 @@ void VPOParoptTransform::genTaskTRedType() {
   Type *TaskTRedTyArgs[] = {Type::getInt8PtrTy(C), Int64Ty,
                             Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
                             Type::getInt8PtrTy(C), Int32Ty};
-  KmpTaskTRedTy = StructType::get(C, TaskTRedTyArgs,
-                                  /*"struct.kmp_task_t_red_item" */false);
+
+  KmpTaskTRedTy = VPOParoptUtils::getOrCreateStructType(
+      F, "__struct.kmp_task_t_red_item", TaskTRedTyArgs);
 }
 
 // internal structure for dependInfo
@@ -222,8 +223,8 @@ void VPOParoptTransform::genKmpTaskDependInfo() {
 
   Type *KmpTaskDependTyArgs[] = {IntTy, IntTy, Type::getInt8Ty(C)};
 
-  KmpTaskDependInfoTy = StructType::get(C, KmpTaskDependTyArgs,
-                                           /*"struct.kmp_depend_info"*/false);
+  KmpTaskDependInfoTy = VPOParoptUtils::getOrCreateStructType(
+      F, "__struct.kmp_depend_info", KmpTaskDependTyArgs);
 }
 
 // Build struct kmp_task_t {
@@ -248,8 +249,8 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
   IntegerType *Int64Ty = Type::getInt64Ty(C);
 
   Type *KmpCmplrdataTyArgs[] = {KmpRoutineEntryPtrTy};
-  StructType *KmpCmplrdataTy =
-      StructType::get(C, KmpCmplrdataTyArgs, /*"union.kmp_cmplrdata_t"*/false);
+  StructType *KmpCmplrdataTy = VPOParoptUtils::getOrCreateStructType(
+      F, "__union.kmp_cmplrdata_t", KmpCmplrdataTyArgs);
 
   Type *KmpTaskTyArgs[] = {Type::getInt8PtrTy(C),
                            KmpRoutineEntryPtrTy,
@@ -261,7 +262,8 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
                            Int64Ty,
                            Int32Ty};
 
-  KmpTaskTTy = StructType::get(C, KmpTaskTyArgs, /*"struct.kmp_task_t"*/false);
+  KmpTaskTTy = VPOParoptUtils::getOrCreateStructType(F, "__struct.kmp_task_t",
+                                                     KmpTaskTyArgs);
 }
 
 // Generate the struct type kmpc_task_t as well as its private data
@@ -374,20 +376,21 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     }
   }
 
-  KmpPrivatesTy = StructType::get(
+  KmpPrivatesTy = StructType::create(
       C, makeArrayRef(KmpPrivatesIndices.begin(), KmpPrivatesIndices.end()),
-      /*"struct.kmp_privates.t"*/ false);
+      "__struct.kmp_privates.t", false);
 
-  KmpSharedTy = StructType::get(
+  KmpSharedTy = StructType::create(
       C, makeArrayRef(SharedIndices.begin(), SharedIndices.end()),
-      /*"struct.shared.t"*/ false);
+      "__struct.shared.t", false);
 
   KmpTaksTWithPrivatesTyArgs.push_back(KmpPrivatesTy);
 
   StructType *KmpTaskTTWithPrivatesTy =
-      StructType::get(C, makeArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
-                                         KmpTaksTWithPrivatesTyArgs.end()),
-                         /*"struct.kmp_task_t_with_privates"*/ false);
+      StructType::create(C,
+                         makeArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
+                                      KmpTaksTWithPrivatesTyArgs.end()),
+                         "__struct.kmp_task_t_with_privates", false);
 
   return KmpTaskTTWithPrivatesTy;
 }
@@ -515,7 +518,8 @@ bool VPOParoptTransform::genTaskLoopInitCode(
       Indices.push_back(Builder.getInt32(0));
       Indices.push_back(Builder.getInt32(PrivI->getThunkIdx()));
       Value *ThunkPrivatesGep =
-          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
+          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices,
+                                    PrivI->getOrig()->getName() + ".gep");
       PrivI->setNew(ThunkPrivatesGep);
     }
   }
@@ -527,7 +531,8 @@ bool VPOParoptTransform::genTaskLoopInitCode(
       Indices.push_back(Builder.getInt32(0));
       Indices.push_back(Builder.getInt32(FprivI->getThunkIdx()));
       Value *ThunkPrivatesGep =
-          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
+          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices,
+                                    FprivI->getOrig()->getName() + ".gep");
       FprivI->setNew(ThunkPrivatesGep);
     }
   }
@@ -536,14 +541,16 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     LastprivateClause &LprivClause = W->getLpriv();
     if (!LprivClause.empty()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
+        StringRef OrigName = LprivI->getOrig()->getName();
         Indices.clear();
         Indices.push_back(Builder.getInt32(0));
         Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
-        Value *ThunkPrivatesGep =
-            Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
-        Value *ThunkSharedGep =
-            Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
-        Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
+        Value *ThunkPrivatesGep = Builder.CreateInBoundsGEP(
+            KmpPrivatesTy, PrivatesGep, Indices, OrigName + ".gep");
+        Value *ThunkSharedGep = Builder.CreateInBoundsGEP(
+            KmpSharedTy, SharedCast, Indices, OrigName + ".shr.gep");
+        Value *ThunkSharedVal =
+            Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr.val");
         // Parm is used to record the address of last private in the compiler
         // shared variables in the thunk.
         LprivI->setNew(ThunkPrivatesGep);
@@ -558,16 +565,21 @@ bool VPOParoptTransform::genTaskLoopInitCode(
                                      IRBuilder<> &Builder) {
     if (!RedClause.empty()) {
       for (ReductionItem *RedI : RedClause.items()) {
+        StringRef OrigName = RedI->getOrig()->getName();
         Indices.clear();
         Indices.push_back(Builder.getInt32(0));
         Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
-        Value *ThunkSharedGep =
-            Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
-        Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
+        Value *ThunkSharedGep = Builder.CreateInBoundsGEP(
+            KmpSharedTy, SharedCast, Indices, OrigName + ".shr.gep");
+        Value *ThunkSharedVal =
+            Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr.val");
         Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
             W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
             Mode & OmpTbb);
-        RedI->setNew(Builder.CreateBitCast(RedRes, RedI->getOrig()->getType()));
+        RedRes->setName(OrigName + ".red");
+        Value *RedResCast = Builder.CreateBitCast(
+            RedRes, RedI->getOrig()->getType(), OrigName + ".red.cast");
+        RedI->setNew(RedResCast);
       }
     }
   };
@@ -585,12 +597,15 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   SharedClause &ShaClause = W->getShared();
   if (!ShaClause.empty()) {
     for (SharedItem *ShaI : ShaClause.items()) {
+      StringRef OrigName = ShaI->getOrig()->getName();
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
       Indices.push_back(Builder.getInt32(ShaI->getThunkIdx()));
-      Value *ThunkSharedGep =
-          Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
-      ShaI->setNew(Builder.CreateLoad(ThunkSharedGep));
+      Value *ThunkSharedGep = Builder.CreateInBoundsGEP(
+          KmpSharedTy, SharedCast, Indices, OrigName + ".shr.gep");
+      Value *ThunkSharedVal =
+          Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr.val");
+      ShaI->setNew(ThunkSharedVal);
     }
   }
 
@@ -983,10 +998,10 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
     KmpTaskTDependVecTyArgs.push_back(KmpTaskDependInfoTy);
 
   StructType *KmpTaskTDependVecTy =
-      StructType::get(C,
+      StructType::create(C,
                          makeArrayRef(KmpTaskTDependVecTyArgs.begin(),
                                       KmpTaskTDependVecTyArgs.end()),
-                         /*"struct.kmp_task_depend_vec"*/ false);
+                         "__struct.kmp_task_depend_vec", false);
 
   IRBuilder<> Builder(InsertBefore);
   AllocaInst *DummyTaskTDependVec =
@@ -1047,9 +1062,9 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
   for (int I = 0; I < RedClause.size(); I++)
     KmpTaskTRedRecTyArgs.push_back(KmpTaskTRedTy);
 
-  StructType *KmpTaskTTRedRecTy = StructType::get(
+  StructType *KmpTaskTTRedRecTy = StructType::create(
       C, makeArrayRef(KmpTaskTRedRecTyArgs.begin(), KmpTaskTRedRecTyArgs.end()),
-      /*"struct.kmp_task_t_red_rec"*/ false);
+      "__struct.kmp_task_t_red_rec", false);
 
   IRBuilder<> Builder(InsertBefore);
   AllocaInst *DummyTaskTRedRec =

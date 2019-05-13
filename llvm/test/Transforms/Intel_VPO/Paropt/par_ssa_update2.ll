@@ -48,17 +48,18 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
+%__struct.ident_t = type { i32, i32, i32, i32, i8* }
 %class.Thermo = type { i32, i32, i32, i32*, double*, double*, double*, double, double, double, double, double, double, double, double, %class.ThreadData*, double }
 %class.ThreadData = type { i32, i32, i32, i32 }
 %class.Atom = type { i32, i32, i32, i32, double**, double**, double**, double**, %class.ThreadData*, double, double, i32, i32, i32, %struct.Box }
 %struct.Box = type { double, double, double, double, double, double, double, double, double }
 
 @"@tid.addr" = external global i32
-@.kmpc_loc.0.0.6 = external hidden unnamed_addr constant { i32, i32, i32, i32, i8* }
-@.kmpc_loc.0.0.8 = external hidden unnamed_addr constant { i32, i32, i32, i32, i8* }
-@.kmpc_loc.0.0.10 = external hidden unnamed_addr constant { i32, i32, i32, i32, i8* }
-@.kmpc_loc.0.0.12 = external hidden unnamed_addr constant { i32, i32, i32, i32, i8* }
-@.kmpc_loc.0.0.14 = external hidden unnamed_addr constant { i32, i32, i32, i32, i8* }
+@.kmpc_loc.0.0.6 = external hidden unnamed_addr constant %__struct.ident_t
+@.kmpc_loc.0.0.8 = external hidden unnamed_addr constant %__struct.ident_t
+@.kmpc_loc.0.0.10 = external hidden unnamed_addr constant %__struct.ident_t
+@.kmpc_loc.0.0.12 = external hidden unnamed_addr constant %__struct.ident_t
+@.kmpc_loc.0.0.14 = external hidden unnamed_addr constant %__struct.ident_t
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #0
@@ -84,7 +85,7 @@ entry:
   %t_act = getelementptr inbounds %class.Thermo, %class.Thermo* %this, i32 0, i32 7
   store double 0.000000e+00, double* %t_act, align 8, !tbaa !2
   %my.tid37 = load i32, i32* @"@tid.addr", align 4
-  call void @__kmpc_barrier({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.14, i32 %my.tid37)
+  call void @__kmpc_barrier(%__struct.ident_t* @.kmpc_loc.0.0.14, i32 %my.tid37)
   %v2 = getelementptr inbounds %class.Atom, %class.Atom* %atom, i32 0, i32 5
   %1 = load double**, double*** %v2, align 8, !tbaa !11
   %2 = load double*, double** %1, align 8, !tbaa !15
@@ -160,18 +161,18 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
   call void @llvm.lifetime.end.p0i8(i64 4, i8* %20) #1
   call void @llvm.lifetime.end.p0i8(i64 4, i8* %3) #1
   %my.tid36 = load i32, i32* @"@tid.addr", align 4
-  call void @__kmpc_atomic_float8_add({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.12, i32 %my.tid36, double* %t_act, double %t.2)
+  call void @__kmpc_atomic_float8_add(%__struct.ident_t* @.kmpc_loc.0.0.12, i32 %my.tid36, double* %t_act, double %t.2)
   %my.tid35 = load i32, i32* @"@tid.addr", align 4
-  call void @__kmpc_barrier({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.10, i32 %my.tid35)
+  call void @__kmpc_barrier(%__struct.ident_t* @.kmpc_loc.0.0.10, i32 %my.tid35)
   %my.tid = load i32, i32* @"@tid.addr", align 4
-  %21 = call i32 @__kmpc_master({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.6, i32 %my.tid)
+  %21 = call i32 @__kmpc_master(%__struct.ident_t* @.kmpc_loc.0.0.6, i32 %my.tid)
   %22 = icmp eq i32 %21, 1
   br i1 %22, label %if.then.master.3, label %DIR.OMP.END.MASTER.15
 
 if.then.master.3:                                 ; preds = %omp.precond.end
   %23 = load double, double* %t_act, align 8, !tbaa !2
   %my.tid34 = load i32, i32* @"@tid.addr", align 4
-  call void @__kmpc_end_master({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.8, i32 %my.tid34)
+  call void @__kmpc_end_master(%__struct.ident_t* @.kmpc_loc.0.0.8, i32 %my.tid34)
   br label %DIR.OMP.END.MASTER.15
 
 DIR.OMP.END.MASTER.15:                            ; preds = %if.then.master.3, %omp.precond.end
@@ -183,13 +184,13 @@ DIR.OMP.END.MASTER.15:                            ; preds = %if.then.master.3, %
   ret double %mul32
 }
 
-declare i32 @__kmpc_master({ i32, i32, i32, i32, i8* }*, i32)
+declare i32 @__kmpc_master(%__struct.ident_t*, i32)
 
-declare void @__kmpc_end_master({ i32, i32, i32, i32, i8* }*, i32)
+declare void @__kmpc_end_master(%__struct.ident_t*, i32)
 
-declare void @__kmpc_barrier({ i32, i32, i32, i32, i8* }*, i32)
+declare void @__kmpc_barrier(%__struct.ident_t*, i32)
 
-declare void @__kmpc_atomic_float8_add({ i32, i32, i32, i32, i8* }*, i32, double*, double)
+declare void @__kmpc_atomic_float8_add(%__struct.ident_t*, i32, double*, double)
 
 attributes #0 = { argmemonly nounwind }
 attributes #1 = { nounwind }

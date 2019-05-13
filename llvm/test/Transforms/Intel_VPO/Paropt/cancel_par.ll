@@ -53,7 +53,7 @@ entry:
 ; #pragma omp parallel
 ; Updated region exit intrinsic after vpo-paropt-prepare
 ; PREPR: %{{[a-zA-Z._0-9]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),{{.*}} "QUAL.OMP.CANCELLATION.POINTS"(i32* [[CP4ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP3ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]], i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]]) ]
-; TFORM: %{{[a-zA-Z._0-9]+}} = tail call i32 @__kmpc_ok_to_fork({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}})
+; TFORM: %{{[a-zA-Z._0-9]+}} = tail call i32 @__kmpc_ok_to_fork({{[^,]+}})
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"() ]
   %2 = load i32, i32* @i, align 4, !tbaa !2
@@ -62,10 +62,10 @@ entry:
   %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str, i32 0, i32 0), i32 %2)
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SINGLE"() ]
 ; #pragama omp single
-; ALL: %{{[a-zA-Z._0-9]+}} = call i32 @__kmpc_single({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
-; ALL  call void @__kmpc_end_single({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
+; ALL: %{{[a-zA-Z._0-9]+}} = call i32 @__kmpc_single({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}})
+; ALL  call void @__kmpc_end_single({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}})
 ; Implicit barrier for single
-; ALL: [[CBARRIER1:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
+; ALL: [[CBARRIER1:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}})
 ; PREPR-NEXT: store i32 [[CBARRIER1]], i32* [[CP1ALLOCA]]
 ; TFORM-NOT: store i32 [[CBARRIER1]], i32* {{%[0-9]+}}
 ; TFORM: [[CHECK1:%cancel.check[0-9]*]] = icmp ne i32 [[CBARRIER1]], 0
@@ -74,7 +74,7 @@ entry:
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCEL"(), "QUAL.OMP.CANCEL.PARALLEL"() ]
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.CANCEL"() ]
 ; #pragma omp cancel
-; ALL: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancel({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 1)
+; ALL: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancel({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 1)
 ; PREPR-NEXT: store i32 [[CANCEL1]], i32* [[CP2ALLOCA]]
 ; TFORM-NOT: store i32 [[CANCEL1]], i32* {{%[0-9]+}}
 ; TFORM: [[CHECK2:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL1]], 0
@@ -82,13 +82,13 @@ entry:
 
 ; Exit label for cancel/cancellationpoint with cancel_barrier
 ; TFORM: [[PAREXITLABEL1]]:{{.*}}
-; TFORM: [[CBARRIER4:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
+; TFORM: [[CBARRIER4:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}})
 ; TFORM-NEXT: br label %[[PAREXITLABEL]]
 
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.BARRIER"() ]
   call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.BARRIER"() ]
 ; #pragma omp barrier
-; ALL: [[CBARRIER2:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
+; ALL: [[CBARRIER2:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}})
 ; PREPR-NEXT: store i32 [[CBARRIER2]], i32* [[CP3ALLOCA]]
 ; TFORM-NOT: store i32 [[CBARRIER2]], i32* {{%[0-9]+}}
 ; TFORM-NEXT: [[CHECK3:%cancel.check[0-9]*]] = icmp ne i32 [[CBARRIER2]], 0
@@ -110,7 +110,7 @@ entry:
   store i32 0, i32* %.omp.is_last, align 4, !tbaa !2
   %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* @j) ]
 ; #pragma omp for
-; TFORM:  call void @__kmpc_for_static_init_4({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i32 34, i32* %is.last, i32* %lower.bnd, i32* %upper.bnd, i32* %stride, i32 1, i32 1)
+; TFORM:  call void @__kmpc_for_static_init_4({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i32 34, i32* %is.last, i32* %lower.bnd, i32* %upper.bnd, i32* %stride, i32 1, i32 1)
 
   %11 = load i32, i32* %.omp.lb, align 4, !tbaa !2
   store i32 %11, i32* %.omp.iv, align 4, !tbaa !2
@@ -145,9 +145,9 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.LOOP"() ]
-; TFORM: call void @__kmpc_for_static_fini({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}})
+; TFORM: call void @__kmpc_for_static_fini({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}})
 ; Implicit barrier for omp for
-; TFORM: [[CBARRIER3:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
+; TFORM: [[CBARRIER3:%[0-9]+]] = call i32 @__kmpc_cancel_barrier({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}})
 ; TFORM-NEXT: [[CHECK4:%cancel.check[0-9]*]] = icmp ne i32 [[CBARRIER3]], 0
 ; TFORM-NEXT: br i1 [[CHECK4]], label %[[PAREXITLABEL]], label %{{[a-zA-Z._0-9]+}}
 
@@ -164,7 +164,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
   %22 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCELLATION.POINT"(), "QUAL.OMP.CANCEL.PARALLEL"() ]
   call void @llvm.directive.region.exit(token %22) [ "DIR.OMP.END.CANCELLATION.POINT"() ]
 ; #pragma omp cancellation point
-; ALL: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 1)
+; ALL: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 1)
 ; PREPR-NEXT: store i32 [[CANCEL2]], i32* [[CP4ALLOCA]]
 ; TFORM-NOT: store i32 [[CANCEL2]], i32* {{%[0-9]+}}
 ; TFORM-NEXT: [[CHECK5:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL2]], 0
@@ -176,8 +176,8 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
 ; Reduction Handling
-; TFORM: call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
-; TFORM: call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
+; TFORM: call void @__kmpc_critical({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
+; TFORM: call void @__kmpc_end_critical({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
 
   %24 = load i32, i32* @x, align 4, !tbaa !2
   %call4 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str.2, i32 0, i32 0), i32 %24)

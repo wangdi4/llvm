@@ -140,18 +140,12 @@ Instruction* VPOParoptTpvLegacy::getThreadNum(Value *V, Function *F) {
       TidTable[F] = NewLoad;
     }
     else {
-      LLVMContext &C = F->getContext();
-      StructType *IdentTy = StructType::get(C, {Type::getInt32Ty(C),
-                                Type::getInt32Ty(C),
-                                Type::getInt32Ty(C),
-                                Type::getInt32Ty(C),
-                                Type::getInt8PtrTy(C)}
-                            );
-      CallInst *RI = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, &*(EntryBB->getFirstInsertionPt()), IdentTy);
+      StructType *IdentTy = VPOParoptUtils::getIdentStructType(F);
+      CallInst *RI = VPOParoptUtils::genKmpcGlobalThreadNumCall(
+          F, &*(EntryBB->getFirstInsertionPt()), IdentTy);
       TidTable[F] = RI;
       RI->insertBefore(EntryBB->getTerminator());
     }
-
   }
 
   return TidTable[F];
@@ -313,12 +307,7 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   //   store i8* %7, i8** %0
   Instruction *AI = ElseBB->getTerminator();
   LLVMContext &C = F->getContext();
-  StructType *IdentTy = StructType::get(C, {Type::getInt32Ty(C),
-                                Type::getInt32Ty(C),
-                                Type::getInt32Ty(C),
-                                Type::getInt32Ty(C),
-                                Type::getInt8PtrTy(C)}
-                            );
+  StructType *IdentTy = VPOParoptUtils::getIdentStructType(F);
 
   PointerType *GVPtrType = cast<PointerType>(V->getType());
   if (V->getType() != Type::getInt8PtrTy(C))
