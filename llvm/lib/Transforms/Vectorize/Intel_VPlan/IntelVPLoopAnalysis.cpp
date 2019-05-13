@@ -34,7 +34,7 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
 // Temporary flag to disable loop entities import until CMPLRLLVM-9026 is
 // fixed.
 cl::opt<bool>
-    LoopEntityImportEnabled("vplan-import-entities", cl::init(false),
+    LoopEntityImportEnabled("vplan-import-entities", cl::init(true),
                             cl::Hidden,
                             cl::desc("Enable VPloop entities import"));
 

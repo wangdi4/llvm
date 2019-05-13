@@ -48,9 +48,11 @@ private:
 
   std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                            unsigned &EndRangeVF,
-                                           LLVMContext *Context) override {
+                                           LLVMContext *Context,
+                                           const DataLayout *DL) override {
     // Create new empty VPlan
-    std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA, Context);
+    std::shared_ptr<VPlan> SharedPlan =
+        std::make_shared<VPlan>(VPLA, Context, DL);
     VPlan *Plan = SharedPlan.get();
 
     // Build hierarchical CFG

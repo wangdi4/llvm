@@ -28,6 +28,7 @@ add_llvm_library(LLVMVectorize
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp
   Intel_VPlan/IntelVPlanLoopInfo.cpp
   Intel_VPlan/IntelVPLoopAnalysis.cpp
+  Intel_VPlan/IntelVPlanVectorShape.cpp
   Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp

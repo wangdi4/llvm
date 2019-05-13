@@ -589,7 +589,7 @@ bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
   if (EnableNewVPlanPredicator)
     LVP.setUseNewPredicator();
 
-  if (!LVP.buildInitialVPlans(&Fn.getContext())) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
@@ -848,7 +848,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   if (EnableNewVPlanPredicator)
     LVP.setUseNewPredicator();
 
-  if (!LVP.buildInitialVPlans(&Fn.getContext())) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }

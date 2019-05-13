@@ -1107,7 +1107,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     // i.e., values are either uniform or divergent for all VFs.
     VPLoop *CandidateLoop = *VPLInfo->begin();
     auto VPDA = make_unique<VPlanDivergenceAnalysis>();
-    VPDA->compute(CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
+    VPDA->compute(Plan, CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
     Plan->setVPlanDA(std::move(VPDA));
   }
 

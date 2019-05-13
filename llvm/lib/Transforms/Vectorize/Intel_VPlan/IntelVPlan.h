@@ -595,6 +595,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPVLSClientMemrefHIR;
   friend class VPlanCostModel;
   friend class VPlanCostModelProprietary;
+  friend class VPlanDivergenceAnalysis;
   friend class VPlanIdioms;
   friend class VPlanVLSAnalysis;
   friend class VPlanVLSAnalysisHIR;
@@ -2518,6 +2519,7 @@ private:
   LLVMContext *Context = nullptr;
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
+  const DataLayout *DL = nullptr;
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -2587,8 +2589,8 @@ public:
   UniformsTy UniformCBVs;
 
   VPlan(std::shared_ptr<VPLoopAnalysisBase> VPLA, LLVMContext *Context,
-        VPBlockBase *Entry = nullptr)
-      : Context(Context), Entry(Entry), VPLA(VPLA) {}
+        const DataLayout *DL, VPBlockBase *Entry = nullptr)
+      : Context(Context), DL(DL), Entry(Entry), VPLA(VPLA) {}
 #endif
   VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
 
@@ -2622,6 +2624,8 @@ public:
   LLVMContext *getLLVMContext(void) const { return Context; }
 
   VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA.get(); }
+
+  const DataLayout* getDataLayout() const { return DL; }
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {

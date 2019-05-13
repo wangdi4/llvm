@@ -101,7 +101,8 @@ static uint64_t getTripCountForFirstLoopInDfs(const VPlan *VPlan) {
   return VPlan->getVPLoopAnalysis()->getTripCountFor(Loop);
 }
 
-unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context) {
+unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
+                                                      const DataLayout *DL) {
   collectDeadInstructions();
 
   unsigned MinVF, MaxVF;
@@ -186,7 +187,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context) {
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<VPlan> Plan =
-        buildInitialVPlan(StartRangeVF, EndRangeVF, Context);
+        buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
@@ -424,9 +425,11 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 }
 
 std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context) {
+    unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context,
+    const DataLayout *DL) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(VPLA, Context);
+  std::shared_ptr<VPlan> SharedPlan =
+      std::make_shared<VPlan>(VPLA, Context, DL);
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG

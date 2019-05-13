@@ -67,6 +67,9 @@ class VPValue {
   friend class VPlanPredicator;
   friend class VPlanHCFGBuilder;
   friend class VPOCodeGen;
+  friend class VPlanDivergenceAnalysis;
+  friend class VPVectorShape;
+  friend class VPInstruction;
 #endif
 
 private:
@@ -342,6 +345,7 @@ public:
 class VPConstant : public VPValue {
   // VPlan is currently the context where we hold the pool of VPConstants.
   friend class VPlan;
+  friend class VPlanDivergenceAnalysis;
 
 protected:
   VPConstant(Constant *Const)

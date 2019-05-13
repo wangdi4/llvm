@@ -39,6 +39,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "IntelVPLoopAnalysis.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanLoopInfo.h"
@@ -51,10 +52,71 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vplan-divergence-analysis"
 
+#define Uni VPVectorShape::Uni
+#define Seq VPVectorShape::Seq
+#define Ptr VPVectorShape::Ptr
+#define Str VPVectorShape::Str
+#define Rnd VPVectorShape::Rnd
+#define Undef VPVectorShape::Undef
+
+const VPVectorShape::VPShapeDescriptor
+AddConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
+  /*           Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
+  /* Uni   */ {Uni,   Seq,   Ptr,   Str,   Rnd,   Undef},
+  /* Seq   */ {Seq,   Str,   Str,   Str,   Rnd,   Undef},
+  /* Ptr   */ {Ptr,   Str,   Str,   Str,   Rnd,   Undef},
+  /* Str   */ {Str,   Str,   Str,   Str,   Rnd,   Undef},
+  /* Rnd   */ {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Undef */ {Undef, Undef, Undef, Undef, Undef, Undef}
+};
+
+const VPVectorShape::VPShapeDescriptor
+SubConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
+  /*           Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
+  /* Uni   */ {Uni,   Str,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Seq   */ {Seq,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Ptr   */ {Ptr,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Str   */ {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Rnd   */ {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Undef */ {Undef, Undef, Undef, Undef, Undef, Undef}
+};
+
+const VPVectorShape::VPShapeDescriptor
+MulConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
+  /*            Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
+  /* Uni   */  {Uni,   Str,   Str,   Str,   Rnd,   Undef},
+  /* Seq   */  {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Ptr   */  {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Str   */  {Str,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Rnd   */  {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Undef */  {Undef, Undef, Undef, Undef, Undef, Undef}
+};
+
+const VPVectorShape::VPShapeDescriptor
+GepConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
+  /* ptr\index   Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
+  /* Uni   */   {Uni,   Ptr,   Rnd,   Str,   Rnd,   Undef},
+  /* Seq   */   {Ptr,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Ptr   */   {Ptr,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Str   */   {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Rnd   */   {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Undef */   {Undef, Undef, Undef, Undef, Undef, Undef}
+};
+
+const VPVectorShape::VPShapeDescriptor
+SelectConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
+  /*            Uni,   Seq,   Ptr,   Str,   Rnd,   Undef */
+  /* Uni   */  {Uni,   Str,   Str,   Str,   Rnd,   Undef},
+  /* Seq   */  {Str,   Seq,   Str,   Str,   Rnd,   Undef},
+  /* Ptr   */  {Str,   Str,   Ptr,   Str,   Rnd,   Undef},
+  /* Str   */  {Str,   Str,   Str,   Str,   Rnd,   Undef},
+  /* Rnd   */  {Rnd,   Rnd,   Rnd,   Rnd,   Rnd,   Undef},
+  /* Undef */  {Undef, Undef, Undef, Undef, Undef, Undef}
+};
+
 void VPlanDivergenceAnalysis::markDivergent(const VPValue &DivVal) {
   // Community version also checks to see if DivVal is a function argument.
   // For VPlan, function arguments are ExternalDefs, so check that here instead.
-  assert(isa<VPInstruction>(DivVal) || isa<VPExternalDef>(DivVal));
   assert(!isAlwaysUniform(DivVal) && "cannot be a divergent");
   DivergentValues.insert(&DivVal);
 }
@@ -63,6 +125,7 @@ void VPlanDivergenceAnalysis::addUniformOverride(const VPValue &UniVal) {
   UniformOverrides.insert(&UniVal);
 }
 
+#if INTEL_CUSTOMIZATION
 // TODO: temporary until a getPhis() interface is added to VPlan and the
 // Phis are added during HCFG construction.
 static void getPhis(const VPBlockBase *Block,
@@ -76,6 +139,7 @@ static void getPhis(const VPBlockBase *Block,
     }
   }
 }
+#endif
 
 #if !INTEL_CUSTOMIZATION
 // This is used in the community version because br instructions are explicit.
@@ -237,28 +301,31 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(const VPBlockBase &LoopHeader) {
 }
 
 void VPlanDivergenceAnalysis::pushPHINodes(const VPBlockBase &Block,
-                                           bool PushAll) {
+                                           bool PushAll) { // INTEL
 
+#if INTEL_CUSTOMIZATION
   SmallVector<const VPInstruction *, 2> PhiNodes;
   // Once again, no phis() interface in VPlan
   getPhis(&Block, PhiNodes);
   for (const auto *Phi : PhiNodes) {
     if (isDivergent(*Phi) && !PushAll)
+#endif
       continue;
     Worklist.push_back(Phi);
   }
 }
 
-void VPlanDivergenceAnalysis::pushUsers(const VPValue &V) {
+void VPlanDivergenceAnalysis::pushUsers(const VPValue &V,
+                                        bool PushAll) { // INTEL
   for (const auto *User : V.users()) {
     const auto *UserInst = dyn_cast<const VPInstruction>(User);
     if (!UserInst)
       continue;
 
-    if (isDivergent(*UserInst))
+    if (isDivergent(*UserInst) && !PushAll) // INTEL
       continue;
 
-    // only compute divergent inside loop
+    // only compute divergent/shapes inside loop
     if (!inRegion(*UserInst))
       continue;
     Worklist.push_back(UserInst);
@@ -285,11 +352,13 @@ bool VPlanDivergenceAnalysis::propagateJoinDivergence(
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
 // Main source of community code divergence here is that we don't represent
 // branch instructions explicitly in VPlan yet. Thus, we have to use the
 // condition of the branch to determine if the branch is divergent. Not a big
 // deal, but we should be able to easily match the community code once VPlan
 // is updated.
+#endif
 void VPlanDivergenceAnalysis::propagateBranchDivergence(const VPValue &Cond) {
   const VPInstruction *CondInst = cast<VPInstruction>(&Cond);
   LLVM_DEBUG(dbgs() << "propBranchDiv " << CondInst->getParent()->getName()
@@ -358,7 +427,24 @@ void VPlanDivergenceAnalysis::propagateLoopDivergence(
   }
 }
 
+#if INTEL_CUSTOMIZATION
+bool VPlanDivergenceAnalysis::pushMissingOperands(const VPInstruction &I) {
+  bool MissingOp = false;
+  for (const auto &Op : I.operands()) {
+    if (getVectorShape(Op)->isUndefined()) {
+      auto *OpInst = dyn_cast<VPInstruction>(Op);
+      if (OpInst) {
+        Worklist.push_back(OpInst);
+        MissingOp = true;
+      }
+    }
+  }
+  return MissingOp;
+}
+#endif
+
 void VPlanDivergenceAnalysis::computeImpl() {
+
   for (auto *DivVal : DivergentValues)
     pushUsers(*DivVal);
 
@@ -385,6 +471,8 @@ void VPlanDivergenceAnalysis::computeImpl() {
     const VPValue *Cond = I.getParent()->getCondBit();
     if (&I == Cond) {
       if (updateNormalInstruction(I)) {
+        VPVectorShape *NewShape = getRandomVectorShape();
+        updateVectorShape(&I, NewShape);
         // propagate control divergence to affected instructions
         propagateBranchDivergence(*Cond);
         continue;
@@ -402,12 +490,31 @@ void VPlanDivergenceAnalysis::computeImpl() {
     }
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+    VPVectorShape *NewShape = nullptr;
+
+    bool IsPhiNode = (I.getOpcode() == Instruction::PHI);
+    bool ShapeUpdated = false;
+    if (IsPhiNode) {
+      pushMissingOperands(I);
+      NewShape = computeVectorShape(&I);
+      ShapeUpdated = updateVectorShape(&I, NewShape);
+    } else if (pushMissingOperands(I)) {
+      continue;
+    } else {
+      NewShape = computeVectorShape(&I);
+      ShapeUpdated = updateVectorShape(&I, NewShape);
+    }
+
+    if (ShapeUpdated)
+      pushUsers(I, true);
+#endif // INTEL_CUSTOMIZATION
+
     // update divergence of I due to divergent operands
     bool DivergentUpd = false;
     // community code divergence is the check on opcode instead of doing
     // dyn_cast<PHINode>.
-    unsigned OpCode = I.getOpcode();
-    if (OpCode == Instruction::PHI)
+    if (IsPhiNode)
       DivergentUpd = updatePHINode(I);
     else
       DivergentUpd = updateNormalInstruction(I);
@@ -420,19 +527,125 @@ void VPlanDivergenceAnalysis::computeImpl() {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+bool VPlanDivergenceAnalysis::isUniformLoopEntity(const VPValue *V) const {
+  if (isa<VPExternalDef>(V) &&
+      !(RegionLoopEntities->getReduction(V) ||
+        RegionLoopEntities->getInduction(V) ||
+        RegionLoopEntities->getPrivate(V)))
+    return true;
+  return false;
+}
+#endif
+
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
   return (UniformOverrides.find(&V) != UniformOverrides.end() ||
-          isa<VPExternalDef>(V) || isa<VPMetadataAsValue>(V));
+          isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) ||
+          isa<VPExternalDef>(V));
+// TODO: We have a choice on how to handle functions such as get_global_id().
+// Currently, OCL VecClone is already treating such calls as linear and
+// hoisting them outside of the inserted loop. As such, it adds the appropriate
+// stride to any users. Thus, here we treat these calls as uniform because the
+// added instructions by OCL VecClone to calculate stride will cause DA to
+// propagate the correct stride as is. The call to isUniformLoopEntity has
+// been commented out because of this since support has now been added to
+// make these calls VPInduction objects. If this line is uncommented, the
+// incorrect stride will be propagated. Later, we can always allow DA to
+// use this call instead of VecClone treating the calls as linear. Either way
+// is correct.
+          //isUniformLoopEntity(&V));
 }
 
 bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {
   return DivergentValues.find(&V) != DivergentValues.end();
 }
 
+#if INTEL_CUSTOMIZATION
+VPVectorShape* VPlanDivergenceAnalysis::getVectorShape(const VPValue *V) {
+  std::unique_ptr<VPVectorShape> &ShapePtr = VectorShapes[V];
+  if (ShapePtr)
+    return ShapePtr.get();
+  return UndefShape.get();
+}
+
+bool VPlanDivergenceAnalysis::shapesAreDifferent(VPVectorShape *OldShape,
+                                                 VPVectorShape *NewShape) {
+  if (OldShape && NewShape &&
+      (OldShape->getShapeDescriptor() != NewShape->getShapeDescriptor() ||
+       (OldShape->hasKnownStride() && NewShape->hasKnownStride() &&
+        OldShape->getStrideVal() != NewShape->getStrideVal()))) {
+    return true;
+  }
+  return false;
+}
+
+bool VPlanDivergenceAnalysis::updateVectorShape(const VPValue *V,
+                                                VPVectorShape *Shape) {
+  VPVectorShape *OldShape = getVectorShape(V);
+
+  // Has shape changed in any way?
+  if (shapesAreDifferent(OldShape, Shape)) {
+    std::unique_ptr<VPVectorShape> &ShapePtr = VectorShapes[V];
+    if (ShapePtr)
+      VectorShapes[V].reset(Shape);
+    else {
+      ShapePtr.reset(Shape);
+      VectorShapes[V] = std::move(ShapePtr);
+    }
+    return true;
+  }
+  return false;
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::getUniformVectorShape() {
+  return new VPVectorShape(VPVectorShape::Uni, getConstantInt(0));
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::getRandomVectorShape() {
+  return new VPVectorShape(VPVectorShape::Rnd);
+}
+
+void VPlanDivergenceAnalysis::setVectorShapesForUniforms(const VPLoop *VPLp) {
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(VPLp->getHeader());
+  for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
+    if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
+      for (auto &Recipe : VPBB->getRecipes()) {
+        if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
+          if (const VPValue *V = dyn_cast<VPValue>(VPInst)) {
+            if (!isDivergent(*V) && getVectorShape(VPInst)->isUndefined()) {
+              VPVectorShape *NewShape = getUniformVectorShape();
+              updateVectorShape(VPInst, NewShape);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+void VPlanDivergenceAnalysis::verifyVectorShapes(const VPLoop *VPLp) {
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(VPLp->getHeader());
+  for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
+    if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
+      for (auto &Recipe : VPBB->getRecipes()) {
+        if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
+          VPVectorShape *Shape = getVectorShape(VPInst);
+          assert(!Shape->isUndefined() && "Shape has not been defined");
+          if (!isDivergent(*VPInst) && !Shape->isUniform())
+            llvm_unreachable("Uniform inst shape not defined as uniform");
+          if (isDivergent(*VPInst) && Shape->isUniform())
+            llvm_unreachable("Divergent inst shape defined as uniform");
+        }
+      }
+    }
+  }
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#if INTEL_CUSTOMIZATION
 // print function differs from the community version because VPlan is VPLoop
 // based and not Module based (function DA).
-void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) const {
+void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
 
   LLVM_DEBUG(dbgs() << "\nPrinting Divergence info for " << *VPLp << "\n");
   ReversePostOrderTraversal<VPBlockBase *> RPOT(VPLp->getHeader());
@@ -442,10 +655,12 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) const {
       for (auto &Recipe : VPBB->getRecipes()) {
         if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
           if (const VPValue *V = dyn_cast<VPValue>(VPInst)) {
-            if (DivergentValues.find(V) != DivergentValues.end())
-              LLVM_DEBUG(OS << "Divergent: "; V->dump(OS));
+            if (isDivergent(*V))
+              LLVM_DEBUG(OS << "Divergent: ");
             else
-              LLVM_DEBUG(OS << "Uniform: "; V->dump(OS));
+              LLVM_DEBUG(OS << "Uniform: ");
+            LLVM_DEBUG(getVectorShape(V)->print(OS); OS << ' ');
+            LLVM_DEBUG(V->dump(OS));
           }
         }
       }
@@ -453,40 +668,522 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) const {
     }
   }
 }
+#endif // INTEL_CUSTOMIZATION
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void VPlanDivergenceAnalysis::compute(VPLoop *CandidateLoop,
+VPConstant* VPlanDivergenceAnalysis::getConstantInt(int64_t Val) {
+  LLVMContext &C = *Plan->getLLVMContext();
+  ConstantInt *CInt = ConstantInt::get(Type::getInt64Ty(C), Val);
+  VPConstant *VPCInt = new VPConstant(CInt);
+  return VPCInt;
+}
+
+bool VPlanDivergenceAnalysis::getConstantIntVal(VPValue *V, uint64_t &IntVal) {
+  if (V && isa<VPConstant>(V)) {
+    Constant *C = cast<Constant>(V->getUnderlyingValue());
+    if (ConstantInt *CInt = dyn_cast<ConstantInt>(C)) {
+      IntVal = CInt->getSExtValue();
+      return true;
+    }
+  }
+  return false;
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
+    const VPInstruction *I) {
+
+  VPValue *Op0 = I->getOperand(0);
+  VPValue *Op1 = I->getOperand(1);
+
+  LLVMContext &C = *Plan->getLLVMContext();
+
+  if (getVectorShape(Op0)->isUniform() && getVectorShape(Op1)->isUniform())
+    return getUniformVectorShape();
+
+  // Put VPConstants on the right-hand side of the expression for commutative
+  // instructions. This can later be used to calculate a new known stride for I
+  // given that the left-hand side has a known stride.
+  if (!isa<VPConstant>(Op1) && Instruction::isCommutative(I->getOpcode()))
+    std::swap(Op0, Op1);
+
+  VPVectorShape *Shape0 = getVectorShape(Op0);
+  VPVectorShape *Shape1 = getVectorShape(Op1);
+  VPVectorShape::VPShapeDescriptor Desc0 = Shape0->getShapeDescriptor();
+  VPVectorShape::VPShapeDescriptor Desc1 = Shape1->getShapeDescriptor();
+
+  switch (I->getOpcode()) {
+    case Instruction::Mul:
+    case Instruction::FMul: {
+      // A constant integer multiplied by a known stride results in another
+      // known stride that has been scaled.
+      VPValue *NewStride = nullptr;
+      uint64_t Op1IntVal;
+      uint64_t Op0StrideIntVal;
+      bool Op1IsInt = getConstantIntVal(Op1, Op1IntVal);
+      bool Shape0StrideIsInt = getConstantIntVal(Shape0->getStride(),
+                                                 Op0StrideIntVal);
+      if (Op1IsInt && Shape0StrideIsInt) {
+        uint64_t NewStrideVal = Op1IntVal * Op0StrideIntVal;
+        ConstantInt *NewStrideInt = ConstantInt::get(Type::getInt64Ty(C),
+                                                     NewStrideVal);
+        NewStride = new VPConstant(NewStrideInt);
+      }
+
+      VPVectorShape::VPShapeDescriptor NewDesc;
+      // Not sure if we can assume mul by 0/1 is optimized since we can
+      // vectorize at O0/O1.
+      if (Op1IntVal == 0)
+        NewDesc = VPVectorShape::Uni;
+      else if (Op1IntVal == 1)
+        NewDesc = Shape0->getShapeDescriptor();
+      else
+        NewDesc = MulConversion[Desc0][Desc1];
+      return new VPVectorShape(NewDesc, NewStride);
+    }
+    case Instruction::Add:
+    case Instruction::FAdd: {
+      VPValue *NewStride = nullptr;
+      uint64_t Op0StrideIntVal;
+      uint64_t Op1StrideIntVal;
+      bool Op0StrideIsInt = getConstantIntVal(Shape0->getStride(),
+                                              Op0StrideIntVal);
+      bool Op1StrideIsInt = getConstantIntVal(Shape1->getStride(),
+                                              Op1StrideIntVal);
+      if (Op0StrideIsInt && Op1StrideIsInt) {
+        uint64_t NewStrideVal = Op0StrideIntVal + Op1StrideIntVal;
+        ConstantInt *NewStrideInt = ConstantInt::get(Type::getInt64Ty(C),
+                                                     NewStrideVal);
+        NewStride = new VPConstant(NewStrideInt);
+      }
+      VPVectorShape::VPShapeDescriptor NewDesc = AddConversion[Desc0][Desc1];
+      return new VPVectorShape(NewDesc, NewStride);
+    }
+    case Instruction::Sub:
+    case Instruction::FSub: {
+      VPValue *NewStride = nullptr;
+      uint64_t Op0StrideIntVal;
+      uint64_t Op1StrideIntVal;
+      bool Op0StrideIsInt = getConstantIntVal(Shape0->getStride(),
+                                              Op0StrideIntVal);
+      bool Op1StrideIsInt = getConstantIntVal(Shape1->getStride(),
+                                              Op1StrideIntVal);
+      if (Op0StrideIsInt && Op1StrideIsInt) {
+        uint64_t NewStrideVal = Op0StrideIntVal - Op1StrideIntVal;
+        ConstantInt *NewStrideInt = ConstantInt::get(Type::getInt64Ty(C),
+                                                     NewStrideVal);
+        NewStride = new VPConstant(NewStrideInt);
+      }
+      VPVectorShape::VPShapeDescriptor NewDesc = SubConversion[Desc0][Desc1];
+      return new VPVectorShape(NewDesc, NewStride);
+    }
+    default:
+      return getRandomVectorShape();
+  }
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
+    const VPInstruction *I) {
+
+  VPValue *Op0 = I->getOperand(0);
+  VPVectorShape *Shape0 = getVectorShape(Op0);
+  if (Shape0->isUniform())
+    return getUniformVectorShape();
+
+  switch (I->getOpcode()) {
+    case Instruction::SExt:
+    case Instruction::PtrToInt:
+    case Instruction::IntToPtr:
+    case Instruction::SIToFP:
+    case Instruction::UIToFP:
+    case Instruction::FPToUI:
+    case Instruction::FPToSI:
+    case Instruction::AddrSpaceCast:
+      return new VPVectorShape(Shape0->getShapeDescriptor(),
+                               Shape0->getStride());
+    default:
+      return getRandomVectorShape();
+  }
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForGepInst(
+    const VPInstruction *I) {
+
+  const VPValue* PtrOp = I->getOperand(0);
+  VPVectorShape *PtrShape = getVectorShape(PtrOp);
+  unsigned NumOperands = I->getNumOperands();
+  // If any of the gep indices, except the last, are not uniform, then return
+  // random shape.
+  for (unsigned i = 1; i < NumOperands - 1; i++) {
+    const VPValue *Op = I->getOperand(i);
+    VPVectorShape *OpShape = getVectorShape(Op);
+    if (!OpShape->isUniform())
+      return getRandomVectorShape();
+  }
+
+  const VPValue* LastIdx = I->getOperand(NumOperands - 1);
+  VPVectorShape *IdxShape = getVectorShape(LastIdx);
+
+  VPConstant *NewStride = nullptr;
+
+  VPVectorShape::VPShapeDescriptor PtrShapeDesc =
+      PtrShape->getShapeDescriptor();
+
+  VPVectorShape::VPShapeDescriptor IdxShapeDesc =
+      IdxShape->getShapeDescriptor();
+
+  VPVectorShape::VPShapeDescriptor NewDesc =
+      GepConversion[PtrShapeDesc][IdxShapeDesc];
+
+  // If shape is not random, then a new stride (in bytes) can be calculated for
+  // the gep. Gep stride is always in bytes.
+  if (NewDesc != VPVectorShape::Rnd) {
+    // BaseType of Gep should be a pointer type referring to a non-aggregate
+    // type (i.e., scalar or vector type). For example, this should hold true
+    // for multi-dim arrays.
+    // Examples: float* -> float,
+    //           [3000 x [3000 x i32]]* -> i32,
+    //           <4 x i32>* -> <4 x i32>
+    Type *PointedToTy = cast<PointerType>(I->getType())->getElementType();
+    uint64_t PointedToTySize =
+        Plan->getDataLayout()->getTypeSizeInBits(PointedToTy) >> 3;
+    // For known strides:
+    // 1) Uniform gep should result in 0 stride (i.e., pointer and idx are
+    //    uniform).
+    // 2) When strides are known for both pointer and idx, new stride should
+    //    also be known.
+    // Otherwise, if either stride is unknown, this should result in an unknown
+    // stride (nullptr).
+    if (PtrShape->hasKnownStride() && IdxShape->hasKnownStride()) {
+      VPValue *PtrStride = PtrShape->getStride();
+      VPValue *IdxStride = IdxShape->getStride();
+      // It's possible that the ptr value is represented as an integer that has
+      // a non-ptr stride. i.e., shape is unit stride or strided and not
+      // represented in bytes. And, the gep index is uniform. To get the stride
+      // in bytes for these cases, we can simply swap the shapes of the ptr and
+      // index.
+      if (IdxShape->isUniform() && PtrShape->isAnyStridedNonPtr())
+        std::swap(PtrStride, IdxStride);
+      uint64_t PtrStrideVal =
+          cast<ConstantInt>(PtrStride->getUnderlyingValue())->getSExtValue();
+      uint64_t IdxStrideVal =
+          cast<ConstantInt>(IdxStride->getUnderlyingValue())->getSExtValue();
+      NewStride = getConstantInt(PtrStrideVal + PointedToTySize * IdxStrideVal);
+    }
+  }
+  return new VPVectorShape(NewDesc, NewStride);
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForPhiNode(
+    const VPPHINode *Phi) {
+
+  // If any incoming value shape is temporalily divergent (uniform in loop,
+  // divergent out-side loop), then the phi shape is random.
+  for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
+    VPValue *IncomingVal = Phi->getIncomingValue(i);
+    if (isTemporalDivergent(*Phi->getParent(), *IncomingVal))
+      return getRandomVectorShape();
+  }
+
+  // Incoming value shapes could be uniform, but the parent of the phi node may
+  // be reached through a divergent branch. If so, the phi is divergent and
+  // return random shape.
+  if (isJoinDivergent(*Phi->getParent()))
+    return getRandomVectorShape();
+
+  // Compute shape for phi node.
+  SmallVector<VPVectorShape*, 2> Shapes;
+  VPVectorShape *NewShape = new VPVectorShape(VPVectorShape::Undef);
+  Shapes.push_back(NewShape);
+  for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
+    VPValue *IncomingVal = Phi->getIncomingValue(i);
+    VPVectorShape *IncomingShape = getVectorShape(IncomingVal);
+    NewShape = VPVectorShape::joinShapes(NewShape, IncomingShape);
+    Shapes.push_back(NewShape);
+  }
+
+  // Delete all shapes except the last one. These were all just temporary
+  // leading up to the final shape computation.
+  for (unsigned i = 0; i < Shapes.size() - 1; i++)
+    delete Shapes[i];
+
+  // Prevent undefined phi nodes from causing an infinite loop. If divergence is
+  // ever propagated to the phi, then isJoinDivergent() becomes true and a new
+  // shape will be computed. The infinite loop is possible for phis that stay
+  // uniform because they can have cyclic dependencies on other uniform
+  // VPInstructions. Thus, pushMissingOperands() will continuously push the
+  // undefined operands of the phi, which will in turn push the phi node again,
+  // causing the infinite loop.
+  if (NewShape->isUndefined() && !isJoinDivergent(*Phi->getParent()))
+    NewShape = getUniformVectorShape();
+
+  return NewShape;
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForLoadInst(
+    const VPInstruction *I) {
+
+  VPValue *PtrOp = I->getOperand(0);
+  VPVectorShape *PtrShape = getVectorShape(PtrOp);
+  // Uniform DummyShape is used here instead of nullptr to avoid joinShapes from
+  // returning the same shape as PtrShape. This would occur if PtrShape is
+  // strided, but strided Ptr will most likely not return strided values. Thus,
+  // this will force joinShapes to return either uniform or random.
+  VPVectorShape *DummyShape = getUniformVectorShape();
+  VPVectorShape *NewShape = VPVectorShape::joinShapes(DummyShape, PtrShape);
+  delete DummyShape;
+  return NewShape;
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForStoreInst(
+    const VPInstruction *I) {
+
+  VPValue *ValOp = I->getOperand(0);
+  VPValue *PtrOp = I->getOperand(1);
+  VPVectorShape *ValShape = getVectorShape(ValOp);
+  VPVectorShape *PtrShape = getVectorShape(PtrOp);
+  return VPVectorShape::joinShapes(ValShape, PtrShape);
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForCmpInst(
+    const VPCmpInst *I) {
+
+  // For now, shape optimizations for compare instructions are kept basic. For
+  // integer comparisons, we can introduce other uniformity optimizations based
+  // on KnownBits, but those have been excluded for now.
+  VPValue *Op0 = I->getOperand(0);
+  VPValue *Op1 = I->getOperand(1);
+  VPVectorShape *Shape0 = getVectorShape(Op0);
+  VPVectorShape *Shape1 = getVectorShape(Op1);
+
+  if (Shape0->isUniform() && Shape1->isUniform())
+    return getUniformVectorShape();
+
+  return getRandomVectorShape();
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForInsertExtractInst(
+    const VPInstruction *I) {
+
+  VPValue *VectorOp = I->getOperand(0);
+  VPValue *IdxOp = I->getOperand(1);
+  VPVectorShape *VectorOpShape = getVectorShape(VectorOp);
+  VPVectorShape *IdxOpShape = getVectorShape(IdxOp);
+  return VPVectorShape::joinShapes(VectorOpShape, IdxOpShape);
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForSelectInst(
+    const VPInstruction *I) {
+
+  VPValue *Mask = I->getOperand(0);
+  VPVectorShape *MaskShape = getVectorShape(Mask);
+  if (MaskShape->isUniform()) {
+    VPValue *Op1 = I->getOperand(1);
+    VPValue *Op2 = I->getOperand(2);
+    VPVectorShape *Shape1 = getVectorShape(Op1);
+    VPVectorShape *Shape2 = getVectorShape(Op2);
+    VPVectorShape::VPShapeDescriptor Shape1Desc = Shape1->getShapeDescriptor();
+    VPVectorShape::VPShapeDescriptor Shape2Desc = Shape2->getShapeDescriptor();
+    uint64_t MaskConstIntVal;
+    bool MaskIsConstInt = getConstantIntVal(Mask, MaskConstIntVal);
+    if (isa<VPConstant>(Mask) && MaskIsConstInt) {
+      if (MaskConstIntVal)
+        // mask = 1, shape is inherited from Op1
+        return new VPVectorShape(Shape1Desc, Shape1->getStride());
+      else
+        // mask == 0, shape is inherited from Op2
+        return new VPVectorShape(Shape2Desc, Shape2->getStride());
+    }
+
+    VPVectorShape::VPShapeDescriptor NewDesc =
+        SelectConversion[Shape1Desc][Shape2Desc];
+
+    VPValue *NewStride = nullptr;
+    if (NewDesc == VPVectorShape::Uni)
+      NewStride = getConstantInt(0);
+
+    return new VPVectorShape(NewDesc, NewStride);
+  }
+
+  // Non-uniform mask results in selection of values from Op1 and Op2.
+  return getRandomVectorShape();
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForCallInst(
+    const VPInstruction *I) {
+
+  // Will need to add support for functions with known shapes; e.g., something
+  // similiar to get_global_id. However, get_global_id takes a single integer
+  // constant argument. Because of that, divergence propagation will not see
+  // this instruction because divergence properties will not be passed to calls
+  // with all arguments known to always be uniform. Thus, shape propgatation for
+  // these types of functions will be handled in intializeKnownShapes. But,
+  // there could be other instructions that behave the same way that can be
+  // handled here.
+  bool AllOpsUniform = true;
+  unsigned NumOps = I->getNumOperands() - 1;
+  for (unsigned i = 0; i < NumOps; i++) {
+    VPValue* Op = I->getOperand(i);
+    if (!getVectorShape(Op)->isUniform()) {
+      AllOpsUniform = false;
+      break;
+    }
+  }
+
+  if (AllOpsUniform)
+    return getUniformVectorShape();
+
+  return getRandomVectorShape();
+}
+
+VPVectorShape* VPlanDivergenceAnalysis::computeVectorShape(
+    const VPInstruction *I) {
+
+  // Note: It is assumed at this point that shapes for all operands of I have
+  // been defined, with the possible exception of phi nodes. Shape computation
+  // for phi nodes can still happen without all operands being defined. See
+  // computeImpl() and computeVectorShapeForPhiNode().
+
+  if (isa<VPPHINode>(I))
+    return computeVectorShapeForPhiNode(cast<VPPHINode>(I));
+
+  VPVectorShape *NewShape = nullptr;
+  unsigned Opcode = I->getOpcode();
+
+  if (Instruction::isBinaryOp(Opcode))
+    NewShape = computeVectorShapeForBinaryInst(I);
+  else if (Instruction::isCast(Opcode))
+    NewShape = computeVectorShapeForCastInst(I);
+  else if (Opcode == Instruction::GetElementPtr)
+    NewShape = computeVectorShapeForGepInst(I);
+  else if (Opcode == Instruction::Load)
+    NewShape = computeVectorShapeForLoadInst(I);
+  else if (Opcode == Instruction::Store)
+    NewShape = computeVectorShapeForStoreInst(I);
+  else if (Opcode == Instruction::ICmp || Opcode == Instruction::FCmp)
+    NewShape = computeVectorShapeForCmpInst(cast<VPCmpInst>(I));
+  else if (Opcode == Instruction::InsertElement ||
+           Opcode == Instruction::ExtractElement)
+    NewShape = computeVectorShapeForInsertExtractInst(I);
+  else if (Opcode == Instruction::Select)
+    NewShape = computeVectorShapeForSelectInst(I);
+  else if (Opcode == Instruction::Call)
+    NewShape = computeVectorShapeForCallInst(I);
+  else {
+    LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
+    NewShape = getRandomVectorShape();
+    //llvm_unreachable("Instruction not supported\n");
+  }
+
+  return NewShape;
+}
+
+void VPlanDivergenceAnalysis::initializeShapes(
+    SmallVectorImpl<const VPInstruction*> &PhiNodes) {
+
+  // Initialize all outer loop phi induction nodes using the appropriate
+  // strides. We could also initialize VPExternalDefs to uniform here, but
+  // we can do that only the fly in computeVectorShapes() to avoid an
+  // additional iteration over the instructions in the VPlan.
+  for (const auto *Phi : PhiNodes) {
+    VPVectorShape *NewShape = nullptr;
+    if (const VPInduction *Ind =
+        RegionLoopEntities->getInduction(cast<VPInstruction>(Phi))) {
+      const VPValue *Step = Ind->getStep();
+      NewShape =
+          new VPVectorShape(VPVectorShape::Seq, const_cast<VPValue*>(Step));
+    } else
+      // To be conservative, we mark phi nodes with random shape unless we
+      // know the phi is an induction. This matches the divergent property
+      // set for outer loop phi nodes just before this step. See beginning
+      // of compute().
+      NewShape = getRandomVectorShape();
+
+    updateVectorShape(Phi, NewShape);
+  }
+
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(RegionLoop->getHeader());
+  for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
+    if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
+      for (auto &Recipe : VPBB->getRecipes()) {
+        if (const VPInstruction *VPInst = dyn_cast<VPInstruction>(&Recipe)) {
+          // If any operands of the instruction are always known to be
+          // uniform, set the shape as uniform. This will also cover cases
+          // where some instructions have all uniform operands that are
+          // external definitions and for which shapes will not be defined
+          // during divergence propagation. I.e., shape propagation happens
+          // through def/use chains and these instructions are not using
+          // other values defined within the region. Thus, these instructions
+          // will never be "seen" while propagating divergence and shape
+          // information and would result in shapes being undefined for them.
+          unsigned NumOps = VPInst->getNumOperands();
+          for (unsigned i = 0; i < NumOps; i++) {
+            const VPValue* Op = VPInst->getOperand(i);
+            if (isAlwaysUniform(*Op)) {
+              VPVectorShape *NewShape = getUniformVectorShape();
+              updateVectorShape(Op, NewShape);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
+void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
                                       VPLoopInfo *VPLInfo,
                                       VPDominatorTree &VPDomTree,
                                       VPPostDominatorTree &VPPostDomTree,
                                       bool IsLCSSA) {
 
+  Plan = P;
   RegionLoop = CandidateLoop;
+  RegionLoopEntities = Plan->getOrCreateLoopEntities(CandidateLoop);
   VPLI = VPLInfo;
   DT = &VPDomTree;
   IsLCSSAForm = IsLCSSA;
   SDA = new SyncDependenceAnalysis(CandidateLoop->getHeader(), VPDomTree,
                                    VPPostDomTree, *VPLInfo);
 
+#if INTEL_CUSTOMIZATION
   // community code divergence due to no phis() interface
   SmallVector<const VPInstruction *, 2> PhiNodes;
   getPhis(CandidateLoop->getHeader(), PhiNodes);
   for (const auto *Phi : PhiNodes) {
+#endif
     markDivergent(*Phi);
   }
 
-  // after the scalar remainder loop is extracted, the loop exit condition will
-  // be uniform
-  // Source of code divergence here away from community - no getTerminator()
+  // After the scalar remainder loop is extracted, the loop exit condition will
+  // be uniform. Source of code divergence here away from community - no
+  // getTerminator() interface.
   VPBlockBase *ExitingBlock = CandidateLoop->getExitingBlock();
   if (ExitingBlock) {
     auto LoopExitCond = ExitingBlock->getCondBit();
     assert(LoopExitCond && "Loop exit condition not found");
-    if (LoopExitCond)
+    if (LoopExitCond) {
       addUniformOverride(*LoopExitCond);
+      VPVectorShape *NewShape = getUniformVectorShape();
+      updateVectorShape(LoopExitCond, NewShape);
+    }
   }
 
+#if INTEL_CUSTOMIZATION
+  // Propagate linearity - start at vector loop candidate header phi nodes.
+  UndefShape = make_unique<VPVectorShape>(VPVectorShape::Undef);
+  initializeShapes(PhiNodes);
+#endif
+
   computeImpl();
+
+#if INTEL_CUSTOMIZATION
+  // Mark all remaining uniform instructions as having a uniform shape. This
+  // isn't necessarily required because we can determine uniformity without
+  // checking the vector shape information, but this will ensure a shape is
+  // set for all instructions for consistency.
+  setVectorShapesForUniforms(CandidateLoop);
+  //verifyVectorShapes(CandidateLoop);
+#endif
 
   LLVM_DEBUG(print(dbgs(), CandidateLoop));
 }
