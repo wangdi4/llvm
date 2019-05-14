@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/TimeProfiler.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/JSON.h"
 #include <cassert>
 #include <chrono>
 #include <string>
@@ -31,30 +31,6 @@ static cl::opt<unsigned> TimeTraceGranularity(
     cl::init(500));
 
 TimeTraceProfiler *TimeTraceProfilerInstance = nullptr;
-
-static std::string escapeString(StringRef Src) {
-  std::string OS;
-  for (const unsigned char &C : Src) {
-    switch (C) {
-    case '"':
-    case '/':
-    case '\\':
-    case '\b':
-    case '\f':
-    case '\n':
-    case '\r':
-    case '\t':
-      OS += '\\';
-      OS += C;
-      break;
-    default:
-      if (isPrint(C)) {
-        OS += C;
-      }
-    }
-  }
-  return OS;
-}
 
 typedef duration<steady_clock::rep, steady_clock::period> DurationType;
 typedef std::pair<size_t, DurationType> CountAndDurationType;
@@ -111,17 +87,25 @@ struct TimeTraceProfiler {
   void Write(raw_pwrite_stream &OS) {
     assert(Stack.empty() &&
            "All profiler sections should be ended when calling Write");
-
-    OS << "{ \"traceEvents\": [\n";
+    json::OStream J(OS);
+    J.objectBegin();
+    J.attributeBegin("traceEvents");
+    J.arrayBegin();
 
     // Emit all events for the main flame graph.
     for (const auto &E : Entries) {
       auto StartUs = duration_cast<microseconds>(E.Start - StartTime).count();
       auto DurUs = duration_cast<microseconds>(E.Duration).count();
-      OS << "{ \"pid\":1, \"tid\":0, \"ph\":\"X\", \"ts\":" << StartUs
-         << ", \"dur\":" << DurUs << ", \"name\":\"" << escapeString(E.Name)
-         << "\", \"args\":{ \"detail\":\"" << escapeString(E.Detail)
-         << "\"} },\n";
+
+      J.object([&]{
+        J.attribute("pid", 1);
+        J.attribute("tid", 0);
+        J.attribute("ph", "X");
+        J.attribute("ts", StartUs);
+        J.attribute("dur", DurUs);
+        J.attribute("name", E.Name);
+        J.attributeObject("args", [&] { J.attribute("detail", E.Detail); });
+      });
     }
 
     // Emit totals by section name as additional "thread" events, sorted from
@@ -140,17 +124,37 @@ struct TimeTraceProfiler {
     for (const auto &E : SortedTotals) {
       auto DurUs = duration_cast<microseconds>(E.second.second).count();
       auto Count = CountAndTotalPerName[E.first].first;
-      OS << "{ \"pid\":1, \"tid\":" << Tid << ", \"ph\":\"X\", \"ts\":" << 0
-         << ", \"dur\":" << DurUs << ", \"name\":\"Total "
-         << escapeString(E.first) << "\", \"args\":{ \"count\":" << Count
-         << ", \"avg ms\":" << (DurUs / Count / 1000) << "} },\n";
+
+      J.object([&]{
+        J.attribute("pid", 1);
+        J.attribute("tid", Tid);
+        J.attribute("ph", "X");
+        J.attribute("ts", 0);
+        J.attribute("dur", DurUs);
+        J.attribute("name", "Total " + E.first);
+        J.attributeObject("args", [&] {
+          J.attribute("count", int64_t(Count));
+          J.attribute("avg ms", int64_t(DurUs / Count / 1000));
+        });
+      });
+
       ++Tid;
     }
 
     // Emit metadata event with process name.
-    OS << "{ \"cat\":\"\", \"pid\":1, \"tid\":0, \"ts\":0, \"ph\":\"M\", "
-          "\"name\":\"process_name\", \"args\":{ \"name\":\"clang\" } }\n";
-    OS << "] }\n";
+    J.object([&] {
+      J.attribute("cat", "");
+      J.attribute("pid", 1);
+      J.attribute("tid", 0);
+      J.attribute("ts", 0);
+      J.attribute("ph", "M");
+      J.attribute("name", "process_name");
+      J.attributeObject("args", [&] { J.attribute("name", "clang"); });
+    });
+
+    J.arrayEnd();
+    J.attributeEnd();
+    J.objectEnd();
   }
 
   SmallVector<Entry, 16> Stack;
