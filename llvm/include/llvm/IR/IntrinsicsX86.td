@@ -5037,11 +5037,27 @@ let TargetPrefix = "x86" in {
         Intrinsic<[ llvm_v32f16_ty ],
                   [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
                   [ IntrNoMem, ImmArg<2> ]>;
+  def int_x86_avx512fp16_max_ph_128
+      : GCCBuiltin<"__builtin_ia32_maxph128">,
+        Intrinsic<[ llvm_v8f16_ty ],
+                  [ llvm_v8f16_ty, llvm_v8f16_ty ], [ IntrNoMem ]>;
+  def int_x86_avx512fp16_max_ph_256
+      : GCCBuiltin<"__builtin_ia32_maxph256">,
+        Intrinsic<[ llvm_v16f16_ty ],
+                  [ llvm_v16f16_ty, llvm_v16f16_ty ], [ IntrNoMem ]>;
   def int_x86_avx512fp16_max_ph_512
       : GCCBuiltin<"__builtin_ia32_maxph512">,
         Intrinsic<[ llvm_v32f16_ty ],
                   [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
                   [ IntrNoMem, ImmArg<2> ]>;
+  def int_x86_avx512fp16_min_ph_128
+      : GCCBuiltin<"__builtin_ia32_minph128">,
+        Intrinsic<[ llvm_v8f16_ty ],
+                  [ llvm_v8f16_ty, llvm_v8f16_ty ], [ IntrNoMem ]>;
+  def int_x86_avx512fp16_min_ph_256
+      : GCCBuiltin<"__builtin_ia32_minph256">,
+        Intrinsic<[ llvm_v16f16_ty ],
+                  [ llvm_v16f16_ty, llvm_v16f16_ty ], [ IntrNoMem ]>;
   def int_x86_avx512fp16_min_ph_512
       : GCCBuiltin<"__builtin_ia32_minph512">,
         Intrinsic<[ llvm_v32f16_ty ],

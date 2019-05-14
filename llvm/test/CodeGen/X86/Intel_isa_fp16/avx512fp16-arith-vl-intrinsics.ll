@@ -245,3 +245,41 @@ define <8 x half> @test_max_ph_128(<8 x half> %x1, <8 x half> %x2) {
   %res1 = select <8 x i1> %res0, <8 x half> %x1, <8 x half> %x2
   ret  <8 x half> %res1
 }
+
+declare <8 x half> @llvm.x86.avx512fp16.max.ph.128(<8 x half>, <8 x half>)
+declare <16 x half> @llvm.x86.avx512fp16.max.ph.256(<16 x half>, <16 x half>)
+
+define <8 x half> @test_max_ph_128_2(<8 x half> %x1, <8 x half> %x2) {
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmaxph  %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res0 = call <8 x half> @llvm.x86.avx512fp16.max.ph.128(<8 x half> %x1, <8 x half> %x2)
+  ret  <8 x half> %res0
+}
+
+define <16 x half> @test_max_ph_256_2(<16 x half> %x1, <16 x half> %x2) {
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmaxph  %ymm1, %ymm0, %ymm0
+; CHECK-NEXT:    retq
+  %res0 = call <16 x half> @llvm.x86.avx512fp16.max.ph.256(<16 x half> %x1, <16 x half> %x2)
+  ret  <16 x half> %res0
+}
+
+declare <8 x half> @llvm.x86.avx512fp16.min.ph.128(<8 x half>, <8 x half>)
+declare <16 x half> @llvm.x86.avx512fp16.min.ph.256(<16 x half>, <16 x half>)
+
+define <8 x half> @test_min_ph_128_2(<8 x half> %x1, <8 x half> %x2) {
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vminph  %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res0 = call <8 x half> @llvm.x86.avx512fp16.min.ph.128(<8 x half> %x1, <8 x half> %x2)
+  ret  <8 x half> %res0
+}
+
+define <16 x half> @test_min_ph_256_2(<16 x half> %x1, <16 x half> %x2) {
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vminph  %ymm1, %ymm0, %ymm0
+; CHECK-NEXT:    retq
+  %res0 = call <16 x half> @llvm.x86.avx512fp16.min.ph.256(<16 x half> %x1, <16 x half> %x2)
+  ret  <16 x half> %res0
+}

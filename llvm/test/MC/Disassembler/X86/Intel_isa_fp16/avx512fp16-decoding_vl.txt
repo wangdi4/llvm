@@ -1,5 +1,5 @@
-// REQUIRES: intel_feature_isa_fp16
-// RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding --disassemble < %s  | FileCheck %s
+# REQUIRES: intel_feature_isa_fp16
+# RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding --disassemble < %s  | FileCheck %s
 
 # CHECK: vcmpph $123, %ymm28, %ymm29, %k5
 0x62,0x93,0x14,0x20,0xc2,0xec,0x7b
