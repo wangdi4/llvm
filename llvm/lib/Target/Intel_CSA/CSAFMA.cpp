@@ -59,8 +59,9 @@ static cl::opt<unsigned> FMAControl("csa-global-fma-control",
 static bool checkFMAControl(unsigned F) { return (FMAControl & F) == F; }
 
 /// Immediate values for float and double 1.0
-static const int64_t F32One = 0x3f800000L;
-static const int64_t F64One = 0x3ff0000000000000LL;
+static const int64_t F32One   = 0x3f800000L;
+static const int64_t F64One   = 0x3ff0000000000000LL;
+static const int64_t V2F32One = 0x3f8000003f800000LL;
 
 /// Definition for FMAExprSPCommon's static data.
 const uint8_t FMAExprSPCommon::TermZERO;
@@ -216,26 +217,32 @@ public:
 
 const FMAOpcodes::FMAOpcodeDesc FMAOpcodes::Descs[] = {
     // ADD
-    {CSA::ADDF32, MVT::f32, ADDOpc},
-    {CSA::ADDF64, MVT::f64, ADDOpc},
+    {CSA::ADDF32,    MVT::f32,   ADDOpc},
+    {CSA::ADDF64,    MVT::f64,   ADDOpc},
+    {CSA::ADDF32X2,  MVT::v2f32, ADDOpc},
     // SUB
-    {CSA::SUBF32, MVT::f32, SUBOpc},
-    {CSA::SUBF64, MVT::f64, SUBOpc},
+    {CSA::SUBF32,    MVT::f32,   SUBOpc},
+    {CSA::SUBF64,    MVT::f64,   SUBOpc},
+    {CSA::SUBF32X2,  MVT::v2f32, SUBOpc},
     // MUL
-    {CSA::MULF32, MVT::f32, MULOpc},
-    {CSA::MULF64, MVT::f64, MULOpc},
+    {CSA::MULF32,    MVT::f32,   MULOpc},
+    {CSA::MULF64,    MVT::f64,   MULOpc},
+    {CSA::MULF32X2,  MVT::v2f32, MULOpc},
     // NEG
-    {CSA::NEGF32, MVT::f32, NEGOpc},
-    {CSA::NEGF64, MVT::f64, NEGOpc},
+    {CSA::NEGF32,    MVT::f32,   NEGOpc},
+    {CSA::NEGF64,    MVT::f64,   NEGOpc},
     // FMA
-    {CSA::FMAF32, MVT::f32, FMAOpc},
-    {CSA::FMAF64, MVT::f64, FMAOpc},
+    {CSA::FMAF32,    MVT::f32,   FMAOpc},
+    {CSA::FMAF64,    MVT::f64,   FMAOpc},
+    {CSA::FMAF32X2,  MVT::v2f32, FMAOpc},
     // FMS
-    {CSA::FMSF32, MVT::f32, FMSOpc},
-    {CSA::FMSF64, MVT::f64, FMSOpc},
+    {CSA::FMSF32,    MVT::f32,   FMSOpc},
+    {CSA::FMSF64,    MVT::f64,   FMSOpc},
+    {CSA::FMSF32X2,  MVT::v2f32, FMSOpc},
     // FMRS
-    {CSA::FMRSF32, MVT::f32, FMRSOpc},
-    {CSA::FMRSF64, MVT::f64, FMRSOpc}
+    {CSA::FMRSF32,   MVT::f32,   FMRSOpc},
+    {CSA::FMRSF64,   MVT::f64,   FMRSOpc},
+    {CSA::FMRSF32X2, MVT::v2f32, FMRSOpc}
 };
 
 FMAOpcodes::FMAOpcodes() {
@@ -705,6 +712,8 @@ public:
       return Imm == F32One;
     case MVT::f64:
       return Imm == F64One;
+    case MVT::v2f32:
+      return Imm == V2F32One;
     default:
       llvm_unreachable("Unsupported type");
     }
@@ -1528,6 +1537,8 @@ public:
       return createImm(VT, F32One);
     case MVT::f64:
       return createImm(VT, F64One);
+    case MVT::v2f32:
+      return createImm(VT, V2F32One);
     default:
       llvm_unreachable("Unsupported type");
     }
@@ -1661,6 +1672,28 @@ unsigned FMABasicBlock::parseBasicBlock(const FMAOpcodes &Opcodes,
     if (!Opcodes.recognizeOpcode(MI.getOpcode(), VT, Kind, MulSign, AddSign))
       continue;
 
+    // For vector forms make sure that instruction does not have swizzles.
+    if (VT.isVector()) {
+      unsigned FirstSwizzleOp = 0u;
+      switch (Kind) {
+      case FMAOpcodes::ADDOpc:
+      case FMAOpcodes::SUBOpc:
+      case FMAOpcodes::MULOpc:
+        FirstSwizzleOp = 3u;
+        break;
+      case FMAOpcodes::FMAOpc:
+      case FMAOpcodes::FMSOpc:
+      case FMAOpcodes::FMRSOpc:
+        FirstSwizzleOp = 4u;
+        break;
+      default:
+        llvm_unreachable("Unsupported opcode kind.");
+      }
+      for (unsigned I = 0u; I < 3u; ++I)
+        if (MI.getOperand(FirstSwizzleOp + I).getImm())
+          continue;
+    }
+
     std::array<FMANode *, 3u> Ops;
     switch (Kind) {
     case FMAOpcodes::MULOpc: // op1 * op2 + 0
@@ -1668,8 +1701,8 @@ unsigned FMABasicBlock::parseBasicBlock(const FMAOpcodes &Opcodes,
       Ops[1] = createRegOrImm(VT, MI.getOperand(2));
       Ops[2] = createZero(VT);
       break;
-    case FMAOpcodes::ADDOpc: // op1 * 1 + op3
-    case FMAOpcodes::SUBOpc: // op1 * 1 - op3
+    case FMAOpcodes::ADDOpc: // op1 * 1 + op2
+    case FMAOpcodes::SUBOpc: // op1 * 1 - op2
       Ops[0] = createRegOrImm(VT, MI.getOperand(1));
       Ops[1] = createOne(VT);
       Ops[2] = createRegOrImm(VT, MI.getOperand(2));
@@ -2032,7 +2065,7 @@ void CSAGlobalFMA::generateOutputIR(const FMAExpr &Expr, const FMADag &Dag,
   };
 
   std::array<unsigned, FMADagCommon::MaxNumOfNodesInDAG> ResultRegs;
-  SmallVector<MachineOperand, 3> MOs;
+  SmallVector<MachineOperand, 6u> MOs;
 
   for (unsigned NodeInd = Dag.getNumNodes() - 1; NodeInd != ~0U; NodeInd--) {
     MOs.clear();
@@ -2113,6 +2146,9 @@ void CSAGlobalFMA::generateOutputIR(const FMAExpr &Expr, const FMADag &Dag,
     if (SwapAC)
       std::swap(MOs[0], MOs[1]);
 
+    if (VT.isVector())
+      std::fill_n(std::back_inserter(MOs), 3u, MachineOperand::CreateImm(0));
+
     // Create the new instructions.
     auto OldDst = MI->getOperand(0).getReg();
     auto NewDst =
@@ -2125,12 +2161,30 @@ void CSAGlobalFMA::generateOutputIR(const FMAExpr &Expr, const FMADag &Dag,
     (void)NewMI;
 
     if (NegateResult) {
-      auto NegOpc = Opcodes->getOpcode(FMAOpcodes::NEGOpc, VT);
-      auto NegMI = BuildMI(MBB, MI, MI->getDebugLoc(), TII->get(NegOpc), OldDst)
-                       .setMIFlags(MI->getFlags())
-                       .addUse(NewDst);
-      LLVM_DEBUG(dbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *NegMI);
-      (void)NegMI;
+      unsigned Opc = 0u;
+      int64_t  Imm = 0;
+      switch (VT.SimpleTy) {
+      case MVT::f32:
+        Opc = CSA::XOR32;
+        Imm = 0x80000000L;
+        break;
+      case MVT::f64:
+        Opc = CSA::XOR64;
+        Imm = 0x8000000000000000LL;
+        break;
+      case MVT::v2f32:
+        Opc = CSA::XOR64;
+        Imm = 0x8000000080000000LL;
+        break;
+      default:
+        llvm_unreachable("Unsupported type");
+      }
+
+      auto XorMI = BuildMI(MBB, MI, MI->getDebugLoc(), TII->get(Opc), OldDst)
+                       .addUse(NewDst)
+                       .addImm(Imm);
+      LLVM_DEBUG(dbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *XorMI);
+      (void)XorMI;
     }
 
     if (NodeInd)

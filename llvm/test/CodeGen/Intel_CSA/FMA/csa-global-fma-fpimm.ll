@@ -37,3 +37,21 @@ entry:
   %add2 = fadd fast double %add, %mul1
   ret double %add2
 }
+
+define <2 x float> @test_f32x2(<2 x float> %a, <2 x float> %b, <2 x float> %c) {
+; CHECK:       .entry  test_f32x2
+; CHECK-NEXT:  .result .lic .i0
+; CHECK-NEXT:  .result .lic .i64 [[RET:%.+]]
+; CHECK-NEXT:  .param .lic .i0
+; CHECK-NEXT:  .param .lic .i64 [[A:%.+]]
+; CHECK-NEXT:  .param .lic .i64 [[B:%.+]]
+; CHECK-NEXT:  .param .lic .i64 [[C:%.+]]
+; CHECK:       fmaf32x2        [[T0:%.+]], [[A]], [[B]], 0x3f8000003f800000, 0, 0, 0
+; CHECK-NEXT:  fmaf32x2        [[RET]], [[T0]], [[C]], 0x3fc000003f000000, 0, 0, 0
+entry:
+  %mul = fmul fast <2 x float> %a, %b
+  %mul1 = fmul fast <2 x float> %mul, %c
+  %add = fadd fast <2 x float> %c, <float 0.5, float 1.5>
+  %add2 = fadd fast <2 x float> %add, %mul1
+  ret <2 x float> %add2
+}

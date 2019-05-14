@@ -53,3 +53,29 @@ entry:
 @gl_b = common global double 0.000000e+00, align 8
 @gl_c = common global double 0.000000e+00, align 8
 
+define void @func_f32x2() {
+; CHECK:        .entry  func_f32x2
+; CHECK-DAG:    ld64    [[A:%.+]], gl_a_f32x2
+; CHECK-DAG:    ld64    [[B:%.+]], gl_b_f32x2
+; CHECK-DAG:    ld64    [[C:%.+]], gl_c_f32x2
+; CHECK-DAG:    fmaf32x2        [[T0:%.+]], [[A]], [[B]], [[C]], 0, 0, 0
+; CHECK-DAG:    st64    dst1_f32x2, [[T0]]
+; CHECK-DAG:    fmsf32x2        [[T1:%.+]], [[A]], [[B]], [[C]], 0, 0, 0
+; CHECK-DAG:    st64    dst2_f32x2, [[T1]]
+entry:
+  %a = load <2 x float>, <2 x float>* @gl_a_f32x2
+  %b = load <2 x float>, <2 x float>* @gl_b_f32x2
+  %c = load <2 x float>, <2 x float>* @gl_c_f32x2
+  %mul = fmul fast <2 x float> %a, %b
+  %add = fadd fast <2 x float> %mul, %c
+  store <2 x float> %add, <2 x float>* @dst1_f32x2
+  %sub = fsub fast <2 x float> %mul, %c
+  store <2 x float> %sub, <2 x float>* @dst2_f32x2
+  ret void
+}
+
+@dst1_f32x2 = common global <2 x float> zeroinitializer
+@dst2_f32x2 = common global <2 x float> zeroinitializer
+@gl_a_f32x2 = common global <2 x float> zeroinitializer
+@gl_b_f32x2 = common global <2 x float> zeroinitializer
+@gl_c_f32x2 = common global <2 x float> zeroinitializer

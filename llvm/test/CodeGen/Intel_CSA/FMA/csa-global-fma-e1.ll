@@ -14,8 +14,6 @@
 @f32 = common global float 0.000000e+00, align 4
 @g32 = common global float 0.000000e+00, align 4
 @dst32 = common global float 0.000000e+00, align 4
-@h32 = common global float 0.000000e+00, align 4
-@i32 = common global float 0.000000e+00, align 4
 
 define void @func32() {
 ; CHECK:        .entry  func32
@@ -79,8 +77,6 @@ entry:
 @f64 = common global double 0.000000e+00, align 8
 @g64 = common global double 0.000000e+00, align 8
 @dst64 = common global double 0.000000e+00, align 8
-@h64 = common global double 0.000000e+00, align 8
-@i64 = common global double 0.000000e+00, align 8
 
 define void @func64() {
 ; CHECK:        .entry  func64
@@ -133,5 +129,68 @@ entry:
   %mul28 = fmul fast double %load_f, %load_g
   %add29 = fadd fast double %add27, %mul28
   store double %add29, double* @dst64, align 8
+  ret void
+}
+
+@a_f32x2 = common global <2 x float> zeroinitializer
+@b_f32x2 = common global <2 x float> zeroinitializer
+@c_f32x2 = common global <2 x float> zeroinitializer
+@d_f32x2 = common global <2 x float> zeroinitializer
+@e_f32x2 = common global <2 x float> zeroinitializer
+@f_f32x2 = common global <2 x float> zeroinitializer
+@g_f32x2 = common global <2 x float> zeroinitializer
+@dst_f32x2 = common global <2 x float> zeroinitializer
+
+define void @func_f32x2() {
+; CHECK:        .entry  func_f32x2
+; CHECK-DAG:    ld64    [[A:%.+]], a_f32x2
+; CHECK-DAG:    ld64    [[B:%.+]], b_f32x2
+; CHECK-DAG:    ld64    [[C:%.+]], c_f32x2
+; CHECK-DAG:    ld64    [[D:%.+]], d_f32x2
+; CHECK-DAG:    ld64    [[E:%.+]], e_f32x2
+; CHECK-DAG:    ld64    [[F:%.+]], f_f32x2
+; CHECK-DAG:    ld64    [[G:%.+]], g_f32x2
+; CHECK-DAG:    mulf32x2        [[T0:%.+]], [[B]], [[C]], 0, 0, 0
+; CHECK-DAG:    addf32x2        [[T1:%.+]], [[E]], [[D]], 0, 0, 0
+; CHECK-DAG:    fmaf32x2        [[T2:%.+]], [[F]], [[G]], [[T0]], 0, 0, 0
+; CHECK-DAG:    fmaf32x2        [[T3:%.+]], [[T1]], [[A]], [[T1]], 0, 0, 0
+; CHECK-DAG:    fmaf32x2        [[T4:%.+]], [[T3]], [[T2]], [[T2]], 0, 0, 0
+; CHECK-DAG:    st64    dst_f32x2, [[T4]]
+entry:
+  %load_a = load <2 x float>, <2 x float>* @a_f32x2
+  %load_b = load <2 x float>, <2 x float>* @b_f32x2
+  %mul = fmul fast <2 x float> %load_a, %load_b
+  %load_c = load <2 x float>, <2 x float>* @c_f32x2
+  %mul1 = fmul fast <2 x float> %mul, %load_c
+  %load_d = load <2 x float>, <2 x float>* @d_f32x2
+  %mul2 = fmul fast <2 x float> %mul1, %load_d
+  %load_e = load <2 x float>, <2 x float>* @e_f32x2
+  %mul5 = fmul fast <2 x float> %mul1, %load_e
+  %add = fadd fast <2 x float> %mul2, %mul5
+  %mul6 = fmul fast <2 x float> %load_a, %load_d
+  %load_f = load <2 x float>, <2 x float>* @f_f32x2
+  %mul7 = fmul fast <2 x float> %mul6, %load_f
+  %load_g = load <2 x float>, <2 x float>* @g_f32x2
+  %mul8 = fmul fast <2 x float> %mul7, %load_g
+  %add9 = fadd fast <2 x float> %add, %mul8
+  %mul10 = fmul fast <2 x float> %load_a, %load_e
+  %mul11 = fmul fast <2 x float> %mul10, %load_f
+  %mul12 = fmul fast <2 x float> %mul11, %load_g
+  %add13 = fadd fast <2 x float> %add9, %mul12
+  %mul14 = fmul fast <2 x float> %load_b, %load_c
+  %mul15 = fmul fast <2 x float> %mul14, %load_d
+  %add16 = fadd fast <2 x float> %add13, %mul15
+  %mul18 = fmul fast <2 x float> %mul14, %load_e
+  %add19 = fadd fast <2 x float> %add16, %mul18
+  %mul20 = fmul fast <2 x float> %load_d, %load_f
+  %mul21 = fmul fast <2 x float> %mul20, %load_g
+  %add22 = fadd fast <2 x float> %add19, %mul21
+  %mul23 = fmul fast <2 x float> %load_e, %load_f
+  %mul24 = fmul fast <2 x float> %mul23, %load_g
+  %add25 = fadd fast <2 x float> %add22, %mul24
+  %add27 = fadd fast <2 x float> %add25, %mul14
+  %mul28 = fmul fast <2 x float> %load_f, %load_g
+  %add29 = fadd fast <2 x float> %add27, %mul28
+  store <2 x float> %add29, <2 x float>* @dst_f32x2
   ret void
 }
