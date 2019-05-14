@@ -19,4 +19,5 @@ class AVX : SSE42 {
   include "avx/relational.td"
   include "avx/transpose.td"
   include "avx/masked_load_store.td"
+  include "avx/sub_group_builtin_impl.td"
 }
