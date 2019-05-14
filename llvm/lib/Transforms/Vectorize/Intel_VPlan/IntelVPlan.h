@@ -711,7 +711,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
 
     /// Return the VPOperandHIR with the underlying HIR information of the LHS
     /// operand.
-    VPOperandHIR *getOperandHIR() { return LHSHIROperand.get(); }
+    VPOperandHIR *getOperandHIR() const { return LHSHIROperand.get(); }
 
     /// Return the master VPInstruction attached to a decomposed VPInstruction.
     VPInstruction *getMaster() {
@@ -2367,7 +2367,9 @@ public:
     IncomingMasks.push_back(std::make_pair(Mask, Block));
   }
 
-  SmallVectorImpl<MaskBlockPair> &getIncomingMasks() { return IncomingMasks; }
+  const SmallVectorImpl<MaskBlockPair> &getIncomingMasks() const {
+    return IncomingMasks;
+  }
 
 private:
   BasicBlock *CBlock;

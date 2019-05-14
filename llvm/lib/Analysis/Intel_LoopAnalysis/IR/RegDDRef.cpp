@@ -1415,6 +1415,8 @@ void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
   }
 
   if (!LowerBoundCE) {
+    // Destination scalar type should be used if vector types are expected in
+    // input IR.
     LowerBoundCE = getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
   }
 
@@ -1434,12 +1436,13 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
                             CanonExpr *LowerBoundCE, CanonExpr *StrideCE,
                             Type *DimTy) {
   assert(IndexCE && "IndexCE is null!");
+  Type *ScalarIndexCETy = IndexCE->getDestType()->getScalarType();
 
   // addDimension() assumes that the ref IS or WILL become a GEP reference.
   createGEP();
 
   if (!LowerBoundCE) {
-    LowerBoundCE = getCanonExprUtils().createCanonExpr(IndexCE->getDestType());
+    LowerBoundCE = getCanonExprUtils().createCanonExpr(ScalarIndexCETy);
   }
 
   // If no dimension information provided then try to compute it from the BaseCE
@@ -1465,7 +1468,7 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
     }
 
     StrideCE = getCanonExprUtils().createCanonExpr(
-        IndexCE->getDestType(), 0,
+        ScalarIndexCETy, 0,
         ElemTy->isSized() ? getCanonExprUtils().getTypeSizeInBytes(ElemTy) : 0);
   }
 

@@ -364,6 +364,7 @@ class VPConstant : public VPValue {
   // VPlan is currently the context where we hold the pool of VPConstants.
   friend class VPlan;
   friend class VPlanDivergenceAnalysis;
+  friend class VPOCodeGenHIR;
 
 protected:
   VPConstant(Constant *Const)
@@ -405,6 +406,7 @@ public:
 class VPExternalDef : public VPValue, public FoldingSetNode {
   // VPlan is currently the context where the pool of VPExternalDefs is held.
   friend class VPlan;
+  friend class VPOCodeGenHIR;
 
 private:
   // Hold the DDRef or IV information related to this external definition.

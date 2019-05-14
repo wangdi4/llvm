@@ -118,9 +118,12 @@ public:
 
   // Given the function being called and the widened operands, generate and
   // return the widened call. The call arguments are returned in CallRegs
-  // if they need to be analyzed for stride information.
+  // if they need to be analyzed for stride information. The flag HasLvalArg
+  // is used to indicate if we have the widened operand corresponding to
+  // call return value in WideOps.
   HLInst *widenCall(const HLInst *INode, SmallVectorImpl<RegDDRef *> &WideOps,
-                    RegDDRef *Mask, SmallVectorImpl<RegDDRef *> &CallRegs);
+                    RegDDRef *Mask, SmallVectorImpl<RegDDRef *> &CallRegs,
+                    bool HasLvalArg);
 
   // Widen an interleaved memory access - operands correspond to operands of
   // WidenNode.
@@ -453,13 +456,22 @@ private:
   HLInst *widenPred(const HLIf *HIf, HLIf::const_pred_iterator PredIt,
                     RegDDRef *Mask);
 
-  // Widen the given instruction to a vector instruction using VF
-  // as the vector length. This interface is used by the public
-  // interface when a VPInstruction has a valid underlying HLInst.
-  void widenNode(const HLInst *Inst, RegDDRef *Mask = nullptr,
-                 const OVLSGroup *Group = nullptr, int64_t InterleaveFactor = 0,
-                 int64_t InterleaveIndex = 0,
-                 const HLInst *GrpStartInst = nullptr);
+  // Implementation of widening the given instruction to a vector instruction
+  // using VF as the vector length. This interface is used by the public
+  // interface when a VPInstruction has a valid underlying HLInst. This
+  // function also adds the mapping between VPInst and the widened value.
+  void widenNodeImpl(const HLInst *Inst, RegDDRef *Mask, const OVLSGroup *Group,
+                     int64_t InterleaveFactor, int64_t InterleaveIndex,
+                     const HLInst *GrpStartInst, const VPInstruction *VPInst);
+
+  // Implementation of widening the given VPInstruction to a vector instruction
+  // using VF as the vector length.
+  void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
+                     const OVLSGroup *Group, int64_t InterleaveFactor,
+                     int64_t InterleaveIndex, const HLInst *GrpStartInst);
+
+  // Implementation of VPPhi widening.
+  void widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.
