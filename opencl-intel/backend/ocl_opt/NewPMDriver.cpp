@@ -201,7 +201,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
       else
         P = None;
   }
-  PassBuilder PB(TM, P);
+  PassBuilder PB(TM, PipelineTuningOptions(), P);
   registerEPCallbacks(PB, VerifyEachPass, DebugPM);
 
 #ifdef LINK_POLLY_INTO_TOOLS
