@@ -195,7 +195,9 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       hasOffloadCompilation())
     finalizeKernelFunction(W, NewF, NewCall);
 
-  IRBuilder<> Builder(F->getEntryBlock().getTerminator());
+  // allocas should stay close to the call, in case the target region is
+  // enclosed in another region which is outlined later.
+  IRBuilder<> Builder(NewCall->getParent()->getFirstNonPHI());
   AllocaInst *OffloadError = Builder.CreateAlloca(
       Type::getInt32Ty(F->getContext()), nullptr, ".run_host_version");
 
@@ -654,7 +656,7 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
                                                 Instruction *InsertPt) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
   LLVMContext &C = F->getContext();
-  IRBuilder<> Builder(F->getEntryBlock().getFirstNonPHI());
+
   TgDataInfo Info;
 
   Info.NumberOfPtrs = Call->getNumArgOperands();
@@ -698,6 +700,11 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     Info.NumberOfPtrs = MapTypes.size();
 
     Value *SizesArray;
+
+    // Build the alloca defs of the target parms.
+    // The allocas must be kept in the same region as their uses,
+    // in case more outlining transformations are made.
+    IRBuilder<> Builder(InsertPt);
 
     if (hasRuntimeEvaluationCaptureSize)
       SizesArray = Builder.CreateAlloca(

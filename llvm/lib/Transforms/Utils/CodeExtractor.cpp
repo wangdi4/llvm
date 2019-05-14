@@ -512,6 +512,21 @@ void CodeExtractor::findAllocas(ValueSet &SinkCands, ValueSet &HoistCands,
         return std::make_pair(LifeStart, LifeEnd);
       };
 
+#if INTEL_COLLAB
+      // If a variable is mentioned in a directive, it should not be moved
+      // into/out of the extraction region, as it has special properties with
+      // regard to that region (OpenMP shared, for example).
+      bool foundDirective = false;
+      for (User *U : AI->users())
+        if (auto *IntrInst = dyn_cast<IntrinsicInst>(U))
+          if (IntrInst->getIntrinsicID() == Intrinsic::directive_region_entry) {
+            foundDirective = true;
+            break;
+          }
+      if (foundDirective)
+        continue;
+
+#endif // INTEL_COLLAB
       bool SinkLifeStart = false, HoistLifeEnd = false;
       auto Markers = GetLifeTimeMarkers(AI, SinkLifeStart, HoistLifeEnd);
 
