@@ -742,17 +742,22 @@ template <typename CastInstTy> Value *llvm::getPtrThruCast(Value *Ptr) {
 template Value *llvm::getPtrThruCast<BitCastInst>(Value *Ptr);
 template Value *llvm::getPtrThruCast<AddrSpaceCastInst>(Value *Ptr);
 
-Function *llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
+void llvm::copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall) {
+  AttributeList Attrs = OrigCall->getAttributes();
+  VecCall->setAttributes(Attrs.removeAttribute(
+      OrigCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
+}
+
+Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
                                           ArrayRef<Type *> ArgTys,
                                           TargetLibraryInfo *TLI,
                                           Intrinsic::ID ID,
                                           VectorVariant *VecVariant,
-                                          bool Masked) {
+                                          bool Masked, const CallInst *Call) {
 
   // OrigF is the original scalar function being called. Widen the scalar
   // call to a vector call if it is known to be vectorizable as SVML or
   // an intrinsic.
-  Function *OrigF = Call->getCalledFunction();
   assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
   if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant &&
@@ -796,6 +801,10 @@ Function *llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
   }
 
   if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
+    // TODO: Modify OpenCL read/write channel code to be CallInst independent.
+    // Check JR https://jira.devtools.intel.com/browse/CORC-4838
+    assert(Call && "VPVALCG: OpenCL read/write channels not uplifted to be "
+                   "call independent.");
     Value *Alloca = getOpenCLReadWriteChannelAlloc(Call);
     std::string VLStr = APInt(32, VL).toString(10, false);
     std::string TyStr =
@@ -846,6 +855,66 @@ Function *llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
   }
   return VectorF;
 }
+
+Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
+                         Twine Name) {
+  SmallVector<Value *, 8> VParts(VectorsToJoin.begin(), VectorsToJoin.end());
+  unsigned VL = VParts.size();
+  while (VL >= 2) {
+    for (unsigned i = 0, j = 0; i < VL; i += 2, ++j) {
+      unsigned NumElts = VParts[i]->getType()->getVectorNumElements();
+      SmallVector<unsigned, 8> ShuffleMask(NumElts * 2);
+      for (unsigned MaskInd = 0; MaskInd < NumElts * 2; ++MaskInd)
+        ShuffleMask[MaskInd] = MaskInd;
+      VParts[j] =
+          Builder.CreateShuffleVector(VParts[i], VParts[i + 1], ShuffleMask);
+    }
+    VL /= 2;
+  }
+  VParts[0]->setName(Name);
+  return VParts[0];
+}
+
+Value *llvm::extendVector(Value *OrigVal, unsigned TargetLength,
+                          IRBuilder<> &Builder, const Twine &Name) {
+  Type *OrigTy = OrigVal->getType();
+  assert(isa<VectorType>(OrigTy) && "OriginalVal should be of a vector type");
+  unsigned VectorElts = OrigTy->getVectorNumElements();
+  assert(TargetLength >= VectorElts &&
+         "TargetLength should be greater than or equal to VectorElts");
+  if (VectorElts == TargetLength)
+    return OrigVal;
+  Constant *ShufMask = createSequentialMask(
+      Builder, 0, VectorElts, TargetLength - VectorElts /*No. of undef's*/);
+  return Builder.CreateShuffleVector(OrigVal, UndefValue::get(OrigTy), ShufMask,
+                                     "extended." + Name);
+}
+
+Value *llvm::replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
+                                 IRBuilder<> &Builder, const Twine &Name) {
+  if (OriginalVL == 1)
+    return OrigVal;
+  Value *ShuffleMask = createReplicatedMask(
+      Builder, OriginalVL, OrigVal->getType()->getVectorNumElements());
+  return Builder.CreateShuffleVector(OrigVal,
+                                     UndefValue::get(OrigVal->getType()),
+                                     ShuffleMask, Name + OrigVal->getName());
+}
+
+Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
+                             IRBuilder<> &Builder, const Twine &Name) {
+  if (OriginalVL == 1)
+    return OrigVal;
+  unsigned NumElts = OrigVal->getType()->getVectorNumElements();
+  SmallVector<unsigned, 8> ShuffleMask;
+  for (unsigned j = 0; j < OriginalVL; j++)
+    for (unsigned i = 0; i < NumElts; ++i)
+      ShuffleMask.push_back((signed)i);
+  return Builder.CreateShuffleVector(OrigVal,
+                                     UndefValue::get(OrigVal->getType()),
+                                     ShuffleMask, Name + OrigVal->getName());
+}
+
 #endif // INTEL_CUSTOMIZATION
 /// Add all access groups in @p AccGroups to @p List.
 template <typename ListT>

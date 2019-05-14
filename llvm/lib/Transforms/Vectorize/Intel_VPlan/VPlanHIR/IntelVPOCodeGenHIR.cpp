@@ -87,9 +87,9 @@ static cl::opt<bool> EnablePeelMEVec(
     cl::desc("Enable peel loop for vectorized multi-exit loops."));
 
 // Force full VPValue based code generation.
-static cl::opt<bool>
-    EnableVPValueCodegen("enable-vp-value-codegen", cl::init(false), cl::Hidden,
-                         cl::desc("Enable VPValue based codegen"));
+static cl::opt<bool> EnableVPValueCodegenHIR(
+    "enable-vp-value-codegen-hir", cl::init(false), cl::Hidden,
+    cl::desc("Enable VPValue based codegen for HIR vectorizer"));
 
 extern cl::opt<bool> AllowMemorySpeculation;
 
@@ -492,7 +492,7 @@ void HandledCheck::visit(HLDDNode *Node) {
     }
 
     auto TLval = Inst->getLvalDDRef();
-    if (EnableVPValueCodegen && TLval && TLval->isTerminalRef() &&
+    if (EnableVPValueCodegenHIR && TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase())) {
       unsigned RedOpcode;
       if (CG->isReductionRef(TLval, RedOpcode)) {
@@ -1108,8 +1108,8 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
     // Using the newly created vector call arguments, generate the vector
     // call instruction and extract the low element.
     Function *VectorF = getOrInsertVectorFunction(
-        Call, VF, ArgTys, TLI, Intrinsic::not_intrinsic,
-        nullptr /*simd function*/, false /*non-masked*/);
+        F, VF, ArgTys, TLI, Intrinsic::not_intrinsic, nullptr /*simd function*/,
+        false /*non-masked*/);
     assert(VectorF && "Can't create vector function.");
 
     HLInst *WideCall = HInst->getHLNodeUtils().createCall(
@@ -2216,7 +2216,7 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   }
 
   Function *VectorF =
-      getOrInsertVectorFunction(Call, VF, ArgTys, TLI, ID, nullptr, Masked);
+      getOrInsertVectorFunction(Fn, VF, ArgTys, TLI, ID, nullptr, Masked);
   assert(VectorF && "Can't create vector function.");
 
   auto *WideInst = INode->getHLNodeUtils().createCall(
@@ -3116,7 +3116,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
                               const OVLSGroup *Grp, int64_t InterleaveFactor,
                               int64_t InterleaveIndex,
                               const HLInst *GrpStartInst) {
-  if (EnableVPValueCodegen) {
+  if (EnableVPValueCodegenHIR) {
     widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                   GrpStartInst);
     return;

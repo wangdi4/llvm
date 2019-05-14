@@ -823,19 +823,6 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
 #endif
 
 void VPInstruction::execute(VPTransformState &State) {
-#if INTEL_CUSTOMIZATION
-  // TODO: Remove this block of code. Its purpose is to emulate the execute()
-  //       of the conditionbit recipies that have now been removed.
-  if (State.UniformCBVs->count(this)) {
-    Value *ScConditionBit = getUnderlyingValue();
-    State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
-    Value *ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);
-    assert(!ConditionBit->getType()->isVectorTy() && "Bit should be scalar");
-    State.CBVToConditionBitMap[this] = ConditionBit;
-    return;
-  }
-#endif
-
   assert(!State.Instance && "VPInstruction executing an Instance");
   for (unsigned Part = 0; Part < State.UF; ++Part)
     generateInstruction(State, Part);

@@ -37,6 +37,7 @@ class VPPHINode;
 class VPlanVLSAnalysis;
 struct VPTransformState;
 class VPOVectorizationLegality;
+class VPlan;
 
 // LVCodeGen generates vector code by widening of scalars into
 // appropriate length vectors.
@@ -47,11 +48,12 @@ public:
              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
              TargetLibraryInfo *TLI, const TargetTransformInfo *TTI,
              unsigned VecWidth, unsigned UnrollFactor,
-             VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA)
+             VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
+             const VPlan *Plan)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
-        Legal(LVL), VLSA(VLSA), TripCount(nullptr), VectorTripCount(nullptr),
-        Induction(nullptr), OldInduction(nullptr), VF(VecWidth),
-        UF(UnrollFactor), Builder(Context), StartValue(nullptr),
+        Legal(LVL), VLSA(VLSA), Plan(Plan), TripCount(nullptr),
+        VectorTripCount(nullptr), Induction(nullptr), OldInduction(nullptr),
+        VF(VecWidth), UF(UnrollFactor), Builder(Context), StartValue(nullptr),
         StrideValue(nullptr), LoopVectorPreHeader(nullptr),
         LoopScalarPreHeader(nullptr), LoopMiddleBlock(nullptr),
         LoopExitBlock(nullptr), LoopVectorBody(nullptr),
@@ -73,11 +75,13 @@ public:
   // Widen the given instruction to VF wide vector instruction
   void vectorizeInstruction(Instruction *Inst);
   void vectorizeInstruction(VPInstruction *VPInst);
+  void vectorizeVPInstruction(VPInstruction *VPInst);
 
   // Vectorize the given instruction that cannot be widened using serialization.
   // This is done using a sequence of extractelement, Scalar Op, InsertElement
   // instructions.
   void serializeInstruction(Instruction *Inst, bool HasLoopPrivateOperand = false);
+  void serializeInstruction(VPInstruction *VPInst);
 
   /// Collect Uniform and Scalar values for the given \p VF.
   void collectUniformsAndScalars(unsigned VF);
@@ -95,11 +99,20 @@ public:
     Loop *OrigLoop, VPOVectorizationLegality *Legal,
     SmallPtrSetImpl<Instruction *> &DeadInstructions);
 
+  // TODO;TODO;TODO
+  // At this point VPlan-to-VPlan transforms are not updating DA after
+  // introducing new VPInstructions. Hence VPValues without underlying IR are
+  // known to have incorrect DA results. This must be removed once this problem
+  // is addressed. This utility can actually be static to codegen once DA
+  // problem is addressed
+  bool isVPValueUniform(VPValue *V, const VPlan *Plan);
+
   // Get the widened vector value for given value V. If the scalar value
   // has not been widened, we widen it by VF and store it in WidenMap
   // before returning the widened value
   Value *getVectorValue(Value *V);
-  Value *getVectorValue(VPValue *V);
+  Value *getVectorValue(VPValue *V); // TODO: Remove after uplift
+  Value *getVectorValueUplifted(VPValue *V);
 
   // Get widened base pointer of in-memory private variable
   Value *getVectorPrivateBase(Value *V);
@@ -124,7 +137,8 @@ public:
   /// been vectorized but not scalarized, the necessary extractelement
   /// instruction will be generated.
   Value *getScalarValue(Value *V, unsigned Lane);
-  Value *getScalarValue(VPValue *V, unsigned Lane);
+  Value *getScalarValue(VPValue *V, unsigned Lane); // TODO: Remove after uplift
+  Value *getScalarValueUplifted(VPValue *V, unsigned Lane);
 
   /// MaskValue setter
   void setMaskValue(Value *MV) { MaskValue = MV; }
@@ -146,6 +160,9 @@ public:
   void vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
                          SmallVectorImpl<Value*> &VecArgs,
                          SmallVectorImpl<Type*> &VecArgTys);
+  void vectorizeCallArgs(VPInstruction *VPCall, VectorVariant *VecVariant,
+                         SmallVectorImpl<Value *> &VecArgs,
+                         SmallVectorImpl<Type *> &VecArgTys);
 
   // Return true if the argument at position /p Idx for function /p FnName is
   // scalar.
@@ -207,6 +224,7 @@ private:
 
   /// Serialize instruction that requires predication.
   void serializeWithPredication(Instruction *Inst);
+  void serializeWithPredication(VPInstruction *VPInst);
 
   /// Predicate conditional instructions that require predication on their
   /// respective conditions.
@@ -284,7 +302,7 @@ private:
   Value *getBroadcastInstrs(Value *V);
 
   /// Create vector and scalar version of the same induction variable.
-  void widenIntOrFpInduction(PHINode *IV);
+  void widenIntOrFpInduction(PHINode *IV, VPPHINode *VPIV);
 
   /// Widen Phi node, which is not an induction variable. This Phi node
   /// is a result of merging blocks ruled out by uniform branch.
@@ -355,6 +373,9 @@ private:
   /// Variable-length stridedness analysis.
   VPlanVLSAnalysis *VLSA;
 
+  /// VPlan for which vector code is generated.
+  const VPlan *Plan;
+
   // Loop trip count
   Value *TripCount;
   // Vectorized loop trip count.
@@ -402,6 +423,7 @@ private:
 
   // Map of scalar values.
   std::map<Value *, DenseMap<unsigned, Value *>> ScalarMap;
+  std::map<VPValue *, DenseMap<unsigned, Value *>> VPScalarMap;
 
   // Map of widened private values. Unlike WidenMap, this is
   // pointer-to-pointer map.
@@ -437,6 +459,10 @@ private:
   // BasicBlock mapping.
   struct VPTransformState *State = nullptr;
 
+  // Get alignment for load/store VPInstruction using underlying
+  // llvm::Instruction.
+  unsigned getOriginalLoadStoreAlignment(VPInstruction *VPInst);
+
   // Widen the load of a linear value. We do a scalar load and generate a vector
   // value using the linear \p Step 
   void vectorizeLinearLoad(Instruction *Inst, int Step);
@@ -446,6 +472,8 @@ private:
   // in code gen. Without code gen support, we will serialize the intrinsic.
   // As a result, we simply serialize the instruction for now.
   void vectorizeLoadInstruction(Instruction *Inst, bool EmitIntrinsic = false);
+  void vectorizeLoadInstruction(VPInstruction *VPInst,
+                                bool EmitIntrinsic = false);
 
   // Widen the store of a linear value. We do a scalar store of the value in the
   // first vector lane.
@@ -456,34 +484,56 @@ private:
   // in code gen. Without code gen support, we will serialize the intrinsic.
   // As a result, we simply serialize the instruction for now.
   void vectorizeStoreInstruction(Instruction *Inst, bool EmitIntrinsic = false);
+  void vectorizeStoreInstruction(VPInstruction *VPInst,
+                                 bool EmitIntrinsic = false);
 
   // Re-vectorize the given vector load instruction. The function handles 
   // only simple vectors.
   void widenVectorLoad(LoadInst *Inst);
+  void widenVectorLoad(VPInstruction *VPLoad);
 
   // Re-vectorize the given vector store instruction. The function handles 
   // only simple vectors.
   void widenVectorStore(StoreInst *Inst);
+  void widenVectorStore(VPInstruction *VPStore);
 
   // Widen a BitCast/AddrSpaceCast instructions
   template <typename CastInstTy> void vectorizeCast(Instruction *Inst);
+  template <typename CastInstTy>
+  void vectorizeCast(typename std::enable_if<
+                     std::is_same<CastInstTy, BitCastInst>::value ||
+                         std::is_same<CastInstTy, AddrSpaceCastInst>::value,
+                     VPInstruction>::type *VPInst);
 
   // Widen ExtractElt instruction - loop re-vectorization.
   void vectorizeExtractElement(Instruction *Inst);
+  void vectorizeExtractElement(VPInstruction *VPInst);
 
   // Widen InsertElt instruction - loop re-vectorization.
   void vectorizeInsertElement(Instruction *Inst);
+  void vectorizeInsertElement(VPInstruction *VPInst);
 
   // Widen Shuffle instruction - loop re-vectorization.
   void vectorizeShuffle(Instruction *Inst);
+  void vectorizeShuffle(VPInstruction *VPInst);
+  // Get the mask of a VPInstruction representing shuffle (before widening) as a
+  // vector of ints.
+  SmallVector<int, 16> getVPShuffleOriginalMask(const VPInstruction *VPI);
+  // Utility to get VPValue that is broadcasted if the input \p V is a splat
+  // vector. Functionality is same as VectorUtils::getSplatValue.
+  const VPValue *getOrigSplatVPValue(const VPValue *V);
 
   // Widen call instruction parameters and return. Currently, this is limited
   // to svml function support that is hooked in to TLI. Later, this can be
   // extended to user-defined vector functions.
   void vectorizeCallInstruction(CallInst *Call);
+  void vectorizeCallInstruction(VPInstruction *VPCall);
+  // Get the called Function for given VPInstruction representing a call.
+  Function *getVPCalledFunction(VPInstruction *Call);
 
   // Widen Select instruction.
   void vectorizeSelectInstruction(Instruction *Inst);
+  void vectorizeSelectInstruction(VPInstruction *VPInst);
 
   // Widen the given PHI instruction. For now we assume this corresponds to
   // the Induction PHI.
@@ -524,6 +574,7 @@ private:
   /// the returned GEP is itself used as an operand of a Scatter/Gather
   /// function.
   Value *createWidenedGEPForScatterGather(Instruction *I);
+  Value *createWidenedGEPForScatterGather(VPInstruction *VPI);
 
   /// This function returns the widened GEP instruction that is used
   /// as a pointer-operand in a load-store Operation. This particular overload
@@ -532,6 +583,7 @@ private:
   /// global variable or an argument. In the generated code, the returned GEP is
   /// itself used as an operand of a Scatter/Gather function.
   Value *createWidenedGEPForScatterGather(Instruction *I, Value *Ptr);
+  Value *createWidenedGEPForScatterGather(VPInstruction *VPI, VPValue *Ptr);
 
   /// This function return an appropriate BasePtr for cases where we are have
   /// load/store to consecutive memory locations
