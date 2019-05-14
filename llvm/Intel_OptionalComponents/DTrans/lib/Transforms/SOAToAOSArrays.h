@@ -648,12 +648,11 @@ private:
   //
   // Call to method should have argument dependent on integer fields or integer
   // arguments or be 'this' like arguments.
-  bool checkMethodCall(ImmutableCallSite CS) const {
-    assert(
-        ArrayIdioms::isKnownCall(DM.getApproximation(CS.getInstruction()), S) &&
-        "Incorrect checkMethodCall");
+  bool checkMethodCall(const CallBase *Call) const {
+    assert(ArrayIdioms::isKnownCall(DM.getApproximation(Call), S) &&
+           "Incorrect checkMethodCall");
 
-    for (auto &Op : CS.getInstruction()->operands()) {
+    for (auto &Op : Call->operands()) {
       if (isa<Constant>(Op.get()) || isa<BasicBlock>(Op.get()))
         continue;
       const Dep *DO = DM.getApproximation(Op.get());
@@ -853,7 +852,7 @@ private:
     if (isa<LoadInst>(I) || isa<StoreInst>(I)) {
       if (!checkLoadStoreAddress(I))
         return false;
-    } else if (!ImmutableCallSite(I)) // Allocation instruction.
+    } else if (!isa<CallBase>(I)) // Allocation instruction.
       llvm_unreachable(
           "Unexpected instruction related to base pointer manipulations.");
 
@@ -1085,10 +1084,10 @@ public:
         if (isa<DbgInfoIntrinsic>(I))
           break;
         else if (ArrayIdioms::isKnownCall(D, S)) {
-          auto CS = ImmutableCallSite(&I);
+          auto *Call = cast<CallBase>(&I);
           // Permit only one call to other method.
-          if (!MC.CalledMethod && checkMethodCall(CS)) {
-            MC.CalledMethod = cast<Function>(CS.getCalledValue());
+          if (!MC.CalledMethod && checkMethodCall(Call)) {
+            MC.CalledMethod = cast<Function>(Call->getCalledValue());
             break;
           }
         }

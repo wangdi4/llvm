@@ -83,6 +83,7 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h" // INTEL
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -4173,6 +4174,13 @@ void InnerLoopVectorizer::widenInstruction(Instruction &I) {
       if (isa<FPMathOperator>(V))
         V->copyFastMathFlags(CI);
 
+#if INTEL_CUSTOMIZATION
+      // Make sure we don't lose attributes at the call site. E.g., IMF
+      // attributes are taken from call sites in MapIntrinToIml to refine SVML
+      // calls for precision.
+      V->setAttributes(CI->getAttributes());
+#endif // INTEL_CUSTOMIZATION
+
       VectorLoopValueMap.setVectorValue(&I, Part, V);
       addMetadata(V, &I);
 #if INTEL_CUSTOMIZATION
@@ -7542,6 +7550,15 @@ bool LoopVectorizePass::processLoop(Loop *L) {
     // Mark the loop as already vectorized to avoid vectorizing again.
     Hints.setAlreadyVectorized();
   }
+
+#if INTEL_CUSTOMIZATION
+  // Create a new LoopID by propagating all metadata nodes of remainder loop
+  // except optreport nodes
+  MDNode *RemainderLoopWithoutOptReport =
+      LoopOptReport::eraseOptReportFromLoopID(L->getLoopID(),
+                                              L->getLoopID()->getContext());
+  L->setLoopID(RemainderLoopWithoutOptReport);
+#endif
 
   LLVM_DEBUG(verifyFunction(*L->getHeader()->getParent()));
   return true;
