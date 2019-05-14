@@ -14938,14 +14938,6 @@ bool Sema::CheckOverridingFunctionReturnType(const CXXMethodDecl *New,
       NewTy->isDependentType() || OldTy->isDependentType())
     return false;
 
-#if INTEL_CUSTOMIZATION
-  // CQ#374721 - different type of overriding virtual function.
-  // Don't emit any diagnostics on dependent types until real instantiation.
-  if (getLangOpts().IntelCompat &&
-      (New->isDependentContext() || Old->isDependentContext()))
-    return false;
-#endif // INTEL_CUSTOMIZATION
-
   // Check if the return types are covariant
   QualType NewClassTy, OldClassTy;
 
