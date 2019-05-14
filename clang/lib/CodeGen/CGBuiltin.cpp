@@ -6479,7 +6479,7 @@ RValue CodeGenFunction::EmitFPGARegBuiltin(unsigned BuiltinID,
   const Expr *PtrArg = E->getArg(0);
   QualType ArgType = PtrArg->getType();
 
-  if (ArgType->isStructureType() || ArgType->isUnionType()) {
+  if (ArgType->isRecordType()) {
     RValue RVal = EmitAnyExpr(PtrArg);
     Args.push_back(ReturnValue.getValue().getPointer());
     Args.push_back(RVal.getAggregatePointer());
