@@ -187,7 +187,8 @@ CallSite IndirectCallConvImpl::createDirectCallSite(CallSite CS,
 //     ...
 //
 bool IndirectCallConvImpl::convert(CallSite CS) {
-  bool IsComplete = false;
+  AndersensAAResult::AndersenSetResult
+      IsComplete = AndersensAAResult::AndersenSetResult::Incomplete;
   unsigned NumPossibleTargets = 0;
 
   if (IndCallConvTrace) {
@@ -199,18 +200,25 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
   std::vector<llvm::Value *> PossibleTargets;
   Value *call_fptr = CS.getCalledValue()->stripPointerCasts();
 #if INTEL_INCLUDE_DTRANS
-  if (DTransInfo && DTransInfo->useDTransAnalysis())
-    IsComplete = DTransInfo->GetFuncPointerPossibleTargets(
-        call_fptr, PossibleTargets, CS, IndCallConvTrace);
+  if (DTransInfo && DTransInfo->useDTransAnalysis()) {
+    if (DTransInfo->GetFuncPointerPossibleTargets(
+        call_fptr, PossibleTargets, CS, IndCallConvTrace))
+      IsComplete = AndersensAAResult::AndersenSetResult::Complete;
+  }
 #endif // INTEL_INCLUDE_DTRANS
-  if (!IsComplete && AnderPointsTo)
+  if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete
+      && AnderPointsTo)
     IsComplete = AnderPointsTo->GetFuncPointerPossibleTargets(
         call_fptr, PossibleTargets, CS, IndCallConvTrace);
-  if (!IsComplete) {
+  if (IsComplete !=
+      AndersensAAResult::AndersenSetResult::Complete) {
     if (IndCallConvTrace) {
-      errs() << "    (Incomplete set) \n";
+      if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete)
+        errs() << "    (Incomplete set) \n";
+      else
+        errs() << "    (Partially complete set) \n";
     }
-    // If Incomplete, increment NumPossibleTargets by 1 since indirect call
+    // If not complete, increment NumPossibleTargets by 1 since indirect call
     // will be generated as Fallback case.
     NumPossibleTargets++;
   } else {
@@ -236,9 +244,38 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
     }
   }
 
+  // If we have a partially complete set then it means that all the targets
+  // are available, but the type of some of the targets aren't exactly the
+  // same with the indirect call, they just match. For example:
+  //
+  //   %struct.A =    { {}*, i32 }
+  //   %struct.A.01 = { %struct.A.01 (i32)*, i32 }
+  //
+  // Type %struct.A is composed by an empty structure and an i32, while
+  // %struct.A.01 is a function pointer and an i32. The clang CFE sometimes
+  // use an empty structure to represent a function pointer. This is a case
+  // when the structures aren't equal, but they match because we will assume
+  // that the empty structure is the same as a function pointer. The DTrans
+  // analysis uses the same assumption.
+  //
+  // If the issue mentioned before happens then we need to add the fallback
+  // case. The problem is that we don't have a full proof that these types are
+  // truly equal. When this issue happens we would like to convert into
+  // direct calls those targets for which the type matches with the indirect
+  // call and if any other target is needed then it will be handled in the
+  // fallback case.
+  //
+  // The maximum number of targets is important for the partially complete
+  // case because we want to be able to directly call the possible targets
+  // found with the fallback case. In the incomplete set case we can have
+  // unsafe targets and the fallback case will be added automatically.
+  unsigned ActualMaxTargets = (IsComplete ==
+      AndersensAAResult::AndersenSetResult::PartiallyComplete) ?
+      IndCallConvMaxTarget + 1 : IndCallConvMaxTarget;
+
   // It is not converted if number of possible targets exceeds
   // IndCallConvMaxTarget.
-  if (NumPossibleTargets > IndCallConvMaxTarget) {
+  if (NumPossibleTargets > ActualMaxTargets) {
     if (IndCallConvTrace) {
       errs() << "    Number of possible targets exceeds Limit\n";
     }
@@ -533,6 +570,9 @@ void IndirectCallConvLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
 // Convert indirect calls to direct calls if possible using points-to info.
 //
 bool IndirectCallConvLegacyPass::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   auto AnderPointsTo = (UseAndersen || IndCallConvForceAndersen)
                            ? &getAnalysis<AndersensAAWrapperPass>().getResult()
                            : nullptr;

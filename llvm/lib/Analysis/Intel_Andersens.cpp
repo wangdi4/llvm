@@ -408,30 +408,204 @@ static bool safePossibleTarget(Value *FP, Value* Target, CallSite CS) {
   return true;
 }
 
+// Return true if the type of a function pointer (FPType) matches with
+// the type of the target (TargetType). What we are looking here is for
+// types that aren't exactly the same with the indirect call but they
+// match. For example:
+//
+//   %struct.A =    { {}*, i32 }
+//   %struct.A.01 = { %struct.A.01 (i32)*, i32 }
+//
+// Type %struct.A is composed by an empty structure and an i32, while
+// %struct.A.01 is a function pointer and an i32. The clang CFE sometimes
+// use an empty structure to represent a function pointer. This is a case
+// when the structures aren't equal, but they match because we will assume
+// that the empty structure is the same as a function pointer. We use the
+// same assumption during DTrans analysis.
+bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
+    DenseSet<std::pair<Type *, Type *>> &TypesUsed) {
+
+  // Return true if the input type is an empty structure.
+  auto IsEmptyStructure = [](Type *InType) {
+    return InType->isStructTy() && InType->getStructNumElements() == 0;
+  };
+
+  // Types match
+  if (FPType == TargetType)
+    return true;
+
+  // If the types were checked before then assume that it is OK.
+  if (!TypesUsed.insert(std::make_pair(FPType, TargetType)).second) {
+    return true;
+  }
+
+  // Check for pointer types
+  if (PointerType *FPPtr = dyn_cast<PointerType>(FPType)) {
+
+    // Get the type that is being pointed to
+    if (PointerType *TargetPtr = dyn_cast<PointerType>(TargetType))
+      return isSimilarType(FPPtr->getElementType(),
+          TargetPtr->getElementType(), TypesUsed);
+
+    // Pointer type mismatch
+    return false;
+  }
+
+  // Check for function types
+  if (FunctionType *FPFunc = dyn_cast<FunctionType>(FPType)) {
+
+    // Target is a function type
+    if (FunctionType *TargetFunc = dyn_cast<FunctionType>(TargetType)) {
+
+      // Make sure the parameters match. If they don't match with a
+      // quick check then verify entry by entry.
+      if (FPFunc->params() != TargetFunc->params()) {
+        unsigned FPNumParams = FPFunc->getNumParams();
+        unsigned CurrParam = 0;
+
+        if (FPNumParams != TargetFunc->getNumParams())
+          return false;
+
+        // Check that the parameters match
+        for (CurrParam = 0; CurrParam < FPNumParams; CurrParam++) {
+          if (!isSimilarType(FPFunc->getParamType(CurrParam),
+                          TargetFunc->getParamType(CurrParam), TypesUsed))
+            return false;
+        }
+      }
+      // Check the return type
+      return isSimilarType(FPFunc->getReturnType(), TargetFunc->getReturnType(),
+          TypesUsed);
+    }
+
+    // Clang CFE can sometimes emit empty structures to represent function
+    // pointers. We will go conservative and assume that this will be a
+    // possible target.
+    else if (IsEmptyStructure(TargetType)) {
+      return true;
+    }
+
+    // Function type mismatch
+    return false;
+  }
+
+  // Check for structure types
+  if (StructType *FPStruct = dyn_cast<StructType>(FPType)) {
+
+    // The target is also a structure
+    if (StructType *TargetStruct = dyn_cast<StructType>(TargetType)) {
+
+      // Do a quick check if both are identical
+      if (FPStruct->isLayoutIdentical(TargetStruct))
+        return true;
+
+      unsigned FPNumElems = FPStruct->getNumElements();
+      unsigned CurrElem = 0;
+
+      // Number of elements mismatch
+      if (FPNumElems != TargetStruct->getNumElements())
+        return false;
+
+      // Go through each field of the structures and compare them
+      for (CurrElem = 0; CurrElem < FPNumElems; CurrElem++){
+
+        Type *FPElemType = FPStruct->getElementType(CurrElem);
+        Type *TargetElemType = TargetStruct->getElementType(CurrElem);
+
+        if (!isSimilarType(FPElemType, TargetElemType, TypesUsed))
+          return false;
+      }
+      // Structure type matches
+      return true;
+    }
+
+    // Clang CFE can sometimes emit empty structures to represent function
+    // pointers. We will go conservative and assume that this will be a
+    // possible target.
+    else if (IsEmptyStructure(FPType) && TargetType->isFunctionTy()) {
+      return true;
+    }
+
+    // Struct type mismatch
+    return false;
+  }
+
+  // Array and vector types are Sequential types
+  if (SequentialType *FPSeqType = dyn_cast<SequentialType>(FPType)) {
+
+    // The target is also sequential type
+    if (SequentialType *TargetSeqType = dyn_cast<SequentialType>(TargetType)) {
+
+      // If the function pointer is array type, then the target must
+      // be array type. Also, if the function pointer is vector type
+      // then the target must be vector type.
+      if ((FPType->isArrayTy() && !TargetType->isArrayTy()) ||
+          (FPType->isVectorTy() && !TargetType->isVectorTy()))
+        return false;
+
+      // Handle the bit width from the vector type
+      if (VectorType *FPVector = dyn_cast<VectorType>(FPType)) {
+        // We can use cast because we proved that the function pointer
+        // and the target are vector types
+        VectorType *TargetVector = cast<VectorType>(TargetType);
+        if (FPVector->getBitWidth() != TargetVector->getBitWidth())
+          return false;
+      }
+
+     // Check that the number of elements match
+      if (FPSeqType->getNumElements() != TargetSeqType->getNumElements())
+        return false;
+
+      // Check that the type of the elements match
+      return isSimilarType(FPSeqType->getElementType(),
+                        TargetSeqType->getElementType(), TypesUsed);
+    }
+
+    // Sequential type mismatch
+    return false;
+  }
+
+  // Type mismatch
+  return false;
+}
+
 // Interface routine to get possible targets of given function pointer 'FP'.
 // It computes all possible targets of 'FP' using points-to info and adds
 // valid targets to 'Targets' vector. Skips adding unknown/invalid targets
 // to 'Targets' vector and return false if there is any noticed.
 //
-bool AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
+// This function will return one of the following:
+//
+//   AndersenSetResult::Complete = All targets were found, and the type of each
+//                                 target is the same as the function pointer
+//
+//   AndersenSetResult::PartiallyComplete = All targets were found, but the
+//                                          type of at least one target is
+//                                          not truly equal to the function
+//                                          pointer, just similar
+//
+//   AndersenSetResult::Incomplete = Not all targets were found
+//
+AndersensAAResult::AndersenSetResult
+  AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
                  std::vector<llvm::Value*>& Targets, CallSite CS, bool Trace) {
 
   Targets.clear();
   if (ValueNodes.size() == 0) {
     // Return false if no points-to info is available.
-    return false;
+    return AndersenSetResult::Incomplete;
   }
   Node *N1 = &GraphNodes[FindNode(getNode(const_cast<Value*>(FP)))];
   if (N1 == &GraphNodes[UniversalSet]) {
     // Return false if fp is represented as UniversalSet.
-    return false;
+    return AndersenSetResult::Incomplete;
   }
-  bool IsComplete = true;
+  AndersensAAResult::AndersenSetResult IsComplete = AndersenSetResult::Complete;
   for (SparseBitVector<>::iterator bi = N1->PointsTo->begin(),
        be = N1->PointsTo->end(); bi != be; ++bi) {
     Node *N = &GraphNodes[*bi];
     if (N == &GraphNodes[UniversalSet]) {
-      IsComplete = false;
+      IsComplete = AndersenSetResult::Incomplete;
       continue;
     }
     if (N == &GraphNodes[NullPtr] || N == &GraphNodes[NullObject]) {
@@ -446,13 +620,13 @@ bool AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
             PrintNode(N);
         }
 
-        IsComplete = false;
+        IsComplete = AndersenSetResult::Incomplete;
         continue;
     }
 
     Value *V = N->getValue();
   
-    // Set IsComplete to false if V is unsafe target.
+    // Set IsComplete to AndersenSetResult::Incomplete if V is unsafe target.
     if (!safePossibleTarget(FP, V, CS)) {
       if (Trace) {
         if (Function *Fn = dyn_cast<Function>(V)) {
@@ -462,22 +636,44 @@ bool AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
           errs() << "    Unsafe target: Skipping  " << *V << "\n";
         }
       }
-      IsComplete = false;
+      IsComplete = AndersenSetResult::Incomplete;
       continue;
     }
     // Add it to the Target list only if signatures of call and possible
     // target do match. This behavior is different from icc. For icc, unsafe
     // possible targets(i.e MS_CDELS, varargs, NOSTATE etc) are also added
     // to the Target list. 
+    DenseSet<std::pair<Type *, Type *>> TypesUsed;
     if (FP->getType() == V->getType()) {
       Targets.push_back(V);
     }
     else {
-      if (Trace)
-        errs() << "    Args mismatch: Ignoring " <<
-                        cast<Function>(V)->getName() << "\n";
-    }
+      bool TypeComputed = false;
+      // If there is a chance that the types are similar, then it means
+      // that we don't have a complete set. V can be a possible target
+      // but there is no full proof that it's type match with FP.
+      //
+      // A set will be marked as partially complete only if it is complete.
+      // If the previous checks found that the set is incomplete, then that
+      // result can't be reverted.
+      if (IsComplete == AndersenSetResult::Complete
+          && isSimilarType(FP->getType(), V->getType(), TypesUsed)) {
+        IsComplete = AndersenSetResult::PartiallyComplete;
+        TypeComputed = true;
+      }
 
+      if (Trace) {
+        if (TypeComputed ||
+            isSimilarType(FP->getType(), V->getType(), TypesUsed)) {
+          errs() << "    Types might be similar: Ignoring " <<
+                        cast<Function>(V)->getName() << "\n";
+        }
+        else {
+          errs() << "    Args mismatch: Ignoring " <<
+                        cast<Function>(V)->getName() << "\n";
+        }
+      }
+    }
   }
   return IsComplete;
 }
