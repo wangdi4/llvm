@@ -748,6 +748,8 @@ void VPOCodeGenHIR::initializeVectorLoop(unsigned int VF) {
   // to have 1-iteration peeling functionality working for vectorized search
   // loops.
   bool SearchLoopNeedsPeeling =
+      TTI->isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2) &&
       EnableFirstIterPeelMEVec && isSearchLoop() &&
       getSearchLoopType() == VPlanIdioms::SearchLoopStrEq;
   // We cannot peel any iteration of the loop when the trip count is constant

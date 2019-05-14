@@ -1,4 +1,5 @@
-; RUN: opt -padded-pointer-prop \
+; RUN: opt -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
+; RUN      -padded-pointer-prop \
 ; RUN:     -hir-ssa-deconstruction -hir-temp-cleanup \
 ; RUN:     -hir-last-value-computation -hir-vec-dir-insert -allow-memory-speculation \
 ; RUN:     -vplan-force-vf=4 -VPlanDriverHIR -hir-cg -disable-output \

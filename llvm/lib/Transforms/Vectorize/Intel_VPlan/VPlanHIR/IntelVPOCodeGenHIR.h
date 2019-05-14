@@ -46,11 +46,12 @@ class VPInstruction;
 // appropriate length vectors.
 class VPOCodeGenHIR {
 public:
-  VPOCodeGenHIR(TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
-                VPlanVLSAnalysis *VLSA, const VPlan *Plan, Function &Fn,
-                HLLoop *Loop, LoopOptReportBuilder &LORB, WRNVecLoopNode *WRLp,
+  VPOCodeGenHIR(TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
+                HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
+                const VPlan *Plan, Function &Fn, HLLoop *Loop,
+                LoopOptReportBuilder &LORB, WRNVecLoopNode *WRLp,
                 const VPlanIdioms::Opcode SearchLoopType)
-      : TLI(TLI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
+      : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
         TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
@@ -332,6 +333,10 @@ public:
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
+
+  // Target Transform Info is used to check whether first iteration peeling is
+  // needed
+  TargetTransformInfo *TTI;
 
   HIRSafeReductionAnalysis *SRA;
 

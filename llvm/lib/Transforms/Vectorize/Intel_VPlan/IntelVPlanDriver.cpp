@@ -891,7 +891,7 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-    VPOCodeGenHIR VCodeGen(TLI, SRA, &VLSA, Plan, Fn, Lp, LORBuilder, WRLp,
+    VPOCodeGenHIR VCodeGen(TLI, TTI, SRA, &VLSA, Plan, Fn, Lp, LORBuilder, WRLp,
                            VPlanIdioms::isSearchLoop(Plan, VF, true));
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
