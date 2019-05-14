@@ -66,6 +66,7 @@ struct FuzzJob {
   std::string CorpusDir;
   std::string FeaturesDir;
   std::string LogPath;
+  std::string SeedListPath;
   std::string CFPath;
 
   // Fuzzing Outputs.
@@ -74,6 +75,7 @@ struct FuzzJob {
   ~FuzzJob() {
     RemoveFile(CFPath);
     RemoveFile(LogPath);
+    RemoveFile(SeedListPath);
     RmDirRecursive(CorpusDir);
     RmDirRecursive(FeaturesDir);
   }
@@ -121,8 +123,11 @@ struct GlobalEnv {
       for (size_t i = 0; i < CorpusSubsetSize; i++)
         Seeds += (Seeds.empty() ? "" : ",") +
                  Files[Rand->SkewTowardsLast(Files.size())];
-    if (!Seeds.empty())
-      Cmd.addFlag("seed_inputs", Seeds);
+    if (!Seeds.empty()) {
+      Job->SeedListPath = std::to_string(JobId) + ".seeds";
+      WriteToFile(Seeds, Job->SeedListPath);
+      Cmd.addFlag("seed_inputs", "@" + Job->SeedListPath);
+    }
     Job->LogPath = DirPlusFile(TempDir, std::to_string(JobId) + ".log");
     Job->CorpusDir = DirPlusFile(TempDir, "C" + std::to_string(JobId));
     Job->FeaturesDir = DirPlusFile(TempDir, "F" + std::to_string(JobId));
@@ -150,6 +155,9 @@ struct GlobalEnv {
   }
 
   void RunOneMergeJob(FuzzJob *Job) {
+    auto Stats = ParseFinalStatsFromLog(Job->LogPath);
+    NumRuns += Stats.number_of_executed_units;
+
     Vector<SizedFile> TempFiles, MergeCandidates;
     // Read all newly created inputs and their feature sets.
     // Choose only those inputs that have new features.
@@ -189,8 +197,6 @@ struct GlobalEnv {
           PrintPC("  NEW_FUNC: %p %F %L\n", "",
                   TPC.GetNextInstructionPc(TE->PC));
 
-    auto Stats = ParseFinalStatsFromLog(Job->LogPath);
-    NumRuns += Stats.number_of_executed_units;
     if (!FilesToAdd.empty() || Job->ExitCode != 0)
       Printf("#%zd: cov: %zd ft: %zd corp: %zd exec/s %zd "
              "oom/timeout/crash: %zd/%zd/%zd time: %zds\n", NumRuns,

@@ -253,14 +253,17 @@ static Expected<NewSymbolInfo> parseNewSymbolInfo(StringRef FlagValue) {
 }
 
 static const StringMap<MachineInfo> ArchMap{
-    // Name, {EMachine, OS/ABI, 64bit, LittleEndian}
-    {"aarch64", {ELF::EM_AARCH64, ELF::ELFOSABI_NONE, true, true}},
-    {"arm", {ELF::EM_ARM, ELF::ELFOSABI_NONE, false, true}},
-    {"i386", {ELF::EM_386, ELF::ELFOSABI_NONE, false, true}},
-    {"i386:x86-64", {ELF::EM_X86_64, ELF::ELFOSABI_NONE, true, true}},
-    {"powerpc:common64", {ELF::EM_PPC64, ELF::ELFOSABI_NONE, true, true}},
-    {"sparc", {ELF::EM_SPARC, ELF::ELFOSABI_NONE, false, true}},
-    {"x86-64", {ELF::EM_X86_64, ELF::ELFOSABI_NONE, true, true}},
+    // Name, {EMachine, 64bit, LittleEndian}
+    {"aarch64", {ELF::EM_AARCH64, true, true}},
+    {"arm", {ELF::EM_ARM, false, true}},
+    {"i386", {ELF::EM_386, false, true}},
+    {"i386:x86-64", {ELF::EM_X86_64, true, true}},
+    {"mips", {ELF::EM_MIPS, false, false}},
+    {"powerpc:common64", {ELF::EM_PPC64, true, true}},
+    {"riscv:rv32", {ELF::EM_RISCV, false, true}},
+    {"riscv:rv64", {ELF::EM_RISCV, true, true}},
+    {"sparc", {ELF::EM_SPARC, false, true}},
+    {"x86-64", {ELF::EM_X86_64, true, true}},
 };
 
 static Expected<const MachineInfo &> getMachineInfo(StringRef Arch) {
@@ -271,26 +274,50 @@ static Expected<const MachineInfo &> getMachineInfo(StringRef Arch) {
   return Iter->getValue();
 }
 
+// FIXME: consolidate with the bfd parsing used by lld.
 static const StringMap<MachineInfo> OutputFormatMap{
-    // Name, {EMachine, OSABI, 64bit, LittleEndian}
-    {"elf32-i386", {ELF::EM_386, ELF::ELFOSABI_NONE, false, true}},
-    {"elf32-i386-freebsd", {ELF::EM_386, ELF::ELFOSABI_FREEBSD, false, true}},
-    {"elf32-powerpcle", {ELF::EM_PPC, ELF::ELFOSABI_NONE, false, true}},
-    {"elf32-x86-64", {ELF::EM_X86_64, ELF::ELFOSABI_NONE, false, true}},
-    {"elf64-powerpcle", {ELF::EM_PPC64, ELF::ELFOSABI_NONE, true, true}},
-    {"elf64-x86-64", {ELF::EM_X86_64, ELF::ELFOSABI_NONE, true, true}},
-    {"elf64-x86-64-freebsd",
-     {ELF::EM_X86_64, ELF::ELFOSABI_FREEBSD, true, true}},
+    // Name, {EMachine, 64bit, LittleEndian}
+    // x86
+    {"elf32-i386", {ELF::EM_386, false, true}},
+    {"elf32-x86-64", {ELF::EM_X86_64, false, true}},
+    {"elf64-x86-64", {ELF::EM_X86_64, true, true}},
+    // Intel MCU
+    {"elf32-iamcu", {ELF::EM_IAMCU, false, true}},
+    // ARM
+    {"elf32-littlearm", {ELF::EM_ARM, false, true}},
+    // ARM AArch64
+    {"elf64-aarch64", {ELF::EM_AARCH64, true, true}},
+    {"elf64-littleaarch64", {ELF::EM_AARCH64, true, true}},
+    // RISC-V
+    {"elf32-littleriscv", {ELF::EM_RISCV, false, true}},
+    {"elf64-littleriscv", {ELF::EM_RISCV, true, true}},
+    // PowerPC
+    {"elf32-powerpc", {ELF::EM_PPC, false, false}},
+    {"elf32-powerpcle", {ELF::EM_PPC, false, true}},
+    {"elf64-powerpc", {ELF::EM_PPC64, true, false}},
+    {"elf64-powerpcle", {ELF::EM_PPC64, true, true}},
+    // MIPS
+    {"elf32-bigmips", {ELF::EM_MIPS, false, false}},
+    {"elf32-ntradbigmips", {ELF::EM_MIPS, false, false}},
+    {"elf32-ntradlittlemips", {ELF::EM_MIPS, false, true}},
+    {"elf32-tradbigmips", {ELF::EM_MIPS, false, false}},
+    {"elf32-tradlittlemips", {ELF::EM_MIPS, false, true}},
+    {"elf64-tradbigmips", {ELF::EM_MIPS, true, false}},
+    {"elf64-tradlittlemips", {ELF::EM_MIPS, true, true}},
 };
 
-static Expected<const MachineInfo &>
-getOutputFormatMachineInfo(StringRef Format) {
+static Expected<MachineInfo> getOutputFormatMachineInfo(StringRef Format) {
+  StringRef OriginalFormat = Format;
+  bool IsFreeBSD = Format.consume_back("-freebsd");
   auto Iter = OutputFormatMap.find(Format);
   if (Iter == std::end(OutputFormatMap))
     return createStringError(errc::invalid_argument,
                              "Invalid output format: '%s'",
-                             Format.str().c_str());
-  return Iter->getValue();
+                             OriginalFormat.str().c_str());
+  MachineInfo MI = Iter->getValue();
+  if (IsFreeBSD)
+    MI.OSABI = ELF::ELFOSABI_FREEBSD;
+  return {MI};
 }
 
 static Error addSymbolsFromFile(std::vector<NameOrRegex> &Symbols,
@@ -431,8 +458,7 @@ Expected<DriverConfig> parseObjcopyOptions(ArrayRef<const char *> ArgsArr) {
     Config.BinaryArch = *MI;
   }
   if (!Config.OutputFormat.empty() && Config.OutputFormat != "binary") {
-    Expected<const MachineInfo &> MI =
-        getOutputFormatMachineInfo(Config.OutputFormat);
+    Expected<MachineInfo> MI = getOutputFormatMachineInfo(Config.OutputFormat);
     if (!MI)
       return MI.takeError();
     Config.OutputArch = *MI;
@@ -558,6 +584,8 @@ Expected<DriverConfig> parseObjcopyOptions(ArrayRef<const char *> ArgsArr) {
   Config.KeepFileSymbols = InputArgs.hasArg(OBJCOPY_keep_file_symbols);
   Config.DecompressDebugSections =
       InputArgs.hasArg(OBJCOPY_decompress_debug_sections);
+  if (Config.DiscardMode == DiscardType::All)
+    Config.StripDebug = true;
   for (auto Arg : InputArgs.filtered(OBJCOPY_localize_symbol))
     Config.SymbolsToLocalize.emplace_back(Arg->getValue(), UseRegex);
   for (auto Arg : InputArgs.filtered(OBJCOPY_localize_symbols))
@@ -606,6 +634,8 @@ Expected<DriverConfig> parseObjcopyOptions(ArrayRef<const char *> ArgsArr) {
       return NSI.takeError();
     Config.SymbolsToAdd.push_back(*NSI);
   }
+
+  Config.AllowBrokenLinks = InputArgs.hasArg(OBJCOPY_allow_broken_links);
 
   Config.DeterministicArchives = InputArgs.hasFlag(
       OBJCOPY_enable_deterministic_archives,
@@ -693,6 +723,7 @@ Expected<DriverConfig> parseStripOptions(ArrayRef<const char *> ArgsArr) {
 
   CopyConfig Config;
   bool UseRegexp = InputArgs.hasArg(STRIP_regex);
+  Config.AllowBrokenLinks = InputArgs.hasArg(STRIP_allow_broken_links);
   Config.StripDebug = InputArgs.hasArg(STRIP_strip_debug);
 
   if (InputArgs.hasArg(STRIP_discard_all, STRIP_discard_locals))
@@ -701,7 +732,8 @@ Expected<DriverConfig> parseStripOptions(ArrayRef<const char *> ArgsArr) {
             ? DiscardType::All
             : DiscardType::Locals;
   Config.StripUnneeded = InputArgs.hasArg(STRIP_strip_unneeded);
-  Config.StripAll = InputArgs.hasArg(STRIP_strip_all);
+  if (auto Arg = InputArgs.getLastArg(STRIP_strip_all, STRIP_no_strip_all))
+    Config.StripAll = Arg->getOption().getID() == STRIP_strip_all;
   Config.StripAllGNU = InputArgs.hasArg(STRIP_strip_all_gnu);
   Config.OnlyKeepDebug = InputArgs.hasArg(STRIP_only_keep_debug);
   Config.KeepFileSymbols = InputArgs.hasArg(STRIP_keep_file_symbols);
@@ -718,9 +750,13 @@ Expected<DriverConfig> parseStripOptions(ArrayRef<const char *> ArgsArr) {
   for (auto Arg : InputArgs.filtered(STRIP_keep_symbol))
     Config.SymbolsToKeep.emplace_back(Arg->getValue(), UseRegexp);
 
-  if (!Config.StripDebug && !Config.StripUnneeded &&
-      Config.DiscardMode == DiscardType::None && !Config.StripAllGNU && Config.SymbolsToRemove.empty())
+  if (!InputArgs.hasArg(STRIP_no_strip_all) && !Config.StripDebug &&
+      !Config.StripUnneeded && Config.DiscardMode == DiscardType::None &&
+      !Config.StripAllGNU && Config.SymbolsToRemove.empty())
     Config.StripAll = true;
+
+  if (Config.DiscardMode == DiscardType::All)
+    Config.StripDebug = true;
 
   Config.DeterministicArchives =
       InputArgs.hasFlag(STRIP_enable_deterministic_archives,
