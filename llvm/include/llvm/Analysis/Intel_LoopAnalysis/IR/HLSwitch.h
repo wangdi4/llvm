@@ -123,6 +123,12 @@ public:
   /// \brief Returns the number of switch cases excluding the default case.
   unsigned getNumCases() const { return CaseBegin.size(); }
 
+  /// Iterator for all case children
+  case_child_iterator child_begin() { return Children.begin(); }
+  const_case_child_iterator child_begin() const { return Children.begin(); }
+  case_child_iterator child_end() { return Children.end(); }
+  const_case_child_iterator child_end() const { return Children.end(); }
+
   /// Default Case iterator methods
   case_child_iterator default_case_child_begin() {
     return case_child_begin_internal(0);

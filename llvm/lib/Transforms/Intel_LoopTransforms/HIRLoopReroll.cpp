@@ -108,6 +108,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -2196,16 +2197,17 @@ bool rerollStraightCodes(HLLoop *Loop, HIRDDAnalysis &DDA,
 
 unsigned doLoopReroll(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                       HIRLoopStatistics &HLS, HIRSafeReductionAnalysis &SRA) {
-
   unsigned NumLoopsRerolled = 0;
-  ForEach<HLLoop>::visitRange(
-      HIRF.hir_begin(), HIRF.hir_end(),
-      [&DDA, &HLS, &SRA, &NumLoopsRerolled](HLLoop *Loop) {
-        bool Result = rerollStraightCodes(Loop, DDA, HLS, SRA);
-        if (Result) {
-          ++NumLoopsRerolled;
-        }
-      });
+  for (HLRangeIterator
+       It = HLRangeIterator(HIRF.hir_begin()),
+       EIt = HLRangeIterator(HIRF.hir_end());
+       It != EIt; ++It) {
+    if (HLLoop* Loop = dyn_cast<HLLoop>(*It)) {
+      if (rerollStraightCodes(Loop, DDA, HLS, SRA)) {
+        ++NumLoopsRerolled;
+      }
+    }
+  }
 
   return NumLoopsRerolled;
 }
