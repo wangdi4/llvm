@@ -973,6 +973,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSi10_M_extractImEERSiRT_:
     return Changed;
+  case LibFunc_ZNSi4readEPci:
+    return Changed;
   case LibFunc_ZNSi4readEPcl:
     return Changed;
   case LibFunc_ZNSi5tellgEv:
@@ -985,6 +987,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ZNSo3putEc:
     return Changed;
   case LibFunc_ZNSo5flushEv:
+    return Changed;
+  case LibFunc_ZNSo5writeEPKci:
     return Changed;
   case LibFunc_ZNSo5writeEPKcl:
     return Changed;
@@ -1143,6 +1147,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ZNSt9exceptionD1Ev:
     return Changed;
   case LibFunc_ZNSt9exceptionD2Ev:
+    return Changed;
+  case LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_i:
     return Changed;
   case LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l:
     return Changed;
