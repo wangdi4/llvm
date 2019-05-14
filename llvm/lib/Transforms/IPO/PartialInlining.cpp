@@ -1050,6 +1050,16 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
   };
 
   for (User *User : Users) {
+#if INTEL_CUSTOMIZATION
+    // When performing partial inlining for functions that were devirtualized,
+    // ignore uses that are not calls. These uses are for comparing the address
+    // of an indirect function pointer to the address of the function. There is
+    // no need to collect profile counts on these instructions, since the
+    // profile counts are just used to adjust the entry count of the splinter
+    // function for the cold portion of the routine.
+    if (IsVirtualTarget && !isa<CallBase>(User))
+      continue;
+#endif
     CallSite CS = getCallSite(User);
     Function *Caller = CS.getCaller();
     if (CurrentCaller != Caller) {
