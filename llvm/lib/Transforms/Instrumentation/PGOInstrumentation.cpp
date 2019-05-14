@@ -1245,6 +1245,31 @@ void PGOUseFunc::populateCounters() {
     assert(BI->CountValid && "BB count is not valid");
   }
 #endif
+#if INTEL_CUSTOMIZATION
+  // Add metadata for callsite profile counts.
+  for (auto &BB : F) {
+    auto BI = findBBInfo(&BB);
+    if (BI == nullptr)
+      continue;
+    for (auto &II : BB) {
+      auto Call = dyn_cast<CallBase>(&II);
+      if (!Call)
+        continue;
+      if (isa<IntrinsicInst>(Call))
+        continue;
+      Function *Callee = Call->getCalledFunction();
+      if (!Callee)
+        continue;
+      uint64_t Count = BI->CountValue;
+      SmallVector<Metadata *, 2> Vals(2);
+      Vals[0] = MDString::get(M->getContext(), "intel_profx");
+      Type *Int64Ty = Type::getInt64Ty(M->getContext());
+      Vals[1] = ConstantAsMetadata::get(ConstantInt::get(Int64Ty, Count));
+      II.setMetadata(LLVMContext::MD_intel_profx,
+          MDNode::get(M->getContext(), Vals));
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   uint64_t FuncEntryCount = getBBInfo(&*F.begin()).CountValue;
   F.setEntryCount(ProfileCount(FuncEntryCount, Function::PCT_Real));
   uint64_t FuncMaxCount = FuncEntryCount;

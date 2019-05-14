@@ -66,7 +66,8 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
 #if INTEL_CUSTOMIZATION
     {MD_std_container_ptr, "std.container.ptr"},
     {MD_std_container_ptr_iter, "std.container.ptr.iter"},
-    {MD_intel_tbaa, "intel-tbaa"}
+    {MD_intel_tbaa, "intel-tbaa"},
+    {MD_intel_profx, "intel-profx"}
 #endif // INTEL_CUSTOMIZATION
   };
 

@@ -4014,6 +4014,81 @@ static bool worthInliningForArrayStructArgs(CallBase &CB,
 }
 
 //
+// Return a profile count for 'Call' using 'PSI' if one exists.
+//
+static Optional<uint64_t> profInstrumentCount(ProfileSummaryInfo *PSI,
+                                              CallBase &Call) {
+  if (!DTransInlineHeuristics)
+    return None;
+  if (!PSI || !PSI->hasInstrumentationProfile())
+    return None;
+  MDNode *MD = Call.getMetadata(LLVMContext::MD_intel_profx);
+  if (!MD)
+    return None;
+  assert(MD->getNumOperands() == 2);
+  ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
+  assert(CI);
+  return CI->getValue().getZExtValue();
+}
+
+//
+// Set the percentage within 100% for which any callsite is considered
+// hot via instrumented profile info. (For now, use "0" which provides for
+// inlining only the hottest callsite(s).)
+//
+static cl::opt<unsigned> ProfInstrumentHotPercentage(
+    "inline-prof-instr-hot-percentage", cl::Hidden, cl::init(0),
+    cl::desc("Calls within this percentage of the hottest call are hot"));
+
+//
+// Return the threshold over which a callsite is considered hot.
+//
+static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI,
+                                        Module *M) {
+  static bool ComputedThreshold = false;
+  static uint64_t Threshold = 0;
+  if (ComputedThreshold)
+    return Threshold;
+  // Find hottest callsite and its profile count.
+  uint64_t MaxProfCount = 0;
+  for (auto &F :  M->functions()) {
+    for (User *U : F.users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB)
+        continue;
+      Optional<uint64_t> ProfCount = profInstrumentCount(PSI, *CB);
+      if (ProfCount == None)
+        continue;
+      uint64_t NewValue = ProfCount.getValue();
+      if (NewValue > MaxProfCount)
+        MaxProfCount = NewValue;
+    }
+  }
+  // Adjust the threshold by the ProfInstrumentHotPercentage.
+  Threshold = MaxProfCount - ProfInstrumentHotPercentage * MaxProfCount / 100;
+  ComputedThreshold = true;
+  return Threshold;
+}
+
+//
+// Return 'true' if 'CB' is a hot callsite based on 'PSI. Do not recognize
+// hot callsites during the 'PrepareForLTO' phase.
+//
+static bool isProfInstrumentHotCallSite(CallBase &CB,
+                                        ProfileSummaryInfo *PSI,
+                                        bool PrepareForLTO)
+{
+  if (!DTransInlineHeuristics || PrepareForLTO)
+    return false;
+  Module *M = CB.getParent()->getParent()->getParent();
+  uint64_t Threshold = profInstrumentThreshold(PSI, M);
+  Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CB);
+  if (ProfCount == None)
+    return false;
+  return ProfCount.getValue() >= Threshold;
+}
+
+//
 // Test a series of special conditions to determine if it is worth inlining
 // if any of them appear. (These have been gathered together into a single
 // function to make an early exit easy to accomplish and save compile time.)
@@ -4024,6 +4099,7 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
                                                const TargetTransformInfo
                                                    &CalleeTTI,
                                                InliningLoopInfoCache &ILIC,
+                                               ProfileSummaryInfo *PSI,
                                                bool PrepareForLTO,
                                                bool IsCallerRecursive,
                                                SmallSet<CallBase *, 20>
@@ -4035,6 +4111,10 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
   Function *F = CB.getCalledFunction();
   if (!F)
     return 0;
+  if (isProfInstrumentHotCallSite(CB, PSI, PrepareForLTO)) {
+    YesReasonVector.push_back(InlrHotProfile);
+    return -InlineConstants::DeepInliningHeuristicBonus;
+  }
   if (isDoubleCallSite(F)) {
     // If there are two calls of the function, the cost of inlining it may
     // drop, but less dramatically.
@@ -4167,11 +4247,17 @@ InlineResult CallAnalyzer::analyzeCall(CallBase &Call,
 #if INTEL_CUSTOMIZATION
   Function *Callee = Call.getCalledFunction();
   if (Callee && InlineForXmain) {
+    Optional<uint64_t> ProfCount = profInstrumentCount(PSI, Call);
+    if (ProfCount && ProfCount.getValue() == 0) {
+      *ReasonAddr = NinlrColdProfile;
+      return false;
+    }
     if (preferCloningToInlining(Call, *ILIC, PrepareForLTO)) {
       *ReasonAddr = NinlrPreferCloning;
       return "prefer cloning";
     }
-    if (preferMultiversioningToInlining(Call, CalleeTTI, *ILIC, PrepareForLTO)) {
+    if (preferMultiversioningToInlining(Call, CalleeTTI, *ILIC,
+        PrepareForLTO)) {
       *ReasonAddr = NinlrPreferMultiversioning;
       return false;
     }
@@ -4229,7 +4315,7 @@ InlineResult CallAnalyzer::analyzeCall(CallBase &Call,
   if (InlineForXmain) {
     if (&F == Call.getCalledFunction()) {
       addCost(worthInliningUnderSpecialCondition(
-          Call, *TLI, CalleeTTI, *ILIC, PrepareForLTO, IsCallerRecursive,
+          Call, *TLI, CalleeTTI, *ILIC, PSI, PrepareForLTO, IsCallerRecursive,
           CallSitesForFusion, &QueuedCallers, YesReasonVector));
     }
   }

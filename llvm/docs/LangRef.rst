@@ -5281,6 +5281,22 @@ regular ``tbaa`` metadata, i.e. ``(OuterTy, InnerTy, Offset)``. The
    combined in a way "widening" the resulting outer type the base of it should
    be an array-to-pointer decay GEP or a GEP produced based on such a pointer.
 
+'``intel-profx``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``intel-profx`` metadata is used to store an uint64_t type execution counter
+on CallBase instructions. The execution counter is derived from instrumen-
+tation based profiling, and represents the number of times the call was
+executed in the training run.
+
+NOTE: The choice of a uint64_t counter is intentional.  It mirrors the use
+of a uint64_t counter for function entry execution counts.  Sampling based
+profiling attached execution counts to CallBase instructions, using branch
+weight metadata, which is a pair of uint32_t values. Only the first value is
+used. However, 32-bit counters are not adequate for many important applications
+and benchmarks when intrumentation based profiling is used.  So we adopt the
+use of 64-bit counters.
+
 .. END INTEL_CUSTOMIZATION
 
 '``fpmath``' Metadata

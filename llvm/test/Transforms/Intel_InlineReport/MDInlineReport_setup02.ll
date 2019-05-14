@@ -134,7 +134,7 @@ declare dso_local void @foo4(...) local_unnamed_addr
 !5 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !6 = !{!"name: k"}
 !7 = !{!"isInlined: 0"}
-!8 = !{!"reason: 32"} ;NinlrExtern
+!8 = !{!"reason: 34"} ;NinlrExtern
 !9 = !{!"inlineCost: -1"}
 !10 = !{!"outerInlineCost: -1"}
 !11 = !{!"inlineThreshold: -1"}
@@ -166,14 +166,14 @@ declare dso_local void @foo4(...) local_unnamed_addr
 !37 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !38 = distinct !{!"intel.callsite.inlining.report", !16, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !39 = !{!"isInlined: 1"}
-!40 = !{!"reason: 8"}
+!40 = !{!"reason: 9"}
 !41 = !{!"inlineCost: 30"}
 !42 = !{!"inlineThreshold: 337"}
 !43 = distinct !{!"intel.callsite.inlining.report", !24, !44, !39, !40, !48, !10, !42, !12, !13, !"line: 0 col: 0", !14}
 !44 = distinct !{!"intel.callsites.inlining.report", !45, !46}
 !45 = distinct !{!"intel.callsite.inlining.report", !27, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !46 = distinct !{!"intel.callsite.inlining.report", !29, null, !7, !47, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!47 = !{!"reason: 29"} ;NinlrDeleted
+!47 = !{!"reason: 31"} ;NinlrDeleted
 !48 = !{!"inlineCost: -5"}
 
 

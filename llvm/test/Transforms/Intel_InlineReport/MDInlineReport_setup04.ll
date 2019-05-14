@@ -62,7 +62,7 @@ declare !intel.function.inlining.report !25 dso_local void @c(...) local_unnamed
 !5 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !6 = !{!"name: a"}
 !7 = !{!"isInlined: 0"}
-!8 = !{!"reason: 31"}
+!8 = !{!"reason: 33"}
 !9 = !{!"inlineCost: -1"}
 !10 = !{!"outerInlineCost: -1"}
 !11 = !{!"inlineThreshold: -1"}

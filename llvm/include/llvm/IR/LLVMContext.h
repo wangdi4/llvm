@@ -102,7 +102,8 @@ public:
 #if INTEL_CUSTOMIZATION
     MD_std_container_ptr = 27,        // "std.container.ptr"
     MD_std_container_ptr_iter = 28,   // "std.container.ptr.iter"
-    MD_intel_tbaa = 29                // "intel-tbaa"
+    MD_intel_tbaa = 29,               // "intel-tbaa"
+    MD_intel_profx = 30               // "intel-profx"
 #endif                                // INTEL_CUSTOMIZATION
   };
 

@@ -104,7 +104,7 @@ declare !intel.function.inlining.report !55 dso_local void @z(...) local_unnamed
 !8 = distinct !{!"intel.callsite.inlining.report", !9, null, !10, !11, !12, !13, !14, !15, !16, !"line: 0 col: 0", !17}
 !9 = !{!"name: x"}
 !10 = !{!"isInlined: 0"}
-!11 = !{!"reason: 31"}
+!11 = !{!"reason: 33"}
 !12 = !{!"inlineCost: -1"}
 !13 = !{!"outerInlineCost: -1"}
 !14 = !{!"inlineThreshold: -1"}
@@ -117,10 +117,10 @@ declare !intel.function.inlining.report !55 dso_local void @z(...) local_unnamed
 !21 = distinct !{!"intel.callsite.inlining.report", !22, null, !10, !11, !12, !13, !14, !15, !16, !"line: 0 col: 0", !17}
 !22 = !{!"name: z"}
 !23 = !{!"isInlined: 1"}
-!24 = !{!"reason: 7"}
+!24 = !{!"reason: 8"}
 !25 = !{!"inlineCost: -15000"}
 !26 = !{!"inlineThreshold: 337"}
-!27 = !{!"reason: 8"}
+!27 = !{!"reason: 9"}
 !28 = !{!"inlineCost: 30"}
 !29 = distinct !{!"intel.callsite.inlining.report", !30, null, !10, !11, !12, !13, !14, !15, !16, !"line: 0 col: 0", !17}
 !30 = !{!"name: b"}

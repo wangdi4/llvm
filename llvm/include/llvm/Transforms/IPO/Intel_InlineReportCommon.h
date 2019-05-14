@@ -94,6 +94,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callee is always inline (recursive)"},
     // InlrInlineList,
     {InlPrtSimple, "Callee is in inline list"},
+    // InlrHotProfile,
+    {InlPrtCost, "Callsite has hot profile"},
     // InlrRecProClone
     {InlPrtCost, "Callee is recursive progressive clone"},
     // InlrHasExtractedRecursiveCall
@@ -143,6 +145,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callee is in noinline list"},
     // NinlrColdCC,
     {InlPrtCost, "Callee has cold calling convention"},
+    // NinlrColdProfile,
+    {InlPrtCost, "Callsite has cold profile"},
     // NinlrDeleted,
     {InlPrtSpecial, nullptr},
     // NinlrDuplicateCall,
