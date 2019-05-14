@@ -143,9 +143,6 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L->isLoopSimplifyForm() &&
          "genLoopBoundUpdatePrep: Expect the loop is in SimplifyForm.");
-  ICmpInst *CmpI = WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock());
-  if (CmpI)
-    W->getWRNLoopInfo().setZTTBB(CmpI->getParent());
 
   Type *LoopIndexType = WRegionUtils::getOmpCanonicalInductionVariable(L)
                             ->getIncomingValue(0)
@@ -1075,7 +1072,7 @@ bool VPOParoptTransform::paroptTransforms() {
           if (IsTargetSPIRV) {
             Changed |= genOCLParallelLoop(W);
             Changed |= genPrivatizationCode(W);
-            Changed |= genReductionCode(W, IsTargetSPIRV);
+            Changed |= genReductionCode(W);
           } else {
 #if INTEL_CUSTOMIZATION
             // Generate remarks using Loop Opt Report framework (under -qopt-report).
@@ -1292,7 +1289,9 @@ bool VPOParoptTransform::paroptTransforms() {
             auto *LoopExitBB = getLoopExitBB(W);
             // Last value update must happen in the loop's exit block,
             // i.e. under a ZTT check, if one was created around the loop.
+            Changed |= genLinearCode(W, LoopExitBB);
             Changed |= genLastPrivatizationCode(W, LoopExitBB);
+            Changed |= genReductionCode(W);
           }
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
@@ -1357,7 +1356,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genOCLParallelLoop(W);
             Changed |= genPrivatizationCode(W);
             if (!W->getIsDistribute())
-              Changed |= genReductionCode(W, IsTargetSPIRV);
+              Changed |= genReductionCode(W);
           } else {
 #if INTEL_CUSTOMIZATION
             // Generate remarks using Loop Opt Report framework (under -qopt-report).
@@ -1785,8 +1784,11 @@ bool VPOParoptTransform::genReductionScalarFini(
   }
   Instruction *Tmp0 = Builder.CreateStore(Res, ReductionVar);
 
-  if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-      hasOffloadCompilation()) {
+  if (isa<WRNVecLoopNode>(W))
+    // Reduction update does not have to be atomic for SIMD loop.
+    return false;
+
+  if (isTargetSPIRV()) {
     // This method may insert a new call before the store instruction (Tmp0)
     // and erase the store instruction, but in any case it does not invalidate
     // the IRBuilder.
@@ -2187,7 +2189,7 @@ void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
 }
 
 // Generate the reduction code for reduction clause.
-bool VPOParoptTransform::genReductionCode(WRegionNode *W, bool IsTargetSPIRV) {
+bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   bool Changed = false;
   SetVector<Value *> RedUses;
 
@@ -3666,6 +3668,17 @@ void VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
 
   PromoteMemToReg(Allocas, *DT, AC);
   fixOMPDoWhileLoop(W, L);
+
+  BasicBlock *ZTTBB = nullptr;
+  if (auto *CmpI = WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock()))
+    ZTTBB = CmpI->getParent();
+
+  // If the loop does not have zero-trip test, then explicitly
+  // set nullptr as ZTT basic block. getZTTBB() asserts that a Loop
+  // has its ZTT basic block set even if it is nullptr. The assertion
+  // is there to make sure that we do not miss ZTT block setup
+  // for a Loop.
+  W->getWRNLoopInfo().setZTTBB(ZTTBB, Index);
 }
 
 // The OMP loop is converted into bottom test loop to facilitate the
@@ -3676,15 +3689,16 @@ bool VPOParoptTransform::regularizeOMPLoop(WRegionNode *W, bool First) {
   if (!W->getWRNLoopInfo().getLoop())
     return false;
 
+  // For the case of #pragma omp parallel for simd, clang only
+  // generates the bundle omp.iv for the parallel for region.
+  if (W->getWRNLoopInfo().getNormIVSize() == 0)
+    return false;
+
   W->populateBBSet();
-  if (!First) {
-    // For the case of #pragma omp parallel for simd, clang only
-    // generates the bundle omp.iv for the parallel for region.
-    if (W->getWRNLoopInfo().getNormIVSize() == 0)
-      return false;
+  if (!First)
     for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I)
       regularizeOMPLoopImpl(W, I - 1);
-  } else {
+  else {
     std::vector<AllocaInst *> Allocas;
     SmallVector<Value *, 2> LoopEssentialValues;
     if (W->getWRNLoopInfo().getNormIV())
@@ -4345,10 +4359,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
 
   LLVMContext &C = F->getContext();
   IntegerType *Int32Ty = Type::getInt32Ty(C);
-
-
-  if (auto *CmpI = WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock()))
-    W->getWRNLoopInfo().setZTTBB(CmpI->getParent());
 
   DenseMap<Value *, std::pair<Value *, BasicBlock *>> ValueToLiveinMap;
   SmallSetVector<Instruction *, 8> LiveOutVals;

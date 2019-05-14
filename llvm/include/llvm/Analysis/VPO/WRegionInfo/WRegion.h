@@ -92,14 +92,23 @@ private:
   Loop       *Lp;
   SmallVector<Value *, 2> NormIV; // normalized IV's created by FE
   SmallVector<Value *, 2> NormUB; // normalized UB's
-  BasicBlock *ZTTBB;  // bblock with the zero-trip test
+
+  /// Basic blocks with the zero-trip test for all loops in a loop nest.
+  DenseMap<unsigned, BasicBlock *> ZTTBB;
 public:
-  WRNLoopInfo(LoopInfo *L) : LI(L), Lp(nullptr), ZTTBB(nullptr){}
+  WRNLoopInfo(LoopInfo *L) : LI(L), Lp(nullptr) {}
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
   void addNormIV(Value *IV) { NormIV.push_back(IV); }
   void addNormUB(Value *UB) { NormUB.push_back(UB); }
-  void setZTTBB(BasicBlock *BB) { ZTTBB = BB; }
+
+  /// Set basic block \p BB as a zero-trip test block for the loop nest's
+  /// loop with the given index \p Idx.
+  void setZTTBB(BasicBlock *BB, unsigned Idx = 0) {
+    assert(ZTTBB.find(Idx) == ZTTBB.end() &&
+           "Loop already has ZTT block set up.");
+    ZTTBB[Idx] = BB;
+  }
   LoopInfo *getLoopInfo() const { return LI; }
 
   /// Return the ith level of loop in a loop nest. This utility is valid
@@ -123,7 +132,25 @@ public:
   Value *getNormUB(unsigned I=0) const;
   unsigned getNormIVSize() const { return NormIV.size(); }
   unsigned getNormUBSize() const { return NormUB.size(); }
-  BasicBlock *getZTTBB() const { return ZTTBB; }
+
+  /// Return basic block containing a zero-trip test for the loop nest's
+  /// loop with the given index \p Idx.  Assert that the zero-trip test
+  /// basic block has been set up for the specified loop.
+  BasicBlock *getZTTBB(unsigned Idx = 0) const {
+    auto It = ZTTBB.find(Idx);
+    // We should never rely on ZTTBB, if is has not been set up,
+    // which happens at a certain point of VPO Paropt transformation.
+    assert(It != ZTTBB.end() && "ZTT block has not been set up for Loop.");
+    return It->second;
+  }
+
+  /// Return ZTTBB, if it has been set up, otherwise, return nullptr.
+  /// This version may be used for WRNLoopInfo printing, which may happen
+  /// before ZTTBB setup.
+  BasicBlock *getZTTBBOrNull(unsigned Idx = 0) const {
+    return ZTTBB.lookup(Idx);
+  }
+
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned Verbosity=1) const;
 };

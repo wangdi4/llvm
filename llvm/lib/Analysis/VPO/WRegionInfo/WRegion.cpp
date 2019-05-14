@@ -79,7 +79,7 @@ void WRNLoopInfo::print(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printBB("Loop Preheader", L->getLoopPreheader(), OS, Ind, Verbosity);
   vpo::printBB("Loop Header", L->getHeader(), OS, Ind, Verbosity);
   vpo::printBB("Loop Latch", L->getLoopLatch(), OS, Ind, Verbosity);
-  vpo::printBB("Loop ZTTBB", getZTTBB(), OS, Ind, Verbosity);
+  vpo::printBB("Loop ZTTBB", getZTTBBOrNull(), OS, Ind, Verbosity);
 
   OS << "\n";
 }

@@ -421,7 +421,7 @@ private:
   Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
 
   /// Generate the reduction code for reduction clause.
-  bool genReductionCode(WRegionNode *W, bool IsTargetSPIRV = false);
+  bool genReductionCode(WRegionNode *W);
 
   /// Prepare the empty basic block for the array
   /// reduction or firstprivate initialization.
