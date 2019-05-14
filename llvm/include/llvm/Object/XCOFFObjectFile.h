@@ -16,6 +16,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/BinaryFormat/Magic.h"
+#include "llvm/BinaryFormat/XCOFF.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Object/Binary.h"
 #include "llvm/Object/Error.h"
@@ -47,9 +48,29 @@ struct XCOFFFileHeader {
   support::ubig16_t Flags;
 };
 
+struct XCOFFSectionHeader {
+  char Name[XCOFF::SectionNameSize];
+  support::ubig32_t PhysicalAddress;
+  support::ubig32_t VirtualAddress;
+  support::ubig32_t SectionSize;
+  support::ubig32_t FileOffsetToRawData;
+  support::ubig32_t FileOffsetToRelocationInfo;
+  support::ubig32_t FileOffsetToLineNumberInfo;
+  support::ubig16_t NumberOfRelocations;
+  support::ubig16_t NumberOfLineNumbers;
+  support::big32_t Flags;
+};
+
 class XCOFFObjectFile : public ObjectFile {
 private:
   const XCOFFFileHeader *FileHdrPtr = nullptr;
+  const XCOFFSectionHeader *SectionHdrTablePtr = nullptr;
+
+  size_t getFileHeaderSize() const;
+  size_t getSectionHeaderSize() const;
+
+  const XCOFFSectionHeader *toSection(DataRefImpl Ref) const;
+
 
 public:
   void moveSymbolNext(DataRefImpl &Symb) const override;
@@ -65,8 +86,7 @@ public:
   Expected<section_iterator> getSymbolSection(DataRefImpl Symb) const override;
 
   void moveSectionNext(DataRefImpl &Sec) const override;
-  std::error_code getSectionName(DataRefImpl Sec,
-                                 StringRef &Res) const override;
+  Expected<StringRef> getSectionName(DataRefImpl Sec) const override;
   uint64_t getSectionAddress(DataRefImpl Sec) const override;
   uint64_t getSectionIndex(DataRefImpl Sec) const override;
   uint64_t getSectionSize(DataRefImpl Sec) const override;
@@ -95,13 +115,24 @@ public:
   StringRef getFileFormatName() const override;
   Triple::ArchType getArch() const override;
   SubtargetFeatures getFeatures() const override;
+  Expected<uint64_t> getStartAddress() const override;
   bool isRelocatableObject() const override;
 
-public:
   XCOFFObjectFile(MemoryBufferRef Object, std::error_code &EC);
 
   const XCOFFFileHeader *getFileHeader() const { return FileHdrPtr; }
 
+  uint16_t getMagic() const;
+  uint16_t getNumberOfSections() const;
+  int32_t  getTimeStamp() const;
+  uint32_t  getSymbolTableOffset() const;
+
+  // Note that this value is signed and might return a negative value. Negative
+  // values are reserved for future use.
+  int32_t  getNumberOfSymbolTableEntries() const;
+
+  uint16_t getOptionalHeaderSize() const;
+  uint16_t getFlags() const;
 }; // XCOFFObjectFile
 
 } // namespace object

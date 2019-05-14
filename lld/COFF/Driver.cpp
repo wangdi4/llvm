@@ -551,6 +551,11 @@ static std::string createResponseFile(const opt::InputArgList &Args,
     case OPT_manifestinput:
     case OPT_manifestuac:
       break;
+    case OPT_implib:
+    case OPT_pdb:
+    case OPT_out:
+      OS << Arg->getSpelling() << sys::path::filename(Arg->getValue()) << "\n";
+      break;
     default:
       OS << toString(*Arg) << "\n";
     }
@@ -1091,6 +1096,10 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   if (Args.hasArg(OPT_force, OPT_force_multiple))
     Config->ForceMultiple = true;
 
+  // Handle /force or /force:multipleres
+  if (Args.hasArg(OPT_force, OPT_force_multipleres))
+    Config->ForceMultipleRes = true;
+
   // Handle /debug
   DebugKind Debug = parseDebugKind(Args);
   if (Debug == DebugKind::Full || Debug == DebugKind::Dwarf ||
@@ -1370,6 +1379,8 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   Config->IntegrityCheck =
       Args.hasFlag(OPT_integritycheck, OPT_integritycheck_no, false);
   Config->NxCompat = Args.hasFlag(OPT_nxcompat, OPT_nxcompat_no, true);
+  for (auto *Arg : Args.filtered(OPT_swaprun))
+    parseSwaprun(Arg->getValue());
   Config->TerminalServerAware =
       !Config->DLL && Args.hasFlag(OPT_tsaware, OPT_tsaware_no, true);
   Config->DebugDwarf = Debug == DebugKind::Dwarf;
