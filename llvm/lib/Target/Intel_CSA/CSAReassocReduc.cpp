@@ -336,12 +336,10 @@ MachineBasicBlock::iterator CSAReassocReduc::expandReduction(MachineInstr &MI) {
       add_instr(CSA::MOV1).addDef(res).addUse(lthack);
       return res;
     } else {
-      const unsigned scratch = MCP->getConstantPoolIndex(
-          ConstantInt::get(Type::getInt64Ty(ctx), bits), 1);
       const unsigned res = add_lic(i1_class, name, true);
       add_instr(CSA::FOUNTAIN1)
           .addDef(res)
-          .addConstantPoolIndex(scratch)
+          .addImm(bits)
           .addImm(len)
           .addImm(1);
       return res;

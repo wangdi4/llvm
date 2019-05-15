@@ -163,6 +163,7 @@ public:
   void EmitGlobalVariable(const GlobalVariable *GV) override;
 
   void EmitCsaCodeSection();
+  void EmitScratchpad(MCSymbol *Symbol, bool isConstant, const Constant *Init);
 };
 } // end of anonymous namespace
 
@@ -186,10 +187,20 @@ bool CSAAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
     else
       O << "\t.unit sxu\n";
     OutStreamer->EmitRawText(O.str());
+
+    // If we have any scratchpads, emit them before the machine function.
+    const Module &M = *MF.getFunction().getParent();
+    for (const auto &GV: M.globals()) {
+      if (isScratchpadAddressSpace(GV.getAddressSpace())) {
+        EmitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
+      }
+    }
   }
   AsmPrinter::runOnMachineFunction(MF);
-  if (csa_utils::createSCG())
+
+  if (csa_utils::createSCG()) {
     OutStreamer->EmitRawText(".endmodule");
+  }
   return false;
 }
 
@@ -328,6 +339,15 @@ void markMathLibGlobalsAsExtern(Module &M) {
 
 bool CSAAsmPrinter::doFinalization(Module &M) {
   markMathLibGlobalsAsExtern(M);
+
+  // If we have scratchpads, emit them now.
+  if (!csa_utils::createSCG()) {
+    for (const auto &GV: M.globals()) {
+      if (isScratchpadAddressSpace(GV.getAddressSpace())) {
+        EmitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
+      }
+    }
+  }
   if (CSAInstPrinter::WrapCsaAsm()) {
     OutStreamer->AddBlankLine();
     if (!csa_utils::createSCG())
@@ -556,6 +576,15 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
       O << "\t.unit sxu\n";
   }
   OutStreamer->EmitRawText(O.str());
+
+  // If we have any scratchpads, emit them before the machine function.
+  if (!csa_utils::createSCG()) {
+    for (const auto &GV: M.globals()) {
+      if (isScratchpadAddressSpace(GV.getAddressSpace())) {
+        EmitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
+      }
+    }
+  }
 }
 
 void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
@@ -921,41 +950,26 @@ void CSAAsmPrinter::EmitConstantPool() {
   // Just emit each constant pool entry in its own scratchpad.
   for (unsigned i = 0, e = CP.size(); i != e; ++i) {
     const MachineConstantPoolEntry &CPE = CP[i];
-    unsigned Align                      = CPE.getAlignment();
-
-    SectionKind Kind = CPE.getSectionKind(&getDataLayout());
 
     const Constant *C = nullptr;
     if (!CPE.isMachineConstantPoolEntry())
       C = CPE.Val.ConstVal;
-
-    MCSectionELF *S_base =
-      dyn_cast<MCSectionELF>(getObjFileLowering().getSectionForConstant(
-        getDataLayout(), Kind, C, Align));
-    assert(S_base);
+    assert(C && "Should have a constant for CSA machine constant pools");
 
     MCSymbol *Sym = GetCPISymbol(i);
     if (!Sym->isUndefined())
       continue;
 
-    assert(not Sym->getName().empty());
-    const char *sp_name_prefix =
-      (Sym->getName().front() == '.') ? ".csa.sp" : ".csa.sp.";
-    MCSection *S = OutContext.getELFSection(
-      sp_name_prefix + Sym->getName(), S_base->getType(), S_base->getFlags());
-
-    OutStreamer->SwitchSection(S);
-    EmitAlignment(Log2_32(Align));
-
-    OutStreamer->EmitLabel(Sym);
-    if (CPE.isMachineConstantPoolEntry())
-      EmitMachineConstantPoolValue(CPE.Val.MachineCPVal);
-    else
-      EmitGlobalConstant(getDataLayout(), CPE.Val.ConstVal);
+    EmitScratchpad(Sym, true, C);
   }
 }
 
 void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
+  // Handle scratchpads differently from regular global variables.
+  if (isScratchpadAddressSpace(GV->getAddressSpace())) {
+    // These were emitted elsewhere.
+    return;
+  }
 
   // If the global's section name starts with .csa. or if its linkage type is
   // private, it belongs on the CSA and needs to go in the target code.
@@ -978,6 +992,86 @@ void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
     EmitCsaCodeSection();
     OutStreamer->EmitRawText("\t.ascii ");
     startCSAAsmString(*OutStreamer);
+  }
+}
+
+template <typename Func>
+static void printValues(MCStreamer &Streamer, uint64_t Count, Func GetElement) {
+  for (uint64_t i = 0; i < Count; i++) {
+    SmallString<128> Str;
+    raw_svector_ostream O(Str);
+    O << "\t.value " << format_hex(GetElement(i).getLimitedValue(), 10) << "\n";
+    Streamer.EmitRawText(O.str());
+  }
+}
+
+void CSAAsmPrinter::EmitScratchpad(MCSymbol *Sym, bool IsConstant,
+    const Constant *CV) {
+  Sym->redefineIfPossible();
+  const DataLayout &DL = getDataLayout();
+  uint64_t Size = DL.getTypeAllocSize(CV->getType());
+
+  // Compute the type of the scratchpad.
+  Type *ValueTy = CV->getType();
+  if (isa<ConstantAggregateZero>(CV)) {
+    // All 0's -- use i64 if possible, else i8.
+    if (Size % 8 == 0)
+      ValueTy = Type::getInt64Ty(ValueTy->getContext());
+    else
+      ValueTy = Type::getInt8Ty(ValueTy->getContext());
+  } else if (auto SeqTy = dyn_cast<SequentialType>(ValueTy)) {
+    // Arrays and vectors: look through the array type.
+    ValueTy = SeqTy->getElementType();
+  }
+
+  if (ValueTy->isPointerTy()) {
+    // Convert pointers to integers.
+    ValueTy = DL.getIntPtrType(ValueTy);
+  } else if (!ValueTy->isIntegerTy() && !ValueTy->isPointerTy() &&
+      !ValueTy->isFloatingPointTy()) {
+    // Any other type? It's an i8 type (for byte emission).
+    ValueTy = Type::getInt8Ty(ValueTy->getContext());
+  } else if (ValueTy->getPrimitiveSizeInBits() > 64) {
+    // Oversize integers are emitted with byte emission.
+    ValueTy = Type::getInt8Ty(ValueTy->getContext());
+  }
+
+  // Compute the number of entries.
+  uint64_t ValueSize = DL.getTypeAllocSize(ValueTy);
+  if (Size % ValueSize != 0) {
+    ValueTy = Type::getInt8Ty(ValueTy->getContext());
+    ValueSize = 1;
+  }
+  uint64_t EntryCount = Size / ValueSize;
+
+  // Emit the .spad directive.
+  SmallString<128> Str;
+  raw_svector_ostream O(Str);
+  O << ".text\n"; // The simulator requires this...
+  O << (IsConstant ? ".rom " : ".spad ");
+  if (ValueTy->isFloatTy())
+    O << ".f32";
+  else if (ValueTy->isDoubleTy())
+    O << ".f64";
+  else {
+    assert(ValueTy->isIntegerTy() && "Scratchpad isn't int or float?");
+    O << ".i" << (ValueSize * 8);
+  }
+  O << " " << Sym->getName() << "[" << EntryCount << "]\n";
+  OutStreamer->EmitRawText(O.str());
+
+  // If there are values to emit, emit them now.
+  if (isa<ConstantAggregateZero>(CV)) {
+    // Do nothing--initialized to 0 by default.
+  } else if (auto CDS = dyn_cast<ConstantDataSequential>(CV)) {
+    if (ValueTy->isFloatingPointTy())
+      printValues(*OutStreamer, EntryCount,
+          [&](int i) { return CDS->getElementAsAPFloat(i).bitcastToAPInt(); });
+    else
+      printValues(*OutStreamer, EntryCount,
+          [&](int i) { return CDS->getElementAsAPInt(i); });
+  } else {
+    report_fatal_error("Scratchpad constant format unhandled");
   }
 }
 

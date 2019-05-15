@@ -44,6 +44,7 @@ add_llvm_target(CSACodeGen
   CSALoopInfo.cpp
   CSALoopIntrinsicExpander.cpp
   CSALowerLoopIdioms.cpp
+  CSALowerScratchpads.cpp
   CSAMCInstLower.cpp
   CSAMachineFunctionInfo.cpp
   CSAMultiSeqPass.cpp

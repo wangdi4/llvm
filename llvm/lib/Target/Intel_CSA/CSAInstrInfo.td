@@ -749,6 +749,7 @@ class FountainOp<GenericOp gen, CSAOpInfo oi,
 def LDX : GenericOp<"ldx">;
 def LDD : GenericOp<"ldd">;
 def LD  : GenericOp<"ld">;
+def LDSP: GenericOp<"ldsp">;
 multiclass LdOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IILD> {
 
@@ -774,6 +775,13 @@ multiclass LdOp<string opStr, CSAOpInfo t,
       (ins ADDR_R:$addr, MEMLVL:$memlvl, MemOrdDef:$inord),
       !strconcat(opStr, "\t$res, $addr, $outord, $inord, $memlvl"),
       []>;
+
+    def SP : FMTGEN<LDSP, t,
+      (outs t.RC:$res, MemOrdDef:$outord),
+      (ins i64imm:$base, RCLi64:$index, MemOrdUse:$inord),
+      !strconcat("ldsp", !cast<string>(t.OpBitSize),
+        "\t$res, $base, $index, $outord, $inord"),
+      []>;
   }
 }
 
@@ -781,6 +789,7 @@ multiclass LdOp<string opStr, CSAOpInfo t,
 def STX : GenericOp<"stx">;
 def STD : GenericOp<"std">;
 def ST  : GenericOp<"st">;
+def STSP: GenericOp<"stsp">;
 multiclass StOp<string opStr, CSAOpInfo t,
            InstrItinClass itin = IIST> {
 
@@ -805,6 +814,13 @@ multiclass StOp<string opStr, CSAOpInfo t,
       (outs MemOrdDef:$outord),
       (ins ADDR_R:$addr, t.RCL:$val, MEMLVL:$memlvl, MemOrdDef:$inord),
       !strconcat(opStr, "\t$addr, $val, $outord, $inord, $memlvl"),
+      []>;
+
+    def SP : FMTGEN<STSP, t,
+      (outs MemOrdDef:$outord),
+      (ins i64imm:$base, RCLi64:$index, t.RCL:$val, MemOrdUse:$inord),
+      !strconcat("stsp", !cast<string>(t.OpBitSize),
+        "\t$base, $index, $val, $outord, $inord"),
       []>;
   }
 }

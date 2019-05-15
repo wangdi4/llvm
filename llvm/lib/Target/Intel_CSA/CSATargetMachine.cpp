@@ -252,6 +252,9 @@ public:
     // Add ordering edges to memops.
     addPass(createCSAMemopOrderingPass(getCSATargetMachine()));
 
+    // Lower scratchpads.
+    addPass(createCSALowerScratchpadsPass());
+
     // Convert loads/stores to sld/sst where possible.
     if (getOptLevel() != CodeGenOpt::None)
       addPass(createCSAStreamingMemoryConversionPass());

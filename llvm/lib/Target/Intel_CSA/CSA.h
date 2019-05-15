@@ -50,6 +50,7 @@ MachineFunctionPass *createCSADataflowVerifier();
 MachineFunctionPass *createCSAGlobalFMAPass();
 // FunctionPass *createCSALowerStructArgsPass();
 Pass *createCSAInnerLoopPrepPass();
+Pass *createCSALowerScratchpadsPass();
 Pass *createCSAReplaceAllocaWithMallocPass(CSATargetMachine &TM);
 Pass *createCSAMemopOrderingPass(const CSATargetMachine &TM);
 Pass *createCSAParseAnnotateAttributesPass();
@@ -61,6 +62,10 @@ void initializeCSACreateSelfContainedGraphPass(PassRegistry &);
 bool shouldRunDataflowPass(const MachineFunction &MF);
 
 Pass *createCSACreateSelfContainedGraphPass();
+
+inline bool isScratchpadAddressSpace(unsigned AS) {
+  return AS >= 1024 && AS < 2047;
+}
 } // namespace llvm
 
 #endif

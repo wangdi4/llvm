@@ -554,6 +554,11 @@ SDValue CSATargetLowering::LowerGlobalAddress(SDValue Op,
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
   int64_t Offset        = cast<GlobalAddressSDNode>(Op)->getOffset();
 
+  // Scratchpad? The result is just the offset.
+  if (isScratchpadAddressSpace(GV->getAddressSpace()))
+    return DAG.getConstant(Offset, SDLoc(Op),
+        getPointerTy(DAG.getDataLayout()));
+
   // Create the TargetGlobalAddress node
   // DO NOT fold in the constant offset for now
   SDValue Result = DAG.getTargetGlobalAddress(
@@ -782,7 +787,8 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   // * OPND: copy from/to operand/output at index idx of the input SDNode
   // * ORD: copy from/to the input/output ordering edge
   // * LEVEL: choose a memlvl value based on the MachineMemOperand
-  enum OpndSourceType { OPND, ORD, LEVEL };
+  // * SPAD: the scratchpad base and index values.
+  enum OpndSourceType { OPND, ORD, LEVEL, SPAD };
 
   // A record denoting how to translate a particular use/def operand for the
   // MachineInstr representation of a memop. See OpndSourceType above for
@@ -881,6 +887,18 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
     },
   };
+  static const MemopRec ScratchpadMemopISDTable[] = {
+    {
+      ISD::LOAD, CSA::Generic::LDSP, 0,
+      {{OPND, 0}, ORD},
+      {{SPAD, 1}, ORD}
+    },
+    {
+      ISD::STORE, CSA::Generic::STSP, 3,
+      {ORD},
+      {{SPAD, 2}, {OPND, 1}, ORD}
+    },
+  };
   static const MemopRec MemopIntrinsicTable[] = {
     {
       Intrinsic::csa_stream_load, CSA::Generic::SLD, 0,
@@ -914,6 +932,8 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   if (const MemSDNode *const MemNode = dyn_cast<MemSDNode>(MemopNode)) {
     MemOperand = MemNode->getMemOperand();
   }
+  bool isScratchpad = MemOperand ?
+    isScratchpadAddressSpace(MemOperand->getAddrSpace()): false;
   const SDLoc DL{Op};
 
   // There should be an input ordering node for all memops except loads of
@@ -942,6 +962,11 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       return R.SDOpcode == ID;
     });
     assert(FoundMemop != end(MemopIntrinsicTable));
+  } else if (isScratchpad) {
+    FoundMemop = find_if(ScratchpadMemopISDTable, [SDOpcode](const MemopRec &R) {
+      return R.SDOpcode == SDOpcode;
+    });
+    assert(FoundMemop != end(ScratchpadMemopISDTable));
   } else {
     FoundMemop = find_if(MemopISDTable, [SDOpcode](const MemopRec &R) {
       return R.SDOpcode == SDOpcode;
@@ -976,6 +1001,28 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
         MemOperand->isNonTemporal() ? CSA::MEMLEVEL_NTA : CSA::MEMLEVEL_T0, DL,
         MVT::i64));
       break;
+    case SPAD: {
+      // Find the base from the appropriate GV.
+      unsigned AS = MemOperand->getAddrSpace();
+      SDValue Base;
+      const Module &M = *DAG.getMachineFunction().getFunction().getParent();
+      for (const GlobalVariable &GV : M.globals()) {
+        if (GV.getAddressSpace() == AS) {
+          Base = DAG.getTargetGlobalAddress(&GV, DL, MVT::i64);
+          break;
+        }
+      }
+
+      SDValue PtrValue = MemopNode->getOperand(S.idx);
+      EVT IdxTy = PtrValue.getValueType();
+      SDValue Index = DAG.getNode(ISD::SRA, DL, IdxTy, PtrValue,
+        DAG.getConstant(countTrailingZeros(MemOperand->getSize()), DL, IdxTy));
+
+      // Add both the parameters to the array.
+      Opnds.push_back(Base);
+      Opnds.push_back(Index);
+      break;
+    }
     default:
       llvm_unreachable("bad OpndSourceType for a use");
     }

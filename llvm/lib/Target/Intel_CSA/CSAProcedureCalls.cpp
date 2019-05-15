@@ -315,7 +315,8 @@ void CSAProcCallsPass::createMovInstAfter(MachineInstr *DefMI, unsigned oldreg, 
 
 // Used to create and add a MOV instruction before the CALL instruction
 void CSAProcCallsPass::createMovInstBefore(MachineInstr *UseMI, unsigned oldreg, unsigned newreg) {
-  unsigned movopcode = TII->makeOpcode(CSA::Generic::MOV, MRI->getRegClass(oldreg));
+  const TargetRegisterClass *RC = (oldreg == CSA::IGN) ? &CSA::CI0RegClass : MRI->getRegClass(oldreg);
+  unsigned movopcode = TII->makeOpcode(CSA::Generic::MOV, RC);
   MachineInstrBuilder MIB = BuildMI(*(UseMI->getParent()), UseMI, UseMI->getDebugLoc(),
             TII->get(movopcode), newreg)
            .addUse(oldreg);
