@@ -558,6 +558,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 #endif // INTEL_CUSTOMIZATION
 
   VPlan *Plan = getVPlanForVF(BestVF);
+  assert(Plan && "No VPlan found for BestVF.");
   // TODO: This should be removed once we get proper divergence analysis
   State.UniformCBVs = &Plan->UniformCBVs;
 

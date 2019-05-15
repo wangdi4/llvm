@@ -1468,6 +1468,8 @@ public:
           Builder.getOrCreateVPOperand(ID.getInductionBinOp())));
       Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
     } else {
+      assert(Descriptor.getStartPhi() &&
+             "Induction descriptor does not have starting PHI.");
       Type *IndTy = Descriptor.getStartPhi()->getType();
       (void)IndTy;
       assert((IndTy->isIntegerTy() || IndTy->isPointerTy()) &&
@@ -1499,9 +1501,10 @@ public:
       Descriptor.setKind(InductionDescriptor::IK_IntInduction);
     else if (IndTy->isPointerTy()) {
       Descriptor.setKind(InductionDescriptor::IK_PtrInduction);
-      const DataLayout &DL = dyn_cast<Instruction>(CurValue.first)
-                                 ->getModule()
-                                 ->getDataLayout();
+      assert(isa<Instruction>(CurValue.first) &&
+             "Linear descriptor is not an instruction.");
+      const DataLayout &DL =
+          cast<Instruction>(CurValue.first)->getModule()->getDataLayout();
       StepTy = DL.getIntPtrType(IndTy);
     } else {
       assert(IndTy->isFloatingPointTy() && "unexpected induction type");

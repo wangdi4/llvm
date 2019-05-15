@@ -2164,6 +2164,7 @@ void VPOCodeGenHIR::widenNode(const HLInst *INode, RegDDRef *Mask,
       INode->getLvalDDRef()->isTerminalRef() &&
       INode->getLvalDDRef()->isLiveOutOfParentLoop() && INode->hasRval() &&
       !INode->getRvalDDRef()->isNonLinear()) {
+    assert(Mask && "HLInst with linear ref does not have mask.");
     handleLiveOutLinearInEarlyExit(INode->clone(), Mask);
     return;
   }

@@ -717,6 +717,7 @@ void VPOCodeGen::emitResume(Value *CountRoundDown) {
 void VPOCodeGen::emitMinimumIterationCountCheck(Loop *L, Value *Count) {
 
   BasicBlock *VLoopFirstBB = L->getLoopPreheader();
+  assert(VLoopFirstBB && "Loop does not have a preheader block.");
   IRBuilder<> Builder(VLoopFirstBB->getTerminator());
 
   // Generate code to check that the loop's trip count that we computed by
@@ -813,6 +814,7 @@ Value *VPOCodeGen::emitTransformedIndex(IRBuilder<> &B, Value *Index,
 void VPOCodeGen::emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass) {
   Value *TC = getOrCreateVectorTripCount(L);
   BasicBlock *BB = L->getLoopPreheader();
+  assert(BB && "Loop does not have preheader block.");
   IRBuilder<> Builder(BB->getTerminator());
 
   // Now, compare the new count to zero. If it is zero skip the vector loop and

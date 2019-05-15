@@ -548,6 +548,8 @@ void VPLoopAnalysis::computeTripCountImpl(const VPLoopRegion *Lp) {
             MDNode *MD = dyn_cast<MDNode>(LoopID->getOperand(i));
             if (MD) {
               const MDString *S = dyn_cast<MDString>(MD->getOperand(0));
+              if (!S)
+                continue;
               if (MaxInfo.equals(S->getString()))
                 MaxTripCount = mdconst::extract<ConstantInt>(MD->getOperand(1))
                                    ->getZExtValue();
