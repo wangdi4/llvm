@@ -340,6 +340,25 @@ Instruction *InstCombiner::visitMul(BinaryOperator &I) {
     I.setHasNoUnsignedWrap(true);
   }
 
+#if INTEL_CUSTOMIZATION
+  // If nsw flag is set and both inputs are known non-negative, then the
+  // operation is also nuw. This is limited to the case where one argument is
+  // a constant to avoid yet another call to computeKnownBits.
+  // It would be create to merge this into willNotOverflowUnsignedMul above,
+  // but it requires several interface changes that would need to be
+  // customized.
+  if (I.hasNoSignedWrap() && !I.hasNoUnsignedWrap()) {
+    const APInt *C;
+    if (match(Op1, m_APInt(C)) && C->isNonNegative()) {
+      KnownBits LHSKnown = computeKnownBits(Op0, 0, &I);
+      if (LHSKnown.isNonNegative()) {
+        Changed = true;
+        I.setHasNoUnsignedWrap(true);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return Changed ? &I : nullptr;
 }
 
