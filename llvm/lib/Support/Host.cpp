@@ -780,6 +780,9 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
         *Subtype = X86::INTEL_COREI7_BROADWELL;
         break;
       }
+#if INTEL_CUSTOMIZATION
+      //TODO: detect tgl host
+#endif // INTEL_CUSTOMIZATION
       if (Features & (1 << X86::FEATURE_AVX2)) {
         *Type = X86::INTEL_COREI7;
         *Subtype = X86::INTEL_COREI7_HASWELL;

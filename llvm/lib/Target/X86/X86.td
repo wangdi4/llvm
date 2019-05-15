@@ -734,6 +734,25 @@ def ProcessorFeatures {
     !listconcat(ICLInheritableFeatures, ICXSpecificFeatures);
 
 #if INTEL_CUSTOMIZATION
+  list<SubtargetFeature> IntelAnonymousFeatures1 = [
+#if INTEL_FEATURE_ISA_KEYLOCKER
+    FeatureKeyLocker,
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+    FeatureVP2INTERSECT
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+  ];
+  //Tigerlake
+  list<SubtargetFeature> TGLAdditionalFeatures1 = [FeatureMOVDIRI,
+                                                   FeatureMOVDIR64B,
+                                                   FeatureSHSTK];
+
+  list<SubtargetFeature> TGLAdditionalFeatures2 =
+    !listconcat(IntelAnonymousFeatures1, TGLAdditionalFeatures1);
+
+  list<SubtargetFeature> TGLFeatures =
+    !listconcat(ICLFeatures, TGLAdditionalFeatures2);
+
   list<SubtargetFeature> IntelAnonymous1AdditionalFeatures =[
 #if INTEL_FEATURE_ISA_AMX
     FeatureAMXTILE,
@@ -1185,6 +1204,9 @@ def : ProcessorModel<"icelake-server", SkylakeServerModel,
                      ProcessorFeatures.ICXFeatures>;
 
 #if INTEL_CUSTOMIZATION
+def : ProcessorModel<"tigerlake", SkylakeServerModel,
+                     ProcessorFeatures.TGLFeatures>;
+
 #if INTEL_FEATURE_CPU_GLC
 def : ProcessorModel<"goldencove", SkylakeServerModel,
                      ProcessorFeatures.IntelAnonymous1Features>;
