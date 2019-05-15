@@ -58,10 +58,33 @@ static cl::opt<unsigned> FMAControl("csa-global-fma-control",
 /// by the internal switch FMAControl/"-csa-global-fma-control".
 static bool checkFMAControl(unsigned F) { return (FMAControl & F) == F; }
 
-/// Immediate values for float and double 1.0
-static const int64_t F32One   = 0x3f800000L;
-static const int64_t F64One   = 0x3ff0000000000000LL;
-static const int64_t V2F32One = 0x3f8000003f800000LL;
+/// Returns immediate value for 1.0 constant of the given type.
+static int64_t getOne(MVT VT) {
+  switch (VT.SimpleTy) {
+  case MVT::f32:
+    return 0x3f800000L;
+  case MVT::f64:
+    return 0x3ff0000000000000LL;
+  case MVT::v2f32:
+    return 0x3f8000003f800000LL;
+  default:
+    llvm_unreachable("Unsupported type");
+  }
+}
+
+/// Returns immediate value representing sign bit(s) for the given type.
+static int64_t getSignMask(MVT VT) {
+  switch (VT.SimpleTy) {
+  case MVT::f32:
+    return 0x80000000L;
+  case MVT::f64:
+    return 0x8000000000000000LL;
+  case MVT::v2f32:
+    return 0x8000000080000000LL;
+  default:
+    llvm_unreachable("Unsupported type");
+  }
+}
 
 namespace {
 
@@ -702,24 +725,21 @@ public:
 
   bool isZero() const { return Imm == 0; }
 
-  bool isOne() const {
-    switch (getVT().SimpleTy) {
-    case MVT::f32:
-      return Imm == F32One;
-    case MVT::f64:
-      return Imm == F64One;
-    case MVT::v2f32:
-      return Imm == V2F32One;
-    default:
-      llvm_unreachable("Unsupported type");
-    }
+  bool isOne() const { return Imm == getOne(getVT()); }
+
+  bool isNegativeZero() const {
+    return FMAImmTerm(getVT(), getSignMask(getVT()) ^ Imm).isZero();
+  }
+
+  bool isNegativeOne() const {
+    return FMAImmTerm(getVT(), getSignMask(getVT()) ^ Imm).isOne();
   }
 
   /// Prints the FMA expression or term to the given stream \p OS.
   /// The parameter \p PrintAttributes specifies if the caller wants to see
   /// more information and some of FMA node attributes should be printed out.
   void print(raw_ostream &OS, bool PrintAttributes) const override {
-    OS << format_hex(Imm, VT.getSizeInBits() / 8);
+    OS << format_hex(Imm, 2u + VT.getSizeInBits() / 4);
     if (PrintAttributes)
       OS << " // Type: " << EVT(VT).getEVTString();
   }
@@ -1527,18 +1547,7 @@ public:
 
   FMAImmTerm *createZero(MVT VT) { return createImm(VT, 0); }
 
-  FMAImmTerm *createOne(MVT VT) {
-    switch (VT.SimpleTy) {
-    case MVT::f32:
-      return createImm(VT, F32One);
-    case MVT::f64:
-      return createImm(VT, F64One);
-    case MVT::v2f32:
-      return createImm(VT, V2F32One);
-    default:
-      llvm_unreachable("Unsupported type");
-    }
-  }
+  FMAImmTerm *createOne(MVT VT) { return createImm(VT, getOne(VT)); }
 
   /// Creates an FMA term associated with the virtual register used in
   /// the passed machine operand \p MO. The parameter \p VT specifies
@@ -1718,6 +1727,20 @@ unsigned FMABasicBlock::parseBasicBlock(const FMAOpcodes &Opcodes,
     default:
       llvm_unreachable("Unsupported opcode kind.");
     }
+
+    // Canonize immediates.
+    auto CanonizeImm = [this, VT](FMANode *&Op, bool &Sign) {
+      if (auto *Term = dyn_cast<FMAImmTerm>(Op)) {
+        if (Term->isNegativeOne()) {
+          Op = createOne(VT);
+          Sign ^= true;
+        } else if (Term->isNegativeZero())
+          Op = createZero(VT);
+      }
+    };
+    CanonizeImm(Ops[0], MulSign);
+    CanonizeImm(Ops[1], MulSign);
+    CanonizeImm(Ops[2], AddSign);
 
     // Create a new register term for the result of the FMA operation and
     // the FMAExpr node for this operation.
@@ -2158,19 +2181,13 @@ void CSAGlobalFMA::generateOutputIR(const FMAExpr &Expr, const FMADag &Dag,
 
     if (NegateResult) {
       unsigned Opc = 0u;
-      int64_t  Imm = 0;
       switch (VT.SimpleTy) {
       case MVT::f32:
         Opc = CSA::XOR32;
-        Imm = 0x80000000L;
         break;
       case MVT::f64:
-        Opc = CSA::XOR64;
-        Imm = 0x8000000000000000LL;
-        break;
       case MVT::v2f32:
         Opc = CSA::XOR64;
-        Imm = 0x8000000080000000LL;
         break;
       default:
         llvm_unreachable("Unsupported type");
@@ -2178,7 +2195,7 @@ void CSAGlobalFMA::generateOutputIR(const FMAExpr &Expr, const FMADag &Dag,
 
       auto XorMI = BuildMI(MBB, MI, MI->getDebugLoc(), TII->get(Opc), OldDst)
                        .addUse(NewDst)
-                       .addImm(Imm);
+                       .addImm(getSignMask(VT));
       LLVM_DEBUG(dbgs() << "  GENERATE NEW INSTRUCTION:\n    " << *XorMI);
       (void)XorMI;
     }
