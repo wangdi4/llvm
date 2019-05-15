@@ -131,6 +131,19 @@ bool X86TargetInfo::setFPMath(StringRef Name) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+#define TGLXFEATURE1 setFeatureEnabledImpl(Features, "keylocker", true);
+#else // INTEL_FEATURE_ISA_KEYLOCKER
+#define TGLXFEATURE1
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+#define TGLXFEATURE2 setFeatureEnabledImpl(Features, "avx512vp2intersect", true);
+#else // INTEL_FEATURE_ISA_VP2INTERSECT
+#define TGLXFEATURE2
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#endif // INTEL_CUSTOMIZATION
 bool X86TargetInfo::initFeatureMap(
     llvm::StringMap<bool> &Features, DiagnosticsEngine &Diags, StringRef CPU,
     const std::vector<std::string> &FeaturesVec) const {
@@ -188,10 +201,19 @@ bool X86TargetInfo::initFeatureMap(
       setFeatureEnabledImpl(Features, Feature, true);
     LLVM_FALLTHROUGH;
 #endif // INTEL_FEATURE_CPU_GLC
-#endif // INTEL_CUSTOMIZATION
+  case CK_Tigerlake:
+    TGLXFEATURE1
+    TGLXFEATURE2
+    setFeatureEnabledImpl(Features, "movdiri", true);
+    setFeatureEnabledImpl(Features, "movdir64b", true);
+    setFeatureEnabledImpl(Features, "shstk", true);
+    LLVM_FALLTHROUGH;
   case CK_IcelakeServer:
-    setFeatureEnabledImpl(Features, "pconfig", true);
-    setFeatureEnabledImpl(Features, "wbnoinvd", true);
+    if (Kind != CK_Tigerlake) {
+      setFeatureEnabledImpl(Features, "pconfig", true);
+      setFeatureEnabledImpl(Features, "wbnoinvd", true);
+    }
+#endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case CK_IcelakeClient:
     setFeatureEnabledImpl(Features, "vaes", true);
@@ -1156,6 +1178,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_IcelakeClient:
   case CK_IcelakeServer:
 #if INTEL_CUSTOMIZATION
+  case CK_Tigerlake:
 #if INTEL_FEATURE_CPU_GLC
   case CK_Goldencove:
 #endif // INTEL_FEATURE_CPU_GLC
