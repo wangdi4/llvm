@@ -59,10 +59,17 @@ bool VPODirectiveCleanupPass::runImpl(Function &F) {
 
   // Remove calls to directive intrinsics since the LLVM back end does not know
   // how to translate them.
-  if (!VPOUtils::stripDirectives(F)) {
-    // If nothing happens, simply return.
+  bool Changed = VPOUtils::stripDirectives(F);
+
+  // Unset "may-have-openmp-directive" attribute for the function F, as all
+  // directives have been removed.
+  VPOUtils::unsetMayHaveOpenmpDirectiveAttribute(F);
+
+  // In the future, we can also run CFG Simplify when `Changed` is false, but
+  // unsetMayHaveOpenmpDirectiveAttribute() returned true, as it will be able to
+  // do optimizations which were previously prevented by the attribute.
+  if (!Changed)
     return false;
-  }
 
   // TODO : The following piece of code still uses legacy pass manager
   // This needs to be changed

@@ -103,6 +103,11 @@ public:
   /// zero-offset GEP; \b false otherwise.
   static bool isPointerCastOrZeroOffsetGEP(Value *V);
 
+  /// If \p F has an attribute "may-have-openmp-directive", and it is not
+  /// already `false`, then set it to `false`, and return \b true; return
+  /// \b false otherwise.
+  static bool unsetMayHaveOpenmpDirectiveAttribute(Function &F);
+
   /// Remove calls to directive intrinsics from WRegionNode \p WRN.
   /// By default, the util removes the directive intrinsic calls from the
   /// Entry and Exit BBlocks of \p WRN. This can be extended to handle needs

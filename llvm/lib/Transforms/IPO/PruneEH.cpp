@@ -18,6 +18,9 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/EHPersonalities.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -203,6 +206,13 @@ static bool SimplifyFunction(Function *F, CallGraph &CG) {
 
     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; )
       if (CallInst *CI = dyn_cast<CallInst>(I++))
+#if INTEL_COLLAB
+        // It's possible to have calls like `exit()` inside an OpenMP region in
+        // region.entry/exit directive form. If all successors of the call are
+        // deleted for being unreachable, then that would end up deleting the
+        // exit directive of the parent OpenMP region, making it mal-formed.
+        if (!llvm::vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*F))
+#endif // INTEL_COLLAB
         if (CI->doesNotReturn() && !CI->isMustTailCall() &&
             !isa<UnreachableInst>(I)) {
           // This call calls a function that cannot return.  Insert an

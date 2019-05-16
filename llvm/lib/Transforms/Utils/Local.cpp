@@ -35,6 +35,9 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -2079,6 +2082,20 @@ static bool markAliveBlocks(Function &F,
           break;
         }
         if (CI->doesNotReturn() && !CI->isMustTailCall()) {
+#if INTEL_COLLAB
+          // It's possible to have calls like `exit()` inside an OpenMP region
+          // in `region.entry/exit` directive form. If all successors of the
+          // call are deleted for being unreachable, then that would end up
+          // deleting the `region.exit` directive of the parent OpenMP region,
+          // making it mal-formed.
+          //
+          // This can be further narrowed down by either building a WRegion
+          // graph for `F`, and checking that the parent BasicBlock of `CI` is
+          // not in any WRegion, or checking that there is no case of a
+          // `region.entry` directive in `F` dominating `CI` without its
+          // corresponding `region.exit` directive also dominating CI.
+          if (!llvm::vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(F))
+#endif // INTEL_COLLAB
           // If we found a call to a no-return function, insert an unreachable
           // instruction after it.  Make sure there isn't *already* one there
           // though.
