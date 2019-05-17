@@ -748,6 +748,80 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
     unsigned PickReg = Pick->getOperand(2 + PickBackedge).getReg();
     LMFI->addLICAttribute(PickReg, "csasim_backedge");
   }
+
+  // If pipeline depth has been specified, add token control
+  limitPipelineDepth(L);
+}
+
+void CSACvtCFDFPass::limitPipelineDepth(MachineLoop *L)
+{
+  // If pipeline depth has been specified, add token control
+  MachineInstr *tokenTake = 0;
+  MachineInstr *tokenReturn = 0;
+  if (checkIfDepthLimitedLoop(L, tokenTake, tokenReturn)) {
+    auto frameSize = tokenTake->getOperand(3).getImm();
+    auto pipelineDepth = tokenTake->getOperand(4).getImm();
+    LLVM_DEBUG(dbgs() <<
+      "Retrieved pipeline depth-limited loop with pool address " <<
+      printReg(tokenTake->getOperand(1).getReg()) <<
+      ", frameSize " << frameSize <<
+      ", depth " << pipelineDepth <<
+      " setting " << printReg(tokenTake->getOperand(0).getReg()) << "\n");
+
+    unsigned frameOffset =
+      LMFI->allocateLIC(&CSA::CI64RegClass, "pd.ls.offsets");
+    LMFI->setLICDepth(frameOffset, pipelineDepth);
+
+
+    // Initialize slot-offsets lic with frame offsets
+    // The initial values are:
+    //    slot-offsets = offset_of(slot0), ..., offset_of(slot'n-1)
+    MachineBasicBlock &LH = *tokenTake->getParent();
+    auto DebugLoc = L->getStartLoc();
+    for (int i = 0; i < pipelineDepth; ++i) {
+      BuildMI(LH, tokenTake, DebugLoc, TII->get(CSA::INIT64))
+        .addDef(frameOffset).addImm(i*frameSize);
+    }
+
+    // TOKEN_TAKE looks like this:
+    // slot, take_outord = CSA_PIPELINE_DEPTH_TOKEN_TAKE pool, slot-size, depth, take_inord
+
+    // Convert token_take to an ADD to generate frame address
+    // pool_gated = GATE64 take_inord, pool
+    // slot-addr = ADD64 pool_gated, slot-offsets
+    // take_outord = MOV0 slot-addr
+    unsigned take_inord = tokenTake->getOperand(5).getReg();
+    unsigned take_outord = tokenTake->getOperand(1).getReg();
+    unsigned pool = tokenTake->getOperand(2).getReg();
+    unsigned slot = tokenTake->getOperand(0).getReg();
+    unsigned pool_gated =
+      LMFI->allocateLIC(&CSA::CI64RegClass, "pd.ls.pool.take");
+    BuildMI(LH, tokenTake, DebugLoc, TII->get(CSA::GATE64), pool_gated)
+      .addReg(take_inord)
+      .addReg(pool);
+    BuildMI(LH, tokenTake, DebugLoc, TII->get(CSA::ADD64), slot)
+      .addReg(pool_gated)
+      .addReg(frameOffset);
+    BuildMI(LH, tokenTake, DebugLoc, TII->get(CSA::MOV0), take_outord)
+      .addReg(slot);
+
+    // TOKEN_RETURN looks like this:
+    // ret_outord = CSA_PIPELINE_DEPTH_TOKEN_RETURN pool, slot-addr, ret_inord
+    // Return a frame slot to the pool
+    // slot-offsets = GATE64 ret_inord, slot-offsets
+    // ret_outord = MOV0 ret_inord
+    MachineBasicBlock &LL = *tokenReturn->getParent();
+    unsigned ret_inord = tokenReturn->getOperand(3).getReg();
+    unsigned ret_outord = tokenReturn->getOperand(0).getReg();
+    BuildMI(LL, tokenReturn, DebugLoc, TII->get(CSA::GATE64), frameOffset)
+      .addReg(ret_inord).addReg(frameOffset);
+    BuildMI(LL, tokenReturn, DebugLoc, TII->get(CSA::MOV0), ret_outord)
+      .addReg(ret_inord);
+
+    // Delete pseudoinstrs
+    tokenTake->eraseFromParent();
+    tokenReturn->eraseFromParent();
+  }
 }
 
 void CSACvtCFDFPass::generateLoopHeader(MachineLoop *Loop) {
@@ -2296,6 +2370,30 @@ bool CSACvtCFDFPass::needDynamicPreds(MachineLoop *L) {
     return true;
   }
 
+  return false;
+}
+
+bool CSACvtCFDFPass::checkIfDepthLimitedLoop(MachineLoop *L,
+  MachineInstr* &tokenTake,
+  MachineInstr* &tokenReturn)
+{
+  for (MachineBasicBlock *MBB : L->blocks()) {
+    // Skip blocks in nested loops
+    if (MLI->getLoopFor(MBB) != L)
+      continue;
+    for (MachineInstr &MI : *MBB) {
+      if (MI.getOpcode() == CSA::CSA_PIPELINE_DEPTH_TOKEN_TAKE) {
+        tokenTake = &MI;
+        if (tokenReturn)
+          return true;
+      }
+      else if (MI.getOpcode() == CSA::CSA_PIPELINE_DEPTH_TOKEN_RETURN) {
+        tokenReturn = &MI;
+        if (tokenTake)
+          return true;
+      }
+    }
+  }
   return false;
 }
 

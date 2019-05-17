@@ -106,6 +106,10 @@ public:
   bool parentsLinearInCDG(MachineBasicBlock *mbb);
   bool needDynamicPreds();
   bool needDynamicPreds(MachineLoop *L);
+  bool checkIfDepthLimitedLoop(MachineLoop *L,
+                               MachineInstr* &tokenTake,
+                               MachineInstr* &tokenReturn);
+  void limitPipelineDepth(MachineLoop *L);
   unsigned getInnerLoopPipeliningDegree(MachineLoop *L);
   void assignLicForDF();
   void createFIEntryDefs();
