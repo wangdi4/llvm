@@ -74,16 +74,17 @@ void initializeIntel_LoopTransforms(PassRegistry&);
 void initializeIntel_OpenCLTransforms(PassRegistry&);
 
 void initializeInlineListsPass(PassRegistry&);
+void initializeInlineReportSetupPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-// initializeIntel_VPOAnaylsis - Initialize all passes linked into the
-// Intel_VPOAnalysis library
-void initializeIntel_VPOAnalysis(PassRegistry&);
+// initializeVPOAnaylsis - Initialize all passes linked into the
+// VPOAnalysis library
+void initializeVPOAnalysis(PassRegistry&);
 
-// initializeIntel_VPOTransforms - Initialize all passes linked into the
-// Intel_VPOTransforms library
-void initializeIntel_VPOTransforms(PassRegistry&);
+// initializeVPOTransforms - Initialize all passes linked into the
+// VPOTransforms library
+void initializeVPOTransforms(PassRegistry&);
 #endif // INTEL_COLLAB
 
 void initializeAAEvalLegacyPassPass(PassRegistry&);
@@ -207,7 +208,7 @@ void initializeIndVarSimplifyLegacyPassPass(PassRegistry&);
 void initializeIndirectBrExpandPassPass(PassRegistry&);
 #if INTEL_COLLAB
 void initializeInferAddressSpacesLegacyPassPass(PassRegistry &);
-#else
+#else // INTEL_COLLAB
 void initializeInferAddressSpacesPass(PassRegistry&);
 #endif // INTEL_COLLAB
 void initializeInferFunctionAttrsLegacyPassPass(PassRegistry&);
@@ -257,6 +258,7 @@ void initializeLoopDeletionLegacyPassPass(PassRegistry&);
 void initializeLoopDistributeLegacyPass(PassRegistry&);
 void initializeLoopExtractorPass(PassRegistry&);
 void initializeLoopGuardWideningLegacyPassPass(PassRegistry&);
+void initializeLoopFuseLegacyPass(PassRegistry&);
 void initializeLoopIdiomRecognizeLegacyPassPass(PassRegistry&);
 void initializeLoopInfoWrapperPassPass(PassRegistry&);
 void initializeLoopInstSimplifyLegacyPassPass(PassRegistry&);

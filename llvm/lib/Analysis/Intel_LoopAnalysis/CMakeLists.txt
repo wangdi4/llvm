@@ -48,7 +48,7 @@ add_llvm_library(LLVMIntel_LoopAnalysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis/Intel_LoopAnalysis
   )
 
-add_dependencies(LLVMIntel_LoopAnalysis intrinsics_gen intel_directives_gen)
+add_dependencies(LLVMIntel_LoopAnalysis intrinsics_gen directives_gen)
 add_subdirectory(OptReport)
 
 if(INTEL_INCLUDE_DTRANS)

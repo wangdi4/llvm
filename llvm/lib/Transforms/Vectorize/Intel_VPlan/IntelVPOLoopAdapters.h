@@ -21,7 +21,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOLOOPADAPTERS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOLOOPADAPTERS_H
 
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 
 using namespace loopopt;

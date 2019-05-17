@@ -50,4 +50,4 @@ add_llvm_library(LLVMIntel_LoopTransforms
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_LoopTransforms
         )
 
-add_dependencies(LLVMIntel_LoopTransforms intrinsics_gen intel_directives_gen)
+add_dependencies(LLVMIntel_LoopTransforms intrinsics_gen directives_gen)

@@ -103,6 +103,9 @@ private:
   DenseMap<VPPHINode *, unsigned> PhiToSymbaseMap;
   // c. Set of visited VPBBs for the traversal
   SmallPtrSet<VPBasicBlock *, 16> PhiNodePassVisited;
+  // d. Map to lookup the base types of the PHI nodes that were added for given
+  // tracked Symbase
+  DenseMap<unsigned, Type *> TrackedSymTypes;
 
   /// Data package used by fixPhiNodePass
   struct PhiNodePassData {
@@ -128,6 +131,13 @@ private:
   void fixPhiNodePass(VPBasicBlock *VPBB, VPBasicBlock *Pred,
                       PhiNodePassData::VPValMap &IncomingVPVals,
                       SmallVectorImpl<PhiNodePassData> &Worklist);
+
+  void computeLiveInBlocks(unsigned Symbase,
+                           const SmallPtrSetImpl<VPBlockBase *> &DefBlocks,
+                           const SmallPtrSetImpl<VPBlockBase *> &UsingBlocks,
+                           SmallPtrSetImpl<VPBlockBase *> &LiveInBlocks);
+
+  void addIDFPhiNodes();
 
  // Methods to create VPInstructions out of an HLNode.
   bool isExternalDef(loopopt::DDRef *UseDDR);

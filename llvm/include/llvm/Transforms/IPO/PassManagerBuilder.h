@@ -24,6 +24,7 @@ class ModuleSummaryIndex;
 class Pass;
 class TargetLibraryInfoImpl;
 class TargetMachine;
+class InlineReportBuilder; // INTEL
 
 // The old pass manager infrastructure is hidden in a legacy namespace now.
 namespace legacy {
@@ -145,6 +146,7 @@ public:
   bool DisableUnrollLoops;
   bool SLPVectorize;
   bool LoopVectorize;
+  bool LoopsInterleaved;
   bool RerollLoops;
   bool NewGVN;
   bool DisableGVNLoadPRE;
@@ -156,6 +158,8 @@ public:
   bool PrepareForThinLTO;
   bool PerformThinLTO;
   bool DivergentTarget;
+  unsigned LicmMssaOptCap;
+  unsigned LicmMssaNoAccForPromotionCap;
 
 #if INTEL_CUSTOMIZATION
   bool DisableIntelProprietaryOpts;
@@ -209,6 +213,8 @@ private:
   void addLoopOptPasses(legacy::PassManagerBase &PM) const;
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
   void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM) const;
+public:
+  llvm::InlineReportBuilder *getMDInlineReport() const;
 #endif // INTEL_CUSTOMIZATION
 
 public:

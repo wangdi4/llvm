@@ -42,6 +42,7 @@ add_llvm_library(LLVMScalarOpts
   LoopDeletion.cpp
   LoopDataPrefetch.cpp
   LoopDistribute.cpp
+  LoopFuse.cpp
   LoopIdiomRecognize.cpp
   LoopInstSimplify.cpp
   LoopInterchange.cpp
@@ -93,7 +94,7 @@ add_llvm_library(LLVMScalarOpts
   DEPENDS
   intrinsics_gen
 # INTEL_COLLAB
-  intel_directives_gen
+  directives_gen
 # end INTEL_COLLAB
   )
 

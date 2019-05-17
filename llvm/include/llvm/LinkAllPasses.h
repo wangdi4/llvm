@@ -48,6 +48,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h" // INTEL
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
@@ -75,8 +76,8 @@
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h"
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionPasses.h"
+#include "llvm/Transforms/VPO/VPOPasses.h"
 #endif // INTEL_COLLAB
 
 #include <cstdlib>
@@ -109,6 +110,7 @@ namespace {
       (void) llvm::createStdContainerOptPass();
       (void) llvm::createStdContainerAAWrapperPass();
       (void) llvm::createInlineListsPass();
+      (void) llvm::createInlineReportSetupPass();
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createRemoveRegionDirectivesLegacyPass();

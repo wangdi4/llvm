@@ -9,12 +9,12 @@ define <4 x double> @svml_cc_v4i1(<4 x double> %x, <4 x i64> %mask) {
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
 ; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpcmpeqq %ymm2, %ymm1, %ymm1
-; CHECK-NEXT:    callq *__svml_v4f64_v4i1@GOTPCREL(%rip)
+; CHECK-NEXT:    callq *mysvml_v4f64_v4i1@GOTPCREL(%rip)
 ; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    retq
   %m = icmp eq <4 x i64> %mask, zeroinitializer
-  %res = call svml_cc <4 x double> @__svml_v4f64_v4i1(<4 x double> %x, <4 x i1> %m)
+  %res = call svml_cc <4 x double> @mysvml_v4f64_v4i1(<4 x double> %x, <4 x i1> %m)
   ret <4 x double> %res
 }
 
@@ -25,14 +25,14 @@ define <8 x float> @svml_cc_v8i1(<8 x float> %x, <8 x i32> %mask) {
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
 ; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
-; CHECK-NEXT:    callq *__svml_v8f32_v8i1@GOTPCREL(%rip)
+; CHECK-NEXT:    callq *mysvml_v8f32_v8i1@GOTPCREL(%rip)
 ; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    retq
   %m = icmp eq <8 x i32> %mask, zeroinitializer
-  %res = call svml_cc <8 x float> @__svml_v8f32_v8i1(<8 x float> %x, <8 x i1> %m)
+  %res = call svml_cc <8 x float> @mysvml_v8f32_v8i1(<8 x float> %x, <8 x i1> %m)
   ret <8 x float> %res
 }
 
-declare <4 x double> @__svml_v4f64_v4i1(<4 x double>, <4 x i1>)
-declare <8 x float> @__svml_v8f32_v8i1(<8 x float>, <8 x i1>)
+declare <4 x double> @mysvml_v4f64_v4i1(<4 x double>, <4 x i1>)
+declare <8 x float> @mysvml_v8f32_v8i1(<8 x float>, <8 x i1>)

@@ -59,7 +59,7 @@ entry:
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.BARRIER"() ]
   call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.BARRIER"() ]
 ; #pragma omp barrier (should still be kmpc_barrier, not kmpc_cancel_barrier)
-; ALL-DAG: call void @__kmpc_barrier({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}})
+; ALL-DAG: call void @__kmpc_barrier({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}})
 
 
   %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"() ]
@@ -71,7 +71,7 @@ entry:
   %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCEL"(), "QUAL.OMP.CANCEL.TASKGROUP"() ]
   call void @llvm.directive.region.exit(token %7) [ "DIR.OMP.END.CANCEL"() ]
 ; #pragma omp cancell
-; ALL-DAG: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancel({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 4)
+; ALL-DAG: [[CANCEL1:%[0-9]+]] = call i32 @__kmpc_cancel({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 4)
 ; PREPR-DAG: store i32 [[CANCEL1]], i32* [[CP1ALLOCA:%[a-zA-Z._0-9]+]]
 ; TFORM-DAG: [[CHECK1:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL1]], 0
 ; TFORM-DAG: br i1 [[CHECK1]], label %{{[a-zA-Z._0-9]+}}, label %{{[a-zA-Z._0-9]+}}
@@ -84,7 +84,7 @@ entry:
   %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCELLATION.POINT"(), "QUAL.OMP.CANCEL.TASKGROUP"() ]
   call void @llvm.directive.region.exit(token %9) [ "DIR.OMP.END.CANCELLATION.POINT"() ]
 ; #pragma omp cancellation point
-; ALL-DAG: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]*}}, i32 %{{[a-zA-Z._0-9]*}}, i32 4)
+; ALL-DAG: [[CANCEL2:%[0-9]+]] = call i32 @__kmpc_cancellationpoint({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 4)
 ; PREPR-DAG: store i32 [[CANCEL2]], i32* [[CP2ALLOCA:%[a-zA-Z._0-9]+]]
 ; TFORM-DAG: [[CHECK2:%cancel.check[0-9]*]] = icmp ne i32 [[CANCEL2]], 0
 ; TFORM-DAG: br i1 [[CHECK2]], label %{{[a-zA-Z._0-9]+}}, label %{{[a-zA-Z._0-9]+}}

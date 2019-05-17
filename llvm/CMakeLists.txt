@@ -360,6 +360,8 @@ if(LLVM_ENABLE_BACKTRACES)
   set(ENABLE_BACKTRACES 1)
 endif()
 
+option(LLVM_ENABLE_UNWIND_TABLES "Emit unwind tables for the libraries" ON)
+
 option(LLVM_ENABLE_CRASH_OVERRIDES "Enable crash overrides." ON)
 if(LLVM_ENABLE_CRASH_OVERRIDES)
   set(ENABLE_CRASH_OVERRIDES 1)
@@ -911,6 +913,11 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER)
 # end INTEL_FEATURE_ISA_KEYLOCKER
+
+# INTEL_FEATURE_ISA_VP2INTERSECT
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_VP2INTERSECT)
+# end INTEL_FEATURE_ISA_VP2INTERSECT
 
 # INTEL_FEATURE_CPU_GLC
       list(APPEND features_enabled_by_default

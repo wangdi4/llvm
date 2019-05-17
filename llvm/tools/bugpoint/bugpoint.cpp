@@ -151,8 +151,8 @@ int main(int argc, char **argv) {
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-  initializeIntel_VPOAnalysis(Registry);
-  initializeIntel_VPOTransforms(Registry);
+  initializeVPOAnalysis(Registry);
+  initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
 
 #ifdef LINK_POLLY_INTO_TOOLS

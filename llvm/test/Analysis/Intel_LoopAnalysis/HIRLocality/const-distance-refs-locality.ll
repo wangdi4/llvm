@@ -1,5 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-locality-analysis -hir-sorted-locality | FileCheck %s
-; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-locality-analysis>" -hir-sorted-locality -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-locality-analysis -hir-spatial-locality | FileCheck %s
+; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-locality-analysis>" -hir-spatial-locality -disable-output 2>&1 | FileCheck %s
 
 ; Src code-
 ;  for(i=2; i<N; i++)
@@ -10,7 +10,7 @@
 
 ; Check locality values for the loopnest which has constant distance refs.
 
-; CHECK: Locality Info for Loop level: 1     NumCacheLines: 55       SpatialCacheLines: 55    TempInvCacheLines: 0     AvgLvalStride: 400       AvgStride: 400
+; CHECK: Locality Info for Loop level: 1     NumCacheLines: 56       SpatialCacheLines: 56    TempInvCacheLines: 0     AvgLvalStride: 400       AvgStride: 400
 ; CHECK: Locality Info for Loop level: 2     NumCacheLines: 10       SpatialCacheLines: 10    TempInvCacheLines: 0     AvgLvalStride: 40        AvgStride: 40
 ; CHECK: Locality Info for Loop level: 3     NumCacheLines: 3        SpatialCacheLines: 3     TempInvCacheLines: 0     AvgLvalStride: 4         AvgStride: 4
 

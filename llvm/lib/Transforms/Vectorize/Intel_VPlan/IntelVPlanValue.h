@@ -47,6 +47,7 @@ class VPIfTruePredicateRecipe;
 class VPIfFalsePredicateRecipe;
 class VPlanPredicator;
 class VPlan;
+class VPLoop;
 class VPExternalUse;
 #endif
 
@@ -82,9 +83,10 @@ private:
 
   SmallVector<VPUser *, 1> Users;
 
-protected:
   // Hold the underlying Val, if any, attached to this VPValue.
   Value *UnderlyingVal;
+
+protected:
 
 #if INTEL_CUSTOMIZATION
   VPValue(const unsigned char SC, Type *BaseTy, Value *UV = nullptr)
@@ -184,6 +186,10 @@ void printAsOperand(raw_ostream &OS) const {
              return isa<VPExternalUse>(U);
            });
   }
+
+  /// Replace all uses of *this with \p NewVal. If the \p Loop is not null then
+  /// replacement is restricted by VPInstructions from the \p Loop.
+  void replaceAllUsesWith(VPValue *NewVal, VPLoop *L = nullptr);
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -294,6 +300,12 @@ public:
   int getNumOperandsFrom(const VPValue *Op) const {
     return std::count(op_begin(), op_end(), Op);
   }
+  /// Replace all uses of operand \From by \To.
+  void replaceUsesOfWith(VPValue *From, VPValue *To) {
+    for (int I = 0, E = getNumOperands(); I != E; ++I)
+      if (getOperand(I) == From)
+        setOperand(I, To);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPValue *>::iterator operand_iterator;
@@ -339,9 +351,9 @@ protected:
   /// is similar to getValue() but hides the cast when we are working with
   /// VPConstant pointers.
   Constant *getConstant() const {
-    assert(isa<Constant>(UnderlyingVal) &&
+    assert(isa<Constant>(getUnderlyingValue()) &&
            "Expected Constant as underlying Value.");
-    return cast<Constant>(UnderlyingVal);
+    return cast<Constant>(getUnderlyingValue());
   }
 
 public:
@@ -350,7 +362,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
-    UnderlyingVal->printAsOperand(OS);
+    getUnderlyingValue()->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
   void dump() const override { dump(errs()); }
@@ -406,8 +418,8 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const {
-    if (UnderlyingVal)
-      UnderlyingVal->printAsOperand(OS);
+    if (getUnderlyingValue())
+      getUnderlyingValue()->printAsOperand(OS);
     else {
       getType()->print(OS);
       OS << " ";
@@ -484,9 +496,9 @@ protected:
 
   /// Return the underlying MetadataAsValue.
   MetadataAsValue *getMetadataAsValue() {
-    assert(isa<MetadataAsValue>(UnderlyingVal) &&
+    assert(isa<MetadataAsValue>(getUnderlyingValue()) &&
            "Expected MetadataAsValue as underlying Value.");
-    return cast<MetadataAsValue>(UnderlyingVal);
+    return cast<MetadataAsValue>(getUnderlyingValue());
   }
 
   /// Return the Metadata of the underlying MetadataAsValue.
@@ -498,15 +510,15 @@ public:
 
   // Structural comparators.
   bool operator==(const VPMetadataAsValue &C) const {
-    return UnderlyingVal == C.UnderlyingVal;
+    return getUnderlyingValue() == C.getUnderlyingValue();
   };
   bool operator<(const VPMetadataAsValue &C) const {
-    return UnderlyingVal < C.UnderlyingVal;
+    return getUnderlyingValue() < C.getUnderlyingValue();
   };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS) const override {
-    UnderlyingVal->printAsOperand(OS);
+    getUnderlyingValue()->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
   void dump() const override { dump(errs()); }

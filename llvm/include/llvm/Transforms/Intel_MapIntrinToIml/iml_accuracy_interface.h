@@ -1,4 +1,4 @@
-//      Copyright  (C) 2009-2016 Intel Corporation.
+//      Copyright  (C) 2009-2019 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -55,6 +55,10 @@ typedef struct ImfAttr {
 //    terminated by an attribute with NULL next pointer.
 extern const char* get_library_function_name(const char* base_name,
                                              const ImfAttr* attributes);
+
+// This function returns true if function name is found in the LIBM library
+// description table (check iml_table_libm.inc)
+extern bool is_libm_function(const char *name);
 
 // This function returns 1 or 0 meaning "yes" or "no". It answers the question:
 // whether the compiler may use an instructions sequence with certain

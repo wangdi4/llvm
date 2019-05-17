@@ -1,5 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-unroll-and-jam -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that we are able to unroll & jam i1 loop by a big factor (20) specified via unroll metadata.
 
@@ -11,16 +11,18 @@
 ; |   + END LOOP
 ; + END LOOP
 
+; Verify that incoming loop had unroll & jam pragma.
+; CHECK : <unroll and jam = 20>
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: %tgu = (%n)/u20;
 
-; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 5>
+; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 5> <nounroll and jam>
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 
-; CHECK: + DO i1 = 20 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 19>
+; CHECK: + DO i1 = 20 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 19> <nounroll and jam>
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP

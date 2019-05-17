@@ -7,4 +7,4 @@ add_llvm_library(LLVMIntel_OptReport
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
   )
 
-add_dependencies(LLVMIntel_OptReport intrinsics_gen intel_directives_gen)
+add_dependencies(LLVMIntel_OptReport intrinsics_gen directives_gen)

@@ -152,6 +152,8 @@ public:
   }
   // The level of the inline report
   unsigned getLevel() { return Level; }
+  // The level of the inline report
+  void setLevel(unsigned L) { Level = L; }
 
 private:
   /// \brief The Level is specified by the option -inline-report=N.
@@ -181,8 +183,12 @@ private:
               LLVMContext &Ctx = MDIR->getContext();
               std::string ReasonStr = "reason: ";
               ReasonStr.append(std::to_string(InlineReportTypes::NinlrDeleted));
+              auto ReasonMD =
+                  MDNode::get(Ctx, llvm::MDString::get(Ctx, ReasonStr));
               CSIR->replaceOperandWith(MDInliningReport::CSMDIR_InlineReason,
-                                       llvm::MDString::get(Ctx, ReasonStr));
+                                       ReasonMD);
+              if (I->getMetadata(MDInliningReport::CallSiteTag))
+                I->setMetadata(MDInliningReport::CallSiteTag, nullptr);
             }
       } else if (isa<Function>(getValPtr())) {
         /// \brief Indicate in the inline report that the function
@@ -192,8 +198,9 @@ private:
             LLVMContext &Ctx = MDIR->getContext();
             std::string IsDeadStr = "isDead: ";
             IsDeadStr.append(std::to_string(true));
-            FIR->replaceOperandWith(MDInliningReport::FMDIR_IsDead,
-                                    llvm::MDString::get(Ctx, IsDeadStr));
+            auto IsDeadMD =
+                MDNode::get(Ctx, llvm::MDString::get(Ctx, IsDeadStr));
+            FIR->replaceOperandWith(MDInliningReport::FMDIR_IsDead, IsDeadMD);
           }
         }
       }
@@ -210,7 +217,7 @@ private:
 
   void replaceFunctionWithFunction(Function *OldFunction,
                                    Function *NewFunction) override;
-
+public:
   // Add callback for function or instruction.
   void addCallback(Value *V, MDNode *MDIR) {
     if (!MDIR)
@@ -233,10 +240,7 @@ public:
   std::string getName() const {
     if (Report->getNumOperands() < 2)
       return "";
-    const MDString *R = cast<MDString>(Report->getOperand(1));
-    StringRef Res = R->getString();
-    Res.consume_front("name: ");
-    return Res;
+    return llvm::getOpStr(Report->getOperand(1), "name: ");
   }
 };
 
@@ -281,7 +285,7 @@ public:
       int InlineCost = -1, int OuterInlineCost = -1, int InlineThreshold = -1,
       int EarlyExitInlineCost = INT_MAX, int EarlyExitInlineThreshold = INT_MAX,
       unsigned Line = 0, unsigned Col = 0, std::string ModuleName = "");
-  CallSiteInliningReport(CallSite MainCS, std::vector<MDTuple *> *CSs,
+  CallSiteInliningReport(CallBase *MainCS, std::vector<MDTuple *> *CSs,
                          InlineReason Reason = NinlrNoReason,
                          bool IsInlined = false, int InlineCost = -1,
                          int OuterInlineCost = -1, int InlineThreshold = -1,
@@ -291,7 +295,7 @@ public:
   static bool isCallSiteInliningReportMetadata(const Metadata *R);
 
   // Extracts line and column numbers from metadata node.
-  bool getLineAndCol(int64_t *Line, int64_t *Col) {
+  bool getLineAndCol(unsigned *Line, unsigned *Col) {
     assert(Line && Col && "empty line or column args");
     if (Report->getNumOperands() < MDInliningReport::CallSiteMDSize)
       return false;

@@ -153,7 +153,7 @@ void llvm::dtrans::updateCallSizeOperand(llvm::Instruction *I,
     case dtrans::AK_UserMalloc: {
       unsigned SizeArgPos = 0;
       unsigned CountArgPos = 0;
-      getAllocSizeArgs(AK, CallSite(I), SizeArgPos, CountArgPos, TLI);
+      getAllocSizeArgs(AK, cast<CallBase>(I), SizeArgPos, CountArgPos, TLI);
       if (AK == dtrans::AK_Calloc) {
         Found =
             findValueMultipleOfSizeInst(I, CountArgPos, OrigSize, SizeUseStack);

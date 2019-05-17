@@ -1258,7 +1258,7 @@ void ModuleBitcodeWriter::writeModuleInfo() {
 #if INTEL_COLLAB
     //             comdat, attributes, DSO_Local, thread_private,
     //             target_declare]
-#else
+#else // INTEL_COLLAB
     //             comdat, attributes, DSO_Local]
 #endif // INTEL_COLLAB
     Vals.push_back(addToStrtab(GV.getName()));

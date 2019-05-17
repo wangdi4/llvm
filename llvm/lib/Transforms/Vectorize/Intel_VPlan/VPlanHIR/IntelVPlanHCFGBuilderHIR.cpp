@@ -465,7 +465,7 @@ VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
                        Lp->getHLNodeUtils().getDataLayout(), WRL, Plan,
                        nullptr),
       TheLoop(Lp), DDG(DDG), HIRLegality(Legal) {
-  Verifier = new VPlanVerifierHIR(Lp);
+  Verifier = make_unique<VPlanVerifierHIR>(Lp);
   assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
          "Inconsistent Loop information");
 }

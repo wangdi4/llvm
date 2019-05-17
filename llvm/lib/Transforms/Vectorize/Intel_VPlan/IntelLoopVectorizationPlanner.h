@@ -21,7 +21,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelVPlanVLSAnalysis.h"
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionClause.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionClause.h"
 #else
 #include "VPlan.h"
 #endif
@@ -113,6 +113,9 @@ public:
 
   /// \brief Predicate all unique non-scalar VPlans
   void predicate(void);
+
+  template <typename CostModelTy = VPlanCostModel>
+  void printCostModelAnalysisIfRequested();
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.

@@ -2741,22 +2741,22 @@ static unsigned CopyToFromAsymmetricReg(unsigned DestReg, unsigned SrcReg,
       return X86::MMX_MOVD64to64rr;
   }
 
-  // SrcReg(FR32) -> DestReg(GR32)
-  // SrcReg(GR32) -> DestReg(FR32)
+  // SrcReg(VR128) -> DestReg(GR32)
+  // SrcReg(GR32)  -> DestReg(VR128)
 
   if (X86::GR32RegClass.contains(DestReg) &&
-      X86::FR32XRegClass.contains(SrcReg))
-    // Copy from a FR32 register to a GR32 register.
-    return HasAVX512 ? X86::VMOVSS2DIZrr :
-           HasAVX    ? X86::VMOVSS2DIrr  :
-                       X86::MOVSS2DIrr;
+      X86::VR128XRegClass.contains(SrcReg))
+    // Copy from a VR128 register to a GR32 register.
+    return HasAVX512 ? X86::VMOVPDI2DIZrr :
+           HasAVX    ? X86::VMOVPDI2DIrr  :
+                       X86::MOVPDI2DIrr;
 
-  if (X86::FR32XRegClass.contains(DestReg) &&
+  if (X86::VR128XRegClass.contains(DestReg) &&
       X86::GR32RegClass.contains(SrcReg))
-    // Copy from a GR32 register to a FR32 register.
-    return HasAVX512 ? X86::VMOVDI2SSZrr :
-           HasAVX    ? X86::VMOVDI2SSrr  :
-                       X86::MOVDI2SSrr;
+    // Copy from a VR128 register to a VR128 register.
+    return HasAVX512 ? X86::VMOVDI2PDIZrr :
+           HasAVX    ? X86::VMOVDI2PDIrr  :
+                       X86::MOVDI2PDIrr;
   return 0;
 }
 
@@ -2902,6 +2902,18 @@ static unsigned getLoadStoreRegOpcode(unsigned Reg,
       assert(STI.hasBWI() && "KMOVD requires BWI");
       return load ? X86::KMOVDkm : X86::KMOVDmk;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+    // All of these mask pair classes have the same spill size, the same kind
+    // of kmov instructions can be used with all of them.
+    if (X86::VK1PAIRRegClass.hasSubClassEq(RC) ||
+        X86::VK2PAIRRegClass.hasSubClassEq(RC) ||
+        X86::VK4PAIRRegClass.hasSubClassEq(RC) ||
+        X86::VK8PAIRRegClass.hasSubClassEq(RC) ||
+        X86::VK16PAIRRegClass.hasSubClassEq(RC))
+      return load ? X86::MASKPAIR16LOAD : X86::MASKPAIR16STORE;
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#endif // INTEL_CUSTOMIZATION
     llvm_unreachable("Unknown 4-byte regclass");
   case 8:
     if (X86::GR64RegClass.hasSubClassEq(RC))
@@ -2984,7 +2996,7 @@ static unsigned getLoadStoreRegOpcode(unsigned Reg,
 }
 
 bool X86InstrInfo::getMemOperandWithOffset(
-    MachineInstr &MemOp, MachineOperand *&BaseOp, int64_t &Offset,
+    const MachineInstr &MemOp, const MachineOperand *&BaseOp, int64_t &Offset,
     const TargetRegisterInfo *TRI) const {
   const MCInstrDesc &Desc = MemOp.getDesc();
   int MemRefBegin = X86II::getMemoryOperandNo(Desc.TSFlags);

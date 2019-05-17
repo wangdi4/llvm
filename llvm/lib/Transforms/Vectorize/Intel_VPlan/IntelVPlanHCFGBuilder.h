@@ -24,7 +24,7 @@
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 
 extern cl::opt<bool> LoopMassagingEnabled;
 
@@ -61,7 +61,7 @@ protected:
   VPlan *Plan = nullptr;
 
   /// VPlan verifier utility.
-  VPlanVerifier *Verifier = nullptr;
+  std::unique_ptr<VPlanVerifier> Verifier;
 
   // TODO: Only used to determine if a condition is uniform. Decouple from
   // Legality.
@@ -118,10 +118,7 @@ public:
                    const DataLayout &DL, const WRNVecLoopNode *WRL, VPlan *Plan,
                    VPOVectorizationLegality *Legal);
 
-  virtual ~VPlanHCFGBuilder() {
-    if (Verifier)
-      delete Verifier;
-  }
+  virtual ~VPlanHCFGBuilder() = default;
 
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
   void buildHierarchicalCFG();

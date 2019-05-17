@@ -128,7 +128,7 @@ private:
                       Value *Idx, uint64_t &NewIndex, bool IsPreCloning);
   bool processGEPInst(GetElementPtrInst *GEP, bool IsPreCloning);
   bool processPossibleByteFlattenedGEP(GetElementPtrInst *GEP);
-  void postprocessCallSite(CallSite CS);
+  void postprocessCall(CallBase *Call);
   void processSubInst(Instruction *I);
 };
 
@@ -713,14 +713,14 @@ void DeleteFieldImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
       break;
     case Instruction::Call:
     case Instruction::Invoke:
-      postprocessCallSite(CallSite(&*It));
+      postprocessCall(cast<CallBase>(&*It));
       break;
     }
   }
 }
 
-void DeleteFieldImpl::postprocessCallSite(CallSite CS) {
-  auto *CInfo = DTInfo->getCallInfo(CS.getInstruction());
+void DeleteFieldImpl::postprocessCall(CallBase *Call) {
+  auto *CInfo = DTInfo->getCallInfo(Call);
   if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
     return;
 
@@ -749,9 +749,9 @@ void DeleteFieldImpl::postprocessCallSite(CallSite CS) {
       }
 
       LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
-                        << *CS.getInstruction() << "\n"
+                        << *Call << "\n"
                         << "  " << *OrigTy << "\n");
-      updateCallSizeOperand(CS.getInstruction(), CInfo, OrigTy, ReplTy, TLI);
+      updateCallSizeOperand(Call, CInfo, OrigTy, ReplTy, TLI);
     }
   }
 }

@@ -21,9 +21,9 @@
 #include "ParVecDirectiveInsertion.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 //#include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
-//#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+//#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "parvec-transform"
@@ -128,12 +128,10 @@ void ParVecDirectiveInsertion::Visitor::insertParDirectives(
 RegDDRef *
 ParVecDirectiveInsertion::Visitor::createRegDDRef(OMP_DIRECTIVES Dir) {
   return HIRF->getDDRefUtils().createConstDDRef(
-      IntelIntrinsicUtils::createDirectiveMetadataAsValue(*(Func.getParent()),
-                                                          Dir));
+      IntrinsicUtils::createDirectiveMetadataAsValue(*(Func.getParent()), Dir));
 }
 
 RegDDRef *ParVecDirectiveInsertion::Visitor::createRegDDRef(OMP_CLAUSES Qual) {
   return HIRF->getDDRefUtils().createConstDDRef(
-      IntelIntrinsicUtils::createClauseMetadataAsValue(*(Func.getParent()),
-                                                       Qual));
+      IntrinsicUtils::createClauseMetadataAsValue(*(Func.getParent()), Qual));
 }

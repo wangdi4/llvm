@@ -29,6 +29,7 @@ class Function;
 class BasicBlock;
 class GlobalValue;
 class raw_ostream;
+class InlineReportBuilder; // INTEL
 
 //===----------------------------------------------------------------------===//
 //
@@ -183,6 +184,10 @@ ModulePass *createBlockExtractorPass();
 ModulePass *
 createBlockExtractorPass(const SmallVectorImpl<BasicBlock *> &BlocksToExtract,
                          bool EraseFunctions);
+ModulePass *
+createBlockExtractorPass(const SmallVectorImpl<SmallVector<BasicBlock *, 16>>
+                             &GroupsOfBlocksToExtract,
+                         bool EraseFunctions);
 
 /// createStripDeadPrototypesPass - This pass removes any function declarations
 /// (prototypes) that are not used.
@@ -281,6 +286,7 @@ ModulePass *createIPCloningLegacyPass(bool AfterInl = false,
 /// \brief This pass parses -[no]inline-list option and assigns corresponding
 /// attributes to callsites (for experimental purposes).
 ModulePass *createInlineListsPass();
+ModulePass *createInlineReportSetupPass(InlineReportBuilder *IRB = nullptr);
 
 /// \brief This pass implements optimization of dynamic_cast calls depending on
 /// the classes hierarchy.

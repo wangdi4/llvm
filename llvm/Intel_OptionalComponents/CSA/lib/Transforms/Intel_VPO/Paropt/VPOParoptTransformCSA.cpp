@@ -14,7 +14,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/PatternMatch.h"

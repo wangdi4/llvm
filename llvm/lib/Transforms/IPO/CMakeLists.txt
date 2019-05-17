@@ -21,6 +21,7 @@ add_llvm_library(LLVMipo
   InferFunctionAttrs.cpp
   Intel_InlineReport.cpp   # INTEL
   Intel_MDInlineReport.cpp   # INTEL
+  Intel_InlineReportSetup.cpp # INTEL
   Intel_InlineReportCommon.cpp   # INTEL
   InlineSimple.cpp
   Inliner.cpp
@@ -51,7 +52,7 @@ add_llvm_library(LLVMipo
   DEPENDS
   intrinsics_gen
 # INTEL_COLLAB
-  intel_directives_gen
+  directives_gen
 # end INTEL_COLLAB
   )
 

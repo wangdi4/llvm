@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSArrays.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -648,12 +648,11 @@ private:
   //
   // Call to method should have argument dependent on integer fields or integer
   // arguments or be 'this' like arguments.
-  bool checkMethodCall(ImmutableCallSite CS) const {
-    assert(
-        ArrayIdioms::isKnownCall(DM.getApproximation(CS.getInstruction()), S) &&
-        "Incorrect checkMethodCall");
+  bool checkMethodCall(const CallBase *Call) const {
+    assert(ArrayIdioms::isKnownCall(DM.getApproximation(Call), S) &&
+           "Incorrect checkMethodCall");
 
-    for (auto &Op : CS.getInstruction()->operands()) {
+    for (auto &Op : Call->operands()) {
       if (isa<Constant>(Op.get()) || isa<BasicBlock>(Op.get()))
         continue;
       const Dep *DO = DM.getApproximation(Op.get());
@@ -853,7 +852,7 @@ private:
     if (isa<LoadInst>(I) || isa<StoreInst>(I)) {
       if (!checkLoadStoreAddress(I))
         return false;
-    } else if (!ImmutableCallSite(I)) // Allocation instruction.
+    } else if (!isa<CallBase>(I)) // Allocation instruction.
       llvm_unreachable(
           "Unexpected instruction related to base pointer manipulations.");
 
@@ -1085,10 +1084,10 @@ public:
         if (isa<DbgInfoIntrinsic>(I))
           break;
         else if (ArrayIdioms::isKnownCall(D, S)) {
-          auto CS = ImmutableCallSite(&I);
+          auto *Call = cast<CallBase>(&I);
           // Permit only one call to other method.
-          if (!MC.CalledMethod && checkMethodCall(CS)) {
-            MC.CalledMethod = cast<Function>(CS.getCalledValue());
+          if (!MC.CalledMethod && checkMethodCall(Call)) {
+            MC.CalledMethod = cast<Function>(Call->getCalledValue());
             break;
           }
         }
@@ -1251,10 +1250,9 @@ public:
           } else
             Val->mutateType(NewBaseType);
         }
-      } else if (auto CS = CallSite(NewI)) {
+      } else if (auto *Call = dyn_cast<CallBase>(NewI)) {
         auto *Info = DTInfo.getCallInfo(NewI);
-        bool isDummyFunc =
-            dtrans::isDummyFuncWithThisAndIntArgs(ImmutableCallSite(NewI), TLI);
+        bool isDummyFunc = dtrans::isDummyFuncWithThisAndIntArgs(Call, TLI);
         assert(
             ((Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) ||
              isDummyFunc) &&
@@ -1265,9 +1263,10 @@ public:
         unsigned S2 = -1U;
         auto AllocKind =
             isDummyFunc ? AK_UserMalloc : cast<AllocCallInfo>(Info)->getAllocKind();
-        getAllocSizeArgs(AllocKind, CS, S1, S2, TLI);
+        getAllocSizeArgs(AllocKind, Call, S1, S2, TLI);
         assert((S1 == -1U) != (S2 == -1U) && "Unexpected allocation routine");
-        auto *OldSize = S1 == -1U ? CS.getArgument(S2) : CS.getArgument(S1);
+        auto *OldSize =
+            S1 == -1U ? Call->getArgOperand(S2) : Call->getArgOperand(S1);
         Builder.SetInsertPoint(NewI);
         // Allocation size is multiplied by NumArrays to reserve sufficient
         // space in AOS.
@@ -1277,7 +1276,7 @@ public:
                                             "nsz"),
                 ConstantInt::get(Builder.getIntPtrTy(DL, 0), NumArrays), "nsz"),
             OldSize->getType(), "nsz");
-        CS.getInstruction()->replaceUsesOfWith(OldSize, NewSize);
+        Call->replaceUsesOfWith(OldSize, NewSize);
       } else
         llvm_unreachable("Unexpected instruction encountered.");
     }

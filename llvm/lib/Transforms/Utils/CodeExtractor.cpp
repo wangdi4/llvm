@@ -87,7 +87,7 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
 #if INTEL_COLLAB
                                       bool AllowVarArgs, bool AllowAlloca,
                                       bool AllowEHTypeID) {
-#else
+#else // INTEL_COLLAB
                                       bool AllowVarArgs, bool AllowAlloca) {
 #endif // INTEL_COLLAB
   // taking the address of a basic block moved to another function is illegal
@@ -196,7 +196,7 @@ static bool isBlockValidForExtraction(const BasicBlock &BB,
           else
             return false;
         }
-#else
+#else // INTEL_COLLAB
         if (IID == Intrinsic::eh_typeid_for)
           return false;
 #endif // INTEL_COLLAB
@@ -213,7 +213,7 @@ buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_COLLAB
                         bool AllowVarArgs, bool AllowAlloca,
                         bool AllowEHTypeID) {
-#else
+#else // INTEL_COLLAB
                         bool AllowVarArgs, bool AllowAlloca) {
 #endif // INTEL_COLLAB
   assert(!BBs.empty() && "The set of blocks to extract must be non-empty");
@@ -237,7 +237,7 @@ buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_COLLAB
     if (!isBlockValidForExtraction(*BB, Result, AllowVarArgs, AllowAlloca,
                                    AllowEHTypeID))
-#else
+#else // INTEL_COLLAB
     if (!isBlockValidForExtraction(*BB, Result, AllowVarArgs, AllowAlloca))
 #endif // INTEL_COLLAB
       return {};
@@ -280,7 +280,7 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
                                      AllowEHTypeID)),
-#else
+#else // INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
 #endif // INTEL_COLLAB
 
@@ -297,7 +297,7 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
 #if INTEL_COLLAB
                                      /* AllowAlloca */ false,
                                      /* AllowEHTypeID */ false)),
-#else
+#else // INTEL_COLLAB
                                      /* AllowAlloca */ false)),
 #endif // INTEL_COLLAB
       Suffix(Suffix) {}

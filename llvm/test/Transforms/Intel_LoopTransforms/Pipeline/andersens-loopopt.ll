@@ -1,5 +1,5 @@
-; RUN: opt -std-link-opts -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details < %s 2>&1 | FileCheck %s ---check-prefixes="CHECK,AA"
-; RUN: opt -std-link-opts -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details -enable-andersen=false < %s 2>&1 | FileCheck %s ---check-prefixes="CHECK,NOAA"
+; RUN: opt -loopopt -std-link-opts -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,AA"
+; RUN: opt -loopopt -std-link-opts -print-after=hir-temp-cleanup -whole-program-assume -disable-output -hir-details -enable-andersen=false < %s 2>&1 | FileCheck %s --check-prefixes="CHECK,NOAA"
 
 ; This test is checking that Andersen's AA results are available for the loopopt.
 ;

@@ -22,7 +22,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -1207,6 +1207,15 @@ void HLLoop::markDoNotUnroll() {
   LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
   addLoopMetadata(
       MDNode::get(Context, MDString::get(Context, "llvm.loop.unroll.disable")));
+}
+
+void HLLoop::markDoNotUnrollAndJam() {
+  removeLoopMetadata("llvm.loop.unroll_and_jam.enable");
+  removeLoopMetadata("llvm.loop.unroll_and_jam.count");
+
+  LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
+  addLoopMetadata(MDNode::get(
+      Context, MDString::get(Context, "llvm.loop.unroll_and_jam.disable")));
 }
 
 bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {

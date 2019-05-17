@@ -63,10 +63,6 @@ static const int64_t F32One   = 0x3f800000L;
 static const int64_t F64One   = 0x3ff0000000000000LL;
 static const int64_t V2F32One = 0x3f8000003f800000LL;
 
-/// Definition for FMAExprSPCommon's static data.
-const uint8_t FMAExprSPCommon::TermZERO;
-const uint8_t FMAExprSPCommon::TermONE;
-
 namespace {
 
 class FMABasicBlock;

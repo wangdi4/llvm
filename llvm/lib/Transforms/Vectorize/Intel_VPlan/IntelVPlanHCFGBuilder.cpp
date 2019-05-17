@@ -72,7 +72,7 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
     : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), Plan(Plan), Legal(Legal) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
-  Verifier = new VPlanVerifier(Lp, LI, DL);
+  Verifier = make_unique<VPlanVerifier>(Lp, LI, DL);
   assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
          "Inconsistent Loop information");
 }
@@ -1044,7 +1044,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   // Build Top Region enclosing the plain CFG
   VPRegionBlock *TopRegion = buildPlainCFG(CvtVec);
 
-  // Collecte divergence information
+  // Collect divergence information
   collectUniforms(TopRegion);
 
   // Set Top Region as VPlan Entry
@@ -1065,9 +1065,10 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 
   // TODO: If more efficient, we may want to "translate" LoopInfo to VPLoopInfo.
   // Compute VPLInfo and keep it in VPlan
-  VPLoopInfo *VPLInfo = new VPLoopInfo();
+  Plan->setVPLoopInfo(make_unique<VPLoopInfo>());
+  auto *VPLInfo = Plan->getVPLoopInfo();
   VPLInfo->analyze(VPDomTree);
-  Plan->setVPLoopInfo(VPLInfo);
+
   // LLVM_DEBUG(dbgs() << "Loop Info:\n"; LI->print(dbgs()));
   LLVM_DEBUG(dbgs() << "VPLoop Info After buildPlainCFG:\n";
              VPLInfo->print(dbgs()));
@@ -1105,9 +1106,9 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     // Currently, there is only one instance and no distinction between VFs.
     // i.e., values are either uniform or divergent for all VFs.
     VPLoop *CandidateLoop = *VPLInfo->begin();
-    auto *VPDA = new VPlanDivergenceAnalysis();
+    auto VPDA = make_unique<VPlanDivergenceAnalysis>();
     VPDA->compute(CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, true);
-    Plan->setVPlanDA(VPDA);
+    Plan->setVPlanDA(std::move(VPDA));
   }
 
   if (VPlanPrintPlainCFG) {

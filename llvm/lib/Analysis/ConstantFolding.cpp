@@ -999,7 +999,9 @@ Constant *ConstantFoldInstOperandsImpl(const Value *InstOrCE, unsigned Opcode,
                                        const TargetLibraryInfo *TLI) {
   Type *DestTy = InstOrCE->getType();
 
-  // Handle easy binops first.
+  if (Instruction::isUnaryOp(Opcode))
+    return ConstantFoldUnaryOpOperand(Opcode, Ops[0], DL);
+
   if (Instruction::isBinaryOp(Opcode))
     return ConstantFoldBinaryOpOperands(Opcode, Ops[0], Ops[1], DL);
 
@@ -1262,6 +1264,13 @@ Constant *llvm::ConstantFoldCompareInstOperands(unsigned Predicate,
   return ConstantExpr::getCompare(Predicate, Ops0, Ops1);
 }
 
+Constant *llvm::ConstantFoldUnaryOpOperand(unsigned Opcode, Constant *Op,
+                                           const DataLayout &DL) {
+  assert(Instruction::isUnaryOp(Opcode));
+
+  return ConstantExpr::get(Opcode, Op);
+}
+
 Constant *llvm::ConstantFoldBinaryOpOperands(unsigned Opcode, Constant *LHS,
                                              Constant *RHS,
                                              const DataLayout &DL) {
@@ -1362,6 +1371,19 @@ llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
   return C;
 }
 
+#if INTEL_CUSTOMIZATION
+// FIXME: We should have a more general interface for the imf attributes.
+static bool hasAnyImfFnAttr(const CallBase *Call) {
+  for (const Attribute &Attr : Call->getAttributes().getFnAttributes()) {
+    if (!Attr.isStringAttribute())
+      continue;
+    if (Attr.getKindAsString().startswith("imf-"))
+      return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 //  Constant Folding for Calls
 //
@@ -1369,6 +1391,12 @@ llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
 bool llvm::canConstantFoldCallTo(const CallBase *Call, const Function *F) {
   if (Call->isNoBuiltin() || Call->isStrictFP())
     return false;
+#if INTEL_CUSTOMIZATION
+  // FIXME: Check to see if the called function is an imf candidate.
+  // Don't constant fold calls that have imf attributes.
+  if (hasAnyImfFnAttr(Call))
+    return false;
+#endif // INTEL_CUSTOMIZATION
   switch (F->getIntrinsicID()) {
   case Intrinsic::fabs:
   case Intrinsic::minnum:

@@ -200,10 +200,6 @@ static cl::opt<bool>
 DisableLoopUnrolling("disable-loop-unrolling",
                      cl::desc("Disable loop unrolling in all relevant passes"),
                      cl::init(false));
-static cl::opt<bool>
-DisableLoopVectorization("disable-loop-vectorization",
-                     cl::desc("Disable the loop vectorization pass"),
-                     cl::init(false));
 
 static cl::opt<bool>
 DisableSLPVectorization("disable-slp-vectorization",
@@ -408,11 +404,13 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
 #endif // INTEL_CUSTOMIZATION
 
-  // This is final, unless there is a #pragma vectorize enable
-  if (DisableLoopVectorization)
-    Builder.LoopVectorize = false;
-  // If option wasn't forced via cmd line (-vectorize-loops, -loop-vectorize)
-  else if (!Builder.LoopVectorize)
+  // Check if vectorization is explicitly disabled via -vectorize-loops=false.
+  // The flag enables vectorization in the LoopVectorize pass, it is on by
+  // default, and if it was disabled, leave it disabled here.
+  // Another flag that exists: -loop-vectorize, controls adding the pass to the
+  // pass manager. If set, the pass is added, and there is no additional check
+  // here for it.
+  if (Builder.LoopVectorize)
     Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
 
   // When #pragma vectorize is on for SLP, do the same as above
@@ -571,8 +569,8 @@ int main(int argc, char **argv) {
 #endif  // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-  initializeIntel_VPOAnalysis(Registry);
-  initializeIntel_VPOTransforms(Registry);
+  initializeVPOAnalysis(Registry);
+  initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
 
 #ifdef LINK_POLLY_INTO_TOOLS

@@ -6,6 +6,7 @@
 define i8 @test_uli(i64 %arg) {
 ; CHECK-LABEL: test_uli:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    uiret
 ; CHECK-NEXT:    clui
 ; CHECK-NEXT:    stui
 ; CHECK-NEXT:    senduipi %rdi
@@ -13,15 +14,17 @@ define i8 @test_uli(i64 %arg) {
 ; CHECK-NEXT:    setb %al
 ; CHECK-NEXT:    retq
 entry:
-  call void @llvm.x86.clearui()
-  call void @llvm.x86.setui()
+  call void @llvm.x86.uiret()
+  call void @llvm.x86.clui()
+  call void @llvm.x86.stui()
   call void @llvm.x86.senduipi(i64 %arg)
   %0 = call i8 @llvm.x86.testui()
   ret i8 %0
 }
 
-declare void @llvm.x86.clearui()
-declare void @llvm.x86.setui()
+declare void @llvm.x86.uiret()
+declare void @llvm.x86.clui()
+declare void @llvm.x86.stui()
 declare i8 @llvm.x86.testui()
 declare void @llvm.x86.senduipi(i64 %arg)
 

@@ -138,6 +138,16 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,
   return nullptr;
 }
 
+const DDGraph VPVLSClientMemrefHIR::getDDGraph() const {
+  const HLNode *Node = getInstruction()->HIR.getUnderlyingNode();
+  assert(Node && "Expected underlying HLNode!");
+  const HLLoop *Loop = Node->getParentLoop();
+  const DDGraph &DDG = Loop->getParentLoop()
+                           ? DDA->getGraph(Loop->getParentLoop())
+                           : DDA->getGraph(Loop->getParentRegion());
+  return DDG;
+}
+
 } // namespace vpo
 
 } // namespace llvm

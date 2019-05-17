@@ -122,14 +122,14 @@ public:
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
 
   InlineReport& getReport() { return Report; } // INTEL
-  InlineReportBuilder& getMDReport() { return MDReport; } // INTEL
+  InlineReportBuilder *getMDReport() { return MDReport; } // INTEL
 private:
   InlineParams Params;
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
   // INTEL The inline report
   InlineReport Report; // INTEL
-  InlineReportBuilder MDReport; // INTEL
+  InlineReportBuilder *MDReport; // INTEL
 };
 
 } // end namespace llvm

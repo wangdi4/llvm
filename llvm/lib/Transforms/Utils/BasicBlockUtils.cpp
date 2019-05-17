@@ -39,7 +39,7 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
 #if INTEL_COLLAB
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #endif // INTEL_COLLAB
 #include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
@@ -174,7 +174,7 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DomTreeUpdater *DTU,
     return false;
 
 #if INTEL_COLLAB
-  if (IntelIntrinsicUtils::isIntelDirective(&(BB->front())))
+  if (IntrinsicUtils::isIntelDirective(&(BB->front())))
     return false;
 #endif // INTEL_COLLAB
 

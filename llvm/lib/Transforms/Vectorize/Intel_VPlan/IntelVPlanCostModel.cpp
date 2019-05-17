@@ -129,7 +129,7 @@ Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
   // goes beyond just accessing the type of the underlying IR.
 
   // This path seems to be covered by the one above.
-  if (const Value *Val = VPInst->UnderlyingVal)
+  if (const Value *Val = VPInst->getUnderlyingValue())
     return ::getMemInstValueType(Val);
 
 #if INTEL_CUSTOMIZATION
@@ -155,7 +155,7 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
   // TODO: getType() working without underlying Inst - seems we can return
   // address space too.
 
-  if (const Value *Val = VPInst->UnderlyingVal)
+  if (const Value *Val = VPInst->getUnderlyingValue())
     return ::getMemInstAddressSpace(Val);
 
 #if INTEL_CUSTOMIZATION
@@ -175,7 +175,7 @@ Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
   assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
 
   if (const Instruction *Inst =
-          dyn_cast_or_null<Instruction>(VPInst->UnderlyingVal)) {
+          dyn_cast_or_null<Instruction>(VPInst->getUnderlyingValue())) {
     auto GEPInst = Opcode == Instruction::Load ? Inst->getOperand(0)
                                                : Inst->getOperand(1);
     if (dyn_cast_or_null<GetElementPtrInst>(GEPInst))

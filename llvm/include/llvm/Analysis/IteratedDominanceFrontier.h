@@ -29,6 +29,10 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFGDiff.h"
 #include "llvm/IR/Dominators.h"
+#if INTEL_CUSTOMIZATION
+#include "../../../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
+#include "../../../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDominatorTree.h"
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 
@@ -42,24 +46,27 @@ namespace llvm {
 /// By default, liveness is not used to prune the IDF computation.
 /// The template parameters should be either BasicBlock* or Inverse<BasicBlock
 /// *>, depending on if you want the forward or reverse IDF.
-template <class NodeTy, bool IsPostDom>
+#if INTEL_CUSTOMIZATION
+template <class NodeTy, bool IsPostDom, class BlockTy = BasicBlock>
+#endif // INTEL_CUSTOMIZATION
 class IDFCalculator {
- public:
-   IDFCalculator(DominatorTreeBase<BasicBlock, IsPostDom> &DT)
-       : DT(DT), GD(nullptr), useLiveIn(false) {}
+public:
+  using DomTreeTy = DomTreeNodeBase<BlockTy>;
+  IDFCalculator(DominatorTreeBase<BlockTy, IsPostDom> &DT) // INTEL
+      : DT(DT), GD(nullptr), useLiveIn(false) {}
 
-   IDFCalculator(DominatorTreeBase<BasicBlock, IsPostDom> &DT,
-                 const GraphDiff<BasicBlock *, IsPostDom> *GD)
-       : DT(DT), GD(GD), useLiveIn(false) {}
+  IDFCalculator(DominatorTreeBase<BlockTy, IsPostDom> &DT, // INTEL
+                const GraphDiff<BlockTy *, IsPostDom> *GD) // INTEL
+      : DT(DT), GD(GD), useLiveIn(false) {}
 
-   /// Give the IDF calculator the set of blocks in which the value is
-   /// defined.  This is equivalent to the set of starting blocks it should be
-   /// calculating the IDF for (though later gets pruned based on liveness).
-   ///
-   /// Note: This set *must* live for the entire lifetime of the IDF calculator.
-   void setDefiningBlocks(const SmallPtrSetImpl<BasicBlock *> &Blocks) {
-     DefBlocks = &Blocks;
-   }
+  /// Give the IDF calculator the set of blocks in which the value is
+  /// defined.  This is equivalent to the set of starting blocks it should be
+  /// calculating the IDF for (though later gets pruned based on liveness).
+  ///
+  /// Note: This set *must* live for the entire lifetime of the IDF calculator.
+  void setDefiningBlocks(const SmallPtrSetImpl<BlockTy *> &Blocks) { // INTEL
+    DefBlocks = &Blocks;
+  }
 
   /// Give the IDF calculator the set of blocks in which the value is
   /// live on entry to the block.   This is used to prune the IDF calculation to
@@ -67,7 +74,7 @@ class IDFCalculator {
   ///
   /// Note: This set *must* live for the entire lifetime of the IDF calculator.
 
-  void setLiveInBlocks(const SmallPtrSetImpl<BasicBlock *> &Blocks) {
+  void setLiveInBlocks(const SmallPtrSetImpl<BlockTy *> &Blocks) { // INTEL
     LiveInBlocks = &Blocks;
     useLiveIn = true;
   }
@@ -85,16 +92,20 @@ class IDFCalculator {
   /// the file-level comment.  It performs DF->IDF pruning using the live-in
   /// set, to avoid computing the IDF for blocks where an inserted PHI node
   /// would be dead.
-  void calculate(SmallVectorImpl<BasicBlock *> &IDFBlocks);
+  void calculate(SmallVectorImpl<BlockTy *> &IDFBlocks); // INTEL
 
 private:
- DominatorTreeBase<BasicBlock, IsPostDom> &DT;
- const GraphDiff<BasicBlock *, IsPostDom> *GD;
- bool useLiveIn;
- const SmallPtrSetImpl<BasicBlock *> *LiveInBlocks;
- const SmallPtrSetImpl<BasicBlock *> *DefBlocks;
+  DominatorTreeBase<BlockTy, IsPostDom> &DT; // INTEL
+  const GraphDiff<BlockTy *, IsPostDom> *GD; // INTEL
+  bool useLiveIn;
+  const SmallPtrSetImpl<BlockTy *> *LiveInBlocks; // INTEL
+  const SmallPtrSetImpl<BlockTy *> *DefBlocks;    // INTEL
 };
 typedef IDFCalculator<BasicBlock *, false> ForwardIDFCalculator;
 typedef IDFCalculator<Inverse<BasicBlock *>, true> ReverseIDFCalculator;
+#if INTEL_CUSTOMIZATION
+typedef IDFCalculator<vpo::VPBlockBase *, false, vpo::VPBlockBase>
+    VPlanForwardIDFCalculator;
+#endif // INTEL_CUSTOMIZATION
 }
 #endif

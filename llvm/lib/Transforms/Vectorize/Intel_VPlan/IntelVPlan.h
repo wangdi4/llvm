@@ -38,14 +38,14 @@
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
+#include "IntelVPLoopAnalysis.h"
 #include "IntelVPlanDivergenceAnalysis.h"
-#include "Intel_VPlan/IntelVPLoopAnalysis.h"
-#include "Intel_VPlan/IntelVPlanLoopInfo.h"
-#include "Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.h"
+#include "IntelVPlanLoopInfo.h"
+#include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Support/FormattedStream.h"
 #endif // INTEL_CUSTOMIZATION
@@ -600,6 +600,7 @@ class VPInstruction : public VPUser, public VPRecipeBase {
   friend class VPlanVLSAnalysisHIR;
   friend class VPlanVerifier;
   friend class VPOCodeGen;
+  friend class VPOCodeGenHIR;
 
   /// Hold all the HIR-specific data and interfaces for a VPInstruction.
   class HIRSpecifics {
@@ -803,14 +804,14 @@ protected:
   /// getValue() but it hides the cast when we are working with VPInstruction
   /// pointers.
   Instruction *getInstruction() const {
-    assert((!UnderlyingVal || isa<Instruction>(UnderlyingVal)) &&
+    assert((!getUnderlyingValue() || isa<Instruction>(getUnderlyingValue())) &&
            "Expected Instruction as underlying Value.");
-    return cast_or_null<Instruction>(UnderlyingVal);
+    return cast_or_null<Instruction>(getUnderlyingValue());
   }
 
   /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
   /// not coming from the underlying IR.
-  bool isNew() const { return UnderlyingVal == nullptr && !HIR.isSet(); }
+  bool isNew() const { return getUnderlyingValue() == nullptr && !HIR.isSet(); }
 #endif
 
 public:
@@ -850,8 +851,8 @@ public:
   // undefined (i.e. 0). Non-null return value causes calculation by TTI with
   // incorrect result.
   virtual Type *getCMType() const override {
-    if (UnderlyingVal)
-      return UnderlyingVal->getType();
+    if (getUnderlyingValue())
+      return getUnderlyingValue()->getType();
 
     if (!HIR.isMaster())
       return nullptr;
@@ -867,6 +868,24 @@ public:
       return nullptr;
 
     return LLVMInst->getType();
+  }
+
+  // Return number of successors that this VPInstruction has. The instruction
+  // must be a terminator.
+  // TODO: Implement function when/if terminator instructions are added to
+  // VPlan. This function is needed to templatize common LLVM CFG algorithms
+  // (like GraphDiff).
+  unsigned getNumSuccessors() {
+    llvm_unreachable(
+        "VPlan function defined for GraphDiff compilation invoked.");
+  }
+  // Return the specified successor. This instruction must be a terminator.
+  // TODO: Implement function when/if terminator instructions are added to
+  // VPlan. This function is needed to templatize common LLVM CFG algorithms
+  // (like GraphDiff).
+  VPBlockBase *getSuccessor(unsigned Idx) {
+    llvm_unreachable(
+        "VPlan function defined for GraphDiff compilation invoked.");
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2243,7 +2262,15 @@ public:
   void removeRecipe(VPRecipeBase *Recipe) { Recipes.remove(Recipe); }
 
   /// Remove the recipe from VPBasicBlock's recipes and destroy Recipe object.
-  void eraseRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
+  void eraseRecipe(VPRecipeBase *Recipe) {
+    // If Recipe is a VPInstruction, then we need to remove all its operands
+    // before erasing the VPInstruction. Else this breaks the use-def chains.
+    if (auto *VPI = dyn_cast<VPInstruction>(Recipe)) {
+      while (VPI->getNumOperands())
+        VPI->removeOperand(0);
+    }
+    Recipes.erase(Recipe);
+  }
 
   /// The method which generates all new IR instructions that correspond to
   /// this VPBasicBlock in the vectorized version, thereby "executing" the
@@ -2257,6 +2284,31 @@ public:
   const RecipeListTy &getRecipes() const { return Recipes; }
   RecipeListTy &getRecipes() { return Recipes; }
 #if INTEL_CUSTOMIZATION
+  /// Returns a range that iterates over non predicator related recipes
+  /// in the VPBasicBlock.
+  iterator_range<const_iterator> getNonPredicateRecipes() const {
+    // New predicator uses VPInstructions to generate the block predicate.
+    // Skip instructions until block-predicate instruction is seen if the block
+    // has a predicate.
+    bool SkipUntilPred = getPredicate() != nullptr;
+    const_iterator It = begin();
+    const_iterator ItEnd = end();
+
+    for (; It != ItEnd; ++It) {
+      if (isa<const VPBlockPredicateRecipe>(It))
+        continue;
+      if (SkipUntilPred)
+        if (const auto *Inst = dyn_cast<VPInstruction>(It)) {
+          if (Inst->getOpcode() == VPInstruction::Pred)
+            SkipUntilPred = false;
+          continue;
+        }
+
+      break;
+    }
+
+    return make_range(It, ItEnd);
+  }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void dump(raw_ostream &OS, unsigned Indent = 0) const;
@@ -2464,8 +2516,8 @@ class VPlan {
 private:
 #if INTEL_CUSTOMIZATION
   LLVMContext *Context = nullptr;
-  VPLoopInfo *VPLInfo = nullptr;
-  VPlanDivergenceAnalysis *VPlanDA = nullptr;
+  std::unique_ptr<VPLoopInfo> VPLInfo;
+  std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
 #endif
 
 #if INTEL_CUSTOMIZATION
@@ -2496,9 +2548,8 @@ protected:
   DenseMap<Constant *, std::unique_ptr<VPConstant>> VPConstants;
 
   /// Holds all the external definitions representing an underlying Value
-  /// in this VPlan. The key is the underlying Value that uniquely identifies
-  /// each external definition.
-  DenseMap<Value *, std::unique_ptr<VPExternalDef>> VPExternalDefs;
+  /// in this VPlan. CFGBuilder ensures these are unique.
+  SmallVector<std::unique_ptr<VPExternalDef>, 16> VPExternalDefs;
 
   /// Holds all the external definitions representing an HIR underlying entity
   /// in this VPlan. The hash is based on the underlying HIR information that
@@ -2544,12 +2595,7 @@ public:
   ~VPlan() {
     if (Entry)
       VPBlockBase::deleteCFG(Entry);
-#if INTEL_CUSTOMIZATION
-    if (VPLInfo)
-      delete (VPLInfo);
-    if (VPlanDA)
-      delete VPlanDA;
-#else
+#if !INTEL_CUSTOMIZATION
     for (auto &MapEntry : Value2VPValue)
       delete MapEntry.second;
 #endif
@@ -2559,19 +2605,23 @@ public:
   void execute(struct VPTransformState *State);
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG);
-  VPLoopInfo *getVPLoopInfo() { return VPLInfo; }
+  VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
 
   VPLoopAnalysisBase* getVPLoopAnalysis(void) const { return VPLA.get(); }
 
-  const VPLoopInfo *getVPLoopInfo() const { return VPLInfo; }
+  const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
 
-  void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
+  void setVPLoopInfo(std::unique_ptr<VPLoopInfo> VPLI) {
+    VPLInfo = std::move(VPLI);
+  }
 
-  void setVPlanDA(VPlanDivergenceAnalysis *VPDA) { VPlanDA = VPDA; }
+  void setVPlanDA(std::unique_ptr<VPlanDivergenceAnalysis> VPDA) {
+    VPlanDA = std::move(VPDA);
+  }
 
   LLVMContext *getLLVMContext(void) const { return Context; }
 
-  VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA; }
+  VPlanDivergenceAnalysis *getVPlanDA() const { return VPlanDA.get(); }
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
@@ -2659,7 +2709,8 @@ public:
 
   /// Create or retrieve a VPExternalDef for a given Value \p ExtVal.
   VPExternalDef *getVPExternalDef(Value *ExtDef) {
-    return getExternalItem(VPExternalDefs, ExtDef);
+    VPExternalDefs.emplace_back(new VPExternalDef(ExtDef));
+    return VPExternalDefs.back().get();
   }
 
   /// Create or retrieve a VPExternalDef for a given non-decomposable DDRef \p
@@ -3408,6 +3459,20 @@ struct GraphTraits<Inverse<vpo::VPRegionBlock *>>
   static unsigned size(GraphRef N) { return N->getSize(); }
 };
 
+#if INTEL_CUSTOMIZATION
+// Successors iterating interfaces added to compile VPlan HCFG for GraphDiff
+// utility.The iterator requires terminator instruction for corresponding VPBB.
+// TODO: Implement function when/if terminator instructions are added to VPlan.
+// This function is needed to templatize common LLVM CFG algorithms (like
+// GraphDiff).
+using vp_succ_iterator = SuccIterator<vpo::VPInstruction, vpo::VPBlockBase>;
+inline vp_succ_iterator succ_begin(vpo::VPBlockBase *VPBB) {
+  llvm_unreachable("VPlan function defined for GraphDiff compilation invoked.");
+}
+inline vp_succ_iterator succ_end(vpo::VPBlockBase *VPBB) {
+  llvm_unreachable("VPlan function defined for GraphDiff compilation invoked.");
+}
+#endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H

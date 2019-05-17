@@ -25,7 +25,7 @@
 namespace llvm {
 class AssumptionCacheTracker;
 class BlockFrequencyInfo;
-class CallSite;
+class CallBase;
 class DataLayout;
 class Function;
 class ProfileSummaryInfo;
@@ -129,6 +129,7 @@ typedef enum {
    InlrStackComputations,
    InlrPreferPartialInline,
    InlrPassedDummyArgs,
+   InlrArrayStructArgs,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -399,7 +400,7 @@ InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
 
 /// Return the cost associated with a callsite, including parameter passing
 /// and the call/return instruction.
-int getCallsiteCost(CallSite CS, const DataLayout &DL);
+int getCallsiteCost(CallBase &Call, const DataLayout &DL);
 
 /// Get an InlineCost object representing the cost of inlining this
 /// callsite.
@@ -412,18 +413,15 @@ int getCallsiteCost(CallSite CS, const DataLayout &DL);
 ///
 /// Also note that calling this function *dynamically* computes the cost of
 /// inlining the callsite. It is an expensive, heavyweight call.
-InlineCost
-getInlineCost(CallSite CS, const InlineParams &Params,
-              TargetTransformInfo &CalleeTTI,
-              std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-              Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
-              TargetLibraryInfo *TLI,          // INTEL
-              InliningLoopInfoCache *ILIC,     // INTEL
-              InlineAggressiveInfo *AggI,      // INTEL
-              SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
-              SmallSet<CallBase *, 20> *CallSitesForDTrans, // INTEL
-              ProfileSummaryInfo *PSI,
-              OptimizationRemarkEmitter *ORE = nullptr);
+InlineCost getInlineCost(
+    CallBase &Call, const InlineParams &Params, TargetTransformInfo &CalleeTTI,
+    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+    Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+    TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,   // INTEL
+    InlineAggressiveInfo *AggI,                            // INTEL
+    SmallSet<CallBase *, 20> *CallSitesForFusion,          // INTEL
+    SmallSet<CallBase *, 20> *CallSitesForDTrans,          // INTEL
+    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE = nullptr);
 
 /// Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -431,7 +429,7 @@ getInlineCost(CallSite CS, const InlineParams &Params,
 /// parameter in all other respects.
 //
 InlineCost
-getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
+getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,

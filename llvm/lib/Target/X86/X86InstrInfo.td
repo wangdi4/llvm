@@ -775,6 +775,37 @@ def lea64mem : Operand<i64> {
   let ParserMatchClass = X86MemAsmOperand;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+let RenderMethod = "addMaskPairOperands" in {
+  def VK1PairAsmOperand : AsmOperandClass { let Name = "VK1Pair"; }
+  def VK2PairAsmOperand : AsmOperandClass { let Name = "VK2Pair"; }
+  def VK4PairAsmOperand : AsmOperandClass { let Name = "VK4Pair"; }
+  def VK8PairAsmOperand : AsmOperandClass { let Name = "VK8Pair"; }
+  def VK16PairAsmOperand : AsmOperandClass { let Name = "VK16Pair"; }
+}
+
+def VK1Pair : RegisterOperand<VK1PAIR, "printVKPair"> {
+  let ParserMatchClass = VK1PairAsmOperand;
+}
+
+def VK2Pair : RegisterOperand<VK2PAIR, "printVKPair"> {
+  let ParserMatchClass = VK2PairAsmOperand;
+}
+
+def VK4Pair : RegisterOperand<VK4PAIR, "printVKPair"> {
+  let ParserMatchClass = VK4PairAsmOperand;
+}
+
+def VK8Pair : RegisterOperand<VK8PAIR, "printVKPair"> {
+  let ParserMatchClass = VK8PairAsmOperand;
+}
+
+def VK16Pair : RegisterOperand<VK16PAIR, "printVKPair"> {
+  let ParserMatchClass = VK16PairAsmOperand;
+}
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // X86 Complex Pattern Definitions.
@@ -862,6 +893,9 @@ def NoVLX_Or_NoDQI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasDQI()">;
 def PKU        : Predicate<"Subtarget->hasPKU()">;
 def HasVNNI    : Predicate<"Subtarget->hasVNNI()">;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+def HasVP2INTERSECT : Predicate<"Subtarget->hasVP2INTERSECT()">;
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #if INTEL_FEATURE_ISA_AVX_VNNI
 def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">,
                             AssemblerPredicate<"FeatureAVXVNNI", "AVXVNNI">;
@@ -2877,11 +2911,12 @@ let SchedRW = [WriteStore], Defs = [EFLAGS] in {
 // ULI Instructions
 //
 let Predicates = [HasULI, In64BitMode] in {
-  def UIRET : I<0x01, MRM_EC, (outs), (ins), "uiret", []>, XS;
+  def UIRET : I<0x01, MRM_EC, (outs), (ins), "uiret",
+               [(int_x86_uiret)]>, XS;
   def CLUI : I<0x01, MRM_EE, (outs), (ins), "clui",
-               [(int_x86_clearui)]>, XS;
+               [(int_x86_clui)]>, XS;
   def STUI : I<0x01, MRM_EF, (outs), (ins), "stui",
-               [(int_x86_setui)]>, XS;
+               [(int_x86_stui)]>, XS;
 
   def SENDUIPI : I<0xC7, MRM6r, (outs), (ins GR64:$arg), "senduipi\t$arg",
                    [(int_x86_senduipi GR64:$arg)]>, XS;

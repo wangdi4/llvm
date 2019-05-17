@@ -25,13 +25,13 @@ add_llvm_library(LLVMTransformUtils
   InstructionNamer.cpp
   IntegerDivision.cpp
 # INTEL_COLLAB
-  Intel_InferAddressSpacesUtils.cpp
+  InferAddressSpacesUtils.cpp
 # end INTEL_COLLAB
   Intel_CloneUtils.cpp # INTEL_CUSTOMIZATION
 # INTEL_COLLAB
-  Intel_GeneralUtils.cpp
-  Intel_IntrinsicUtils.cpp
-  ../Intel_VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
+  GeneralUtils.cpp
+  IntrinsicUtils.cpp
+  ../VPO/Utils/IntrinsicUtils.cpp # TODO: Move to lib/Transforms/Utils
 # end INTEL_COLLAB
 # INTEL_CUSTOMIZATION
   Intel_RegionSplitter.cpp
@@ -80,6 +80,6 @@ add_llvm_library(LLVMTransformUtils
   DEPENDS
   intrinsics_gen
 # INTEL_COLLAB
-  intel_directives_gen
+  directives_gen
 # end INTEL_COLLAB
   )

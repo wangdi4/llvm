@@ -186,6 +186,12 @@ def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                        "Enable AVX-512 Bit Algorithms",
                         [FeatureBWI]>;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+def FeatureVP2INTERSECT  : SubtargetFeature<"avx512vp2intersect",
+                                            "HasVP2INTERSECT", "true",
+                                            "Enable AVX-512 vp2intersect",
+                                            [FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #if INTEL_FEATURE_ISA_FP16
 // FIXME: FP16 scaler inrinsics use the type v8f16, which is supposed to be guarded
 // under condition hasVLX. So we imply it in FeatureFP16 currently.
@@ -482,6 +488,11 @@ def FeatureFastHorizontalOps
         "fast-hops", "HasFastHorizontalOps", "true",
         "Prefer horizontal vector math instructions (haddp, phsub, etc.) over "
         "normal vector instructions with shuffles", [FeatureSSE3]>;
+
+def FeatureFastVectorShiftMasks
+    : SubtargetFeature<
+        "fast-vector-shift-masks", "HasFastVectorShiftMasks", "true",
+        "Prefer a left/right vector logical shift pair over a shift+and pair">;
 
 // Merge branches using three-way conditional code.
 def FeatureMergeToThreeWayBranch : SubtargetFeature<"merge-to-threeway-branch",
@@ -874,7 +885,8 @@ def ProcessorFeatures {
                                                       FeaturePOPCNT,
                                                       FeatureSlowSHLD,
                                                       FeatureLAHFSAHF,
-                                                      FeatureFast15ByteNOP];
+                                                      FeatureFast15ByteNOP,
+                                                      FeatureFastVectorShiftMasks];
   list<SubtargetFeature> BtVer1Features = BtVer1InheritableFeatures;
 
   // Jaguar

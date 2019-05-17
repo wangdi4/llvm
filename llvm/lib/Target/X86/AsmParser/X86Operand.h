@@ -451,6 +451,35 @@ struct X86Operand final : public MCParsedAsmOperand {
       X86MCRegisterClasses[X86::GR64RegClassID].contains(getReg()));
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+  bool isVK1Pair() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VK1RegClassID].contains(getReg());
+  }
+
+  bool isVK2Pair() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VK2RegClassID].contains(getReg());
+  }
+
+  bool isVK4Pair() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VK4RegClassID].contains(getReg());
+  }
+
+  bool isVK8Pair() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VK8RegClassID].contains(getReg());
+  }
+
+  bool isVK16Pair() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VK16RegClassID].contains(getReg());
+  }
+
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#endif // INTEL_CUSTOMIZATION
   void addExpr(MCInst &Inst, const MCExpr *Expr) const {
     // Add as immediates when possible.
     if (const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(Expr))
@@ -464,6 +493,34 @@ struct X86Operand final : public MCParsedAsmOperand {
     Inst.addOperand(MCOperand::createReg(getReg()));
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_VP2INTERSECT
+  void addMaskPairOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    unsigned Reg = getReg();
+    switch (Reg) {
+    case X86::K0:
+    case X86::K1:
+      Reg = X86::K0_K1;
+      break;
+    case X86::K2:
+    case X86::K3:
+      Reg = X86::K2_K3;
+      break;
+    case X86::K4:
+    case X86::K5:
+      Reg = X86::K4_K5;
+      break;
+    case X86::K6:
+    case X86::K7:
+      Reg = X86::K6_K7;
+      break;
+    }
+    Inst.addOperand(MCOperand::createReg(Reg));
+  }
+
+#endif // INTEL_FEATURE_ISA_VP2INTERSECT
+#endif // INTEL_CUSTOMIZATION
   void addGR32orGR64Operands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     unsigned RegNo = getReg();

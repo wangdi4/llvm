@@ -1636,18 +1636,9 @@ const char* get_library_function_name(const char* func_base_name,
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
+bool is_libm_function(const char *name) {
+  return libmGetNameIndex(name) >= 0 ? true : false;
+}
 
 //******************************************************************************************/
 //******************************************************************************************/

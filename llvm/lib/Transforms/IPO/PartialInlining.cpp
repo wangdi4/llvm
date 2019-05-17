@@ -867,10 +867,12 @@ bool PartialInlinerImpl::shouldPartialInline(
   bool RemarksEnabled =
       Callee->getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
           DEBUG_TYPE);
-  InlineCost IC = getInlineCost(CS, getInlineParams(), CalleeTTI,
-                                *GetAssumptionCache, GetBFI, nullptr,  // INTEL
-                                ILIC, nullptr, nullptr, nullptr,       // INTEL
-                                PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
+  assert(Call && "invalid callsite for partial inline");
+  InlineCost IC = getInlineCost(cast<CallBase>(*Call), getInlineParams(),
+                                CalleeTTI, *GetAssumptionCache,   // INTEL
+                                GetBFI, nullptr, ILIC, nullptr,   // INTEL
+                                nullptr, nullptr, PSI,            // INTEL
+                                RemarksEnabled ? &ORE : nullptr);
 
   if (IC.isAlways()) {
     ORE.emit([&]() {
@@ -904,7 +906,7 @@ bool PartialInlinerImpl::shouldPartialInline(
   const DataLayout &DL = Caller->getParent()->getDataLayout();
 
   // The savings of eliminating the call:
-  int NonWeightedSavings = getCallsiteCost(CS, DL);
+  int NonWeightedSavings = getCallsiteCost(cast<CallBase>(*Call), DL);
   BlockFrequency NormWeightedSavings(NonWeightedSavings);
 
   // Weighted saving is smaller than weighted cost, return false
@@ -972,12 +974,12 @@ int PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB) {
     }
 
     if (CallInst *CI = dyn_cast<CallInst>(&I)) {
-      InlineCost += getCallsiteCost(CallSite(CI), DL);
+      InlineCost += getCallsiteCost(*CI, DL);
       continue;
     }
 
     if (InvokeInst *II = dyn_cast<InvokeInst>(&I)) {
-      InlineCost += getCallsiteCost(CallSite(II), DL);
+      InlineCost += getCallsiteCost(*II, DL);
       continue;
     }
 
@@ -1048,6 +1050,16 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
   };
 
   for (User *User : Users) {
+#if INTEL_CUSTOMIZATION
+    // When performing partial inlining for functions that were devirtualized,
+    // ignore uses that are not calls. These uses are for comparing the address
+    // of an indirect function pointer to the address of the function. There is
+    // no need to collect profile counts on these instructions, since the
+    // profile counts are just used to adjust the entry count of the splinter
+    // function for the cold portion of the routine.
+    if (IsVirtualTarget && !isa<CallBase>(User))
+      continue;
+#endif
     CallSite CS = getCallSite(User);
     Function *Caller = CS.getCaller();
     if (CurrentCaller != Caller) {

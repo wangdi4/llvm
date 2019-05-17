@@ -4,7 +4,7 @@
 ; Verify that all arguments of the outlined function are pointers.
 ; If num_threads value is not removed from the clause, it will
 ; appear as a non-pointer argument.
-; CHECK: define internal void @_Z3fooPfx.DIR.OMP.PARALLEL.LOOP.1.split({{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}})
+; CHECK: define internal void @_Z3fooPfx.DIR.OMP.PARALLEL.LOOP.1.{{.*}}({{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}}, {{[^,]+\*[^,]*}})
 
 ; Original code:
 ; void foo(float *x, long long int n)

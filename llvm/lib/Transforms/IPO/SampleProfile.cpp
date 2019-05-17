@@ -755,8 +755,8 @@ bool SampleProfileLoader::inlineCallInstruction(Instruction *I) {
 #if INTEL_CUSTOMIZATION
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
-      getInlineCost(CS, Params, GetTTI(*CalledFunction), GetAC, None, nullptr,
-                    ILIC, nullptr, nullptr, nullptr, nullptr);
+      getInlineCost(cast<CallBase>(*I), Params, GetTTI(*CalledFunction), GetAC,
+                    None, nullptr, ILIC, nullptr, nullptr, nullptr, nullptr);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 

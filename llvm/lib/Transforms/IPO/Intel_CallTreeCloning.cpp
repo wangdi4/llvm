@@ -1868,7 +1868,7 @@ public:
   CallTreeCloningImpl() {}
 
   bool run(Module &M, Analyses &Anl, TargetLibraryInfo *TLI,
-           WholeProgramInfo *WPI, PreservedAnalyses &PA);
+           PreservedAnalyses &PA);
 
 protected:
   // -count the number of CallInst(s) and InvokeInst(s)
@@ -2378,12 +2378,7 @@ public:
 } // end of namespace llvm
 
 bool CallTreeCloningImpl::run(Module &M, Analyses &Anls, TargetLibraryInfo *TLI,
-                              WholeProgramInfo *WPI, PreservedAnalyses &PA) {
-  if (!WPI->isAdvancedOptEnabled(TargetTransformInfo::AO_TargetHasAVX2)) {
-    LLVM_DEBUG(
-        dbgs() << "Disable CallTreeClone pass due to AdvancedOpt disabled\n");
-    return false;
-  }
+                              PreservedAnalyses &PA) {
 
   if (!checkThreshold(M)) {
     LLVM_DEBUG(dbgs() << "Disable CallTreeClone pass due to potential "
@@ -2470,14 +2465,13 @@ bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
   if (skipModule(M) || (CTCloningMaxDepth == 0))
     return false;
 
-  auto *WPA = &getAnalysis<WholeProgramWrapperPass>().getResult();
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   Analyses Anls([&](Function &F) -> LoopInfo & {
     return getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
   });
   PreservedAnalyses PA;
   CallTreeCloningImpl Impl;
-  bool ModuleChanged = Impl.run(M, Anls, TLI, WPA, PA);
+  bool ModuleChanged = Impl.run(M, Anls, TLI, PA);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG
@@ -4061,7 +4055,6 @@ llvm::CallTreeCloningLegacyPass::CallTreeCloningLegacyPass() : ModulePass(ID) {
 void CallTreeCloningLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<WholeProgramWrapperPass>();
 }
 
 llvm::ModulePass *llvm::createCallTreeCloningPass() {
@@ -4074,7 +4067,6 @@ char llvm::CallTreeCloningLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(CallTreeCloningLegacyPass, PASS_NAME, PASS_DESC, false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(CallTreeCloningLegacyPass, PASS_NAME, PASS_DESC, false,
                     false)
 
@@ -4087,11 +4079,10 @@ PreservedAnalyses CallTreeCloningPass::run(Module &M,
   });
   PreservedAnalyses PA;
   auto &TLI = MAM.getResult<TargetLibraryAnalysis>(M);
-  auto &WPI = MAM.getResult<WholeProgramAnalysis>(M);
 
   // TODO FIXME add preserved analyses
   CallTreeCloningImpl Impl;
-  bool ModuleChanged = Impl.run(M, Anls, &TLI, &WPI, PA);
+  bool ModuleChanged = Impl.run(M, Anls, &TLI, PA);
 
   // Verify Module if there is any change on the LLVM IR
 #ifndef NDEBUG

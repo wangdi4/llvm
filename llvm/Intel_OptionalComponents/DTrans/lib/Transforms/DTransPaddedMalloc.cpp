@@ -14,7 +14,7 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Function.h"
@@ -383,11 +383,10 @@ bool dtrans::PaddedMallocPass::insideParallelRegion(
   for (User *User : Fn->users()) {
 
     if (Instruction *Inst = dyn_cast<Instruction>(User)) {
-      CallSite CS = CallSite(Inst);
-      if (!CS.isCall() && !CS.isInvoke())
+      if (!isa<CallInst>(Inst) && !isa<InvokeInst>(Inst))
         continue;
 
-      Function *Caller = CS.getCaller();
+      Function *Caller = cast<CallBase>(Inst)->getCaller();
 
       if (isOutlineFunction(Caller)) {
         return true;
@@ -466,7 +465,7 @@ bool dtrans::PaddedMallocPass::isValidType(GetElementPtrInst *ElemInst) {
   return false;
 }
 
-// If the BasicBlock contains a malloc CallSite, then apply the padded
+// If the BasicBlock contains a malloc call, then apply the padded
 // malloc optimization.
 bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
                                                 GlobalVariable *GlobalCounter,
@@ -476,18 +475,18 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
   // Traverse the instructions in the BasicBlock
   for (Instruction &Inst : BB) {
 
-    CallSite CS = CallSite(&Inst);
-    if (!CS.isCall() && !CS.isInvoke())
+    CallBase *Call = dyn_cast<CallBase>(&Inst);
+    if (!Call)
       continue;
 
-    // Check that the instruction is a call site to malloc
-    if (dtrans::getAllocFnKind(CS, TLInfo) != dtrans::AK_Malloc) {
+    // Check that the instruction is a call to malloc
+    if (dtrans::getAllocFnKind(Call, TLInfo) != dtrans::AK_Malloc) {
       continue;
     }
 
     // The input value to the malloc must always
     // be an integer
-    Value *InputVal = CS.getArgument(0);
+    Value *InputVal = Call->getArgOperand(0);
     Type *IntType = InputVal->getType();
     if (!IntType->isIntegerTy())
       continue;
@@ -575,7 +574,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
     unsigned BitWidthSize = InputVal->getType()->getIntegerBitWidth();
     Value *PMSizeVal = Builder.getIntN(BitWidthSize, DTransPaddedMallocSize);
     Value *NewSize = Builder.CreateAdd(InputVal, PMSizeVal);
-    CS.setArgument(0, NewSize);
+    Call->setArgOperand(0, NewSize);
     Value *MallocMod = Builder.Insert(mallocCallMod);
     // Increase the global variable
     if (UseOpenMP)
@@ -650,14 +649,6 @@ bool dtrans::PaddedMallocPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
     PaddedMallocData.destroyGlobalsInfo(M);
     LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: Padded malloc disabled\n");
     return false;
-  }
-  else {
-    auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-    if (!WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
-      PaddedMallocData.destroyGlobalsInfo(M);
-      LLVM_DEBUG(dbgs() << "  dtrans-paddedmalloc: does not pass AVX2 test\n");
-      return false;
-    }
   }
 
   // Check if the module requires runtime safety checks

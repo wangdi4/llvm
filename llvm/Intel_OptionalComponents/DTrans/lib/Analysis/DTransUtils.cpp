@@ -22,7 +22,6 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace dtrans;
@@ -85,24 +84,23 @@ StringRef dtrans::FreeKindName(FreeKind Kind) {
   llvm_unreachable("Unexpected continuation past FreeKind switch.");
 }
 
-AllocKind dtrans::getAllocFnKind(ImmutableCallSite CS,
+AllocKind dtrans::getAllocFnKind(const CallBase *Call,
                                  const TargetLibraryInfo &TLI) {
-  auto *I = CS.getInstruction();
   // Returns non-null, so C++ function.
-  if (isNewLikeFn(I, &TLI))
+  if (isNewLikeFn(Call, &TLI))
     return AK_New;
-  if (isMallocLikeFn(I, &TLI))
+  if (isMallocLikeFn(Call, &TLI))
     // if C++ and could return null, then there should be more than one
     // argument.
-    return CS.arg_size() == 1 ? AK_Malloc : AK_New;
-  if (isCallocLikeFn(I, &TLI))
+    return Call->arg_size() == 1 ? AK_Malloc : AK_New;
+  if (isCallocLikeFn(Call, &TLI))
     return AK_Calloc;
-  if (isReallocLikeFn(I, &TLI))
+  if (isReallocLikeFn(Call, &TLI))
     return AK_Realloc;
   return AK_NotAlloc;
 }
 
-void dtrans::getAllocSizeArgs(AllocKind Kind, ImmutableCallSite CS,
+void dtrans::getAllocSizeArgs(AllocKind Kind, const CallBase *Call,
                               unsigned &AllocSizeInd, unsigned &AllocCountInd,
                               const TargetLibraryInfo &TLI) {
   assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
@@ -114,11 +112,11 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, ImmutableCallSite CS,
     // always 'this' pointer and the second argument is 'size' argument.
     // Indirect call means that devirtualization on this call site didn't
     // happen.
-    if (CS.arg_size() == 2 ||
-        !dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts())) {
+    if (Call->arg_size() == 2 ||
+        !dyn_cast<Function>(Call->getCalledValue()->stripPointerCasts())) {
       // Allow user-defined malloc with 'this' ptr argument.
-      Type *ZeroArgType = CS.getArgument(0)->getType();
-      Type *FirstArgType = CS.getArgument(1)->getType();
+      Type *ZeroArgType = Call->getArgOperand(0)->getType();
+      Type *FirstArgType = Call->getArgOperand(1)->getType();
       if (ZeroArgType->isPointerTy() &&
           ZeroArgType->getPointerElementType()->isStructTy() &&
           FirstArgType->isIntegerTy()) {
@@ -139,7 +137,7 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, ImmutableCallSite CS,
   case AK_Malloc:
   case AK_Realloc: {
     /// All functions except calloc return -1 as a second argument.
-    auto Inds = getAllocSizeArgumentIndices(CS.getInstruction(), &TLI);
+    auto Inds = getAllocSizeArgumentIndices(Call, &TLI);
     if (Inds.second == -1U) {
       AllocSizeInd = Inds.first;
       AllocCountInd = -1U;
@@ -156,44 +154,44 @@ void dtrans::getAllocSizeArgs(AllocKind Kind, ImmutableCallSite CS,
 }
 
 // Should be kept in sync with DTransInstVisitor::DTanalyzeAllocationCall.
-void dtrans::collectSpecialAllocArgs(AllocKind Kind, ImmutableCallSite CS,
+void dtrans::collectSpecialAllocArgs(AllocKind Kind, const CallBase *Call,
                                      SmallPtrSet<const Value *, 3> &OutputSet,
                                      const TargetLibraryInfo &TLI) {
 
   unsigned AllocSizeInd = -1U;
   unsigned AllocCountInd = -1U;
-  getAllocSizeArgs(Kind, CS, AllocSizeInd, AllocCountInd, TLI);
-  if (AllocSizeInd < CS.arg_size())
-    OutputSet.insert(CS.getArgument(AllocSizeInd));
-  if (AllocCountInd < CS.arg_size())
-    OutputSet.insert(CS.getArgument(AllocCountInd));
+  getAllocSizeArgs(Kind, Call, AllocSizeInd, AllocCountInd, TLI);
+  if (AllocSizeInd < Call->arg_size())
+    OutputSet.insert(Call->getArgOperand(AllocSizeInd));
+  if (AllocCountInd < Call->arg_size())
+    OutputSet.insert(Call->getArgOperand(AllocCountInd));
 
   if (Kind == AK_Realloc)
-    OutputSet.insert(CS.getArgument(0));
+    OutputSet.insert(Call->getArgOperand(0));
 }
 
-bool dtrans::isFreeFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI) {
-  return isFreeCall(CS.getInstruction(), &TLI, false);
+bool dtrans::isFreeFn(const CallBase *Call, const TargetLibraryInfo &TLI) {
+  return isFreeCall(Call, &TLI, false);
 }
 
-bool dtrans::isDeleteFn(ImmutableCallSite CS, const TargetLibraryInfo &TLI) {
-  return isDeleteCall(CS.getInstruction(), &TLI, false);
+bool dtrans::isDeleteFn(const CallBase *Call, const TargetLibraryInfo &TLI) {
+  return isDeleteCall(Call, &TLI, false);
 }
 
-void dtrans::getFreePtrArg(FreeKind Kind, ImmutableCallSite CS,
+void dtrans::getFreePtrArg(FreeKind Kind, const CallBase *Call,
                            unsigned &PtrArgInd, const TargetLibraryInfo &TLI) {
   assert(Kind != FK_NotFree && "Unexpected free kind passed to getFreePtrArg");
 
-  if (!dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts())) {
+  if (!dyn_cast<Function>(Call->getCalledValue()->stripPointerCasts())) {
     assert(Kind == FK_UserFree);
     PtrArgInd = 1;
     return;
   }
 
-  if ((Kind == FK_UserFree) && (CS.arg_size() == 2)) {
+  if ((Kind == FK_UserFree) && (Call->arg_size() == 2)) {
     // Allow user-defined free with 'this' ptr argument.
-    Type *ZeroArgType = CS.getArgument(0)->getType();
-    Type *FirstArgType = CS.getArgument(1)->getType();
+    Type *ZeroArgType = Call->getArgOperand(0)->getType();
+    Type *FirstArgType = Call->getArgOperand(1)->getType();
     if (ZeroArgType->isPointerTy() &&
         ZeroArgType->getPointerElementType()->isStructTy() &&
         FirstArgType->isPointerTy()) {
@@ -204,14 +202,14 @@ void dtrans::getFreePtrArg(FreeKind Kind, ImmutableCallSite CS,
   PtrArgInd = 0;
 }
 
-void dtrans::collectSpecialFreeArgs(FreeKind Kind, ImmutableCallSite CS,
+void dtrans::collectSpecialFreeArgs(FreeKind Kind, const CallBase *Call,
                                     SmallPtrSetImpl<const Value *> &OutputSet,
                                     const TargetLibraryInfo &TLI) {
   unsigned PtrArgInd = -1U;
-  getFreePtrArg(Kind, CS, PtrArgInd, TLI);
+  getFreePtrArg(Kind, Call, PtrArgInd, TLI);
 
-  if (PtrArgInd < CS.arg_size())
-    OutputSet.insert(CS.getArgument(PtrArgInd));
+  if (PtrArgInd < Call->arg_size())
+    OutputSet.insert(Call->getArgOperand(PtrArgInd));
 }
 
 bool dtrans::isValueConstant(const Value *Val, uint64_t *ConstValue) {
@@ -968,9 +966,9 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
 }
 
 // Check that function only throws an exception.
-bool dtrans::isDummyFuncWithUnreachable(ImmutableCallSite CS,
+bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
                                         const TargetLibraryInfo &TLI) {
-  auto *F = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+  auto *F = dyn_cast<Function>(Call->getCalledValue()->stripPointerCasts());
   if (!F)
     return false;
   if (F->size() != 1)
@@ -1020,29 +1018,29 @@ bool dtrans::isDummyFuncWithUnreachable(ImmutableCallSite CS,
          CallExThrowFound;
 }
 
-bool dtrans::isDummyFuncWithThisAndIntArgs(ImmutableCallSite CS,
+bool dtrans::isDummyFuncWithThisAndIntArgs(const CallBase *Call,
                                            const TargetLibraryInfo &TLI) {
-  if (!isDummyFuncWithUnreachable(CS, TLI))
+  if (!isDummyFuncWithUnreachable(Call, TLI))
     return false;
 
-  if (CS.arg_size() != 2)
+  if (Call->arg_size() != 2)
     return false;
 
-  Type *ZeroArgType = CS.getArgument(0)->getType();
-  Type *FirstArgType = CS.getArgument(1)->getType();
+  Type *ZeroArgType = Call->getArgOperand(0)->getType();
+  Type *FirstArgType = Call->getArgOperand(1)->getType();
   return (ZeroArgType->isPointerTy() &&
           ZeroArgType->getPointerElementType()->isStructTy() &&
           FirstArgType->isIntegerTy());
 }
 
-bool dtrans::isDummyFuncWithThisAndPtrArgs(ImmutableCallSite CS,
+bool dtrans::isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
                                            const TargetLibraryInfo &TLI) {
-  if (!isDummyFuncWithUnreachable(CS, TLI))
+  if (!isDummyFuncWithUnreachable(Call, TLI))
     return false;
-  if (CS.arg_size() != 2)
+  if (Call->arg_size() != 2)
     return false;
-  Type *ZeroArgType = CS.getArgument(0)->getType();
-  Type *FirstArgType = CS.getArgument(1)->getType();
+  Type *ZeroArgType = Call->getArgOperand(0)->getType();
+  Type *FirstArgType = Call->getArgOperand(1)->getType();
   return (ZeroArgType->isPointerTy() &&
           ZeroArgType->getPointerElementType()->isStructTy() &&
           FirstArgType->isPointerTy());

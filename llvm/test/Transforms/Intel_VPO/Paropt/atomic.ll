@@ -63,7 +63,7 @@ entry:
   %2 = load fp128, fp128* @e, align 16
   %conv1 = fptosi fp128 %2 to i16
   store i16 %conv1, i16* @x, align 2
-; CHECK:  %{{[a-zA-Z._0-9]+}} = call i16 @__kmpc_atomic_fixed2_swp({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, i16 %{{[a-zA-Z._0-9]+}})
+; CHECK:  %{{[a-zA-Z._0-9]+}} = call i16 @__kmpc_atomic_fixed2_swp({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, i16 %{{[a-zA-Z._0-9]+}})
   fence release
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
   ret void
@@ -90,7 +90,7 @@ entry:
   %add = fadd fp128 %conv2, %3
   %conv3 = fptosi fp128 %add to i16
   store i16 %conv3, i16* @x, align 2
-; CHECK:  %{{[a-zA-Z._0-9]+}} = call i16 @__kmpc_atomic_fixed2_add_cpt_fp({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, fp128 %{{[a-zA-Z._0-9]+}}, i32 0)
+; CHECK:  %{{[a-zA-Z._0-9]+}} = call i16 @__kmpc_atomic_fixed2_add_cpt_fp({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, fp128 %{{[a-zA-Z._0-9]+}}, i32 0)
   fence release
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
   ret void
@@ -111,7 +111,7 @@ entry:
   %3 = load i16, i16* @x, align 2
   %conv3 = sext i16 %3 to i64
   store i64 %conv3, i64* @v, align 8
-; CHECK:  %{{[a-zA-Z._0-9]+}} = call i16 @__kmpc_atomic_fixed2_add_cpt_fp({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, fp128 %{{[a-zA-Z._0-9]+}}, i32 1)
+; CHECK:  %{{[a-zA-Z._0-9]+}} = call i16 @__kmpc_atomic_fixed2_add_cpt_fp({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, fp128 %{{[a-zA-Z._0-9]+}}, i32 1)
   fence release
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
   ret void
@@ -129,7 +129,7 @@ entry:
   %add = fadd fp128 %conv1, %2
   %conv2 = fptosi fp128 %add to i16
   store i16 %conv2, i16* @x, align 2
-; CHECK: call void @__kmpc_atomic_fixed2_add_fp({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, fp128 %{{[a-zA-Z._0-9]+}})
+; CHECK: call void @__kmpc_atomic_fixed2_add_fp({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, fp128 %{{[a-zA-Z._0-9]+}})
   fence release
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
   ret void
@@ -147,7 +147,7 @@ entry:
   %sub = fsub fp128 %1, %conv1
   %conv2 = fptosi fp128 %sub to i16
   store i16 %conv2, i16* @x, align 2
-; CHECK: call void @__kmpc_atomic_fixed2_sub_rev_fp({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, fp128 %{{[a-zA-Z._0-9]+}})
+; CHECK: call void @__kmpc_atomic_fixed2_sub_rev_fp({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, fp128 %{{[a-zA-Z._0-9]+}})
   fence release
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
   ret void
@@ -161,7 +161,7 @@ entry:
   %1 = load i16, i16* @x, align 2
   %conv = sitofp i16 %1 to fp128
   store fp128 %conv, fp128* @e, align 16
-; CHECK:  %{{[a-zA-Z._0-9]+}} = call i16 @__kmpc_atomic_fixed2_rd({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x)
+; CHECK:  %{{[a-zA-Z._0-9]+}} = call i16 @__kmpc_atomic_fixed2_rd({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x)
   fence release
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
   ret void
@@ -176,7 +176,7 @@ entry:
   %conv = fptosi fp128 %1 to i16
   store i16 %conv, i16* @x, align 2
   fence release
-; CHECK: call void @__kmpc_atomic_fixed2_wr({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, i16 %{{[a-zA-Z._0-9]+}})
+; CHECK: call void @__kmpc_atomic_fixed2_wr({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i16* @x, i16 %{{[a-zA-Z._0-9]+}})
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
   ret void
 }
@@ -198,7 +198,7 @@ entry:
   %conv2 = fptrunc fp128 %add to x86_fp80
   store x86_fp80 %conv2, x86_fp80* %x.addr, align 16
   fence release
-; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_add_cpt({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
+; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_add_cpt({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.ATOMIC"() ]
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
   fence acquire
@@ -212,7 +212,7 @@ entry:
   %conv5 = fptrunc fp128 %mul to x86_fp80
   store x86_fp80 %conv5, x86_fp80* %x.addr, align 16
   fence release
-; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_mul_cpt({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
+; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_mul_cpt({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
   call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.ATOMIC"() ]
   %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
   fence acquire
@@ -226,7 +226,7 @@ entry:
   %conv8 = fptrunc fp128 %sub to x86_fp80
   store x86_fp80 %conv8, x86_fp80* %x.addr, align 16
   fence release
-; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_sub_cpt({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
+; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_sub_cpt({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
   call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.ATOMIC"() ]
   %12 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.CAPTURE"() ]
   fence acquire
@@ -240,7 +240,7 @@ entry:
   %conv11 = fptrunc fp128 %div to x86_fp80
   store x86_fp80 %conv11, x86_fp80* %x.addr, align 16
   fence release
-; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_div_cpt({ i32, i32, i32, i32, i8* }* @{{[a-zA-Z._0-9]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
+; CHECK: %{{[a-zA-Z._0-9]+}} = call x86_fp80 @__kmpc_atomic_float10_div_cpt({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, x86_fp80* %x.addr, x86_fp80 %{{[a-zA-Z._0-9]+}}, i32 0)
   call void @llvm.directive.region.exit(token %12) [ "DIR.OMP.END.ATOMIC"() ]
   ret void
 }

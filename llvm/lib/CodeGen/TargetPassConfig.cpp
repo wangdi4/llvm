@@ -45,6 +45,7 @@
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" //INTEL
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
@@ -52,6 +53,12 @@
 #include <string>
 
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> DisableMapIntrinToIml("disable-iml-trans",
+  cl::init(false), cl::Hidden,
+  cl::desc("Disable mapping vectorized math intrinsic calls to svml/libm."));
+#endif // INTEL_CUSTOMIZATION
 
 cl::opt<bool> EnableIPRA("enable-ipra", cl::init(false), cl::Hidden,
                          cl::desc("Enable interprocedural register allocation "
@@ -829,6 +836,13 @@ bool TargetPassConfig::addISelPasses() {
 
   addPass(createPreISelIntrinsicLoweringPass());
   addPass(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
+
+#if INTEL_CUSTOMIZATION
+  // This pass translates vector math intrinsics to svml/libm calls.
+  if (!DisableMapIntrinToIml)
+    addPass(createMapIntrinToImlPass());
+#endif // INTEL_CUSTOMIZATION
+
   addIRPasses();
   addCodeGenPrepare();
   addPassesToHandleExceptions();

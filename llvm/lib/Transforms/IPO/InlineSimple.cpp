@@ -80,15 +80,14 @@ public:
 #if INTEL_CUSTOMIZATION
     auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
     InlineAggressiveInfo *AggI = Agg ? &Agg->getResult() : nullptr;
-    Params.ComputeFullInlineCost = (IntelInlineReportLevel &
-                                    InlineReportOptions::RealCost) != 0;
+    if (IntelInlineReportLevel & InlineReportOptions::RealCost)
+      Params.ComputeFullInlineCost = true;
 #endif // INTEL_CUSTOMIZATION
 
-    return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache,
-                               /*GetBFI=*/None, &TLI, ILIC, AggI,      // INTEL
-                               &CallSitesForFusion,                   // INTEL
-                               &CallSitesForDTrans,                   // INTEL
-                               PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
+    return llvm::getInlineCost(
+        cast<CallBase>(*CS.getInstruction()), Params, TTI, GetAssumptionCache,
+        /*GetBFI=*/None, &TLI, ILIC, AggI, &CallSitesForFusion,     // INTEL
+        &CallSitesForDTrans, PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;

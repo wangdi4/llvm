@@ -18,6 +18,7 @@
 ; CHECK-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-NEXT: Running pass: PassManager<{{.*}}Module
 ; CHECK-NEXT: Starting llvm::Module pass manager run.
+; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: GlobalDCEPass
 ; CHECK-NEXT: IPSCCPPass
 ; CHECK: Running analysis: TargetLibraryAnalysis
@@ -37,6 +38,7 @@
 ; Verify that resolve types does not invoke DTransAnalysis
 ; CHECK-NEXT: Running pass: dtrans::ResolveTypes
 ; CHECK-NOT: Running analysis: DTransAnalysis
+; CHECK: Running pass: dtrans::TransposePass
 ; CHECK: Running pass: dtrans::SOAToAOSPass
 ; The ordering of the analysis passes seems not to be deterministic so we
 ; don't check them all here. The check below guarantees that WeakAlignPass

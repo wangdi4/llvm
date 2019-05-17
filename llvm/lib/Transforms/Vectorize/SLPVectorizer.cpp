@@ -210,6 +210,12 @@ static cl::opt<int> LookAheadMaxLevel(
     "look-ahead-max-level", cl::init(6), cl::Hidden,
     cl::desc("The maximum look-ahead level for cost model matching"));
 
+// The maximum depth that the look-ahead score heuristic will explore.
+// The higher this value, the higher the compilation time overhead.
+static cl::opt<int> LookAheadMaxDepth(
+    "slp-max-look-ahead-depth", cl::init(2), cl::Hidden,
+    cl::desc("The maximum look-ahead depth for operand reordering scores"));
+
 // Allow the Multi-Node to guide buildTree_rec() towards the best path first.
 static cl::opt<bool> EnablePathSteering(
     "enable-path-steering", cl::init(true), cl::Hidden,
@@ -719,7 +725,7 @@ public:
 
   /// \returns the cost incurred by unwanted spills and fills, caused by
   /// holding live values over call sites.
-  int getSpillCost();
+  int getSpillCost() const;
 
   /// \returns the vectorization cost of the subtree that starts at \p VL.
   /// A negative number means that this is profitable.
@@ -855,6 +861,581 @@ public:
       OS << "{User:" << Idx << " EdgeIdx:" << EdgeIdx << "}";
     }
     LLVM_DUMP_METHOD void dump() const { dump(dbgs()); }
+#endif
+  };
+
+  /// A helper data structure to hold the operands of a vector of instructions.
+  /// This supports a fixed vector length for all operand vectors.
+  class VLOperands {
+    /// For each operand we need (i) the value, and (ii) the opcode that it
+    /// would be attached to if the expression was in a left-linearized form.
+    /// This is required to avoid illegal operand reordering.
+    /// For example:
+    /// \verbatim
+    ///                         0 Op1
+    ///                         |/
+    /// Op1 Op2   Linearized    + Op2
+    ///   \ /     ---------->   |/
+    ///    -                    -
+    ///
+    /// Op1 - Op2            (0 + Op1) - Op2
+    /// \endverbatim
+    ///
+    /// Value Op1 is attached to a '+' operation, and Op2 to a '-'.
+    ///
+    /// Another way to think of this is to track all the operations across the
+    /// path from the operand all the way to the root of the tree and to
+    /// calculate the operation that corresponds to this path. For example, the
+    /// path from Op2 to the root crosses the RHS of the '-', therefore the
+    /// corresponding operation is a '-' (which matches the one in the
+    /// linearized tree, as shown above).
+    ///
+    /// For lack of a better term, we refer to this operation as Accumulated
+    /// Path Operation (APO).
+    struct OperandData {
+      OperandData() = default;
+      OperandData(Value *V, bool APO, bool IsUsed)
+          : V(V), APO(APO), IsUsed(IsUsed) {}
+      /// The operand value.
+      Value *V = nullptr;
+      /// TreeEntries only allow a single opcode, or an alternate sequence of
+      /// them (e.g, +, -). Therefore, we can safely use a boolean value for the
+      /// APO. It is set to 'true' if 'V' is attached to an inverse operation
+      /// in the left-linearized form (e.g., Sub/Div), and 'false' otherwise
+      /// (e.g., Add/Mul)
+      bool APO = false;
+      /// Helper data for the reordering function.
+      bool IsUsed = false;
+    };
+
+    /// During operand reordering, we are trying to select the operand at lane
+    /// that matches best with the operand at the neighboring lane. Our
+    /// selection is based on the type of value we are looking for. For example,
+    /// if the neighboring lane has a load, we need to look for a load that is
+    /// accessing a consecutive address. These strategies are summarized in the
+    /// 'ReorderingMode' enumerator.
+    enum class ReorderingMode {
+      Load,     ///< Matching loads to consecutive memory addresses
+      Opcode,   ///< Matching instructions based on opcode (same or alternate)
+      Constant, ///< Matching constants
+      Splat,    ///< Matching the same instruction multiple times (broadcast)
+      Failed,   ///< We failed to create a vectorizable group
+    };
+
+    using OperandDataVec = SmallVector<OperandData, 2>;
+
+    /// A vector of operand vectors.
+    SmallVector<OperandDataVec, 4> OpsVec;
+
+    const DataLayout &DL;
+    ScalarEvolution &SE;
+
+    /// \returns the operand data at \p OpIdx and \p Lane.
+    OperandData &getData(unsigned OpIdx, unsigned Lane) {
+      return OpsVec[OpIdx][Lane];
+    }
+
+    /// \returns the operand data at \p OpIdx and \p Lane. Const version.
+    const OperandData &getData(unsigned OpIdx, unsigned Lane) const {
+      return OpsVec[OpIdx][Lane];
+    }
+
+    /// Clears the used flag for all entries.
+    void clearUsed() {
+      for (unsigned OpIdx = 0, NumOperands = getNumOperands();
+           OpIdx != NumOperands; ++OpIdx)
+        for (unsigned Lane = 0, NumLanes = getNumLanes(); Lane != NumLanes;
+             ++Lane)
+          OpsVec[OpIdx][Lane].IsUsed = false;
+    }
+
+    /// Swap the operand at \p OpIdx1 with that one at \p OpIdx2.
+    void swap(unsigned OpIdx1, unsigned OpIdx2, unsigned Lane) {
+      std::swap(OpsVec[OpIdx1][Lane], OpsVec[OpIdx2][Lane]);
+    }
+
+#if INTEL_CUSTOMIZATION
+    // The hard-coded scores listed here are not very important. When computing
+    // the scores of matching one sub-tree with another, we are basically
+    // counting the number of values that are matching. So even if all scores
+    // are set to 1, we would still get a decent matching result.
+    // However, sometimes we have to break ties. For example we may have to
+    // choose between matching loads vs matching opcodes. This is what these
+    // scores are helping us with: they provide the order of preference.
+
+    /// Loads from consecutive memory addresses, e.g. load(A[i]), load(A[i+1]).
+    static const int ScoreConsecutiveLoads = 3;
+    /// Constants.
+    static const int ScoreConstants = 2;
+    /// Instructions with the same opcode.
+    static const int ScoreSameOpcode = 2;
+    /// Identical instructions (a.k.a. splat or broadcast).
+    static const int ScoreSplat = 1;
+    /// Matching with an undef is preferable to failing.
+    static const int ScoreUndef = 1;
+    /// Score for failing to find a decent match.
+    static const int ScoreFail = 0;
+
+    /// \returns the score of placing \p V1 and \p V2 in consecutive lanes.
+    static int getShallowScore(Value *V1, Value *V2, const DataLayout &DL,
+                               ScalarEvolution &SE) {
+      auto *LI1 = dyn_cast<LoadInst>(V1);
+      auto *LI2 = dyn_cast<LoadInst>(V2);
+      if (LI1 && LI2)
+        return (isConsecutiveAccess(LI1, LI2, DL, SE))
+                   ? VLOperands::ScoreConsecutiveLoads
+                   : VLOperands::ScoreFail;
+
+      auto *C1 = dyn_cast<Constant>(V1);
+      auto *C2 = dyn_cast<Constant>(V2);
+      if (C1 && C2)
+        return VLOperands::ScoreConstants;
+
+      auto *I1 = dyn_cast<Instruction>(V1);
+      auto *I2 = dyn_cast<Instruction>(V2);
+      if (I1 && I2) {
+        InstructionsState S = getSameOpcode({I1, I2});
+        if (S.getOpcode())
+          return (I1 == I2) ? VLOperands::ScoreSplat
+                            : VLOperands::ScoreSameOpcode;
+      }
+
+      if (isa<UndefValue>(V2))
+        return VLOperands::ScoreUndef;
+
+      return VLOperands::ScoreFail;
+    }
+
+    /// Go through the operands of \p V1 and \p V2 recursively until \p
+    /// MaxLevel, and return the cummulative score. For example:
+    /// \verbatim
+    ///  A[0]  B[0]  A[1]  B[1]  C[0] D[0]  B[1] A[1]
+    ///     \ /         \ /         \ /        \ /
+    ///      +           +           +          +
+    ///     G1          G2          G3         G4
+    /// \endverbatim
+    /// The getScoreAtLevelRec(G1, G2) function will try to match the nodes at
+    /// each level recursively, accumulating the score. It starts from matching
+    /// the additions at level 0, then moves on to the loads (level 1). The
+    /// score of G1 and G2 is higher than G1 and G3, because {A[0],A[1]} and
+    /// {B[0],B[1]} match with VLOperands::ScoreConsecutiveLoads, while
+    /// {A[0],C[0]} has a score of VLOperands::ScoreFail.
+    /// Please note that the order of the operands does not matter, as we
+    /// evaluate the score of all profitable combinations of operands. In
+    /// other words the score of G1 and G4 is the same as G1 and G2. This
+    /// heuristic is based on ideas described in:
+    ///   Look-ahead SLP: Auto-vectorization in the presence of commutative
+    ///   operations, CGO 2018 by Vasileios Porpodas, Rodrigo C. O. Rocha,
+    ///   Luís F. W. Góes
+    static int getScoreAtLevelRec(Value *V1, Value *V2, int CurrLevel,
+                                  int MaxLevel, const DataLayout &DL,
+                                  ScalarEvolution &SE) {
+      // Get the shallow score of V1 and V2.
+      int ShallowScoreAtThisLevel = getShallowScore(V1, V2, DL, SE);
+
+      // If reached MaxLevel,
+      //  or if V1 and V2 are not instructions,
+      //  or if they are SPLAT,
+      //  or if they are not consecutive, early return the current cost.
+      auto *I1 = dyn_cast<Instruction>(V1);
+      auto *I2 = dyn_cast<Instruction>(V2);
+      if (CurrLevel == MaxLevel || !(I1 && I2) || I1 == I2 ||
+          ShallowScoreAtThisLevel == VLOperands::ScoreFail ||
+          (isa<LoadInst>(I1) && isa<LoadInst>(I2) && ShallowScoreAtThisLevel))
+        return ShallowScoreAtThisLevel;
+      assert(I1 && I2 && "Should have early exited.");
+
+      // Contains the I2 operand indexes that got matched with I1 operands.
+      SmallSet<int, 4> Op2Used;
+
+      // Recursion towards the operands of I1 and I2. We are trying all possbile
+      // operand pairs, and keeping track of the best score.
+      for (int OpIdx1 = 0, NumOperands1 = I1->getNumOperands();
+           OpIdx1 != NumOperands1; ++OpIdx1) {
+        // Try to pair op1I with the best operand of I2.
+        int MaxTmpScore = 0;
+        int MaxOpIdx2 = -1;
+        for (int OpIdx2 = 0, NumOperands2 = I2->getNumOperands();
+             OpIdx2 != NumOperands2; ++OpIdx2) {
+          // Skip operands already paired with OpIdx1.
+          if (Op2Used.count(OpIdx2))
+            continue;
+          // Recursively calculate the cost at each level
+          int TmpScore =
+              getScoreAtLevelRec(I1->getOperand(OpIdx1), I2->getOperand(OpIdx2),
+                                 CurrLevel + 1, MaxLevel, DL, SE);
+          // Look for the best score.
+          if (TmpScore > VLOperands::ScoreFail && TmpScore > MaxTmpScore) {
+            MaxTmpScore = TmpScore;
+            MaxOpIdx2 = OpIdx2;
+          }
+        }
+        if (MaxOpIdx2 >= 0) {
+          // Pair {OpIdx1, MaxOpIdx2} was found to be best. Never revisit it.
+          Op2Used.insert(MaxOpIdx2);
+          ShallowScoreAtThisLevel += MaxTmpScore;
+        }
+      }
+      return ShallowScoreAtThisLevel;
+    }
+
+    /// \returns the look-ahead score, which tells us how much the sub-trees
+    /// rooted at \p LHS and \p RHS match, the more they match the higher the
+    /// score.
+    static int getLookAheadScoreCommunity(Value *LHS, Value *RHS,
+                                          const DataLayout &DL,
+                                          ScalarEvolution &SE) {
+      return getScoreAtLevelRec(LHS, RHS, 1, LookAheadMaxDepth, DL, SE);
+    }
+#endif // INTEL_CUSTOMIZATION
+
+    // Search all operands in Ops[*][Lane] for the one that matches best
+    // Ops[OpIdx][LastLane] and return its opreand index.
+    // If no good match can be found, return None.
+    Optional<unsigned>
+    getBestOperand(unsigned OpIdx, int Lane, int LastLane,
+                   ArrayRef<ReorderingMode> ReorderingModes) {
+      unsigned NumOperands = getNumOperands();
+
+      // The operand of the previous lane at OpIdx.
+      Value *OpLastLane = getData(OpIdx, LastLane).V;
+
+      // Our strategy mode for OpIdx.
+      ReorderingMode RMode = ReorderingModes[OpIdx];
+
+      // The linearized opcode of the operand at OpIdx, Lane.
+      bool OpIdxAPO = getData(OpIdx, Lane).APO;
+
+      const unsigned BestScore = 2;
+      const unsigned GoodScore = 1;
+
+      // The best operand index and its score.
+      // Sometimes we have more than one option (e.g., Opcode and Undefs), so we
+      // are using the score to differentiate between the two.
+      struct BestOpData {
+        Optional<unsigned> Idx = None;
+        unsigned Score = 0;
+      } BestOp;
+
+      // Iterate through all unused operands and look for the best.
+      for (unsigned Idx = 0; Idx != NumOperands; ++Idx) {
+        // Get the operand at Idx and Lane.
+        OperandData &OpData = getData(Idx, Lane);
+        Value *Op = OpData.V;
+        bool OpAPO = OpData.APO;
+
+        // Skip already selected operands.
+        if (OpData.IsUsed)
+          continue;
+
+        // Skip if we are trying to move the operand to a position with a
+        // different opcode in the linearized tree form. This would break the
+        // semantics.
+        if (OpAPO != OpIdxAPO)
+          continue;
+
+        // Look for an operand that matches the current mode.
+        switch (RMode) {
+        case ReorderingMode::Load:
+          if (isa<LoadInst>(Op)) {
+            // Figure out which is left and right, so that we can check for
+            // consecutive loads
+            bool LeftToRight = Lane > LastLane;
+            Value *OpLeft = (LeftToRight) ? OpLastLane : Op;
+            Value *OpRight = (LeftToRight) ? Op : OpLastLane;
+            if (isConsecutiveAccess(cast<LoadInst>(OpLeft),
+                                    cast<LoadInst>(OpRight), DL, SE))
+              BestOp.Idx = Idx;
+          }
+          break;
+        case ReorderingMode::Opcode: {
+#if INTEL_CUSTOMIZATION
+          // We accept both Instructions and Undefs, but with different scores.
+          unsigned Score = getLookAheadScoreCommunity(OpLastLane, Op, DL, SE);
+          if (Score > BestOp.Score) {
+            BestOp.Idx = Idx;
+            BestOp.Score = Score;
+          }
+          break;
+#endif // INTEL_CUSTOMIZATION
+        }
+        case ReorderingMode::Constant:
+          if (isa<Constant>(Op)) {
+            unsigned Score = (isa<UndefValue>(Op)) ? GoodScore : BestScore;
+            if (Score > BestOp.Score) {
+              BestOp.Idx = Idx;
+              BestOp.Score = Score;
+            }
+          }
+          break;
+        case ReorderingMode::Splat:
+          if (Op == OpLastLane)
+            BestOp.Idx = Idx;
+          break;
+        case ReorderingMode::Failed:
+          return None;
+        }
+      }
+
+      if (BestOp.Idx) {
+        getData(BestOp.Idx.getValue(), Lane).IsUsed = true;
+        return BestOp.Idx;
+      }
+      // If we could not find a good match return None.
+      return None;
+    }
+
+    /// Helper for reorderOperandVecs. \Returns the lane that we should start
+    /// reordering from. This is the one which has the least number of operands
+    /// that can freely move about.
+    unsigned getBestLaneToStartReordering() const {
+      unsigned BestLane = 0;
+      unsigned Min = UINT_MAX;
+      for (unsigned Lane = 0, NumLanes = getNumLanes(); Lane != NumLanes;
+           ++Lane) {
+        unsigned NumFreeOps = getMaxNumOperandsThatCanBeReordered(Lane);
+        if (NumFreeOps < Min) {
+          Min = NumFreeOps;
+          BestLane = Lane;
+        }
+      }
+      return BestLane;
+    }
+
+    /// \Returns the maximum number of operands that are allowed to be reordered
+    /// for \p Lane. This is used as a heuristic for selecting the first lane to
+    /// start operand reordering.
+    unsigned getMaxNumOperandsThatCanBeReordered(unsigned Lane) const {
+      unsigned CntTrue = 0;
+      unsigned NumOperands = getNumOperands();
+      // Operands with the same APO can be reordered. We therefore need to count
+      // how many of them we have for each APO, like this: Cnt[APO] = x.
+      // Since we only have two APOs, namely true and false, we can avoid using
+      // a map. Instead we can simply count the number of operands that
+      // correspond to one of them (in this case the 'true' APO), and calculate
+      // the other by subtracting it from the total number of operands.
+      for (unsigned OpIdx = 0; OpIdx != NumOperands; ++OpIdx)
+        if (getData(OpIdx, Lane).APO)
+          ++CntTrue;
+      unsigned CntFalse = NumOperands - CntTrue;
+      return std::max(CntTrue, CntFalse);
+    }
+
+    /// Go through the instructions in VL and append their operands.
+    void appendOperandsOfVL(ArrayRef<Value *> VL) {
+      assert(!VL.empty() && "Bad VL");
+      assert((empty() || VL.size() == getNumLanes()) &&
+             "Expected same number of lanes");
+      assert(isa<Instruction>(VL[0]) && "Expected instruction");
+      unsigned NumOperands = cast<Instruction>(VL[0])->getNumOperands();
+      OpsVec.resize(NumOperands);
+      unsigned NumLanes = VL.size();
+      for (unsigned OpIdx = 0; OpIdx != NumOperands; ++OpIdx) {
+        OpsVec[OpIdx].resize(NumLanes);
+        for (unsigned Lane = 0; Lane != NumLanes; ++Lane) {
+          assert(isa<Instruction>(VL[Lane]) && "Expected instruction");
+          // Our tree has just 3 nodes: the root and two operands.
+          // It is therefore trivial to get the APO. We only need to check the
+          // opcode of VL[Lane] and whether the operand at OpIdx is the LHS or
+          // RHS operand. The LHS operand of both add and sub is never attached
+          // to an inversese operation in the linearized form, therefore its APO
+          // is false. The RHS is true only if VL[Lane] is an inverse operation.
+
+          // Since operand reordering is performed on groups of commutative
+          // operations or alternating sequences (e.g., +, -), we can safely
+          // tell the inverse operations by checking commutativity.
+          bool IsInverseOperation = !isCommutative(cast<Instruction>(VL[Lane]));
+          bool APO = (OpIdx == 0) ? false : IsInverseOperation;
+          OpsVec[OpIdx][Lane] = {cast<Instruction>(VL[Lane])->getOperand(OpIdx),
+                                 APO, false};
+        }
+      }
+    }
+
+    /// \returns the number of operands.
+    unsigned getNumOperands() const { return OpsVec.size(); }
+
+    /// \returns the number of lanes.
+    unsigned getNumLanes() const { return OpsVec[0].size(); }
+
+    /// \returns the operand value at \p OpIdx and \p Lane.
+    Value *getValue(unsigned OpIdx, unsigned Lane) const {
+      return getData(OpIdx, Lane).V;
+    }
+
+    /// \returns true if the data structure is empty.
+    bool empty() const { return OpsVec.empty(); }
+
+    /// Clears the data.
+    void clear() { OpsVec.clear(); }
+
+  public:
+    /// Initialize with all the operands of the instruction vector \p RootVL.
+    VLOperands(ArrayRef<Value *> RootVL, const DataLayout &DL,
+               ScalarEvolution &SE)
+        : DL(DL), SE(SE) {
+      // Append all the operands of RootVL.
+      appendOperandsOfVL(RootVL);
+    }
+
+    /// \Returns a value vector with the operands across all lanes for the
+    /// opearnd at \p OpIdx.
+    ValueList getVL(unsigned OpIdx) const {
+      ValueList OpVL(OpsVec[OpIdx].size());
+      assert(OpsVec[OpIdx].size() == getNumLanes() &&
+             "Expected same num of lanes across all operands");
+      for (unsigned Lane = 0, Lanes = getNumLanes(); Lane != Lanes; ++Lane)
+        OpVL[Lane] = OpsVec[OpIdx][Lane].V;
+      return OpVL;
+    }
+
+    // Performs operand reordering for 2 or more operands.
+    // The original operands are in OrigOps[OpIdx][Lane].
+    // The reordered operands are returned in 'SortedOps[OpIdx][Lane]'.
+    void reorder() {
+      unsigned NumOperands = getNumOperands();
+      unsigned NumLanes = getNumLanes();
+      // Each operand has its own mode. We are using this mode to help us select
+      // the instructions for each lane, so that they match best with the ones
+      // we have selected so far.
+      SmallVector<ReorderingMode, 2> ReorderingModes(NumOperands);
+
+      // This is a greedy single-pass algorithm. We are going over each lane
+      // once and deciding on the best order right away with no back-tracking.
+      // However, in order to increase its effectiveness, we start with the lane
+      // that has operands that can move the least. For example, given the
+      // following lanes:
+      //  Lane 0 : A[0] = B[0] + C[0]   // Visited 3rd
+      //  Lane 1 : A[1] = C[1] - B[1]   // Visited 1st
+      //  Lane 2 : A[2] = B[2] + C[2]   // Visited 2nd
+      //  Lane 3 : A[3] = C[3] - B[3]   // Visited 4th
+      // we will start at Lane 1, since the operands of the subtraction cannot
+      // be reordered. Then we will visit the rest of the lanes in a circular
+      // fashion. That is, Lanes 2, then Lane 0, and finally Lane 3.
+
+      // Find the first lane that we will start our search from.
+      unsigned FirstLane = getBestLaneToStartReordering();
+
+      // Initialize the modes.
+      for (unsigned OpIdx = 0; OpIdx != NumOperands; ++OpIdx) {
+        Value *OpLane0 = getValue(OpIdx, FirstLane);
+        // Keep track if we have instructions with all the same opcode on one
+        // side.
+        if (isa<LoadInst>(OpLane0))
+          ReorderingModes[OpIdx] = ReorderingMode::Load;
+        else if (isa<Instruction>(OpLane0))
+          ReorderingModes[OpIdx] = ReorderingMode::Opcode;
+        else if (isa<Constant>(OpLane0))
+          ReorderingModes[OpIdx] = ReorderingMode::Constant;
+        else if (isa<Argument>(OpLane0))
+          // Our best hope is a Splat. It may save some cost in some cases.
+          ReorderingModes[OpIdx] = ReorderingMode::Splat;
+        else
+          // NOTE: This should be unreachable.
+          ReorderingModes[OpIdx] = ReorderingMode::Failed;
+      }
+
+      // If the initial strategy fails for any of the operand indexes, then we
+      // perform reordering again in a second pass. This helps avoid assigning
+      // high priority to the failed strategy, and should improve reordering for
+      // the non-failed operand indexes.
+      for (int Pass = 0; Pass != 2; ++Pass) {
+        // Skip the second pass if the first pass did not fail.
+        bool StrategyFailed = false;
+        // Mark the operand data as free to use for all but the first pass.
+        if (Pass > 0)
+          clearUsed();
+        // We keep the original operand order for the FirstLane, so reorder the
+        // rest of the lanes. We are visiting the nodes in a circular fashion,
+        // using FirstLane as the center point and increasing the radius
+        // distance.
+        for (unsigned Distance = 1; Distance != NumLanes; ++Distance) {
+          // Visit the lane on the right and then the lane on the left.
+          for (int Direction : {+1, -1}) {
+            int Lane = FirstLane + Direction * Distance;
+            if (Lane < 0 || Lane >= (int)NumLanes)
+              continue;
+            int LastLane = Lane - Direction;
+            assert(LastLane >= 0 && LastLane < (int)NumLanes &&
+                   "Out of bounds");
+            // Look for a good match for each operand.
+            for (unsigned OpIdx = 0; OpIdx != NumOperands; ++OpIdx) {
+              // Search for the operand that matches SortedOps[OpIdx][Lane-1].
+              Optional<unsigned> BestIdx =
+                  getBestOperand(OpIdx, Lane, LastLane, ReorderingModes);
+              // By not selecting a value, we allow the operands that follow to
+              // select a better matching value. We will get a non-null value in
+              // the next run of getBestOperand().
+              if (BestIdx) {
+                // Swap the current operand with the one returned by
+                // getBestOperand().
+                swap(OpIdx, BestIdx.getValue(), Lane);
+              } else {
+                // We failed to find a best operand, set mode to 'Failed'.
+                ReorderingModes[OpIdx] = ReorderingMode::Failed;
+                // Enable the second pass.
+                StrategyFailed = true;
+              }
+            }
+          }
+        }
+        // Skip second pass if the strategy did not fail.
+        if (!StrategyFailed)
+          break;
+      }
+    }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    LLVM_DUMP_METHOD static StringRef getModeStr(ReorderingMode RMode) {
+      switch (RMode) {
+      case ReorderingMode::Load:
+        return "Load";
+      case ReorderingMode::Opcode:
+        return "Opcode";
+      case ReorderingMode::Constant:
+        return "Constant";
+      case ReorderingMode::Splat:
+        return "Splat";
+      case ReorderingMode::Failed:
+        return "Failed";
+      }
+      llvm_unreachable("Unimplemented Reordering Type");
+    }
+
+    LLVM_DUMP_METHOD static raw_ostream &printMode(ReorderingMode RMode,
+                                                   raw_ostream &OS) {
+      return OS << getModeStr(RMode);
+    }
+
+    /// Debug print.
+    LLVM_DUMP_METHOD static void dumpMode(ReorderingMode RMode) {
+      printMode(RMode, dbgs());
+    }
+
+    friend raw_ostream &operator<<(raw_ostream &OS, ReorderingMode RMode) {
+      return printMode(RMode, OS);
+    }
+
+    LLVM_DUMP_METHOD raw_ostream &print(raw_ostream &OS) const {
+      const unsigned Indent = 2;
+      unsigned Cnt = 0;
+      for (const OperandDataVec &OpDataVec : OpsVec) {
+        OS << "Operand " << Cnt++ << "\n";
+        for (const OperandData &OpData : OpDataVec) {
+          OS.indent(Indent) << "{";
+          if (Value *V = OpData.V)
+            OS << *V;
+          else
+            OS << "null";
+          OS << ", APO:" << OpData.APO << "}\n";
+        }
+        OS << "\n";
+      }
+      return OS;
+    }
+
+    /// Debug print.
+    LLVM_DUMP_METHOD void dump() const { print(dbgs()); }
 #endif
   };
 
@@ -1248,16 +1829,30 @@ private:
   bool isFullyVectorizableTinyTree() const;
 
 #if INTEL_CUSTOMIZATION
-  /// \reorder commutative operands to get better probability of
-  /// generating vectorized code.
-  void reorderInputsAccordingToOpcode(const InstructionsState &S,
-                                      ArrayRef<Value *> VL,
-                                      SmallVectorImpl<Value *> &Left,
-                                      SmallVectorImpl<Value *> &Right,
-                                      SmallVectorImpl<int> &OpDirLeft,
-                                      SmallVectorImpl<int> &OpDirRight) const;
-#endif // INTEL_CUSTOMIZATION
+  static void dontReorderInputs(ArrayRef<Value *> VL,
+                                SmallVectorImpl<Value *> &Left,
+                                SmallVectorImpl<Value *> &Right,
+                                SmallVectorImpl<int> &OpDirLeft,
+                                SmallVectorImpl<int> &OpDirRight) {
+    for (Value *V : VL) {
+      Instruction *I = cast<Instruction>(V);
+      Left.push_back(I->getOperand(0));
+      OpDirLeft.push_back(0);
+      Right.push_back(I->getOperand(1));
+      OpDirRight.push_back(1);
+    }
+  }
 
+  /// Reorder commutative or alt operands to get better probability of
+  /// generating vectorized code.
+  static void reorderInputsAccordingToOpcode(ArrayRef<Value *> VL,
+                                             SmallVectorImpl<Value *> &Left,
+                                             SmallVectorImpl<Value *> &Right,
+                                             const DataLayout &DL,
+                                             ScalarEvolution &SE,
+                                             SmallVectorImpl<int> &OpDirLeft,
+                                             SmallVectorImpl<int> &OpDirRight);
+#endif // INTEL_CUSTOMIZATION
   struct TreeEntry {
     TreeEntry(std::vector<TreeEntry> &Container) : Container(Container) {}
 
@@ -1580,6 +2175,13 @@ private:
 #endif
 
   TreeEntry *getTreeEntry(Value *V) {
+    auto I = ScalarToTreeEntry.find(V);
+    if (I != ScalarToTreeEntry.end())
+      return &VectorizableTree[I->second];
+    return nullptr;
+  }
+
+  const TreeEntry *getTreeEntry(Value *V) const {
     auto I = ScalarToTreeEntry.find(V);
     if (I != ScalarToTreeEntry.end())
       return &VectorizableTree[I->second];
@@ -3764,8 +4366,8 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   SmallVector<int, 4> OpDirs[2];
   // Keeps values for left and right operands.
   ValueList Operands[2];
-  reorderInputsAccordingToOpcode(S, VL, Operands[0],
-                                 Operands[1], OpDirs[0], OpDirs[1]);
+  reorderInputsAccordingToOpcode(VL, Operands[0],
+                                 Operands[1], *DL, *SE, OpDirs[0], OpDirs[1]);
 
   // TODO: This is a workaround. Currently we don't addMultiNodeLeaf() to the
   // Multi-Node if its values are alreadyInTrunk(). The problem is that if the
@@ -4483,7 +5085,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         // Commutative predicate - collect + sort operands of the instructions
         // so that each side is more likely to have the same opcode.
         assert(P0 == SwapP0 && "Commutative Predicate mismatch");
-        reorderInputsAccordingToOpcode(S, VL, Left, Right, OpDirLeft,
+        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
                                        OpDirRight);
       } else {
         for (Value *V : VL) {
@@ -4541,8 +5143,15 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         ValueList Left, Right;
 #if INTEL_CUSTOMIZATION
         SmallVector<int, 4> OpDirLeft, OpDirRight;
-        reorderInputsAccordingToOpcode(S, VL, Left, Right,
-                                       OpDirLeft, OpDirRight);
+        // Workaround for reducing the number of shuffles. Don't reorder
+        // operands of selects emitted by PSLP.
+        if (VL[0]->hasOneUse() && isa<SelectInst>(*VL[0]->users().begin()) &&
+            SelectsEmittedByPSLP.count(
+                cast<SelectInst>(*VL[0]->users().begin())))
+          dontReorderInputs(VL, Left, Right, OpDirLeft, OpDirRight);
+        else
+          reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
+                                         OpDirRight);
         // Path steering.
         bool SelectRightOperand = false;
         if (EnablePathSteering) {
@@ -4760,7 +5369,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       if (isa<BinaryOperator>(VL0)) {
         SmallVector<int, 4> OpDirLeft, OpDirRight;
         ValueList Left, Right;
-        reorderInputsAccordingToOpcode(S, VL, Left, Right, OpDirLeft,
+        reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
                                        OpDirRight);
         UserTreeIdx.EdgeIdx = 0;
         UserTreeIdx.OpDirection = OpDirLeft;
@@ -5337,7 +5946,7 @@ bool BoUpSLP::isTreeTinyAndNotFullyVectorizable() const {
   return true;
 }
 
-int BoUpSLP::getSpillCost() {
+int BoUpSLP::getSpillCost() const {
   // Walk from the bottom of the tree to the top, tracking which values are
   // live. When we see a call instruction that is not part of our tree,
   // query TTI to see if there is a cost to keeping values live over it
@@ -5526,215 +6135,36 @@ int BoUpSLP::getGatherCost(ArrayRef<Value *> VL) const {
   return getGatherCost(VecTy, ShuffledElements);
 }
 
-// Return true if the i'th left and right operands can be commuted.
-//
-// The vectorizer is trying to either have all elements one side being
-// instruction with the same opcode to enable further vectorization, or having
-// a splat to lower the vectorizing cost.
-static bool shouldReorderOperands(int i, ArrayRef<Value *> Left,
-                                  ArrayRef<Value *> Right,
-                                  bool AllSameOpcodeLeft,
-                                  bool AllSameOpcodeRight, bool SplatLeft,
-                                  bool SplatRight) {
-  Value *PrevLeft = Left[i - 1];
-  Value *PrevRight = Right[i - 1];
-  Value *CurrLeft = Left[i];
-  Value *CurrRight = Right[i];
-
-  // If we have "SplatRight", try to see if commuting is needed to preserve it.
-  if (SplatRight) {
-    if (CurrRight == PrevRight)
-      // Preserve SplatRight
-      return false;
-    if (CurrLeft == PrevRight) {
-      // Commuting would preserve SplatRight, but we don't want to break
-      // SplatLeft either, i.e. preserve the original order if possible.
-      // (FIXME: why do we care?)
-      if (SplatLeft && CurrLeft == PrevLeft)
-        return false;
-      return true;
-    }
-  }
-  // Symmetrically handle Right side.
-  if (SplatLeft) {
-    if (CurrLeft == PrevLeft)
-      // Preserve SplatLeft
-      return false;
-    if (CurrRight == PrevLeft)
-      return true;
-  }
-
-  Instruction *ILeft = dyn_cast<Instruction>(CurrLeft);
-  Instruction *IRight = dyn_cast<Instruction>(CurrRight);
-
-  // If we have "AllSameOpcodeRight", try to see if the left operands preserves
-  // it and not the right, in this case we want to commute.
-  if (AllSameOpcodeRight) {
-    unsigned RightPrevOpcode = cast<Instruction>(PrevRight)->getOpcode();
-    if (IRight && RightPrevOpcode == IRight->getOpcode())
-      // Do not commute, a match on the right preserves AllSameOpcodeRight
-      return false;
-    if (ILeft && RightPrevOpcode == ILeft->getOpcode()) {
-      // We have a match and may want to commute, but first check if there is
-      // not also a match on the existing operands on the Left to preserve
-      // AllSameOpcodeLeft, i.e. preserve the original order if possible.
-      // (FIXME: why do we care?)
-      if (AllSameOpcodeLeft && ILeft &&
-          cast<Instruction>(PrevLeft)->getOpcode() == ILeft->getOpcode())
-        return false;
-      return true;
-    }
-  }
-  // Symmetrically handle Left side.
-  if (AllSameOpcodeLeft) {
-    unsigned LeftPrevOpcode = cast<Instruction>(PrevLeft)->getOpcode();
-    if (ILeft && LeftPrevOpcode == ILeft->getOpcode())
-      return false;
-    if (IRight && LeftPrevOpcode == IRight->getOpcode())
-      return true;
-  }
-  return false;
-}
-
 #if INTEL_CUSTOMIZATION
-void BoUpSLP::reorderInputsAccordingToOpcode(const InstructionsState &S,
-                                             ArrayRef<Value *> VL,
-                                             SmallVectorImpl<Value *> &Left,
-                                             SmallVectorImpl<Value *> &Right,
-                                             SmallVectorImpl<int> &OpDirLeft,
-                                             SmallVectorImpl<int> &OpDirRight) const
-#endif // INTEL_CUSTOMIZATION
-{
-  assert(!VL.empty() && Left.empty() && Right.empty() &&
-         "Unexpected instruction/operand lists");
-
-  // Push left and right operands of binary operation into Left and Right
-  for (Value *V : VL) {
-    auto *I = cast<Instruction>(V);
-    assert(S.isOpcodeOrAlt(I) && "Incorrect instruction in vector");
-    Left.push_back(I->getOperand(0));
-    Right.push_back(I->getOperand(1));
-#if INTEL_CUSTOMIZATION
-    OpDirLeft.push_back(0);
-    OpDirRight.push_back(1);
-#endif // INTEL_CUSTOMIZATION
-  }
-
-  // Keep track if we have instructions with all the same opcode on one side.
-  bool AllSameOpcodeLeft = isa<Instruction>(Left[0]);
-  bool AllSameOpcodeRight = isa<Instruction>(Right[0]);
-  // Keep track if we have one side with all the same value (broadcast).
-  bool SplatLeft = true;
-  bool SplatRight = true;
-
-#if INTEL_CUSTOMIZATION
-  if (SmartDisableSplatReordering) {
-    // Check if there is no way to get full splats.
-    // If so set SplatLeft = SplatRight = false;
-    for (int i = 1, e = VL.size(); i != e; ++i) {
-      auto *I0 = cast<Instruction>(VL[0]);
-      auto *I = cast<Instruction>(VL[i]);
-      // Left operand of VL[i] != Left and Right operand VL[0]
-      if ((I->getOperand(0) != I0->getOperand(0) && I->getOperand(0) != I0->getOperand(1)) &&
-          // Right operand of VL[i] != Left and Right operand of VL[0]
-          (I->getOperand(1) != I0->getOperand(0) && I->getOperand(1) != I0->getOperand(1))) {
-        SplatLeft = false;
-        SplatRight = false;
-      }
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  for (unsigned i = 1, e = VL.size(); i != e; ++i) {
-    Instruction *I = cast<Instruction>(VL[i]);
-    // Commute to favor either a splat or maximizing having the same opcodes on
-    // one side.
-#if INTEL_CUSTOMIZATION
-    if (isCommutative(I) &&
-        shouldReorderOperands(i, Left, Right, AllSameOpcodeLeft,
-                              AllSameOpcodeRight, SplatLeft, SplatRight)) {
-      std::swap(Left[i], Right[i]);
-      std::swap(OpDirLeft[i], OpDirRight[i]);
-    }
-#endif // INTEL_CUSTOMIZATION
-    // Update Splat* and AllSameOpcode* after the insertion.
-    SplatRight = SplatRight && (Right[i - 1] == Right[i]);
-    SplatLeft = SplatLeft && (Left[i - 1] == Left[i]);
-    AllSameOpcodeLeft = AllSameOpcodeLeft && isa<Instruction>(Left[i]) &&
-                        (cast<Instruction>(Left[i - 1])->getOpcode() ==
-                         cast<Instruction>(Left[i])->getOpcode());
-    AllSameOpcodeRight = AllSameOpcodeRight && isa<Instruction>(Right[i]) &&
-                         (cast<Instruction>(Right[i - 1])->getOpcode() ==
-                          cast<Instruction>(Right[i])->getOpcode());
-  }
-
-  // If one operand end up being broadcast, return this operand order.
-  if (SplatRight || SplatLeft)
+// Perform operand reordering on the instructions in VL and return the reordered
+// operands in Left and Right.
+void BoUpSLP::reorderInputsAccordingToOpcode(
+    ArrayRef<Value *> VL, SmallVectorImpl<Value *> &Left,
+    SmallVectorImpl<Value *> &Right, const DataLayout &DL,
+    ScalarEvolution &SE, SmallVectorImpl<int> &OpDirLeft,
+    SmallVectorImpl<int> &OpDirRight) {
+  if (VL.empty())
     return;
 
-  // Finally check if we can get longer vectorizable chain by reordering
-  // without breaking the good operand order detected above.
-  // E.g. If we have something like-
-  // load a[0] - load b[0]
-  // load b[1] + load a[1]
-  // load a[2] - load b[2]
-  // load a[3] + load b[3]
-  // Reordering the second load b[1] + load a[1] would allow us to vectorize
-  // this code and we still retain AllSameOpcode property.
-  // FIXME: This load reordering might break AllSameOpcode in some rare cases
-  // such as-
-  // add a[0],c[0]  load b[0]
-  // add a[1],c[2]  load b[1]
-  // b[2]           load b[2]
-  // add a[3],c[3]  load b[3]
-  for (unsigned j = 0, e = VL.size() - 1; j < e; ++j) {
-    if (LoadInst *L = dyn_cast<LoadInst>(Left[j])) {
-      if (LoadInst *L1 = dyn_cast<LoadInst>(Right[j + 1])) {
-        if (isConsecutiveAccess(L, L1, *DL, *SE)) {
-          auto *VL1 = cast<Instruction>(VL[j]);
-          auto *VL2 = cast<Instruction>(VL[j + 1]);
-          if (isCommutative(VL2)) {
-            std::swap(Left[j + 1], Right[j + 1]);
-#if INTEL_CUSTOMIZATION
-          std::swap(OpDirLeft[j + 1], OpDirRight[j + 1]);
-#endif // INTEL_CUSTOMIZATION
-            continue;
-          }
-          if (isCommutative(VL1)) {
-            std::swap(Left[j], Right[j]);
-#if INTEL_CUSTOMIZATION
-          std::swap(OpDirLeft[j], OpDirRight[j]);
-#endif // INTEL_CUSTOMIZATION
-            continue;
-          }
-        }
-      }
-    }
-    if (LoadInst *L = dyn_cast<LoadInst>(Right[j])) {
-      if (LoadInst *L1 = dyn_cast<LoadInst>(Left[j + 1])) {
-        if (isConsecutiveAccess(L, L1, *DL, *SE)) {
-          auto *VL1 = cast<Instruction>(VL[j]);
-          auto *VL2 = cast<Instruction>(VL[j + 1]);
-          if (isCommutative(VL2)) {
-            std::swap(Left[j + 1], Right[j + 1]);
-#if INTEL_CUSTOMIZATION
-          std::swap(OpDirLeft[j + 1], OpDirRight[j + 1]);
-#endif // INTEL_CUSTOMIZATION
-            continue;
-          }
-          if (isCommutative(VL1)) {
-            std::swap(Left[j], Right[j]);
-#if INTEL_CUSTOMIZATION
-          std::swap(OpDirLeft[j], OpDirRight[j]);
-#endif // INTEL_CUSTOMIZATION
-            continue;
-          }
-        }
-      }
-    }
-    // else unchanged
+  for (size_t i = 0; i < VL.size(); ++i) {
+    OpDirLeft.push_back(0);
+    OpDirRight.push_back(1);
+  }
+
+  VLOperands Ops(VL, DL, SE);
+  SmallVector<Value *, 4> OrigLeft;
+  OrigLeft = Ops.getVL(0);
+  // Reorder the operands in place.
+  Ops.reorder();
+  Left = Ops.getVL(0);
+  Right = Ops.getVL(1);
+
+  for (size_t i = 0; i < VL.size(); ++i) {
+    if (OrigLeft[i] != Left[i])
+      std::swap(OpDirLeft[i], OpDirRight[i]);
   }
 }
+#endif // INTEL_CUSTOMIZATION
 
 void BoUpSLP::setInsertPointAfterBundle(ArrayRef<Value *> VL,
                                         const InstructionsState &S) {
@@ -6679,10 +7109,10 @@ void BoUpSLP::optimizeGatherSequence() {
 
   // Sort blocks by domination. This ensures we visit a block after all blocks
   // dominating it are visited.
-  std::stable_sort(CSEWorkList.begin(), CSEWorkList.end(),
-                   [this](const DomTreeNode *A, const DomTreeNode *B) {
-    return DT->properlyDominates(A, B);
-  });
+  llvm::stable_sort(CSEWorkList,
+                    [this](const DomTreeNode *A, const DomTreeNode *B) {
+                      return DT->properlyDominates(A, B);
+                    });
 
   // Perform O(N^2) search over the gather sequences and merge identical
   // instructions. TODO: We can further optimize this scan if we split the
@@ -6901,7 +7331,7 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
                           << "\n");
         return true;
       }
-      UpIter++;
+      ++UpIter;
     }
     if (DownIter != LowerEnd) {
       if (&*DownIter == I) {
@@ -6915,7 +7345,7 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
                           << "\n");
         return true;
       }
-      DownIter++;
+      ++DownIter;
     }
     assert((UpIter != UpperEnd || DownIter != LowerEnd) &&
            "instruction not found in block");
@@ -9499,7 +9929,7 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
     }
 
     // Sort by type.
-    std::stable_sort(Incoming.begin(), Incoming.end(), PhiTypeSorterFunc);
+    llvm::stable_sort(Incoming, PhiTypeSorterFunc);
 
     // Try to vectorize elements base on their type.
     for (SmallVector<Value *, 4>::iterator IncIt = Incoming.begin(),
@@ -9540,7 +9970,7 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
 
   SmallVector<WeakVH, 8> PostProcessInstructions;
   SmallDenseSet<Instruction *, 4> KeyNodes;
-  for (BasicBlock::iterator it = BB->begin(), e = BB->end(); it != e; it++) {
+  for (BasicBlock::iterator it = BB->begin(), e = BB->end(); it != e; ++it) {
     // We may go through BB multiple times so skip the one we have checked.
     if (!VisitedInstrs.insert(&*it).second) {
       if (it->use_empty() && KeyNodes.count(&*it) > 0 &&

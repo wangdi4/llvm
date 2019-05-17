@@ -18,7 +18,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 
-#include "llvm/Analysis/Intel_Directives.h"
+#include "llvm/Analysis/Directives.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLIf.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
@@ -1025,6 +1025,9 @@ public:
 
   /// Marks loop to do not unroll.
   void markDoNotUnroll();
+
+  /// Marks loop to do not unroll & jam.
+  void markDoNotUnrollAndJam();
 
   /// Supply Loop Lower Bound CanonExpr when normalization is using
   /// that instead of the one in the Loop

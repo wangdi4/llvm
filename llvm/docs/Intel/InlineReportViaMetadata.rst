@@ -26,6 +26,30 @@ interface methods can be used to update it on the fly. Currently there are
 a number of interfaces that are available outside of inlining phase: methods
 from setMDReasonIsInlined() and setMDReasonNotInlined() groups.
 
+Setup pass
+==========
+
+Depending on the optimization level and options used for compilation and link,
+inliner pass could appear in the pass pipeline more than once. There should be
+an opportunity to switch between individual inlining report for each inliner
+pass and a composite report for the whole inlining that ever happened for
+a particular function. There are two main issues that need to be resolved if
+we need to keep inline report consistent between two inlining passes:
+* The inlining report should follow IR changes;
+* The inlining report nodes should have up-to-date information and be properly
+  attached to the IR before inliner pass.
+Thus a new inline report setup pass was introduced. It conducts two functions.
+First, if there are no inline report metadata in the IR yet, it constructs
+basic metadata nodes and attaches them to the IR. The setup and inliner passes
+share InlineReportBuilder object so callback vector could be filled up early
+and help keep track of instruction/function deletions. Second, if the inline
+report metadata is in the IR (like in the case of second inlining pass during
+LTO link step), setup pass does verification, updates current inline report
+with new callsites which could have appeared, and links all inlining call site
+metadata nodes back to the corresponding instructions if they were unlinked
+during IR processing. Note, if verification fails for some function, a new
+'from scratch' inlining report would be created for it.
+
 Updating inlining report for functions and call instructions deleted outside of Inliner pass
 ============================================================================================
 
@@ -82,77 +106,159 @@ Example
    }
 
 
+* After setup pass:
+
+.. code-block:: llvm
+
+; ModuleID = 'test1.c'
+
+define dso_local void @a() !intel.function.inlining.report !8 {
+entry:
+  call void (...) @x(), !intel.callsite.inlining.report !11
+  call void @y(), !intel.callsite.inlining.report !21
+  ret void
+}
+
+declare !intel.function.inlining.report !27 dso_local void @x(...)
+
+define dso_local i32 @main() !intel.function.inlining.report !29 {
+entry:
+  call void @a(), !intel.callsite.inlining.report !32
+  call void (...) @b(), !intel.callsite.inlining.report !33
+  call void @a(), !intel.callsite.inlining.report !35
+  ret i32 0
+}
+
+declare !intel.function.inlining.report !36 dso_local void @b(...)
+
+define internal void @y() !intel.function.inlining.report !37 {
+entry:
+  call void (...) @z(), !intel.callsite.inlining.report !39
+  ret void
+}
+
+declare !intel.function.inlining.report !42 dso_local void @z(...)
+
+!intel.module.inlining.report = !{!8, !27, !29, !36, !37, !42}
+
+!8 = distinct !{!"intel.function.inlining.report", !9, !10, !20, !24, !25, !26}
+!9 = !{!"name: a"}
+!10 = distinct !{!"intel.callsites.inlining.report", !11, !21}
+!11 = distinct !{!"intel.callsite.inlining.report", !12, null, !13, !14, !15, !16, !17, !18, !19, !"line: 8 col: 3", !20}
+!12 = !{!"name: x"}
+!13 = !{!"isInlined: 0"}
+!14 = !{!"reason: 31"}
+!15 = !{!"inlineCost: -1"}
+!16 = !{!"outerInlineCost: -1"}
+!17 = !{!"inlineThreshold: -1"}
+!18 = !{!"earlyExitCost: 2147483647"}
+!19 = !{!"earlyExitThreshold: 2147483647"}
+!20 = !{!"moduleName: test4.c"}
+!21 = distinct !{!"intel.callsite.inlining.report", !22, null, !13, !23, !15, !16, !17, !18, !19, !"line: 9 col: 3", !20}
+!22 = !{!"name: y"}
+!23 = !{!"reason: 25"}
+!24 = !{!"isDead: 0"}
+!25 = !{!"isDeclaration: 0"}
+!26 = !{!"linkage: A"}
+!27 = distinct !{!"intel.function.inlining.report", !12, null, !20, !24, !28, !26}
+!28 = !{!"isDeclaration: 1"}
+!29 = distinct !{!"intel.function.inlining.report", !30, !31, !20, !24, !25, !26}
+!30 = !{!"name: main"}
+!31 = distinct !{!"intel.callsites.inlining.report", !32, !33, !35}
+!32 = distinct !{!"intel.callsite.inlining.report", !9, null, !13, !23, !15, !16, !17, !18, !19, !"line: 13 col: 3", !20}
+!33 = distinct !{!"intel.callsite.inlining.report", !34, null, !13, !14, !15, !16, !17, !18, !19, !"line: 14 col: 3", !20}
+!34 = !{!"name: b"}
+!35 = distinct !{!"intel.callsite.inlining.report", !9, null, !13, !23, !15, !16, !17, !18, !19, !"line: 15 col: 3", !20}
+!36 = distinct !{!"intel.function.inlining.report", !34, null, !20, !24, !28, !26}
+!37 = distinct !{!"intel.function.inlining.report", !22, !38, !20, !24, !25, !41}
+!38 = distinct !{!"intel.callsites.inlining.report", !39}
+!39 = distinct !{!"intel.callsite.inlining.report", !40, null, !13, !14, !15, !16, !17, !18, !19, !"line: 5 col: 19", !20}
+!40 = !{!"name: z"}
+!41 = !{!"linkage: L"}
+!42 = distinct !{!"intel.function.inlining.report", !40, null, !20, !24, !28, !26}
+
 * After inlining:
 
 .. code-block:: llvm
 
- ; ModuleID = 'test1.c'
+; ModuleID = 'test1.c'
 
- define dso_local i32 @main() local_unnamed_addr #0 !dbg !40 !intel.function.inlining.report !8 {
- entry:
-   tail call void (...) @x() #2, !dbg !44, !intel.callsite.inlining.report !12
-   tail call void (...) @z() #2, !dbg !49, !intel.callsite.inlining.report !16
-   tail call void (...) @b() #2, !dbg !52, !intel.callsite.inlining.report !18
-   tail call void @a() #3, !dbg !53, !intel.callsite.inlining.report !20
-   ret i32 0, !dbg !54
- }
+define dso_local void @a() local_unnamed_addr !intel.function.inlining.report !8 {
+entry:
+  tail call void (...) @x(), !intel.callsite.inlining.report !11
+  tail call void (...) @z(), !intel.callsite.inlining.report !24
+  ret void, !dbg !65
+}
 
- declare !intel.function.inlining.report !22 dso_local void @b(...) local_unnamed_addr #1
+declare !intel.function.inlining.report !33 dso_local void @x(...) local_unnamed_addr
 
- define dso_local void @a() local_unnamed_addr #0 !dbg !45 !intel.function.inlining.report !24 {
- entry:
-   tail call void (...) @x() #2, !dbg !55, !intel.callsite.inlining.report !26
-   tail call void (...) @z() #2, !dbg !56, !intel.callsite.inlining.report !30
-   ret void, !dbg !58
- }
+define dso_local i32 @main() local_unnamed_addr !intel.function.inlining.report !35 {
+entry:
+  tail call void (...) @x(), !intel.callsite.inlining.report !40
+  tail call void (...) @z(), !intel.callsite.inlining.report !43
+  tail call void (...) @b(), !intel.callsite.inlining.report !46
+  tail call void @a(), !intel.callsite.inlining.report !48
+  ret i32 0
+}
 
- declare !intel.function.inlining.report !32 dso_local void @x(...) local_unnamed_addr #1
+declare !intel.function.inlining.report !50 dso_local void @b(...) local_unnamed_addr
 
- declare !intel.function.inlining.report !38 dso_local void @z(...) local_unnamed_addr #1
+declare !intel.function.inlining.report !57 dso_local void @z(...) local_unnamed_addr
 
- !intel.module.inlining.report = !{!8, !22, !24, !32, !34, !38}
- !8 = distinct !{!"intel.function.inlining.report", !"name: main", !9, !"moduleName: test1.c", !"isDead: 0", !"isDeclaration: 0", !"linkage: A"}
- !9 = distinct !{!"intel.callsites.inlining.report", !10, !18, !20}
- !10 = distinct !{!"intel.callsite.inlining.report", !"name: a", !11, !"isInlined: 1", !"reason: 7", !"inlineCost: 30", !"outerInlineCost: -1",
-                  !"inlineThreshold: 337", !"earlyExitCost: 2147483647", !"earlyExitThreshold: 2147483647", !"line: 11 col: 3", !"moduleName: test1.c"}
- !11 = distinct !{!"intel.callsites.inlining.report", !12, !14}
- !12 = distinct !{!"intel.callsite.inlining.report", !"name: x", !13, !"isInlined: 0", !"reason: 29", !"inlineCost: -1", !"outerInlineCost: -1",
-                  !"inlineThreshold: -1", !"earlyExitCost: 2147483647", !"earlyExitThreshold: 2147483647", !"line: 18 col: 3", !"moduleName: test1.c"}
- !13 = distinct !{!"intel.callsites.inlining.report"}
- !14 = distinct !{!"intel.callsite.inlining.report", !"name: y", !15, !"isInlined: 1", !"reason: 6", !"inlineCost: -15000", !"outerInlineCost: -1",
-                  !"inlineThreshold: 337", !"earlyExitCost: 2147483647", !"earlyExitThreshold: 2147483647", !"line: 19 col: 3", !"moduleName: test1.c"}
- !15 = distinct !{!"intel.callsites.inlining.report", !16}
- !16 = distinct !{!"intel.callsite.inlining.report", !"name: z", !17, !"isInlined: 0", !"reason: 29", !"inlineCost: -1", !"outerInlineCost: -1",
-                  !"inlineThreshold: -1", !"earlyExitCost: 2147483647", !"earlyExitThreshold: 2147483647", !"line: 23 col: 3", !"moduleName: test1.c"}
- !17 = distinct !{!"intel.callsites.inlining.report"}
- !18 = distinct !{!"intel.callsite.inlining.report", !"name: b", !19, !"isInlined: 0", !"reason: 29", !"inlineCost: -1", !"outerInlineCost: -1",
-                  !"inlineThreshold: -1", !"earlyExitCost: 2147483647", !"earlyExitThreshold: 2147483647", !"line: 12 col: 3", !"moduleName: test1.c"}
- !19 = distinct !{!"intel.callsites.inlining.report"}
- !20 = distinct !{!"intel.callsite.inlining.report", !"name: a", !21, !"isInlined: 0", !"reason: 45", !"inlineCost: -1", !"outerInlineCost: -1",
-                  !"inlineThreshold: -1", !"earlyExitCost: 2147483647", !"earlyExitThreshold: 2147483647", !"line: 13 col: 3", !"moduleName: test1.c"}
- !21 = distinct !{!"intel.callsites.inlining.report"}
- !22 = distinct !{!"intel.function.inlining.report", !"name: b", !23, !"moduleName: test1.c", !"isDead: 0", !"isDeclaration: 1", !"linkage: A"}
- !23 = distinct !{!"intel.callsites.inlining.report"}
- !24 = distinct !{!"intel.function.inlining.report", !"name: a", !25, !"moduleName: test1.c", !"isDead: 0", !"isDeclaration: 0", !"linkage: A"}
- !25 = distinct !{!"intel.callsites.inlining.report", !26, !28}
- !26 = distinct !{!"intel.callsite.inlining.report", !"name: x", !27, !"isInlined: 0", !"reason: 29", !"inlineCost: -1", !"outerInlineCost: -1",
-                  !"inlineThreshold: -1", !"earlyExitCost: 2147483647", !"earlyExitThreshold: 2147483647", !"line: 18 col: 3", !"moduleName: test1.c"}
- !27 = distinct !{!"intel.callsites.inlining.report"}
- !28 = distinct !{!"intel.callsite.inlining.report", !"name: y", !29, !"isInlined: 1", !"reason: 6", !"inlineCost: -15000", !"outerInlineCost: -1",
-                  !"inlineThreshold: 337", !"earlyExitCost: 2147483647", !"earlyExitThreshold: 2147483647", !"line: 19 col: 3", !"moduleName: test1.c"}
- !29 = distinct !{!"intel.callsites.inlining.report", !30}
- !30 = distinct !{!"intel.callsite.inlining.report", !"name: z", !31, !"isInlined: 0", !"reason: 29", !"inlineCost: -1", !"outerInlineCost: -1",
-                  !"inlineThreshold: -1", !"earlyExitCost: 2147483647", !"earlyExitThreshold: 2147483647", !"line: 23 col: 3", !"moduleName: test1.c"}
- !31 = distinct !{!"intel.callsites.inlining.report"}
- !32 = distinct !{!"intel.function.inlining.report", !"name: x", !33, !"moduleName: test1.c", !"isDead: 0", !"isDeclaration: 1", !"linkage: A"}
- !33 = distinct !{!"intel.callsites.inlining.report"}
- !34 = distinct !{!"intel.function.inlining.report", !"name: y", !35, !"moduleName: test1.c", !"isDead: 1", !"isDeclaration: 0", !"linkage: L"}
- !35 = distinct !{!"intel.callsites.inlining.report", !36}
- !36 = distinct !{!"intel.callsite.inlining.report", !"name: z", !37, !"isInlined: 0", !"reason: 29", !"inlineCost: -1", !"outerInlineCost: -1",
-                  !"inlineThreshold: -1", !"earlyExitCost: 2147483647", !"earlyExitThreshold: 2147483647", !"line: 23 col: 3", !"moduleName: test1.c"}
- !37 = distinct !{!"intel.callsites.inlining.report"}
- !38 = distinct !{!"intel.function.inlining.report", !"name: z", !39, !"moduleName: test1.c", !"isDead: 0", !"isDeclaration: 1", !"linkage: A"}
- !39 = distinct !{!"intel.callsites.inlining.report"}
+!intel.module.inlining.report = !{!8, !33, !35, !50, !51, !57}
+
+!8 = distinct !{!"intel.function.inlining.report", !9, !10, !20, !30, !31, !32}
+!9 = !{!"name: a"}
+!10 = distinct !{!"intel.callsites.inlining.report", !11, !21}
+!11 = distinct !{!"intel.callsite.inlining.report", !12, null, !13, !14, !15, !16, !17, !18, !19, !"line: 8 col: 3", !20}
+!12 = !{!"name: x"}
+!13 = !{!"isInlined: 0"}
+!14 = !{!"reason: 31"}
+!15 = !{!"inlineCost: -1"}
+!16 = !{!"outerInlineCost: -1"}
+!17 = !{!"inlineThreshold: -1"}
+!18 = !{!"earlyExitCost: 2147483647"}
+!19 = !{!"earlyExitThreshold: 2147483647"}
+!20 = !{!"moduleName: test4.c"}
+!21 = distinct !{!"intel.callsite.inlining.report", !22, !23, !26, !27, !28, !16, !29, !18, !19, !"line: 9 col: 3", !20}
+!22 = !{!"name: y"}
+!23 = distinct !{!"intel.callsites.inlining.report", !24}
+!24 = distinct !{!"intel.callsite.inlining.report", !25, null, !13, !14, !15, !16, !17, !18, !19, !"line: 5 col: 19", !20}
+!25 = !{!"name: z"}
+!26 = !{!"isInlined: 1"}
+!27 = !{!"reason: 7"}
+!28 = !{!"inlineCost: -15000"}
+!29 = !{!"inlineThreshold: 337"}
+!30 = !{!"isDead: 0"}
+!31 = !{!"isDeclaration: 0"}
+!32 = !{!"linkage: A"}
+!33 = distinct !{!"intel.function.inlining.report", !12, null, !20, !30, !34, !32}
+!34 = !{!"isDeclaration: 1"}
+!35 = distinct !{!"intel.function.inlining.report", !36, !37, !20, !30, !31, !32}
+!36 = !{!"name: main"}
+!37 = distinct !{!"intel.callsites.inlining.report", !38, !46, !48}
+!38 = distinct !{!"intel.callsite.inlining.report", !9, !39, !26, !44, !45, !16, !29, !18, !19, !"line: 13 col: 3", !20}
+!39 = distinct !{!"intel.callsites.inlining.report", !40, !41}
+!40 = distinct !{!"intel.callsite.inlining.report", !12, null, !13, !14, !15, !16, !17, !18, !19, !"line: 8 col: 3", !20}
+!41 = distinct !{!"intel.callsite.inlining.report", !22, !42, !26, !27, !28, !16, !29, !18, !19, !"line: 9 col: 3", !20}
+!42 = distinct !{!"intel.callsites.inlining.report", !43}
+!43 = distinct !{!"intel.callsite.inlining.report", !25, null, !13, !14, !15, !16, !17, !18, !19, !"line: 5 col: 19", !20}
+!44 = !{!"reason: 8"}
+!45 = !{!"inlineCost: 30"}
+!46 = distinct !{!"intel.callsite.inlining.report", !47, null, !13, !14, !15, !16, !17, !18, !19, !"line: 14 col: 3", !20}
+!47 = !{!"name: b"}
+!48 = distinct !{!"intel.callsite.inlining.report", !9, null, !13, !49, !15, !16, !17, !18, !19, !"line: 15 col: 3", !20}
+!49 = !{!"reason: 47"}
+!50 = distinct !{!"intel.function.inlining.report", !47, null, !20, !30, !34, !32}
+!51 = distinct !{!"intel.function.inlining.report", !22, !52, !20, !55, !31, !56}
+!52 = distinct !{!"intel.callsites.inlining.report", !53}
+!53 = distinct !{!"intel.callsite.inlining.report", !25, null, !13, !54, !15, !16, !17, !18, !19, !"line: 5 col: 19", !20}
+!54 = !{!"reason: 28"}
+!55 = !{!"isDead: 1"}
+!56 = !{!"linkage: L"}
+!57 = distinct !{!"intel.function.inlining.report", !25, null, !20, !30, !34, !32}
+
+
 
  ---- Begin Inlining Report ---- (via metadata)
  COMPILE FUNC: A main

@@ -7,9 +7,9 @@ tablegen(LLVM IntrinsicImpl.inc -gen-intrinsic-impl)
 add_public_tablegen_target(intrinsics_gen)
 
 if (INTEL_COLLAB)
-set(LLVM_TARGET_DEFINITIONS Intel_Directives.td)
-tablegen(LLVM Intel_Directives.gen -gen-directives)
-add_public_tablegen_target(intel_directives_gen)
+set(LLVM_TARGET_DEFINITIONS Directives.td)
+tablegen(LLVM Directives.gen -gen-directives)
+add_public_tablegen_target(directives_gen)
 endif(INTEL_COLLAB)
 
 if (INTEL_CUSTOMIZATION)

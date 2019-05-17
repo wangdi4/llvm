@@ -88,23 +88,7 @@ public:
     dbgs() << '\n';
   }
 
-  virtual void print(raw_ostream &Os, const Twine Indent = "") const {
-    Os << Indent;
-    Os << "OVLSMemref for VPInst ";
-    Inst->print(Os);
-    Os << "[ ";
-    Os << "id = " << getId();
-    Os << " | AccessType: ";
-    getAccessType().print(Os);
-    Os << " | VLSType = ";
-    getType().print(Os);
-    int64_t Stride;
-    Os << " | Stride = ";
-    if (hasAConstStride(&Stride))
-      Os << Stride;
-    else
-      Os << "unknown";
-  }
+  virtual void print(raw_ostream &Os, const Twine Indent = "") const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   static bool classof(const OVLSMemref *Memref) {

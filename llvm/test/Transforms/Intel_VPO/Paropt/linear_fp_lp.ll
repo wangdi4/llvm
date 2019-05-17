@@ -61,18 +61,22 @@ entry:
   store i32 0, i32* %.omp.is_last, align 4
 
   %0 = load i32, i32* @step, align 4
-; CHECK: [[LOAD_STEP:%[a-zA-Z._0-9]+]] = load i32, i32* @step, align 4
-; CHECK: call void @foo{{[a-zA-Z._0-9]*}}{{.*}} i32 [[LOAD_STEP]]{{.*}}
+; CHECK: [[STEP_VAL:%[a-zA-Z._0-9]+]] = load i32, i32* @step, align 4
+; Check that the value of step is stored to a pointer, and then sent in
+; though the entry.
+; CHECK: store i32 [[STEP_VAL]], i32* [[STEP_VAL_CAPTURED:%[a-zA-Z._0-9]+]]
+; CHECK: void @foo{{[a-zA-Z._0-9]*}}(i32* %{{.*}}, i32* %{{.*}}, i32* [[STEP_VAL_CAPTURED]], i32* %.omp.lb, i32* %.omp.ub)
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.LINEAR"(i16* @y, i32 %0), "QUAL.OMP.FIRSTPRIVATE"(i32* @x), "QUAL.OMP.LASTPRIVATE"(i32* @x), "QUAL.OMP.SHARED"(i16* @y), "QUAL.OMP.SHARED"(i32* @step), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
 ; Initial copy of linear var
+; CHECK: [[STEP_VAL_INREGION:%[a-zA-Z._0-9]+]] = load i32, i32* [[STEP_VAL_CAPTURED]]
 ; CHECK: [[LOAD1:%[a-zA-Z._0-9]+]] = load i16, i16* @y
 ; CHECK: store i16 [[LOAD1]], i16* [[LINEAR_INIT:%[a-zA-Z._0-9]+]]
 ; CHECK: call void @__kmpc_for_static_init_4u({{.*}}
 
 ; Initialization of linear var per iteration
 ; CHECK: [[LOAD2:%[a-zA-Z._0-9]+]] = load i16, i16* [[LINEAR_INIT]]
-; CHECK: [[MUL:%[a-zA-Z._0-9]+]] = mul i32 %.omp.iv{{[.0-9]*}}, {{%[a-zA-Z._0-9]+}}
+; CHECK: [[MUL:%[a-zA-Z._0-9]+]] = mul i32 %.omp.iv{{[.0-9]*}}, [[STEP_VAL_INREGION]]
 ; CHECK: [[CAST1:%[a-zA-Z._0-9]+]] = sext i16 [[LOAD2]] to i32
 ; CHECK: [[ADD:%[a-zA-Z._0-9]+]] = add i32 [[CAST1]], [[MUL]]
 ; CHECK: [[CAST2:%[a-zA-Z._0-9]+]] = trunc i32 [[ADD]] to i16

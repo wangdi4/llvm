@@ -392,9 +392,8 @@ public:
     for (auto It = inst_begin(&F), E = inst_end(&F); It != E; ++It) {
       AOSConvType ConvType = AOS_NoConv;
       Instruction *I = &*It;
-      if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
-        CallSite CS(I);
-        updateCallAttributes(CS);
+      if (auto *Call = dyn_cast<CallBase>(I)) {
+        updateCallAttributes(Call);
 
         // Check if the call needs to be transformed based on the CallInfo.
         if (auto *CInfo = DTInfo->getCallInfo(I)) {
@@ -1932,7 +1931,8 @@ private:
     SOAAddrAsI8Ptr->insertBefore(FreeCall);
 
     unsigned PtrArgInd = -1U;
-    getFreePtrArg(CInfo->getFreeKind(), CallSite(FreeCall), PtrArgInd, TLI);
+    getFreePtrArg(CInfo->getFreeKind(), cast<CallInst>(FreeCall), PtrArgInd,
+                  TLI);
 
     LLVM_DEBUG(dbgs() << "Updating free call:\n  "
                       << *FreeCall->getOperand(PtrArgInd) << "\n  " << *FreeCall
@@ -2373,25 +2373,25 @@ private:
   // When rewriting pointers to the transformed structure type to integer
   // types, attributes on the return type and function parameters may need to
   // be updated because some attributes are only allowed on pointer
-  // parameters. This routine updates callsites in the original function prior
-  // to the clone function creation.
-  void updateCallAttributes(CallSite &CS) {
+  // parameters. This routine updates CallBase instructions in the original
+  // function prior to the clone function creation.
+  void updateCallAttributes(CallBase *Call) {
     bool Changed = false;
-    AttributeList Attrs = CS.getAttributes();
+    AttributeList Attrs = Call->getAttributes();
 
     // Only calls to functions to be cloned (or indirect calls) need to be
     // checked because the parameter types will not be changing for any
     // other calls.
-    Function *Callee = CS.getCalledFunction();
+    Function *Callee = Call->getCalledFunction();
     if (Callee && !OrigFuncToCloneFuncMap.count(Callee))
       return;
 
     DEBUG_WITH_TYPE(
         AOSTOSOA_ATTRIBUTES,
-        dbgs() << "DTRANS-AOSTOSOA: Updating callsite attributes for: "
-               << *CS.getInstruction() << "\n");
+        dbgs() << "DTRANS-AOSTOSOA: Updating call attributes for: "
+               << *Call << "\n");
 
-    Type *OrigRetTy = CS.getType();
+    Type *OrigRetTy = Call->getType();
     if (OrigRetTy->isPointerTy() &&
         isTypeToTransform(OrigRetTy->getPointerElementType())) {
       // Argument index 0 is used for return type attributes
@@ -2401,7 +2401,7 @@ private:
 
     // Argument index numbers start with 1 for calls to removeAttributes.
     unsigned Idx = 1;
-    for (auto &Arg : CS.args()) {
+    for (auto &Arg : Call->args()) {
       Type *ArgTy = Arg->getType();
       if (ArgTy->isPointerTy() &&
           isTypeToTransform(ArgTy->getPointerElementType())) {
@@ -2412,11 +2412,11 @@ private:
     }
 
     if (Changed)
-      CS.setAttributes(Attrs);
+      Call->setAttributes(Attrs);
 
     DEBUG_WITH_TYPE(AOSTOSOA_ATTRIBUTES,
-                    dbgs() << "DTRANS-AOSTOSOA: After callsite update: "
-                           << *CS.getInstruction() << "\n");
+                    dbgs() << "DTRANS-AOSTOSOA: After call update: "
+                           << *Call << "\n");
   }
 
   // The list of types to be transformed.

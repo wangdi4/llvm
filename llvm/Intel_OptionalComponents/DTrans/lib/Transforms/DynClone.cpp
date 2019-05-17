@@ -630,7 +630,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
       return false;
 
     for (auto *C : FI.values()) {
-      ConstantInt *CurrC = dyn_cast<ConstantInt>(C);
+      ConstantInt *CurrC = cast<ConstantInt>(C);
       int64_t Const = CurrC->getSExtValue();
       if (MaxC)
         Const = std::max(Const, MaxC->getSExtValue());
@@ -793,7 +793,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
                      << "    Indirect Call ... Skip DynClone :" << *CI << "\n");
           return false;
         }
-        Function *Callee = dyn_cast<Function>(CalledValue->stripPointerCasts());
+        Function *Callee = cast<Function>(CalledValue->stripPointerCasts());
         // Collecting all uses of routines that are marked with
         // AddressTaken. Use info of AddressTaken functions are not
         // properly updated after IPSCCP. So, we can't get all CallSites
@@ -1097,10 +1097,10 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
     BasicBlock::iterator It = CurrentBB->begin();
     for (; It != EndIt; ++It) {
       Instruction &I = *It;
-      if (auto CS = CallSite(&I)) {
+      if (auto *Call = dyn_cast<CallBase>(&I)) {
         // Treat InitRoutine as invalid if there are any indirect calls or
         // calls to user defined routines.
-        const Function *Callee = CS.getCalledFunction();
+        const Function *Callee = Call->getCalledFunction();
         assert(Callee && "Expected only direct calls");
         // Since WholeProgramSafe is true, just check if Callee is defined
         // to prove it is a user defined routine.
@@ -1143,12 +1143,12 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
     LLVM_DEBUG(dbgs() << "    InitRoutine failed...More than single use \n");
     return false;
   }
-  CallSite CS(InitRoutine->user_back());
+  CallInst *CI = cast<CallInst>(InitRoutine->user_back());
   if (InitRoutine->hasAddressTaken()) {
     LLVM_DEBUG(dbgs() << "    InitRoutine failed...AddressTaken \n");
     return false;
   }
-  Function *Caller = CS.getCaller();
+  Function *Caller = CI->getCaller();
   if (!isMainFunction(*Caller) || !Caller->use_empty()) {
     LLVM_DEBUG(dbgs() << "    InitRoutine failed...Not called from main \n");
     return false;
@@ -1156,7 +1156,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
 
   // TODO: Irreducible CFG check needs to be added here.
 
-  BasicBlock *InitBB = CS.getInstruction()->getParent();
+  BasicBlock *InitBB = CI->getParent();
   LoopInfo &LI = (GetLI)(*Caller);
   if (!LI.empty() && LI.getLoopFor(InitBB)) {
     LLVM_DEBUG(dbgs() << "    InitRoutine failed...call in Loop \n");
@@ -1167,7 +1167,7 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
   // to the place where InitRoutine is called.
   SmallPtrSet<BasicBlock *, 32> Visited;
   BasicBlock *StartBB = &Caller->getEntryBlock();
-  if (!CandidateFieldAccessAfterBB(StartBB, Visited, CS.getInstruction()))
+  if (!CandidateFieldAccessAfterBB(StartBB, Visited, CI))
     return false;
 
   SmallPtrSet<Type *, 4> StructAllocFound;
@@ -1885,10 +1885,10 @@ bool DynCloneImpl::verifyCallsInInitRoutine(void) {
   for (Instruction &I : instructions(InitRoutine)) {
     if (isa<DbgInfoIntrinsic>(I))
       continue;
-    auto CS = CallSite(&I);
-    if (!CS)
+    auto *Call = dyn_cast<CallInst>(&I);
+    if (!Call)
       continue;
-    Function *F = CS.getCalledFunction();
+    Function *F = Call->getCalledFunction();
     assert(F && "Expected direct call");
     if (F->isIntrinsic()) {
       if (!IsSafeIntrinsic(F->getIntrinsicID())) {
@@ -1905,7 +1905,7 @@ bool DynCloneImpl::verifyCallsInInitRoutine(void) {
       }
       continue;
     }
-    UserCallFuncs[F].insert(cast<CallInst>(&I));
+    UserCallFuncs[F].insert(Call);
   }
 
   // Return false if any user call in InitRoutine has access to
@@ -3070,8 +3070,8 @@ bool DynCloneImpl::createCallGraphClone(void) {
     LLVM_DEBUG(dbgs() << "      PHI: " << *Phi << "\n");
   };
 
-  CallSite CS(InitRoutine->user_back());
-  Function *CallerMain = CS.getCaller();
+  CallInst *CI = cast<CallInst>(InitRoutine->user_back());
+  Function *CallerMain = CI->getCaller();
 
   FunctionSet CandidateAccessRoutines;
   // TODO: Move the below checks before generating any runtime checks.
@@ -3124,7 +3124,7 @@ bool DynCloneImpl::createCallGraphClone(void) {
         continue;
       CallInst *CI = cast<CallInst>(&Inst);
       Value *CalledValue = CI->getCalledValue();
-      Function *Callee = dyn_cast<Function>(CalledValue->stripPointerCasts());
+      Function *Callee = cast<Function>(CalledValue->stripPointerCasts());
       if (!ClonedFunctionList.count(Callee))
         continue;
       Function *NewCallee = CloningMap[Callee];

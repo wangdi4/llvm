@@ -311,7 +311,7 @@ void ReorderFieldsImpl::processGetElementPtrInst(GetElementPtrInst &GEP) {
     return;
   // Get struct field index.
   Value *Op = GEP.getOperand(2);
-  auto *LastArg = dyn_cast<ConstantInt>(Op);
+  auto *LastArg = cast<ConstantInt>(Op);
 
   LLVM_DEBUG(dbgs() << "GEP Before:" << GEP << "\n");
   NewIdx = RTI.getTransformedIndex(StructTy, LastArg->getLimitedValue());

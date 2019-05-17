@@ -38,6 +38,6 @@ add_llvm_library(LLVMIntel_DTransOpt
 
   DEPENDS
   intrinsics_gen
-  intel_directives_gen
+  directives_gen
   LLVMIntel_DTransAnalysis
   )

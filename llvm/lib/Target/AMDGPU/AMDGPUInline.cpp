@@ -170,7 +170,6 @@ static bool isWrapperOnlyCall(CallSite CS) {
 InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
   Function *Callee = CS.getCalledFunction();
   Function *Caller = CS.getCaller();
-  TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
 
   if (!Callee || Callee->isDeclaration())
     return llvm::InlineCost::getNever("undefined callee");
@@ -178,6 +177,7 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
   if (CS.isNoInline())
     return llvm::InlineCost::getNever("noinline");
 
+  TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
   if (!TTI.areInlineCompatible(Caller, Callee))
     return llvm::InlineCost::getNever("incompatible");
 
@@ -216,7 +216,8 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
     return ACT->getAssumptionCache(F);
   };
 
-  return llvm::getInlineCost(CS, Callee, LocalParams, TTI, GetAssumptionCache,
+  return llvm::getInlineCost(cast<CallBase>(*CS.getInstruction()), Callee,
+                             LocalParams, TTI, GetAssumptionCache, // INTEL
                              None, nullptr, nullptr, nullptr, PSI, // INTEL
-                             RemarksEnabled ? &ORE : nullptr);     // INTEL
+                             RemarksEnabled ? &ORE : nullptr);
 }

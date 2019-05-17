@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSEffects.cpp - Part of SOAToAOSPass ----------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -26,7 +26,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
@@ -240,29 +239,27 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
     }
 
     SmallPtrSet<const Value *, 3> Args;
+    auto *Call = cast<CallBase>(I);
     auto *Info = DTInfo.getCallInfo(I);
     if (Info) {
       if (Info->getCallInfoKind() == dtrans::CallInfo::CIK_Alloc) {
         auto AK = cast<AllocCallInfo>(Info)->getAllocKind();
-        collectSpecialAllocArgs(AK, ImmutableCallSite(I), Args, TLI);
+        collectSpecialAllocArgs(AK, Call, Args, TLI);
       } else if (Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free) {
         auto FK = cast<FreeCallInfo>(Info)->getFreeKind();
-        collectSpecialFreeArgs(FK, ImmutableCallSite(I), Args, TLI);
+        collectSpecialFreeArgs(FK, Call, Args, TLI);
       } else {
         Rep = Dep::mkBottom(DM);
         break;
       }
     }
 
-    bool isDummyFuncWithInt =
-        dtrans::isDummyFuncWithThisAndIntArgs(ImmutableCallSite(I), TLI);
-    bool isDummyFuncWithPtr =
-        dtrans::isDummyFuncWithThisAndPtrArgs(ImmutableCallSite(I), TLI);
-    if (isDummyFuncWithInt) {
-      collectSpecialAllocArgs(AK_UserMalloc, ImmutableCallSite(I), Args, TLI);
-    } else if (isDummyFuncWithPtr) {
-      collectSpecialFreeArgs(FK_UserFree, ImmutableCallSite(I), Args, TLI);
-    }
+    bool isDummyFuncWithInt = dtrans::isDummyFuncWithThisAndIntArgs(Call, TLI);
+    bool isDummyFuncWithPtr = dtrans::isDummyFuncWithThisAndPtrArgs(Call, TLI);
+    if (isDummyFuncWithInt)
+      collectSpecialAllocArgs(AK_UserMalloc, Call, Args, TLI);
+    else if (isDummyFuncWithPtr)
+      collectSpecialFreeArgs(FK_UserFree, Call, Args, TLI);
 
     Dep::Container Special;
     Dep::Container Remaining;
@@ -276,7 +273,7 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
         Remaining.insert(computeValueDep(Op.get()));
     }
 
-    auto *F = dyn_cast<Function>(ImmutableCallSite(I).getCalledValue());
+    auto *F = dyn_cast<Function>(Call->getCalledValue());
 
     if (Info)
       // Relying on check that Realloc is forbidden.

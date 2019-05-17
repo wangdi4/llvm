@@ -11,6 +11,7 @@
 #define LLVM_LIB_CODEGEN_ASMPRINTER_STIDEBUG_H
 
 #include "llvm/CodeGen/AsmPrinterHandler.h"
+#include <memory>
 
 namespace llvm {
 
@@ -25,7 +26,7 @@ class AsmPrinter;
 
 class STIDebug : public AsmPrinterHandler {
 public:
-  static STIDebug *create(AsmPrinter *Asm);
+  static std::unique_ptr<STIDebug> create(AsmPrinter *Asm);
 
   virtual ~STIDebug();
 

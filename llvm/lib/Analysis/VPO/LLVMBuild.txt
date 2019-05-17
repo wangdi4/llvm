@@ -1,0 +1,24 @@
+; INTEL_COLLAB
+;
+; Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+; See https://llvm.org/LICENSE.txt for license information.
+; SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+;
+;    Source file: LLVMBuild.txt
+;    ------------
+;    Configures build properties and library dependencies.
+;
+
+[component_0]
+type = Library
+name = VPOAnalysis
+parent = Libraries
+; INTEL_CUSTOMIZATION
+required_libraries = Analysis Core Scalar Support TransformUtils Intel_LoopAnalysis
+; else
+;UNCOMMENT;required_libraries = Analysis Core Scalar Support TransformUtils
+; end INTEL_CUSTOMIZATION
+
+; TransformUtils needed for GeneralUtils.cpp
+
+; end INTEL_COLLAB

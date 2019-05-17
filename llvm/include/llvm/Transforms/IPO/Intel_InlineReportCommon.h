@@ -129,6 +129,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Preferred for partial inlining"},
     // InlrPassedDummyArgs
     {InlPrtCost, "Callee has callsites with dummy args"},
+    // InlrArrayStructArgs
+    {InlPrtCost, "Callee has callsites with array struct args"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,
@@ -228,6 +230,11 @@ static_assert(sizeof(InlineReasonText) ==
 
 // Print indent
 void printIndentCount(unsigned indentCount);
+// Get string value from metadata consuming 'Front' of the MDString
+StringRef getOpStr(Metadata *Node, StringRef Front);
+// Get integer value from metadata consuming 'Front' of the MDString
+void getOpVal(Metadata *Node, StringRef Front, int64_t *Val);
+
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INTEL_INLINEREPORTCOMMON_H

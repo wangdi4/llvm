@@ -17,9 +17,9 @@
 ; INTEL_COLLAB
 [common]
 ; INTEL_CUSTOMIZATION
-subdirectories = Intel_LoopAnalysis Intel_VPO Intel_OptReport
+subdirectories = Intel_LoopAnalysis VPO Intel_OptReport
 ; else
-;UNCOMMENT;subdirectories = Intel_VPO
+;UNCOMMENT;subdirectories = VPO
 ; end INTEL_CUSTOMIZATION
 ; end INTEL_COLLAB
 

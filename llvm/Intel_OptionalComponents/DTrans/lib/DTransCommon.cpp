@@ -38,7 +38,7 @@ static cl::opt<bool> EnableSOAToAOS("enable-dtrans-soatoaos", cl::init(true),
                                     cl::Hidden,
                                     cl::desc("Enable DTrans SOAToAOS"));
 
-static cl::opt<bool> EnableTranspose("enable-dtrans-transpose", cl::init(false),
+static cl::opt<bool> EnableTranspose("enable-dtrans-transpose", cl::init(true),
                                      cl::Hidden,
                                      cl::desc("Enable DTrans Transpose"));
 // Delete fields transformation.

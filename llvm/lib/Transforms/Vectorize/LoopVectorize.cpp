@@ -83,6 +83,7 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h" // INTEL
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -277,6 +278,13 @@ static cl::opt<bool> VPlanBuildStressTest(
         "Build VPlan for every supported loop nest in the function and bail "
         "out right after the build (stress test the VPlan H-CFG construction "
         "in the VPlan-native vectorization path)."));
+
+cl::opt<bool> llvm::EnableLoopInterleaving(
+    "interleave-loops", cl::init(true), cl::Hidden,
+    cl::desc("Enable loop interleaving in Loop vectorization passes"));
+cl::opt<bool> llvm::EnableLoopVectorization(
+    "vectorize-loops", cl::init(true), cl::Hidden,
+    cl::desc("Run the Loop vectorization passes"));
 
 /// A helper function for converting Scalar types to vector types.
 /// If the incoming type is void, we return void. If the VF is 1, we return
@@ -4166,6 +4174,13 @@ void InnerLoopVectorizer::widenInstruction(Instruction &I) {
       if (isa<FPMathOperator>(V))
         V->copyFastMathFlags(CI);
 
+#if INTEL_CUSTOMIZATION
+      // Make sure we don't lose attributes at the call site. E.g., IMF
+      // attributes are taken from call sites in MapIntrinToIml to refine SVML
+      // calls for precision.
+      V->setAttributes(CI->getAttributes());
+#endif // INTEL_CUSTOMIZATION
+
       VectorLoopValueMap.setVectorValue(&I, Part, V);
       addMetadata(V, &I);
 #if INTEL_CUSTOMIZATION
@@ -6069,6 +6084,8 @@ INITIALIZE_PASS_END(LoopVectorize, LV_NAME, lv_name, false, false)
 
 namespace llvm {
 
+Pass *createLoopVectorizePass() { return new LoopVectorize(); }
+
 Pass *createLoopVectorizePass(bool InterleaveOnlyWhenForced,
                               bool VectorizeOnlyWhenForced) {
   return new LoopVectorize(InterleaveOnlyWhenForced, VectorizeOnlyWhenForced);
@@ -7533,6 +7550,15 @@ bool LoopVectorizePass::processLoop(Loop *L) {
     // Mark the loop as already vectorized to avoid vectorizing again.
     Hints.setAlreadyVectorized();
   }
+
+#if INTEL_CUSTOMIZATION
+  // Create a new LoopID by propagating all metadata nodes of remainder loop
+  // except optreport nodes
+  MDNode *RemainderLoopWithoutOptReport =
+      LoopOptReport::eraseOptReportFromLoopID(L->getLoopID(),
+                                              L->getLoopID()->getContext());
+  L->setLoopID(RemainderLoopWithoutOptReport);
+#endif
 
   LLVM_DEBUG(verifyFunction(*L->getHeader()->getParent()));
   return true;

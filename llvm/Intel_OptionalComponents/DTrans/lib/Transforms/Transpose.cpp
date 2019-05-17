@@ -16,6 +16,7 @@
 #include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
 #include <numeric>
 
@@ -28,6 +29,8 @@ using namespace llvm;
 
 // Trace messages about the dope vector object analysis
 #define DEBUG_DOPE_VECTORS "dtrans-transpose-dopevectors"
+
+#define DEBUG_PROFITABILITY "dtrans-transpose-profitability"
 
 // Trace messages about the IR transformation
 #define DEBUG_TRANSFORM "dtrans-transpose-transform"
@@ -1821,6 +1824,273 @@ public:
     return true;
   }
 
+  // This function decides whether the candidate should have any of the
+  // strides transposed based on the loop depth that the individual dimensions
+  // are accessed at.
+  //
+  // The heuristics rely on loop invariant code motion to have already
+  // moved values that are invariant out of loops, so that we can tell which
+  // loop level is varying the dimension's 'index' component of the subscript
+  // call.
+  void computeProfitability(function_ref<LoopInfo &(Function &)> GetLI) {
+    // Gain factor that a dimension with a high stride value must exceed the
+    // gain value of a low stride value by to be considered worth performing the
+    // transpose.
+    const unsigned TransposeMinGainFactor = 100;
+
+    // Lambda to estimate the loop trip count for simple counted loops.
+    // These are loops with a single back edge, where a counter variable
+    // starts with a constant value, is incremented by a constant
+    // value inside the loop, and compared against a constant for the loop
+    // backedge. If a trip count can be determined, return it, otherwise
+    // return 0.
+    auto EstimateLoopTripCount = [](Loop *L) -> uint64_t {
+      using namespace llvm::PatternMatch;
+
+      if (!L)
+        return 0;
+
+      BasicBlock *Latch = L->getLoopLatch();
+      if (!Latch)
+        return 0;
+
+      if (auto BrInst = dyn_cast<BranchInst>(Latch->getTerminator())) {
+        if (BrInst->isConditional()) {
+          Value *Cond = BrInst->getCondition();
+
+          ICmpInst::Predicate Pred;
+          Instruction *PstIncr;
+          const APInt *Limit;
+          if (!match(Cond,
+                     m_ICmp(Pred, m_Instruction(PstIncr), m_APInt(Limit))))
+            return 0;
+
+          // For now, only consider counting up to some value. This could be
+          // enhanced for more cases in the future. For testing for equality, we
+          // expect the loop to continue while the condition is false. For less
+          // than, it should be the 'true' path.
+          unsigned BackedgeSuccNum;
+          if (Pred == ICmpInst::ICMP_EQ)
+            BackedgeSuccNum = 1;
+          else if (Pred == ICmpInst::ICMP_ULT || Pred == ICmpInst::ICMP_SLT)
+            BackedgeSuccNum = 0;
+          else
+            return 0;
+
+          if (BrInst->getSuccessor(BackedgeSuccNum) != L->getHeader())
+            return 0;
+
+          Instruction *PreIncr;
+          const APInt *Slope;
+          if (!match(PstIncr, m_Add(m_Instruction(PreIncr), m_APInt(Slope))))
+            return 0;
+
+          if (auto *Phi = dyn_cast<PHINode>(PreIncr)) {
+            if (Phi->getNumIncomingValues() == 2) {
+              // expect the phi to be:
+              //   PreIncr = phi [PstIncr, Label2], [const, Label1]
+              if (Phi->getIncomingValue(0) != PstIncr &&
+                  Phi->getIncomingValue(1) != PstIncr)
+                return 0;
+
+              ConstantInt *CI = dyn_cast<ConstantInt>(Phi->getIncomingValue(0));
+              if (!CI)
+                CI = dyn_cast<ConstantInt>(Phi->getIncomingValue(1));
+              if (CI) {
+                // Ignore negative numbers to make things simple.
+                if (CI->isNegative() || Slope->isNegative())
+                  return 0;
+
+                return Limit->getLimitedValue() -
+                  CI->getLimitedValue() / Slope->getLimitedValue();
+              }
+            }
+          }
+        }
+      }
+
+      return 0;
+    };
+
+    // This lambda function will recurse down the subscript intrinsic call
+    // chain, accumulating a gain value for each dimension which will be used to
+    // determine which dimension should be given the smallest stride.
+    std::function<void(SubscriptInst *, LoopInfo &,
+                       std::array<Instruction *, FortranMaxRank> &,
+                       std::array<unsigned, FortranMaxRank> &,
+                       std::array<double, FortranMaxRank> &)>
+        ComputeGain;
+    ComputeGain = [this, &ComputeGain, &EstimateLoopTripCount](
+                      SubscriptInst *Subs, LoopInfo &LI,
+                      std::array<Instruction *, FortranMaxRank> &IndexChain,
+                      std::array<unsigned, FortranMaxRank> &IndexVarianceDepth,
+                      std::array<double, FortranMaxRank> &Gains) {
+      // We want the transpose to enable processing of elements in the loop to
+      // enable unit-stride accesses between successive elements to allow for
+      // vectorization. This value sets a minimum estimated trip count that we
+      // want in order to treat a loop as being worthwhile to have unit strides.
+      const unsigned VectorMinForGain = 8;
+
+      unsigned Dim = Subs->getRank();
+      DEBUG_WITH_TYPE(DEBUG_PROFITABILITY, {
+        dbgs().indent((ArrayRank - Dim) * 2);
+        dbgs() << *Subs << "\n";
+      });
+
+      Value *Index = Subs->getIndex();
+      Instruction *IndexInst = dyn_cast<Instruction>(Index);
+      unsigned IndexLoopDepth =
+          IndexInst ? LI.getLoopDepth(IndexInst->getParent()) : 0;
+
+      // Save the info about this dimension to be used when we reach the end of
+      // the chain.
+      IndexChain[Dim] = IndexInst;
+      IndexVarianceDepth[Dim] = IndexLoopDepth;
+
+      if (Dim != 0) {
+        for (auto *UU : Subs->users()) {
+          assert(isa<SubscriptInst>(UU) && "Expected SubscriptInst");
+          ComputeGain(cast<SubscriptInst>(UU), LI, IndexChain,
+                      IndexVarianceDepth, Gains);
+        }
+      } else {
+        // We are relying on the subscript calls being chained together
+        // from highest dimension to lowest dimension, when we reach the
+        // lowest dimension, this will be the loop that is used to access
+        // the elements.
+        unsigned VariantDim = 0;
+        unsigned VariantDepth = 0;
+        for (unsigned Idx = 0; Idx < ArrayRank; ++Idx)
+          if (IndexVarianceDepth[Idx] > VariantDepth) {
+            VariantDepth = IndexVarianceDepth[Idx];
+            VariantDim = Idx;
+          }
+
+        // If an index value was varying in a loop, check to see if
+        // there should be given a profitability gain.
+        if (VariantDepth) {
+          DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
+                          dbgs() << "Deepest iteration index:" << VariantDim
+                                 << "\n");
+
+          auto BB = IndexChain[VariantDim]->getParent();
+          Loop *L = LI.getLoopFor(BB);
+          unsigned TC = EstimateLoopTripCount(L);
+
+          // If a potential trip count could not be identified, estimate
+          // the loop will process half of the array elements.
+          if (TC == 0)
+            TC = ArrayLength / 2;
+
+          // Only consider loops that appear to be good candidates for
+          // unit-stride vectorization.
+          if (TC >= VectorMinForGain) {
+            // The unit-stride loop may be embedded within a loop that is
+            // walking one of the other dimensions, so we need to apply an
+            // appropriate gain level to the loops that led to this loop.
+            for (unsigned Idx = 0; Idx < ArrayRank; ++Idx) {
+              // Estimate a factor of 10 for each loop level based on the
+              // variance depth of the dimension's index.
+              double Gain =
+                  pow(10.0, IndexVarianceDepth[Idx]) * Subs->getNumUses();
+
+              DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
+                              dbgs() << "  Gain for dimension " << Idx << ": "
+                                     << Gain << "\n");
+
+              // Saturate to avoid numeric overflow.
+              double NewGain = Gains[Idx] + Gain;
+              Gains[Idx] = NewGain > Gains[Idx]
+                               ? NewGain
+                               : std::numeric_limits<double>::max();
+            }
+          }
+        }
+      }
+    };
+
+    if (!IsValid)
+      return;
+
+    DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
+                    dbgs() << "\nAnalyzing variable for profitability : " << *GV
+                           << "\n");
+
+    // Collect the subscript calls per function, so that loop info will only
+    // need to be computed once per function.
+    DenseMap<Function *, SmallVector<SubscriptInst *, 32>> FuncToSubsVec;
+    for (auto *Subs : SubscriptCalls)
+      FuncToSubsVec[Subs->getParent()->getParent()].push_back(Subs);
+    for (auto *Subs : DVSubscriptCalls)
+      FuncToSubsVec[Subs->getParent()->getParent()].push_back(Subs);
+
+    // This will hold the profitability value for each dimension of the array.
+    // Higher values will mean a dimension is more important to be unit-stride
+    // when determining whether the array should be transposed.
+    std::array<double, FortranMaxRank> Gains = {};
+
+    // The subscript calls chain together from one dimension to another, and
+    // each call indexes some element of that dimension. This holds the index
+    // value for each dimension of the subscript chain.
+    std::array<Instruction *, FortranMaxRank> IndexChain = {};
+
+    // This holds the loop level that the index value used for the subscript
+    // call is varying at. A value of 0, means the index does not vary within
+    // any loop, whereas a value of 2 would mean the value is varying inside a
+    // nested loop.
+    std::array<unsigned, FortranMaxRank> IndexVarianceDepth = {};
+
+    for (auto &KV : FuncToSubsVec) {
+      auto &LI = (GetLI)(*KV.first);
+      if (LI.empty())
+        continue;
+
+      for (auto *Subs : KV.second)
+        ComputeGain(Subs, LI, IndexChain, IndexVarianceDepth, Gains);
+    }
+    double CurrentUnitStridedGain = Gains[0];
+
+    // This vector will hold {Gain, Dimension} to sort the gains from lowest to
+    // highest. Because we include the dimension number, the sort will be
+    // deterministic, and keep the existing order in case of equal gain values.
+    SmallVector<std::pair<double, unsigned>, FortranMaxRank> GainDimArray;
+    for (unsigned Dim = 0; Dim < ArrayRank; ++Dim) {
+      DEBUG_WITH_TYPE(DEBUG_PROFITABILITY, dbgs() << "  Gain[" << Dim << "] = "
+                                                  << Gains[Dim] << "\n");
+      GainDimArray.push_back({Gains[Dim], Dim});
+    }
+
+    std::sort(GainDimArray.begin(), GainDimArray.end());
+
+    // If the element with the highest gain, is not currently the unit stride,
+    // then check ratio of it against the element that currently has the
+    // smallest stride, and mark it as profitable if appropriate.
+    unsigned MaxVaryingDim = GainDimArray[ArrayRank - 1].second;
+    if (MaxVaryingDim != 0) {
+      double MaxGain = GainDimArray[ArrayRank - 1].first;
+      if ((MaxGain / CurrentUnitStridedGain) >= TransposeMinGainFactor) {
+        DEBUG_WITH_TYPE(
+            DEBUG_PROFITABILITY,
+            dbgs() << "  Transpose is profitable. Max gain [Dimension="
+                   << MaxVaryingDim << "] = " << MaxGain
+                   << " Cur gain = " << CurrentUnitStridedGain << "\n");
+
+        SmallVector<uint32_t, FortranMaxRank> TransposeOrder;
+        for (unsigned Dim = ArrayRank; Dim > 0; --Dim)
+          TransposeOrder.push_back(GainDimArray[Dim - 1].second);
+
+        DEBUG_WITH_TYPE(DEBUG_PROFITABILITY, {
+          dbgs() << "Transpose order: [";
+          for (auto I : TransposeOrder)
+            dbgs() << " " << I;
+          dbgs() << " ]\n";
+        });
+
+        setIsProfitable(true);
+        setTransposition(TransposeOrder);
+      }
+    }
+  }
   // Transform the strides in the subscript calls and dope vector creation, if
   // the candidate is valid for being transposed.
   bool transform() {
@@ -2022,9 +2292,7 @@ private:
 // when beneficial.
 class TransposeImpl {
 public:
-  TransposeImpl(std::function<LoopInfo &(Function &)> &GetLI) : GetLI(GetLI) {
-    (void)this->GetLI;
-  }
+  TransposeImpl(function_ref<LoopInfo &(Function &)> GetLI) : GetLI(GetLI) {}
 
   bool run(Module &M) {
     const DataLayout &DL = M.getDataLayout();
@@ -2040,7 +2308,8 @@ public:
     for (auto &Cand : Candidates) {
       ValidCandidate |= Cand.analyze(DL);
 
-      // TODO: Analyze the candidate for profitability
+      if (ValidCandidate)
+        Cand.computeProfitability(GetLI);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       if (PrintCandidates)
@@ -2057,7 +2326,7 @@ public:
   }
 
 private:
-  std::function<LoopInfo &(Function &)> &GetLI;
+  function_ref<LoopInfo &(Function &)> GetLI;
 
   // Global variable candidates for the transformation.
   SmallVector<TransposeCandidate, 8> Candidates;
@@ -2220,7 +2489,7 @@ PreservedAnalyses TransposePass::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 bool TransposePass::runImpl(Module &M,
-                            std::function<LoopInfo &(Function &)> &GetLI) {
+                            function_ref<LoopInfo &(Function &)> GetLI) {
   TransposeImpl Transpose(GetLI);
   return Transpose.run(M);
 }

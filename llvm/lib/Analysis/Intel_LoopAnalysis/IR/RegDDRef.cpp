@@ -598,13 +598,28 @@ void RegDDRef::makeSelfBlob(bool AssumeLvalIfDetached) {
 
 CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   assert(hasGEPInfo() && "Stride is only valid for GEP refs!");
+  assert(getHLDDNode() && "Cannot compute stride of detached ref!");
 
   if (getDefinedAtLevel() >= Level) {
     return nullptr;
   }
 
+  auto *Node = getHLDDNode();
+  // Ref is invariant at deeper levels.
+  if (Level > Node->getNodeLevel()) {
+    return getCanonExprUtils().createCanonExpr(
+        Type::getInt1Ty(getDDRefUtils().getContext()), 0, 0);
+  }
+
   CanonExpr *StrideAtLevel = nullptr;
   bool FitsIn32Bits = false;
+
+  auto *LoopStride = Node->getParentLoopAtLevel(Level)->getStrideDDRef();
+  int64_t LoopStrideVal = 0;
+  bool HasConstStride = LoopStride->isIntConstant(&LoopStrideVal);
+  (void)HasConstStride;
+  assert(HasConstStride && "Constant loop stride expected!");
+
 #if INTEL_INCLUDE_DTRANS
   // IPO's padding transformation and propagation is also responsible to
   // generate RT check on malloc site to check that user doesn't try to
@@ -638,7 +653,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
       return nullptr;
     }
 
-    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode(), FitsIn32Bits)) {
+    if (HLNodeUtils::mayWraparound(DimCE, Level, Node, FitsIn32Bits)) {
       return nullptr;
     }
 
@@ -654,10 +669,15 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
 
     uint64_t DimStride = getDimensionConstStride(I);
 
+    if (!DimStride) {
+      // TODO: extend for non-const strides.
+      return nullptr;
+    }
+
     if (Index != InvalidBlobIndex) {
-      StrideAtLevel->addBlob(Index, Coeff * DimStride);
+      StrideAtLevel->addBlob(Index, Coeff * DimStride * LoopStrideVal);
     } else {
-      StrideAtLevel->addConstant(Coeff * DimStride, false);
+      StrideAtLevel->addConstant(Coeff * DimStride * LoopStrideVal, false);
     }
   }
 
@@ -683,14 +703,30 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
 
 bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
   assert(hasGEPInfo() && "Stride is only valid for GEP refs!");
+  assert(getHLDDNode() && "Cannot compute stride of detached ref!");
 
   if (getDefinedAtLevel() >= Level) {
     return false;
   }
 
-  int64_t StrideVal = 0;
+  auto *Node = getHLDDNode();
+  // Ref is invariant at deeper levels.
+  if (Level > Node->getNodeLevel()) {
+    if (Stride) {
+      *Stride = 0;
+    }
+    return true;
+  }
 
+  int64_t StrideVal = 0;
   bool FitsIn32Bits = false;
+
+  auto *LoopStride = Node->getParentLoopAtLevel(Level)->getStrideDDRef();
+  int64_t LoopStrideVal = 0;
+  bool LoopHasConstStride = LoopStride->isIntConstant(&LoopStrideVal);
+  (void)LoopHasConstStride;
+  assert(LoopHasConstStride && "Constant loop stride expected!");
+
 #if INTEL_INCLUDE_DTRANS
   // IPO's padding transformation and propagation is also responsible to
   // generate RT check on malloc site to check that user doesn't try to
@@ -722,11 +758,17 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
       return false;
     }
 
-    if (HLNodeUtils::mayWraparound(DimCE, Level, getHLDDNode(), FitsIn32Bits)) {
+    if (HLNodeUtils::mayWraparound(DimCE, Level, Node, FitsIn32Bits)) {
       return false;
     }
 
-    StrideVal += (Coeff * getDimensionConstStride(I));
+    auto DimStride = getDimensionConstStride(I);
+
+    if (!DimStride) {
+      return false;
+    }
+
+    StrideVal += (Coeff * DimStride * LoopStrideVal);
   }
 
   if (Stride) {

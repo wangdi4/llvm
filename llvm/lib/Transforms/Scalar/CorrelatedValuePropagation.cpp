@@ -65,7 +65,7 @@ STATISTIC(NumAShrs,     "Number of ashr converted to lshr");
 STATISTIC(NumSRems,     "Number of srem converted to urem");
 STATISTIC(NumOverflows, "Number of overflow checks removed");
 
-static cl::opt<bool> DontProcessAdds("cvp-dont-process-adds", cl::init(true));
+static cl::opt<bool> DontAddNoWrapFlags("cvp-dont-add-nowrap-flags", cl::init(true));
 
 namespace {
 
@@ -402,15 +402,10 @@ static bool processSwitch(SwitchInst *SI, LazyValueInfo *LVI,
 
 // See if we can prove that the given overflow intrinsic will not overflow.
 static bool willNotOverflow(WithOverflowInst *WO, LazyValueInfo *LVI) {
-  // TODO: Also support multiplication.
-  Instruction::BinaryOps BinOp = WO->getBinaryOp();
-  if (BinOp == Instruction::Mul)
-    return false;
-
   Value *RHS = WO->getRHS();
   ConstantRange RRange = LVI->getConstantRange(RHS, WO->getParent(), WO);
   ConstantRange NWRegion = ConstantRange::makeGuaranteedNoWrapRegion(
-      BinOp, RRange, WO->getNoWrapKind());
+      WO->getBinaryOp(), RRange, WO->getNoWrapKind());
   // As an optimization, do not compute LRange if we do not need it.
   if (NWRegion.isEmptySet())
     return false;
@@ -423,10 +418,13 @@ static void processOverflowIntrinsic(WithOverflowInst *WO) {
   IRBuilder<> B(WO);
   Value *NewOp = B.CreateBinOp(
       WO->getBinaryOp(), WO->getLHS(), WO->getRHS(), WO->getName());
-  if (WO->isSigned())
-    cast<Instruction>(NewOp)->setHasNoSignedWrap();
-  else
-    cast<Instruction>(NewOp)->setHasNoUnsignedWrap();
+  // Constant-holing could have happened.
+  if (auto *Inst = dyn_cast<Instruction>(NewOp)) {
+    if (WO->isSigned())
+      Inst->setHasNoSignedWrap();
+    else
+      Inst->setHasNoUnsignedWrap();
+  }
 
   Value *NewI = B.CreateInsertValue(UndefValue::get(WO->getType()), NewOp, 0);
   NewI = B.CreateInsertValue(NewI, ConstantInt::getFalse(WO->getContext()), 1);
@@ -611,53 +609,53 @@ static bool processAShr(BinaryOperator *SDI, LazyValueInfo *LVI) {
   return true;
 }
 
-static bool processAdd(BinaryOperator *AddOp, LazyValueInfo *LVI) {
+static bool processBinOp(BinaryOperator *BinOp, LazyValueInfo *LVI) {
   using OBO = OverflowingBinaryOperator;
 
-  if (DontProcessAdds)
+  if (DontAddNoWrapFlags)
     return false;
 
-  if (AddOp->getType()->isVectorTy())
+  if (BinOp->getType()->isVectorTy())
     return false;
 
-  bool NSW = AddOp->hasNoSignedWrap();
-  bool NUW = AddOp->hasNoUnsignedWrap();
+  bool NSW = BinOp->hasNoSignedWrap();
+  bool NUW = BinOp->hasNoUnsignedWrap();
   if (NSW && NUW)
     return false;
 
-  BasicBlock *BB = AddOp->getParent();
+  BasicBlock *BB = BinOp->getParent();
 
-  Value *LHS = AddOp->getOperand(0);
-  Value *RHS = AddOp->getOperand(1);
+  Value *LHS = BinOp->getOperand(0);
+  Value *RHS = BinOp->getOperand(1);
 
-  ConstantRange LRange = LVI->getConstantRange(LHS, BB, AddOp);
+  ConstantRange RRange = LVI->getConstantRange(RHS, BB, BinOp);
 
-  // Initialize RRange only if we need it. If we know that guaranteed no wrap
-  // range for the given LHS range is empty don't spend time calculating the
-  // range for the RHS.
-  Optional<ConstantRange> RRange;
-  auto LazyRRange = [&] () {
-      if (!RRange)
-        RRange = LVI->getConstantRange(RHS, BB, AddOp);
-      return RRange.getValue();
+  // Initialize LRange only if we need it. If we know that guaranteed no wrap
+  // range for the given RHS range is empty don't spend time calculating the
+  // range for the LHS.
+  Optional<ConstantRange> LRange;
+  auto LazyLRange = [&] () {
+      if (!LRange)
+        LRange = LVI->getConstantRange(LHS, BB, BinOp);
+      return LRange.getValue();
   };
 
   bool Changed = false;
   if (!NUW) {
     ConstantRange NUWRange = ConstantRange::makeGuaranteedNoWrapRegion(
-        BinaryOperator::Add, LRange, OBO::NoUnsignedWrap);
+        BinOp->getOpcode(), RRange, OBO::NoUnsignedWrap);
     if (!NUWRange.isEmptySet()) {
-      bool NewNUW = NUWRange.contains(LazyRRange());
-      AddOp->setHasNoUnsignedWrap(NewNUW);
+      bool NewNUW = NUWRange.contains(LazyLRange());
+      BinOp->setHasNoUnsignedWrap(NewNUW);
       Changed |= NewNUW;
     }
   }
   if (!NSW) {
     ConstantRange NSWRange = ConstantRange::makeGuaranteedNoWrapRegion(
-        BinaryOperator::Add, LRange, OBO::NoSignedWrap);
+        BinOp->getOpcode(), RRange, OBO::NoSignedWrap);
     if (!NSWRange.isEmptySet()) {
-      bool NewNSW = NSWRange.contains(LazyRRange());
-      AddOp->setHasNoSignedWrap(NewNSW);
+      bool NewNSW = NSWRange.contains(LazyLRange());
+      BinOp->setHasNoSignedWrap(NewNSW);
       Changed |= NewNSW;
     }
   }
@@ -733,7 +731,8 @@ static bool runImpl(Function &F, LazyValueInfo *LVI, DominatorTree *DT,
         BBChanged |= processAShr(cast<BinaryOperator>(II), LVI);
         break;
       case Instruction::Add:
-        BBChanged |= processAdd(cast<BinaryOperator>(II), LVI);
+      case Instruction::Sub:
+        BBChanged |= processBinOp(cast<BinaryOperator>(II), LVI);
         break;
       }
     }

@@ -63,10 +63,10 @@ using namespace llvm::loopopt;
 
 const unsigned DefaultReuseThreshold = 4;
 
-static cl::opt<bool>
-    SortedLocality("hir-sorted-locality", cl::init(false), cl::Hidden,
-                   cl::desc("Computes sorted locality (for interchange) for "
-                            "all loopnests inside function."));
+static cl::opt<bool> SpatialLocality(
+    "hir-spatial-locality", cl::init(false), cl::Hidden,
+    cl::desc("Computes spatial locality for all innermost loops or perfect "
+             "loopnests (in sorted order) inside function."));
 
 static cl::opt<bool> TemporalLocality(
     "hir-temporal-locality", cl::init(false), cl::Hidden,
@@ -78,14 +78,11 @@ static cl::opt<unsigned> TemporalReuseThreshold(
 
 // Symbolic constant to denote unknown 'N' trip count.
 // TODO: Revisit this for scaling known loops.
-const unsigned SymbolicConstTC = 100;
+const uint64_t SymbolicConstTC = 100;
 
 // Cache line size in bytes.
 // TODO: Get data from Target Machine.
 const unsigned CacheLineSize = 64;
-
-// A small value to differentiate between Read vs Write.
-const unsigned WriteWt = 4;
 
 FunctionPass *llvm::createHIRLocalityAnalysisPass() {
   return new HIRLoopLocalityWrapperPass();
@@ -119,30 +116,62 @@ bool HIRLoopLocalityWrapperPass::runOnFunction(Function &F) {
 
 void HIRLoopLocalityWrapperPass::releaseMemory() { HLL.reset(); }
 
+// Collects (near)perfect loopnests and non-perfect innermost loops.
+class PerfectLoopnestCollector final : public HLNodeVisitorBase {
+  const HLNode *SkipNode;
+  SmallVectorImpl<const HLLoop *> &Loops;
+
+public:
+  PerfectLoopnestCollector(SmallVectorImpl<const HLLoop *> &Loops)
+      : SkipNode(nullptr), Loops(Loops) {}
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  void visit(const HLLoop *Lp);
+
+  bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
+};
+
+void PerfectLoopnestCollector::visit(const HLLoop *Lp) {
+  bool IsNearPerfect = false;
+
+  // Skip recursing into innermost loops or perfect loopnests.
+  if (Lp->isInnermost() ||
+      HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false, &IsNearPerfect) ||
+      IsNearPerfect) {
+    SkipNode = Lp;
+  }
+
+  Loops.push_back(Lp);
+}
+
 void HIRLoopLocality::printAnalysis(raw_ostream &OS) const {
 
   HIRLoopLocality &HLA = *const_cast<HIRLoopLocality *>(this);
   auto &HNU = HIRF.getHLNodeUtils();
 
-  if (SortedLocality) {
+  if (SpatialLocality) {
     OS << "Locality Information for all loops(sorted order):\n";
-    SmallVector<const HLLoop *, 16> OutermostLoops;
+    SmallVector<const HLLoop *, 16> CandidateLoops;
+    PerfectLoopnestCollector PLC(CandidateLoops);
 
-    HNU.gatherOutermostLoops(OutermostLoops);
+    HNU.visitAll(PLC);
 
-    for (auto Lp : OutermostLoops) {
-
+    for (auto Lp : CandidateLoops) {
       bool IsNearPerfect = false;
-      if (Lp->isInnermost() || (!HLNodeUtils::isPerfectLoopNest(
-                                    Lp, nullptr, false, &IsNearPerfect) &&
-                                !IsNearPerfect)) {
-        continue;
-      }
 
-      SmallVector<const HLLoop *, MaxLoopNestLevel> SortedLoops;
-      HLA.sortedLocalityLoops(Lp, SortedLoops);
+      if (!Lp->isInnermost() &&
+          (HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false, &IsNearPerfect) ||
+           IsNearPerfect)) {
+        SmallVector<const HLLoop *, MaxLoopNestLevel> SortedLoops;
+        HLA.sortedLocalityLoops(Lp, SortedLoops);
 
-      for (auto Lp : SortedLoops) {
+        for (auto Lp : SortedLoops) {
+          printLocalityInfo(OS, Lp);
+        }
+      } else {
+        HLA.computeLoopLocality(Lp);
         printLocalityInfo(OS, Lp);
       }
     }
@@ -175,8 +204,10 @@ void HIRLoopLocality::printAnalysis(raw_ostream &OS) const {
   }
 }
 
-unsigned HIRLoopLocality::getTripCount(const HLLoop *Loop) {
-  return TripCountByLevel[Loop->getNestingLevel() - 1];
+uint64_t HIRLoopLocality::getTripCount(const HLLoop *Loop) {
+  auto TripCnt = TripCountByLevel[Loop->getNestingLevel() - 1];
+  assert(TripCnt && "Loop trip count is zero!");
+  return TripCnt;
 }
 
 void HIRLoopLocality::updateTotalStrideAndRefs(LocalityInfo &LI,
@@ -217,17 +248,15 @@ bool HIRLoopLocality::sharesLastCacheLine(uint64_t PrevTotalDist,
   return CurTotalDist < NextCacheLineByteOffset;
 }
 
-unsigned HIRLoopLocality::computeExtraCacheLines(LocalityInfo &LI,
+uint64_t HIRLoopLocality::computeExtraCacheLines(LocalityInfo &LI,
                                                  const RefGroupTy &RefGroup,
                                                  unsigned Level,
                                                  uint64_t NumRefBytesAccessed,
-                                                 unsigned NumCacheLinesPerRef) {
-  unsigned ExtraCacheLines = 0;
+                                                 uint64_t NumCacheLinesPerRef) {
+  uint64_t ExtraCacheLines = 0;
   uint64_t PrevTotalDist = 0, TotalDist = 0;
 
-  auto PrevRef = RefGroup.front();
-  // Number of bytes accessed in last cache line by PrevRef.
-  unsigned CacheLineOffset = NumRefBytesAccessed % CacheLineSize;
+  uint64_t CacheLineOffset = NumRefBytesAccessed % CacheLineSize;
 
   // References like A[i] and A[i + 10] may access overlapping cache lines
   // across loop iterations. The overlap depends on the distance. For example-
@@ -235,15 +264,22 @@ unsigned HIRLoopLocality::computeExtraCacheLines(LocalityInfo &LI,
   // - If Dist = 40, refs access same cache lines.
   // - If Dist = 80, second ref accesses one extra cache line.
   // And so on...
+  const RegDDRef *PrevRef = RefGroup.front();
+  const RegDDRef *CurRef = nullptr;
+  // Number of bytes accessed in last cache line by PrevRef.
   for (auto RefIt = RefGroup.begin() + 1, E = RefGroup.end(); RefIt != E;
-       ++RefIt) {
-    auto CurRef = *RefIt;
+       ++RefIt, PrevRef = CurRef) {
+    CurRef = *RefIt;
 
     int64_t Dist;
     auto Res = DDRefUtils::getConstByteDistance(CurRef, PrevRef, &Dist);
     (void)Res;
     assert((Res && (Dist >= 0)) &&
            "Refs do not have constant non-negative distance!");
+
+    if (Dist == 0) {
+      continue;
+    }
 
     PrevTotalDist = TotalDist;
     TotalDist += Dist;
@@ -274,14 +310,18 @@ unsigned HIRLoopLocality::computeExtraCacheLines(LocalityInfo &LI,
       // PrevRef and CurRef overlap or lie on the same cache line.
       // Extra cache lines accessed is based how many cache lines does the
       // distance between them cover.
+
+      // If offset is zero, we simulate starting a new cache line by setting
+      // offset equal to cache line size.
+      if (CacheLineOffset == 0) {
+        CacheLineOffset = CacheLineSize;
+      }
+
       // We subtract -1 so that an exact distance of cache line size doesn't
       // count as a new cache line access.
       ExtraCacheLines += (CacheLineOffset + Dist - 1) / CacheLineSize;
       CacheLineOffset = (CacheLineOffset + Dist) % CacheLineSize;
     }
-
-    // Update PrevRef.
-    PrevRef = CurRef;
   }
 
   return ExtraCacheLines;
@@ -290,7 +330,7 @@ unsigned HIRLoopLocality::computeExtraCacheLines(LocalityInfo &LI,
 void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
                                                      const RefGroupTy &RefGroup,
                                                      unsigned Level,
-                                                     unsigned TripCnt) {
+                                                     uint64_t TripCnt) {
   const RegDDRef *Ref = RefGroup.front();
 
   auto BaseCE = Ref->getBaseCE();
@@ -332,7 +372,7 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
 
       // Dimension size is not available for the highest dimension so we assume
       // TripCnt number of elements.
-      unsigned NumElem = TripCnt;
+      uint64_t NumElem = TripCnt;
 
       if (NonLinearBase || CE->getDefinedAtLevel() >= Level) {
         // Penalize non-linearity by adding more number of elements.
@@ -347,8 +387,15 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
       // contiguous for simplicity. For example, for A[i/2] with loop trip count
       // of 5, the number of accesses are 3: A[0], A[1] and A[2].
       auto NumAccesses = ((IVCoeff * (NumElem - 1)) / Denom) + 1;
+      auto DimStride = Ref->getDimensionConstStride(I);
 
-      DimSize = NumAccesses * Ref->getDimensionConstStride(I);
+      // Workaround for non-constant dimension stride in fortran.
+      // TODO: refine later using lower dimension strides, if available.
+      if (!DimStride) {
+        DimStride = Ref->getDestTypeSizeInBytes();
+      }
+
+      DimSize = NumAccesses * DimStride;
     }
 
     // (CacheLineSize - 1) is added to take the ceiling.
@@ -362,7 +409,7 @@ void HIRLoopLocality::computeNumNoLocalityCacheLines(LocalityInfo &LI,
 
   updateTotalStrideAndRefs(LI, RefGroup, NumRefBytesAccessed / TripCnt);
 
-  unsigned ExtraCacheLines = computeExtraCacheLines(
+  uint64_t ExtraCacheLines = computeExtraCacheLines(
       LI, RefGroup, Level, NumRefBytesAccessed, NumCacheLines);
 
   LI.NumSpatialCacheLines += NumCacheLines + ExtraCacheLines;
@@ -381,7 +428,7 @@ void HIRLoopLocality::computeNumTempInvCacheLines(LocalityInfo &LI,
   // (CacheLineSize - 1) is added to take the ceiling.
   auto NumCacheLines = (RefSize + CacheLineSize - 1) / CacheLineSize;
 
-  unsigned ExtraCacheLines =
+  uint64_t ExtraCacheLines =
       computeExtraCacheLines(LI, RefGroup, Level, RefSize, NumCacheLines);
 
   LI.NumTempInvCacheLines += NumCacheLines + ExtraCacheLines;
@@ -390,7 +437,7 @@ void HIRLoopLocality::computeNumTempInvCacheLines(LocalityInfo &LI,
 void HIRLoopLocality::computeNumSpatialCacheLines(LocalityInfo &LI,
                                                   const RefGroupTy &RefGroup,
                                                   unsigned Level,
-                                                  unsigned TripCnt,
+                                                  uint64_t TripCnt,
                                                   uint64_t Stride) {
   auto NumRefBytesAccessed = (Stride * TripCnt);
 
@@ -400,7 +447,7 @@ void HIRLoopLocality::computeNumSpatialCacheLines(LocalityInfo &LI,
   uint64_t NumCacheLines =
       (NumRefBytesAccessed + CacheLineSize - 1) / CacheLineSize;
 
-  unsigned ExtraCacheLines = computeExtraCacheLines(
+  uint64_t ExtraCacheLines = computeExtraCacheLines(
       LI, RefGroup, Level, NumRefBytesAccessed, NumCacheLines);
 
   LI.NumSpatialCacheLines += NumCacheLines + ExtraCacheLines;
@@ -409,7 +456,7 @@ void HIRLoopLocality::computeNumSpatialCacheLines(LocalityInfo &LI,
 void HIRLoopLocality::computeNumCacheLines(const HLLoop *Loop,
                                            const RefGroupVecTy &RefGroups) {
   unsigned Level = Loop->getNestingLevel();
-  unsigned TripCnt = getTripCount(Loop);
+  uint64_t TripCnt = getTripCount(Loop);
 
   LocalityInfo &LI = LocalityByLevel[Level - 1];
   assert((LI.getNumCacheLines() == 0) && "Spatial locality already populated!");
@@ -465,27 +512,53 @@ void HIRLoopLocality::initTripCountByLevel(
 
   for (auto Loop : Loops) {
     uint64_t TripCnt = 0;
-    bool ConstTripLoop = Loop->isConstTripLoop(&TripCnt);
 
-    // Use max trip count estimate if available.
-    if (!ConstTripLoop && (TripCnt = Loop->getMaxTripCountEstimate())) {
-      ConstTripLoop = true;
+    if (Loop->isConstTripLoop(&TripCnt)) {
+      TripCountByLevel[Loop->getNestingLevel() - 1] = TripCnt;
+    } else if ((TripCnt = Loop->getMaxTripCountEstimate())) {
+      // Clamp max trip count to SymbolicConstTC if based on estimate.
+      TripCountByLevel[Loop->getNestingLevel() - 1] =
+          std::min(TripCnt, SymbolicConstTC);
+    } else {
+      TripCountByLevel[Loop->getNestingLevel() - 1] = SymbolicConstTC;
     }
-
-    TripCountByLevel[Loop->getNestingLevel() - 1] =
-        (ConstTripLoop && (TripCnt < SymbolicConstTC)) ? TripCnt
-                                                       : SymbolicConstTC;
   }
 }
 
-bool HIRLoopLocality::isSpatialMatch(const RegDDRef *Ref1,
-                                     const RegDDRef *Ref2) {
+/// Returns true if \p Ref1 and \p Ref2 belongs to the same array reference
+/// group for the purposes of computing spatial locality for interchange.
+///
+/// We group together all the refs with constant distance.
+///
+/// For example, all the following refs will be in the same group:
+///  A[i][j][k]
+///  A[i][j+1][k]
+///  A[i+1][j][k]
+///  A[i+1][j][k-1]
+///
+/// They will be arranged in this order-
+/// A[i][j][k], A[i][j+1][k], A[i+1][j][k-1], A[i+1][j][k]
+///
+/// After this grouping, we will compute the number of cache lines touched by
+/// the group (equivalent to cache line misses) based on the stride at a
+/// particular loop level.
+/// The assmuption is that the first ref in the group lies at the beginning of
+/// the cache line.
+static bool isSpatialMatch(const RegDDRef *Ref1, const RegDDRef *Ref2) {
   return DDRefUtils::getConstByteDistance(Ref1, Ref2, nullptr);
 }
 
-bool HIRLoopLocality::isTemporalMatch(const RegDDRef *Ref1,
-                                      const RegDDRef *Ref2, unsigned Level,
-                                      uint64_t MaxDiff) {
+/// Returns true if \p Ref1 and \p Ref2 belong to the same group for the
+/// purposes of computing temporal locality.
+/// If Ref1 and Ref2 have a constant iteration distance w.r.t IV at \p Level
+/// not exceeding \p MaxDiff then they belong to the same group.
+///
+/// For example-
+/// A[2*i] and A[2*i+2] == true
+/// A[2*i] and A[2*i+1] == false
+/// A[0] and A[1] == true
+static bool isTemporalMatch(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                            unsigned Level, uint64_t MaxDiff) {
   int64_t Diff;
 
   if (!DDRefUtils::getConstIterationDistance(Ref1, Ref2, Level, &Diff)) {
@@ -501,9 +574,14 @@ bool HIRLoopLocality::isTemporalMatch(const RegDDRef *Ref1,
 
 // This is a high level routine to compute different locality.
 void HIRLoopLocality::computeLoopNestLocality(
-    const HLLoop *Loop, const SmallVectorImpl<const HLLoop *> &LoopVec) {
+    const HLLoop *Loop, const SmallVectorImpl<const HLLoop *> &LoopVec,
+    RefGroupVecTy *SpatialGroups) {
 
-  RefGroupVecTy RefGroups;
+  // Clear locality by level.
+  for (auto &Loc : LocalityByLevel) {
+    Loc.clear();
+  }
+
   // Get the Symbase to Memory References.
   LocalityRefGatherer::VectorTy MemRefVec;
   LocalityRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
@@ -520,6 +598,10 @@ void HIRLoopLocality::computeLoopNestLocality(
   LLVM_DEBUG(dbgs() << " End\n");
 
   initTripCountByLevel(LoopVec);
+
+  // Use passed in ref groups, if provided.
+  RefGroupVecTy TmpRefGroups;
+  RefGroupVecTy &RefGroups = SpatialGroups ? *SpatialGroups : TmpRefGroups;
 
   DDRefGrouping::groupVec(
       RefGroups, MemRefVec,
@@ -544,11 +626,6 @@ void HIRLoopLocality::sortedLocalityLoops(
           IsNearPerfect) &&
          "Near perfect loopnest expected!");
   (void)IsNearPerfect;
-
-  // Clear locality by level.
-  for (auto &Loc : LocalityByLevel) {
-    Loc.clear();
-  }
 
   HIRF.getHLNodeUtils().gatherAllLoops(OutermostLoop, SortedLoops);
   computeLoopNestLocality(OutermostLoop, SortedLoops);
@@ -696,4 +773,19 @@ void HIRLoopLocality::populateTemporalLocalityGroups(
       }
     }
   }
+}
+
+void HIRLoopLocality::populateSpatialLocalityGroups(
+    const HLLoop *Lp, RefGroupVecTy &SpatialGroups) {
+  assert(Lp && " Loop parameter is null!");
+  computeLoopLocality(Lp, &SpatialGroups);
+}
+
+uint64_t HIRLoopLocality::getNumCacheLines(const HLLoop *Lp,
+                                           RefGroupVecTy *SpatialGroups) {
+  assert(Lp && " Loop parameter is null!");
+
+  computeLoopLocality(Lp, SpatialGroups);
+
+  return LocalityByLevel[Lp->getNestingLevel() - 1].getNumCacheLines();
 }

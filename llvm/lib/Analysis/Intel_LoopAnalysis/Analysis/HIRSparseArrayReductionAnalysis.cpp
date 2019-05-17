@@ -231,6 +231,9 @@ static bool isMatchedLoadPattern(const RegDDRef *RDDRef,
 
   // Properties checked on the load at instruction <3> | %0 = (@a1)[0][i1];
   // a1[i1] should have no incoming edges from the same loop.
+  if (!isa<LoadInst>(SrcInst->getLLVMInstruction())) {
+      return false;
+  }
 
   const RegDDRef *RRef = SrcInst->getRvalDDRef();
   const CanonExpr *BaseCE = RRef->getBaseCE();

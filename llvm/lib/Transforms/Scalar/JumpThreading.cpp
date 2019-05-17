@@ -30,7 +30,7 @@
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"          // INTEL
 #include "llvm/Analysis/LazyValueInfo.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h" // INTEL
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"   // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -538,7 +538,7 @@ static unsigned getJumpThreadDuplicationCost(
       if (I->isTerminator() && BB == RegionBottom)
         continue;
 
-      if (IntelIntrinsicUtils::isIntelDirective(const_cast<Instruction *>(&*I)))
+      if (IntrinsicUtils::isIntelDirective(const_cast<Instruction *>(&*I)))
         return Threshold + 1;
 
       // Stop scanning the block if we've reached the threshold.

@@ -969,7 +969,7 @@ entry:
 }
 
 ; CHECK-LABEL: @_Z12parallel_forPfi
-; CHECK: bitcast (void (i32*, i32*, i64, float**, i32*, i32*)*
+; CHECK: bitcast (void (i32*, i32*, i64*, float**, i32*, i32*)*
 ; Function Attrs: nounwind uwtable
 define void @_Z12parallel_forPfi(float* %a, i32 %n) #0 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:

@@ -22,7 +22,7 @@
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanPredicator.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanIdioms.h"
@@ -54,6 +54,12 @@ static cl::opt<unsigned> VPlanForceVF(
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
+
+static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
+    "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
+    cl::ZeroOrMore,
+    cl::desc("Print detailed VPlan Cost Model Analysis report for the given "
+             "VF. For testing/debug purposes only."));
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -361,6 +367,36 @@ void LoopVectorizationPlanner::predicate() {
     PredicatedVPlans.insert(VPlan);
   }
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+template <typename CostModelTy>
+void LoopVectorizationPlanner::printCostModelAnalysisIfRequested() {
+  for (unsigned VFRequested : VPlanCostModelPrintAnalysisForVF) {
+    if (!hasVPlanForVF(VFRequested)) {
+      errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
+      continue;
+    }
+    VPlan *Plan = getVPlanForVF(VFRequested);
+#if INTEL_CUSTOMIZATION
+    CostModelTy CM(Plan, VFRequested, TTI, DL, VLSA);
+#else
+    CostModelTy CM(Plan, VFRequested, TTI, DL);
+#endif // INTEL_CUSTOMIZATION
+
+    // If different stages in VPlanDriver were proper passes under pass manager
+    // control it would have been opt's output stream (via "-o" switch). As it
+    // is not so, just pass stdout so that we would not be required to redirect
+    // stderr to Filecheck.
+    CM.print(outs());
+  }
+}
+
+// Explicit instantiations.
+template void
+LoopVectorizationPlanner::printCostModelAnalysisIfRequested<VPlanCostModel>();
+template void LoopVectorizationPlanner::printCostModelAnalysisIfRequested<
+    VPlanCostModelProprietary>();
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 // TODO: Current implementation is too aggressive and may lead to increase of
 // compile time. Also similar changeset in community led to performance drops.

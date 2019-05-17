@@ -159,6 +159,25 @@ void VPlanVLSAnalysis::dump() const {
   for (auto &PI : Plan2VLSInfo)
     dump(PI.first);
 }
+
+void VPVLSClientMemref::print(raw_ostream &Os, const Twine Indent) const {
+  Os << Indent;
+  Os << "OVLSMemref for VPInst ";
+  Inst->print(Os);
+  Os << "[ ";
+  Os << "id = " << getId();
+  Os << " | AccessType: ";
+  getAccessType().print(Os);
+  Os << " | VLSType = ";
+  getType().print(Os);
+  int64_t Stride;
+  Os << " | Stride = ";
+  if (hasAConstStride(&Stride))
+    Os << Stride;
+  else
+    Os << "unknown";
+}
+
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // namespace vpo

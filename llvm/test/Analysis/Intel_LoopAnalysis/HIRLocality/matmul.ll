@@ -17,8 +17,8 @@
 ;     return C[2][3];
 ; }
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-locality-analysis -hir-sorted-locality | FileCheck %s
-; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-locality-analysis>" -hir-sorted-locality -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-locality-analysis -hir-spatial-locality | FileCheck %s
+; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-locality-analysis>" -hir-spatial-locality -disable-output 2>&1 | FileCheck %s
 
 ;
 ; Verify loops in sorted order i(L3)-k(L1)-j(L2) 

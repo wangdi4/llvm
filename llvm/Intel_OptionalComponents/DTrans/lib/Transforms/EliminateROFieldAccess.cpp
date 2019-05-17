@@ -1,6 +1,6 @@
 //===--------------------   EliminateROFieldAccess.cpp   ------------------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -305,7 +305,7 @@ bool EliminateROFieldAccessImpl::visit(BasicBlock *FirstIfBB) {
   // unconditional.
   BranchInst *newBr = BranchInst::Create(MainBB);
   ReplaceInstWithInst(BaseBrInst, newBr);
-  dyn_cast<Instruction>(BaseCond)->eraseFromParent();
+  BaseCond->eraseFromParent();
 
   DeleteDeadBlock(SecondIfBB);
   DeleteDeadBlock(UnreachableBB);

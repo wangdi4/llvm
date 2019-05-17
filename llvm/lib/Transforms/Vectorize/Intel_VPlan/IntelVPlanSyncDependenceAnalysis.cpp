@@ -1,3 +1,4 @@
+#if INTEL_COLLAB
 //===---------------- IntelVPlanSyncDependenceAnalysis.cpp ----------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -608,3 +609,4 @@ SyncDependenceAnalysis::joinBlocks(const VPBlockBase &TermBlock) {
 
 } // namespace vpo
 } // namespace llvm
+#endif //INTEL_COLLAB
