@@ -514,6 +514,12 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
         // Merge returns : this pass ensures that the function has at most one
         // return instruction.
         PM.add(createUnifyFunctionExitNodesPass());
+        PM.add(createCFGSimplificationPass(
+            /* Threshold */ 1, /* ForwardSwitchCond */ false,
+            /* ConvertSwitch */ false, /* KeepLoops */ true,
+            /* SinkCommon */ true));
+        PM.add(createInstructionCombiningPass());
+        PM.add(createGVNHoistPass());
         PM.add(createScalarizerPass(pConfig->GetCpuId()));
         PM.add(createDeadCodeEliminationPass());
 
