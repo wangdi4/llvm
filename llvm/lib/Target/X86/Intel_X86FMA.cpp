@@ -67,10 +67,6 @@ static cl::opt<unsigned> FMAControl("x86-global-fma-control",
 // while this optimization may want to have several levels of dump details.
 static raw_ostream &fmadbgs() { return (!DebugFMAOpt) ? nulls() : dbgs(); }
 
-/// Definition for FMAExprSPCommon's static data.
-const uint8_t FMAExprSPCommon::TermZERO;
-const uint8_t FMAExprSPCommon::TermONE;
-
 namespace {
 
 class FMABasicBlock;

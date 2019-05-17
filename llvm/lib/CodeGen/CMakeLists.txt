@@ -4,6 +4,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   COMPLEMENT LLVM_OPTIONAL_SOURCES
 # Add custom Intel files below.  Files listed here will be included in
 # INTEL_CUSTOMIZATION build.
+  Intel_FMACommon.cpp
   Intel_MIRMatcher.cpp
   Intel_MachineLoopOptReportEmitter.cpp
   )
