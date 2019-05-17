@@ -471,7 +471,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Prints the FMA Performance Descriptor \p PerfDesc to the given stream \p OS.
-static raw_ostream &operator<<(raw_ostream &OS, const FMAPerfDesc &PerfDesc) {
+inline raw_ostream &operator<<(raw_ostream &OS, const FMAPerfDesc &PerfDesc) {
   PerfDesc.print(OS);
   return OS;
 }
@@ -519,7 +519,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Prints the FMA node \p Node to the given stream \p OS.
-static raw_ostream &operator<<(raw_ostream &OS, const FMADag &Dag) {
+inline raw_ostream &operator<<(raw_ostream &OS, const FMADag &Dag) {
   Dag.print(OS);
   return OS;
 }
@@ -584,7 +584,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Prints the FMA SP \p SP to the given stream \p OS.
-static raw_ostream &operator<<(raw_ostream &OS, const FMAExprSP &SP) {
+inline raw_ostream &operator<<(raw_ostream &OS, const FMAExprSP &SP) {
   SP.print(OS);
   return OS;
 }
@@ -633,7 +633,7 @@ public:
 };
 
 /// Prints the FMA node \p Node to the given stream \p OS.
-static raw_ostream &operator<<(raw_ostream &OS, const FMANode &Node) {
+inline raw_ostream &operator<<(raw_ostream &OS, const FMANode &Node) {
   Node.print(OS);
   return OS;
 }
@@ -1655,7 +1655,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Prints the FMA basic block \p FMABB to the given stream \p OS.
-static raw_ostream &operator<<(raw_ostream &OS, const FMABasicBlock &FMABB) {
+inline raw_ostream &operator<<(raw_ostream &OS, const FMABasicBlock &FMABB) {
   FMABB.print(OS);
   return OS;
 }
