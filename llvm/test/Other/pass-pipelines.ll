@@ -60,7 +60,8 @@
 ; PGOUSE: PGOIndirectCallPromotion
 ; PGOUSE: CallGraph Construction
 ; CHECK-O2-NEXT: Globals Alias Analysis
-; INTEL -- Added the pass setting [no]inline list attributes
+; INTEL -- Added two passes: setting inline report and [no]inline list attributes
+; CHECK-O2-NEXT: Setup inlining report
 ; CHECK-O2-NEXT: Set attributes for callsites in [no]inline list
 ; CHECK-O2-NEXT: Call Graph SCC Pass Manager
 ; CHECK-O2-NEXT: Remove unused exception handling info

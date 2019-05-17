@@ -127,8 +127,8 @@ InlineReportTreeNode::insertNewChild(Instruction *CallI, unsigned InsertAt,
   // Update list of callsites for parent inlining report metadata
   SmallVector<Metadata *, 100> Ops;
   Ops.push_back(llvm::MDString::get(C, CallSitesTag));
-  unsigned CSsNumOps = CSs->getNumOperands();
-  if (CSs && CSsNumOps) {
+  if (CSs) {
+    unsigned CSsNumOps = CSs->getNumOperands();
     for (unsigned I = 1; I < CSsNumOps; ++I) {
       if (I == InsertAt + 1)
         Ops.push_back(CSIR->get());

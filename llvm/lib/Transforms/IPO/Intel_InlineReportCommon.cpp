@@ -44,3 +44,26 @@ void llvm::getOpVal(Metadata *Node, StringRef Front, int64_t *Val) {
   Res.getAsInteger(10, *Val);
 }
 
+// Print the inlining option values
+void llvm::printOptionValues(void) {
+  InlineParams Params = llvm::getInlineParams();
+  llvm::errs() << "Option Values:\n";
+  llvm::errs() << "  inline-threshold: " << Params.DefaultThreshold << "\n";
+  llvm::errs() << "  inlinehint-threshold: "
+               << (Params.HintThreshold.hasValue()
+                       ? Params.HintThreshold.getValue()
+                       : 0)
+               << "\n";
+  llvm::errs() << "  inlinecold-threshold: "
+               << (Params.ColdThreshold.hasValue()
+                       ? Params.ColdThreshold.getValue()
+                       : 0)
+               << "\n";
+  llvm::errs() << "  inlineoptsize-threshold: "
+               << (Params.OptSizeThreshold.hasValue()
+                       ? Params.OptSizeThreshold.getValue()
+                       : 0)
+               << "\n";
+  llvm::errs() << "\n";
+}
+

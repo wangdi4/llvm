@@ -1,5 +1,9 @@
+; Inline report
 ; RUN: opt -inlinelists -inline -inline-report=7 -inline-inline-list="main,f1;main,f2,22;f3" -inline-noinline-list="main,f2,21;main,f4,25" < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='inlinelists,cgscc(inline)' -inline-report=7 -inline-inline-list="main,f1;main,f2,22;f3" -inline-noinline-list="main,f2,21;main,f4,25" < %s -S 2>&1 | FileCheck %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inlinelists -inline -inline-report=134 -inline-inline-list="main,f1;main,f2,22;f3" -inline-noinline-list="main,f2,21;main,f4,25" -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='inlinelists,cgscc(inline)' -inline-report=134 -inline-inline-list="main,f1;main,f2,22;f3" -inline-noinline-list="main,f2,21;main,f4,25" -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s
 
 ; Test should force inlining and not inlining functions according to inline and noinline list options.
 

@@ -1,5 +1,9 @@
-; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; Inline report
+; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
+; RUN: opt < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
 
 ; Check that it is OK to inline @h because it has no exception handling.
 ; Check that it is OK to inline @g because it has exception handling but would
@@ -7,18 +11,6 @@
 ; Check that it is OK to inline @foo because it contains a loop that already
 ;  has exception handling.
 
-; CHECK-NEW: COMPILE FUNC: foo
-; CHECK-NEW: INLINE: g{{.*}}<<Callee has single callsite and local linkage>>
-; CHECK-NEW: INLINE: h{{.*}}<<Callee is single basic block>>
-; CHECK-NEW: INLINE: h{{.*}}<<Callee has single callsite and local linkage>>
-; CHECK-NEW: COMPILE FUNC: main
-; CHECK-NEW: INLINE: foo{{.*}}<<Inlining is profitable>>
-; CHECK-NEW: INLINE: g{{.*}}<<Callee has single callsite and local linkage>>
-; CHECK-NEW: INLINE: h{{.*}}<<Callee is single basic block>>
-; CHECK-NEW: INLINE: h{{.*}}<<Callee has single callsite and local linkage>>
-; CHECK-NOT: invoke i32 @foo
-; CHECK-NOT: invoke i32 @g
-; CHECK-NOT: call i32 @h
 ; CHECK-OLD: COMPILE FUNC: foo
 ; CHECK-OLD: INLINE: g{{.*}}<<Callee has single callsite and local linkage>>
 ; CHECK-OLD: INLINE: h{{.*}}<<Callee is single basic block>>
@@ -28,6 +20,18 @@
 ; CHECK-OLD: INLINE: g{{.*}}<<Callee has single callsite and local linkage>>
 ; CHECK-OLD: INLINE: h{{.*}}<<Callee is single basic block>>
 ; CHECK-OLD: INLINE: h{{.*}}<<Callee has single callsite and local linkage>>
+; CHECK-NOT: invoke i32 @foo
+; CHECK-NOT: invoke i32 @g
+; CHECK-NOT: call i32 @h
+; CHECK-NEW: COMPILE FUNC: foo
+; CHECK-NEW: INLINE: g{{.*}}<<Callee has single callsite and local linkage>>
+; CHECK-NEW: INLINE: h{{.*}}<<Callee is single basic block>>
+; CHECK-NEW: INLINE: h{{.*}}<<Callee has single callsite and local linkage>>
+; CHECK-NEW: COMPILE FUNC: main
+; CHECK-NEW: INLINE: foo{{.*}}<<Inlining is profitable>>
+; CHECK-NEW: INLINE: g{{.*}}<<Callee has single callsite and local linkage>>
+; CHECK-NEW: INLINE: h{{.*}}<<Callee is single basic block>>
+; CHECK-NEW: INLINE: h{{.*}}<<Callee has single callsite and local linkage>>
 
 declare dso_local i8* @__cxa_begin_catch(i8*)
 

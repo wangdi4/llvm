@@ -1,10 +1,17 @@
+; Inline report
 ; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; This test checks that the function _ZN12cMessageHeap7shiftupEi is not inlined
 ; because the inlining decision is delayed from the compile step to the link
 ; step of an LTO compilation.
 
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
+; CHECK-MD: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed until link time
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
 ; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
 ; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap11removeFirstEv
 ; CHECK-OLD: _ZN12cMessageHeap7shiftupEi{{.*}}Inline decision is delayed until link time

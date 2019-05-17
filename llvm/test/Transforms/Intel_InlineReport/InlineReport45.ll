@@ -1,10 +1,23 @@
+; Inline report
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=3 -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt < %s -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=3 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=3 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=3 -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; Negative checks for the "struct array args" heuristic.
 
 ; Check that the "array struct args" heuristic is NOT applied for "foo" in the
 ; link step, because "bar" does not have enough formal arguments.
+
+; Both pass managers with metadata-based inline report
+
+; CHECK-MD: COMPILE FUNC: bar
+; CHECK-MD: foo{{.*}}Inlining is not profitable
+; CHECK-MD: foo{{.*}}Inlining is not profitable
+; CHECK-MD: COMPILE FUNC: foo
+; CHECK-MD: call i32 @foo
+; CHECK-MD: call i32 @foo
 
 ; Old pass manager checks
 

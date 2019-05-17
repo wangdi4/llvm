@@ -50,6 +50,13 @@ metadata nodes back to the corresponding instructions if they were unlinked
 during IR processing. Note, if verification fails for some function, a new
 'from scratch' inlining report would be created for it.
 
+Emitter pass
+============
+
+Emitter pass walks over module inline report metadata and outputs inline report
+in a user-friendly form. The format of report depends on the inline report
+level option.
+
 Updating inlining report for functions and call instructions deleted outside of Inliner pass
 ============================================================================================
 

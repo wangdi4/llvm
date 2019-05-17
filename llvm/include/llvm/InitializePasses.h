@@ -75,6 +75,7 @@ void initializeIntel_OpenCLTransforms(PassRegistry&);
 
 void initializeInlineListsPass(PassRegistry&);
 void initializeInlineReportSetupPass(PassRegistry&);
+void initializeInlineReportEmitterPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

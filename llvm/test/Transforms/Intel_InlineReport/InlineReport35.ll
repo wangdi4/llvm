@@ -1,16 +1,20 @@
-; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; Inline report
+; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
+; RUN: opt < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
 
 ; Check that @g is not inlined because it would introduce exception handling
 ; code into a loop in @main which does not already have exception handling.
 ; Check that @h is inlined because it does not have exception handling.
 
-; CHECK-NEW: INLINE: h{{.*}}<<Callee has single callsite and local linkage>>
-; CHECK-NEW: -> g{{.*}}{{\[\[}}Callee has exception handling{{\]\]}}
-; CHECK: call i32 @g
-; CHECK-NOT: call i32 @h
 ; CHECK-OLD: INLINE: h{{.*}}<<Callee has single callsite and local linkage>>
 ; CHECK-OLD: -> g{{.*}}{{\[\[}}Callee has exception handling{{\]\]}}
+; CHECK: call i32 @g
+; CHECK-NOT: call i32 @h
+; CHECK-NEW: INLINE: h{{.*}}<<Callee has single callsite and local linkage>>
+; CHECK-NEW: -> g{{.*}}{{\[\[}}Callee has exception handling{{\]\]}}
 
 declare dso_local i8* @__cxa_begin_catch(i8*)
 

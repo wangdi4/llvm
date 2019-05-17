@@ -59,6 +59,7 @@
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
@@ -718,8 +719,6 @@ void PassManagerBuilder::populateModulePassManager(
   // is handled separately, so just check this is not the ThinLTO post-link.
   bool DefaultOrPreLinkPipeline = !PerformThinLTO;
 
-  if (Inliner)                                                // INTEL
-      MPM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
   if (!PGOSampleUse.empty()) {
     MPM.add(createPruneEHPass());
@@ -738,6 +737,7 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel == 0) {
     addPGOInstrPasses(MPM);
     if (Inliner) {
+      MPM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
       MPM.add(createInlineListsPass()); // INTEL: -[no]inline-list parsing
       MPM.add(Inliner);
       Inliner = nullptr;
@@ -858,6 +858,7 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_CUSTOMIZATION
   if (Inliner) {
+    MPM.add(createInlineReportSetupPass(getMDInlineReport()));
     MPM.add(createInlineListsPass()); // -[no]inline-list parsing
   }
 #endif  // INTEL_CUSTOMIZATION
@@ -1164,6 +1165,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createPromoteMemoryToRegisterPass(true, true));
   MPM.add(createSROAPass());
 #endif // INTEL_FEATURE_CSA
+  MPM.add(createInlineReportEmitterPass(PrepareForLTO || PrepareForThinLTO));
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1535,6 +1537,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addExtensionsToPM(EP_Peephole, PM);
 
   PM.add(createJumpThreadingPass());
+
+#if INTEL_CUSTOMIZATION
+  if (RunInliner)
+    PM.add(createInlineReportEmitterPass(false));
+#endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addLateLTOOptimizationPasses(

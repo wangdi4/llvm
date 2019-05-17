@@ -1,9 +1,35 @@
-; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -inline-threshold=10 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -inline-threshold=10 %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; Inline report
+; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -inline-threshold=10 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -inline-threshold=10 %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -inline-threshold=10 -S | opt -inlinereportemitter -inline-report=134 -inline-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -inline-threshold=10 -S | opt -passes='inlinereportemitter' -inline-report=134 -inline-threshold=10 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; This test checks that the functions _ZN12cMessageHeap12removeFirst*Ev
 ; and _ZN12cMessageHeap7shiftupEi do not inline because they do not pass
 ; the "structure test" heuristic.
+
+; CHECK-MD: COMPILE FUNC: _ZN11cSimulation17selectNextModule1Ev
+; CHECK-MD: _ZN12cMessageHeap12removeFirst1Ev{{.*}}Inlining is not profitable
+; CHECK-MD: _ZN12cMessageHeap12removeFirst1Ev{{.*}}Inlining is not profitable
+; CHECK-MD: COMPILE FUNC: _ZN11cSimulation17selectNextModule2Ev
+; CHECK-MD: _ZN12cMessageHeap12removeFirst2Ev{{.*}}Inlining is not profitable
+; CHECK-MD: _ZN12cMessageHeap12removeFirst2Ev{{.*}}Inlining is not profitable
+; CHECK-MD: COMPILE FUNC: _ZN11cSimulation17selectNextModule3Ev
+; CHECK-MD: _ZN12cMessageHeap12removeFirst3Ev{{.*}}Inlining is not profitable
+; CHECK-MD: _ZN12cMessageHeap12removeFirst3Ev{{.*}}Inlining is not profitable
+; CHECK-MD: COMPILE FUNC: _ZN11cSimulation17selectNextModule4Ev
+; CHECK-MD: _ZN12cMessageHeap12removeFirst4Ev{{.*}}Inlining is not profitable
+; CHECK-MD: _ZN12cMessageHeap12removeFirst4Ev{{.*}}Inlining is not profitable
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst1Ev
+; CHECK-MD: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst2Ev
+; CHECK-MD: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst3Ev
+; CHECK-MD: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst4Ev
+; CHECK-MD: _ZN12cMessageHeap7shiftupEi{{.*}}Inlining is not profitable
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
 
 ; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
 ; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst1Ev
@@ -27,47 +53,26 @@
 ; CHECK-OLD: _ZN12cMessageHeap12removeFirst4Ev{{.*}}Inlining is not profitable
 ; CHECK-OLD: _ZN12cMessageHeap12removeFirst4Ev{{.*}}Inlining is not profitable
 
-; CHECK-OLD-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule1Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap12removeFirst1Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap12removeFirst1Ev
-; CHECK-OLD-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule2Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap12removeFirst2Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap12removeFirst2Ev
-; CHECK-OLD-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule3Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap12removeFirst3Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap12removeFirst3Ev
-; CHECK-OLD-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule4Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap12removeFirst4Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap12removeFirst4Ev
-; CHECK-OLD-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst1Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap7shiftupEi
-; CHECK-OLD-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst2Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap7shiftupEi
-; CHECK-OLD-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst3Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap7shiftupEi
-; CHECK-OLD-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst4Ev
-; CHECK-OLD: call{{.*}}_ZN12cMessageHeap7shiftupEi
-
-; CHECK-NEW-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule1Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap12removeFirst1Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap12removeFirst1Ev
-; CHECK-NEW-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule2Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap12removeFirst2Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap12removeFirst2Ev
-; CHECK-NEW-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule3Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap12removeFirst3Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap12removeFirst3Ev
-; CHECK-NEW-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule4Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap12removeFirst4Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap12removeFirst4Ev
-; CHECK-NEW-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst1Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap7shiftupEi
-; CHECK-NEW-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst2Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap7shiftupEi
-; CHECK-NEW-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst3Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap7shiftupEi
-; CHECK-NEW-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst4Ev
-; CHECK-NEW: call{{.*}}_ZN12cMessageHeap7shiftupEi
+; CHECK-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule1Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap12removeFirst1Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap12removeFirst1Ev
+; CHECK-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule2Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap12removeFirst2Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap12removeFirst2Ev
+; CHECK-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule3Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap12removeFirst3Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap12removeFirst3Ev
+; CHECK-LABEL: define{{.*}}_ZN11cSimulation17selectNextModule4Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap12removeFirst4Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap12removeFirst4Ev
+; CHECK-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst1Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap7shiftupEi
+; CHECK-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst2Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap7shiftupEi
+; CHECK-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst3Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap7shiftupEi
+; CHECK-LABEL: define{{.*}}_ZN12cMessageHeap12removeFirst4Ev
+; CHECK: call{{.*}}_ZN12cMessageHeap7shiftupEi
 
 ; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
 ; CHECK-NEW: COMPILE FUNC: _ZN12cMessageHeap12removeFirst4Ev

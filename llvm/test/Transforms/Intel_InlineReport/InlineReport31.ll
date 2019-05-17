@@ -1,8 +1,25 @@
+; Inline report
 ; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -dtrans-inline-heuristics -pre-lto-inline-cost -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; This test checks that the function _ZN12cMessageHeap7shiftupEi is inlined
 ; because the "delayed inline heuristic" is not enforced.
+
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst1Ev
+; CHECK-MD: INLINE: _ZN12cMessageHeap7shiftupEi
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst2Ev
+; CHECK-MD: INLINE: _ZN12cMessageHeap7shiftupEi
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst3Ev
+; CHECK-MD: INLINE: _ZN12cMessageHeap7shiftupEi
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst4Ev
+; CHECK-MD: INLINE: _ZN12cMessageHeap7shiftupEi
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst5Ev
+; CHECK-MD: INLINE: _ZN12cMessageHeap7shiftupEi
+; CHECK-MD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
+; CHECK-MD-NOT: call{{.*}} _ZN12cMessageHeap7shiftupEi
 
 ; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap7shiftupEi
 ; CHECK-OLD: COMPILE FUNC: _ZN12cMessageHeap12removeFirst1Ev

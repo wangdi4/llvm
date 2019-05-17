@@ -103,6 +103,7 @@ STATISTIC(NumCallerCallersAnalyzed, "Number of caller-callers analyzed");
 ///   32: Print linkage info for each function and call site
 ///   64: Print both early exit and real inlining costs
 ///  128: Create metadata-based inline report
+///  256: Print both compile and link step inline reports
 ///
 cl::opt<unsigned>
 IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),

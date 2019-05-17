@@ -37,8 +37,11 @@ typedef enum {
                  //     (F.hasAvailableExternallyLinkage())
                  //   A: alternate (something other than L, O, or X)
   RealCost = 64, // Compute both real and early exit inlining costs
-  BasedOnMetadata = 128
+  BasedOnMetadata = 128,
                  // Create metadata-based inline report
+  CompLinkReports = 256
+                 // For composite report print both compile and link step
+                 // inline reports
 } InlineReportOptions;
 }
 
@@ -238,7 +241,12 @@ void printIndentCount(unsigned indentCount);
 StringRef getOpStr(Metadata *Node, StringRef Front);
 // Get integer value from metadata consuming 'Front' of the MDString
 void getOpVal(Metadata *Node, StringRef Front, int64_t *Val);
-
+// Print the inlining option values
+void printOptionValues(void);
+// Print function inline report
+void printFunctionInlineReport(Function *F, unsigned Level);
+// Print call site inline report
+void printFunctionInlineReport(Instruction *I, unsigned Level);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INTEL_INLINEREPORTCOMMON_H

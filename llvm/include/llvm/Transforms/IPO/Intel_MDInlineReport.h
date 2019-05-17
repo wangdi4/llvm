@@ -119,7 +119,8 @@ public:
   void addActiveCallSitePair(Instruction *OldCall, Instruction *NewCall) {
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
-    addCallback(NewCall, NewCall->getMetadata(MDInliningReport::FunctionTag));
+    if (NewCall)
+      addCallback(NewCall, NewCall->getMetadata(MDInliningReport::FunctionTag));
   }
 
   // Update the 'OldCall' to 'NewCall' in the ActiveInlinedCalls.
@@ -129,7 +130,9 @@ public:
     for (unsigned I = 0; I < ActiveInlinedCalls.size(); ++I)
       if (ActiveInlinedCalls[I] == OldCall) {
         ActiveInlinedCalls[I] = NewCall;
-        addCallback(NewCall, NewCall->getMetadata(MDInliningReport::FunctionTag));
+        if (NewCall)
+          addCallback(NewCall,
+                      NewCall->getMetadata(MDInliningReport::FunctionTag));
         break;
       }
   }
@@ -237,7 +240,7 @@ public:
 
   MDTuple *get() const { return Report; }
 
-  std::string getName() const {
+  StringRef getName() const {
     if (Report->getNumOperands() < 2)
       return "";
     return llvm::getOpStr(Report->getOperand(1), "name: ");

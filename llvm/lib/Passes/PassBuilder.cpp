@@ -87,6 +87,7 @@
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
@@ -1131,6 +1132,10 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   MPM.addPass(GlobalDCEPass());
   MPM.addPass(ConstantMergePass());
 
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(InlineReportEmitterPass(LTOPreLink));
+#endif // INTEL_CUSTOMIZATION
+
   return MPM;
 }
 
@@ -1569,6 +1574,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   // Now that we have optimized the program, discard unreachable functions.
   MPM.addPass(GlobalDCEPass());
 
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(InlineReportEmitterPass(false));
+#endif // INTEL_CUSTOMIZATION
   // FIXME: Maybe enable MergeFuncs conditionally after it's ported.
   return MPM;
 }

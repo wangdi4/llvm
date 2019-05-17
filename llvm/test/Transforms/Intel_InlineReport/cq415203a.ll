@@ -6,9 +6,15 @@
 ; ModuleID = 'cq415203a.cpp'
 source_filename = "cq415203a.cpp"
 
-; RUN: opt -inline -inline-report=1 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-OLD-PM,CHECK
-; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-NEW-PM,CHECK
+; Inline report
+; RUN: opt -inline -inline-report=1 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-OLD-PM,CHECK
+; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NEW-PM,CHECK
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=128 < %s -S | opt -inline -inline-report=128 -S | opt -inlinereportemitter -inline-report=128 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
+; RUN: opt -passes='inlinereportsetup' -inline-report=128 < %s -S | opt -passes='cgscc(inline)' -inline-report=128 -S | opt -passes='inlinereportemitter' -inline-report=128 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
 
+; CHECK-MD: -> INLINE: {{.*}}bar{{.*}}
+; CHECK-MD: DEAD STATIC FUNC: {{.*}}bar{{.*}}
 ; CHECK-OLD-PM: DEAD STATIC FUNC: {{.*}}bar{{.*}}
 ; CHECK-OLD-PM: -> INLINE: {{.*}}bar{{.*}}
 ; CHECK: define i32 @main()

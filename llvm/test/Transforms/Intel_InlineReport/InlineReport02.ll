@@ -1,5 +1,9 @@
-; RUN: opt -inline -inline-report=3 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=3 < %s -S 2>&1 | FileCheck %s
+; Inline report
+; RUN: opt -inline -inline-report=3 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -passes='cgscc(inline)' -inline-report=3 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=130 < %s -S | opt -inline -inline-report=130 -S | opt -inlinereportemitter -inline-report=130 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -passes='inlinereportsetup' -inline-report=130 < %s -S | opt -passes='cgscc(inline)' -inline-report=130 -S | opt -passes='inlinereportemitter' -inline-report=130 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
 
 ; Generated with clang -c -S -emit-llvm sm1.c
 
@@ -13,11 +17,13 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: DEAD STATIC FUNC: foo
+; CHECK-INLREP: DEAD STATIC FUNC: foo
 
 ; CHECK: COMPILE FUNC: main
 ; CHECK-NEXT: INLINE: foo
 ; CHECK-NEXT: <<Callee is always inline>>
+
+; CHECK-MD-INLREP: DEAD STATIC FUNC: foo
 
 ; Function Attrs: nounwind uwtable
 define i32 @main() #0 {

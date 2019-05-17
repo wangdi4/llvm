@@ -20,6 +20,7 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h" // INTEL
 
 using namespace llvm;
@@ -39,6 +40,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeIPCPPass(Registry);
   initializeAlwaysInlinerLegacyPassPass(Registry);
   initializeInlineListsPass(Registry); // INTEL
+  initializeInlineReportEmitterPass(Registry); // INTEL
   initializeInlineReportSetupPass(Registry); // INTEL
   initializeSimpleInlinerPass(Registry);
   initializeInferFunctionAttrsLegacyPassPass(Registry);
@@ -95,6 +97,9 @@ void LLVMAddInlineListsPass(LLVMPassManagerRef PM) {
 }
 void LLVMAddInlineReportSetupPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInlineReportSetupPass());
+}
+void LLVMAddInlineReportEmitterPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createInlineReportEmitterPass());
 }
 #endif  // INTEL_CUSTOMIZATION
 

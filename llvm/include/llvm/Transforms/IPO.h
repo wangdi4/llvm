@@ -287,6 +287,7 @@ ModulePass *createIPCloningLegacyPass(bool AfterInl = false,
 /// attributes to callsites (for experimental purposes).
 ModulePass *createInlineListsPass();
 ModulePass *createInlineReportSetupPass(InlineReportBuilder *IRB = nullptr);
+ModulePass *createInlineReportEmitterPass(bool PrepareForLTO = false);
 
 /// \brief This pass implements optimization of dynamic_cast calls depending on
 /// the classes hierarchy.

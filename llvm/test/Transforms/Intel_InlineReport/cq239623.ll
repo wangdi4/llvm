@@ -1,5 +1,9 @@
+; Inline report
 ; RUN: opt -inline -inline-report=7  < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7  < %s -S 2>&1 | FileCheck %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -S | opt -passes='inlinereportemitter' -inline-report=134 -S 2>&1 | FileCheck %s
 
 ; CHECK: Begin
 ; CHECK: End Inlining Report

@@ -1,5 +1,9 @@
+; Inline report
 ; RUN: opt -inline -inline-report=7 -disable-output < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -disable-output < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; Inline report via metadata
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-OLD
+; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -S | opt -passes='cgscc(inline)' -inline-report=134 -S | opt -passes='inlinereportemitter' -inline-report=134 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-NEW
 
 ; In this test, foo() is inlined into goo(), producing a self-recursive
 ; function foo() with newly exposed callsites foo() itself.
