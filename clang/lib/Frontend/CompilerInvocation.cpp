@@ -285,6 +285,7 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
   }
 
   Opts.ShowCheckerHelp = Args.hasArg(OPT_analyzer_checker_help);
+  Opts.ShowCheckerHelpHidden = Args.hasArg(OPT_analyzer_checker_help_hidden);
   Opts.ShowConfigOptionsList = Args.hasArg(OPT_analyzer_config_help);
   Opts.ShowEnabledCheckerList = Args.hasArg(OPT_analyzer_list_enabled_checkers);
   Opts.ShouldEmitErrorsOnInvalidConfigValue =
@@ -422,7 +423,7 @@ static void initOption(AnalyzerOptions::ConfigTable &Config,
 
   OptionField = DefaultVal;
   bool HasFailed = getStringOption(Config, Name, std::to_string(DefaultVal))
-                     .getAsInteger(10, OptionField);
+                     .getAsInteger(0, OptionField);
   if (Diags && HasFailed)
     Diags->Report(diag::err_analyzer_config_invalid_input)
       << Name << "an unsigned";

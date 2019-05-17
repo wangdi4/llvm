@@ -2468,6 +2468,12 @@ TEST_F(FormatTest, HashInMacroDefinition) {
 TEST_F(FormatTest, RespectWhitespaceInMacroDefinitions) {
   EXPECT_EQ("#define A (x)", format("#define A (x)"));
   EXPECT_EQ("#define A(x)", format("#define A(x)"));
+
+  FormatStyle Style = getLLVMStyle();
+  Style.SpaceBeforeParens = FormatStyle::SBPO_Never;
+  verifyFormat("#define true ((foo)1)", Style);
+  Style.SpaceBeforeParens = FormatStyle::SBPO_Always;
+  verifyFormat("#define false((foo)0)", Style);
 }
 
 TEST_F(FormatTest, EmptyLinesInMacroDefinitions) {
@@ -2578,6 +2584,12 @@ TEST_F(FormatTest, MacrosWithoutTrailingSemicolon) {
   verifyFormat("VISIT_GL_CALL(GenBuffers, void, (GLsizei n, GLuint* buffers), "
                "(n, buffers))\n",
                getChromiumStyle(FormatStyle::LK_Cpp));
+
+  // See PR41483
+  EXPECT_EQ("/**/ FOO(a)\n"
+            "FOO(b)",
+            format("/**/ FOO(a)\n"
+                   "FOO(b)"));
 }
 
 TEST_F(FormatTest, MacroCallsWithoutTrailingSemicolon) {
@@ -10569,6 +10581,13 @@ TEST_F(FormatTest, AlignConsecutiveDeclarations) {
                "  unsigned c;\n"
                "}",
                Alignment);
+
+  // See PR37175
+  FormatStyle Style = getMozillaStyle();
+  Style.AlignConsecutiveDeclarations = true;
+  EXPECT_EQ("DECOR1 /**/ int8_t /**/ DECOR2 /**/\n"
+            "foo(int a);",
+            format("DECOR1 /**/ int8_t /**/ DECOR2 /**/ foo (int a);", Style));
 }
 
 TEST_F(FormatTest, LinuxBraceBreaking) {
@@ -12851,6 +12870,12 @@ TEST_F(FormatTest, SupportsCRLF) {
                    "should not introduce\r\n"
                    "an extra carriage return\r\n"
                    "*/\r\n"));
+  EXPECT_EQ("/*\r\n"
+            "\r\n"
+            "*/",
+            format("/*\r\n"
+                   "    \r\r\r\n"
+                   "*/"));
 }
 
 TEST_F(FormatTest, MunchSemicolonAfterBlocks) {

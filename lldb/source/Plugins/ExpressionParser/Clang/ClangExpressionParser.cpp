@@ -153,7 +153,7 @@ public:
   }
 
   void HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
-                        const clang::Diagnostic &Info) {
+                        const clang::Diagnostic &Info) override {
     if (m_manager) {
       llvm::SmallVector<char, 32> diag_str;
       Info.FormatDiagnostic(diag_str);
@@ -703,7 +703,7 @@ public:
   ///
   CodeComplete(CompletionRequest &request, clang::LangOptions ops,
                std::string expr, unsigned position)
-      : CodeCompleteConsumer(CodeCompleteOptions(), false),
+      : CodeCompleteConsumer(CodeCompleteOptions()),
         m_info(std::make_shared<GlobalCodeCompletionAllocator>()), m_expr(expr),
         m_position(position), m_request(request), m_desc_policy(ops) {
 
@@ -719,7 +719,7 @@ public:
   }
 
   /// Deregisters and destroys this code-completion consumer.
-  virtual ~CodeComplete() {}
+  ~CodeComplete() override {}
 
   /// \name Code-completion filtering
   /// Check if the result should be filtered out.
@@ -967,8 +967,10 @@ ClangExpressionParser::ParseInternal(DiagnosticManager &diagnostic_manager,
                                *Consumer, TU_Complete, completion_consumer));
   m_compiler->setASTConsumer(std::move(Consumer));
 
-  if (ast_context.getLangOpts().Modules)
+  if (ast_context.getLangOpts().Modules) {
     m_compiler->createModuleManager();
+    m_ast_context->setSema(&m_compiler->getSema());
+  }
 
   ClangExpressionDeclMap *decl_map = type_system_helper->DeclMap();
   if (decl_map) {
@@ -1005,6 +1007,10 @@ ClangExpressionParser::ParseInternal(DiagnosticManager &diagnostic_manager,
         &m_compiler->getSema());
     ParseAST(m_compiler->getSema(), false, false);
   }
+
+  // Make sure we have no pointer to the Sema we are about to destroy.
+  if (ast_context.getLangOpts().Modules)
+    m_ast_context->setSema(nullptr);
   // Destroy the Sema. This is necessary because we want to emulate the
   // original behavior of ParseAST (which also destroys the Sema after parsing).
   m_compiler->setSema(nullptr);
