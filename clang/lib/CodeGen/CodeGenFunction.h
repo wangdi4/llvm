@@ -3531,8 +3531,9 @@ private:
   void EmitLateOutlineOMPLoopDirective(const OMPLoopDirective &S,
                                        OpenMPDirectiveKind Kind);
 
-#if INTEL_CUSTOMIZATION
 public:
+  bool requiresImplicitTask(const OMPExecutableDirective &S);
+#if INTEL_CUSTOMIZATION
   bool IsPrivateCounter(const VarDecl *VD) {
     return VD->isLocalVarDecl() && !LocalDeclMap.count(VD);
   }

@@ -175,4 +175,30 @@ void bar()
                              num_teams(local) thread_limit(local+2)
   for(int i=0; i<16; ++i) { }
 }
+
+//CHECK-LABEL: bar
+void barfoo()
+{
+  int local = 6;
+  //CHECK: [[LO:%.+]] = alloca i32,
+  //CHECK: [[CAP1:%.capture_expr.*]] = alloca i32,
+  //CHECK: [[CAP2:%.capture_expr.*]] = alloca i32,
+  //CHECK: [[T:%tmp]] = alloca i32,
+  //CHECK: [[LB:%.omp.lb]] = alloca i32,
+  //CHECK: [[UB:%.omp.ub]] = alloca i32,
+  //CHECK: [[I:%i]] = alloca i32,
+  //CHECK: "DIR.OMP.TASK"()
+  //CHECK-SAME: "QUAL.OMP.IF"
+  //CHECK-SAME: "QUAL.OMP.TARGET.TASK"()
+  //CHECK-SAME: "QUAL.OMP.DEPEND.IN"(i32* [[LO]])
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[CAP1]])
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[CAP2]])
+  //CHECK: "DIR.OMP.TARGET"()
+  //CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 12)
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[T]])
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[CAP1]])
+  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[CAP2]])
+  #pragma omp target teams distribute num_teams(local) thread_limit(local+2) depend(in:local)
+  for(int i=0; i<16; ++i) { }
+}
 // end INTEL_COLLAB

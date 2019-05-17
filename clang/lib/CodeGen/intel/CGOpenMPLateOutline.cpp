@@ -590,6 +590,8 @@ void OpenMPLateOutliner::addImplicitClauses() {
         emitImplicit(VD, ICK_map_tofrom);
       else
         emitImplicit(VD, ICK_firstprivate);
+    } else if (isImplicitTask(OMPD_task)) {
+      emitImplicit(VD, ICK_firstprivate);
     } else if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared)) {
       // Referenced but not defined in the region: shared
       emitImplicit(VD, ICK_shared);
@@ -1150,6 +1152,9 @@ void OpenMPLateOutliner::emitOMPUntiedClause(const OMPUntiedClause *) {
 void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
   auto DepKind = Cl->getDependencyKind();
 
+  // The depend clause is added to the implicit task only.
+  if (isImplicitTask(OMPD_target))
+    return;
   if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
     ClauseEmissionHelper CEH(*this, OMPC_depend);
     if (DepKind == OMPC_DEPEND_source)
@@ -1363,6 +1368,17 @@ void OpenMPLateOutliner::buildMapQualifier(ClauseStringBuilder &CSB,
 
 void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
   for (const auto *E : C->varlists()) {
+    // When there is a map-chain in the IR for the the map clause, the
+    //  computations for various expressions used in the map-chain are to be
+    //  emitted after the implicit task, and before the target directive
+    if (const VarDecl *PVD = getExplicitVarDecl(E)) {
+      if (isImplicitTask(OMPD_task)) {
+        ImplicitMap.insert(std::make_pair(PVD, ICK_shared));
+        continue;
+      } else {
+        addExplicit(PVD);
+      }
+    }
     SmallVector<CGOpenMPRuntime::MapInfo, 4> Info;
     {
       // Generate map values and emit outside the current directive.
@@ -1370,8 +1386,6 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
                                /*EmitClause=*/false);
       CGOpenMPRuntime::getLOMapInfo(Directive, CGF, C, E, Info);
     }
-    if (const VarDecl *PVD = getExplicitVarDecl(E))
-      addExplicit(PVD);
     if (Info.size() == 1 && Info[0].Base == Info[0].Pointer) {
       // This is the simple non-aggregate case.
       ClauseEmissionHelper CEH(*this, OMPC_map);
@@ -1642,6 +1656,17 @@ void OpenMPLateOutliner::emitOMPTargetExitDataDirective() {
 }
 void OpenMPLateOutliner::emitOMPTaskDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.TASK", "DIR.OMP.END.TASK", OMPD_task);
+  if (CGF.requiresImplicitTask(Directive)) {
+    bool NeedIf = Directive.hasClausesOfKind<OMPDependClause>();
+    NeedIf = NeedIf && !Directive.hasClausesOfKind<OMPNowaitClause>();
+    if (NeedIf) {
+      ClauseEmissionHelper CEH(*this, OMPC_if);
+      addArg("QUAL.OMP.IF");
+      addArg(CGF.Builder.getInt32(0));
+    }
+    ClauseEmissionHelper CEH(*this, OMPC_unknown);
+    addArg("QUAL.OMP.TARGET.TASK");
+  }
 }
 void OpenMPLateOutliner::emitOMPTaskGroupDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.TASKGROUP", "DIR.OMP.END.TASKGROUP",
@@ -1734,11 +1759,24 @@ void OpenMPLateOutliner::emitOMPCancellationPointDirective(
   addArg(CSB.getString());
 }
 
+/// return true if clause is not allowed in current pragma.
+bool OpenMPLateOutliner::shouldSkipExplicitClause(OpenMPClauseKind Kind) {
+  if (isImplicitTask(OMPD_target)) {
+    return Kind == OMPC_depend ||
+           !isAllowedClauseForDirective(CurrentDirectiveKind, Kind);
+  }
+  if (isImplicitTask(OMPD_task)) {
+    return Kind != OMPC_map &&
+           !isAllowedClauseForDirective(CurrentDirectiveKind, Kind);
+  }
+  return !isAllowedClauseForDirective(CurrentDirectiveKind, Kind);
+}
+
 OpenMPLateOutliner &OpenMPLateOutliner::
 operator<<(ArrayRef<OMPClause *> Clauses) {
   for (auto *C : Clauses) {
     OpenMPClauseKind ClauseKind = C->getClauseKind();
-    if (!isAllowedClauseForDirective(CurrentDirectiveKind, ClauseKind))
+    if (shouldSkipExplicitClause(ClauseKind))
       continue;
     switch (ClauseKind) {
 #define OPENMP_CLAUSE(Name, Class)                                             \
@@ -1774,6 +1812,13 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   case OMPD_target_teams_distribute_simd:
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
+  case OMPD_target:
+  case OMPD_target_enter_data:
+  case OMPD_target_exit_data:
+  case OMPD_target_update:
+    if (S.hasClausesOfKind<OMPDependClause>() ||
+        S.hasClausesOfKind<OMPNowaitClause>())
+      return Kind == OMPD_task;
     return Kind == OMPD_target;
 
   case OMPD_teams_distribute:
@@ -1865,6 +1910,26 @@ void CGLateOutlineOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF,
   CGF.EHStack.popTerminate();
 }
 
+/// Return true if processing the part of an implicit task corresponding to K.
+bool OpenMPLateOutliner::isImplicitTask(OpenMPDirectiveKind K) {
+  if (!CGF.requiresImplicitTask(Directive))
+     return false;
+   return K == CurrentDirectiveKind;
+}
+
+/// Return true if Directive require implicit task to be generated.
+bool CodeGenFunction::requiresImplicitTask(
+    const OMPExecutableDirective &Directive) {
+  if ((isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()) ||
+       Directive.getDirectiveKind() == OMPD_target_enter_data ||
+       Directive.getDirectiveKind() == OMPD_target_exit_data ||
+       Directive.getDirectiveKind() == OMPD_target_update) &&
+      (Directive.hasClausesOfKind<OMPDependClause>() ||
+       Directive.hasClausesOfKind<OMPNowaitClause>()))
+    return true;
+  return false;
+}
+
 /// Retrieve the value of the context parameter.
 llvm::Value *CGLateOutlineOpenMPRegionInfo::getContextValue() const {
   if (OldCSI)
@@ -1894,6 +1959,14 @@ FieldDecl *CGLateOutlineOpenMPRegionInfo::getThisFieldDecl() const {
 
 static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
                                              OpenMPDirectiveKind CurrDirKind) {
+  if (CurrDirKind == OMPD_task) {
+    if (FullDirKind == OMPD_target_enter_data ||
+        FullDirKind == OMPD_target_exit_data ||
+        FullDirKind == OMPD_target_update)
+      return FullDirKind;
+    return OMPD_target;
+  }
+
   switch (FullDirKind) {
   case OMPD_target_parallel:
     // OMPD_target -> OMPD_parallel
@@ -1961,6 +2034,11 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
       return OMPD_distribute_parallel_for_simd;
     return OMPD_unknown;
 
+  case OMPD_target:
+  case OMPD_target_enter_data:
+  case OMPD_target_exit_data:
+  case OMPD_target_update:
+    return OMPD_unknown;
   default:
     llvm_unreachable("Unhandled combined directive.");
   }
@@ -2147,6 +2225,10 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
       switch (NextKind) {
         case OMPD_parallel:
         case OMPD_teams:
+        case OMPD_target:
+        case OMPD_target_enter_data:
+        case OMPD_target_exit_data:
+        case OMPD_target_update:
           return EmitLateOutlineOMPDirective(S, NextKind);
         case OMPD_parallel_for:
         case OMPD_parallel_for_simd:
