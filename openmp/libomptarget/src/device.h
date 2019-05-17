@@ -153,7 +153,6 @@ struct DeviceTy {
       int32_t ThreadLimit, uint64_t LoopTripCount);
 #if INTEL_COLLAB
   void *data_alloc_base(int64_t Size, void *HstPtrBegin, void *HstPtrBase);
-  void *data_lookup(void *TgtPtr, int64_t Offset);
   int32_t data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
                              int64_t Size, void *AsyncData);
   int32_t data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,

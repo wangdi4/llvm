@@ -1,10 +1,9 @@
 #if INTEL_COLLAB
-//===----RTLs/spir/src/rtl.cpp - Target RTLs Implementation ------- C++ -*-===//
+//===--- Target RTLs Implementation ---------------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.txt for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -37,6 +36,10 @@
 #define GETNAME2(name) #name
 #define GETNAME(name) GETNAME2(name)
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
+#ifndef USE_SVM_MEMCPY
+#define USE_SVM_MEMCPY 0
+#endif
 
 #ifdef OMPTARGET_DEBUG
 static int DebugLevel = 0;
@@ -157,13 +160,6 @@ typedef struct {
   int64_t stride; // The stride of the i-th loop
 } TgtLoopDescTy;
 
-/// Buffer
-typedef struct {
-  cl_mem base;   // Base buffer this buffer is based on
-  size_t offset; // Offset from the base buffer
-  std::vector<cl_mem> children; // Child buffers
-} TgtBufferTy;
-
 typedef enum {
   PROFILE_ENABLED = 0x1,
   PROFILE_UNIT_USEC = 0x2,
@@ -221,6 +217,12 @@ struct RTLProfileTy {
   }
 };
 
+/// Data for handling asynchronous calls.
+struct AsyncEventTy {
+  void (*handler)(void *); // Handler for the event
+  void *arg;               // Argument to the handler
+};
+
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
 
@@ -234,7 +236,7 @@ public:
   std::vector<cl_context> CTX;
   std::vector<cl_command_queue> Queues;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
-  std::vector<std::map<cl_mem, TgtBufferTy> > Buffers;
+  std::vector<std::map<void *, void *> > BaseBuffers;
 
   int64_t flag;
   const int64_t DEVICE_LIMIT_NUM_WORK_GROUPS = 0x1;
@@ -314,7 +316,7 @@ public:
     CTX.resize(numDevices);
     Queues.resize(numDevices);
     FuncGblEntries.resize(numDevices);
-    Buffers.resize(numDevices);
+    BaseBuffers.resize(numDevices);
 
     // get device specific information
     for (unsigned i = 0; i < numDevices; i++) {
@@ -522,13 +524,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       auto HostAddr = image->EntriesBegin[i].addr;
       auto Name = image->EntriesBegin[i].name;
       auto Size = image->EntriesBegin[i].size;
-      cl_mem Buffer = (cl_mem)__tgt_rtl_data_alloc_base(device_id, Size,
-                                                        HostAddr, HostAddr);
-      __tgt_rtl_data_submit(device_id, Buffer, HostAddr, Size);
+      void *TgtAddr = __tgt_rtl_data_alloc(device_id, Size, HostAddr);
+      __tgt_rtl_data_submit(device_id, TgtAddr, HostAddr, Size);
       DP("Global variable allocated: Name = %s, Size = %" PRIu64
          ", HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
-         Name, (uint64_t)Size, DPxPTR(HostAddr), DPxPTR(Buffer));
-      entries[i].addr = Buffer;
+         Name, (uint64_t)Size, DPxPTR(HostAddr), DPxPTR(TgtAddr));
+      entries[i].addr = TgtAddr;
       entries[i].name = Name;
       entries[i].size = Size;
 #endif  // INTEL_CUSTOMIZATION
@@ -575,7 +576,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
 void event_callback_completed(cl_event event, cl_int status, void *data) {
   if (status == CL_SUCCESS) {
-    assert(data && "bad task object for the target");
+
+    AsyncEventTy *async_event = (AsyncEventTy *)data;
+    if (!async_event->handler || !async_event->arg) {
+      DP("Error: Invalid asynchronous offloading event\n");
+      return;
+    }
 
     if (profile.flags & PROFILE_ENABLED) {
       cl_command_type cmd;
@@ -597,89 +603,88 @@ void event_callback_completed(cl_event event, cl_int status, void *data) {
       profile.update(event_name, event);
     }
 
-    const char *entry = "__kmpc_proxy_task_completed_ooo";
-    void (*ptask_completed)(void *) = nullptr;
-    *((void **)&ptask_completed) = dlsym(RTLD_DEFAULT, entry);
-    if (ptask_completed) {
-      DP("Calling %s(task=%p)\n", entry, data);
-      ptask_completed(data);
-    } else {
-      DP("Error: Cannot find the entry, %s.\n", entry);
-    }
+    // Libomptarget is responsible for defining the handler and argument.
+    DP("Calling asynchronous offloading event handler " DPxMOD
+       " with argument " DPxMOD "\n", DPxPTR(async_event->handler),
+       DPxPTR(async_event->arg));
+    async_event->handler(async_event->arg);
+
   } else {
     DP("Error: Failed to complete asynchronous offloading.\n");
   }
 }
 
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
-  cl_int status;
-  cl_mem mem = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_READ_WRITE,
-                              size, NULL, &status);
-  if (status != CL_SUCCESS) {
-    DP("Error: Failed to allocate memory: %d\n", status);
-    return NULL;
-  }
-  return mem;
+  return __tgt_rtl_data_alloc_base(device_id, size, hst_ptr, hst_ptr);
 }
 
-// Allocate a base and sub buffer (if necessary) with the given information.
+// Allocate a base buffer with the given information.
 void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
                                 void *hst_base) {
-  cl_int rc;
   intptr_t offset = (intptr_t)hst_ptr - (intptr_t)hst_base;
   if (offset < 0) {
     DP("Error: Failed to create base buffer due to invalid array section\n");
     return nullptr;
   }
-  cl_mem base = clCreateBuffer(DeviceInfo.CTX[device_id], CL_MEM_READ_WRITE,
-                               size + offset, nullptr, &rc);
-  if (rc != CL_SUCCESS) {
-    DP("Error: Failed to create base buffer, %d, %s\n", rc, getCLErrorName(rc));
+  void *base = clSVMAlloc(DeviceInfo.CTX[device_id], CL_MEM_READ_WRITE,
+                          size + offset, 0);
+  if (!base) {
+    DP("Error: Failed to allocate base buffer\n");
     return nullptr;
   }
   DP("Created base buffer " DPxMOD " during data alloc\n", DPxPTR(base));
 
-  std::map<cl_mem, TgtBufferTy> &buffers = DeviceInfo.Buffers[device_id];
-  buffers[base] = {base, 0};
+  void *ret = (void *)((intptr_t)base + offset);
 
-  if (offset == 0) {
-    return base;
-  }
+  // Store base pointer if returning something else
+  if (offset != 0)
+    DeviceInfo.BaseBuffers[device_id][ret] = base;
 
-  cl_buffer_region region = {(size_t)offset, (size_t)size};
-  cl_mem mem = clCreateSubBuffer(base, CL_MEM_READ_WRITE,
-                                 CL_BUFFER_CREATE_TYPE_REGION, &region, &rc);
-  if (rc != CL_SUCCESS) {
-    DP("Error: Failed to create sub buffer, %d, %s\n", rc, getCLErrorName(rc));
-    return nullptr;
-  }
-  DP("Created sub buffer " DPxMOD " --> " DPxMOD " during data alloc\n",
-     DPxPTR(base), DPxPTR(mem));
-
-  buffers[mem] = {base, (size_t)offset};
-  buffers[base].children.push_back(mem);
-
-  return mem;
+  return ret;
 }
 
 int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
                                      void *hst_ptr, int64_t size,
-                                     void *async_data) {
-  cl_event completed;
-
-  if (async_data) {
-    INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
-                       (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
-                       &completed);
-    INVOKE_CL_RET_FAIL(clSetEventCallback, completed, CL_COMPLETE,
-                       &event_callback_completed, async_data);
+                                     void *async_event) {
+  cl_command_queue queue = DeviceInfo.Queues[device_id];
+  cl_device_id id = DeviceInfo.deviceIDs[device_id];
+#if USE_SVM_MEMCPY
+  cl_event event;
+  if (async_event) {
+    INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, tgt_ptr, hst_ptr,
+                       size, 0, nullptr, &event);
+    if (((AsyncEventTy *)async_event)->handler) {
+      // Add event handler if necessary.
+      INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_event);
+    } else {
+      // Make sure all queued commands finish before the next one starts.
+      INVOKE_CL_RET_FAIL(clEnqueueBarrierWithWaitList, queue, 0, nullptr,
+                         nullptr);
+    }
   } else {
-    INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, DeviceInfo.Queues[device_id],
-                       (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
-                       &completed);
+    INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
+                       size, 0, nullptr, &event);
     if (profile.flags & PROFILE_ENABLED)
-      profile.update("DATA-WRITE", completed);
+      profile.update("DATA-WRITE", event);
   }
+#else
+  // No asynchronous data copy here since we use map/unmap as explicit
+  // synchronization points.
+  cl_ulong begin, end, dummy;
+  if (profile.flags & PROFILE_ENABLED)
+    INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &begin, &dummy);
+
+  INVOKE_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
+                     size, 0, nullptr, nullptr);
+  memcpy(tgt_ptr, hst_ptr, size);
+  INVOKE_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
+
+  if (profile.flags & PROFILE_ENABLED) {
+    INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &end, &dummy);
+    profile.update("DATA-WRITE", end - begin);
+  }
+#endif
   return OFFLOAD_SUCCESS;
 }
 
@@ -691,22 +696,46 @@ int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
 
 int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
                                        void *tgt_ptr, int64_t size,
-                                       void *async_data) {
-  cl_event completed;
-
-  if (async_data) {
-    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
-                       (cl_mem)tgt_ptr, CL_FALSE, 0, size, hst_ptr, 0, nullptr,
-                       &completed);
-    INVOKE_CL_RET_FAIL(clSetEventCallback, completed, CL_COMPLETE,
-                       &event_callback_completed, async_data);
+                                       void *async_event) {
+  cl_command_queue queue = DeviceInfo.Queues[device_id];
+  cl_device_id id = DeviceInfo.deviceIDs[device_id];
+#if USE_SVM_MEMCPY
+  cl_event event;
+  if (async_event) {
+    INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, hst_ptr, tgt_ptr,
+                       size, 0, nullptr, &event);
+    if (((AsyncEventTy *)async_event)->handler) {
+      // Add event handler if necessary.
+      INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_event);
+    } else {
+      // Make sure all queued commands finish before the next one starts.
+      INVOKE_CL_RET_FAIL(clEnqueueBarrierWithWaitList, queue, 0, nullptr,
+                         nullptr);
+    }
   } else {
-    INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, DeviceInfo.Queues[device_id],
-                       (cl_mem)tgt_ptr, CL_TRUE, 0, size, hst_ptr, 0, nullptr,
-                       &completed);
+    INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
+                       size, 0, nullptr, &event);
     if (profile.flags & PROFILE_ENABLED)
-      profile.update("DATA-READ", completed);
+      profile.update("DATA-READ", event);
   }
+#else
+  // No asynchronous data copy here since we use map/unmap as explicit
+  // synchronization points.
+  cl_ulong begin, end, dummy;
+  if (profile.flags & PROFILE_ENABLED)
+    INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &begin, &dummy);
+
+  INVOKE_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
+                     size, 0, nullptr, nullptr);
+  memcpy(hst_ptr, tgt_ptr, size);
+  INVOKE_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
+
+  if (profile.flags & PROFILE_ENABLED) {
+    INVOKE_CL_RET_FAIL(clGetDeviceAndHostTimer, id, &end, &dummy);
+    profile.update("DATA-READ", end - begin);
+  }
+#endif
   return OFFLOAD_SUCCESS;
 }
 
@@ -717,90 +746,27 @@ int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
 }
 
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
-  std::map<cl_mem, TgtBufferTy> &buffers = DeviceInfo.Buffers[device_id];
-  TgtBufferTy &buffer = buffers[(cl_mem)tgt_ptr];
-
-  if (buffer.base != tgt_ptr)
-    buffer = buffers[buffer.base];
-
-  // Release child buffers first
-  for (auto child : buffer.children) {
-    INVOKE_CL_RET_FAIL(clReleaseMemObject, child);
-    buffers.erase(child);
-  }
-  INVOKE_CL_RET_FAIL(clReleaseMemObject, buffer.base);
-  buffers.erase(buffer.base);
+  std::map<void *, void *> &bases = DeviceInfo.BaseBuffers[device_id];
+  void *base = tgt_ptr;
+  auto I = bases.find(tgt_ptr);
+  if (I != bases.end())
+    bases.erase(I);
+  clSVMFree(DeviceInfo.CTX[device_id], base);
   return OFFLOAD_SUCCESS;
-}
-
-// Look up or allocate a sub buffer with the given information
-void *__tgt_rtl_data_lookup(int32_t device_id, void *tgt_ptr, int64_t offset) {
-  if (offset < 0) {
-    DP("Error: Data lookup failed due to negative offset\n");
-    return nullptr;
-  }
-  if (offset == 0) {
-    DP("Reusing existing buffer " DPxMOD "\n", DPxPTR(tgt_ptr));
-    return tgt_ptr;
-  }
-  if (DeviceInfo.Buffers[device_id].count((cl_mem)tgt_ptr) == 0) {
-    DP("Error: Data lookup failed with invalid buffer " DPxMOD "\n",
-       DPxPTR(tgt_ptr));
-    return nullptr;
-  }
-
-  cl_int rc;
-  std::map<cl_mem, TgtBufferTy> &buffers = DeviceInfo.Buffers[device_id];
-  TgtBufferTy &buffer = buffers[(cl_mem)tgt_ptr];
-  size_t offset_orig = offset + buffer.offset;
-
-  if (offset_orig == 0) {
-    DP("Reusing existing base buffer " DPxMOD "\n", DPxPTR(buffer.base));
-    return buffer.base;
-  }
-
-  cl_buffer_region region = {offset_orig, 1};
-  cl_mem ret = clCreateSubBuffer(buffer.base, CL_MEM_READ_WRITE,
-                                 CL_BUFFER_CREATE_TYPE_REGION, &region, &rc);
-  if (rc != CL_SUCCESS) {
-    DP("Error: Data lookup failed with error code %d, %s\n", rc,
-       getCLErrorName(rc));
-    return nullptr;
-  }
-  DP("Created sub buffer " DPxMOD " --> " DPxMOD " during data lookup\n",
-     DPxPTR(buffer.base), DPxPTR(ret));
-
-  buffers[ret] = {buffer.base, offset_orig};
-  buffers[buffer.base].children.push_back(ret);
-
-  return (void *)ret;
 }
 
 static inline int32_t run_target_team_nd_region(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
-    int32_t thread_limit, void *loop_desc, void *async_data) {
+    int32_t thread_limit, void *loop_desc, void *async_event) {
 
   cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
 
   // set kernel args
   std::vector<void *> ptrs(num_args);
   for (int32_t i = 0; i < num_args; ++i) {
-    if (tgt_offsets[i]) {
-      // Look up the buffer object for the base address
-      if (DeviceInfo.Buffers[device_id].count((cl_mem)tgt_args[i]) == 0) {
-        DP("Error: Cannot find valid buffer information for " DPxMOD "\n",
-           DPxPTR(tgt_args[i]));
-        return OFFLOAD_FAIL;
-      }
-      const TgtBufferTy &buffer =
-          DeviceInfo.Buffers[device_id][(cl_mem)tgt_args[i]];
-      ptrs[i] = (void *)__tgt_rtl_data_lookup(device_id, buffer.base,
-                                              buffer.offset + tgt_offsets[i]);
-    } else {
-      ptrs[i] = tgt_args[i];
-    }
-    INVOKE_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(cl_mem), &ptrs[i]);
+    ptrs[i] = (void *)((intptr_t)tgt_args[i] + tgt_offsets[i]);
+    INVOKE_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptrs[i]);
     DP("Kernel Arg %d set successfully\n", i);
   }
 
@@ -871,9 +837,16 @@ static inline int32_t run_target_team_nd_region(
 
   DP("Started executing kernel.\n");
 
-  if (async_data) {
-    INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
-                       &event_callback_completed, async_data);
+  if (async_event) {
+    if (((AsyncEventTy *)async_event)->handler) {
+      // Add event handler if necessary.
+      INVOKE_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_event);
+    } else {
+      // Make sure all queued commands finish before the next one starts.
+      INVOKE_CL_RET_FAIL(clEnqueueBarrierWithWaitList,
+                         DeviceInfo.Queues[device_id], 0, nullptr, nullptr);
+    }
   } else {
     if (profile.flags & PROFILE_ENABLED) {
       char buf[80];
@@ -904,28 +877,28 @@ __tgt_rtl_run_target_team_nd_region(int32_t device_id, void *tgt_entry_ptr,
 int32_t __tgt_rtl_run_target_team_nd_region_nowait(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
-    int32_t thread_limit, void *loop_desc, void *async_data) {
+    int32_t thread_limit, void *loop_desc, void *async_event) {
   return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
                                    tgt_offsets, num_args, num_teams,
-                                   thread_limit, loop_desc, async_data);
+                                   thread_limit, loop_desc, async_event);
 }
 
 int32_t __tgt_rtl_run_target_team_region_nowait(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
-    int32_t thread_limit, uint64_t loop_tripcount, void *async_data) {
+    int32_t thread_limit, uint64_t loop_tripcount, void *async_event) {
   return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
                                    tgt_offsets, arg_num, team_num, thread_limit,
-                                   nullptr, async_data);
+                                   nullptr, async_event);
 }
 
 int32_t __tgt_rtl_run_target_region_nowait(int32_t device_id,
                                            void *tgt_entry_ptr, void **tgt_args,
                                            ptrdiff_t *tgt_offsets,
-                                           int32_t arg_num, void *async_data) {
+                                           int32_t arg_num, void *async_event) {
   return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
                                    tgt_offsets, arg_num, 1, 0, nullptr,
-                                   async_data);
+                                   async_event);
 }
 
 int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,

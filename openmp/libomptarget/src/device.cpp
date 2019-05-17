@@ -171,12 +171,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     if (UpdateRefCount)
       ++HT.RefCount;
 
-#if INTEL_COLLAB
-    uintptr_t tp = (uintptr_t)data_lookup((void *)HT.TgtPtrBegin,
-        (uintptr_t)HstPtrBegin - HT.HstPtrBegin);
-#else
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
-#endif // INTEL_COLLAB
     DP("Mapping exists%s with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
         "Size=%ld,%s RefCount=%s\n", (IsImplicit ? " (implicit)" : ""),
         DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
@@ -223,12 +218,7 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     if (HT.RefCount > 1 && UpdateRefCount)
       --HT.RefCount;
 
-#if INTEL_COLLAB
-    uintptr_t tp = (uintptr_t)data_lookup((void *)HT.TgtPtrBegin,
-        (uintptr_t)HstPtrBegin - HT.HstPtrBegin);
-#else
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
-#endif // INTEL_COLLAB
     DP("Mapping exists with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
         "Size=%ld,%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
         (UpdateRefCount ? " updated" : ""),
@@ -352,12 +342,6 @@ void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
   if (!RTL->data_alloc_base)
     return RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
   return RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase);
-}
-
-void *DeviceTy::data_lookup(void *TgtPtr, int64_t Offset) {
-  if (!RTL->data_lookup)
-    return (void *)((uintptr_t)TgtPtr + Offset);
-  return RTL->data_lookup(RTLDeviceID, TgtPtr, Offset);
 }
 
 int32_t DeviceTy::data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,

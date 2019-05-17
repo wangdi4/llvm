@@ -126,9 +126,6 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.data_alloc_base) =
               dlsym(dynlib_handle, "__tgt_rtl_data_alloc_base")))
       DP("Optional interface: __tgt_rtl_data_alloc_base\n");
-    if ((*((void **)&R.data_lookup) =
-              dlsym(dynlib_handle, "__tgt_rtl_data_lookup")))
-      DP("Optional interface: __tgt_rtl_data_lookup\n");
     if ((*((void **)&R.run_team_nd_region) =
               dlsym(dynlib_handle, "__tgt_rtl_run_target_team_nd_region")))
       DP("Optional interface: __tgt_rtl_run_target_team_nd_region\n");
