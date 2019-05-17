@@ -270,7 +270,7 @@ static void removeCSAMemoryFunctionsFromUsedList(Module &M, Function *CSAMalloc,
 // Function to delete all csa_mem* functions if needed
 static void deleteCSAMemoryFunctions(Function *CSAMalloc,
                                      Function *CSAFree, Function *CSAInitialize) {
-  if (!CSAMalloc->use_empty()) return;
+  if (CSAMalloc && !CSAMalloc->use_empty()) return;
   if (CSAMalloc)     { CSAMalloc->eraseFromParent(); }
   if (CSAFree)       { CSAFree->eraseFromParent(); }
   if (CSAInitialize) { CSAInitialize->eraseFromParent(); }
