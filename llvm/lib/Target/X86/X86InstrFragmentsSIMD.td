@@ -369,7 +369,10 @@ def X86Movsd : SDNode<"X86ISD::MOVSD", SDTShuff2OpFP>;
 def X86Movss : SDNode<"X86ISD::MOVSS", SDTShuff2OpFP>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-def X86Movsh : SDNode<"X86ISD::MOVSH", SDTShuff2OpFP>;
+def X86Movsh : SDNode<"X86ISD::MOVSH",
+                      SDTypeProfile<1, 2, [SDTCisVT<0, v8f16>,
+                                           SDTCisVT<1, v8f16>,
+                                           SDTCisVT<2, v8f16>]>>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
