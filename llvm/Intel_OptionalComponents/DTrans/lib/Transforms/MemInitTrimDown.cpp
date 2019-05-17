@@ -29,6 +29,12 @@ using namespace llvm;
 
 #define DTRANS_MEMINITTRIMDOWN "dtrans-meminittrimdown"
 
+// This option is used for testing.
+cl::opt<bool>
+    DTransMemInitRecognizeAll("dtrans-meminit-recognize-all", cl::init(true),
+                              cl::Hidden,
+                              cl::desc("Recognize All member functions"));
+
 namespace {
 
 class DTransMemInitTrimDownWrapper : public ModulePass {
@@ -185,6 +191,9 @@ private:
   // This is the index where pointer of actual array is saved.
   int32_t ArrayField = -1;
 
+  // Index of "flag" field in vector class.
+  int32_t FlagField = -1;
+
   // Store instruction (in Constructor) where "capacity" field is
   // initialized.
   StoreInst *CapacityInitInst = nullptr;
@@ -198,6 +207,10 @@ private:
   // While recognizing functionality of member functions, this is used
   // to maintain all processed instructions.
   SmallPtrSet<const Instruction *, 32> Visited;
+
+  // Mapping between member function and its actual functionality that
+  // is recognized by analyzing the function.
+  DenseMap<Function *, FunctionKind> FinalFuncKind;
 
   void collectElementDataTypes();
   bool checkDominatorInfo(Instruction *, Instruction *);
@@ -213,11 +226,37 @@ private:
   bool isIndirectCallCheck(Value *, Argument *);
   bool checkAllocatedArrayPtr(Value *, Argument *);
   bool checkBBControlledUnderCapacityVal(BasicBlock *, Argument *);
+  bool checkBBControlledUnderFlagVal(BasicBlock *, Argument *);
   bool checkMemset(SmallPtrSet<Value *, 4>, Argument *);
   bool checkAllInstsProcessed(Function *,
                               SmallPtrSetImpl<const Instruction *> &);
+  Value *isIntegerArgument(Value *);
+  Value *isArrayElementAt(const Value *, Argument *, bool);
+  Value *isArrayElementLoadAt(const Value *, Argument *, bool);
+  Value *isArrayElementAddressAt(Value *, Type *, Argument *, bool);
+  bool checkCompleteObjPtr(const Value *, Argument *);
+  bool checkEHBlock(BasicBlock *, Argument *);
+  bool isEHRelatedBB(BasicBlock *, Argument *);
+  bool isControlledUnderSizeCheck(BasicBlock *, Argument *, Value *);
+  FreeCallInfo *getFreeCall(Instruction *I);
+  const Value *checkFree(FreeCallInfo *, Argument *, BasicBlock **);
+  const Value *getFreeArg(FreeCallInfo *);
+  Value *checkCondition(BasicBlock *, BasicBlock *);
+  bool checkZTT(BasicBlock *, Argument *);
+  Loop *checkLoop(Value *, Argument *, LoopInfo &);
+  ReturnInst *getSingleRetInst(Function *);
+  void collectStoreInstsFreeCalls(Function *, SmallPtrSet<BasicBlock *, 16> &,
+                                  SmallPtrSet<StoreInst *, 1> &,
+                                  SmallPtrSet<FreeCallInfo *, 4> &);
   FunctionKind recognizeConstructor(Function *);
   FunctionKind recognizeDerivedConstructor(Function *, Type *, Type *);
+  FunctionKind recognizeGetSizeOrCapacity(Function *);
+  FunctionKind recognizeGetElem(Function *);
+  FunctionKind recognizeSetElem(Function *);
+  FunctionKind recognizeDestructor(Function *);
+  FunctionKind recognizeCopyConstructor();
+  FunctionKind recognizeAppendElem();
+  FunctionKind recognizeResize();
 };
 
 // Element of array can be a struct but member functions like SetElem,
@@ -354,9 +393,28 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
 // Ex:
 // getelementptr %"class.Base", %"class.Base"* %Obj, i64 0, i32 1
 //
+// or
+//
+// %b = getelementptr %"class.Base", %"class.Base"* %Obj, i64 0, i32 1
+// %d = getelementptr %"class.D", %"class.D"* %b, i64 0, i32 0
+//
 bool ClassInfo::isAccessingFieldOfArgClass(const GetElementPtrInst *GEP,
                                            Argument *Obj, int32_t *Idx) {
-  if (GEP->getOperand(0) != Obj)
+  // Return true if GEP is computing address of base object.
+  auto IsGEPBaseObjAddr = [this](GetElementPtrInst *GEP) {
+    auto *GEPTy = GEP->getSourceElementType();
+    if (!MICInfo->isCandidateFieldDerivedTy(GEPTy) ||
+        GEP->getNumIndices() != 2 || !GEP->hasAllZeroIndices())
+      return false;
+    return true;
+  };
+  Value *GEPOp = GEP->getOperand(0);
+
+  auto *G = dyn_cast<GetElementPtrInst>(GEPOp);
+  // Get Base object if it is computing address of base object.
+  if (G && IsGEPBaseObjAddr(G))
+    GEPOp = G->getOperand(0);
+  if (GEPOp != Obj)
     return false;
   assert(isa<StructType>(GEP->getSourceElementType()) && "Expected StructType");
   if (GEP->getNumIndices() != 2)
@@ -364,6 +422,8 @@ bool ClassInfo::isAccessingFieldOfArgClass(const GetElementPtrInst *GEP,
   if (!cast<Constant>(GEP->getOperand(1))->isZeroValue())
     return false;
   *Idx = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
+  if (G)
+    Visited.insert(G);
   return true;
 }
 
@@ -385,6 +445,7 @@ bool ClassInfo::isAccessingVTableFieldInBaseClass(const GetElementPtrInst *GEP,
   auto *GEPTy = GEP->getResultElementType();
   if (!isPtrToVFTable(GEPTy))
     return false;
+  Visited.insert(GEP);
   return true;
 }
 
@@ -398,7 +459,11 @@ bool ClassInfo::checkFieldOfArgClassLoad(const Value *V, Argument *Obj,
   auto *LI = dyn_cast<LoadInst>(V);
   if (!LI)
     return false;
-  auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  const Value *LoadAddr = LI->getPointerOperand();
+  auto *BC = dyn_cast<BitCastInst>(LoadAddr);
+  if (BC)
+    LoadAddr = BC->getOperand(0);
+  auto *GEP = dyn_cast<GetElementPtrInst>(LoadAddr);
   if (!GEP)
     return false;
   int32_t Idx;
@@ -407,6 +472,9 @@ bool ClassInfo::checkFieldOfArgClassLoad(const Value *V, Argument *Obj,
   if (Idx != FI)
     return false;
   Visited.insert(LI);
+  Visited.insert(GEP);
+  if (BC)
+    Visited.insert(BC);
   return true;
 }
 
@@ -514,32 +582,18 @@ bool ClassInfo::checkBBControlledUnderCapacityVal(BasicBlock *BB,
   auto *BI = dyn_cast<BranchInst>(Pred->getTerminator());
   if (!BI)
     return false;
-
   // Returns true if BB is controlled under no immediate conditional branch.
   if (!BI->isConditional())
     return true;
 
-  Value *BrCond = BI->getCondition();
-  ICmpInst *IC = dyn_cast<ICmpInst>(BrCond);
-  if (!IC)
+  Value *LValue = checkCondition(Pred, BB);
+  if (!LValue)
     return false;
-  // Checking only ICmpInst::ICMP_EQ for simple implementation.
-  if (IC->getPredicate() != ICmpInst::ICMP_EQ)
-    return false;
-  Value *RValue = IC->getOperand(1);
-  if (!isa<ConstantInt>(RValue) || !cast<ConstantInt>(RValue)->isZeroValue())
-    return false;
-  Value *LValue = IC->getOperand(0);
   Value *StoredOp = CapacityInitInst->getValueOperand();
   // Check if LValue represents Capacity value.
   if (StoredOp != LValue &&
       !checkFieldOfArgClassLoad(LValue, ThisObj, CapacityField))
     return false;
-  // Makes sure BB is the else part.
-  if (BI->getSuccessor(1) != BB)
-    return false;
-  Visited.insert(BI);
-  Visited.insert(IC);
   return true;
 }
 
@@ -771,6 +825,615 @@ bool ClassInfo::checkAllocatedArrayPtr(Value *ValOp, Argument *ThisObj) {
   return true;
 }
 
+// Returns true if V is integer argument.
+// Ex:
+//
+//   foo(..., i32 %2, ... ) {
+//
+//     BB1:
+//       %21 = zext i32 %2 to i64
+//       ...
+//     BB2:
+//        %27 = zext i32 %2 to i64
+//        ...
+//     BB3:
+//  V:    %43 = phi i64 [ %21, %BB1 ], [ %27, %BB2 ]
+//
+//
+//   }
+//
+Value *ClassInfo::isIntegerArgument(Value *V) {
+
+  // Returns true if V is simple integer argument.
+  //  Ex:
+  //    foo(..., i32 %2, ... ) {
+  //
+  // V:   %27 = zext i32 %2 to i64
+  //    }
+  auto IsSimpleIntArgument = [this](Value *V) -> Argument * {
+    ZExtInst *Zext = dyn_cast<ZExtInst>(V);
+    if (Zext)
+      V = Zext->getOperand(0);
+    auto *Arg = dyn_cast<Argument>(V);
+    if (!Arg || !Arg->getType()->isIntegerTy(32))
+      return nullptr;
+    if (Zext)
+      Visited.insert(Zext);
+    return Arg;
+  };
+
+  auto *PN = dyn_cast<PHINode>(V);
+  if (!PN)
+    return IsSimpleIntArgument(V);
+
+  if (PN->getNumIncomingValues() != 2)
+    return nullptr;
+  Value *SameArg = nullptr;
+  for (auto I = 0; I < 2; I++) {
+    Value *Val = IsSimpleIntArgument(PN->getIncomingValue(I));
+    if (!Val)
+      return nullptr;
+    if (!SameArg)
+      SameArg = Val;
+    else if (SameArg != Val)
+      return nullptr;
+  }
+  Visited.insert(PN);
+  return SameArg;
+}
+
+// Returns location of the array element accessed by Val.
+// It returns %AtLoc in the example. If CheckLocAsArgument is
+// true, it makes sure AtLoc is integer argument.
+// Ex:
+//      %44 = getelementptr %"class.B", %"class.B"* %ThisObj, i64 0, i32 4
+//      %45 = load i16**, i16*** %44
+// Val: %46 = getelementptr i16*, i16** %45, i64 %AtLoc
+//
+Value *ClassInfo::isArrayElementAt(const Value *Val, Argument *ThisObj,
+                                   bool CheckLocAsArgument = true) {
+  Value *AtLoc = nullptr;
+  auto *GEP = dyn_cast<GetElementPtrInst>(Val);
+  if (!GEP)
+    return AtLoc;
+  if (GEP->getNumIndices() != 1)
+    return AtLoc;
+  if (!checkFieldOfArgClassLoad(GEP->getPointerOperand(), ThisObj, ArrayField))
+    return AtLoc;
+  if (CheckLocAsArgument)
+    AtLoc = isIntegerArgument(GEP->getOperand(1));
+  else
+    AtLoc = GEP->getOperand(1);
+  Visited.insert(GEP);
+  return AtLoc;
+}
+
+// Returns location of the array element that is loading.
+// It returns %AtLoc in the example. If CheckLocAsArgument is
+// true, it makes sure AtLoc is integer argument.
+//
+// Ex:
+//        %15 = getelementptr %"class.B", %"class.B"* %0, i64 0, i32 4
+//        %16 = load i16**, i16*** %15
+//        %AtLoc = zext i32 %1 to i64
+//        %18 = getelementptr i16*, i16** %16, i64 %AtLoc
+// Val:  %19 = load i16*, i16** %18
+//
+Value *ClassInfo::isArrayElementLoadAt(const Value *Val, Argument *ThisObj,
+                                       bool CheckLocAsArgument = true) {
+  Value *AtLoc = nullptr;
+  const BitCastInst *BC = nullptr;
+  auto *LI = dyn_cast<LoadInst>(Val);
+  if (!LI)
+    return AtLoc;
+  const Value *PtrOp = LI->getPointerOperand();
+  BC = dyn_cast<BitCastInst>(PtrOp);
+  if (BC)
+    PtrOp = BC->getOperand(0);
+  AtLoc = isArrayElementAt(PtrOp, ThisObj, CheckLocAsArgument);
+  if (!AtLoc)
+    return AtLoc;
+  Visited.insert(LI);
+  if (BC)
+    Visited.insert(BC);
+  return AtLoc;
+}
+
+// Returns location of element address in struct, which is element
+// type of vector class.
+// It returns %AtLoc in the example. If CheckLocAsArgument is
+// true, it makes sure AtLoc is integer argument.
+// Ex:
+//      %15 = getelementptr %"class.V", %"class.V"* %0, i64 0, i32 3
+//      %16 = load %"ElemTy"*, %"ElemTy"** %15
+//      %AtLoc = zext i32 %1 to i64
+//      %18 = getelementptr %"ElemTy", %"ElemTy"* %16, i64 %AtLoc
+// Val: %19 = getelementptr %"ElemTy", %"ElemTy"* %18, i64 0, i32 0
+//
+Value *ClassInfo::isArrayElementAddressAt(Value *Val, Type *ElemTy,
+                                          Argument *ThisObj,
+                                          bool CheckLocAsArgument = true) {
+  Value *AtLoc = nullptr;
+  BitCastInst *BC;
+  BC = dyn_cast<BitCastInst>(Val);
+  if (BC)
+    Val = BC->getOperand(0);
+  auto *GEP = dyn_cast<GetElementPtrInst>(Val);
+  if (!GEP || GEP->getSourceElementType() != ElemTy ||
+      GEP->getNumOperands() != 3 || !isa<ConstantInt>(GEP->getOperand(2)) ||
+      !isa<ConstantInt>(GEP->getOperand(1)) ||
+      !cast<ConstantInt>(GEP->getOperand(1))->isZero())
+    return AtLoc;
+  AtLoc =
+      isArrayElementAt(GEP->getPointerOperand(), ThisObj, CheckLocAsArgument);
+  if (!AtLoc)
+    return AtLoc;
+  if (BC)
+    Visited.insert(BC);
+  Visited.insert(GEP);
+  return AtLoc;
+}
+
+// Returns true if Val is ThisObj.
+//
+// Ex:
+//    Val:   %65 = bitcast %"class.RefOf"* %ThisObj to i8*
+//
+bool ClassInfo::checkCompleteObjPtr(const Value *Val, Argument *ThisObj) {
+  const Value *Op = Val;
+  auto *BC = dyn_cast<BitCastInst>(Val);
+  if (BC)
+    Op = BC->getOperand(0);
+  if (Op != ThisObj)
+    return false;
+  if (BC)
+    Visited.insert(BC);
+  return true;
+}
+
+// Checks that all instructions in BB are related to EH and ThisObj
+// is accessed only to get MemIntType field.
+//
+// TODO: If needed, we could extend the current implementation
+// to recognize the exact functionality of EH blocks.
+//
+bool ClassInfo::checkEHBlock(BasicBlock *BB, Argument *ThisObj) {
+
+  // Returns true if I is "free(ThisObj)".
+  auto CheckFreeCall = [this](Instruction *I, Argument *ThisObj) {
+    auto *FreeI = getFreeCall(I);
+    if (!FreeI)
+      return false;
+    const Value *Ptr = getFreeArg(FreeI);
+    if (!checkCompleteObjPtr(Ptr, ThisObj))
+      return false;
+    return true;
+  };
+
+  // Returns true if Call is a call to LibFunc LB.
+  auto IsLibFunction = [this](CallBase *Call, LibFunc LB) {
+    LibFunc LibF;
+    auto *F = dyn_cast_or_null<Function>(Call->getCalledFunction());
+    if (!F || !TLI.getLibFunc(*F, LibF) || !TLI.has(LibF))
+      return false;
+    if (LibF != LB)
+      return false;
+    return true;
+  };
+
+  // Returns true if Call is any of the below:
+  //  1. "free(ThisObj)"
+  //  2. "__clang_call_terminate"
+  //  3. Other calls: Arguments should be cosntants or MemIntField or return
+  //     value of __cxa_allocate_exception.
+  //
+  auto IsCallOkayInEH = [this, &CheckFreeCall,
+                         &IsLibFunction](CallBase *Call, Argument *ThisObj) {
+    if (IsLibFunction(Call, LibFunc_clang_call_terminate) ||
+        CheckFreeCall(Call, ThisObj)) {
+      Visited.insert(Call);
+      return true;
+    }
+    for (Value *Arg : Call->args()) {
+      if (isa<Constant>(Arg))
+        continue;
+      if (checkFieldOfArgClassLoad(Arg, ThisObj, MemIntField))
+        continue;
+      Value *Val = Arg;
+      BitCastInst *BC = dyn_cast<BitCastInst>(Val);
+      if (BC)
+        Val = BC->getOperand(0);
+      auto *Call = dyn_cast<CallBase>(Val);
+      if (!Call)
+        return false;
+      if (!IsLibFunction(Call, LibFunc_cxa_allocate_exception))
+        return false;
+      Visited.insert(BC);
+      Visited.insert(Call);
+    }
+    return true;
+  };
+
+  for (auto &I : *BB) {
+    switch (I.getOpcode()) {
+    default:
+      return false;
+
+    // Don't mark them as visited here. These instructions will be
+    // marked as visited when call instructions are processed.
+    case Instruction::GetElementPtr:
+    case Instruction::BitCast:
+    case Instruction::Load:
+    case Instruction::Br:
+      continue;
+
+    case Instruction::PHI:
+    case Instruction::Resume:
+    case Instruction::Unreachable:
+    case Instruction::ExtractValue:
+    case Instruction::InsertValue:
+    case Instruction::LandingPad:
+      Visited.insert(&I);
+      continue;
+
+    case Instruction::Call:
+    case Instruction::Invoke:
+      if (IsCallOkayInEH(cast<CallBase>(&I), ThisObj))
+        Visited.insert(&I);
+      else
+        return false;
+    }
+  }
+  return true;
+}
+
+// Returns true if BB and its successors are all related to EH.
+//
+//        BB:          ...
+//                     Invoke %Non-Unwind  %Unwind
+//
+//        %Non-Unwind: ...
+//                     unreachable
+//
+//        %Unwind:     ...
+//                     resume
+//
+//   First, check there are no successors for %Non-Unwind and %Unwind
+//   blocks. Then, check all BB, %Non-Unwind and %Unwind are blocks that
+//   don't have any code that accesses to ThisObj except MemIntType field.
+//
+bool ClassInfo::isEHRelatedBB(BasicBlock *BB, Argument *ThisObj) {
+
+  // Returns true if Terminator is EH related instructions.
+  auto IsNoSuccTerminator = [](Instruction *I) {
+    if (isa<UnreachableInst>(I) || isa<ResumeInst>(I))
+      return true;
+    return false;
+  };
+
+  if (!BB->hasNPredecessors(1))
+    return false;
+  // Return true if it is a simple block with just EH code.
+  if (IsNoSuccTerminator(BB->getTerminator()) && checkEHBlock(BB, ThisObj))
+    return true;
+  auto *II = dyn_cast<InvokeInst>(BB->getTerminator());
+  if (!II)
+    return false;
+  auto *ND = II->getNormalDest();
+  auto *UD = II->getUnwindDest();
+  // Check no successors for ND and UD.
+  if (!IsNoSuccTerminator(ND->getTerminator()) ||
+      !IsNoSuccTerminator(UD->getTerminator()))
+    return false;
+  // Makes sure no actual code in BB, ND and UD.
+  if (!checkEHBlock(BB, ThisObj) || !checkEHBlock(ND, ThisObj) ||
+      !checkEHBlock(UD, ThisObj))
+    return false;
+  return true;
+}
+
+// Returns true if BB is controlled like below
+//
+//       if (SizeField > AtLoc)
+//           BB
+//       else
+//           EH_Code
+//
+bool ClassInfo::isControlledUnderSizeCheck(BasicBlock *BB, Argument *ThisObj,
+                                           Value *AtLoc) {
+  // Makes sure BB has single predecessor.
+  BasicBlock *Pred = BB->getSinglePredecessor();
+  if (!Pred)
+    return false;
+  auto *BI = dyn_cast<BranchInst>(Pred->getTerminator());
+  if (!BI || !BI->isConditional())
+    return false;
+  Value *BrCond = BI->getCondition();
+  ICmpInst *IC = dyn_cast<ICmpInst>(BrCond);
+  if (!IC)
+    return false;
+  if (IC->getPredicate() != ICmpInst::ICMP_UGT)
+    return false;
+
+  // Check RValue is AtLoc and LValue is value of SizeField.
+  Value *RValue = IC->getOperand(1);
+  Value *LValue = IC->getOperand(0);
+  if (RValue != AtLoc)
+    return false;
+  if (!checkFieldOfArgClassLoad(LValue, ThisObj, SizeField))
+    return false;
+  if (BI->getSuccessor(0) != BB)
+    return false;
+
+  // Checks False Block is just EH related code.
+  if (!isEHRelatedBB(BI->getSuccessor(1), ThisObj))
+    return false;
+  Visited.insert(BI);
+  Visited.insert(IC);
+  return true;
+}
+
+// Returns FreeCallInfo if I is a call to "free".
+FreeCallInfo *ClassInfo::getFreeCall(Instruction *I) {
+  if (isa<CallBase>(I)) {
+    auto *Info = DTInfo.getCallInfo(I);
+    if (Info && Info->getCallInfoKind() == dtrans::CallInfo::CIK_Free)
+      return cast<FreeCallInfo>(Info);
+  }
+  return nullptr;
+}
+
+// Returns argument of given FInfo.
+const Value *ClassInfo::getFreeArg(FreeCallInfo *FInfo) {
+  Instruction *CallI = FInfo->getInstruction();
+  SmallPtrSet<const Value *, 3> Args;
+
+  collectSpecialFreeArgs(FInfo->getFreeKind(), cast<CallBase>(CallI), Args,
+                         TLI);
+  assert(Args.size() == 1 && "Unexpected free function");
+  return *Args.begin();
+}
+
+// Returns true if
+//
+// 1. Argument of FInfo is not used by anyone except FInfo call. BBPtr is
+//    updated with basic block of FInfo.
+//
+// or
+//
+// 2. Argument of FInfo is used in another dummy Free call. Both FInfo call
+//    and the dummy free call should be controlled by same indirect
+//    call condition. BBPtr is updated with basic block of indirect call
+//    check.
+//
+const Value *ClassInfo::checkFree(FreeCallInfo *FInfo, Argument *ThisObj,
+                                  BasicBlock **BBPtr) {
+
+  // Returns true if FCall1 and FCall2 are controlled under the same
+  // indirect call condition.
+  //
+  //  Ex:
+  //        if (indirect call check)
+  //           FCall1;
+  //        else
+  //           FCall2;
+  //
+  auto AreFreeCallsUnderSameCondition =
+      [this](CallBase *FCall1, const CallBase *FCall2, Argument *ThisObj) {
+        const BasicBlock *TB = FCall1->getParent();
+        const BasicBlock *FB = FCall2->getParent();
+        const BasicBlock *BB = FB->getSinglePredecessor();
+        if (!BB)
+          return false;
+        auto *BI = dyn_cast<BranchInst>(BB->getTerminator());
+        if (!BI || !BI->isConditional())
+          return false;
+        if (!isIndirectCallCheck(BI->getCondition(), ThisObj))
+          return false;
+        if (TB != BI->getSuccessor(0) || FB != BI->getSuccessor(1))
+          return false;
+        Visited.insert(BI);
+        return true;
+      };
+
+  const Value *PtrArg = getFreeArg(FInfo);
+  Instruction *CallI = FInfo->getInstruction();
+  const CallBase *DummyFreeCall = nullptr;
+  BasicBlock *FreeCallBlock = CallI->getParent();
+  for (auto *U : PtrArg->users()) {
+    if (U == CallI) {
+      continue;
+    }
+    DummyFreeCall = dyn_cast<CallBase>(U);
+    if (!DummyFreeCall || !isDummyFuncWithThisAndPtrArgs(DummyFreeCall, TLI))
+      return nullptr;
+    if (!AreFreeCallsUnderSameCondition(cast<CallBase>(CallI), DummyFreeCall,
+                                        ThisObj))
+      return nullptr;
+    FreeCallBlock = CallI->getParent()->getSinglePredecessor();
+  }
+  Visited.insert(CallI);
+  if (DummyFreeCall)
+    Visited.insert(DummyFreeCall);
+  *BBPtr = FreeCallBlock;
+  return PtrArg;
+}
+
+// Checks that BB has conditional branch like below and returns %RetValue
+// if it matches.
+//
+//    BB: ...
+//        %Cond = icmp eq i8 %RetValue, 0
+//        br i1 %Cond, label %some_block, label %CheckBB
+//
+Value *ClassInfo::checkCondition(BasicBlock *BB, BasicBlock *CheckBB) {
+  auto *BI = dyn_cast<BranchInst>(BB->getTerminator());
+  if (!BI || !BI->isConditional())
+    return nullptr;
+
+  ICmpInst *Cond = dyn_cast<ICmpInst>(BI->getCondition());
+  if (!Cond)
+    return nullptr;
+
+  ConstantInt *CmpZero = dyn_cast<ConstantInt>(Cond->getOperand(1));
+  if (!CmpZero || !CmpZero->isZero())
+    return nullptr;
+
+  ICmpInst::Predicate Pred = Cond->getPredicate();
+  // Checking only ICmpInst::ICMP_EQ for simple implementation.
+  if (Pred != ICmpInst::ICMP_EQ || BI->getSuccessor(1) != CheckBB)
+    return nullptr;
+  Visited.insert(BI);
+  Visited.insert(Cond);
+  return Cond->getOperand(0);
+}
+
+// Returns true if BB is controlled under Flag field.
+//
+//   Ex:
+//      Pred:
+//         %cond = icmp eq i8 %FlagField, 0
+//         br i1 %cond, label %some_bb, label %BB
+//
+//      BB:
+//
+bool ClassInfo::checkBBControlledUnderFlagVal(BasicBlock *BB,
+                                              Argument *ThisObj) {
+  BasicBlock *Pred = BB->getSinglePredecessor();
+  if (!Pred)
+    return false;
+  Value *LValue = checkCondition(Pred, BB);
+  if (!LValue || !checkFieldOfArgClassLoad(LValue, ThisObj, FlagField))
+    return false;
+  return true;
+}
+
+// Returns true if given pre-header PH is controlled under
+// zero trip test.
+//
+//   Ex:
+//    PreCondBB: ...
+//              %cond = icmp eq i32 SizeField, 0
+//              br i1 %cond, label %some_bb, label %PH
+//
+//           PH: ...
+//              br label %EntryBI
+//
+//      EntryBI:...
+//              Loop
+//
+bool ClassInfo::checkZTT(BasicBlock *PH, Argument *ThisObj) {
+  if (!PH)
+    return false;
+  auto *EntryBI = dyn_cast<BranchInst>(PH->getTerminator());
+  if (!EntryBI || EntryBI->isConditional())
+    return false;
+  auto *PreCondBB = PH->getSinglePredecessor();
+  if (!PreCondBB)
+    return false;
+
+  Value *Ptr = checkCondition(PreCondBB, PH);
+  if (!checkFieldOfArgClassLoad(Ptr, ThisObj, SizeField))
+    return false;
+  return true;
+}
+
+// Verifies that Ind is a loop counter and returns the Loop if it is
+// like below.
+//
+// Ex:
+//    Loop:
+//         %Ind = phi  i64 [ 0, %b1 ], [ %AddI, %Latch ]
+//          ...
+//
+//    Latch:   %AddI = add nuw nsw i64 %Ind, 1
+//             %Zext = zext i32 %SizeField to i64
+//             %Cond = icmp ult i64 %AddI, %Zext
+//             br i1 %Cond, label %Loop, label %some_bb
+//
+Loop *ClassInfo::checkLoop(Value *Ind, Argument *ThisObj, LoopInfo &LI) {
+  auto *PN = dyn_cast<PHINode>(Ind);
+  if (!PN || PN->getNumIncomingValues() != 2)
+    return nullptr;
+  Loop *L = LI.getLoopFor(PN->getParent());
+  if (!L || L->getNumBackEdges() != 1 || !L->getSubLoops().empty() ||
+      L->getParentLoop() || L->getHeader() != PN->getParent())
+    return nullptr;
+  BasicBlock *Latch = L->getLoopLatch();
+  Value *V1 = PN->getIncomingValueForBlock(L->getLoopPreheader());
+  Value *V2 = PN->getIncomingValueForBlock(Latch);
+  ConstantInt *Init = dyn_cast<ConstantInt>(V1);
+  if (!Init || !Init->isZero())
+    return nullptr;
+  BranchInst *BI = dyn_cast<BranchInst>(Latch->getTerminator());
+  if (!BI || !BI->isConditional())
+    return nullptr;
+
+  ICmpInst *Cond = dyn_cast<ICmpInst>(BI->getCondition());
+  if (!Cond)
+    return nullptr;
+
+  ICmpInst::Predicate Pred = Cond->getPredicate();
+  if (Pred != ICmpInst::ICMP_ULT || BI->getSuccessor(0) != L->getHeader())
+    return nullptr;
+
+  Value *CmpOp0 = Cond->getOperand(0);
+  Value *CmpOp1 = Cond->getOperand(1);
+  if (V2 != CmpOp0)
+    return nullptr;
+  auto *Zext = dyn_cast<ZExtInst>(CmpOp1);
+  if (Zext)
+    CmpOp1 = Zext->getOperand(0);
+  if (!checkFieldOfArgClassLoad(CmpOp1, ThisObj, SizeField))
+    return nullptr;
+
+  auto *AddI = dyn_cast<Instruction>(CmpOp0);
+  if (!AddI || AddI->getOpcode() != Instruction::Add)
+    return nullptr;
+  if (AddI->getOperand(0) != PN)
+    return nullptr;
+  ConstantInt *Inc = dyn_cast<ConstantInt>(AddI->getOperand(1));
+  if (!Inc || !Inc->isOne())
+    return nullptr;
+  if (Zext)
+    Visited.insert(Zext);
+  Visited.insert(AddI);
+  Visited.insert(Cond);
+  Visited.insert(BI);
+  Visited.insert(PN);
+  return L;
+}
+
+// Return ReturnInst if Fn has single ReturnInst. Otherwise, return nullptr.
+ReturnInst *ClassInfo::getSingleRetInst(Function *Fn) {
+  ReturnInst *RI = nullptr;
+  for (BasicBlock &BB : *Fn)
+    if (auto *Ret = dyn_cast<ReturnInst>(BB.getTerminator())) {
+      if (RI)
+        return nullptr;
+      else
+        RI = Ret;
+    }
+  return RI;
+}
+
+// Collect all store and free call instructions in all basic blocks in Fn
+// except basic blocks in IgnoreBBSet.
+void ClassInfo::collectStoreInstsFreeCalls(
+    Function *Fn, SmallPtrSet<BasicBlock *, 16> &IgnoreBBSet,
+    SmallPtrSet<StoreInst *, 1> &StoresSet,
+    SmallPtrSet<FreeCallInfo *, 4> &FreeCallsSet) {
+  for (auto &BB : *Fn) {
+    if (IgnoreBBSet.count(&BB))
+      continue;
+    for (auto &I : BB)
+      if (auto *II = dyn_cast<StoreInst>(&I))
+        StoresSet.insert(II);
+      else if (FreeCallInfo *FInfo = getFreeCall(&I))
+        FreeCallsSet.insert(FInfo);
+  }
+}
+
 // Return false if any instruction of F is not found in Processed.
 //
 bool ClassInfo::checkAllInstsProcessed(
@@ -883,6 +1546,7 @@ FunctionKind ClassInfo::recognizeDerivedConstructor(Function *F, Type *DTy,
   // as optional.
   if (ConstructorCall != 1 || !checkAllInstsProcessed(F, ProcessedInsts))
     return UnKnown;
+  FinalFuncKind[F] = Constructor;
   return Constructor;
 }
 
@@ -949,6 +1613,7 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
             if (GEPTy->isIntegerTy(8)) {
               // Flag is assigned here.
               FlagFieldAssign++;
+              FlagField = Idx;
             } else if (GEPTy->isIntegerTy(32)) {
               if (!isa<ConstantInt>(ValOp) ||
                   !cast<ConstantInt>(ValOp)->isZero()) {
@@ -1035,12 +1700,12 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
               if (NullPtrStore)
                 return false;
               NullPtrStore = SI;
-              ArrayField = Idx;
             } else if (checkAllocatedArrayPtr(ValOp, ThisObj)) {
               // Memory allocation assignment to array pointer field.
               if (AllocPtrStore)
                 return false;
               AllocPtrStore = SI;
+              ArrayField = Idx;
             } else {
               return false;
             }
@@ -1091,7 +1756,385 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
     });
     return UnKnown;
   }
+  FinalFuncKind[F] = Constructor;
   return Constructor;
+}
+
+// Analyze Fn as GetSizeOrCapacity.
+//
+// Ex:
+//    getSize(this) {
+//      return this->Size;
+//    }
+//
+FunctionKind ClassInfo::recognizeGetSizeOrCapacity(Function *Fn) {
+  Argument *ThisObj = &*Fn->arg_begin();
+  SmallPtrSet<ReturnInst *, 1> RetList;
+  FunctionKind FKind = UnKnown;
+
+  assert(Fn->getReturnType()->isIntegerTy(32) && "Unexpected return type");
+  // Clear all processed instructions first.
+  Visited.clear();
+
+  // Collect Return stmts.
+  ReturnInst *RI = getSingleRetInst(Fn);
+  if (!RI)
+    return FKind;
+
+  Value *RetVal = RI->getReturnValue();
+  // Check if RetVal is value of either Size or Capacity field.
+  if (checkFieldOfArgClassLoad(RetVal, ThisObj, SizeField))
+    FKind = GetSize;
+  else if (checkFieldOfArgClassLoad(RetVal, ThisObj, CapacityField))
+    FKind = GetCapacity;
+  Visited.insert(RI);
+
+  // Makes sure all instructions are processed.
+  if (!checkAllInstsProcessed(Fn, Visited)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << " Failed: Missing to process some instructions.\n";
+    });
+    return UnKnown;
+  }
+  return FKind;
+}
+
+// Analyze it as GetElem functionality.
+//
+// Ex:
+//    getElementAt(this, int Loc) {
+//      if (Loc >= Size)
+//        EH_Code;
+//      return this->Array[Loc];
+//    }
+//
+//  Step 1: Check it is returning array element at Loc.
+//  Step 2: Make sure it is controlled under "Loc >= Size" condition.
+//
+FunctionKind ClassInfo::recognizeGetElem(Function *Fn) {
+  Argument *ThisObj = &*Fn->arg_begin();
+  SmallPtrSet<ReturnInst *, 1> RetList;
+
+  // Clear all processed instructions first.
+  Visited.clear();
+
+  // Collect RetInsts
+  ReturnInst *RI = getSingleRetInst(Fn);
+  if (!RI)
+    return UnKnown;
+
+  // Check if it is returning array element.
+  Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+  Value *AtLoc;
+  if (isa<StructType>(ElemTy))
+    AtLoc = isArrayElementAddressAt(RI->getReturnValue(), ElemTy, ThisObj);
+  else
+    AtLoc = isArrayElementLoadAt(RI->getReturnValue(), ThisObj);
+  if (!AtLoc)
+    return UnKnown;
+
+  // Makes sure Return is controlled under "Loc >= Size" condition.
+  if (!isControlledUnderSizeCheck(RI->getParent(), ThisObj, AtLoc))
+    return UnKnown;
+  Visited.insert(RI);
+
+  // Makes sure all instructions are processed.
+  if (!checkAllInstsProcessed(Fn, Visited)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << " Failed: Missing to process some instructions.\n";
+    });
+    return UnKnown;
+  }
+  return GetElem;
+}
+
+// Analyze Fn as SetElem.
+//
+// Ex:
+//  setElem(this, Elem, Loc)
+//  {
+//    if (Loc >= this->size_field)
+//      EH_Code;
+//
+//    if (this->flag)                // This IF statement is optional.
+//      delete this->array[Loc];
+//
+//    this->array[Loc] = Elem;
+//  }
+//
+//  It expects mainly 2 sink points.
+//  1. Set array element at given location.
+//  2. Delete array element at given location before assigning new one. This
+//     is controlled under flag value. This is optional.
+//  3. Both 1 and 2 are controlled under "Loc >= Size_field" check.
+//
+FunctionKind ClassInfo::recognizeSetElem(Function *Fn) {
+  // Returns true if Val is load of argument.
+  auto IsLoadOfArg = [this](Value *Val) {
+    if (auto *LI = dyn_cast<LoadInst>(Val)) {
+      Value *ValOp = LI->getPointerOperand();
+      auto *BC = dyn_cast<BitCastInst>(ValOp);
+      if (BC)
+        ValOp = BC->getOperand(0);
+      if (isa<Argument>(ValOp)) {
+        Visited.insert(LI);
+        if (BC)
+          Visited.insert(BC);
+        return true;
+      }
+    }
+    return false;
+  };
+  // Clear all processed instructions first.
+  Visited.clear();
+  Argument *ThisObj = &*Fn->arg_begin();
+  SmallPtrSet<StoreInst *, 1> SIList;
+  SmallPtrSet<FreeCallInfo *, 4> FreeList;
+  SmallPtrSet<BasicBlock *, 16> IgnoreBBSet;
+
+  // Collect Store instructions and Free calls.
+  collectStoreInstsFreeCalls(Fn, IgnoreBBSet, SIList, FreeList);
+
+  if (SIList.size() != 1)
+    return UnKnown;
+  auto *SI = *SIList.begin();
+  Type *ElemTy = MICInfo->getFieldElemTy(FieldIdx);
+  Value *SetAtLoc;
+  // Set array element at location.
+  if (isa<StructType>(ElemTy)) {
+    SetAtLoc =
+        isArrayElementAddressAt(SI->getPointerOperand(), ElemTy, ThisObj);
+    if (!SetAtLoc || !IsLoadOfArg(SI->getValueOperand()))
+      return UnKnown;
+  } else {
+    SetAtLoc = isArrayElementAt(SI->getPointerOperand(), ThisObj);
+    if (!SetAtLoc || !isa<Argument>(SI->getValueOperand()))
+      return UnKnown;
+  }
+
+  int32_t FCount = FreeList.size();
+  BasicBlock *FreeBB = nullptr;
+  if (FCount) {
+    if (FCount != 1)
+      return UnKnown;
+    FreeCallInfo *FInfo = *FreeList.begin();
+    // Delete array element at given location.
+    const Value *PtrArg = checkFree(FInfo, ThisObj, &FreeBB);
+    if (!PtrArg)
+      return UnKnown;
+    Value *DeleteAtLoc = isArrayElementLoadAt(PtrArg, ThisObj);
+    if (!DeleteAtLoc || DeleteAtLoc != SetAtLoc)
+      return UnKnown;
+    // Check deleting is controlled under flag field.
+    if (!checkBBControlledUnderFlagVal(FreeBB, ThisObj))
+      return UnKnown;
+  }
+  BasicBlock *CheckBB;
+  // Get nearest dominator of basicblock that has deleting existing element and
+  // basicblock that has setting new element.
+  if (FreeBB)
+    CheckBB = (GetDT)(*FreeBB->getParent())
+                  .findNearestCommonDominator(FreeBB, SI->getParent());
+  else
+    CheckBB = SI->getParent();
+
+  // Makes sure deleting existing element and setting new element are
+  // controlled under "AtLoc >= Size_field" check.
+  if (!CheckBB || !isControlledUnderSizeCheck(CheckBB, ThisObj, SetAtLoc))
+    return UnKnown;
+  Visited.insert(SI);
+
+  // Makes sure all instructions are processed.
+  if (!checkAllInstsProcessed(Fn, Visited)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << " Failed: Missing to process some instructions.\n";
+    });
+    return UnKnown;
+  }
+  return SetElem;
+}
+
+// Analyze Fn as Destructor.
+//
+//  It expects mainly 4 sink points.
+//   1. Store to virtual function pointer  (Optional)
+//   2. Free all elements of array in loop. The entire loop is controlled
+//      under flag field. (Optional)
+//   3. Free entire Array field  (Mandatory)
+//   4. Free entire object (Optional)
+//
+// It checks for the following pattern.
+//
+// Ex:
+//  {
+//    this->virtual_func_pointer = some_constant;
+//    if (this->flag_field) {
+//       for (int i = 0; i < this->size_field; i++) {
+//         delete this->array[i];
+//       }
+//    }
+//    free (this->array);  // Except this statement every thing else
+//                         // is optional.
+//    free(this);
+//  }
+//
+FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
+  std::function<void(BasicBlock *, SmallPtrSet<BasicBlock *, 16> &)>
+      CollectAllSuccs;
+  // Collects all successors of BB recursively.
+  CollectAllSuccs = [&CollectAllSuccs](BasicBlock *BB,
+                                       SmallPtrSet<BasicBlock *, 16> &SuccSet) {
+    if (!SuccSet.insert(BB).second)
+      return;
+    for (auto *S : successors(BB)) {
+      CollectAllSuccs(S, SuccSet);
+    }
+  };
+
+  // Collect all EH related basicblocks in Fn.
+  auto CollectEHBasicBlocks =
+      [&CollectAllSuccs](Function *Fn,
+                         SmallPtrSet<BasicBlock *, 16> &EHBasicBlocks) {
+        SmallPtrSet<BasicBlock *, 8> UnwindBlocks;
+        // First, collect UnwindDest blocks.
+        for (BasicBlock &BB : *Fn)
+          if (auto *II = dyn_cast<InvokeInst>(BB.getTerminator()))
+            UnwindBlocks.insert(II->getUnwindDest());
+        // Then, get all their successors.
+        for (auto *BB : UnwindBlocks)
+          CollectAllSuccs(BB, EHBasicBlocks);
+      };
+
+  // Check blocks in EhBlocks have just EH related code.
+  auto CheckEHBlocks = [this](SmallPtrSet<BasicBlock *, 16> &EhBlocks,
+                              Argument *ThisObj) {
+    for (auto *BB : EhBlocks)
+      if (!checkEHBlock(BB, ThisObj))
+        return false;
+    return true;
+  };
+
+  SmallPtrSet<BasicBlock *, 16> EHBasicBlocks;
+  SmallPtrSet<StoreInst *, 1> SIList;
+  SmallPtrSet<FreeCallInfo *, 4> FreeList;
+  // Clear all processed instructions first.
+  Visited.clear();
+  Argument *ThisObj = &*Fn->arg_begin();
+
+  // Collect EH related BBs.
+  CollectEHBasicBlocks(Fn, EHBasicBlocks);
+  // Collect All store and free calls stmts in all BBs of Fn except
+  // BBs in EHBasicBlocks.
+  collectStoreInstsFreeCalls(Fn, EHBasicBlocks, SIList, FreeList);
+
+  unsigned StoreCount = 0;
+  for (auto *SI : SIList) {
+    // Check this is a store to virtual function pointer.
+    auto *GEP = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+    if (!GEP || !isAccessingVTableFieldInBaseClass(GEP, ThisObj))
+      return UnKnown;
+    Visited.insert(SI);
+    StoreCount++;
+  }
+  // Expects at most one StoreInst that stores to virtual function pointer.
+  if (StoreCount > 1)
+    return UnKnown;
+
+  unsigned AllElementsFreed = 0;
+  unsigned ElementArrayFreed = 0;
+  unsigned ObjectFreed = 0;
+  Loop *L = nullptr;
+  Instruction *FlagCheckInst = nullptr;
+  BasicBlock *ArrayFreeBB = nullptr;
+  Instruction *CompleteObjFreeInst = nullptr;
+  LoopInfo LI((GetDT)(*Fn));
+
+  // Now, try to analyze free calls.
+  for (auto *FreeI : FreeList) {
+    BasicBlock *FreeBB = nullptr;
+    const Value *PtrArg = checkFree(FreeI, ThisObj, &FreeBB);
+    if (!PtrArg)
+      return UnKnown;
+    if (checkCompleteObjPtr(PtrArg, ThisObj)) {
+      // Free entire object (Optional)
+      ObjectFreed++;
+      CompleteObjFreeInst = FreeI->getInstruction();
+    } else if (checkFieldOfArgClassLoad(PtrArg, ThisObj, ArrayField)) {
+      // Free entire Array field (Mandatory)
+      ElementArrayFreed++;
+      ArrayFreeBB = FreeBB;
+    } else {
+      // Free all elements of array in loop. The entire loop is controlled
+      // under flag field. (Optional)
+
+      // Check pointer, which is passed to free call, is accessing
+      // array element at AtLoc.
+      Value *AtLoc = isArrayElementLoadAt(PtrArg, ThisObj, false);
+      if (!AtLoc)
+        return UnKnown;
+
+      // Checks that AtLoc is loop counter that iterates from 0 to SizeField.
+      L = checkLoop(AtLoc, ThisObj, LI);
+      if (!L)
+        return UnKnown;
+      // Check if the loop has ZTT.
+      BasicBlock *PH = L->getLoopPreheader();
+      if (!checkZTT(PH, ThisObj))
+        return UnKnown;
+      // Check if the entire loop controlled under the flag field.
+      auto *PreCondBB = PH->getSinglePredecessor();
+      if (!checkBBControlledUnderFlagVal(PreCondBB, ThisObj))
+        return UnKnown;
+      FlagCheckInst = PreCondBB->getSinglePredecessor()->getTerminator();
+      AllElementsFreed++;
+    }
+  }
+
+  if (ElementArrayFreed != 1 || AllElementsFreed > 1 || ObjectFreed > 1)
+    return UnKnown;
+
+  if (FlagCheckInst) {
+    // Check that entire Array field is freed if flag field value is zero.
+    if (cast<BranchInst>(FlagCheckInst)->getSuccessor(0) != ArrayFreeBB)
+      return UnKnown;
+    // Check that entire Array field is freed immediately after the loop
+    // exited.
+    BranchInst *BI = cast<BranchInst>(L->getLoopLatch()->getTerminator());
+    if (BI->getSuccessor(1) != ArrayFreeBB)
+      return UnKnown;
+  }
+  if (CompleteObjFreeInst) {
+    // Make sure entire object is freed at the end.
+    Instruction *NextInst = CompleteObjFreeInst->getNextNode();
+    if (!NextInst || !isa<ReturnInst>(NextInst))
+      return UnKnown;
+  }
+
+  if (!CheckEHBlocks(EHBasicBlocks, ThisObj))
+    return UnKnown;
+
+  if (!checkAllInstsProcessed(Fn, Visited)) {
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << " Failed: Missing to process some instructions.\n";
+    });
+    return UnKnown;
+  }
+  return Destructor;
+}
+
+FunctionKind ClassInfo::recognizeCopyConstructor() {
+  // TODO: Need to analyze CopyConstructor functionality.
+  return UnKnown;
+}
+
+FunctionKind ClassInfo::recognizeAppendElem() {
+  // TODO: Need to analyze AddElem functionality.
+  return UnKnown;
+}
+
+FunctionKind ClassInfo::recognizeResize() {
+  // TODO: Need to analyze Resize functionality.
+  return UnKnown;
 }
 
 // Analyze all member functions of class.
@@ -1100,6 +2143,64 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
 //  Step 3: Analyze remaining member function to prove the functionality.
 //
 bool ClassInfo::analyzeClassFunctions() {
+
+  // Try to recognize functionality of Fn based on initial FunctionKind.
+  auto RecognizeFunctionality = [this](Function *Fn, FunctionKind InitKind) {
+    FunctionKind FKind = UnKnown;
+
+    // Check if the function is already analyzed.
+    auto It = FinalFuncKind.find(Fn);
+    if (It != FinalFuncKind.end())
+      return It->second != UnKnown;
+
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << "  Analyzing functionality of " << Fn->getName() << "...\n";
+    });
+    switch (InitKind) {
+    case CopyConstructor:
+      FKind = recognizeCopyConstructor();
+      break;
+    case AppendElem:
+      FKind = recognizeAppendElem();
+      break;
+    case Resize:
+      FKind = recognizeResize();
+      break;
+    case Destructor:
+      FKind = recognizeDestructor(Fn);
+      break;
+    case SetElem:
+      FKind = recognizeSetElem(Fn);
+      break;
+    case GetElem:
+      FKind = recognizeGetElem(Fn);
+      break;
+    case GetSizeOrCapacity:
+      FKind = recognizeGetSizeOrCapacity(Fn);
+      break;
+
+    case GetCapacity:
+    case GetSize:
+    case Constructor:
+    case UnKnown:
+      break;
+    }
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      dbgs() << "  Functionality of " << Fn->getName() << ": ";
+    });
+    // Record FKind.
+    FinalFuncKind[Fn] = FKind;
+    if (FKind == UnKnown) {
+      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+        dbgs() << "Failed to recognize as " << InitKind << "\n";
+      });
+      return false;
+    }
+    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
+                    { dbgs() << "Recognized as " << FKind << "\n"; });
+    return true;
+  };
+
   DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN,
                   { dbgs() << "  Categorize functions using signature: \n"; });
 
@@ -1150,7 +2251,13 @@ bool ClassInfo::analyzeClassFunctions() {
     dbgs() << "    Size field: " << SizeField << "\n";
   });
 
-  // TODO: More analysis needed for remaining member functions.
+  // Analyze remaining member functions.
+  for (auto *Fn : MICInfo->member_functions(FieldIdx))
+    if (!RecognizeFunctionality(Fn, InitialFuncKind[Fn])) {
+      if (!DTransMemInitRecognizeAll)
+        return false;
+    }
+
   return true;
 }
 
