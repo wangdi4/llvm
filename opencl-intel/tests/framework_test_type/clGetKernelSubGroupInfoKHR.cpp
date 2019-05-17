@@ -95,10 +95,10 @@ void clGetKernelSubGroupInfoKHR()
   {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
-    cl_int (*get_kernel_subgroup_info) (cl_kernel, cl_device_id, cl_kernel_sub_group_info,
+    cl_int (CL_API_CALL *get_kernel_subgroup_info) (cl_kernel, cl_device_id, cl_kernel_sub_group_info,
                                         size_t, const void*, size_t, void*, size_t*);
 
-    get_kernel_subgroup_info = (cl_int (*) (cl_kernel, cl_device_id, cl_kernel_sub_group_info,
+    get_kernel_subgroup_info = (cl_int (CL_API_CALL *) (cl_kernel, cl_device_id, cl_kernel_sub_group_info,
                                             size_t, const void*, size_t, void*, size_t*))
                                 clGetExtensionFunctionAddress("clGetKernelSubGroupInfoKHR");
 

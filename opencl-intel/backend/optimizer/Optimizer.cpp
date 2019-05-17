@@ -53,8 +53,8 @@ llvm::FunctionPass* createFMASplitterPass();
 
 // INTEL VPO BEGIN
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
-#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 

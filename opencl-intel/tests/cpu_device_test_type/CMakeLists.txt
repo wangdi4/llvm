@@ -26,7 +26,7 @@ endif ( BUILD_X64 )
 
 add_custom_command( TARGET ${TARGET}
     POST_BUILD
-    COMMAND ${CLANG} -cc1 -mllvm -loopopt=false -x cl
+    COMMAND ${CLANG} -cc1 -mllvm -loopopt=0 -x cl
     ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
     -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -triple ${SPIR_TRIPLE}
     -include opencl-c.h -O3 -disable-intel-proprietary-opts

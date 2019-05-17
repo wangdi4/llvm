@@ -16,7 +16,7 @@
 #include "InitializePasses.h"
 #include "MetadataAPI.h"
 
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/LegacyPassManager.h"
 

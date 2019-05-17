@@ -22,7 +22,6 @@ REQUIREMENTS
 ================================================================================
 The supported operating systems are:
   - Ubuntu* 16.04 (64-bit)
-  - RedHat* 7.x or CentOS* 7.x (64-bit)
   - Windows* 7, 8.1, 10 (64-bit)
 
 The supported hardware is:
@@ -40,7 +39,7 @@ If the installation is successful, the following OpenCL(TM) platform will be
 available:
 
     Profile             : EMBEDDED_PROFILE
-    Version             : OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 19.1
+    Version             : OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 19.2
     Name                : Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)
     Vendor              : Intel(R) Corporation
     Devices             : 1
@@ -51,7 +50,7 @@ available:
         Name            : Intel(R) FPGA Emulation Device (preview)
         Vendor          : Intel(R) Corporation
         C version       : OpenCL C 1.0
-        Driver version  : 19.1
+        Driver version  : 2019.8.4.0
 
 ================================================================================
 DETAILS
@@ -263,9 +262,31 @@ CHANGELOG
 Changes from the Intel(R) FPGA SDK for OpenCL(TM) software technology 19.1
 release:
 
-  - New diagnostics for incorrect usage of channels and autorun kernels.
+  - Shared libraries on Linux* now require a newer version of
+    libstdc++ (GCC 5.x or higher). RedHat* 7.x or CentOS* 7.x are no
+    longer supported.
 
-  - Value of INTELFPGA_CL macro was set to "191".
+  - ICD library was renamed from libintelocl_emu.so to libintelocl.so.
+    ICD entry located in /etc/OpenCL/vendors or in the Windows
+    registry must be updated according to the new name.
+
+  - Shared libraries on Linux* now have a version suffix. Symbolic
+    links are provided for compatibility with previous releases.
+
+  - New diagnostic for 'pragma ivdep' usage in the emulation flow.
+
+  - Enabled printf format warnings.
+
+  - The following attributes are supported:
+    - uses_global_work_offset
+
+  - General stability improvements.
+
+
+Changes from the Intel(R) FPGA SDK for OpenCL(TM) software technology 18.1
+release:
+
+  - New diagnostics for incorrect usage of channels and autorun kernels.
 
   - cl_khr_3d_image_writes extension is no longer supported.
 

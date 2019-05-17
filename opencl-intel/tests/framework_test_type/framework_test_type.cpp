@@ -44,7 +44,7 @@ TEST(FrameworkTestType, Test_clFissionReadBufferTest)
     EXPECT_TRUE(fission_read_buffer_test());
 }
 
-TEST(FrameworkTestType, Test_clfissionOptionsTest)
+TEST(FrameworkTestType, DISABLED_Test_clfissionOptionsTest)
 {
     EXPECT_TRUE(fission_options_test());
 }
