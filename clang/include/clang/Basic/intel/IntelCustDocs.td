@@ -960,6 +960,58 @@ IR:
   }];
 }
 
+def PragmaMaxInterleavingDocs : Documentation {
+  let Category = DocCatIntelHLS;
+  let BugTracker="CMPLRLLVM-9099";
+  let Owner = "achikin";
+  let Content = [{
+The ``max_interleaving`` pragma instructs the compiler to restrict the maximum number
+of interleaved invocations executing the loop to a limit specified on the integral parameter.
+
+Syntax:
+
+.. code-block:: text
+
+  #pragma max_interleaving [<constant-int>]
+
+Example:
+
+.. code-block:: c
+
+  void foo() {
+    for(int i=0;i<8;++i) {
+        #pragma max_interleaving(1)
+        for(int j=0;j<8;++j) {}
+    }
+  }
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump -o - -fintel-compatibility t.c
+
+.. code-block:: text
+
+  AttributedStmt 0xf47e1c8 <<invalid sloc>, line:4:31>
+  |-LoopHintAttr 0xf47e1a0 <line:3:17, col:36> Implicit max_interleaving MaxInterleaving Numeric
+  | |-IntegerLiteral 0xf47dfb8 <col:34> 'int' 1
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - -fintel-compatibility t.c
+
+.. code-block:: llvm
+
+  br label %for.cond1, !llvm.loop !2
+
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.max_interleaving.count", i32 1}
+  }];
+}
+
 def HLSPragmaDocs : Documentation {
   let Category = DocCatIntelHLS;
   let BugTracker = "CMPLRLLVM-5584";
@@ -1351,6 +1403,62 @@ Where:
  !8 = !{!9, !9, i64 0}
  !9 = !{!"pointer@_ZTSPi", !6, i64 0}
 
+  }];
+}
+
+def IMFAttributesDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker = "CMPLRLLVM-5052";
+  let Owner = "mprice1";
+  let Content = [{
+This is support to attach IMF attributes specified by the user to the
+applicable LLVM functions.  They have this form:
+
+  -fimf-{kind}[=value[:funclist]]
+
+For example, for this user option:
+
+  -fimf-precision:low:sinf,expr2 -fimf-absolute-error=0.0001:sinf,cosf
+
+The driver sends the following single option to clang:
+
+  "-mGLOB_imf_attr=precision:low:sinf,expr2 absolute-error:0.0001:sinf,cosf"
+
+When a funclist is used, the attributes are applied only to functions with
+the exact name specified.  When there is no funclist the attribute is applied
+to all functions.
+
+Example:
+
+.. code-block:: c
+
+  extern double cos(double), sin(double);
+  extern void otherfunc(void);
+
+  void foo(double d0) {
+    (void)cos(d0); // prec=low
+    (void)sin(d0); // prec=high abs-error=0.00001
+    otherfunc();   // prec=high
+  }
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -ffreestanding -fintel-compatibility "-mGLOB_imf_attr=precision:high precision:low:cos absolute-error:0.00001:sin" -emit-llvm -o - imf.c
+
+.. code-block:: llvm
+
+  %0 = load double, double* %d0.addr, align 8
+  %call = call double @cos(double %0) #4
+  %1 = load double, double* %d0.addr, align 8
+  %call1 = call double @sin(double %1) #5
+  call void @otherfunc() #6
+
+  attributes #4 = { nobuiltin "imf-precision"="low" }
+  attributes #5 = { nobuiltin "imf-absolute-error"="0.00001" "imf-precision"="high" }
+  attributes #6 = { nobuiltin "imf-precision"="high" }
   }];
 }
 

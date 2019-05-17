@@ -588,12 +588,7 @@ def Alias : Attr {
 def Aligned : InheritableAttr {
   let Spellings = [GCC<"aligned">, Declspec<"align">, Keyword<"alignas">,
                    Keyword<"_Alignas">];
-// INTEL_CUSTOMIZATION
-  let Args = [AlignedArgument<"Alignment", 1>
-// Fix for CQ368132: __declspec (align) in icc can take more than one argument.
-              , AlignedArgument<"Offset", 1>
-  ];
-// end INTEL_CUSTOMIZATION
+  let Args = [AlignedArgument<"Alignment", 1>];
   let Accessors = [Accessor<"isGNU", [GCC<"aligned">]>,
                    Accessor<"isC11", [Keyword<"_Alignas">]>,
                    Accessor<"isAlignas", [Keyword<"alignas">,
@@ -2954,7 +2949,9 @@ def LoopHint : Attr {
 // INTEL_CUSTOMIZATION
                    Pragma<"", "nounroll_and_jam">,
                    Pragma<"", "ii">, Pragma<"", "ivdep">,
-                   Pragma<"", "loop_coalesce">, Pragma<"", "max_concurrency">,
+                   Pragma<"", "loop_coalesce">,
+                   Pragma<"", "max_concurrency">,
+                   Pragma<"", "max_interleaving">,
                    Pragma<"", "ii_at_most">,Pragma<"", "ii_at_least">,
                    Pragma<"", "min_ii_at_target_fmax">,
                    Pragma<"", "speculated_iterations">,
@@ -2977,7 +2974,7 @@ def LoopHint : Attr {
                            "distribute",
                            "ii", "ivdep", "ivdep-loop", "ivdep-back",
                            "ivdep-hls", "ivdep-hls-intel",
-                           "loop_coalesce", "max_concurrency",
+                           "loop_coalesce", "max_concurrency", "max_interleaving",
                            "ii_at_most", "ii_at_least",
                            "min_ii_at_target_fmax", "speculated_iterations",
                            "disable_loop_pipelining", "force_hyperopt",
@@ -2992,7 +2989,7 @@ def LoopHint : Attr {
                            "Distribute",
                            "II", "IVDep", "IVDepLoop", "IVDepBack",
                            "IVDepHLS", "IVDepHLSIntel",
-                           "LoopCoalesce", "MaxConcurrency",
+                           "LoopCoalesce", "MaxConcurrency", "MaxInterleaving",
                            "IIAtMost", "IIAtLeast", "MinIIAtFmax",
                            "SpeculatedIterations", "DisableLoopPipelining",
                            "ForceHyperopt", "Distribute", "Fusion", "Vectorize",
@@ -3103,6 +3100,8 @@ def LoopHint : Attr {
       return "#pragma loop_coalesce";
     else if (SpellingIndex == Pragma_max_concurrency)
       return "#pragma max_concurrency";
+    else if (SpellingIndex == Pragma_max_interleaving)
+      return "#pragma max_interleaving";
     else if (SpellingIndex == Pragma_ii_at_most)
       return "#pragma ii_at_most";
     else if (SpellingIndex == Pragma_ii_at_least)

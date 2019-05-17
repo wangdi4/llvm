@@ -11769,6 +11769,13 @@ OMPClause *OMPClauseReader::readClause() {
   case OMPC_num_threads:
     C = new (Context) OMPNumThreadsClause();
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case OMPC_dataflow:
+    C = new (Context) OMPDataflowClause();
+    break;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   case OMPC_safelen:
     C = new (Context) OMPSafelenClause();
     break;
@@ -11995,6 +12002,17 @@ void OMPClauseReader::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
   C->setNumThreads(Record.readSubExpr());
   C->setLParenLoc(Record.readSourceLocation());
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+void OMPClauseReader::VisitOMPDataflowClause(OMPDataflowClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  C->setStaticChunkSize(Record.readSubExpr());
+  C->setNumWorkersNum(Record.readSubExpr());
+  C->setPipelineDepth(Record.readSubExpr());
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 void OMPClauseReader::VisitOMPSafelenClause(OMPSafelenClause *C) {
   C->setSafelen(Record.readSubExpr());

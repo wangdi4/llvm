@@ -238,6 +238,11 @@ class OpenMPLateOutliner {
   emitOMPAtomicDefaultMemOrderClause(const OMPAtomicDefaultMemOrderClause *);
   void emitOMPAllocatorClause(const OMPAllocatorClause *);
   void emitOMPAllocateClause(const OMPAllocateClause *);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  void emitOMPDataflowClause(const OMPDataflowClause *);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv);
   llvm::Value *emitOpenMPDestructor(QualType Ty);

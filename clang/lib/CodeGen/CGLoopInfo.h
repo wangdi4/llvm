@@ -58,6 +58,9 @@ struct LoopAttributes {
   /// Value for llvm.loop.max_concurrency.count metadata.
   unsigned MaxConcurrencyCount;
 
+  /// Value for llvm.loop.max_interleaving.count metadata.
+  unsigned MaxInterleavingCount;
+
   /// Value for llvm.loop.vectorize.ivdep_back metadata.
   bool IVDepEnable;
 
@@ -307,6 +310,11 @@ public:
   /// Set the max_concurrency count for the next loop pushed.
   void setMaxConcurrencyCount(unsigned C) {
     StagedAttrs.MaxConcurrencyCount = C;
+  }
+
+  /// Set the max_interleaving count for the next loop pushed.
+  void setMaxInterleavingCount(unsigned C) {
+    StagedAttrs.MaxInterleavingCount = C;
   }
 
   /// Set flag for three types of plain #pragma ivdep

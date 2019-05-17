@@ -249,7 +249,13 @@ class Parser : public CodeCompletionHandler {
       Depth += D;
       AddedLevels += D;
     }
+    void setAddedDepth(unsigned D) {
+      Depth = Depth - AddedLevels + D;
+      AddedLevels = D;
+    }
+  
     unsigned getDepth() const { return Depth; }
+    unsigned getOriginalDepth() const { return Depth - AddedLevels; }
   };
 
   /// Factory object for creating ParsedAttr objects.
@@ -1989,6 +1995,7 @@ private:  //***INTEL
   std::unique_ptr<PragmaHandler> IIHandler;
   std::unique_ptr<PragmaHandler> IVDepHandler;
   std::unique_ptr<PragmaHandler> MaxConcurrencyHandler;
+  std::unique_ptr<PragmaHandler> MaxInterleavingHandler;
   std::unique_ptr<PragmaHandler> IIAtMostHandler;
   std::unique_ptr<PragmaHandler> IIAtLeastHandler;
   std::unique_ptr<PragmaHandler> MinIIAtTargetFmaxHandler;
@@ -2989,6 +2996,17 @@ private:
   ///
   OMPClause *ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
                                       OpenMPClauseKind Kind, bool ParseOnly);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  /// Parses clause with the list of variables of a kind \a Kind.
+  ///
+  /// \param Kind Kind of current clause.
+  /// \param ParseOnly true to skip the clause's semantic actions and return
+  /// nullptr.
+  ///
+  OMPClause *ParseOpenMPDataflowClause(OpenMPClauseKind Kind, bool ParseOnly);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 public:
   /// Parses simple expression in parens for single-expression clauses of OpenMP

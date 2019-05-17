@@ -1009,7 +1009,7 @@ protected:
     CastIterator(StmtPtr *I) : Base(I) {}
 
     typename Base::value_type operator*() const {
-      return cast<T>(*this->I);
+      return cast_or_null<T>(*this->I);
     }
   };
 

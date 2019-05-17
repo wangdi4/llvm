@@ -1405,24 +1405,6 @@ ASTContext::setTemplateOrSpecializationInfo(VarDecl *Inst,
   TemplateOrInstantiation[Inst] = TSI;
 }
 
-FunctionDecl *ASTContext::getClassScopeSpecializationPattern(
-                                                     const FunctionDecl *FD){
-  assert(FD && "Specialization is 0");
-  llvm::DenseMap<const FunctionDecl*, FunctionDecl *>::const_iterator Pos
-    = ClassScopeSpecializationPattern.find(FD);
-  if (Pos == ClassScopeSpecializationPattern.end())
-    return nullptr;
-
-  return Pos->second;
-}
-
-void ASTContext::setClassScopeSpecializationPattern(FunctionDecl *FD,
-                                        FunctionDecl *Pattern) {
-  assert(FD && "Specialization is 0");
-  assert(Pattern && "Class scope specialization pattern is 0");
-  ClassScopeSpecializationPattern[FD] = Pattern;
-}
-
 NamedDecl *
 ASTContext::getInstantiatedFromUsingDecl(NamedDecl *UUD) {
   auto Pos = InstantiatedFromUsingDecl.find(UUD);
@@ -1624,8 +1606,10 @@ CharUnits ASTContext::getDeclAlign(const Decl *D, bool ForAlignof) const {
       if (BaseT.getQualifiers().hasUnaligned())
         Align = Target->getCharWidth();
       if (const auto *VD = dyn_cast<VarDecl>(D)) {
-        if (VD->hasGlobalStorage() && !ForAlignof)
-          Align = std::max(Align, getTargetInfo().getMinGlobalAlign());
+        if (VD->hasGlobalStorage() && !ForAlignof) {
+          uint64_t TypeSize = getTypeSize(T.getTypePtr());
+          Align = std::max(Align, getTargetInfo().getMinGlobalAlign(TypeSize));
+        }
       }
     }
 
@@ -2306,7 +2290,8 @@ unsigned ASTContext::getTargetDefaultAlignForAttributeAligned() const {
 /// getAlignOfGlobalVar - Return the alignment in bits that should be given
 /// to a global variable of the specified type.
 unsigned ASTContext::getAlignOfGlobalVar(QualType T) const {
-  return std::max(getTypeAlign(T), getTargetInfo().getMinGlobalAlign());
+  uint64_t TypeSize = getTypeSize(T.getTypePtr());
+  return std::max(getTypeAlign(T), getTargetInfo().getMinGlobalAlign(TypeSize));
 }
 
 /// getAlignOfGlobalVarInChars - Return the alignment in characters that
@@ -2647,7 +2632,7 @@ ASTContext::getBlockVarCopyInit(const VarDecl*VD) const {
   return {nullptr, false};
 }
 
-/// Set the copy inialization expression of a block var decl.
+/// Set the copy initialization expression of a block var decl.
 void ASTContext::setBlockVarCopyInit(const VarDecl*VD, Expr *CopyExpr,
                                      bool CanThrow) {
   assert(VD && CopyExpr && "Passed null params");
@@ -6348,17 +6333,6 @@ bool ASTContext::isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const {
          !VD->getFirstDecl()->isOutOfLine() && VD->getFirstDecl()->hasInit();
 }
 
-#if INTEL_CUSTOMIZATION
-// Fix for CQ#371078: linkfail when static const/constexpr is used as a field of
-// a structure.
-bool ASTContext::isIntelStaticDataMemberInlineDefinition(
-    const VarDecl *VD) const {
-  return getLangOpts().IntelCompat && VD->isStaticDataMember() &&
-         VD->getType()->isIntegralOrEnumerationType() && VD->isFirstDecl() &&
-         !VD->isOutOfLine() && VD->hasInit();
-}
-#endif // INTEL_CUSTOMIZATION
-
 ASTContext::InlineVariableDefinitionKind
 ASTContext::getInlineVariableDefinitionKind(const VarDecl *VD) const {
   if (!VD->isInline())
@@ -10051,13 +10025,6 @@ static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
   if (Context.isMSStaticDataMemberInlineDefinition(VD))
     return GVA_DiscardableODR;
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ#371078: linkfail when static const/constexpr is used as a field
-  // of a structure.
-  if (Context.isIntelStaticDataMemberInlineDefinition(VD))
-    return GVA_DiscardableODR;
-#endif // INTEL_CUSTOMIZATION
-
   // Most non-template variables have strong linkage; inline variables are
   // linkonce_odr or (occasionally, for compatibility) weak_odr.
   GVALinkage StrongLinkage;
@@ -10215,11 +10182,6 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     return true;
 
   if (VD->isThisDeclarationADefinition() == VarDecl::DeclarationOnly &&
-#if INTEL_CUSTOMIZATION
-      // Fix for CQ#371078: linkfail when static const/constexpr is used as a
-      // field of a structure.
-      !isIntelStaticDataMemberInlineDefinition(VD) &&
-#endif // INTEL_CUSTOMIZATION
       !isMSStaticDataMemberInlineDefinition(VD))
     return false;
 
@@ -10352,8 +10314,7 @@ size_t ASTContext::getSideTableAllocatedMemory() const {
          llvm::capacity_in_bytes(InstantiatedFromUnnamedFieldDecl) +
          llvm::capacity_in_bytes(OverriddenMethods) +
          llvm::capacity_in_bytes(Types) +
-         llvm::capacity_in_bytes(VariableArrayTypes) +
-         llvm::capacity_in_bytes(ClassScopeSpecializationPattern);
+         llvm::capacity_in_bytes(VariableArrayTypes);
 }
 
 /// getIntTypeForBitwidth -

@@ -1703,28 +1703,25 @@ void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
                                                bool AttrOnCallSite,
                                                llvm::AttrBuilder &FuncAttrs) {
 #if INTEL_CUSTOMIZATION
-  // CQ381541: IMF attributes support
-  if (getLangOpts().IntelCompat &&
-      (getLangOpts().ImfFuncSet.find(Name) != getLangOpts().ImfFuncSet.end())) {
+  if (getLangOpts().isIntelCompat(LangOptions::IMFAttributes)) {
     llvm::StringSet<> FuncOwnAttrs;
-    auto it = getLangOpts().ImfAttrFuncMap.find(Name);
-    if (it != getLangOpts().ImfAttrFuncMap.end()) {
-      // the function has it's own set of attributes
-      for (auto &it_at : it->second) {
-        FuncAttrs.addAttribute("imf-" + it_at.first().str(), it_at.second);
-        FuncOwnAttrs.insert(it_at.first());
+    auto FuncMapIt = getLangOpts().ImfAttrFuncMap.find(Name);
+    if (FuncMapIt != getLangOpts().ImfAttrFuncMap.end()) {
+      // The function has its own set of attributes.
+      for (const auto &AttrPair : FuncMapIt->second) {
+        FuncAttrs.addAttribute("imf-" + AttrPair.first().str(),
+                               AttrPair.second);
+        FuncOwnAttrs.insert(AttrPair.first());
       }
     }
-    if (!getLangOpts().ImfFuncSet.empty()) {
-      for (auto &it_at : getLangOpts().ImfAttrMap) {
-        if (FuncOwnAttrs.empty() ||
-            (FuncOwnAttrs.find(it_at.first()) == FuncOwnAttrs.end())) {
-          // no specific attributes for this function OR such attribute so far.
-          FuncAttrs.addAttribute("imf-" + it_at.first().str(), it_at.second);
-        }
+    // Add attributes not specific to any function, if that kind not explicitly
+    // specified for this function.
+    for (const auto &AttrPair : getLangOpts().ImfAttrMap) {
+      if (FuncOwnAttrs.find(AttrPair.first()) == FuncOwnAttrs.end()) {
+        FuncAttrs.addAttribute("imf-" + AttrPair.first().str(),
+                               AttrPair.second);
       }
     }
-    FuncOwnAttrs.clear();
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2037,8 +2034,7 @@ void CodeGenModule::ConstructAttributeList(
   // Attach attributes to sret.
   if (IRFunctionArgs.hasSRetArg()) {
     llvm::AttrBuilder SRETAttrs;
-    if (!RetAI.getSuppressSRet())
-      SRETAttrs.addAttribute(llvm::Attribute::StructRet);
+    SRETAttrs.addAttribute(llvm::Attribute::StructRet);
     hasUsedSRet = true;
     if (RetAI.getInReg())
       SRETAttrs.addAttribute(llvm::Attribute::InReg);
@@ -4439,7 +4435,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   }
 
   // Add metadata for calls to MSAllocator functions
-  // FIXME: Get the type that the return value is cast to.
   if (getDebugInfo() && TargetDecl &&
       TargetDecl->hasAttr<MSAllocatorAttr>())
     getDebugInfo()->addHeapAllocSiteMetadata(CI, RetTy, Loc);

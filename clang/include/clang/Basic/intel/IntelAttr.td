@@ -379,6 +379,23 @@ def MaxConcurrency : InheritableAttr {
   }];
 }
 
+def MaxInterleaving : InheritableAttr {
+  let Spellings = [GNU<"max_interleaving">];
+  let Args = [ExprArgument<"Value">];
+  let LangOpts = [OpenCL, HLS];
+  let Subjects = SubjectList<[Function, HLSLocalNonConstVar], ErrorDiag>;
+  let Documentation = [Undocumented];
+  let PragmaAttributeSupport = 0;
+  let AdditionalMembers = [{
+    static unsigned getMinValue() {
+      return 0;
+    }
+    static unsigned getMaxValue() {
+      return 1024*1024;
+    }
+  }];
+}
+
 def StallLatency : InheritableAttr {
   let Spellings = [GNU<"stall_latency_enabled">, GNU<"stall_latency_disabled">];
   let LangOpts = [OpenCL, HLS];

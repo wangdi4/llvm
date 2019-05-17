@@ -33,6 +33,10 @@ def err_asm_goto_not_supported_yet : Error<
 
 let CategoryName = "Parse Issue" in {
 
+def warn_cxx2a_compat_explicit_bool : Warning<
+  "this expression will be parsed as explicit(bool) in C++2a">,
+  InGroup<CXX2aCompat>, DefaultIgnore;
+
 def ext_empty_translation_unit : Extension<
   "ISO C requires a translation unit to contain at least one declaration">,
   InGroup<DiagGroup<"empty-translation-unit">>;
@@ -714,6 +718,8 @@ def err_id_after_template_in_nested_name_spec : Error<
   "expected template name after 'template' keyword in nested name specifier">;
 def err_unexpected_template_in_unqualified_id : Error<
   "'template' keyword not permitted here">;
+def err_unexpected_template_after_using : Error<
+  "'template' keyword not permitted after 'using' keyword">;
 def err_two_right_angle_brackets_need_space : Error<
   "a space is required between consecutive right angle brackets (use '> >')">;
 def err_right_angle_bracket_equal_needs_space : Error<
@@ -910,6 +916,16 @@ def warn_cxx14_compat_constexpr_on_lambda : Warning<
   InGroup<CXXPre17Compat>, DefaultIgnore;
 def ext_constexpr_on_lambda_cxx17 : ExtWarn<
   "'constexpr' on lambda expressions is a C++17 extension">, InGroup<CXX17>;
+
+ // C++2a template lambdas
+ def ext_lambda_template_parameter_list: ExtWarn<
+  "explicit template parameter list for lambdas is a C++2a extension">,
+  InGroup<CXX2a>;
+def warn_cxx17_compat_lambda_template_parameter_list: Warning<
+  "explicit template parameter list for lambdas is incompatible with "
+  "C++ standards before C++2a">, InGroup<CXXPre2aCompat>, DefaultIgnore;
+ def err_lambda_template_parameter_list_empty : Error<
+   "lambda template parameter list cannot be empty">;
 
 // Availability attribute
 def err_expected_version : Error<
@@ -1199,10 +1215,15 @@ def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<
   "incorrect map type modifier, expected 'always', 'close', or 'mapper'">;
-// if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def err_omp_unknown_lastprivate_modifier : Error<
   "incorrect lastprivate modifier, expected 'conditional'">;
-// endif INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+def err_omp_unknown_dataflow_modifier : Error<"unexpected 'dataflow' modifier, expected 'static', 'num_workers' or 'pipeline'">;
+def err_omp_conflicting_dataflow_num_workers_modifier: Error<"'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause">;
+def note_omp_conflicting_dataflow_num_workers_modifier: Note<"conflicting entry is here">;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 def err_omp_map_type_missing : Error<
   "missing map type">;
 def err_omp_map_type_modifier_missing : Error<

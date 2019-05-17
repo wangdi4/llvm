@@ -71,6 +71,19 @@ enum OpenMPScheduleClauseModifier {
   OMPC_SCHEDULE_MODIFIER_last
 };
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+/// OpenMP modifiers for 'dataflow' clause.
+enum OpenMPDataflowClauseModifier {
+  OMPC_DATAFLOW_MODIFIER_unknown,
+#define OPENMP_DATAFLOW_MODIFIER(Name) \
+  OMPC_DATAFLOW_MODIFIER_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_DATAFLOW_MODIFIER_last
+};
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 /// OpenMP attributes for 'depend' clause.
 enum OpenMPDependClauseKind {
 #define OPENMP_DEPEND_KIND(Name) \

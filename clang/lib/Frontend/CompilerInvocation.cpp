@@ -293,6 +293,7 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
   }
 
   Opts.ShowCheckerHelp = Args.hasArg(OPT_analyzer_checker_help);
+  Opts.ShowCheckerHelpHidden = Args.hasArg(OPT_analyzer_checker_help_hidden);
   Opts.ShowConfigOptionsList = Args.hasArg(OPT_analyzer_config_help);
   Opts.ShowEnabledCheckerList = Args.hasArg(OPT_analyzer_list_enabled_checkers);
   Opts.ShouldEmitErrorsOnInvalidConfigValue =
@@ -430,7 +431,7 @@ static void initOption(AnalyzerOptions::ConfigTable &Config,
 
   OptionField = DefaultVal;
   bool HasFailed = getStringOption(Config, Name, std::to_string(DefaultVal))
-                     .getAsInteger(10, OptionField);
+                     .getAsInteger(0, OptionField);
   if (Diags && HasFailed)
     Diags->Report(diag::err_analyzer_config_invalid_input)
       << Name << "an unsigned";
@@ -2264,79 +2265,6 @@ static Visibility parseVisibility(Arg *arg, ArgList &args,
   return DefaultVisibility;
 }
 
-#if INTEL_CUSTOMIZATION
-//CQ#381541: The list of IMF candidate functions.
-static void FillImfFuncSet(llvm::StringSet<> &ImfFuncSet) {
-  static const char *initArr[] = {
-    "acos",         "acosf",       "acosl",       "acosdl",      "acosh",
-    "acoshf",       "acoshl",      "asin",        "asinf",       "asinl",
-    "asindl",       "asinh",       "asinhf",      "asinhl",      "atan2",
-    "atan2f",       "creal",       "crealf",      "creall",      "cimag",
-    "cimagf",       "cimagl",      "cabs",        "cabsf",       "cabsl",
-    "cacos",        "cacosf",      "cacosl",      "cacosh",      "cacoshf",
-    "cacoshl",      "carg",        "cargf",       "cargl",       "casin",
-    "casinf",       "casinl",      "casinh",      "casinhf",     "casinhl",
-    "catan",        "catanf",      "catanl",      "catanh",      "catanhf",
-    "catanhl",      "conj",        "conjf",       "conjl",       "cbrt",
-    "cbrtf",        "cbrtl",       "cdfnorminv",  "cdfnorminvf", "cdfnorm",
-    "cdfnormf",     "erfcinv",     "erfcinvf",    "ceil",        "ceilf",
-    "ceill",        "cos",         "cosd",        "cosf",        "cosl",
-    "cosld",        "cosh",        "coshf",       "coshl",       "trunc",
-    "truncf",       "truncl",      "round",       "roundf",      "roundl",
-    "exp",          "expl",        "expf",        "exp10",       "exp10f",
-    "exp2",         "exp2f",       "exp2l",       "expm1",       "expm1f",
-    "expm1l",       "fabs",        "fabsf",       "floor",       "floorf",
-    "floorl",       "fmod",        "fmodf",       "fmodl",       "gamma",
-    "gammaf",       "gammal",      "gamma_r",     "gammaf_r",    "gammal_r",
-    "hypot",        "hypotf",      "hypotl",      "ilogb",       "ilogbf",
-    "ilogbl",       "invsqrt",     "invsqrtf",    "invsqrtl",    "j0",
-    "j0f",          "j0l",         "j1",          "j1f",         "j1l",
-    "jn",           "jnf",         "jnl",         "lgamma",      "lgammaf",
-    "lgammal",      "lgamma_r",    "lgammaf_r",   "lgammal_r",   "llrint",
-    "llrintf",      "llrintl",     "llround",     "llroundf",    "llroundl",
-    "log",          "logf",        "logl",        "log10",       "log10f",
-    "log10l",       "log1p",       "log1pf",      "log1pl",      "log2",
-    "log2f",        "log2l",       "logb",        "logbf",       "logbl",
-    "lrint",        "lrintf",      "lrintl",      "lround",      "lroundf",
-    "lroundl",      "fdim",        "fdimf",       "fdiml",       "fma",
-    "fmaf",         "fmal",        "fmax",        "fmaxf",       "fmaxl",
-    "fmin",         "fminf",       "fminl",       "pow",         "powf",
-    "powl",         "remainder",   "remainderf",  "remainderl",  "remquo",
-    "remquof",      "remquol",     "rint",        "rintf",       "rintl",
-    "nearbyint",    "nearbyintf",  "nearbyintl",  "nextafter",   "nextafterf",
-    "nextafterl",   "nexttoward",  "nexttowardf", "nexttowardl", "scalb",
-    "scalbf",       "scalbl",      "scalbln",     "scalblnf",    "scalblnl",
-    "scalbn",       "scalbnf",     "scalbnl",     "significand", "significandf",
-    "significandl", "sin",         "sind",        "sinf",        "sinl",
-    "sindl",        "sinh",        "sinhf",       "sinhl",       "sincos",
-    "sincosf",      "sincosl",     "sincosd",     "sincosdf",    "sincosdl",
-    "sqrt",         "sqrtf",       "sqrtl",       "tgamma",      "tgammaf",
-    "tgammal",      "y0",          "y0f",         "y0l",         "y1",
-    "y1f",          "y1l",         "yn",          "ynf",         "ynl",
-    "tan",          "tand",        "tanf",        "tanl",        "tanh",
-    "tanhf",        "tanhl",       "ldexp",       "ldexpf",      "ldexpl",
-    "modf",         "modff",       "modfl",       "copysign",    "copysignf",
-    "copysignl",    "frexp",       "frexpf",      "frexpl",      "ccos",
-    "ccosf",        "ccosl",       "ccosh",       "ccoshf",      "ccoshl",
-    "sinhcosh",     "sinhcoshf",   "sinhcoshl",   "cis",         "cisf",
-    "cisl",         "cisd",        "cisdf",       "cisdl",       "cexp",
-    "cexpf",        "cexpl",       "cexp2",       "cexp2f",      "cexp2l",
-    "cexp10l",      "clog",        "clogf",       "clogl",       "clog10",
-    "clog10f",      "clog10l",     "clog2",       "clog2f",      "clog2l",
-    "cpow",         "cpowf",       "cpowl",       "cproj",       "cprojf",
-    "cprojl",       "csin",        "csinf",       "csinl",       "csinh",
-    "csinhf",       "csinhl",      "csqrt",       "csqrtf",      "csqrtl",
-    "ctan",         "ctanf",       "ctanl",       "ctanh",       "ctanhf",
-    "ctanhl",       "erf",         "erff",        "erfl",        "erfc",
-    "erfcf",        "erfcl",       "erfcx",       "erfcxf",      "erfinv",
-    "erfinvf",     "erfinvl"
-  };
-  for(auto & it : initArr) {
-    ImfFuncSet.insert(it);
-  }
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// Check if input file kind and language standard are compatible.
 static bool IsInputCompatibleWithStandard(InputKind IK,
                                           const Arg *A, // INTEL
@@ -2537,53 +2465,47 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.HLS = Args.hasArg(OPT_fhls);
   Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
   Opts.IntelAdvancedOptim = Args.hasArg(OPT_fintel_advanced_optim);
-  // CQ381541: Parse IMF attributes
-  if (Opts.IntelCompat && Args.hasArg(OPT_fintel_imf_attr_EQ)) {
-    bool ImfFuncSetFilled = false;
-    StringRef IMFAttrs = Args.getLastArgValue(OPT_fintel_imf_attr_EQ);
-    SmallVector<StringRef, 8> IMFAttrArr;
-    IMFAttrs.split(IMFAttrArr, ' ');
-    for (size_t i = 0; i < IMFAttrArr.size(); ++i) {
-      SmallVector<StringRef, 3> IMFAttrElement;
-      IMFAttrArr[i].split(IMFAttrElement, ':');
-      if (IMFAttrElement.size() == 2) {
-        // fill the list of IMF functions if not done yet.
-        if (!ImfFuncSetFilled) {
-          ImfFuncSetFilled = true;
-          FillImfFuncSet(Opts.ImfFuncSet);
-        }
-        std::pair<LangOptions::IMFAttrMap::iterator, bool> res =
-            Opts.ImfAttrMap.insert(
-                std::make_pair(IMFAttrElement[0], IMFAttrElement[1]));
-        if (!res.second) {
-          // there is an attribute in the list. update it.
-          res.first->second = IMFAttrElement[1];
-        }
-      } else if (IMFAttrElement.size() == 3) {
-        SmallVector<StringRef, 30> FuncList;
-        IMFAttrElement[2].split(FuncList, ',');
-        for (size_t k = 0; k < FuncList.size(); ++k) {
-          auto it = Opts.ImfAttrFuncMap.find(FuncList[k]);
-          if (it != Opts.ImfAttrFuncMap.end()) {
-            // the function is already in the map. add options to it.
-            std::pair<LangOptions::IMFAttrMap::iterator, bool> res =
-                it->second.insert(
-                    std::make_pair(IMFAttrElement[0], IMFAttrElement[1]));
-            if (!res.second) {
-              res.first->second = IMFAttrElement[1];
+
+  if (Opts.isIntelCompat(LangOptions::IMFAttributes)) {
+    for (StringRef IMFAttrs : Args.getAllArgValues(OPT_fintel_imf_attr_EQ)) {
+      SmallVector<StringRef, 8> IMFAttrArr;
+      IMFAttrs.split(IMFAttrArr, ' ');
+      for (const auto &IMFAttr : IMFAttrArr) {
+        SmallVector<StringRef, 3> IMFAttrElement;
+        IMFAttr.split(IMFAttrElement, ':');
+        if (IMFAttrElement.size() == 2) {
+          std::pair<LangOptions::IMFAttrMap::iterator, bool> Res =
+              Opts.ImfAttrMap.insert({IMFAttrElement[0], IMFAttrElement[1]});
+          if (!Res.second) {
+            // Update the existing attribute.
+            Res.first->second = IMFAttrElement[1];
+          }
+        } else if (IMFAttrElement.size() == 3) {
+          SmallVector<StringRef, 30> FuncList;
+          IMFAttrElement[2].split(FuncList, ',');
+          for (StringRef FuncName : FuncList) {
+            auto FuncMapIt = Opts.ImfAttrFuncMap.find(FuncName);
+            if (FuncMapIt != Opts.ImfAttrFuncMap.end()) {
+              // The function is already in the map, add options to it.
+              std::pair<LangOptions::IMFAttrMap::iterator, bool> Res =
+                  FuncMapIt->second.insert(
+                      {IMFAttrElement[0], IMFAttrElement[1]});
+              if (!Res.second) {
+                // Update the existing attribute.
+                Res.first->second = IMFAttrElement[1];
+              }
+            } else {
+              // The first appearence of the function in the imf attributes.
+              LangOptions::IMFAttrMap NewMap;
+              NewMap.insert({IMFAttrElement[0], IMFAttrElement[1]});
+              Opts.ImfAttrFuncMap.insert({FuncName, std::move(NewMap)});
             }
-          } else {
-            // the first appearence of the function in the imf attributes.
-            LangOptions::IMFAttrMap NewMap;
-            NewMap.insert(
-                std::make_pair(IMFAttrElement[0], IMFAttrElement[1]));
-            Opts.ImfAttrFuncMap.insert(
-                std::make_pair(FuncList[k], std::move(NewMap)));
           }
         }
       }
     }
   }
+
   Opts.OpenMPThreadPrivateLegacy =
       Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =

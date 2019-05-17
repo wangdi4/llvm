@@ -1645,12 +1645,8 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
 
   const auto *FD = cast<FunctionDecl>(GD.getDecl());
 
-  if (!IsIncompleteFunction) {
+  if (!IsIncompleteFunction)
     SetLLVMFunctionAttributes(GD, getTypes().arrangeGlobalDeclaration(GD), F);
-    // Setup target-specific attributes.
-    if (F->isDeclaration())
-      getTargetCodeGenInfo().setTargetAttributes(FD, F, *this);
-  }
 
   // Add the Returned attribute for "this", except for iOS 5 and earlier
   // where substantial code, including the libstdc++ dylib, was compiled with
@@ -1669,6 +1665,10 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
 
   setLinkageForGV(F, FD);
   setGVProperties(F, FD);
+
+  // Setup target-specific attributes.
+  if (!IsIncompleteFunction && F->isDeclaration())
+    getTargetCodeGenInfo().setTargetAttributes(FD, F, *this);
 
   if (const auto *CSA = FD->getAttr<CodeSegAttr>())
     F->setSection(CSA->getName());
@@ -2325,11 +2325,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
     const auto *VD = cast<VarDecl>(Global);
     assert(VD->isFileVarDecl() && "Cannot emit local var decl as global.");
     if (VD->isThisDeclarationADefinition() != VarDecl::Definition &&
-#if INTEL_CUSTOMIZATION
-        // Fix for CQ#371078: linkfail when static const/constexpr is used as a
-        // field of a structure.
-        !Context.isIntelStaticDataMemberInlineDefinition(VD) &&
-#endif // INTEL_CUSTOMIZATION
         !Context.isMSStaticDataMemberInlineDefinition(VD)) {
       if (LangOpts.OpenMP) {
         // Emit declaration of the must-be-emitted declare target variable.
@@ -2672,10 +2667,9 @@ void CodeGenModule::emitMultiVersionFunctions() {
       ResolverFunc->setComdat(
           getModule().getOrInsertComdat(ResolverFunc->getName()));
 
-    std::stable_sort(
-        Options.begin(), Options.end(),
-        [&TI](const CodeGenFunction::MultiVersionResolverOption &LHS,
-              const CodeGenFunction::MultiVersionResolverOption &RHS) {
+    llvm::stable_sort(
+        Options, [&TI](const CodeGenFunction::MultiVersionResolverOption &LHS,
+                       const CodeGenFunction::MultiVersionResolverOption &RHS) {
           return TargetMVPriority(TI, LHS) > TargetMVPriority(TI, RHS);
         });
     CodeGenFunction CGF(*this);
@@ -3099,9 +3093,13 @@ CodeGenModule::CreateRuntimeFunction(llvm::FunctionType *FTy, StringRef Name,
     if (F->empty()) {
       F->setCallingConv(getRuntimeCC());
 
-      if (!Local && getTriple().isOSBinFormatCOFF() &&
-          !getCodeGenOpts().LTOVisibilityPublicStd &&
-          !getTriple().isWindowsGNUEnvironment()) {
+      // In Windows Itanium environments, try to mark runtime functions
+      // dllimport. For Mingw and MSVC, don't. We don't really know if the user
+      // will link their standard library statically or dynamically. Marking
+      // functions imported when they are not imported can cause linker errors
+      // and warnings.
+      if (!Local && getTriple().isWindowsItaniumEnvironment() &&
+          !getCodeGenOpts().LTOVisibilityPublicStd) {
         const FunctionDecl *FD = GetRuntimeFunctionDecl(Context, Name);
         if (!FD || FD->hasAttr<DLLImportAttr>()) {
           F->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
@@ -3268,13 +3266,6 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
       EmitGlobalVarDefinition(D);
     }
 
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ#371078: linkfail when static const/constexpr is used as a
-    // field of a structure.
-    if (getContext().isIntelStaticDataMemberInlineDefinition(D)) {
-      EmitGlobalVarDefinition(D);
-    }
-#endif // INTEL_CUSTOMIZATION
     // Emit section information for extern variables.
     if (D->hasExternalStorage()) {
       if (const SectionAttr *SA = D->getAttr<SectionAttr>())
@@ -4193,15 +4184,9 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
 
   // C++ doesn't have tentative definitions and thus cannot have common
   // linkage.
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ375398: 'common' attribute is not supported in C++
-  if ((getLangOpts().IntelCompat || !getLangOpts().CPlusPlus) &&
-      isa<VarDecl>(D) &&
-      !isVarDeclStrongDefinition(
-          Context, *this, cast<VarDecl>(D),
-          CodeGenOpts.NoCommon ||
-              (getLangOpts().IntelCompat && getLangOpts().CPlusPlus)))
-#endif // INTEL_CUSTOMIZATION
+  if (!getLangOpts().CPlusPlus && isa<VarDecl>(D) &&
+      !isVarDeclStrongDefinition(Context, *this, cast<VarDecl>(D),
+                                 CodeGenOpts.NoCommon))
     return llvm::GlobalVariable::CommonLinkage;
 
   // selectany symbols are externally visible, so use weak instead of

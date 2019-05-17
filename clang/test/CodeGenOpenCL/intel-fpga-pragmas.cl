@@ -53,6 +53,16 @@ void foo_max_concurrency()
   for (int i=0;i<32;++i) { bar(i); }
 }
 
+//CHECK-LABEL: foo_max_interleaving
+void foo_max_interleaving()
+{
+  //CHECK: br{{.*}}!llvm.loop [[MAXI1:![0-9]+]]
+  for (int j=0;j<32;++j) {
+    #pragma max_interleaving 1
+    for (int i=0;i<32;++i) { bar(i); }
+  }
+}
+
 //CHECK-LABEL: foo_ivdep
 void foo_ivdep(int select)
 {
@@ -137,10 +147,11 @@ void foo_ivdep(int select)
 //CHECK: [[II1A]] = !{!"llvm.loop.ii.count", i32 4}
 //CHECK: [[MAXC1]] = distinct !{[[MAXC1]], [[MAXC1A:![0-9]+]]}
 //CHECK: [[MAXC1A]] = !{!"llvm.loop.max_concurrency.count", i32 4}
+//CHECK: [[MAXI1]] = distinct !{[[MAXI1]], [[MAXI1A:![0-9]+]]}
+//CHECK: [[MAXI1A]] = !{!"llvm.loop.max_interleaving.count", i32 1}
 //CHECK: [[IVDEP1]] = distinct !{[[IVDEP1]], [[IVDEP1A:![0-9]+]]}
 //CHECK: [[IVDEP1A]] = !{!"llvm.loop.ivdep.enable"}
 //CHECK: [[IVDEP2]] = distinct !{[[IVDEP2]], [[IVDEP2A:![0-9]+]]}
 //CHECK: [[IVDEP2A]] = !{!"llvm.loop.ivdep.safelen", i32 4}
 //CHECK: [[IVDEP4]] = distinct !{[[IVDEP4]], [[UNROLL2A]]}
 //CHECK: [[IVDEP5]] = distinct !{[[IVDEP5]], [[UNROLL2A]]}
-

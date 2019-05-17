@@ -447,6 +447,20 @@ void OMPClauseProfiler::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
     Profiler->VisitStmt(C->getNumThreads());
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+void OMPClauseProfiler::VisitOMPDataflowClause(const OMPDataflowClause *C) {
+  VistOMPClauseWithPreInit(C);
+  if (C->getStaticChunkSize())
+    Profiler->VisitStmt(C->getStaticChunkSize());
+  if (C->getNumWorkersNum())
+    Profiler->VisitStmt(C->getNumWorkersNum());
+  if (C->getPipelineDepth())
+    Profiler->VisitStmt(C->getPipelineDepth());
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 void OMPClauseProfiler::VisitOMPSafelenClause(const OMPSafelenClause *C) {
   if (C->getSafelen())
     Profiler->VisitStmt(C->getSafelen());

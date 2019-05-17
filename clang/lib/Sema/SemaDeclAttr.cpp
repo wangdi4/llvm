@@ -2007,10 +2007,6 @@ static void handleCPUSpecificAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleCommonAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ375398: 'common' attribute is not supported in C++
-  if (!S.getLangOpts().IntelCompat)
-#endif // INTEL_CUSTOMIZATION
   if (S.LangOpts.CPlusPlus) {
     S.Diag(AL.getLoc(), diag::err_attribute_not_supported_in_lang)
         << AL << AttributeLangSupport::Cpp;
@@ -5046,11 +5042,6 @@ void Sema::AddAlignValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
 }
 
 static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ368132: __declspec (align) in icc can take more than one
-  // argument.
-  if (!S.getLangOpts().IntelCompat)
-#endif // INTEL_CUSTOMIZATION
   // check the attribute arguments.
   if (AL.getNumArgs() > 1) {
     S.Diag(AL.getLoc(), diag::err_attribute_wrong_number_arguments) << AL << 1;
@@ -5058,13 +5049,8 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
   if (AL.getNumArgs() == 0) {
-#if INTEL_CUSTOMIZATION
-    // Fix for CQ368132: __declspec (align) in icc can take more than one
-    // argument.
-    D->addAttr(::new (S.Context) AlignedAttr(
-        AL.getRange(), S.Context, true, nullptr, /*IsOffsetExpr=*/true,
-        /*Offset=*/nullptr, AL.getAttributeSpellingListIndex()));
-#endif // INTEL_CUSTOMIZATION
+    D->addAttr(::new (S.Context) AlignedAttr(AL.getRange(), S.Context,
+               true, nullptr, AL.getAttributeSpellingListIndex()));
     return;
   }
 
@@ -5078,34 +5064,13 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!AL.isPackExpansion() && S.DiagnoseUnexpandedParameterPack(E))
     return;
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ368132: __declspec (align) in icc can take more than one
-  // argument.
-  Expr *Offset = nullptr;
-  if (E && S.getLangOpts().IntelCompat && AL.getNumArgs() > 1) {
-    Offset = AL.getArgAsExpr(1);
-    if (AL.isPackExpansion() && !Offset->containsUnexpandedParameterPack()) {
-      S.Diag(AL.getEllipsisLoc(),
-             diag::err_pack_expansion_without_parameter_packs);
-      return;
-    }
-
-    if (!AL.isPackExpansion() && S.DiagnoseUnexpandedParameterPack(Offset))
-      return;
-  }
-  S.AddAlignedAttr(AL.getRange(), D, E, Offset,
-                   AL.getAttributeSpellingListIndex(),
+  S.AddAlignedAttr(AL.getRange(), D, E, AL.getAttributeSpellingListIndex(),
                    AL.isPackExpansion());
-#endif // INTEL_CUSTOMIZATION
 }
 
-#if INTEL_CUSTOMIZATION
-// Fix for CQ368132: __declspec (align) in icc can take more than one argument.
-void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
+void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
                           unsigned SpellingListIndex, bool IsPackExpansion) {
-  AlignedAttr TmpAttr(AttrRange, Context, true, E, /*IsOffsetExpr=*/true,
-                      Offset, SpellingListIndex);
-#endif // INTEL_CUSTOMIZATION
+  AlignedAttr TmpAttr(AttrRange, Context, true, E, SpellingListIndex);
   SourceLocation AttrLoc = AttrRange.getBegin();
 
   // C++11 alignas(...) and C11 _Alignas(...) have additional requirements.
@@ -5163,18 +5128,6 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
     D->addAttr(AA);
     return;
   }
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ368132: __declspec (align) in icc can take more than one
-  // argument.
-  if (getLangOpts().IntelCompat && Offset &&
-      (Offset->isTypeDependent() || Offset->isValueDependent())) {
-    // Save dependent expressions in the AST to be instantiated.
-    AlignedAttr *AA = ::new (Context) AlignedAttr(TmpAttr);
-    AA->setPackExpansion(IsPackExpansion);
-    D->addAttr(AA);
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // FIXME: Cache the number on the AL object?
   llvm::APSInt Alignment;
@@ -5184,19 +5137,6 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
         /*AllowFold*/ false);
   if (ICE.isInvalid())
     return;
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ368132: __declspec (align) in icc can take more than one
-  // argument.
-  ExprResult ICEOffset;
-  if (getLangOpts().IntelCompat && Offset) {
-    llvm::APSInt OffsetVal(32);
-    ICEOffset = VerifyIntegerConstantExpression(
-        Offset, &OffsetVal, diag::err_aligned_attribute_argument_not_int,
-        /*AllowFold*/ false);
-    if (ICEOffset.isInvalid())
-      return;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   uint64_t AlignVal = Alignment.getZExtValue();
 
@@ -5236,13 +5176,8 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
     }
   }
 
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ368132: __declspec (align) in icc can take more than one
-  // argument.
-  AlignedAttr *AA = ::new (Context)
-      AlignedAttr(AttrRange, Context, true, ICE.get(), /*IsOffsetExpr=*/true,
-                  ICEOffset.get(), SpellingListIndex);
-#endif // INTEL_CUSTOMIZATION
+  AlignedAttr *AA = ::new (Context) AlignedAttr(AttrRange, Context, true,
+                                                ICE.get(), SpellingListIndex);
   AA->setPackExpansion(IsPackExpansion);
   D->addAttr(AA);
 }
@@ -5251,13 +5186,8 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *TS,
                           unsigned SpellingListIndex, bool IsPackExpansion) {
   // FIXME: Cache the number on the AL object if non-dependent?
   // FIXME: Perform checking of type validity
-#if INTEL_CUSTOMIZATION
-  // Fix for CQ368132: __declspec (align) in icc can take more than one
-  // argument.
-  AlignedAttr *AA = ::new (Context)
-      AlignedAttr(AttrRange, Context, false, TS, /*IsOffsetExpr=*/true,
-                  /*Offset=*/nullptr, SpellingListIndex);
-#endif // INTEL_CUSTOMIZATION
+  AlignedAttr *AA = ::new (Context) AlignedAttr(AttrRange, Context, false, TS,
+                                                SpellingListIndex);
   AA->setPackExpansion(IsPackExpansion);
   D->addAttr(AA);
 }
@@ -5390,10 +5320,7 @@ static void parseModeAttrArg(Sema &S, StringRef Str, unsigned &DestWidth,
 /// Despite what would be logical, the mode attribute is a decl attribute, not a
 /// type attribute: 'int ** __attribute((mode(HI))) *G;' tries to make 'G' be
 /// HImode, not an intermediate pointer.
-#if INTEL_CUSTOMIZATION
-static void handleModeAttr(Sema &S, Decl *D, const ParsedAttr &AL,
-                           QualType *CurTy = nullptr) { // INTEL
-#endif // INTEL_CUSTOMIZATION
+static void handleModeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // This attribute isn't documented, but glibc uses it.  It changes
   // the width of an int or unsigned int to the specified size.
   if (!AL.isArgIdent(0)) {
@@ -5402,29 +5329,17 @@ static void handleModeAttr(Sema &S, Decl *D, const ParsedAttr &AL,
     return;
   }
 
-  assert(((D && !CurTy) || (CurTy && !D)) && "Invalid arguments");  // INTEL
-
   IdentifierInfo *Name = AL.getArgAsIdent(0)->Ident;
 
-  S.AddModeAttr(AL.getRange(), D, Name,                            // INTEL
-                AL.getAttributeSpellingListIndex(), false, CurTy); // INTEL
+  S.AddModeAttr(AL.getRange(), D, Name, AL.getAttributeSpellingListIndex());
 }
 
 void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
-                       unsigned SpellingListIndex,
-                       bool InInstantiation,                  // INTEL
-                       QualType *CurTy) {                     // INTEL
+                       unsigned SpellingListIndex, bool InInstantiation) {
   StringRef Str = Name->getName();
   normalizeName(Str);
   SourceLocation AttrLoc = AttrRange.getBegin();
 
-#if INTEL_CUSTOMIZATION
-  // CQ#369184 - decimal types are not supported, so handle this gracefully.
-  if (getLangOpts().IntelCompat && D && Str.size() == 2 && Str[1] == 'D') {
-    Diag(AttrLoc, diag::err_decimal_unsupported);
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
   unsigned DestWidth = 0;
   bool IntegerMode = true;
   bool ComplexMode = false;
@@ -5462,7 +5377,6 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
   }
 
   QualType OldTy;
-  if (D) {  // INTEL
   if (const auto *TD = dyn_cast<TypedefNameDecl>(D))
     OldTy = TD->getUnderlyingType();
   else if (const auto *ED = dyn_cast<EnumDecl>(D)) {
@@ -5473,10 +5387,7 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
       OldTy = Context.IntTy;
   } else
     OldTy = cast<ValueDecl>(D)->getType();
-  } else            // INTEL
-    OldTy = *CurTy; // INTEL
 
-  if (D)  // INTEL
   if (OldTy->isDependentType()) {
     D->addAttr(::new (Context)
                ModeAttr(AttrRange, Context, Name, SpellingListIndex));
@@ -5492,7 +5403,7 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
   // GCC allows 'mode' attribute on enumeration types (even incomplete), except
   // for vector modes. So, 'enum X __attribute__((mode(QI)));' forms a complete
   // type, 'enum { A } __attribute__((mode(V4SI)))' is rejected.
-  if (((D && isa<EnumDecl>(D)) || OldElemTy->getAs<EnumType>()) && // INTEL
+  if ((isa<EnumDecl>(D) || OldElemTy->getAs<EnumType>()) &&
       VectorSize.getBoolValue()) {
     Diag(AttrLoc, diag::err_enum_mode_vector_type) << Name << AttrRange;
     return;
@@ -5522,7 +5433,6 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
   else
     NewElemTy = Context.getRealTypeForBitwidth(DestWidth);
 
-  if (D)  // INTEL
   if (NewElemTy.isNull()) {
     Diag(AttrLoc, diag::err_machine_mode) << 1 /*Unsupported*/ << Name;
     return;
@@ -5538,7 +5448,6 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
                                   VectorType::GenericVector);
   } else if (const auto *OldVT = OldTy->getAs<VectorType>()) {
     // Complex machine mode does not support base vector types.
-    if (D)  // INTEL
     if (ComplexMode) {
       Diag(AttrLoc, diag::err_complex_mode_vector_type);
       return;
@@ -5555,13 +5464,6 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
     return;
   }
 
-#if INTEL_CUSTOMIZATION
-  // CQ380256: 'mode' attribute ignored when parsing type
-  if (!D) {
-    *CurTy = NewTy;
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
   // Install the new type.
   if (auto *TD = dyn_cast<TypedefNameDecl>(D))
     TD->setModedTypeSourceInfo(TD->getTypeSourceInfo(), NewTy);
@@ -5573,14 +5475,6 @@ void Sema::AddModeAttr(SourceRange AttrRange, Decl *D, IdentifierInfo *Name,
   D->addAttr(::new (Context)
              ModeAttr(AttrRange, Context, Name, SpellingListIndex));
 }
-
-#if INTEL_CUSTOMIZATION
-// CQ380256: 'mode' attribute ignored when parsing type
-// In fact this attribute could modify type, e.g. inside cast expression
-void Sema::HandleModeAttr(const ParsedAttr &AL, QualType *CurTy) {
-  handleModeAttr(*this, nullptr, AL, CurTy);
-}
-#endif // INTEL_CUSTOMIZATION
 
 static void handleNoDebugAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   D->addAttr(::new (S.Context)

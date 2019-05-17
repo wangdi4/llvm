@@ -13,6 +13,14 @@ struct stnonpod {
   }
 };
 
+class cl {
+public:
+  int x;
+  cl(int a) {
+    x = a;
+  }
+};
+
 union un {
   int a;
   char c[4];
@@ -100,6 +108,14 @@ void foo() {
 // CHECK: %[[S1BC2:[0-9]+]] = bitcast %struct.stnonpod* %s1 to i8*
 // CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[S1BC1]], i8* align 4 %[[S1BC2]], i64 4, i1 false)
 // CHECK: call void @llvm.fpga.reg.struct.p0s_struct.stnonpods(%struct.stnonpod* %s2, %struct.stnonpod* %agg-temp5)
+
+  cl c1(123);
+  cl c2 = __builtin_fpga_reg(c1);
+// CHECK: call void @_ZN2clC1Ei(%class.cl* %c1, i32 123)
+// CHECK: %[[C1BC1:[0-9]+]] = bitcast %class.cl* %agg-temp6 to i8*
+// CHECK: %[[C1BC2:[0-9]+]] = bitcast %class.cl* %c1 to i8*
+// CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %[[C1BC1]], i8* align 4 %[[C1BC2]], i64 4, i1 false)
+// CHECK: call void @llvm.fpga.reg.struct.p0s_class.cls(%class.cl* %c2, %class.cl* %agg-temp6)
 }
 
 // CHECK: declare i32 @llvm.fpga.reg.i32(i32)

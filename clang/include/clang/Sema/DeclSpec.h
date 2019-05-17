@@ -22,6 +22,7 @@
 #ifndef LLVM_CLANG_SEMA_DECLSPEC_H
 #define LLVM_CLANG_SEMA_DECLSPEC_H
 
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/Basic/ExceptionSpecificationType.h"
 #include "clang/Basic/Lambda.h"
@@ -364,7 +365,6 @@ private:
   unsigned FS_inline_specified : 1;
   unsigned FS_forceinline_specified: 1;
   unsigned FS_virtual_specified : 1;
-  unsigned FS_explicit_specified : 1;
   unsigned FS_noreturn_specified : 1;
 
   // friend-specifier
@@ -378,6 +378,9 @@ private:
     Decl *DeclRep;
     Expr *ExprRep;
   };
+
+  /// ExplicitSpecifier - Store information about explicit spicifer.
+  ExplicitSpecifier FS_explicit_specifier;
 
   // attributes.
   ParsedAttributes Attrs;
@@ -401,6 +404,7 @@ private:
   SourceLocation TQ_constLoc, TQ_restrictLoc, TQ_volatileLoc, TQ_atomicLoc,
       TQ_unalignedLoc;
   SourceLocation FS_inlineLoc, FS_virtualLoc, FS_explicitLoc, FS_noreturnLoc;
+  SourceLocation FS_explicitCloseParenLoc;
   SourceLocation FS_forceinlineLoc;
   SourceLocation FriendLoc, ModulePrivateLoc, ConstexprLoc;
   SourceLocation TQ_pipeLoc;
@@ -435,34 +439,22 @@ public:
   }
 
   DeclSpec(AttributeFactory &attrFactory)
-    : StorageClassSpec(SCS_unspecified),
-      ThreadStorageClassSpec(TSCS_unspecified),
-      SCS_extern_in_linkage_spec(false),
-      TypeSpecWidth(TSW_unspecified),
-      TypeSpecComplex(TSC_unspecified),
-      TypeSpecSign(TSS_unspecified),
-      TypeSpecType(TST_unspecified),
-      TypeAltiVecVector(false),
-      TypeAltiVecPixel(false),
-      TypeAltiVecBool(false),
-      TypeSpecOwned(false),
-      TypeSpecPipe(false),
+      : StorageClassSpec(SCS_unspecified),
+        ThreadStorageClassSpec(TSCS_unspecified),
+        SCS_extern_in_linkage_spec(false), TypeSpecWidth(TSW_unspecified),
+        TypeSpecComplex(TSC_unspecified), TypeSpecSign(TSS_unspecified),
+        TypeSpecType(TST_unspecified), TypeAltiVecVector(false),
+        TypeAltiVecPixel(false), TypeAltiVecBool(false), TypeSpecOwned(false),
+        TypeSpecPipe(false), 
 #if INTEL_CUSTOMIZATION
-      TypeSpecChannel(false),
+        TypeSpecChannel(false),
 #endif // INTEL_CUSTOMIZATION
-      TypeSpecSat(false),
-      TypeQualifiers(TQ_unspecified),
-      FS_inline_specified(false),
-      FS_forceinline_specified(false),
-      FS_virtual_specified(false),
-      FS_explicit_specified(false),
-      FS_noreturn_specified(false),
-      Friend_specified(false),
-      Constexpr_specified(false),
-      Attrs(attrFactory),
-      writtenBS(),
-      ObjCQualifiers(nullptr) {
-  }
+	TypeSpecSat(false), TypeQualifiers(TQ_unspecified),
+        FS_inline_specified(false), FS_forceinline_specified(false),
+        FS_virtual_specified(false), FS_noreturn_specified(false),
+        Friend_specified(false), Constexpr_specified(false),
+        FS_explicit_specifier(), Attrs(attrFactory), writtenBS(),
+        ObjCQualifiers(nullptr) {}
 
   // storage-class-specifier
   SCS getStorageClassSpec() const { return (SCS)StorageClassSpec; }
@@ -594,11 +586,22 @@ public:
     return FS_inline_specified ? FS_inlineLoc : FS_forceinlineLoc;
   }
 
+  ExplicitSpecifier getExplicitSpecifier() const {
+    return FS_explicit_specifier;
+  }
+
   bool isVirtualSpecified() const { return FS_virtual_specified; }
   SourceLocation getVirtualSpecLoc() const { return FS_virtualLoc; }
 
-  bool isExplicitSpecified() const { return FS_explicit_specified; }
+  bool hasExplicitSpecifier() const {
+    return FS_explicit_specifier.isSpecified();
+  }
   SourceLocation getExplicitSpecLoc() const { return FS_explicitLoc; }
+  SourceRange getExplicitSpecRange() const {
+    return FS_explicit_specifier.getExpr()
+               ? SourceRange(FS_explicitLoc, FS_explicitCloseParenLoc)
+               : SourceRange(FS_explicitLoc);
+  }
 
   bool isNoreturnSpecified() const { return FS_noreturn_specified; }
   SourceLocation getNoreturnSpecLoc() const { return FS_noreturnLoc; }
@@ -610,8 +613,9 @@ public:
     FS_forceinlineLoc = SourceLocation();
     FS_virtual_specified = false;
     FS_virtualLoc = SourceLocation();
-    FS_explicit_specified = false;
+    FS_explicit_specifier = ExplicitSpecifier();
     FS_explicitLoc = SourceLocation();
+    FS_explicitCloseParenLoc = SourceLocation();
     FS_noreturn_specified = false;
     FS_noreturnLoc = SourceLocation();
   }
@@ -735,7 +739,8 @@ public:
   bool setFunctionSpecVirtual(SourceLocation Loc, const char *&PrevSpec,
                               unsigned &DiagID);
   bool setFunctionSpecExplicit(SourceLocation Loc, const char *&PrevSpec,
-                               unsigned &DiagID);
+                               unsigned &DiagID, ExplicitSpecifier ExplicitSpec,
+                               SourceLocation CloseParenLoc);
   bool setFunctionSpecNoreturn(SourceLocation Loc, const char *&PrevSpec,
                                unsigned &DiagID);
 
