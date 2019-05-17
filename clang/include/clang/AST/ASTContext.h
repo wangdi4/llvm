@@ -1534,13 +1534,6 @@ public:
   QualType getUnaryTransformType(QualType BaseType, QualType UnderlyingType,
                                  UnaryTransformType::UTTKind UKind) const;
 
-#if INTEL_CUSTOMIZATION
-  // CQ#369185 - support of __bases and __direct_bases intrinsics.
-  /// __bases and __direct_bases types.
-  QualType getBasesType(QualType ArgType,
-                        UnaryTransformType::UTTKind UKind) const;
-
-#endif // INTEL_CUSTOMIZATION
   /// C++11 deduced auto type.
   QualType getAutoType(QualType DeducedType, AutoTypeKeyword Keyword,
                        bool IsDependent) const;

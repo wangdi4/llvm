@@ -4316,11 +4316,6 @@ public:
 class UnaryTransformType : public Type {
 public:
   enum UTTKind {
-#if INTEL_CUSTOMIZATION
-    // CQ#369185 - support of __bases and __direct_bases intrinsics.
-    BasesOfType,
-    DirectBasesOfType,
-#endif // INTEL_CUSTOMIZATION
     EnumUnderlyingType
   };
 
@@ -4338,10 +4333,6 @@ protected:
 
   UnaryTransformType(QualType BaseTy, QualType UnderlyingTy, UTTKind UKind,
                      QualType CanonicalTy);
-#if INTEL_CUSTOMIZATION
-  // CQ#369185 - support of __bases and __direct_bases intrinsics.
-  UnaryTransformType(QualType BaseTy, UTTKind UKind);
-#endif // INTEL_CUSTOMIZATION
 
 public:
   bool isSugared() const { return !isDependentType(); }
@@ -4352,13 +4343,6 @@ public:
 
   UTTKind getUTTKind() const { return UKind; }
 
-#if INTEL_CUSTOMIZATION
-  // CQ#369185 - support of __bases and __direct_bases intrinsics.
-  bool isBasesType() const {
-    return UKind == BasesOfType || UKind == DirectBasesOfType;
-  }
-
-#endif // INTEL_CUSTOMIZATION
   static bool classof(const Type *T) {
     return T->getTypeClass() == UnaryTransform;
   }

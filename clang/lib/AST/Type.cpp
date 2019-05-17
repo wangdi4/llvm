@@ -3304,26 +3304,8 @@ UnaryTransformType::UnaryTransformType(QualType BaseType,
     : Type(UnaryTransform, CanonicalType, BaseType->isDependentType(),
            BaseType->isInstantiationDependentType(),
            BaseType->isVariablyModifiedType(),
-#if INTEL_CUSTOMIZATION
-           // CQ#369185 - support of __bases and __direct_bases intrinsics.
-           (UKind == UTTKind::BasesOfType ||
-            UKind == UTTKind::DirectBasesOfType) ||
-#endif // INTEL_CUSTOMIZATION
            BaseType->containsUnexpandedParameterPack()),
       BaseType(BaseType), UnderlyingType(UnderlyingType), UKind(UKind) {}
-
-#if INTEL_CUSTOMIZATION
-// CQ#369185 - support of __bases and __direct_bases intrinsics.
-UnaryTransformType::UnaryTransformType(QualType BaseType, UTTKind UKind)
-    : Type(UnaryTransform, QualType(), BaseType->isDependentType(),
-           BaseType->isInstantiationDependentType(),
-           BaseType->isVariablyModifiedType(),
-           (UKind == UTTKind::BasesOfType ||
-            UKind == UTTKind::DirectBasesOfType) ||
-               BaseType->containsUnexpandedParameterPack()),
-      BaseType(BaseType), UnderlyingType(BaseType), UKind(UKind) {}
-
-#endif // INTEL_CUSTOMIZATION
 
 DependentUnaryTransformType::DependentUnaryTransformType(const ASTContext &C,
                                                          QualType BaseType,

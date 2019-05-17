@@ -166,11 +166,6 @@ FEATURE(cxx_unicode_literals, LangOpts.CPlusPlus11)
 FEATURE(cxx_unrestricted_unions, LangOpts.CPlusPlus11)
 FEATURE(cxx_user_literals, LangOpts.CPlusPlus11)
 FEATURE(cxx_variadic_templates, LangOpts.CPlusPlus11)
-// #if INTEL_CUSTOMIZATION
-// CQ#369185 - support of __bases and __direct_bases intrinsics.
-FEATURE(bases, LangOpts.CPlusPlus11)
-FEATURE(direct_bases, LangOpts.CPlusPlus11)
-//  #end // INTEL_CUSTOMIZATION
 // C++14 features
 FEATURE(cxx_aggregate_nsdmi, LangOpts.CPlusPlus14)
 FEATURE(cxx_binary_literals, LangOpts.CPlusPlus14)

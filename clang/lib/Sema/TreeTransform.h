@@ -602,13 +602,6 @@ public:
   QualType Transform##CLASS##Type(TypeLocBuilder &TLB, CLASS##TypeLoc T);
 #include "clang/AST/TypeLocNodes.def"
 
-#if INTEL_CUSTOMIZATION
-  // CQ#369185 - support of __bases and __direct_bases intrinsics.
-  bool TryTransformBasesOfType(TemplateArgumentLoc Pattern,
-                               TemplateArgumentLoc Out,
-                               TemplateArgumentListInfo &Outputs);
-
-#endif // INTEL_CUSTOMIZATION
   template<typename Fn>
   QualType TransformFunctionProtoType(TypeLocBuilder &TLB,
                                       FunctionProtoTypeLoc TL,
@@ -4142,12 +4135,6 @@ bool TreeTransform<Derived>::TransformTemplateArguments(
         = getSema().getTemplateArgumentPackExpansionPattern(
               In, Ellipsis, OrigNumExpansions);
 
-#if INTEL_CUSTOMIZATION
-      // CQ#369185 - support of __bases and __direct_bases intrinsics.
-      if (TryTransformBasesOfType(Pattern, Out, Outputs))
-        continue;
-
-#endif // INTEL_CUSTOMIZATION
       SmallVector<UnexpandedParameterPack, 2> Unexpanded;
       getSema().collectUnexpandedParameterPacks(Pattern, Unexpanded);
       assert(!Unexpanded.empty() && "Pack expansion without parameter packs?");
@@ -5736,87 +5723,6 @@ QualType TreeTransform<Derived>::TransformUnaryTransformType(
   return Result;
 }
 
-#if INTEL_CUSTOMIZATION
-// CQ#369185 - support of __bases and __direct_bases intrinsics.
-static void CollectAllBases(QualType Type, ASTContext &Context,
-                            llvm::SmallVectorImpl<QualType> &Vec,
-                            llvm::SmallPtrSetImpl<QualType> &Set) {
-  // Even though the incoming type is a base, it might not be
-  // a class -- it could be a template parm, for instance.
-  if (const auto *Rec = Type->getAs<RecordType>()) {
-    const auto *Decl = Rec->getAsCXXRecordDecl();
-    // Iterate over its bases.
-    for (const auto &BaseSpec : Decl->bases()) {
-      QualType Base =
-          Context.getCanonicalType(BaseSpec.getType()).getUnqualifiedType();
-      if (Set.insert(Base).second) {
-        // If we've not already seen it, recurse.
-        CollectAllBases(Base, Context, Vec, Set);
-        Vec.push_back(Base);
-      } else if (!BaseSpec.isVirtual())
-        Vec.push_back(Base);
-    }
-  }
-}
-
-static void CollectAllDirectBases(QualType Type, ASTContext &Context,
-                            llvm::SmallVectorImpl<QualType> &Vec) {
-  if (const auto *Rec = Type->getAs<RecordType>()) {
-    const auto *Decl = Rec->getAsCXXRecordDecl();
-    for (const auto &BaseSpec : Decl->bases()) {
-      QualType Base =
-          Context.getCanonicalType(BaseSpec.getType()).getUnqualifiedType();
-      Vec.push_back(Base);
-    }
-  }
-}
-
-template <typename Derived>
-bool TreeTransform<Derived>::TryTransformBasesOfType(
-    TemplateArgumentLoc Pattern, TemplateArgumentLoc Out,
-    TemplateArgumentListInfo &Outputs) {
-
-  // Non-types are not interesting.
-  auto &Argument = Pattern.getArgument();
-  if (Argument.getKind() != TemplateArgument::Type)
-    return false;
-
-  // Non-BasesType types are not interesting.
-  const UnaryTransformType *UTT =
-      dyn_cast<UnaryTransformType>(Argument.getAsType().getTypePtr());
-  if (!UTT || !UTT->isBasesType())
-    return false;
-
-  // Try to transform dependent argument of __bases or __direct_bases.
-  if (getDerived().TransformTemplateArgument(Pattern, Out))
-    return false;
-
-  // Evaluate argument type of __bases or __direct_bases.
-  const Type *OutType = Out.getArgument().getAsType().getTypePtr();
-  UTT = dyn_cast<UnaryTransformType>(OutType);
-  QualType T = UTT->getUnderlyingType();
-
-  // Collect base classes of evaluated type T.
-  llvm::SmallVector<QualType, 4> BaseTypes;
-  if (UTT->getUTTKind() == UnaryTransformType::BasesOfType) {
-    llvm::SmallPtrSet<QualType, 4> BaseTypesSet;
-    CollectAllBases(T, SemaRef.Context, BaseTypes, BaseTypesSet);
-  } else if (UTT->getUTTKind() == UnaryTransformType::DirectBasesOfType)
-    CollectAllDirectBases(T, SemaRef.Context, BaseTypes);
-  else
-    llvm_unreachable("unknown kind of bases type");
-
-  // Add base classes to pack expansion's output set.
-  for (const auto &Base : BaseTypes) {
-    TemplateArgumentLoc Out =
-        TemplateArgumentLoc(TemplateArgument(Base), InventTypeSourceInfo(Base));
-    Outputs.addArgument(Out);
-  }
-
-  return true;
-}
-
-#endif // INTEL_CUSTOMIZATION
 template<typename Derived>
 QualType TreeTransform<Derived>::TransformAutoType(TypeLocBuilder &TLB,
                                                    AutoTypeLoc TL) {

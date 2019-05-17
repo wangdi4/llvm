@@ -146,10 +146,6 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
     // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
     if (LangOpts.AsmBlocks && (Flags & KEYMSASM))
       return KS_Extension;
-    // CQ#369185 - enable '__bases' and '__direct_bases' keywords for
-    // IntelCompat and C++11 modes only.
-    if (LangOpts.CPlusPlus11 && (Flags & KEYBASES))
-      return KS_Extension;
     // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
     if (LangOpts.GNUMode && (Flags & KEYDECIMAL))
       return KS_Enabled;

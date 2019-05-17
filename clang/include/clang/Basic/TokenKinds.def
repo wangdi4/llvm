@@ -439,9 +439,6 @@ TYPE_TRAIT_1(__is_sealed, IsSealed, KEYMS)
 #if INTEL_CUSTOMIZATION
 // CQ#367834 - Make _Quad an alias for __float128
 ALIAS("_Quad"    , __float128       , 0)
-// CQ#369185 - support of __bases and __direct_bases intrinsics.
-KEYWORD(__bases                     , KEYBASES)
-KEYWORD(__direct_bases              , KEYBASES)
 #endif  // INTEL_CUSTOMIZATION
 // MSVC12.0 / VS2013 Type Traits
 TYPE_TRAIT_1(__is_destructible, IsDestructible, KEYMS)

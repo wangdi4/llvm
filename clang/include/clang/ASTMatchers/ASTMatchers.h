@@ -5703,17 +5703,8 @@ extern const AstTypeMatcher<TemplateSpecializationType>
 /// Given:
 /// \code
 ///   typedef __underlying_type(T) type;
-#if INTEL_CUSTOMIZATION
-// CQ#369185 - support of __bases and __direct_bases intrinsics.
-///   typedef __bases(T) type;
-///   typedef __direct_bases(T) type;
-#endif // INTEL_CUSTOMIZATION
 /// \endcode
 /// unaryTransformType()
-#if INTEL_CUSTOMIZATION
-// CQ#369185 - support of __bases and __direct_bases intrinsics.
-///   matches "__underlying_type(T)", "__bases(T)" and "__direct_bases(T)"
-#endif // INTEL_CUSTOMIZATION
 extern const AstTypeMatcher<UnaryTransformType> unaryTransformType;
 
 /// Matches record types (e.g. structs, classes).
