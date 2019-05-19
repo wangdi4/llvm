@@ -24,6 +24,7 @@ add_public_tablegen_target(X86CommonTableGen)
 
 set(sources
   Intel_X86FMA.cpp        # INTEL
+  Intel_X86FeatureInitCall.cpp        # INTEL
   X86AsmPrinter.cpp
   X86CallFrameOptimization.cpp
   X86CallingConv.cpp

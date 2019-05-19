@@ -271,6 +271,13 @@ static cl::opt<bool>
     EnableAddrsig("addrsig", cl::desc("Emit an address-significance table"),
                   cl::init(false));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+IntelAdvancedOptim("intel-advanced-optim",
+                   cl::desc("Allow intel advanced optimization."),
+                   cl::init(false));
+#endif // INTEL_CUSTOMIZATION
+
 // Common utility function tightly tied to the options listed here. Initializes
 // a TargetOptions object with CodeGen flags and returns it.
 static TargetOptions InitTargetOptionsFromCodeGenFlags() {
@@ -300,6 +307,10 @@ static TargetOptions InitTargetOptionsFromCodeGenFlags() {
   Options.ExceptionModel = ExceptionModel;
   Options.EmitStackSizeSection = EnableStackSizeSection;
   Options.EmitAddrsig = EnableAddrsig;
+#if INTEL_CUSTOMIZATION
+  if (IntelAdvancedOptim)
+    Options.IntelAdvancedOptim = IntelAdvancedOptim;
+#endif // INTEL_CUSTOMIZATION
 
   Options.MCOptions = InitMCTargetOptionsFromFlags();
 

@@ -478,6 +478,7 @@ bool X86PassConfig::addPreISel() {
   const Triple &TT = TM->getTargetTriple();
   if (TT.isOSWindows() && TT.getArch() == Triple::x86)
     addPass(createX86WinEHStatePass());
+  addPass(createFeatureInitPass()); // INTEL
   return true;
 }
 
