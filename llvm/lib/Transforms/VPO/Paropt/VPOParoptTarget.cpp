@@ -47,6 +47,15 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-target"
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+// Temporary option which is set to true when we are emitting binary vISA.
+static cl::opt<bool> CSAvISA("csa-visa",
+                             cl::desc("Customize IR for binary vISA"),
+                             cl::init(false), cl::ReallyHidden);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 // Reset the value in the Map clause to be empty.
 //
 // Do not reset base pointers (including the item's getOrig() pointer),
@@ -179,6 +188,12 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 #if INTEL_FEATURE_CSA
   // Add "target.entry" attribute to the outlined function.
   NewF->addFnAttr("omp.target.entry");
+
+  // Temporary set external linkage for outlined target regions when emitting
+  // binary vISA. This is a workaround for csa_as limitation that should be
+  // removed in future.
+  NewF->setLinkage(CSAvISA ? GlobalValue::ExternalLinkage
+                           : GlobalValue::WeakAnyLinkage);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
