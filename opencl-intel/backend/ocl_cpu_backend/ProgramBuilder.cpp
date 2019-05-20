@@ -372,6 +372,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   std::stringstream kernelAttributes;
 
+  unsigned int kernelForcedVecLength = 0;
+
   // WG size is set based on attributes passed via metadata.
   unsigned int optWGSize = 128; // TODO: to be checked
   size_t hintWGSize[MAX_WORK_DIM] = {0, 0, 0};
@@ -441,9 +443,9 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     kernelAttributes << "uses_global_Work_offset(" << canUseGlobalWorkOffset << ") ";
   }
 
-  if (kmd.VecLenHint.hasValue()) {
-    int32_t VecLen = kmd.VecLenHint.get();
-    kernelAttributes << "intel_vec_len_hint(" << VecLen << ") ";
+  if (kmd.hasVecLength()) {
+    kernelForcedVecLength = kmd.getVecLength();
+    kernelAttributes << "intel_vec_len_hint(" << kernelForcedVecLength << ") ";
   }
 
   if (kmd.VecTypeHint.hasValue()) {
@@ -549,6 +551,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetNeedSerializeWGs(needSerializeWGs);
   pProps->SetIsTask(isTask);
   pProps->SetCanUseGlobalWorkOffset(canUseGlobalWorkOffset);
+  pProps->SetRequiredSubGroupSize(kernelForcedVecLength);
   auto kernelAttributesStr = kernelAttributes.str();
   // Remove space at the end
   if (!kernelAttributesStr.empty())

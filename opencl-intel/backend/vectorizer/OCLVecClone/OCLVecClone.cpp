@@ -75,10 +75,14 @@ OCLVecClone::OCLVecClone() : VecClone(), EnableVPlanVecForOpenCL(true) {}
 // "vector_width" metadata to the original kernel and the cloned kernel.
 static void updateMetadata(Function &F, Function *Clone) {
   auto FMD = KernelInternalMetadataAPI(&F);
+  auto KMD = KernelMetadataAPI(&F);
   auto CloneMD = KernelInternalMetadataAPI(Clone);
-  // Get VL from the "ocl_recommended_vector_length" metadata from the original
-  // kernel.
-  unsigned VectorLength = FMD.OclRecommendedVectorLength.get();
+  // Get VL from the metadata from the original kernel.
+  unsigned VectorLength;
+  if (KMD.hasVecLength()) // check for forced vector length
+    VectorLength = KMD.getVecLength();
+  else
+    VectorLength = FMD.OclRecommendedVectorLength.get();
   // Set the "vector_width" metadata to the cloned kernel.
   CloneMD.VectorizedKernel.set(nullptr);
   CloneMD.VectorizedWidth.set(VectorLength);
@@ -158,14 +162,13 @@ void OCLVecClone::languageSpecificInitializations(Module &M) {
   for (Function *F : Kernels) {
     auto MD = KernelMetadataAPI(F);
     auto VecTypeHint = MD.VecTypeHint;
-    auto VecLenHint = MD.VecLenHint;
     bool EnableVect = true;
 
     if (isSimpleFunction(F))
       EnableVect = false;
 
     // Looks for vector type in metadata.
-    if (!VecLenHint.hasValue() && VecTypeHint.hasValue()) {
+    if (!MD.hasVecLength() && VecTypeHint.hasValue()) {
       Type *VTHTy = VecTypeHint.getType();
       if (!VTHTy->isFloatTy() && !VTHTy->isDoubleTy() &&
           !VTHTy->isIntegerTy(8) && !VTHTy->isIntegerTy(16) &&

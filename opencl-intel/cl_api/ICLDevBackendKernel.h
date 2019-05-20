@@ -189,6 +189,14 @@ public:
      *  false otherwise
      */
     virtual bool IsNonUniformWGSizeSupported() const = 0;
+
+    /**
+     * @returns the subgroup size specified by the
+     * __attribute__(( intel_reqd_sub_group_size(<int>) )) qualifier.
+     * If the subgroup size is not specified using the above attribute
+     * qualifier then 0 is returned.
+     */
+    virtual size_t GetRequiredSubGroupSize() const = 0;
 };
 
 class ICLDevBackendKernel_;

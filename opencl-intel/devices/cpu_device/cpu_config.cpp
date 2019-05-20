@@ -195,6 +195,7 @@ const char* CPUDeviceConfig::GetExtensions() const
             {
                 // common Intel extensions
                 m_extensions += OCL_EXT_INTEL_SUBGROUPS " ";
+                m_extensions += OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE " ";
             }
         }
 #endif // INTEL_PRODUCT_RELEASE
