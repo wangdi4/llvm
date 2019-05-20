@@ -33,10 +33,12 @@ entry:
   ret void
 }
 
-define linkonce_odr void @_ZN1SD2Ev(%struct.S* %this) unnamed_addr comdat align 2 {
+define linkonce_odr void @_ZN1SD2Ev(%struct.S* %this) unnamed_addr #0 comdat align 2 {
 entry:
   ret void
 }
+
+attributes #0 = { "openmp-target-declare"="true" }
 
 ; Targets compilation should not have offload registration code.
 ; CHECK-NOT: call i32 @__tgt_register_lib
