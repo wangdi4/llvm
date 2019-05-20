@@ -598,7 +598,7 @@ class HIRRegionIdentification::CostModelAnalyzer
   const unsigned MaxInstThreshold = 200;
   const unsigned MaxIfThreshold = 7;
   const unsigned O2MaxIfNestThreshold = 2;
-  const unsigned O3MaxIfNestThreshold = 3;
+  const unsigned O3MaxIfNestThreshold = 6;
   const unsigned SmallTripThreshold = 16;
 
 public:
@@ -697,7 +697,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
   auto BBInstCount = BB.size();
 
   // Bail out early instead of analyzing each individual instruction.
-  if ((BBInstCount + InstCount) > MaxInstThreshold) {
+  if ((BBInstCount + InstCount) > 10 * MaxInstThreshold) {
     LLVM_DEBUG(
         dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
                   "many statements.\n");
@@ -719,7 +719,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
   // Subscript instructions are like GEPs and hence most likely eliminated in
   // HIR. This check can be removed once we add support for them in
   // ScalarEvolution.
-  if (!isa<CmpInst>(Inst) && !isa<SubscriptInst>(Inst)) {
+  if (!isa<CmpInst>(Inst) && !isa<SubscriptInst>(Inst) &&
+      !isa<DbgInfoIntrinsic>(Inst)) {
 
     // The following checks are to ignore linear instructions.
     if (RI.SE.isSCEVable(Inst.getType())) {
