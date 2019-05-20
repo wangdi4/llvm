@@ -341,10 +341,21 @@ void VPOParoptModuleTransform::processUsesOfGlobals(
 // Remove routines and global variables which has no target declare
 // attribute.
 void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
+  // Collect the set "used" values from the "llvm.used" and "llvm.compiler.used"
+  // initializers. These objects need to be retained in the target IR.
+  SmallPtrSet<GlobalValue *, 16u> UsedSet;
+  auto *UsedVar = collectUsedGlobalVariables(M, UsedSet, false);
+  auto *CompilerUsedVar = collectUsedGlobalVariables(M, UsedSet, true);
+
   std::vector<GlobalVariable *> DeadGlobalVars; // Keep track of dead globals
   for (GlobalVariable &GV : M.globals()) {
-    if (GV.hasName() && (GV.getName() == "llvm.used" ||
-                         GV.getName() == "llvm.compiler.used"))
+    // Special globals "llvm.used" and "llvm.compiler.used" should be preserved.
+    if ((UsedVar && UsedVar == &GV) ||
+        (CompilerUsedVar && CompilerUsedVar == &GV))
+      continue;
+
+    // Keep global variables annotated as "used" in the target IR.
+    if (UsedSet.count(&GV))
       continue;
 
     if (!GV.isTargetDeclare()) {
@@ -363,6 +374,13 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   std::vector<Function *> DeadFunctions;
 
   for (Function &F : M) {
+    // Functions annotated as "used" should be preserved.
+    if (UsedSet.count(&F)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
+                        << ": Is 'used' or 'compiler.used'\n");
+      continue;
+    }
+
     // IsFETargetDeclare == true means that F has the
     //     "openmp-target-declare" attribute; i.e.,
     //     The FE found that it was
