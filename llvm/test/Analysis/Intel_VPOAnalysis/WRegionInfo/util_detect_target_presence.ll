@@ -1,4 +1,5 @@
-; RUN:  opt -vpo-wrncollection -analyze < %s | FileCheck %s
+; RUN: opt -vpo-wrncollection -analyze < %s | FileCheck %s
+; RUN: opt -passes='function(print<vpo-wrncollection>)' -disable-output 2>&1 < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -66,9 +67,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; } END PARALLEL ID=2
 
 
-; CHECK: Printing analysis{{.*}}fn_with_target
 ; CHECK: Function contains OpenMP Target
-; CHECK: Printing analysis{{.*}}fn_without_target
 ; CHECK: Function does not contain OpenMP Target
 
 

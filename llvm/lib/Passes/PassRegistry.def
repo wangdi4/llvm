@@ -381,6 +381,8 @@ FUNCTION_PASS("hir-identity-matrix-idiom-recognition", loopopt::HIRIdentityMatri
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
+FUNCTION_PASS("print<vpo-wrncollection>",
+              WRegionCollectionAnalysisPrinterPass(dbgs()))
 FUNCTION_PASS("vpo-cfg-restructuring", VPOCFGRestructuringPass())
 FUNCTION_PASS("vpo-restore-operands", VPORestoreOperandsPass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())

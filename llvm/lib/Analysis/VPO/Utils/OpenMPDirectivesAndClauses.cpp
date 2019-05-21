@@ -587,6 +587,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_CANCEL_LOOP:
     case QUAL_OMP_CANCEL_SECTIONS:
     case QUAL_OMP_CANCEL_TASKGROUP:
+    case QUAL_OMP_TARGET_TASK:
       return 0;
 
     // Clauses that take one argument

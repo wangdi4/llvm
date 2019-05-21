@@ -255,6 +255,7 @@ def "QUAL.OMP.NAME" : Clause;
 // These "clauses" don't correspond to actual OpenMP clauses, but are used
 // to carry additional information
 
+def "QUAL.OMP.TARGET.TASK" : Clause;
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
 def "QUAL.OMP.NORMALIZED.UB" : Clause;
 def "QUAL.OMP.CANCELLATION.POINTS" : Clause;
