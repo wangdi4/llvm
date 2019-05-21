@@ -580,12 +580,6 @@ std::string PredefinedExpr::ComputeName(IdentKind IK, const Decl *CurrentDecl) {
     if (IK != PrettyFunction && IK != PrettyFunctionNoVirtual &&
         IK != FuncSig && IK != LFuncSig)
       return FD->getNameAsString();
-#if INTEL_CUSTOMIZATION
-    //CQ#379210: Return function name if not C++.
-    if (Context.getLangOpts().IntelCompat &&
-        !Context.getLangOpts().CPlusPlus && IK != FuncSig)
-      return FD->getNameAsString();
-#endif // INTEL_CUSTOMIZATION
 
     SmallString<256> Name;
     llvm::raw_svector_ostream Out(Name);
