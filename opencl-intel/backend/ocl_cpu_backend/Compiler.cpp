@@ -232,7 +232,8 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     }
 #endif
 
-    if (getenv("ENABLE_INFER_AS")) {
+    // Infer AS is enabled by default
+    if (!getenv("DISABLE_INFER_AS")) {
       args.push_back("-override-flat-addr-space=4");
       args.push_back("-infer-as-rewrite-opencl-bis");
     }
