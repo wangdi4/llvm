@@ -37745,6 +37745,40 @@ static SDValue combineShiftLeft(SDNode *N, SelectionDAG &DAG) {
   ConstantSDNode *N1C = dyn_cast<ConstantSDNode>(N1);
   EVT VT = N0.getValueType();
 
+#if INTEL_CUSTOMIZATION
+  // (i64 shl (and (aext (i32 shl V1, C1)), C2), C3) ->
+  // (and (i64 shl (aext (i32 shl V1, C1)), C3), (C2 << C3)) where (C2 << C3)
+  // fits in 32-bits. Swap the outer SHL and AND in order to enable SHL to
+  // shrink to 32-bits. This will enable additional shrinking of the outer SHL
+  // and merging with the other SHL.
+  // FIXME: It might be worth always swapping i64 shl/and in order to enable
+  // narrower encoding on the shl regardless. But that's more disruptive.
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  if (VT == MVT::i64 && TLI.isTypeLegal(VT) && N1C &&
+      N0.getOpcode() == ISD::AND && N0.hasOneUse() &&
+      isa<ConstantSDNode>(N0.getOperand(1))) {
+    // Ok we have shl by constant and a legal 64-bit and with a constant.
+    unsigned ShAmt = N1C->getZExtValue();
+    uint64_t Mask = N0.getConstantOperandVal(1);
+    SDValue N00 = N0.getOperand(0);
+    // Next we need to check if the shifted mask will fit in 32-bits. After that
+    // make sure N00 which is the input to the AND is an ANY_EXTEND and its
+    // input is a 32-bit shift by a constant. If that all matches then we should
+    // swap the out SHL and the AND. We don't worry about one use checks on the
+    // inner shift. We should be able to combine them even if we don't
+    // get rid of the inner shift.
+    if (isUInt<32>(Mask << ShAmt) && N00.getOpcode() == ISD::ANY_EXTEND &&
+        N00.hasOneUse() && N00.getOperand(0).getValueType() == MVT::i32 &&
+        N00.getOperand(0).getOpcode() == ISD::SHL &&
+        isa<ConstantSDNode>(N00.getOperand(0).getOperand(1))) {
+      SDLoc dl(N);
+      SDValue NewShift = DAG.getNode(ISD::SHL, dl, MVT::i64, N00, N1);
+      return DAG.getNode(ISD::AND, dl, MVT::i64, NewShift,
+                                  DAG.getConstant(Mask << ShAmt, dl, MVT::i64));
+    }
+  }
+#endif
+
   // fold (shl (and (setcc_c), c1), c2) -> (and setcc_c, (c1 << c2))
   // since the result of setcc_c is all zero's or all ones.
   if (VT.isInteger() && !VT.isVector() &&
