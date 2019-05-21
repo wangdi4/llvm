@@ -48,8 +48,12 @@ class Documentation {
   // This works well for options like IntelCompat which control many small
   // "features".
   string Option = "";
-  // The remaining fields are TBD. Items can be added (with an initialized
-  // string) or removed here without the need to change the tblgen code.
+  // Default determines if the feature is on by default when the option is
+  // specified. It can still be turned on using the -enable option.
+  bit Default = 1;
+  // The remaining fields are TBD. Additional string or bit fields can be
+  // added (with initializers) or removed here without the need to change
+  // the tblgen code.
   string BugTracker = "";
   string Customer = "";
   string RegressionTest = "";
@@ -1594,7 +1598,6 @@ controlled by -fintel-compatibility, retains volatile.
 
 def MayIUseFeatureDocs : Documentation {
   let Category = DocCatIntelCompat;
-  let Option = "None";
   let RegressionTest ="test/CodeGen/intel/may-i-use-cpu-feature.cpp";
   let Owner = "ekeane1";
   let Content = [{

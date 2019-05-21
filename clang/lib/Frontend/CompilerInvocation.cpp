@@ -2446,7 +2446,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 #if INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   if (Opts.IntelCompat)
-    Opts.setAllIntelCompatItemsState(true);
+    Opts.setAllIntelCompatItemsStateDefault();
   for (const Arg *A : Args.filtered(OPT_fintel_compatibility_enable,
                                     OPT_fintel_compatibility_disable)) {
     A->claim();
