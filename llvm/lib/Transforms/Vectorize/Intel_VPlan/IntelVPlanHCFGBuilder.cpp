@@ -1463,8 +1463,12 @@ public:
       V = UndefStep->getValue();
     else if (auto ConstStep = dyn_cast<SCEVConstant>(Step))
       V = ConstStep->getValue();
-    assert(V && "Unknown scev kind");
-    Descriptor.setStep(Builder.getOrCreateVPOperand(V));
+    if (V)
+      Descriptor.setStep(Builder.getOrCreateVPOperand(V));
+    else {
+      // Step of induction is variable, populate it later via VPlan
+      Descriptor.setStep(nullptr);
+    }
     if (ID.getInductionBinOp()) {
       Descriptor.setInductionBinOp(dyn_cast<VPInstruction>(
           Builder.getOrCreateVPOperand(ID.getInductionBinOp())));

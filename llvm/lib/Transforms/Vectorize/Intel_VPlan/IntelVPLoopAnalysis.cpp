@@ -706,7 +706,7 @@ void InductionDescr::checkParentVPLoop(const VPlan *Plan,
 }
 
 bool InductionDescr::isIncomplete() const {
-  return StartPhi == nullptr || InductionBinOp == nullptr;
+  return StartPhi == nullptr || InductionBinOp == nullptr || Step == nullptr;
 }
 
 void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
@@ -748,6 +748,16 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
                      ? StartPhi->getOperand(1)
                      : StartPhi->getOperand(0));
     }
+
+  if (Step == nullptr) {
+    // Induction variable with variable step
+    assert((StartPhi && InductionBinOp) &&
+           "Variable step occurs only for auto-recognized inductions.");
+    int PhiOpIdx = InductionBinOp->getOperandIndex(StartPhi);
+    assert(PhiOpIdx != -1 && "InductionBinOp does not use starting PHI node.");
+    unsigned StepOpIdx = PhiOpIdx == 0 ? 1 : 0;
+    Step = InductionBinOp->getOperand(StepOpIdx);
+  }
 }
 
 namespace llvm {

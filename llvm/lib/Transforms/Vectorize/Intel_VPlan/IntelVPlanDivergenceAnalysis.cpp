@@ -732,9 +732,9 @@ VPVectorShape* VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
       VPVectorShape::VPShapeDescriptor NewDesc;
       // Not sure if we can assume mul by 0/1 is optimized since we can
       // vectorize at O0/O1.
-      if (Op1IntVal == 0)
+      if (Op1IsInt && Op1IntVal == 0)
         NewDesc = VPVectorShape::Uni;
-      else if (Op1IntVal == 1)
+      else if (Op1IsInt && Op1IntVal == 1)
         NewDesc = Shape0->getShapeDescriptor();
       else
         NewDesc = MulConversion[Desc0][Desc1];
