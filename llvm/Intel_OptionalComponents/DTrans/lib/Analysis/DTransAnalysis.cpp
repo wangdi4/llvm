@@ -2150,8 +2150,14 @@ private:
       LocalPointerInfo &DepInfo = LocalMap[Dep];
       // If we have complete results for this value, don't repeat the analysis.
       if (DepInfo.getAnalyzed()) {
-        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE,
-                        dbgs() << "  Already analyzed: " << *Dep << "\n");
+        DEBUG_WITH_TYPE(DTRANS_LPA_VERBOSE, {
+          dbgs() << "  Already analyzed: ";
+          if (isa<Function>(Dep))
+            Dep->printAsOperand(dbgs());
+          else
+            dbgs() << *Dep;
+          dbgs() << "\n";
+        });
         continue;
       }
       analyzeValueImpl(Dep, DepInfo);
@@ -2433,8 +2439,14 @@ private:
 
   void dumpDependencyStack(SmallVectorImpl<Value *> &DependentVals) {
     dbgs() << "  DependentVals:\n";
-    for (auto *V : DependentVals)
-      dbgs() << "    " << *V << "\n";
+    for (auto *V : DependentVals) {
+      dbgs() << "    ";
+      if (isa<Function>(V))
+        V->printAsOperand(dbgs());
+      else
+        dbgs() << *V;
+      dbgs() << "\n";
+    }
     dbgs() << "\n";
   }
 
@@ -9952,11 +9964,13 @@ bool DTransAnalysisInfo::analyzeModule(
       }
     }
     outs() << "\n MaxTotalFrequency: " << getMaxTotalFrequency() << "\n\n";
+    outs().flush();
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DTransPrintAnalyzedCalls)
     printCallInfo(outs());
+    outs().flush();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   return false;
