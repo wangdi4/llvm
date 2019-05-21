@@ -250,7 +250,8 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
     Instruction *&TeamST) {
   if (!W->getIsDistribute())
     return;
-  assert(W->getIsOmpLoop() && "genOCLLoopBoundUpdateCode: W is not a loop-type WRN");
+  assert(W->getIsOmpLoop() &&
+         "genOCLDistParLoopBoundUpdateCode: W is not a loop-type WRN");
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L && "genOCLDistParLoopBoundUpdateCode: Expect non-empty loop.");
   Instruction *InsertPt =
@@ -354,6 +355,8 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
                                                    AllocaInst *LowerBnd,
                                                    AllocaInst *UpperBnd,
+                                                   AllocaInst *TeamLowerBnd,
+                                                   AllocaInst *TeamUpperBnd,
                                                    AllocaInst *SchedStride) {
   assert(W->getIsOmpLoop() && "genOCLLoopBoundUpdateCode: W is not a loop-type WRN");
   assert (LowerBnd->getType() == UpperBnd->getType() &&
@@ -372,8 +375,26 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
                                         GeneralUtils::getSizeTTy(F),
                                         Arg, InsertPt);
-  Value *LB = Builder.CreateLoad(LowerBnd);
-  Value *UB = Builder.CreateLoad(UpperBnd);
+  assert(((TeamLowerBnd && TeamUpperBnd) ||
+          (!TeamLowerBnd && !TeamUpperBnd)) &&
+         "genOCLLoopBoundUpdateCode: team lower/upper bounds "
+         "must be created together.");
+
+  Value *LB = nullptr;
+  Value *UB = nullptr;
+
+  if (TeamLowerBnd) {
+    // Update lower/upper bounds from the team bounds.
+    LB = Builder.CreateLoad(TeamLowerBnd);
+    Builder.CreateStore(LB, LowerBnd);
+    UB = Builder.CreateLoad(TeamUpperBnd);
+    Builder.CreateStore(UB, UpperBnd);
+  }
+  else {
+    LB = Builder.CreateLoad(LowerBnd);
+    UB = Builder.CreateLoad(UpperBnd);
+  }
+
   Value *ItSpace = Builder.CreateSub(UB, LB);
 
   WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
@@ -803,7 +824,8 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
 
     if (isa<WRNParallelSectionsNode>(W) || isa<WRNParallelLoopNode>(W) ||
         isa<WRNDistributeParLoopNode>(W))
-      genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd, SchedStride);
+      genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd,
+                                TeamLowerBnd, TeamUpperBnd, SchedStride);
 
     genOCLLoopPartitionCode(W, I - 1, LowerBnd, UpperBnd, SchedStride,
                             TeamLowerBnd, TeamUpperBnd, TeamStride, UpperBndVal,

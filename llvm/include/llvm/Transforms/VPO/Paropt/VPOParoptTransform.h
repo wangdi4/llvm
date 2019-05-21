@@ -1339,6 +1339,8 @@ private:
   /// Generate the OCL loop bound update code.
   void genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
                                  AllocaInst *LowerBnd, AllocaInst *UpperBnd,
+                                 AllocaInst *TeamLowerBnd,
+                                 AllocaInst *TeamUpperBnd,
                                  AllocaInst *SchedStride);
 
   /// Generate the loop update code for DistParLoop under OpenCL.
