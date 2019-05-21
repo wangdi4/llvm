@@ -578,6 +578,9 @@ public:
       : AnalysisState(LPIS_NotAnalyzed), AliasesToAggregatePointer(false),
         IsPartialPtrLoadStore(false) {}
 
+  LocalPointerInfo(const LocalPointerInfo &) = delete;
+  LocalPointerInfo &operator=(const LocalPointerInfo &) = delete;
+
   void setAnalyzed() { AnalysisState = LPIS_AnalysisComplete; }
   bool getAnalyzed() { return AnalysisState == LPIS_AnalysisComplete; }
 
@@ -748,7 +751,7 @@ public:
   PointerTypeAliasSetRef getPointerTypeAliasSet() { return PointerTypeAliases; }
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
 
-  void merge(LocalPointerInfo &Other) {
+  void merge(const LocalPointerInfo &Other) {
     // This routine is called during analysis, so don't change AnalysisState.
     AliasesToAggregatePointer |= Other.AliasesToAggregatePointer;
     for (auto *Ty : Other.PointerTypeAliases)
@@ -3036,7 +3039,7 @@ private:
            "Can't infer type from unused value of interest.");
     // For each type aliased by the stored value, add a pointer to that type
     // to the Types set for the destination.
-    LocalPointerInfo StoredLPI = LocalMap[StoredVal];
+    LocalPointerInfo &StoredLPI = LocalMap[StoredVal];
     if (!StoredLPI.getAnalyzed())
       IsPartial = true;
     for (auto *AliasTy : StoredLPI.getPointerTypeAliasSet())
