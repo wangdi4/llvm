@@ -1922,6 +1922,7 @@ void basic_parser_impl::printOptionNoValue(const Option &O,
   outs() << "= *cannot print option value*\n";
 }
 
+#if !INTEL_PRODUCT_RELEASE
 //===----------------------------------------------------------------------===//
 // -help and -help-hidden option implementation
 //
@@ -2203,10 +2204,12 @@ static HelpPrinterWrapper WrappedNormalPrinter(UncategorizedNormalPrinter,
                                                CategorizedNormalPrinter);
 static HelpPrinterWrapper WrappedHiddenPrinter(UncategorizedHiddenPrinter,
                                                CategorizedHiddenPrinter);
+#endif // !INTEL_PRODUCT_RELEASE
 
 // Define a category for generic options that all tools should have.
 static cl::OptionCategory GenericCategory("Generic Options");
 
+#if !INTEL_PRODUCT_RELEASE
 // Define uncategorized help printers.
 // --help-list is hidden by default because if Option categories are being used
 // then --help behaves the same as --help-list.
@@ -2265,11 +2268,13 @@ void HelpPrinterWrapper::operator=(bool Value) {
   } else
     UncategorizedPrinter = true; // Invoke uncategorized printer
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 // Print the value of each option.
 void cl::PrintOptionValues() { GlobalParser->printOptionValues(); }
 
 void CommandLineParser::printOptionValues() {
+#if !INTEL_PRODUCT_RELEASE
   if (!PrintOptions && !PrintAllOptions)
     return;
 
@@ -2283,6 +2288,7 @@ void CommandLineParser::printOptionValues() {
 
   for (size_t i = 0, e = Opts.size(); i != e; ++i)
     Opts[i].second->printOptionValue(MaxArgLen, PrintAllOptions);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 static VersionPrinterTy OverrideVersionPrinter = nullptr;
@@ -2348,13 +2354,16 @@ public:
 // Define the --version option that prints out the LLVM version for the tool
 static VersionPrinter VersionPrinterInstance;
 
+#if !INTEL_PRODUCT_RELEASE
 static cl::opt<VersionPrinter, true, parser<bool>>
     VersOp("version", cl::desc("Display the version of this program"),
            cl::location(VersionPrinterInstance), cl::ValueDisallowed,
            cl::cat(GenericCategory));
+#endif // !INTEL_PRODUCT_RELEASE
 
 // Utility function for printing the help message.
 void cl::PrintHelpMessage(bool Hidden, bool Categorized) {
+#if !INTEL_PRODUCT_RELEASE
   if (!Hidden && !Categorized)
     UncategorizedNormalPrinter.printHelp();
   else if (!Hidden && Categorized)
@@ -2363,6 +2372,7 @@ void cl::PrintHelpMessage(bool Hidden, bool Categorized) {
     UncategorizedHiddenPrinter.printHelp();
   else
     CategorizedHiddenPrinter.printHelp();
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 /// Utility function for printing version number.
