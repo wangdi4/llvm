@@ -28,6 +28,7 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
 {
     m_useVectorizer  = cpuConfig.UseVectorizer();
     m_vectorizerMode = cpuConfig.GetVectorizerMode();
+    m_vectorizerType = cpuConfig.GetVectorizerType();
     m_rtLoopUnrollFactor   = cpuConfig.GetRTLoopUnrollFactor();
     m_useVTune       = cpuConfig.UseVTune();
     m_targetDevice   = cpuConfig.GetDeviceMode();

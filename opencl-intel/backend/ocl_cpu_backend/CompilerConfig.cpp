@@ -127,6 +127,13 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     {
         m_LLVMOptions += " -eyeq-div-crash-behavior";
     }
+
+    VectorizerType VType =
+        static_cast<VectorizerType>(pBackendOptions->GetIntValue(
+            (int)CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE, VOLCANO_VECTORIZER));
+    if (VPO_VECTORIZER == VType) {
+        m_LLVMOptions += " -enable-vplan-kernel-vectorizer";
+    }
 }
 
 void CompilerConfig::LoadDefaults()
