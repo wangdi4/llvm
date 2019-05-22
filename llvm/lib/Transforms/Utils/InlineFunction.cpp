@@ -1747,8 +1747,9 @@ void llvm::updateProfileCallee(
 ///
 /// This is a stopgap solution for fixing region id conflicts resulting from
 /// inlining until we redefine the intrinsics in icx.
-static void reassignCSAParallelRegionId(IntrinsicInst *Intr) {
-  assert(Intr->getIntrinsicID() == Intrinsic::csa_parallel_region_entry);
+static void reassignCSARegionId(IntrinsicInst *Intr) {
+  assert(Intr->getIntrinsicID() == Intrinsic::csa_parallel_region_entry ||
+         Intr->getIntrinsicID() == Intrinsic::csa_pipeline_limited_entry);
 
   // Use getMDKindID to generate a region id, making sure that it doesn't
   // conflict with existing values in the function. The name that's passed in is
@@ -2194,8 +2195,9 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
         if (IntrinsicInst* Intr = dyn_cast<IntrinsicInst>(&I))
-          if (Intr->getIntrinsicID() == Intrinsic::csa_parallel_region_entry)
-            reassignCSAParallelRegionId(Intr);
+          if (Intr->getIntrinsicID() == Intrinsic::csa_parallel_region_entry ||
+              Intr->getIntrinsicID() == Intrinsic::csa_pipeline_limited_entry)
+            reassignCSARegionId(Intr);
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
         // Forward varargs from inlined call site to calls to the

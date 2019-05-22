@@ -43,6 +43,10 @@ STATISTIC(NumSPMDizationsCleaned,
 STATISTIC(NumPipelineCleaned,
           "Number of unused pipeline_loop intrinsic pairs removed");
 
+STATISTIC(NumPipelineDepthCleaned,
+  "Number of unused pipeline_limited_loop intrinsic pairs removed");
+
+
 namespace {
 
 struct CSAIntrinsicCleaner : FunctionPass {
@@ -71,6 +75,8 @@ private:
   bool clean_spmdization(Function &);
   // Removes any unused pipeline_loop intrinsic pairs from a function
   bool clean_pipeline(Function &);
+  // Removes any unused pipeline_limited_loop intrinsic pairs from a function
+  bool clean_pipeline_depth(Function &);
     // Create a LIC ID rather than the class used in the builtins
   bool expandLicQueueIntrinsics(Function &F);
 
@@ -85,7 +91,8 @@ bool CSAIntrinsicCleaner::runOnFunction(Function &F) {
         break;
     }
   }
-  return expandLicQueueIntrinsics(F) | clean_spmdization(F) | clean_pipeline(F);
+  return expandLicQueueIntrinsics(F) | clean_spmdization(F) |
+         clean_pipeline(F) | clean_pipeline_depth(F);
 }
 
 // convert init/write/read intrinsics to lower_init/lower_write/lower_read intrinsic
@@ -340,6 +347,26 @@ bool CSAIntrinsicCleaner::clean_pipeline(Function &F) {
     }
   }
   return cleaned_pipeline_loop;
+}
+
+bool CSAIntrinsicCleaner::clean_pipeline_depth(Function &F) {
+  using namespace std;
+  bool cleaned_pipeline_depth = false;
+  for (BasicBlock &BB : F) {
+    for (auto inst_it = begin(BB); inst_it != end(BB);) {
+      IntrinsicInst *const intr_inst = dyn_cast<IntrinsicInst>(&*inst_it);
+      if (intr_inst and
+        intr_inst->getIntrinsicID() ==
+        Intrinsic::csa_pipeline_limited_entry) {
+        cleaned_pipeline_depth = true;
+        ++NumPipelineDepthCleaned;
+        inst_it = erase_with_all_uses(intr_inst);
+      }
+      else
+        ++inst_it;
+    }
+  }
+  return cleaned_pipeline_depth;
 }
 
 } // namespace
