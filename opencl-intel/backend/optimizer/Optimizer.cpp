@@ -775,7 +775,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   m_PreFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
   m_PostFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
 
-  bool EnableInferAS = getenv("ENABLE_INFER_AS");
+  bool EnableInferAS = !getenv("DISABLE_INFER_AS");
 
   // Add passes which will run unconditionally
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
