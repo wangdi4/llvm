@@ -21,6 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 #include "llvm/Support/Debug.h"
 #include <llvm/IR/IntrinsicInst.h>
@@ -4625,4 +4626,26 @@ void HLNodeUtils::sortInTopOrderAndUniq(VecNodesTy &Nodes) {
 
 void HLNodeUtils::sortInTopOrderAndUniq(ConstVecNodesTy &Nodes) {
   sortInTopOrderAndUniqHelper<ConstVecNodesTy>(Nodes);
+}
+
+static void checkProfMetadata(MDNode *ProfileData) {
+  assert(ProfileData->getNumOperands() == 3 &&
+         isa<MDString>(ProfileData->getOperand(0)));
+
+  MDString *MDName = cast<MDString>(ProfileData->getOperand(0));
+  assert(MDName->getString() == "branch_weights");
+  (void)MDName;
+}
+
+// Implementation-wise, it is almost the same as Instruction::swapProfMetadata.
+MDNode *HLNodeUtils::swapProfMetadata(LLVMContext &Context,
+                                      MDNode *ProfileData) {
+
+  checkProfMetadata(ProfileData);
+
+  // The first operand is the name. Fetch them backwards and build a new one.
+  Metadata *Ops[] = {ProfileData->getOperand(0), ProfileData->getOperand(2),
+                     ProfileData->getOperand(1)};
+
+  return MDNode::get(Context, Ops);
 }

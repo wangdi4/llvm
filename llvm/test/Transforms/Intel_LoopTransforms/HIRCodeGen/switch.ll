@@ -1,6 +1,6 @@
 ;Simple CG for switch
-;RUN:  opt -hir-cg -S -force-hir-cg -hir-cost-model-throttling=0 %s | FileCheck %s
-;RUN:  opt -passes="hir-cg" -S -force-hir-cg -hir-cost-model-throttling=0 %s | FileCheck %s
+;RUN:  opt -hir-ssa-deconstruction -hir-cg -S -force-hir-cg -hir-cost-model-throttling=0 %s | FileCheck %s
+;RUN:  opt -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg -hir-cost-model-throttling=0 %s | FileCheck %s
 
 
 ;          BEGIN REGION { }

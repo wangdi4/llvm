@@ -46,6 +46,16 @@ enum OptimizationType { Unroll, UnrollAndJam, Vectorizer };
 /// Defines HIRLoopTransformationUtils class.
 /// It contains static member functions to analyze and transform a loop.
 class HIRTransformUtils {
+public:
+  typedef struct ProfInfo {
+    ProfInfo(uint64_t T, uint64_t F) : TrueWeight(T), FalseWeight(F) {}
+    uint64_t TrueWeight;
+    uint64_t FalseWeight;
+
+    uint64_t Quotient; // Quotient of TrueWeight/Denom. Denom is not maintained.
+    uint64_t Remainder; // Remainder of TrueWeight/Denom.
+  } ProfInfo;
+
 private:
   /// Do not allow instantiation
   HIRTransformUtils() = delete;
@@ -68,12 +78,11 @@ private:
   /// contains the new loop trip count if the original loop is a constant trip
   /// count. For a original non-constant trip count loop, the new loop trip
   /// count is specified in \p NewTCRef.
-  static HLLoop *createUnrollOrVecLoop(HLLoop *OrigLoop,
-                                       unsigned UnrollOrVecFactor,
-                                       uint64_t NewTripCount,
-                                       const RegDDRef *NewTCRef,
-                                       LoopOptReportBuilder &LORBuilder,
-                                       OptimizationType, HLIf *RTIf);
+  static HLLoop *
+  createUnrollOrVecLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
+                        uint64_t NewTripCount, const RegDDRef *NewTCRef,
+                        LoopOptReportBuilder &LORBuilder, OptimizationType,
+                        HLIf *RTIf, ProfInfo *Prof);
 
   /// \brief Processes the remainder loop for general unrolling and
   /// vectorization. The loop passed in \p OrigLoop is set up to be
@@ -82,7 +91,8 @@ private:
   static void processRemainderLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
                                    uint64_t NewTripCount,
                                    const RegDDRef *NewTCRef,
-                                   const bool HasRuntimeCheck);
+                                   const bool HasRuntimeCheck,
+                                   const ProfInfo *Prof);
 
   /// \brief Update CE for stripmined Loops
   static void updateStripminedLoopCE(HLLoop *Loop);

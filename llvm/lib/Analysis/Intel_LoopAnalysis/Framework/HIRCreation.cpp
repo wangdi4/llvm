@@ -70,6 +70,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
       Ifs[If] = BB;
       If->setDebugLoc(BI->getDebugLoc());
+      If->setProfileData(BI->getMetadata(LLVMContext::MD_prof));
 
       HLGoto *ThenGoto = HNU.createHLGoto(BB, BI->getSuccessor(0));
       HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
@@ -91,6 +92,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
     }
   } else if (SwitchInst *SI = dyn_cast<SwitchInst>(Terminator)) {
     auto Switch = HNU.createHLSwitch(nullptr);
+    Switch->setProfileData(SI->getMetadata(LLVMContext::MD_prof));
 
     Switches[Switch] = BB;
     Switch->setDebugLoc(SI->getDebugLoc());
@@ -155,6 +157,10 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
   for (auto I = BB->getFirstInsertionPt(), E = std::prev(BB->end()); I != E;
        ++I) {
     auto Inst = HNU.createHLInst(&*I);
+    if (const SelectInst *SI = dyn_cast<SelectInst>(&*I)) {
+      MDNode *Prof = SI->getMetadata(LLVMContext::MD_prof);
+      Inst->setProfileData(Prof);
+    }
     HLNodeUtils::insertAfter(InsertionPos, Inst);
     InsertionPos = Inst;
   }

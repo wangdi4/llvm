@@ -339,9 +339,9 @@ public:
 };
 
 /// Wraps around a HIR instruction which is an OpenMP region entry intrinsic and
-/// provides access to objects and characteristics representing OpenMP semantics.
-/// OpenMP clause 0 corresponds to operand bundle 1. 0'th bundle represents the
-/// region directive.
+/// provides access to objects and characteristics representing OpenMP
+/// semantics. OpenMP clause 0 corresponds to operand bundle 1. 0'th bundle
+/// represents the region directive.
 class OMPRegionProxy {
 public:
   /// Creates a proxy for the HIR instruction \p I.
@@ -365,9 +365,9 @@ public:
 
   /// Asserts that the clause at index I has a single operand and returns the
   /// DDRef representing its value.
-  const RegDDRef* getOmpClauseSingleOpnd(unsigned I) const {
+  const RegDDRef *getOmpClauseSingleOpnd(unsigned I) const {
     assert(Impl->getNumBundleOperands(I + 1) == 1 && "single operand expected");
-    const RegDDRef* const *OpndBegI = Impl->bundle_op_ddref_begin(I + 1);
+    const RegDDRef *const *OpndBegI = Impl->bundle_op_ddref_begin(I + 1);
     return *OpndBegI;
   }
 
@@ -390,7 +390,8 @@ public:
   /// \return
   ///   corresponding OpenMP directive ID if the check(s) are successful,
   ///   \c -1 otherwise
-  static int getOmpRegionExitDir(const HLInst *Exit, const HLInst *Entry = nullptr);
+  static int getOmpRegionExitDir(const HLInst *Exit,
+                                 const HLInst *Entry = nullptr);
 
 private:
   /// The HIR instruction this proxy works for.

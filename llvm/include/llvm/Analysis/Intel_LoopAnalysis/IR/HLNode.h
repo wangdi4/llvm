@@ -133,6 +133,9 @@ private:
   HLNode *getPrevNextNodeImpl(bool Prev);
 
 protected:
+  /// "branch_weight" profile data
+  MDNode *ProfileData;
+
   HLNode(HLNodeUtils &HNU, unsigned SCID);
   HLNode(const HLNode &HLNodeObj);
   virtual ~HLNode() {}
@@ -266,6 +269,13 @@ public:
     return const_cast<HLNode *>(this)->getNextNode();
   }
   HLNode *getNextNode();
+
+  MDNode *getProfileData() const { return ProfileData; }
+  void setProfileData(MDNode *ProfData) { ProfileData = ProfData; }
+  /// Get weights of True and False sides of branch_weights.
+  bool extractProfileData(uint64_t &TrueVal, uint64_t &FalseVal) const;
+  /// Set weights of True and False sides of a condition.
+  void setProfileData(uint64_t TrueVal, uint64_t FalseVal);
 
   /// \brief An enumeration to keep track of the concrete subclasses of HLNode.
   enum HLNodeVal {

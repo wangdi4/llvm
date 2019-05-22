@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "HIRUnroll.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
@@ -46,7 +46,8 @@ namespace {
 HLIf *createRuntimeChecks(
     SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
         *RuntimeChecks,
-    HLLoop *RemainderLoop, RegDDRef **NewTCRef) {
+    HLLoop *RemainderLoop, RegDDRef **NewTCRef,
+    const HIRTransformUtils::ProfInfo *Prof) {
   assert(RuntimeChecks && !RuntimeChecks->empty() &&
          "At least one runtime check must be passed.");
   HLNodeUtils &HNU = RemainderLoop->getHLNodeUtils();
@@ -59,6 +60,9 @@ HLIf *createRuntimeChecks(
     else
       If->addPredicate(std::get<0>(Check), std::get<1>(Check),
                        std::get<2>(Check));
+  if (Prof) {
+    If->setProfileData(Prof->TrueWeight, Prof->FalseWeight);
+  }
 
   // In case if RT-check failed, remainder loop has to start from the beginning.
   RegDDRef *Ref = RemainderLoop->getUpperDDRef();
@@ -257,10 +261,24 @@ void HIRTransformUtils::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
   BoundRef->updateDefLevel();
 }
 
+// Divide TrueWeight with Denom and maintain Quotient and Rem
+static void getFactoredWeights(HIRTransformUtils::ProfInfo *Prof,
+                               uint64_t Denom) {
+  if (!Prof)
+    return;
+
+  assert(Denom); // avoid divide by zero
+
+  APInt Weight(64, Prof->TrueWeight);
+  APInt AQ(64, 0);
+  APInt::udivrem(Weight, Denom, AQ, Prof->Remainder);
+  Prof->Quotient = AQ.getLimitedValue();
+}
+
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
     const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder,
-    OptimizationType OptTy, HLIf *RuntimeCheck) {
+    OptimizationType OptTy, HLIf *RuntimeCheck, ProfInfo *Prof) {
   HLLoop *NewLoop = OrigLoop->cloneEmpty();
 
   // Number of exits do not change due to vectorization
@@ -274,6 +292,8 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLNodeUtils::insertAsLastThenChild(RuntimeCheck, NewLoop);
   else
     OrigLoop->getHLNodeUtils().insertBefore(OrigLoop, NewLoop);
+
+  getFactoredWeights(Prof, UnrollOrVecFactor);
 
   // Update the loop upper bound.
   if (NewTripCount != 0) {
@@ -318,6 +338,14 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 
     // Generate the Ztt.
     NewLoop->createZtt(false);
+    if (Prof) {
+      // Current heuristic is to assign
+      // the same branch_weights to ztt with
+      // that of branch_weights of backedge of new main loop's.
+      // Can be changed as needed.
+      // FalseWeight is not updated currently.
+      NewLoop->getZtt()->setProfileData(Prof->Quotient, Prof->FalseWeight);
+    }
 
     // Update unrolled/vectorized loop's trip count estimate.
     NewLoop->setMaxTripCountEstimate(
@@ -325,6 +353,11 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
         NewLoop->isMaxTripCountEstimateUsefulForDD());
 
     NewLoop->dividePragmaBasedTripCount(UnrollOrVecFactor);
+  }
+
+  if (Prof) {
+    // FalseWeight is not updated currently.
+    NewLoop->setProfileData(Prof->Quotient, Prof->FalseWeight);
   }
 
   // Set the code gen for modified region
@@ -361,7 +394,8 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
                                              unsigned UnrollOrVecFactor,
                                              uint64_t NewTripCount,
                                              const RegDDRef *NewTCRef,
-                                             const bool HasRuntimeCheck) {
+                                             const bool HasRuntimeCheck,
+                                             const ProfInfo *Prof) {
   // Mark Loop bounds as modified.
   HIRInvalidationUtils::invalidateBounds(OrigLoop);
 
@@ -391,6 +425,12 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     OrigLoop->addLiveInTemp(NewTCRef->getSymbase());
 
     OrigLoop->createZtt(false);
+    if (Prof) {
+      // Remainder loop's ztt (true branch)
+      // gets the same weight as the remainder loop's trip count.
+      // This is a heuristic.
+      OrigLoop->getZtt()->setProfileData(Prof->Remainder, Prof->FalseWeight);
+    }
 
     // Update remainder loop's trip count estimate.
     // TODO: can set useful for DD flag if loop is normalized.
@@ -407,6 +447,13 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     // Add unroll disabling pragma to non-const trip remainder loop so LLVM
     // unrolling pass doesn't unroll it.
     OrigLoop->markDoNotUnroll();
+  }
+
+  if (Prof) {
+    // Set the remainder loop's profile data with Rem calcuated before.
+    // Leaves FalseVal intact.
+    // TODO: elaboration might be needed.
+    OrigLoop->setProfileData(Prof->Remainder, Prof->FalseWeight);
   }
 
   LLVM_DEBUG(dbgs() << "\n Remainder Loop \n");
@@ -501,12 +548,19 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
         *RuntimeChecks) {
 
+  uint64_t TrueVal = 0;
+  uint64_t FalseVal = 0;
+  bool ProfExists = OrigLoop->extractProfileData(TrueVal, FalseVal);
   if (PeelFirstIteration) {
     // Peel first iteration of the loop. Ztt, preheader and postexit are
     // extracted as part of the peeling utility.
     LLVM_DEBUG(dbgs() << "Peeling first iteration of the loop!\n");
     HLLoop *PeelLp = OrigLoop->peelFirstIteration(
         false /*OrigLoop will also executed peeled its.*/);
+    if (ProfExists && TrueVal > 0) {
+      TrueVal -= 1;
+      PeelLp->setProfileData(1, TrueVal);
+    }
     if (PeelLoop)
       *PeelLoop = PeelLp;
   } else {
@@ -519,8 +573,12 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
 
   HLIf *RuntimeCheck = nullptr;
   RegDDRef *NewTCRef = nullptr;
+  // Branch weights are initialized here and
+  // updated in createUnrollOrVecLoop() by UF/VF.
+  ProfInfo Prof(TrueVal, FalseVal);
   if (RuntimeChecks && !RuntimeChecks->empty())
-    RuntimeCheck = createRuntimeChecks(RuntimeChecks, OrigLoop, &NewTCRef);
+    RuntimeCheck = createRuntimeChecks(RuntimeChecks, OrigLoop, &NewTCRef,
+                                       ProfExists ? &Prof : nullptr);
 
   // Create UB instruction before the loop 't = (Orig UB)/(UnrollOrVecFactor)'
   // for non-constant trip loops. For const trip loops calculate the bound.
@@ -529,15 +587,15 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
       OrigLoop, UnrollOrVecFactor, &NewTripCount, &NewTCRef, RuntimeCheck);
 
   // Create the main loop.
-  HLLoop *MainLoop =
-      createUnrollOrVecLoop(OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef,
-                            LORBuilder, OptTy, RuntimeCheck);
+  HLLoop *MainLoop = createUnrollOrVecLoop(
+      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, OptTy,
+      RuntimeCheck, ProfExists ? &Prof : nullptr);
 
   // Update the OrigLoop to remainder loop by setting bounds appropriately if
   // remainder loop is needed.
   if (NeedRemainderLoop) {
     processRemainderLoop(OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef,
-                         RuntimeCheck != nullptr);
+                         RuntimeCheck != nullptr, ProfExists ? &Prof : nullptr);
     addCloningInducedLiveouts(MainLoop, OrigLoop);
 
     // Since OrigLoop became a remainder and will be lexicographicaly

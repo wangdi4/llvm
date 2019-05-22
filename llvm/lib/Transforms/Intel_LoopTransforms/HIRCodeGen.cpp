@@ -1350,7 +1350,10 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
       HasElseChildren ? BasicBlock::Create(F.getContext(), "else." + HNumStr)
                       : MergeBB;
 
-  Builder.CreateCondBr(CondV, ThenBB, ElseBB);
+  BranchInst *CondBr = Builder.CreateCondBr(CondV, ThenBB, ElseBB);
+  if (MDNode *ProfData = HIf->getProfileData()) {
+    CondBr->setMetadata(LLVMContext::MD_prof, ProfData);
+  }
 
   if (HasThenChildren) {
     // generate then block
@@ -1408,8 +1411,8 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 
 #if INTEL_FEATURE_CSA
   // Helper for creating intrinsic calls.
-  auto genCsaIntrinCall =
-      [&](Intrinsic::ID ID, ArrayRef<Value*> Args, const Twine &Name) {
+  auto genCsaIntrinCall = [&](Intrinsic::ID ID, ArrayRef<Value *> Args,
+                              const Twine &Name) {
     auto *Intrin = Intrinsic::getDeclaration(F.getParent(), ID);
     return Builder.CreateCall(Intrin, Args, Name);
   };
@@ -1429,7 +1432,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     CsaParRegion = genCsaIntrinCall(Intrinsic::csa_parallel_region_entry,
                                     {UniqueID}, "par.reg");
   }
-#endif  // INTEL_FEATURE_CSA
+#endif // INTEL_FEATURE_CSA
 
   // set up IV, I think we can reuse the IV allocation across
   // multiple loops of same depth
@@ -1472,7 +1475,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
     if (CsaParRegion)
       CsaParSection = genCsaIntrinCall(Intrinsic::csa_parallel_section_entry,
                                        {CsaParRegion}, "par.sec");
-#endif  // INTEL_FEATURE_CSA
+#endif // INTEL_FEATURE_CSA
   }
 
   auto LastIt =
@@ -1521,8 +1524,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 
 #if INTEL_FEATURE_CSA
     if (CsaParSection)
-      genCsaIntrinCall(Intrinsic::csa_parallel_section_exit, {CsaParSection}, "");
-#endif  // INTEL_FEATURE_CSA
+      genCsaIntrinCall(Intrinsic::csa_parallel_section_exit, {CsaParSection},
+                       "");
+#endif // INTEL_FEATURE_CSA
 
     auto *ConstStepVal = dyn_cast<ConstantInt>(StepVal);
 
@@ -1548,6 +1552,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 
     // latch
     BranchInst *Br = Builder.CreateCondBr(EndCond, LoopBB, AfterBB);
+    if (MDNode *ProfData = Lp->getProfileData()) {
+      Br->setMetadata(LLVMContext::MD_prof, ProfData);
+    }
 
     if (LoopID) {
       Br->setMetadata(LLVMContext::MD_loop, LoopID);
@@ -1560,7 +1567,7 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 #if INTEL_FEATURE_CSA
   if (CsaParRegion)
     genCsaIntrinCall(Intrinsic::csa_parallel_region_exit, {CsaParRegion}, "");
-#endif  // INTEL_FEATURE_CSA
+#endif // INTEL_FEATURE_CSA
 
   CurIVValues.pop_back();
 
@@ -1621,6 +1628,9 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
 
   SwitchInst *LLVMSwitch =
       Builder.CreateSwitch(CondV, DefaultBlock, S->getNumCases());
+  if (MDNode *ProfData = S->getProfileData()) {
+    LLVMSwitch->setMetadata(LLVMContext::MD_prof, ProfData);
+  }
 
   // generate default block
   F.getBasicBlockList().push_back(DefaultBlock);
@@ -1898,7 +1908,11 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
         createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS,
                       "hir.selcmp." + std::to_string(HInst->getNumber()));
     StoreVal = Builder.CreateSelect(Pred, TVal, FVal);
-
+    if (SelectInst *S = dyn_cast<SelectInst>(StoreVal)) {
+      if (MDNode *ProfData = HInst->getProfileData()) {
+        S->setMetadata(LLVMContext::MD_prof, ProfData);
+      }
+    }
   } else if (isa<CmpInst>(Inst)) {
 
     StoreVal = createCmpInst(HInst->getPredicate(), Ops[1], Ops[2],
