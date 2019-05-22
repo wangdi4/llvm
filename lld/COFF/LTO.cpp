@@ -148,8 +148,9 @@ std::vector<StringRef> BitcodeCompiler::compile() {
 
 #if INTEL_CUSTOMIZATION
   // Linking for an executable
-  // TODO: Whole program can be achieved when linking a DLL and
-  // main will be included in it. This will be added later.
+  // NOTE: Whole program can't be achieved when linking a DLL, it is only
+  // for executables. On the other hand, whole program read can be achieved
+  // when linking an executable and a DLL is present.
   if (!Config->DLL)
     WPUtils.setLinkingExecutable(true);
 #endif // INTEL_CUSTOMIZATION
