@@ -5559,8 +5559,20 @@ const SCEV *ScalarEvolution::createNodeFromSelectLikePHI(PHINode *PN) {
 }
 
 const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
-  if (const SCEV *S = createAddRecFromPHI(PN))
+#if INTEL_CUSTOMIZATION
+  // Web of PHIs and arithmetic ops, need to limit recursion.
+  if (PhiDepth > MaxSCEVCompareDepth)
+    return getUnknown(PN);
+
+  PhiDepth++;
+
+  // this is the original code (without the depth update)
+  if (const SCEV *S = createAddRecFromPHI(PN)) {
+    PhiDepth--;
     return S;
+  }
+  PhiDepth--;
+#endif // INTEL_CUSTOMIZATION
 
   if (const SCEV *S = createNodeFromSelectLikePHI(PN))
     return S;
@@ -5962,6 +5974,13 @@ ScalarEvolution::getRangeRef(const SCEV *S,
 
     // A range of Phi is a subset of union of all ranges of its input.
     if (const PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
+#if INTEL_CUSTOMIZATION
+      // Recursion check before we call getSCEV recursively on each Op.
+      // A chain of phi and arithmetic will cause N^2 recursion.
+      if (PendingPhiRanges.size() > MaxSCEVCompareDepth)
+        return setRange(U, SignHint, std::move(ConservativeResult));
+#endif // INTEL_CUSTOMIZATION
+
       // Make sure that we do not run over cycled Phis.
       if (PendingPhiRanges.insert(Phi).second) {
         ConstantRange RangeFromOps(BitWidth, /*isFullSet=*/false);
