@@ -13,6 +13,7 @@ VERS1.0 {
 # INTEL_COLLAB
     __tgt_rtl_data_submit_nowait;
     __tgt_rtl_data_retrieve_nowait;
+    __tgt_rtl_manifest_data_for_region;
     __tgt_rtl_data_alloc_base;
     __tgt_rtl_run_target_team_nd_region;
     __tgt_rtl_run_target_team_region_nowait;

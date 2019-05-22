@@ -614,6 +614,27 @@ void event_callback_completed(cl_event event, cl_int status, void *data) {
   }
 }
 
+// Notify the kernel about target pointers that are not explicitly
+// passed as arguments, but which are pointing to mapped objects
+// that may potentially be accessed in the kernel code (e.g. PTR_AND_OBJ
+// objects).
+int32_t __tgt_rtl_manifest_data_for_region(
+    int32_t device_id,
+    void *tgt_entry_ptr,
+    void **tgt_ptrs,
+    size_t num_ptrs) {
+
+  DP("Calling clSetKernelExecInfo for %" PRIu64 " target pointers.\n",
+     static_cast<uint64_t>(num_ptrs));
+
+  cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
+  INVOKE_CL_RET_FAIL(clSetKernelExecInfo,
+                     *kernel, CL_KERNEL_EXEC_INFO_SVM_PTRS,
+                     num_ptrs * sizeof(void *), tgt_ptrs);
+
+  return OFFLOAD_SUCCESS;
+}
+
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
   return __tgt_rtl_data_alloc_base(device_id, size, hst_ptr, hst_ptr);
 }

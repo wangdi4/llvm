@@ -85,6 +85,12 @@ int32_t __tgt_rtl_run_target_team_region(int32_t ID, void *Entry, void **Args,
                                          uint64_t loop_tripcount);
 
 #if INTEL_COLLAB
+// Manifest target pointers, which are not passed as arguments,
+// to the offloaded entry represented by TgtEntryPtr. The target pointers
+// are passed in TgtPtrs array consisting of NumPtrs pointers.
+int32_t __tgt_rtl_manifest_data_for_region(int32_t ID, void *TgtEntryPtr,
+                                           void **TgtPtrs, size_t NumPtrs);
+
 // Similar to __tgt_rtl_data_alloc, but additionally specify the base host ptr
 // in case the plugin needs this information.
 void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HostPtr,
