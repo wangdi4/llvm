@@ -156,14 +156,6 @@ bool CodeGenModule::TryEmitBaseDestructorAsAlias(const CXXDestructorDecl *D) {
     return false;
   }
 
-#if INTEL_CUSTOMIZATION
-  // CQ#409932: Not emit aliases always inline functions.
-  if (getLangOpts().IntelCompat &&
-      TargetDecl.getDecl()->hasAttr<AlwaysInlineAttr>()) {
-    return true;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // If we have a weak, non-discardable alias (weak, weak_odr), like an extern
   // template instantiation or a dllexported class, avoid forming it on COFF.
   // A COFF weak external alias cannot satisfy a normal undefined symbol
