@@ -1,4 +1,4 @@
-; Test merge loop exits transformation when the loop has one side exit and one regular exit.
+; Test merge loop exits transformation for a while loop with two side exits.
 
 ; REQUIRES: asserts
 ; RUN: opt -S %s -VPlanDriver -vplan-force-vf=8 -disable-vplan-codegen -debug 2>&1 | FileCheck %s
@@ -41,6 +41,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: PREDECESSORS(2): {{NewLoopLatch[0-9]+}} [[LoopPreHeader]]
 ; CHECK-EMPTY:
 
+; CHECK-NEXT: {{IntermediateBB[0-9]+}} (BP: NULL) :
+; CHECK-NEXT: <Empty Block>
+; CHECK-NEXT: SUCCESSORS(1):{{NewLoopLatch[0-9]+}}
+; CHECK-NEXT: PREDECESSORS(1): [[LoopHeader]]
+; CHECK-EMPTY:
+
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
 ; CHECK-NEXT: i32 [[ADD_OUT2:%vp[0-9]+]] = add
 ; CHECK-NEXT: i1 [[CMP_OUT2:%vp[0-9]+]] = icmp
@@ -49,24 +55,30 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{IntermediateBB[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: i32 [[PHI_OUT10:%vp[0-9]+]] = phi  [ i32 0, {{BB[0-9]+}} ],  [ i32 1, {{BB[0-9]+}} ]
+; CHECK-NEXT: <Empty Block>
 ; CHECK-NEXT: SUCCESSORS(1):{{NewLoopLatch[0-9]+}}
-; CHECK-NEXT: PREDECESSORS(2): [[LoopHeader]] {{BB[0-9]+}}
+; CHECK-NEXT: PREDECESSORS(1): {{BB[0-9]+}}
+; CHECK-EMPTY:
+
+; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
+; CHECK-NEXT: <Empty Block>
+; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
+; CHECK-NEXT: PREDECESSORS(1): {{BB[0-9]+}}
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: [[OrigLoopLatch:BB[0-9]+]] (BP: NULL) :
-; CHECK-NEXT: i1 [[CMP_OUT3:%vp[0-9]+]] = icmp
+; CHECK-NEXT: <Empty Block>
 ; CHECK-NEXT: SUCCESSORS(1):{{NewLoopLatch[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(1): {{BB[0-9]+}}
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{NewLoopLatch[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: i32 [[PHI_OUT2:%vp[0-9]+]] = phi  [ i32 [[PHI_OUT1]], [[OrigLoopLatch]] ],  [ i32 1, {{IntermediateBB[0-9]+}} ]
-; CHECK-NEXT: i1 [[PHI_OUT3:%vp[0-9]+]] = phi  [ i1 [[CMP_OUT3]], [[OrigLoopLatch]] ],  [ i1 false, {{IntermediateBB[0-9]+}} ]
+; CHECK-NEXT: i32 [[PHI_OUT2:%vp[0-9]+]] = phi  [ i32 [[PHI_OUT1]], [[OrigLoopLatch]] ],  [ i32 1, {{IntermediateBB[0-9]+}} ],  [ i32 2, {{IntermediateBB[0-9]+}} ]
+; CHECK-NEXT: i1 [[PHI_OUT3:%vp[0-9]+]] = phi  [ i1 true, [[OrigLoopLatch]] ],  [ i1 false, {{IntermediateBB[0-9]+}} ],  [ i1 false, {{IntermediateBB[0-9]+}} ]
 ; CHECK-NEXT: i1 [[CMP_OUT4:%vp[0-9]+]] = icmp i32 [[PHI_OUT2]] i32 0
 ; CHECK-NEXT: i1 [[AND_OUT4:%vp[0-9]+]] = and i1 [[CMP_OUT4]] i1 [[PHI_OUT3]]
 ; CHECK-NEXT: SUCCESSORS(2):[[LoopHeader]](i1 [[AND_OUT4]]), {{IfBlock[0-9]+}}(!i1 [[AND_OUT4]])
-; CHECK-NEXT: PREDECESSORS(2): [[OrigLoopLatch]] {{IntermediateBB[0-9]+}}
+; CHECK-NEXT: PREDECESSORS(3): [[OrigLoopLatch]] {{IntermediateBB[0-9]+}} {{IntermediateBB[0-9]+}}
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{IfBlock[0-9]+}} (BP: NULL) :
@@ -76,34 +88,34 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: i32 [[ADD_OUT6:%vp[0-9]+]] = add
-; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
-; CHECK-NEXT: PREDECESSORS(1): {{IfBlock[0-9]+}}
-; CHECK-EMPTY:
-
-; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
 ; CHECK-NEXT: i32 [[ADD_OUT7:%vp[0-9]+]] = add
 ; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(1): {{IfBlock[0-9]+}}
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: <Empty Block>
+; CHECK-NEXT: i32 [[ADD_OUT8:%vp[0-9]+]] = add
 ; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
-; CHECK-NEXT: PREDECESSORS(1): {{BB[0-9]+}}
+; CHECK-NEXT: PREDECESSORS(1): {{IfBlock[0-9]+}}
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
 ; CHECK-NEXT: i32 [[PHI_OUT8:%vp[0-9]+]] = phi
-; CHECK-NEXT: i32 [[ADD_OUT8:%vp[0-9]+]] = add
+; CHECK-NEXT: i32 [[ADD_OUT10:%vp[0-9]+]] = add
 ; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
 ; CHECK-NEXT: PREDECESSORS(2): {{BB[0-9]+}} {{BB[0-9]+}}
 ; CHECK-EMPTY:
 
 ; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
-; CHECK-NEXT: i32 [[ADD_OUT9:%vp[0-9]+]] = add
-; CHECK-NEXT: i1 [[CMP_OUT9:%vp[0-9]+]] = icmp
-; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[CMP_OUT9]]), {{BB[0-9]+}}(!i1 [[CMP_OUT9]])
+; CHECK-NEXT: i32 [[ADD_OUT10:%vp[0-9]+]] = add
+; CHECK-NEXT: SUCCESSORS(1):{{BB[0-9]+}}
+; CHECK-NEXT: PREDECESSORS(1): {{BB[0-9]+}}
+; CHECK-EMPTY:
+
+; CHECK-NEXT: {{BB[0-9]+}} (BP: NULL) :
+; CHECK-NEXT: i32 [[ADD_OUT11:%vp[0-9]+]] = add
+; CHECK-NEXT: i1 [[CMP_OUT11:%vp[0-9]+]] = icmp
+; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[CMP_OUT11]]), {{BB[0-9]+}}(!i1 [[CMP_OUT11]])
 ; CHECK-NEXT: PREDECESSORS(1): {{BB[0-9]+}}
 ; CHECK-EMPTY:
 
@@ -135,32 +147,34 @@ loop2:
   %j = phi i32 [ 0, %loop1 ], [ %j_inc, %loop2_latch ]
   %j_inc = add nsw i32 %j, 1
   %cmp1 = icmp eq i32 %j_inc, 16
-  br i1 %cmp1, label %bb1, label %bb2
+  br i1 %cmp1, label %bb1, label %bb3
 
 bb1:
   %k_inc = add nsw i32 %j, 1
   %cmp2 = icmp eq i32 %k_inc, 16
-  br i1 %cmp2, label %loop2_latch, label %bb2
-
-loop2_latch:
-  %cmp3 = icmp eq i32 %j, 128
-  br i1 %cmp3, label %loop2, label %bb4
+  br i1 %cmp2, label %bb2, label %bb4
 
 bb2:
-  %m1 = phi i32 [ 0, %loop2 ], [ 1, %bb1 ]
-  %m2 = add nsw i32 %m1, 1
-  br label %bb3
+  br label %loop2_latch
+
+loop2_latch:
+  br label %loop2
 
 bb3:
+  %m1 = add nsw i32 %i, 1
   br label %bb5
 
 bb4:
-  %m3 = add nsw i32 %i, 2
+  %m2 = add nsw i32 %i, 2
   br label %bb5
 
 bb5:
-  %m4 = phi i32 [ 0, %bb4 ], [ 1, %bb3 ]
-  %m5 = add nsw i32 %i, %m4
+  %m3 = phi i32 [ 0, %bb4 ], [ 1, %bb3 ]
+  %m4 = add nsw i32 %i, %m3
+  br label %bb6
+
+bb6:
+  %m5 = add nsw i32 %i, 4
   br label %loop1_latch
 
 loop1_latch:
