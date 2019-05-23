@@ -35,9 +35,6 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Exception handling preparation
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:       X86 runtime feature initialization pass
-; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:       Safe Stack instrumentation pass
 ; CHECK-NEXT:       Insert stack protectors
 ; CHECK-NEXT:       Module Verifier
