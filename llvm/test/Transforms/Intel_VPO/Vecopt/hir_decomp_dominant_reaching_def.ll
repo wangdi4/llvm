@@ -1,0 +1,109 @@
+; Test to check correctness of decomposed HCFG when external definition of a DDRef is killed by an instruction inside the HLLoop being decomposed.
+
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-after-hcfg -disable-output < %s 2>&1 | FileCheck %s
+
+; Input HIR
+; <0>     BEGIN REGION { }
+; <2>           %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%s.red)[0])),  QUAL.OMP.REDUCTION.ADD(&((%s2.red)[0])),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+; <3>           (%s2.red)[0] = 0;
+; <4>           (%s.red)[0] = 0;
+; <6>           %add426 = 0;
+; <7>           %add824 = 0;
+; <34>
+; <34>          + DO i1 = 0, 1023, 1   <DO_LOOP> <simd>
+; <11>          |   %1 = (@a)[0][i1];
+; <15>          |   %add824 = i1 + 2 * %1  +  %add824;
+; <17>          |   %add426 = %add426  +  %add824;
+; <19>          |   %add824 = %1 + 64  +  %add824;
+; <34>          + END LOOP
+; <34>
+; <28>          (%s.red)[0] = %add824;
+; <29>          (%s2.red)[0] = %add426;
+; <31>          @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; <33>          ret %add426 + %add824 + 42;
+; <0>     END REGION
+
+; In the above HIR, node <15> kills the external definition of %add824 for its use in node <17>,
+; hence the valid number of reaching definitions for %add824 in node <17> and <19> is just 1.
+
+; Check correctness of HCFG
+; CHECK-LABEL:  Print after building H-CFG:
+; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
+; CHECK:         [[LP_BODY:BB[0-9]+]] (BP: NULL) :
+; CHECK-DAG:      i32 [[VP0:%.*]] = phi  [ i32 [[ADD824:%add824]], [[LP_PH:BB[0-9]+]] ],  [ i32 [[VP1:%.*]], [[LP_EXIT:BB[0-9]+]] ]
+; CHECK-DAG:      i32 [[VP2:%.*]] = phi  [ i32 [[ADD426:%add426]], [[LP_PH]] ],  [ i32 [[VP3:%.*]], [[LP_EXIT]] ]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[LP_PH]] ],  [ i64 [[VP5:%.*]], [[LP_EXIT]] ]
+; CHECK-NEXT:     i32* [[VP6:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP4]]
+; CHECK-NEXT:     i32 [[VP7:%.*]] = load i32* [[VP6]]
+; CHECK-NEXT:     i32 [[VP8:%.*]] = mul i32 [[VP7]] i32 2
+; CHECK-NEXT:     i32 [[VP9:%.*]] = trunc i64 [[VP4]] to i32
+; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP8]] i32 [[VP9]]
+; CHECK-NEXT:     i32 [[VP11:%.*]] = add i32 [[VP10]] i32 [[VP0]]
+; CHECK-NEXT:     i32 [[VP3]] = add i32 [[VP2]] i32 [[VP11]]
+; CHECK-NEXT:     i32 [[VP12:%.*]] = add i32 [[VP7]] i32 64
+; CHECK-NEXT:     i32 [[VP1]] = add i32 [[VP12]] i32 [[VP11]]
+; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp i64 [[VP5]] i64 1023
+; CHECK-NEXT:    SUCCESSORS(1):[[LP_EXIT]]
+; CHECK-NEXT:    PREDECESSORS(2): [[LP_PH]] [[LP_EXIT]]
+; CHECK:         END Region([[REGION0]])
+;
+
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+@a = dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+
+; Function Attrs: nounwind uwtable
+define dso_local i32 @_Z3foov() local_unnamed_addr {
+omp.inner.for.body.lr.ph:
+  %s2.red = alloca i32, align 4
+  %s.red = alloca i32, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(i32* %s.red), "QUAL.OMP.REDUCTION.ADD"(i32* %s2.red), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  store i32 0, i32* %s2.red, align 4
+  store i32 0, i32* %s.red, align 4
+  br label %omp.inner.for.body
+
+omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
+  %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
+  %add426 = phi i32 [ %add4, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
+  %add824 = phi i32 [ %add8, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
+  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %mul1 = shl i32 %1, 1
+  %2 = trunc i64 %indvars.iv to i32
+  %add2 = add nsw i32 %mul1, %2
+  %add3 = add nsw i32 %add2, %add824
+  %add4 = add nsw i32 %add426, %add3
+  %add7 = add nsw i32 %1, 64
+  %add8 = add nsw i32 %add7, %add3
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
+
+DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
+  %add4.lcssa = phi i32 [ %add4, %omp.inner.for.body ]
+  %add8.lcssa = phi i32 [ %add8, %omp.inner.for.body ]
+  store i32 %add8.lcssa, i32* %s.red, align 4, !tbaa !7
+  store i32 %add4.lcssa, i32* %s2.red, align 4, !tbaa !7
+  %3 = add i32 %add4.lcssa, 42
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  %add10 = add nsw i32 %3, %add8.lcssa
+  ret i32 %add10
+}
+
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry() #1
+
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token) #1
+
+attributes #1 = { nounwind }
+
+!2 = !{!3, !4, i64 0}
+!3 = !{!"array@_ZTSA1024_i", !4, i64 0}
+!4 = !{!"int", !5, i64 0}
+!5 = !{!"omnipotent char", !6, i64 0}
+!6 = !{!"Simple C++ TBAA"}
+!7 = !{!4, !4, i64 0}
+
