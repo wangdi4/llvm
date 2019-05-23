@@ -204,10 +204,10 @@ private:
     };
 
   public:
-    explicit RegionEntry(StringRef Name, uint32_t Flags)
+    RegionEntry(StringRef Name, uint32_t Flags)
       : OffloadEntry(RegionKind, Name, Flags) {}
 
-    explicit RegionEntry(GlobalValue *GV, uint32_t Flags)
+    RegionEntry(GlobalValue *GV, uint32_t Flags)
       : OffloadEntry(RegionKind, GV->getName(), Flags) {
       setAddress(GV);
     }
@@ -286,8 +286,9 @@ private:
   void loadOffloadMetadata();
 
   /// Generate offload entry table. It should be done after completing all
-  /// transformations.
-  void genOffloadEntries();
+  /// transformations.  Returns true, if the table was generated,
+  /// false - otherwise.
+  bool genOffloadEntries();
 
   /// Register the offloading binary descriptors.
   void genOffloadingBinaryDescriptorRegistration();

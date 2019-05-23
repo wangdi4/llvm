@@ -199,7 +199,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     genOffloadingBinaryDescriptorRegistration();
 
   // Emit offload entries table.
-  genOffloadEntries();
+  Changed |= genOffloadEntries();
 
   if (hasOffloadCompilation() && (Mode & ParTrans)) {
     removeTargetUndeclaredGlobals();
@@ -837,10 +837,12 @@ Constant* VPOParoptModuleTransform::registerTargetRegion(WRegionNode *W,
 }
 
 // Create offloading entry for the provided entry ID and address.
-void VPOParoptModuleTransform::genOffloadEntries() {
+bool VPOParoptModuleTransform::genOffloadEntries() {
   if (OffloadEntries.empty())
-    return;
+    return false;
 
+  bool Changed = false;
+  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
   Type *VoidStarTy = Type::getInt8PtrTy(C);
   Type *SizeTy = GeneralUtils::getSizeTTy(&M);
   Type *Int32Ty = Type::getInt32Ty(C);
@@ -864,7 +866,7 @@ void VPOParoptModuleTransform::genOffloadEntries() {
     Str->setTargetDeclare(true);
 
     SmallVector<Constant *, 5u> EntryInitBuffer;
-    if (!VPOAnalysisUtils::isTargetSPIRV(&M))
+    if (!IsTargetSPIRV)
       EntryInitBuffer.push_back(
         ConstantExpr::getBitCast(E->getAddress(), VoidStarTy));
     else
@@ -884,6 +886,18 @@ void VPOParoptModuleTransform::genOffloadEntries() {
 
     Entry->setTargetDeclare(true);
     Entry->setSection(".omp_offloading.entries");
+
+    if (IsTargetSPIRV &&
+        (E->getFlags() & (RegionEntry::Ctor | RegionEntry::Dtor)) != 0) {
+      // The constructor/destructor will be called as a target entry,
+      // so we have to set its calling convention properly.
+      auto *EntryFunction = cast<Function>(E->getAddress());
+      EntryFunction->setCallingConv(CallingConv::SPIR_KERNEL);
+    }
+
+    Changed = true;
   }
+
+  return Changed;
 }
 #endif // INTEL_COLLAB
