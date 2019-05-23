@@ -2411,6 +2411,12 @@ void AndersensAAResult::HVN() {
   // a = &b, we add implicit edges *a = b.  This helps us capture more cycles
   for (unsigned i = 0, e = Constraints.size(); i != e; ++i) {
     Constraint &C = Constraints[i];
+    if (PossibleSourceOfPointsToInfo.find(C.Src) !=
+        PossibleSourceOfPointsToInfo.end()) {
+      // Mark C.Src as Indirect so that a new PointerEquivLabel
+      // is created for the node to avoid treating it as non-pointer.
+      GraphNodes[C.Src].Direct = false;
+    }
     if (C.Type == Constraint::AddressOf) {
       GraphNodes[C.Src].AddressTaken = true;
       GraphNodes[C.Src].Direct = false;
@@ -2445,12 +2451,6 @@ void AndersensAAResult::HVN() {
       }
     } else {
       // Dest = Src edge and *Dest = *Src edge
-      auto I = PossibleSourceOfPointsToInfo.find(C.Src);
-      if (I != PossibleSourceOfPointsToInfo.end()) {
-        // Mark C.Src as Indirect so that a new PointerEquivLabel
-        // is created for the node to avoid treating it as non-pointer.
-        GraphNodes[C.Src].Direct = false;
-      }
       if (!GraphNodes[C.Dest].PredEdges)
         GraphNodes[C.Dest].PredEdges = new SparseBitVector<>;
       GraphNodes[C.Dest].PredEdges->set(C.Src);
@@ -2614,6 +2614,12 @@ void AndersensAAResult::HU() {
   // a = &b, we add implicit edges *a = b.  This helps us capture more cycles
   for (unsigned i = 0, e = Constraints.size(); i != e; ++i) {
     Constraint &C = Constraints[i];
+    if (PossibleSourceOfPointsToInfo.find(C.Src) !=
+        PossibleSourceOfPointsToInfo.end()) {
+      // Mark C.Src as Indirect so that a new PointerEquivLabel
+      // is created for the node to avoid treating it as non-pointer.
+      GraphNodes[C.Src].Direct = false;
+    }
     if (C.Type == Constraint::AddressOf) {
       GraphNodes[C.Src].AddressTaken = true;
       GraphNodes[C.Src].Direct = false;
@@ -2644,12 +2650,6 @@ void AndersensAAResult::HU() {
       }
     } else {
       // Dest = Src edge and *Dest = *Src edg
-      auto I = PossibleSourceOfPointsToInfo.find(C.Src);
-      if (I != PossibleSourceOfPointsToInfo.end()) {
-        // Mark C.Src as Indirect so that a new PointerEquivLabel
-        // is created for the node to avoid treating it as non-pointer.
-        GraphNodes[C.Src].Direct = false;
-      }
       if (!GraphNodes[C.Dest].PredEdges)
         GraphNodes[C.Dest].PredEdges = new SparseBitVector<>;
       GraphNodes[C.Dest].PredEdges->set(C.Src);
