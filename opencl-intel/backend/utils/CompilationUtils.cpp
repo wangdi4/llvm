@@ -545,7 +545,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       case llvm::Type::IntegerTyID:
           {
-            if (kmd.ArgBaseTypeList.getItem(i) == SAMPLER)
+            if (kmd.ArgBaseTypeList.hasValue() && kmd.ArgBaseTypeList.getItem(i) == SAMPLER)
             {
               curArg.type = CL_KRNL_ARG_SAMPLER;
               curArg.size_in_bytes = sizeof(_sampler_t);
