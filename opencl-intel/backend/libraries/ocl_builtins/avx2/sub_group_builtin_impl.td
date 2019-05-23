@@ -58,8 +58,30 @@ OclBuiltinImpl sub_group_shuffle_avx512fv8ui64 = OclBuiltinImpl<sub_group_shuffl
     return res;
  }]>;
 
-// int2, uint2
-//OclBuiltinImpl sub_group_shuffle_avx512f = OclBuiltinImpl<sub_group_shuffle, [v16u32, v16i64], 0,
-//  [{
-//    return $Argv0VarName;
-//  }]>;
+// Vector
+// int2, uint2, float2
+OclBuiltinImpl sub_group_shuffle_avx2v16 = OclBuiltinImpl<sub_group_shuffle_avx2, [v16u32, v16i32, v16f32], 0,
+  [{
+    $Arg0Type res;
+    int8 mask = {0, 2, 4, 6, 1, 3, 5, 7};
+    int8 back_mask = {0, 4, 1, 5, 2, 6, 3, 7};
+    __m256 tmp_lo, tmp_hi;
+
+    // 1. transpose
+    $Arg0VarName.lo = as_$Arg0BaseType#8(_mm256_permutevar8x32_ps((__m256)$Arg0VarName.lo, (__m256i)mask));
+    $Arg0VarName.hi = as_$Arg0BaseType#8(_mm256_permutevar8x32_ps((__m256)$Arg0VarName.hi, (__m256i)mask));
+    tmp_lo = _mm256_permute2f128_ps((__m256)$Arg0VarName.lo, (__m256)$Arg0VarName.hi, 32);
+    tmp_hi = _mm256_permute2f128_ps((__m256)$Arg0VarName.lo, (__m256)$Arg0VarName.hi, 49);
+
+    // 2. shuffle
+    tmp_lo = _mm256_permutevar8x32_ps(tmp_lo, __builtin_astype($Arg1VarName, __m256i));
+    tmp_hi = _mm256_permutevar8x32_ps(tmp_hi, __builtin_astype($Arg1VarName, __m256i));
+
+    // 3. transpose back
+    res.lo = as_$Arg0BaseType#8(_mm256_permute2f128_ps(tmp_lo, tmp_hi, 32));
+    res.hi = as_$Arg0BaseType#8(_mm256_permute2f128_ps(tmp_lo, tmp_hi, 49));
+    res.lo = as_$Arg0BaseType#8(_mm256_permutevar8x32_ps((__m256)res.lo, (__m256i)back_mask));
+    res.hi = as_$Arg0BaseType#8(_mm256_permutevar8x32_ps((__m256)res.hi, (__m256i)back_mask));
+
+    return res;
+  }]>;
