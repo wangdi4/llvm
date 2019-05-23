@@ -3840,6 +3840,115 @@ let Predicates = [HasVLX] in {
             (VMOVDQU64Z256mr addr:$dst, VR256X:$src)>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+let Predicates = [HasFP16] in {
+  def : Pat<(v32f16 (vselect VK32WM:$mask, (v32f16 VR512:$src1), (v32f16 VR512:$src0))),
+            (VMOVDQU16Zrrk VR512:$src0, VK32WM:$mask, VR512:$src1)>;
+  def : Pat<(v32f16 (vselect VK32WM:$mask, (v32f16 VR512:$src1), v32f16_info.ImmAllZerosV)),
+            (VMOVDQU16Zrrkz VK32WM:$mask, VR512:$src1)>;
+  def : Pat<(v32f16 (alignedloadv32f16 addr:$src)),
+            (VMOVAPSZrm addr:$src)>;
+  def : Pat<(v32f16 (vselect VK32WM:$mask,
+                     (v32f16 (alignedloadv32f16 addr:$src)), (v32f16 VR512:$src0))),
+            (VMOVDQU16Zrmk VR512:$src0, VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32f16 (vselect VK32WM:$mask,
+                     (v32f16 (alignedloadv32f16 addr:$src)), v32f16_info.ImmAllZerosV)),
+            (VMOVDQU16Zrmkz VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32f16 (loadv32f16 addr:$src)),
+            (VMOVUPSZrm addr:$src)>;
+  def : Pat<(v32f16 (vselect VK32WM:$mask,
+                     (v32f16 (loadv32f16 addr:$src)), (v32f16 VR512:$src0))),
+            (VMOVDQU16Zrmk VR512:$src0, VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32f16 (vselect VK32WM:$mask,
+                     (v32f16 (loadv32f16 addr:$src)), v32f16_info.ImmAllZerosV)),
+            (VMOVDQU16Zrmkz VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32f16 (masked_load_unaligned addr:$src, VK32WM:$mask, (v32f16 VR512:$src0))),
+            (VMOVDQU16Zrmk VR512:$src0, VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32f16 (masked_load_unaligned addr:$src, VK32WM:$mask, undef)),
+            (VMOVDQU16Zrmkz VK32WM:$mask, addr:$src)>;
+  def : Pat<(v32f16 (masked_load_unaligned addr:$src, VK32WM:$mask, v32f16_info.ImmAllZerosV)),
+            (VMOVDQU16Zrmkz VK32WM:$mask, addr:$src)>;
+
+  def : Pat<(alignedstore (v32f16 VR512:$src), addr:$dst),
+            (VMOVAPSZmr addr:$dst, VR512:$src)>;
+  def : Pat<(store (v32f16 VR512:$src), addr:$dst),
+            (VMOVUPSZmr addr:$dst, VR512:$src)>;
+  def : Pat<(masked_store_unaligned (v32f16 VR512:$src), addr:$dst, VK32WM:$mask),
+            (VMOVDQU16Zmrk addr:$dst, VK32WM:$mask, VR512:$src)>;
+}
+let Predicates = [HasFP16, HasVLX] in {
+  def : Pat<(v16f16 (vselect VK16WM:$mask, (v16f16 VR256X:$src1), (v16f16 VR256X:$src0))),
+            (VMOVDQU16Z256rrk VR256X:$src0, VK16WM:$mask, VR256X:$src1)>;
+  def : Pat<(v16f16 (vselect VK16WM:$mask, (v16f16 VR256X:$src1), v16f16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z256rrkz VK16WM:$mask, VR256X:$src1)>;
+  def : Pat<(v16f16 (alignedloadv16f16 addr:$src)),
+            (VMOVAPSZ256rm addr:$src)>;
+  def : Pat<(v16f16 (vselect VK16WM:$mask,
+                     (v16f16 (alignedloadv16f16 addr:$src)), (v16f16 VR256X:$src0))),
+            (VMOVDQU16Z256rmk VR256X:$src0, VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16f16 (vselect VK16WM:$mask,
+                     (v16f16 (alignedloadv16f16 addr:$src)), v16f16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16f16 (loadv16f16 addr:$src)),
+            (VMOVUPSZ256rm addr:$src)>;
+  def : Pat<(v16f16 (vselect VK16WM:$mask,
+                     (v16f16 (loadv16f16 addr:$src)), (v16f16 VR256X:$src0))),
+            (VMOVDQU16Z256rmk VR256X:$src0, VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16f16 (vselect VK16WM:$mask,
+                     (v16f16 (loadv16f16 addr:$src)), v16f16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16f16 (masked_load_unaligned addr:$src, VK16WM:$mask, (v16f16 VR256X:$src0))),
+            (VMOVDQU16Z256rmk VR256X:$src0, VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16f16 (masked_load_unaligned addr:$src, VK16WM:$mask, undef)),
+            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
+  def : Pat<(v16f16 (masked_load_unaligned addr:$src, VK16WM:$mask, v16f16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z256rmkz VK16WM:$mask, addr:$src)>;
+
+  def : Pat<(alignedstore (v16f16 VR256X:$src), addr:$dst),
+            (VMOVAPSZ256mr addr:$dst, VR256X:$src)>;
+  def : Pat<(store (v16f16 VR256X:$src), addr:$dst),
+            (VMOVUPSZ256mr addr:$dst, VR256X:$src)>;
+  def : Pat<(masked_store_unaligned (v16f16 VR256X:$src), addr:$dst, VK16WM:$mask),
+            (VMOVDQU16Z256mrk addr:$dst, VK16WM:$mask, VR256X:$src)>;
+
+  def : Pat<(v8f16 (vselect VK8WM:$mask, (v8f16 VR128X:$src1), (v8f16 VR128X:$src0))),
+            (VMOVDQU16Z128rrk VR128X:$src0, VK8WM:$mask, VR128X:$src1)>;
+  def : Pat<(v8f16 (vselect VK8WM:$mask, (v8f16 VR128X:$src1), v8f16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z128rrkz VK8WM:$mask, VR128X:$src1)>;
+  def : Pat<(v8f16 (alignedloadv8f16 addr:$src)),
+            (VMOVAPSZ128rm addr:$src)>;
+  def : Pat<(v8f16 (vselect VK8WM:$mask,
+                     (v8f16 (alignedloadv8f16 addr:$src)), (v8f16 VR128X:$src0))),
+            (VMOVDQU16Z128rmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8f16 (vselect VK8WM:$mask,
+                     (v8f16 (alignedloadv8f16 addr:$src)), v8f16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8f16 (loadv8f16 addr:$src)),
+            (VMOVUPSZ128rm addr:$src)>;
+  def : Pat<(v8f16 (vselect VK8WM:$mask,
+                     (v8f16 (loadv8f16 addr:$src)), (v8f16 VR128X:$src0))),
+            (VMOVDQU16Z128rmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8f16 (vselect VK8WM:$mask,
+                     (v8f16 (loadv8f16 addr:$src)), v8f16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8f16 (masked_load_unaligned addr:$src, VK8WM:$mask, (v8f16 VR128X:$src0))),
+            (VMOVDQU16Z128rmk VR128X:$src0, VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8f16 (masked_load_unaligned addr:$src, VK8WM:$mask, undef)),
+            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
+  def : Pat<(v8f16 (masked_load_unaligned addr:$src, VK8WM:$mask, v8f16x_info.ImmAllZerosV)),
+            (VMOVDQU16Z128rmkz VK8WM:$mask, addr:$src)>;
+
+  def : Pat<(alignedstore (v8f16 VR128X:$src), addr:$dst),
+            (VMOVAPSZ128mr addr:$dst, VR128X:$src)>;
+  def : Pat<(store (v8f16 VR128X:$src), addr:$dst),
+            (VMOVUPSZ128mr addr:$dst, VR128X:$src)>;
+  def : Pat<(masked_store_unaligned (v8f16 VR128X:$src), addr:$dst, VK8WM:$mask),
+            (VMOVDQU16Z128mrk addr:$dst, VK8WM:$mask, VR128X:$src)>;
+}
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+
 // Move Int Doubleword to Packed Double Int
 //
 let ExeDomain = SSEPackedInt in {
@@ -3996,8 +4105,9 @@ def : InstAlias<"vmovd\t{$src, $dst|$dst, $src}",
 //===----------------------------------------------------------------------===//
 
 multiclass avx512_move_scalar<string asm, SDNode OpNode,
-                              X86VectorVTInfo _> {
-  let Predicates = [HasAVX512, OptForSize] in
+                              X86VectorVTInfo _, // INTEL
+                              list<Predicate> prd = [HasAVX512, OptForSize]> { // INTEL
+  let Predicates = prd in // INTEL
   def rr : AVX512PI<0x10, MRMSrcReg, (outs _.RC:$dst),
              (ins _.RC:$src1, _.RC:$src2),
              !strconcat(asm, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
@@ -4058,7 +4168,7 @@ defm VMOVSDZ : avx512_move_scalar<"vmovsd", X86Movsd, f64x_info>,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-defm VMOVSHZ : avx512_move_scalar<"vmovsh", X86Movsh, f16x_info>,
+defm VMOVSHZ : avx512_move_scalar<"vmovsh", X86Movsh, f16x_info, [HasFP16]>,
                                   VEX_LIG, T_MAP5XS, EVEX_CD8<16, CD8VT1>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
@@ -13498,11 +13608,16 @@ def VMOVWrm : AVX512<0x6E, MRMSrcMem, (outs VR128X:$dst), (ins i16mem:$src),
                       T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
 
 // Move word to Single scalar
-let isCodeGenOnly = 1 in
+let isCodeGenOnly = 1 in {
+  def VMOVW2SHZrr : AVX512<0x6E, MRMSrcReg, (outs FR16X:$dst), (ins GR32:$src),
+                      "vmovw\t{$src, $dst|$dst, $src}",
+                      [(set FR16X:$dst, (bitconvert (i16 (trunc GR32:$src))))]>,
+                      T_MAP5PD, EVEX;
   def VMOVW2SHrm : AVX512<0x6E, MRMSrcMem, (outs FR16X:$dst), (ins i16mem:$src),
                       "vmovw\t{$src, $dst|$dst, $src}",
                       [(set FR16X:$dst, (bitconvert (loadi16 addr:$src)))]>,
                       T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
+}
 
 def : Pat<(v8i16 (scalar_to_vector (i16 GR16:$src))),
           (VMOVW2SHrr (INSERT_SUBREG (IMPLICIT_DEF), GR16:$src, sub_16bit))>;
@@ -13518,13 +13633,20 @@ def VMOVWmr  : AVX512<0x7E, MRMDestMem, (outs),
                        T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
 
 // Move Scalar Single to word
-let isCodeGenOnly = 1 in
-def VMOVSH2Wmr  : AVX512<0x7E, MRMDestMem, (outs),
+let isCodeGenOnly = 1 in {
+  def VMOVSH2WZrr : AVX512<0x7E, MRMDestReg, (outs GR32:$dst), (ins FR16X:$src),
+                      "vmovw\t{$src, $dst|$dst, $src}",
+                      [(set GR32:$dst, (i32 (anyext (i16 (bitconvert FR16X:$src)))))]>,
+                      T_MAP5PD, EVEX;
+  def VMOVSH2Wmr  : AVX512<0x7E, MRMDestMem, (outs),
                       (ins i16mem:$dst, FR16X:$src),
                       "vmovw\t{$src, $dst|$dst, $src}",
                       [(store (i16 (bitconvert FR16X:$src)), addr:$dst)]>,
                       T_MAP5PD, EVEX, EVEX_CD8<16, CD8VT1>;
+}
 
+def : Pat<(i16 (bitconvert FR16X:$src)),
+          (i16 (EXTRACT_SUBREG (VMOVSH2WZrr FR16X:$src), sub_16bit))>;
 def : Pat<(i16 (extractelt (v8i16 VR128X:$src), (iPTR 0))),
           (i16 (EXTRACT_SUBREG (VMOVSH2Wrr VR128X:$src), sub_16bit))>;
 }
