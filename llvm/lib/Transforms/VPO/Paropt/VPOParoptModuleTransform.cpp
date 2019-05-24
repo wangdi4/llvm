@@ -853,10 +853,24 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
       if (Var->isDeclaration())
         continue;
 
-    assert(E && E->getAddress() && "uninitialized offload entry");
+    assert(E && "uninitialized offload entry");
 
+    // A target region encountered by FE will have the corresponding
+    // entry in OffloadEntries. If the corresponding offload entry
+    // is optimized away (e.g. by DCE), then the OffloadEntries's
+    // entry will have NULL address. We have to allow this, since
+    // FE outlining also allows this.
+    //
+    // Note that not all libomptarget plugins handle NULL address
+    // gracefully, e.g. CUDA plugin will fail with an error report.
+    // OpenCL plugin will work just because we currently do not
+    // run too many optimizations for SPIRV target, and the unused
+    // offload entries remain in the target code. So OpenCL plugin
+    // will be able to find the corresponding kernels by name,
+    // but they will never be invoked, because the host __tgt_target
+    // call was optimized.
+    auto *EntryAddress = E->getAddress();
     StringRef Name = E->getName();
-
     Constant *StrInit = ConstantDataArray::getString(C, Name);
 
     GlobalVariable *Str = new GlobalVariable(
@@ -866,9 +880,9 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
     Str->setTargetDeclare(true);
 
     SmallVector<Constant *, 5u> EntryInitBuffer;
-    if (!IsTargetSPIRV)
+    if (!IsTargetSPIRV && EntryAddress)
       EntryInitBuffer.push_back(
-        ConstantExpr::getBitCast(E->getAddress(), VoidStarTy));
+        ConstantExpr::getBitCast(EntryAddress, VoidStarTy));
     else
       EntryInitBuffer.push_back(Constant::getNullValue(VoidStarTy));
     EntryInitBuffer.push_back(ConstantExpr::getBitCast(Str, VoidStarTy));
@@ -891,7 +905,14 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
         (E->getFlags() & (RegionEntry::Ctor | RegionEntry::Dtor)) != 0) {
       // The constructor/destructor will be called as a target entry,
       // so we have to set its calling convention properly.
-      auto *EntryFunction = cast<Function>(E->getAddress());
+      //
+      // An offload entry generated for constructing/destructing
+      // global "declare target" objects cannot be optimized, so EntryAddress
+      // can never be NULL here. Assert this explicitly with a verbose
+      // message instead of relying on cast<>.
+      assert(EntryAddress &&
+             "global ctor/dtor offload entry with null address");
+      auto *EntryFunction = cast<Function>(EntryAddress);
       EntryFunction->setCallingConv(CallingConv::SPIR_KERNEL);
     }
 
