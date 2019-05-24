@@ -781,10 +781,10 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
 
   // Allow user calls in small trip innermost loops so they can be completely
   // unrolled.
-  // Also allow them in innermost unknown loops at O3 and above. They may be
-  // candidates for predicate optimization.
+  // Also allow them in innermost loops at O3 and above. They may be candidates
+  // for predicate optimization.
   // TODO: consider removing this logic allowing user calls at O3 for all loops.
-  if (IsInnermostLoop && (IsSmallTripLoop || (OptLevel > 2 && IsUnknownLoop))) {
+  if (IsInnermostLoop && (IsSmallTripLoop || OptLevel > 2)) {
     return visitInstruction(static_cast<const Instruction &>(CI));
   }
 
