@@ -6951,18 +6951,7 @@ bool Sema::SemaBuiltinConstantArgRange(CallExpr *TheCall, int ArgNum,
   if (SemaBuiltinConstantArg(TheCall, ArgNum, Result))
     return true;
 
-  if (Result.getSExtValue() < Low || Result.getSExtValue() > High)
-#if INTEL_CUSTOMIZATION
-  {
-    // CQ#371990 - let __builtin_prefetch's argument be out of Low..High range,
-    // assuming Low value.
-    if (getLangOpts().IntelCompat &&
-        TheCall->getBuiltinCallee() == Builtin::BI__builtin_prefetch)
-      Diag(TheCall->getBeginLoc(), diag::warn_arg_invalid_range_low_assumed)
-            << Low << High << Arg->getSourceRange();
-    else {
-    // Intentionally bad indentation of the upstream part.
-#endif // INTEL_CUSTOMIZATION
+  if (Result.getSExtValue() < Low || Result.getSExtValue() > High) {
     if (RangeIsError)
       return Diag(TheCall->getBeginLoc(), diag::err_argument_invalid_range)
              << Result.toString(10) << Low << High << Arg->getSourceRange();
@@ -6973,10 +6962,7 @@ bool Sema::SemaBuiltinConstantArgRange(CallExpr *TheCall, int ArgNum,
                           PDiag(diag::warn_argument_invalid_range)
                               << Result.toString(10) << Low << High
                               << Arg->getSourceRange());
-#if INTEL_CUSTOMIZATION
-    }
   }
-#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
