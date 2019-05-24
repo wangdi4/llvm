@@ -4,7 +4,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "spir64-unknown-unknown-intelfpga"
 
 ; Function Attrs: convergent nounwind
-define spir_kernel void @do_nothing(i1 %x) #0 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !8 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_name !9 {
+define spir_kernel void @do_nothing(i1 %x) #0 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_name !9 {
   %p1 = alloca i1, align 1
   store i1 %x, i1* %p1, align 1
   ret void
