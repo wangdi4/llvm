@@ -2979,7 +2979,12 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     // TODO: Masked vector function call support needs to be added.
     CallInst *Call = cast<CallInst>(Inst);
     Function *F = Call->getCalledFunction();
-    assert(F && "Unexpected null called function");
+
+    if (!F) {
+      serializeWithPredication(Call);
+      break;
+    }
+
     StringRef CalledFunc = F->getName();
     bool isMasked = (MaskValue != nullptr) ? true : false;
     VectorVariant *MatchedVariant = nullptr;

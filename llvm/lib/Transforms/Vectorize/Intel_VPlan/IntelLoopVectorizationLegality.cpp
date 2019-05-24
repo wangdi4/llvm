@@ -426,8 +426,7 @@ bool VPOVectorizationLegality::canVectorize() {
         return false;
       }
 
-      // Bail out if we have an indirect function call for now. We also
-      // bail out if we need to scalarize the read/write pipe OpenCL calls. We
+      // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
       // have to do this because there are no users of these calls directly
       // since the results are written through a ptr argument. Thus, the
       // vectorizer is unable to correctly materialize the necessary scalars
@@ -435,11 +434,8 @@ bool VPOVectorizationLegality::canVectorize() {
       // getOrCreateVectorValue().
       if (auto Call = dyn_cast<CallInst>(&I)) {
         Function *F = Call->getCalledFunction();
-        if (!F) {
-          LLVM_DEBUG(dbgs()
-                     << "LV: Unsupported call instruction." << *Call << "\n");
-          return false;
-        }
+        if (!F)
+          continue;
 
         if ((isOpenCLReadChannel(F->getName()) ||
              isOpenCLWriteChannel(F->getName())) &&
