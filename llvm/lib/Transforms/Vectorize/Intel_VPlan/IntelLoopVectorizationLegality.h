@@ -241,6 +241,9 @@ public:
   // Return true if the specified value \p Val is private.
   bool isLoopPrivate(Value *Val) const;
 
+  // Return true if the specified value \p Val is private.
+  bool isLoopPrivateAggregate(Value *Val) const;
+
   // Return True if the specified value \p Val is (unconditional) last private.
   bool isLastPrivate(Value *Val) const;
 

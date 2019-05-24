@@ -506,6 +506,16 @@ bool VPOVectorizationLegality::isLoopPrivate(Value *V) const {
          isInMemoryReduction(V);
 }
 
+bool VPOVectorizationLegality::isLoopPrivateAggregate(Value *V) const {
+  V = getPtrThruCast<BitCastInst>(V);
+  V = getPtrThruCast<AddrSpaceCastInst>(V);
+  if (isLoopPrivate(V)) {
+    Type *PointeeTy = cast<PointerType>(V->getType())->getPointerElementType();
+    return PointeeTy->isVectorTy() || PointeeTy->isAggregateType();
+  }
+  return false;
+}
+
 bool VPOVectorizationLegality::isInMemoryReduction(Value *V) const {
   V = getPtrThruCast<BitCastInst>(V);
   return isa<AllocaInst>(V) && InMemoryReductions.count(cast<AllocaInst>(V));
@@ -546,8 +556,15 @@ bool VPOVectorizationLegality::isUnitStepLinear(Value *Val, int *Step,
 }
 
 int VPOVectorizationLegality::isConsecutivePtr(Value *Ptr) {
-  // An in memory loop private is expanded to a vector of consecutive ptrs.
-  if (isLoopPrivate(Ptr))
+  // An in-memory loop private is handled according to the following rules based
+  // on assumption of AOS-layout of variables,
+  // ScalarTy --> <VF x ScalarTy> , Stride = 1
+  // [NElts x Ty] --> [VF x [NElts x Ty]] , Stride = NElts
+  // {Ty1, [NElts x Ty2]} --> [VF x {Ty1, [NElts x Ty2]}] , Stride = unknown
+
+  if (isLoopPrivateAggregate(Ptr))
+    return 0;
+  else if (isLoopPrivate(Ptr))
     return 1;
 
   int Stride = 0;

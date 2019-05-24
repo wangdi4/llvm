@@ -702,11 +702,6 @@ template <typename CastInstTy> Value *llvm::getPtrThruCast(Value *Ptr) {
     Type *SrcTy = CastPtr->getSrcTy();
     if (!isa<PointerType>(DestTy) || !isa<PointerType>(SrcTy))
       break;
-    Type *Pointee1Ty = cast<PointerType>(DestTy)->getPointerElementType();
-    Type *Pointee2Ty = cast<PointerType>(SrcTy)->getPointerElementType();
-    const DataLayout &DL = CastPtr->getModule()->getDataLayout();
-    if (DL.getTypeSizeInBits(Pointee1Ty) != DL.getTypeSizeInBits(Pointee2Ty))
-      break;
     Ptr = CastPtr->getOperand(0);
   }
   return Ptr;

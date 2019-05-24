@@ -4,7 +4,7 @@
 
 ;CHECK-LABEL: vector.body:
 ;CHECK: extractelement
-;CHECK: call
+;CHECK: call i32 [[EX11:%.*]](i32 [[EX21:%.*]])
 ;CHECK-NEXT: insertelement
 ;CHECK-NEXT: call
 ;CHECK-NEXT: insertelement

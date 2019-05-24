@@ -939,12 +939,6 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
 
 template<typename CastInstTy>
 void VPOCodeGen::vectorizeCast(Instruction *Inst) {
-  // Do not vectorize bitcast of loop-private if
-  // it is used in load/store only
-  if (Legal->isLoopPrivate(Inst) && all_of(Inst->users(), [&](User *U) -> bool {
-        return getLoadStorePointerOperand(U) == Inst;
-      }))
-    return;
   Value *VecOp = getVectorValue(Inst->getOperand(0));
 
   unsigned NumElts = Inst->getType()->isVectorTy()
@@ -1434,7 +1428,10 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
     return;
   }
 
-  if (Legal->isLoopInvariant(Ptr) || Legal->isUniformForTheLoop(Ptr)) {
+  auto *GEP = getGEPInstruction(Ptr);
+
+  if (!Legal->isLoopPrivateAggregate(GEP ? getPointerOperand(GEP) : Ptr) &&
+      (Legal->isLoopInvariant(Ptr) || Legal->isUniformForTheLoop(Ptr))) {
     serializeInstruction(Inst);
     return;
   }
@@ -2814,21 +2811,23 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
 
   switch (Inst->getOpcode()) {
   case Instruction::GetElementPtr: {
+    GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
+
     // Consecutive Load/Store will clone the GEP
     if (all_of(Inst->users(), [&](User *U) -> bool {
           return getLoadStorePointerOperand(U) == Inst;
         }) && Legal->isConsecutivePtr(Inst))
       break;
-    if (all_of(Inst->users(), [&](User *U) -> bool {
+    if (!Legal->isLoopPrivateAggregate(getPointerOperand(GEP)) &&
+        all_of(Inst->users(), [&](User *U) -> bool {
           return getLoadStorePointerOperand(U) == Inst &&
                  Legal->isUniformForTheLoop(U);
-      })) {
+        })) {
       serializeInstruction(Inst);
       break;
     }
 
     // Create the vector GEP, keeping all constant arguments scalar.
-    GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
     if (all_of(GEP->operands(), [&](Value *Op) -> bool {
           return Legal->isLoopInvariant(Op) && !Legal->isLoopPrivate(Op);
       })) {
