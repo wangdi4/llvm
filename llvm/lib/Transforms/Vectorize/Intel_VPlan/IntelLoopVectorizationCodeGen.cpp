@@ -26,12 +26,15 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
-#include <tuple>
 
 using namespace llvm;
 using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
+
+static cl::opt<bool>
+    VPlanSerializeAlloca("vplan-serialize-alloca", cl::init(false), cl::Hidden,
+                         cl::desc("Serialize alloca for private array-types"));
 
 /// A helper function that returns GEP instruction and knows to skip a
 /// 'bitcast'. The 'bitcast' may be skipped if the source and the destination
@@ -164,6 +167,15 @@ static Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<>& Builder,
 static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo& LI) {
   if (auto *ParentLoop = L->getParentLoop())
     ParentLoop->addBasicBlockToLoop(BB, LI);
+}
+
+bool VPOCodeGen::isSerializedPrivateArray(Value *Priv) const {
+  if (VPlanSerializeAlloca && Legal->isLoopPrivate(Priv)) {
+    Type *PrivTy = Priv->getType();
+    return isa<PointerType>(PrivTy) &&
+           isa<ArrayType>(cast<PointerType>(PrivTy)->getPointerElementType());
+  }
+  return false;
 }
 
 void VPOCodeGen::emitEndOfVectorLoop(Value *Count, Value *CountRoundDown) {
@@ -753,6 +765,28 @@ Value *VPOCodeGen::getBroadcastInstrs(Value *V) {
   return Shuf;
 }
 
+// Get base pointer(s) of in-memory private variable of array-type
+// In case we have not allocated the pointers, do so and store them
+// in the ScalarMap data-structure.
+void VPOCodeGen::createSerialPrivateArrayBase(Value *ArrPriv) {
+  assert(VPlanSerializeAlloca && "-vplan-serialize-alloca is FALSE");
+  assert(Legal->isLoopPrivate(ArrPriv) && "Loop private value expected");
+
+  if (ScalarMap.count(ArrPriv))
+    return;
+  auto OldIP = Builder.saveIP();
+  Instruction *ArrPrivInst = cast<Instruction>(ArrPriv);
+  Type *PointeeTy = ArrPriv->getType()->getPointerElementType();
+  Builder.SetInsertPoint(ArrPrivInst->getNextNode());
+  for (unsigned I = 0; I < VF; ++I) {
+    AllocaInst *SPrivArr = Builder.CreateAlloca(
+        PointeeTy, nullptr, ArrPrivInst->getName() + ".vec");
+    SPrivArr->setAlignment(cast<AllocaInst>(ArrPrivInst)->getAlignment());
+    ScalarMap[ArrPriv][I] = SPrivArr;
+  }
+  Builder.restoreIP(OldIP);
+}
+
 Value *VPOCodeGen::getVectorPrivatePtrs(Value *ScalarPrivate) {
   assert(Legal->isLoopPrivate(ScalarPrivate) && "Loop private value expected");
 
@@ -939,8 +973,16 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
 
 template<typename CastInstTy>
 void VPOCodeGen::vectorizeCast(Instruction *Inst) {
-  Value *VecOp = getVectorValue(Inst->getOperand(0));
 
+  // In-case we are dealing with loop-private arrays, serialize the execution of
+  // the bitcast instruction. This would result in bitcast of each private-copy
+  // to the target-type
+  Value *SrcOp = Inst->getOperand(0);
+  if (isSerializedPrivateArray(SrcOp)) {
+    serializeInstruction(Inst, true);
+    return;
+  }
+  Value *VecOp = getVectorValue(SrcOp);
   unsigned NumElts = Inst->getType()->isVectorTy()
                          ? Inst->getType()->getVectorNumElements() * VF
                          : VF;
@@ -1060,6 +1102,11 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
   // already be scalar.
   if (OrigLoop->isLoopInvariant(V) && !Legal->isLoopPrivate(V))
     return V;
+
+  // InCase we have not created the serial alloca's for array-types already,
+  // create them and populate the ScalarMap.
+  if (!ScalarMap.count(V) && isSerializedPrivateArray(V))
+    createSerialPrivateArrayBase(V);
 
   if (ScalarMap.count(V)) {
     auto SV = ScalarMap[V];
@@ -1454,6 +1501,19 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
 
   Value *NewLI = nullptr;
 
+  // Handle loads from privatized array-types
+  if (GEP && isSerializedPrivateArray(getPointerOperand(GEP)) &&
+      ScalarMap.count(GEP)) {
+    Value *WideLoad = UndefValue::get(VectorType::get(Inst->getType(), VF));
+    for (unsigned I = 0; I < VF; ++I) {
+      Value *LI = Builder.CreateAlignedLoad(Inst->getType(), ScalarMap[GEP][I],
+                                            Alignment, "LI");
+      WideLoad = Builder.CreateInsertElement(WideLoad, LI, Builder.getInt64(I));
+    }
+    WidenMap[LI] = WideLoad;
+    return;
+  }
+
   // Handle consecutive loads.
   if (ConsecutiveStride) {
     Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
@@ -1554,6 +1614,18 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
   if (!Alignment)
     Alignment = DL.getABITypeAlignment(ScalarDataTy);
   Value *VecDataOp = getVectorValue(SI->getValueOperand());
+
+  // Handle stores to privatized array-types
+  Value *GEP = getGEPInstruction(getPointerOperand(Inst));
+  if (GEP && isSerializedPrivateArray(getPointerOperand(GEP)) &&
+      ScalarMap.count(GEP)) {
+    for (unsigned I = 0; I < VF; ++I) {
+      Builder.CreateAlignedStore(
+          Builder.CreateExtractElement(VecDataOp, Builder.getInt64(I), "SV"),
+          ScalarMap[GEP][I], Alignment);
+    }
+    return;
+  }
 
   // Handle consecutive stores.
   if (ConsecutiveStride) {
@@ -1786,12 +1858,15 @@ void VPOCodeGen::serializeWithPredication(Instruction *Inst) {
   }
 }
 
-void VPOCodeGen::serializeInstruction(Instruction *Instr) {
+void VPOCodeGen::serializeInstruction(Instruction *Instr, bool HasLoopPrivateOperand) {
 
   assert(!Instr->getType()->isAggregateType() && "Can't handle vectors");
 
-  unsigned Lanes = OrigLoop->hasLoopInvariantOperands(Instr) ||
-    isUniformAfterVectorization(Instr, VF) ? 1 : VF;
+  unsigned Lanes =
+      (!HasLoopPrivateOperand && OrigLoop->hasLoopInvariantOperands(Instr)) ||
+              isUniformAfterVectorization(Instr, VF)
+          ? 1
+          : VF;
 
   // Does this instruction return a value ?
   bool IsVoidRetTy = Instr->getType()->isVoidTy();
@@ -2834,7 +2909,37 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
       auto *Clone = Builder.Insert(GEP->clone());
       WidenMap[cast<Value>(Inst)] = Builder.CreateVectorSplat(VF, Clone);
     } else {
-      SmallVector<Value*, 4> OpsV;
+      Value *GepPtrOp = GEP->getPointerOperand();
+      SmallVector<Value *, 3> OpsV;
+      if (isSerializedPrivateArray(GepPtrOp)) {
+        // Treat memory access to private array-types differently. Instead
+        // of widening [NumElts x Ty] to [VF x [NumElts x Ty]], we serialize
+        // the allocation as alloca [NumElts x Ty], ... alloca [NumElts x Ty]
+        if (!ScalarMap.count(GepPtrOp))
+          createSerialPrivateArrayBase(GepPtrOp);
+
+        // Get appropriate values for the operands of the GEP.
+        for (Value *Op : GEP->indices()) {
+          if (Legal->isLoopInvariant(Op) || Legal->isLoopPrivate(Op))
+            OpsV.push_back(Op);
+          else
+            OpsV.push_back(getVectorValue(Op));
+        }
+
+        for (unsigned I = 0; I < VF; ++I) {
+          SmallVector<Value *, 2> AcOpsV;
+          for (Value *Op : OpsV) {
+            if (!Op->getType()->isVectorTy())
+              AcOpsV.push_back(Op);
+            else
+              AcOpsV.push_back(
+                  Builder.CreateExtractElement(Op, Builder.getInt64(I)));
+          }
+          ScalarMap[GEP][I] =
+              Builder.CreateGEP(ScalarMap[GepPtrOp][I], AcOpsV, "privBase.");
+        }
+        return;
+      }
 
       for (Value *Op : GEP->operands())
         OpsV.push_back(getVectorValue(Op));

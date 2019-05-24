@@ -76,7 +76,7 @@ public:
   // Vectorize the given instruction that cannot be widened using serialization.
   // This is done using a sequence of extractelement, Scalar Op, InsertElement
   // instructions.
-  void serializeInstruction(Instruction *Inst);
+  void serializeInstruction(Instruction *Inst, bool HasLoopPrivateOperand = false);
 
   /// Collect Uniform and Scalar values for the given \p VF.
   void collectUniformsAndScalars(unsigned VF);
@@ -105,6 +105,14 @@ public:
 
   // Get widened base pointer(s) of in-memory private variable of aggregate-type
   Value *getVectorPrivateAggregateBase(Value *ArrayPriv);
+
+  /// Return true if we are serializing privatized alloca for array-types
+  bool isSerializedPrivateArray(Value *Priv) const;
+
+  /// Get base pointer(s) of in-memory private variable of array-type
+  // In case we have not allocated the pointers, do so and store them
+  // in the ScalarMap data-structure.
+  void createSerialPrivateArrayBase(Value *ArrPriv);
 
   // Get a vector of pointers corresponding to the private variable for each
   // vector lane.
