@@ -28,10 +28,10 @@ define void @test(%struct.A* %arg) {
   ; IR is intended to test.
   %pA_B = getelementptr inbounds %struct.A, %struct.A* %arg, i64 0, i32 2
   %bufB = call i8* @malloc(i64 40)
-  %tmpA_B = bitcast %class.B** %pA_B to i8**
   %vtableB = bitcast i8* %bufB to i32 (...)***
   store i32 (...)** bitcast (i8** getelementptr inbounds ({ [3 x i8*] }, { [3 x i8*] }* @_ZTV1C, i64 0, inrange i32 0, i64 2) to i32 (...)**), i32 (...)*** %vtableB
-  store i8* %bufB, i8** %tmpA_B
+  %tmpB = bitcast i8* %bufB to %class.B*
+  store %class.B* %tmpB, %class.B** %pA_B
   ret void
 }
 

@@ -3030,6 +3030,35 @@ private:
         if (AliasTy->isPointerTy() &&
             AliasTy->getPointerElementType()->isPointerTy())
           Types.insert(cast<PointerType>(AliasTy->getPointerElementType()));
+
+      // In order to handle the case where the allocation is stored into a
+      // structure member field which is a pointer, look at the member type to
+      // infer the allocation type.
+      //
+      // For example:
+      //    %struct.P1 = type{ i32*, i32, i32, i32 }
+      //    %struct.P2 = type{ i32, %struct.P1* }
+      //    %ptr_i8 = bitcast %struct.P1** %ptr to i8**
+      //    %ptr = getelementptr % struct.P2, %struct.P2* %s2, i64 0, i32 1
+      //    %mem = call noalias i8* @malloc(i64 24)
+      //    store i8* %mem, i8** %ptr_i8
+      //
+      // In this case, %ptr_i8 will be resolved to being field member 1 of
+      // %struct.P2, which means the allocation will be inferred as a pointer to
+      // %struct.P1.
+      //
+      if (DestInfo.pointsToSomeElement()) {
+        auto ElementPointees = DestInfo.getElementPointeeSet();
+        for (auto &PointeePair : ElementPointees) {
+          llvm::Type *Ty = PointeePair.first;
+          if (auto *StructTy = dyn_cast<StructType>(Ty)) {
+            llvm::Type *ElemTy = StructTy->getElementType(PointeePair.second);
+            if (auto PtrTy = dyn_cast<PointerType>(ElemTy))
+              Types.insert(PtrTy);
+          }
+        }
+      }
+
       return;
     }
 
