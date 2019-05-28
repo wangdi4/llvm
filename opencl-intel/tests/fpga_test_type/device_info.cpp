@@ -37,7 +37,7 @@ protected:
 
 TEST_F(TestInfo, Platform) {
   checkPlatform(CL_PLATFORM_PROFILE, "EMBEDDED_PROFILE");
-  checkPlatform(CL_PLATFORM_VERSION, "OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 19.1");
+  checkPlatform(CL_PLATFORM_VERSION, "OpenCL 1.0 Intel(R) FPGA SDK for OpenCL(TM), Version 19.2");
   checkPlatform(CL_PLATFORM_NAME,    "Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)");
   checkPlatform(CL_PLATFORM_VENDOR,  "Intel(R) Corporation");
 }
