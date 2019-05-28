@@ -62,12 +62,12 @@ OCL_INITIALIZE_PASS_END(OCLVecClone, SV_NAME, lv_name,
 
 OCLVecClone::OCLVecClone(const OptimizerConfig *Config,
                          bool EnableVPlanVecForOpenCL)
-    : VecClone(), Config(Config),
+    : VecClonePass(), Config(Config),
       EnableVPlanVecForOpenCL(EnableVPlanVecForOpenCL) {
   V_INIT_PRINT;
 }
 
-OCLVecClone::OCLVecClone() : VecClone(), EnableVPlanVecForOpenCL(true) {}
+OCLVecClone::OCLVecClone() : VecClonePass(), EnableVPlanVecForOpenCL(true) {}
 
 // Remove the "ocl_recommended_vector_length" metadata from the original kernel.
 // "ocl_recommened_vector_length" metadata is used only by OCLVecClone. The rest
