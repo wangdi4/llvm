@@ -538,7 +538,9 @@ public:
     dump(errs());
   }
 
-  StringRef getName() const { return "Constant: " + val; };
+  std::string getName() const {
+    return std::string("Constant: ") += std::to_string(val);
+  };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
