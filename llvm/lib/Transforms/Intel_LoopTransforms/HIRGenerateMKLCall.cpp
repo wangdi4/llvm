@@ -184,7 +184,7 @@ public:
   bool runOnFunction(Function &Func) override;
   void releaseMemory() override{};
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.setPreservesAll();

@@ -391,7 +391,7 @@ public:
                       getAnalysis<HIRFrameworkWrapperPass>().getHIR())
         .run();
   }
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<HIRFrameworkWrapperPass>();
 

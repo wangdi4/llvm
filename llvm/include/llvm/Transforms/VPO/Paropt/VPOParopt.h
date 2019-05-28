@@ -121,7 +121,7 @@ public:
   StringRef getPassName() const override { return "VPO Paropt Pass"; }
 
   bool runOnModule(Module &M) override;
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   // void print(raw_ostream &OS, const Module * = nullptr) const override;
 
