@@ -46,9 +46,10 @@ static std::string getZeroLiteral(const std::string& type){
 void build(const std::string& code, std::string fileName){
   const char* clangpath = XSTR(CLANG_BIN_PATH);
   const char* include_dir = XSTR(CCLANG_INCLUDE_PATH);
+  const char* wide_vec_types_include_dir = XSTR(CL_BUILTIN_SOURCE_DIR);
 
   std::stringstream options;
-  options << "-cc1 -x cl -disable-intel-proprietary-opts -emit-llvm-bc -include opencl-c.h";
+  options << "-cc1 -x cl -disable-intel-proprietary-opts -emit-llvm-bc -include opencl-c.h -include long_vector_types.h";
   options << " " << "-opencl-builtins -fblocks -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200";
   options <<  " " << "-triple" << " "
       << ((sizeof(size_t)*8 == 64) ? "spir64-unknown-unknown" : "spir-unknown-unknown") << " ";
@@ -68,7 +69,8 @@ void build(const std::string& code, std::string fileName){
 
   //building the command line
   std::stringstream cmdline;
-  cmdline << clangpath << " " << options.str() << " -o " << fileName << " -I " << include_dir << " " << tmpfile;
+  cmdline << clangpath << " " << options.str() << " -o " << fileName
+          << " -I " << include_dir << " -I " << wide_vec_types_include_dir << " " << tmpfile;
   int res = system(cmdline.str().c_str());
   if( res ){
     llvm::errs() << "bi compilation failed!\n";
