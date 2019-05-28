@@ -1,5 +1,5 @@
 /* INTEL_FEATURE_ISA_FP16 */
-/*===--------- intel_avx512fp16intrin.h - FP16 intrinsics -----------------===
+/*===--------------- avx512fp16intrin.h - FP16 intrinsics -----------------===
  *
  * Copyright (C) 2019 Intel Corporation. All rights reserved.
  *
