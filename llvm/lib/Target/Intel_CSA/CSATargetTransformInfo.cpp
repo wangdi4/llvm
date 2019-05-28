@@ -44,6 +44,8 @@ unsigned CSATTIImpl::getRegisterBitWidth(bool Vector) const {
 
 int CSATTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,
                                Type *SubTp) {
+  if (TLI->getTypeLegalizationCost(DL, Tp).first > 1)
+    return BaseT::getShuffleCost(Kind, Tp, Index, SubTp);
   // Most inputs to the vector operations allow for any swizzle, and are
   // therefore free.
   switch (Kind) {
