@@ -1,14 +1,6 @@
 # Workadound to support both old and new files / directories location
 # This is needed to avoid dependancy on tools team
 
-
-# SUBSTITUTE_LAYOUT used to simplify deployment process that is done
-# with external tool.
-# TODO: get rid of SUBSTITUTE_LAYOUT when it no longer needed.
-if(NOT DEFINED SUBSTITUTE_LAYOUT)
-  set (SUBSTITUTE_LAYOUT ON)
-endif(NOT DEFINED SUBSTITUTE_LAYOUT)
-
 # Define build and install directories
 set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(OCL_LIBRARY_DIR  ${OCL_BINARY_DIR}/lib)
@@ -208,22 +200,11 @@ function (install_to)
     cmake_parse_arguments(ARG "" "COMPONENT;DESTINATION" "" ${ARGN})
     set(install_namelist ${ARG_UNPARSED_ARGUMENTS})
 
-    if (NOT SUBSTITUTE_LAYOUT AND
-        (${CMAKE_INSTALL_PREFIX} STREQUAL ${OCL_BINARY_DIR}))
-        return ()
-    endif ()
-
     if (NOT ARG_DESTINATION)
-       message( FATAL_ERROR "Missed destination location argument for install_to function.")
+        message( FATAL_ERROR "Missed destination location argument for install_to function.")
     endif()
 
-    # In SUBSTITUTE_LAYOUT mode install redirects 'lib'
-    # to 'bin' directory
-    if (SUBSTITUTE_LAYOUT AND ${ARG_DESTINATION} STREQUAL "lib")
-        set (output bin)
-    else ()
-        set (output ${ARG_DESTINATION})
-    endif ()
+    set (output ${ARG_DESTINATION})
 
     foreach (name ${install_namelist})
         if (TARGET ${name})
