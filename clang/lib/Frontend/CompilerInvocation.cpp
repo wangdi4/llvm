@@ -1244,8 +1244,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       OPT_femit_class_debug_always, OPT_fno_emit_class_debug_always, true);
   // CQ#366796 - support for '--no_expr_source_pos' option.
   Opts.NoExprSourcePos = Args.hasArg(OPT_no_expr_source_pos);
-  // CQ#369692 - support for '-fargument-noalias' option.
-  Opts.NoAliasForPtrArgs = Args.hasArg(OPT_fargument_noalias);
 #endif // INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_EQ)) {
