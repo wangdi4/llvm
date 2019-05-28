@@ -1151,6 +1151,7 @@ void VPlan::execute(VPTransformState *State) {
 void VPlan::executeHIR(VPOCodeGenHIR *CG) {
   assert(isa<VPRegionBlock>(Entry) && Entry->getNumPredecessors() == 0 &&
          Entry->getNumSuccessors() == 0 && "Invalid VPlan entry");
+  CG->createAndMapLoopEntityRefs();
   Entry->executeHIR(CG);
 }
 
@@ -1847,6 +1848,12 @@ void VPValue::invalidateUnderlyingIR() {
   // VPInstructions only.
   if (auto *VPI = dyn_cast<VPInstruction>(this)) {
     UnderlyingVal = nullptr;
+    // Temporary hook-up to ignore loop induction related instructions during CG
+    // by not invalidating them.
+    // TODO: Remove this code after VPInduction support is added to HIR CG.
+    const HLNode *HNode = VPI->HIR.getUnderlyingNode();
+    if (HNode && isa<HLLoop>(HNode))
+      return;
     VPI->HIR.invalidate();
 
     // At this point, we don't have a use-case where invalidation of users of

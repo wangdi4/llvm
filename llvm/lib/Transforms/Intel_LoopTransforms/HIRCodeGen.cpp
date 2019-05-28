@@ -1852,10 +1852,6 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
         StoreBinOp->setHasNoSignedWrap(BOp->hasNoSignedWrap());
         StoreBinOp->setHasNoUnsignedWrap(BOp->hasNoUnsignedWrap());
       }
-
-      if (auto FPOp = dyn_cast<FPMathOperator>(BOp)) {
-        StoreBinOp->copyFastMathFlags(FPOp->getFastMathFlags());
-      }
     }
 
   } else if (auto Call = HInst->getCallInst()) {
@@ -1956,6 +1952,18 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     StoreVal = Builder.CreateUnreachable();
   } else {
     llvm_unreachable("Unimpl CG for inst");
+  }
+
+  // Copy fast math flags from underlying instruction
+  // Check for FPMathOperator is done on both StoreVal and Inst here because in
+  // some cases non operator instructions that return float values are
+  // recognized as FPMathOperator. This is potentially a bug in LLVM's
+  // FPMathOperator checks. Intrinsic calls that use and return FP values are
+  // valid FPMathOperator (for example, LLVM's experimental vector reduce
+  // intrinsics).
+  if (isa<FPMathOperator>(StoreVal) && isa<FPMathOperator>(Inst)) {
+    if (auto *StoreInst = dyn_cast<Instruction>(StoreVal))
+      StoreInst->copyFastMathFlags(Inst);
   }
 
   if (LvalTokenSymbase != InvalidSymbase) {

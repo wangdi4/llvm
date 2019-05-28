@@ -494,8 +494,16 @@ void HandledCheck::visit(HLDDNode *Node) {
     auto TLval = Inst->getLvalDDRef();
     if (EnableVPValueCodegen && TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase())) {
+      unsigned RedOpcode;
+      if (CG->isReductionRef(TLval, RedOpcode)) {
+        // VPValue-based CG for reductions is supported.
+        // TODO: Extend this check for explicit SIMD reduction variables using
+        // HIRLegality
+        return;
+      }
       LLVM_DEBUG(Inst->dump());
-      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPValCG liveout not handled\n");
+      LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPValCG liveout induction/private "
+                           "not handled\n");
       IsHandled = false;
       return;
     }
@@ -875,7 +883,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
   if (NeedPeelLoop)
     LLVM_DEBUG(PeelLoop->dump());
-  LLVM_DEBUG(MainLoop->dump());
+  LLVM_DEBUG(MainLoop->getParent()->dump());
   if (NeedRemainderLoop)
     LLVM_DEBUG(OrigLoop->dump());
 
@@ -1466,6 +1474,75 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
   InstContainer.push_back(*Extract);
 
   return Extract;
+}
+
+/// \brief Create a call to llvm.experimental.vector.reduce intrinsic in order
+/// to perform horizontal reduction on vector ref \p VecRef. The scalar return
+/// value of this intrinsic call is stored back to the reduction descriptor
+/// variable \p RednDescriptor. Overloaded parameters of intrinsic call is
+/// determined based on type of reduction. Some examples -
+/// 1. Integer add reduction for VF=4 will generate -
+///    declare i32 @llvm.experimental.vector.reduce.add.i32.v4i32(<4 x i32>)
+///
+/// 2. FP add reduction for VF=4 will generate -
+///    declare float @llvm.experimental.vector.reduce.fadd.f32.f32.v4f32(float,
+///                                                                 <4 x float>)
+static HLInst *createVectorReduce(Intrinsic::ID VecRedIntrin, RegDDRef *VecRef,
+                                  RegDDRef *&Acc, RegDDRef *RednDescriptor,
+                                  HLNodeUtils &HNU) {
+  assert(isa<VectorType>(VecRef->getDestType()) &&
+         "Ref to reduce is not a vector.");
+
+  // 1. For FP reductions the accumulator's type is also needed
+  // 2. All reduction intrinsics have vector type
+  SmallVector<Type *, 2> Tys;
+  Type *VecType = VecRef->getDestType();
+  SmallVector<RegDDRef *, 2> Ops;
+
+  switch (VecRedIntrin) {
+  case Intrinsic::experimental_vector_reduce_v2_fadd:
+  case Intrinsic::experimental_vector_reduce_v2_fmul:
+    assert(Acc && "Expected initial value");
+    assert(!isa<VectorType>(Acc->getDestType()) &&
+           "Accumulator for FP reduction is not scalar.");
+    Tys.insert(Tys.end(), {Acc->getDestType(), VecType});
+    Ops.insert(Ops.end(), {Acc, VecRef});
+    Acc = nullptr;
+    break;
+  case Intrinsic::experimental_vector_reduce_add:
+  case Intrinsic::experimental_vector_reduce_mul:
+  case Intrinsic::experimental_vector_reduce_and:
+  case Intrinsic::experimental_vector_reduce_or:
+  case Intrinsic::experimental_vector_reduce_xor:
+    Tys.insert(Tys.end(), {VecType});
+    Ops.insert(Ops.end(), {VecRef});
+    break;
+  case Intrinsic::experimental_vector_reduce_umax:
+  case Intrinsic::experimental_vector_reduce_smax:
+  case Intrinsic::experimental_vector_reduce_umin:
+  case Intrinsic::experimental_vector_reduce_smin:
+    assert(!Acc && "Unexpected initial value");
+    // Since we use generic IRBuilder::CreateCall interface in HIR, signedness
+    // does not need to be explicitly specified.
+    Tys.insert(Tys.end(), {VecType});
+    Ops.insert(Ops.end(), {VecRef});
+    break;
+  case Intrinsic::experimental_vector_reduce_fmax:
+  case Intrinsic::experimental_vector_reduce_fmin:
+    assert(!Acc && "Unexpected initial value");
+    // TODO: Need processing to determine NoNaN.
+    return HNU.createFPMinMaxVectorReduce(VecRef, VecRedIntrin, false /*NoNaN*/,
+                                          RednDescriptor);
+  default:
+    llvm_unreachable("unsupported reduction");
+    break;
+  }
+
+  Function *VecReduceFunc =
+      Intrinsic::getDeclaration(&HNU.getModule(), VecRedIntrin, Tys);
+  LLVM_DEBUG(dbgs() << "Vector reduce func: "; VecReduceFunc->dump());
+
+  return HNU.createCall(VecReduceFunc, Ops, "vec.reduce", RednDescriptor);
 }
 
 void VPOCodeGenHIR::analyzeCallArgMemoryReferences(
@@ -2571,6 +2648,13 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
     return;
   }
 
+  // Check if PHI corresponds to a reduction, if yes just use the corresponding
+  // reduction ref as its widened ref.
+  if (ReductionRefs.count(VPPhi)) {
+    addVPValueWideRefMapping(VPPhi, ReductionRefs[VPPhi]);
+    return;
+  }
+
   // Assuming remaining PHIs to be loop induction - this will change with
   // support for live-outs.
   auto RefDestTy = VPPhi->getType();
@@ -2592,6 +2676,148 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   addVPValueWideRefMapping(VPPhi, NewRef);
 }
 
+RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
+  RegDDRef *ScalarRef = nullptr;
+  DDRefUtils &DDU = OrigLoop->getDDRefUtils();
+
+  if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
+    const VPOperandHIR *HIROperand = VPExtDef->getOperandHIR();
+
+    if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
+      auto *BlobRef = Blob->getBlob();
+      ScalarRef = DDU.createSelfBlobRef(BlobRef->getSelfBlobIndex(),
+                                        BlobRef->getDefinedAtLevel());
+    } else {
+      llvm_unreachable("External def is not a VPBlob. Implement support to get "
+                       "uniform scalar IV ref.");
+    }
+  } else if (auto *VPConst = dyn_cast<VPConstant>(VPVal)) {
+    ScalarRef = DDU.createConstDDRef(VPConst->getConstant());
+  } else {
+    llvm_unreachable("Need uniform scalar ref for VPInstruction.");
+  }
+
+  return ScalarRef;
+}
+
+void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
+  HLInst *WInst = nullptr; // Track the last generated wide inst for VPInst
+  HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+
+  switch (VPInst->getOpcode()) {
+  case VPInstruction::ReductionInit: {
+    const VPReductionInit *RedInit = cast<VPReductionInit>(VPInst);
+    assert(
+        ReductionRefs.count(RedInit) &&
+        "Reduction init instruction does not have a corresponding RegDDRef.");
+    HLContainerTy RedInitHLInsts;
+    RegDDRef *RedRef = ReductionRefs[RedInit];
+    RegDDRef *IdentityRef = widenRef(RedInit->getIdentityOperand(), getVF());
+    // Write the widened identity value into the reduction ref
+    HLInst *CopyInst = HNU.createCopyInst(IdentityRef, "red.init", RedRef);
+    WInst = CopyInst;
+    RedInitHLInsts.push_back(*CopyInst);
+
+    if (RedInit->getNumOperands() > 1) {
+      auto *StartVPVal = RedInit->getStartValueOperand();
+      assert((isa<VPExternalDef>(StartVPVal) || isa<VPConstant>(StartVPVal)) &&
+             "Unsupported reduction start value.");
+      // Insert start value into lane 0 of identity vector
+      HLInst *InsertElementInst = HNU.createInsertElementInst(
+          CopyInst->getLvalDDRef()->clone(), getUniformScalarRef(StartVPVal), 0,
+          "red.init.insert", RedRef->clone());
+      WInst = InsertElementInst;
+      RedInitHLInsts.push_back(*InsertElementInst);
+    }
+    // TODO: This should be changed to addInst interface once it is aware of
+    // Loop PH or Exit.
+    HLNodeUtils::insertBefore(RednHoistLp, &RedInitHLInsts);
+
+    // Add the reduction init ref as a live-in for each loop up to and including
+    // the hoist loop.
+    // TODO: The same ref should also be LiveOut, so that can also be done here
+    // only. Any exceptions?
+    auto LvalSymbase = WInst->getLvalDDRef()->getSymbase();
+    HLLoop *ThisLoop = MainLoop;
+    while (ThisLoop != RednHoistLp->getParentLoop()) {
+      ThisLoop->addLiveInTemp(LvalSymbase);
+      ThisLoop->addLiveOutTemp(LvalSymbase);
+      ThisLoop = ThisLoop->getParentLoop();
+    }
+
+    addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+    return;
+  }
+
+  case VPInstruction::ReductionFinal: {
+    const VPReductionFinal *RedFinal = cast<VPReductionFinal>(VPInst);
+    assert(
+        ReductionRefs.count(RedFinal) &&
+        "Reduction final instruction does not have a corresponding RegDDRef.");
+    HLContainerTy RedTail;
+
+    RegDDRef *VecRef = widenRef(RedFinal->getReducingOperand(), getVF());
+    auto Intrin = RedFinal->getVectorReduceIntrinsic();
+    Type *ElType = RedFinal->getReducingOperand()->getType();
+    if (isa<VectorType>(ElType)) {
+      // Incoming vector types is not supported for HIR
+      llvm_unreachable("Unsupported vector data type for reducing operand.");
+    }
+
+    auto *StartVPVal = RedFinal->getStartValueOperand();
+    RegDDRef *Acc = nullptr;
+
+    if (StartVPVal) {
+      assert(isa<VPExternalDef>(StartVPVal) &&
+             "Unsupported reduction start value.");
+      Acc = getUniformScalarRef(StartVPVal);
+    }
+
+    // 1. Generate vector reduce intrinsic call
+    const VPReduction *RednEntity = VPLoopEntities->getReduction(RedFinal);
+    assert(RednEntity && "Reduction final does not have a corresponding "
+                         "VPReduction descriptor.");
+    // Scalar result of vector reduce intrinsic should be written back to the
+    // original reduction descriptor variable NOTE : We obtain this variable
+    // from VPLoopEntity corresponding to the reduction since reduction-final
+    // instruction may not have accumulators always.
+    RegDDRef *RednDescriptor =
+        getUniformScalarRef(RednEntity->getRecurrenceStartValue());
+    HLInst *VecReduceCall =
+        createVectorReduce(Intrin, VecRef, Acc, RednDescriptor, HNU);
+    WInst = VecReduceCall;
+    RedTail.push_back(*VecReduceCall);
+
+    // 2. If the accumulator is not null, then last value scalar compute is
+    // needed, which is of the form %red.init = %red.init OP %vec.reduce NOTE :
+    // Acc will always be null for min/max reductions, createVectorReduce
+    // asserts on that.
+    if (Acc) {
+      HLInst *ScalarLastVal = HNU.createBinaryHLInst(
+          RedFinal->getBinOpcode(), Acc->clone(),
+          VecReduceCall->getLvalDDRef()->clone(), "red.result", Acc);
+      WInst = ScalarLastVal;
+      RedTail.push_back(*ScalarLastVal);
+    }
+
+    // TODO: This should be changed to addInst interface once it is aware of
+    // Loop PH or Exit.
+    HLNodeUtils::insertAfter(RednHoistLp, &RedTail);
+    return;
+  }
+
+  case VPInstruction::InductionInit:
+  case VPInstruction::InductionInitStep:
+  case VPInstruction::InductionFinal: {
+    // TODO: Add codegen for induction initialization/finalization
+    return;
+  }
+
+  default:
+    llvm_unreachable("Unsupported VPLoopEntity instruction.");
+  }
+}
+
 void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                                   const OVLSGroup *Grp,
                                   int64_t InterleaveFactor,
@@ -2609,6 +2835,27 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
 
   if (auto *VPPhi = dyn_cast<VPPHINode>(VPInst)) {
     widenPhiImpl(VPPhi, Mask);
+    return;
+  }
+
+  // Skip loop induction related VPInstructions.
+  // TODO: Revisit when HIR vectorizer supports outer-loop vectorization.
+  if (VPInst->isUnderlyingIRValid()) {
+    const HLNode *HNode =
+        VPInst->HIR.isMaster()
+            ? VPInst->HIR.getUnderlyingNode()
+            : VPInst->HIR.getMaster()->HIR.getUnderlyingNode();
+    if (isa<HLLoop>(HNode))
+      return;
+  }
+
+  switch (VPInst->getOpcode()) {
+  case VPInstruction::ReductionInit:
+  case VPInstruction::ReductionFinal:
+  case VPInstruction::InductionInit:
+  case VPInstruction::InductionInitStep:
+  case VPInstruction::InductionFinal:
+    widenLoopEntityInst(VPInst);
     return;
   }
 
@@ -2643,10 +2890,16 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::AShr:
   case Instruction::And:
   case Instruction::Or:
-  case Instruction::Xor:
+  case Instruction::Xor: {
+    // If this binop instruction corresponds to a reduction, then we need to
+    // write the result back to the corresponding reduction variable.
+    RegDDRef *RedRef = nullptr;
+    if (ReductionRefs.count(VPInst))
+      RedRef = ReductionRefs[VPInst];
     WInst = HNU.createBinaryHLInst(VPInst->getOpcode(), WideOps[0], WideOps[1],
-                                   ".vec");
+                                   ".vec", RedRef ? RedRef->clone() : nullptr);
     break;
+  }
 
   case Instruction::ICmp:
   case Instruction::FCmp: {
@@ -2665,8 +2918,15 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     // to the select mask.
     Pred0 = widenRef(PredInst->getOperand(0), getVF());
     Pred1 = widenRef(PredInst->getOperand(1), getVF());
+
+    // If this select instruction corresponds to a reduction (min/max), then we
+    // need to write the result back to the corresponding reduction variable.
+    RegDDRef *RedRef = nullptr;
+    if (ReductionRefs.count(VPInst))
+      RedRef = ReductionRefs[VPInst];
     WInst = HNU.createSelect(PredInst->getPredicate(), Pred0, Pred1, WideOps[0],
-                             WideOps[1], ".vec");
+                             WideOps[1], ".vec",
+                             RedRef ? RedRef->clone() : nullptr);
     break;
   }
 
@@ -2812,6 +3072,46 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     analyzeCallArgMemoryReferences(CallInst, WInst, CallArgs);
 }
 
+void VPOCodeGenHIR::createAndMapLoopEntityRefs() {
+  HLNodeUtils &HNU = OrigLoop->getHLNodeUtils();
+
+  // Process reductions. For each reduction variable in the loop we create a new
+  // RegDDRef to represent it. Next we map the reduction's init, PHI and loop
+  // exit instructions to have the new RegDDRef as its underlying reduction
+  // RegDDRef. NOTE: The above mentioned instructions are expected to in
+  // reduction's LinkedVPValues.
+  for (auto &Reduction : make_range(VPLoopEntities->reductionsBegin(),
+                                    VPLoopEntities->reductionsEnd())) {
+    if (Reduction->getIsMemOnly()) {
+      VPValue *StartV = Reduction->getRecurrenceStartValue();
+      assert(isa<VPExternalDef>(StartV) &&
+             "Start value for in-memory reduction is not external def.");
+      InMemoryReductionDescriptors.insert(cast<VPExternalDef>(StartV));
+    }
+    RegDDRef *RednRef = HNU.createTemp(
+        VectorType::get(Reduction->getRecurrenceType(), VF), "red.var");
+
+    LLVM_DEBUG(dbgs() << "VPReduction: "; Reduction->dump(dbgs());
+               dbgs() << " gets the RegDDRef: "; RednRef->dump(true);
+               dbgs() << "\n");
+
+    const SmallVectorImpl<VPValue *> &LinkedVals =
+        Reduction->getLinkedVPValues();
+    for (auto *V : make_range(LinkedVals.begin(), LinkedVals.end())) {
+      assert(ReductionRefs.find(V) == ReductionRefs.end() &&
+             "VPValue is already mapped to a reduction RegDDRef.");
+      ReductionRefs[V] = RednRef;
+
+      LLVM_DEBUG(dbgs() << "VPValue: "; V->dump();
+                 dbgs() << " has the underlying reduction ref: ";
+                 RednRef->dump(true); dbgs() << "\n");
+    }
+  }
+
+  // Process inductions
+  // TODO
+}
+
 void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
                               const OVLSGroup *Grp, int64_t InterleaveFactor,
                               int64_t InterleaveIndex,
@@ -2885,19 +3185,6 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     }
 
     llvm_unreachable("Master VPInstruction with unexpected HLDDNode.");
-  }
-
-  // Invalid HIR for a non-decomposed PHI node means that it was most probably a
-  // PHI node introduced while fixing PHI nodes (by IDF) after HIR decomposer.
-  // In this case it's safe to just skip such PHI because other, decomposed,
-  // instructions will handle code gen properly. Even with full VPValue based
-  // code generation, we run into this issue for cases such as reductions. This
-  // code can be removed once we have code generation support for explicit
-  // reductions is added.
-  if (isa<VPPHINode>(VPInst)) {
-    LLVM_DEBUG(dbgs() << "Skipping PHI node added by IDF after HIR decomposer:"
-                      << *VPInst << "\n");
-    return;
   }
 
   widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,

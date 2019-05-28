@@ -511,8 +511,12 @@ public:
   VPInductionList::iterator inductionsBegin();
   VPInductionList::iterator inductionsEnd();
 
-  VPReductionList::iterator reductionsBegin();
-  VPReductionList::iterator reductionsEnd();
+  VPReductionList::const_iterator reductionsBegin() const {
+    return ReductionList.begin();
+  }
+  VPReductionList::const_iterator reductionsEnd() const {
+    return ReductionList.end();
+  }
 
   VPPrivatesList::iterator privatesBegin();
   VPPrivatesList::iterator privatesEnd();

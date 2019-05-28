@@ -801,11 +801,14 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, Function &Fn,
   if (!DisableCodeGen) {
     HIRSafeReductionAnalysis *SRA;
     SRA = &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
+    const VPLoopEntityList *Entities =
+        Plan->getLoopEntities(VPlanUtils::findFirstLoopDFS(Plan)->getVPLoop());
     RegDDRef *PeelArrayRef = nullptr;
     VPlanIdioms::Opcode SearchLoopOpcode =
         VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SRA, &VLSA, Plan, Fn, Lp, LORBuilder, WRLp,
-                           SearchLoopOpcode, PeelArrayRef);
+                           Entities, &HIRVecLegal, SearchLoopOpcode,
+                           PeelArrayRef);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the

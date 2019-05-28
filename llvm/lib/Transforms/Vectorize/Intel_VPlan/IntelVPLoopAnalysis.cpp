@@ -548,6 +548,9 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
     }
 
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+    // Loop exit VPInstruction needs to be added to linkedVPValues for later
+    // uses
+    Reduction->addLinkedVPValue(Exit);
   }
   for (auto &IndPtr : InductionList) {
     VPInduction *Induction = IndPtr.get();

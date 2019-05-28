@@ -681,7 +681,30 @@ public:
       MK = MinMaxRecurrenceKind::MRK_Invalid;
       RedType = nullptr;
       Signed = false;
-      ;
+    }
+
+    void setMinMaxReductionKind(PredicateTy Pred, bool isMax) {
+      switch (Pred) {
+      case PredicateTy::ICMP_SGE:
+      case PredicateTy::ICMP_SGT:
+      case PredicateTy::ICMP_SLE:
+      case PredicateTy::ICMP_SLT:
+        MK = isMax ? MinMaxRecurrenceKind::MRK_SIntMax
+                   : MinMaxRecurrenceKind::MRK_SIntMin;
+        Signed = true;
+        break;
+      case PredicateTy::ICMP_UGE:
+      case PredicateTy::ICMP_UGT:
+      case PredicateTy::ICMP_ULE:
+      case PredicateTy::ICMP_ULT:
+        MK = isMax ? MinMaxRecurrenceKind::MRK_UIntMax
+                   : MinMaxRecurrenceKind::MRK_UIntMin;
+        break;
+      default:
+        MK = isMax ? MinMaxRecurrenceKind::MRK_FloatMax
+                   : MinMaxRecurrenceKind::MRK_FloatMin;
+        break;
+      }
     }
 
     DataType HLInst;
@@ -814,27 +837,7 @@ private:
       }
       PredicateTy Pred = (*RedCurrent)->getPredicate();
       bool isMax = (*RedCurrent)->isMax();
-      switch (Pred) {
-      case PredicateTy::ICMP_SGE:
-      case PredicateTy::ICMP_SGT:
-      case PredicateTy::ICMP_SLE:
-      case PredicateTy::ICMP_SLT:
-        Descriptor.MK = isMax ? MinMaxRecurrenceKind::MRK_SIntMax
-                              : MinMaxRecurrenceKind::MRK_SIntMin;
-        Descriptor.Signed = true;
-        break;
-      case PredicateTy::ICMP_UGE:
-      case PredicateTy::ICMP_UGT:
-      case PredicateTy::ICMP_ULE:
-      case PredicateTy::ICMP_ULT:
-        Descriptor.MK = isMax ? MinMaxRecurrenceKind::MRK_UIntMax
-                              : MinMaxRecurrenceKind::MRK_UIntMin;
-        break;
-      default:
-        Descriptor.MK = isMax ? MinMaxRecurrenceKind::MRK_FloatMax
-                              : MinMaxRecurrenceKind::MRK_FloatMin;
-        break;
-      }
+      Descriptor.setMinMaxReductionKind(Pred, isMax);
       break;
     }
     default:

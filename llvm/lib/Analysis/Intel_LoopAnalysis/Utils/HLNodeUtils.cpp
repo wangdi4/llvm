@@ -1079,6 +1079,30 @@ HLInst *HLNodeUtils::createMemset(RegDDRef *StoreRef, RegDDRef *Value,
   return HInst;
 }
 
+HLInst *HLNodeUtils::createFPMinMaxVectorReduce(RegDDRef *VecRef,
+                                                Intrinsic::ID VecReduceIntrin,
+                                                bool NoNaN, RegDDRef *LvalRef) {
+  Type *Tys[] = {VecRef->getDestType()};
+
+  Function *VecReduceFunc =
+      Intrinsic::getDeclaration(&getModule(), VecReduceIntrin, Tys);
+
+  SmallVector<RegDDRef *, 1> Ops = {VecRef};
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) =
+      createCallImpl(VecReduceFunc, Ops, "" /*Name*/, LvalRef);
+
+  if (NoNaN) {
+    FastMathFlags FMF;
+    FMF.setNoNaNs();
+    Call->setFastMathFlags(FMF);
+  }
+
+  return HInst;
+}
+
 struct HLNodeUtils::CloneVisitor final : public HLNodeVisitorBase {
 
   HLContainerTy *CloneContainer;

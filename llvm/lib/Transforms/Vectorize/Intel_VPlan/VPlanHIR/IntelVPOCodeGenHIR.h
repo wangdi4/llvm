@@ -38,6 +38,7 @@ class HIRSafeReductionAnalysis;
 
 namespace vpo {
 class WRNVecLoopNode;
+class HIRVectorizationLegality;
 class VPlan;
 class VPlanVLSAnalysis;
 class VPInstruction;
@@ -50,12 +51,15 @@ public:
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
                 const VPlan *Plan, Function &Fn, HLLoop *Loop,
                 LoopOptReportBuilder &LORB, WRNVecLoopNode *WRLp,
+                const VPLoopEntityList *VPLoopEntities,
+                const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
                 const RegDDRef *SearchLoopPeelArrayRef)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
         TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
+        VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
         SearchLoopPeelArrayRef(SearchLoopPeelArrayRef) {}
 
@@ -337,6 +341,12 @@ public:
     addInsertRegion(If);
   }
 
+  // Create a new temp ref to represent VPLoopEntities inside the generated
+  // vector loop. Type of this temp ref is VF x Entity's type. Additionally we
+  // map instructions linked to a LoopEntity, to the new ref which will be used
+  // during CG.
+  void createAndMapLoopEntityRefs();
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
@@ -410,6 +420,14 @@ private:
   // WRegion VecLoop Node corresponding to AVRLoop
   WRNVecLoopNode *WVecNode;
 
+  // VPEntities present in current loop being vectorized. These include
+  // reductions, inductions and privates.
+  const VPLoopEntityList *VPLoopEntities;
+
+  // HIR vectorization legality which contains reductions, inductions and
+  // privates coming from SIMD clause descriptors.
+  const HIRVectorizationLegality *HIRLegality;
+
   // Set of unit-stride Refs
   SmallPtrSet<const RegDDRef *, 4> UnitStrideRefSet;
   // The loop meets search loop idiom criteria.
@@ -419,6 +437,18 @@ private:
   const RegDDRef *SearchLoopPeelArrayRef = nullptr;
 
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
+
+  // Map of VPValues and their corresponding HIR reduction variable used inside
+  // the generated vector loop.
+  DenseMap<const VPValue *, RegDDRef *> ReductionRefs;
+  // Collection of start values of reduction entities that are done in-memory.
+  SmallPtrSet<VPExternalDef *, 4> InMemoryReductionDescriptors;
+  // Map of VPValues and their corresponding HIR induction variable used inside
+  // the generated vector loop.
+  DenseMap<const VPValue *, RegDDRef *> InductionRefs;
+  // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
+  // created to represent within vector loop.
+  DenseMap<const VPAllocatePrivate *, BlobDDRef *> PrivateMemBlobRefs;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
@@ -478,6 +508,41 @@ private:
 
   // Implementation of VPPhi widening.
   void widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask);
+
+  // Implementation of widening of VPLoopEntity specific instructions. Some
+  // notes on opcodes supported so far -
+  // 1. reduction-init  : We generate a broadcast/splat of reduction
+  //                      identity. If a start value is specified for the
+  //                      reduction, then it is inserted into lane 0 after
+  //                      the broadcast.
+  //
+  //    Example -
+  //    i64 %vp0 = reduction-init i32 0 i32 %red.init
+  //
+  //    Generated HIR -
+  //    %red.ref = 0;
+  //    %red.ref = insertelement %red.ref,  %red.init,  0
+  //
+  // 2. reduction-final : The final vector reduction RegDDRef is reduced
+  //                      using "llvm.experimental.vector.reduce" intrinsics
+  //                      and stored back to original reduction scalar RegDDRef.
+  //                      If accumulator value is present, then a final scalar
+  //                      operation is performed for last-value computation.
+  //
+  //    Example -
+  //    i64 % vp1 = reduction-final{u_add} i64 % vp.red.ref
+  //
+  //    Generated HIR -
+  //    %red.init = @llvm.experimental.vector.reduce.add.v4i64 (%red.ref);
+  //
+  void widenLoopEntityInst(const VPInstruction *VPInst);
+
+  // Get scalar version of RegDDRef that represents the VPValue \p VPVal. For
+  // external definitions and constants we can obtain the scalar version from
+  // underlying HIR operand attached to VPValue, but for a VPInstruction we need
+  // to create an extract element instruction. NOTE: This function should be
+  // used only if it is known that VPVal is uniform.
+  RegDDRef *getUniformScalarRef(const VPValue *VPVal);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.
