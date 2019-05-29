@@ -4241,18 +4241,10 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
   }
 
   if (haveIncompatibleLanguageLinkages(Old, New)) {
-#if INTEL_CUSTOMIZATION
-  // CQ#377628 - print warning if Intel compatibility.
-  if (getLangOpts().IntelCompat)
-    Diag(New->getLocation(), diag::warn_different_language_linkage) << New;
-  else
-#endif // INTEL_CUSTOMIZATION
-  { // INTEL
     Diag(New->getLocation(), diag::err_different_language_linkage) << New;
     Diag(OldLocation, PrevDiag);
     New->setInvalidDecl();
     return;
-  } // INTEL
   }
 
   // Merge "used" flag.
