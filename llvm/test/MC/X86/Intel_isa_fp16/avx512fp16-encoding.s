@@ -2277,27 +2277,27 @@
 // CHECK: encoding: [0x62,0x75,0xfe,0x08,0x79,0x4a,0x80]
           vcvtsh2usi  -256(%rdx), %r9
 
-// CHECK: vcvtsi2sh %r9, %xmm23, %xmm22
+// CHECK: vcvtsi2shq %r9, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xc5,0xc6,0x00,0x2a,0xf1]
           vcvtsi2sh %r9, %xmm23, %xmm22
 
-// CHECK: vcvtsi2sh %r9, {rn-sae}, %xmm23, %xmm22
+// CHECK: vcvtsi2shq %r9, {rn-sae}, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xc5,0xc6,0x10,0x2a,0xf1]
           vcvtsi2sh %r9, {rn-sae}, %xmm23, %xmm22
 
-// CHECK: vcvtsi2sh %r9, {rz-sae}, %xmm23, %xmm22
+// CHECK: vcvtsi2shq %r9, {rz-sae}, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xc5,0xc6,0x70,0x2a,0xf1]
           vcvtsi2sh %r9, {rz-sae}, %xmm23, %xmm22
 
-// CHECK: vcvtsi2sh %ecx, %xmm23, %xmm22
+// CHECK: vcvtsi2shl %ecx, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xe5,0x46,0x00,0x2a,0xf1]
           vcvtsi2sh %ecx, %xmm23, %xmm22
 
-// CHECK: vcvtsi2sh %ecx, {rn-sae}, %xmm23, %xmm22
+// CHECK: vcvtsi2shl %ecx, {rn-sae}, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xe5,0x46,0x10,0x2a,0xf1]
           vcvtsi2sh %ecx, {rn-sae}, %xmm23, %xmm22
 
-// CHECK: vcvtsi2sh %ecx, {rz-sae}, %xmm23, %xmm22
+// CHECK: vcvtsi2shl %ecx, {rz-sae}, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xe5,0x46,0x70,0x2a,0xf1]
           vcvtsi2sh %ecx, {rz-sae}, %xmm23, %xmm22
 
@@ -2465,27 +2465,27 @@
 // CHECK: encoding: [0x62,0x75,0xfe,0x08,0x78,0x4a,0x80]
           vcvttsh2usi  -256(%rdx), %r9
 
-// CHECK: vcvtusi2sh %r9, %xmm23, %xmm22
+// CHECK: vcvtusi2shq %r9, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xc5,0xc6,0x00,0x7b,0xf1]
           vcvtusi2sh %r9, %xmm23, %xmm22
 
-// CHECK: vcvtusi2sh %r9, {rn-sae}, %xmm23, %xmm22
+// CHECK: vcvtusi2shq %r9, {rn-sae}, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xc5,0xc6,0x10,0x7b,0xf1]
           vcvtusi2sh %r9, {rn-sae}, %xmm23, %xmm22
 
-// CHECK: vcvtusi2sh %r9, {rz-sae}, %xmm23, %xmm22
+// CHECK: vcvtusi2shq %r9, {rz-sae}, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xc5,0xc6,0x70,0x7b,0xf1]
           vcvtusi2sh %r9, {rz-sae}, %xmm23, %xmm22
 
-// CHECK: vcvtusi2sh %ecx, %xmm23, %xmm22
+// CHECK: vcvtusi2shl %ecx, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xe5,0x46,0x00,0x7b,0xf1]
           vcvtusi2sh %ecx, %xmm23, %xmm22
 
-// CHECK: vcvtusi2sh %ecx, {rn-sae}, %xmm23, %xmm22
+// CHECK: vcvtusi2shl %ecx, {rn-sae}, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xe5,0x46,0x10,0x7b,0xf1]
           vcvtusi2sh %ecx, {rn-sae}, %xmm23, %xmm22
 
-// CHECK: vcvtusi2sh %ecx, {rz-sae}, %xmm23, %xmm22
+// CHECK: vcvtusi2shl %ecx, {rz-sae}, %xmm23, %xmm22
 // CHECK: encoding: [0x62,0xe5,0x46,0x70,0x7b,0xf1]
           vcvtusi2sh %ecx, {rz-sae}, %xmm23, %xmm22
 
