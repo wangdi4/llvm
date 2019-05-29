@@ -1701,13 +1701,93 @@ OclBuiltinImpl sub_group_shuffle_avx512fv16i64 = OclBuiltinImpl<sub_group_shuffl
 
 
 // float4, int4, uint4
-// TODO und FIXME: replace this implementation with more efficient one.
-OclBuiltinImpl sub_group_shuffle_avx512f_v64fui32 = OclBuiltinImpl<sub_group_shuffle_avx512, [v64f32], 0,
+OclBuiltinImpl sub_group_shuffle_avx512f_v64fiu32 = OclBuiltinImpl<sub_group_shuffle_avx512, [v64f32, v64i32, v64u32], 0,
   [{
-      $Arg0Type dest;
-      for (int i = 0; i < 16; ++i)
-          for (int j = 0; j < 4; ++j)
-              dest[i * 4 + j] = $Arg0VarName[4 * $Arg1VarName[i] + j];
-      return dest;
+      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_4x16($Arg0VarName);
+
+      $Arg0BaseType#16 tmp1 = $Arg0VarName.lo.lo;
+      $Arg0BaseType#16 tmp2 = $Arg0VarName.lo.hi;
+      $Arg0BaseType#16 tmp3 = $Arg0VarName.hi.lo;
+      $Arg0BaseType#16 tmp4 = $Arg0VarName.hi.hi;
+
+      $Arg0VarName.lo.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp1, __m512)));
+      $Arg0VarName.lo.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp2, __m512)));
+      $Arg0VarName.hi.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp3, __m512)));
+      $Arg0VarName.hi.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp4, __m512)));
+
+      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x4($Arg0VarName);
+      return $Arg0VarName;
+  }]>;
+
+
+// float8, int8, uint8
+OclBuiltinImpl sub_group_shuffle_avx512f_v128fiu32 = OclBuiltinImpl<sub_group_shuffle_avx512, [v128f32, v128i32, v128u32], 0,
+  [{
+      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_8x16($Arg0VarName);
+
+      $Arg0BaseType#16 tmp1 = $Arg0VarName.lo.lo.lo;
+      $Arg0BaseType#16 tmp2 = $Arg0VarName.lo.lo.hi;
+      $Arg0BaseType#16 tmp3 = $Arg0VarName.lo.hi.lo;
+      $Arg0BaseType#16 tmp4 = $Arg0VarName.lo.hi.hi;
+      $Arg0BaseType#16 tmp5 = $Arg0VarName.hi.lo.lo;
+      $Arg0BaseType#16 tmp6 = $Arg0VarName.hi.lo.hi;
+      $Arg0BaseType#16 tmp7 = $Arg0VarName.hi.hi.lo;
+      $Arg0BaseType#16 tmp8 = $Arg0VarName.hi.hi.hi;
+
+      $Arg0VarName.lo.lo.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp1, __m512)));
+      $Arg0VarName.lo.lo.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp2, __m512)));
+      $Arg0VarName.lo.hi.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp3, __m512)));
+      $Arg0VarName.lo.hi.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp4, __m512)));
+      $Arg0VarName.hi.lo.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp5, __m512)));
+      $Arg0VarName.hi.lo.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp6, __m512)));
+      $Arg0VarName.hi.hi.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp7, __m512)));
+      $Arg0VarName.hi.hi.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp8, __m512)));
+
+      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x8($Arg0VarName);
+      return $Arg0VarName;
+  }]>;
+
+
+// float16, int16, uint16
+OclBuiltinImpl sub_group_shuffle_avx512f_v256fiu32 = OclBuiltinImpl<sub_group_shuffle_avx512, [v256f32, v256i32, v256u32], 0,
+  [{
+      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x16($Arg0VarName);
+
+      $Arg0BaseType#16 tmp1  = $Arg0VarName.lo.lo.lo.lo;
+      $Arg0BaseType#16 tmp2  = $Arg0VarName.lo.lo.lo.hi;
+      $Arg0BaseType#16 tmp3  = $Arg0VarName.lo.lo.hi.lo;
+      $Arg0BaseType#16 tmp4  = $Arg0VarName.lo.lo.hi.hi;
+      $Arg0BaseType#16 tmp5  = $Arg0VarName.lo.hi.lo.lo;
+      $Arg0BaseType#16 tmp6  = $Arg0VarName.lo.hi.lo.hi;
+      $Arg0BaseType#16 tmp7  = $Arg0VarName.lo.hi.hi.lo;
+      $Arg0BaseType#16 tmp8  = $Arg0VarName.lo.hi.hi.hi;
+      $Arg0BaseType#16 tmp9  = $Arg0VarName.hi.lo.lo.lo;
+      $Arg0BaseType#16 tmp10 = $Arg0VarName.hi.lo.lo.hi;
+      $Arg0BaseType#16 tmp11 = $Arg0VarName.hi.lo.hi.lo;
+      $Arg0BaseType#16 tmp12 = $Arg0VarName.hi.lo.hi.hi;
+      $Arg0BaseType#16 tmp13 = $Arg0VarName.hi.hi.lo.lo;
+      $Arg0BaseType#16 tmp14 = $Arg0VarName.hi.hi.lo.hi;
+      $Arg0BaseType#16 tmp15 = $Arg0VarName.hi.hi.hi.lo;
+      $Arg0BaseType#16 tmp16 = $Arg0VarName.hi.hi.hi.hi;
+
+      $Arg0VarName.lo.lo.lo.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype( tmp1, __m512)));
+      $Arg0VarName.lo.lo.lo.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype( tmp2, __m512)));
+      $Arg0VarName.lo.lo.hi.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype( tmp3, __m512)));
+      $Arg0VarName.lo.lo.hi.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype( tmp4, __m512)));
+      $Arg0VarName.lo.hi.lo.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype( tmp5, __m512)));
+      $Arg0VarName.lo.hi.lo.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype( tmp6, __m512)));
+      $Arg0VarName.lo.hi.hi.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype( tmp7, __m512)));
+      $Arg0VarName.lo.hi.hi.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype( tmp8, __m512)));
+      $Arg0VarName.hi.lo.lo.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype( tmp9, __m512)));
+      $Arg0VarName.hi.lo.lo.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp10, __m512)));
+      $Arg0VarName.hi.lo.hi.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp11, __m512)));
+      $Arg0VarName.hi.lo.hi.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp12, __m512)));
+      $Arg0VarName.hi.hi.lo.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp13, __m512)));
+      $Arg0VarName.hi.hi.lo.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp14, __m512)));
+      $Arg0VarName.hi.hi.hi.lo = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp15, __m512)));
+      $Arg0VarName.hi.hi.hi.hi = as_$Arg0BaseType#16(_mm512_permutexvar_ps(__builtin_astype($Arg1VarName, __m512i), __builtin_astype(tmp16, __m512)));
+
+      $Arg0VarName = __ocl_shuffle_transpose_$Arg0BaseType_16x16($Arg0VarName);
+      return $Arg0VarName;
   }]>;
 
