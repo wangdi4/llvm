@@ -522,67 +522,24 @@ bool HIRParser::replaceTempBlobByConstant(unsigned BlobIndex,
 }
 
 static bool isUMaxBlob(BlobTy Blob) { return isa<SCEVUMaxExpr>(Blob); }
+static bool isUMinBlob(BlobTy Blob) { return isa<SCEVUMinExpr>(Blob); }
+static bool isMinMaxBlob(BlobTy Blob) { return isa<SCEVMinMaxExpr>(Blob); }
 
-static bool isAddWithNegativeOne(BlobTy Blob) {
-  auto *Add = dyn_cast<SCEVAddExpr>(Blob);
-
-  if (!Add) {
+/// Returns true if this Blob represents a min/max expr with an AddRec
+/// Operand.
+static bool isMinMaxWithAddRecOperand(BlobTy Blob) {
+  if (!isMinMaxBlob(Blob)) {
     return false;
   }
 
-  auto *Offset = dyn_cast<SCEVConstant>(Add->getOperand(0));
-
-  return Offset && (Offset->getAPInt().getSExtValue() == -1);
-}
-
-static bool isMinBlobImpl(BlobTy Blob, bool IsUMin) {
-  // min(x, y) is represented as !max(!x, !y)
-  // !x is represented as -1 + -1*x
-  //
-  // which means-
-  // min(x, y) = -1 + -1*max(-1 + -1*x, -1 + -1*y)
-  //
-  // We just look for -1*max(-1 + -1*x, -1 + -1*y) as -1 can easily get folded.
-
-  auto Mul = dyn_cast<SCEVMulExpr>(Blob);
-
-  if (!Mul || (Mul->getNumOperands() != 2)) {
-    return false;
-  }
-
-  // First operand of multiply should be -1.
-  auto *Multiplier = dyn_cast<SCEVConstant>(Mul->getOperand(0));
-
-  if (!Multiplier || (Multiplier->getAPInt().getSExtValue() != -1)) {
-    return false;
-  }
-
-  auto *Op1 = Mul->getOperand(1);
-
-  if (IsUMin ? !isa<SCEVUMaxExpr>(Op1) : !isa<SCEVSMaxExpr>(Op1)) {
-    return false;
-  }
-
-  auto *Max = cast<SCEVNAryExpr>(Op1);
-
-  // We are looking for constant operands or operands of type (-1 + x).
-  // We do not check for multiplication with -1 as it can get folded into a
-  // complicated operand. For example -1 * (t1 - t2) will be folded to
-  // (t2 - t1).
-  for (unsigned I = 0, E = Max->getNumOperands(); I < E; ++I) {
-    auto *Op = Max->getOperand(I);
-
-    if (!isa<SCEVConstant>(Op) && !isAddWithNegativeOne(Op)) {
-      return false;
+  for (const auto *Op : cast<SCEVNAryExpr>(Blob)->operands()) {
+    if (isa<SCEVAddRecExpr>(Op)) {
+      return true;
     }
   }
 
-  return true;
+  return false;
 }
-
-bool HIRParser::isUMinBlob(BlobTy Blob) { return isMinBlobImpl(Blob, true); }
-
-bool HIRParser::isSMinBlob(BlobTy Blob) { return isMinBlobImpl(Blob, false); }
 
 bool HIRParser::getMinBlobValue(BlobTy Blob, int64_t &Val) const {
   auto Range = SE.getSignedRange(Blob);
@@ -600,14 +557,7 @@ bool HIRParser::getMinBlobValue(BlobTy Blob, int64_t &Val) const {
     return true;
   }
 
-  if (isUMinBlob(Blob)) {
-    // Minimum is one because umin() = -1 + -1 * umax() but we only match
-    // -1 * umax() part of it.
-    Val = 1;
-    return true;
-  }
-
-  if (isUMaxBlob(Blob)) {
+  if (isUMaxBlob(Blob) || isUMinBlob(Blob)) {
     Val = 0;
     return true;
   }
@@ -655,35 +605,6 @@ struct HIRParser::Phase1Visitor final : public HLNodeVisitorBase {
   void visit(HLLabel *Label) { HIRP->parse(Label); }
   void visit(HLGoto *Goto) { HIRP->parse(Goto); }
 };
-
-bool HIRParser::isMinMax(const SCEV *SC, bool CheckAddRecOperand) const {
-
-  if (isa<SCEVAddExpr>(SC)) {
-    // Min is represented using !(Max) ==> (-1 -Max) so we call getNotSCEV() to
-    // undo the original 'not' operation.
-    SC = SE.getNotSCEV(SC);
-
-  } else if (HIRParser::isUMinBlob(SC) || HIRParser::isSMinBlob(SC)) {
-    // SC looks like -1 * max()
-    SC = cast<SCEVMulExpr>(SC)->getOperand(1);
-  }
-
-  if (!isa<SCEVSMaxExpr>(SC) && !isa<SCEVUMaxExpr>(SC)) {
-    return false;
-  }
-
-  if (!CheckAddRecOperand) {
-    return true;
-  }
-
-  for (const auto *Op : cast<SCEVNAryExpr>(SC)->operands()) {
-    if (isa<SCEVAddRecExpr>(Op)) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 class LiveInChecker {
 private:
@@ -766,7 +687,9 @@ public:
   const SCEV *visitMulExpr(const SCEVMulExpr *Mul);
   const SCEV *visitAddRecExpr(const SCEVAddRecExpr *AddRec);
   const SCEV *visitSMaxExpr(const SCEVSMaxExpr *Max);
+  const SCEV *visitSMinExpr(const SCEVSMinExpr *Max);
   const SCEV *visitUMaxExpr(const SCEVUMaxExpr *Max);
+  const SCEV *visitUMinExpr(const SCEVUMinExpr *Max);
 
   /// Returns the SCEV of the base value associated with the incoming SCEV's
   /// value. All the temp blob related processing is performed here.
@@ -834,16 +757,22 @@ bool HIRParser::BlobProcessor::canProcessSafely(BlobTy Blob) {
 
 const SCEV *
 HIRParser::BlobProcessor::getProfitableMinMaxExprMapping(const SCEV *MinMax) {
+  // This mapping is for profitability (not legality) so we can skip it in safe
+  // mode.
+  if (SafeMode) {
+    return nullptr;
+  }
+
   // This mapping recovers original (select) instruction from min exprs with
   // AddRec operands. This is more profitable as it avoids creation of IV blobs.
-  if (HIRP->isMinMaxWithAddRecOperand(MinMax)) {
+  if (isMinMaxWithAddRecOperand(MinMax)) {
     if (auto SubSCEV = getSubstituteSCEV(MinMax)) {
       return SubSCEV;
     }
   }
 
   // Avoids region livein max operations.
-  if (HIRP->isMinMax(MinMax) && isRegionLiveIn(HIRP->CurRegion, MinMax)) {
+  if (isMinMaxBlob(MinMax) && isRegionLiveIn(HIRP->CurRegion, MinMax)) {
     if (auto SubSCEV = getSubstituteSCEV(MinMax)) {
       return SubSCEV;
     }
@@ -853,11 +782,7 @@ HIRParser::BlobProcessor::getProfitableMinMaxExprMapping(const SCEV *MinMax) {
 }
 
 const SCEV *HIRParser::BlobProcessor::visitAddExpr(const SCEVAddExpr *Add) {
-  const SCEV *MappedSC = nullptr;
-
-  // This mapping is for profitability (not legality) so we can skip it in safe
-  // mode.
-  if (!SafeMode && (MappedSC = getProfitableMinMaxExprMapping(Add))) {
+  if (auto *MappedSC = getProfitableMinMaxExprMapping(Add)) {
     return MappedSC;
   }
 
@@ -897,10 +822,7 @@ const SCEV *HIRParser::BlobProcessor::visitMulExpr(const SCEVMulExpr *Mul) {
     }
   }
 
-  // This mapping is for profitability (not legality) so we can skip it in safe
-  // mode.
-  const SCEV *MappedSC = nullptr;
-  if (!SafeMode && (MappedSC = getProfitableMinMaxExprMapping(Mul))) {
+  if (auto *MappedSC = getProfitableMinMaxExprMapping(Mul)) {
     return MappedSC;
   }
 
@@ -929,29 +851,45 @@ HIRParser::BlobProcessor::visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
 const SCEV *HIRParser::BlobProcessor::visitSMaxExpr(const SCEVSMaxExpr *Max) {
   // This mapping recovers original (select) instruction from max exprs with
   // AddRec operands. This is more profitable as it avoids creation of IV blobs.
-  const SCEV *MappedSC = nullptr;
 
-  // This mapping is for profitability (not legality) so we can skip it in safe
-  // mode.
-  if (!SafeMode && (MappedSC = getProfitableMinMaxExprMapping(Max))) {
+  if (auto *MappedSC = getProfitableMinMaxExprMapping(Max)) {
     return MappedSC;
   }
 
   return SCEVRewriteVisitor<BlobProcessor>::visitSMaxExpr(Max);
 }
 
+const SCEV *HIRParser::BlobProcessor::visitSMinExpr(const SCEVSMinExpr *Min) {
+  // This mapping recovers original (select) instruction from max exprs with
+  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
+
+  if (auto *MappedSC = getProfitableMinMaxExprMapping(Min)) {
+    return MappedSC;
+  }
+
+  return SCEVRewriteVisitor<BlobProcessor>::visitSMinExpr(Min);
+}
+
 const SCEV *HIRParser::BlobProcessor::visitUMaxExpr(const SCEVUMaxExpr *Max) {
   // This mapping recovers original (select) instruction from max exprs with
   // AddRec operands. This is more profitable as it avoids creation of IV blobs.
-  const SCEV *MappedSC = nullptr;
 
-  // This mapping is for profitability (not legality) so we can skip it in safe
-  // mode.
-  if (!SafeMode && (MappedSC = getProfitableMinMaxExprMapping(Max))) {
+  if (auto *MappedSC = getProfitableMinMaxExprMapping(Max)) {
     return MappedSC;
   }
 
   return SCEVRewriteVisitor<BlobProcessor>::visitUMaxExpr(Max);
+}
+
+const SCEV *HIRParser::BlobProcessor::visitUMinExpr(const SCEVUMinExpr *Min) {
+  // This mapping recovers original (select) instruction from max exprs with
+  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
+
+  if (auto *MappedSC = getProfitableMinMaxExprMapping(Min)) {
+    return MappedSC;
+  }
+
+  return SCEVRewriteVisitor<BlobProcessor>::visitUMinExpr(Min);
 }
 
 const SCEV *HIRParser::BlobProcessor::visitUnknown(const SCEVUnknown *Unknown) {
@@ -1476,6 +1414,12 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
     } else if (isa<SCEVUMaxExpr>(NArySCEV)) {
       OS << "umax(";
       OpStr = ", ";
+    } else if (isa<SCEVSMinExpr>(NArySCEV)) {
+      OS << "smin(";
+      OpStr = ", ";
+    } else if (isa<SCEVUMinExpr>(NArySCEV)) {
+      OS << "umin(";
+      OpStr = ", ";
     } else {
       llvm_unreachable("Blob contains AddRec!");
     }
@@ -1770,13 +1714,6 @@ const SCEVUnknown *HIRParser::processTempBlob(const SCEVUnknown *TempBlob,
 bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
                                                int64_t *Multiplier,
                                                BlobTy *NewBlob) {
-
-  // We want to keep UMin blob so it can be recognized by HIR analyses and
-  // transformations.
-  if (isUMinBlob(MulBlob)) {
-    return false;
-  }
-
   // If there is a constant, it will be the first operand due to operand
   // ordering.
   if (auto *ConstOp = dyn_cast<SCEVConstant>(MulBlob->getOperand(0))) {
@@ -2236,7 +2173,7 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
   } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
     return parseAddRec(RecSCEV, CE, Level, IndicateFailure);
 
-  } else if (isa<SCEVSMaxExpr>(SC) || isa<SCEVUMaxExpr>(SC)) {
+  } else if (isa<SCEVMinMaxExpr>(SC)) {
     // TODO: extend DDRef representation to handle min/max.
     return parseBlob(SC, CE, Level, 0, IndicateFailure);
   }

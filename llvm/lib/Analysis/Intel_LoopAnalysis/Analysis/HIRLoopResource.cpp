@@ -242,20 +242,30 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
     llvm_unreachable("Found AddRec blob!");
   }
 
-  void visitSMaxExpr(const SCEVSMaxExpr *SMaxBlob) {
+private:
+  void visitMinMaxExpr(const SCEVMinMaxExpr *Expr) {
     unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getOperationCost(Instruction::ICmp, SMaxBlob->getType()));
-    LRV.SelfLRI->addIntOps(Cost, SMaxBlob->getNumOperands() - 1);
+        LRV.TTI.getOperationCost(Instruction::ICmp, Expr->getType()));
+    LRV.SelfLRI->addIntOps(Cost, Expr->getNumOperands() - 1);
 
-    visitNAryExpr(cast<SCEVNAryExpr>(SMaxBlob));
+    visitNAryExpr(cast<SCEVNAryExpr>(Expr));
+  }
+
+public:
+  void visitSMaxExpr(const SCEVSMaxExpr *SMaxBlob) {
+    visitMinMaxExpr(SMaxBlob);
   }
 
   void visitUMaxExpr(const SCEVUMaxExpr *UMaxBlob) {
-    unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getOperationCost(Instruction::ICmp, UMaxBlob->getType()));
-    LRV.SelfLRI->addIntOps(Cost, UMaxBlob->getNumOperands() - 1);
+    visitMinMaxExpr(UMaxBlob);
+  }
 
-    visitNAryExpr(cast<SCEVNAryExpr>(UMaxBlob));
+  void visitSMinExpr(const SCEVSMinExpr *SMinBlob) {
+    visitMinMaxExpr(SMinBlob);
+  }
+
+  void visitUMinExpr(const SCEVUMinExpr *UMinBlob) {
+    visitMinMaxExpr(UMinBlob);
   }
 
   void visitUnknown(const SCEVUnknown *Unknown) {}

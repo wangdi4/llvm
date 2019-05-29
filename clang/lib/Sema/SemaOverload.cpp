@@ -6376,7 +6376,8 @@ EnableIfAttr *Sema::CheckEnableIf(FunctionDecl *Function, ArrayRef<Expr *> Args,
     APValue Result;
     // FIXME: This doesn't consider value-dependent cases, because doing so is
     // very difficult. Ideally, we should handle them more gracefully.
-    if (!EIA->getCond()->EvaluateWithSubstitution(
+    if (EIA->getCond()->isValueDependent() ||
+        !EIA->getCond()->EvaluateWithSubstitution(
             Result, Context, Function, llvm::makeArrayRef(ConvertedArgs)))
       return EIA;
 
@@ -9003,14 +9004,15 @@ Sema::AddArgumentDependentLookupCandidates(DeclarationName Name,
 
       AddOverloadCandidate(FD, FoundDecl, Args, CandidateSet,
                            /*SupressUserConversions=*/false, PartialOverloading,
+                           /*AllowExplicit*/ true,
                            /*AllowExplicitConversions*/ false,
-                           /*AllowExplicit*/ false, ADLCallKind::UsesADL);
+                           ADLCallKind::UsesADL);
     } else {
       AddTemplateOverloadCandidate(
           cast<FunctionTemplateDecl>(*I), FoundDecl, ExplicitTemplateArgs, Args,
           CandidateSet,
-          /*SupressUserConversions=*/false, PartialOverloading,
-          /*AllowExplicit*/ false, ADLCallKind::UsesADL);
+          /*SuppressUserConversions=*/false, PartialOverloading,
+          /*AllowExplicit*/true, ADLCallKind::UsesADL);
     }
   }
 }
@@ -9561,7 +9563,8 @@ static bool isFunctionAlwaysEnabled(const ASTContext &Ctx,
                                     const FunctionDecl *FD) {
   for (auto *EnableIf : FD->specific_attrs<EnableIfAttr>()) {
     bool AlwaysTrue;
-    if (!EnableIf->getCond()->EvaluateAsBooleanCondition(AlwaysTrue, Ctx))
+    if (EnableIf->getCond()->isValueDependent() ||
+        !EnableIf->getCond()->EvaluateAsBooleanCondition(AlwaysTrue, Ctx))
       return false;
     if (!AlwaysTrue)
       return false;
@@ -12039,7 +12042,7 @@ BuildRecoveryCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
   // This shouldn't cause an infinite loop because we're giving it
   // an expression with viable lookup results, which should never
   // end up here.
-  return SemaRef.ActOnCallExpr(/*Scope*/ nullptr, NewFn.get(), LParenLoc,
+  return SemaRef.BuildCallExpr(/*Scope*/ nullptr, NewFn.get(), LParenLoc,
                                MultiExprArg(Args.data(), Args.size()),
                                RParenLoc);
 }
@@ -12061,7 +12064,8 @@ bool Sema::buildOverloadedCallSet(Scope *S, Expr *Fn,
     // We don't perform ADL for implicit declarations of builtins.
     // Verify that this was correctly set up.
     FunctionDecl *F;
-    if (ULE->decls_begin() + 1 == ULE->decls_end() &&
+    if (ULE->decls_begin() != ULE->decls_end() &&
+        ULE->decls_begin() + 1 == ULE->decls_end() &&
         (F = dyn_cast<FunctionDecl>(*ULE->decls_begin())) &&
         F->getBuiltinID() && F->isImplicit())
       llvm_unreachable("performing ADL for builtin");
@@ -12245,10 +12249,9 @@ ExprResult Sema::BuildOverloadedCallExpr(Scope *S, Expr *Fn,
   OverloadingResult OverloadResult =
       CandidateSet.BestViableFunction(*this, Fn->getBeginLoc(), Best);
 
-  return FinishOverloadedCallExpr(*this, S, Fn, ULE, LParenLoc, Args,
-                                  RParenLoc, ExecConfig, &CandidateSet,
-                                  &Best, OverloadResult,
-                                  AllowTypoCorrection);
+  return FinishOverloadedCallExpr(*this, S, Fn, ULE, LParenLoc, Args, RParenLoc,
+                                  ExecConfig, &CandidateSet, &Best,
+                                  OverloadResult, AllowTypoCorrection);
 }
 
 static bool IsOverloaded(const UnresolvedSetImpl &Functions) {
@@ -13027,9 +13030,7 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
       if (getLangOpts().MicrosoftExt && isa<CXXConstructorDecl>(Func)) {
         AddOverloadCandidate(cast<CXXConstructorDecl>(Func), I.getPair(), Args,
                              CandidateSet,
-                             /*SuppressUserConversions*/ false,
-                             /*PartialOverloading*/ false,
-                             /*AllowExplicit*/ true);
+                             /*SuppressUserConversions*/ false);
       } else if ((Method = dyn_cast<CXXMethodDecl>(Func))) {
         // If explicit template arguments were provided, we can't call a
         // non-template member function.
@@ -13351,7 +13352,7 @@ Sema::BuildCallToObjectOfClassType(Scope *S, Expr *Obj,
              "Found Decl & conversion-to-functionptr should be same, right?!");
     // We selected one of the surrogate functions that converts the
     // object parameter to a function pointer. Perform the conversion
-    // on the object argument, then let ActOnCallExpr finish the job.
+    // on the object argument, then let BuildCallExpr finish the job.
 
     // Create an implicit member expr to refer to the conversion operator.
     // and then call it.
@@ -13364,7 +13365,7 @@ Sema::BuildCallToObjectOfClassType(Scope *S, Expr *Obj,
                                     CK_UserDefinedConversion, Call.get(),
                                     nullptr, VK_RValue);
 
-    return ActOnCallExpr(S, Call.get(), LParenLoc, Args, RParenLoc);
+    return BuildCallExpr(S, Call.get(), LParenLoc, Args, RParenLoc);
   }
 
   CheckMemberOperatorAccess(LParenLoc, Object.get(), nullptr, Best->FoundDecl);
@@ -13703,7 +13704,7 @@ Sema::BuildForRangeBeginEndCall(SourceLocation Loc,
       *CallExpr = ExprError();
       return FRS_DiagnosticIssued;
     }
-    *CallExpr = ActOnCallExpr(S, MemberRef.get(), Loc, None, Loc, nullptr);
+    *CallExpr = BuildCallExpr(S, MemberRef.get(), Loc, None, Loc, nullptr);
     if (CallExpr->isInvalid()) {
       *CallExpr = ExprError();
       return FRS_DiagnosticIssued;
@@ -13909,10 +13910,8 @@ Expr *Sema::FixOverloadedFunctionReference(Expr *E, DeclAccessPair Found,
         SourceLocation Loc = MemExpr->getMemberLoc();
         if (MemExpr->getQualifier())
           Loc = MemExpr->getQualifierLoc().getBeginLoc();
-        CheckCXXThisCapture(Loc);
-        Base = new (Context) CXXThisExpr(Loc,
-                                         MemExpr->getBaseType(),
-                                         /*isImplicit=*/true);
+        Base =
+            BuildCXXThisExpr(Loc, MemExpr->getBaseType(), /*isImplicit=*/true);
       }
     } else
       Base = MemExpr->getBase();

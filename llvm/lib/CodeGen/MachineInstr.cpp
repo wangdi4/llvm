@@ -2081,7 +2081,7 @@ static const DIExpression *computeExprForSpill(const MachineInstr &MI) {
   const DIExpression *Expr = MI.getDebugExpression();
   if (MI.isIndirectDebugValue()) {
     assert(MI.getOperand(1).getImm() == 0 && "DBG_VALUE with nonzero offset");
-    Expr = DIExpression::prepend(Expr, DIExpression::WithDeref);
+    Expr = DIExpression::prepend(Expr, DIExpression::DerefBefore);
   }
   return Expr;
 }

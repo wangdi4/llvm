@@ -372,6 +372,7 @@ enum Kind {
   kw_notEligibleToImport,
   kw_live,
   kw_dsoLocal,
+  kw_canAutoHide,
   kw_function,
   kw_insts,
   kw_funcFlags,

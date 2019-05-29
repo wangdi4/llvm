@@ -2081,6 +2081,8 @@ public:
       MDNode *Unpred = MDFrom->getMetadata(LLVMContext::MD_unpredictable);
       Sel = addBranchMetadata(Sel, Prof, Unpred);
     }
+    if (isa<FPMathOperator>(Sel))
+      Sel = cast<SelectInst>(setFPAttrs(Sel, nullptr /* MDNode* */, FMF));
     return Insert(Sel, Name);
   }
 

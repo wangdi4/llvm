@@ -1231,9 +1231,6 @@ protected:
   void layout();
   void emit();
 
-  // Used with _typeIdentifierMap for type resolution, not clear why?
-  template <typename T> T *resolve(TypedDINodeRef<T> ref) const;
-
   // Routines for emitting atomic data.
   void emitAlign(unsigned int byteAlignment) const;
   void emitPadding(unsigned int padByteCount) const;
@@ -2095,7 +2092,7 @@ uint64_t STIDebugImpl::getBaseTypeSize(const DIDerivedType *Ty) const {
       Tag != dwarf::DW_TAG_restrict_type)
     return Ty->getSizeInBits();
 
-  DIType *BaseType = resolve(Ty->getBaseType());
+  DIType *BaseType = Ty->getBaseType();
 
   // If this type is not derived from any type or the type is a declaration then
   // take conservative approach.
@@ -2128,8 +2125,8 @@ bool STIDebugImpl::isEqualVMethodPrototype(const DISubroutineType *typeA,
   assert(ElementsA.size() >= 2 && "non-trevial method");
 
   for (unsigned i = 2, N = ElementsA.size(); i < N; ++i) {
-    const DIType *ElementA = resolve(ElementsA[i]);
-    const DIType *ElementB = resolve(ElementsB[i]);
+    const DIType *ElementA = ElementsA[i];
+    const DIType *ElementB = ElementsB[i];
     if (ElementA != ElementB) {
       return false;
     }
@@ -2142,7 +2139,7 @@ void STIDebugImpl::collectClassInfoFromInheritance(ClassInfo &info,
                                                    bool &finalizedOffset) {
   bool isVirtual = inherTy->isVirtual();
 
-  const DIType *BaseTy = resolve(inherTy->getBaseType());
+  const DIType *BaseTy = inherTy->getBaseType();
 
   // Base type of inheritance entry might be a typedef entry.
   // Skip all typedef entries to get to the class entry.
@@ -2150,7 +2147,7 @@ void STIDebugImpl::collectClassInfoFromInheritance(ClassInfo &info,
     assert(isa<DIDerivedType>(BaseTy) && "Base type expected to be derived type");
     const DIDerivedType *DTy = cast<DIDerivedType>(BaseTy);
     assert(DTy->getTag() == dwarf::DW_TAG_typedef);
-    BaseTy = resolve(DTy->getBaseType());
+    BaseTy = DTy->getBaseType();
   }
   const DICompositeType *DDTy = dyn_cast<DICompositeType>(BaseTy);
   ClassInfo &inherInfo = collectClassInfo(DDTy);
@@ -2219,7 +2216,7 @@ void STIDebugImpl::collectMemberInfo(ClassInfo &info,
   // Member with no name, must be nested structure/union, collects its memebers
   assert((DDTy->getOffsetInBits() % 8) == 0 && "Unnamed bitfield member!");
   unsigned offset = DDTy->getOffsetInBits() >> 3;
-  const DIType *Ty = resolve(DDTy->getBaseType());
+  const DIType *Ty = DDTy->getBaseType();
   assert(dyn_cast<DICompositeType>(Ty) && "Expects structure or union type");
   const DICompositeType *DCTy = dyn_cast<DICompositeType>(Ty);
   ClassInfo &nestedInfo = collectClassInfo(DCTy);
@@ -2373,7 +2370,7 @@ ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType *llvmType) {
   // If this type is contained within another type, then record it as being
   // nested.
   //
-  const DIScope *llvmScope = resolve(llvmType->getScope());
+  const DIScope *llvmScope = llvmType->getScope();
   if (llvmScope) {
     const DIType* parentType = dyn_cast<DIType>(llvmScope);
     if (parentType) {
@@ -2514,14 +2511,6 @@ void STIDebugImpl::setDefnInProgress(const DIType *llvmType, bool inProgress) {
       TM->erase(iter);
     }
   }
-}
-
-//===----------------------------------------------------------------------===//
-// resolve(ref)
-//===----------------------------------------------------------------------===//
-
-template <typename T> T* STIDebugImpl::resolve(TypedDINodeRef<T> ref) const {
-  return ref.resolve();
 }
 
 //===----------------------------------------------------------------------===//
@@ -2846,7 +2835,7 @@ STITypeBasic::Primitive STIDebugImpl::toPointerPrimitive(
   // The type being pointed-to must be a basic type, otherwise we can't encode
   // this a pointer to basic type.
   //
-  pointerTo = resolve(llvmType->getBaseType());
+  pointerTo = llvmType->getBaseType();
 
   if (pointerTo == nullptr) {
     // LLVM has no attribute encoding for "void", instead a nullptr is used.
@@ -2913,10 +2902,10 @@ STITypeBasic::Primitive STIDebugImpl::toPointerPrimitive(
 std::string STIDebugImpl::nameForAggregateType(
         const DICompositeType *llvmType) {
   StringRef     partialName = llvmType->getName();
-  DIScopeRef    scope       = llvmType->getScope();
+  DIScope       *scope      = llvmType->getScope();
   std::string   name;
 
-  name = getScopeFullName(resolve(scope), partialName);
+  name = getScopeFullName(scope, partialName);
 
   if (name.empty()) {
     STIDebugImpl::StringNameMap *stringMap;
@@ -2947,11 +2936,11 @@ STIType *STIDebugImpl::lowerTypeAlias(const DIDerivedType *llvmType) {
   STIType  *baseType;
   StringRef name;
 
-  llvmBaseType = resolve(llvmType->getBaseType());
+  llvmBaseType = llvmType->getBaseType();
 
   // Lower the containing scope.
   //
-  scope = getOrCreateScope(resolve(llvmType->getScope()));
+  scope = getOrCreateScope(llvmType->getScope());
 
   // Lower the underlying base type.  If the underlying type refers to a
   // declaration then refer to the definition instead.
@@ -3040,7 +3029,7 @@ STIType *STIDebugImpl::lowerTypePointer(const DIDerivedType *llvmType) {
     return pointerToBasic;
   }
 
-  baseType = resolve(llvmType->getBaseType());
+  baseType = llvmType->getBaseType();
 
   // Create the class type for member pointers and determine the member
   // pointer type.
@@ -3051,7 +3040,7 @@ STIType *STIDebugImpl::lowerTypePointer(const DIDerivedType *llvmType) {
 
     // Lower the class type containing the member being pointed to.
     //
-    llvmClass = resolve(llvmType->getClassType());
+    llvmClass = llvmType->getClassType();
     classType = lowerType(llvmClass);
 
     // Lower the pointed-to member type.
@@ -3154,7 +3143,7 @@ STIType *STIDebugImpl::lowerTypeModifier(const DIDerivedType *llvmType) {
   bool isConstant;
   bool isVolatile;
 
-  qualifiedType = lowerType(resolve(llvmType->getBaseType()));
+  qualifiedType = lowerType(llvmType->getBaseType());
 
   // While processing the type being pointed to, it is possible we already
   // created this modifier type.  If so, we check here and return the existing
@@ -3202,7 +3191,7 @@ STIType *STIDebugImpl::lowerTypeArray(const DICompositeType *llvmType) {
 
   // Lower the element type.  Refer to the type definition when possible.
   //
-  elementType = toTypeDefinition(lowerType(resolve(llvmType->getBaseType())));
+  elementType = toTypeDefinition(lowerType(llvmType->getBaseType()));
 
   // Calculate the element size.  This size will be recalculated for every
   // subrange.
@@ -3297,7 +3286,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
 
     STITypeBaseClass *bClass = STITypeBaseClass::create();
     bClass->setAttribute(getTypeAttribute(inheritance, llvmType));
-    bClass->setType(lowerType(resolve(inheritance->getBaseType())));
+    bClass->setType(lowerType(inheritance->getBaseType()));
     bClass->setOffset(
             createNumericUnsignedInt(inheritance->getOffsetInBits() >> 3));
 
@@ -3313,7 +3302,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
 
     STITypeVBaseClass *vbClass = STITypeVBaseClass::create(indirect);
     vbClass->setAttribute(getTypeAttribute(inheritance, llvmType));
-    vbClass->setType(lowerType(resolve(inheritance->getBaseType())));
+    vbClass->setType(lowerType(inheritance->getBaseType()));
     vbClass->setVbpType(getVbpType());
     vbClass->setVbpOffset(createNumericSignedInt(info.vbpOffset));
     vbClass->setVbIndex(createNumericUnsignedInt(vbIndex));
@@ -3347,7 +3336,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
     truncateName(name);
 
     STITypeMember *member = STITypeMember::create();
-    STIType *memberBaseType = lowerType(resolve(llvmMember->getBaseType()));
+    STIType *memberBaseType = lowerType(llvmMember->getBaseType());
 
     if (llvmMember->isStaticMember()) {
       member->setIsStatic(true);
@@ -3572,7 +3561,7 @@ STIType *STIDebugImpl::lowerTypeStructure(const DICompositeType *llvmType) {
   // definition.
   //
   if (isNamed) {
-    DIScope              *llvmScope = resolve(llvmType->getScope());
+    DIScope              *llvmScope = llvmType->getScope();
     STIScope             *stiScope  = getOrCreateScope(llvmScope);
     STISymbolUserDefined *symbol;
 
@@ -3675,7 +3664,7 @@ STIType *STIDebugImpl::lowerTypeEnumeration(const DICompositeType *llvmType) {
   // We may not have lowered the containing type yet, so create a new fix-up
   // to mark it as nested.
   //
-  const DIScope *llvmScope = resolve(llvmType->getScope());
+  const DIScope *llvmScope = llvmType->getScope();
   if (llvmScope && dyn_cast<DIType>(llvmScope)) {
     appendFixup(new STIDebugFixupNested(llvmType));
   }
@@ -3701,7 +3690,7 @@ STIType *STIDebugImpl::lowerTypeEnumeration(const DICompositeType *llvmType) {
     fieldType   = nullptr;
     count       = 0;
   } else {
-    elementType = lowerType(resolve(llvmType->getBaseType()));
+    elementType = lowerType(llvmType->getBaseType());
     fieldType   = lowerTypeEnumerationFieldList(llvmType);
     count       = llvmType->getElements().size();
   }
@@ -3743,7 +3732,7 @@ STITypeArgumentList *STIDebugImpl::lowerTypeSubroutineArgumentList(
   // the argument type and append it's index to the argument list.
   //
   for (unsigned i = firstArgIndex, size = elements.size(); i < size; ++i) {
-    argType = resolve(elements[i]);
+    argType = elements[i];
     if (argType) {
       argList->append(lowerType(argType));
     } else {
@@ -3809,14 +3798,14 @@ STIType *STIDebugImpl::lowerTypeMemberFunction(
   // parameters.
   //
   arguments  = llvmType->getTypeArray();
-  returnType = lowerType(arguments.size() ? resolve(arguments[0]) : nullptr);
+  returnType = lowerType(arguments.size() ? arguments[0] : nullptr);
 
   // Lower the "this" pointer type.
   //
   // Non-static member functions record the object pointer in the elements list
   // at index "1".
   //
-  llvmThis = arguments.size() > 1 ? resolve(arguments[1]) : nullptr;
+  llvmThis = arguments.size() > 1 ? arguments[1] : nullptr;
   if (llvmThis && llvmThis->isObjectPointer()) {
     thisType      = lowerType(llvmThis);
     firstArgIndex = 2;
@@ -3877,7 +3866,7 @@ STIType *STIDebugImpl::lowerTypeSubroutine(const DISubroutineType *llvmType) {
   // parameters.
   //
   arguments  = llvmType->getTypeArray();
-  returnType = lowerType(arguments.size() ? resolve(arguments[0]) : nullptr);
+  returnType = lowerType(arguments.size() ? arguments[0] : nullptr);
 
   // Lower the argument list.
   //
@@ -3913,7 +3902,7 @@ STIType *STIDebugImpl::lowerTypeSubroutine(const DISubroutineType *llvmType) {
 
 STIType *STIDebugImpl::lowerTypeRestrict(const DIDerivedType *llvmType) {
   STIType *type;
-  DIType  *baseType = resolve(llvmType->getBaseType());
+  DIType  *baseType = llvmType->getBaseType();
 
   // There is currently no representation in STI for "restrict", so we ignore
   // it and lower the base type.
@@ -4017,7 +4006,7 @@ STIType *STIDebugImpl::lowerSubprogramType(const DISubprogram *subprogram) {
   const DIType           *llvmClass;
 
   llvmType  = subprogram->getType();
-  llvmClass = dyn_cast<DIType>(resolve(subprogram->getScope()));
+  llvmClass = dyn_cast<DIType>(subprogram->getScope());
 
   if (llvmClass) {
     type = lowerTypeMemberFunction(llvmType, llvmClass);
@@ -4033,7 +4022,7 @@ STIScope *STIDebugImpl::getOrCreateScope(const DIScope* llvmScope) {
   if (!llvmScope || isa<DIFile>(llvmScope) || isa<DICompileUnit>(llvmScope)) {
     scope = getCompileUnit()->getScope();
   } else if (const DIType* llvmType = dyn_cast<DIType>(llvmScope)) {
-    scope = getOrCreateScope(resolve(llvmType->getScope()));
+    scope = getOrCreateScope(llvmType->getScope());
   } else if (const DINamespace* llvmNamespace = dyn_cast<DINamespace>(llvmScope)) {
     // scope = getOrCreateNameSpace(llvmNamespace);
     scope = getOrCreateScope(llvmNamespace->getScope());
@@ -4076,7 +4065,7 @@ std::string STIDebugImpl::getScopeFullName(const DIScope* llvmScope,
     }
     std::string scopedName =
         (Twine(llvmType->getName()) + "::" + Twine(name)).str();
-    return getScopeFullName(resolve(llvmType->getScope()), scopedName);
+    return getScopeFullName(llvmType->getScope(), scopedName);
   }
   if (const DINamespace* llvmNamespace = dyn_cast<DINamespace>(llvmScope)) {
     StringRef nsName = llvmNamespace->getName();
@@ -4182,7 +4171,7 @@ STISymbolVariable *STIDebugImpl::createSymbolVariable(
   }
 
   name = DIV->getName();
-  type = toTypeDefinition(lowerType(resolve(DIV->getType())));
+  type = toTypeDefinition(lowerType(DIV->getType()));
 
   // Create variable only if it has a valid location.
   variable = STISymbolVariable::create();
@@ -4232,7 +4221,7 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
   // then truncate to the maximum allowable size.
   //
   std::string name = stripScopesFromName(SP->getName()).str();
-  name = getScopeFullName(resolve(SP->getScope()), name, true);
+  name = getScopeFullName(SP->getScope(), name, true);
   truncateName(name);
 
   STISymbolProcedure *procedure;
@@ -4242,7 +4231,7 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
   if (EmitFunctionIDs) {
     std::string name = SP->getName();
     truncateName(name);
-    STIType *classType = getClassScope(resolve(SP->getScope()));
+    STIType *classType = getClassScope(SP->getScope());
     STITypeFunctionID *funcIDType = STITypeFunctionID::create();
     funcIDType->setType(procedureType);
     funcIDType->setParentScope(nullptr); // FIXME
@@ -4360,7 +4349,7 @@ STISymbolBlock *STIDebugImpl::createSymbolBlock(const DILexicalBlockBase* LB) {
 
   DIScope* FuncScope = LB->getScope();
   while (FuncScope && !isa<DISubprogram>(FuncScope)) {
-    FuncScope = resolve(FuncScope->getScope());
+    FuncScope = FuncScope->getScope();
   }
   assert(isa<DISubprogram>(FuncScope) &&
          "Failed to reach function scope of a lexical block");
@@ -4401,7 +4390,7 @@ const DIType *STIDebugImpl::getUnqualifiedDIType(const DIType *ditype) {
         tag != dwarf::DW_TAG_restrict_type) {
       break;
     }
-    ditype = resolve(derivedType->getBaseType());
+    ditype = derivedType->getBaseType();
   }
 
   return ditype;
@@ -4656,7 +4645,7 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
                             : STILocation::createGlobalSegmentedOffset(label);
 
       if (DIDerivedType *SDMDecl = DIGV->getStaticDataMemberDeclaration()) {
-        scope = resolve(SDMDecl->getScope());
+        scope = SDMDecl->getScope();
         assert(SDMDecl->isStaticMember() && "Expected static member decl");
         assert(DIGV->isDefinition());
       } else {
@@ -4665,7 +4654,7 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
 
       variable = STISymbolVariable::create();
       variable->setName(getScopeFullName(scope, DIGV->getName(), true));
-      variable->setType(lowerType(resolve(DIGV->getType())));
+      variable->setType(lowerType(DIGV->getType()));
       variable->setLocation(location);
 
       getOrCreateScope(scope)->add(variable);
@@ -4679,7 +4668,7 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
       //       Should use getExpr() to determine the constant values.
       STISymbolConstant* symbol;
       DIScope*           scope = DIGV->getScope();
-      DIType *           ditype  = resolve(DIGV->getType());
+      DIType *           ditype  = DIGV->getType();
       STINumeric*        numeric;
 
       // Translate the different constant types into a STINumeric object.
@@ -4905,7 +4894,7 @@ void STIDebugImpl::fixupNested(const STIDebugFixupNested *fixup) {
   STIType          *parentTypeDefn;
 
   nestedLLVMType = fixup->getNestedType();
-  parentLLVMType = dyn_cast<DIType>(resolve(nestedLLVMType->getScope()));
+  parentLLVMType = dyn_cast<DIType>(nestedLLVMType->getScope());
 
   // Mark the nested STI type declaration as being nested.
   //

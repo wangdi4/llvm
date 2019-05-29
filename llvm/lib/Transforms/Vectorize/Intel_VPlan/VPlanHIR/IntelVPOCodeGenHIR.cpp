@@ -135,6 +135,8 @@ private:
     NewOpsStart = Instruction::OtherOpsEnd + 1,
     UMaxOp,
     SMaxOp,
+    UMinOp,
+    SMinOp,
     NewOpsEnd
   };
 
@@ -194,6 +196,8 @@ public:
   RegDDRef *visitAddRecExpr(const SCEVAddRecExpr *Expr);
   RegDDRef *visitSMaxExpr(const SCEVSMaxExpr *Expr);
   RegDDRef *visitUMaxExpr(const SCEVUMaxExpr *Expr);
+  RegDDRef *visitSMinExpr(const SCEVSMinExpr *Expr);
+  RegDDRef *visitUMinExpr(const SCEVUMinExpr *Expr);
   RegDDRef *visitUnknown(const SCEVUnknown *Expr);
   RegDDRef *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
 };
@@ -258,14 +262,25 @@ RegDDRef *NestedBlobCG::codegenNAryOp(const SCEVNAryExpr *SC, unsigned OpCode) {
     RegDDRef *InnerDDRef = visit(*Op);
     HLInst *WideInst;
 
-    if (OpCode == UMaxOp) {
-      WideInst = HNU.createSelect(CmpInst::ICMP_UGT, CurDDRef->clone(),
-                                  InnerDDRef->clone(), CurDDRef->clone(),
-                                  InnerDDRef->clone(), "NAry");
-    } else if (OpCode == SMaxOp) {
-      WideInst = HNU.createSelect(CmpInst::ICMP_SGT, CurDDRef->clone(),
-                                  InnerDDRef->clone(), CurDDRef->clone(),
-                                  InnerDDRef->clone(), "NAry");
+    if (OpCode == UMaxOp || OpCode == SMaxOp ||
+        OpCode == UMinOp || OpCode == SMinOp) {
+      const CmpInst::Predicate Pred = [&OpCode]() {
+        switch (OpCode) {
+        case UMaxOp:
+          return CmpInst::ICMP_UGT;
+        case SMaxOp:
+          return CmpInst::ICMP_SGT;
+        case UMinOp:
+          return CmpInst::ICMP_ULT;
+        case SMinOp:
+          return CmpInst::ICMP_SLT;
+        default:
+          llvm_unreachable("Unimplemented new OpCode");
+        }
+      } ();
+      WideInst =
+          HNU.createSelect(Pred, CurDDRef->clone(), InnerDDRef->clone(),
+                           CurDDRef->clone(), InnerDDRef->clone(), "NAry");
     } else {
       WideInst = HNU.createBinaryHLInst(OpCode, CurDDRef->clone(),
                                         InnerDDRef->clone(), "NAry");
@@ -326,6 +341,14 @@ RegDDRef *NestedBlobCG::visitSMaxExpr(const SCEVSMaxExpr *Expr) {
 
 RegDDRef *NestedBlobCG::visitUMaxExpr(const SCEVUMaxExpr *Expr) {
   return codegenNAryOp(Expr, UMaxOp);
+}
+
+RegDDRef *NestedBlobCG::visitSMinExpr(const SCEVSMinExpr *Expr) {
+  return codegenNAryOp(Expr, SMinOp);
+}
+
+RegDDRef *NestedBlobCG::visitUMinExpr(const SCEVUMinExpr *Expr) {
+  return codegenNAryOp(Expr, UMinOp);
 }
 
 RegDDRef *NestedBlobCG::visitUnknown(const SCEVUnknown *Expr) {

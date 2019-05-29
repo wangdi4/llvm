@@ -210,9 +210,8 @@ SPIRVEntry *LLVMToSPIRVDbgTran::transDbgEntry(const MDNode *DIEntry) {
 }
 
 template <typename T>
-SPIRVEntry *LLVMToSPIRVDbgTran::transDbgEntryRef(const TypedDINodeRef<T> &Ref,
+SPIRVEntry *LLVMToSPIRVDbgTran::transDbgEntryRef(const T *Resolved,
                                                  SPIRVEntry *Alternate) {
-  T *Resolved = Ref.resolve();
   if (!Resolved && Alternate)
     return Alternate;
   return transDbgEntry(Resolved);
@@ -334,20 +333,11 @@ SPIRVType *LLVMToSPIRVDbgTran::getVoidTy() {
   return VoidT;
 }
 
-SPIRVEntry *LLVMToSPIRVDbgTran::getScope(DIScopeRef SR) {
-  if (DIScope *S = SR.resolve())
-    return transDbgEntry(S);
-  else {
-    assert(SPIRVCU && "Compilation unit must already be translated!");
-    return SPIRVCU;
-  }
-}
-
 SPIRVEntry *LLVMToSPIRVDbgTran::getScope(DIScope *S) {
   if (S)
     return transDbgEntry(S);
   else {
-    assert(SPIRVCU && "Compile unit is expected to be already translated");
+    assert(SPIRVCU && "Compilation unit must already be translated!");
     return SPIRVCU;
   }
 }
@@ -555,7 +545,7 @@ SPIRVEntry *LLVMToSPIRVDbgTran::transDbgEnumType(const DICompositeType *ET) {
   SPIRVWordVec Ops(MinOperandCount);
 
   SPIRVEntry *UnderlyingType = getVoidTy();
-  if (DITypeRef DerivedFrom = ET->getBaseType())
+  if (DIType *DerivedFrom = ET->getBaseType())
     UnderlyingType = transDbgEntryRef(DerivedFrom);
   ConstantInt *Size = getUInt(M, ET->getSizeInBits());
 

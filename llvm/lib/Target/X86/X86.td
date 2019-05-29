@@ -168,11 +168,6 @@ def FeatureVNNI    : SubtargetFeature<"avx512vnni", "HasVNNI", "true",
                           "Enable AVX-512 Vector Neural Network Instructions",
                                       [FeatureAVX512]>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16
-def FeatureBF16    : SubtargetFeature<"avx512bf16", "HasBF16", "true",
-                           "Support bfloat16 floating point",
-                                      [FeatureBWI]>;
-#endif // INTEL_FEATURE_ISA_BF16
 #if INTEL_FEATURE_ISA_AVX_VNNI
 def FeatureVNNIVL     : SubtargetFeature<"vnnivl", "HasAnyVNNIVL", "true",
                            "Dummy feature to track if either avx512vnni "
@@ -182,6 +177,9 @@ def FeatureAVXVNNI    : SubtargetFeature<"avxvnni", "HasAVXVNNI", "true",
                                       [FeatureAVX2]>;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
+def FeatureBF16    : SubtargetFeature<"avx512bf16", "HasBF16", "true",
+                           "Support bfloat16 floating point",
+                                      [FeatureBWI]>;
 def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                        "Enable AVX-512 Bit Algorithms",
                         [FeatureBWI]>;
@@ -490,6 +488,11 @@ def FeatureFastHorizontalOps
         "fast-hops", "HasFastHorizontalOps", "true",
         "Prefer horizontal vector math instructions (haddp, phsub, etc.) over "
         "normal vector instructions with shuffles", [FeatureSSE3]>;
+
+def FeatureFastScalarShiftMasks
+    : SubtargetFeature<
+        "fast-scalar-shift-masks", "HasFastScalarShiftMasks", "true",
+        "Prefer a left/right scalar logical shift pair over a shift+and pair">;
 
 def FeatureFastVectorShiftMasks
     : SubtargetFeature<
@@ -888,6 +891,7 @@ def ProcessorFeatures {
                                                       FeatureSlowSHLD,
                                                       FeatureLAHFSAHF,
                                                       FeatureFast15ByteNOP,
+                                                      FeatureFastScalarShiftMasks,
                                                       FeatureFastVectorShiftMasks];
   list<SubtargetFeature> BtVer1Features = BtVer1InheritableFeatures;
 
@@ -929,6 +933,7 @@ def ProcessorFeatures {
                                                       FeatureSlowSHLD,
                                                       FeatureLAHFSAHF,
                                                       FeatureFast11ByteNOP,
+                                                      FeatureFastScalarShiftMasks,
                                                       FeatureBranchFusion];
   list<SubtargetFeature> BdVer1Features = BdVer1InheritableFeatures;
 
@@ -980,6 +985,7 @@ def ProcessorFeatures {
                                        FeatureFastBEXTR,
                                        FeatureFast15ByteNOP,
                                        FeatureBranchFusion,
+                                       FeatureFastScalarShiftMasks,
                                        FeatureMMX,
                                        FeatureMOVBE,
                                        FeatureMWAITX,
@@ -1208,20 +1214,22 @@ foreach P = ["athlon-4", "athlon-xp", "athlon-mp"] in {
 foreach P = ["k8", "opteron", "athlon64", "athlon-fx"] in {
   def : Proc<P, [FeatureX87, FeatureSlowUAMem16, FeatureCMPXCHG8B,
                  FeatureSSE2, Feature3DNowA, FeatureFXSR, FeatureNOPL,
-                 Feature64Bit, FeatureSlowSHLD, FeatureCMOV]>;
+                 Feature64Bit, FeatureSlowSHLD, FeatureCMOV,
+                 FeatureFastScalarShiftMasks]>;
 }
 
 foreach P = ["k8-sse3", "opteron-sse3", "athlon64-sse3"] in {
   def : Proc<P, [FeatureX87, FeatureSlowUAMem16, FeatureCMPXCHG8B, FeatureSSE3,
                  Feature3DNowA, FeatureFXSR, FeatureNOPL, FeatureCMPXCHG16B,
-                 FeatureSlowSHLD, FeatureCMOV, Feature64Bit]>;
+                 FeatureSlowSHLD, FeatureCMOV, Feature64Bit,
+                 FeatureFastScalarShiftMasks]>;
 }
 
 foreach P = ["amdfam10", "barcelona"] in {
   def : Proc<P, [FeatureX87, FeatureCMPXCHG8B, FeatureSSE4A, Feature3DNowA,
                  FeatureFXSR, FeatureNOPL, FeatureCMPXCHG16B, FeatureLZCNT,
                  FeaturePOPCNT, FeatureSlowSHLD, FeatureLAHFSAHF, FeatureCMOV,
-                 Feature64Bit]>;
+                 Feature64Bit, FeatureFastScalarShiftMasks]>;
 }
 
 // Bobcat

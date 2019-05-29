@@ -1706,6 +1706,16 @@ VPDecomposerHIR::VPBlobDecompVisitor::visitUMaxExpr(const SCEVUMaxExpr *Expr) {
 }
 
 VPValue *
+VPDecomposerHIR::VPBlobDecompVisitor::visitSMinExpr(const SCEVSMinExpr *Expr) {
+  return decomposeNAryOp(Expr, VPInstruction::SMin);
+}
+
+VPValue *
+VPDecomposerHIR::VPBlobDecompVisitor::visitUMinExpr(const SCEVUMinExpr *Expr) {
+  return decomposeNAryOp(Expr, VPInstruction::UMin);
+}
+
+VPValue *
 VPDecomposerHIR::VPBlobDecompVisitor::visitUnknown(const SCEVUnknown *Expr) {
   return decomposeStandAloneBlob(Expr);
 }

@@ -34,7 +34,7 @@
 ; Function: foo
 ; 
 ; CHECK:    BEGIN REGION { modified }
-; CHECK:          + DO i1 = 0, (-1 + (-1 * smax((-1 * %n), (-1 * %d)))), 1   <DO_LOOP>
+; CHECK:          + DO i1 = 0, smin((-1 + %n), (-1 + %d)), 1   <DO_LOOP>
 ; CHECK:          |   (%p)[i1] = i1;
 ; CHECK:          + END LOOP
 ; 

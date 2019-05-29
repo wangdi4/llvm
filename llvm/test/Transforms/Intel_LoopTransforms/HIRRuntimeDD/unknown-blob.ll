@@ -18,7 +18,7 @@
 
 ; CHECL: Function
 ; CHECK: BEGIN REGION
-; CHECK:      %mv.test = &((%b)[sext.i32.i64(%n) + -1]) >=u &((%a)[-1 * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%stride)))))) + (sext.i32.i64(%n) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%stride)))))))]);
+; CHECK:      %mv.test = &((%b)[sext.i32.i64(%n) + -1]) >=u &((%a)[-1 * smin(0, sext.i32.i64(%stride)) + (sext.i32.i64(%n) * smin(0, sext.i32.i64(%stride)))]);
 ; CHECK:      %mv.test1 = &((%a)[-1 * smax(0, sext.i32.i64(%stride)) + (sext.i32.i64(%n) * smax(0, sext.i32.i64(%stride)))]) >=u &((%b)[0]);
 ; CHECK:      %mv.and = %mv.test  &&  %mv.test1;
 ; CHECK:      if (%mv.and == 0)

@@ -34,11 +34,11 @@
 ; Function: foo
 ;
 ; CHECK:    BEGIN REGION { modified }
-; CHECK:          + DO i1 = 0, (-1 + (-1 * smax((-1 * %n), (-1 * %d)))), 1   <DO_LOOP>
+; CHECK:          + DO i1 = 0, smin((-1 + %n), (-1 + %d)), 1   <DO_LOOP>
 ; CHECK:          |   (%q)[i1] = i1;
 ; CHECK:          + END LOOP
 ;
-; CHECK:          if (smax(0, %d) < (-1 + (-1 * smax((-1 + (-1 * %d)), (-1 * %n)))) + 1)
+; CHECK:          if (smax(0, %d) < smin((-1 + %n), %d) + 1)
 ; CHECK:              (%p)[%d] = smax(0, %d);
 ; CHECK:          }
 ;

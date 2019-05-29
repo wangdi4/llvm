@@ -1018,8 +1018,8 @@ define i1 @bool_reduction_v4i32(<4 x i32> %x, <4 x i32> %y) {
 ; SSE-LABEL: bool_reduction_v4i32:
 ; SSE:       # %bb.0:
 ; SSE-NEXT:    pcmpeqd %xmm1, %xmm0
-; SSE-NEXT:    movmskps %xmm0, %eax ;INTEL
-; SSE-NEXT:    xorb $15, %al ;INTEL
+; SSE-NEXT:    movmskps %xmm0, %eax
+; SSE-NEXT:    xorb $15, %al
 ; SSE-NEXT:    setne %al
 ; SSE-NEXT:    retq
 ;
@@ -1027,7 +1027,7 @@ define i1 @bool_reduction_v4i32(<4 x i32> %x, <4 x i32> %y) {
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpcmpeqd %xmm1, %xmm0, %xmm0
 ; AVX-NEXT:    vmovmskps %xmm0, %eax
-; AVX-NEXT:    xorb $15, %al ;INTEL
+; AVX-NEXT:    xorb $15, %al
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    retq
 ;

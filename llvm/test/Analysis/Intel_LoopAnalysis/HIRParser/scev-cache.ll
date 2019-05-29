@@ -8,7 +8,7 @@
 ; CHECK: END REGION
 
 ; CHECK: BEGIN REGION
-; CHECK: + DO i1 = 0, zext.i32.i64((trunc.i64.i32(%indvars.iv282) + umax(-2, (-1 * trunc.i64.i32(%indvars.iv282))))), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, zext.i32.i64((-1 + trunc.i64.i32(%indvars.iv282) + (-1 * umin(1, (-1 + trunc.i64.i32(%indvars.iv282)))))), 1   <DO_LOOP>
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 

@@ -3505,7 +3505,7 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
     // FIXME: pass false for PreserveLCSSA for the time being.
     //        Pass the actual value, when it is clear, how
     //        to compute it with the new pass manager.
-    PreheaderBB = InsertPreheaderForLoop(L, DT, LI, false);
+    PreheaderBB = InsertPreheaderForLoop(L, DT, LI, nullptr, false);
     Changed = true;
   }
 

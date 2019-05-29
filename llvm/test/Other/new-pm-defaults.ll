@@ -251,7 +251,6 @@
 ; CHECK-O-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
-; CHECK-O-NEXT: Running pass: SLPVectorizerPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: LoopUnrollPass
 ; CHECK-O-NEXT: Running pass: WarnMissedTransformationsPass

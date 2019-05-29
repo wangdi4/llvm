@@ -49,6 +49,9 @@ class IgnoreDiagnostics : public DiagnosticsConsumer {
 
 // GMock helpers for matching completion items.
 MATCHER_P(Named, Name, "") { return arg.Name == Name; }
+MATCHER_P(NameStartsWith, Prefix, "") {
+  return llvm::StringRef(arg.Name).startswith(Prefix);
+}
 MATCHER_P(Scope, S, "") { return arg.Scope == S; }
 MATCHER_P(Qualifier, Q, "") { return arg.RequiredQualifier == Q; }
 MATCHER_P(Labeled, Label, "") {
@@ -174,6 +177,7 @@ struct ClassWithMembers {
   int BBB();
   int CCC();
 };
+
 int main() { ClassWithMembers().^ }
       )cpp",
                              /*IndexSymbols=*/{}, Opts);
@@ -234,6 +238,7 @@ void TestAfterDotCompletion(clangd::CodeCompleteOptions Opts) {
       )cpp",
       {cls("IndexClass"), var("index_var"), func("index_func")}, Opts);
 
+  EXPECT_TRUE(Results.RanParser);
   // Class members. The only items that must be present in after-dot
   // completion.
   EXPECT_THAT(Results.Completions,
@@ -283,6 +288,7 @@ void TestGlobalScopeCompletion(clangd::CodeCompleteOptions Opts) {
       )cpp",
       {cls("IndexClass"), var("index_var"), func("index_func")}, Opts);
 
+  EXPECT_TRUE(Results.RanParser);
   // Class members. Should never be present in global completions.
   EXPECT_THAT(Results.Completions,
               Not(AnyOf(Has("method"), Has("method()"), Has("field"))));
@@ -324,7 +330,7 @@ TEST(CompletionTest, CompletionOptions) {
   }
 }
 
-TEST(CompletionTest, Priorities) {
+TEST(CompletionTest, Accessible) {
   auto Internal = completions(R"cpp(
       class Foo {
         public: void pub();
@@ -334,7 +340,7 @@ TEST(CompletionTest, Priorities) {
       void Foo::pub() { this->^ }
   )cpp");
   EXPECT_THAT(Internal.Completions,
-              HasSubsequence(Named("priv"), Named("prot"), Named("pub")));
+              AllOf(Has("priv"), Has("prot"), Has("pub")));
 
   auto External = completions(R"cpp(
       class Foo {
@@ -500,6 +506,21 @@ TEST(CompletionTest, ReferencesAffectRanking) {
                         {withReferences(10000, ns("absl")), func("absb")});
   EXPECT_THAT(Results.Completions,
               HasSubsequence(Named("absl"), Named("absb")));
+}
+
+TEST(CompletionTest, ContextWords) {
+  auto Results = completions(R"cpp(
+  enum class Color { RED, YELLOW, BLUE };
+
+  // (blank lines so the definition above isn't "context")
+
+  // "It was a yellow car," he said. "Big yellow car, new."
+  auto Finish = Color::^
+  )cpp");
+  // Yellow would normally sort last (alphabetic).
+  // But the recent mention shuold bump it up.
+  ASSERT_THAT(Results.Completions,
+              HasSubsequence(Named("YELLOW"), Named("BLUE")));
 }
 
 TEST(CompletionTest, GlobalQualified) {
@@ -1928,10 +1949,13 @@ TEST(CompletionTest, SuggestOverrides) {
   };
   )cpp");
   const auto Results = completions(Text);
-  EXPECT_THAT(Results.Completions,
-              AllOf(Contains(Labeled("void vfunc(bool param, int p) override")),
-                    Contains(Labeled("void ttt(bool param) const override")),
-                    Not(Contains(Labeled("void vfunc(bool param) override")))));
+  EXPECT_THAT(
+      Results.Completions,
+      AllOf(Contains(AllOf(Labeled("void vfunc(bool param, int p) override"),
+                           NameStartsWith("vfunc"))),
+            Contains(AllOf(Labeled("void ttt(bool param) const override"),
+                           NameStartsWith("ttt"))),
+            Not(Contains(Labeled("void vfunc(bool param) override")))));
 }
 
 TEST(CompletionTest, OverridesNonIdentName) {
@@ -2443,6 +2467,7 @@ TEST(NoCompileCompletionTest, Basic) {
       ^
     }
   )cpp");
+  EXPECT_FALSE(Results.RanParser);
   EXPECT_THAT(Results.Completions,
               UnorderedElementsAre(Named("void"), Named("func"), Named("int"),
                                    Named("xyz"), Named("abc")));

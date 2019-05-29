@@ -892,6 +892,7 @@ def NoVLX_Or_NoBWI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBWI()">;
 def NoVLX_Or_NoDQI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasDQI()">;
 def PKU        : Predicate<"Subtarget->hasPKU()">;
 def HasVNNI    : Predicate<"Subtarget->hasVNNI()">;
+def HasBF16      : Predicate<"Subtarget->hasBF16()">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_VP2INTERSECT
 def HasVP2INTERSECT : Predicate<"Subtarget->hasVP2INTERSECT()">;
@@ -901,9 +902,6 @@ def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">,
                             AssemblerPredicate<"FeatureAVXVNNI", "AVXVNNI">;
 def NoAVXVNNI  : Predicate<"!Subtarget->hasAVXVNNI()">;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_BF16
-def HasBF16      : Predicate<"Subtarget->hasBF16()">;
-#endif // INTEL_FEATURE_ISA_BF16
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

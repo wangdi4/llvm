@@ -2973,14 +2973,8 @@ bool HLNodeUtils::getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
     return BU.getMinBlobValue(BlobIdx, Val);
   }
 
-  if (BU.isUMaxBlob(BlobIdx)) {
+  if (BU.isUMaxBlob(BlobIdx) || BU.isUMinBlob(BlobIdx)) {
     Val = 0;
-    return true;
-  }
-
-  if (BU.isUMinBlob(BlobIdx)) {
-    // Refer to description of function to see why value is set to 1.
-    Val = 1;
     return true;
   }
 

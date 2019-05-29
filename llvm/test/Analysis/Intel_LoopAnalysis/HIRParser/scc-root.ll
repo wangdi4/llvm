@@ -2,7 +2,7 @@
 
 ; Verify that the loop is parsed correctly. 
 
-; CHECK: + DO i1 = 0, %len + smax(-2, (-1 + (-1 * %len))) + 1, 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, %len + -1 * smin(1, %len), 1   <DO_LOOP>
 ; CHECK: |   %code.addr.0.out = %code.addr.0;
 ; CHECK: |   %or = %res.0  ||  trunc.i32.i1(%code.addr.0.out);
 ; CHECK: |   %code.addr.0 = %code.addr.0  >>  1;

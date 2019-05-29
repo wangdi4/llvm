@@ -681,6 +681,20 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_CANNONLAKE; // "cannonlake"
       break;
 
+    // Icelake:
+    case 0x7d:
+    case 0x7e:
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_ICELAKE_CLIENT; // "icelake-client"
+      break;
+
+    // Icelake Xeon:
+    case 0x6a:
+    case 0x6c:
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_ICELAKE_SERVER; // "icelake-server"
+      break;
+
     case 0x1c: // Most 45 nm Intel Atom processors
     case 0x26: // 45 nm Atom Lincroft
     case 0x27: // 32 nm Atom Medfield
@@ -705,6 +719,9 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break; // "goldmont"
     case 0x7a:
       *Type = X86::INTEL_GOLDMONT_PLUS;
+      break;
+    case 0x86:
+      *Type = X86::INTEL_TREMONT;
       break;
     case 0x57:
       *Type = X86::INTEL_KNL; // knl
@@ -1420,21 +1437,15 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16
-  bool HasLeaf7Subleaf1 =
-      MaxLevel >= 7 && !getX86CpuIDAndInfoEx(0x7, 0x1, &EAX, &EBX, &ECX, &EDX);
-  Features["avx512bf16"] = HasLeaf7Subleaf1 && ((EAX >> 5) & 1)
-                           && HasAVX512Save;
-#endif // INTEL_FEATURE_ISA_BF16
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   Features["amx-bf16"]   = HasLeaf7 && ((EDX >> 22) & 1) && HasAMXSave;
   Features["amx-tile"]   = HasLeaf7 && ((EDX >> 24) & 1) && HasAMXSave;
   Features["amx-int8"]   = HasLeaf7 && ((EDX >> 25) & 1) && HasAMXSave;
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
+  bool HasLeaf7Subleaf1 =
+      MaxLevel >= 7 && !getX86CpuIDAndInfoEx(0x7, 0x1, &EAX, &EBX, &ECX, &EDX);
+  Features["avx512bf16"] = HasLeaf7Subleaf1 && ((EAX >> 5) & 1) && HasAVX512Save;
 
   bool HasLeafD = MaxLevel >= 0xd &&
                   !getX86CpuIDAndInfoEx(0xd, 0x1, &EAX, &EBX, &ECX, &EDX);

@@ -109,6 +109,10 @@ using namespace slpvectorizer;
 
 STATISTIC(NumVectorInstructions, "Number of vector instructions generated");
 
+cl::opt<bool>
+    llvm::RunSLPVectorization("vectorize-slp", cl::init(false), cl::Hidden,
+                              cl::desc("Run the SLP vectorization passes"));
+
 static cl::opt<int>
     SLPCostThreshold("slp-threshold", cl::init(0), cl::Hidden,
                      cl::desc("Only vectorize if you gain more than this "
@@ -670,6 +674,8 @@ namespace slpvectorizer {
 
 /// Bottom Up SLP Vectorizer.
 class BoUpSLP {
+  struct TreeEntry;
+
 public:
   using ValueList = SmallVector<Value *, 8>;
   using InstrList = SmallVector<Instruction *, 16>;
@@ -839,8 +845,15 @@ public:
   /// (ii) the index of the edge.
   struct EdgeInfo {
     EdgeInfo() = default;
-    /// The index of the user TreeEntry in VectorizableTree.
-    int Idx = -1;
+#if INTEL_CUSTOMIZATION
+    EdgeInfo(TreeEntry *UserTE, unsigned EdgeIdx, SmallVectorImpl<int> &OpDir)
+        : UserTE(UserTE), EdgeIdx(EdgeIdx), OpDirection(OpDir.begin(), OpDir.end()) {}
+
+    EdgeInfo(TreeEntry *UserTE, unsigned EdgeIdx)
+        : UserTE(UserTE), EdgeIdx(EdgeIdx) {}
+#endif
+    /// The user TreeEntry.
+    TreeEntry *UserTE = nullptr;
     /// The operand index of the use.
     unsigned EdgeIdx = UINT_MAX;
 #if INTEL_CUSTOMIZATION
@@ -858,7 +871,8 @@ public:
     }
     /// Debug print.
     void dump(raw_ostream &OS) const {
-      OS << "{User:" << Idx << " EdgeIdx:" << EdgeIdx << "}";
+      OS << "{User:" << (UserTE ? std::to_string(UserTE->Idx) : "null")
+         << " EdgeIdx:" << EdgeIdx << "}";
     }
     LLVM_DUMP_METHOD void dump() const { dump(dbgs()); }
 #endif
@@ -1440,8 +1454,6 @@ public:
   };
 
 private:
-  struct TreeEntry;
-
 #if INTEL_CUSTOMIZATION
   /// This represents a group of consecutive loads (the indices within
   /// TE.Scalars). It is used for split-load.
@@ -1791,7 +1803,8 @@ private:
   int getEntryCost(TreeEntry *E);
 
   /// This is the recursive part of buildTree.
-  void buildTree_rec(ArrayRef<Value *> Roots, unsigned Depth, EdgeInfo EI);
+  void buildTree_rec(ArrayRef<Value *> Roots, unsigned Depth,
+                     const EdgeInfo &EI);
 
   /// \returns true if the ExtractElement/ExtractValue instructions in \p VL can
   /// be vectorized to use the original vector (or aggregate "bitcast" to a
@@ -1854,7 +1867,8 @@ private:
                                              SmallVectorImpl<int> &OpDirRight);
 #endif // INTEL_CUSTOMIZATION
   struct TreeEntry {
-    TreeEntry(std::vector<TreeEntry> &Container) : Container(Container) {}
+    using VecTreeTy = SmallVector<std::unique_ptr<TreeEntry>, 8>;
+    TreeEntry(VecTreeTy &Container) : Container(Container) {}
 
     /// \returns true if the scalars in VL are equal to this entry.
     bool isSame(ArrayRef<Value *> VL) const {
@@ -1887,14 +1901,14 @@ private:
     /// to be a pointer and needs to be able to initialize the child iterator.
     /// Thus we need a reference back to the container to translate the indices
     /// to entries.
-    std::vector<TreeEntry> &Container;
+    VecTreeTy &Container;
 
     /// The TreeEntry index containing the user of this entry.  We can actually
     /// have multiple users so the data structure is not truly a tree.
     SmallVector<EdgeInfo, 1> UserTreeIndices;
 
 #if INTEL_CUSTOMIZATION
-    /// The tree index of this entry
+    /// The index of this treeEntry in VectorizableTree.
     int Idx = -1;
 
     /// global Index for debugging
@@ -1949,11 +1963,9 @@ private:
     void trySetUserTEOperand(const EdgeInfo &UserTreeIdx,
                              ArrayRef<Value *> OpVL,
                              ArrayRef<unsigned> ReuseShuffleIndices) {
-      if (UserTreeIdx.Idx >= 0) {
-        auto &VectorizableTree = Container;
-        VectorizableTree[UserTreeIdx.Idx].setOperand(UserTreeIdx.EdgeIdx, OpVL,
-                                                     ReuseShuffleIndices);
-      }
+      if (UserTreeIdx.UserTE)
+        UserTreeIdx.UserTE->setOperand(UserTreeIdx.EdgeIdx, OpVL,
+                                       ReuseShuffleIndices);
     }
 
     /// \returns the \p OpIdx operand of this TreeEntry.
@@ -1972,6 +1984,7 @@ private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) //INTEL
     /// Debug printer.
     LLVM_DUMP_METHOD void dump() const {
+      dbgs() << Idx << ".\n";
       for (unsigned OpI = 0, OpE = Operands.size(); OpI != OpE; ++OpI) {
         dbgs() << "Operand " << OpI << ":\n";
         for (const Value *V : Operands[OpI])
@@ -2059,7 +2072,7 @@ private:
     assert(VL.size() == CurrentMultiNode->getNumLanes() &&
            "Changing vector-length within the Multi-Node is not allowed");
     for (unsigned Lane = 0, Lanes = VL.size(); Lane != Lanes; ++Lane) {
-      TreeEntry *UserTE = &VectorizableTree[UserTreeIdx.Idx];
+      TreeEntry *UserTE = UserTreeIdx.UserTE;
       assert(!CurrentMultiNode->empty() && "finalization already run?");
       CurrentMultiNode->append(
           Lane, OperandData(VL[Lane], cast<Instruction>(UserTE->Scalars[Lane]),
@@ -2070,8 +2083,8 @@ private:
 #endif // INTEL_CUSTOMIZATION
 
   /// Create a new VectorizableTree entry.
-  void newTreeEntry(ArrayRef<Value *> VL, bool Vectorized,
-                    EdgeInfo &UserTreeIdx,
+  TreeEntry *newTreeEntry(ArrayRef<Value *> VL, bool Vectorized,
+                    const EdgeInfo &UserTreeIdx,
                     ArrayRef<unsigned> ReuseShuffleIndices = None,
                     ArrayRef<unsigned> ReorderIndices = None)
   {
@@ -2084,16 +2097,19 @@ private:
         // The Leaves should not match any of the Trunk nodes.
         !alreadyInTrunk(VL)) {
       addMultiNodeLeaf(VL, UserTreeIdx);
-      return;
+      // FIXME: we need to coordinate newTreeEntry with addMultiNodeLeaf. Either
+      // at the call places or making newTreeEntry void. At the moment, the
+      // newTreeEntry()'s return value is not used anywhere so it's safe to use
+      // nullptr.
+      return nullptr;
     }
 #endif // INTEL_CUSTOMIZATION
-    VectorizableTree.emplace_back(VectorizableTree);
-    int idx = VectorizableTree.size() - 1;
-    TreeEntry *Last = &VectorizableTree[idx];
+    VectorizableTree.push_back(llvm::make_unique<TreeEntry>(VectorizableTree));
+    TreeEntry *Last = VectorizableTree.back().get();
+    Last->Idx = VectorizableTree.size() - 1;
 #if INTEL_CUSTOMIZATION
-    assert((idx == 0 || UserTreeIdx.OpDirection.size() == VL.size()) &&
+    assert((Last->Idx == 0 || UserTreeIdx.OpDirection.size() == VL.size()) &&
            "Missing OpDirection data!");
-    Last->Idx = idx;
     static int GlobalIdxStatic = 0;
     Last->GlobalIdx = GlobalIdxStatic++;
 #endif // INTEL_CUSTOMIZATION
@@ -2105,7 +2121,7 @@ private:
     if (Vectorized) {
       for (int i = 0, e = VL.size(); i != e; ++i) {
         assert(!getTreeEntry(VL[i]) && "Scalar already in tree!");
-        ScalarToTreeEntry[VL[i]] = idx;
+        ScalarToTreeEntry[VL[i]] = Last->Idx;
       }
     } else {
       MustGather.insert(VL.begin(), VL.end());
@@ -2123,13 +2139,11 @@ private:
       // path connecting it to the root crosses a even or odd number of RHS
       // operands of subtractions.
       Last->IsNegativePathSign.resize(VL.size());
-      TreeEntry *UserTE = nullptr;
-      if (UserTreeIdx.Idx >= 0) {
-        UserTE = &VectorizableTree[UserTreeIdx.Idx];
+      TreeEntry *UserTE = UserTreeIdx.UserTE;
+      if (UserTE)
         assert(UserTE != Last && "Bad UserTreeIdx ?");
-      }
-      bool IsRootNode =
-          (UserTreeIdx.Idx < 0 || Last->Idx == CurrentMultiNode->getRoot());
+      bool IsRootNode = (!UserTE || UserTE->Idx == 0 ||
+                         Last->Idx == CurrentMultiNode->getRoot());
       for (int Lane = 0, Lanes = VL.size(); Lane != Lanes; ++Lane) {
         // The root of the Multi-Node gets 0 sign.
         bool IsNegativeSign = false;
@@ -2147,17 +2161,16 @@ private:
       }
     }
 #endif // INTEL_CUSTOMIZATION
-    if (UserTreeIdx.Idx >= 0)
+    if (UserTreeIdx.UserTE)
       Last->UserTreeIndices.push_back(UserTreeIdx);
 
     Last->trySetUserTEOperand(UserTreeIdx, VL, ReuseShuffleIndices);
-
-    UserTreeIdx.Idx = idx;
+    return Last;
   }
 
   /// -- Vectorization State --
   /// Holds all of the tree entries.
-  std::vector<TreeEntry> VectorizableTree;
+  TreeEntry::VecTreeTy VectorizableTree;
 #if INTEL_CUSTOMIZATION
   /// Debug print of the VectorizableTree[]
   void dumpVectorizableTree(void);
@@ -2167,8 +2180,7 @@ private:
   /// Debug printer.
   LLVM_DUMP_METHOD void dumpVectorizableTree() const {
     for (unsigned Id = 0, IdE = VectorizableTree.size(); Id != IdE; ++Id) {
-      dbgs() << Id << ".\n";
-      VectorizableTree[Id].dump();
+      VectorizableTree[Id]->dump();
       dbgs() << "\n";
     }
   }
@@ -2177,14 +2189,14 @@ private:
   TreeEntry *getTreeEntry(Value *V) {
     auto I = ScalarToTreeEntry.find(V);
     if (I != ScalarToTreeEntry.end())
-      return &VectorizableTree[I->second];
+      return VectorizableTree[I->second].get();
     return nullptr;
   }
 
   const TreeEntry *getTreeEntry(Value *V) const {
     auto I = ScalarToTreeEntry.find(V);
     if (I != ScalarToTreeEntry.end())
-      return &VectorizableTree[I->second];
+      return VectorizableTree[I->second].get();
     return nullptr;
   }
 
@@ -3168,21 +3180,25 @@ template <> struct GraphTraits<BoUpSLP *> {
   /// NodeRef has to be a pointer per the GraphWriter.
   using NodeRef = TreeEntry *;
 
+  using ContainerTy = BoUpSLP::TreeEntry::VecTreeTy;
+
   /// Add the VectorizableTree to the index iterator to be able to return
   /// TreeEntry pointers.
   struct ChildIteratorType
       : public iterator_adaptor_base<
             ChildIteratorType, SmallVector<BoUpSLP::EdgeInfo, 1>::iterator> {
-    std::vector<TreeEntry> &VectorizableTree;
+    ContainerTy &VectorizableTree;
 
     ChildIteratorType(SmallVector<BoUpSLP::EdgeInfo, 1>::iterator W,
-                      std::vector<TreeEntry> &VT)
+                      ContainerTy &VT)
         : ChildIteratorType::iterator_adaptor_base(W), VectorizableTree(VT) {}
 
-    NodeRef operator*() { return &VectorizableTree[I->Idx]; }
+    NodeRef operator*() { return I->UserTE; }
   };
 
-  static NodeRef getEntryNode(BoUpSLP &R) { return &R.VectorizableTree[0]; }
+  static NodeRef getEntryNode(BoUpSLP &R) {
+    return R.VectorizableTree[0].get();
+  }
 
   static ChildIteratorType child_begin(NodeRef N) {
     return {N->UserTreeIndices.begin(), N->Container};
@@ -3194,7 +3210,19 @@ template <> struct GraphTraits<BoUpSLP *> {
 
   /// For the node iterator we just need to turn the TreeEntry iterator into a
   /// TreeEntry* iterator so that it dereferences to NodeRef.
-  using nodes_iterator = pointer_iterator<std::vector<TreeEntry>::iterator>;
+  class nodes_iterator {
+    using ItTy = ContainerTy::iterator;
+    ItTy It;
+
+  public:
+    nodes_iterator(const ItTy &It2) : It(It2) {}
+    NodeRef operator*() { return It->get(); }
+    nodes_iterator operator++() {
+      ++It;
+      return *this;
+    }
+    bool operator!=(const nodes_iterator &N2) const { return N2.It != It; }
+  };
 
   static nodes_iterator nodes_begin(BoUpSLP *R) {
     return nodes_iterator(R->VectorizableTree.begin());
@@ -3373,8 +3401,8 @@ void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
   buildTree_rec(Roots, 0, EdgeInfo());
 
   // Collect the values that we need to extract from the tree.
-  for (TreeEntry &EIdx : VectorizableTree) {
-    TreeEntry *Entry = &EIdx;
+  for (auto &TEPtr : VectorizableTree) {
+    TreeEntry *Entry = TEPtr.get();
 
     // No need to handle users of gathered values.
     if (Entry->NeedToGather)
@@ -3457,7 +3485,7 @@ void BoUpSLP::removeFromVTreeAfter(int FromIdx) {
   assert(FromIdx >= 0);
   // 1. Clear entries from ScalarToTreeEntry[]
   for (int i = FromIdx, e = VectorizableTree.size(); i != e; ++i) {
-    const TreeEntry &TE = VectorizableTree[i];
+    const TreeEntry &TE = *VectorizableTree[i].get();
     for (Value *V : TE.Scalars) {
       if (TE.NeedToGather) {
         MustGather.erase(V);
@@ -3482,7 +3510,7 @@ void BoUpSLP::clearSchedulerState() {
 // until Vtree[UntilIdx-1].
 void BoUpSLP::replaySchedulerStateUpTo(int UntilIdx) {
   for (int i = 0; i < UntilIdx; ++i) {
-    TreeEntry &TE = VectorizableTree[i];
+    TreeEntry &TE = *VectorizableTree[i].get();
     if (TE.NeedToGather)
       continue;
     assert(isa<Instruction>(TE.Scalars[0]) && "Instruction expected.");
@@ -3542,13 +3570,13 @@ bool BoUpSLP::isInPreviousMultiNode(ArrayRef<Value *> VL) {
 /// because all uses will follow the leaves: L1, L2, L3, T1, T0
 void BoUpSLP::scheduleMultiNodeInstrs() {
   std::list<TreeEntry *> TEWorklist;
-  TreeEntry *RootTE = &VectorizableTree[CurrentMultiNode->getRoot()];
+  TreeEntry *RootTE = VectorizableTree[CurrentMultiNode->getRoot()].get();
   if (CurrentMultiNode->numOfTrunks() <= 1)
     return;
   assert(static_cast<size_t>(CurrentMultiNode->getRoot()) + 1 <
              VectorizableTree.size() &&
          "Should have early exited if only 1 TE in tree.");
-  TreeEntry *SecondTE = &VectorizableTree[CurrentMultiNode->getRoot() + 1];
+  TreeEntry *SecondTE = VectorizableTree[CurrentMultiNode->getRoot() + 1].get();
   TEWorklist.push_back(SecondTE);
 
   int Lanes = RootTE->Scalars.size();
@@ -3591,7 +3619,7 @@ void BoUpSLP::scheduleMultiNodeInstrs() {
         if (it != ScalarToTreeEntry.end()) {
           int OpTEIdx = it->second;
           if (CurrentMultiNode->containsTrunk(OpTEIdx)) {
-            TreeEntry *OpTE = &VectorizableTree[OpTEIdx];
+            TreeEntry *OpTE = VectorizableTree[OpTEIdx].get();
             TEWorklist.push_back(OpTE);
           }
         }
@@ -3928,7 +3956,7 @@ void BoUpSLP::updateFrontierOpcode(OperandData *Op) {
 
   // 1. VectorizableTree: Update the TreeEntry.Scalars[]
   for (int TEIdx : CurrentMultiNode->getTrunks()) {
-    TreeEntry &TE = VectorizableTree[TEIdx];
+    TreeEntry &TE = *VectorizableTree[TEIdx].get();
     for (int Lane = 0, Lanes = TE.Scalars.size(); Lane != Lanes; ++Lane) {
       Value *V = TE.Scalars[Lane];
       if (V == OldFrontierI)
@@ -4132,7 +4160,7 @@ void BoUpSLP::applyMultiNodeOrder() {
 
   // Take note of all Multi-Node instructions to avoid overlapping Multi-Nodes.
   for (int TEIdx : CurrentMultiNode->getTrunks())
-    for (Value *V : VectorizableTree[TEIdx].Scalars)
+    for (Value *V : VectorizableTree[TEIdx]->Scalars)
       AllMultiNodeValues.insert(V);
 }
 
@@ -4144,7 +4172,7 @@ void BoUpSLP::steerPath(SteerTowardsData &SteerTowards) {
         return Idx;
     llvm_unreachable("'Op' not an operand of 'I' !");
   };
-  Value *Root0 = VectorizableTree[CurrentMultiNode->getRoot()].Scalars[0];
+  Value *Root0 = VectorizableTree[CurrentMultiNode->getRoot()]->Scalars[0];
 
   Instruction *Runner =
       CurrentMultiNode->getOperand(0, SteerTowards.OpI)->getFrontier();
@@ -4202,7 +4230,7 @@ bool BoUpSLP::findMultiNodeOrder() {
       //       it should be good enough to use UserTreeIndices[0] here.
       for (TreeEntry *RunnerTE = TE;
            RunnerTE->Idx > CurrentMultiNode->getRoot();
-           RunnerTE = &VectorizableTree[RunnerTE->UserTreeIndices[0].Idx])
+           RunnerTE = RunnerTE->UserTreeIndices[0].UserTE)
         Cnt++;
       return Cnt;
     };
@@ -4328,7 +4356,7 @@ void BoUpSLP::reorderMultiNodeOperands(SmallVectorImpl<Value *> &VL) {
   }
 
   // Update VL to be the root of the Multi-Node.
-  VL = VectorizableTree[CurrentMultiNode->getRoot()].Scalars;
+  VL = VectorizableTree[CurrentMultiNode->getRoot()]->Scalars;
 
   if (MultiNodeVerifierChecks)
     assert(!verifyFunction(*F, &dbgs()));
@@ -4351,12 +4379,12 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   assert(!CurrentMultiNode->empty() && "Not resized ?");
 
   // If this VL looks OK for the Multi-Node, proceed with adding a new entry.
-  newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndices);
+  auto *NewTE = newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndices);
 
   int LastTEIdx = VectorizableTree.size() - 1;
 
   // Point to the root of the Multi-Node.
-  VectorizableTree[LastTEIdx].MultiNodeRoot = CurrentMultiNode->getRoot();
+  VectorizableTree[LastTEIdx]->MultiNodeRoot = CurrentMultiNode->getRoot();
 
   // Now we can continue the buildTree_rec()  recursion.
   // Reorder operands (if possible) based on the default shallow reordering that
@@ -4377,17 +4405,17 @@ void BoUpSLP::buildTreeMultiNode_rec(const InstructionsState &S,
   // sure it is safe to remvoe it.
   if (BuildTreeOrderReverse && DoPSLP) {
     for (int i = 1; i >= 0; --i) {
-      UserTreeIdx.EdgeIdx = i;
-      UserTreeIdx.OpDirection = std::move(OpDirs[i]);
+//      UserTreeIdx.EdgeIdx = i;
+//      UserTreeIdx.OpDirection = std::move(OpDirs[i]);
       // Continue the recursion: try to grow the Multi-Node.
-      buildTree_rec(Operands[i], NextDepth, UserTreeIdx);
+      buildTree_rec(Operands[i], NextDepth, {NewTE, static_cast<unsigned>(i), OpDirs[i]});
     }
   } else {
-    for (int i = 0; i < 2; ++i) {
-      UserTreeIdx.EdgeIdx = i;
-      UserTreeIdx.OpDirection = std::move(OpDirs[i]);
+    for (unsigned i = 0; i < 2; ++i) {
+//      UserTreeIdx.EdgeIdx = i;
+//      UserTreeIdx.OpDirection = std::move(OpDirs[i]);
       // Continue the recursion: try to grow the Multi-Node.
-      buildTree_rec(Operands[i], NextDepth, UserTreeIdx);
+      buildTree_rec(Operands[i], NextDepth, {NewTE, i, OpDirs[i]});
     }
   }
 }
@@ -4449,7 +4477,7 @@ bool BoUpSLP::areOperandsInExistingMultiNode(ArrayRef<Value *> VL) {
 
 bool BoUpSLP::areInSameBB(ArrayRef<Value *> VL, int RootIdx) {
   assert((int)VectorizableTree.size() > RootIdx);
-  TreeEntry *RootTE = &VectorizableTree[RootIdx];
+  TreeEntry *RootTE = VectorizableTree[RootIdx].get();
   // For each lane
   for (int Lane = 0; Lane != (int)VL.size(); ++Lane) {
     // Check if the value at lane is dominated by existing operands in the FN
@@ -4465,11 +4493,8 @@ bool BoUpSLP::areInSameBB(ArrayRef<Value *> VL, int RootIdx) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
-                            EdgeInfo UserTreeIdx)
-#endif // INTEL_CUSTOMIZATION
-{
+                            const EdgeInfo &UserTreeIdxC) {
 #if INTEL_CUSTOMIZATION
   // Since we are updating VL, we need a non-readonly VL, so create a copy.
   // TODO: Any better way of doing this?
@@ -4481,6 +4506,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
   InstructionsState S = getSameOpcode(VL);
 
+  EdgeInfo UserTreeIdx = UserTreeIdxC;
 #if INTEL_CUSTOMIZATION
   // Take note that we have found a candidate for PSLP for the whole tree.
   // This lets us skip PSLP buildTree() if none has been found during vanilla
@@ -4602,7 +4628,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     if (Res.second) {
       UniqueValues.emplace_back(V);
       // If we shorten the VL, we should also shorten the OpDirection.
-      if (UserTreeIdx.Idx >= 0)
+      if (UserTreeIdx.UserTE)
         UniqueOpDirection.push_back(UserTreeIdx.OpDirection[CurrLane]);
     }
     ++CurrLane;
@@ -4748,8 +4774,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       removeFromVTreeAfter(CurrentMultiNode->getRoot());
 
       // TODO:
-      if (UserTreeIdx.Idx >= 0)
-        VectorizableTree[UserTreeIdx.Idx].resetOperand(UserTreeIdx.EdgeIdx);
+      if (UserTreeIdx.UserTE)
+        UserTreeIdx.UserTE->resetOperand(UserTreeIdx.EdgeIdx);
 
       // Udate 'S'
       VL0 = cast<Instruction>(VL[0]);
@@ -4817,25 +4843,23 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           }
         }
 
-      newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
+      auto *TE = newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of PHINodes.\n");
 
       for (unsigned i = 0, e = PH->getNumIncomingValues(); i < e; ++i) {
         ValueList Operands;
         // Prepare the operand vector.
 #if INTEL_CUSTOMIZATION
-        UserTreeIdx.OpDirection.clear();
+        SmallVector<int, 4> OpDirection;
         for (Value *j : VL) {
           Operands.push_back(cast<PHINode>(j)->getIncomingValueForBlock(
               PH->getIncomingBlock(i)));
-          UserTreeIdx.OpDirection.push_back(i);
+          OpDirection.push_back(i);
         }
 #endif // INTEL_CUSTOMIZATION
-
-      UserTreeIdx.EdgeIdx = i;
-      buildTree_rec(Operands, Depth + 1, UserTreeIdx);
-    }
-    return;
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
+      }
+      return;
   }
   case Instruction::ExtractValue:
   case Instruction::ExtractElement: {
@@ -4849,7 +4873,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // we are not extending buildTree_rec() towards the operands.
       ValueList Op0;
       Op0.assign(VL.size(), VL0->getOperand(0));
-      VectorizableTree.back().setOperand(0, Op0, ReuseShuffleIndicies);
+      VectorizableTree.back()->setOperand(0, Op0, ReuseShuffleIndicies);
       return;
     }
     if (!CurrentOrder.empty()) {
@@ -4871,7 +4895,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // we are not extending buildTree_rec() towards the operands.
       ValueList Op0;
       Op0.assign(VL.size(), VL0->getOperand(0));
-      VectorizableTree.back().setOperand(0, Op0, ReuseShuffleIndicies);
+      VectorizableTree.back()->setOperand(0, Op0, ReuseShuffleIndicies);
       return;
     }
     LLVM_DEBUG(dbgs() << "SLP: Gather extract sequence.\n");
@@ -4946,7 +4970,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         }
 #if INTEL_CUSTOMIZATION
           // Use the split-load support in codegen for the consecutive loads.
-          VectorizableTree.back().ConsecutiveLoadGroups.push_back(
+          VectorizableTree.back()->ConsecutiveLoadGroups.push_back(
               LoadGroup(0, VL.size() - 1));
 #endif // INTEL_CUSTOMIZATION
           return;
@@ -5001,7 +5025,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           ++NumOpsWantToKeepOriginalOrder;
           newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
           assert(!ConsecutiveGroups.empty() && "No groups!");
-          VectorizableTree.back().ConsecutiveLoadGroups = ConsecutiveGroups;
+          VectorizableTree.back()->ConsecutiveLoadGroups = ConsecutiveGroups;
           LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
           return;
         }
@@ -5037,22 +5061,21 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           return;
         }
       }
-      newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
+      auto *TE = newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of casts.\n");
 
       for (unsigned i = 0, e = VL0->getNumOperands(); i < e; ++i) {
         ValueList Operands;
         // Prepare the operand vector.
 #if INTEL_CUSTOMIZATION
-        UserTreeIdx.OpDirection.clear();
+        SmallVector<int, 4> OpDirection;
         for (Value *j : VL) {
           Operands.push_back(cast<Instruction>(j)->getOperand(i));
-          UserTreeIdx.OpDirection.push_back(i);
+          OpDirection.push_back(i);
         }
 #endif // INTEL_CUSTOMIZATION
 
-        UserTreeIdx.EdgeIdx = i;
-        buildTree_rec(Operands, Depth + 1, UserTreeIdx);
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
       }
       return;
     }
@@ -5074,7 +5097,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         }
       }
 
-      newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
+      auto *TE = newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of compares.\n");
 
 #if INTEL_CUSTOMIZATION
@@ -5105,12 +5128,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         }
       }
 
-      UserTreeIdx.EdgeIdx = 0;
-      UserTreeIdx.OpDirection = OpDirLeft;
-      buildTree_rec(Left, Depth + 1, UserTreeIdx);
-      UserTreeIdx.EdgeIdx = 1;
-      UserTreeIdx.OpDirection = OpDirRight;
-      buildTree_rec(Right, Depth + 1, UserTreeIdx);
+      buildTree_rec(Left, Depth + 1, {TE, 0, OpDirLeft});
+      buildTree_rec(Right, Depth + 1, {TE, 1, OpDirRight});
       return;
 #endif // INTEL_CUSTOMIZATION
 
@@ -5133,8 +5152,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
     case Instruction::AShr:
     case Instruction::And:
     case Instruction::Or:
-    case Instruction::Xor:
-      newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
+    case Instruction::Xor: {
+      auto *TE = newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of bin op.\n");
 
       // Sort operands of the instructions so that each side is more likely to
@@ -5162,19 +5181,11 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           }
         }
         if (SelectRightOperand) {
-          UserTreeIdx.EdgeIdx = 0;
-          UserTreeIdx.OpDirection = OpDirRight;
-          buildTree_rec(Right, Depth + 1, UserTreeIdx);
-          UserTreeIdx.EdgeIdx = 1;
-          UserTreeIdx.OpDirection = OpDirLeft;
-          buildTree_rec(Left, Depth + 1, UserTreeIdx);
+          buildTree_rec(Right, Depth + 1, {TE, 0, OpDirRight});
+          buildTree_rec(Left, Depth + 1, {TE, 1, OpDirLeft});
         } else {
-          UserTreeIdx.EdgeIdx = 0;
-          UserTreeIdx.OpDirection = OpDirLeft;
-          buildTree_rec(Left, Depth + 1, UserTreeIdx);
-          UserTreeIdx.EdgeIdx = 1;
-          UserTreeIdx.OpDirection = OpDirRight;
-          buildTree_rec(Right, Depth + 1, UserTreeIdx);
+          buildTree_rec(Left, Depth + 1, {TE, 0, OpDirLeft});
+          buildTree_rec(Right, Depth + 1, {TE, 1, OpDirRight});
         }
 #endif // INTEL_CUSTOMIZATION
         return;
@@ -5184,18 +5195,17 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         ValueList Operands;
         // Prepare the operand vector.
 #if INTEL_CUSTOMIZATION
-        UserTreeIdx.OpDirection.clear();
+        SmallVector<int, 4> OpDirection;
         for (Value *j : VL) {
           Operands.push_back(cast<Instruction>(j)->getOperand(i));
-          UserTreeIdx.OpDirection.push_back(i);
+          OpDirection.push_back(i);
         }
 #endif // INTEL_CUSTOMIZATION
 
-        UserTreeIdx.EdgeIdx = i;
-        buildTree_rec(Operands, Depth + 1, UserTreeIdx);
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
       }
       return;
-
+    }
     case Instruction::GetElementPtr: {
       // We don't combine GEPs with complicated (nested) indexing.
       for (unsigned j = 0; j < VL.size(); ++j) {
@@ -5233,21 +5243,20 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         }
       }
 
-      newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
+      auto *TE = newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of GEPs.\n");
       for (unsigned i = 0, e = 2; i < e; ++i) {
         ValueList Operands;
         // Prepare the operand vector.
 #if INTEL_CUSTOMIZATION
-        UserTreeIdx.OpDirection.clear();
+        SmallVector<int, 4> OpDirection;
         for (Value *j : VL) {
           Operands.push_back(cast<Instruction>(j)->getOperand(i));
-          UserTreeIdx.OpDirection.push_back(i);
+          OpDirection.push_back(i);
         }
 #endif // INTEL_CUSTOMIZATION
 
-        UserTreeIdx.EdgeIdx = i;
-        buildTree_rec(Operands, Depth + 1, UserTreeIdx);
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
       }
       return;
     }
@@ -5261,20 +5270,19 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           return;
         }
 
-      newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
+      auto *TE = newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a vector of stores.\n");
 
       ValueList Operands;
 #if INTEL_CUSTOMIZATION
-        UserTreeIdx.OpDirection.clear();
+        SmallVector<int, 4> OpDirection;
         for (Value *j : VL) {
           Operands.push_back(cast<Instruction>(j)->getOperand(0));
-          UserTreeIdx.OpDirection.push_back(0);
+          OpDirection.push_back(0);
         }
 #endif // INTEL_CUSTOMIZATION
-        UserTreeIdx.EdgeIdx = 0;
-        buildTree_rec(Operands, Depth + 1, UserTreeIdx);
-        return;
+      buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection});
+      return;
     }
     case Instruction::Call: {
       // Check if the calls are all to the same vectorizable intrinsic.
@@ -5333,26 +5341,25 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         }
       }
 
-      newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
+      auto *TE = newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
       for (unsigned i = 0, e = CI->getNumArgOperands(); i != e; ++i) {
         ValueList Operands;
         // Prepare the operand vector.
 #if INTEL_CUSTOMIZATION
-        UserTreeIdx.OpDirection.clear();
+        SmallVector<int, 4> OpDirection;
 #endif // INTEL_CUSTOMIZATION
         for (Value *j : VL) {
           CallInst *CI2 = dyn_cast<CallInst>(j);
           Operands.push_back(CI2->getArgOperand(i));
 #if INTEL_CUSTOMIZATION
-          UserTreeIdx.OpDirection.push_back(i);
+          OpDirection.push_back(i);
 #endif // INTEL_CUSTOMIZATION
         }
-        UserTreeIdx.EdgeIdx = i;
-        buildTree_rec(Operands, Depth + 1, UserTreeIdx);
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
       }
       return;
     }
-    case Instruction::ShuffleVector:
+    case Instruction::ShuffleVector: {
       // If this is not an alternate sequence of opcode like add-sub
       // then do not vectorize this instruction.
       if (!S.isAltShuffle()) {
@@ -5361,7 +5368,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         LLVM_DEBUG(dbgs() << "SLP: ShuffleVector are not vectorized.\n");
         return;
       }
-      newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
+      auto *TE = newTreeEntry(VL, true, UserTreeIdx, ReuseShuffleIndicies);
       LLVM_DEBUG(dbgs() << "SLP: added a ShuffleVector op.\n");
 
       // Reorder operands if reordering would enable vectorization.
@@ -5371,12 +5378,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         ValueList Left, Right;
         reorderInputsAccordingToOpcode(VL, Left, Right, *DL, *SE, OpDirLeft,
                                        OpDirRight);
-        UserTreeIdx.EdgeIdx = 0;
-        UserTreeIdx.OpDirection = OpDirLeft;
-        buildTree_rec(Left, Depth + 1, UserTreeIdx);
-        UserTreeIdx.EdgeIdx = 1;
-        UserTreeIdx.OpDirection = OpDirRight;
-        buildTree_rec(Right, Depth + 1, UserTreeIdx);
+        buildTree_rec(Left, Depth + 1, {TE, 0, OpDirLeft});
+        buildTree_rec(Right, Depth + 1, {TE, 1, OpDirRight});
         return;
       }
 #endif
@@ -5385,18 +5388,17 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         ValueList Operands;
         // Prepare the operand vector.
 #if INTEL_CUSTOMIZATION
-        UserTreeIdx.OpDirection.clear();
+        SmallVector<int, 4> OpDirection;
         for (Value *j : VL) {
           Operands.push_back(cast<Instruction>(j)->getOperand(i));
-          UserTreeIdx.OpDirection.push_back(i);
+          OpDirection.push_back(i);
         }
 #endif // INTEL_CUSTOMIZATION
 
-        UserTreeIdx.EdgeIdx = i;
-        buildTree_rec(Operands, Depth + 1, UserTreeIdx);
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
       }
       return;
-
+    }
     default:
       BS.cancelScheduling(VL, VL0);
       newTreeEntry(VL, false, UserTreeIdx, ReuseShuffleIndicies);
@@ -5907,20 +5909,20 @@ bool BoUpSLP::isFullyVectorizableTinyTree() const {
                     << VectorizableTree.size() << " is fully vectorizable .\n");
 
   // We only handle trees of heights 1 and 2.
-  if (VectorizableTree.size() == 1 && !VectorizableTree[0].NeedToGather)
+  if (VectorizableTree.size() == 1 && !VectorizableTree[0]->NeedToGather)
     return true;
 
   if (VectorizableTree.size() != 2)
     return false;
 
   // Handle splat and all-constants stores.
-  if (!VectorizableTree[0].NeedToGather &&
-      (allConstant(VectorizableTree[1].Scalars) ||
-       isSplat(VectorizableTree[1].Scalars)))
+  if (!VectorizableTree[0]->NeedToGather &&
+      (allConstant(VectorizableTree[1]->Scalars) ||
+       isSplat(VectorizableTree[1]->Scalars)))
     return true;
 
   // Gathering cost would be too much for tiny trees.
-  if (VectorizableTree[0].NeedToGather || VectorizableTree[1].NeedToGather)
+  if (VectorizableTree[0]->NeedToGather || VectorizableTree[1]->NeedToGather)
     return false;
 
   return true;
@@ -5951,14 +5953,14 @@ int BoUpSLP::getSpillCost() const {
   // live. When we see a call instruction that is not part of our tree,
   // query TTI to see if there is a cost to keeping values live over it
   // (for example, if spills and fills are required).
-  unsigned BundleWidth = VectorizableTree.front().Scalars.size();
+  unsigned BundleWidth = VectorizableTree.front()->Scalars.size();
   int Cost = 0;
 
   SmallPtrSet<Instruction*, 4> LiveValues;
   Instruction *PrevInst = nullptr;
 
-  for (const auto &N : VectorizableTree) {
-    Instruction *Inst = dyn_cast<Instruction>(N.Scalars[0]);
+  for (const auto &TEPtr : VectorizableTree) {
+    Instruction *Inst = dyn_cast<Instruction>(TEPtr->Scalars[0]);
     if (!Inst)
       continue;
 
@@ -6016,10 +6018,10 @@ int BoUpSLP::getTreeCost() {
   LLVM_DEBUG(dbgs() << "SLP: Calculating cost for tree of size "
                     << VectorizableTree.size() << ".\n");
 
-  unsigned BundleWidth = VectorizableTree[0].Scalars.size();
+  unsigned BundleWidth = VectorizableTree[0]->Scalars.size();
 
   for (unsigned I = 0, E = VectorizableTree.size(); I < E; ++I) {
-    TreeEntry &TE = VectorizableTree[I];
+    TreeEntry &TE = *VectorizableTree[I].get();
 
     // We create duplicate tree entries for gather sequences that have multiple
     // uses. However, we should not compute the cost of duplicate sequences.
@@ -6034,10 +6036,11 @@ int BoUpSLP::getTreeCost() {
     // existing heuristics based on tree size may yield different results.
     //
     if (TE.NeedToGather &&
-        std::any_of(std::next(VectorizableTree.begin(), I + 1),
-                    VectorizableTree.end(), [TE](TreeEntry &Entry) {
-                      return Entry.NeedToGather && Entry.isSame(TE.Scalars);
-                    }))
+        std::any_of(
+            std::next(VectorizableTree.begin(), I + 1), VectorizableTree.end(),
+            [TE](const std::unique_ptr<TreeEntry> &EntryPtr) {
+              return EntryPtr->NeedToGather && EntryPtr->isSame(TE.Scalars);
+            }))
       continue;
 
     int C = getEntryCost(&TE);
@@ -6067,7 +6070,7 @@ int BoUpSLP::getTreeCost() {
     // extend the extracted value back to the original type. Here, we account
     // for the extract and the added cost of the sign extend if needed.
     auto *VecTy = VectorType::get(EU.Scalar->getType(), BundleWidth);
-    auto *ScalarRoot = VectorizableTree[0].Scalars[0];
+    auto *ScalarRoot = VectorizableTree[0]->Scalars[0];
     if (MinBWs.count(ScalarRoot)) {
       auto *MinTy = IntegerType::get(F->getContext(), MinBWs[ScalarRoot].first);
       auto Extend =
@@ -6920,20 +6923,20 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
   }
 
   Builder.SetInsertPoint(&F->getEntryBlock().front());
-  auto *VectorRoot = vectorizeTree(&VectorizableTree[0]);
+  auto *VectorRoot = vectorizeTree(VectorizableTree[0].get());
 
   // If the vectorized tree can be rewritten in a smaller type, we truncate the
   // vectorized root. InstCombine will then rewrite the entire expression. We
   // sign extend the extracted values below.
-  auto *ScalarRoot = VectorizableTree[0].Scalars[0];
+  auto *ScalarRoot = VectorizableTree[0]->Scalars[0];
   if (MinBWs.count(ScalarRoot)) {
     if (auto *I = dyn_cast<Instruction>(VectorRoot))
       Builder.SetInsertPoint(&*++BasicBlock::iterator(I));
-    auto BundleWidth = VectorizableTree[0].Scalars.size();
+    auto BundleWidth = VectorizableTree[0]->Scalars.size();
     auto *MinTy = IntegerType::get(F->getContext(), MinBWs[ScalarRoot].first);
     auto *VecTy = VectorType::get(MinTy, BundleWidth);
     auto *Trunc = Builder.CreateTrunc(VectorRoot, VecTy);
-    VectorizableTree[0].VectorizedValue = Trunc;
+    VectorizableTree[0]->VectorizedValue = Trunc;
   }
 
   LLVM_DEBUG(dbgs() << "SLP: Extracting " << ExternalUses.size()
@@ -7029,8 +7032,8 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
   }
 
   // For each vectorized value:
-  for (TreeEntry &EIdx : VectorizableTree) {
-    TreeEntry *Entry = &EIdx;
+  for (auto &TEPtr : VectorizableTree) {
+    TreeEntry *Entry = TEPtr.get();
 
     // No need to handle users of gathered values.
     if (Entry->NeedToGather)
@@ -7063,7 +7066,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
 
   Builder.ClearInsertionPoint();
 
-  return VectorizableTree[0].VectorizedValue;
+  return VectorizableTree[0]->VectorizedValue;
 }
 
 void BoUpSLP::optimizeGatherSequence() {
@@ -7732,7 +7735,7 @@ void BoUpSLP::computeMinimumValueSizes() {
     return;
 
   // We only attempt to truncate integer expressions.
-  auto &TreeRoot = VectorizableTree[0].Scalars;
+  auto &TreeRoot = VectorizableTree[0]->Scalars;
   auto *TreeRootIT = dyn_cast<IntegerType>(TreeRoot[0]->getType());
   if (!TreeRootIT)
     return;
@@ -7753,8 +7756,8 @@ void BoUpSLP::computeMinimumValueSizes() {
   // Collect the scalar values of the vectorizable expression. We will use this
   // context to determine which values can be demoted. If we see a truncation,
   // we mark it as seeding another demotion.
-  for (auto &Entry : VectorizableTree)
-    Expr.insert(Entry.Scalars.begin(), Entry.Scalars.end());
+  for (auto &EntryPtr : VectorizableTree)
+    Expr.insert(EntryPtr->Scalars.begin(), EntryPtr->Scalars.end());
 
   // Ensure the roots of the vectorizable tree don't form a cycle. They must
   // have a single external user that is not in the vectorizable tree.
@@ -7913,7 +7916,7 @@ LLVM_DUMP_METHOD void BoUpSLP::dumpGroupState(GroupState State,
 
 LLVM_DUMP_METHOD void BoUpSLP::dumpVectorizableTree(void) {
   for (int i = 0, e = VectorizableTree.size(); i != e; ++i) {
-    TreeEntry &TE = VectorizableTree[i];
+    TreeEntry &TE = *VectorizableTree[i].get();
     TE.dump();
 
     if (EnablePathSteering) {

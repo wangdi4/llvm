@@ -2,8 +2,8 @@
 
 ; Verify that the livein umin blob umin(%t1, %t2) is reverse engineered into %0.
 
-; CHECK: + DO i1 = 0, (-1 + (-1 * %0)) + %N, 1   <DO_LOOP>
-; CHECK: |   (%p)[i1 + (1 + %0) + -1] = i1 + (1 + %0) + -1;
+; CHECK: + DO i1 = 0, -1 * %0 + %N + -1, 1   <DO_LOOP>
+; CHECK: |   (%p)[i1 + %0] = i1 + %0;
 ; CHECK: + END LOOP
 
 

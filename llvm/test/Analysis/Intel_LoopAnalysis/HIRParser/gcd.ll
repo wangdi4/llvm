@@ -2,7 +2,7 @@
 
 ; Check that the HIR for this loop is constructed in a reasonable amount of time which depends on the gcd computation of the subsrcipt expression with the big coefficient finishing in a reasonable amount of time.
 
-; CHECK: + DO i1 = 0, (%div3.i + umax(-18014398509481984, (18014398509481984 + (-1 * %div3.i))) + -1)/u18014398509481984, 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, (%div3.i + -1 * umin(18014398509481983, (-18014398509481985 + %div3.i)) + -2)/u18014398509481984, 1   <DO_LOOP>
 ; CHECK: |   (%p1)[18014398509481984 * i1] = -512;
 ; CHECK: |   %0 = ptrtoint.i64*.i64(&((%p1)[18014398509481984 * i1 + 18014398509481985]));
 ; CHECK: |   (%p1)[18014398509481984 * i1 + 1] = %0;

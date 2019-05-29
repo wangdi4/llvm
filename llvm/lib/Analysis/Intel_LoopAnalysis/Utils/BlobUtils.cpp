@@ -474,6 +474,10 @@ public:
 
   void visitUMaxExpr(const SCEVUMaxExpr *UMax) { visitNAryExpr(UMax); }
 
+  void visitSMinExpr(const SCEVSMinExpr *SMin) { visitNAryExpr(SMin); }
+
+  void visitUMinExpr(const SCEVUMinExpr *UMin) { visitNAryExpr(UMin); }
+
   void visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
     llvm_unreachable("AddRec not expected!");
   }
@@ -547,7 +551,7 @@ bool BlobUtils::isInstBlob(BlobTy Blob) {
 }
 
 bool BlobUtils::isUMinBlob(BlobTy Blob) {
-  return HIRParser::isUMinBlob(Blob);
+  return isa<SCEVUMinExpr>(Blob);
 }
 
 bool BlobUtils::isUMaxBlob(BlobTy Blob) {
