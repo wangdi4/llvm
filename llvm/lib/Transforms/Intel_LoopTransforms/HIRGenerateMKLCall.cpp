@@ -85,20 +85,20 @@
 //   @matmul_mkl_f32_(&((%.DopeVector1)[0]),  &((%.DopeVector2)[0]),
 //                    &((%.DopeVector3)[0]),  9,  0);
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCall.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCall.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -112,9 +112,18 @@
 
 using namespace llvm;
 using namespace loopopt;
-static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(true),
+
+static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
+
+const unsigned MinTripCountThreshold = 3;
+
+static cl::opt<unsigned> TripCountThreshold(
+    OPT_SWITCH "-hir-mkl-matmul-tripcount-threshold",
+    cl::init(MinTripCountThreshold), cl::Hidden,
+    cl::desc("Innermost loop minimum TripCount to enable " OPT_DESC));
+
 namespace {
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 
@@ -199,7 +208,8 @@ FunctionPass *llvm::createHIRGenerateMKLCallPass() {
 PreservedAnalyses HIRGenerateMKLCallPass::run(Function &Func,
                                               FunctionAnalysisManager &AM) {
   HIRGenerateMKLCall(AM.getResult<HIRFrameworkAnalysis>(Func),
-                     AM.getResult<HIRLoopStatisticsAnalysis>(Func)).run();
+                     AM.getResult<HIRLoopStatisticsAnalysis>(Func))
+      .run();
   return PreservedAnalyses::all();
 }
 
@@ -208,8 +218,8 @@ bool HIRGenerateMKLCall::run() {
     return false;
   }
 
-  LLVM_DEBUG(dbgs() << OPT_DESC
-             " for Function : " << HIRF.getFunction().getName() << "\n");
+  LLVM_DEBUG(dbgs() << OPT_DESC " for Function : "
+                    << HIRF.getFunction().getName() << "\n");
 
   return generateMKLCall(HIRF.getFunction().getContext());
 }
@@ -221,7 +231,8 @@ bool HIRGenerateMKLCallLegacyPass::runOnFunction(Function &Func) {
 
   return HIRGenerateMKLCall(
              getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS()).run();
+             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+      .run();
 }
 
 // Gather all perfect/near-perfect Loop Nests with level 2/3
@@ -263,6 +274,15 @@ struct HIRGenerateMKLCall::CollectCandidateLoops final
             .hasCallsWithUnsafeSideEffects()) {
       LLVM_DEBUG(
           dbgs() << "\nSkipping loop with calls that have side effects\n");
+      SkipNode = Loop;
+      return;
+    }
+
+    uint64_t TripCount = -1;
+    if (InnermostLoop->isConstTripLoop(&TripCount) &&
+        TripCount < TripCountThreshold) {
+      LLVM_DEBUG(
+          dbgs() << "\nSkipping loop with calls with small trip Count\n");
       SkipNode = Loop;
       return;
     }
@@ -350,11 +370,13 @@ bool HIRGenerateMKLCall::generateMKLCall(LLVMContext &Context) {
       }
     }
     if (MKLCallGenerated) {
-      LORBuilder(*Loop)
-          .addRemark(OptReportVerbosity::Low, "MKL call generated.");
+      LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                                  "MKL call generated.");
     }
+
     Modified |= MKLCallGenerated;
   }
+
   return Modified;
 }
 
@@ -545,13 +567,13 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
   BasePtrRef->setAddressOf(true);
   BasePtrRef->setBitCastDestType(AddrType);
   BasePtrRef->getDimensionIndex(1)->clear();
-  BasePtrRef->getDimensionIndex(1)
-      ->setConstant(MatrixRef->getDimensionIndex(1)->getConstant());
+  BasePtrRef->getDimensionIndex(1)->setConstant(
+      MatrixRef->getDimensionIndex(1)->getConstant());
 
   if (BasePtrRef->getNumDimensions() > 1) {
     BasePtrRef->getDimensionIndex(2)->clear();
-    BasePtrRef->getDimensionIndex(2)
-        ->setConstant(MatrixRef->getDimensionIndex(2)->getConstant());
+    BasePtrRef->getDimensionIndex(2)->setConstant(
+        MatrixRef->getDimensionIndex(2)->getConstant());
   }
   BasePtrRef->makeConsistent(&AuxRefs, Level);
   HLInst *StoreInst = HNU.createStore(BasePtrRef, ".addr_a0", DopeVectorRef);
@@ -863,15 +885,9 @@ bool static matchesTempMul(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
   RegDDRef *FirstOperand = Inst->getOperandDDRef(1);
   RegDDRef *SecondOperand = Inst->getOperandDDRef(2);
 
-  if (!FirstOperand->isSelfBlob() || !SecondOperand->isSelfBlob()) {
-    return false;
-  }
-
-  if (FirstOperand->getSelfBlobIndex() != RvalTmp1->getSelfBlobIndex()) {
-    return false;
-  }
-
-  if (SecondOperand->getSelfBlobIndex() != RvalTmp2->getSelfBlobIndex()) {
+  if (!FirstOperand->isSelfBlob() || !SecondOperand->isSelfBlob() ||
+      FirstOperand->getSelfBlobIndex() != RvalTmp1->getSelfBlobIndex() ||
+      SecondOperand->getSelfBlobIndex() != RvalTmp2->getSelfBlobIndex()) {
     return false;
   }
 
@@ -894,15 +910,9 @@ bool static matchesTempSub(HLInst *Inst, RegDDRef **LvalTmp, RegDDRef *RvalTmp1,
   RegDDRef *FirstOperand = Inst->getOperandDDRef(1);
   RegDDRef *SecondOperand = Inst->getOperandDDRef(2);
 
-  if (!FirstOperand->isSelfBlob() || !SecondOperand->isSelfBlob()) {
-    return false;
-  }
-
-  if (FirstOperand->getSelfBlobIndex() != RvalTmp1->getSelfBlobIndex()) {
-    return false;
-  }
-
-  if (SecondOperand->getSelfBlobIndex() != RvalTmp2->getSelfBlobIndex()) {
+  if (!FirstOperand->isSelfBlob() || !SecondOperand->isSelfBlob() ||
+      FirstOperand->getSelfBlobIndex() != RvalTmp1->getSelfBlobIndex() ||
+      SecondOperand->getSelfBlobIndex() != RvalTmp2->getSelfBlobIndex()) {
     return false;
   }
 
@@ -995,11 +1005,13 @@ bool static matchesComplexMatmulInnermostLoopPattern(
     return false;
   }
   RegDDRef *LvalTmp4 = Inst->getLvalDDRef();
-  SmallVector<unsigned, 4> IVLevelsAtImagLoad1 = getIVLevels(Inst->getRvalDDRef());
+  SmallVector<unsigned, 4> IVLevelsAtImagLoad1 =
+      getIVLevels(Inst->getRvalDDRef());
 
   // Compare IV levels
   if (IVLevelsAtRealLoad1.size() != 2 || IVLevelsAtImagLoad1.size() != 2 ||
-      IVLevelsAtRealLoad1[0] != IVLevelsAtImagLoad1[0] || IVLevelsAtRealLoad1[1] != IVLevelsAtImagLoad1[1]) {
+      IVLevelsAtRealLoad1[0] != IVLevelsAtImagLoad1[0] ||
+      IVLevelsAtRealLoad1[1] != IVLevelsAtImagLoad1[1]) {
     return false;
   }
 
@@ -1134,8 +1146,13 @@ bool HIRGenerateMKLCall::isMatVecMul(
 
   // Check for innermost loop
   HLLoop *InnermostLoop = dyn_cast<HLLoop>(FirstChild->getNextNode());
+
   if (!InnermostLoop) {
     LLVM_DEBUG(dbgs() << "Innermost loop missing.\n");
+    return false;
+  }
+  // For the first pattern store comes as last child of second level loop
+  if (!InnermostLoop->getNextNode()) {
     return false;
   }
 
@@ -1177,16 +1194,11 @@ bool HIRGenerateMKLCall::isMatVecMul(
     return false;
   }
 
-  // For the first pattern store comes as last child of second level loop
-  if (!InnermostLoop->getNextNode()) {
-    return false;
-  }
   HLInst *ThirdInst = dyn_cast<HLInst>(InnermostLoop->getNextNode());
 
   // Match: (@c)[0][i1] = %add120;
   const RegDDRef *StoreRef = nullptr;
   if (!checkStoreInstruction(ThirdInst, InitialLoadRef, &StoreRef)) {
-
     return false;
   }
 
@@ -1351,6 +1363,7 @@ bool HIRGenerateMKLCall::isMatmul(
   auto Itr = ChildLoop->child_begin();
   ConstantFP *FC = nullptr;
   HLInst *Assignment = dyn_cast<HLInst>(&*Itr);
+
   if (Assignment && Assignment->getLvalDDRef() &&
       Assignment->getLvalDDRef()->isTerminalRef() &&
       Assignment->getRvalDDRef() &&
