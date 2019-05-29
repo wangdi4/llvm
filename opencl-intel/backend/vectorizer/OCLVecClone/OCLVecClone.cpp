@@ -103,6 +103,8 @@ static void updateTID(IVecVec &TIDCalls, PHINode *Phi, BasicBlock *EntryBlock) {
   IRBuilder<> IRB(Phi);
   IRB.SetInsertPoint(Phi->getNextNode());
   // Currently, only zero dimension is vectorized.
+  // Once that is fixed, don't forget to address the FIXME in the
+  // collectIDCallInst regarding zero-operand ID calls.
   IVec zeroDimTIDCalls = TIDCalls[0];
   for (IVec::iterator tidIt = zeroDimTIDCalls.begin(),
                       tidE = zeroDimTIDCalls.end();
@@ -124,16 +126,15 @@ static void updateTID(IVecVec &TIDCalls, PHINode *Phi, BasicBlock *EntryBlock) {
 void OCLVecClone::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                           Function *Clone,
                                           BasicBlock *EntryBlock) {
-  IVecVec GlobalIDCalls;
-  IVecVec LocalIDCalls;
-  // Collect all get_local_id() and get_global_id() of all dimensions.
-  std::string GID = CompilationUtils::mangledGetGID();
-  std::string LID = CompilationUtils::mangledGetLID();
-  LoopUtils::collectTIDCallInst(GID.c_str(), GlobalIDCalls, Clone);
-  LoopUtils::collectTIDCallInst(LID.c_str(), LocalIDCalls, Clone);
-  // Update the uses of the TID calls.
-  updateTID(GlobalIDCalls, Phi, &*EntryBlock);
-  updateTID(LocalIDCalls, Phi, &*EntryBlock);
+  // FIXME: Add *_linear_id.
+  std::string MangledIDFuncs[] = {CompilationUtils::mangledGetGID(),
+                                  CompilationUtils::mangledGetLID(),
+                                  CompilationUtils::mangledGetSubGroupLID()};
+  for (auto &MangledIDFunc : MangledIDFuncs) {
+    IVecVec Calls;
+    LoopUtils::collectTIDCallInst(MangledIDFunc.c_str(), Calls, Clone);
+    updateTID(Calls, Phi, EntryBlock);
+  }
   updateMetadata(F, Clone);
 }
 
