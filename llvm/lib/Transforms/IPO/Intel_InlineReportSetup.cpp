@@ -497,6 +497,7 @@ findOrCreateFunctionInliningReport(Function *F, NamedMDNode *ModuleInlineReport,
     return nullptr;
   unsigned FuncCnt = ModuleInlineReport->getNumOperands();
   unsigned FuncIndex = 0;
+  bool IsInModule = false;
 
   // 1. If we already have inlining report for function, then:
   //    a) check that it is attached to module inlining report
@@ -504,7 +505,6 @@ findOrCreateFunctionInliningReport(Function *F, NamedMDNode *ModuleInlineReport,
   //    metadata nodes are attached to the appropriate instructions.
   MDNode *FIR = F->getMetadata(FunctionTag);
   if (FIR) {
-    bool IsInModule = false;
     // TODO: change the algorithm to be O(n).
     for (; FuncIndex < FuncCnt; ++FuncIndex) {
       MDNode *IR = ModuleInlineReport->getOperand(FuncIndex);
@@ -513,37 +513,44 @@ findOrCreateFunctionInliningReport(Function *F, NamedMDNode *ModuleInlineReport,
         break;
       }
     }
-    // We do not expect to actually get in here because on the link step we
-    // expect every function we encounter to already have an inlining report
-    // in the metadata.
-    if (!IsInModule) {
-      // Not in module scope - add
-      ModuleInlineReport->addOperand(FIR);
-      FuncIndex = ModuleInlineReport->getNumOperands() - 1;
-    }
+    if (MDIR.getLevel() & CompositeReport) {
+      if (!IsInModule) {
+        // We do not expect to actually get in here because on the link step we
+        // expect every function we encounter to already have an inlining report
+        // in the metadata.
+        ModuleInlineReport->addOperand(FIR);
+        FuncIndex = ModuleInlineReport->getNumOperands() - 1;
+      }
 
-    // Now verify and re-connect callsites metadata if needed.
-    if (verifyFunctionInliningReport(F, MDIR)) {
-      MDIR.addCallback(F, FIR);
-      LLVM_DEBUG(dbgs() << "MDIR setup: verification successful for "
+      // Now verify and re-connect callsites metadata if needed.
+      if (verifyFunctionInliningReport(F, MDIR)) {
+        MDIR.addCallback(F, FIR);
+        LLVM_DEBUG(dbgs() << "MDIR setup: verification successful for "
+                          << F->getName() << '\n');
+        return FIR;
+      }
+      LLVM_DEBUG(dbgs() << "MDIR setup: verification failed for "
                         << F->getName() << '\n');
-      return FIR;
+      MDNode *NewFIR = createFunctionInliningReport(F, MDIR);
+      ModuleInlineReport->setOperand(FuncIndex, NewFIR);
+      F->setMetadata(FunctionTag, NewFIR);
+      return NewFIR;
     }
-    LLVM_DEBUG(dbgs() << "MDIR setup: verification failed for " << F->getName()
-                      << '\n');
-    MDNode *NewFIR = createFunctionInliningReport(F, MDIR);
-    ModuleInlineReport->setOperand(FuncIndex, NewFIR);
-    F->setMetadata(FunctionTag, NewFIR);
-    return NewFIR;
   }
 
   // 2. There is no inlining report for function yet - create it and attach to
-  // module inlining report.
+  // module inlining report. We also get here if we need separate inline
+  // report for each inlining step.
   LLVM_DEBUG(dbgs() << "MDIR setup: create function inlining report for "
                     << F->getName() << '\n');
   FIR = createFunctionInliningReport(F, MDIR);
   F->setMetadata(FunctionTag, FIR);
-  ModuleInlineReport->addOperand(FIR);
+  // If we don't need composite inline report for the function, we should
+  // replace existing compile-step inline report with newly created.
+  if (!(MDIR.getLevel() & CompositeReport) && IsInModule)
+    ModuleInlineReport->setOperand(FuncIndex, FIR);
+  else
+    ModuleInlineReport->addOperand(FIR);
   return FIR;
 }
 

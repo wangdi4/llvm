@@ -45,8 +45,12 @@ void llvm::getOpVal(Metadata *Node, StringRef Front, int64_t *Val) {
 }
 
 // Print the inlining option values
-void llvm::printOptionValues(void) {
-  InlineParams Params = llvm::getInlineParams();
+void llvm::printOptionValues(unsigned OptLevel, unsigned SizeLevel) {
+  InlineParams Params;
+  if (!OptLevel && !SizeLevel)
+    Params = llvm::getInlineParams();
+  else
+    Params = llvm::getInlineParams(OptLevel, SizeLevel);
   llvm::errs() << "Option Values:\n";
   llvm::errs() << "  inline-threshold: " << Params.DefaultThreshold << "\n";
   llvm::errs() << "  inlinehint-threshold: "

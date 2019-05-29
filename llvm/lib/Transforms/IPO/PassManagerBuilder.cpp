@@ -85,6 +85,8 @@ using namespace llvm;
 
 using namespace llvm::llvm_intel_wp_analysis;
 
+extern cl::opt<unsigned> IntelInlineReportLevel;
+
 static cl::opt<bool> ConvertToSubs(
     "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
     cl::desc("Enables conversion of GEPs to subscripts before loopopt"));
@@ -1157,13 +1159,18 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createPromoteMemoryToRegisterPass(true, true));
   MPM.add(createSROAPass());
 #endif // INTEL_FEATURE_CSA
-  MPM.add(createInlineReportEmitterPass(PrepareForLTO || PrepareForThinLTO));
+  MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel,
+                                        PrepareForLTO || PrepareForThinLTO));
 #endif // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
-  if (Inliner)                                                  // INTEL
-      PM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
+#if INTEL_CUSTOMIZATION
+  if (Inliner &&
+      (IntelInlineReportLevel & InlineReportOptions::CompositeReport)) {
+    PM.add(createInlineReportSetupPass(getMDInlineReport()));
+  }
+#endif // INTEL_CUSTOMIZATION
   // Load sample profile before running the LTO optimization pipeline.
   if (!PGOSampleUse.empty()) {
     PM.add(createPruneEHPass());
@@ -1377,6 +1384,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelPartialInlineLegacyPass());
 
   bool RunInliner = Inliner;
+#if INTEL_CUSTOMIZATION
+  if (RunInliner &&
+      !(IntelInlineReportLevel & InlineReportOptions::CompositeReport))
+    PM.add(createInlineReportSetupPass(getMDInlineReport()));
+#endif // INTEL_CUSTOMIZATION
   if (RunInliner) {
     PM.add(createInlineListsPass()); // -[no]inline-list parsing
   }
@@ -1532,7 +1544,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
   if (RunInliner)
-    PM.add(createInlineReportEmitterPass(false));
+    PM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
 #endif // INTEL_CUSTOMIZATION
 }
 

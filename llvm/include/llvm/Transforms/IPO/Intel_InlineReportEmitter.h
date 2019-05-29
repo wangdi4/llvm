@@ -22,10 +22,14 @@
 namespace llvm {
 
 class InlineReportEmitterPass : public PassInfoMixin<InlineReportEmitterPass> {
+  unsigned OptLevel;
+  unsigned SizeLevel;
   bool PrepareForLTO = false;
+
 public:
-  InlineReportEmitterPass(bool PrepForLTO = false)
-      : PrepareForLTO(PrepForLTO) {}
+  InlineReportEmitterPass(unsigned OL = 0, unsigned SL = 0,
+                          bool PrepForLTO = false)
+      : OptLevel(OL), SizeLevel(SL), PrepareForLTO(PrepForLTO) {}
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 };
 } // namespace llvm

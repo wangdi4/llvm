@@ -324,14 +324,15 @@ void printFunctionInlineReport(Function *F, unsigned Level) {
 ///
 /// \brief Print module inline report
 ///
-static bool emitInlineReport(Module &M, unsigned Level, bool PrepareForLTO) {
+static bool emitInlineReport(Module &M, unsigned Level, unsigned OptLevel,
+                             unsigned SizeLevel, bool PrepareForLTO) {
   if (!(Level & InlineReportOptions::BasedOnMetadata))
     return false;
-  if (PrepareForLTO && !(Level & InlineReportOptions::CompLinkReports))
+  if (PrepareForLTO && (Level & InlineReportOptions::CompositeReport))
     return false;
   llvm::errs() << "---- Begin Inlining Report ---- (via metadata)\n";
 
-  llvm::printOptionValues();
+  llvm::printOptionValues(OptLevel, SizeLevel);
   NamedMDNode *ModuleInlineReport =
       M.getOrInsertNamedMetadata("intel.module.inlining.report");
   for (unsigned I = 0; I < ModuleInlineReport->getNumOperands(); ++I) {
@@ -345,9 +346,11 @@ static bool emitInlineReport(Module &M, unsigned Level, bool PrepareForLTO) {
 namespace {
 struct InlineReportEmitter : public ModulePass {
   static char ID;
+  unsigned OptLevel;
+  unsigned SizeLevel;
   bool PrepareForLTO;
-  InlineReportEmitter(bool PrepForLTO = false)
-      : ModulePass(ID), PrepareForLTO(PrepForLTO) {
+  InlineReportEmitter(unsigned OL = 0, unsigned SL = 0, bool PrepForLTO = false)
+      : ModulePass(ID), OptLevel(OL), SizeLevel(SL), PrepareForLTO(PrepForLTO) {
     initializeInlineReportEmitterPass(*PassRegistry::getPassRegistry());
   }
 
@@ -358,7 +361,8 @@ struct InlineReportEmitter : public ModulePass {
   bool runOnModule(Module &M) {
     if (skipModule(M))
       return false;
-    return emitInlineReport(M, IntelInlineReportLevel, PrepareForLTO);
+    return emitInlineReport(M, IntelInlineReportLevel, OptLevel, SizeLevel,
+                            PrepareForLTO);
   }
 };
 } // namespace
@@ -367,13 +371,16 @@ char InlineReportEmitter::ID = 0;
 INITIALIZE_PASS(InlineReportEmitter, "inlinereportemitter",
                 "Emit inlining report", false, false)
 
-ModulePass *llvm::createInlineReportEmitterPass(bool PrepareForLTO) {
-  return new InlineReportEmitter(PrepareForLTO);
+ModulePass *llvm::createInlineReportEmitterPass(unsigned OptLevel,
+                                                unsigned SizeLevel,
+                                                bool PrepareForLTO) {
+  return new InlineReportEmitter(OptLevel, SizeLevel, PrepareForLTO);
 }
 
 PreservedAnalyses InlineReportEmitterPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
-  emitInlineReport(M, IntelInlineReportLevel, PrepareForLTO);
+  emitInlineReport(M, IntelInlineReportLevel, OptLevel, SizeLevel,
+                   PrepareForLTO);
   return PreservedAnalyses::all();
 }
 

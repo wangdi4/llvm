@@ -1144,7 +1144,11 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   MPM.addPass(ConstantMergePass());
 
 #if INTEL_CUSTOMIZATION
-  MPM.addPass(InlineReportEmitterPass(LTOPreLink));
+  // See include/llvm/Passes/PassBuilder.h for the definition of
+  // OptimizationLevel enum.
+  unsigned OptLevel = Level > O3 ? 2 : Level;
+  unsigned SizeLevel = Level > O3 ? Level - O3 : 0;
+  MPM.addPass(InlineReportEmitterPass(OptLevel, SizeLevel, LTOPreLink));
 #endif // INTEL_CUSTOMIZATION
 
   return MPM;
@@ -1586,7 +1590,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   MPM.addPass(GlobalDCEPass());
 
 #if INTEL_CUSTOMIZATION
-  MPM.addPass(InlineReportEmitterPass(false));
+  // See include/llvm/Passes/PassBuilder.h for the definition of
+  // OptimizationLevel enum.
+  unsigned OptLevel = Level > O3 ? 2 : Level;
+  unsigned SizeLevel = Level > O3 ? Level - O3 : 0;
+  MPM.addPass(InlineReportEmitterPass(OptLevel, SizeLevel, false));
 #endif // INTEL_CUSTOMIZATION
   // FIXME: Maybe enable MergeFuncs conditionally after it's ported.
   return MPM;
