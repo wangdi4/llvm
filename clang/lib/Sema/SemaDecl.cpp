@@ -3607,23 +3607,6 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     PrevDiag = diag::note_previous_builtin_declaration;
   }
 
-#if INTEL_CUSTOMIZATION
-  // CQ#366612 - consider New a function redeclaration in IntelCompat mode.
-  if (getLangOpts().IntelCompat && !getLangOpts().CPlusPlus &&
-      !getLangOpts().ObjC) {
-    bool isOldAADefiniton = Old->isDefined();
-    Diag(New->getLocation(), diag::warn_func_redecl_conflicting_types)
-        << New->getDeclName() << isOldAADefiniton;
-    Diag(OldLocation, PrevDiag) << Old << Old->getType();
-    if (isOldAADefiniton)
-      New->setInvalidDecl(/*Invalid=*/true);
-    else if (Old->isImplicit() && BuiltinID &&
-        !New->getLexicalDeclContext()->isFunctionOrMethod())
-      New->getIdentifier()->revertBuiltin();
-    return false;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   Diag(New->getLocation(), diag::err_conflicting_types) << New->getDeclName();
   Diag(OldLocation, PrevDiag) << Old << Old->getType();
   return true;
