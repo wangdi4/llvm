@@ -312,17 +312,16 @@ public:
     return NewVPInst;
   }
 
-  VPInstruction *createInductionFinal(VPValue *InducVec, VPValue *Start) {
-    VPInstruction *NewVPInst = new VPInductionFinal(InducVec, Start);
+  VPInstruction *createInductionFinal(VPValue *InducVec) {
+    VPInstruction *NewVPInst = new VPInductionFinal(InducVec);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
-  VPInstruction *createInductionFinal(VPValue *Start, VPValue *Count,
-                                      VPValue *Step,
+  VPInstruction *createInductionFinal(VPValue *Start, VPValue *Step,
                                       Instruction::BinaryOps Opcode) {
-    VPInstruction *NewVPInst = new VPInductionFinal(Start, Count, Step, Opcode);
+    VPInstruction *NewVPInst = new VPInductionFinal(Start, Step, Opcode);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;

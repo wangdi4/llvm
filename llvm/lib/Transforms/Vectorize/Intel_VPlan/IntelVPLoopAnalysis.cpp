@@ -226,6 +226,20 @@ VPInstruction *VPLoopEntityList::getInductionLoopExitInstr(
   return nullptr;
 }
 
+bool VPLoopEntityList::isInductionLastValPreInc(const VPInduction *Ind) const {
+  if (Ind->getIsMemOnly())
+    return false;
+  VPInstruction *Instr = getInductionLoopExitInstr(Ind);
+  if (!Instr)
+    return false;
+  if (Instr == Ind->getInductionBinOp())
+    return false;
+  if (isa<VPPHINode>(Instr) && Instr->getParent() == Loop.getLoopPreheader())
+    return true;
+
+  return false;
+}
+
 VPPHINode *
 VPLoopEntityList::findInductionStartPhi(const VPInduction *Induction) const {
   VPPHINode *StartPhi = nullptr;
@@ -377,7 +391,9 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
     return nullptr;
   AI = MemDescr->getMemoryPtr();
   bool MakeSOA = MemDescr->isSafeSOA() && MemDescr->isProfitableSOA();
-  return Builder.createAllocaPrivate(AI->getType(), MakeSOA);
+  VPValue *Ret = Builder.createAllocaPrivate(AI->getType(), MakeSOA);
+  linkValue(&E, Ret);
+  return Ret;
 }
 
 void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
@@ -397,19 +413,25 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
       if (auto *Instr = dyn_cast<VPInstruction>(Val))
         Instr->replaceUsesOfWith(&Start, &Init);
   }
+  linkValue(&E, &Init);
 }
 
 void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
-                                       VPBuilder &Builder, VPValue &Final,
-                                       Type *Ty, VPValue *Exit) {
-  if (AI)
-    Builder.createNaryOp(Instruction::Store, Ty, {&Final, AI});
-  if (!E.getIsMemOnly())
+                                         VPBuilder &Builder, VPValue &Final,
+                                         Type *Ty, VPValue *Exit) {
+  if (AI) {
+    VPValue *V = Builder.createNaryOp(Instruction::Store, Ty, {&Final, AI});
+    linkValue(&E, V);
+  }
+  if (Exit && !E.getIsMemOnly())
     // Replace external uses of the Exit by the calculated last value. Code
-    // generation should transform those uses to the final IR
+    // generation should transform those uses to the final IR.
     for (auto *User : Exit->users())
-      if (User != &Final && Loop.isLiveOut(User))
+      if (User != &Final && (isa<VPExternalUse>(User) ||
+                             !Loop.contains(cast<VPBlockBase>(
+                                 cast<VPInstruction>(User)->getParent()))))
         User->replaceUsesOfWith(Exit, &Final);
+  linkValue(&E, &Final);
 }
 
 void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
@@ -432,7 +454,18 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
         // min/max in-memory reductions. Need to generate a load.
         Identity = Builder.createNaryOp(Instruction::Load, Ty, {AI});
 
-    VPInstruction *Init = Builder.createReductionInit(Identity);
+    // We can initialize reduction either with broadcasted identity only or
+    // inserting additionally the initial value into 0th element. In the second
+    // case we don't need an additional instruction when reducing.
+    // Currently, we use broadcast-only for FP data types and min/max
+    // reductions. For integers and pointers we use the broadcast-and-insert
+    // method.
+    bool StartIncluded = !Ty->isFloatingPointTy();
+    VPInstruction *Init =
+        StartIncluded && !Reduction->isMinMax()
+            ? Builder.createReductionInit(Identity,
+                                          Reduction->getRecurrenceStartValue())
+            : Builder.createReductionInit(Identity);
     processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                      *Reduction->getRecurrenceStartValue());
 
@@ -443,9 +476,13 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
             ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
             : Reduction->getLoopExitInstr();
 
-    VPInstruction *Final = Builder.createReductionFinal(
-        Reduction->getReductionOpcode(), Reduction->getRecurrenceStartValue(),
-        Exit, Reduction->isSigned());
+    VPInstruction *Final =
+        StartIncluded || Reduction->isMinMax()
+            ? Builder.createReductionFinal(Reduction->getReductionOpcode(),
+                                           Exit)
+            : Builder.createReductionFinal(
+                  Reduction->getReductionOpcode(), Exit,
+                  Reduction->getRecurrenceStartValue(), Reduction->isSigned());
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
   }
   for (auto &IndPtr : InductionList) {
@@ -471,21 +508,26 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
           Induction->getLinkedVPValues();
       for (auto *Val : LinkedVals)
         if (auto *Instr = dyn_cast<VPInstruction>(Val))
-          Instr->replaceUsesOfWith(Induction->getStep(), InitStep);
+          if (!isa<VPInductionInit>(Instr))
+            Instr->replaceUsesOfWith(Induction->getStep(), InitStep);
     } else {
       createInductionCloseForm(Induction, Builder, *InitStep, *PrivateMem);
     }
     VPInstruction *ExitInstr = getInductionLoopExitInstr(Induction);
-    if (Induction->getIsMemOnly() || ExitInstr) {
-      // Create instruction for last value
-      Builder.setInsertPoint(PostExit);
-      VPValue *Exit =
-          Induction->getIsMemOnly()
-              ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
-              : ExitInstr;
-      VPInstruction *Final = Builder.createInductionFinal(Exit, Start);
-      processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
-    }
+    // Create instruction for last value
+    Builder.setInsertPoint(PostExit);
+    unsigned OpT = static_cast<unsigned>(Opc);
+    bool IsExtract = OpT != Instruction::Add && OpT != Instruction::FAdd &&
+                     OpT != Instruction::GetElementPtr;
+    VPValue *Exit =
+        Induction->getIsMemOnly()
+            ? Builder.createNaryOp(Instruction::Load, Ty, {PrivateMem})
+            : ExitInstr;
+    VPInstruction *Final =
+        IsExtract && Exit
+            ? Builder.createInductionFinal(Exit)
+            : Builder.createInductionFinal(Start, Induction->getStep(), Opc);
+    processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
   }
 }
 
@@ -608,7 +650,7 @@ void ReductionDescr::checkParentVPLoop(const VPlan *Plan,
 }
 
 bool ReductionDescr::isIncomplete() const {
-  return StartPhi == nullptr || Start == nullptr;
+  return StartPhi == nullptr || Start == nullptr || RT == nullptr;
 }
 
 void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
@@ -636,6 +678,10 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
   } else if (Start == nullptr) {
     Start = getLiveInOrConstOperand(StartPhi, *Loop);
     assert(Start && "Can't identify reduction start value");
+  }
+  if (!RT) {
+    RT = Exit ? Exit->getType()
+              : (StartPhi ? StartPhi->getType() : Start->getType());
   }
 }
 
