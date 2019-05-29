@@ -421,7 +421,7 @@ bool VPlanDriver::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 bool VPlanDriver::processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp) {
 #endif // INTEL_CUSTOMIZATION
   PredicatedScalarEvolution PSE(*SE, *Lp);
-  VPOVectorizationLegality LVL(Lp, PSE, TLI, TTI, &Fn, LI, DT);
+  VPOVectorizationLegality LVL(Lp, PSE, &Fn);
 
   // Send explicit data from WRLoop to the Legality.
   // The decision about possible loop vectorization is based
