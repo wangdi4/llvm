@@ -3350,23 +3350,7 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
           OldDeclaredReturnType->isObjCObjectPointerType())
         // FIXME: This does the wrong thing for a deduced return type.
         ResQT = Context.mergeObjCGCQualifiers(NewQType, OldQType);
-#if INTEL_CUSTOMIZATION
-      if (ResQT.isNull() && getLangOpts().IntelCompat &&
-          Old->getBuiltinID() == X86::BI_rdtsc &&
-          NewDeclaredReturnType.getTypePtr()->isIntegerType() &&
-          Context.getTypeSize(OldDeclaredReturnType) >=
-              Context.getTypeSize(NewDeclaredReturnType)) {
-        // CQ415508: Some of the Intrinsics seem to have _rtdsc in
-        // them, just written with a slightly different return type.
-        // This checks to ensure that the return type is similar
-        // enough, warns, and replaces the 'new' signature with
-        // the old one.
-        Diag(New->getLocation(), diag::warn_ovl_diff_return_type)
-            << New->getReturnTypeSourceRange();
-        New->setType(Old->getType());
-        NewQType = Old->getType();
-      } else if (ResQT.isNull()) {
-#endif // INTEL_CUSTOMIZATION
+      if (ResQT.isNull()) {
         if (New->isCXXClassMember() && New->isOutOfLine())
           Diag(New->getLocation(), diag::err_member_def_does_not_match_ret_type)
               << New << New->getReturnTypeSourceRange();
