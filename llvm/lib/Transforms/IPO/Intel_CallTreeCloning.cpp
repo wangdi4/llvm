@@ -171,7 +171,7 @@ static cl::opt<unsigned>
                       cl::desc("debug output verbosity level"));
 
 static cl::opt<unsigned> CTCloningMaxIRSize(
-    PASS_NAME_STR "-max-ir-size", cl::init(512), cl::ReallyHidden,
+    PASS_NAME_STR "-max-ir-size", cl::init(1024), cl::ReallyHidden,
     cl::desc("don't clone a function if the number of LLVM IR instructions "
              "exceeds this threshold"));
 
@@ -186,47 +186,77 @@ static cl::opt<bool>
     EnableMV(PASS_NAME_STR "-do-mv", cl::init(true), cl::ReallyHidden,
              cl::desc("option to enable multi-version transformation"));
 
-// Max allowed # of LLVM Instructions in a large function that may enable
-// Multi-Version (MV) transformation
-static cl::opt<unsigned> MVMaxInstNumLargeF(
-    PASS_NAME_STR "-mv-max-instnum-largef", cl::init(242), cl::ReallyHidden,
-    cl::desc("Max allowed # of LLVM Instructions in a large "
-             "function that may enable Multi-Version (MV) transformation"));
-
-// Min allowed # of LLVM Instructions in a large function that may enable
-// Multi-Version (MV) transformation
-static cl::opt<unsigned> MVMinInstNumLargeF(
-    PASS_NAME_STR "-mv-min-instnum-largef", cl::init(240), cl::ReallyHidden,
-    cl::desc("Min allowed # of LLVM Instructions in a large "
-             "function that may enable Multi-Version (MV) transformation"));
-
-// Expected # of arguments in a function that may enable Multi-Version (MV)
+// Max Expected # of arguments in a function that may enable Multi-Version (MV)
 // transformation for 2-variable clones
-static cl::opt<unsigned> MV2VarCloneFuncExpectedArgs(
-    PASS_NAME_STR "-mv-2varclonef-expected-args", cl::init(9), cl::ReallyHidden,
-    cl::desc("Expected # of arguments in a function that may enable "
+static cl::opt<unsigned> MV2VarCloneFMaxExpectedArgs(
+    PASS_NAME_STR "-mv-2varclonef-max-expected-args", cl::init(9),
+    cl::ReallyHidden,
+    cl::desc("Max Expected # of arguments in a function that may enable "
              "Multi-Version (MV) transformation for 2-variable clones"));
 
-// Max allowed # of LLVM Instructions in a small function that may enable
-// Multi-Version (MV) transformation
-static cl::opt<unsigned> MVMaxInstNumSmallF(
-    PASS_NAME_STR "-mv-max-instnum-smallf", cl::init(60), cl::ReallyHidden,
-    cl::desc("Max allowed # of LLVM Instructions in a small "
-             "function that may enable Multi-Version (MV) transformation"));
+// Min Expected # of arguments in a function that may enable Multi-Version (MV)
+// transformation for 2-variable clones
+static cl::opt<unsigned> MV2VarCloneFMinExpectedArgs(
+    PASS_NAME_STR "-mv-2varclonef-min-expected-args", cl::init(8),
+    cl::ReallyHidden,
+    cl::desc("Min Expected # of arguments in a function that may enable "
+             "Multi-Version (MV) transformation for 2-variable clones"));
 
-// Min allowed # of LLVM Instructions in a small function that may enable
-// Multi-Version (MV) transformation
-static cl::opt<unsigned> MVMinInstNumSmallF(
-    PASS_NAME_STR "-mv-min-instnum-smallf", cl::init(58), cl::ReallyHidden,
-    cl::desc("Min allowed # of LLVM Instructions in a small "
-             "function that may enable Multi-Version (MV) transformation"));
+// Max Expected # of pointer arguments in a function that may enable
+// Multi-Version (MV) transformation for 2-variable clones
+static cl::opt<unsigned> MV2VarCloneFMaxPtrArgs(
+    PASS_NAME_STR "-mv-2varclonef-max-ptr-args", cl::init(4), cl::ReallyHidden,
+    cl::desc(
+        "Max Expected # of pointer arguments in a function that may enable "
+        "Multi-Version (MV) transformation for 2-variable clones"));
+
+// Min Expected # of pointer arguments in a function that may enable
+// Multi-Version (MV) transformation for 2-variable clones
+static cl::opt<unsigned> MV2VarCloneFMinPtrArgs(
+    PASS_NAME_STR "-mv-2varclonef-min-ptr-args", cl::init(2), cl::ReallyHidden,
+    cl::desc(
+        "Min Expected # of pointer arguments in a function that may enable "
+        "Multi-Version (MV) transformation for 2-variable clones"));
+
+// Max Expected # of double pointer arguments in a function that may enable
+// Multi-Version (MV) transformation for 2-variable clones
+static cl::opt<unsigned> MV2VarCloneFMaxDblPtrArgs(
+    PASS_NAME_STR "-mv-2varclonef-max-dlbptr-args", cl::init(1),
+    cl::ReallyHidden,
+    cl::desc(
+        "Max Expected # of pointer arguments in a function that may enable "
+        "Multi-Version (MV) transformation for 2-variable clones"));
+
+// Min Expected # of double pointer arguments in a function that may enable
+// Multi-Version (MV) transformation for 2-variable clones
+static cl::opt<unsigned> MV2VarCloneFMinDblPtrArgs(
+    PASS_NAME_STR "-mv-2varclonef-min-dlbptr-args", cl::init(0),
+    cl::ReallyHidden,
+    cl::desc(
+        "Max Expected # of pointer arguments in a function that may enable "
+        "Multi-Version (MV) transformation for 2-variable clones"));
 
 // Expected # of arguments in a function that may enable Multi-Version (MV)
 // transformation for 1-variable clones
-static cl::opt<unsigned> MV1VarCloneFuncExpectedArgs(
-    PASS_NAME_STR "-mv-1varclonef-expected-args", cl::init(8), cl::ReallyHidden,
+static cl::opt<unsigned> MV1VarCloneFExpectedArgs(
+    PASS_NAME_STR "-mv-1varclonef-expected-args", cl::init(9), cl::ReallyHidden,
     cl::desc("Expected # of arguments in a function that may enable "
              "Multi-Version (MV) transformation for 1-variable clones"));
+
+// Expected # of pointer arguments in a function that may enable Multi-Version
+// (MV) transformation for 1-variable clones
+static cl::opt<unsigned> MV1VarCloneFPtrArgs(
+    PASS_NAME_STR "-mv-1varclonef-ptr-args", cl::init(4), cl::ReallyHidden,
+    cl::desc("Expected # of pointer arguments in a function that may enable "
+             "Multi-Version (MV) transformation for 1-variable clones"));
+
+// Expected # of double pointer arguments in a function that may enable
+// Multi-Version (MV) transformation for 1-variable clones
+static cl::opt<unsigned> MV1VarCloneFDblPtrArgs(
+    PASS_NAME_STR "-mv-1varclonef-dlbptr-args", cl::init(1), cl::ReallyHidden,
+    cl::desc(
+        "Expected # of double pointer arguments in a function that may enable "
+        "Multi-Version (MV) transformation for 1-variable clones"));
 
 static cl::opt<unsigned> MVMaxValueSetSize(
     PASS_NAME_STR "-mv-max-valueset-size", cl::init(2), cl::ReallyHidden,
@@ -250,7 +280,7 @@ template <typename T> static bool isInRange(T V, T LB, T UB) {
   return (V >= LB) && (V <= UB);
 }
 
-// Count the # of Pointer Argument(s) Instructions in a given Function
+// Count the # of Pointer Argument(s) in a given Function
 static unsigned countPtrArgs(const Function &F) {
   unsigned NumPtrArgs = 0;
   for (auto &Arg : F.args()) {
@@ -258,6 +288,25 @@ static unsigned countPtrArgs(const Function &F) {
       ++NumPtrArgs;
   }
   return NumPtrArgs;
+}
+
+// Count the # of Double-Pointer Argument(s) in a given Function
+// E.g.
+// int foo(int **p, ...);
+// p is a called a double-pointer argument.
+static unsigned countDoublePtrArgs(const Function &F) {
+  unsigned NumDoublePtrArgs = 0;
+  for (auto &Arg : F.args()) {
+    if (Arg.getType()->isPointerTy()) {
+      auto PointeeTy =
+          dyn_cast<PointerType>(Arg.getType())->getPointerElementType();
+      if (!PointeeTy)
+        continue;
+      if (PointeeTy->isPointerTy())
+        ++NumDoublePtrArgs;
+    }
+  }
+  return NumDoublePtrArgs;
 }
 
 // Conduct Module Verifications:
@@ -1133,13 +1182,15 @@ void printSeeds(
     std::map<Function *, SetOfParamIndSets, CompareFuncPtr> &Seeds) {
 
   // Print msg
-  dbgs() << Msg << "\n";
+  dbgs() << Msg << ": <" << Seeds.size() << ">\n";
 
   // Print each Seed in the Seeds Map
+  unsigned Count = 0;
   for (auto &Seed : Seeds) {
     Function *F = Seed.first;
     const SetOfParamIndSets &Psets = Seed.second;
-    dbgs() << F->getName() << " -> " << Psets.toString() << "\n";
+    dbgs() << Count++ << " : " << F->getName() << " -> " << Psets.toString()
+           << "\n";
   }
 
   dbgs() << "\n";
@@ -2031,11 +2082,9 @@ struct MVFunctionInfo {
     Param2CloneMap[ConstParams] = ClonedF;
   }
   void set(unsigned Idx, ConstantInt *C) { Pos2ValMap[Idx].insert(C); }
-  void set(unsigned Size) { this->Size = Size; }
-  void set(bool Gen2VarC, bool Gen1VarC) {
-    this->Gen2VarClones = Gen2VarC;
-    this->Gen1VarClones = Gen1VarC;
-  }
+  void set(unsigned S) { Size = S; }
+  void setGen2VarC(bool V) { Gen2VarClones = V; }
+  void setGen1VarC(bool V) { Gen1VarClones = V; }
 
 #ifndef NDEBUG
   std::string toString(void) const;
@@ -2060,16 +2109,55 @@ struct MVFunctionInfo {
 //
 class FunctionSignatureMatcher {
 public:
-  FunctionSignatureMatcher(unsigned LBSize, unsigned UBSize, unsigned NumArgs,
-                           unsigned NumPtrArgs, bool IsLeafF)
-      : LBSize(LBSize), UBSize(UBSize), NumPtrArgs(NumPtrArgs),
-        IsLeafF(IsLeafF) {
-    NumArgsV.push_back(NumArgs);
-    assert(checkSanity() && "FunctionSignatureMatcher's SanityCheck failed\n");
+  FunctionSignatureMatcher(unsigned MinNumArgs, unsigned MaxNumArgs,
+                           unsigned NumPtrArgs0, unsigned NumPtrArgs1,
+                           unsigned MinNumDoublePtrArgs,
+                           unsigned MaxNumDoublePtrArgs, bool IsLeafF)
+      : MinNumArgs(MinNumArgs), MaxNumArgs(MaxNumArgs),
+        MinNumDoublePtrArgs(MinNumDoublePtrArgs),
+        MaxNumDoublePtrArgs(MaxNumDoublePtrArgs), IsLeafF(IsLeafF) {
+
+    assert((MinNumArgs <= MaxNumArgs) && "Expect MinNumArgs <= MaxNumArgs");
+    assert((MinNumDoublePtrArgs <= MaxNumDoublePtrArgs) &&
+           "Expect MinNumDoublePtrArgs <= MaxNumDoublePtrArgs");
+
+    // Note: NumPtrArgs are treated as individual values, rather than a range!
+    NumPtrArgsV.push_back(NumPtrArgs0);
+    NumPtrArgsV.push_back(NumPtrArgs1);
   }
 
-  bool checkSanity(void) const { return (LBSize <= UBSize); }
-
+  // Try to match Function* F's signature with the signature provided inside a
+  // FunctionSignatureMatcher object.
+  //
+  // E.g.
+  // FunctionSignatureMatcher FSM(3 /*MinNumArg*/,3 /*MaxNumArg*/,
+  //                              2 /*NumPtrArg0 */, 2 /*NumPtrArg1 */,
+  //                              1 /*MinNumDblPtRaRG */,1 /*MaxNumDblPtrArg */,
+  //                              true /*Leaf func */);
+  //
+  // Function * F is foo(), where
+  // foo's prototype is: void foo(int, int *, int **)
+  // and
+  // foo's callsite is: foo(1, p, q).
+  //
+  // FSM.match(F) will return true, because
+  // - NumArg matches: foo has 3 arguments
+  // - NumPtrArg matches: foo has 2 ptr arguments
+  // - NumDblPtrArg matches: foo has 1 dbl-ptr argument
+  // and
+  // - LeafFunc matches: foo is a leaf function
+  //
+  // Note:
+  // NumArg, NumPtrArg, and NumDblPtrArg are provided in pairs because
+  // the same FSM object will be used to match multiple function calls. So the
+  // match is not necessarily exact.
+  //
+  // NumArgs and NumDblPtrArgs are used as bounds of a range, so search within
+  // a range is enough. However, for NumPtrArgs, it needs to be 2 concrete
+  // values instead of a range. As a result, the 2 individual values are pushed
+  // into NumPtrArgV vector, and searched linearly using std::find() or
+  // std::find_if().
+  //
   bool match(Function *F) const {
     assert(F && "Expect Function* F be a valid pointer\n");
 
@@ -2077,28 +2165,31 @@ public:
     if (IsLeafF && !isLeafFunction(*F))
       return false;
 
-    // Check LBSize and UBSize: strict compare
-    unsigned FSize = F->getInstructionCount();
-    if (!isInRange<unsigned>(FSize, LBSize, UBSize))
+    // Check MinNumArgs, MaxNumArgs: strict compare
+    unsigned ArgCount = F->arg_size();
+    if (!isInRange<unsigned>(ArgCount, MinNumArgs, MaxNumArgs))
       return false;
 
-    // Check NumArgs: find the desired #args in the vector
-    unsigned NumArgs = F->arg_size();
-    if (std::find(NumArgsV.begin(), NumArgsV.end(), NumArgs) == NumArgsV.end())
+    // Check PtrArgCount matches by NumPtrArgs0 or NumPtrArgs1
+    unsigned PtrArgCount = countPtrArgs(*F);
+    if (std::find(NumPtrArgsV.begin(), NumPtrArgsV.end(), PtrArgCount) ==
+        NumPtrArgsV.end())
       return false;
 
-    // Check NumPtrArgs: < match
-    unsigned FnPtrArgs = countPtrArgs(*F);
-    if (FnPtrArgs < NumPtrArgs)
+    // Check MinNumDoublePtrArgs, MaxNumDoublePtrArgs: strict compare
+    unsigned DblPtrArgCount = countDoublePtrArgs(*F);
+    if (!isInRange<unsigned>(DblPtrArgCount, MinNumDoublePtrArgs,
+                             MaxNumDoublePtrArgs))
       return false;
 
     return true;
   }
 
 private:
-  unsigned LBSize, UBSize;
-  SmallVector<unsigned, 4> NumArgsV;
-  unsigned NumPtrArgs;
+  unsigned MinNumArgs, MaxNumArgs;
+  // unsigned MinNumPtrArgs, MaxNumPtrArgs;
+  std::vector<unsigned> NumPtrArgsV;
+  unsigned MinNumDoublePtrArgs, MaxNumDoublePtrArgs;
   bool IsLeafF;
 
 public:
@@ -2332,17 +2423,18 @@ std::string FunctionSignatureMatcher::toString(void) const {
   std::ostringstream S;
   S << "FunctionSignature Object: \n";
 
-  // LBSize, UBSize:
-  S << "LBSize: " << LBSize << ", UBSize: " << UBSize << "\n";
+  // unsigned MinNumArgs, MaxNumArgs:
+  S << "MinNumArgs: " << MinNumArgs << ", MaxNumArgs,: " << MaxNumArgs << "\n";
 
-  // NumArgs: a std::vector<unsigned> type
-  S << "NumArgs: ";
-  for (auto V : NumArgsV) {
+  // std::vector<unsigned> NumPtrArgsV:
+  S << "NumPtrArgs: ";
+  for (auto V : NumPtrArgsV) {
     S << V << ", ";
   }
 
-  // NumPtrArgs:
-  S << "NumPtrArgs: " << NumPtrArgs << ", ";
+  // unsigned MinNumDoublePtrArgs, MaxNumDoublePtrArgs;
+  S << "MinNumDoublePtrArgs: " << MinNumDoublePtrArgs
+    << ", MaxNumDoublePtrArgs,: " << MaxNumDoublePtrArgs << "\n";
 
   // IsLeafF:
   S << "IsLeafF: " << std::boolalpha << IsLeafF << "\n";
@@ -3069,7 +3161,7 @@ bool PostProcessor::collectPPCallInst(CallInst *CI) {
 // CloneRegistery is a map of: <Function*, ConstParamVec> -> Function
 // *
 bool PostProcessor::doCollection(void) {
-  // -Collect all Function(s) appears in CloneRegistry:
+  // Collect all Function(s) appears in CloneRegistry:
   //  . the source Function(s),
   //  . the ConstParamvVec,
   //  . and their mapped Clone(s).
@@ -3251,13 +3343,25 @@ bool PostProcessor::run(void) {
 // std::map<Function *, SetOfParamIndSets, CompareFuncPtr> MVSeeds;
 //
 bool MultiVersionImpl::doCollection(void) {
+
   // 2VarMV function matcher:
-  FunctionSignatureMatcher Match2VarMV(MVMinInstNumLargeF, MVMaxInstNumLargeF,
-                                       MV2VarCloneFuncExpectedArgs, 2, true);
+  FunctionSignatureMatcher Match2VarMV(
+      MV2VarCloneFMinExpectedArgs /* MinNumArg:8 */,
+      MV2VarCloneFMaxExpectedArgs /* MaxNumArg:9 */,
+      MV2VarCloneFMinPtrArgs /* NumPtrArg0:2 */,
+      MV2VarCloneFMaxPtrArgs /* NumPtrArg1:4 */,
+      MV2VarCloneFMinDblPtrArgs /* MinNumDoublePtrArgs:0 */,
+      MV2VarCloneFMaxDblPtrArgs /* MaxNumDoublePtrArgs:1 */,
+      true /* LeafFunc */);
 
   // 1VarMV function matcher:
-  FunctionSignatureMatcher Match1VarMV(MVMinInstNumSmallF, MVMaxInstNumSmallF,
-                                       MV1VarCloneFuncExpectedArgs, 2, true);
+  FunctionSignatureMatcher Match1VarMV(
+      MV1VarCloneFExpectedArgs /* MinNumArg:9 */,
+      MV1VarCloneFExpectedArgs /* MaxNumArg:9 */,
+      MV1VarCloneFPtrArgs /* NumPtrArg0:4 */,
+      MV1VarCloneFPtrArgs /* NumPtrArg1:4 */,
+      MV1VarCloneFDblPtrArgs /* MinNumDoublePtrArgs:1 */,
+      MV1VarCloneFDblPtrArgs /* MaxNumDoublePtrArgs:1 */, true /* LeafFunc */);
 
   LLVM_DEBUG(dbgs() << "Match2VarMV: " << Match2VarMV.toString() << "\n");
   LLVM_DEBUG(dbgs() << "Match1VarMV: " << Match1VarMV.toString() << "\n");
@@ -3283,7 +3387,7 @@ bool MultiVersionImpl::doCollection(void) {
   }
 
   // see what we have collected in MVSeeds:
-  LLVM_DEBUG({ printSeeds("MVSeeds: ", MVSeeds); });
+  LLVM_DEBUG({ printSeeds("[MVSeeds] ", MVSeeds); });
 
   return MVSeeds.size();
 }
@@ -3315,8 +3419,24 @@ bool MultiVersionImpl::doAnalysis(void) {
       };
 
   // 2VarMV function matcher:
-  FunctionSignatureMatcher Match2VarMV(MVMinInstNumLargeF, MVMaxInstNumLargeF,
-                                       MV2VarCloneFuncExpectedArgs, 2, true);
+  FunctionSignatureMatcher Match2VarMV(
+      MV2VarCloneFMinExpectedArgs /* MinNumArg:8 */,
+      MV2VarCloneFMaxExpectedArgs /* MaxNumArg:9 */,
+      MV2VarCloneFMinPtrArgs /* NumPtrArg0:2 */,
+      MV2VarCloneFMaxPtrArgs /* NumPtrArg1:4 */,
+      MV2VarCloneFMinDblPtrArgs /* MinNumDoublePtrArgs:0 */,
+      MV2VarCloneFMaxDblPtrArgs /* MaxNumDoublePtrArgs:1 */,
+      true /* LeafFunc */);
+
+  // 1VarMV function matcher:
+  FunctionSignatureMatcher Match1VarMV(
+      MV1VarCloneFExpectedArgs /* MinNumArg:9 */,
+      MV1VarCloneFExpectedArgs /* MaxNumArg:9 */,
+      MV1VarCloneFPtrArgs /* NumPtrArg0:4 */,
+      MV1VarCloneFPtrArgs /* NumPtrArg1:4 */,
+      MV1VarCloneFDblPtrArgs /* MinNumDoublePtrArgs:1 */,
+      MV1VarCloneFDblPtrArgs /* MaxNumDoublePtrArgs:1 */, true /* LeafFunc */);
+
   LLVM_DEBUG(dbgs() << "Match2VarMV: " << Match2VarMV.toString() << "\n");
 
   // 1. fill in MVFunctionInfo record for each unique Function* from MVSeed, and
@@ -3338,12 +3458,15 @@ bool MultiVersionImpl::doAnalysis(void) {
       MVFI.set(ConstParams, CloneF);
       MVFI.set(MVSeeds[OrigF]);
 
-      if (MVBypassCollectionForLITTestOnly || Match2VarMV.match(OrigF))
-        MVFI.set(true, true);
-      // ^Gen2VarClones, ^ Gen1VarClones
-      else
-        MVFI.set(true, false);
-      // ^Gen2VarClones, ^ Gen1VarClones
+      // set code-gen flags: 2var and 1var
+      bool Gen2VarClone = Match2VarMV.match(OrigF);
+      bool Gen1VarClone = Match1VarMV.match(OrigF);
+      if (MVBypassCollectionForLITTestOnly) {
+        Gen2VarClone = true;
+        Gen1VarClone = true;
+      }
+      MVFI.setGen2VarC(Gen2VarClone);
+      MVFI.setGen1VarC(Gen1VarClone);
 
       SmallVector<std::pair<unsigned, ConstantInt *>, 4> PosValVec;
       ConstParams.enumPosVal(PosValVec);
