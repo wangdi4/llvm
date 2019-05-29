@@ -7,48 +7,51 @@
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
 //
+#include "CSALoopInfo.h"
 #include "CSAMachineFunctionInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 
 namespace llvm {
-class CSASSANode;
+class CSALoopInfo;
 class MachineInstr;
 class MachineFunction;
 class CSAInstrInfo;
 class MachineRegisterInfo;
 class CSASeqOpt {
 public:
-  MachineInstr *lpInitForPickSwitchPair(MachineInstr *pickInstr,
-                                        MachineInstr *switchInstr,
-                                        unsigned &backedgeReg,
-                                        MachineInstr *cmpInstr = nullptr);
+  /// Analyze a pick and switch instruction to see if they form a header and
+  /// exit combo. Return the register that indicates the backedge, as well as
+  /// the value for the pick/switch control instruction that reads from the
+  /// outside of the loop instead of the backedge.
+  bool analyzePickSwitchPair(MachineInstr *pickInstr,
+                             MachineInstr *switchInstr,
+                             unsigned &backedgeReg,
+                             unsigned &loopSense,
+                             MachineInstr *cmpInstr = nullptr);
   bool isIntegerOpcode(unsigned opcode);
   MachineInstr *repeatOpndInSameLoop(MachineOperand &opnd, MachineInstr *lpCmp);
-  void FoldRptInit(MachineInstr *rptInstr);
-  MachineInstr *getSeqOTDef(MachineOperand &opnd);
-  void PrepRepeat();
+  MachineInstr *getSeqOTDef(MachineOperand &opnd, bool *isNegated = nullptr);
   void SequenceOPT(bool);
-  void SequenceIndv(CSASSANode *cmpNode, CSASSANode *switchNode,
-                    CSASSANode *addNode, CSASSANode *lhdrPhiNode);
+  void SequenceIndv(MachineInstr *cmpInst, MachineInstr *switchInst,
+                    MachineInstr *addInst, MachineInstr *lhdrPhiInst);
   MachineOperand CalculateTripCnt(MachineOperand &initOpnd,
                                   MachineOperand &bndOpnd, MachineInstr *pos);
   MachineOperand tripCntForSeq(MachineInstr *seqInstr, MachineInstr *pos);
   MachineOperand getTripCntForSeq(MachineInstr *seqInstr, MachineInstr *pos);
-  void MultiSequence(CSASSANode *switchNode, CSASSANode *addNode,
-                     CSASSANode *lhdrPickNode);
-  void SequenceApp(CSASSANode *switchNode, CSASSANode *addNode,
-                   CSASSANode *lhdrPhiNode);
-  void SequenceReduction(CSASSANode *switchNode, CSASSANode *addNode,
-                         CSASSANode *lhdrPhiNode);
-  void SequenceSwitchOut(CSASSANode *switchNode, CSASSANode *addNode,
-                         CSASSANode *lhdrPickNode, MachineInstr *seqIndv,
+  void MultiSequence(MachineInstr *switchInst, MachineInstr *addInst,
+                     MachineInstr *lhdrPickInst);
+  void SequenceApp(MachineInstr *switchInst, MachineInstr *addInst,
+                   MachineInstr *lhdrPhiInst);
+  void SequenceReduction(MachineInstr *switchInst, MachineInstr *addInst,
+                         MachineInstr *lhdrPhiInst);
+  void SequenceSwitchOut(MachineInstr *switchInst, MachineInstr *addInst,
+                         MachineInstr *lhdrPickInst, MachineInstr *seqIndv,
                          unsigned seqReg, unsigned backedgeReg);
-  void SequenceRepeat(CSASSANode *switchNode, CSASSANode *lhdrPhiNode);
 
   CSASeqOpt(MachineFunction *F, MachineOptimizationRemarkEmitter &ORE,
-            const char *PassName);
+            CSALoopInfoPass &LI, const char *PassName);
   /// Set lic depth for a lic out of a sequence instr
   /// \parameter lic - channel that need new depth
   /// \parameter depth - new depth for the channel
@@ -68,6 +71,8 @@ private:
   /// \brief Optimization remark emitter for users of CSASeqOpt.
   MachineOptimizationRemarkEmitter &ORE;
 
+  CSALoopInfoPass &LI;
+
   /// \brief Pass name to be used for emitting optimization remarks
   /// on behalf of the passes using CSASeqOpt.
   const char *PassName;
@@ -78,13 +83,34 @@ private:
   DenseMap<MachineInstr *, MachineOperand *> seq2tripcnt;
   DenseMap<unsigned, unsigned> reg2neg;
 
+  /// Generate repeats, strides, and sequences for a specific loop.
+  void optimizeDFLoop(const CSALoopInfo &Loop);
+
+  /// Form PICK/SWITCH operands into repeat operands when necessary.
+  MachineInstr *FormRepeat(MachineInstr *PickInst, unsigned PickBackedgeIdx,
+                           MachineInstr *SwitchInst, unsigned LoopPredicate);
+
+  /// Turn an affine variable inside the loop into a STRIDE operator.
+  MachineInstr *CreateStride(MachineInstr *PickInst, unsigned PickBackedgeIdx,
+    MachineInstr *SwitchInst, unsigned LoopPredicate,
+    MachineInstr *AddInst);
+
+  /// Convert a STRIDE operator into a SEQOT operator.
+  MachineInstr *StrideToSeq(MachineInstr *cmpInst, MachineInstr *switchInst,
+                            MachineInstr *addInst, MachineInstr *strideInst,
+                            unsigned SwitchBackedgeIdx, unsigned LoopPredicate);
+
+  MachineOperand *getInvariantOperand(MachineOperand &Op);
+
+  unsigned negateRegister(unsigned Register);
+
   /// This is a mapping of the loop control edges to LIC predicate groups.
   /// Don't use this mapping directly, go through getLoopPredicate instead.
   DenseMap<unsigned, std::shared_ptr<CSALicGroup>> loopPredicateGroups;
 
   /// Get a LIC group that is appropriate for the predicate output of a
   /// sequence optimization.
-  std::shared_ptr<CSALicGroup> getLoopPredicate(CSASSANode *lhdrPhiNode);
+  std::shared_ptr<CSALicGroup> getLoopPredicate(MachineInstr *lhdrPhi);
 
   /// Collect a list of REPEAT and STRIDE operations that were created by this
   /// pass.

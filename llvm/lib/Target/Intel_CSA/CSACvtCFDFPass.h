@@ -21,7 +21,6 @@
 #include "MachineCDG.h"
 #include "llvm/ADT/IntEqClasses.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
@@ -88,7 +87,7 @@ public:
     AU.addRequired<MachineBranchProbabilityInfo>();
     AU.addRequired<MachineDominatorTree>();
     AU.addRequired<MachinePostDominatorTree>();
-    AU.addRequired<AAResultsWrapperPass>();
+    AU.addRequired<CSALoopInfoPass>();
     AU.setPreservesAll();
     MachineFunctionPass::getAnalysisUsage(AU);
   }

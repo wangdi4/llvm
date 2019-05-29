@@ -1170,25 +1170,31 @@ def CVTF32F64 : CvtOpR<   CVT, fpround,    Tf32, Tf64, IICvtFF>;
 def CVTF64F32 : CvtOpR<   CVT, fpextend,   Tf64, Tf32, IICvtFF>;
 
 def AND       : GenericOp<"and">;
+let isCommutable = 1 in {
 def AND1      : BinOp<   AND,    and,    Ti1,  IIALU>;
 def AND8      : BinOp<   AND,    and,    Ti8,  IIALU>;
 def AND16     : BinOp<   AND,    and,    Ti16, IIALU>;
 def AND32     : BinOp<   AND,    and,    Ti32, IIALU>;
 def AND64     : BinOp<   AND,    and,    Ti64, IIALU>;
+}
 
 def OR        : GenericOp<"or">;
+let isCommutable = 1 in {
 def OR1       : BinOp<   OR,     or,     Ti1,  IIALU>;
 def OR8       : BinOp<   OR,     or,     Ti8,  IIALU>;
 def OR16      : BinOp<   OR,     or,     Ti16, IIALU>;
 def OR32      : BinOp<   OR,     or,     Ti32, IIALU>;
 def OR64      : BinOp<   OR,     or,     Ti64, IIALU>;
+}
 
 def XOR       : GenericOp<"xor">;
+let isCommutable = 1 in {
 def XOR1      : BinOp<   XOR,    xor,    Ti1,  IIALU>;
 def XOR8      : BinOp<   XOR,    xor,    Ti8,  IIALU>;
 def XOR16     : BinOp<   XOR,    xor,    Ti16, IIALU>;
 def XOR32     : BinOp<   XOR,    xor,    Ti32, IIALU>;
 def XOR64     : BinOp<   XOR,    xor,    Ti64, IIALU>;
+}
 
 def SLL       : GenericOp<"sll">;
 def SLL8      : ShiftOp< SLL,    shl,    Ti8,  IIShft>;
@@ -1212,10 +1218,12 @@ def : Pat<(i1 (add i1:$op1, i1:$op2)),       (XOR1 $op1,$op2)>;
 def : Pat<(i1 (add i1:$op1, (i1 imm:$imm))), (XOR1 $op1,$imm)>;
 
 def ADD       : GenericOp<"add">;
+let isCommutable = 1 in {
 def ADD8      : BinOp<   ADD,    add,    Ti8,  IIALU>;
 def ADD16     : BinOp<   ADD,    add,    Ti16, IIALU>;
 def ADD32     : BinOp<   ADD,    add,    Ti32, IIALU>;
 def ADD64     : BinOp<   ADD,    add,    Ti64, IIALU>;
+}
 
 def ADC       : GenericOp<"adc">;
 def ADC8      : BinOpC<  ADC,            Ti8,  IIALU>;
@@ -1244,10 +1252,12 @@ def SUBF32    : BinOpR<  SUB,    fsub,   Tf32, IIAddF32>;
 def SUBF64    : BinOpR<  SUB,    fsub,   Tf64, IIAddF64>;
 
 def MUL       : GenericOp<"mul">;
+let isCommutable = 1 in {
 def MUL8      : BinOp<   MUL,    mul,    Ti8,  IIMulI8>;
 def MUL16     : BinOp<   MUL,    mul,    Ti16, IIMulI16>;
 def MUL32     : BinOp<   MUL,    mul,    Ti32, IIMulI32>;
 def MUL64     : BinOp<   MUL,    mul,    Ti64, IIMulI64>;
+}
 
 def MULF32    : BinOpR<  MUL,    fmul,   Tf32, IIMulF32>;
 def MULF64    : BinOpR<  MUL,    fmul,   Tf64, IIMulF64>;
@@ -1747,6 +1757,14 @@ def REPLICATE1 : FMTGEN<REPLICATE, Ti1,
   (ins RCLi1:$inchan, i1imm:$match, i64imm:$count, i64imm:$initpos),
   "replicate1\t$outchan, $inchan, $match, $count, $initpos",
   [], [], IIALU>;
+
+def REPLACE    : GenericOp<"replace">;
+def REPLACE1   : FMTGEN<REPLACE, Ti1,
+  (outs I1:$out),
+  (ins RCLi1:$in, i64imm:$patlen, i64imm:$patbits, i64imm:$repllen, i64imm:$replbits),
+  "replace1 $out, $in, $patlen, $patbits, $repllen, $replbits", []> {
+    let isMultiTriggered = 1;
+}
 
 // TBD(jsukha): This info probably needs predicates
 // Also, the input can probably be an I0 channel.

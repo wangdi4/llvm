@@ -57,3 +57,13 @@ void CSALoopInfo::print(raw_ostream &OS) const {
   }
 }
 #endif
+
+char CSALoopInfoPass::ID = 0;
+INITIALIZE_PASS_BEGIN(CSALoopInfoPass, "csa-loops",
+                      "CSA Dataflow Loop Info", true, false)
+INITIALIZE_PASS_END(CSALoopInfoPass, "csa-loops",
+                    "CSA Dataflow Loop Info", true, false)
+
+void CSALoopInfoPass::addLoop(CSALoopInfo loop) {
+  Loops.emplace_back(std::move(loop));
+}

@@ -70,7 +70,7 @@ INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_PASS_DEPENDENCY(ControlDependenceGraph)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(MachinePostDominatorTree)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(CSALoopInfoPass)
 INITIALIZE_PASS_END(CSACvtCFDFPass, "csa-cvt-cfdf",
                     "CSA Convert Control Flow to Data Flow", true, false)
 
@@ -751,6 +751,12 @@ void CSACvtCFDFPass::processLoop(MachineLoop *L) {
 
   // If pipeline depth has been specified, add token control
   limitPipelineDepth(L);
+
+  // Move the loop into the LoopInfo for use after dataflow conversion.
+  // Skip pipelined loops for now--we generally can't do later optimizations on
+  // them anyways because the iterations are out of order.
+  if (pipeliningDegree <= 1)
+    getAnalysis<CSALoopInfoPass>().addLoop(std::move(DFLoop));
 }
 
 void CSACvtCFDFPass::limitPipelineDepth(MachineLoop *L)

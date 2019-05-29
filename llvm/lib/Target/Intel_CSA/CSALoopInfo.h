@@ -19,10 +19,13 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/PassRegistry.h"
 
 namespace llvm {
 class MachineInstr;
 class raw_ostream;
+
+void initializeCSALoopInfoPassPass(PassRegistry &);
 
 /// A representation of a loop on dataflow instructions.
 ///
@@ -38,6 +41,10 @@ class raw_ostream;
 /// this construct.
 class CSALoopInfo {
 public:
+  CSALoopInfo() = default;
+  CSALoopInfo(const CSALoopInfo &) = delete;
+  CSALoopInfo(CSALoopInfo &&) = default;
+
   typedef std::vector<MachineInstr *>::const_iterator iterator;
   typedef iterator_range<iterator> instr_iterator_range;
 
@@ -99,6 +106,33 @@ private:
   /// and the list of switches.
   typedef std::pair<unsigned, std::vector<MachineInstr *>> ExitInfo;
   SmallVector<ExitInfo, 1> Exits;
+};
+
+class CSALoopInfoPass : public MachineFunctionPass {
+  using LoopsVec = std::vector<CSALoopInfo>;
+  LoopsVec Loops;
+
+public:
+  static char ID;
+  CSALoopInfoPass() : MachineFunctionPass(ID) {
+    initializeCSALoopInfoPassPass(*PassRegistry::getPassRegistry());
+  }
+  CSALoopInfoPass(const CSALoopInfoPass &) = delete;
+  CSALoopInfoPass &operator=(const CSALoopInfoPass &) = delete;
+
+  using iterator = LoopsVec::const_iterator;
+  inline iterator begin() const { return Loops.begin(); }
+  inline iterator end() const { return Loops.end(); }
+  bool empty() const { return Loops.empty(); }
+
+  bool runOnMachineFunction(MachineFunction &F) override { return false; }
+  void releaseMemory() override { Loops.clear(); }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+    MachineFunctionPass::getAnalysisUsage(AU);
+  }
+
+  void addLoop(CSALoopInfo loop);
 };
 
 } // namespace llvm
