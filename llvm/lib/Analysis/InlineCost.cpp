@@ -4294,6 +4294,11 @@ InlineResult CallAnalyzer::analyzeCall(CallBase &Call,
       *ReasonAddr = NinlrCalleeHasExceptionHandling;
       return false;
     }
+    if (Call.getCaller() == Callee &&
+      Callee->hasFnAttribute("no-more-recursive-inlining")) {
+      *ReasonAddr = NinlrRecursive;
+      return false;
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
