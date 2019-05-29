@@ -3298,20 +3298,6 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
   // Merge regparm attribute.
   if (OldTypeInfo.getHasRegParm() != NewTypeInfo.getHasRegParm() ||
       OldTypeInfo.getRegParm() != NewTypeInfo.getRegParm()) {
-#if INTEL_CUSTOMIZATION
-    // CQ#374880: If regparm attribute is available in the old declaration -
-    // take it. Otherwise take regparm attribute from the new declaration.
-    if (getLangOpts().IntelCompat) {
-      // Emit a warning about incompatible declaration if regparm attributes
-      // are different.
-      if (OldTypeInfo.getHasRegParm() && NewTypeInfo.getHasRegParm()) {
-        bool isOldAADefiniton = Old->isThisDeclarationADefinition();
-        Diag(New->getLocation(), diag::warn_func_redecl_conflicting_types)
-             << New->getDeclName() << isOldAADefiniton;
-        Diag(OldLocation, PrevDiag) << Old << Old->getType();
-      }
-    } else
-#endif // INTEL_CUSTOMIZATION
     if (NewTypeInfo.getHasRegParm()) {
       Diag(New->getLocation(), diag::err_regparm_mismatch)
         << NewType->getRegParmType()
@@ -3320,14 +3306,8 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
       return true;
     }
 
-#if INTEL_CUSTOMIZATION
-    // CQ#374880. If regparm attribute is available in the old declaration -
-    // take it. Otherwise take regparm attribute from the new declaration.
-    if (!getLangOpts().IntelCompat || OldTypeInfo.getHasRegParm()) {
-#endif // INTEL_CUSTOMIZATION
     NewTypeInfo = NewTypeInfo.withRegParm(OldTypeInfo.getRegParm());
     RequiresAdjustment = true;
-    } // INTEL
   }
 
   // Merge ns_returns_retained attribute.
