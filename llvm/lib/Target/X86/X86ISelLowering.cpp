@@ -1668,6 +1668,8 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::CONCAT_VECTORS,     VT, Custom);
 
       setOperationAction(ISD::FNEG,               VT, Custom);
+      setOperationAction(ISD::FABS,               VT, Custom);
+      setOperationAction(ISD::FCOPYSIGN,          VT, Custom);
       setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
     };
 
@@ -1680,6 +1682,8 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::FDIV,                 MVT::f16, Legal);
     setOperationAction(ISD::FSQRT,                MVT::f16, Legal);
     setOperationAction(ISD::FNEG,                 MVT::f16, Custom);
+    setOperationAction(ISD::FABS,                 MVT::f16, Custom);
+    setOperationAction(ISD::FCOPYSIGN,            MVT::f16, Custom);
 
     if (Subtarget.useAVX512Regs()) {
       setGroup(MVT::v32f16);
@@ -19401,10 +19405,18 @@ static SDValue LowerFABSorFNEG(SDValue Op, SelectionDAG &DAG) {
   MVT VT = Op.getSimpleValueType();
 
   bool IsF128 = (VT == MVT::f128);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  assert(VT.isFloatingPoint() && VT != MVT::f80 &&
+         DAG.getTargetLoweringInfo().isTypeLegal(VT) &&
+         "Unexpected type in LowerFABSorFNEG");
+#else  // INTEL_FEATURE_ISA_FP16
   assert((VT == MVT::f64 || VT == MVT::f32 || VT == MVT::f128 ||
           VT == MVT::v2f64 || VT == MVT::v4f64 || VT == MVT::v4f32 ||
           VT == MVT::v8f32 || VT == MVT::v8f64 || VT == MVT::v16f32) &&
          "Unexpected type in LowerFABSorFNEG");
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // FIXME: Use function attribute "OptimizeForSize" and/or CodeGenOpt::Level to
   // decide if we should generate a 16-byte constant mask when we only need 4 or
@@ -19417,7 +19429,15 @@ static SDValue LowerFABSorFNEG(SDValue Op, SelectionDAG &DAG) {
   bool IsFakeVector = !VT.isVector() && !IsF128;
   MVT LogicVT = VT;
   if (IsFakeVector)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    LogicVT = (VT == MVT::f64) ? MVT::v2f64 :
+              (VT == MVT::f32) ? MVT::v4f32 :
+                                 MVT::v8f16;
+#else  // INTEL_FEATURE_ISA_FP16
     LogicVT = (VT == MVT::f64) ? MVT::v2f64 : MVT::v4f32;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   unsigned EltBits = VT.getScalarSizeInBits();
   // For FABS, mask is 0x7f...; for FNEG, mask is 0x80...
@@ -19461,10 +19481,18 @@ static SDValue LowerFCOPYSIGN(SDValue Op, SelectionDAG &DAG) {
   // At this point the operands and the result should have the same
   // type, and that won't be f80 since that is not custom lowered.
   bool IsF128 = (VT == MVT::f128);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  assert(VT.isFloatingPoint() && VT != MVT::f80 &&
+         DAG.getTargetLoweringInfo().isTypeLegal(VT) &&
+         "Unexpected type in LowerFCOPYSIGN");
+#else  // INTEL_FEATURE_ISA_FP16
   assert((VT == MVT::f64 || VT == MVT::f32 || VT == MVT::f128 ||
           VT == MVT::v2f64 || VT == MVT::v4f64 || VT == MVT::v4f32 ||
           VT == MVT::v8f32 || VT == MVT::v8f64 || VT == MVT::v16f32) &&
          "Unexpected type in LowerFCOPYSIGN");
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   const fltSemantics &Sem = SelectionDAG::EVTToAPFloatSemantics(VT);
 
@@ -19476,7 +19504,15 @@ static SDValue LowerFCOPYSIGN(SDValue Op, SelectionDAG &DAG) {
   bool IsFakeVector = !VT.isVector() && !IsF128;
   MVT LogicVT = VT;
   if (IsFakeVector)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+    LogicVT = (VT == MVT::f64) ? MVT::v2f64 :
+              (VT == MVT::f32) ? MVT::v4f32 :
+                                 MVT::v8f16;
+#else  // INTEL_FEATURE_ISA_FP16
     LogicVT = (VT == MVT::f64) ? MVT::v2f64 : MVT::v4f32;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // The mask constants are automatically splatted for vector types.
   unsigned EltSizeInBits = VT.getScalarSizeInBits();
