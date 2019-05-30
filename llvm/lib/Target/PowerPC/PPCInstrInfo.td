@@ -893,11 +893,24 @@ def pred : Operand<OtherVT> {
 }
 
 // Define PowerPC specific addressing mode.
-def iaddr  : ComplexPattern<iPTR, 2, "SelectAddrImm",    [], []>;
-def xaddr  : ComplexPattern<iPTR, 2, "SelectAddrIdx",    [], []>;
+
+// d-form
+def iaddr    : ComplexPattern<iPTR, 2, "SelectAddrImm",     [], []>;  // "stb"
+// ds-form
+def iaddrX4  : ComplexPattern<iPTR, 2, "SelectAddrImmX4",   [], []>;  // "std"
+// dq-form
+def iaddrX16 : ComplexPattern<iPTR, 2, "SelectAddrImmX16",  [], []>;  // "stxv"
+
+// Below forms are all x-form addressing mode, use three different ones so we
+// can make a accurate check for x-form instructions in ISEL.
+// x-form addressing mode whose associated diplacement form is D.
+def xaddr  : ComplexPattern<iPTR, 2, "SelectAddrIdx",     [], []>;    // "stbx"
+// x-form addressing mode whose associated diplacement form is DS.
+def xaddrX4 : ComplexPattern<iPTR, 2, "SelectAddrIdxX4",    [], []>;  // "stdx"
+// x-form addressing mode whose associated diplacement form is DQ.
+def xaddrX16 : ComplexPattern<iPTR, 2, "SelectAddrIdxX16",   [], []>; // "stxvx"
+
 def xoaddr : ComplexPattern<iPTR, 2, "SelectAddrIdxOnly",[], []>;
-def ixaddr : ComplexPattern<iPTR, 2, "SelectAddrImmX4",  [], []>;  // "std"
-def iqaddr : ComplexPattern<iPTR, 2, "SelectAddrImmX16",  [], []>; // "stxv"
 
 // The address in a single register. This is used with the SjLj
 // pseudo-instructions.
@@ -2533,6 +2546,7 @@ def CRORC  : XLForm_1<19, 417, (outs crbitrc:$CRD),
                       [(set i1:$CRD, (or i1:$CRA, (not i1:$CRB)))]>;
 
 let isCodeGenOnly = 1 in {
+let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
 def CRSET  : XLForm_1_ext<19, 289, (outs crbitrc:$dst), (ins),
               "creqv $dst, $dst, $dst", IIC_BrCR,
               [(set i1:$dst, 1)]>;
@@ -2540,6 +2554,7 @@ def CRSET  : XLForm_1_ext<19, 289, (outs crbitrc:$dst), (ins),
 def CRUNSET: XLForm_1_ext<19, 193, (outs crbitrc:$dst), (ins),
               "crxor $dst, $dst, $dst", IIC_BrCR,
               [(set i1:$dst, 0)]>;
+}
 
 let Defs = [CR1EQ], CRD = 6 in {
 def CR6SET  : XLForm_1_ext<19, 289, (outs), (ins),

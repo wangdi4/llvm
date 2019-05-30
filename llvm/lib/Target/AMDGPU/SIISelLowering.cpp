@@ -93,11 +93,10 @@ static cl::opt<bool> EnableVGPRIndexMode(
   cl::desc("Use GPR indexing mode instead of movrel for vector indexing"),
   cl::init(false));
 
-static cl::opt<unsigned> AssumeFrameIndexHighZeroBits(
-  "amdgpu-frame-index-zero-bits",
-  cl::desc("High bits of frame index assumed to be zero"),
-  cl::init(5),
-  cl::ReallyHidden);
+static cl::opt<bool> DisableLoopAlignment(
+  "amdgpu-disable-loop-alignment",
+  cl::desc("Do not align and prefetch loops"),
+  cl::init(false));
 
 static unsigned findFirstFreeSGPR(CCState &CCInfo) {
   unsigned NumSGPRs = AMDGPU::SGPR_32RegClass.getNumRegs();
@@ -516,7 +515,7 @@ SITargetLowering::SITargetLowering(const TargetMachine &TM,
 
     // F16 - VOP3 Actions.
     setOperationAction(ISD::FMA, MVT::f16, Legal);
-    if (!Subtarget->hasFP16Denormals())
+    if (!Subtarget->hasFP16Denormals() && STI.hasMadF16())
       setOperationAction(ISD::FMAD, MVT::f16, Legal);
 
     for (MVT VT : {MVT::v2i16, MVT::v2f16, MVT::v4i16, MVT::v4f16}) {
@@ -2054,13 +2053,14 @@ SDValue SITargetLowering::LowerFormalArguments(
     Reg = MF.addLiveIn(Reg, RC);
     SDValue Val = DAG.getCopyFromReg(Chain, DL, Reg, VT);
 
-    if (Arg.Flags.isSRet() && !getSubtarget()->enableHugePrivateBuffer()) {
+    if (Arg.Flags.isSRet()) {
       // The return object should be reasonably addressable.
 
       // FIXME: This helps when the return is a real sret. If it is a
       // automatically inserted sret (i.e. CanLowerReturn returns false), an
       // extra copy is inserted in SelectionDAGBuilder which obscures this.
-      unsigned NumBits = 32 - AssumeFrameIndexHighZeroBits;
+      unsigned NumBits
+        = 32 - getSubtarget()->getKnownHighZeroBitsForFrameIndex();
       Val = DAG.getNode(ISD::AssertZext, DL, VT, Val,
         DAG.getValueType(EVT::getIntegerVT(*DAG.getContext(), NumBits)));
     }
@@ -2587,24 +2587,31 @@ SDValue SITargetLowering::LowerCall(CallLoweringInfo &CLI,
   if (!IsSibCall) {
     Chain = DAG.getCALLSEQ_START(Chain, 0, 0, DL);
 
+    SmallVector<SDValue, 4> CopyFromChains;
+
     unsigned OffsetReg = Info->getScratchWaveOffsetReg();
 
     // In the HSA case, this should be an identity copy.
     SDValue ScratchRSrcReg
       = DAG.getCopyFromReg(Chain, DL, Info->getScratchRSrcReg(), MVT::v4i32);
     RegsToPass.emplace_back(AMDGPU::SGPR0_SGPR1_SGPR2_SGPR3, ScratchRSrcReg);
+    CopyFromChains.push_back(ScratchRSrcReg.getValue(1));
 
     // TODO: Don't hardcode these registers and get from the callee function.
     SDValue ScratchWaveOffsetReg
       = DAG.getCopyFromReg(Chain, DL, OffsetReg, MVT::i32);
     RegsToPass.emplace_back(AMDGPU::SGPR4, ScratchWaveOffsetReg);
+    CopyFromChains.push_back(ScratchWaveOffsetReg.getValue(1));
 
     if (!Info->isEntryFunction()) {
       // Avoid clobbering this function's FP value. In the current convention
       // callee will overwrite this, so do save/restore around the call site.
       CallerSavedFP = DAG.getCopyFromReg(Chain, DL,
                                          Info->getFrameOffsetReg(), MVT::i32);
+      CopyFromChains.push_back(CallerSavedFP.getValue(1));
     }
+
+    Chain = DAG.getTokenFactor(DL, CopyFromChains);
   }
 
   SmallVector<SDValue, 8> MemOpChains;
@@ -8718,8 +8725,10 @@ unsigned SITargetLowering::getFusedOpcode(const SelectionDAG &DAG,
 
   // Only do this if we are not trying to support denormals. v_mad_f32 does not
   // support denormals ever.
-  if ((VT == MVT::f32 && !Subtarget->hasFP32Denormals()) ||
-      (VT == MVT::f16 && !Subtarget->hasFP16Denormals()))
+  if (((VT == MVT::f32 && !Subtarget->hasFP32Denormals()) ||
+       (VT == MVT::f16 && !Subtarget->hasFP16Denormals() &&
+        getSubtarget()->hasMadF16())) &&
+       isOperationLegal(ISD::FMAD, VT))
     return ISD::FMAD;
 
   const TargetOptions &Options = DAG.getTarget().Options;
@@ -9956,14 +9965,81 @@ void SITargetLowering::computeKnownBitsForFrameIndex(const SDValue Op,
   TargetLowering::computeKnownBitsForFrameIndex(Op, Known, DemandedElts,
                                                 DAG, Depth);
 
-  if (getSubtarget()->enableHugePrivateBuffer())
-    return;
-
-  // Technically it may be possible to have a dispatch with a single workitem
-  // that uses the full private memory size, but that's not really useful. We
-  // can't use vaddr in MUBUF instructions if we don't know the address
+  // Set the high bits to zero based on the maximum allowed scratch size per
+  // wave. We can't use vaddr in MUBUF instructions if we don't know the address
   // calculation won't overflow, so assume the sign bit is never set.
-  Known.Zero.setHighBits(AssumeFrameIndexHighZeroBits);
+  Known.Zero.setHighBits(getSubtarget()->getKnownHighZeroBitsForFrameIndex());
+}
+
+unsigned SITargetLowering::getPrefLoopAlignment(MachineLoop *ML) const {
+  const unsigned PrefAlign = TargetLowering::getPrefLoopAlignment(ML);
+  const unsigned CacheLineAlign = 6; // log2(64)
+
+  // Pre-GFX10 target did not benefit from loop alignment
+  if (!ML || DisableLoopAlignment ||
+      (getSubtarget()->getGeneration() < AMDGPUSubtarget::GFX10) ||
+      getSubtarget()->hasInstFwdPrefetchBug())
+    return PrefAlign;
+
+  // On GFX10 I$ is 4 x 64 bytes cache lines.
+  // By default prefetcher keeps one cache line behind and reads two ahead.
+  // We can modify it with S_INST_PREFETCH for larger loops to have two lines
+  // behind and one ahead.
+  // Therefor we can benefit from aligning loop headers if loop fits 192 bytes.
+  // If loop fits 64 bytes it always spans no more than two cache lines and
+  // does not need an alignment.
+  // Else if loop is less or equal 128 bytes we do not need to modify prefetch,
+  // Else if loop is less or equal 192 bytes we need two lines behind.
+
+  const SIInstrInfo *TII = getSubtarget()->getInstrInfo();
+  const MachineBasicBlock *Header = ML->getHeader();
+  if (Header->getAlignment() != PrefAlign)
+    return Header->getAlignment(); // Already processed.
+
+  unsigned LoopSize = 0;
+  for (const MachineBasicBlock *MBB : ML->blocks()) {
+    // If inner loop block is aligned assume in average half of the alignment
+    // size to be added as nops.
+    if (MBB != Header)
+      LoopSize += (1 << MBB->getAlignment()) / 2;
+
+    for (const MachineInstr &MI : *MBB) {
+      LoopSize += TII->getInstSizeInBytes(MI);
+      if (LoopSize > 192)
+        return PrefAlign;
+    }
+  }
+
+  if (LoopSize <= 64)
+    return PrefAlign;
+
+  if (LoopSize <= 128)
+    return CacheLineAlign;
+
+  // If any of parent loops is surrounded by prefetch instructions do not
+  // insert new for inner loop, which would reset parent's settings.
+  for (MachineLoop *P = ML->getParentLoop(); P; P = P->getParentLoop()) {
+    if (MachineBasicBlock *Exit = P->getExitBlock()) {
+      auto I = Exit->getFirstNonDebugInstr();
+      if (I != Exit->end() && I->getOpcode() == AMDGPU::S_INST_PREFETCH)
+        return CacheLineAlign;
+    }
+  }
+
+  MachineBasicBlock *Pre = ML->getLoopPreheader();
+  MachineBasicBlock *Exit = ML->getExitBlock();
+
+  if (Pre && Exit) {
+    BuildMI(*Pre, Pre->getFirstTerminator(), DebugLoc(),
+            TII->get(AMDGPU::S_INST_PREFETCH))
+      .addImm(1); // prefetch 2 lines behind PC
+
+    BuildMI(*Exit, Exit->getFirstNonDebugInstr(), DebugLoc(),
+            TII->get(AMDGPU::S_INST_PREFETCH))
+      .addImm(2); // prefetch 1 line behind PC
+  }
+
+  return CacheLineAlign;
 }
 
 LLVM_ATTRIBUTE_UNUSED
