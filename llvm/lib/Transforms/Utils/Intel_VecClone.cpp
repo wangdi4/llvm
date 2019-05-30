@@ -171,9 +171,7 @@
 
 using namespace llvm;
 
-bool VecClone::runOnModule(Module &M) {
-  return Impl.runImpl(M);
-}
+VecClone::VecClone() : ModulePass(ID) { }
 
 void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
   // Placeholder for any new pass dependencies. For now, none are needed.
@@ -183,14 +181,14 @@ void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
 // The following two functions are virtual and they are overloaded when
 // VecClone is called by language-specific optimizations. Their default
 // implementation is empty.
-void VecClonePass::handleLanguageSpecifics(Function &F, PHINode *Phi,
+void VecClone::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                        Function *Clone,
                                        BasicBlock *EntryBlock) {}
 
-void VecClonePass::languageSpecificInitializations(Module &M) {}
+void VecClone::languageSpecificInitializations(Module &M) {}
 #endif // INTEL_CUSTOMIZATION
 
-void VecClonePass::insertInstruction(Instruction *Inst, BasicBlock *BB)
+void VecClone::insertInstruction(Instruction *Inst, BasicBlock *BB)
 {
   // This function inserts instructions in a way that groups like instructions
   // together for debuggability/readability purposes. This was designed to make
@@ -221,7 +219,7 @@ void VecClonePass::insertInstruction(Instruction *Inst, BasicBlock *BB)
   }
 }
 
-bool VecClonePass::hasComplexType(Function *F)
+bool VecClone::hasComplexType(Function *F)
 {
   Function::arg_iterator ArgListIt = F->arg_begin();
   Function::arg_iterator ArgListEnd = F->arg_end();
@@ -236,7 +234,7 @@ bool VecClonePass::hasComplexType(Function *F)
   return false;
 }
 
-Function* VecClonePass::CloneFunction(Function &F, VectorVariant &V)
+Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
 {
 
   LLVM_DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
@@ -333,7 +331,7 @@ Function* VecClonePass::CloneFunction(Function &F, VectorVariant &V)
   return Clone;
 }
 
-bool VecClonePass::isVectorOrLinearParamStore(
+bool VecClone::isVectorOrLinearParamStore(
     Function *Clone,
     std::vector<VectorKind> &ParmKinds,
     Instruction *Inst)
@@ -355,7 +353,7 @@ bool VecClonePass::isVectorOrLinearParamStore(
   return false;
 }
 
-BasicBlock* VecClonePass::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
+BasicBlock* VecClone::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
                                          BasicBlock *EntryBlock)
 {
 
@@ -422,7 +420,7 @@ BasicBlock* VecClonePass::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
   return LoopBlock;
 }
 
-BasicBlock* VecClonePass::splitLoopIntoReturn(Function *Clone,
+BasicBlock* VecClone::splitLoopIntoReturn(Function *Clone,
                                           BasicBlock *LoopBlock)
 {
 
@@ -473,7 +471,7 @@ BasicBlock* VecClonePass::splitLoopIntoReturn(Function *Clone,
   return ReturnBlock;
 }
 
-void VecClonePass::updateReturnPredecessors(Function *Clone,
+void VecClone::updateReturnPredecessors(Function *Clone,
                                         BasicBlock *LoopExitBlock,
                                         BasicBlock *ReturnBlock)
 { 
@@ -520,7 +518,7 @@ void VecClonePass::updateReturnPredecessors(Function *Clone,
   }
 }
 
-BasicBlock* VecClonePass::createLoopExit(Function *Clone, BasicBlock *ReturnBlock)
+BasicBlock* VecClone::createLoopExit(Function *Clone, BasicBlock *ReturnBlock)
 {
   BasicBlock *LoopExitBlock = BasicBlock::Create(Clone->getContext(),
                                                  "simd.loop.exit",
@@ -530,7 +528,7 @@ BasicBlock* VecClonePass::createLoopExit(Function *Clone, BasicBlock *ReturnBloc
   return LoopExitBlock;
 }
 
-PHINode* VecClonePass::createPhiAndBackedgeForLoop(
+PHINode* VecClone::createPhiAndBackedgeForLoop(
     Function *Clone,
     BasicBlock *EntryBlock,
     BasicBlock *LoopBlock,
@@ -569,7 +567,7 @@ PHINode* VecClonePass::createPhiAndBackedgeForLoop(
   return Phi;
 }
 
-Instruction* VecClonePass::expandVectorParameters(
+Instruction* VecClone::expandVectorParameters(
     Function *Clone,
     VectorVariant &V,
     BasicBlock *EntryBlock,
@@ -701,7 +699,7 @@ Instruction* VecClonePass::expandVectorParameters(
   return Mask;
 }
 
-Instruction* VecClonePass::createExpandedReturn(Function *Clone,
+Instruction* VecClone::createExpandedReturn(Function *Clone,
                                             BasicBlock *EntryBlock,
                                             VectorType *ReturnType)
 {
@@ -723,7 +721,7 @@ Instruction* VecClonePass::createExpandedReturn(Function *Clone,
   return VecCast;
 }
 
-Instruction* VecClonePass::expandReturn(Function *Clone, BasicBlock *EntryBlock,
+Instruction* VecClone::expandReturn(Function *Clone, BasicBlock *EntryBlock,
                                     BasicBlock *LoopBlock,
                                     BasicBlock *ReturnBlock,
                                     std::vector<ParmRef*>& VectorParmMap)
@@ -867,7 +865,7 @@ Instruction* VecClonePass::expandReturn(Function *Clone, BasicBlock *EntryBlock,
   return VecReturn;
 }
 
-Instruction* VecClonePass::expandVectorParametersAndReturn(
+Instruction* VecClone::expandVectorParametersAndReturn(
     Function *Clone,
     VectorVariant &V,
     Instruction **Mask,
@@ -934,7 +932,7 @@ Instruction* VecClonePass::expandVectorParametersAndReturn(
   return ExpandedReturn;
 }
 
-bool VecClonePass::typesAreCompatibleForLoad(Type *GepType, Type *LoadType)
+bool VecClone::typesAreCompatibleForLoad(Type *GepType, Type *LoadType)
 {
   // GepType will always be a pointer since this refers to an alloca for a
   // vector.
@@ -1001,7 +999,7 @@ bool VecClonePass::typesAreCompatibleForLoad(Type *GepType, Type *LoadType)
   return false;
 }
 
-void VecClonePass::updateScalarMemRefsWithVector(
+void VecClone::updateScalarMemRefsWithVector(
     Function *Clone,
     Function &F,
     BasicBlock *EntryBlock,
@@ -1078,7 +1076,7 @@ void VecClonePass::updateScalarMemRefsWithVector(
   LLVM_DEBUG(Clone->dump());
 }
 
-Instruction* VecClonePass::generateStrideForParameter(
+Instruction* VecClone::generateStrideForParameter(
     Function *Clone,
     Argument *Arg,
     Instruction *ParmUser,
@@ -1186,7 +1184,7 @@ Instruction* VecClonePass::generateStrideForParameter(
   return StrideInst;
 }
 
-void VecClonePass::updateLinearReferences(Function *Clone, Function &F,
+void VecClone::updateLinearReferences(Function *Clone, Function &F,
                                       VectorVariant &V, PHINode *Phi)
 {
   // Add stride to parameters marked as linear. This is done by finding all
@@ -1385,7 +1383,7 @@ void VecClonePass::updateLinearReferences(Function *Clone, Function &F,
   LLVM_DEBUG(Clone->dump());
 }
 
-void VecClonePass::updateReturnBlockInstructions(
+void VecClone::updateReturnBlockInstructions(
     Function *Clone,
     BasicBlock *ReturnBlock,
     Instruction *ExpandedReturn)
@@ -1438,7 +1436,7 @@ void VecClonePass::updateReturnBlockInstructions(
   LLVM_DEBUG(Clone->dump());
 }
 
-int VecClonePass::getParmIndexInFunction(Function *F, Value *Parm)
+int VecClone::getParmIndexInFunction(Function *F, Value *Parm)
 {
   Function::arg_iterator ArgIt = F->arg_begin();
   Function::arg_iterator ArgEnd = F->arg_end();
@@ -1449,7 +1447,7 @@ int VecClonePass::getParmIndexInFunction(Function *F, Value *Parm)
   return -1;
 }
 
-CallInst *VecClonePass::insertBeginRegion(Module &M, Function *Clone, Function &F,
+CallInst *VecClone::insertBeginRegion(Module &M, Function *Clone, Function &F,
                                       VectorVariant &V,
                                       BasicBlock *EntryBlock) {
   SmallDenseMap<StringRef, SmallVector<Value *, 4>> DirectiveStrMap;
@@ -1511,7 +1509,7 @@ CallInst *VecClonePass::insertBeginRegion(Module &M, Function *Clone, Function &
   return SIMDBeginCall;
 }
 
-void VecClonePass::insertEndRegion(Module &M, Function *Clone,
+void VecClone::insertEndRegion(Module &M, Function *Clone,
                                BasicBlock *LoopExitBlock,
                                BasicBlock *ReturnBlock,
                                CallInst *EntryDirCall) {
@@ -1530,7 +1528,7 @@ void VecClonePass::insertEndRegion(Module &M, Function *Clone,
   SIMDEndCall->insertBefore(EndDirectiveBlock->getTerminator());
 }
 
-void VecClonePass::insertDirectiveIntrinsics(Module &M, Function *Clone,
+void VecClone::insertDirectiveIntrinsics(Module &M, Function *Clone,
                                          Function &F, VectorVariant &V,
                                          BasicBlock *EntryBlock,
                                          BasicBlock *LoopExitBlock,
@@ -1541,7 +1539,7 @@ void VecClonePass::insertDirectiveIntrinsics(Module &M, Function *Clone,
   LLVM_DEBUG(Clone->dump());
 }
 
-bool VecClonePass::isSimpleFunction(Function *Func) {
+bool VecClone::isSimpleFunction(Function *Func) {
   // For really simple functions, there is no need to go through the process
   // of inserting a loop.
 
@@ -1565,7 +1563,7 @@ bool VecClonePass::isSimpleFunction(Function *Func) {
   return false;
 }
 
-void VecClonePass::insertSplitForMaskedVariant(Function *Clone,
+void VecClone::insertSplitForMaskedVariant(Function *Clone,
                                            BasicBlock *LoopBlock,
                                            BasicBlock *LoopExitBlock,
                                            Instruction *Mask, PHINode *Phi)
@@ -1625,7 +1623,7 @@ void VecClonePass::insertSplitForMaskedVariant(Function *Clone,
   LLVM_DEBUG(Clone->dump());
 }
 
-void VecClonePass::removeScalarAllocasForVectorParams(
+void VecClone::removeScalarAllocasForVectorParams(
     std::vector<ParmRef*> &VectorParmMap)
 {
   for (auto VectorParmMapIt : VectorParmMap) {
@@ -1640,7 +1638,7 @@ void VecClonePass::removeScalarAllocasForVectorParams(
   }
 }
 
-void VecClonePass::disableLoopUnrolling(BasicBlock *Latch)
+void VecClone::disableLoopUnrolling(BasicBlock *Latch)
 {
   // Set disable unroll metadata on the conditional branch of the loop latch
   // for the simd loop. The following is an example of what the loop latch
@@ -1681,14 +1679,7 @@ void VecClonePass::disableLoopUnrolling(BasicBlock *Latch)
   Latch->getTerminator()->setMetadata("llvm.loop", NewLoopID);
 }
 
-PreservedAnalyses VecClonePass::run(Module &M, ModuleAnalysisManager &AM) {
-  // NOTE: Update here if new analyses are needed before VecClone (getAnalysisUsage from LegacyPM)
-  if (!runImpl(M))
-    return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
-}
-
-bool VecClonePass::runImpl(Module &M) {
+bool VecClone::runOnModule(Module &M) {
 
   LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
@@ -1816,7 +1807,7 @@ bool VecClonePass::runImpl(Module &M) {
   return true; // LLVM IR has been modified
 }
 
-void VecClonePass::print(raw_ostream &OS, const Module *M) const {
+void VecClone::print(raw_ostream &OS, const Module *M) const {
   // TODO
 }
 

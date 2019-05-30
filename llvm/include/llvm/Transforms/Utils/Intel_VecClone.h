@@ -1,6 +1,6 @@
 //===-------------- VecClone.h - Class definition -*- C++ -*---------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,7 +20,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/IR/PassManager.h"
 
 #ifndef LLVM_TRANSFORMS_VPO_VECCLONE_H
 #define LLVM_TRANSFORMS_VPO_VECCLONE_H
@@ -49,7 +48,7 @@ struct ParmRef {
   Instruction *VectorParmCast;
 };
 
-class VecClonePass : public PassInfoMixin<VecClonePass> {
+class VecClone : public ModulePass {
 
 #if INTEL_CUSTOMIZATION
   protected:
@@ -206,6 +205,7 @@ class VecClonePass : public PassInfoMixin<VecClonePass> {
     /// dereferencing is done.
     bool typesAreCompatibleForLoad(Type *GepType, Type *LoadType);
 
+    bool runOnModule(Module &M) override;
 
 #if INTEL_CUSTOMIZATION
     /// Languages like OpenCL override this method to perform some
@@ -220,28 +220,12 @@ class VecClonePass : public PassInfoMixin<VecClonePass> {
 #endif // INTEL_CUSTOMIZATION
 
   public:
-    VecClonePass() {}
-    void print(raw_ostream &OS, const Module * = nullptr) const;
-    PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-    bool runImpl(Module &M);
-
-}; // end pass class
-
-
-class VecClone : public ModulePass {
-protected:
-    bool runOnModule(Module &M) override;
-
-public:
     static char ID;
-    VecClone() : ModulePass(ID) {
-      initializeVecClonePass(*PassRegistry::getPassRegistry());
-    }
+    VecClone();
+    void print(raw_ostream &OS, const Module * = nullptr) const override;
     void getAnalysisUsage(AnalysisUsage &AU) const override;
 
-private:
-    VecClonePass Impl;
-};
+}; // end pass class
 
 ModulePass *createVecClonePass();
 

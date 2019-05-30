@@ -1,7 +1,6 @@
 ; Check to make sure we can handle void foo() function
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
-; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: void @_ZGVbN4_foo()
 ; CHECK: entry:
