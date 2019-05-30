@@ -6775,18 +6775,6 @@ static void handleMSInheritanceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleDeclspecThreadAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-
-#if INTEL_CUSTOMIZATION
-  if (!S.getLangOpts().MicrosoftExt && !S.getLangOpts().IntelCompat) {
-  // CQ375205: xmain should allow thread attribute on linux in intel
-  // compatibility mode. The check has been moved here from
-  // include/clang/Basic/Attr.td
-    S.Diag(AL.getRange().getBegin(), diag::warn_attribute_ignored)
-        << AL.getName();
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   const auto *VD = cast<VarDecl>(D);
   if (!S.Context.getTargetInfo().isTLSSupported()) {
     S.Diag(AL.getLoc(), diag::err_thread_unsupported);

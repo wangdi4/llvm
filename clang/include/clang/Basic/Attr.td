@@ -2836,7 +2836,7 @@ def SelectAny : InheritableAttr {
 
 def Thread : Attr {
   let Spellings = [Declspec<"thread">];
-  //let LangOpts = [MicrosoftExt];  // INTEL
+  let LangOpts = [MicrosoftExt];
   let Documentation = [ThreadDocs];
   let Subjects = SubjectList<[Var]>;
 }
