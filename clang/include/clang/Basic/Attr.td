@@ -2253,7 +2253,6 @@ def Uuid : InheritableAttr {
   let Subjects = SubjectList<[Record, Enum]>;
   // FIXME: Allow expressing logical AND for LangOpts. Our condition should be:
   // CPlusPlus && (MicrosoftExt || Borland)
-//  let LangOpts = [MicrosoftExt, Borland]; // INTEL
   let Documentation = [Undocumented];
 }
 

@@ -6698,17 +6698,6 @@ UuidAttr *Sema::mergeUuidAttr(Decl *D, SourceRange Range,
 }
 
 static void handleUuidAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-#if INTEL_CUSTOMIZATION
-  if (!S.getLangOpts().MicrosoftExt && !S.getLangOpts().Borland &&
-      !S.getLangOpts().IntelCompat) {
-    // CQ380552: xmain should allow uuid MS attribute on linux in intel
-    // compatibility mode. The check has been moved here from
-    // include/clang/Basic/Attr.td
-    S.Diag(AL.getRange().getBegin(), diag::warn_attribute_ignored)
-        << AL.getName();
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
   if (!S.LangOpts.CPlusPlus) {
     S.Diag(AL.getLoc(), diag::err_attribute_not_supported_in_lang)
         << AL << AttributeLangSupport::C;
