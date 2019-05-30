@@ -60,7 +60,8 @@ InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
     return nullptr;
   // If the OldCall was the ActiveInlineInstruction, we placed a nullptr
   // into the IIMap for it.
-  if (OldCall == ActiveInlineInstruction)
+  bool IsRecursiveCopy = OldCall == ActiveInlineInstruction;
+  if (IsRecursiveCopy)
     OldCall = nullptr;
   ValueToValueMapTy::const_iterator VMI = IIMap.find(OldCall);
   if (VMI == IIMap.end())
@@ -68,7 +69,16 @@ InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
   if (VMI->second == nullptr)
     return nullptr;
   Instruction *NI = cast<Instruction>(VMI->second);
-  InlineReportCallSite *IRCSk = copyBase(*this, NI);
+  InlineReportCallSite *IRCSk = nullptr;
+  if (IsRecursiveCopy) {
+    // Start with a clean copy, as this is a newly created callsite produced
+    // by recursive inlining.
+    IRCSk = new InlineReportCallSite(this->IRCallee, false, NinlrNoReason,
+      this->M, nullptr, NI);
+    IRCSk->Line = this->Line;
+    IRCSk->Col = this->Col;
+  } else
+    IRCSk = copyBase(*this, NI);
   return IRCSk;
 }
 
@@ -307,7 +317,7 @@ void InlineReport::beginSCC(LazyCallGraph &CG, LazyCallGraph::SCC &SCC) {
 void InlineReport::beginFunction(Function *F) {
   if (!F || F->isDeclaration())
     return;
-  addFunction(F, M);
+  InlineReportFunction *IRF = addFunction(F, M);
   for (BasicBlock &BB : *F) {
     for (Instruction &I : BB) {
       CallSite CS(cast<Value>(&I));
@@ -330,6 +340,7 @@ void InlineReport::beginFunction(Function *F) {
         }
     }
   }
+  IRF->setCurrent(true);
 }
 
 void InlineReport::endSCC(void) {
