@@ -1016,7 +1016,7 @@ define i32 @test_x86_avx512fp16_vcvttsh2si32(<8 x half> %arg0) {
 ; CHECK-NEXT:    addl %ecx, %eax
 ; CHECK-NEXT:    retq
   %res1 = call i32 @llvm.x86.avx512fp16.vcvttsh2si32(<8 x half> %arg0, i32 4)
-  %res2 = call i32 @llvm.x86.avx512fp16.vcvttsh2si32(<8 x half> %arg0, i32 9)
+  %res2 = call i32 @llvm.x86.avx512fp16.vcvttsh2si32(<8 x half> %arg0, i32 8)
   %res = add i32 %res1, %res2
   ret i32 %res
 }
@@ -1078,7 +1078,7 @@ define i32 @test_x86_avx512fp16_vcvttsh2usi32(<8 x half> %arg0) {
 ; CHECK-NEXT:    addl %ecx, %eax
 ; CHECK-NEXT:    retq
   %res1 = call i32 @llvm.x86.avx512fp16.vcvttsh2usi32(<8 x half> %arg0, i32 4)
-  %res2 = call i32 @llvm.x86.avx512fp16.vcvttsh2usi32(<8 x half> %arg0, i32 11)
+  %res2 = call i32 @llvm.x86.avx512fp16.vcvttsh2usi32(<8 x half> %arg0, i32 8)
   %res = add i32 %res1, %res2
   ret i32 %res
 }
@@ -1093,7 +1093,7 @@ define i64 @test_x86_avx512fp16_vcvttsh2usi64(<8 x half> %arg0) {
 ; CHECK-NEXT:    addq %rcx, %rax
 ; CHECK-NEXT:    retq
   %res1 = call i64 @llvm.x86.avx512fp16.vcvttsh2usi64(<8 x half> %arg0, i32 4)
-  %res2 = call i64 @llvm.x86.avx512fp16.vcvttsh2usi64(<8 x half> %arg0, i32 10)
+  %res2 = call i64 @llvm.x86.avx512fp16.vcvttsh2usi64(<8 x half> %arg0, i32 8)
   %res = add i64 %res1, %res2
   ret i64 %res
 }
