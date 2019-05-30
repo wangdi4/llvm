@@ -635,6 +635,8 @@ protected:
       : AllocaInst(nullptr), ValidMemOnly(false), Importing(true){};
 
 public:
+  virtual ~VPEntityImportDescr() {}
+
   virtual bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const;
 
   VPValue *getAllocaInst() const { return AllocaInst; }

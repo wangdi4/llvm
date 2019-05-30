@@ -684,6 +684,21 @@ static void setInlineRemark(CallSite &CS, StringRef message) {
   CS.addAttribute(AttributeList::FunctionIndex, attr);
 }
 
+#if INTEL_CUSTOMIZATION
+//
+// Return the number of callsites within F that call F.
+//
+static unsigned recursiveCallCount(Function &F) {
+  unsigned Count = 0;
+  for (User *U : F.users()) {
+    auto CB = dyn_cast<CallBase>(U);
+    if (CB && CB->getCaller() == &F && CB->getCalledFunction() == &F)
+      Count++;
+  }
+  return Count;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool
 inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 std::function<AssumptionCache &(Function &)> GetAssumptionCache,
@@ -882,6 +897,11 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
             CS.hasFnAttr(Attribute::AlwaysInlineRecursive);
         bool IsInlineHintRecursive =
             CS.hasFnAttr(Attribute::InlineHintRecursive);
+        // For a recursive call, save the number of the Callee's recursive
+        // callsites.
+        unsigned RecursiveCallCountOld = 0;
+        if (Caller == Callee)
+          RecursiveCallCountOld = recursiveCallCount(*Caller);
         InlineResult LIR = InlineCallIfPossible(CS, InlineInfo, &IR, &MDIR,
                                                InlinedArrayAllocas,
                                                InlineHistoryID, InsertLifetime,
@@ -908,6 +928,25 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           continue;
         }
         ++NumInlined;
+#if INTEL_CUSTOMIZATION
+        //
+        // If this is a recursive call, see if the number of recursive calls
+        // within the Callee increased. Normally, this will not happen, as
+        // inlining a recursive call is only allowed by the CallAnalyzer if
+        // it predicts that all recursive calls that could be potentially
+        // added will be dead code eliminated. But the dead code elimination
+        // that happens during inlining is not so robust to always guarentee
+        // that. Consequently, if it happens that some new recursive calls
+        // are created, set the "no-more-recursive-inlining" attribute to
+        // inhibit additional recursive inlining of this function. This
+        // ensures that the inliner will eventually terminate. (CMPLRLLVM-8961)
+        //
+        if (RecursiveCallCountOld) {
+          unsigned RecursiveCallCountNew = recursiveCallCount(*Caller);
+          if (RecursiveCallCountNew > RecursiveCallCountOld)
+            Caller->addFnAttr("no-more-recursive-inlining");
+        }
+#endif // INTEL_CUSTOMIZATION
         ILIC->invalidateFunction(Caller); // INTEL
 
         emit_inlined_into(ORE, DLoc, Block, *Callee, *Caller, *OIC);
@@ -1371,6 +1410,13 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       Report.beginUpdate(CS);  // INTEL
       MDReport->beginUpdate(CS); // INTEL
       InlineReason Reason = NinlrNoReason; // INTEL
+#if INTEL_CUSTOMIZATION
+      // For a recursive call, save the number of the Callee's recursive
+      // callsites.
+      unsigned RecursiveCallCountOld = 0;
+      if (&Caller == &Callee)
+        RecursiveCallCountOld = recursiveCallCount(Caller);
+#endif // INTEL_CUSTOMIZATION
       InlineResult LIR = InlineFunction(CS, IFI, &Report, MDReport, // INTEL
                                         &Reason);                    // INTEL
       if (!LIR) { // INTEL
@@ -1390,6 +1436,26 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       }
       DidInline = true;
       ++NumInlined; // INTEL
+#if INTEL_CUSTOMIZATION
+      //
+      // If this is a recursive call, see if the number of recursive calls
+      // within the Callee increased. Normally, this will not happen, as
+      // inlining a recursive call is only allowed by the CallAnalyzer if
+      // it predicts that all recursive calls that could be potentially
+      // added will be dead code eliminated. But the dead code elimination
+      // that happens during inlining is not so robust to always guarentee
+      // that. Consequently, if it happens that some new recursive calls
+      // are created, set the "no-more-recursive-inlining" attribute to
+      // inhibit additional recursive inlining of this function. This
+      // ensures that the inliner will eventually terminate. (CMPLRLLVM-8961)
+      //
+      if (RecursiveCallCountOld) {
+        unsigned RecursiveCallCountNew = recursiveCallCount(Caller);
+        if (RecursiveCallCountNew > RecursiveCallCountOld)
+          Caller.addFnAttr("no-more-recursive-inlining");
+      }
+#endif // INTEL_CUSTOMIZATION
+
       ILIC->invalidateFunction(&Caller); // INTEL
       InlinedCallees.insert(&Callee);
 

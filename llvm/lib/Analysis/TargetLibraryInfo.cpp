@@ -463,12 +463,14 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZNSi10_M_extractIfEERSiRT_);
     TLI.setUnavailable(LibFunc_ZNSi10_M_extractIlEERSiRT_);
     TLI.setUnavailable(LibFunc_ZNSi10_M_extractImEERSiRT_);
+    TLI.setUnavailable(LibFunc_ZNSi4readEPci);
     TLI.setUnavailable(LibFunc_ZNSi4readEPcl);
     TLI.setUnavailable(LibFunc_ZNSi5tellgEv);
     TLI.setUnavailable(LibFunc_ZNSi5ungetEv);
     TLI.setUnavailable(LibFunc_ZNSirsERi);
     TLI.setUnavailable(LibFunc_ZNSo3putEc);
     TLI.setUnavailable(LibFunc_ZNSo5flushEv);
+    TLI.setUnavailable(LibFunc_ZNSo5writeEPKci);
     TLI.setUnavailable(LibFunc_ZNSo5writeEPKcl);
     TLI.setUnavailable(LibFunc_ZNSo9_M_insertIPKvEERSoT_);
     TLI.setUnavailable(LibFunc_ZNSo9_M_insertIbEERSoT_);
@@ -548,6 +550,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZNSt9exceptionD0Ev);
     TLI.setUnavailable(LibFunc_ZNSt9exceptionD1Ev);
     TLI.setUnavailable(LibFunc_ZNSt9exceptionD2Ev);
+    TLI.setUnavailable(LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_i);
     TLI.setUnavailable(LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l);
     TLI.setUnavailable(LibFunc_ZSt16__throw_bad_castv);
     TLI.setUnavailable(LibFunc_ZSt17__throw_bad_allocv);
@@ -2063,6 +2066,12 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() && // this pointer
             FTy.getParamType(1)->isPointerTy());
 
+  case LibFunc_ZNSi4readEPci:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+      FTy.getParamType(0)->isPointerTy() && // this pointer
+      FTy.getParamType(1)->isPointerTy() &&
+      FTy.getParamType(2)->isIntegerTy());
+
   case LibFunc_ZNSi4readEPcl:
     return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() && // this pointer
@@ -2090,6 +2099,12 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_ZNSo5flushEv:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
+
+  case LibFunc_ZNSo5writeEPKci:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+      FTy.getParamType(0)->isPointerTy() && // this pointer
+      FTy.getParamType(1)->isPointerTy() &&
+      FTy.getParamType(2)->isIntegerTy());
 
   case LibFunc_ZNSo5writeEPKcl:
     return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
@@ -2511,6 +2526,13 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_ZNSt9exceptionD2Ev:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy()); // this pointer
+
+      // static call (not a member function)
+  case LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_i:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+      FTy.getParamType(0)->isPointerTy() &&
+      FTy.getParamType(1)->isPointerTy() &&
+      FTy.getParamType(2)->isIntegerTy());
 
   // static call (not a member function)
   case LibFunc_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l:

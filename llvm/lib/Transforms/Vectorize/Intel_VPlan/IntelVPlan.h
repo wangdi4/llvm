@@ -538,7 +538,9 @@ public:
     dump(errs());
   }
 
-  StringRef getName() const { return "Constant: " + val; };
+  std::string getName() const {
+    return std::string("Constant: ") += std::to_string(val);
+  };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 private:
@@ -2385,8 +2387,8 @@ public:
     return make_range(It, ItEnd);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const;
-  void dump(raw_ostream &OS, unsigned Indent = 0) const;
+  void dump() const override;
+  void dump(raw_ostream &OS, unsigned Indent = 0) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }
@@ -2568,8 +2570,8 @@ public:
 
   void getOrderedBlocks(std::vector<const VPBlockBase *> &Blocks) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump() const;
-  void dump(raw_ostream &OS, unsigned Indent = 0) const;
+  void dump() const override;
+  void dump(raw_ostream &OS, unsigned Indent = 0) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 

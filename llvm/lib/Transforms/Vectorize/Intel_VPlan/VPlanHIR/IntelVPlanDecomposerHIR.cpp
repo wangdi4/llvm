@@ -514,6 +514,27 @@ bool VPDecomposerHIR::isExternalDef(DDRef *UseDDR) {
   return OutermostHLp->isLiveIn(UseDDR->getSymbase());
 }
 
+// Utility function to determine if the live-in external definition of ref \p
+// UseDDR should be accounted for. This function assumes that \p UseDDR is
+// live-in to the loop, whose data dependencies are represented in \p DDG.
+static bool useLiveInDef(DDRef *UseDDR, const loopopt::DDGraph &DDG) {
+  assert(UseDDR->isRval() && "Live-in use analysis is only for RValue refs.");
+  auto InEdges = DDG.incoming(UseDDR);
+
+  // For every reaching definition of UseDDR within the loop (DDG is constructed
+  // only for loop being vectorized), check if it kills the live-in definition
+  // of UseDDR. This happens when the source node of the dependency edge
+  // strictly dominates the sink node where UseDDR is used.
+  for (auto *Edge : InEdges) {
+    HLDDNode *SrcNode = Edge->getSrc()->getHLDDNode();
+    HLDDNode *SinkNode = UseDDR->getHLDDNode();
+    if (HLNodeUtils::strictlyDominates(SrcNode, SinkNode))
+      return false;
+  }
+
+  return true;
+}
+
 // Return the number of reaching definitions for \p DDR. Reaching definitions
 // are computed based on the edges of the DDGraph of the outermost loop that we
 // are representing, plus one, if \p DDR is a live-in value of the outermost
@@ -527,8 +548,12 @@ unsigned VPDecomposerHIR::getNumReachingDefinitions(DDRef *UseDDR) {
     return 1;
 
   auto BlobInEdges = DDG.incoming(UseDDR);
-  return std::distance(BlobInEdges.begin(), BlobInEdges.end()) +
-         OutermostHLp->isLiveIn(UseDDR->getSymbase());
+  auto NumEdges = std::distance(BlobInEdges.begin(), BlobInEdges.end());
+
+  if (isExternalDef(UseDDR))
+    return NumEdges + useLiveInDef(UseDDR, DDG);
+  else
+    return NumEdges;
 }
 
 // Return a pointer to the last VPInstruction of \p VPBB. Return nullptr if \p
@@ -756,8 +781,8 @@ void VPDecomposerHIR::getOrCreateVPDefsForUse(
   if (UseDDR->isMetadata(&MDAsValue))
     VPDefs.push_back(Plan->getVPMetadataAsValue(MDAsValue));
 
-  // Process external definitions.
-  if (isExternalDef(UseDDR))
+  // Process external definitions. Add live-in definition only if it is valid.
+  if (isExternalDef(UseDDR) && useLiveInDef(UseDDR, DDG))
     VPDefs.push_back(Plan->getVPExternalDefForDDRef(UseDDR));
 
   // Process definitions coming from incoming DD edges. At this point, all
