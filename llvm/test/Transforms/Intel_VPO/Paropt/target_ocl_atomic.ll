@@ -1,9 +1,8 @@
 ; RUN: opt -prepare-switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s
-
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -prepare-switch-to-offload -S | FileCheck %s
 
 ; GPU-offload test for Atomic. The test is created by compiling
-; the C test below with:  icx -O0 -fiopenmp -fopenmp-targets=spir64 
+; the C test below with:  icx -O0 -fiopenmp -fopenmp-targets=spir64 -Qoption,cpp,-fintel-openmp-region-atomic
 ; int main() {
 ;   int i, aaa = 10;
 ;   #pragma omp target map(tofrom:aaa) private(i)

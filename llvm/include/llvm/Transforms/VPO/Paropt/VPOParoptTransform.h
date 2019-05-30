@@ -1319,6 +1319,13 @@ private:
   ///  there is only one workgroup.
   bool genOCLParallelLoop(WRegionNode *W);
 
+  /// Replace calls to "__atomic_[load/store/compare_exchange]", with calls to
+  /// "__kmpc_atomic_[load/store/compare_exchange]". This involves:
+  ///  * changing argument 0 to i64 (as opposed to i32/i64 depending on target).
+  ///  * adding address space casts (to `address space generic`) for pointer
+  ///  arguments.
+  bool renameAndReplaceLibatomicCallsForSPIRV(Function *F);
+
   /// Generate the placeholders for the loop lower bound and upper bound.
   /// \param [in]  W            OpenMP loop region node.
   /// \param [in]  Idx          dimension number.

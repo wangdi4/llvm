@@ -40,6 +40,7 @@
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
@@ -836,6 +837,74 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
   return true;
 }
 
+bool VPOParoptTransform::renameAndReplaceLibatomicCallsForSPIRV(Function *F) {
+  bool Changed = false;
+  for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
+    Instruction *I = &*II;
+    if (!isa<CallInst>(I))
+      continue;
+
+    auto *CI = cast<CallInst>(I);
+    Function *CF = CI->getCalledFunction();
+    if (!CF || !CF->hasName())
+      continue;
+
+    StringRef FName = CF->getName();
+    if (FName != "__atomic_load" && FName != "__atomic_store" &&
+        FName != "__atomic_compare_exchange")
+      continue;
+
+    const auto &Attributes = CF->getAttributes();
+    Module *M = F->getParent();
+    IRBuilder<> Builder(CI);
+
+    Type *PtrTy =
+        PointerType::get(Builder.getInt8Ty(), 4 /*ADDRESS_SPACE_GENERIC*/);
+    Type *VoidTy = Builder.getVoidTy();
+    Type *I32Ty = Builder.getInt32Ty();
+    Type *I64Ty = Builder.getInt64Ty();
+    Type *I1Ty = Builder.getInt1Ty();
+
+    auto castArgumentToAddressSpaceGeneric = [&Builder, &PtrTy,
+                                              &CI](unsigned Idx) {
+      CI->setArgOperand(Idx, Builder.CreatePointerBitCastOrAddrSpaceCast(
+                                 CI->getArgOperand(Idx), PtrTy));
+    };
+
+    auto castArgumentToI64 = [&Builder, &I64Ty, &CI](unsigned Idx) {
+      CI->setArgOperand(
+          Idx, Builder.CreateIntCast(CI->getArgOperand(Idx), I64Ty, false));
+    };
+
+    FunctionCallee NewFC;
+    if (FName == "__atomic_load") {
+      NewFC = M->getOrInsertFunction("__kmpc_atomic_load", Attributes, VoidTy,
+                                     I64Ty, PtrTy, PtrTy, I32Ty);
+      CI->setCalledFunction(NewFC);
+    } else if (FName == "__atomic_store") {
+      NewFC = M->getOrInsertFunction("__kmpc_atomic_store", Attributes, VoidTy,
+                                     I64Ty, PtrTy, PtrTy, I32Ty);
+      CI->setCalledFunction(NewFC);
+    } else if (FName == "__atomic_compare_exchange") {
+      NewFC = M->getOrInsertFunction("__kmpc_atomic_compare_exchange",
+                                     Attributes, I1Ty, I64Ty, PtrTy, PtrTy,
+                                     PtrTy, I32Ty, I32Ty);
+      CI->setCalledFunction(NewFC);
+      castArgumentToAddressSpaceGeneric(3);
+    } else
+      llvm_unreachable("Unexpected function name");
+
+    castArgumentToI64(0); // Needed as it is I32 for __atomic* for spir target
+    castArgumentToAddressSpaceGeneric(1);
+    castArgumentToAddressSpaceGeneric(2);
+
+    cast<Function>(NewFC.getCallee())->setDSOLocal(true);
+    Changed = true;
+  }
+
+  return Changed;
+}
+
 //
 // ParPrepare mode:
 //   Paropt prepare transformations for lowering and privatizing
@@ -895,6 +964,9 @@ bool VPOParoptTransform::paroptTransforms() {
   bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
                        hasOffloadCompilation();
   bool NeedTID, NeedBID;
+
+  if (IsTargetSPIRV && (Mode & ParPrepare))
+    RoutineChanged |= renameAndReplaceLibatomicCallsForSPIRV(F);
 
   // Collects the list of WRNs into WRegionList, and sets NeedTID and NeedBID
   // to true/false depending on whether it finds a WRN that needs the TID or
