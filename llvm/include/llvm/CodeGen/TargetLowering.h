@@ -636,10 +636,19 @@ public:
 
   /// Return the register class that should be used for the specified value
   /// type.
-  virtual const TargetRegisterClass *getRegClassFor(MVT VT) const {
+  virtual const TargetRegisterClass *getRegClassFor(MVT VT, bool isDivergent = false) const {
+    (void)isDivergent;
     const TargetRegisterClass *RC = RegClassForVT[VT.SimpleTy];
     assert(RC && "This value type is not natively supported!");
     return RC;
+  }
+
+  /// Allows target to decide about the register class of the
+  /// specific value that is live outside the defining block.
+  /// Returns true if the value needs uniform register class.
+  virtual bool requiresUniformRegister(MachineFunction &MF,
+                                       const Value *) const {
+    return false;
   }
 
   /// Return the 'representative' register class for the specified value
@@ -855,6 +864,7 @@ public:
     default:
       llvm_unreachable("Unexpected fixed point operation.");
     case ISD::SMULFIX:
+    case ISD::SMULFIXSAT:
     case ISD::UMULFIX:
       Supported = isSupportedFixedPointOperation(Op, VT, Scale);
       break;
@@ -891,6 +901,8 @@ public:
       case ISD::STRICT_FFLOOR: EqOpc = ISD::FFLOOR; break;
       case ISD::STRICT_FROUND: EqOpc = ISD::FROUND; break;
       case ISD::STRICT_FTRUNC: EqOpc = ISD::FTRUNC; break;
+      case ISD::STRICT_FP_ROUND: EqOpc = ISD::FP_ROUND; break;
+      case ISD::STRICT_FP_EXTEND: EqOpc = ISD::FP_EXTEND; break;
     }
 
     auto Action = getOperationAction(EqOpc, VT);
@@ -2170,6 +2182,39 @@ public:
     return false;
   }
 
+  /// Return true if the node is a math/logic binary operator.
+  virtual bool isBinOp(unsigned Opcode) const {
+    switch (Opcode) {
+    case ISD::ADD:
+    case ISD::SUB:
+    case ISD::MUL:
+    case ISD::AND:
+    case ISD::OR:
+    case ISD::XOR:
+    case ISD::SHL:
+    case ISD::SRL:
+    case ISD::SRA:
+    case ISD::SDIV:
+    case ISD::UDIV:
+    case ISD::SREM:
+    case ISD::UREM:
+    case ISD::FADD:
+    case ISD::FSUB:
+    case ISD::FMUL:
+    case ISD::FDIV:
+    case ISD::FREM:
+    case ISD::FMINNUM:
+    case ISD::FMAXNUM:
+    case ISD::FMINNUM_IEEE:
+    case ISD::FMAXNUM_IEEE:
+    case ISD::FMAXIMUM:
+    case ISD::FMINIMUM:
+      return true;
+    default:
+      return false;
+    }
+  }
+
   /// Returns true if the opcode is a commutative binary operation.
   virtual bool isCommutativeBinOp(unsigned Opcode) const {
     // FIXME: This should get its info from the td file.
@@ -3083,6 +3128,10 @@ public:
                                                  TargetLoweringOpt &TLO,
                                                  unsigned Depth = 0) const;
 
+  /// This method returns the constant pool value that will be loaded by LD.
+  /// NOTE: You must check for implicit extensions of the constant by LD.
+  virtual const Constant *getTargetConstantFromLoad(LoadSDNode *LD) const;
+
   /// If \p SNaN is false, \returns true if \p Op is known to never be any
   /// NaN. If \p sNaN is true, returns if \p Op is known to never be a signaling
   /// NaN.
@@ -3503,6 +3552,15 @@ public:
     return false;
   }
 
+  /// For most targets, an LLVM type must be broken down into multiple
+  /// smaller types. Usually the halves are ordered according to the endianness
+  /// but for some platform that would break. So this method will default to
+  /// matching the endianness but can be overridden.
+  virtual bool
+  shouldSplitFunctionArgumentsAsLittleEndian(const DataLayout &DL) const {
+    return DL.isLittleEndian();
+  }
+
   /// Returns a 0 terminated array of registers that can be safely used as
   /// scratch registers.
   virtual const MCPhysReg *getScratchRegisters(CallingConv::ID CC) const {
@@ -3920,6 +3978,16 @@ public:
   /// Method for building the DAG expansion of ISD::SMULFIX. This method accepts
   /// integers as its arguments.
   SDValue expandFixedPointMul(SDNode *Node, SelectionDAG &DAG) const;
+
+  /// Method for building the DAG expansion of ISD::U(ADD|SUB)O. Expansion
+  /// always suceeds and populates the Result and Overflow arguments.
+  void expandUADDSUBO(SDNode *Node, SDValue &Result, SDValue &Overflow,
+                      SelectionDAG &DAG) const;
+
+  /// Method for building the DAG expansion of ISD::S(ADD|SUB)O. Expansion
+  /// always suceeds and populates the Result and Overflow arguments.
+  void expandSADDSUBO(SDNode *Node, SDValue &Result, SDValue &Overflow,
+                      SelectionDAG &DAG) const;
 
   /// Method for building the DAG expansion of ISD::[US]MULO. Returns whether
   /// expansion was successful and populates the Result and Overflow arguments.

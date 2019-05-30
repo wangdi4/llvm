@@ -28,7 +28,6 @@ __kernel void t(__global int* out) {
 
 __constant int channel = 1;
 channel int foo; // expected-error{{unknown type name 'channel'}}
-                 // expected-error@-1{{expected identifier or '('}}
 
 __kernel void k1() {
   int channel = 5;

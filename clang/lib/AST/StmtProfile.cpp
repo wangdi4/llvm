@@ -1896,6 +1896,10 @@ void StmtProfiler::VisitTypoExpr(const TypoExpr *E) {
   VisitExpr(E);
 }
 
+void StmtProfiler::VisitSourceLocExpr(const SourceLocExpr *E) {
+  VisitExpr(E);
+}
+
 void StmtProfiler::VisitObjCStringLiteral(const ObjCStringLiteral *S) {
   VisitExpr(S);
 }

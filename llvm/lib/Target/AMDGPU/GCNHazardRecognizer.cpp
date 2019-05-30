@@ -124,6 +124,8 @@ static unsigned getHWReg(const SIInstrInfo *TII, const MachineInstr &RegInstr) {
 ScheduleHazardRecognizer::HazardType
 GCNHazardRecognizer::getHazardType(SUnit *SU, int Stalls) {
   MachineInstr *MI = SU->getInstr();
+  if (MI->isBundle())
+   return NoHazard;
 
   if (SIInstrInfo::isSMRD(*MI) && checkSMRDHazards(MI) > 0)
     return NoopHazard;
@@ -179,6 +181,37 @@ GCNHazardRecognizer::getHazardType(SUnit *SU, int Stalls) {
   return NoHazard;
 }
 
+static void insertNoopInBundle(MachineInstr *MI, const SIInstrInfo &TII) {
+  BuildMI(*MI->getParent(), MI, MI->getDebugLoc(), TII.get(AMDGPU::S_NOP))
+      .addImm(0);
+}
+
+void GCNHazardRecognizer::processBundle() {
+  MachineBasicBlock::instr_iterator MI = std::next(CurrCycleInstr->getIterator());
+  MachineBasicBlock::instr_iterator E = CurrCycleInstr->getParent()->instr_end();
+  // Check bundled MachineInstr's for hazards.
+  for (; MI != E && MI->isInsideBundle(); ++MI) {
+    CurrCycleInstr = &*MI;
+    unsigned WaitStates = PreEmitNoopsCommon(CurrCycleInstr);
+
+    if (IsHazardRecognizerMode)
+      fixHazards(CurrCycleInstr);
+
+    for (unsigned i = 0; i < WaitStates; ++i)
+      insertNoopInBundle(CurrCycleInstr, TII);
+
+    // It’s unnecessary to track more than MaxLookAhead instructions. Since we
+    // include the bundled MI directly after, only add a maximum of
+    // (MaxLookAhead - 1) noops to EmittedInstrs.
+    for (unsigned i = 0, e = std::min(WaitStates, MaxLookAhead - 1); i < e; ++i)
+      EmittedInstrs.push_front(nullptr);
+
+    EmittedInstrs.push_front(CurrCycleInstr);
+    EmittedInstrs.resize(MaxLookAhead);
+  }
+  CurrCycleInstr = nullptr;
+}
+
 unsigned GCNHazardRecognizer::PreEmitNoops(SUnit *SU) {
   IsHazardRecognizerMode = false;
   return PreEmitNoopsCommon(SU->getInstr());
@@ -188,17 +221,15 @@ unsigned GCNHazardRecognizer::PreEmitNoops(MachineInstr *MI) {
   IsHazardRecognizerMode = true;
   CurrCycleInstr = MI;
   unsigned W = PreEmitNoopsCommon(MI);
-
-  fixVMEMtoScalarWriteHazards(MI);
-  fixSMEMtoVectorWriteHazards(MI);
-  fixVcmpxExecWARHazard(MI);
-  fixLdsBranchVmemWARHazard(MI);
-
+  fixHazards(MI);
   CurrCycleInstr = nullptr;
   return W;
 }
 
 unsigned GCNHazardRecognizer::PreEmitNoopsCommon(MachineInstr *MI) {
+  if (MI->isBundle())
+    return 0;
+
   int WaitStates = std::max(0, checkAnyInstHazards(MI));
 
   if (SIInstrInfo::isSMRD(*MI))
@@ -264,6 +295,11 @@ void GCNHazardRecognizer::AdvanceCycle() {
       CurrCycleInstr->isKill())
     return;
 
+  if (CurrCycleInstr->isBundle()) {
+    processBundle();
+    return;
+  }
+
   unsigned NumWaitStates = TII.getNumWaitStates(*CurrCycleInstr);
 
   // Keep track of emitted instructions
@@ -304,8 +340,11 @@ static int getWaitStatesSince(GCNHazardRecognizer::IsHazardFn IsHazard,
                               int WaitStates,
                               IsExpiredFn IsExpired,
                               DenseSet<const MachineBasicBlock *> &Visited) {
+  for (auto E = MBB->instr_rend(); I != E; ++I) {
+    // Don't add WaitStates for parent BUNDLE instructions.
+    if (I->isBundle())
+      continue;
 
-  for (auto E = MBB->rend() ; I != E; ++I) {
     if (IsHazard(&*I))
       return WaitStates;
 
@@ -437,9 +476,9 @@ int GCNHazardRecognizer::checkSoftClauseHazards(MachineInstr *MEM) {
   // instructions in this group may return out of order and/or may be
   // replayed (i.e. the same instruction issued more than once).
   //
-  // In order to handle these situations correctly we need to make sure
-  // that when a clause has more than one instruction, no instruction in the
-  // clause writes to a register that is read another instruction in the clause
+  // In order to handle these situations correctly we need to make sure that
+  // when a clause has more than one instruction, no instruction in the clause
+  // writes to a register that is read by another instruction in the clause
   // (including itself). If we encounter this situaion, we need to break the
   // clause by inserting a non SMEM instruction.
 
@@ -525,7 +564,6 @@ int GCNHazardRecognizer::checkVMEMHazards(MachineInstr* VMEM) {
   // SGPR was written by a VALU Instruction.
   const int VmemSgprWaitStates = 5;
   auto IsHazardDefFn = [this] (MachineInstr *MI) { return TII.isVALU(*MI); };
-
   for (const MachineOperand &Use : VMEM->uses()) {
     if (!Use.isReg() || TRI.isVGPR(MF.getRegInfo(), Use.getReg()))
       continue;
@@ -795,6 +833,13 @@ int GCNHazardRecognizer::checkReadM0Hazards(MachineInstr *MI) {
                                                    SMovRelWaitStates);
 }
 
+void GCNHazardRecognizer::fixHazards(MachineInstr *MI) {
+  fixVMEMtoScalarWriteHazards(MI);
+  fixSMEMtoVectorWriteHazards(MI);
+  fixVcmpxExecWARHazard(MI);
+  fixLdsBranchVmemWARHazard(MI);
+}
+
 bool GCNHazardRecognizer::fixVMEMtoScalarWriteHazards(MachineInstr *MI) {
   if (!ST.hasVMEMtoScalarWriteHazard())
     return false;
@@ -856,6 +901,7 @@ bool GCNHazardRecognizer::fixSMEMtoVectorWriteHazards(MachineInstr *MI) {
 
   const SIInstrInfo *TII = ST.getInstrInfo();
   const SIRegisterInfo *TRI = ST.getRegisterInfo();
+  const AMDGPU::IsaVersion IV = AMDGPU::getIsaVersion(ST.getCPU());
   const MachineOperand *SDST = TII->getNamedOperand(*MI, SDSTName);
   if (!SDST) {
     for (const auto &MO : MI->implicit_operands()) {
@@ -874,22 +920,37 @@ bool GCNHazardRecognizer::fixSMEMtoVectorWriteHazards(MachineInstr *MI) {
     return SIInstrInfo::isSMRD(*I) && I->readsRegister(SDSTReg, TRI);
   };
 
-  // This assumes that there will be s_waitcnt lgkmcnt(0) or equivalent
-  // between any at risk SMEM and any SALU dependent on the SMEM results.
-  auto IsExpiredFn = [TII] (MachineInstr *MI, int) {
+  auto IsExpiredFn = [TII, IV] (MachineInstr *MI, int) {
     if (MI) {
       if (TII->isSALU(*MI)) {
-        if (TII->isSOPP(*MI))
-          return false;
         switch (MI->getOpcode()) {
         case AMDGPU::S_SETVSKIP:
         case AMDGPU::S_VERSION:
         case AMDGPU::S_WAITCNT_VSCNT:
         case AMDGPU::S_WAITCNT_VMCNT:
         case AMDGPU::S_WAITCNT_EXPCNT:
-        case AMDGPU::S_WAITCNT_LGKMCNT:
+          // These instructions cannot not mitigate the hazard.
           return false;
+        case AMDGPU::S_WAITCNT_LGKMCNT:
+          // Reducing lgkmcnt count to 0 always mitigates the hazard.
+          return (MI->getOperand(1).getImm() == 0) &&
+                 (MI->getOperand(0).getReg() == AMDGPU::SGPR_NULL);
+        case AMDGPU::S_WAITCNT: {
+          const int64_t Imm = MI->getOperand(0).getImm();
+          AMDGPU::Waitcnt Decoded = AMDGPU::decodeWaitcnt(IV, Imm);
+          return (Decoded.LgkmCnt == 0);
+        }
         default:
+          // SOPP instructions cannot mitigate the hazard.
+          if (TII->isSOPP(*MI))
+            return false;
+          // At this point the SALU can be assumed to mitigate the hazard
+          // because either:
+          // (a) it is independent of the at risk SMEM (breaking chain),
+          // or
+          // (b) it is dependent on the SMEM, in which case an appropriate
+          //     s_waitcnt lgkmcnt _must_ exist between it and the at risk
+          //     SMEM instruction.
           return true;
         }
       }

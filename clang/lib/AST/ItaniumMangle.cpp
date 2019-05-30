@@ -544,6 +544,7 @@ private:
                         unsigned knownArity);
   void mangleCastExpression(const Expr *E, StringRef CastEncoding);
   void mangleInitListElements(const InitListExpr *InitList);
+  void mangleDeclRefExpr(const NamedDecl *D);
   void mangleExpression(const Expr *E, unsigned Arity = UnknownArity);
   void mangleCXXCtorType(CXXCtorType T, const CXXRecordDecl *InheritedFrom);
   void mangleCXXDtorType(CXXDtorType T);
@@ -1897,6 +1898,7 @@ void CXXNameMangler::mangleType(TemplateName TN) {
     break;
 
   case TemplateName::OverloadedTemplate:
+  case TemplateName::AssumedTemplate:
     llvm_unreachable("can't mangle an overloaded template name as a <type>");
 
   case TemplateName::DependentTemplate: {
@@ -1974,6 +1976,7 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::DependentSizedArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
+  case Type::MacroQualified:
     llvm_unreachable("type is illegal as a nested name specifier");
 
   case Type::SubstTemplateTypeParmPack:
@@ -2040,6 +2043,7 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
     }
 
     case TemplateName::OverloadedTemplate:
+    case TemplateName::AssumedTemplate:
     case TemplateName::DependentTemplate:
       llvm_unreachable("invalid base for a template specialization type");
 
@@ -3527,6 +3531,32 @@ void CXXNameMangler::mangleInitListElements(const InitListExpr *InitList) {
     mangleExpression(InitList->getInit(i));
 }
 
+void CXXNameMangler::mangleDeclRefExpr(const NamedDecl *D) {
+  switch (D->getKind()) {
+  default:
+    //  <expr-primary> ::= L <mangled-name> E # external name
+    Out << 'L';
+    mangle(D);
+    Out << 'E';
+    break;
+
+  case Decl::ParmVar:
+    mangleFunctionParam(cast<ParmVarDecl>(D));
+    break;
+
+  case Decl::EnumConstant: {
+    const EnumConstantDecl *ED = cast<EnumConstantDecl>(D);
+    mangleIntegerLiteral(ED->getType(), ED->getInitVal());
+    break;
+  }
+
+  case Decl::NonTypeTemplateParm:
+    const NonTypeTemplateParmDecl *PD = cast<NonTypeTemplateParmDecl>(D);
+    mangleTemplateParameter(PD->getIndex());
+    break;
+  }
+}
+
 void CXXNameMangler::mangleExpression(const Expr *E, unsigned Arity) {
   // <expression> ::= <unary operator-name> <expression>
   //              ::= <binary operator-name> <expression> <expression>
@@ -3617,6 +3647,7 @@ recurse:
   case Expr::AsTypeExprClass:
   case Expr::PseudoObjectExprClass:
   case Expr::AtomicExprClass:
+  case Expr::SourceLocExprClass:
   case Expr::FixedPointLiteralClass:
   {
     if (!NullOut) {
@@ -4116,37 +4147,9 @@ recurse:
     mangleExpression(cast<ParenExpr>(E)->getSubExpr(), Arity);
     break;
 
-  case Expr::DeclRefExprClass: {
-    const NamedDecl *D = cast<DeclRefExpr>(E)->getDecl();
-
-    switch (D->getKind()) {
-    default:
-      //  <expr-primary> ::= L <mangled-name> E # external name
-      Out << 'L';
-      mangle(D);
-      Out << 'E';
-      break;
-
-    case Decl::ParmVar:
-      mangleFunctionParam(cast<ParmVarDecl>(D));
-      break;
-
-    case Decl::EnumConstant: {
-      const EnumConstantDecl *ED = cast<EnumConstantDecl>(D);
-      mangleIntegerLiteral(ED->getType(), ED->getInitVal());
-      break;
-    }
-
-    case Decl::NonTypeTemplateParm: {
-      const NonTypeTemplateParmDecl *PD = cast<NonTypeTemplateParmDecl>(D);
-      mangleTemplateParameter(PD->getIndex());
-      break;
-    }
-
-    }
-
+  case Expr::DeclRefExprClass:
+    mangleDeclRefExpr(cast<DeclRefExpr>(E)->getDecl());
     break;
-  }
 
   case Expr::SubstNonTypeTemplateParmPackExprClass:
     // FIXME: not clear how to mangle this!
@@ -4160,7 +4163,7 @@ recurse:
     // FIXME: not clear how to mangle this!
     const FunctionParmPackExpr *FPPE = cast<FunctionParmPackExpr>(E);
     Out << "v110_SUBSTPACK";
-    mangleFunctionParam(FPPE->getParameterPack());
+    mangleDeclRefExpr(FPPE->getParameterPack());
     break;
   }
 

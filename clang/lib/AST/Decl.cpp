@@ -2302,7 +2302,7 @@ APValue *VarDecl::evaluateValue(
   // first time it is evaluated. FIXME: The notes won't always be emitted the
   // first time we try evaluation, so might not be produced at all.
   if (Eval->WasEvaluated)
-    return Eval->Evaluated.isUninit() ? nullptr : &Eval->Evaluated;
+    return Eval->Evaluated.isAbsent() ? nullptr : &Eval->Evaluated;
 
   const auto *Init = cast<Expr>(Eval->Value);
   assert(!Init->isValueDependent());
@@ -2395,6 +2395,10 @@ bool VarDecl::checkInitIsICE() const {
   Eval->CheckingICE = false;
   Eval->CheckedICE = true;
   return Eval->IsICE;
+}
+
+bool VarDecl::isParameterPack() const {
+  return isa<PackExpansionType>(getType());
 }
 
 template<typename DeclT>
@@ -2683,10 +2687,6 @@ bool ParmVarDecl::hasDefaultArg() const {
          !Init.isNull();
 }
 
-bool ParmVarDecl::isParameterPack() const {
-  return isa<PackExpansionType>(getType());
-}
-
 void ParmVarDecl::setParameterIndexLarge(unsigned parameterIndex) {
   getASTContext().setParameterIndex(this, parameterIndex);
   ParmVarDeclBits.ParameterIndex = ParameterIndexSentinel;
@@ -2713,7 +2713,6 @@ FunctionDecl::FunctionDecl(Kind DK, ASTContext &C, DeclContext *DC,
   FunctionDeclBits.SClass = S;
   FunctionDeclBits.IsInline = isInlineSpecified;
   FunctionDeclBits.IsInlineSpecified = isInlineSpecified;
-  FunctionDeclBits.IsExplicitSpecified = false;
   FunctionDeclBits.IsVirtualAsWritten = false;
   FunctionDeclBits.IsPure = false;
   FunctionDeclBits.HasInheritedPrototype = false;
@@ -2961,6 +2960,8 @@ bool FunctionDecl::isExternC() const {
 }
 
 bool FunctionDecl::isInExternCContext() const {
+  if (hasAttr<OpenCLKernelAttr>())
+    return true;
   return getLexicalDeclContext()->isExternCContext();
 }
 

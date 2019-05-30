@@ -213,20 +213,15 @@
 #include <avx512vlfp16intrin.h>
 #endif
 /* end INTEL_FEATURE_ISA_FP16 */
-/* INTEL_FEATURE_ISA_BF16 */
-/*
- * TODO: when BF16 is public change the #if checks below to also check:
- *        !defined(_MSC_VER) || __has_feature(modules) || ...
- */
-#if defined(__AVX512BF16__)
-#include <intel_avx512bf16intrin.h>
+/* end INTEL_CUSTOMIZATION */
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512BF16__)
+#include <avx512bf16intrin.h>
 #endif
 
-#if (defined(__AVX512VL__) && defined(__AVX512BF16__))
-#include <intel_avx512vlbf16intrin.h>
+#if !defined(_MSC_VER) || __has_feature(modules) || \
+    (defined(__AVX512VL__) && defined(__AVX512BF16__))
+#include <avx512vlbf16intrin.h>
 #endif
-/* end INTEL_FEATURE_ISA_BF16 */
-/* end INTEL_CUSTOMIZATION */
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__PKU__)
 #include <pkuintrin.h>
@@ -540,7 +535,7 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_KEYLOCKER */
 /* end INTEL_CUSTOMIZATION */
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && __has_extension(gnu_asm)
 /* Define the default attributes for these intrinsics */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__))
 #ifdef __cplusplus
@@ -625,7 +620,7 @@ extern int _may_i_use_cpu_feature(unsigned __int64);
 
 #undef __DEFAULT_FN_ATTRS
 
-#endif /* _MSC_VER */
+#endif /* defined(_MSC_VER) && __has_extension(gnu_asm) */
 
 #include <svmlintrin.h>// INTEL
 

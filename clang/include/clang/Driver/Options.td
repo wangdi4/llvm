@@ -1264,6 +1264,8 @@ def fno_fine_grained_bitfield_accesses : Flag<["-"],
 def flat__namespace : Flag<["-"], "flat_namespace">;
 def flax_vector_conversions : Flag<["-"], "flax-vector-conversions">, Group<f_Group>;
 def flimited_precision_EQ : Joined<["-"], "flimited-precision=">, Group<f_Group>;
+def fapple_link_rtlib : Flag<["-"], "fapple-link-rtlib">, Group<f_Group>,
+  HelpText<"Force linking the clang builtins runtime library">;
 def flto_EQ : Joined<["-"], "flto=">, Flags<[CoreOption, CC1Option]>, Group<f_Group>,
   HelpText<"Set LTO mode to either 'full' or 'thin'">, Values<"thin,full">;
 def flto : Flag<["-"], "flto">, Flags<[CoreOption, CC1Option]>, Group<f_Group>,
@@ -1778,7 +1780,7 @@ def Wframe_larger_than_EQ : Joined<["-"], "Wframe-larger-than=">, Group<f_Group>
 def : Flag<["-"], "fterminated-vtables">, Alias<fapple_kext>;
 def fthreadsafe_statics : Flag<["-"], "fthreadsafe-statics">, Group<f_Group>;
 def ftime_report : Flag<["-"], "ftime-report">, Group<f_Group>, Flags<[CC1Option]>;
-def ftime_trace : Flag<["-"], "ftime-trace">, Group<f_Group>, Flags<[CC1Option]>;
+def ftime_trace : Flag<["-"], "ftime-trace">, Group<f_Group>, Flags<[CC1Option, CoreOption]>;
 def ftlsmodel_EQ : Joined<["-"], "ftls-model=">, Group<f_Group>, Flags<[CC1Option]>;
 def ftrapv : Flag<["-"], "ftrapv">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Trap on integer overflow">;
@@ -2189,6 +2191,9 @@ def mnocrc : Flag<["-"], "mnocrc">, Group<m_arm_Features_Group>,
   HelpText<"Disallow use of CRC instructions (ARM only)">;
 def mno_neg_immediates: Flag<["-"], "mno-neg-immediates">, Group<m_arm_Features_Group>,
   HelpText<"Disallow converting instructions with negative immediates to their negation or inversion.">;
+def mcmse : Flag<["-"], "mcmse">, Group<m_arm_Features_Group>,
+  Flags<[DriverOption,CC1Option]>,
+  HelpText<"Allow use of CMSE (Armv8-M Security Extensions)">;
 
 def mgeneral_regs_only : Flag<["-"], "mgeneral-regs-only">, Group<m_aarch64_Features_Group>,
   HelpText<"Generate code which only uses the general purpose registers (AArch64 only)">;
@@ -2228,6 +2233,10 @@ def mbulk_memory : Flag<["-"], "mbulk-memory">, Group<m_wasm_Features_Group>;
 def mno_bulk_memory : Flag<["-"], "mno-bulk-memory">, Group<m_wasm_Features_Group>;
 def mmutable_globals : Flag<["-"], "mmutable-globals">, Group<m_wasm_Features_Group>;
 def mno_mutable_globals : Flag<["-"], "mno-mutable-globals">, Group<m_wasm_Features_Group>;
+def mmultivalue : Flag<["-"], "mmultivalue">, Group<m_wasm_Features_Group>;
+def mno_multivalue : Flag<["-"], "mno-multivalue">, Group<m_wasm_Features_Group>;
+def mtail_call : Flag<["-"], "mtail-call">, Group<m_wasm_Features_Group>;
+def mno_tail_call : Flag<["-"], "mno-tail-call">, Group<m_wasm_Features_Group>;
 
 def mamdgpu_debugger_abi : Joined<["-"], "mamdgpu-debugger-abi=">,
   Flags<[HelpHidden]>,
@@ -2247,6 +2256,11 @@ def msram_ecc : Flag<["-"], "msram-ecc">, Group<m_amdgpu_Features_Group>,
   HelpText<"Enable SRAM ECC (AMDGPU only)">;
 def mno_sram_ecc : Flag<["-"], "mno-sram-ecc">, Group<m_amdgpu_Features_Group>,
   HelpText<"Disable SRAM ECC (AMDGPU only)">;
+
+def mcumode : Flag<["-"], "mcumode">, Group<m_amdgpu_Features_Group>,
+  HelpText<"CU wavefront execution mode is used (AMDGPU only)">;
+def mno_cumode : Flag<["-"], "mno-cumode">, Group<m_amdgpu_Features_Group>,
+  HelpText<"WGP wavefront execution mode is used (AMDGPU only)">;
 
 def faltivec : Flag<["-"], "faltivec">, Group<f_Group>, Flags<[DriverOption]>;
 def fno_altivec : Flag<["-"], "fno-altivec">, Group<f_Group>, Flags<[DriverOption]>;
@@ -2912,6 +2926,8 @@ def mavx2 : Flag<["-"], "mavx2">, Group<m_x86_Features_Group>;
 def mno_avx2 : Flag<["-"], "mno-avx2">, Group<m_x86_Features_Group>;
 def mavx512f : Flag<["-"], "mavx512f">, Group<m_x86_Features_Group>;
 def mno_avx512f : Flag<["-"], "mno-avx512f">, Group<m_x86_Features_Group>;
+def mavx512bf16 : Flag<["-"], "mavx512bf16">, Group<m_x86_Features_Group>;
+def mno_avx512bf16 : Flag<["-"], "mno-avx512bf16">, Group<m_x86_Features_Group>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 def mavx512fp16 : Flag<["-"], "mavx512fp16">, Group<m_x86_Features_Group>;
@@ -2947,10 +2963,6 @@ def mno_avx512vpopcntdq : Flag<["-"], "mno-avx512vpopcntdq">, Group<m_x86_Featur
 def mavx512vp2intersect : Flag<["-"], "mavx512vp2intersect">, Group<m_x86_Features_Group>;
 def mno_avx512vp2intersect : Flag<["-"], "mno-avx512vp2intersect">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#if INTEL_FEATURE_ISA_BF16
-def mavx512bf16 : Flag<["-"], "mavx512bf16">, Group<m_x86_Features_Group>;
-def mno_avx512bf16 : Flag<["-"], "mno-avx512bf16">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_BF16
 #if INTEL_FEATURE_ISA_AVX_VNNI
 def mavxvnni : Flag<["-"], "mavxvnni">, Group<m_x86_Features_Group>;
 def mno_avxvnni : Flag<["-"], "mno-avxvnni">, Group<m_x86_Features_Group>;

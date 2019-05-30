@@ -2,7 +2,8 @@
 // RUN: %clang_cc1 -fsyntax-only -verify -std=c11 %s
 // RUN: %clang_cc1 -fsyntax-only -verify -std=c11 -fmodules -fmodules-cache-path=%t %s -D__STDC_WANT_LIB_EXT1__=1
 // RUN: %clang_cc1 -fsyntax-only -verify -std=c11 -ffreestanding %s
-// INTEL - added -isystem Inputs/intel RUN: %clang_cc1 -fsyntax-only -verify -std=c11 -triple i686-pc-win32 -fms-compatibility-version=17.00 -isystem %S/Inputs/intel %s
+// INTEL RUN: %clang_cc1 -fsyntax-only -verify -std=c11 -triple i686-pc-win32 \
+// INTEL RUN:  -isystem %S/Inputs/intel -fms-compatibility-version=17.00 %s
 
 noreturn int f(); // expected-error 1+{{}}
 

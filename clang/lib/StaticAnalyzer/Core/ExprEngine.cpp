@@ -1341,6 +1341,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::NoInitExprClass:
     case Stmt::SizeOfPackExprClass:
     case Stmt::StringLiteralClass:
+    case Stmt::SourceLocExprClass:
     case Stmt::ObjCStringLiteralClass:
     case Stmt::CXXPseudoDestructorExprClass:
     case Stmt::SubstNonTypeTemplateParmExprClass:
@@ -1860,7 +1861,7 @@ void ExprEngine::processCFGBlockEntrance(const BlockEdge &L,
   // other constraints) then consider completely unrolling it.
   if(AMgr.options.ShouldUnrollLoops) {
     unsigned maxBlockVisitOnPath = AMgr.options.maxBlockVisitOnPath;
-    const Stmt *Term = nodeBuilder.getContext().getBlock()->getTerminator();
+    const Stmt *Term = nodeBuilder.getContext().getBlock()->getTerminatorStmt();
     if (Term) {
       ProgramStateRef NewState = updateLoopStack(Term, AMgr.getASTContext(),
                                                  Pred, maxBlockVisitOnPath);
@@ -1881,7 +1882,7 @@ void ExprEngine::processCFGBlockEntrance(const BlockEdge &L,
   unsigned int BlockCount = nodeBuilder.getContext().blockCount();
   if (BlockCount == AMgr.options.maxBlockVisitOnPath - 1 &&
       AMgr.options.ShouldWidenLoops) {
-    const Stmt *Term = nodeBuilder.getContext().getBlock()->getTerminator();
+    const Stmt *Term = nodeBuilder.getContext().getBlock()->getTerminatorStmt();
     if (!(Term &&
           (isa<ForStmt>(Term) || isa<WhileStmt>(Term) || isa<DoStmt>(Term))))
       return;
@@ -2006,8 +2007,8 @@ static const Stmt *ResolveCondition(const Stmt *Condition,
   if (!BO || !BO->isLogicalOp())
     return Condition;
 
-  assert(!B->getTerminator().isTemporaryDtorsBranch() &&
-         "Temporary destructor branches handled by processBindTemporary.");
+  assert(B->getTerminator().isStmtBranch() &&
+         "Other kinds of branches are handled separately!");
 
   // For logical operations, we still have the case where some branches
   // use the traditional "merge" approach and others sink the branch

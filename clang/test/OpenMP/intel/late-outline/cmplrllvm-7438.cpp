@@ -16,7 +16,7 @@ static void foo() {
 }
 
 // Inline function with target region.
-// CHECK: define linkonce_odr void @_Z3barv()
+// CHECK: define linkonce_odr{{ dso_local | }}void @_Z3barv()
 inline void bar() {
 // CHECK-NEXT: entry:
 // CHECK-NEXT: [[REGION1:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[IDX1:[0-9]+]]) ]

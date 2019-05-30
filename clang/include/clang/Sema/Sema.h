@@ -1928,7 +1928,8 @@ public:
     NC_NestedNameSpecifier,
     NC_TypeTemplate,
     NC_VarTemplate,
-    NC_FunctionTemplate
+    NC_FunctionTemplate,
+    NC_UndeclaredTemplate,
   };
 
   class NameClassification {
@@ -1976,6 +1977,12 @@ public:
       return Result;
     }
 
+    static NameClassification UndeclaredTemplate(TemplateName Name) {
+      NameClassification Result(NC_UndeclaredTemplate);
+      Result.Template = Name;
+      return Result;
+    }
+
     NameClassificationKind getKind() const { return Kind; }
 
     ParsedType getType() const {
@@ -1990,7 +1997,7 @@ public:
 
     TemplateName getTemplateName() const {
       assert(Kind == NC_TypeTemplate || Kind == NC_FunctionTemplate ||
-             Kind == NC_VarTemplate);
+             Kind == NC_VarTemplate || Kind == NC_UndeclaredTemplate);
       return Template;
     }
 
@@ -2002,6 +2009,8 @@ public:
         return TNK_Function_template;
       case NC_VarTemplate:
         return TNK_Var_template;
+      case NC_UndeclaredTemplate:
+        return TNK_Undeclared_template;
       default:
         llvm_unreachable("unsupported name classification.");
       }
@@ -2840,7 +2849,8 @@ public:
     CCEK_Enumerator,  ///< Enumerator value with fixed underlying type.
     CCEK_TemplateArg, ///< Value of a non-type template parameter.
     CCEK_NewExpr,     ///< Constant expression in a noptr-new-declarator.
-    CCEK_ConstexprIf  ///< Condition in a constexpr if statement.
+    CCEK_ConstexprIf, ///< Condition in a constexpr if statement.
+    CCEK_ExplicitBool ///< Condition in an explicit(bool) specifier.
   };
   ExprResult CheckConvertedConstantExpression(Expr *From, QualType T,
                                               llvm::APSInt &Value, CCEKind CCE);
@@ -2962,7 +2972,8 @@ public:
                             OverloadCandidateSet &CandidateSet,
                             bool SuppressUserConversions = false,
                             bool PartialOverloading = false,
-                            bool AllowExplicit = false,
+                            bool AllowExplicit = true,
+                            bool AllowExplicitConversion = false,
                             ADLCallKind IsADLCandidate = ADLCallKind::NotADL,
                             ConversionSequenceList EarlyConversions = None);
   void AddFunctionCandidates(const UnresolvedSetImpl &Functions,
@@ -3001,7 +3012,7 @@ public:
       FunctionTemplateDecl *FunctionTemplate, DeclAccessPair FoundDecl,
       TemplateArgumentListInfo *ExplicitTemplateArgs, ArrayRef<Expr *> Args,
       OverloadCandidateSet &CandidateSet, bool SuppressUserConversions = false,
-      bool PartialOverloading = false,
+      bool PartialOverloading = false, bool AllowExplicit = true,
       ADLCallKind IsADLCandidate = ADLCallKind::NotADL);
   bool CheckNonDependentConversions(FunctionTemplateDecl *FunctionTemplate,
                                     ArrayRef<QualType> ParamTypes,
@@ -3013,20 +3024,16 @@ public:
                                     QualType ObjectType = QualType(),
                                     Expr::Classification
                                         ObjectClassification = {});
-  void AddConversionCandidate(CXXConversionDecl *Conversion,
-                              DeclAccessPair FoundDecl,
-                              CXXRecordDecl *ActingContext,
-                              Expr *From, QualType ToType,
-                              OverloadCandidateSet& CandidateSet,
-                              bool AllowObjCConversionOnExplicit,
-                              bool AllowResultConversion = true);
-  void AddTemplateConversionCandidate(FunctionTemplateDecl *FunctionTemplate,
-                                      DeclAccessPair FoundDecl,
-                                      CXXRecordDecl *ActingContext,
-                                      Expr *From, QualType ToType,
-                                      OverloadCandidateSet &CandidateSet,
-                                      bool AllowObjCConversionOnExplicit,
-                                      bool AllowResultConversion = true);
+  void AddConversionCandidate(
+      CXXConversionDecl *Conversion, DeclAccessPair FoundDecl,
+      CXXRecordDecl *ActingContext, Expr *From, QualType ToType,
+      OverloadCandidateSet &CandidateSet, bool AllowObjCConversionOnExplicit,
+      bool AllowExplicit, bool AllowResultConversion = true);
+  void AddTemplateConversionCandidate(
+      FunctionTemplateDecl *FunctionTemplate, DeclAccessPair FoundDecl,
+      CXXRecordDecl *ActingContext, Expr *From, QualType ToType,
+      OverloadCandidateSet &CandidateSet, bool AllowObjCConversionOnExplicit,
+      bool AllowExplicit, bool AllowResultConversion = true);
   void AddSurrogateCandidate(CXXConversionDecl *Conversion,
                              DeclAccessPair FoundDecl,
                              CXXRecordDecl *ActingContext,
@@ -3650,7 +3657,7 @@ public:
   // Check if there is an explicit attribute, but only look through parens.
   // The intent is to look for an attribute on the current declarator, but not
   // one that came from a typedef.
-  bool hasExplicitCallingConv(QualType &T);
+  bool hasExplicitCallingConv(QualType T);
 
   /// Get the outermost AttributedType node that sets a calling convention.
   /// Valid types should not have multiple attributes with different CCs.
@@ -4649,6 +4656,9 @@ public:
   /// locations.
   ExprResult ActOnCallExpr(Scope *S, Expr *Fn, SourceLocation LParenLoc,
                            MultiExprArg ArgExprs, SourceLocation RParenLoc,
+                           Expr *ExecConfig = nullptr);
+  ExprResult BuildCallExpr(Scope *S, Expr *Fn, SourceLocation LParenLoc,
+                           MultiExprArg ArgExprs, SourceLocation RParenLoc,
                            Expr *ExecConfig = nullptr,
                            bool IsExecConfig = false);
   ExprResult
@@ -4758,6 +4768,17 @@ public:
                         SourceLocation RPLoc);
   ExprResult BuildVAArgExpr(SourceLocation BuiltinLoc, Expr *E,
                             TypeSourceInfo *TInfo, SourceLocation RPLoc);
+
+  // __builtin_LINE(), __builtin_FUNCTION(), __builtin_FILE(),
+  // __builtin_COLUMN()
+  ExprResult ActOnSourceLocExpr(SourceLocExpr::IdentKind Kind,
+                                SourceLocation BuiltinLoc,
+                                SourceLocation RPLoc);
+
+  // Build a potentially resolved SourceLocExpr.
+  ExprResult BuildSourceLocExpr(SourceLocExpr::IdentKind Kind,
+                                SourceLocation BuiltinLoc, SourceLocation RPLoc,
+                                DeclContext *ParentContext);
 
   // __null
   ExprResult ActOnGNUNullExpr(SourceLocation TokenLoc);
@@ -5353,12 +5374,17 @@ public:
   ExprResult BuildCXXFoldExpr(SourceLocation LParenLoc, Expr *LHS,
                               BinaryOperatorKind Operator,
                               SourceLocation EllipsisLoc, Expr *RHS,
-                              SourceLocation RParenLoc);
+                              SourceLocation RParenLoc,
+                              Optional<unsigned> NumExpansions);
   ExprResult BuildEmptyCXXFoldExpr(SourceLocation EllipsisLoc,
                                    BinaryOperatorKind Operator);
 
   //// ActOnCXXThis -  Parse 'this' pointer.
   ExprResult ActOnCXXThis(SourceLocation loc);
+
+  /// Build a CXXThisExpr and mark it referenced in the current context.
+  Expr *BuildCXXThisExpr(SourceLocation Loc, QualType Type, bool IsImplicit);
+  void MarkThisReferenced(CXXThisExpr *This);
 
   /// Try to retrieve the type of the 'this' pointer.
   ///
@@ -5848,14 +5874,16 @@ public:
   /// any implicit conversions such as an lvalue-to-rvalue conversion if
   /// not being used to initialize a reference.
   ParsedType actOnLambdaInitCaptureInitialization(
-      SourceLocation Loc, bool ByRef, IdentifierInfo *Id,
-      LambdaCaptureInitKind InitKind, Expr *&Init) {
+      SourceLocation Loc, bool ByRef, SourceLocation EllipsisLoc,
+      IdentifierInfo *Id, LambdaCaptureInitKind InitKind, Expr *&Init) {
     return ParsedType::make(buildLambdaInitCaptureInitialization(
-        Loc, ByRef, Id, InitKind != LambdaCaptureInitKind::CopyInit, Init));
+        Loc, ByRef, EllipsisLoc, None, Id,
+        InitKind != LambdaCaptureInitKind::CopyInit, Init));
   }
-  QualType buildLambdaInitCaptureInitialization(SourceLocation Loc, bool ByRef,
-                                                IdentifierInfo *Id,
-                                                bool DirectInit, Expr *&Init);
+  QualType buildLambdaInitCaptureInitialization(
+      SourceLocation Loc, bool ByRef, SourceLocation EllipsisLoc,
+      Optional<unsigned> NumExpansions, IdentifierInfo *Id, bool DirectInit,
+      Expr *&Init);
 
   /// Create a dummy variable within the declcontext of the lambda's
   ///  call operator, for name lookup purposes for a lambda init capture.
@@ -5864,6 +5892,7 @@ public:
   ///  variables appropriately.
   VarDecl *createLambdaInitCaptureVarDecl(SourceLocation Loc,
                                           QualType InitCaptureType,
+                                          SourceLocation EllipsisLoc,
                                           IdentifierInfo *Id,
                                           unsigned InitStyle, Expr *Init);
 
@@ -6133,8 +6162,8 @@ public:
 
   /// MarkVirtualMembersReferenced - Will mark all members of the given
   /// CXXRecordDecl referenced.
-  void MarkVirtualMembersReferenced(SourceLocation Loc,
-                                    const CXXRecordDecl *RD);
+  void MarkVirtualMembersReferenced(SourceLocation Loc, const CXXRecordDecl *RD,
+                                    bool ConstexprOnly = false);
 
   /// Define all of the vtables that have been used in this
   /// translation unit and reference any virtual members used by those
@@ -6412,7 +6441,8 @@ public:
                                      bool AllowDependent = true);
   bool hasAnyAcceptableTemplateNames(LookupResult &R,
                                      bool AllowFunctionTemplates = true,
-                                     bool AllowDependent = true);
+                                     bool AllowDependent = true,
+                                     bool AllowNonTemplateFunctions = false);
   /// Try to interpret the lookup result D as a template-name.
   ///
   /// \param D A declaration found by name lookup.
@@ -6424,10 +6454,20 @@ public:
                                    bool AllowFunctionTemplates = true,
                                    bool AllowDependent = true);
 
+  enum class AssumedTemplateKind {
+    /// This is not assumed to be a template name.
+    None,
+    /// This is assumed to be a template name because lookup found nothing.
+    FoundNothing,
+    /// This is assumed to be a template name because lookup found one or more
+    /// functions (but no function templates).
+    FoundFunctions,
+  };
   bool LookupTemplateName(LookupResult &R, Scope *S, CXXScopeSpec &SS,
                           QualType ObjectType, bool EnteringContext,
                           bool &MemberOfUnknownSpecialization,
-                          SourceLocation TemplateKWLoc = SourceLocation());
+                          SourceLocation TemplateKWLoc = SourceLocation(),
+                          AssumedTemplateKind *ATK = nullptr);
 
   TemplateNameKind isTemplateName(Scope *S,
                                   CXXScopeSpec &SS,
@@ -6437,6 +6477,20 @@ public:
                                   bool EnteringContext,
                                   TemplateTy &Template,
                                   bool &MemberOfUnknownSpecialization);
+
+  /// Try to resolve an undeclared template name as a type template.
+  ///
+  /// Sets II to the identifier corresponding to the template name, and updates
+  /// Name to a corresponding (typo-corrected) type template name and TNK to
+  /// the corresponding kind, if possible.
+  void ActOnUndeclaredTypeTemplateName(Scope *S, TemplateTy &Name,
+                                       TemplateNameKind &TNK,
+                                       SourceLocation NameLoc,
+                                       IdentifierInfo *&II);
+
+  bool resolveAssumedTemplateNameAsType(Scope *S, TemplateName &Name,
+                                        SourceLocation NameLoc,
+                                        bool Diagnose = true);
 
   /// Determine whether a particular identifier might be the name in a C++1z
   /// deduction-guide declaration.
@@ -6547,14 +6601,11 @@ public:
                               TemplateArgumentListInfo &TemplateArgs);
 
   TypeResult
-  ActOnTemplateIdType(CXXScopeSpec &SS, SourceLocation TemplateKWLoc,
+  ActOnTemplateIdType(Scope *S, CXXScopeSpec &SS, SourceLocation TemplateKWLoc,
                       TemplateTy Template, IdentifierInfo *TemplateII,
-                      SourceLocation TemplateIILoc,
-                      SourceLocation LAngleLoc,
-                      ASTTemplateArgsPtr TemplateArgs,
-                      SourceLocation RAngleLoc,
-                      bool IsCtorOrDtorName = false,
-                      bool IsClassName = false);
+                      SourceLocation TemplateIILoc, SourceLocation LAngleLoc,
+                      ASTTemplateArgsPtr TemplateArgs, SourceLocation RAngleLoc,
+                      bool IsCtorOrDtorName = false, bool IsClassName = false);
 
   /// Parsed an elaborated-type-specifier that refers to a template-id,
   /// such as \c class T::template apply<U>.
@@ -7546,8 +7597,10 @@ public:
     SourceRange InstantiationRange;
 
     CodeSynthesisContext()
-      : Kind(TemplateInstantiation), Entity(nullptr), Template(nullptr),
-        TemplateArgs(nullptr), NumTemplateArgs(0), DeductionInfo(nullptr) {}
+        : Kind(TemplateInstantiation),
+          SavedInNonInstantiationSFINAEContext(false), Entity(nullptr),
+          Template(nullptr), TemplateArgs(nullptr), NumTemplateArgs(0),
+          DeductionInfo(nullptr) {}
 
     /// Determines whether this template is an actual instantiation
     /// that should be counted toward the maximum instantiation depth.
@@ -9034,7 +9087,8 @@ public:
   /// Check if the specified variable is used in one of the private
   /// clauses (private, firstprivate, lastprivate, reduction etc.) in OpenMP
   /// constructs.
-  VarDecl *isOpenMPCapturedDecl(ValueDecl *D);
+  VarDecl *isOpenMPCapturedDecl(ValueDecl *D, bool CheckScopeInfo = false,
+                                unsigned StopAt = 0);
   ExprResult getOpenMPCapturedExpr(VarDecl *Capture, ExprValueKind VK,
                                    ExprObjectKind OK, SourceLocation Loc);
 
@@ -9915,6 +9969,12 @@ public:
     /// like address spaces.
     IncompatiblePointerDiscardsQualifiers,
 
+    /// IncompatibleNestedPointerAddressSpaceMismatch - The assignment
+    /// changes address spaces in nested pointer types which is not allowed.
+    /// For instance, converting __private int ** to __generic int ** is
+    /// illegal even though __private could be converted to __generic.
+    IncompatibleNestedPointerAddressSpaceMismatch,
+
     /// IncompatibleNestedPointerQualifiers - The assignment is between two
     /// nested pointer types, and the qualifiers other than the first two
     /// levels differ e.g. char ** -> const char **, but we accept them as an
@@ -10320,6 +10380,14 @@ public:
   /// \return true iff there were any errors
   ExprResult CheckBooleanCondition(SourceLocation Loc, Expr *E,
                                    bool IsConstexpr = false);
+
+  /// ActOnExplicitBoolSpecifier - Build an ExplicitSpecifier from an expression
+  /// found in an explicit(bool) specifier.
+  ExplicitSpecifier ActOnExplicitBoolSpecifier(Expr *E);
+
+  /// tryResolveExplicitSpecifier - Attempt to resolve the explict specifier.
+  /// Returns true if the explicit specifier is now resolved.
+  bool tryResolveExplicitSpecifier(ExplicitSpecifier &ExplicitSpec);
 
   /// DiagnoseAssignmentAsCondition - Given that an expression is
   /// being used as a boolean condition, warn if it's an assignment.

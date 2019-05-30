@@ -522,7 +522,9 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
   if (Enabled) {
     switch (Level) {
     case AVX512F:
-      Features["avx512f"] = Features["fma"] = Features["f16c"] = true;
+      Features["avx512f"] = true;
+      Features["fma"] = true;
+      Features["f16c"] = true;
       LLVM_FALLTHROUGH;
     case AVX2:
       Features["avx2"] = true;
@@ -561,13 +563,13 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     Features["sse"] = false;
     LLVM_FALLTHROUGH;
   case SSE2:
-    Features["sse2"] = Features["pclmul"] = Features["aes"] = Features["sha"] =
-        Features["gfni"] = false;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
     Features["keylocker"] = false;
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
 #endif // INTEL_CUSTOMIZATION
+    Features["sse2"] = Features["pclmul"] = Features["aes"] = false;
+    Features["sha"] = Features["gfni"] = false;
     LLVM_FALLTHROUGH;
   case SSE3:
     Features["sse3"] = false;
@@ -583,8 +585,9 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     Features["sse4.2"] = false;
     LLVM_FALLTHROUGH;
   case AVX:
-    Features["fma"] = Features["avx"] = Features["f16c"] = Features["xsave"] =
-        Features["xsaveopt"] = Features["vaes"] = Features["vpclmulqdq"] = false;
+    Features["fma"] = Features["avx"] = Features["f16c"] = false;
+    Features["xsave"] = Features["xsaveopt"] = Features["vaes"] = false;
+    Features["vpclmulqdq"] = false;
     setXOPLevel(Features, FMA4, false);
     LLVM_FALLTHROUGH;
   case AVX2:
@@ -596,22 +599,19 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
 #endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case AVX512F:
-    Features["avx512f"] = Features["avx512cd"] = Features["avx512er"] =
-        Features["avx512pf"] = Features["avx512dq"] = Features["avx512bw"] =
-            Features["avx512vl"] = Features["avx512vbmi"] =
-                Features["avx512ifma"] = Features["avx512vpopcntdq"] =
-                    Features["avx512bitalg"] = Features["avx512vnni"] =
-                        Features["avx512vbmi2"] = false;
+    Features["avx512f"] = Features["avx512cd"] = Features["avx512er"] = false;
+    Features["avx512pf"] = Features["avx512dq"] = Features["avx512bw"] = false;
+    Features["avx512vl"] = Features["avx512vbmi"] = false;
+    Features["avx512ifma"] = Features["avx512vpopcntdq"] = false;
+    Features["avx512bitalg"] = Features["avx512vnni"] = false;
+    Features["avx512vbmi2"] = Features["avx512bf16"] = false;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_VP2INTERSECT
-                        Features["avx512vp2intersect"] = false;
+    Features["avx512vp2intersect"] = false;
 #endif // INTEL_FEATURE_ISA_VP2INTERSECT
 #if INTEL_FEATURE_ISA_FP16
-                        Features["avx512fp16"] = false;
+    Features["avx512fp16"] = false;
 #endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_BF16
-                        Features["avx512bf16"] = false;
-#endif // INTEL_FEATURE_ISA_BF16
 #endif // INTEL_CUSTOMIZATION
     break;
   }
@@ -747,26 +747,12 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     setSSELevel(Features, AVX2, Enabled);
   } else if (Name == "avx512f") {
     setSSELevel(Features, AVX512F, Enabled);
-  } else if (Name == "avx512cd" || Name == "avx512er" || Name == "avx512pf" ||
-             Name == "avx512dq" || Name == "avx512bw" || Name == "avx512vl" ||
-             Name == "avx512vbmi" || Name == "avx512ifma" ||
-             Name == "avx512vpopcntdq" || Name == "avx512bitalg" ||
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_VP2INTERSECT
-             Name == "avx512vp2intersect" ||
-#endif // INTEL_FEATURE_ISA_VP2INTERSECT
-#if INTEL_FEATURE_ISA_BF16
-             Name == "avx512bf16" ||
-#endif // INTEL_FEATURE_ISA_BF16
-#if INTEL_FEATURE_ISA_FP16
-             Name == "avx512fp16" ||
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-             Name == "avx512vnni" || Name == "avx512vbmi2") {
+  } else if (Name.startswith("avx512")) {
     if (Enabled)
       setSSELevel(Features, AVX512F, Enabled);
-    // Enable BWI instruction if VBMI/VBMI2/BITALG is being enabled.
-    if ((Name.startswith("avx512vbmi") || Name == "avx512bitalg") && Enabled)
+    // Enable BWI instruction if certain features are being enabled.
+    if ((Name == "avx512vbmi" || Name == "avx512vbmi2" ||
+         Name == "avx512bitalg" || Name == "avx512bf16") && Enabled)
       Features["avx512bw"] = true;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -774,20 +760,19 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     if (Name == "avx512fp16" && Enabled)
       Features["avx512bw"] = Features["avx512vl"] = true;
 #endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_BF16
-    if (Name == "avx512bf16" && Enabled)
-      Features["avx512bw"] = Features["avx512vl"] = true;
-#endif // INTEL_FEATURE_ISA_BF16
 #endif // INTEL_CUSTOMIZATION
-    // Also disable VBMI/VBMI2/BITALG if BWI is being disabled.
-    if (Name == "avx512bw" && !Enabled)
-      Features["avx512vbmi"] = Features["avx512vbmi2"] =
+    // Also disable some features if BWI is being disabled.
+    if (Name == "avx512bw" && !Enabled) {
+      Features["avx512vbmi"] = false;
+      Features["avx512vbmi2"] = false;
+      Features["avx512bitalg"] = false;
+      Features["avx512bf16"] = false;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-      Features["avx512fp16"] =
+      Features["avx512fp16"] = false;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-      Features["avx512bitalg"] = false;
+    }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
     if (Name == "avx512vl" && !Enabled)
@@ -897,12 +882,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512VPOPCNTDQ = true;
     } else if (Feature == "+avx512vnni") {
       HasAVX512VNNI = true;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16
     } else if (Feature == "+avx512bf16") {
       HasAVX512BF16 = true;
-#endif // INTEL_FEATURE_ISA_BF16
-#endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+avx512er") {
       HasAVX512ER = true;
 #if INTEL_CUSTOMIZATION
@@ -1350,12 +1331,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512VPOPCNTDQ__");
   if (HasAVX512VNNI)
     Builder.defineMacro("__AVX512VNNI__");
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16
   if (HasAVX512BF16)
     Builder.defineMacro("__AVX512BF16__");
-#endif // INTEL_FEATURE_ISA_BF16
-#endif // INTEL_CUSTOMIZATION
   if (HasAVX512ER)
     Builder.defineMacro("__AVX512ER__");
 #if INTEL_CUSTOMIZATION
@@ -1596,11 +1573,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512cd", true)
       .Case("avx512vpopcntdq", true)
       .Case("avx512vnni", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16
       .Case("avx512bf16", true)
-#endif // INTEL_FEATURE_ISA_BF16
-#endif // INTEL_CUSTOMIZATION
       .Case("avx512er", true)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -1725,11 +1698,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512cd", HasAVX512CD)
       .Case("avx512vpopcntdq", HasAVX512VPOPCNTDQ)
       .Case("avx512vnni", HasAVX512VNNI)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16
       .Case("avx512bf16", HasAVX512BF16)
-#endif // INTEL_FEATURE_ISA_BF16
-#endif // INTEL_CUSTOMIZATION
       .Case("avx512er", HasAVX512ER)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16

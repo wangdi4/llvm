@@ -58,6 +58,7 @@
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
 #include "llvm/Transforms/Instrumentation/GCOVProfiler.h"
+#include "llvm/Transforms/Instrumentation/HWAddressSanitizer.h"
 #include "llvm/Transforms/Instrumentation/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
@@ -269,12 +270,13 @@ static void addHWAddressSanitizerPasses(const PassManagerBuilder &Builder,
       static_cast<const PassManagerBuilderWrapper &>(Builder);
   const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
   bool Recover = CGOpts.SanitizeRecover.has(SanitizerKind::HWAddress);
-  PM.add(createHWAddressSanitizerPass(/*CompileKernel*/ false, Recover));
+  PM.add(
+      createHWAddressSanitizerLegacyPassPass(/*CompileKernel*/ false, Recover));
 }
 
 static void addKernelHWAddressSanitizerPasses(const PassManagerBuilder &Builder,
                                             legacy::PassManagerBase &PM) {
-  PM.add(createHWAddressSanitizerPass(
+  PM.add(createHWAddressSanitizerLegacyPassPass(
       /*CompileKernel*/ true, /*Recover*/ true));
 }
 
@@ -955,24 +957,47 @@ static void addSanitizersAtO0(ModulePassManager &MPM,
                               const Triple &TargetTriple,
                               const LangOptions &LangOpts,
                               const CodeGenOptions &CodeGenOpts) {
-  if (LangOpts.Sanitize.has(SanitizerKind::Address)) {
+  auto ASanPass = [&](SanitizerMask Mask, bool CompileKernel) {
     MPM.addPass(RequireAnalysisPass<ASanGlobalsMetadataAnalysis, Module>());
-    bool Recover = CodeGenOpts.SanitizeRecover.has(SanitizerKind::Address);
-    MPM.addPass(createModuleToFunctionPassAdaptor(
-        AddressSanitizerPass(/*CompileKernel=*/false, Recover,
-                             CodeGenOpts.SanitizeAddressUseAfterScope)));
+    bool Recover = CodeGenOpts.SanitizeRecover.has(Mask);
+    MPM.addPass(createModuleToFunctionPassAdaptor(AddressSanitizerPass(
+        CompileKernel, Recover, CodeGenOpts.SanitizeAddressUseAfterScope)));
     bool ModuleUseAfterScope = asanUseGlobalsGC(TargetTriple, CodeGenOpts);
-    MPM.addPass(ModuleAddressSanitizerPass(
-        /*CompileKernel=*/false, Recover, ModuleUseAfterScope,
-        CodeGenOpts.SanitizeAddressUseOdrIndicator));
+    MPM.addPass(
+        ModuleAddressSanitizerPass(CompileKernel, Recover, ModuleUseAfterScope,
+                                   CodeGenOpts.SanitizeAddressUseOdrIndicator));
+  };
+
+  if (LangOpts.Sanitize.has(SanitizerKind::Address)) {
+    ASanPass(SanitizerKind::Address, /*CompileKernel=*/false);
+  }
+
+  if (LangOpts.Sanitize.has(SanitizerKind::KernelAddress)) {
+    ASanPass(SanitizerKind::KernelAddress, /*CompileKernel=*/true);
   }
 
   if (LangOpts.Sanitize.has(SanitizerKind::Memory)) {
     MPM.addPass(createModuleToFunctionPassAdaptor(MemorySanitizerPass({})));
   }
 
+  if (LangOpts.Sanitize.has(SanitizerKind::KernelMemory)) {
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        MemorySanitizerPass({0, false, /*Kernel=*/true})));
+  }
+
   if (LangOpts.Sanitize.has(SanitizerKind::Thread)) {
     MPM.addPass(createModuleToFunctionPassAdaptor(ThreadSanitizerPass()));
+  }
+
+  if (LangOpts.Sanitize.has(SanitizerKind::HWAddress)) {
+    bool Recover = CodeGenOpts.SanitizeRecover.has(SanitizerKind::HWAddress);
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        HWAddressSanitizerPass(/*CompileKernel=*/false, Recover)));
+  }
+
+  if (LangOpts.Sanitize.has(SanitizerKind::KernelHWAddress)) {
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        HWAddressSanitizerPass(/*CompileKernel=*/true, /*Recover=*/true)));
   }
 }
 
@@ -989,13 +1014,15 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
   TimeRegion Region(FrontendTimesIsEnabled ? &CodeGenerationTime : nullptr);
   setCommandLineOpts(CodeGenOpts);
 
-  // The new pass manager always makes a target machine available to passes
-  // during construction.
-  CreateTargetMachine(/*MustCreateTM*/ true);
-  if (!TM)
-    // This will already be diagnosed, just bail.
+  bool RequiresCodeGen = (Action != Backend_EmitNothing &&
+                          Action != Backend_EmitBC &&
+                          Action != Backend_EmitLL);
+  CreateTargetMachine(RequiresCodeGen);
+
+  if (RequiresCodeGen && !TM)
     return;
-  TheModule->setDataLayout(TM->createDataLayout());
+  if (TM)
+    TheModule->setDataLayout(TM->createDataLayout());
 
   Optional<PGOOptions> PGOOpt;
 
@@ -1047,7 +1074,15 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
                           CodeGenOpts.DebugInfoForProfiling);
   }
 
-  PassBuilder PB(TM.get(), PipelineTuningOptions(), PGOOpt);
+  PipelineTuningOptions PTO;
+  PTO.LoopUnrolling = CodeGenOpts.UnrollLoops;
+  // For historical reasons, loop interleaving is set to mirror setting for loop
+  // unrolling.
+  PTO.LoopInterleaving = CodeGenOpts.UnrollLoops;
+  PTO.LoopVectorization = CodeGenOpts.VectorizeLoop;
+  PTO.SLPVectorization = CodeGenOpts.VectorizeSLP;
+
+  PassBuilder PB(TM.get(), PTO, PGOOpt);
 
   // Attempt to load pass plugins and register their callbacks with PB.
   for (auto &PluginFN : CodeGenOpts.PassPlugins) {
@@ -1154,6 +1189,23 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
               MPM.addPass(ModuleAddressSanitizerPass(
                   /*CompileKernel=*/false, Recover, ModuleUseAfterScope,
                   UseOdrIndicator));
+            });
+      }
+      if (LangOpts.Sanitize.has(SanitizerKind::HWAddress)) {
+        bool Recover =
+            CodeGenOpts.SanitizeRecover.has(SanitizerKind::HWAddress);
+        PB.registerOptimizerLastEPCallback(
+            [Recover](FunctionPassManager &FPM,
+                      PassBuilder::OptimizationLevel Level) {
+              FPM.addPass(HWAddressSanitizerPass(
+                  /*CompileKernel=*/false, Recover));
+            });
+      }
+      if (LangOpts.Sanitize.has(SanitizerKind::KernelHWAddress)) {
+        PB.registerOptimizerLastEPCallback(
+            [](FunctionPassManager &FPM, PassBuilder::OptimizationLevel Level) {
+              FPM.addPass(HWAddressSanitizerPass(
+                  /*CompileKernel=*/true, /*Recover=*/true));
             });
       }
       if (Optional<GCOVOptions> Options = getGCOVOptions(CodeGenOpts))
