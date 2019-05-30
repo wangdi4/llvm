@@ -47,9 +47,6 @@ OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
 
 CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_clRtServices(nullptr),
-OCLSTAT_INIT(Early_Exit_Givenup_Due_To_Loads,
-"early exit wasn't tried because block consists of a load instruction (but no store instructions). However, it is still likely early exit was impossible regardless of it",
-    m_kernelStats),
 OCLSTAT_INIT(Created_Early_Exit,
 "one if early exit (or late start) was done for the kernel. Value is never greater for one, even if early-exit done for several dimensions.",
     m_kernelStats)
@@ -1069,30 +1066,23 @@ bool CLWGLoopBoundaries::isEarlyExitSucc(BasicBlock *BB){
 }
 
 bool CLWGLoopBoundaries::hasSideEffectInst(BasicBlock *BB) {
-  bool loadInstruction = false;
-  for (BasicBlock::iterator it = BB->begin(), e = BB->end(); it != e ; ++it) {
-    switch (it->getOpcode()){
-      // Loads and store have side effect.
-      case Instruction::Load :
-        loadInstruction = true;
-        break;
-      case Instruction::Store:
+  for (BasicBlock::iterator it = BB->begin(), e = BB->end(); it != e; ++it)
+    switch (it->getOpcode()) {
+    // Store has side effect.
+    case Instruction::Store:
+      return true;
+    // For calls ask the runtime object.
+    case Instruction::Call: {
+      std::string name =
+          (cast<CallInst>(it))->getCalledFunction()->getName().str();
+      if (!m_clRtServices->hasNoSideEffect(name))
         return true;
-      // For calls ask the runtime object.
-      case Instruction::Call :
-      {
-        std::string name = (cast<CallInst>(it))->getCalledFunction()->getName().str();
-        if (!m_clRtServices->hasNoSideEffect(name)) return true;
-        break;
-      }
-      default:
-        break;
+      break;
     }
-  }
-  if (loadInstruction) {
-    Early_Exit_Givenup_Due_To_Loads++; // statistics
-    return true;
-  }
+    default:
+      break;
+    }
+
   return false;
 }
 
