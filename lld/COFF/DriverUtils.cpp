@@ -833,7 +833,8 @@ opt::InputArgList ArgParser::parse(ArrayRef<const char *> Argv) {
 
   // Expand response files (arguments in the form of @<filename>)
   // and then parse the argument again.
-  SmallVector<const char *, 256> ExpandedArgv(Argv.data(), Argv.data() + Argv.size());
+  SmallVector<const char *, 256> ExpandedArgv(Argv.data(),
+                                              Argv.data() + Argv.size());
   cl::ExpandResponseFiles(Saver, getQuotingStyle(Args), ExpandedArgv);
   Args = Table.ParseArgs(makeArrayRef(ExpandedArgv).drop_front(), MissingIndex,
                          MissingCount);
@@ -858,8 +859,14 @@ opt::InputArgList ArgParser::parse(ArrayRef<const char *> Argv) {
 
   handleColorDiagnostics(Args);
 
-  for (auto *Arg : Args.filtered(OPT_UNKNOWN))
-    warn("ignoring unknown argument: " + Arg->getSpelling());
+  for (auto *Arg : Args.filtered(OPT_UNKNOWN)) {
+    std::string Nearest;
+    if (Table.findNearest(Arg->getAsString(Args), Nearest) > 1)
+      warn("ignoring unknown argument '" + Arg->getSpelling() + "'");
+    else
+      warn("ignoring unknown argument '" + Arg->getSpelling() +
+           "', did you mean '" + Nearest + "'");
+  }
 
   if (Args.hasArg(OPT_lib))
     warn("ignoring /lib since it's not the first argument");

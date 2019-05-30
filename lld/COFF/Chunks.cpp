@@ -41,7 +41,9 @@ SectionChunk::SectionChunk(ObjFile *F, const coff_section *H)
   SectionNameData = SectionName.data();
   SectionNameSize = SectionName.size();
 
-  Alignment = Header->getAlignment();
+  setAlignment(Header->getAlignment());
+
+  HasData = !(Header->Characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA);
 
   // If linker GC is disabled, every chunk starts out alive.  If linker GC is
   // enabled, treat non-comdat sections as roots. Generally optimized object
@@ -53,7 +55,7 @@ SectionChunk::SectionChunk(ObjFile *F, const coff_section *H)
 // SectionChunk is one of the most frequently allocated classes, so it is
 // important to keep it as compact as possible. As of this writing, the number
 // below is the size of this class on x64 platforms.
-static_assert(sizeof(SectionChunk) <= 120, "SectionChunk grew unexpectedly");
+static_assert(sizeof(SectionChunk) <= 88, "SectionChunk grew unexpectedly");
 
 static void add16(uint8_t *P, int16_t V) { write16le(P, read16le(P) + V); }
 static void add32(uint8_t *P, int32_t V) { write32le(P, read32le(P) + V); }
@@ -344,7 +346,7 @@ void SectionChunk::writeTo(uint8_t *Buf) const {
   // Copy section contents from source object file to output file.
   ArrayRef<uint8_t> A = getContents();
   if (!A.empty())
-    memcpy(Buf + OutputSectionOff, A.data(), A.size());
+    memcpy(Buf, A.data(), A.size());
 
   // Apply relocations.
   size_t InputSize = getSize();
@@ -360,7 +362,7 @@ void SectionChunk::writeTo(uint8_t *Buf) const {
       continue;
     }
 
-    uint8_t *Off = Buf + OutputSectionOff + Rel.VirtualAddress;
+    uint8_t *Off = Buf + Rel.VirtualAddress;
 
     auto *Sym =
         dyn_cast_or_null<Defined>(File->getSymbol(Rel.SymbolTableIndex));
@@ -559,14 +561,6 @@ void SectionChunk::getRuntimePseudoRelocs(
   }
 }
 
-bool SectionChunk::hasData() const {
-  return !(Header->Characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA);
-}
-
-uint32_t SectionChunk::getOutputCharacteristics() const {
-  return Header->Characteristics & (PermMask | TypeMask);
-}
-
 bool SectionChunk::isCOMDAT() const {
   return Header->Characteristics & IMAGE_SCN_LNK_COMDAT;
 }
@@ -578,7 +572,7 @@ void SectionChunk::printDiscardedMessage() const {
     message("Discarded " + Sym->getName());
 }
 
-StringRef SectionChunk::getDebugName() {
+StringRef SectionChunk::getDebugName() const {
   if (Sym)
     return Sym->getName();
   return "";
@@ -586,7 +580,7 @@ StringRef SectionChunk::getDebugName() {
 
 ArrayRef<uint8_t> SectionChunk::getContents() const {
   ArrayRef<uint8_t> A;
-  File->getCOFFObj()->getSectionContents(Header, A);
+  cantFail(File->getCOFFObj()->getSectionContents(Header, A));
   return A;
 }
 
@@ -625,7 +619,7 @@ SectionChunk *SectionChunk::findByName(ArrayRef<SectionChunk *> Sections,
 }
 
 void SectionChunk::replace(SectionChunk *Other) {
-  Alignment = std::max(Alignment, Other->Alignment);
+  P2Align = std::max(P2Align, Other->P2Align);
   Other->Repl = Repl;
   Other->Live = false;
 }
@@ -638,9 +632,11 @@ uint32_t SectionChunk::getSectionNumber() const {
 }
 
 CommonChunk::CommonChunk(const COFFSymbolRef S) : Sym(S) {
-  // Common symbols are aligned on natural boundaries up to 32 bytes.
+  // The value of a common symbol is its size. Align all common symbols smaller
+  // than 32 bytes naturally, i.e. round the size up to the next power of two.
   // This is what MSVC link.exe does.
-  Alignment = std::min(uint64_t(32), PowerOf2Ceil(Sym.getValue()));
+  setAlignment(std::min(32U, uint32_t(PowerOf2Ceil(Sym.getValue()))));
+  HasData = false;
 }
 
 uint32_t CommonChunk::getOutputCharacteristics() const {
@@ -649,20 +645,20 @@ uint32_t CommonChunk::getOutputCharacteristics() const {
 }
 
 void StringChunk::writeTo(uint8_t *Buf) const {
-  memcpy(Buf + OutputSectionOff, Str.data(), Str.size());
-  Buf[OutputSectionOff + Str.size()] = '\0';
+  memcpy(Buf, Str.data(), Str.size());
+  Buf[Str.size()] = '\0';
 }
 
 ImportThunkChunkX64::ImportThunkChunkX64(Defined *S) : ImpSymbol(S) {
   // Intel Optimization Manual says that all branch targets
   // should be 16-byte aligned. MSVC linker does this too.
-  Alignment = 16;
+  setAlignment(16);
 }
 
 void ImportThunkChunkX64::writeTo(uint8_t *Buf) const {
-  memcpy(Buf + OutputSectionOff, ImportThunkX86, sizeof(ImportThunkX86));
+  memcpy(Buf, ImportThunkX86, sizeof(ImportThunkX86));
   // The first two bytes is a JMP instruction. Fill its operand.
-  write32le(Buf + OutputSectionOff + 2, ImpSymbol->getRVA() - RVA - getSize());
+  write32le(Buf + 2, ImpSymbol->getRVA() - RVA - getSize());
 }
 
 void ImportThunkChunkX86::getBaserels(std::vector<Baserel> *Res) {
@@ -670,9 +666,9 @@ void ImportThunkChunkX86::getBaserels(std::vector<Baserel> *Res) {
 }
 
 void ImportThunkChunkX86::writeTo(uint8_t *Buf) const {
-  memcpy(Buf + OutputSectionOff, ImportThunkX86, sizeof(ImportThunkX86));
+  memcpy(Buf, ImportThunkX86, sizeof(ImportThunkX86));
   // The first two bytes is a JMP instruction. Fill its operand.
-  write32le(Buf + OutputSectionOff + 2,
+  write32le(Buf + 2,
             ImpSymbol->getRVA() + Config->ImageBase);
 }
 
@@ -681,16 +677,16 @@ void ImportThunkChunkARM::getBaserels(std::vector<Baserel> *Res) {
 }
 
 void ImportThunkChunkARM::writeTo(uint8_t *Buf) const {
-  memcpy(Buf + OutputSectionOff, ImportThunkARM, sizeof(ImportThunkARM));
+  memcpy(Buf, ImportThunkARM, sizeof(ImportThunkARM));
   // Fix mov.w and mov.t operands.
-  applyMOV32T(Buf + OutputSectionOff, ImpSymbol->getRVA() + Config->ImageBase);
+  applyMOV32T(Buf, ImpSymbol->getRVA() + Config->ImageBase);
 }
 
 void ImportThunkChunkARM64::writeTo(uint8_t *Buf) const {
   int64_t Off = ImpSymbol->getRVA() & 0xfff;
-  memcpy(Buf + OutputSectionOff, ImportThunkARM64, sizeof(ImportThunkARM64));
-  applyArm64Addr(Buf + OutputSectionOff, ImpSymbol->getRVA(), RVA, 12);
-  applyArm64Ldr(Buf + OutputSectionOff + 4, Off);
+  memcpy(Buf, ImportThunkARM64, sizeof(ImportThunkARM64));
+  applyArm64Addr(Buf, ImpSymbol->getRVA(), RVA, 12);
+  applyArm64Ldr(Buf + 4, Off);
 }
 
 // A Thumb2, PIC, non-interworking range extension thunk.
@@ -708,8 +704,8 @@ size_t RangeExtensionThunkARM::getSize() const {
 void RangeExtensionThunkARM::writeTo(uint8_t *Buf) const {
   assert(Config->Machine == ARMNT);
   uint64_t Offset = Target->getRVA() - RVA - 12;
-  memcpy(Buf + OutputSectionOff, ArmThunk, sizeof(ArmThunk));
-  applyMOV32T(Buf + OutputSectionOff, uint32_t(Offset));
+  memcpy(Buf, ArmThunk, sizeof(ArmThunk));
+  applyMOV32T(Buf, uint32_t(Offset));
 }
 
 // A position independent ARM64 adrp+add thunk, with a maximum range of
@@ -727,9 +723,9 @@ size_t RangeExtensionThunkARM64::getSize() const {
 
 void RangeExtensionThunkARM64::writeTo(uint8_t *Buf) const {
   assert(Config->Machine == ARM64);
-  memcpy(Buf + OutputSectionOff, Arm64Thunk, sizeof(Arm64Thunk));
-  applyArm64Addr(Buf + OutputSectionOff + 0, Target->getRVA(), RVA, 12);
-  applyArm64Imm(Buf + OutputSectionOff + 4, Target->getRVA() & 0xfff, 0);
+  memcpy(Buf, Arm64Thunk, sizeof(Arm64Thunk));
+  applyArm64Addr(Buf + 0, Target->getRVA(), RVA, 12);
+  applyArm64Imm(Buf + 4, Target->getRVA() & 0xfff, 0);
 }
 
 void LocalImportChunk::getBaserels(std::vector<Baserel> *Res) {
@@ -740,14 +736,14 @@ size_t LocalImportChunk::getSize() const { return Config->Wordsize; }
 
 void LocalImportChunk::writeTo(uint8_t *Buf) const {
   if (Config->is64()) {
-    write64le(Buf + OutputSectionOff, Sym->getRVA() + Config->ImageBase);
+    write64le(Buf, Sym->getRVA() + Config->ImageBase);
   } else {
-    write32le(Buf + OutputSectionOff, Sym->getRVA() + Config->ImageBase);
+    write32le(Buf, Sym->getRVA() + Config->ImageBase);
   }
 }
 
 void RVATableChunk::writeTo(uint8_t *Buf) const {
-  ulittle32_t *Begin = reinterpret_cast<ulittle32_t *>(Buf + OutputSectionOff);
+  ulittle32_t *Begin = reinterpret_cast<ulittle32_t *>(Buf);
   size_t Cnt = 0;
   for (const ChunkAndOffset &CO : Syms)
     Begin[Cnt++] = CO.InputChunk->getRVA() + CO.Offset;
@@ -768,7 +764,7 @@ void PseudoRelocTableChunk::writeTo(uint8_t *Buf) const {
   if (Relocs.empty())
     return;
 
-  ulittle32_t *Table = reinterpret_cast<ulittle32_t *>(Buf + OutputSectionOff);
+  ulittle32_t *Table = reinterpret_cast<ulittle32_t *>(Buf);
   // This is the list header, to signal the runtime pseudo relocation v2
   // format.
   Table[0] = 0;
@@ -838,7 +834,7 @@ BaserelChunk::BaserelChunk(uint32_t Page, Baserel *Begin, Baserel *End) {
 }
 
 void BaserelChunk::writeTo(uint8_t *Buf) const {
-  memcpy(Buf + OutputSectionOff, Data.data(), Data.size());
+  memcpy(Buf, Data.data(), Data.size());
 }
 
 uint8_t Baserel::getDefaultType() {
@@ -854,36 +850,40 @@ uint8_t Baserel::getDefaultType() {
   }
 }
 
-std::map<uint32_t, MergeChunk *> MergeChunk::Instances;
+MergeChunk *MergeChunk::Instances[Log2MaxSectionAlignment + 1] = {};
 
 MergeChunk::MergeChunk(uint32_t Alignment)
     : Builder(StringTableBuilder::RAW, Alignment) {
-  this->Alignment = Alignment;
+  setAlignment(Alignment);
 }
 
 void MergeChunk::addSection(SectionChunk *C) {
-  auto *&MC = Instances[C->Alignment];
+  assert(isPowerOf2_32(C->getAlignment()));
+  uint8_t P2Align = llvm::Log2_32(C->getAlignment());
+#if INTEL_CUSTOMIZATION
+  assert(P2Align < array_lengthof(Instances));
+#endif // INTEL_CUSTOMIZATION
+  auto *&MC = Instances[P2Align];
   if (!MC)
-    MC = make<MergeChunk>(C->Alignment);
+    MC = make<MergeChunk>(C->getAlignment());
   MC->Sections.push_back(C);
 }
 
 void MergeChunk::finalizeContents() {
-  if (!Finalized) {
-    for (SectionChunk *C : Sections)
-      if (C->Live)
-        Builder.add(toStringRef(C->getContents()));
-    Builder.finalize();
-    Finalized = true;
-  }
+  assert(!Finalized && "should only finalize once");
+  for (SectionChunk *C : Sections)
+    if (C->Live)
+      Builder.add(toStringRef(C->getContents()));
+  Builder.finalize();
+  Finalized = true;
+}
 
+void MergeChunk::assignSubsectionRVAs() {
   for (SectionChunk *C : Sections) {
     if (!C->Live)
       continue;
     size_t Off = Builder.getOffset(toStringRef(C->getContents()));
-    C->setOutputSection(Out);
     C->setRVA(RVA + Off);
-    C->OutputSectionOff = OutputSectionOff + Off;
   }
 }
 
@@ -896,7 +896,7 @@ size_t MergeChunk::getSize() const {
 }
 
 void MergeChunk::writeTo(uint8_t *Buf) const {
-  Builder.write(Buf + OutputSectionOff);
+  Builder.write(Buf);
 }
 
 // MinGW specific.
@@ -904,9 +904,9 @@ size_t AbsolutePointerChunk::getSize() const { return Config->Wordsize; }
 
 void AbsolutePointerChunk::writeTo(uint8_t *Buf) const {
   if (Config->is64()) {
-    write64le(Buf + OutputSectionOff, Value);
+    write64le(Buf, Value);
   } else {
-    write32le(Buf + OutputSectionOff, Value);
+    write32le(Buf, Value);
   }
 }
 
