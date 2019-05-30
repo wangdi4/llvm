@@ -2054,6 +2054,15 @@ public:
     llvm_unreachable("Did not find operand bundle for operand!");
   }
 
+#if INTEL_CUSTOMIZATION
+  // Update the intel_profx metadata on CallBase instructions by scaling it
+  // by S/T. Note that this is similar in spirit to what is done for
+  // CallInst::updateProfWeight. In fact, a reasonable enhancement might be
+  // to move CallInst::updateProfWeight to CallBase::updateProfWeight so it
+  // can be used by InvokeInsts as well.  If that were to happen, we could
+  // include this functionality within CallBase::updateProfWeight.
+  void updateProfxWeight(uint64_t S, uint64_t T);
+#endif // INTEL_CUSTOMIZATION
 protected:
   /// Return the total number of values used in \p Bundles.
   static unsigned CountBundleInputs(ArrayRef<OperandBundleDef> Bundles) {

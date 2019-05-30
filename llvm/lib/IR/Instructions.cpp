@@ -377,6 +377,35 @@ CallBase::populateBundleOperandInfos(ArrayRef<OperandBundleDef> Bundles,
   return It;
 }
 
+#if INTEL_CUSTOMIZATION
+void CallBase::updateProfxWeight(uint64_t S, uint64_t T) {
+  auto *MD = getMetadata(LLVMContext::MD_intel_profx);
+  if (!MD)
+    return;
+  if (T == 0) {
+    LLVM_DEBUG(dbgs() << "Attempting to update profile weights will result in "
+                         "div by 0. Ignoring. Likely the function "
+                      << getParent()->getParent()->getName()
+                      << " has 0 entry count, and contains call instructions "
+                         "with non-zero prof info.");
+    return;
+  }
+  assert(MD->getNumOperands() == 2);
+  ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
+  assert(CI);
+  APInt APS(128, S), APT(128, T);
+  APInt Val(128, CI->getValue().getZExtValue());
+  Val *= APS;
+  SmallVector<Metadata *, 2> Vals(2);
+  Module *M = getModule();
+  Vals[0] = MDString::get(M->getContext(), "intel_profx");
+  Type *Int64Ty = Type::getInt64Ty(M->getContext());
+  uint64_t Count = Val.udiv(APT).getLimitedValue();
+  Vals[1] = ConstantAsMetadata::get(ConstantInt::get(Int64Ty, Count));
+  setMetadata(LLVMContext::MD_intel_profx, MDNode::get(M->getContext(), Vals));
+}
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 //                        CallInst Implementation
 //===----------------------------------------------------------------------===//

@@ -1745,6 +1745,18 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
       CalleeEntryCount.getCount() < 1)
     return;
   auto CallSiteCount = PSI ? PSI->getProfileCount(TheCall, CallerBFI) : None;
+#if INTEL_CUSTOMIZATION
+  if (CallSiteCount == None) {
+    // Get profile for call from intel_profx if not available elsewhere
+    auto *MD = TheCall->getMetadata(LLVMContext::MD_intel_profx);
+    if (MD) {
+      assert(MD->getNumOperands() == 2);
+      ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
+      assert(CI);
+      CallSiteCount = CI->getValue().getZExtValue();
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   int64_t CallCount =
       std::min(CallSiteCount.hasValue() ? CallSiteCount.getValue() : 0,
                CalleeEntryCount.getCount());
@@ -1773,17 +1785,30 @@ void llvm::updateProfileCallee(
   // During inlining ?
   if (VMap) {
     uint64_t cloneEntryCount = priorEntryCount - newEntryCount;
-    for (auto const &Entry : *VMap)
+    for (auto const &Entry : *VMap) { // INTEL
+#if INTEL_CUSTOMIZATION
+      // Update intel_profx metadata, which can be on CallInst or InvokeInst
+      if (isa<CallBase>(Entry.first))
+        if (auto *Call = dyn_cast_or_null<CallBase>(Entry.second))
+          Call->updateProfxWeight(cloneEntryCount, priorEntryCount);
+#endif // INTEL_CUSTOMIZATION
       if (isa<CallInst>(Entry.first))
         if (auto *CI = dyn_cast_or_null<CallInst>(Entry.second))
           CI->updateProfWeight(cloneEntryCount, priorEntryCount);
+    } // INTEL
   }
   for (BasicBlock &BB : *Callee)
     // No need to update the callsite if it is pruned during inlining.
     if (!VMap || VMap->count(&BB))
-      for (Instruction &I : BB)
+      for (Instruction &I : BB) { // INTEL
+#if INTEL_CUSTOMIZATION
+        // Update intel_profx metadata, which can be on CallInst or InvokeInst
+        if (CallBase *Call = dyn_cast<CallBase>(&I))
+          Call->updateProfxWeight(newEntryCount, priorEntryCount);
+#endif // INTEL_CUSTOMIZATION
         if (CallInst *CI = dyn_cast<CallInst>(&I))
           CI->updateProfWeight(newEntryCount, priorEntryCount);
+      } // INTEL
 }
 
 #if INTEL_CUSTOMIZATION
