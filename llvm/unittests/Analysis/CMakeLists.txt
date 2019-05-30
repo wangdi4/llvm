@@ -18,6 +18,9 @@ add_llvm_unittest(AnalysisTests
   DivergenceAnalysisTest.cpp
   DomTreeUpdaterTest.cpp
   GlobalsModRefTest.cpp
+# INTEL_CUSTOMIZATION
+  Intel_VectorVariantTest.cpp
+# end INTEL_CUSTOMIZATION
   IVDescriptorsTest.cpp
   LazyCallGraphTest.cpp
   LoopInfoTest.cpp

@@ -49,50 +49,79 @@ VectorVariant::VectorVariant(StringRef FuncName) {
 
   // optional parameter annotations
   while (SST.peek() != '_') {
-
     char Kind;
-    int Stride = VectorKind::notAValue();
-    int StrideSign = POSITIVE;
-    int Alignment = NOT_ALIGNED;
 
     // Get parameter kind
     SST.get(Kind);
 
+    auto ExtractOptionalAlignment =
+        [](std::stringstream &SST) -> unsigned {
+      if (SST.peek() == 'a') {
+        SST.ignore(1);
+        unsigned Alignment;
+        SST >> Alignment;
+        return Alignment;
+      }
+      return 0;
+    };
+
     // Default stride for linear is 1. If the stride for a parameter is 1,
     // then the front-end will not encode it and we will not have set the
     // correct stride below.
-    if (Kind == LINEAR_KIND)
-      Stride = 1;
-
-    // Handle optional stride
-    if (SST.peek() == 'n') {
-      // Stride is negative
-      SST.ignore(1);
-      StrideSign = NEGATIVE;
+    switch (Kind) {
+    case UNIFORM_KIND: {
+      Parameters.push_back(VectorKind::uniform(ExtractOptionalAlignment(SST)));
+      break;
     }
-
-    if (std::isdigit(SST.peek())) {
-      // Extract constant stride
-      SST >> Stride;
-      assert((Kind != STRIDE_KIND || Stride >= 0) &&
-             "variable stride argument index cannot be negative");
+    case VECTOR_KIND: {
+      Parameters.push_back(VectorKind::vector(ExtractOptionalAlignment(SST)));
+      break;
     }
+    case LINEAR_KIND: {
+      bool IsNegativeStride = false;
 
-    Stride *= StrideSign;
-    // Handle optional alignment
-    if (SST.peek() == 'a') {
-      SST.ignore(1);
-      SST >> Alignment;
+      if (SST.peek() == 's') {
+        // Stride in the variable.
+        SST.ignore(1);
+        assert(std::isdigit(SST.peek()) &&
+               "Expected position number of linear_step argument!");
+        unsigned StrideArgumentPosition;
+        SST >> StrideArgumentPosition;
+        Parameters.push_back(VectorKind::variableStrided(
+            StrideArgumentPosition, ExtractOptionalAlignment(SST)));
+        break;
+      }
+
+      int Stride = 1;
+      // Handle optional stride.
+      if (SST.peek() == 'n') {
+        // Stride is negative.
+        SST.ignore(1);
+        IsNegativeStride = true;
+        // Is the following allowed by the mangling scheme?
+        assert(std::isdigit(SST.peek()) &&
+               "Negative stride without actual value?");
+      }
+      if (std::isdigit(SST.peek()))
+        // Extract constant stride
+        SST >> Stride;
+
+      if (IsNegativeStride)
+        Stride = -Stride;
+
+      Parameters.push_back(
+          VectorKind::linear(Stride, ExtractOptionalAlignment(SST)));
+      break;
     }
-
-    VectorKind VecKind(Kind, Stride, Alignment);
-    Parameters.push_back(VecKind);
+    default:
+      // "R/U/L"
+      llvm_unreachable("Not Implemented yet!");
+    }
   }
 
   if (Mask) {
     // Masked variants will have an additional mask parameter
-    VectorKind VecKind(VECTOR_KIND, VectorKind::notAValue());
-    Parameters.push_back(VecKind);
+    Parameters.push_back(VectorKind::vector());
   }
 }
 
@@ -109,6 +138,35 @@ unsigned int VectorVariant::calcVlen(ISAClass I,
     maximumSizeofISAClassVectorRegister(I, CharacteristicDataType);
 
   return VectorRegisterSize / CharacteristicDataType->getPrimitiveSizeInBits();
+}
+
+std::string VectorVariant::encodeVectorKind(VectorKind VK) {
+    std::stringstream SST;
+    if (VK.isVector())
+      SST << static_cast<char>(VECTOR_KIND);
+    else if (VK.isUniform())
+      SST << static_cast<char>(UNIFORM_KIND);
+    else if (VK.isLinear()) {
+      SST << static_cast<char>(LINEAR_KIND);
+      if (VK.isVariableStride()) {
+        SST << 's' << VK.getStrideArgumentPosition();
+      } else if (VK.isConstantNonUnitStride()) {
+        int Stride = VK.getStride();
+        if (Stride >= 0)
+          SST << Stride;
+        else
+          SST << "n" << -Stride;
+      } else {
+        assert(VK.isUnitStride() && "Expected unit-stride linear!");
+      }
+    } else {
+      llvm_unreachable("Unknown Kind!");
+    }
+
+    if (VK.isAligned())
+      SST << 'a' << VK.getAlignment();
+
+    return SST.str();
 }
 
 /// \brief Determine the maximum vector register width based on the ISA classes
