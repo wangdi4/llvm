@@ -804,10 +804,10 @@ def extloadv4f32 : PatFrag<(ops node:$ptr), (v4f64 (extloadvf32 node:$ptr))>;
 def extloadv8f32 : PatFrag<(ops node:$ptr), (v8f64 (extloadvf32 node:$ptr))>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-def extloadv2f16 : PatFrag<(ops node:$ptr), (v2f64 (extloadvf16 node:$ptr))>;
-def extloadv4f16 : PatFrag<(ops node:$ptr), (v4f32 (extloadvf16 node:$ptr))>;
-def extloadv8f16 : PatFrag<(ops node:$ptr), (v8f32 (extloadvf16 node:$ptr))>;
-def extloadv16f16 : PatFrag<(ops node:$ptr), (v16f32 (extloadvf16 node:$ptr))>;
+def extloadv2f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
+def extloadv4f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
+def extloadv8f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
+def extloadv16f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 

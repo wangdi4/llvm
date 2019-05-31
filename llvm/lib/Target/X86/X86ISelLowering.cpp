@@ -101,6 +101,11 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   bool UseX87 = !Subtarget.useSoftFloat() && Subtarget.hasX87();
   X86ScalarSSEf64 = Subtarget.hasSSE2();
   X86ScalarSSEf32 = Subtarget.hasSSE1();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  X86ScalarAVXf16 = Subtarget.hasFP16();
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
   MVT PtrVT = MVT::getIntegerVT(TM.getPointerSizeInBits(0));
 
   // Set up the TargetLowering object.
@@ -1700,6 +1705,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationPromotedToType(ISD::VECTOR_SHUFFLE, MVT::v32f16, MVT::v32i16);
       setOperationAction(ISD::INSERT_VECTOR_ELT,      MVT::v32f16, Custom);
       setOperationAction(ISD::FP_ROUND,               MVT::v16f32, Legal);
+
+      setLoadExtAction(ISD::EXTLOAD, MVT::v8f64,  MVT::v8f16,  Legal);
+      setLoadExtAction(ISD::EXTLOAD, MVT::v16f32, MVT::v16f16, Legal);
     }
 
     if (Subtarget.hasVLX()) {
@@ -1727,6 +1735,11 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
       setOperationAction(ISD::FP_TO_SINT,           MVT::v4f16, Custom);
       setOperationAction(ISD::FP_ROUND,             MVT::v8f32, Legal);
+
+      setLoadExtAction(ISD::EXTLOAD, MVT::v4f64, MVT::v4f16, Legal);
+      setLoadExtAction(ISD::EXTLOAD, MVT::v2f64, MVT::v2f16, Legal);
+      setLoadExtAction(ISD::EXTLOAD, MVT::v8f32, MVT::v8f16, Legal);
+      setLoadExtAction(ISD::EXTLOAD, MVT::v4f32, MVT::v4f16, Legal);
     }
 
     // Support fp16 0 immediate

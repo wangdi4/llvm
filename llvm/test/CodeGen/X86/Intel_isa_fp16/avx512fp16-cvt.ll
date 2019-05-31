@@ -2,6 +2,24 @@
 ; REQUIRES: intel_feature_isa_fp16
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512fp16 -mattr=+avx512vl | FileCheck %s
 
+define half @f32tof16(float %b) nounwind {
+; CHECK-LABEL: f32tof16:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtss2sh %xmm0, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = fptrunc float %b to half
+  ret half %a
+}
+
+define half @f64tof16(double %b) nounwind {
+; CHECK-LABEL: f64tof16:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtsd2sh %xmm0, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = fptrunc double %b to half
+  ret half %a
+}
+
 define <16 x half> @f32to16f16(<16 x float> %b) nounwind {
 ; CHECK-LABEL: f32to16f16:
 ; CHECK:       # %bb.0:
@@ -88,6 +106,24 @@ define <16 x half> @f32to16f16_mask(<16 x float> %b, <16 x i1> %mask) {
   %a = fptrunc <16 x float> %b to <16 x half>
   %c = select <16 x i1>%mask, <16 x half>%a, <16 x half> zeroinitializer
   ret <16 x half> %c
+}
+
+define float @f16tof32(half %b) nounwind {
+; CHECK-LABEL: f16tof32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtsh2ss %xmm0, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = fpext half %b to float
+  ret float %a
+}
+
+define double @f16tof64(half %b) nounwind {
+; CHECK-LABEL: f16tof64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtsh2sd %xmm0, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = fpext half %b to double
+  ret double %a
 }
 
 define <16 x float> @f16to16f32(<16 x half> %b) nounwind {
@@ -266,3 +302,104 @@ define <8 x half> @f64to8f16(<8 x double> %b) {
   ret <8 x half> %a
 }
 
+define float @extload_f16_f32(half* %x) {
+; CHECK-LABEL: extload_f16_f32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovsh (%rdi), %xmm0
+; CHECK-NEXT:    vcvtsh2ss %xmm0, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = load half, half* %x
+  %b = fpext half %a to float
+  ret float %b
+}
+
+define double @extload_f16_f64(half* %x) {
+; CHECK-LABEL: extload_f16_f64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmovsh (%rdi), %xmm0
+; CHECK-NEXT:    vcvtsh2sd %xmm0, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = load half, half* %x
+  %b = fpext half %a to double
+  ret double %b
+}
+
+define float @extload_f16_f32_optsize(half* %x) optsize {
+; CHECK-LABEL: extload_f16_f32_optsize:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtsh2ss (%rdi), %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = load half, half* %x
+  %b = fpext half %a to float
+  ret float %b
+}
+
+define double @extload_f16_f64_optsize(half* %x) optsize {
+; CHECK-LABEL: extload_f16_f64_optsize:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtsh2sd (%rdi), %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = load half, half* %x
+  %b = fpext half %a to double
+  ret double %b
+}
+
+define <16 x float> @extload_v16f16_v16f32(<16 x half>* %x) {
+; CHECK-LABEL: extload_v16f16_v16f32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtph2psx (%rdi), %zmm0
+; CHECK-NEXT:    retq
+  %a = load <16 x half>, <16 x half>* %x
+  %b = fpext <16 x half> %a to <16 x float>
+  ret <16 x float> %b
+}
+
+define <8 x float> @extload_v8f16_v8f32(<8 x half>* %x) {
+; CHECK-LABEL: extload_v8f16_v8f32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtph2psx (%rdi), %ymm0
+; CHECK-NEXT:    retq
+  %a = load <8 x half>, <8 x half>* %x
+  %b = fpext <8 x half> %a to <8 x float>
+  ret <8 x float> %b
+}
+
+define <4 x float> @extload_v4f16_v4f32(<4 x half>* %x) {
+; CHECK-LABEL: extload_v4f16_v4f32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtph2psx (%rdi), %xmm0
+; CHECK-NEXT:    retq
+  %a = load <4 x half>, <4 x half>* %x
+  %b = fpext <4 x half> %a to <4 x float>
+  ret <4 x float> %b
+}
+
+define <8 x double> @extload_v8f16_v8f64(<8 x half>* %x) {
+; CHECK-LABEL: extload_v8f16_v8f64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtph2pd (%rdi), %zmm0
+; CHECK-NEXT:    retq
+  %a = load <8 x half>, <8 x half>* %x
+  %b = fpext <8 x half> %a to <8 x double>
+  ret <8 x double> %b
+}
+
+define <4 x double> @extload_v4f16_v4f64(<4 x half>* %x) {
+; CHECK-LABEL: extload_v4f16_v4f64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtph2pd (%rdi), %ymm0
+; CHECK-NEXT:    retq
+  %a = load <4 x half>, <4 x half>* %x
+  %b = fpext <4 x half> %a to <4 x double>
+  ret <4 x double> %b
+}
+
+define <2 x double> @extload_v2f16_v2f64(<2 x half>* %x) {
+; CHECK-LABEL: extload_v2f16_v2f64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtph2pd (%rdi), %xmm0
+; CHECK-NEXT:    retq
+  %a = load <2 x half>, <2 x half>* %x
+  %b = fpext <2 x half> %a to <2 x double>
+  ret <2 x double> %b
+}

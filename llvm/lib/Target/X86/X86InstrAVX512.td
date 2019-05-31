@@ -7911,9 +7911,16 @@ def : Pat<(f32 (fpround FR64X:$src)),
 def : Pat<(f32 (fpextend FR16X:$src)),
           (VCVTSH2SSZrr (f32 (IMPLICIT_DEF)), FR16X:$src)>,
           Requires<[HasFP16]>;
+def : Pat<(f32 (fpextend (loadf16 addr:$src))),
+          (VCVTSH2SSZrm (f32 (IMPLICIT_DEF)), addr:$src)>,
+          Requires<[HasFP16, OptForSize]>;
+
 def : Pat<(f64 (fpextend FR16X:$src)),
           (VCVTSH2SDZrr (f64 (IMPLICIT_DEF)), FR16X:$src)>,
           Requires<[HasFP16]>;
+def : Pat<(f64 (fpextend (loadf16 addr:$src))),
+          (VCVTSH2SDZrm (f64 (IMPLICIT_DEF)), addr:$src)>,
+          Requires<[HasFP16, OptForSize]>;
 
 def : Pat<(f16 (fpround FR32X:$src)),
           (VCVTSS2SHZrr (f16 (IMPLICIT_DEF)), FR32X:$src)>,
@@ -8207,6 +8214,8 @@ multiclass avx512_cvtph2pd<bits<8> opc, string OpcodeStr,
                             fpextend, sched.ZMM>,
              avx512_vcvt_fp_sae<opc, OpcodeStr, v8f64_info, v8f16x_info,
                                 X86vfpextSAE, sched.ZMM>, EVEX_V512;
+    def : Pat<(v8f64 (extloadv8f16 addr:$src)),
+                (!cast<Instruction>(NAME # "Zrm") addr:$src)>;
   }
   let Predicates = [HasFP16, HasVLX] in {
     defm Z128 : avx512_vcvt_fp<opc, OpcodeStr, v2f64x_info, v8f16x_info,
@@ -8341,6 +8350,8 @@ let Predicates = [HasFP16] in {
 
 let Predicates = [HasFP16, HasVLX] in {
   def : Pat<(v4f32 (extloadv4f16 addr:$src)), (VCVTPH2PSXZ128rm addr:$src)>;
+  def : Pat<(v2f64 (extloadv2f16 addr:$src)), (VCVTPH2PDZ128rm addr:$src)>;
+  def : Pat<(v4f64 (extloadv4f16 addr:$src)), (VCVTPH2PDZ256rm addr:$src)>;
 
   // Special patterns to allow use of X86vmfpround for masking. Instruction
   // patterns have been disabled with null_frag.
