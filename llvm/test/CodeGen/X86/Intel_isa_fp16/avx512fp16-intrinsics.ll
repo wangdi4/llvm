@@ -637,8 +637,8 @@ declare <8 x half> @llvm.x86.avx512fp16.vcvtsi2sh(<8 x half>, i32, i32)
 define <8 x half> @test_x86_avx512fp16_vcvtsi2sh(<8 x half> %arg0, i32 %arg1) {
 ; CHECK-LABEL: test_x86_avx512fp16_vcvtsi2sh:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtsi2shl %edi, %xmm0, %xmm1
-; CHECK-NEXT:    vcvtsi2shl %edi, {rd-sae}, %xmm0, %xmm0
+; CHECK-NEXT:    vcvtsi2sh %edi, %xmm0, %xmm1
+; CHECK-NEXT:    vcvtsi2sh %edi, {rd-sae}, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddph %xmm0, %xmm1, %xmm0
 ; CHECK-NEXT:    retq
   %res1 = call <8 x half> @llvm.x86.avx512fp16.vcvtsi2sh(<8 x half> %arg0, i32 %arg1, i32 4)
@@ -652,8 +652,8 @@ declare <8 x half> @llvm.x86.avx512fp16.vcvtsi642sh(<8 x half>, i64, i32)
 define <8 x half> @test_x86_avx512fp16_vcvtsi642sh(<8 x half> %arg0, i64 %arg1) {
 ; CHECK-LABEL: test_x86_avx512fp16_vcvtsi642sh:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtsi2shq %rdi, %xmm0, %xmm1
-; CHECK-NEXT:    vcvtsi2shq %rdi, {rn-sae}, %xmm0, %xmm0
+; CHECK-NEXT:    vcvtsi2sh %rdi, %xmm0, %xmm1
+; CHECK-NEXT:    vcvtsi2sh %rdi, {rn-sae}, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddph %xmm0, %xmm1, %xmm0
 ; CHECK-NEXT:    retq
   %res1 = call <8 x half> @llvm.x86.avx512fp16.vcvtsi642sh(<8 x half> %arg0, i64 %arg1, i32 4)
@@ -667,8 +667,8 @@ declare <8 x half> @llvm.x86.avx512fp16.vcvtusi2sh(<8 x half>, i32, i32)
 define <8 x half> @test_x86_avx512fp16_vcvtusi2sh(<8 x half> %arg0, i32 %arg1) {
 ; CHECK-LABEL: test_x86_avx512fp16_vcvtusi2sh:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtusi2shl %edi, %xmm0, %xmm1
-; CHECK-NEXT:    vcvtusi2shl %edi, {rd-sae}, %xmm0, %xmm0
+; CHECK-NEXT:    vcvtusi2sh %edi, %xmm0, %xmm1
+; CHECK-NEXT:    vcvtusi2sh %edi, {rd-sae}, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddph %xmm0, %xmm1, %xmm0
 ; CHECK-NEXT:    retq
   %res1 = call <8 x half> @llvm.x86.avx512fp16.vcvtusi2sh(<8 x half> %arg0, i32 %arg1, i32 4)
@@ -682,8 +682,8 @@ declare <8 x half> @llvm.x86.avx512fp16.vcvtusi642sh(<8 x half>, i64, i32)
 define <8 x half> @test_x86_avx512fp16_vcvtusi642sh(<8 x half> %arg0, i64 %arg1) {
 ; CHECK-LABEL: test_x86_avx512fp16_vcvtusi642sh:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtusi2shq %rdi, %xmm0, %xmm1
-; CHECK-NEXT:    vcvtusi2shq %rdi, {rd-sae}, %xmm0, %xmm0
+; CHECK-NEXT:    vcvtusi2sh %rdi, %xmm0, %xmm1
+; CHECK-NEXT:    vcvtusi2sh %rdi, {rd-sae}, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddph %xmm0, %xmm1, %xmm0
 ; CHECK-NEXT:    retq
   %res1 = call <8 x half> @llvm.x86.avx512fp16.vcvtusi642sh(<8 x half> %arg0, i64 %arg1, i32 4)
