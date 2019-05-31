@@ -235,6 +235,7 @@ void prepareForMerging(MachineFunction *DstMF, MachineFunction *SrcMF) {
           DstLMFI->getLICInfo(NewReg) = SrcLMFI->getLICInfo(OldReg);
           DstMRI->createVirtualRegister(SrcMRI->getRegClass((OldReg)));
           SrcMRI->replaceRegWith(OldReg,NewReg);
+          SrcLMFI->getLICInfo(NewReg) = SrcLMFI->getLICInfo(OldReg);
         }
       }
     }
