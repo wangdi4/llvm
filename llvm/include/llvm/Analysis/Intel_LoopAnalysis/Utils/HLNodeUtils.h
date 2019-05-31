@@ -244,7 +244,9 @@ private:
   /// Creates a new Call instruction.
   std::pair<HLInst *, CallInst *>
   createCallImpl(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
-                 const Twine &Name = "call", RegDDRef *LvalRef = nullptr);
+                 const Twine &Name = "call", RegDDRef *LvalRef = nullptr,
+                 ArrayRef<OperandBundleDef> Bundle = {},
+                 ArrayRef<RegDDRef *> BundleOps = {});
 
   /// Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
@@ -826,7 +828,9 @@ public:
 
   /// Creates a new Call instruction.
   HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
-                     const Twine &Name = "call", RegDDRef *LvalRef = nullptr);
+                     const Twine &Name = "call", RegDDRef *LvalRef = nullptr,
+                     ArrayRef<OperandBundleDef> Bundle = {},
+                     ArrayRef<RegDDRef *> BundleOps = {});
 
   /// Creates a new Memcpy intrinsic call.
   HLInst *createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef, RegDDRef *Size);

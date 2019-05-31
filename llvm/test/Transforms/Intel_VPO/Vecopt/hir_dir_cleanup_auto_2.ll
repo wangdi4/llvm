@@ -22,15 +22,15 @@
 ; HIR Test.
 ; CHECK: IR Dump After HIR Vec Directive Insertion Pass 
 ; CHECK: BEGIN REGION   
-; CHECK: llvm.intel.directive
+; CHECK: llvm.directive.region.entry
 ; CHECK: DO i1 = 0, 1023, 1
-; CHECK: llvm.intel.directive
+; CHECK: llvm.directive.region.exit
 ; CHECK: END REGION
 ; CHECK: IR Dump After VPlan Vectorization Driver HIR 
 ; CHECK: BEGIN REGION   
-; CHECK-NOT: llvm.intel.directive
+; CHECK-NOT: llvm.directive.region.entry
 ; CHECK: DO i1 = 0, 1023, 1
-; CHECK-NOT: llvm.intel.directive
+; CHECK-NOT: llvm.directive.region.exit
 ; CHECK: END REGION
 
 ; source_filename = "test2.c"

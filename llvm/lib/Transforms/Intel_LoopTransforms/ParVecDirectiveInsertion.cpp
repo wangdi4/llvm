@@ -77,25 +77,48 @@ void ParVecDirectiveInsertion::Visitor::visit(HLLoop *HLoop) {
   }
 }
 
-HLInst *ParVecDirectiveInsertion::Visitor::insertDirective(HLLoop *Lp,
-                                                           OMP_DIRECTIVES Dir,
-                                                           bool Append) {
-  SmallVector<RegDDRef *, 1> CallArgs;
-  auto Intrin =
-      Intrinsic::getDeclaration(Func.getParent(), Intrinsic::intel_directive);
+HLInst *
+ParVecDirectiveInsertion::Visitor::insertBeginRegion(HLLoop *Lp,
+                                                     OMP_DIRECTIVES Dir) {
+  auto Intrin = Intrinsic::getDeclaration(Func.getParent(),
+                                          Intrinsic::directive_region_entry);
   assert(Intrin && "Cannot get declaration for intrinsic");
 
-  auto DD = createRegDDRef(Dir);
-  CallArgs.push_back(DD);
+  SmallVector<llvm::OperandBundleDef, 1> IntrinOpBundle;
+  llvm::OperandBundleDef OpBundle(IntrinsicUtils::getDirectiveString(Dir),
+                                  ArrayRef<llvm::Value *>{});
+  IntrinOpBundle.push_back(OpBundle);
+  // TODO: Operand bundles for any clauses in auto-vec directive
 
-  // Create "call void @llvm.intel.directive(metadata !9)"
-  auto Inst = Lp->getHLNodeUtils().createCall(Intrin, CallArgs);
+  // No arguments to region.entry call
+  SmallVector<RegDDRef *, 1> CallArgs;
+  // Create "%entry = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]"
+  auto Inst = Lp->getHLNodeUtils().createCall(
+      Intrin, CallArgs, "entry.region", nullptr /*Lvalddref*/, IntrinOpBundle);
 
-  if (Append) {
-    HLNodeUtils::insertAfter(Lp, Inst);
-  } else {
-    HLNodeUtils::insertBefore(Lp, Inst);
-  }
+  HLNodeUtils::insertBefore(Lp, Inst);
+  return Inst;
+}
+
+HLInst *ParVecDirectiveInsertion::Visitor::insertEndRegion(HLLoop *Lp,
+                                                           OMP_DIRECTIVES Dir,
+                                                           HLInst *Entry) {
+  auto Intrin = Intrinsic::getDeclaration(Func.getParent(),
+                                          Intrinsic::directive_region_exit);
+  assert(Intrin && "Cannot get declaration for intrinsic");
+
+  SmallVector<llvm::OperandBundleDef, 1> IntrinOpBundle;
+  llvm::OperandBundleDef OpBundle(IntrinsicUtils::getDirectiveString(Dir),
+                                  ArrayRef<llvm::Value *>{});
+  IntrinOpBundle.push_back(OpBundle);
+
+  SmallVector<RegDDRef *, 1> CallArgs;
+  CallArgs.push_back(Entry->getLvalDDRef()->clone());
+  // Create "@llvm.directive.region.exit(%entry); [ DIR.VPO.END.AUTO.VEC() ]"
+  auto Inst = Lp->getHLNodeUtils().createCall(
+      Intrin, CallArgs, "exit.region", nullptr /*Lvalddref*/, IntrinOpBundle);
+
+  HLNodeUtils::insertAfter(Lp, Inst);
   return Inst;
 }
 
@@ -105,15 +128,10 @@ void ParVecDirectiveInsertion::Visitor::insertVecDirectives(
   LLVM_DEBUG(Info->print(dbgs()));
   Inserted = true;
 
-  // Insert SIMD directives and clauses
-  insertDirective(Lp, DIR_VPO_AUTO_VEC, false /* prepend */);
-  insertDirective(Lp, DIR_QUAL_LIST_END, false /* prepend */);
-
-  // TODO: Clauses
-
-  // End of SIMD directives and clauses insertion
-  insertDirective(Lp, DIR_QUAL_LIST_END, true /* append  */);
-  insertDirective(Lp, DIR_VPO_END_AUTO_VEC, true /* append  */);
+  // Insert region entry for auto-vec directive
+  HLInst *RegionEntry = insertBeginRegion(Lp, DIR_VPO_AUTO_VEC);
+  // Insert region exit for auto-vec directive
+  insertEndRegion(Lp, DIR_VPO_END_AUTO_VEC, RegionEntry);
 }
 
 void ParVecDirectiveInsertion::Visitor::insertParDirectives(
@@ -125,13 +143,3 @@ void ParVecDirectiveInsertion::Visitor::insertParDirectives(
   // TODO: Implement!
 }
 
-RegDDRef *
-ParVecDirectiveInsertion::Visitor::createRegDDRef(OMP_DIRECTIVES Dir) {
-  return HIRF->getDDRefUtils().createConstDDRef(
-      IntrinsicUtils::createDirectiveMetadataAsValue(*(Func.getParent()), Dir));
-}
-
-RegDDRef *ParVecDirectiveInsertion::Visitor::createRegDDRef(OMP_CLAUSES Qual) {
-  return HIRF->getDDRefUtils().createConstDDRef(
-      IntrinsicUtils::createClauseMetadataAsValue(*(Func.getParent()), Qual));
-}

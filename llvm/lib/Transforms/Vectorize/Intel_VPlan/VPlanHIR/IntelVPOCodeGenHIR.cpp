@@ -934,24 +934,14 @@ void VPOCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
     if (auto *Inst = HInst->getIntrinCall()) {
       Intrinsic::ID IntrinID = Inst->getIntrinsicID();
 
-      if (vpo::VPOAnalysisUtils::isIntelClause(IntrinID)) {
-        HLNodeUtils::remove(HInst);
-        continue;
-      }
-
-      if (vpo::VPOAnalysisUtils::isIntelDirective(IntrinID) ||
-          vpo::VPOAnalysisUtils::isRegionDirective(IntrinID)) {
+      if (vpo::VPOAnalysisUtils::isRegionDirective(IntrinID)) {
         StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveString(
             const_cast<IntrinsicInst *>(Inst));
 
         int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
 
-        if (BeginOrEndDirIDs.count(DirID)) {
+        if (BeginOrEndDirIDs.count(DirID))
           HLNodeUtils::remove(HInst);
-        } else if (VPOAnalysisUtils::isListEndDirective(DirID)) {
-          HLNodeUtils::remove(HInst);
-          return;
-        }
       }
     }
   }

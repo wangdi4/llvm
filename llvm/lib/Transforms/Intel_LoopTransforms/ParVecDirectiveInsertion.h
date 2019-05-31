@@ -45,12 +45,10 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
     void insertVecDirectives(HLLoop *L, const ParVecInfo *Info);
     /// \brief Insert auto-par directives to the loop.
     void insertParDirectives(HLLoop *L, const ParVecInfo *Info);
-    /// \brief Returns metadata RegDDRef for the OpenMP directive.
-    RegDDRef *createRegDDRef(OMP_DIRECTIVES Dir);
-    /// \brief Returns metadata RegDDRef for the OpenMP clause.
-    RegDDRef *createRegDDRef(OMP_CLAUSES Qual);
-    /// \brief Prepend/Append a directive call to the Loop.
-    HLInst *insertDirective(HLLoop *L, OMP_DIRECTIVES Dir, bool Append);
+    /// \brief Prepend region entry directive call to the Loop.
+    HLInst *insertBeginRegion(HLLoop *Lp, OMP_DIRECTIVES Dir);
+    /// \brief Append a region exit directive call to the Loop.
+    HLInst *insertEndRegion(HLLoop *Lp, OMP_DIRECTIVES Dir, HLInst *Entry);
 
   public:
     Visitor(Function &Func, HIRFramework *HIRF, HIRParVecAnalysis *PVA,

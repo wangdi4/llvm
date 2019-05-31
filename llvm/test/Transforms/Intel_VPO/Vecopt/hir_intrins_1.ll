@@ -2,15 +2,15 @@
 ; Test checks for successful compilation.
 ; CHECK: IR Dump After HIR Vec Directive Insertion Pass
 ; CHECK: ctlz_f64
-; CHECK: llvm.intel.directive
+; CHECK: llvm.directive.region.entry
 
 ; CHECK: IR Dump After HIR Vec Directive Insertion Pass
 ; CHECK: cttz_f64
-; CHECK: llvm.intel.directive
+; CHECK: llvm.directive.region.entry
 
 ; CHECK: IR Dump After HIR Vec Directive Insertion Pass
 ; CHECK: powi_f64
-; CHECK: llvm.intel.directive
+; CHECK: llvm.directive.region.entry
 
 
 declare i64  @llvm.ctlz.i64 (i64, i1) nounwind readnone

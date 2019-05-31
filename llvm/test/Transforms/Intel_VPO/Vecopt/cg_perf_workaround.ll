@@ -21,7 +21,7 @@
 ; ModuleID = 'cg_perf_workaround.c'
 ; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -VPlanDriverHIR -hir-cg -print-after-all -S -enable-blob-coeff-vec -enable-nested-blob-vec  < %s 2>&1 | FileCheck %s
 ; CHECK: IR Dump After HIR Vec Directive Insertion Pass
-; CHECK: llvm.intel.directive({{.*}}) 
+; CHECK: llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ; CHECK: IR Dump After VPlan Vectorization Driver HIR
 ; CHECK:      DO i1 = 0, {{.*}}, 1   <DO_LOOP>
 ; CHECK:      END LOOP

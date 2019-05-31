@@ -948,10 +948,10 @@ HLInst *HLNodeUtils::createMax(RegDDRef *OpRef1, RegDDRef *OpRef2,
                       Name, LvalRef);
 }
 
-std::pair<HLInst *, CallInst *>
-HLNodeUtils::createCallImpl(Function *Func,
-                            const SmallVectorImpl<RegDDRef *> &CallArgs,
-                            const Twine &Name, RegDDRef *LvalRef) {
+std::pair<HLInst *, CallInst *> HLNodeUtils::createCallImpl(
+    Function *Func, const SmallVectorImpl<RegDDRef *> &CallArgs,
+    const Twine &Name, RegDDRef *LvalRef, ArrayRef<OperandBundleDef> Bundle,
+    ArrayRef<RegDDRef *> BundelOps) {
   bool HasReturn = !Func->getReturnType()->isVoidTy();
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
@@ -971,7 +971,8 @@ HLNodeUtils::createCallImpl(Function *Func,
     Args.push_back(Val ? Val : UndefValue::get(CallArgs[I]->getDestType()));
   }
   auto InstVal = DummyIRBuilder->CreateCall(
-      Func, Args, HasReturn ? (Name.isTriviallyEmpty() ? "dummy" : Name) : "");
+      Func, Args, Bundle,
+      HasReturn ? (Name.isTriviallyEmpty() ? "dummy" : Name) : "");
   if (HasReturn) {
     //    HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
     HInst = createLvalHLInst(InstVal, LvalRef);
@@ -993,13 +994,21 @@ HLNodeUtils::createCallImpl(Function *Func,
     HInst->setOperandDDRef(CallArgs[I], I + ArgOffset);
   }
 
+  // Set bundle operands as DDRef operands.
+  unsigned NumOps = InstVal->getNumOperands() - 1;
+  for (unsigned I = NumArgs, J = 0; I < NumOps; I++) {
+    HInst->setOperandDDRef(BundelOps[J++], I + ArgOffset);
+  }
+
   return std::make_pair(HInst, InstVal);
 }
 
 HLInst *HLNodeUtils::createCall(Function *Func,
                                 const SmallVectorImpl<RegDDRef *> &CallArgs,
-                                const Twine &Name, RegDDRef *LvalRef) {
-  return createCallImpl(Func, CallArgs, Name, LvalRef).first;
+                                const Twine &Name, RegDDRef *LvalRef,
+                                ArrayRef<OperandBundleDef> Bundle,
+                                ArrayRef<RegDDRef *> BundelOps) {
+  return createCallImpl(Func, CallArgs, Name, LvalRef, Bundle, BundelOps).first;
 }
 
 HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,

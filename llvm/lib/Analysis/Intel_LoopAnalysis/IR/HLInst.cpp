@@ -488,20 +488,16 @@ bool HLInst::isIntrinCall(Intrinsic::ID &IntrinID) const {
   return false;
 }
 
-bool HLInst::isIntelDirective(int DirectiveID) const {
+bool HLInst::isDirective(int DirectiveID) const {
   auto *Call = getIntrinCall();
-  if (!Call ||
-      !vpo::VPOAnalysisUtils::isIntelDirective(Call->getIntrinsicID())) {
+  if (!Call)
     return false;
-  }
 
-  auto DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(Call);
-
-  return vpo::VPOAnalysisUtils::getDirectiveID(DirStr) == DirectiveID;
+  return vpo::VPOAnalysisUtils::getRegionDirectiveID(Call) == DirectiveID;
 }
 
 bool HLInst::isAutoVecDirective() const {
-  return isIntelDirective(DIR_VPO_AUTO_VEC);
+  return isDirective(DIR_VPO_AUTO_VEC);
 }
 
 bool HLInst::isValidReductionOpCode(unsigned OpCode) {

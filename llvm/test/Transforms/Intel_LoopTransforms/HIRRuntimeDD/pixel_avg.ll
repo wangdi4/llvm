@@ -25,11 +25,11 @@
 ; CHECK: Loop metadata: No
 ; CHECK: DO
 ; Verify that the inner loop has vec-directives
-; CHECK: @llvm.intel.directive
+; CHECK: @llvm.directive.region.entry
 ; CHECK: Loop metadata: No
 ; CHECK: DO
 ; CHECK: END LOOP
-; CHECK: @llvm.intel.directive
+; CHECK: @llvm.directive.region.exit
 ; CHECK: END LOOP
 ; CHECK: Loop metadata: !llvm.loop
 ; CHECK: DO
