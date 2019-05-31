@@ -1057,7 +1057,7 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
         for (auto &SafeRedInfo : SRCL)
           for (auto &HlInst : SafeRedInfo.Chain) {
             const VPInstruction *Inst =
-                dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HlInst));
+                cast<VPInstruction>(Decomposer.getVPValueForNode(HlInst));
             Inst->dump();
           }
     );
