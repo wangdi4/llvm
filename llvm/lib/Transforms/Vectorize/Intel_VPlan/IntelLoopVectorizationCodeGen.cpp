@@ -270,7 +270,7 @@ void VPOCodeGen::emitMinimumIterationCountCheck(Loop *L, Value *Count) {
   BranchInst *Branch = BranchInst::Create(LoopScalarPreHeader, NewBB,
                                           CheckMinIters);
   ReplaceInstWithInst(VLoopFirstBB->getTerminator(), Branch);
-                      
+
   LoopBypassBlocks.push_back(VLoopFirstBB);
 }
 
@@ -396,7 +396,7 @@ void VPOCodeGen::initLinears(PHINode *Induction, Loop *VecLoop) {
     // Linear value increment is NextIndex * LinStep
     Value *LinIncr;
     if (LinStep != 1) {
-      auto LinStepVal = ConstantInt::get(LinValType, LinStep); 
+      auto LinStepVal = ConstantInt::get(LinValType, LinStep);
       LinIncr = Builder.CreateMul(ConvIndex, LinStepVal);
     }
     else
@@ -466,7 +466,7 @@ void VPOCodeGen::createEmptyLoop() {
   LoopMiddleBlock =
       LoopVectorBody->splitBasicBlock(LoopVectorBody->getTerminator(),
                                       "middle.block");
-  
+
   // Scalar preheader contains phi nodes with incoming from vector version and
   // vector loop bypass blocks.
   LoopScalarPreHeader =
@@ -503,7 +503,7 @@ void VPOCodeGen::createEmptyLoop() {
   // CountRoundDown is a counter for the vectorized loop.
   // CountRoundDown = Count - Count % VF.
   Value *CountRoundDown = getOrCreateVectorTripCount(Lp);
-  
+
   Type *IdxTy = Legal->getWidestInductionType();
   Value *StartIdx = ConstantInt::get(IdxTy, 0);
   Constant *Step = ConstantInt::get(IdxTy, VF);
@@ -585,10 +585,10 @@ void VPOCodeGen::fixCrossIterationPHIs() {
       if (!Legal->isInMemoryReduction(Ptr))
         fixReductionInReg(Phi, RD);
       else {
-        assert(ReductionVecInitVal.count(Ptr) && 
+        assert(ReductionVecInitVal.count(Ptr) &&
                ReductionEofLoopVal.count(Ptr) &&
                "Reduction is not handled properly");
-        
+
         Value *VectorStart = ReductionVecInitVal[Ptr];
         fixReductionPhi(Phi, VectorStart);
         mergeReductionControlFlow(Phi, RD, ReductionEofLoopVal[Ptr]);
@@ -596,7 +596,7 @@ void VPOCodeGen::fixCrossIterationPHIs() {
         fixReductionLCSSA(LoopExitInst, ReductionEofLoopVal[Ptr]);
       }
     }
-      
+
   }
 }
 
@@ -714,7 +714,7 @@ void VPOCodeGen::fixReductionInReg(PHINode *Phi,
   Builder.SetInsertPoint(&*LoopMiddleBlock->getFirstInsertionPt());
 
   Value *ReducedPartRdx = reduceVector(VecExit, RK, MinMaxKind, Builder);
-  
+
   // Create a phi node that merges control-flow from the backedge-taken check
   // block and the middle block.
   mergeReductionControlFlow(Phi, RdxDesc, ReducedPartRdx);
@@ -927,10 +927,10 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
   LoopPrivateWidenMap[V] = PtrToVec;
 
   Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
-  // Broadcast the initial value through the vector 
- 
+  // Broadcast the initial value through the vector
+
   LoadInst *LoadInit = Builder.CreateLoad(V, V->getName() + "InitVal");
- 
+
   if (IsConditional) {
     Builder.SetInsertPoint((cast<Instruction>(PtrToVec))->getNextNode());
     // Create a memory location for last non-zero mask
@@ -1158,7 +1158,7 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
 /// Reverse vector \p Vec. \p OriginalVL specifies the original vector length
 /// of the value before vectorization.
 /// If the original value was scalar, a vector <A0, A1, A2, A3> will be just
-/// reversed to <A3, A2, A1, A0>. If the original value was a vector 
+/// reversed to <A3, A2, A1, A0>. If the original value was a vector
 /// (OriginalVL > 1), the function will do the following:
 /// <A0, B0, A1, B1, A2, B2, A3, B3> -> <A3, B3, A2, B2, A1, B1, A0, B0>
 Value *VPOCodeGen::reverseVector(Value *Vec, unsigned OriginalVL) {
@@ -1455,7 +1455,7 @@ void VPOCodeGen::vectorizeLinearLoad(Instruction *LinLdInst, int LinStep) {
 
   auto LinVecValue = Builder.CreateAdd(BroadcastVal, Cv, "vec.linear");
   WidenMap[LinLdInst] = LinVecValue;
-  
+
   // Add to UnitStepLinears if LinStep is 1/-1 - so that we can use it to infer
   // information about unit stride loads/stores
   if (LinStep == 1 || LinStep == -1) {
@@ -1583,7 +1583,7 @@ void VPOCodeGen::vectorizeLinearStore(Instruction *Inst) {
 
     ValToStore = Builder.CreateSelect(ScalMask, ValToStore,CurrVal);
   }
-  
+
   Builder.CreateStore(ValToStore, Ptr);
 }
 
@@ -1717,7 +1717,7 @@ void VPOCodeGen::vectorizeShuffle(Instruction *Inst) {
   }
 
   Value *V0 = getVectorValue(Shuf->getOperand(0));
-  
+
   Constant *Mask = Shuf->getMask();
   int InstVL = Inst->getType()->getVectorNumElements();
   // All-zero mask case
@@ -2080,7 +2080,7 @@ Value *VPOCodeGen::buildScalarIVForLane(PHINode *OrigIV, unsigned Lane) {
          ScalarMap[OrigIV].count(0) &&
          "Expected scalar value for lane 0 not found");
   Value *ScalarIV = ScalarMap[OrigIV][0];
- 
+
   // Induction step
   Value *Step = getIVStep(OrigIV, ID);
 
@@ -2557,105 +2557,107 @@ void VPOCodeGen::vectorizeOpenCLReadChannelDest(CallInst *Call,
 }
 
 void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
-                                   SmallVectorImpl<Value*> &VecArgs,
-                                   SmallVectorImpl<Type*> &VecArgTys) {
+                                   SmallVectorImpl<Value *> &VecArgs,
+                                   SmallVectorImpl<Type *> &VecArgTys) {
 
   std::vector<VectorKind> Parms;
   if (VecVariant) {
     Parms = VecVariant->getParameters();
   }
 
-  bool isScalarArg = false;
+  Function *F = Call->getCalledFunction();
+  assert(F && "Function not found for call instruction");
+  StringRef FnName = F->getName();
 
-  for (unsigned i = 0; i < Call->getNumArgOperands(); i++) {
-    Function *F = Call->getCalledFunction();
-    assert(F && "Function not found for call instruction");
-    StringRef FnName = F->getName();
-    isScalarArg = isScalarArgument(FnName, i);
-    if (isOpenCLReadChannelDest(FnName, i))
-      continue;
+  auto ProcessCallArg = [&](unsigned OrigArgIdx) -> Value * {
+    if (isOpenCLWriteChannelSrc(FnName, OrigArgIdx)) {
+      Value *VecWriteSrc = vectorizeOpenCLWriteChannelSrc(Call, OrigArgIdx);
+      assert(VecWriteSrc && "Vector value for channel write source not found!");
+      return VecWriteSrc;
+    }
 
-    if (isOpenCLWriteChannelSrc(FnName, i)) {
-      Value *VecWriteSrc =
-        vectorizeOpenCLWriteChannelSrc(Call, i);
-      assert(VecWriteSrc && "Vector value for channel write source not found");
-      VecArgs.push_back(VecWriteSrc);
-      VecArgTys.push_back(VecWriteSrc->getType());
-    } else
-    if ((!VecVariant || Parms[i].isVector()) && !isScalarArg) {
+    if ((!VecVariant || Parms[OrigArgIdx].isVector()) &&
+        !isScalarArgument(FnName, OrigArgIdx)) {
       // This is a vector call arg, so vectorize it.
-      Value *Arg = Call->getArgOperand(i);
-      Value *VecArg;
+      Value *Arg = Call->getArgOperand(OrigArgIdx);
 
       // Generate the right mask for OpenCL vector 'select' intrinsic
-      if (isOpenCLSelectMask(FnName, i))
-        VecArg = getOpenCLSelectVectorMask(Call->getArgOperand(i));
-      else
-        VecArg = getVectorValue(Arg);
+      if (isOpenCLSelectMask(FnName, OrigArgIdx))
+        return getOpenCLSelectVectorMask(Arg);
 
-      VecArgs.push_back(VecArg);
-      VecArgTys.push_back(VecArg->getType());
-    } else {
-      // Linear and uniform parameters for simd functions must be passed as
-      // scalars according to the vector function abi. CodeGen currently
-      // vectorizes all instructions, so the scalar arguments for the vector
-      // function must be extracted from them. For both linear and uniform
-      // args, extract from lane 0. Linear args can use the value at lane 0
-      // because this will be the starting value for which the stride will be
-      // added. The same method applies to built-in functions for args that
-      // need to be treated as uniform.
-
-      assert(!isOpenCLSelectMask(FnName, i) &&
-             "OpenCL select mask parameter is linear/uniform?");
-
-      Value *Arg = Call->getArgOperand(i);
-      Value *ScalarArg = getScalarValue(Arg, 0);
-      VecArgs.push_back(ScalarArg);
-      VecArgTys.push_back(ScalarArg->getType());
+      return getVectorValue(Arg);
     }
+    // Linear and uniform parameters for simd functions must be passed as
+    // scalars according to the vector function abi. CodeGen currently
+    // vectorizes all instructions, so the scalar arguments for the vector
+    // function must be extracted from them. For both linear and uniform
+    // args, extract from lane 0. Linear args can use the value at lane 0
+    // because this will be the starting value for which the stride will be
+    // added. The same method applies to built-in functions for args that
+    // need to be treated as uniform.
+
+    assert(!isOpenCLSelectMask(FnName, OrigArgIdx) &&
+           "OpenCL select mask parameter is linear/uniform?");
+
+    Value *Arg = Call->getArgOperand(OrigArgIdx);
+    Value *ScalarArg = getScalarValue(Arg, 0);
+
+    return ScalarArg;
+  };
+
+  for (unsigned OrigArgIdx = 0; OrigArgIdx < Call->getNumArgOperands(); OrigArgIdx++) {
+    if (isOpenCLReadChannelDest(FnName, OrigArgIdx))
+      continue;
+
+    Value *VecArg = ProcessCallArg(OrigArgIdx);
+    VecArgs.push_back(VecArg);
+    VecArgTys.push_back(VecArg->getType());
   }
 
+  // We're done, unless we have an additional mask parameter to process that
+  // wasn't part of the original (scalar) call.
+  if (!VecVariant || !VecVariant->isMasked())
+    return;
+
   // Add the mask parameter for masked simd functions.
-  if (VecVariant && VecVariant->isMasked()) {
-    // Mask should already be vectorized as i1 type.
-    VectorType *MaskTy = cast<VectorType>(MaskValue->getType());
-    assert(MaskTy->getVectorElementType()->isIntegerTy(1) &&
-           "Mask parameter is not vector of i1");
+  // Mask should already be vectorized as i1 type.
+  VectorType *MaskTy = cast<VectorType>(MaskValue->getType());
+  assert(MaskTy->getVectorElementType()->isIntegerTy(1) &&
+         "Mask parameter is not vector of i1");
 
-    // Incorrect code is generated by backend codegen when using i1 mask.
-    // Therefore, the mask is promoted to the characteristic type of the
-    // function.
-    if (Usei1MaskForSimdFunctions) {
-      VecArgs.push_back(MaskValue);
-      VecArgTys.push_back(MaskTy);
-    } else {
-      Function *CalledFunc = Call->getCalledFunction();
-      assert(CalledFunc && "Unexpected null called function");
-      Type *CharacteristicType =
-          calcCharacteristicType(*CalledFunc, *VecVariant);
-      unsigned CharacteristicTypeSize =
-        CharacteristicType->getPrimitiveSizeInBits();
+  // Incorrect code is generated by backend codegen when using i1 mask.
+  // Therefore, the mask is promoted to the characteristic type of the
+  // function, unless we're specifically told not to do so.
+  if (Usei1MaskForSimdFunctions) {
+    VecArgs.push_back(MaskValue);
+    VecArgTys.push_back(MaskTy);
+    return;
+  }
 
-      // Promote the i1 to an integer type that has the same size as the
-      // characteristic type.
-      Type *ScalarToType = IntegerType::get(MaskTy->getContext(),
-                                            CharacteristicTypeSize);
-      VectorType *VecToType = VectorType::get(ScalarToType, VF);
-      Value *MaskExt = Builder.CreateSExt(MaskValue, VecToType, "maskext");
+  // Promote to characteristic type.
+  Function *CalledFunc = Call->getCalledFunction();
+  assert(CalledFunc && "Unexpected null called function");
+  Type *CharacteristicType = calcCharacteristicType(*CalledFunc, *VecVariant);
+  unsigned CharacteristicTypeSize =
+      CharacteristicType->getPrimitiveSizeInBits();
 
-      // Bitcast if the promoted type is not the same as the characteristic
-      // type.
-      if (ScalarToType != CharacteristicType) {
-        Type *MaskCastTy = VectorType::get(CharacteristicType, VF);
-        Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy,
-                                                "maskcast");
-        VecArgs.push_back(MaskCast);
-        VecArgTys.push_back(MaskCastTy);
-      } else {
-        VecArgs.push_back(MaskExt);
-        VecArgTys.push_back(VecToType);
-      }
-    }
+  // Promote the i1 to an integer type that has the same size as the
+  // characteristic type.
+  Type *ScalarToType =
+      IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
+  VectorType *VecToType = VectorType::get(ScalarToType, VF);
+  Value *MaskExt = Builder.CreateSExt(MaskValue, VecToType, "maskext");
+
+  // Bitcast if the promoted type is not the same as the characteristic
+  // type.
+  if (ScalarToType != CharacteristicType) {
+    Type *MaskCastTy = VectorType::get(CharacteristicType, VF);
+    Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
+    VecArgs.push_back(MaskCast);
+    VecArgTys.push_back(MaskCastTy);
+  } else {
+    VecArgs.push_back(MaskExt);
+    VecArgTys.push_back(VecToType);
   }
 }
 
@@ -2728,14 +2730,14 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   SmallVector<Type *, 2> VecArgTys;
   Function *CalledFunc = Call->getCalledFunction();
   assert(CalledFunc && "Unexpected null called function");
-  bool isMasked = (MaskValue != nullptr) ? true : false;
+  bool IsMasked = (MaskValue != nullptr) ? true : false;
 
   // Don't attempt vector function matching for SVML or built-in functions.
   VectorVariant *MatchedVariant = nullptr;
 
   // OpenCL SinCos, would have a 'nullptr' MatchedVariant
   if (isOpenCLSinCos(CalledFunc->getName())) {
-    vectorizeOpenCLSinCos(Call, isMasked);
+    vectorizeOpenCLSinCos(Call, IsMasked);
     return;
   }
 
@@ -2746,7 +2748,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
     // 1) A more sophisticated interface is needed to determine the most
     //    appropriate match.
     // 2) A SIMD function is not a library function.
-    MatchedVariant = matchVectorVariant(CalledFunc, isMasked);
+    MatchedVariant = matchVectorVariant(CalledFunc, IsMasked);
     assert(MatchedVariant && "Unexpected null matched vector variant");
     LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode()
                       << "\n");
@@ -2757,7 +2759,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   Function *VectorF = getOrInsertVectorFunction(Call, VF, VecArgTys, TLI,
                                                 Intrinsic::not_intrinsic,
                                                 MatchedVariant,
-                                                isMasked);
+                                                IsMasked);
   if (MatchedVariant)
     delete MatchedVariant;
 
@@ -2796,7 +2798,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
     vectorizeOpenCLReadChannelDest(Call, VecCall, Call->getArgOperand(1));
   }
 
-  WidenMap[cast<Value>(Call)] = VecCall;
+  WidenMap[Call] = VecCall;
 }
 
 void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
@@ -2977,13 +2979,13 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
 
     // If the cast is a SExt/ZExt of a unit step linear item, add the cast value to
     // UnitStepLinears - so that we can use it to infer information about unit stride
-    // loads/stores. For the scalar cast value 
+    // loads/stores. For the scalar cast value
     Value *NewScalar;
     int LinStep;
 
     if ((Opcode == Instruction::SExt || Opcode == Instruction::ZExt) &&
         Legal->isUnitStepLinear(ScalOp, &LinStep, &NewScalar)) {
-      // NewScalar is the scalar linear iterm corresponding to ScalOp - apply cast 
+      // NewScalar is the scalar linear iterm corresponding to ScalOp - apply cast
       auto ScalCast = Builder.CreateCast(Opcode, NewScalar, ScalTy);
       addUnitStepLinear(Inst, ScalCast, LinStep);
     }
@@ -3120,8 +3122,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
       Value *Broadcasted = getBroadcastInstrs(ScalarCast, Builder);
       Constant *Stride = ConstantInt::getSigned(CI->getType(), 1);
       Value *tv = getStrideVector(Broadcasted, 0, Stride, Builder);
-      WidenMap[cast<Value>(Inst)] = tv;
-      
+      WidenMap[Value] = tv;
     }
     break;
   }
@@ -3232,14 +3233,14 @@ Value *VPOCodeGen::getOrCreateTripCount(Loop *L) {
 void VPOCodeGen::collectLoopUniforms(unsigned VF) {
 
   // We should not collect Uniforms more than once per VF. Right now,
-  // this function is called from collectUniformsAndScalars(), which 
+  // this function is called from collectUniformsAndScalars(), which
   // already does this check. Collecting Uniforms for VF=1 does not make any
   // sense.
 
   assert(VF >= 2 && !Uniforms.count(VF) &&
           "This function should not be visited twice for the same VF");
 
-  // Visit the list of Uniforms. If we'll not find any uniform value, we'll 
+  // Visit the list of Uniforms. If we'll not find any uniform value, we'll
   // not analyze again.  Uniforms.count(VF) will return 1.
   Uniforms[VF].clear();
 
@@ -3279,7 +3280,7 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // the getelementptr won't remain uniform.
   for (auto *BB : OrigLoop->blocks())
     for (auto &I : *BB) {
-      
+
       // If there's no pointer operand, there's nothing to do.
       auto *Ptr = dyn_cast_or_null<Instruction>(getLoadStorePointerOperand(&I));
       if (!Ptr)
@@ -3699,4 +3700,3 @@ void VPOCodeGen::fixupLoopPrivates() {
       writeCondPrivateValAfterLoop(OrigV);
   }
 }
-
