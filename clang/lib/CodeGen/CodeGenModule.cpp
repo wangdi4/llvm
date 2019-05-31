@@ -1922,6 +1922,50 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
       F->addTypeMetadata(0, llvm::ConstantAsMetadata::get(CrossDsoTypeId));
 }
 
+#if INTEL_CUSTOMIZATION
+/// For functions with related 'omp declare variant' functions, create
+/// metadata on the base function for each variant. The format is:
+///
+/// "openmp-variant"="<variant-specifier>[;;<variant-specifier>..]"
+///
+/// where:
+///
+/// variant-specifier :=
+///   name:<mangled-name>;construct:<construct-list>;arch:<arch-list>
+///
+/// construct-list and arch-list entries are separated by commas.
+///
+static void addDeclareVariantAttributes(CodeGenModule &CGM,
+                                        const FunctionDecl *FD,
+                                        llvm::Function *F) {
+  SmallString<256> S;
+  unsigned NumAttrs = 0;
+  for (const auto *Attr : FD->specific_attrs<OMPDeclareVariantDeclAttr>()) {
+    if (NumAttrs++ != 0)
+      S += ";;";
+    GlobalDecl GD(Attr->getFunctionDecl());
+    S += "name:";
+    S += CGM.getMangledName(GD);
+    S += ";construct:";
+    unsigned NumConstructs = 0;
+    for (const auto &C : Attr->construct()) {
+      if (NumConstructs++ != 0)
+        S += ',';
+      S += OMPDeclareVariantDeclAttr::ConvertConstructTyToStr(C);
+    }
+    S += ";arch:";
+    unsigned NumDevices = 0;
+    for (const auto &D : Attr->device()) {
+      if (NumDevices++ != 0)
+        S += ',';
+      S += OMPDeclareVariantDeclAttr::ConvertDeviceTyToStr(D);
+    }
+  }
+  if (!S.empty())
+    F->addFnAttr("openmp-variant", S);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                           bool IsIncompleteFunction,
                                           bool IsThunk) {
@@ -1994,6 +2038,11 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
 
   if (getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
     getOpenMPRuntime().emitDeclareSimdFunction(FD, F);
+
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().OpenMPLateOutline)
+    addDeclareVariantAttributes(*this, FD, F);
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
   if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&

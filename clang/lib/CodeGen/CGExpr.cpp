@@ -4644,6 +4644,17 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, const FunctionDecl *FD) {
     return CGCallee::forBuiltin(builtinID, FD);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (CGF.getLangOpts().OpenMPIsDevice && CGF.CapturedStmtInfo &&
+      CGF.CapturedStmtInfo->inTargetVariantDispatchRegion()) {
+    for (const auto *DVDA : FD->specific_attrs<OMPDeclareVariantDeclAttr>()) {
+      // Force target emission of variants as they are conditionally called
+      // based on the device clause.
+      const FunctionDecl *VFD = DVDA->getFunctionDecl();
+      CGF.CGM.GetAddrOfFunction(VFD);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   llvm::Constant *calleePtr = EmitFunctionDeclPointer(CGF.CGM, FD);
   return CGCallee::forDirect(calleePtr, GlobalDecl(FD));
 }

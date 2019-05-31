@@ -8059,6 +8059,19 @@ TreeTransform<Derived>::TransformOMPSectionDirective(OMPSectionDirective *D) {
   return Res;
 }
 
+#if INTEL_CUSTOMIZATION
+template <typename Derived>
+StmtResult TreeTransform<Derived>::TransformOMPTargetVariantDispatchDirective(
+    OMPTargetVariantDispatchDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(
+      OMPD_target_variant_dispatch, DirName, nullptr, D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+#endif // INTEL_CUSTOMIZATION
+
 template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformOMPSingleDirective(OMPSingleDirective *D) {

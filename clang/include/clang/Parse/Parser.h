@@ -2923,6 +2923,12 @@ private:
   DeclGroupPtrTy ParseOMPDeclareSimdClauses(DeclGroupPtrTy Ptr,
                                             CachedTokens &Toks,
                                             SourceLocation Loc);
+#if INTEL_CUSTOMIZATION
+  /// Parse clauses for '#pragma omp declare variant'.
+  DeclGroupPtrTy ParseOMPDeclareVariantClauses(DeclGroupPtrTy Ptr,
+                                               CachedTokens &Toks,
+                                               SourceLocation Loc);
+#endif // INTEL_CUSTOMIZATION
   /// Parse clauses for '#pragma omp declare target'.
   DeclGroupPtrTy ParseOMPDeclareTargetClauses();
   /// Parse '#pragma omp end declare target'.

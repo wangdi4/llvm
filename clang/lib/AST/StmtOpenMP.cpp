@@ -293,6 +293,33 @@ OMPSectionDirective *OMPSectionDirective::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPSectionDirective();
 }
 
+#if INTEL_CUSTOMIZATION
+OMPTargetVariantDispatchDirective *OMPTargetVariantDispatchDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt) {
+  unsigned Size = llvm::alignTo(sizeof(OMPTargetVariantDispatchDirective),
+                                alignof(OMPClause *));
+  void *Mem =
+      C.Allocate(Size + sizeof(OMPClause *) * Clauses.size() + sizeof(Stmt *));
+  OMPTargetVariantDispatchDirective *Dir = new (Mem)
+      OMPTargetVariantDispatchDirective(StartLoc, EndLoc, Clauses.size());
+  Dir->setClauses(Clauses);
+  Dir->setAssociatedStmt(AssociatedStmt);
+  return Dir;
+}
+
+OMPTargetVariantDispatchDirective *
+OMPTargetVariantDispatchDirective::CreateEmpty(const ASTContext &C,
+                                               unsigned NumClauses,
+                                               EmptyShell) {
+  unsigned Size = llvm::alignTo(sizeof(OMPTargetVariantDispatchDirective),
+                                alignof(OMPClause *));
+  void *Mem =
+      C.Allocate(Size + sizeof(OMPClause *) * NumClauses + sizeof(Stmt *));
+  return new (Mem) OMPTargetVariantDispatchDirective(NumClauses);
+}
+#endif // INTEL_CUSTOMIZATION
+
 OMPSingleDirective *OMPSingleDirective::Create(const ASTContext &C,
                                                SourceLocation StartLoc,
                                                SourceLocation EndLoc,

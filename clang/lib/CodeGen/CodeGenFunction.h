@@ -399,6 +399,7 @@ public:
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
     virtual bool isLateOutlinedRegion() { return false; }
+    virtual bool inTargetVariantDispatchRegion() { return false; }
 #endif // INTEL_CUSTOMIZATION
   private:
     /// The kind of captured statement being generated.

@@ -2042,6 +2042,16 @@ void ASTStmtReader::VisitOMPSectionDirective(OMPSectionDirective *D) {
   D->setHasCancel(Record.readInt());
 }
 
+#if INTEL_CUSTOMIZATION
+void ASTStmtReader::VisitOMPTargetVariantDispatchDirective(
+    OMPTargetVariantDispatchDirective *D) {
+  VisitStmt(D);
+  // The NumClauses field was read in ReadStmtFromStream.
+  Record.skipInts(1);
+  VisitOMPExecutableDirective(D);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void ASTStmtReader::VisitOMPSingleDirective(OMPSingleDirective *D) {
   VisitStmt(D);
   // The NumClauses field was read in ReadStmtFromStream.
@@ -2886,6 +2896,13 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case STMT_OMP_SECTION_DIRECTIVE:
       S = OMPSectionDirective::CreateEmpty(Context, Empty);
       break;
+
+#if INTEL_CUSTOMIZATION
+    case STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE:
+      S = OMPTargetVariantDispatchDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+      break;
+#endif // INTEL_CUSTOMIZATION
 
     case STMT_OMP_SINGLE_DIRECTIVE:
       S = OMPSingleDirective::CreateEmpty(

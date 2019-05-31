@@ -2014,6 +2014,16 @@ void ASTStmtWriter::VisitOMPSectionDirective(OMPSectionDirective *D) {
   Code = serialization::STMT_OMP_SECTION_DIRECTIVE;
 }
 
+#if INTEL_CUSTOMIZATION
+void ASTStmtWriter::VisitOMPTargetVariantDispatchDirective(
+    OMPTargetVariantDispatchDirective *D) {
+  VisitStmt(D);
+  Record.push_back(D->getNumClauses());
+  VisitOMPExecutableDirective(D);
+  Code = serialization::STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void ASTStmtWriter::VisitOMPSingleDirective(OMPSingleDirective *D) {
   VisitStmt(D);
   Record.push_back(D->getNumClauses());

@@ -307,6 +307,12 @@ def illegal_type_declared_here : Note<
 def err_pragma_loop_invalid_negative_value : Error<
   "invalid value '%0'; must be non-negative">;
 
+// OpenMP
+def err_omp_single_decl_in_declare_variant : Error<
+  "single declaration is expected after 'declare variant' directive">;
+def err_omp_function_expected_variant : Error<
+  "'#pragma omp declare variant' can only be applied to functions">;
+
 #if INTEL_FEATURE_CSA
 // Intel CSA extensions
 def err_csa_builtin_arg_mismatch : Error<

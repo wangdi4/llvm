@@ -2705,6 +2705,11 @@ DEF_TRAVERSE_STMT(OMPSectionsDirective,
 DEF_TRAVERSE_STMT(OMPSectionDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+#if INTEL_CUSTOMIZATION
+DEF_TRAVERSE_STMT(OMPTargetVariantDispatchDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+#endif // INTEL_CUSTOMIZATION
+
 DEF_TRAVERSE_STMT(OMPSingleDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 

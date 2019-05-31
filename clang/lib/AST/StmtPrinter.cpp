@@ -683,6 +683,14 @@ void StmtPrinter::VisitOMPSectionDirective(OMPSectionDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
+#if INTEL_CUSTOMIZATION
+void StmtPrinter::VisitOMPTargetVariantDispatchDirective(
+    OMPTargetVariantDispatchDirective *Node) {
+  Indent() << "#pragma omp target variant dispatch";
+  PrintOMPExecutableDirective(Node);
+}
+#endif // INTEL_CUSTOMIZATION
+
 void StmtPrinter::VisitOMPSingleDirective(OMPSingleDirective *Node) {
   Indent() << "#pragma omp single";
   PrintOMPExecutableDirective(Node);
