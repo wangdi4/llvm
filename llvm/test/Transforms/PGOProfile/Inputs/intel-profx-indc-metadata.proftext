@@ -1,0 +1,47 @@
+:ir
+main
+# Func Hash:
+281529446256065
+# Num Counters:
+5
+# Counter Values:
+9999
+3333
+3333
+3334
+1
+# Num Value Kinds:
+1
+# ValueKind = IPVK_IndirectCallTarget:
+0
+# NumValueSites:
+1
+3
+sm.c:func0:3334
+sm.c:func1:3333
+sm.c:func2:3333
+
+sm.c:func1
+# Func Hash:
+12884901887
+# Num Counters:
+1
+# Counter Values:
+3333
+
+sm.c:func2
+# Func Hash:
+12884901887
+# Num Counters:
+1
+# Counter Values:
+3333
+
+sm.c:func0
+# Func Hash:
+12884901887
+# Num Counters:
+1
+# Counter Values:
+3334
+

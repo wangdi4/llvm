@@ -1257,9 +1257,6 @@ void PGOUseFunc::populateCounters() {
         continue;
       if (isa<IntrinsicInst>(Call))
         continue;
-      Function *Callee = Call->getCalledFunction();
-      if (!Callee)
-        continue;
       uint64_t Count = BI->CountValue;
       SmallVector<Metadata *, 2> Vals(2);
       Vals[0] = MDString::get(M->getContext(), "intel_profx");
