@@ -82,7 +82,7 @@ public:
 
 #if INTEL_CUSTOMIZATION
   /// Return the vector shape for \p V.
-  VPVectorShape* getVectorShape(const VPValue *V);
+  VPVectorShape* getVectorShape(const VPValue *V) const;
 
   /// Updates the vector shape for \p V, if necessary.
   /// Returns true if the shape was updated.

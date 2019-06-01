@@ -25,27 +25,43 @@ namespace llvm {
 
 namespace vpo {
 
-VPlanVLSAnalysis::MemAccessTy
-VPlanVLSAnalysis::getInstructionAccessType(const VPInstruction *Inst,
-                                           const unsigned Level) {
-#if INTEL_CUSTOMIZATION
-  unsigned Opcode = Inst->getOpcode();
-  if (Opcode != Instruction::Load && Opcode != Instruction::Store)
-    return MemAccessTy::Unknown;
+void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
+                                      const VPlanDivergenceAnalysis &DA,
+                                      OVLSMemrefVector &MemrefVector,
+                                      unsigned VF) {
+  auto Range = make_range(df_iterator<const VPRegionBlock *>::begin(Region),
+                          df_iterator<const VPRegionBlock *>::end(Region));
 
-  const HLNode *Node = Inst->HIR.getUnderlyingNode();
-  if (auto *I = dyn_cast_or_null<HLInst>(Node)) {
-    // FIXME: It's not correct to getParentLoop() for outerloop
-    // vectorization.
-    int64_t Stride;
-    return Inst->getOpcode() == Instruction::Load
-               ? VPlanVLSAnalysisHIR::getAccessType(I->getOperandDDRef(1),
-                                                    Level, &Stride)
-               : VPlanVLSAnalysisHIR::getAccessType(I->getLvalDDRef(), Level,
-                                                    &Stride);
+  for (const VPBlockBase *Block : Range) {
+    if (auto *NestedRegion = dyn_cast<const VPRegionBlock>(Block)) {
+      collectMemrefs(NestedRegion, DA, MemrefVector, VF);
+      continue;
+    }
+
+    auto BasicBlock = cast<VPBasicBlock>(Block);
+    for (const VPRecipeBase &Recipe : *BasicBlock) {
+      if (!isa<VPInstruction>(Recipe))
+        continue;
+
+      auto &VPInst = cast<VPInstruction>(Recipe);
+      auto Opcode = VPInst.getOpcode();
+      if (Opcode != Instruction::Load && Opcode != Instruction::Store)
+        continue;
+
+      VPValue *Address = Opcode == Instruction::Load ? VPInst.getOperand(0)
+                                                     : VPInst.getOperand(1);
+      const VPVectorShape *Shape = DA.getVectorShape(Address);
+      if (!Shape || !Shape->isAnyStrided())
+        continue;
+
+      OVLSMemref *Memref = createVLSMemref(&VPInst, Shape, VF);
+      if (!Memref)
+        continue;
+
+      MemrefVector.push_back(Memref);
+      LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; VPInst.dump(););
+    }
   }
-#endif // INTEL_CUSTOMIZATION
-  return MemAccessTy::Unknown;
 }
 
 /// Traverse through all VPInstructions and collect all non-unit memrefs.
@@ -66,47 +82,13 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
         dbgs() << "Fixed all OVLSTypes for previously collected memrefs.\n";
         this->dump());
   } else {
-    // Otherwise do simple DFS and collect memrefs.
-    std::function<void(const VPRegionBlock *)> CollectMemrefs =
-        [&](const VPRegionBlock *Region) -> void {
-      for (const VPBlockBase *Block :
-           make_range(df_iterator<const VPRegionBlock *>::begin(Region),
-                      df_iterator<const VPRegionBlock *>::end(Region))) {
-        if (auto *NestedRegion = dyn_cast<const VPRegionBlock>(Block))
-          CollectMemrefs(NestedRegion);
-        else {
-          auto BasicBlock = cast<VPBasicBlock>(Block);
-          for (const VPRecipeBase &Recipe : *BasicBlock) {
-            const auto Inst = dyn_cast<const VPInstruction>(&Recipe);
-            // Currently process only master instruction.
-            if (!Inst)
-              continue;
-            unsigned Level = -1;
-            const HLNode *Node = Inst->HIR.getUnderlyingNode();
-            if (Node)
-              Level = Node->getParentLoop()
-                          ? Node->getParentLoop()->getNestingLevel()
-                          : 0;
-            MemAccessTy AccTy = getInstructionAccessType(Inst, Level);
-
-            unsigned Opcode = Inst->getOpcode();
-            if (AccTy != MemAccessTy::Unknown &&
-                (Opcode == Instruction::Load || Opcode == Instruction::Store))
-              if (OVLSMemref *Memref = createVLSMemref(Inst, AccTy, Level, VF)) {
-                VLSInfoIt->second.Memrefs.push_back(Memref);
-                LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; Inst->dump(););
-              }
-          }
-        }
-      }
-    };
-
     if (VLSInfoIt != Plan2VLSInfo.end())
       VLSInfoIt->second.erase();
     else
       std::tie(VLSInfoIt, std::ignore) = Plan2VLSInfo.insert({Plan, {}});
 
-    CollectMemrefs(cast<VPRegionBlock>(Plan->getEntry()));
+    collectMemrefs(cast<VPRegionBlock>(Plan->getEntry()), *Plan->getVPlanDA(),
+                   VLSInfoIt->second.Memrefs, VF);
   }
 
   // Finally run grouping of collected/changed memrefs.

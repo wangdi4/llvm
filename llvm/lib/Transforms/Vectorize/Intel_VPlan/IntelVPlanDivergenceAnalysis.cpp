@@ -561,10 +561,10 @@ bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {
 }
 
 #if INTEL_CUSTOMIZATION
-VPVectorShape* VPlanDivergenceAnalysis::getVectorShape(const VPValue *V) {
-  std::unique_ptr<VPVectorShape> &ShapePtr = VectorShapes[V];
-  if (ShapePtr)
-    return ShapePtr.get();
+VPVectorShape *VPlanDivergenceAnalysis::getVectorShape(const VPValue *V) const {
+  auto ShapeIter = VectorShapes.find(V);
+  if (ShapeIter != VectorShapes.end())
+    return ShapeIter->second.get();
   return UndefShape.get();
 }
 
